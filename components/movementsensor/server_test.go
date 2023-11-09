@@ -2,6 +2,7 @@ package movementsensor_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -10,12 +11,15 @@ import (
 	pb "go.viam.com/api/component/movementsensor/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
+
+var errReadingsFailed = errors.New("can't get readings")
 
 func newServer() (pb.MovementSensorServiceServer, *inject.MovementSensor, *inject.MovementSensor, error) {
 	injectMovementSensor := &inject.MovementSensor{}
@@ -34,6 +38,42 @@ func newServer() (pb.MovementSensorServiceServer, *inject.MovementSensor, *injec
 func TestServer(t *testing.T) {
 	gpsServer, injectMovementSensor, injectMovementSensor2, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
+
+	rs := map[string]interface{}{"a": 1.1, "b": 2.2}
+
+	var extraCap map[string]interface{}
+	injectMovementSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		extraCap = extra
+		return rs, nil
+	}
+
+	injectMovementSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		return nil, errReadingsFailed
+	}
+
+	t.Run("GetReadings", func(t *testing.T) {
+		expected := map[string]*structpb.Value{}
+		for k, v := range rs {
+			vv, err := structpb.NewValue(v)
+			test.That(t, err, test.ShouldBeNil)
+			expected[k] = vv
+		}
+		extra, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
+		test.That(t, err, test.ShouldBeNil)
+
+		resp, err := gpsServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: testMovementSensorName, Extra: extra})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Readings, test.ShouldResemble, expected)
+		test.That(t, extraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+
+		_, err = gpsServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: failMovementSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errReadingsFailed.Error())
+
+		_, err = gpsServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: missingMovementSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	})
 
 	t.Run("GetPosition", func(t *testing.T) {
 		loc := geo.NewPoint(90, 1)

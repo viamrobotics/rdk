@@ -35,7 +35,8 @@
                 "board": "board1",
                 "encoder": "e1",
                 "pins": {
-                    "pwm": "5"
+                    "pwm": "5",
+                    "dir": "2"
                 },
                 "pwm_freq": 4000,
                 "max_rpm": 60,

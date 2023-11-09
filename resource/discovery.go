@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/edaniels/golog"
+	"go.viam.com/rdk/logging"
 )
 
 type (
@@ -15,7 +15,7 @@ type (
 	}
 
 	// DiscoveryFunc is a function that discovers component configurations.
-	DiscoveryFunc func(ctx context.Context, logger golog.Logger) (interface{}, error)
+	DiscoveryFunc func(ctx context.Context, logger logging.Logger) (interface{}, error)
 
 	// Discovery holds a Query and a corresponding discovered component configuration. A
 	// discovered component configuration can be comprised of primitives, a list of

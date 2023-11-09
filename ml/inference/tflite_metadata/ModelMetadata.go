@@ -7,18 +7,20 @@ import (
 )
 
 type ModelMetadataT struct {
-	Name string
-	Description string
-	Version string
+	Name             string
+	Description      string
+	Version          string
 	SubgraphMetadata []*SubGraphMetadataT
-	Author string
-	License string
-	AssociatedFiles []*AssociatedFileT
+	Author           string
+	License          string
+	AssociatedFiles  []*AssociatedFileT
 	MinParserVersion string
 }
 
 func (t *ModelMetadataT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	nameOffset := builder.CreateString(t.Name)
 	descriptionOffset := builder.CreateString(t.Description)
 	versionOffset := builder.CreateString(t.Version)
@@ -87,7 +89,9 @@ func (rcv *ModelMetadata) UnPackTo(t *ModelMetadataT) {
 }
 
 func (rcv *ModelMetadata) UnPack() *ModelMetadataT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &ModelMetadataT{}
 	rcv.UnPackTo(t)
 	return t

@@ -7,18 +7,18 @@ import (
 	"os"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
 
 func TestMainCalibrate(t *testing.T) {
 	outDir := t.TempDir()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// get a file with known extrinsic parameters
 	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("rimage/transform/data/intel515_parameters.json"))

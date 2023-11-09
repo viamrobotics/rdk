@@ -10,6 +10,9 @@ PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 TAG_VERSION?=$(shell git tag --points-at | sort -Vr | head -n1)
 LDFLAGS = -ldflags "-s -w -extld="$(shell pwd)/etc/ld_wrapper.sh" -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
+ifeq ($(shell command -v dpkg >/dev/null && dpkg --print-architecture),armhf)
+GOFLAGS += -tags=no_tflite
+endif
 
 default: build lint server
 
@@ -102,7 +105,7 @@ server: build-web
 
 server-static: build-web
 	rm -f $(BIN_OUTPUT_PATH)/viam-server
-	VIAM_STATIC_BUILD=1 go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
+	VIAM_STATIC_BUILD=1 GOFLAGS=$(GOFLAGS) go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
 
 server-static-compressed: server-static
 	upx --best --lzma $(BIN_OUTPUT_PATH)/viam-server
@@ -126,5 +129,24 @@ clean-all:
 
 license-check:
 	license_finder --npm-options='--prefix web/frontend'
+
+FFMPEG_ROOT ?= etc/FFmpeg
+$(FFMPEG_ROOT):
+	cd etc && git clone https://github.com/FFmpeg/FFmpeg.git
+	git -C $(FFMPEG_ROOT) checkout release/4.4
+
+# For ARM64 builds, use the image ghcr.io/viamrobotics/antique:arm64 for backward compatibility
+FFMPEG_H264_PREFIX ?= $(shell realpath .)/gostream/codec/h264/ffmpeg/$(shell uname -s)-$(shell uname -m)
+ffmpeg-h264-static: $(FFMPEG_ROOT)
+	cd $(FFMPEG_ROOT) && ./configure \
+		--disable-programs \
+		--disable-doc \
+		--disable-everything \
+		--enable-encoder=h264_v4l2m2m \
+		--prefix=$(FFMPEG_H264_PREFIX) \
+		--enable-pic
+	cd $(FFMPEG_ROOT) && make -j$(shell nproc)
+	cd $(FFMPEG_ROOT) && make -j$(shell nproc) install
+	git clean -xdf $(FFMPEG_H264_PREFIX)
 
 include *.make

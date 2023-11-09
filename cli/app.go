@@ -59,6 +59,7 @@ const (
 	dataFlagBboxLabels                     = "bbox-labels"
 	dataFlagOrgID                          = "org-id"
 	dataFlagDeleteTabularDataOlderThanDays = "delete-older-than-days"
+	dataFlagDatabasePassword               = "password"
 
 	boardFlagName    = "name"
 	boardFlagPath    = "path"
@@ -273,9 +274,9 @@ var app = &cli.App{
 							Usage: "mime types filter",
 						},
 						&cli.UintFlag{
-							Name:        dataFlagParallelDownloads,
-							Usage:       "number of download requests to make in parallel",
-							DefaultText: "10",
+							Name:  dataFlagParallelDownloads,
+							Usage: "number of download requests to make in parallel",
+							Value: 100,
 						},
 						&cli.StringFlag{
 							Name:  dataFlagStart,
@@ -299,83 +300,123 @@ var app = &cli.App{
 					Action: DataExportAction,
 				},
 				{
-					Name:      "delete",
-					Usage:     "delete binary data from Viam cloud",
-					UsageText: fmt.Sprintf("viam data delete <%s> [other options]", dataFlagDataType),
-					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:     dataFlagDataType,
-							Required: true,
-							Usage:    "data type to be deleted. should only be binary. if tabular, use delete-tabular instead.",
+					Name:            "delete",
+					Usage:           "delete data from Viam cloud",
+					HideHelpCommand: true,
+					Subcommands: []*cli.Command{
+						{
+							Name:      "binary",
+							Usage:     "delete binary data from Viam cloud",
+							UsageText: "viam data delete binary [other options]",
+							Flags: []cli.Flag{
+								&cli.StringSliceFlag{
+									Name:  dataFlagOrgIDs,
+									Usage: "orgs filter",
+								},
+								&cli.StringSliceFlag{
+									Name:  dataFlagLocationIDs,
+									Usage: "locations filter",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagRobotID,
+									Usage: "robot id filter",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagPartID,
+									Usage: "part id filter",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagRobotName,
+									Usage: "robot name filter",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagPartName,
+									Usage: "part name filter",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagComponentType,
+									Usage: "component type filter",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagComponentName,
+									Usage: "component name filter",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagMethod,
+									Usage: "method filter",
+								},
+								&cli.StringSliceFlag{
+									Name:  dataFlagMimeTypes,
+									Usage: "mime types filter",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagStart,
+									Usage: "ISO-8601 timestamp indicating the start of the interval filter",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagEnd,
+									Usage: "ISO-8601 timestamp indicating the end of the interval filter",
+								},
+							},
+							Action: DataDeleteBinaryAction,
 						},
-						&cli.StringSliceFlag{
-							Name:  dataFlagOrgIDs,
-							Usage: "orgs filter",
-						},
-						&cli.StringSliceFlag{
-							Name:  dataFlagLocationIDs,
-							Usage: "locations filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagRobotID,
-							Usage: "robot id filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagPartID,
-							Usage: "part id filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagRobotName,
-							Usage: "robot name filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagPartName,
-							Usage: "part name filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagComponentType,
-							Usage: "component type filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagComponentName,
-							Usage: "component name filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagMethod,
-							Usage: "method filter",
-						},
-						&cli.StringSliceFlag{
-							Name:  dataFlagMimeTypes,
-							Usage: "mime types filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagStart,
-							Usage: "ISO-8601 timestamp indicating the start of the interval filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagEnd,
-							Usage: "ISO-8601 timestamp indicating the end of the interval filter",
+						{
+							Name:      "tabular",
+							Usage:     "delete tabular data from Viam cloud",
+							UsageText: "viam data delete tabular [other options]",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     dataFlagOrgID,
+									Usage:    "org",
+									Required: true,
+								},
+								&cli.IntFlag{
+									Name:     dataFlagDeleteTabularDataOlderThanDays,
+									Usage:    "delete any tabular data that is older than X calendar days before now. 0 deletes all data.",
+									Required: true,
+								},
+							},
+							Action: DataDeleteTabularAction,
 						},
 					},
-					Action: DataDeleteBinaryAction,
 				},
 				{
-					Name:      "delete-tabular",
-					Usage:     "delete tabular data from Viam cloud",
-					UsageText: "viam data delete-tabular [other options]",
-					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:     dataFlagOrgID,
-							Usage:    "org",
-							Required: true,
+					Name:      "database",
+					Usage:     "interact with a MongoDB Atlas Data Federation instance",
+					UsageText: "viam data database [other options]",
+					Subcommands: []*cli.Command{
+						{
+							Name:      "configure",
+							Usage:     "configures a database user for the Viam org's MongoDB Atlas Data Federation instance",
+							UsageText: fmt.Sprintf("viam data database configure <%s> <%s>", dataFlagOrgID, dataFlagDatabasePassword),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     dataFlagOrgID,
+									Usage:    "org ID for the database user being configured",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     dataFlagDatabasePassword,
+									Usage:    "password for the database user being configured",
+									Required: true,
+								},
+							},
+							Action: DataConfigureDatabaseUser,
 						},
-						&cli.IntFlag{
-							Name:     dataFlagDeleteTabularDataOlderThanDays,
-							Usage:    "delete any tabular data that is older than X calendar days before now. 0 deletes all data.",
-							Required: true,
+						{
+							Name:      "hostname",
+							Usage:     "gets the hostname to access a MongoDB Atlas Data Federation Instance",
+							UsageText: fmt.Sprintf("viam data database hostname <%s>", dataFlagOrgID),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     dataFlagOrgID,
+									Usage:    "org ID for the database user",
+									Required: true,
+								},
+							},
+							Action: DataGetDatabaseConnection,
 						},
 					},
-					Action: DataDeleteTabularAction,
 				},
 				{
 					Name:      "dataset",
@@ -517,6 +558,155 @@ var app = &cli.App{
 						},
 					},
 					Action: DatasetCreateAction,
+				},
+			},
+		},
+		{
+			Name:      "train",
+			Usage:     "train on data",
+			UsageText: "viam train [other options]",
+			Subcommands: []*cli.Command{
+				{
+					Name:  "submit",
+					Usage: "submits training job on data in Viam cloud",
+					UsageText: fmt.Sprintf("viam train submit <%s> [other options]",
+						dataFlagOrgIDs),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     trainFlagModelOrgID,
+							Usage:    "org ID to train and save ML model in",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     trainFlagModelName,
+							Usage:    "name of ML model",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name: trainFlagModelType,
+							Usage: "type of model to train. can be one of " +
+								"[single_label_classification, multi_label_classification, or object_detection]",
+							Required: true,
+						},
+						&cli.StringSliceFlag{
+							Name: trainFlagModelLabels,
+							Usage: "labels to train on. " +
+								"this will either be classification or object detection labels",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:  trainFlagModelVersion,
+							Usage: "version of ML model. defaults to current timestamp if unspecified.",
+						},
+						&cli.StringFlag{
+							Name:  datasetFlagDatasetID,
+							Usage: "dataset ID",
+						},
+						&cli.StringSliceFlag{
+							Name:  dataFlagOrgIDs,
+							Usage: "orgs filter",
+						},
+						&cli.StringSliceFlag{
+							Name:  dataFlagLocationIDs,
+							Usage: "locations filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagRobotID,
+							Usage: "robot-id filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagPartID,
+							Usage: "part id filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagRobotName,
+							Usage: "robot name filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagPartName,
+							Usage: "part name filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagComponentType,
+							Usage: "component type filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagComponentName,
+							Usage: "component name filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagMethod,
+							Usage: "method filter",
+						},
+						&cli.StringSliceFlag{
+							Name:  dataFlagMimeTypes,
+							Usage: "mime types filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagStart,
+							Usage: "ISO-8601 timestamp indicating the start of the interval filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagEnd,
+							Usage: "ISO-8601 timestamp indicating the end of the interval filter",
+						},
+						&cli.StringSliceFlag{
+							Name: dataFlagTags,
+							Usage: "tags filter. " +
+								"accepts tagged for all tagged data, untagged for all untagged data, " +
+								"or a list of tags for all data matching any of the tags",
+						},
+						&cli.StringSliceFlag{
+							Name: dataFlagBboxLabels,
+							Usage: "bbox labels filter. " +
+								"accepts string labels corresponding to bounding boxes within images",
+						},
+					},
+					Action: DataSubmitTrainingJob,
+				},
+				{
+					Name:      "get",
+					Usage:     "gets training job from Viam cloud based on training job ID",
+					UsageText: fmt.Sprintf("viam train get <%s>", trainFlagJobID),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     trainFlagJobID,
+							Usage:    "training job ID",
+							Required: true,
+						},
+					},
+					Action: DataGetTrainingJob,
+				},
+				{
+					Name:      "cancel",
+					Usage:     "cancels training job in Viam cloud based on training job ID",
+					UsageText: fmt.Sprintf("viam train cancel <%s>", trainFlagJobID),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     trainFlagJobID,
+							Usage:    "training job ID",
+							Required: true,
+						},
+					},
+					Action: DataCancelTrainingJob,
+				},
+				{
+					Name:      "list",
+					Usage:     "list training jobs in Viam cloud based on organization ID",
+					UsageText: fmt.Sprintf("viam train list <%s> <%s>", dataFlagOrgID, trainFlagJobStatus),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     dataFlagOrgID,
+							Usage:    "org ID",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name: trainFlagJobStatus,
+							Usage: "training status to filter for. can be one of " +
+								"[unspecified, pending, in_progress, completed, failed, canceled, canceling]",
+						},
+					},
+					Action: DataListTrainingJobs,
 				},
 			},
 		},
@@ -775,10 +965,10 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Usage: "update a module's metadata on app.viam.com",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:        moduleFlagPath,
-							Usage:       "path to meta.json",
-							DefaultText: "./meta.json",
-							TakesFile:   true,
+							Name:      moduleFlagPath,
+							Usage:     "path to meta.json",
+							Value:     "./meta.json",
+							TakesFile: true,
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPublicNamespace,
@@ -792,21 +982,47 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Action: UpdateModuleAction,
 				},
 				{
+					Name:  "update-models",
+					Usage: "update a module's metadata file based on models it provides",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:      moduleFlagPath,
+							Usage:     "path to meta.json",
+							Value:     "./meta.json",
+							TakesFile: true,
+						},
+						&cli.StringFlag{
+							Name:     "binary",
+							Usage:    "binary for the module to run (has to work on this os/processor)",
+							Required: true,
+						},
+					},
+					Action: UpdateModelsAction,
+				},
+
+				{
 					Name:  "upload",
 					Usage: "upload a new version of your module",
 					Description: `Upload an archive containing your module's file(s) for a specified platform
+Example uploading a single file:
+viam module upload --version "0.1.0" --platform "linux/amd64" ./bin/my-module
+(this example requires the entrypoint in the meta.json to be "./bin/my-module")
 
-Example for linux/amd64:
-tar -czf packaged-module.tar.gz my-binary   # the meta.json entrypoint is relative to the root of the archive, so it should be "./my-binary"
+Example uploading a whole directory:
+viam module upload --version "0.1.0" --platform "linux/amd64" ./bin
+(this example requires the entrypoint in the meta.json to be inside the bin directory like "./bin/[your path here]")
+
+Example uploading a custom tarball of your module:
+tar -czf packaged-module.tar.gz ./src requirements.txt run.sh
 viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.tar.gz
                       `,
 					UsageText: "viam module upload <version> <platform> [other options] <packaged-module.tar.gz>",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:        moduleFlagPath,
-							Usage:       "path to meta.json",
-							DefaultText: "./meta.json",
-							TakesFile:   true,
+							Name:      moduleFlagPath,
+							Usage:     "path to meta.json",
+							Value:     "./meta.json",
+							TakesFile: true,
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPublicNamespace,
@@ -828,10 +1044,17 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 						&cli.StringFlag{
 							Name: moduleFlagPlatform,
 							Usage: `platform of the binary you are uploading. Must be one of:
+                      any           (most Python modules)
+                      any/amd64     (most Docker-based modules)
+                      any/arm64
+                      linux/any     (Python modules that also require OS support)
+                      darwin/any
                       linux/amd64
                       linux/arm64
-                      darwin/amd64 (for intel macs)
-                      darwin/arm64 (for non-intel macs)`,
+                      linux/arm32v7
+                      linux/arm32v6
+                      darwin/amd64  (Intel macs)
+                      darwin/arm64  (Apple silicon macs)`,
 							Required: true,
 						},
 						&cli.BoolFlag{

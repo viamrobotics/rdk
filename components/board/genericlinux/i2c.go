@@ -7,17 +7,17 @@ import (
 	"context"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"periph.io/x/conn/v3/i2c"
 	"periph.io/x/conn/v3/i2c/i2creg"
 	"periph.io/x/host/v3"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/logging"
 )
 
 func init() {
 	if _, err := host.Init(); err != nil {
-		golog.Global().Debugw("error initializing host", "error", err)
+		logging.Global().Debugw("error initializing host", "error", err)
 	}
 }
 

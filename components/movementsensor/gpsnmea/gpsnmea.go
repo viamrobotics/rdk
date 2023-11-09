@@ -16,11 +16,11 @@ import (
 	"context"
 	"strings"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -107,9 +107,10 @@ var model = resource.DefaultModelFamily.WithModel("gps-nmea")
 // NmeaMovementSensor implements a gps that sends nmea messages for movement data.
 type NmeaMovementSensor interface {
 	movementsensor.MovementSensor
-	Start(ctx context.Context) error          // Initialize and run MovementSensor
-	Close(ctx context.Context) error          // Close MovementSensor
-	ReadFix(ctx context.Context) (int, error) // Returns the fix quality of the current MovementSensor measurements
+	Start(ctx context.Context) error                 // Initialize and run MovementSensor
+	Close(ctx context.Context) error                 // Close MovementSensor
+	ReadFix(ctx context.Context) (int, error)        // Returns the fix quality of the current MovementSensor measurements
+	ReadSatsInView(ctx context.Context) (int, error) // Returns the number of satellites in view
 }
 
 func init() {
@@ -132,7 +133,7 @@ func newNMEAGPS(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {

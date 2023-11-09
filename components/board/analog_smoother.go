@@ -6,10 +6,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
@@ -23,13 +23,13 @@ type AnalogSmoother struct {
 	data                    *utils.RollingAverage
 	lastData                int
 	lastError               atomic.Pointer[errValue]
-	logger                  golog.Logger
+	logger                  logging.Logger
 	cancel                  func()
 	activeBackgroundWorkers sync.WaitGroup
 }
 
 // SmoothAnalogReader wraps the given reader in a smoother.
-func SmoothAnalogReader(r AnalogReader, c AnalogConfig, logger golog.Logger) *AnalogSmoother {
+func SmoothAnalogReader(r AnalogReader, c AnalogReaderConfig, logger logging.Logger) *AnalogSmoother {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	smoother := &AnalogSmoother{
 		Raw:               r,

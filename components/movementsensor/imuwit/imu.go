@@ -29,7 +29,6 @@ import (
 	"math"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
@@ -37,6 +36,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
@@ -91,7 +91,7 @@ type wit struct {
 	port                    io.ReadWriteCloser
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	logger                  golog.Logger
+	logger                  logging.Logger
 }
 
 func (imu *wit) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
@@ -183,7 +183,7 @@ func (imu *wit) Accuracy(ctx context.Context, extra map[string]interface{}) (map
 }
 
 func (imu *wit) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := movementsensor.Readings(ctx, imu, extra)
+	readings, err := movementsensor.DefaultAPIReadings(ctx, imu, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +214,7 @@ func newWit(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -254,7 +254,7 @@ func newWit(
 	return &i, nil
 }
 
-func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, logger golog.Logger) {
+func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, logger logging.Logger) {
 	imu.hasMagnetometer = false
 	ctx, imu.cancelFunc = context.WithCancel(ctx)
 	imu.activeBackgroundWorkers.Add(1)

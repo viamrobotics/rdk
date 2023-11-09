@@ -5,7 +5,6 @@ import (
 	"math"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -14,6 +13,7 @@ import (
 	"go.viam.com/rdk/components/gripper"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -24,7 +24,7 @@ import (
 )
 
 func TestEmptyConfigFrameService(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	r, err := robotimpl.New(ctx, &config.Config{}, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -96,7 +96,7 @@ func TestNewFrameSystemFromConfigWithTransforms(t *testing.T) {
 	zeroIn := []referenceframe.Input{{Value: 0.0}}
 	blankPos := make(map[string][]referenceframe.Input)
 	blankPos["pieceArm"] = zeroIn
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -215,7 +215,7 @@ func TestNewFrameSystemFromConfigWithTransforms(t *testing.T) {
 
 func TestNewFrameSystemFromBadConfig(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	testCases := []struct {
 		name string
@@ -279,7 +279,7 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 }
 
 func TestServiceWithRemote(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	// make the remote robots
 	remoteConfig, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)
 	test.That(t, err, test.ShouldBeNil)

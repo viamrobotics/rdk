@@ -5,10 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"regexp"
+	"strings"
 	"testing"
 
-	"github.com/edaniels/golog"
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	v1 "go.viam.com/api/app/v1"
 	pb "go.viam.com/api/module/v1"
@@ -27,6 +26,7 @@ import (
 	"go.viam.com/rdk/examples/customresources/models/mybase"
 	"go.viam.com/rdk/examples/customresources/models/mygizmo"
 	"go.viam.com/rdk/examples/customresources/models/mysum"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -37,7 +37,7 @@ import (
 
 func TestAddModelFromRegistry(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// Use 'foo.sock' for arbitrary module to test AddModelFromRegistry.
 	m, err := module.NewModule(ctx, filepath.Join(t.TempDir(), "foo.sock"), logger)
@@ -121,7 +121,7 @@ func TestAddModelFromRegistry(t *testing.T) {
 
 func TestModuleFunctions(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	gizmoConf := &v1.ComponentConfig{
 		Name: "gizmo1", Api: "acme:component:gizmo", Model: "acme:demo:mygizmo",
@@ -372,7 +372,7 @@ func TestAttributeConversion(t *testing.T) {
 
 	setupTest := func(t *testing.T) (*testHarness, func()) {
 		ctx := context.Background()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 
 		cfg := &config.Config{Components: []resource.Config{
 			{
@@ -408,7 +408,9 @@ func TestAttributeConversion(t *testing.T) {
 
 		// register the non-reconfigurable one
 		resource.RegisterService(shell.API, model, resource.Registration[shell.Service, *MockConfig]{
-			Constructor: func(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (shell.Service, error) {
+			Constructor: func(
+				ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.Logger,
+			) (shell.Service, error) {
 				createConf1 = cfg
 				createDeps1 = deps
 				return &inject.ShellService{}, nil
@@ -418,7 +420,9 @@ func TestAttributeConversion(t *testing.T) {
 
 		// register the reconfigurable version
 		resource.RegisterService(shell.API, modelWithReconfigure, resource.Registration[shell.Service, *MockConfig]{
-			Constructor: func(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (shell.Service, error) {
+			Constructor: func(
+				ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.Logger,
+			) (shell.Service, error) {
 				injectable := &inject.ShellService{}
 				injectable.ReconfigureFunc = func(ctx context.Context, deps resource.Dependencies, cfg resource.Config) error {
 					reconfigConf2 = cfg
@@ -674,10 +678,11 @@ func TestModuleSocketAddrTruncation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, path, test.ShouldEqual, "/tmp/my-cool-module.sock")
 
-	// test exactly 104
+	// test exactly 103
 	path, err = module.CreateSocketAddress(
 		"/tmp",
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		// 103 - len("/tmp/") - len(".sock")
+		strings.Repeat("a", 93),
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, path, test.ShouldHaveLength, 103)
@@ -685,21 +690,22 @@ func TestModuleSocketAddrTruncation(t *testing.T) {
 		"/tmp/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.sock",
 	)
 
-	// test 105 chars
+	// test 104 chars
 	path, err = module.CreateSocketAddress(
 		"/tmp",
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		// 103 - len("/tmp/") - len(".sock") + 1 more character to trigger truncation
+		strings.Repeat("a", 94),
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, path, test.ShouldHaveLength, 103)
-	matches, err := regexp.MatchString(`\/tmp\/a+-.{5}\.sock`, path)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, matches, test.ShouldBeTrue)
+	// test that creating a new socket address with the same name produces the same truncated address
+	test.That(t, path, test.ShouldEndWith, "-QUEUU.sock")
 
 	// test with an extra-long base path
 	_, err = module.CreateSocketAddress(
-		"/var/folders/pc/yyrlrx8n0yq_xr550xh62pq80000gn/T/viam-module-29232730790000000000000000000000000000000000",
+		// 103 - len("/a.sock") + 1 more character to trigger truncation
+		strings.Repeat("a", 98),
 		"a",
 	)
-	test.That(t, err, test.ShouldBeError)
+	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "module socket base path")
 }

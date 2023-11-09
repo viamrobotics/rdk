@@ -9,12 +9,12 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
@@ -264,7 +264,7 @@ func TestSpinWithMovementSensor(t *testing.T) {
 		return nil
 	}
 
-	logger := golog.NewDebugLogger("loggie")
+	logger := logging.NewDebugLogger("loggie")
 
 	ctx := context.Background()
 	sensorCtx, sensorCancel := context.WithCancel(ctx)
@@ -358,7 +358,7 @@ func addBaseDependency(deps resource.Dependencies) resource.Dependencies {
 
 func TestSensorBase(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	testCfg := sConfig()
 	conf, ok := testCfg.ConvertedAttributes.(*Config)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -384,6 +384,8 @@ func TestSensorBase(t *testing.T) {
 	test.That(t, geometries, test.ShouldBeNil)
 
 	test.That(t, sb.SetPower(ctx, r3.Vector{X: 0, Y: 10, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 0}, nil), test.ShouldBeNil)
+
+	// this test does not include a velocities sensor and does not create a sensor base with a control loop
 	test.That(t, sb.SetVelocity(ctx, r3.Vector{X: 0, Y: 100, Z: 0}, r3.Vector{X: 0, Y: 100, Z: 0}, nil), test.ShouldBeNil)
 	test.That(t, sb.MoveStraight(ctx, 10, 10, nil), test.ShouldBeNil)
 	test.That(t, sb.Spin(ctx, 2, 10, nil), test.ShouldBeNil)
@@ -453,7 +455,7 @@ func msDependencies(t *testing.T, msNames []string,
 
 func TestReconfig(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	deps, cfg := msDependencies(t, []string{"orientation"})
 
@@ -500,4 +502,24 @@ func TestReconfig(t *testing.T) {
 	test.That(t, sb.orientation, test.ShouldBeNil)
 	test.That(t, sb.velocities, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeError, errNoGoodSensor)
+}
+
+func TestSensorBaseWithVelocitiesSensor(t *testing.T) {
+	if useControlLoop == false {
+		t.Skip()
+	}
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	deps, cfg := msDependencies(t, []string{"setvel1"})
+
+	b, err := createSensorBase(ctx, deps, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	sb, ok := b.(*sensorBase)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel1")
+	test.That(t, sb.loop, test.ShouldNotBeNil)
+
+	test.That(t, sb.SetVelocity(ctx, r3.Vector{X: 0, Y: 100, Z: 0}, r3.Vector{X: 0, Y: 100, Z: 0}, nil), test.ShouldBeNil)
+	test.That(t, sb.Stop(ctx, nil), test.ShouldBeNil)
 }

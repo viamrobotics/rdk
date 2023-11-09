@@ -1,6 +1,8 @@
 {
   "extends": "@viamrobotics/typescript-config/base.json",
   "compilerOptions": {
+    "types": ["vite/client", "vitest"],
+  
     // Export options
     "declaration": true,
     "outDir": "dist",
@@ -12,5 +14,13 @@
     "noPropertyAccessFromIndexSignature": false,
     "exactOptionalPropertyTypes": false,
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.svelte"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.js",
+    "src/**/*.svelte",
+    "cypress/**/*.ts",
+    "scripts/*.js",
+    "*.ts",
+    "*.js"
+  ]
 }

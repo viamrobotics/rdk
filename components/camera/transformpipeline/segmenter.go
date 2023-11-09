@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"

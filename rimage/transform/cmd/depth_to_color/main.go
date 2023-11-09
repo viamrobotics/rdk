@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage/transform"
 )
 
-var logger = golog.NewLogger("depth_to_color")
+var logger = logging.NewLogger("depth_to_color")
 
 func main() {
 	confPtr := flag.String("conf", "", "path to intrinsic/extrinsic JSON config")

@@ -4,11 +4,11 @@ package fake
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -28,7 +28,7 @@ func init() {
 }
 
 // NewMovementSensor makes a new fake movement sensor.
-func NewMovementSensor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
+func NewMovementSensor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (movementsensor.MovementSensor, error) {
 	return &MovementSensor{
 		Named:  conf.ResourceName().AsNamed(),
@@ -40,7 +40,7 @@ func NewMovementSensor(ctx context.Context, deps resource.Dependencies, conf res
 type MovementSensor struct {
 	resource.Named
 	resource.AlwaysRebuild
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // Position gets the position of a fake movementsensor.
@@ -86,7 +86,7 @@ func (f *MovementSensor) Accuracy(ctx context.Context, extra map[string]interfac
 
 // Readings gets the readings of a fake movementsensor.
 func (f *MovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	return movementsensor.Readings(ctx, f, extra)
+	return movementsensor.DefaultAPIReadings(ctx, f, extra)
 }
 
 // Properties returns the properties of a fake movementsensor.
@@ -111,3 +111,6 @@ func (f *MovementSensor) Close(ctx context.Context) error {
 
 // ReadFix returns the fix of a fake gps movementsensor.
 func (f *MovementSensor) ReadFix(ctx context.Context) (int, error) { return 1, nil }
+
+// ReadSatsInView returns the number of satellites in view.
+func (f *MovementSensor) ReadSatsInView(ctx context.Context) (int, error) { return 2, nil }

@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/edaniels/golog"
+	"go.viam.com/rdk/logging"
 )
 
 const (
@@ -22,7 +22,7 @@ const (
 // GetResourceConfigurationTimeout calculates the resource configuration
 // timeout (env variable value if set, defaultResourceConfigurationTimeout
 // otherwise).
-func GetResourceConfigurationTimeout(logger golog.Logger) time.Duration {
+func GetResourceConfigurationTimeout(logger logging.Logger) time.Duration {
 	if timeoutVal := os.Getenv(ResourceConfigurationTimeoutEnvVar); timeoutVal != "" {
 		timeout, err := time.ParseDuration(timeoutVal)
 		if err != nil {

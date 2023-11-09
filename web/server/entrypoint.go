@@ -12,16 +12,15 @@ import (
 	"runtime/pprof"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"go.uber.org/zap"
 	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/camera/videosource/logging"
+	vlogging "go.viam.com/rdk/components/camera/videosource/logging"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -48,14 +47,13 @@ type Arguments struct {
 }
 
 type robotServer struct {
-	args      Arguments
-	logConfig zap.Config
-	logger    *zap.SugaredLogger
+	args   Arguments
+	logger logging.Logger
 }
 
 // RunServer is an entry point to starting the web server that can be called by main in a code
 // sample or otherwise be used to initialize the server.
-func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
+func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error) {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
@@ -67,15 +65,10 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	}
 
 	// Replace logger with logger based on flags.
-	var logConfig zap.Config
-	if argsParsed.Debug {
-		logConfig = golog.NewDebugLoggerConfig()
-	} else {
-		logConfig = golog.NewDevelopmentLoggerConfig()
-	}
-	logger := zap.Must(logConfig.Build()).Sugar().Named("robot_server")
-	config.InitLoggingSettings(logger, argsParsed.Debug, logConfig.Level)
-	golog.ReplaceGloabl(logger)
+	logger := logging.NewLogger("")
+	logging.ReplaceGlobal(logger)
+	logger = logger.Sublogger("robot_server")
+	config.InitLoggingSettings(logger, argsParsed.Debug)
 
 	// Always log the version, return early if the '-version' flag was provided
 	// fmt.Println would be better but fails linting. Good enough.
@@ -113,7 +106,7 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	}
 
 	if argsParsed.Logging {
-		utils.UncheckedError(logging.GLoggerCamComp.Start(ctx))
+		utils.UncheckedError(vlogging.GLoggerCamComp.Start(ctx))
 	}
 
 	// Read the config from disk and use it to initialize the remote logger.
@@ -136,20 +129,24 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	// Start remote logging with config from disk.
 	// This is to ensure we make our best effort to write logs for failures loading the remote config.
 	if cfgFromDisk.Cloud != nil && (cfgFromDisk.Cloud.LogPath != "" || cfgFromDisk.Cloud.AppAddress != "") {
-		var closer func()
-		logger, closer, err = addCloudLogger(logger, logConfig.Level, cfgFromDisk.Cloud)
+		netAppender, err := logging.NewNetAppender(
+			&logging.CloudConfig{
+				AppAddress: cfgFromDisk.Cloud.AppAddress,
+				ID:         cfgFromDisk.Cloud.ID,
+				Secret:     cfgFromDisk.Cloud.Secret,
+			},
+		)
 		if err != nil {
 			return err
 		}
-		defer closer()
+		defer netAppender.Close()
 
-		golog.ReplaceGloabl(logger)
+		logger.AddAppender(netAppender)
 	}
 
 	server := robotServer{
-		logConfig: logConfig,
-		logger:    logger,
-		args:      argsParsed,
+		logger: logger,
+		args:   argsParsed,
 	}
 
 	// Run the server with remote logging enabled.
@@ -171,6 +168,7 @@ func (s *robotServer) runServer(ctx context.Context) error {
 		return err
 	}
 	cancel()
+	config.UpdateFileConfigDebug(cfg.Debug)
 
 	err = s.serveWeb(ctx, cfg)
 	if err != nil {
@@ -211,7 +209,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 	hungShutdownDeadline := 90 * time.Second
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcherAfterContext(
-		ctx, hungShutdownDeadline, "server is taking a while to shutdown", s.logger)
+		ctx, hungShutdownDeadline, "server is taking a while to shutdown", s.logger.AsZap())
 
 	doneServing := make(chan struct{})
 
@@ -299,7 +297,6 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	if err != nil {
 		return err
 	}
-
 	if processedConfig.Cloud != nil {
 		cloudRestartCheckerActive = make(chan struct{})
 		utils.PanicCapturingGo(func() {
@@ -309,9 +306,8 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				if errors.Is(err, context.Canceled) {
 					return
 				}
-				s.logger.Panicw("error creating restart checker", "error", err)
-				cancel()
-				return
+				s.logger.Errorw("error creating restart checker", "error", err)
+				panic(fmt.Sprintf("error creating restart checker: %v", err))
 			}
 			defer restartCheck.close()
 			restartInterval := defaultNeedsRestartCheckInterval

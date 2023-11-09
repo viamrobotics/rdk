@@ -2,6 +2,7 @@ package cli
 
 import (
 	"archive/tar"
+	"bufio"
 	"compress/gzip"
 	"context"
 	"encoding/json"
@@ -18,6 +19,13 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	apppb "go.viam.com/api/app/v1"
+	vutils "go.viam.com/utils"
+
+	modconfig "go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/module/modmanager"
+	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
+	"go.viam.com/rdk/utils"
 )
 
 // moduleUploadChunkSize sets the number of bytes included in each chunk of the upload stream.
@@ -32,8 +40,8 @@ const (
 	moduleVisibilityPublic  moduleVisibility = "public"
 )
 
-// moduleComponent represents an api - model pair.
-type moduleComponent struct {
+// ModuleComponent represents an api - model pair.
+type ModuleComponent struct {
 	API   string `json:"api"`
 	Model string `json:"model"`
 }
@@ -52,7 +60,7 @@ type moduleManifest struct {
 	Visibility  moduleVisibility  `json:"visibility"`
 	URL         string            `json:"url"`
 	Description string            `json:"description"`
-	Models      []moduleComponent `json:"models"`
+	Models      []ModuleComponent `json:"models"`
 	Entrypoint  string            `json:"entrypoint"`
 }
 
@@ -99,7 +107,7 @@ func CreateModuleAction(c *cli.Context) error {
 		ModuleID:   returnedModuleID.String(),
 		Visibility: moduleVisibilityPrivate,
 		// This is done so that the json has an empty example
-		Models: []moduleComponent{
+		Models: []ModuleComponent{
 			{},
 		},
 	}
@@ -116,13 +124,9 @@ func CreateModuleAction(c *cli.Context) error {
 func UpdateModuleAction(c *cli.Context) error {
 	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
 	orgIDArg := c.String(moduleFlagOrgID)
-	manifestPathArg := c.String(moduleFlagPath)
 	var moduleID moduleID
 
-	manifestPath := defaultManifestFilename
-	if manifestPathArg != "" {
-		manifestPath = manifestPathArg
-	}
+	manifestPath := c.String(moduleFlagPath)
 
 	client, err := newViamClient(c)
 	if err != nil {
@@ -151,7 +155,7 @@ func UpdateModuleAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	printf(c.App.Writer, "Module successfully updated! You can view your changes online here: %s\n", response.GetUrl())
+	printf(c.App.Writer, "Module successfully updated! You can view your changes online here: %s", response.GetUrl())
 
 	// if we have gotten this far it means that moduleID will have a prefix in it
 	// because the validate command resolves the orgId or namespace to the moduleID with the namespace as the priority
@@ -170,31 +174,30 @@ func UpdateModuleAction(c *cli.Context) error {
 
 // UploadModuleAction is the corresponding action for 'module upload'.
 func UploadModuleAction(c *cli.Context) error {
-	manifestPathArg := c.String(moduleFlagPath)
+	manifestPath := c.String(moduleFlagPath)
 	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
 	orgIDArg := c.String(moduleFlagOrgID)
 	nameArg := c.String(moduleFlagName)
 	versionArg := c.String(moduleFlagVersion)
 	platformArg := c.String(moduleFlagPlatform)
 	forceUploadArg := c.Bool(moduleFlagForce)
-	tarballPath := c.Args().First()
+	moduleUploadPath := c.Args().First()
 	if c.Args().Len() > 1 {
 		return errors.New("too many arguments passed to upload command. " +
 			"Make sure to specify flag and optional arguments before the required positional package argument")
 	}
-	if tarballPath == "" {
-		return errors.New("no package to upload -- please provide an archive containing your module. Use --help for more information")
+	if moduleUploadPath == "" {
+		return errors.New("nothing to upload -- please provide a path to your module. Use --help for more information")
 	}
+
+	// Clean the version argument to ensure compatibility with github tag standards
+	versionArg = strings.TrimPrefix(versionArg, "v")
 
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	manifestPath := defaultManifestFilename
-	if manifestPathArg != "" {
-		manifestPath = manifestPathArg
-	}
 	var moduleID moduleID
 	// if the manifest cant be found
 	if _, err := os.Stat(manifestPath); err != nil {
@@ -234,6 +237,14 @@ func UploadModuleAction(c *cli.Context) error {
 	moduleID, err = validateModuleID(c, client, nameArg, publicNamespaceArg, orgIDArg)
 	if err != nil {
 		return err
+	}
+	tarballPath := moduleUploadPath
+	if !isTarball(tarballPath) {
+		tarballPath, err = createTarballForUpload(moduleUploadPath, c.App.Writer)
+		if err != nil {
+			return err
+		}
+		defer utils.RemoveFileNoError(tarballPath)
 	}
 
 	if !forceUploadArg {
@@ -413,11 +424,6 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 	if err != nil {
 		return err
 	}
-	// TODO(APP-2226): support .tar.xz
-	if !strings.HasSuffix(strings.ToLower(file.Name()), ".tar.gz") &&
-		!strings.HasSuffix(strings.ToLower(file.Name()), ".tgz") {
-		return errors.New("you must upload your module in the form of a .tar.gz or .tgz")
-	}
 	archive, err := gzip.NewReader(file)
 	if err != nil {
 		return err
@@ -443,8 +449,8 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 			info := header.FileInfo()
 			if info.Mode().Perm()&0o100 == 0 {
 				return errors.Errorf(
-					"the provided tarball %q contained a file at the entrypoint %q, but that file is not marked as executable",
-					tarballPath, entrypoint)
+					"the archive contained a file at the entrypoint %q, but that file is not marked as executable",
+					entrypoint)
 			}
 			// executable file at entrypoint. validation succeeded.
 			return nil
@@ -457,8 +463,8 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 	if len(filesWithSameNameAsEntrypoint) > 0 {
 		extraErrInfo = fmt.Sprintf(". Did you mean to set your entrypoint to %v?", filesWithSameNameAsEntrypoint)
 	}
-	return errors.Errorf("the provided tarball %q does not contain a file at the desired entrypoint %q%s",
-		tarballPath, entrypoint, extraErrInfo)
+	return errors.Errorf("the archive does not contain a file at the desired entrypoint %q%s",
+		entrypoint, extraErrInfo)
 }
 
 func visibilityToProto(visibility moduleVisibility) (apppb.Visibility, error) {
@@ -473,7 +479,7 @@ func visibilityToProto(visibility moduleVisibility) (apppb.Visibility, error) {
 	}
 }
 
-func moduleComponentToProto(moduleComponent moduleComponent) *apppb.Model {
+func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
 	return &apppb.Model{
 		Api:   moduleComponent.API,
 		Model: moduleComponent.Model,
@@ -636,4 +642,114 @@ func getEntrypointForVersion(mod *apppb.Module, version string) (string, error) 
 	}
 	// if there is no entrypoint set yet, use the last uploaded entrypoint
 	return mod.Entrypoint, nil
+}
+
+func isTarball(path string) bool {
+	return strings.HasSuffix(strings.ToLower(path), ".tar.gz") ||
+		strings.HasSuffix(strings.ToLower(path), ".tgz")
+}
+
+func createTarballForUpload(moduleUploadPath string, stdout io.Writer) (string, error) {
+	tmpFile, err := os.CreateTemp("", "module-upload-*.tar.gz")
+	if err != nil {
+		return "", errors.Wrap(err, "failed to create temporary archive file")
+	}
+	defer func() {
+		if err := tmpFile.Close(); err != nil {
+			Errorf(stdout, "failed to close temporary archive file %q", tmpFile.Name())
+		}
+	}()
+
+	tmpFileWriter := bufio.NewWriter(tmpFile)
+	archiveFiles, err := getArchiveFilePaths([]string{moduleUploadPath})
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to find files to compress in %q", moduleUploadPath)
+	}
+	if len(archiveFiles) == 0 {
+		return "", errors.Errorf("failed to find any files in %q", moduleUploadPath)
+	}
+	if err := createArchive(archiveFiles, tmpFileWriter, stdout); err != nil {
+		return "", errors.Wrap(err, "failed to create temp archive")
+	}
+	if err := tmpFileWriter.Flush(); err != nil {
+		return "", errors.Wrap(err, "failed to flush buffer while creating temp archive")
+	}
+	return tmpFile.Name(), nil
+}
+
+func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
+	parentAddr, err := os.MkdirTemp("", "viam-cli-test-*")
+	if err != nil {
+		return nil, err
+	}
+	defer vutils.UncheckedErrorFunc(func() error { return os.RemoveAll(parentAddr) })
+	parentAddr += "/parent.sock"
+
+	cfg := modconfig.Module{
+		Name:    "xxxx",
+		ExePath: path,
+	}
+
+	mgr := modmanager.NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	defer vutils.UncheckedErrorFunc(func() error { return mgr.Close(context.Background()) })
+
+	err = mgr.Add(context.TODO(), cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	res := []ModuleComponent{}
+
+	h := mgr.Handles()
+	for k, v := range h[cfg.Name] {
+		for _, m := range v {
+			res = append(res, ModuleComponent{k.API.String(), m.String()})
+		}
+	}
+
+	return res, nil
+}
+
+func sameModels(a, b []ModuleComponent) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for _, x := range a {
+		found := false
+
+		for _, y := range b {
+			if x.API == y.API && x.Model == y.Model {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return false
+		}
+	}
+
+	return true
+}
+
+// UpdateModelsAction figures out the models that a module supports and updates it's metadata file.
+func UpdateModelsAction(c *cli.Context) error {
+	logger := logging.NewLogger("x")
+	newModels, err := readModels(c.String("binary"), logger)
+	if err != nil {
+		return err
+	}
+
+	manifest, err := loadManifest(c.String(moduleFlagPath))
+	if err != nil {
+		return err
+	}
+
+	if sameModels(newModels, manifest.Models) {
+		return nil
+	}
+
+	manifest.Models = newModels
+	return writeManifest(c.String(moduleFlagPath), manifest)
 }

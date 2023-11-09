@@ -3,9 +3,10 @@ package pointcloud
 import (
 	"math"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/logging"
 )
 
 // RoundingPointCloud is a PointCloud implementation for SLAM that rounds all points to the closest
@@ -55,7 +56,7 @@ func (cloud *roundingPointCloud) Iterate(numBatches, myBatch int, fn func(p r3.V
 
 // NewRoundingPointCloudFromFile like NewFromFile, returns a PointCloud but rounds
 // all points in advance.
-func NewRoundingPointCloudFromFile(fn string, logger golog.Logger) (PointCloud, error) {
+func NewRoundingPointCloudFromFile(fn string, logger logging.Logger) (PointCloud, error) {
 	// TODO(bhaney): From eliot - not sure if perf matters here or not, but we're building twice
 	// a refactor could easily fix
 	pc, err := NewFromFile(fn, logger)

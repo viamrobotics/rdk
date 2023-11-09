@@ -5,15 +5,15 @@ import (
 	"context"
 	"image"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -26,13 +26,13 @@ type serviceServer struct {
 	pb.UnimplementedCameraServiceServer
 	coll     resource.APIResourceCollection[Camera]
 	imgTypes map[string]ImageType
-	logger   golog.Logger
+	logger   logging.Logger
 }
 
 // NewRPCServiceServer constructs an camera gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
 func NewRPCServiceServer(coll resource.APIResourceCollection[Camera]) interface{} {
-	logger := golog.NewLogger("camserver")
+	logger := logging.NewLogger("camserver")
 	imgTypes := make(map[string]ImageType)
 	return &serviceServer{coll: coll, logger: logger, imgTypes: imgTypes}
 }

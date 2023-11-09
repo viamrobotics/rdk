@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
@@ -16,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
@@ -64,7 +64,7 @@ type odometry struct {
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 	mu                      sync.Mutex
-	logger                  golog.Logger
+	logger                  logging.Logger
 }
 
 func init() {
@@ -209,7 +209,7 @@ func newWheeledOdometry(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (movementsensor.MovementSensor, error) {
 	o := &odometry{
 		Named:        conf.ResourceName().AsNamed(),
@@ -232,7 +232,7 @@ func (o *odometry) AngularVelocity(ctx context.Context, extra map[string]interfa
 }
 
 func (o *odometry) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	return r3.Vector{}, movementsensor.ErrMethodUnimplementedAngularVelocity
+	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }
 
 func (o *odometry) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
@@ -268,7 +268,7 @@ func (o *odometry) Position(ctx context.Context, extra map[string]interface{}) (
 }
 
 func (o *odometry) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := movementsensor.Readings(ctx, o, extra)
+	readings, err := movementsensor.DefaultAPIReadings(ctx, o, extra)
 	if err != nil {
 		return nil, err
 	}

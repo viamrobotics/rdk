@@ -7,12 +7,14 @@ import (
 )
 
 type ImageSizeT struct {
-	Width uint32
+	Width  uint32
 	Height uint32
 }
 
 func (t *ImageSizeT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	ImageSizeStart(builder)
 	ImageSizeAddWidth(builder, t.Width)
 	ImageSizeAddHeight(builder, t.Height)
@@ -25,7 +27,9 @@ func (rcv *ImageSize) UnPackTo(t *ImageSizeT) {
 }
 
 func (rcv *ImageSize) UnPack() *ImageSizeT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &ImageSizeT{}
 	rcv.UnPackTo(t)
 	return t

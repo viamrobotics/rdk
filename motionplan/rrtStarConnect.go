@@ -8,9 +8,9 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -60,7 +60,7 @@ type rrtStarConnectMotionPlanner struct {
 func newRRTStarConnectMotionPlanner(
 	frame referenceframe.Frame,
 	seed *rand.Rand,
-	logger golog.Logger,
+	logger logging.Logger,
 	opt *plannerOptions,
 ) (motionPlanner, error) {
 	if opt == nil {
@@ -195,7 +195,12 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			// Check if we can return
 			if nSolved%defaultOptimalityCheckIter == 0 {
 				solution := shortestPath(rrt.maps, shared)
-				solutionCost := EvaluatePlan(nodesToInputs(solution.steps), mp.planOpts.DistanceFunc)
+				plan := Plan{}
+				for _, resultSlice := range nodesToInputs(solution.steps) {
+					stepMap := map[string][]referenceframe.Input{mp.frame.Name(): resultSlice}
+					plan = append(plan, stepMap)
+				}
+				solutionCost := plan.Evaluate(mp.planOpts.ScoreFunc)
 				if solutionCost-rrt.maps.optNode.Cost() < defaultOptimalityThreshold*rrt.maps.optNode.Cost() {
 					mp.logger.Debug("RRT* progress: sufficiently optimal path found, exiting")
 					rrt.solutionChan <- solution

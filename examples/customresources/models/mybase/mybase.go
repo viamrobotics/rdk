@@ -6,14 +6,13 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -35,7 +34,7 @@ func init() {
 	})
 }
 
-func newBase(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (base.Base, error) {
+func newBase(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (base.Base, error) {
 	b := &myBase{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
@@ -68,11 +67,13 @@ func (b *myBase) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 		return errors.Wrapf(err, "unable to get motor %v for mybase", baseConfig.RightMotor)
 	}
 
-	geometries, err := kinematicbase.CollisionGeometry(conf.Frame)
-	if err != nil {
-		b.logger.Warnf("base %v %s", b.Name(), err.Error())
+	if conf.Frame != nil && conf.Frame.Geometry != nil {
+		geometry, err := conf.Frame.Geometry.ParseConfig()
+		if err != nil {
+			return err
+		}
+		b.geometries = []spatialmath.Geometry{geometry}
 	}
-	b.geometries = geometries
 
 	// Good practice to stop motors, but also this effectively tests https://viam.atlassian.net/browse/RSDK-2496
 	return multierr.Combine(b.left.Stop(context.Background(), nil), b.right.Stop(context.Background(), nil))
@@ -109,7 +110,7 @@ type myBase struct {
 	resource.Named
 	left       motor.Motor
 	right      motor.Motor
-	logger     golog.Logger
+	logger     logging.Logger
 	geometries []spatialmath.Geometry
 }
 

@@ -1,52 +1,28 @@
 <script lang='ts'>
 
-import { Map, type MapMouseEvent } from 'maplibre-gl';
-import { NavigationClient, type ServiceError } from '@viamrobotics/sdk';
+import { type MapMouseEvent } from 'maplibre-gl';
+import type { ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
-import { setAsyncInterval } from '@/lib/schedule';
-import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
-import { waypoints, tab } from '../stores';
-import MapMarker from './marker.svelte';
-import { formatWaypoints } from '@/api/navigation';
-import { rcLogConditionally } from '@/lib/log';
+import { useMapLibre, MapLibreMarker } from '@viamrobotics/prime-blocks';
+import { tab } from '../stores';
+import { useWaypoints } from '../hooks/use-waypoints';
 
-export let map: Map;
 export let name: string;
 
-const { robotClient } = useRobotClient();
-const navClient = new NavigationClient($robotClient, name, { requestLogger: rcLogConditionally });
+const { waypoints, addWaypoint, error } = useWaypoints(name);
+const { map } = useMapLibre();
 
 const handleAddMarker = async (event: MapMouseEvent) => {
   if (event.originalEvent.button > 0) {
     return;
   }
 
-  const { lat, lng } = event.lngLat;
-  const location = { latitude: lat, longitude: lng };
-  const temp = { lng, lat, id: crypto.randomUUID() };
-
   try {
-    $waypoints = [...$waypoints, temp];
-    await navClient.addWayPoint(location);
-  } catch (error) {
-    notify.danger((error as ServiceError).message);
-    $waypoints = $waypoints.filter((item) => item.id !== temp.id);
+    await addWaypoint(event.lngLat);
+  } catch (error_) {
+    notify.danger((error_ as ServiceError).message);
   }
 };
-
-const updateWaypoints = async () => {
-  try {
-    const response = await navClient.getWayPoints();
-    $waypoints = formatWaypoints(response);
-  } catch (error) {
-    notify.danger((error as ServiceError).message);
-  }
-};
-
-const clearUpdateWaypointInterval = setAsyncInterval(updateWaypoints, 1000);
-updateWaypoints();
-
-useDisconnect(() => clearUpdateWaypointInterval());
 
 $: if ($tab === 'Waypoints') {
   map.on('click', handleAddMarker);
@@ -54,8 +30,14 @@ $: if ($tab === 'Waypoints') {
   map.off('click', handleAddMarker);
 }
 
+$: if ($error) {
+  notify.danger($error.message);
+}
 </script>
 
 {#each $waypoints as waypoint (waypoint.id)}
-  <MapMarker scale={0.7} lngLat={waypoint} />
+  <MapLibreMarker
+    scale={0.7}
+    pose={{ lat: waypoint.lat, lng: waypoint.lng, rotation: 0 }}
+  />
 {/each}

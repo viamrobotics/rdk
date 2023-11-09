@@ -6,29 +6,33 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	commonpb "go.viam.com/api/common/v1"
 	motionpb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan/tpspace"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
+
+const testLookAheadDistanceMM = 1000 * 1000.
 
 var (
 	home7 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
 	home6 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 )
 
-var logger, _ = zap.Config{
+var logger = logging.FromZapCompatible(zap.Must(zap.Config{
 	Level:             zap.NewAtomicLevelAt(zap.FatalLevel),
 	Encoding:          "console",
 	DisableStacktrace: true,
-}.Build()
+}.Build()).Sugar())
 
 type planConfig struct {
 	Start      []frame.Input
@@ -144,7 +148,7 @@ func TestPlanningWithGripper(t *testing.T) {
 
 	newPose := frame.NewPoseInFrame("gripper", spatialmath.NewPoseFromPoint(r3.Vector{100, 100, 0}))
 	solutionMap, err := PlanMotion(context.Background(), &PlanRequest{
-		Logger:             logger.Sugar(),
+		Logger:             logger,
 		Goal:               newPose,
 		Frame:              gripper,
 		StartConfiguration: zeroPos,
@@ -311,7 +315,7 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 	// plan
 	cfg, err := config()
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := plannerFunc(cfg.RobotFrame, rand.New(rand.NewSource(int64(seed))), logger.Sugar(), cfg.Options)
+	mp, err := plannerFunc(cfg.RobotFrame, rand.New(rand.NewSource(int64(seed))), logger, cfg.Options)
 	test.That(t, err, test.ShouldBeNil)
 	pathNodes, err := mp.plan(context.Background(), cfg.Goal, cfg.Start)
 	test.That(t, err, test.ShouldBeNil)
@@ -377,7 +381,7 @@ func TestArmOOBSolve(t *testing.T) {
 	// Set a goal unreachable by the UR due to sheer distance
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 21000, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	_, err := PlanMotion(context.Background(), &PlanRequest{
-		Logger:             logger.Sugar(),
+		Logger:             logger,
 		Goal:               frame.NewPoseInFrame(frame.World, goal1),
 		Frame:              fs.Frame("urCamera"),
 		StartConfiguration: positions,
@@ -403,7 +407,7 @@ func TestArmObstacleSolve(t *testing.T) {
 	// Set a goal unreachable by the UR
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 210, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	_, err = PlanMotion(context.Background(), &PlanRequest{
-		Logger:             logger.Sugar(),
+		Logger:             logger,
 		Goal:               frame.NewPoseInFrame(frame.World, goal1),
 		Frame:              fs.Frame("urCamera"),
 		StartConfiguration: positions,
@@ -430,7 +434,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 	// Set a goal such that the gantry and arm must both be used to solve
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 2100, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	plan, err := PlanMotion(context.Background(), &PlanRequest{
-		Logger:             logger.Sugar(),
+		Logger:             logger,
 		Goal:               frame.NewPoseInFrame(frame.World, goal1),
 		Frame:              fs.Frame("xArmVgripper"),
 		StartConfiguration: positions,
@@ -454,12 +458,12 @@ func TestMultiArmSolve(t *testing.T) {
 	// Solve such that the ur5 and xArm are pointing at each other, 40mm from gripper to camera
 	goal2 := spatialmath.NewPose(r3.Vector{Z: 40}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	plan, err := PlanMotion(context.Background(), &PlanRequest{
-		Logger:             logger.Sugar(),
+		Logger:             logger,
 		Goal:               frame.NewPoseInFrame("urCamera", goal2),
 		Frame:              fs.Frame("xArmVgripper"),
 		StartConfiguration: positions,
 		FrameSystem:        fs,
-		Options:            map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0, "smooth_iter": 5},
+		Options:            map[string]interface{}{"max_ik_solutions": 10, "timeout": 150.0, "smooth_iter": 5},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
@@ -477,7 +481,6 @@ func TestMultiArmSolve(t *testing.T) {
 }
 
 func TestReachOverArm(t *testing.T) {
-	t.Parallel()
 	// setup frame system with an xarm
 	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -492,9 +495,9 @@ func TestReachOverArm(t *testing.T) {
 	fs.AddFrame(xarm, offset)
 
 	// plan to a location, it should interpolate to get there
-	opts := map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0}
+	opts := map[string]interface{}{"timeout": 150.0}
 	plan, err := PlanMotion(context.Background(), &PlanRequest{
-		Logger:             logger.Sugar(),
+		Logger:             logger,
 		Goal:               goal,
 		Frame:              xarm,
 		StartConfiguration: frame.StartPositions(fs),
@@ -511,9 +514,9 @@ func TestReachOverArm(t *testing.T) {
 	fs.AddFrame(ur5, fs.World())
 
 	// the plan should no longer be able to interpolate, but it should still be able to get there
-	opts = map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0, "smooth_iter": 5}
+	opts = map[string]interface{}{"timeout": 150.0, "smooth_iter": 5}
 	plan, err = PlanMotion(context.Background(), &PlanRequest{
-		Logger:             logger.Sugar(),
+		Logger:             logger,
 		Goal:               goal,
 		Frame:              xarm,
 		StartConfiguration: frame.StartPositions(fs),
@@ -526,7 +529,7 @@ func TestReachOverArm(t *testing.T) {
 
 func TestPlanMapMotion(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// build kinematic base model
 	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
@@ -548,7 +551,7 @@ func TestPlanMapMotion(t *testing.T) {
 
 	PlanMapMotion := func(
 		ctx context.Context,
-		logger golog.Logger,
+		logger logging.Logger,
 		dst spatialmath.Pose,
 		f frame.Frame,
 		seed []frame.Input,
@@ -597,12 +600,13 @@ func TestSolverFrameGeometries(t *testing.T) {
 	sf, err := newSolverFrame(fs, "xArmVgripper", frame.World, frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
 
-	sfPlanner, err := newPlanManager(sf, fs, logger.Sugar(), 1)
+	sfPlanner, err := newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
 	position, err := sfPlanner.PlanSingleWaypoint(
 		context.Background(),
 		sf.sliceToMap(make([]frame.Input, len(sf.DoF()))),
 		spatialmath.NewPoseFromPoint(r3.Vector{300, 300, 100}),
+		nil,
 		nil,
 		nil,
 		map[string]interface{}{"smooth_iter": 5},
@@ -634,7 +638,7 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 	checkReachable := func(worldState *frame.WorldState, constraints *motionpb.Constraints) error {
 		goal := spatialmath.NewPose(r3.Vector{X: 600, Y: 100, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1})
 		_, err := PlanMotion(context.Background(), &PlanRequest{
-			Logger:             logger.Sugar(),
+			Logger:             logger,
 			Goal:               frame.NewPoseInFrame(frame.World, goal),
 			Frame:              fs.Frame("xArmVgripper"),
 			FrameSystem:        fs,
@@ -717,9 +721,9 @@ func TestMovementWithGripper(t *testing.T) {
 	// linearly plan with the gripper
 	motionConfig := make(map[string]interface{})
 	motionConfig["motion_profile"] = LinearMotionProfile
-	sfPlanner, err := newPlanManager(sf, fs, logger.Sugar(), 1)
+	sfPlanner, err := newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
-	solution, err := sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, nil, nil, motionConfig)
+	solution, err := sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, nil, nil, nil, motionConfig)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
 
@@ -731,9 +735,9 @@ func TestMovementWithGripper(t *testing.T) {
 		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	sfPlanner, err = newPlanManager(sf, fs, logger.Sugar(), 1)
+	sfPlanner, err = newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
-	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, nil)
+	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
 
@@ -742,15 +746,15 @@ func TestMovementWithGripper(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	goal = spatialmath.NewPose(r3.Vector{500, 0, -100}, &spatialmath.OrientationVector{OZ: -1})
 	zeroPosition = sf.sliceToMap(make([]frame.Input, len(sf.DoF())))
-	sfPlanner, err = newPlanManager(sf, fs, logger.Sugar(), 1)
+	sfPlanner, err = newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, motionConfig)
+	_, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, nil, motionConfig)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// remove linear constraint and try again
-	sfPlanner, err = newPlanManager(sf, fs, logger.Sugar(), 1)
+	sfPlanner, err = newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
-	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, nil)
+	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
 
@@ -759,9 +763,312 @@ func TestMovementWithGripper(t *testing.T) {
 	sf, err = newSolverFrame(fs, "xArm6", frame.World, frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
 	zeroPosition = sf.sliceToMap(make([]frame.Input, len(sf.DoF())))
-	sfPlanner, err = newPlanManager(sf, fs, logger.Sugar(), 1)
+	sfPlanner, err = newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
-	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, motionConfig)
+	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, nil, motionConfig)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
+}
+
+func TestReplan(t *testing.T) {
+	// TODO(RSDK-5634): this should be unskipped when this bug is fixed
+	t.Skip()
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
+	test.That(t, err, test.ShouldBeNil)
+
+	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
+		"itsabase",
+		logger,
+		200, 60, 0, 1000,
+		2,
+		[]spatialmath.Geometry{sphere},
+		false,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{1000, 8000, 0})
+
+	baseFS := frame.NewEmptyFrameSystem("baseFS")
+	err = baseFS.AddFrame(kinematicFrame, baseFS.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	planRequest := &PlanRequest{
+		Logger:             logger,
+		Goal:               frame.NewPoseInFrame(frame.World, goal),
+		Frame:              kinematicFrame,
+		FrameSystem:        baseFS,
+		StartConfiguration: frame.StartPositions(baseFS),
+		WorldState:         nil,
+		Options:            nil,
+	}
+
+	firstplan, err := PlanMotion(ctx, planRequest)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Let's pretend we've moved towards the goal, so the goal is now closer
+	goal = spatialmath.NewPoseFromPoint(r3.Vector{1000, 5000, 0})
+	planRequest.Goal = frame.NewPoseInFrame(frame.World, goal)
+
+	// This should easily pass
+	newPlan1, err := Replan(ctx, planRequest, firstplan, 1.0)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(newPlan1), test.ShouldBeGreaterThan, 2)
+
+	// But if we drop the replan factor to a very low number, it should now fail
+	newPlan2, err := Replan(ctx, planRequest, firstplan, 0.1)
+	test.That(t, newPlan2, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeError, errHighReplanCost) // Replan factor too low!
+}
+
+func TestPtgPosOnlyBidirectional(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
+	test.That(t, err, test.ShouldBeNil)
+
+	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
+		"itsabase",
+		logger,
+		200, 60, 0, 1000,
+		2,
+		[]spatialmath.Geometry{sphere},
+		false,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{1000, -8000, 0})
+
+	extra := map[string]interface{}{"motion_profile": "position_only", "position_seeds": 2, "smooth_iter": 5}
+
+	baseFS := frame.NewEmptyFrameSystem("baseFS")
+	err = baseFS.AddFrame(kinematicFrame, baseFS.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	planRequest := &PlanRequest{
+		Logger:             logger,
+		Goal:               frame.NewPoseInFrame(frame.World, goal),
+		Frame:              kinematicFrame,
+		FrameSystem:        baseFS,
+		StartConfiguration: frame.StartPositions(baseFS),
+		WorldState:         nil,
+		Options:            extra,
+	}
+
+	bidirectionalPlanRaw, err := PlanMotion(ctx, planRequest)
+	test.That(t, err, test.ShouldBeNil)
+
+	// If bidirectional planning worked properly, this plan should wind up at the goal with an orientation of Theta = 180 degrees
+	bidirectionalPlan, err := planToTpspaceRec(bidirectionalPlanRaw, kinematicFrame)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatialmath.PoseAlmostCoincidentEps(goal, bidirectionalPlan[len(bidirectionalPlan)-1].Pose(), 5), test.ShouldBeTrue)
+	test.That(t, spatialmath.OrientationAlmostEqual(
+		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180},
+		bidirectionalPlan[len(bidirectionalPlan)-1].Pose().Orientation(),
+	), test.ShouldBeTrue)
+}
+
+func TestValidatePlanRequest(t *testing.T) {
+	t.Parallel()
+	type testCase struct {
+		name        string
+		request     PlanRequest
+		expectedErr error
+	}
+
+	logger := logging.NewTestLogger(t)
+	fs := frame.NewEmptyFrameSystem("test")
+	frame1 := frame.NewZeroStaticFrame("frame1")
+	frame2, err := frame.NewTranslationalFrame("frame2", r3.Vector{1, 0, 0}, frame.Limit{1, 1})
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(frame1, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(frame2, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	validGoal := frame.NewPoseInFrame("frame1", spatialmath.NewZeroPose())
+	badGoal := frame.NewPoseInFrame("non-existent", spatialmath.NewZeroPose())
+
+	testCases := []testCase{
+		{
+			name:        "empty request - fail",
+			request:     PlanRequest{},
+			expectedErr: errors.New("PlanRequest cannot have nil logger"),
+		},
+		{
+			name: "nil frame - fail",
+			request: PlanRequest{
+				Logger: logger,
+			},
+			expectedErr: errors.New("PlanRequest cannot have nil frame"),
+		},
+		{
+			name: "nil framesystem - fail",
+			request: PlanRequest{
+				Logger: logger,
+				Frame:  frame1,
+			},
+			expectedErr: errors.New("PlanRequest cannot have nil framesystem"),
+		},
+		{
+			name: "framesystem does not contain frame - fail",
+			request: PlanRequest{
+				Logger:      logger,
+				Frame:       frame1,
+				FrameSystem: frame.NewEmptyFrameSystem("test"),
+			},
+			expectedErr: errors.Errorf("frame with name %q not in frame system", frame1.Name()),
+		},
+		{
+			name: "nil goal - fail",
+			request: PlanRequest{
+				Logger:      logger,
+				Frame:       frame1,
+				FrameSystem: fs,
+			},
+			expectedErr: errors.New("PlanRequest cannot have nil goal"),
+		},
+		{
+			name: "goal's parent not in frame system - fail",
+			request: PlanRequest{
+				Logger:      logger,
+				Frame:       frame1,
+				FrameSystem: fs,
+				Goal:        badGoal,
+			},
+			expectedErr: errors.New("part with name  references non-existent parent non-existent"),
+		},
+		{
+			name: "incorrect length StartConfiguration - fail",
+			request: PlanRequest{
+				Logger:      logger,
+				Frame:       frame1,
+				FrameSystem: fs,
+				Goal:        validGoal,
+				StartConfiguration: map[string][]frame.Input{
+					"frame1": frame.FloatsToInputs([]float64{0}),
+				},
+			},
+			expectedErr: errors.New("number of inputs does not match frame DoF, expected 0 but got 1"),
+		},
+		{
+			name: "incorrect length StartConfiguration - fail",
+			request: PlanRequest{
+				Logger:      logger,
+				Frame:       frame2,
+				FrameSystem: fs,
+				Goal:        validGoal,
+			},
+			expectedErr: errors.New("frame2 does not have a start configuration"),
+		},
+		{
+			name: "incorrect length StartConfiguration - fail",
+			request: PlanRequest{
+				Logger:      logger,
+				Frame:       frame2,
+				FrameSystem: fs,
+				Goal:        validGoal,
+				StartConfiguration: map[string][]frame.Input{
+					"frame2": frame.FloatsToInputs([]float64{0, 0, 0, 0, 0}),
+				},
+			},
+			expectedErr: errors.New("number of inputs does not match frame DoF, expected 1 but got 5"),
+		},
+		{
+			name: "well formed PlanRequest",
+			request: PlanRequest{
+				Logger:      logger,
+				Frame:       frame1,
+				FrameSystem: fs,
+				Goal:        validGoal,
+				StartConfiguration: map[string][]frame.Input{
+					"frame1": {},
+				},
+			},
+			expectedErr: nil,
+		},
+	}
+
+	testFn := func(t *testing.T, tc testCase) {
+		err := tc.request.validatePlanRequest()
+		if tc.expectedErr != nil {
+			test.That(t, err.Error(), test.ShouldEqual, tc.expectedErr.Error())
+		} else {
+			test.That(t, err, test.ShouldBeNil)
+		}
+	}
+
+	for _, tc := range testCases {
+		c := tc // needed to workaround loop variable not being captured by func literals
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			testFn(t, c)
+		})
+	}
+
+	// ensure nil PlanRequests are caught
+	_, err = PlanMotion(context.Background(), nil)
+	test.That(t, err.Error(), test.ShouldEqual, "PlanRequest cannot be nil")
+}
+
+func TestArmGantryCheckPlan(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	fs := frame.NewEmptyFrameSystem("test")
+
+	gantryOffset, err := frame.NewStaticFrame("gantryOffset", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}))
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(gantryOffset, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	lim := frame.Limit{Min: math.Inf(-1), Max: math.Inf(1)}
+	gantryX, err := frame.NewTranslationalFrame("gantryX", r3.Vector{1, 0, 0}, lim)
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(gantryX, gantryOffset)
+	test.That(t, err, test.ShouldBeNil)
+
+	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(modelXarm, gantryX)
+	test.That(t, err, test.ShouldBeNil)
+
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 407, Y: 0, Z: 112})
+
+	planReq := PlanRequest{
+		Logger:             logger,
+		Goal:               frame.NewPoseInFrame(frame.World, goal),
+		Frame:              fs.Frame("xArm6"),
+		FrameSystem:        fs,
+		StartConfiguration: frame.StartPositions(fs),
+	}
+
+	plan, err := PlanMotion(context.Background(), &planReq)
+	test.That(t, err, test.ShouldBeNil)
+
+	startPose := spatialmath.NewZeroPose()
+	errorState := spatialmath.NewZeroPose()
+	inputs := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
+
+	t.Run("check plan with no obstacles", func(t *testing.T) {
+		err := CheckPlan(fs.Frame("xArm6"), plan, nil, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
+		test.That(t, err, test.ShouldBeNil)
+	})
+	t.Run("check plan with obstacle", func(t *testing.T) {
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{400, 0, 112}),
+			r3.Vector{10, 10, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, geoms)}
+
+		worldState, err := frame.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = CheckPlan(fs.Frame("xArm6"), plan, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
 }

@@ -4,16 +4,16 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 )
 
 func TestReconfigure(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	cfg := resource.Config{
 		Name: "testArm",

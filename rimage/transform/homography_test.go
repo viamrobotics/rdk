@@ -5,10 +5,10 @@ import (
 	"image"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 )
 
@@ -22,7 +22,7 @@ func (h *homographyTestHelper) Process(
 	pCtx *rimage.ProcessorContext,
 	fn string,
 	img, img2 image.Image,
-	logger golog.Logger,
+	logger logging.Logger,
 ) error {
 	t.Helper()
 	var err error

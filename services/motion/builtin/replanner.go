@@ -36,7 +36,7 @@ func newReplanner(period time.Duration, fnToPoll replanFn) *replanner {
 	return &replanner{
 		period:       period,
 		needReplan:   fnToPoll,
-		responseChan: make(chan replanResponse),
+		responseChan: make(chan replanResponse, 1),
 	}
 }
 

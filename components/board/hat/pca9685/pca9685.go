@@ -1,22 +1,24 @@
+//go:build linux
+
 // Package pca9685 implements a PCA9685 HAT. It's probably also a generic PCA9685
 // but that has not been verified yet.
 package pca9685
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -29,28 +31,20 @@ var (
 
 // Config describes a PCA9685 board attached to some other board via I2C.
 type Config struct {
-	BoardName      string `json:"board_name"`
-	I2CName        string `json:"i2c_name"`
-	I2CAddress     *int   `json:"i2c_address,omitempty"`
-	PWMFrequencyHz int    `json:"pwm_frequency_hz,omitempty"`
+	I2CBus     string `json:"i2c_bus,omitempty"`
+	I2CAddress *int   `json:"i2c_address,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if conf.BoardName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board_name")
+	if conf.I2CBus == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
-	if conf.I2CName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_name")
-	}
-	if conf.I2CAddress == nil {
-		conf.I2CAddress = &defaultAddr
-	}
-	if *conf.I2CAddress < 0 || *conf.I2CAddress > 255 {
+
+	if conf.I2CAddress != nil && (*conf.I2CAddress < 0 || *conf.I2CAddress > 255) {
 		return nil, utils.NewConfigValidationError(path, errors.New("i2c_address must be an unsigned byte"))
 	}
-	deps = append(deps, conf.BoardName)
 	return deps, nil
 }
 
@@ -63,7 +57,7 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (board.Board, error) {
 				return New(ctx, deps, conf, logger)
 			},
@@ -81,9 +75,7 @@ type PCA9685 struct {
 	referenceClockSpeed int
 	bus                 board.I2C
 	gpioPins            [16]gpioPin
-	boardName           string
-	i2cName             string
-	logger              golog.Logger
+	logger              logging.Logger
 }
 
 const (
@@ -97,7 +89,7 @@ const (
 var defaultAddr = 0x40
 
 // New returns a new PCA9685 residing on the given bus and address.
-func New(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (*PCA9685, error) {
+func New(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (*PCA9685, error) {
 	pca := PCA9685{
 		Named:               conf.ResourceName().AsNamed(),
 		referenceClockSpeed: defaultReferenceClockSpeed,
@@ -126,33 +118,21 @@ func (pca *PCA9685) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	b, err := board.FromDependencies(deps, newConf.BoardName)
+	bus, err := genericlinux.NewI2cBus(newConf.I2CBus)
 	if err != nil {
 		return err
 	}
-	localBoard, ok := b.(board.LocalBoard)
-	if !ok {
-		return fmt.Errorf("board %s is not local", newConf.BoardName)
-	}
 
-	bus, ok := localBoard.I2CByName(newConf.I2CName)
-	if !ok {
-		return errors.Errorf("can't find I2C bus (%s) requested by Motor", newConf.I2CName)
+	address := byte(defaultAddr)
+	if newConf.I2CAddress != nil {
+		address = byte(*newConf.I2CAddress)
 	}
-	address := byte(*newConf.I2CAddress)
 
 	pca.mu.Lock()
 	defer pca.mu.Unlock()
 
-	needsReset := pca.boardName != newConf.BoardName || pca.i2cName != newConf.I2CName
-	if !needsReset {
-		return nil
-	}
-
 	pca.bus = bus
 	pca.address = address
-	pca.boardName = newConf.BoardName
-	pca.i2cName = newConf.I2CName
 	if err := pca.reset(ctx); err != nil {
 		return err
 	}
@@ -180,6 +160,11 @@ func (pca *PCA9685) ModelAttributes() board.ModelAttributes {
 // the board will exit the given power mode after the specified
 // duration.
 func (pca *PCA9685) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	return grpc.UnimplementedError
+}
+
+// WriteAnalog writes the value to the given pin.
+func (pca *PCA9685) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
 	return grpc.UnimplementedError
 }
 

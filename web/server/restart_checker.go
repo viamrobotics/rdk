@@ -5,12 +5,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/edaniels/golog"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 )
 
 const (
@@ -25,7 +25,7 @@ type needsRestartChecker interface {
 
 type needsRestartCheckerGRPC struct {
 	cfg    *config.Cloud
-	logger golog.Logger
+	logger logging.Logger
 	client rpc.ClientConn
 }
 
@@ -53,7 +53,7 @@ func (c *needsRestartCheckerGRPC) needsRestart(ctx context.Context) (bool, time.
 	return res.MustRestart, restartInterval, nil
 }
 
-func newRestartChecker(ctx context.Context, cfg *config.Cloud, logger golog.Logger) (needsRestartChecker, error) {
+func newRestartChecker(ctx context.Context, cfg *config.Cloud, logger logging.Logger) (needsRestartChecker, error) {
 	client, err := config.CreateNewGRPCClient(ctx, cfg, logger)
 	if err != nil {
 		return nil, err

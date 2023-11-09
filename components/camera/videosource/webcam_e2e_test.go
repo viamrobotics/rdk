@@ -6,8 +6,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/camera/v1"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera"
@@ -28,7 +28,7 @@ func findWebcam(t *testing.T, webcams []*pb.Webcam, name string) *pb.Webcam {
 }
 
 func TestWebcamDiscovery(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	reg, ok := resource.LookupRegistration(camera.API, videosource.ModelWebcam)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -78,7 +78,7 @@ func newWebcamConfig(name, path string) resource.Config {
 }
 
 func TestWebcamGetImage(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	config, err := vcamera.Builder(logger).
 		NewCamera(62, "Lo Res Webcam", vcamera.Resolution{Width: 640, Height: 480}).
 		NewCamera(63, "Hi Res Webcam", vcamera.Resolution{Width: 1280, Height: 720}).

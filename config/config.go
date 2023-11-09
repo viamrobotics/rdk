@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"go.viam.com/utils/jwks"
@@ -21,6 +20,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/slices"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
@@ -28,16 +28,17 @@ import (
 
 // A Config describes the configuration of a robot.
 type Config struct {
-	Cloud      *Cloud
-	Modules    []Module
-	Remotes    []Remote
-	Components []resource.Config
-	Processes  []pexec.ProcessConfig
-	Services   []resource.Config
-	Packages   []PackageConfig
-	Network    NetworkConfig
-	Auth       AuthConfig
-	Debug      bool
+	Cloud           *Cloud
+	Modules         []Module
+	Remotes         []Remote
+	Components      []resource.Config
+	Processes       []pexec.ProcessConfig
+	Services        []resource.Config
+	Packages        []PackageConfig
+	Network         NetworkConfig
+	Auth            AuthConfig
+	Debug           bool
+	GlobalLogConfig []GlobalLogConfig
 
 	ConfigFilePath string
 
@@ -77,9 +78,15 @@ type configData struct {
 	Auth                AuthConfig            `json:"auth"`
 	Debug               bool                  `json:"debug,omitempty"`
 	DisablePartialStart bool                  `json:"disable_partial_start"`
+	GlobalLogConfig     []GlobalLogConfig     `json:"global_log_configuration"`
 }
 
-func (c *Config) validateUniqueResource(logger golog.Logger, seenResources map[string]bool, name string) error {
+// AppValidationStatus refers to the.
+type AppValidationStatus struct {
+	Error string `json:"error"`
+}
+
+func (c *Config) validateUniqueResource(logger logging.Logger, seenResources map[string]bool, name string) error {
 	if _, exists := seenResources[name]; exists {
 		errString := errors.Errorf("duplicate resource %s in robot config", name)
 		if c.DisablePartialStart {
@@ -92,7 +99,7 @@ func (c *Config) validateUniqueResource(logger golog.Logger, seenResources map[s
 }
 
 // Ensure ensures all parts of the config are valid.
-func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
+func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	seenResources := make(map[string]bool)
 
 	if c.Cloud != nil {
@@ -193,6 +200,12 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 		}
 	}
 
+	for idx, globalLogConfig := range c.GlobalLogConfig {
+		if err := globalLogConfig.Validate(fmt.Sprintf("global_log_configuration.%d", idx)); err != nil {
+			logger.Errorw("log configuration error", "err", err)
+		}
+	}
+
 	return nil
 }
 
@@ -234,6 +247,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.Auth = conf.Auth
 	c.Debug = conf.Debug
 	c.DisablePartialStart = conf.DisablePartialStart
+	c.GlobalLogConfig = conf.GlobalLogConfig
 
 	return nil
 }
@@ -262,6 +276,7 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		Auth:                c.Auth,
 		Debug:               c.Debug,
 		DisablePartialStart: c.DisablePartialStart,
+		GlobalLogConfig:     c.GlobalLogConfig,
 	})
 }
 
@@ -926,6 +941,8 @@ type PackageConfig struct {
 	// Types of the Package. If not specified it is assumed to be ml_model.
 	Type PackageType `json:"type,omitempty"`
 
+	Status *AppValidationStatus `json:"status,omitempty"`
+
 	alreadyValidated bool
 	cachedErr        error
 }
@@ -935,6 +952,13 @@ func (p *PackageConfig) Validate(path string) error {
 	if p.alreadyValidated {
 		return p.cachedErr
 	}
+
+	if p.Status != nil {
+		p.alreadyValidated = true
+		p.cachedErr = utils.NewConfigValidationError(path, errors.New(p.Status.Error))
+		return p.cachedErr
+	}
+
 	p.cachedErr = p.validate(path)
 	p.alreadyValidated = true
 	return p.cachedErr
@@ -970,8 +994,10 @@ func (p *PackageConfig) validate(path string) error {
 func (p PackageConfig) Equals(other PackageConfig) bool {
 	p.alreadyValidated = false
 	p.cachedErr = nil
+	p.Status = nil
 	other.alreadyValidated = false
 	other.cachedErr = nil
+	other.Status = nil
 	//nolint:govet
 	return reflect.DeepEqual(p, other)
 }

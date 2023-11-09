@@ -21,15 +21,16 @@ import (
 	datapb "go.viam.com/api/app/data/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 const (
-	dataDir                  = "data"
-	metadataDir              = "metadata"
-	defaultParallelDownloads = 100
-	maxRetryCount            = 5
-	logEveryN                = 100
-	maxLimit                 = 100
+	dataDir       = "data"
+	metadataDir   = "metadata"
+	maxRetryCount = 5
+	logEveryN     = 100
+	maxLimit      = 100
 
 	dataTypeBinary  = "binary"
 	dataTypeTabular = "tabular"
@@ -75,21 +76,13 @@ func DataDeleteBinaryAction(c *cli.Context) error {
 		return err
 	}
 
-	switch c.String(dataFlagDataType) {
-	case dataTypeBinary:
-		filter, err := createDataFilter(c)
-		if err != nil {
-			return err
-		}
-		if err := client.deleteBinaryData(filter); err != nil {
-			return err
-		}
-	case dataTypeTabular:
-		return errors.New("use `delete-tabular` action instead of `delete`")
-	default:
-		return errors.Errorf("%s must be binary or tabular, got %q", dataFlagDataType, c.String(dataFlagDataType))
+	filter, err := createDataFilter(c)
+	if err != nil {
+		return err
 	}
-
+	if err := client.deleteBinaryData(filter); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -191,10 +184,6 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 		return err
 	}
 
-	if parallelDownloads == 0 {
-		parallelDownloads = defaultParallelDownloads
-	}
-
 	ids := make(chan *datapb.BinaryID, parallelDownloads)
 	// Give channel buffer of 1+parallelDownloads because that is the number of goroutines that may be passing an
 	// error into this channel (1 get ids routine + parallelDownloads download routines).
@@ -220,7 +209,7 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 		}
 	}()
 
-	// In parallel, read from ids and download the binary for each id in batches of defaultParallelDownloads.
+	// In parallel, read from ids and download the binary for each id in batches of parallelDownloads.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -341,27 +330,11 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	}
 
 	datum := data[0]
-	mdJSONBytes, err := protojson.Marshal(datum.GetMetadata())
-	if err != nil {
-		return err
-	}
 
-	timeRequested := datum.GetMetadata().GetTimeRequested().AsTime().Format(time.RFC3339Nano)
-	fileName := datum.GetMetadata().GetFileName()
-
-	// The file name will end with .gz if the user uploaded a gzipped file. We will unzip it below, so remove the last
-	// .gz from the file name. If the user has gzipped the file multiple times, we will only unzip once.
-	if filepath.Ext(fileName) == gzFileExt {
-		fileName = strings.TrimSuffix(fileName, gzFileExt)
-	}
-
-	if fileName == "" {
-		fileName = timeRequested + "_" + datum.GetMetadata().GetId()
-	} else if filepath.Dir(fileName) == "." {
-		// If the file name does not contain a directory, prepend if with a requested time so that it is sorted.
-		// Otherwise, keep the file name as-is to maintain the directory structure that the user uploaded the file with.
-		fileName = timeRequested + "_" + strings.TrimSuffix(datum.GetMetadata().GetFileName(), datum.GetMetadata().GetFileExt())
-	}
+	fileName := filenameForDownload(datum.GetMetadata())
+	// Modify the file name in the metadata to reflect what it will be saved as.
+	metadata := datum.GetMetadata()
+	metadata.FileName = fileName
 
 	jsonPath := filepath.Join(dst, metadataDir, fileName+".json")
 	if err := os.MkdirAll(filepath.Dir(jsonPath), 0o700); err != nil {
@@ -369,6 +342,10 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	}
 	//nolint:gosec
 	jsonFile, err := os.Create(jsonPath)
+	if err != nil {
+		return err
+	}
+	mdJSONBytes, err := protojson.Marshal(metadata)
 	if err != nil {
 		return err
 	}
@@ -411,6 +388,32 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 		return err
 	}
 	return nil
+}
+
+// transform datum's filename to a destination path on this computer.
+func filenameForDownload(meta *datapb.BinaryMetadata) string {
+	timeRequested := meta.GetTimeRequested().AsTime().Format(time.RFC3339Nano)
+	fileName := meta.GetFileName()
+
+	// If there is no file name, this is a data capture file.
+	if fileName == "" {
+		fileName = timeRequested + "_" + meta.GetId() + meta.GetFileExt()
+	} else if filepath.Dir(fileName) == "." {
+		// If the file name does not contain a directory, prepend if with a requested time so that it is sorted.
+		// Otherwise, keep the file name as-is to maintain the directory structure that the user uploaded the file with.
+		fileName = timeRequested + "_" + fileName
+	}
+
+	// The file name will end with .gz if the user uploaded a gzipped file. We will unzip it below, so remove the last
+	// .gz from the file name. If the user has gzipped the file multiple times, we will only unzip once.
+	if filepath.Ext(fileName) == gzFileExt {
+		fileName = strings.TrimSuffix(fileName, gzFileExt)
+	}
+
+	// Replace reserved characters.
+	fileName = datacapture.FilePathWithReplacedReservedChars(fileName)
+
+	return fileName
 }
 
 // tabularData downloads binary data matching filter to dst.
@@ -625,5 +628,59 @@ func (c *viamClient) dataRemoveFromDataset(datasetID, orgID, locationID string, 
 		return errors.Wrapf(err, "received error from server")
 	}
 	printf(c.c.App.Writer, "Removed data from dataset ID %s", datasetID)
+	return nil
+}
+
+// DataConfigureDatabaseUser is the corresponding action for 'data database configure'.
+func DataConfigureDatabaseUser(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.dataConfigureDatabaseUser(c.String(dataFlagOrgID), c.String(dataFlagDatabasePassword)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// dataConfigureDatabaseUser accepts a Viam organization ID and a password for the database user
+// being configured. Viam uses gRPC over TLS, so the entire request will be encrypted while in
+// flight, including the password.
+func (c *viamClient) dataConfigureDatabaseUser(orgID, password string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	_, err := c.dataClient.ConfigureDatabaseUser(context.Background(),
+		&datapb.ConfigureDatabaseUserRequest{OrganizationId: orgID, Password: password})
+	if err != nil {
+		return errors.Wrapf(err, "received error from server")
+	}
+	printf(c.c.App.Writer, "Configured database user for org %s", orgID)
+	return nil
+}
+
+// DataGetDatabaseConnection is the corresponding action for 'data database hostname'.
+func DataGetDatabaseConnection(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.dataGetDatabaseConnection(c.String(dataFlagOrgID)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// dataGetDatabaseConnection gets the hostname of the MongoDB Atlas Data Federation instance
+// for the given organization ID.
+func (c *viamClient) dataGetDatabaseConnection(orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	res, err := c.dataClient.GetDatabaseConnection(context.Background(), &datapb.GetDatabaseConnectionRequest{OrganizationId: orgID})
+	if err != nil {
+		return errors.Wrapf(err, "received error from server")
+	}
+	printf(c.c.App.Writer, "MongoDB Atlas Data Federation instance hostname: %s", res.GetHostname())
 	return nil
 }

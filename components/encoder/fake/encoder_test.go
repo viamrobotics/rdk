@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -18,7 +18,7 @@ func TestEncoder(t *testing.T) {
 		UpdateRate: 100,
 	}
 	cfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	e, _ := NewEncoder(ctx, cfg, logger)
 
 	// Get and set position

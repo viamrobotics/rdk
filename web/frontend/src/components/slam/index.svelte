@@ -5,6 +5,7 @@
   import { onMount, onDestroy } from 'svelte';
 
   import { SlamClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
+  import { SlamMap2D } from '@viamrobotics/prime-blocks';
   import { copyToClipboard } from '@/lib/copy-to-clipboard';
   import { filterSubtype } from '@/lib/resource';
   import { moveOnMap, stopMoveOnMap } from '@/api/motion';
@@ -13,7 +14,7 @@
   import { components } from '@/stores/resources';
   import Collapse from '@/lib/components/collapse.svelte';
   import PCD from '@/components/pcd/pcd-view.svelte';
-  import Slam2D from './2d/index.svelte';
+  import Dropzone from '@/lib/components/dropzone.svelte';
   import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
   import type { SLAMOverrides } from '@/types/overrides';
   import { rcLogConditionally } from '@/lib/log';
@@ -34,7 +35,7 @@
 
   let refreshErrorMessage2d: string | undefined;
   let refreshErrorMessage3d: string | undefined;
-  let refresh2dRate = 'manual';
+  let refresh2dRate = '5';
   let refresh3dRate = 'manual';
   let pointcloud: Uint8Array | undefined;
   let pose: Pose | undefined;
@@ -51,8 +52,10 @@
   let durationInterval: number | undefined;
   let newMapName = '';
   let mapNameError = '';
+  let motionPath: string | undefined;
+  let mappingSessionStarted = false;
 
-  $: loaded2d = pointcloud !== undefined && pose !== undefined;
+  $: pointcloudLoaded = Boolean(pointcloud?.length) && pose !== undefined;
   $: moveClicked = $operations.find(({ op }) =>
     op.method.includes('MoveOnMap'));
   $: unitScale = labelUnits === 'm' ? 1 : 1000;
@@ -68,7 +71,7 @@
   };
 
   const startDurationTimer = (start: number) => {
-    durationInterval = setInterval(() => {
+    durationInterval = window.setInterval(() => {
       sessionDuration = Date.now() - start;
     }, 400);
   };
@@ -83,7 +86,7 @@
   const refresh2d = async () => {
     try {
       let nextPose;
-      if (overrides?.isCloudSlam && overrides?.getMappingSessionPCD) {
+      if (overrides?.isCloudSlam && overrides.getMappingSessionPCD) {
         const { map, pose: poseData } = await overrides.getMappingSessionPCD(
           sessionId
         );
@@ -108,6 +111,7 @@
           ]);
           nextPose = response.pose;
         }
+
         if (mapTimestamp) {
           lastTimestamp = mapTimestamp;
         }
@@ -123,17 +127,18 @@
         nextPose.z /= 1000;
       }
       pose = nextPose;
+      refreshErrorMessage2d = undefined;
     } catch (error) {
       refreshErrorMessage2d =
         error !== null && typeof error === 'object' && 'message' in error
-          ? `${refreshErrorMessage} ${error.message}`
-          : `${refreshErrorMessage} ${error}`;
+          ? `${refreshErrorMessage} ${(error as { message: string }).message}`
+          : `${refreshErrorMessage} ${error as string}`;
     }
   };
 
   const refresh3d = async () => {
     try {
-      if (overrides?.isCloudSlam && overrides?.getMappingSessionPCD) {
+      if (overrides?.isCloudSlam && overrides.getMappingSessionPCD) {
         const { map } = await overrides.getMappingSessionPCD(sessionId);
         pointcloud = map;
       } else {
@@ -147,15 +152,17 @@
         if (!localizationMode(mapTimestamp)) {
           pointcloud = await slamClient.getPointCloudMap();
         }
+
         if (mapTimestamp) {
           lastTimestamp = mapTimestamp;
         }
       }
+      refreshErrorMessage3d = undefined;
     } catch (error) {
       refreshErrorMessage3d =
         error !== null && typeof error === 'object' && 'message' in error
-          ? `${refreshErrorMessage} ${error.message}`
-          : `${refreshErrorMessage} ${error}`;
+          ? `${refreshErrorMessage} ${(error as { message: string }).message}`
+          : `${refreshErrorMessage} ${error as string }`;
     }
   };
 
@@ -215,20 +222,28 @@
     updateSLAM3dRefreshFrequency();
   };
 
-  const handle2dRenderClick = (event: CustomEvent) => {
-    destination = event.detail;
+  const handle2dRenderClick = (event: CustomEvent<THREE.Vector3>) => {
+    if (!overrides?.isCloudSlam) {
+      destination = new THREE.Vector2(event.detail.x, event.detail.y);
+    }
   };
 
   const handleUpdateDestX = (event: CustomEvent<{ value: string }>) => {
-    destination ??= new THREE.Vector2();
-    destination.x =
-      Number.parseFloat(event.detail.value) * (labelUnits === 'mm' ? 0.001 : 1);
+    if (!overrides?.isCloudSlam) {
+      destination ??= new THREE.Vector2();
+      destination.x =
+        Number.parseFloat(event.detail.value) *
+        (labelUnits === 'mm' ? 0.001 : 1);
+    }
   };
 
   const handleUpdateDestY = (event: CustomEvent<{ value: string }>) => {
-    destination ??= new THREE.Vector2();
-    destination.y =
-      Number.parseFloat(event.detail.value) * (labelUnits === 'mm' ? 0.001 : 1);
+    if (!overrides?.isCloudSlam) {
+      destination ??= new THREE.Vector2();
+      destination.y =
+        Number.parseFloat(event.detail.value) *
+        (labelUnits === 'mm' ? 0.001 : 1);
+    }
   };
 
   const baseCopyPosition = () => {
@@ -298,7 +313,7 @@
         hasActiveSession = true;
         sessionId = activeSession.id;
         const startMilliseconds =
-          (activeSession.timeCloudRunJobStarted?.seconds || 0) * 1000;
+          (activeSession.timeCloudRunJobStarted?.seconds ?? 0) * 1000;
         startMappingIntervals(startMilliseconds);
       }
     }
@@ -312,7 +327,7 @@
       }
 
       // error may not be present if user has not yet typed in input
-      const mapName = overrides.mappingDetails.name || newMapName;
+      const mapName = overrides.mappingDetails.name ?? newMapName;
       if (!mapName) {
         mapNameError = 'Please enter a name for this map';
         return;
@@ -321,6 +336,7 @@
       try {
         hasActiveSession = true;
         sessionId = await overrides.startMappingSession(mapName);
+        mappingSessionStarted = true;
         startMappingIntervals(Date.now());
       } catch {
         hasActiveSession = false;
@@ -343,8 +359,9 @@
     overrides?.endMappingSession(sessionId);
   };
 
-  const formatDisplayTime = (time: number) =>
-    `${time < 10 ? `0${time}` : time}`;
+  const formatDisplayTime = (time: number): string => {
+    return time < 10 ? `0${time}` : `${time}`;
+  }
 
   const formatDuration = (milliseconds: number) => {
     let seconds = Math.floor(milliseconds / 1000);
@@ -367,9 +384,13 @@
     clearInterval(durationInterval);
   });
 
-  const handleMapNameChange = (event: CustomEvent) => {
+  const handleMapNameChange = (event: CustomEvent<{ value: string }>) => {
     newMapName = event.detail.value;
-    mapNameError = overrides?.validateMapName(newMapName) || '';
+    mapNameError = overrides?.validateMapName(newMapName) ?? '';
+  };
+
+  const handleDrop = (event: CustomEvent<string>) => {
+    motionPath = event.detail;
   };
 </script>
 
@@ -389,7 +410,7 @@
   >
     <div class="flex min-w-fit flex-col gap-4 p-4 pr-0">
       <div class="pb-4 flex flex-col gap-6">
-        {#if overrides?.isCloudSlam && overrides?.mappingDetails}
+        {#if overrides?.isCloudSlam && overrides.mappingDetails}
           <header class="flex flex-col text-xs justify-between gap-3">
             <div class="flex flex-col">
               <span class="font-bold text-gray-800">Mapping mode</span>
@@ -531,7 +552,9 @@
               <option value="30"> Every 30 seconds </option>
               <option value="10"> Every 10 seconds </option>
               <option value="5"> Every 5 seconds </option>
-              <option value="1"> Every second </option>
+              {#if !overrides?.isCloudSlam}
+                <option value="1"> Every second </option>
+              {/if}
             </select>
             <v-icon
               name="chevron-down"
@@ -560,72 +583,105 @@
         </div>
       {/if}
 
-      {#if loaded2d && show2d}
-        <div>
-          <div class="flex flex-row pl-5 py-2 border-b border-b-light">
-            <div class="flex flex-col gap-0.5">
-              <div class="flex gap-2">
-                <p class="text-xs">Current position</p>
-                <button
-                  class="text-xs hover:underline"
-                  on:click={() =>
-                    (labelUnits = labelUnits === 'mm' ? 'm' : 'mm')}
-                >
-                  ({labelUnits})
-                </button>
+      {#if show2d}
+        {#if pointcloudLoaded}
+          <div>
+            <div class="flex flex-row pl-5 py-2 border-b border-b-light">
+              <div class="flex flex-col gap-0.5">
+                <div class="flex gap-2">
+                  <p class="text-xs">Current position</p>
+                  <button
+                    class="text-xs hover:underline"
+                    on:click={() =>
+                      (labelUnits = labelUnits === 'mm' ? 'm' : 'mm')}
+                  >
+                    ({labelUnits})
+                  </button>
+                </div>
+
+                {#if pose}
+                  <div class="flex flex-row items-center">
+                    <p class="items-end pr-1.5 text-xs text-gray-500">x</p>
+                    <p>{(pose.x * unitScale).toFixed(1)}</p>
+
+                    <p class="pl-6 pr-1.5 text-xs text-gray-500">y</p>
+                    <p>{(pose.y * unitScale).toFixed(1)}</p>
+
+                    <p class="pl-6 pr-1.5 text-xs text-gray-500">z</p>
+                    <p>{(pose.z * unitScale).toFixed(1)}</p>
+                  </div>
+                {/if}
+              </div>
+              <div class="flex flex-col gap-0.5 pl-10">
+                <p class="text-xs">Current orientation</p>
+
+                {#if pose}
+                  <div class="flex flex-row items-center">
+                    <p class="pr-1.5 text-xs text-gray-500">o<sub>x</sub></p>
+                    <p>{pose.oX.toFixed(1)}</p>
+
+                    <p class="pl-6 pr-1.5 text-xs text-gray-500">
+                      o<sub>y</sub>
+                    </p>
+                    <p>{pose.oY.toFixed(1)}</p>
+
+                    <p class="pl-6 pr-1.5 text-xs text-gray-500">
+                      o<sub>z</sub>
+                    </p>
+                    <p>{pose.oZ.toFixed(1)}</p>
+
+                    <p class="pl-6 pr-1.5 text-xs text-gray-500">&theta;</p>
+                    <p>{pose.theta.toFixed(1)}</p>
+                  </div>
+                {/if}
               </div>
 
-              {#if pose}
-                <div class="flex flex-row items-center">
-                  <p class="items-end pr-1.5 text-xs text-gray-500">x</p>
-                  <p>{(pose.x * unitScale).toFixed(1)}</p>
-
-                  <p class="pl-6 pr-1.5 text-xs text-gray-500">y</p>
-                  <p>{(pose.y * unitScale).toFixed(1)}</p>
-
-                  <p class="pl-6 pr-1.5 text-xs text-gray-500">z</p>
-                  <p>{(pose.z * unitScale).toFixed(1)}</p>
-                </div>
-              {/if}
-            </div>
-            <div class="flex flex-col gap-0.5 pl-10">
-              <p class="text-xs">Current orientation</p>
-
-              {#if pose}
-                <div class="flex flex-row items-center">
-                  <p class="pr-1.5 text-xs text-gray-500">o<sub>x</sub></p>
-                  <p>{pose.oX.toFixed(1)}</p>
-
-                  <p class="pl-6 pr-1.5 text-xs text-gray-500">o<sub>y</sub></p>
-                  <p>{pose.oY.toFixed(1)}</p>
-
-                  <p class="pl-6 pr-1.5 text-xs text-gray-500">o<sub>z</sub></p>
-                  <p>{pose.oZ.toFixed(1)}</p>
-
-                  <p class="pl-6 pr-1.5 text-xs text-gray-500">&theta;</p>
-                  <p>{pose.theta.toFixed(1)}</p>
-                </div>
-              {/if}
+              <v-button
+                tooltip="Copy pose to clipboard"
+                class="pl-4 pt-2"
+                variant="icon"
+                icon="content-copy"
+                on:click={baseCopyPosition}
+                on:keydown={baseCopyPosition}
+              />
             </div>
 
-            <v-button
-              tooltip="Copy pose to clipboard"
-              class="pl-4 pt-2"
-              variant="icon"
-              icon="content-copy"
-              on:click={baseCopyPosition}
-              on:keydown={baseCopyPosition}
-            />
+            <Dropzone on:drop={handleDrop}>
+              <div class="relative w-full h-[400px]">
+                <SlamMap2D
+                  {pointcloud}
+                  {destination}
+                  {motionPath}
+                  basePose={pose
+                    ? {
+                      x: pose.x,
+                      y: pose.y,
+                      theta: pose.theta,
+                    }
+                    : undefined}
+                  helpers={showAxes}
+                  on:click={handle2dRenderClick}
+                />
+              </div>
+            </Dropzone>
           </div>
-
-          <Slam2D
-            {pointcloud}
-            {pose}
-            {destination}
-            helpers={showAxes}
-            on:click={handle2dRenderClick}
-          />
-        </div>
+        {:else if overrides?.isCloudSlam && sessionId}
+          <div
+            class="flex flex-col h-full w-full items-center justify-center gap-4"
+          >
+            <div class="animate-[spin_3s_linear_infinite]">
+              <v-icon name="cog" size="4xl" />
+            </div>
+            <div class="flex flex-col items-center text-xs">
+              {#if mappingSessionStarted}
+                <span>Starting slam session in the cloud.</span>
+                <span>This typically takes about 2 minutes.</span>
+              {:else}
+                <span>Loading point cloud...</span>
+              {/if}
+            </div>
+          </div>
+        {/if}
       {/if}
     </div>
   </div>
@@ -642,7 +698,7 @@
       </div>
     {/if}
 
-    {#if show3d}
+    {#if pointcloudLoaded && show3d}
       <div class="flex items-end gap-2">
         <div class="w-56 mt-3">
           <p class="mb-1 text-xs text-gray-500">Refresh frequency</p>

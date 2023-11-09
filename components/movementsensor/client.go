@@ -3,13 +3,14 @@ package movementsensor
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/movementsensor/v1"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -22,7 +23,7 @@ type client struct {
 	resource.TriviallyCloseable
 	name   string
 	client pb.MovementSensorServiceClient
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -31,7 +32,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (MovementSensor, error) {
 	c := pb.NewMovementSensorServiceClient(conn)
 	return &client{
@@ -104,21 +105,6 @@ func (c *client) LinearAcceleration(ctx context.Context, extra map[string]interf
 	return protoutils.ConvertVectorProtoToR3(resp.LinearAcceleration), nil
 }
 
-func (c *client) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-	ext, err := structpb.NewStruct(extra)
-	if err != nil {
-		return spatialmath.NewZeroOrientation(), err
-	}
-	resp, err := c.client.GetOrientation(ctx, &pb.GetOrientationRequest{
-		Name:  c.name,
-		Extra: ext,
-	})
-	if err != nil {
-		return spatialmath.NewZeroOrientation(), err
-	}
-	return protoutils.ConvertProtoToOrientation(resp.Orientation), nil
-}
-
 func (c *client) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
@@ -134,8 +120,35 @@ func (c *client) CompassHeading(ctx context.Context, extra map[string]interface{
 	return resp.Value, nil
 }
 
+func (c *client) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+	ext, err := structpb.NewStruct(extra)
+	if err != nil {
+		return spatialmath.NewZeroOrientation(), err
+	}
+	resp, err := c.client.GetOrientation(ctx, &pb.GetOrientationRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return spatialmath.NewZeroOrientation(), err
+	}
+	return protoutils.ConvertProtoToOrientation(resp.Orientation), nil
+}
+
 func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	return Readings(ctx, c, extra)
+	ext, err := structpb.NewStruct(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetReadings(ctx, &commonpb.GetReadingsRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return protoutils.ReadingProtoToGo(resp.Readings)
 }
 
 func (c *client) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {

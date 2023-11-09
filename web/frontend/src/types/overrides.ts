@@ -18,14 +18,14 @@ export interface MappingMetadata {
   config: string;
 }
 
-type MappingDetails = {
+interface MappingDetails {
   mode: 'localize' | 'create' | 'update';
   name?: string;
   version?: string;
-};
+}
 
 export interface SLAMOverrides {
-  getMappingSessionPCD: (
+  getMappingSessionPCD?: (
     sessionId: string
   ) => Promise<{ map: Uint8Array; pose: Pose }>;
   startMappingSession: (mapName: string) => Promise<string>;

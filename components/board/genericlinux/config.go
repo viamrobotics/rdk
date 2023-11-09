@@ -12,7 +12,7 @@ import (
 type Config struct {
 	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
 	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
-	Analogs           []board.AnalogConfig           `json:"analogs,omitempty"`
+	AnalogReaders     []board.MCP3008AnalogConfig    `json:"analogs,omitempty"`
 	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
 	Attributes        utils.AttributeMap             `json:"attributes,omitempty"`
 }
@@ -29,7 +29,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 			return nil, err
 		}
 	}
-	for idx, c := range conf.Analogs {
+	for idx, c := range conf.AnalogReaders {
 		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
 			return nil, err
 		}
@@ -52,7 +52,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 type LinuxBoardConfig struct {
 	I2Cs              []board.I2CConfig
 	SPIs              []board.SPIConfig
-	Analogs           []board.AnalogConfig
+	AnalogReaders     []board.MCP3008AnalogConfig
 	DigitalInterrupts []board.DigitalInterruptConfig
 	GpioMappings      map[string]GPIOBoardMapping
 }
@@ -77,7 +77,7 @@ func ConstPinDefs(gpioMappings map[string]GPIOBoardMapping) ConfigConverter {
 		return &LinuxBoardConfig{
 			I2Cs:              newConf.I2Cs,
 			SPIs:              newConf.SPIs,
-			Analogs:           newConf.Analogs,
+			AnalogReaders:     newConf.AnalogReaders,
 			DigitalInterrupts: newConf.DigitalInterrupts,
 			GpioMappings:      gpioMappings,
 		}, nil

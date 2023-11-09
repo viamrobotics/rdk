@@ -11,15 +11,16 @@ import (
 	"time"
 
 	clk "github.com/benbjohnson/clock"
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
@@ -62,19 +63,24 @@ const defaultCaptureQueueSize = 250
 // Default bufio.Writer buffer size in bytes.
 const defaultCaptureBufferSize = 4096
 
+// Default time to wait in milliseconds to check if a file has been modified.
+const defaultFileLastModifiedMillis = 10000.0
+
 var clock = clk.New()
 
 var errCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
 
 // Config describes how to configure the service.
 type Config struct {
-	CaptureDir            string                           `json:"capture_dir"`
-	AdditionalSyncPaths   []string                         `json:"additional_sync_paths"`
-	SyncIntervalMins      float64                          `json:"sync_interval_mins"`
-	CaptureDisabled       bool                             `json:"capture_disabled"`
-	ScheduledSyncDisabled bool                             `json:"sync_disabled"`
-	Tags                  []string                         `json:"tags"`
-	ResourceConfigs       []*datamanager.DataCaptureConfig `json:"resource_configs"`
+	CaptureDir             string                           `json:"capture_dir"`
+	AdditionalSyncPaths    []string                         `json:"additional_sync_paths"`
+	SyncIntervalMins       float64                          `json:"sync_interval_mins"`
+	CaptureDisabled        bool                             `json:"capture_disabled"`
+	ScheduledSyncDisabled  bool                             `json:"sync_disabled"`
+	Tags                   []string                         `json:"tags"`
+	ResourceConfigs        []*datamanager.DataCaptureConfig `json:"resource_configs"`
+	FileLastModifiedMillis int                              `json:"file_last_modified_millis"`
+	SelectiveSyncerName    string                           `json:"selective_syncer_name"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
@@ -82,16 +88,43 @@ func (c *Config) Validate(path string) ([]string, error) {
 	return []string{cloud.InternalServiceName.String()}, nil
 }
 
+type selectiveSyncer interface {
+	sensor.Sensor
+}
+
+// readyToSync is a method for getting the bool reading from the selective sync sensor
+// for determining whether the key is present and what its value is.
+func readyToSync(ctx context.Context, s selectiveSyncer, logger logging.Logger) (readyToSync bool) {
+	readyToSync = false
+	readings, err := s.Readings(ctx, nil)
+	if err != nil {
+		logger.Errorw("error getting readings from selective syncer", "error", err.Error())
+		return
+	}
+	readyToSyncVal, ok := readings[datamanager.ShouldSyncKey]
+	if !ok {
+		logger.Errorf("value for should sync key %s not present in readings", datamanager.ShouldSyncKey)
+		return
+	}
+	readyToSyncBool, err := utils.AssertType[bool](readyToSyncVal)
+	if err != nil {
+		logger.Errorw("error converting should sync key to bool", "key", datamanager.ShouldSyncKey, "error", err.Error())
+		return
+	}
+	readyToSync = readyToSyncBool
+	return
+}
+
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
 type builtIn struct {
 	resource.Named
-	logger                      golog.Logger
-	captureDir                  string
-	captureDisabled             bool
-	collectors                  map[resourceMethodMetadata]*collectorAndConfig
-	lock                        sync.Mutex
-	backgroundWorkers           sync.WaitGroup
-	waitAfterLastModifiedMillis int
+	logger                 logging.Logger
+	captureDir             string
+	captureDisabled        bool
+	collectors             map[resourceMethodMetadata]*collectorAndConfig
+	lock                   sync.Mutex
+	backgroundWorkers      sync.WaitGroup
+	fileLastModifiedMillis int
 
 	additionalSyncPaths []string
 	tags                []string
@@ -103,6 +136,9 @@ type builtIn struct {
 	cloudConnSvc        cloud.ConnectionService
 	cloudConn           rpc.ClientConn
 	syncTicker          *clk.Ticker
+
+	syncSensor           selectiveSyncer
+	selectiveSyncEnabled bool
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -112,18 +148,19 @@ func NewBuiltIn(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (datamanager.Service, error) {
 	svc := &builtIn{
-		Named:                       conf.ResourceName().AsNamed(),
-		logger:                      logger,
-		captureDir:                  viamCaptureDotDir,
-		collectors:                  make(map[resourceMethodMetadata]*collectorAndConfig),
-		syncIntervalMins:            0,
-		additionalSyncPaths:         []string{},
-		tags:                        []string{},
-		waitAfterLastModifiedMillis: 10000,
-		syncerConstructor:           datasync.NewManager,
+		Named:                  conf.ResourceName().AsNamed(),
+		logger:                 logger,
+		captureDir:             viamCaptureDotDir,
+		collectors:             make(map[resourceMethodMetadata]*collectorAndConfig),
+		syncIntervalMins:       0,
+		additionalSyncPaths:    []string{},
+		tags:                   []string{},
+		fileLastModifiedMillis: defaultFileLastModifiedMillis,
+		syncerConstructor:      datasync.NewManager,
+		selectiveSyncEnabled:   false,
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
@@ -262,8 +299,9 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	}
 
 	// Create a collector for this resource and method.
-	targetDir := filepath.Join(svc.captureDir, captureMetadata.GetComponentType(), captureMetadata.GetComponentName(),
-		captureMetadata.GetMethodName())
+	targetDir := datacapture.FilePathWithReplacedReservedChars(
+		filepath.Join(svc.captureDir, captureMetadata.GetComponentType(),
+			captureMetadata.GetComponentName(), captureMetadata.GetMethodName()))
 	if err := os.MkdirAll(targetDir, 0o700); err != nil {
 		return nil, err
 	}
@@ -314,7 +352,7 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 
 	client := v1.NewDataSyncServiceClient(conn)
 
-	syncer, err := svc.syncerConstructor(identity, client, svc.logger)
+	syncer, err := svc.syncerConstructor(identity, client, svc.logger, svc.captureDir)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
 	}
@@ -327,6 +365,8 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 //       If so, how could a user cancel it?
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
+// If automated sync is also enabled, calling Sync will upload the files,
+// regardless of whether or not is the scheduled time.
 func (svc *builtIn) Sync(ctx context.Context, _ map[string]interface{}) error {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
@@ -424,11 +464,31 @@ func (svc *builtIn) Reconfigure(
 	svc.collectors = newCollectors
 	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 
+	fileLastModifiedMillis := svcConfig.FileLastModifiedMillis
+	if fileLastModifiedMillis <= 0 {
+		fileLastModifiedMillis = defaultFileLastModifiedMillis
+	}
+
+	var syncSensor sensor.Sensor
+	if svcConfig.SelectiveSyncerName != "" {
+		svc.selectiveSyncEnabled = true
+		syncSensor, err = sensor.FromDependencies(deps, svcConfig.SelectiveSyncerName)
+		if err != nil {
+			svc.logger.Errorw("unable to initialize selective syncer; will not sync at all until fixed or removed from config", "error", err.Error())
+		}
+	} else {
+		svc.selectiveSyncEnabled = false
+	}
+	if svc.syncSensor != syncSensor {
+		svc.syncSensor = syncSensor
+	}
+
 	if svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins ||
-		!reflect.DeepEqual(svc.tags, svcConfig.Tags) {
+		!reflect.DeepEqual(svc.tags, svcConfig.Tags) || svc.fileLastModifiedMillis != fileLastModifiedMillis {
 		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 		svc.tags = svcConfig.Tags
+		svc.fileLastModifiedMillis = fileLastModifiedMillis
 
 		svc.cancelSyncScheduler()
 		if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
@@ -498,7 +558,16 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			case <-svc.syncTicker.C:
 				svc.lock.Lock()
 				if svc.syncer != nil {
-					svc.sync()
+					// If selective sync is disabled, sync. If it is enabled, check the condition below.
+					shouldSync := !svc.selectiveSyncEnabled
+					// If selective sync is enabled and the sensor has been properly initialized,
+					// try to get the reading from the selective sensor that indicates whether to sync
+					if svc.syncSensor != nil && svc.selectiveSyncEnabled {
+						shouldSync = readyToSync(cancelCtx, svc.syncSensor, svc.logger)
+					}
+					if shouldSync {
+						svc.sync()
+					}
 				}
 				svc.lock.Unlock()
 			}
@@ -508,9 +577,10 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 
 func (svc *builtIn) sync() {
 	svc.flushCollectors()
-	toSync := getAllFilesToSync(svc.captureDir, svc.waitAfterLastModifiedMillis)
+
+	toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
 	for _, ap := range svc.additionalSyncPaths {
-		toSync = append(toSync, getAllFilesToSync(ap, svc.waitAfterLastModifiedMillis)...)
+		toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
 	}
 	for _, p := range toSync {
 		svc.syncer.SyncFile(p)
@@ -524,10 +594,14 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 		if err != nil {
 			return nil
 		}
+		// Do not sync the files in the corrupted data directory.
+		if info.IsDir() && info.Name() == datasync.FailedDir {
+			return filepath.SkipDir
+		}
 		if info.IsDir() {
 			return nil
 		}
-		// If a file was modified within the past lastModifiedMillis seconds, do not sync it (data
+		// If a file was modified within the past lastModifiedMillis, do not sync it (data
 		// may still be being written).
 		timeSinceMod := clock.Since(info.ModTime())
 		// When using a mock clock in tests, this can be negative since the file system will still use the system clock.
@@ -535,7 +609,12 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 		if timeSinceMod < 0 {
 			timeSinceMod = 0
 		}
-		if timeSinceMod >= (time.Duration(lastModifiedMillis)*time.Millisecond) || filepath.Ext(path) == datacapture.FileExt {
+		isStuckInProgressCaptureFile := filepath.Ext(path) == datacapture.InProgressFileExt &&
+			timeSinceMod >= defaultFileLastModifiedMillis*time.Millisecond
+		isNonCaptureFileThatIsNotBeingWrittenTo := filepath.Ext(path) != datacapture.InProgressFileExt &&
+			timeSinceMod >= time.Duration(lastModifiedMillis)*time.Millisecond
+		isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
+		if isCompletedCaptureFile || isStuckInProgressCaptureFile || isNonCaptureFileThatIsNotBeingWrittenTo {
 			filePaths = append(filePaths, path)
 		}
 		return nil

@@ -7,7 +7,6 @@ import (
 	"math"
 	"math/rand"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -15,6 +14,7 @@ import (
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/optimize"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -29,7 +29,7 @@ type ExtrinsicCalibrationConfig struct {
 // RunPinholeExtrinsicCalibration will solve the optimization problem to find the rigid pose
 // (translation and rotation) that changes the reference frame from the
 // point of view of the depth camera to the point of the view of the color camera.
-func RunPinholeExtrinsicCalibration(prob *optimize.Problem, logger golog.Logger) (spatialmath.Pose, error) {
+func RunPinholeExtrinsicCalibration(prob *optimize.Problem, logger logging.Logger) (spatialmath.Pose, error) {
 	// optimization method
 	method := &optimize.GradientDescent{
 		StepSizer:         &optimize.FirstOrderStepSize{},

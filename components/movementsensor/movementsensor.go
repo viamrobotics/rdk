@@ -62,7 +62,8 @@ func Named(name string) resource.Name {
 
 // A MovementSensor reports information about the robot's direction, position and speed.
 type MovementSensor interface {
-	sensor.Sensor
+	resource.Sensor
+	resource.Resource
 	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)                // (lat, long), altitude (m)
 	LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)                    // m / sec
 	AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) // deg / sec
@@ -89,8 +90,8 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
 }
 
-// Readings is a helper for getting all readings from a MovementSensor.
-func Readings(ctx context.Context, g MovementSensor, extra map[string]interface{}) (map[string]interface{}, error) {
+// DefaultAPIReadings is a helper for getting all readings from a MovementSensor.
+func DefaultAPIReadings(ctx context.Context, g MovementSensor, extra map[string]interface{}) (map[string]interface{}, error) {
 	readings := map[string]interface{}{}
 
 	pos, altitude, err := g.Position(ctx, extra)

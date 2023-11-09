@@ -3,16 +3,19 @@ package mynavigation
 
 import (
 	"context"
+	"errors"
 	"sync"
 
-	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/spatialmath"
 )
+
+var errUnimplemented = errors.New("unimplemented")
 
 // Model is the full model definition.
 var Model = resource.NewModel("acme", "demo", "mynavigation")
@@ -34,7 +37,9 @@ type Config struct {
 	resource.TriviallyValidateConfig
 }
 
-func newNav(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (navigation.Service, error) {
+func newNav(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (navigation.Service, error) {
 	// This takes the generic resource.Config passed down from the parent and converts it to the
 	// model-specific (aka "native") Config structure defined above making it easier to directly access attributes.
 	navConfig, err := resource.NativeConfig[*Config](conf)
@@ -70,7 +75,7 @@ type navSvc struct {
 	resource.TriviallyCloseable
 
 	loc    *geo.Point
-	logger golog.Logger
+	logger logging.Logger
 
 	waypointsMu sync.RWMutex
 	waypoints   []navigation.Waypoint
@@ -120,6 +125,10 @@ func (svc *navSvc) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, ex
 	return nil
 }
 
-func (svc *navSvc) GetObstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
-	return []*spatialmath.GeoObstacle{}, nil
+func (svc *navSvc) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+	return []*spatialmath.GeoObstacle{}, errUnimplemented
+}
+
+func (svc *navSvc) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+	return []*navigation.Path{}, errUnimplemented
 }

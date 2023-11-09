@@ -11,12 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -40,11 +39,11 @@ type motionPlanner interface {
 	sample(node, int) (node, error)
 }
 
-type plannerConstructor func(frame.Frame, *rand.Rand, golog.Logger, *plannerOptions) (motionPlanner, error)
+type plannerConstructor func(frame.Frame, *rand.Rand, logging.Logger, *plannerOptions) (motionPlanner, error)
 
 // PlanRequest is a struct to store all the data necessary to make a call to PlanMotion.
 type PlanRequest struct {
-	Logger             golog.Logger
+	Logger             logging.Logger
 	Goal               *frame.PoseInFrame
 	Frame              frame.Frame
 	FrameSystem        frame.FrameSystem
@@ -54,10 +53,91 @@ type PlanRequest struct {
 	Options            map[string]interface{}
 }
 
+// validatePlanRequest ensures PlanRequests are not malformed.
+func (req *PlanRequest) validatePlanRequest() error {
+	if req == nil {
+		return errors.New("PlanRequest cannot be nil")
+	}
+	if req.Logger == nil {
+		return errors.New("PlanRequest cannot have nil logger")
+	}
+	if req.Frame == nil {
+		return errors.New("PlanRequest cannot have nil frame")
+	}
+
+	if req.FrameSystem == nil {
+		return errors.New("PlanRequest cannot have nil framesystem")
+	} else if req.FrameSystem.Frame(req.Frame.Name()) == nil {
+		return frame.NewFrameMissingError(req.Frame.Name())
+	}
+
+	if req.Goal == nil {
+		return errors.New("PlanRequest cannot have nil goal")
+	}
+
+	goalParentFrame := req.Goal.Parent()
+	if req.FrameSystem.Frame(goalParentFrame) == nil {
+		return frame.NewParentFrameMissingError(req.Goal.Name(), goalParentFrame)
+	}
+
+	frameDOF := len(req.Frame.DoF())
+	seedMap, ok := req.StartConfiguration[req.Frame.Name()]
+	if frameDOF > 0 {
+		if !ok {
+			return errors.Errorf("%s does not have a start configuration", req.Frame.Name())
+		}
+		if frameDOF != len(seedMap) {
+			return frame.NewIncorrectInputLengthError(len(seedMap), len(req.Frame.DoF()))
+		}
+	} else if ok && frameDOF != len(seedMap) {
+		return frame.NewIncorrectInputLengthError(len(seedMap), len(req.Frame.DoF()))
+	}
+
+	return nil
+}
+
 // PlanMotion plans a motion from a provided plan request.
 func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
-	if request.Goal == nil {
-		return nil, errors.New("no destination passed to Motion")
+	// Calls Replan but without a seed plan
+	return Replan(ctx, request, nil, 0)
+}
+
+// PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
+// WorldState is not supported in the absence of a real frame system.
+func PlanFrameMotion(ctx context.Context,
+	logger logging.Logger,
+	dst spatialmath.Pose,
+	f frame.Frame,
+	seed []frame.Input,
+	constraintSpec *pb.Constraints,
+	planningOpts map[string]interface{},
+) ([][]frame.Input, error) {
+	// ephemerally create a framesystem containing just the frame for the solve
+	fs := frame.NewEmptyFrameSystem("")
+	if err := fs.AddFrame(f, fs.World()); err != nil {
+		return nil, err
+	}
+	plan, err := PlanMotion(ctx, &PlanRequest{
+		Logger:             logger,
+		Goal:               frame.NewPoseInFrame(frame.World, dst),
+		Frame:              f,
+		StartConfiguration: map[string][]frame.Input{f.Name(): seed},
+		FrameSystem:        fs,
+		ConstraintSpecs:    constraintSpec,
+		Options:            planningOpts,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return plan.GetFrameSteps(f.Name())
+}
+
+// Replan plans a motion from a provided plan request, and then will return that plan only if its cost is better than the cost of the
+// passed-in plan multiplied by `replanCostFactor`.
+func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanCostFactor float64) (Plan, error) {
+	// make sure request is well formed and not missing vital information
+	if err := request.validatePlanRequest(); err != nil {
+		return nil, err
 	}
 
 	// Create a frame to solve for, and an IK solver with that frame.
@@ -75,6 +155,10 @@ func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
 	startPose, err := sf.Transform(seed)
 	if err != nil {
 		return nil, err
+	}
+	// make sure there is no transformation between the PTG frame and World frame in the Solver frame
+	if len(sf.PTGSolvers()) > 0 && !spatialmath.PoseAlmostEqual(startPose, spatialmath.NewZeroPose()) {
+		return nil, errors.New("cannot have non-zero transformation between the PTG frame and World frame in the Solver frame")
 	}
 
 	request.Logger.Infof(
@@ -103,60 +187,40 @@ func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
 		request.Goal.Pose(),
 		request.WorldState,
 		request.ConstraintSpecs,
+		currentPlan,
 		request.Options,
 	)
 	if err != nil {
 		return nil, err
 	}
-	plan := Plan{}
-	for _, resultSlice := range resultSlices {
-		stepMap := sf.sliceToMap(resultSlice)
-		plan = append(plan, stepMap)
-	}
-	request.Logger.Debugf("final plan steps: %s", plan.String())
-	return plan, nil
-}
+	newPlan := sf.inputsToPlan(resultSlices)
 
-// PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
-// WorldState is not supported in the absence of a real frame system.
-func PlanFrameMotion(ctx context.Context,
-	logger golog.Logger,
-	dst spatialmath.Pose,
-	f frame.Frame,
-	seed []frame.Input,
-	constraintSpec *pb.Constraints,
-	planningOpts map[string]interface{},
-) ([][]frame.Input, error) {
-	// ephemerally create a framesystem containing just the frame for the solve
-	fs := frame.NewEmptyFrameSystem("")
-	if err := fs.AddFrame(f, fs.World()); err != nil {
-		return nil, err
+	if replanCostFactor > 0 && currentPlan != nil {
+		initialPlanCost := currentPlan.Evaluate(sfPlanner.opt().ScoreFunc)
+		finalPlanCost := newPlan.Evaluate(sfPlanner.opt().ScoreFunc)
+		request.Logger.Debugf(
+			"initialPlanCost %f adjusted with cost factor to %f, replan cost %f",
+			initialPlanCost, initialPlanCost*replanCostFactor, finalPlanCost,
+		)
+
+		if finalPlanCost > initialPlanCost*replanCostFactor {
+			return nil, errHighReplanCost
+		}
 	}
-	plan, err := PlanMotion(ctx, &PlanRequest{
-		Logger:             logger,
-		Goal:               frame.NewPoseInFrame(frame.World, dst),
-		Frame:              f,
-		StartConfiguration: map[string][]frame.Input{f.Name(): seed},
-		FrameSystem:        fs,
-		ConstraintSpecs:    constraintSpec,
-		Options:            planningOpts,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return plan.GetFrameSteps(f.Name())
+
+	return newPlan, nil
 }
 
 type planner struct {
 	solver   ik.InverseKinematics
 	frame    frame.Frame
-	logger   golog.Logger
+	logger   logging.Logger
 	randseed *rand.Rand
 	start    time.Time
 	planOpts *plannerOptions
 }
 
-func newPlanner(frame frame.Frame, seed *rand.Rand, logger golog.Logger, opt *plannerOptions) (*planner, error) {
+func newPlanner(frame frame.Frame, seed *rand.Rand, logger logging.Logger, opt *plannerOptions) (*planner, error) {
 	solver, err := ik.CreateCombinedIKSolver(frame, logger, opt.NumThreads, opt.GoalThreshold)
 	if err != nil {
 		return nil, err
@@ -386,7 +450,9 @@ IK:
 	return orderedSolutions, nil
 }
 
-// CheckPlan checks if obstacles intersect the trajectory of the frame following the plan.
+// CheckPlan checks if obstacles intersect the trajectory of the frame following the plan. If one is
+// detected, the interpolated position of the rover when a collision is detected is returned along
+// with an error with additional collision details.
 func CheckPlan(
 	checkFrame frame.Frame,
 	plan Plan,
@@ -395,7 +461,8 @@ func CheckPlan(
 	currentPosition spatialmath.Pose,
 	currentInputs []frame.Input,
 	errorState spatialmath.Pose,
-	logger *zap.SugaredLogger,
+	lookAheadDistanceMM float64,
+	logger logging.Logger,
 ) error {
 	// ensure that we can actually perform the check
 	if len(plan) < 1 {
@@ -440,16 +507,19 @@ func CheckPlan(
 		// absolute pose of the previous node we've passed
 		formerRunningPose := spatialmath.PoseBetweenInverse(lastPose, pathPosition)
 
-		// convert planNode's poses to be in absolute corrdinated
+		// convert planNode's poses to be in absolute coordinates
 		if planNodes, err = rectifyTPspacePath(planNodes, sf, formerRunningPose); err != nil {
 			return err
 		}
 	}
+
 	// adjust planNodes by the errorState
+	// this only changes a node's pose and not its inputs
 	planNodes = transformNodes(planNodes, errorState)
 
 	// pre-pend node with current position of robot to planNodes
-	// Note that currentPosition is assumed to have already accounted for the errorState
+	// Note that currentPosition is assumed to have accounted for the errorState
+	// Note that currentInputs is assumed to have NOT accounted for the errorState
 	planNodes = append([]node{&basicNode{pose: currentPosition, q: currentInputs}}, planNodes...)
 
 	// create constraints
@@ -465,6 +535,7 @@ func CheckPlan(
 	}
 
 	// go through plan and check that we can move from plan[i] to plan[i+1]
+	var totalTravelDistanceMM float64
 	for i := 0; i < len(planNodes)-1; i++ {
 		currentPose := planNodes[i].Pose()
 		nextPose := planNodes[i+1].Pose()
@@ -485,6 +556,7 @@ func CheckPlan(
 			EndConfiguration:   endConfiguration,
 			Frame:              sf,
 		}
+
 		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
 		if err != nil {
 			return err
@@ -494,8 +566,14 @@ func CheckPlan(
 			if err != nil {
 				return err
 			}
+
+			// Check if look ahead distance has been reached
+			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
+			if currentTravelDistanceMM > lookAheadDistanceMM {
+				return nil
+			}
 			// If we are working with a PTG plan the returned value for poseInPath will only
-			// tell us how far along the arc we have travelled. Since this is only the relative position,
+			// tell us how far along the arc we have traveled. Since this is only the relative position,
 			// i.e. relative to where the robot started executing the arc,
 			// we must compose poseInPath with currentPose to get the absolute position.
 			// In both cases we ultimately compose with errorState.
@@ -506,11 +584,18 @@ func CheckPlan(
 				poseInPath = spatialmath.Compose(poseInPath, errorState)
 			}
 
-			modifiedSegment := &ik.State{Frame: sf, Position: poseInPath}
-			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedSegment); !isValid {
-				return fmt.Errorf("found collsion between positions %v and %v", currentPose.Point(), nextPose.Point())
+			modifiedState := &ik.State{Frame: sf, Position: poseInPath}
+
+			// Checks for collision along the interpolated route and returns a the first interpolated pose where a
+			// collision is detected.
+			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedState); !isValid {
+				return fmt.Errorf("found collision between positions %v and %v", currentPose.Point(), nextPose.Point())
 			}
 		}
+
+		// Update total traveled distance after segment has been checked
+		totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
 	}
+
 	return nil
 }

@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/inputcontroller/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
@@ -14,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -24,7 +24,7 @@ type client struct {
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
 	client pb.InputControllerServiceClient
-	logger golog.Logger
+	logger logging.Logger
 
 	name          string
 	streamCancel  context.CancelFunc
@@ -48,7 +48,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (Controller, error) {
 	c := pb.NewInputControllerServiceClient(conn)
 	return &client{

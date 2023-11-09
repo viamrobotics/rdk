@@ -20,8 +20,10 @@ import (
 )
 
 var (
-	testEmail = "grogu@viam.com"
-	testToken = "thisistheway"
+	testEmail     = "grogu@viam.com"
+	testToken     = "thisistheway"
+	testKeyID     = "testkeyid"
+	testKeyCrypto = "testkeycrypto"
 )
 
 type testWriter struct {
@@ -38,7 +40,7 @@ func (tw *testWriter) Write(b []byte) (int, error) {
 // in AppServiceClient and DataServiceClient. It also returns testWriters that capture Stdout and
 // Stdin.
 func setup(asc apppb.AppServiceClient, dataClient datapb.DataServiceClient,
-	defaultFlags *map[string]string,
+	defaultFlags *map[string]string, authMethod string,
 ) (*cli.Context, *viamClient, *testWriter, *testWriter) {
 	out := &testWriter{}
 	errOut := &testWriter{}
@@ -58,14 +60,20 @@ func setup(asc apppb.AppServiceClient, dataClient datapb.DataServiceClient,
 	}
 
 	cCtx := cli.NewContext(NewApp(out, errOut), flags, nil)
-	conf := &config{
-		Auth: &token{
+	conf := &config{}
+	if authMethod == "token" {
+		conf.Auth = &token{
 			AccessToken: testToken,
 			ExpiresAt:   time.Now().Add(time.Hour),
 			User: userData{
 				Email: testEmail,
 			},
-		},
+		}
+	} else if authMethod == "apiKey" {
+		conf.Auth = &apiKey{
+			KeyID:     testKeyID,
+			KeyCrypto: testKeyCrypto,
+		}
 	}
 	ac := &viamClient{
 		client:     asc,
@@ -80,19 +88,20 @@ func TestListOrganizationsAction(t *testing.T) {
 	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
 		opts ...grpc.CallOption,
 	) (*apppb.ListOrganizationsResponse, error) {
-		orgs := []*apppb.Organization{{Name: "jedi"}, {Name: "mandalorians"}}
+		orgs := []*apppb.Organization{{Name: "jedi", PublicNamespace: "anakin"}, {Name: "mandalorians"}}
 		return &apppb.ListOrganizationsResponse{Organizations: orgs}, nil
 	}
 	asc := &inject.AppServiceClient{
 		ListOrganizationsFunc: listOrganizationsFunc,
 	}
-	cCtx, ac, out, errOut := setup(asc, nil, nil)
+	cCtx, ac, out, errOut := setup(asc, nil, nil, "token")
 
 	test.That(t, ac.listOrganizationsAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 3)
 	test.That(t, out.messages[0], test.ShouldEqual, fmt.Sprintf("Organizations for %q:\n", testEmail))
 	test.That(t, out.messages[1], test.ShouldContainSubstring, "jedi")
+	test.That(t, out.messages[1], test.ShouldContainSubstring, "anakin")
 	test.That(t, out.messages[2], test.ShouldContainSubstring, "mandalorians")
 }
 
@@ -120,7 +129,7 @@ func TestTabularDataByFilterAction(t *testing.T) {
 		TabularDataByFilterFunc: tabularDataByFilterFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil)
+	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, "token")
 
 	test.That(t, ac.dataExportAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)

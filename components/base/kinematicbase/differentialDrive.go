@@ -11,11 +11,11 @@ import (
 	"math"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
@@ -30,7 +30,7 @@ var ErrMovementTimeout = errors.New("movement has timed out")
 func wrapWithDifferentialDriveKinematics(
 	ctx context.Context,
 	b base.Base,
-	logger golog.Logger,
+	logger logging.Logger,
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
 	options Options,
@@ -54,13 +54,19 @@ func wrapWithDifferentialDriveKinematics(
 	if len(geometries) > 0 {
 		geometry = geometries[0]
 	}
-	ddk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
+	sphere, err := spatialmath.BoundingSphere(geometry)
+	if err != nil {
+		logger.Warn("base %s not configured with a geometry, will be considered a point mass for collision detection purposes.")
+		sphere = spatialmath.NewPoint(r3.Vector{}, b.Name().Name)
+	}
+
+	ddk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, sphere)
 	if err != nil {
 		return nil, err
 	}
 
 	if options.PositionOnlyMode {
-		ddk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits[:2], geometry)
+		ddk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits[:2], sphere)
 		if err != nil {
 			return nil, err
 		}
@@ -73,7 +79,7 @@ func wrapWithDifferentialDriveKinematics(
 type differentialDriveKinematics struct {
 	base.Base
 	motion.Localizer
-	logger                        golog.Logger
+	logger                        logging.Logger
 	planningFrame, executionFrame referenceframe.Model
 	options                       Options
 }
@@ -83,6 +89,10 @@ func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
 }
 
 func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	if ddk.Localizer == nil {
+		return []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}, nil
+	}
+
 	// TODO(rb): make a transformation from the component reference to the base frame
 	pif, err := ddk.CurrentPosition(ctx)
 	if err != nil {
@@ -129,7 +139,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 
 			// get to the x, y location first - note that from the base's perspective +y is forward
 			desiredHeading := math.Atan2(desired[1].Value-current[1].Value, desired[0].Value-current[0].Value)
-			commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}})
+			commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{desired[0], desired[1], {Value: desiredHeading}})
 			if err != nil {
 				movementErr <- err
 				return
@@ -152,6 +162,11 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 					return
 				}
 			}
+			// If no localizer is present assume desired location was reached and exit
+			if ddk.Localizer == nil {
+				movementErr <- nil
+				return
+			}
 
 			current, err = ddk.CurrentInputs(cancelContext)
 			if err != nil {
@@ -173,6 +188,10 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		case err := <-movementErr:
 			return err
 		default:
+		}
+		// Skip position checks and just wait for response from movementErr channel
+		if ddk.Localizer == nil {
+			continue
 		}
 		currentInputs, err := ddk.CurrentInputs(ctx)
 		if err != nil {
@@ -238,50 +257,13 @@ func (ddk *differentialDriveKinematics) inputDiff(current, desired []referencefr
 	return positionErr, headingErr, nil
 }
 
-// CollisionGeometry returns a spherical geometry that will encompass the base if it were to rotate the geometry specified in the config
-// 360 degrees about the Z axis of the reference frame specified in the config.
-func CollisionGeometry(cfg *referenceframe.LinkConfig) ([]spatialmath.Geometry, error) {
-	// TODO(RSDK-1014): the orientation of this model will matter for collision checking,
-	// and should match the convention of +Y being forward for bases
-	if cfg == nil || cfg.Geometry == nil {
-		return nil, errors.New("not configured with a geometry use caution if using motion service - collisions will not be accounted for")
-	}
-	geoCfg := cfg.Geometry
-	r := geoCfg.TranslationOffset.Norm()
-	switch geoCfg.Type {
-	case spatialmath.BoxType:
-		r += r3.Vector{X: geoCfg.X, Y: geoCfg.Y, Z: geoCfg.Z}.Norm() / 2
-	case spatialmath.SphereType:
-		r += geoCfg.R
-	case spatialmath.CapsuleType:
-		r += geoCfg.L / 2
-	case spatialmath.UnknownType:
-		// no type specified, iterate through supported types and try to infer intent
-		if norm := (r3.Vector{X: geoCfg.X, Y: geoCfg.Y, Z: geoCfg.Z}).Norm(); norm > 0 {
-			r += norm / 2
-		} else if geoCfg.L != 0 {
-			r += geoCfg.L / 2
-		} else {
-			r += geoCfg.R
-		}
-	case spatialmath.PointType:
-	default:
-		return nil, spatialmath.ErrGeometryTypeUnsupported
-	}
-	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), r, geoCfg.Label)
-	if err != nil {
-		return nil, err
-	}
-	return []spatialmath.Geometry{sphere}, nil
-}
-
 // newValidRegionCapsule returns a capsule which defines the valid regions for a base to be when moving to a waypoint.
 // The valid region is all points that are deviationThreshold (mm) distance away from the line segment between the
 // starting and ending waypoints. This capsule is used to detect whether a base leaves this region and has thus deviated
 // too far from its path.
 func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired []referenceframe.Input) (spatialmath.Geometry, error) {
 	pt := r3.Vector{X: (desired[0].Value + starting[0].Value) / 2, Y: (desired[1].Value + starting[1].Value) / 2}
-	positionErr, _, err := ddk.inputDiff(starting, []referenceframe.Input{desired[0], desired[1], {0}})
+	positionErr, _, err := ddk.inputDiff(starting, []referenceframe.Input{desired[0], desired[1], {Value: 0}})
 	if err != nil {
 		return nil, err
 	}
