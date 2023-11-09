@@ -6,7 +6,6 @@ import (
 	"time"
 
 	clk "github.com/benbjohnson/clock"
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	v1 "go.viam.com/api/common/v1"
@@ -15,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -92,7 +92,7 @@ func TestMovementSensorCollectors(t *testing.T) {
 			params := data.CollectorParams{
 				ComponentName: componentName,
 				Interval:      captureInterval,
-				Logger:        golog.NewTestLogger(t),
+				Logger:        logging.NewTestLogger(t),
 				Clock:         mockClock,
 				Target:        &buf,
 			}

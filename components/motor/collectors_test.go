@@ -6,12 +6,12 @@ import (
 	"time"
 
 	clk "github.com/benbjohnson/clock"
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/motor/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -51,7 +51,7 @@ func TestMotorCollectors(t *testing.T) {
 			params := data.CollectorParams{
 				ComponentName: componentName,
 				Interval:      captureInterval,
-				Logger:        golog.NewTestLogger(t),
+				Logger:        logging.NewTestLogger(t),
 				Clock:         mockClock,
 				Target:        &buf,
 			}

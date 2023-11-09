@@ -6,10 +6,10 @@ import (
 	"time"
 
 	clk "github.com/benbjohnson/clock"
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
@@ -65,7 +65,7 @@ func TestCollectors(t *testing.T) {
 			params := data.CollectorParams{
 				ComponentName: componentName,
 				Interval:      captureInterval,
-				Logger:        golog.NewTestLogger(t),
+				Logger:        logging.NewTestLogger(t),
 				Clock:         mockClock,
 				Target:        &buf,
 			}

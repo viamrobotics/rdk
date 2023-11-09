@@ -7,7 +7,6 @@ import (
 	"time"
 
 	clk "github.com/benbjohnson/clock"
-	"github.com/edaniels/golog"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/test"
@@ -16,6 +15,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -39,7 +39,7 @@ func TestCollectors(t *testing.T) {
 			params: data.CollectorParams{
 				ComponentName: componentName,
 				Interval:      captureInterval,
-				Logger:        golog.NewTestLogger(t),
+				Logger:        logging.NewTestLogger(t),
 				MethodParams: map[string]*anypb.Any{
 					"reader_name": convertInterfaceToAny("analog"),
 				},
@@ -55,7 +55,7 @@ func TestCollectors(t *testing.T) {
 			params: data.CollectorParams{
 				ComponentName: componentName,
 				Interval:      captureInterval,
-				Logger:        golog.NewTestLogger(t),
+				Logger:        logging.NewTestLogger(t),
 				MethodParams: map[string]*anypb.Any{
 					"pin_name": convertInterfaceToAny("gpio"),
 				},

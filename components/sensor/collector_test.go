@@ -6,13 +6,13 @@ import (
 	"time"
 
 	clk "github.com/benbjohnson/clock"
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/sensor/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -27,7 +27,7 @@ func TestSensorCollector(t *testing.T) {
 	params := data.CollectorParams{
 		ComponentName: "sensor",
 		Interval:      captureInterval,
-		Logger:        golog.NewTestLogger(t),
+		Logger:        logging.NewTestLogger(t),
 		Target:        &buf,
 		Clock:         mockClock,
 	}
