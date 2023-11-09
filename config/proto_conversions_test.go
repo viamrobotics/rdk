@@ -985,7 +985,7 @@ func TestPackageTypeConversion(t *testing.T) {
 	test.That(t, converted, test.ShouldResemble, packagespb.PackageType_PACKAGE_TYPE_MODULE.Enum())
 
 	badType := PackageType("invalid-package-type")
-	converted, err := PackageTypeToProto(badType)
+	converted, err = PackageTypeToProto(badType)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "invalid-package-type")
 	test.That(t, converted, test.ShouldResemble, packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED.Enum())
