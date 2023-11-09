@@ -50,7 +50,7 @@ func NewSensorCollector(resource interface{}, params data.CollectorParams) (data
 			}
 			readings[name] = val
 		}
-		return &pb.GetReadingsResponse{
+		return pb.GetReadingsResponse{
 			Readings: readings,
 		}, nil
 	})
