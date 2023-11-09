@@ -142,12 +142,12 @@ func makeAS5048Encoder(ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config, logger logging.Logger, bus board.I2C) (encoder.Encoder, error) {
 
-	cancelCtx, cancel := context.WithCancel(context.Background())
-
 	cfg, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
 	}
+
+	cancelCtx, cancel := context.WithCancel(context.Background())
 
 	res := &Encoder{
 		Named:        conf.ResourceName().AsNamed(),
@@ -165,7 +165,6 @@ func makeAS5048Encoder(ctx context.Context,
 		return nil, err
 	}
 	return res, nil
-
 }
 
 // Reconfigure reconfigures the encoder atomically.
