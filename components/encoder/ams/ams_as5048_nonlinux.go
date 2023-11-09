@@ -1,2 +1,2 @@
-// Package ams is Lunix-only
+// Package ams is Linux-only
 package ams

@@ -1,3 +1,5 @@
+//go:build linux
+
 package ams
 
 import (
@@ -53,14 +55,19 @@ func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies,
 		},
 	}
 
-	i2c := &inject.I2C{}
-	i2c.ReadByteDataFunc = func(ctx context.Context, register byte) (byte, error) {
+	i2cHandle := &inject.I2CHandle{}
+	i2cHandle.ReadByteDataFunc = func(ctx context.Context, register byte) (byte, error) {
 		return mockData[register], nil
 	}
-	i2c.WriteByteDataFunc = func(ctx context.Context, b1, b2 byte) error {
+	i2cHandle.WriteByteDataFunc = func(ctx context.Context, b1, b2 byte) error {
 		return nil
 	}
-	i2c.CloseFunc = func() error { return nil }
+	i2cHandle.CloseFunc = func() error { return nil }
+
+	i2c := &inject.I2C{}
+	i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+		return i2cHandle, nil
+	}
 
 	return cfg, resource.Dependencies{}, i2c
 }
@@ -124,15 +131,20 @@ func setupDependenciesWithWrite(mockData []byte, writeData map[byte]byte) (resou
 		},
 	}
 
-	i2c := &inject.I2C{}
-	i2c.ReadByteDataFunc = func(ctx context.Context, register byte) (byte, error) {
+	i2cHandle := &inject.I2CHandle{}
+	i2cHandle.ReadByteDataFunc = func(ctx context.Context, register byte) (byte, error) {
 		return mockData[register], nil
 	}
-	i2c.WriteByteDataFunc = func(ctx context.Context, b1, b2 byte) error {
+	i2cHandle.WriteByteDataFunc = func(ctx context.Context, b1, b2 byte) error {
 		writeData[b1] = b2
 		return nil
 	}
-	i2c.CloseFunc = func() error { return nil }
+	i2cHandle.CloseFunc = func() error { return nil }
+
+	i2c := &inject.I2C{}
+	i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+		return i2cHandle, nil
+	}
 	return cfg, resource.Dependencies{}, i2c
 }
 
