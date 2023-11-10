@@ -186,13 +186,18 @@ func (v *placeholderReplacementVisitor) replacePackagePlaceholder(toReplace stri
 		return toReplace, errors.Errorf("failed to find a package named %q for placeholder %q",
 			packageName, toReplace)
 	}
-	if packageType != string(packageConfig.Type) {
-		expectedPlaceholder := fmt.Sprintf("packages.%s.%s", string(packageConfig.Type), packageName)
-		return toReplace,
-			errors.Errorf("placeholder %q is looking for a package of type %q but a package of type %q was found. Try %q",
-				toReplace, packageType, string(packageConfig.Type), expectedPlaceholder)
+	// package match is either of the correct type as the placeholder
+	// or (for backwards compatibility) the placeholder has no type and matches an ml_model package
+	if packageType == string(packageConfig.Type) ||
+		(packageType == "" && packageConfig.Type == PackageTypeMlModel) {
+			return packageConfig.LocalDataDirectory(viamPackagesDir), nil
 	}
-	return packageConfig.LocalDataDirectory(viamPackagesDir), nil
+
+	expectedPlaceholder := fmt.Sprintf("packages.%s.%s", string(packageConfig.Type), packageName)
+	return toReplace,
+		errors.Errorf("placeholder %q is looking for a package of type %q but a package of type %q was found. Try %q",
+			toReplace, packageType, string(packageConfig.Type), expectedPlaceholder)
+
 }
 
 func (v *placeholderReplacementVisitor) replaceEnvironmentPlaceholder(toReplace string) (string, error) {

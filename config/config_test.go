@@ -1158,7 +1158,7 @@ func TestPackageConfig(t *testing.T) {
 				Package: "my_org/my_package",
 				Version: "0",
 			},
-			expectedRealFilePath: filepath.Join(viamDotDir, "packages", ".data", "ml_model", "my_org-my_package-0"),
+			shouldFailValidation: true,
 		},
 		{
 			config: config.PackageConfig{
