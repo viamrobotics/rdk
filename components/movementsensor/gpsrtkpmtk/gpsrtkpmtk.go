@@ -170,7 +170,7 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 		}
 		g.bus = i2cbus
 	} else {
-		g.bus = mockI2c
+		g.bus = g.mockI2c
 	}
 
 	g.ntripconfigMu.Lock()
