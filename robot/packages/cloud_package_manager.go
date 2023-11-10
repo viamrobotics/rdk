@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -92,7 +91,7 @@ func NewCloudManager(
 		packagesDir:     packagesDir,
 		packagesDataDir: packagesDataDir,
 		managedPackages: make(map[PackageName]*managedPackage),
-		logger:          logging.FromZapCompatible(logger.Named("package_manager")),
+		logger:          logger.Sublogger("package_manager"),
 	}, nil
 }
 
@@ -156,12 +155,6 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		// Lookup the packages http url
 		includeURL := true
 
-		var platform *string
-		if p.Type == config.PackageTypeModule {
-			platformVal := fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
-			platform = &platformVal
-		}
-
 		packageType, err := config.PackageTypeToProto(p.Type)
 		if err != nil {
 			m.logger.Warnw("failed to get package type", "package", p.Name, "error", err)
@@ -170,7 +163,6 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 			Id:         p.Package,
 			Version:    p.Version,
 			Type:       packageType,
-			Platform:   platform,
 			IncludeUrl: &includeURL,
 		})
 		if err != nil {

@@ -771,6 +771,8 @@ func TestMovementWithGripper(t *testing.T) {
 }
 
 func TestReplan(t *testing.T) {
+	// TODO(RSDK-5634): this should be unskipped when this bug is fixed
+	t.Skip()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 

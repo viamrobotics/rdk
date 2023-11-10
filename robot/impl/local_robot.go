@@ -451,8 +451,12 @@ func newWithResources(
 		return nil, err
 	}
 
+	var cloudID string
+	if cfg.Cloud != nil {
+		cloudID = cfg.Cloud.ID
+	}
 	// Once web service is started, start module manager
-	r.manager.startModuleManager(r.webSvc.ModuleAddress(), r.removeOrphanedResources, cfg.UntrustedEnv, logger)
+	r.manager.startModuleManager(r.webSvc.ModuleAddress(), r.removeOrphanedResources, cfg.UntrustedEnv, config.ViamDotDir, cloudID, logger)
 
 	r.activeBackgroundWorkers.Add(1)
 	r.configTicker = time.NewTicker(5 * time.Second)
@@ -664,7 +668,7 @@ func (r *localRobot) newResource(
 		}
 	}
 
-	resLogger := logging.FromZapCompatible(r.logger.Named(conf.ResourceName().String()))
+	resLogger := r.logger.Sublogger(conf.ResourceName().String())
 	if resInfo.Constructor != nil {
 		return resInfo.Constructor(ctx, deps, conf, resLogger)
 	}
@@ -994,7 +998,7 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 		}
 
 		if reg.Discover != nil {
-			discovered, err := reg.Discover(ctx, logging.FromZapCompatible(r.logger.Named("discovery")))
+			discovered, err := reg.Discover(ctx, r.logger.Sublogger("discovery"))
 			if err != nil {
 				return nil, &resource.DiscoverError{Query: q}
 			}
@@ -1137,9 +1141,11 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		allErrs = multierr.Combine(allErrs, err)
 	}
 
-	// cleanup unused packages after all old resources have been closed above. This ensures
+	// Cleanup unused packages after all old resources have been closed above. This ensures
 	// processes are shutdown before any files are deleted they are using.
 	allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
+	// Cleanup extra dirs from previous modules or rogue scripts.
+	allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
 
 	if allErrs != nil {
 		r.logger.Errorw("the following errors were gathered during reconfiguration", "errors", allErrs)

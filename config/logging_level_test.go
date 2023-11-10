@@ -10,13 +10,13 @@ import (
 )
 
 func TestConfigDebugFlag(t *testing.T) {
-	logConfig := logging.NewLoggerConfig()
+	logConfig := logging.NewZapLoggerConfig()
 	logger := logging.FromZapCompatible(zap.Must(logConfig.Build()).Sugar())
 
 	for _, cmdLineValue := range []bool{true, false} {
 		for _, fileDebugValue := range []bool{true, false} {
 			for _, cloudDebugValue := range []bool{true, false} {
-				InitLoggingSettings(logger, cmdLineValue, logConfig.Level)
+				InitLoggingSettings(logger, cmdLineValue)
 				UpdateFileConfigDebug(fileDebugValue)
 				UpdateCloudConfigDebug(cloudDebugValue)
 
