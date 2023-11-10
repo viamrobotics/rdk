@@ -358,6 +358,7 @@ func (ms *explore) checkForObstacles(
 			)
 
 			// Look for new transient obstacles and add to worldState
+			fmt.Println("STARTINGBB")
 			worldState, err := ms.generateTransientWorldState(ctx, obstacleDetectors)
 			if err != nil {
 				ms.logger.Debugf("issue occurred generating transient worldState: %v", err)
@@ -442,6 +443,7 @@ func (ms *explore) generateTransientWorldState(
 ) (*referenceframe.WorldState, error) {
 	geometriesInFrame := []*referenceframe.GeometriesInFrame{}
 
+	fmt.Println("---------------------------------------------------------")
 	// Iterate through provided obstacle detectors and their associated vision service and cameras
 	for _, obstacleDetector := range obstacleDetectors {
 		for visionService, cameraName := range obstacleDetector {
@@ -465,13 +467,15 @@ func (ms *explore) generateTransientWorldState(
 				geometry.SetLabel(label)
 				geometries = append(geometries, geometry)
 
-				fmt.Println(referenceframe.NewPoseInFrame(cameraName.Name, detection.Geometry.Pose()).Transform(cameraName.name -> world))
+				pWorld, _ := ms.fsService.TransformPose(ctx, referenceframe.NewPoseInFrame(cameraName.Name, detection.Geometry.Pose()), referenceframe.World, nil)
+				fmt.Printf("WORLD OBSTACLES: %v | %v\n", label, pWorld.Pose().Point())
 			}
 			geometriesInFrame = append(geometriesInFrame,
 				referenceframe.NewGeometriesInFrame(cameraName.Name, geometries),
 			)
 		}
 	}
+	fmt.Println("---------------------------------------------------------")
 
 	// Add geometries to worldState
 	worldState, err := referenceframe.NewWorldState(geometriesInFrame, nil)
