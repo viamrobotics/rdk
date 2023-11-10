@@ -112,7 +112,7 @@ type Encoder struct {
 	positionType            encoder.PositionType
 	i2cBus                  board.I2C
 	i2cAddr                 byte
-	i2cBusName              string
+	i2cBusName              string // This is nessesary to check whether we need to create a new i2cBus during reconfigure.
 	cancelCtx               context.Context
 	cancel                  context.CancelFunc
 	activeBackgroundWorkers sync.WaitGroup
@@ -124,23 +124,16 @@ func newAS5048Encoder(
 	conf resource.Config,
 	logger logging.Logger,
 ) (encoder.Encoder, error) {
-	newConf, err := resource.NativeConfig[*Config](conf)
-	if err != nil {
-		return nil, err
-	}
-
-	bus, err := genericlinux.NewI2cBus(newConf.I2CBus)
-	if err != nil {
-		msg := fmt.Sprintf("can't find I2C bus '%q' for AMS encoder", newConf.I2CBus)
-		return nil, errors.Wrap(err, msg)
-	}
-	return makeAS5048Encoder(ctx, deps, conf, logger, bus)
+	return makeAS5048Encoder(ctx, deps, conf, logger, nil)
 }
 
 // This function is separated to inject a mock i2c bus during tests.
-func makeAS5048Encoder(ctx context.Context,
+func makeAS5048Encoder(
+	ctx context.Context,
 	deps resource.Dependencies,
-	conf resource.Config, logger logging.Logger, bus board.I2C,
+	conf resource.Config,
+	logger logging.Logger,
+	bus board.I2C,
 ) (encoder.Encoder, error) {
 	cfg, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -158,6 +151,7 @@ func makeAS5048Encoder(ctx context.Context,
 		i2cBus:       bus,
 		i2cBusName:   cfg.I2CBus,
 	}
+
 	if err := res.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
@@ -180,7 +174,7 @@ func (enc *Encoder) Reconfigure(
 	enc.mu.Lock()
 	defer enc.mu.Unlock()
 
-	if enc.i2cBusName != newConf.I2CBus {
+	if enc.i2cBusName != newConf.I2CBus || enc.i2cBus == nil {
 		bus, err := genericlinux.NewI2cBus(newConf.I2CBus)
 		if err != nil {
 			msg := fmt.Sprintf("can't find I2C bus '%q' for AMS encoder", newConf.I2CBus)
