@@ -53,12 +53,13 @@ func NewPmtkI2CGPSNMEA(
 ) (NmeaMovementSensor, error) {
 	// The nil on this next line means "use a real I2C bus, because we're not going to pass in a
 	// mock one."
-	return makePmtkI2cGpsNmea(ctx, deps, name, conf, logger, nil)
+	return MakePmtkI2cGpsNmea(ctx, deps, name, conf, logger, nil)
 }
 
-// makePmtkI2cGpsNmea is only split out for ease of testing: you can pass in your own mock I2C bus,
-// or pass in nil to have it create a real one.
-func makePmtkI2cGpsNmea(
+// MakePmtkI2cGpsNmea is only split out for ease of testing: you can pass in your own mock I2C bus,
+// or pass in nil to have it create a real one. It is public so it can also be called from within
+// the gpsrtkpmtk package.
+func MakePmtkI2cGpsNmea(
 	ctx context.Context,
 	deps resource.Dependencies,
 	name resource.Name,

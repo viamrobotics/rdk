@@ -140,9 +140,10 @@ type rtkI2C struct {
 	nmeamovementsensor gpsnmea.NmeaMovementSensor
 	correctionWriter   io.ReadWriteCloser
 
-	bus   board.I2C
-	wbaud int
-	addr  byte
+	bus     board.I2C
+	mockI2c board.I2C // Will be nil unless we're in a unit test
+	wbaud   int
+	addr    byte
 }
 
 // Reconfigure reconfigures attributes.
@@ -205,6 +206,18 @@ func newRTKI2C(
 	conf resource.Config,
 	logger logging.Logger,
 ) (movementsensor.MovementSensor, error) {
+	return makeRTKI2C(ctx, deps, conf, logger, nil)
+}
+
+// makeRTKI2C is separate from newRTKI2C, above, so we can pass in a non-nil mock I2C bus during
+// unit tests.
+func makeRTKI2C(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+	logger logging.Logger,
+	mockI2c board.I2C,
+) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
@@ -218,9 +231,9 @@ func newRTKI2C(
 		logger:       logger,
 		err:          movementsensor.NewLastError(1, 1),
 		lastposition: movementsensor.NewLastPosition(),
+		mockI2c:      mockI2c,
 	}
 
-	// reconfigure
 	if err = g.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
@@ -240,7 +253,10 @@ func newRTKI2C(
 		nmeaConf.I2CConfig.I2CBaudRate = 115200
 	}
 
-	g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
+	// If we have a mock I2C bus, pass that in, too. If we don't, it'll be nil and constructing the
+	// sensor will create a real I2C bus instead.
+	g.nmeamovementsensor, err = gpsnmea.MakePmtkI2cGpsNmea(
+		ctx, deps, conf.ResourceName(), nmeaConf, logger, mockI2c)
 	if err != nil {
 		return nil, err
 	}
