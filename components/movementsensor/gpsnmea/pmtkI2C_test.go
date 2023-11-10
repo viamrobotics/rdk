@@ -86,7 +86,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 	mockI2c := createMockI2c()
 
 	// This time, we *do* expect to construct a real object, so we need to pass in a mock I2C bus.
-	g2, err := makePmtkI2cGpsNmea(ctx, deps, conf.ResourceName(), config, logger, mockI2c)
+	g2, err := MakePmtkI2cGpsNmea(ctx, deps, conf.ResourceName(), config, logger, mockI2c)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, g2.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, g2, test.ShouldNotBeNil)
