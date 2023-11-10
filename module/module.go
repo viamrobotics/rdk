@@ -2,6 +2,8 @@ package module
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base32"
 	"fmt"
 	"net"
 	"os"
@@ -32,34 +34,48 @@ import (
 
 const (
 	socketSuffix = ".sock"
-	// If we assume each robot has 10 modules running on it, and they would all have colliding truncated names,
-	// P(collision) = 1-(48^5)!/((48^5-10)!*(48^(5*10))) ~ 1.8E-7.
-	socketRandomSuffixLen int = 5
+	// socketHashSuffixLength determines how many characters from the module's name's hash should be used when truncating the module socket.
+	socketHashSuffixLength int = 5
 	// maxSocketAddressLength is the length (-1 for null terminator) of the .sun_path field as used in kernel bind()/connect() syscalls.
 	// Linux allows for a max length of 107 but to simplify this code, we truncate to the macOS limit of 103.
 	socketMaxAddressLength int = 103
 )
 
 // CreateSocketAddress returns a socket address of the form parentDir/desiredName.sock
-// if it is shorter than the max socket length on the given os. If this path would be too long, this function
-// truncates desiredName and returns parentDir/truncatedName-randomStr.sock.
+// if it is shorter than the socketMaxAddressLength. If this path would be too long, this function
+// truncates desiredName and returns parentDir/truncatedName-hashOfDesiredName.sock.
+//
+// Importantly, this function will return the same socket address as long as the desiredName doesn't change.
 func CreateSocketAddress(parentDir, desiredName string) (string, error) {
 	baseAddr := filepath.ToSlash(parentDir)
 	numRemainingChars := socketMaxAddressLength -
 		len(baseAddr) -
 		len(socketSuffix) -
 		1 // `/` between baseAddr and name
-	if numRemainingChars < len(desiredName) && numRemainingChars < socketRandomSuffixLen+1 {
+	if numRemainingChars < len(desiredName) && numRemainingChars < socketHashSuffixLength+1 {
 		return "", errors.Errorf("module socket base path would result in a path greater than the OS limit of %d characters: %s",
 			socketMaxAddressLength, baseAddr)
 	}
+	// If possible, early-exit with a non-truncated socket path
 	if numRemainingChars >= len(desiredName) {
 		return filepath.Join(baseAddr, desiredName+socketSuffix), nil
 	}
-	numRemainingChars -= socketRandomSuffixLen + 1 // save one character for the `-` between truncatedName and socketRandomSuffix
-	socketRandomSuffix := utils.RandomAlphaString(socketRandomSuffixLen)
-	truncatedName := desiredName[:numRemainingChars]
-	return filepath.Join(baseAddr, fmt.Sprintf("%s-%s%s", truncatedName, socketRandomSuffix, socketSuffix)), nil
+	// Hash the desiredName so that every invocation returns the same truncated address
+	desiredNameHashCreator := sha256.New()
+	_, err := desiredNameHashCreator.Write([]byte(desiredName))
+	if err != nil {
+		return "", errors.Errorf("failed to calculate a hash for %q while creating a truncated socket address", desiredName)
+	}
+	desiredNameHash := base32.StdEncoding.EncodeToString(desiredNameHashCreator.Sum(nil))
+	if len(desiredNameHash) < socketHashSuffixLength {
+		// sha256.Sum() should return 32 bytes so this shouldn't occur, but good to check instead of panicing
+		return "", errors.Errorf("the encoded hash %q for %q is shorter than the minimum socket suffix length %v",
+			desiredNameHash, desiredName, socketHashSuffixLength)
+	}
+	// Assemble the truncated socket address
+	socketHashSuffix := desiredNameHash[:socketHashSuffixLength]
+	truncatedName := desiredName[:(numRemainingChars - socketHashSuffixLength - 1)]
+	return filepath.Join(baseAddr, fmt.Sprintf("%s-%s%s", truncatedName, socketHashSuffix, socketSuffix)), nil
 }
 
 // HandlerMap is the format for api->model pairs that the module will service.

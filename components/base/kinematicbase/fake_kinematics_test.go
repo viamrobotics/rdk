@@ -91,7 +91,7 @@ func TestNewFakePTGKinematics(t *testing.T) {
 	options.PositionOnlyMode = false
 	noise := spatialmath.NewPoseFromPoint(r3.Vector{1, 0, 0})
 	origin := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose())
-	kb, err := WrapWithFakePTGKinematics(ctx, b.(*fakebase.Base), logger, origin, options, noise)
+	kb, err := WrapWithFakePTGKinematics(ctx, b.(*fakebase.Base), logger, origin, options, noise, 5)
 	test.That(t, err, test.ShouldBeNil)
 
 	startpose, err := kb.CurrentPosition(ctx)

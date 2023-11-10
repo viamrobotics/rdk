@@ -31,8 +31,6 @@ var (
 
 // Config describes a PCA9685 board attached to some other board via I2C.
 type Config struct {
-	BoardName  string `json:"board_name,omitempty"`
-	I2CName    string `json:"i2c_name,omitempty"`
 	I2CBus     string `json:"i2c_bus,omitempty"`
 	I2CAddress *int   `json:"i2c_address,omitempty"`
 }
@@ -40,29 +38,12 @@ type Config struct {
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	// Either the i2c bus or both the board name and i2c name is required.
 	if conf.I2CBus == "" {
-		if conf.BoardName == "" && conf.I2CName == "" {
-			// If all 3 are missing, prefer the i2c_bus approach.
-			return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
-		}
-		// Otherwise, we're just missing either the board name or i2c name.
-		if conf.BoardName == "" {
-			return nil, utils.NewConfigValidationFieldRequiredError(path, "board_name")
-		}
-		if conf.I2CName == "" {
-			return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_name")
-		}
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 
-	if conf.I2CAddress == nil {
-		conf.I2CAddress = &defaultAddr
-	}
-	if *conf.I2CAddress < 0 || *conf.I2CAddress > 255 {
+	if conf.I2CAddress != nil && (*conf.I2CAddress < 0 || *conf.I2CAddress > 255) {
 		return nil, utils.NewConfigValidationError(path, errors.New("i2c_address must be an unsigned byte"))
-	}
-	if conf.BoardName != "" {
-		deps = append(deps, conf.BoardName)
 	}
 	return deps, nil
 }
@@ -94,8 +75,6 @@ type PCA9685 struct {
 	referenceClockSpeed int
 	bus                 board.I2C
 	gpioPins            [16]gpioPin
-	boardName           string
-	i2cName             string
 	logger              logging.Logger
 }
 
@@ -139,19 +118,21 @@ func (pca *PCA9685) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	bus, err := genericlinux.GetI2CBus(deps, newConf.BoardName, newConf.I2CName, newConf.I2CBus)
+	bus, err := genericlinux.NewI2cBus(newConf.I2CBus)
 	if err != nil {
 		return err
 	}
-	address := byte(*newConf.I2CAddress)
+
+	address := byte(defaultAddr)
+	if newConf.I2CAddress != nil {
+		address = byte(*newConf.I2CAddress)
+	}
 
 	pca.mu.Lock()
 	defer pca.mu.Unlock()
 
 	pca.bus = bus
 	pca.address = address
-	pca.boardName = newConf.BoardName
-	pca.i2cName = newConf.I2CName
 	if err := pca.reset(ctx); err != nil {
 		return err
 	}
