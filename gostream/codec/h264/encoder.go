@@ -113,7 +113,6 @@ func (h *encoder) encodeBytes(ctx context.Context) ([]byte, error) {
 	if pkt == nil {
 		return nil, errors.New("cannot allocate packet")
 	}
-	defer pkt.Free()
 	defer pkt.Unref()
 	defer avutil.FrameUnref(h.frame)
 
