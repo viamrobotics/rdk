@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 
 	"github.com/golang/geo/r3"
@@ -11,7 +12,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-const defaultDistanceMM = 100 * 1000
+const defaultDistanceMM = 100 * 1000 // CHANGE BACK
 
 func (svc *builtIn) startExploreMode(ctx context.Context) {
 	svc.logger.Debug("startExploreMode called")
@@ -21,7 +22,7 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 		defer svc.activeBackgroundWorkers.Done()
 
 		// Send motionCfg parameters through extra until motionCfg can be added to Move()
-		extra := map[string]interface{}{"motionCfg": svc.motionCfg}
+		extra := map[string]interface{}{"motionCfg": *svc.motionCfg}
 
 		for {
 			if ctx.Err() != nil {
@@ -29,12 +30,13 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 			}
 
 			//nolint:gosec
+			fmt.Println("/n/n/n/n/n/n")
 			destination := frame.NewPoseInFrame(svc.base.Name().Name, spatialmath.NewPose(
 				r3.Vector{
-					X: defaultDistanceMM * (2*rand.Float64() - 1.0),
-					Y: defaultDistanceMM * (2*rand.Float64() - 1.0),
+					X: (2*rand.Float64() - 1.0),
+					Y: (2*rand.Float64() - 1.0),
 					Z: 0.,
-				}, spatialmath.NewOrientationVector()))
+				}.Normalize().Mul(defaultDistanceMM), spatialmath.NewOrientationVector()))
 
 			_, err := svc.exploreMotionService.Move(ctx, svc.base.Name(), destination, nil, nil, extra)
 			if err != nil {

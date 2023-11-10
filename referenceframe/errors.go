@@ -51,7 +51,7 @@ func NewFrameAlreadyExistsError(frameName string) error {
 	return errors.Errorf("frame with name %q already in frame system", frameName)
 }
 
-// NewIncorrectInputLengthError returns an error indicating that the length of the Innput array does not match the DoF of the frame.
+// NewIncorrectInputLengthError returns an error indicating that the length of the Input array does not match the DoF of the frame.
 func NewIncorrectInputLengthError(actual, expected int) error {
 	return errors.Errorf("number of inputs does not match frame DoF, expected %d but got %d", expected, actual)
 }

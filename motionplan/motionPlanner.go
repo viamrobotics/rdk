@@ -562,6 +562,7 @@ func CheckPlan(
 			return err
 		}
 		for _, interpConfig := range interpolatedConfigurations {
+			fmt.Println("num interpolatedConfigurations: ", len(interpolatedConfigurations))
 			poseInPath, err := sf.Transform(interpConfig)
 			if err != nil {
 				return err
@@ -588,7 +589,8 @@ func CheckPlan(
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a
 			// collision is detected.
-			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedState); !isValid {
+			if isValid, name := sfPlanner.planOpts.CheckStateConstraints(modifiedState); !isValid {
+				fmt.Println(fmt.Errorf("found collision with %v at around: %v", name, poseInPath))
 				return fmt.Errorf("found collision between positions %v and %v", currentPose.Point(), nextPose.Point())
 			}
 		}

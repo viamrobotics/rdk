@@ -60,6 +60,7 @@ func wrapWithDifferentialDriveKinematics(
 		sphere = spatialmath.NewPoint(r3.Vector{}, b.Name().Name)
 	}
 
+	fmt.Println("limitslimits ", limits)
 	ddk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, sphere)
 	if err != nil {
 		return nil, err
@@ -73,6 +74,8 @@ func wrapWithDifferentialDriveKinematics(
 	} else {
 		ddk.planningFrame = ddk.executionFrame
 	}
+
+	ddk.noLocalizerCacheInputs = []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}
 	return ddk, nil
 }
 
@@ -82,6 +85,7 @@ type differentialDriveKinematics struct {
 	logger                        logging.Logger
 	planningFrame, executionFrame referenceframe.Model
 	options                       Options
+	noLocalizerCacheInputs        []referenceframe.Input
 }
 
 func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
@@ -90,7 +94,7 @@ func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
 
 func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	if ddk.Localizer == nil {
-		return []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}, nil
+		return ddk.noLocalizerCacheInputs, nil
 	}
 
 	// TODO(rb): make a transformation from the component reference to the base frame
@@ -122,6 +126,12 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 	cancelContext, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	if ddk.Localizer == nil {
+		defer func() {
+			ddk.noLocalizerCacheInputs = []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}
+		}()
+	}
+
 	utils.PanicCapturingGo(func() {
 		// this loop polls the error state and issues a corresponding command to move the base to the objective
 		// when the base is within the positional threshold of the goal, exit the loop
@@ -139,8 +149,10 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 
 			// get to the x, y location first - note that from the base's perspective +y is forward
 			desiredHeading := math.Atan2(desired[1].Value-current[1].Value, desired[0].Value-current[0].Value)
+			fmt.Println("issueCommand1")
 			commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{desired[0], desired[1], {Value: desiredHeading}})
 			if err != nil {
+				fmt.Println("err1")
 				movementErr <- err
 				return
 			}
@@ -149,32 +161,39 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 				// no command to move to the x, y location was issued, correct the heading and then exit
 				// 2DOF model indicates position-only mode so heading doesn't need to be corrected, exit function
 				if len(ddk.planningFrame.DoF()) == 2 {
+					fmt.Println("err2")
 					movementErr <- err
 					return
 				}
+				fmt.Println("issueCommand2")
 				if commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{current[0], current[1], desired[2]}); err == nil {
 					if !commanded {
+						fmt.Println("success")
 						movementErr <- nil
 						return
 					}
 				} else {
+					fmt.Println("err3")
 					movementErr <- err
 					return
 				}
 			}
 			// If no localizer is present assume desired location was reached and exit
-			if ddk.Localizer == nil {
-				movementErr <- nil
-				return
-			}
+			// if ddk.Localizer == nil {
+			// 	fmt.Println("err4")
+			// 	movementErr <- nil
+			// 	return
+			// }
 
 			current, err = ddk.CurrentInputs(cancelContext)
 			if err != nil {
+				fmt.Println("err5")
 				movementErr <- err
 				return
 			}
 			ddk.logger.Infof("current inputs: %v", current)
 		}
+		fmt.Println("err5")
 		movementErr <- err
 	})
 
@@ -190,9 +209,9 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		default:
 		}
 		// Skip position checks and just wait for response from movementErr channel
-		if ddk.Localizer == nil {
-			continue
-		}
+		// if ddk.Localizer == nil {
+		// 	continue
+		// }
 		currentInputs, err := ddk.CurrentInputs(ctx)
 		if err != nil {
 			cancel()
@@ -225,13 +244,19 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 	if err != nil {
 		return false, err
 	}
-	ddk.logger.Debug("distErr: %f\theadingErr %f", distErr, headingErr)
+	ddk.logger.Debugf("distErr: %f\theadingErr %f", distErr, headingErr)
 	if distErr > ddk.options.GoalRadiusMM && math.Abs(headingErr) > ddk.options.HeadingThresholdDegrees {
+		fmt.Println("spin")
 		// base is headed off course; spin to correct
-		return true, ddk.Spin(ctx, math.Min(headingErr, ddk.options.MaxSpinAngleDeg), ddk.options.AngularVelocityDegsPerSec, nil)
+		err := ddk.Spin(ctx, math.Min(headingErr, ddk.options.MaxSpinAngleDeg), ddk.options.AngularVelocityDegsPerSec, nil)
+		ddk.noLocalizerCacheInputs = []referenceframe.Input{{Value: 0}, {Value: 0}, desired[2]}
+		return true, err
 	} else if distErr > ddk.options.GoalRadiusMM {
+		fmt.Println("straight")
 		// base is pointed the correct direction but not there yet; forge onward
-		return true, ddk.MoveStraight(ctx, int(math.Min(distErr, ddk.options.MaxMoveStraightMM)), ddk.options.LinearVelocityMMPerSec, nil)
+		err := ddk.MoveStraight(ctx, int(math.Min(distErr, ddk.options.MaxMoveStraightMM)), ddk.options.LinearVelocityMMPerSec, nil)
+		ddk.noLocalizerCacheInputs = desired
+		return true, err
 	}
 	return false, nil
 }
