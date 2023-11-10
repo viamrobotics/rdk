@@ -4,6 +4,8 @@ package builtin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+
 	"math"
 	"sync"
 
@@ -215,6 +217,7 @@ type builtIn struct {
 
 	base           base.Base
 	movementSensor movementsensor.MovementSensor
+	visionServices map[resource.Name]vision.Service
 	motionService  motion.Service
 	// exploreMotionService will be removed once the motion explore model is integrated into motion builtin
 	exploreMotionService motion.Service
@@ -309,6 +312,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	var obstacleDetectorNamePairs []motion.ObstacleDetectorName
+	visionServices := make(map[resource.Name]vision.Service)
 	for _, pbObstacleDetectorPair := range svcConfig.ObstacleDetectors {
 		visionSvc, err := vision.FromDependencies(deps, pbObstacleDetectorPair.VisionServiceName)
 		if err != nil {
@@ -321,6 +325,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		obstacleDetectorNamePairs = append(obstacleDetectorNamePairs, motion.ObstacleDetectorName{
 			VisionServiceName: visionSvc.Name(), CameraName: camera.Name(),
 		})
+		visionServices[visionSvc.Name()] = visionSvc
 	}
 
 	// Parse movement sensor from the configuration if map type is GPS
@@ -362,6 +367,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.motionService = motionSvc
 	svc.obstacles = newObstacles
 	svc.replanCostFactor = replanCostFactor
+	svc.visionServices = visionServices
 	svc.motionCfg = &motion.MotionConfiguration{
 		ObstacleDetectors:     obstacleDetectorNamePairs,
 		LinearMPerSec:         metersPerSec,
@@ -369,7 +375,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		PlanDeviationMM:       1e3 * planDeviationM,
 		PositionPollingFreqHz: positionPollingFrequencyHz,
 		ObstaclePollingFreqHz: obstaclePollingFrequencyHz,
-		ObstacleCache:         motion.TransientDetections{},
 	}
 
 	return nil
@@ -386,7 +391,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	defer svc.actionMu.Unlock()
 
 	svc.mu.RLock()
-	svc.logger.Infof("SetMode called with mode: %s, transitioning to mode: %s", mode, svc.mode)
+	svc.logger.Infof("SetMode called with mode: %s, transitioning to mode: %s", svc.mode, mode)
 	if svc.mode == mode {
 		svc.mu.RUnlock()
 		return nil
@@ -576,8 +581,30 @@ func (svc *builtIn) waypointIsDeleted() bool {
 func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	svc.motionService.Name()
-	return svc.obstacles, nil
+
+	gobs := svc.obstacles
+
+	for _, detector := range svc.motionCfg.ObstacleDetectors {
+		visSvc, ok := svc.visionServices[detector.VisionServiceName]
+		if !ok {
+			return nil, fmt.Errorf("vision service with name: %v not found", detector.VisionServiceName)
+		}
+		gp, _, err := svc.movementSensor.Position(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+		detections, err := visSvc.GetObjectPointClouds(ctx, detector.CameraName.Name, nil)
+		if err != nil {
+			return nil, err
+		}
+		var geoms []spatialmath.Geometry
+		for _, det := range detections {
+			geoms = append(geoms, det.Geometry)
+		}
+		gobs = append(gobs, spatialmath.NewGeoObstacle(gp, geoms))
+	}
+
+	return gobs, nil
 }
 
 func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {

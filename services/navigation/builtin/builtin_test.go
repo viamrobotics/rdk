@@ -21,6 +21,7 @@ import (
 	_ "go.viam.com/rdk/components/movementsensor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -33,6 +34,7 @@ import (
 	_ "go.viam.com/rdk/services/vision/colordetector"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	viz "go.viam.com/rdk/vision"
 )
 
 func setupNavigationServiceFromConfig(t *testing.T, configFilename string) (navigation.Service, func()) {
@@ -1010,4 +1012,82 @@ func TestValidateGeometry(t *testing.T) {
 		_, err := cfg.Validate("")
 		test.That(t, err, test.ShouldBeNil)
 	})
+}
+
+func TestGetObstacles(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// create injected motion service
+	injectMS := inject.NewMotionService("test_motion")
+
+	// create fake base
+	fakeBase, err := fakebase.NewBase(
+		ctx,
+		nil,
+		resource.Config{
+			Name:  "test_base",
+			API:   base.API,
+			Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
+		},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	injectMovementSensor := inject.NewMovementSensor("test_movement")
+
+	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		return geo.NewPoint(1, 1), 0, nil
+	}
+
+	// create injected vis svc
+	injectedVis := inject.NewVisionService("test_vision")
+	injectedCam := inject.NewCamera("test_camera")
+
+	ns, err := NewBuiltIn(
+		ctx,
+		resource.Dependencies{
+			injectMS.Name():             injectMS,
+			fakeBase.Name():             fakeBase,
+			injectMovementSensor.Name(): injectMovementSensor,
+			injectedVis.Name():          injectedVis,
+			injectedCam.Name():          injectedCam,
+		},
+		resource.Config{
+			ConvertedAttributes: &Config{
+				Store: navigation.StoreConfig{
+					Type: navigation.StoreTypeMemory,
+				},
+				BaseName:           "test_base",
+				MovementSensorName: "test_movement",
+				MotionServiceName:  "test_motion",
+				DegPerSec:          1,
+				MetersPerSec:       1,
+				MapType:            "",
+				ObstacleDetectors: []*ObstacleDetectorNameConfig{
+					{VisionServiceName: injectedVis.Name().Name, CameraName: injectedCam.Name().Name},
+				},
+			},
+		},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, ns.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	boxGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{3.14, 2.72, 1}, "test-box")
+	test.That(t, err, test.ShouldBeNil)
+	gobs := spatialmath.NewGeoObstacle(geo.NewPoint(1, 1), []spatialmath.Geometry{boxGeom})
+
+	injectedVis.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-box", boxGeom.ToProtobuf())
+		test.That(t, err, test.ShouldBeNil)
+		return []*viz.Object{detection}, nil
+	}
+
+	dets, err := ns.Obstacles(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(dets), test.ShouldEqual, 1)
+	test.That(t, dets[0], test.ShouldResemble, gobs)
 }
