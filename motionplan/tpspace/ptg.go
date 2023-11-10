@@ -95,12 +95,12 @@ func ComputePTG(simPTG PTG, alpha, dist, diffT float64) ([]*TrajNode, error) {
 		alphaTraj[len(alphaTraj)-1].AngVelRPS = w
 
 		alphaTraj = append(alphaTraj, nextNode)
-		displacement := math.Copysign(math.Abs(v)*diffT, dist)
-		if displacement == 0 {
+		displacement := diffT
+		switch {
+		case v != 0:
+			displacement = math.Copysign(math.Abs(v)*diffT, dist)
+		case w != 0:
 			displacement = math.Copysign(math.Abs(w)*diffT, dist)
-		}
-		if displacement == 0 {
-			displacement = diffT
 		}
 		distTravelled += displacement
 	}
