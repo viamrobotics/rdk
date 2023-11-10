@@ -184,9 +184,11 @@ func TestReadings(t *testing.T) {
 }
 
 func TestReconfigure(t *testing.T) {
+	mockI2c := inject.I2C{}
 	g := &rtkI2C{
-		wbaud: 9600,
-		addr:  byte(66),
+		wbaud:   9600,
+		addr:    byte(66),
+		mockI2c: mockI2c,
 	}
 	conf := resource.Config{
 		Name: "reconfig1",

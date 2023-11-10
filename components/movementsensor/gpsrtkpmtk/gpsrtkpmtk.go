@@ -163,11 +163,15 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 
 	g.addr = byte(newConf.I2CAddr)
 
-	i2cbus, err := genericlinux.NewI2cBus(newConf.I2CBus)
-	if err != nil {
-		return fmt.Errorf("gps init: failed to find i2c bus %s: %w", newConf.I2CBus, err)
+	if g.mockI2c == nil {
+		i2cbus, err := genericlinux.NewI2cBus(newConf.I2CBus)
+		if err != nil {
+			return fmt.Errorf("gps init: failed to find i2c bus %s: %w", newConf.I2CBus, err)
+		}
+		g.bus = i2cbus
+	} else {
+		g.bus = mockI2c
 	}
-	g.bus = i2cbus
 
 	g.ntripconfigMu.Lock()
 	ntripConfig := &rtk.NtripConfig{
