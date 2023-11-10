@@ -6,11 +6,13 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func (c *viamClient) startBuild() (*buildpb.StartBuildResponse, error) {
+func (c *viamClient) startBuild(arch []string) (*buildpb.StartBuildResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
-	req := buildpb.StartBuildRequest{}
+	req := buildpb.StartBuildRequest{
+		Arch: arch,
+	}
 	return c.buildClient.StartBuild(c.c.Context, &req)
 }
 
@@ -20,11 +22,20 @@ func ModuleBuildStartAction(c *cli.Context) error {
 	// publicNamespaceArg := c.String(moduleFlagPublicNamespace)
 	// orgIDArg := c.String(moduleFlagOrgID)
 
+	manifest, err := loadManifest(c.String(moduleFlagPath))
+	if err != nil {
+		return err
+	}
+
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	res, err := client.startBuild()
+	platforms := manifest.Build.Arch
+	if len(platforms) == 0 {
+		platforms = defaultBuildInfo.Arch
+	}
+	res, err := client.startBuild(platforms)
 	if err != nil {
 		return err
 	}

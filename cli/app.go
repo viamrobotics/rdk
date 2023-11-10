@@ -937,7 +937,16 @@ var app = &cli.App{
 						{
 							Name:        "start",
 							Description: "heyo",
-							Action:      ModuleBuildStartAction,
+							Flags: []cli.Flag{
+								// todo: factor out common flags
+								&cli.StringFlag{
+									Name:      moduleFlagPath,
+									Usage:     "path to meta.json",
+									Value:     "./meta.json",
+									TakesFile: true,
+								},
+							},
+							Action: ModuleBuildStartAction,
 						},
 					},
 				},
