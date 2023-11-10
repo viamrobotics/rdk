@@ -200,7 +200,7 @@ type MotionConfiguration struct {
 	ObstacleCache         TransientDetections
 }
 
-// TransientDetections specifies a detection returned by a vision service
+// TransientDetections specifies a detection returned by a vision service.
 type TransientDetections struct {
 	Obstcles  chan ([]spatialmath.Geometry)
 	CacheTime time.Time
