@@ -10,7 +10,6 @@ import (
 
 // TODO: RSDK-5610 test the scaling factor with a non-pi board with hardware pwm.
 var (
-	powerScaling     = 255.0
 	errConstantBlock = errors.New("constant block should be called 'set_point")
 	errEndpointBlock = errors.New("endpoint block should be called 'endpoint")
 	errTrapzBlock    = errors.New("trapezoidalVelocityProfile block should be called 'trapz")
@@ -20,8 +19,7 @@ var (
 // SetState sets the state of the motor for the built-in control loop.
 func (m *EncodedMotor) SetState(ctx context.Context, state []*control.Signal) error {
 	power := state[0].GetSignalValueAt(0)
-	// scale power input to the 0 to +/- 255 range from the control config
-	return m.SetPower(ctx, power/powerScaling, nil)
+	return m.SetPower(ctx, power, nil)
 }
 
 // State gets the state of the motor for the built-in control loop.
@@ -69,8 +67,7 @@ func (m *EncodedMotor) setupControlLoop() error {
 	if err != nil {
 		return err
 	}
-	err = cLoop.Start()
-	if err != nil {
+	if err = cLoop.Start(); err != nil {
 		return err
 	}
 	m.loop = cLoop
