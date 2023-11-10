@@ -15,6 +15,7 @@ import (
 	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 const (
@@ -188,7 +189,7 @@ func TestReconfigure(t *testing.T) {
 	g := &rtkI2C{
 		wbaud:   9600,
 		addr:    byte(66),
-		mockI2c: mockI2c,
+		mockI2c: &mockI2c,
 	}
 	conf := resource.Config{
 		Name: "reconfig1",
