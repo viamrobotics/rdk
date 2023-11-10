@@ -75,7 +75,7 @@ func ComputePTG(simPTG PTG, alpha, dist, diffT float64) ([]*TrajNode, error) {
 
 	var err error
 	var t, v, w float64
-	distTravelled := math.Copysign(math.Abs(v)*diffT, dist)
+	distTravelled := 0.
 
 	// Step through each time point for this alpha
 	for math.Abs(distTravelled) < math.Abs(dist) {
@@ -95,7 +95,14 @@ func ComputePTG(simPTG PTG, alpha, dist, diffT float64) ([]*TrajNode, error) {
 		alphaTraj[len(alphaTraj)-1].AngVelRPS = w
 
 		alphaTraj = append(alphaTraj, nextNode)
-		distTravelled += math.Copysign(math.Max(diffT, math.Abs(v)*diffT), dist)
+		displacement := math.Copysign(math.Abs(v)*diffT, dist)
+		if displacement == 0 {
+			displacement = math.Copysign(math.Abs(w)*diffT, dist)
+		}
+		if displacement == 0 {
+			displacement = diffT
+		}
+		distTravelled += displacement
 	}
 
 	// Add final node
