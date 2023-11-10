@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strconv"
 	"sync"
 
 	"github.com/golang/geo/r3"
@@ -597,7 +598,12 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			return nil, err
 		}
 		var geoms []spatialmath.Geometry
-		for _, det := range detections {
+		for i, det := range detections {
+			label := detector.CameraName.Name + "_transientObstacle_" + strconv.Itoa(i)
+			if det.Geometry.Label() != "" {
+				label += "_" + det.Geometry.Label()
+			}
+			det.Geometry.SetLabel(label)
 			geoms = append(geoms, det.Geometry)
 		}
 		gobs = append(gobs, spatialmath.NewGeoObstacle(gp, geoms))

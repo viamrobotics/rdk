@@ -1076,7 +1076,7 @@ func TestGetObstacles(t *testing.T) {
 		test.That(t, ns.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	boxGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{3.14, 2.72, 1}, "test-box")
+	boxGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{3.14, 2.72, 1}, "test_camera_transientObstacle_0_test-box")
 	test.That(t, err, test.ShouldBeNil)
 	gobs := spatialmath.NewGeoObstacle(geo.NewPoint(1, 1), []spatialmath.Geometry{boxGeom})
 
