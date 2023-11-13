@@ -780,10 +780,18 @@ func (m *module) startProcess(
 		return err
 	}
 
+	// We evaluate the Module's ExePath absolutely in the viam-server process so that
+	// setting the CWD does not cause issues with relative process names
+	absoluteExePath, err := filepath.Abs(m.cfg.ExePath)
+	if err != nil {
+		return err
+	}
+
 	pconf := pexec.ProcessConfig{
 		ID:               m.cfg.Name,
-		Name:             m.cfg.ExePath,
+		Name:             absoluteExePath,
 		Args:             []string{m.addr},
+		CWD:              filepath.Dir(absoluteExePath),
 		Environment:      m.getFullEnvironment(viamHomeDir),
 		Log:              true,
 		OnUnexpectedExit: oue,
