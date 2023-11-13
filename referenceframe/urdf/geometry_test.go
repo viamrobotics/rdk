@@ -2,7 +2,6 @@ package urdf
 
 import (
 	"encoding/xml"
-	"os"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -41,8 +40,6 @@ func TestGeometrySerialization(t *testing.T) {
 			}
 			test.That(t, err, test.ShouldBeNil)
 			bytes, err := xml.MarshalIndent(urdf, "", "  ")
-			test.That(t, err, test.ShouldBeNil)
-			os.WriteFile(tc.name+".urdf", bytes, 0666)
 			var urdf2 collision
 			xml.Unmarshal(bytes, &urdf2)
 			g2, err := urdf2.parse()

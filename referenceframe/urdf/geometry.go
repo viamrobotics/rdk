@@ -23,17 +23,31 @@ type collision struct {
 	} `xml:"geometry"`
 }
 
+type box struct {
+	XMLName xml.Name `xml:"box"`
+	Size    string   `xml:"size,attr"` // "x y z" format, in meters
+}
+
+type sphere struct {
+	XMLName xml.Name `xml:"sphere"`
+	Radius  float64  `xml:"radius,attr"` // in meters
+}
+
 func newCollision(g spatialmath.Geometry) (*collision, error) {
+	cfg, err := spatialmath.NewGeometryConfig(g)
+	if err != nil {
+		return nil, err
+	}
 	urdf := &collision{
 		Origin: newPose(g.Pose()),
 	}
-	switch gType := g.(type) {
-	case *spatialmath.box:
-		urdf.Geometry.Box = newURDFBox(gType)
-	case *spatialmath.sphere:
-		urdf.Geometry.Sphere = newURDFSphere(gType)
+	switch cfg.Type {
+	case spatialmath.BoxType:
+		urdf.Geometry.Box = &box{Size: fmt.Sprintf("%f %f %f", utils.MMToMeters(cfg.X), utils.MMToMeters(cfg.Y), utils.MMToMeters(cfg.Z))}
+	case spatialmath.SphereType:
+		urdf.Geometry.Sphere = &sphere{Radius: utils.MMToMeters(cfg.R)}
 	default:
-		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", gType))
+		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", cfg.Type))
 	}
 	return urdf, nil
 }
@@ -50,28 +64,6 @@ func (c *collision) parse() (spatialmath.Geometry, error) {
 	case c.Geometry.Sphere != nil:
 		return spatialmath.NewSphere(c.Origin.Parse(), utils.MetersToMM(c.Geometry.Sphere.Radius), "")
 	default:
-		return nil, errors.Errorf("couldn't parse xml: no geometry defined")
+		return nil, errors.New("couldn't parse xml: no geometry defined")
 	}
-}
-
-type box struct {
-	XMLName xml.Name `xml:"box"`
-	Size    string   `xml:"size,attr"` // "x y z" format, in meters
-}
-
-func newURDFBox(b *spatialmath.box) *box {
-	return &box{Size: fmt.Sprintf("%f %f %f",
-		utils.MMToMeters(2*b.halfSize[0]),
-		utils.MMToMeters(2*b.halfSize[1]),
-		utils.MMToMeters(2*b.halfSize[2]),
-	)}
-}
-
-type sphere struct {
-	XMLName xml.Name `xml:"sphere"`
-	Radius  float64  `xml:"radius,attr"` // in meters
-}
-
-func newURDFSphere(s *spatialmath.sphere) *sphere {
-	return &sphere{Radius: utils.MMToMeters(s.radius)}
 }
