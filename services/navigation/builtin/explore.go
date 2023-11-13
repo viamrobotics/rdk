@@ -2,7 +2,6 @@ package builtin
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 
 	"github.com/golang/geo/r3"
@@ -12,7 +11,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-const defaultDistanceMM = 100 * 1000 // CHANGE BACK
+const defaultDistanceMM = 100 * 1000
 
 func (svc *builtIn) startExploreMode(ctx context.Context) {
 	svc.logger.Debug("startExploreMode called")
@@ -30,7 +29,7 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 			}
 
 			//nolint:gosec
-			fmt.Println("\n\n\n\n\n\n\n")
+
 			destination := frame.NewPoseInFrame(svc.base.Name().Name, spatialmath.NewPose(
 				r3.Vector{
 					X: (2*rand.Float64() - 1.0),

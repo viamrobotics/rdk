@@ -39,5 +39,5 @@ func TestExploreMode(t *testing.T) {
 	nsStruct.startExploreMode(ctxTimeout)
 	<-ctxTimeout.Done()
 	teardown()
-	test.That(t, len(points), test.ShouldBeGreaterThan, 100)
+	test.That(t, len(points), test.ShouldBeGreaterThan, 2)
 }

@@ -4,7 +4,6 @@ package builtin
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math"
 	"sync"
 
@@ -235,7 +234,6 @@ type builtIn struct {
 }
 
 func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	fmt.Println("depsdeps", deps)
 	svc.actionMu.Lock()
 	defer svc.actionMu.Unlock()
 
@@ -249,11 +247,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	// Set optional variables
 	metersPerSec := defaultLinearVelocityMPerSec
 	if svcConfig.MetersPerSec != 0 {
-		fmt.Println("MetersPerSec given!")
 		metersPerSec = svcConfig.MetersPerSec
-	} else {
-
-		fmt.Println("MetersPerSec not given!")
 	}
 	degPerSec := defaultAngularVelocityDegsPerSec
 	if svcConfig.DegPerSec != 0 {
@@ -397,15 +391,12 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	svc.logger.Infof("SetMode called with mode: %s, transitioning from mode: %s", mode, svc.mode)
 	if svc.mode == mode {
 		svc.mu.RUnlock()
-		fmt.Println("exiting due to same mode")
 		return nil
 	}
 	svc.mu.RUnlock()
 
 	// stop passed active sessions
 	svc.stopActiveMode()
-
-	fmt.Println("stopped passed sessions....")
 
 	// switch modes
 	svc.mu.Lock()
@@ -418,14 +409,12 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 		return errors.Errorf("%v mode is unavailable for map type %v", svc.mode.String(), svc.mapType.String())
 	}
 
-	fmt.Println("switching....")
 	switch svc.mode {
 	case navigation.ModeManual:
 		// do nothing
 	case navigation.ModeWaypoint:
 		svc.startWaypointMode(cancelCtx, extra)
 	case navigation.ModeExplore:
-		fmt.Println("found explore")
 		if len(svc.motionCfg.ObstacleDetectors) == 0 {
 			return errors.New("explore mode requires at least one vision service")
 		}
