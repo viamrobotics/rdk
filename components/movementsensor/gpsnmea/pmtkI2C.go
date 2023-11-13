@@ -1,3 +1,6 @@
+//go:build linux
+
+// Package gpsnmea implements a GPS NMEA component
 package gpsnmea
 
 import (
@@ -12,6 +15,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -47,17 +51,29 @@ func NewPmtkI2CGPSNMEA(
 	conf *Config,
 	logger logging.Logger,
 ) (NmeaMovementSensor, error) {
-	b, err := board.FromDependencies(deps, conf.Board)
-	if err != nil {
-		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
-	}
-	localB, ok := b.(board.LocalBoard)
-	if !ok {
-		return nil, fmt.Errorf("board %s is not local", conf.Board)
-	}
-	i2cbus, ok := localB.I2CByName(conf.I2CConfig.I2CBus)
-	if !ok {
-		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", conf.I2CConfig.I2CBus)
+	// The nil on this next line means "use a real I2C bus, because we're not going to pass in a
+	// mock one."
+	return MakePmtkI2cGpsNmea(ctx, deps, name, conf, logger, nil)
+}
+
+// MakePmtkI2cGpsNmea is only split out for ease of testing: you can pass in your own mock I2C bus,
+// or pass in nil to have it create a real one. It is public so it can also be called from within
+// the gpsrtkpmtk package.
+func MakePmtkI2cGpsNmea(
+	ctx context.Context,
+	deps resource.Dependencies,
+	name resource.Name,
+	conf *Config,
+	logger logging.Logger,
+	i2cBus board.I2C,
+) (NmeaMovementSensor, error) {
+	if i2cBus == nil {
+		var err error
+		i2cBus, err = genericlinux.NewI2cBus(conf.I2CConfig.I2CBus)
+		if err != nil {
+			return nil, fmt.Errorf("gps init: failed to find i2c bus %s: %w",
+				conf.I2CConfig.I2CBus, err)
+		}
 	}
 	addr := conf.I2CConfig.I2CAddr
 	if addr == -1 {
@@ -76,7 +92,7 @@ func NewPmtkI2CGPSNMEA(
 
 	g := &PmtkI2CNMEAMovementSensor{
 		Named:       name.AsNamed(),
-		bus:         i2cbus,
+		bus:         i2cBus,
 		addr:        byte(addr),
 		wbaud:       conf.I2CConfig.I2CBaudRate,
 		cancelCtx:   cancelCtx,
