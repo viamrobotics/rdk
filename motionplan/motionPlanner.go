@@ -129,7 +129,13 @@ func PlanFrameMotion(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	return plan.GetFrameSteps(f.Name())
+
+	planSteps, err := plan.GetFrameSteps(f.Name())
+	fmt.Println("Plan steps: \n\n")
+	for _, step := range planSteps {
+		fmt.Printf("%v,%v\n", step[0].Value, step[1].Value)
+	}
+	return planSteps, err
 }
 
 // Replan plans a motion from a provided plan request, and then will return that plan only if its cost is better than the cost of the
