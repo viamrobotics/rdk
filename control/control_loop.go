@@ -42,10 +42,12 @@ type Loop struct {
 
 // NewLoop construct a new control loop for a specific endpoint.
 func NewLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error) {
+	logger.Error("NewLoop")
 	return createLoop(logger, cfg, m)
 }
 
 func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error) {
+	logger.Error("createLoop")
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	l := Loop{
 		logger:    logger,
@@ -67,8 +69,10 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 		l.blocks[bcfg.Name] = &controlBlockInternal{blk: blk, blockType: bcfg.Type}
 		if bcfg.Type == blockEndpoint {
 			l.blocks[bcfg.Name].blk.(*endpoint).ctr = m
+			logger.Errorf("endpoint ctr = %v", m)
 		}
 	}
+	logger.Errorf("blocks: %v", l.blocks)
 	for _, b := range l.blocks {
 		for _, dep := range b.blk.Config(l.cancelCtx).DependsOn {
 			blockDep, ok := l.blocks[dep]
@@ -79,6 +83,7 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 			b.ins = append(b.ins, blockDep.outs[len(blockDep.outs)-1])
 		}
 	}
+	logger.Error("block dependencies done")
 	for _, b := range l.blocks {
 		if len(b.blk.Config(l.cancelCtx).DependsOn) == 0 || b.blk.Config(l.cancelCtx).Type == blockEndpoint {
 			waitCh := make(chan struct{})
@@ -91,6 +96,7 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 				for {
 					_, ok := <-t
 					if !ok {
+						logger.Errorf("NO DEPS %v !ok", b)
 						b.mu.Lock()
 						for _, out := range b.outs {
 							close(out)
@@ -99,6 +105,7 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 						b.mu.Unlock()
 						return
 					}
+					logger.Errorf("NO DEPS calling next on %v", b)
 					v, _ := b.blk.Next(l.cancelCtx, nil, l.dt)
 					for _, out := range b.outs {
 						out <- v
@@ -119,8 +126,10 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 					for i, c := range b.ins {
 						r, ok := <-c
 						if !ok {
+							logger.Errorf("%v !ok, i = %v, c = %v, r = %v", b, i, c, r)
 							b.mu.Lock()
 							for _, out := range b.outs {
+								logger.Errorf("out = %v", out)
 								close(out)
 							}
 							// logger.Debugf("Closing outs for block %s %+v\r\n", b.blk.Config(ctx).Name, r)
@@ -129,6 +138,7 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 							return
 						}
 						if len(r) == 1 {
+							logger.Error("len(r) = 1")
 							sw[i] = r[0]
 						} else {
 							// TODO(npmenard) do we want to support multidimentional signals?
@@ -136,6 +146,7 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 							sw = append(sw, r...)
 						}
 					}
+					logger.Errorf("calling next on %v", b)
 					v, ok := b.blk.Next(l.cancelCtx, sw, l.dt)
 					if ok {
 						for _, out := range b.outs {
@@ -147,6 +158,7 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 			<-waitCh
 		}
 	}
+	logger.Error("LOOP CREATED")
 	return &l, nil
 }
 

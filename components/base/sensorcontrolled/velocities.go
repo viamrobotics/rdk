@@ -20,19 +20,18 @@ const useControlLoop = true
 // called by the endpoing logic of the control thread and the controlLoopConfig
 // is included at the end of this file.
 func setupControlLoops(sb *sensorBase) error {
+	sb.logger.Error("setupControlLoops")
 	// TODO: RSDK-5355 useControlLoop bool should be removed after testing
 	if useControlLoop {
 		loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
 		if err != nil {
 			return err
 		}
-		sb.loop = loop
-
-		if sb.loop != nil {
-			if err := sb.loop.Start(); err != nil {
-				return err
-			}
+		// time.Sleep(1 * time.Second)
+		if err := loop.Start(); err != nil {
+			return err
 		}
+		sb.loop = loop
 	}
 
 	return nil
@@ -84,15 +83,18 @@ func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interfac
 			// check if we want to poll the sensor at all
 			// other API calls set this to false so that this for loop stops
 			if !sb.isPolling() {
+				// sb.logger.Error("not polling, so stopping")
 				ticker.Stop()
 			}
 
 			if err := ctx.Err(); err != nil {
+				sb.logger.Error(err)
 				return
 			}
 
 			select {
 			case <-ctx.Done():
+				// sb.logger.Error("ctx done")
 				return
 			case <-ticker.C:
 				linvel, err := sb.velocities.LinearVelocity(ctx, extra)
@@ -123,7 +125,7 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 	defer sb.mu.Unlock()
 	if sb.isPolling() {
 		// if the spin loop is polling, don't call set velocity, immediately return
-		// this allows us to keep the control loop unning without stopping it until
+		// this allows us to keep the control loop running without stopping it until
 		// the resource Close has been called
 		sb.logger.Info("skipping set state call")
 		return nil
@@ -133,7 +135,9 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 	linvel := state[0].GetSignalValueAt(0)
 	angvel := state[1].GetSignalValueAt(0)
 
-	return sb.SetVelocity(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
+	return sb.controlledBase.SetPower(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
+
+	// return sb.SetVelocity(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
 }
 
 // State is called in endpoint.go of the controls package by the control loop
@@ -151,6 +155,7 @@ func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
 	if err != nil {
 		return []float64{}, err
 	}
+	// sb.logger.Warnf("linvel = %v, angvel = %v", linvel, angvel)
 
 	return []float64{linvel.Y, angvel.Z}, nil
 }
@@ -163,44 +168,51 @@ func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
 var controlLoopConfig = control.Config{
 	Blocks: []control.BlockConfig{
 		{
-			Name: "sensor-base",
+			Name: "endpoint",
 			Type: "endpoint",
 			Attribute: rdkutils.AttributeMap{
-				"base_name": "base",
+				"base_name": "viam_base",
 			},
-			DependsOn: []string{"pid_block"},
+			DependsOn: []string{"PID"},
 		},
 		{
-			Name: "pid_block",
+			Name: "PID",
 			Type: "PID",
 			Attribute: rdkutils.AttributeMap{
-				"kP": 1.0, // kP, kD and kI are random for now
-				"kD": 0.5,
-				"kI": 0.2,
+				"kP":             0.0, // kP, kD and kI are random for now
+				"kD":             0.0,
+				"kI":             0.0,
+				"int_sat_lim_lo": -255.0,
+				"int_sat_lim_up": 255.0,
+				"limit_lo":       -255.0,
+				"limit_up":       255.0,
+				"tune_method":    "ziegerNicholsSomeOvershoot",
+				"tune_ssr_value": 2.0,
+				"tune_step_pct":  0.35,
 			},
-			DependsOn: []string{"sum_block"},
+			DependsOn: []string{"gain"},
 		},
 		{
-			Name: "sum_block",
+			Name: "sum",
 			Type: "sum",
 			Attribute: rdkutils.AttributeMap{
-				"sum_string": "-+", // should this be +- or does it follow dependency order?
+				"sum_string": "+-", // should this be +- or does it follow dependency order?
 			},
-			DependsOn: []string{"sensor-base", "constant"},
+			DependsOn: []string{"endpoint", "set_point"},
 		},
 		{
-			Name: "gain_block",
+			Name: "gain",
 			Type: "gain",
 			Attribute: rdkutils.AttributeMap{
-				"gain": 1.0, // need to update dynamically? Or should I just use the trapezoidal velocity profile
+				"gain": 0.3, // need to update dynamically? Or should I just use the trapezoidal velocity profile
 			},
-			DependsOn: []string{"sum_block"},
+			DependsOn: []string{"sum"},
 		},
 		{
-			Name: "constant",
+			Name: "set_point",
 			Type: "constant",
 			Attribute: rdkutils.AttributeMap{
-				"constant_val": 1.0,
+				"constant_val": 0.0,
 			},
 			DependsOn: []string{},
 		},

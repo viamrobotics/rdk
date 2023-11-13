@@ -60,14 +60,14 @@ func (e *endpoint) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 func (e *endpoint) reset() error {
 	_, motorOk := e.cfg.Attribute["motor_name"]
 	if motorOk {
-		// e.logger.Info("making a signal of length 1")
+		e.logger.Info("making a signal of length 1")
 		e.y = make([]*Signal, 1)
 		e.y[0] = makeSignal(e.cfg.Name)
 	}
 
 	_, baseOk := e.cfg.Attribute["base_name"]
 	if baseOk {
-		// e.logger.Info("making a signal of length 2")
+		e.logger.Info("making a signal of length 2")
 		e.y = make([]*Signal, 2)
 		e.y[0] = makeSignal(e.cfg.Name)
 		e.y[1] = makeSignal(e.cfg.Name)

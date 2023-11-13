@@ -12,6 +12,7 @@ import (
 )
 
 func newPID(config BlockConfig, logger logging.Logger) (Block, error) {
+	logger.Error("new PID")
 	p := &basicPID{cfg: config, logger: logger}
 	if err := p.reset(); err != nil {
 		return nil, err
@@ -43,9 +44,11 @@ type basicPID struct {
 // setPoint is the desired value, measured is the measured value.
 // Returns false when the output is invalid (the integral is saturating) in this case continue to use the last valid value.
 func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
+	p.logger.Error("PID NEXT")
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.tuning {
+		p.logger.Error("tuning")
 		out, done := p.tuner.pidTunerStep(math.Abs(x[0].GetSignalValueAt(0)), p.logger)
 		if done {
 			p.kD = p.tuner.kD
@@ -86,6 +89,7 @@ func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 }
 
 func (p *basicPID) reset() error {
+	p.logger.Error("PID reset")
 	p.int = 0
 	p.error = 0
 	p.sat = 0
@@ -158,6 +162,7 @@ func (p *basicPID) reset() error {
 			return errors.Errorf("tuner pid block %s should have a percentage value between 0-1 for TuneStepPct", p.cfg.Name)
 		}
 		p.tuning = true
+		p.logger.Error("TUNING")
 	}
 	p.y = make([]*Signal, 1)
 	p.y[0] = makeSignal(p.cfg.Name)
