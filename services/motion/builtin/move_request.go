@@ -143,7 +143,20 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 			// We can safely build from scratch without excluding any valuable information.
 			geoms := []spatialmath.Geometry{}
 			for i, detection := range detections {
-				geometry := detection.Geometry.Transform(currentPosition.Pose())
+				// a bump or ultra sonic sensor will always return a pointcloud of size 1 along with a
+				// geometry which has no volume
+				var geom spatialmath.Geometry
+				if detection.PointCloud.Size() == 1 {
+					position := spatialmath.NewPoseFromPoint(detection.Geometry.ToPoints(1.)[0])
+					geom, err = spatialmath.NewSphere(position, 1.0, detection.Geometry.Label())
+					if err != nil {
+						return false, err
+					}
+				} else {
+					geom = detection.Geometry
+				}
+
+				geometry := geom.Transform(currentPosition.Pose())
 				label := camName.Name + "_transientObstacle_" + strconv.Itoa(i)
 				if geometry.Label() != "" {
 					label += "_" + geometry.Label()
