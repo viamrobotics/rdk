@@ -10,7 +10,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/base"
@@ -112,7 +111,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 		TargetFrame:   "base1",
 		MergeMethod:   "naive",
 	}
-	logger := logging.FromZapCompatible(utils.Logger)
+	logger := logging.Global()
 	joinedCam, err := newJoinPointCloudCamera(context.Background(), deps, resource.Config{ConvertedAttributes: conf}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := joinedCam.NextPointCloud(context.Background())
@@ -358,7 +357,7 @@ func TestFixedPointCloudICP(t *testing.T) {
 	}
 
 	joinedCam, err := newJoinPointCloudCamera(
-		context.Background(), deps, resource.Config{ConvertedAttributes: conf}, logging.FromZapCompatible(utils.Logger))
+		context.Background(), deps, resource.Config{ConvertedAttributes: conf}, logging.Global())
 	test.That(t, err, test.ShouldBeNil)
 	defer joinedCam.Close(context.Background())
 	pc, err := joinedCam.NextPointCloud(ctx)
@@ -378,7 +377,7 @@ func TestTwinPointCloudICP(t *testing.T) {
 		MergeMethod:   "icp",
 	}
 	joinedCam, err := newJoinPointCloudCamera(
-		context.Background(), deps, resource.Config{ConvertedAttributes: conf}, logging.FromZapCompatible(utils.Logger))
+		context.Background(), deps, resource.Config{ConvertedAttributes: conf}, logging.Global())
 	test.That(t, err, test.ShouldBeNil)
 	defer joinedCam.Close(context.Background())
 	pc, err := joinedCam.NextPointCloud(context.Background())
@@ -403,7 +402,7 @@ func TestMultiPointCloudICP(t *testing.T) {
 		MergeMethod:   "icp",
 	}
 	joinedCam, err := newJoinPointCloudCamera(
-		context.Background(), deps, resource.Config{ConvertedAttributes: conf}, logging.FromZapCompatible(utils.Logger))
+		context.Background(), deps, resource.Config{ConvertedAttributes: conf}, logging.Global())
 	test.That(t, err, test.ShouldBeNil)
 	defer joinedCam.Close(context.Background())
 	pc, err := joinedCam.NextPointCloud(context.Background())

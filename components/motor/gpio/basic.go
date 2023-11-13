@@ -154,7 +154,7 @@ func (m *Motor) turnOff(ctx context.Context, extra map[string]interface{}) error
 		errs = multierr.Combine(errs, enLowErr)
 	}
 	if m.EnablePinHigh != nil {
-		enHighErr := errors.Wrap(m.EnablePinLow.Set(ctx, true, extra), "unable to disable high signal")
+		enHighErr := errors.Wrap(m.EnablePinHigh.Set(ctx, false, extra), "unable to disable high signal")
 		errs = multierr.Combine(errs, enHighErr)
 	}
 

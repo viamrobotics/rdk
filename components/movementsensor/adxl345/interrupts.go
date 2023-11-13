@@ -1,3 +1,7 @@
+//go:build linux
+
+// Package adxl345 is for an ADXL345 accelerometer. This file is for the interrupt-based
+// functionality on the chip.
 package adxl345
 
 // addresses relevant to interrupts.

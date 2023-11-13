@@ -81,6 +81,11 @@ type configData struct {
 	GlobalLogConfig     []GlobalLogConfig     `json:"global_log_configuration"`
 }
 
+// AppValidationStatus refers to the.
+type AppValidationStatus struct {
+	Error string `json:"error"`
+}
+
 func (c *Config) validateUniqueResource(logger logging.Logger, seenResources map[string]bool, name string) error {
 	if _, exists := seenResources[name]; exists {
 		errString := errors.Errorf("duplicate resource %s in robot config", name)
@@ -936,6 +941,8 @@ type PackageConfig struct {
 	// Types of the Package. If not specified it is assumed to be ml_model.
 	Type PackageType `json:"type,omitempty"`
 
+	Status *AppValidationStatus `json:"status,omitempty"`
+
 	alreadyValidated bool
 	cachedErr        error
 }
@@ -945,6 +952,13 @@ func (p *PackageConfig) Validate(path string) error {
 	if p.alreadyValidated {
 		return p.cachedErr
 	}
+
+	if p.Status != nil {
+		p.alreadyValidated = true
+		p.cachedErr = utils.NewConfigValidationError(path, errors.New(p.Status.Error))
+		return p.cachedErr
+	}
+
 	p.cachedErr = p.validate(path)
 	p.alreadyValidated = true
 	return p.cachedErr
@@ -980,8 +994,10 @@ func (p *PackageConfig) validate(path string) error {
 func (p PackageConfig) Equals(other PackageConfig) bool {
 	p.alreadyValidated = false
 	p.cachedErr = nil
+	p.Status = nil
 	other.alreadyValidated = false
 	other.cachedErr = nil
+	other.Status = nil
 	//nolint:govet
 	return reflect.DeepEqual(p, other)
 }
