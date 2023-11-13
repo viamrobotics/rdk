@@ -23,31 +23,21 @@ type URDFConfig struct {
 
 // URDFLink is a struct which details the XML used in a URDF link element.
 type URDFLink struct {
-	XMLName   xml.Name                    `xml:"link"`
-	Name      string                      `xml:"name,attr"`
-	Collision []spatialmath.URDFCollision `xml:"collision"`
+	XMLName   xml.Name    `xml:"link"`
+	Name      string      `xml:"name,attr"`
+	Collision []collision `xml:"collision"`
 }
 
 // URDFJoint is a struct which details the XML used in a URDF joint element.
 type URDFJoint struct {
-	XMLName xml.Name              `xml:"joint"`
-	Name    string                `xml:"name,attr"`
-	Type    string                `xml:"type,attr"`
-	Parent  URDFFrame             `xml:"parent"`
-	Child   URDFFrame             `xml:"child"`
-	Origin  *spatialmath.URDFPose `xml:"origin,omitempty"`
-	Axis    *spatialmath.URDFAxis `xml:"axis,omitempty"`
-	Limit   *URDFLimit            `xml:"limit,omitempty"`
-}
-
-type URDFFrame struct {
-	Link string `xml:"link,attr"`
-}
-
-type URDFLimit struct {
-	XMLName xml.Name `xml:"limit"`
-	Lower   float64  `xml:"lower,attr"` // translation limits are in meters, revolute limits are in radians
-	Upper   float64  `xml:"upper,attr"` // translation limits are in meters, revolute limits are in radians
+	XMLName xml.Name `xml:"joint"`
+	Name    string   `xml:"name,attr"`
+	Type    string   `xml:"type,attr"`
+	Parent  frame    `xml:"parent"`
+	Child   frame    `xml:"child"`
+	Origin  *pose    `xml:"origin,omitempty"`
+	Axis    *axis    `xml:"axis,omitempty"`
+	Limit   *limit   `xml:"limit,omitempty"`
 }
 
 func NewURDFConfigFromWorldState(ws *referenceframe.WorldState, name string) (*URDFConfig, error) {
@@ -60,19 +50,19 @@ func NewURDFConfigFromWorldState(ws *referenceframe.WorldState, name string) (*U
 		return nil, err
 	}
 	for _, g := range gf.Geometries() {
-		collision, err := spatialmath.NewURDFCollision(g)
+		coll, err := newCollision(g)
 		if err != nil {
 			return nil, err
 		}
 		links = append(links, URDFLink{
 			Name:      g.Label(),
-			Collision: []spatialmath.URDFCollision{*collision},
+			Collision: []collision{*coll},
 		})
 		joints = append(joints, URDFJoint{
 			Name:   g.Label() + "_joint",
 			Type:   "fixed",
-			Parent: URDFFrame{gf.Parent()},
-			Child:  URDFFrame{g.Label()},
+			Parent: frame{gf.Parent()},
+			Child:  frame{g.Label()},
 		})
 	}
 	return &URDFConfig{
@@ -215,7 +205,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*referenceframe.Mode
 		hasCollision := len(linkElem.Collision) > 0
 		for idx, prefabLink := range mc.Links {
 			if prefabLink.ID == linkElem.Name && hasCollision {
-				geometry, err := linkElem.Collision[0].Parse()
+				geometry, err := linkElem.Collision[0].parse()
 				if err != nil {
 					return nil, err
 				}
@@ -233,7 +223,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*referenceframe.Mode
 		if _, ok := parentMap[linkElem.Name]; !ok {
 			thisLink := referenceframe.LinkConfig{ID: linkElem.Name, Parent: referenceframe.World}
 			if hasCollision {
-				geometry, err := linkElem.Collision[0].Parse()
+				geometry, err := linkElem.Collision[0].parse()
 				if err != nil {
 					return nil, err
 				}

@@ -6,12 +6,8 @@
 package spatialmath
 
 import (
-	"encoding/xml"
-	"fmt"
-
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
-	"go.viam.com/rdk/utils"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
 )
@@ -222,29 +218,4 @@ func ResetPoseDQTranslation(p Pose, v r3.Vector) {
 		panic("ResetPoseDQTranslation has to be passed a dual quaternion")
 	}
 	q.SetTranslation(v)
-}
-
-type URDFPose struct {
-	XMLName xml.Name `xml:"origin"`
-	RPY     string   `xml:"rpy,attr"` // Fixed frame angle "r p y" format, in radians
-	XYZ     string   `xml:"xyz,attr"` // "x y z" format, in meters
-}
-
-func NewURDFPose(p Pose) *URDFPose {
-	pt := p.Point()
-	o := p.Orientation().EulerAngles()
-	return &URDFPose{
-		XYZ: fmt.Sprintf("%f %f %f", utils.MMToMeters(pt.X), utils.MMToMeters(pt.Y), utils.MMToMeters(pt.Z)),
-		RPY: fmt.Sprintf("%f %f %f", o.Roll, o.Pitch, o.Yaw),
-	}
-}
-
-func (urdf *URDFPose) Parse() Pose {
-	// Offset for the geometry origin from the reference link origin
-	xyz := utils.SpaceDelimitedStringToFloatSlice(urdf.XYZ)
-	rpy := utils.SpaceDelimitedStringToFloatSlice(urdf.RPY)
-	return NewPose(
-		r3.Vector{X: utils.MetersToMM(xyz[0]), Y: utils.MetersToMM(xyz[1]), Z: utils.MetersToMM(xyz[2])},
-		&EulerAngles{Roll: rpy[0], Pitch: rpy[1], Yaw: rpy[2]},
-	)
 }

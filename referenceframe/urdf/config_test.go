@@ -91,7 +91,7 @@ func TestURDFGeometries(t *testing.T) {
 }
 
 func TestWorlStateConversion(t *testing.T) {
-	cfg, err := ws.ToURDF("test")
+	cfg, err := NewURDFConfigFromWorldState(ws, "test")
 	test.That(t, err, test.ShouldBeNil)
 	bytes, err := xml.MarshalIndent(cfg, "", "  ")
 	test.That(t, err, test.ShouldBeNil)

@@ -2,7 +2,6 @@ package spatialmath
 
 import (
 	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"math"
 
@@ -216,13 +215,4 @@ func (s *sphere) ToPoints(resolution float64) []r3.Vector {
 		vecList = append(vecList, vec)
 	}
 	return transformPointsToPose(vecList, s.Pose())
-}
-
-type urdfSphere struct {
-	XMLName xml.Name `xml:"sphere"`
-	Radius  float64  `xml:"radius,attr"` // in meters
-}
-
-func newURDFSphere(s *sphere) *urdfSphere {
-	return &urdfSphere{Radius: utils.MMToMeters(s.radius)}
 }
