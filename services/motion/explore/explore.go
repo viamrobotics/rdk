@@ -39,7 +39,7 @@ var (
 	// Places a limit on how far a potential move action can be performed.
 	moveLimit = 100000.
 	// The distance a detected obstacle can be from a base to trigger the Move command to stop.
-	lookAheadDistanceMM = 200.
+	lookAheadDistanceMM = 300.
 	// ErrClosed denotes that the slam service method was called on a closed slam resource.
 	ErrClosed = errors.Errorf("resource (%s) is closed", model.String())
 )
@@ -358,7 +358,6 @@ func (ms *explore) checkForObstacles(
 			)
 
 			// Look for new transient obstacles and add to worldState
-			fmt.Println("STARTINGBB")
 			worldState, err := ms.generateTransientWorldState(ctx, obstacleDetectors)
 			if err != nil {
 				ms.logger.Debugf("issue occurred generating transient worldState: %v", err)
@@ -368,11 +367,17 @@ func (ms *explore) checkForObstacles(
 			ms.planMutex.Lock()
 			remainingPlan := plan[ms.planStep:]
 			ms.planMutex.Unlock()
-			fmt.Println("worldState", worldState)
-			fmt.Println("remainingPlan", remainingPlan)
-			fmt.Println("currentPose", currentPose)
-			fmt.Println("currentInputs", currentInputs)
-			fmt.Println("lookAheadDistanceMM", lookAheadDistanceMM)
+
+			fmt.Println("START WORLD STATE: ", worldState)
+
+			// fs := referenceframe.NewEmptyFrameSystem("figure it out")
+			// fs.AddFrame(kb.Kinematics(), fs.World())
+			// fs.AddFrame(ms.frameSystem.Frame("pointcloud_cam"), kb.Kinematics())
+
+			// frameSystem, err := ms.fsService.FrameSystem(ctx, worldState.Transforms())
+			// if err != nil {
+			// 	ms.logger.Debugf("issue occurred getting framesystem: %v", err)
+			// }
 
 			// Check remainder of plan for transient obstacles
 			err = motionplan.CheckPlan(
@@ -380,19 +385,22 @@ func (ms *explore) checkForObstacles(
 				remainingPlan,
 				worldState,
 				ms.frameSystem,
+				//frameSystem,
 				currentPose,
 				currentInputs,
 				spatialmath.NewZeroPose(),
 				lookAheadDistanceMM,
 				ms.logger,
 			)
-			if err != nil {
+			if err != nil && currentInputs[2].Value != 0 {
 				if strings.Contains(err.Error(), "found collision between positions") {
+					fmt.Println("OBSTACLE WORLD STATE: ", worldState)
 					ms.logger.Debug("collision found in given range")
 					ms.obstacleResponseChan <- moveResponse{success: true}
 					return
 				}
 			}
+			fmt.Println("NO OBSTACLE WORLD STATE: ", worldState)
 		}
 	}
 }
@@ -443,7 +451,6 @@ func (ms *explore) generateTransientWorldState(
 ) (*referenceframe.WorldState, error) {
 	geometriesInFrame := []*referenceframe.GeometriesInFrame{}
 
-	fmt.Println("---------------------------------------------------------")
 	// Iterate through provided obstacle detectors and their associated vision service and cameras
 	for _, obstacleDetector := range obstacleDetectors {
 		for visionService, cameraName := range obstacleDetector {
@@ -466,16 +473,12 @@ func (ms *explore) generateTransientWorldState(
 				}
 				geometry.SetLabel(label)
 				geometries = append(geometries, geometry)
-
-				pWorld, _ := ms.fsService.TransformPose(ctx, referenceframe.NewPoseInFrame(cameraName.Name, detection.Geometry.Pose()), referenceframe.World, nil)
-				fmt.Printf("WORLD OBSTACLES: %v | %v\n", label, pWorld.Pose().Point())
 			}
 			geometriesInFrame = append(geometriesInFrame,
 				referenceframe.NewGeometriesInFrame(cameraName.Name, geometries),
 			)
 		}
 	}
-	fmt.Println("---------------------------------------------------------")
 
 	// Add geometries to worldState
 	worldState, err := referenceframe.NewWorldState(geometriesInFrame, nil)
@@ -590,12 +593,20 @@ func (ms *explore) createMotionPlan(
 		return nil, err
 	}
 
-	// replace original base frame with one that knows how to move itself and allow planning for
 	if err := ms.frameSystem.ReplaceFrame(kb.Kinematics()); err != nil {
 		return nil, err
 	}
 
-	fmt.Println("len(kb.Kinematics().DoF() ", len(kb.Kinematics().DoF()))
+	// replace original base frame with one that knows how to move itself and allow planning for
+	new_origin_frame, err := referenceframe.NewStaticFrame(kb.Name().ShortName()+"_origin", spatialmath.NewZeroPose())
+	if err != nil {
+		return nil, err
+	}
+
+	if err = ms.frameSystem.ReplaceFrame(new_origin_frame); err != nil {
+		return nil, err
+	}
+
 	inputs := make([]referenceframe.Input, len(kb.Kinematics().DoF()))
 
 	f := kb.Kinematics()

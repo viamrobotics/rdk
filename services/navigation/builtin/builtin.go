@@ -54,7 +54,7 @@ const (
 
 	// desired speeds to maintain for the base.
 	defaultLinearVelocityMPerSec     = 0.5
-	defaultAngularVelocityDegsPerSec = 45.
+	defaultAngularVelocityDegsPerSec = 90.
 
 	// how far off the path must the robot be to trigger replanning.
 	defaultPlanDeviationM = 1e9

@@ -30,7 +30,7 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 			}
 
 			//nolint:gosec
-			fmt.Println("/n/n/n/n/n/n")
+			fmt.Println("\n\n\n\n\n\n\n")
 			destination := frame.NewPoseInFrame(svc.base.Name().Name, spatialmath.NewPose(
 				r3.Vector{
 					X: (2*rand.Float64() - 1.0),
