@@ -6,13 +6,14 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
 var errGeometryTypeUnsupported = errors.New("unsupported Geometry type")
 
-// collision is a struct which details the XML used in a URDF collision geometry
+// collision is a struct which details the XML used in a URDF collision geometry.
 type collision struct {
 	XMLName  xml.Name `xml:"collision"`
 	Origin   *pose    `xml:"origin"`
@@ -41,6 +42,7 @@ func newCollision(g spatialmath.Geometry) (*collision, error) {
 	urdf := &collision{
 		Origin: newPose(g.Pose()),
 	}
+	//nolint:exhaustive
 	switch cfg.Type {
 	case spatialmath.BoxType:
 		urdf.Geometry.Box = &box{Size: fmt.Sprintf("%f %f %f", utils.MMToMeters(cfg.X), utils.MMToMeters(cfg.Y), utils.MMToMeters(cfg.Z))}
@@ -52,7 +54,7 @@ func newCollision(g spatialmath.Geometry) (*collision, error) {
 	return urdf, nil
 }
 
-func (c *collision) parse() (spatialmath.Geometry, error) {
+func (c *collision) toGeometry() (spatialmath.Geometry, error) {
 	switch {
 	case c.Geometry.Box != nil:
 		dims := spaceDelimitedStringToFloatSlice(c.Geometry.Box.Size)

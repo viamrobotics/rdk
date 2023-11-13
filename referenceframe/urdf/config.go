@@ -1,3 +1,4 @@
+// Package urdf provides functions which enable *.urdf files to be used within RDK
 package urdf
 
 import (
@@ -13,23 +14,23 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// URDFConfig represents all supported fields in a Universal Robot Description Format (URDF) file.
-type URDFConfig struct {
-	XMLName xml.Name    `xml:"robot"`
-	Name    string      `xml:"name,attr"`
-	Links   []URDFLink  `xml:"link"`
-	Joints  []URDFJoint `xml:"joint"`
+// Config represents all supported fields in a Universal Robot Description Format (URDF) file.
+type Config struct {
+	XMLName xml.Name `xml:"robot"`
+	Name    string   `xml:"name,attr"`
+	Links   []link   `xml:"link"`
+	Joints  []joint  `xml:"joint"`
 }
 
-// URDFLink is a struct which details the XML used in a URDF link element.
-type URDFLink struct {
+// link is a struct which details the XML used in a URDF link element.
+type link struct {
 	XMLName   xml.Name    `xml:"link"`
 	Name      string      `xml:"name,attr"`
 	Collision []collision `xml:"collision"`
 }
 
-// URDFJoint is a struct which details the XML used in a URDF joint element.
-type URDFJoint struct {
+// joint is a struct which details the XML used in a URDF joint element.
+type joint struct {
 	XMLName xml.Name `xml:"joint"`
 	Name    string   `xml:"name,attr"`
 	Type    string   `xml:"type,attr"`
@@ -40,10 +41,12 @@ type URDFJoint struct {
 	Limit   *limit   `xml:"limit,omitempty"`
 }
 
-func NewURDFConfigFromWorldState(ws *referenceframe.WorldState, name string) (*URDFConfig, error) {
+// NewConfigFromWorldState creates a urdf.Config struct which can be marshalled into xml and will be a
+// valid .urdf file representing the geometries in the given worldstate.
+func NewConfigFromWorldState(ws *referenceframe.WorldState, name string) (*Config, error) {
 	// the link we initialize this list with represents the world frame
-	links := []URDFLink{{Name: referenceframe.World}}
-	joints := make([]URDFJoint, 0)
+	links := []link{{Name: referenceframe.World}}
+	joints := make([]joint, 0)
 	emptyFS := referenceframe.NewEmptyFrameSystem("")
 	gf, err := ws.ObstaclesInWorldFrame(emptyFS, referenceframe.StartPositions(emptyFS))
 	if err != nil {
@@ -54,26 +57,26 @@ func NewURDFConfigFromWorldState(ws *referenceframe.WorldState, name string) (*U
 		if err != nil {
 			return nil, err
 		}
-		links = append(links, URDFLink{
+		links = append(links, link{
 			Name:      g.Label(),
 			Collision: []collision{*coll},
 		})
-		joints = append(joints, URDFJoint{
+		joints = append(joints, joint{
 			Name:   g.Label() + "_joint",
 			Type:   "fixed",
 			Parent: frame{gf.Parent()},
 			Child:  frame{g.Label()},
 		})
 	}
-	return &URDFConfig{
+	return &Config{
 		Name:   name,
 		Links:  links,
 		Joints: joints,
 	}, nil
 }
 
-// ParseURDFFile will read a given file and parse the contained URDF XML data into an equivalent ModelConfig struct.
-func ParseFile(filename, modelName string) (referenceframe.Model, error) {
+// ParseXMLFile will read a given file and parse the contained URDF XML data into an equivalent Model.
+func ParseXMLFile(filename, modelName string) (referenceframe.Model, error) {
 	//nolint:gosec
 	xmlData, err := os.ReadFile(filename)
 	if err != nil {
@@ -98,7 +101,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*referenceframe.Mode
 	}
 
 	mc := &referenceframe.ModelConfig{}
-	urdf := &URDFConfig{}
+	urdf := &Config{}
 	err := xml.Unmarshal(xmlData, urdf)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to convert URDF data to equivalent URDFConfig struct")
@@ -205,7 +208,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*referenceframe.Mode
 		hasCollision := len(linkElem.Collision) > 0
 		for idx, prefabLink := range mc.Links {
 			if prefabLink.ID == linkElem.Name && hasCollision {
-				geometry, err := linkElem.Collision[0].parse()
+				geometry, err := linkElem.Collision[0].toGeometry()
 				if err != nil {
 					return nil, err
 				}
@@ -223,7 +226,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*referenceframe.Mode
 		if _, ok := parentMap[linkElem.Name]; !ok {
 			thisLink := referenceframe.LinkConfig{ID: linkElem.Name, Parent: referenceframe.World}
 			if hasCollision {
-				geometry, err := linkElem.Collision[0].parse()
+				geometry, err := linkElem.Collision[0].toGeometry()
 				if err != nil {
 					return nil, err
 				}

@@ -233,7 +233,7 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 func modelFromPath(modelPath, name string) (referenceframe.Model, error) {
 	switch {
 	case strings.HasSuffix(modelPath, ".urdf"):
-		return urdf.ParseFile(modelPath, name)
+		return urdf.ParseXMLFile(modelPath, name)
 	case strings.HasSuffix(modelPath, ".json"):
 		return referenceframe.ParseModelJSONFile(modelPath, name)
 	default:

@@ -5,8 +5,9 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
 func TestGeometrySerialization(t *testing.T) {
@@ -40,9 +41,10 @@ func TestGeometrySerialization(t *testing.T) {
 			}
 			test.That(t, err, test.ShouldBeNil)
 			bytes, err := xml.MarshalIndent(urdf, "", "  ")
+			test.That(t, err, test.ShouldBeNil)
 			var urdf2 collision
 			xml.Unmarshal(bytes, &urdf2)
-			g2, err := urdf2.parse()
+			g2, err := urdf2.toGeometry()
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, tc.g.AlmostEqual(g2), test.ShouldBeTrue)
 		})

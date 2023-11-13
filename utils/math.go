@@ -11,12 +11,12 @@ import (
 	"gonum.org/v1/gonum/stat/distuv"
 )
 
-// MetersToMM converts a value in meters to a value in mm
+// MetersToMM converts a value in meters to a value in mm.
 func MetersToMM(m float64) float64 {
 	return m * 1000
 }
 
-// MMToMeters converts a value in mm to a value in meters
+// MMToMeters converts a value in mm to a value in meters.
 func MMToMeters(m float64) float64 {
 	return 0.001 * m
 }

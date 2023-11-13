@@ -2,7 +2,6 @@ package urdf
 
 import (
 	"encoding/xml"
-	"fmt"
 
 	"go.viam.com/rdk/spatialmath"
 )
@@ -22,11 +21,7 @@ type axis struct {
 	XYZ     string   `xml:"xyz,attr"` // "x y z" format, in meters
 }
 
-func newAxis(a spatialmath.AxisConfig) *axis {
-	return &axis{XYZ: fmt.Sprintf("%f %f %f", a.X, a.Y, a.Z)}
-}
-
 func (a *axis) Parse() spatialmath.AxisConfig {
 	jointAxes := spaceDelimitedStringToFloatSlice(a.XYZ)
-	return spatialmath.AxisConfig{jointAxes[0], jointAxes[1], jointAxes[2]}
+	return spatialmath.AxisConfig{X: jointAxes[0], Y: jointAxes[1], Z: jointAxes[2]}
 }
