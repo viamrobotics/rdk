@@ -6,22 +6,19 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func (c *viamClient) startBuild(arch []string) (*buildpb.StartBuildResponse, error) {
+func (c *viamClient) startBuild(moduleId string, arch []string) (*buildpb.StartBuildResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
 	req := buildpb.StartBuildRequest{
-		Arch: arch,
+		Arch:     arch,
+		ModuleId: moduleId,
 	}
 	return c.buildClient.StartBuild(c.c.Context, &req)
 }
 
 // ModuleBuildStartAction starts a cloud build.
 func ModuleBuildStartAction(c *cli.Context) error {
-	// moduleNameArg := c.String(moduleFlagName)
-	// publicNamespaceArg := c.String(moduleFlagPublicNamespace)
-	// orgIDArg := c.String(moduleFlagOrgID)
-
 	manifest, err := loadManifest(c.String(moduleFlagPath))
 	if err != nil {
 		return err
@@ -35,7 +32,7 @@ func ModuleBuildStartAction(c *cli.Context) error {
 	if len(platforms) == 0 {
 		platforms = defaultBuildInfo.Arch
 	}
-	res, err := client.startBuild(platforms)
+	res, err := client.startBuild(manifest.ModuleID, platforms)
 	if err != nil {
 		return err
 	}
