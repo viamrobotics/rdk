@@ -167,8 +167,8 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*referenceframe.Mode
 			mc.Joints = append(mc.Joints, thisJoint)
 
 			// Generate child link translation and orientation data, which is held by this joint per the URDF design
-			childXYZ := utils.SpaceDelimitedStringToFloatSlice(jointElem.Origin.XYZ)
-			childRPY := utils.SpaceDelimitedStringToFloatSlice(jointElem.Origin.RPY)
+			childXYZ := spaceDelimitedStringToFloatSlice(jointElem.Origin.XYZ)
+			childRPY := spaceDelimitedStringToFloatSlice(jointElem.Origin.RPY)
 			childEA := spatialmath.EulerAngles{Roll: childRPY[0], Pitch: childRPY[1], Yaw: childRPY[2]}
 			childOrient, err := spatialmath.NewOrientationConfig(childEA.AxisAngles())
 
@@ -183,8 +183,8 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*referenceframe.Mode
 			// Handle fixed joint -> static link conversion instead of adding to Joints[]
 			thisLink := referenceframe.LinkConfig{ID: jointElem.Name, Parent: jointElem.Parent.Link}
 
-			linkXYZ := utils.SpaceDelimitedStringToFloatSlice(jointElem.Origin.XYZ)
-			linkRPY := utils.SpaceDelimitedStringToFloatSlice(jointElem.Origin.RPY)
+			linkXYZ := spaceDelimitedStringToFloatSlice(jointElem.Origin.XYZ)
+			linkRPY := spaceDelimitedStringToFloatSlice(jointElem.Origin.RPY)
 			linkEA := spatialmath.EulerAngles{Roll: linkRPY[0], Pitch: linkRPY[1], Yaw: linkRPY[2]}
 			linkOrient, err := spatialmath.NewOrientationConfig(linkEA.AxisAngles())
 
