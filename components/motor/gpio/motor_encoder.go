@@ -112,7 +112,7 @@ func newEncodedMotor(
 		if err != nil {
 			return nil, err
 		}
-		if pidBlock.Attribute["kP"] == 0 && pidBlock.Attribute["kI"] == 0 && pidBlock.Attribute["kD"] == 0 {
+		if pidBlock.Attribute["kP"].(float64) == 0.0 && pidBlock.Attribute["kI"].(float64) == 0.0 && pidBlock.Attribute["kD"].(float64) == 0.0 {
 			em.loop.SetTuning(cancelCtx, true)
 		}
 	}
@@ -504,12 +504,12 @@ func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, ex
 
 // report position in ticks.
 func (m *EncodedMotor) position(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
 	ticks, _, err := m.encoder.Position(ctx, encoder.PositionTypeTicks, extra)
 	if err != nil {
 		return 0, err
 	}
-	m.stateMu.Lock()
-	defer m.stateMu.Unlock()
 	pos := ticks + m.offsetInTicks
 	return pos, nil
 }
