@@ -190,6 +190,7 @@ func TestReconfigure(t *testing.T) {
 		wbaud:   9600,
 		addr:    byte(66),
 		mockI2c: &mockI2c,
+		logger: logging.NewTestLogger(t),
 	}
 	conf := resource.Config{
 		Name: "reconfig1",
@@ -205,7 +206,7 @@ func TestReconfigure(t *testing.T) {
 		},
 	}
 	err := g.Reconfigure(context.Background(), nil, conf)
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, g.wbaud, test.ShouldEqual, 115200)
 	test.That(t, g.addr, test.ShouldEqual, byte(44))
 }
