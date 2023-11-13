@@ -4,6 +4,7 @@ package motionplan
 
 import (
 	"context"
+	"errors"
 	"math"
 
 	"go.viam.com/rdk/motionplan/ik"
@@ -60,6 +61,24 @@ type rrtMaps struct {
 	startMap rrtMap
 	goalMap  rrtMap
 	optNode  node // The highest quality IK solution
+}
+
+func (maps *rrtMaps) fillPosOnlyGoal(goal spatialmath.Pose, posSeeds, dof int) error {
+	thetaStep := 360. / float64(posSeeds)
+	if maps == nil {
+		return errors.New("cannot call method fillPosOnlyGoal on nil maps")
+	}
+	if maps.goalMap == nil {
+		maps.goalMap = map[node]node{}
+	}
+	for i := 0; i < posSeeds; i++ {
+		goalNode := &basicNode{
+			q:    make([]referenceframe.Input, dof),
+			pose: spatialmath.NewPose(goal.Point(), &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: float64(i) * thetaStep}),
+		}
+		maps.goalMap[goalNode] = nil
+	}
+	return nil
 }
 
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK solutions to pre-populate the goal

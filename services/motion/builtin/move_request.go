@@ -62,7 +62,8 @@ func (mr *moveRequest) plan(ctx context.Context) ([][]referenceframe.Input, erro
 		inputs = inputs[:2]
 	}
 	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): inputs}
-	plan, err := motionplan.Replan(ctx, mr.planRequest, mr.seedPlan, mr.replanCostFactor)
+	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
+	plan, err := motionplan.Replan(ctx, mr.planRequest, nil, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -184,6 +185,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 				currentPosition.Pose(), // currentPosition of robot accounts for errorState
 				currentInputs,
 				errorState, // deviation of robot from plan
+				lookAheadDistanceMM,
 				mr.planRequest.Logger,
 			); err != nil {
 				mr.planRequest.Logger.Info(err.Error())

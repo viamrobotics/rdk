@@ -7,13 +7,16 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest"
 	"go.uber.org/zap/zaptest/observer"
 )
 
 var (
 	globalMu     sync.RWMutex
 	globalLogger = NewDebugLogger("startup")
+
+	// GlobalLogLevel should be used whenever a zap logger is created that wants to obey the debug
+	// flag from the CLI or robot config.
+	GlobalLogLevel = zap.NewAtomicLevelAt(zap.InfoLevel)
 )
 
 // ReplaceGlobal replaces the global loggers.
@@ -28,12 +31,12 @@ func Global() Logger {
 	return globalLogger
 }
 
-// NewLoggerConfig returns a new default logger config.
-func NewLoggerConfig() zap.Config {
+// NewZapLoggerConfig returns a new default logger config.
+func NewZapLoggerConfig() zap.Config {
 	// from https://github.com/uber-go/zap/blob/2314926ec34c23ee21f3dd4399438469668f8097/config.go#L135
 	// but disable stacktraces, use same keys as prod, and color levels.
 	return zap.Config{
-		Level:    zap.NewAtomicLevelAt(zap.InfoLevel),
+		Level:    GlobalLogLevel,
 		Encoding: "console",
 		EncoderConfig: zapcore.EncoderConfig{
 			TimeKey:        "ts",
@@ -44,7 +47,7 @@ func NewLoggerConfig() zap.Config {
 			MessageKey:     "msg",
 			StacktraceKey:  "stacktrace",
 			LineEnding:     zapcore.DefaultLineEnding,
-			EncodeLevel:    zapcore.CapitalColorLevelEncoder,
+			EncodeLevel:    zapcore.CapitalLevelEncoder,
 			EncodeTime:     zapcore.ISO8601TimeEncoder,
 			EncodeDuration: zapcore.StringDurationEncoder,
 			EncodeCaller:   zapcore.ShortCallerEncoder,
@@ -55,20 +58,26 @@ func NewLoggerConfig() zap.Config {
 	}
 }
 
-// NewLogger returns a new logger using the default production configuration.
+// NewLogger returns a new logger that outputs Info+ logs to stdout in UTC.
 func NewLogger(name string) Logger {
-	config := NewLoggerConfig()
-	return &zLogger{zap.Must(config.Build()).Sugar().Named(name)}
+	const inUTC = true
+	return &impl{name, NewAtomicLevelAt(INFO), inUTC, []Appender{NewStdoutAppender()}}
 }
 
-// NewDebugLogger returns a new logger using the default debug configuration.
+// NewDebugLogger returns a new logger that outputs Debug+ logs to stdout in UTC.
 func NewDebugLogger(name string) Logger {
-	config := NewLoggerConfig()
-	config.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
-	return &zLogger{zap.Must(config.Build()).Sugar().Named(name)}
+	const inUTC = true
+	return &impl{name, NewAtomicLevelAt(DEBUG), inUTC, []Appender{NewStdoutAppender()}}
 }
 
-// NewTestLogger directs logs to the go test logger.
+// NewBlankLogger returns a new logger that outputs Debug+ logs in UTC, but without any
+// pre-existing appenders/outputs.
+func NewBlankLogger(name string) Logger {
+	const inUTC = true
+	return &impl{name, NewAtomicLevelAt(DEBUG), inUTC, []Appender{}}
+}
+
+// NewTestLogger returns a new logger that outputs Debug+ logs to stdout in local time.
 func NewTestLogger(tb testing.TB) Logger {
 	logger, _ := NewObservedTestLogger(tb)
 	return logger
@@ -76,10 +85,12 @@ func NewTestLogger(tb testing.TB) Logger {
 
 // NewObservedTestLogger is like NewTestLogger but also saves logs to an in memory observer.
 func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
-	logger := zaptest.NewLogger(tb, zaptest.WrapOptions(zap.AddCaller()))
+	const inUTC = false
+	logger := &impl{"", NewAtomicLevelAt(DEBUG), inUTC, []Appender{}}
+	logger.AddAppender(NewStdoutTestAppender())
+
 	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
-	logger = logger.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
-		return zapcore.NewTee(c, observerCore)
-	}))
-	return &zLogger{logger.Sugar()}, observedLogs
+	logger.AddAppender(observerCore)
+
+	return logger, observedLogs
 }

@@ -9,6 +9,9 @@ import (
 type Logger interface {
 	ZapCompatibleLogger
 
+	SetLevel(level Level)
+	Sublogger(subname string) Logger
+	AddAppender(appender Appender)
 	AsZap() *zap.SugaredLogger
 }
 
@@ -70,9 +73,20 @@ func FromZapCompatible(logger ZapCompatibleLogger) Logger {
 	}
 }
 
+func (logger *zLogger) SetLevel(level Level) {
+	// Not supported
+}
+
+func (logger *zLogger) Sublogger(subname string) Logger {
+	// Not supported
+	return nil
+}
+
+func (logger *zLogger) AddAppender(appender Appender) {
+	// Not supported
+}
+
 // AsZap converts the logger to a zap logger.
 func (logger *zLogger) AsZap() *zap.SugaredLogger {
 	return logger.SugaredLogger
 }
-
-var _ Logger = &zLogger{}

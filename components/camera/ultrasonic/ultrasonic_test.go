@@ -83,7 +83,7 @@ func TestUnderlyingSensor(t *testing.T) {
 	})
 
 	test.That(t, count, test.ShouldEqual, 1)
-	test.That(t, values[0], test.ShouldEqual, 3.2)
+	test.That(t, values[0], test.ShouldEqual, 3200)
 	stream, err := cam.Stream(ctx)
 	test.That(t, err, test.ShouldBeNil)
 

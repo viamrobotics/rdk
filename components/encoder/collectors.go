@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	pb "go.viam.com/api/component/encoder/v1"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/data"
@@ -22,19 +23,16 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// Ticks wraps the returned ticks value.
-type Ticks struct {
-	Ticks int64
-}
-
-func newTicksCountCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewTicksCountCollector returns a collector to register a ticks count method. If one is already registered
+// with the same MethodMetadata it will panic.
+func NewTicksCountCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	encoder, err := assertEncoder(resource)
 	if err != nil {
 		return nil, err
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		v, _, err := encoder.Position(ctx, PositionTypeUnspecified, data.FromDMExtraMap)
+		v, positionType, err := encoder.Position(ctx, PositionTypeUnspecified, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
@@ -43,7 +41,10 @@ func newTicksCountCollector(resource interface{}, params data.CollectorParams) (
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, ticksCount.String(), err)
 		}
-		return Ticks{Ticks: int64(v)}, nil
+		return pb.GetPositionResponse{
+			Value:        float32(v),
+			PositionType: pb.PositionType(positionType),
+		}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
