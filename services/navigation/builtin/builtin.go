@@ -597,14 +597,28 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		if err != nil {
 			return nil, err
 		}
+
 		var geoms []spatialmath.Geometry
-		for i, det := range detections {
-			label := detector.CameraName.Name + "_transientObstacle_" + strconv.Itoa(i)
-			if det.Geometry.Label() != "" {
-				label += "_" + det.Geometry.Label()
+		for i, detection := range detections {
+			// a bump or ultrasonic sensor will always return a pointcloud of size 1 along with a
+			// geometry which has no volume
+			var geom spatialmath.Geometry
+			if detection.PointCloud.Size() == 1 {
+				position := spatialmath.NewPoseFromPoint(detection.Geometry.ToPoints(1.)[0])
+				geom, err = spatialmath.NewSphere(position, 1.0, detection.Geometry.Label())
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				geom = detection.Geometry
 			}
-			det.Geometry.SetLabel(label)
-			geoms = append(geoms, det.Geometry)
+
+			label := detector.CameraName.Name + "_transientObstacle_" + strconv.Itoa(i)
+			if detection.Geometry.Label() != "" {
+				label += "_" + detection.Geometry.Label()
+			}
+			geom.SetLabel(label)
+			geoms = append(geoms, geom)
 		}
 		gobs = append(gobs, spatialmath.NewGeoObstacle(gp, geoms))
 	}
