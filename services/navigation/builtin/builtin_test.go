@@ -1040,6 +1040,12 @@ func TestGetObstacles(t *testing.T) {
 	injectedVis := inject.NewVisionService("test_vision")
 	injectedCam := inject.NewCamera("test_camera")
 
+	sphereGeom, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 1.0, "test-sphere")
+	test.That(t, err, test.ShouldBeNil)
+	sphereGob := spatialmath.NewGeoObstacle(geo.NewPoint(1, 1), []spatialmath.Geometry{sphereGeom})
+	gobCfg, err := spatialmath.NewGeoObstacleConfig(sphereGob)
+	test.That(t, err, test.ShouldBeNil)
+
 	ns, err := NewBuiltIn(
 		ctx,
 		resource.Dependencies{
@@ -1060,6 +1066,7 @@ func TestGetObstacles(t *testing.T) {
 				DegPerSec:          1,
 				MetersPerSec:       1,
 				MapType:            "",
+				Obstacles:          []*spatialmath.GeoObstacleConfig{gobCfg},
 				ObstacleDetectors: []*ObstacleDetectorNameConfig{
 					{VisionServiceName: injectedVis.Name().Name, CameraName: injectedCam.Name().Name},
 				},
@@ -1074,7 +1081,7 @@ func TestGetObstacles(t *testing.T) {
 
 	boxGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{3.14, 2.72, 1}, "test_camera_transientObstacle_0_test-box")
 	test.That(t, err, test.ShouldBeNil)
-	gobs := spatialmath.NewGeoObstacle(geo.NewPoint(1, 1), []spatialmath.Geometry{boxGeom})
+	boxGob := spatialmath.NewGeoObstacle(geo.NewPoint(1, 1), []spatialmath.Geometry{boxGeom})
 
 	injectedVis.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-box", boxGeom.ToProtobuf())
@@ -1084,6 +1091,7 @@ func TestGetObstacles(t *testing.T) {
 
 	dets, err := ns.Obstacles(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(dets), test.ShouldEqual, 1)
-	test.That(t, dets[0], test.ShouldResemble, gobs)
+	test.That(t, len(dets), test.ShouldEqual, 2)
+	test.That(t, dets[0], test.ShouldResemble, sphereGob)
+	test.That(t, dets[1], test.ShouldResemble, boxGob)
 }
