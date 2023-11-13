@@ -190,7 +190,7 @@ func TestReconfigure(t *testing.T) {
 		wbaud:   9600,
 		addr:    byte(66),
 		mockI2c: &mockI2c,
-		logger: logging.NewTestLogger(t),
+		logger:  logging.NewTestLogger(t),
 	}
 	conf := resource.Config{
 		Name: "reconfig1",
