@@ -131,10 +131,10 @@ func PlanFrameMotion(ctx context.Context,
 	}
 
 	planSteps, err := plan.GetFrameSteps(f.Name())
-	fmt.Println("Plan steps: \n\n")
-	for _, step := range planSteps {
-		fmt.Printf("%v,%v\n", step[0].Value, step[1].Value)
-	}
+	// fmt.Println("Plan steps: \n\n")
+	// for _, step := range planSteps {
+	// 	fmt.Printf("%v,%v\n", step[0].Value, step[1].Value)
+	// }
 	return planSteps, err
 }
 
