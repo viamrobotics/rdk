@@ -1,4 +1,4 @@
-package referenceframe
+package urdf
 
 import (
 	"encoding/xml"
@@ -8,6 +8,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -27,16 +28,6 @@ type URDFLink struct {
 	Collision []spatialmath.URDFCollision `xml:"collision"`
 }
 
-type URDFLimit struct {
-	XMLName xml.Name `xml:"limit"`
-	Lower   float64  `xml:"lower,attr"` // translation limits are in meters, revolute limits are in radians
-	Upper   float64  `xml:"upper,attr"` // translation limits are in meters, revolute limits are in radians
-}
-
-type URDFFrame struct {
-	Link string `xml:"link,attr"`
-}
-
 // URDFJoint is a struct which details the XML used in a URDF joint element.
 type URDFJoint struct {
 	XMLName xml.Name              `xml:"joint"`
@@ -49,8 +40,50 @@ type URDFJoint struct {
 	Limit   *URDFLimit            `xml:"limit,omitempty"`
 }
 
+type URDFFrame struct {
+	Link string `xml:"link,attr"`
+}
+
+type URDFLimit struct {
+	XMLName xml.Name `xml:"limit"`
+	Lower   float64  `xml:"lower,attr"` // translation limits are in meters, revolute limits are in radians
+	Upper   float64  `xml:"upper,attr"` // translation limits are in meters, revolute limits are in radians
+}
+
+func NewURDFConfigFromWorldState(ws *referenceframe.WorldState, name string) (*URDFConfig, error) {
+	// the link we initialize this list with represents the world frame
+	links := []URDFLink{{Name: referenceframe.World}}
+	joints := make([]URDFJoint, 0)
+	emptyFS := referenceframe.NewEmptyFrameSystem("")
+	gf, err := ws.ObstaclesInWorldFrame(emptyFS, referenceframe.StartPositions(emptyFS))
+	if err != nil {
+		return nil, err
+	}
+	for _, g := range gf.Geometries() {
+		collision, err := spatialmath.NewURDFCollision(g)
+		if err != nil {
+			return nil, err
+		}
+		links = append(links, URDFLink{
+			Name:      g.Label(),
+			Collision: []spatialmath.URDFCollision{*collision},
+		})
+		joints = append(joints, URDFJoint{
+			Name:   g.Label() + "_joint",
+			Type:   "fixed",
+			Parent: URDFFrame{gf.Parent()},
+			Child:  URDFFrame{g.Label()},
+		})
+	}
+	return &URDFConfig{
+		Name:   name,
+		Links:  links,
+		Joints: joints,
+	}, nil
+}
+
 // ParseURDFFile will read a given file and parse the contained URDF XML data into an equivalent ModelConfig struct.
-func ParseURDFFile(filename, modelName string) (Model, error) {
+func ParseFile(filename, modelName string) (referenceframe.Model, error) {
 	//nolint:gosec
 	xmlData, err := os.ReadFile(filename)
 	if err != nil {
@@ -68,13 +101,13 @@ func ParseURDFFile(filename, modelName string) (Model, error) {
 // ConvertURDFToConfig will transfer the given URDF XML data into an equivalent ModelConfig. Direct unmarshaling in the
 // same fashion as ModelJSON is not possible, as URDF data will need to be evaluated to accommodate differences
 // between the two kinematics encoding schemes.
-func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error) {
+func ConvertURDFToConfig(xmlData []byte, modelName string) (*referenceframe.ModelConfig, error) {
 	// empty data probably means that the read URDF has no actionable information
 	if len(xmlData) == 0 {
-		return nil, ErrNoModelInformation
+		return nil, referenceframe.ErrNoModelInformation
 	}
 
-	mc := &ModelConfig{}
+	mc := &referenceframe.ModelConfig{}
 	urdf := &URDFConfig{}
 	err := xml.Unmarshal(xmlData, urdf)
 	if err != nil {
@@ -94,7 +127,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 	// Handle joints
 	for _, jointElem := range urdf.Joints {
 		// Checking for reserved names in this or adjacent elements
-		if jointElem.Name == World {
+		if jointElem.Name == referenceframe.World {
 			return nil, errors.New("Joints with the name 'world' are not supported by config parsers")
 		}
 
@@ -104,12 +137,12 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 
 		// Set up the child link mentioned in this joint; fill out the details in the link parsing section later
 
-		childLink := LinkConfig{ID: jointElem.Child.Link, Parent: jointElem.Name}
+		childLink := referenceframe.LinkConfig{ID: jointElem.Child.Link, Parent: jointElem.Name}
 
 		switch jointElem.Type {
-		case ContinuousJoint, RevoluteJoint, PrismaticJoint:
+		case referenceframe.ContinuousJoint, referenceframe.RevoluteJoint, referenceframe.PrismaticJoint:
 			// Parse important details about each joint, including axes and limits
-			thisJoint := JointConfig{
+			thisJoint := referenceframe.JointConfig{
 				ID:     jointElem.Name,
 				Type:   jointElem.Type,
 				Parent: jointElem.Parent.Link,
@@ -120,12 +153,12 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 
 			// Slightly different limits handling for continuous, revolute, and prismatic joints
 			switch jointElem.Type {
-			case ContinuousJoint:
-				thisJoint.Type = RevoluteJoint // Currently, we treate a continuous joint as a special case of a revolute joint
+			case referenceframe.ContinuousJoint:
+				thisJoint.Type = referenceframe.RevoluteJoint // Currently, we treate a continuous joint as a special case of a revolute joint
 				thisJoint.Min, thisJoint.Max = math.Inf(-1), math.Inf(1)
-			case PrismaticJoint:
+			case referenceframe.PrismaticJoint:
 				thisJoint.Min, thisJoint.Max = utils.MetersToMM(jointElem.Limit.Lower), utils.MetersToMM(jointElem.Limit.Upper)
-			case RevoluteJoint:
+			case referenceframe.RevoluteJoint:
 				thisJoint.Min, thisJoint.Max = utils.RadToDeg(jointElem.Limit.Lower), utils.RadToDeg(jointElem.Limit.Upper)
 			default:
 				return nil, err
@@ -146,9 +179,9 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 			if err != nil {
 				return nil, err
 			}
-		case FixedJoint:
+		case referenceframe.FixedJoint:
 			// Handle fixed joint -> static link conversion instead of adding to Joints[]
-			thisLink := LinkConfig{ID: jointElem.Name, Parent: jointElem.Parent.Link}
+			thisLink := referenceframe.LinkConfig{ID: jointElem.Name, Parent: jointElem.Parent.Link}
 
 			linkXYZ := utils.SpaceDelimitedStringToFloatSlice(jointElem.Origin.XYZ)
 			linkRPY := utils.SpaceDelimitedStringToFloatSlice(jointElem.Origin.RPY)
@@ -165,7 +198,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 
 			mc.Links = append(mc.Links, thisLink)
 		default:
-			return nil, NewUnsupportedJointTypeError(jointElem.Type)
+			return nil, referenceframe.NewUnsupportedJointTypeError(jointElem.Type)
 		}
 
 		mc.Links = append(mc.Links, childLink)
@@ -174,7 +207,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 	// Handle links
 	for _, linkElem := range urdf.Links {
 		// Skip any world links
-		if linkElem.Name == World {
+		if linkElem.Name == referenceframe.World {
 			continue
 		}
 
@@ -198,7 +231,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 		// In the event the link does not already exist in the ModelConfig, we will have to generate it now
 		// Most likely, this is a link normally whose parent is the World
 		if _, ok := parentMap[linkElem.Name]; !ok {
-			thisLink := LinkConfig{ID: linkElem.Name, Parent: World}
+			thisLink := referenceframe.LinkConfig{ID: linkElem.Name, Parent: referenceframe.World}
 			if hasCollision {
 				geometry, err := linkElem.Collision[0].Parse()
 				if err != nil {

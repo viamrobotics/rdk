@@ -11,6 +11,7 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 
 	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/referenceframe/urdf"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -302,7 +303,7 @@ func TestKinematicsJSONvsURDF(t *testing.T) {
 
 	mJSON, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mURDF, err := frame.ParseURDFFile(utils.ResolveFile("referenceframe/testurdf/ur5_viam.urdf"), "")
+	mURDF, err := urdf.ParseFile(utils.ResolveFile("referenceframe/testurdf/ur5_viam.urdf"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	seed := rand.New(rand.NewSource(50))

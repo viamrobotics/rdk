@@ -1,8 +1,6 @@
 package referenceframe
 
 import (
-	"encoding/xml"
-	"os"
 	"testing"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -23,14 +21,8 @@ func TestWorldStateConstruction(t *testing.T) {
 	expectedErr := NewDuplicateGeometryNameError(foo.Label()).Error()
 
 	// test that you can add two geometries of different names
-	ws, err := NewWorldState([]*GeometriesInFrame{NewGeometriesInFrame("world", []spatialmath.Geometry{foo, bar})}, nil)
+	_, err = NewWorldState([]*GeometriesInFrame{NewGeometriesInFrame("world", []spatialmath.Geometry{foo, bar})}, nil)
 	test.That(t, err, test.ShouldBeNil)
-
-	cfg, err := ws.ToURDF("test")
-	test.That(t, err, test.ShouldBeNil)
-	bytes, err := xml.MarshalIndent(cfg, "", "  ")
-	test.That(t, err, test.ShouldBeNil)
-	os.WriteFile("geometries.urdf", bytes, 0666)
 
 	// test that you can't add two "foos" to the same frame
 	_, err = NewWorldState([]*GeometriesInFrame{NewGeometriesInFrame("", []spatialmath.Geometry{foo, foo})}, nil)
