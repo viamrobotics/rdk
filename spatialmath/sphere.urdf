@@ -1,6 +1,0 @@
-<collision>
-  <origin rpy="0.000000 0.000000 0.000000" xyz="0.000000 0.000000 0.000000"></origin>
-  <geometry>
-    <sphere radius="0.0033"></sphere>
-  </geometry>
-</collision>

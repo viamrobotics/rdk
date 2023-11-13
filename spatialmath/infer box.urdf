@@ -1,6 +1,0 @@
-<collision name="infer box">
-  <origin rpy="0.000000 0.000000 0.000000" xyz="0.000000 0.000000 0.000000"></origin>
-  <geometry>
-    <box size="0.001000 0.001000 0.001000"></box>
-  </geometry>
-</collision>

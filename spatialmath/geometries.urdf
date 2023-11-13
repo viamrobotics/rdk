@@ -1,6 +1,0 @@
-<collision name="foo">
-  <origin rpy="0.000000 0.000000 1.570796" xyz="10.000000 2.000000 3.000000"></origin>
-  <geometry>
-    <box size="0.004000 0.005000 0.006000"></box>
-  </geometry>
-</collision>
