@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -194,7 +195,7 @@ func (c *client) updateKinematics(ctx context.Context, extra map[string]interfac
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA:
 		return referenceframe.UnmarshalModelJSON(data, c.name)
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF:
-		modelconf, err := referenceframe.ConvertURDFToConfig(data, c.name)
+		modelconf, err := urdf.ConvertURDFToConfig(data, c.name)
 		if err != nil {
 			return nil, err
 		}

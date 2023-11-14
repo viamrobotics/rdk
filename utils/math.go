@@ -17,6 +17,16 @@ func SwapCompasHeadingHandedness(heading float64) float64 {
 	return math.Mod(math.Abs(heading-360), 360)
 }
 
+// MetersToMM converts a value in meters to a value in mm.
+func MetersToMM(m float64) float64 {
+	return m * 1000
+}
+
+// MMToMeters converts a value in mm to a value in meters.
+func MMToMeters(mm float64) float64 {
+	return 0.001 * mm
+}
+
 // DegToRad converts degrees to radians.
 func DegToRad(degrees float64) float64 {
 	return degrees * math.Pi / 180

@@ -391,7 +391,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	defer svc.actionMu.Unlock()
 
 	svc.mu.RLock()
-	svc.logger.Infof("SetMode called with mode: %s, transitioning to mode: %s", mode, svc.mode)
+	svc.logger.Infof("SetMode called: transitioning from %s to %s", svc.mode, mode)
 	if svc.mode == mode {
 		svc.mu.RUnlock()
 		return nil
