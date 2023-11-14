@@ -739,8 +739,45 @@ func TestModuleMisc(t *testing.T) {
 		err = mgr.Close(ctx)
 		test.That(t, err, test.ShouldBeNil)
 	})
-
 	t.Run("module working directory", func(t *testing.T) {
+		logger := logging.NewTestLogger(t)
+		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv: false,
+			ViamHomeDir:  testViamHomeDir,
+		})
+
+		// Add the module with a user-specified VIAM_MODULE_ROOT
+		modCfg := config.Module{
+			Name:        "test-module",
+			ExePath:     modPath,
+			Environment: map[string]string{"VIAM_MODULE_ROOT": "/"},
+			Type:        config.ModuleTypeLocal,
+		}
+		err = mgr.Add(ctx, modCfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = cfgMyHelper.Validate("test", resource.APITypeComponentName)
+		test.That(t, err, test.ShouldBeNil)
+
+		h, err := mgr.AddResource(ctx, cfgMyHelper, nil)
+		test.That(t, err, test.ShouldBeNil)
+		ok := mgr.IsModularResource(rNameMyHelper)
+		test.That(t, ok, test.ShouldBeTrue)
+
+		// Create a file in the modules data directory and then verify that it was written
+		resp, err := h.DoCommand(ctx, map[string]interface{}{
+			"command": "get_working_directory",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldNotBeNil)
+		modWorkingDirectory, ok := resp["path"].(string)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, modWorkingDirectory, test.ShouldEqual, "/")
+
+		err = mgr.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+	})
+	t.Run("module working directory fallback", func(t *testing.T) {
 		logger := logging.NewTestLogger(t)
 		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv: false,

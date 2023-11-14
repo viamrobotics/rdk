@@ -786,13 +786,22 @@ func (m *module) startProcess(
 	if err != nil {
 		return err
 	}
+	moduleEnvironment := m.getFullEnvironment(viamHomeDir)
+	// Prefer VIAM_MODULE_ROOT as the current working directory if present but fallback to the directory of the exepath
+	moduleWorkingDirectory, ok := moduleEnvironment["VIAM_MODULE_ROOT"]
+	if !ok {
+		moduleWorkingDirectory = filepath.Dir(absoluteExePath)
+		logger.Warnf("VIAM_MODULE_ROOT was not passed to module %q. Defaulting to %q", m.cfg.Name, moduleWorkingDirectory)
+	} else {
+		logger.Debugf("Starting module %q in working directory %q", m.cfg.Name, moduleWorkingDirectory)
+	}
 
 	pconf := pexec.ProcessConfig{
 		ID:               m.cfg.Name,
 		Name:             absoluteExePath,
 		Args:             []string{m.addr},
-		CWD:              filepath.Dir(absoluteExePath),
-		Environment:      m.getFullEnvironment(viamHomeDir),
+		CWD:              moduleWorkingDirectory,
+		Environment:      moduleEnvironment,
 		Log:              true,
 		OnUnexpectedExit: oue,
 	}
