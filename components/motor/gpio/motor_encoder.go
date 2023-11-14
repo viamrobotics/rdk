@@ -101,10 +101,16 @@ func newEncodedMotor(
 	}
 	em.encoder = realEncoder
 
+	// setup control loop
 	if len(motorConfig.ControlLoop.Blocks) != 0 {
-		if err = em.setupControlLoop(); err != nil {
-			return nil, err
+		cLoop, err := control.NewLoop(em.logger, em.cfg.ControlLoop, em)
+		if err != nil {
+			em.logger.Error(err)
 		}
+		if err = cLoop.Start(); err != nil {
+			em.logger.Error(err)
+		}
+		em.loop = cLoop
 		if err = em.validateControlConfig(cancelCtx); err != nil {
 			return nil, err
 		}
@@ -180,13 +186,19 @@ type EncodedMotorState struct {
 // rpmMonitorStart starts the RPM monitor.
 func (m *EncodedMotor) rpmMonitorStart() {
 	if m.loop != nil {
-		m.loop.Stop()
+		m.Stop(m.cancelCtx, nil)
 	}
+	// create new control loop if control config exists
 	if len(m.cfg.ControlLoop.Blocks) != 0 {
-		if err := m.setupControlLoop(); err != nil {
+		cLoop, err := control.NewLoop(m.logger, m.cfg.ControlLoop, m)
+		if err != nil {
 			m.logger.Error(err)
-			return
 		}
+		if err = cLoop.Start(); err != nil {
+			m.logger.Error(err)
+		}
+		m.loop = cLoop
+		return
 	}
 	m.startedRPMMonitorMu.Lock()
 	startedRPMMonitor := m.startedRPMMonitor
@@ -504,12 +516,12 @@ func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, ex
 
 // report position in ticks.
 func (m *EncodedMotor) position(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	m.stateMu.Lock()
-	defer m.stateMu.Unlock()
 	ticks, _, err := m.encoder.Position(ctx, encoder.PositionTypeTicks, extra)
 	if err != nil {
 		return 0, err
 	}
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
 	pos := ticks + m.offsetInTicks
 	return pos, nil
 }
@@ -569,6 +581,7 @@ func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) e
 	// is auto-tuning, the loop needs to keep running
 	if m.loop != nil && !m.loop.GetTuning(ctx) {
 		m.loop.Stop()
+		m.loop = nil
 	}
 
 	return m.real.Stop(ctx, nil)
