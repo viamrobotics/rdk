@@ -270,10 +270,8 @@ func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoar
 			return errors.Errorf("bad analog pin (%s)", c.Pin)
 		}
 
-		bus, ok := b.spis[c.SPIBus]
-		if !ok {
-			return errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", c.SPIBus)
-		}
+		bus := &spiBus{}
+		bus.reset(c.SPIBus)
 
 		stillExists[c.Name] = struct{}{}
 		if curr, ok := b.analogReaders[c.Name]; ok {
