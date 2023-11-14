@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/explore"
 	"go.viam.com/rdk/services/navigation"
@@ -226,6 +227,7 @@ type builtIn struct {
 	motionCfg        *motion.MotionConfiguration
 	replanCostFactor float64
 
+	fsService                 framesystem.Service
 	logger                    logging.Logger
 	wholeServiceCancelFunc    func()
 	currentWaypointCancelFunc func()
@@ -361,6 +363,11 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
+	svc.fsService, err = framesystem.New(ctx, deps, svc.logger)
+	if err != nil {
+		return err
+	}
+
 	svc.mode = navigation.ModeManual
 	svc.base = baseComponent
 	svc.mapType = mapType
@@ -391,7 +398,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	defer svc.actionMu.Unlock()
 
 	svc.mu.RLock()
-	svc.logger.Infof("SetMode called with mode: %s, transitioning to mode: %s", svc.mode, mode)
+	svc.logger.Infof("SetMode called with mode: %s, transitioning to mode: %s", mode, svc.mode)
 	if svc.mode == mode {
 		svc.mu.RUnlock()
 		return nil
@@ -582,48 +589,71 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 
-	gobs := svc.obstacles
+	geoObstacles := svc.obstacles
 
 	for _, detector := range svc.motionCfg.ObstacleDetectors {
+		// get the vision service
 		visSvc, ok := svc.visionServices[detector.VisionServiceName]
 		if !ok {
 			return nil, fmt.Errorf("vision service with name: %v not found", detector.VisionServiceName)
 		}
-		gp, _, err := svc.movementSensor.Position(ctx, nil)
-		if err != nil {
-			return nil, err
-		}
+
+		// get the detections
 		detections, err := visSvc.GetObjectPointClouds(ctx, detector.CameraName.Name, nil)
 		if err != nil {
 			return nil, err
 		}
 
-		var geoms []spatialmath.Geometry
-		for i, detection := range detections {
-			// a bump or ultrasonic sensor will always return a pointcloud of size 1 along with a
-			// geometry which has no volume
-			var geom spatialmath.Geometry
-			if detection.PointCloud.Size() == 1 {
-				position := spatialmath.NewPoseFromPoint(detection.Geometry.ToPoints(1.)[0])
-				geom, err = spatialmath.NewSphere(position, 1.0, detection.Geometry.Label())
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				geom = detection.Geometry
-			}
+		// get current geo position of robot
+		gp, _, err := svc.movementSensor.Position(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
 
+		// get current heading of robot
+		var heading float64
+		properties, err := svc.movementSensor.Properties(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+		switch {
+		case properties.CompassHeadingSupported:
+			headingLeft, err := svc.movementSensor.CompassHeading(ctx, nil)
+			if err != nil {
+				return nil, err
+			}
+			// compassHeading is a left-handed value which needs to be converted to be right-handed
+			// use math.Mod to ensure that 0 reports 0 rather than 360
+			heading = math.Mod(math.Abs(headingLeft-360), 360)
+		case properties.OrientationSupported:
+			o, err := svc.movementSensor.Orientation(ctx, nil)
+			if err != nil {
+				return nil, err
+			}
+			heading = o.OrientationVectorDegrees().Theta
+		default:
+			return nil, errors.New("could not get orientation from Localizer")
+		}
+
+		// convert geo position into GeoPose
+		relativeToGeoPose := spatialmath.NewGeoPose(gp, heading)
+
+		for i, detection := range detections {
+			// get geo position of geometry
+			geomGeoPose := spatialmath.PoseToGeoPoint(*relativeToGeoPose, detection.Geometry.Pose())
+
+			// set label for geometry so we know it is transient
 			label := detector.CameraName.Name + "_transientObstacle_" + strconv.Itoa(i)
 			if detection.Geometry.Label() != "" {
 				label += "_" + detection.Geometry.Label()
 			}
-			geom.SetLabel(label)
-			geoms = append(geoms, geom)
+			detection.Geometry.SetLabel(label)
+
+			geoObstacles = append(geoObstacles, spatialmath.NewGeoObstacle(geomGeoPose.Location(), []spatialmath.Geometry{detection.Geometry}))
 		}
-		gobs = append(gobs, spatialmath.NewGeoObstacle(gp, geoms))
 	}
 
-	return gobs, nil
+	return geoObstacles, nil
 }
 
 func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {

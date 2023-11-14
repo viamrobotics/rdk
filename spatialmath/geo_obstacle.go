@@ -1,9 +1,13 @@
 package spatialmath
 
 import (
+	"math"
+
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	commonpb "go.viam.com/api/common/v1"
+
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // GeoObstacle is a struct to store the location and geometric structure of an obstacle in a geospatial environment.
@@ -139,6 +143,19 @@ func GeoPointToPose(point, origin *geo.Point) Pose {
 	default:
 		return NewPoseFromPoint(r3.Vector{-latDist, -lngDist, 0})
 	}
+}
+
+// PoseToGeoPoint converts a pose p into a GeoPose with respect to the relativeTo GeoPose.
+func PoseToGeoPoint(relativeTo GeoPose, p Pose) GeoPose {
+	bearingRad := math.Atan2(-p.Point().X, p.Point().Y)
+	bearing := bearingRad * 180 / math.Pi * -1
+	headingRight := p.Orientation().OrientationVectorDegrees().Theta
+	headingLeft := rdkutils.SwapCompasHeadingHandedness(headingRight)
+
+	// get the maginitude of the pose
+	magnitude := p.Point().Norm()
+	newLoc := relativeTo.Location().PointAtDistanceAndBearing(magnitude, math.Mod(bearing+relativeTo.Heading(), 360))
+	return *NewGeoPose(newLoc, math.Mod(headingLeft+relativeTo.Heading(), 360))
 }
 
 // GeoObstaclesToGeometries converts a list of GeoObstacles into a list of Geometries.
