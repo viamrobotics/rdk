@@ -101,11 +101,10 @@ func (c *client) Location(ctx context.Context, extra map[string]interface{}) (*s
 	if err != nil {
 		return nil, err
 	}
-	geoPose := spatialmath.NewGeoPose(
+	return spatialmath.NewGeoPose(
 		geo.NewPoint(resp.GetLocation().GetLatitude(), resp.GetLocation().GetLongitude()),
 		resp.GetCompassHeading(),
 	)
-	return geoPose, nil
 }
 
 func (c *client) Waypoints(ctx context.Context, extra map[string]interface{}) ([]Waypoint, error) {

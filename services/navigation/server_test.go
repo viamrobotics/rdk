@@ -197,7 +197,8 @@ func TestServer(t *testing.T) {
 	t.Run("working location function", func(t *testing.T) {
 		loc := geo.NewPoint(90, 1)
 		expectedCompassHeading := 90.
-		expectedGeoPose := spatialmath.NewGeoPose(loc, expectedCompassHeading)
+		expectedGeoPose, err := spatialmath.NewGeoPose(loc, expectedCompassHeading)
+		test.That(t, err, test.ShouldBeNil)
 		injectSvc.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
 			extraOptions = extra
 			return expectedGeoPose, nil

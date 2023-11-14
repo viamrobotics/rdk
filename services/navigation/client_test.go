@@ -59,7 +59,8 @@ func TestClient(t *testing.T) {
 	}
 	expectedLoc := geo.NewPoint(80, 1)
 	expectedCompassHeading := 90.
-	expectedGeoPose := spatialmath.NewGeoPose(expectedLoc, expectedCompassHeading)
+	expectedGeoPose, err := spatialmath.NewGeoPose(expectedLoc, expectedCompassHeading)
+	test.That(t, err, test.ShouldBeNil)
 	workingNavigationService.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
 		extraOptions = extra
 

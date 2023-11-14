@@ -436,8 +436,7 @@ func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) 
 	if err != nil {
 		return nil, err
 	}
-	geoPose := spatialmath.NewGeoPose(loc, compassHeading)
-	return geoPose, err
+	return spatialmath.NewGeoPose(loc, compassHeading)
 }
 
 func (svc *builtIn) Waypoints(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {

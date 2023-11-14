@@ -26,12 +26,6 @@ func DegToRad(degrees float64) float64 {
 	return degrees * math.Pi / 180
 }
 
-// SwapCompassHeadingHandedness converts left hand rule compass heading degrees
-// to right hand rule compass heading degrees & vice versa.
-func SwapCompassHeadingHandedness(heading float64) float64 {
-	return math.Mod(math.Abs(heading-360), 360)
-}
-
 // RadToDeg converts radians to degrees.
 func RadToDeg(radians float64) float64 {
 	return radians * 180 / math.Pi

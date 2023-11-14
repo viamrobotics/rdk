@@ -1,8 +1,11 @@
 package spatialmath
 
 import (
+	"math"
+
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 )
 
@@ -164,11 +167,17 @@ type GeoPose struct {
 }
 
 // NewGeoPose constructs a GeoPose from a geo.Point and float64.
-func NewGeoPose(loc *geo.Point, heading float64) *GeoPose {
+func NewGeoPose(loc *geo.Point, heading float64) (*GeoPose, error) {
+	if math.IsNaN(loc.Lat()) {
+		return nil, errors.New("lat can't be NaN")
+	}
+	if math.IsNaN(loc.Lng()) {
+		return nil, errors.New("lng can't be NaN")
+	}
 	return &GeoPose{
 		location: loc,
 		heading:  heading,
-	}
+	}, nil
 }
 
 // Location returns the locating coordinates of the GeoPose.

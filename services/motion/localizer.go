@@ -11,7 +11,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // SLAMOrientationAdjustment is needed because a SLAM map pose has orientation of OZ=1, Theta=0 when the rover is intended to be pointing
@@ -73,20 +72,6 @@ func NewMovementSensorLocalizer(ms movementsensor.MovementSensor, origin *geo.Po
 	return &movementSensorLocalizer{MovementSensor: ms, origin: origin, calibration: calibration}, nil
 }
 
-// validateGeopoint validates that a geopoint can be used for
-// motion planning.
-func validateGeopoint(gp *geo.Point) error {
-	if math.IsNaN(gp.Lat()) {
-		return errors.New("lat can't be NaN")
-	}
-
-	if math.IsNaN(gp.Lng()) {
-		return errors.New("lng can't be NaN")
-	}
-
-	return nil
-}
-
 // validatePose validates that a pose can be used for
 // motion planning.
 func validatePose(p spatialmath.Pose) error {
@@ -146,7 +131,7 @@ func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referen
 			return nil, errors.New("heading can't be NaN")
 		}
 		// CompassHeading is a left-handed value. Convert to be right-handed. Use math.Mod to ensure that 0 reports 0 rather than 360.
-		theta := rdkutils.SwapCompassHeadingHandedness(headingLeft)
+		theta := math.Mod(math.Abs(headingLeft-360), 360)
 		o = &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: theta}
 	case properties.OrientationSupported:
 		o, err = m.Orientation(ctx, nil)

@@ -92,8 +92,7 @@ func (svc *navSvc) SetMode(ctx context.Context, mode navigation.Mode, extra map[
 func (svc *navSvc) Location(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
 	svc.waypointsMu.RLock()
 	defer svc.waypointsMu.RUnlock()
-	geoPose := spatialmath.NewGeoPose(svc.loc, 0)
-	return geoPose, nil
+	return spatialmath.NewGeoPose(svc.loc, 0)
 }
 
 func (svc *navSvc) Waypoints(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
