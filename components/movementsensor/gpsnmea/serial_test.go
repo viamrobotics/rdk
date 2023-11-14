@@ -39,7 +39,7 @@ func TestValidateSerial(t *testing.T) {
 }
 
 func TestNewSerialMovementSensor(t *testing.T) {
-	deps := setupDependencies(t)
+	var deps resource.Dependencies
 	path := "somepath"
 
 	cfig := resource.Config{
@@ -70,7 +70,6 @@ func TestNewSerialMovementSensor(t *testing.T) {
 				SerialPath:     path,
 				SerialBaudRate: 0,
 			},
-			I2CConfig: &I2CConfig{Board: "local"},
 		},
 	}
 	g, err = newNMEAGPS(ctx, deps, cfig, logger)

@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/motion/builtin/state"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
@@ -89,9 +90,9 @@ func (ms *builtIn) Reconfigure(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-) (err error) {
-	ms.lock.Lock()
-	defer ms.lock.Unlock()
+) error {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
 
 	config, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -126,19 +127,32 @@ func (ms *builtIn) Reconfigure(
 	ms.slamServices = slamServices
 	ms.visionServices = visionServices
 	ms.components = components
+	if ms.state != nil {
+		ms.state.Stop()
+	}
+	ms.state = state.NewState(context.Background(), ms.logger)
 	return nil
 }
 
 type builtIn struct {
 	resource.Named
-	resource.TriviallyCloseable
+	mu              sync.RWMutex
 	fsService       framesystem.Service
 	movementSensors map[resource.Name]movementsensor.MovementSensor
 	slamServices    map[resource.Name]slam.Service
 	visionServices  map[resource.Name]vision.Service
 	components      map[resource.Name]resource.Resource
 	logger          logging.Logger
-	lock            sync.Mutex
+	state           *state.State
+}
+
+func (ms *builtIn) Close(ctx context.Context) error {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	if ms.state != nil {
+		ms.state.Stop()
+	}
+	return nil
 }
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
@@ -150,6 +164,9 @@ func (ms *builtIn) Move(
 	constraints *servicepb.Constraints,
 	extra map[string]interface{},
 ) (bool, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	// get goal frame
@@ -228,6 +245,8 @@ func (ms *builtIn) MoveOnMap(
 	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 	valExtra, err := newValidatedExtra(extra)
 	if err != nil {
@@ -318,6 +337,8 @@ func (ms *builtIn) MoveOnGlobe(
 	motionCfg *motion.MotionConfiguration,
 	extra map[string]interface{},
 ) (bool, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	t := "MoveOnGlobe called for component: %s, destination: %+v, heading: %f, movementSensor: %s, obstacles: %v, motionCfg: %#v, extra: %s"
 	ms.logger.Debugf(t,
 		componentName,
@@ -404,6 +425,8 @@ func (ms *builtIn) MoveOnGlobe(
 }
 
 func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	return "", errUnimplemented
 }
 
@@ -414,6 +437,8 @@ func (ms *builtIn) GetPose(
 	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	if destinationFrame == "" {
 		destinationFrame = referenceframe.World
 	}
@@ -432,6 +457,8 @@ func (ms *builtIn) StopPlan(
 	ctx context.Context,
 	req motion.StopPlanReq,
 ) error {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	return errUnimplemented
 }
 
@@ -439,6 +466,8 @@ func (ms *builtIn) ListPlanStatuses(
 	ctx context.Context,
 	req motion.ListPlanStatusesReq,
 ) ([]motion.PlanStatusWithID, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	return nil, errUnimplemented
 }
 
@@ -446,5 +475,7 @@ func (ms *builtIn) PlanHistory(
 	ctx context.Context,
 	req motion.PlanHistoryReq,
 ) ([]motion.PlanWithStatus, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	return nil, errUnimplemented
 }
