@@ -8,11 +8,10 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"os"
 	"sync"
-	"time"
 
 	"github.com/golang/geo/r3"
-	geo "github.com/kellydunn/golang-geo"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
@@ -873,7 +872,6 @@ func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {
 // each pose in order to ensure correctness.
 // TODO: if trees are stored as segments rather than nodes, then this becomes simpler/unnecessary. Related to RSDK-4139.
 func rectifyTPspacePath(path []node, frame referenceframe.Frame, startPose spatialmath.Pose) ([]node, error) {
-	fmt.Println("Path for ", spatialmath.PoseToProtobuf(startPose))
 	correctedPath := []node{}
 	runningPose := startPose
 	for _, wp := range path {
@@ -882,8 +880,7 @@ func rectifyTPspacePath(path []node, frame referenceframe.Frame, startPose spati
 			return nil, err
 		}
 		runningPose = spatialmath.Compose(runningPose, wpPose)
-		fmt.Println("running pose: ", spatialmath.PoseToProtobuf(runningPose))
-
+		fmt.Println(runningPose.Point().X, runningPose.Point().Y)
 		thisNode := &basicNode{
 			q:      wp.Q(),
 			cost:   wp.Cost(),
@@ -895,91 +892,60 @@ func rectifyTPspacePath(path []node, frame referenceframe.Frame, startPose spati
 	return correctedPath, nil
 }
 
-type RecityfiedPose struct {
-	MungedRawPoses  []spatialmath.Pose `json:"MungedRawPoses"`
-	RegRawPoses     []spatialmath.Pose `json:"RegRawPoses"`
-	Origin          *geo.Point         `json:"Origin"`
-	MungedGeoPoints []geo.Point        `json:"MungedGeoPoints"`
-	RegGeoPoints    []geo.Point        `json:"RegGeoPoints"`
-	SpecialPose     spatialmath.Pose   `json:"SpecialPose"`
-	Type            string             `json:"Type"`
-	StartedAt       time.Time          `json:"StartedAt"`
-	CompletedAt     time.Time          `json:"CompletedAt"`
+func specialrectifyTPspacePath(path []node, frame referenceframe.Frame, startPose spatialmath.Pose) ([]node, error) {
+	correctedPath := []node{}
+	runningPose := startPose
+	// runningPoseLogging := realStart
+	// frameName := realStart.Point().String()
+	// newFrame, err := referenceframe.NewStaticFrame(frameName, realStart)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// fs.AddFrame(newFrame, fs.World())
+	poses := [][]float64{}
+	for _, wp := range path {
+		wpPose, err := frame.Transform(wp.Q())
+		if err != nil {
+			return nil, err
+		}
+		runningPose = spatialmath.Compose(runningPose, wpPose)
+		xx := []float64{runningPose.Point().X, runningPose.Point().Y}
+		poses = append(poses, xx)
+		printed := spatialmath.PoseToProtobuf(runningPose)
+		fmt.Printf("%f,%f\n", printed.X, printed.Y)
+
+		thisNode := &basicNode{
+			q:      wp.Q(),
+			cost:   wp.Cost(),
+			pose:   runningPose,
+			corner: wp.Corner(),
+		}
+		correctedPath = append(correctedPath, thisNode)
+	}
+	err := logRecitfy(poses)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return correctedPath, nil
 }
 
-// // ValidatePose validates that a pose can be used for
-// // motion planning.
-// func ValidatePose(p spatialmath.Pose) error {
-// 	if math.IsNaN(p.Point().X) {
-// 		return errors.New("x can't be NaN")
-// 	}
+type RecityfiedPose struct {
+	Poses [][]float64
+}
 
-// 	if math.IsNaN(p.Point().Y) {
-// 		return errors.New("y can't be NaN")
-// 	}
+func logRecitfy(poses [][]float64) error {
 
-// 	if math.IsNaN(p.Point().Z) {
-// 		return errors.New("x can't be NaN")
-// 	}
-// 	if math.IsNaN(p.Orientation().Quaternion().Imag) {
-// 		return errors.New("iMag can't be NaN")
-// 	}
-// 	if math.IsNaN(p.Orientation().Quaternion().Jmag) {
-// 		return errors.New("jMag can't be NaN")
-// 	}
-
-// 	if math.IsNaN(p.Orientation().Quaternion().Kmag) {
-// 		return errors.New("kMag can't be NaN")
-// 	}
-
-// 	if math.IsNaN(p.Orientation().Quaternion().Real) {
-// 		return errors.New("real can't be NaN")
-// 	}
-
-// 	return nil
-// }
-
-// func logRecitfy(rawMungedPoses, rawRegPoses []spatialmath.Pose, origin spatialmath.GeoPose, before, after time.Time, mungedGP, regGP []spatialmath.GeoPose, specialPose spatialmath.Pose) error {
-// 	mungedPoses := make([]*v1.Pose, 0, len(rawMungedPoses))
-// 	for _, p := range rawMungedPoses {
-// 		mungedPoses = append(mungedPoses, spatialmath.PoseToProtobuf(p))
-// 	}
-
-// 	regPoses := make([]*v1.Pose, 0, len(rawMungedPoses))
-// 	for _, p := range rawRegPoses {
-// 		regPoses = append(regPoses, spatialmath.PoseToProtobuf(p))
-// 	}
-
-// 	b, err := json.Marshal(RecityfiedPose{
-// 		MungedRawPoses:  mungedPoses,
-// 		RegRawPoses:     regPoses,
-// 		Origin:          origin,
-// 		MungedGeoPoints: mungedGP,
-// 		RegGeoPoints:    regGP,
-// 		SpecialPose:     specialPose,
-// 		Type:            "rectified",
-// 		StartedAt:       before,
-// 		CompletedAt:     after,
-// 	})
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return writeToJson(b)
-// }
-
-// func writeToJson(b []byte) error {
-// 	homedir, err := os.UserHomeDir()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	f, err := os.OpenFile(path.Join(homedir, "rectified.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer f.Close()
-// 	if _, err := f.Write(append(b, '\n')); err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }
+	f, err := os.OpenFile("../motion_points.txt",
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	for _, pose := range poses {
+		if _, err := f.WriteString(fmt.Sprintf("%f,%f\n", pose[0], pose[1])); err != nil {
+			return err
+		}
+	}
+	return nil
+}

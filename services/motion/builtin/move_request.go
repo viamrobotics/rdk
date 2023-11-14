@@ -63,6 +63,7 @@ func (mr *moveRequest) plan(ctx context.Context) ([][]referenceframe.Input, erro
 	}
 	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): inputs}
 	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
+	fmt.Println("mr.planRequest.StartPose: ", spatialmath.PoseToProtobuf(mr.planRequest.StartPose))
 	plan, err := motionplan.Replan(ctx, mr.planRequest, nil, 0)
 	if err != nil {
 		return nil, err
@@ -532,6 +533,7 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 			StartConfiguration: currentInputs,
 			WorldState:         worldState,
 			Options:            valExtra.extra,
+			StartPose:          startPose.Pose(),
 		},
 		kinematicBase:     kb,
 		replanCostFactor:  valExtra.replanCostFactor,

@@ -5,7 +5,7 @@
 package avutil
 
 //#cgo CFLAGS: -Wno-deprecated-declarations -I${SRCDIR}/../Linux-aarch64/include
-//#cgo LDFLAGS: -L${SRCDIR}/../Linux-aarch64/lib -lavutil -lswresample
+//#cgo LDFLAGS: -L${SRCDIR}/../Linux-aarch64/lib -lavutil -lswresample -lm
 //#include <libswresample/swresample.h>
 //#include <libavutil/error.h>
 //#include <stdlib.h>

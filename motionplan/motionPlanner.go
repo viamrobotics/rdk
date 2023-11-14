@@ -51,6 +51,7 @@ type PlanRequest struct {
 	WorldState         *frame.WorldState
 	ConstraintSpecs    *pb.Constraints
 	Options            map[string]interface{}
+	StartPose          spatialmath.Pose
 }
 
 // validatePlanRequest ensures PlanRequests are not malformed.
@@ -200,6 +201,14 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		return nil, err
 	}
 	newPlan := sf.inputsToPlan(resultSlices)
+
+	planNodes, err := sf.planToNodes(newPlan)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("planning motion: %#v", spatialmath.PoseToProtobuf(request.StartPose))
+	// specialPOse := spatialmath.NewPose(r3.Vector{0, 0, 0}, request.StartPose.Orientation())
+	specialrectifyTPspacePath(planNodes, sf.solveFrame, request.StartPose)
 
 	if replanCostFactor > 0 && currentPlan != nil {
 		initialPlanCost := currentPlan.Evaluate(sfPlanner.opt().ScoreFunc)
