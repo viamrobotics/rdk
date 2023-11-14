@@ -21,7 +21,6 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/explore"
 	"go.viam.com/rdk/services/navigation"
@@ -227,7 +226,6 @@ type builtIn struct {
 	motionCfg        *motion.MotionConfiguration
 	replanCostFactor float64
 
-	fsService                 framesystem.Service
 	logger                    logging.Logger
 	wholeServiceCancelFunc    func()
 	currentWaypointCancelFunc func()
@@ -359,11 +357,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	// Note: this service will disappear after the explore motion model is integrated into builtIn
 	exploreMotionConf := resource.Config{ConvertedAttributes: &explore.Config{}}
 	svc.exploreMotionService, err = explore.NewExplore(ctx, deps, exploreMotionConf, svc.logger)
-	if err != nil {
-		return err
-	}
-
-	svc.fsService, err = framesystem.New(ctx, deps, svc.logger)
 	if err != nil {
 		return err
 	}
