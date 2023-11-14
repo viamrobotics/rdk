@@ -61,19 +61,6 @@ func (m *EncodedMotor) updateControlBlock(ctx context.Context, setPoint, maxVel 
 	return nil
 }
 
-// setupControlLoop starts the control loop and assigns it to m.loop.
-func (m *EncodedMotor) setupControlLoop() error {
-	cLoop, err := control.NewLoop(m.logger, m.cfg.ControlLoop, m)
-	if err != nil {
-		return err
-	}
-	if err = cLoop.Start(); err != nil {
-		return err
-	}
-	m.loop = cLoop
-	return nil
-}
-
 // validateControlConfig ensures the programmatically edited blocks are named correctly.
 func (m *EncodedMotor) validateControlConfig(ctx context.Context) error {
 	constBlock, err := m.loop.ConfigAt(ctx, "set_point")
