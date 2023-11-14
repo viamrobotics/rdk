@@ -626,7 +626,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			}
 			heading = o.OrientationVectorDegrees().Theta
 		default:
-			return nil, errors.New("could not get orientation from Localizer")
+			return nil, errors.New("could not get orientation from the movementsensor")
 		}
 
 		// convert geo position into GeoPose
