@@ -57,6 +57,17 @@ func (sb *sensorBase) SetVelocity(
 
 	// TODO: RSDK-5355 remove control loop bool after testing
 	if useControlLoop && sb.loop != nil {
+		posConf := control.BlockConfig{
+			Name: "set_point",
+			Type: "constant",
+			Attribute: rdkutils.AttributeMap{
+				"constant_val": linear,
+			},
+			DependsOn: []string{},
+		}
+		if err := sb.loop.SetConfigAt(ctx, "set_point", posConf); err != nil {
+			return err
+		}
 		// if we have a loop, let's use the SetState function to call the SetVelocity command
 		// through the control loop
 		sb.logger.Info("using loop")
