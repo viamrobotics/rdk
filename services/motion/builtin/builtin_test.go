@@ -1432,23 +1432,20 @@ func TestObstacleDetection(t *testing.T) {
 }
 
 func TestCheckPlan(t *testing.T) {
-	t.Skip() // TODO(RSDK-5404): fix flakiness
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
 	// orign as gps point
 	originPoint := geo.NewPoint(-70, 40)
 
-	destPoint := geo.NewPoint(originPoint.Lat(), originPoint.Lng()+1e-5)
+	destPoint := geo.NewPoint(originPoint.Lat()+1e-5, originPoint.Lng())
 
 	// create env
 	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, originPoint, nil, 5)
 	defer ms.Close(ctx)
 
 	// create motion config
-	extra := make(map[string]interface{})
-	// fail if we don't find a plan in 15 seconds
-	extra["timeout"] = 15.
+	extra := map[string]interface{}{"timeout": 15}
 	validatedExtra, err := newValidatedExtra(extra)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1465,6 +1462,11 @@ func TestCheckPlan(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	inputs, err := fakeBase.CurrentInputs(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	moveRequest.planRequest.StartConfiguration = map[string][]referenceframe.Input{fakeBase.Kinematics().Name(): inputs}
+
 	plan, err := motionplan.PlanMotion(ctx, moveRequest.planRequest)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1475,8 +1477,6 @@ func TestCheckPlan(t *testing.T) {
 
 	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
 	errorState := startPose
-	floatList := []float64{0, 0, 0}
-	inputs := referenceframe.FloatsToInputs(floatList)
 
 	t.Run("without obstacles - ensure success", func(t *testing.T) {
 		err := motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, nil, newFS,
@@ -1485,7 +1485,7 @@ func TestCheckPlan(t *testing.T) {
 	})
 	t.Run("with a blocking obstacle - ensure failure", func(t *testing.T) {
 		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{380, 0, 0}), // Y means forwards from the base's pose at the start of the motion
+			spatialmath.NewPoseFromPoint(r3.Vector{0, 380, 0}), // Y means forwards from the base's pose at the start of the motion
 			r3.Vector{10, 10, 10}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -1524,7 +1524,7 @@ func TestCheckPlan(t *testing.T) {
 	t.Run("ensure transforms of obstacles works - no collision", func(t *testing.T) {
 		// create obstacle
 		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{1500, -6, 0}),
+			spatialmath.NewPoseFromPoint(r3.Vector{-6, 1500, 0}),
 			r3.Vector{10, 10, 10}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -1541,7 +1541,7 @@ func TestCheckPlan(t *testing.T) {
 	t.Run("ensure transforms of obstacles works - collision with camera", func(t *testing.T) {
 		// create obstacle
 		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{400, 0, 0}),
+			spatialmath.NewPoseFromPoint(r3.Vector{0, 400, 0}),
 			r3.Vector{50, 50, 10}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -1559,7 +1559,7 @@ func TestCheckPlan(t *testing.T) {
 		errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 2600, 0})
 
 		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{150, 0, 0}),
+			spatialmath.NewPoseFromPoint(r3.Vector{0, 150, 0}),
 			r3.Vector{10, 10, 1}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
