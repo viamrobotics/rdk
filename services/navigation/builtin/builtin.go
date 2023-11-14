@@ -604,46 +604,43 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			return nil, err
 		}
 
-		// get current heading of robot
-		var heading float64
-		properties, err := svc.movementSensor.Properties(ctx, nil)
+		localizer := motion.NewMovementSensorLocalizer(svc.movementSensor, gp, spatialmath.NewZeroPose())
+		currentPIF, err := localizer.CurrentPosition(ctx)
 		if err != nil {
 			return nil, err
 		}
-		switch {
-		case properties.CompassHeadingSupported:
-			headingLeft, err := svc.movementSensor.CompassHeading(ctx, nil)
-			if err != nil {
-				return nil, err
-			}
-			// compassHeading is a left-handed value which needs to be converted to be right-handed
-			// use math.Mod to ensure that 0 reports 0 rather than 360
-			heading = math.Mod(math.Abs(headingLeft-360), 360)
-		case properties.OrientationSupported:
-			o, err := svc.movementSensor.Orientation(ctx, nil)
-			if err != nil {
-				return nil, err
-			}
-			heading = o.OrientationVectorDegrees().Theta
-		default:
-			return nil, errors.New("could not get orientation from the movementsensor")
-		}
+		heading := currentPIF.Pose().Orientation().OrientationVectorDegrees().Theta
 
 		// convert geo position into GeoPose
 		relativeToGeoPose := spatialmath.NewGeoPose(gp, heading)
 
 		for i, detection := range detections {
+			// check if the geometry is a point
+			geomPose := detection.Geometry.Pose()
+			var geom spatialmath.Geometry
+			if detection.Geometry.AlmostEqual(
+				spatialmath.NewPoint(r3.Vector{geomPose.Point().X, geomPose.Point().Y, geomPose.Point().Z}, ""),
+			) {
+				// a point is unable to be visualized, instead use a sphere of radius 1mm
+				geom, err = spatialmath.NewSphere(detection.Geometry.Pose(), 1.0, detection.Geometry.Label())
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				geom = detection.Geometry
+			}
+
 			// get geo position of geometry
-			geomGeoPose := spatialmath.PoseToGeoPoint(*relativeToGeoPose, detection.Geometry.Pose())
+			geomGeoPose := spatialmath.PoseToGeoPoint(*relativeToGeoPose, geomPose)
 
 			// set label for geometry so we know it is transient
 			label := detector.CameraName.Name + "_transientObstacle_" + strconv.Itoa(i)
-			if detection.Geometry.Label() != "" {
-				label += "_" + detection.Geometry.Label()
+			if geom.Label() != "" {
+				label += "_" + geom.Label()
 			}
-			detection.Geometry.SetLabel(label)
+			geom.SetLabel(label)
 
-			geoObstacles = append(geoObstacles, spatialmath.NewGeoObstacle(geomGeoPose.Location(), []spatialmath.Geometry{detection.Geometry}))
+			geoObstacles = append(geoObstacles, spatialmath.NewGeoObstacle(geomGeoPose.Location(), []spatialmath.Geometry{geom}))
 		}
 	}
 

@@ -11,12 +11,6 @@ import (
 	"gonum.org/v1/gonum/stat/distuv"
 )
 
-// SwapCompasHeadingHandedness converts left hand rule compass heading degrees
-// to right hand rule compass heading degrees & vice versa.
-func SwapCompasHeadingHandedness(heading float64) float64 {
-	return math.Mod(math.Abs(heading-360), 360)
-}
-
 // MetersToMM converts a value in meters to a value in mm.
 func MetersToMM(m float64) float64 {
 	return m * 1000
