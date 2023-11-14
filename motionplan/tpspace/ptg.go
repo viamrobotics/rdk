@@ -3,7 +3,6 @@ package tpspace
 
 import (
 	"math"
-	"fmt"
 
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
@@ -131,7 +130,6 @@ func computePTGNode(simPTG PTG, alpha, dist, atT float64) (*TrajNode, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("computed pose at dist", dist, spatialmath.PoseToProtobuf(pose))
 	return &TrajNode{pose, atT, dist, alpha, v, w}, nil
 }
 
