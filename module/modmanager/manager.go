@@ -780,11 +780,28 @@ func (m *module) startProcess(
 		return err
 	}
 
+	// We evaluate the Module's ExePath absolutely in the viam-server process so that
+	// setting the CWD does not cause issues with relative process names
+	absoluteExePath, err := filepath.Abs(m.cfg.ExePath)
+	if err != nil {
+		return err
+	}
+	moduleEnvironment := m.getFullEnvironment(viamHomeDir)
+	// Prefer VIAM_MODULE_ROOT as the current working directory if present but fallback to the directory of the exepath
+	moduleWorkingDirectory, ok := moduleEnvironment["VIAM_MODULE_ROOT"]
+	if !ok {
+		moduleWorkingDirectory = filepath.Dir(absoluteExePath)
+		logger.Warnf("VIAM_MODULE_ROOT was not passed to module %q. Defaulting to %q", m.cfg.Name, moduleWorkingDirectory)
+	} else {
+		logger.Debugf("Starting module %q in working directory %q", m.cfg.Name, moduleWorkingDirectory)
+	}
+
 	pconf := pexec.ProcessConfig{
 		ID:               m.cfg.Name,
-		Name:             m.cfg.ExePath,
+		Name:             absoluteExePath,
 		Args:             []string{m.addr},
-		Environment:      m.getFullEnvironment(viamHomeDir),
+		CWD:              moduleWorkingDirectory,
+		Environment:      moduleEnvironment,
 		Log:              true,
 		OnUnexpectedExit: oue,
 	}
