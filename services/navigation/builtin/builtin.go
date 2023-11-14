@@ -582,6 +582,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 
+	// get static geoObstacles
 	geoObstacles := svc.obstacles
 
 	for _, detector := range svc.motionCfg.ObstacleDetectors {
