@@ -54,18 +54,19 @@ type moduleID struct {
 
 // manifestBuildInfo is the "build" section of meta.json.
 type manifestBuildInfo struct {
-	Build string
-	Setup string
-	Path  string
-	Arch  []string
+	Build string   `json:"build"`
+	Setup string   `json:"setup"`
+	Path  string   `json:"path"`
+	Arch  []string `json:"arch"`
 }
 
 // defaultBuildInfo has defaults for unset fields in "build".
-var defaultBuildInfo manifestBuildInfo = manifestBuildInfo{
+//
+//nolint:unused
+var defaultBuildInfo = manifestBuildInfo{
 	Build: "make module.tar.gz",
-	// Setup: "", // unused if missing
-	Path: "module.tar.gz",
-	Arch: []string{"linux/amd64", "linux/arm64"},
+	Path:  "module.tar.gz",
+	Arch:  []string{"linux/amd64", "linux/arm64"},
 }
 
 // moduleManifest is used to create & parse manifest.json.
@@ -127,6 +128,8 @@ func CreateModuleAction(c *cli.Context) error {
 		Models: []ModuleComponent{
 			{},
 		},
+		// TODO(RSDK-5608) don't auto populate until we are ready to release the build subcommand
+		// Build: defaultBuildInfo,
 	}
 	if err := writeManifest(defaultManifestFilename, emptyManifest); err != nil {
 		return err
