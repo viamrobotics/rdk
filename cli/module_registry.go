@@ -61,6 +61,8 @@ type manifestBuildInfo struct {
 }
 
 // defaultBuildInfo has defaults for unset fields in "build".
+//
+//nolint:unused
 var defaultBuildInfo = manifestBuildInfo{
 	Build: "make module.tar.gz",
 	Path:  "module.tar.gz",
@@ -126,7 +128,8 @@ func CreateModuleAction(c *cli.Context) error {
 		Models: []ModuleComponent{
 			{},
 		},
-		Build: defaultBuildInfo,
+		// TODO(RSDK-5608) don't auto populate until we are ready to release the build subcommand
+		// Build: defaultBuildInfo,
 	}
 	if err := writeManifest(defaultManifestFilename, emptyManifest); err != nil {
 		return err
