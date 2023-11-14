@@ -52,6 +52,21 @@ type moduleID struct {
 	name   string
 }
 
+// manifestBuildInfo is the "build" section of meta.json.
+type manifestBuildInfo struct {
+	Build string   `json:"build"`
+	Setup string   `json:"setup"`
+	Path  string   `json:"path"`
+	Arch  []string `json:"arch"`
+}
+
+// defaultBuildInfo has defaults for unset fields in "build".
+var defaultBuildInfo = manifestBuildInfo{
+	Build: "make module.tar.gz",
+	Path:  "module.tar.gz",
+	Arch:  []string{"linux/amd64", "linux/arm64"},
+}
+
 // moduleManifest is used to create & parse manifest.json.
 type moduleManifest struct {
 	// for backward compatibility - DO NOT SET as will be deprecated
@@ -62,6 +77,7 @@ type moduleManifest struct {
 	Description string            `json:"description"`
 	Models      []ModuleComponent `json:"models"`
 	Entrypoint  string            `json:"entrypoint"`
+	Build       manifestBuildInfo `json:"build"`
 }
 
 const (
@@ -110,6 +126,7 @@ func CreateModuleAction(c *cli.Context) error {
 		Models: []ModuleComponent{
 			{},
 		},
+		Build: defaultBuildInfo,
 	}
 	if err := writeManifest(defaultManifestFilename, emptyManifest); err != nil {
 		return err
