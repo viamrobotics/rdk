@@ -618,6 +618,9 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 	// pauses for longer than 5s, below calls to ResourceNames or
 	// ResourceRPCSubtypes can result in context errors that appear in client.New
 	// and remote logic.
+	//
+	// TODO(APP-2917): Once we upgrade to go 1.21, replace this if check with if
+	// !testing.Testing().
 	if flag.Lookup("test.v") == nil {
 		var cancel func()
 		ctx, cancel = contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultResourcesTimeout)
