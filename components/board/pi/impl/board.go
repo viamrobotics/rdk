@@ -35,6 +35,7 @@ import (
 	pb "go.viam.com/api/component/board/v1"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/mcp3008helper"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -61,11 +62,11 @@ func init() {
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
-	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
-	AnalogReaders     []board.MCP3008AnalogConfig    `json:"analogs,omitempty"`
-	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
-	Attributes        rdkutils.AttributeMap          `json:"attributes,omitempty"`
+	I2Cs              []board.I2CConfig                   `json:"i2cs,omitempty"`
+	SPIs              []board.SPIConfig                   `json:"spis,omitempty"`
+	AnalogReaders     []mcp3008helper.MCP3008AnalogConfig `json:"analogs,omitempty"`
+	DigitalInterrupts []board.DigitalInterruptConfig      `json:"digital_interrupts,omitempty"`
+	Attributes        rdkutils.AttributeMap               `json:"attributes,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -258,7 +259,7 @@ func (pi *piPigpio) reconfigureAnalogReaders(ctx context.Context, cfg *Config) e
 		}
 
 		bus := &piPigpioSPI{pi: pi, busSelect: ac.SPIBus}
-		ar := &board.MCP3008AnalogReader{channel, bus, ac.ChipSelect}
+		ar := &mcp3008helper.MCP3008AnalogReader{channel, bus, ac.ChipSelect}
 
 		pi.analogReaders[ac.Name] = board.SmoothAnalogReader(ar, board.AnalogReaderConfig{
 			AverageOverMillis: ac.AverageOverMillis, SamplesPerSecond: ac.SamplesPerSecond,
