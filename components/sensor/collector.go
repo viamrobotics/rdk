@@ -33,7 +33,7 @@ func NewSensorCollector(resource interface{}, params data.CollectorParams) (data
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
-		values, err := sensorResource.Readings(ctx, data.FromDMExtraMap) // TODO (RSDK-1972): pass in something here from the config?
+		values, err := sensorResource.Readings(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
