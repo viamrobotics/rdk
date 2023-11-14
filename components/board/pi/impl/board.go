@@ -257,11 +257,7 @@ func (pi *piPigpio) reconfigureAnalogReaders(ctx context.Context, cfg *Config) e
 			return errors.Errorf("bad analog pin (%s)", ac.Pin)
 		}
 
-		bus, have := pi.spis[ac.SPIBus]
-		if !have {
-			return errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", ac.SPIBus)
-		}
-
+		bus := &piPigpioSPI{pi: pi, busSelect: ac.SPIBus}
 		ar := &board.MCP3008AnalogReader{channel, bus, ac.ChipSelect}
 
 		pi.analogReaders[ac.Name] = board.SmoothAnalogReader(ar, board.AnalogReaderConfig{
