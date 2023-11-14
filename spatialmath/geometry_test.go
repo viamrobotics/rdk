@@ -11,7 +11,7 @@ import (
 	"go.viam.com/test"
 )
 
-func TestGeometrySerialization(t *testing.T) {
+func TestGeometrySerializationJSON(t *testing.T) {
 	translation := r3.Vector{1, 1, 1}
 	orientation := OrientationConfig{}
 	testMap := loadOrientationTests(t)

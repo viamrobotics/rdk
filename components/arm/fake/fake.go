@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -15,6 +16,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -31,19 +33,6 @@ type Config struct {
 	ModelFilePath string `json:"model-path,omitempty"`
 }
 
-func modelFromName(model, name string) (referenceframe.Model, error) {
-	switch model {
-	case xarm.ModelName6DOF, xarm.ModelName7DOF, xarm.ModelNameLite:
-		return xarm.MakeModelFrame(name, model)
-	case ur.Model.Name:
-		return ur.MakeModelFrame(name)
-	case eva.Model.Name:
-		return eva.MakeModelFrame(name)
-	default:
-		return nil, errors.Errorf("fake arm cannot be created, unsupported arm-model: %s", model)
-	}
-}
-
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
 	var err error
@@ -53,7 +42,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	case conf.ArmModel != "" && conf.ModelFilePath == "":
 		_, err = modelFromName(conf.ArmModel, "")
 	case conf.ArmModel == "" && conf.ModelFilePath != "":
-		_, err = referenceframe.ModelFromPath(conf.ModelFilePath, "")
+		_, err = modelFromPath(conf.ModelFilePath, "")
 	}
 	return nil, err
 }
@@ -90,7 +79,7 @@ func buildModel(cfg resource.Config, newConf *Config) (referenceframe.Model, err
 	case armModel != "":
 		model, err = modelFromName(armModel, cfg.Name)
 	case modelPath != "":
-		model, err = referenceframe.ModelFromPath(modelPath, cfg.Name)
+		model, err = modelFromPath(modelPath, cfg.Name)
 	default:
 		// if no arm model is specified, we return an empty arm with 0 dof and 0 spatial transformation
 		model = referenceframe.NewSimpleModel(cfg.Name)
@@ -226,4 +215,28 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 		return nil, err
 	}
 	return gif.Geometries(), nil
+}
+
+func modelFromName(model, name string) (referenceframe.Model, error) {
+	switch model {
+	case xarm.ModelName6DOF, xarm.ModelName7DOF, xarm.ModelNameLite:
+		return xarm.MakeModelFrame(name, model)
+	case ur.Model.Name:
+		return ur.MakeModelFrame(name)
+	case eva.Model.Name:
+		return eva.MakeModelFrame(name)
+	default:
+		return nil, errors.Errorf("fake arm cannot be created, unsupported arm-model: %s", model)
+	}
+}
+
+func modelFromPath(modelPath, name string) (referenceframe.Model, error) {
+	switch {
+	case strings.HasSuffix(modelPath, ".urdf"):
+		return urdf.ParseXMLFile(modelPath, name)
+	case strings.HasSuffix(modelPath, ".json"):
+		return referenceframe.ParseModelJSONFile(modelPath, name)
+	default:
+		return nil, errors.New("only files with .json and .urdf file extensions are supported")
+	}
 }

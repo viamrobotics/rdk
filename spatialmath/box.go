@@ -115,7 +115,7 @@ func (b *box) AlmostEqual(g Geometry) bool {
 			return false
 		}
 	}
-	return PoseAlmostEqual(b.pose, other.pose)
+	return PoseAlmostEqualEps(b.pose, other.pose, 1e-6)
 }
 
 // Transform premultiplies the box pose with a transform, allowing the box to be moved in space.
