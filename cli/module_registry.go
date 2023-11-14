@@ -72,14 +72,14 @@ var defaultBuildInfo = manifestBuildInfo{
 // moduleManifest is used to create & parse manifest.json.
 type moduleManifest struct {
 	// for backward compatibility - DO NOT SET as will be deprecated
-	Name        string            `json:"name,omitempty"`
-	ModuleID    string            `json:"module_id"`
-	Visibility  moduleVisibility  `json:"visibility"`
-	URL         string            `json:"url"`
-	Description string            `json:"description"`
-	Models      []ModuleComponent `json:"models"`
-	Entrypoint  string            `json:"entrypoint"`
-	Build       manifestBuildInfo `json:"build"`
+	Name        string             `json:"name,omitempty"`
+	ModuleID    string             `json:"module_id"`
+	Visibility  moduleVisibility   `json:"visibility"`
+	URL         string             `json:"url"`
+	Description string             `json:"description"`
+	Models      []ModuleComponent  `json:"models"`
+	Entrypoint  string             `json:"entrypoint"`
+	Build       *manifestBuildInfo `json:"build,omitempty"`
 }
 
 const (
