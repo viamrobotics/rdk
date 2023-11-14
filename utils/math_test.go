@@ -8,6 +8,49 @@ import (
 	"go.viam.com/test"
 )
 
+func TestSwapCompasHeadingHandedness(t *testing.T) {
+	type testCase struct {
+		a float64
+		b float64
+	}
+
+	testCases := []testCase{
+		{
+			a: 0,
+			b: 0,
+		},
+		{
+			a: 1,
+			b: 359,
+		},
+		{
+			a: 1.5,
+			b: 358.5,
+		},
+		{
+			a: 3,
+			b: 357,
+		},
+		{
+			a: 90,
+			b: 270,
+		},
+		{
+			a: 180,
+			b: 180,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("expected SwapCompasHeadingHandedness(a) ~= b, where a=%f, b=%f", tc.a, tc.b), func(t *testing.T) {
+			test.That(t, SwapCompassHeadingHandedness(tc.a), test.ShouldAlmostEqual, tc.b)
+		})
+		t.Run(fmt.Sprintf("expected SwapCompasHeadingHandedness(b) ~= a, where b=%f, a=%f", tc.b, tc.a), func(t *testing.T) {
+			test.That(t, SwapCompassHeadingHandedness(tc.b), test.ShouldAlmostEqual, tc.a)
+		})
+	}
+}
+
 func TestAbs1(t *testing.T) {
 	test.That(t, AbsInt(5), test.ShouldEqual, 5)
 	test.That(t, AbsInt(-5), test.ShouldEqual, 5)
