@@ -3,6 +3,7 @@ package builtin
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 	"time"
 
@@ -1041,7 +1042,7 @@ func TestGetObstacles(t *testing.T) {
 		}, nil
 	}
 	injectMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-		return 0, nil
+		return 40, nil
 	}
 
 	// create injected vis svc
@@ -1087,9 +1088,9 @@ func TestGetObstacles(t *testing.T) {
 		test.That(t, ns.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	boxGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{3.14, 2.72, 1}, "test_camera_transientObstacle_0_test-box")
+	boxGeom, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{math.Sqrt(3), 1, 0}), r3.Vector{3.14, 2.72, 1}, "test_camera_transientObstacle_0_test-box")
 	test.That(t, err, test.ShouldBeNil)
-	boxGob := spatialmath.NewGeoObstacle(geo.NewPoint(1, 1.0000000000000395), []spatialmath.Geometry{boxGeom})
+	boxGob := spatialmath.NewGeoObstacle(geo.NewPoint(1.0169017117388919, 1.0061526910300462), []spatialmath.Geometry{boxGeom})
 
 	injectedVis.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-box", boxGeom.ToProtobuf())
