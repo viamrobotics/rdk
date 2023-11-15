@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"sync/atomic"
 
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 
@@ -143,12 +144,14 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 			// We can safely build from scratch without excluding any valuable information.
 			geoms := []spatialmath.Geometry{}
 			for i, detection := range detections {
-				// a bump or ultra sonic sensor will always return a pointcloud of size 1 along with a
-				// geometry which has no volume
+				// a bump or ultra sonic sensor will always return a point geometry
+				geomPose := detection.Geometry.Pose()
 				var geom spatialmath.Geometry
-				if detection.PointCloud.Size() == 1 {
-					position := spatialmath.NewPoseFromPoint(detection.Geometry.ToPoints(1.)[0])
-					geom, err = spatialmath.NewSphere(position, 1.0, detection.Geometry.Label())
+				if detection.Geometry.AlmostEqual(
+					spatialmath.NewPoint(r3.Vector{geomPose.Point().X, geomPose.Point().Y, geomPose.Point().Z}, ""),
+				) {
+					// a point is unable to be visualized, instead use a sphere of radius 500mm, i.e. 0.5 meters
+					geom, err = spatialmath.NewSphere(detection.Geometry.Pose(), 500.0, detection.Geometry.Label())
 					if err != nil {
 						return false, err
 					}
