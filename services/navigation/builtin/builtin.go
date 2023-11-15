@@ -621,8 +621,8 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			if detection.Geometry.AlmostEqual(
 				spatialmath.NewPoint(r3.Vector{geomPose.Point().X, geomPose.Point().Y, geomPose.Point().Z}, ""),
 			) {
-				// a point is unable to be visualized, instead use a sphere of radius 1mm
-				geom, err = spatialmath.NewSphere(detection.Geometry.Pose(), 1.0, detection.Geometry.Label())
+				// a point is unable to be visualized, instead use a sphere of radius 500mm, i.e. 0.5 meters
+				geom, err = spatialmath.NewSphere(detection.Geometry.Pose(), 500.0, detection.Geometry.Label())
 				if err != nil {
 					return nil, err
 				}
