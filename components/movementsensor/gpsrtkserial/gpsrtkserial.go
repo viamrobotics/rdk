@@ -491,7 +491,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 					g.rw, err = g.sendGGAMessage()
 					if err != nil && err != io.EOF {
 						g.err.Set(err)
-						g.logger.Errorf("got another error giving up")
+						g.logger.Errorf("failed to connect to ntrip stream")
 						return
 					}
 					g.r = io.TeeReader(g.rw, g.w)
@@ -775,7 +775,7 @@ func (g *rtkSerial) connectToVirtualBase() *bufio.ReadWriter {
 	conn, err := net.Dial("tcp", serverAddr)
 	if err != nil {
 		g.isConnected = false
-		g.logger.Errorf("Failed to connect to VRS server:", err)
+		g.logger.Errorf("Failed to connect to NTRIP server:", err)
 		return nil
 	}
 
