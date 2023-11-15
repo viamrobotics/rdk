@@ -615,32 +615,17 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		relativeToGeoPose := spatialmath.NewGeoPose(gp, heading)
 
 		for i, detection := range detections {
-			// check if the geometry is a point
-			geomPose := detection.Geometry.Pose()
-			var geom spatialmath.Geometry
-			if detection.Geometry.AlmostEqual(
-				spatialmath.NewPoint(r3.Vector{geomPose.Point().X, geomPose.Point().Y, geomPose.Point().Z}, ""),
-			) {
-				// a point is unable to be visualized, instead use a sphere of radius 500mm, i.e. 0.5 meters
-				geom, err = spatialmath.NewSphere(detection.Geometry.Pose(), 500.0, detection.Geometry.Label())
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				geom = detection.Geometry
-			}
-
-			// get geo position of geometry
-			geomGeoPose := spatialmath.PoseToGeoPoint(*relativeToGeoPose, geomPose)
+			// get geo pose of geometry
+			geomGeoPose := spatialmath.PoseToGeoPoint(*relativeToGeoPose, detection.Geometry.Pose())
 
 			// set label for geometry so we know it is transient
 			label := detector.CameraName.Name + "_transientObstacle_" + strconv.Itoa(i)
-			if geom.Label() != "" {
-				label += "_" + geom.Label()
+			if detection.Geometry.Label() != "" {
+				label += "_" + detection.Geometry.Label()
 			}
-			geom.SetLabel(label)
+			detection.Geometry.SetLabel(label)
 
-			geoObstacles = append(geoObstacles, spatialmath.NewGeoObstacle(geomGeoPose.Location(), []spatialmath.Geometry{geom}))
+			geoObstacles = append(geoObstacles, spatialmath.NewGeoObstacle(geomGeoPose.Location(), []spatialmath.Geometry{detection.Geometry}))
 		}
 	}
 
