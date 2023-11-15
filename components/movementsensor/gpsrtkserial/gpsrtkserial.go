@@ -755,6 +755,7 @@ func (g *rtkSerial) sendGGAMessage() (*bufio.ReadWriter, error) {
 // connectToVirtualBase creates a buffer where NTRIP stream can come in.
 func (g *rtkSerial) connectToVirtualBase() *bufio.ReadWriter {
 	g.urlMutex.Lock()
+	defer g.urlMutex.Lock()
 
 	mp := "/" + g.ntripClient.MountPoint
 	credentials := g.ntripClient.Username + ":" + g.ntripClient.Password
@@ -796,8 +797,6 @@ func (g *rtkSerial) connectToVirtualBase() *bufio.ReadWriter {
 		return nil
 	}
 
-	g.urlMutex.Unlock()
-
 	g.logger.Debugf("request header: %v\n", httpHeaders)
 	g.logger.Debug("HTTP headers sent successfully.")
 	g.isConnected = true
@@ -837,13 +836,14 @@ func containsGGAMessage(data []byte) bool {
 	return strings.Contains(dataStr, "GGA")
 }
 
-// findLineWithMountPoint parses the given source-table returns the nmea bool of the given mount point.
-// TODO: RSDK-5462.
+// findLineWithMountPoint parses the given source-table returns the NMEA field associated with
+// the given mountpoint.
+// TODO: RSDK-5462: Refactor GPS RTK
 func findLineWithMountPoint(sourceTable *ntrip.Sourcetable, mountPoint string) (bool, error) {
 	stream, isFound := sourceTable.HasStream(mountPoint)
 
 	if !isFound {
-		return false, fmt.Errorf("can not find mountpoint %s in sourcetable", mountPoint)
+		return false, fmt.Errorf("cannot find mountpoint %s in sourcetable", mountPoint)
 	}
 
 	return stream.Nmea, nil
