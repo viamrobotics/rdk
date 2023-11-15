@@ -144,7 +144,6 @@ type rtkSerial struct {
 	correctionWriter   io.ReadWriteCloser
 	writePath          string
 	wbaud              int
-	stopReading        chan bool
 	isVirtualBase      bool
 	isConnected        bool
 	rw                 *bufio.ReadWriter
@@ -226,7 +225,6 @@ func newRTKSerial(
 		err:                movementsensor.NewLastError(1, 1),
 		lastposition:       movementsensor.NewLastPosition(),
 		lastcompassheading: movementsensor.NewLastCompassHeading(),
-		stopReading:        make(chan bool),
 	}
 
 	// reconfigure
@@ -393,6 +391,7 @@ func (g *rtkSerial) closePort() {
 	}
 }
 
+// ntripConnection connects to NTRIP stream.
 func (g *rtkSerial) ntripConnection() error {
 	if err := g.cancelCtx.Err(); err != nil {
 		return g.err.Get()
@@ -425,18 +424,19 @@ func (g *rtkSerial) ntripConnection() error {
 		return g.err.Get()
 	}
 
-	//defer g.closePort()
+	g.w = bufio.NewWriter(g.correctionWriter)
+	g.logger.Debug("connecting to NTRIP stream........")
 
 	if g.isVirtualBase {
-		g.logger.Debug("connecting to a Virtual Reference Station")
 		g.rw, err = g.sendGGAMessage()
 		if err != nil {
 			g.err.Set(err)
 			return g.err.Get()
 		}
+		g.r = io.TeeReader(g.rw, g.w)
+
 	} else {
-		g.logger.Debug("connecting to NTRIP stream........")
-		g.w = bufio.NewWriter(g.correctionWriter)
+
 		err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 		if err != nil {
 			g.err.Set(err)
@@ -452,12 +452,10 @@ func (g *rtkSerial) ntripConnection() error {
 // receiveAndWriteSerial connects to NTRIP receiver and sends correction stream to the MovementSensor through serial.
 func (g *rtkSerial) receiveAndWriteSerial() {
 	defer g.activeBackgroundWorkers.Done()
+	defer g.closePort()
 	var scanner rtcm3.Scanner
-	if g.isVirtualBase {
-		scanner = rtcm3.NewScanner(g.rw.Reader)
-	} else {
-		scanner = rtcm3.NewScanner(g.r)
-	}
+
+	scanner = rtcm3.NewScanner(g.r)
 
 	g.ntripMu.Lock()
 	g.connectedToNtrip = true
@@ -469,12 +467,11 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		select {
 		case <-g.cancelCtx.Done():
 			return
-		case <-g.stopReading:
-			return
 		default:
 		}
 
 		msg, err := scanner.NextMessage()
+
 		if err != nil {
 			g.ntripMu.Lock()
 			g.connectedToNtrip = false
@@ -491,17 +488,14 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 					if err != nil && err != io.EOF {
 						g.err.Set(err)
 					}
-					if g.rw == nil {
-						g.logger.Errorf("*******!!!!!BYPASSING CAUSE EOF")
-					}
 					g.rw, err = g.sendGGAMessage()
 					if err != nil && err != io.EOF {
 						g.err.Set(err)
 						g.logger.Errorf("got another error giving up")
 						return
 					}
-					g.logger.Debug("reading from scanner inside the goroutine")
-					scanner = rtcm3.NewScanner(g.rw.Reader)
+					g.r = io.TeeReader(g.rw, g.w)
+
 				} else {
 					err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 					if err != nil {
@@ -509,8 +503,9 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 						return
 					}
 					g.r = io.TeeReader(g.ntripClient.Stream, g.w)
-					scanner = rtcm3.NewScanner(g.r)
 				}
+
+				scanner = rtcm3.NewScanner(g.r)
 
 				g.ntripMu.Lock()
 				g.connectedToNtrip = true
@@ -665,14 +660,11 @@ func (g *rtkSerial) Readings(ctx context.Context, extra map[string]interface{}) 
 func (g *rtkSerial) Close(ctx context.Context) error {
 	g.ntripMu.Lock()
 	g.cancelFunc()
-	g.stopReading <- true
 
 	if err := g.nmeamovementsensor.Close(ctx); err != nil {
 		g.ntripMu.Unlock()
 		return err
 	}
-
-	g.closePort()
 
 	// close ntrip writer
 	if g.correctionWriter != nil {
@@ -711,19 +703,17 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 // to get the NTRIP steam when the mount point is a Virtual Reference Station.
 func (g *rtkSerial) sendGGAMessage() (*bufio.ReadWriter, error) {
 	if !g.isConnected {
-		g.logger.Error("::::::::^^^^^^ NOT CONNECTED CONNECTING")
 		g.rw = g.connectToVirtualBase()
 	}
 
 	for {
-		fmt.Printf("rw is: %v\n", g.rw)
 		if g.rw.Reader == nil || g.rw.Writer == nil {
 			break
 		}
 		line, _, err := g.rw.ReadLine()
 		if err != nil {
 			if err == io.EOF {
-				g.logger.Debug("EOF encountered. sending GGA message again")
+				g.logger.Debug("EOF encountered")
 				g.rw = nil
 				g.isConnected = false
 				return nil, err
@@ -769,6 +759,7 @@ func (g *rtkSerial) sendGGAMessage() (*bufio.ReadWriter, error) {
 	return g.rw, nil
 }
 
+// connectToVirtualBase creates a buffer where NTRIP stream can come in
 func (g *rtkSerial) connectToVirtualBase() *bufio.ReadWriter {
 	g.urlMutex.Lock()
 
@@ -787,9 +778,6 @@ func (g *rtkSerial) connectToVirtualBase() *bufio.ReadWriter {
 		g.logger.Errorf("Failed to connect to VRS server:", err)
 		return nil
 	}
-
-	//conn.SetKeepAlive(true)
-	//conn.SetKeepAlivePeriod(time.Duration(time.Second * 10))
 
 	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 
