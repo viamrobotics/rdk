@@ -183,15 +183,40 @@ func (gpo *GeoPose) Heading() float64 {
 	return gpo.heading
 }
 
-// PoseToGeoPoint converts a Pose to a GeoPose relative to an origin GeoPose.
+// PoseToGeoPoint converts a pose into a GeoPose treating relativeTo as the origin.
 func PoseToGeoPoint(relativeTo GeoPose, p Pose) GeoPose {
-	bearingRad := math.Atan2(-p.Point().X, p.Point().Y)
-	bearing := bearingRad * 180 / math.Pi * -1
+	// math.Atan2 performs on the unit sphere which is right-handed
+	// we assign newX and newY so we are peforming a left-handed calculation
+	newX := -p.Point().X
+	newY := p.Point().Y
+	bearingRad := math.Atan2(newX, newY)
+
+	// convert bearingRad to degrees
+	bearingDeg := bearingRad * 180 / math.Pi * -1
+
+	// get the maginitude of pose p
+	poseMagnitude := p.Point().Norm()
+
+	// relativeTo Heading is a right-handed value
+	headingInWorld := relativeTo.Heading()
+
+	// get the absolute bearing, i.e. the bearing of pose p from north
+	// normalize to be [0,360)
+	absoluteBearing := math.Mod(bearingDeg+headingInWorld, 360)
+
+	// get the new geopoint at distance poseMagnitude
+	newLoc := relativeTo.Location().PointAtDistanceAndBearing(poseMagnitude, absoluteBearing)
+
+	// get the heading of pose p, this is a right-handed value
 	headingRight := p.Orientation().OrientationVectorDegrees().Theta
+
+	// convert headingRight to be left-handed
 	headingLeft := math.Mod(math.Abs(headingRight-360), 360)
 
-	// get the maginitude of the pose
-	magnitude := p.Point().Norm()
-	newLoc := relativeTo.Location().PointAtDistanceAndBearing(magnitude, math.Mod(bearing+relativeTo.Heading(), 360))
-	return *NewGeoPose(newLoc, math.Mod(headingLeft+relativeTo.Heading(), 360))
+	// get the absolute heading of pose p, i.e. the heading in the world
+	// normalize to be [0,360)
+	// TODO: better comment
+	absolutePoseHeading := math.Mod(headingLeft+headingInWorld, 360)
+
+	return *NewGeoPose(newLoc, absolutePoseHeading)
 }

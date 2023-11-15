@@ -93,3 +93,38 @@ func TestGeoObstacles(t *testing.T) {
 		test.That(t, conv[0].geometries, test.ShouldResemble, testGeoObst.geometries)
 	})
 }
+
+func TestPoseToGeoPoint(t *testing.T) {
+	type testCase struct {
+		msg             string
+		relativeTo      GeoPose
+		p               Pose
+		expectedGeoPose GeoPose
+	}
+
+	tcs := []testCase{
+		{
+			msg:             "zero geopose & pose outputs zero geopose",
+			relativeTo:      *NewGeoPose(geo.NewPoint(0, 0), 0),
+			p:               NewZeroPose(),
+			expectedGeoPose: *NewGeoPose(geo.NewPoint(0, 0), 0),
+		},
+		{
+			msg:             "test 2 ",
+			relativeTo:      *NewGeoPose(geo.NewPoint(40.770301, -73.977308), 0),
+			p:               NewZeroPose(),
+			expectedGeoPose: *NewGeoPose(geo.NewPoint(0, 0), 0),
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.msg, func(t *testing.T) {
+			gp := PoseToGeoPoint(tc.relativeTo, tc.p)
+			test.That(t, gp.Heading(), test.ShouldAlmostEqual, tc.expectedGeoPose.Heading())
+			test.That(t, gp.Location().Lat(), test.ShouldAlmostEqual, tc.expectedGeoPose.Location().Lat())
+			test.That(t, gp.Location().Lng(), test.ShouldAlmostEqual, tc.expectedGeoPose.Location().Lng())
+			geoPointToPose := GeoPointToPose(gp.Location(), tc.relativeTo.Location())
+			test.That(t, PoseAlmostEqual(geoPointToPose, tc.p), test.ShouldBeTrue)
+		})
+	}
+}
