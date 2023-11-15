@@ -4,13 +4,12 @@ import (
 	"context"
 	"errors"
 
-	geo "github.com/kellydunn/golang-geo"
 	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/movementsensor/v1"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/protoutils"
 )
 
 type method int64
@@ -243,26 +242,7 @@ func NewReadingsCollector(resource interface{}, params data.CollectorParams) (da
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, readings.String(), err)
 		}
-		for name, value := range values {
-			// Since geo.Point is an external dependency with unexported fields, we cannot use reflection
-			// in StructValueMapFromInterfaceMap, so convert it here.
-			if decodedGeoPoint, ok := value.(*geo.Point); ok {
-				lat, err := structpb.NewValue(decodedGeoPoint.Lat())
-				if err != nil {
-					return nil, err
-				}
-				lng, err := structpb.NewValue(decodedGeoPoint.Lng())
-				if err != nil {
-					return nil, err
-				}
-				values[name] = &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"lat": lat, "lng": lng,
-					},
-				}
-			}
-		}
-		readings, err := data.StructValueMapFromInterfaceMap(values)
+		readings, err := protoutils.ReadingGoToProto(values)
 		if err != nil {
 			return nil, err
 		}

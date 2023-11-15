@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/components/powersensor"
 	"go.viam.com/rdk/data"
+	du "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -55,7 +56,7 @@ func TestPowerSensorCollectors(t *testing.T) {
 		{
 			name:      "Power sensor readings collector should write a readings response",
 			collector: powersensor.NewReadingsCollector,
-			expected:  tu.ToProtoMapIgnoreOmitEmpty(data.GetExpectedReadingsStruct(readingMap).AsMap()),
+			expected:  tu.ToProtoMapIgnoreOmitEmpty(du.GetExpectedReadingsStruct(readingMap).AsMap()),
 		},
 	}
 

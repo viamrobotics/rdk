@@ -9,6 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/protoutils"
 )
 
 type method int64
@@ -137,7 +138,7 @@ func NewReadingsCollector(resource interface{}, params data.CollectorParams) (da
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, readings.String(), err)
 		}
-		readings, err := data.StructValueMapFromInterfaceMap(values)
+		readings, err := protoutils.ReadingGoToProto(values)
 		if err != nil {
 			return nil, err
 		}

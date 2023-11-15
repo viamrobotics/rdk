@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/data"
+	du "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
 	tu "go.viam.com/rdk/testutils"
@@ -88,7 +89,7 @@ func TestMovementSensorCollectors(t *testing.T) {
 		{
 			name:      "Movement sensor readings collector should write a readings response",
 			collector: movementsensor.NewReadingsCollector,
-			expected:  tu.ToProtoMapIgnoreOmitEmpty(data.GetExpectedReadingsStruct(readingMap).AsMap()),
+			expected:  tu.ToProtoMapIgnoreOmitEmpty(du.GetExpectedReadingsStruct(readingMap).AsMap()),
 		},
 	}
 
