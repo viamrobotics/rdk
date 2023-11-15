@@ -41,6 +41,7 @@ type ptgBaseKinematics struct {
 	ptgs         []tpspace.PTGSolver
 	inputLock    sync.RWMutex
 	currentInput []referenceframe.Input
+	origin       spatialmath.Pose
 }
 
 // wrapWithPTGKinematics takes a Base component and adds a PTG kinematic model so that it can be controlled.
@@ -98,6 +99,14 @@ func wrapWithPTGKinematics(
 		return nil, errors.New("unable to cast ptgk frame to a PTG Provider")
 	}
 	ptgs := ptgProv.PTGSolvers()
+	origin := spatialmath.NewZeroPose()
+	if localizer != nil {
+		originPIF, err := localizer.CurrentPosition(ctx)
+		if err != nil {
+			return nil, err
+		}
+		origin = originPIF.Pose()
+	}
 
 	return &ptgBaseKinematics{
 		Base:         b,
@@ -106,6 +115,7 @@ func wrapWithPTGKinematics(
 		frame:        frame,
 		ptgs:         ptgs,
 		currentInput: zeroInput,
+		origin:       origin,
 	}, nil
 }
 
@@ -193,10 +203,11 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenc
 	}
 
 	// Get pose-in-frame of the base via its localizer. The offset between the localizer and its base should already be accounted for.
-	actualPIF, err := ptgk.CurrentPosition(ctx)
+	actualPIFRaw, err := ptgk.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
+	actualPIF := spatialmath.PoseBetween(ptgk.origin, actualPIFRaw.Pose())
 
 	var nominalPose spatialmath.Pose
 
@@ -224,5 +235,5 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenc
 	}
 	nominalPose = spatialmath.Compose(runningPose, currPose)
 
-	return spatialmath.PoseBetween(nominalPose, actualPIF.Pose()), nil
+	return spatialmath.PoseBetween(nominalPose, actualPIF), nil
 }

@@ -813,6 +813,7 @@ func (manager *resourceManager) processResource(
 			return currentRes, false, nil
 		}
 
+		gNode.SetLogLevel(conf.LogConfiguration.Level)
 		err = currentRes.Reconfigure(ctx, deps, conf)
 		if err == nil {
 			return currentRes, false, nil
