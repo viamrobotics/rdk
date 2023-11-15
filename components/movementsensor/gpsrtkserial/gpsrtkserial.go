@@ -127,13 +127,13 @@ type rtkSerial struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 
-	mu               sync.Mutex
-	ntripMu          sync.Mutex
-	ntripconfigMu    sync.Mutex
-	urlMutex         sync.Mutex
-	ntripClient      *rtk.NtripInfo
-	connectedToNtrip bool
-	isClosed         bool
+	mu                 sync.Mutex
+	ntripMu            sync.Mutex
+	ntripconfigMu      sync.Mutex
+	urlMutex           sync.Mutex
+	ntripClient        *rtk.NtripInfo
+	isConnectedToNtrip bool
+	isClosed           bool
 
 	err                movementsensor.LastError
 	lastposition       movementsensor.LastPosition
@@ -264,9 +264,7 @@ func (g *rtkSerial) start() error {
 			return err
 		}
 		g.activeBackgroundWorkers.Add(1)
-		utils.PanicCapturingGo(func() {
-			g.receiveAndWriteSerial()
-		})
+		utils.PanicCapturingGo(g.receiveAndWriteSerial)
 	}
 	return g.err.Get()
 }
@@ -455,12 +453,12 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 	scanner = rtcm3.NewScanner(g.r)
 
 	g.ntripMu.Lock()
-	g.connectedToNtrip = true
+	g.isConnectedToNtrip = true
 	g.ntripMu.Unlock()
 
-	// It's okay to skip the mutex on this next line: g.connectedToNtrip can only be mutated by this
+	// It's okay to skip the mutex on this next line: g.isConnectedToNtrip can only be mutated by this
 	// goroutine itself
-	for g.connectedToNtrip && !g.isClosed {
+	for g.isConnectedToNtrip && !g.isClosed {
 		select {
 		case <-g.cancelCtx.Done():
 			return
@@ -470,7 +468,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		msg, err := scanner.NextMessage()
 		if err != nil {
 			g.ntripMu.Lock()
-			g.connectedToNtrip = false
+			g.isConnectedToNtrip = false
 			g.ntripMu.Unlock()
 
 			if msg == nil {
@@ -503,7 +501,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 				scanner = rtcm3.NewScanner(g.r)
 
 				g.ntripMu.Lock()
-				g.connectedToNtrip = true
+				g.isConnectedToNtrip = true
 				g.ntripMu.Unlock()
 				continue
 			}
