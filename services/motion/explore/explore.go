@@ -562,8 +562,8 @@ func (ms *explore) createMotionPlan(
 	destination *referenceframe.PoseInFrame,
 	extra map[string]interface{},
 ) (motionplan.Plan, error) {
-	if math.Abs(destination.Pose().Point().X) > moveLimit || math.Abs(destination.Pose().Point().Y) > moveLimit {
-		return nil, errors.Errorf("destination %v is above the defined limit of %v", destination.Pose().Point().String(), moveLimit)
+	if math.Abs(destination.Pose().Point().X) > defaultMoveLimit || math.Abs(destination.Pose().Point().Y) > defaultMoveLimit {
+		return nil, errors.Errorf("destination %v is above the defined limit of %v", destination.Pose().Point().String(), defaultMoveLimit)
 	}
 
 	worldState, err := referenceframe.NewWorldState(nil, nil)
