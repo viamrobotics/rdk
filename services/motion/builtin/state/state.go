@@ -252,23 +252,16 @@ func (e *execution[R]) start() error {
 				e.executorCancelCauseFunc(context.Cause(e.cancelCtx))
 				return
 			case res := <-resChan:
-				// success
-				if !res.resp.Replan && res.err == nil {
-					e.notifyStatePlanSucceeded(lastPWE.plan, time.Now())
-					return
-				}
-
 				// failure
-				if !res.resp.Replan && res.err != nil {
+				if res.err != nil {
 					e.notifyStatePlanFailed(lastPWE.plan, res.err.Error(), time.Now())
 					return
 				}
 
-				// replan
-				// TODO: Right now we never provide a reason, we should
-				replanReason := "replan triggered without providing a reason"
-				if res.err != nil {
-					replanReason = res.err.Error()
+				// success
+				if !res.resp.Replan {
+					e.notifyStatePlanSucceeded(lastPWE.plan, time.Now())
+					return
 				}
 
 				replanCount++
@@ -278,14 +271,14 @@ func (e *execution[R]) start() error {
 					msg := "failed to replan for execution %s and component: %s, " +
 						"due to replan reason: %s, tried setting previous plan %s " +
 						"to failed due to error: %s\n"
-					e.logger.Warnf(msg, e.id, e.componentName, replanReason, lastPWE.plan.ID, err.Error())
+					e.logger.Warnf(msg, e.id, e.componentName, res.resp.ReplanReason, lastPWE.plan.ID, err.Error())
 
 					e.notifyStatePlanFailed(lastPWE.plan, err.Error(), time.Now())
 					return
 				}
 
 				e.logger.Debugf("updating last plan %s\n", lastPWE.plan.ID)
-				e.notifyStatePlanFailed(lastPWE.plan, replanReason, time.Now())
+				e.notifyStatePlanFailed(lastPWE.plan, res.resp.ReplanReason, time.Now())
 				e.logger.Debugf("updating new plan %s\n", newPWE.plan.ID.String())
 				e.notifyStateNewPlan(newPWE.plan, time.Now())
 				lastPWE = newPWE
