@@ -38,9 +38,6 @@ func TestFakeBoard(t *testing.T) {
 	_, ok := b.I2CByName("main")
 	test.That(t, ok, test.ShouldBeTrue)
 
-	_, ok = b.SPIByName("aux")
-	test.That(t, ok, test.ShouldBeTrue)
-
 	_, ok = b.AnalogReaderByName("blue")
 	test.That(t, ok, test.ShouldBeTrue)
 

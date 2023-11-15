@@ -227,11 +227,6 @@ func (b *numatoBoard) readThread() {
 	}
 }
 
-// SPIByName returns an SPI bus by name.
-func (b *numatoBoard) SPIByName(name string) (board.SPI, bool) {
-	return nil, false
-}
-
 // I2CByName returns an I2C bus by name.
 func (b *numatoBoard) I2CByName(name string) (board.I2C, bool) {
 	return nil, false

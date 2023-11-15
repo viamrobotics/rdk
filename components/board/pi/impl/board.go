@@ -712,14 +712,6 @@ func (pi *piPigpio) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	return a, ok
 }
 
-// SPIByName returns an SPI bus by name.
-func (pi *piPigpio) SPIByName(name string) (board.SPI, bool) {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	s, ok := pi.spis[name]
-	return s, ok
-}
-
 // I2CByName returns an I2C by name.
 func (pi *piPigpio) I2CByName(name string) (board.I2C, bool) {
 	pi.mu.Lock()

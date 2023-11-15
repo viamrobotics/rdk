@@ -462,12 +462,6 @@ type Board struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// SPIByName returns the SPI by the given name if it exists.
-func (b *Board) SPIByName(name string) (board.SPI, bool) {
-	s, ok := b.spis[name]
-	return s, ok
-}
-
 // I2CByName returns the i2c by the given name if it exists.
 func (b *Board) I2CByName(name string) (board.I2C, bool) {
 	i, ok := b.i2cs[name]

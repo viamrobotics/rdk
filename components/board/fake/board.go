@@ -209,14 +209,6 @@ type Board struct {
 	CloseCount    int
 }
 
-// SPIByName returns the SPI by the given name if it exists.
-func (b *Board) SPIByName(name string) (board.SPI, bool) {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	s, ok := b.SPIs[name]
-	return s, ok
-}
-
 // I2CByName returns the i2c by the given name if it exists.
 func (b *Board) I2CByName(name string) (board.I2C, bool) {
 	b.mu.RLock()

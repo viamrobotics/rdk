@@ -476,9 +476,6 @@ func TestManagerAdd(t *testing.T) {
 	injectBoard.DigitalInterruptNamesFunc = func() []string {
 		return []string{"digital1"}
 	}
-	injectBoard.SPIByNameFunc = func(name string) (board.SPI, bool) {
-		return &inject.SPI{}, true
-	}
 	injectBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
 		return &inject.I2C{}, true
 	}

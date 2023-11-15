@@ -91,9 +91,6 @@ type Board interface {
 type LocalBoard interface {
 	Board
 
-	// SPIByName returns an SPI bus by name.
-	SPIByName(name string) (SPI, bool)
-
 	// I2CByName returns an I2C bus by name.
 	I2CByName(name string) (I2C, bool)
 }

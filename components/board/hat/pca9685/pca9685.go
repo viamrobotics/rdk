@@ -276,11 +276,6 @@ func (pca *PCA9685) DigitalInterruptNames() []string {
 	return nil
 }
 
-// SPIByName returns the SPI by the given name if it exists.
-func (pca *PCA9685) SPIByName(name string) (board.SPI, bool) {
-	return nil, false
-}
-
 // I2CByName returns the i2c by the given name if it exists.
 func (pca *PCA9685) I2CByName(name string) (board.I2C, bool) {
 	return nil, false

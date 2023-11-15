@@ -68,14 +68,6 @@ func TestGenericLinux(t *testing.T) {
 		test.That(t, an2, test.ShouldBeNil)
 		test.That(t, ok, test.ShouldBeFalse)
 
-		sn1, ok := b.SPIByName("closed")
-		test.That(t, sn1, test.ShouldHaveSameTypeAs, &spiBus{})
-		test.That(t, ok, test.ShouldBeTrue)
-
-		sn2, ok := b.SPIByName("missing")
-		test.That(t, sn2, test.ShouldBeNil)
-		test.That(t, ok, test.ShouldBeFalse)
-
 		in1, ok := b.I2CByName("in")
 		test.That(t, in1, test.ShouldBeNil)
 		test.That(t, ok, test.ShouldBeFalse)

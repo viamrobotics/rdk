@@ -16,8 +16,6 @@ type Board struct {
 	board.LocalBoard
 	name                       resource.Name
 	DoFunc                     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	SPIByNameFunc              func(name string) (board.SPI, bool)
-	spiByNameCap               []interface{}
 	I2CByNameFunc              func(name string) (board.I2C, bool)
 	i2cByNameCap               []interface{}
 	AnalogReaderByNameFunc     func(name string) (board.AnalogReader, bool)
@@ -44,15 +42,6 @@ func NewBoard(name string) *Board {
 // Name returns the name of the resource.
 func (b *Board) Name() resource.Name {
 	return b.name
-}
-
-// SPIByName calls the injected SPIByName or the real version.
-func (b *Board) SPIByName(name string) (board.SPI, bool) {
-	b.spiByNameCap = []interface{}{name}
-	if b.SPIByNameFunc == nil {
-		return b.LocalBoard.SPIByName(name)
-	}
-	return b.SPIByNameFunc(name)
 }
 
 // I2CByName calls the injected I2CByName or the real version.
