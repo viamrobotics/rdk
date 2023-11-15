@@ -420,7 +420,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	g.ntripStatus = true
 	g.ntripMu.Unlock()
 
-	// It's okay to skip the mutex on this next line: g.connectedToNtrip can only be mutated by this
+	// It's okay to skip the mutex on this next line: g.ntripStatus can only be mutated by this
 	// goroutine itself.
 	for g.ntripStatus {
 		select {
