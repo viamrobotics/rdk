@@ -95,6 +95,7 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 		//nolint:nilnil
 		return nil, nil
 	case "get_ops":
+		// For testing the module's operation manager
 		ops := myMod.OperationManager().All()
 		var opsOut []string
 		for _, op := range ops {
@@ -102,12 +103,15 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 		}
 		return map[string]interface{}{"ops": opsOut}, nil
 	case "echo":
+		// For testing module liveliness
 		return req, nil
 	case "kill_module":
+		// For testing module reloading & unexpected exists
 		os.Exit(1)
 		// unreachable return statement needed for compilation
 		return nil, errors.New("unreachable error")
 	case "write_data_file":
+		// For testing that the module's data directory has been created and that the VIAM_MODULE_DATA env var exists
 		filename, ok := req["filename"].(string)
 		if !ok {
 			return nil, errors.New("missing 'filename' string")
@@ -122,6 +126,13 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 			return map[string]interface{}{}, err
 		}
 		return map[string]interface{}{"fullpath": dataFilePath}, nil
+	case "get_working_directory":
+		// For testing that modules are started with the correct working directory
+		workingDir, err := os.Getwd()
+		if err != nil {
+			return map[string]interface{}{}, err
+		}
+		return map[string]interface{}{"path": workingDir}, nil
 	default:
 		return nil, fmt.Errorf("unknown command string %s", cmd)
 	}
