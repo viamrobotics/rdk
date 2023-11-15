@@ -280,7 +280,6 @@ func (cg *collisionGraph) collisions() []Collision {
 			if distance <= spatial.CollisionBuffer {
 				collisions = append(collisions, Collision{xName, yName, distance})
 				if !cg.reportDistances {
-					fmt.Println("collisions: ", collisions)
 					// collision found, can return early
 					return collisions
 				}

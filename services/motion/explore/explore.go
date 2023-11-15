@@ -36,12 +36,17 @@ import (
 var (
 	model            = resource.DefaultModelFamily.WithModel("explore")
 	errUnimplemented = errors.New("unimplemented")
-	// Places a limit on how far a potential move action can be performed.
-	moveLimit = 100000.
 	// The distance a detected obstacle can be from a base to trigger the Move command to stop.
 	lookAheadDistanceMM = 300.
 	// ErrClosed denotes that the slam service method was called on a closed slam resource.
 	ErrClosed = errors.Errorf("resource (%s) is closed", model.String())
+
+	// Places a limit on how far a potential move action can be on the kinematic base.
+	defaultMoveLimit = 100000.
+	// The timeout for any individual move action on the kinematic base
+	defaultExploreTimeout = 100 * time.Second
+	// The max angle a spin action can be on the kinematic base
+	defaultMaxSpinAngleDegs = 180.
 )
 
 func init() {
@@ -80,11 +85,7 @@ type inputEnabledActuator interface {
 type obstacleDetectorObject map[vision.Service]resource.Name
 
 // // Config describes how to configure the service. As the explore motion service is not being surfaced to users, this is blank.
-// type Config struct{}
-// Config describes how to configure the service; currently only used for specifying dependency on framesystem service.
-type Config struct {
-	LogFilePath string `json:"log_file_path"`
-}
+type Config struct{}
 
 // Validate here adds a dependency on the internal framesystem service.
 func (c *Config) Validate(path string) ([]string, error) {
@@ -246,33 +247,29 @@ func (ms *explore) Move(
 	operation.CancelOtherWithLabel(ctx, exploreOpLabel)
 
 	// Parse extras
-	fmt.Println("parseMotionConfig")
 	motionCfg, err := parseMotionConfig(extra)
 	if err != nil {
 		return false, err
 	}
 
 	// obstacleDetectors
-	fmt.Println("obstacleDetectors")
 	obstacleDetectors, err := ms.createObstacleDetectors(motionCfg)
 	if err != nil {
 		return false, err
 	}
 
 	// Create kinematic base
-	fmt.Println("createKinematicBase")
 	kb, err := ms.createKinematicBase(ctx, componentName, motionCfg)
 	if err != nil {
 		return false, err
 	}
 
 	// Create motionplan plan
-	fmt.Println("createMotionPlan")
 	plan, err := ms.createMotionPlan(ctx, kb, destination, extra)
 	if err != nil {
 		return false, err
 	}
-	fmt.Println("starting hello...")
+
 	// Start background processes
 	cancelCtx, cancel := context.WithCancel(ctx)
 	ms.processCancelFunc = cancel
@@ -281,14 +278,12 @@ func (ms *explore) Move(
 	// Start polling for obstacles
 	ms.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		fmt.Println("starting checkForObstacles...")
 		ms.checkForObstacles(cancelCtx, obstacleDetectors, kb, plan, motionCfg.ObstaclePollingFreqHz)
 	}, ms.backgroundWorkers.Done)
 
 	// Start executing plan
 	ms.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		fmt.Println("starting executePlan...")
 		ms.executePlan(cancelCtx, kb, plan)
 	}, ms.backgroundWorkers.Done)
 
@@ -296,8 +291,6 @@ func (ms *explore) Move(
 	if err := ctx.Err(); err != nil {
 		return false, err
 	}
-
-	fmt.Println("monitoring for responses from channel...")
 
 	select {
 	// if context was cancelled by the calling function, error out
@@ -370,22 +363,12 @@ func (ms *explore) checkForObstacles(
 
 			fmt.Println("START WORLD STATE: ", worldState)
 
-			// fs := referenceframe.NewEmptyFrameSystem("figure it out")
-			// fs.AddFrame(kb.Kinematics(), fs.World())
-			// fs.AddFrame(ms.frameSystem.Frame("pointcloud_cam"), kb.Kinematics())
-
-			// frameSystem, err := ms.fsService.FrameSystem(ctx, worldState.Transforms())
-			// if err != nil {
-			// 	ms.logger.Debugf("issue occurred getting framesystem: %v", err)
-			// }
-
 			// Check remainder of plan for transient obstacles
 			err = motionplan.CheckPlan(
 				kb.Kinematics(),
 				remainingPlan,
 				worldState,
 				ms.frameSystem,
-				//frameSystem,
 				currentPose,
 				currentInputs,
 				spatialmath.NewZeroPose(),
@@ -510,12 +493,12 @@ func (ms *explore) createKinematicBase(
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
 	kinematicsOptions.NoSkidSteer = true
 	kinematicsOptions.UsePTGs = false
-	kinematicsOptions.PositionOnlyMode = false
+	kinematicsOptions.PositionOnlyMode = true //false
 	kinematicsOptions.AngularVelocityDegsPerSec = motionCfg.AngularDegsPerSec
 	kinematicsOptions.LinearVelocityMMPerSec = motionCfg.LinearMPerSec * 1000
-	kinematicsOptions.Timeout = 100 * time.Second
-	kinematicsOptions.MaxSpinAngleDeg = 180.
-	kinematicsOptions.MaxMoveStraightMM = moveLimit
+	kinematicsOptions.Timeout = defaultExploreTimeout
+	kinematicsOptions.MaxSpinAngleDeg = defaultMaxSpinAngleDegs
+	kinematicsOptions.MaxMoveStraightMM = defaultMoveLimit
 
 	// Create new kinematic base (differential drive)
 	kb, err := kinematicbase.WrapWithKinematics(
@@ -524,8 +507,8 @@ func (ms *explore) createKinematicBase(
 		ms.logger,
 		nil,
 		[]referenceframe.Limit{
-			{Min: -moveLimit, Max: moveLimit},
-			{Min: -moveLimit, Max: moveLimit},
+			{Min: -defaultMoveLimit, Max: defaultMoveLimit},
+			{Min: -defaultMoveLimit, Max: defaultMoveLimit},
 			{Min: -2 * math.Pi, Max: 2 * math.Pi},
 		},
 		kinematicsOptions,

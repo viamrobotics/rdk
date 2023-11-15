@@ -29,7 +29,6 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 			}
 
 			//nolint:gosec
-
 			destination := frame.NewPoseInFrame(svc.base.Name().Name, spatialmath.NewPose(
 				r3.Vector{
 					X: (2*rand.Float64() - 1.0),
