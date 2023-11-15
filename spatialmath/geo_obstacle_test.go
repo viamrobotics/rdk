@@ -2,6 +2,7 @@ package spatialmath
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -92,4 +93,19 @@ func TestGeoObstacles(t *testing.T) {
 		test.That(t, conv[0].location, test.ShouldResemble, testGeoObst.location)
 		test.That(t, conv[0].geometries, test.ShouldResemble, testGeoObst.geometries)
 	})
+}
+
+func TestPoseToGeoPt(t *testing.T) {
+	gp := geo.NewPoint(0, 0)
+	heading := -40.
+	relativeToGeoPose := NewGeoPose(gp, heading)
+
+	o := NewOrientationVectorDegrees()
+	o.Theta = 20
+	p := NewPose(r3.Vector{math.Sqrt(3), 1, 0}, o)
+	geoPose := PoseToGeoPoint(*relativeToGeoPose, p)
+
+	expectedGeoPose := NewGeoPose(geo.NewPoint(0.016901717503429885, 0.00615172226948714), 300)
+
+	test.That(t, &geoPose, test.ShouldResemble, expectedGeoPose)
 }
