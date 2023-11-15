@@ -61,9 +61,6 @@ type Board interface {
 	// GPIOPinByName returns a GPIOPin by name.
 	GPIOPinByName(name string) (GPIOPin, error)
 
-	// SPINames returns the names of all known SPI buses.
-	SPINames() []string
-
 	// AnalogReaderNames returns the names of all known analog readers.
 	AnalogReaderNames() []string
 

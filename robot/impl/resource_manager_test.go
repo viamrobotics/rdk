@@ -470,9 +470,6 @@ func TestManagerAdd(t *testing.T) {
 	test.That(t, arm1, test.ShouldEqual, injectArm)
 
 	injectBoard := &inject.Board{}
-	injectBoard.SPINamesFunc = func() []string {
-		return []string{"spi1"}
-	}
 	injectBoard.AnalogReaderNamesFunc = func() []string {
 		return []string{"analog1"}
 	}

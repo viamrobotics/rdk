@@ -254,17 +254,6 @@ func (b *Board) GPIOPinByName(name string) (board.GPIOPin, error) {
 	return p, nil
 }
 
-// SPINames returns the names of all known SPIs.
-func (b *Board) SPINames() []string {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	names := []string{}
-	for k := range b.SPIs {
-		names = append(names, k)
-	}
-	return names
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (b *Board) AnalogReaderNames() []string {
 	b.mu.RLock()

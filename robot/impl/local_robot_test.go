@@ -873,10 +873,6 @@ func (db *dummyBoard) Name() resource.Name {
 	return board.Named("bad")
 }
 
-func (db *dummyBoard) SPINames() []string {
-	return nil
-}
-
 func (db *dummyBoard) AnalogReaderNames() []string {
 	return nil
 }

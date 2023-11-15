@@ -682,20 +682,6 @@ func (s *piPigpioSPIHandle) Close() error {
 	return nil
 }
 
-// SPINames returns the names of all known SPI buses.
-func (pi *piPigpio) SPINames() []string {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	if len(pi.spis) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(pi.spis))
-	for k := range pi.spis {
-		names = append(names, k)
-	}
-	return names
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (pi *piPigpio) AnalogReaderNames() []string {
 	pi.mu.Lock()

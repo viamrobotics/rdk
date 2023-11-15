@@ -26,7 +26,6 @@ func TestGenericLinux(t *testing.T) {
 
 	t.Run("test empty sysfs board", func(t *testing.T) {
 		test.That(t, b.GPIOPinNames(), test.ShouldBeNil)
-		test.That(t, b.SPINames(), test.ShouldBeNil)
 		_, err := b.GPIOPinByName("10")
 		test.That(t, err, test.ShouldNotBeNil)
 	})
@@ -68,9 +67,6 @@ func TestGenericLinux(t *testing.T) {
 		an2, ok := b.AnalogReaderByName("missing")
 		test.That(t, an2, test.ShouldBeNil)
 		test.That(t, ok, test.ShouldBeFalse)
-
-		sns := b.SPINames()
-		test.That(t, len(sns), test.ShouldEqual, 2)
 
 		sn1, ok := b.SPIByName("closed")
 		test.That(t, sn1, test.ShouldHaveSameTypeAs, &spiBus{})

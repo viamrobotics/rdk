@@ -519,18 +519,6 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, boo
 	return interrupt.interrupt, true
 }
 
-// SPINames returns the names of all known SPIs.
-func (b *Board) SPINames() []string {
-	if len(b.spis) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(b.spis))
-	for k := range b.spis {
-		names = append(names, k)
-	}
-	return names
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (b *Board) AnalogReaderNames() []string {
 	names := []string{}

@@ -248,11 +248,6 @@ func (b *numatoBoard) DigitalInterruptByName(name string) (board.DigitalInterrup
 	return nil, false
 }
 
-// SPINames returns the names of all known SPI busses.
-func (b *numatoBoard) SPINames() []string {
-	return nil
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (b *numatoBoard) AnalogReaderNames() []string {
 	names := []string{}

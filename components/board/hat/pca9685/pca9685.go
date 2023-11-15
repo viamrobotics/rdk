@@ -266,11 +266,6 @@ func (pca *PCA9685) SetFrequency(ctx context.Context, frequency float64) error {
 	return nil
 }
 
-// SPINames returns the names of all known SPIs.
-func (pca *PCA9685) SPINames() []string {
-	return nil
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (pca *PCA9685) AnalogReaderNames() []string {
 	return nil

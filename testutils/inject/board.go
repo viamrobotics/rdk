@@ -26,7 +26,6 @@ type Board struct {
 	digitalInterruptByNameCap  []interface{}
 	GPIOPinByNameFunc          func(name string) (board.GPIOPin, error)
 	gpioPinByNameCap           []interface{}
-	SPINamesFunc               func() []string
 	AnalogReaderNamesFunc      func() []string
 	DigitalInterruptNamesFunc  func() []string
 	GPIOPinNamesFunc           func() []string
@@ -117,14 +116,6 @@ func (b *Board) GPIOPinByNameCap() []interface{} {
 	}
 	defer func() { b.gpioPinByNameCap = nil }()
 	return b.gpioPinByNameCap
-}
-
-// SPINames calls the injected SPINames or the real version.
-func (b *Board) SPINames() []string {
-	if b.SPINamesFunc == nil {
-		return b.LocalBoard.SPINames()
-	}
-	return b.SPINamesFunc()
 }
 
 // AnalogReaderNames calls the injected AnalogReaderNames or the real version.
