@@ -40,6 +40,8 @@ const (
 	moduleFlagPlatform        = "platform"
 	moduleFlagForce           = "force"
 
+	moduleBuildFlagNumber = "number"
+
 	dataFlagDestination                    = "destination"
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
@@ -1090,6 +1092,25 @@ Example:
 								},
 							},
 							Action: ModuleBuildLocalAction,
+						},
+						{
+							Name:  "list",
+							Usage: "list your cloud builds",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:      moduleFlagPath,
+									Usage:     "path to meta.json",
+									Value:     "./meta.json",
+									TakesFile: true,
+								},
+								&cli.IntFlag{
+									Name:        moduleBuildFlagNumber,
+									Usage:       "number of builds to list",
+									Aliases:     []string{"n"},
+									DefaultText: "all",
+								},
+							},
+							Action: ModuleBuildListAction,
 						},
 					},
 				},

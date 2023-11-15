@@ -1,11 +1,25 @@
 package cli
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	buildpb "go.viam.com/api/app/build/v1"
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/logging"
+)
+
+type jobStatus string
+
+const (
+	jobStatusUnknown    jobStatus = "unknown"
+	jobStatusQueued     jobStatus = "queued"
+	jobStatusInProgress jobStatus = "in progress"
+	jobStatusFailed     jobStatus = "failed"
+	jobStatusDone       jobStatus = "done"
 )
 
 // ModuleBuildLocalAction runs the module's build commands locally.
@@ -43,4 +57,88 @@ func ModuleBuildLocalAction(c *cli.Context) error {
 	}
 	infof(c.App.Writer, "Completed build")
 	return nil
+}
+
+// ModuleBuildListAction lists the module's build jobs.
+func ModuleBuildListAction(c *cli.Context) error {
+	manifestPath := c.String(moduleFlagPath)
+	manifest, err := loadManifest(manifestPath)
+	if err != nil {
+		return err
+	}
+	var numberOfJobsToReturn *int32
+	if c.IsSet(moduleBuildFlagNumber) {
+		number := int32(c.Int(moduleBuildFlagNumber))
+		numberOfJobsToReturn = &number
+	}
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	moduleID, err := parseModuleID(manifest.ModuleID)
+	if err != nil {
+		return err
+	}
+	jobs, err := client.listModuleBuildJobs(moduleID, numberOfJobsToReturn)
+	if err != nil {
+		return err
+	}
+	firstN := func(str string, n int) string {
+		v := []rune(str)
+		if n >= len(v) {
+			return str
+		}
+		return string(v[:n])
+	}
+	// table format rules:
+	idLen := len("xyz123")
+	statusLen := len("in progress")
+	versionLen := len("1.2.34-rc0")
+	archLen := len("darwin/arm32v7")
+	attemptLen := len("ATTEMPT")
+	timeLen := len(time.RFC3339)
+	//nolint:govet
+	tableFormat := fmt.Sprintf("%-%dv %-%dv %-%dv %-%dv %-%dv %-%dv ",
+		idLen, statusLen, versionLen, archLen, attemptLen, timeLen)
+	printf(c.App.Writer, tableFormat, "ID", "STATUS", "VERSION", "ARCH", "ATTEMPT", "TIME")
+	for _, job := range jobs.Jobs {
+		printf(c.App.Writer,
+			tableFormat,
+			firstN(job.JobId, idLen),
+			firstN(string(jobStatusFromProto(job.Status)), versionLen),
+			firstN(job.Version, versionLen),
+			firstN(job.Platform, archLen),
+			firstN(string(job.AttemptNumber), attemptLen),
+			firstN(job.StartTime.AsTime().Format(time.RFC3339), attemptLen),
+		)
+	}
+	return nil
+}
+
+func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
+	switch s {
+	case buildpb.JobStatus_JOB_STATUS_QUEUED:
+		return jobStatusQueued
+	case buildpb.JobStatus_JOB_STATUS_IN_PROGRESS:
+		return jobStatusInProgress
+	case buildpb.JobStatus_JOB_STATUS_FAILED:
+		return jobStatusFailed
+	case buildpb.JobStatus_JOB_STATUS_DONE:
+		return jobStatusDone
+	case buildpb.JobStatus_JOB_STATUS_UNSPECIFIED:
+		fallthrough
+	default:
+		return jobStatusUnknown
+	}
+}
+
+func (c *viamClient) listModuleBuildJobs(moduleID moduleID, number *int32) (*buildpb.ListJobsResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	req := buildpb.ListJobsRequest{
+		ModuleId:      moduleID.String(),
+		MaxJobsLength: number,
+	}
+	return c.buildClient.ListJobs(c.c.Context, &req)
 }
