@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// Extension is the file extension associated with URDF files.
 const Extension string = "urdf"
 
 // ModelConfig represents all supported fields in a Universal Robot Description Format (URDF) file.
@@ -43,7 +44,7 @@ type joint struct {
 	Limit   *limit   `xml:"limit,omitempty"`
 }
 
-// NewConfigFromWorldState creates a urdf.Config struct which can be marshalled into xml and will be a
+// NewModelFromWorldState creates a urdf.Config struct which can be marshalled into xml and will be a
 // valid .urdf file representing the geometries in the given worldstate.
 func NewModelFromWorldState(ws *referenceframe.WorldState, name string) (*ModelConfig, error) {
 	// the link we initialize this list with represents the world frame
@@ -77,7 +78,7 @@ func NewModelFromWorldState(ws *referenceframe.WorldState, name string) (*ModelC
 	}, nil
 }
 
-// UnmarshalModel will transfer the given URDF XML data into an equivalent ModelConfig. Direct unmarshaling in the
+// UnmarshalModelXML will transfer the given URDF XML data into an equivalent ModelConfig. Direct unmarshaling in the
 // same fashion as ModelJSON is not possible, as URDF data will need to be evaluated to accommodate differences
 // between the two kinematics encoding schemes.
 func UnmarshalModelXML(xmlData []byte, modelName string) (*referenceframe.ModelConfig, error) {
@@ -229,7 +230,7 @@ func UnmarshalModelXML(xmlData []byte, modelName string) (*referenceframe.ModelC
 	return mc, nil
 }
 
-// ParseXMLFile will read a given file and parse the contained URDF XML data into an equivalent Model.
+// ParseModelXMLFile will read a given file and parse the contained URDF XML data into an equivalent Model.
 func ParseModelXMLFile(filename, modelName string) (referenceframe.Model, error) {
 	//nolint:gosec
 	xmlData, err := os.ReadFile(filename)

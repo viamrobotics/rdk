@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -140,7 +141,7 @@ func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKine
 	switch cfg.OriginalFile.Extension {
 	case "json":
 		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA
-	case "urdf":
+	case urdf.Extension:
 		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF
 	default:
 		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF

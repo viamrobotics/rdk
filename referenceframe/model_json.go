@@ -20,6 +20,8 @@ type ModelConfig struct {
 	OriginalFile *ModelFile
 }
 
+// ModelFile is a struct that stores the raw bytes of the file used to create the model as well as its extension,
+// which is useful for knowing how to unmarhsal it.
 type ModelFile struct {
 	Bytes     []byte
 	Extension string
