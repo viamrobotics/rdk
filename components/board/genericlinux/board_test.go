@@ -25,7 +25,6 @@ func TestGenericLinux(t *testing.T) {
 	}
 
 	t.Run("test empty sysfs board", func(t *testing.T) {
-		test.That(t, b.GPIOPinNames(), test.ShouldBeNil)
 		_, err := b.GPIOPinByName("10")
 		test.That(t, err, test.ShouldNotBeNil)
 	})
@@ -78,9 +77,6 @@ func TestGenericLinux(t *testing.T) {
 		dn1, ok := b.DigitalInterruptByName("dn")
 		test.That(t, dn1, test.ShouldBeNil)
 		test.That(t, ok, test.ShouldBeFalse)
-
-		gns := b.GPIOPinNames()
-		test.That(t, gns, test.ShouldResemble, []string(nil))
 
 		gn1, err := b.GPIOPinByName("10")
 		test.That(t, err, test.ShouldNotBeNil)

@@ -417,17 +417,6 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *Config) erro
 	return nil
 }
 
-// GPIOPinNames returns the names of all known GPIO pins.
-func (pi *piPigpio) GPIOPinNames() []string {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	names := make([]string, 0, len(piHWPinToBroadcom))
-	for k := range piHWPinToBroadcom {
-		names = append(names, k)
-	}
-	return names
-}
-
 // GPIOPinByName returns a GPIOPin by name.
 func (pi *piPigpio) GPIOPinByName(pin string) (board.GPIOPin, error) {
 	pi.mu.Lock()

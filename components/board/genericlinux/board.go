@@ -535,18 +535,6 @@ func (b *Board) DigitalInterruptNames() []string {
 	return names
 }
 
-// GPIOPinNames returns the names of all known GPIO pins.
-func (b *Board) GPIOPinNames() []string {
-	if b.gpioMappings == nil {
-		return nil
-	}
-	names := []string{}
-	for k := range b.gpioMappings {
-		names = append(names, k)
-	}
-	return names
-}
-
 // GPIOPinByName returns a GPIOPin by name.
 func (b *Board) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	if pin, ok := b.gpios[pinName]; ok {

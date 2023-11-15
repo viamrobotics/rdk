@@ -257,11 +257,6 @@ func (b *numatoBoard) DigitalInterruptNames() []string {
 	return nil
 }
 
-// GPIOPinNames returns the names of all known GPIO pins.
-func (b *numatoBoard) GPIOPinNames() []string {
-	return nil
-}
-
 // GPIOPinByName returns the GPIO pin by the given name.
 func (b *numatoBoard) GPIOPinByName(pin string) (board.GPIOPin, error) {
 	return &gpioPin{b, pin}, nil

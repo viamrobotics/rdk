@@ -268,17 +268,6 @@ func (b *Board) DigitalInterruptNames() []string {
 	return names
 }
 
-// GPIOPinNames returns the names of all known GPIO pins.
-func (b *Board) GPIOPinNames() []string {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	names := []string{}
-	for k := range b.GPIOPins {
-		names = append(names, k)
-	}
-	return names
-}
-
 // Status returns the current status of the board.
 func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	return board.CreateStatus(ctx, b, extra)

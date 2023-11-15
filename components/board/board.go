@@ -67,9 +67,6 @@ type Board interface {
 	// DigitalInterruptNames returns the names of all known digital interrupts.
 	DigitalInterruptNames() []string
 
-	// GPIOPinNames returns the names of all known GPIO pins.
-	GPIOPinNames() []string
-
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
 	// this.

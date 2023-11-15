@@ -186,16 +186,6 @@ func (pca *PCA9685) GPIOPinByName(pin string) (board.GPIOPin, error) {
 	return &pca.gpioPins[pinInt], nil
 }
 
-// GPIOPinNames returns the names of all known GPIO pins.
-func (pca *PCA9685) GPIOPinNames() []string {
-	return []string{
-		"0", "1", "2", "3",
-		"4", "5", "6", "7",
-		"8", "9", "10", "11",
-		"12", "13", "14", "15",
-	}
-}
-
 func (pca *PCA9685) openHandle() (board.I2CHandle, error) {
 	return pca.bus.OpenHandle(pca.address)
 }

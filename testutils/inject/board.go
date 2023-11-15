@@ -26,7 +26,6 @@ type Board struct {
 	gpioPinByNameCap           []interface{}
 	AnalogReaderNamesFunc      func() []string
 	DigitalInterruptNamesFunc  func() []string
-	GPIOPinNamesFunc           func() []string
 	CloseFunc                  func(ctx context.Context) error
 	StatusFunc                 func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error)
 	statusCap                  []interface{}
@@ -121,14 +120,6 @@ func (b *Board) DigitalInterruptNames() []string {
 		return b.LocalBoard.DigitalInterruptNames()
 	}
 	return b.DigitalInterruptNamesFunc()
-}
-
-// GPIOPinNames calls the injected GPIOPinNames or the real version.
-func (b *Board) GPIOPinNames() []string {
-	if b.GPIOPinNamesFunc == nil {
-		return b.LocalBoard.GPIOPinNames()
-	}
-	return b.GPIOPinNamesFunc()
 }
 
 // Close calls the injected Close or the real version.
