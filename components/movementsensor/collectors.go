@@ -257,7 +257,8 @@ func NewReadingsCollector(resource interface{}, params data.CollectorParams) (da
 				}
 				values[name] = &structpb.Struct{
 					Fields: map[string]*structpb.Value{
-						"lat": lat, "lng": lng},
+						"lat": lat, "lng": lng,
+					},
 				}
 			}
 		}
