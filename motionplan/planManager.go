@@ -277,6 +277,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 		// for this solve will be rectified at the end.
 		endpointPreview := make(chan node, 1)
 		solutionChan := make(chan *rrtPlanReturn, 1)
+		pm.logger.Warn("adding a worker")
 		pm.activeBackgroundWorkers.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer pm.activeBackgroundWorkers.Done()
