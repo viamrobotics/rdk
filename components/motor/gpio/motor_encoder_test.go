@@ -16,9 +16,11 @@ import (
 	"go.viam.com/rdk/components/encoder/single"
 	"go.viam.com/rdk/components/motor"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
+	"go.viam.com/rdk/control"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils"
 )
 
 func nowNanosTest() uint64 {
@@ -76,6 +78,114 @@ func MakeIncrementalBoard(t *testing.T) *fakeboard.Board {
 	}
 
 	return &b
+}
+
+func MakeControlConfig(t *testing.T) control.Config {
+	cfg := control.Config{
+		Blocks: []control.BlockConfig{
+			{
+				Name: "endpoint",
+				Type: "endpoint",
+				Attribute: utils.AttributeMap{
+					"motor_name": "MotorFake",
+				},
+				DependsOn: []string{"PID"},
+			},
+			{
+				Name: "trapz",
+				Type: "trapezoidalVelocityProfile",
+				Attribute: utils.AttributeMap{
+					"max_acc":    30000.0,
+					"max_vel":    4000.0,
+					"pos_window": 0.0,
+					"kpp_gain":   0.45,
+				},
+				DependsOn: []string{"set_point", "endpoint"},
+			},
+			{
+				Name: "sum",
+				Type: "sum",
+				Attribute: utils.AttributeMap{
+					"sum_string": "+-",
+				},
+				DependsOn: []string{"derivative", "trapz"},
+			},
+			{
+				Name: "set_point",
+				Type: "constant",
+				Attribute: utils.AttributeMap{
+					"constant_val": 0.0,
+				},
+				DependsOn: []string{},
+			},
+			{
+				Name: "derivative",
+				Type: "derivative",
+				Attribute: utils.AttributeMap{
+					"derive_type": "backward1st1",
+				},
+				DependsOn: []string{"endpoint"},
+			},
+			{
+				Name: "PID",
+				Type: "PID",
+				Attribute: utils.AttributeMap{
+					"tune_ssr_value": 2.0,
+					"kI":             0.53977,
+					"int_sat_lim_lo": -255.0,
+					"int_sat_lim_up": 255.0,
+					"limit_up":       255.0,
+					"tune_method":    "ziegerNicholsSomeOvershoot",
+					"limit_lo":       -255.0,
+					"tune_step_pct":  0.35,
+					"kD":             0.0,
+					"kP":             0.048401,
+				},
+				DependsOn: []string{"sum"},
+			},
+		},
+		Frequency: 100.0,
+	}
+	return cfg
+}
+
+func TestCreateMotorWithControls(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	controlCfg := MakeControlConfig(t)
+	cfg := Config{TicksPerRotation: 100, MaxRPM: 100, ControlLoop: controlCfg}
+	fakeMotor := &fakemotor.Motor{
+		MaxRPM:           100,
+		Logger:           logger,
+		TicksPerRotation: 100,
+		OpMgr:            operation.NewSingleOperationManager(),
+	}
+
+	ctx := context.Background()
+	b := MakeSingleBoard(t)
+	deps := make(resource.Dependencies)
+	deps[board.Named("main")] = b
+
+	ic := single.Config{
+		BoardName: "main",
+		Pins:      single.Pin{I: "10"},
+	}
+
+	rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
+	e, err := single.NewSingleEncoder(ctx, deps, rawcfg, logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+	enc := e.(*single.Encoder)
+	defer enc.Close(context.Background())
+
+	enc.AttachDirectionalAwareness(&fakeDirectionAware{m: fakeMotor})
+	dirFMotor, err := WrapMotorWithEncoder(context.Background(), e, resource.Config{}, cfg, fakeMotor, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer dirFMotor.Close(context.Background())
+	motorDep, ok := dirFMotor.(*EncodedMotor)
+	defer motorDep.Close(context.Background())
+	test.That(t, ok, test.ShouldBeTrue)
+	defer func() {
+		test.That(t, motorDep.Close(context.Background()), test.ShouldBeNil)
+	}()
 }
 
 func TestMotorEncoder1(t *testing.T) {

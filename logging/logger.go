@@ -10,6 +10,7 @@ type Logger interface {
 	ZapCompatibleLogger
 
 	SetLevel(level Level)
+	GetLevel() Level
 	Sublogger(subname string) Logger
 	AddAppender(appender Appender)
 	AsZap() *zap.SugaredLogger
@@ -47,12 +48,6 @@ type ZapCompatibleLogger interface {
 	Fatalw(msg string, keysAndValues ...interface{})
 }
 
-// zLogger type for logging to. Wraps a zap logger and adds the `AsZap` method to satisfy the
-// `Logger` interface.
-type zLogger struct {
-	*zap.SugaredLogger
-}
-
 // FromZapCompatible upconverts a ZapCompatibleLogger to a logging.Logger. If the argument already
 // satisfies logging.Logger, no changes will be made. A nil input returns a nil logger. An input of
 // unknown type will create a new logger that's not associated with the input.
@@ -73,13 +68,21 @@ func FromZapCompatible(logger ZapCompatibleLogger) Logger {
 	}
 }
 
+// zLogger type for logging to. Wraps a zap logger and adds the `AsZap` method to satisfy the
+// `Logger` interface.
+type zLogger struct {
+	*zap.SugaredLogger
+}
+
+var _ Logger = &zLogger{}
+
 func (logger *zLogger) SetLevel(level Level) {
 	// Not supported
 }
 
-func (logger *zLogger) Sublogger(subname string) Logger {
+func (logger *zLogger) GetLevel() Level {
 	// Not supported
-	return nil
+	return INFO
 }
 
 func (logger *zLogger) AddAppender(appender Appender) {
@@ -89,4 +92,8 @@ func (logger *zLogger) AddAppender(appender Appender) {
 // AsZap converts the logger to a zap logger.
 func (logger *zLogger) AsZap() *zap.SugaredLogger {
 	return logger.SugaredLogger
+}
+
+func (logger zLogger) Sublogger(name string) Logger {
+	return &zLogger{logger.AsZap().Named(name)}
 }
