@@ -253,11 +253,6 @@ func (b *numatoBoard) SPINames() []string {
 	return nil
 }
 
-// I2CNames returns the names of all known I2C busses.
-func (b *numatoBoard) I2CNames() []string {
-	return nil
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (b *numatoBoard) AnalogReaderNames() []string {
 	names := []string{}

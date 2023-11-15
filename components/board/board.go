@@ -64,9 +64,6 @@ type Board interface {
 	// SPINames returns the names of all known SPI buses.
 	SPINames() []string
 
-	// I2CNames returns the names of all known I2C buses.
-	I2CNames() []string
-
 	// AnalogReaderNames returns the names of all known analog readers.
 	AnalogReaderNames() []string
 

@@ -27,7 +27,6 @@ type Board struct {
 	GPIOPinByNameFunc          func(name string) (board.GPIOPin, error)
 	gpioPinByNameCap           []interface{}
 	SPINamesFunc               func() []string
-	I2CNamesFunc               func() []string
 	AnalogReaderNamesFunc      func() []string
 	DigitalInterruptNamesFunc  func() []string
 	GPIOPinNamesFunc           func() []string
@@ -126,14 +125,6 @@ func (b *Board) SPINames() []string {
 		return b.LocalBoard.SPINames()
 	}
 	return b.SPINamesFunc()
-}
-
-// I2CNames calls the injected SPINames or the real version.
-func (b *Board) I2CNames() []string {
-	if b.I2CNamesFunc == nil {
-		return b.LocalBoard.I2CNames()
-	}
-	return b.I2CNamesFunc()
 }
 
 // AnalogReaderNames calls the injected AnalogReaderNames or the real version.

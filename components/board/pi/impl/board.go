@@ -696,20 +696,6 @@ func (pi *piPigpio) SPINames() []string {
 	return names
 }
 
-// I2CNames returns the names of all known SPI buses.
-func (pi *piPigpio) I2CNames() []string {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	if len(pi.i2cs) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(pi.i2cs))
-	for k := range pi.i2cs {
-		names = append(names, k)
-	}
-	return names
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (pi *piPigpio) AnalogReaderNames() []string {
 	pi.mu.Lock()

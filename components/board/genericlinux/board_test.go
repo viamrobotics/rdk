@@ -80,9 +80,6 @@ func TestGenericLinux(t *testing.T) {
 		test.That(t, sn2, test.ShouldBeNil)
 		test.That(t, ok, test.ShouldBeFalse)
 
-		ins := b.I2CNames()
-		test.That(t, ins, test.ShouldBeNil)
-
 		in1, ok := b.I2CByName("in")
 		test.That(t, in1, test.ShouldBeNil)
 		test.That(t, ok, test.ShouldBeFalse)

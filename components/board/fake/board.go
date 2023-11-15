@@ -265,17 +265,6 @@ func (b *Board) SPINames() []string {
 	return names
 }
 
-// I2CNames returns the names of all known I2Cs.
-func (b *Board) I2CNames() []string {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	names := []string{}
-	for k := range b.I2Cs {
-		names = append(names, k)
-	}
-	return names
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (b *Board) AnalogReaderNames() []string {
 	b.mu.RLock()

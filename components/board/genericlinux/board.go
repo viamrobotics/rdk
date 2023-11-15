@@ -531,18 +531,6 @@ func (b *Board) SPINames() []string {
 	return names
 }
 
-// I2CNames returns the names of all known I2Cs.
-func (b *Board) I2CNames() []string {
-	if len(b.i2cs) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(b.i2cs))
-	for k := range b.i2cs {
-		names = append(names, k)
-	}
-	return names
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (b *Board) AnalogReaderNames() []string {
 	names := []string{}

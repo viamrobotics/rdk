@@ -473,9 +473,6 @@ func TestManagerAdd(t *testing.T) {
 	injectBoard.SPINamesFunc = func() []string {
 		return []string{"spi1"}
 	}
-	injectBoard.I2CNamesFunc = func() []string {
-		return []string{"i2c1"}
-	}
 	injectBoard.AnalogReaderNamesFunc = func() []string {
 		return []string{"analog1"}
 	}

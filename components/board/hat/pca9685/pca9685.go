@@ -271,11 +271,6 @@ func (pca *PCA9685) SPINames() []string {
 	return nil
 }
 
-// I2CNames returns the names of all known I2Cs.
-func (pca *PCA9685) I2CNames() []string {
-	return nil
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (pca *PCA9685) AnalogReaderNames() []string {
 	return nil
