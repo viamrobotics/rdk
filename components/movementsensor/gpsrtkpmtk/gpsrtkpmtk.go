@@ -129,11 +129,11 @@ type rtkI2C struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 
-	mu               sync.Mutex
-	ntripMu          sync.Mutex
-	ntripconfigMu    sync.Mutex
-	ntripClient      *rtk.NtripInfo
-	connectedToNtrip bool
+	mu            sync.Mutex
+	ntripMu       sync.Mutex
+	ntripconfigMu sync.Mutex
+	ntripClient   *rtk.NtripInfo
+	ntripStatus   bool
 
 	err          movementsensor.LastError
 	lastposition movementsensor.LastPosition
@@ -417,12 +417,12 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	scanner := rtcm3.NewScanner(r)
 
 	g.ntripMu.Lock()
-	g.connectedToNtrip = true
+	g.ntripStatus = true
 	g.ntripMu.Unlock()
 
 	// It's okay to skip the mutex on this next line: g.connectedToNtrip can only be mutated by this
 	// goroutine itself.
-	for g.connectedToNtrip {
+	for g.ntripStatus {
 		select {
 		case <-g.cancelCtx.Done():
 			g.err.Set(err)
@@ -441,7 +441,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		msg, err := scanner.NextMessage()
 		if err != nil {
 			g.ntripMu.Lock()
-			g.connectedToNtrip = false
+			g.ntripStatus = false
 			g.ntripMu.Unlock()
 
 			if msg == nil {
@@ -473,7 +473,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 
 				scanner = rtcm3.NewScanner(r)
 				g.ntripMu.Lock()
-				g.connectedToNtrip = true
+				g.ntripStatus = true
 				g.ntripMu.Unlock()
 				continue
 			}
@@ -494,7 +494,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()
 	defer g.ntripMu.Unlock()
-	return g.connectedToNtrip, g.err.Get()
+	return g.ntripStatus, g.err.Get()
 }
 
 // Position returns the current geographic location of the MOVEMENTSENSOR.
