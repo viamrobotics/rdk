@@ -258,7 +258,6 @@ func (g *rtkSerial) start() error {
 		g.lastposition.GetLastPosition()
 		return err
 	}
-	// g.activeBackgroundWorkers.Add(1)
 	if !g.isClosed {
 		err := g.ntripConnection()
 		if err != nil {
