@@ -160,9 +160,8 @@ func PoseToGeoPoint(relativeTo GeoPose, p Pose) GeoPose {
 	// relativeTo Heading is a right-handed value
 	headingInWorld := relativeTo.Heading()
 
-	// get the absolute bearing, i.e. the bearing of pose p from north
+	// get the angle of pose p with respect to relativeTo
 	// normalize to be [0,360)
-	// TODO: better comment
 	absoluteBearing := math.Mod(bearingDeg+headingInWorld, 360)
 
 	// get the new geopoint at distance poseMagnitude
@@ -176,7 +175,6 @@ func PoseToGeoPoint(relativeTo GeoPose, p Pose) GeoPose {
 
 	// get the absolute heading of pose p, i.e. the heading in the world
 	// normalize to be [0,360)
-	// TODO: better comment
 	absolutePoseHeading := math.Mod(headingLeft+headingInWorld, 360)
 
 	return *NewGeoPose(newLoc, absolutePoseHeading)
