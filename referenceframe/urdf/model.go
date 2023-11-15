@@ -14,8 +14,10 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// Config represents all supported fields in a Universal Robot Description Format (URDF) file.
-type Config struct {
+const Extension string = "urdf"
+
+// ModelConfig represents all supported fields in a Universal Robot Description Format (URDF) file.
+type ModelConfig struct {
 	XMLName xml.Name `xml:"robot"`
 	Name    string   `xml:"name,attr"`
 	Links   []link   `xml:"link"`
@@ -43,7 +45,7 @@ type joint struct {
 
 // NewConfigFromWorldState creates a urdf.Config struct which can be marshalled into xml and will be a
 // valid .urdf file representing the geometries in the given worldstate.
-func NewConfigFromWorldState(ws *referenceframe.WorldState, name string) (*Config, error) {
+func NewModelFromWorldState(ws *referenceframe.WorldState, name string) (*ModelConfig, error) {
 	// the link we initialize this list with represents the world frame
 	links := []link{{Name: referenceframe.World}}
 	joints := make([]joint, 0)
@@ -68,40 +70,24 @@ func NewConfigFromWorldState(ws *referenceframe.WorldState, name string) (*Confi
 			Child:  frame{g.Label()},
 		})
 	}
-	return &Config{
+	return &ModelConfig{
 		Name:   name,
 		Links:  links,
 		Joints: joints,
 	}, nil
 }
 
-// ParseXMLFile will read a given file and parse the contained URDF XML data into an equivalent Model.
-func ParseXMLFile(filename, modelName string) (referenceframe.Model, error) {
-	//nolint:gosec
-	xmlData, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to read URDF file")
-	}
-
-	mc, err := ConvertURDFToConfig(xmlData, modelName)
-	if err != nil {
-		return nil, err
-	}
-
-	return mc.ParseConfig(modelName)
-}
-
-// ConvertURDFToConfig will transfer the given URDF XML data into an equivalent ModelConfig. Direct unmarshaling in the
+// UnmarshalModel will transfer the given URDF XML data into an equivalent ModelConfig. Direct unmarshaling in the
 // same fashion as ModelJSON is not possible, as URDF data will need to be evaluated to accommodate differences
 // between the two kinematics encoding schemes.
-func ConvertURDFToConfig(xmlData []byte, modelName string) (*referenceframe.ModelConfig, error) {
+func UnmarshalModelXML(xmlData []byte, modelName string) (*referenceframe.ModelConfig, error) {
 	// empty data probably means that the read URDF has no actionable information
 	if len(xmlData) == 0 {
 		return nil, referenceframe.ErrNoModelInformation
 	}
 
-	mc := &referenceframe.ModelConfig{}
-	urdf := &Config{}
+	mc := &referenceframe.ModelConfig{OriginalFile: &referenceframe.ModelFile{Bytes: xmlData, Extension: Extension}}
+	urdf := &ModelConfig{}
 	err := xml.Unmarshal(xmlData, urdf)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to convert URDF data to equivalent URDFConfig struct")
@@ -241,4 +227,20 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*referenceframe.Mode
 		}
 	}
 	return mc, nil
+}
+
+// ParseXMLFile will read a given file and parse the contained URDF XML data into an equivalent Model.
+func ParseModelXMLFile(filename, modelName string) (referenceframe.Model, error) {
+	//nolint:gosec
+	xmlData, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read URDF file")
+	}
+
+	mc, err := UnmarshalModelXML(xmlData, modelName)
+	if err != nil {
+		return nil, err
+	}
+
+	return mc.ParseConfig(modelName)
 }
