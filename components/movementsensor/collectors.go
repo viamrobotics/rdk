@@ -7,7 +7,6 @@ import (
 	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/movementsensor/v1"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/data"
 )
@@ -242,13 +241,9 @@ func NewReadingsCollector(resource interface{}, params data.CollectorParams) (da
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, readings.String(), err)
 		}
-		readings := make(map[string]*structpb.Value)
-		for name, value := range values {
-			val, err := structpb.NewValue(value)
-			if err != nil {
-				return nil, err
-			}
-			readings[name] = val
+		readings, err := data.StructValueMapFromInterfaceMap(values)
+		if err != nil {
+			return nil, err
 		}
 		return v1.GetReadingsResponse{
 			Readings: readings,
