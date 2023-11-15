@@ -493,7 +493,7 @@ func (ms *explore) createKinematicBase(
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
 	kinematicsOptions.NoSkidSteer = true
 	kinematicsOptions.UsePTGs = false
-	kinematicsOptions.PositionOnlyMode = true //false
+	kinematicsOptions.PositionOnlyMode = false
 	kinematicsOptions.AngularVelocityDegsPerSec = motionCfg.AngularDegsPerSec
 	kinematicsOptions.LinearVelocityMMPerSec = motionCfg.LinearMPerSec * 1000
 	kinematicsOptions.Timeout = defaultExploreTimeout
