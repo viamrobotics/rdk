@@ -36,7 +36,7 @@ func StructValueMapFromInterfaceMap(values map[string]interface{}) (map[string]*
 		}
 
 		// Handle Go structs and struct pointers with exported fields, e.g. *spatialmath.Quaternion or r3.Vector.
-		// If a field is not exported, then `reflect.Value.Interface() will panic`
+		// If a field is not exported, then `reflect.Value.Interface()` will panic.
 		reflectValue := reflect.ValueOf(value)
 		if reflectValue.Kind() == reflect.Struct || (reflectValue.Kind() == reflect.Ptr && reflectValue.Elem().Kind() == reflect.Struct) {
 			valueInterfaceMap := make(map[string]interface{})
