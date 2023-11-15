@@ -942,6 +942,7 @@ func logRecitfy(poses [][]float64) error {
 		return err
 	}
 	defer f.Close()
+	f.WriteString("0,0\n")
 	for _, pose := range poses {
 		if _, err := f.WriteString(fmt.Sprintf("%f,%f\n", pose[0], pose[1])); err != nil {
 			return err
