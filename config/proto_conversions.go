@@ -879,9 +879,6 @@ func PackageConfigFromProto(proto *pb.PackageConfig) (*PackageConfig, error) {
 // This is required be because app/packages uses a PackageType enum but app/PackageConfig uses a string Type.
 func PackageTypeToProto(t PackageType) (*packagespb.PackageType, error) {
 	switch t {
-	case "":
-		// for backwards compatibility
-		fallthrough
 	case PackageTypeMlModel:
 		return packagespb.PackageType_PACKAGE_TYPE_ML_MODEL.Enum(), nil
 	case PackageTypeModule:
