@@ -125,7 +125,7 @@ func GetCartesianDistance(p, q *geo.Point) (float64, float64) {
 	return distAlongLat, distAlongLng
 }
 
-// GeoPoseToPose does things
+// GeoPoseToPose does things.
 func GeoPoseToPose(point, origin GeoPose) Pose {
 	position := GeoPointToPoint(point.Location(), origin.Location())
 	headingChange := math.Mod(origin.Heading()-point.Heading(), 360)

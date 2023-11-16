@@ -4,10 +4,13 @@ package builtin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"sync"
+	"time"
 
 	"github.com/golang/geo/r3"
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -40,7 +43,6 @@ var (
 	errNegativeObstaclePollingFrequencyHz = errors.New("obstacle_polling_frequency_hz must be non-negative if set")
 	errNegativePlanDeviationM             = errors.New("plan_deviation_m must be non-negative if set")
 	errNegativeReplanCostFactor           = errors.New("replan_cost_factor must be non-negative if set")
-	errUnimplemented                      = errors.New("unimplemented")
 )
 
 const (
@@ -204,6 +206,11 @@ func NewBuiltIn(
 	return navSvc, nil
 }
 
+type s struct {
+	waypointID  primitive.ObjectID
+	planHistory []motion.PlanWithStatus
+}
+
 type builtIn struct {
 	resource.Named
 	actionMu  sync.RWMutex
@@ -228,6 +235,8 @@ type builtIn struct {
 	currentWaypointCancelFunc func()
 	waypointInProgress        *navigation.Waypoint
 	activeBackgroundWorkers   sync.WaitGroup
+
+	executions map[motion.ExecutionID]s
 }
 
 func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
@@ -513,22 +522,41 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 
 		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
 			svc.logger.Debugf("MoveOnGlobe called going to waypoint %+v", wp)
-			_, err := svc.motionService.MoveOnGlobe(
+			execID, err := svc.motionService.MoveOnGlobeNew(
 				ctx,
-				svc.base.Name(),
-				wp.ToPoint(),
-				math.NaN(),
-				svc.movementSensor.Name(),
-				svc.obstacles,
-				svc.motionCfg,
-				extra,
+				motion.MoveOnGlobeReq{
+					ComponentName:      svc.base.Name(),
+					Destination:        wp.ToPoint(),
+					Heading:            math.NaN(),
+					MovementSensorName: svc.movementSensor.Name(),
+					Obstacles:          svc.obstacles,
+					MotionCfg:          svc.motionCfg,
+					Extra:              extra,
+				},
 			)
 			if err != nil {
 				return errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
 			}
 
-			svc.logger.Debug("MoveOnGlobe succeeded")
-			return svc.waypointReached(ctx)
+			svc.logger.Debug("MoveOnGlobe queued")
+			executionID, err := uuid.Parse(execID)
+			if err != nil {
+				return err
+			}
+			for {
+				planHistory, err := svc.motionService.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: svc.base.Name(), ExecutionID: executionID})
+				if err != nil {
+					return err
+				}
+				svc.mu.Lock()
+				svc.executions[executionID] = s{planHistory: planHistory, waypointID: wp.ID}
+				svc.mu.Unlock()
+				_, executionTerminated := motion.TerminalStateSet[planHistory[0].StatusHistory[0].State]
+				if executionTerminated {
+					return svc.waypointReached(ctx)
+				}
+				time.Sleep(time.Millisecond * 200)
+			}
 		}
 
 		// do not exit loop - even if there are no waypoints remaining
@@ -581,5 +609,24 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return nil, errUnimplemented
+	ps := make([]*navigation.Path, 0, len(svc.executions))
+	// for each execution, returns its waypoint & the geo poses
+	for _, e := range svc.executions {
+		gps := make([]*geo.Point, 0, len(e.planHistory[0].Plan.Steps))
+		for _, step := range e.planHistory[0].Plan.Steps {
+			if len(step) != 1 {
+				return nil, fmt.Errorf("invalid number of steps %d", len(step))
+			}
+			for _, pose := range step {
+				gps = append(gps, geo.NewPoint(pose.Point().X, pose.Point().Y))
+			}
+		}
+
+		p, err := navigation.NewPath(e.waypointID.String(), gps)
+		if err != nil {
+			return nil, err
+		}
+		ps = append(ps, p)
+	}
+	return ps, nil
 }
