@@ -502,7 +502,6 @@ func validateModuleID(
 			return moduleID{}, errors.Errorf("the meta.json specifies a different org %q than the one provided via args %q",
 				expectedOrg.GetName(), org.GetName())
 		}
-		printf(c.App.Writer, "the module's meta.json already specifies a full module id. Ignoring public-namespace and org-id arg")
 	}
 	return modID, nil
 }
