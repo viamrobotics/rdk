@@ -22,11 +22,13 @@ const (
 	jobStatusDone       jobStatus = "done"
 )
 
-func (c *viamClient) startBuild(moduleID string, arch []string) (*buildpb.StartBuildResponse, error) {
+func (c *viamClient) startBuild(repo, ref, moduleID string, arch []string) (*buildpb.StartBuildResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
 	req := buildpb.StartBuildRequest{
+		Repo:     &repo,
+		Ref:      &ref,
 		Arch:     arch,
 		ModuleId: moduleID,
 	}
@@ -48,7 +50,7 @@ func ModuleBuildStartAction(c *cli.Context) error {
 	if len(platforms) == 0 {
 		platforms = defaultBuildInfo.Arch
 	}
-	res, err := client.startBuild(manifest.ModuleID, platforms)
+	res, err := client.startBuild(manifest.URL, "main", manifest.ModuleID, platforms)
 	if err != nil {
 		return err
 	}
