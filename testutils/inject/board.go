@@ -13,7 +13,7 @@ import (
 
 // Board is an injected board.
 type Board struct {
-	board.LocalBoard
+	board.Board
 	name                       resource.Name
 	DoFunc                     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	AnalogReaderByNameFunc     func(name string) (board.AnalogReader, bool)
@@ -45,7 +45,7 @@ func (b *Board) Name() resource.Name {
 func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	b.analogReaderByNameCap = []interface{}{name}
 	if b.AnalogReaderByNameFunc == nil {
-		return b.LocalBoard.AnalogReaderByName(name)
+		return b.Board.AnalogReaderByName(name)
 	}
 	return b.AnalogReaderByNameFunc(name)
 }
@@ -63,7 +63,7 @@ func (b *Board) AnalogReaderByNameCap() []interface{} {
 func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	b.digitalInterruptByNameCap = []interface{}{name}
 	if b.DigitalInterruptByNameFunc == nil {
-		return b.LocalBoard.DigitalInterruptByName(name)
+		return b.Board.DigitalInterruptByName(name)
 	}
 	return b.DigitalInterruptByNameFunc(name)
 }
@@ -81,7 +81,7 @@ func (b *Board) DigitalInterruptByNameCap() []interface{} {
 func (b *Board) GPIOPinByName(name string) (board.GPIOPin, error) {
 	b.gpioPinByNameCap = []interface{}{name}
 	if b.GPIOPinByNameFunc == nil {
-		return b.LocalBoard.GPIOPinByName(name)
+		return b.Board.GPIOPinByName(name)
 	}
 	return b.GPIOPinByNameFunc(name)
 }
@@ -98,7 +98,7 @@ func (b *Board) GPIOPinByNameCap() []interface{} {
 // AnalogReaderNames calls the injected AnalogReaderNames or the real version.
 func (b *Board) AnalogReaderNames() []string {
 	if b.AnalogReaderNamesFunc == nil {
-		return b.LocalBoard.AnalogReaderNames()
+		return b.Board.AnalogReaderNames()
 	}
 	return b.AnalogReaderNamesFunc()
 }
@@ -106,7 +106,7 @@ func (b *Board) AnalogReaderNames() []string {
 // DigitalInterruptNames calls the injected DigitalInterruptNames or the real version.
 func (b *Board) DigitalInterruptNames() []string {
 	if b.DigitalInterruptNamesFunc == nil {
-		return b.LocalBoard.DigitalInterruptNames()
+		return b.Board.DigitalInterruptNames()
 	}
 	return b.DigitalInterruptNamesFunc()
 }
@@ -114,10 +114,10 @@ func (b *Board) DigitalInterruptNames() []string {
 // Close calls the injected Close or the real version.
 func (b *Board) Close(ctx context.Context) error {
 	if b.CloseFunc == nil {
-		if b.LocalBoard == nil {
+		if b.Board == nil {
 			return nil
 		}
-		return b.LocalBoard.Close(ctx)
+		return b.Board.Close(ctx)
 	}
 	return b.CloseFunc(ctx)
 }
@@ -126,7 +126,7 @@ func (b *Board) Close(ctx context.Context) error {
 func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	b.statusCap = []interface{}{ctx}
 	if b.StatusFunc == nil {
-		return b.LocalBoard.Status(ctx, extra)
+		return b.Board.Status(ctx, extra)
 	}
 	return b.StatusFunc(ctx, extra)
 }
@@ -143,7 +143,7 @@ func (b *Board) StatusCap() []interface{} {
 // DoCommand calls the injected DoCommand or the real version.
 func (b *Board) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if b.DoFunc == nil {
-		return b.LocalBoard.DoCommand(ctx, cmd)
+		return b.Board.DoCommand(ctx, cmd)
 	}
 	return b.DoFunc(ctx, cmd)
 }
@@ -153,7 +153,7 @@ func (b *Board) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[
 // the specified duration.
 func (b *Board) SetPowerMode(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error {
 	if b.SetPowerModeFunc == nil {
-		return b.LocalBoard.SetPowerMode(ctx, mode, duration)
+		return b.Board.SetPowerMode(ctx, mode, duration)
 	}
 	return b.SetPowerModeFunc(ctx, mode, duration)
 }
@@ -161,7 +161,7 @@ func (b *Board) SetPowerMode(ctx context.Context, mode boardpb.PowerMode, durati
 // WriteAnalog calls the injected WriteAnalog or the real version.
 func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
 	if b.WriteAnalogFunc == nil {
-		return b.LocalBoard.WriteAnalog(ctx, pin, value, extra)
+		return b.Board.WriteAnalog(ctx, pin, value, extra)
 	}
 	return b.WriteAnalogFunc(ctx, pin, value, extra)
 }

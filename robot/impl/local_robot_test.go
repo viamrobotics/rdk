@@ -865,7 +865,7 @@ func TestStopAll(t *testing.T) {
 }
 
 type dummyBoard struct {
-	board.LocalBoard
+	board.Board
 	closeCount int
 }
 

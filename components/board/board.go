@@ -84,11 +84,6 @@ type Board interface {
 	WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error
 }
 
-// A LocalBoard represents a Board where you can request SPIs and I2Cs by name.
-type LocalBoard interface {
-	Board
-}
-
 // ModelAttributes provide info related to a board model.
 type ModelAttributes struct {
 	// Remote signifies this board is accessed over a remote connection.
