@@ -79,17 +79,17 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if cfg.Base == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "base")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "base")
 	}
 	deps = append(deps, cfg.Base)
 
 	if len(cfg.LeftMotors) == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "left motors")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "left motors")
 	}
 	deps = append(deps, cfg.LeftMotors...)
 
 	if len(cfg.RightMotors) == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "right motors")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "right motors")
 	}
 	deps = append(deps, cfg.RightMotors...)
 

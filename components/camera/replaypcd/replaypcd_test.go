@@ -8,7 +8,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/internal/cloud"
@@ -470,7 +469,7 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 				APIKey:         validAPIKey,
 				APIKeyID:       validAPIKeyID,
 			},
-			expectedErr: utils.NewConfigValidationFieldRequiredError("", validSource),
+			expectedErr: resource.NewConfigValidationFieldRequiredError("", validSource),
 		},
 		{
 			description: "Valid config with no robot_id",
@@ -482,7 +481,7 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 				APIKey:         validAPIKey,
 				APIKeyID:       validAPIKeyID,
 			},
-			expectedErr: utils.NewConfigValidationFieldRequiredError("", validRobotID),
+			expectedErr: resource.NewConfigValidationFieldRequiredError("", validRobotID),
 		},
 		{
 			description: "Valid config with no location_id",
@@ -494,7 +493,7 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 				APIKey:         validAPIKey,
 				APIKeyID:       validAPIKeyID,
 			},
-			expectedErr: utils.NewConfigValidationFieldRequiredError("", validLocationID),
+			expectedErr: resource.NewConfigValidationFieldRequiredError("", validLocationID),
 		},
 		{
 			description: "Valid config with no organization_id",
@@ -506,7 +505,7 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 				APIKey:     validAPIKey,
 				APIKeyID:   validAPIKeyID,
 			},
-			expectedErr: utils.NewConfigValidationFieldRequiredError("", validOrganizationID),
+			expectedErr: resource.NewConfigValidationFieldRequiredError("", validOrganizationID),
 		},
 		{
 			description: "Valid config with start timestamp",

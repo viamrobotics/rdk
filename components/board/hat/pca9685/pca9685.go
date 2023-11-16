@@ -39,11 +39,11 @@ type Config struct {
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if conf.I2CBus == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 
 	if conf.I2CAddress != nil && (*conf.I2CAddress < 0 || *conf.I2CAddress > 255) {
-		return nil, utils.NewConfigValidationError(path, errors.New("i2c_address must be an unsigned byte"))
+		return nil, resource.NewConfigValidationError(path, errors.New("i2c_address must be an unsigned byte"))
 	}
 	return deps, nil
 }

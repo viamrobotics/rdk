@@ -93,10 +93,10 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 // validateI2C ensures all parts of the config are valid.
 func (cfg *Config) validateI2C(path string) error {
 	if cfg.I2CBus == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+		return resource.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 	if cfg.I2CAddr == 0 {
-		return utils.NewConfigValidationFieldRequiredError(path, "i2c_addr")
+		return resource.NewConfigValidationFieldRequiredError(path, "i2c_addr")
 	}
 	return nil
 }
@@ -104,7 +104,7 @@ func (cfg *Config) validateI2C(path string) error {
 // validateNtrip ensures all parts of the config are valid.
 func (cfg *Config) validateNtrip(path string) error {
 	if cfg.NtripURL == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_url")
+		return resource.NewConfigValidationFieldRequiredError(path, "ntrip_url")
 	}
 	return nil
 }
@@ -503,7 +503,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 }
 
-//nolint
+// nolint
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not
 func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()

@@ -37,19 +37,19 @@ type Config struct {
 func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.SPI == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "spi")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "spi")
 	}
 
 	if cfg.Speed == nil {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "spi_baud_rate")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "spi_baud_rate")
 	}
 
 	if cfg.Pfreq == nil {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "polling_freq_hz")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "polling_freq_hz")
 	}
 
 	if cfg.CSPin == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "cs_pin (chip select pin)")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "cs_pin (chip select pin)")
 	}
 	return deps, nil
 }

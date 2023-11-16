@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"go.viam.com/test"
-	gutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
@@ -46,7 +45,7 @@ func TestValidateI2C(t *testing.T) {
 	path := "path"
 	err := fakecfg.validateI2C(path)
 	test.That(t, err, test.ShouldBeError,
-		gutils.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
+		resource.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
 
 	fakecfg.I2CAddr = 66
 	err = fakecfg.validateI2C(path)

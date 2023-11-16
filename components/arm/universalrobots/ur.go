@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -45,7 +46,7 @@ type Config struct {
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.Host == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "host")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "host")
 	}
 	if cfg.SpeedDegsPerSec > 180 || cfg.SpeedDegsPerSec < 3 {
 		return nil, errors.New("speed for universalrobots has to be between 3 and 180 degrees per second")

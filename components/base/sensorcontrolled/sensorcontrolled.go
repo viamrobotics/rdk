@@ -8,7 +8,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
@@ -43,12 +42,12 @@ type Config struct {
 func (cfg *Config) Validate(path string) ([]string, error) {
 	deps := []string{}
 	if len(cfg.MovementSensor) == 0 {
-		return nil, utils.NewConfigValidationError(path, errors.New("need at least one movement sensor for base"))
+		return nil, resource.NewConfigValidationError(path, errors.New("need at least one movement sensor for base"))
 	}
 
 	deps = append(deps, cfg.MovementSensor...)
 	if cfg.Base == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "base")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "base")
 	}
 
 	deps = append(deps, cfg.Base)

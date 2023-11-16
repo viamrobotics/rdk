@@ -12,6 +12,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/gen2brain/malgo"
+
 	// register microphone drivers.
 	_ "github.com/pion/mediadevices/pkg/driver/microphone"
 	"github.com/pion/webrtc/v3"

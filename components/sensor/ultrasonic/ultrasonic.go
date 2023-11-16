@@ -30,14 +30,14 @@ type Config struct {
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if len(conf.Board) == 0 {
-		return nil, rdkutils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	deps = append(deps, conf.Board)
 	if len(conf.TriggerPin) == 0 {
-		return nil, rdkutils.NewConfigValidationFieldRequiredError(path, "trigger pin")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "trigger pin")
 	}
 	if len(conf.EchoInterrupt) == 0 {
-		return nil, rdkutils.NewConfigValidationFieldRequiredError(path, "echo interrupt pin")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "echo interrupt pin")
 	}
 	return deps, nil
 }

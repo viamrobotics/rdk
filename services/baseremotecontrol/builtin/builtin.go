@@ -54,12 +54,12 @@ type Config struct {
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if conf.InputControllerName == "" {
-		return nil, vutils.NewConfigValidationFieldRequiredError(path, "input_controller")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "input_controller")
 	}
 	deps = append(deps, conf.InputControllerName)
 
 	if conf.BaseName == "" {
-		return nil, vutils.NewConfigValidationFieldRequiredError(path, "base")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "base")
 	}
 	deps = append(deps, conf.BaseName)
 

@@ -8,7 +8,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
@@ -21,7 +20,7 @@ import (
 func TestValidateConfig(t *testing.T) {
 	cfg := Config{}
 	deps, err := cfg.Validate("path")
-	expectedErr := utils.NewConfigValidationFieldRequiredError("path", "i2c_bus")
+	expectedErr := resource.NewConfigValidationFieldRequiredError("path", "i2c_bus")
 	test.That(t, err, test.ShouldBeError, expectedErr)
 	test.That(t, deps, test.ShouldBeEmpty)
 }

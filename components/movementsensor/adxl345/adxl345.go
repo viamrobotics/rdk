@@ -118,7 +118,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.BoardName == "" {
 		// The board name is only required for interrupt-related functionality.
 		if cfg.SingleTap != nil || cfg.FreeFall != nil {
-			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+			return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 		}
 	} else {
 		if cfg.SingleTap != nil || cfg.FreeFall != nil {
@@ -127,7 +127,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		}
 	}
 	if cfg.I2cBus == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 	if cfg.SingleTap != nil {
 		if err := cfg.SingleTap.ValidateTapConfigs(path); err != nil {

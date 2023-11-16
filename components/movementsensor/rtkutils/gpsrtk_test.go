@@ -132,11 +132,11 @@ func TestModelTypeCreators(t *testing.T) {
 // 	_, err := fakecfg.Validate(path)
 
 // 	test.That(t, err, test.ShouldBeError,
-// 		utils.NewConfigValidationFieldRequiredError(path, "correction_source"))
+// 		resource.NewConfigValidationFieldRequiredError(path, "correction_source"))
 
 // 	fakecfg.CorrectionSource = "ntrip"
 // 	_, err = fakecfg.Validate(path)
-// 	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
+// 	test.That(t, err, test.ShouldBeError, resource.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
 
 // 	fakecfg.NtripConfig.NtripURL = "http://fakeurl"
 // 	_, err = fakecfg.Validate(path)
@@ -144,7 +144,7 @@ func TestModelTypeCreators(t *testing.T) {
 // 		t,
 // 		err,
 // 		test.ShouldBeError,
-// 		utils.NewConfigValidationFieldRequiredError(path, "ntrip_input_protocol"),
+// 		resource.NewConfigValidationFieldRequiredError(path, "ntrip_input_protocol"),
 // 	)
 // 	fakecfg.NtripInputProtocol = "serial"
 // 	_, err = fakecfg.Validate("path")

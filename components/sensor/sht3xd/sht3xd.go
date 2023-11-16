@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"go.uber.org/multierr"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
@@ -42,7 +41,7 @@ type Config struct {
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if conf.I2cBus == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 	return deps, nil
 }

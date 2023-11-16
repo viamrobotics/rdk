@@ -8,7 +8,6 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -279,7 +278,7 @@ func (conf *Config) validate(path, defaultAPIType string) ([]string, error) {
 	conf.AdjustPartialNames(defaultAPIType)
 
 	if conf.Name == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "name")
+		return nil, NewConfigValidationFieldRequiredError(path, "name")
 	}
 	if !utils.ValidNameRegex.MatchString(conf.Name) {
 		return nil, utils.ErrInvalidName(conf.Name)

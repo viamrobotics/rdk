@@ -89,7 +89,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 // validateSerialPath ensures all parts of the config are valid.
 func (cfg *Config) validateSerialPath(path string) error {
 	if cfg.SerialPath == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
+		return resource.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 	return nil
 }
@@ -97,7 +97,7 @@ func (cfg *Config) validateSerialPath(path string) error {
 // validateNtrip ensures all parts of the config are valid.
 func (cfg *Config) validateNtrip(path string) error {
 	if cfg.NtripURL == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_url")
+		return resource.NewConfigValidationFieldRequiredError(path, "ntrip_url")
 	}
 	return nil
 }

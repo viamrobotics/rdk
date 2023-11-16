@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"go.uber.org/multierr"
-	"go.viam.com/utils"
+	"go.viam.com/rdk/resource"
 )
 
 // MCP3008AnalogReader implements a board.AnalogReader using an MCP3008 ADC via SPI.
@@ -27,7 +27,7 @@ type MCP3008AnalogConfig struct {
 // Validate ensures all parts of the config are valid.
 func (config *MCP3008AnalogConfig) Validate(path string) error {
 	if config.Name == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "name")
+		return resource.NewConfigValidationFieldRequiredError(path, "name")
 	}
 	return nil
 }
