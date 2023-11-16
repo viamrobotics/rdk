@@ -1117,7 +1117,7 @@ Example:
 									DefaultText: "all",
 								},
 							},
-							Action:      ModuleBuildListAction,
+							Action: ModuleBuildListAction,
 						},
 					},
 				},

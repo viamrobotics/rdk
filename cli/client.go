@@ -45,7 +45,6 @@ type viamClient struct {
 	c                *cli.Context
 	conf             *config
 	client           apppb.AppServiceClient
-	buildClient      buildpb.BuildServiceClient
 	dataClient       datapb.DataServiceClient
 	packageClient    packagepb.PackageServiceClient
 	datasetClient    datasetpb.DatasetServiceClient
