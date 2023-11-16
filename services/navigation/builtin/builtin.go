@@ -544,6 +544,9 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 				return err
 			}
 			for {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
 				planHistory, err := svc.motionService.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: svc.base.Name(), ExecutionID: executionID})
 				if err != nil {
 					return err
@@ -577,6 +580,9 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 
 			svc.logger.Infof("navigating to waypoint: %+v", wp)
 			if err := navOnce(cancelCtx, wp); err != nil {
+				if errors.Is(err, context.Canceled) {
+					return
+				}
 				if svc.waypointIsDeleted() {
 					svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
 					continue
