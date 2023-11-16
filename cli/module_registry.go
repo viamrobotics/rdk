@@ -236,7 +236,7 @@ func UploadModuleAction(c *cli.Context) error {
 				moduleID.name)
 		}
 	}
-	moduleID, err = validateModuleID(c, client, moduleID.String(), publicNamespaceArg, orgIDArg)
+	moduleID, err = validateModuleID(client, moduleID.String(), publicNamespaceArg, orgIDArg)
 	if err != nil {
 		return err
 	}
@@ -474,7 +474,6 @@ func (m *moduleID) String() string {
 
 // validateModuleID tries to parse the manifestModuleID and checks that it matches the publicNamespaceArg and orgIDArg if they are provided.
 func validateModuleID(
-	c *cli.Context,
 	client *viamClient,
 	manifestModuleID,
 	publicNamespaceArg,
