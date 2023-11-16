@@ -554,8 +554,10 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 				svc.mu.Lock()
 				svc.executions[executionID] = s{planHistory: planHistory, waypointID: wp.ID}
 				svc.mu.Unlock()
+				svc.logger.Infof("planHistory[0].StatusHistory[0].State.String(): %s\n", planHistory[0].StatusHistory[0].State.String())
 				_, executionTerminated := motion.TerminalStateSet[planHistory[0].StatusHistory[0].State]
 				if executionTerminated {
+					svc.logger.Infof("execution terminated")
 					return svc.waypointReached(ctx)
 				}
 				time.Sleep(time.Millisecond * 200)
