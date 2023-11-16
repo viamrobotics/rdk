@@ -6,11 +6,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/dmc4000"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -62,7 +62,7 @@ func checkRx(resChan, c chan string, expects, sends []string) {
 
 func TestDMC4000Motor(t *testing.T) {
 	ctx := context.Background()
-	logger, obs := golog.NewObservedTestLogger(t)
+	logger, obs := logging.NewObservedTestLogger(t)
 	c := make(chan string)
 	resChan := make(chan string, 1024)
 	deps := make(resource.Dependencies)

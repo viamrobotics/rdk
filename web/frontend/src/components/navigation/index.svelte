@@ -3,59 +3,82 @@
 <script lang="ts">
 
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { type ServiceError, navigationApi } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
-import { navigationApi, NavigationClient, type ServiceError } from '@viamrobotics/sdk';
+import { IconButton, Button, persisted } from '@viamrobotics/prime-core';
+import { NavigationMap, type LngLat } from '@viamrobotics/prime-blocks';
 import { getObstacles } from '@/api/navigation';
-import { mapCenter, centerMap, robotPosition, flyToMap, write as writeStore, obstacles } from './stores';
-import { useRobotClient } from '@/hooks/robot-client';
+import { obstacles } from './stores';
 import Collapse from '@/lib/components/collapse.svelte';
-import Map from './components/map.svelte';
-import Nav from './components/nav/index.svelte';
 import LngLatInput from './components/input/lnglat.svelte';
 import { inview } from 'svelte-inview';
-import { rcLogConditionally } from '@/lib/log';
-import { onMount } from 'svelte';
+import Waypoints from './components/waypoints.svelte';
+import { useWaypoints } from './hooks/use-waypoints';
+import { useNavMode } from './hooks/use-nav-mode';
+import { useNavClient } from './hooks/use-nav-client';
+import { useBasePose } from './hooks/use-base-pose';
+import type { Map } from 'maplibre-gl';
 
 export let name: string;
-export let write = false;
 
-$: $writeStore = write;
+let map: Map | undefined;
 
-const { robotClient } = useRobotClient();
-const navClient = new NavigationClient($robotClient, name, { requestLogger: rcLogConditionally });
+const mapPosition = persisted('viam-blocks-navigation-map-center');
+const navClient = useNavClient(name);
+const { waypoints, addWaypoint, deleteWaypoint } = useWaypoints(name);
+const { mode, setMode } = useNavMode(name);
+const { pose } = useBasePose(name);
 
-let navMode: 'Manual' | 'Waypoint' | '' = '';
-const enum NavigationModes {
-  Manual = 1,
-  Waypoint = 2,
+let centered = false;
+
+$: if (map && $pose && !centered && !$mapPosition) {
+  map.setCenter($pose);
+  centered = true;
 }
 
-onMount(async () => {
-  const currentMode = await navClient.getMode();
-  if (currentMode === NavigationModes.Manual) {
-    navMode = 'Manual';
-  } else if (currentMode === NavigationModes.Waypoint) {
-    navMode = 'Waypoint';
-  }
-});
-
-const setNavigationMode = async (event: CustomEvent) => {
-  const mode = event.detail.value as 'Manual' | 'Waypoint';
-
-  const navigationMode: NavigationModes = {
-    Manual: navigationApi.Mode.MODE_MANUAL,
-    Waypoint: navigationApi.Mode.MODE_WAYPOINT,
-  }[mode];
-
+const handleEnter = async () => {
   try {
-    await navClient.setMode(navigationMode);
+    $obstacles = await getObstacles(navClient);
   } catch (error) {
     notify.danger((error as ServiceError).message);
   }
 };
 
-const handleEnter = async () => {
-  $obstacles = await getObstacles(navClient);
+const handleModeSelect = async (event: CustomEvent<{ value: 'Manual' | 'Waypoint' }>) => {
+  try {
+    await setMode(({
+      Manual: navigationApi.Mode.MODE_MANUAL,
+      Waypoint: navigationApi.Mode.MODE_WAYPOINT,
+    } as const)[event.detail.value]);
+  } catch (error) {
+    notify.danger((error as ServiceError).message);
+  }
+};
+
+const stopNavigation = async (event: MouseEvent) => {
+  event.stopPropagation();
+
+  try {
+    await setMode(navigationApi.Mode.MODE_MANUAL);
+  } catch (error) {
+    notify.danger((error as ServiceError).message);
+  }
+}
+
+const handleAddWaypoint = async (event: CustomEvent<LngLat>) => {
+  try {
+    await addWaypoint(event.detail);
+  } catch (error) {
+    notify.danger((error as ServiceError).message);
+  }
+};
+
+const handleDeleteWaypoint = async (event: CustomEvent<string>) => {
+  try {
+    await deleteWaypoint(event.detail);
+  } catch (error) {
+    notify.danger((error as ServiceError).message);
+  }
 };
 
 </script>
@@ -66,6 +89,15 @@ const handleEnter = async () => {
     crumbs="navigation"
   />
 
+  <Button
+    slot="header"
+    variant="danger"
+    icon="stop-circle-outline"
+    on:click={stopNavigation}
+  >
+    Stop
+  </Button>
+
   <div
     use:inview
     on:inview_enter={handleEnter}
@@ -74,11 +106,20 @@ const handleEnter = async () => {
     <div class='flex flex-wrap gap-y-2 items-end justify-between py-3 px-4'>
       <div class='flex gap-1'>
         <div class='w-80'>
-          <LngLatInput readonly label='Base position' lng={$robotPosition?.lng} lat={$robotPosition?.lat}>
-            <v-button
-              variant='icon'
+          <LngLatInput readonly label='Base position' lng={$pose?.lng} lat={$pose?.lat}>
+            <IconButton
+              label='Focus on base'
               icon='image-filter-center-focus'
-              on:click={() => $robotPosition && flyToMap($robotPosition)}
+              on:click={() => {
+                if ($pose) {
+                  map?.flyTo({
+                    zoom: 15,
+                    duration: 800,
+                    curve: 0.1,
+                    center: [$pose.lng, $pose.lat],
+                  });
+                }
+              }}
             />
           </LngLatInput>
         </div>
@@ -87,24 +128,28 @@ const handleEnter = async () => {
       <v-radio
         label="Navigation mode"
         options="Manual, Waypoint"
-        selected={navMode}
-        on:input={setNavigationMode}
-      />
-
-      <LngLatInput
-        lng={$mapCenter.lng}
-        lat={$mapCenter.lat}
-        on:input={(event) => centerMap(event.detail)}
+        selected={{
+          [navigationApi.Mode.MODE_UNSPECIFIED]: '',
+          [navigationApi.Mode.MODE_MANUAL]: 'Manual',
+          [navigationApi.Mode.MODE_WAYPOINT]: 'Waypoint',
+          [navigationApi.Mode.MODE_EXPLORE]: 'Explore',
+        }[$mode ?? navigationApi.Mode.MODE_UNSPECIFIED]}
+        on:input={handleModeSelect}
       />
     </div>
 
-    <div class='sm:flex w-full items-stretch'>
-      <Nav {name} />
-
-      <div class='relative grow'>
-        <Map {name} />
-      </div>
-
+    <div class='relative h-[500px] p-4'>
+      <NavigationMap
+        bind:map
+        environment='debug'
+        baseGeoPose={$pose}
+        waypoints={$waypoints}
+        obstacles={$obstacles}
+        on:add-waypoint={handleAddWaypoint}
+        on:delete-waypoint={handleDeleteWaypoint}
+      >
+        <Waypoints {name} />
+      </NavigationMap>
     </div>
   </div>
 </Collapse>

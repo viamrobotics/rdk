@@ -5,13 +5,14 @@ import (
 	"os"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/logging"
 )
 
 func TestFFMPEGCamera(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	path := artifact.MustPath("components/camera/ffmpeg/testsrc.mpg")
 	cam, err := NewFFMPEGCamera(ctx, &Config{VideoPath: path}, logger)

@@ -11,7 +11,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/app/packages/v1"
@@ -22,6 +21,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -42,15 +42,16 @@ var _ = robot.LocalRobot(&localRobot{})
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
 type localRobot struct {
-	mu            sync.Mutex
+	// statusLock guards calls to the Status method.
+	statusLock    sync.Mutex
 	manager       *resourceManager
-	mostRecentCfg config.Config
+	mostRecentCfg atomic.Value // config.Config
 
 	operations                 *operation.Manager
 	sessionManager             session.Manager
 	packageManager             packages.ManagerSyncer
 	cloudConnSvc               cloud.ConnectionService
-	logger                     golog.Logger
+	logger                     logging.Logger
 	activeBackgroundWorkers    sync.WaitGroup
 	reconfigureWorkers         sync.WaitGroup
 	cancelBackgroundWorkers    func()
@@ -59,6 +60,8 @@ type localRobot struct {
 	configTicker               *time.Ticker
 	revealSensitiveConfigDiffs bool
 
+	// lastWeakDependentsRound stores the value of the resource graph's
+	// logical clock when updateWeakDependents was called.
 	lastWeakDependentsRound atomic.Int64
 
 	// internal services that are in the graph but we also hold onto
@@ -179,7 +182,7 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 
 // Config returns a config representing the current state of the robot.
 func (r *localRobot) Config() *config.Config {
-	cfg := r.mostRecentCfg
+	cfg := r.mostRecentCfg.Load().(config.Config)
 
 	// Use resource manager to generate Modules, Remotes, Components, Processes
 	// and Services.
@@ -197,7 +200,7 @@ func (r *localRobot) Config() *config.Config {
 }
 
 // Logger returns the logger the robot is using.
-func (r *localRobot) Logger() golog.Logger {
+func (r *localRobot) Logger() logging.Logger {
 	return r.logger
 }
 
@@ -232,109 +235,119 @@ func remoteNameByResource(resourceName resource.Name) (string, bool) {
 }
 
 func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-	r.mu.Lock()
-	resources := make(map[resource.Name]resource.Resource, len(r.manager.resources.Names()))
-	for _, name := range r.ResourceNames() {
-		res, err := r.ResourceByName(name)
-		if err != nil {
-			r.mu.Unlock()
-			return nil, resource.NewNotFoundError(name)
-		}
-		resources[name] = res
-	}
-	r.mu.Unlock()
+	r.statusLock.Lock()
+	defer r.statusLock.Unlock()
 
+	// If no resource names are specified, return status of all resources.
 	namesToDedupe := resourceNames
-	// if no names, return all
-	if len(namesToDedupe) == 0 {
-		namesToDedupe = make([]resource.Name, 0, len(resources))
-		for name := range resources {
-			namesToDedupe = append(namesToDedupe, name)
-		}
+	if len(resourceNames) == 0 {
+		namesToDedupe = append(namesToDedupe, r.manager.ResourceNames()...)
 	}
 
-	// dedupe resourceNames
-	deduped := make(map[resource.Name]struct{}, len(namesToDedupe))
+	// Dedupe resources.
+	resourceNameSet := make(map[resource.Name]struct{}, len(namesToDedupe))
 	for _, name := range namesToDedupe {
-		deduped[name] = struct{}{}
+		resourceNameSet[name] = struct{}{}
 	}
 
-	// group each resource name by remote and also get its corresponding name on the remote
-	groupedResources := make(map[string]map[resource.Name]resource.Name)
-	for name := range deduped {
+	// Group remote resource names by owning remote and map those names to
+	// corresponding name on the remote (without the remote prefix).
+	remoteResources := make(map[string]map[resource.Name]resource.Name)
+	for name := range resourceNameSet {
 		remoteName, ok := remoteNameByResource(name)
 		if !ok {
 			continue
 		}
-		mappings, ok := groupedResources[remoteName]
+		mappings, ok := remoteResources[remoteName]
 		if !ok {
 			mappings = make(map[resource.Name]resource.Name)
 		}
 		mappings[name.PopRemote()] = name
-		groupedResources[remoteName] = mappings
+		remoteResources[remoteName] = mappings
 	}
-	// make requests and map it back to the local resource name
-	remoteStatuses := make(map[resource.Name]robot.Status)
-	for remoteName, resourceNamesMappings := range groupedResources {
+
+	// Loop through remotes and get remote resource statuses through remotes.
+	combinedRemoteResourceStatuses := make(map[resource.Name]robot.Status)
+	for remoteName, resourceNameMappings := range remoteResources {
 		remote, ok := r.RemoteByName(remoteName)
 		if !ok {
 			// should never happen
-			r.Logger().Errorw("remote robot not found while creating status", "remote", remoteName)
+			r.Logger().Errorw("remote robot not found in resource graph while creating status",
+				"remote", remoteName)
 			continue
 		}
-		remoteRNames := make([]resource.Name, 0, len(resourceNamesMappings))
-		for n := range resourceNamesMappings {
-			remoteRNames = append(remoteRNames, n)
+		var remoteResourceNames []resource.Name
+		for remoteResourceName := range resourceNameMappings {
+			remoteResourceNames = append(remoteResourceNames, remoteResourceName)
 		}
 
-		s, err := remote.Status(ctx, remoteRNames)
+		// Request status of resources associated with the remote from the remote.
+		remoteResourceStatuses, err := remote.Status(ctx, remoteResourceNames)
 		if err != nil {
 			return nil, err
 		}
-		for _, stat := range s {
-			mappedName, ok := resourceNamesMappings[stat.Name]
+		for _, remoteResourceStatus := range remoteResourceStatuses {
+			mappedName, ok := resourceNameMappings[remoteResourceStatus.Name]
 			if !ok {
 				// should never happen
 				r.Logger().Errorw(
 					"failed to find corresponding resource name for remote resource name while creating status",
-					"resource", stat.Name,
+					"resource", remoteResourceStatus.Name,
 				)
 				continue
 			}
-			stat.Name = mappedName
-			remoteStatuses[mappedName] = stat
+			// Set name to have remote prefix and add to remoteStatuses.
+			remoteResourceStatus.Name = mappedName
+			combinedRemoteResourceStatuses[mappedName] = remoteResourceStatus
 		}
 	}
-	statuses := make([]robot.Status, 0, len(deduped))
-	for name := range deduped {
-		resourceStatus, ok := remoteStatuses[name]
+
+	// Loop through entire resourceNameSet and get status for any local resources.
+	combinedResourceStatuses := make([]robot.Status, 0, len(resourceNameSet))
+	for name := range resourceNameSet {
+		// Just append status if it was a remote resource.
+		resourceStatus, ok := combinedRemoteResourceStatuses[name]
 		if !ok {
-			res, ok := resources[name]
-			if !ok {
-				return nil, resource.NewNotFoundError(name)
+			res, err := r.manager.ResourceByName(name)
+			if err != nil {
+				return nil, err
 			}
-			// if resource API has an associated CreateStatus method, use that
-			// otherwise return an empty status
+
+			// If resource API registration had an associated CreateStatus method,
+			// call that method, otherwise return an empty status.
 			var status interface{} = map[string]interface{}{}
-			var err error
-			if apiReg, ok := resource.LookupGenericAPIRegistration(name.API); ok && apiReg.Status != nil {
+			if apiReg, ok := resource.LookupGenericAPIRegistration(name.API); ok &&
+				apiReg.Status != nil {
 				status, err = apiReg.Status(ctx, res)
 				if err != nil {
 					return nil, errors.Wrapf(err, "failed to get status from %q", name)
 				}
 			}
-			resourceStatus = robot.Status{Name: name, Status: status}
+			resNode, ok := r.manager.resources.Node(name)
+			if !ok {
+				return nil, resource.NewNotFoundError(name)
+			}
+			lastReconfigured := resNode.LastReconfigured()
+			if lastReconfigured == nil {
+				return nil, errors.Errorf("resource %s queried for status is not configured",
+					name)
+			}
+			resourceStatus = robot.Status{
+				Name:             name,
+				LastReconfigured: *lastReconfigured,
+				Status:           status,
+			}
 		}
-		statuses = append(statuses, resourceStatus)
+		combinedResourceStatuses = append(combinedResourceStatuses, resourceStatus)
 	}
-	return statuses, nil
+	return combinedResourceStatuses, nil
 }
 
 func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
 	resources map[resource.Name]resource.Resource,
-	logger golog.Logger,
+	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
 	var rOpts options
@@ -364,6 +377,7 @@ func newWithResources(
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
 		cloudConnSvc:               cloud.NewCloudConnectionService(cfg.Cloud, logger),
 	}
+	r.mostRecentCfg.Store(config.Config{})
 	var heartbeatWindow time.Duration
 	if cfg.Network.Sessions.HeartbeatWindow == 0 {
 		heartbeatWindow = config.DefaultSessionHeartbeatWindow
@@ -384,7 +398,7 @@ func newWithResources(
 	if cfg.Cloud != nil && cfg.Cloud.AppAddress != "" {
 		_, cloudConn, err := r.cloudConnSvc.AcquireConnection(ctx)
 		if err == nil {
-			r.packageManager, err = packages.NewCloudManager(pb.NewPackageServiceClient(cloudConn), cfg.PackagePath, logger)
+			r.packageManager, err = packages.NewCloudManager(cfg.Cloud, pb.NewPackageServiceClient(cloudConn), cfg.PackagePath, logger)
 			if err != nil {
 				return nil, err
 			}
@@ -437,8 +451,12 @@ func newWithResources(
 		return nil, err
 	}
 
+	var cloudID string
+	if cfg.Cloud != nil {
+		cloudID = cfg.Cloud.ID
+	}
 	// Once web service is started, start module manager
-	r.manager.startModuleManager(r.webSvc.ModuleAddress(), r.removeOrphanedResources, cfg.UntrustedEnv, logger)
+	r.manager.startModuleManager(r.webSvc.ModuleAddress(), r.removeOrphanedResources, cfg.UntrustedEnv, config.ViamDotDir, cloudID, logger)
 
 	r.activeBackgroundWorkers.Add(1)
 	r.configTicker = time.NewTicker(5 * time.Second)
@@ -469,7 +487,6 @@ func newWithResources(
 		}
 	}, r.activeBackgroundWorkers.Done)
 
-	r.mostRecentCfg = config.Config{}
 	r.Reconfigure(ctx, cfg)
 
 	for name, res := range resources {
@@ -491,7 +508,7 @@ func newWithResources(
 func New(
 	ctx context.Context,
 	cfg *config.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
 	return newWithResources(ctx, cfg, nil, logger, opts...)
@@ -524,6 +541,9 @@ func (r *localRobot) getDependencies(
 	allDeps := make(resource.Dependencies)
 	var needUpdate bool
 	for _, dep := range r.manager.resources.GetAllParentsOf(rName) {
+		// If any of the dependencies of this resource has an updatedAt value that
+		// is "later" than the last value at which we ran updateWeakDependents,
+		// ensure that we run updateWeakDependents later in this method.
 		if node, ok := r.manager.resources.Node(dep); ok {
 			if r.lastWeakDependentsRound.Load() <= node.UpdatedAt() {
 				needUpdate = true
@@ -568,6 +588,7 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 	internalResources := map[resource.Name]resource.Resource{}
 	components := map[resource.Name]resource.Resource{}
 	slamServices := map[resource.Name]resource.Resource{}
+	visionServices := map[resource.Name]resource.Resource{}
 	for _, n := range r.manager.resources.Names() {
 		if !(n.API.IsComponent() || n.API.IsService()) {
 			continue
@@ -585,6 +606,8 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 			components[n] = res
 		case n.API.SubtypeName == slam.API.SubtypeName:
 			slamServices[n] = res
+		case len(visionSubtypeName) > 0 && n.API.SubtypeName == visionSubtypeName:
+			visionServices[n] = res
 		case n.API.Type.Namespace == resource.APINamespaceRDKInternal:
 			internalResources[n] = res
 		}
@@ -605,6 +628,8 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 			match(components)
 		case internal.SLAMDependencyWildcardMatcher:
 			match(slamServices)
+		case internal.VisionDependencyWildcardMatcher:
+			match(visionServices)
 		default:
 			// no other matchers supported right now. you could imagine a LiteralMatcher in the future
 		}
@@ -643,7 +668,7 @@ func (r *localRobot) newResource(
 		}
 	}
 
-	resLogger := r.logger.Named(conf.ResourceName().String())
+	resLogger := r.logger.Sublogger(conf.ResourceName().String())
 	if resInfo.Constructor != nil {
 		return resInfo.Constructor(ctx, deps, conf, resLogger)
 	}
@@ -655,9 +680,10 @@ func (r *localRobot) newResource(
 }
 
 func (r *localRobot) updateWeakDependents(ctx context.Context) {
-	// track that we are current in resources up to the latest update time. This will
-	// be used to determine if this method should be called while completing a config.
-	r.lastWeakDependentsRound.Store(r.manager.resources.LastUpdatedTime())
+	// Track the current value of the resource graph's logical clock. This will
+	// later be used to determine if updateWeakDependents should be called during
+	// getDependencies.
+	r.lastWeakDependentsRound.Store(r.manager.resources.CurrLogicalClockValue())
 
 	allResources := map[resource.Name]resource.Resource{}
 	internalResources := map[resource.Name]resource.Resource{}
@@ -924,7 +950,7 @@ func (r *localRobot) TransformPointCloud(
 }
 
 // RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
-func RobotFromConfigPath(ctx context.Context, cfgPath string, logger golog.Logger, opts ...Option) (robot.LocalRobot, error) {
+func RobotFromConfigPath(ctx context.Context, cfgPath string, logger logging.Logger, opts ...Option) (robot.LocalRobot, error) {
 	cfg, err := config.Read(ctx, cfgPath, logger)
 	if err != nil {
 		logger.Error("cannot read config")
@@ -934,7 +960,7 @@ func RobotFromConfigPath(ctx context.Context, cfgPath string, logger golog.Logge
 }
 
 // RobotFromConfig is a helper to process a config and then create a robot based on it.
-func RobotFromConfig(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...Option) (robot.LocalRobot, error) {
+func RobotFromConfig(ctx context.Context, cfg *config.Config, logger logging.Logger, opts ...Option) (robot.LocalRobot, error) {
 	tlsConfig := config.NewTLSConfig(cfg)
 	processedCfg, err := config.ProcessConfig(cfg, tlsConfig)
 	if err != nil {
@@ -948,7 +974,7 @@ func RobotFromConfig(ctx context.Context, cfg *config.Config, logger golog.Logge
 func RobotFromResources(
 	ctx context.Context,
 	resources map[resource.Name]resource.Resource,
-	logger golog.Logger,
+	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
 	return newWithResources(ctx, &config.Config{}, resources, logger, opts...)
@@ -972,7 +998,7 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 		}
 
 		if reg.Discover != nil {
-			discovered, err := reg.Discover(ctx, r.logger.Named("discovery"))
+			discovered, err := reg.Discover(ctx, r.logger.Sublogger("discovery"))
 			if err != nil {
 				return nil, &resource.DiscoverError{Query: q}
 			}
@@ -985,7 +1011,7 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 func dialRobotClient(
 	ctx context.Context,
 	config config.Remote,
-	logger golog.Logger,
+	logger logging.Logger,
 	dialOpts ...rpc.DialOption,
 ) (*client.RobotClient, error) {
 	rOpts := []client.RobotClientOption{client.WithDialOptions(dialOpts...), client.WithRemoteName(config.Name)}
@@ -1081,51 +1107,13 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if diff.ResourcesEqual {
 		return
 	}
-	// Set mostRecentConfig if resources were not equal.
-	r.mostRecentCfg = *newConfig
-
-	// We need to pre-add the new modules so that resource validation can check against the new models
-	// TODO(RSDK-4383) These lines are taken from uppdateResources() and should be refactored as part of this bugfix
-	for _, mod := range diff.Added.Modules {
-		if err := mod.Validate(""); err != nil {
-			r.manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
-			continue
-		}
-		if err := r.manager.moduleManager.Add(ctx, mod); err != nil {
-			r.manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
-			continue
-		}
-	}
-
-	// If something was added or modified, go through components and services in
-	// diff.Added and diff.Modified, call Validate on all those that are modularized,
-	// and store implicit dependencies.
-	validateModularResources := func(confs []resource.Config) {
-		for i, c := range confs {
-			if r.manager.moduleManager.Provides(c) {
-				implicitDeps, err := r.manager.moduleManager.ValidateConfig(ctx, c)
-				if err != nil {
-					r.logger.Errorw("modular config validation error found in resource: "+c.Name, "error", err)
-					continue
-				}
-
-				// Modify resource to add its implicit dependencies.
-				confs[i].ImplicitDependsOn = implicitDeps
-			}
-		}
-	}
-	if diff.Added != nil {
-		validateModularResources(diff.Added.Components)
-		validateModularResources(diff.Added.Services)
-	}
-	if diff.Modified != nil {
-		validateModularResources(diff.Modified.Components)
-		validateModularResources(diff.Modified.Services)
-	}
 
 	if r.revealSensitiveConfigDiffs {
 		r.logger.Debugf("(re)configuring with %+v", diff)
 	}
+
+	// Set mostRecentConfig if resources were not equal.
+	r.mostRecentCfg.Store(*newConfig)
 
 	// First we mark diff.Removed resources and their children for removal.
 	processesToClose, resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed, r.logger)
@@ -1153,9 +1141,11 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		allErrs = multierr.Combine(allErrs, err)
 	}
 
-	// cleanup unused packages after all old resources have been closed above. This ensures
+	// Cleanup unused packages after all old resources have been closed above. This ensures
 	// processes are shutdown before any files are deleted they are using.
 	allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
+	// Cleanup extra dirs from previous modules or rogue scripts.
+	allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
 
 	if allErrs != nil {
 		r.logger.Errorw("the following errors were gathered during reconfiguration", "errors", allErrs)

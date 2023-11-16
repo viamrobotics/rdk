@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/bep/debounce"
-	"github.com/edaniels/golog"
 	"github.com/fsnotify/fsnotify"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/logging"
 )
 
 // A Watcher is responsible for watching for changes
@@ -22,7 +23,7 @@ type Watcher interface {
 
 // NewWatcher returns an optimally selected Watcher based on the
 // given config.
-func NewWatcher(ctx context.Context, config *Config, logger golog.Logger) (Watcher, error) {
+func NewWatcher(ctx context.Context, config *Config, logger logging.Logger) (Watcher, error) {
 	if err := config.Ensure(false, logger); err != nil {
 		return nil, err
 	}
@@ -46,7 +47,7 @@ const checkForNewCertInterval = time.Hour
 
 // newCloudWatcher returns a cloudWatcher that will periodically fetch
 // new configs from the cloud.
-func newCloudWatcher(ctx context.Context, config *Config, logger golog.Logger) *cloudWatcher {
+func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger) *cloudWatcher {
 	configCh := make(chan *Config)
 	watcherDoneCh := make(chan struct{})
 	cancelCtx, cancel := context.WithCancel(ctx)
@@ -114,7 +115,7 @@ type fsConfigWatcher struct {
 
 // newFSWatcher returns a new v that will fetch new configs
 // as soon as the underlying file is written to.
-func newFSWatcher(ctx context.Context, configPath string, logger golog.Logger) (*fsConfigWatcher, error) {
+func newFSWatcher(ctx context.Context, configPath string, logger logging.Logger) (*fsConfigWatcher, error) {
 	fsWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -138,6 +139,7 @@ func newFSWatcher(ctx context.Context, configPath string, logger golog.Logger) (
 			case event := <-fsWatcher.Events:
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					debounced(func() {
+						logger.Info("On-disk config file changed. Reloading the config file.")
 						//nolint:gosec
 						rd, err := os.ReadFile(configPath)
 						if err != nil {

@@ -5,13 +5,13 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/edaniels/golog"
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -19,6 +19,7 @@ import (
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -26,6 +27,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	rdkgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/module/modmaninterface"
@@ -39,10 +41,13 @@ var (
 	errMessageExitStatus143     = "exit status 143"
 	logLevelArgumentTemplate    = "--log-level=%s"
 	errModularResourcesDisabled = errors.New("modular resources disabled in untrusted environment")
+	// name of the folder under the viamHomeDir that holds all the folders for the module data
+	// ex: /home/walle/.viam/module-data/<cloud-robot-id>/<module-name>
+	parentModuleDataFolderName = "module-data"
 )
 
 // NewManager returns a Manager.
-func NewManager(parentAddr string, logger golog.Logger, options modmanageroptions.Options) modmaninterface.ModuleManager {
+func NewManager(parentAddr string, logger logging.Logger, options modmanageroptions.Options) modmaninterface.ModuleManager {
 	restartCtx, restartCtxCancel := context.WithCancel(context.Background())
 	return &Manager{
 		logger:                  logger,
@@ -50,6 +55,8 @@ func NewManager(parentAddr string, logger golog.Logger, options modmanageroption
 		parentAddr:              parentAddr,
 		rMap:                    map[resource.Name]*module{},
 		untrustedEnv:            options.UntrustedEnv,
+		viamHomeDir:             options.ViamHomeDir,
+		moduleDataParentDir:     getModuleDataParentDirectory(options),
 		removeOrphanedResources: options.RemoveOrphanedResources,
 		restartCtx:              restartCtx,
 		restartCtxCancel:        restartCtxCancel,
@@ -57,9 +64,8 @@ func NewManager(parentAddr string, logger golog.Logger, options modmanageroption
 }
 
 type module struct {
-	name      string
-	exe       string
-	logLevel  string
+	cfg       config.Module
+	dataDir   string
 	process   pexec.ManagedProcess
 	handles   modlib.HandlerMap
 	conn      *grpc.ClientConn
@@ -88,12 +94,19 @@ type addedResource struct {
 
 // Manager is the root structure for the module system.
 type Manager struct {
-	mu                      sync.RWMutex
-	logger                  golog.Logger
-	modules                 map[string]*module
-	parentAddr              string
-	rMap                    map[resource.Name]*module
-	untrustedEnv            bool
+	mu           sync.RWMutex
+	logger       logging.Logger
+	modules      map[string]*module
+	parentAddr   string
+	rMap         map[resource.Name]*module
+	untrustedEnv bool
+	// viamHomeDir is the absolute path to the viam home directory. Ex: /home/walle/.viam
+	// `viamHomeDir` may only be the empty string in testing
+	viamHomeDir string
+	// moduleDataParentDir is the absolute path to the current robots module data directory.
+	// Ex: /home/walle/.viam/module-data/<cloud-robot-id>
+	// it is empty if the modmanageroptions.Options.viamHomeDir was empty
+	moduleDataParentDir     string
 	removeOrphanedResources func(ctx context.Context, rNames []resource.Name)
 	restartCtx              context.Context
 	restartCtxCancel        context.CancelFunc
@@ -114,6 +127,20 @@ func (mgr *Manager) Close(ctx context.Context) error {
 	return err
 }
 
+// Handles returns all the models for each module registered.
+func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+
+	res := map[string]modlib.HandlerMap{}
+
+	for n, m := range mgr.modules {
+		res[n] = m.handles
+	}
+
+	return res
+}
+
 // Add adds and starts a new resource module.
 func (mgr *Manager) Add(ctx context.Context, conf config.Module) error {
 	mgr.mu.Lock()
@@ -131,10 +158,20 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		return nil
 	}
 
+	var moduleDataDir string
+	// only set the module data directory if the parent dir is present (which it might not be during tests)
+	if mgr.moduleDataParentDir != "" {
+		moduleDataDir = filepath.Join(mgr.moduleDataParentDir, conf.Name)
+		// safety check to prevent exiting the moduleDataDirectory in case conf.Name ends up including characters like ".."
+		if !strings.HasPrefix(filepath.Clean(moduleDataDir), filepath.Clean(mgr.moduleDataParentDir)) {
+			return errors.Errorf("module %q would have a data directory %q outside of the module data directory %q",
+				conf.Name, moduleDataDir, mgr.moduleDataParentDir)
+		}
+	}
+
 	mod := &module{
-		name:      conf.Name,
-		exe:       conf.ExePath,
-		logLevel:  conf.LogLevel,
+		cfg:       conf,
+		dataDir:   moduleDataDir,
 		conn:      conn,
 		resources: map[resource.Name]*addedResource{},
 	}
@@ -153,18 +190,26 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		}
 	}()
 
+	// create the module's data directory
+	if mod.dataDir != "" {
+		mgr.logger.Infof("Creating data directory %q for module %q", mod.dataDir, mod.cfg.Name)
+		if err := os.MkdirAll(mod.dataDir, 0o750); err != nil {
+			return errors.WithMessage(err, "error while creating data directory for module "+mod.cfg.Name)
+		}
+	}
+
 	if err := mod.startProcess(mgr.restartCtx, mgr.parentAddr,
-		mgr.newOnUnexpectedExitHandler(mod), mgr.logger); err != nil {
-		return errors.WithMessage(err, "error while starting module "+mod.name)
+		mgr.newOnUnexpectedExitHandler(mod), mgr.logger, mgr.viamHomeDir); err != nil {
+		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
 	}
 
 	// dial will re-use mod.conn if it's non-nil (module being added in a Reconfigure).
 	if err := mod.dial(); err != nil {
-		return errors.WithMessage(err, "error while dialing module "+mod.name)
+		return errors.WithMessage(err, "error while dialing module "+mod.cfg.Name)
 	}
 
 	if err := mod.checkReady(ctx, mgr.parentAddr, mgr.logger); err != nil {
-		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.name)
+		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.cfg.Name)
 	}
 
 	mod.registerResources(mgr, mgr.logger)
@@ -241,26 +286,26 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 func (mgr *Manager) remove(mod *module, reconfigure bool) error {
 	// resource manager should've removed these cleanly if this isn't a reconfigure
 	if !reconfigure && len(mod.resources) != 0 {
-		mgr.logger.Warnw("forcing removal of module with active resources", "module", mod.name)
+		mgr.logger.Warnw("forcing removal of module with active resources", "module", mod.cfg.Name)
 	}
 
 	// need to actually close the resources within the module itself before stopping
 	for res := range mod.resources {
 		_, err := mod.client.RemoveResource(context.Background(), &pb.RemoveResourceRequest{Name: res.String()})
 		if err != nil {
-			mgr.logger.Errorw("error removing resource", "module", mod.name, "resource", res.Name, "error", err)
+			mgr.logger.Errorw("error removing resource", "module", mod.cfg.Name, "resource", res.Name, "error", err)
 		}
 	}
 
 	if err := mod.stopProcess(); err != nil {
-		return errors.WithMessage(err, "error while stopping module "+mod.name)
+		return errors.WithMessage(err, "error while stopping module "+mod.cfg.Name)
 	}
 
 	// Do not close connection if module is being reconfigured.
 	if !reconfigure {
 		if mod.conn != nil {
 			if err := mod.conn.Close(); err != nil {
-				return errors.WithMessage(err, "error while closing connection from module "+mod.name)
+				return errors.WithMessage(err, "error while closing connection from module "+mod.cfg.Name)
 			}
 		}
 	}
@@ -272,7 +317,7 @@ func (mgr *Manager) remove(mod *module, reconfigure bool) error {
 			delete(mgr.rMap, r)
 		}
 	}
-	delete(mgr.modules, mod.name)
+	delete(mgr.modules, mod.cfg.Name)
 	return nil
 }
 
@@ -338,9 +383,7 @@ func (mgr *Manager) Configs() []config.Module {
 	defer mgr.mu.RUnlock()
 	var configs []config.Module
 	for _, mod := range mgr.modules {
-		configs = append(configs, config.Module{
-			Name: mod.name, ExePath: mod.exe, LogLevel: mod.logLevel,
-		})
+		configs = append(configs, mod.cfg)
 	}
 	return configs
 }
@@ -417,6 +460,67 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	return resp.Dependencies, nil
 }
 
+// ResolveImplicitDependenciesInConfig modifies the config diff to add implicit dependencies to changed resources
+// and updates modular resources whose module has been changed with new implicit deps and adds them to conf.Modified.
+func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
+	mgr.mu.RLock()
+	defer mgr.mu.RUnlock()
+	// Find all components/services that are unmodified but whose module has been updated and add them to the modified array.
+	for _, c := range conf.Right.Components {
+		// See if this component is being provided by a module
+		mod, ok := mgr.getModule(c)
+		if !ok {
+			continue
+		}
+		// If it is, check against the modified modules to determine if the config should also be updated but won't already be
+		if slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool { return elem.Name == mod.cfg.Name }) &&
+			!slices.ContainsFunc(conf.Added.Components, func(elem resource.Config) bool { return elem.Name == c.Name }) &&
+			!slices.ContainsFunc(conf.Modified.Components, func(elem resource.Config) bool { return elem.Name == c.Name }) {
+			conf.Modified.Components = append(conf.Modified.Components, c)
+		}
+	}
+	for _, s := range conf.Right.Services {
+		// See if this component is being provided by a module
+		mod, ok := mgr.getModule(s)
+		if !ok {
+			continue
+		}
+		// If it is, check against the modified modules to determine if the config should also be updated but won't already be
+		if slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool { return elem.Name == mod.cfg.Name }) &&
+			!slices.ContainsFunc(conf.Added.Services, func(elem resource.Config) bool { return elem.Name == s.Name }) &&
+			!slices.ContainsFunc(conf.Modified.Services, func(elem resource.Config) bool { return elem.Name == s.Name }) {
+			conf.Modified.Services = append(conf.Modified.Services, s)
+		}
+	}
+
+	// If something was added or modified, go through components and services in
+	// diff.Added and diff.Modified, call Validate on all those that are modularized,
+	// and store implicit dependencies.
+	validateModularResources := func(confs []resource.Config) {
+		for i, c := range confs {
+			if mgr.Provides(c) {
+				implicitDeps, err := mgr.ValidateConfig(ctx, c)
+				if err != nil {
+					mgr.logger.Errorw("modular config validation error found in resource: "+c.Name, "error", err)
+					continue
+				}
+
+				// Modify resource to add its implicit dependencies.
+				confs[i].ImplicitDependsOn = implicitDeps
+			}
+		}
+	}
+	if conf.Added != nil {
+		validateModularResources(conf.Added.Components)
+		validateModularResources(conf.Added.Services)
+	}
+	if conf.Modified != nil {
+		validateModularResources(conf.Modified.Components)
+		validateModularResources(conf.Modified.Services)
+	}
+	return nil
+}
+
 func (mgr *Manager) getModule(conf resource.Config) (*module, bool) {
 	for _, mod := range mgr.modules {
 		var api resource.RPCAPI
@@ -438,6 +542,51 @@ func (mgr *Manager) getModule(conf resource.Config) (*module, bool) {
 		}
 	}
 	return nil, false
+}
+
+// CleanModuleDataDirectory removes unexpected folders and files from the robot's module data directory.
+// Modules removed from the robot config (even temporarily) will get pruned here.
+func (mgr *Manager) CleanModuleDataDirectory() error {
+	if mgr.moduleDataParentDir == "" {
+		return errors.New("cannot clean a root level module data directory")
+	}
+	// Early exit if the moduleDataParentDir has not been created because there is nothing to clean
+	if _, err := os.Stat(mgr.moduleDataParentDir); errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	// Absolute path to all dirs that should exist
+	expectedDirs := make(map[string]bool, len(mgr.modules))
+	for _, m := range mgr.modules {
+		expectedDirs[m.dataDir] = true
+	}
+	// If there are no expected directories, we can shortcut and early-exit
+	if len(expectedDirs) == 0 {
+		mgr.logger.Infof("Removing module data parent directory %q", mgr.moduleDataParentDir)
+		if err := os.RemoveAll(mgr.moduleDataParentDir); err != nil {
+			return errors.Wrapf(err, "failed to clean parent module data directory %q", mgr.moduleDataParentDir)
+		}
+		return nil
+	}
+	// Scan dataFolder for all existing directories
+	existingDirs, err := filepath.Glob(filepath.Join(mgr.moduleDataParentDir, "*"))
+	if err != nil {
+		return err
+	}
+	// Delete directories in dataFolder that are not in expectedDirs
+	for _, dir := range existingDirs {
+		if _, expected := expectedDirs[dir]; !expected {
+			// This is already checked in module.add(), however there is no harm in double-checking before recursively deleting directories
+			if !strings.HasPrefix(filepath.Clean(dir), filepath.Clean(mgr.moduleDataParentDir)) {
+				return errors.Errorf("attempted to delete a module data dir %q which is not in the viam module data directory %q",
+					dir, mgr.moduleDataParentDir)
+			}
+			mgr.logger.Infof("Removing module data directory %q", dir)
+			if err := os.RemoveAll(dir); err != nil {
+				return errors.Wrapf(err, "failed to clean module data directory %q", dir)
+			}
+		}
+	}
+	return nil
 }
 
 var (
@@ -470,7 +619,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		// Log error immediately, as this is unexpected behavior.
 		mgr.logger.Errorw(
 			"module has unexpectedly exited, attempting to restart it",
-			"module", mod.name,
+			"module", mod.cfg.Name,
 			"exit_code", exitCode,
 		)
 
@@ -492,7 +641,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		for name, res := range mod.resources {
 			if _, err := mgr.addResource(ctx, res.conf, res.deps); err != nil {
 				mgr.logger.Warnw("error while re-adding resource to module",
-					"resource", name, "module", mod.name, "error", err)
+					"resource", name, "module", mod.cfg.Name, "error", err)
 				delete(mgr.rMap, name)
 				delete(mod.resources, name)
 				orphanedResourceNames = append(orphanedResourceNames, name)
@@ -502,7 +651,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 			mgr.removeOrphanedResources(ctx, orphanedResourceNames)
 		}
 
-		mgr.logger.Infow("module successfully restarted", "module", mod.name)
+		mgr.logger.Infow("module successfully restarted", "module", mod.cfg.Name)
 		return false
 	}
 }
@@ -539,9 +688,9 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	// Attempt to restart module process 3 times.
 	for attempt := 1; attempt < 4; attempt++ {
 		if err := mod.startProcess(mgr.restartCtx, mgr.parentAddr,
-			mgr.newOnUnexpectedExitHandler(mod), mgr.logger); err != nil {
+			mgr.newOnUnexpectedExitHandler(mod), mgr.logger, mgr.viamHomeDir); err != nil {
 			mgr.logger.Errorf("attempt %d: error while restarting crashed module %s: %v",
-				attempt, mod.name, err)
+				attempt, mod.cfg.Name, err)
 			if attempt == 3 {
 				// return early upon last attempt failure.
 				return orphanedResourceNames
@@ -558,13 +707,13 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	// crashes.
 	if err := mod.dial(); err != nil {
 		mgr.logger.Errorw("error while dialing restarted module",
-			"module", mod.name, "error", err)
+			"module", mod.cfg.Name, "error", err)
 		return orphanedResourceNames
 	}
 
 	if err := mod.checkReady(ctx, mgr.parentAddr, mgr.logger); err != nil {
 		mgr.logger.Errorw("error while waiting for restarted module to be ready",
-			"module", mod.name, "error", err)
+			"module", mod.cfg.Name, "error", err)
 		return orphanedResourceNames
 	}
 
@@ -600,7 +749,7 @@ func (m *module) dial() error {
 	return nil
 }
 
-func (m *module) checkReady(ctx context.Context, parentAddr string, logger golog.Logger) error {
+func (m *module) checkReady(ctx context.Context, parentAddr string, logger logging.Logger) error {
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, rutils.GetResourceConfigurationTimeout(logger))
 	defer cancelFunc()
 
@@ -623,29 +772,48 @@ func (m *module) startProcess(
 	ctx context.Context,
 	parentAddr string,
 	oue func(int) bool,
-	logger golog.Logger,
+	logger logging.Logger,
+	viamHomeDir string,
 ) error {
 	var err error
-	if m.addr, err = modlib.CreateSocketAddress(filepath.Dir(parentAddr), m.name); err != nil {
+	if m.addr, err = modlib.CreateSocketAddress(filepath.Dir(parentAddr), m.cfg.Name); err != nil {
 		return err
 	}
 
+	// We evaluate the Module's ExePath absolutely in the viam-server process so that
+	// setting the CWD does not cause issues with relative process names
+	absoluteExePath, err := filepath.Abs(m.cfg.ExePath)
+	if err != nil {
+		return err
+	}
+	moduleEnvironment := m.getFullEnvironment(viamHomeDir)
+	// Prefer VIAM_MODULE_ROOT as the current working directory if present but fallback to the directory of the exepath
+	moduleWorkingDirectory, ok := moduleEnvironment["VIAM_MODULE_ROOT"]
+	if !ok {
+		moduleWorkingDirectory = filepath.Dir(absoluteExePath)
+		logger.Warnf("VIAM_MODULE_ROOT was not passed to module %q. Defaulting to %q", m.cfg.Name, moduleWorkingDirectory)
+	} else {
+		logger.Debugf("Starting module %q in working directory %q", m.cfg.Name, moduleWorkingDirectory)
+	}
+
 	pconf := pexec.ProcessConfig{
-		ID:               m.name,
-		Name:             m.exe,
+		ID:               m.cfg.Name,
+		Name:             absoluteExePath,
 		Args:             []string{m.addr},
+		CWD:              moduleWorkingDirectory,
+		Environment:      moduleEnvironment,
 		Log:              true,
 		OnUnexpectedExit: oue,
 	}
 	// Start module process with supplied log level or "debug" if none is
 	// supplied and module manager has a DebugLevel logger.
-	if m.logLevel != "" {
-		pconf.Args = append(pconf.Args, fmt.Sprintf(logLevelArgumentTemplate, m.logLevel))
+	if m.cfg.LogLevel != "" {
+		pconf.Args = append(pconf.Args, fmt.Sprintf(logLevelArgumentTemplate, m.cfg.LogLevel))
 	} else if logger.Level().Enabled(zapcore.DebugLevel) {
 		pconf.Args = append(pconf.Args, fmt.Sprintf(logLevelArgumentTemplate, "debug"))
 	}
 
-	m.process = pexec.NewManagedProcess(pconf, logger)
+	m.process = pexec.NewManagedProcess(pconf, logger.AsZap())
 
 	if err := m.process.Start(context.Background()); err != nil {
 		return errors.WithMessage(err, "module startup failed")
@@ -656,7 +824,7 @@ func (m *module) startProcess(
 	for {
 		select {
 		case <-ctxTimeout.Done():
-			return errors.Errorf("timed out waiting for module %s to start listening", m.name)
+			return errors.Errorf("timed out waiting for module %s to start listening", m.cfg.Name)
 		default:
 		}
 		err = modlib.CheckSocketOwner(m.addr)
@@ -688,7 +856,7 @@ func (m *module) stopProcess() error {
 	return nil
 }
 
-func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger golog.Logger) {
+func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger logging.Logger) {
 	for api, models := range m.handles {
 		if _, ok := resource.LookupGenericAPIRegistration(api.API); !ok {
 			resource.RegisterAPI(
@@ -700,13 +868,13 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger gol
 		switch {
 		case api.API.IsComponent():
 			for _, model := range models {
-				logger.Debugw("registering component from module", "module", m.name, "API", api.API, "model", model)
+				logger.Infow("registering component from module", "module", m.cfg.Name, "API", api.API, "model", model)
 				resource.RegisterComponent(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
 						deps resource.Dependencies,
 						conf resource.Config,
-						logger golog.Logger,
+						logger logging.Logger,
 					) (resource.Resource, error) {
 						return mgr.AddResource(ctx, conf, DepsToNames(deps))
 					},
@@ -714,13 +882,13 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger gol
 			}
 		case api.API.IsService():
 			for _, model := range models {
-				logger.Debugw("registering service from module", "module", m.name, "API", api.API, "model", model)
+				logger.Infow("registering service from module", "module", m.cfg.Name, "API", api.API, "model", model)
 				resource.RegisterService(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
 						deps resource.Dependencies,
 						conf resource.Config,
-						logger golog.Logger,
+						logger logging.Logger,
 					) (resource.Resource, error) {
 						return mgr.AddResource(ctx, conf, DepsToNames(deps))
 					},
@@ -747,7 +915,7 @@ func (m *module) cleanupAfterStartupFailure(mgr *Manager, afterCrash bool) {
 		if afterCrash {
 			msg = "error while stopping process of crashed module"
 		}
-		mgr.logger.Errorw(msg, "module", m.name, "error", err)
+		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 	}
 	if m.conn != nil {
 		if err := m.conn.Close(); err != nil {
@@ -755,7 +923,7 @@ func (m *module) cleanupAfterStartupFailure(mgr *Manager, afterCrash bool) {
 			if afterCrash {
 				msg = "error while closing connection to crashed module"
 			}
-			mgr.logger.Errorw(msg, "module", m.name, "error", err)
+			mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 		}
 	}
 
@@ -766,8 +934,23 @@ func (m *module) cleanupAfterStartupFailure(mgr *Manager, afterCrash bool) {
 				delete(mgr.rMap, r)
 			}
 		}
-		delete(mgr.modules, m.name)
+		delete(mgr.modules, m.cfg.Name)
 	}
+}
+
+func (m *module) getFullEnvironment(viamHomeDir string) map[string]string {
+	environment := map[string]string{
+		"VIAM_HOME":        viamHomeDir,
+		"VIAM_MODULE_DATA": m.dataDir,
+	}
+	if m.cfg.Type == config.ModuleTypeRegistry {
+		environment["VIAM_MODULE_ID"] = m.cfg.ModuleID
+	}
+	// Overwrite the base environment variables with the module's environment variables (if specified)
+	for key, value := range m.cfg.Environment {
+		environment[key] = value
+	}
+	return environment
 }
 
 // DepsToNames converts a dependency list to a simple string slice.
@@ -777,4 +960,25 @@ func DepsToNames(deps resource.Dependencies) []string {
 		depStrings = append(depStrings, dep.String())
 	}
 	return depStrings
+}
+
+// getModuleDataParentDirectory generates the Manager's moduleDataParentDirectory.
+// This directory should contain exactly one directory for each module present on the modmanager
+// For cloud robots, it will generate a directory in the form:
+// options.ViamHomeDir/module-data/<cloud-robot-id>
+// For local robots, it should be in the form
+// options.ViamHomeDir/module-data/local.
+//
+// If no ViamHomeDir is provided, this will return an empty moduleDataParentDirectory (and no module data directories will be created).
+func getModuleDataParentDirectory(options modmanageroptions.Options) string {
+	// if the home directory is empty, this is probably being run from an unrelated test
+	// and creating a file could lead to race conditions
+	if options.ViamHomeDir == "" {
+		return ""
+	}
+	robotID := options.RobotCloudID
+	if robotID == "" {
+		robotID = "local"
+	}
+	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
 }

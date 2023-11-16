@@ -23,6 +23,8 @@ let setLevel = '';
 let pwm = '';
 let pwmFrequency = '';
 let getPinMessage = '';
+let analogPin = '';
+let analogValue = '';
 
 const getGPIO = async () => {
   try {
@@ -75,20 +77,36 @@ const setPWMFrequency = async () => {
   }
 };
 
-const handleGetPinInput = (event: CustomEvent) => {
+const writeAnalog = async () => {
+  try {
+    await boardClient.writeAnalog(analogPin, Number.parseInt(analogValue, 10));
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
+};
+
+const handleGetPinInput = (event: CustomEvent<{ value: string}>) => {
   getPin = event.detail.value;
 };
 
-const handleSetPinInput = (event: CustomEvent) => {
+const handleSetPinInput = (event: CustomEvent<{ value: string}>) => {
   setPin = event.detail.value;
 };
 
-const handlePwmInput = (event: CustomEvent) => {
+const handlePwmInput = (event: CustomEvent<{ value: string}>) => {
   pwm = event.detail.value;
 };
 
-const handlePwmFrequencyInput = (event: CustomEvent) => {
+const handlePwmFrequencyInput = (event: CustomEvent<{ value: string}>) => {
   pwmFrequency = event.detail.value;
+};
+
+const handleAnalogPinInput = (event:CustomEvent<{ value: string}>) => {
+  analogPin = event.detail.value;
+};
+
+const handleAnalogValueInput = (event:CustomEvent<{ value: string}>) => {
+  analogValue = event.detail.value;
 };
 
 </script>
@@ -100,7 +118,7 @@ const handlePwmFrequencyInput = (event: CustomEvent) => {
   />
   <div class="overflow-auto border border-t-0 border-medium p-4">
     <h3 class="mb-2">
-      Analogs
+      Analog Readers
     </h3>
     <table class="mb-4 table-auto border border-medium">
       {#each Object.entries(status?.analogs ?? {}) as [analogName, analog] (analogName)}
@@ -219,5 +237,31 @@ const handlePwmFrequencyInput = (event: CustomEvent) => {
         </td>
       </tr>
     </table>
+    <h3 class="mb-2">
+      Analog Write
+     </h3>
+     <table class="mb-4 w-full table-auto border border-medium">
+     <td class="border border-medium p-2">
+       <div class="flex flex-wrap items-end gap-2">
+         <v-input
+           label="Pin"
+           type="text"
+           value={getPin}
+           on:input={handleAnalogPinInput}
+         />
+         <v-input
+         label="Value"
+         type="text"
+         value={getPin}
+         on:input={handleAnalogValueInput}
+       />
+       <v-button
+       class="mr-2"
+       label="Set Analog Value"
+       on:click={writeAnalog}
+     />
+       </div>
+     </td>
+     </table>
   </div>
 </Collapse>

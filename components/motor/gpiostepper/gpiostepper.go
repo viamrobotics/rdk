@@ -34,13 +34,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
@@ -89,7 +89,7 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (motor.Motor, error) {
 			actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, conf)
 			if err != nil {
@@ -121,7 +121,7 @@ func newGPIOStepper(
 	b board.Board,
 	mc Config,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (motor.Motor, error) {
 	if b == nil {
 		return nil, errors.New("board is required")
@@ -191,7 +191,7 @@ type gpioStepper struct {
 	minDelay                    time.Duration
 	enablePinHigh, enablePinLow board.GPIOPin
 	stepPin, dirPin             board.GPIOPin
-	logger                      golog.Logger
+	logger                      logging.Logger
 
 	// state
 	lock  sync.Mutex

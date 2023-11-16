@@ -10,11 +10,12 @@ import (
 // A PowerSensor reports information about voltage, current and power.
 type PowerSensor struct {
 	powersensor.PowerSensor
-	name        resource.Name
-	VoltageFunc func(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
-	CurrentFunc func(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
-	PowerFunc   func(ctx context.Context, extra map[string]interface{}) (float64, error)
-	DoFunc      func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	name         resource.Name
+	VoltageFunc  func(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
+	CurrentFunc  func(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
+	PowerFunc    func(ctx context.Context, extra map[string]interface{}) (float64, error)
+	ReadingsFunc func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
+	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 }
 
 // NewPowerSensor returns a new injected movement sensor.
@@ -57,4 +58,12 @@ func (i *PowerSensor) Power(ctx context.Context, cmd map[string]interface{}) (fl
 		return i.PowerSensor.Power(ctx, cmd)
 	}
 	return i.PowerFunc(ctx, cmd)
+}
+
+// Readings func or passthrough.
+func (i *PowerSensor) Readings(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if i.ReadingsFunc == nil {
+		return i.PowerSensor.Readings(ctx, cmd)
+	}
+	return i.ReadingsFunc(ctx, cmd)
 }

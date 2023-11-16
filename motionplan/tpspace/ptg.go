@@ -75,7 +75,7 @@ func ComputePTG(simPTG PTG, alpha, dist, diffT float64) ([]*TrajNode, error) {
 
 	var err error
 	var t, v, w float64
-	distTravelled := math.Copysign(math.Abs(v)*diffT, dist)
+	distTravelled := 0.
 
 	// Step through each time point for this alpha
 	for math.Abs(distTravelled) < math.Abs(dist) {
@@ -95,7 +95,14 @@ func ComputePTG(simPTG PTG, alpha, dist, diffT float64) ([]*TrajNode, error) {
 		alphaTraj[len(alphaTraj)-1].AngVelRPS = w
 
 		alphaTraj = append(alphaTraj, nextNode)
-		distTravelled += math.Copysign(math.Max(diffT, math.Abs(v)*diffT), dist)
+		displacement := diffT
+		switch {
+		case v != 0:
+			displacement = math.Copysign(math.Abs(v)*diffT, dist)
+		case w != 0:
+			displacement = math.Copysign(math.Abs(w)*diffT, dist)
+		}
+		distTravelled += displacement
 	}
 
 	// Add final node
@@ -124,4 +131,10 @@ func computePTGNode(simPTG PTG, alpha, dist, atT float64) (*TrajNode, error) {
 		return nil, err
 	}
 	return &TrajNode{pose, atT, dist, alpha, v, w}, nil
+}
+
+// PTGSegmentMetric is a metric which returns the TP-space distance traversed in a segment. Since PTG inputs are relative, the distance
+// travelled is the distance field of the ending configuration.
+func PTGSegmentMetric(segment *ik.Segment) float64 {
+	return segment.EndConfiguration[distanceAlongTrajectoryIndex].Value
 }

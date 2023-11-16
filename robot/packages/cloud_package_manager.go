@@ -13,18 +13,17 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -50,11 +49,12 @@ type cloudManager struct {
 	httpClient      http.Client
 	packagesDataDir string
 	packagesDir     string
+	cloudConfig     config.Cloud
 
 	managedPackages map[PackageName]*managedPackage
 	mu              sync.RWMutex
 
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // SubtypeName is a constant that identifies the internal package manager resource subtype string.
@@ -67,7 +67,12 @@ var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
 var InternalServiceName = resource.NewName(API, "builtin")
 
 // NewCloudManager creates a new manager with the given package service client and directory to sync to.
-func NewCloudManager(client pb.PackageServiceClient, packagesDir string, logger golog.Logger) (ManagerSyncer, error) {
+func NewCloudManager(
+	cloudConfig *config.Cloud,
+	client pb.PackageServiceClient,
+	packagesDir string,
+	logger logging.Logger,
+) (ManagerSyncer, error) {
 	packagesDataDir := filepath.Join(packagesDir, ".data")
 
 	if err := os.MkdirAll(packagesDir, 0o700); err != nil {
@@ -82,10 +87,11 @@ func NewCloudManager(client pb.PackageServiceClient, packagesDir string, logger 
 		Named:           InternalServiceName.AsNamed(),
 		client:          client,
 		httpClient:      http.Client{Timeout: time.Minute * 30},
+		cloudConfig:     *cloudConfig,
 		packagesDir:     packagesDir,
 		packagesDataDir: packagesDataDir,
 		managedPackages: make(map[PackageName]*managedPackage),
-		logger:          logger.Named("package_manager"),
+		logger:          logger.Sublogger("package_manager"),
 	}, nil
 }
 
@@ -149,12 +155,6 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		// Lookup the packages http url
 		includeURL := true
 
-		var platform *string
-		if p.Type == config.PackageTypeModule {
-			platformVal := fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
-			platform = &platformVal
-		}
-
 		packageType, err := config.PackageTypeToProto(p.Type)
 		if err != nil {
 			m.logger.Warnw("failed to get package type", "package", p.Name, "error", err)
@@ -163,7 +163,6 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 			Id:         p.Package,
 			Version:    p.Version,
 			Type:       packageType,
-			Platform:   platform,
 			IncludeUrl: &includeURL,
 		})
 		if err != nil {
@@ -349,7 +348,7 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 	}
 
 	// Download from GCS
-	_, contentType, err := m.downloadFileFromGCSURL(ctx, url, p.LocalDownloadPath(m.packagesDir))
+	_, contentType, err := m.downloadFileFromGCSURL(ctx, url, p.LocalDownloadPath(m.packagesDir), m.cloudConfig.ID, m.cloudConfig.Secret)
 	if err != nil {
 		return err
 	}
@@ -398,8 +397,16 @@ func (m *cloudManager) cleanup(p config.PackageConfig) error {
 	)
 }
 
-func (m *cloudManager) downloadFileFromGCSURL(ctx context.Context, url, downloadPath string) (string, string, error) {
+func (m *cloudManager) downloadFileFromGCSURL(
+	ctx context.Context,
+	url string,
+	downloadPath string,
+	partID string,
+	partSecret string,
+) (string, string, error) {
 	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	getReq.Header.Add("part_id", partID)
+	getReq.Header.Add("secret", partSecret)
 	if err != nil {
 		return "", "", err
 	}

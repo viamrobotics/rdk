@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"regexp"
 
@@ -22,6 +23,10 @@ var placeholderRegexp = regexp.MustCompile(`\$\{(?P<placeholder_key>[^\}]*)\}`)
 // packages.modules.intel:CameraThatRocks
 // packages.FutureP4ckge_Ty-pe.name.
 var packagePlaceholderRegexp = regexp.MustCompile(`^packages(\.(?P<type>[^\.]+))?\.(?P<name>[\w:/-]+)$`)
+
+// environmentPlaceholderRegexp matches on all valid ways of specifying one of our environment placeholders
+// This is compatible with IEEE Std 1003.1-2018 (see basedefs/V1_chap08.html).
+var environmentPlaceholderRegexp = regexp.MustCompile(`^environment\.(?P<name>[\w:/-]+)$`)
 
 // ContainsPlaceholder returns true if the passed string contains a placeholder.
 func ContainsPlaceholder(s string) bool {
@@ -54,6 +59,10 @@ func (c *Config) ReplacePlaceholders() error {
 	for i, module := range c.Modules {
 		c.Modules[i].ExePath, err = visitor.replacePlaceholders(module.ExePath)
 		allErrs = multierr.Append(allErrs, err)
+		for envName, envVal := range module.Environment {
+			c.Modules[i].Environment[envName], err = visitor.replacePlaceholders(envVal)
+			allErrs = multierr.Append(allErrs, err)
+		}
 	}
 
 	return multierr.Append(visitor.AllErrors, allErrs)
@@ -144,18 +153,22 @@ func (v *placeholderReplacementVisitor) replacePlaceholders(s string) (string, e
 		}
 		placeholderKey := matches[placeholderRegexp.SubexpIndex("placeholder_key")]
 
+		var err error
+		var replacementResult string
 		// Now, match against every way we know of doing placeholder replacement
-		if packagePlaceholderRegexp.Match(placeholderKey) {
-			replaced, err := v.replacePackagePlaceholder(string(placeholderKey))
-			if err != nil {
-				replacementErrors = multierr.Append(replacementErrors, err)
-				return placeholder
-			}
-			return []byte(replaced)
+		switch {
+		case packagePlaceholderRegexp.Match(placeholderKey):
+			replacementResult, err = v.replacePackagePlaceholder(string(placeholderKey))
+		case environmentPlaceholderRegexp.Match(placeholderKey):
+			replacementResult, err = v.replaceEnvironmentPlaceholder(string(placeholderKey))
+		default:
+			err = errors.Errorf("invalid placeholder %q", string(placeholder))
 		}
-
-		replacementErrors = multierr.Append(replacementErrors, errors.Errorf("invalid placeholder %q", string(placeholder)))
-		return placeholder
+		if err != nil {
+			replacementErrors = multierr.Append(replacementErrors, err)
+			return placeholder
+		}
+		return []byte(replacementResult)
 	})
 
 	return string(patchedStr), replacementErrors
@@ -168,7 +181,6 @@ func (v *placeholderReplacementVisitor) replacePackagePlaceholder(toReplace stri
 	}
 	packageType := matches[packagePlaceholderRegexp.SubexpIndex("type")]
 	packageName := matches[packagePlaceholderRegexp.SubexpIndex("name")]
-
 	if packageType == "" {
 		// for backwards compatibility
 		packageType = string(PackageTypeMlModel)
@@ -185,4 +197,18 @@ func (v *placeholderReplacementVisitor) replacePackagePlaceholder(toReplace stri
 				toReplace, packageType, string(packageConfig.Type), expectedPlaceholder)
 	}
 	return packageConfig.LocalDataDirectory(viamPackagesDir), nil
+}
+
+func (v *placeholderReplacementVisitor) replaceEnvironmentPlaceholder(toReplace string) (string, error) {
+	matches := environmentPlaceholderRegexp.FindStringSubmatch(toReplace)
+	if matches == nil {
+		return toReplace, errors.Errorf("failed to find substring matches for %q", toReplace)
+	}
+	variableName := matches[environmentPlaceholderRegexp.SubexpIndex("name")]
+	value, present := os.LookupEnv(variableName)
+	if !present {
+		return toReplace, errors.Errorf("no environment variable named %q for placeholder %q",
+			variableName, toReplace)
+	}
+	return value, nil
 }

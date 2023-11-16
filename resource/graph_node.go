@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -15,15 +16,24 @@ import (
 // updated or eventually removed. During its life, errors may be set on the
 // node to indicate that the resource is no longer available to external users.
 type GraphNode struct {
-	// all fields are protected by this mutex right now, including
-	// the pointer to the atomic int.
-	mu                        sync.RWMutex
-	updatedAt                 int64
-	clock                     *atomic.Int64
+	timesReconfigured atomic.Uint64
+
+	// mu guards all fields below.
+	mu sync.RWMutex
+
+	// graphLogicalClock is a pointer to the Graph's logicalClock. It is
+	// incremented every time any GraphNode calls SwapResource.
+	graphLogicalClock *atomic.Int64
+	// updatedAt is the value of the graphLogicalClock when it was last
+	// incremented by this GraphNode's SwapResource method. It is only referenced
+	// in tests.
+	updatedAt int64
+
 	current                   Resource
 	currentModel              Model
 	config                    Config
 	needsReconfigure          bool
+	lastReconfigured          *time.Time
 	lastErr                   error
 	markedForRemoval          bool
 	unresolvedDependencies    []string
@@ -31,8 +41,10 @@ type GraphNode struct {
 }
 
 var (
-	errNotInitalized  = errors.New("resource not initialized yet")
-	errPendingRemoval = errors.New("resource is pending removal")
+	// MaxReconfigAttempts is the max number of reconfigure attempts per node/resource.
+	MaxReconfigAttempts uint64 = 5
+	errNotInitalized           = errors.New("resource not initialized yet")
+	errPendingRemoval          = errors.New("resource is pending removal")
 )
 
 // NewUninitializedNode returns a node that is brand new and not yet initialized.
@@ -58,13 +70,28 @@ func NewConfiguredGraphNode(config Config, res Resource, resModel Model) *GraphN
 	return node
 }
 
-// UpdatedAt returns the logical time this node was added at.
+// UpdatedAt returns the value of the logical clock when SwapResource was last
+// called on this GraphNode (the resource was last updated). It's only used
+// for tests.
 func (w *GraphNode) UpdatedAt() int64 {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.updatedAt
 }
 
-func (w *GraphNode) setClock(clock *atomic.Int64) {
-	w.clock = clock
+func (w *GraphNode) setGraphLogicalClock(clock *atomic.Int64) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.graphLogicalClock = clock
+}
+
+// LastReconfigured returns a pointer to the time at which the resource within
+// this GraphNode was constructed or last reconfigured. It returns nil if the
+// GraphNode is uninitialized or unconfigured.
+func (w *GraphNode) LastReconfigured() *time.Time {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.lastReconfigured
 }
 
 // Resource returns the underlying resource if it is not pending removal,
@@ -130,7 +157,9 @@ func (w *GraphNode) UnsetResource() {
 // SwapResource emplaces the new resource. It may be the same as before
 // and expects the caller to close the old one. This is considered
 // to be a working resource and as such we unmark it for removal
-// and indicate it no longer needs reconfiguration.
+// and indicate it no longer needs reconfiguration. SwapResource also
+// increments the graphLogicalClock and sets updatedAt for this GraphNode
+// to the new value.
 func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -139,13 +168,17 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	w.lastErr = nil
 	w.needsReconfigure = false
 	w.markedForRemoval = false
+	w.timesReconfigured.Store(0)
 
 	// these should already be set
 	w.unresolvedDependencies = nil
 	w.needsDependencyResolution = false
-	if w.clock != nil {
-		w.updatedAt = w.clock.Add(1)
+
+	if w.graphLogicalClock != nil {
+		w.updatedAt = w.graphLogicalClock.Add(1)
 	}
+	now := time.Now()
+	w.lastReconfigured = &now
 }
 
 // MarkForRemoval marks this node for removal at a later time.
@@ -189,6 +222,32 @@ func (w *GraphNode) NeedsReconfigure() bool {
 	return !w.markedForRemoval && w.needsReconfigure
 }
 
+func (w *GraphNode) timesReconfiguredErr() error {
+	var noun string
+	if w.IsUninitialized() {
+		noun = "configuration"
+	} else {
+		noun = "reconfiguration"
+	}
+	return errors.Errorf(
+		"%s error: reached max of %d %s attempts for %s",
+		noun,
+		MaxReconfigAttempts,
+		noun,
+		w.config.ResourceName(),
+	)
+}
+
+// CheckReconfigure returns whether or not the resource is able to be (re)configured
+// based on how many previous attempts were made— nil if it is able to be (re)configured,
+// or the appropriate error with the reason why it cannot (re)configure.
+func (w *GraphNode) CheckReconfigure() error {
+	if w.timesReconfigured.Load() < MaxReconfigAttempts {
+		return nil
+	}
+	return w.timesReconfiguredErr()
+}
+
 // hasUnresolvedDependencies returns whether or not this node has any
 // dependencies to be resolved (even if they are empty).
 func (w *GraphNode) hasUnresolvedDependencies() bool {
@@ -210,6 +269,7 @@ func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, 
 	if mustReconfigure {
 		w.needsDependencyResolution = true
 	}
+	w.timesReconfigured.Store(0)
 	w.config = newConfig
 	w.needsReconfigure = true
 	w.markedForRemoval = false
@@ -252,6 +312,12 @@ func (w *GraphNode) setDependenciesResolved() {
 	w.needsDependencyResolution = false
 }
 
+// IncrementTimesReconfigured increments the number of times the resource has been
+// reconfigured by 1. Value resetting handled in other methods situationally.
+func (w *GraphNode) IncrementTimesReconfigured() {
+	w.timesReconfigured.Add(1)
+}
+
 // UnresolvedDependencies returns the set of names that are yet to be resolved as
 // dependencies for the node.
 func (w *GraphNode) UnresolvedDependencies() []string {
@@ -290,9 +356,10 @@ func (w *GraphNode) replace(other *GraphNode) error {
 
 	other.mu.Lock()
 	w.updatedAt = other.updatedAt
-	if other.clock != nil {
-		w.clock = other.clock
+	if other.graphLogicalClock != nil {
+		w.graphLogicalClock = other.graphLogicalClock
 	}
+	w.lastReconfigured = other.lastReconfigured
 	w.current = other.current
 	w.currentModel = other.currentModel
 	w.config = other.config
@@ -304,7 +371,8 @@ func (w *GraphNode) replace(other *GraphNode) error {
 
 	// other is now owned by the graph/node and is invalidated
 	other.updatedAt = 0
-	other.clock = nil
+	other.graphLogicalClock = nil
+	other.lastReconfigured = nil
 	other.current = nil
 	other.currentModel = Model{}
 	other.config = Config{}

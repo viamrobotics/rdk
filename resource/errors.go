@@ -3,9 +3,9 @@ package resource
 import (
 	"fmt"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
@@ -71,7 +71,7 @@ func (e *mustRebuildError) Error() string {
 
 // NewBuildTimeoutError is used when a resource times out during construction or reconfiguration.
 func NewBuildTimeoutError(name Name) error {
-	timeout := utils.GetResourceConfigurationTimeout(golog.Global())
+	timeout := utils.GetResourceConfigurationTimeout(logging.Global())
 	extraMsg := ""
 	if timeout == utils.DefaultResourceConfigurationTimeout {
 		extraMsg = fmt.Sprintf(" Update %s env variable to override", utils.ResourceConfigurationTimeoutEnvVar)

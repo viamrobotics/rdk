@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
+
+	"go.viam.com/rdk/logging"
 )
 
 type testReader struct {
@@ -45,8 +46,8 @@ func TestAnalogSmoother1(t *testing.T) {
 		testReader.stop = true
 	}()
 
-	logger := golog.NewTestLogger(t)
-	as := SmoothAnalogReader(&testReader, AnalogConfig{
+	logger := logging.NewTestLogger(t)
+	as := SmoothAnalogReader(&testReader, AnalogReaderConfig{
 		AverageOverMillis: 10,
 		SamplesPerSecond:  10000,
 	}, logger)

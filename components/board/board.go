@@ -29,11 +29,11 @@ func init() {
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: analogs.String(),
-	}, newAnalogCollector)
+	}, NewAnalogCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: gpios.String(),
-	}, newGPIOCollector)
+	}, NewGPIOCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "board".
@@ -88,6 +88,9 @@ type Board interface {
 	// provided, the board will exit the given power mode after
 	// the specified duration.
 	SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error
+
+	// WriteAnalog writes an analog value to a pin on the board.
+	WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error
 }
 
 // A LocalBoard represents a Board where you can request SPIs and I2Cs by name.

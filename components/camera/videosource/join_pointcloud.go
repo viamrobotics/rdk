@@ -6,13 +6,13 @@ import (
 	"image"
 	"math"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -89,7 +89,7 @@ type joinPointCloudCamera struct {
 	targetName    string
 	fsService     framesystem.Service
 	mergeMethod   MergeMethodType
-	logger        golog.Logger
+	logger        logging.Logger
 	debug         bool
 	closeness     float64
 	src           camera.VideoSource
@@ -101,7 +101,7 @@ func newJoinPointCloudCamera(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (camera.Camera, error) {
 	joinCam := &joinPointCloudCamera{
 		Named:  conf.ResourceName().AsNamed(),
@@ -111,7 +111,7 @@ func newJoinPointCloudCamera(
 	if err := joinCam.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
-	return camera.FromVideoSource(conf.ResourceName(), joinCam.src), nil
+	return camera.FromVideoSource(conf.ResourceName(), joinCam.src, logger), nil
 }
 
 func (jpcc *joinPointCloudCamera) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
@@ -279,7 +279,7 @@ func (jpcc *joinPointCloudCamera) NextPointCloudICP(ctx context.Context) (pointc
 			math.Pow(info.OptResult.Location.X[1]-info.X0[1], 2) +
 			math.Pow(info.OptResult.Location.X[2]-info.X0[2], 2))
 		if transformDist > 100 {
-			jpcc.logger.Warnf(`Transform is %f away from transform defined in frame system. 
+			jpcc.logger.Warnf(`Transform is %f away from transform defined in frame system.
 			This may indicate an incorrect frame system.`, transformDist)
 		}
 		registeredPointCloud.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {

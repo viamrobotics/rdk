@@ -19,6 +19,7 @@ const (
 	// even on a pi.
 	maxRecursionDepth = 1000
 	nodeRegionOverlap = 1e-6
+	floatEpsilon      = 1e-6
 	// TODO (RSDK-3767): pass these in a different way.
 	confidenceThreshold = 50    // value between 0-100, threshold sets the confidence level required for a point to be considered a collision
 	buffer              = 150.0 // max distance from base to point for it to be considered a collision in mm
@@ -101,7 +102,7 @@ func (octree *BasicOctree) At(x, y, z float64) (Data, bool) {
 		}
 
 	case leafNodeFilled:
-		if octree.node.point.P.ApproxEqual(r3.Vector{X: x, Y: y, Z: z}) {
+		if pointsAlmostEqualEpsilon(octree.node.point.P, r3.Vector{X: x, Y: y, Z: z}, floatEpsilon) {
 			return octree.node.point.D, true
 		}
 
@@ -146,15 +147,46 @@ func (octree *BasicOctree) Pose() spatialmath.Pose {
 }
 
 // AlmostEqual compares the octree with another geometry and checks if they are equivalent.
-// TODO (RSDK-3743): Implement BasicOctree Geometry functions.
+// Note that this checks that the *geometry* is equal; that is, both octrees have the same number of points and in the same locations.
+// This is agnostic to things like the label, the centerpoint (as the individual points have locations), the side lengths, etc.
 func (octree *BasicOctree) AlmostEqual(geom spatialmath.Geometry) bool {
-	return false
+	otherOctree, ok := geom.(*BasicOctree)
+	if !ok {
+		return false
+	}
+	if octree.size != otherOctree.size {
+		return false
+	}
+	allExist := true
+	octree.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		_, exists := otherOctree.At(p.X, p.Y, p.Z)
+		if !exists {
+			allExist = false
+			return false
+		}
+		return true
+	})
+	return allExist
 }
 
 // Transform recursively steps through the octree and transforms it by the given pose.
-// TODO (RSDK-3743): Implement BasicOctree Geometry functions.
-func (octree *BasicOctree) Transform(p spatialmath.Pose) spatialmath.Geometry {
-	return nil
+func (octree *BasicOctree) Transform(pose spatialmath.Pose) spatialmath.Geometry {
+	newCenter := spatialmath.Compose(pose, spatialmath.NewPoseFromPoint(octree.center))
+
+	// New sidelength is the diagonal of octree to guarantee fit
+	newOctree, err := NewBasicOctree(newCenter.Point(), octree.sideLength*math.Sqrt(3))
+	if err != nil {
+		return nil
+	}
+	newOctree.label = octree.label
+	newOctree.meta = octree.meta
+
+	octree.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		tformPt := spatialmath.Compose(pose, spatialmath.NewPoseFromPoint(p)).Point()
+		err := newOctree.Set(tformPt, d)
+		return err == nil
+	})
+	return newOctree
 }
 
 // ToProtobuf converts the octree to a Geometry proto message.
@@ -266,8 +298,12 @@ func (octree *BasicOctree) String() string {
 
 // ToPoints converts an octree geometry into []r3.Vector.
 func (octree *BasicOctree) ToPoints(resolution float64) []r3.Vector {
-	// TODO (RSDK-3743)
-	return nil
+	points := make([]r3.Vector, 0, octree.size)
+	octree.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		points = append(points, p)
+		return true
+	})
+	return points
 }
 
 // MarshalJSON marshals JSON from the octree.

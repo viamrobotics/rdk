@@ -1,0 +1,64 @@
+{
+    "network": {
+    },
+    "remotes": [
+    ],
+    "components": [
+        {
+            "name": "board1",
+            "type": "board",
+            "model": "fake",
+            "log_configuration": {
+                "level": "Info"
+            }
+        },
+        {
+            "name": "left_motor",
+            "type": "motor",
+            "model": "fake",
+            "log_configuration": {
+                "level": "debug"
+            }
+        },
+        {
+            "name": "right_motor",
+            "type": "motor",
+            "model": "fake"
+        },
+        {
+            "name": "wheeley",
+            "type": "base",
+            "model": "wheeled",
+            "attributes": {
+                "left": ["left_motor"],
+                "right": ["right_motor"]
+            }
+        }
+    ],
+    "services": [
+        {
+            "name": "slam1",
+            "type": "slam",
+            "model": "fake",
+            "log_configuration": {
+                "level": "WARN"
+            }
+        },
+        {
+            "name": "dm",
+            "type": "data_manager",
+            "model": "builtin"
+        }
+    ],
+    "global_log_configuration": [
+        {
+            "api": "rdk:component:base",
+            "level": "error"
+        },
+        {
+            "api": "rdk:component:motor",
+            "model": "rdk:builtin:fake",
+            "level": "warn"
+        }
+    ]
+}

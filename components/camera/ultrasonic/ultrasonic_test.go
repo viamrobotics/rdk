@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/sensor/ultrasonic"
+	"go.viam.com/rdk/logging"
 	pointcloud "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
@@ -53,7 +53,7 @@ func TestNewCamera(t *testing.T) {
 	name := resource.Name{API: camera.API}
 	ctx := context.Background()
 	deps := setupDependencies(t)
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	_, err := newCamera(ctx, deps, name, fakecfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -66,7 +66,8 @@ func TestUnderlyingSensor(t *testing.T) {
 	fakeUS.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 		return map[string]interface{}{"distance": 3.2}, nil
 	}
-	cam, err := cameraFromSensor(ctx, name, fakeUS)
+	logger := logging.NewTestLogger(t)
+	cam, err := cameraFromSensor(ctx, name, fakeUS, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	pc, err := cam.NextPointCloud(ctx)
@@ -82,7 +83,7 @@ func TestUnderlyingSensor(t *testing.T) {
 	})
 
 	test.That(t, count, test.ShouldEqual, 1)
-	test.That(t, values[0], test.ShouldEqual, 3.2)
+	test.That(t, values[0], test.ShouldEqual, 3200)
 	stream, err := cam.Stream(ctx)
 	test.That(t, err, test.ShouldBeNil)
 

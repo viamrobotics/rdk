@@ -28,11 +28,11 @@ import (
 	"time"
 
 	"github.com/CPRT/roboclaw"
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
@@ -141,7 +141,7 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (motor.Motor, error) {
 				return newRoboClaw(conf, logger)
 			},
@@ -173,7 +173,7 @@ func getOrCreateConnection(config *Config) (*roboclaw.Roboclaw, error) {
 	return connection, nil
 }
 
-func newRoboClaw(conf resource.Config, logger golog.Logger) (motor.Motor, error) {
+func newRoboClaw(conf resource.Config, logger logging.Logger) (motor.Motor, error) {
 	motorConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
@@ -212,7 +212,7 @@ type roboclawMotor struct {
 	addr   uint8
 	maxRPM float64
 
-	logger golog.Logger
+	logger logging.Logger
 	opMgr  *operation.SingleOperationManager
 
 	powerPct float64

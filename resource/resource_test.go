@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
@@ -521,154 +521,6 @@ func TestRemoteResource(t *testing.T) {
 	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/remote2:remote1:")
 }
 
-func TestAPIFromString(t *testing.T) {
-	//nolint:dupl
-	for _, tc := range []struct {
-		TestName string
-		StrAPI   string
-		Expected resource.API
-		Err      string
-		ErrJSON  string
-	}{
-		{
-			"valid",
-			"rdk:component:arm",
-			arm.API,
-			"",
-			"",
-		},
-		{
-			"valid with special characters and numbers",
-			"acme_corp1:test-collection99:api_a2",
-			resource.API{
-				Type:        resource.APIType{Namespace: "acme_corp1", Name: "test-collection99"},
-				SubtypeName: "api_a2",
-			},
-			"",
-			"",
-		},
-		{
-			"invalid with slash",
-			"acme/corp:test:subtypeA",
-			resource.API{},
-			"not a valid api name",
-			"invalid character",
-		},
-		{
-			"invalid with caret",
-			"acme:test:subtype^A",
-			resource.API{},
-			"not a valid api name",
-			"invalid character",
-		},
-		{
-			"missing field",
-			"acme:test",
-			resource.API{},
-			"not a valid api name",
-			"invalid character",
-		},
-		{
-			"empty namespace",
-			":test:subtypeA",
-			resource.API{},
-			"not a valid api name",
-			"invalid character",
-		},
-		{
-			"empty family",
-			"acme::subtypeA",
-			resource.API{},
-			"not a valid api name",
-			"invalid character",
-		},
-		{
-			"empty name",
-			"acme:test::",
-			resource.API{},
-			"not a valid api name",
-			"invalid character",
-		},
-		{
-			"extra field",
-			"acme:test:subtypeA:fail",
-			resource.API{},
-			"not a valid api name",
-			"invalid character",
-		},
-		{
-			"mistaken resource name",
-			"acme:test:subtypeA/fail",
-			resource.API{},
-			"not a valid api name",
-			"invalid character",
-		},
-		{
-			"valid nested json",
-			`{"namespace": "acme", "type": "test", "subtype": "subtypeB"}`,
-			resource.API{
-				Type:        resource.APIType{Namespace: "acme", Name: "test"},
-				SubtypeName: "subtypeB",
-			},
-			"not a valid api name",
-			"",
-		},
-		{
-			"invalid nested json type",
-			`{"namespace": "acme", "type": "te^st", "subtype": "subtypeB"}`,
-			resource.API{},
-			"not a valid api name",
-			"not a valid type name",
-		},
-		{
-			"invalid nested json namespace",
-			`{"namespace": "$acme", "type": "test", "subtype": "subtypeB"}`,
-			resource.API{},
-			"not a valid api name",
-			"not a valid type namespace",
-		},
-		{
-			"invalid nested json subtype",
-			`{"namespace": "acme", "type": "test", "subtype": "subtype#B"}`,
-			resource.API{},
-			"not a valid api name",
-			"not a valid subtype name",
-		},
-		{
-			"missing nested json field",
-			`{"namespace": "acme", "name": "subtype#B"}`,
-			resource.API{},
-			"not a valid api name",
-			"field for resource missing",
-		},
-	} {
-		t.Run(tc.TestName, func(t *testing.T) {
-			observed, err := resource.NewAPIFromString(tc.StrAPI)
-			if tc.Err == "" {
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, observed.Validate(), test.ShouldBeNil)
-				test.That(t, observed, test.ShouldResemble, tc.Expected)
-				test.That(t, observed.String(), test.ShouldResemble, tc.Expected.String())
-			} else {
-				test.That(t, err, test.ShouldNotBeNil)
-				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
-			}
-
-			fromJSON := &resource.API{}
-			errJSON := fromJSON.UnmarshalJSON([]byte(tc.StrAPI))
-			if tc.ErrJSON == "" {
-				test.That(t, errJSON, test.ShouldBeNil)
-				test.That(t, fromJSON.Validate(), test.ShouldBeNil)
-				test.That(t, fromJSON, test.ShouldResemble, &tc.Expected)
-				test.That(t, fromJSON.String(), test.ShouldResemble, tc.Expected.String())
-			} else {
-				test.That(t, errJSON, test.ShouldNotBeNil)
-				test.That(t, errJSON.Error(), test.ShouldContainSubstring, tc.ErrJSON)
-			}
-		})
-	}
-}
-
 func TestNewPossibleRDKServiceAPIFromString(t *testing.T) {
 	for _, tc := range []struct {
 		TestName string
@@ -810,7 +662,7 @@ func TestDependenciesLookup(t *testing.T) {
 	_, err = deps.Lookup(remoteArmName)
 	test.That(t, err, test.ShouldBeError, resource.DependencyNotFoundError(remoteArmName))
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	someArm, err := fake.NewArm(context.Background(), nil, resource.Config{ConvertedAttributes: &fake.Config{}}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	deps[armName] = someArm

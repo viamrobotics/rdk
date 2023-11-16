@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/a8m/envsubst"
-	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zaptest/observer"
@@ -41,6 +40,7 @@ import (
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/internal"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	_ "go.viam.com/rdk/services/datamanager/builtin"
@@ -64,7 +64,7 @@ func TestRobotReconfigure(t *testing.T) {
 	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 3)
 	ConfigFromFile := func(t *testing.T, filePath string) *config.Config {
 		t.Helper()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		buf, err := envsubst.ReadFile(filePath)
 		test.That(t, err, test.ShouldBeNil)
 		conf, err := config.FromReader(context.Background(), filePath, bytes.NewReader(buf), logger)
@@ -86,7 +86,7 @@ func TestRobotReconfigure(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (resource.Resource, error) {
 				// test if implicit depencies are properly propagated
 				for _, dep := range conf.ConvertedAttributes.(*mockFakeConfig).InferredDep {
@@ -111,7 +111,7 @@ func TestRobotReconfigure(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (resource.Resource, error) {
 				if reconfigurableTrue && testReconfiguringMismatch {
 					reconfigurableTrue = false
@@ -128,7 +128,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 	t.Run("no diff", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
 
 		ctx := context.Background()
@@ -257,7 +257,7 @@ func TestRobotReconfigure(t *testing.T) {
 		resetComponentFailureState()
 		testReconfiguringMismatch = true
 		// processing modify will fail
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
 		conf3 := ConfigFromFile(t, "data/diff_config_4_bad.json")
 		robot, err := New(context.Background(), conf1, logger)
@@ -401,7 +401,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 	t.Run("additive deps diff", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_deps1.json")
 		conf2 := ConfigFromFile(t, "data/diff_config_deps10.json")
 		robot, err := New(context.Background(), conf1, logger)
@@ -554,7 +554,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 	t.Run("modificative deps diff", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf3 := ConfigFromFile(t, "data/diff_config_deps3.json")
 		conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
 		robot, err := New(context.Background(), conf3, logger)
@@ -717,7 +717,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 	t.Run("deletion deps diff", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
 		conf4 := ConfigFromFile(t, "data/diff_config_deps4.json")
 		robot, err := New(context.Background(), conf2, logger)
@@ -858,7 +858,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 	t.Run("mixed deps diff", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
 		conf6 := ConfigFromFile(t, "data/diff_config_deps6.json")
 		robot, err := New(context.Background(), conf2, logger)
@@ -1043,7 +1043,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 	t.Run("from empty conf with deps", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		cempty := ConfigFromFile(t, "data/diff_config_empty.json")
 		conf6 := ConfigFromFile(t, "data/diff_config_deps6.json")
 		ctx := context.Background()
@@ -1184,7 +1184,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 	t.Run("incremental deps config", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf4 := ConfigFromFile(t, "data/diff_config_deps4.json")
 		conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
 		robot, err := New(context.Background(), conf4, logger)
@@ -1384,7 +1384,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 	t.Run("parent attribute change deps config", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
 		conf8 := ConfigFromFile(t, "data/diff_config_deps8.json")
 		robot, err := New(context.Background(), conf7, logger)
@@ -1650,7 +1650,7 @@ func TestRobotReconfigure(t *testing.T) {
 		resetComponentFailureState()
 		testReconfiguringMismatch = true
 		reconfigurableTrue = true
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
 		conf9 := ConfigFromFile(t, "data/diff_config_deps9_bad.json")
 		robot, err := New(context.Background(), conf7, logger)
@@ -2025,7 +2025,7 @@ func TestRobotReconfigure(t *testing.T) {
 	})
 	t.Run("complex diff", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_deps11.json")
 		conf2 := ConfigFromFile(t, "data/diff_config_deps12.json")
 		robot, err := New(context.Background(), conf1, logger)
@@ -2079,7 +2079,7 @@ func TestRobotReconfigure(t *testing.T) {
 	})
 	t.Run("test processes", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		tempDir := t.TempDir()
 		robot, err := New(context.Background(), &config.Config{}, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -2253,7 +2253,7 @@ func TestRobotReconfigure(t *testing.T) {
 // this serves as a test for updateWeakDependents as the sensors service defines a weak
 // dependency.
 func TestSensorsServiceReconfigure(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	emptyCfg, err := config.Read(context.Background(), "data/diff_config_empty.json", logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -2369,7 +2369,7 @@ func (s *someTypeWithWeakAndStrongDepsConfig) Validate(_ string) ([]string, erro
 }
 
 func TestUpdateWeakDependents(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	var emptyCfg config.Config
 	test.That(t, emptyCfg.Ensure(false, logger), test.ShouldBeNil)
@@ -2394,7 +2394,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (*someTypeWithWeakAndStrongDeps, error) {
 				return &someTypeWithWeakAndStrongDeps{
 					Named:     conf.ResourceName().AsNamed(),
@@ -2596,7 +2596,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 }
 
 func TestDefaultServiceReconfigure(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	dmName := "dm"
 	cfg1 := &config.Config{
@@ -2648,7 +2648,7 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 }
 
 func TestStatusServiceUpdate(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	emptyCfg, err := config.Read(context.Background(), "data/diff_config_empty.json", logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -2726,13 +2726,13 @@ func TestStatusServiceUpdate(t *testing.T) {
 }
 
 func TestRemoteRobotsGold(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
 
-	remote1, err := New(ctx, cfg, logger.Named("remote1"))
+	remote1, err := New(ctx, cfg, logger.Sublogger("remote1"))
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, remote1.Close(context.Background()), test.ShouldBeNil)
@@ -2742,7 +2742,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 	err = remote1.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	remote2, err := New(ctx, cfg, logger.Named("remote2"))
+	remote2, err := New(ctx, cfg, logger.Sublogger("remote2"))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, listener2, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -2780,7 +2780,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 			},
 		},
 	}
-	r, err := New(ctx, localConfig, logger.Named("local"))
+	r, err := New(ctx, localConfig, logger.Sublogger("local"))
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
@@ -2867,7 +2867,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 		)
 	})
 
-	remote3, err := New(ctx, cfg, logger.Named("remote3"))
+	remote3, err := New(ctx, cfg, logger.Sublogger("remote3"))
 	test.That(t, err, test.ShouldBeNil)
 
 	defer func() {
@@ -2893,7 +2893,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 }
 
 func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	fooCfg := &config.Config{
 		Components: []resource.Config{
@@ -2910,7 +2910,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 
 	ctx := context.Background()
 
-	foo, err := New(ctx, fooCfg, logger.Named("foo"))
+	foo, err := New(ctx, fooCfg, logger.Sublogger("foo"))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, listener1, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -2936,7 +2936,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 			},
 		},
 	}
-	r, err := New(ctx, localConfig, logger.Named("local"))
+	r, err := New(ctx, localConfig, logger.Sublogger("local"))
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
@@ -2993,7 +2993,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		)
 	})
 
-	foo2, err := New(ctx, fooCfg, logger.Named("foo2"))
+	foo2, err := New(ctx, fooCfg, logger.Sublogger("foo2"))
 	test.That(t, err, test.ShouldBeNil)
 
 	defer func() {
@@ -3019,7 +3019,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 }
 
 func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	fooCfg := &config.Config{
 		Components: []resource.Config{
@@ -3036,7 +3036,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 
 	ctx := context.Background()
 
-	foo, err := New(ctx, fooCfg, logger.Named("foo"))
+	foo, err := New(ctx, fooCfg, logger.Sublogger("foo"))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -3060,7 +3060,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 			},
 		},
 	}
-	r, err := New(ctx, localConfig, logger.Named("local"))
+	r, err := New(ctx, localConfig, logger.Sublogger("local"))
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
@@ -3115,7 +3115,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 }
 
 func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	remoteCfg := &config.Config{
 		Components: []resource.Config{
@@ -3132,13 +3132,13 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 
 	ctx := context.Background()
 
-	foo, err := New(ctx, remoteCfg, logger.Named("foo"))
+	foo, err := New(ctx, remoteCfg, logger.Sublogger("foo"))
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	bar, err := New(ctx, remoteCfg, logger.Named("bar"))
+	bar, err := New(ctx, remoteCfg, logger.Sublogger("bar"))
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, bar.Close(context.Background()), test.ShouldBeNil)
@@ -3175,7 +3175,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 			},
 		},
 	}
-	r, err := New(ctx, localConfig, logger.Named("local"))
+	r, err := New(ctx, localConfig, logger.Sublogger("local"))
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
@@ -3253,7 +3253,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 }
 
 func TestReconfigureModelRebuild(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
 	mockNamed := func(name string) resource.Name {
@@ -3267,7 +3267,7 @@ func TestReconfigureModelRebuild(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			return &mockFake{Named: conf.ResourceName().AsNamed(), shouldRebuild: true}, nil
 		},
@@ -3331,7 +3331,7 @@ func TestReconfigureModelRebuild(t *testing.T) {
 }
 
 func TestReconfigureModelSwitch(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
 	mockNamed := func(name string) resource.Name {
@@ -3347,7 +3347,7 @@ func TestReconfigureModelSwitch(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
 		},
@@ -3357,7 +3357,7 @@ func TestReconfigureModelSwitch(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			return &mockFake2{Named: conf.ResourceName().AsNamed()}, nil
 		},
@@ -3421,7 +3421,7 @@ func TestReconfigureModelSwitch(t *testing.T) {
 }
 
 func TestReconfigureModelSwitchErr(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
 	mockNamed := func(name string) resource.Name {
@@ -3436,7 +3436,7 @@ func TestReconfigureModelSwitchErr(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			newCount++
 			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
@@ -3505,7 +3505,7 @@ func TestReconfigureModelSwitchErr(t *testing.T) {
 }
 
 func TestReconfigureRename(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
 	mockNamed := func(name string) resource.Name {
@@ -3521,7 +3521,7 @@ func TestReconfigureRename(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			return &mockFake{
 				Named:        conf.ResourceName().AsNamed(),
@@ -3586,7 +3586,7 @@ func TestReconfigureRename(t *testing.T) {
 func TestResourceConstructTimeout(t *testing.T) {
 	cfg := &config.Config{}
 	ctx := context.Background()
-	logger, logs := golog.NewObservedTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 	fakeModel := resource.DefaultModelFamily.WithModel("fake")
 
 	timeOutErrorCount := func() int {
@@ -3700,7 +3700,7 @@ func TestResourceConstructTimeout(t *testing.T) {
 }
 
 func TestResourceConstructCtxCancel(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	contructCount := 0
 	var wg sync.WaitGroup
@@ -3719,7 +3719,7 @@ func TestResourceConstructCtxCancel(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			contructCount++
 			wg.Add(1)

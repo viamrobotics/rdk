@@ -11,16 +11,18 @@ import (
 	"sync"
 
 	"github.com/creack/pty"
-	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
 )
 
 func init() {
 	resource.RegisterService(shell.API, resource.DefaultServiceModel, resource.Registration[shell.Service, resource.NoNativeConfig]{
-		Constructor: func(ctx context.Context, dep resource.Dependencies, c resource.Config, logger golog.Logger) (shell.Service, error) {
+		Constructor: func(
+			ctx context.Context, dep resource.Dependencies, c resource.Config, logger logging.Logger,
+		) (shell.Service, error) {
 			return NewBuiltIn(c.ResourceName(), logger)
 		},
 	},
@@ -28,7 +30,7 @@ func init() {
 }
 
 // NewBuiltIn returns a new shell service for the given robot.
-func NewBuiltIn(name resource.Name, logger golog.Logger) (shell.Service, error) {
+func NewBuiltIn(name resource.Name, logger logging.Logger) (shell.Service, error) {
 	return &builtIn{
 		Named:  name.AsNamed(),
 		logger: logger,
@@ -38,7 +40,7 @@ func NewBuiltIn(name resource.Name, logger golog.Logger) (shell.Service, error) 
 type builtIn struct {
 	resource.Named
 	resource.TriviallyReconfigurable
-	logger                  golog.Logger
+	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
 }
 

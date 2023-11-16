@@ -9,10 +9,10 @@ import (
 	"net"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -56,7 +56,7 @@ type xArm struct {
 	model    referenceframe.Model
 	started  bool
 	opMgr    *operation.SingleOperationManager
-	logger   golog.Logger
+	logger   logging.Logger
 
 	mu    sync.RWMutex
 	conn  net.Conn
@@ -101,7 +101,7 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (arm.Arm, error) {
 				return NewxArm(ctx, conf, logger, localArmModelName)
 			},
@@ -110,7 +110,7 @@ func init() {
 }
 
 // NewxArm returns a new xArm of the specified modelName.
-func NewxArm(ctx context.Context, conf resource.Config, logger golog.Logger, modelName string) (arm.Arm, error) {
+func NewxArm(ctx context.Context, conf resource.Config, logger logging.Logger, modelName string) (arm.Arm, error) {
 	model, err := MakeModelFrame(conf.Name, modelName)
 	if err != nil {
 		return nil, err

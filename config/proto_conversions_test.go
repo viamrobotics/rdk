@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/lestrrat-go/jwx/jwk"
 	packagespb "go.viam.com/api/app/packages/v1"
@@ -20,6 +19,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -132,6 +132,7 @@ var testProcessConfig = pexec.ProcessConfig{
 	Name:        "Some-name",
 	Args:        []string{"arg1", "arg2"},
 	CWD:         "/home",
+	Environment: map[string]string{"SOME_VAR": "value"},
 	OneShot:     true,
 	Log:         true,
 	StopSignal:  syscall.SIGINT,
@@ -184,9 +185,24 @@ var testCloudConfig = Cloud{
 }
 
 var testModule = Module{
-	Name:     "testmod",
-	ExePath:  "/tmp/test.mod",
-	LogLevel: "debug",
+	Name:        "testmod",
+	ExePath:     "/tmp/test.mod",
+	LogLevel:    "debug",
+	Type:        ModuleTypeLocal,
+	ModuleID:    "a:b",
+	Environment: map[string]string{"SOME_VAR": "value"},
+}
+
+var testModuleWithError = Module{
+	Name:        "testmodErr",
+	ExePath:     "/tmp/test.mod",
+	LogLevel:    "debug",
+	Type:        ModuleTypeRegistry,
+	ModuleID:    "mod:testmodErr",
+	Environment: map[string]string{},
+	Status: &AppValidationStatus{
+		Error: "i have a bad error ah!",
+	},
 }
 
 var testPackageConfig = PackageConfig{
@@ -223,13 +239,54 @@ func validateModule(t *testing.T, actual, expected Module) {
 	test.That(t, actual.Name, test.ShouldEqual, expected.Name)
 	test.That(t, actual.ExePath, test.ShouldEqual, expected.ExePath)
 	test.That(t, actual.LogLevel, test.ShouldEqual, expected.LogLevel)
+	test.That(t, actual, test.ShouldResemble, expected)
+}
+
+func TestPackageConfigConversions(t *testing.T) {
+	proto, err := PackageConfigToProto(&testPackageConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	out, err := PackageConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, testPackageConfig, test.ShouldResemble, *out)
+
+	// test package with error
+	pckWithErr := &PackageConfig{
+		Name:    "testErr",
+		Package: "package/test/me",
+		Version: "1.0.0",
+		Type:    PackageTypeMlModel,
+		Status: &AppValidationStatus{
+			Error: "help me error!",
+		},
+	}
+
+	proto, err = PackageConfigToProto(pckWithErr)
+	test.That(t, err, test.ShouldBeNil)
+
+	out, err = PackageConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, pckWithErr, test.ShouldResemble, out)
 }
 
 func TestModuleConfigToProto(t *testing.T) {
 	proto, err := ModuleConfigToProto(&testModule)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, proto.Status, test.ShouldBeNil)
 
 	out, err := ModuleConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out, test.ShouldNotBeNil)
+
+	validateModule(t, *out, testModule)
+
+	protoWithErr, err := ModuleConfigToProto(&testModuleWithError)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, protoWithErr.Status, test.ShouldNotBeNil)
+
+	out, err = ModuleConfigFromProto(proto)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out, test.ShouldNotBeNil)
 
@@ -718,7 +775,7 @@ func TestCloudConfigToProto(t *testing.T) {
 }
 
 func TestFromProto(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cloudConfig, err := CloudConfigToProto(&testCloudConfig)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -784,7 +841,7 @@ func TestFromProto(t *testing.T) {
 }
 
 func TestPartialStart(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cloudConfig, err := CloudConfigToProto(&testCloudConfig)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -871,7 +928,7 @@ func TestPartialStart(t *testing.T) {
 }
 
 func TestDisablePartialStart(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cloudConfig, err := CloudConfigToProto(&testCloudConfig)
 	test.That(t, err, test.ShouldBeNil)
 

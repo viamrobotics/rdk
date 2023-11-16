@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -16,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
@@ -83,7 +83,7 @@ func TestDiffConfigs(t *testing.T) {
 					},
 				},
 				ConvertedAttributes: &fakeboard.Config{
-					Analogs: []board.AnalogConfig{
+					AnalogReaders: []board.AnalogReaderConfig{
 						{
 							Name: "analog1",
 							Pin:  "0",
@@ -170,7 +170,7 @@ func TestDiffConfigs(t *testing.T) {
 					},
 				},
 				ConvertedAttributes: &fakeboard.Config{
-					Analogs: []board.AnalogConfig{
+					AnalogReaders: []board.AnalogReaderConfig{
 						{
 							Name: "analog1",
 							Pin:  "1",
@@ -341,7 +341,7 @@ func TestDiffConfigs(t *testing.T) {
 								},
 							},
 							ConvertedAttributes: &fakeboard.Config{
-								Analogs: []board.AnalogConfig{{Name: "analog1", Pin: "1"}},
+								AnalogReaders: []board.AnalogReaderConfig{{Name: "analog1", Pin: "1"}},
 							},
 						},
 					},
@@ -389,7 +389,7 @@ func TestDiffConfigs(t *testing.T) {
 	} {
 		// test with revealSensitiveConfigDiffs = true
 		t.Run(tc.Name, func(t *testing.T) {
-			logger := golog.NewTestLogger(t)
+			logger := logging.NewTestLogger(t)
 			// ensure parts are valid for components, services, modules, and remotes
 			test.That(t, tc.Expected.Added.Ensure(false, logger), test.ShouldBeNil)
 			test.That(t, tc.Expected.Removed.Ensure(false, logger), test.ShouldBeNil)
@@ -400,7 +400,7 @@ func TestDiffConfigs(t *testing.T) {
 			for _, revealSensitiveConfigDiffs := range []bool{true, false} {
 				t.Run(fmt.Sprintf("revealSensitiveConfigDiffs=%t", revealSensitiveConfigDiffs), func(t *testing.T) {
 					logger.Infof("Test name: %v LeftFile: `%v` RightFile: `%v`", tc.Name, tc.LeftFile, tc.RightFile)
-					logger := golog.NewTestLogger(t)
+					logger := logging.NewTestLogger(t)
 					left, err := config.Read(context.Background(), tc.LeftFile, logger)
 					test.That(t, err, test.ShouldBeNil)
 					right, err := config.Read(context.Background(), tc.RightFile, logger)
@@ -445,7 +445,7 @@ func TestDiffConfigHeterogenousTypes(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			logger := golog.NewTestLogger(t)
+			logger := logging.NewTestLogger(t)
 			left, err := config.Read(context.Background(), tc.LeftFile, logger)
 			test.That(t, err, test.ShouldBeNil)
 			right, err := config.Read(context.Background(), tc.RightFile, logger)

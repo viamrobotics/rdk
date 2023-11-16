@@ -9,7 +9,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	pb "go.viam.com/api/component/movementsensor/v1"
 
-	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
@@ -22,44 +22,30 @@ func init() {
 		RPCServiceDesc:              &pb.MovementSensorService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
-
-	registerCollector("Position", func(ctx context.Context, ms MovementSensor, extra map[string]interface{}) (interface{}, error) {
-		type Position struct {
-			Lat float64
-			Lng float64
-		}
-		p, _, err := ms.Position(ctx, extra)
-		if err != nil {
-			return nil, err
-		}
-		return Position{Lat: p.Lat(), Lng: p.Lng()}, nil
-	})
-	registerCollector("LinearVelocity", func(ctx context.Context, ms MovementSensor, extra map[string]interface{}) (interface{}, error) {
-		v, err := ms.LinearVelocity(ctx, extra)
-		return v, err
-	})
-	registerCollector("AngularVelocity", func(ctx context.Context, ms MovementSensor, extra map[string]interface{}) (interface{}, error) {
-		v, err := ms.AngularVelocity(ctx, extra)
-		return v, err
-	})
-	registerCollector("CompassHeading", func(ctx context.Context, ms MovementSensor, extra map[string]interface{}) (interface{}, error) {
-		type Heading struct {
-			Heading float64
-		}
-		h, err := ms.CompassHeading(ctx, extra)
-		if err != nil {
-			return nil, err
-		}
-		return Heading{Heading: h}, nil
-	})
-	registerCollector("LinearAcceleration", func(ctx context.Context, ms MovementSensor, extra map[string]interface{}) (interface{}, error) {
-		v, err := ms.LinearAcceleration(ctx, extra)
-		return v, err
-	})
-	registerCollector("Orientation", func(ctx context.Context, ms MovementSensor, extra map[string]interface{}) (interface{}, error) {
-		v, err := ms.Orientation(ctx, extra)
-		return v, err
-	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: position.String(),
+	}, NewPositionCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: linearVelocity.String(),
+	}, NewLinearVelocityCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: angularVelocity.String(),
+	}, NewAngularVelocityCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: compassHeading.String(),
+	}, NewCompassHeadingCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: linearAcceleration.String(),
+	}, NewLinearAccelerationCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: orientation.String(),
+	}, NewOrientationCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "movement_sensor".
@@ -75,7 +61,8 @@ func Named(name string) resource.Name {
 
 // A MovementSensor reports information about the robot's direction, position and speed.
 type MovementSensor interface {
-	sensor.Sensor
+	resource.Sensor
+	resource.Resource
 	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)                // (lat, long), altitude (m)
 	LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)                    // m / sec
 	AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) // deg / sec
@@ -102,8 +89,8 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
 }
 
-// Readings is a helper for getting all readings from a MovementSensor.
-func Readings(ctx context.Context, g MovementSensor, extra map[string]interface{}) (map[string]interface{}, error) {
+// DefaultAPIReadings is a helper for getting all readings from a MovementSensor.
+func DefaultAPIReadings(ctx context.Context, g MovementSensor, extra map[string]interface{}) (map[string]interface{}, error) {
 	readings := map[string]interface{}{}
 
 	pos, altitude, err := g.Position(ctx, extra)

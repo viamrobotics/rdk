@@ -3,16 +3,16 @@ package config
 import (
 	"sync"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"go.viam.com/rdk/logging"
 )
 
 var globalLogger struct {
 	// These variables are initialized once at startup. No need for special synchronization.
-	logger           golog.Logger
+	logger           logging.Logger
 	cmdLineDebugFlag bool
-	logLevel         zap.AtomicLevel
 
 	// These variables can be changed while the `viam-server` is running. Additionally, every time one
 	// of these is changed, we re-evaluate the log level. This mutex synchronizes the reads and writes
@@ -23,11 +23,15 @@ var globalLogger struct {
 }
 
 // InitLoggingSettings initializes the global logging settings.
-func InitLoggingSettings(logger golog.Logger, cmdLineDebugFlag bool, logLevel zap.AtomicLevel) {
+func InitLoggingSettings(logger logging.Logger, cmdLineDebugFlag bool) {
 	globalLogger.logger = logger
 	globalLogger.cmdLineDebugFlag = cmdLineDebugFlag
-	globalLogger.logLevel = logLevel
-	globalLogger.logger.Info("Log level initialized: ", globalLogger.logLevel.Level())
+	if cmdLineDebugFlag {
+		logging.GlobalLogLevel.SetLevel(zapcore.DebugLevel)
+	} else {
+		logging.GlobalLogLevel.SetLevel(zapcore.InfoLevel)
+	}
+	globalLogger.logger.Info("Log level initialized: ", logging.GlobalLogLevel.Level())
 }
 
 // UpdateFileConfigDebug is used to update the debug flag whenever a file-based viam config is
@@ -63,9 +67,9 @@ func refreshLogLevelInLock() {
 		newLevel = zap.InfoLevel
 	}
 
-	if globalLogger.logLevel.Level() == newLevel {
+	if logging.GlobalLogLevel.Level() == newLevel {
 		return
 	}
 	globalLogger.logger.Info("New log level: ", newLevel)
-	globalLogger.logLevel.SetLevel(newLevel)
+	logging.GlobalLogLevel.SetLevel(newLevel)
 }

@@ -8,11 +8,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"github.com/viamrobotics/gostream"
 	viamutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 )
@@ -21,7 +21,7 @@ import (
 // process and attempts to detect the MIME type of the data from its header.
 // If no MIME type has been requested or there is a mismatch, it returns the one
 // detected by http.DetectContentType.
-func getMIMETypeFromData(ctx context.Context, data []byte, logger golog.Logger) (string, error) {
+func getMIMETypeFromData(ctx context.Context, data []byte, logger logging.Logger) (string, error) {
 	detectedMimeType := http.DetectContentType(data)
 	if !strings.Contains(detectedMimeType, "image") {
 		return "", errors.Errorf("cannot decode image from MIME type '%s'", detectedMimeType)
@@ -85,7 +85,7 @@ func readyBytesFromURL(ctx context.Context, client http.Client, url string) ([]b
 	return io.ReadAll(body)
 }
 
-func readColorURL(ctx context.Context, client http.Client, url string, logger golog.Logger) (image.Image, error) {
+func readColorURL(ctx context.Context, client http.Client, url string, logger logging.Logger) (image.Image, error) {
 	colorData, err := readyBytesFromURL(ctx, client, url)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't ready color url")
@@ -104,7 +104,7 @@ func readColorURL(ctx context.Context, client http.Client, url string, logger go
 	return rimage.ConvertImage(img), nil
 }
 
-func readDepthURL(ctx context.Context, client http.Client, url string, immediate bool, logger golog.Logger) (image.Image, error) {
+func readDepthURL(ctx context.Context, client http.Client, url string, immediate bool, logger logging.Logger) (image.Image, error) {
 	depthData, err := readyBytesFromURL(ctx, client, url)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't ready depth url")

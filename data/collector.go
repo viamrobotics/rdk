@@ -5,14 +5,15 @@ package data
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 
 	"github.com/benbjohnson/clock"
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	v1 "go.viam.com/api/app/datasync/v1"
+	pb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc/codes"
@@ -21,6 +22,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
@@ -57,7 +59,7 @@ type collector struct {
 	interval       time.Duration
 	params         map[string]*anypb.Any
 	lock           sync.Mutex
-	logger         golog.Logger
+	logger         logging.Logger
 	captureWorkers sync.WaitGroup
 	logRoutine     sync.WaitGroup
 	cancelCtx      context.Context
@@ -202,7 +204,7 @@ func (c *collector) getAndPushNextReading() {
 	timeReceived := timestamppb.New(c.clock.Now().UTC())
 	if err != nil {
 		if errors.Is(err, ErrNoCaptureToStore) {
-			c.logger.Debugln("capture filtered out by modular resource")
+			c.logger.Debug("capture filtered out by modular resource")
 			return
 		}
 		c.captureErrors <- errors.Wrap(err, "error while capturing data")
@@ -223,10 +225,24 @@ func (c *collector) getAndPushNextReading() {
 		}
 	default:
 		// If it's not bytes, it's a struct.
-		pbReading, err := protoutils.StructToStructPb(reading)
-		if err != nil {
-			c.captureErrors <- errors.Wrap(err, "error while converting reading to structpb.Struct")
-			return
+		var pbReading *structpb.Struct
+		var err error
+
+		if reflect.TypeOf(reading) == reflect.TypeOf(pb.GetReadingsResponse{}) {
+			// We special-case the GetReadingsResponse because it already contains
+			// structpb.Values in it, and the StructToStructPb logic does not handle
+			// that cleanly.
+			topLevelMap := make(map[string]*structpb.Value)
+			topLevelMap["readings"] = structpb.NewStructValue(
+				&structpb.Struct{Fields: reading.(pb.GetReadingsResponse).Readings},
+			)
+			pbReading = &structpb.Struct{Fields: topLevelMap}
+		} else {
+			pbReading, err = protoutils.StructToStructPbIgnoreOmitEmpty(reading)
+			if err != nil {
+				c.captureErrors <- errors.Wrap(err, "error while converting reading to structpb.Struct")
+				return
+			}
 		}
 
 		msg = v1.SensorData{

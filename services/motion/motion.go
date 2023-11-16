@@ -34,7 +34,7 @@ func init() {
 type PlanHistoryReq struct {
 	ComponentName resource.Name
 	LastPlanOnly  bool
-	ExecutionID   uuid.UUID
+	ExecutionID   ExecutionID
 	Extra         map[string]interface{}
 }
 
@@ -76,9 +76,9 @@ type PlanStep map[resource.Name]spatialmath.Pose
 // Has a unique ID, ComponentName, ExecutionID and a sequence of Steps
 // which can be executed to follow the plan.
 type Plan struct {
-	ID            uuid.UUID
+	ID            PlanID
 	ComponentName resource.Name
-	ExecutionID   uuid.UUID
+	ExecutionID   ExecutionID
 	Steps         []PlanStep
 }
 
@@ -102,13 +102,27 @@ const (
 	PlanStateFailed
 )
 
+// TerminalStateSet is a set that defines the PlanState values which are terminal
+// i.e. which represent the end of a plan.
+var TerminalStateSet = map[PlanState]struct{}{
+	PlanStateStopped:   {},
+	PlanStateSucceeded: {},
+	PlanStateFailed:    {},
+}
+
+// PlanID uniquely identifies a Plan.
+type PlanID = uuid.UUID
+
+// ExecutionID uniquely identifies an execution.
+type ExecutionID = uuid.UUID
+
 // PlanStatusWithID describes the state of a given plan at a
 // point in time plus the PlanId, ComponentName and ExecutionID
 // the status is associated with.
 type PlanStatusWithID struct {
-	PlanID        uuid.UUID
+	PlanID        PlanID
 	ComponentName resource.Name
-	ExecutionID   uuid.UUID
+	ExecutionID   ExecutionID
 	Status        PlanStatus
 }
 
@@ -181,11 +195,17 @@ type Service interface {
 	) ([]PlanWithStatus, error)
 }
 
+// ObstacleDetectorName pairs a vision service name with a camera name.
+type ObstacleDetectorName struct {
+	VisionServiceName resource.Name
+	CameraName        resource.Name
+}
+
 // MotionConfiguration specifies how to configure a call
 //
 //nolint:revive
 type MotionConfiguration struct {
-	VisionServices        []resource.Name
+	ObstacleDetectors     []ObstacleDetectorName
 	PositionPollingFreqHz float64
 	ObstaclePollingFreqHz float64
 	PlanDeviationMM       float64

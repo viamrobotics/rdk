@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
@@ -21,6 +20,7 @@ import (
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
 	viamgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
@@ -36,10 +36,10 @@ var (
 
 func TestClient(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMS := &inject.MotionService{}
@@ -368,11 +368,9 @@ func TestClient(t *testing.T) {
 		})
 
 		t.Run("otherwise returns a slice of PlanStautsWithID", func(t *testing.T) {
-			planID, err := uuid.NewUUID()
-			test.That(t, err, test.ShouldBeNil)
+			planID := uuid.New()
 
-			executionID, err := uuid.NewUUID()
-			test.That(t, err, test.ShouldBeNil)
+			executionID := uuid.New()
 
 			status := motion.PlanStatus{State: motion.PlanStateInProgress, Timestamp: time.Now().UTC(), Reason: nil}
 
@@ -394,19 +392,16 @@ func TestClient(t *testing.T) {
 		})
 
 		t.Run("supports returning multiple PlanStautsWithID", func(t *testing.T) {
-			planIDA, err := uuid.NewUUID()
-			test.That(t, err, test.ShouldBeNil)
+			planIDA := uuid.New()
 
-			executionIDA, err := uuid.NewUUID()
+			executionIDA := uuid.New()
 			test.That(t, err, test.ShouldBeNil)
 
 			statusA := motion.PlanStatus{State: motion.PlanStateInProgress, Timestamp: time.Now().UTC(), Reason: nil}
 
-			planIDB, err := uuid.NewUUID()
-			test.That(t, err, test.ShouldBeNil)
+			planIDB := uuid.New()
 
-			executionIDB, err := uuid.NewUUID()
-			test.That(t, err, test.ShouldBeNil)
+			executionIDB := uuid.New()
 
 			reason := "failed reason"
 			statusB := motion.PlanStatus{State: motion.PlanStateInProgress, Timestamp: time.Now().UTC(), Reason: &reason}
@@ -458,10 +453,8 @@ func TestClient(t *testing.T) {
 				{base.Named("mybase"): zeroPose},
 			}
 			reason := "some reason"
-			id, err := uuid.NewUUID()
-			test.That(t, err, test.ShouldBeNil)
-			executionID, err := uuid.NewUUID()
-			test.That(t, err, test.ShouldBeNil)
+			id := uuid.New()
+			executionID := uuid.New()
 
 			timeA := time.Now().UTC()
 			timeB := time.Now().UTC()
@@ -491,10 +484,10 @@ func TestClient(t *testing.T) {
 			steps := []motion.PlanStep{{base.Named("mybase"): zeroPose}}
 			reason := "some reason"
 
-			idA, err := uuid.NewUUID()
+			idA := uuid.New()
 			test.That(t, err, test.ShouldBeNil)
 
-			executionID, err := uuid.NewUUID()
+			executionID := uuid.New()
 			test.That(t, err, test.ShouldBeNil)
 
 			timeAA := time.Now().UTC()
@@ -511,7 +504,7 @@ func TestClient(t *testing.T) {
 				{motion.PlanStateInProgress, timeAA, nil},
 			}
 
-			idB, err := uuid.NewUUID()
+			idB := uuid.New()
 			test.That(t, err, test.ShouldBeNil)
 			timeBA := time.Now().UTC()
 			planB := motion.Plan{

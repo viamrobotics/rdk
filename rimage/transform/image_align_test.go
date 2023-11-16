@@ -4,9 +4,9 @@ import (
 	"image"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 )
 
@@ -78,7 +78,7 @@ func makeTestCases() []alignImageHelper {
 	return cases
 }
 
-func expectedImageAlignOutput(t *testing.T, a alignImageHelper, logger golog.Logger) {
+func expectedImageAlignOutput(t *testing.T, a alignImageHelper, logger logging.Logger) {
 	t.Helper()
 	colorOutput, depthOutput, err := ImageAlign(
 		a.config.ColorInputSize,
@@ -106,7 +106,7 @@ func expectedImageAlignOutput(t *testing.T, a alignImageHelper, logger golog.Log
 func TestAlignImage(t *testing.T) {
 	cases := makeTestCases()
 	for _, c := range cases {
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		t.Run(c.name, func(t *testing.T) {
 			expectedImageAlignOutput(t, c, logger)
 		})

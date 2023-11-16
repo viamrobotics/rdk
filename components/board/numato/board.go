@@ -15,7 +15,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/edaniels/golog"
 	goserial "github.com/jacobsa/go-serial/serial"
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
@@ -25,6 +24,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -35,9 +35,9 @@ var errNoBoard = errors.New("no numato boards found")
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	Analogs    []board.AnalogConfig  `json:"analogs,omitempty"`
-	Attributes rdkutils.AttributeMap `json:"attributes,omitempty"`
-	Pins       int                   `json:"pins"`
+	Analogs    []board.AnalogReaderConfig `json:"analogs,omitempty"`
+	Attributes rdkutils.AttributeMap      `json:"attributes,omitempty"`
+	Pins       int                        `json:"pins"`
 }
 
 func init() {
@@ -49,7 +49,7 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (board.Board, error) {
 				newConf, err := resource.NativeConfig[*Config](conf)
 				if err != nil {
@@ -105,13 +105,14 @@ type numatoBoard struct {
 
 	port   io.ReadWriteCloser
 	closed int32
-	logger golog.Logger
+	logger logging.Logger
 
 	lines chan string
 	mu    sync.Mutex
 
-	sent   map[string]bool
-	sentMu sync.Mutex
+	sent                    map[string]bool
+	sentMu                  sync.Mutex
+	activeBackgroundWorkers sync.WaitGroup
 }
 
 func (b *numatoBoard) addToSent(msg string) {
@@ -192,9 +193,14 @@ func (b *numatoBoard) readThread() {
 
 	in := bufio.NewReader(b.port)
 	for {
+		if atomic.LoadInt32(&b.closed) == 1 {
+			close(b.lines)
+			return
+		}
 		line, err := in.ReadString('\n')
 		if err != nil {
 			if atomic.LoadInt32(&b.closed) == 1 {
+				close(b.lines)
 				return
 			}
 			b.logger.Warnw("error reading", "err", err)
@@ -339,10 +345,33 @@ func (b *numatoBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, durat
 	return grpc.UnimplementedError
 }
 
+// WriteAnalog writes the value to the given pin.
+func (b *numatoBoard) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
+}
+
 func (b *numatoBoard) Close(ctx context.Context) error {
 	atomic.AddInt32(&b.closed, 1)
+
+	// Without this line, the coroutine gets stuck in the call to in.ReadString.
+	// Closing the device port will complete the call on some OSes, but on Mac attempting to close
+	// a serial device currently being read from will result in a deadlock.
+	// Send the board a command so we get a response back to read and complete the call so the coroutine can wake up
+	// and see it should exit.
+	_, err := b.doSendReceive(ctx, "ver")
+	if err != nil {
+		return err
+	}
 	if err := b.port.Close(); err != nil {
 		return err
+	}
+
+	b.activeBackgroundWorkers.Wait()
+
+	for _, analog := range b.analogs {
+		if err := analog.Close(ctx); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -364,7 +393,7 @@ func (ar *analogReader) Close(ctx context.Context) error {
 	return nil
 }
 
-func connect(ctx context.Context, name resource.Name, conf *Config, logger golog.Logger) (board.LocalBoard, error) {
+func connect(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (board.LocalBoard, error) {
 	pins := conf.Pins
 	if pins <= 0 {
 		return nil, errors.New("numato board needs pins set in attributes")
@@ -406,7 +435,9 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger golog
 	}
 
 	b.lines = make(chan string)
-	go b.readThread()
+
+	b.activeBackgroundWorkers.Add(1)
+	utils.ManagedGo(b.readThread, b.activeBackgroundWorkers.Done)
 
 	ver, err := b.doSendReceive(ctx, "ver")
 	if err != nil {

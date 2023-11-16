@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/bep/debounce"
-	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/input"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -91,7 +91,7 @@ func NewGPIOController(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (input.Controller, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -142,7 +142,7 @@ type Controller struct {
 	mu                      sync.RWMutex
 	controls                []input.Control
 	lastEvents              map[input.Control]input.Event
-	logger                  golog.Logger
+	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
 	cancelFunc              func()
 	callbacks               map[input.Control]map[input.EventType]input.ControlFunction

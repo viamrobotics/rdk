@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package gpsrtkpmtk implements a gps using serial connection
 package gpsrtkpmtk
 
@@ -16,10 +18,9 @@ package gpsrtkpmtk
 		"type": "movement_sensor",
 		"model": "gps-nmea-rtk-pmtk",
 		"attributes": {
-			"board": "local",
+			"i2c_bus": "1",
 			"i2c_addr": 66,
 			"i2c_baud_rate": 115200,
-			"i2c_bus": "default_bus",
 			"ntrip_connect_attempts": 12,
 			"ntrip_mountpoint": "MNTPT",
 			"ntrip_password": "pass",
@@ -38,19 +39,21 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strings"
 	"sync"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
-	"github.com/edaniels/golog"
 	"github.com/go-gnss/rtcm/rtcm3"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/components/movementsensor"
 	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
 	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -61,7 +64,6 @@ const i2cStr = "i2c"
 
 // Config is used for converting NMEA MovementSensor with RTK capabilities config attributes.
 type Config struct {
-	Board       string `json:"board"`
 	I2CBus      string `json:"i2c_bus"`
 	I2CAddr     int    `json:"i2c_addr"`
 	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
@@ -75,8 +77,6 @@ type Config struct {
 
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
-	var deps []string
-
 	err := cfg.validateI2C(path)
 	if err != nil {
 		return nil, err
@@ -87,8 +87,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, err
 	}
 
-	deps = append(deps, cfg.Board)
-	return deps, nil
+	return []string{}, nil
 }
 
 // validateI2C ensures all parts of the config are valid.
@@ -123,7 +122,7 @@ func init() {
 type rtkI2C struct {
 	resource.Named
 	resource.AlwaysRebuild
-	logger     golog.Logger
+	logger     logging.Logger
 	cancelCtx  context.Context
 	cancelFunc func()
 
@@ -141,9 +140,10 @@ type rtkI2C struct {
 	nmeamovementsensor gpsnmea.NmeaMovementSensor
 	correctionWriter   io.ReadWriteCloser
 
-	bus   board.I2C
-	wbaud int
-	addr  byte
+	bus     board.I2C
+	mockI2c board.I2C // Will be nil unless we're in a unit test
+	wbaud   int
+	addr    byte
 }
 
 // Reconfigure reconfigures attributes.
@@ -163,20 +163,15 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 
 	g.addr = byte(newConf.I2CAddr)
 
-	b, err := board.FromDependencies(deps, newConf.Board)
-	if err != nil {
-		return fmt.Errorf("gps init: failed to find board: %w", err)
+	if g.mockI2c == nil {
+		i2cbus, err := genericlinux.NewI2cBus(newConf.I2CBus)
+		if err != nil {
+			return fmt.Errorf("gps init: failed to find i2c bus %s: %w", newConf.I2CBus, err)
+		}
+		g.bus = i2cbus
+	} else {
+		g.bus = g.mockI2c
 	}
-	localB, ok := b.(board.LocalBoard)
-	if !ok {
-		return fmt.Errorf("board %s is not local", newConf.Board)
-	}
-
-	i2cbus, ok := localB.I2CByName(newConf.I2CBus)
-	if !ok {
-		return fmt.Errorf("gps init: failed to find i2c bus %s", newConf.I2CBus)
-	}
-	g.bus = i2cbus
 
 	g.ntripconfigMu.Lock()
 	ntripConfig := &rtk.NtripConfig{
@@ -213,7 +208,19 @@ func newRTKI2C(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
+) (movementsensor.MovementSensor, error) {
+	return makeRTKI2C(ctx, deps, conf, logger, nil)
+}
+
+// makeRTKI2C is separate from newRTKI2C, above, so we can pass in a non-nil mock I2C bus during
+// unit tests.
+func makeRTKI2C(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+	logger logging.Logger,
+	mockI2c board.I2C,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -228,9 +235,9 @@ func newRTKI2C(
 		logger:       logger,
 		err:          movementsensor.NewLastError(1, 1),
 		lastposition: movementsensor.NewLastPosition(),
+		mockI2c:      mockI2c,
 	}
 
-	// reconfigure
 	if err = g.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
@@ -241,7 +248,6 @@ func newRTKI2C(
 
 	// Init NMEAMovementSensor
 	nmeaConf.I2CConfig = &gpsnmea.I2CConfig{
-		Board:       newConf.Board,
 		I2CBus:      newConf.I2CBus,
 		I2CBaudRate: newConf.I2CBaudRate,
 		I2CAddr:     newConf.I2CAddr,
@@ -251,7 +257,10 @@ func newRTKI2C(
 		nmeaConf.I2CConfig.I2CBaudRate = 115200
 	}
 
-	g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
+	// If we have a mock I2C bus, pass that in, too. If we don't, it'll be nil and constructing the
+	// sensor will create a real I2C bus instead.
+	g.nmeamovementsensor, err = gpsnmea.MakePmtkI2cGpsNmea(
+		ctx, deps, conf.ResourceName(), nmeaConf, logger, mockI2c)
 	if err != nil {
 		return nil, err
 	}
@@ -326,8 +335,13 @@ func (g *rtkI2C) getStream(mountPoint string, maxAttempts int) error {
 	}
 
 	if err != nil {
-		g.logger.Errorf("Can't connect to NTRIP stream: %s", err)
-		return err
+		// if the error is related to ICY, we log it as warning.
+		if strings.Contains(err.Error(), "ICY") {
+			g.logger.Warnf("Detected old HTTP protocol: %s", err)
+		} else {
+			g.logger.Errorf("Can't connect to NTRIP stream: %s", err)
+			return err
+		}
 	}
 
 	g.logger.Debug("Connected to stream")
@@ -361,6 +375,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		g.err.Set(err)
 		return
 	}
+	// TODO: defer closing the handle here, so it doesn't lock up on error
 
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
 	baudcmd := fmt.Sprintf("PMTK251,%d", g.wbaud)
@@ -603,6 +618,18 @@ func (g *rtkI2C) readFix(ctx context.Context) (int, error) {
 	return g.nmeamovementsensor.ReadFix(ctx)
 }
 
+func (g *rtkI2C) readSatsInView(ctx context.Context) (int, error) {
+	g.ntripMu.Lock()
+	lastError := g.err.Get()
+	if lastError != nil {
+		defer g.ntripMu.Unlock()
+		return 0, lastError
+	}
+	g.ntripMu.Unlock()
+
+	return g.nmeamovementsensor.ReadSatsInView(ctx)
+}
+
 // Properties passthrough.
 func (g *rtkI2C) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	lastError := g.err.Get()
@@ -625,7 +652,7 @@ func (g *rtkI2C) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 
 // Readings will use the default MovementSensor Readings if not provided.
 func (g *rtkI2C) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := movementsensor.Readings(ctx, g, extra)
+	readings, err := movementsensor.DefaultAPIReadings(ctx, g, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -635,7 +662,13 @@ func (g *rtkI2C) Readings(ctx context.Context, extra map[string]interface{}) (ma
 		return nil, err
 	}
 
+	satsInView, err := g.readSatsInView(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	readings["fix"] = fix
+	readings["satellites_in_view"] = satsInView
 
 	return readings, nil
 }

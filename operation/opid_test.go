@@ -4,17 +4,17 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/session"
 )
 
 func TestBasic(t *testing.T) {
 	ctx := context.Background()
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	h := NewManager(logger)
 	o := Get(ctx)
 	test.That(t, o, test.ShouldBeNil)
@@ -73,7 +73,7 @@ func TestBasic(t *testing.T) {
 func TestCreateWithSession(t *testing.T) {
 	ctx := context.Background()
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	manager := NewManager(logger)
 
 	op1Ctx, cleanup := manager.Create(ctx, "foo", nil)

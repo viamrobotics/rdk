@@ -6,10 +6,11 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/viamrobotics/gostream"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -28,6 +29,7 @@ func (*streamTest) Close(ctx context.Context) error { return nil }
 func TestComposed(t *testing.T) {
 	// create pointcloud source and fake robot
 	robot := &inject.Robot{}
+	logger := logging.NewTestLogger(t)
 	cloudSource := &inject.Camera{}
 	cloudSource.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		p := pointcloud.New()
@@ -68,7 +70,7 @@ func TestComposed(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pic.Bounds(), test.ShouldResemble, image.Rect(0, 0, 1280, 720))
 
-	myPipeline, err := newTransformPipeline(context.Background(), cloudSource, conf, robot)
+	myPipeline, err := newTransformPipeline(context.Background(), cloudSource, conf, robot, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer myPipeline.Close(context.Background())
 	pic, _, err = camera.ReadImage(context.Background(), myPipeline)
@@ -97,7 +99,7 @@ func TestComposed(t *testing.T) {
 			},
 		},
 	}
-	_, err = newTransformPipeline(context.Background(), cloudSource, conf, robot)
+	_, err = newTransformPipeline(context.Background(), cloudSource, conf, robot, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
 }

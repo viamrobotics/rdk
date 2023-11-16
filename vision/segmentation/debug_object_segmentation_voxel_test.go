@@ -5,9 +5,9 @@ import (
 	"image"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -26,7 +26,7 @@ func (h *gripperVoxelSegmentTestHelper) Process(
 	pCtx *rimage.ProcessorContext,
 	fn string,
 	img, img2 image.Image,
-	logger golog.Logger,
+	logger logging.Logger,
 ) error {
 	t.Helper()
 	var err error
