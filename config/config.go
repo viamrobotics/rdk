@@ -142,8 +142,6 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 
 	for idx := 0; idx < len(c.Components); idx++ {
-		// Calling `Validate` here has important side-effects that must remain on the `Component`
-		// object which change reconfigure behavior.
 		component := &c.Components[idx]
 		dependsOn, err := component.Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
 		if err != nil {
@@ -176,8 +174,6 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 
 	for idx := 0; idx < len(c.Services); idx++ {
-		// Calling `Validate` here has important side-effects that must remain on the `Service`
-		// object which change reconfigure behavior.
 		service := &c.Services[idx]
 		dependsOn, err := service.Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
 		if err != nil {
