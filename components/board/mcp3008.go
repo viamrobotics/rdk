@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.uber.org/multierr"
+
 	"go.viam.com/rdk/resource"
 )
 
