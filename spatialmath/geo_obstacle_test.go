@@ -201,9 +201,9 @@ func TestPoseToGeoPoint(t *testing.T) {
 		// },
 		{
 			msg:             "1,5 lat long facing west & a pose that rotates northeast & translates 2 lat deg & 3 lng degrees arrives at 3,8 facing north west",
-			relativeTo:      *NewGeoPose(geo.NewPoint(1, 5), 0),
+			relativeTo:      *NewGeoPose(geo.NewPoint(1, 5), 270-360-360-360-360),
 			p:               NewPose(r3.Vector{X: mmToMoveOneDegree, Y: mmToMoveOneDegree, Z: 0}, NewZeroOrientation()),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(1.9997968273479143, 6), 0),
+			expectedGeoPose: *NewGeoPose(geo.NewPoint(1.9997968273479143, 6), 270),
 		},
 	}
 
