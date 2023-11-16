@@ -931,26 +931,6 @@ var app = &cli.App{
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
-					Name:  "build",
-					Usage: "manage cloud builds of your module",
-					Subcommands: []*cli.Command{
-						{
-							Name:        "start",
-							Description: "heyo",
-							Flags: []cli.Flag{
-								// todo: factor out common flags
-								&cli.StringFlag{
-									Name:      moduleFlagPath,
-									Usage:     "path to meta.json",
-									Value:     "./meta.json",
-									TakesFile: true,
-								},
-							},
-							Action: ModuleBuildStartAction,
-						},
-					},
-				},
-				{
 					Name:  "create",
 					Usage: "create & register a module on app.viam.com",
 					Description: `Creates a module in app.viam.com to simplify code deployment.
@@ -1103,6 +1083,20 @@ Example:
 								},
 							},
 							Action: ModuleBuildLocalAction,
+						},
+						{
+							Name:        "start",
+							Description: "heyo",
+							Flags: []cli.Flag{
+								// todo: factor out common flags
+								&cli.StringFlag{
+									Name:      moduleFlagPath,
+									Usage:     "path to meta.json",
+									Value:     "./meta.json",
+									TakesFile: true,
+								},
+							},
+							Action: ModuleBuildStartAction,
 						},
 					},
 				},
