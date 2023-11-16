@@ -1035,3 +1035,14 @@ func (p *PackageConfig) sanitizedVersion() string {
 	// replaces all the . if they exist with _
 	return strings.ReplaceAll(p.Version, ".", "_")
 }
+
+// NewConfigValidationError returns a config validation error occurring at a given path.
+func NewConfigValidationError(path string, err error) error {
+	return fmt.Errorf("Error validating. Path: %v Error: %v", path, err)
+}
+
+// NewConfigValidationFieldRequiredError returns a config validation error for a field missing at a
+// given path.
+func NewConfigValidationFieldRequiredError(path, field string) error {
+	return fmt.Errorf("Error validating, missing required field. Path: %v Field: %v", path, field)
+}
