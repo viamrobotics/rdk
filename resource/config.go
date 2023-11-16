@@ -372,3 +372,14 @@ func TransformAttributeMap[T any](attributes utils.AttributeMap) (T, error) {
 	}
 	return out, nil
 }
+
+// NewConfigValidationError returns a config validation error occurring at a given path.
+func NewConfigValidationError(path string, err error) error {
+	return fmt.Errorf("Error validating. Path: %q Error: %v", path, err)
+}
+
+// NewConfigValidationFieldRequiredError returns a config validation error for a field missing at a
+// given path.
+func NewConfigValidationFieldRequiredError(path, field string) error {
+	return fmt.Errorf("Error validating, missing required field. Path: %q Field: %q", path, field)
+}
