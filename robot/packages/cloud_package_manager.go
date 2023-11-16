@@ -132,7 +132,8 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 	if !areManaged {
 		m.logger.Info("Package changes have been detected, starting sync")
 	}
-
+	
+	start := time.Now()
 	for idx, p := range packages {
 		if err := ctx.Err(); err != nil {
 			return multierr.Append(outErr, err)
@@ -143,7 +144,6 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 			continue
 		}
 
-		start := time.Now()
 		m.logger.Debugf("Starting package sync [%d/%d] %s:%s", idx+1, len(packages), p.Package, p.Version)
 
 		// Package exists in known cache.
@@ -194,9 +194,10 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		// add to managed packages
 		newManagedPackages[PackageName(p.Name)] = &managedPackage{thePackage: p, modtime: time.Now()}
 
-		if !areManaged {
-			m.logger.Infof("Package sync complete after %v", time.Since(start))
-		}
+	}
+
+	if !areManaged {
+		m.logger.Infof("Package sync complete after %v", time.Since(start))
 	}
 
 	// swap for new managed packags.
