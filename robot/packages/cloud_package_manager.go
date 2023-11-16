@@ -132,7 +132,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 	if !areManaged {
 		m.logger.Info("Package changes have been detected, starting sync")
 	}
-	
+
 	start := time.Now()
 	for idx, p := range packages {
 		if err := ctx.Err(); err != nil {
@@ -193,7 +193,6 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 		// add to managed packages
 		newManagedPackages[PackageName(p.Name)] = &managedPackage{thePackage: p, modtime: time.Now()}
-
 	}
 
 	if !areManaged {
