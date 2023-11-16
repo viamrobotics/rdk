@@ -100,13 +100,6 @@ type BasicDigitalInterrupt struct {
 	pp  PostProcessor
 }
 
-// Config returns the config used to create this interrupt.
-func (i *BasicDigitalInterrupt) Config(ctx context.Context) (DigitalInterruptConfig, error) {
-	i.mu.RLock()
-	defer i.mu.RUnlock()
-	return i.cfg, nil
-}
-
 // Value returns the amount of ticks that have occurred.
 func (i *BasicDigitalInterrupt) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	i.mu.RLock()
@@ -242,13 +235,6 @@ type ServoDigitalInterrupt struct {
 	mu  sync.RWMutex
 	cfg DigitalInterruptConfig
 	pp  PostProcessor
-}
-
-// Config returns the config the interrupt was created with.
-func (i *ServoDigitalInterrupt) Config(ctx context.Context) (DigitalInterruptConfig, error) {
-	i.mu.RLock()
-	defer i.mu.RUnlock()
-	return i.cfg, nil
 }
 
 // Value will return the window averaged value followed by its post processed
