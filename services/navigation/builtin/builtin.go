@@ -547,10 +547,14 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 				if ctx.Err() != nil {
 					return ctx.Err()
 				}
+				svc.logger.Infof("before PlanHistory")
 				planHistory, err := svc.motionService.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: svc.base.Name(), ExecutionID: executionID})
+				svc.logger.Infof("after PlanHistory")
 				if err != nil {
+					svc.logger.Infof("PlanHistory got an error")
 					return err
 				}
+				svc.logger.Infof("PlanHistory had no error")
 				svc.mu.Lock()
 				svc.executions[executionID] = s{planHistory: planHistory, waypointID: wp.ID}
 				svc.mu.Unlock()
@@ -583,6 +587,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 			svc.logger.Infof("navigating to waypoint: %+v", wp)
 			if err := navOnce(cancelCtx, wp); err != nil {
 				if errors.Is(err, context.Canceled) {
+					svc.logger.Error("got context cancelled")
 					return
 				}
 				if svc.waypointIsDeleted() {
