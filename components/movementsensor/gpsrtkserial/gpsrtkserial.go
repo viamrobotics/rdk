@@ -702,6 +702,7 @@ func (g *rtkSerial) sendGGAMessage() (*bufio.ReadWriter, error) {
 	// read from the socket until we know if a successful connection has been
 	// established.
 	for {
+		g.logger.Debug("inside for loop")
 		if g.readWriter.Reader == nil || g.readWriter.Writer == nil {
 			break
 		}
@@ -719,6 +720,7 @@ func (g *rtkSerial) sendGGAMessage() (*bufio.ReadWriter, error) {
 
 		if strings.HasPrefix(string(line), "HTTP/1.1 ") {
 			if strings.Contains(string(line), "200 OK") {
+				g.logger.Debug("everything ok")
 				g.isConnected = true
 				break
 			} else {
@@ -729,6 +731,7 @@ func (g *rtkSerial) sendGGAMessage() (*bufio.ReadWriter, error) {
 		}
 	}
 
+	g.logger.Debug("getting gga message")
 	ggaMessage, err := g.getGGAMessage()
 	if err != nil {
 		g.logger.Error("Failed to get GGA message")
