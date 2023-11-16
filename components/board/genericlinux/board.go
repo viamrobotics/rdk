@@ -462,12 +462,6 @@ type Board struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// I2CByName returns the i2c by the given name if it exists.
-func (b *Board) I2CByName(name string) (board.I2C, bool) {
-	i, ok := b.i2cs[name]
-	return i, ok
-}
-
 // AnalogReaderByName returns the analog reader by the given name if it exists.
 func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	a, ok := b.analogReaders[name]

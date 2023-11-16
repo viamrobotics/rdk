@@ -67,10 +67,6 @@ func TestGenericLinux(t *testing.T) {
 		test.That(t, an2, test.ShouldBeNil)
 		test.That(t, ok, test.ShouldBeFalse)
 
-		in1, ok := b.I2CByName("in")
-		test.That(t, in1, test.ShouldBeNil)
-		test.That(t, ok, test.ShouldBeFalse)
-
 		dns := b.DigitalInterruptNames()
 		test.That(t, dns, test.ShouldBeNil)
 

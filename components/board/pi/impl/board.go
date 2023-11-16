@@ -701,14 +701,6 @@ func (pi *piPigpio) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	return a, ok
 }
 
-// I2CByName returns an I2C by name.
-func (pi *piPigpio) I2CByName(name string) (board.I2C, bool) {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	s, ok := pi.i2cs[name]
-	return s, ok
-}
-
 // DigitalInterruptByName returns a digital interrupt by name.
 // NOTE: During board setup, if a digital interrupt has not been created
 // for a pin, then this function will attempt to create one with the pin

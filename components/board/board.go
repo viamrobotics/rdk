@@ -87,9 +87,6 @@ type Board interface {
 // A LocalBoard represents a Board where you can request SPIs and I2Cs by name.
 type LocalBoard interface {
 	Board
-
-	// I2CByName returns an I2C bus by name.
-	I2CByName(name string) (I2C, bool)
 }
 
 // ModelAttributes provide info related to a board model.

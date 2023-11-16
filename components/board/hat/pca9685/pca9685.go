@@ -266,11 +266,6 @@ func (pca *PCA9685) DigitalInterruptNames() []string {
 	return nil
 }
 
-// I2CByName returns the i2c by the given name if it exists.
-func (pca *PCA9685) I2CByName(name string) (board.I2C, bool) {
-	return nil, false
-}
-
 // AnalogReaderByName returns the analog reader by the given name if it exists.
 func (pca *PCA9685) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	return nil, false

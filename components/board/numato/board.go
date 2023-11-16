@@ -227,11 +227,6 @@ func (b *numatoBoard) readThread() {
 	}
 }
 
-// I2CByName returns an I2C bus by name.
-func (b *numatoBoard) I2CByName(name string) (board.I2C, bool) {
-	return nil, false
-}
-
 // AnalogReaderByName returns an analog reader by name.
 func (b *numatoBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	ar, ok := b.analogs[name]

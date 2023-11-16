@@ -16,8 +16,6 @@ type Board struct {
 	board.LocalBoard
 	name                       resource.Name
 	DoFunc                     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	I2CByNameFunc              func(name string) (board.I2C, bool)
-	i2cByNameCap               []interface{}
 	AnalogReaderByNameFunc     func(name string) (board.AnalogReader, bool)
 	analogReaderByNameCap      []interface{}
 	DigitalInterruptByNameFunc func(name string) (board.DigitalInterrupt, bool)
@@ -41,15 +39,6 @@ func NewBoard(name string) *Board {
 // Name returns the name of the resource.
 func (b *Board) Name() resource.Name {
 	return b.name
-}
-
-// I2CByName calls the injected I2CByName or the real version.
-func (b *Board) I2CByName(name string) (board.I2C, bool) {
-	b.i2cByNameCap = []interface{}{name}
-	if b.I2CByNameFunc == nil {
-		return b.LocalBoard.I2CByName(name)
-	}
-	return b.I2CByNameFunc(name)
 }
 
 // AnalogReaderByName calls the injected AnalogReaderByName or the real version.

@@ -209,14 +209,6 @@ type Board struct {
 	CloseCount    int
 }
 
-// I2CByName returns the i2c by the given name if it exists.
-func (b *Board) I2CByName(name string) (board.I2C, bool) {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	s, ok := b.I2Cs[name]
-	return s, ok
-}
-
 // AnalogReaderByName returns the analog reader by the given name if it exists.
 func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	b.mu.RLock()
