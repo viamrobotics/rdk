@@ -146,9 +146,9 @@ type rtkSerial struct {
 	wbaud              int
 	isVirtualBase      bool
 	isConnected        bool
-	rw                 *bufio.ReadWriter
-	w                  io.Writer
-	r                  io.Reader
+	readWriter         *bufio.ReadWriter
+	writer             io.Writer
+	reader             io.Reader
 }
 
 // Reconfigure reconfigures attributes.
@@ -259,7 +259,7 @@ func (g *rtkSerial) start() error {
 		return err
 	}
 	if !g.isClosed {
-		err := g.ntripConnection()
+		err := g.connectToNTRIP()
 		if err != nil {
 			return err
 		}
@@ -388,8 +388,8 @@ func (g *rtkSerial) closePort() {
 	}
 }
 
-// ntripConnection connects to NTRIP stream.
-func (g *rtkSerial) ntripConnection() error {
+// connectToNTRIP connects to NTRIP stream.
+func (g *rtkSerial) connectToNTRIP() error {
 	if err := g.cancelCtx.Err(); err != nil {
 		return g.err.Get()
 	}
@@ -421,16 +421,16 @@ func (g *rtkSerial) ntripConnection() error {
 		return g.err.Get()
 	}
 
-	g.w = bufio.NewWriter(g.correctionWriter)
+	g.writer = bufio.NewWriter(g.correctionWriter)
 	g.logger.Debug("connecting to NTRIP stream........")
 
 	if g.isVirtualBase {
-		g.rw, err = g.sendGGAMessage()
+		g.readWriter, err = g.sendGGAMessage()
 		if err != nil {
 			g.err.Set(err)
 			return g.err.Get()
 		}
-		g.r = io.TeeReader(g.rw, g.w)
+		g.reader = io.TeeReader(g.readWriter, g.writer)
 	} else {
 		err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 		if err != nil {
@@ -438,7 +438,7 @@ func (g *rtkSerial) ntripConnection() error {
 			return g.err.Get()
 		}
 
-		g.r = io.TeeReader(g.ntripClient.Stream, g.w)
+		g.reader = io.TeeReader(g.ntripClient.Stream, g.writer)
 	}
 
 	return nil
@@ -450,7 +450,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 	defer g.closePort()
 	var scanner rtcm3.Scanner
 
-	scanner = rtcm3.NewScanner(g.r)
+	scanner = rtcm3.NewScanner(g.reader)
 
 	g.ntripMu.Lock()
 	g.isConnectedToNtrip = true
@@ -478,27 +478,27 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 
 				g.logger.Debug("No message... reconnecting to stream...")
 				if g.isVirtualBase {
-					g.rw, err = g.sendGGAMessage()
+					g.readWriter, err = g.sendGGAMessage()
 					if err != nil && !errors.Is(err, io.EOF) {
 						g.err.Set(err)
 					}
-					g.rw, err = g.sendGGAMessage()
+					g.readWriter, err = g.sendGGAMessage()
 					if err != nil && !errors.Is(err, io.EOF) {
 						g.err.Set(err)
 						g.logger.Error("failed to connect to ntrip stream")
 						return
 					}
-					g.r = io.TeeReader(g.rw, g.w)
+					g.reader = io.TeeReader(g.readWriter, g.writer)
 				} else {
 					err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 					if err != nil {
 						g.err.Set(err)
 						return
 					}
-					g.r = io.TeeReader(g.ntripClient.Stream, g.w)
+					g.reader = io.TeeReader(g.ntripClient.Stream, g.writer)
 				}
 
-				scanner = rtcm3.NewScanner(g.r)
+				scanner = rtcm3.NewScanner(g.reader)
 
 				g.ntripMu.Lock()
 				g.isConnectedToNtrip = true
@@ -696,18 +696,20 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 // to get the NTRIP steam when the mount point is a Virtual Reference Station.
 func (g *rtkSerial) sendGGAMessage() (*bufio.ReadWriter, error) {
 	if !g.isConnected {
-		g.rw = g.connectToVirtualBase()
+		g.readWriter = g.connectToVirtualBase()
 	}
 
+	// read from the socket until we know if a successful connection has been
+	// established.
 	for {
-		if g.rw.Reader == nil || g.rw.Writer == nil {
+		if g.readWriter.Reader == nil || g.readWriter.Writer == nil {
 			break
 		}
-		line, _, err := g.rw.ReadLine()
+		line, _, err := g.readWriter.ReadLine()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				g.logger.Debug("EOF encountered")
-				g.rw = nil
+				g.readWriter = nil
 				g.isConnected = false
 				return nil, err
 			}
@@ -735,13 +737,13 @@ func (g *rtkSerial) sendGGAMessage() (*bufio.ReadWriter, error) {
 
 	g.logger.Debugf("Writing GGA message: %v\n", string(ggaMessage))
 
-	_, err = g.rw.WriteString(string(ggaMessage))
+	_, err = g.readWriter.WriteString(string(ggaMessage))
 	if err != nil {
 		g.logger.Error("Failed to send NMEA data:", err)
 		return nil, err
 	}
 
-	err = g.rw.Flush()
+	err = g.readWriter.Flush()
 	if err != nil {
 		g.logger.Error("failed to write to buffer: ", err)
 		return nil, err
@@ -749,7 +751,7 @@ func (g *rtkSerial) sendGGAMessage() (*bufio.ReadWriter, error) {
 
 	g.logger.Debug("GGA message sent successfully.")
 
-	return g.rw, nil
+	return g.readWriter, nil
 }
 
 // connectToVirtualBase creates a buffer where NTRIP stream can come in.
