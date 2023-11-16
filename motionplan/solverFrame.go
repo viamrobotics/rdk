@@ -3,7 +3,6 @@ package motionplan
 import (
 	"errors"
 
-	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 
@@ -405,21 +404,12 @@ func PlanToPlanStepsAndGeoPoses(
 		if err != nil {
 			return nil, nil, err
 		}
+
 		runningPoseWOrient = spatial.Compose(runningPoseWOrient, wpPose)
-
-		// we do this b/c plan nodes describe movement in mm
-		// but spatial.PoseToGeoPoint expects the pose to be in km
-		xkmO := runningPoseWOrient.Point().X / 1e6
-		ykmO := runningPoseWOrient.Point().Y / 1e6
-		zkmO := runningPoseWOrient.Point().Z / 1e6
-
-		kmPoseO := spatial.NewPose(r3.Vector{X: xkmO, Y: ykmO, Z: zkmO}, runningPoseWOrient.Orientation())
-
-		asGPWithOrientation := spatial.PoseToGeoPoint(origin, kmPoseO)
-
-		geoPoses = append(geoPoses, asGPWithOrientation)
-
 		planSteps = append(planSteps, map[resource.Name]spatial.Pose{componentName: runningPoseWOrient})
+
+		gp := spatial.PoseToGeoPose(origin, runningPoseWOrient)
+		geoPoses = append(geoPoses, gp)
 	}
 
 	return planSteps, geoPoses, nil

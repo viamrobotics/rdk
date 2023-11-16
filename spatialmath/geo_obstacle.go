@@ -1,6 +1,7 @@
 package spatialmath
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -125,21 +126,32 @@ func GetCartesianDistance(p, q *geo.Point) (float64, float64) {
 	return distAlongLat, distAlongLng
 }
 
+// GeoPoseToPose does things
+func GeoPoseToPose(point, origin GeoPose) Pose {
+	position := GeoPointToPoint(point.Location(), origin.Location())
+	headingChange := math.Mod(origin.Heading()-point.Heading(), 360)
+	if headingChange < 0 {
+		headingChange = headingChange + 360
+	}
+	fmt.Printf("point.Heading: %v, origin.Heading: %v, headingChange: %v,\n", point.Heading(), origin.Heading(), headingChange)
+	return NewPose(position, &OrientationVectorDegrees{OZ: 1, Theta: headingChange})
+}
+
 // GeoPointToPose converts p into a Pose
 // Because the function we use to project a point on a spheroid to a plane is nonlinear, we linearize it about a specified origin point.
-func GeoPointToPose(point, origin *geo.Point) Pose {
+func GeoPointToPoint(point, origin *geo.Point) r3.Vector {
 	latDist, lngDist := GetCartesianDistance(origin, point)
 	azimuth := origin.BearingTo(point)
 
 	switch {
 	case azimuth >= 0 && azimuth <= 90:
-		return NewPoseFromPoint(r3.Vector{latDist, lngDist, 0})
+		return r3.Vector{latDist, lngDist, 0}
 	case azimuth > 90 && azimuth <= 180:
-		return NewPoseFromPoint(r3.Vector{latDist, -lngDist, 0})
+		return r3.Vector{latDist, -lngDist, 0}
 	case azimuth >= -90 && azimuth < 0:
-		return NewPoseFromPoint(r3.Vector{-latDist, lngDist, 0})
+		return r3.Vector{-latDist, lngDist, 0}
 	default:
-		return NewPoseFromPoint(r3.Vector{-latDist, -lngDist, 0})
+		return r3.Vector{-latDist, -lngDist, 0}
 	}
 }
 
@@ -150,7 +162,7 @@ func GeoObstaclesToGeometries(obstacles []*GeoObstacle, origin *geo.Point) []Geo
 	// transformed by the specified in GPS coordinates.
 	geoms := []Geometry{}
 	for _, v := range obstacles {
-		relativePose := GeoPointToPose(v.location, origin)
+		relativePose := NewPoseFromPoint(GeoPointToPoint(v.location, origin))
 		for _, geom := range v.geometries {
 			geo := geom.Transform(relativePose)
 			geoms = append(geoms, geo)
@@ -183,8 +195,17 @@ func (gpo *GeoPose) Heading() float64 {
 	return gpo.heading
 }
 
-// PoseToGeoPoint converts a pose into a GeoPose treating relativeTo as the origin.
-func PoseToGeoPoint(relativeTo GeoPose, p Pose) GeoPose {
+// PoseToGeoPose converts a pose (in MM) into a GeoPose treating relativeTo as the origin.
+func PoseToGeoPose(relativeTo GeoPose, pMM Pose) GeoPose {
+	// we do this b/c plan nodes describe movement in mm
+	// but (p *Point) PointAtDistanceAndBearing expects the pose to be in km
+	kmPoint := r3.Vector{
+		X: pMM.Point().X / 1e6,
+		Y: pMM.Point().Y / 1e6,
+		Z: pMM.Point().Z / 1e6,
+	}
+	p := NewPose(kmPoint, pMM.Orientation())
+
 	// math.Atan2 performs on the unit sphere which is right-handed
 	// we assign newX and newY so we are peforming a left-handed calculation
 	newX := -p.Point().X
@@ -215,8 +236,11 @@ func PoseToGeoPoint(relativeTo GeoPose, p Pose) GeoPose {
 
 	// get the absolute heading of pose p, i.e. the heading in the world
 	// normalize to be [0,360)
-	// TODO: better comment
 	absolutePoseHeading := math.Mod(headingLeft+headingInWorld, 360)
+
+	if absolutePoseHeading < 0 {
+		absolutePoseHeading = absolutePoseHeading + 360
+	}
 
 	return *NewGeoPose(newLoc, absolutePoseHeading)
 }
