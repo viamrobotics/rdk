@@ -1,7 +1,6 @@
 package spatialmath
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -133,7 +132,6 @@ func GeoPoseToPose(point, origin GeoPose) Pose {
 	if headingChange < 0 {
 		headingChange = headingChange + 360
 	}
-	fmt.Printf("point.Heading: %v, origin.Heading: %v, headingChange: %v,\n", point.Heading(), origin.Heading(), headingChange)
 	return NewPose(position, &OrientationVectorDegrees{OZ: 1, Theta: headingChange})
 }
 
