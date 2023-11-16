@@ -115,6 +115,12 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 	if inputsErr != nil {
 		return inputsErr
 	}
+
+	fmt.Println("desired: ", desired)
+	fmt.Println("current: ", desired)
+
+	// desired = []referenceframe.Input{{desired[0].Value + 1000}, {desired[1].Value}, {desired[2].Value}}
+	// fmt.Println("desired: ", desired)
 	validRegion, capsuleErr := ddk.newValidRegionCapsule(current, desired)
 	if capsuleErr != nil {
 		return capsuleErr
@@ -230,12 +236,19 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 	if distErr > ddk.options.GoalRadiusMM && math.Abs(headingErr) > ddk.options.HeadingThresholdDegrees {
 		// base is headed off course; spin to correct
 		err := ddk.Spin(ctx, math.Min(headingErr, ddk.options.MaxSpinAngleDeg), ddk.options.AngularVelocityDegsPerSec, nil)
-		ddk.noLocalizerCacheInputs = []referenceframe.Input{{Value: 0}, {Value: 0}, desired[2]}
+
+		if ddk.Localizer == nil {
+			ddk.noLocalizerCacheInputs = []referenceframe.Input{{Value: 0}, {Value: 0}, desired[2]}
+			time.Sleep(3)
+		}
 		return true, err
 	} else if distErr > ddk.options.GoalRadiusMM {
 		// base is pointed the correct direction but not there yet; forge onward
 		err := ddk.MoveStraight(ctx, int(math.Min(distErr, ddk.options.MaxMoveStraightMM)), ddk.options.LinearVelocityMMPerSec, nil)
-		ddk.noLocalizerCacheInputs = desired
+
+		if ddk.Localizer == nil {
+			ddk.noLocalizerCacheInputs = desired
+		}
 		return true, err
 	}
 	return false, nil

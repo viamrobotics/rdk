@@ -37,7 +37,7 @@ var (
 	model            = resource.DefaultModelFamily.WithModel("explore")
 	errUnimplemented = errors.New("unimplemented")
 	// The distance a detected obstacle can be from a base to trigger the Move command to stop.
-	lookAheadDistanceMM = 300.
+	lookAheadDistanceMM = 500.
 	// ErrClosed denotes that the slam service method was called on a closed slam resource.
 	ErrClosed = errors.Errorf("resource (%s) is closed", model.String())
 
