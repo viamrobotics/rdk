@@ -89,6 +89,6 @@ func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referen
 		return nil, errors.New("could not get orientation from Localizer")
 	}
 
-	pose := spatialmath.NewPose(spatialmath.GeoPointToPose(gp, m.origin).Point(), o)
+	pose := spatialmath.NewPose(spatialmath.GeoPointToPoint(gp, m.origin), o)
 	return referenceframe.NewPoseInFrame(m.Name().Name, spatialmath.Compose(pose, m.calibration)), nil
 }
