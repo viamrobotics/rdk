@@ -61,7 +61,6 @@ func NewBoard(
 
 		spis:          map[string]*spiBus{},
 		analogReaders: map[string]*wrappedAnalogReader{},
-		i2cs:          map[string]*I2cBus{},
 		gpios:         map[string]*gpioPin{},
 		interrupts:    map[string]*digitalInterrupt{},
 	}
@@ -90,9 +89,6 @@ func (b *Board) Reconfigure(
 		return err
 	}
 	if err := b.reconfigureSpis(newConf); err != nil {
-		return err
-	}
-	if err := b.reconfigureI2cs(newConf); err != nil {
 		return err
 	}
 	if err := b.reconfigureAnalogReaders(ctx, newConf); err != nil {
@@ -224,41 +220,6 @@ func (b *Board) reconfigureSpis(newConf *LinuxBoardConfig) error {
 			continue
 		}
 		delete(b.spis, name)
-	}
-	return nil
-}
-
-func (b *Board) reconfigureI2cs(newConf *LinuxBoardConfig) error {
-	stillExists := map[string]struct{}{}
-	for _, c := range newConf.I2Cs {
-		stillExists[c.Name] = struct{}{}
-		if curr, ok := b.i2cs[c.Name]; ok {
-			if curr.deviceName == c.Bus {
-				continue
-			}
-			if err := curr.closeableBus.Close(); err != nil {
-				b.logger.Errorw("error closing I2C bus while reconfiguring", "error", err)
-			}
-			if err := curr.reset(curr.deviceName); err != nil {
-				b.logger.Errorw("error resetting I2C bus while reconfiguring", "error", err)
-			}
-			continue
-		}
-		bus, err := NewI2cBus(c.Bus)
-		if err != nil {
-			return err
-		}
-		b.i2cs[c.Name] = bus
-	}
-
-	for name := range b.i2cs {
-		if _, ok := stillExists[name]; ok {
-			continue
-		}
-		if err := b.i2cs[name].closeableBus.Close(); err != nil {
-			b.logger.Errorw("error closing I2C bus while reconfiguring", "error", err)
-		}
-		delete(b.i2cs, name)
 	}
 	return nil
 }
@@ -451,7 +412,6 @@ type Board struct {
 	gpioMappings  map[string]GPIOBoardMapping
 	spis          map[string]*spiBus
 	analogReaders map[string]*wrappedAnalogReader
-	i2cs          map[string]*I2cBus
 	logger        logging.Logger
 
 	gpios      map[string]*gpioPin
