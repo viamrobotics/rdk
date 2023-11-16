@@ -143,17 +143,20 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 
 	for idx := 0; idx < len(c.Components); idx++ {
-		dependsOn, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
+		component := c.Components[idx]
+		dependsOn, err := component.Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
 		if err != nil {
-			fullErr := errors.Errorf("error validating component %s: %s", c.Components[idx].Name, err)
+			fullErr := errors.Errorf("error validating component %s: %s", component.Name, err)
 			if c.DisablePartialStart {
 				return fullErr
 			}
-			logger.Errorw("component config error; starting robot without component", "name", c.Components[idx].Name, "error", err)
+			logger.Errorw("component config error; starting robot without component", "name", component.Name, "error", err)
+			resLogger := logger.Sublogger(component.ResourceName().String())
+			resLogger.Errorw("component config error; starting robot without component", "name", component.Name, "error", err)
 		} else {
-			c.Components[idx].ImplicitDependsOn = dependsOn
+			component.ImplicitDependsOn = dependsOn
 		}
-		if err := c.validateUniqueResource(logger, seenResources, c.Components[idx].ResourceName().String()); err != nil {
+		if err := c.validateUniqueResource(logger, seenResources, component.ResourceName().String()); err != nil {
 			return err
 		}
 	}
@@ -172,17 +175,20 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 
 	for idx := 0; idx < len(c.Services); idx++ {
-		dependsOn, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
+		service := c.Services[idx]
+		dependsOn, err := service.Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
 		if err != nil {
 			if c.DisablePartialStart {
 				return err
 			}
-			logger.Errorw("service config error; starting robot without service", "name", c.Services[idx].Name, "error", err)
+			logger.Errorw("service config error; starting robot without service", "name", service.Name, "error", err)
+			resLogger := logger.Sublogger(service.ResourceName().String())
+			resLogger.Errorw("service config error; starting robot without service", "name", service.Name, "error", err)
 		} else {
-			c.Services[idx].ImplicitDependsOn = dependsOn
+			service.ImplicitDependsOn = dependsOn
 		}
 
-		if err := c.validateUniqueResource(logger, seenResources, c.Services[idx].ResourceName().String()); err != nil {
+		if err := c.validateUniqueResource(logger, seenResources, service.ResourceName().String()); err != nil {
 			return err
 		}
 	}
