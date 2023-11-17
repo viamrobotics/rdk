@@ -211,7 +211,8 @@ func (m *cloudManager) validateAndGetChangedPackages(packages []config.PackageCo
 			continue
 		}
 		if existing := m.packageIsManaged(p); !existing {
-			changed = append(changed, p)
+			newPackage := p
+			changed = append(changed, newPackage)
 		} else {
 			m.logger.Debug("Package %s:%s already managed, skipping", p.Package, p.Version)
 		}
