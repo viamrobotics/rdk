@@ -4,17 +4,18 @@ import (
 	"fmt"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/mcp3008helper"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
-	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
-	AnalogReaders     []board.MCP3008AnalogConfig    `json:"analogs,omitempty"`
-	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
-	Attributes        utils.AttributeMap             `json:"attributes,omitempty"`
+	I2Cs              []board.I2CConfig                   `json:"i2cs,omitempty"`
+	SPIs              []board.SPIConfig                   `json:"spis,omitempty"`
+	AnalogReaders     []mcp3008helper.MCP3008AnalogConfig `json:"analogs,omitempty"`
+	DigitalInterrupts []board.DigitalInterruptConfig      `json:"digital_interrupts,omitempty"`
+	Attributes        utils.AttributeMap                  `json:"attributes,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -52,7 +53,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 type LinuxBoardConfig struct {
 	I2Cs              []board.I2CConfig
 	SPIs              []board.SPIConfig
-	AnalogReaders     []board.MCP3008AnalogConfig
+	AnalogReaders     []mcp3008helper.MCP3008AnalogConfig
 	DigitalInterrupts []board.DigitalInterruptConfig
 	GpioMappings      map[string]GPIOBoardMapping
 }
