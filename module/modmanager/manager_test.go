@@ -803,8 +803,9 @@ func TestModuleMisc(t *testing.T) {
 		test.That(t, resp, test.ShouldNotBeNil)
 		modWorkingDirectory, ok := resp["path"].(string)
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, modWorkingDirectory, test.ShouldEqual, filepath.Dir(modPath))
-
+		// MacOS prepends "/private/" to the filepath so we check the end of the path to account for this
+		// i.e.  '/private/var/folders/p1/nl3sq7jn5nx8tfkdwpz2_g7r0000gn/T/TestModuleMisc1764175663/002'
+		test.That(t, modWorkingDirectory, test.ShouldEndWith, filepath.Dir(modPath))
 		err = mgr.Close(ctx)
 		test.That(t, err, test.ShouldBeNil)
 	})
