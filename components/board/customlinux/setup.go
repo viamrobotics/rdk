@@ -5,9 +5,6 @@ package customlinux
 
 import (
 	"os"
-
-	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
 )
 
 // A Config describes the configuration of a board and all of its connected parts.
@@ -20,6 +17,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	if _, err := os.Stat(conf.BoardDefsFilePath); err != nil {
 		return nil, err
 	}
+	// Should we read in and validate the board defs in here?
 
 	return nil, nil
 }
