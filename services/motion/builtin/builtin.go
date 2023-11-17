@@ -260,9 +260,11 @@ func (ms *builtIn) MoveOnMap(
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
 
+	cancelCtx, cancelFn := context.WithCancel(ctx)
+	defer cancelFn()
 	// If the context is cancelled early, cancel the planner executor
 	utils.PanicCapturingGo(func() {
-		<-ctx.Done()
+		<-cancelCtx.Done()
 		mr.logger.Debug("context done")
 		mr.Cancel()
 	})
@@ -364,13 +366,13 @@ func (ms *builtIn) MoveOnGlobe(
 	if err != nil {
 		return false, err
 	}
+	cancelCtx, cancelFn := context.WithCancel(ctx)
+	defer cancelFn()
 	// If the context is cancelled early, cancel the planner executor
 	utils.PanicCapturingGo(func() {
-		<-ctx.Done()
+		<-cancelCtx.Done()
 		mr.logger.Debug("context done")
-		if mr != nil {
-			mr.Cancel()
-		}
+		mr.Cancel()
 	})
 
 	replanCount := 0
