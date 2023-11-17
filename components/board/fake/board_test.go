@@ -35,7 +35,7 @@ func TestFakeBoard(t *testing.T) {
 	b, err := NewBoard(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, ok = b.AnalogReaderByName("blue")
+	_, ok := b.AnalogReaderByName("blue")
 	test.That(t, ok, test.ShouldBeTrue)
 
 	_, ok = b.DigitalInterruptByName("i1")
