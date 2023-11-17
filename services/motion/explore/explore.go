@@ -583,11 +583,6 @@ func (ms *explore) createMotionPlan(
 	}
 
 	// replace original base frame with one that knows how to move itself and allow planning for
-	// newKBOriginFrame, err := referenceframe.NewStaticFrame(kb.Name().ShortName()+"_origin", spatialmath.NewZeroPose())
-	// if err != nil {
-	// 	return nil, err
-	// }
-
 	if err = ms.frameSystem.ReplaceFrame(kb.Kinematics()); err != nil {
 		return nil, err
 	}
