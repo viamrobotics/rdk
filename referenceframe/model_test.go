@@ -38,7 +38,6 @@ func TestModelLoading(t *testing.T) {
 	test.That(t, m.Name(), test.ShouldEqual, "foo")
 }
 
-//nolint:dupl
 func TestTransform(t *testing.T) {
 	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)

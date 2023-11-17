@@ -43,7 +43,7 @@ const (
 	defaultPointDensity = .5
 )
 
-// GeometryConfig specifies the format of geometries specified through the configuration file.
+// GeometryConfig specifies the format of geometries specified through JSON configuration files.
 type GeometryConfig struct {
 	Type GeometryType `json:"type"`
 
@@ -66,31 +66,31 @@ type GeometryConfig struct {
 }
 
 // NewGeometryConfig creates a config for a Geometry from an offset Pose.
-func NewGeometryConfig(gc Geometry) (*GeometryConfig, error) {
+func NewGeometryConfig(g Geometry) (*GeometryConfig, error) {
 	config := &GeometryConfig{}
-	switch gcType := gc.(type) {
+	switch gType := g.(type) {
 	case *box:
 		config.Type = BoxType
-		config.X = gc.(*box).halfSize[0] * 2
-		config.Y = gc.(*box).halfSize[1] * 2
-		config.Z = gc.(*box).halfSize[2] * 2
-		config.Label = gc.(*box).label
+		config.X = gType.halfSize[0] * 2
+		config.Y = gType.halfSize[1] * 2
+		config.Z = gType.halfSize[2] * 2
+		config.Label = gType.label
 	case *sphere:
 		config.Type = SphereType
-		config.R = gc.(*sphere).radius
-		config.Label = gc.(*sphere).label
+		config.R = gType.radius
+		config.Label = gType.label
 	case *capsule:
 		config.Type = CapsuleType
-		config.R = gc.(*capsule).radius
-		config.L = gc.(*capsule).length
-		config.Label = gc.(*capsule).label
+		config.R = gType.radius
+		config.L = gType.length
+		config.Label = gType.label
 	case *point:
 		config.Type = PointType
-		config.Label = gc.(*point).label
+		config.Label = gType.label
 	default:
-		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", gcType))
+		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", gType))
 	}
-	offset := gc.Pose()
+	offset := g.Pose()
 	o := offset.Orientation()
 	config.TranslationOffset = offset.Point()
 	orientationConfig, err := NewOrientationConfig(o)

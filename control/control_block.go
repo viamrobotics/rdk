@@ -13,15 +13,15 @@ import (
 type controlBlockType string
 
 const (
-	blockEndpoint                   controlBlockType = "endpoint"
-	blockFilter                     controlBlockType = "filter"
+	blockConstant                   controlBlockType = "constant"
 	blockTrapezoidalVelocityProfile controlBlockType = "trapezoidalVelocityProfile"
 	blockPID                        controlBlockType = "PID"
 	blockGain                       controlBlockType = "gain"
 	blockDerivative                 controlBlockType = "derivative"
 	blockSum                        controlBlockType = "sum"
-	blockConstant                   controlBlockType = "constant"
 	blockEncoderToRPM               controlBlockType = "encoderToRpm"
+	blockEndpoint                   controlBlockType = "endpoint"
+	blockFilter                     controlBlockType = "filter"
 )
 
 // BlockConfig configuration of a given block.

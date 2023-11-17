@@ -38,11 +38,8 @@ type client struct {
 
 type boardInfo struct {
 	name                  string
-	spiNames              []string
-	i2cNames              []string
 	analogReaderNames     []string
 	digitalInterruptNames []string
-	gpioPinNames          []string
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -91,22 +88,6 @@ func (c *client) GPIOPinByName(name string) (GPIOPin, error) {
 	}, nil
 }
 
-func (c *client) SPINames() []string {
-	if c.getCachedStatus() == nil {
-		c.logger.Debugw("no cached status")
-		return []string{}
-	}
-	return copyStringSlice(c.info.spiNames)
-}
-
-func (c *client) I2CNames() []string {
-	if c.getCachedStatus() == nil {
-		c.logger.Debugw("no cached status")
-		return []string{}
-	}
-	return copyStringSlice(c.info.i2cNames)
-}
-
 func (c *client) AnalogReaderNames() []string {
 	if c.getCachedStatus() == nil {
 		c.logger.Debugw("no cached status")
@@ -121,14 +102,6 @@ func (c *client) DigitalInterruptNames() []string {
 		return []string{}
 	}
 	return copyStringSlice(c.info.digitalInterruptNames)
-}
-
-func (c *client) GPIOPinNames() []string {
-	if c.getCachedStatus() == nil {
-		c.logger.Debugw("no cached status")
-		return []string{}
-	}
-	return copyStringSlice(c.info.gpioPinNames)
 }
 
 // Status uses the cached status or a newly fetched board status to return the state

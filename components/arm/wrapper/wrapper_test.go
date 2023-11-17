@@ -8,7 +8,6 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -52,7 +51,7 @@ func TestReconfigure(t *testing.T) {
 	conf, err := resource.NativeConfig[*Config](cfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	model, err := referenceframe.ModelFromPath(conf.ModelFilePath, cfg.Name)
+	model, err := modelFromPath(conf.ModelFilePath, cfg.Name)
 	test.That(t, err, test.ShouldBeNil)
 
 	actualArm := &inject.Arm{}

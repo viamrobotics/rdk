@@ -109,7 +109,7 @@ func (c *capsule) AlmostEqual(g Geometry) bool {
 	if !ok {
 		return false
 	}
-	return PoseAlmostEqual(c.pose, other.pose) &&
+	return PoseAlmostEqualEps(c.pose, other.pose, 1e-6) &&
 		utils.Float64AlmostEqual(c.radius, other.radius, 1e-8) &&
 		utils.Float64AlmostEqual(c.length, other.length, 1e-8)
 }
