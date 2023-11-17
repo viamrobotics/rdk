@@ -1,16 +1,20 @@
-package board
+// Package mcp3008helper is shared code for hooking an MCP3008 ADC up to a board. It is used in
+// both the pi and genericlinux board implementations, but does not implement a board directly.
+package mcp3008helper
 
 import (
 	"context"
 
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/components/board"
 )
 
 // MCP3008AnalogReader implements a board.AnalogReader using an MCP3008 ADC via SPI.
 type MCP3008AnalogReader struct {
 	Channel int
-	Bus     SPI
+	Bus     board.SPI
 	Chip    string
 }
 
