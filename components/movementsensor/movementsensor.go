@@ -46,6 +46,10 @@ func init() {
 		API:        API,
 		MethodName: orientation.String(),
 	}, NewOrientationCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: readings.String(),
+	}, NewReadingsCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "movement_sensor".
