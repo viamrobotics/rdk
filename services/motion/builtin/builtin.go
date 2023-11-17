@@ -412,8 +412,11 @@ func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq
 
 	id, err := state.StartExecution(ms.state, req.ComponentName, req, planExecutorConstructor)
 	if err != nil {
+		ms.logger.Debugf("MoveOnGlobeNew error response: %s", err)
 		return "", err
 	}
+
+	ms.logger.Debugf("MoveOnGlobeNew response: %s", id)
 
 	return id.String(), nil
 }
@@ -427,6 +430,7 @@ func (ms *builtIn) GetPose(
 ) (*referenceframe.PoseInFrame, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
+	ms.logger.Debugf("GetPose called on component: %#v\n", componentName.String())
 	if destinationFrame == "" {
 		destinationFrame = referenceframe.World
 	}
@@ -447,7 +451,10 @@ func (ms *builtIn) StopPlan(
 ) error {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return ms.state.StopExecutionByResource(req.ComponentName)
+	ms.logger.Debugf("StopPlan called on component: %#v\n", req.ComponentName.String())
+	err := ms.state.StopExecutionByResource(req.ComponentName)
+	ms.logger.Debugf("StopPlan response: %#v\n", err)
+	return err
 }
 
 func (ms *builtIn) ListPlanStatuses(
@@ -456,7 +463,10 @@ func (ms *builtIn) ListPlanStatuses(
 ) ([]motion.PlanStatusWithID, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return ms.state.ListPlanStatuses(req)
+	ms.logger.Debugf("ListPlanStatuses request: %#v\n", req)
+	resp, err := ms.state.ListPlanStatuses(req)
+	ms.logger.Debugf("ListPlanStatuses response: %#v, err: %s\n", resp, err)
+	return resp, err
 }
 
 func (ms *builtIn) PlanHistory(
@@ -465,5 +475,8 @@ func (ms *builtIn) PlanHistory(
 ) ([]motion.PlanWithStatus, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return ms.state.PlanHistory(req)
+	ms.logger.Debugf("PlanHistory request: %#v\n", req)
+	resp, err := ms.state.PlanHistory(req)
+	ms.logger.Debugf("PlanHistory response: %#v, err: %s\n", resp, err)
+	return resp, err
 }

@@ -545,23 +545,24 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 			}
 			for {
 				if ctx.Err() != nil {
+					svc.logger.Debugf("%s\n", ctx.Err())
 					return ctx.Err()
 				}
-				svc.logger.Infof("before PlanHistory")
+				svc.logger.Info("before PlanHistory")
 				planHistory, err := svc.motionService.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: svc.base.Name(), ExecutionID: executionID})
-				svc.logger.Infof("after PlanHistory")
+				svc.logger.Info("after PlanHistory")
 				if err != nil {
-					svc.logger.Infof("PlanHistory got an error")
+					svc.logger.Info("PlanHistory got an error")
 					return err
 				}
-				svc.logger.Infof("PlanHistory had no error")
+				svc.logger.Info("PlanHistory had no error")
 				svc.mu.Lock()
 				svc.executions[executionID] = s{planHistory: planHistory, waypointID: wp.ID}
 				svc.mu.Unlock()
 				svc.logger.Infof("planHistory[0].StatusHistory[0].State.String(): %s\n", planHistory[0].StatusHistory[0].State.String())
 				_, executionTerminated := motion.TerminalStateSet[planHistory[0].StatusHistory[0].State]
 				if executionTerminated {
-					svc.logger.Infof("execution terminated")
+					svc.logger.Info("execution terminated")
 					return svc.waypointReached(ctx)
 				}
 				time.Sleep(time.Millisecond * 200)

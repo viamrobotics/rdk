@@ -34,18 +34,6 @@ var (
 // Waypoints represent the waypoints of the plan.
 type Waypoints [][]referenceframe.Input
 
-// ExecuteResp is the response from Execute
-// If execution terminated for a reason that requires replanning
-// Replan will be set to true
-// if execution termiated due to an error Err will be non nil
-// Err without Replan indicates that execution failed & replanning
-// is not possible
-// If Replan is falase & Err is nil then the request succeeded.
-// type ExecuteResp struct {
-// 	Replan bool
-// 	Err    error
-// }
-
 // PlanResp is the response from Plan.
 type PlanResp struct {
 	Waypoints        Waypoints

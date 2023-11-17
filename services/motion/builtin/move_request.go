@@ -117,8 +117,8 @@ func (mr *moveRequest) Plan() (state.PlanResp, error) {
 		if err != nil {
 			return state.PlanResp{}, err
 		}
-		mr.logger.Errorf("poses: %#v", poses)
-		mr.logger.Errorf("geoPoses: %#v", geoPoses)
+		mr.logger.Infof("poses: %#v", poses)
+		mr.logger.Infof("geoPoses: %#v", geoPoses)
 
 		// This copy is needed as the motionplan package can't return motion.PlanStep as that would cause a circular dependency
 		// and b/c we need to convert []map[resource.Name]spatialmath.Pose into a []motion.PlanStep.
