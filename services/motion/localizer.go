@@ -39,6 +39,12 @@ func (s *slamLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.Po
 	if err != nil {
 		return nil, err
 	}
+	// pose = spatialmath.NewPose(r3.Vector{
+	// 	X: 1700,
+	// 	Y: -1300,
+	// }, &spatialmath.OrientationVectorDegrees{
+	// 	OZ:    1,
+	// 	Theta: 61})
 	pose = spatialmath.Compose(pose, SLAMOrientationAdjustment)
 
 	// Slam poses are returned such that theta=0 points along the +X axis

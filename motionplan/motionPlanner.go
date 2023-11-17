@@ -208,7 +208,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	}
 	fmt.Printf("planning motion: %#v", spatialmath.PoseToProtobuf(request.StartPose))
 	// specialPOse := spatialmath.NewPose(r3.Vector{0, 0, 0}, request.StartPose.Orientation())
-	specialrectifyTPspacePath(planNodes, sf.solveFrame, request.StartPose)
+	specialrectifyTPspacePath(planNodes, sf.solveFrame, request.StartPose, request.Logger)
 
 	if replanCostFactor > 0 && currentPlan != nil {
 		initialPlanCost := currentPlan.Evaluate(sfPlanner.opt().ScoreFunc)
@@ -222,7 +222,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 			return nil, errHighReplanCost
 		}
 	}
-
+	return nil, err
 	return newPlan, nil
 }
 

@@ -880,7 +880,6 @@ func rectifyTPspacePath(path []node, frame referenceframe.Frame, startPose spati
 			return nil, err
 		}
 		runningPose = spatialmath.Compose(runningPose, wpPose)
-		fmt.Println(runningPose.Point().X, runningPose.Point().Y)
 		thisNode := &basicNode{
 			q:      wp.Q(),
 			cost:   wp.Cost(),
@@ -892,7 +891,7 @@ func rectifyTPspacePath(path []node, frame referenceframe.Frame, startPose spati
 	return correctedPath, nil
 }
 
-func specialrectifyTPspacePath(path []node, frame referenceframe.Frame, startPose spatialmath.Pose) ([]node, error) {
+func specialrectifyTPspacePath(path []node, frame referenceframe.Frame, startPose spatialmath.Pose, logger logging.Logger) ([]node, error) {
 	correctedPath := []node{}
 	runningPose := startPose
 	// runningPoseLogging := realStart
@@ -910,7 +909,7 @@ func specialrectifyTPspacePath(path []node, frame referenceframe.Frame, startPos
 			return nil, err
 		}
 		runningPose = spatialmath.Compose(runningPose, wpPose)
-		xx := []float64{runningPose.Point().X, runningPose.Point().Y}
+		xx := []float64{runningPose.Point().X, runningPose.Point().Y, runningPose.Orientation().OrientationVectorDegrees().Theta}
 		poses = append(poses, xx)
 		printed := spatialmath.PoseToProtobuf(runningPose)
 		fmt.Printf("%f,%f\n", printed.X, printed.Y)
@@ -923,7 +922,7 @@ func specialrectifyTPspacePath(path []node, frame referenceframe.Frame, startPos
 		}
 		correctedPath = append(correctedPath, thisNode)
 	}
-	err := logRecitfy(poses)
+	err := logRecitfy(poses, logger)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -934,17 +933,24 @@ type RecityfiedPose struct {
 	Poses [][]float64
 }
 
-func logRecitfy(poses [][]float64) error {
-
-	f, err := os.OpenFile("../motion_points.txt",
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+func logRecitfy(poses [][]float64, logger logging.Logger) error {
+	fileLocation := "/Users/vijayvuyyuru/Desktop/delivery-robot/runs/pure_motion"
+	files, _ := os.ReadDir(fileLocation)
+	runNum := len(files)
+	logger.Infof("number of files %d", runNum)
+	filePath := fmt.Sprintf("%s/motion%d.txt", fileLocation, runNum)
+	f, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE, 0644)
+	fTheta, err := os.OpenFile(fmt.Sprintf("%s/motion%dTheta.txt", fileLocation, runNum), os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	f.WriteString("0,0\n")
+	// f.WriteString("0,0\n")
 	for _, pose := range poses {
 		if _, err := f.WriteString(fmt.Sprintf("%f,%f\n", pose[0], pose[1])); err != nil {
+			return err
+		}
+		if _, err := fTheta.WriteString(fmt.Sprintf("%f,%f,%f\n", pose[0], pose[1], pose[2])); err != nil {
 			return err
 		}
 	}
