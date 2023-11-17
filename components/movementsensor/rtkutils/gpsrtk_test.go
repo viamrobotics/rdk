@@ -49,6 +49,8 @@ const (
 	i2c1.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
 		return handle1, nil
 	}
+	// TODO: while this was commented out, we removed this way to get the I2C bus. When it's time
+	// to uncomment this code, make the GPS component talk directly to the mock bus.
 	actualBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
 		return i2c1, true
 	}

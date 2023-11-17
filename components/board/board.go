@@ -61,20 +61,11 @@ type Board interface {
 	// GPIOPinByName returns a GPIOPin by name.
 	GPIOPinByName(name string) (GPIOPin, error)
 
-	// SPINames returns the names of all known SPI buses.
-	SPINames() []string
-
-	// I2CNames returns the names of all known I2C buses.
-	I2CNames() []string
-
 	// AnalogReaderNames returns the names of all known analog readers.
 	AnalogReaderNames() []string
 
 	// DigitalInterruptNames returns the names of all known digital interrupts.
 	DigitalInterruptNames() []string
-
-	// GPIOPinNames returns the names of all known GPIO pins.
-	GPIOPinNames() []string
 
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
@@ -91,17 +82,6 @@ type Board interface {
 
 	// WriteAnalog writes an analog value to a pin on the board.
 	WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error
-}
-
-// A LocalBoard represents a Board where you can request SPIs and I2Cs by name.
-type LocalBoard interface {
-	Board
-
-	// SPIByName returns an SPI bus by name.
-	SPIByName(name string) (SPI, bool)
-
-	// I2CByName returns an I2C bus by name.
-	I2CByName(name string) (I2C, bool)
 }
 
 // ModelAttributes provide info related to a board model.
