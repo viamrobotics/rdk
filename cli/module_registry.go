@@ -1,9 +1,7 @@
 package cli
 
 import (
-	"archive/tar"
 	"bufio"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -261,15 +259,8 @@ func UploadModuleAction(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		if err := validateModuleFile(client, tarballPath, entrypoint); err != nil {
-			return fmt.Errorf(
-				"error validating module: %w. For more details, please visit: https://docs.viam.com/manage/cli/#command-options-3 ",
-				err)
-		}
-		if err := validateDynamicExecutableLinkedLibaries(client, tarballPath, entrypoint, platformArg); err != nil {
-			return fmt.Errorf(
-				"error validating module: %w. For more details, please visit: https://docs.viam.com/manage/cli/#command-options-3 ",
-				err)
+		if err := validateModule(client, tarballPath, entrypoint, platformArg); err != nil {
+			return err
 		}
 	}
 
@@ -394,88 +385,71 @@ func (c *viamClient) uploadModuleFile(
 }
 
 func validateModule(client *viamClient, tarballPath, entrypoint, platform string) error {
-	tempDir := os.TempDir()
-	//nolint:errcheck
-	defer os.Remove(tempDir)
-	err := unpackArchive(tarballPath, tempDir)
+	tempDir, err := os.MkdirTemp("", "viam-modunpack-*")
 	if err != nil {
+		return err
+	}
+	//nolint:errcheck
+	defer os.RemoveAll(tempDir)
+	if err := unpackArchive(tarballPath, tempDir); err != nil {
 		return errors.Wrapf(err, "failed to unpack archive for validation")
 	}
 	if err := validateModuleEntrypoint(client, tempDir, entrypoint); err != nil {
 		return err
+	}
+	links, err := validateModuleSymlinkSafety(tempDir)
+	fmt.Printf("SHUD%v", links)
+	if err != nil {
+		return err
+	}
+	for name := range links {
+		warningf(client.c.App.Writer, "%s->%s", name, links[name])
 	}
 	return nil
 
 }
 
 // validateModuleEntrypoint should only be called from validateModule
+// it checks that the entrypoint exists at the expected position and that it is marked as executable
 func validateModuleEntrypoint(client *viamClient, moduleRoot, entrypoint string) error {
 	entrypointPath := filepath.Join(moduleRoot, entrypoint)
 	entrypointStat, err := os.Stat(entrypointPath)
 	if err != nil {
-		return err
-	}
-
-	//nolint:gosec
-	file, err := os.Open(tarballPath)
-	if err != nil {
-		return err
-	}
-	archive, err := gzip.NewReader(file)
-	if err != nil {
-		return err
-	}
-
-	tarReader := tar.NewReader(archive)
-	filesWithSameNameAsEntrypoint := []string{}
-	for {
-		if err := client.c.Context.Err(); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
-		header, err := tarReader.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return errors.Wrapf(err, "error reading %s", file.Name())
-		}
-		if header.Typeflag == tar.TypeLink || header.Typeflag == tar.TypeSymlink {
-			base := filepath.Base(tarballPath)
-			if filepath.IsAbs(header.Linkname) ||
-				//nolint:gosec
-				!strings.HasPrefix(filepath.Join(base, header.Linkname), base) {
-				warningf(client.c.App.ErrWriter, "Module contains a symlink to a file outside the package."+
-					" This might cause issues on other computers. %s -> %s",
-					header.Name, header.Linkname)
+		// if it is ErrNotExist, we can try and find a matching file to give a better error to the user
+		filesWithSameNameAsEntrypoint := []string{}
+		walkErr := filepath.WalkDir(moduleRoot, func(path string, info fs.DirEntry, err error) error {
+			if filepath.Base(path) == filepath.Base(entrypoint) {
+				trimPath := strings.Replace(path, moduleRoot, ".", 1)
+				filesWithSameNameAsEntrypoint = append(filesWithSameNameAsEntrypoint, trimPath)
 			}
-		}
-		path := header.Name
-
-		// if path == entrypoint, we have found the right file
-		if filepath.Clean(path) == filepath.Clean(entrypoint) {
-			info := header.FileInfo()
-			if info.Mode().Perm()&0o100 == 0 {
-				return errors.Errorf(
-					"the archive contained a file at the entrypoint %q, but that file is not marked as executable",
-					entrypoint)
-			}
-			// executable file at entrypoint. validation succeeded.
 			return nil
+		})
+		extraErrInfo := ""
+		if walkErr == nil && len(filesWithSameNameAsEntrypoint) > 0 {
+			extraErrInfo = fmt.Sprintf(". Did you mean to set your entrypoint to %v?", filesWithSameNameAsEntrypoint)
 		}
-		if filepath.Base(path) == filepath.Base(entrypoint) {
-			filesWithSameNameAsEntrypoint = append(filesWithSameNameAsEntrypoint, path)
-		}
+		return errors.Errorf("the archive does not contain a file at the desired entrypoint %q%s",
+			entrypoint, extraErrInfo)
+
 	}
-	extraErrInfo := ""
-	if len(filesWithSameNameAsEntrypoint) > 0 {
-		extraErrInfo = fmt.Sprintf(". Did you mean to set your entrypoint to %v?", filesWithSameNameAsEntrypoint)
+	if entrypointStat.Mode().Perm()&0o100 == 0 {
+		return errors.Errorf(
+			"the archive contained a file at the entrypoint %q, but that file is not marked as executable",
+			entrypoint)
 	}
-	return errors.Errorf("the archive does not contain a file at the desired entrypoint %q%s",
-		entrypoint, extraErrInfo)
+	// if the file exists and is executable, return success
+	return nil
 }
 
-func getSymlinksThatPointOfModuleRoot(moduleRoot string) (map[string]string, error) {
-	filepath.WalkDir(moduleRoot, func(path string, info fs.DirEntry, err error) error {
+// validateModuleSymlinkSafety should only be called from validateModule
+// it checks that the symlinks do not point out of the moduleRoot
+// returns (warning text, errors during the check)
+func validateModuleSymlinkSafety(moduleRoot string) (map[string]string, error) {
+	unsafeLinks := map[string]string{}
+	walkErr := filepath.WalkDir(moduleRoot, func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -483,9 +457,22 @@ func getSymlinksThatPointOfModuleRoot(moduleRoot string) (map[string]string, err
 		if info.Type()&fs.ModeType&fs.ModeSymlink == 0 {
 			return nil
 		}
-
+		link, err := os.Readlink(path)
+		if err != nil {
+			return err
+		}
+		// check if it is absolute link
+		if filepath.IsAbs(link) {
+			unsafeLinks[path] = link
+		}
+		// check if it is a relative path that leaves the moduleRoot
+		linkTarget := filepath.Join(moduleRoot, link)
+		if !strings.HasPrefix(moduleRoot, linkTarget) {
+			unsafeLinks[path] = link
+		}
+		return nil
 	})
-	return nil, nil
+	return unsafeLinks, walkErr
 
 }
 

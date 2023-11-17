@@ -219,20 +219,6 @@ func unpackArchive(fromFile, toDir string) error {
 }
 
 func linkFile(from, to string) error {
-	link, err := os.Readlink(to)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-
-	if link == from {
-		return nil
-	}
-
-	// remove any existing link or SymLink will fail.
-	if link != "" {
-		utils.UncheckedError(os.Remove(from))
-	}
-
 	return os.Symlink(from, to)
 }
 
