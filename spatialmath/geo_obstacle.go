@@ -125,13 +125,25 @@ func GetCartesianDistance(p, q *geo.Point) (float64, float64) {
 	return distAlongLat, distAlongLng
 }
 
-// GeoPoseToPose does things
+// GeoPoseToPose returns the pose of point with respect to origin
 func GeoPoseToPose(point, origin GeoPose) Pose {
-	position := GeoPointToPoint(point.Location(), origin.Location())
+	localBearing := origin.Location().BearingTo(point.Location())
+	absoluteBearing := localBearing - origin.Heading()
+
+	latDist, lngDist := GetCartesianDistance(point.Location(), origin.Location())
+	v := r3.Vector{latDist * 1e-6, lngDist * 1e-6, 0}
+
+	nullIsland := geo.NewPoint(0, 0)
+
+	gp := nullIsland.PointAtDistanceAndBearing(v.Norm(), absoluteBearing)
+
+	position := GeoPointToPoint(gp, nullIsland)
+
 	headingChange := math.Mod(origin.Heading()-point.Heading(), 360)
 	if headingChange < 0 {
 		headingChange = headingChange + 360
 	}
+
 	return NewPose(position, &OrientationVectorDegrees{OZ: 1, Theta: headingChange})
 }
 
