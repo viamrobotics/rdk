@@ -14,12 +14,6 @@ import (
 func TestFakeBoard(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	boardConfig := Config{
-		I2Cs: []board.I2CConfig{
-			{Name: "main", Bus: "0"},
-		},
-		SPIs: []board.SPIConfig{
-			{Name: "aux", BusSelect: "1"},
-		},
 		AnalogReaders: []board.AnalogReaderConfig{
 			{Name: "blue", Pin: "0"},
 		},
