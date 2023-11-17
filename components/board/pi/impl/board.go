@@ -153,7 +153,7 @@ func initializePigpio() error {
 }
 
 // newPigpio makes a new pigpio based Board using the given config.
-func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, logger logging.Logger) (board.LocalBoard, error) {
+func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, logger logging.Logger) (board.Board, error) {
 	// this is so we can run it inside a daemon
 	internals := C.gpioCfgGetInternals()
 	internals |= C.PI_CFG_NOSIGHANDLER
@@ -417,17 +417,6 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *Config) erro
 	return nil
 }
 
-// GPIOPinNames returns the names of all known GPIO pins.
-func (pi *piPigpio) GPIOPinNames() []string {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	names := make([]string, 0, len(piHWPinToBroadcom))
-	for k := range piHWPinToBroadcom {
-		names = append(names, k)
-	}
-	return names
-}
-
 // GPIOPinByName returns a GPIOPin by name.
 func (pi *piPigpio) GPIOPinByName(pin string) (board.GPIOPin, error) {
 	pi.mu.Lock()
@@ -682,34 +671,6 @@ func (s *piPigpioSPIHandle) Close() error {
 	return nil
 }
 
-// SPINames returns the names of all known SPI buses.
-func (pi *piPigpio) SPINames() []string {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	if len(pi.spis) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(pi.spis))
-	for k := range pi.spis {
-		names = append(names, k)
-	}
-	return names
-}
-
-// I2CNames returns the names of all known SPI buses.
-func (pi *piPigpio) I2CNames() []string {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	if len(pi.i2cs) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(pi.i2cs))
-	for k := range pi.i2cs {
-		names = append(names, k)
-	}
-	return names
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (pi *piPigpio) AnalogReaderNames() []string {
 	pi.mu.Lock()
@@ -738,22 +699,6 @@ func (pi *piPigpio) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	defer pi.mu.Unlock()
 	a, ok := pi.analogReaders[name]
 	return a, ok
-}
-
-// SPIByName returns an SPI bus by name.
-func (pi *piPigpio) SPIByName(name string) (board.SPI, bool) {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	s, ok := pi.spis[name]
-	return s, ok
-}
-
-// I2CByName returns an I2C by name.
-func (pi *piPigpio) I2CByName(name string) (board.I2C, bool) {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	s, ok := pi.i2cs[name]
-	return s, ok
 }
 
 // DigitalInterruptByName returns a digital interrupt by name.

@@ -462,18 +462,6 @@ type Board struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// SPIByName returns the SPI by the given name if it exists.
-func (b *Board) SPIByName(name string) (board.SPI, bool) {
-	s, ok := b.spis[name]
-	return s, ok
-}
-
-// I2CByName returns the i2c by the given name if it exists.
-func (b *Board) I2CByName(name string) (board.I2C, bool) {
-	i, ok := b.i2cs[name]
-	return i, ok
-}
-
 // AnalogReaderByName returns the analog reader by the given name if it exists.
 func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	a, ok := b.analogReaders[name]
@@ -519,30 +507,6 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, boo
 	return interrupt.interrupt, true
 }
 
-// SPINames returns the names of all known SPIs.
-func (b *Board) SPINames() []string {
-	if len(b.spis) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(b.spis))
-	for k := range b.spis {
-		names = append(names, k)
-	}
-	return names
-}
-
-// I2CNames returns the names of all known I2Cs.
-func (b *Board) I2CNames() []string {
-	if len(b.i2cs) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(b.i2cs))
-	for k := range b.i2cs {
-		names = append(names, k)
-	}
-	return names
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (b *Board) AnalogReaderNames() []string {
 	names := []string{}
@@ -561,18 +525,6 @@ func (b *Board) DigitalInterruptNames() []string {
 	names := []string{}
 	for name := range b.interrupts {
 		names = append(names, name)
-	}
-	return names
-}
-
-// GPIOPinNames returns the names of all known GPIO pins.
-func (b *Board) GPIOPinNames() []string {
-	if b.gpioMappings == nil {
-		return nil
-	}
-	names := []string{}
-	for k := range b.gpioMappings {
-		names = append(names, k)
 	}
 	return names
 }

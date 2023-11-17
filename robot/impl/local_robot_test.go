@@ -865,20 +865,12 @@ func TestStopAll(t *testing.T) {
 }
 
 type dummyBoard struct {
-	board.LocalBoard
+	board.Board
 	closeCount int
 }
 
 func (db *dummyBoard) Name() resource.Name {
 	return board.Named("bad")
-}
-
-func (db *dummyBoard) SPINames() []string {
-	return nil
-}
-
-func (db *dummyBoard) I2CNames() []string {
-	return nil
 }
 
 func (db *dummyBoard) AnalogReaderNames() []string {
