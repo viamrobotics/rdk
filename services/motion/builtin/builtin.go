@@ -263,6 +263,7 @@ func (ms *builtIn) MoveOnMap(
 	// If the context is cancelled early, cancel the planner executor
 	utils.PanicCapturingGo(func() {
 		<-ctx.Done()
+		mr.logger.Debug("context done")
 		mr.Cancel()
 	})
 	planResp, err := mr.Plan()
@@ -366,6 +367,7 @@ func (ms *builtIn) MoveOnGlobe(
 	// If the context is cancelled early, cancel the planner executor
 	utils.PanicCapturingGo(func() {
 		<-ctx.Done()
+		mr.logger.Debug("context done")
 		if mr != nil {
 			mr.Cancel()
 		}
