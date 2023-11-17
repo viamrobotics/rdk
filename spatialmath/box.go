@@ -78,7 +78,8 @@ func NewBox(pose Pose, dims r3.Vector, label string) (Geometry, error) {
 
 // String returns a human readable string that represents the box.
 func (b *box) String() string {
-	return fmt.Sprintf("Type: Box | Position: X:%.1f, Y:%.1f, Z:%.1f | Dims: X:%.0f, Y:%.0f, Z:%.0f", b.pose.Point().X, b.pose.Point().Y, b.pose.Point().Z, 2*b.halfSize[0], 2*b.halfSize[1], 2*b.halfSize[2])
+	return fmt.Sprintf("Type: Box | Position: X:%.1f, Y:%.1f, Z:%.1f | Dims: X:%.0f, Y:%.0f, Z:%.0f",
+		b.pose.Point().X, b.pose.Point().Y, b.pose.Point().Z, 2*b.halfSize[0], 2*b.halfSize[1], 2*b.halfSize[2])
 }
 
 func (b *box) MarshalJSON() ([]byte, error) {

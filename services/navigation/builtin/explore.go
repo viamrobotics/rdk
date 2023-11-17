@@ -6,9 +6,10 @@ import (
 	"math/rand"
 
 	"github.com/golang/geo/r3"
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/utils"
 )
 
 const defaultDistanceMM = 100 * 1000
@@ -29,7 +30,7 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 			}
 
 			// Choose a new random point using a normal distribution centered on the position directly the robot
-			//nolint:gosec
+
 			randAngle := rand.NormFloat64() + math.Pi
 			destination := referenceframe.NewPoseInFrame(svc.base.Name().Name, spatialmath.NewPose(
 				r3.Vector{

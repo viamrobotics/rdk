@@ -22,7 +22,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// The pause time when not using a localizer before moving on to next move step
+// The pause time when not using a localizer before moving on to next move step.
 const defaultNoLocalizerDelay = 250 * time.Millisecond
 
 // ErrMovementTimeout is used for when a movement call times out after no movement for some time.
@@ -119,11 +119,6 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		return inputsErr
 	}
 
-	fmt.Println("desired: ", desired)
-	fmt.Println("current: ", desired)
-
-	// desired = []referenceframe.Input{{desired[0].Value + 1000}, {desired[1].Value}, {desired[2].Value}}
-	// fmt.Println("desired: ", desired)
 	validRegion, capsuleErr := ddk.newValidRegionCapsule(current, desired)
 	if capsuleErr != nil {
 		return capsuleErr

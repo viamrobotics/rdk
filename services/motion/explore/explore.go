@@ -43,9 +43,9 @@ var (
 
 	// Places a limit on how far a potential move action can be on the kinematic base.
 	defaultMoveLimit = 100000.
-	// The timeout for any individual move action on the kinematic base
+	// The timeout for any individual move action on the kinematic base.
 	defaultExploreTimeout = 100 * time.Second
-	// The max angle a spin action can be on the kinematic base
+	// The max angle a spin action can be on the kinematic base.
 	defaultMaxSpinAngleDegs = 180.
 )
 
@@ -84,7 +84,7 @@ type inputEnabledActuator interface {
 // obstacleDetectorObject provides a map for matching vision services to any and all cameras names they use.
 type obstacleDetectorObject map[vision.Service]resource.Name
 
-// // Config describes how to configure the service. As the explore motion service is not being surfaced to users, this is blank.
+// Config describes how to configure the service. As the explore motion service is not being surfaced to users, this is blank.
 type Config struct{}
 
 // Validate here adds a dependency on the internal framesystem service.
@@ -330,7 +330,6 @@ func (ms *explore) checkForObstacles(
 	plan motionplan.Plan,
 	obstaclePollingFrequencyHz float64,
 ) {
-
 	ms.logger.Debug("Current Plan")
 	for i, p := range plan {
 		ms.logger.Debugf("plan[%v]: %v", i, p)
@@ -584,12 +583,12 @@ func (ms *explore) createMotionPlan(
 	}
 
 	// replace original base frame with one that knows how to move itself and allow planning for
-	new_origin_frame, err := referenceframe.NewStaticFrame(kb.Name().ShortName()+"_origin", spatialmath.NewZeroPose())
+	newKBOriginFrame, err := referenceframe.NewStaticFrame(kb.Name().ShortName()+"_origin", spatialmath.NewZeroPose())
 	if err != nil {
 		return nil, err
 	}
 
-	if err = ms.frameSystem.ReplaceFrame(new_origin_frame); err != nil {
+	if err = ms.frameSystem.ReplaceFrame(newKBOriginFrame); err != nil {
 		return nil, err
 	}
 
