@@ -398,7 +398,11 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 	}
 
 	tarReader := tar.NewReader(archive)
+	// stores all names of alternative entrypoints if the user has a path error
 	filesWithSameNameAsEntrypoint := []string{}
+	// stores all symlinks that leave the module root
+	badSymlinks := map[string]string{}
+	foundEntrypoint := false
 	for {
 		if err := client.c.Context.Err(); err != nil {
 			return err
@@ -409,6 +413,14 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 		}
 		if err != nil {
 			return errors.Wrapf(err, "error reading %s", file.Name())
+		}
+		if header.Typeflag == tar.TypeLink || header.Typeflag == tar.TypeSymlink {
+			base := filepath.Base(tarballPath)
+			if filepath.IsAbs(header.Linkname) ||
+				//nolint:gosec
+				!strings.HasPrefix(filepath.Join(base, header.Linkname), base) {
+				badSymlinks[header.Name] = header.Linkname
+			}
 		}
 		path := header.Name
 
@@ -421,18 +433,36 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 					entrypoint)
 			}
 			// executable file at entrypoint. validation succeeded.
-			return nil
+			// continue looping to find symlinks
+			foundEntrypoint = true
 		}
 		if filepath.Base(path) == filepath.Base(entrypoint) {
 			filesWithSameNameAsEntrypoint = append(filesWithSameNameAsEntrypoint, path)
 		}
 	}
-	extraErrInfo := ""
-	if len(filesWithSameNameAsEntrypoint) > 0 {
-		extraErrInfo = fmt.Sprintf(". Did you mean to set your entrypoint to %v?", filesWithSameNameAsEntrypoint)
+	if len(badSymlinks) > 0 {
+		warningf(client.c.App.ErrWriter, "Module contains symlinks to files outside the package."+
+			" This might cause issues on other smart machines:")
+		numPrinted := 0
+		for name := range badSymlinks {
+			printf(client.c.App.ErrWriter, "\t%s -> %s", name, badSymlinks[name])
+			// only print at most 10 links (virtual environments can have thousands of links)
+			if numPrinted++; numPrinted == 10 {
+				printf(client.c.App.ErrWriter, "\t...")
+				break
+			}
+		}
 	}
-	return errors.Errorf("the archive does not contain a file at the desired entrypoint %q%s",
-		entrypoint, extraErrInfo)
+	if !foundEntrypoint {
+		extraErrInfo := ""
+		if len(filesWithSameNameAsEntrypoint) > 0 {
+			extraErrInfo = fmt.Sprintf(". Did you mean to set your entrypoint to %v?", filesWithSameNameAsEntrypoint)
+		}
+		return errors.Errorf("the archive does not contain a file at the desired entrypoint %q%s",
+			entrypoint, extraErrInfo)
+	}
+	// success
+	return nil
 }
 
 func visibilityToProto(visibility moduleVisibility) (apppb.Visibility, error) {
