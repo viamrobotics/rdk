@@ -65,27 +65,22 @@ type moveRequest struct {
 	obstacleDetectors map[vision.Service][]resource.Name
 	replanCostFactor  float64
 
-	// from move attempt
-	ctx context.Context
-
+	ctx               context.Context
 	cancelFn          context.CancelFunc
 	backgroundWorkers *sync.WaitGroup
-
-	responseChan chan moveResponse
-
-	// replanners for the move attempt
+	responseChan      chan moveResponse
+	// replanners for the move request
 	// if we ever have to add additional instances we should figure out how to make this more scalable
 	position, obstacle *replanner
-
 	// waypointIndex tracks the waypoint we are currently executing on
 	waypointIndex *atomic.Int32
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
-func (mr *moveRequest) Plan() (state.PlanResp, error) {
+func (mr *moveRequest) Plan() (state.PlanResponse, error) {
 	inputs, err := mr.kinematicBase.CurrentInputs(mr.ctx)
 	if err != nil {
-		return state.PlanResp{}, err
+		return state.PlanResponse{}, err
 	}
 	// TODO: this is really hacky and we should figure out a better place to store this information
 	if len(mr.kinematicBase.Kinematics().DoF()) == 2 {
@@ -96,49 +91,49 @@ func (mr *moveRequest) Plan() (state.PlanResp, error) {
 	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
 	plan, err := motionplan.Replan(mr.ctx, mr.planRequest, nil, 0)
 	if err != nil {
-		return state.PlanResp{}, err
+		return state.PlanResponse{}, err
 	}
 
 	waypoints, err := plan.GetFrameSteps(mr.kinematicBase.Kinematics().Name())
 	if err != nil {
-		return state.PlanResp{}, err
+		return state.PlanResponse{}, err
 	}
 
 	switch mr.requestType {
 	case requestTypeMoveOnMap:
-		return state.PlanResp{
+		return state.PlanResponse{
 			Waypoints:  waypoints,
 			Motionplan: plan,
 		}, nil
 	case requestTypeMoveOnGlobe:
-		return state.PlanResp{
+		return state.PlanResponse{
 			Waypoints:  waypoints,
 			Motionplan: plan,
 		}, nil
 	case requestTypeUnspecified:
 		fallthrough
 	default:
-		return state.PlanResp{}, fmt.Errorf("invalid moveRequest.requestType: %d", mr.requestType)
+		return state.PlanResponse{}, fmt.Errorf("invalid moveRequest.requestType: %d", mr.requestType)
 	}
 }
 
 // execute attempts to follow a given Plan starting from the index percribed by waypointIndex.
 // Note that waypointIndex is an atomic int that is incremented in this function after each waypoint has been successfully reached.
-func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, waypointIndex *atomic.Int32) (state.ExecuteResp, error) {
+func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, waypointIndex *atomic.Int32) (state.ExecuteResponse, error) {
 	// Iterate through the list of waypoints and issue a command to move to each
 	for i := int(waypointIndex.Load()); i < len(waypoints); i++ {
 		select {
 		case <-ctx.Done():
 			// TODO: Why do we not return an error if the context is cancelled?
-			return state.ExecuteResp{}, nil
+			return state.ExecuteResponse{}, nil
 		default:
 			mr.planRequest.Logger.Info(waypoints[i])
 			if err := mr.kinematicBase.GoToInputs(ctx, waypoints[i]); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				if stopErr := mr.kinematicBase.Stop(ctx, nil); stopErr != nil {
-					return state.ExecuteResp{}, errors.Wrap(err, stopErr.Error())
+					return state.ExecuteResponse{}, errors.Wrap(err, stopErr.Error())
 				}
-				return state.ExecuteResp{}, err
+				return state.ExecuteResponse{}, err
 			}
 			if i < len(waypoints)-1 {
 				waypointIndex.Add(1)
@@ -151,24 +146,24 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, w
 
 // deviatedFromPlan takes a list of waypoints and an index of a waypoint on that Plan and returns whether or not it is still
 // following the plan as described by the PlanDeviation specified for the moveRequest.
-func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints state.Waypoints, waypointIndex int) (state.ExecuteResp, error) {
+func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints state.Waypoints, waypointIndex int) (state.ExecuteResponse, error) {
 	errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, waypointIndex)
 	if err != nil {
-		return state.ExecuteResp{}, err
+		return state.ExecuteResponse{}, err
 	}
 	if errorState.Point().Norm() > mr.config.planDeviationMM {
 		msg := "error state exceeds planDeviationMM; planDeviationMM: %f, errorstate.Point().Norm(): %f, errorstate.Point(): %#v "
 		reason := fmt.Sprintf(msg, mr.config.planDeviationMM, errorState.Point().Norm(), errorState.Point())
-		return state.ExecuteResp{Replan: true, ReplanReason: reason}, nil
+		return state.ExecuteResponse{Replan: true, ReplanReason: reason}, nil
 	}
-	return state.ExecuteResp{}, nil
+	return state.ExecuteResponse{}, nil
 }
 
 func (mr *moveRequest) obstaclesIntersectPlan(
 	ctx context.Context,
 	waypoints state.Waypoints,
 	waypointIndex int,
-) (state.ExecuteResp, error) {
+) (state.ExecuteResponse, error) {
 	var plan motionplan.Plan
 	// We only care to check against waypoints we have not reached yet.
 	for _, inputs := range waypoints[waypointIndex:] {
@@ -182,7 +177,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// get detections from vision service
 			detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
 			if err != nil {
-				return state.ExecuteResp{}, err
+				return state.ExecuteResponse{}, err
 			}
 
 			// Note: detections are initially observed from the camera frame but must be transformed to be in
@@ -191,7 +186,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// get the current position of the base which we will use to transform the detection into world coordinates
 			currentPosition, err := mr.kinematicBase.CurrentPosition(ctx)
 			if err != nil {
-				return state.ExecuteResp{}, err
+				return state.ExecuteResponse{}, err
 			}
 
 			// Any obstacles specified by the worldstate of the moveRequest will also re-detected here.
@@ -210,28 +205,28 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
 			tf, err := mr.planRequest.FrameSystem.Transform(mr.planRequest.StartConfiguration, gif, mr.planRequest.FrameSystem.World().Name())
 			if err != nil {
-				return state.ExecuteResp{}, err
+				return state.ExecuteResponse{}, err
 			}
 			transformedGIF, ok := tf.((*referenceframe.GeometriesInFrame))
 			if !ok {
 				// TODO: This is not an acceptable error
-				return state.ExecuteResp{}, errors.New("smth")
+				return state.ExecuteResponse{}, errors.New("smth")
 			}
 			gifs := []*referenceframe.GeometriesInFrame{transformedGIF}
 			worldState, err := referenceframe.NewWorldState(gifs, nil)
 			if err != nil {
-				return state.ExecuteResp{}, err
+				return state.ExecuteResponse{}, err
 			}
 
 			currentInputs, err := mr.kinematicBase.CurrentInputs(ctx)
 			if err != nil {
-				return state.ExecuteResp{}, err
+				return state.ExecuteResponse{}, err
 			}
 
 			// get the pose difference between where the robot is versus where it ought to be.
 			errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, waypointIndex)
 			if err != nil {
-				return state.ExecuteResp{}, err
+				return state.ExecuteResponse{}, err
 			}
 
 			if err := motionplan.CheckPlan(
@@ -246,11 +241,11 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				mr.planRequest.Logger,
 			); err != nil {
 				mr.planRequest.Logger.Info(err.Error())
-				return state.ExecuteResp{Replan: true, ReplanReason: err.Error()}, nil
+				return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
 			}
 		}
 	}
-	return state.ExecuteResp{}, nil
+	return state.ExecuteResponse{}, nil
 }
 
 func kbOptionsFromCfg(motionCfg *validatedMotionConfiguration, validatedExtra validatedExtra) kinematicbase.Options {
@@ -595,7 +590,7 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		return nil, err
 	}
 
-	cancelCtx, cancelFn := context.WithCancel(ctx)
+	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	var backgroundWorkers sync.WaitGroup
 
 	var waypointIndex atomic.Int32
@@ -644,19 +639,15 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	return mr, nil
 }
 
-// moveResponse is a struct that is used to communicate the outcome of a moveAttempt.
 type moveResponse struct {
-	err         error
-	executeResp state.ExecuteResp
+	err             error
+	executeResponse state.ExecuteResponse
 }
 
 func (mr moveResponse) String() string {
-	return fmt.Sprintf("builtin.moveResponse{executeResp: %#v, err: %v}", mr.executeResp, mr.err)
+	return fmt.Sprintf("builtin.moveResponse{executeResponse: %#v, err: %v}", mr.executeResponse, mr.err)
 }
 
-// start begins a new moveAttempt by using its moveRequest to create a plan, spawn relevant replanners, and finally execute the motion.
-// the caller of this function should monitor the moveAttempt's responseChan as well as the replanners' responseChan to get insight
-// into the status of the moveAttempt.
 func (mr *moveRequest) start(waypoints [][]referenceframe.Input) {
 	mr.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
@@ -672,47 +663,43 @@ func (mr *moveRequest) start(waypoints [][]referenceframe.Input) {
 	mr.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		executeResp, err := mr.execute(mr.ctx, waypoints, mr.waypointIndex)
-		resp := moveResponse{executeResp: executeResp, err: err}
+		resp := moveResponse{executeResponse: executeResp, err: err}
 		mr.responseChan <- resp
 	}, mr.backgroundWorkers.Done)
 }
 
-func (mr *moveRequest) listen() (state.ExecuteResp, error) {
+func (mr *moveRequest) listen() (state.ExecuteResponse, error) {
 	select {
-	// if context was cancelled by the calling function, error out
 	case <-mr.ctx.Done():
 		mr.logger.Debugf("context err: %s", mr.ctx.Err())
-		mr.Stop()
-		return state.ExecuteResp{}, mr.ctx.Err()
+		mr.Cancel()
+		return state.ExecuteResponse{}, mr.ctx.Err()
 
-	// once execution responds: return the result to the caller
 	case resp := <-mr.responseChan:
 		mr.logger.Debugf("execution response: %s", resp)
-		mr.Stop()
-		return resp.executeResp, resp.err
+		mr.Cancel()
+		return resp.executeResponse, resp.err
 
-	// if the position poller hit an error return it, otherwise replan
 	case resp := <-mr.position.responseChan:
 		mr.logger.Debugf("position response: %s", resp)
-		mr.Stop()
-		return resp.executeResp, resp.err
+		mr.Cancel()
+		return resp.executeResponse, resp.err
 
-	// if the obstacle poller hit an error return it, otherwise replan
 	case resp := <-mr.obstacle.responseChan:
 		mr.logger.Debugf("obstacle response: %s", resp)
-		mr.Stop()
-		return resp.executeResp, resp.err
+		mr.Cancel()
+		return resp.executeResponse, resp.err
 	}
 }
 
-func (mr *moveRequest) Execute(waypoints state.Waypoints) (state.ExecuteResp, error) {
+func (mr *moveRequest) Execute(waypoints state.Waypoints) (state.ExecuteResponse, error) {
 	mr.start(waypoints)
 	return mr.listen()
 }
 
-// cancel cleans up a moveAttempt
+// cancel cleans up a moveRequest
 // it cancels the processes spawned by it, drains all the channels that could have been written to and waits on processes to return.
-func (mr *moveRequest) Stop() {
+func (mr *moveRequest) Cancel() {
 	mr.cancelFn()
 	mr.backgroundWorkers.Wait()
 }

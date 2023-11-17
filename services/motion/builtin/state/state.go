@@ -9,25 +9,23 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/spatialmath"
 )
 
 // Waypoints represent the waypoints of the plan.
 type Waypoints [][]referenceframe.Input
 
-// PlanResp is the response from Plan.
-type PlanResp struct {
+// PlanResponse is the response from Plan.
+type PlanResponse struct {
 	Waypoints        Waypoints
 	Motionplan       motionplan.Plan
-	GeoPoses         []spatialmath.GeoPose
 	PosesByComponent []motion.PlanStep
 }
 
-// ExecuteResp is the response from Execute.
-type ExecuteResp struct {
+// ExecuteResponse is the response from Execute.
+type ExecuteResponse struct {
 	// If true, the Execute function didn't reach the goal & the caller should replan
 	Replan bool
-	// Set if Replan is true, describes why reaplanning was triggered
+	// Set if Replan is true, describes why replanning was triggered
 	ReplanReason string
 }
 
@@ -48,10 +46,10 @@ type PlanExecutorConstructor[R any] func(
 ) (PlannerExecutor, error)
 
 // PlannerExecutor implements Plan and Execute.
-// TODO: Rather than relying on the context from the constructor there should be a Stop method instead.
 type PlannerExecutor interface {
-	Plan() (PlanResp, error)
-	Execute(Waypoints) (ExecuteResp, error)
+	Plan() (PlanResponse, error)
+	Execute(Waypoints) (ExecuteResponse, error)
+	Cancel() error
 }
 
 // State is the state of the builtin motion service

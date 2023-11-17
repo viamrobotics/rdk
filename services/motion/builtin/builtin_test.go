@@ -290,23 +290,23 @@ func TestMoveResponseString(t *testing.T) {
 	}
 	testCases := []testCase{
 		{
-			"when executeResp.Replan is false & ReplanReason is empty and error is not nil",
-			"builtin.moveResponse{executeResp: state.ExecuteResp{Replan:false, ReplanReason:\"\"}, err: an error}",
+			"when executeResponse.Replan is false & ReplanReason is empty and error is not nil",
+			"builtin.moveResponse{executeResponse: state.ExecuteResponse{Replan:false, ReplanReason:\"\"}, err: an error}",
 			moveResponse{err: errors.New("an error")},
 		},
 		{
-			"when executeResp.Replan is true & ReplanReason is not empty and error is not nil",
-			"builtin.moveResponse{executeResp: state.ExecuteResp{Replan:true, ReplanReason:\"some reason\"}, err: an error}",
-			moveResponse{executeResp: state.ExecuteResp{Replan: true, ReplanReason: "some reason"}, err: errors.New("an error")},
+			"when executeResponse.Replan is true & ReplanReason is not empty and error is not nil",
+			"builtin.moveResponse{executeResponse: state.ExecuteResponse{Replan:true, ReplanReason:\"some reason\"}, err: an error}",
+			moveResponse{executeResponse: state.ExecuteResponse{Replan: true, ReplanReason: "some reason"}, err: errors.New("an error")},
 		},
 		{
-			"when executeResp.Replan is true & ReplanReason is not empty and error is nil",
-			"builtin.moveResponse{executeResp: state.ExecuteResp{Replan:true, ReplanReason:\"some reason\"}, err: <nil>}",
-			moveResponse{executeResp: state.ExecuteResp{Replan: true, ReplanReason: "some reason"}},
+			"when executeResponse.Replan is true & ReplanReason is not empty and error is nil",
+			"builtin.moveResponse{executeResponse: state.ExecuteResponse{Replan:true, ReplanReason:\"some reason\"}, err: <nil>}",
+			moveResponse{executeResponse: state.ExecuteResponse{Replan: true, ReplanReason: "some reason"}},
 		},
 		{
-			"when executeResp.Replan is false & ReplanReason is empty and error is nil",
-			"builtin.moveResponse{executeResp: state.ExecuteResp{Replan:false, ReplanReason:\"\"}, err: <nil>}",
+			"when executeResponse.Replan is false & ReplanReason is empty and error is nil",
+			"builtin.moveResponse{executeResponse: state.ExecuteResponse{Replan:false, ReplanReason:\"\"}, err: <nil>}",
 			moveResponse{},
 		},
 	}
@@ -326,22 +326,22 @@ func TestReplanResponseString(t *testing.T) {
 	testCases := []testCase{
 		{
 			"when replan is true and reason is non empty and error is nil",
-			"builtin.replanResponse{executeResp: state.ExecuteResp{Replan:true, ReplanReason:\"some reason\"}, err: <nil>}",
-			replanResponse{executeResp: state.ExecuteResp{Replan: true, ReplanReason: "some reason"}},
+			"builtin.replanResponse{executeResponse: state.ExecuteResponse{Replan:true, ReplanReason:\"some reason\"}, err: <nil>}",
+			replanResponse{executeResponse: state.ExecuteResponse{Replan: true, ReplanReason: "some reason"}},
 		},
 		{
 			"when replan is true and reason is non empty and error is not nil",
-			"builtin.replanResponse{executeResp: state.ExecuteResp{Replan:true, ReplanReason:\"some reason\"}, err: an error}",
-			replanResponse{executeResp: state.ExecuteResp{Replan: true, ReplanReason: "some reason"}, err: errors.New("an error")},
+			"builtin.replanResponse{executeResponse: state.ExecuteResponse{Replan:true, ReplanReason:\"some reason\"}, err: an error}",
+			replanResponse{executeResponse: state.ExecuteResponse{Replan: true, ReplanReason: "some reason"}, err: errors.New("an error")},
 		},
 		{
 			"when replan is false and error is nil",
-			"builtin.replanResponse{executeResp: state.ExecuteResp{Replan:false, ReplanReason:\"\"}, err: <nil>}",
+			"builtin.replanResponse{executeResponse: state.ExecuteResponse{Replan:false, ReplanReason:\"\"}, err: <nil>}",
 			replanResponse{},
 		},
 		{
 			"when replan is false and error is not nil",
-			"builtin.replanResponse{executeResp: state.ExecuteResp{Replan:false, ReplanReason:\"\"}, err: an error}",
+			"builtin.replanResponse{executeResponse: state.ExecuteResponse{Replan:false, ReplanReason:\"\"}, err: an error}",
 			replanResponse{err: errors.New("an error")},
 		},
 	}

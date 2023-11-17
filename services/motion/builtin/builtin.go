@@ -10,6 +10,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/internal"
@@ -259,6 +260,11 @@ func (ms *builtIn) MoveOnMap(
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
 
+	// If the context is cancelled early, cancel the planner executor
+	utils.PanicCapturingGo(func() {
+		<-ctx.Done()
+		mr.Cancel()
+	})
 	planResp, err := mr.Plan()
 	if err != nil {
 		return false, err
@@ -357,6 +363,13 @@ func (ms *builtIn) MoveOnGlobe(
 	if err != nil {
 		return false, err
 	}
+	// If the context is cancelled early, cancel the planner executor
+	utils.PanicCapturingGo(func() {
+		<-ctx.Done()
+		if mr != nil {
+			mr.Cancel()
+		}
+	})
 
 	replanCount := 0
 	// start a loop that plans every iteration and exits when something is read from the success channel

@@ -12,15 +12,15 @@ import (
 
 // replanResponse is the struct returned by the replanner.
 type replanResponse struct {
-	err         error
-	executeResp state.ExecuteResp
+	err             error
+	executeResponse state.ExecuteResponse
 }
 
 // replanFn is an alias for a function that will be polled by a replanner.
-type replanFn func(context.Context, state.Waypoints, int) (state.ExecuteResp, error)
+type replanFn func(context.Context, state.Waypoints, int) (state.ExecuteResponse, error)
 
 func (rr replanResponse) String() string {
-	return fmt.Sprintf("builtin.replanResponse{executeResp: %#v, err: %v}", rr.executeResp, rr.err)
+	return fmt.Sprintf("builtin.replanResponse{executeResponse: %#v, err: %v}", rr.executeResponse, rr.err)
 }
 
 // replanner bundles everything needed to execute a function at a given interval and return.
@@ -55,7 +55,7 @@ func (r *replanner) startPolling(ctx context.Context, plan [][]referenceframe.In
 		case <-ticker.C:
 			executeResp, err := r.needReplan(ctx, plan, int(waypointIndex.Load()))
 			if err != nil || executeResp.Replan {
-				res := replanResponse{executeResp: executeResp, err: err}
+				res := replanResponse{executeResponse: executeResp, err: err}
 				r.responseChan <- res
 				return
 			}
