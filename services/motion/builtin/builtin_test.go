@@ -508,7 +508,6 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 }
 
 func TestMoveOnMapPlans(t *testing.T) {
-	t.Parallel()
 	ctx := context.Background()
 	// goal x-position of 1.32m is scaled to be in mm
 	// Orientation theta should be at least 3 degrees away from an integer multiple of 22.5 to ensure the position-only test functions.
@@ -518,7 +517,6 @@ func TestMoveOnMapPlans(t *testing.T) {
 	extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 
 	t.Run("ensure success of movement around obstacle", func(t *testing.T) {
-		t.Parallel()
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnMap(
@@ -536,7 +534,6 @@ func TestMoveOnMapPlans(t *testing.T) {
 	})
 
 	t.Run("check that straight line path executes", func(t *testing.T) {
-		t.Parallel()
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40)
 		defer ms.Close(ctx)
 		easyGoalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
@@ -556,7 +553,6 @@ func TestMoveOnMapPlans(t *testing.T) {
 	})
 
 	t.Run("check that position-only mode executes", func(t *testing.T) {
-		t.Parallel()
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnMap(
