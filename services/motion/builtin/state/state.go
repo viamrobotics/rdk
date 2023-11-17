@@ -49,7 +49,7 @@ type PlanExecutorConstructor[R any] func(
 type PlannerExecutor interface {
 	Plan() (PlanResponse, error)
 	Execute(Waypoints) (ExecuteResponse, error)
-	Cancel() error
+	Cancel()
 }
 
 // State is the state of the builtin motion service
