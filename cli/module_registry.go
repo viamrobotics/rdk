@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"archive/tar"
 	"bufio"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -9,9 +11,7 @@ import (
 	"io/fs"
 	"math"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/google/uuid"
@@ -251,16 +251,10 @@ func UploadModuleAction(c *cli.Context) error {
 	}
 
 	if !forceUploadArg {
-		getModuleResp, err := client.getModule(moduleID)
-		if err != nil {
-			return err
-		}
-		entrypoint, err := getEntrypointForVersion(getModuleResp.Module, versionArg)
-		if err != nil {
-			return err
-		}
-		if err := validateModule(client, tarballPath, entrypoint, platformArg); err != nil {
-			return err
+		if err := validateModuleFile(client, moduleID, tarballPath, versionArg); err != nil {
+			return fmt.Errorf(
+				"error validating module: %w. For more details, please visit: https://docs.viam.com/manage/cli/#command-options-3 ",
+				err)
 		}
 	}
 
@@ -384,142 +378,90 @@ func (c *viamClient) uploadModuleFile(
 	return resp, errs
 }
 
-func validateModule(client *viamClient, tarballPath, entrypoint, platform string) error {
-	tempDir, err := os.MkdirTemp("", "viam-modunpack-*")
+func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, version string) error {
+	getModuleResp, err := client.getModule(moduleID)
 	if err != nil {
 		return err
 	}
-	//nolint:errcheck
-	defer os.RemoveAll(tempDir)
-	if err := unpackArchive(tarballPath, tempDir); err != nil {
-		return errors.Wrapf(err, "failed to unpack archive for validation")
-	}
-	if err := validateModuleEntrypoint(client, tempDir, entrypoint); err != nil {
-		return err
-	}
-	links, err := validateModuleSymlinkSafety(tempDir)
-	fmt.Printf("SHUD%v", links)
+	entrypoint, err := getEntrypointForVersion(getModuleResp.Module, version)
 	if err != nil {
 		return err
 	}
-	for name := range links {
-		warningf(client.c.App.Writer, "%s->%s", name, links[name])
+	//nolint:gosec
+	file, err := os.Open(tarballPath)
+	if err != nil {
+		return err
 	}
-	return nil
+	archive, err := gzip.NewReader(file)
+	if err != nil {
+		return err
+	}
 
-}
-
-// validateModuleEntrypoint should only be called from validateModule
-// it checks that the entrypoint exists at the expected position and that it is marked as executable
-func validateModuleEntrypoint(client *viamClient, moduleRoot, entrypoint string) error {
-	entrypointPath := filepath.Join(moduleRoot, entrypoint)
-	entrypointStat, err := os.Stat(entrypointPath)
-	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
+	tarReader := tar.NewReader(archive)
+	// stores all names of alternative entrypoints if the user has a path error
+	filesWithSameNameAsEntrypoint := []string{}
+	// stores all symlinks that leave the module root
+	badSymlinks := map[string]string{}
+	foundEntrypoint := false
+	for {
+		if err := client.c.Context.Err(); err != nil {
 			return err
 		}
-		// if it is ErrNotExist, we can try and find a matching file to give a better error to the user
-		filesWithSameNameAsEntrypoint := []string{}
-		walkErr := filepath.WalkDir(moduleRoot, func(path string, info fs.DirEntry, err error) error {
-			if filepath.Base(path) == filepath.Base(entrypoint) {
-				trimPath := strings.Replace(path, moduleRoot, ".", 1)
-				filesWithSameNameAsEntrypoint = append(filesWithSameNameAsEntrypoint, trimPath)
+		header, err := tarReader.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return errors.Wrapf(err, "error reading %s", file.Name())
+		}
+		if header.Typeflag == tar.TypeLink || header.Typeflag == tar.TypeSymlink {
+			base := filepath.Base(tarballPath)
+			if filepath.IsAbs(header.Linkname) ||
+				//nolint:gosec
+				!strings.HasPrefix(filepath.Join(base, header.Linkname), base) {
+				badSymlinks[header.Name] = header.Linkname
 			}
-			return nil
-		})
+		}
+		path := header.Name
+
+		// if path == entrypoint, we have found the right file
+		if filepath.Clean(path) == filepath.Clean(entrypoint) {
+			info := header.FileInfo()
+			if info.Mode().Perm()&0o100 == 0 {
+				return errors.Errorf(
+					"the archive contained a file at the entrypoint %q, but that file is not marked as executable",
+					entrypoint)
+			}
+			// executable file at entrypoint. validation succeeded.
+			// continue looping to find symlinks
+			foundEntrypoint = true
+		}
+		if filepath.Base(path) == filepath.Base(entrypoint) {
+			filesWithSameNameAsEntrypoint = append(filesWithSameNameAsEntrypoint, path)
+		}
+	}
+	if len(badSymlinks) > 0 {
+		warningf(client.c.App.ErrWriter, "Module contains symlinks to files outside the package."+
+			" This might cause issues on other computers:")
+		numPrinted := 0
+		for name := range badSymlinks {
+			printf(client.c.App.ErrWriter, "\t%s -> %s", name, badSymlinks[name])
+			// only print at most 10 links (virtual environments can have thousands of links)
+			if numPrinted++; numPrinted == 10 {
+				printf(client.c.App.ErrWriter, "\t...")
+				break
+			}
+		}
+	}
+	if !foundEntrypoint {
 		extraErrInfo := ""
-		if walkErr == nil && len(filesWithSameNameAsEntrypoint) > 0 {
+		if len(filesWithSameNameAsEntrypoint) > 0 {
 			extraErrInfo = fmt.Sprintf(". Did you mean to set your entrypoint to %v?", filesWithSameNameAsEntrypoint)
 		}
 		return errors.Errorf("the archive does not contain a file at the desired entrypoint %q%s",
 			entrypoint, extraErrInfo)
-
 	}
-	if entrypointStat.Mode().Perm()&0o100 == 0 {
-		return errors.Errorf(
-			"the archive contained a file at the entrypoint %q, but that file is not marked as executable",
-			entrypoint)
-	}
-	// if the file exists and is executable, return success
-	return nil
-}
-
-// validateModuleSymlinkSafety should only be called from validateModule
-// it checks that the symlinks do not point out of the moduleRoot
-// returns (warning text, errors during the check)
-func validateModuleSymlinkSafety(moduleRoot string) (map[string]string, error) {
-	unsafeLinks := map[string]string{}
-	walkErr := filepath.WalkDir(moduleRoot, func(path string, info fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		// ignore all files that aren't symlinks
-		if info.Type()&fs.ModeType&fs.ModeSymlink == 0 {
-			return nil
-		}
-		link, err := os.Readlink(path)
-		if err != nil {
-			return err
-		}
-		// check if it is absolute link
-		if filepath.IsAbs(link) {
-			unsafeLinks[path] = link
-		}
-		// check if it is a relative path that leaves the moduleRoot
-		linkTarget := filepath.Join(moduleRoot, link)
-		if !strings.HasPrefix(moduleRoot, linkTarget) {
-			unsafeLinks[path] = link
-		}
-		return nil
-	})
-	return unsafeLinks, walkErr
-
-}
-
-func validateDynamicExecutableLinkedLibaries(client *viamClient, moduleRoot, entrypoint, platform string) error {
-	if runtime.GOOS != "linux" || !strings.HasPrefix(platform, "linux") {
-		return nil
-	}
-	//nolint:gosec
-	cmd := exec.Command("ldd", filepath.Join(moduleRoot, entrypoint))
-	out, err := cmd.Output()
-	if err != nil {
-		//nolint:errorlint
-		exitErr, ok := err.(*exec.ExitError)
-		if !ok {
-			return errors.Wrapf(err, "err from exec.Command was not an ExitError")
-		}
-		// this is fine -- the entrypoint is likely a script or static binary
-		if strings.Contains(string(exitErr.Stderr), "not a dynamic executable") {
-			return nil
-		}
-		return errors.Wrapf(err, "failed to run ldd on the module entrypoint")
-	}
-	expectedSubstrings := []string{
-		"ld-linux",
-		"glibc",
-		"linux-vdso",
-		moduleRoot,
-	}
-	lines := strings.Split(string(out), "\n")
-	for _, line := range lines {
-		line := strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		foundLegalSubstr := false
-		for _, expectedSubstr := range expectedSubstrings {
-			if strings.Contains(line, expectedSubstr) {
-				foundLegalSubstr = true
-				break
-			}
-		}
-		if !foundLegalSubstr {
-			warningf(client.c.App.ErrWriter, "The module's entrypoint is a dynamic executable which depends on a library "+
-				"not present in the package itself. This could cause issues on other systems. %q",
-				line)
-		}
-	}
+	// success
 	return nil
 }
 

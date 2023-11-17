@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"golang.org/x/exp/maps"
 )
@@ -117,109 +116,6 @@ func addToArchive(tw *tar.Writer, filename string) error {
 	}
 
 	return nil
-}
-
-func unpackArchive(fromFile, toDir string) error {
-	if err := os.MkdirAll(toDir, 0o700); err != nil {
-		return err
-	}
-
-	//nolint:gosec // safe
-	f, err := os.Open(fromFile)
-	if err != nil {
-		return err
-	}
-	defer utils.UncheckedErrorFunc(f.Close)
-
-	archive, err := gzip.NewReader(f)
-	if err != nil {
-		return err
-	}
-	defer utils.UncheckedErrorFunc(archive.Close)
-
-	type link struct {
-		Name string
-		Path string
-	}
-	links := []link{}
-	symlinks := []link{}
-
-	tarReader := tar.NewReader(archive)
-	for {
-		header, err := tarReader.Next()
-
-		if errors.Is(err, io.EOF) {
-			break
-		}
-
-		if err != nil {
-			return errors.Wrap(err, "read tar")
-		}
-
-		path := header.Name
-
-		if path == "" || path == "./" {
-			continue
-		}
-
-		//nolint:gosec
-		path = filepath.Join(toDir, path)
-
-		info := header.FileInfo()
-
-		switch header.Typeflag {
-		case tar.TypeDir:
-			if err := os.Mkdir(path, info.Mode()); err != nil {
-				return errors.Wrapf(err, "failed to create directory %s", path)
-			}
-
-		case tar.TypeReg:
-			// This is required because it is possible create tarballs without a directory entry
-			// but whose files names start with a new directory prefix
-			// Ex: tar -czf package.tar.gz ./bin/module.exe
-			parent := filepath.Dir(path)
-			if err := os.MkdirAll(parent, info.Mode()); err != nil {
-				return errors.Wrapf(err, "failed to create directory %q", parent)
-			}
-			//nolint:gosec
-			outFile, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600|info.Mode().Perm())
-			if err != nil {
-				return errors.Wrapf(err, "failed to create file %s", path)
-			}
-			//nolint:gosec
-			if _, err := io.Copy(outFile, tarReader); err != nil && !errors.Is(err, io.EOF) {
-				return errors.Wrapf(err, "failed to copy file %s", path)
-			}
-			utils.UncheckedError(outFile.Close())
-		case tar.TypeLink:
-			//nolint:gosec
-			name := filepath.Join(toDir, header.Linkname)
-			links = append(links, link{Path: path, Name: name})
-		case tar.TypeSymlink:
-			//nolint:gosec
-			linkTarget := filepath.Join(toDir, header.Linkname)
-			symlinks = append(symlinks, link{Path: path, Name: linkTarget})
-		}
-	}
-
-	// Now we make another pass creating the links
-	for i := range links {
-		if err := linkFile(links[i].Name, links[i].Path); err != nil {
-			return errors.Wrapf(err, "failed to create link %s", links[i].Path)
-		}
-	}
-
-	for i := range symlinks {
-		if err := linkFile(symlinks[i].Name, symlinks[i].Path); err != nil {
-			return errors.Wrapf(err, "failed to create link %s", links[i].Path)
-		}
-	}
-
-	return nil
-}
-
-func linkFile(from, to string) error {
-	return os.Symlink(from, to)
 }
 
 func isTarball(path string) bool {
