@@ -124,7 +124,7 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, w
 	for i := int(waypointIndex.Load()); i < len(waypoints); i++ {
 		select {
 		case <-ctx.Done():
-			mr.logger.Debugf("cancelling execute due to %s", ctx.Err())
+			mr.logger.Debugf("calling kinematicBase.Stop due to %s\n", ctx.Err())
 			if err := mr.kinematicBase.Stop(ctx, nil); err != nil {
 				mr.logger.Errorf("kinematicBase.Stop returned error %s", err)
 				return state.ExecuteResponse{}, err
@@ -134,6 +134,7 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, w
 			mr.planRequest.Logger.Info(waypoints[i])
 			if err := mr.kinematicBase.GoToInputs(ctx, waypoints[i]); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
+				mr.logger.Debugf("calling kinematicBase.Stop due to %s\n", err)
 				if stopErr := mr.kinematicBase.Stop(ctx, nil); stopErr != nil {
 					mr.logger.Errorf("kinematicBase.Stop returned error %s", stopErr)
 					return state.ExecuteResponse{}, errors.Wrap(err, stopErr.Error())
