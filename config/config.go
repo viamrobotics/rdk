@@ -973,11 +973,6 @@ func (p *PackageConfig) validate(path string) error {
 		return utils.NewConfigValidationError(path, errors.New("empty package id"))
 	}
 
-	if p.Type == "" {
-		// for backwards compatibility
-		p.Type = PackageTypeMlModel
-	}
-
 	if !slices.Contains(SupportedPackageTypes, p.Type) {
 		return utils.NewConfigValidationError(path, errors.Errorf("unsupported package type %q. Must be one of: %v",
 			p.Type, SupportedPackageTypes))

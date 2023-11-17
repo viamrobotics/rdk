@@ -71,15 +71,13 @@ var defaultBuildInfo = manifestBuildInfo{
 
 // moduleManifest is used to create & parse manifest.json.
 type moduleManifest struct {
-	// for backward compatibility - DO NOT SET as will be deprecated
-	Name        string             `json:"name,omitempty"`
-	ModuleID    string             `json:"module_id"`
-	Visibility  moduleVisibility   `json:"visibility"`
-	URL         string             `json:"url"`
-	Description string             `json:"description"`
-	Models      []ModuleComponent  `json:"models"`
-	Entrypoint  string             `json:"entrypoint"`
-	Build       *manifestBuildInfo `json:"build,omitempty"`
+	ModuleID    string            `json:"module_id"`
+	Visibility  moduleVisibility  `json:"visibility"`
+	URL         string            `json:"url"`
+	Description string            `json:"description"`
+	Models      []ModuleComponent `json:"models"`
+	Entrypoint  string            `json:"entrypoint"`
+	Build       manifestBuildInfo `json:"build"`
 }
 
 const (
@@ -134,7 +132,7 @@ func CreateModuleAction(c *cli.Context) error {
 	if err := writeManifest(defaultManifestFilename, emptyManifest); err != nil {
 		return err
 	}
-	printf(c.App.Writer, "Configuration for the module has been written to meta.json\n")
+	printf(c.App.Writer, "Configuration for the module has been written to meta.json")
 	return nil
 }
 
@@ -142,10 +140,6 @@ func CreateModuleAction(c *cli.Context) error {
 // the command to update a module. This includes updating the meta.json to
 // include the public namespace (if set on the org).
 func UpdateModuleAction(c *cli.Context) error {
-	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
-	orgIDArg := c.String(moduleFlagOrgID)
-	var moduleID moduleID
-
 	manifestPath := c.String(moduleFlagPath)
 
 	client, err := newViamClient(c)
@@ -158,17 +152,9 @@ func UpdateModuleAction(c *cli.Context) error {
 		return err
 	}
 
-	// for backwards compatibility this could be empty
-	if manifest.ModuleID != "" {
-		moduleID, err = validateModuleID(c, client, manifest.ModuleID, publicNamespaceArg, orgIDArg)
-		if err != nil {
-			return err
-		}
-	} else {
-		moduleID, err = validateModuleID(c, client, manifest.Name, publicNamespaceArg, orgIDArg)
-		if err != nil {
-			return err
-		}
+	moduleID, err := parseModuleID(manifest.ModuleID)
+	if err != nil {
+		return err
 	}
 
 	response, err := client.updateModule(moduleID, manifest)
@@ -177,18 +163,20 @@ func UpdateModuleAction(c *cli.Context) error {
 	}
 	printf(c.App.Writer, "Module successfully updated! You can view your changes online here: %s", response.GetUrl())
 
-	// if we have gotten this far it means that moduleID will have a prefix in it
-	// because the validate command resolves the orgId or namespace to the moduleID with the namespace as the priority
-
-	// TODO: Will remove in a few week
-	if manifest.Name != "" || manifest.ModuleID == "" {
-		manifest.Name = ""
-		manifest.ModuleID = moduleID.String()
-		if err := writeManifest(manifestPath, manifest); err != nil {
+	// if the module id prefix is an org id, check to see if a public namespace has been set and update the manifest if it has
+	if isValidOrgID(moduleID.prefix) {
+		org, err := client.getOrg(moduleID.prefix)
+		if err != nil {
 			return errors.Wrap(err, "failed to update meta.json with new information from Viam")
 		}
+		if org.PublicNamespace != "" {
+			moduleID.prefix = org.PublicNamespace
+			manifest.ModuleID = moduleID.String()
+			if err := writeManifest(manifestPath, manifest); err != nil {
+				return errors.Wrap(err, "failed to update meta.json with new information from Viam")
+			}
+		}
 	}
-
 	return nil
 }
 
@@ -219,29 +207,26 @@ func UploadModuleAction(c *cli.Context) error {
 	}
 
 	var moduleID moduleID
-	// if the manifest cant be found
+	// if the manifest cant be found, use passed in arguments to determine the module id
 	if _, err := os.Stat(manifestPath); err != nil {
-		// no manifest found.
 		if nameArg == "" || (publicNamespaceArg == "" && orgIDArg == "") {
 			return errors.New("unable to find the meta.json. " +
 				"If you want to upload a version without a meta.json, you must supply a module name and namespace (or module name and org-id)",
 			)
 		}
+		moduleID.name = nameArg
+		if publicNamespaceArg != "" {
+			moduleID.prefix = publicNamespaceArg
+		} else {
+			moduleID.prefix = orgIDArg
+		}
 	} else {
 		// if we can find a manifest, use that
 		manifest, err := loadManifest(manifestPath)
-		var IDFromField string
 		if err != nil {
 			return err
 		}
-
-		if manifest.ModuleID != "" {
-			IDFromField = manifest.ModuleID
-		} else {
-			IDFromField = manifest.Name
-		}
-
-		moduleID, err = parseModuleID(IDFromField)
+		moduleID, err = parseModuleID(manifest.ModuleID)
 		if err != nil {
 			return err
 		}
@@ -250,14 +235,12 @@ func UploadModuleAction(c *cli.Context) error {
 			return errors.Errorf("module name %q was supplied on the command line but the meta.json has a module ID of %q", nameArg,
 				moduleID.name)
 		}
-		// set name arg from the manifest file rather than what is passed in
-		nameArg = IDFromField
 	}
-
-	moduleID, err = validateModuleID(c, client, nameArg, publicNamespaceArg, orgIDArg)
+	moduleID, err = validateModuleID(client, moduleID.String(), publicNamespaceArg, orgIDArg)
 	if err != nil {
 		return err
 	}
+
 	tarballPath := moduleUploadPath
 	if !isTarball(tarballPath) {
 		tarballPath, err = createTarballForUpload(moduleUploadPath, c.App.Writer)
@@ -283,6 +266,27 @@ func UploadModuleAction(c *cli.Context) error {
 	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s", response.GetUrl())
 
 	return nil
+}
+
+// UpdateModelsAction figures out the models that a module supports and updates it's metadata file.
+func UpdateModelsAction(c *cli.Context) error {
+	logger := logging.NewLogger("x")
+	newModels, err := readModels(c.String("binary"), logger)
+	if err != nil {
+		return err
+	}
+
+	manifest, err := loadManifest(c.String(moduleFlagPath))
+	if err != nil {
+		return err
+	}
+
+	if sameModels(newModels, manifest.Models) {
+		return nil
+	}
+
+	manifest.Models = newModels
+	return writeManifest(c.String(moduleFlagPath), manifest)
 }
 
 func (c *viamClient) createModule(moduleName, organizationID string) (*apppb.CreateModuleResponse, error) {
@@ -374,62 +378,6 @@ func (c *viamClient) uploadModuleFile(
 	return resp, errs
 }
 
-func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_UploadModuleFileClient, file *os.File, stdout io.Writer) error {
-	stat, err := file.Stat()
-	if err != nil {
-		return err
-	}
-	fileSize := stat.Size()
-	uploadedBytes := 0
-	// Close the line with the progress reading
-	defer printf(stdout, "")
-
-	//nolint:errcheck
-	defer stream.CloseSend()
-	// Loop until there is no more content to be read from file or the context expires.
-	for {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		// Get the next UploadRequest from the file.
-		uploadReq, err := getNextModuleUploadRequest(file)
-
-		// EOF means we've completed successfully.
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-
-		if err != nil {
-			return errors.Wrap(err, "could not read file")
-		}
-
-		if err = stream.Send(uploadReq); err != nil {
-			return err
-		}
-		uploadedBytes += len(uploadReq.GetFile())
-		// Simple progress reading until we have a proper tui library
-		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
-		fmt.Fprintf(stdout, "\rUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize) // no newline
-	}
-}
-
-func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, error) {
-	// get the next chunk of bytes from the file
-	byteArr := make([]byte, moduleUploadChunkSize)
-	numBytesRead, err := file.Read(byteArr)
-	if err != nil {
-		return nil, err
-	}
-	if numBytesRead < moduleUploadChunkSize {
-		byteArr = byteArr[:numBytesRead]
-	}
-	return &apppb.UploadModuleFileRequest{
-		ModuleFile: &apppb.UploadModuleFileRequest_File{
-			File: byteArr,
-		},
-	}, nil
-}
-
 func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, version string) error {
 	getModuleResp, err := client.getModule(moduleID)
 	if err != nil {
@@ -508,18 +456,13 @@ func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
 
 func parseModuleID(id string) (moduleID, error) {
 	// This parsing is intentionally lenient so that the backend does the real validation
-	// We also allow for empty prefixes here (unlike the backend) to simplify the flexible way to parse user input
 	splitModuleName := strings.Split(id, ":")
-	switch len(splitModuleName) {
-	case 1:
-		return moduleID{prefix: "", name: id}, nil
-	case 2:
-		return moduleID{prefix: splitModuleName[0], name: splitModuleName[1]}, nil
-	default:
+	if len(splitModuleName) != 2 {
 		return moduleID{}, errors.Errorf("invalid module name '%s'."+
 			" Module name must be in the form 'prefix:module-name' for public modules"+
 			" or just 'module-name' for private modules in organizations without a public namespace", id)
 	}
+	return moduleID{prefix: splitModuleName[0], name: splitModuleName[1]}, nil
 }
 
 func (m *moduleID) String() string {
@@ -529,52 +472,37 @@ func (m *moduleID) String() string {
 	return fmt.Sprintf("%s:%s", m.prefix, m.name)
 }
 
-// validateModuleID tries to parse the manifestModuleID to see if it is a valid moduleID with a prefix
-// if it is not, it uses the publicNamespaceArg and orgIDArg to determine what the moduleID prefix should be.
+// validateModuleID tries to parse the manifestModuleID and checks that it matches the publicNamespaceArg and orgIDArg if they are provided.
 func validateModuleID(
-	c *cli.Context,
 	client *viamClient,
 	manifestModuleID,
 	publicNamespaceArg,
 	orgIDArg string,
 ) (moduleID, error) {
-	mid, err := parseModuleID(manifestModuleID)
+	modID, err := parseModuleID(manifestModuleID)
 	if err != nil {
 		return moduleID{}, err
 	}
 
-	if mid.prefix != "" {
-		if publicNamespaceArg != "" || orgIDArg != "" {
-			org, err := resolveOrg(client, publicNamespaceArg, orgIDArg)
-			if err != nil {
-				return moduleID{}, err
-			}
-			expectedOrg, err := getOrgByModuleIDPrefix(client, mid.prefix)
-			if err != nil {
-				return moduleID{}, err
-			}
-			if org.GetId() != expectedOrg.GetId() {
-				// This is almost certainly a user mistake
-				// Preferring org name rather than orgid here because the manifest probably has it specified in terms of
-				// public_namespace so returning the ids would be frustrating
-				return moduleID{}, errors.Errorf("the meta.json specifies a different org %q than the one provided via args %q",
-					expectedOrg.GetName(), org.GetName())
-			}
-			printf(c.App.Writer, "the module's meta.json already specifies a full module id. Ignoring public-namespace and org-id arg")
+	// if either publicNamespaceArg or orgIDArg are set, check that they match the passed moduleID
+	if publicNamespaceArg != "" || orgIDArg != "" {
+		org, err := resolveOrg(client, publicNamespaceArg, orgIDArg)
+		if err != nil {
+			return moduleID{}, err
 		}
-		return mid, nil
+		expectedOrg, err := getOrgByModuleIDPrefix(client, modID.prefix)
+		if err != nil {
+			return moduleID{}, err
+		}
+		if org.GetId() != expectedOrg.GetId() {
+			// This is almost certainly a user mistake
+			// Preferring org name rather than orgid here because the manifest probably has it specified in terms of
+			// public_namespace so returning the ids would be frustrating
+			return moduleID{}, errors.Errorf("the meta.json specifies a different org %q than the one provided via args %q",
+				expectedOrg.GetName(), org.GetName())
+		}
 	}
-	// moduleID.Prefix is empty. Need to use orgIDArg and publicNamespaceArg to figure out what it should be
-	org, err := resolveOrg(client, publicNamespaceArg, orgIDArg)
-	if err != nil {
-		return moduleID{}, err
-	}
-	if org.PublicNamespace != "" {
-		mid.prefix = org.PublicNamespace
-	} else {
-		mid.prefix = org.Id
-	}
-	return mid, nil
+	return modID, nil
 }
 
 // resolveOrg accepts either an orgID or a publicNamespace (one must be an empty string).
@@ -664,11 +592,6 @@ func getEntrypointForVersion(mod *apppb.Module, version string) (string, error) 
 	return mod.Entrypoint, nil
 }
 
-func isTarball(path string) bool {
-	return strings.HasSuffix(strings.ToLower(path), ".tar.gz") ||
-		strings.HasSuffix(strings.ToLower(path), ".tgz")
-}
-
 func createTarballForUpload(moduleUploadPath string, stdout io.Writer) (string, error) {
 	tmpFile, err := os.CreateTemp("", "module-upload-*.tar.gz")
 	if err != nil {
@@ -753,23 +676,58 @@ func sameModels(a, b []ModuleComponent) bool {
 	return true
 }
 
-// UpdateModelsAction figures out the models that a module supports and updates it's metadata file.
-func UpdateModelsAction(c *cli.Context) error {
-	logger := logging.NewLogger("x")
-	newModels, err := readModels(c.String("binary"), logger)
+func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_UploadModuleFileClient, file *os.File, stdout io.Writer) error {
+	stat, err := file.Stat()
 	if err != nil {
 		return err
 	}
+	fileSize := stat.Size()
+	uploadedBytes := 0
+	// Close the line with the progress reading
+	defer printf(stdout, "")
 
-	manifest, err := loadManifest(c.String(moduleFlagPath))
+	//nolint:errcheck
+	defer stream.CloseSend()
+	// Loop until there is no more content to be read from file or the context expires.
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		// Get the next UploadRequest from the file.
+		uploadReq, err := getNextModuleUploadRequest(file)
+
+		// EOF means we've completed successfully.
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+
+		if err != nil {
+			return errors.Wrap(err, "could not read file")
+		}
+
+		if err = stream.Send(uploadReq); err != nil {
+			return err
+		}
+		uploadedBytes += len(uploadReq.GetFile())
+		// Simple progress reading until we have a proper tui library
+		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
+		fmt.Fprintf(stdout, "\rUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize) // no newline
+	}
+}
+
+func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, error) {
+	// get the next chunk of bytes from the file
+	byteArr := make([]byte, moduleUploadChunkSize)
+	numBytesRead, err := file.Read(byteArr)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	if sameModels(newModels, manifest.Models) {
-		return nil
+	if numBytesRead < moduleUploadChunkSize {
+		byteArr = byteArr[:numBytesRead]
 	}
-
-	manifest.Models = newModels
-	return writeManifest(c.String(moduleFlagPath), manifest)
+	return &apppb.UploadModuleFileRequest{
+		ModuleFile: &apppb.UploadModuleFileRequest_File{
+			File: byteArr,
+		},
+	}, nil
 }

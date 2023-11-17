@@ -13,6 +13,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/mcp3008helper"
 	"go.viam.com/rdk/logging"
 )
 
@@ -122,13 +123,13 @@ func TestGenericLinux(t *testing.T) {
 func TestConfigValidate(t *testing.T) {
 	validConfig := Config{}
 
-	validConfig.AnalogReaders = []board.MCP3008AnalogConfig{{}}
+	validConfig.AnalogReaders = []mcp3008helper.MCP3008AnalogConfig{{}}
 	_, err := validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 
-	validConfig.AnalogReaders = []board.MCP3008AnalogConfig{{Name: "bar"}}
+	validConfig.AnalogReaders = []mcp3008helper.MCP3008AnalogConfig{{Name: "bar"}}
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 

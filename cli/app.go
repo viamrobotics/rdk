@@ -970,14 +970,6 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Value:     "./meta.json",
 							TakesFile: true,
 						},
-						&cli.StringFlag{
-							Name:  moduleFlagPublicNamespace,
-							Usage: "the public namespace where the module resides (alternative way of specifying the org id)",
-						},
-						&cli.StringFlag{
-							Name:  moduleFlagOrgID,
-							Usage: "id of the organization that hosts the module",
-						},
 					},
 					Action: UpdateModuleAction,
 				},
@@ -999,7 +991,6 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					},
 					Action: UpdateModelsAction,
 				},
-
 				{
 					Name:  "upload",
 					Usage: "upload a new version of your module",

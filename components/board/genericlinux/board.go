@@ -19,6 +19,7 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/mcp3008helper"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -270,15 +271,13 @@ func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoar
 			return errors.Errorf("bad analog pin (%s)", c.Pin)
 		}
 
-		bus, ok := b.spis[c.SPIBus]
-		if !ok {
-			return errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", c.SPIBus)
-		}
+		bus := &spiBus{}
+		bus.reset(c.SPIBus)
 
 		stillExists[c.Name] = struct{}{}
 		if curr, ok := b.analogReaders[c.Name]; ok {
 			if curr.chipSelect != c.ChipSelect {
-				ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
+				ar := &mcp3008helper.MCP3008AnalogReader{channel, bus, c.ChipSelect}
 				curr.reset(ctx, curr.chipSelect,
 					board.SmoothAnalogReader(ar, board.AnalogReaderConfig{
 						AverageOverMillis: c.AverageOverMillis, SamplesPerSecond: c.SamplesPerSecond,
@@ -286,7 +285,7 @@ func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoar
 			}
 			continue
 		}
-		ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
+		ar := &mcp3008helper.MCP3008AnalogReader{channel, bus, c.ChipSelect}
 		b.analogReaders[c.Name] = newWrappedAnalogReader(ctx, c.ChipSelect,
 			board.SmoothAnalogReader(ar, board.AnalogReaderConfig{
 				AverageOverMillis: c.AverageOverMillis, SamplesPerSecond: c.SamplesPerSecond,
