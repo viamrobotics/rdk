@@ -22,6 +22,9 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// The pause time when not using a localizer before moving on to next move step
+const defaultNoLocalizerDelay = 250 * time.Millisecond
+
 // ErrMovementTimeout is used for when a movement call times out after no movement for some time.
 var ErrMovementTimeout = errors.New("movement has timed out")
 
@@ -239,7 +242,7 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 
 		if ddk.Localizer == nil {
 			ddk.noLocalizerCacheInputs = []referenceframe.Input{{Value: 0}, {Value: 0}, desired[2]}
-			time.Sleep(3)
+			time.Sleep(defaultNoLocalizerDelay)
 		}
 		return true, err
 	} else if distErr > ddk.options.GoalRadiusMM {
@@ -248,6 +251,7 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 
 		if ddk.Localizer == nil {
 			ddk.noLocalizerCacheInputs = desired
+			time.Sleep(defaultNoLocalizerDelay)
 		}
 		return true, err
 	}

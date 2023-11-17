@@ -330,6 +330,11 @@ func (ms *explore) checkForObstacles(
 	plan motionplan.Plan,
 	obstaclePollingFrequencyHz float64,
 ) {
+
+	ms.logger.Debug("Current Plan")
+	for i, p := range plan {
+		ms.logger.Debugf("plan[%v]: %v", i, p)
+	}
 	// Constantly check for obstacles in path at desired obstacle polling frequency
 	ticker := time.NewTicker(time.Duration(int(1000/obstaclePollingFrequencyHz)) * time.Millisecond)
 	defer ticker.Stop()
@@ -361,7 +366,7 @@ func (ms *explore) checkForObstacles(
 			remainingPlan := plan[ms.planStep:]
 			ms.planMutex.Unlock()
 
-			fmt.Println("START WORLD STATE: ", worldState)
+			ms.logger.Debugf("Current transient worldState: ", worldState)
 
 			// Check remainder of plan for transient obstacles
 			err = motionplan.CheckPlan(
@@ -375,15 +380,13 @@ func (ms *explore) checkForObstacles(
 				lookAheadDistanceMM,
 				ms.logger,
 			)
-			if err != nil && currentInputs[2].Value != 0 {
+			if err != nil {
 				if strings.Contains(err.Error(), "found collision between positions") {
-					fmt.Println("OBSTACLE WORLD STATE: ", worldState)
 					ms.logger.Debug("collision found in given range")
 					ms.obstacleResponseChan <- moveResponse{success: true}
 					return
 				}
 			}
-			fmt.Println("NO OBSTACLE WORLD STATE: ", worldState)
 		}
 	}
 }
