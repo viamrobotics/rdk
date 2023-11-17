@@ -63,7 +63,7 @@ func TestClient(t *testing.T) {
 		return errStopUnimplemented
 	}
 	injectArm.ModelFrameFunc = func() referenceframe.Model {
-		data := []byte("{\"links\": [{\"parent\": \"world\"t}]}")
+		data := []byte("{\"links\": [{\"parent\": \"world\"}]}")
 		model, err := referenceframe.UnmarshalModelJSON(data, "")
 		test.That(t, err, test.ShouldBeNil)
 		return model
