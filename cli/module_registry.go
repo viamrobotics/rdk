@@ -442,7 +442,7 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 	}
 	if len(badSymlinks) > 0 {
 		warningf(client.c.App.ErrWriter, "Module contains symlinks to files outside the package."+
-			" This might cause issues on other computers:")
+			" This might cause issues on other smart machines:")
 		numPrinted := 0
 		for name := range badSymlinks {
 			printf(client.c.App.ErrWriter, "\t%s -> %s", name, badSymlinks[name])
