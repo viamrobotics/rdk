@@ -118,7 +118,6 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 	if inputsErr != nil {
 		return inputsErr
 	}
-
 	validRegion, capsuleErr := ddk.newValidRegionCapsule(current, desired)
 	if capsuleErr != nil {
 		return capsuleErr
@@ -175,7 +174,6 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 					return
 				}
 			}
-
 			current, err = ddk.CurrentInputs(cancelContext)
 			if err != nil {
 				movementErr <- err
@@ -230,7 +228,7 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 	if err != nil {
 		return false, err
 	}
-	ddk.logger.Debugf("distErr: %f\theadingErr %f", distErr, headingErr)
+	ddk.logger.Debugf("distErr: %.2f\theadingErr %.2f", distErr, headingErr)
 	if distErr > ddk.options.GoalRadiusMM && math.Abs(headingErr) > ddk.options.HeadingThresholdDegrees {
 		// base is headed off course; spin to correct
 		err := ddk.Spin(ctx, math.Min(headingErr, ddk.options.MaxSpinAngleDeg), ddk.options.AngularVelocityDegsPerSec, nil)

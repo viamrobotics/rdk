@@ -12,7 +12,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-const defaultDistanceMM = 100 * 1000
+const defaultDistanceMM = 50 * 1000
 
 func (svc *builtIn) startExploreMode(ctx context.Context) {
 	svc.logger.Debug("startExploreMode called")
@@ -30,7 +30,6 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 			}
 
 			// Choose a new random point using a normal distribution centered on the position directly the robot
-
 			randAngle := rand.NormFloat64() + math.Pi
 			destination := referenceframe.NewPoseInFrame(svc.base.Name().Name, spatialmath.NewPose(
 				r3.Vector{

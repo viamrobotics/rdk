@@ -41,11 +41,11 @@ var (
 	// ErrClosed denotes that the slam service method was called on a closed slam resource.
 	ErrClosed = errors.Errorf("resource (%s) is closed", model.String())
 
-	// Places a limit on how far a potential move action can be on the kinematic base.
+	// Places a limit on how far a potential kinematic base move action can be.
 	defaultMoveLimit = 100000.
 	// The timeout for any individual move action on the kinematic base.
 	defaultExploreTimeout = 100 * time.Second
-	// The max angle a spin action can be on the kinematic base.
+	// The max angle the kinematic base spin action can be.
 	defaultMaxSpinAngleDegs = 180.
 )
 
@@ -564,7 +564,7 @@ func (ms *explore) createMotionPlan(
 	destination *referenceframe.PoseInFrame,
 	extra map[string]interface{},
 ) (motionplan.Plan, error) {
-	if math.Abs(destination.Pose().Point().X) > defaultMoveLimit || math.Abs(destination.Pose().Point().Y) > defaultMoveLimit {
+	if destination.Pose().Point().Norm() >= defaultMoveLimit {
 		return nil, errors.Errorf("destination %v is above the defined limit of %v", destination.Pose().Point().String(), defaultMoveLimit)
 	}
 
@@ -583,12 +583,12 @@ func (ms *explore) createMotionPlan(
 	}
 
 	// replace original base frame with one that knows how to move itself and allow planning for
-	newKBOriginFrame, err := referenceframe.NewStaticFrame(kb.Name().ShortName()+"_origin", spatialmath.NewZeroPose())
-	if err != nil {
-		return nil, err
-	}
+	// newKBOriginFrame, err := referenceframe.NewStaticFrame(kb.Name().ShortName()+"_origin", spatialmath.NewZeroPose())
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	if err = ms.frameSystem.ReplaceFrame(newKBOriginFrame); err != nil {
+	if err = ms.frameSystem.ReplaceFrame(kb.Kinematics()); err != nil {
 		return nil, err
 	}
 
