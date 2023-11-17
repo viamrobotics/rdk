@@ -128,20 +128,16 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 	newManagedPackages := make(map[PackageName]*managedPackage, len(packages))
 
-	areManaged := m.packagesAreManaged(packages)
-	if !areManaged {
+	changedPackages := m.validateAndGetChangedPackages(packages)
+	if len(changedPackages) > 0 {
 		m.logger.Info("Package changes have been detected, starting sync")
 	}
 
 	start := time.Now()
-	for idx, p := range packages {
+	for idx, p := range changedPackages {
+		pkgStart := time.Now()
 		if err := ctx.Err(); err != nil {
 			return multierr.Append(outErr, err)
-		}
-
-		if err := p.Validate(""); err != nil {
-			m.logger.Errorw("package config validation error; skipping", "package", p.Name, "error", err)
-			continue
 		}
 
 		m.logger.Debugf("Starting package sync [%d/%d] %s:%s", idx+1, len(packages), p.Package, p.Version)
@@ -150,7 +146,6 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		existing, ok := m.managedPackages[PackageName(p.Name)]
 		if ok {
 			if m.packageIsManaged(p) {
-				m.logger.Debug("Package already managed, skipping")
 				newManagedPackages[PackageName(p.Name)] = existing
 				continue
 			}
@@ -193,9 +188,11 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 		// add to managed packages
 		newManagedPackages[PackageName(p.Name)] = &managedPackage{thePackage: p, modtime: time.Now()}
+
+		m.logger.Debugf("Package sync complete [%d/%d] %s:%s after %v", idx+1, len(packages), p.Package, p.Version, time.Since(pkgStart))
 	}
 
-	if !areManaged {
+	if len(changedPackages) > 0 {
 		m.logger.Infof("Package sync complete after %v", time.Since(start))
 	}
 
@@ -205,17 +202,21 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 	return outErr
 }
 
-func (m *cloudManager) packagesAreManaged(packages []config.PackageConfig) bool {
+func (m *cloudManager) validateAndGetChangedPackages(packages []config.PackageConfig) []config.PackageConfig {
+	changed := make([]config.PackageConfig, 0)
 	for _, p := range packages {
 		// don't consider invalid config as synced or unsynced
 		if err := p.Validate(""); err != nil {
+			m.logger.Errorw("package config validation error; skipping", "package", p.Name, "error", err)
 			continue
 		}
 		if existing := m.packageIsManaged(p); !existing {
-			return false
+			changed = append(changed, p)
+		} else {
+			m.logger.Debug("Package %s:%s already managed, skipping", p.Package, p.Version)
 		}
 	}
-	return true
+	return changed
 }
 
 func (m *cloudManager) packageIsManaged(p config.PackageConfig) bool {
