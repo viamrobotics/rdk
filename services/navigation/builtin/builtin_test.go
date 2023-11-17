@@ -102,7 +102,7 @@ func TestValidateConfig(t *testing.T) {
 				BaseName:           "base",
 				MovementSensorName: "localizer",
 			},
-			numDeps:     3,
+			numDeps:     4,
 			expectedErr: nil,
 		},
 		{
@@ -111,7 +111,7 @@ func TestValidateConfig(t *testing.T) {
 				BaseName: "base",
 				MapType:  "None",
 			},
-			numDeps:     2,
+			numDeps:     3,
 			expectedErr: nil,
 		},
 		{
@@ -121,7 +121,7 @@ func TestValidateConfig(t *testing.T) {
 				MapType:            "GPS",
 				MovementSensorName: "localizer",
 			},
-			numDeps:     3,
+			numDeps:     4,
 			expectedErr: nil,
 		},
 		{
