@@ -23,8 +23,6 @@ import (
 
 // A Config describes the configuration of a fake board and all of its connected parts.
 type Config struct {
-	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
-	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
 	AnalogReaders     []board.AnalogReaderConfig     `json:"analogs,omitempty"`
 	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
 	Attributes        rdkutils.AttributeMap          `json:"attributes,omitempty"`
@@ -33,16 +31,6 @@ type Config struct {
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
-	for idx, conf := range conf.SPIs {
-		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "spis", idx)); err != nil {
-			return nil, err
-		}
-	}
-	for idx, conf := range conf.I2Cs {
-		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "i2cs", idx)); err != nil {
-			return nil, err
-		}
-	}
 	for idx, conf := range conf.AnalogReaders {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
 			return nil, err
@@ -83,8 +71,6 @@ func init() {
 func NewBoard(ctx context.Context, conf resource.Config, logger logging.Logger) (*Board, error) {
 	b := &Board{
 		Named:         conf.ResourceName().AsNamed(),
-		I2Cs:          map[string]*I2C{},
-		SPIs:          map[string]*SPI{},
 		AnalogReaders: map[string]*AnalogReader{},
 		Digitals:      map[string]*DigitalInterruptWrapper{},
 		GPIOPins:      map[string]*GPIOPin{},
@@ -111,41 +97,6 @@ func (b *Board) processConfig(conf resource.Config) error {
 	b.GPIOPins = map[string]*GPIOPin{}
 
 	stillExists := map[string]struct{}{}
-	for _, c := range newConf.I2Cs {
-		stillExists[c.Name] = struct{}{}
-		if curr, ok := b.I2Cs[c.Name]; ok {
-			if curr.bus != c.Bus {
-				curr.reset(c.Bus)
-			}
-			continue
-		}
-		b.I2Cs[c.Name] = newI2C(c.Bus)
-	}
-	for name := range b.I2Cs {
-		if _, ok := stillExists[name]; ok {
-			continue
-		}
-		delete(b.I2Cs, name)
-	}
-	stillExists = map[string]struct{}{}
-
-	for _, c := range newConf.SPIs {
-		stillExists[c.Name] = struct{}{}
-		if curr, ok := b.SPIs[c.Name]; ok {
-			if curr.busSelect != c.BusSelect {
-				curr.reset(c.BusSelect)
-			}
-			continue
-		}
-		b.SPIs[c.Name] = newSPI(c.BusSelect)
-	}
-	for name := range b.SPIs {
-		if _, ok := stillExists[name]; ok {
-			continue
-		}
-		delete(b.SPIs, name)
-	}
-	stillExists = map[string]struct{}{}
 
 	for _, c := range newConf.AnalogReaders {
 		stillExists[c.Name] = struct{}{}
@@ -200,8 +151,6 @@ type Board struct {
 	resource.Named
 
 	mu            sync.RWMutex
-	SPIs          map[string]*SPI
-	I2Cs          map[string]*I2C
 	AnalogReaders map[string]*AnalogReader
 	Digitals      map[string]*DigitalInterruptWrapper
 	GPIOPins      map[string]*GPIOPin

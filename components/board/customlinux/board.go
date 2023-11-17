@@ -62,8 +62,6 @@ func pinDefsFromFile(conf resource.Config) (*genericlinux.LinuxBoardConfig, erro
 	}
 
 	return &genericlinux.LinuxBoardConfig{
-		I2Cs:         newConf.I2Cs,
-		SPIs:         newConf.SPIs,
 		GpioMappings: gpioMappings,
 	}, nil
 }
