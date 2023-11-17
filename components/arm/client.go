@@ -195,7 +195,7 @@ func (c *client) updateKinematics(ctx context.Context, extra map[string]interfac
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA:
 		return referenceframe.UnmarshalModelJSON(data, c.name)
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF:
-		modelconf, err := urdf.ConvertURDFToConfig(data, c.name)
+		modelconf, err := urdf.UnmarshalModelXML(data, c.name)
 		if err != nil {
 			return nil, err
 		}
