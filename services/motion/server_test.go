@@ -421,20 +421,11 @@ func TestServerListPlanStatuses(t *testing.T) {
 	})
 
 	t.Run("otherwise returns a success response", func(t *testing.T) {
-		executionID, err := uuid.NewUUID()
-		test.That(t, err, test.ShouldBeNil)
-
-		planID1, err := uuid.NewUUID()
-		test.That(t, err, test.ShouldBeNil)
-
-		planID2, err := uuid.NewUUID()
-		test.That(t, err, test.ShouldBeNil)
-
-		planID3, err := uuid.NewUUID()
-		test.That(t, err, test.ShouldBeNil)
-
-		planID4, err := uuid.NewUUID()
-		test.That(t, err, test.ShouldBeNil)
+		executionID := uuid.New()
+		planID1 := uuid.New()
+		planID2 := uuid.New()
+		planID3 := uuid.New()
+		planID4 := uuid.New()
 
 		expectedComponentName := base.Named("test-base")
 		failedReason := "some reason for failure"
@@ -500,8 +491,7 @@ func TestServerGetPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	expectedComponentName := base.Named("test-base")
-	uuidID, err := uuid.NewUUID()
-	test.That(t, err, test.ShouldBeNil)
+	uuidID := uuid.New()
 	id := uuidID.String()
 
 	validGetPlanRequest := &pb.GetPlanRequest{
@@ -539,14 +529,9 @@ func TestServerGetPlan(t *testing.T) {
 	})
 
 	t.Run("otherwise returns a success response", func(t *testing.T) {
-		executionID, err := uuid.NewUUID()
-		test.That(t, err, test.ShouldBeNil)
-
-		planID1, err := uuid.NewUUID()
-		test.That(t, err, test.ShouldBeNil)
-
-		planID2, err := uuid.NewUUID()
-		test.That(t, err, test.ShouldBeNil)
+		executionID := uuid.New()
+		planID1 := uuid.New()
+		planID2 := uuid.New()
 
 		base1 := base.Named("base1")
 		steps := []motion.PlanStep{{base1: spatialmath.NewZeroPose()}}

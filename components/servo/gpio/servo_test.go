@@ -103,9 +103,6 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 
 	deps := make(resource.Dependencies)
 	board1 := inject.NewBoard("mock")
-	board1.GPIOPinNamesFunc = func() []string {
-		return []string{"0", "1"}
-	}
 
 	innerTick1, innerTick2 := 0, 0
 	scale1, scale2 := 255, 4095

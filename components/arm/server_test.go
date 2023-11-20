@@ -12,9 +12,12 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 var (
@@ -71,6 +74,13 @@ func TestServer(t *testing.T) {
 		extraOptions = extra
 		return nil
 	}
+	injectArm.ModelFrameFunc = func() referenceframe.Model {
+		model, err := urdf.ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5_viam.urdf"), "foo")
+		if err != nil {
+			return nil
+		}
+		return model
+	}
 	injectArm.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		extraOptions = extra
 		return nil
@@ -92,6 +102,9 @@ func TestServer(t *testing.T) {
 	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions, extra map[string]interface{}) error {
 		capArmJointPos = jp
 		return errMoveToJointPositionFailed
+	}
+	injectArm2.ModelFrameFunc = func() referenceframe.Model {
+		return nil
 	}
 	injectArm2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return errStopUnimplemented
@@ -178,6 +191,20 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errMoveToJointPositionFailed.Error())
 		test.That(t, capArmJointPos.String(), test.ShouldResemble, positionDegs1.String())
+	})
+
+	t.Run("get kinematics", func(t *testing.T) {
+		_, err = armServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: missingArmName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errArmUnimplemented.Error())
+
+		kinematics, err := armServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: testArmName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, kinematics.Format, test.ShouldResemble, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF)
+
+		kinematics, err = armServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: failArmName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, kinematics.Format, test.ShouldResemble, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED)
 	})
 
 	t.Run("stop", func(t *testing.T) {

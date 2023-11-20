@@ -65,7 +65,7 @@ func (imp *impl) Sublogger(subname string) Logger {
 
 	return &impl{
 		name:      newName,
-		level:     imp.level,
+		level:     NewAtomicLevelAt(imp.level.Get()),
 		appenders: imp.appenders,
 	}
 }
