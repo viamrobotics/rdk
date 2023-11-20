@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/golang/geo/r3"
@@ -43,7 +44,10 @@ func wrapWithDifferentialDriveKinematics(
 		Localizer: localizer,
 		logger:    logger,
 		options:   options,
+		mutex:     sync.RWMutex{},
 	}
+	ddk.mutex.Lock()
+	defer ddk.mutex.Unlock()
 
 	geometries, err := b.Geometries(ctx, nil)
 	if err != nil {
@@ -88,6 +92,7 @@ type differentialDriveKinematics struct {
 	planningFrame, executionFrame referenceframe.Model
 	options                       Options
 	noLocalizerCacheInputs        []referenceframe.Input
+	mutex                         sync.RWMutex
 }
 
 func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
@@ -95,8 +100,14 @@ func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
 }
 
 func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	// If no localizer is present, CurrentInputs returns the expected position of the robot assuming after
+	// each part of move command was completed accurately.
 	if ddk.Localizer == nil {
-		return ddk.noLocalizerCacheInputs, nil
+		ddk.mutex.RLock()
+		defer ddk.mutex.RUnlock()
+		currentInputs := ddk.noLocalizerCacheInputs
+
+		return currentInputs, nil
 	}
 
 	// TODO(rb): make a transformation from the component reference to the base frame
@@ -130,6 +141,8 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 
 	if ddk.Localizer == nil {
 		defer func() {
+			ddk.mutex.Lock()
+			defer ddk.mutex.Unlock()
 			ddk.noLocalizerCacheInputs = []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}
 		}()
 	}
@@ -233,7 +246,10 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 		// base is headed off course; spin to correct
 		err := ddk.Spin(ctx, math.Min(headingErr, ddk.options.MaxSpinAngleDeg), ddk.options.AngularVelocityDegsPerSec, nil)
 
+		// Update the cached current inputs to the resultant position of the spin command when the localizer is nil
 		if ddk.Localizer == nil {
+			ddk.mutex.Lock()
+			defer ddk.mutex.Unlock()
 			ddk.noLocalizerCacheInputs = []referenceframe.Input{{Value: 0}, {Value: 0}, desired[2]}
 			time.Sleep(defaultNoLocalizerDelay)
 		}
@@ -242,7 +258,10 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 		// base is pointed the correct direction but not there yet; forge onward
 		err := ddk.MoveStraight(ctx, int(math.Min(distErr, ddk.options.MaxMoveStraightMM)), ddk.options.LinearVelocityMMPerSec, nil)
 
+		// Update the cached current inputs to the resultant position of the move straight command when the localizer is nil
 		if ddk.Localizer == nil {
+			ddk.mutex.Lock()
+			defer ddk.mutex.Unlock()
 			ddk.noLocalizerCacheInputs = desired
 			time.Sleep(defaultNoLocalizerDelay)
 		}

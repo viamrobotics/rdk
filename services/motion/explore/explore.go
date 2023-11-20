@@ -42,7 +42,7 @@ var (
 	ErrClosed = errors.Errorf("resource (%s) is closed", model.String())
 
 	// Places a limit on how far a potential kinematic base move action can be.
-	defaultMoveLimit = 100000.
+	defaultMoveLimitMM = 100 * 1000.
 	// The timeout for any individual move action on the kinematic base.
 	defaultExploreTimeout = 100 * time.Second
 	// The max angle the kinematic base spin action can be.
@@ -495,12 +495,14 @@ func (ms *explore) createKinematicBase(
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
 	kinematicsOptions.NoSkidSteer = true
 	kinematicsOptions.UsePTGs = false
+	// PositionOnlyMode needs to be false to allow orientation info to be available in CurrentInputs as
+	// we need that to correctly place obstacles in world's reference frame.
 	kinematicsOptions.PositionOnlyMode = false
 	kinematicsOptions.AngularVelocityDegsPerSec = motionCfg.AngularDegsPerSec
 	kinematicsOptions.LinearVelocityMMPerSec = motionCfg.LinearMPerSec * 1000
 	kinematicsOptions.Timeout = defaultExploreTimeout
 	kinematicsOptions.MaxSpinAngleDeg = defaultMaxSpinAngleDegs
-	kinematicsOptions.MaxMoveStraightMM = defaultMoveLimit
+	kinematicsOptions.MaxMoveStraightMM = defaultMoveLimitMM
 
 	// Create new kinematic base (differential drive)
 	kb, err := kinematicbase.WrapWithKinematics(
@@ -509,8 +511,8 @@ func (ms *explore) createKinematicBase(
 		ms.logger,
 		nil,
 		[]referenceframe.Limit{
-			{Min: -defaultMoveLimit, Max: defaultMoveLimit},
-			{Min: -defaultMoveLimit, Max: defaultMoveLimit},
+			{Min: -defaultMoveLimitMM, Max: defaultMoveLimitMM},
+			{Min: -defaultMoveLimitMM, Max: defaultMoveLimitMM},
 			{Min: -2 * math.Pi, Max: 2 * math.Pi},
 		},
 		kinematicsOptions,
@@ -564,8 +566,8 @@ func (ms *explore) createMotionPlan(
 	destination *referenceframe.PoseInFrame,
 	extra map[string]interface{},
 ) (motionplan.Plan, error) {
-	if destination.Pose().Point().Norm() >= defaultMoveLimit {
-		return nil, errors.Errorf("destination %v is above the defined limit of %v", destination.Pose().Point().String(), defaultMoveLimit)
+	if destination.Pose().Point().Norm() >= defaultMoveLimitMM {
+		return nil, errors.Errorf("destination %v is above the defined limit of %v", destination.Pose().Point().String(), defaultMoveLimitMM)
 	}
 
 	worldState, err := referenceframe.NewWorldState(nil, nil)
@@ -575,10 +577,6 @@ func (ms *explore) createMotionPlan(
 
 	ms.frameSystem, err = ms.fsService.FrameSystem(ctx, worldState.Transforms())
 	if err != nil {
-		return nil, err
-	}
-
-	if err := ms.frameSystem.ReplaceFrame(kb.Kinematics()); err != nil {
 		return nil, err
 	}
 
