@@ -311,11 +311,6 @@ func (b *numatoBoard) Status(ctx context.Context, extra map[string]interface{}) 
 	return board.CreateStatus(ctx, b, extra)
 }
 
-// ModelAttributes returns attributes related to the model of this board.
-func (b *numatoBoard) ModelAttributes() board.ModelAttributes {
-	return board.ModelAttributes{}
-}
-
 func (b *numatoBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
 	return grpc.UnimplementedError
 }
