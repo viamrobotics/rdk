@@ -616,7 +616,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 
 		for i, detection := range detections {
 			// get geo pose of geometry
-			geomGeoPose := spatialmath.PoseToGeoPoint(*relativeToGeoPose, detection.Geometry.Pose())
+			geomGeoPose := spatialmath.PoseToGeoPose(*relativeToGeoPose, detection.Geometry.Pose())
 
 			// set label for geometry so we know it is transient
 			label := detector.CameraName.Name + "_transientObstacle_" + strconv.Itoa(i)

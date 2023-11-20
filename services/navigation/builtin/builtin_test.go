@@ -1093,7 +1093,7 @@ func TestGetObstacles(t *testing.T) {
 		"test_camera_transientObstacle_0_test-box",
 	)
 	test.That(t, err, test.ShouldBeNil)
-	boxGob := spatialmath.NewGeoObstacle(geo.NewPoint(1.0169017117388919, 1.0061526910300462), []spatialmath.Geometry{boxGeom})
+	boxGob := spatialmath.NewGeoObstacle(geo.NewPoint(1.0000000169017176, 1.0000000061527081), []spatialmath.Geometry{boxGeom})
 
 	injectedVis.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-box", boxGeom.ToProtobuf())
