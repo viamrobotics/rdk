@@ -127,10 +127,10 @@ type rtkSerial struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 
-	mu                 sync.Mutex
-	ntripMu            sync.Mutex
-	ntripconfigMu      sync.Mutex
-	urlMutex           sync.Mutex
+	mu                 sync.Mutex // Mutex for general synchronization during reconfigure.
+	ntripMu            sync.Mutex // Mutex for NTRIP-related operations.
+	ntripconfigMu      sync.Mutex // Mutex for NTRIP configuration.
+	urlMutex           sync.Mutex // Mutex for URL-related operations.
 	ntripClient        *rtk.NtripInfo
 	isConnectedToNtrip bool
 	isClosed           bool
