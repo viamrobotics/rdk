@@ -128,6 +128,16 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 	newManagedPackages := make(map[PackageName]*managedPackage, len(packages))
 
+	//Add packages that were managed in last sync back to list.
+	for _, p := range packages {
+		// Package exists in known cache.
+		if m.packageIsManaged(p) {
+			newManagedPackages[PackageName(p.Name)] = m.managedPackages[PackageName(p.Name)]
+			continue
+		}
+	}
+
+	// Process the packages that are new or changed
 	changedPackages := m.validateAndGetChangedPackages(packages)
 	if len(changedPackages) > 0 {
 		m.logger.Info("Package changes have been detected, starting sync")
@@ -140,17 +150,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 			return multierr.Append(outErr, err)
 		}
 
-		m.logger.Debugf("Starting package sync [%d/%d] %s:%s", idx+1, len(packages), p.Package, p.Version)
-
-		// Package exists in known cache.
-		existing, ok := m.managedPackages[PackageName(p.Name)]
-		if ok {
-			if m.packageIsManaged(p) {
-				newManagedPackages[PackageName(p.Name)] = existing
-				continue
-			}
-			// anything left over in the m.managedPackages will be cleaned up later.
-		}
+		m.logger.Debugf("Starting package sync [%d/%d] %s:%s", idx+1, len(changedPackages), p.Package, p.Version)
 
 		// Lookup the packages http url
 		includeURL := true
@@ -189,7 +189,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		// add to managed packages
 		newManagedPackages[PackageName(p.Name)] = &managedPackage{thePackage: p, modtime: time.Now()}
 
-		m.logger.Debugf("Package sync complete [%d/%d] %s:%s after %v", idx+1, len(packages), p.Package, p.Version, time.Since(pkgStart))
+		m.logger.Debugf("Package sync complete [%d/%d] %s:%s after %v", idx+1, len(changedPackages), p.Package, p.Version, time.Since(pkgStart))
 	}
 
 	if len(changedPackages) > 0 {
