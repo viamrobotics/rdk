@@ -227,16 +227,6 @@ func (b *numatoBoard) readThread() {
 	}
 }
 
-// SPIByName returns an SPI bus by name.
-func (b *numatoBoard) SPIByName(name string) (board.SPI, bool) {
-	return nil, false
-}
-
-// I2CByName returns an I2C bus by name.
-func (b *numatoBoard) I2CByName(name string) (board.I2C, bool) {
-	return nil, false
-}
-
 // AnalogReaderByName returns an analog reader by name.
 func (b *numatoBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	ar, ok := b.analogs[name]
@@ -246,16 +236,6 @@ func (b *numatoBoard) AnalogReaderByName(name string) (board.AnalogReader, bool)
 // DigitalInterruptByName returns a digital interrupt by name.
 func (b *numatoBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	return nil, false
-}
-
-// SPINames returns the names of all known SPI busses.
-func (b *numatoBoard) SPINames() []string {
-	return nil
-}
-
-// I2CNames returns the names of all known I2C busses.
-func (b *numatoBoard) I2CNames() []string {
-	return nil
 }
 
 // AnalogReaderNames returns the names of all known analog readers.
@@ -269,11 +249,6 @@ func (b *numatoBoard) AnalogReaderNames() []string {
 
 // DigitalInterruptNames returns the names of all known digital interrupts.
 func (b *numatoBoard) DigitalInterruptNames() []string {
-	return nil
-}
-
-// GPIOPinNames returns the names of all known GPIO pins.
-func (b *numatoBoard) GPIOPinNames() []string {
 	return nil
 }
 
@@ -393,7 +368,7 @@ func (ar *analogReader) Close(ctx context.Context) error {
 	return nil
 }
 
-func connect(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (board.LocalBoard, error) {
+func connect(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (board.Board, error) {
 	pins := conf.Pins
 	if pins <= 0 {
 		return nil, errors.New("numato board needs pins set in attributes")

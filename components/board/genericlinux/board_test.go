@@ -13,6 +13,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/mcp3008helper"
 	"go.viam.com/rdk/logging"
 )
 
@@ -24,8 +25,6 @@ func TestGenericLinux(t *testing.T) {
 	}
 
 	t.Run("test empty sysfs board", func(t *testing.T) {
-		test.That(t, b.GPIOPinNames(), test.ShouldBeNil)
-		test.That(t, b.SPINames(), test.ShouldBeNil)
 		_, err := b.GPIOPinByName("10")
 		test.That(t, err, test.ShouldNotBeNil)
 	})
@@ -68,33 +67,12 @@ func TestGenericLinux(t *testing.T) {
 		test.That(t, an2, test.ShouldBeNil)
 		test.That(t, ok, test.ShouldBeFalse)
 
-		sns := b.SPINames()
-		test.That(t, len(sns), test.ShouldEqual, 2)
-
-		sn1, ok := b.SPIByName("closed")
-		test.That(t, sn1, test.ShouldHaveSameTypeAs, &spiBus{})
-		test.That(t, ok, test.ShouldBeTrue)
-
-		sn2, ok := b.SPIByName("missing")
-		test.That(t, sn2, test.ShouldBeNil)
-		test.That(t, ok, test.ShouldBeFalse)
-
-		ins := b.I2CNames()
-		test.That(t, ins, test.ShouldBeNil)
-
-		in1, ok := b.I2CByName("in")
-		test.That(t, in1, test.ShouldBeNil)
-		test.That(t, ok, test.ShouldBeFalse)
-
 		dns := b.DigitalInterruptNames()
 		test.That(t, dns, test.ShouldBeNil)
 
 		dn1, ok := b.DigitalInterruptByName("dn")
 		test.That(t, dn1, test.ShouldBeNil)
 		test.That(t, ok, test.ShouldBeFalse)
-
-		gns := b.GPIOPinNames()
-		test.That(t, gns, test.ShouldResemble, []string(nil))
 
 		gn1, err := b.GPIOPinByName("10")
 		test.That(t, err, test.ShouldNotBeNil)
@@ -122,13 +100,13 @@ func TestGenericLinux(t *testing.T) {
 func TestConfigValidate(t *testing.T) {
 	validConfig := Config{}
 
-	validConfig.AnalogReaders = []board.MCP3008AnalogConfig{{}}
+	validConfig.AnalogReaders = []mcp3008helper.MCP3008AnalogConfig{{}}
 	_, err := validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 
-	validConfig.AnalogReaders = []board.MCP3008AnalogConfig{{Name: "bar"}}
+	validConfig.AnalogReaders = []mcp3008helper.MCP3008AnalogConfig{{Name: "bar"}}
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 

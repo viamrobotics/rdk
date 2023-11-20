@@ -51,6 +51,14 @@ type MoveOnGlobeReq struct {
 	Extra              map[string]interface{}
 }
 
+// MoveOnMapReq describes a request to MoveOnMap.
+type MoveOnMapReq struct {
+	ComponentName resource.Name
+	Destination   spatialmath.Pose
+	SlamName      resource.Name
+	Extra         map[string]interface{}
+}
+
 // StopPlanReq describes the request to the StopPlan interface method.
 // Contains the ComponentName of the plan which should be stopped
 // & an Extra parameter.

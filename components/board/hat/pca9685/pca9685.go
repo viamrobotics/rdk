@@ -186,16 +186,6 @@ func (pca *PCA9685) GPIOPinByName(pin string) (board.GPIOPin, error) {
 	return &pca.gpioPins[pinInt], nil
 }
 
-// GPIOPinNames returns the names of all known GPIO pins.
-func (pca *PCA9685) GPIOPinNames() []string {
-	return []string{
-		"0", "1", "2", "3",
-		"4", "5", "6", "7",
-		"8", "9", "10", "11",
-		"12", "13", "14", "15",
-	}
-}
-
 func (pca *PCA9685) openHandle() (board.I2CHandle, error) {
 	return pca.bus.OpenHandle(pca.address)
 }
@@ -266,16 +256,6 @@ func (pca *PCA9685) SetFrequency(ctx context.Context, frequency float64) error {
 	return nil
 }
 
-// SPINames returns the names of all known SPIs.
-func (pca *PCA9685) SPINames() []string {
-	return nil
-}
-
-// I2CNames returns the names of all known I2Cs.
-func (pca *PCA9685) I2CNames() []string {
-	return nil
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (pca *PCA9685) AnalogReaderNames() []string {
 	return nil
@@ -284,16 +264,6 @@ func (pca *PCA9685) AnalogReaderNames() []string {
 // DigitalInterruptNames returns the names of all known digital interrupts.
 func (pca *PCA9685) DigitalInterruptNames() []string {
 	return nil
-}
-
-// SPIByName returns the SPI by the given name if it exists.
-func (pca *PCA9685) SPIByName(name string) (board.SPI, bool) {
-	return nil, false
-}
-
-// I2CByName returns the i2c by the given name if it exists.
-func (pca *PCA9685) I2CByName(name string) (board.I2C, bool) {
-	return nil, false
 }
 
 // AnalogReaderByName returns the analog reader by the given name if it exists.

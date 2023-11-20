@@ -209,22 +209,6 @@ type Board struct {
 	CloseCount    int
 }
 
-// SPIByName returns the SPI by the given name if it exists.
-func (b *Board) SPIByName(name string) (board.SPI, bool) {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	s, ok := b.SPIs[name]
-	return s, ok
-}
-
-// I2CByName returns the i2c by the given name if it exists.
-func (b *Board) I2CByName(name string) (board.I2C, bool) {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	s, ok := b.I2Cs[name]
-	return s, ok
-}
-
 // AnalogReaderByName returns the analog reader by the given name if it exists.
 func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	b.mu.RLock()
@@ -254,28 +238,6 @@ func (b *Board) GPIOPinByName(name string) (board.GPIOPin, error) {
 	return p, nil
 }
 
-// SPINames returns the names of all known SPIs.
-func (b *Board) SPINames() []string {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	names := []string{}
-	for k := range b.SPIs {
-		names = append(names, k)
-	}
-	return names
-}
-
-// I2CNames returns the names of all known I2Cs.
-func (b *Board) I2CNames() []string {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	names := []string{}
-	for k := range b.I2Cs {
-		names = append(names, k)
-	}
-	return names
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (b *Board) AnalogReaderNames() []string {
 	b.mu.RLock()
@@ -293,17 +255,6 @@ func (b *Board) DigitalInterruptNames() []string {
 	defer b.mu.RUnlock()
 	names := []string{}
 	for k := range b.Digitals {
-		names = append(names, k)
-	}
-	return names
-}
-
-// GPIOPinNames returns the names of all known GPIO pins.
-func (b *Board) GPIOPinNames() []string {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	names := []string{}
-	for k := range b.GPIOPins {
 		names = append(names, k)
 	}
 	return names

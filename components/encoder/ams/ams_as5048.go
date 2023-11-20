@@ -1,8 +1,11 @@
+//go:build linux
+
 // Package ams implements the AMS_AS5048 encoder
 package ams
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -11,6 +14,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -44,7 +48,6 @@ func init() {
 // Config contains the connection information for
 // configuring an AS5048 encoder.
 type Config struct {
-	BoardName string `json:"board"`
 	// We include connection type here in anticipation for
 	// future SPI support
 	ConnectionType string `json:"connection_type"`
@@ -67,9 +70,6 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		return nil, errors.Errorf("%s is not a supported connection type", connType)
 	}
 	if connType == i2cConn {
-		if len(conf.BoardName) == 0 {
-			return nil, errors.New("expected nonempty board")
-		}
 		if conf.I2CConfig == nil {
 			return nil, errors.New("i2c selected as connection type, but no attributes supplied")
 		}
@@ -77,7 +77,6 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		deps = append(deps, conf.BoardName)
 	}
 
 	return deps, nil
@@ -113,6 +112,7 @@ type Encoder struct {
 	positionType            encoder.PositionType
 	i2cBus                  board.I2C
 	i2cAddr                 byte
+	i2cBusName              string // This is nessesary to check whether we need to create a new i2cBus during reconfigure.
 	cancelCtx               context.Context
 	cancel                  context.CancelFunc
 	activeBackgroundWorkers sync.WaitGroup
@@ -124,14 +124,34 @@ func newAS5048Encoder(
 	conf resource.Config,
 	logger logging.Logger,
 ) (encoder.Encoder, error) {
+	return makeAS5048Encoder(ctx, deps, conf, logger, nil)
+}
+
+// This function is separated to inject a mock i2c bus during tests.
+func makeAS5048Encoder(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+	logger logging.Logger,
+	bus board.I2C,
+) (encoder.Encoder, error) {
+	cfg, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
+	}
+
 	cancelCtx, cancel := context.WithCancel(context.Background())
+
 	res := &Encoder{
 		Named:        conf.ResourceName().AsNamed(),
 		cancelCtx:    cancelCtx,
 		cancel:       cancel,
 		logger:       logger,
 		positionType: encoder.PositionTypeTicks,
+		i2cBus:       bus,
+		i2cBusName:   cfg.I2CBus,
 	}
+
 	if err := res.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
@@ -151,28 +171,21 @@ func (enc *Encoder) Reconfigure(
 	if err != nil {
 		return err
 	}
-
-	brd, err := board.FromDependencies(deps, newConf.BoardName)
-	if err != nil {
-		return err
-	}
-	localBoard, ok := brd.(board.LocalBoard)
-	if !ok {
-		return errors.Errorf(
-			"board with name %s does not implement the LocalBoard interface", newConf.BoardName,
-		)
-	}
-	i2c, exists := localBoard.I2CByName(newConf.I2CBus)
-	if !exists {
-		return errors.Errorf("unable to find I2C bus: %s", newConf.I2CBus)
-	}
 	enc.mu.Lock()
 	defer enc.mu.Unlock()
-	if enc.i2cBus == i2c || enc.i2cAddr == byte(newConf.I2CAddr) {
-		return nil
+
+	if enc.i2cBusName != newConf.I2CBus || enc.i2cBus == nil {
+		bus, err := genericlinux.NewI2cBus(newConf.I2CBus)
+		if err != nil {
+			msg := fmt.Sprintf("can't find I2C bus '%q' for AMS encoder", newConf.I2CBus)
+			return errors.Wrap(err, msg)
+		}
+		enc.i2cBusName = newConf.I2CBus
+		enc.i2cBus = bus
 	}
-	enc.i2cBus = i2c
-	enc.i2cAddr = byte(newConf.I2CAddr)
+	if enc.i2cAddr != byte(newConf.I2CAddr) {
+		enc.i2cAddr = byte(newConf.I2CAddr)
+	}
 	return nil
 }
 

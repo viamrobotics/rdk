@@ -35,6 +35,7 @@ import (
 	pb "go.viam.com/api/component/board/v1"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/mcp3008helper"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -61,11 +62,11 @@ func init() {
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
-	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
-	AnalogReaders     []board.MCP3008AnalogConfig    `json:"analogs,omitempty"`
-	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
-	Attributes        rdkutils.AttributeMap          `json:"attributes,omitempty"`
+	I2Cs              []board.I2CConfig                   `json:"i2cs,omitempty"`
+	SPIs              []board.SPIConfig                   `json:"spis,omitempty"`
+	AnalogReaders     []mcp3008helper.MCP3008AnalogConfig `json:"analogs,omitempty"`
+	DigitalInterrupts []board.DigitalInterruptConfig      `json:"digital_interrupts,omitempty"`
+	Attributes        rdkutils.AttributeMap               `json:"attributes,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -152,7 +153,7 @@ func initializePigpio() error {
 }
 
 // newPigpio makes a new pigpio based Board using the given config.
-func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, logger logging.Logger) (board.LocalBoard, error) {
+func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, logger logging.Logger) (board.Board, error) {
 	// this is so we can run it inside a daemon
 	internals := C.gpioCfgGetInternals()
 	internals |= C.PI_CFG_NOSIGHANDLER
@@ -257,12 +258,8 @@ func (pi *piPigpio) reconfigureAnalogReaders(ctx context.Context, cfg *Config) e
 			return errors.Errorf("bad analog pin (%s)", ac.Pin)
 		}
 
-		bus, have := pi.spis[ac.SPIBus]
-		if !have {
-			return errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", ac.SPIBus)
-		}
-
-		ar := &board.MCP3008AnalogReader{channel, bus, ac.ChipSelect}
+		bus := &piPigpioSPI{pi: pi, busSelect: ac.SPIBus}
+		ar := &mcp3008helper.MCP3008AnalogReader{channel, bus, ac.ChipSelect}
 
 		pi.analogReaders[ac.Name] = board.SmoothAnalogReader(ar, board.AnalogReaderConfig{
 			AverageOverMillis: ac.AverageOverMillis, SamplesPerSecond: ac.SamplesPerSecond,
@@ -418,17 +415,6 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *Config) erro
 	pi.interrupts = newInterrupts
 	pi.interruptsHW = newInterruptsHW
 	return nil
-}
-
-// GPIOPinNames returns the names of all known GPIO pins.
-func (pi *piPigpio) GPIOPinNames() []string {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	names := make([]string, 0, len(piHWPinToBroadcom))
-	for k := range piHWPinToBroadcom {
-		names = append(names, k)
-	}
-	return names
 }
 
 // GPIOPinByName returns a GPIOPin by name.
@@ -685,34 +671,6 @@ func (s *piPigpioSPIHandle) Close() error {
 	return nil
 }
 
-// SPINames returns the names of all known SPI buses.
-func (pi *piPigpio) SPINames() []string {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	if len(pi.spis) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(pi.spis))
-	for k := range pi.spis {
-		names = append(names, k)
-	}
-	return names
-}
-
-// I2CNames returns the names of all known SPI buses.
-func (pi *piPigpio) I2CNames() []string {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	if len(pi.i2cs) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(pi.i2cs))
-	for k := range pi.i2cs {
-		names = append(names, k)
-	}
-	return names
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (pi *piPigpio) AnalogReaderNames() []string {
 	pi.mu.Lock()
@@ -741,22 +699,6 @@ func (pi *piPigpio) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	defer pi.mu.Unlock()
 	a, ok := pi.analogReaders[name]
 	return a, ok
-}
-
-// SPIByName returns an SPI bus by name.
-func (pi *piPigpio) SPIByName(name string) (board.SPI, bool) {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	s, ok := pi.spis[name]
-	return s, ok
-}
-
-// I2CByName returns an I2C by name.
-func (pi *piPigpio) I2CByName(name string) (board.I2C, bool) {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	s, ok := pi.i2cs[name]
-	return s, ok
 }
 
 // DigitalInterruptByName returns a digital interrupt by name.

@@ -19,6 +19,7 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/mcp3008helper"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -270,15 +271,13 @@ func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoar
 			return errors.Errorf("bad analog pin (%s)", c.Pin)
 		}
 
-		bus, ok := b.spis[c.SPIBus]
-		if !ok {
-			return errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", c.SPIBus)
-		}
+		bus := &spiBus{}
+		bus.reset(c.SPIBus)
 
 		stillExists[c.Name] = struct{}{}
 		if curr, ok := b.analogReaders[c.Name]; ok {
 			if curr.chipSelect != c.ChipSelect {
-				ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
+				ar := &mcp3008helper.MCP3008AnalogReader{channel, bus, c.ChipSelect}
 				curr.reset(ctx, curr.chipSelect,
 					board.SmoothAnalogReader(ar, board.AnalogReaderConfig{
 						AverageOverMillis: c.AverageOverMillis, SamplesPerSecond: c.SamplesPerSecond,
@@ -286,7 +285,7 @@ func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoar
 			}
 			continue
 		}
-		ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
+		ar := &mcp3008helper.MCP3008AnalogReader{channel, bus, c.ChipSelect}
 		b.analogReaders[c.Name] = newWrappedAnalogReader(ctx, c.ChipSelect,
 			board.SmoothAnalogReader(ar, board.AnalogReaderConfig{
 				AverageOverMillis: c.AverageOverMillis, SamplesPerSecond: c.SamplesPerSecond,
@@ -463,18 +462,6 @@ type Board struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// SPIByName returns the SPI by the given name if it exists.
-func (b *Board) SPIByName(name string) (board.SPI, bool) {
-	s, ok := b.spis[name]
-	return s, ok
-}
-
-// I2CByName returns the i2c by the given name if it exists.
-func (b *Board) I2CByName(name string) (board.I2C, bool) {
-	i, ok := b.i2cs[name]
-	return i, ok
-}
-
 // AnalogReaderByName returns the analog reader by the given name if it exists.
 func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	a, ok := b.analogReaders[name]
@@ -520,30 +507,6 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, boo
 	return interrupt.interrupt, true
 }
 
-// SPINames returns the names of all known SPIs.
-func (b *Board) SPINames() []string {
-	if len(b.spis) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(b.spis))
-	for k := range b.spis {
-		names = append(names, k)
-	}
-	return names
-}
-
-// I2CNames returns the names of all known I2Cs.
-func (b *Board) I2CNames() []string {
-	if len(b.i2cs) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(b.i2cs))
-	for k := range b.i2cs {
-		names = append(names, k)
-	}
-	return names
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (b *Board) AnalogReaderNames() []string {
 	names := []string{}
@@ -562,18 +525,6 @@ func (b *Board) DigitalInterruptNames() []string {
 	names := []string{}
 	for name := range b.interrupts {
 		names = append(names, name)
-	}
-	return names
-}
-
-// GPIOPinNames returns the names of all known GPIO pins.
-func (b *Board) GPIOPinNames() []string {
-	if b.gpioMappings == nil {
-		return nil
-	}
-	names := []string{}
-	for k := range b.gpioMappings {
-		names = append(names, k)
 	}
 	return names
 }

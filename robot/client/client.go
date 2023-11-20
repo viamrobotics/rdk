@@ -3,6 +3,7 @@ package client
 
 import (
 	"context"
+	"flag"
 	"io"
 	"strings"
 	"sync"
@@ -612,8 +613,19 @@ func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, erro
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {
-	ctx, cancel := contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultResourcesTimeout)
-	defer cancel()
+	// RSDK-5356 If we are in a testing environment, never apply
+	// defaultResourcesTimeout. Tests run in parallel, and if execution of a test
+	// pauses for longer than 5s, below calls to ResourceNames or
+	// ResourceRPCSubtypes can result in context errors that appear in client.New
+	// and remote logic.
+	//
+	// TODO(APP-2917): Once we upgrade to go 1.21, replace this if check with if
+	// !testing.Testing().
+	if flag.Lookup("test.v") == nil {
+		var cancel func()
+		ctx, cancel = contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultResourcesTimeout)
+		defer cancel()
+	}
 	resp, err := rc.client.ResourceNames(ctx, &pb.ResourceNamesRequest{})
 	if err != nil {
 		return nil, nil, err
