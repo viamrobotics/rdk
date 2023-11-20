@@ -377,8 +377,29 @@ func NewConfigValidationError(path string, err error) error {
 	return fmt.Errorf("Error validating. Path: %q Error: %w", path, err)
 }
 
+type FieldRequiredError struct {
+	Path  string
+	Field string
+}
+
+func (fre FieldRequiredError) Error() string {
+	return fre.String()
+}
+
+func (fre FieldRequiredError) String() string {
+	return fmt.Sprintf("Error validating, missing required field. Path: %q Field: %q", fre.Path, fre.Field)
+}
+
 // NewConfigValidationFieldRequiredError returns a config validation error for a field missing at a
 // given path.
 func NewConfigValidationFieldRequiredError(path, field string) error {
-	return fmt.Errorf("Error validating, missing required field. Path: %q Field: %q", path, field)
+	return FieldRequiredError{path, field}
+}
+
+func GetFieldFromFieldRequiredError(err error) string {
+	if fre, ok := err.(FieldRequiredError); ok {
+		return fre.Field
+	}
+
+	return ""
 }

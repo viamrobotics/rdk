@@ -94,7 +94,11 @@ func (conf *PinConfig) MotorType(path string) (MotorType, error) {
 	default:
 		errEnum = noPins
 	}
-	return motorType, resource.NewConfigValidationError(path, getPinConfigErrorMessage(errEnum))
+
+	if err := getPinConfigErrorMessage(errEnum); err != nil {
+		return motorType, resource.NewConfigValidationError(path, err)
+	}
+	return motorType, nil
 }
 
 // Config describes the configuration of a motor.

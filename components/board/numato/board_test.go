@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -118,7 +119,7 @@ func TestConfigValidate(t *testing.T) {
 	_, err := validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
 
 	validConfig.Analogs = []board.AnalogReaderConfig{{Name: "bar"}}
 	_, err = validConfig.Validate("path")
