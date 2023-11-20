@@ -444,7 +444,7 @@ func (g *rtkSerial) connectToNTRIP() error {
 
 	if g.isVirtualBase {
 		g.logger.Debug("connecting to a Virtual Reference Station")
-		g.readerWriter, err = g.sendGGAMessage()
+		err = g.sendGGAMessage()
 		if err != nil {
 			g.err.Set(err)
 			return g.err.Get()
@@ -504,7 +504,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 				g.logger.Debug("No message... reconnecting to stream...")
 				if g.isVirtualBase {
 					g.logger.Debug("reconnecting to the Virtual Reference Station")
-					g.readerWriter, err = g.sendGGAMessage()
+					err = g.sendGGAMessage()
 
 					if err != nil && !errors.Is(err, io.EOF) {
 						g.err.Set(err)
@@ -515,7 +515,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 
 					// during reconnection, calling sendGGAMessage second time allows
 					// us to re-dial to the TCP port and create a new socket for ntrip stream.
-					g.readerWriter, err = g.sendGGAMessage()
+					err = g.sendGGAMessage()
 					if err != nil && !errors.Is(err, io.EOF) {
 						g.err.Set(err)
 						g.logger.Errorf("Failed to reconnect, %v", err)
@@ -755,7 +755,10 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 
 // sendGGAMessage sends GGA messages to the NTRIP Caster over a TCP connection
 // to get the NTRIP steam when the mount point is a Virtual Reference Station.
-func (g *rtkSerial) sendGGAMessage() (*bufio.ReadWriter, error) {
+func (g *rtkSerial) sendGGAMessage() error {
+	g.ntripMu.Lock()
+	defer g.ntripMu.Unlock()
+
 	if !g.isConnected {
 		g.readerWriter = g.connectToVirtualBase()
 	}
@@ -772,10 +775,10 @@ func (g *rtkSerial) sendGGAMessage() (*bufio.ReadWriter, error) {
 				g.logger.Debug("EOF encountered. sending GGA message again")
 				g.readerWriter = nil
 				g.isConnected = false
-				return nil, err
+				return err
 			}
 			g.logger.Error("Failed to read server response:", err)
-			return nil, err
+			return err
 		}
 
 		if strings.HasPrefix(string(line), "HTTP/1.1 ") {
@@ -785,7 +788,7 @@ func (g *rtkSerial) sendGGAMessage() (*bufio.ReadWriter, error) {
 			} else {
 				g.logger.Error("Bad HTTP response")
 				g.isConnected = false
-				return nil, err
+				return err
 			}
 		}
 	}
@@ -793,7 +796,7 @@ func (g *rtkSerial) sendGGAMessage() (*bufio.ReadWriter, error) {
 	ggaMessage, err := g.getGGAMessage()
 	if err != nil {
 		g.logger.Error("Failed to get GGA message")
-		return nil, err
+		return err
 	}
 
 	g.logger.Debugf("Writing GGA message: %v\n", string(ggaMessage))
@@ -801,18 +804,18 @@ func (g *rtkSerial) sendGGAMessage() (*bufio.ReadWriter, error) {
 	_, err = g.readerWriter.WriteString(string(ggaMessage))
 	if err != nil {
 		g.logger.Error("Failed to send NMEA data:", err)
-		return nil, err
+		return err
 	}
 
 	err = g.readerWriter.Flush()
 	if err != nil {
 		g.logger.Error("failed to write to buffer: ", err)
-		return nil, err
+		return err
 	}
 
 	g.logger.Debug("GGA message sent successfully.")
 
-	return g.readerWriter, nil
+	return nil
 }
 
 func (g *rtkSerial) connectToVirtualBase() *bufio.ReadWriter {
