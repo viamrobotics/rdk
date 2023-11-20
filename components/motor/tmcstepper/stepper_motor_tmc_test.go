@@ -46,8 +46,6 @@ func (h *fakeSpiHandle) Xfer(
 }
 
 func (h *fakeSpiHandle) Close() error {
-	// Assert that all expected data was transmitted
-	test.That(h.tb, h.i, test.ShouldEqual, len(h.tx))
 	return nil
 }
 
@@ -67,18 +65,28 @@ func (h *fakeSpiHandle) AddExpectedRx(expects, sends [][]byte) {
 	}
 }
 
+func (h *fakeSpiHandle) ExpectDone() {
+	// Assert that all expected data was transmitted
+	test.That(h.tb, h.i, test.ShouldEqual, len(h.tx))
+}
+
+func newFakeSpi(tb testing.TB) (*fakeSpiHandle, board.SPI) {
+	handle := newFakeSpiHandle(tb)
+	fakeSpi := inject.SPI{}
+	fakeSpi.OpenHandleFunc = func() (board.SPIHandle, error) {
+		return &handle, nil
+	}
+
+	return &handle, &fakeSpi
+}
+
 const maxRpm = 500
 
 func TestRPMBounds(t *testing.T) {
 	ctx := context.Background()
 	logger, obs := logging.NewObservedTestLogger(t)
 
-	fakeSpiHandle := newFakeSpiHandle(t)
-	fakeSpi := inject.SPI{}
-	fakeSpi.OpenHandleFunc = func() (board.SPIHandle, error) {
-		return &fakeSpiHandle, nil
-	}
-
+	fakeSpiHandle, fakeSpi := newFakeSpi(t)
 	var deps resource.Dependencies
 
 	mc := TMC5072Config{
@@ -111,9 +119,10 @@ func TestRPMBounds(t *testing.T) {
 	})
 
 	name := resource.NewName(motor.API, "motor1")
-	motorDep, err := makeMotor(ctx, deps, mc, name, logger, &fakeSpi)
+	motorDep, err := makeMotor(ctx, deps, mc, name, logger, fakeSpi)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
+		fakeSpiHandle.ExpectDone()
 		test.That(t, motorDep.Close(context.Background()), test.ShouldBeNil)
 	}()
 
@@ -153,12 +162,7 @@ func TestTMCStepperMotor(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
-	fakeSpiHandle := newFakeSpiHandle(t)
-	fakeSpi := inject.SPI{}
-	fakeSpi.OpenHandleFunc = func() (board.SPIHandle, error) {
-		return &fakeSpiHandle, nil
-	}
-
+	fakeSpiHandle, fakeSpi := newFakeSpi(t)
 	var deps resource.Dependencies
 
 	mc := TMC5072Config{
@@ -191,9 +195,10 @@ func TestTMCStepperMotor(t *testing.T) {
 	})
 
 	name := resource.NewName(motor.API, "motor1")
-	motorDep, err := makeMotor(ctx, deps, mc, name, logger, &fakeSpi)
+	motorDep, err := makeMotor(ctx, deps, mc, name, logger, fakeSpi)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
+		fakeSpiHandle.ExpectDone()
 		test.That(t, motorDep.Close(context.Background()), test.ShouldBeNil)
 	}()
 
@@ -625,6 +630,8 @@ func TestTMCStepperMotor(t *testing.T) {
 		mc.RunCurrent = 9999
 		mc.HoldCurrent = 9999
 
+		fakeSpiHandle, fakeSpi := newFakeSpi(t)
+
 		// These are the setup register writes
 		fakeSpiHandle.AddExpectedTx([][]byte{
 			{236, 0, 1, 0, 195},
@@ -643,8 +650,9 @@ func TestTMCStepperMotor(t *testing.T) {
 			{161, 0, 0, 0, 0},
 		})
 
-		m, err := makeMotor(ctx, deps, mc, name, logger, &fakeSpi)
+		m, err := makeMotor(ctx, deps, mc, name, logger, fakeSpi)
 		test.That(t, err, test.ShouldBeNil)
+		fakeSpiHandle.ExpectDone()
 		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	})
 
@@ -652,6 +660,8 @@ func TestTMCStepperMotor(t *testing.T) {
 		mc.HoldDelay = -9999
 		mc.RunCurrent = -9999
 		mc.HoldCurrent = -9999
+
+		fakeSpiHandle, fakeSpi := newFakeSpi(t)
 
 		// These are the setup register writes
 		fakeSpiHandle.AddExpectedTx([][]byte{
@@ -671,8 +681,9 @@ func TestTMCStepperMotor(t *testing.T) {
 			{161, 0, 0, 0, 0},
 		})
 
-		m, err := makeMotor(ctx, deps, mc, name, logger, &fakeSpi)
+		m, err := makeMotor(ctx, deps, mc, name, logger, fakeSpi)
 		test.That(t, err, test.ShouldBeNil)
+		fakeSpiHandle.ExpectDone()
 		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	})
 
@@ -682,6 +693,8 @@ func TestTMCStepperMotor(t *testing.T) {
 		// Currents will be passed as one less, as default is repurposed
 		mc.RunCurrent = 27
 		mc.HoldCurrent = 14
+
+		fakeSpiHandle, fakeSpi := newFakeSpi(t)
 
 		// These are the setup register writes
 		fakeSpiHandle.AddExpectedTx([][]byte{
@@ -701,8 +714,9 @@ func TestTMCStepperMotor(t *testing.T) {
 			{161, 0, 0, 0, 0},
 		})
 
-		m, err := makeMotor(ctx, deps, mc, name, logger, &fakeSpi)
+		m, err := makeMotor(ctx, deps, mc, name, logger, fakeSpi)
 		test.That(t, err, test.ShouldBeNil)
+		fakeSpiHandle.ExpectDone()
 		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	})
 }
