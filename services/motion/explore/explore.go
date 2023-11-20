@@ -581,7 +581,7 @@ func (ms *explore) createMotionPlan(
 	}
 
 	// replace original base frame with one that knows how to move itself and allow planning for
-	if err = ms.frameSystem.ReplaceFrame(kb.Kinematics()); err != nil {
+	if err := ms.frameSystem.ReplaceFrame(kb.Kinematics()); err != nil {
 		return nil, err
 	}
 
