@@ -625,7 +625,23 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			}
 			detection.Geometry.SetLabel(label)
 
-			geoObstacles = append(geoObstacles, spatialmath.NewGeoObstacle(geomGeoPose.Location(), []spatialmath.Geometry{detection.Geometry}))
+			// determine the desired geometry pose
+			wantThis := spatialmath.NewPose(
+				r3.Vector{0, 0, 0},
+				&spatialmath.OrientationVectorDegrees{
+					OZ:    1,
+					Theta: detection.Geometry.Pose().Orientation().OrientationVectorDegrees().Theta + heading,
+				},
+			)
+
+			// calculate what we need to transform by
+			transformBy := spatialmath.PoseBetweenInverse(detection.Geometry.Pose(), wantThis)
+
+			// sets the geometry's pose to wantThis
+			manipulatedGeom := detection.Geometry.Transform(transformBy)
+
+			// add manipulatedGeom to list of geoObstacles we return
+			geoObstacles = append(geoObstacles, spatialmath.NewGeoObstacle(geomGeoPose.Location(), []spatialmath.Geometry{manipulatedGeom}))
 		}
 	}
 
