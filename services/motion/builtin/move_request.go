@@ -408,7 +408,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	// Important: GeoPointToPose will create a pose such that incrementing latitude towards north increments +Y, and incrementing
 	// longitude towards east increments +X. Heading is not taken into account. This pose must therefore be transformed based on the
 	// orientation of the base such that it is a pose relative to the base's current location.
-	goalPoseRaw := spatialmath.NewPoseFromPoint(spatialmath.GeoPointToPoint(destination, origin))
+	goalPoseRaw := spatialmath.NewPoseFromPoint(spatialmath.GeoPointToPoint(req.Destination, origin))
 	// construct limits
 	straightlineDistance := goalPoseRaw.Point().Norm()
 	if straightlineDistance > maxTravelDistanceMM {
