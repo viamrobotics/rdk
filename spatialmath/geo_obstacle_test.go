@@ -2,11 +2,13 @@ package spatialmath
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	commonpb "go.viam.com/api/common/v1"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/test"
 )
 
@@ -94,188 +96,155 @@ func TestGeoObstacles(t *testing.T) {
 	})
 }
 
-func TestPoseToGeoPoint(t *testing.T) {
+func TestPoseToGeoPose(t *testing.T) {
 	type testCase struct {
-		msg             string
-		relativeTo      GeoPose
-		p               Pose
-		expectedGeoPose GeoPose
-		errMarginMM     float64
+		name                        string
+		relativeTo, expectedGeoPose *GeoPose
+		pose                        Pose
 	}
-	mmToMoveOneDegree := 1.1119492664455873e+08
 
-	// values are right handed
-	east := &OrientationVectorDegrees{OZ: 1, Theta: 270}
-	northeast := &OrientationVectorDegrees{OZ: 1, Theta: 315}
-	west := &OrientationVectorDegrees{OZ: 1, Theta: 90}
-	south := &OrientationVectorDegrees{OZ: 1, Theta: 180}
+	// degree of accuracy to expect on results
+	mmTol := 1e-3
+	gpsTol := 1e-6
+
+	// The number of mm required to move one one thousandth of a degree long or lat from the GPS point (0, 0)
+	mmToOneThousandthDegree := 1.1119492664455873e+05
+
+	// values are left handed - north is 0 degrees
+	LHNortheast := 315.
+	LHEast := 270.
+	LHSouth := 180.
+	LHWest := 90.
+	LHNorthwest := 45.
+
+	// values are right handed - north is 0 degrees
+	RHNortheast := 360 - LHNortheast
+	RHEast := 360 - LHEast
+	RHSouth := 360 - LHSouth
+	RHWest := 360 - LHWest
 
 	tcs := []testCase{
 		{
-			msg:             "zero geopose & pose outputs zero geopose",
-			relativeTo:      *NewGeoPose(geo.NewPoint(0, 0), 0),
-			p:               NewZeroPose(),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(0, 0), 0),
-			errMarginMM:     0.001,
+			name:            "zero geopose + zero pose = zero geopose",
+			relativeTo:      NewGeoPose(geo.NewPoint(0, 0), 0),
+			pose:            NewZeroPose(),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(0, 0), 0),
 		},
 		{
-			msg:             "zero geopoint with non zero heading & zero pose outputs same geopose",
-			relativeTo:      *NewGeoPose(geo.NewPoint(0, 0), 90),
-			p:               NewZeroPose(),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(0, 0), 90),
-			errMarginMM:     0.001,
+			name:            "zero geopose heading west + zero pose = original geopose",
+			relativeTo:      NewGeoPose(geo.NewPoint(0, 0), LHWest),
+			pose:            NewZeroPose(),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(0, 0), LHWest),
 		},
 		{
-			msg:             "zero geopose with pose that turns east results in zero geopoint heading east",
-			relativeTo:      *NewGeoPose(geo.NewPoint(0, 0), 0),
-			p:               NewPose(r3.Vector{}, east),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(0, 0), 90),
-			errMarginMM:     0.001,
+			name:            "zero geopose + pose heading east = zero geopoint heading east",
+			relativeTo:      NewGeoPose(geo.NewPoint(0, 0), 0),
+			pose:            NewPose(r3.Vector{}, &OrientationVectorDegrees{OZ: 1, Theta: RHEast}),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(0, 0), LHEast),
 		},
 		{
-			msg:             "nonzero geopose with pose that turns west results in same geopoint heading west",
-			relativeTo:      *NewGeoPose(geo.NewPoint(50, 50), 0),
-			p:               NewPose(r3.Vector{}, west),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(50, 50), 270),
-			errMarginMM:     0.001,
+			name:            "nonzero geopose + pose heading west = in same geopoint heading west",
+			relativeTo:      NewGeoPose(geo.NewPoint(50, 50), 0),
+			pose:            NewPose(r3.Vector{}, &OrientationVectorDegrees{OZ: 1, Theta: RHWest}),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(50, 50), LHWest),
 		},
 		{
-			msg:             "nonzero geopose facing west with pose that turns east results in same geopoint heading north",
-			relativeTo:      *NewGeoPose(geo.NewPoint(50, 50), 270),
-			p:               NewPose(r3.Vector{}, east),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(50, 50), 0),
-			errMarginMM:     0.001,
+			name:            "nonzero geopose heading west + pose heading east = same geopoint heading north",
+			relativeTo:      NewGeoPose(geo.NewPoint(50, 50), LHWest),
+			pose:            NewPose(r3.Vector{}, &OrientationVectorDegrees{OZ: 1, Theta: RHEast}),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(50, 50), 0),
 		},
 		{
-			msg:             "non zero geopose & zero pose outputs same non zero geopose",
-			relativeTo:      *NewGeoPose(geo.NewPoint(40.770301, -73.977308), 90),
-			p:               NewZeroPose(),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(40.770301, -73.977308), 90),
-			errMarginMM:     0.001,
+			name:            "zero geopose + pose that moves 0.001 degree north = 0.001 degree diff geopose",
+			relativeTo:      NewGeoPose(geo.NewPoint(0, 0), 0),
+			pose:            NewPose(r3.Vector{X: 0, Y: mmToOneThousandthDegree, Z: 0}, NewZeroOrientation()),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(1e-3, 0), 0),
 		},
 		{
-			msg:             "zero geopose & pose that moves one lat degree north outputs +1 lat degree diff geopose",
-			relativeTo:      *NewGeoPose(geo.NewPoint(0, 0), 0),
-			p:               NewPose(r3.Vector{X: 0, Y: mmToMoveOneDegree, Z: 0}, NewZeroOrientation()),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(1, 0), 0),
-			errMarginMM:     0.001,
+			name:            "zero geopose + pose that moves 0.001 degree east = 0.001 degree diff geopose",
+			relativeTo:      NewGeoPose(geo.NewPoint(0, 0), 0),
+			pose:            NewPose(r3.Vector{X: mmToOneThousandthDegree, Y: 0, Z: 0}, NewZeroOrientation()),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(0, 1e-3), 0),
 		},
 		{
-			msg:             "zero geopose & pose that moves one lng degree outputs 1 lat degree diff geopose",
-			relativeTo:      *NewGeoPose(geo.NewPoint(0, 0), 0),
-			p:               NewPose(r3.Vector{X: mmToMoveOneDegree, Y: 0, Z: 0}, NewZeroOrientation()),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(0, 1), 0),
-			errMarginMM:     0.001,
+			name: "zero geopose + pose that moves 0.001 lat degree north with a south orientation = " +
+				"0.001 lat degree diff geopose facing south",
+			relativeTo:      NewGeoPose(geo.NewPoint(0, 0), 0),
+			pose:            NewPose(r3.Vector{X: 0, Y: mmToOneThousandthDegree, Z: 0}, &OrientationVectorDegrees{OZ: 1, Theta: RHSouth}),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(1e-3, 0), LHSouth),
 		},
 		{
-			msg:             "zero geopose & pose that moves 10 lat degrees north outputs +10 lat degree diff geopose",
-			relativeTo:      *NewGeoPose(geo.NewPoint(0, 0), 0),
-			p:               NewPose(r3.Vector{X: 0, Y: mmToMoveOneDegree * 10, Z: 0}, NewZeroOrientation()),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(10, 0), 0),
-			errMarginMM:     0.001,
+			name: "zero geopose + pose that moves 0.001 lat degree south with an east orientation = " +
+				"0.001 lat degree diff geopose facing east",
+			relativeTo:      NewGeoPose(geo.NewPoint(0, 0), 0),
+			pose:            NewPose(r3.Vector{X: 0, Y: -mmToOneThousandthDegree, Z: 0}, &OrientationVectorDegrees{OZ: 1, Theta: RHEast}),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(-1e-3, 0), LHEast),
 		},
 		{
-			msg:             "zero geopose & pose that moves 10 lng degrees east outputs +10 lng degree diff geopose",
-			relativeTo:      *NewGeoPose(geo.NewPoint(0, 0), 0),
-			p:               NewPose(r3.Vector{X: mmToMoveOneDegree * 10, Y: 0, Z: 0}, NewZeroOrientation()),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(0, 10), 0),
-			errMarginMM:     0.001,
-		},
-		{
-			msg: "zero geopose & a pose that moves 1 lat degree north with a south orientation outputs +1" +
-				"lat degree diff geopose facing south",
-			relativeTo:      *NewGeoPose(geo.NewPoint(0, 0), 0),
-			p:               NewPose(r3.Vector{X: 0, Y: mmToMoveOneDegree, Z: 0}, south),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(1, 0), 180),
-			errMarginMM:     0.001,
-		},
-		{
-			msg: "zero geopose & a pose that moves 1 lat degree south with an east orientation outputs -1" +
-				" lat degree diff geopose facing east",
-			relativeTo:      *NewGeoPose(geo.NewPoint(0, 0), 0),
-			p:               NewPose(r3.Vector{X: 0, Y: -mmToMoveOneDegree, Z: 0}, east),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(-1, 0), 90),
-			errMarginMM:     0.001,
-		},
-		{
-			msg:             "zero geopose heading south & a pose that rotates east, outputs zero geopose facing west",
-			relativeTo:      *NewGeoPose(geo.NewPoint(0, 0), 180),
-			p:               NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, east),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(0, 0), 270),
-			errMarginMM:     0.001,
-		},
-		{
-			msg: "zero geopose heading south & a pose that rotates east, outputs zero geopose facing west" +
+			name: "zero geopose heading south + pose that rotates east = zero geopose facing west" +
 				"even when 360 is added multiple times",
-			relativeTo:      *NewGeoPose(geo.NewPoint(0, 0), 180+360+360+360+360),
-			p:               NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, east),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(0, 0), 270),
-			errMarginMM:     0.001,
+			relativeTo:      NewGeoPose(geo.NewPoint(0, 0), LHSouth+360+360+360+360),
+			pose:            NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, &OrientationVectorDegrees{OZ: 1, Theta: RHEast}),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(0, 0), LHWest),
 		},
 		{
-			msg:             "zero geopose heading south & a pose that rotates east, outputs zero geopose facing west",
-			relativeTo:      *NewGeoPose(geo.NewPoint(0, 0), 180-360-360-360-360),
-			p:               NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, east),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(0, 0), 270),
-			errMarginMM:     0.001,
+			name:            "zero geopose heading south + pose that rotates east = zero geopose facing west",
+			relativeTo:      NewGeoPose(geo.NewPoint(0, 0), LHSouth-360-360-360-360),
+			pose:            NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, &OrientationVectorDegrees{OZ: 1, Theta: LHEast}),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(0, 0), LHWest),
 		},
 		{
-			msg:             "zero geopose heading northwest and pose that rotates northeast",
-			relativeTo:      *NewGeoPose(geo.NewPoint(0, 0), 315),
-			p:               NewPose(r3.Vector{X: mmToMoveOneDegree, Y: mmToMoveOneDegree, Z: 0}, northeast),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(1.4142135623730947, 0), 0),
-			errMarginMM:     20000,
+			name:       "zero geopose heading northwest + pose that rotates northeast",
+			relativeTo: NewGeoPose(geo.NewPoint(0, 0), LHNorthwest),
+			pose: NewPose(
+				r3.Vector{X: mmToOneThousandthDegree, Y: mmToOneThousandthDegree, Z: 0},
+				&OrientationVectorDegrees{OZ: 1, Theta: RHNortheast},
+			),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(0, math.Sqrt2*1e-3), 0),
 		},
 		{
-			msg:             "zero geopose heading north & pose that rotates northeast",
-			relativeTo:      *NewGeoPose(geo.NewPoint(0, 0), 0),
-			p:               NewPose(r3.Vector{X: mmToMoveOneDegree, Y: mmToMoveOneDegree, Z: 0}, northeast),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(0.9999492250169071, 1.0001015453253934), 45),
-			errMarginMM:     20000,
+			name:       "zero geopose heading north + pose that rotates northeast",
+			relativeTo: NewGeoPose(geo.NewPoint(0, 0), 0),
+			pose: NewPose(
+				r3.Vector{X: mmToOneThousandthDegree, Y: mmToOneThousandthDegree, Z: 0},
+				&OrientationVectorDegrees{OZ: 1, Theta: RHNortheast},
+			),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(1e-3, 1e-3), LHNortheast),
 		},
 		{
-			msg:             "zero geopose heading east & pose that rotates north",
-			relativeTo:      *NewGeoPose(geo.NewPoint(0, 0), 90),
-			p:               NewPose(r3.Vector{X: mmToMoveOneDegree, Y: mmToMoveOneDegree, Z: 0}, NewZeroOrientation()),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(-0.9999492250169071, 1.0001015453253934), 90),
-			errMarginMM:     20000,
+			name:            "zero geopose heading east + pose that rotates north",
+			relativeTo:      NewGeoPose(geo.NewPoint(0, 0), LHWest),
+			pose:            NewPose(r3.Vector{X: mmToOneThousandthDegree, Y: mmToOneThousandthDegree, Z: 0}, NewZeroOrientation()),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(-1e-3, 1e-3), LHWest),
 		},
 		{
-			msg:             "zero geopose heading east",
-			relativeTo:      *NewGeoPose(geo.NewPoint(0, 0), 90),
-			p:               NewPose(r3.Vector{X: 0, Y: mmToMoveOneDegree, Z: 0}, NewZeroOrientation()),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(0, 1), 90),
-			errMarginMM:     0.001,
+			name:            "zero geopose heading east",
+			relativeTo:      NewGeoPose(geo.NewPoint(1e-3, 5e-3), LHEast),
+			pose:            NewPose(r3.Vector{X: mmToOneThousandthDegree, Y: mmToOneThousandthDegree, Z: 0}, NewZeroOrientation()),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(2e-3, 4e-3), LHEast),
 		},
 		{
-			msg:             "zero geopose heading west",
-			relativeTo:      *NewGeoPose(geo.NewPoint(1, 5), -90),
-			p:               NewPose(r3.Vector{X: mmToMoveOneDegree, Y: mmToMoveOneDegree, Z: 0}, NewZeroOrientation()),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(1.9997968273479143, 3.9994413235922375), 270),
-			errMarginMM:     20000,
-		},
-		{
-			msg:             "zero geopose heading east",
-			relativeTo:      *NewGeoPose(geo.NewPoint(0, 0), 90),
-			p:               NewPose(r3.Vector{X: mmToMoveOneDegree, Y: mmToMoveOneDegree, Z: 0}, NewZeroOrientation()),
-			expectedGeoPose: *NewGeoPose(geo.NewPoint(-0.9999492250169071, 1.0001015453253934), 90),
-			errMarginMM:     20000,
+			name:            "zero geopose heading west",
+			relativeTo:      NewGeoPose(geo.NewPoint(0, 0), LHWest),
+			pose:            NewPose(r3.Vector{X: mmToOneThousandthDegree, Y: mmToOneThousandthDegree, Z: 0}, NewZeroOrientation()),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(-1e-3, 1e-3), LHWest),
 		},
 	}
 
 	for _, tc := range tcs {
-		t.Run(tc.msg, func(t *testing.T) {
-			gp := PoseToGeoPose(tc.relativeTo, tc.p)
+		t.Run(tc.name, func(t *testing.T) {
+			gp := PoseToGeoPose(*tc.relativeTo, tc.pose)
 			t.Logf("gp: %#v %#v\n", gp.Location(), gp.Heading())
+			t.Logf("tc: %#v %#v\n", tc.expectedGeoPose.Location(), tc.expectedGeoPose.Heading())
 			test.That(t, gp.Heading(), test.ShouldAlmostEqual, tc.expectedGeoPose.Heading())
-			test.That(t, gp.Location().Lat(), test.ShouldAlmostEqual, tc.expectedGeoPose.Location().Lat())
-			test.That(t, gp.Location().Lng(), test.ShouldAlmostEqual, tc.expectedGeoPose.Location().Lng())
-			geoPointToPose := GeoPoseToPose(gp, tc.relativeTo)
+			test.That(t, utils.Float64AlmostEqual(gp.Location().Lat(), tc.expectedGeoPose.Location().Lat(), gpsTol), test.ShouldBeTrue)
+			test.That(t, utils.Float64AlmostEqual(gp.Location().Lng(), tc.expectedGeoPose.Location().Lng(), gpsTol), test.ShouldBeTrue)
+			geoPointToPose := GeoPoseToPose(gp, *tc.relativeTo)
 			msga := "geoPointToPose.Point(): %#v, geoPointToPose.Orientation().OrientationVectorDegrees().: %#v\n"
 			t.Logf(msga, geoPointToPose.Point(), geoPointToPose.Orientation().OrientationVectorDegrees())
 			msgb := "tc.p.Point(): %#v tc.p.Orientation().OrientationVectorDegrees().: %#v\n"
-			t.Logf(msgb, tc.p.Point(), tc.p.Orientation().OrientationVectorDegrees())
-			test.That(t, PoseAlmostEqualEps(geoPointToPose, tc.p, tc.errMarginMM), test.ShouldBeTrue)
+			t.Logf(msgb, tc.pose.Point(), tc.pose.Orientation().OrientationVectorDegrees())
+			test.That(t, PoseAlmostEqualEps(geoPointToPose, tc.pose, mmTol), test.ShouldBeTrue)
 		})
 	}
 }
