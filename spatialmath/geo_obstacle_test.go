@@ -8,8 +8,9 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	commonpb "go.viam.com/api/common/v1"
-	"go.viam.com/rdk/utils"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/utils"
 )
 
 func TestGeoPointToPoint(t *testing.T) {
@@ -110,12 +111,12 @@ func TestPoseToGeoPose(t *testing.T) {
 	// The number of mm required to move one one thousandth of a degree long or lat from the GPS point (0, 0)
 	mmToOneThousandthDegree := 1.1119492664455873e+05
 
-	// values are left handed - north is 0 degrees
-	LHNortheast := 315.
-	LHEast := 270.
+	// values are right handed - north is 0 degrees
+	LHNortheast := 45.
+	LHEast := 90.
 	LHSouth := 180.
-	LHWest := 90.
-	LHNorthwest := 45.
+	LHWest := 270.
+	LHNorthwest := 315.
 
 	// values are right handed - north is 0 degrees
 	RHNortheast := 360 - LHNortheast
