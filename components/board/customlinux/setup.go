@@ -9,7 +9,7 @@ import (
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	BoardDefsFilePath string            `json:"board_defs_file_path"`
+	BoardDefsFilePath string `json:"board_defs_file_path"`
 }
 
 // Validate ensures all parts of the config are valid.

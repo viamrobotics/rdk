@@ -19,8 +19,8 @@ import (
 
 type fakeSpiHandle struct {
 	tx, rx [][]byte // Must have the same length
-	i int // Index of the next rx/tx pair to use
-	tb testing.TB
+	i      int      // Index of the next rx/tx pair to use
+	tb     testing.TB
 }
 
 func newFakeSpiHandle(tb testing.TB) fakeSpiHandle {
@@ -41,7 +41,7 @@ func (h *fakeSpiHandle) Xfer(
 ) ([]byte, error) {
 	test.That(h.tb, tx, test.ShouldResemble, h.tx[h.i])
 	result := h.rx[h.i]
-	h.i += 1
+	h.i++
 	return result, nil
 }
 
@@ -57,12 +57,8 @@ func (h *fakeSpiHandle) AddExpectedTx(expects [][]byte) {
 }
 
 func (h *fakeSpiHandle) AddExpectedRx(expects, sends [][]byte) {
-	for _, line := range expects {
-		h.tx = append(h.tx, line)
-	}
-	for _, line := range sends {
-		h.rx = append(h.rx, line)
-	}
+	h.tx = append(h.tx, expects...)
+	h.rx = append(h.rx, sends...)
 }
 
 func (h *fakeSpiHandle) ExpectDone() {
