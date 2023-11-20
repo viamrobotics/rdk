@@ -128,7 +128,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 	newManagedPackages := make(map[PackageName]*managedPackage, len(packages))
 
-	//Add packages that were managed in last sync back to list.
+
 	for _, p := range packages {
 		// Package exists in known cache.
 		if m.packageIsManaged(p) {
