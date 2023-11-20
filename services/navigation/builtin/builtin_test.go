@@ -1105,7 +1105,10 @@ func TestGetObstacles(t *testing.T) {
 	}
 
 	manipulatedBoxGeom, err := spatialmath.NewBox(
-		spatialmath.NewPose(r3.Vector{4.710277376051325e-16, -1.5700924586837766e-16, -0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 270}),
+		spatialmath.NewPose(
+			r3.Vector{4.710277376051325e-16, -1.5700924586837766e-16, -0},
+			&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 270},
+		),
 		r3.Vector{3.14, 2.72, 1},
 		"test_camera_transientObstacle_0_test-box",
 	)
