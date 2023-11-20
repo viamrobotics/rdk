@@ -30,6 +30,7 @@ import (
 const (
 	defaultReplanCostFactor = 1.0
 	defaultMaxReplans       = -1 // Values below zero will replan infinitely
+	baseStopTimeout         = time.Second * 5
 )
 
 // validatedMotionConfiguration is a copy of the motion.MotionConfiguration type
@@ -124,16 +125,27 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, w
 	for i := int(waypointIndex.Load()); i < len(waypoints); i++ {
 		select {
 		case <-ctx.Done():
+			mr.logger.Debugf("calling kinematicBase.Stop due to %s\n", ctx.Err())
+			stopCtx, cancelFn := context.WithTimeout(context.Background(), baseStopTimeout)
+			if stopErr := mr.kinematicBase.Stop(stopCtx, nil); stopErr != nil {
+				mr.logger.Errorf("kinematicBase.Stop returned error %s", stopErr)
+				cancelFn()
+				return state.ExecuteResponse{}, errors.Wrap(ctx.Err(), stopErr.Error())
+			}
+			cancelFn()
 			return state.ExecuteResponse{}, nil
 		default:
 			mr.planRequest.Logger.Info(waypoints[i])
 			if err := mr.kinematicBase.GoToInputs(ctx, waypoints[i]); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				mr.logger.Debugf("calling kinematicBase.Stop due to %s\n", err)
-				if stopErr := mr.kinematicBase.Stop(ctx, nil); stopErr != nil {
+				stopCtx, cancelFn := context.WithTimeout(context.Background(), baseStopTimeout)
+				if stopErr := mr.kinematicBase.Stop(stopCtx, nil); stopErr != nil {
 					mr.logger.Errorf("kinematicBase.Stop returned error %s", stopErr)
+					cancelFn()
 					return state.ExecuteResponse{}, errors.Wrap(err, stopErr.Error())
 				}
+				cancelFn()
 				return state.ExecuteResponse{}, err
 			}
 			if i < len(waypoints)-1 {
