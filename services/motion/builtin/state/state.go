@@ -391,7 +391,9 @@ func (s *State) StopExecutionByResource(componentName resource.Name) error {
 
 	// lock released while waiting for the execution to stop as the execution stopping requires writing to the state
 	// which must take a lock
+	s.logger.Debug("calling stop")
 	e.stop()
+	s.logger.Debug("stop returned")
 	return nil
 }
 
