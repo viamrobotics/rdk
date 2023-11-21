@@ -6,6 +6,8 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	commonpb "go.viam.com/api/common/v1"
+
+	"go.viam.com/rdk/utils"
 )
 
 // GeoObstacle is a struct to store the location and geometric structure of an obstacle in a geospatial environment.
@@ -126,25 +128,18 @@ func GetCartesianDistance(p, q *geo.Point) (float64, float64) {
 }
 
 // GeoPoseToPose returns the pose of point with respect to origin.
-func GeoPoseToPose(point, origin GeoPose) Pose {
+func GeoPoseToPose(point, origin *GeoPose) Pose {
 	localBearing := origin.Location().BearingTo(point.Location())
 	absoluteBearing := localBearing - origin.Heading()
 
 	latDist, lngDist := GetCartesianDistance(point.Location(), origin.Location())
 	v := r3.Vector{X: latDist * 1e-6, Y: lngDist * 1e-6, Z: 0}
 
-	nullIsland := geo.NewPoint(0, 0)
+	newPoint := origin.Location().PointAtDistanceAndBearing(v.Norm(), absoluteBearing)
 
-	gp := nullIsland.PointAtDistanceAndBearing(v.Norm(), absoluteBearing)
-
-	position := GeoPointToPoint(gp, nullIsland)
-
-	headingChange := math.Mod(origin.Heading()-point.Heading(), 360)
-	if headingChange < 0 {
-		headingChange += 360
-	}
-
-	return NewPose(position, &OrientationVectorDegrees{OZ: 1, Theta: headingChange})
+	// subtracting the point from the origin results in a right handed angle
+	headingChange := normalizeAngle(origin.Heading() - point.Heading())
+	return NewPose(GeoPointToPoint(newPoint, origin.Location()), &OrientationVectorDegrees{OZ: 1, Theta: headingChange})
 }
 
 // GeoPointToPoint returns the point (r3.Vector) which translates the origin to the destination geopoint
@@ -205,52 +200,44 @@ func (gpo *GeoPose) Heading() float64 {
 	return gpo.heading
 }
 
-// PoseToGeoPose converts a pose (in MM) into a GeoPose treating relativeTo as the origin.
-func PoseToGeoPose(relativeTo GeoPose, pMM Pose) GeoPose {
-	// we do this b/c plan nodes describe movement in mm
-	// but (p *Point) PointAtDistanceAndBearing expects the pose to be in km
-	kmPoint := r3.Vector{
-		X: pMM.Point().X / 1e6,
-		Y: pMM.Point().Y / 1e6,
-		Z: pMM.Point().Z / 1e6,
-	}
-	p := NewPose(kmPoint, pMM.Orientation())
+// PoseToGeoPose converts a pose (which are always in mm) into a GeoPose treating relativeTo as the origin.
+func PoseToGeoPose(relativeTo *GeoPose, pose Pose) *GeoPose {
+	// poses are always in mm but PointAtDistanceAndBearing expects the pose to be in km so we need to convert
+	kmPoint := pose.Point().Mul(1e-6)
 
-	// math.Atan2 performs on the unit sphere which is right-handed
-	// we assign newX and newY so we are peforming a left-handed calculation
-	newX := -p.Point().X
-	newY := p.Point().Y
-	bearingRad := math.Atan2(newX, newY)
-
-	// convert bearingRad to degrees
-	bearingDeg := bearingRad * 180 / math.Pi * -1
-
-	// get the maginitude of pose p
-	poseMagnitude := p.Point().Norm()
-
-	// relativeTo Heading is a right-handed value
+	// calculate the bearing (illustrated on the plot below as angle "x"), to the GeoPose (illustrated as "*")
+	// as we are measuring x from the right side of the vertical axis this angle is left handed
+	//       |   *
+	//       |x /
+	//       | /
+	//       |/
+	// -----------
+	//       |
+	//       |
+	bearing := utils.RadToDeg(math.Atan2(kmPoint.X, kmPoint.Y))
 	headingInWorld := relativeTo.Heading()
 
 	// get the absolute bearing, i.e. the bearing of pose p from north
-	// normalize to be [0,360)
-	absoluteBearing := math.Mod(bearingDeg+headingInWorld, 360)
+	absoluteBearing := normalizeAngle(bearing + headingInWorld)
 
 	// get the new geopoint at distance poseMagnitude
-	newLoc := relativeTo.Location().PointAtDistanceAndBearing(poseMagnitude, absoluteBearing)
+	newPosition := relativeTo.Location().PointAtDistanceAndBearing(kmPoint.Norm(), absoluteBearing)
 
 	// get the heading of pose p, this is a right-handed value
-	headingRight := p.Orientation().OrientationVectorDegrees().Theta
+	headingRight := pose.Orientation().OrientationVectorDegrees().Theta
 
 	// convert headingRight to be left-handed
 	headingLeft := math.Mod(math.Abs(headingRight-360), 360)
 
-	// get the absolute heading of pose p, i.e. the heading in the world
-	// normalize to be [0,360)
-	absolutePoseHeading := math.Mod(headingLeft+headingInWorld, 360)
+	// return the GeoPose at the new position with the absolute heading of pose p, i.e. the heading in the world
+	return NewGeoPose(newPosition, normalizeAngle(headingLeft+headingInWorld))
+}
 
-	if absolutePoseHeading < 0 {
-		absolutePoseHeading += 360
+// normalizeAngle takes in an angle in degrees and returns an equivalent angle in the domain [0,360).
+func normalizeAngle(degrees float64) float64 {
+	normalized := math.Mod(degrees, 360)
+	if degrees < 0 {
+		normalized += 360
 	}
-
-	return *NewGeoPose(newLoc, absolutePoseHeading)
+	return normalized
 }

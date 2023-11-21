@@ -55,7 +55,7 @@ jobs:
         sudo -Hu testbot bash -lc 'make clean-all'
 
     - name: Authorize GCP Upload
-      uses: google-github-actions/auth@v1
+      uses: google-github-actions/auth@v1.1.1
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
@@ -230,7 +230,7 @@ jobs:
 
     steps:
     - name: Authorize GCP
-      uses: google-github-actions/auth@v1
+      uses: google-github-actions/auth@v1.1.1
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 

@@ -737,10 +737,6 @@ func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt,
 	return d, ok
 }
 
-func (pi *piPigpio) ModelAttributes() board.ModelAttributes {
-	return board.ModelAttributes{}
-}
-
 func (pi *piPigpio) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
 	return grpc.UnimplementedError
 }

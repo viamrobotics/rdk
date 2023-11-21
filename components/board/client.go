@@ -164,10 +164,6 @@ func (c *client) status(ctx context.Context) (*commonpb.BoardStatus, error) {
 	return resp.Status, nil
 }
 
-func (c *client) ModelAttributes() ModelAttributes {
-	return ModelAttributes{Remote: true}
-}
-
 func (c *client) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
 	var dur *durationpb.Duration
 	if duration != nil {

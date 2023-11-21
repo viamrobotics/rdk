@@ -151,11 +151,6 @@ func (pca *PCA9685) parsePin(pin string) (int, error) {
 	return int(pinInt), nil
 }
 
-// ModelAttributes returns attributes related to the model of this board.
-func (pca *PCA9685) ModelAttributes() board.ModelAttributes {
-	return board.ModelAttributes{}
-}
-
 // SetPowerMode sets the board to the given power mode. If provided,
 // the board will exit the given power mode after the specified
 // duration.
