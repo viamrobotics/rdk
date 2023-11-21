@@ -3,7 +3,7 @@ name: 'Comment Sever Size Changes'
 on:
   workflow_run:
     workflows: ["Pull Request Update"]
-    types: [ opened, synchronize, reopened ]
+    types: [ completed, requested, in_progress ]
 
 jobs:
   build:
