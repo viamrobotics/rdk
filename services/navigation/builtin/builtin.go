@@ -604,6 +604,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			return nil, err
 		}
 
+		// instantiate a localizer and use it to get our current position
 		localizer := motion.NewMovementSensorLocalizer(svc.movementSensor, gp, spatialmath.NewZeroPose())
 		currentPIF, err := localizer.CurrentPosition(ctx)
 		if err != nil {
@@ -615,11 +616,13 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		// convert geo position into GeoPose
 		relativeToGeoPose := spatialmath.NewGeoPose(gp, heading)
 
+		// iterate through all detections and construct a geoObstacle to append
 		for i, detection := range detections {
 			// get geo pose of geometry
+			// this gives us the geometry's lat & lng along with its heading with respect to north as a left handed value
 			geomGeoPose := spatialmath.PoseToGeoPose(relativeToGeoPose, detection.Geometry.Pose())
 
-			// set label for geometry so we know it is transient
+			// prefix the label of the geometry so we know it is transient and add extra info
 			label := "transient_" + strconv.Itoa(i) + "_" + detector.CameraName.Name
 			if detection.Geometry.Label() != "" {
 				label += "_" + detection.Geometry.Label()
@@ -630,7 +633,8 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			desiredPose := spatialmath.NewPose(
 				r3.Vector{0, 0, 0},
 				&spatialmath.OrientationVectorDegrees{
-					OZ:    1,
+					OZ: 1,
+					// convert the heading to be right handed
 					Theta: math.Mod(math.Abs(geomGeoPose.Heading()-360), 360),
 				},
 			)
@@ -638,7 +642,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			// calculate what we need to transform by
 			transformBy := spatialmath.PoseBetweenInverse(detection.Geometry.Pose(), desiredPose)
 
-			// sets the geometry's pose to wantThis
+			// sets the geometry's pose to desiredPose
 			manipulatedGeom := detection.Geometry.Transform(transformBy)
 
 			// add manipulatedGeom to list of geoObstacles we return
