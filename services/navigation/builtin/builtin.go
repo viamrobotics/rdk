@@ -215,10 +215,10 @@ type builtIn struct {
 	mode      navigation.Mode
 	mapType   navigation.MapType
 
-	base           base.Base
-	movementSensor movementsensor.MovementSensor
-	visionServices map[resource.Name]vision.Service
-	motionService  motion.Service
+	base                 base.Base
+	movementSensor       movementsensor.MovementSensor
+	visionServicesByName map[resource.Name]vision.Service
+	motionService        motion.Service
 	// exploreMotionService will be removed once the motion explore model is integrated into motion builtin
 	exploreMotionService motion.Service
 	obstacles            []*spatialmath.GeoObstacle
@@ -367,7 +367,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.motionService = motionSvc
 	svc.obstacles = newObstacles
 	svc.replanCostFactor = replanCostFactor
-	svc.visionServices = visionServices
+	svc.visionServicesByName = visionServices
 	svc.motionCfg = &motion.MotionConfiguration{
 		ObstacleDetectors:     obstacleDetectorNamePairs,
 		LinearMPerSec:         metersPerSec,
@@ -587,9 +587,9 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 
 	for _, detector := range svc.motionCfg.ObstacleDetectors {
 		// get the vision service
-		visSvc, ok := svc.visionServices[detector.VisionServiceName]
+		visSvc, ok := svc.visionServicesByName[detector.VisionServiceName]
 		if !ok {
-			return nil, fmt.Errorf("vision service with name: %v not found", detector.VisionServiceName)
+			return nil, fmt.Errorf("vision service with name: %s not found", detector.VisionServiceName)
 		}
 
 		// get the detections
@@ -609,33 +609,34 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		if err != nil {
 			return nil, err
 		}
-		heading := currentPIF.Pose().Orientation().OrientationVectorDegrees().Theta
+		// convert orientation of currentPIF to be left handed
+		heading := math.Mod(math.Abs(currentPIF.Pose().Orientation().OrientationVectorDegrees().Theta-360), 360)
 
 		// convert geo position into GeoPose
 		relativeToGeoPose := spatialmath.NewGeoPose(gp, heading)
 
 		for i, detection := range detections {
 			// get geo pose of geometry
-			geomGeoPose := spatialmath.PoseToGeoPose(*relativeToGeoPose, detection.Geometry.Pose())
+			geomGeoPose := spatialmath.PoseToGeoPose(relativeToGeoPose, detection.Geometry.Pose())
 
 			// set label for geometry so we know it is transient
-			label := detector.CameraName.Name + "_transientObstacle_" + strconv.Itoa(i)
+			label := "transient_" + strconv.Itoa(i) + "_" + detector.CameraName.Name
 			if detection.Geometry.Label() != "" {
 				label += "_" + detection.Geometry.Label()
 			}
 			detection.Geometry.SetLabel(label)
 
 			// determine the desired geometry pose
-			wantThis := spatialmath.NewPose(
+			desiredPose := spatialmath.NewPose(
 				r3.Vector{0, 0, 0},
 				&spatialmath.OrientationVectorDegrees{
 					OZ:    1,
-					Theta: detection.Geometry.Pose().Orientation().OrientationVectorDegrees().Theta + heading,
+					Theta: math.Mod(math.Abs(geomGeoPose.Heading()-360), 360),
 				},
 			)
 
 			// calculate what we need to transform by
-			transformBy := spatialmath.PoseBetweenInverse(detection.Geometry.Pose(), wantThis)
+			transformBy := spatialmath.PoseBetweenInverse(detection.Geometry.Pose(), desiredPose)
 
 			// sets the geometry's pose to wantThis
 			manipulatedGeom := detection.Geometry.Transform(transformBy)
