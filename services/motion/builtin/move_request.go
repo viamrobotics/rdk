@@ -210,8 +210,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			}
 			transformedGIF, ok := tf.((*referenceframe.GeometriesInFrame))
 			if !ok {
-				// TODO: This is not an acceptable error
-				return state.ExecuteResponse{}, errors.New("smth")
+				return state.ExecuteResponse{}, errors.New("cannot cast transformable as geometries in frame")
 			}
 			gifs := []*referenceframe.GeometriesInFrame{transformedGIF}
 			worldState, err := referenceframe.NewWorldState(gifs, nil)
