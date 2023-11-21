@@ -1095,7 +1095,7 @@ func TestGetObstacles(t *testing.T) {
 		boxGeom, err := spatialmath.NewBox(
 			spatialmath.NewPose(r3.Vector{math.Sqrt(3), 1, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 320}),
 			r3.Vector{3.14, 2.72, 1},
-			"test_camera_transientObstacle_0_test-box",
+			"test-box",
 		)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -1110,7 +1110,7 @@ func TestGetObstacles(t *testing.T) {
 			&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 270},
 		),
 		r3.Vector{3.14, 2.72, 1},
-		"test_camera_transientObstacle_0_test-box",
+		"transient_0_test_camera_test-box",
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1118,7 +1118,8 @@ func TestGetObstacles(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(dets), test.ShouldEqual, 2)
 	test.That(t, dets[0], test.ShouldResemble, sphereGob)
-	test.That(t, dets[1].Location(), test.ShouldResemble, geo.NewPoint(1.0000000177131778, 1.0000000031238023))
+	test.That(t, dets[1].Location(), test.ShouldResemble, geo.NewPoint(0.9999999938482776, 1.000000016904306))
 	test.That(t, len(dets[1].Geometries()), test.ShouldEqual, 1)
 	test.That(t, dets[1].Geometries()[0].AlmostEqual(manipulatedBoxGeom), test.ShouldBeTrue)
+	test.That(t, dets[1].Geometries()[0].Label(), test.ShouldEqual, manipulatedBoxGeom.Label())
 }
