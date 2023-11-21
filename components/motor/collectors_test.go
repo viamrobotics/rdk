@@ -65,12 +65,10 @@ func TestMotorCollectors(t *testing.T) {
 			col.Collect()
 			mockClock.Add(captureInterval)
 
-			length := 0
-			for i := 0; i < numRetries && length == 0; i++ {
-				length = buf.Length()
-				time.Sleep(time.Second)
-			}
-			test.That(t, length, test.ShouldBeGreaterThan, 0)
+			tu.Retry(func() bool {
+				return buf.Length() != 0
+			}, numRetries)
+			test.That(t, buf.Length(), test.ShouldBeGreaterThan, 0)
 			test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, tc.expected)
 		})
 	}
