@@ -312,7 +312,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	var obstacleDetectorNamePairs []motion.ObstacleDetectorName
-	visionServices := make(map[resource.Name]vision.Service)
+	visionServicesByName := make(map[resource.Name]vision.Service)
 	for _, pbObstacleDetectorPair := range svcConfig.ObstacleDetectors {
 		visionSvc, err := vision.FromDependencies(deps, pbObstacleDetectorPair.VisionServiceName)
 		if err != nil {
@@ -325,7 +325,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		obstacleDetectorNamePairs = append(obstacleDetectorNamePairs, motion.ObstacleDetectorName{
 			VisionServiceName: visionSvc.Name(), CameraName: camera.Name(),
 		})
-		visionServices[visionSvc.Name()] = visionSvc
+		visionServicesByName[visionSvc.Name()] = visionSvc
 	}
 
 	// Parse movement sensor from the configuration if map type is GPS
@@ -367,7 +367,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.motionService = motionSvc
 	svc.obstacles = newObstacles
 	svc.replanCostFactor = replanCostFactor
-	svc.visionServicesByName = visionServices
+	svc.visionServicesByName = visionServicesByName
 	svc.motionCfg = &motion.MotionConfiguration{
 		ObstacleDetectors:     obstacleDetectorNamePairs,
 		LinearMPerSec:         metersPerSec,
