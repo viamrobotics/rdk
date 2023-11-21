@@ -18,8 +18,8 @@ import (
 )
 
 type fakeSpiHandle struct {
-	tx, rx [][]byte // Must have the same length
-	i      int      // Index of the next rx/tx pair to use
+	tx, rx [][]byte // tx and rx must have the same length
+	i      int      // Index of the next tx/rx pair to use
 	tb     testing.TB
 }
 

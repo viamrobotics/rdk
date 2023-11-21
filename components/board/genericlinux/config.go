@@ -36,8 +36,8 @@ func (conf *Config) Validate(path string) ([]string, error) {
 // with static pin definitions, because those components all use the same underlying code but have
 // different config types (e.g., only customlinux can change its pin definitions during
 // reconfiguration). The LinuxBoardConfig struct is a unification of the two of them. Whenever we
-// go through reconfiguration, we convert the provided config into this type, and then reconfigure
-// based on this.
+// go through reconfiguration, we convert the provided config into a LinuxBoardConfig, and then
+// reconfigure based on it.
 type LinuxBoardConfig struct {
 	AnalogReaders     []mcp3008helper.MCP3008AnalogConfig
 	DigitalInterrupts []board.DigitalInterruptConfig
