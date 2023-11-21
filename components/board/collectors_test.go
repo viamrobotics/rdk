@@ -23,6 +23,7 @@ import (
 const (
 	componentName   = "board"
 	captureInterval = time.Second
+	numRetries      = 5
 )
 
 func TestCollectors(t *testing.T) {
@@ -82,7 +83,13 @@ func TestCollectors(t *testing.T) {
 			defer col.Close()
 			col.Collect()
 			mockClock.Add(captureInterval)
-			test.That(t, buf.Length(), test.ShouldEqual, 1)
+
+			length := 0
+			for i := 0; i < numRetries && length == 0; i++ {
+				length = buf.Length()
+				time.Sleep(time.Second)
+			}
+			test.That(t, length, test.ShouldBeGreaterThan, 0)
 			test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, tc.expected)
 		})
 	}

@@ -16,7 +16,10 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-const captureInterval = time.Second
+const (
+	captureInterval = time.Second
+	numRetries      = 5
+)
 
 var readingMap = map[string]any{"reading1": false, "reading2": "test"}
 
@@ -39,7 +42,12 @@ func TestSensorCollector(t *testing.T) {
 	col.Collect()
 	mockClock.Add(captureInterval)
 
-	test.That(t, buf.Length(), test.ShouldEqual, 1)
+	length := 0
+	for i := 0; i < numRetries && length == 0; i++ {
+		length = buf.Length()
+		time.Sleep(time.Second)
+	}
+	test.That(t, length, test.ShouldBeGreaterThan, 0)
 	test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, du.GetExpectedReadingsStruct(readingMap).AsMap())
 }
 

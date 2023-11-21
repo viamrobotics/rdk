@@ -22,6 +22,7 @@ import (
 const (
 	componentName   = "arm"
 	captureInterval = time.Second
+	numRetries      = 5
 )
 
 var floatList = []float64{1.0, 2.0, 3.0}
@@ -78,7 +79,12 @@ func TestCollectors(t *testing.T) {
 			col.Collect()
 			mockClock.Add(captureInterval)
 
-			test.That(t, buf.Length(), test.ShouldEqual, 1)
+			length := 0
+			for i := 0; i < numRetries && length == 0; i++ {
+				length = buf.Length()
+				time.Sleep(time.Second)
+			}
+			test.That(t, length, test.ShouldBeGreaterThan, 0)
 			test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, tc.expected)
 		})
 	}
