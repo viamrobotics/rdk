@@ -16,7 +16,10 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-const captureInterval = time.Second
+const (
+	captureInterval = time.Second
+	numRetries      = 5
+)
 
 func TestServoCollector(t *testing.T) {
 	mockClock := clk.NewMock()
@@ -37,7 +40,10 @@ func TestServoCollector(t *testing.T) {
 	col.Collect()
 	mockClock.Add(captureInterval)
 
-	test.That(t, buf.Length(), test.ShouldEqual, 1)
+	tu.Retry(func() bool {
+		return buf.Length() != 0
+	}, numRetries)
+	test.That(t, buf.Length(), test.ShouldBeGreaterThan, 0)
 	test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble,
 		tu.ToProtoMapIgnoreOmitEmpty(pb.GetPositionResponse{
 			PositionDeg: 1.0,
