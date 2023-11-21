@@ -233,13 +233,13 @@ func TestPoseToGeoPose(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			gp := PoseToGeoPose(*tc.relativeTo, tc.pose)
+			gp := PoseToGeoPose(tc.relativeTo, tc.pose)
 			t.Logf("gp: %#v %#v\n", gp.Location(), gp.Heading())
 			t.Logf("tc: %#v %#v\n", tc.expectedGeoPose.Location(), tc.expectedGeoPose.Heading())
 			test.That(t, gp.Heading(), test.ShouldAlmostEqual, tc.expectedGeoPose.Heading())
 			test.That(t, utils.Float64AlmostEqual(gp.Location().Lat(), tc.expectedGeoPose.Location().Lat(), gpsTol), test.ShouldBeTrue)
 			test.That(t, utils.Float64AlmostEqual(gp.Location().Lng(), tc.expectedGeoPose.Location().Lng(), gpsTol), test.ShouldBeTrue)
-			geoPointToPose := GeoPoseToPose(gp, *tc.relativeTo)
+			geoPointToPose := GeoPoseToPose(gp, tc.relativeTo)
 			msga := "geoPointToPose.Point(): %#v, geoPointToPose.Orientation().OrientationVectorDegrees().: %#v\n"
 			t.Logf(msga, geoPointToPose.Point(), geoPointToPose.Orientation().OrientationVectorDegrees())
 			msgb := "tc.p.Point(): %#v tc.p.Orientation().OrientationVectorDegrees().: %#v\n"
