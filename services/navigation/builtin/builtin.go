@@ -618,8 +618,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 
 		// iterate through all detections and construct a geoObstacle to append
 		for i, detection := range detections {
-			// get geo pose of geometry
-			// this gives us the geometry's lat & lng along with its heading with respect to north as a left handed value
+			// get the geometry's lat & lng along with its heading with respect to north as a left handed value
 			geomGeoPose := spatialmath.PoseToGeoPose(relativeToGeoPose, detection.Geometry.Pose())
 
 			// prefix the label of the geometry so we know it is transient and add extra info
