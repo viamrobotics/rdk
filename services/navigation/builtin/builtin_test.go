@@ -1091,7 +1091,7 @@ func TestGetObstacles(t *testing.T) {
 
 	injectedVis.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 		// this places the obstacle 60 degrees away from the base's local y-forward axis
-		// the obstacle is facing east, accounting of the current rotation of the base
+		// the obstacle is facing east, accounting got the current rotation of the base
 		boxGeom, err := spatialmath.NewBox(
 			spatialmath.NewPose(r3.Vector{math.Sqrt(3), 1, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 320}),
 			r3.Vector{3.14, 2.72, 1},
@@ -1106,7 +1106,7 @@ func TestGetObstacles(t *testing.T) {
 
 	manipulatedBoxGeom, err := spatialmath.NewBox(
 		spatialmath.NewPose(
-			r3.Vector{4.710277376051325e-16, -1.5700924586837766e-16, -0},
+			r3.Vector{0, 0, -0},
 			&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 270},
 		),
 		r3.Vector{3.14, 2.72, 1},
@@ -1117,9 +1117,7 @@ func TestGetObstacles(t *testing.T) {
 	dets, err := ns.Obstacles(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(dets), test.ShouldEqual, 2)
-
 	test.That(t, dets[0], test.ShouldResemble, sphereGob)
-
 	test.That(t, dets[1].Location(), test.ShouldResemble, geo.NewPoint(1.0000000177131778, 1.0000000031238023))
 	test.That(t, len(dets[1].Geometries()), test.ShouldEqual, 1)
 	test.That(t, dets[1].Geometries()[0].AlmostEqual(manipulatedBoxGeom), test.ShouldBeTrue)
