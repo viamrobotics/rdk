@@ -90,6 +90,9 @@ func WithMIMETypeHint(ctx context.Context, mimeType string) context.Context {
 // set, the default provided is used.
 func MIMETypeHint(ctx context.Context, defaultType string) string {
 	if val, ok := ctx.Value(contextValueMIMETypeHint).(string); ok {
+		if val == "" {
+			return defaultType
+		}
 		return val
 	}
 	return defaultType
