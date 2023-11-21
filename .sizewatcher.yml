@@ -1,0 +1,16 @@
+# For documentation see https://github.com/adobe/sizewatcher/tree/96a49b0c219275ebc8c4cb66dd4c9af99403e73b#configuration
+report:
+  githubStatus: false
+  githubComment: true
+
+limits:
+  warn: 100 KB
+  ok: -5%
+
+comparators:
+  git: true
+
+  custom:
+    - name: AppImages
+      path: "bin/*"
+      script: make server-static

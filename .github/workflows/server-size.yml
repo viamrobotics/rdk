@@ -1,0 +1,34 @@
+name: 'Comment Sever Size Changes'
+
+on:
+  workflow_run:
+    workflows: ["Pull Request Update"]
+    types: [ completed ]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - arch: [buildjet-8vcpu-ubuntu-2204]
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+            platform: linux/amd64
+            platform_name: linux-amd64
+          - arch: [buildjet-8vcpu-ubuntu-2204-arm]
+            image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
+            platform: linux/arm64
+            platform_name: linux-arm64
+    runs-on: ${{ matrix.arch }}
+    container:
+      image: ${{ matrix.image }}
+      options: --platform ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: '14'
+      - run: npx @adobe/sizewatcher
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
