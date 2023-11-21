@@ -8,13 +8,13 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 )
 
 // MCP3008AnalogReader implements a board.AnalogReader using an MCP3008 ADC via SPI.
 type MCP3008AnalogReader struct {
 	Channel int
-	Bus     board.SPI
+	Bus     buses.SPI
 	Chip    string
 }
 
