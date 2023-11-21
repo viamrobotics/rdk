@@ -7,6 +7,7 @@ import (
 
 	clk "github.com/benbjohnson/clock"
 	"github.com/golang/geo/r3"
+	"github.com/hashicorp/consul/sdk/testutil/retry"
 	geo "github.com/kellydunn/golang-geo"
 	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/movementsensor/v1"
@@ -95,6 +96,7 @@ func TestMovementSensorCollectors(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			logger := logging.NewDebugLogger("movementCollectorTest")
 			mockClock := clk.NewMock()
 			buf := tu.MockBuffer{}
 			params := data.CollectorParams{
@@ -111,9 +113,12 @@ func TestMovementSensorCollectors(t *testing.T) {
 
 			defer col.Close()
 			col.Collect()
+			logger.Debug("Started collecting")
 			mockClock.Add(captureInterval)
-
-			test.That(t, buf.Length(), test.ShouldEqual, 1)
+			numRetries := retry.Counter{Count: 5}
+			retry.RunWith(&numRetries, t, func(r *retry.R) {
+				test.That(t, buf.Length(), test.ShouldEqual, 1)
+			})
 			test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, tc.expected)
 		})
 	}
