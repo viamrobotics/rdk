@@ -126,26 +126,18 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, w
 		select {
 		case <-ctx.Done():
 			mr.logger.Debugf("calling kinematicBase.Stop due to %s\n", ctx.Err())
-			stopCtx, cancelFn := context.WithTimeout(context.Background(), baseStopTimeout)
-			if stopErr := mr.kinematicBase.Stop(stopCtx, nil); stopErr != nil {
-				mr.logger.Errorf("kinematicBase.Stop returned error %s", stopErr)
-				cancelFn()
+			if stopErr := mr.stop(); stopErr != nil {
 				return state.ExecuteResponse{}, errors.Wrap(ctx.Err(), stopErr.Error())
 			}
-			cancelFn()
 			return state.ExecuteResponse{}, nil
 		default:
 			mr.planRequest.Logger.Info(waypoints[i])
 			if err := mr.kinematicBase.GoToInputs(ctx, waypoints[i]); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				mr.logger.Debugf("calling kinematicBase.Stop due to %s\n", err)
-				stopCtx, cancelFn := context.WithTimeout(context.Background(), baseStopTimeout)
-				if stopErr := mr.kinematicBase.Stop(stopCtx, nil); stopErr != nil {
-					mr.logger.Errorf("kinematicBase.Stop returned error %s", stopErr)
-					cancelFn()
+				if stopErr := mr.stop(); stopErr != nil {
 					return state.ExecuteResponse{}, errors.Wrap(err, stopErr.Error())
 				}
-				cancelFn()
 				return state.ExecuteResponse{}, err
 			}
 			if i < len(waypoints)-1 {
@@ -715,4 +707,14 @@ func (mr *moveRequest) Execute(waypoints state.Waypoints) (state.ExecuteResponse
 func (mr *moveRequest) Cancel() {
 	mr.cancelFn()
 	mr.backgroundWorkers.Wait()
+}
+
+func (mr *moveRequest) stop() error {
+	stopCtx, cancelFn := context.WithTimeout(context.Background(), baseStopTimeout)
+	defer cancelFn()
+	if stopErr := mr.kinematicBase.Stop(stopCtx, nil); stopErr != nil {
+		mr.logger.Errorf("kinematicBase.Stop returned error %s", stopErr)
+		return stopErr
+	}
+	return nil
 }
