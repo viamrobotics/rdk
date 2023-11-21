@@ -8,8 +8,9 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	commonpb "go.viam.com/api/common/v1"
-	"go.viam.com/rdk/utils"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/utils"
 )
 
 func TestGeoPointToPoint(t *testing.T) {
@@ -111,11 +112,11 @@ func TestPoseToGeoPose(t *testing.T) {
 	mmToOneThousandthDegree := 1.1119492664455873e+05
 
 	// values are left handed - north is 0 degrees
-	LHNortheast := 315.
-	LHEast := 270.
+	LHNortheast := 45.
+	LHEast := 90.
 	LHSouth := 180.
-	LHWest := 90.
-	LHNorthwest := 45.
+	LHWest := 270.
+	LHNorthwest := 315.
 
 	// values are right handed - north is 0 degrees
 	RHNortheast := 360 - LHNortheast
@@ -190,7 +191,7 @@ func TestPoseToGeoPose(t *testing.T) {
 		{
 			name:            "zero geopose heading south + pose that rotates east = zero geopose facing west",
 			relativeTo:      NewGeoPose(geo.NewPoint(0, 0), LHSouth-360-360-360-360),
-			pose:            NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, &OrientationVectorDegrees{OZ: 1, Theta: LHEast}),
+			pose:            NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, &OrientationVectorDegrees{OZ: 1, Theta: RHEast}),
 			expectedGeoPose: NewGeoPose(geo.NewPoint(0, 0), LHWest),
 		},
 		{
@@ -200,7 +201,7 @@ func TestPoseToGeoPose(t *testing.T) {
 				r3.Vector{X: mmToOneThousandthDegree, Y: mmToOneThousandthDegree, Z: 0},
 				&OrientationVectorDegrees{OZ: 1, Theta: RHNortheast},
 			),
-			expectedGeoPose: NewGeoPose(geo.NewPoint(0, math.Sqrt2*1e-3), 0),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(math.Sqrt2*1e-3, 0), 0),
 		},
 		{
 			name:       "zero geopose heading north + pose that rotates northeast",
@@ -215,19 +216,19 @@ func TestPoseToGeoPose(t *testing.T) {
 			name:            "zero geopose heading east + pose that rotates north",
 			relativeTo:      NewGeoPose(geo.NewPoint(0, 0), LHWest),
 			pose:            NewPose(r3.Vector{X: mmToOneThousandthDegree, Y: mmToOneThousandthDegree, Z: 0}, NewZeroOrientation()),
-			expectedGeoPose: NewGeoPose(geo.NewPoint(-1e-3, 1e-3), LHWest),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(1e-3, -1e-3), LHWest),
 		},
 		{
 			name:            "zero geopose heading east",
 			relativeTo:      NewGeoPose(geo.NewPoint(1e-3, 5e-3), LHEast),
 			pose:            NewPose(r3.Vector{X: mmToOneThousandthDegree, Y: mmToOneThousandthDegree, Z: 0}, NewZeroOrientation()),
-			expectedGeoPose: NewGeoPose(geo.NewPoint(2e-3, 4e-3), LHEast),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(0, 6e-3), LHEast),
 		},
 		{
 			name:            "zero geopose heading west",
 			relativeTo:      NewGeoPose(geo.NewPoint(0, 0), LHWest),
 			pose:            NewPose(r3.Vector{X: mmToOneThousandthDegree, Y: mmToOneThousandthDegree, Z: 0}, NewZeroOrientation()),
-			expectedGeoPose: NewGeoPose(geo.NewPoint(-1e-3, 1e-3), LHWest),
+			expectedGeoPose: NewGeoPose(geo.NewPoint(1e-3, -1e-3), LHWest),
 		},
 	}
 

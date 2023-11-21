@@ -6,6 +6,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	commonpb "go.viam.com/api/common/v1"
+
 	"go.viam.com/rdk/utils"
 )
 
@@ -230,7 +231,7 @@ func PoseToGeoPose(relativeTo *GeoPose, pose Pose) *GeoPose {
 	return NewGeoPose(newPosition, normalizeAngle(headingLeft+headingInWorld))
 }
 
-// normalizeAngle takes in an angle in degrees and returns an equivalent angle in the domain [0,360)
+// normalizeAngle takes in an angle in degrees and returns an equivalent angle in the domain [0,360).
 func normalizeAngle(degrees float64) float64 {
 	normalized := math.Mod(degrees, 360)
 	if degrees < 0 {

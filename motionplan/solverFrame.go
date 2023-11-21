@@ -408,8 +408,8 @@ func PlanToPlanStepsAndGeoPoses(
 		runningPoseWOrient = spatial.Compose(runningPoseWOrient, wpPose)
 		planSteps = append(planSteps, map[resource.Name]spatial.Pose{componentName: runningPoseWOrient})
 
-		gp := spatial.PoseToGeoPose(origin, runningPoseWOrient)
-		geoPoses = append(geoPoses, gp)
+		gp := spatial.PoseToGeoPose(&origin, runningPoseWOrient)
+		geoPoses = append(geoPoses, *gp)
 	}
 
 	return planSteps, geoPoses, nil
