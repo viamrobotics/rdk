@@ -112,13 +112,13 @@ func (cs componentState) lastExecutionID() motion.ExecutionID {
 // execution represents the state of a motion planning execution.
 // it only ever exists in state.StartExecution function & the go routine created.
 type execution[R any] struct {
-	id                      motion.ExecutionID
-	state                   *State
-	waitGroup               *sync.WaitGroup
-	cancelCtx               context.Context
-	cancelFunc              context.CancelFunc
-	executorCancelCtx       context.Context
-	executorCancelFunc      context.CancelFunc
+	id         motion.ExecutionID
+	state      *State
+	waitGroup  *sync.WaitGroup
+	cancelCtx  context.Context
+	cancelFunc context.CancelFunc
+	// executorCancelCtx       context.Context
+	// executorCancelFunc      context.CancelFunc
 	logger                  logging.Logger
 	componentName           resource.Name
 	req                     R
@@ -134,7 +134,7 @@ type planWithExecutor struct {
 
 // NewPlan creates a new motion.Plan from an execution & returns an error if one was not able to be created.
 func (e *execution[R]) newPlanWithExecutor(seedPlan motionplan.Plan, replanCount int) (planWithExecutor, error) {
-	pe, err := e.planExecutorConstructor(e.executorCancelCtx, e.req, seedPlan, replanCount)
+	pe, err := e.planExecutorConstructor(e.cancelCtx, e.req, seedPlan, replanCount)
 	if err != nil {
 		return planWithExecutor{}, err
 	}
@@ -196,18 +196,24 @@ func (e *execution[R]) start() error {
 			})
 			select {
 			case <-e.cancelCtx.Done():
+				e.logger.Debug("calling Cancel()")
+				lastPWE.planExecutor.Cancel()
+				e.logger.Debug("Cancel() returned")
 				e.notifyStatePlanStopped(lastPWE.plan, time.Now())
-				e.executorCancelFunc()
 				return
 			case res := <-resChan:
 				// failure
 				if res.err != nil {
+					// cancel the context now that the context has termintaed to not leak context
+					e.cancelFunc()
 					e.notifyStatePlanFailed(lastPWE.plan, res.err.Error(), time.Now())
 					return
 				}
 
 				// success
 				if !res.resp.Replan {
+					// cancel the context now that the context has termintaed to not leak context
+					e.cancelFunc()
 					e.notifyStatePlanSucceeded(lastPWE.plan, time.Now())
 					return
 				}
@@ -342,14 +348,14 @@ func StartExecution[R any](
 
 	// the state being cancelled should cause all executions derived from that state to also be cancelled
 	cancelCtx, cancelFunc := context.WithCancel(s.cancelCtx)
-	executorCancelCtx, executorCancelFunc := context.WithCancel(context.Background())
+	// executorCancelCtx, executorCancelFunc := context.WithCancel(context.Background())
 	e := execution[R]{
-		id:                      uuid.New(),
-		state:                   s,
-		cancelCtx:               cancelCtx,
-		cancelFunc:              cancelFunc,
-		executorCancelCtx:       executorCancelCtx,
-		executorCancelFunc:      executorCancelFunc,
+		id:         uuid.New(),
+		state:      s,
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		// executorCancelCtx:       executorCancelCtx,
+		// executorCancelFunc:      executorCancelFunc,
 		waitGroup:               &sync.WaitGroup{},
 		logger:                  s.logger,
 		req:                     req,
@@ -366,6 +372,7 @@ func StartExecution[R any](
 
 // Stop stops all executions within the State.
 func (s *State) Stop() {
+	s.logger.Debug("state.Stop() called")
 	s.cancelFunc()
 	s.waitGroup.Wait()
 }
