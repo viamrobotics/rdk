@@ -79,3 +79,7 @@ jobs:
           slack_webhook_url: ${{secrets.SLACK_WEBHOOK_URL}}
           channel: '#team-devops'
           name: 'Workflow Status'
+  server-size:
+    uses: viamrobotics/rdk/.github/workflows/server-size.yml@main
+    with:
+      release_type: 'latest'
