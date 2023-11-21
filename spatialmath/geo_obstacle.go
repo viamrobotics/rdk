@@ -136,6 +136,8 @@ func GeoPoseToPose(point, origin *GeoPose) Pose {
 	v := r3.Vector{X: latDist * 1e-6, Y: lngDist * 1e-6, Z: 0}
 
 	newPoint := origin.Location().PointAtDistanceAndBearing(v.Norm(), absoluteBearing)
+
+	// subtracting the point from the origin results in a right handed angle
 	headingChange := normalizeAngle(origin.Heading() - point.Heading())
 	return NewPose(GeoPointToPoint(newPoint, origin.Location()), &OrientationVectorDegrees{OZ: 1, Theta: headingChange})
 }
@@ -201,10 +203,10 @@ func (gpo *GeoPose) Heading() float64 {
 // PoseToGeoPose converts a pose (which are always in mm) into a GeoPose treating relativeTo as the origin.
 func PoseToGeoPose(relativeTo *GeoPose, pose Pose) *GeoPose {
 	// poses are always in mm but PointAtDistanceAndBearing expects the pose to be in km so we need to convert
-	mmPoint := pose.Point()
-	kmPoint := r3.Vector{X: mmPoint.X / 1e6, Y: mmPoint.Y / 1e6, Z: mmPoint.Z / 1e6}
+	kmPoint := pose.Point().Mul(1e-6)
 
 	// calculate the bearing (illustrated on the plot below as angle "x"), to the GeoPose (illustrated as "*")
+	// as we are measuring x from the right side of the vertical axis this angle is left handed
 	//       |   *
 	//       |x /
 	//       | /
