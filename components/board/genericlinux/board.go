@@ -548,11 +548,6 @@ func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*comm
 	return board.CreateStatus(ctx, b, extra)
 }
 
-// ModelAttributes returns attributes related to the model of this board.
-func (b *Board) ModelAttributes() board.ModelAttributes {
-	return board.ModelAttributes{}
-}
-
 // SetPowerMode sets the board to the given power mode. If provided,
 // the board will exit the given power mode after the specified
 // duration.

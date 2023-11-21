@@ -881,10 +881,6 @@ func (db *dummyBoard) DigitalInterruptNames() []string {
 	return nil
 }
 
-func (db *dummyBoard) ModelAttributes() board.ModelAttributes {
-	return board.ModelAttributes{}
-}
-
 func (db *dummyBoard) Close(ctx context.Context) error {
 	db.closeCount++
 	return nil
