@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/vision/v1"
@@ -87,6 +88,9 @@ func (c *client) Detections(ctx context.Context, img image.Image, extra map[stri
 ) ([]objdet.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::Detections")
 	defer span.End()
+	if img == nil {
+		return nil, errors.New("nil image input to given client.Detections")
+	}
 	mimeType := gostream.MIMETypeHint(ctx, utils.MimeTypeJPEG)
 	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
 	if err != nil {
@@ -153,6 +157,9 @@ func (c *client) Classifications(ctx context.Context, img image.Image,
 ) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::Classifications")
 	defer span.End()
+	if img == nil {
+		return nil, errors.New("nil image input to given client.Classifications")
+	}
 	mimeType := gostream.MIMETypeHint(ctx, utils.MimeTypeJPEG)
 	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
 	if err != nil {
