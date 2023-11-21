@@ -96,7 +96,6 @@ func TestMovementSensorCollectors(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			logger := logging.NewDebugLogger("movementCollectorTest")
 			mockClock := clk.NewMock()
 			buf := tu.MockBuffer{}
 			params := data.CollectorParams{
@@ -113,7 +112,6 @@ func TestMovementSensorCollectors(t *testing.T) {
 
 			defer col.Close()
 			col.Collect()
-			logger.Debug("Started collecting")
 			mockClock.Add(captureInterval)
 			numRetries := retry.Counter{Count: 5}
 			retry.RunWith(&numRetries, t, func(r *retry.R) {
