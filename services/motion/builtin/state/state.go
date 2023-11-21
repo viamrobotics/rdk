@@ -112,15 +112,14 @@ func (cs componentState) lastExecutionID() motion.ExecutionID {
 // execution represents the state of a motion planning execution.
 // it only ever exists in state.StartExecution function & the go routine created.
 type execution[R any] struct {
-	id                 motion.ExecutionID
-	state              *State
-	waitGroup          *sync.WaitGroup
-	cancelCtx          context.Context
-	cancelFunc         context.CancelFunc
-	executorCancelCtx  context.Context
-	executorCancelFunc context.CancelFunc
-	logger             logging.Logger
-	// TODO: Make this generic across MoveOnGlobe & MoveOnMap
+	id                      motion.ExecutionID
+	state                   *State
+	waitGroup               *sync.WaitGroup
+	cancelCtx               context.Context
+	cancelFunc              context.CancelFunc
+	executorCancelCtx       context.Context
+	executorCancelFunc      context.CancelFunc
+	logger                  logging.Logger
 	componentName           resource.Name
 	req                     R
 	planExecutorConstructor PlanExecutorConstructor[R]
