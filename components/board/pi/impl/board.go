@@ -35,6 +35,7 @@ import (
 	pb "go.viam.com/api/component/board/v1"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/board/mcp3008helper"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/grpc"
@@ -608,7 +609,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 	return C.GoBytes(rxPtr, (C.int)(count)), nil
 }
 
-func (s *piPigpioSPI) OpenHandle() (board.SPIHandle, error) {
+func (s *piPigpioSPI) OpenHandle() (buses.SPIHandle, error) {
 	s.mu.Lock()
 	s.openHandle = &piPigpioSPIHandle{bus: s, isClosed: false}
 	return s.openHandle, nil
