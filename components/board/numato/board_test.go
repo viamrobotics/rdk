@@ -9,7 +9,6 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/logging"
-	rutils "go.viam.com/rdk/utils"
 )
 
 func TestMask(t *testing.T) {
