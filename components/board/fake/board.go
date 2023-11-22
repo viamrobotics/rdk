@@ -272,8 +272,10 @@ func (b *Board) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *t
 	return grpc.UnimplementedError
 }
 
-// WriteAnalog writes the value to the given pin.
+// WriteAnalog writes the value to the given pin. Add to AnalogReaders so you can read the value back.
 func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+	alg := &AnalogReader{pin: pin, Value: int(value)}
+	b.AnalogReaders[pin] = alg
 	return nil
 }
 
