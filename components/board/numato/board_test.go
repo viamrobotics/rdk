@@ -45,7 +45,6 @@ func TestNumato1(t *testing.T) {
 		ctx,
 		board.Named("foo"),
 		&Config{
-			Attributes: rutils.AttributeMap{"pins": 128},
 			Analogs:    []board.AnalogReaderConfig{{Name: "foo", Pin: "01"}},
 			Pins:       2,
 		},

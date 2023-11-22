@@ -65,7 +65,6 @@ func init() {
 type Config struct {
 	AnalogReaders     []mcp3008helper.MCP3008AnalogConfig `json:"analogs,omitempty"`
 	DigitalInterrupts []board.DigitalInterruptConfig      `json:"digital_interrupts,omitempty"`
-	Attributes        rdkutils.AttributeMap               `json:"attributes,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
