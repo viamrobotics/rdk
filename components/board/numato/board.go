@@ -62,7 +62,7 @@ func init() {
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
 	if conf.Pins <= 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "pins")
 	}
 
 	for idx, conf := range conf.Analogs {

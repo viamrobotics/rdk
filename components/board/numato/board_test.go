@@ -110,10 +110,14 @@ func TestNumato1(t *testing.T) {
 }
 
 func TestConfigValidate(t *testing.T) {
-	validConfig := Config{}
+	invalidConfig := Config{}
+	_, err := invalidConfig.Validate("path")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"pins" is required`)
 
+	validConfig := Config{Pins: 128}
 	validConfig.Analogs = []board.AnalogReaderConfig{{}}
-	_, err := validConfig.Validate("path")
+	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
