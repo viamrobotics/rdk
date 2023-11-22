@@ -14,7 +14,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 
-	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
@@ -130,8 +129,10 @@ type Registration[ResourceT Resource, ConfigT any] struct {
 
 	// TODO(RSDK-418): remove this legacy constructor once all resources that use it no longer need to receive the entire robot.
 	DeprecatedRobotConstructor DeprecatedCreateWithRobot[ResourceT]
-	// Not for public use yet; currently experimental
-	WeakDependencies []internal.ResourceMatcher
+
+	// WeakDependencies is a list of Matchers that fill find resources on the robot that fit the criteria they are looking for
+	// and register them as dependencies on the resource being registered.
+	WeakDependencies []Matcher
 
 	// Discover looks around for information about this specific model.
 	Discover DiscoveryFunc

@@ -18,7 +18,6 @@ import (
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
@@ -26,6 +25,7 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/utils"
 )
 
@@ -49,7 +49,11 @@ func init() {
 			},
 			// NOTE(erd): this would be better as a weak dependencies returned through a more
 			// typed validate or different system.
-			WeakDependencies: []internal.ResourceMatcher{internal.ComponentDependencyWildcardMatcher, internal.SLAMDependencyWildcardMatcher},
+			// TODO: ^^^ ??
+			WeakDependencies: []resource.Matcher{
+				resource.TypeMatcher{Type: resource.APITypeComponentName},
+				resource.SubtypeMatcher{Subtype: slam.SubtypeName},
+			},
 		})
 }
 
@@ -587,7 +591,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

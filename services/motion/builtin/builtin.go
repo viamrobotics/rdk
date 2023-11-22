@@ -13,7 +13,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
@@ -36,12 +35,13 @@ func init() {
 		resource.DefaultServiceModel,
 		resource.Registration[motion.Service, *Config]{
 			Constructor: NewBuiltIn,
-			WeakDependencies: []internal.ResourceMatcher{
-				internal.SLAMDependencyWildcardMatcher,
-				internal.ComponentDependencyWildcardMatcher,
-				internal.VisionDependencyWildcardMatcher,
+			WeakDependencies: []resource.Matcher{
+				resource.TypeMatcher{Type: resource.APITypeComponentName},
+				resource.SubtypeMatcher{Subtype: slam.SubtypeName},
+				resource.SubtypeMatcher{Subtype: vision.SubtypeName},
 			},
-		})
+		},
+	)
 }
 
 const (
