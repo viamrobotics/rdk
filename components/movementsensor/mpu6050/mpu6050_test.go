@@ -11,7 +11,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -49,7 +49,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 		}
 		i2cHandle.CloseFunc = func() error { return nil }
 		i2c := &inject.I2C{}
-		i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+		i2c.OpenHandleFunc = func(addr byte) (buses.I2CHandle, error) {
 			return i2cHandle, nil
 		}
 
@@ -79,7 +79,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 		}
 		i2cHandle.CloseFunc = func() error { return nil }
 		i2c := &inject.I2C{}
-		i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+		i2c.OpenHandleFunc = func(addr byte) (buses.I2CHandle, error) {
 			return i2cHandle, nil
 		}
 
@@ -121,7 +121,7 @@ func TestSuccessfulInitializationAndClose(t *testing.T) {
 	}
 	i2cHandle.CloseFunc = func() error { return nil }
 	i2c := &inject.I2C{}
-	i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+	i2c.OpenHandleFunc = func(addr byte) (buses.I2CHandle, error) {
 		return i2cHandle, nil
 	}
 
@@ -133,7 +133,7 @@ func TestSuccessfulInitializationAndClose(t *testing.T) {
 	test.That(t, closeWasCalled, test.ShouldBeTrue)
 }
 
-func setupDependencies(mockData []byte) (resource.Config, board.I2C) {
+func setupDependencies(mockData []byte) (resource.Config, buses.I2C) {
 	i2cName := "i2c"
 
 	cfg := resource.Config{
@@ -158,7 +158,7 @@ func setupDependencies(mockData []byte) (resource.Config, board.I2C) {
 	}
 	i2cHandle.CloseFunc = func() error { return nil }
 	i2c := &inject.I2C{}
-	i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+	i2c.OpenHandleFunc = func(addr byte) (buses.I2CHandle, error) {
 		return i2cHandle, nil
 	}
 	return cfg, i2c
