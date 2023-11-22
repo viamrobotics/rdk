@@ -34,8 +34,8 @@ var errNoBoard = errors.New("no numato boards found")
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	Analogs    []board.AnalogReaderConfig `json:"analogs,omitempty"`
-	Pins       int                        `json:"pins"`
+	Analogs []board.AnalogReaderConfig `json:"analogs,omitempty"`
+	Pins    int                        `json:"pins"`
 }
 
 func init() {

@@ -44,8 +44,8 @@ func TestNumato1(t *testing.T) {
 		ctx,
 		board.Named("foo"),
 		&Config{
-			Analogs:    []board.AnalogReaderConfig{{Name: "foo", Pin: "01"}},
-			Pins:       2,
+			Analogs: []board.AnalogReaderConfig{{Name: "foo", Pin: "01"}},
+			Pins:    2,
 		},
 		logger,
 	)
