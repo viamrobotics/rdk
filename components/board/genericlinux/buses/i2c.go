@@ -1,7 +1,8 @@
 //go:build linux
 
-// Package genericlinux is for boards that run Linux. This file is for I2C support on those boards.
-package genericlinux
+// Package buses is for I2C and SPI boards that run Linux. This file is for I2C support on those
+// boards.
+package buses
 
 import (
 	"context"
@@ -11,7 +12,6 @@ import (
 	"periph.io/x/conn/v3/i2c/i2creg"
 	"periph.io/x/host/v3"
 
-	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/logging"
 )
 
@@ -24,7 +24,7 @@ func init() {
 // I2cBus represents an I2C bus. You can use it to create handles for devices at specific
 // addresses on the bus. Creating a handle locks the bus, and closing the handle unlocks the bus
 // again, so that you can only communicate with 1 device on the bus at a time.
-type I2cBus struct {
+type i2cBus struct {
 	// Despite the type name BusCloser, this is the I2C bus itself (plus a way to close itself when
 	// it's done, though we never use that because we want to keep it open until the entire process
 	// exits)!
@@ -33,18 +33,17 @@ type I2cBus struct {
 	deviceName   string
 }
 
-// NewI2cBus creates a new I2cBus object.
-func NewI2cBus(deviceName string) (*I2cBus, error) {
-	// We return a pointer to an I2cBus instead of an I2cBus itself so that we can return nil if
-	// something goes wrong.
-	b := &I2cBus{}
+// NewI2cBus creates a new I2C (the public interface) object (implemented as the private i2cBus
+// struct).
+func NewI2cBus(deviceName string) (I2C, error) {
+	b := &i2cBus{}
 	if err := b.reset(deviceName); err != nil {
 		return nil, err
 	}
 	return b, nil
 }
 
-func (bus *I2cBus) reset(deviceName string) error {
+func (bus *i2cBus) reset(deviceName string) error {
 	bus.mu.Lock()
 	defer bus.mu.Unlock()
 
@@ -59,10 +58,10 @@ func (bus *I2cBus) reset(deviceName string) error {
 	return nil
 }
 
-// OpenHandle lets the I2cBus type implement the board.I2C interface. It returns a handle for
+// OpenHandle lets the i2cBus type implement the I2C interface. It returns a handle for
 // communicating with a device at a specific I2C handle. Opening a handle locks the I2C bus so
 // nothing else can use it, and closing the handle unlocks the bus again.
-func (bus *I2cBus) OpenHandle(addr byte) (board.I2CHandle, error) {
+func (bus *i2cBus) OpenHandle(addr byte) (I2CHandle, error) {
 	bus.mu.Lock() // Lock the bus so no other handle can use it until this handle is closed.
 
 	// If we haven't yet connected to the bus itself, do so now.
@@ -80,9 +79,9 @@ func (bus *I2cBus) OpenHandle(addr byte) (board.I2CHandle, error) {
 
 // I2cHandle represents a way to talk to a specific device on the I2C bus. Creating a handle locks
 // the bus so nothing else can use it, and closing the handle unlocks it again.
-type I2cHandle struct { // Implements the board.I2CHandle interface
+type I2cHandle struct { // Implements the I2CHandle interface
 	device    *i2c.Dev // Will become nil if we Close() the handle
-	parentBus *I2cBus
+	parentBus *i2cBus
 }
 
 // Write writes the given bytes to the handle. For I2C devices that organize their data into
@@ -102,7 +101,7 @@ func (h *I2cHandle) Read(ctx context.Context, count int) ([]byte, error) {
 	return buffer, nil
 }
 
-// This is a private helper function, used to implement the rest of the board.I2CHandle interface.
+// This is a private helper function, used to implement the rest of the I2CHandle interface.
 func (h *I2cHandle) transactAtRegister(register byte, w, r []byte) error {
 	if w == nil {
 		w = []byte{}
