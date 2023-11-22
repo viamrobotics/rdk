@@ -16,7 +16,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -73,7 +73,7 @@ type PCA9685 struct {
 	mu                  sync.RWMutex
 	address             byte
 	referenceClockSpeed int
-	bus                 board.I2C
+	bus                 buses.I2C
 	gpioPins            [16]gpioPin
 	logger              logging.Logger
 }
@@ -118,7 +118,7 @@ func (pca *PCA9685) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	bus, err := genericlinux.NewI2cBus(newConf.I2CBus)
+	bus, err := buses.NewI2cBus(newConf.I2CBus)
 	if err != nil {
 		return err
 	}
@@ -181,7 +181,7 @@ func (pca *PCA9685) GPIOPinByName(pin string) (board.GPIOPin, error) {
 	return &pca.gpioPins[pinInt], nil
 }
 
-func (pca *PCA9685) openHandle() (board.I2CHandle, error) {
+func (pca *PCA9685) openHandle() (buses.I2CHandle, error) {
 	return pca.bus.OpenHandle(pca.address)
 }
 
@@ -307,10 +307,10 @@ func (gp *gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float
 		utils.UncheckedError(handle.Close())
 	}()
 
-	regOnLow := board.I2CRegister{handle, gp.startAddr}
-	regOnHigh := board.I2CRegister{handle, gp.startAddr + 1}
-	regOffLow := board.I2CRegister{handle, gp.startAddr + 2}
-	regOffHigh := board.I2CRegister{handle, gp.startAddr + 3}
+	regOnLow := buses.I2CRegister{handle, gp.startAddr}
+	regOnHigh := buses.I2CRegister{handle, gp.startAddr + 1}
+	regOffLow := buses.I2CRegister{handle, gp.startAddr + 2}
+	regOffHigh := buses.I2CRegister{handle, gp.startAddr + 3}
 
 	onLow, err := regOnLow.ReadByteData(ctx)
 	if err != nil {
@@ -352,10 +352,10 @@ func (gp *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[s
 		utils.UncheckedError(handle.Close())
 	}()
 
-	regOnLow := board.I2CRegister{handle, gp.startAddr}
-	regOnHigh := board.I2CRegister{handle, gp.startAddr + 1}
-	regOffLow := board.I2CRegister{handle, gp.startAddr + 2}
-	regOffHigh := board.I2CRegister{handle, gp.startAddr + 3}
+	regOnLow := buses.I2CRegister{handle, gp.startAddr}
+	regOnHigh := buses.I2CRegister{handle, gp.startAddr + 1}
+	regOffLow := buses.I2CRegister{handle, gp.startAddr + 2}
+	regOffHigh := buses.I2CRegister{handle, gp.startAddr + 3}
 
 	if dutyCycle == 0xffff {
 		// On takes up all steps
