@@ -198,7 +198,6 @@ const handleReadAnalogPinInput = (event:CustomEvent<{ value: string}>) => {
           </div>
         </td>
       </tr>
-
       <tr>
         <th class="border border-medium p-2">
           Set
@@ -257,7 +256,6 @@ const handleReadAnalogPinInput = (event:CustomEvent<{ value: string}>) => {
       Analogs
      </h3>
      <table class="mb-4 w-full table-auto border border-medium">
-
       <tr>
         <th class="border border-medium p-2">
           Get
@@ -277,9 +275,9 @@ const handleReadAnalogPinInput = (event:CustomEvent<{ value: string}>) => {
            />
            <span class="py-2">
             {readAnalogMessage}
-          </span>
-        </div>
-      </td>
+            </span>
+          </div>
+        </td>
       </tr>
       <tr>
      <th class="border border-medium p-2">
@@ -303,9 +301,11 @@ const handleReadAnalogPinInput = (event:CustomEvent<{ value: string}>) => {
        class="mr-2"
        label="Set Analog Value"
        on:click={writeAnalog}
-     />
-    </div>
-  </td>
-</tr>
+      />
+        </div>
+      </td>
+    </tr>
+  </table>
+</div>
 
 </Collapse>
