@@ -13,7 +13,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 
-	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
 	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
 	"go.viam.com/rdk/logging"
@@ -42,7 +42,7 @@ type RTKMovementSensor struct {
 	InputProtocol      string
 	CorrectionWriter   io.ReadWriteCloser
 
-	Bus       board.I2C
+	Bus       buses.I2C
 	Wbaud     int
 	Addr      byte // for i2c only
 	Writepath string
