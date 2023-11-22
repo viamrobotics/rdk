@@ -138,20 +138,20 @@ $(FFMPEG_ROOT):
 	git -C $(FFMPEG_ROOT) checkout release/6.1
 
 # For ARM64 builds, use the image ghcr.io/viamrobotics/antique:arm64 for backward compatibility
-FFMPEG_H264_PREFIX ?= $(shell realpath .)/gostream/codec/h264/ffmpeg/$(shell uname -s)-$(shell uname -m)
-ffmpeg-h264-static: $(FFMPEG_ROOT)
-	cd $(FFMPEG_ROOT) && ./configure \
-		--disable-programs \
-		--disable-doc \
-		--disable-everything \
-		--enable-encoder=h264_v4l2m2m \
-		--prefix=$(FFMPEG_H264_PREFIX) \
-		--enable-pic
+FFMPEG_PREFIX ?= $(shell realpath .)/gostream/ffmpeg/$(shell uname -s)-$(shell uname -m)
+FFMPEG_OPTS = --disable-programs --disable-doc --disable-everything --prefix=$(FFMPEG_PREFIX) --enable-pic
+ifeq ($(shell uname -m),x86_64)
+	FFMPEG_OPTS += --disable-autodetect
+else ifeq ($(shell uname -m),arm64)
+	FFMPEG_OPTS += --enable-encoder=h264_v4l2m2m
+endif
+ffmpeg: $(FFMPEG_ROOT)
+	cd $(FFMPEG_ROOT) && ./configure $(FFMPEG_OPTS)
 	cd $(FFMPEG_ROOT) && $(MAKE)
 	cd $(FFMPEG_ROOT) && $(MAKE) install
 
-	# remove pkg-config and shared library files
-	rm -rf $(FFMPEG_H264_PREFIX)/lib/pkgconfig
-	rm -rf $(FFMPEG_H264_PREFIX)/share
+	# only keep archive files
+	find $(FFMPEG_PREFIX)/* -type d ! -wholename $(FFMPEG_PREFIX)/lib | xargs rm -rf
+
 
 include *.make

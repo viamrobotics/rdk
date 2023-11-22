@@ -1,4 +1,4 @@
-//go:build cgo && arm64 && linux && !android
+//go:build cgo && linux
 
 // Package h264 uses a V4L2-compatible h.264 hardware encoder (h264_v4l2m2m) to encode images.
 package h264
@@ -15,8 +15,8 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/gostream/codec"
-	"go.viam.com/rdk/gostream/codec/h264/ffmpeg/avcodec"
-	"go.viam.com/rdk/gostream/codec/h264/ffmpeg/avutil"
+	"go.viam.com/rdk/gostream/ffmpeg/avcodec"
+	"go.viam.com/rdk/gostream/ffmpeg/avutil"
 )
 
 const (
