@@ -142,7 +142,7 @@ const handleReadAnalogPinInput = (event:CustomEvent<{ value: string}>) => {
             {analogName}
           </th>
           <td class="border border-medium p-2">
-            {analog.value || 0 }
+            {analog.value || 0}
           </td>
         </tr>
       {/each}
