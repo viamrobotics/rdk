@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -40,13 +41,16 @@ func TestFromReaderValidate(t *testing.T) {
 
 	_, err = config.FromReader(context.Background(), "somepath", strings.NewReader(`{"cloud": {}}`), logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
+	var fre resource.FieldRequiredError
+	test.That(t, errors.As(err, &fre), test.ShouldBeTrue)
+	test.That(t, fre.Field, test.ShouldEqual, "id")
 
 	_, err = config.FromReader(context.Background(),
 		"somepath", strings.NewReader(`{"disable_partial_start":true,"components": [{}]}`), logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `components.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+	test.That(t, errors.As(err, &fre), test.ShouldBeTrue)
+	test.That(t, fre.Path, test.ShouldEqual, "components.0")
+	test.That(t, fre.Field, test.ShouldEqual, "name")
 
 	conf, err = config.FromReader(context.Background(),
 		"somepath",

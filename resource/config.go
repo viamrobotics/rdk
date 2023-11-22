@@ -387,6 +387,9 @@ func (fre FieldRequiredError) Error() string {
 }
 
 func (fre FieldRequiredError) String() string {
+	if fre.Path == "" {
+		return fmt.Sprintf("Error validating, missing required field. Field: %q", fre.Field)
+	}
 	return fmt.Sprintf("Error validating, missing required field. Path: %q Field: %q", fre.Path, fre.Field)
 }
 
@@ -397,6 +400,7 @@ func NewConfigValidationFieldRequiredError(path, field string) error {
 }
 
 func GetFieldFromFieldRequiredError(err error) string {
+	fmt.Printf("Getting ErrType: %T\n", err)
 	if fre, ok := err.(FieldRequiredError); ok {
 		return fre.Field
 	}

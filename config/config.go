@@ -145,7 +145,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 		component := &c.Components[idx]
 		dependsOn, err := component.Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
 		if err != nil {
-			fullErr := errors.Errorf("error validating component %s: %s", component.Name, err)
+			fullErr := errors.Wrapf(err, "error validating component %s: %s", component.Name, err)
 			if c.DisablePartialStart {
 				return fullErr
 			}
