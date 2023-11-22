@@ -35,6 +35,7 @@ import (
 	pb "go.viam.com/api/component/board/v1"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/board/mcp3008helper"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/grpc"
@@ -64,7 +65,6 @@ func init() {
 type Config struct {
 	AnalogReaders     []mcp3008helper.MCP3008AnalogConfig `json:"analogs,omitempty"`
 	DigitalInterrupts []board.DigitalInterruptConfig      `json:"digital_interrupts,omitempty"`
-	Attributes        rdkutils.AttributeMap               `json:"attributes,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -608,7 +608,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 	return C.GoBytes(rxPtr, (C.int)(count)), nil
 }
 
-func (s *piPigpioSPI) OpenHandle() (board.SPIHandle, error) {
+func (s *piPigpioSPI) OpenHandle() (buses.SPIHandle, error) {
 	s.mu.Lock()
 	s.openHandle = &piPigpioSPIHandle{bus: s, isClosed: false}
 	return s.openHandle, nil

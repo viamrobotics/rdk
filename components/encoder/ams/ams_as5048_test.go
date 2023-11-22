@@ -10,7 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -38,7 +38,7 @@ func TestConvertBytesToAngle(t *testing.T) {
 	test.That(t, deg, test.ShouldAlmostEqual, 219.990234, 1e-6)
 }
 
-func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies, board.I2C) {
+func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies, buses.I2C) {
 	i2cConf := &I2CConfig{
 		I2CBus:  "1",
 		I2CAddr: 64,
@@ -64,7 +64,7 @@ func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies,
 	i2cHandle.CloseFunc = func() error { return nil }
 
 	i2c := &inject.I2C{}
-	i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+	i2c.OpenHandleFunc = func(addr byte) (buses.I2CHandle, error) {
 		return i2cHandle, nil
 	}
 
@@ -113,7 +113,7 @@ func TestAMSEncoder(t *testing.T) {
 	})
 }
 
-func setupDependenciesWithWrite(mockData []byte, writeData map[byte]byte) (resource.Config, resource.Dependencies, board.I2C) {
+func setupDependenciesWithWrite(mockData []byte, writeData map[byte]byte) (resource.Config, resource.Dependencies, buses.I2C) {
 	i2cConf := &I2CConfig{
 		I2CBus:  "1",
 		I2CAddr: 64,
@@ -140,7 +140,7 @@ func setupDependenciesWithWrite(mockData []byte, writeData map[byte]byte) (resou
 	i2cHandle.CloseFunc = func() error { return nil }
 
 	i2c := &inject.I2C{}
-	i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+	i2c.OpenHandleFunc = func(addr byte) (buses.I2CHandle, error) {
 		return i2cHandle, nil
 	}
 	return cfg, resource.Dependencies{}, i2c

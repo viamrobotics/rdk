@@ -1,4 +1,5 @@
-package board
+// Package buses offers SPI and I2C buses for generic Linux systems.
+package buses
 
 import (
 	"context"

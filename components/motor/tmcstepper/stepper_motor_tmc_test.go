@@ -10,7 +10,7 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -66,10 +66,10 @@ func (h *fakeSpiHandle) ExpectDone() {
 	test.That(h.tb, h.i, test.ShouldEqual, len(h.tx))
 }
 
-func newFakeSpi(tb testing.TB) (*fakeSpiHandle, board.SPI) {
+func newFakeSpi(tb testing.TB) (*fakeSpiHandle, buses.SPI) {
 	handle := newFakeSpiHandle(tb)
 	fakeSpi := inject.SPI{}
-	fakeSpi.OpenHandleFunc = func() (board.SPIHandle, error) {
+	fakeSpi.OpenHandleFunc = func() (buses.SPIHandle, error) {
 		return &handle, nil
 	}
 
