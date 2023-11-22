@@ -2,9 +2,11 @@ package config
 
 import (
 	"reflect"
+	"strings"
 	"syscall"
 
 	"github.com/golang/geo/r3"
+	"github.com/kr/pretty"
 	"github.com/pkg/errors"
 	packagespb "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
@@ -103,14 +105,15 @@ func ComponentConfigToProto(conf *resource.Config) (*pb.ComponentConfig, error) 
 	}
 
 	protoConf := pb.ComponentConfig{
-		Name:           conf.Name,
-		Namespace:      string(conf.API.Type.Namespace),
-		Type:           conf.API.SubtypeName,
-		Api:            conf.API.String(),
-		Model:          conf.Model.String(),
-		DependsOn:      conf.DependsOn,
-		ServiceConfigs: serviceConfigs,
-		Attributes:     attributes,
+		Name:             conf.Name,
+		Namespace:        string(conf.API.Type.Namespace),
+		Type:             conf.API.SubtypeName,
+		Api:              conf.API.String(),
+		Model:            conf.Model.String(),
+		DependsOn:        conf.DependsOn,
+		ServiceConfigs:   serviceConfigs,
+		Attributes:       attributes,
+		LogConfiguration: &pb.LogConfiguration{Level: strings.ToLower(conf.LogConfiguration.Level.String())},
 	}
 
 	if conf.Frame != nil {
@@ -151,6 +154,7 @@ func ComponentConfigFromProto(protoConf *pb.ComponentConfig) (*resource.Config, 
 		return nil, err
 	}
 
+	level, _ := logging.LevelFromString(protoConf.GetLogConfiguration().Level)
 	componentConf := resource.Config{
 		Name:                      protoConf.GetName(),
 		API:                       api,
@@ -158,6 +162,7 @@ func ComponentConfigFromProto(protoConf *pb.ComponentConfig) (*resource.Config, 
 		Attributes:                attrs,
 		DependsOn:                 protoConf.GetDependsOn(),
 		AssociatedResourceConfigs: serviceConfigs,
+		LogConfiguration:          resource.LogConfig{Level: level},
 	}
 
 	if protoConf.GetFrame() != nil {
