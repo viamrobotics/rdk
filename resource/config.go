@@ -377,6 +377,7 @@ func NewConfigValidationError(path string, err error) error {
 	return fmt.Errorf("Error validating. Path: %q Error: %w", path, err)
 }
 
+// FieldRequiredError describes a missing field on a config object.
 type FieldRequiredError struct {
 	Path  string
 	Field string
@@ -399,9 +400,10 @@ func NewConfigValidationFieldRequiredError(path, field string) error {
 	return FieldRequiredError{path, field}
 }
 
+// GetFieldFromFieldRequiredError returns the `Field` object from a `FieldRequiredError`.
 func GetFieldFromFieldRequiredError(err error) string {
-	fmt.Printf("Getting ErrType: %T\n", err)
-	if fre, ok := err.(FieldRequiredError); ok {
+	var fre FieldRequiredError
+	if ok := errors.As(err, &fre); ok {
 		return fre.Field
 	}
 
