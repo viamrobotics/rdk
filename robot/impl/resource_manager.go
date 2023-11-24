@@ -470,7 +470,7 @@ func checkReconfigure(manager *resourceManager, gNode *resource.GraphNode) bool 
 			manager.logger.Debug(err)
 		} else {
 			manager.logger.Error(err)
-			gNode.SetLastError(err)
+			gNode.LogAndSetLastError(err)
 		}
 		return false
 	}
@@ -518,14 +518,14 @@ func (manager *resourceManager) completeConfig(
 			// this is done in config validation but partial start rules require us to check again
 			if _, err := remConf.Validate(""); err != nil {
 				manager.logger.Errorw("remote config validation error", "remote", remConf.Name, "error", err)
-				gNode.SetLastError(
+				gNode.LogAndSetLastError(
 					errors.New("remote config validation error"), "remote", remConf.Name, "error", err)
 				continue
 			}
 			rr, err := manager.processRemote(ctx, *remConf)
 			if err != nil {
 				manager.logger.Errorw("error connecting to remote", "remote", remConf.Name, "error", err)
-				gNode.SetLastError(
+				gNode.LogAndSetLastError(
 					errors.New("error connecting to remote"), "remote", remConf.Name, "error", err)
 				continue
 			}
@@ -599,7 +599,7 @@ func (manager *resourceManager) completeConfig(
 			// this is done in config validation but partial start rules require us to check again
 			if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
 				manager.logger.Errorw("resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
-				gNode.SetLastError(
+				gNode.LogAndSetLastError(
 					errors.New("resource config validation error"),
 					"resource", conf.ResourceName(),
 					"model", conf.Model,
@@ -609,7 +609,7 @@ func (manager *resourceManager) completeConfig(
 			if manager.moduleManager.Provides(conf) {
 				if _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
 					manager.logger.Errorw("modular resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
-					gNode.SetLastError(
+					gNode.LogAndSetLastError(
 						errors.New("modular resource config validation error"),
 						"resource", conf.ResourceName(),
 						"model", conf.Model,
@@ -632,7 +632,7 @@ func (manager *resourceManager) completeConfig(
 
 				if err != nil {
 					manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
-					gNode.SetLastError(
+					gNode.LogAndSetLastError(
 						errors.New("resource build error"),
 						"resource", conf.ResourceName(),
 						"model", conf.Model,
@@ -653,7 +653,7 @@ func (manager *resourceManager) completeConfig(
 			default:
 				err := errors.New("config is not for a component or service")
 				manager.logger.Errorw(err.Error(), "resource", resName)
-				gNode.SetLastError(err, "resource", resName)
+				gNode.LogAndSetLastError(err, "resource", resName)
 			}
 		})
 
