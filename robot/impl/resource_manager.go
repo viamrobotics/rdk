@@ -655,7 +655,6 @@ func (manager *resourceManager) completeConfig(
 				manager.logger.Errorw(err.Error(), "resource", resName)
 				gNode.SetLastError(err, "resource", resName)
 			}
-
 		})
 
 		select {
