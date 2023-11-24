@@ -115,11 +115,6 @@ func (w *GraphNode) Resource() (Resource, error) {
 	return w.current, nil
 }
 
-// GetLogger returns the logger, if any, associated with this resource node.
-func (w *GraphNode) GetLogger() logging.Logger {
-	return w.logger
-}
-
 // SetLogger associates a logger object with this resource node. This is expected to be the logger
 // passed into the `Constructor` when registering component resources.
 func (w *GraphNode) SetLogger(logger logging.Logger) {
@@ -223,10 +218,16 @@ func (w *GraphNode) MarkedForRemoval() bool {
 // cause the resource to become unavailable to external users of
 // the graph. The resource manager may still access the
 // underlying resource via UnsafeResource.
-func (w *GraphNode) SetLastError(err error) {
+//
+// The additional `args` should come in key/value pairs for structured logging.
+func (w *GraphNode) SetLastError(err error, args ...any) {
 	w.mu.Lock()
-	defer w.mu.Unlock()
 	w.lastErr = err
+	w.mu.Unlock()
+
+	if w.logger != nil {
+		w.logger.Errorw(err.Error(), args...)
+	}
 }
 
 // Config returns the current config that this resource is using.
