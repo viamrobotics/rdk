@@ -6,7 +6,6 @@ import (
 	"syscall"
 
 	"github.com/golang/geo/r3"
-	"github.com/kr/pretty"
 	"github.com/pkg/errors"
 	packagespb "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
