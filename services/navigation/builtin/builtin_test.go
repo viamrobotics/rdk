@@ -1090,7 +1090,7 @@ func TestGetObstacles(t *testing.T) {
 	}()
 
 	injectedVis.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-		// this places the obstacle 60 degrees away from the base's local y-forward axis
+		// this places the obstacle 60 degrees away from the base's local y-forward axis 2 mm forward
 		// the obstacle is facing east, accounting got the current rotation of the base
 		boxGeom, err := spatialmath.NewBox(
 			spatialmath.NewPose(r3.Vector{math.Sqrt(3), 1, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 320}),
@@ -1106,7 +1106,7 @@ func TestGetObstacles(t *testing.T) {
 
 	manipulatedBoxGeom, err := spatialmath.NewBox(
 		spatialmath.NewPose(
-			r3.Vector{0, 0, -0},
+			r3.Vector{0, 0, 0},
 			&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 270},
 		),
 		r3.Vector{3.14, 2.72, 1},
