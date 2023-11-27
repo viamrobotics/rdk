@@ -153,7 +153,12 @@ func ComponentConfigFromProto(protoConf *pb.ComponentConfig) (*resource.Config, 
 		return nil, err
 	}
 
-	level, _ := logging.LevelFromString(protoConf.GetLogConfiguration().Level)
+	level, err := logging.LevelFromString(protoConf.GetLogConfiguration().Level)
+	if err != nil {
+		// Don't fail configuration due to a malformed log level. Future note, if a logger becomes
+		// available in the method, log a warning in this case.
+		level = logging.INFO
+	}
 	componentConf := resource.Config{
 		Name:                      protoConf.GetName(),
 		API:                       api,
