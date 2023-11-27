@@ -312,13 +312,13 @@ func TestConfigEnsure(t *testing.T) {
 	err = invalidProcesses.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `processes.0`)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "id")
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
 	invalidProcesses = config.Config{
 		DisablePartialStart: true,
 		Processes:           []pexec.ProcessConfig{{ID: "bar"}},
 	}
 	err = invalidProcesses.Ensure(false, logger)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 	invalidProcesses = config.Config{
 		DisablePartialStart: true,
 		Processes:           []pexec.ProcessConfig{{ID: "bar", Name: "foo"}},
