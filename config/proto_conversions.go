@@ -159,7 +159,7 @@ func ComponentConfigFromProto(protoConf *pb.ComponentConfig) (*resource.Config, 
 			// Don't fail configuration due to a malformed log level.
 			level = logging.INFO
 			logging.Global().Warnw(
-				"Invalid log level.", "name", protoConf.GetName(), "log_level", protoConf.GetLogConfiguration().Level)
+				"Invalid log level.", "name", protoConf.GetName(), "log_level", protoConf.GetLogConfiguration().Level, "error", err)
 		}
 	}
 	componentConf := resource.Config{
