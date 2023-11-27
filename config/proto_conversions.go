@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	packagespb "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
-	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -156,10 +155,11 @@ func ComponentConfigFromProto(protoConf *pb.ComponentConfig) (*resource.Config, 
 
 	level := logging.INFO
 	if protoConf.GetLogConfiguration() != nil {
-		level, err = logging.LevelFromString(protoConf.GetLogConfiguration().Level)
-		// Don't fail configuration due to a malformed log level. Future note, if a logger becomes
-		// available in the method, log a warning in this case.
-		utils.UncheckedError(err)
+		if level, err = logging.LevelFromString(protoConf.GetLogConfiguration().Level); err != nil {
+			// Don't fail configuration due to a malformed log level. Future note, if a logger becomes
+			// available in the method, log a warning in this case.
+			level = logging.INFO
+		}
 	}
 	componentConf := resource.Config{
 		Name:                      protoConf.GetName(),
