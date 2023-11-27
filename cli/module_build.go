@@ -177,11 +177,11 @@ func ModuleBuildListAction(c *cli.Context) error {
 		printf(c.App.Writer,
 			tableFormat,
 			firstN(job.JobId, idLen),
-			firstN(string(jobStatusFromProto(job.Status)), versionLen),
+			firstN(string(jobStatusFromProto(job.Status)), statusLen),
 			firstN(job.Version, versionLen),
 			firstN(job.Platform, archLen),
 			firstN(string(job.AttemptNumber), attemptLen),
-			firstN(job.StartTime.AsTime().Format(time.RFC3339), attemptLen),
+			firstN(job.StartTime.AsTime().Format(time.RFC3339), timeLen),
 		)
 	}
 	return nil
