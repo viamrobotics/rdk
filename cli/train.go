@@ -26,9 +26,6 @@ func DataSubmitTrainingJob(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if c.String(datasetFlagDatasetID) == "" {
-		return errors.New("dataset ID must be provided")
-	}
 	trainingJobID, err := client.dataSubmitTrainingJob(
 		c.String(datasetFlagDatasetID), c.String(trainFlagModelOrgID),
 		c.String(trainFlagModelName), c.String(trainFlagModelVersion),
@@ -58,7 +55,7 @@ func (c *viamClient) dataSubmitTrainingJob(datasetID, orgID, modelName, modelVer
 
 	resp, err := c.mlTrainingClient.SubmitTrainingJob(context.Background(),
 		&mltrainingpb.SubmitTrainingJobRequest{
-			DatasetId: datasetID,
+			DatasetId:      datasetID,
 			OrganizationId: orgID, ModelName: modelName, ModelVersion: modelVersion,
 			ModelType: mltrainingpb.ModelType(modelTypeEnum), Tags: labels,
 		})

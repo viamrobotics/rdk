@@ -573,6 +573,11 @@ var app = &cli.App{
 						dataFlagOrgIDs),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
+							Name:     datasetFlagDatasetID,
+							Usage:    "dataset ID",
+							Required: true,
+						},
+						&cli.StringFlag{
 							Name:     trainFlagModelOrgID,
 							Usage:    "org ID to train and save ML model in",
 							Required: true,
@@ -597,10 +602,6 @@ var app = &cli.App{
 						&cli.StringFlag{
 							Name:  trainFlagModelVersion,
 							Usage: "version of ML model. defaults to current timestamp if unspecified.",
-						},
-						&cli.StringFlag{
-							Name:  datasetFlagDatasetID,
-							Usage: "dataset ID",
 						},
 					},
 					Action: DataSubmitTrainingJob,
