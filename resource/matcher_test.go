@@ -26,4 +26,17 @@ func TestMatchers(t *testing.T) {
 		test.That(t, matcher.IsMatch(sensorService), test.ShouldBeTrue)
 		test.That(t, matcher.IsMatch(motionService), test.ShouldBeFalse)
 	})
+
+	t.Run("interface matcher", func(t *testing.T) {
+		// define a resource that trivially satisfies the Actuator interface
+		type unimplActuator struct {
+			resource.Resource
+			resource.Actuator
+		}
+		var testActuator unimplActuator
+
+		matcher := resource.InterfaceMatcher{Interface: new(resource.Actuator)}
+		test.That(t, matcher.IsMatch(testActuator), test.ShouldBeTrue)
+		test.That(t, matcher.IsMatch(armComponent), test.ShouldBeFalse)
+	})
 }
