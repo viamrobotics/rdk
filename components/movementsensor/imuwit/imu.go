@@ -59,12 +59,12 @@ type Config struct {
 func (cfg *Config) Validate(path string) ([]string, error) {
 	// Validating serial path
 	if cfg.Port == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_path")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 
 	// Validating baud rate
 	if !rutils.ValidateBaudRate(baudRateList, int(cfg.BaudRate)) {
-		return nil, utils.NewConfigValidationError(path, errors.Errorf("Baud rate is not in %v", baudRateList))
+		return nil, resource.NewConfigValidationError(path, errors.Errorf("Baud rate is not in %v", baudRateList))
 	}
 
 	return nil, nil

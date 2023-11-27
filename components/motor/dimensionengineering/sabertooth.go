@@ -12,7 +12,6 @@ import (
 
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
-	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
@@ -113,7 +112,7 @@ type Config struct {
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.SerialPath == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_path")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 
 	return nil, nil

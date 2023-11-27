@@ -13,8 +13,6 @@ import (
 	"math"
 	"time"
 
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
@@ -94,7 +92,7 @@ type Config struct {
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if len(conf.I2CBus) == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c bus")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "i2c bus")
 	}
 	return deps, nil
 }

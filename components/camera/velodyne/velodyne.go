@@ -112,11 +112,11 @@ type Config struct {
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
 	if conf.Port == 0 {
-		return nil, gutils.NewConfigValidationFieldRequiredError(path, "port")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "port")
 	}
 
 	if conf.TTLMS == 0 {
-		return nil, gutils.NewConfigValidationFieldRequiredError(path, "ttl_ms")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "ttl_ms")
 	}
 	return nil, nil
 }

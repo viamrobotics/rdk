@@ -743,7 +743,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			nil,
 			nil,
 		)
-		e := "\"rdk:component:movement_sensor/non existent movement sensor\" missing from dependencies"
+		e := "Resource missing from dependencies. Resource: rdk:component:movement_sensor/non existent movement sensor"
 		test.That(t, err, test.ShouldBeError, errors.New(e))
 		test.That(t, success, test.ShouldBeFalse)
 	})
@@ -927,7 +927,8 @@ func TestMoveOnGlobe(t *testing.T) {
 			nil,
 			nil,
 		)
-		test.That(t, err, test.ShouldBeError, errors.New("\"rdk:component:base/test-base\" missing from dependencies"))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk:component:base/test-base"))
 		test.That(t, success, test.ShouldBeFalse)
 	})
 
