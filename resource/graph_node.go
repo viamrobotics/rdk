@@ -214,9 +214,8 @@ func (w *GraphNode) MarkedForRemoval() bool {
 	return w.markedForRemoval
 }
 
-// LogAndSetLastError sets the latest error on this node. This will
-// cause the resource to become unavailable to external users of
-// the graph. The resource manager may still access the
+// LogAndSetLastError logs and sets the latest error on this node. This will cause the resource to
+// become unavailable to external users of the graph. The resource manager may still access the
 // underlying resource via UnsafeResource.
 //
 // The additional `args` should come in key/value pairs for structured logging.

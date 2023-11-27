@@ -519,14 +519,14 @@ func (manager *resourceManager) completeConfig(
 			if _, err := remConf.Validate(""); err != nil {
 				manager.logger.Errorw("remote config validation error", "remote", remConf.Name, "error", err)
 				gNode.LogAndSetLastError(
-					errors.New("remote config validation error"), "remote", remConf.Name, "error", err)
+					fmt.Errorf("remote config validation error: %w", err), "remote", remConf.Name)
 				continue
 			}
 			rr, err := manager.processRemote(ctx, *remConf)
 			if err != nil {
 				manager.logger.Errorw("error connecting to remote", "remote", remConf.Name, "error", err)
 				gNode.LogAndSetLastError(
-					errors.New("error connecting to remote"), "remote", remConf.Name, "error", err)
+					fmt.Errorf("error connecting to remote: %w", err), "remote", remConf.Name)
 				continue
 			}
 			manager.addRemote(ctx, rr, gNode, *remConf)
@@ -600,20 +600,18 @@ func (manager *resourceManager) completeConfig(
 			if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
 				manager.logger.Errorw("resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
 				gNode.LogAndSetLastError(
-					errors.New("resource config validation error"),
+					fmt.Errorf("resource config validation error: %w", err),
 					"resource", conf.ResourceName(),
-					"model", conf.Model,
-					"error", err)
+					"model", conf.Model)
 				return
 			}
 			if manager.moduleManager.Provides(conf) {
 				if _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
 					manager.logger.Errorw("modular resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
 					gNode.LogAndSetLastError(
-						errors.New("modular resource config validation error"),
+						fmt.Errorf("modular resource config validation error: %w", err),
 						"resource", conf.ResourceName(),
-						"model", conf.Model,
-						"error", err)
+						"model", conf.Model)
 					return
 				}
 			}
@@ -633,10 +631,9 @@ func (manager *resourceManager) completeConfig(
 				if err != nil {
 					manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
 					gNode.LogAndSetLastError(
-						errors.New("resource build error"),
+						fmt.Errorf("resource build error: %w", err),
 						"resource", conf.ResourceName(),
-						"model", conf.Model,
-						"error", err)
+						"model", conf.Model)
 					return
 				}
 

@@ -1531,7 +1531,7 @@ func TestValidationErrorOnReconfigure(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		resource.NewNotAvailableError(name, errors.New("config validation error found in resource: rdk:component:base/test: fail")),
+		resource.NewNotAvailableError(name, errors.New("resource config validation error: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
@@ -1617,7 +1617,7 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		resource.NewNotAvailableError(name, errors.New("config validation error found in resource: rdk:component:base/test: fail")),
+		resource.NewNotAvailableError(name, errors.New("resource config validation error: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
@@ -1748,7 +1748,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		resource.NewNotAvailableError(name, errors.New("config validation error found in resource: rdk:component:base/test: fail")),
+		resource.NewNotAvailableError(name, errors.New("resource config validation error: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
