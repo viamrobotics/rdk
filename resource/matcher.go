@@ -22,5 +22,5 @@ type SubtypeMatcher struct {
 
 // IsMatch returns true if the given name has a Subtype that matches the SubtypeMatcher's Subtype.
 func (sm SubtypeMatcher) IsMatch(name Name) bool {
-	return name.API.Type.Name == sm.Subtype
+	return name.API.SubtypeName == sm.Subtype
 }

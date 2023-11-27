@@ -47,9 +47,6 @@ func init() {
 
 				return nil
 			},
-			// NOTE(erd): this would be better as a weak dependencies returned through a more
-			// typed validate or different system.
-			// TODO: ^^^ ??
 			WeakDependencies: []resource.Matcher{
 				resource.TypeMatcher{Type: resource.APITypeComponentName},
 				resource.SubtypeMatcher{Subtype: slam.SubtypeName},
@@ -591,7 +588,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

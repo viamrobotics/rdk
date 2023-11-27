@@ -130,7 +130,7 @@ type Registration[ResourceT Resource, ConfigT any] struct {
 	// TODO(RSDK-418): remove this legacy constructor once all resources that use it no longer need to receive the entire robot.
 	DeprecatedRobotConstructor DeprecatedCreateWithRobot[ResourceT]
 
-	// WeakDependencies is a list of Matchers that fill find resources on the robot that fit the criteria they are looking for
+	// WeakDependencies is a list of Matchers that find resources on the robot that fit the criteria they are looking for
 	// and register them as dependencies on the resource being registered.
 	WeakDependencies []Matcher
 
