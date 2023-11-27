@@ -27,7 +27,7 @@ func (sm SubtypeMatcher) IsMatch(r Resource) bool {
 	return r.Name().API.SubtypeName == sm.Subtype
 }
 
-// InterfaceMatcher matches resources that fulfill the given interface
+// InterfaceMatcher matches resources that fulfill the given interface.
 type InterfaceMatcher struct {
 	Interface interface{}
 }

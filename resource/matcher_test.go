@@ -3,12 +3,13 @@ package resource_test
 import (
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/testutils"
-	"go.viam.com/test"
 )
 
 func TestMatchers(t *testing.T) {
