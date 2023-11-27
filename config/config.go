@@ -149,7 +149,6 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 			if c.DisablePartialStart {
 				return fullErr
 			}
-			logger.Errorw("component config error; starting robot without component", "name", component.Name, "error", err)
 			resLogger := logger.Sublogger(component.ResourceName().String())
 			resLogger.Errorw("component config error; starting robot without component", "name", component.Name, "error", err)
 		} else {
@@ -180,7 +179,6 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 			if c.DisablePartialStart {
 				return err
 			}
-			logger.Errorw("service config error; starting robot without service", "name", service.Name, "error", err)
 			resLogger := logger.Sublogger(service.ResourceName().String())
 			resLogger.Errorw("service config error; starting robot without service", "name", service.Name, "error", err)
 		} else {
