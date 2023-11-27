@@ -16,7 +16,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -73,7 +73,7 @@ type PCA9685 struct {
 	mu                  sync.RWMutex
 	address             byte
 	referenceClockSpeed int
-	bus                 board.I2C
+	bus                 buses.I2C
 	gpioPins            [16]gpioPin
 	logger              logging.Logger
 }
@@ -118,7 +118,7 @@ func (pca *PCA9685) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	bus, err := genericlinux.NewI2cBus(newConf.I2CBus)
+	bus, err := buses.NewI2cBus(newConf.I2CBus)
 	if err != nil {
 		return err
 	}
@@ -151,11 +151,6 @@ func (pca *PCA9685) parsePin(pin string) (int, error) {
 	return int(pinInt), nil
 }
 
-// ModelAttributes returns attributes related to the model of this board.
-func (pca *PCA9685) ModelAttributes() board.ModelAttributes {
-	return board.ModelAttributes{}
-}
-
 // SetPowerMode sets the board to the given power mode. If provided,
 // the board will exit the given power mode after the specified
 // duration.
@@ -186,17 +181,7 @@ func (pca *PCA9685) GPIOPinByName(pin string) (board.GPIOPin, error) {
 	return &pca.gpioPins[pinInt], nil
 }
 
-// GPIOPinNames returns the names of all known GPIO pins.
-func (pca *PCA9685) GPIOPinNames() []string {
-	return []string{
-		"0", "1", "2", "3",
-		"4", "5", "6", "7",
-		"8", "9", "10", "11",
-		"12", "13", "14", "15",
-	}
-}
-
-func (pca *PCA9685) openHandle() (board.I2CHandle, error) {
+func (pca *PCA9685) openHandle() (buses.I2CHandle, error) {
 	return pca.bus.OpenHandle(pca.address)
 }
 
@@ -266,16 +251,6 @@ func (pca *PCA9685) SetFrequency(ctx context.Context, frequency float64) error {
 	return nil
 }
 
-// SPINames returns the names of all known SPIs.
-func (pca *PCA9685) SPINames() []string {
-	return nil
-}
-
-// I2CNames returns the names of all known I2Cs.
-func (pca *PCA9685) I2CNames() []string {
-	return nil
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (pca *PCA9685) AnalogReaderNames() []string {
 	return nil
@@ -284,16 +259,6 @@ func (pca *PCA9685) AnalogReaderNames() []string {
 // DigitalInterruptNames returns the names of all known digital interrupts.
 func (pca *PCA9685) DigitalInterruptNames() []string {
 	return nil
-}
-
-// SPIByName returns the SPI by the given name if it exists.
-func (pca *PCA9685) SPIByName(name string) (board.SPI, bool) {
-	return nil, false
-}
-
-// I2CByName returns the i2c by the given name if it exists.
-func (pca *PCA9685) I2CByName(name string) (board.I2C, bool) {
-	return nil, false
 }
 
 // AnalogReaderByName returns the analog reader by the given name if it exists.
@@ -342,10 +307,10 @@ func (gp *gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float
 		utils.UncheckedError(handle.Close())
 	}()
 
-	regOnLow := board.I2CRegister{handle, gp.startAddr}
-	regOnHigh := board.I2CRegister{handle, gp.startAddr + 1}
-	regOffLow := board.I2CRegister{handle, gp.startAddr + 2}
-	regOffHigh := board.I2CRegister{handle, gp.startAddr + 3}
+	regOnLow := buses.I2CRegister{handle, gp.startAddr}
+	regOnHigh := buses.I2CRegister{handle, gp.startAddr + 1}
+	regOffLow := buses.I2CRegister{handle, gp.startAddr + 2}
+	regOffHigh := buses.I2CRegister{handle, gp.startAddr + 3}
 
 	onLow, err := regOnLow.ReadByteData(ctx)
 	if err != nil {
@@ -387,10 +352,10 @@ func (gp *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[s
 		utils.UncheckedError(handle.Close())
 	}()
 
-	regOnLow := board.I2CRegister{handle, gp.startAddr}
-	regOnHigh := board.I2CRegister{handle, gp.startAddr + 1}
-	regOffLow := board.I2CRegister{handle, gp.startAddr + 2}
-	regOffHigh := board.I2CRegister{handle, gp.startAddr + 3}
+	regOnLow := buses.I2CRegister{handle, gp.startAddr}
+	regOnHigh := buses.I2CRegister{handle, gp.startAddr + 1}
+	regOffLow := buses.I2CRegister{handle, gp.startAddr + 2}
+	regOffHigh := buses.I2CRegister{handle, gp.startAddr + 3}
 
 	if dutyCycle == 0xffff {
 		// On takes up all steps

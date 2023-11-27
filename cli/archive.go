@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"go.viam.com/utils"
 	"golang.org/x/exp/maps"
@@ -115,4 +116,9 @@ func addToArchive(tw *tar.Writer, filename string) error {
 	}
 
 	return nil
+}
+
+func isTarball(path string) bool {
+	return strings.HasSuffix(strings.ToLower(path), ".tar.gz") ||
+		strings.HasSuffix(strings.ToLower(path), ".tgz")
 }

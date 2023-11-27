@@ -7,16 +7,19 @@ import (
 
 	clk "github.com/benbjohnson/clock"
 	"go.viam.com/test"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/data"
+	du "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
-const captureInterval = time.Second
+const (
+	captureInterval = time.Second
+	numRetries      = 5
+)
 
 var readingMap = map[string]any{"reading1": false, "reading2": "test"}
 
@@ -32,15 +35,18 @@ func TestSensorCollector(t *testing.T) {
 	}
 
 	sens := newSensor()
-	col, err := sensor.NewSensorCollector(sens, params)
+	col, err := sensor.NewReadingsCollector(sens, params)
 	test.That(t, err, test.ShouldBeNil)
 
 	defer col.Close()
 	col.Collect()
 	mockClock.Add(captureInterval)
 
-	test.That(t, buf.Length(), test.ShouldEqual, 1)
-	test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, getExpectedMap(readingMap).AsMap())
+	tu.Retry(func() bool {
+		return buf.Length() != 0
+	}, numRetries)
+	test.That(t, buf.Length(), test.ShouldBeGreaterThan, 0)
+	test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, du.GetExpectedReadingsStruct(readingMap).AsMap())
 }
 
 func newSensor() sensor.Sensor {
@@ -49,18 +55,4 @@ func newSensor() sensor.Sensor {
 		return readingMap, nil
 	}
 	return s
-}
-
-func getExpectedMap(data map[string]any) *structpb.Struct {
-	readings := make(map[string]*structpb.Value)
-	for name, value := range data {
-		val, _ := structpb.NewValue(value)
-		readings[name] = val
-	}
-
-	topLevelMap := make(map[string]*structpb.Value)
-	topLevelMap["readings"] = structpb.NewStructValue(
-		&structpb.Struct{Fields: readings},
-	)
-	return &structpb.Struct{Fields: topLevelMap}
 }

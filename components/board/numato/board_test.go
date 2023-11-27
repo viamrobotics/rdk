@@ -10,7 +10,6 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	rutils "go.viam.com/rdk/utils"
 )
 
 func TestMask(t *testing.T) {
@@ -46,9 +45,8 @@ func TestNumato1(t *testing.T) {
 		ctx,
 		board.Named("foo"),
 		&Config{
-			Attributes: rutils.AttributeMap{"pins": 128},
-			Analogs:    []board.AnalogReaderConfig{{Name: "foo", Pin: "01"}},
-			Pins:       2,
+			Analogs: []board.AnalogReaderConfig{{Name: "foo", Pin: "01"}},
+			Pins:    2,
 		},
 		logger,
 	)
@@ -113,10 +111,14 @@ func TestNumato1(t *testing.T) {
 }
 
 func TestConfigValidate(t *testing.T) {
-	validConfig := Config{}
+	invalidConfig := Config{}
+	_, err := invalidConfig.Validate("path")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"pins" is required`)
 
+	validConfig := Config{Pins: 128}
 	validConfig.Analogs = []board.AnalogReaderConfig{{}}
-	_, err := validConfig.Validate("path")
+	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")

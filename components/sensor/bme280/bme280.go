@@ -13,8 +13,7 @@ import (
 	"math"
 	"time"
 
-	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -125,7 +124,7 @@ func newSensor(
 	conf *Config,
 	logger logging.Logger,
 ) (sensor.Sensor, error) {
-	i2cbus, err := genericlinux.NewI2cBus(conf.I2CBus)
+	i2cbus, err := buses.NewI2cBus(conf.I2CBus)
 	if err != nil {
 		return nil, fmt.Errorf("bme280 init: failed to open i2c bus %s: %w",
 			conf.I2CBus, err)
@@ -198,7 +197,7 @@ type bme280 struct {
 	resource.TriviallyCloseable
 	logger logging.Logger
 
-	bus         board.I2C
+	bus         buses.I2C
 	addr        byte
 	calibration map[string]int
 	lastTemp    float64 // Store raw data from temp for humidity calculations

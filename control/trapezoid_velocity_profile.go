@@ -122,6 +122,8 @@ func (s *trapezoidVelocityGenerator) reset() error {
 		s.kppGain = 0.45
 	}
 
+	s.lastsetPoint = math.NaN()
+
 	s.currentPhase = rest
 	s.y = make([]*Signal, 1)
 	s.y[0] = makeSignal(s.cfg.Name)

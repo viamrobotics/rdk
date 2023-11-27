@@ -14,8 +14,7 @@ import (
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
-	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -77,7 +76,7 @@ type vectornav struct {
 
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	bus                     board.SPI
+	bus                     buses.SPI
 	cs                      string
 	speed                   int
 	logger                  logging.Logger
@@ -132,7 +131,7 @@ func newVectorNav(
 	pfreq := *newConf.Pfreq
 	v := &vectornav{
 		Named:     conf.ResourceName().AsNamed(),
-		bus:       genericlinux.NewSpiBus(newConf.SPI),
+		bus:       buses.NewSpiBus(newConf.SPI),
 		logger:    logger,
 		cs:        newConf.CSPin,
 		speed:     speed,

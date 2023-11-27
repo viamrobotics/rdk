@@ -31,7 +31,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -155,7 +155,7 @@ type adxl345 struct {
 	resource.Named
 	resource.AlwaysRebuild
 
-	bus                      board.I2C
+	bus                      buses.I2C
 	i2cAddress               byte
 	logger                   logging.Logger
 	interruptsEnabled        byte
@@ -188,7 +188,7 @@ func NewAdxl345(
 		return nil, err
 	}
 
-	bus, err := genericlinux.NewI2cBus(newConf.I2cBus)
+	bus, err := buses.NewI2cBus(newConf.I2cBus)
 	if err != nil {
 		msg := fmt.Sprintf("can't find I2C bus '%q' for ADXL345 sensor", newConf.I2cBus)
 		return nil, errors.Wrap(err, msg)
@@ -208,7 +208,7 @@ func makeAdxl345(
 	deps resource.Dependencies,
 	conf resource.Config,
 	logger logging.Logger,
-	bus board.I2C,
+	bus buses.I2C,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {

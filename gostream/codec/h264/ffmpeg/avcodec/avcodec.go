@@ -82,10 +82,14 @@ func (ctxt *Context) SetEncodeParams(width, height int, pxlFmt PixelFormat, hasB
 	ctxt.pix_fmt = int32(pxlFmt)
 }
 
-// SetTimebase sets the context's time base's numerator (num) and denominator (den)
-func (ctxt *Context) SetTimebase(num, den int) {
-	ctxt.time_base.num = C.int(num)
-	ctxt.time_base.den = C.int(den)
+// SetFramerate sets the context's framerate
+func (ctxt *Context) SetFramerate(fps int) {
+	ctxt.framerate.num = C.int(fps)
+	ctxt.framerate.den = C.int(1)
+
+	// timebase should be 1/framerate
+	ctxt.time_base.num = C.int(1)
+	ctxt.time_base.den = C.int(fps)
 }
 
 // Open2 Initialize the AVCodecContext to use the given AVCodec. Prior to using this

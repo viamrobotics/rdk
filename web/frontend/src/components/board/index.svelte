@@ -246,13 +246,13 @@ const handleAnalogValueInput = (event:CustomEvent<{ value: string}>) => {
          <v-input
            label="Pin"
            type="text"
-           value={getPin}
+           value={analogPin}
            on:input={handleAnalogPinInput}
          />
          <v-input
          label="Value"
          type="text"
-         value={getPin}
+         value={analogValue}
          on:input={handleAnalogValueInput}
        />
        <v-button

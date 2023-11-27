@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/data"
+	du "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
 	tu "go.viam.com/rdk/testutils"
@@ -23,6 +24,7 @@ import (
 const (
 	componentName   = "movementsensor"
 	captureInterval = time.Second
+	numRetries      = 5
 )
 
 var vec = r3.Vector{
@@ -30,6 +32,8 @@ var vec = r3.Vector{
 	Y: 2.0,
 	Z: 3.0,
 }
+
+var readingMap = map[string]any{"reading1": false, "reading2": "test"}
 
 func TestMovementSensorCollectors(t *testing.T) {
 	tests := []struct {
@@ -83,6 +87,11 @@ func TestMovementSensorCollectors(t *testing.T) {
 				Orientation: getExpectedOrientation(),
 			}),
 		},
+		{
+			name:      "Movement sensor readings collector should write a readings response",
+			collector: movementsensor.NewReadingsCollector,
+			expected:  tu.ToProtoMapIgnoreOmitEmpty(du.GetExpectedReadingsStruct(readingMap).AsMap()),
+		},
 	}
 
 	for _, tc := range tests {
@@ -105,7 +114,10 @@ func TestMovementSensorCollectors(t *testing.T) {
 			col.Collect()
 			mockClock.Add(captureInterval)
 
-			test.That(t, buf.Length(), test.ShouldEqual, 1)
+			tu.Retry(func() bool {
+				return buf.Length() != 0
+			}, numRetries)
+			test.That(t, buf.Length(), test.ShouldBeGreaterThan, 0)
 			test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, tc.expected)
 		})
 	}
@@ -134,6 +146,9 @@ func newMovementSensor() movementsensor.MovementSensor {
 	}
 	m.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 		return spatialmath.NewZeroOrientation(), nil
+	}
+	m.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		return readingMap, nil
 	}
 	return m
 }

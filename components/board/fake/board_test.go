@@ -14,12 +14,6 @@ import (
 func TestFakeBoard(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	boardConfig := Config{
-		I2Cs: []board.I2CConfig{
-			{Name: "main", Bus: "0"},
-		},
-		SPIs: []board.SPIConfig{
-			{Name: "aux", BusSelect: "1"},
-		},
 		AnalogReaders: []board.AnalogReaderConfig{
 			{Name: "blue", Pin: "0"},
 		},
@@ -35,13 +29,7 @@ func TestFakeBoard(t *testing.T) {
 	b, err := NewBoard(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, ok := b.I2CByName("main")
-	test.That(t, ok, test.ShouldBeTrue)
-
-	_, ok = b.SPIByName("aux")
-	test.That(t, ok, test.ShouldBeTrue)
-
-	_, ok = b.AnalogReaderByName("blue")
+	_, ok := b.AnalogReaderByName("blue")
 	test.That(t, ok, test.ShouldBeTrue)
 
 	_, ok = b.DigitalInterruptByName("i1")

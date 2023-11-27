@@ -13,7 +13,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -91,7 +91,7 @@ type Motor struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
-	bus         board.SPI
+	bus         buses.SPI
 	csPin       string
 	index       int
 	enLowPin    board.GPIOPin
@@ -151,14 +151,14 @@ const (
 func NewMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, name resource.Name,
 	logger logging.Logger,
 ) (motor.Motor, error) {
-	bus := genericlinux.NewSpiBus(c.SPIBus)
+	bus := buses.NewSpiBus(c.SPIBus)
 	return makeMotor(ctx, deps, c, name, logger, bus)
 }
 
 // makeMotor returns a TMC5072 driven motor. It is separate from NewMotor, above, so you can inject
 // a mock SPI bus in here during testing.
 func makeMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, name resource.Name,
-	logger logging.Logger, bus board.SPI,
+	logger logging.Logger, bus buses.SPI,
 ) (motor.Motor, error) {
 	if c.CalFactor == 0 {
 		c.CalFactor = 1.0

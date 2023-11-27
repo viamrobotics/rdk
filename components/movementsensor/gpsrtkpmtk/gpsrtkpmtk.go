@@ -48,8 +48,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
 	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
 	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
@@ -140,8 +139,8 @@ type rtkI2C struct {
 	nmeamovementsensor gpsnmea.NmeaMovementSensor
 	correctionWriter   io.ReadWriteCloser
 
-	bus     board.I2C
-	mockI2c board.I2C // Will be nil unless we're in a unit test
+	bus     buses.I2C
+	mockI2c buses.I2C // Will be nil unless we're in a unit test
 	wbaud   int
 	addr    byte
 }
@@ -164,7 +163,7 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 	g.addr = byte(newConf.I2CAddr)
 
 	if g.mockI2c == nil {
-		i2cbus, err := genericlinux.NewI2cBus(newConf.I2CBus)
+		i2cbus, err := buses.NewI2cBus(newConf.I2CBus)
 		if err != nil {
 			return fmt.Errorf("gps init: failed to find i2c bus %s: %w", newConf.I2CBus, err)
 		}
@@ -220,7 +219,7 @@ func makeRTKI2C(
 	deps resource.Dependencies,
 	conf resource.Config,
 	logger logging.Logger,
-	mockI2c board.I2C,
+	mockI2c buses.I2C,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
