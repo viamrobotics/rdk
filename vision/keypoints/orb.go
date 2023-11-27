@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/resource"
 )
 
 // ORBConfig contains the parameters / configs needed to compute ORB features.
@@ -42,16 +44,16 @@ func LoadORBConfiguration(file string) (*ORBConfig, error) {
 // Validate ensures all parts of the ORBConfig are valid.
 func (config *ORBConfig) Validate(path string) error {
 	if config.Layers < 1 {
-		return utils.NewConfigValidationError(path, errors.New("n_layers should be >= 1"))
+		return resource.NewConfigValidationError(path, errors.New("n_layers should be >= 1"))
 	}
 	if config.DownscaleFactor <= 1 {
-		return utils.NewConfigValidationError(path, errors.New("downscale_factor should be greater than 1"))
+		return resource.NewConfigValidationError(path, errors.New("downscale_factor should be greater than 1"))
 	}
 	if config.FastConf == nil {
-		return utils.NewConfigValidationFieldRequiredError(path, "fast")
+		return resource.NewConfigValidationFieldRequiredError(path, "fast")
 	}
 	if config.BRIEFConf == nil {
-		return utils.NewConfigValidationFieldRequiredError(path, "brief")
+		return resource.NewConfigValidationFieldRequiredError(path, "brief")
 	}
 	return nil
 }

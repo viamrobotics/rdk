@@ -8,7 +8,6 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -279,7 +278,7 @@ func (conf *Config) validate(path, defaultAPIType string) ([]string, error) {
 	conf.AdjustPartialNames(defaultAPIType)
 
 	if conf.Name == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "name")
+		return nil, NewConfigValidationFieldRequiredError(path, "name")
 	}
 	if !utils.ValidNameRegex.MatchString(conf.Name) {
 		return nil, utils.ErrInvalidName(conf.Name)
@@ -371,4 +370,42 @@ func TransformAttributeMap[T any](attributes utils.AttributeMap) (T, error) {
 		}
 	}
 	return out, nil
+}
+
+// NewConfigValidationError returns a config validation error occurring at a given path.
+func NewConfigValidationError(path string, err error) error {
+	return fmt.Errorf("Error validating. Path: %q Error: %w", path, err)
+}
+
+// FieldRequiredError describes a missing field on a config object.
+type FieldRequiredError struct {
+	Path  string
+	Field string
+}
+
+func (fre FieldRequiredError) Error() string {
+	return fre.String()
+}
+
+func (fre FieldRequiredError) String() string {
+	if fre.Path == "" {
+		return fmt.Sprintf("Error validating, missing required field. Field: %q", fre.Field)
+	}
+	return fmt.Sprintf("Error validating, missing required field. Path: %q Field: %q", fre.Path, fre.Field)
+}
+
+// NewConfigValidationFieldRequiredError returns a config validation error for a field missing at a
+// given path.
+func NewConfigValidationFieldRequiredError(path, field string) error {
+	return FieldRequiredError{path, field}
+}
+
+// GetFieldFromFieldRequiredError returns the `Field` object from a `FieldRequiredError`.
+func GetFieldFromFieldRequiredError(err error) string {
+	var fre FieldRequiredError
+	if ok := errors.As(err, &fre); ok {
+		return fre.Field
+	}
+
+	return ""
 }

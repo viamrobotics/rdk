@@ -57,7 +57,7 @@ type Config struct {
 // depend on.
 func (conf *Config) Validate(path string) ([]string, error) {
 	if conf.I2cBus == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 
 	var deps []string

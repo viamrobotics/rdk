@@ -9,7 +9,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
@@ -76,7 +75,7 @@ func TestValidateConfig(t *testing.T) {
 			SingleTap: &tapCfg,
 		}
 		deps, err := cfg.Validate("path")
-		expectedErr := utils.NewConfigValidationFieldRequiredError("path", "board")
+		expectedErr := resource.NewConfigValidationFieldRequiredError("path", "board")
 		test.That(t, err, test.ShouldBeError, expectedErr)
 		test.That(t, deps, test.ShouldBeEmpty)
 	})
@@ -84,7 +83,7 @@ func TestValidateConfig(t *testing.T) {
 	t.Run("fails with no I2C bus", func(t *testing.T) {
 		cfg := Config{}
 		deps, err := cfg.Validate("path")
-		expectedErr := utils.NewConfigValidationFieldRequiredError("path", "i2c_bus")
+		expectedErr := resource.NewConfigValidationFieldRequiredError("path", "i2c_bus")
 		test.That(t, err, test.ShouldBeError, expectedErr)
 		test.That(t, deps, test.ShouldBeEmpty)
 	})

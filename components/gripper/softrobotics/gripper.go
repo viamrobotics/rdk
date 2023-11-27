@@ -33,20 +33,20 @@ type Config struct {
 func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.Board == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	if cfg.Open == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "open")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "open")
 	}
 	if cfg.Close == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "close")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "close")
 	}
 	if cfg.Power == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "power")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "power")
 	}
 
 	if cfg.AnalogReader != "psi" {
-		return nil, utils.NewConfigValidationError(path,
+		return nil, resource.NewConfigValidationError(path,
 			errors.Errorf("analog_reader %s on board must be created and called 'psi'", cfg.AnalogReader))
 	}
 	deps = append(deps, cfg.Board)

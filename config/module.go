@@ -6,7 +6,8 @@ import (
 	"regexp"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
+
+	"go.viam.com/rdk/resource"
 )
 
 var moduleNameRegEx = regexp.MustCompile(`^[\w-]+$`)
@@ -58,7 +59,7 @@ func (m *Module) Validate(path string) error {
 	}
 	if m.Status != nil {
 		m.alreadyValidated = true
-		m.cachedErr = utils.NewConfigValidationError(path, errors.New(m.Status.Error))
+		m.cachedErr = resource.NewConfigValidationError(path, errors.New(m.Status.Error))
 		return m.cachedErr
 	}
 	m.cachedErr = m.validate(path)

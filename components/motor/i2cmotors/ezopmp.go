@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/motor"
@@ -33,15 +32,15 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if conf.BusName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "bus_name")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "bus_name")
 	}
 
 	if conf.I2CAddress == nil {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_address")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "i2c_address")
 	}
 
 	if conf.MaxReadBits == nil {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "max_read_bits")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "max_read_bits")
 	}
 
 	return deps, nil

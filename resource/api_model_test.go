@@ -161,7 +161,7 @@ func TestModel(t *testing.T) {
 				Family: ModelFamily{Namespace: "", Name: "test"},
 				Name:   "modelA",
 			},
-			"namespace field for model missing",
+			`Error validating, missing required field. Field: "namespace"`,
 		},
 		{
 			"missing family",
@@ -172,7 +172,7 @@ func TestModel(t *testing.T) {
 				Family: ModelFamily{Namespace: "acme", Name: ""},
 				Name:   "modelA",
 			},
-			"model_family field for model missing",
+			`Error validating, missing required field. Field: "model_family"`,
 		},
 		{
 			"missing name",
@@ -183,7 +183,7 @@ func TestModel(t *testing.T) {
 				Family: ModelFamily{Namespace: "acme", Name: "test"},
 				Name:   "",
 			},
-			"name field for model missing",
+			`Error validating, missing required field. Field: "name"`,
 		},
 		{
 			"reserved character in model namespace",
@@ -386,7 +386,7 @@ func TestModelFromJSONObject(t *testing.T) {
 			"missing nested json field",
 			`{"namespace": "acme", "name": "model#B"}`,
 			Model{},
-			"field for model missing",
+			`Error validating, missing required field. Field: "model_family"`,
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {

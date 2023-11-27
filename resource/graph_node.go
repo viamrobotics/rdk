@@ -214,14 +214,19 @@ func (w *GraphNode) MarkedForRemoval() bool {
 	return w.markedForRemoval
 }
 
-// SetLastError sets the latest error on this node. This will
-// cause the resource to become unavailable to external users of
-// the graph. The resource manager may still access the
+// LogAndSetLastError logs and sets the latest error on this node. This will cause the resource to
+// become unavailable to external users of the graph. The resource manager may still access the
 // underlying resource via UnsafeResource.
-func (w *GraphNode) SetLastError(err error) {
+//
+// The additional `args` should come in key/value pairs for structured logging.
+func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
-	defer w.mu.Unlock()
 	w.lastErr = err
+	w.mu.Unlock()
+
+	if w.logger != nil {
+		w.logger.Errorw(err.Error(), args...)
+	}
 }
 
 // Config returns the current config that this resource is using.

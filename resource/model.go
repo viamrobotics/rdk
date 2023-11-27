@@ -51,10 +51,10 @@ func (n ModelNamespace) WithFamily(name string) ModelFamily {
 // Validate ensures that important fields exist and are valid.
 func (f ModelFamily) Validate() error {
 	if f.Namespace == "" {
-		return errors.New("namespace field for model missing")
+		return NewConfigValidationFieldRequiredError("", "namespace")
 	}
 	if f.Name == "" {
-		return errors.New("model_family field for model missing")
+		return NewConfigValidationFieldRequiredError("", "model_family")
 	}
 	if err := ContainsReservedCharacter(string(f.Namespace)); err != nil {
 		return err
@@ -105,7 +105,7 @@ func (m Model) Validate() error {
 		return err
 	}
 	if m.Name == "" {
-		return errors.New("name field for model missing")
+		return NewConfigValidationFieldRequiredError("", "name")
 	}
 	if err := ContainsReservedCharacter(m.Name); err != nil {
 		return err

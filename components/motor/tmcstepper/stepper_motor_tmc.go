@@ -50,21 +50,21 @@ func (config *TMC5072Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if config.Pins.EnablePinLow != "" {
 		if config.BoardName == "" {
-			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+			return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 		}
 		deps = append(deps, config.BoardName)
 	}
 	if config.SPIBus == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "spi_bus")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "spi_bus")
 	}
 	if config.ChipSelect == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "chip_select")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "chip_select")
 	}
 	if config.Index <= 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "index")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "index")
 	}
 	if config.TicksPerRotation <= 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
 	}
 	return deps, nil
 }

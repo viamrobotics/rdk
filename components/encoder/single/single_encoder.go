@@ -89,11 +89,11 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if conf.Pins.I == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "i")
 	}
 
 	if len(conf.BoardName) == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	deps = append(deps, conf.BoardName)
 

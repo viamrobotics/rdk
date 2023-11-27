@@ -120,7 +120,7 @@ func TestBaseRemoteControl(t *testing.T) {
 			ConvertedAttributes: cfg,
 		},
 		logger)
-	test.That(t, err, test.ShouldBeError, errors.New("\"rdk:component:input_controller/inputTest\" missing from dependencies"))
+	test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk:component:input_controller/inputTest"))
 
 	// Base import failure
 	deps[input.Named(cfg.InputControllerName)] = fakeController
@@ -133,7 +133,7 @@ func TestBaseRemoteControl(t *testing.T) {
 			ConvertedAttributes: cfg,
 		},
 		logger)
-	test.That(t, err, test.ShouldBeError, errors.New("\"rdk:component:base/baseTest\" missing from dependencies"))
+	test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk:component:base/baseTest"))
 
 	//  Deps exist but are incorrect component
 	deps[input.Named(cfg.InputControllerName)] = fakeController
