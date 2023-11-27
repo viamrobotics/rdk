@@ -132,6 +132,7 @@ type Registration[ResourceT Resource, ConfigT any] struct {
 
 	// WeakDependencies is a list of Matchers that find resources on the robot that fit the criteria they are looking for
 	// and register them as dependencies on the resource being registered.
+	// NOTE: This is currently an experimental feature and subject to change.
 	WeakDependencies []Matcher
 
 	// Discover looks around for information about this specific model.

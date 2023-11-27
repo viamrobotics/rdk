@@ -596,7 +596,7 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 			continue
 		}
 		for _, matcher := range weakDepMatchers {
-			if matcher.IsMatch(n) {
+			if matcher.IsMatch(res) {
 				deps[n] = res
 			}
 		}
