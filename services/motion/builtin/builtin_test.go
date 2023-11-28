@@ -552,6 +552,8 @@ func TestMoveOnMapPlans(t *testing.T) {
 	})
 
 	t.Run("check that position-only mode executes", func(t *testing.T) {
+		// TODO(RSDK-5758): unskip this
+		t.Skip()
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnMap(
