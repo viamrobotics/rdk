@@ -114,12 +114,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, node.MarkedForRemoval(), test.ShouldBeFalse)
 
 	// but an error happened
-<<<<<<< HEAD
-	node.IncrementTimesReconfigured()
 	node.LogAndSetLastError(ourErr)
-=======
-	node.SetLastError(ourErr)
->>>>>>> parent of 4be5f0d9c (RSDK-4307: Add max reconfig limit per resource (#3018))
 	_, err = node.Resource()
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, ourErr.Error())
@@ -155,81 +150,14 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, node.Config(), test.ShouldResemble, resource.Config{Attributes: utils.AttributeMap{"1": 2}})
 	test.That(t, node.UnresolvedDependencies(), test.ShouldResemble, []string{"3", "4", "5"})
 
-<<<<<<< HEAD
-	// an error happens 5 (MaxReconfigAttempts) times
-	var i uint64
-	for i = 0; i < resource.MaxReconfigAttempts; i++ {
-		test.That(t, node.CheckReconfigure(), test.ShouldBeNil)
-		node.IncrementTimesReconfigured()
-		node.LogAndSetLastError(ourErr)
-		_, err = node.Resource()
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, ourErr.Error())
-		res, err = node.UnsafeResource()
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, res, test.ShouldEqual, ourRes2)
-		test.That(t, node.IsUninitialized(), test.ShouldBeFalse)
-	}
-	test.That(t, node.CheckReconfigure(), test.ShouldNotBeNil)
-	test.That(t, node.CheckReconfigure().Error(), test.ShouldContainSubstring, "reconfiguration error")
-
-	// retry with new config
-	ourConf = resource.Config{Attributes: utils.AttributeMap{"1": 2}}
-	node.SetNewConfig(ourConf, []string{"6", "7", "8"})
-	test.That(t, node.NeedsReconfigure(), test.ShouldBeTrue)
-	test.That(t, node.CheckReconfigure(), test.ShouldBeNil) // test that SetNewConfig resets timesReconfigured
-	ourRes3 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("foo"))}
-	node.SwapResource(ourRes3, resource.DefaultModelFamily.WithModel("bazz"))
-	test.That(t, node.NeedsReconfigure(), test.ShouldBeFalse)
-	test.That(t, node.CheckReconfigure(), test.ShouldBeNil)
-	res, err = node.Resource()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, res, test.ShouldEqual, ourRes3)
-	test.That(t, node.Config(), test.ShouldResemble, resource.Config{Attributes: utils.AttributeMap{"1": 2}})
-
-	// but MaxReconfigAttempts errors happen
-	for i = 0; i < resource.MaxReconfigAttempts; i++ {
-		test.That(t, node.CheckReconfigure(), test.ShouldBeNil)
-		node.IncrementTimesReconfigured()
-		node.LogAndSetLastError(ourErr)
-		_, err = node.Resource()
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, ourErr.Error())
-		res, err = node.UnsafeResource()
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, res, test.ShouldEqual, ourRes3)
-	}
-	test.That(t, node.CheckReconfigure(), test.ShouldNotBeNil)
-	test.That(t, node.CheckReconfigure().Error(), test.ShouldContainSubstring, "reconfiguration error")
-
-	// parent was (re)configured
-	node.SetNeedsUpdate()
-	test.That(t, node.CheckReconfigure(), test.ShouldBeNil) // test that SetNeedsUpdate resets timesReconfigured
-
-	// but MaxReconfigAttempts errors happen in spite of this
-	for i = 0; i < resource.MaxReconfigAttempts; i++ {
-		test.That(t, node.CheckReconfigure(), test.ShouldBeNil)
-		node.IncrementTimesReconfigured()
-		node.LogAndSetLastError(ourErr)
-		_, err = node.Resource()
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, ourErr.Error())
-		res, err = node.UnsafeResource()
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, res, test.ShouldEqual, ourRes3)
-	}
-	test.That(t, node.CheckReconfigure(), test.ShouldNotBeNil)
-	test.That(t, node.CheckReconfigure().Error(), test.ShouldContainSubstring, "reconfiguration error")
-=======
 	// but an error happened
-	node.SetLastError(ourErr)
+	node.LogAndSetLastError(ourErr)
 	_, err = node.Resource()
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, ourErr.Error())
 	res, err = node.UnsafeResource()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldEqual, ourRes2)
->>>>>>> parent of 4be5f0d9c (RSDK-4307: Add max reconfig limit per resource (#3018))
 
 	// it finally reconfigured
 	ourRes3 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("fooa"))}
