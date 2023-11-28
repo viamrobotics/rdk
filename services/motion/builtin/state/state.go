@@ -168,7 +168,6 @@ func (e *execution[R]) start() error {
 	// As a result, both waitgroups need to be written to.
 	e.state.waitGroup.Add(1)
 	e.waitGroup.Add(1)
-
 	utils.PanicCapturingGo(func() {
 		defer e.state.waitGroup.Done()
 		defer e.waitGroup.Done()

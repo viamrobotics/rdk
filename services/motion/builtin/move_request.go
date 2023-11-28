@@ -669,6 +669,10 @@ func (mr moveResponse) String() string {
 }
 
 func (mr *moveRequest) start(waypoints [][]referenceframe.Input) {
+	// if Cancel has already been called, start does nothing
+	if mr.ctx.Err() != nil {
+		return
+	}
 	mr.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		mr.position.startPolling(mr.ctx, waypoints, mr.waypointIndex)
