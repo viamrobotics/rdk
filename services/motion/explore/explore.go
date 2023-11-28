@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
@@ -44,14 +43,16 @@ var (
 
 func init() {
 	resource.RegisterService(
-		motion.API, model,
+		motion.API,
+		model,
 		resource.Registration[motion.Service, *Config]{
 			Constructor: NewExplore,
-			WeakDependencies: []internal.ResourceMatcher{
-				internal.ComponentDependencyWildcardMatcher,
-				internal.VisionDependencyWildcardMatcher,
+			WeakDependencies: []resource.Matcher{
+				resource.TypeMatcher{Type: resource.APITypeComponentName},
+				resource.SubtypeMatcher{Subtype: vision.SubtypeName},
 			},
-		})
+		},
+	)
 }
 
 const (

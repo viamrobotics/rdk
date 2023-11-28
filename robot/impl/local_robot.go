@@ -19,7 +19,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -32,7 +31,6 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
-	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/utils"
 )
@@ -573,7 +571,7 @@ func (r *localRobot) getDependencies(
 	return allDeps, nil
 }
 
-func (r *localRobot) getWeakDependencyMatchers(api resource.API, model resource.Model) []internal.ResourceMatcher {
+func (r *localRobot) getWeakDependencyMatchers(api resource.API, model resource.Model) []resource.Matcher {
 	reg, ok := resource.LookupRegistration(api, model)
 	if !ok {
 		return nil
@@ -584,13 +582,10 @@ func (r *localRobot) getWeakDependencyMatchers(api resource.API, model resource.
 func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API, model resource.Model) resource.Dependencies {
 	weakDepMatchers := r.getWeakDependencyMatchers(api, model)
 
-	allResources := map[resource.Name]resource.Resource{}
-	internalResources := map[resource.Name]resource.Resource{}
-	components := map[resource.Name]resource.Resource{}
-	slamServices := map[resource.Name]resource.Resource{}
-	visionServices := map[resource.Name]resource.Resource{}
-	for _, n := range r.manager.resources.Names() {
-		if !(n.API.IsComponent() || n.API.IsService()) {
+	allNames := r.manager.resources.Names()
+	deps := make(resource.Dependencies, len(allNames))
+	for _, n := range allNames {
+		if !(n.API.IsComponent() || n.API.IsService()) || n == resName {
 			continue
 		}
 		res, err := r.ResourceByName(n)
@@ -600,38 +595,10 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 			}
 			continue
 		}
-		allResources[n] = res
-		switch {
-		case n.API.IsComponent():
-			components[n] = res
-		case n.API.SubtypeName == slam.API.SubtypeName:
-			slamServices[n] = res
-		case len(visionSubtypeName) > 0 && n.API.SubtypeName == visionSubtypeName:
-			visionServices[n] = res
-		case n.API.Type.Namespace == resource.APINamespaceRDKInternal:
-			internalResources[n] = res
-		}
-	}
-
-	deps := make(resource.Dependencies, len(weakDepMatchers))
-	for _, matcher := range weakDepMatchers {
-		match := func(resouces map[resource.Name]resource.Resource) {
-			for k, v := range resouces {
-				if k == resName {
-					continue
-				}
-				deps[k] = v
+		for _, matcher := range weakDepMatchers {
+			if matcher.IsMatch(res) {
+				deps[n] = res
 			}
-		}
-		switch matcher {
-		case internal.ComponentDependencyWildcardMatcher:
-			match(components)
-		case internal.SLAMDependencyWildcardMatcher:
-			match(slamServices)
-		case internal.VisionDependencyWildcardMatcher:
-			match(visionServices)
-		default:
-			// no other matchers supported right now. you could imagine a LiteralMatcher in the future
 		}
 	}
 	return deps

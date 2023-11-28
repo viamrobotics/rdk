@@ -39,7 +39,6 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
@@ -2401,7 +2400,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 					resources: deps,
 				}, nil
 			},
-			WeakDependencies: []internal.ResourceMatcher{internal.ComponentDependencyWildcardMatcher},
+			WeakDependencies: []resource.Matcher{resource.TypeMatcher{Type: resource.APITypeComponentName}},
 		})
 	defer func() {
 		resource.Deregister(weakAPI, weakModel)
