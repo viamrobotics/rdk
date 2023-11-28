@@ -90,7 +90,7 @@ func ModuleBuildStartAction(c *cli.Context) error {
 	// }
 
 	// todo: change to VendorID
-	printf(c.App.Writer, "got'em %s\n", *res.GithubId)
+	printf(c.App.Writer, "got'em %s\n", *res.BuildId)
 	return nil
 }
 
@@ -166,21 +166,19 @@ func ModuleBuildListAction(c *cli.Context) error {
 	idLen := len("xyz123")
 	statusLen := len("in progress")
 	versionLen := len("1.2.34-rc0")
-	archLen := len("darwin/arm32v7")
-	attemptLen := len("ATTEMPT")
+	platformLen := len("darwin/arm32v7")
 	timeLen := len(time.RFC3339)
 	//nolint:govet
-	tableFormat := fmt.Sprintf("%-%dv %-%dv %-%dv %-%dv %-%dv %-%dv ",
-		idLen, statusLen, versionLen, archLen, attemptLen, timeLen)
-	printf(c.App.Writer, tableFormat, "ID", "STATUS", "VERSION", "ARCH", "ATTEMPT", "TIME")
+	tableFormat := fmt.Sprintf("%-%dv %-%dv %-%dv %-%dv %-%dv ",
+		idLen, platformLen, statusLen, versionLen, timeLen)
+	printf(c.App.Writer, tableFormat, "ID", "PLATFORM", "STATUS", "VERSION", "TIME")
 	for _, job := range jobs.Jobs {
 		printf(c.App.Writer,
 			tableFormat,
-			firstN(job.JobId, idLen),
+			firstN(job.BuildId, idLen),
+			firstN(job.Platform, platformLen),
 			firstN(string(jobStatusFromProto(job.Status)), statusLen),
 			firstN(job.Version, versionLen),
-			firstN(job.Platform, archLen),
-			firstN(string(job.AttemptNumber), attemptLen),
 			firstN(job.StartTime.AsTime().Format(time.RFC3339), timeLen),
 		)
 	}
