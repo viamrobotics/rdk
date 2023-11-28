@@ -25,7 +25,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -50,7 +49,7 @@ func init() {
 			Constructor: NewExplore,
 			WeakDependencies: []resource.Matcher{
 				resource.TypeMatcher{Type: resource.APITypeComponentName},
-				resource.SubtypeMatcher{Subtype: slam.SubtypeName},
+				resource.SubtypeMatcher{Subtype: vision.SubtypeName},
 			},
 		},
 	)
