@@ -1,290 +1,177 @@
-// Package rtkutils defines a gps and an rtk correction source
-// which sends rtcm data to a child gps
-// This is an Experimental package
 package rtkutils
 
 import (
-	"context"
+	"bufio"
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
-	"math"
-	"sync"
+	"net"
+	"strings"
 
-	"github.com/golang/geo/r3"
-	geo "github.com/kellydunn/golang-geo"
-
-	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/movementsensor"
-	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
+	"github.com/de-bkg/gognss/pkg/ntrip"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/spatialmath"
 )
 
-// A RTKMovementSensor is an NMEA MovementSensor model that can intake RTK correction data.
-type RTKMovementSensor struct {
-	resource.Named
-	resource.AlwaysRebuild
-	logger     logging.Logger
-	cancelCtx  context.Context
-	cancelFunc func()
-
-	activeBackgroundWorkers sync.WaitGroup
-
-	ntripMu     sync.Mutex
-	ntripClient *NtripInfo
-	ntripStatus bool
-
-	err          movementsensor.LastError
-	lastposition movementsensor.LastPosition
-
-	Nmeamovementsensor gpsnmea.NmeaMovementSensor
-	InputProtocol      string
-	CorrectionWriter   io.ReadWriteCloser
-
-	Bus       board.I2C
-	Wbaud     int
-	Addr      byte // for i2c only
-	Writepath string
-}
-
-// GetStream attempts to connect to ntrip streak until successful connection or timeout.
-func (g *RTKMovementSensor) GetStream(mountPoint string, maxAttempts int) error {
-	success := false
-	attempts := 0
-
-	var rc io.ReadCloser
-	var err error
-
-	g.logger.Debug("Getting NTRIP stream")
-
-	for !success && attempts < maxAttempts {
-		select {
-		case <-g.cancelCtx.Done():
-			return errors.New("Canceled")
-		default:
-		}
-
-		rc, err = func() (io.ReadCloser, error) {
-			g.ntripMu.Lock()
-			defer g.ntripMu.Unlock()
-			return g.ntripClient.Client.GetStream(mountPoint)
-		}()
-		if err == nil {
-			success = true
-		}
-		attempts++
+// SendGGAMessage sends GGA messages to the NTRIP Caster over a TCP connection
+// to get the NTRIP steam when the mount point is a Virtual Reference Station.
+func SendGGAMessage(correctionWriter io.ReadWriteCloser,
+	readerWriter *bufio.ReadWriter, isConnected bool,
+	ntripInfo *NtripInfo,
+	logger logging.Logger) error {
+	if !isConnected {
+		readerWriter = ConnectToVirtualBase(ntripInfo.MountPoint, ntripInfo.Username,
+			ntripInfo.Password, ntripInfo.URL, isConnected, logger)
 	}
 
-	if err != nil {
-		g.logger.Errorf("Can't connect to NTRIP stream: %s", err)
-		return err
-	}
-
-	g.logger.Debug("Connected to stream")
-	g.ntripMu.Lock()
-	defer g.ntripMu.Unlock()
-
-	g.ntripClient.Stream = rc
-	return g.err.Get()
-}
-
-// NtripStatus returns true if connection to NTRIP stream is OK, false if not.
-func (g *RTKMovementSensor) NtripStatus() (bool, error) {
-	g.ntripMu.Lock()
-	defer g.ntripMu.Unlock()
-	return g.ntripStatus, g.err.Get()
-}
-
-// Position returns the current geographic location of the MOVEMENTSENSOR.
-func (g *RTKMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-	g.ntripMu.Lock()
-	lastError := g.err.Get()
-	if lastError != nil {
-		lastPosition := g.lastposition.GetLastPosition()
-		g.ntripMu.Unlock()
-		if lastPosition != nil {
-			return lastPosition, 0, nil
+	// read from the socket until we know if a successful connection has been
+	// established.
+	for {
+		if readerWriter.Reader == nil || readerWriter.Writer == nil {
+			break
 		}
-		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), lastError
-	}
-	g.ntripMu.Unlock()
+		line, _, err := readerWriter.ReadLine()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				logger.Debug("EOF encountered. sending GGA message again")
+				readerWriter = nil
+				isConnected = false
+				return err
+			}
+			logger.Error("Failed to read server response:", err)
+			return err
+		}
 
-	position, alt, err := g.Nmeamovementsensor.Position(ctx, extra)
-	if err != nil {
-		// Use the last known valid position if current position is (0,0)/ NaN.
-		if position != nil && (g.lastposition.IsZeroPosition(position) || g.lastposition.IsPositionNaN(position)) {
-			lastPosition := g.lastposition.GetLastPosition()
-			if lastPosition != nil {
-				return lastPosition, alt, nil
+		if strings.HasPrefix(string(line), "HTTP/1.1 ") {
+			if strings.Contains(string(line), "200 OK") {
+				isConnected = true
+				break
+			} else {
+				logger.Error("Bad HTTP response")
+				isConnected = false
+				return err
 			}
 		}
-		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), err
 	}
 
-	// Check if the current position is different from the last position and non-zero
-	lastPosition := g.lastposition.GetLastPosition()
-	if !g.lastposition.ArePointsEqual(position, lastPosition) {
-		g.lastposition.SetLastPosition(position)
-	}
-
-	// Update the last known valid position if the current position is non-zero
-	if position != nil && !g.lastposition.IsZeroPosition(position) {
-		g.lastposition.SetLastPosition(position)
-	}
-
-	return position, alt, nil
-}
-
-// LinearVelocity passthrough.
-func (g *RTKMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	g.ntripMu.Lock()
-	lastError := g.err.Get()
-	if lastError != nil {
-		defer g.ntripMu.Unlock()
-		return r3.Vector{}, lastError
-	}
-	g.ntripMu.Unlock()
-
-	return g.Nmeamovementsensor.LinearVelocity(ctx, extra)
-}
-
-// LinearAcceleration passthrough.
-func (g *RTKMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	lastError := g.err.Get()
-	if lastError != nil {
-		return r3.Vector{}, lastError
-	}
-	return g.Nmeamovementsensor.LinearAcceleration(ctx, extra)
-}
-
-// AngularVelocity passthrough.
-func (g *RTKMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
-	g.ntripMu.Lock()
-	lastError := g.err.Get()
-	if lastError != nil {
-		defer g.ntripMu.Unlock()
-		return spatialmath.AngularVelocity{}, lastError
-	}
-	g.ntripMu.Unlock()
-
-	return g.Nmeamovementsensor.AngularVelocity(ctx, extra)
-}
-
-// CompassHeading passthrough.
-func (g *RTKMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	g.ntripMu.Lock()
-	lastError := g.err.Get()
-	if lastError != nil {
-		defer g.ntripMu.Unlock()
-		return 0, lastError
-	}
-	g.ntripMu.Unlock()
-
-	return g.Nmeamovementsensor.CompassHeading(ctx, extra)
-}
-
-// Orientation passthrough.
-func (g *RTKMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-	g.ntripMu.Lock()
-	lastError := g.err.Get()
-	if lastError != nil {
-		defer g.ntripMu.Unlock()
-		return spatialmath.NewZeroOrientation(), lastError
-	}
-	g.ntripMu.Unlock()
-
-	return g.Nmeamovementsensor.Orientation(ctx, extra)
-}
-
-// ReadFix passthrough.
-func (g *RTKMovementSensor) ReadFix(ctx context.Context) (int, error) {
-	g.ntripMu.Lock()
-	lastError := g.err.Get()
-	if lastError != nil {
-		defer g.ntripMu.Unlock()
-		return 0, lastError
-	}
-	g.ntripMu.Unlock()
-
-	return g.Nmeamovementsensor.ReadFix(ctx)
-}
-
-// Properties passthrough.
-func (g *RTKMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
-	lastError := g.err.Get()
-	if lastError != nil {
-		return &movementsensor.Properties{}, lastError
-	}
-
-	return g.Nmeamovementsensor.Properties(ctx, extra)
-}
-
-// Accuracy passthrough.
-func (g *RTKMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
-	lastError := g.err.Get()
-	if lastError != nil {
-		return map[string]float32{}, lastError
-	}
-
-	return g.Nmeamovementsensor.Accuracy(ctx, extra)
-}
-
-// Readings will use the default MovementSensor Readings if not provided.
-func (g *RTKMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := movementsensor.DefaultAPIReadings(ctx, g, extra)
+	ggaMessage, err := GetGGAMessage(correctionWriter, logger)
 	if err != nil {
-		return nil, err
-	}
-
-	fix, err := g.ReadFix(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	readings["fix"] = fix
-
-	return readings, nil
-}
-
-// Close shuts down the RTKMOVEMENTSENSOR.
-func (g *RTKMovementSensor) Close(ctx context.Context) error {
-	g.ntripMu.Lock()
-	g.cancelFunc()
-
-	if err := g.Nmeamovementsensor.Close(ctx); err != nil {
-		g.ntripMu.Unlock()
+		logger.Error("Failed to get GGA message")
 		return err
 	}
 
-	// close ntrip writer
-	if g.CorrectionWriter != nil {
-		if err := g.CorrectionWriter.Close(); err != nil {
-			g.ntripMu.Unlock()
-			return err
-		}
-		g.CorrectionWriter = nil
-	}
+	logger.Debugf("Writing GGA message: %v\n", string(ggaMessage))
 
-	// close ntrip client and stream
-	if g.ntripClient.Client != nil {
-		g.ntripClient.Client.CloseIdleConnections()
-		g.ntripClient.Client = nil
-	}
-
-	if g.ntripClient.Stream != nil {
-		if err := g.ntripClient.Stream.Close(); err != nil {
-			g.ntripMu.Unlock()
-			return err
-		}
-		g.ntripClient.Stream = nil
-	}
-
-	g.ntripMu.Unlock()
-	g.activeBackgroundWorkers.Wait()
-
-	if err := g.err.Get(); err != nil && !errors.Is(err, context.Canceled) {
+	_, err = readerWriter.WriteString(string(ggaMessage))
+	if err != nil {
+		logger.Error("Failed to send NMEA data:", err)
 		return err
 	}
+
+	err = readerWriter.Flush()
+	if err != nil {
+		logger.Error("failed to write to buffer: ", err)
+		return err
+	}
+
+	logger.Debug("GGA message sent successfully.")
+
 	return nil
+}
+
+// ConnectToVirtualBase
+func ConnectToVirtualBase(mountPoint string, usr string,
+	pass string, url string,
+	isConnected bool,
+	logger logging.Logger) *bufio.ReadWriter {
+
+	mp := "/" + mountPoint
+	credentials := usr + ":" + pass
+	credentialsBase64 := base64.StdEncoding.EncodeToString([]byte(credentials))
+
+	// Process the server URL
+	serverAddr := url
+	serverAddr = strings.TrimPrefix(serverAddr, "http://")
+	serverAddr = strings.TrimPrefix(serverAddr, "https://")
+
+	conn, err := net.Dial("tcp", serverAddr)
+	if err != nil {
+		isConnected = false
+		logger.Errorf("Failed to connect to VRS server:", err)
+		return nil
+	}
+
+	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+
+	// Construct HTTP headers with CRLF line endings
+	httpHeaders := "GET " + mp + " HTTP/1.1\r\n" +
+		"Host: " + serverAddr + "\r\n" +
+		"Authorization: Basic " + credentialsBase64 + "\r\n" +
+		"Accept: */*\r\n" +
+		"Ntrip-Version: Ntrip/2.0\r\n" +
+		"User-Agent: NTRIP viam\r\n\r\n"
+
+	// Send HTTP headers over the TCP connection
+	_, err = rw.Write([]byte(httpHeaders))
+	if err != nil {
+		isConnected = false
+		logger.Error("Failed to send HTTP headers:", err)
+		return nil
+	}
+	err = rw.Flush()
+	if err != nil {
+		isConnected = false
+		logger.Error("failed to write to buffer")
+		return nil
+	}
+
+	logger.Debugf("request header: %v\n", httpHeaders)
+	logger.Debug("HTTP headers sent successfully.")
+	isConnected = true
+	return rw
+}
+
+// GetGGAMessage checks if a GGA message exists in the buffer and returns it.
+func GetGGAMessage(correctionWriter io.ReadWriteCloser, logger logging.Logger) ([]byte, error) {
+	buffer := make([]byte, 1024)
+	var totalBytesRead int
+
+	for {
+		n, err := correctionWriter.Read(buffer[totalBytesRead:])
+		if err != nil {
+			logger.Errorf("Error reading from Ntrip stream: %v", err)
+			return nil, err
+		}
+
+		totalBytesRead += n
+
+		// Check if the received data contains "GGA"
+		if ContainsGGAMessage(buffer[:totalBytesRead]) {
+			return buffer[:totalBytesRead], nil
+		}
+
+		// If we haven't found the "GGA" message, and we've reached the end of
+		// the buffer, return error.
+		if totalBytesRead >= len(buffer) {
+			return nil, errors.New("GGA message not found in the received data")
+		}
+	}
+}
+
+// ContainsGGAMessage returns true if data contains GGA message.
+func ContainsGGAMessage(data []byte) bool {
+	dataStr := string(data)
+	return strings.Contains(dataStr, "GGA")
+}
+
+// FindLineWithMountPoint parses the given source-table returns the NMEA field associated with
+// the given mountpoint.
+func FindLineWithMountPoint(sourceTable *ntrip.Sourcetable, mountPoint string) (bool, error) {
+	stream, isFound := sourceTable.HasStream(mountPoint)
+
+	if !isFound {
+		return false, fmt.Errorf("can not find mountpoint %s in sourcetable", mountPoint)
+	}
+
+	return stream.Nmea, nil
 }
