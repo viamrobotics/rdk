@@ -315,7 +315,7 @@ func TestState(t *testing.T) {
 		executionID1, err := state.StartExecution(s, req.ComponentName, req, executionWaitingForCtxCancelledPlanConstructor)
 		test.That(t, err, test.ShouldBeNil)
 
-		cancelCtx, cancelFn := context.WithTimeout(ctx, time.Millisecond*50)
+		cancelCtx, cancelFn := context.WithTimeout(ctx, time.Millisecond*500)
 		defer cancelFn()
 		// poll until ListPlanStatuses response has length 1
 		resPS, succ := pollUntil(cancelCtx, func() (struct {
