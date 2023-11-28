@@ -18,8 +18,6 @@ import (
 // updated or eventually removed. During its life, errors may be set on the
 // node to indicate that the resource is no longer available to external users.
 type GraphNode struct {
-	timesReconfigured atomic.Uint64
-
 	// mu guards all fields below.
 	mu sync.RWMutex
 
