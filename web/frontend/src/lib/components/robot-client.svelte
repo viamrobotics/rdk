@@ -39,6 +39,7 @@ const dispatch = createEventDispatcher<{
   'connection-error': unknown
 }>();
 
+
 const relevantSubtypesForStatus = [
   'arm',
   'gantry',
@@ -75,7 +76,13 @@ $robotClient = new Client(impliedURL, {
   noReconnect: true,
 });
 
-let password = '';
+const passwordByAuthType: {[key in string]: string} = {}
+const authEntityByAuthType: {[key in string]: string} = {}
+for (const auth of supportedAuthTypes) {
+  passwordByAuthType[auth] = ""
+  authEntityByAuthType[auth] = ""
+}
+
 let lastStatusTS: number | null = null;
 let resourcesOnce = false;
 
@@ -416,11 +423,11 @@ const start = () => {
   cancelTick = setAsyncInterval(tick, 500);
 };
 
-const connect = async (creds?: Credentials) => {
+const connect = async (creds?: Credentials, authEntity?: string) => {
   $connectionStatus = 'connecting';
 
   await $robotClient.connect({ 
-    authEntity: bakedAuth.authEntity, 
+    authEntity: authEntity ?? bakedAuth.authEntity,
     creds: creds ?? bakedAuth.creds,
     priority: 1 
   });
@@ -430,10 +437,10 @@ const connect = async (creds?: Credentials) => {
 };
 
 const login = async (authType: string) => {
-  const creds = { type: authType, payload: password };
+  const creds = { type: authType, payload: passwordByAuthType[authType] ?? ""};
 
   try {
-    await connect(creds);
+    await connect(creds, authEntityByAuthType[authType]);
   } catch (error) {
     notify.danger(`failed to connect: ${(error as ServiceError).message}`);
     $connectionStatus = 'idle';
@@ -495,17 +502,33 @@ if (supportedAuthTypes.length === 0) {
     <div class="px-4 py-3">
       <span>{authType}: </span>
       <div class="w-96">
-        <input
-          bind:value={password}
-          disabled={$connectionStatus === 'connecting'}
-          class="
+        {#if authType === "api-key"}
+          <label class="text-sm">
+            auth entity
+            <input
+                    bind:value={authEntityByAuthType[authType]}
+                    disabled={$connectionStatus === 'connecting'}
+                    class="
+              mb-2 block w-full appearance-none border p-2 text-gray-700
+              transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none
+            "
+                    autocomplete="off"
+            ></label>
+        {/if}
+        <label class="text-sm">
+          payload
+          <input
+                  bind:value={passwordByAuthType[authType]}
+                  disabled={$connectionStatus === 'connecting'}
+                  class="
             mb-2 block w-full appearance-none border p-2 text-gray-700
             transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none
           "
-          type="password"
-          autocomplete="off"
-          on:keyup={async (event) => event.key === 'Enter' && login(authType)}
-        >
+                  type="password"
+                  autocomplete="off"
+                  on:keyup={async (event) => event.key === 'Enter' && login(authType)}
+          >
+        </label>
         <v-button
           disabled={$connectionStatus === 'connecting'}
           label="Login"
