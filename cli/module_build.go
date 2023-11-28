@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/pkg/errors"
@@ -26,9 +28,9 @@ func (c *viamClient) startBuild(repo, ref, moduleID string, platform []string) (
 		return nil, err
 	}
 	req := buildpb.StartBuildRequest{
-		Repo:     &repo,
+		Repo:     repo,
 		Ref:      &ref,
-		Platform:     platform,
+		Platform: platform,
 		ModuleId: moduleID,
 	}
 	return c.buildClient.StartBuild(c.c.Context, &req)
@@ -88,8 +90,9 @@ func ModuleBuildStartAction(c *cli.Context) error {
 	// 	return err
 	// }
 
-	// todo: change to VendorID
-	printf(c.App.Writer, "got'em %s\n", res.BuildId)
+	// Print to stderr so that the buildID is the only thing in stdout
+	printf(c.App.ErrWriter, "Started build:")
+	printf(c.App.Writer, res.BuildId)
 	return nil
 }
 
@@ -142,6 +145,11 @@ func ModuleBuildListAction(c *cli.Context) error {
 		number := int32(c.Int(moduleBuildFlagNumber))
 		numberOfJobsToReturn = &number
 	}
+	var buildIDFilter *string
+	if c.IsSet(moduleBuildFlagBuildID) {
+		filter := c.String(moduleBuildFlagBuildID)
+		buildIDFilter = &filter
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -150,7 +158,7 @@ func ModuleBuildListAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	jobs, err := client.listModuleBuildJobs(moduleID, numberOfJobsToReturn)
+	jobs, err := client.listModuleBuildJobs(moduleID, numberOfJobsToReturn, buildIDFilter)
 	if err != nil {
 		return err
 	}
@@ -184,6 +192,60 @@ func ModuleBuildListAction(c *cli.Context) error {
 	return nil
 }
 
+// ModuleBuildLogsAction retrieves the logs for a specific build step.
+func ModuleBuildLogsAction(c *cli.Context) error {
+	buildID := c.String(moduleBuildFlagBuildID)
+	platform := c.String(moduleBuildFlagPlatform)
+	shouldWait := c.Bool(moduleBuildFlagWait)
+	if shouldWait {
+		panic("wait not implemented")
+	}
+
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	err = client.printModuleBuildLogs(c.Context, buildID, platform)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *viamClient) printModuleBuildLogs(ctx context.Context, buildID, platform string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	logsReq := &buildpb.GetLogsRequest{
+		BuildId:  buildID,
+		Platform: platform,
+	}
+
+	stream, err := c.buildClient.GetLogs(c.c.Context, logsReq)
+	if err != nil {
+		return err
+	}
+
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		log, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(c.c.App.Writer, log.Data) // data is already formatted with newlines
+	}
+
+	return nil
+}
+
 func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 	switch s {
 	case buildpb.JobStatus_JOB_STATUS_IN_PROGRESS:
@@ -199,13 +261,14 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 	}
 }
 
-func (c *viamClient) listModuleBuildJobs(moduleID moduleID, number *int32) (*buildpb.ListJobsResponse, error) {
+func (c *viamClient) listModuleBuildJobs(moduleID moduleID, number *int32, buildIDFilter *string) (*buildpb.ListJobsResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
 	req := buildpb.ListJobsRequest{
 		ModuleId:      moduleID.String(),
 		MaxJobsLength: number,
+		BuildId:       buildIDFilter,
 	}
 	return c.buildClient.ListJobs(c.c.Context, &req)
 }

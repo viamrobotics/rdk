@@ -40,7 +40,10 @@ const (
 	moduleFlagPlatform        = "platform"
 	moduleFlagForce           = "force"
 
-	moduleBuildFlagNumber = "number"
+	moduleBuildFlagNumber   = "number"
+	moduleBuildFlagBuildID  = "id"
+	moduleBuildFlagPlatform = "platform"
+	moduleBuildFlagWait     = "wait"
 
 	dataFlagDestination                    = "destination"
 	dataFlagDataType                       = "data-type"
@@ -1088,7 +1091,7 @@ Example:
 						},
 						{
 							Name:        "start",
-							Description: "heyo",
+							Description: "start a remote build",
 							Flags: []cli.Flag{
 								// todo: factor out common flags
 								&cli.StringFlag{
@@ -1102,7 +1105,7 @@ Example:
 						},
 						{
 							Name:  "list",
-							Usage: "list your cloud builds",
+							Usage: "check on the status of your cloud builds",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:      moduleFlagPath,
@@ -1116,8 +1119,29 @@ Example:
 									Aliases:     []string{"n"},
 									DefaultText: "all",
 								},
+								&cli.StringFlag{
+									Name:  moduleBuildFlagBuildID,
+									Usage: "restrict output to just return builds that match this id",
+								},
 							},
 							Action: ModuleBuildListAction,
+						},
+						{
+							Name:  "logs",
+							Usage: "get the logs from one of your cloud builds",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     moduleBuildFlagBuildID,
+									Usage:    "build that you want to get the logs for",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     moduleBuildFlagPlatform,
+									Usage:    "build platform to get the logs for. Ex: linux/arm64",
+									Required: true,
+								},
+							},
+							Action: ModuleBuildLogsAction,
 						},
 					},
 				},
