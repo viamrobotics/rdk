@@ -464,10 +464,7 @@ func (ms *builtIn) StopPlan(
 ) error {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	ms.logger.Debugf("StopPlan called on component: %s", req.ComponentName)
-	res := ms.state.StopExecutionByResource(req.ComponentName)
-	ms.logger.Debugf("StopPlan res: %s", res)
-	return res
+	return ms.state.StopExecutionByResource(req.ComponentName)
 }
 
 func (ms *builtIn) ListPlanStatuses(

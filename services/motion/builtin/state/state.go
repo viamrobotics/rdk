@@ -112,13 +112,11 @@ func (cs componentState) lastExecutionID() motion.ExecutionID {
 // execution represents the state of a motion planning execution.
 // it only ever exists in state.StartExecution function & the go routine created.
 type execution[R any] struct {
-	id         motion.ExecutionID
-	state      *State
-	waitGroup  *sync.WaitGroup
-	cancelCtx  context.Context
-	cancelFunc context.CancelFunc
-	// executorCancelCtx       context.Context
-	// executorCancelFunc      context.CancelFunc
+	id                      motion.ExecutionID
+	state                   *State
+	waitGroup               *sync.WaitGroup
+	cancelCtx               context.Context
+	cancelFunc              context.CancelFunc
 	logger                  logging.Logger
 	componentName           resource.Name
 	req                     R
@@ -196,9 +194,7 @@ func (e *execution[R]) start() error {
 			})
 			select {
 			case <-e.cancelCtx.Done():
-				e.logger.Debug("calling Cancel()")
 				lastPWE.planExecutor.Cancel()
-				e.logger.Debug("Cancel() returned")
 				e.notifyStatePlanStopped(lastPWE.plan, time.Now())
 				return
 			case res := <-resChan:
@@ -348,14 +344,11 @@ func StartExecution[R any](
 
 	// the state being cancelled should cause all executions derived from that state to also be cancelled
 	cancelCtx, cancelFunc := context.WithCancel(s.cancelCtx)
-	// executorCancelCtx, executorCancelFunc := context.WithCancel(context.Background())
 	e := execution[R]{
-		id:         uuid.New(),
-		state:      s,
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
-		// executorCancelCtx:       executorCancelCtx,
-		// executorCancelFunc:      executorCancelFunc,
+		id:                      uuid.New(),
+		state:                   s,
+		cancelCtx:               cancelCtx,
+		cancelFunc:              cancelFunc,
 		waitGroup:               &sync.WaitGroup{},
 		logger:                  s.logger,
 		req:                     req,
@@ -372,7 +365,6 @@ func StartExecution[R any](
 
 // Stop stops all executions within the State.
 func (s *State) Stop() {
-	s.logger.Debug("state.Stop() called")
 	s.cancelFunc()
 	s.waitGroup.Wait()
 }
