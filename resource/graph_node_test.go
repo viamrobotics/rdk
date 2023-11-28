@@ -106,7 +106,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldEqual, ourRes)
 
-	// now it needs udpate
+	// now it needs update
 	node.SetNeedsUpdate()
 	res, err = node.Resource()
 	test.That(t, err, test.ShouldBeNil)
