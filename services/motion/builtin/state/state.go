@@ -227,10 +227,7 @@ func (e *execution[R]) start() error {
 					return
 				}
 
-				e.logger.Debugf("updating last plan %s\n", lastPWE.plan.ID)
-				e.notifyStatePlanFailed(lastPWE.plan, res.resp.ReplanReason, time.Now())
-				e.logger.Debugf("updating new plan %s\n", newPWE.plan.ID.String())
-				e.notifyStateNewPlan(newPWE.plan, time.Now())
+				e.notifyStateRePlan(lastPWE.plan, res.resp.ReplanReason, newPWE.plan, time.Now())
 				lastPWE = newPWE
 			}
 		}
@@ -260,11 +257,20 @@ func (e *execution[R]) notifyStateNewExecution(execution stateExecution, plan mo
 	})
 }
 
-func (e *execution[R]) notifyStateNewPlan(plan motion.Plan, time time.Time) {
+func (e *execution[R]) notifyStateRePlan(lastPlan motion.Plan, reason string, newPlan motion.Plan, time time.Time) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
+	// NOTE: We hold the lock for both updateStateNewExecution & updateStateNewPlan to ensure no readers
+	// are able to see a state where the old plan is failed withou a new plan in progress during replanning
+	e.state.updateStateStatusUpdate(stateUpdateMsg{
+		componentName: e.componentName,
+		executionID:   e.id,
+		planID:        lastPlan.ID,
+		planStatus:    motion.PlanStatus{State: motion.PlanStateFailed, Timestamp: time, Reason: &reason},
+	})
+
 	e.state.updateStateNewPlan(newPlanMsg{
-		plan:       plan,
+		plan:       newPlan,
 		planStatus: motion.PlanStatus{State: motion.PlanStateInProgress, Timestamp: time},
 	})
 }
