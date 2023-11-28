@@ -41,6 +41,7 @@ const (
 	moduleFlagForce           = "force"
 
 	moduleBuildFlagNumber   = "number"
+	moduleBuildFlagVersion  = "version"
 	moduleBuildFlagBuildID  = "id"
 	moduleBuildFlagPlatform = "platform"
 	moduleBuildFlagWait     = "wait"
@@ -1099,6 +1100,11 @@ Example:
 									Usage:     "path to meta.json",
 									Value:     "./meta.json",
 									TakesFile: true,
+								},
+								&cli.StringFlag{
+									Name:     moduleBuildFlagVersion,
+									Usage:    "version of the module to upload (semver2.0) ex: \"0.1.0\"",
+									Required: true,
 								},
 							},
 							Action: ModuleBuildStartAction,

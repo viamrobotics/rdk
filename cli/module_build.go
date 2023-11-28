@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"text/tabwriter"
 	"time"
 
 	"github.com/pkg/errors"
@@ -23,15 +24,16 @@ const (
 	jobStatusDone       jobStatus = "done"
 )
 
-func (c *viamClient) startBuild(repo, ref, moduleID string, platform []string) (*buildpb.StartBuildResponse, error) {
+func (c *viamClient) startBuild(repo, ref, moduleID string, platforms []string, version string) (*buildpb.StartBuildResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
 	req := buildpb.StartBuildRequest{
-		Repo:     repo,
-		Ref:      &ref,
-		Platform: platform,
-		ModuleId: moduleID,
+		Repo:          repo,
+		Ref:           &ref,
+		Platforms:     platforms,
+		ModuleId:      moduleID,
+		ModuleVersion: version,
 	}
 	return c.buildClient.StartBuild(c.c.Context, &req)
 }
@@ -43,6 +45,11 @@ func ModuleBuildStartAction(c *cli.Context) error {
 		return err
 	}
 
+	version := c.String(moduleBuildFlagVersion)
+    // if version == "" {
+    //     return errors.New("version flag must be non-empty")
+    // }
+
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -51,7 +58,7 @@ func ModuleBuildStartAction(c *cli.Context) error {
 	if len(platforms) == 0 {
 		platforms = defaultBuildInfo.Arch
 	}
-	res, err := client.startBuild(manifest.URL, "main", manifest.ModuleID, platforms)
+	res, err := client.startBuild(manifest.URL, "main", manifest.ModuleID, platforms, version)
 	if err != nil {
 		return err
 	}
@@ -162,33 +169,14 @@ func ModuleBuildListAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	firstN := func(str string, n int) string {
-		v := []rune(str)
-		if n >= len(v) {
-			return str
-		}
-		return string(v[:n])
-	}
 	// table format rules:
-	idLen := len("xyz123")
-	statusLen := len("in progress")
-	versionLen := len("1.2.34-rc0")
-	platformLen := len("darwin/arm32v7")
-	timeLen := len(time.RFC3339)
-	//nolint:govet
-	tableFormat := fmt.Sprintf("%-%dv %-%dv %-%dv %-%dv %-%dv ",
-		idLen, platformLen, statusLen, versionLen, timeLen)
-	printf(c.App.Writer, tableFormat, "ID", "PLATFORM", "STATUS", "VERSION", "TIME")
+	w := tabwriter.NewWriter(c.App.Writer, 5, 4, 1, ' ', 0)
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", "ID", "PLATFORM", "STATUS", "VERSION", "TIME")
 	for _, job := range jobs.Jobs {
-		printf(c.App.Writer,
-			tableFormat,
-			firstN(job.BuildId, idLen),
-			firstN(job.Platform, platformLen),
-			firstN(string(jobStatusFromProto(job.Status)), statusLen),
-			firstN(job.Version, versionLen),
-			firstN(job.StartTime.AsTime().Format(time.RFC3339), timeLen),
-		)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+			job.BuildId, job.Platform, job.Status, job.Version, job.StartTime.AsTime().Format(time.RFC3339))
 	}
+	w.Flush()
 	return nil
 }
 
