@@ -123,7 +123,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, res, test.ShouldEqual, ourRes)
 	test.That(t, node.IsUninitialized(), test.ShouldBeFalse)
 
-	// it finally reconfigured
+	// it reconfigured
 	ourRes2 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("foo"))}
 	node.SwapResource(ourRes2, resource.DefaultModelFamily.WithModel("baz"))
 	test.That(t, node.ResourceModel(), test.ShouldResemble, resource.DefaultModelFamily.WithModel("baz"))
@@ -159,7 +159,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldEqual, ourRes2)
 
-	// it finally reconfigured
+	// it reconfigured
 	ourRes3 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("fooa"))}
 	node.SwapResource(ourRes3, resource.DefaultModelFamily.WithModel("bazz"))
 	test.That(t, node.ResourceModel(), test.ShouldResemble, resource.DefaultModelFamily.WithModel("bazz"))
