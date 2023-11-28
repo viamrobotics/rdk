@@ -16,20 +16,19 @@ type jobStatus string
 
 const (
 	jobStatusUnknown    jobStatus = "unknown"
-	jobStatusQueued     jobStatus = "queued"
 	jobStatusInProgress jobStatus = "in progress"
 	jobStatusFailed     jobStatus = "failed"
 	jobStatusDone       jobStatus = "done"
 )
 
-func (c *viamClient) startBuild(repo, ref, moduleID string, arch []string) (*buildpb.StartBuildResponse, error) {
+func (c *viamClient) startBuild(repo, ref, moduleID string, platform []string) (*buildpb.StartBuildResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
 	req := buildpb.StartBuildRequest{
 		Repo:     &repo,
 		Ref:      &ref,
-		Arch:     arch,
+		Platform:     platform,
 		ModuleId: moduleID,
 	}
 	return c.buildClient.StartBuild(c.c.Context, &req)
@@ -90,7 +89,7 @@ func ModuleBuildStartAction(c *cli.Context) error {
 	// }
 
 	// todo: change to VendorID
-	printf(c.App.Writer, "got'em %s\n", *res.BuildId)
+	printf(c.App.Writer, "got'em %s\n", res.BuildId)
 	return nil
 }
 
@@ -187,8 +186,6 @@ func ModuleBuildListAction(c *cli.Context) error {
 
 func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 	switch s {
-	case buildpb.JobStatus_JOB_STATUS_QUEUED:
-		return jobStatusQueued
 	case buildpb.JobStatus_JOB_STATUS_IN_PROGRESS:
 		return jobStatusInProgress
 	case buildpb.JobStatus_JOB_STATUS_FAILED:
