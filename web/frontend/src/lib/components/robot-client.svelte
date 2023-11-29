@@ -543,8 +543,9 @@ let selectedAuthType: string = supportedAuthTypes[0]!
           >
         </label>
         <button
+                disabled={$connectionStatus === 'connecting'}
                 class="block w-full h-10 p-2 mt-8 mb-2 bg-[#282829] text-sm text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:pointer-events-none"
-          on:click={$connectionStatus === 'connecting' ? undefined : async () => login(selectedAuthType)}
+          on:click={async () => login(selectedAuthType)}
         >
           Log in
         </button>
