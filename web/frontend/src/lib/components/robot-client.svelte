@@ -516,26 +516,24 @@ let selectedAuthType: string = supportedAuthTypes[0]!
       </div>
     <div class="w-full">
         {#if selectedAuthType === apiKeyAuthType}
-          <label class="text-sm">
+          <label class="block text-xs text-[#4E4F52] leading-3 mb-2">
             api key id
             <input
                     bind:value={apiKeyEntity}
                     disabled={$connectionStatus === 'connecting'}
                     class="
-              mb-2 block w-full appearance-none border p-2 text-gray-700
-              transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none
+              border border-[#E4E4E6] text-sm block w-full p-2.5 mt-2
             "
                     autocomplete="off"
             ></label>
         {/if}
-        <label class="text-sm">
+        <label class="block text-xs text-[#4E4F52] leading-3">
             {selectedAuthType === apiKeyAuthType ? "api key" : "secret" }
           <input
                   bind:value={passwordByAuthType[selectedAuthType]}
                   disabled={$connectionStatus === 'connecting'}
                   class="
-            mb-2 block w-full appearance-none border p-2 text-gray-700
-            transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none
+            border border-[#E4E4E6] text-sm block w-full p-2.5 mt-2
           "
                   type="password"
                   autocomplete="off"
