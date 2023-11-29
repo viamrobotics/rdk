@@ -20,8 +20,8 @@ func SendGGAMessage(correctionWriter io.ReadWriteCloser,
 	ntripInfo *NtripInfo,
 	logger logging.Logger) error {
 	if !isConnected {
-		readerWriter = ConnectToVirtualBase(ntripInfo.MountPoint, ntripInfo.Username,
-			ntripInfo.Password, ntripInfo.URL, isConnected, logger)
+		readerWriter, _ = ConnectToVirtualBase(ntripInfo.MountPoint, ntripInfo.Username,
+			ntripInfo.Password, ntripInfo.URL, logger)
 	}
 
 	// read from the socket until we know if a successful connection has been
@@ -82,8 +82,9 @@ func SendGGAMessage(correctionWriter io.ReadWriteCloser,
 // ConnectToVirtualBase
 func ConnectToVirtualBase(mountPoint string, usr string,
 	pass string, url string,
-	isConnected bool,
-	logger logging.Logger) *bufio.ReadWriter {
+	logger logging.Logger) (*bufio.ReadWriter, bool) {
+
+	var isConnected bool
 
 	mp := "/" + mountPoint
 	credentials := usr + ":" + pass
@@ -98,7 +99,7 @@ func ConnectToVirtualBase(mountPoint string, usr string,
 	if err != nil {
 		isConnected = false
 		logger.Errorf("Failed to connect to VRS server:", err)
-		return nil
+		return nil, isConnected
 	}
 
 	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
@@ -116,19 +117,19 @@ func ConnectToVirtualBase(mountPoint string, usr string,
 	if err != nil {
 		isConnected = false
 		logger.Error("Failed to send HTTP headers:", err)
-		return nil
+		return nil, isConnected
 	}
 	err = rw.Flush()
 	if err != nil {
 		isConnected = false
 		logger.Error("failed to write to buffer")
-		return nil
+		return nil, isConnected
 	}
 
 	logger.Debugf("request header: %v\n", httpHeaders)
 	logger.Debug("HTTP headers sent successfully.")
 	isConnected = true
-	return rw
+	return rw, isConnected
 }
 
 // GetGGAMessage checks if a GGA message exists in the buffer and returns it.

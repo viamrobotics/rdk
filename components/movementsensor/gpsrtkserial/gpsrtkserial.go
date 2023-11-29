@@ -429,7 +429,6 @@ func (g *rtkSerial) connectAndParseSourceTable() error {
 
 // connectToNTRIP connects to NTRIP stream.
 func (g *rtkSerial) connectToNTRIP() error {
-	g.isConnected = false
 
 	err := g.connectAndParseSourceTable()
 	if err != nil {
@@ -444,6 +443,8 @@ func (g *rtkSerial) connectToNTRIP() error {
 
 	if g.isVirtualBase {
 		g.logger.Debug("connecting to a Virtual Reference Station")
+		g.readerWriter, g.isConnected = rtk.ConnectToVirtualBase(g.ntripClient.MountPoint,
+			g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.URL, g.logger)
 		err = rtk.SendGGAMessage(g.correctionWriter, g.readerWriter, g.isConnected,
 			g.ntripClient, g.logger)
 		if err != nil {
