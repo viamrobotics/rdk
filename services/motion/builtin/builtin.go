@@ -387,6 +387,7 @@ func (ms *builtIn) MoveOnGlobe(
 func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
+	ms.logger.Debugf("MoveOnGlobeNew called with %s", req)
 	// TODO: Deprecated: remove once no motion apis use the opid system
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 	planExecutorConstructor := func(
