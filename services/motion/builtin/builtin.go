@@ -399,7 +399,7 @@ func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq
 		return ms.newMoveOnGlobeRequest(ctx, req, seedPlan, replanCount)
 	}
 
-	id, err := state.StartExecution(ms.state, req.ComponentName, req, planExecutorConstructor)
+	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, planExecutorConstructor)
 	if err != nil {
 		return "", err
 	}

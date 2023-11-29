@@ -173,7 +173,7 @@ func TestState(t *testing.T) {
 		t.Parallel()
 		s := state.NewState(ctx, logger)
 		defer s.Stop()
-		_, err := state.StartExecution(s, emptyReq.ComponentName, emptyReq, successPlanConstructor)
+		_, err := state.StartExecution(ctx, s, emptyReq.ComponentName, emptyReq, successPlanConstructor)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -182,37 +182,37 @@ func TestState(t *testing.T) {
 		s := state.NewState(ctx, logger)
 		defer s.Stop()
 
-		_, err := state.StartExecution(s, emptyReq.ComponentName, emptyReq, executionWaitingForCtxCancelledPlanConstructor)
+		_, err := state.StartExecution(ctx, s, emptyReq.ComponentName, emptyReq, executionWaitingForCtxCancelledPlanConstructor)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = s.StopExecutionByResource(myBase)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = state.StartExecution(s, emptyReq.ComponentName, emptyReq, successPlanConstructor)
+		_, err = state.StartExecution(ctx, s, emptyReq.ComponentName, emptyReq, successPlanConstructor)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = s.StopExecutionByResource(myBase)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = state.StartExecution(s, emptyReq.ComponentName, emptyReq, replanPlanConstructor)
+		_, err = state.StartExecution(ctx, s, emptyReq.ComponentName, emptyReq, replanPlanConstructor)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = s.StopExecutionByResource(myBase)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = state.StartExecution(s, emptyReq.ComponentName, emptyReq, failedExecutionPlanConstructor)
+		_, err = state.StartExecution(ctx, s, emptyReq.ComponentName, emptyReq, failedExecutionPlanConstructor)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = s.StopExecutionByResource(myBase)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = state.StartExecution(s, emptyReq.ComponentName, emptyReq, failedPlanningPlanConstructor)
+		_, err = state.StartExecution(ctx, s, emptyReq.ComponentName, emptyReq, failedPlanningPlanConstructor)
 		test.That(t, err, test.ShouldBeError, errors.New("planning failed"))
 
 		err = s.StopExecutionByResource(myBase)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = state.StartExecution(s, emptyReq.ComponentName, emptyReq, failedReplanningPlanConstructor)
+		_, err = state.StartExecution(ctx, s, emptyReq.ComponentName, emptyReq, failedReplanningPlanConstructor)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = s.StopExecutionByResource(myBase)
@@ -224,7 +224,7 @@ func TestState(t *testing.T) {
 		s := state.NewState(ctx, logger)
 		defer s.Stop()
 		req := motion.MoveOnGlobeReq{ComponentName: myBase}
-		_, err := state.StartExecution(s, req.ComponentName, req, executionWaitingForCtxCancelledPlanConstructor)
+		_, err := state.StartExecution(ctx, s, req.ComponentName, req, executionWaitingForCtxCancelledPlanConstructor)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = s.StopExecutionByResource(myBase)
@@ -238,7 +238,7 @@ func TestState(t *testing.T) {
 		s := state.NewState(ctx, logger)
 		defer s.Stop()
 		req := motion.MoveOnGlobeReq{ComponentName: myBase}
-		_, err := state.StartExecution(s, req.ComponentName, req, executionWaitingForCtxCancelledPlanConstructor)
+		_, err := state.StartExecution(ctx, s, req.ComponentName, req, executionWaitingForCtxCancelledPlanConstructor)
 		test.That(t, err, test.ShouldBeNil)
 
 		s.Stop()
@@ -250,7 +250,7 @@ func TestState(t *testing.T) {
 		s := state.NewState(ctx, logger)
 		defer s.Stop()
 		req := motion.MoveOnGlobeReq{ComponentName: myBase}
-		_, err := state.StartExecution(s, req.ComponentName, req, executionWaitingForCtxCancelledPlanConstructor)
+		_, err := state.StartExecution(ctx, s, req.ComponentName, req, executionWaitingForCtxCancelledPlanConstructor)
 		test.That(t, err, test.ShouldBeNil)
 
 		s.Stop()
@@ -264,7 +264,7 @@ func TestState(t *testing.T) {
 		s := state.NewState(ctx, logger)
 		defer s.Stop()
 		req := motion.MoveOnGlobeReq{ComponentName: myBase}
-		_, err := state.StartExecution(s, req.ComponentName, req, executionWaitingForCtxCancelledPlanConstructor)
+		_, err := state.StartExecution(ctx, s, req.ComponentName, req, executionWaitingForCtxCancelledPlanConstructor)
 		test.That(t, err, test.ShouldBeNil)
 		req2 := motion.PlanHistoryReq{}
 		_, err = s.PlanHistory(req2)
@@ -284,7 +284,7 @@ func TestState(t *testing.T) {
 		preExecution := time.Now()
 		// Failing to plan the first time results in an error
 		req := motion.MoveOnGlobeReq{ComponentName: myBase}
-		id, err := state.StartExecution(s, req.ComponentName, req, failedPlanningPlanConstructor)
+		id, err := state.StartExecution(ctx, s, req.ComponentName, req, failedPlanningPlanConstructor)
 		test.That(t, err, test.ShouldBeError, errors.New("planning failed"))
 		test.That(t, id, test.ShouldResemble, uuid.Nil)
 
@@ -294,7 +294,7 @@ func TestState(t *testing.T) {
 		test.That(t, ps2, test.ShouldBeEmpty)
 
 		req = motion.MoveOnGlobeReq{ComponentName: myBase}
-		executionID1, err := state.StartExecution(s, req.ComponentName, req, executionWaitingForCtxCancelledPlanConstructor)
+		executionID1, err := state.StartExecution(ctx, s, req.ComponentName, req, executionWaitingForCtxCancelledPlanConstructor)
 		test.That(t, err, test.ShouldBeNil)
 
 		cancelCtx, cancelFn := context.WithTimeout(ctx, time.Millisecond*500)
@@ -329,7 +329,7 @@ func TestState(t *testing.T) {
 		test.That(t, resPS.ps[0].Status.Reason, test.ShouldBeNil)
 		test.That(t, resPS.ps[0].Status.Timestamp.After(preExecution), test.ShouldBeTrue)
 
-		id, err = state.StartExecution(s, req.ComponentName, req, replanPlanConstructor)
+		id, err = state.StartExecution(ctx, s, req.ComponentName, req, replanPlanConstructor)
 		test.That(t, err, test.ShouldBeError, fmt.Errorf("there is already an active executionID: %s", executionID1))
 		test.That(t, id, test.ShouldResemble, uuid.Nil)
 
@@ -393,7 +393,7 @@ func TestState(t *testing.T) {
 		preExecution2 := time.Now()
 		ctxReplanning, triggerReplanning := context.WithCancel(context.Background())
 		ctxExecutionSuccess, triggerExecutionSuccess := context.WithCancel(context.Background())
-		executionID2, err := state.StartExecution(s, req.ComponentName, req, func(
+		executionID2, err := state.StartExecution(ctx, s, req.ComponentName, req, func(
 			ctx context.Context,
 			req motion.MoveOnGlobeReq,
 			seedPlan motionplan.Plan,
@@ -520,7 +520,7 @@ func TestState(t *testing.T) {
 		// // Failed after replanning
 		preExecution3 := time.Now()
 		replanFailReason := errors.New("replanning failed")
-		executionID3, err := state.StartExecution(s, req.ComponentName, req, func(
+		executionID3, err := state.StartExecution(ctx, s, req.ComponentName, req, func(
 			ctx context.Context,
 			req motion.MoveOnGlobeReq,
 			seedPlan motionplan.Plan,
@@ -596,7 +596,7 @@ func TestState(t *testing.T) {
 		// Failed at the end of execution
 		preExecution4 := time.Now()
 		executionFailReason := errors.New("execution failed")
-		executionID4, err := state.StartExecution(s, req.ComponentName, req, func(
+		executionID4, err := state.StartExecution(ctx, s, req.ComponentName, req, func(
 			ctx context.Context,
 			req motion.MoveOnGlobeReq,
 			seedPlan motionplan.Plan,

@@ -123,12 +123,12 @@ type planWithExecutor struct {
 }
 
 // NewPlan creates a new motion.Plan from an execution & returns an error if one was not able to be created.
-func (e *execution[R]) newPlanWithExecutor(seedPlan motionplan.Plan, replanCount int) (planWithExecutor, error) {
+func (e *execution[R]) newPlanWithExecutor(ctx context.Context, seedPlan motionplan.Plan, replanCount int) (planWithExecutor, error) {
 	pe, err := e.planExecutorConstructor(e.cancelCtx, e.req, seedPlan, replanCount)
 	if err != nil {
 		return planWithExecutor{}, err
 	}
-	resp, err := pe.Plan(e.cancelCtx)
+	resp, err := pe.Plan(ctx)
 	if err != nil {
 		return planWithExecutor{}, err
 	}
@@ -143,9 +143,9 @@ func (e *execution[R]) newPlanWithExecutor(seedPlan motionplan.Plan, replanCount
 }
 
 // Start starts an execution with a given plan.
-func (e *execution[R]) start() error {
+func (e *execution[R]) start(ctx context.Context) error {
 	var replanCount int
-	originalPlanWithExecutor, err := e.newPlanWithExecutor(nil, replanCount)
+	originalPlanWithExecutor, err := e.newPlanWithExecutor(ctx, nil, replanCount)
 	if err != nil {
 		return err
 	}
@@ -194,7 +194,7 @@ func (e *execution[R]) start() error {
 			// replan
 			default:
 				replanCount++
-				newPWE, err := e.newPlanWithExecutor(lastPWE.motionplan, replanCount)
+				newPWE, err := e.newPlanWithExecutor(e.cancelCtx, lastPWE.motionplan, replanCount)
 				// replan failed
 				if err != nil {
 					msg := "failed to replan for execution %s and component: %s, " +
@@ -314,6 +314,7 @@ func NewState(ctx context.Context, logger logging.Logger) *State {
 
 // StartExecution creates a new execution from a state.
 func StartExecution[R any](
+	ctx context.Context,
 	s *State,
 	componentName resource.Name,
 	req R,
@@ -341,7 +342,7 @@ func StartExecution[R any](
 		planExecutorConstructor: planExecutorConstructor,
 	}
 
-	if err := e.start(); err != nil {
+	if err := e.start(ctx); err != nil {
 		return uuid.Nil, err
 	}
 
