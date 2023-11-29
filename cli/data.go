@@ -611,7 +611,7 @@ func DataAddToDatasetByFilter(c *cli.Context) error {
 	return nil
 }
 
-func performActionOnBinaryIDs(actionOnBinaryData func(*datapb.BinaryID) error,
+func performActionOnBinaryDataFromFilter(actionOnBinaryData func(*datapb.BinaryID) error,
 	filter *datapb.Filter, dataClient datapb.DataServiceClient, parallelActions uint, writer io.Writer) error {
 	ids := make(chan *datapb.BinaryID, parallelActions)
 	// Give channel buffer of 1+parallelDownloads because that is the number of goroutines that may be passing an
@@ -712,7 +712,7 @@ func (c *viamClient) dataAddToDatasetByFilter(filter *datapb.Filter, datasetID s
 	}
 	parallelActions := uint(100)
 
-	return performActionOnBinaryIDs(
+	return performActionOnBinaryDataFromFilter(
 		func(id *datapb.BinaryID) error {
 			return addDataToDatasetByIDWrapper(c.c.Context, c.dataClient, datasetID, id)
 		},
