@@ -49,6 +49,7 @@ const relevantSubtypesForStatus = [
   'input_controller',
 ] as const;
 
+const apiKeyAuthType = "api-key"
 const urlPort = location.port ? `:${location.port}` : ''
 const impliedURL = `${location.protocol}//${location.hostname}${urlPort}`;
 
@@ -76,11 +77,10 @@ $robotClient = new Client(impliedURL, {
   noReconnect: true,
 });
 
-const passwordByAuthType: {[key in string]: string} = {}
-const authEntityByAuthType: {[key in string]: string} = {}
+const passwordByAuthType: Record<string, string> = {}
+let apiKeyEntity = "";
 for (const auth of supportedAuthTypes) {
   passwordByAuthType[auth] = ""
-  authEntityByAuthType[auth] = ""
 }
 
 let lastStatusTS: number | null = null;
@@ -439,8 +439,9 @@ const connect = async (creds?: Credentials, authEntity?: string) => {
 const login = async (authType: string) => {
   const creds = { type: authType, payload: passwordByAuthType[authType] ?? ""};
 
+  const authEntity = authType === apiKeyAuthType ? apiKeyEntity: undefined
   try {
-    await connect(creds, authEntityByAuthType[authType]);
+    await connect(creds, authEntity);
   } catch (error) {
     notify.danger(`failed to connect: ${(error as ServiceError).message}`);
     $connectionStatus = 'idle';
@@ -486,6 +487,7 @@ onDestroy(() => {
 if (supportedAuthTypes.length === 0) {
   init();
 }
+let selectedAuthType: string = supportedAuthTypes[0]!
 
 </script>
 
@@ -498,15 +500,26 @@ if (supportedAuthTypes.length === 0) {
 {#if $connectionStatus === 'connected' || $connectionStatus === 'reconnecting'}
   <slot />
 {:else}
-  {#each supportedAuthTypes as authType (authType)}
-    <div class="px-4 py-3">
-      <span>{authType}: </span>
-      <div class="w-96">
-        {#if authType === "api-key"}
+  <div class="flex bg-[#f7f7f8] min-h-[100vh]">
+  <div
+          class="flex flex-col items-center w-full h-full md:max-w-[400px] md:h-auto bg-white border border-[#d7d7d9] m-auto p-6 pt-10">
+    <div class="flex flex-row w-full mb-8">
+    {#each supportedAuthTypes as authType(authType)}
+        <button
+                class={`flex w-full h-10 items-center justify-center text-default font-medium text-sm disabled ${selectedAuthType===authType ? "bg-[#FBFBFC] border-[#C5C6CC]" : "text-[#4E4F52] bg-[#F1F1F4] border-[#E4E4E6]"} border`}
+                disabled={selectedAuthType===authType} aria-disabled={selectedAuthType===authType}
+                on:click={() => {selectedAuthType = authType;}}
+        >
+          {authType}
+        </button>
+      {/each}
+      </div>
+    <div class="w-full">
+        {#if selectedAuthType === apiKeyAuthType}
           <label class="text-sm">
-            auth entity
+            api key id
             <input
-                    bind:value={authEntityByAuthType[authType]}
+                    bind:value={apiKeyEntity}
                     disabled={$connectionStatus === 'connecting'}
                     class="
               mb-2 block w-full appearance-none border p-2 text-gray-700
@@ -516,9 +529,9 @@ if (supportedAuthTypes.length === 0) {
             ></label>
         {/if}
         <label class="text-sm">
-          payload
+            {selectedAuthType === apiKeyAuthType ? "api key" : "secret" }
           <input
-                  bind:value={passwordByAuthType[authType]}
+                  bind:value={passwordByAuthType[selectedAuthType]}
                   disabled={$connectionStatus === 'connecting'}
                   class="
             mb-2 block w-full appearance-none border p-2 text-gray-700
@@ -526,15 +539,16 @@ if (supportedAuthTypes.length === 0) {
           "
                   type="password"
                   autocomplete="off"
-                  on:keyup={async (event) => event.key === 'Enter' && login(authType)}
+                  on:keyup={async (event) => event.key === 'Enter' && login(selectedAuthType)}
           >
         </label>
-        <v-button
-          disabled={$connectionStatus === 'connecting'}
-          label="Login"
-          on:click={$connectionStatus === 'connecting' ? undefined : async () => login(authType)}
-        />
-      </div>
+        <button
+                class="block w-full h-10 p-2 mt-8 mb-2 bg-[#282829] text-sm text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:pointer-events-none"
+          on:click={$connectionStatus === 'connecting' ? undefined : async () => login(selectedAuthType)}
+        >
+          Log in
+        </button>
     </div>
-  {/each}
+    </div>
+  </div>
 {/if}
