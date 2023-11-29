@@ -11,7 +11,6 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
@@ -259,19 +258,11 @@ func (ms *builtIn) MoveOnMap(
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
 
-	cancelCtx, cancelFn := context.WithCancel(ctx)
-	defer cancelFn()
-	// If the context is cancelled early, cancel the planner executor
-	utils.PanicCapturingGo(func() {
-		<-cancelCtx.Done()
-		mr.logger.Debug("context done")
-		mr.Cancel()
-	})
-	planResp, err := mr.Plan()
+	planResp, err := mr.Plan(ctx)
 	if err != nil {
 		return false, err
 	}
-	resp, err := mr.Execute(planResp.Waypoints)
+	resp, err := mr.Execute(ctx, planResp.Waypoints)
 	// Error
 	if err != nil {
 		return false, err
@@ -365,24 +356,15 @@ func (ms *builtIn) MoveOnGlobe(
 	if err != nil {
 		return false, err
 	}
-	cancelCtx, cancelFn := context.WithCancel(ctx)
-	defer cancelFn()
-	// If the context is cancelled early, cancel the planner executor
-	utils.PanicCapturingGo(func() {
-		<-cancelCtx.Done()
-		mr.logger.Debug("context done")
-		mr.Cancel()
-	})
-
 	replanCount := 0
 	// start a loop that plans every iteration and exits when something is read from the success channel
 	for {
-		planResp, err := mr.Plan()
+		planResp, err := mr.Plan(ctx)
 		if err != nil {
 			return false, err
 		}
 
-		resp, err := mr.Execute(planResp.Waypoints)
+		resp, err := mr.Execute(ctx, planResp.Waypoints)
 		// failure
 		if err != nil {
 			return false, err

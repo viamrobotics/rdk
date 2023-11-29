@@ -55,9 +55,8 @@ type PlanExecutorConstructor[R any] func(
 
 // PlanExecutor implements Plan and Execute.
 type PlanExecutor interface {
-	Plan() (PlanResponse, error)
-	Execute(Waypoints) (ExecuteResponse, error)
-	Cancel()
+	Plan(ctx context.Context) (PlanResponse, error)
+	Execute(context.Context, Waypoints) (ExecuteResponse, error)
 }
 
 type componentState struct {
@@ -129,7 +128,7 @@ func (e *execution[R]) newPlanWithExecutor(seedPlan motionplan.Plan, replanCount
 	if err != nil {
 		return planWithExecutor{}, err
 	}
-	resp, err := pe.Plan()
+	resp, err := pe.Plan(e.cancelCtx)
 	if err != nil {
 		return planWithExecutor{}, err
 	}
@@ -164,6 +163,7 @@ func (e *execution[R]) start() error {
 	utils.PanicCapturingGo(func() {
 		defer e.state.waitGroup.Done()
 		defer e.waitGroup.Done()
+		defer e.cancelFunc()
 
 		lastPWE := originalPlanWithExecutor
 		// Exit conditions of this loop:
@@ -173,41 +173,26 @@ func (e *execution[R]) start() error {
 		// 3. the execution failed
 		// 4. replanning failed
 		for {
-			resChan := make(chan struct {
-				resp ExecuteResponse
-				err  error
-			}, 1)
-			utils.PanicCapturingGo(func() {
-				// TODO: Change Execute to take a context which can be cancelled
-				// TODO: Add waitgroup
-				replan, err := lastPWE.planExecutor.Execute(lastPWE.waypoints)
-				resChan <- struct {
-					resp ExecuteResponse
-					err  error
-				}{replan, err}
-			})
-			select {
-			case <-e.cancelCtx.Done():
-				lastPWE.planExecutor.Cancel()
+			resp, err := lastPWE.planExecutor.Execute(e.cancelCtx, lastPWE.waypoints)
+
+			switch {
+			// stoped
+			case errors.Is(err, context.Canceled):
 				e.notifyStatePlanStopped(lastPWE.plan, time.Now())
 				return
-			case res := <-resChan:
-				// failure
-				if res.err != nil {
-					// cancel the context now that the context has termintaed to not leak context
-					e.cancelFunc()
-					e.notifyStatePlanFailed(lastPWE.plan, res.err.Error(), time.Now())
-					return
-				}
 
-				// success
-				if !res.resp.Replan {
-					// cancel the context now that the context has termintaed to not leak context
-					e.cancelFunc()
-					e.notifyStatePlanSucceeded(lastPWE.plan, time.Now())
-					return
-				}
+			// failure
+			case err != nil:
+				e.notifyStatePlanFailed(lastPWE.plan, err.Error(), time.Now())
+				return
 
+			// success
+			case !resp.Replan:
+				e.notifyStatePlanSucceeded(lastPWE.plan, time.Now())
+				return
+
+			// replan
+			default:
 				replanCount++
 				newPWE, err := e.newPlanWithExecutor(lastPWE.motionplan, replanCount)
 				// replan failed
@@ -215,13 +200,13 @@ func (e *execution[R]) start() error {
 					msg := "failed to replan for execution %s and component: %s, " +
 						"due to replan reason: %s, tried setting previous plan %s " +
 						"to failed due to error: %s\n"
-					e.logger.Warnf(msg, e.id, e.componentName, res.resp.ReplanReason, lastPWE.plan.ID, err.Error())
+					e.logger.Warnf(msg, e.id, e.componentName, resp.ReplanReason, lastPWE.plan.ID, err.Error())
 
 					e.notifyStatePlanFailed(lastPWE.plan, err.Error(), time.Now())
 					return
 				}
 
-				e.notifyStateRePlan(lastPWE.plan, res.resp.ReplanReason, newPWE.plan, time.Now())
+				e.notifyStateRePlan(lastPWE.plan, resp.ReplanReason, newPWE.plan, time.Now())
 				lastPWE = newPWE
 			}
 		}

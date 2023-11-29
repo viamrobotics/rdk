@@ -1151,7 +1151,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, mr.planRequest.Goal.Pose().Point().X, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
 		test.That(t, mr.planRequest.Goal.Pose().Point().Y, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
 
-		planResp, err := mr.Plan()
+		planResp, err := mr.Plan(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(planResp.Waypoints), test.ShouldBeGreaterThan, 2)
 
@@ -1192,7 +1192,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		}
 		mr, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, req, nil, 0)
 		test.That(t, err, test.ShouldBeNil)
-		planResp, err := mr.Plan()
+		planResp, err := mr.Plan(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(planResp.Waypoints), test.ShouldBeGreaterThan, 2)
 
@@ -1249,7 +1249,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		}
 		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, req, nil, 0)
 		test.That(t, err, test.ShouldBeNil)
-		planResp, err := moveRequest.Plan()
+		planResp, err := moveRequest.Plan(ctx)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, len(planResp.Motionplan), test.ShouldEqual, 0)
 	})
