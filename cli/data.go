@@ -697,7 +697,7 @@ func performActionOnBinaryIDs(actionOnBinaryData func(*datapb.BinaryID) error,
 	return nil
 }
 
-func addDataToDatasetByFilterWrapper(ctx context.Context, dataClient datapb.DataServiceClient,
+func addDataToDatasetByIDWrapper(ctx context.Context, dataClient datapb.DataServiceClient,
 	datasetID string, id *datapb.BinaryID,
 ) error {
 	_, err := dataClient.AddBinaryDataToDatasetByIDs(ctx,
@@ -714,7 +714,7 @@ func (c *viamClient) dataAddToDatasetByFilter(filter *datapb.Filter, datasetID s
 
 	return performActionOnBinaryIDs(
 		func(id *datapb.BinaryID) error {
-			return addDataToDatasetByFilterWrapper(c.c.Context, c.dataClient, datasetID, id)
+			return addDataToDatasetByIDWrapper(c.c.Context, c.dataClient, datasetID, id)
 		},
 		filter, c.dataClient, parallelActions, c.c.App.Writer)
 }
