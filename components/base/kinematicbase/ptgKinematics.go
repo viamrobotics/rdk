@@ -178,11 +178,6 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 				timestep,
 			)
 
-			if ctx.Err() != nil {
-				ptgk.logger.Debug(ctx.Err().Error())
-				break
-			}
-
 			err := ptgk.Base.SetVelocity(
 				ctx,
 				linVel,
