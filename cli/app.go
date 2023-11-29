@@ -425,32 +425,114 @@ var app = &cli.App{
 					Subcommands: []*cli.Command{
 						{
 							Name:  "add",
-							Usage: "adds binary data with file IDs in a single org and location to dataset",
-							UsageText: fmt.Sprintf("viam data dataset add <%s> <%s> <%s> <%s> [other options]",
-								datasetFlagDatasetID, dataFlagOrgID, dataFlagLocationID, dataFlagFileIDs),
-							Flags: []cli.Flag{
-								&cli.StringFlag{
-									Name:     datasetFlagDatasetID,
-									Usage:    "dataset ID to which data will be added",
-									Required: true,
+							Usage: "adds binary data either by IDs or filter to dataset",
+							Subcommands: []*cli.Command{
+								{
+									Name:  "ids",
+									Usage: "adds binary data with file IDs in a single org and location to dataset",
+									UsageText: fmt.Sprintf("viam data dataset add-by-id <%s> <%s> <%s> <%s> [other options]",
+										datasetFlagDatasetID, dataFlagOrgID, dataFlagLocationID, dataFlagFileIDs),
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:     datasetFlagDatasetID,
+											Usage:    "dataset ID to which data will be added",
+											Required: true,
+										},
+										&cli.StringFlag{
+											Name:     dataFlagOrgID,
+											Usage:    "org ID to which data belongs",
+											Required: true,
+										},
+										&cli.StringFlag{
+											Name:     dataFlagLocationID,
+											Usage:    "location ID to which data belongs",
+											Required: true,
+										},
+										&cli.StringSliceFlag{
+											Name:     dataFlagFileIDs,
+											Usage:    "file IDs of data belonging to specified org and location",
+											Required: true,
+										},
+									},
+									Action: DataAddToDataset,
 								},
-								&cli.StringFlag{
-									Name:     dataFlagOrgID,
-									Usage:    "org ID to which data belongs",
-									Required: true,
-								},
-								&cli.StringFlag{
-									Name:     dataFlagLocationID,
-									Usage:    "location ID to which data belongs",
-									Required: true,
-								},
-								&cli.StringSliceFlag{
-									Name:     dataFlagFileIDs,
-									Usage:    "file IDs of data belonging to specified org and location",
-									Required: true,
+
+								{
+									Name:      "filter",
+									UsageText: fmt.Sprintln("viam data dataset add filter [other options]"),
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:     datasetFlagDatasetID,
+											Usage:    "dataset ID to which data will be added",
+											Required: true,
+										},
+										&cli.StringSliceFlag{
+											Name:  dataFlagOrgIDs,
+											Usage: "orgs filter",
+										},
+										&cli.StringSliceFlag{
+											Name:  dataFlagLocationIDs,
+											Usage: "locations filter",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagRobotID,
+											Usage: "robot-id filter",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagPartID,
+											Usage: "part id filter",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagRobotName,
+											Usage: "robot name filter",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagPartName,
+											Usage: "part name filter",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagComponentType,
+											Usage: "component type filter",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagComponentName,
+											Usage: "component name filter",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagMethod,
+											Usage: "method filter",
+										},
+										&cli.StringSliceFlag{
+											Name:  dataFlagMimeTypes,
+											Usage: "mime types filter",
+										},
+										&cli.UintFlag{
+											Name:  dataFlagParallelDownloads,
+											Usage: "number of download requests to make in parallel",
+											Value: 100,
+										},
+										&cli.StringFlag{
+											Name:  dataFlagStart,
+											Usage: "ISO-8601 timestamp indicating the start of the interval filter",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagEnd,
+											Usage: "ISO-8601 timestamp indicating the end of the interval filter",
+										},
+										&cli.StringSliceFlag{
+											Name: dataFlagTags,
+											Usage: "tags filter. " +
+												"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
+										},
+										&cli.StringSliceFlag{
+											Name: dataFlagBboxLabels,
+											Usage: "bbox labels filter. " +
+												"accepts string labels corresponding to bounding boxes within images",
+										},
+									},
+									Action: DataAddToDatasetByFilter,
 								},
 							},
-							Action: DataAddToDataset,
 						},
 						{
 							Name:  "remove",

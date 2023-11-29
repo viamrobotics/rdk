@@ -560,7 +560,7 @@ func (c *viamClient) deleteTabularData(orgID string, deleteOlderThanDays int) er
 	return nil
 }
 
-// DataAddToDataset is the corresponding action for 'data dataset add'.
+// DataAddToDataset is the corresponding action for 'data dataset add ids'.
 func DataAddToDataset(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -592,6 +592,113 @@ func (c *viamClient) dataAddToDataset(datasetID, orgID, locationID string, fileI
 		return errors.Wrapf(err, "received error from server")
 	}
 	printf(c.c.App.Writer, "Added data to dataset ID %s", datasetID)
+	return nil
+}
+
+// DataAddToDatasetByFilter is the corresponding action for 'data dataset add filter'.
+func DataAddToDatasetByFilter(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	filter, err := createDataFilter(c)
+	if err != nil {
+		return err
+	}
+	if err := client.dataAddToDatasetByFilter(filter, c.String(datasetFlagDatasetID)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// dataAddToDatasetByFilter adds data, with the specified filter to the dataset corresponding to the dataset ID.
+func (c *viamClient) dataAddToDatasetByFilter(filter *datapb.Filter, datasetID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	parallelDownloads := uint(100)
+	ids := make(chan *datapb.BinaryID, parallelDownloads)
+	// Give channel buffer of 1+parallelDownloads because that is the number of goroutines that may be passing an
+	// error into this channel (1 get ids routine + parallelDownloads download routines).
+	errs := make(chan error, 1+parallelDownloads)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var wg sync.WaitGroup
+
+	// In one routine, get all IDs matching the filter and pass them into ids.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// If limit is too high the request can time out, so limit each call to a maximum value of 100.
+		var limit uint
+		if parallelDownloads > maxLimit {
+			limit = maxLimit
+		} else {
+			limit = parallelDownloads
+		}
+		if err := getMatchingBinaryIDs(ctx, c.dataClient, filter, ids, limit); err != nil {
+			errs <- err
+			cancel()
+		}
+	}()
+
+	// In parallel, read from ids and add to the dataset the binary for each id in batches of parallelDownloads.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		var nextID *datapb.BinaryID
+		var done bool
+		var numFilesAdded atomic.Int32
+		var downloadWG sync.WaitGroup
+		for {
+			for i := uint(0); i < parallelDownloads; i++ {
+				if err := ctx.Err(); err != nil {
+					errs <- err
+					cancel()
+					done = true
+					break
+				}
+
+				nextID = <-ids
+
+				// If nextID is nil, the channel has been closed and there are no more IDs to be read.
+				if nextID == nil {
+					done = true
+					break
+				}
+
+				downloadWG.Add(1)
+				go func(id *datapb.BinaryID) {
+					defer downloadWG.Done()
+					_, err := c.dataClient.AddBinaryDataToDatasetByIDs(context.Background(),
+						&datapb.AddBinaryDataToDatasetByIDsRequest{DatasetId: datasetID, BinaryIds: []*datapb.BinaryID{id}})
+					if err != nil {
+						errs <- err
+						cancel()
+						done = true
+					}
+					numFilesAdded.Add(1)
+					if numFilesAdded.Load()%logEveryN == 0 {
+						printf(c.c.App.Writer, "Added %d files to dataset %s", numFilesAdded.Load(), datasetID)
+					}
+				}(nextID)
+			}
+			downloadWG.Wait()
+			if done {
+				break
+			}
+		}
+		if numFilesAdded.Load()%logEveryN != 0 {
+			printf(c.c.App.Writer, "Added %d files to dataset %s", numFilesAdded.Load(), datasetID)
+		}
+	}()
+	wg.Wait()
+	close(errs)
+
+	if err := <-errs; err != nil {
+		return err
+	}
+
 	return nil
 }
 
