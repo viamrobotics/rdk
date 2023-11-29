@@ -18,10 +18,13 @@ import (
 type jobStatus string
 
 const (
-	jobStatusUnknown    jobStatus = "unknown"
-	jobStatusInProgress jobStatus = "in progress"
-	jobStatusFailed     jobStatus = "failed"
-	jobStatusDone       jobStatus = "done"
+	jobStatusUnknown    jobStatus = "Unknown"
+    // In other places in the codebase, "in progress" makes logical sense,
+    // however, in the cli, we want this to be a single word so that it is easier
+    // to use unix tools on the output (I also think "Building" looks better)
+	jobStatusInProgress jobStatus = "Building"
+	jobStatusFailed     jobStatus = "Failed"
+	jobStatusDone       jobStatus = "Done"
 )
 
 func (c *viamClient) startBuild(repo, ref, moduleID string, platforms []string, version string) (*buildpb.StartBuildResponse, error) {
@@ -44,12 +47,7 @@ func ModuleBuildStartAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-
 	version := c.String(moduleBuildFlagVersion)
-    // if version == "" {
-    //     return errors.New("version flag must be non-empty")
-    // }
-
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -173,8 +171,13 @@ func ModuleBuildListAction(c *cli.Context) error {
 	w := tabwriter.NewWriter(c.App.Writer, 5, 4, 1, ' ', 0)
 	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", "ID", "PLATFORM", "STATUS", "VERSION", "TIME")
 	for _, job := range jobs.Jobs {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-			job.BuildId, job.Platform, job.Status, job.Version, job.StartTime.AsTime().Format(time.RFC3339))
+		fmt.Fprintf(w,
+			"%s\t%s\t%s\t%s\t%s\n",
+			job.BuildId,
+			job.Platform,
+			jobStatusFromProto(job.Status),
+			job.Version,
+			job.StartTime.AsTime().Format(time.RFC3339))
 	}
 	w.Flush()
 	return nil
