@@ -612,10 +612,11 @@ func DataAddToDatasetByFilter(c *cli.Context) error {
 }
 
 func performActionOnBinaryDataFromFilter(actionOnBinaryData func(*datapb.BinaryID) error,
-	filter *datapb.Filter, dataClient datapb.DataServiceClient, parallelActions uint, writer io.Writer) error {
+	filter *datapb.Filter, dataClient datapb.DataServiceClient, parallelActions uint, writer io.Writer,
+) error {
 	ids := make(chan *datapb.BinaryID, parallelActions)
-	// Give channel buffer of 1+parallelDownloads because that is the number of goroutines that may be passing an
-	// error into this channel (1 get ids routine + parallelDownloads download routines).
+	// Give channel buffer of 1+parallelActions because that is the number of goroutines that may be passing an
+	// error into this channel (1 get ids routine + parallelActions download routines).
 	errs := make(chan error, 1+parallelActions)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -638,7 +639,7 @@ func performActionOnBinaryDataFromFilter(actionOnBinaryData func(*datapb.BinaryI
 		}
 	}()
 
-	// In parallel, read from ids and add to the dataset the binary for each id in batches of parallelDownloads.
+	// In parallel, read from ids and perform the action on the binary data for each id in batches of parallelActions.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
