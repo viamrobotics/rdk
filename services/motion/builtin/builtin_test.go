@@ -1900,7 +1900,7 @@ func TestStopPlan(t *testing.T) {
 
 	req := motion.StopPlanReq{}
 	err := ms.StopPlan(ctx, req)
-	test.That(t, err, test.ShouldBeError, state.ErrUnknownResource)
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(req.ComponentName))
 }
 
 func TestListPlanStatuses(t *testing.T) {
@@ -1925,6 +1925,6 @@ func TestPlanHistory(t *testing.T) {
 	defer ms.Close(ctx)
 	req := motion.PlanHistoryReq{}
 	history, err := ms.PlanHistory(ctx, req)
-	test.That(t, err, test.ShouldEqual, state.ErrUnknownResource)
+	test.That(t, err, test.ShouldResemble, resource.NewNotFoundError(req.ComponentName))
 	test.That(t, history, test.ShouldBeNil)
 }

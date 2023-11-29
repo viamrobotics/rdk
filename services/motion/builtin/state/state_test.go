@@ -21,15 +21,15 @@ import (
 
 var replanReason = "replan triggered due to location drift"
 
-// testPlannerExecutor is a mock PlanExecutor implementation.
-type testPlannerExecutor struct {
+// testPlanExecutor is a mock PlanExecutor implementation.
+type testPlanExecutor struct {
 	planFunc    func() (state.PlanResponse, error)
 	executeFunc func(state.Waypoints) (state.ExecuteResponse, error)
 	cancelFunc  func()
 }
 
 // by default Plan successfully returns an empty plan.
-func (tpe *testPlannerExecutor) Plan() (state.PlanResponse, error) {
+func (tpe *testPlanExecutor) Plan() (state.PlanResponse, error) {
 	if tpe.planFunc != nil {
 		return tpe.planFunc()
 	}
@@ -37,7 +37,7 @@ func (tpe *testPlannerExecutor) Plan() (state.PlanResponse, error) {
 }
 
 // by default Execute returns a success response.
-func (tpe *testPlannerExecutor) Execute(wp state.Waypoints) (state.ExecuteResponse, error) {
+func (tpe *testPlanExecutor) Execute(wp state.Waypoints) (state.ExecuteResponse, error) {
 	if tpe.executeFunc != nil {
 		return tpe.executeFunc(wp)
 	}
@@ -45,7 +45,7 @@ func (tpe *testPlannerExecutor) Execute(wp state.Waypoints) (state.ExecuteRespon
 }
 
 // by default Cancel does nothing.
-func (tpe *testPlannerExecutor) Cancel() {
+func (tpe *testPlanExecutor) Cancel() {
 	if tpe.planFunc != nil {
 		tpe.cancelFunc()
 	}
@@ -61,9 +61,9 @@ func TestState(t *testing.T) {
 		req motion.MoveOnGlobeReq,
 		seedPlan motionplan.Plan,
 		replanCount int,
-	) (state.PlannerExecutor, error) {
+	) (state.PlanExecutor, error) {
 		cancelCtx, cancelFn := context.WithCancel(context.Background())
-		return &testPlannerExecutor{
+		return &testPlanExecutor{
 			executeFunc: func(wp state.Waypoints) (state.ExecuteResponse, error) {
 				<-cancelCtx.Done()
 				return state.ExecuteResponse{}, cancelCtx.Err()
@@ -77,9 +77,9 @@ func TestState(t *testing.T) {
 		req motion.MoveOnGlobeReq,
 		seedPlan motionplan.Plan,
 		replanCount int,
-	) (state.PlannerExecutor, error) {
+	) (state.PlanExecutor, error) {
 		cancelCtx, cancelFn := context.WithCancel(context.Background())
-		return &testPlannerExecutor{
+		return &testPlanExecutor{
 			executeFunc: func(wp state.Waypoints) (state.ExecuteResponse, error) {
 				if err := cancelCtx.Err(); err != nil {
 					return state.ExecuteResponse{}, err
@@ -95,9 +95,9 @@ func TestState(t *testing.T) {
 		req motion.MoveOnGlobeReq,
 		seedPlan motionplan.Plan,
 		replanCount int,
-	) (state.PlannerExecutor, error) {
+	) (state.PlanExecutor, error) {
 		cancelCtx, cancelFn := context.WithCancel(context.Background())
-		return &testPlannerExecutor{executeFunc: func(wp state.Waypoints) (state.ExecuteResponse, error) {
+		return &testPlanExecutor{executeFunc: func(wp state.Waypoints) (state.ExecuteResponse, error) {
 			if err := cancelCtx.Err(); err != nil {
 				return state.ExecuteResponse{}, err
 			}
@@ -110,9 +110,9 @@ func TestState(t *testing.T) {
 		_ motion.MoveOnGlobeReq,
 		_ motionplan.Plan,
 		_ int,
-	) (state.PlannerExecutor, error) {
+	) (state.PlanExecutor, error) {
 		cancelCtx, cancelFn := context.WithCancel(context.Background())
-		return &testPlannerExecutor{executeFunc: func(wp state.Waypoints) (state.ExecuteResponse, error) {
+		return &testPlanExecutor{executeFunc: func(wp state.Waypoints) (state.ExecuteResponse, error) {
 			if err := cancelCtx.Err(); err != nil {
 				return state.ExecuteResponse{}, err
 			}
@@ -126,9 +126,9 @@ func TestState(t *testing.T) {
 		_ motion.MoveOnGlobeReq,
 		_ motionplan.Plan,
 		_ int,
-	) (state.PlannerExecutor, error) {
+	) (state.PlanExecutor, error) {
 		cancelCtx, cancelFn := context.WithCancel(context.Background())
-		return &testPlannerExecutor{
+		return &testPlanExecutor{
 			planFunc: func() (state.PlanResponse, error) {
 				return state.PlanResponse{}, errors.New("planning failed")
 			},
@@ -150,11 +150,11 @@ func TestState(t *testing.T) {
 		_ motion.MoveOnGlobeReq,
 		_ motionplan.Plan,
 		replanCount int,
-	) (state.PlannerExecutor, error) {
+	) (state.PlanExecutor, error) {
 		cancelCtx, cancelFn := context.WithCancel(context.Background())
 		// first replan fails during planning
 		if replanCount == 1 {
-			return &testPlannerExecutor{
+			return &testPlanExecutor{
 				planFunc: func() (state.PlanResponse, error) {
 					return state.PlanResponse{}, errors.New("planning failed")
 				},
@@ -168,7 +168,7 @@ func TestState(t *testing.T) {
 			}, nil
 		}
 		// first plan generates a plan but execution triggers a replan
-		return &testPlannerExecutor{
+		return &testPlanExecutor{
 			executeFunc: func(wp state.Waypoints) (state.ExecuteResponse, error) {
 				if err := ctx.Err(); err != nil {
 					return state.ExecuteResponse{}, err
@@ -285,8 +285,9 @@ func TestState(t *testing.T) {
 		req := motion.MoveOnGlobeReq{ComponentName: myBase}
 		_, err := state.StartExecution(s, req.ComponentName, req, executionWaitingForCtxCancelledPlanConstructor)
 		test.That(t, err, test.ShouldBeNil)
-		_, err = s.PlanHistory(motion.PlanHistoryReq{})
-		test.That(t, err, test.ShouldBeError, state.ErrUnknownResource)
+		req2 := motion.PlanHistoryReq{}
+		_, err = s.PlanHistory(req2)
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(req2.ComponentName))
 	})
 
 	t.Run("end to end test", func(t *testing.T) {
@@ -416,8 +417,8 @@ func TestState(t *testing.T) {
 			req motion.MoveOnGlobeReq,
 			seedPlan motionplan.Plan,
 			replanCount int,
-		) (state.PlannerExecutor, error) {
-			return &testPlannerExecutor{
+		) (state.PlanExecutor, error) {
+			return &testPlanExecutor{
 				executeFunc: func(wp state.Waypoints) (state.ExecuteResponse, error) {
 					if replanCount == 0 {
 						// wait for replanning
@@ -543,8 +544,8 @@ func TestState(t *testing.T) {
 			req motion.MoveOnGlobeReq,
 			seedPlan motionplan.Plan,
 			replanCount int,
-		) (state.PlannerExecutor, error) {
-			return &testPlannerExecutor{
+		) (state.PlanExecutor, error) {
+			return &testPlanExecutor{
 				planFunc: func() (state.PlanResponse, error) {
 					// first plan succeeds
 					if replanCount == 0 {
@@ -619,8 +620,8 @@ func TestState(t *testing.T) {
 			req motion.MoveOnGlobeReq,
 			seedPlan motionplan.Plan,
 			replanCount int,
-		) (state.PlannerExecutor, error) {
-			return &testPlannerExecutor{
+		) (state.PlanExecutor, error) {
+			return &testPlanExecutor{
 				executeFunc: func(wp state.Waypoints) (state.ExecuteResponse, error) {
 					if replanCount == 0 {
 						return state.ExecuteResponse{Replan: true, ReplanReason: replanReason}, nil
@@ -675,7 +676,7 @@ func TestState(t *testing.T) {
 
 		// providing an executionID which is not known to the state returns an error
 		pws14, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase, ExecutionID: uuid.New()})
-		test.That(t, err, test.ShouldBeError, state.ErrNotFound)
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(myBase))
 		test.That(t, len(pws14), test.ShouldEqual, 0)
 
 		// Returns the last status of all plans that have executed

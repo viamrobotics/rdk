@@ -3,6 +3,7 @@ package builtin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -407,23 +408,18 @@ func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq
 	defer ms.mu.RUnlock()
 	// TODO: Deprecated: remove once no motion apis use the opid system
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-	t := "MoveOnGlobeNew called for component: %s, destination: %+v, heading: %f, movementSensor: %s, obstacles: %v, motionCfg: %#v, extra: %s"
-	ms.logger.Debugf(t,
-		req.ComponentName,
-		req.Destination,
-		req.Heading,
-		req.MovementSensorName,
-		req.Obstacles,
-		req.MotionCfg,
-		req.Extra,
-	)
+	mReq, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	ms.logger.Debugf("MoveOnGlobeNew called with %s", string(mReq))
 
 	planExecutorConstructor := func(
 		ctx context.Context,
 		req motion.MoveOnGlobeReq,
 		seedPlan motionplan.Plan,
 		replanCount int,
-	) (state.PlannerExecutor, error) {
+	) (state.PlanExecutor, error) {
 		return ms.newMoveOnGlobeRequest(ctx, req, seedPlan, replanCount)
 	}
 

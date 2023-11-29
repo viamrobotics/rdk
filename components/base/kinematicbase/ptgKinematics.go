@@ -190,7 +190,6 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 				nil,
 			)
 			if err != nil {
-				ptgk.logger.Debug(err.Error())
 				stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
 				defer cancelFn()
 				return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))

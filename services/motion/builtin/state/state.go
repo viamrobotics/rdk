@@ -19,13 +19,6 @@ import (
 	"go.viam.com/rdk/services/motion"
 )
 
-var (
-	// ErrUnknownResource indicates that the resource is not known.
-	ErrUnknownResource = errors.New("unknown resource")
-	// ErrNotFound indicates the entity was not found.
-	ErrNotFound = errors.New("not found")
-)
-
 // Waypoints represent the waypoints of the plan.
 type Waypoints [][]referenceframe.Input
 
@@ -58,10 +51,10 @@ type PlanExecutorConstructor[R any] func(
 	req R,
 	seedPlan motionplan.Plan,
 	replanCount int,
-) (PlannerExecutor, error)
+) (PlanExecutor, error)
 
-// PlannerExecutor implements Plan and Execute.
-type PlannerExecutor interface {
+// PlanExecutor implements Plan and Execute.
+type PlanExecutor interface {
 	Plan() (PlanResponse, error)
 	Execute(Waypoints) (ExecuteResponse, error)
 	Cancel()
@@ -72,7 +65,7 @@ type componentState struct {
 	executionsByID     map[motion.ExecutionID]stateExecution
 }
 
-type newPlanMsg struct {
+type planMsg struct {
 	plan       motion.Plan
 	planStatus motion.PlanStatus
 }
@@ -125,7 +118,7 @@ type execution[R any] struct {
 
 type planWithExecutor struct {
 	plan         motion.Plan
-	planExecutor PlannerExecutor
+	planExecutor PlanExecutor
 	waypoints    Waypoints
 	motionplan   motionplan.Plan
 }
@@ -185,6 +178,8 @@ func (e *execution[R]) start() error {
 				err  error
 			}, 1)
 			utils.PanicCapturingGo(func() {
+				// TODO: Change Execute to take a context which can be cancelled
+				// TODO: Add waitgroup
 				replan, err := lastPWE.planExecutor.Execute(lastPWE.waypoints)
 				resChan <- struct {
 					resp ExecuteResponse
@@ -250,7 +245,7 @@ func (e *execution[R]) notifyStateNewExecution(execution stateExecution, plan mo
 	// NOTE: We hold the lock for both updateStateNewExecution & updateStateNewPlan to ensure no readers
 	// are able to see a state where the execution exists but does not have a plan with a status.
 	e.state.updateStateNewExecution(execution)
-	e.state.updateStateNewPlan(newPlanMsg{
+	e.state.updateStateNewPlan(planMsg{
 		plan:       plan,
 		planStatus: motion.PlanStatus{State: motion.PlanStateInProgress, Timestamp: time},
 	})
@@ -268,7 +263,7 @@ func (e *execution[R]) notifyStateRePlan(lastPlan motion.Plan, reason string, ne
 		planStatus:    motion.PlanStatus{State: motion.PlanStateFailed, Timestamp: time, Reason: &reason},
 	})
 
-	e.state.updateStateNewPlan(newPlanMsg{
+	e.state.updateStateNewPlan(planMsg{
 		plan:       newPlan,
 		planStatus: motion.PlanStatus{State: motion.PlanStateInProgress, Timestamp: time},
 	})
@@ -383,21 +378,19 @@ func (s *State) StopExecutionByResource(componentName resource.Name) error {
 	// return error if component name is not in StateMap
 	if !exists {
 		s.mu.RUnlock()
-		return ErrUnknownResource
+		return resource.NewNotFoundError(componentName)
 	}
 
 	e, exists := componentExectionState.executionsByID[componentExectionState.lastExecutionID()]
 	if !exists {
 		s.mu.RUnlock()
-		return ErrNotFound
+		return resource.NewNotFoundError(componentName)
 	}
 	s.mu.RUnlock()
 
 	// lock released while waiting for the execution to stop as the execution stopping requires writing to the state
 	// which must take a lock
-	s.logger.Debug("calling stop")
 	e.stop()
-	s.logger.Debug("stop returned")
 	return nil
 }
 
@@ -413,7 +406,7 @@ func (s *State) PlanHistory(req motion.PlanHistoryReq) ([]motion.PlanWithStatus,
 	defer s.mu.RUnlock()
 	cs, exists := s.componentStateByComponent[req.ComponentName]
 	if !exists {
-		return nil, ErrUnknownResource
+		return nil, resource.NewNotFoundError(req.ComponentName)
 	}
 
 	executionID := req.ExecutionID
@@ -432,7 +425,7 @@ func (s *State) PlanHistory(req motion.PlanHistoryReq) ([]motion.PlanWithStatus,
 			copy(history, ex.history)
 			return history, nil
 		}
-		return nil, ErrNotFound
+		return nil, resource.NewNotFoundError(req.ComponentName)
 	}
 
 	// specific execution id when lastPlanOnly is NOT enabled
@@ -442,7 +435,7 @@ func (s *State) PlanHistory(req motion.PlanHistoryReq) ([]motion.PlanWithStatus,
 			copy(history, ex.history)
 			return history, nil
 		}
-		return nil, ErrNotFound
+		return nil, resource.NewNotFoundError(req.ComponentName)
 	}
 
 	ex := cs.lastExecution()
@@ -524,7 +517,7 @@ func (s *State) updateStateNewExecution(newE stateExecution) {
 	}
 }
 
-func (s *State) updateStateNewPlan(newPlan newPlanMsg) {
+func (s *State) updateStateNewPlan(newPlan planMsg) {
 	if newPlan.planStatus.State != motion.PlanStateInProgress {
 		err := errors.New("handleNewPlan received a plan status other than in progress")
 		s.logger.Error(err.Error())
@@ -586,9 +579,9 @@ func (s *State) activeExecution(name resource.Name) (stateExecution, error) {
 		es := cs.lastExecution()
 
 		if _, exists := motion.TerminalStateSet[es.history[0].StatusHistory[0].State]; exists {
-			return stateExecution{}, ErrNotFound
+			return stateExecution{}, resource.NewNotFoundError(name)
 		}
 		return es, nil
 	}
-	return stateExecution{}, ErrUnknownResource
+	return stateExecution{}, resource.NewNotFoundError(name)
 }
