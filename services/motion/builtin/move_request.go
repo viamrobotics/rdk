@@ -747,7 +747,7 @@ func toGeoPosePlanSteps(posesByComponent []map[resource.Name]spatialmath.Pose, g
 		geoPose := geoPoses[i]
 		heading := math.Mod(math.Abs(geoPose.Heading()-360), 360)
 		o := &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: heading}
-		poseContainingGeoPose := spatialmath.NewPose(r3.Vector{X: geoPose.Location().Lat(), Y: geoPose.Location().Lng()}, o)
+		poseContainingGeoPose := spatialmath.NewPose(r3.Vector{X: geoPose.Location().Lng(), Y: geoPose.Location().Lat()}, o)
 		steps = append(steps, map[resource.Name]spatialmath.Pose{resourceName: poseContainingGeoPose})
 	}
 	return steps, nil

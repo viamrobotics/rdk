@@ -206,7 +206,7 @@ func (e *execution[R]) start() error {
 					return
 				}
 
-				e.notifyStateRePlan(lastPWE.plan, resp.ReplanReason, newPWE.plan, time.Now())
+				e.notifyStateReplan(lastPWE.plan, resp.ReplanReason, newPWE.plan, time.Now())
 				lastPWE = newPWE
 			}
 		}
@@ -236,7 +236,7 @@ func (e *execution[R]) notifyStateNewExecution(execution stateExecution, plan mo
 	})
 }
 
-func (e *execution[R]) notifyStateRePlan(lastPlan motion.Plan, reason string, newPlan motion.Plan, time time.Time) {
+func (e *execution[R]) notifyStateReplan(lastPlan motion.Plan, reason string, newPlan motion.Plan, time time.Time) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	// NOTE: We hold the lock for both updateStateNewExecution & updateStateNewPlan to ensure no readers
