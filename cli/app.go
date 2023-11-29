@@ -243,7 +243,7 @@ var app = &cli.App{
 						},
 						&cli.StringFlag{
 							Name:  dataFlagRobotID,
-							Usage: "robot-id filter",
+							Usage: "robot id filter",
 						},
 						&cli.StringFlag{
 							Name:  dataFlagPartID,
@@ -430,8 +430,9 @@ var app = &cli.App{
 								{
 									Name:  "ids",
 									Usage: "adds binary data with file IDs in a single org and location to dataset",
-									UsageText: fmt.Sprintf("viam data dataset add-by-id <%s> <%s> <%s> <%s> [other options]",
-										datasetFlagDatasetID, dataFlagOrgID, dataFlagLocationID, dataFlagFileIDs),
+									UsageText: fmt.Sprintf("viam data dataset add ids --%s=<%s> --%s=<%s> --%s=<%s> --%s=<%s> [other options]",
+										datasetFlagDatasetID, datasetFlagDatasetID, dataFlagOrgID, dataFlagOrgID,
+										dataFlagLocationID, dataFlagLocationID, dataFlagFileIDs, dataFlagFileIDs),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
 											Name:     datasetFlagDatasetID,
@@ -454,7 +455,7 @@ var app = &cli.App{
 											Required: true,
 										},
 									},
-									Action: DataAddToDataset,
+									Action: DataAddToDatasetByIDs,
 								},
 
 								{
@@ -476,7 +477,7 @@ var app = &cli.App{
 										},
 										&cli.StringFlag{
 											Name:  dataFlagRobotID,
-											Usage: "robot-id filter",
+											Usage: "robot id filter",
 										},
 										&cli.StringFlag{
 											Name:  dataFlagPartID,
@@ -506,11 +507,6 @@ var app = &cli.App{
 											Name:  dataFlagMimeTypes,
 											Usage: "mime types filter",
 										},
-										&cli.UintFlag{
-											Name:  dataFlagParallelDownloads,
-											Usage: "number of download requests to make in parallel",
-											Value: 100,
-										},
 										&cli.StringFlag{
 											Name:  dataFlagStart,
 											Usage: "ISO-8601 timestamp indicating the start of the interval filter",
@@ -537,8 +533,9 @@ var app = &cli.App{
 						{
 							Name:  "remove",
 							Usage: "removes binary data with file IDs in a single org and location from dataset",
-							UsageText: fmt.Sprintf("viam data dataset remove <%s> <%s> <%s> <%s> [other options]",
-								datasetFlagDatasetID, dataFlagOrgID, dataFlagLocationID, dataFlagFileIDs),
+							UsageText: fmt.Sprintf("viam data dataset remove --%s=<%s> --%s=<%s> --%s=<%s> --%s=<%s> [other options]",
+								datasetFlagDatasetID, datasetFlagDatasetID, dataFlagOrgID, dataFlagOrgID,
+								dataFlagLocationID, dataFlagLocationID, dataFlagFileIDs, dataFlagFileIDs),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     datasetFlagDatasetID,
@@ -575,8 +572,8 @@ var app = &cli.App{
 				{
 					Name:  "create",
 					Usage: "create a new dataset",
-					UsageText: fmt.Sprintf("viam dataset create <%s> <%s>",
-						dataFlagOrgID, datasetFlagName),
+					UsageText: fmt.Sprintf("viam dataset create --%s=<%s>  --%s=<%s> ",
+						dataFlagOrgID, dataFlagOrgID, datasetFlagName, datasetFlagName),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     dataFlagOrgID,
@@ -594,8 +591,8 @@ var app = &cli.App{
 				{
 					Name:  "rename",
 					Usage: "rename an existing dataset",
-					UsageText: fmt.Sprintf("viam dataset rename <%s> <%s>",
-						datasetFlagDatasetID, datasetFlagName),
+					UsageText: fmt.Sprintf("viam dataset rename --%s=<%s>  --%s=<%s>",
+						datasetFlagDatasetID, datasetFlagDatasetID, datasetFlagName, datasetFlagName),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     datasetFlagDatasetID,
@@ -613,8 +610,8 @@ var app = &cli.App{
 				{
 					Name:  "list",
 					Usage: "list dataset information from specified IDs or for an org ID",
-					UsageText: fmt.Sprintf("viam dataset list [<%s> | <%s>]",
-						datasetFlagDatasetIDs, dataFlagOrgID),
+					UsageText: fmt.Sprintf("viam dataset list [--%s=<%s> | --%s=<%s>]",
+						datasetFlagDatasetIDs, datasetFlagDatasetIDs, dataFlagOrgID, dataFlagOrgID),
 					Flags: []cli.Flag{
 						&cli.StringSliceFlag{
 							Name:  datasetFlagDatasetIDs,
@@ -630,8 +627,8 @@ var app = &cli.App{
 				{
 					Name:  "delete",
 					Usage: "delete a dataset",
-					UsageText: fmt.Sprintf("viam dataset delete <%s>",
-						datasetFlagDatasetID),
+					UsageText: fmt.Sprintf("viam dataset delete --%s=<%s>",
+						datasetFlagDatasetID, datasetFlagDatasetID),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     datasetFlagDatasetID,
