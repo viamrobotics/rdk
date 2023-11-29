@@ -10,7 +10,6 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
@@ -26,8 +25,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
-
-var errUnimplemented = errors.New("unimplemented")
 
 func init() {
 	resource.RegisterDefaultService(
@@ -260,19 +257,11 @@ func (ms *builtIn) MoveOnMap(
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
 
-	cancelCtx, cancelFn := context.WithCancel(ctx)
-	defer cancelFn()
-	// If the context is cancelled early, cancel the planner executor
-	utils.PanicCapturingGo(func() {
-		<-cancelCtx.Done()
-		mr.logger.Debug("context done")
-		mr.Cancel()
-	})
-	planResp, err := mr.Plan()
+	planResp, err := mr.Plan(ctx)
 	if err != nil {
 		return false, err
 	}
-	resp, err := mr.Execute(planResp.Waypoints)
+	resp, err := mr.Execute(ctx, planResp.Waypoints)
 	// Error
 	if err != nil {
 		return false, err
@@ -366,24 +355,15 @@ func (ms *builtIn) MoveOnGlobe(
 	if err != nil {
 		return false, err
 	}
-	cancelCtx, cancelFn := context.WithCancel(ctx)
-	defer cancelFn()
-	// If the context is cancelled early, cancel the planner executor
-	utils.PanicCapturingGo(func() {
-		<-cancelCtx.Done()
-		mr.logger.Debug("context done")
-		mr.Cancel()
-	})
-
 	replanCount := 0
 	// start a loop that plans every iteration and exits when something is read from the success channel
 	for {
-		planResp, err := mr.Plan()
+		planResp, err := mr.Plan(ctx)
 		if err != nil {
 			return false, err
 		}
 
-		resp, err := mr.Execute(planResp.Waypoints)
+		resp, err := mr.Execute(ctx, planResp.Waypoints)
 		// failure
 		if err != nil {
 			return false, err
@@ -407,7 +387,24 @@ func (ms *builtIn) MoveOnGlobe(
 func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return "", errUnimplemented
+	ms.logger.Debugf("MoveOnGlobeNew called with %s", req)
+	// TODO: Deprecated: remove once no motion apis use the opid system
+	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
+	planExecutorConstructor := func(
+		ctx context.Context,
+		req motion.MoveOnGlobeReq,
+		seedPlan motionplan.Plan,
+		replanCount int,
+	) (state.PlanExecutor, error) {
+		return ms.newMoveOnGlobeRequest(ctx, req, seedPlan, replanCount)
+	}
+
+	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, planExecutorConstructor)
+	if err != nil {
+		return "", err
+	}
+
+	return id.String(), nil
 }
 
 func (ms *builtIn) GetPose(
@@ -439,7 +436,7 @@ func (ms *builtIn) StopPlan(
 ) error {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return errUnimplemented
+	return ms.state.StopExecutionByResource(req.ComponentName)
 }
 
 func (ms *builtIn) ListPlanStatuses(
@@ -448,7 +445,7 @@ func (ms *builtIn) ListPlanStatuses(
 ) ([]motion.PlanStatusWithID, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return nil, errUnimplemented
+	return ms.state.ListPlanStatuses(req)
 }
 
 func (ms *builtIn) PlanHistory(
@@ -457,5 +454,5 @@ func (ms *builtIn) PlanHistory(
 ) ([]motion.PlanWithStatus, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return nil, errUnimplemented
+	return ms.state.PlanHistory(req)
 }
