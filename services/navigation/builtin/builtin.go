@@ -500,6 +500,57 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	return svc.store.Close(ctx)
 }
 
+func (svc *builtIn) navOnce(ctx context.Context, wp navigation.Waypoint, extra map[string]interface{}) error {
+	cancelCtx, cancelFn := context.WithCancel(ctx)
+	defer cancelFn()
+	svc.logger.Debugf("MoveOnGlobe called going to waypoint %+v", wp)
+	req := motion.MoveOnGlobeReq{
+		ComponentName:      svc.base.Name(),
+		Destination:        wp.ToPoint(),
+		Heading:            math.NaN(),
+		MovementSensorName: svc.movementSensor.Name(),
+		Obstacles:          svc.obstacles,
+		MotionCfg:          svc.motionCfg,
+		Extra:              extra,
+	}
+	rawExecutionID, err := svc.motionService.MoveOnGlobeNew(cancelCtx, req)
+	if err != nil {
+		return errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
+	}
+
+	executionID, err := uuid.Parse(rawExecutionID)
+	if err != nil {
+		return errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
+	}
+
+	svc.activeBackgroundWorkers.Add(1)
+	// call StopPlan upon exiting navOnce, is a NoOp if execution has already terminted
+	utils.ManagedGo(func() {
+		<-cancelCtx.Done()
+		// TODO: Test that calling StopPlan is idempotent & doesn't affect the results of PlanHistory or ListPlanStatuses
+		timeoutCtx, timeoutCancelFn := context.WithTimeout(context.Background(), time.Second*5)
+		defer timeoutCancelFn()
+		err := svc.motionService.StopPlan(timeoutCtx, motion.StopPlanReq{ComponentName: req.ComponentName})
+		if err != nil {
+			svc.logger.Error("hit error trying to stop plan %s", err)
+		}
+	}, svc.activeBackgroundWorkers.Done)
+
+	err = pollUntilMOGSuccessOrError(cancelCtx, svc.motionService, time.Millisecond*500,
+		motion.PlanHistoryReq{
+			ComponentName: req.ComponentName,
+			ExecutionID:   executionID,
+			LastPlanOnly:  true,
+		})
+
+	if err != nil {
+		return errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
+	}
+
+	svc.logger.Debug("MoveOnGlobe succeeded")
+	return svc.waypointReached(cancelCtx)
+}
+
 func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]interface{}) {
 	svc.logger.Debug("startWaypointMode called")
 	if extra == nil {
@@ -513,59 +564,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 	}
 
 	svc.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer svc.activeBackgroundWorkers.Done()
-
-		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
-			svc.logger.Debugf("MoveOnGlobe called going to waypoint %+v", wp)
-			req := motion.MoveOnGlobeReq{
-				ComponentName:      svc.base.Name(),
-				Destination:        wp.ToPoint(),
-				Heading:            math.NaN(),
-				MovementSensorName: svc.movementSensor.Name(),
-				Obstacles:          svc.obstacles,
-				MotionCfg:          svc.motionCfg,
-				Extra:              extra,
-			}
-			rawExecutionID, err := svc.motionService.MoveOnGlobeNew(ctx, req)
-			if err != nil {
-				return errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
-			}
-
-			executionID, err := uuid.Parse(rawExecutionID)
-			if err != nil {
-				return errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
-			}
-			svc.activeBackgroundWorkers.Add(1)
-			done := make(chan struct{}, 1)
-			utils.PanicCapturingGo(func() {
-				defer svc.activeBackgroundWorkers.Done()
-				select {
-				case <-ctx.Done():
-					timeoutCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
-					defer cancelFn()
-					err := svc.motionService.StopPlan(timeoutCtx, motion.StopPlanReq{ComponentName: req.ComponentName})
-					if err != nil {
-						svc.logger.Error("hit error trying to stop plan %s", err)
-					}
-				case <-done:
-				}
-			})
-			defer func() { done <- struct{}{} }()
-
-			phReq := motion.PlanHistoryReq{
-				ComponentName: req.ComponentName,
-				ExecutionID:   executionID,
-				LastPlanOnly:  true,
-			}
-			if err := pollUntilMOGSuccessOrError(ctx, svc.motionService, time.Millisecond*500, phReq); err != nil {
-				return errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
-			}
-
-			svc.logger.Debug("MoveOnGlobe succeeded")
-			return svc.waypointReached(ctx)
-		}
-
+	utils.ManagedGo(func() {
 		// do not exit loop - even if there are no waypoints remaining
 		for {
 			if ctx.Err() != nil {
@@ -584,7 +583,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 			svc.mu.Unlock()
 
 			svc.logger.Infof("navigating to waypoint: %+v", wp)
-			if err := navOnce(cancelCtx, wp); err != nil {
+			if err := svc.navOnce(cancelCtx, wp, extra); err != nil {
 				if svc.waypointIsDeleted() {
 					svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
 					continue
@@ -592,7 +591,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 				svc.logger.Infof("retrying navigation to waypoint %+v since it errored out: %s", wp, err)
 			}
 		}
-	})
+	}, svc.activeBackgroundWorkers.Done)
 }
 
 func (svc *builtIn) stopActiveMode() {
