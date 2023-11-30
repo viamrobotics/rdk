@@ -455,7 +455,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 	}
 	w := bufio.NewWriter(dataFile)
 
-	fmt.Fprintf(c.c.App.Writer, "Downloading..") // no newline
+	fmt.Fprintf(c.c.App.ErrWriter, "Downloading..") // no newline
 	var last string
 	mdIndexes := make(map[string]int)
 	mdIndex := 0
@@ -469,7 +469,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 				},
 				CountOnly: false,
 			})
-			fmt.Fprintf(c.c.App.Writer, ".") // no newline
+			fmt.Fprintf(c.c.App.ErrWriter, ".") // no newline
 			if err == nil {
 				break
 			}
