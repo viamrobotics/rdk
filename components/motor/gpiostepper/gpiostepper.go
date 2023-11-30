@@ -68,16 +68,16 @@ type Config struct {
 func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.BoardName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	if cfg.TicksPerRotation == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
 	}
 	if cfg.Pins.Direction == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "dir")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "dir")
 	}
 	if cfg.Pins.Step == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "step")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "step")
 	}
 	deps = append(deps, cfg.BoardName)
 	return deps, nil

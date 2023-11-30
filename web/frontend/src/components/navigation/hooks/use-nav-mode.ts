@@ -2,11 +2,7 @@ import { type ServiceError, navigationApi } from '@viamrobotics/sdk';
 import { useNavClient } from './use-nav-client';
 import { writable } from 'svelte/store';
 
-export type NavigationMode = (
-  typeof navigationApi.Mode.MODE_UNSPECIFIED |
-  typeof navigationApi.Mode.MODE_MANUAL |
-  typeof navigationApi.Mode.MODE_WAYPOINT
-)
+export type NavigationMode = navigationApi.ModeMap[keyof navigationApi.ModeMap];
 
 export const useNavMode = (name: string) => {
   const navClient = useNavClient(name);

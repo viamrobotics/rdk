@@ -865,20 +865,12 @@ func TestStopAll(t *testing.T) {
 }
 
 type dummyBoard struct {
-	board.LocalBoard
+	board.Board
 	closeCount int
 }
 
 func (db *dummyBoard) Name() resource.Name {
 	return board.Named("bad")
-}
-
-func (db *dummyBoard) SPINames() []string {
-	return nil
-}
-
-func (db *dummyBoard) I2CNames() []string {
-	return nil
 }
 
 func (db *dummyBoard) AnalogReaderNames() []string {
@@ -887,10 +879,6 @@ func (db *dummyBoard) AnalogReaderNames() []string {
 
 func (db *dummyBoard) DigitalInterruptNames() []string {
 	return nil
-}
-
-func (db *dummyBoard) ModelAttributes() board.ModelAttributes {
-	return board.ModelAttributes{}
 }
 
 func (db *dummyBoard) Close(ctx context.Context) error {
@@ -1531,7 +1519,7 @@ func TestValidationErrorOnReconfigure(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		resource.NewNotAvailableError(name, errors.New("config validation error found in resource: rdk:component:base/test: fail")),
+		resource.NewNotAvailableError(name, errors.New("resource config validation error: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
@@ -1617,7 +1605,7 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		resource.NewNotAvailableError(name, errors.New("config validation error found in resource: rdk:component:base/test: fail")),
+		resource.NewNotAvailableError(name, errors.New("resource config validation error: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
@@ -1748,7 +1736,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		resource.NewNotAvailableError(name, errors.New("config validation error found in resource: rdk:component:base/test: fail")),
+		resource.NewNotAvailableError(name, errors.New("resource config validation error: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error

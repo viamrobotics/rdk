@@ -326,7 +326,6 @@ func TestStatusClient(t *testing.T) {
 	board1, err := board.FromRobot(client, "board1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, board1, test.ShouldNotBeNil)
-	test.That(t, board1.ModelAttributes(), test.ShouldResemble, board.ModelAttributes{Remote: true})
 
 	_, err = board1.Status(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)

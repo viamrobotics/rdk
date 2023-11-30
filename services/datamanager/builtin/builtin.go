@@ -18,7 +18,6 @@ import (
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
@@ -26,6 +25,7 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/utils"
 )
 
@@ -47,9 +47,10 @@ func init() {
 
 				return nil
 			},
-			// NOTE(erd): this would be better as a weak dependencies returned through a more
-			// typed validate or different system.
-			WeakDependencies: []internal.ResourceMatcher{internal.ComponentDependencyWildcardMatcher, internal.SLAMDependencyWildcardMatcher},
+			WeakDependencies: []resource.Matcher{
+				resource.TypeMatcher{Type: resource.APITypeComponentName},
+				resource.SubtypeMatcher{Subtype: slam.SubtypeName},
+			},
 		})
 }
 
@@ -230,6 +231,11 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 	return time.Duration(float32(time.Second) / captureFrequencyHz)
 }
 
+var metadataToAdditionalParamFields = map[string]string{
+	generateMetadataKey("rdk:component:board", "Analogs"): "reader_name",
+	generateMetadataKey("rdk:component:board", "Gpios"):   "pin_name",
+}
+
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
 func (svc *builtIn) initializeOrUpdateCollector(
@@ -269,7 +275,6 @@ func (svc *builtIn) initializeOrUpdateCollector(
 
 	// Parameters to initialize collector.
 	interval := getDurationFromHz(config.CaptureFrequencyHz)
-
 	// Set queue size to defaultCaptureQueueSize if it was not set in the config.
 	captureQueueSize := config.CaptureQueueSize
 	if captureQueueSize == 0 {
@@ -280,7 +285,15 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	if captureBufferSize == 0 {
 		captureBufferSize = defaultCaptureBufferSize
 	}
-
+	additionalParamKey, ok := metadataToAdditionalParamFields[generateMetadataKey(
+		md.MethodMetadata.API.String(),
+		md.MethodMetadata.MethodName)]
+	if ok {
+		if _, ok := config.AdditionalParams[additionalParamKey]; !ok {
+			return nil, errors.Errorf("failed to validate additional_params for %s, must supply %s",
+				md.MethodMetadata.API.String(), additionalParamKey)
+		}
+	}
 	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(config.AdditionalParams)
 	if err != nil {
 		return nil, err
@@ -626,4 +639,8 @@ func (svc *builtIn) updateDataCaptureConfigs(
 		resConf.Resource = res
 		resConf.CaptureDirectory = captureDir
 	}
+}
+
+func generateMetadataKey(component, method string) string {
+	return fmt.Sprintf("%s/%s", component, method)
 }

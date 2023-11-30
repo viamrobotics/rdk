@@ -29,11 +29,11 @@ func init() {
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: analogs.String(),
-	}, newAnalogCollector)
+	}, NewAnalogCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: gpios.String(),
-	}, newGPIOCollector)
+	}, NewGPIOCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "board".
@@ -61,28 +61,16 @@ type Board interface {
 	// GPIOPinByName returns a GPIOPin by name.
 	GPIOPinByName(name string) (GPIOPin, error)
 
-	// SPINames returns the names of all known SPI buses.
-	SPINames() []string
-
-	// I2CNames returns the names of all known I2C buses.
-	I2CNames() []string
-
 	// AnalogReaderNames returns the names of all known analog readers.
 	AnalogReaderNames() []string
 
 	// DigitalInterruptNames returns the names of all known digital interrupts.
 	DigitalInterruptNames() []string
 
-	// GPIOPinNames returns the names of all known GPIO pins.
-	GPIOPinNames() []string
-
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
 	// this.
 	Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error)
-
-	// ModelAttributes returns attributes related to the model of this board.
-	ModelAttributes() ModelAttributes
 
 	// SetPowerMode sets the board to the given power mode. If
 	// provided, the board will exit the given power mode after
@@ -91,51 +79,6 @@ type Board interface {
 
 	// WriteAnalog writes an analog value to a pin on the board.
 	WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error
-}
-
-// A LocalBoard represents a Board where you can request SPIs and I2Cs by name.
-type LocalBoard interface {
-	Board
-
-	// SPIByName returns an SPI bus by name.
-	SPIByName(name string) (SPI, bool)
-
-	// I2CByName returns an I2C bus by name.
-	I2CByName(name string) (I2C, bool)
-}
-
-// ModelAttributes provide info related to a board model.
-type ModelAttributes struct {
-	// Remote signifies this board is accessed over a remote connection.
-	// e.g. gRPC
-	Remote bool
-}
-
-// SPI represents a shareable SPI bus on the board.
-type SPI interface {
-	// OpenHandle locks the shared bus and returns a handle interface that MUST be closed when done.
-	OpenHandle() (SPIHandle, error)
-	Close(ctx context.Context) error
-}
-
-// SPIHandle is similar to an io handle. It MUST be closed to release the bus.
-type SPIHandle interface {
-	// Xfer performs a single SPI transfer, that is, the complete transaction from chipselect enable to chipselect disable.
-	// SPI transfers are synchronous, number of bytes received will be equal to the number of bytes sent.
-	// Write-only transfers can usually just discard the returned bytes.
-	// Read-only transfers usually transmit a request/address and continue with some number of null bytes to equal the expected size of the
-	// returning data.
-	// Large transmissions are usually broken up into multiple transfers.
-	// There are many different paradigms for most of the above, and implementation details are chip/device specific.
-	Xfer(
-		ctx context.Context,
-		baud uint,
-		chipSelect string,
-		mode uint,
-		tx []byte,
-	) ([]byte, error)
-	// Close closes the handle and releases the lock on the bus.
-	Close() error
 }
 
 // An AnalogReader represents an analog pin reader that resides on a board.

@@ -1,19 +1,15 @@
 <script lang="ts">
 
-import { PowerSensorClient, type ServiceError } from '@viamrobotics/sdk';
+import { type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import Collapse from '@/lib/components/collapse.svelte';
-import { rcLogConditionally } from '@/lib/log';
 import { setAsyncInterval } from '@/lib/schedule';
+import { getVoltage, getCurrent, getPower } from '@/api/power-sensor';
 import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
 
 export let name: string;
 
 const { robotClient } = useRobotClient();
-
-const powerSensorClient = new PowerSensorClient($robotClient, name, {
-  requestLogger: rcLogConditionally,
-});
 
 let voltageValue: number | undefined;
 let currentValue: number | undefined;
@@ -23,10 +19,15 @@ let clearInterval: (() => void) | undefined;
 
 const refresh = async () => {
   try {
-    const readings = await powerSensorClient.getReadings();
-    voltageValue = readings.voltage;
-    currentValue = readings.current;
-    powerValue = readings.power;
+    const results = await Promise.all([
+      getVoltage($robotClient, name),
+      getCurrent($robotClient, name),
+      getPower($robotClient, name),
+    ] as const)
+
+    voltageValue = results[0];
+    currentValue = results[1];
+    powerValue = results[2];
   } catch (error) {
     displayError(error as ServiceError);
   }

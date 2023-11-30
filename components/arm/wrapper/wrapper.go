@@ -3,16 +3,18 @@ package wrapper
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"sync"
 
 	pb "go.viam.com/api/component/arm/v1"
-	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -29,9 +31,9 @@ var model = resource.DefaultModelFamily.WithModel("wrapper_arm")
 func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.ArmName == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "arm-name")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "arm-name")
 	}
-	if _, err := referenceframe.ModelFromPath(cfg.ModelFilePath, ""); err != nil {
+	if _, err := modelFromPath(cfg.ModelFilePath, ""); err != nil {
 		return nil, err
 	}
 	deps = append(deps, cfg.ArmName)
@@ -77,7 +79,7 @@ func (wrapper *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	if err != nil {
 		return err
 	}
-	model, err := referenceframe.ModelFromPath(newConf.ModelFilePath, conf.Name)
+	model, err := modelFromPath(newConf.ModelFilePath, conf.Name)
 	if err != nil {
 		return err
 	}
@@ -195,4 +197,16 @@ func (wrapper *Arm) Geometries(ctx context.Context, extra map[string]interface{}
 		return nil, err
 	}
 	return gif.Geometries(), nil
+}
+
+// modelFromPath returns a Model from a given path.
+func modelFromPath(modelPath, name string) (referenceframe.Model, error) {
+	switch {
+	case strings.HasSuffix(modelPath, ".urdf"):
+		return urdf.ParseModelXMLFile(modelPath, name)
+	case strings.HasSuffix(modelPath, ".json"):
+		return referenceframe.ParseModelJSONFile(modelPath, name)
+	default:
+		return nil, errors.New("only files with .json and .urdf file extensions are supported")
+	}
 }

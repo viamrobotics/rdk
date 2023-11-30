@@ -7,14 +7,12 @@ import (
 
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/gostream/codec"
-	"go.viam.com/rdk/gostream/codec/h264/ffmpeg/avcodec"
 )
 
 // DefaultStreamConfig configures h264 as the encoder for a stream.
 var DefaultStreamConfig gostream.StreamConfig
 
 func init() {
-	avcodec.RegisterAll()
 	DefaultStreamConfig.VideoEncoderFactory = NewEncoderFactory()
 }
 

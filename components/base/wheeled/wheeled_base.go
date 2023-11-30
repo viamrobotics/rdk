@@ -40,7 +40,6 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
@@ -68,22 +67,22 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if cfg.WidthMM == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "width_mm")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "width_mm")
 	}
 
 	if cfg.WheelCircumferenceMM == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "wheel_circumference_mm")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "wheel_circumference_mm")
 	}
 
 	if len(cfg.Left) == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "left")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "left")
 	}
 	if len(cfg.Right) == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "right")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "right")
 	}
 
 	if len(cfg.Left) != len(cfg.Right) {
-		return nil, utils.NewConfigValidationError(path,
+		return nil, resource.NewConfigValidationError(path,
 			fmt.Errorf("left and right need to have the same number of motors, not %d vs %d",
 				len(cfg.Left), len(cfg.Right)))
 	}

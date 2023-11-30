@@ -82,10 +82,14 @@ func (ctxt *Context) SetEncodeParams(width, height int, pxlFmt PixelFormat, hasB
 	ctxt.pix_fmt = int32(pxlFmt)
 }
 
-// SetTimebase sets the context's time base's numerator (num) and denominator (den)
-func (ctxt *Context) SetTimebase(num, den int) {
-	ctxt.time_base.num = C.int(num)
-	ctxt.time_base.den = C.int(den)
+// SetFramerate sets the context's framerate
+func (ctxt *Context) SetFramerate(fps int) {
+	ctxt.framerate.num = C.int(fps)
+	ctxt.framerate.den = C.int(1)
+
+	// timebase should be 1/framerate
+	ctxt.time_base.num = C.int(1)
+	ctxt.time_base.den = C.int(fps)
 }
 
 // Open2 Initialize the AVCodecContext to use the given AVCodec. Prior to using this
@@ -177,11 +181,6 @@ func (ctxt *Context) Close() int {
 	return int(C.avcodec_close((*C.struct_AVCodecContext)(ctxt)))
 }
 
-// Free frees the AVPacket
-func (p *Packet) Free() {
-	C.av_free_packet((*C.struct_AVPacket)(p))
-}
-
 // Unref Wipe the packet.
 //
 // Unreference the buffer referenced by the packet and reset the
@@ -265,10 +264,4 @@ func (p *Packet) Data() *uint8 {
 // Size returns the packet size
 func (p *Packet) Size() int {
 	return int(p.size)
-}
-
-// RegisterAll Register all codecs, parsers and bitstream filters.
-func RegisterAll() {
-	C.av_register_all()
-	C.avcodec_register_all()
 }

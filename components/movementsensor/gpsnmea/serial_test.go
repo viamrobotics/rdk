@@ -7,7 +7,6 @@ import (
 	"github.com/adrianmo/go-nmea"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
@@ -31,7 +30,7 @@ func TestValidateSerial(t *testing.T) {
 	fakecfg := &SerialConfig{}
 	path := "path"
 	err := fakecfg.validateSerial(path)
-	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "serial_path"))
+	test.That(t, err, test.ShouldBeError, resource.NewConfigValidationFieldRequiredError(path, "serial_path"))
 
 	fakecfg.SerialPath = "some-path"
 	err = fakecfg.validateSerial(path)
@@ -39,7 +38,7 @@ func TestValidateSerial(t *testing.T) {
 }
 
 func TestNewSerialMovementSensor(t *testing.T) {
-	deps := setupDependencies(t)
+	var deps resource.Dependencies
 	path := "somepath"
 
 	cfig := resource.Config{
@@ -70,7 +69,6 @@ func TestNewSerialMovementSensor(t *testing.T) {
 				SerialPath:     path,
 				SerialBaudRate: 0,
 			},
-			I2CConfig: &I2CConfig{Board: "local"},
 		},
 	}
 	g, err = newNMEAGPS(ctx, deps, cfig, logger)

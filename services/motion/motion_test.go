@@ -25,11 +25,8 @@ import (
 )
 
 func TestPlanWithStatus(t *testing.T) {
-	planID, err := uuid.NewUUID()
-	test.That(t, err, test.ShouldBeNil)
-
-	executionID, err := uuid.NewUUID()
-	test.That(t, err, test.ShouldBeNil)
+	planID := uuid.New()
+	executionID := uuid.New()
 
 	baseName := base.Named("my-base1")
 	poseA := spatialmath.NewZeroPose()
@@ -331,8 +328,7 @@ func TestPlanStatusWithID(t *testing.T) {
 			err         error
 		}
 
-		id, err := uuid.NewUUID()
-		test.That(t, err, test.ShouldBeNil)
+		id := uuid.New()
 
 		mybase := base.Named("mybase")
 		timestamp := time.Now().UTC()
@@ -421,8 +417,7 @@ func TestPlanStatusWithID(t *testing.T) {
 			result      *pb.PlanStatusWithID
 		}
 
-		id, err := uuid.NewUUID()
-		test.That(t, err, test.ShouldBeNil)
+		id := uuid.New()
 
 		mybase := base.Named("mybase")
 		timestamp := time.Now().UTC()
@@ -602,11 +597,8 @@ func TestPlan(t *testing.T) {
 			err         error
 		}
 
-		planID, err := uuid.NewUUID()
-		test.That(t, err, test.ShouldBeNil)
-
-		executionID, err := uuid.NewUUID()
-		test.That(t, err, test.ShouldBeNil)
+		planID := uuid.New()
+		executionID := uuid.New()
 
 		baseName := base.Named("my-base1")
 		poseA := spatialmath.NewZeroPose()
@@ -711,11 +703,8 @@ func TestPlan(t *testing.T) {
 			result      *pb.Plan
 		}
 
-		planID, err := uuid.NewUUID()
-		test.That(t, err, test.ShouldBeNil)
-
-		executionID, err := uuid.NewUUID()
-		test.That(t, err, test.ShouldBeNil)
+		planID := uuid.New()
+		executionID := uuid.New()
 
 		baseName := base.Named("my-base1")
 		poseA := spatialmath.NewZeroPose()
@@ -901,7 +890,6 @@ func TestConfiguration(t *testing.T) {
 			input       *pb.MotionConfiguration
 			result      *MotionConfiguration
 		}
-
 		linearMPerSec := 1.
 		angularDegsPerSec := 2.
 		planDeviationMM := 3000.
@@ -1003,6 +991,30 @@ func TestConfiguration(t *testing.T) {
 func TestMoveOnGlobeReq(t *testing.T) {
 	name := "somename"
 	dst := geo.NewPoint(1, 2)
+
+	t.Run("String()", func(t *testing.T) {
+		s := "motion.MoveOnGlobeReq{ComponentName: " +
+			"rdk:component:base/my-base, Destination: " +
+			"&{lat:1 lng:2}, Heading: 0.500000, MovementSensorName: " +
+			"rdk:component:movement_sensor/my-movementsensor, " +
+			"Obstacles: [], MotionCfg: &motion.MotionConfiguration{" +
+			"ObstacleDetectors:[]motion.ObstacleDetectorName{" +
+			"motion.ObstacleDetectorName{VisionServiceName:resource.Name{" +
+			"API:resource.API{Type:resource.APIType{Namespace:\"rdk\", Name:\"service\"}, " +
+			"SubtypeName:\"vision\"}, Remote:\"\", Name:\"vision service 1\"}, " +
+			"CameraName:resource.Name{API:resource.API{Type:resource.APIType{" +
+			"Namespace:\"rdk\", Name:\"component\"}, SubtypeName:\"camera\"}, " +
+			"Remote:\"\", Name:\"camera 1\"}}, motion.ObstacleDetectorName{" +
+			"VisionServiceName:resource.Name{API:resource.API{Type:resource.APIType{" +
+			"Namespace:\"rdk\", Name:\"service\"}, SubtypeName:\"vision\"}, " +
+			"Remote:\"\", Name:\"vision service 2\"}, CameraName:resource.Name{" +
+			"API:resource.API{Type:resource.APIType{Namespace:\"rdk\", " +
+			"Name:\"component\"}, SubtypeName:\"camera\"}, Remote:\"\", " +
+			"Name:\"camera 2\"}}}, PositionPollingFreqHz:4, ObstaclePollingFreqHz:5, " +
+			"PlanDeviationMM:3, LinearMPerSec:1, AngularDegsPerSec:2}, Extra: map[]}"
+		test.That(t, validMoveOnGlobeRequest().String(), test.ShouldResemble, s)
+	})
+
 	//nolint:dupl
 	t.Run("toProto", func(t *testing.T) {
 		t.Run("error due to nil destination", func(t *testing.T) {
@@ -1376,8 +1388,7 @@ func TestPlanHistoryReq(t *testing.T) {
 			err         error
 		}
 
-		executionID, err := uuid.NewUUID()
-		test.That(t, err, test.ShouldBeNil)
+		executionID := uuid.New()
 		mybase := base.Named("mybase")
 		executionIDStr := executionID.String()
 
@@ -1432,8 +1443,7 @@ func TestPlanHistoryReq(t *testing.T) {
 			err         error
 		}
 
-		executionID, err := uuid.NewUUID()
-		test.That(t, err, test.ShouldBeNil)
+		executionID := uuid.New()
 		mybase := base.Named("mybase")
 		executionIDStr := executionID.String()
 

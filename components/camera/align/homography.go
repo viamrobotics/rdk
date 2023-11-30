@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
@@ -66,11 +65,11 @@ type homographyConfig struct {
 func (cfg *homographyConfig) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.Color == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "color_camera_name")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "color_camera_name")
 	}
 	deps = append(deps, cfg.Color)
 	if cfg.Depth == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "depth_camera_name")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "depth_camera_name")
 	}
 	deps = append(deps, cfg.Depth)
 	return deps, nil
