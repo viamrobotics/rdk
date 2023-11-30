@@ -4,10 +4,13 @@ package builtin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"sync"
+	"time"
 
 	"github.com/golang/geo/r3"
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -228,6 +231,8 @@ type builtIn struct {
 	currentWaypointCancelFunc func()
 	waypointInProgress        *navigation.Waypoint
 	activeBackgroundWorkers   sync.WaitGroup
+	// activeExecutionID         motion.ExecutionID
+	// activeComponentName       resource.Name
 }
 
 func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
@@ -513,17 +518,47 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 
 		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
 			svc.logger.Debugf("MoveOnGlobe called going to waypoint %+v", wp)
-			_, err := svc.motionService.MoveOnGlobe(
-				ctx,
-				svc.base.Name(),
-				wp.ToPoint(),
-				math.NaN(),
-				svc.movementSensor.Name(),
-				svc.obstacles,
-				svc.motionCfg,
-				extra,
-			)
+			req := motion.MoveOnGlobeReq{
+				ComponentName:      svc.base.Name(),
+				Destination:        wp.ToPoint(),
+				Heading:            math.NaN(),
+				MovementSensorName: svc.movementSensor.Name(),
+				Obstacles:          svc.obstacles,
+				MotionCfg:          svc.motionCfg,
+				Extra:              extra,
+			}
+			rawExecutionID, err := svc.motionService.MoveOnGlobeNew(ctx, req)
 			if err != nil {
+				return errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
+			}
+
+			executionID, err := uuid.Parse(rawExecutionID)
+			if err != nil {
+				return errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
+			}
+			svc.activeBackgroundWorkers.Add(1)
+			done := make(chan struct{}, 1)
+			utils.PanicCapturingGo(func() {
+				defer svc.activeBackgroundWorkers.Done()
+				select {
+				case <-ctx.Done():
+					timeoutCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
+					defer cancelFn()
+					err := svc.motionService.StopPlan(timeoutCtx, motion.StopPlanReq{ComponentName: req.ComponentName})
+					if err != nil {
+						svc.logger.Error("hit error trying to stop plan %s", err)
+					}
+				case <-done:
+				}
+			})
+			defer func() { done <- struct{}{} }()
+
+			phReq := motion.PlanHistoryReq{
+				ComponentName: req.ComponentName,
+				ExecutionID:   executionID,
+				LastPlanOnly:  true,
+			}
+			if err := pollUntilMOGSuccessOrError(ctx, svc.motionService, time.Millisecond*500, phReq); err != nil {
 				return errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
 			}
 
@@ -539,6 +574,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 
 			wp, err := svc.store.NextWaypoint(ctx)
 			if err != nil {
+				time.Sleep(time.Millisecond * 200)
 				continue
 			}
 			svc.mu.Lock()
@@ -581,5 +617,78 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return nil, errUnimplemented
+	// TODO: Only query for executionID we know about
+	ph, err := svc.motionService.PlanHistory(ctx, motion.PlanHistoryReq{
+		ComponentName: svc.base.Name(),
+		LastPlanOnly:  true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	geoPoints := make([]*geo.Point, 0, len(ph[0].Plan.Steps))
+	for _, s := range ph[0].Plan.Steps {
+		if len(s) > 1 {
+			return nil, errors.New("multi component paths are unsupported")
+		}
+		var pose spatialmath.Pose
+		for _, p := range s {
+			pose = p
+		}
+
+		geoPoint := geo.NewPoint(pose.Point().X, pose.Point().Y)
+		geoPoints = append(geoPoints, geoPoint)
+	}
+
+	// TODO: Add waypoint id
+	path, err := navigation.NewPath("", geoPoints)
+	if err != nil {
+		return nil, err
+	}
+	return []*navigation.Path{path}, errUnimplemented
+}
+
+func statusToErr(status motion.PlanStatus) error {
+	switch status.State {
+	case motion.PlanStateFailed:
+		err := errors.New("plan failed")
+		if reason := status.Reason; reason != nil {
+			err = errors.New(*reason)
+		}
+		return err
+
+	case motion.PlanStateStopped:
+		return errors.New("plan stopped")
+
+	case motion.PlanStateInProgress, motion.PlanStateSucceeded:
+		return nil
+
+	default:
+		return fmt.Errorf("invalid plan state %d", status.State)
+	}
+}
+
+func pollUntilMOGSuccessOrError(
+	ctx context.Context,
+	m motion.Service,
+	interval time.Duration,
+	req motion.PlanHistoryReq,
+) error {
+	for {
+		ph, err := m.PlanHistory(ctx, req)
+		if err != nil {
+			return err
+		}
+
+		status := ph[0].StatusHistory[0]
+
+		if status.State == motion.PlanStateSucceeded {
+			return nil
+		}
+
+		if err := statusToErr(status); err != nil {
+			return err
+		}
+
+		time.Sleep(interval)
+	}
 }
