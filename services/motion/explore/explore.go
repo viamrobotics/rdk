@@ -40,9 +40,12 @@ var (
 	lookAheadDistanceMM = 500.
 	// ErrClosed denotes that the slam service method was called on a closed slam resource.
 	ErrClosed = errors.Errorf("resource (%s) is closed", model.String())
+	// successiveErrorLimit places a limit on the number of errors that can occur in a row when running
+	// checkForObstacles.
+	successiveErrorLimit = 5
 
-	// Places a limit on how far a potential kinematic base move action can be.
-	defaultMoveLimitMM = 100 * 1000.
+	// Defines the limit on how far a potential kinematic base move action can be. For explore there is none.
+	defaultMoveLimitMM = math.Inf(1)
 	// The timeout for any individual move action on the kinematic base.
 	defaultExploreTimeout = 100 * time.Second
 	// The max angle the kinematic base spin action can be.
@@ -338,6 +341,7 @@ func (ms *explore) checkForObstacles(
 	ticker := time.NewTicker(time.Duration(int(1000/obstaclePollingFrequencyHz)) * time.Millisecond)
 	defer ticker.Stop()
 
+	var errCounterCurrentInputs, errCounterGenerateTransientWorldState int
 	for {
 		select {
 		case <-ctx.Done():
@@ -347,6 +351,13 @@ func (ms *explore) checkForObstacles(
 			currentInputs, err := kb.CurrentInputs(ctx)
 			if err != nil {
 				ms.logger.Debugf("issue occurred getting current inputs from kinematic base: %v", err)
+				if errCounterCurrentInputs > successiveErrorLimit {
+					ms.obstacleResponseChan <- moveResponse{success: false}
+					return
+				}
+				errCounterCurrentInputs += 1
+			} else {
+				errCounterCurrentInputs = 0
 			}
 
 			currentPose := spatialmath.NewPose(
@@ -358,6 +369,13 @@ func (ms *explore) checkForObstacles(
 			worldState, err := ms.generateTransientWorldState(ctx, obstacleDetectors)
 			if err != nil {
 				ms.logger.Debugf("issue occurred generating transient worldState: %v", err)
+				if errCounterGenerateTransientWorldState > successiveErrorLimit {
+					ms.obstacleResponseChan <- moveResponse{success: false}
+					return
+				}
+				errCounterGenerateTransientWorldState += 1
+			} else {
+				errCounterGenerateTransientWorldState = 0
 			}
 
 			// Select remainder of plan to check
