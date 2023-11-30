@@ -585,15 +585,15 @@ func DataAddToDatasetByIDs(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := client.DataAddToDatasetByIDs(c.String(datasetFlagDatasetID), c.String(dataFlagOrgID),
+	if err := client.dataAddToDatasetByIDs(c.String(datasetFlagDatasetID), c.String(dataFlagOrgID),
 		c.String(dataFlagLocationID), c.StringSlice(dataFlagFileIDs)); err != nil {
 		return err
 	}
 	return nil
 }
 
-// DataAddToDatasetByIDs adds data, with the specified org ID, location ID, and file IDs to the dataset corresponding to the dataset ID.
-func (c *viamClient) DataAddToDatasetByIDs(datasetID, orgID, locationID string, fileIDs []string) error {
+// dataAddToDatasetByIDs adds data, with the specified org ID, location ID, and file IDs to the dataset corresponding to the dataset ID.
+func (c *viamClient) dataAddToDatasetByIDs(datasetID, orgID, locationID string, fileIDs []string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
