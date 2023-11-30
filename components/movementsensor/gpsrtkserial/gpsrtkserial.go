@@ -143,7 +143,6 @@ type rtkSerial struct {
 	writePath          string
 	wbaud              int
 	isVirtualBase      bool
-	isConnected        bool
 	readerWriter       *bufio.ReadWriter
 	writer             io.Writer
 	reader             io.Reader
@@ -499,29 +498,18 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 					return
 				}
 
-				g.logger.Debug("No message... reconnecting to stream...")
 				if g.isVirtualBase {
 					g.logger.Debug("reconnecting to the Virtual Reference Station")
-					err = g.getNtripFromVRS()
 
-					if err != nil && !errors.Is(err, io.EOF) {
-						g.err.Set(err)
-					}
-					if g.readerWriter == nil {
-						g.logger.Debug("Reached EOF, trying to reconnect")
-					}
-
-					// during reconnection, calling getNtripFromVRS second time allows
-					// us to re-dial to the TCP port and create a new socket for ntrip stream.
 					err = g.getNtripFromVRS()
 					if err != nil && !errors.Is(err, io.EOF) {
 						g.err.Set(err)
-						g.logger.Errorf("Failed to reconnect, %v", err)
-						return
 					}
 
 					scanner = rtcm3.NewScanner(g.readerWriter)
 				} else {
+					g.logger.Debug("No message... reconnecting to stream...")
+
 					err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 					if err != nil {
 						g.err.Set(err)
@@ -748,22 +736,15 @@ func (g *rtkSerial) getNtripFromVRS() error {
 	g.ntripMu.Lock()
 	defer g.ntripMu.Unlock()
 
-	if !g.isConnected {
-		g.readerWriter, g.isConnected = g.virtualBase.ConnectToVirtualBase(g.ntripClient, g.logger)
-	}
+	g.readerWriter = g.virtualBase.ConnectToVirtualBase(g.ntripClient, g.logger)
 
 	// read from the socket until we know if a successful connection has been
 	// established.
 	for {
-		if g.readerWriter.Reader == nil || g.readerWriter.Writer == nil {
-			break
-		}
 		line, _, err := g.readerWriter.ReadLine()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				g.logger.Debug("EOF encountered. sending GGA message again")
 				g.readerWriter = nil
-				g.isConnected = false
 				return err
 			}
 			g.logger.Error("Failed to read server response:", err)
@@ -772,11 +753,9 @@ func (g *rtkSerial) getNtripFromVRS() error {
 
 		if strings.HasPrefix(string(line), "HTTP/1.1 ") {
 			if strings.Contains(string(line), "200 OK") {
-				g.isConnected = true
 				break
 			} else {
-				g.logger.Error("Bad HTTP response")
-				g.isConnected = false
+				g.logger.Errorf("Bad HTTP response: %v", string(line))
 				return err
 			}
 		}

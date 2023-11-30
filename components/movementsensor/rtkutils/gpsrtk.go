@@ -15,13 +15,12 @@ import (
 )
 
 type VirtualBase struct {
-	mu          sync.Mutex
-	isConnected bool
+	mu sync.Mutex
 }
 
 // ConnectToVirtualBase
 func (v *VirtualBase) ConnectToVirtualBase(ntripInfo *NtripInfo,
-	logger logging.Logger) (*bufio.ReadWriter, bool) {
+	logger logging.Logger) *bufio.ReadWriter {
 
 	v.mu.Lock()
 	defer v.mu.Unlock()
@@ -37,9 +36,7 @@ func (v *VirtualBase) ConnectToVirtualBase(ntripInfo *NtripInfo,
 
 	conn, err := net.Dial("tcp", serverAddr)
 	if err != nil {
-		v.isConnected = false
-		logger.Errorf("Failed to connect to VRS server:", err)
-		return nil, v.isConnected
+		return nil
 	}
 
 	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
@@ -55,21 +52,19 @@ func (v *VirtualBase) ConnectToVirtualBase(ntripInfo *NtripInfo,
 	// Send HTTP headers over the TCP connection
 	_, err = rw.Write([]byte(httpHeaders))
 	if err != nil {
-		v.isConnected = false
+
 		logger.Error("Failed to send HTTP headers:", err)
-		return nil, v.isConnected
+		return nil
 	}
 	err = rw.Flush()
 	if err != nil {
-		v.isConnected = false
 		logger.Error("failed to write to buffer")
-		return nil, v.isConnected
+		return nil
 	}
 
 	logger.Debugf("request header: %v\n", httpHeaders)
 	logger.Debug("HTTP headers sent successfully.")
-	v.isConnected = true
-	return rw, v.isConnected
+	return rw
 }
 
 // GetGGAMessage checks if a GGA message exists in the buffer and returns it.
