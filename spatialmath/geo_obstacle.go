@@ -1,6 +1,7 @@
 package spatialmath
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -202,6 +203,7 @@ func (gpo *GeoPose) Heading() float64 {
 
 // PoseToGeoPose converts a pose (which are always in mm) into a GeoPose treating relativeTo as the origin.
 func PoseToGeoPose(relativeTo *GeoPose, pose Pose) *GeoPose {
+	fmt.Println(" ")
 	// poses are always in mm but PointAtDistanceAndBearing expects the pose to be in km so we need to convert
 	kmPoint := pose.Point().Mul(1e-6)
 
@@ -229,8 +231,10 @@ func PoseToGeoPose(relativeTo *GeoPose, pose Pose) *GeoPose {
 	// convert headingRight to be left-handed
 	headingLeft := math.Mod(math.Abs(headingRight-360), 360)
 
+	poseAbsoluteHeading := normalizeAngle(headingLeft + headingInWorld)
+
 	// return the GeoPose at the new position with the absolute heading of pose p, i.e. the heading in the world
-	return NewGeoPose(newPosition, normalizeAngle(headingLeft+headingInWorld))
+	return NewGeoPose(newPosition, poseAbsoluteHeading)
 }
 
 // normalizeAngle takes in an angle in degrees and returns an equivalent angle in the domain [0,360).

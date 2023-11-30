@@ -20,7 +20,9 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/explore"
 	"go.viam.com/rdk/services/navigation"
@@ -215,6 +217,7 @@ type builtIn struct {
 	mode      navigation.Mode
 	mapType   navigation.MapType
 
+	fsService            framesystem.Service
 	base                 base.Base
 	movementSensor       movementsensor.MovementSensor
 	visionServicesByName map[resource.Name]vision.Service
@@ -357,6 +360,12 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	// Note: this service will disappear after the explore motion model is integrated into builtIn
 	exploreMotionConf := resource.Config{ConvertedAttributes: &explore.Config{}}
 	svc.exploreMotionService, err = explore.NewExplore(ctx, deps, exploreMotionConf, svc.logger)
+	if err != nil {
+		return err
+	}
+
+	// create framesystem from dependencies
+	svc.fsService, err = framesystem.New(ctx, deps, svc.logger)
 	if err != nil {
 		return err
 	}
@@ -592,6 +601,29 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			return nil, fmt.Errorf("vision service with name: %s not found", detector.VisionServiceName)
 		}
 
+		// determine transform from camera to movement sensor
+		movementsensorOrigin := referenceframe.NewPoseInFrame(svc.movementSensor.Name().ShortName(), spatialmath.NewZeroPose())
+		movementsensorToCamera, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, detector.CameraName.ShortName(), nil)
+		if err != nil {
+			// here we make the assumption the movement sensor is coincident with the camera
+			movementsensorToCamera = movementsensorOrigin
+		}
+
+		// determine transform from base to movement sensor
+		movementsensorToBase, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, svc.base.Name().ShortName(), nil)
+		if err != nil {
+			// here we make the assumption the movement sensor is coincident with the base
+			movementsensorToBase = movementsensorOrigin
+		}
+
+		// determine transform from base to camera
+		cameraOrigin := referenceframe.NewPoseInFrame(detector.CameraName.ShortName(), spatialmath.NewZeroPose())
+		baseToCamera, err := svc.fsService.TransformPose(ctx, cameraOrigin, svc.base.Name().ShortName(), nil)
+		if err != nil {
+			// here we make the assumption the base is coincident with the camera
+			baseToCamera = cameraOrigin
+		}
+
 		// get the detections
 		detections, err := visSvc.GetObjectPointClouds(ctx, detector.CameraName.Name, nil)
 		if err != nil {
@@ -610,16 +642,45 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		if err != nil {
 			return nil, err
 		}
+
 		// convert orientation of currentPIF to be left handed
-		heading := math.Mod(math.Abs(currentPIF.Pose().Orientation().OrientationVectorDegrees().Theta-360), 360)
+		localizerHeading := math.Mod(math.Abs(currentPIF.Pose().Orientation().OrientationVectorDegrees().Theta-360), 360)
+
+		// convert orientation of movementsensorToCamera to be left handed????
+		localizerBaseThetaDiff := math.Mod(math.Abs(movementsensorToBase.Pose().Orientation().OrientationVectorDegrees().Theta+360), 360)
+
+		baseHeading := math.Mod(localizerHeading+localizerBaseThetaDiff, 360)
 
 		// convert geo position into GeoPose
-		relativeToGeoPose := spatialmath.NewGeoPose(gp, heading)
+		robotGeoPose := spatialmath.NewGeoPose(gp, baseHeading)
 
 		// iterate through all detections and construct a geoObstacle to append
 		for i, detection := range detections {
+			// the position of the detection in the camera coordinate frame if it were at the movementsensor's location
+			desiredPoint := r3.Vector{
+				X: detection.Geometry.Pose().Point().X - movementsensorToCamera.Pose().Point().X,
+				Y: detection.Geometry.Pose().Point().Y - movementsensorToCamera.Pose().Point().Y,
+				Z: detection.Geometry.Pose().Point().Z - movementsensorToCamera.Pose().Point().Z,
+			}
+
+			desiredPose := spatialmath.NewPose(
+				desiredPoint,
+				detection.Geometry.Pose().Orientation(),
+			)
+
+			transformBy := spatialmath.PoseBetweenInverse(detection.Geometry.Pose(), desiredPose)
+
+			// get the manipulated geometry
+			manipulatedGeom := detection.Geometry.Transform(transformBy)
+			fmt.Println("manipulatedGeom.Pose(): ", spatialmath.PoseToProtobuf(manipulatedGeom.Pose()))
+
+			// fix axes of geometry's pose such that it is in the cooordinate system of the base
+			transformBy = spatialmath.NewPoseFromOrientation(baseToCamera.Pose().Orientation())
+			manipulatedGeom = manipulatedGeom.Transform(transformBy)
+			fmt.Println("manipulatedGeom.Pose(): ", spatialmath.PoseToProtobuf(manipulatedGeom.Pose()))
+
 			// get the geometry's lat & lng along with its heading with respect to north as a left handed value
-			geomGeoPose := spatialmath.PoseToGeoPose(relativeToGeoPose, detection.Geometry.Pose())
+			obstacleGeoPose := spatialmath.PoseToGeoPose(robotGeoPose, manipulatedGeom.Pose())
 
 			// prefix the label of the geometry so we know it is transient and add extra info
 			label := "transient_" + strconv.Itoa(i) + "_" + detector.CameraName.Name
@@ -629,23 +690,19 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			detection.Geometry.SetLabel(label)
 
 			// determine the desired geometry pose
-			desiredPose := spatialmath.NewPose(
-				r3.Vector{0, 0, 0},
-				&spatialmath.OrientationVectorDegrees{
-					OZ: 1,
-					// convert the heading to be right handed
-					Theta: math.Mod(math.Abs(geomGeoPose.Heading()-360), 360),
-				},
-			)
+			desiredPose = spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, detection.Geometry.Pose().Orientation())
 
 			// calculate what we need to transform by
-			transformBy := spatialmath.PoseBetweenInverse(detection.Geometry.Pose(), desiredPose)
+			transformBy = spatialmath.PoseBetweenInverse(detection.Geometry.Pose(), desiredPose)
 
-			// sets the geometry's pose to desiredPose
-			manipulatedGeom := detection.Geometry.Transform(transformBy)
+			// set the geometry's pose to desiredPose
+			manipulatedGeom = detection.Geometry.Transform(transformBy)
+
+			// create the geo obstacle
+			obstacle := spatialmath.NewGeoObstacle(obstacleGeoPose.Location(), []spatialmath.Geometry{manipulatedGeom})
 
 			// add manipulatedGeom to list of geoObstacles we return
-			geoObstacles = append(geoObstacles, spatialmath.NewGeoObstacle(geomGeoPose.Location(), []spatialmath.Geometry{manipulatedGeom}))
+			geoObstacles = append(geoObstacles, obstacle)
 		}
 	}
 

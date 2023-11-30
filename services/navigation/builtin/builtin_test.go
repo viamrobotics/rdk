@@ -3,7 +3,6 @@ package builtin
 import (
 	"context"
 	"errors"
-	"math"
 	"testing"
 	"time"
 
@@ -25,6 +24,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
 	_ "go.viam.com/rdk/services/motion/builtin"
@@ -1015,10 +1015,7 @@ func TestGetObstacles(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
-	// create injected motion service
-	injectMS := inject.NewMotionService("test_motion")
-
-	// create fake base
+	// create injected/fake components and services
 	fakeBase, err := fakebase.NewBase(
 		ctx,
 		nil,
@@ -1031,31 +1028,26 @@ func TestGetObstacles(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	injectMovementSensor := inject.NewMovementSensor("test_movement")
-
-	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		return geo.NewPoint(1, 1), 0, nil
-	}
-	injectMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
-		return &movementsensor.Properties{
-			CompassHeadingSupported: true,
-		}, nil
-	}
-	injectMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-		// this is a left-handed value
-		return 50, nil
-	}
-
-	// create injected vis svc
+	injectMS := inject.NewMotionService("test_motion")
 	injectedVis := inject.NewVisionService("test_vision")
+	injectMovementSensor := inject.NewMovementSensor("test_movement")
 	injectedCam := inject.NewCamera("test_camera")
 
+	// set the dependencies for the navigation service
+	deps := resource.Dependencies{
+		fakeBase.Name():             fakeBase,
+		injectMovementSensor.Name(): injectMovementSensor,
+		injectedCam.Name():          injectedCam,
+	}
+
+	// create static geo obstacle
 	sphereGeom, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 1.0, "test-sphere")
 	test.That(t, err, test.ShouldBeNil)
 	sphereGob := spatialmath.NewGeoObstacle(geo.NewPoint(1, 1), []spatialmath.Geometry{sphereGeom})
 	gobCfg, err := spatialmath.NewGeoObstacleConfig(sphereGob)
 	test.That(t, err, test.ShouldBeNil)
 
+	// construct the navigation service
 	ns, err := NewBuiltIn(
 		ctx,
 		resource.Dependencies{
@@ -1089,12 +1081,57 @@ func TestGetObstacles(t *testing.T) {
 		test.That(t, ns.Close(context.Background()), test.ShouldBeNil)
 	}()
 
+	// create links for framesystem
+	baseLink := createBaseLink(t)
+	movementSensorLink := referenceframe.NewLinkInFrame(
+		baseLink.Name(),
+		spatialmath.NewPose(r3.Vector{-5, 7, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90}),
+		"test_movement",
+		nil,
+	)
+	cameraGeom, err := spatialmath.NewBox(
+		spatialmath.NewZeroPose(),
+		r3.Vector{1, 1, 1}, "camera",
+	)
+	test.That(t, err, test.ShouldBeNil)
+	cameraLink := referenceframe.NewLinkInFrame(
+		baseLink.Name(),
+		spatialmath.NewPose(r3.Vector{6, -3, 0}, &spatialmath.OrientationVectorDegrees{OX: 1, Theta: -90}),
+		"test_camera",
+		cameraGeom,
+	)
+
+	// construct the framesystem
+	fsParts := []*referenceframe.FrameSystemPart{
+		{FrameConfig: movementSensorLink},
+		{FrameConfig: baseLink},
+		{FrameConfig: cameraLink},
+	}
+	fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// set the framesystem service for the navigation service
+	ns.(*builtIn).fsService = fsSvc
+
+	// set injectMovementSensor functions
+	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		return geo.NewPoint(1, 1), 0, nil
+	}
+	injectMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+		return &movementsensor.Properties{
+			CompassHeadingSupported: true,
+		}, nil
+	}
+	injectMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		// this is a left-handed value
+		return 315, nil
+	}
+
+	// set injectedVis functions
 	injectedVis.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-		// this places the obstacle 60 degrees away from the base's local y-forward axis 2 mm forward
-		// the obstacle is facing east, accounting got the current rotation of the base
 		boxGeom, err := spatialmath.NewBox(
-			spatialmath.NewPose(r3.Vector{math.Sqrt(3), 1, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 320}),
-			r3.Vector{3.14, 2.72, 1},
+			spatialmath.NewPose(r3.Vector{-10, 0, 11}, &spatialmath.OrientationVectorDegrees{OZ: -1, OX: 1}),
+			r3.Vector{5, 5, 1},
 			"test-box",
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -1104,22 +1141,59 @@ func TestGetObstacles(t *testing.T) {
 		return []*viz.Object{detection}, nil
 	}
 
+	// ns.Obstacles(ctx, nil)
+
 	manipulatedBoxGeom, err := spatialmath.NewBox(
 		spatialmath.NewPose(
 			r3.Vector{0, 0, 0},
-			&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 270},
+			&spatialmath.OrientationVectorDegrees{OZ: -1, OX: 1},
 		),
-		r3.Vector{3.14, 2.72, 1},
+		r3.Vector{5, 5, 1},
 		"transient_0_test_camera_test-box",
 	)
 	test.That(t, err, test.ShouldBeNil)
 
 	dets, err := ns.Obstacles(ctx, nil)
+
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(dets), test.ShouldEqual, 2)
 	test.That(t, dets[0], test.ShouldResemble, sphereGob)
-	test.That(t, dets[1].Location(), test.ShouldResemble, geo.NewPoint(0.9999999938482776, 1.000000016904306))
+	test.That(t, dets[1].Location(), test.ShouldResemble, geo.NewPoint(0.9999998600983906, 1.0000001399229705))
 	test.That(t, len(dets[1].Geometries()), test.ShouldEqual, 1)
 	test.That(t, dets[1].Geometries()[0].AlmostEqual(manipulatedBoxGeom), test.ShouldBeTrue)
 	test.That(t, dets[1].Geometries()[0].Label(), test.ShouldEqual, manipulatedBoxGeom.Label())
+}
+
+func createBaseLink(t *testing.T) *referenceframe.LinkInFrame {
+
+	baseBox, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{20, 20, 20}, "base-box")
+	test.That(t, err, test.ShouldBeNil)
+	baseLink := referenceframe.NewLinkInFrame(
+		referenceframe.World,
+		spatialmath.NewZeroPose(),
+		"test_base",
+		baseBox,
+	)
+	return baseLink
+}
+
+func createFrameSystemService(
+	ctx context.Context,
+	deps resource.Dependencies,
+	fsParts []*referenceframe.FrameSystemPart,
+	logger logging.Logger,
+) (framesystem.Service, error) {
+	fsSvc, err := framesystem.New(ctx, deps, logger)
+	if err != nil {
+		return nil, err
+	}
+	conf := resource.Config{
+		ConvertedAttributes: &framesystem.Config{Parts: fsParts},
+	}
+	if err := fsSvc.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
+	}
+	deps[fsSvc.Name()] = fsSvc
+
+	return fsSvc, nil
 }
