@@ -135,6 +135,7 @@ type rtkSerial struct {
 	err                movementsensor.LastError
 	lastposition       movementsensor.LastPosition
 	lastcompassheading movementsensor.LastCompassHeading
+	virtualBase        rtk.VirtualBase
 	InputProtocol      string
 
 	nmeamovementsensor gpsnmea.NmeaMovementSensor
@@ -172,7 +173,6 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	g.ntripconfigMu.Lock()
-
 	ntripConfig := &rtk.NtripConfig{
 		NtripURL:             newConf.NtripURL,
 		NtripUser:            newConf.NtripUser,
@@ -184,7 +184,6 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	// Init ntripInfo from attributes
 	tempNtripClient, err := rtk.NewNtripInfo(ntripConfig, g.logger)
 	if err != nil {
-		g.ntripconfigMu.Unlock()
 		return err
 	}
 
@@ -196,6 +195,7 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 		g.ntripClient = tempNtripClient
 	}
+
 	g.ntripconfigMu.Unlock()
 
 	g.logger.Debug("done reconfiguring")
@@ -429,7 +429,6 @@ func (g *rtkSerial) connectAndParseSourceTable() error {
 
 // connectToNTRIP connects to NTRIP stream.
 func (g *rtkSerial) connectToNTRIP() error {
-
 	err := g.connectAndParseSourceTable()
 	if err != nil {
 		return g.err.Get()
@@ -443,15 +442,11 @@ func (g *rtkSerial) connectToNTRIP() error {
 
 	if g.isVirtualBase {
 		g.logger.Debug("connecting to a Virtual Reference Station")
-		g.readerWriter, g.isConnected = rtk.ConnectToVirtualBase(g.ntripClient.MountPoint,
-			g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.URL, g.logger)
-		err = rtk.SendGGAMessage(g.correctionWriter, g.readerWriter, g.isConnected,
-			g.ntripClient, g.logger)
+		err = g.getNtripFromVRS()
 		if err != nil {
 			g.err.Set(err)
 			return g.err.Get()
 		}
-		g.isConnected = true
 	} else {
 		g.logger.Debug("connecting to NTRIP stream........")
 		g.writer = bufio.NewWriter(g.correctionWriter)
@@ -505,11 +500,9 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 				}
 
 				g.logger.Debug("No message... reconnecting to stream...")
-				g.isConnected = false
 				if g.isVirtualBase {
 					g.logger.Debug("reconnecting to the Virtual Reference Station")
-					err = rtk.SendGGAMessage(g.correctionWriter, g.readerWriter, g.isConnected,
-						g.ntripClient, g.logger)
+					err = g.getNtripFromVRS()
 
 					if err != nil && !errors.Is(err, io.EOF) {
 						g.err.Set(err)
@@ -518,10 +511,9 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 						g.logger.Debug("Reached EOF, trying to reconnect")
 					}
 
-					// during reconnection, calling sendGGAMessage second time allows
+					// during reconnection, calling getNtripFromVRS second time allows
 					// us to re-dial to the TCP port and create a new socket for ntrip stream.
-					err = rtk.SendGGAMessage(g.correctionWriter, g.readerWriter, g.isConnected,
-						g.ntripClient, g.logger)
+					err = g.getNtripFromVRS()
 					if err != nil && !errors.Is(err, io.EOF) {
 						g.err.Set(err)
 						g.logger.Errorf("Failed to reconnect, %v", err)
@@ -747,5 +739,70 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 	if err := g.err.Get(); err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
+	return nil
+}
+
+// getNtripFromVRS sends GGA messages to the NTRIP Caster over a TCP connection
+// to get the NTRIP steam when the mount point is a Virtual Reference Station.
+func (g *rtkSerial) getNtripFromVRS() error {
+	g.ntripMu.Lock()
+	defer g.ntripMu.Unlock()
+
+	if !g.isConnected {
+		g.readerWriter, g.isConnected = g.virtualBase.ConnectToVirtualBase(g.ntripClient, g.logger)
+	}
+
+	// read from the socket until we know if a successful connection has been
+	// established.
+	for {
+		if g.readerWriter.Reader == nil || g.readerWriter.Writer == nil {
+			break
+		}
+		line, _, err := g.readerWriter.ReadLine()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				g.logger.Debug("EOF encountered. sending GGA message again")
+				g.readerWriter = nil
+				g.isConnected = false
+				return err
+			}
+			g.logger.Error("Failed to read server response:", err)
+			return err
+		}
+
+		if strings.HasPrefix(string(line), "HTTP/1.1 ") {
+			if strings.Contains(string(line), "200 OK") {
+				g.isConnected = true
+				break
+			} else {
+				g.logger.Error("Bad HTTP response")
+				g.isConnected = false
+				return err
+			}
+		}
+	}
+
+	ggaMessage, err := g.virtualBase.GetGGAMessage(g.correctionWriter, g.logger)
+	if err != nil {
+		g.logger.Error("Failed to get GGA message")
+		return err
+	}
+
+	g.logger.Debugf("Writing GGA message: %v\n", string(ggaMessage))
+
+	_, err = g.readerWriter.WriteString(string(ggaMessage))
+	if err != nil {
+		g.logger.Error("Failed to send NMEA data:", err)
+		return err
+	}
+
+	err = g.readerWriter.Flush()
+	if err != nil {
+		g.logger.Error("failed to write to buffer: ", err)
+		return err
+	}
+
+	g.logger.Debug("GGA message sent successfully.")
+
 	return nil
 }

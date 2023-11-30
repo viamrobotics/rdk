@@ -8,98 +8,38 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
 	"go.viam.com/rdk/logging"
 )
 
-// SendGGAMessage sends GGA messages to the NTRIP Caster over a TCP connection
-// to get the NTRIP steam when the mount point is a Virtual Reference Station.
-func SendGGAMessage(correctionWriter io.ReadWriteCloser,
-	readerWriter *bufio.ReadWriter, isConnected bool,
-	ntripInfo *NtripInfo,
-	logger logging.Logger) error {
-	if !isConnected {
-		readerWriter, _ = ConnectToVirtualBase(ntripInfo.MountPoint, ntripInfo.Username,
-			ntripInfo.Password, ntripInfo.URL, logger)
-	}
-
-	// read from the socket until we know if a successful connection has been
-	// established.
-	for {
-		if readerWriter.Reader == nil || readerWriter.Writer == nil {
-			break
-		}
-		line, _, err := readerWriter.ReadLine()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				logger.Debug("EOF encountered. sending GGA message again")
-				readerWriter = nil
-				isConnected = false
-				return err
-			}
-			logger.Error("Failed to read server response:", err)
-			return err
-		}
-
-		if strings.HasPrefix(string(line), "HTTP/1.1 ") {
-			if strings.Contains(string(line), "200 OK") {
-				isConnected = true
-				break
-			} else {
-				logger.Error("Bad HTTP response")
-				isConnected = false
-				return err
-			}
-		}
-	}
-
-	ggaMessage, err := GetGGAMessage(correctionWriter, logger)
-	if err != nil {
-		logger.Error("Failed to get GGA message")
-		return err
-	}
-
-	logger.Debugf("Writing GGA message: %v\n", string(ggaMessage))
-
-	_, err = readerWriter.WriteString(string(ggaMessage))
-	if err != nil {
-		logger.Error("Failed to send NMEA data:", err)
-		return err
-	}
-
-	err = readerWriter.Flush()
-	if err != nil {
-		logger.Error("failed to write to buffer: ", err)
-		return err
-	}
-
-	logger.Debug("GGA message sent successfully.")
-
-	return nil
+type VirtualBase struct {
+	mu          sync.Mutex
+	isConnected bool
 }
 
 // ConnectToVirtualBase
-func ConnectToVirtualBase(mountPoint string, usr string,
-	pass string, url string,
+func (v *VirtualBase) ConnectToVirtualBase(ntripInfo *NtripInfo,
 	logger logging.Logger) (*bufio.ReadWriter, bool) {
 
-	var isConnected bool
+	v.mu.Lock()
+	defer v.mu.Unlock()
 
-	mp := "/" + mountPoint
-	credentials := usr + ":" + pass
+	mp := "/" + ntripInfo.MountPoint
+	credentials := ntripInfo.Username + ":" + ntripInfo.Password
 	credentialsBase64 := base64.StdEncoding.EncodeToString([]byte(credentials))
 
 	// Process the server URL
-	serverAddr := url
+	serverAddr := ntripInfo.URL
 	serverAddr = strings.TrimPrefix(serverAddr, "http://")
 	serverAddr = strings.TrimPrefix(serverAddr, "https://")
 
 	conn, err := net.Dial("tcp", serverAddr)
 	if err != nil {
-		isConnected = false
+		v.isConnected = false
 		logger.Errorf("Failed to connect to VRS server:", err)
-		return nil, isConnected
+		return nil, v.isConnected
 	}
 
 	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
@@ -115,25 +55,29 @@ func ConnectToVirtualBase(mountPoint string, usr string,
 	// Send HTTP headers over the TCP connection
 	_, err = rw.Write([]byte(httpHeaders))
 	if err != nil {
-		isConnected = false
+		v.isConnected = false
 		logger.Error("Failed to send HTTP headers:", err)
-		return nil, isConnected
+		return nil, v.isConnected
 	}
 	err = rw.Flush()
 	if err != nil {
-		isConnected = false
+		v.isConnected = false
 		logger.Error("failed to write to buffer")
-		return nil, isConnected
+		return nil, v.isConnected
 	}
 
 	logger.Debugf("request header: %v\n", httpHeaders)
 	logger.Debug("HTTP headers sent successfully.")
-	isConnected = true
-	return rw, isConnected
+	v.isConnected = true
+	return rw, v.isConnected
 }
 
 // GetGGAMessage checks if a GGA message exists in the buffer and returns it.
-func GetGGAMessage(correctionWriter io.ReadWriteCloser, logger logging.Logger) ([]byte, error) {
+func (v *VirtualBase) GetGGAMessage(correctionWriter io.ReadWriteCloser, logger logging.Logger) ([]byte, error) {
+
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
 	buffer := make([]byte, 1024)
 	var totalBytesRead int
 
