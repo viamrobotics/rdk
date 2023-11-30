@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/mcp3008helper"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 )
 
 func TestGenericLinux(t *testing.T) {
@@ -29,25 +30,9 @@ func TestGenericLinux(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
-	boardSPIs := map[string]*spiBus{
-		"closed": {
-			openHandle: &spiHandle{bus: &spiBus{}, isClosed: true},
-		},
-		"open": {
-			openHandle: &spiHandle{bus: &spiBus{}, isClosed: false},
-		},
-	}
-	oneStr := "1"
-	twoStr := "1"
-	boardSPIs["closed"].bus.Store(&oneStr)
-	boardSPIs["closed"].openHandle.bus.bus.Store(&oneStr)
-	boardSPIs["open"].bus.Store(&twoStr)
-	boardSPIs["open"].openHandle.bus.bus.Store(&twoStr)
-
 	b = &Board{
 		Named:         board.Named("foo").AsNamed(),
 		gpioMappings:  nil,
-		spis:          boardSPIs,
 		analogReaders: map[string]*wrappedAnalogReader{"an": {}},
 		logger:        logging.NewTestLogger(t),
 		cancelCtx:     ctx,
@@ -55,7 +40,7 @@ func TestGenericLinux(t *testing.T) {
 		},
 	}
 
-	t.Run("test analog-readers spis i2cs digital-interrupts and gpio names", func(t *testing.T) {
+	t.Run("test analog-readers digital-interrupts and gpio names", func(t *testing.T) {
 		ans := b.AnalogReaderNames()
 		test.That(t, ans, test.ShouldResemble, []string{"an"})
 
@@ -78,23 +63,6 @@ func TestGenericLinux(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, gn1, test.ShouldBeNil)
 	})
-
-	t.Run("test spi functionality", func(t *testing.T) {
-		spi1 := b.spis["closed"]
-		spi2 := b.spis["open"]
-		sph1, err := spi1.OpenHandle()
-		test.That(t, sph1, test.ShouldHaveSameTypeAs, &spiHandle{})
-		test.That(t, err, test.ShouldBeNil)
-		sph2, err := spi2.OpenHandle()
-		test.That(t, sph2, test.ShouldHaveSameTypeAs, &spiHandle{})
-		test.That(t, err, test.ShouldBeNil)
-
-		err = sph2.Close()
-		test.That(t, err, test.ShouldBeNil)
-		rx, err := sph2.Xfer(ctx, 1, "1", 1, []byte{})
-		test.That(t, err.Error(), test.ShouldContainSubstring, "closed")
-		test.That(t, rx, test.ShouldBeNil)
-	})
 }
 
 func TestConfigValidate(t *testing.T) {
@@ -104,7 +72,7 @@ func TestConfigValidate(t *testing.T) {
 	_, err := validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
 
 	validConfig.AnalogReaders = []mcp3008helper.MCP3008AnalogConfig{{Name: "bar"}}
 	_, err = validConfig.Validate("path")
@@ -114,13 +82,13 @@ func TestConfigValidate(t *testing.T) {
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.digital_interrupts.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
 
 	validConfig.DigitalInterrupts = []board.DigitalInterruptConfig{{Name: "bar"}}
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.digital_interrupts.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"pin" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "pin")
 
 	validConfig.DigitalInterrupts = []board.DigitalInterruptConfig{{Name: "bar", Pin: "3"}}
 	_, err = validConfig.Validate("path")

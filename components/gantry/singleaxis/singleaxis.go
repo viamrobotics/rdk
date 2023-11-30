@@ -49,17 +49,17 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if len(cfg.Motor) == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "motor")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "motor")
 	}
 	deps = append(deps, cfg.Motor)
 
 	if cfg.LengthMm <= 0 {
-		err := utils.NewConfigValidationFieldRequiredError(path, "length_mm")
+		err := resource.NewConfigValidationFieldRequiredError(path, "length_mm")
 		return nil, errors.Wrap(err, "length must be non-zero and positive")
 	}
 
 	if cfg.MmPerRevolution <= 0 {
-		err := utils.NewConfigValidationFieldRequiredError(path, "mm_per_rev")
+		err := resource.NewConfigValidationFieldRequiredError(path, "mm_per_rev")
 		return nil, errors.Wrap(err, "mm_per_rev must be non-zero and positive")
 	}
 

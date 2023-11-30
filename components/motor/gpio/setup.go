@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
@@ -95,7 +94,11 @@ func (conf *PinConfig) MotorType(path string) (MotorType, error) {
 	default:
 		errEnum = noPins
 	}
-	return motorType, goutils.NewConfigValidationError(path, getPinConfigErrorMessage(errEnum))
+
+	if err := getPinConfigErrorMessage(errEnum); err != nil {
+		return motorType, resource.NewConfigValidationError(path, err)
+	}
+	return motorType, nil
 }
 
 // Config describes the configuration of a motor.
@@ -118,7 +121,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if conf.BoardName == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	deps = append(deps, conf.BoardName)
 
@@ -131,11 +134,11 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	// If an encoder is present the max_rpm field is optional, in the absence of an encoder the field is required
 	if conf.Encoder != "" {
 		if conf.TicksPerRotation <= 0 {
-			return nil, goutils.NewConfigValidationError(path, errors.New("ticks_per_rotation should be positive or zero"))
+			return nil, resource.NewConfigValidationError(path, errors.New("ticks_per_rotation should be positive or zero"))
 		}
 		deps = append(deps, conf.Encoder)
 	} else if conf.MaxRPM <= 0 {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "max_rpm")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "max_rpm")
 	}
 	return deps, nil
 }

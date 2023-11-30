@@ -52,11 +52,11 @@ type servoConfig struct {
 func (config *servoConfig) Validate(path string) ([]string, error) {
 	var deps []string
 	if config.Board == "" {
-		return nil, viamutils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	deps = append(deps, config.Board)
 	if config.Pin == "" {
-		return nil, viamutils.NewConfigValidationFieldRequiredError(path, "pin")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "pin")
 	}
 
 	if config.StartPos != nil {
@@ -69,19 +69,19 @@ func (config *servoConfig) Validate(path string) ([]string, error) {
 			maxDeg = *config.MaxDeg
 		}
 		if *config.StartPos < minDeg || *config.StartPos > maxDeg {
-			return nil, viamutils.NewConfigValidationError(path,
+			return nil, resource.NewConfigValidationError(path,
 				errors.Errorf("starting_position_deg should be between minimum (%.1f) and maximum (%.1f) positions", minDeg, maxDeg))
 		}
 	}
 
 	if config.MinDeg != nil && *config.MinDeg < 0 {
-		return nil, viamutils.NewConfigValidationError(path, errors.New("min_angle_deg cannot be lower than 0"))
+		return nil, resource.NewConfigValidationError(path, errors.New("min_angle_deg cannot be lower than 0"))
 	}
 	if config.MinWidthUs != nil && *config.MinWidthUs < minWidthUs {
-		return nil, viamutils.NewConfigValidationError(path, errors.Errorf("min_width_us cannot be lower than %d", minWidthUs))
+		return nil, resource.NewConfigValidationError(path, errors.Errorf("min_width_us cannot be lower than %d", minWidthUs))
 	}
 	if config.MaxWidthUs != nil && *config.MaxWidthUs > maxWidthUs {
-		return nil, viamutils.NewConfigValidationError(path, errors.Errorf("max_width_us cannot be higher than %d", maxWidthUs))
+		return nil, resource.NewConfigValidationError(path, errors.Errorf("max_width_us cannot be higher than %d", maxWidthUs))
 	}
 	return deps, nil
 }

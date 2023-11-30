@@ -9,7 +9,6 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/base"
@@ -131,7 +130,7 @@ func TestValidateConfig(t *testing.T) {
 			description: "invalid config no base",
 			cfg:         Config{},
 			numDeps:     0,
-			expectedErr: utils.NewConfigValidationFieldRequiredError(path, "base"),
+			expectedErr: resource.NewConfigValidationFieldRequiredError(path, "base"),
 		},
 		{
 			description: "invalid config no movement_sensor given for map type GPS",
@@ -140,7 +139,7 @@ func TestValidateConfig(t *testing.T) {
 				MapType:  "GPS",
 			},
 			numDeps:     0,
-			expectedErr: utils.NewConfigValidationFieldRequiredError(path, "movement_sensor"),
+			expectedErr: resource.NewConfigValidationFieldRequiredError(path, "movement_sensor"),
 		},
 		{
 			description: "invalid config negative degs_per_sec",

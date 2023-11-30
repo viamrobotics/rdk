@@ -13,7 +13,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -50,21 +50,21 @@ func (config *TMC5072Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if config.Pins.EnablePinLow != "" {
 		if config.BoardName == "" {
-			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+			return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 		}
 		deps = append(deps, config.BoardName)
 	}
 	if config.SPIBus == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "spi_bus")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "spi_bus")
 	}
 	if config.ChipSelect == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "chip_select")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "chip_select")
 	}
 	if config.Index <= 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "index")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "index")
 	}
 	if config.TicksPerRotation <= 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
 	}
 	return deps, nil
 }
@@ -91,7 +91,7 @@ type Motor struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
-	bus         board.SPI
+	bus         buses.SPI
 	csPin       string
 	index       int
 	enLowPin    board.GPIOPin
@@ -151,14 +151,14 @@ const (
 func NewMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, name resource.Name,
 	logger logging.Logger,
 ) (motor.Motor, error) {
-	bus := genericlinux.NewSpiBus(c.SPIBus)
+	bus := buses.NewSpiBus(c.SPIBus)
 	return makeMotor(ctx, deps, c, name, logger, bus)
 }
 
 // makeMotor returns a TMC5072 driven motor. It is separate from NewMotor, above, so you can inject
 // a mock SPI bus in here during testing.
 func makeMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, name resource.Name,
-	logger logging.Logger, bus board.SPI,
+	logger logging.Logger, bus buses.SPI,
 ) (motor.Motor, error) {
 	if c.CalFactor == 0 {
 		c.CalFactor = 1.0

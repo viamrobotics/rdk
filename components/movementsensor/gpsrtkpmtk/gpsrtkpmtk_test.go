@@ -9,7 +9,6 @@ import (
 
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor/fake"
 	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
@@ -53,7 +52,7 @@ func TestValidateRTK(t *testing.T) {
 		}
 		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeError,
-			utils.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
+			resource.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
 	})
 
 	t.Run("invalid i2c bus", func(t *testing.T) {
@@ -68,7 +67,7 @@ func TestValidateRTK(t *testing.T) {
 		}
 		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeError,
-			utils.NewConfigValidationFieldRequiredError(path, "i2c_bus"))
+			resource.NewConfigValidationFieldRequiredError(path, "i2c_bus"))
 	})
 
 	t.Run("invalid i2c addr", func(t *testing.T) {
@@ -83,7 +82,7 @@ func TestValidateRTK(t *testing.T) {
 		}
 		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeError,
-			utils.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
+			resource.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
 	})
 }
 

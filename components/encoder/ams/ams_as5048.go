@@ -13,8 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -91,10 +90,10 @@ type I2CConfig struct {
 // ValidateI2C ensures all parts of the config are valid.
 func (cfg *I2CConfig) ValidateI2C(path string) error {
 	if cfg.I2CBus == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+		return resource.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 	if cfg.I2CAddr == 0 {
-		return utils.NewConfigValidationFieldRequiredError(path, "i2c_addr")
+		return resource.NewConfigValidationFieldRequiredError(path, "i2c_addr")
 	}
 
 	return nil
@@ -110,7 +109,7 @@ type Encoder struct {
 	positionOffset          float64
 	rotations               int
 	positionType            encoder.PositionType
-	i2cBus                  board.I2C
+	i2cBus                  buses.I2C
 	i2cAddr                 byte
 	i2cBusName              string // This is nessesary to check whether we need to create a new i2cBus during reconfigure.
 	cancelCtx               context.Context
@@ -133,7 +132,7 @@ func makeAS5048Encoder(
 	deps resource.Dependencies,
 	conf resource.Config,
 	logger logging.Logger,
-	bus board.I2C,
+	bus buses.I2C,
 ) (encoder.Encoder, error) {
 	cfg, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -175,7 +174,7 @@ func (enc *Encoder) Reconfigure(
 	defer enc.mu.Unlock()
 
 	if enc.i2cBusName != newConf.I2CBus || enc.i2cBus == nil {
-		bus, err := genericlinux.NewI2cBus(newConf.I2CBus)
+		bus, err := buses.NewI2cBus(newConf.I2CBus)
 		if err != nil {
 			msg := fmt.Sprintf("can't find I2C bus '%q' for AMS encoder", newConf.I2CBus)
 			return errors.Wrap(err, msg)

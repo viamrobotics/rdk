@@ -7,7 +7,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
-	datapb "go.viam.com/api/app/data/v1"
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
 )
 
@@ -27,20 +26,8 @@ func DataSubmitTrainingJob(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	// SubmitTrainingJob will fail if both dataset ID and filter are provided,
-	// so we only build the filter if the dataset ID is not supplied.
-	// If the dataset ID is supplied, we only use the data associated with the dataset ID
-	// and nothing else in the specified by the filter flag fields.
-	var filter *datapb.Filter
-	if c.String(datasetFlagDatasetID) == "" {
-		filter, err = createDataFilter(c)
-		if err != nil {
-			return err
-		}
-	}
-	// TODO (DATA-2006): Remove filter support from submit training job request
 	trainingJobID, err := client.dataSubmitTrainingJob(
-		filter, c.String(datasetFlagDatasetID), c.String(trainFlagModelOrgID),
+		c.String(datasetFlagDatasetID), c.String(trainFlagModelOrgID),
 		c.String(trainFlagModelName), c.String(trainFlagModelVersion),
 		c.String(trainFlagModelType), c.StringSlice(trainFlagModelLabels))
 	if err != nil {
@@ -51,7 +38,7 @@ func DataSubmitTrainingJob(c *cli.Context) error {
 }
 
 // dataSubmitTrainingJob trains on data with the specified filter.
-func (c *viamClient) dataSubmitTrainingJob(filter *datapb.Filter, datasetID, orgID, modelName, modelVersion, modelType string,
+func (c *viamClient) dataSubmitTrainingJob(datasetID, orgID, modelName, modelVersion, modelType string,
 	labels []string,
 ) (string, error) {
 	if err := c.ensureLoggedIn(); err != nil {
@@ -68,8 +55,8 @@ func (c *viamClient) dataSubmitTrainingJob(filter *datapb.Filter, datasetID, org
 
 	resp, err := c.mlTrainingClient.SubmitTrainingJob(context.Background(),
 		&mltrainingpb.SubmitTrainingJobRequest{
-			DatasetId: datasetID,
-			Filter:    filter, OrganizationId: orgID, ModelName: modelName, ModelVersion: modelVersion,
+			DatasetId:      datasetID,
+			OrganizationId: orgID, ModelName: modelName, ModelVersion: modelVersion,
 			ModelType: mltrainingpb.ModelType(modelTypeEnum), Tags: labels,
 		})
 	if err != nil {

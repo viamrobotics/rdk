@@ -35,6 +35,7 @@ import (
 	pb "go.viam.com/api/component/board/v1"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/board/mcp3008helper"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/grpc"
@@ -62,25 +63,12 @@ func init() {
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	I2Cs              []board.I2CConfig                   `json:"i2cs,omitempty"`
-	SPIs              []board.SPIConfig                   `json:"spis,omitempty"`
 	AnalogReaders     []mcp3008helper.MCP3008AnalogConfig `json:"analogs,omitempty"`
 	DigitalInterrupts []board.DigitalInterruptConfig      `json:"digital_interrupts,omitempty"`
-	Attributes        rdkutils.AttributeMap               `json:"attributes,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
-	for idx, c := range conf.SPIs {
-		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "spis", idx)); err != nil {
-			return nil, err
-		}
-	}
-	for idx, c := range conf.I2Cs {
-		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "i2cs", idx)); err != nil {
-			return nil, err
-		}
-	}
 	for idx, c := range conf.AnalogReaders {
 		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
 			return nil, err
@@ -108,8 +96,6 @@ type piPigpio struct {
 	duty          int // added for mutex
 	gpioConfigSet map[int]bool
 	analogReaders map[string]board.AnalogReader
-	i2cs          map[string]board.I2C
-	spis          map[string]board.SPI
 	// `interrupts` maps interrupt names to the interrupts. `interruptsHW` maps broadcom addresses
 	// to these same values. The two should always have the same set of values.
 	interrupts   map[string]board.ReconfigurableDigitalInterrupt
@@ -200,14 +186,6 @@ func (pi *piPigpio) Reconfigure(
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
 
-	if err := pi.reconfigureI2cs(ctx, cfg); err != nil {
-		return err
-	}
-
-	if err := pi.reconfigureSpis(ctx, cfg); err != nil {
-		return err
-	}
-
 	if err := pi.reconfigureAnalogReaders(ctx, cfg); err != nil {
 		return err
 	}
@@ -221,31 +199,6 @@ func (pi *piPigpio) Reconfigure(
 	instanceMu.Lock()
 	defer instanceMu.Unlock()
 	instances[pi] = struct{}{}
-	return nil
-}
-
-func (pi *piPigpio) reconfigureI2cs(ctx context.Context, cfg *Config) error {
-	// No need to reconfigure the old I2C buses; just throw them out and make new ones.
-	pi.i2cs = make(map[string]board.I2C, len(cfg.I2Cs))
-	for _, sc := range cfg.I2Cs {
-		id, err := strconv.Atoi(sc.Bus)
-		if err != nil {
-			return err
-		}
-		pi.i2cs[sc.Name] = &piPigpioI2C{pi: pi, id: id}
-	}
-	return nil
-}
-
-func (pi *piPigpio) reconfigureSpis(ctx context.Context, cfg *Config) error {
-	// No need to reconfigure the old SPI buses; just throw them out and make new ones.
-	pi.spis = make(map[string]board.SPI, len(cfg.SPIs))
-	for _, sc := range cfg.SPIs {
-		if sc.BusSelect != "0" && sc.BusSelect != "1" {
-			return errors.New("only SPI buses 0 and 1 are available on Pi boards")
-		}
-		pi.spis[sc.Name] = &piPigpioSPI{pi: pi, busSelect: sc.BusSelect}
-	}
 	return nil
 }
 
@@ -655,7 +608,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 	return C.GoBytes(rxPtr, (C.int)(count)), nil
 }
 
-func (s *piPigpioSPI) OpenHandle() (board.SPIHandle, error) {
+func (s *piPigpioSPI) OpenHandle() (buses.SPIHandle, error) {
 	s.mu.Lock()
 	s.openHandle = &piPigpioSPIHandle{bus: s, isClosed: false}
 	return s.openHandle, nil
@@ -760,11 +713,6 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	pi.cancelFunc()
 
 	var err error
-	for _, spi := range pi.spis {
-		err = multierr.Combine(err, spi.Close(ctx))
-	}
-	pi.spis = map[string]board.SPI{}
-
 	for _, analog := range pi.analogReaders {
 		err = multierr.Combine(err, analog.Close(ctx))
 	}
