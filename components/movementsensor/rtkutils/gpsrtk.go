@@ -1,3 +1,5 @@
+// Package rtkutils implements functions that is used in gpsrtkserial and
+// gpsrtkpmtk.
 package rtkutils
 
 import (
@@ -11,17 +13,21 @@ import (
 	"sync"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
+
 	"go.viam.com/rdk/logging"
 )
 
+// VirtualBase struct contains a sync to syncronize actions while connecting
+// to a virtual reference station.
 type VirtualBase struct {
 	mu sync.Mutex
 }
 
-// ConnectToVirtualBase
+// ConnectToVirtualBase is responsible for establishing a connection to
+// a virtual base station using the NTRIP protocol.
 func (v *VirtualBase) ConnectToVirtualBase(ntripInfo *NtripInfo,
-	logger logging.Logger) *bufio.ReadWriter {
-
+	logger logging.Logger,
+) *bufio.ReadWriter {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 
@@ -52,7 +58,6 @@ func (v *VirtualBase) ConnectToVirtualBase(ntripInfo *NtripInfo,
 	// Send HTTP headers over the TCP connection
 	_, err = rw.Write([]byte(httpHeaders))
 	if err != nil {
-
 		logger.Error("Failed to send HTTP headers:", err)
 		return nil
 	}
@@ -69,7 +74,6 @@ func (v *VirtualBase) ConnectToVirtualBase(ntripInfo *NtripInfo,
 
 // GetGGAMessage checks if a GGA message exists in the buffer and returns it.
 func (v *VirtualBase) GetGGAMessage(correctionWriter io.ReadWriteCloser, logger logging.Logger) ([]byte, error) {
-
 	v.mu.Lock()
 	defer v.mu.Unlock()
 

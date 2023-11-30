@@ -1,3 +1,5 @@
+// Package rtkutils implement necessary functions to set and return
+// NTRIP information here.
 package rtkutils
 
 import (
