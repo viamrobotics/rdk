@@ -14,8 +14,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -38,7 +37,7 @@ type PmtkI2CNMEAMovementSensor struct {
 	lastPosition       movementsensor.LastPosition
 	lastCompassHeading movementsensor.LastCompassHeading
 
-	bus   board.I2C
+	bus   buses.I2C
 	addr  byte
 	wbaud int
 }
@@ -65,11 +64,11 @@ func MakePmtkI2cGpsNmea(
 	name resource.Name,
 	conf *Config,
 	logger logging.Logger,
-	i2cBus board.I2C,
+	i2cBus buses.I2C,
 ) (NmeaMovementSensor, error) {
 	if i2cBus == nil {
 		var err error
-		i2cBus, err = genericlinux.NewI2cBus(conf.I2CConfig.I2CBus)
+		i2cBus, err = buses.NewI2cBus(conf.I2CConfig.I2CBus)
 		if err != nil {
 			return nil, fmt.Errorf("gps init: failed to find i2c bus %s: %w",
 				conf.I2CConfig.I2CBus, err)
@@ -204,7 +203,7 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 }
 
 // GetBusAddr returns the bus and address that takes in rtcm corrections.
-func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (board.I2C, byte) {
+func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (buses.I2C, byte) {
 	return g.bus, g.addr
 }
 

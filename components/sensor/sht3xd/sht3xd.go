@@ -12,10 +12,8 @@ import (
 	"time"
 
 	"go.uber.org/multierr"
-	"go.viam.com/utils"
 
-	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -42,7 +40,7 @@ type Config struct {
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if conf.I2cBus == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 	return deps, nil
 }
@@ -74,7 +72,7 @@ func newSensor(
 	conf *Config,
 	logger logging.Logger,
 ) (sensor.Sensor, error) {
-	i2cbus, err := genericlinux.NewI2cBus(conf.I2cBus)
+	i2cbus, err := buses.NewI2cBus(conf.I2cBus)
 	if err != nil {
 		return nil, fmt.Errorf("sht3xd init: failed to find i2c bus %s", conf.I2cBus)
 	}
@@ -107,7 +105,7 @@ type sht3xd struct {
 	resource.TriviallyCloseable
 	logger logging.Logger
 
-	bus  board.I2C
+	bus  buses.I2C
 	addr byte
 }
 

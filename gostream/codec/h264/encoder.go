@@ -56,8 +56,8 @@ func NewEncoder(width, height, keyFrameInterval int, logger golog.Logger) (codec
 		return nil, errors.New("cannot allocate video codec context")
 	}
 
-	h.context.SetEncodeParams(width, height, avcodec.PixelFormat(pixelFormat), false, 10)
-	h.context.SetTimebase(1, keyFrameInterval)
+	h.context.SetEncodeParams(width, height, avcodec.PixelFormat(pixelFormat), false, keyFrameInterval)
+	h.context.SetFramerate(keyFrameInterval)
 
 	h.reader = video.ToI420((video.ReaderFunc)(h.Read))
 

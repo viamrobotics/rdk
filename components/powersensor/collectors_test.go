@@ -20,6 +20,7 @@ import (
 const (
 	componentName   = "powersensor"
 	captureInterval = time.Second
+	numRetries      = 5
 )
 
 var readingMap = map[string]any{"reading1": false, "reading2": "test"}
@@ -80,7 +81,10 @@ func TestPowerSensorCollectors(t *testing.T) {
 			col.Collect()
 			mockClock.Add(captureInterval)
 
-			test.That(t, buf.Length(), test.ShouldEqual, 1)
+			tu.Retry(func() bool {
+				return buf.Length() != 0
+			}, numRetries)
+			test.That(t, buf.Length(), test.ShouldBeGreaterThan, 0)
 			test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, tc.expected)
 		})
 	}

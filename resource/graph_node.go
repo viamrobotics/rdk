@@ -18,8 +18,6 @@ import (
 // updated or eventually removed. During its life, errors may be set on the
 // node to indicate that the resource is no longer available to external users.
 type GraphNode struct {
-	timesReconfigured atomic.Uint64
-
 	// mu guards all fields below.
 	mu sync.RWMutex
 
@@ -45,10 +43,8 @@ type GraphNode struct {
 }
 
 var (
-	// MaxReconfigAttempts is the max number of reconfigure attempts per node/resource.
-	MaxReconfigAttempts uint64 = 5
-	errNotInitalized           = errors.New("resource not initialized yet")
-	errPendingRemoval          = errors.New("resource is pending removal")
+	errNotInitalized  = errors.New("resource not initialized yet")
+	errPendingRemoval = errors.New("resource is pending removal")
 )
 
 // NewUninitializedNode returns a node that is brand new and not yet initialized.
@@ -187,7 +183,6 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	w.lastErr = nil
 	w.needsReconfigure = false
 	w.markedForRemoval = false
-	w.timesReconfigured.Store(0)
 
 	// these should already be set
 	w.unresolvedDependencies = nil
@@ -214,14 +209,19 @@ func (w *GraphNode) MarkedForRemoval() bool {
 	return w.markedForRemoval
 }
 
-// SetLastError sets the latest error on this node. This will
-// cause the resource to become unavailable to external users of
-// the graph. The resource manager may still access the
+// LogAndSetLastError logs and sets the latest error on this node. This will cause the resource to
+// become unavailable to external users of the graph. The resource manager may still access the
 // underlying resource via UnsafeResource.
-func (w *GraphNode) SetLastError(err error) {
+//
+// The additional `args` should come in key/value pairs for structured logging.
+func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
-	defer w.mu.Unlock()
 	w.lastErr = err
+	w.mu.Unlock()
+
+	if w.logger != nil {
+		w.logger.Errorw(err.Error(), args...)
+	}
 }
 
 // Config returns the current config that this resource is using.
@@ -239,32 +239,6 @@ func (w *GraphNode) NeedsReconfigure() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return !w.markedForRemoval && w.needsReconfigure
-}
-
-func (w *GraphNode) timesReconfiguredErr() error {
-	var noun string
-	if w.IsUninitialized() {
-		noun = "configuration"
-	} else {
-		noun = "reconfiguration"
-	}
-	return errors.Errorf(
-		"%s error: reached max of %d %s attempts for %s",
-		noun,
-		MaxReconfigAttempts,
-		noun,
-		w.config.ResourceName(),
-	)
-}
-
-// CheckReconfigure returns whether or not the resource is able to be (re)configured
-// based on how many previous attempts were made— nil if it is able to be (re)configured,
-// or the appropriate error with the reason why it cannot (re)configure.
-func (w *GraphNode) CheckReconfigure() error {
-	if w.timesReconfigured.Load() < MaxReconfigAttempts {
-		return nil
-	}
-	return w.timesReconfiguredErr()
 }
 
 // hasUnresolvedDependencies returns whether or not this node has any
@@ -288,7 +262,6 @@ func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, 
 	if mustReconfigure {
 		w.needsDependencyResolution = true
 	}
-	w.timesReconfigured.Store(0)
 	w.config = newConfig
 	w.needsReconfigure = true
 	w.markedForRemoval = false
@@ -329,12 +302,6 @@ func (w *GraphNode) setDependenciesResolved() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.needsDependencyResolution = false
-}
-
-// IncrementTimesReconfigured increments the number of times the resource has been
-// reconfigured by 1. Value resetting handled in other methods situationally.
-func (w *GraphNode) IncrementTimesReconfigured() {
-	w.timesReconfigured.Add(1)
 }
 
 // UnresolvedDependencies returns the set of names that are yet to be resolved as

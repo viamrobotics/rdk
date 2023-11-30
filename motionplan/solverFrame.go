@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/rdk/motionplan/tpspace"
 	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -362,4 +363,54 @@ func findPivotFrame(frameList1, frameList2 []frame.Frame) (frame.Frame, error) {
 		}
 	}
 	return nil, errors.New("no path from solve frame to goal frame")
+}
+
+// PlanToPlanStepsAndGeoPoses converts a plan to the relative poses the robot will move to (relative to the origin) & the geo poses.
+func PlanToPlanStepsAndGeoPoses(
+	plan Plan,
+	componentName resource.Name,
+	origin spatial.GeoPose,
+	planRequest PlanRequest,
+) ([]map[resource.Name]spatial.Pose, []spatial.GeoPose, error) {
+	sf, err := newSolverFrame(
+		planRequest.FrameSystem,
+		planRequest.Frame.Name(),
+		planRequest.Goal.Parent(),
+		planRequest.StartConfiguration)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	planNodes, err := sf.planToNodes(plan)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	seed, err := sf.mapToSlice(planRequest.StartConfiguration)
+	if err != nil {
+		return nil, nil, err
+	}
+	startPose, err := sf.Transform(seed)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	startPoseWOrientation := spatial.NewPose(planNodes[0].Pose().Point(), startPose.Orientation())
+	runningPoseWOrient := startPoseWOrientation
+	planSteps := make([]map[resource.Name]spatial.Pose, 0, len(planNodes))
+	geoPoses := []spatial.GeoPose{}
+	for _, wp := range planNodes {
+		wpPose, err := sf.Transform(wp.Q())
+		if err != nil {
+			return nil, nil, err
+		}
+
+		runningPoseWOrient = spatial.Compose(runningPoseWOrient, wpPose)
+		planSteps = append(planSteps, map[resource.Name]spatial.Pose{componentName: runningPoseWOrient})
+
+		gp := spatial.PoseToGeoPose(&origin, runningPoseWOrient)
+		geoPoses = append(geoPoses, *gp)
+	}
+
+	return planSteps, geoPoses, nil
 }

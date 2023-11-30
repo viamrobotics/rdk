@@ -1,6 +1,6 @@
 //go:build linux
 
-package genericlinux
+package buses
 
 import (
 	"context"
@@ -13,14 +13,12 @@ import (
 	"periph.io/x/conn/v3/physic"
 	"periph.io/x/conn/v3/spi"
 	"periph.io/x/conn/v3/spi/spireg"
-
-	"go.viam.com/rdk/components/board"
 )
 
 // NewSpiBus creates a new SPI bus. The name passed in should be the bus number, such as "0" or
 // "1". We don't open this bus until you call spiHandle.Xfer(), so there are no errors to return
 // immediately here.
-func NewSpiBus(name string) board.SPI {
+func NewSpiBus(name string) SPI {
 	bus := spiBus{}
 	bus.reset(name)
 	return &bus
@@ -37,7 +35,7 @@ type spiHandle struct {
 	isClosed bool
 }
 
-func (sb *spiBus) OpenHandle() (board.SPIHandle, error) {
+func (sb *spiBus) OpenHandle() (SPIHandle, error) {
 	sb.mu.Lock()
 	sb.openHandle = &spiHandle{bus: sb, isClosed: false}
 	return sb.openHandle, nil

@@ -146,7 +146,9 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 	selectedPTG := ptgk.ptgs[int(math.Round(inputs[ptgIndex].Value))]
 	selectedTraj, err := selectedPTG.Trajectory(inputs[trajectoryIndexWithinPTG].Value, inputs[distanceAlongTrajectoryIndex].Value)
 	if err != nil {
-		return multierr.Combine(err, ptgk.Base.Stop(ctx, nil))
+		stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancelFn()
+		return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
 	}
 
 	lastDist := 0.
@@ -183,18 +185,23 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 				nil,
 			)
 			if err != nil {
-				return multierr.Combine(err, ptgk.Base.Stop(ctx, nil))
+				stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
+				defer cancelFn()
+				return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
 			}
 			lastLinVel = linVel
 			lastAngVel = angVel
 		}
 		if !utils.SelectContextOrWait(ctx, timestep) {
+			ptgk.logger.Debug(ctx.Err().Error())
 			// context cancelled
 			break
 		}
 	}
 
-	return ptgk.Base.Stop(ctx, nil)
+	stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancelFn()
+	return ptgk.Base.Stop(stopCtx, nil)
 }
 
 func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenceframe.Input, currentNode int) (spatialmath.Pose, error) {

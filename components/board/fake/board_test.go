@@ -14,12 +14,6 @@ import (
 func TestFakeBoard(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	boardConfig := Config{
-		I2Cs: []board.I2CConfig{
-			{Name: "main", Bus: "0"},
-		},
-		SPIs: []board.SPIConfig{
-			{Name: "aux", BusSelect: "1"},
-		},
 		AnalogReaders: []board.AnalogReaderConfig{
 			{Name: "blue", Pin: "0"},
 		},
@@ -64,7 +58,7 @@ func TestConfigValidate(t *testing.T) {
 	_, err := validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
 
 	validConfig.AnalogReaders = []board.AnalogReaderConfig{{Name: "bar"}}
 	_, err = validConfig.Validate("path")
@@ -74,13 +68,13 @@ func TestConfigValidate(t *testing.T) {
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.digital_interrupts.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
 
 	validConfig.DigitalInterrupts = []board.DigitalInterruptConfig{{Name: "bar"}}
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.digital_interrupts.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"pin" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "pin")
 
 	validConfig.DigitalInterrupts = []board.DigitalInterruptConfig{{Name: "bar", Pin: "3"}}
 	_, err = validConfig.Validate("path")

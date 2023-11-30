@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
@@ -50,7 +49,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	}
 	if cfg.Encoder != "" {
 		if cfg.TicksPerRotation <= 0 {
-			return nil, utils.NewConfigValidationError(path, errors.New("need nonzero TicksPerRotation for encoded motor"))
+			return nil, resource.NewConfigValidationError(path, errors.New("need nonzero TicksPerRotation for encoded motor"))
 		}
 		deps = append(deps, cfg.Encoder)
 	}

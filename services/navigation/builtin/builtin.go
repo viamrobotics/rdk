@@ -120,7 +120,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 	// Add base dependencies
 	if conf.BaseName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "base")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "base")
 	}
 	deps = append(deps, conf.BaseName)
 
@@ -142,12 +142,12 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		return nil, err
 	}
 	if mapType == navigation.GPSMap && conf.MovementSensorName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "movement_sensor")
 	}
 
 	for _, obstacleDetectorPair := range conf.ObstacleDetectors {
 		if obstacleDetectorPair.VisionServiceName == "" || obstacleDetectorPair.CameraName == "" {
-			return nil, utils.NewConfigValidationError(path, errors.New("an obstacle detector is missing either a camera or vision service"))
+			return nil, resource.NewConfigValidationError(path, errors.New("an obstacle detector is missing either a camera or vision service"))
 		}
 		deps = append(deps, resource.NewName(vision.API, obstacleDetectorPair.VisionServiceName).String())
 		deps = append(deps, resource.NewName(camera.API, obstacleDetectorPair.CameraName).String())

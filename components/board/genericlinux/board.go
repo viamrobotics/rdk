@@ -19,6 +19,7 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/board/mcp3008helper"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -59,9 +60,7 @@ func NewBoard(
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 
-		spis:          map[string]*spiBus{},
 		analogReaders: map[string]*wrappedAnalogReader{},
-		i2cs:          map[string]*I2cBus{},
 		gpios:         map[string]*gpioPin{},
 		interrupts:    map[string]*digitalInterrupt{},
 	}
@@ -87,12 +86,6 @@ func (b *Board) Reconfigure(
 	defer b.mu.Unlock()
 
 	if err := b.reconfigureGpios(newConf); err != nil {
-		return err
-	}
-	if err := b.reconfigureSpis(newConf); err != nil {
-		return err
-	}
-	if err := b.reconfigureI2cs(newConf); err != nil {
 		return err
 	}
 	if err := b.reconfigureAnalogReaders(ctx, newConf); err != nil {
@@ -203,66 +196,6 @@ func (b *Board) reconfigureGpios(newConf *LinuxBoardConfig) error {
 	return nil
 }
 
-// This never returns errors, but we give it the same function signature as the other
-// reconfiguration helpers for consistency.
-func (b *Board) reconfigureSpis(newConf *LinuxBoardConfig) error {
-	stillExists := map[string]struct{}{}
-	for _, c := range newConf.SPIs {
-		stillExists[c.Name] = struct{}{}
-		if curr, ok := b.spis[c.Name]; ok {
-			if busPtr := curr.bus.Load(); busPtr != nil && *busPtr != c.BusSelect {
-				curr.reset(c.BusSelect)
-			}
-			continue
-		}
-		b.spis[c.Name] = &spiBus{}
-		b.spis[c.Name].reset(c.BusSelect)
-	}
-
-	for name := range b.spis {
-		if _, ok := stillExists[name]; ok {
-			continue
-		}
-		delete(b.spis, name)
-	}
-	return nil
-}
-
-func (b *Board) reconfigureI2cs(newConf *LinuxBoardConfig) error {
-	stillExists := map[string]struct{}{}
-	for _, c := range newConf.I2Cs {
-		stillExists[c.Name] = struct{}{}
-		if curr, ok := b.i2cs[c.Name]; ok {
-			if curr.deviceName == c.Bus {
-				continue
-			}
-			if err := curr.closeableBus.Close(); err != nil {
-				b.logger.Errorw("error closing I2C bus while reconfiguring", "error", err)
-			}
-			if err := curr.reset(curr.deviceName); err != nil {
-				b.logger.Errorw("error resetting I2C bus while reconfiguring", "error", err)
-			}
-			continue
-		}
-		bus, err := NewI2cBus(c.Bus)
-		if err != nil {
-			return err
-		}
-		b.i2cs[c.Name] = bus
-	}
-
-	for name := range b.i2cs {
-		if _, ok := stillExists[name]; ok {
-			continue
-		}
-		if err := b.i2cs[name].closeableBus.Close(); err != nil {
-			b.logger.Errorw("error closing I2C bus while reconfiguring", "error", err)
-		}
-		delete(b.i2cs, name)
-	}
-	return nil
-}
-
 func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoardConfig) error {
 	stillExists := map[string]struct{}{}
 	for _, c := range newConf.AnalogReaders {
@@ -271,8 +204,7 @@ func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoar
 			return errors.Errorf("bad analog pin (%s)", c.Pin)
 		}
 
-		bus := &spiBus{}
-		bus.reset(c.SPIBus)
+		bus := buses.NewSpiBus(c.SPIBus)
 
 		stillExists[c.Name] = struct{}{}
 		if curr, ok := b.analogReaders[c.Name]; ok {
@@ -449,9 +381,7 @@ type Board struct {
 	convertConfig ConfigConverter
 
 	gpioMappings  map[string]GPIOBoardMapping
-	spis          map[string]*spiBus
 	analogReaders map[string]*wrappedAnalogReader
-	i2cs          map[string]*I2cBus
 	logger        logging.Logger
 
 	gpios      map[string]*gpioPin
@@ -546,11 +476,6 @@ func (b *Board) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 // Status returns the current status of the board.
 func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	return board.CreateStatus(ctx, b, extra)
-}
-
-// ModelAttributes returns attributes related to the model of this board.
-func (b *Board) ModelAttributes() board.ModelAttributes {
-	return board.ModelAttributes{}
 }
 
 // SetPowerMode sets the board to the given power mode. If provided,

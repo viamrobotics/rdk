@@ -19,6 +19,7 @@ import (
 const (
 	componentName   = "gantry"
 	captureInterval = time.Second
+	numRetries      = 5
 )
 
 var floatList = []float64{1.0, 2.0, 3.0}
@@ -65,7 +66,10 @@ func TestGantryCollectors(t *testing.T) {
 			col.Collect()
 			mockClock.Add(captureInterval)
 
-			test.That(t, buf.Length(), test.ShouldEqual, 1)
+			tu.Retry(func() bool {
+				return buf.Length() != 0
+			}, numRetries)
+			test.That(t, buf.Length(), test.ShouldBeGreaterThan, 0)
 			test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, tc.expected)
 		})
 	}

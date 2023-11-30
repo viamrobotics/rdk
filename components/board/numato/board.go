@@ -26,7 +26,6 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("numato")
@@ -35,9 +34,8 @@ var errNoBoard = errors.New("no numato boards found")
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	Analogs    []board.AnalogReaderConfig `json:"analogs,omitempty"`
-	Attributes rdkutils.AttributeMap      `json:"attributes,omitempty"`
-	Pins       int                        `json:"pins"`
+	Analogs []board.AnalogReaderConfig `json:"analogs,omitempty"`
+	Pins    int                        `json:"pins"`
 }
 
 func init() {
@@ -63,6 +61,10 @@ func init() {
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
+	if conf.Pins <= 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "pins")
+	}
+
 	for idx, conf := range conf.Analogs {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
 			return nil, err
@@ -311,11 +313,6 @@ func (b *numatoBoard) Status(ctx context.Context, extra map[string]interface{}) 
 	return board.CreateStatus(ctx, b, extra)
 }
 
-// ModelAttributes returns attributes related to the model of this board.
-func (b *numatoBoard) ModelAttributes() board.ModelAttributes {
-	return board.ModelAttributes{}
-}
-
 func (b *numatoBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
 	return grpc.UnimplementedError
 }
@@ -370,9 +367,6 @@ func (ar *analogReader) Close(ctx context.Context) error {
 
 func connect(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (board.Board, error) {
 	pins := conf.Pins
-	if pins <= 0 {
-		return nil, errors.New("numato board needs pins set in attributes")
-	}
 
 	filter := serial.SearchFilter{Type: serial.TypeNumatoGPIO}
 	devs := serial.Search(filter)

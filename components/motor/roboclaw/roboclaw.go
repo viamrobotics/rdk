@@ -29,7 +29,6 @@ import (
 
 	"github.com/CPRT/roboclaw"
 	"github.com/pkg/errors"
-	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
@@ -67,18 +66,18 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		return nil, conf.wrongChannelError()
 	}
 	if conf.SerialPath == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_path")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 	if conf.Address != 0 && (conf.Address < 128 || conf.Address > 135) {
 		return nil, errors.New("serial address must be between 128 and 135")
 	}
 
 	if conf.TicksPerRotation < 0 {
-		return nil, utils.NewConfigValidationError(path, errors.New("Ticks Per Rotation must be a positive number"))
+		return nil, resource.NewConfigValidationError(path, errors.New("Ticks Per Rotation must be a positive number"))
 	}
 
 	if !rutils.ValidateBaudRate(validBaudRates, conf.SerialBaud) {
-		return nil, utils.NewConfigValidationError(path, errors.Errorf("Baud rate invalid, must be one of these values: %v", validBaudRates))
+		return nil, resource.NewConfigValidationError(path, errors.Errorf("Baud rate invalid, must be one of these values: %v", validBaudRates))
 	}
 	return nil, nil
 }
