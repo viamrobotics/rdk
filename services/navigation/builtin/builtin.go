@@ -500,27 +500,17 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	return svc.store.Close(ctx)
 }
 
-func (svc *builtIn) navOnce(ctx context.Context, wp navigation.Waypoint, extra map[string]interface{}) error {
+func (svc *builtIn) moveOnGlobeSync(ctx context.Context, req motion.MoveOnGlobeReq) error {
 	cancelCtx, cancelFn := context.WithCancel(ctx)
 	defer cancelFn()
-	svc.logger.Debugf("MoveOnGlobe called going to waypoint %+v", wp)
-	req := motion.MoveOnGlobeReq{
-		ComponentName:      svc.base.Name(),
-		Destination:        wp.ToPoint(),
-		Heading:            math.NaN(),
-		MovementSensorName: svc.movementSensor.Name(),
-		Obstacles:          svc.obstacles,
-		MotionCfg:          svc.motionCfg,
-		Extra:              extra,
-	}
 	rawExecutionID, err := svc.motionService.MoveOnGlobeNew(cancelCtx, req)
 	if err != nil {
-		return errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
+		return err
 	}
 
 	executionID, err := uuid.Parse(rawExecutionID)
 	if err != nil {
-		return errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
+		return err
 	}
 
 	svc.activeBackgroundWorkers.Add(1)
@@ -544,15 +534,13 @@ func (svc *builtIn) navOnce(ctx context.Context, wp navigation.Waypoint, extra m
 		})
 
 	if err != nil {
-		return errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
+		return err
 	}
 
-	svc.logger.Debug("MoveOnGlobe succeeded")
 	return svc.waypointReached(cancelCtx)
 }
 
 func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]interface{}) {
-	svc.logger.Debug("startWaypointMode called")
 	if extra == nil {
 		if false {
 			extra = map[string]interface{}{"motion_profile": "position_only"}
@@ -582,14 +570,24 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 			svc.currentWaypointCancelFunc = cancelFunc
 			svc.mu.Unlock()
 
+			req := motion.MoveOnGlobeReq{
+				ComponentName:      svc.base.Name(),
+				Destination:        wp.ToPoint(),
+				Heading:            math.NaN(),
+				MovementSensorName: svc.movementSensor.Name(),
+				Obstacles:          svc.obstacles,
+				MotionCfg:          svc.motionCfg,
+				Extra:              extra,
+			}
 			svc.logger.Infof("navigating to waypoint: %+v", wp)
-			if err := svc.navOnce(cancelCtx, wp, extra); err != nil {
+			if err := svc.moveOnGlobeSync(cancelCtx, req); err != nil {
 				if svc.waypointIsDeleted() {
 					svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
 					continue
 				}
-				svc.logger.Infof("retrying navigation to waypoint %+v since it errored out: %s", wp, err)
+				svc.logger.Warnf("retrying navigation to waypoint %+v since it errored out: %s", wp, err)
 			}
+			svc.logger.Infof("reached waypoint: %+v", wp)
 		}
 	}, svc.activeBackgroundWorkers.Done)
 }
