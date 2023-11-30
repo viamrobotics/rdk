@@ -536,10 +536,10 @@ func TestModuleReloading(t *testing.T) {
 		// Lower resource configuration timeout to avoid waiting for 60 seconds
 		// for manager.Add to time out waiting for module to start listening.
 		defer func() {
-			test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
+			test.That(t, os.Unsetenv(rutils.ModuleStartupTimeoutEnvVar),
 				test.ShouldBeNil)
 		}()
-		test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "10ms"),
+		test.That(t, os.Setenv(rutils.ModuleStartupTimeoutEnvVar, "10ms"),
 			test.ShouldBeNil)
 
 		// This test neither uses a resource manager nor asserts anything about

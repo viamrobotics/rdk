@@ -750,7 +750,7 @@ func (m *module) dial() error {
 }
 
 func (m *module) checkReady(ctx context.Context, parentAddr string, logger logging.Logger) error {
-	ctxTimeout, cancelFunc := context.WithTimeout(ctx, rutils.GetResourceConfigurationTimeout(logger))
+	ctxTimeout, cancelFunc := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(logger))
 	defer cancelFunc()
 
 	for {
@@ -819,7 +819,7 @@ func (m *module) startProcess(
 		return errors.WithMessage(err, "module startup failed")
 	}
 
-	ctxTimeout, cancel := context.WithTimeout(ctx, rutils.GetResourceConfigurationTimeout(logger))
+	ctxTimeout, cancel := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(logger))
 	defer cancel()
 	for {
 		select {
