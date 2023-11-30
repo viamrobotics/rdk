@@ -526,7 +526,7 @@ func (svc *builtIn) moveOnGlobeSync(ctx context.Context, req motion.MoveOnGlobeR
 		}
 	}, svc.activeBackgroundWorkers.Done)
 
-	err = pollUntilMOGSuccessOrError(cancelCtx, svc.motionService, time.Millisecond*500,
+	err = pollUntilMOGSuccessOrError(cancelCtx, svc.motionService, time.Millisecond*50,
 		motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
 			ExecutionID:   executionID,
@@ -561,7 +561,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 
 			wp, err := svc.store.NextWaypoint(ctx)
 			if err != nil {
-				time.Sleep(time.Millisecond * 200)
+				time.Sleep(time.Millisecond * 50)
 				continue
 			}
 			svc.mu.Lock()
