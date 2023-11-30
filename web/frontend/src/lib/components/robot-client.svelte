@@ -443,7 +443,7 @@ const login = async (authType: string) => {
   try {
     await connect(creds, authEntity);
   } catch (error) {
-    notify.danger(`failed to connect: ${(error as ServiceError).message}`);
+    notify.danger(`failed to connect: ${JSON.stringify(error as ServiceError)}`);
     $connectionStatus = 'idle';
   }
 };
