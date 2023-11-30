@@ -2,8 +2,6 @@ module go.viam.com/rdk
 
 go 1.19
 
-replace go.viam.com/api => ../api
-
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
 	github.com/CPRT/roboclaw v0.0.0-20190825181223-76871438befc
@@ -85,7 +83,7 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.24.0
-	go.viam.com/api v0.1.227
+	go.viam.com/api v0.1.231
 	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
 	go.viam.com/utils v0.1.54
 	goji.io v2.0.2+incompatible
