@@ -586,6 +586,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 					continue
 				}
 				svc.logger.Warnf("retrying navigation to waypoint %+v since it errored out: %s", wp, err)
+				continue
 			}
 			svc.logger.Infof("reached waypoint: %+v", wp)
 		}
