@@ -13,7 +13,6 @@
   import { setAsyncInterval } from '@/lib/schedule';
   import { components } from '@/stores/resources';
   import Collapse from '@/lib/components/collapse.svelte';
-  import PCD from '@/components/pcd/pcd-view.svelte';
   import Dropzone from '@/lib/components/dropzone.svelte';
   import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
   import type { SLAMOverrides } from '@/types/overrides';
@@ -31,17 +30,13 @@
     'Error refreshing map. The map shown may be stale.';
 
   let clear2dRefresh: (() => void) | undefined;
-  let clear3dRefresh: (() => void) | undefined;
 
   let refreshErrorMessage2d: string | undefined;
-  let refreshErrorMessage3d: string | undefined;
   let refresh2dRate = '5';
-  let refresh3dRate = 'manual';
   let pointcloud: Uint8Array | undefined;
   let pose: Pose | undefined;
   let lastTimestamp = new Date();
   let show2d = false;
-  let show3d = false;
   let showAxes = true;
   let destination: THREE.Vector2 | undefined;
   let labelUnits = 'm';
@@ -136,36 +131,6 @@
     }
   };
 
-  const refresh3d = async () => {
-    try {
-      if (overrides?.isCloudSlam && overrides.getMappingSessionPCD) {
-        const { map } = await overrides.getMappingSessionPCD(sessionId);
-        pointcloud = map;
-      } else {
-        const mapTimestamp = await slamClient.getLatestMapInfo();
-
-        /*
-         * The map timestamp is compared to the last timestamp
-         * to see if a change has been made to the pointcloud map.
-         * A new call to getPointCloudMap is made if an update has occured.
-         */
-        if (!localizationMode(mapTimestamp)) {
-          pointcloud = await slamClient.getPointCloudMap();
-        }
-
-        if (mapTimestamp) {
-          lastTimestamp = mapTimestamp;
-        }
-      }
-      refreshErrorMessage3d = undefined;
-    } catch (error) {
-      refreshErrorMessage3d =
-        error !== null && typeof error === 'object' && 'message' in error
-          ? `${refreshErrorMessage} ${(error as { message: string }).message}`
-          : `${refreshErrorMessage} ${error as string }`;
-    }
-  };
-
   const updateSLAM2dRefreshFrequency = () => {
     clear2dRefresh?.();
     refresh2d();
@@ -180,29 +145,6 @@
     }
   };
 
-  const updateSLAM3dRefreshFrequency = () => {
-    clear3dRefresh?.();
-    refresh3d();
-
-    refreshErrorMessage3d = undefined;
-
-    if (refresh3dRate !== 'manual') {
-      clear3dRefresh = setAsyncInterval(
-        refresh3d,
-        Number.parseFloat(refresh3dRate) * 1000
-      );
-    }
-  };
-
-  const toggle3dExpand = () => {
-    show3d = !show3d;
-    if (!show3d) {
-      refresh3dRate = 'manual';
-      return;
-    }
-    updateSLAM3dRefreshFrequency();
-  };
-
   const toggle2dExpand = () => {
     show2d = !show2d;
     if (!show2d) {
@@ -215,11 +157,6 @@
   const refresh2dMap = () => {
     refresh2dRate = 'manual';
     updateSLAM2dRefreshFrequency();
-  };
-
-  const refresh3dMap = () => {
-    refresh2dRate = 'manual';
-    updateSLAM3dRefreshFrequency();
   };
 
   const handle2dRenderClick = (event: CustomEvent<THREE.Vector3>) => {
@@ -293,15 +230,11 @@
       toggle2dExpand();
     } else {
       clear2dRefresh?.();
-      clear3dRefresh?.();
     }
   };
 
   const startMappingIntervals = (start: number) => {
     updateSLAM2dRefreshFrequency();
-    if (show3d) {
-      updateSLAM3dRefreshFrequency();
-    }
     startDurationTimer(start);
   };
 
@@ -348,7 +281,6 @@
 
   const clearRefresh = () => {
     clear2dRefresh?.();
-    clear3dRefresh?.();
   };
 
   const handleEndMapping = () => {
@@ -684,56 +616,5 @@
         {/if}
       {/if}
     </div>
-  </div>
-
-  <div class="border border-medium border-t-transparent p-4">
-    <v-switch
-      label="View SLAM map (3D)"
-      value={show3d ? 'on' : 'off'}
-      on:input={toggle3dExpand}
-    />
-    {#if refreshErrorMessage3d && show3d}
-      <div class="border-l-4 border-red-500 bg-gray-100 px-4 py-3">
-        {refreshErrorMessage3d}
-      </div>
-    {/if}
-
-    {#if pointcloudLoaded && show3d}
-      <div class="flex items-end gap-2">
-        <div class="w-56 mt-3">
-          <p class="mb-1 text-xs text-gray-500">Refresh frequency</p>
-          <div class="relative">
-            <select
-              bind:value={refresh3dRate}
-              class="
-                m-0 w-full appearance-none border border-solid border-medium bg-white
-                bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none
-              "
-              aria-label="Default select example"
-              on:change={updateSLAM3dRefreshFrequency}
-            >
-              <option value="manual"> Manual refresh </option>
-              <option value="30"> Every 30 seconds </option>
-              <option value="10"> Every 10 seconds </option>
-              <option value="5"> Every 5 seconds </option>
-              <option value="1"> Every second </option>
-            </select>
-            <v-icon
-              name="chevron-down"
-              class="pointer-events-none absolute bottom-0 h-[30px] right-0 flex items-center px-2"
-            />
-          </div>
-        </div>
-
-        <v-button
-          icon="refresh"
-          label="Refresh"
-          on:click={refresh3dMap}
-          on:keydown={refresh3dMap}
-        />
-      </div>
-
-      <PCD {pointcloud} />
-    {/if}
   </div>
 </Collapse>
