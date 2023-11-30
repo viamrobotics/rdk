@@ -61,7 +61,6 @@ type manifestBuildInfo struct {
 }
 
 // defaultBuildInfo has defaults for unset fields in "build".
-//
 var defaultBuildInfo = manifestBuildInfo{
 	Build: "make module.tar.gz",
 	Path:  "module.tar.gz",

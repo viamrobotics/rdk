@@ -18,10 +18,10 @@ import (
 type jobStatus string
 
 const (
-	jobStatusUnknown    jobStatus = "Unknown"
-    // In other places in the codebase, "in progress" makes logical sense,
-    // however, in the cli, we want this to be a single word so that it is easier
-    // to use unix tools on the output (I also think "Building" looks better)
+	jobStatusUnknown jobStatus = "Unknown"
+	// In other places in the codebase, "in progress" makes logical sense,
+	// however, in the cli, we want this to be a single word so that it is easier
+	// to use unix tools on the output (I also think "Building" looks better).
 	jobStatusInProgress jobStatus = "Building"
 	jobStatusFailed     jobStatus = "Failed"
 	jobStatusDone       jobStatus = "Done"
@@ -179,6 +179,7 @@ func ModuleBuildListAction(c *cli.Context) error {
 			job.Version,
 			job.StartTime.AsTime().Format(time.RFC3339))
 	}
+	//nolint: errcheck,gosec
 	w.Flush()
 	return nil
 }
