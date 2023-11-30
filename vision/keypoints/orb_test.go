@@ -28,7 +28,7 @@ func TestLoadORBConfiguration(t *testing.T) {
 	}
 	err = cfg1.Validate("")
 	test.That(t, err, test.ShouldBeError)
-	test.That(t, err.Error(), test.ShouldEqual, "error validating \"\": n_layers should be >= 1")
+	test.That(t, err.Error(), test.ShouldEqual, "Error validating. Path: \"\" Error: n_layers should be >= 1")
 
 	cfg2 := &ORBConfig{
 		Layers:          2,
@@ -36,7 +36,7 @@ func TestLoadORBConfiguration(t *testing.T) {
 	}
 	err = cfg2.Validate("")
 	test.That(t, err, test.ShouldBeError)
-	test.That(t, err.Error(), test.ShouldEqual, "error validating \"\": downscale_factor should be greater than 1")
+	test.That(t, err.Error(), test.ShouldEqual, "Error validating. Path: \"\" Error: downscale_factor should be greater than 1")
 
 	cfg3 := &ORBConfig{
 		Layers:          4,

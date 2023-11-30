@@ -4,10 +4,10 @@ import (
 	"os"
 	"reflect"
 	"regexp"
-	"strings"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
+
+	"go.viam.com/rdk/resource"
 )
 
 var moduleNameRegEx = regexp.MustCompile(`^[\w-]+$`)
@@ -59,7 +59,7 @@ func (m *Module) Validate(path string) error {
 	}
 	if m.Status != nil {
 		m.alreadyValidated = true
-		m.cachedErr = utils.NewConfigValidationError(path, errors.New(m.Status.Error))
+		m.cachedErr = resource.NewConfigValidationError(path, errors.New(m.Status.Error))
 		return m.cachedErr
 	}
 	m.cachedErr = m.validate(path)
@@ -70,8 +70,7 @@ func (m *Module) Validate(path string) error {
 func (m *Module) validate(path string) error {
 	// Only check if the path exists during validation for local modules because the packagemanager may not have downloaded
 	// the package yet.
-	// As of 2023-08, modules can't know if they were originally registry modules, so this roundabout check is required
-	if !(ContainsPlaceholder(m.ExePath) || strings.HasPrefix(m.ExePath, viamPackagesDir)) {
+	if m.Type == ModuleTypeLocal {
 		_, err := os.Stat(m.ExePath)
 		if err != nil {
 			return errors.Wrapf(err, "module %s executable path error", path)

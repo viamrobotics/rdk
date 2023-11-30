@@ -31,8 +31,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -58,7 +57,7 @@ type Config struct {
 // depend on.
 func (conf *Config) Validate(path string) ([]string, error) {
 	if conf.I2cBus == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 
 	var deps []string
@@ -74,7 +73,7 @@ func init() {
 type mpu6050 struct {
 	resource.Named
 	resource.AlwaysRebuild
-	bus        board.I2C
+	bus        buses.I2C
 	i2cAddress byte
 	mu         sync.Mutex
 
@@ -114,7 +113,7 @@ func NewMpu6050(
 		return nil, err
 	}
 
-	bus, err := genericlinux.NewI2cBus(newConf.I2cBus)
+	bus, err := buses.NewI2cBus(newConf.I2cBus)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +126,7 @@ func makeMpu6050(
 	_ resource.Dependencies,
 	conf resource.Config,
 	logger logging.Logger,
-	bus board.I2C,
+	bus buses.I2C,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {

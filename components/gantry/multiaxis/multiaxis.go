@@ -42,7 +42,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if len(conf.SubAxes) == 0 {
-		return nil, utils.NewConfigValidationError(path, errors.New("need at least one axis"))
+		return nil, resource.NewConfigValidationError(path, errors.New("need at least one axis"))
 	}
 
 	deps = append(deps, conf.SubAxes...)

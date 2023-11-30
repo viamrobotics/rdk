@@ -17,7 +17,6 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
@@ -51,7 +50,6 @@ type SerialConfig struct {
 
 // I2CConfig is used for converting Serial NMEA MovementSensor config attributes.
 type I2CConfig struct {
-	Board       string `json:"board"`
 	I2CBus      string `json:"i2c_bus"`
 	I2CAddr     int    `json:"i2c_addr"`
 	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
@@ -62,15 +60,11 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if cfg.ConnectionType == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "connection_type")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "connection_type")
 	}
 
 	switch strings.ToLower(cfg.ConnectionType) {
 	case i2cStr:
-		if cfg.Board == "" {
-			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
-		}
-		deps = append(deps, cfg.Board)
 		return deps, cfg.I2CConfig.validateI2C(path)
 	case serialStr:
 		return nil, cfg.SerialConfig.validateSerial(path)
@@ -82,22 +76,18 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 // ValidateI2C ensures all parts of the config are valid.
 func (cfg *I2CConfig) validateI2C(path string) error {
 	if cfg.I2CBus == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+		return resource.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 	if cfg.I2CAddr == 0 {
-		return utils.NewConfigValidationFieldRequiredError(path, "i2c_addr")
+		return resource.NewConfigValidationFieldRequiredError(path, "i2c_addr")
 	}
-	if cfg.Board == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "board")
-	}
-
 	return nil
 }
 
 // ValidateSerial ensures all parts of the config are valid.
 func (cfg *SerialConfig) validateSerial(path string) error {
 	if cfg.SerialPath == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
+		return resource.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 	return nil
 }

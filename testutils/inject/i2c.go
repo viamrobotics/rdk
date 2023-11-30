@@ -3,17 +3,17 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 )
 
 // I2C is an injected I2C.
 type I2C struct {
-	board.I2C
-	OpenHandleFunc func(addr byte) (board.I2CHandle, error)
+	buses.I2C
+	OpenHandleFunc func(addr byte) (buses.I2CHandle, error)
 }
 
 // OpenHandle calls the injected OpenHandle or the real version.
-func (s *I2C) OpenHandle(addr byte) (board.I2CHandle, error) {
+func (s *I2C) OpenHandle(addr byte) (buses.I2CHandle, error) {
 	if s.OpenHandleFunc == nil {
 		return s.I2C.OpenHandle(addr)
 	}
@@ -22,7 +22,7 @@ func (s *I2C) OpenHandle(addr byte) (board.I2CHandle, error) {
 
 // I2CHandle is an injected I2CHandle.
 type I2CHandle struct {
-	board.I2CHandle
+	buses.I2CHandle
 	WriteFunc          func(ctx context.Context, tx []byte) error
 	ReadFunc           func(ctx context.Context, count int) ([]byte, error)
 	ReadByteDataFunc   func(ctx context.Context, register byte) (byte, error)

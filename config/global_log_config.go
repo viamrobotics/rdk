@@ -1,8 +1,6 @@
 package config
 
 import (
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
@@ -19,7 +17,7 @@ type GlobalLogConfig struct {
 // Validate the GlobalLogConfig.
 func (glc GlobalLogConfig) Validate(path string) error {
 	if err := glc.API.Validate(); err != nil {
-		return utils.NewConfigValidationError(path, err)
+		return resource.NewConfigValidationError(path, err)
 	}
 
 	if glc.Model == nil {
@@ -27,7 +25,7 @@ func (glc GlobalLogConfig) Validate(path string) error {
 	}
 
 	if err := glc.Model.Validate(); err != nil {
-		return utils.NewConfigValidationError(path, err)
+		return resource.NewConfigValidationError(path, err)
 	}
 
 	return nil

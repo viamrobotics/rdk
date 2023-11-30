@@ -69,7 +69,7 @@ func TestClient(t *testing.T) {
 		client, err := vision.NewClientFromConn(context.Background(), conn, "", vision.Named(testVisionServiceName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		dets, err := client.Detections(context.Background(), &image.RGBA{}, nil)
+		dets, err := client.Detections(context.Background(), image.NewRGBA(image.Rect(0, 0, 10, 20)), nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, dets, test.ShouldNotBeNil)

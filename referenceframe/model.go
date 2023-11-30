@@ -16,9 +16,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// errUnsupportedFileType is returned if we try to build a model from an inproper extension.
-var errUnsupportedFileType = errors.New("only files with .json and .urdf file extensions are supported")
-
 // A Model represents a frame that can change its name, and can return itself as a ModelConfig struct.
 type Model interface {
 	Frame
@@ -269,23 +266,6 @@ func sortTransforms(unsorted map[string]Frame, parentMap map[string]string, star
 	}
 
 	return orderedTransforms, nil
-}
-
-// ModelFromPath returns a Model from a given path.
-func ModelFromPath(modelPath, name string) (Model, error) {
-	var (
-		model Model
-		err   error
-	)
-	switch {
-	case strings.HasSuffix(modelPath, ".urdf"):
-		model, err = ParseURDFFile(modelPath, name)
-	case strings.HasSuffix(modelPath, ".json"):
-		model, err = ParseModelJSONFile(modelPath, name)
-	default:
-		return model, errUnsupportedFileType
-	}
-	return model, err
 }
 
 // New2DMobileModelFrame builds the kinematic model associated with the kinematicWheeledBase

@@ -84,25 +84,25 @@ func init() {
 // Validate checks that the config attributes are valid for a replay movement sensor.
 func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.Source == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "source")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "source")
 	}
 
 	if cfg.RobotID == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "robot_id")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "robot_id")
 	}
 
 	if cfg.LocationID == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "location_id")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "location_id")
 	}
 
 	if cfg.OrganizationID == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "organization_id")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "organization_id")
 	}
 	if cfg.APIKey == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "api_key")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "api_key")
 	}
 	if cfg.APIKeyID == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "api_key_id")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "api_key_id")
 	}
 
 	var err error

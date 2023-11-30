@@ -268,8 +268,7 @@ func TestSwitchResource(t *testing.T) {
 		// Assert that we see the expected data captured by the initial arm1 resource.
 		test.That(
 			t,
-			d.GetStruct().GetFields()["Number"].GetStructValue().GetFields()["Dual"].GetStructValue().GetFields()["Jmag"].GetNumberValue(),
-			test.ShouldEqual,
+			d.GetStruct().GetFields()["pose"].GetStructValue().GetFields()["o_z"].GetNumberValue(), test.ShouldEqual,
 			float64(1),
 		)
 	}
@@ -282,9 +281,9 @@ func TestSwitchResource(t *testing.T) {
 		// Assert that we see the expected data captured by the updated arm1 resource.
 		test.That(
 			t,
-			d.GetStruct().GetFields()["Number"].GetStructValue().GetFields()["Dual"].GetStructValue().GetFields()["Jmag"].GetNumberValue(),
+			d.GetStruct().GetFields()["pose"].GetStructValue().GetFields()["x"].GetNumberValue(),
 			test.ShouldEqual,
-			float64(444),
+			float64(888),
 		)
 	}
 	// Assert that the updated arm1 resource is capturing data.

@@ -573,6 +573,11 @@ var app = &cli.App{
 						dataFlagOrgIDs),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
+							Name:     datasetFlagDatasetID,
+							Usage:    "dataset ID",
+							Required: true,
+						},
+						&cli.StringFlag{
 							Name:     trainFlagModelOrgID,
 							Usage:    "org ID to train and save ML model in",
 							Required: true,
@@ -597,69 +602,6 @@ var app = &cli.App{
 						&cli.StringFlag{
 							Name:  trainFlagModelVersion,
 							Usage: "version of ML model. defaults to current timestamp if unspecified.",
-						},
-						&cli.StringFlag{
-							Name:  datasetFlagDatasetID,
-							Usage: "dataset ID",
-						},
-						&cli.StringSliceFlag{
-							Name:  dataFlagOrgIDs,
-							Usage: "orgs filter",
-						},
-						&cli.StringSliceFlag{
-							Name:  dataFlagLocationIDs,
-							Usage: "locations filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagRobotID,
-							Usage: "robot-id filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagPartID,
-							Usage: "part id filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagRobotName,
-							Usage: "robot name filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagPartName,
-							Usage: "part name filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagComponentType,
-							Usage: "component type filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagComponentName,
-							Usage: "component name filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagMethod,
-							Usage: "method filter",
-						},
-						&cli.StringSliceFlag{
-							Name:  dataFlagMimeTypes,
-							Usage: "mime types filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagStart,
-							Usage: "ISO-8601 timestamp indicating the start of the interval filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagEnd,
-							Usage: "ISO-8601 timestamp indicating the end of the interval filter",
-						},
-						&cli.StringSliceFlag{
-							Name: dataFlagTags,
-							Usage: "tags filter. " +
-								"accepts tagged for all tagged data, untagged for all untagged data, " +
-								"or a list of tags for all data matching any of the tags",
-						},
-						&cli.StringSliceFlag{
-							Name: dataFlagBboxLabels,
-							Usage: "bbox labels filter. " +
-								"accepts string labels corresponding to bounding boxes within images",
 						},
 					},
 					Action: DataSubmitTrainingJob,
@@ -970,14 +912,6 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Value:     "./meta.json",
 							TakesFile: true,
 						},
-						&cli.StringFlag{
-							Name:  moduleFlagPublicNamespace,
-							Usage: "the public namespace where the module resides (alternative way of specifying the org id)",
-						},
-						&cli.StringFlag{
-							Name:  moduleFlagOrgID,
-							Usage: "id of the organization that hosts the module",
-						},
 					},
 					Action: UpdateModuleAction,
 				},
@@ -999,7 +933,6 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					},
 					Action: UpdateModelsAction,
 				},
-
 				{
 					Name:  "upload",
 					Usage: "upload a new version of your module",
@@ -1044,10 +977,17 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 						&cli.StringFlag{
 							Name: moduleFlagPlatform,
 							Usage: `platform of the binary you are uploading. Must be one of:
+                      any           (most Python modules)
+                      any/amd64     (most Docker-based modules)
+                      any/arm64
+                      linux/any     (Python modules that also require OS support)
+                      darwin/any
                       linux/amd64
                       linux/arm64
-                      darwin/amd64 (Intel macs)
-                      darwin/arm64 (Apple silicon macs)`,
+                      linux/arm32v7
+                      linux/arm32v6
+                      darwin/amd64  (Intel macs)
+                      darwin/arm64  (Apple silicon macs)`,
 							Required: true,
 						},
 						&cli.BoolFlag{
@@ -1056,6 +996,35 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 						},
 					},
 					Action: UploadModuleAction,
+				},
+				{
+					Name:   "build",
+					Hidden: true,
+					Usage: `build your module on different operating systems and cpu architectures via cloud runners.
+Uses the "build" section of your meta.json.
+Example:
+"build": {
+   "setup": "setup.sh",                    // optional - command to install your build dependencies
+   "build": "make module.tar.gz",          // command that will build your module
+   "path" : "module.tar.gz",               // optional - path to your built module
+                                           // (passed to the 'viam module upload' command)
+   "arch" : ["linux/amd64", "linux/arm64"] // architectures to build for
+}`,
+					Subcommands: []*cli.Command{
+						{
+							Name:  "local",
+							Usage: "run your module's build commands locally",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:      moduleFlagPath,
+									Usage:     "path to meta.json",
+									Value:     "./meta.json",
+									TakesFile: true,
+								},
+							},
+							Action: ModuleBuildLocalAction,
+						},
+					},
 				},
 			},
 		},

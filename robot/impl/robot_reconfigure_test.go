@@ -39,7 +39,6 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
@@ -2401,7 +2400,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 					resources: deps,
 				}, nil
 			},
-			WeakDependencies: []internal.ResourceMatcher{internal.ComponentDependencyWildcardMatcher},
+			WeakDependencies: []resource.Matcher{resource.TypeMatcher{Type: resource.APITypeComponentName}},
 		})
 	defer func() {
 		resource.Deregister(weakAPI, weakModel)
@@ -2428,6 +2427,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	// Assert that the explicit dependency was observed.
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unresolved dependencies")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "base1")
 
 	// Reconfigure without the explicit dependency. While also adding a second component that would
 	// have satisfied the dependency from the prior `weakCfg1`. Due to the weak dependency wildcard
@@ -3591,12 +3591,9 @@ func TestResourceConstructTimeout(t *testing.T) {
 
 	timeOutErrorCount := func() int {
 		return logs.Filter(func(o observer.LoggedEntry) bool {
-			for k, v := range o.ContextMap() {
-				if k == "error" && strings.Contains(fmt.Sprint(v), "timed out after") {
-					return true
-				}
-			}
-			return false
+			return strings.Contains(
+				o.Entry.Message,
+				"resource build error: resource rdk:component:base/fakewheel timed out after 1ns during reconfigure.")
 		}).Len()
 	}
 
