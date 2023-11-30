@@ -672,12 +672,10 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 
 			// get the manipulated geometry
 			manipulatedGeom := detection.Geometry.Transform(transformBy)
-			fmt.Println("manipulatedGeom.Pose(): ", spatialmath.PoseToProtobuf(manipulatedGeom.Pose()))
 
 			// fix axes of geometry's pose such that it is in the cooordinate system of the base
 			transformBy = spatialmath.NewPoseFromOrientation(baseToCamera.Pose().Orientation())
 			manipulatedGeom = manipulatedGeom.Transform(transformBy)
-			fmt.Println("manipulatedGeom.Pose(): ", spatialmath.PoseToProtobuf(manipulatedGeom.Pose()))
 
 			// get the geometry's lat & lng along with its heading with respect to north as a left handed value
 			obstacleGeoPose := spatialmath.PoseToGeoPose(robotGeoPose, manipulatedGeom.Pose())

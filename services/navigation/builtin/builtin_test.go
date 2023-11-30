@@ -1164,7 +1164,6 @@ func TestGetObstacles(t *testing.T) {
 }
 
 func createBaseLink(t *testing.T) *referenceframe.LinkInFrame {
-
 	baseBox, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{20, 20, 20}, "base-box")
 	test.That(t, err, test.ShouldBeNil)
 	baseLink := referenceframe.NewLinkInFrame(
