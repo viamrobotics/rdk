@@ -65,12 +65,12 @@ func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma, con
 		var img *rimage.Image
 		var dmimg image.Image
 		for _, i := range imgs {
-			this_i := i
+			thisI := i
 			if i.SourceName == "color" {
-				img = rimage.ConvertImage(this_i.Image)
+				img = rimage.ConvertImage(thisI.Image)
 			}
 			if i.SourceName == "depth" {
-				dmimg = this_i.Image
+				dmimg = thisI.Image
 			}
 		}
 		if img == nil || dmimg == nil {

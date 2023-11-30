@@ -110,7 +110,7 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 	return img, func() {}, err
 }
 
-// Images returns the saved color and depth image if they are present
+// Images returns the saved color and depth image if they are present.
 func (fs *fileSource) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	if fs.ColorFN == "" && fs.DepthFN == "" {
 		return nil, resource.ResponseMetadata{}, errors.New("no image file to read, so not implemented")
@@ -180,7 +180,7 @@ func (ss *StaticSource) Read(ctx context.Context) (image.Image, func(), error) {
 	return ss.DepthImg, func() {}, nil
 }
 
-// Images returns the saved color and depth image if they are present
+// Images returns the saved color and depth image if they are present.
 func (ss *StaticSource) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	if ss.ColorImg == nil && ss.DepthImg == nil {
 		return nil, resource.ResponseMetadata{}, errors.New("no image files stored, so not implemented")
