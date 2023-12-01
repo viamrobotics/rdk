@@ -1,5 +1,4 @@
-// Package rtkutils implements functions that is used in gpsrtkserial and
-// gpsrtkpmtk.
+// Package rtkutils implements functions that are used in the gpsrtkserial and gpsrtkpmtk.
 package rtkutils
 
 import (
@@ -17,7 +16,7 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// VirtualBase struct contains a sync to syncronize actions while connecting
+// VirtualBase struct contains a mutex to syncronize actions while connecting
 // to a virtual reference station.
 type VirtualBase struct {
 	mu sync.Mutex
