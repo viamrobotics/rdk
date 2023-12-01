@@ -220,7 +220,7 @@ func (c *viamClient) printModuleBuildLogs(ctx context.Context, buildID, platform
 	if err != nil {
 		return err
 	}
-
+	lastBuildStep := ""
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -231,6 +231,10 @@ func (c *viamClient) printModuleBuildLogs(ctx context.Context, buildID, platform
 		}
 		if err != nil {
 			return err
+		}
+		if lastBuildStep != log.BuildStep {
+			infof(c.c.App.Writer, log.BuildStep)
+			lastBuildStep = log.BuildStep
 		}
 		fmt.Fprint(c.c.App.Writer, log.Data) // data is already formatted with newlines
 	}
