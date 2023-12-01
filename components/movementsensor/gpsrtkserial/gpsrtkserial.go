@@ -504,6 +504,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 					err = g.getNtripFromVRS()
 					if err != nil && !errors.Is(err, io.EOF) {
 						g.err.Set(err)
+						return
 					}
 
 					scanner = rtcm3.NewScanner(g.readerWriter)
