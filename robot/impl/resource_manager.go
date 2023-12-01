@@ -26,7 +26,6 @@ import (
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/services/shell"
-	"go.viam.com/rdk/utils"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -627,7 +626,7 @@ func (manager *resourceManager) completeConfig(
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				robot.logger.Warn(utils.NewBuildTimeoutError(resName.String()))
+				robot.logger.Warn(rutils.NewBuildTimeoutError(resName.String()))
 			}
 		case <-ctx.Done():
 			return

@@ -31,7 +31,6 @@ const (
 // otherwise).
 func GetResourceConfigurationTimeout(logger logging.Logger) time.Duration {
 	return timeoutHelper(DefaultResourceConfigurationTimeout, ResourceConfigurationTimeoutEnvVar, logger)
-
 }
 
 // GetModuleStartupTimeout calculates the module startup timeout
