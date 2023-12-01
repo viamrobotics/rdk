@@ -554,7 +554,7 @@ func TestModuleReloading(t *testing.T) {
 		err = mgr.Add(ctx, modCfg)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
-			"timed out waiting for module test-module to start listening")
+			"module test-module timed out after 10ms during startup")
 
 		// Assert that number of "fakemodule is running" messages does not increase
 		// over time (the process was stopped).
