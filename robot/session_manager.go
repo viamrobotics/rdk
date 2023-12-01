@@ -139,10 +139,10 @@ func (m *SessionManager) expireLoop(ctx context.Context) {
 			for id := range toDelete {
 				deletedIDs = append(deletedIDs, id.String())
 			}
-			m.logger.Debugw("sessions expired", "session_ids", deletedIDs)
+			m.logger.CDebugw(ctx, "sessions expired", "session_ids", deletedIDs)
 		}
 		if len(toStop) != 0 {
-			m.logger.Debugw("tried to stop some resources", "resources", toStop)
+			m.logger.CDebugw(ctx, "tried to stop some resources", "resources", toStop)
 		}
 		if len(resourceErrs) != 0 {
 			m.logger.Errorw("failed to stop some resources", "errors", resourceErrs)

@@ -233,6 +233,12 @@ func (imp *impl) Debugw(msg string, keysAndValues ...interface{}) {
 	}
 }
 
+func (imp *impl) CDebugw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	if imp.shouldLog(DEBUG) || debugMode(ctx) {
+		imp.log(imp.formatw(DEBUG, msg, keysAndValues...))
+	}
+}
+
 func (imp *impl) Info(args ...interface{}) {
 	if imp.shouldLog(INFO) {
 		imp.log(imp.format(INFO, args...))

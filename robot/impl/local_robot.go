@@ -664,7 +664,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		res, err := r.ResourceByName(n)
 		if err != nil {
 			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
-				r.Logger().Debugw("error finding resource during weak dependent update", "resource", n, "error", err)
+				r.Logger().CDebugw(ctx, "error finding resource during weak dependent update", "resource", n, "error", err)
 			}
 			continue
 		}
@@ -749,7 +749,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		if len(r.getWeakDependencyMatchers(conf.API, conf.Model)) == 0 {
 			return
 		}
-		r.Logger().Debugw("handling weak update for resource", "resource", resName)
+		r.Logger().CDebugw(ctx, "handling weak update for resource", "resource", resName)
 		deps, err := r.getDependencies(ctx, resName, resNode)
 		if err != nil {
 			r.Logger().Errorw("failed to get dependencies during weak update; skipping", "resource", resName, "error", err)

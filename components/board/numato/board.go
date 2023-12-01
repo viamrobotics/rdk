@@ -412,7 +412,7 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 	if err != nil {
 		return nil, multierr.Combine(b.Close(ctx), err)
 	}
-	b.logger.Debugw("numato startup", "version", ver)
+	b.logger.CDebugw(ctx, "numato startup", "version", ver)
 
 	return b, nil
 }

@@ -512,7 +512,7 @@ func TestColorSegment1(t *testing.T) {
 	}
 
 	outDir := t.TempDir()
-	logging.NewTestLogger(t).CDebugf(ctx, "out dir: %q", outDir)
+	logging.NewTestLogger(t).Debugf("out dir: %q", outDir)
 	err = diffs.WriteTo(outDir + "/foo.html")
 	test.That(t, err, test.ShouldBeNil)
 

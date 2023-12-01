@@ -191,7 +191,7 @@ func (rc *RobotClient) handleUnaryDisconnect(
 	}
 
 	if err := rc.checkConnected(); err != nil {
-		rc.Logger().Debugw("connection is down, skipping method call", "method", method)
+		rc.Logger().CDebugw(ctx, "connection is down, skipping method call", "method", method)
 		return status.Error(codes.Unavailable, err.Error())
 	}
 
@@ -237,7 +237,7 @@ func (rc *RobotClient) handleStreamDisconnect(
 	}
 
 	if err := rc.checkConnected(); err != nil {
-		rc.Logger().Debugw("connection is down, skipping method call", "method", method)
+		rc.Logger().CDebugw(ctx, "connection is down, skipping method call", "method", method)
 		return nil, status.Error(codes.Unavailable, err.Error())
 	}
 
@@ -645,7 +645,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 				// has a remote. This can be solved by either integrating reflection into
 				// robot.proto or by overriding the gRPC reflection service to return
 				// reflection results from its remotes.
-				rc.Logger().Debugw("failed to find symbol for resource API", "api", resAPI, "error", err)
+				rc.Logger().CDebugw(ctx, "failed to find symbol for resource API", "api", resAPI, "error", err)
 				continue
 			}
 			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)

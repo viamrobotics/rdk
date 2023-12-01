@@ -71,10 +71,10 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (ch
 		defer svc.activeBackgroundWorkers.Done()
 		defer cancel()
 		if err := cmd.Wait(); err != nil {
-			svc.logger.Debugw("error waiting for cmd", "error", err)
+			svc.logger.CDebugw(ctx, "error waiting for cmd", "error", err)
 		}
 		if err := f.Close(); err != nil {
-			svc.logger.Debugw("error closing pty", "error", err)
+			svc.logger.CDebugw(ctx, "error closing pty", "error", err)
 		}
 	})
 
