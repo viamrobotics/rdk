@@ -17,7 +17,7 @@ Viam provides an open source robot architecture that provides robotics functiona
 * Discord: <https://discord.gg/viam>
 * Support: <https://support.viam.com>
 
-If you have a bug or an idea, please open an issue  in our [JIRA project](https://viam.atlassian.net/).
+If you have a bug or an idea, please open an issue in our [JIRA project](https://viam.atlassian.net/).
 
 ## Building and Using
 
@@ -47,6 +47,13 @@ Multiple SDKs are available for writing client applications that interface with 
 * Typescript: [Docs](https://ts.viam.dev/), [Repository](https://github.com/viamrobotics/viam-typescript-sdk/)
 * C++: [Docs](https://cpp.viam.dev/), [Repository](https://github.com/viamrobotics/viam-cpp-sdk/)
 * Rust: [Repository](https://github.com/viamrobotics/viam-rust-sdk)
+
+### Environment Variable Settings
+
+| **Environment Variable**            | **Behavior**                                               | **Default Value** |
+|-------------------------------------|------------------------------------------------------------|-------------------|
+| VIAM_RESOURCE_CONFIGURATION_TIMEOUT | Duration for which resources are allowed to (re)configure. | 1 minute          |
+| VIAM_MODULE_STARTUP_TIMEOUT         | Duration for which modules are allowed to startup.         | 5 minutes         |
 
 ## Development
 
@@ -97,7 +104,7 @@ If you add a 3rd-party library to this project, please run `make license-check` 
 
 For maintainers, here is how to make some common license policy changes:
 
-#### Permit a new license (e.g. MIT): 
+#### Permit a new license (e.g. MIT):
 https://github.com/pivotal/LicenseFinder#permitting-licenses
 ```
 license_finder permitted_licenses add MIT
@@ -131,10 +138,10 @@ Support is not well tested yet.
 #### Known Issues
 
 * motion planning is not supported yet (https://viam.atlassian.net/browse/RSDK-1772).
-* video streaming is not supported yet (https://viam.atlassian.net/browse/RSDK-1771). 
+* video streaming is not supported yet (https://viam.atlassian.net/browse/RSDK-1771).
 * rpc: ICE between local connections found via ICE mDNS appear to be flaky in the establishment phase.
 
 ## License
-Copyright 2021-2022 Viam Inc.
+Copyright 2021-2023 Viam Inc.
 
 AGPLv3 - See [LICENSE](https://github.com/viamrobotics/rdk/blob/main/LICENSE) file
