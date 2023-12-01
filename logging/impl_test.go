@@ -2,6 +2,7 @@ package logging
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -189,4 +190,22 @@ func TestConsoleOutputFormat(t *testing.T) {
 	impl.Infow("impl logw", "key", "val", "fmt.Sprintf", fmt.Sprintf("%+v", anonymousTypedValue))
 	assertLogMatches(t, notStdout,
 		`2023-10-31T14:25:49.124Z	INFO	impl	logging/impl_test.go:177	impl logw	{"key":"val","fmt.Sprintf":"{x:1 y:{Y1:y1} Z:z}"}`)
+}
+
+func TestContextLogging(t *testing.T) {
+	ctx := context.Background()
+
+	// A logger object that will write to the `notStdout` buffer.
+	const inUTC = true
+	notStdout := &bytes.Buffer{}
+	logger := &impl{"impl", NewAtomicLevelAt(INFO), inUTC, []Appender{NewWriterAppender(notStdout)}}
+
+	logger.CDebug(ctx, "Debug log")
+	test.That(t, notStdout.Len(), test.ShouldEqual, 0)
+
+	ctx = enableDebugMode(ctx)
+	logger.CDebug(ctx, "Debug log")
+
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	DEBUG	impl	logging/impl_test.go:200	Debug log`)
 }
