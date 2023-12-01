@@ -542,9 +542,18 @@ func (svc *builtIn) moveOnGlobeSync(ctx context.Context, req motion.MoveOnGlobeR
 
 func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]interface{}) {
 	if extra == nil {
-		extra = map[string]interface{}{"motion_profile": "position_only"}
-	} else if _, ok := extra["motion_profile"]; !ok {
+		extra = map[string]interface{}{
+			"motion_profile": "position_only",
+			"smooth_iter":    20,
+		}
+	}
+
+	if _, ok := extra["motion_profile"]; !ok {
 		extra["motion_profile"] = "position_only"
+	}
+
+	if _, ok := extra["smooth_iter"]; !ok {
+		extra["smooth_iter"] = 20
 	}
 
 	svc.activeBackgroundWorkers.Add(1)

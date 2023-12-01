@@ -741,7 +741,11 @@ func TestStartWaypoint(t *testing.T) {
 					test.That(t, s.mogrs[0].ComponentName, test.ShouldResemble, s.base.Name())
 					test.That(t, math.IsNaN(s.mogrs[0].Heading), test.ShouldBeTrue)
 					test.That(t, s.mogrs[0].MovementSensorName, test.ShouldResemble, s.movementSensor.Name())
-					test.That(t, s.mogrs[0].Extra, test.ShouldResemble, map[string]interface{}{"motion_profile": "position_only"})
+
+					test.That(t, s.mogrs[0].Extra, test.ShouldResemble, map[string]interface{}{
+						"motion_profile": "position_only",
+						"smooth_iter":    20,
+					})
 					test.That(t, s.mogrs[0].MotionCfg, test.ShouldResemble, expectedMotionCfg)
 					test.That(t, s.mogrs[0].Obstacles, test.ShouldBeNil)
 					// waypoint 1
@@ -750,7 +754,10 @@ func TestStartWaypoint(t *testing.T) {
 					test.That(t, s.mogrs[1].ComponentName, test.ShouldResemble, s.base.Name())
 					test.That(t, math.IsNaN(s.mogrs[1].Heading), test.ShouldBeTrue)
 					test.That(t, s.mogrs[1].MovementSensorName, test.ShouldResemble, s.movementSensor.Name())
-					test.That(t, s.mogrs[1].Extra, test.ShouldResemble, map[string]interface{}{"motion_profile": "position_only"})
+					test.That(t, s.mogrs[1].Extra, test.ShouldResemble, map[string]interface{}{
+						"motion_profile": "position_only",
+						"smooth_iter":    20,
+					})
 					test.That(t, s.mogrs[1].MotionCfg, test.ShouldResemble, expectedMotionCfg)
 					test.That(t, s.mogrs[1].Obstacles, test.ShouldBeNil)
 					// waypoint 2
@@ -775,7 +782,8 @@ func TestStartWaypoint(t *testing.T) {
 		}
 	})
 
-	t.Run("SetMode's extra field is passed to MoveOnGlobe, with the default motoin profile of position_only", func(t *testing.T) {
+	t.Run("SetMode's extra field is passed to MoveOnGlobe, with the default "+
+		"motion profile of position_only & smooth_iter of 20", func(t *testing.T) {
 		s := setupStartWaypoint(ctx, t, logger)
 		defer s.closeFunc()
 
@@ -860,9 +868,19 @@ func TestStartWaypoint(t *testing.T) {
 			s.RLock()
 			if len(s.mogrs) == 3 {
 				// MoveOnGlobeNew was called twice, once for each waypoint
-				test.That(t, s.mogrs[0].Extra, test.ShouldResemble, map[string]interface{}{"motion_profile": "position_only"})
-				test.That(t, s.mogrs[1].Extra, test.ShouldResemble, map[string]interface{}{"motion_profile": "position_only"})
-				test.That(t, s.mogrs[2].Extra, test.ShouldResemble, map[string]interface{}{"motion_profile": "some_other_motion_profile"})
+				test.That(t, s.mogrs[0].Extra, test.ShouldResemble, map[string]interface{}{
+					"motion_profile": "position_only",
+					"smooth_iter":    20,
+				})
+				test.That(t, s.mogrs[1].Extra, test.ShouldResemble, map[string]interface{}{
+					"motion_profile": "position_only",
+					"smooth_iter":    20,
+				})
+				test.That(t, s.mogrs[2].Extra, test.ShouldResemble, map[string]interface{}{
+					"motion_profile": "some_other_motion_profile",
+					"smooth_iter":    20,
+				})
+				// TODO Add non default smooth_iter
 				s.RUnlock()
 				break
 			}
@@ -874,10 +892,15 @@ func TestStartWaypoint(t *testing.T) {
 		s := setupStartWaypoint(ctx, t, logger)
 		defer s.closeFunc()
 
-		mogCounter := atomic.NewInt32(0)
+		mogCounter := atomic.NewInt32(-1)
 		planHistoryCounter := atomic.NewInt32(0)
-		executionID := uuid.New()
 		var wg sync.WaitGroup
+		// TODO: make each execution unique
+		executionIDs := []uuid.UUID{
+			uuid.New(),
+			uuid.New(),
+			uuid.New(),
+		}
 		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
@@ -892,12 +915,14 @@ func TestStartWaypoint(t *testing.T) {
 			// first call returns motion erro
 			// second call returns context cancelled
 			// third call returns success
-			switch mogCounter.Inc() {
-			case 1:
+			count := mogCounter.Inc()
+			switch count {
+			case 0:
 				return "", errors.New("motion error")
-			case 2:
+			case 1:
 				return "", context.Canceled
-			default:
+			case 2, 3, 4:
+				executionID := executionIDs[count-2]
 				s.pws = []motion.PlanWithStatus{
 					{
 						Plan: motion.Plan{
@@ -920,9 +945,12 @@ func TestStartWaypoint(t *testing.T) {
 							return
 						}
 					}
-					t.Error("MoveOnGlobeNew called unexpectedly")
 				}, wg.Done)
 				return executionID.String(), nil
+			default:
+				t.Error("unexpected call to MOG")
+				t.Fail()
+				return "", errors.New("unexpected call to MOG")
 			}
 		}
 
@@ -989,7 +1017,7 @@ func TestStartWaypoint(t *testing.T) {
 					ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name()})
 					test.That(t, err, test.ShouldBeNil)
 					test.That(t, len(ph), test.ShouldEqual, 1)
-					test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionID)
+					test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionIDs[2])
 					test.That(t, len(ph[0].StatusHistory), test.ShouldEqual, 2)
 					test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateSucceeded)
 					s.RUnlock()
