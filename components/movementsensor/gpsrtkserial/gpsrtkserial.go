@@ -135,7 +135,6 @@ type rtkSerial struct {
 	err                movementsensor.LastError
 	lastposition       movementsensor.LastPosition
 	lastcompassheading movementsensor.LastCompassHeading
-	virtualBase        rtk.VirtualBase
 	InputProtocol      string
 
 	nmeamovementsensor gpsnmea.NmeaMovementSensor
@@ -737,7 +736,7 @@ func (g *rtkSerial) getNtripFromVRS() error {
 	g.ntripMu.Lock()
 	defer g.ntripMu.Unlock()
 
-	g.readerWriter = g.virtualBase.ConnectToVirtualBase(g.ntripClient, g.logger)
+	g.readerWriter = rtk.ConnectToVirtualBase(g.ntripClient, g.logger)
 
 	// read from the socket until we know if a successful connection has been
 	// established.
@@ -762,7 +761,7 @@ func (g *rtkSerial) getNtripFromVRS() error {
 		}
 	}
 
-	ggaMessage, err := g.virtualBase.GetGGAMessage(g.correctionWriter, g.logger)
+	ggaMessage, err := rtk.GetGGAMessage(g.correctionWriter, g.logger)
 	if err != nil {
 		g.logger.Error("Failed to get GGA message")
 		return err

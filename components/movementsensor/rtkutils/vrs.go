@@ -9,26 +9,17 @@ import (
 	"io"
 	"net"
 	"strings"
-	"sync"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
 
 	"go.viam.com/rdk/logging"
 )
 
-// VirtualBase struct contains a mutex to syncronize actions while connecting
-// to a virtual reference station.
-type VirtualBase struct {
-	mu sync.Mutex
-}
-
 // ConnectToVirtualBase is responsible for establishing a connection to
 // a virtual base station using the NTRIP protocol.
-func (v *VirtualBase) ConnectToVirtualBase(ntripInfo *NtripInfo,
+func ConnectToVirtualBase(ntripInfo *NtripInfo,
 	logger logging.Logger,
 ) *bufio.ReadWriter {
-	v.mu.Lock()
-	defer v.mu.Unlock()
 
 	mp := "/" + ntripInfo.MountPoint
 	credentials := ntripInfo.Username + ":" + ntripInfo.Password
@@ -72,9 +63,7 @@ func (v *VirtualBase) ConnectToVirtualBase(ntripInfo *NtripInfo,
 }
 
 // GetGGAMessage checks if a GGA message exists in the buffer and returns it.
-func (v *VirtualBase) GetGGAMessage(correctionWriter io.ReadWriteCloser, logger logging.Logger) ([]byte, error) {
-	v.mu.Lock()
-	defer v.mu.Unlock()
+func GetGGAMessage(correctionWriter io.ReadWriteCloser, logger logging.Logger) ([]byte, error) {
 
 	buffer := make([]byte, 1024)
 	var totalBytesRead int
