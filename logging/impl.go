@@ -305,6 +305,12 @@ func (imp *impl) Warnw(msg string, keysAndValues ...interface{}) {
 	}
 }
 
+func (imp *impl) CWarnw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	if imp.shouldLog(WARN) || debugMode(ctx) {
+		imp.log(imp.formatw(WARN, msg, keysAndValues...))
+	}
+}
+
 func (imp *impl) Error(args ...interface{}) {
 	if imp.shouldLog(ERROR) {
 		imp.log(imp.format(ERROR, args...))

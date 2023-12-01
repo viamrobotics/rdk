@@ -161,7 +161,7 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 			// set TargetFrameRate to the framerate of the video source if available
 			props, err := svc.videoSources[name].MediaProperties(ctx)
 			if err != nil {
-				svc.logger.Warnw("failed to get video source properties", "name", name, "error", err)
+				svc.logger.CWarnw(ctx, "failed to get video source properties", "name", name, "error", err)
 			} else if props.FrameRate > 0.0 {
 				// round float up to nearest int
 				config.TargetFrameRate = int(math.Ceil(float64(props.FrameRate)))
@@ -173,7 +173,7 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 
 			if runtime.GOOS == "windows" {
 				// TODO(RSDK-1771): support video on windows
-				svc.logger.Warnw("not starting video stream since not supported on Windows yet", "name", name)
+				svc.logger.CWarnw(ctx, "not starting video stream since not supported on Windows yet", "name", name)
 				return streams, nil
 			}
 		} else {

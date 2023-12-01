@@ -644,7 +644,7 @@ func (r *localRobot) newResource(
 	if resInfo.DeprecatedRobotConstructor == nil {
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
-	r.logger.Warnw("using deprecated robot constructor", "api", resName.API, "model", conf.Model)
+	r.logger.CWarnw(ctx, "using deprecated robot constructor", "api", resName.API, "model", conf.Model)
 	return resInfo.DeprecatedRobotConstructor(ctx, r, conf, resLogger)
 }
 
@@ -709,7 +709,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 				}
 			case packages.InternalServiceName, cloud.InternalServiceName:
 			default:
-				r.logger.Warnw("do not know how to reconfigure internal service", "service", resName)
+				r.logger.CWarnw(ctx, "do not know how to reconfigure internal service", "service", resName)
 			}
 		})
 
@@ -962,7 +962,7 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 	for q := range deduped {
 		reg, ok := resource.LookupRegistration(q.API, q.Model)
 		if !ok || reg.Discover == nil {
-			r.logger.Warnw("no discovery function registered", "api", q.API, "model", q.Model)
+			r.logger.CWarnw(ctx, "no discovery function registered", "api", q.API, "model", q.Model)
 			continue
 		}
 

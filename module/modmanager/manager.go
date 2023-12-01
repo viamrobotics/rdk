@@ -640,7 +640,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		var orphanedResourceNames []resource.Name
 		for name, res := range mod.resources {
 			if _, err := mgr.addResource(ctx, res.conf, res.deps); err != nil {
-				mgr.logger.Warnw("error while re-adding resource to module",
+				mgr.logger.CWarnw(ctx, "error while re-adding resource to module",
 					"resource", name, "module", mod.cfg.Name, "error", err)
 				delete(mgr.rMap, name)
 				delete(mod.resources, name)
