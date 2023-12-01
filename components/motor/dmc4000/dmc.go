@@ -453,7 +453,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 		m.c.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
 		return m.Stop(ctx, extra)
 	case m.maxRPM > 0 && pow*m.maxRPM > m.maxRPM-0.1:
-		m.c.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
+		m.c.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
 	default:
 	}
 
@@ -506,7 +506,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		m.c.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
 		return motor.NewZeroRPMError()
 	case m.maxRPM > 0 && speed > m.maxRPM-0.1:
-		m.c.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
+		m.c.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
 	default:
 	}
 	ctx, done := m.opMgr.New(ctx)

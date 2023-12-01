@@ -126,7 +126,7 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 				err = g.data.ParseAndUpdate(line)
 				g.mu.Unlock()
 				if err != nil {
-					g.logger.Warnf("can't parse nmea sentence: %#v", err)
+					g.logger.CWarnf(ctx, "can't parse nmea sentence: %#v", err)
 				}
 			}
 		}

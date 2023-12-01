@@ -174,7 +174,7 @@ func newGPIOServo(
 	// microsecond, but rarely over 10. Call it 50 microseconds just to be safe.
 	const maxDeadbandWidthUs = 50
 	if maxFrequency := 1e6 / (maxUs + maxDeadbandWidthUs); frequency > maxFrequency {
-		logger.Warnf("servo frequency (%f.1) is above maximum (%f.1), setting to max instead",
+		logger.CWarnf(ctx, "servo frequency (%f.1) is above maximum (%f.1), setting to max instead",
 			frequency, maxFrequency)
 		frequency = maxFrequency
 	}

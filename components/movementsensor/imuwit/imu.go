@@ -232,7 +232,7 @@ func newWit(
 	if newConf.BaudRate > 0 {
 		options.BaudRate = newConf.BaudRate
 	} else {
-		logger.Warnf(
+		logger.CWarnf(ctx, 
 			"no valid serial_baud_rate set, setting to default of %d, baud rate of wit imus are: %v", options.BaudRate, baudRateList,
 		)
 	}

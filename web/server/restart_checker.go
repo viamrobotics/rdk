@@ -44,7 +44,7 @@ func (c *needsRestartCheckerGRPC) needsRestart(ctx context.Context) (bool, time.
 
 	restartInterval := res.RestartCheckInterval.AsDuration()
 	if restartInterval < minNeedsRestartCheckInterval {
-		c.logger.Warnf("received restart interval less than %s not using was %d",
+		c.logger.CWarnf(ctx, "received restart interval less than %s not using was %d",
 			minNeedsRestartCheckInterval,
 			res.RestartCheckInterval.AsDuration())
 		restartInterval = defaultNeedsRestartCheckInterval

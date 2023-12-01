@@ -269,7 +269,7 @@ func (ms *builtIn) MoveOnMap(
 
 	// Didn't reach goal
 	if resp.Replan {
-		ms.logger.Warnf("didn't reach the goal. Reason: %s\n", resp.ReplanReason)
+		ms.logger.CWarnf(ctx, "didn't reach the goal. Reason: %s\n", resp.ReplanReason)
 		return false, nil
 	}
 	// Reached goal
@@ -374,7 +374,7 @@ func (ms *builtIn) MoveOnGlobe(
 		}
 
 		// replan
-		ms.logger.Warnf("Replanning triggered: Reason: %s\n", resp.ReplanReason)
+		ms.logger.CWarnf(ctx, "Replanning triggered: Reason: %s\n", resp.ReplanReason)
 		replanCount++
 		// TODO: RSDK-4509 obstacles should include any transient obstacles which may have triggered a replan, if any.
 		mr, err = ms.newMoveOnGlobeRequest(ctx, req, planResp.Motionplan, replanCount)

@@ -922,7 +922,7 @@ func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[
 	for name, params := range extra {
 		param, err := protoutils.StructToStructPb(params)
 		if err != nil {
-			rc.Logger().Warnf("failed to convert extra params for resource %s with error: %s", name.Name, err)
+			rc.Logger().CWarnf(ctx, "failed to convert extra params for resource %s with error: %s", name.Name, err)
 			continue
 		}
 		p := &pb.StopExtraParameters{

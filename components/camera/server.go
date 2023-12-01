@@ -55,7 +55,7 @@ func (s *serviceServer) GetImage(
 		if _, ok := s.imgTypes[req.Name]; !ok {
 			props, err := cam.Properties(ctx)
 			if err != nil {
-				s.logger.Warnf("camera properties not found for %s, assuming color images: %v", req.Name, err)
+				s.logger.CWarnf(ctx, "camera properties not found for %s, assuming color images: %v", req.Name, err)
 				s.imgTypes[req.Name] = ColorStream
 			} else {
 				s.imgTypes[req.Name] = props.ImageType

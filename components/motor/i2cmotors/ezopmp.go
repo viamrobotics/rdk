@@ -257,7 +257,7 @@ func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[st
 		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
 		return motor.NewZeroRPMError()
 	case m.maxFlowRate > 0 && speed > m.maxFlowRate-0.1:
-		m.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxFlowRate)
+		m.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.maxFlowRate)
 	default:
 	}
 
@@ -293,7 +293,7 @@ func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin, mins float64, extra map[str
 
 // ResetZeroPosition clears the amount of volume that has been dispensed.
 func (m *Ezopmp) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	m.logger.Warnf("cannot reset position of motor (%v) because position refers to the total volume dispensed", m.Name().ShortName())
+	m.logger.CWarnf(ctx, "cannot reset position of motor (%v) because position refers to the total volume dispensed", m.Name().ShortName())
 	return motor.NewResetZeroPositionUnsupportedError(m.Name().ShortName())
 }
 

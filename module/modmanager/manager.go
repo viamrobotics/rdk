@@ -249,7 +249,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	var orphanedResourceNames []resource.Name
 	for name, res := range handledResources {
 		if _, err := mgr.addResource(ctx, res.conf, res.deps); err != nil {
-			mgr.logger.Warnf("error while re-adding resource %s to module %s: %v",
+			mgr.logger.CWarnf(ctx, "error while re-adding resource %s to module %s: %v",
 				name, conf.Name, err)
 			orphanedResourceNames = append(orphanedResourceNames, name)
 		}
@@ -348,7 +348,7 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
 	if !ok || apiInfo.RPCClient == nil {
-		mgr.logger.Warnf("no built-in grpc client for modular resource %s", conf.ResourceName())
+		mgr.logger.CWarnf(ctx, "no built-in grpc client for modular resource %s", conf.ResourceName())
 		return rdkgrpc.NewForeignResource(conf.ResourceName(), mod.conn), nil
 	}
 	return apiInfo.RPCClient(ctx, mod.conn, "", conf.ResourceName(), mgr.logger)
@@ -791,7 +791,7 @@ func (m *module) startProcess(
 	moduleWorkingDirectory, ok := moduleEnvironment["VIAM_MODULE_ROOT"]
 	if !ok {
 		moduleWorkingDirectory = filepath.Dir(absoluteExePath)
-		logger.Warnf("VIAM_MODULE_ROOT was not passed to module %q. Defaulting to %q", m.cfg.Name, moduleWorkingDirectory)
+		logger.CWarnf(ctx, "VIAM_MODULE_ROOT was not passed to module %q. Defaulting to %q", m.cfg.Name, moduleWorkingDirectory)
 	} else {
 		logger.CDebugf(ctx, "Starting module %q in working directory %q", m.cfg.Name, moduleWorkingDirectory)
 	}
