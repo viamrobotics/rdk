@@ -161,7 +161,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		return nil, errors.New("cannot have non-zero transformation between the PTG frame and World frame in the Solver frame")
 	}
 
-	request.Logger.CInfof(ctx, 
+	request.Logger.CInfof(ctx,
 		"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
 		request.Frame.Name(),
 		frame.PoseInFrameToProtobuf(request.Goal),

@@ -475,7 +475,8 @@ func (svc *builtIn) Reconfigure(
 		svc.selectiveSyncEnabled = true
 		syncSensor, err = sensor.FromDependencies(deps, svcConfig.SelectiveSyncerName)
 		if err != nil {
-			svc.logger.CErrorw(ctx, "unable to initialize selective syncer; will not sync at all until fixed or removed from config", "error", err.Error())
+			svc.logger.CErrorw(
+				ctx, "unable to initialize selective syncer; will not sync at all until fixed or removed from config", "error", err.Error())
 		}
 	} else {
 		svc.selectiveSyncEnabled = false
@@ -588,7 +589,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-// nolint
+//nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

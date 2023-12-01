@@ -199,7 +199,7 @@ func (enc *Encoder) startPositionLoop(ctx context.Context) error {
 				return
 			}
 			if err := enc.updatePosition(enc.cancelCtx); err != nil {
-				enc.logger.CErrorf(ctx, 
+				enc.logger.CErrorf(ctx,
 					"error in position loop (skipping update): %s", err.Error(),
 				)
 			}

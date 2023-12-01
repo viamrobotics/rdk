@@ -611,7 +611,8 @@ func (manager *resourceManager) completeConfig(
 				// validation around how this might affect the resource graph. So, we avoid
 				// updating the graph to be safe.
 				if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-					manager.logger.CErrorw(ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
+					manager.logger.CErrorw(
+						ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
 				} else {
 					gNode.SwapResource(newRes, conf.Model)
 				}

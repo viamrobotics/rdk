@@ -5,9 +5,10 @@ import (
 	"context"
 	"fmt"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
-	"go.viam.com/utils"
 )
 
 func main() {

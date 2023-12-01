@@ -288,7 +288,7 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 			mappedName, ok := resourceNameMappings[remoteResourceStatus.Name]
 			if !ok {
 				// should never happen
-				r.Logger().CErrorw(ctx, 
+				r.Logger().CErrorw(ctx,
 					"failed to find corresponding resource name for remote resource name while creating status",
 					"resource", remoteResourceStatus.Name,
 				)

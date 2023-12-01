@@ -344,7 +344,7 @@ func (wb *wheeledBase) differentialDrive(forward, left float64) (float64, float6
 
 // SetVelocity commands the base to move at the input linear and angular velocities.
 func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
-	wb.logger.CDebugf(ctx, 
+	wb.logger.CDebugf(ctx,
 		"received a SetVelocity with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f(mmPerSec),"+
 			" angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
 		linear.X, linear.Y, linear.Z, angular.X, angular.Y, angular.Z)
@@ -383,7 +383,7 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 func (wb *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	wb.opMgr.CancelRunning(ctx)
 
-	wb.logger.CDebugf(ctx, 
+	wb.logger.CDebugf(ctx,
 		"received a SetPower with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f,"+
 			" angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
 		linear.X, linear.Y, linear.Z, angular.X, angular.Y, angular.Z)

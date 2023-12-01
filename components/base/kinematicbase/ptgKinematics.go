@@ -64,7 +64,7 @@ func wrapWithPTGKinematics(
 
 	baseTurningRadiusMeters := properties.TurningRadiusMeters
 
-	logger.CInfof(ctx, 
+	logger.CInfof(ctx,
 		"using baseMillimetersPerSecond %f and baseTurningRadius %f for PTG base kinematics",
 		baseMillimetersPerSecond,
 		baseTurningRadiusMeters,
