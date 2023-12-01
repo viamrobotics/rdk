@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang/geo/r3"
@@ -115,6 +116,13 @@ type Config struct {
 	ReplanCostFactor           float64                          `json:"replan_cost_factor,omitempty"`
 	LogFilePath                string                           `json:"log_file_path"`
 }
+
+type executionWaypoint struct {
+	executionID motion.ExecutionID
+	waypoint    navigation.Waypoint
+}
+
+var emptyExecutionWaypoint = executionWaypoint{}
 
 // Validate creates the list of implicit dependencies.
 func (conf *Config) Validate(path string) ([]string, error) {
@@ -231,8 +239,7 @@ type builtIn struct {
 	currentWaypointCancelFunc func()
 	waypointInProgress        *navigation.Waypoint
 	activeBackgroundWorkers   sync.WaitGroup
-	// activeExecutionID         motion.ExecutionID
-	// activeComponentName       resource.Name
+	activeExecutionID         atomic.Value
 }
 
 func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
@@ -500,7 +507,18 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	return svc.store.Close(ctx)
 }
 
-func (svc *builtIn) moveOnGlobeSync(ctx context.Context, req motion.MoveOnGlobeReq) error {
+func (svc *builtIn) moveOnGlobeSync(ctx context.Context, wp navigation.Waypoint, extra map[string]interface{}) error {
+	req := motion.MoveOnGlobeReq{
+		ComponentName:      svc.base.Name(),
+		Destination:        wp.ToPoint(),
+		Heading:            math.NaN(),
+		MovementSensorName: svc.movementSensor.Name(),
+		Obstacles:          svc.obstacles,
+		MotionCfg:          svc.motionCfg,
+		Extra:              extra,
+	}
+	var stopWG sync.WaitGroup
+	defer stopWG.Wait()
 	cancelCtx, cancelFn := context.WithCancel(ctx)
 	defer cancelFn()
 	rawExecutionID, err := svc.motionService.MoveOnGlobeNew(cancelCtx, req)
@@ -512,8 +530,13 @@ func (svc *builtIn) moveOnGlobeSync(ctx context.Context, req motion.MoveOnGlobeR
 	if err != nil {
 		return err
 	}
-
-	svc.activeBackgroundWorkers.Add(1)
+	executionWaypoint := executionWaypoint{executionID: executionID, waypoint: wp}
+	old := svc.activeExecutionID.Swap(executionWaypoint)
+	if old != nil && old != emptyExecutionWaypoint {
+		// TODO: remove
+		svc.logger.Errorf("NICK: hit error trying to set the  executionID to %s from %s", executionID, old)
+	}
+	stopWG.Add(1)
 	// call StopPlan upon exiting navOnce, is a NoOp if execution has already terminted
 	utils.ManagedGo(func() {
 		<-cancelCtx.Done()
@@ -521,10 +544,17 @@ func (svc *builtIn) moveOnGlobeSync(ctx context.Context, req motion.MoveOnGlobeR
 		timeoutCtx, timeoutCancelFn := context.WithTimeout(context.Background(), time.Second*5)
 		defer timeoutCancelFn()
 		err := svc.motionService.StopPlan(timeoutCtx, motion.StopPlanReq{ComponentName: req.ComponentName})
+		// TODO: remove
 		if err != nil {
 			svc.logger.Error("hit error trying to stop plan %s", err)
 		}
-	}, svc.activeBackgroundWorkers.Done)
+
+		old := svc.activeExecutionID.Swap(emptyExecutionWaypoint)
+		if old != executionWaypoint {
+			// TODO: remove
+			svc.logger.Errorf("NICK: hit error trying to unset the executionID to uuid.Nil from %s, was actually %s", executionID, old)
+		}
+	}, stopWG.Done)
 
 	err = pollUntilMOGSuccessOrError(cancelCtx, svc.motionService, time.Millisecond*50,
 		motion.PlanHistoryReq{
@@ -575,17 +605,8 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 			svc.currentWaypointCancelFunc = cancelFunc
 			svc.mu.Unlock()
 
-			req := motion.MoveOnGlobeReq{
-				ComponentName:      svc.base.Name(),
-				Destination:        wp.ToPoint(),
-				Heading:            math.NaN(),
-				MovementSensorName: svc.movementSensor.Name(),
-				Obstacles:          svc.obstacles,
-				MotionCfg:          svc.motionCfg,
-				Extra:              extra,
-			}
 			svc.logger.Infof("navigating to waypoint: %+v", wp)
-			if err := svc.moveOnGlobeSync(cancelCtx, req); err != nil {
+			if err := svc.moveOnGlobeSync(cancelCtx, wp, extra); err != nil {
 				if svc.waypointIsDeleted() {
 					svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
 					continue
@@ -620,14 +641,28 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	// TODO: Only query for executionID we know about
+
+	rawExecutionID := svc.activeExecutionID.Load()
+	// If there is no execution, return empty paths
+	if rawExecutionID == nil || rawExecutionID == emptyExecutionWaypoint {
+		return []*navigation.Path{}, nil
+	}
+
+	ewp, ok := rawExecutionID.(executionWaypoint)
+	if !ok {
+		return nil, errors.New("execution corrupt")
+	}
+
 	ph, err := svc.motionService.PlanHistory(ctx, motion.PlanHistoryReq{
 		ComponentName: svc.base.Name(),
+		ExecutionID:   ewp.executionID,
 		LastPlanOnly:  true,
 	})
+
 	if err != nil {
 		return nil, err
 	}
+
 	geoPoints := make([]*geo.Point, 0, len(ph[0].Plan.Steps))
 	for _, s := range ph[0].Plan.Steps {
 		if len(s) > 1 {
@@ -638,16 +673,15 @@ func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]
 			pose = p
 		}
 
-		geoPoint := geo.NewPoint(pose.Point().X, pose.Point().Y)
+		geoPoint := geo.NewPoint(pose.Point().Y, pose.Point().X)
 		geoPoints = append(geoPoints, geoPoint)
 	}
 
-	// TODO: Add waypoint id
-	path, err := navigation.NewPath("", geoPoints)
+	path, err := navigation.NewPath(ewp.waypoint.ID.String(), geoPoints)
 	if err != nil {
 		return nil, err
 	}
-	return []*navigation.Path{path}, errUnimplemented
+	return []*navigation.Path{path}, nil
 }
 
 func statusToErr(status motion.PlanStatus) error {

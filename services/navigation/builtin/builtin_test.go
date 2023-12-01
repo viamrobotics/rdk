@@ -571,8 +571,9 @@ func TestNavSetup(t *testing.T) {
 
 	test.That(t, len(ns.(*builtIn).motionCfg.ObstacleDetectors), test.ShouldEqual, 1)
 
-	_, err = ns.Paths(ctx, nil)
-	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(base.Named("test_base")))
+	paths, err := ns.Paths(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, paths, test.ShouldBeEmpty)
 }
 
 func setupStartWaypoint(ctx context.Context, t *testing.T, logger logging.Logger) startWaypointState {
@@ -623,6 +624,136 @@ func setupStartWaypoint(ctx context.Context, t *testing.T, logger logging.Logger
 	}
 }
 
+func TestPaths(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	t.Run("Paths reflects the paths of all components which have in progress MoveOnGlobe calls", func(t *testing.T) {
+		var wg sync.WaitGroup
+		wg.Wait()
+		s := setupStartWaypoint(ctx, t, logger)
+		defer s.closeFunc()
+
+		mogCalledCtx, mogCalledCancelFn := context.WithCancel(ctx)
+		planSucceededCtx, planSucceededCancelFn := context.WithCancel(ctx)
+		defer planSucceededCancelFn()
+		// we expect 2 executions to be generated
+		executionID := uuid.New()
+		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
+		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+			if err := ctx.Err(); err != nil {
+				return "", err
+			}
+			s.Lock()
+			defer s.Unlock()
+			if s.mogrs == nil {
+				s.mogrs = []motion.MoveOnGlobeReq{}
+			}
+			s.mogrs = append(s.mogrs, req)
+			s.pws = []motion.PlanWithStatus{
+				{
+					Plan: motion.Plan{
+						ExecutionID: executionID,
+						Steps:       []motion.PlanStep{map[resource.Name]spatialmath.Pose{s.base.Name(): spatialmath.NewPose(r3.Vector{X: 1, Y: 2}, nil)}},
+					},
+					StatusHistory: []motion.PlanStatus{
+						{State: motion.PlanStateInProgress},
+					},
+				},
+			}
+			mogCalledCancelFn()
+			wg.Add(1)
+			utils.ManagedGo(func() {
+				<-planSucceededCtx.Done()
+				s.Lock()
+				defer s.Unlock()
+				for i, p := range s.pws {
+					if p.Plan.ExecutionID == executionID {
+						succeeded := []motion.PlanStatus{{State: motion.PlanStateSucceeded}}
+						p.StatusHistory = append(succeeded, p.StatusHistory...)
+						s.pws[i] = p
+						return
+					}
+				}
+				t.Error("MoveOnGlobeNew called unexpectedly")
+			}, wg.Done)
+			return executionID.String(), nil
+		}
+
+		s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			s.RLock()
+			defer s.RUnlock()
+			history := make([]motion.PlanWithStatus, len(s.pws))
+			copy(history, s.pws)
+			return history, nil
+		}
+
+		s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			s.Lock()
+			defer s.Unlock()
+			if s.sprs == nil {
+				s.sprs = []motion.StopPlanReq{}
+			}
+			s.sprs = append(s.sprs, req)
+			return nil
+		}
+
+		paths, err := s.ns.Paths(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, paths, test.ShouldBeEmpty)
+
+		pt1 := geo.NewPoint(1, 0)
+		err = s.ns.AddWaypoint(ctx, pt1, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		paths, err = s.ns.Paths(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, paths, test.ShouldBeEmpty)
+
+		err = s.ns.SetMode(ctx, navigation.ModeWaypoint, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		// poll till waypoints is of length 0
+		// query PlanHistory & confirm that you get back UUID 2
+		timeoutCtx, cancelFn := context.WithTimeout(ctx, time.Millisecond*500)
+		defer cancelFn()
+		select {
+		case <-timeoutCtx.Done():
+			t.Error("test timed out")
+			t.FailNow()
+		case <-mogCalledCtx.Done():
+			paths, err := s.ns.Paths(ctx, nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(paths), test.ShouldEqual, 1)
+			test.That(t, len(paths[0].DestinationWaypointID()), test.ShouldBeGreaterThan, 0)
+			test.That(t, len(paths[0].GeoPoints()), test.ShouldEqual, 1)
+			test.That(t, paths[0].GeoPoints()[0].Lat(), test.ShouldAlmostEqual, 2)
+			test.That(t, paths[0].GeoPoints()[0].Lng(), test.ShouldAlmostEqual, 1)
+			// trigger plan success
+			planSucceededCancelFn()
+			for {
+				if timeoutCtx.Err() != nil {
+					t.Error("test timed out")
+					t.FailNow()
+				}
+				// wait until nav detects that the plan succeeded & removes its path from the Paths method response
+				paths, err := s.ns.Paths(ctx, nil)
+				test.That(t, err, test.ShouldBeNil)
+				if len(paths) == 0 {
+					break
+				}
+			}
+		}
+	})
+
+}
+
 func TestStartWaypoint(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
@@ -641,6 +772,9 @@ func TestStartWaypoint(t *testing.T) {
 		defer wg.Wait()
 		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
 		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+			if err := ctx.Err(); err != nil {
+				return "", err
+			}
 			executionID := executionIDs[(counter.Inc())]
 			s.Lock()
 			defer s.Unlock()
@@ -676,6 +810,9 @@ func TestStartWaypoint(t *testing.T) {
 		}
 
 		s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
 			s.RLock()
 			defer s.RUnlock()
 			history := make([]motion.PlanWithStatus, len(s.pws))
@@ -684,6 +821,9 @@ func TestStartWaypoint(t *testing.T) {
 		}
 
 		s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			s.Lock()
 			defer s.Unlock()
 			if s.sprs == nil {
@@ -775,6 +915,11 @@ func TestStartWaypoint(t *testing.T) {
 					test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionIDs[1])
 					test.That(t, len(ph[0].StatusHistory), test.ShouldEqual, 2)
 					test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateSucceeded)
+
+					// paths should be empty after all MoveOnGlobe calls have terminated
+					paths, err := s.ns.Paths(ctx, nil)
+					test.That(t, err, test.ShouldBeNil)
+					test.That(t, paths, test.ShouldBeEmpty)
 					s.RUnlock()
 					break
 				}
