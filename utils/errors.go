@@ -30,7 +30,7 @@ func TypeStr[T any]() string {
 // NewBuildTimeoutError is used when a resource times out during construction or reconfiguration.
 func NewBuildTimeoutError(name string) error {
 	timeout := GetResourceConfigurationTimeout(logging.Global())
-	id := fmt.Sprintf("module %s", name)
+	id := fmt.Sprintf("resource %s", name)
 	timeoutMsg := "reconfigure"
 	return timeoutErrorHelper(id, timeout, timeoutMsg, DefaultResourceConfigurationTimeout, ResourceConfigurationTimeoutEnvVar)
 }
