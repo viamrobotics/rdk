@@ -238,7 +238,7 @@ func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logge
 		if err != nil {
 			err = utils.FilterOutError(err, context.Canceled)
 			if err != nil {
-				logger.Errorw("error running web", "error", err)
+				logger.CErrorw(ctx, "error running web", "error", err)
 			}
 		}
 	}()
@@ -340,7 +340,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		svc.logger.CDebugw(ctx, "module server listening", "socket path", lis.Addr())
 		defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(filepath.Dir(addr)) })
 		if err := svc.modServer.Serve(lis); err != nil {
-			svc.logger.Errorw("failed to serve module service", "error", err)
+			svc.logger.CErrorw(ctx, "failed to serve module service", "error", err)
 		}
 	})
 	return nil
@@ -559,12 +559,12 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		<-ctx.Done()
 		defer func() {
 			if err := httpServer.Shutdown(context.Background()); err != nil {
-				svc.logger.Errorw("error shutting down", "error", err)
+				svc.logger.CErrorw(ctx, "error shutting down", "error", err)
 			}
 		}()
 		defer func() {
 			if err := svc.rpcServer.Stop(); err != nil {
-				svc.logger.Errorw("error stopping rpc server", "error", err)
+				svc.logger.CErrorw(ctx, "error stopping rpc server", "error", err)
 			}
 		}()
 		svc.closeStreamServer()
@@ -573,7 +573,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	utils.PanicCapturingGo(func() {
 		defer svc.webWorkers.Done()
 		if err := svc.rpcServer.Start(); err != nil {
-			svc.logger.Errorw("error starting rpc server", "error", err)
+			svc.logger.CErrorw(ctx, "error starting rpc server", "error", err)
 		}
 	})
 
@@ -606,7 +606,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 			serveErr = httpServer.Serve(listener)
 		}
 		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
-			svc.logger.Errorw("error serving http", "error", serveErr)
+			svc.logger.CErrorw(ctx, "error serving http", "error", serveErr)
 		}
 	})
 	return err

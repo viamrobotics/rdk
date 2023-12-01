@@ -115,9 +115,9 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		inputs := referenceframe.FloatsToInputs(x)
 		eePos, err := ik.model.Transform(inputs)
 		if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
-			ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
+			ik.logger.CErrorw(ctx, "error calculating eePos in nlopt", "error", err)
 			err = opt.ForceStop()
-			ik.logger.Errorw("forcestop error", "error", err)
+			ik.logger.CErrorw(ctx, "forcestop error", "error", err)
 			return 0
 		}
 		mInput.Configuration = inputs
@@ -131,9 +131,9 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				eePos, err := ik.model.Transform(inputs)
 				x[i] -= ik.jump
 				if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
-					ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
+					ik.logger.CErrorw(ctx, "error calculating eePos in nlopt", "error", err)
 					err = opt.ForceStop()
-					ik.logger.Errorw("forcestop error", "error", err)
+					ik.logger.CErrorw(ctx, "forcestop error", "error", err)
 					return 0
 				}
 				mInput.Configuration = inputs

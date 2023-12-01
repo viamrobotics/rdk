@@ -172,7 +172,7 @@ func (s *robotServer) runServer(ctx context.Context) error {
 
 	err = s.serveWeb(ctx, cfg)
 	if err != nil {
-		s.logger.Errorw("error serving web", "error", err)
+		s.logger.CErrorw(ctx, "error serving web", "error", err)
 	}
 
 	return err
@@ -306,7 +306,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				if errors.Is(err, context.Canceled) {
 					return
 				}
-				s.logger.Errorw("error creating restart checker", "error", err)
+				s.logger.CErrorw(ctx, "error creating restart checker", "error", err)
 				panic(fmt.Sprintf("error creating restart checker: %v", err))
 			}
 			defer restartCheck.close()
@@ -379,14 +379,14 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 			case cfg := <-watcher.Config():
 				processedConfig, err := processConfig(cfg)
 				if err != nil {
-					s.logger.Errorw("reconfiguration aborted: error processing config", "error", err)
+					s.logger.CErrorw(ctx, "reconfiguration aborted: error processing config", "error", err)
 					continue
 				}
 
 				// flag to restart web service if necessary
 				diff, err := config.DiffConfigs(*oldCfg, *processedConfig, s.args.RevealSensitiveConfigDiffs)
 				if err != nil {
-					s.logger.Errorw("reconfiguration aborted: error diffing config", "error", err)
+					s.logger.CErrorw(ctx, "reconfiguration aborted: error diffing config", "error", err)
 					continue
 				}
 				var options weboptions.Options
@@ -396,7 +396,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 					myRobot.StopWeb()
 					options, err = s.createWebOptions(processedConfig)
 					if err != nil {
-						s.logger.Errorw("reconfiguration aborted: error creating weboptions", "error", err)
+						s.logger.CErrorw(ctx, "reconfiguration aborted: error creating weboptions", "error", err)
 						continue
 					}
 				}
@@ -405,7 +405,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 				if !diff.NetworkEqual {
 					if err := myRobot.StartWeb(ctx, options); err != nil {
-						s.logger.Errorw("reconfiguration failed: error starting web service while reconfiguring", "error", err)
+						s.logger.CErrorw(ctx, "reconfiguration failed: error starting web service while reconfiguring", "error", err)
 					}
 				}
 				oldCfg = processedConfig

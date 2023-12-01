@@ -145,7 +145,7 @@ func (m *SessionManager) expireLoop(ctx context.Context) {
 			m.logger.CDebugw(ctx, "tried to stop some resources", "resources", toStop)
 		}
 		if len(resourceErrs) != 0 {
-			m.logger.Errorw("failed to stop some resources", "errors", resourceErrs)
+			m.logger.CErrorw(ctx, "failed to stop some resources", "errors", resourceErrs)
 		}
 	}
 }

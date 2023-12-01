@@ -118,7 +118,7 @@ func (manager *resourceManager) addRemote(
 			ConvertedAttributes: &c,
 		}, rr, builtinModel)
 		if err := manager.resources.AddNode(rName, gNode); err != nil {
-			manager.logger.Errorw("failed to add new node for remote", "name", rName, "error", err)
+			manager.logger.CErrorw(ctx, "failed to add new node for remote", "name", rName, "error", err)
 			return
 		}
 	} else {
@@ -182,7 +182,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 					"name", remoteResName,
 					"reason", err)
 			} else {
-				manager.logger.Errorw("couldn't obtain remote resource interface",
+				manager.logger.CErrorw(ctx, "couldn't obtain remote resource interface",
 					"name", remoteResName,
 					"reason", err)
 			}
@@ -204,13 +204,13 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		} else {
 			gNode = resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
 			if err := manager.resources.AddNode(resName, gNode); err != nil {
-				manager.logger.Errorw("failed to add remote resource node", "name", resName, "error", err)
+				manager.logger.CErrorw(ctx, "failed to add remote resource node", "name", resName, "error", err)
 			}
 		}
 
 		err = manager.resources.AddChild(resName, remoteName)
 		if err != nil {
-			manager.logger.Errorw(
+			manager.logger.CErrorw(ctx,
 				"error while trying add node as a dependency of remote",
 				"node", resName,
 				"remote", remoteName)
@@ -225,7 +225,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		}
 		manager.logger.CDebugw(ctx, "removing remote resource", "name", resName)
 		if err := manager.markChildrenForUpdate(resName); err != nil {
-			manager.logger.Errorw(
+			manager.logger.CErrorw(ctx,
 				"failed to mark children of remote for update",
 				"resource", resName,
 				"reason", err)
@@ -233,13 +233,13 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		}
 		gNode, ok := manager.resources.Node(resName)
 		if !ok {
-			manager.logger.Errorw(
+			manager.logger.CErrorw(ctx,
 				"failed to find remote node for closure",
 				"resource", resName)
 			continue
 		}
 		if err := gNode.Close(ctx); err != nil {
-			manager.logger.Errorw(
+			manager.logger.CErrorw(ctx,
 				"failed to close remote node",
 				"resource", resName,
 				"reason", err)
@@ -487,7 +487,7 @@ func (manager *resourceManager) completeConfig(
 		case client.RemoteAPI:
 			remConf, err := resource.NativeConfig[*config.Remote](gNode.Config())
 			if err != nil {
-				manager.logger.Errorw(
+				manager.logger.CErrorw(ctx,
 					"remote config error",
 					"error",
 					err,
@@ -522,7 +522,7 @@ func (manager *resourceManager) completeConfig(
 			})
 		default:
 			err := errors.New("config is not a remote config")
-			manager.logger.Errorw(err.Error(), "resource", resName)
+			manager.logger.CErrorw(ctx, err.Error(), "resource", resName)
 		}
 	}
 
@@ -591,7 +591,7 @@ func (manager *resourceManager) completeConfig(
 				newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, robot)
 				if newlyBuilt || err != nil {
 					if err := manager.markChildrenForUpdate(resName); err != nil {
-						manager.logger.Errorw(
+						manager.logger.CErrorw(ctx,
 							"failed to mark children of resource for update",
 							"resource", resName,
 							"reason", err)
@@ -611,7 +611,7 @@ func (manager *resourceManager) completeConfig(
 				// validation around how this might affect the resource graph. So, we avoid
 				// updating the graph to be safe.
 				if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-					manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
+					manager.logger.CErrorw(ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
 				} else {
 					gNode.SwapResource(newRes, conf.Model)
 				}
@@ -867,11 +867,11 @@ func (manager *resourceManager) updateResources(
 	for _, mod := range conf.Added.Modules {
 		// this is done in config validation but partial start rules require us to check again
 		if err := mod.Validate(""); err != nil {
-			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
+			manager.logger.CErrorw(ctx, "module config validation error; skipping", "module", mod.Name, "error", err)
 			continue
 		}
 		if err := manager.moduleManager.Add(ctx, mod); err != nil {
-			manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
+			manager.logger.CErrorw(ctx, "error adding module", "module", mod.Name, "error", err)
 			continue
 		}
 	}
@@ -879,16 +879,16 @@ func (manager *resourceManager) updateResources(
 	for _, mod := range conf.Modified.Modules {
 		// this is done in config validation but partial start rules require us to check again
 		if err := mod.Validate(""); err != nil {
-			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
+			manager.logger.CErrorw(ctx, "module config validation error; skipping", "module", mod.Name, "error", err)
 			continue
 		}
 		orphanedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
 		if err != nil {
-			manager.logger.Errorw("error reconfiguring module", "module", mod.Name, "error", err)
+			manager.logger.CErrorw(ctx, "error reconfiguring module", "module", mod.Name, "error", err)
 		}
 		for _, resToClose := range manager.markResourcesRemoved(orphanedResourceNames, nil) {
 			if err := resToClose.Close(ctx); err != nil {
-				manager.logger.Errorw("error closing now orphaned resource", "resource",
+				manager.logger.CErrorw(ctx, "error closing now orphaned resource", "resource",
 					resToClose.Name().String(), "module", mod.Name, "error", err)
 			}
 		}
@@ -896,7 +896,7 @@ func (manager *resourceManager) updateResources(
 
 	if manager.moduleManager != nil {
 		if err := manager.moduleManager.ResolveImplicitDependenciesInConfig(ctx, conf); err != nil {
-			manager.logger.Errorw("error adding implicit dependencies", "error", err)
+			manager.logger.CErrorw(ctx, "error adding implicit dependencies", "error", err)
 		}
 	}
 
@@ -947,13 +947,13 @@ func (manager *resourceManager) updateResources(
 
 		// this is done in config validation but partial start rules require us to check again
 		if err := p.Validate(""); err != nil {
-			manager.logger.Errorw("process config validation error; skipping", "process", p.Name, "error", err)
+			manager.logger.CErrorw(ctx, "process config validation error; skipping", "process", p.Name, "error", err)
 			continue
 		}
 
 		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
 		if err != nil {
-			manager.logger.Errorw("error while adding process; skipping", "process", p.ID, "error", err)
+			manager.logger.CErrorw(ctx, "error while adding process; skipping", "process", p.ID, "error", err)
 			continue
 		}
 		manager.processConfigs[p.ID] = p
@@ -966,10 +966,10 @@ func (manager *resourceManager) updateResources(
 
 		if oldProc, ok := manager.processManager.RemoveProcessByID(p.ID); ok {
 			if err := oldProc.Stop(); err != nil {
-				manager.logger.Errorw("couldn't stop process", "process", p.ID, "error", err)
+				manager.logger.CErrorw(ctx, "couldn't stop process", "process", p.ID, "error", err)
 			}
 		} else {
-			manager.logger.Errorw("couldn't find modified process", "process", p.ID)
+			manager.logger.CErrorw(ctx, "couldn't find modified process", "process", p.ID)
 		}
 
 		// Remove processConfig from map in case re-addition fails.
@@ -977,13 +977,13 @@ func (manager *resourceManager) updateResources(
 
 		// this is done in config validation but partial start rules require us to check again
 		if err := p.Validate(""); err != nil {
-			manager.logger.Errorw("process config validation error; skipping", "process", p.Name, "error", err)
+			manager.logger.CErrorw(ctx, "process config validation error; skipping", "process", p.Name, "error", err)
 			continue
 		}
 
 		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
 		if err != nil {
-			manager.logger.Errorw("error while changing process; skipping", "process", p.ID, "error", err)
+			manager.logger.CErrorw(ctx, "error while changing process; skipping", "process", p.ID, "error", err)
 			continue
 		}
 		manager.processConfigs[p.ID] = p
@@ -1045,12 +1045,12 @@ func (manager *resourceManager) markRemoved(
 
 		proc, ok := manager.processManager.RemoveProcessByID(conf.ID)
 		if !ok {
-			manager.logger.Errorw("couldn't remove process", "process", conf.ID)
+			manager.logger.CErrorw(ctx, "couldn't remove process", "process", conf.ID)
 			continue
 		}
 		delete(manager.processConfigs, conf.ID)
 		if _, err := processesToClose.AddProcess(ctx, proc, false); err != nil {
-			manager.logger.Errorw("couldn't add process", "process", conf.ID, "error", err)
+			manager.logger.CErrorw(ctx, "couldn't add process", "process", conf.ID, "error", err)
 		}
 	}
 
@@ -1058,7 +1058,7 @@ func (manager *resourceManager) markRemoved(
 	for _, conf := range conf.Modules {
 		orphanedResourceNames, err := manager.moduleManager.Remove(conf.Name)
 		if err != nil {
-			manager.logger.Errorw("error removing module", "module", conf.Name, "error", err)
+			manager.logger.CErrorw(ctx, "error removing module", "module", conf.Name, "error", err)
 		}
 		resourcesToMark = append(resourcesToMark, orphanedResourceNames...)
 	}

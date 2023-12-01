@@ -188,7 +188,7 @@ func mainWithArgs(ctx context.Context, _ []string, logger logging.Logger) error 
 	resultsIfc = append(resultsIfc, summaryResult)
 
 	if _, err := coll.InsertMany(ctx, resultsIfc); err != nil {
-		logger.Errorw("error storing coverage results", "error", err)
+		logger.CErrorw(ctx, "error storing coverage results", "error", err)
 	}
 
 	mdOutput := generateMarkdownOutput(
@@ -548,7 +548,7 @@ func checkForResults(ctx context.Context, coll *mongo.Collection, gitSha string)
 		{"git_sha", gitSha},
 	})
 	if err != nil {
-		logger.Errorw("failed to find coverage for merge base", "git_sha", gitSha, "error", err)
+		logger.CErrorw(ctx, "failed to find coverage for merge base", "git_sha", gitSha, "error", err)
 	}
 	if resultCount == 0 {
 		return nil
@@ -558,11 +558,11 @@ func checkForResults(ctx context.Context, coll *mongo.Collection, gitSha string)
 		{"git_sha", gitSha},
 	})
 	if err != nil {
-		logger.Errorw("failed to find coverage for merge base", "git_sha", gitSha, "error", err)
+		logger.CErrorw(ctx, "failed to find coverage for merge base", "git_sha", gitSha, "error", err)
 	}
 	var results []coverageResult
 	if err := cur.All(ctx, &results); err != nil {
-		logger.Errorw("failed to find coverage for merge base", "git_sha", gitSha, "error", err)
+		logger.CErrorw(ctx, "failed to find coverage for merge base", "git_sha", gitSha, "error", err)
 	}
 	return results
 }

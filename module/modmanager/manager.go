@@ -706,13 +706,13 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	// dial will re-use mod.conn; old connection can still be used when module
 	// crashes.
 	if err := mod.dial(); err != nil {
-		mgr.logger.Errorw("error while dialing restarted module",
+		mgr.logger.CErrorw(ctx, "error while dialing restarted module",
 			"module", mod.cfg.Name, "error", err)
 		return orphanedResourceNames
 	}
 
 	if err := mod.checkReady(ctx, mgr.parentAddr, mgr.logger); err != nil {
-		mgr.logger.Errorw("error while waiting for restarted module to be ready",
+		mgr.logger.CErrorw(ctx, "error while waiting for restarted module to be ready",
 			"module", mod.cfg.Name, "error", err)
 		return orphanedResourceNames
 	}

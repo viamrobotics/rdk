@@ -130,14 +130,14 @@ func (ua *URArm) Close(ctx context.Context) error {
 
 	closeConn := func() {
 		if err := ua.dashboardConnection.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
-			ua.logger.Errorw("error closing arm's Dashboard connection", "error", err)
+			ua.logger.CErrorw(ctx, "error closing arm's Dashboard connection", "error", err)
 		}
 		if err := ua.readRobotStateConnection.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
-			ua.logger.Errorw("error closing arm's State connection", "error", err)
+			ua.logger.CErrorw(ctx, "error closing arm's State connection", "error", err)
 		}
 		if ua.connControl != nil {
 			if err := ua.connControl.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
-				ua.logger.Errorw("error closing arm's control connection", "error", err)
+				ua.logger.CErrorw(ctx, "error closing arm's control connection", "error", err)
 			}
 		}
 	}
@@ -236,7 +236,7 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger logging.Logg
 					}
 				}
 			} else if err != nil {
-				logger.Errorw("dashboard reader failed", "error", err)
+				logger.CErrorw(ctx, "dashboard reader failed", "error", err)
 				newArm.mu.Lock()
 				newArm.isConnected = false
 				newArm.mu.Unlock()
@@ -274,7 +274,7 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger logging.Logg
 					}
 				}
 			} else if err != nil {
-				logger.Errorw("reader failed", "error", err)
+				logger.CErrorw(ctx, "reader failed", "error", err)
 				return
 			}
 		}

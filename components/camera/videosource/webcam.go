@@ -637,7 +637,7 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 		dInfo, err := c.driverInfo()
 		if err != nil {
 			if !c.hasLoggedIntrinsicsInfo {
-				c.logger.Errorw("can't find driver info for camera")
+				c.logger.CErrorw(ctx, "can't find driver info for camera")
 				c.hasLoggedIntrinsicsInfo = true
 			}
 		}

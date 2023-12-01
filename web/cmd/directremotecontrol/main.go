@@ -141,7 +141,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		<-ctx.Done()
 		defer func() {
 			if err := httpServer.Shutdown(context.Background()); err != nil {
-				logger.Errorw("error shutting down", "error", err)
+				logger.CErrorw(ctx, "error shutting down", "error", err)
 			}
 		}()
 	})

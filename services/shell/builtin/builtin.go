@@ -93,7 +93,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (ch
 			n, err := f.Read(data[:])
 			if err != nil {
 				if !errors.Is(err, io.EOF) && !errors.Is(err, os.ErrClosed) {
-					svc.logger.Errorw("error reading output", "error", err)
+					svc.logger.CErrorw(ctx, "error reading output", "error", err)
 				}
 				select {
 				case <-ctx.Done():
@@ -119,19 +119,19 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (ch
 			case inputData, ok := <-input:
 				if ok {
 					if _, err := f.Write([]byte(inputData)); err != nil {
-						svc.logger.Errorw("error writing data", "error", err)
+						svc.logger.CErrorw(ctx, "error writing data", "error", err)
 						return
 					}
 				} else {
 					if _, err := f.Write([]byte{4}); err != nil {
-						svc.logger.Errorw("error writing EOT", "error", err)
+						svc.logger.CErrorw(ctx, "error writing EOT", "error", err)
 						return
 					}
 					return
 				}
 			case <-ctx.Done():
 				if _, err := f.Write([]byte{4}); err != nil {
-					svc.logger.Errorw("error writing EOT", "error", err)
+					svc.logger.CErrorw(ctx, "error writing EOT", "error", err)
 					return
 				}
 			}

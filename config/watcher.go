@@ -68,7 +68,7 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 			}
 			newConfig, err := readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, logger)
 			if err != nil {
-				logger.Errorw("error reading cloud config", "error", err)
+				logger.CErrorw(ctx, "error reading cloud config", "error", err)
 				continue
 			}
 			if cp, err := newConfig.CopyOnlyPublicFields(); err == nil {
@@ -143,7 +143,7 @@ func newFSWatcher(ctx context.Context, configPath string, logger logging.Logger)
 						//nolint:gosec
 						rd, err := os.ReadFile(configPath)
 						if err != nil {
-							logger.Errorw("error reading config file after write", "error", err)
+							logger.CErrorw(ctx, "error reading config file after write", "error", err)
 							return
 						}
 						if bytes.Equal(rd, lastRd) {
@@ -152,7 +152,7 @@ func newFSWatcher(ctx context.Context, configPath string, logger logging.Logger)
 						lastRd = rd
 						newConfig, err := FromReader(cancelCtx, configPath, bytes.NewReader(rd), logger)
 						if err != nil {
-							logger.Errorw("error reading config after write", "error", err)
+							logger.CErrorw(ctx, "error reading config after write", "error", err)
 							return
 						}
 						UpdateFileConfigDebug(newConfig.Debug)

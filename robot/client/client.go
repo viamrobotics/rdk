@@ -454,7 +454,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 		if !rc.connected.Load() {
 			rc.Logger().CInfow(ctx, "trying to reconnect to remote at address", "address", rc.address)
 			if err := rc.connect(ctx); err != nil {
-				rc.Logger().Errorw("failed to reconnect remote", "error", err, "address", rc.address)
+				rc.Logger().CErrorw(ctx, "failed to reconnect remote", "error", err, "address", rc.address)
 				continue
 			}
 			rc.Logger().CInfow(ctx, "successfully reconnected remote at address", "address", rc.address)
@@ -489,7 +489,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				}
 			}
 			if outerError != nil {
-				rc.Logger().Errorw(
+				rc.Logger().CErrorw(ctx,
 					"lost connection to remote",
 					"error", outerError,
 					"address", rc.address,
@@ -551,7 +551,7 @@ func (rc *RobotClient) RefreshEvery(ctx context.Context, every time.Duration) {
 		if err := rc.Refresh(ctx); err != nil {
 			// we want to keep refreshing and hopefully the ticker is not
 			// too fast so that we do not thrash.
-			rc.Logger().Errorw("failed to refresh resources from remote", "error", err)
+			rc.Logger().CErrorw(ctx, "failed to refresh resources from remote", "error", err)
 		}
 	}
 }

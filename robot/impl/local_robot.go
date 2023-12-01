@@ -270,7 +270,7 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 		remote, ok := r.RemoteByName(remoteName)
 		if !ok {
 			// should never happen
-			r.Logger().Errorw("remote robot not found in resource graph while creating status",
+			r.Logger().CErrorw(ctx, "remote robot not found in resource graph while creating status",
 				"remote", remoteName)
 			continue
 		}
@@ -288,7 +288,7 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 			mappedName, ok := resourceNameMappings[remoteResourceStatus.Name]
 			if !ok {
 				// should never happen
-				r.Logger().Errorw(
+				r.Logger().CErrorw(ctx, 
 					"failed to find corresponding resource name for remote resource name while creating status",
 					"resource", remoteResourceStatus.Name,
 				)
@@ -388,7 +388,7 @@ func newWithResources(
 	defer func() {
 		if !successful {
 			if err := r.Close(context.Background()); err != nil {
-				logger.Errorw("failed to close robot down after startup failure", "error", err)
+				logger.CErrorw(ctx, "failed to close robot down after startup failure", "error", err)
 			}
 		}
 	}()
@@ -519,7 +519,7 @@ func (r *localRobot) removeOrphanedResources(ctx context.Context,
 ) {
 	r.manager.markResourcesRemoved(rNames, nil)
 	if err := r.manager.removeMarkedAndClose(ctx, nil); err != nil {
-		r.logger.Errorw("error removing and closing marked resources",
+		r.logger.CErrorw(ctx, "error removing and closing marked resources",
 			"error", err)
 	}
 	r.updateWeakDependents(ctx)
@@ -696,16 +696,16 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 			switch resName {
 			case web.InternalServiceName:
 				if err := res.Reconfigure(ctxWithTimeout, allResources, resource.Config{}); err != nil {
-					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+					r.Logger().CErrorw(ctx, "failed to reconfigure internal service", "service", resName, "error", err)
 				}
 			case framesystem.InternalServiceName:
 				fsCfg, err := r.FrameSystemConfig(ctxWithTimeout)
 				if err != nil {
-					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+					r.Logger().CErrorw(ctx, "failed to reconfigure internal service", "service", resName, "error", err)
 					break
 				}
 				if err := res.Reconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
-					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+					r.Logger().CErrorw(ctx, "failed to reconfigure internal service", "service", resName, "error", err)
 				}
 			case packages.InternalServiceName, cloud.InternalServiceName:
 			default:
@@ -752,11 +752,11 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		r.Logger().CDebugw(ctx, "handling weak update for resource", "resource", resName)
 		deps, err := r.getDependencies(ctx, resName, resNode)
 		if err != nil {
-			r.Logger().Errorw("failed to get dependencies during weak update; skipping", "resource", resName, "error", err)
+			r.Logger().CErrorw(ctx, "failed to get dependencies during weak update; skipping", "resource", resName, "error", err)
 			return
 		}
 		if err := res.Reconfigure(ctx, deps, conf); err != nil {
-			r.Logger().Errorw("failed to reconfigure resource with weak dependencies", "resource", resName, "error", err)
+			r.Logger().CErrorw(ctx, "failed to reconfigure resource with weak dependencies", "resource", resName, "error", err)
 		}
 	}
 
@@ -1070,7 +1070,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// with the current generated config to see what has changed
 	diff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
-		r.logger.Errorw("error diffing the configs", "error", err)
+		r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
 		return
 	}
 	if diff.ResourcesEqual {
@@ -1117,7 +1117,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
 
 	if allErrs != nil {
-		r.logger.Errorw("the following errors were gathered during reconfiguration", "errors", allErrs)
+		r.logger.CErrorw(ctx, "the following errors were gathered during reconfiguration", "errors", allErrs)
 	}
 }
 

@@ -341,6 +341,12 @@ func (imp *impl) Errorw(msg string, keysAndValues ...interface{}) {
 	}
 }
 
+func (imp *impl) CErrorw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	if imp.shouldLog(ERROR) || debugMode(ctx) {
+		imp.log(imp.formatw(ERROR, msg, keysAndValues...))
+	}
+}
+
 // These Fatal* methods log as errors then exit the process.
 func (imp *impl) Fatal(args ...interface{}) {
 	imp.log(imp.format(ERROR, args...))
