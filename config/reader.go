@@ -216,7 +216,7 @@ func readFromCloud(
 		// If we cannot process the config from the cache we should clear it.
 		if cached {
 			// clear cache
-			logger.Warn("Detected failure to process the cached config, clearing cache.")
+			logger.CWarn(ctx, "Detected failure to process the cached config, clearing cache.")
 			clearCache(cloudCfg.ID)
 		}
 		return nil, err
@@ -237,7 +237,7 @@ func readFromCloud(
 			cachedConfig, err := processConfigFromCloud(unproccessedCachedConfig, logger)
 			if err != nil {
 				// clear cache
-				logger.Warn("Detected failure to process the cached config when retrieving TLS config, clearing cache.")
+				logger.CWarn(ctx, "Detected failure to process the cached config when retrieving TLS config, clearing cache.")
 				clearCache(cloudCfg.ID)
 				return nil, err
 			}

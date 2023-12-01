@@ -82,7 +82,7 @@ func mainWithArgs(ctx context.Context, _ []string, logger logging.Logger) error 
 
 	mongoURI, ok := os.LookupEnv("MONGODB_TEST_OUTPUT_URI")
 	if !ok || mongoURI == "" {
-		logger.Warn("no MongoDB URI found; skipping")
+		logger.CWarn(ctx, "no MongoDB URI found; skipping")
 		return nil
 	}
 
@@ -130,7 +130,7 @@ func mainWithArgs(ctx context.Context, _ []string, logger logging.Logger) error 
 				} else if pctCovered == covResults[pkgName].LineCoveragePct {
 					continue
 				}
-				logger.CInfow(ctx, 
+				logger.CInfow(ctx,
 					"multiple coverage profiles for package; taking higher...",
 					"package", pkgName,
 					"prev", covResults[pkgName].LineCoveragePct,

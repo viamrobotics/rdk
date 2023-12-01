@@ -135,7 +135,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 		o.timeIntervalMSecs = defaultTimeIntervalMSecs
 	}
 	if o.timeIntervalMSecs > 1000 {
-		o.logger.Warn("if the time interval is more than 1000 ms, be sure to move the base slowly for better accuracy")
+		o.logger.CWarn(ctx, "if the time interval is more than 1000 ms, be sure to move the base slowly for better accuracy")
 	}
 
 	// set baseWidth and wheelCircumference from the new base properties
@@ -193,7 +193,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	}
 
 	if len(o.motors) > 1 {
-		o.logger.Warn("odometry will not be accurate if the left and right motors that are paired are not listed in the same order")
+		o.logger.CWarn(ctx, "odometry will not be accurate if the left and right motors that are paired are not listed in the same order")
 	}
 
 	o.orientation.Yaw = 0

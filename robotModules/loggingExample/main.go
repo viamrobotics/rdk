@@ -31,7 +31,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) (er
 	fmt.Println("Stdout")
 
 	logger.Error("Module Error")
-	logger.Warn("Module Warn")
+	logger.CWarn(ctx, "Module Warn")
 	logger.Info("Module Info")
 	logger.Debug("Module Debug")
 

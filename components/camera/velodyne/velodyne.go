@@ -238,7 +238,7 @@ func (c *client) run(ctx context.Context, listener *vlp16.PacketListener) {
 			c.logger.CInfof(ctx, "velodyne client error: %w", err)
 			err = listener.Close()
 			if err != nil {
-				c.logger.Warn("trying to close connection after error got", "error", err)
+				c.logger.CWarn(ctx, "trying to close connection after error got", "error", err)
 			}
 			listener = nil
 			if !gutils.SelectContextOrWait(ctx, time.Second) {

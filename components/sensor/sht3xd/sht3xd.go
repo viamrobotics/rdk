@@ -80,7 +80,7 @@ func newSensor(
 	addr := conf.I2cAddr
 	if addr == 0 {
 		addr = defaultI2Caddr
-		logger.Warn("using i2c address : 0x44")
+		logger.CWarn(ctx, "using i2c address : 0x44")
 	}
 
 	s := &sht3xd{

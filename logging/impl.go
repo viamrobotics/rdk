@@ -281,6 +281,12 @@ func (imp *impl) Warn(args ...interface{}) {
 	}
 }
 
+func (imp *impl) CWarn(ctx context.Context, args ...interface{}) {
+	if imp.shouldLog(WARN) || debugMode(ctx) {
+		imp.log(imp.format(WARN, args...))
+	}
+}
+
 func (imp *impl) Warnf(template string, args ...interface{}) {
 	if imp.shouldLog(WARN) {
 		imp.log(imp.formatf(WARN, template, args...))

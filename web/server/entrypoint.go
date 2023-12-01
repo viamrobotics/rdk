@@ -257,7 +257,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				if checkDone() {
 					return
 				}
-				s.logger.Warn("waiting for clean shutdown")
+				s.logger.CWarn(ctx, "waiting for clean shutdown")
 			}
 		}
 	})

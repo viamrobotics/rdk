@@ -107,7 +107,7 @@ func (o *obsDepth) buildObsDepth(logger logging.Logger) func(
 			return o.obsDepthNoIntrinsics(ctx, src)
 		}
 		if props.IntrinsicParams == nil {
-			logger.Warn("obstacles depth started but camera did not have intrinsic parameters")
+			logger.CWarn(ctx, "obstacles depth started but camera did not have intrinsic parameters")
 			return o.obsDepthNoIntrinsics(ctx, src)
 		}
 		o.intrinsics = props.IntrinsicParams

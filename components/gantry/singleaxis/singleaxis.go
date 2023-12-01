@@ -165,7 +165,7 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 	rpm := g.gantryToMotorSpeeds(newConf.GantryMmPerSec)
 	g.rpm = rpm
 	if g.rpm == 0 {
-		g.logger.Warn("gantry_mm_per_sec not provided, defaulting to 100 motor rpm")
+		g.logger.CWarn(ctx, "gantry_mm_per_sec not provided, defaulting to 100 motor rpm")
 		g.rpm = 100
 	}
 

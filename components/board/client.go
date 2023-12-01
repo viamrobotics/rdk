@@ -59,7 +59,7 @@ func NewClientFromConn(
 		info:   info,
 	}
 	if err := c.refresh(ctx); err != nil {
-		c.logger.Warn(err)
+		c.logger.CWarn(ctx, err)
 	}
 	return c, nil
 }

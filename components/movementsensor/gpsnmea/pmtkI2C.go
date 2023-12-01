@@ -80,7 +80,7 @@ func MakePmtkI2cGpsNmea(
 	}
 	if conf.I2CConfig.I2CBaudRate == 0 {
 		conf.I2CConfig.I2CBaudRate = 38400
-		logger.Warn("using default baudrate : 38400")
+		logger.CWarn(ctx, "using default baudrate : 38400")
 	}
 	disableNmea := conf.DisableNMEA
 	if disableNmea {

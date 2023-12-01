@@ -33,7 +33,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 
 	mongoURI, ok := os.LookupEnv("MONGODB_TEST_OUTPUT_URI")
 	if !ok || mongoURI == "" {
-		logger.Warn("no MongoDB URI found; skipping")
+		logger.CWarn(ctx, "no MongoDB URI found; skipping")
 		return nil
 	}
 

@@ -334,7 +334,7 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 
 	speed := math.Abs(rpm)
 	if speed < 0.1 {
-		m.logger.Warn("motor speed is nearly 0 rev_per_min")
+		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
 		return m.Stop(ctx, nil)
 	}
 

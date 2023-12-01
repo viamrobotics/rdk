@@ -717,7 +717,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				r.logger.Warn(resource.NewBuildTimeoutError(resName))
+				r.logger.CWarn(ctx, resource.NewBuildTimeoutError(resName))
 			}
 		case <-ctx.Done():
 			return
@@ -783,7 +783,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				r.logger.Warn(resource.NewBuildTimeoutError(conf.ResourceName()))
+				r.logger.CWarn(ctx, resource.NewBuildTimeoutError(conf.ResourceName()))
 			}
 		case <-ctx.Done():
 			return
