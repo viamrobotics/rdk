@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -616,7 +617,7 @@ func reader(ctx context.Context, conn net.Conn, ua *URArm, onHaveData func()) er
 
 		switch buf[0] {
 		case 16:
-			state, err := readRobotStateMessage(buf[1:], ua.logger)
+			state, err := readRobotStateMessage(ctx, buf[1:], ua.logger)
 			if err != nil {
 				return err
 			}
@@ -640,7 +641,7 @@ func reader(ctx context.Context, conn net.Conn, ua *URArm, onHaveData func()) er
 					state.CartesianInfo.Rz)
 			}
 		case 20:
-			userErr := readURRobotMessage(buf, ua.logger)
+			userErr := readURRobotMessage(ctx, buf, ua.logger)
 			if userErr != nil {
 				ua.setRuntimeError(userErr)
 			}

@@ -384,19 +384,19 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 
 	err = handle.Write(ctx, cmd251)
 	if err != nil {
-		g.logger.Debug("Failed to set baud rate")
+		g.logger.CDebug(ctx, "Failed to set baud rate")
 	}
 
 	err = handle.Write(ctx, cmd314)
 	if err != nil {
-		g.logger.Debug("failed to set NMEA output")
+		g.logger.CDebug(ctx, "failed to set NMEA output")
 		g.err.Set(err)
 		return
 	}
 
 	err = handle.Write(ctx, cmd220)
 	if err != nil {
-		g.logger.Debug("failed to set NMEA update rate")
+		g.logger.CDebug(ctx, "failed to set NMEA update rate")
 		g.err.Set(err)
 		return
 	}
@@ -459,7 +459,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 			g.ntripMu.Unlock()
 
 			if msg == nil {
-				g.logger.Debug("No message... reconnecting to stream...")
+				g.logger.CDebug(ctx, "No message... reconnecting to stream...")
 				err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 				if err != nil {
 					g.err.Set(err)
@@ -495,14 +495,14 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		// close I2C
 		err = handle.Close()
 		if err != nil {
-			g.logger.Debug("failed to close handle: %s", err)
+			g.logger.CDebug(ctx, "failed to close handle: %s", err)
 			g.err.Set(err)
 			return
 		}
 	}
 }
 
-//nolint
+// nolint
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not
 func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()

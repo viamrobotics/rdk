@@ -193,7 +193,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 			lastAngVel = angVel
 		}
 		if !utils.SelectContextOrWait(ctx, timestep) {
-			ptgk.logger.Debug(ctx.Err().Error())
+			ptgk.logger.CDebug(ctx, ctx.Err().Error())
 			// context cancelled
 			break
 		}
