@@ -50,10 +50,11 @@ Multiple SDKs are available for writing client applications that interface with 
 
 ### Environment Variable Settings
 
-| **Environment Variable**            | **Behavior**                                               | **Default Value** |
-|-------------------------------------|------------------------------------------------------------|-------------------|
-| VIAM_RESOURCE_CONFIGURATION_TIMEOUT | Duration for which resources are allowed to (re)configure. | 1 minute          |
-| VIAM_MODULE_STARTUP_TIMEOUT         | Duration for which modules are allowed to startup.         | 5 minutes         |
+| **Environment Variable**            | **Behavior**                                               | **Default Value**    |
+|-------------------------------------|------------------------------------------------------------|----------------------|
+| VIAM_RESOURCE_CONFIGURATION_TIMEOUT | Duration for which resources are allowed to (re)configure. | 1 minute             |
+| VIAM_MODULE_STARTUP_TIMEOUT         | Duration for which modules are allowed to startup.         | 5 minutes            |
+| ENV                                 | If set to "development", runs the server in dev mode.      | Server runs normally |
 
 ## Development
 
