@@ -20,7 +20,6 @@ import (
 func ConnectToVirtualBase(ntripInfo *NtripInfo,
 	logger logging.Logger,
 ) *bufio.ReadWriter {
-
 	mp := "/" + ntripInfo.MountPoint
 	credentials := ntripInfo.Username + ":" + ntripInfo.Password
 	credentialsBase64 := base64.StdEncoding.EncodeToString([]byte(credentials))
@@ -64,7 +63,6 @@ func ConnectToVirtualBase(ntripInfo *NtripInfo,
 
 // GetGGAMessage checks if a GGA message exists in the buffer and returns it.
 func GetGGAMessage(correctionWriter io.ReadWriteCloser, logger logging.Logger) ([]byte, error) {
-
 	buffer := make([]byte, 1024)
 	var totalBytesRead int
 
