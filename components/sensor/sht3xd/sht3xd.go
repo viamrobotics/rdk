@@ -114,7 +114,7 @@ func (s *sht3xd) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	tryRead := func() ([]byte, error) {
 		handle, err := s.bus.OpenHandle(s.addr)
 		if err != nil {
-			s.logger.Errorf("can't open sht3xd i2c %s", err)
+			s.logger.CErrorf(ctx, "can't open sht3xd i2c %s", err)
 			return nil, err
 		}
 		err = handle.Write(ctx, []byte{sht3xdCOMMANDPOLLINGH1, sht3xdCOMMANDPOLLINGH2})
@@ -158,7 +158,7 @@ func (s *sht3xd) Readings(ctx context.Context, extra map[string]interface{}) (ma
 func (s *sht3xd) reset(ctx context.Context) error {
 	handle, err := s.bus.OpenHandle(s.addr)
 	if err != nil {
-		s.logger.Errorf("can't open sht3xd i2c %s", err)
+		s.logger.CErrorf(ctx, "can't open sht3xd i2c %s", err)
 		return err
 	}
 	err = handle.Write(ctx, []byte{sht3xdCOMMANDSOFTRESET1, sht3xdCOMMANDSOFTRESET2})

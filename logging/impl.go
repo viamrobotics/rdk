@@ -329,6 +329,12 @@ func (imp *impl) Errorf(template string, args ...interface{}) {
 	}
 }
 
+func (imp *impl) CErrorf(ctx context.Context, template string, args ...interface{}) {
+	if imp.shouldLog(ERROR) || debugMode(ctx) {
+		imp.log(imp.formatf(ERROR, template, args...))
+	}
+}
+
 func (imp *impl) Errorw(msg string, keysAndValues ...interface{}) {
 	if imp.shouldLog(ERROR) {
 		imp.log(imp.formatw(ERROR, msg, keysAndValues...))

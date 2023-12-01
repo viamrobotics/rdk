@@ -115,7 +115,7 @@ func MakePmtkI2cGpsNmea(
 func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 	handle, err := g.bus.OpenHandle(g.addr)
 	if err != nil {
-		g.logger.Errorf("can't open gps i2c %s", err)
+		g.logger.CErrorf(ctx, "can't open gps i2c %s", err)
 		return err
 	}
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
@@ -130,17 +130,17 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 	}
 	err = handle.Write(ctx, cmd314)
 	if err != nil {
-		g.logger.Errorf("i2c handle write failed %s", err)
+		g.logger.CErrorf(ctx, "i2c handle write failed %s", err)
 		return err
 	}
 	err = handle.Write(ctx, cmd220)
 	if err != nil {
-		g.logger.Errorf("i2c handle write failed %s", err)
+		g.logger.CErrorf(ctx, "i2c handle write failed %s", err)
 		return err
 	}
 	err = handle.Close()
 	if err != nil {
-		g.logger.Errorf("failed to close handle: %s", err)
+		g.logger.CErrorf(ctx, "failed to close handle: %s", err)
 		return err
 	}
 
@@ -162,7 +162,7 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 				// ephemeral errors later.
 				g.err.Set(err)
 				if err != nil {
-					g.logger.Errorf("can't open gps i2c handle: %s", err)
+					g.logger.CErrorf(ctx, "can't open gps i2c handle: %s", err)
 					return
 				}
 				buffer, err := handle.Read(ctx, 1024)
@@ -170,7 +170,7 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 				hErr := handle.Close()
 				g.err.Set(hErr)
 				if hErr != nil {
-					g.logger.Errorf("failed to close handle: %s", hErr)
+					g.logger.CErrorf(ctx, "failed to close handle: %s", hErr)
 					return
 				}
 				if err != nil {

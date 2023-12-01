@@ -207,7 +207,7 @@ type bme280 struct {
 func (s *bme280) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	handle, err := s.bus.OpenHandle(s.addr)
 	if err != nil {
-		s.logger.Errorf("can't open bme280 i2c %s", err)
+		s.logger.CErrorf(ctx, "can't open bme280 i2c %s", err)
 		return nil, err
 	}
 	err = handle.Write(ctx, []byte{byte(bme280MeasurementsReg)})

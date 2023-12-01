@@ -370,7 +370,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	// establish I2C connection
 	handle, err := g.bus.OpenHandle(g.addr)
 	if err != nil {
-		g.logger.Errorf("can't open gps i2c %s", err)
+		g.logger.CErrorf(ctx, "can't open gps i2c %s", err)
 		g.err.Set(err)
 		return
 	}
@@ -423,7 +423,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	// port still open
 	err = handle.Write(ctx, wI2C)
 	if err != nil {
-		g.logger.Errorf("i2c handle write failed %s", err)
+		g.logger.CErrorf(ctx, "i2c handle write failed %s", err)
 		g.err.Set(err)
 		return
 	}
@@ -447,7 +447,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		// establish I2C connection
 		handle, err := g.bus.OpenHandle(g.addr)
 		if err != nil {
-			g.logger.Errorf("can't open gps i2c %s", err)
+			g.logger.CErrorf(ctx, "can't open gps i2c %s", err)
 			g.err.Set(err)
 			return
 		}
@@ -480,7 +480,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 				err = handle.Write(ctx, wI2C)
 
 				if err != nil {
-					g.logger.Errorf("i2c handle write failed %s", err)
+					g.logger.CErrorf(ctx, "i2c handle write failed %s", err)
 					g.err.Set(err)
 					return
 				}

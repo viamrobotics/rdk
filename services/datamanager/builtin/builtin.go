@@ -104,7 +104,7 @@ func readyToSync(ctx context.Context, s selectiveSyncer, logger logging.Logger) 
 	}
 	readyToSyncVal, ok := readings[datamanager.ShouldSyncKey]
 	if !ok {
-		logger.Errorf("value for should sync key %s not present in readings", datamanager.ShouldSyncKey)
+		logger.CErrorf(ctx, "value for should sync key %s not present in readings", datamanager.ShouldSyncKey)
 		return
 	}
 	readyToSyncBool, err := utils.AssertType[bool](readyToSyncVal)

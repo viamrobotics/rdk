@@ -95,7 +95,7 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 	}
 
 	if err := g.Start(ctx); err != nil {
-		g.logger.Errorf("Did not create nmea gps with err %#v", err.Error())
+		g.logger.CErrorf(ctx, "Did not create nmea gps with err %#v", err.Error())
 	}
 
 	return g, err
@@ -117,7 +117,7 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 			if !g.disableNmea && !g.isClosed {
 				line, err := r.ReadString('\n')
 				if err != nil {
-					g.logger.Errorf("can't read gps serial %s", err)
+					g.logger.CErrorf(ctx, "can't read gps serial %s", err)
 					g.err.Set(err)
 					return
 				}

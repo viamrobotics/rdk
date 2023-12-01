@@ -221,7 +221,7 @@ func (d *ina) calibrate() error {
 func (d *ina) Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
 	handle, err := i2c.NewI2C(d.addr, d.bus)
 	if err != nil {
-		d.logger.Errorf("can't open ina i2c: %s", err)
+		d.logger.CErrorf(ctx, "can't open ina i2c: %s", err)
 		return 0, false, err
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
@@ -249,7 +249,7 @@ func (d *ina) Voltage(ctx context.Context, extra map[string]interface{}) (float6
 func (d *ina) Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
 	handle, err := i2c.NewI2C(d.addr, d.bus)
 	if err != nil {
-		d.logger.Errorf("can't open ina i2c: %s", err)
+		d.logger.CErrorf(ctx, "can't open ina i2c: %s", err)
 		return 0, false, err
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
@@ -274,7 +274,7 @@ func (d *ina) Current(ctx context.Context, extra map[string]interface{}) (float6
 func (d *ina) Power(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	handle, err := i2c.NewI2C(d.addr, d.bus)
 	if err != nil {
-		d.logger.Errorf("can't open ina i2c handle: %s", err)
+		d.logger.CErrorf(ctx, "can't open ina i2c handle: %s", err)
 		return 0, err
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
@@ -298,17 +298,17 @@ func (d *ina) Power(ctx context.Context, extra map[string]interface{}) (float64,
 func (d *ina) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	volts, isAC, err := d.Voltage(ctx, nil)
 	if err != nil {
-		d.logger.Errorf("failed to get voltage reading: %s", err.Error())
+		d.logger.CErrorf(ctx, "failed to get voltage reading: %s", err.Error())
 	}
 
 	amps, _, err := d.Current(ctx, nil)
 	if err != nil {
-		d.logger.Errorf("failed to get current reading: %s", err.Error())
+		d.logger.CErrorf(ctx, "failed to get current reading: %s", err.Error())
 	}
 
 	watts, err := d.Power(ctx, nil)
 	if err != nil {
-		d.logger.Errorf("failed to get power reading: %s", err.Error())
+		d.logger.CErrorf(ctx, "failed to get power reading: %s", err.Error())
 	}
 	return map[string]interface{}{
 		"volts": volts,

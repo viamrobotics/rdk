@@ -689,7 +689,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	for attempt := 1; attempt < 4; attempt++ {
 		if err := mod.startProcess(mgr.restartCtx, mgr.parentAddr,
 			mgr.newOnUnexpectedExitHandler(mod), mgr.logger, mgr.viamHomeDir); err != nil {
-			mgr.logger.Errorf("attempt %d: error while restarting crashed module %s: %v",
+			mgr.logger.CErrorf(ctx, "attempt %d: error while restarting crashed module %s: %v",
 				attempt, mod.cfg.Name, err)
 			if attempt == 3 {
 				// return early upon last attempt failure.
