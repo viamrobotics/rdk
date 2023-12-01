@@ -38,7 +38,7 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 
 			_, err := svc.exploreMotionService.Move(ctx, svc.base.Name(), destination, nil, nil, extra)
 			if err != nil {
-				svc.logger.Debugf("error occurred when moving to point %v: %v", destination, err)
+				svc.logger.CDebugf(ctx, "error occurred when moving to point %v: %v", destination, err)
 			}
 		}
 	})

@@ -54,8 +54,8 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	tp.algOpts.pathdebug = printPath
 	if tp.algOpts.pathdebug {
 		tp.logger.CDebug(ctx, "$type,X,Y")
-		tp.logger.Debugf("$SG,%f,%f\n", 0., 0.)
-		tp.logger.Debugf("$SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
+		tp.logger.CDebugf(ctx, "$SG,%f,%f\n", 0., 0.)
+		tp.logger.CDebugf(ctx, "$SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
 	}
 	test.That(t, ok, test.ShouldBeTrue)
 	plan, err := tp.plan(ctx, goalPos, nil)
@@ -71,9 +71,9 @@ func TestPtgRrtBidirectional(t *testing.T) {
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
 				if i == 0 {
-					tp.logger.Debugf("$WP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+					tp.logger.CDebugf(ctx, "$WP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
 				}
-				tp.logger.Debugf("$FINALPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+				tp.logger.CDebugf(ctx, "$FINALPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
 				if i == len(trajPts)-1 {
 					lastPose = intPose
 					break
@@ -90,9 +90,9 @@ func TestPtgRrtBidirectional(t *testing.T) {
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
 				if i == 0 {
-					tp.logger.Debugf("$SMOOTHWP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+					tp.logger.CDebugf(ctx, "$SMOOTHWP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
 				}
-				tp.logger.Debugf("$SMOOTHPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+				tp.logger.CDebugf(ctx, "$SMOOTHPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
 				if pt.Dist >= mynode.Q()[2].Value {
 					lastPose = intPose
 					break
@@ -140,8 +140,8 @@ func TestPtgPosOnlyUnidirectional(t *testing.T) {
 	tp.algOpts.pathdebug = printPath
 	if tp.algOpts.pathdebug {
 		tp.logger.CDebug(ctx, "$type,X,Y")
-		tp.logger.Debugf("$SG,%f,%f\n", 0., 0.)
-		tp.logger.Debugf("$SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
+		tp.logger.CDebugf(ctx, "$SG,%f,%f\n", 0., 0.)
+		tp.logger.CDebugf(ctx, "$SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
 	}
 	test.That(t, ok, test.ShouldBeTrue)
 	plan, err := tp.plan(ctx, goalPos, nil)
@@ -165,9 +165,9 @@ func TestPtgPosOnlyUnidirectional(t *testing.T) {
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
 				if i == 0 {
-					tp.logger.Debugf("$WP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+					tp.logger.CDebugf(ctx, "$WP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
 				}
-				tp.logger.Debugf("$FINALPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+				tp.logger.CDebugf(ctx, "$FINALPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
 				if i == len(trajPts)-1 {
 					lastPose = intPose
 					break
@@ -184,9 +184,9 @@ func TestPtgPosOnlyUnidirectional(t *testing.T) {
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
 				if i == 0 {
-					tp.logger.Debugf("$SMOOTHWP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+					tp.logger.CDebugf(ctx, "$SMOOTHWP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
 				}
-				tp.logger.Debugf("$SMOOTHPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+				tp.logger.CDebugf(ctx, "$SMOOTHPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
 				if pt.Dist >= mynode.Q()[2].Value {
 					lastPose = intPose
 					break
@@ -265,12 +265,12 @@ func TestPtgWithObstacle(t *testing.T) {
 			pts := geom.ToPoints(1.)
 			for _, pt := range pts {
 				if math.Abs(pt.Z) < 0.1 {
-					tp.logger.Debugf("$OBS,%f,%f\n", pt.X, pt.Y)
+					tp.logger.CDebugf(ctx, "$OBS,%f,%f\n", pt.X, pt.Y)
 				}
 			}
 		}
-		tp.logger.Debugf("$SG,%f,%f\n", 0., 0.)
-		tp.logger.Debugf("$SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
+		tp.logger.CDebugf(ctx, "$SG,%f,%f\n", 0., 0.)
+		tp.logger.CDebugf(ctx, "$SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
 	}
 	plan, err := tp.plan(ctx, goalPos, nil)
 
@@ -286,9 +286,9 @@ func TestPtgWithObstacle(t *testing.T) {
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
 				if i == 0 {
-					tp.logger.Debugf("$WP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+					tp.logger.CDebugf(ctx, "$WP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
 				}
-				tp.logger.Debugf("$FINALPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+				tp.logger.CDebugf(ctx, "$FINALPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
 				if i == len(trajPts)-1 {
 					lastPose = intPose
 					break
@@ -305,9 +305,9 @@ func TestPtgWithObstacle(t *testing.T) {
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
 				if i == 0 {
-					tp.logger.Debugf("$SMOOTHWP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+					tp.logger.CDebugf(ctx, "$SMOOTHWP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
 				}
-				tp.logger.Debugf("$SMOOTHPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+				tp.logger.CDebugf(ctx, "$SMOOTHPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
 				if pt.Dist >= mynode.Q()[2].Value {
 					lastPose = intPose
 					break

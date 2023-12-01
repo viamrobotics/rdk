@@ -624,7 +624,7 @@ func reader(ctx context.Context, conn net.Conn, ua *URArm, onHaveData func()) er
 			ua.setState(state)
 			onHaveData()
 			if ua.debug {
-				ua.logger.Debugf("isOn: %v stopped: %v joints: %f %f %f %f %f %f cartesian: %f %f %f %f %f %f\n",
+				ua.logger.CDebugf(ctx, "isOn: %v stopped: %v joints: %f %f %f %f %f %f cartesian: %f %f %f %f %f %f\n",
 					state.RobotModeData.IsRobotPowerOn,
 					state.RobotModeData.IsEmergencyStopped || state.RobotModeData.IsProtectiveStopped,
 					state.Joints[0].AngleValues(),
@@ -648,7 +648,7 @@ func reader(ctx context.Context, conn net.Conn, ua *URArm, onHaveData func()) er
 		case 5: // MODBUS_INFO_MESSAGE
 			data := binary.BigEndian.Uint32(buf[1:])
 			if data != 0 {
-				ua.logger.Debugf("got unexpected MODBUS_INFO_MESSAGE %d\n", data)
+				ua.logger.CDebugf(ctx, "got unexpected MODBUS_INFO_MESSAGE %d\n", data)
 			}
 		case 23: // SAFETY_SETUP_BROADCAST_MESSAGE
 		case 24: // SAFETY_COMPLIANCE_TOLERANCES_MESSAGE
@@ -661,11 +661,11 @@ func reader(ctx context.Context, conn net.Conn, ua *URArm, onHaveData func()) er
 				c := buf[10]
 				d := buf[11]
 				if a != 4294967295 || b != 1 || c != 0 || d != 0 {
-					ua.logger.Debugf("got unknown PROGRAM_STATE_MESSAGE %v %v %v %v\n", a, b, c, d)
+					ua.logger.CDebugf(ctx, "got unknown PROGRAM_STATE_MESSAGE %v %v %v %v\n", a, b, c, d)
 				}
 			}
 		default:
-			ua.logger.Debugf("ur: unknown messageType: %v size: %d %v\n", buf[0], len(buf), buf)
+			ua.logger.CDebugf(ctx, "ur: unknown messageType: %v size: %d %v\n", buf[0], len(buf), buf)
 		}
 	}
 }

@@ -132,9 +132,9 @@ func (sb *sensorBase) stopSpinWithSensor(
 				atTarget, overShot, minTravel := getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg, errBound)
 
 				if sensorDebug {
-					sb.logger.Debugf("minTravel %t, atTarget %t, overshot %t", minTravel, atTarget, overShot)
-					sb.logger.Debugf("angleDeg %.2f", angleDeg)
-					sb.logger.Debugf(
+					sb.logger.CDebugf(ctx, "minTravel %t, atTarget %t, overshot %t", minTravel, atTarget, overShot)
+					sb.logger.CDebugf(ctx, "angleDeg %.2f", angleDeg)
+					sb.logger.CDebugf(ctx, 
 						"currYaw %.2f, startYaw %.2f, targetYaw %.2f",
 						currYaw, startYaw, targetYaw)
 				}
@@ -144,7 +144,7 @@ func (sb *sensorBase) stopSpinWithSensor(
 				// check if we've travelled at all
 				if minTravel && (atTarget || overShot) {
 					if sensorDebug {
-						sb.logger.Debugf(
+						sb.logger.CDebugf(ctx, 
 							"stopping base with errAngle:%.2f, overshot? %t",
 							math.Abs(targetYaw-currYaw), overShot)
 					}

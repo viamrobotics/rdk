@@ -6,6 +6,7 @@ package eva
 import (
 	"bytes"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/json"
@@ -124,7 +125,7 @@ func NewEva(ctx context.Context, conf resource.Config, logger logging.Logger) (a
 		return nil, err
 	}
 
-	e.logger.Debugf("connected to eva: %v", name)
+	e.logger.CDebugf(ctx, "connected to eva: %v", name)
 
 	return e, nil
 }
@@ -372,7 +373,7 @@ func (e *eva) apiLock(ctx context.Context) error {
 func (e *eva) apiUnlock(ctx context.Context) {
 	err := e.apiRequest(ctx, "DELETE", "controls/lock", nil, true, nil)
 	if err != nil {
-		e.logger.Debugf("eva unlock failed: %s", err)
+		e.logger.CDebugf(ctx, "eva unlock failed: %s", err)
 	}
 }
 

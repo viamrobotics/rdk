@@ -149,7 +149,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 			return multierr.Append(outErr, err)
 		}
 
-		m.logger.Debugf("Starting package sync [%d/%d] %s:%s", idx+1, len(changedPackages), p.Package, p.Version)
+		m.logger.CDebugf(ctx, "Starting package sync [%d/%d] %s:%s", idx+1, len(changedPackages), p.Package, p.Version)
 
 		// Lookup the packages http url
 		includeURL := true
@@ -170,7 +170,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 			continue
 		}
 
-		m.logger.Debugf("Downloading from %s", sanitizeURLForLogs(resp.Package.Url))
+		m.logger.CDebugf(ctx, "Downloading from %s", sanitizeURLForLogs(resp.Package.Url))
 
 		// download package from a http endpoint
 		err = m.downloadPackage(ctx, resp.Package.Url, p)
@@ -188,7 +188,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		// add to managed packages
 		newManagedPackages[PackageName(p.Name)] = &managedPackage{thePackage: p, modtime: time.Now()}
 
-		m.logger.Debugf("Package sync complete [%d/%d] %s:%s after %v", idx+1, len(changedPackages), p.Package, p.Version, time.Since(pkgStart))
+		m.logger.CDebugf(ctx, "Package sync complete [%d/%d] %s:%s after %v", idx+1, len(changedPackages), p.Package, p.Version, time.Since(pkgStart))
 	}
 
 	if len(changedPackages) > 0 {

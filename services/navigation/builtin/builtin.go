@@ -512,7 +512,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 		defer svc.activeBackgroundWorkers.Done()
 
 		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
-			svc.logger.Debugf("MoveOnGlobe called going to waypoint %+v", wp)
+			svc.logger.CDebugf(ctx, "MoveOnGlobe called going to waypoint %+v", wp)
 			_, err := svc.motionService.MoveOnGlobe(
 				ctx,
 				svc.base.Name(),

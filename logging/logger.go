@@ -18,6 +18,7 @@ type Logger interface {
 	AsZap() *zap.SugaredLogger
 
 	CDebug(ctx context.Context, args ...interface{})
+	CDebugf(ctx context.Context, template string, args ...interface{})
 }
 
 // ZapCompatibleLogger is a backwards compatibility layer for existing usages of the RDK as a
@@ -104,4 +105,8 @@ func (logger zLogger) Sublogger(name string) Logger {
 
 func (logger zLogger) CDebug(ctx context.Context, args ...interface{}) {
 	logger.Debug(args...)
+}
+
+func (logger zLogger) CDebugf(ctx context.Context, template string, args ...interface{}) {
+	logger.Debugf(template, args...)
 }

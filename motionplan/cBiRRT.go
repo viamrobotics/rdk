@@ -149,7 +149,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		return
 	}
 
-	mp.logger.Debugf(
+	mp.logger.CDebugf(ctx, 
 		"running CBiRRT from start pose %v with start map of size %d and goal map of size %d",
 		spatialmath.PoseToProtobuf(seedPos),
 		len(rrt.maps.startMap),
@@ -159,7 +159,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	for i := 0; i < mp.planOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
-			mp.logger.Debugf("CBiRRT timed out after %d iterations", i)
+			mp.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", i)
 			rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("cbirrt timeout %w", ctx.Err()), maps: rrt.maps}
 			return
 		default:
@@ -223,7 +223,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 
 		// Solved!
 		if reachedDelta <= mp.planOpts.JointSolveDist {
-			mp.logger.Debugf("CBiRRT found solution after %d iterations", i)
+			mp.logger.CDebugf(ctx, "CBiRRT found solution after %d iterations", i)
 			cancel()
 			path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{map1reached, map2reached}, true)
 			rrt.solutionChan <- &rrtPlanReturn{steps: path, maps: rrt.maps}

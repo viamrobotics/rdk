@@ -858,7 +858,7 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 	for _, remoteCfg := range cfg.Remotes {
 		// build the frame system part that connects remote world to base world
 		if remoteCfg.Frame == nil { // skip over remote if it has no frame info
-			r.logger.Debugf("remote %q has no frame config info, skipping", remoteCfg.Name)
+			r.logger.CDebugf(ctx, "remote %q has no frame config info, skipping", remoteCfg.Name)
 			continue
 		}
 		lif, err := remoteCfg.Frame.ParseConfig()
@@ -1078,7 +1078,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 
 	if r.revealSensitiveConfigDiffs {
-		r.logger.Debugf("(re)configuring with %+v", diff)
+		r.logger.CDebugf(ctx, "(re)configuring with %+v", diff)
 	}
 
 	// Set mostRecentConfig if resources were not equal.

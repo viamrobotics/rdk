@@ -185,7 +185,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	defer m.mu.Unlock()
 
 	m.OpMgr.CancelRunning(ctx)
-	m.Logger.Debugf("Motor SetPower %f", powerPct)
+	m.Logger.CDebugf(ctx, "Motor SetPower %f", powerPct)
 	m.setPowerPct(powerPct)
 
 	if m.Encoder != nil {

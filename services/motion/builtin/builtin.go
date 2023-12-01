@@ -169,7 +169,7 @@ func (ms *builtIn) Move(
 
 	// get goal frame
 	goalFrameName := destination.Parent()
-	ms.logger.Debugf("goal given in frame of %q", goalFrameName)
+	ms.logger.CDebugf(ctx, "goal given in frame of %q", goalFrameName)
 
 	frameSys, err := ms.fsService.FrameSystem(ctx, worldState.Transforms())
 	if err != nil {
@@ -184,7 +184,7 @@ func (ms *builtIn) Move(
 
 	movingFrame := frameSys.Frame(componentName.ShortName())
 
-	ms.logger.Debugf("frame system inputs: %v", fsInputs)
+	ms.logger.CDebugf(ctx, "frame system inputs: %v", fsInputs)
 	if movingFrame == nil {
 		return false, fmt.Errorf("component named %s not found in robot frame system", componentName.ShortName())
 	}
@@ -332,7 +332,7 @@ func (ms *builtIn) MoveOnGlobe(
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	t := "MoveOnGlobe called for component: %s, destination: %+v, heading: %f, movementSensor: %s, obstacles: %v, motionCfg: %#v, extra: %s"
-	ms.logger.Debugf(t,
+	ms.logger.CDebugf(ctx, t,
 		componentName,
 		destination,
 		heading,
@@ -387,7 +387,7 @@ func (ms *builtIn) MoveOnGlobe(
 func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	ms.logger.Debugf("MoveOnGlobeNew called with %s", req)
+	ms.logger.CDebugf(ctx, "MoveOnGlobeNew called with %s", req)
 	// TODO: Deprecated: remove once no motion apis use the opid system
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 	planExecutorConstructor := func(

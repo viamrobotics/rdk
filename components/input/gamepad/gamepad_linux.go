@@ -154,7 +154,7 @@ func (g *gamepad) eventDispatcher(ctx context.Context) {
 					g.dev = nil
 					return
 				}
-				g.logger.Debugf("unhandled event: %+v", eventIn)
+				g.logger.CDebugf(ctx, "unhandled event: %+v", eventIn)
 
 			case evdev.EventAbsolute:
 				thisAxis, ok := g.Mapping.Axes[eventIn.Type.(evdev.AbsoluteType)]
@@ -219,7 +219,7 @@ func (g *gamepad) eventDispatcher(ctx context.Context) {
 				evdev.EventSwitch:
 				fallthrough
 			default:
-				g.logger.Debugf("unhandled event: %+v", eventIn)
+				g.logger.CDebugf(ctx, "unhandled event: %+v", eventIn)
 			}
 
 			g.makeCallbacks(ctx, eventOut)

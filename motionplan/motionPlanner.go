@@ -169,8 +169,8 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		spatialmath.PoseToProtobuf(startPose),
 		request.WorldState.String(),
 	)
-	request.Logger.Debugf("constraint specs for this step: %v", request.ConstraintSpecs)
-	request.Logger.Debugf("motion config for this step: %v", request.Options)
+	request.Logger.CDebugf(ctx, "constraint specs for this step: %v", request.ConstraintSpecs)
+	request.Logger.CDebugf(ctx, "motion config for this step: %v", request.Options)
 
 	rseed := defaultRandomSeed
 	if seed, ok := request.Options["rseed"].(int); ok {
@@ -198,7 +198,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	if replanCostFactor > 0 && currentPlan != nil {
 		initialPlanCost := currentPlan.Evaluate(sfPlanner.opt().ScoreFunc)
 		finalPlanCost := newPlan.Evaluate(sfPlanner.opt().ScoreFunc)
-		request.Logger.Debugf(
+		request.Logger.CDebugf(ctx, 
 			"initialPlanCost %f adjusted with cost factor to %f, replan cost %f",
 			initialPlanCost, initialPlanCost*replanCostFactor, finalPlanCost,
 		)
@@ -277,7 +277,7 @@ func (mp *planner) opt() *plannerOptions {
 // directly between them. This will significantly improve paths from RRT*, as it will shortcut the randomly-selected configurations.
 // This will only ever improve paths (or leave them untouched), and runs very quickly.
 func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
-	mp.logger.Debugf("running simple smoother on path of len %d", len(path))
+	mp.logger.CDebugf(ctx, "running simple smoother on path of len %d", len(path))
 	if mp.planOpts == nil {
 		mp.logger.CDebug(ctx, "nil opts, cannot shortcut")
 		return path

@@ -51,7 +51,7 @@ func TestVectorFieldToDenseAndBack(t *testing.T) {
 
 func TestSobelFilter(t *testing.T) {
 	outDir := t.TempDir()
-	logging.NewTestLogger(t).Debugf("out dir: %q", outDir)
+	logging.NewTestLogger(t).CDebugf(ctx, "out dir: %q", outDir)
 	// circle.png is 300x200 canvas, circle is 150 pixels in diameter, centered at (150,100)
 	dm, err := NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/circle.png"))
 	test.That(t, err, test.ShouldBeNil)

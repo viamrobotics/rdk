@@ -137,10 +137,10 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		case <-ctx.Done():
 			// stop and return best path
 			if nSolved > 0 {
-				mp.logger.Debugf("RRT* timed out after %d iterations, returning best path", i)
+				mp.logger.CDebugf(ctx, "RRT* timed out after %d iterations, returning best path", i)
 				rrt.solutionChan <- shortestPath(rrt.maps, shared)
 			} else {
-				mp.logger.Debugf("RRT* timed out after %d iterations, no path found", i)
+				mp.logger.CDebugf(ctx, "RRT* timed out after %d iterations, no path found", i)
 				rrt.solutionChan <- &rrtPlanReturn{planerr: ctx.Err(), maps: rrt.maps}
 			}
 			return

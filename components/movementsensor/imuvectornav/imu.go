@@ -150,7 +150,7 @@ func newVectorNav(
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf(
+	logger.CDebugf(ctx, 
 		"model detected %s sn %d %d.%d.%d.%d",
 		string(mdl),
 		binary.LittleEndian.Uint32(sn),
@@ -216,7 +216,7 @@ func newVectorNav(
 	cancelCtx, v.cancelFunc = context.WithCancel(context.Background())
 	// optionally start a polling goroutine
 	if pfreq > 0 {
-		logger.Debugf("vecnav: will pool at %d Hz", pfreq)
+		logger.CDebugf(ctx, "vecnav: will pool at %d Hz", pfreq)
 		waitCh := make(chan struct{})
 		s := 1.0 / float64(pfreq)
 		v.activeBackgroundWorkers.Add(1)

@@ -221,6 +221,12 @@ func (imp *impl) Debugf(template string, args ...interface{}) {
 	}
 }
 
+func (imp *impl) CDebugf(ctx context.Context, template string, args ...interface{}) {
+	if imp.shouldLog(DEBUG) || debugMode(ctx) {
+		imp.log(imp.formatf(DEBUG, template, args...))
+	}
+}
+
 func (imp *impl) Debugw(msg string, keysAndValues ...interface{}) {
 	if imp.shouldLog(DEBUG) {
 		imp.log(imp.formatw(DEBUG, msg, keysAndValues...))

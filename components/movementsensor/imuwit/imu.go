@@ -242,7 +242,7 @@ func newWit(
 		logger: logger,
 		err:    movementsensor.NewLastError(1, 1),
 	}
-	logger.Debugf("initializing wit serial connection with parameters: %+v", options)
+	logger.CDebugf(ctx, "initializing wit serial connection with parameters: %+v", options)
 	i.port, err = slib.Open(options)
 	if err != nil {
 		return nil, err
