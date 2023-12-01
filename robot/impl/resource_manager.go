@@ -626,7 +626,7 @@ func (manager *resourceManager) completeConfig(
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				robot.logger.Warn(resource.NewBuildTimeoutError(resName))
+				robot.logger.Warn(rutils.NewBuildTimeoutError(resName.String()))
 			}
 		case <-ctx.Done():
 			return
