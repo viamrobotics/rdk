@@ -238,7 +238,7 @@ func (m *Module) Close(ctx context.Context) {
 		m.mu.Lock()
 		parent := m.parent
 		m.mu.Unlock()
-		m.logger.Info("Shutting down gracefully.")
+		m.logger.CInfo(ctx, "Shutting down gracefully.")
 		if parent != nil {
 			if err := parent.Close(ctx); err != nil {
 				m.logger.Error(err)

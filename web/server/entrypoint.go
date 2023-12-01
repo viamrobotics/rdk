@@ -82,7 +82,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	if len(versionFields) != 0 {
 		logger.Infow("Viam RDK", versionFields...)
 	} else {
-		logger.Info("Viam RDK built from source; version unknown")
+		logger.CInfo(ctx, "Viam RDK built from source; version unknown")
 	}
 	if argsParsed.Version {
 		return

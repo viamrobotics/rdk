@@ -144,7 +144,7 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, w
 			}
 			return state.ExecuteResponse{}, nil
 		default:
-			mr.planRequest.Logger.Info(waypoints[i])
+			mr.planRequest.Logger.CInfo(ctx, waypoints[i])
 			if err := mr.kinematicBase.GoToInputs(ctx, waypoints[i]); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				mr.logger.CDebugf(ctx, "calling kinematicBase.Stop due to %s\n", err)
@@ -258,7 +258,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				lookAheadDistanceMM,
 				mr.planRequest.Logger,
 			); err != nil {
-				mr.planRequest.Logger.Info(err.Error())
+				mr.planRequest.Logger.CInfo(ctx, err.Error())
 				return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
 			}
 		}

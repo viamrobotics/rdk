@@ -20,6 +20,8 @@ type Logger interface {
 	CDebug(ctx context.Context, args ...interface{})
 	CDebugf(ctx context.Context, template string, args ...interface{})
 	CDebugw(ctx context.Context, msg string, keysAndValues ...interface{})
+
+	CInfo(ctx context.Context, args ...interface{})
 }
 
 // ZapCompatibleLogger is a backwards compatibility layer for existing usages of the RDK as a
@@ -114,4 +116,8 @@ func (logger zLogger) CDebugf(ctx context.Context, template string, args ...inte
 
 func (logger zLogger) CDebugw(ctx context.Context, msg string, keysAndValues ...interface{}) {
 	logger.Debugw(msg, keysAndValues...)
+}
+
+func (logger zLogger) CInfo(ctx context.Context, args ...interface{}) {
+	logger.Info(args...)
 }

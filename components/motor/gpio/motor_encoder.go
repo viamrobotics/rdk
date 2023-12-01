@@ -53,7 +53,7 @@ func WrapMotorWithEncoder(
 	single, isSingle := e.(*single.Encoder)
 	if isSingle {
 		single.AttachDirectionalAwareness(mm)
-		logger.Info("direction attached to single encoder from encoded motor")
+		logger.CInfo(ctx, "direction attached to single encoder from encoded motor")
 	}
 
 	return mm, nil

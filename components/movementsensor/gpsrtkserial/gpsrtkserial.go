@@ -171,7 +171,7 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		g.logger.Infof("updated serial_baud_rate to %v", newConf.SerialBaudRate)
 	} else {
 		g.wbaud = 38400
-		g.logger.Info("serial_baud_rate using default baud rate 38400")
+		g.logger.CInfo(ctx, "serial_baud_rate using default baud rate 38400")
 	}
 
 	g.ntripconfigMu.Lock()

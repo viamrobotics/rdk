@@ -139,7 +139,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 	// Process the packages that are new or changed
 	changedPackages := m.validateAndGetChangedPackages(packages)
 	if len(changedPackages) > 0 {
-		m.logger.Info("Package changes have been detected, starting sync")
+		m.logger.CInfo(ctx, "Package changes have been detected, starting sync")
 	}
 
 	start := time.Now()

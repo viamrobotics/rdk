@@ -84,7 +84,7 @@ func MakePmtkI2cGpsNmea(
 	}
 	disableNmea := conf.DisableNMEA
 	if disableNmea {
-		logger.Info("SerialNMEAMovementSensor: NMEA reading disabled")
+		logger.CInfo(ctx, "SerialNMEAMovementSensor: NMEA reading disabled")
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())

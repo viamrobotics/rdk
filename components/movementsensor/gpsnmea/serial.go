@@ -58,12 +58,12 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 	baudRate := conf.SerialConfig.SerialBaudRate
 	if baudRate == 0 {
 		baudRate = 38400
-		logger.Info("SerialNMEAMovementSensor: serial_baud_rate using default 38400")
+		logger.CInfo(ctx, "SerialNMEAMovementSensor: serial_baud_rate using default 38400")
 	}
 
 	disableNmea := conf.DisableNMEA
 	if disableNmea {
-		logger.Info("SerialNMEAMovementSensor: NMEA reading disabled")
+		logger.CInfo(ctx, "SerialNMEAMovementSensor: NMEA reading disabled")
 	}
 	options := serial.OpenOptions{
 		PortName:        serialPath,

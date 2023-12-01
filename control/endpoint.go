@@ -41,7 +41,7 @@ func (e *endpoint) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 		return []*Signal{}, false
 	case 0:
 		if e.ctr != nil {
-			e.logger.Info("case 0")
+			e.logger.CInfo(ctx, "case 0")
 			vals, err := e.ctr.State(ctx)
 			if err != nil {
 				return []*Signal{}, false

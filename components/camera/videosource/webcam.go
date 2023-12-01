@@ -645,7 +645,7 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 		cameraIntrinsics, exists := data[dInfo.Name]
 		if !exists {
 			if !c.hasLoggedIntrinsicsInfo {
-				c.logger.Info("camera model not found in known camera models for: ", dInfo.Name, ". returning "+
+				c.logger.CInfo(ctx, "camera model not found in known camera models for: ", dInfo.Name, ". returning "+
 					"properties without intrinsics")
 				c.hasLoggedIntrinsicsInfo = true
 			}
@@ -654,7 +654,7 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 		if c.conf.Width != 0 {
 			if c.conf.Width != cameraIntrinsics.Width {
 				if !c.hasLoggedIntrinsicsInfo {
-					c.logger.Info("camera model found in known camera models for: ", dInfo.Name, " but "+
+					c.logger.CInfo(ctx, "camera model found in known camera models for: ", dInfo.Name, " but "+
 						"intrinsics width doesn't match configured image width")
 					c.hasLoggedIntrinsicsInfo = true
 				}
@@ -664,7 +664,7 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 		if c.conf.Height != 0 {
 			if c.conf.Height != cameraIntrinsics.Height {
 				if !c.hasLoggedIntrinsicsInfo {
-					c.logger.Info("camera model found in known camera models for: ", dInfo.Name, " but "+
+					c.logger.CInfo(ctx, "camera model found in known camera models for: ", dInfo.Name, " but "+
 						"intrinsics height doesn't match configured image height")
 					c.hasLoggedIntrinsicsInfo = true
 				}
@@ -672,7 +672,7 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 			}
 		}
 		if !c.hasLoggedIntrinsicsInfo {
-			c.logger.Info("Intrinsics are known for camera model: ", dInfo.Name, ". adding intrinsics "+
+			c.logger.CInfo(ctx, "Intrinsics are known for camera model: ", dInfo.Name, ". adding intrinsics "+
 				"to camera properties")
 			c.hasLoggedIntrinsicsInfo = true
 		}
