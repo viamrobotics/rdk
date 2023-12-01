@@ -269,6 +269,12 @@ func (imp *impl) Infow(msg string, keysAndValues ...interface{}) {
 	}
 }
 
+func (imp *impl) CInfow(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	if imp.shouldLog(INFO) {
+		imp.log(imp.formatw(INFO, msg, keysAndValues...))
+	}
+}
+
 func (imp *impl) Warn(args ...interface{}) {
 	if imp.shouldLog(WARN) {
 		imp.log(imp.format(WARN, args...))

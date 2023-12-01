@@ -130,7 +130,7 @@ func mainWithArgs(ctx context.Context, _ []string, logger logging.Logger) error 
 				} else if pctCovered == covResults[pkgName].LineCoveragePct {
 					continue
 				}
-				logger.Infow(
+				logger.CInfow(ctx, 
 					"multiple coverage profiles for package; taking higher...",
 					"package", pkgName,
 					"prev", covResults[pkgName].LineCoveragePct,

@@ -80,7 +80,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		versionFields = append(versionFields, "git_rev", config.GitRevision)
 	}
 	if len(versionFields) != 0 {
-		logger.Infow("Viam RDK", versionFields...)
+		logger.CInfow(ctx, "Viam RDK", versionFields...)
 	} else {
 		logger.CInfo(ctx, "Viam RDK built from source; version unknown")
 	}
@@ -319,7 +319,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 				mustRestart, newRestartInterval, err := restartCheck.needsRestart(ctx)
 				if err != nil {
-					s.logger.Infow("failed to check restart", "error", err)
+					s.logger.CInfow(ctx, "failed to check restart", "error", err)
 					continue
 				}
 

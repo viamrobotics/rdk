@@ -146,6 +146,6 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		}()
 	})
 
-	logger.Infow("serving", "address", listener.Addr().String())
+	logger.CInfow(ctx, "serving", "address", listener.Addr().String())
 	return httpServer.Serve(listener)
 }

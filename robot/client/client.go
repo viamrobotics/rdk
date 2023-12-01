@@ -452,12 +452,12 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 			return
 		}
 		if !rc.connected.Load() {
-			rc.Logger().Infow("trying to reconnect to remote at address", "address", rc.address)
+			rc.Logger().CInfow(ctx, "trying to reconnect to remote at address", "address", rc.address)
 			if err := rc.connect(ctx); err != nil {
 				rc.Logger().Errorw("failed to reconnect remote", "error", err, "address", rc.address)
 				continue
 			}
-			rc.Logger().Infow("successfully reconnected remote at address", "address", rc.address)
+			rc.Logger().CInfow(ctx, "successfully reconnected remote at address", "address", rc.address)
 		} else {
 			check := func() error {
 				if refresh {

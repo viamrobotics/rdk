@@ -651,7 +651,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 			mgr.removeOrphanedResources(ctx, orphanedResourceNames)
 		}
 
-		mgr.logger.Infow("module successfully restarted", "module", mod.cfg.Name)
+		mgr.logger.CInfow(ctx, "module successfully restarted", "module", mod.cfg.Name)
 		return false
 	}
 }

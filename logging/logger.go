@@ -23,6 +23,7 @@ type Logger interface {
 
 	CInfo(ctx context.Context, args ...interface{})
 	CInfof(ctx context.Context, template string, args ...interface{})
+	CInfow(ctx context.Context, msg string, keysAndValues ...interface{})
 }
 
 // ZapCompatibleLogger is a backwards compatibility layer for existing usages of the RDK as a
@@ -125,4 +126,8 @@ func (logger zLogger) CInfo(ctx context.Context, args ...interface{}) {
 
 func (logger zLogger) CInfof(ctx context.Context, template string, args ...interface{}) {
 	logger.Infof(template, args...)
+}
+
+func (logger zLogger) CInfow(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	logger.Infow(msg, keysAndValues...)
 }

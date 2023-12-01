@@ -594,7 +594,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		localURL := fmt.Sprintf("%s://%s:%d", scheme, options.LocalFQDN, listenerTCPAddr.Port)
 		urlFields = append(urlFields, "url", localURL, "alt_url", listenerURL)
 	}
-	svc.logger.Infow("serving", urlFields...)
+	svc.logger.CInfow(ctx, "serving", urlFields...)
 
 	svc.webWorkers.Add(1)
 	utils.PanicCapturingGo(func() {

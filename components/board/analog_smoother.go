@@ -116,7 +116,7 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 				if errors.Is(err, errStopReading) {
 					break
 				}
-				as.logger.Infow("error reading analog", "error", err)
+				as.logger.CInfow(ctx, "error reading analog", "error", err)
 				continue
 			}
 
