@@ -407,7 +407,7 @@ func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context) error {
 		return err
 	}
 
-	robotID := cCtx.String(apiKeyFlagRobotID)
+	robotID := cCtx.String(apiKeyFlagMachineID)
 	keyName := cCtx.String(apiKeyCreateFlagName)
 	orgID := cCtx.String(dataFlagOrgID)
 

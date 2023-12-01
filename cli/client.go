@@ -158,7 +158,7 @@ func RobotsStatusAction(c *cli.Context) error {
 
 	orgStr := c.String(organizationFlag)
 	locStr := c.String(locationFlag)
-	robot, err := client.robot(orgStr, locStr, c.String(robotFlag))
+	robot, err := client.robot(orgStr, locStr, c.String(machineFlag))
 	if err != nil {
 		return err
 	}
@@ -213,7 +213,7 @@ func RobotsLogsAction(c *cli.Context) error {
 
 	orgStr := c.String(organizationFlag)
 	locStr := c.String(locationFlag)
-	robotStr := c.String(robotFlag)
+	robotStr := c.String(machineFlag)
 	robot, err := client.robot(orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get robot")
@@ -257,7 +257,7 @@ func RobotsPartStatusAction(c *cli.Context) error {
 
 	orgStr := c.String(organizationFlag)
 	locStr := c.String(locationFlag)
-	robotStr := c.String(robotFlag)
+	robotStr := c.String(machineFlag)
 	robot, err := client.robot(orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get robot")
@@ -297,7 +297,7 @@ func RobotsPartLogsAction(c *cli.Context) error {
 
 	orgStr := c.String(organizationFlag)
 	locStr := c.String(locationFlag)
-	robotStr := c.String(robotFlag)
+	robotStr := c.String(machineFlag)
 	robot, err := client.robot(orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get robot")
@@ -344,7 +344,7 @@ func RobotsPartRunAction(c *cli.Context) error {
 	return client.runRobotPartCommand(
 		c.String(organizationFlag),
 		c.String(locationFlag),
-		c.String(robotFlag),
+		c.String(machineFlag),
 		c.String(partFlag),
 		svcMethod,
 		c.String(runFlagData),
@@ -372,7 +372,7 @@ func RobotsPartShellAction(c *cli.Context) error {
 	return client.startRobotPartShell(
 		c.String(organizationFlag),
 		c.String(locationFlag),
-		c.String(robotFlag),
+		c.String(machineFlag),
 		c.String(partFlag),
 		c.Bool(debugFlag),
 		logger,

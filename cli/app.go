@@ -14,7 +14,8 @@ const (
 	debugFlag        = "debug"
 	organizationFlag = "organization"
 	locationFlag     = "location"
-	robotFlag        = "robot"
+	machineFlag      = "machine"
+	aliasRobotFlag   = "robot"
 	partFlag         = "part"
 
 	logsFlagErrors = "errors"
@@ -23,10 +24,11 @@ const (
 	runFlagData   = "data"
 	runFlagStream = "stream"
 
-	apiKeyCreateFlagOrgID = "org-id"
-	apiKeyCreateFlagName  = "name"
-	apiKeyFlagRobotID     = "robot-id"
-	apiKeyFlagLocationID  = "location-id"
+	apiKeyCreateFlagOrgID  = "org-id"
+	apiKeyCreateFlagName   = "name"
+	apiKeyFlagMachineID    = "machine-id"
+	apiKeyFlagAliasRobotID = "robot-id"
+	apiKeyFlagLocationID   = "location-id"
 
 	loginFlagDisableBrowser = "disable-browser-open"
 	loginFlagKeyID          = "key-id"
@@ -51,9 +53,11 @@ const (
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
 	dataFlagLocationIDs                    = "location-ids"
-	dataFlagRobotID                        = "robot-id"
+	dataFlagMachineID                      = "machine-id"
+	dataFlagAliasRobotID                   = "robot-id"
 	dataFlagPartID                         = "part-id"
-	dataFlagRobotName                      = "robot-name"
+	dataFlagMachineName                    = "machine-name"
+	dataFlagAliasRobotName                 = "robot-name"
 	dataFlagPartName                       = "part-name"
 	dataFlagComponentType                  = "component-type"
 	dataFlagComponentName                  = "component-name"
@@ -75,7 +79,7 @@ const (
 
 var app = &cli.App{
 	Name:            "viam",
-	Usage:           "interact with your Viam robots",
+	Usage:           "interact with your Viam machines",
 	HideHelpCommand: true,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
@@ -249,16 +253,18 @@ var app = &cli.App{
 							Usage: "locations filter",
 						},
 						&cli.StringFlag{
-							Name:  dataFlagRobotID,
-							Usage: "robot id filter",
+							Name:    dataFlagMachineID,
+							Aliases: []string{dataFlagAliasRobotID},
+							Usage:   "machine id filter",
 						},
 						&cli.StringFlag{
 							Name:  dataFlagPartID,
 							Usage: "part id filter",
 						},
 						&cli.StringFlag{
-							Name:  dataFlagRobotName,
-							Usage: "robot name filter",
+							Name:    dataFlagMachineName,
+							Aliases: []string{dataFlagAliasRobotName},
+							Usage:   "machine name filter",
 						},
 						&cli.StringFlag{
 							Name:  dataFlagPartName,
@@ -325,16 +331,18 @@ var app = &cli.App{
 									Usage: "locations filter",
 								},
 								&cli.StringFlag{
-									Name:  dataFlagRobotID,
-									Usage: "robot id filter",
+									Name:    dataFlagMachineID,
+									Aliases: []string{dataFlagAliasRobotID},
+									Usage:   "machine id filter",
 								},
 								&cli.StringFlag{
 									Name:  dataFlagPartID,
 									Usage: "part id filter",
 								},
 								&cli.StringFlag{
-									Name:  dataFlagRobotName,
-									Usage: "robot name filter",
+									Name:    dataFlagMachineName,
+									Aliases: []string{dataFlagAliasRobotName},
+									Usage:   "machine name filter",
 								},
 								&cli.StringFlag{
 									Name:  dataFlagPartName,
@@ -483,16 +491,18 @@ var app = &cli.App{
 											Usage: "locations filter",
 										},
 										&cli.StringFlag{
-											Name:  dataFlagRobotID,
-											Usage: "robot id filter",
+											Name:    dataFlagMachineID,
+											Aliases: []string{dataFlagAliasRobotID},
+											Usage:   "machine id filter",
 										},
 										&cli.StringFlag{
 											Name:  dataFlagPartID,
 											Usage: "part id filter",
 										},
 										&cli.StringFlag{
-											Name:  dataFlagRobotName,
-											Usage: "robot name filter",
+											Name:    dataFlagMachineName,
+											Aliases: []string{dataFlagAliasRobotName},
+											Usage:   "machine name filter",
 										},
 										&cli.StringFlag{
 											Name:  dataFlagPartName,
@@ -739,14 +749,14 @@ var app = &cli.App{
 			},
 		},
 		{
-			Name:            "robots",
-			Aliases:         []string{"robot"},
-			Usage:           "work with robots",
+			Name:            "machines",
+			Aliases:         []string{"machine", "robots", "robot"},
+			Usage:           "work with machines",
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
 					Name:  "list",
-					Usage: "list robots in an organization and location",
+					Usage: "list machines in an organization and location",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        organizationFlag,
@@ -761,16 +771,17 @@ var app = &cli.App{
 				},
 				{
 					Name:  "api-key",
-					Usage: "work with a robot's api keys",
+					Usage: "work with a machine's api keys",
 					Subcommands: []*cli.Command{
 						{
 							Name:  "create",
-							Usage: "create an api-key for your robot",
+							Usage: "create an api-key for your machine",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     apiKeyFlagRobotID,
+									Name:     apiKeyFlagMachineID,
+									Aliases:  []string{apiKeyFlagAliasRobotID},
 									Required: true,
-									Usage:    "the robot to create an api-key for",
+									Usage:    "the machine to create an api-key for",
 								},
 								&cli.StringFlag{
 									Name:  apiKeyCreateFlagName,
@@ -779,7 +790,7 @@ var app = &cli.App{
 								&cli.StringFlag{
 									Name: apiKeyCreateFlagOrgID,
 									Usage: "the org-id to attach this api-key to. If not provided," +
-										"we will attempt to use the org attached to the robot if only one exists",
+										"we will attempt to use the org attached to the machine if only one exists",
 								},
 							},
 							Action: RobotAPIKeyCreateAction,
@@ -788,8 +799,8 @@ var app = &cli.App{
 				},
 				{
 					Name:      "status",
-					Usage:     "display robot status",
-					UsageText: "viam robots status <robot> [other options]",
+					Usage:     "display machine status",
+					UsageText: "viam machines status <machine> [other options]",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        organizationFlag,
@@ -800,7 +811,8 @@ var app = &cli.App{
 							DefaultText: "first location alphabetically",
 						},
 						&cli.StringFlag{
-							Name:     robotFlag,
+							Name:     machineFlag,
+							Aliases:  []string{aliasRobotFlag},
 							Required: true,
 						},
 					},
@@ -808,8 +820,8 @@ var app = &cli.App{
 				},
 				{
 					Name:      "logs",
-					Usage:     "display robot logs",
-					UsageText: "viam robots logs <robot> [other options]",
+					Usage:     "display machine logs",
+					UsageText: "viam machines logs <machine> [other options]",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        organizationFlag,
@@ -820,7 +832,8 @@ var app = &cli.App{
 							DefaultText: "first location alphabetically",
 						},
 						&cli.StringFlag{
-							Name:     robotFlag,
+							Name:     machineFlag,
+							Aliases:  []string{aliasRobotFlag},
 							Required: true,
 						},
 						&cli.BoolFlag{
@@ -832,13 +845,13 @@ var app = &cli.App{
 				},
 				{
 					Name:            "part",
-					Usage:           "work with a robot part",
+					Usage:           "work with a machine part",
 					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
 						{
 							Name:      "status",
 							Usage:     "display part status",
-							UsageText: "viam robots part status <robot> <part> [other options]",
+							UsageText: "viam machines part status <machine> <part> [other options]",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:        organizationFlag,
@@ -849,7 +862,8 @@ var app = &cli.App{
 									DefaultText: "first location alphabetically",
 								},
 								&cli.StringFlag{
-									Name:     robotFlag,
+									Name:     machineFlag,
+									Aliases:  []string{aliasRobotFlag},
 									Required: true,
 								},
 								&cli.StringFlag{
@@ -862,7 +876,7 @@ var app = &cli.App{
 						{
 							Name:      "logs",
 							Usage:     "display part logs",
-							UsageText: "viam robots part logs <robot> <part> [other options]",
+							UsageText: "viam machines part logs <machine> <part> [other options]",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:        organizationFlag,
@@ -873,7 +887,8 @@ var app = &cli.App{
 									DefaultText: "first location alphabetically",
 								},
 								&cli.StringFlag{
-									Name:     robotFlag,
+									Name:     machineFlag,
+									Aliases:  []string{aliasRobotFlag},
 									Required: true,
 								},
 								&cli.StringFlag{
@@ -894,8 +909,8 @@ var app = &cli.App{
 						},
 						{
 							Name:      "run",
-							Usage:     "run a command on a robot part",
-							UsageText: "viam robots part run <organization> <location> <robot> <part> [other options] <service.method>",
+							Usage:     "run a command on a machine part",
+							UsageText: "viam machines part run <organization> <location> <machine> <part> [other options] <service.method>",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     organizationFlag,
@@ -906,7 +921,8 @@ var app = &cli.App{
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:     robotFlag,
+									Name:     machineFlag,
+									Aliases:  []string{aliasRobotFlag},
 									Required: true,
 								},
 								&cli.StringFlag{
@@ -926,9 +942,9 @@ var app = &cli.App{
 						},
 						{
 							Name:        "shell",
-							Usage:       "start a shell on a robot part",
-							Description: `In order to use the shell command, the robot must have a valid shell type service.`,
-							UsageText:   "viam robots part shell <organization> <location> <robot> <part>",
+							Usage:       "start a shell on a machine part",
+							Description: `In order to use the shell command, the machine must have a valid shell type service.`,
+							UsageText:   "viam machines part shell <organization> <location> <machine> <part>",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     organizationFlag,
@@ -939,7 +955,8 @@ var app = &cli.App{
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:     robotFlag,
+									Name:     machineFlag,
+									Aliases:  []string{aliasRobotFlag},
 									Required: true,
 								},
 								&cli.StringFlag{

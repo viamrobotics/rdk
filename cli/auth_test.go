@@ -78,7 +78,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 
 	flags := make(map[string]string)
 	flags[apiKeyCreateFlagOrgID] = fakeOrgID
-	flags[apiKeyFlagRobotID] = fakeRobotID
+	flags[apiKeyFlagMachineID] = fakeRobotID
 	flags[apiKeyCreateFlagName] = "my-name"
 	cCtx, ac, out, errOut := setup(asc, nil, nil, &flags, "token")
 
@@ -113,8 +113,8 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	test.That(t, allMessages, test.ShouldContainSubstring, "Key Value: key-yyy")
 
 	// test without a robot ID should fail
-	cCtx.Set(apiKeyFlagRobotID, "")
-	test.That(t, cCtx.Value(apiKeyFlagRobotID), test.ShouldEqual, "")
+	cCtx.Set(apiKeyFlagMachineID, "")
+	test.That(t, cCtx.Value(apiKeyFlagMachineID), test.ShouldEqual, "")
 	err := ac.robotAPIKeyCreateAction(cCtx)
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -132,7 +132,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	}
 
 	flags = make(map[string]string)
-	flags[apiKeyFlagRobotID] = fakeRobotID
+	flags[apiKeyFlagMachineID] = fakeRobotID
 	flags[apiKeyCreateFlagOrgID] = ""
 	flags[apiKeyCreateFlagName] = "test-me"
 	cCtx, ac, out, _ = setup(asc, nil, nil, &flags, "token")
