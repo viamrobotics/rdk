@@ -590,9 +590,6 @@ func (mgr *Manager) CleanModuleDataDirectory() error {
 }
 
 var (
-	// oueTimeout is the length of time for which an OnUnexpectedExit function
-	// can execute blocking calls.
-	oueTimeout = 2 * time.Minute
 	// oueRestartInterval is the interval of time at which an OnUnexpectedExit
 	// function can attempt to restart the module process. Multiple restart
 	// attempts will use basic backoff.
@@ -612,10 +609,6 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		mod.inStartup.Store(true)
 		defer mod.inStartup.Store(false)
 
-		// Use oueTimeout for entire attempted module restart.
-		ctx, cancel := context.WithTimeout(mgr.restartCtx, oueTimeout)
-		defer cancel()
-
 		// Log error immediately, as this is unexpected behavior.
 		mgr.logger.Errorw(
 			"module has unexpectedly exited, attempting to restart it",
@@ -627,9 +620,9 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		// and we should remove orphaned resources. Since we handle process
 		// restarting ourselves, return false here so goutils knows not to attempt
 		// a process restart.
-		if orphanedResourceNames := mgr.attemptRestart(ctx, mod); orphanedResourceNames != nil {
+		if orphanedResourceNames := mgr.attemptRestart(mgr.restartCtx, mod); orphanedResourceNames != nil {
 			if mgr.removeOrphanedResources != nil {
-				mgr.removeOrphanedResources(ctx, orphanedResourceNames)
+				mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 			}
 			return false
 		}
@@ -639,7 +632,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		// Finally, handle orphaned resources.
 		var orphanedResourceNames []resource.Name
 		for name, res := range mod.resources {
-			if _, err := mgr.addResource(ctx, res.conf, res.deps); err != nil {
+			if _, err := mgr.addResource(mgr.restartCtx, res.conf, res.deps); err != nil {
 				mgr.logger.Warnw("error while re-adding resource to module",
 					"resource", name, "module", mod.cfg.Name, "error", err)
 				delete(mgr.rMap, name)
@@ -648,7 +641,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 			}
 		}
 		if mgr.removeOrphanedResources != nil {
-			mgr.removeOrphanedResources(ctx, orphanedResourceNames)
+			mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 		}
 
 		mgr.logger.Infow("module successfully restarted", "module", mod.cfg.Name)
