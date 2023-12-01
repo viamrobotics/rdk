@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -216,7 +217,7 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger logging.Logg
 					if err := cancelCtx.Err(); err != nil {
 						return
 					}
-					logger.Debug("attempting to reconnect to ur arm dashboard")
+					logger.CDebug(ctx, "attempting to reconnect to ur arm dashboard")
 					time.Sleep(1 * time.Second)
 					connDashboard, err = d.DialContext(cancelCtx, "tcp", newArm.host+":29999")
 					if err == nil {
@@ -260,7 +261,7 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger logging.Logg
 					if err := cancelCtx.Err(); err != nil {
 						return
 					}
-					logger.Debug("attempting to reconnect to ur arm 30011")
+					logger.CDebug(ctx, "attempting to reconnect to ur arm 30011")
 					connReadRobotState, err = d.DialContext(cancelCtx, "tcp", newArm.host+":30011")
 					if err == nil {
 						newArm.mu.Lock()
@@ -653,7 +654,7 @@ func reader(ctx context.Context, conn net.Conn, ua *URArm, onHaveData func()) er
 		case 24: // SAFETY_COMPLIANCE_TOLERANCES_MESSAGE
 		case 25: // PROGRAM_STATE_MESSAGE
 			if len(buf) != 12 {
-				ua.logger.Debug("got bad PROGRAM_STATE_MESSAGE ??")
+				ua.logger.CDebug(ctx, "got bad PROGRAM_STATE_MESSAGE ??")
 			} else {
 				a := binary.BigEndian.Uint32(buf[1:])
 				b := buf[9]

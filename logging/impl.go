@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -186,8 +187,30 @@ func (imp *impl) formatw(logLevel Level, msg string, keysAndValues ...interface{
 	return logEntry
 }
 
+type debugModeType int
+
+const debugModeID = debugModeType(iota)
+
+func debugMode(ctx context.Context) bool {
+	isDebug, ok := ctx.Value(debugModeID).(bool)
+	if !ok {
+		return false
+	}
+	return isDebug
+}
+
+func enableDebugMode(ctx context.Context) context.Context {
+	return context.WithValue(ctx, debugModeID, true)
+}
+
 func (imp *impl) Debug(args ...interface{}) {
 	if imp.shouldLog(DEBUG) {
+		imp.log(imp.format(DEBUG, args...))
+	}
+}
+
+func (imp *impl) CDebug(ctx context.Context, args ...interface{}) {
+	if imp.shouldLog(DEBUG) || debugMode(ctx) {
 		imp.log(imp.format(DEBUG, args...))
 	}
 }

@@ -53,7 +53,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
 	tp.algOpts.pathdebug = printPath
 	if tp.algOpts.pathdebug {
-		tp.logger.Debug("$type,X,Y")
+		tp.logger.CDebug(ctx, "$type,X,Y")
 		tp.logger.Debugf("$SG,%f,%f\n", 0., 0.)
 		tp.logger.Debugf("$SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
 	}
@@ -139,7 +139,7 @@ func TestPtgPosOnlyUnidirectional(t *testing.T) {
 
 	tp.algOpts.pathdebug = printPath
 	if tp.algOpts.pathdebug {
-		tp.logger.Debug("$type,X,Y")
+		tp.logger.CDebug(ctx, "$type,X,Y")
 		tp.logger.Debugf("$SG,%f,%f\n", 0., 0.)
 		tp.logger.Debugf("$SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
 	}
@@ -260,7 +260,7 @@ func TestPtgWithObstacle(t *testing.T) {
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
 	tp.algOpts.pathdebug = printPath
 	if tp.algOpts.pathdebug {
-		tp.logger.Debug("$type,X,Y")
+		tp.logger.CDebug(ctx, "$type,X,Y")
 		for _, geom := range geoms {
 			pts := geom.ToPoints(1.)
 			for _, pt := range pts {

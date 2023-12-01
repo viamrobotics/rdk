@@ -279,11 +279,11 @@ func (mp *planner) opt() *plannerOptions {
 func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 	mp.logger.Debugf("running simple smoother on path of len %d", len(path))
 	if mp.planOpts == nil {
-		mp.logger.Debug("nil opts, cannot shortcut")
+		mp.logger.CDebug(ctx, "nil opts, cannot shortcut")
 		return path
 	}
 	if len(path) <= 2 {
-		mp.logger.Debug("path too short, cannot shortcut")
+		mp.logger.CDebug(ctx, "path too short, cannot shortcut")
 		return path
 	}
 

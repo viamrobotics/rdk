@@ -1,6 +1,8 @@
 package logging
 
 import (
+	"context"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -14,6 +16,8 @@ type Logger interface {
 	Sublogger(subname string) Logger
 	AddAppender(appender Appender)
 	AsZap() *zap.SugaredLogger
+
+	CDebug(ctx context.Context, args ...interface{})
 }
 
 // ZapCompatibleLogger is a backwards compatibility layer for existing usages of the RDK as a
@@ -96,4 +100,8 @@ func (logger *zLogger) AsZap() *zap.SugaredLogger {
 
 func (logger zLogger) Sublogger(name string) Logger {
 	return &zLogger{logger.AsZap().Named(name)}
+}
+
+func (logger zLogger) CDebug(ctx context.Context, args ...interface{}) {
+	logger.Debug(args...)
 }

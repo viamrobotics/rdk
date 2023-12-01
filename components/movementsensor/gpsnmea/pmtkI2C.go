@@ -126,7 +126,7 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 
 	err = handle.Write(ctx, cmd251)
 	if err != nil {
-		g.logger.Debug("Failed to set baud rate")
+		g.logger.CDebug(ctx, "Failed to set baud rate")
 	}
 	err = handle.Write(ctx, cmd314)
 	if err != nil {
@@ -207,7 +207,7 @@ func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (buses.I2C, byte) {
 	return g.bus, g.addr
 }
 
-//nolint
+// nolint
 // Position returns the current geographic location of the MovementSensor.
 func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	lastPosition := g.lastPosition.GetLastPosition()

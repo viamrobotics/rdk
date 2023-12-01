@@ -351,7 +351,7 @@ func (c *monitoredWebcam) Reconfigure(
 		c.conf = *newConf
 		return nil
 	}
-	c.logger.Debug("reinitializing driver")
+	c.logger.CDebug(ctx, "reinitializing driver")
 
 	c.targetPath = newConf.Path
 	if err := c.reconnectCamera(newConf); err != nil {

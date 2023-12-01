@@ -350,7 +350,7 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.Logger.Debug("Motor Stopped")
+	m.Logger.CDebug(ctx, "Motor Stopped")
 	m.setPowerPct(0.0)
 	if m.Encoder != nil {
 		err := m.Encoder.SetSpeed(ctx, 0.0)

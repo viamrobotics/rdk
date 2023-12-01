@@ -40,7 +40,7 @@ func TestRTSPCamera(t *testing.T) {
 		req, err := conx.ReadRequest()
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, req.Method, test.ShouldEqual, base.Options)
-		logger.Debug("in options")
+		logger.CDebug(ctx, "in options")
 		err = conx.WriteResponse(&base.Response{
 			StatusCode: base.StatusOK,
 			Header: base.Header{
@@ -57,7 +57,7 @@ func TestRTSPCamera(t *testing.T) {
 		req, err = conx.ReadRequest()
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, req.Method, test.ShouldEqual, base.Describe)
-		logger.Debug("in describe")
+		logger.CDebug(ctx, "in describe")
 		testMJPEG := &media.Media{
 			Type:      media.TypeVideo,
 			Direction: media.DirectionRecvonly,
@@ -81,7 +81,7 @@ func TestRTSPCamera(t *testing.T) {
 		req, err = conx.ReadRequest()
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, req.Method, test.ShouldEqual, base.Setup)
-		logger.Debug("in setup")
+		logger.CDebug(ctx, "in setup")
 		var inTH headers.Transport
 		err = inTH.Unmarshal(req.Header["Transport"])
 		test.That(t, err, test.ShouldBeNil)
@@ -108,7 +108,7 @@ func TestRTSPCamera(t *testing.T) {
 		req, err = conx.ReadRequest()
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, req.Method, test.ShouldEqual, base.Play)
-		logger.Debug("in play")
+		logger.CDebug(ctx, "in play")
 		err = conx.WriteResponse(&base.Response{
 			StatusCode: base.StatusOK,
 			Header: base.Header{

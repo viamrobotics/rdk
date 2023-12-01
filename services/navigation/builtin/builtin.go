@@ -496,7 +496,7 @@ func (svc *builtIn) Close(ctx context.Context) error {
 }
 
 func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]interface{}) {
-	svc.logger.Debug("startWaypointMode called")
+	svc.logger.CDebug(ctx, "startWaypointMode called")
 	if extra == nil {
 		if false {
 			extra = map[string]interface{}{"motion_profile": "position_only"}
@@ -527,7 +527,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 				return errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
 			}
 
-			svc.logger.Debug("MoveOnGlobe succeeded")
+			svc.logger.CDebug(ctx, "MoveOnGlobe succeeded")
 			return svc.waypointReached(ctx)
 		}
 

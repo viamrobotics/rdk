@@ -14,7 +14,7 @@ import (
 const defaultDistanceMM = 100 * 1000
 
 func (svc *builtIn) startExploreMode(ctx context.Context) {
-	svc.logger.Debug("startExploreMode called")
+	svc.logger.CDebug(ctx, "startExploreMode called")
 
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {

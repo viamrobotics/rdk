@@ -119,7 +119,7 @@ func (s *sht3xd) Readings(ctx context.Context, extra map[string]interface{}) (ma
 		}
 		err = handle.Write(ctx, []byte{sht3xdCOMMANDPOLLINGH1, sht3xdCOMMANDPOLLINGH2})
 		if err != nil {
-			s.logger.Debug("Failed to request temperature")
+			s.logger.CDebug(ctx, "Failed to request temperature")
 			return nil, multierr.Append(err, handle.Close())
 		}
 		buffer, err := handle.Read(ctx, 2)

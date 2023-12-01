@@ -352,7 +352,7 @@ func (pm *planManager) planParallelRRTMotion(
 	// publish endpoint of plan if it is known
 	var nextSeed node
 	if len(maps.goalMap) == 1 {
-		pm.logger.Debug("only one IK solution, returning endpoint preview")
+		pm.logger.CDebug(ctx, "only one IK solution, returning endpoint preview")
 		for key := range maps.goalMap {
 			nextSeed = key
 		}

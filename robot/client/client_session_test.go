@@ -333,10 +333,10 @@ func TestClientSessionExpiration(t *testing.T) {
 
 				sessMgr.mu.Lock()
 				sessMgr.StartFunc = func(ctx context.Context, ownerID string) (*session.Session, error) {
-					logger.Debug("start session requested")
+					logger.CDebug(ctx, "start session requested")
 					capMu.Lock()
 					if startCalled != 0 && findCalled < 5 {
-						logger.Debug("premature start session")
+						logger.CDebug(ctx, "premature start session")
 						return nil, errors.New("premature restart")
 					}
 					startCalled++
@@ -346,7 +346,7 @@ func TestClientSessionExpiration(t *testing.T) {
 
 					// like a restart
 					sessMgr.expired = false
-					logger.Debug("start session started")
+					logger.CDebug(ctx, "start session started")
 					return sess, nil
 				}
 				sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
@@ -354,12 +354,12 @@ func TestClientSessionExpiration(t *testing.T) {
 					findCalled++
 					if startCalled == 1 && findCalled >= 5 { // expired until restart
 						capMu.Unlock()
-						logger.Debug("enough heartbeats once; expire the session")
+						logger.CDebug(ctx, "enough heartbeats once; expire the session")
 						return nil, session.ErrNoSession
 					}
 					if startCalled == 2 && findCalled >= 5 { // expired until restart
 						capMu.Unlock()
-						logger.Debug("enough heartbeats twice; expire the session")
+						logger.CDebug(ctx, "enough heartbeats twice; expire the session")
 						return nil, session.ErrNoSession
 					}
 					sess := sessions[startCalled-1]
@@ -404,7 +404,7 @@ func TestClientSessionExpiration(t *testing.T) {
 				test.That(t, startCalled, test.ShouldEqual, 1)
 				capMu.Unlock()
 
-				logger.Debug("now call status which should work with a restarted session")
+				logger.CDebug(ctx, "now call status which should work with a restarted session")
 				resp, err = roboClient.Status(nextCtx, []resource.Name{})
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, len(resp), test.ShouldEqual, 0)
@@ -508,7 +508,7 @@ func TestClientSessionResume(t *testing.T) {
 
 				sessMgr.mu.Lock()
 				sessMgr.StartFunc = func(ctx context.Context, ownerID string) (*session.Session, error) {
-					logger.Debug("start session requested")
+					logger.CDebug(ctx, "start session requested")
 					capMu.Lock()
 					startCalled++
 					findCalled = 0

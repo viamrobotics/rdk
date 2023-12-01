@@ -143,7 +143,7 @@ func (b *myBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra 
 
 // Stop halts motion.
 func (b *myBase) Stop(ctx context.Context, extra map[string]interface{}) error {
-	b.logger.Debug("Stop")
+	b.logger.CDebug(ctx, "Stop")
 	err1 := b.left.Stop(ctx, extra)
 	err2 := b.right.Stop(ctx, extra)
 	return multierr.Combine(err1, err2)

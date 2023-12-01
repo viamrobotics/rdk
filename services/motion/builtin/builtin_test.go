@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -607,7 +608,7 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	test.That(t, success, test.ShouldNotBeNil)
 	endPos, err := kb.CurrentPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))
+	logger.CDebug(ctx, spatialmath.PoseToProtobuf(endPos.Pose()))
 	test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal1BaseFrame, 10), test.ShouldBeTrue)
 
 	// Now, we try to go to the second goal. Since the `CurrentPosition` of our base is at `goal1`, the pose that motion solves for and
@@ -623,7 +624,7 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	test.That(t, success, test.ShouldNotBeNil)
 	endPos, err = kb.CurrentPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))
+	logger.CDebug(ctx, spatialmath.PoseToProtobuf(endPos.Pose()))
 	test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal2BaseFrame, 1), test.ShouldBeTrue)
 
 	// We don't actually surface the internal motion planning goal; we report to the user in terms of what the user provided us.

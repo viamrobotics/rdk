@@ -404,11 +404,11 @@ func newWithResources(
 			if !errors.Is(err, context.DeadlineExceeded) {
 				return nil, err
 			}
-			r.logger.Debug("Using no-op PackageManager when internet not available")
+			r.logger.CDebug(ctx, "Using no-op PackageManager when internet not available")
 			r.packageManager = packages.NewNoopManager()
 		}
 	} else {
-		r.logger.Debug("Using no-op PackageManager when Cloud config is not available")
+		r.logger.CDebug(ctx, "Using no-op PackageManager when Cloud config is not available")
 		r.packageManager = packages.NewNoopManager()
 	}
 

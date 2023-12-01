@@ -231,7 +231,7 @@ func (m *cloudManager) packageIsManaged(p config.PackageConfig) bool {
 
 // Cleanup removes all unknown packages from the working directory.
 func (m *cloudManager) Cleanup(ctx context.Context) error {
-	m.logger.Debug("Starting package cleanup")
+	m.logger.CDebug(ctx, "Starting package cleanup")
 
 	// Only allow one rdk process to operate on the manager at once. This is generally safe to keep locked for an extended period of time
 	// since the config reconfiguration process is handled by a single thread.
@@ -276,7 +276,7 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 			}
 			_, expectedToExist := expectedPackageDirectories[packageDirName]
 			if !expectedToExist {
-				m.logger.Debug("Removing old package", packageDirName)
+				m.logger.CDebug(ctx, "Removing old package", packageDirName)
 				allErrors = multierr.Append(allErrors, os.RemoveAll(packageDirName))
 			}
 		}
@@ -355,7 +355,7 @@ func sanitizeURLForLogs(u string) string {
 func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config.PackageConfig) error {
 	// TODO(): validate integrity of directory.
 	if dirExists(p.LocalDataDirectory(m.packagesDir)) {
-		m.logger.Debug("Package already downloaded, skipping.")
+		m.logger.CDebug(ctx, "Package already downloaded, skipping.")
 		return nil
 	}
 
@@ -366,7 +366,7 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 
 	// Force redownload of package archive.
 	if err := m.cleanup(p); err != nil {
-		m.logger.Debug(err)
+		m.logger.CDebug(ctx, err)
 	}
 
 	if p.Type == config.PackageTypeMlModel {
@@ -398,10 +398,10 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 	defer func() {
 		// cleanup archive file.
 		if err := os.Remove(p.LocalDownloadPath(m.packagesDir)); err != nil {
-			m.logger.Debug(err)
+			m.logger.CDebug(ctx, err)
 		}
 		if err := os.RemoveAll(tmpDataPath); err != nil {
-			m.logger.Debug(err)
+			m.logger.CDebug(ctx, err)
 		}
 	}()
 

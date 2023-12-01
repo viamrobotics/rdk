@@ -534,7 +534,7 @@ func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []flo
 
 	if len(speeds) == 0 {
 		speeds = append(speeds, g.rpm)
-		g.logger.Debug("single-axis received invalid speed, using default gantry speed")
+		g.logger.CDebug(ctx, "single-axis received invalid speed, using default gantry speed")
 	} else if rdkutils.Float64AlmostEqual(math.Abs(speeds[0]), 0.0, 0.1) {
 		if err := g.motor.Stop(ctx, nil); err != nil {
 			return err

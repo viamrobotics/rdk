@@ -100,7 +100,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	seed []referenceframe.Input,
 	rrt *rrtParallelPlannerShared,
 ) {
-	mp.logger.Debug("Starting RRT*")
+	mp.logger.CDebug(ctx, "Starting RRT*")
 	defer close(rrt.solutionChan)
 
 	// setup planner options
@@ -202,7 +202,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 				}
 				solutionCost := plan.Evaluate(mp.planOpts.ScoreFunc)
 				if solutionCost-rrt.maps.optNode.Cost() < defaultOptimalityThreshold*rrt.maps.optNode.Cost() {
-					mp.logger.Debug("RRT* progress: sufficiently optimal path found, exiting")
+					mp.logger.CDebug(ctx, "RRT* progress: sufficiently optimal path found, exiting")
 					rrt.solutionChan <- solution
 					return
 				}
@@ -219,7 +219,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		}
 		map1, map2 = map2, map1
 	}
-	mp.logger.Debug("RRT* exceeded max iter")
+	mp.logger.CDebug(ctx, "RRT* exceeded max iter")
 	rrt.solutionChan <- shortestPath(rrt.maps, shared)
 }
 
