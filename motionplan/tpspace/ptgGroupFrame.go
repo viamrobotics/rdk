@@ -27,7 +27,7 @@ const (
 const (
 	defaultRefDistFar         = 100000 // 100 meters
 	defaultRefDistHalfCircles = 0.9
-	defaultTrajCount          = 3
+	defaultTrajCount          = 1
 )
 
 type ptgFactory func(float64, float64) PTG

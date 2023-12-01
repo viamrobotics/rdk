@@ -98,27 +98,27 @@ func (ptg *ptgIK) Solve(
 	}
 	if err != nil || solved == nil || solved.Configuration[1].Value < defaultZeroDist {
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
-		return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
+		//~ return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
 	}
 
-	if !solved.Exact {
-		// nlopt returned something but was unable to complete the solve. See if the grid check produces something better.
-		err = ptg.gridSim.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
-		if err == nil {
-			var gridSolved *ik.Solution
-			select {
-			case gridSolved = <-internalSolutionGen:
-			default:
-			}
-			// Check if the grid has a better solution
-			if gridSolved != nil {
-				if gridSolved.Score < solved.Score {
-					// ~ fmt.Println("grid2!")
-					solved = gridSolved
-				}
-			}
-		}
-	}
+	//~ if !solved.Exact {
+		//~ // nlopt returned something but was unable to complete the solve. See if the grid check produces something better.
+		//~ err = ptg.gridSim.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
+		//~ if err == nil {
+			//~ var gridSolved *ik.Solution
+			//~ select {
+			//~ case gridSolved = <-internalSolutionGen:
+			//~ default:
+			//~ }
+			//~ // Check if the grid has a better solution
+			//~ if gridSolved != nil {
+				//~ if gridSolved.Score < solved.Score {
+					//~ // ~ fmt.Println("grid2!")
+					//~ solved = gridSolved
+				//~ }
+			//~ }
+		//~ }
+	//~ }
 
 	solutionChan <- solved
 	return nil

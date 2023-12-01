@@ -13,6 +13,7 @@ import (
 // ptgFrame wraps a tpspace.PTG so that it fills the Frame interface and can be used by IK.
 type ptgIKFrame struct {
 	PTG
+	extendPTG PTG
 	limits []referenceframe.Limit
 }
 
@@ -28,6 +29,7 @@ func newPTGIKFrame(ptg PTG, trajCount int, dist float64) referenceframe.Frame {
 			referenceframe.Limit{Min: 0, Max: dist},
 		)
 	}
+	
 	pf.limits = limits
 	return pf
 }

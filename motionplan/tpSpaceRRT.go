@@ -39,13 +39,14 @@ const (
 	defaultIdenticalNodeDistance = 30.
 
 	// When extending the RRT tree towards some point, do not extend more than this many times in a single RRT invocation.
-	defaultMaxReseeds = 50
+	defaultMaxReseeds = 1
 
 	// Make an attempt to solve the tree every this many iterations
 	// For a unidirectional solve, this means attempting to reach the goal rather than a random point
 	// For a bidirectional solve, this means trying to connect the two trees directly.
 	defaultAttemptSolveEvery = 15
 
+	// When attempting a solve per the above, make no more than this many tries. Preserves performance with large trees.
 	defaultMaxConnectAttempts = 30
 
 	defaultBidirectional = true
@@ -283,23 +284,26 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	//~ for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
 	for iter := 0; iter < 1; iter++ {
 		mp.logger.Debugf("TP Space RRT iteration %d", iter)
+		fmt.Println("rrt goal", spatialmath.PoseToProtobuf(midptNode.Pose()))
 		if ctx.Err() != nil {
 			mp.logger.Debugf("TP Space RRT timed out after %d iterations", iter)
 			rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
 			return
 		}
 
+		seedReached := &nodeAndError{}
 		goalReached := &nodeAndError{}
 		utils.PanicCapturingGo(func() {
 			m1chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.startMap, false)
 		})
 		if mp.algOpts.bidirectional {
 			utils.PanicCapturingGo(func() {
-				m2chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.goalMap, true)
+				m2chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.goalMap, false)
 			})
 			goalReached = <-m2chan
 		}
-		seedReached := <-m1chan
+		seedReached = <-m1chan
+		
 
 		err := multierr.Combine(seedReached.error, goalReached.error)
 		if err != nil {
@@ -307,7 +311,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			return
 		}
 
-		if false && seedReached.node != nil && goalReached.node != nil {
+		if seedReached.node != nil && goalReached.node != nil && false {
 			reachedDelta := mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: seedReached.node.Pose(), EndPosition: goalReached.node.Pose()})
 			if reachedDelta > mp.algOpts.poseSolveDist {
 				// If both maps extended, but did not reach the same point, then attempt to extend them towards each other
@@ -343,7 +347,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			}
 		}
 		if false && iter%mp.algOpts.attemptSolveEvery == 0 {
-			// Attempt a solve; we exhaustively iterate through our goal tree and attempt to find any connection to the seed tree
+			// Attempt a solve; we iterate through our goal tree and attempt to find any connection to the seed tree
 			paths := [][]node{}
 			attempts := 0
 			for goalMapNode := range rrt.maps.goalMap {
@@ -597,6 +601,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 	defer activeSolvers.Wait()
 
 	for i := 0; i <= maxReseeds; i++ {
+		fmt.Println("reseed", i)
 		select {
 		case <-ctx.Done():
 			return &nodeAndError{nil, ctx.Err()}
@@ -633,6 +638,12 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 				if cand != nil {
 					candidates = append(candidates, cand)
 				}
+			}
+		}
+		for _, cand := range candidates {
+			fmt.Println("cand")
+			for _, sn := range cand.newNodes {
+				fmt.Println(sn)
 			}
 		}
 		var err error

@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"strings"
 	"sync"
+	"fmt"
 
 	"github.com/go-nlopt/nlopt"
 	"github.com/pkg/errors"
@@ -93,6 +94,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	startingPos := seed
 
 	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(ik.model.DoF())))
+	//~ opt, err := nlopt.NewNLopt(nlopt.LD_MMA, uint(len(ik.model.DoF())))
 	defer opt.Destroy()
 	if err != nil {
 		return errors.Wrap(err, "nlopt creation error")
@@ -213,6 +215,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			// Ignore it, something else will find a solution
 			err = multierr.Combine(err, nloptErr)
 		}
+		fmt.Println("solution, score", solutionRaw, result)
 
 		if result < ik.epsilon || (solutionRaw != nil && !ik.exact) {
 			select {
