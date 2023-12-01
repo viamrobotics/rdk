@@ -173,7 +173,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 				movementErr <- err
 				return
 			}
-			ddk.logger.Infof("current inputs: %v", current)
+			ddk.logger.CInfof(ctx, "current inputs: %v", current)
 		}
 		movementErr <- err
 	})

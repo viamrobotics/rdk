@@ -133,7 +133,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		}
 		rrt.maps = planSeed.maps
 	}
-	mp.logger.Infof("goal node: %v\n", rrt.maps.optNode.Q())
+	mp.logger.CInfof(ctx, "goal node: %v\n", rrt.maps.optNode.Q())
 	target := newConfigurationNode(referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5))
 
 	map1, map2 := rrt.maps.startMap, rrt.maps.goalMap
@@ -149,7 +149,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		return
 	}
 
-	mp.logger.CDebugf(ctx, 
+	mp.logger.CDebugf(ctx,
 		"running CBiRRT from start pose %v with start map of size %d and goal map of size %d",
 		spatialmath.PoseToProtobuf(seedPos),
 		len(rrt.maps.startMap),

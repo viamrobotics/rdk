@@ -257,6 +257,12 @@ func (imp *impl) Infof(template string, args ...interface{}) {
 	}
 }
 
+func (imp *impl) CInfof(ctx context.Context, template string, args ...interface{}) {
+	if imp.shouldLog(INFO) || debugMode(ctx) {
+		imp.log(imp.formatf(INFO, template, args...))
+	}
+}
+
 func (imp *impl) Infow(msg string, keysAndValues ...interface{}) {
 	if imp.shouldLog(INFO) {
 		imp.log(imp.formatw(INFO, msg, keysAndValues...))

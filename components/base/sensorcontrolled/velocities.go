@@ -108,7 +108,7 @@ func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interfac
 				}
 
 				if sensorDebug {
-					sb.logger.Infof("sensor readings: linear: %#v, angular %#v", linvel, angvel)
+					sb.logger.CInfof(ctx, "sensor readings: linear: %#v, angular %#v", linvel, angvel)
 				}
 			}
 		}

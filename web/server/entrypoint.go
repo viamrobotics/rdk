@@ -333,7 +333,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 					if traceSize == bufSize {
 						message = fmt.Sprintf("%s (warning: backtrace truncated to %v bytes)", message, bufSize)
 					}
-					s.logger.Infof("%s, %s", message, traces)
+					s.logger.CInfof(ctx, "%s, %s", message, traces)
 					cancel()
 					return
 				}

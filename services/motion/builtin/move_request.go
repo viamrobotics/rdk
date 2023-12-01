@@ -578,8 +578,8 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 
 	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
 	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
-	ms.logger.Infof("startPose: %v", spatialmath.PoseToProtobuf(startPose.Pose()))
-	ms.logger.Infof("requested world goal: %v", spatialmath.PoseToProtobuf(goalPoseInWorld))
+	ms.logger.CInfof(ctx, "startPose: %v", spatialmath.PoseToProtobuf(startPose.Pose()))
+	ms.logger.CInfof(ctx, "requested world goal: %v", spatialmath.PoseToProtobuf(goalPoseInWorld))
 	if err != nil {
 		return nil, err
 	}

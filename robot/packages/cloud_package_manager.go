@@ -192,7 +192,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 	}
 
 	if len(changedPackages) > 0 {
-		m.logger.Infof("Package sync complete after %v", time.Since(start))
+		m.logger.CInfof(ctx, "Package sync complete after %v", time.Since(start))
 	}
 
 	// swap for new managed packags.

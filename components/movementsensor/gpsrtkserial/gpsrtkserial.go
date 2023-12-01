@@ -163,12 +163,12 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	if newConf.SerialPath != "" {
 		g.writePath = newConf.SerialPath
-		g.logger.Infof("updated serial_path to #%v", newConf.SerialPath)
+		g.logger.CInfof(ctx, "updated serial_path to #%v", newConf.SerialPath)
 	}
 
 	if newConf.SerialBaudRate != 0 {
 		g.wbaud = newConf.SerialBaudRate
-		g.logger.Infof("updated serial_baud_rate to %v", newConf.SerialBaudRate)
+		g.logger.CInfof(ctx, "updated serial_baud_rate to %v", newConf.SerialBaudRate)
 	} else {
 		g.wbaud = 38400
 		g.logger.CInfo(ctx, "serial_baud_rate using default baud rate 38400")

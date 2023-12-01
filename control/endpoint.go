@@ -27,12 +27,12 @@ func newEndpoint(config BlockConfig, logger logging.Logger, ctr Controllable) (B
 }
 
 func (e *endpoint) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
-	e.logger.Infof("z length %v", len(x))
-	e.logger.Infof("controllable is %v", e.ctr)
+	e.logger.CInfof(ctx, "z length %v", len(x))
+	e.logger.CInfof(ctx, "controllable is %v", e.ctr)
 	switch len(x) {
 	case 1, 2:
 		if e.ctr != nil {
-			e.logger.Infof("setting state %v", x)
+			e.logger.CInfof(ctx, "setting state %v", x)
 			err := e.ctr.SetState(ctx, x)
 			if err != nil {
 				return []*Signal{}, false
@@ -47,7 +47,7 @@ func (e *endpoint) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 				return []*Signal{}, false
 			}
 			for idx, val := range vals {
-				e.logger.Infof("length val %v.  e.y %v", len(vals), e.y)
+				e.logger.CInfof(ctx, "length val %v.  e.y %v", len(vals), e.y)
 				e.y[idx].SetSignalValueAt(0, val)
 			}
 		}

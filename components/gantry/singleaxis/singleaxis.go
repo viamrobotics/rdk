@@ -219,7 +219,7 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 	}
 
 	if needsToReHome {
-		g.logger.Infof("single-axis gantry '%v' needs to re-home", g.Named.Name().ShortName())
+		g.logger.CInfof(ctx, "single-axis gantry '%v' needs to re-home", g.Named.Name().ShortName())
 		g.positionRange = 0
 		g.positionLimits = []float64{0, 0}
 	}

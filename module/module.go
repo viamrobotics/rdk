@@ -224,7 +224,7 @@ func (m *Module) Start(ctx context.Context) error {
 		defer m.activeBackgroundWorkers.Done()
 		// Attempt to remove module's .sock file.
 		defer rutils.RemoveFileNoError(m.addr)
-		m.logger.Infof("server listening at %v", lis.Addr())
+		m.logger.CInfof(ctx, "server listening at %v", lis.Addr())
 		if err := m.server.Serve(lis); err != nil {
 			m.logger.Errorf("failed to serve: %v", err)
 		}

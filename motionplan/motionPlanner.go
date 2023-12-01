@@ -161,7 +161,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		return nil, errors.New("cannot have non-zero transformation between the PTG frame and World frame in the Solver frame")
 	}
 
-	request.Logger.Infof(
+	request.Logger.CInfof(ctx, 
 		"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
 		request.Frame.Name(),
 		frame.PoseInFrameToProtobuf(request.Goal),
@@ -198,7 +198,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	if replanCostFactor > 0 && currentPlan != nil {
 		initialPlanCost := currentPlan.Evaluate(sfPlanner.opt().ScoreFunc)
 		finalPlanCost := newPlan.Evaluate(sfPlanner.opt().ScoreFunc)
-		request.Logger.CDebugf(ctx, 
+		request.Logger.CDebugf(ctx,
 			"initialPlanCost %f adjusted with cost factor to %f, replan cost %f",
 			initialPlanCost, initialPlanCost*replanCostFactor, finalPlanCost,
 		)

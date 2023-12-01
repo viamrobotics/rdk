@@ -64,7 +64,7 @@ func wrapWithPTGKinematics(
 
 	baseTurningRadiusMeters := properties.TurningRadiusMeters
 
-	logger.Infof(
+	logger.CInfof(ctx, 
 		"using baseMillimetersPerSecond %f and baseTurningRadius %f for PTG base kinematics",
 		baseMillimetersPerSecond,
 		baseTurningRadiusMeters,
@@ -171,7 +171,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		// 1) this is the first iteration of the loop, or
 		// 2) either of the linear or angular velocities has changed
 		if i == 0 || !(linVel.ApproxEqual(lastLinVel) && angVel.ApproxEqual(lastAngVel)) {
-			ptgk.logger.CDebugf(ctx, 
+			ptgk.logger.CDebugf(ctx,
 				"setting velocity to linear %v angular %v and running velocity step for %s",
 				linVel,
 				angVel,

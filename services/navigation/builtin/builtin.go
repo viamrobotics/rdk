@@ -385,7 +385,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	defer svc.actionMu.Unlock()
 
 	svc.mu.RLock()
-	svc.logger.Infof("SetMode called: transitioning from %s to %s", svc.mode, mode)
+	svc.logger.CInfof(ctx, "SetMode called: transitioning from %s to %s", svc.mode, mode)
 	if svc.mode == mode {
 		svc.mu.RUnlock()
 		return nil
@@ -451,7 +451,7 @@ func (svc *builtIn) Waypoints(ctx context.Context, extra map[string]interface{})
 }
 
 func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
-	svc.logger.Infof("AddWaypoint called with %#v", *point)
+	svc.logger.CInfof(ctx, "AddWaypoint called with %#v", *point)
 	_, err := svc.store.AddWaypoint(ctx, point)
 	return err
 }
@@ -459,7 +459,7 @@ func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map
 func (svc *builtIn) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	svc.logger.Infof("RemoveWaypoint called with waypointID: %s", id)
+	svc.logger.CInfof(ctx, "RemoveWaypoint called with waypointID: %s", id)
 	if svc.waypointInProgress != nil && svc.waypointInProgress.ID == id {
 		if svc.currentWaypointCancelFunc != nil {
 			svc.currentWaypointCancelFunc()
@@ -547,13 +547,13 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 			svc.currentWaypointCancelFunc = cancelFunc
 			svc.mu.Unlock()
 
-			svc.logger.Infof("navigating to waypoint: %+v", wp)
+			svc.logger.CInfof(ctx, "navigating to waypoint: %+v", wp)
 			if err := navOnce(cancelCtx, wp); err != nil {
 				if svc.waypointIsDeleted() {
-					svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
+					svc.logger.CInfof(ctx, "skipping waypoint %+v since it was deleted", wp)
 					continue
 				}
-				svc.logger.Infof("retrying navigation to waypoint %+v since it errored out: %s", wp, err)
+				svc.logger.CInfof(ctx, "retrying navigation to waypoint %+v since it errored out: %s", wp, err)
 			}
 		}
 	})

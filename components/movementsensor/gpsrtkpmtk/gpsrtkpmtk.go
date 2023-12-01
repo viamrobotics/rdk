@@ -364,7 +364,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 
 	if !g.ntripClient.Client.IsCasterAlive() {
-		g.logger.Infof("caster %s seems to be down", g.ntripClient.URL)
+		g.logger.CInfof(ctx, "caster %s seems to be down", g.ntripClient.URL)
 	}
 
 	// establish I2C connection

@@ -224,7 +224,7 @@ func (c *client) run(ctx context.Context, listener *vlp16.PacketListener) {
 			listener, err = vlp16.ListenUDP(ctx, c.bindAddress)
 			if err != nil {
 				c.setLastError(err)
-				c.logger.Infof("velodyne connect error: %w", err)
+				c.logger.CInfof(ctx, "velodyne connect error: %w", err)
 				if !gutils.SelectContextOrWait(ctx, time.Second) {
 					return
 				}
@@ -235,7 +235,7 @@ func (c *client) run(ctx context.Context, listener *vlp16.PacketListener) {
 		err = c.runLoop(listener)
 		c.setLastError(err)
 		if err != nil {
-			c.logger.Infof("velodyne client error: %w", err)
+			c.logger.CInfof(ctx, "velodyne client error: %w", err)
 			err = listener.Close()
 			if err != nil {
 				c.logger.Warn("trying to close connection after error got", "error", err)

@@ -150,7 +150,7 @@ func newVectorNav(
 	if err != nil {
 		return nil, err
 	}
-	logger.CDebugf(ctx, 
+	logger.CDebugf(ctx,
 		"model detected %s sn %d %d.%d.%d.%d",
 		string(mdl),
 		binary.LittleEndian.Uint32(sn),
@@ -500,7 +500,7 @@ func (vn *vectornav) compensateAccelBias(ctx context.Context, smpSize uint) erro
 	if err != nil {
 		return errors.Wrap(err, "could not write the acceleration register")
 	}
-	vn.logger.Infof("Acceleration compensated with %1.6f %1.6f %1.6f ref accZ %1.6f", accMX, accMY, accMZ, accZ)
+	vn.logger.CInfof(ctx, "Acceleration compensated with %1.6f %1.6f %1.6f ref accZ %1.6f", accMX, accMY, accMZ, accZ)
 	return nil
 }
 
@@ -530,7 +530,7 @@ func (vn *vectornav) compensateDVBias(ctx context.Context, smpSize uint) error {
 	vn.bdVX = float64(bX) / float64(smpSize)
 	vn.bdVY = float64(bY) / float64(smpSize)
 	vn.bdVZ = float64(bZ) / float64(smpSize)
-	vn.logger.Infof("velocity bias compensated with %1.6f %1.6f %1.6f",
+	vn.logger.CInfof(ctx, "velocity bias compensated with %1.6f %1.6f %1.6f",
 		vn.bdVX, vn.bdVY, vn.bdVZ)
 	return nil
 }

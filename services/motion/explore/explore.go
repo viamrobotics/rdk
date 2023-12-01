@@ -422,7 +422,7 @@ func (ms *explore) generateTransientWorldState(
 			// Get detections as vision objects
 			detections, err := visionService.GetObjectPointClouds(ctx, cameraName.Name, nil)
 			if err != nil && strings.Contains(err.Error(), "does not implement a 3D segmenter") {
-				ms.logger.Infof("cannot call GetObjectPointClouds on %q as it does not implement a 3D segmenter",
+				ms.logger.CInfof(ctx, "cannot call GetObjectPointClouds on %q as it does not implement a 3D segmenter",
 					visionService.Name())
 			} else if err != nil {
 				return nil, err

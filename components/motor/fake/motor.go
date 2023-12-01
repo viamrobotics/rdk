@@ -124,7 +124,7 @@ func (m *Motor) Reconfigure(ctx context.Context, deps resource.Dependencies, con
 	m.MaxRPM = newConf.MaxRPM
 
 	if m.MaxRPM == 0 {
-		m.Logger.Infof("Max RPM not provided to a fake motor, defaulting to %v", defaultMaxRpm)
+		m.Logger.CInfof(ctx, "Max RPM not provided to a fake motor, defaulting to %v", defaultMaxRpm)
 		m.MaxRPM = defaultMaxRpm
 	}
 
