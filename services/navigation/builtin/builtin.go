@@ -542,13 +542,9 @@ func (svc *builtIn) moveOnGlobeSync(ctx context.Context, req motion.MoveOnGlobeR
 
 func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]interface{}) {
 	if extra == nil {
-		if false {
-			extra = map[string]interface{}{"motion_profile": "position_only"}
-		} // TODO: Fix with RSDK-4583
+		extra = map[string]interface{}{"motion_profile": "position_only"}
 	} else if _, ok := extra["motion_profile"]; !ok {
-		if false {
-			extra["motion_profile"] = "position_only"
-		} // TODO: Fix with RSDK-4583
+		extra["motion_profile"] = "position_only"
 	}
 
 	svc.activeBackgroundWorkers.Add(1)
