@@ -174,7 +174,7 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 					return
 				}
 				if err != nil {
-					g.logger.Error(err)
+					g.logger.CError(ctx, err)
 					continue
 				}
 				for _, b := range buffer {

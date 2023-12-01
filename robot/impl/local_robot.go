@@ -922,7 +922,7 @@ func (r *localRobot) TransformPointCloud(
 func RobotFromConfigPath(ctx context.Context, cfgPath string, logger logging.Logger, opts ...Option) (robot.LocalRobot, error) {
 	cfg, err := config.Read(ctx, cfgPath, logger)
 	if err != nil {
-		logger.Error("cannot read config")
+		logger.CError(ctx, "cannot read config")
 		return nil, err
 	}
 	return RobotFromConfig(ctx, cfg, logger, opts...)

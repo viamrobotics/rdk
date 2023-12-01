@@ -455,7 +455,7 @@ func (adxl *adxl345) readBlock(ctx context.Context, register byte, length uint8)
 	defer func() {
 		err := handle.Close()
 		if err != nil {
-			adxl.logger.Error(err)
+			adxl.logger.CError(ctx, err)
 		}
 	}()
 
@@ -471,7 +471,7 @@ func (adxl *adxl345) writeByte(ctx context.Context, register, value byte) error 
 	defer func() {
 		err := handle.Close()
 		if err != nil {
-			adxl.logger.Error(err)
+			adxl.logger.CError(ctx, err)
 		}
 	}()
 

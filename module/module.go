@@ -241,11 +241,11 @@ func (m *Module) Close(ctx context.Context) {
 		m.logger.CInfo(ctx, "Shutting down gracefully.")
 		if parent != nil {
 			if err := parent.Close(ctx); err != nil {
-				m.logger.Error(err)
+				m.logger.CError(ctx, err)
 			}
 		}
 		if err := m.server.Stop(); err != nil {
-			m.logger.Error(err)
+			m.logger.CError(ctx, err)
 		}
 		m.activeBackgroundWorkers.Wait()
 	})
@@ -396,7 +396,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 
 	m.logger.CDebugw(ctx, "rebuilding", "name", conf.ResourceName())
 	if err := res.Close(ctx); err != nil {
-		m.logger.Error(err)
+		m.logger.CError(ctx, err)
 	}
 
 	resInfo, ok := resource.LookupRegistration(conf.API, conf.Model)
@@ -464,7 +464,7 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 		return nil, err
 	}
 	if err := res.Close(ctx); err != nil {
-		m.logger.Error(err)
+		m.logger.CError(ctx, err)
 	}
 
 	return &pb.RemoveResourceResponse{}, coll.Remove(name)

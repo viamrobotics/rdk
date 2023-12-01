@@ -814,7 +814,7 @@ func (manager *resourceManager) processResource(
 
 	manager.logger.CDebugw(ctx, "rebuilding", "name", resName)
 	if err := r.manager.closeResource(ctx, currentRes); err != nil {
-		manager.logger.Error(err)
+		manager.logger.CError(ctx, err)
 	}
 	newRes, err := r.newResource(ctx, gNode, conf)
 	if err != nil {

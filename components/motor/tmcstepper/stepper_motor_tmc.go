@@ -318,7 +318,7 @@ func (m *Motor) writeReg(ctx context.Context, addr uint8, value int32) error {
 	}
 	defer func() {
 		if err := handle.Close(); err != nil {
-			m.logger.Error(err)
+			m.logger.CError(ctx, err)
 		}
 	}()
 
@@ -344,7 +344,7 @@ func (m *Motor) readReg(ctx context.Context, addr uint8) (int32, error) {
 	}
 	defer func() {
 		if err := handle.Close(); err != nil {
-			m.logger.Error(err)
+			m.logger.CError(ctx, err)
 		}
 	}()
 
@@ -598,7 +598,7 @@ func (m *Motor) goTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 			m.writeReg(ctx, swMode, 0x000),
 			m.doJog(ctx, 0),
 		); err != nil {
-			m.logger.Error(err)
+			m.logger.CError(ctx, err)
 		}
 	}()
 

@@ -97,13 +97,13 @@ func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interfac
 			case <-ticker.C:
 				linvel, err := sb.velocities.LinearVelocity(ctx, extra)
 				if err != nil {
-					sb.logger.Error(err)
+					sb.logger.CError(ctx, err)
 					return
 				}
 
 				angvel, err := sb.velocities.AngularVelocity(ctx, extra)
 				if err != nil {
-					sb.logger.Error(err)
+					sb.logger.CError(ctx, err)
 					return
 				}
 

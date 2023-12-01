@@ -232,7 +232,7 @@ func newWit(
 	if newConf.BaudRate > 0 {
 		options.BaudRate = newConf.BaudRate
 	} else {
-		logger.CWarnf(ctx, 
+		logger.CWarnf(ctx,
 			"no valid serial_baud_rate set, setting to default of %d, baud rate of wit imus are: %v", options.BaudRate, baudRateList,
 		)
 	}
@@ -290,7 +290,7 @@ func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, l
 				switch {
 				case err != nil:
 					imu.err.Set(err)
-					logger.Error(err)
+					logger.CError(ctx, err)
 				case len(line) != 11:
 					imu.numBadReadings++
 					return

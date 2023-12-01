@@ -283,7 +283,7 @@ func (m *Motor) Close(ctx context.Context) error {
 
 	err := m.Stop(context.Background(), nil)
 	if err != nil {
-		m.c.logger.Error(err)
+		m.c.logger.CError(ctx, err)
 	}
 
 	m.c.mu.Lock()
@@ -297,7 +297,7 @@ func (m *Motor) Close(ctx context.Context) error {
 	if m.c.port != nil {
 		err = m.c.port.Close()
 		if err != nil {
-			m.c.logger.Error(fmt.Errorf("error closing serial connection: %w", err))
+			m.c.logger.CError(ctx, fmt.Errorf("error closing serial connection: %w", err))
 		}
 	}
 	globalMu.Lock()

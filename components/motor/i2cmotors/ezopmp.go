@@ -171,7 +171,7 @@ func (m *Ezopmp) writeReg(ctx context.Context, command []byte) error {
 	}
 	defer func() {
 		if err := handle.Close(); err != nil {
-			m.logger.Error(err)
+			m.logger.CError(ctx, err)
 		}
 	}()
 
@@ -185,7 +185,7 @@ func (m *Ezopmp) readReg(ctx context.Context) ([]byte, error) {
 	}
 	defer func() {
 		if err := handle.Close(); err != nil {
-			m.logger.Error(err)
+			m.logger.CError(ctx, err)
 		}
 	}()
 

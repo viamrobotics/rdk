@@ -129,7 +129,7 @@ func (g *gamepad) eventDispatcher(ctx context.Context) {
 		case <-ctx.Done():
 			err := g.dev.Close()
 			if err != nil {
-				g.logger.Error(err)
+				g.logger.CError(ctx, err)
 			}
 			return
 		case eventIn := <-evChan:
@@ -149,7 +149,7 @@ func (g *gamepad) eventDispatcher(ctx context.Context) {
 					g.sendConnectionStatus(ctx, false)
 					err := g.dev.Close()
 					if err != nil {
-						g.logger.Error(err)
+						g.logger.CError(ctx, err)
 					}
 					g.dev = nil
 					return
@@ -364,7 +364,7 @@ func (g *gamepad) Close(ctx context.Context) error {
 	g.activeBackgroundWorkers.Wait()
 	if g.dev != nil {
 		if err := g.dev.Close(); err != nil {
-			g.logger.Error(err)
+			g.logger.CError(ctx, err)
 		}
 	}
 	return nil

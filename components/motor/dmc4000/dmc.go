@@ -189,7 +189,7 @@ func (m *Motor) Close(ctx context.Context) error {
 	}
 	err := m.Stop(context.Background(), nil)
 	if err != nil {
-		m.c.logger.Error(err)
+		m.c.logger.CError(ctx, err)
 	}
 
 	m.c.mu.Lock()
@@ -203,7 +203,7 @@ func (m *Motor) Close(ctx context.Context) error {
 	if m.c.port != nil {
 		err = m.c.port.Close()
 		if err != nil {
-			m.c.logger.Error(err)
+			m.c.logger.CError(ctx, err)
 		}
 	}
 	globalMu.Lock()
@@ -662,7 +662,7 @@ func (m *Motor) Home(ctx context.Context) error {
 	// wait for routine to finish
 	defer func() {
 		if err := m.Stop(ctx, nil); err != nil {
-			m.c.logger.Error(err)
+			m.c.logger.CError(ctx, err)
 		}
 	}()
 

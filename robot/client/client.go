@@ -424,7 +424,7 @@ func (rc *RobotClient) updateResourceClients(ctx context.Context) error {
 		// check if no longer an active resource
 		if !activeResources[resourceName] {
 			if err := client.Close(ctx); err != nil {
-				rc.Logger().Error(err)
+				rc.Logger().CError(ctx, err)
 				continue
 			}
 			delete(rc.resourceClients, resourceName)

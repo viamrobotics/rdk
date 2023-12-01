@@ -230,7 +230,7 @@ func (mpu *mpu6050) readBlock(ctx context.Context, register byte, length uint8) 
 	defer func() {
 		err := handle.Close()
 		if err != nil {
-			mpu.logger.Error(err)
+			mpu.logger.CError(ctx, err)
 		}
 	}()
 
@@ -246,7 +246,7 @@ func (mpu *mpu6050) writeByte(ctx context.Context, register, value byte) error {
 	defer func() {
 		err := handle.Close()
 		if err != nil {
-			mpu.logger.Error(err)
+			mpu.logger.CError(ctx, err)
 		}
 	}()
 
@@ -353,7 +353,7 @@ func (mpu *mpu6050) Close(ctx context.Context) error {
 	// Set the Sleep bit (bit 6) in the power control register (register 107).
 	err := mpu.writeByte(ctx, 107, 1<<6)
 	if err != nil {
-		mpu.logger.Error(err)
+		mpu.logger.CError(ctx, err)
 	}
 	return err
 }

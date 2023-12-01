@@ -118,7 +118,7 @@ func (sb *sensorBase) stopSpinWithSensor(
 				if err != nil {
 					errCounter++
 					if errCounter > 100 {
-						sb.logger.Error(errors.Wrap(
+						sb.logger.CError(ctx, errors.Wrap(
 							err,
 							"imu sensor unreachable, 100 error counts when trying to read yaw angle, stopping base"))
 						if err = sb.Stop(ctx, nil); err != nil {

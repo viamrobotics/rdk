@@ -340,13 +340,13 @@ func (o *odometry) trackPosition(ctx context.Context) {
 
 			_, positions, err := rdkutils.GetInParallel(ctx, positionFuncs())
 			if err != nil {
-				o.logger.Error(err)
+				o.logger.CError(ctx, err)
 				continue
 			}
 
 			// Current position of the left and right motors in revolutions.
 			if len(positions) != len(o.motors)*2 {
-				o.logger.Error("error getting both motor positions, trying again")
+				o.logger.CError(ctx, "error getting both motor positions, trying again")
 				continue
 			}
 			left := positions[0]
