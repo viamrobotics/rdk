@@ -533,8 +533,7 @@ func TestModuleReloading(t *testing.T) {
 		}(oueRestartInterval)
 		oueRestartInterval = 10 * time.Millisecond
 
-		// Lower module startup timeout to avoid waiting for 5 mins
-		// for manager.Add to time out waiting for module to start listening.
+		// Lower module startup timeout to avoid waiting for 5 mins.
 		defer func() {
 			test.That(t, os.Unsetenv(rutils.ModuleStartupTimeoutEnvVar),
 				test.ShouldBeNil)
