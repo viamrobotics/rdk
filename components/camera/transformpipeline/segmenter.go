@@ -6,7 +6,6 @@ import (
 	"image"
 
 	"go.opencensus.io/trace"
-	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
@@ -66,7 +65,7 @@ func newSegmentationsTransform(
 func (cfg *segmenterConfig) Validate(path string) ([]string, error) {
 	var deps []string
 	if len(cfg.SegmenterName) == 0 {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "segmenter_name")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "segmenter_name")
 	}
 	return deps, nil
 }

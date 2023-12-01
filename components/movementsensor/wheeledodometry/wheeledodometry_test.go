@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
@@ -193,7 +192,7 @@ func TestValidateConfig(t *testing.T) {
 	}
 
 	deps, err := cfg.Validate("path")
-	expectedErr := utils.NewConfigValidationFieldRequiredError("path", "base")
+	expectedErr := resource.NewConfigValidationFieldRequiredError("path", "base")
 	test.That(t, err, test.ShouldBeError, expectedErr)
 	test.That(t, deps, test.ShouldBeEmpty)
 
@@ -205,7 +204,7 @@ func TestValidateConfig(t *testing.T) {
 	}
 
 	deps, err = cfg.Validate("path")
-	expectedErr = utils.NewConfigValidationFieldRequiredError("path", "left motors")
+	expectedErr = resource.NewConfigValidationFieldRequiredError("path", "left motors")
 	test.That(t, err, test.ShouldBeError, expectedErr)
 	test.That(t, deps, test.ShouldBeEmpty)
 
@@ -217,7 +216,7 @@ func TestValidateConfig(t *testing.T) {
 	}
 
 	deps, err = cfg.Validate("path")
-	expectedErr = utils.NewConfigValidationFieldRequiredError("path", "right motors")
+	expectedErr = resource.NewConfigValidationFieldRequiredError("path", "right motors")
 	test.That(t, err, test.ShouldBeError, expectedErr)
 	test.That(t, deps, test.ShouldBeEmpty)
 

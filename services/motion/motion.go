@@ -3,6 +3,7 @@ package motion
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -49,6 +50,20 @@ type MoveOnGlobeReq struct {
 	Obstacles          []*spatialmath.GeoObstacle
 	MotionCfg          *MotionConfiguration
 	Extra              map[string]interface{}
+}
+
+func (r MoveOnGlobeReq) String() string {
+	template := "motion.MoveOnGlobeReq{ComponentName: %s, " +
+		"Destination: %+v, Heading: %f, MovementSensorName: %s, " +
+		"Obstacles: %v, MotionCfg: %#v, Extra: %s}"
+	return fmt.Sprintf(template,
+		r.ComponentName,
+		r.Destination,
+		r.Heading,
+		r.MovementSensorName,
+		r.Obstacles,
+		r.MotionCfg,
+		r.Extra)
 }
 
 // MoveOnMapReq describes a request to MoveOnMap.

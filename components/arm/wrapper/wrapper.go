@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	pb "go.viam.com/api/component/arm/v1"
-	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
@@ -32,7 +31,7 @@ var model = resource.DefaultModelFamily.WithModel("wrapper_arm")
 func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.ArmName == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "arm-name")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "arm-name")
 	}
 	if _, err := modelFromPath(cfg.ModelFilePath, ""); err != nil {
 		return nil, err

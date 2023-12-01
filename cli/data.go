@@ -184,10 +184,28 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 		return err
 	}
 
-	ids := make(chan *datapb.BinaryID, parallelDownloads)
-	// Give channel buffer of 1+parallelDownloads because that is the number of goroutines that may be passing an
-	// error into this channel (1 get ids routine + parallelDownloads download routines).
-	errs := make(chan error, 1+parallelDownloads)
+	return c.performActionOnBinaryDataFromFilter(
+		func(id *datapb.BinaryID) error {
+			return downloadBinary(c.c.Context, c.dataClient, dst, id)
+		},
+		filter, parallelDownloads,
+		func(i int32) {
+			printf(c.c.App.Writer, "Downloaded %d files", i)
+		},
+	)
+}
+
+// performActionOnBinaryDataFromFilter is a helper action that retrieves all BinaryIDs associated with
+// a filter in batches and then performs actionOnBinaryData on each binary data in parallel.
+// Each time `logEveryN` actions have been performed, the printStatement logs a statement that takes in as
+// input how much binary data has been processed thus far.
+func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func(*datapb.BinaryID) error,
+	filter *datapb.Filter, parallelActions uint, printStatement func(int32),
+) error {
+	ids := make(chan *datapb.BinaryID, parallelActions)
+	// Give channel buffer of 1+parallelActions because that is the number of goroutines that may be passing an
+	// error into this channel (1 get ids routine + parallelActions download routines).
+	errs := make(chan error, 1+parallelActions)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var wg sync.WaitGroup
@@ -198,10 +216,10 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 		defer wg.Done()
 		// If limit is too high the request can time out, so limit each call to a maximum value of 100.
 		var limit uint
-		if parallelDownloads > maxLimit {
+		if parallelActions > maxLimit {
 			limit = maxLimit
 		} else {
-			limit = parallelDownloads
+			limit = parallelActions
 		}
 		if err := getMatchingBinaryIDs(ctx, c.dataClient, filter, ids, limit); err != nil {
 			errs <- err
@@ -209,16 +227,16 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 		}
 	}()
 
-	// In parallel, read from ids and download the binary for each id in batches of parallelDownloads.
+	// In parallel, read from ids and perform the action on the binary data for each id in batches of parallelActions.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		var nextID *datapb.BinaryID
 		var done bool
-		var numFilesDownloaded atomic.Int32
+		var numFilesProcessed atomic.Int32
 		var downloadWG sync.WaitGroup
 		for {
-			for i := uint(0); i < parallelDownloads; i++ {
+			for i := uint(0); i < parallelActions; i++ {
 				if err := ctx.Err(); err != nil {
 					errs <- err
 					cancel()
@@ -237,15 +255,16 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 				downloadWG.Add(1)
 				go func(id *datapb.BinaryID) {
 					defer downloadWG.Done()
-					err := downloadBinary(ctx, c.dataClient, dst, id)
+					// Perform the desired action on the binary data
+					err := actionOnBinaryData(id)
 					if err != nil {
 						errs <- err
 						cancel()
 						done = true
 					}
-					numFilesDownloaded.Add(1)
-					if numFilesDownloaded.Load()%logEveryN == 0 {
-						printf(c.c.App.Writer, "Downloaded %d files", numFilesDownloaded.Load())
+					numFilesProcessed.Add(1)
+					if numFilesProcessed.Load()%logEveryN == 0 {
+						printStatement(numFilesProcessed.Load())
 					}
 				}(nextID)
 			}
@@ -254,8 +273,8 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 				break
 			}
 		}
-		if numFilesDownloaded.Load()%logEveryN != 0 {
-			printf(c.c.App.Writer, "Downloaded %d files to %s", numFilesDownloaded.Load(), dst)
+		if numFilesProcessed.Load()%logEveryN != 0 {
+			printStatement(numFilesProcessed.Load())
 		}
 	}()
 	wg.Wait()
@@ -560,21 +579,21 @@ func (c *viamClient) deleteTabularData(orgID string, deleteOlderThanDays int) er
 	return nil
 }
 
-// DataAddToDataset is the corresponding action for 'data dataset add'.
-func DataAddToDataset(c *cli.Context) error {
+// DataAddToDatasetByIDs is the corresponding action for 'data dataset add ids'.
+func DataAddToDatasetByIDs(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	if err := client.dataAddToDataset(c.String(datasetFlagDatasetID), c.String(dataFlagOrgID),
+	if err := client.dataAddToDatasetByIDs(c.String(datasetFlagDatasetID), c.String(dataFlagOrgID),
 		c.String(dataFlagLocationID), c.StringSlice(dataFlagFileIDs)); err != nil {
 		return err
 	}
 	return nil
 }
 
-// dataAddToDataset adds data, with the specified org ID, location ID, and file IDs to the dataset corresponding to the dataset ID.
-func (c *viamClient) dataAddToDataset(datasetID, orgID, locationID string, fileIDs []string) error {
+// dataAddToDatasetByIDs adds data, with the specified org ID, location ID, and file IDs to the dataset corresponding to the dataset ID.
+func (c *viamClient) dataAddToDatasetByIDs(datasetID, orgID, locationID string, fileIDs []string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -593,6 +612,41 @@ func (c *viamClient) dataAddToDataset(datasetID, orgID, locationID string, fileI
 	}
 	printf(c.c.App.Writer, "Added data to dataset ID %s", datasetID)
 	return nil
+}
+
+// DataAddToDatasetByFilter is the corresponding action for 'data dataset add filter'.
+func DataAddToDatasetByFilter(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	filter, err := createDataFilter(c)
+	if err != nil {
+		return err
+	}
+	if err := client.dataAddToDatasetByFilter(filter, c.String(datasetFlagDatasetID)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// dataAddToDatasetByFilter adds data, with the specified filter to the dataset corresponding to the dataset ID.
+func (c *viamClient) dataAddToDatasetByFilter(filter *datapb.Filter, datasetID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	parallelActions := uint(100)
+
+	return c.performActionOnBinaryDataFromFilter(
+		func(id *datapb.BinaryID) error {
+			_, err := c.dataClient.AddBinaryDataToDatasetByIDs(c.c.Context,
+				&datapb.AddBinaryDataToDatasetByIDsRequest{DatasetId: datasetID, BinaryIds: []*datapb.BinaryID{id}})
+			return err
+		},
+		filter, parallelActions,
+		func(i int32) {
+			printf(c.c.App.Writer, "Added %d files to dataset ID %s", i, datasetID)
+		})
 }
 
 // DataRemoveFromDataset is the corresponding action for 'data dataset remove'.

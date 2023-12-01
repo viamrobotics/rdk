@@ -18,14 +18,12 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // A Config describes the configuration of a fake board and all of its connected parts.
 type Config struct {
 	AnalogReaders     []board.AnalogReaderConfig     `json:"analogs,omitempty"`
 	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
-	Attributes        rdkutils.AttributeMap          `json:"attributes,omitempty"`
 	FailNew           bool                           `json:"fail_new"`
 }
 
@@ -221,8 +219,10 @@ func (b *Board) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *t
 	return grpc.UnimplementedError
 }
 
-// WriteAnalog writes the value to the given pin.
+// WriteAnalog writes the value to the given pin, which can be read back by adding it to AnalogReaders.
 func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+	alg := &AnalogReader{pin: pin, Value: int(value)}
+	b.AnalogReaders[pin] = alg
 	return nil
 }
 

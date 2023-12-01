@@ -19,6 +19,7 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/board/mcp3008helper"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -203,8 +204,7 @@ func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoar
 			return errors.Errorf("bad analog pin (%s)", c.Pin)
 		}
 
-		bus := &spiBus{}
-		bus.reset(c.SPIBus)
+		bus := buses.NewSpiBus(c.SPIBus)
 
 		stillExists[c.Name] = struct{}{}
 		if curr, ok := b.analogReaders[c.Name]; ok {

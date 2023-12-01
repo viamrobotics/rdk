@@ -28,7 +28,7 @@ func TestComponentValidate(t *testing.T) {
 		deps, err := emptyConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+		test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
 	})
 
 	t.Run("config invalid name", func(t *testing.T) {
@@ -93,7 +93,7 @@ func TestComponentValidate(t *testing.T) {
 			deps, err := invalidConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, `"Thing" is required`)
+			test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "Thing")
 		})
 
 		t.Run("config valid", func(t *testing.T) {
@@ -289,7 +289,7 @@ func TestComponentResourceName(t *testing.T) {
 				},
 				Name: "foo",
 			},
-			"name field for model missing",
+			"name",
 		},
 		{
 			"sensor with no subtype",
@@ -308,7 +308,7 @@ func TestComponentResourceName(t *testing.T) {
 				},
 				Name: "foo",
 			},
-			"name field for model missing",
+			"name",
 		},
 		{
 			"sensor with subtype",
@@ -327,7 +327,7 @@ func TestComponentResourceName(t *testing.T) {
 				},
 				Name: "foo",
 			},
-			"name field for model missing",
+			"name",
 		},
 		{
 			"sensor missing name",
@@ -346,7 +346,7 @@ func TestComponentResourceName(t *testing.T) {
 				},
 				Name: "",
 			},
-			`"name" is required`,
+			"name",
 		},
 		{
 			"all fields included with external type",
@@ -370,7 +370,7 @@ func TestComponentResourceName(t *testing.T) {
 				return
 			}
 			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, tc.ExpectedError)
+			test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, tc.ExpectedError)
 		})
 	}
 }
@@ -441,7 +441,7 @@ func TestServiceValidate(t *testing.T) {
 			deps, err := invalidConf.Validate("path", resource.APITypeServiceName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, `"Thing" is required`)
+			test.That(t, err.Error(), test.ShouldContainSubstring, `Field: "Thing"`)
 		})
 
 		t.Run("config valid", func(t *testing.T) {

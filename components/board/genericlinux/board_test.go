@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/mcp3008helper"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 )
 
 func TestGenericLinux(t *testing.T) {
@@ -71,7 +72,7 @@ func TestConfigValidate(t *testing.T) {
 	_, err := validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
 
 	validConfig.AnalogReaders = []mcp3008helper.MCP3008AnalogConfig{{Name: "bar"}}
 	_, err = validConfig.Validate("path")
@@ -81,13 +82,13 @@ func TestConfigValidate(t *testing.T) {
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.digital_interrupts.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
 
 	validConfig.DigitalInterrupts = []board.DigitalInterruptConfig{{Name: "bar"}}
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.digital_interrupts.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"pin" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "pin")
 
 	validConfig.DigitalInterrupts = []board.DigitalInterruptConfig{{Name: "bar", Pin: "3"}}
 	_, err = validConfig.Validate("path")

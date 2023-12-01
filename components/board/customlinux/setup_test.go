@@ -9,13 +9,14 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/resource"
 )
 
 func TestConfigParse(t *testing.T) {
 	emptyConfig := []byte(`{"pins": [{}]}`)
 	_, err := parseRawPinData(emptyConfig, "path")
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
 
 	emptyPWMID := []byte(`{"pins": [{"name": "7", "device_name": "gpiochip1", "line_number": 71, "pwm_chip_sysfs_dir": "hi"}]}`)
 	_, err = parseRawPinData(emptyPWMID, "path")

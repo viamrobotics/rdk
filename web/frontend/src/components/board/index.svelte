@@ -23,8 +23,10 @@ let setLevel = '';
 let pwm = '';
 let pwmFrequency = '';
 let getPinMessage = '';
-let analogPin = '';
+let writeAnalogPin = '';
+let analogPinName = '';
 let analogValue = '';
+let readAnalogMessage = '';
 
 const getGPIO = async () => {
   try {
@@ -79,9 +81,18 @@ const setPWMFrequency = async () => {
 
 const writeAnalog = async () => {
   try {
-    await boardClient.writeAnalog(analogPin, Number.parseInt(analogValue, 10));
+    await boardClient.writeAnalog(writeAnalogPin, Number.parseInt(analogValue, 10));
   } catch (error) {
     displayError(error as ServiceError);
+  }
+};
+
+const readAnalog = async () => {
+  try {
+    const value = await boardClient.readAnalogReader(analogPinName);
+    readAnalogMessage = `${analogPinName}: value is ${value}`;
+  } catch (error) {
+    notify.danger((error as ServiceError).message);
   }
 };
 
@@ -101,12 +112,16 @@ const handlePwmFrequencyInput = (event: CustomEvent<{ value: string}>) => {
   pwmFrequency = event.detail.value;
 };
 
-const handleAnalogPinInput = (event:CustomEvent<{ value: string}>) => {
-  analogPin = event.detail.value;
+const handleWriteAnalogPinInput = (event:CustomEvent<{ value: string}>) => {
+  writeAnalogPin = event.detail.value;
 };
 
-const handleAnalogValueInput = (event:CustomEvent<{ value: string}>) => {
+const handleWriteAnalogValueInput = (event:CustomEvent<{ value: string}>) => {
   analogValue = event.detail.value;
+};
+
+const handleReadAnalogPinInput = (event:CustomEvent<{ value: string}>) => {
+  analogPinName = event.detail.value;
 };
 
 </script>
@@ -118,7 +133,7 @@ const handleAnalogValueInput = (event:CustomEvent<{ value: string}>) => {
   />
   <div class="overflow-auto border border-t-0 border-medium p-4">
     <h3 class="mb-2">
-      Analog Readers
+      Analogs
     </h3>
     <table class="mb-4 table-auto border border-medium">
       {#each Object.entries(status?.analogs ?? {}) as [analogName, analog] (analogName)}
@@ -183,7 +198,6 @@ const handleAnalogValueInput = (event:CustomEvent<{ value: string}>) => {
           </div>
         </td>
       </tr>
-
       <tr>
         <th class="border border-medium p-2">
           Set
@@ -237,31 +251,61 @@ const handleAnalogValueInput = (event:CustomEvent<{ value: string}>) => {
         </td>
       </tr>
     </table>
+
     <h3 class="mb-2">
-      Analog Write
+      Analogs
      </h3>
      <table class="mb-4 w-full table-auto border border-medium">
-     <td class="border border-medium p-2">
+      <tr>
+        <th class="border border-medium p-2">
+          Get
+        </th>
+        <td class="p-2">
+          <div class="flex flex-wrap items-end gap-2">
+               <v-input
+                 label="Pin"
+                 type="text"
+                 value={analogPinName}
+                 on:input={handleReadAnalogPinInput}
+               />
+             <v-button
+             class="mr-2"
+             label="Get Analog Value"
+             on:click={readAnalog}
+           />
+           <span class="py-2">
+            {readAnalogMessage}
+            </span>
+          </div>
+        </td>
+      </tr>
+      <tr>
+     <th class="border border-medium p-2">
+          Set
+        </th>
+       <td class="border border-medium p-2">
        <div class="flex flex-wrap items-end gap-2">
          <v-input
            label="Pin"
            type="text"
-           value={analogPin}
-           on:input={handleAnalogPinInput}
+           value={writeAnalogPin}
+           on:input={handleWriteAnalogPinInput}
          />
          <v-input
          label="Value"
          type="text"
          value={analogValue}
-         on:input={handleAnalogValueInput}
+         on:input={handleWriteAnalogValueInput}
        />
        <v-button
        class="mr-2"
        label="Set Analog Value"
        on:click={writeAnalog}
-     />
-       </div>
-     </td>
-     </table>
-  </div>
+      />
+        </div>
+      </td>
+    </tr>
+  </table>
+</div>
+
 </Collapse>

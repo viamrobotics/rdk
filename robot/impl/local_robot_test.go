@@ -1519,7 +1519,7 @@ func TestValidationErrorOnReconfigure(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		resource.NewNotAvailableError(name, errors.New("config validation error found in resource: rdk:component:base/test: fail")),
+		resource.NewNotAvailableError(name, errors.New("resource config validation error: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
@@ -1605,7 +1605,7 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		resource.NewNotAvailableError(name, errors.New("config validation error found in resource: rdk:component:base/test: fail")),
+		resource.NewNotAvailableError(name, errors.New("resource config validation error: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
@@ -1736,7 +1736,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		resource.NewNotAvailableError(name, errors.New("config validation error found in resource: rdk:component:base/test: fail")),
+		resource.NewNotAvailableError(name, errors.New("resource config validation error: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
@@ -3143,9 +3143,15 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("reconfiguration timeout", func(t *testing.T) {
-		// Lower resource configuration timeout to avoid waiting for 60 seconds
-		// for manager. Add to time out waiting for module to start listening.
+		// Lower timeouts to avoid waiting for 60 seconds for reconfig and module.
+		defer func() {
+			test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
+				test.ShouldBeNil)
+			test.That(t, os.Unsetenv(rutils.ModuleStartupTimeoutEnvVar),
+				test.ShouldBeNil)
+		}()
 		t.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "500ms")
+		t.Setenv(rutils.ModuleStartupTimeoutEnvVar, "500ms")
 
 		// Reconfigure module to a malformed module (does not start listening).
 		// Assert that "h" is removed after reconfiguration error.
