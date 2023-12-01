@@ -499,7 +499,8 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 		kb, ms := createMoveOnMapEnvironment(
 			ctx,
 			t,
-			"slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd",
+			//~ "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd",
+			"pointcloud/octagonspace.pcd",
 			110,
 			spatialmath.NewPoseFromPoint(r3.Vector{0, -1600, 0}),
 		)

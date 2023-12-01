@@ -62,7 +62,7 @@ const (
 	defaultCollisionWalkbackPct = 0.75
 
 	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly.
-	pathdebug = false
+	pathdebug = true
 )
 
 var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
@@ -280,7 +280,8 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	midptNode := &basicNode{pose: spatialmath.NewPose(midPt, midOrient), cost: dist}
 	var randPosNode node = midptNode
 
-	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
+	//~ for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
+	for iter := 0; iter < 1; iter++ {
 		mp.logger.Debugf("TP Space RRT iteration %d", iter)
 		if ctx.Err() != nil {
 			mp.logger.Debugf("TP Space RRT timed out after %d iterations", iter)
@@ -306,7 +307,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			return
 		}
 
-		if seedReached.node != nil && goalReached.node != nil {
+		if false && seedReached.node != nil && goalReached.node != nil {
 			reachedDelta := mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: seedReached.node.Pose(), EndPosition: goalReached.node.Pose()})
 			if reachedDelta > mp.algOpts.poseSolveDist {
 				// If both maps extended, but did not reach the same point, then attempt to extend them towards each other
@@ -341,8 +342,8 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				return
 			}
 		}
-		if iter%mp.algOpts.attemptSolveEvery == 0 {
-			// Attempt a solve; we iterate through our goal tree and attempt to find any connection to the seed tree
+		if false && iter%mp.algOpts.attemptSolveEvery == 0 {
+			// Attempt a solve; we exhaustively iterate through our goal tree and attempt to find any connection to the seed tree
 			paths := [][]node{}
 			attempts := 0
 			for goalMapNode := range rrt.maps.goalMap {
