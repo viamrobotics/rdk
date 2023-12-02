@@ -293,6 +293,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		// operations
 		rpc.WithUnaryClientInterceptor(operation.UnaryClientInterceptor),
 		rpc.WithStreamClientInterceptor(operation.StreamClientInterceptor),
+		rpc.WithUnaryClientInterceptor(logging.UnaryClientInterceptor),
 	)
 
 	if err := rc.connect(ctx); err != nil {

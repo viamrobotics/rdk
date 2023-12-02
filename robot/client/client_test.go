@@ -1772,3 +1772,60 @@ func TestGetUnknownResource(t *testing.T) {
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 }
+
+func TestLoggingInterceptor(t *testing.T) {
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+
+	// A server with the logging interceptor looks for some values in the grpc request metadata and
+	// will call unary functions with a modified context.
+	gServer := grpc.NewServer(grpc.ChainUnaryInterceptor(logging.UnaryServerInterceptor))
+	injectRobot := &inject.Robot{
+		// Needed for client connect. Not important to the test.
+		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{arm.Named("myArm")} },
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+
+		// Hijack the `StatusFunc` for testing the reception of debug metadata via the
+		// logging/distributed tracing interceptor.
+		StatusFunc: func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+			switch len(resourceNames) {
+			case 0:
+				// The status call with a nil `resourceNames` signals there should be no debug
+				// information on the context.
+				if logging.IsDebugMode(ctx) || logging.GetName(ctx) != "" {
+					return nil, fmt.Errorf("Bad context. DebugMode? %v Name: %v", logging.IsDebugMode(ctx), logging.GetName(ctx))
+				}
+			case 1:
+				// The status call with a `resourceNames` of length 1 signals there should be debug
+				// information with `oliver`.
+				if !logging.IsDebugMode(ctx) || logging.GetName(ctx) != "oliver" {
+					return nil, fmt.Errorf("Bad context. DebugMode? %v Name: %v", logging.IsDebugMode(ctx), logging.GetName(ctx))
+				}
+			default:
+				return nil, fmt.Errorf("Bad resource names: %v", resourceNames)
+			}
+
+			return nil, nil
+		},
+	}
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	// Clients by default have an interceptor that serializes context debug information as grpc
+	// metadata.
+	client, err := New(context.Background(), listener.Addr().String(), logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+	defer client.Close(context.Background())
+
+	// The status call with a nil `resourceNames` signals there should be no debug information on
+	// the context.
+	_, err = client.Status(context.Background(), []resource.Name{})
+	test.That(t, err, test.ShouldBeNil)
+
+	// The status call with a `resourceNames` of length 1 signals there should be debug information
+	// with `oliver`.
+	_, err = client.Status(logging.EnableDebugMode(context.Background(), "oliver"), []resource.Name{{}})
+	test.That(t, err, test.ShouldBeNil)
+}
