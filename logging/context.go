@@ -7,23 +7,16 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-type debugModeType int
 type debugLogKeyType int
 
-const debugModeID = debugModeType(iota)
 const debugLogKeyID = debugLogKeyType(iota)
 
 func EnableDebugMode(ctx context.Context, debugLogKey string) context.Context {
-	ctx = context.WithValue(ctx, debugModeID, true)
 	return context.WithValue(ctx, debugLogKeyID, debugLogKey)
 }
 
 func IsDebugMode(ctx context.Context) bool {
-	isDebug, ok := ctx.Value(debugModeID).(bool)
-	if !ok {
-		return false
-	}
-	return isDebug
+	return GetName(ctx) != ""
 }
 
 func GetName(ctx context.Context) string {
