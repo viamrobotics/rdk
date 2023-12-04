@@ -190,6 +190,9 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		}
 	}
 
+	// add framesystem service as dependency
+	deps = append(deps, framesystem.InternalServiceName.String())
+
 	return deps, nil
 }
 
