@@ -16,6 +16,7 @@ let currentValue: number | undefined;
 let powerValue: number | undefined;
 
 
+
 let clearInterval: (() => void) | undefined;
 
 const refresh = async () => {
@@ -33,7 +34,7 @@ const refresh = async () => {
 const handleToggle = (event: CustomEvent<{ open: boolean }>) => {
   if (event.detail.open) {
     refresh();
-    clearInterval = setAsyncInterval(refresh, 500);
+    clearInterval = setAsyncInterval(refresh, 2000);
   } else {
     clearInterval?.();
   }
@@ -50,7 +51,7 @@ useDisconnect(() => clearInterval?.());
         <div class="overflow-auto">
           <small class='block pt-1 text-sm text-subtle-2'> voltage (volts)</small>
           <div class="flex gap-1.5">
-            <small class='block pt-1 text-sm text-subtle-1'>  {voltageValue} </small>
+            <small class='block pt-1 text-sm text-subtle-1'>  {voltageValue.toFixed(2)} </small>
           </div>
         </div>
         {/if}
