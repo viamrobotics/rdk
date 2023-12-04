@@ -249,8 +249,12 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	svc.stopActiveMode()
 	fmt.Println("all deps below")
-	for _, v := range deps {
-		fmt.Println("v.Name(): ", v.Name())
+	for name, dep := range deps {
+
+		fs, ok := dep.(framesystem.Service)
+		if ok {
+			svc.fsService = fs
+		}
 	}
 
 	fmt.Println("hello there 3")
