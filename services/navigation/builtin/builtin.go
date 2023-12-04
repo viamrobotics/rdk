@@ -241,7 +241,7 @@ type builtIn struct {
 	currentWaypointCancelFunc func()
 	waypointInProgress        *navigation.Waypoint
 	activeBackgroundWorkers   sync.WaitGroup
-	activeExecutionID         atomic.Value
+	activeExecutionWaypoint   atomic.Value
 }
 
 func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
@@ -533,7 +533,7 @@ func (svc *builtIn) moveOnGlobeSync(ctx context.Context, wp navigation.Waypoint,
 		return err
 	}
 	executionWaypoint := executionWaypoint{executionID: executionID, waypoint: wp}
-	if old := svc.activeExecutionID.Swap(executionWaypoint); old != nil && old != emptyExecutionWaypoint {
+	if old := svc.activeExecutionWaypoint.Swap(executionWaypoint); old != nil && old != emptyExecutionWaypoint {
 		msg := "unexpected race condition in moveOnGlobeSync, expected " +
 			"replaced waypoint & execution id to be nil or %#v; instead was %s"
 		svc.logger.Errorf(msg, emptyExecutionWaypoint, old)
@@ -549,7 +549,7 @@ func (svc *builtIn) moveOnGlobeSync(ctx context.Context, wp navigation.Waypoint,
 			svc.logger.Error("hit error trying to stop plan %s", err)
 		}
 
-		if old := svc.activeExecutionID.Swap(emptyExecutionWaypoint); old != executionWaypoint {
+		if old := svc.activeExecutionWaypoint.Swap(emptyExecutionWaypoint); old != executionWaypoint {
 			msg := "unexpected race condition in moveOnGlobeSync, expected " +
 				"replaced waypoint & execution id to equal %s, was actually %s"
 			svc.logger.Errorf(msg, executionWaypoint, old)
@@ -642,13 +642,13 @@ func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 
-	rawExecutionID := svc.activeExecutionID.Load()
+	rawExecutionWaypoint := svc.activeExecutionWaypoint.Load()
 	// If there is no execution, return empty paths
-	if rawExecutionID == nil || rawExecutionID == emptyExecutionWaypoint {
+	if rawExecutionWaypoint == nil || rawExecutionWaypoint == emptyExecutionWaypoint {
 		return []*navigation.Path{}, nil
 	}
 
-	ewp, ok := rawExecutionID.(executionWaypoint)
+	ewp, ok := rawExecutionWaypoint.(executionWaypoint)
 	if !ok {
 		return nil, errors.New("execution corrupt")
 	}

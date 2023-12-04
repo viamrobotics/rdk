@@ -629,12 +629,14 @@ func TestPaths(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	t.Run("Paths reflects the paths of all components which have in progress MoveOnGlobe calls", func(t *testing.T) {
+		expectedLng := 1.
+		expectedLat := 2.
 		var wg sync.WaitGroup
 		wg.Wait()
 		s := setupStartWaypoint(ctx, t, logger)
 		defer s.closeFunc()
 
-		mogCalledCtx, mogCalledCancelFn := context.WithCancel(ctx)
+		planHistoryCalledCtx, planHistoryCalledCancelFn := context.WithCancel(ctx)
 		planSucceededCtx, planSucceededCancelFn := context.WithCancel(ctx)
 		defer planSucceededCancelFn()
 		// we expect 2 executions to be generated
@@ -654,15 +656,18 @@ func TestPaths(t *testing.T) {
 				{
 					Plan: motion.Plan{
 						ExecutionID: executionID,
-						Steps:       []motion.PlanStep{map[resource.Name]spatialmath.Pose{s.base.Name(): spatialmath.NewPose(r3.Vector{X: 1, Y: 2}, nil)}},
+						Steps: []motion.PlanStep{map[resource.Name]spatialmath.Pose{
+							s.base.Name(): spatialmath.NewPose(r3.Vector{X: expectedLng, Y: expectedLat}, nil),
+						}},
 					},
 					StatusHistory: []motion.PlanStatus{
 						{State: motion.PlanStateInProgress},
 					},
 				},
 			}
-			mogCalledCancelFn()
+			logger.Infof("before cancel, len: %d", len(s.pws))
 			wg.Add(1)
+			logger.Infof("after cancel, len: %d", len(s.pws))
 			utils.ManagedGo(func() {
 				<-planSucceededCtx.Done()
 				s.Lock()
@@ -686,6 +691,9 @@ func TestPaths(t *testing.T) {
 			}
 			s.RLock()
 			defer s.RUnlock()
+			planHistoryCalledCancelFn()
+			logger.Infof("PlanHistory called, len: %d", len(s.pws))
+			defer logger.Infof("PlanHistory done, len: %d", len(s.pws))
 			history := make([]motion.PlanWithStatus, len(s.pws))
 			copy(history, s.pws)
 			return history, nil
@@ -727,14 +735,14 @@ func TestPaths(t *testing.T) {
 		case <-timeoutCtx.Done():
 			t.Error("test timed out")
 			t.FailNow()
-		case <-mogCalledCtx.Done():
+		case <-planHistoryCalledCtx.Done():
 			paths, err := s.ns.Paths(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(paths), test.ShouldEqual, 1)
 			test.That(t, len(paths[0].DestinationWaypointID()), test.ShouldBeGreaterThan, 0)
 			test.That(t, len(paths[0].GeoPoints()), test.ShouldEqual, 1)
-			test.That(t, paths[0].GeoPoints()[0].Lat(), test.ShouldAlmostEqual, 2)
-			test.That(t, paths[0].GeoPoints()[0].Lng(), test.ShouldAlmostEqual, 1)
+			test.That(t, paths[0].GeoPoints()[0].Lat(), test.ShouldAlmostEqual, expectedLat)
+			test.That(t, paths[0].GeoPoints()[0].Lng(), test.ShouldAlmostEqual, expectedLng)
 			// trigger plan success
 			planSucceededCancelFn()
 			for {
@@ -748,6 +756,7 @@ func TestPaths(t *testing.T) {
 				if len(paths) == 0 {
 					break
 				}
+				time.Sleep(time.Millisecond * 50)
 			}
 		}
 	})
