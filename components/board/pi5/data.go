@@ -2,6 +2,8 @@ package pi5
 
 import "go.viam.com/rdk/components/board/genericlinux"
 
+// Thanks to "Dan Makes Things" at https://www.makerforge.tech/posts/viam-custom-board-pi5/ for
+// collaborating on setting this up!
 var boardInfoMappings = map[string]genericlinux.BoardInformation{
 	"pi5": {
 		PinDefinitions: []genericlinux.PinDefinition{
@@ -22,9 +24,9 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{Name: "23", DeviceName: "gpiochip4", LineNumber: 11, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "24", DeviceName: "gpiochip4", LineNumber: 8, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "26", DeviceName: "gpiochip4", LineNumber: 7, PwmChipSysfsDir: "", PwmID: -1},
-			// There ought to be a way to get physical pins 27 and 28 to work, but it's not clear
-			// which ones they are. They have something to do with an I2C bus for writing to an
-			// EEPROM, hence why they're not labeled in the usual way if you run `sudo gpioinfo`.
+			// Per https://www.raspberrypi.com/documentation/computers/images/GPIO-duplicate.png
+			// Physical pins 27 and 28 (shown in white in that diagram) should not be used for
+			// normal GPIO stuff.
 			{Name: "29", DeviceName: "gpiochip4", LineNumber: 5, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "31", DeviceName: "gpiochip4", LineNumber: 6, PwmChipSysfsDir: "", PwmID: -1},
 			// We'd expect pins 32 and 33 to have hardware PWM support, too, but we haven't gotten
