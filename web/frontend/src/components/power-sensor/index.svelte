@@ -1,30 +1,28 @@
 <script lang="ts">
 
-import { type ServiceError, PowerSensorClient } from '@viamrobotics/sdk';
+import { type ServiceError} from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import Collapse from '@/lib/components/collapse.svelte';
 import { setAsyncInterval } from '@/lib/schedule';
 import { getVoltage, getCurrent, getPower } from '@/api/power-sensor';
 import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
-import { mdiConsoleNetwork } from '@mdi/js';
 
 export let name: string;
 
 const { robotClient } = useRobotClient();
-const psClient = new PowerSensorClient(robotClient, name)
 
 let voltageValue: number | undefined;
 let currentValue: number | undefined;
 let powerValue: number | undefined;
+
 
 let clearInterval: (() => void) | undefined;
 
 const refresh = async () => {
   try {
     console.log('refresh')
-    let [voltageValue, ac] = await psClient.getVoltage()
+    voltageValue = await getVoltage($robotClient, name)
     console.debug(voltageValue)
-    //voltageValue = await getVoltage($robotClient, name)
     currentValue = await getCurrent($robotClient, name)
     powerValue = await getPower($robotClient, name)
   } catch (error) {
@@ -52,7 +50,7 @@ useDisconnect(() => clearInterval?.());
         <div class="overflow-auto">
           <small class='block pt-1 text-sm text-subtle-2'> voltage (volts)</small>
           <div class="flex gap-1.5">
-            <small class='block pt-1 text-sm text-subtle-1'>  {voltageValue.toFixed(4)} </small>
+            <small class='block pt-1 text-sm text-subtle-1'>  {voltageValue} </small>
           </div>
         </div>
         {/if}
