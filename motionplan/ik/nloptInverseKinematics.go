@@ -161,19 +161,14 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		if len(gradient) > 0 {
 			for i := range gradient {
 				flip := false
-				x[i] += jump[i]
-				if x[i] >= ik.upperBound[i] {
+				inputs[i].Value += jump[i]
+				ub := ik.upperBound[i]
+				if inputs[i].Value >= ub {
 					flip = true
-					x[i] -= 2 * jump[i]
+					inputs[i].Value = ub - jump[i]
 				}
 
-				inputs = referenceframe.FloatsToInputs(x)
 				eePos, err := ik.model.Transform(inputs)
-				if flip {
-					x[i] += jump[i]
-				} else {
-					x[i] -= jump[i]
-				}
 				if eePos == nil || err != nil {
 					ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
 					err = opt.ForceStop()
@@ -183,10 +178,12 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				mInput.Configuration = inputs
 				mInput.Position = eePos
 				dist2 := solveMetric(mInput)
-
 				gradient[i] = (dist2 - dist) / jump[i]
 				if flip {
+					inputs[i].Value += jump[i]
 					gradient[i] *= -1
+				} else {
+					inputs[i].Value -= jump[i]
 				}
 			}
 		}
