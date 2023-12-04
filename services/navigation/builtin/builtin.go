@@ -380,15 +380,15 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 	fmt.Println("hello there 4")
 
-	svc.logger.Info("WE ARE GOING TO TRY TO SET THIS UP")
+	// svc.logger.Info("WE ARE GOING TO TRY TO SET THIS UP")
 	// create framesystem from dependencies
-	svc.fsService, err = framesystem.New(ctx, deps, svc.logger)
-	if err != nil {
-		svc.logger.Info("FAILED TO SET UP FRAME SYSTEM SERVICE")
-		svc.logger.Infof("ERR: %v", err.Error())
-		return err
-	}
-	svc.logger.Info("SEEMS TO HAVE WORKED")
+	// svc.fsService, err = framesystem.New(ctx, deps, svc.logger)
+	// if err != nil {
+	// 	svc.logger.Info("FAILED TO SET UP FRAME SYSTEM SERVICE")
+	// 	svc.logger.Infof("ERR: %v", err.Error())
+	// 	return err
+	// }
+	// svc.logger.Info("SEEMS TO HAVE WORKED")
 
 	svc.mode = navigation.ModeManual
 	svc.base = baseComponent
