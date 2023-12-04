@@ -154,7 +154,6 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				if flip {
 					gradient[i] *= -1
 				}
-
 			}
 		}
 		return dist
