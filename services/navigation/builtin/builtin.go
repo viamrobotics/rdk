@@ -44,7 +44,6 @@ var (
 	errNegativeObstaclePollingFrequencyHz = errors.New("obstacle_polling_frequency_hz must be non-negative if set")
 	errNegativePlanDeviationM             = errors.New("plan_deviation_m must be non-negative if set")
 	errNegativeReplanCostFactor           = errors.New("replan_cost_factor must be non-negative if set")
-	errUnimplemented                      = errors.New("unimplemented")
 )
 
 const (
@@ -658,7 +657,6 @@ func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]
 		ExecutionID:   ewp.executionID,
 		LastPlanOnly:  true,
 	})
-
 	if err != nil {
 		return nil, err
 	}

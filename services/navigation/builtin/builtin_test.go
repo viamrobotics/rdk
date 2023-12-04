@@ -751,7 +751,6 @@ func TestPaths(t *testing.T) {
 			}
 		}
 	})
-
 }
 
 func TestStartWaypoint(t *testing.T) {
