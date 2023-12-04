@@ -71,27 +71,23 @@ const (
 )
 
 func init() {
-	resource.RegisterService(
-		navigation.API,
-		resource.DefaultServiceModel,
-		resource.Registration[navigation.Service, *Config]{
-			Constructor: NewBuiltIn,
-			// TODO: We can move away from using AttributeMapConverter if we change the way
-			// that we allow orientations to be specified within orientation_json.go
-			AttributeMapConverter: func(attributes rdkutils.AttributeMap) (*Config, error) {
-				b, err := json.Marshal(attributes)
-				if err != nil {
-					return nil, err
-				}
+	resource.RegisterService(navigation.API, resource.DefaultServiceModel, resource.Registration[navigation.Service, *Config]{
+		Constructor: NewBuiltIn,
+		// TODO: We can move away from using AttributeMapConverter if we change the way
+		// that we allow orientations to be specified within orientation_json.go
+		AttributeMapConverter: func(attributes rdkutils.AttributeMap) (*Config, error) {
+			b, err := json.Marshal(attributes)
+			if err != nil {
+				return nil, err
+			}
 
-				var cfg Config
-				if err := json.Unmarshal(b, &cfg); err != nil {
-					return nil, err
-				}
-				return &cfg, nil
-			},
+			var cfg Config
+			if err := json.Unmarshal(b, &cfg); err != nil {
+				return nil, err
+			}
+			return &cfg, nil
 		},
-	)
+	})
 }
 
 // ObstacleDetectorNameConfig is the protobuf version of ObstacleDetectorName.
