@@ -443,7 +443,7 @@ const login = async (authType: string) => {
   try {
     await connect(creds, authEntity);
   } catch (error) {
-    notify.danger(`failed to connect: ${JSON.stringify(error as ServiceError)}`);
+    notify.danger(`failed to connect: ${error as string}`);
     $connectionStatus = 'idle';
   }
 };
@@ -503,6 +503,8 @@ let selectedAuthType: string = supportedAuthTypes[0]!
   <div class="flex bg-[#f7f7f8] min-h-[100vh]">
   <div
           class="flex flex-col items-center w-full h-full md:max-w-[400px] md:h-auto bg-white border border-[#d7d7d9] m-auto p-6 pt-10">
+          <img src="https://app.viam.com/static/images/viam-logo.svg" alt="Viam"
+               class="mb-8 h-8" />
     <div class="flex flex-row w-full mb-8">
     {#each supportedAuthTypes as authType(authType)}
         <button
