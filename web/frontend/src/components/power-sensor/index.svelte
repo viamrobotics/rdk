@@ -1,15 +1,17 @@
 <script lang="ts">
 
-import { type ServiceError } from '@viamrobotics/sdk';
+import { type ServiceError, PowerSensorClient } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import Collapse from '@/lib/components/collapse.svelte';
 import { setAsyncInterval } from '@/lib/schedule';
 import { getVoltage, getCurrent, getPower } from '@/api/power-sensor';
 import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
+import { mdiConsoleNetwork } from '@mdi/js';
 
 export let name: string;
 
 const { robotClient } = useRobotClient();
+const psClient = new PowerSensorClient(robotClient, name)
 
 let voltageValue: number | undefined;
 let currentValue: number | undefined;
@@ -19,15 +21,12 @@ let clearInterval: (() => void) | undefined;
 
 const refresh = async () => {
   try {
-    const results = await Promise.all([
-      getVoltage($robotClient, name),
-      getCurrent($robotClient, name),
-      getPower($robotClient, name),
-    ] as const)
-
-    voltageValue = results[0];
-    currentValue = results[1];
-    powerValue = results[2];
+    console.log('refresh')
+    let [voltageValue, ac] = await psClient.getVoltage()
+    console.debug(voltageValue)
+    //voltageValue = await getVoltage($robotClient, name)
+    currentValue = await getCurrent($robotClient, name)
+    powerValue = await getPower($robotClient, name)
   } catch (error) {
     displayError(error as ServiceError);
   }
