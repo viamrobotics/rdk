@@ -94,7 +94,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	startingPos := seed
 
 	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(ik.model.DoF())))
-	//~ opt, err := nlopt.NewNLopt(nlopt.LD_MMA, uint(len(ik.model.DoF())))
+	//~ opt, err := nlopt.NewNLopt(nlopt.GD_MLSL_LDS, uint(len(ik.model.DoF())))
 	defer opt.Destroy()
 	if err != nil {
 		return errors.Wrap(err, "nlopt creation error")
@@ -125,13 +125,25 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		mInput.Configuration = inputs
 		mInput.Position = eePos
 		dist := solveMetric(mInput)
+		//~ fmt.Println("x   ", x, dist)
 
 		if len(gradient) > 0 {
 			for i := range gradient {
+				flip := false
 				x[i] += ik.jump
+				if x[i] >= ik.upperBound[i] {
+					flip = true
+					x[i] -= 2*ik.jump
+				}
+				
 				inputs = referenceframe.FloatsToInputs(x)
 				eePos, err := ik.model.Transform(inputs)
-				x[i] -= ik.jump
+				//~ fmt.Println("x[i]", x)
+				if flip {
+					x[i] += ik.jump
+				} else {
+					x[i] -= ik.jump
+				}
 				if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
 					ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
 					err = opt.ForceStop()
@@ -143,19 +155,25 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				dist2 := solveMetric(mInput)
 
 				gradient[i] = (dist2 - dist) / ik.jump
+				if flip {
+					gradient[i] *= -1
+				}
+				
+				//~ fmt.Println("dist, dist2, grad", dist, dist2, gradient[i])
 			}
+			//~ fmt.Println("grad", iterations, dist, gradient)
 		}
 		return dist
 	}
 
 	err = multierr.Combine(
 		opt.SetFtolAbs(ik.epsilon),
-		opt.SetFtolRel(ik.epsilon),
+		//~ opt.SetFtolRel(ik.epsilon),
 		opt.SetLowerBounds(ik.lowerBound),
 		opt.SetStopVal(ik.epsilon),
 		opt.SetUpperBounds(ik.upperBound),
 		opt.SetXtolAbs1(ik.epsilon),
-		opt.SetXtolRel(ik.epsilon),
+		//~ opt.SetXtolRel(ik.epsilon),
 		opt.SetMinObjective(nloptMinFunc),
 		opt.SetMaxEval(nloptStepsPerIter),
 	)
@@ -215,7 +233,10 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			// Ignore it, something else will find a solution
 			err = multierr.Combine(err, nloptErr)
 		}
-		fmt.Println("solution, score", solutionRaw, result)
+		inputs := referenceframe.FloatsToInputs(solutionRaw)
+		eePos, err := ik.model.Transform(inputs)
+		fmt.Println("solution, score", solutionRaw, result, eePos.Point())
+		//~ fmt.Println("endpt", eePos.Point())
 
 		if result < ik.epsilon || (solutionRaw != nil && !ik.exact) {
 			select {

@@ -92,8 +92,10 @@ func OrientDistToRegion(goal spatial.Orientation, alpha float64) func(spatial.Or
 func NewSquaredNormMetric(goal spatial.Pose) StateMetric {
 	weightedSqNormDist := func(query *State) float64 {
 		delta := spatial.PoseDelta(goal, query.Position)
+		absVec := delta.Point().Abs()
+		vecDist := absVec.X + absVec.Y + absVec.Z
 		// Increase weight for orientation since it's a small number
-		return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationDistanceScaling).Norm2()
+		return vecDist + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationDistanceScaling).Norm2()
 	}
 	return weightedSqNormDist
 }
@@ -141,7 +143,9 @@ func NewSquaredNormSegmentMetric(orientationScaleFactor float64) SegmentMetric {
 	return func(segment *Segment) float64 {
 		delta := spatial.PoseDelta(segment.StartPosition, segment.EndPosition)
 		// Increase weight for orientation since it's a small number
-		return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationScaleFactor).Norm2()
+		absVec := delta.Point().Abs()
+		vecDist := absVec.X + absVec.Y + absVec.Z
+		return vecDist + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationScaleFactor).Norm2()
 	}
 }
 
