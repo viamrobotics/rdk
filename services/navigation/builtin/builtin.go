@@ -612,8 +612,13 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		if err != nil {
 			return nil, err
 		}
+		svc.logger.Infof("cameraToMovementsensor Pose.Point: %v", cameraToMovementsensor.Pose().Point())
 		svc.logger.Infof("cameraToMovementsensor Pose: %v", spatialmath.PoseToProtobuf(cameraToMovementsensor.Pose()))
+
+		svc.logger.Infof("baseToMovementSensor Pose.Point: %v", baseToMovementSensor.Pose().Point())
 		svc.logger.Infof("baseToMovementSensor Pose: %v", spatialmath.PoseToProtobuf(baseToMovementSensor.Pose()))
+
+		svc.logger.Infof("baseToCamera Pose.Point: %v", baseToCamera.Pose().Point())
 		svc.logger.Infof("baseToCamera Pose: %v", spatialmath.PoseToProtobuf(baseToCamera.Pose()))
 
 		// get current geo position of robot
@@ -708,6 +713,13 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 }
 
 func (svc *builtIn) getTransforms(ctx context.Context, cameraName string) (*referenceframe.PoseInFrame, *referenceframe.PoseInFrame, *referenceframe.PoseInFrame, error) {
+	fs, err := svc.fsService.FrameSystem(ctx, nil)
+	if err != nil {
+		svc.logger.Infof("ERR: %v", err.Error())
+		return nil, nil, nil, err
+	}
+	svc.logger.Infof("fs.FrameNames(): %v", fs.FrameNames())
+	svc.logger.Debug("camera to ms")
 	// determine transform from camera to movement sensor
 	movementsensorOrigin := referenceframe.NewPoseInFrame(svc.movementSensor.Name().ShortName(), spatialmath.NewZeroPose())
 	cameraToMovementsensor, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, cameraName, nil)
@@ -717,6 +729,7 @@ func (svc *builtIn) getTransforms(ctx context.Context, cameraName string) (*refe
 		cameraToMovementsensor = movementsensorOrigin
 	}
 
+	svc.logger.Debug("base to ms")
 	// determine transform from base to movement sensor
 	baseToMovementSensor, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, svc.base.Name().ShortName(), nil)
 	if err != nil {
@@ -725,6 +738,7 @@ func (svc *builtIn) getTransforms(ctx context.Context, cameraName string) (*refe
 		baseToMovementSensor = movementsensorOrigin
 	}
 
+	svc.logger.Debug("base to camera")
 	// determine transform from base to camera
 	cameraOrigin := referenceframe.NewPoseInFrame(cameraName, spatialmath.NewZeroPose())
 	baseToCamera, err := svc.fsService.TransformPose(ctx, cameraOrigin, svc.base.Name().ShortName(), nil)
