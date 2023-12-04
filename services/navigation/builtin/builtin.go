@@ -699,7 +699,10 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			// add manipulatedGeom to list of geoObstacles we return
 			geoObstacles = append(geoObstacles, obstacle)
 		}
+		fmt.Println(" ")
 	}
+	fmt.Println(" ")
+	fmt.Println(" ")
 
 	return geoObstacles, nil
 }
@@ -709,6 +712,7 @@ func (svc *builtIn) getTransforms(ctx context.Context, cameraName string) (*refe
 	movementsensorOrigin := referenceframe.NewPoseInFrame(svc.movementSensor.Name().ShortName(), spatialmath.NewZeroPose())
 	cameraToMovementsensor, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, cameraName, nil)
 	if err != nil {
+		svc.logger.Infof("ERR: %v", err.Error())
 		// here we make the assumption the movement sensor is coincident with the camera
 		cameraToMovementsensor = movementsensorOrigin
 	}
@@ -716,6 +720,7 @@ func (svc *builtIn) getTransforms(ctx context.Context, cameraName string) (*refe
 	// determine transform from base to movement sensor
 	baseToMovementSensor, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, svc.base.Name().ShortName(), nil)
 	if err != nil {
+		svc.logger.Infof("ERR: %v", err.Error())
 		// here we make the assumption the movement sensor is coincident with the base
 		baseToMovementSensor = movementsensorOrigin
 	}
@@ -724,6 +729,7 @@ func (svc *builtIn) getTransforms(ctx context.Context, cameraName string) (*refe
 	cameraOrigin := referenceframe.NewPoseInFrame(cameraName, spatialmath.NewZeroPose())
 	baseToCamera, err := svc.fsService.TransformPose(ctx, cameraOrigin, svc.base.Name().ShortName(), nil)
 	if err != nil {
+		svc.logger.Infof("ERR: %v", err.Error())
 		// here we make the assumption the base is coincident with the camera
 		baseToCamera = cameraOrigin
 	}
