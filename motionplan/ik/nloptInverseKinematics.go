@@ -54,7 +54,7 @@ type optimizeReturn struct {
 // CreateNloptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on
 // which Transform() will be called, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set
 // to the default of 5000.
-func CreateNloptIKSolver(mdl referenceframe.Frame, logger logging.Logger, iter int, exact bool) (*NloptIK, error) {
+func CreateNloptIKSolver(mdl referenceframe.Frame, logger logging.Logger, iter int, exact bool, jump float64) (*NloptIK, error) {
 	ik := &NloptIK{logger: logger}
 
 	ik.model = mdl
@@ -70,7 +70,7 @@ func CreateNloptIKSolver(mdl referenceframe.Frame, logger logging.Logger, iter i
 	ik.maxIterations = iter
 	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.DoF())
 	// How much to adjust joints to determine slope
-	ik.jump = 0.00000001
+	ik.jump = jump
 	ik.exact = exact
 
 	return ik, nil
@@ -126,10 +126,20 @@ func (ik *NloptIK) Solve(ctx context.Context,
 
 		if len(gradient) > 0 {
 			for i := range gradient {
+				flip := false
 				x[i] += ik.jump
+				if x[i] >= ik.upperBound[i] {
+					flip = true
+					x[i] -= 2 * ik.jump
+				}
+
 				inputs = referenceframe.FloatsToInputs(x)
 				eePos, err := ik.model.Transform(inputs)
-				x[i] -= ik.jump
+				if flip {
+					x[i] += ik.jump
+				} else {
+					x[i] -= ik.jump
+				}
 				if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
 					ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
 					err = opt.ForceStop()
@@ -141,6 +151,10 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				dist2 := solveMetric(mInput)
 
 				gradient[i] = (dist2 - dist) / ik.jump
+				if flip {
+					gradient[i] *= -1
+				}
+
 			}
 		}
 		return dist
@@ -148,12 +162,10 @@ func (ik *NloptIK) Solve(ctx context.Context,
 
 	err = multierr.Combine(
 		opt.SetFtolAbs(ik.epsilon),
-		opt.SetFtolRel(ik.epsilon),
 		opt.SetLowerBounds(ik.lowerBound),
 		opt.SetStopVal(ik.epsilon),
 		opt.SetUpperBounds(ik.upperBound),
 		opt.SetXtolAbs1(ik.epsilon),
-		opt.SetXtolRel(ik.epsilon),
 		opt.SetMinObjective(nloptMinFunc),
 		opt.SetMaxEval(nloptStepsPerIter),
 	)

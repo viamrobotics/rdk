@@ -13,6 +13,8 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
+const defaultArmJump = 0.00000001
+
 // CombinedIK defines the fields necessary to run a combined solver.
 type CombinedIK struct {
 	solvers []InverseKinematics
@@ -30,7 +32,7 @@ func CreateCombinedIKSolver(model referenceframe.Frame, logger logging.Logger, n
 		nCPU = 1
 	}
 	for i := 1; i <= nCPU; i++ {
-		nlopt, err := CreateNloptIKSolver(model, logger, -1, true)
+		nlopt, err := CreateNloptIKSolver(model, logger, -1, true, defaultArmJump)
 		nlopt.id = i
 		if err != nil {
 			return nil, err
