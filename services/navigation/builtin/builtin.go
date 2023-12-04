@@ -601,34 +601,19 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			return nil, fmt.Errorf("vision service with name: %s not found", detector.VisionServiceName)
 		}
 
-		// determine transform from camera to movement sensor
-		movementsensorOrigin := referenceframe.NewPoseInFrame(svc.movementSensor.Name().ShortName(), spatialmath.NewZeroPose())
-		movementsensorToCamera, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, detector.CameraName.ShortName(), nil)
-		if err != nil {
-			// here we make the assumption the movement sensor is coincident with the camera
-			movementsensorToCamera = movementsensorOrigin
-		}
-
-		// determine transform from base to movement sensor
-		movementsensorToBase, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, svc.base.Name().ShortName(), nil)
-		if err != nil {
-			// here we make the assumption the movement sensor is coincident with the base
-			movementsensorToBase = movementsensorOrigin
-		}
-
-		// determine transform from base to camera
-		cameraOrigin := referenceframe.NewPoseInFrame(detector.CameraName.ShortName(), spatialmath.NewZeroPose())
-		baseToCamera, err := svc.fsService.TransformPose(ctx, cameraOrigin, svc.base.Name().ShortName(), nil)
-		if err != nil {
-			// here we make the assumption the base is coincident with the camera
-			baseToCamera = cameraOrigin
-		}
-
 		// get the detections
 		detections, err := visSvc.GetObjectPointClouds(ctx, detector.CameraName.Name, nil)
 		if err != nil {
 			return nil, err
 		}
+
+		// get transforms
+		cameraToMovementsensor, baseToMovementSensor, baseToCamera, err := svc.getTransforms(ctx, detector.CameraName.ShortName())
+		if err != nil {
+			return nil, err
+		}
+
+		// get the robot geo pose
 
 		// get current geo position of robot
 		gp, _, err := svc.movementSensor.Position(ctx, nil)
@@ -647,7 +632,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		localizerHeading := math.Mod(math.Abs(currentPIF.Pose().Orientation().OrientationVectorDegrees().Theta-360), 360)
 
 		// convert orientation of movementsensorToCamera to be left handed????
-		localizerBaseThetaDiff := math.Mod(math.Abs(movementsensorToBase.Pose().Orientation().OrientationVectorDegrees().Theta+360), 360)
+		localizerBaseThetaDiff := math.Mod(math.Abs(baseToMovementSensor.Pose().Orientation().OrientationVectorDegrees().Theta+360), 360)
 
 		baseHeading := math.Mod(localizerHeading+localizerBaseThetaDiff, 360)
 
@@ -658,9 +643,9 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		for i, detection := range detections {
 			// the position of the detection in the camera coordinate frame if it were at the movementsensor's location
 			desiredPoint := r3.Vector{
-				X: detection.Geometry.Pose().Point().X - movementsensorToCamera.Pose().Point().X,
-				Y: detection.Geometry.Pose().Point().Y - movementsensorToCamera.Pose().Point().Y,
-				Z: detection.Geometry.Pose().Point().Z - movementsensorToCamera.Pose().Point().Z,
+				X: detection.Geometry.Pose().Point().X - cameraToMovementsensor.Pose().Point().X,
+				Y: detection.Geometry.Pose().Point().Y - cameraToMovementsensor.Pose().Point().Y,
+				Z: detection.Geometry.Pose().Point().Z - cameraToMovementsensor.Pose().Point().Z,
 			}
 
 			desiredPose := spatialmath.NewPose(
@@ -674,8 +659,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			manipulatedGeom := detection.Geometry.Transform(transformBy)
 
 			// fix axes of geometry's pose such that it is in the cooordinate system of the base
-			transformBy = spatialmath.NewPoseFromOrientation(baseToCamera.Pose().Orientation())
-			manipulatedGeom = manipulatedGeom.Transform(transformBy)
+			manipulatedGeom = manipulatedGeom.Transform(spatialmath.NewPoseFromOrientation(baseToCamera.Pose().Orientation()))
 
 			// get the geometry's lat & lng along with its heading with respect to north as a left handed value
 			obstacleGeoPose := spatialmath.PoseToGeoPose(robotGeoPose, manipulatedGeom.Pose())
@@ -705,6 +689,33 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 	}
 
 	return geoObstacles, nil
+}
+
+func (svc *builtIn) getTransforms(ctx context.Context, cameraName string) (*referenceframe.PoseInFrame, *referenceframe.PoseInFrame, *referenceframe.PoseInFrame, error) {
+	// determine transform from camera to movement sensor
+	movementsensorOrigin := referenceframe.NewPoseInFrame(svc.movementSensor.Name().ShortName(), spatialmath.NewZeroPose())
+	cameraToMovementsensor, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, cameraName, nil)
+	if err != nil {
+		// here we make the assumption the movement sensor is coincident with the camera
+		cameraToMovementsensor = movementsensorOrigin
+	}
+
+	// determine transform from base to movement sensor
+	baseToMovementSensor, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, svc.base.Name().ShortName(), nil)
+	if err != nil {
+		// here we make the assumption the movement sensor is coincident with the base
+		baseToMovementSensor = movementsensorOrigin
+	}
+
+	// determine transform from base to camera
+	cameraOrigin := referenceframe.NewPoseInFrame(cameraName, spatialmath.NewZeroPose())
+	baseToCamera, err := svc.fsService.TransformPose(ctx, cameraOrigin, svc.base.Name().ShortName(), nil)
+	if err != nil {
+		// here we make the assumption the base is coincident with the camera
+		baseToCamera = cameraOrigin
+	}
+
+	return cameraToMovementsensor, baseToMovementSensor, baseToCamera, nil
 }
 
 func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
