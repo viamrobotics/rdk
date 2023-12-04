@@ -250,10 +250,8 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.stopActiveMode()
 	fmt.Println("all deps below")
 	for name, dep := range deps {
-
-		fs, ok := dep.(framesystem.Service)
-		if ok {
-			svc.fsService = fs
+		if name == framesystem.InternalServiceName {
+			svc.fsService = dep.(framesystem.Service)
 		}
 	}
 
