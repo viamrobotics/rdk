@@ -135,7 +135,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	if conf.MovementSensorName != "" {
 		deps = append(deps, conf.MovementSensorName)
 	}
-
+	fmt.Println("hello there 1")
 	// Add motion service dependencies
 	if conf.MotionServiceName != "" {
 		deps = append(deps, resource.NewName(motion.API, conf.MotionServiceName).String())
@@ -196,6 +196,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 	// add framesystem service as dependency
 	deps = append(deps, framesystem.InternalServiceName.String())
+	fmt.Println("hello there 2")
 
 	return deps, nil
 }
@@ -247,6 +248,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.actionMu.Lock()
 	defer svc.actionMu.Unlock()
 
+	fmt.Println("hello there 3")
 	svc.stopActiveMode()
 
 	svcConfig, err := resource.NativeConfig[*Config](conf)
@@ -370,6 +372,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	if err != nil {
 		return err
 	}
+	fmt.Println("hello there 4")
 
 	svc.logger.Info("WE ARE GOING TO TRY TO SET THIS UP")
 	// create framesystem from dependencies
