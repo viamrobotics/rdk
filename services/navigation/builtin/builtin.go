@@ -209,7 +209,10 @@ func NewBuiltIn(
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
 	}
+	fmt.Println("IN NEW BUILTIN FOR NAV")
+	fmt.Println("ABOUT TO ENTER RECONFIG")
 	if err := navSvc.Reconfigure(ctx, deps, conf); err != nil {
+		fmt.Println("err: ", err.Error())
 		return nil, err
 	}
 
@@ -248,8 +251,9 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.actionMu.Lock()
 	defer svc.actionMu.Unlock()
 
-	fmt.Println("hello there 3")
 	svc.stopActiveMode()
+
+	fmt.Println("hello there 3")
 
 	svcConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
