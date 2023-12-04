@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -1889,6 +1890,13 @@ func TestMoveOnGlobeNew(t *testing.T) {
 	test.That(t, ph2[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateStopped)
 	test.That(t, ph2[0].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
 	test.That(t, len(ph2[0].Plan.Steps), test.ShouldNotEqual, 0)
+
+	// Proves that calling StopPlan after the plan has reached a terminal state is idempotent
+	err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
+	test.That(t, err, test.ShouldBeNil)
+	ph3, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ph3, test.ShouldResemble, ph2)
 }
 
 func TestStopPlan(t *testing.T) {

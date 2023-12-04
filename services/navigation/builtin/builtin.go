@@ -67,6 +67,9 @@ const (
 	// frequency measured in hertz.
 	defaultObstaclePollingFrequencyHz = 2.
 	defaultPositionPollingFrequencyHz = 2.
+
+	// frequency in milliseconds.
+	planHistoryPollFrequency = time.Millisecond * 50
 )
 
 func init() {
@@ -530,32 +533,30 @@ func (svc *builtIn) moveOnGlobeSync(ctx context.Context, wp navigation.Waypoint,
 		return err
 	}
 	executionWaypoint := executionWaypoint{executionID: executionID, waypoint: wp}
-	old := svc.activeExecutionID.Swap(executionWaypoint)
-	if old != nil && old != emptyExecutionWaypoint {
-		// TODO: remove
-		svc.logger.Errorf("NICK: hit error trying to set the  executionID to %s from %s", executionID, old)
+	if old := svc.activeExecutionID.Swap(executionWaypoint); old != nil && old != emptyExecutionWaypoint {
+		msg := "unexpected race condition in moveOnGlobeSync, expected " +
+			"replaced waypoint & execution id to be nil or %#v; instead was %s"
+		svc.logger.Errorf(msg, emptyExecutionWaypoint, old)
 	}
 	stopWG.Add(1)
 	// call StopPlan upon exiting navOnce, is a NoOp if execution has already terminted
 	utils.ManagedGo(func() {
 		<-cancelCtx.Done()
-		// TODO: Test that calling StopPlan is idempotent & doesn't affect the results of PlanHistory or ListPlanStatuses
 		timeoutCtx, timeoutCancelFn := context.WithTimeout(context.Background(), time.Second*5)
 		defer timeoutCancelFn()
 		err := svc.motionService.StopPlan(timeoutCtx, motion.StopPlanReq{ComponentName: req.ComponentName})
-		// TODO: remove
 		if err != nil {
 			svc.logger.Error("hit error trying to stop plan %s", err)
 		}
 
-		old := svc.activeExecutionID.Swap(emptyExecutionWaypoint)
-		if old != executionWaypoint {
-			// TODO: remove
-			svc.logger.Errorf("NICK: hit error trying to unset the executionID to uuid.Nil from %s, was actually %s", executionID, old)
+		if old := svc.activeExecutionID.Swap(emptyExecutionWaypoint); old != executionWaypoint {
+			msg := "unexpected race condition in moveOnGlobeSync, expected " +
+				"replaced waypoint & execution id to equal %s, was actually %s"
+			svc.logger.Errorf(msg, executionWaypoint, old)
 		}
 	}, stopWG.Done)
 
-	err = pollUntilMOGSuccessOrError(cancelCtx, svc.motionService, time.Millisecond*50,
+	err = pollUntilMOGSuccessOrError(cancelCtx, svc.motionService, planHistoryPollFrequency,
 		motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
 			ExecutionID:   executionID,
