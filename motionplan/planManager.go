@@ -92,6 +92,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 
 	var cancel func()
 
+	fmt.Println("PATHDEBUG", pathdebug)
 	if pathdebug {
 		pm.logger.Debug("$type,X,Y")
 		pm.logger.Debugf("$SG,%f,%f", 0., 0.)

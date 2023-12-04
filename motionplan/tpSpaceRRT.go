@@ -298,13 +298,13 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		//~ })
 		if mp.algOpts.bidirectional {
 			utils.PanicCapturingGo(func() {
-				flippedNode := &basicNode{
-					pose: spatialmath.Compose(randPosNode.Pose(), spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ:1, Theta: 180})),
-					cost: randPosNode.Cost(),
-				}
-				m2chan <- mp.attemptExtension(ctx, flippedNode, rrt.maps.goalMap, false)
+				//~ flippedNode := &basicNode{
+					//~ pose: spatialmath.Compose(randPosNode.Pose(), spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ:1, Theta: 180})),
+					//~ cost: randPosNode.Cost(),
+				//~ }
+				//~ m2chan <- mp.attemptExtension(ctx, flippedNode, rrt.maps.goalMap, false)
 				
-				//~ m2chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.goalMap, true)
+				m2chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.goalMap, true)
 			})
 			goalReached = <-m2chan
 		}
@@ -479,7 +479,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	}
 	arcStartPose := nearest.Pose()
 	successNodes := []node{}
-	arcPose := spatialmath.NewZeroPose() // This will be the full pose that is the delta from one end of the combined traj to the other.
+	arcPose := spatialmath.NewZeroPose() // This will be the full relative pose that is the delta from one end of the combined traj to the other.
 	// We may produce more than one consecutive arc. Reduce the one configuration to several 2dof arcs
 	for i := 0; i < len(bestNode.Configuration); i += 2 {
 		var subNode node
@@ -521,18 +521,17 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 			arcPose = spatialmath.Compose(goodNode.Pose(), arcPose)
 		} else {
 			arcPose = spatialmath.Compose(arcPose, goodNode.Pose())
-			//~ arcPose = spatialmath.Compose(arcPose, subNodePose)
 		}
-		//~ arcPose = goodNode.Pose()
 
 		// add the last node in trajectory
 		successNode = &basicNode{
 			q:    []referenceframe.Input{{float64(ptgNum)}, subNode.Q()[0], {goodNode.Cost()}},
 			cost: goodNode.Cost(),
-			pose: arcPose,
+			pose: spatialmath.Compose(arcStartPose, arcPose),
 		}
+		fmt.Println("arcpose", arcPose.Point())
 		successNodes = append(successNodes, successNode)
-		arcStartPose = goodNode.Pose()
+		arcStartPose = spatialmath.Compose(arcStartPose, arcPose)
 		if cutShort {
 			break
 		}

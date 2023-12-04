@@ -71,7 +71,7 @@ func CreateNloptIKSolver(mdl referenceframe.Frame, logger logging.Logger, iter i
 	ik.maxIterations = iter
 	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.DoF())
 	// How much to adjust joints to determine slope
-	ik.jump = 0.00000001
+	ik.jump = 0.0001
 	ik.exact = exact
 
 	return ik, nil
@@ -216,6 +216,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 			solutionRaw, result, nloptErr := opt.Optimize(referenceframe.InputsToFloats(startingPos))
+			fmt.Println("nlopt got", solutionRaw, result, nloptErr)
 			solveChan <- &optimizeReturn{solutionRaw, result, nloptErr}
 		})
 		select {
@@ -235,8 +236,9 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		}
 		inputs := referenceframe.FloatsToInputs(solutionRaw)
 		eePos, err := ik.model.Transform(inputs)
-		fmt.Println("solution, score", solutionRaw, result, eePos.Point())
-		//~ fmt.Println("endpt", eePos.Point())
+		//~ fmt.Println("solution, score", solutionRaw, result, eePos.Point())
+		fmt.Println("solution, score", solutionRaw, result, nloptErr)
+		fmt.Println("endpt", eePos.Point())
 
 		if result < ik.epsilon || (solutionRaw != nil && !ik.exact) {
 			select {

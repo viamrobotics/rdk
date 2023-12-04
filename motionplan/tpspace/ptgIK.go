@@ -5,7 +5,7 @@ package tpspace
 import (
 	"context"
 	"errors"
-	"math"
+	//~ "math"
 	"sync"
 
 	"go.viam.com/rdk/logging"
@@ -35,11 +35,12 @@ type ptgIK struct {
 
 // NewPTGIK creates a new ptgIK, which creates a frame using the provided PTG, and wraps it providing functions to fill the PTG
 // interface, allowing inverse kinematics queries to be run against it.
-func NewPTGIK(simPTG PTG, logger logging.Logger, refDist float64, randSeed, trajCount int) (PTGSolver, error) {
+func NewPTGIK(simPTG PTG, logger logging.Logger, refDistFar, refDistRestricted float64, randSeed, trajCount int) (PTGSolver, error) {
+	refDist := refDistFar
 	if refDist <= 0 {
 		return nil, errors.New("refDist must be greater than zero")
 	}
-	ptgFrame := newPTGIKFrame(simPTG, trajCount, refDist)
+	ptgFrame := newPTGIKFrame(simPTG, trajCount, refDistFar, refDistRestricted)
 
 	nlopt, err := ik.CreateNloptIKSolver(ptgFrame, logger, 1, false)
 	if err != nil {
@@ -47,10 +48,16 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDist float64, randSeed, traj
 	}
 
 	inputs := []referenceframe.Input{}
+	//~ for i := 0; i < trajCount; i++ {
+		//~ inputs = append(inputs,
+			//~ referenceframe.Input{float64(i)*(math.Pi/float64(trajCount))*0.9 + 0.01},
+			//~ referenceframe.Input{float64(i+1) * refDist / 10},
+		//~ )
+	//~ }
 	for i := 0; i < trajCount; i++ {
 		inputs = append(inputs,
-			referenceframe.Input{float64(i)*(math.Pi/float64(trajCount))*0.9 + 0.01},
-			referenceframe.Input{float64(i+1) * refDist / 10},
+			referenceframe.Input{0},
+			referenceframe.Input{refDistRestricted * 0.9},
 		)
 	}
 
