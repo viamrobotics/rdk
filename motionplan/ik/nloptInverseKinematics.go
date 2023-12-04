@@ -27,7 +27,7 @@ var (
 const (
 	constrainedTries  = 30
 	nloptStepsPerIter = 4001
-	defaultJump       = 1e-8
+	defaultJump       = 1e-9
 )
 
 // NloptIK TODO.
@@ -87,42 +87,9 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	mInput := &State{Frame: ik.model}
 
 	// Determine optimal jump values; start with default, and if gradient is zero, increase to 1 to try to avoid underflow.
-	jump := make([]float64, 0, len(seed))
-	seedTest := append(make([]referenceframe.Input, 0, len(seed)), seed...)
-	eePos, err := ik.model.Transform(seed)
+	jump, err := ik.calcJump(defaultJump, seed, solveMetric)
 	if err != nil {
 		return err
-	}
-	mInput.Configuration = seed
-	mInput.Position = eePos
-	seedDist := solveMetric(mInput)
-	for i, testVal := range seedTest {
-		for jumpVal := defaultJump; jumpVal < 1; jumpVal *= 10 {
-			seedTest[i] = referenceframe.Input{testVal.Value + jumpVal}
-			if seedTest[i].Value > ik.upperBound[i] {
-				seedTest[i] = referenceframe.Input{testVal.Value - jumpVal}
-				if seedTest[i].Value < ik.lowerBound[i] {
-					jump = append(jump, defaultJump)
-					break
-				}
-			}
-			eePos, err = ik.model.Transform(seedTest)
-			if err != nil {
-				return err
-			}
-			mInput.Configuration = seed
-			mInput.Position = eePos
-			checkDist := solveMetric(mInput)
-
-			// Use the smallest value that yields a change in distance
-			if checkDist != seedDist {
-				jump = append(jump, jumpVal)
-				break
-			}
-		}
-		if len(jump) != i+1 {
-			jump = append(jump, defaultJump)
-		}
 	}
 
 	tries := 1
@@ -158,33 +125,31 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		mInput.Position = eePos
 		dist := solveMetric(mInput)
 
-		if len(gradient) > 0 {
-			for i := range gradient {
-				flip := false
-				inputs[i].Value += jump[i]
-				ub := ik.upperBound[i]
-				if inputs[i].Value >= ub {
-					flip = true
-					inputs[i].Value = ub - jump[i]
-				}
+		for i := range gradient {
+			flip := false
+			inputs[i].Value += jump[i]
+			ub := ik.upperBound[i]
+			if inputs[i].Value >= ub {
+				flip = true
+				inputs[i].Value = ub - jump[i]
+			}
 
-				eePos, err := ik.model.Transform(inputs)
-				if eePos == nil || err != nil {
-					ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
-					err = opt.ForceStop()
-					ik.logger.Errorw("forcestop error", "error", err)
-					return 0
-				}
-				mInput.Configuration = inputs
-				mInput.Position = eePos
-				dist2 := solveMetric(mInput)
-				gradient[i] = (dist2 - dist) / jump[i]
-				if flip {
-					inputs[i].Value += jump[i]
-					gradient[i] *= -1
-				} else {
-					inputs[i].Value -= jump[i]
-				}
+			eePos, err := ik.model.Transform(inputs)
+			if eePos == nil || err != nil {
+				ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
+				err = opt.ForceStop()
+				ik.logger.Errorw("forcestop error", "error", err)
+				return 0
+			}
+			mInput.Configuration = inputs
+			mInput.Position = eePos
+			dist2 := solveMetric(mInput)
+			gradient[i] = (dist2 - dist) / jump[i]
+			if flip {
+				inputs[i].Value += jump[i]
+				gradient[i] *= -1
+			} else {
+				inputs[i].Value -= jump[i]
 			}
 		}
 		return dist
@@ -342,6 +307,48 @@ func (ik *NloptIK) updateBounds(seed []referenceframe.Input, tries int, opt *nlo
 		opt.SetLowerBounds(newLower),
 		opt.SetUpperBounds(newUpper),
 	)
+}
+
+func (ik *NloptIK) calcJump(testJump float64, seed []referenceframe.Input, solveMetric StateMetric) ([]float64, error) {
+	mInput := &State{Frame: ik.model}
+	jump := make([]float64, 0, len(seed))
+	seedTest := append(make([]referenceframe.Input, 0, len(seed)), seed...)
+	eePos, err := ik.model.Transform(seed)
+	if err != nil {
+		return nil, err
+	}
+	mInput.Configuration = seed
+	mInput.Position = eePos
+	seedDist := solveMetric(mInput)
+	for i, testVal := range seedTest {
+		for jumpVal := testJump; jumpVal < 1; jumpVal *= 10 {
+			seedTest[i] = referenceframe.Input{testVal.Value + jumpVal}
+			if seedTest[i].Value > ik.upperBound[i] {
+				seedTest[i] = referenceframe.Input{testVal.Value - jumpVal}
+				if seedTest[i].Value < ik.lowerBound[i] {
+					jump = append(jump, testJump)
+					break
+				}
+			}
+			eePos, err = ik.model.Transform(seedTest)
+			if err != nil {
+				return nil, err
+			}
+			mInput.Configuration = seed
+			mInput.Position = eePos
+			checkDist := solveMetric(mInput)
+
+			// Use the smallest value that yields a change in distance
+			if checkDist != seedDist {
+				jump = append(jump, jumpVal)
+				break
+			}
+		}
+		if len(jump) != i+1 {
+			jump = append(jump, testJump)
+		}
+	}
+	return jump, nil
 }
 
 func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
