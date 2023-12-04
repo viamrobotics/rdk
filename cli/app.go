@@ -77,6 +77,37 @@ const (
 	boardFlagVersion = "version"
 )
 
+type ViamStringFlag struct {
+	cli.StringFlag
+}
+
+func (f *ViamStringFlag) Names() []string {
+	return cli.FlagNames(f.Aliases[0], []string{f.Name})
+}
+
+func prefixedNames(names []string, placeholder string) string {
+	var prefixed string
+	for i, name := range names {
+		if name == "" {
+			continue
+		}
+
+		prefixed += "--" + name
+		if placeholder != "" {
+			prefixed += " " + placeholder
+		}
+		if i < len(names)-1 {
+			prefixed += ", "
+		}
+	}
+	return prefixed
+}
+
+// func (f *ViamStringFlag) String() string {
+// 	fmt.Printf("f.Names: %v\n", prefixedNames(f.Names(), "value"))
+// 	return cli.FlagStringer(f)
+// }
+
 var app = &cli.App{
 	Name:            "viam",
 	Usage:           "interact with your Viam machines",
@@ -831,10 +862,12 @@ var app = &cli.App{
 							Name:        locationFlag,
 							DefaultText: "first location alphabetically",
 						},
-						&cli.StringFlag{
-							Name:     machineFlag,
-							Aliases:  []string{aliasRobotFlag},
-							Required: true,
+						&ViamStringFlag{
+							cli.StringFlag{
+								Name:     machineFlag,
+								Aliases:  []string{aliasRobotFlag},
+								Required: true,
+							},
 						},
 						&cli.BoolFlag{
 							Name:  logsFlagErrors,
