@@ -290,6 +290,7 @@ func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 	motionProfile := ""
 	v := validatedExtra{}
 	if extra == nil {
+		v.extra = map[string]interface{}{"smooth_iter": 20}
 		return v, nil
 	}
 	if replansRaw, ok := extra["max_replans"]; ok {
@@ -310,6 +311,11 @@ func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 		}
 		replanCostFactor = costFactor
 	}
+
+	if _, ok := extra["smooth_iter"]; !ok {
+		extra["smooth_iter"] = 20
+	}
+
 	return validatedExtra{
 		maxReplans:       maxReplans,
 		motionProfile:    motionProfile,
