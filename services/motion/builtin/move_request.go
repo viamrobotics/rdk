@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
@@ -66,10 +67,8 @@ type moveRequest struct {
 	obstacleDetectors map[vision.Service][]resource.Name
 	replanCostFactor  float64
 
-	ctx               context.Context
-	cancelFn          context.CancelFunc
-	backgroundWorkers *sync.WaitGroup
-	responseChan      chan moveResponse
+	executeBackgroundWorkers *sync.WaitGroup
+	responseChan             chan moveResponse
 	// replanners for the move request
 	// if we ever have to add additional instances we should figure out how to make this more scalable
 	position, obstacle *replanner
@@ -78,8 +77,8 @@ type moveRequest struct {
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
-func (mr *moveRequest) Plan() (state.PlanResponse, error) {
-	inputs, err := mr.kinematicBase.CurrentInputs(mr.ctx)
+func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
+	inputs, err := mr.kinematicBase.CurrentInputs(ctx)
 	if err != nil {
 		return state.PlanResponse{}, err
 	}
@@ -90,7 +89,7 @@ func (mr *moveRequest) Plan() (state.PlanResponse, error) {
 	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): inputs}
 
 	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
-	plan, err := motionplan.Replan(mr.ctx, mr.planRequest, nil, 0)
+	plan, err := motionplan.Replan(ctx, mr.planRequest, nil, 0)
 	if err != nil {
 		return state.PlanResponse{}, err
 	}
@@ -102,14 +101,28 @@ func (mr *moveRequest) Plan() (state.PlanResponse, error) {
 
 	switch mr.requestType {
 	case requestTypeMoveOnMap:
+		// TODO: In order for MoveOnMap plans to show up in GetPlan & ListPlanStatuses we will need to
+		// add PosesByComponent to this response
 		return state.PlanResponse{
 			Waypoints:  waypoints,
 			Motionplan: plan,
 		}, nil
 	case requestTypeMoveOnGlobe:
+		posesByComponent, geoPoses, err := motionplan.PlanToPlanStepsAndGeoPoses(plan, mr.kinematicBase.Name(), mr.origin, *mr.planRequest)
+		if err != nil {
+			return state.PlanResponse{}, err
+		}
+
+		// NOTE: Here we are smuggling GeoPoses into Poses by component
+		planSteps, err := toGeoPosePlanSteps(posesByComponent, geoPoses)
+		if err != nil {
+			return state.PlanResponse{}, err
+		}
+
 		return state.PlanResponse{
-			Waypoints:  waypoints,
-			Motionplan: plan,
+			Waypoints:        waypoints,
+			Motionplan:       plan,
+			PosesByComponent: planSteps,
 		}, nil
 	case requestTypeUnspecified:
 		fallthrough
@@ -595,7 +608,6 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		return nil, err
 	}
 
-	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	var backgroundWorkers sync.WaitGroup
 
 	var waypointIndex atomic.Int32
@@ -629,9 +641,7 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		replanCostFactor:  valExtra.replanCostFactor,
 		obstacleDetectors: obstacleDetectors,
 
-		ctx:               cancelCtx,
-		cancelFn:          cancelFn,
-		backgroundWorkers: &backgroundWorkers,
+		executeBackgroundWorkers: &backgroundWorkers,
 
 		responseChan: make(chan moveResponse, 1),
 
@@ -653,60 +663,56 @@ func (mr moveResponse) String() string {
 	return fmt.Sprintf("builtin.moveResponse{executeResponse: %#v, err: %v}", mr.executeResponse, mr.err)
 }
 
-func (mr *moveRequest) start(waypoints [][]referenceframe.Input) {
-	mr.backgroundWorkers.Add(1)
+func (mr *moveRequest) start(ctx context.Context, waypoints [][]referenceframe.Input) {
+	if ctx.Err() != nil {
+		return
+	}
+	mr.executeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		mr.position.startPolling(mr.ctx, waypoints, mr.waypointIndex)
-	}, mr.backgroundWorkers.Done)
+		mr.position.startPolling(ctx, waypoints, mr.waypointIndex)
+	}, mr.executeBackgroundWorkers.Done)
 
-	mr.backgroundWorkers.Add(1)
+	mr.executeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		mr.obstacle.startPolling(mr.ctx, waypoints, mr.waypointIndex)
-	}, mr.backgroundWorkers.Done)
+		mr.obstacle.startPolling(ctx, waypoints, mr.waypointIndex)
+	}, mr.executeBackgroundWorkers.Done)
 
 	// spawn function to execute the plan on the robot
-	mr.backgroundWorkers.Add(1)
+	mr.executeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		executeResp, err := mr.execute(mr.ctx, waypoints, mr.waypointIndex)
+		executeResp, err := mr.execute(ctx, waypoints, mr.waypointIndex)
 		resp := moveResponse{executeResponse: executeResp, err: err}
 		mr.responseChan <- resp
-	}, mr.backgroundWorkers.Done)
+	}, mr.executeBackgroundWorkers.Done)
 }
 
-func (mr *moveRequest) listen() (state.ExecuteResponse, error) {
+func (mr *moveRequest) listen(ctx context.Context) (state.ExecuteResponse, error) {
 	select {
-	case <-mr.ctx.Done():
-		mr.logger.Debugf("context err: %s", mr.ctx.Err())
-		mr.Cancel()
-		return state.ExecuteResponse{}, mr.ctx.Err()
+	case <-ctx.Done():
+		mr.logger.Debugf("context err: %s", ctx.Err())
+		return state.ExecuteResponse{}, ctx.Err()
 
 	case resp := <-mr.responseChan:
 		mr.logger.Debugf("execution response: %s", resp)
-		mr.Cancel()
 		return resp.executeResponse, resp.err
 
 	case resp := <-mr.position.responseChan:
 		mr.logger.Debugf("position response: %s", resp)
-		mr.Cancel()
 		return resp.executeResponse, resp.err
 
 	case resp := <-mr.obstacle.responseChan:
 		mr.logger.Debugf("obstacle response: %s", resp)
-		mr.Cancel()
 		return resp.executeResponse, resp.err
 	}
 }
 
-func (mr *moveRequest) Execute(waypoints state.Waypoints) (state.ExecuteResponse, error) {
-	mr.start(waypoints)
-	return mr.listen()
-}
+func (mr *moveRequest) Execute(ctx context.Context, waypoints state.Waypoints) (state.ExecuteResponse, error) {
+	defer mr.executeBackgroundWorkers.Wait()
+	cancelCtx, cancelFn := context.WithCancel(ctx)
+	defer cancelFn()
 
-// cancel cleans up a moveRequest
-// it cancels the processes spawned by it, drains all the channels that could have been written to and waits on processes to return.
-func (mr *moveRequest) Cancel() {
-	mr.cancelFn()
-	mr.backgroundWorkers.Wait()
+	mr.start(cancelCtx, waypoints)
+	return mr.listen(cancelCtx)
 }
 
 func (mr *moveRequest) stop() error {
@@ -717,4 +723,32 @@ func (mr *moveRequest) stop() error {
 		return stopErr
 	}
 	return nil
+}
+
+func toGeoPosePlanSteps(posesByComponent []map[resource.Name]spatialmath.Pose, geoPoses []spatialmath.GeoPose) ([]motion.PlanStep, error) {
+	if len(geoPoses) != len(posesByComponent) {
+		msg := "GeoPoses (len: %d) & PosesByComponent (len: %d) must have the same length"
+		return nil, fmt.Errorf(msg, len(geoPoses), len(posesByComponent))
+	}
+	steps := make([]motion.PlanStep, 0, len(posesByComponent))
+	for i, ps := range posesByComponent {
+		if len(ps) == 0 {
+			continue
+		}
+
+		if l := len(ps); l > 1 {
+			return nil, fmt.Errorf("only single component or fewer plan steps supported, received plan step with %d componenents", l)
+		}
+
+		var resourceName resource.Name
+		for k := range ps {
+			resourceName = k
+		}
+		geoPose := geoPoses[i]
+		heading := math.Mod(math.Abs(geoPose.Heading()-360), 360)
+		o := &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: heading}
+		poseContainingGeoPose := spatialmath.NewPose(r3.Vector{X: geoPose.Location().Lng(), Y: geoPose.Location().Lat()}, o)
+		steps = append(steps, map[resource.Name]spatialmath.Pose{resourceName: poseContainingGeoPose})
+	}
+	return steps, nil
 }

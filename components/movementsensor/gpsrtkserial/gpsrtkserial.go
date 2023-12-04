@@ -34,12 +34,9 @@ package gpsrtkserial
 import (
 	"bufio"
 	"context"
-	"encoding/base64"
 	"errors"
-	"fmt"
 	"io"
 	"math"
-	"net"
 	"strings"
 	"sync"
 
@@ -145,7 +142,6 @@ type rtkSerial struct {
 	writePath          string
 	wbaud              int
 	isVirtualBase      bool
-	isConnected        bool
 	readerWriter       *bufio.ReadWriter
 	writer             io.Writer
 	reader             io.Reader
@@ -420,7 +416,7 @@ func (g *rtkSerial) connectAndParseSourceTable() error {
 		return err
 	}
 	g.logger.Debug("got sourcetable, parsing it...")
-	g.isVirtualBase, err = findLineWithMountPoint(srcTable, g.ntripClient.MountPoint)
+	g.isVirtualBase, err = rtk.FindLineWithMountPoint(srcTable, g.ntripClient.MountPoint)
 	if err != nil {
 		g.logger.Errorf("can't find mountpoint in source table, found err %v\n", err)
 		return err
@@ -444,7 +440,7 @@ func (g *rtkSerial) connectToNTRIP() error {
 
 	if g.isVirtualBase {
 		g.logger.Debug("connecting to a Virtual Reference Station")
-		err = g.sendGGAMessage()
+		err = g.getNtripFromVRS()
 		if err != nil {
 			g.err.Set(err)
 			return g.err.Get()
@@ -501,29 +497,19 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 					return
 				}
 
-				g.logger.Debug("No message... reconnecting to stream...")
 				if g.isVirtualBase {
 					g.logger.Debug("reconnecting to the Virtual Reference Station")
-					err = g.sendGGAMessage()
 
+					err = g.getNtripFromVRS()
 					if err != nil && !errors.Is(err, io.EOF) {
 						g.err.Set(err)
-					}
-					if g.readerWriter == nil {
-						g.logger.Debug("Reached EOF, trying to reconnect")
-					}
-
-					// during reconnection, calling sendGGAMessage second time allows
-					// us to re-dial to the TCP port and create a new socket for ntrip stream.
-					err = g.sendGGAMessage()
-					if err != nil && !errors.Is(err, io.EOF) {
-						g.err.Set(err)
-						g.logger.Errorf("Failed to reconnect, %v", err)
 						return
 					}
 
 					scanner = rtcm3.NewScanner(g.readerWriter)
 				} else {
+					g.logger.Debug("No message... reconnecting to stream...")
+
 					err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 					if err != nil {
 						g.err.Set(err)
@@ -540,15 +526,6 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 			}
 		}
 	}
-}
-
-// getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not.
-//
-//nolint:all
-func (g *rtkSerial) getNtripConnectionStatus() (bool, error) {
-	g.ntripMu.Lock()
-	defer g.ntripMu.Unlock()
-	return g.isConnectedToNtrip, g.err.Get()
 }
 
 // Position returns the current geographic location of the MOVEMENTSENSOR.
@@ -753,28 +730,21 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 	return nil
 }
 
-// sendGGAMessage sends GGA messages to the NTRIP Caster over a TCP connection
+// getNtripFromVRS sends GGA messages to the NTRIP Caster over a TCP connection
 // to get the NTRIP steam when the mount point is a Virtual Reference Station.
-func (g *rtkSerial) sendGGAMessage() error {
+func (g *rtkSerial) getNtripFromVRS() error {
 	g.ntripMu.Lock()
 	defer g.ntripMu.Unlock()
 
-	if !g.isConnected {
-		g.readerWriter = g.connectToVirtualBase()
-	}
+	g.readerWriter = rtk.ConnectToVirtualBase(g.ntripClient, g.logger)
 
 	// read from the socket until we know if a successful connection has been
 	// established.
 	for {
-		if g.readerWriter.Reader == nil || g.readerWriter.Writer == nil {
-			break
-		}
 		line, _, err := g.readerWriter.ReadLine()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				g.logger.Debug("EOF encountered. sending GGA message again")
 				g.readerWriter = nil
-				g.isConnected = false
 				return err
 			}
 			g.logger.Error("Failed to read server response:", err)
@@ -783,17 +753,15 @@ func (g *rtkSerial) sendGGAMessage() error {
 
 		if strings.HasPrefix(string(line), "HTTP/1.1 ") {
 			if strings.Contains(string(line), "200 OK") {
-				g.isConnected = true
 				break
 			} else {
-				g.logger.Error("Bad HTTP response")
-				g.isConnected = false
+				g.logger.Errorf("Bad HTTP response: %v", string(line))
 				return err
 			}
 		}
 	}
 
-	ggaMessage, err := g.getGGAMessage()
+	ggaMessage, err := rtk.GetGGAMessage(g.correctionWriter, g.logger)
 	if err != nil {
 		g.logger.Error("Failed to get GGA message")
 		return err
@@ -816,100 +784,4 @@ func (g *rtkSerial) sendGGAMessage() error {
 	g.logger.Debug("GGA message sent successfully.")
 
 	return nil
-}
-
-func (g *rtkSerial) connectToVirtualBase() *bufio.ReadWriter {
-	g.urlMutex.Lock()
-	defer g.urlMutex.Unlock()
-
-	mp := "/" + g.ntripClient.MountPoint
-	credentials := g.ntripClient.Username + ":" + g.ntripClient.Password
-	credentialsBase64 := base64.StdEncoding.EncodeToString([]byte(credentials))
-
-	// Process the server URL
-	serverAddr := g.ntripClient.URL
-	serverAddr = strings.TrimPrefix(serverAddr, "http://")
-	serverAddr = strings.TrimPrefix(serverAddr, "https://")
-
-	conn, err := net.Dial("tcp", serverAddr)
-	if err != nil {
-		g.isConnected = false
-		g.logger.Errorf("Failed to connect to VRS server:", err)
-		return nil
-	}
-
-	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
-
-	// Construct HTTP headers with CRLF line endings
-	httpHeaders := "GET " + mp + " HTTP/1.1\r\n" +
-		"Host: " + serverAddr + "\r\n" +
-		"Authorization: Basic " + credentialsBase64 + "\r\n" +
-		"Accept: */*\r\n" +
-		"Ntrip-Version: Ntrip/2.0\r\n" +
-		"User-Agent: NTRIP viam\r\n\r\n"
-
-	// Send HTTP headers over the TCP connection
-	_, err = rw.Write([]byte(httpHeaders))
-	if err != nil {
-		g.isConnected = false
-		g.logger.Error("Failed to send HTTP headers:", err)
-		return nil
-	}
-	err = rw.Flush()
-	if err != nil {
-		g.isConnected = false
-		g.logger.Error("failed to write to buffer")
-		return nil
-	}
-
-	g.logger.Debugf("request header: %v\n", httpHeaders)
-	g.logger.Debug("HTTP headers sent successfully.")
-	g.isConnected = true
-	return rw
-}
-
-// getGGAMessage checks if a GGA message exists in the buffer and returns it.
-func (g *rtkSerial) getGGAMessage() ([]byte, error) {
-	buffer := make([]byte, 1024)
-	var totalBytesRead int
-
-	for {
-		n, err := g.correctionWriter.Read(buffer[totalBytesRead:])
-		if err != nil {
-			g.logger.Errorf("Error reading from Ntrip stream: %v", err)
-			return nil, err
-		}
-
-		totalBytesRead += n
-
-		// Check if the received data contains "GGA"
-		if containsGGAMessage(buffer[:totalBytesRead]) {
-			return buffer[:totalBytesRead], nil
-		}
-
-		// If we haven't found the "GGA" message, and we've reached the end of
-		// the buffer, return error.
-		if totalBytesRead >= len(buffer) {
-			return nil, errors.New("GGA message not found in the received data")
-		}
-	}
-}
-
-// containsGGAMessage returns true if data contains GGA message.
-func containsGGAMessage(data []byte) bool {
-	dataStr := string(data)
-	return strings.Contains(dataStr, "GGA")
-}
-
-// findLineWithMountPoint parses the given source-table returns the NMEA field associated with
-// the given mountpoint.
-// TODO: RSDK-5462: Refactor GPS RTK.
-func findLineWithMountPoint(sourceTable *ntrip.Sourcetable, mountPoint string) (bool, error) {
-	stream, isFound := sourceTable.HasStream(mountPoint)
-
-	if !isFound {
-		return false, fmt.Errorf("can not find mountpoint %s in sourcetable", mountPoint)
-	}
-
-	return stream.Nmea, nil
 }
