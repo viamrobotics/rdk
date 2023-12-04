@@ -1066,7 +1066,7 @@ func TestStartWaypoint(t *testing.T) {
 			}
 			s.mogrs = append(s.mogrs, req)
 
-			// first call returns motion erro
+			// first call returns motion error
 			// second call returns context cancelled
 			// third call returns success
 			count := mogCounter.Inc()

@@ -219,12 +219,13 @@ func NewBuiltIn(
 
 type builtIn struct {
 	resource.Named
-	actionMu  sync.RWMutex
-	mu        sync.RWMutex
-	store     navigation.NavStore
-	storeType string
-	mode      navigation.Mode
-	mapType   navigation.MapType
+	activeExecutionWaypoint atomic.Value
+	actionMu                sync.RWMutex
+	mu                      sync.RWMutex
+	store                   navigation.NavStore
+	storeType               string
+	mode                    navigation.Mode
+	mapType                 navigation.MapType
 
 	base           base.Base
 	movementSensor movementsensor.MovementSensor
@@ -241,7 +242,6 @@ type builtIn struct {
 	currentWaypointCancelFunc func()
 	waypointInProgress        *navigation.Waypoint
 	activeBackgroundWorkers   sync.WaitGroup
-	activeExecutionWaypoint   atomic.Value
 }
 
 func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
@@ -539,7 +539,8 @@ func (svc *builtIn) moveOnGlobeSync(ctx context.Context, wp navigation.Waypoint,
 		svc.logger.Errorf(msg, emptyExecutionWaypoint, old)
 	}
 	stopWG.Add(1)
-	// call StopPlan upon exiting navOnce, is a NoOp if execution has already terminted
+	// call StopPlan upon exiting moveOnGlobeSync
+	// is a NoOp if execution has already terminted
 	utils.ManagedGo(func() {
 		<-cancelCtx.Done()
 		timeoutCtx, timeoutCancelFn := context.WithTimeout(context.Background(), time.Second*5)
