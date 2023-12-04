@@ -6,6 +6,7 @@ package genericlinux
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -15,6 +16,8 @@ import (
 
 	"go.viam.com/rdk/logging"
 )
+
+const NO_PIN = 0xFFFFFFFF // The uint32 version of -1
 
 type gpioPin struct {
 	boardWorkers *sync.WaitGroup
@@ -62,6 +65,11 @@ func (pin *gpioPin) openGpioFd(isInput bool) error {
 		if err := pin.hwPwm.Close(); err != nil {
 			return pin.wrapError(err)
 		}
+	}
+
+	if pin.offset == NO_PIN {
+		// This is not a GPIO pin. Now that we've turned off the PWM, return early.
+		return nil
 	}
 
 	chip, err := gpio.OpenChip(pin.devicePath)
@@ -123,6 +131,15 @@ func (pin *gpioPin) setInternal(isHigh bool) (err error) {
 		return err
 	}
 
+	if pin.offset == NO_PIN {
+		if isHigh {
+			return errors.New("Cannot set non-GPIO pin high.")
+		} else {
+			// Just return: we shut down any PWM stuff in openGpioFd.
+			return nil
+		}
+	}
+
 	return pin.wrapError(pin.line.SetValue(value))
 }
 
@@ -132,6 +149,10 @@ func (pin *gpioPin) Get(
 ) (result bool, err error) {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
+
+	if pin.offset == NO_PIN {
+		return false, errors.New("Cannot read from non-GPIO pin")
+	}
 
 	if err := pin.openGpioFd( /* isInput= */ true); err != nil {
 		return false, err
