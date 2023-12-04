@@ -248,6 +248,10 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	defer svc.actionMu.Unlock()
 
 	svc.stopActiveMode()
+	fmt.Println("all deps below")
+	for _, v := range deps {
+		fmt.Println("v.Name(): ", v.Name())
+	}
 
 	fmt.Println("hello there 3")
 
