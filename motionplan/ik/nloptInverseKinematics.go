@@ -141,17 +141,14 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	}
 	var activeSolvers sync.WaitGroup
 
-	// x is our joint positions
+	// x is our set of inputs
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.
 	nloptMinFunc := func(x, gradient []float64) float64 {
 		iterations++
 
-		// Requesting an out-of-bounds transform will result in a non-nil error but will optionally return a correct if invalid pose.
-		// Thus we check if eePos is nil, and if not, continue as normal and ignore errors.
-		// As confirmation, the "input out of bounds" string is checked for in the error text.
 		inputs := referenceframe.FloatsToInputs(x)
 		eePos, err := ik.model.Transform(inputs)
-		if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
+		if eePos == nil || err != nil {
 			ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
 			err = opt.ForceStop()
 			ik.logger.Errorw("forcestop error", "error", err)
