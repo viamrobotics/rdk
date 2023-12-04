@@ -371,6 +371,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
+	svc.logger.Info("WE ARE GOING TO TRY TO SET THIS UP")
 	// create framesystem from dependencies
 	svc.fsService, err = framesystem.New(ctx, deps, svc.logger)
 	if err != nil {
@@ -378,6 +379,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		svc.logger.Infof("ERR: %v", err.Error())
 		return err
 	}
+	svc.logger.Info("SEEMS TO HAVE WORKED")
 
 	svc.mode = navigation.ModeManual
 	svc.base = baseComponent
