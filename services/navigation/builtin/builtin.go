@@ -519,8 +519,6 @@ func (svc *builtIn) moveOnGlobeSync(ctx context.Context, wp navigation.Waypoint,
 		MotionCfg:          svc.motionCfg,
 		Extra:              extra,
 	}
-	var stopWG sync.WaitGroup
-	defer stopWG.Wait()
 	cancelCtx, cancelFn := context.WithCancel(ctx)
 	defer cancelFn()
 	rawExecutionID, err := svc.motionService.MoveOnGlobeNew(cancelCtx, req)
@@ -538,11 +536,9 @@ func (svc *builtIn) moveOnGlobeSync(ctx context.Context, wp navigation.Waypoint,
 			"replaced waypoint & execution id to be nil or %#v; instead was %s"
 		svc.logger.Errorf(msg, emptyExecutionWaypoint, old)
 	}
-	stopWG.Add(1)
 	// call StopPlan upon exiting moveOnGlobeSync
 	// is a NoOp if execution has already terminted
-	utils.ManagedGo(func() {
-		<-cancelCtx.Done()
+	defer func() {
 		timeoutCtx, timeoutCancelFn := context.WithTimeout(context.Background(), time.Second*5)
 		defer timeoutCancelFn()
 		err := svc.motionService.StopPlan(timeoutCtx, motion.StopPlanReq{ComponentName: req.ComponentName})
@@ -555,7 +551,7 @@ func (svc *builtIn) moveOnGlobeSync(ctx context.Context, wp navigation.Waypoint,
 				"replaced waypoint & execution id to equal %s, was actually %s"
 			svc.logger.Errorf(msg, executionWaypoint, old)
 		}
-	}, stopWG.Done)
+	}()
 
 	err = pollUntilMOGSuccessOrError(cancelCtx, svc.motionService, planHistoryPollFrequency,
 		motion.PlanHistoryReq{
