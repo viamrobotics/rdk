@@ -9,20 +9,20 @@ import (
 )
 
 const (
-	DefaultAngularDegsPerSec = 20.
-	DefaultLinearMPerSec     = 0.3
-	DefaultObstaclePollingHz = 1.
-	DefaultPlanDeviationM    = 2.6
-	DefaultPositionPollingHz = 1.
+	defaultAngularDegsPerSec = 20.
+	defaultLinearMPerSec     = 0.3
+	defaultObstaclePollingHz = 1.
+	defaultPlanDeviationM    = 2.6
+	defaultPositionPollingHz = 1.
 )
 
 func configurationFromProto(motionCfg *pb.MotionConfiguration) *MotionConfiguration {
 	obstacleDetectors := []ObstacleDetectorName{}
-	planDeviationM := DefaultPlanDeviationM
-	positionPollingHz := DefaultPositionPollingHz
-	obstaclePollingHz := DefaultObstaclePollingHz
-	linearMPerSec := DefaultLinearMPerSec
-	angularDegsPerSec := DefaultAngularDegsPerSec
+	planDeviationM := defaultPlanDeviationM
+	positionPollingHz := defaultPositionPollingHz
+	obstaclePollingHz := defaultObstaclePollingHz
+	linearMPerSec := defaultLinearMPerSec
+	angularDegsPerSec := defaultAngularDegsPerSec
 
 	if motionCfg != nil {
 		if motionCfg.ObstacleDetectors != nil {
