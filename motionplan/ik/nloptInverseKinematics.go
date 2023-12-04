@@ -27,6 +27,7 @@ var (
 const (
 	constrainedTries  = 30
 	nloptStepsPerIter = 4001
+	defaultJump       = 1e-8
 )
 
 // NloptIK TODO.
@@ -38,7 +39,6 @@ type NloptIK struct {
 	maxIterations int
 	epsilon       float64
 	logger        logging.Logger
-	jump          float64
 
 	// Nlopt will try to minimize a configuration for whatever is passed in. If exact is false, then the solver will emit partial
 	// solutions where it was not able to meet the goal criteria but still was able to improve upon the seed.
@@ -54,7 +54,7 @@ type optimizeReturn struct {
 // CreateNloptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on
 // which Transform() will be called, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set
 // to the default of 5000.
-func CreateNloptIKSolver(mdl referenceframe.Frame, logger logging.Logger, iter int, exact bool, jump float64) (*NloptIK, error) {
+func CreateNloptIKSolver(mdl referenceframe.Frame, logger logging.Logger, iter int, exact bool) (*NloptIK, error) {
 	ik := &NloptIK{logger: logger}
 
 	ik.model = mdl
@@ -69,8 +69,6 @@ func CreateNloptIKSolver(mdl referenceframe.Frame, logger logging.Logger, iter i
 	}
 	ik.maxIterations = iter
 	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.DoF())
-	// How much to adjust joints to determine slope
-	ik.jump = jump
 	ik.exact = exact
 
 	return ik, nil
@@ -86,6 +84,46 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	//nolint: gosec
 	randSeed := rand.New(rand.NewSource(int64(rseed)))
 	var err error
+	mInput := &State{Frame: ik.model}
+
+	// Determine optimal jump values; start with default, and if gradient is zero, increase to 1 to try to avoid underflow.
+	jump := make([]float64, 0, len(seed))
+	seedTest := append(make([]referenceframe.Input, 0, len(seed)), seed...)
+	eePos, err := ik.model.Transform(seed)
+	if err != nil {
+		return err
+	}
+	mInput.Configuration = seed
+	mInput.Position = eePos
+	seedDist := solveMetric(mInput)
+	for i, testVal := range seedTest {
+		for jumpVal := defaultJump; jumpVal < 1; jumpVal *= 10 {
+			seedTest[i] = referenceframe.Input{testVal.Value + jumpVal}
+			if seedTest[i].Value > ik.upperBound[i] {
+				seedTest[i] = referenceframe.Input{testVal.Value - jumpVal}
+				if seedTest[i].Value < ik.lowerBound[i] {
+					jump = append(jump, 0)
+					break
+				}
+			}
+			eePos, err = ik.model.Transform(seedTest)
+			if err != nil {
+				return err
+			}
+			mInput.Configuration = seed
+			mInput.Position = eePos
+			checkDist := solveMetric(mInput)
+
+			// Use the smallest value that yields a change in distance
+			if checkDist != seedDist {
+				jump = append(jump, jumpVal)
+				break
+			}
+		}
+		if len(jump) != i+1 {
+			jump = append(jump, 0)
+		}
+	}
 
 	tries := 1
 	iterations := 0
@@ -101,7 +139,6 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	if len(ik.lowerBound) == 0 || len(ik.upperBound) == 0 {
 		return errBadBounds
 	}
-	mInput := &State{Frame: ik.model}
 	var activeSolvers sync.WaitGroup
 
 	// x is our joint positions
@@ -127,18 +164,18 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		if len(gradient) > 0 {
 			for i := range gradient {
 				flip := false
-				x[i] += ik.jump
+				x[i] += jump[i]
 				if x[i] >= ik.upperBound[i] {
 					flip = true
-					x[i] -= 2 * ik.jump
+					x[i] -= 2 * jump[i]
 				}
 
 				inputs = referenceframe.FloatsToInputs(x)
 				eePos, err := ik.model.Transform(inputs)
 				if flip {
-					x[i] += ik.jump
+					x[i] += jump[i]
 				} else {
-					x[i] -= ik.jump
+					x[i] -= jump[i]
 				}
 				if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
 					ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
@@ -150,7 +187,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				mInput.Position = eePos
 				dist2 := solveMetric(mInput)
 
-				gradient[i] = (dist2 - dist) / ik.jump
+				gradient[i] = (dist2 - dist) / jump[i]
 				if flip {
 					gradient[i] *= -1
 				}
@@ -160,10 +197,12 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	}
 
 	err = multierr.Combine(
+		opt.SetFtolRel(ik.epsilon),
 		opt.SetFtolAbs(ik.epsilon),
 		opt.SetLowerBounds(ik.lowerBound),
 		opt.SetStopVal(ik.epsilon),
 		opt.SetUpperBounds(ik.upperBound),
+		opt.SetXtolRel(ik.epsilon),
 		opt.SetXtolAbs1(ik.epsilon),
 		opt.SetMinObjective(nloptMinFunc),
 		opt.SetMaxEval(nloptStepsPerIter),

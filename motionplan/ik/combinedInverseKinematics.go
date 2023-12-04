@@ -13,9 +13,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-// DefaultJump is the default amount that nlopt values should be mutated by when estimating slope.
-const DefaultJump = 1e-8
-
 // CombinedIK defines the fields necessary to run a combined solver.
 type CombinedIK struct {
 	solvers []InverseKinematics
@@ -33,7 +30,7 @@ func CreateCombinedIKSolver(model referenceframe.Frame, logger logging.Logger, n
 		nCPU = 1
 	}
 	for i := 1; i <= nCPU; i++ {
-		nlopt, err := CreateNloptIKSolver(model, logger, -1, true, DefaultJump)
+		nlopt, err := CreateNloptIKSolver(model, logger, -1, true)
 		nlopt.id = i
 		if err != nil {
 			return nil, err

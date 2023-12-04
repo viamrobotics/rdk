@@ -14,7 +14,6 @@ import (
 )
 
 const (
-	defaultPTGjump           = 0.0001
 	defaultResolutionSeconds = 0.01 // seconds. Return trajectories updating velocities at this resolution.
 
 	defaultZeroDist = 1e-3 // Sometimes nlopt will minimize trajectories to zero. Ensure min traj dist is at least this
@@ -42,7 +41,7 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDist float64, randSeed, traj
 
 	ptgFrame := newPTGIKFrame(simPTG, trajCount, refDist)
 
-	nlopt, err := ik.CreateNloptIKSolver(ptgFrame, logger, 1, false, defaultPTGjump)
+	nlopt, err := ik.CreateNloptIKSolver(ptgFrame, logger, 1, false)
 	if err != nil {
 		return nil, err
 	}
