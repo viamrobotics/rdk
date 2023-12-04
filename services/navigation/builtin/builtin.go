@@ -193,7 +193,9 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	// add framesystem service as dependency
 	deps = append(deps, framesystem.InternalServiceName.String())
 	fmt.Println("hello there 2")
-
+	for _, v := range deps {
+		fmt.Println(v)
+	}
 	return deps, nil
 }
 
