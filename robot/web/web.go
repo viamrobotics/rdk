@@ -319,7 +319,8 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	unaryInterceptors = append(unaryInterceptors, ensureTimeoutUnaryInterceptor)
 
 	opManager := svc.r.OperationManager()
-	unaryInterceptors = append(unaryInterceptors, opManager.UnaryServerInterceptor)
+	unaryInterceptors = append(unaryInterceptors,
+		opManager.UnaryServerInterceptor, logging.UnaryServerInterceptor)
 	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
 	// TODO(PRODUCT-343): Add session manager interceptors
 
@@ -671,7 +672,8 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 	if sessManagerInts.UnaryServerInterceptor != nil {
 		unaryInterceptors = append(unaryInterceptors, sessManagerInts.UnaryServerInterceptor)
 	}
-	unaryInterceptors = append(unaryInterceptors, opManager.UnaryServerInterceptor)
+	unaryInterceptors = append(unaryInterceptors,
+		opManager.UnaryServerInterceptor, logging.UnaryServerInterceptor)
 
 	if sessManagerInts.StreamServerInterceptor != nil {
 		streamInterceptors = append(streamInterceptors, sessManagerInts.StreamServerInterceptor)
