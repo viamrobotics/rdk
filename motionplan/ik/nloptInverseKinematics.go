@@ -27,7 +27,7 @@ var (
 const (
 	constrainedTries  = 30
 	nloptStepsPerIter = 4001
-	defaultJump       = 1e-9
+	defaultJump       = 1e-8
 )
 
 // NloptIK TODO.
