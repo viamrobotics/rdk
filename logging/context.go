@@ -12,10 +12,18 @@ type debugLogKeyType int
 
 const debugLogKeyID = debugLogKeyType(iota)
 
-// EnableDebugMode returns a new context with debug logging state attached. An empty `debugLogKey`
+// EnableDebugMode returns a new context with debug logging state attached with a randomly generated
+// log key.
+func EnableDebugMode(ctx context.Context) context.Context {
+	return EnableDebugModeWithKey(ctx, "")
+}
+
+// EnableDebugModeWithKey returns a new context with debug logging state attached. An empty `debugLogKey`
 // generates a random value.
-func EnableDebugMode(ctx context.Context, debugLogKey string) context.Context {
+func EnableDebugModeWithKey(ctx context.Context, debugLogKey string) context.Context {
 	if debugLogKey == "" {
+		// Allow enabling debug mode without an explicit `debugLogKey` will generate a random-ish
+		// value such that the server logs can distinguish between multiple rpc operations.
 		debugLogKey = utils.RandomAlphaString(6)
 	}
 	return context.WithValue(ctx, debugLogKeyID, debugLogKey)
@@ -70,7 +78,7 @@ func UnaryServerInterceptor(
 
 	values := meta.Get(dtNameMetadataKey)
 	if len(values) == 1 {
-		ctx = EnableDebugMode(ctx, values[0])
+		ctx = EnableDebugModeWithKey(ctx, values[0])
 	}
 
 	return handler(ctx, req)

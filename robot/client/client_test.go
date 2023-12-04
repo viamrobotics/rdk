@@ -1826,6 +1826,6 @@ func TestLoggingInterceptor(t *testing.T) {
 
 	// The status call with a `resourceNames` of length 1 signals there should be debug information
 	// with `oliver`.
-	_, err = client.Status(logging.EnableDebugMode(context.Background(), "oliver"), []resource.Name{{}})
+	_, err = client.Status(logging.EnableDebugModeWithKey(context.Background(), "oliver"), []resource.Name{{}})
 	test.That(t, err, test.ShouldBeNil)
 }
