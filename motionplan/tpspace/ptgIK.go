@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	defaultPTGjump           = 0.00001
+	defaultPTGjump           = 0.0001
 	defaultResolutionSeconds = 0.01 // seconds. Return trajectories updating velocities at this resolution.
 
 	defaultZeroDist = 1e-3 // Sometimes nlopt will minimize trajectories to zero. Ensure min traj dist is at least this

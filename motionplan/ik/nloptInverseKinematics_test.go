@@ -18,7 +18,7 @@ func TestCreateNloptIKSolver(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := CreateNloptIKSolver(m, logger, -1, false, defaultArmJump)
+	ik, err := CreateNloptIKSolver(m, logger, -1, false, DefaultJump)
 	test.That(t, err, test.ShouldBeNil)
 	ik.id = 1
 

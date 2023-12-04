@@ -25,8 +25,6 @@ const (
 
 	// Maximum number of iterations that constrainedExtend will run before exiting.
 	maxExtendIter = 5000
-
-	nloptJump = 0.00000001
 )
 
 type cbirrtOptions struct {
@@ -77,7 +75,7 @@ func newCBiRRTMotionPlanner(
 		return nil, err
 	}
 	// nlopt should try only once
-	nlopt, err := ik.CreateNloptIKSolver(frame, logger, 1, true, nloptJump)
+	nlopt, err := ik.CreateNloptIKSolver(frame, logger, 1, true, ik.DefaultJump)
 	if err != nil {
 		return nil, err
 	}
