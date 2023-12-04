@@ -55,9 +55,8 @@ func UnaryClientInterceptor(
 	return invoker(ctx, method, req, reply, cc, opts...)
 }
 
-// UnaryServerInterceptor creates a new operation in the current context before passing
-// it to the unary response handler. If the incoming RPC metadata contains a directive for
-// distributed tracing, attach that to the context.
+// UnaryServerInterceptor checks the incoming RPC metadata for a distributed tracing directive and
+// attaches any information to a debug context.
 func UnaryServerInterceptor(
 	ctx context.Context,
 	req interface{},
