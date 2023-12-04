@@ -102,7 +102,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			if seedTest[i].Value > ik.upperBound[i] {
 				seedTest[i] = referenceframe.Input{testVal.Value - jumpVal}
 				if seedTest[i].Value < ik.lowerBound[i] {
-					jump = append(jump, 0)
+					jump = append(jump, defaultJump)
 					break
 				}
 			}
@@ -121,7 +121,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			}
 		}
 		if len(jump) != i+1 {
-			jump = append(jump, 0)
+			jump = append(jump, defaultJump)
 		}
 	}
 
