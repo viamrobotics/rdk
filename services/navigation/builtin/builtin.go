@@ -612,14 +612,16 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		if err != nil {
 			return nil, err
 		}
-
-		// get the robot geo pose
+		svc.logger.Infof("cameraToMovementsensor Pose: %v", spatialmath.PoseToProtobuf(cameraToMovementsensor.Pose()))
+		svc.logger.Infof("baseToMovementSensor Pose: %v", spatialmath.PoseToProtobuf(baseToMovementSensor.Pose()))
+		svc.logger.Infof("baseToCamera Pose: %v", spatialmath.PoseToProtobuf(baseToCamera.Pose()))
 
 		// get current geo position of robot
 		gp, _, err := svc.movementSensor.Position(ctx, nil)
 		if err != nil {
 			return nil, err
 		}
+		svc.logger.Infof("gp: %v", gp)
 
 		// instantiate a localizer and use it to get our current position
 		localizer := motion.NewMovementSensorLocalizer(svc.movementSensor, gp, spatialmath.NewZeroPose())
@@ -630,14 +632,19 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 
 		// convert orientation of currentPIF to be left handed
 		localizerHeading := math.Mod(math.Abs(currentPIF.Pose().Orientation().OrientationVectorDegrees().Theta-360), 360)
+		svc.logger.Infof("localizerHeading: %v", localizerHeading)
 
 		// convert orientation of movementsensorToCamera to be left handed????
 		localizerBaseThetaDiff := math.Mod(math.Abs(baseToMovementSensor.Pose().Orientation().OrientationVectorDegrees().Theta+360), 360)
+		svc.logger.Infof("localizerBaseThetaDiff: %v", localizerBaseThetaDiff)
 
 		baseHeading := math.Mod(localizerHeading+localizerBaseThetaDiff, 360)
+		svc.logger.Infof("baseHeading: %v", baseHeading)
 
 		// convert geo position into GeoPose
 		robotGeoPose := spatialmath.NewGeoPose(gp, baseHeading)
+		svc.logger.Infof("robotGeoPose.Location(): %v", robotGeoPose.Location())
+		svc.logger.Infof("robotGeoPose.Heading(): %v", robotGeoPose.Heading())
 
 		// iterate through all detections and construct a geoObstacle to append
 		for i, detection := range detections {
@@ -647,22 +654,28 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 				Y: detection.Geometry.Pose().Point().Y - cameraToMovementsensor.Pose().Point().Y,
 				Z: detection.Geometry.Pose().Point().Z - cameraToMovementsensor.Pose().Point().Z,
 			}
+			svc.logger.Infof("desiredPoint: %v", desiredPoint)
 
 			desiredPose := spatialmath.NewPose(
 				desiredPoint,
 				detection.Geometry.Pose().Orientation(),
 			)
+			svc.logger.Infof("desiredPose: %v", spatialmath.PoseToProtobuf(desiredPose))
 
 			transformBy := spatialmath.PoseBetweenInverse(detection.Geometry.Pose(), desiredPose)
 
 			// get the manipulated geometry
 			manipulatedGeom := detection.Geometry.Transform(transformBy)
+			svc.logger.Infof("1 manipulatedGeom Pose: %v", spatialmath.PoseToProtobuf(manipulatedGeom.Pose()))
 
 			// fix axes of geometry's pose such that it is in the cooordinate system of the base
 			manipulatedGeom = manipulatedGeom.Transform(spatialmath.NewPoseFromOrientation(baseToCamera.Pose().Orientation()))
+			svc.logger.Infof("2 manipulatedGeom Pose: %v", spatialmath.PoseToProtobuf(manipulatedGeom.Pose()))
 
 			// get the geometry's lat & lng along with its heading with respect to north as a left handed value
 			obstacleGeoPose := spatialmath.PoseToGeoPose(robotGeoPose, manipulatedGeom.Pose())
+			svc.logger.Infof("obstacleGeoPose.Location(): %v", obstacleGeoPose.Location())
+			svc.logger.Infof("obstacleGeoPose.Heading(): %v", obstacleGeoPose.Heading())
 
 			// prefix the label of the geometry so we know it is transient and add extra info
 			label := "transient_" + strconv.Itoa(i) + "_" + detector.CameraName.Name
