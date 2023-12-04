@@ -24,6 +24,15 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+var defaultMotionCfg = MotionConfiguration{
+	AngularDegsPerSec:     DefaultAngularDegsPerSec,
+	LinearMPerSec:         DefaultLinearMPerSec,
+	ObstacleDetectors:     []ObstacleDetectorName{},
+	ObstaclePollingFreqHz: DefaultObstaclePollingHz,
+	PlanDeviationMM:       DefaultPlanDeviationM * 1e3,
+	PositionPollingFreqHz: DefaultPositionPollingHz,
+}
+
 func TestPlanWithStatus(t *testing.T) {
 	planID := uuid.New()
 	executionID := uuid.New()
@@ -899,14 +908,14 @@ func TestConfiguration(t *testing.T) {
 
 		testCases := []testCase{
 			{
-				description: "when passed a nil pointer returns mostly empty struct",
+				description: "when passed a nil pointer returns default MotionConfiguration struct",
 				input:       nil,
-				result:      &MotionConfiguration{ObstacleDetectors: []ObstacleDetectorName{}},
+				result:      &defaultMotionCfg,
 			},
 			{
-				description: "when passed an empty struct returns mostly empty struct",
+				description: "when passed an empty struct returns default MotionConfiguration struct",
 				input:       &pb.MotionConfiguration{},
-				result:      &MotionConfiguration{ObstacleDetectors: []ObstacleDetectorName{}},
+				result:      &defaultMotionCfg,
 			},
 			{
 				description: "when passed a full struct returns a full struct",
@@ -1180,10 +1189,8 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					ComponentName:      mybase,
 					MovementSensorName: movementsensor.Named("my-movementsensor"),
 					Obstacles:          []*spatialmath.GeoObstacle{},
-					MotionCfg: &MotionConfiguration{
-						ObstacleDetectors: []ObstacleDetectorName{},
-					},
-					Extra: map[string]interface{}{},
+					MotionCfg:          &defaultMotionCfg,
+					Extra:              map[string]interface{}{},
 				},
 			},
 			{
@@ -1310,10 +1317,8 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					ComponentName:      mybase,
 					MovementSensorName: movementsensor.Named("my-movementsensor"),
 					Obstacles:          []*spatialmath.GeoObstacle{},
-					MotionCfg: &MotionConfiguration{
-						ObstacleDetectors: []ObstacleDetectorName{},
-					},
-					Extra: map[string]interface{}{},
+					MotionCfg:          &defaultMotionCfg,
+					Extra:              map[string]interface{}{},
 				},
 			},
 			{
