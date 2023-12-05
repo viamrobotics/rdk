@@ -18,10 +18,12 @@ import (
 type jobStatus string
 
 const (
-	jobStatusUnknown jobStatus = "Unknown"
-	// In other places in the codebase, "in progress" makes logical sense,
+	// In other places in the codebase, "unspecified" fits the established code patterns,
+	// however, "Unknown" is more obvious to the user that their build is in an error / strange state.
+	jobStatusUnspecified jobStatus = "Unknown"
+	// In other places in the codebase, "in progress" fits the established code patterns,
 	// however, in the cli, we want this to be a single word so that it is easier
-	// to use unix tools on the output (I also think "Building" looks better).
+	// to use unix tools on the output.
 	jobStatusInProgress jobStatus = "Building"
 	jobStatusFailed     jobStatus = "Failed"
 	jobStatusDone       jobStatus = "Done"
@@ -60,41 +62,6 @@ func ModuleBuildStartAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	// org, err := resolveOrg(client, publicNamespaceArg, orgIDArg)
-	// if err != nil {
-	// 	return err
-	// }
-	// // Check to make sure the user doesn't accidentally overwrite a module manifest
-	// if _, err := os.Stat(defaultManifestFilename); err == nil {
-	// 	return errors.New("another module's meta.json already exists in the current directory. Delete it and try again")
-	// }
-
-	// response, err := client.createModule(moduleNameArg, org.GetId())
-	// if err != nil {
-	// 	return errors.Wrap(err, "failed to register the module on app.viam.com")
-	// }
-
-	// returnedModuleID, err := parseModuleID(response.GetModuleId())
-	// if err != nil {
-	// 	return err
-	// }
-
-	// printf(c.App.Writer, "Successfully created '%s'", returnedModuleID.String())
-	// if response.GetUrl() != "" {
-	// 	printf(c.App.Writer, "You can view it here: %s", response.GetUrl())
-	// }
-	// emptyManifest := moduleManifest{
-	// 	ModuleID:   returnedModuleID.String(),
-	// 	Visibility: moduleVisibilityPrivate,
-	// 	// This is done so that the json has an empty example
-	// 	Models: []ModuleComponent{
-	// 		{},
-	// 	},
-	// }
-	// if err := writeManifest(defaultManifestFilename, emptyManifest); err != nil {
-	// 	return err
-	// }
-
 	// Print to stderr so that the buildID is the only thing in stdout
 	printf(c.App.ErrWriter, "Started build:")
 	printf(c.App.Writer, res.BuildId)
@@ -168,11 +135,13 @@ func ModuleBuildListAction(c *cli.Context) error {
 		return err
 	}
 	// table format rules:
+	// minwidth, tabwidth, padding int, padchar byte, flags uint
 	w := tabwriter.NewWriter(c.App.Writer, 5, 4, 1, ' ', 0)
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", "ID", "PLATFORM", "STATUS", "VERSION", "TIME")
+	tableFormat := "%s\t%s\t%s\t%s\t%s\n"
+	fmt.Fprintf(w, tableFormat, "ID", "PLATFORM", "STATUS", "VERSION", "TIME")
 	for _, job := range jobs.Jobs {
 		fmt.Fprintf(w,
-			"%s\t%s\t%s\t%s\t%s\n",
+			tableFormat,
 			job.BuildId,
 			job.Platform,
 			jobStatusFromProto(job.Status),
@@ -190,7 +159,7 @@ func ModuleBuildLogsAction(c *cli.Context) error {
 	platform := c.String(moduleBuildFlagPlatform)
 	shouldWait := c.Bool(moduleBuildFlagWait)
 	if shouldWait {
-		panic("wait not implemented")
+		return errors.New("wait not implemented")
 	}
 
 	client, err := newViamClient(c)
@@ -253,7 +222,7 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 	case buildpb.JobStatus_JOB_STATUS_UNSPECIFIED:
 		fallthrough
 	default:
-		return jobStatusUnknown
+		return jobStatusUnspecified
 	}
 }
 
