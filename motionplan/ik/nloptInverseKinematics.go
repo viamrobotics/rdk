@@ -27,7 +27,7 @@ var (
 const (
 	constrainedTries  = 30
 	nloptStepsPerIter = 4001
-	defaultJump       = 1e-7
+	defaultJump       = 1e-8
 )
 
 // NloptIK TODO.
@@ -131,7 +131,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			ub := ik.upperBound[i]
 			if inputs[i].Value >= ub {
 				flip = true
-				inputs[i].Value = ub - jump[i]
+				inputs[i].Value -= 2*jump[i]
 			}
 
 			eePos, err := ik.model.Transform(inputs)
