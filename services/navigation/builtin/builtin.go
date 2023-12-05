@@ -131,7 +131,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	if conf.MovementSensorName != "" {
 		deps = append(deps, conf.MovementSensorName)
 	}
-	fmt.Println("hello there 1")
+
 	// Add motion service dependencies
 	if conf.MotionServiceName != "" {
 		deps = append(deps, resource.NewName(motion.API, conf.MotionServiceName).String())
@@ -192,10 +192,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 	// add framesystem service as dependency
 	deps = append(deps, framesystem.InternalServiceName.String())
-	fmt.Println("hello there 2")
-	for _, v := range deps {
-		fmt.Println(v)
-	}
+
 	return deps, nil
 }
 
@@ -207,10 +204,7 @@ func NewBuiltIn(
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
 	}
-	fmt.Println("IN NEW BUILTIN FOR NAV")
-	fmt.Println("ABOUT TO ENTER RECONFIG")
 	if err := navSvc.Reconfigure(ctx, deps, conf); err != nil {
-		fmt.Println("err: ", err.Error())
 		return nil, err
 	}
 
@@ -250,14 +244,13 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	defer svc.actionMu.Unlock()
 
 	svc.stopActiveMode()
-	fmt.Println("all deps below")
+
+	// Set framesystem service
 	for name, dep := range deps {
 		if name == framesystem.InternalServiceName {
 			svc.fsService = dep.(framesystem.Service)
 		}
 	}
-
-	fmt.Println("hello there 3")
 
 	svcConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -380,16 +373,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	if err != nil {
 		return err
 	}
-
-	// svc.logger.Info("WE ARE GOING TO TRY TO SET THIS UP")
-	// create framesystem from dependencies
-	// svc.fsService, err = framesystem.New(ctx, deps, svc.logger)
-	// if err != nil {
-	// 	svc.logger.Info("FAILED TO SET UP FRAME SYSTEM SERVICE")
-	// 	svc.logger.Infof("ERR: %v", err.Error())
-	// 	return err
-	// }
-	// svc.logger.Info("SEEMS TO HAVE WORKED")
 
 	svc.mode = navigation.ModeManual
 	svc.base = baseComponent
@@ -622,6 +605,12 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			return nil, fmt.Errorf("vision service with name: %s not found", detector.VisionServiceName)
 		}
 
+		svc.logger.Debugf(
+			"proceeding to get detections from vision service: %s with camera: %s",
+			detector.VisionServiceName.Name,
+			detector.CameraName.Name,
+		)
+
 		// get the detections
 		detections, err := visSvc.GetObjectPointClouds(ctx, detector.CameraName.Name, nil)
 		if err != nil {
@@ -629,22 +618,16 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		}
 
 		// get transforms
-		cameraToMovementsensor, baseToMovementSensor, baseToCamera, err := svc.getTransforms(ctx, detector.CameraName.ShortName())
-		if err != nil {
-			return nil, err
-		}
-		svc.logger.Infof("cameraToMovementsensor Pose: %v", spatialmath.PoseToProtobuf(cameraToMovementsensor.Pose()))
-
-		svc.logger.Infof("baseToMovementSensor Pose: %v", spatialmath.PoseToProtobuf(baseToMovementSensor.Pose()))
-
-		svc.logger.Infof("baseToCamera Pose: %v", spatialmath.PoseToProtobuf(baseToCamera.Pose()))
+		cameraToMovementsensor, baseToMovementSensor, baseToCamera := svc.getTransforms(ctx, detector.CameraName.ShortName())
+		svc.logger.Debugf("cameraToMovementsensor Pose: %v", spatialmath.PoseToProtobuf(cameraToMovementsensor.Pose()))
+		svc.logger.Debugf("baseToMovementSensor Pose: %v", spatialmath.PoseToProtobuf(baseToMovementSensor.Pose()))
+		svc.logger.Debugf("baseToCamera Pose: %v", spatialmath.PoseToProtobuf(baseToCamera.Pose()))
 
 		// get current geo position of robot
 		gp, _, err := svc.movementSensor.Position(ctx, nil)
 		if err != nil {
 			return nil, err
 		}
-		svc.logger.Infof("gp: %v", gp)
 
 		// instantiate a localizer and use it to get our current position
 		localizer := motion.NewMovementSensorLocalizer(svc.movementSensor, gp, spatialmath.NewZeroPose())
@@ -655,50 +638,56 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 
 		// convert orientation of currentPIF to be left handed
 		localizerHeading := math.Mod(math.Abs(currentPIF.Pose().Orientation().OrientationVectorDegrees().Theta-360), 360)
-		svc.logger.Infof("localizerHeading: %v", localizerHeading)
 
+		// convert baseToMovementSensor theta to be left handed
 		localizerBaseThetaDiff := math.Mod(math.Abs(baseToMovementSensor.Pose().Orientation().OrientationVectorDegrees().Theta+360), 360)
-		svc.logger.Infof("localizerBaseThetaDiff: %v", localizerBaseThetaDiff)
 
 		baseHeading := math.Mod(localizerHeading+localizerBaseThetaDiff, 360)
-		svc.logger.Infof("baseHeading: %v", baseHeading)
 
 		// convert geo position into GeoPose
 		robotGeoPose := spatialmath.NewGeoPose(gp, baseHeading)
-		svc.logger.Infof("robotGeoPose.Location(): %v", robotGeoPose.Location())
-		svc.logger.Infof("robotGeoPose.Heading(): %v", robotGeoPose.Heading())
+		svc.logger.Debugf("robotGeoPose Location: %v, Heading: %v", robotGeoPose.Location(), robotGeoPose.Heading())
 
 		// iterate through all detections and construct a geoObstacle to append
 		for i, detection := range detections {
-			svc.logger.Infof("detection.Geometry.Pose(): %v", spatialmath.PoseToProtobuf(detection.Geometry.Pose()))
+			svc.logger.Infof(
+				"detection %d pose with respect to camera frame: %v",
+				i, spatialmath.PoseToProtobuf(detection.Geometry.Pose()),
+			)
 			// the position of the detection in the camera coordinate frame if it were at the movementsensor's location
 			desiredPoint := r3.Vector{
 				X: detection.Geometry.Pose().Point().X - cameraToMovementsensor.Pose().Point().X,
 				Y: detection.Geometry.Pose().Point().Y - cameraToMovementsensor.Pose().Point().Y,
 				Z: detection.Geometry.Pose().Point().Z - cameraToMovementsensor.Pose().Point().Z,
 			}
-			svc.logger.Infof("desiredPoint: %v", desiredPoint)
 
 			desiredPose := spatialmath.NewPose(
 				desiredPoint,
 				detection.Geometry.Pose().Orientation(),
 			)
-			svc.logger.Infof("desiredPose: %v", spatialmath.PoseToProtobuf(desiredPose))
 
 			transformBy := spatialmath.PoseBetweenInverse(detection.Geometry.Pose(), desiredPose)
 
 			// get the manipulated geometry
 			manipulatedGeom := detection.Geometry.Transform(transformBy)
-			svc.logger.Infof("1 manipulatedGeom Pose: %v", spatialmath.PoseToProtobuf(manipulatedGeom.Pose()))
+			svc.logger.Debugf(
+				"detection %d pose from movementsensor's position with camera frame coordinate axes: %v ",
+				spatialmath.PoseToProtobuf(manipulatedGeom.Pose()),
+			)
 
 			// fix axes of geometry's pose such that it is in the cooordinate system of the base
 			manipulatedGeom = manipulatedGeom.Transform(spatialmath.NewPoseFromOrientation(baseToCamera.Pose().Orientation()))
-			svc.logger.Infof("2 manipulatedGeom Pose: %v", spatialmath.PoseToProtobuf(manipulatedGeom.Pose()))
+			svc.logger.Debugf(
+				"detection %d pose from movementsensor's position with base frame coordinate axes: %v ",
+				spatialmath.PoseToProtobuf(manipulatedGeom.Pose()),
+			)
 
 			// get the geometry's lat & lng along with its heading with respect to north as a left handed value
 			obstacleGeoPose := spatialmath.PoseToGeoPose(robotGeoPose, manipulatedGeom.Pose())
-			svc.logger.Infof("obstacleGeoPose.Location(): %v", obstacleGeoPose.Location())
-			svc.logger.Infof("obstacleGeoPose.Heading(): %v", obstacleGeoPose.Heading())
+			svc.logger.Debugf(
+				"obstacleGeoPose Location: %v, Heading: %v",
+				obstacleGeoPose.Location(), obstacleGeoPose.Heading(),
+			)
 
 			// prefix the label of the geometry so we know it is transient and add extra info
 			label := "transient_" + strconv.Itoa(i) + "_" + detector.CameraName.Name
@@ -722,29 +711,35 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			// add manipulatedGeom to list of geoObstacles we return
 			geoObstacles = append(geoObstacles, obstacle)
 		}
-		fmt.Println(" ")
 	}
-	fmt.Println(" ")
-	fmt.Println(" ")
 
 	return geoObstacles, nil
 }
 
-func (svc *builtIn) getTransforms(ctx context.Context, cameraName string) (*referenceframe.PoseInFrame, *referenceframe.PoseInFrame, *referenceframe.PoseInFrame, error) {
+func (svc *builtIn) getTransforms(
+	ctx context.Context,
+	cameraName string,
+) (*referenceframe.PoseInFrame, *referenceframe.PoseInFrame, *referenceframe.PoseInFrame) {
 	// determine transform from camera to movement sensor
 	movementsensorOrigin := referenceframe.NewPoseInFrame(svc.movementSensor.Name().ShortName(), spatialmath.NewZeroPose())
 	cameraToMovementsensor, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, cameraName, nil)
 	if err != nil {
-		svc.logger.Infof("ERR: %v", err.Error())
-		// here we make the assumption the movement sensor is coincident with the camera
+		// here we make the assumption the movementsensor is coincident with the camera
+		svc.logger.Debugf(
+			"we assume the movementsensor named: %s is coincident with the camera named: %s due to err: %v",
+			svc.movementSensor.Name().ShortName(), cameraName, err.Error(),
+		)
 		cameraToMovementsensor = movementsensorOrigin
 	}
 
 	// determine transform from base to movement sensor
 	baseToMovementSensor, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, svc.base.Name().ShortName(), nil)
 	if err != nil {
-		svc.logger.Infof("ERR: %v", err.Error())
-		// here we make the assumption the movement sensor is coincident with the base
+		// here we make the assumption the movementsensor is coincident with the base
+		svc.logger.Debugf(
+			"we assume the movementsensor named: %s is coincident with the base named: %s due to err: %v",
+			svc.movementSensor.Name().ShortName(), svc.base.Name().ShortName(), err.Error(),
+		)
 		baseToMovementSensor = movementsensorOrigin
 	}
 
@@ -752,12 +747,15 @@ func (svc *builtIn) getTransforms(ctx context.Context, cameraName string) (*refe
 	cameraOrigin := referenceframe.NewPoseInFrame(cameraName, spatialmath.NewZeroPose())
 	baseToCamera, err := svc.fsService.TransformPose(ctx, cameraOrigin, svc.base.Name().ShortName(), nil)
 	if err != nil {
-		svc.logger.Infof("ERR: %v", err.Error())
 		// here we make the assumption the base is coincident with the camera
+		svc.logger.Debugf(
+			"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
+			svc.base.Name().ShortName(), svc.movementSensor.Name().ShortName(), err.Error(),
+		)
 		baseToCamera = cameraOrigin
 	}
 
-	return cameraToMovementsensor, baseToMovementSensor, baseToCamera, nil
+	return cameraToMovementsensor, baseToMovementSensor, baseToCamera
 }
 
 func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
