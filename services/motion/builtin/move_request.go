@@ -196,7 +196,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			mr.logger.Debugf(
 				"proceeding to get detections from vision service: %s with camera: %s",
 				visSrvc.Name().ShortName(),
-				camName.Name,
+				camName.ShortName(),
 			)
 
 			// get detections from vision service
@@ -634,7 +634,6 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 			}
 			cameraToBase[obstacleDetectorNamePair.CameraName] = baseToCamera.Pose()
 		}
-
 	}
 
 	currentInputs, _, err := ms.fsService.CurrentInputs(ctx)
