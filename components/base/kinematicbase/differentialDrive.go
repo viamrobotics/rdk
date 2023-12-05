@@ -48,7 +48,6 @@ func wrapWithDifferentialDriveKinematics(
 		Localizer: localizer,
 		logger:    logger,
 		options:   options,
-		mutex:     sync.RWMutex{},
 	}
 	ddk.mutex.Lock()
 	defer ddk.mutex.Unlock()
