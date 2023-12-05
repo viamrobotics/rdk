@@ -135,7 +135,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			}
 
 			eePos, err := ik.model.Transform(inputs)
-			if eePos == nil || err != nil {
+			if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
 				ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
 				err = opt.ForceStop()
 				ik.logger.Errorw("forcestop error", "error", err)
@@ -312,7 +312,6 @@ func (ik *NloptIK) updateBounds(seed []referenceframe.Input, tries int, opt *nlo
 func (ik *NloptIK) calcJump(testJump float64, seed []referenceframe.Input, solveMetric StateMetric) ([]float64, error) {
 	mInput := &State{Frame: ik.model}
 	jump := make([]float64, 0, len(seed))
-	seedTest := append(make([]referenceframe.Input, 0, len(seed)), seed...)
 	eePos, err := ik.model.Transform(seed)
 	if err != nil {
 		return nil, err
@@ -320,7 +319,8 @@ func (ik *NloptIK) calcJump(testJump float64, seed []referenceframe.Input, solve
 	mInput.Configuration = seed
 	mInput.Position = eePos
 	seedDist := solveMetric(mInput)
-	for i, testVal := range seedTest {
+	for i, testVal := range seed {
+		seedTest := append(make([]referenceframe.Input, 0, len(seed)), seed...)
 		for jumpVal := testJump; jumpVal < 1; jumpVal *= 10 {
 			seedTest[i] = referenceframe.Input{testVal.Value + jumpVal}
 			if seedTest[i].Value > ik.upperBound[i] {
