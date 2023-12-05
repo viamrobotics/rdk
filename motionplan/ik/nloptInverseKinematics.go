@@ -131,7 +131,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			ub := ik.upperBound[i]
 			if inputs[i].Value >= ub {
 				flip = true
-				inputs[i].Value -= 2*jump[i]
+				inputs[i].Value -= 2 * jump[i]
 			}
 
 			eePos, err := ik.model.Transform(inputs)
