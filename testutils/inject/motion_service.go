@@ -45,7 +45,7 @@ type MotionService struct {
 	MoveOnGlobeNewFunc func(
 		ctx context.Context,
 		req motion.MoveOnGlobeReq,
-	) (string, error)
+	) (motion.ExecutionID, error)
 	GetPoseFunc func(
 		ctx context.Context,
 		componentName resource.Name,
@@ -127,7 +127,7 @@ func (mgs *MotionService) MoveOnGlobe(
 }
 
 // MoveOnGlobeNew calls the injected MoveOnGlobeNew or the real variant.
-func (mgs *MotionService) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+func (mgs *MotionService) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 	if mgs.MoveOnGlobeNewFunc == nil {
 		return mgs.Service.MoveOnGlobeNew(ctx, req)
 	}
