@@ -65,6 +65,7 @@ type moveRequest struct {
 	seedPlan          motionplan.Plan
 	kinematicBase     kinematicbase.KinematicBase
 	obstacleDetectors map[vision.Service][]resource.Name
+	cameraToBase      map[resource.Name]spatialmath.Pose
 	replanCostFactor  float64
 
 	executeBackgroundWorkers *sync.WaitGroup
@@ -192,6 +193,12 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 
 	for visSrvc, cameraNames := range mr.obstacleDetectors {
 		for _, camName := range cameraNames {
+			mr.logger.Debugf(
+				"proceeding to get detections from vision service: %s with camera: %s",
+				visSrvc.Name().ShortName(),
+				camName.Name,
+			)
+
 			// get detections from vision service
 			detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
 			if err != nil {
@@ -207,12 +214,21 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				return state.ExecuteResponse{}, err
 			}
 
+			transformBy, ok := mr.cameraToBase[camName]
+			if !ok {
+				return state.ExecuteResponse{}, errors.Errorf("unknown transform of camera: %s to base", camName)
+			}
+
 			// Any obstacles specified by the worldstate of the moveRequest will also re-detected here.
 			// There is no need to append the new detections to the existing worldstate.
 			// We can safely build from scratch without excluding any valuable information.
 			geoms := []spatialmath.Geometry{}
 			for i, detection := range detections {
-				geometry := detection.Geometry.Transform(currentPosition.Pose())
+				// put the detection in the base coordinate frame
+				geometry := detection.Geometry.Transform(transformBy)
+
+				// put the detection into its position in the world with the base coordinate frame
+				geometry = geometry.Transform(currentPosition.Pose())
 				label := camName.Name + "_transientObstacle_" + strconv.Itoa(i)
 				if geometry.Label() != "" {
 					label += "_" + geometry.Label()
@@ -221,13 +237,14 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				geoms = append(geoms, geometry)
 			}
 			gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
+			// want to have all geometry's be in the world coordinate frame
 			tf, err := mr.planRequest.FrameSystem.Transform(mr.planRequest.StartConfiguration, gif, mr.planRequest.FrameSystem.World().Name())
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
 			transformedGIF, ok := tf.((*referenceframe.GeometriesInFrame))
 			if !ok {
-				return state.ExecuteResponse{}, errors.New("cannot cast transformable as geometries in frame")
+				return state.ExecuteResponse{}, errors.New("cannot cast transformable as *referenceframe.GeometriesInFrame")
 			}
 			gifs := []*referenceframe.GeometriesInFrame{transformedGIF}
 			worldState, err := referenceframe.NewWorldState(gifs, nil)
@@ -584,6 +601,7 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	}
 
 	obstacleDetectors := make(map[vision.Service][]resource.Name)
+	cameraToBase := make(map[resource.Name]spatialmath.Pose)
 	for _, obstacleDetectorNamePair := range motionCfg.obstacleDetectors {
 		// get vision service
 		visionServiceName := obstacleDetectorNamePair.VisionServiceName
@@ -600,6 +618,23 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 			camList = append(camList, obstacleDetectorNamePair.CameraName)
 			obstacleDetectors[visionSvc] = camList
 		}
+
+		// determine transform of camera to base
+		_, ok = cameraToBase[obstacleDetectorNamePair.CameraName]
+		if !ok {
+			cameraOrigin := referenceframe.NewPoseInFrame(obstacleDetectorNamePair.CameraName.ShortName(), spatialmath.NewZeroPose())
+			baseToCamera, err := ms.fsService.TransformPose(ctx, cameraOrigin, kb.Name().ShortName(), nil)
+			if err != nil {
+				// here we make the assumption the base is coincident with the camera
+				ms.logger.Debugf(
+					"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
+					kb.Name().ShortName(), obstacleDetectorNamePair.CameraName.Name, err.Error(),
+				)
+				baseToCamera = cameraOrigin
+			}
+			cameraToBase[obstacleDetectorNamePair.CameraName] = baseToCamera.Pose()
+		}
+
 	}
 
 	currentInputs, _, err := ms.fsService.CurrentInputs(ctx)
@@ -639,6 +674,7 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		kinematicBase:     kb,
 		replanCostFactor:  valExtra.replanCostFactor,
 		obstacleDetectors: obstacleDetectors,
+		cameraToBase:      cameraToBase,
 
 		executeBackgroundWorkers: &backgroundWorkers,
 

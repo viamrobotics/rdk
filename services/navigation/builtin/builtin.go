@@ -607,8 +607,8 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 
 		svc.logger.Debugf(
 			"proceeding to get detections from vision service: %s with camera: %s",
-			detector.VisionServiceName.Name,
-			detector.CameraName.Name,
+			detector.VisionServiceName.ShortName(),
+			detector.CameraName.ShortName(),
 		)
 
 		// get the detections
@@ -750,7 +750,7 @@ func (svc *builtIn) getTransforms(
 		// here we make the assumption the base is coincident with the camera
 		svc.logger.Debugf(
 			"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
-			svc.base.Name().ShortName(), svc.movementSensor.Name().ShortName(), err.Error(),
+			svc.base.Name().ShortName(), cameraName, err.Error(),
 		)
 		baseToCamera = cameraOrigin
 	}
