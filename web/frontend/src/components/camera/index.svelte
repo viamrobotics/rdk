@@ -24,8 +24,10 @@ const setupCamera = (cameraName: string) => {
 
 const handleRefreshInput = (name: string) => {
   return (event: CustomEvent<{ value: string }>) => {
-    // The event is being invoked twice, once as a regular event and once as a
-    // custom event. We need to ignore the regular event.
+    /**
+     * The event is being invoked twice, once as a regular event and once as a
+     * custom event. We need to ignore the regular event.
+     */
     if (!event.detail) {
       return;
     }
