@@ -372,7 +372,9 @@ func (ms *explore) checkForObstacles(
 				errCounterGenerateTransientWorldState = 0
 			}
 
-			// Select remainder of plan to check
+			// TODO: Generalize this fix to work for maps with non-transient obstacles. This current implementation
+			// relies on the plan being two steps: a start position and a goal position.
+			// JIRA Ticket: https://viam.atlassian.net/browse/RSDK-5964
 			plan[0][kb.Name().ShortName()] = currentInputs
 			ms.logger.Debugf("Current transient worldState: ", worldState.String())
 
