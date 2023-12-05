@@ -5,6 +5,8 @@ import (
 	"io"
 	"log"
 	"os"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/fatih/color"
 )
@@ -19,6 +21,11 @@ const asciiViam = `
 
 `
 
+// printf prints a message with no prefix.
+func printf(w io.Writer, format string, a ...interface{}) {
+	fmt.Fprintf(w, format+"\n", a...)
+}
+
 // infof prints a message prefixed with a bold cyan "Info: ".
 func infof(w io.Writer, format string, a ...interface{}) {
 	// NOTE(benjirewis): for some reason, both errcheck and gosec complain about
@@ -31,6 +38,12 @@ func infof(w io.Writer, format string, a ...interface{}) {
 }
 
 // warningf prints a message prefixed with a bold yellow "Warning: ".
+//
+// NOTE(benjirewis): we disable the unparam linter here. Our usages of warningf
+// do not currently make use of the variadic `a` parameter but may in the
+// future. unparam will complain until it does.
+//
+//nolint:unparam
 func warningf(w io.Writer, format string, a ...interface{}) {
 	if _, err := color.New(color.Bold, color.FgYellow).Fprint(w, "Warning: "); err != nil {
 		log.Fatal(err)
@@ -39,11 +52,20 @@ func warningf(w io.Writer, format string, a ...interface{}) {
 }
 
 // Errorf prints a message prefixed with a bold red "Error: " prefix and exits with 1.
+// It also capitalizes the first letter of the message.
 func Errorf(w io.Writer, format string, a ...interface{}) {
 	if _, err := color.New(color.Bold, color.FgRed).Fprint(w, "Error: "); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Fprintf(w, format+"\n", a...)
+
+	toPrint := fmt.Sprintf(format+"\n", a...)
+	r, i := utf8.DecodeRuneInString(toPrint)
+	if r == utf8.RuneError {
+		log.Fatal("Malformed error message:", toPrint)
+	}
+	upperR := unicode.ToUpper(r)
+	fmt.Fprintf(w, string(upperR)+toPrint[i:])
+
 	os.Exit(1)
 }
 

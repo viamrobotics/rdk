@@ -5,12 +5,11 @@ import (
 	"testing"
 
 	"github.com/adrianmo/go-nmea"
-	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -31,7 +30,7 @@ func TestValidateSerial(t *testing.T) {
 	fakecfg := &SerialConfig{}
 	path := "path"
 	err := fakecfg.validateSerial(path)
-	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "serial_path"))
+	test.That(t, err, test.ShouldBeError, resource.NewConfigValidationFieldRequiredError(path, "serial_path"))
 
 	fakecfg.SerialPath = "some-path"
 	err = fakecfg.validateSerial(path)
@@ -39,7 +38,7 @@ func TestValidateSerial(t *testing.T) {
 }
 
 func TestNewSerialMovementSensor(t *testing.T) {
-	deps := setupDependencies(t)
+	var deps resource.Dependencies
 	path := "somepath"
 
 	cfig := resource.Config{
@@ -52,7 +51,7 @@ func TestNewSerialMovementSensor(t *testing.T) {
 		},
 	}
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
 	g, err := newNMEAGPS(ctx, deps, cfig, logger)
@@ -70,7 +69,6 @@ func TestNewSerialMovementSensor(t *testing.T) {
 				SerialPath:     path,
 				SerialBaudRate: 0,
 			},
-			I2CConfig: &I2CConfig{Board: "local"},
 		},
 	}
 	g, err = newNMEAGPS(ctx, deps, cfig, logger)
@@ -82,7 +80,7 @@ func TestNewSerialMovementSensor(t *testing.T) {
 }
 
 func TestReadingsSerial(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := &SerialNMEAMovementSensor{
@@ -124,7 +122,7 @@ func TestReadingsSerial(t *testing.T) {
 }
 
 func TestCloseSerial(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := &SerialNMEAMovementSensor{

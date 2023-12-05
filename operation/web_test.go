@@ -4,14 +4,15 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	"go.viam.com/test"
 	"google.golang.org/grpc/metadata"
+
+	"go.viam.com/rdk/logging"
 )
 
 func TestCreateFromIncomingContextWithoutOpid(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	m := NewManager(logger)
 
 	_, done := m.CreateFromIncomingContext(context.Background(), "fake")
@@ -22,7 +23,7 @@ func TestCreateFromIncomingContextWithoutOpid(t *testing.T) {
 }
 
 func TestCreateFromIncomingContextWithOpid(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	m := NewManager(logger)
 
 	opid := uuid.New()

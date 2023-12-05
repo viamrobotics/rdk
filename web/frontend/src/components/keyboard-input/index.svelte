@@ -1,5 +1,4 @@
 <script lang="ts">
-  /* eslint-disable id-length */
   import { onDestroy } from 'svelte';
   import type { Keys } from './types';
 

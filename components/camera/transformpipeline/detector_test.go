@@ -1,3 +1,5 @@
+//go:build !no_tflite
+
 package transformpipeline
 
 import (
@@ -6,12 +8,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
@@ -44,7 +46,7 @@ func writeTempConfig(cfg *config.Config) (string, error) {
 }
 
 // make a fake robot with a vision service.
-func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
+func buildRobotWithFakeCamera(logger logging.Logger) (robot.Robot, error) {
 	// add a fake camera to the config
 	cfg, err := config.Read(context.Background(), artifact.MustPath("components/camera/transformpipeline/vision.json"), logger)
 	if err != nil {
@@ -148,7 +150,7 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 
 //nolint:dupl
 func TestColorDetectionSource(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -172,7 +174,7 @@ func TestColorDetectionSource(t *testing.T) {
 }
 
 func TestTFLiteDetectionSource(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -190,12 +192,12 @@ func TestTFLiteDetectionSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
 	test.That(t, ovImg.GetXY(624, 402), test.ShouldResemble, rimage.Red)
-	test.That(t, ovImg.GetXY(816, 648), test.ShouldResemble, rimage.Red)
+	test.That(t, ovImg.GetXY(815, 647), test.ShouldResemble, rimage.Red)
 	test.That(t, detector.Close(context.Background()), test.ShouldBeNil)
 }
 
 func BenchmarkColorDetectionSource(b *testing.B) {
-	logger := golog.NewTestLogger(b)
+	logger := logging.NewTestLogger(b)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -217,7 +219,7 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 }
 
 func BenchmarkTFLiteDetectionSource(b *testing.B) {
-	logger := golog.NewTestLogger(b)
+	logger := logging.NewTestLogger(b)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

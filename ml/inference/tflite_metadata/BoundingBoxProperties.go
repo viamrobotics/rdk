@@ -7,13 +7,15 @@ import (
 )
 
 type BoundingBoxPropertiesT struct {
-	Index []uint32
-	Type BoundingBoxType
+	Index          []uint32
+	Type           BoundingBoxType
 	CoordinateType CoordinateType
 }
 
 func (t *BoundingBoxPropertiesT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	indexOffset := flatbuffers.UOffsetT(0)
 	if t.Index != nil {
 		indexLength := len(t.Index)
@@ -41,7 +43,9 @@ func (rcv *BoundingBoxProperties) UnPackTo(t *BoundingBoxPropertiesT) {
 }
 
 func (rcv *BoundingBoxProperties) UnPack() *BoundingBoxPropertiesT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &BoundingBoxPropertiesT{}
 	rcv.UnPackTo(t)
 	return t

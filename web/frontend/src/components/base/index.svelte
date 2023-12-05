@@ -179,7 +179,7 @@
       } catch (error) {
         displayError(error as ServiceError);
       }
-    } else if (movementMode === 'Straight') {
+    } else {
       handleBaseStraight({
         movementType,
         direction: direction === 'Forwards' ? 1 : -1,
@@ -189,7 +189,7 @@
     }
   };
 
-  const handleViewSelect = (event: CustomEvent) => {
+  const handleViewSelect = (event: CustomEvent<{ value: View }>) => {
     selectedView = event.detail.value;
 
     let liveCameras = 0;
@@ -239,11 +239,11 @@
     disableRefresh = true;
   };
 
-  const handleSelectMovementMode = (event: CustomEvent) => {
+  const handleSelectMovementMode = (event: CustomEvent<{ value: MovementModes }>) => {
     setMovementMode(event.detail.value);
   };
 
-  const handleControlModeSelect = (event: CustomEvent) => {
+  const handleControlModeSelect = (event: CustomEvent<{ value: Tabs }>) => {
     selectedMode = event.detail.value;
 
     if (selectedMode === 'Discrete') {
@@ -251,40 +251,52 @@
     }
   };
 
-  const handleSelectMovementType = (event: CustomEvent) => {
+  const handleSelectMovementType = (event: CustomEvent<{ value: MovementTypes }>) => {
     movementType = event.detail.value;
   };
 
-  const handlePowerSlider = (event: CustomEvent) => {
+  const handlePowerSlider = (event: CustomEvent<{ value: number }>) => {
     power = event.detail.value;
   };
 
-  const handleSetDirection = (event: CustomEvent) => {
+  const handleSetDirection = (event: CustomEvent<{ value: Directions }>) => {
     direction = event.detail.value;
   };
 
-  const handleSetSpeed = (event: CustomEvent) => {
+  const handleSetSpeed = (event: CustomEvent<{ value: number }>) => {
     speed = event.detail.value;
   };
 
-  const handleSetIncrement = (event: CustomEvent) => {
+  const handleSetIncrement = (event: CustomEvent<{ value: number }>) => {
     increment = event.detail.value;
   };
 
-  const handleSetSpinSpeed = (event: CustomEvent) => {
+  const handleSetSpinSpeed = (event: CustomEvent<{ value: number }>) => {
     spinSpeed = event.detail.value;
   };
 
-  const handleSetSpinType = (event: CustomEvent) => {
+  const handleSetSpinType = (event: CustomEvent<{ value: SpinTypes }>) => {
     setSpinType(event.detail.value);
   };
 
-  const handleSetRefreshFrequency = (event: CustomEvent) => {
+  const handleSetRefreshFrequency = (event: CustomEvent<{ value: string }>) => {
     refreshFrequency = event.detail.value;
   };
 
-  const handleSetAngle = (event: CustomEvent) => {
+  const handleSetAngle = (event: CustomEvent<{ value: number }>) => {
     angle = event.detail.value;
+  };
+
+  const handleOnKeyUpRun = (event: KeyboardInput) => {
+    if (event.key === 'Enter') {
+      baseRun();
+    }
+  };
+
+  const handleOnKeyUpStop = (event: KeyboardInput) => {
+    if (event.key === 'Enter') {
+      stop();
+    }
   };
 
   onMount(() => {
@@ -318,7 +330,7 @@
       icon="stop-circle-outline"
       label="Stop"
       on:click={stop}
-      on:keyup={stop}
+      on:keyup={handleOnKeyUpStop}
       role="button"
       tabindex="0"
     />
@@ -431,7 +443,7 @@
               variant="success"
               label="Run"
               on:click={baseRun}
-              on:keyup={baseRun}
+              on:keyup={handleOnKeyUpRun}
               role="button"
               tabindex="0"
             />

@@ -7,11 +7,11 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -19,7 +19,7 @@ import (
 )
 
 func TestIKTolerances(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testjson/ur5eDH.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -40,7 +40,7 @@ func TestIKTolerances(t *testing.T) {
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
 	opt := newBasicPlannerOptions(m)
-	opt.SetGoalMetric(ik.NewPositionOnlyMetric(pos))
+	opt.goalMetricConstructor = ik.NewPositionOnlyMetric
 	opt.SetMaxSolutions(50)
 	mp, err = newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(1)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)

@@ -1,22 +1,24 @@
+//go:build linux
+
 // Package pca9685 implements a PCA9685 HAT. It's probably also a generic PCA9685
 // but that has not been verified yet.
 package pca9685
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -29,28 +31,20 @@ var (
 
 // Config describes a PCA9685 board attached to some other board via I2C.
 type Config struct {
-	BoardName      string `json:"board_name"`
-	I2CName        string `json:"i2c_name"`
-	I2CAddress     *int   `json:"i2c_address,omitempty"`
-	PWMFrequencyHz int    `json:"pwm_frequency_hz,omitempty"`
+	I2CBus     string `json:"i2c_bus,omitempty"`
+	I2CAddress *int   `json:"i2c_address,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if conf.BoardName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board_name")
+	if conf.I2CBus == "" {
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
-	if conf.I2CName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_name")
+
+	if conf.I2CAddress != nil && (*conf.I2CAddress < 0 || *conf.I2CAddress > 255) {
+		return nil, resource.NewConfigValidationError(path, errors.New("i2c_address must be an unsigned byte"))
 	}
-	if conf.I2CAddress == nil {
-		conf.I2CAddress = &defaultAddr
-	}
-	if *conf.I2CAddress < 0 || *conf.I2CAddress > 255 {
-		return nil, utils.NewConfigValidationError(path, errors.New("i2c_address must be an unsigned byte"))
-	}
-	deps = append(deps, conf.BoardName)
 	return deps, nil
 }
 
@@ -63,7 +57,7 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (board.Board, error) {
 				return New(ctx, deps, conf, logger)
 			},
@@ -79,11 +73,9 @@ type PCA9685 struct {
 	mu                  sync.RWMutex
 	address             byte
 	referenceClockSpeed int
-	bus                 board.I2C
+	bus                 buses.I2C
 	gpioPins            [16]gpioPin
-	boardName           string
-	i2cName             string
-	logger              golog.Logger
+	logger              logging.Logger
 }
 
 const (
@@ -97,7 +89,7 @@ const (
 var defaultAddr = 0x40
 
 // New returns a new PCA9685 residing on the given bus and address.
-func New(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (*PCA9685, error) {
+func New(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (*PCA9685, error) {
 	pca := PCA9685{
 		Named:               conf.ResourceName().AsNamed(),
 		referenceClockSpeed: defaultReferenceClockSpeed,
@@ -126,33 +118,21 @@ func (pca *PCA9685) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	b, err := board.FromDependencies(deps, newConf.BoardName)
+	bus, err := buses.NewI2cBus(newConf.I2CBus)
 	if err != nil {
 		return err
 	}
-	localBoard, ok := b.(board.LocalBoard)
-	if !ok {
-		return fmt.Errorf("board %s is not local", newConf.BoardName)
-	}
 
-	bus, ok := localBoard.I2CByName(newConf.I2CName)
-	if !ok {
-		return errors.Errorf("can't find I2C bus (%s) requested by Motor", newConf.I2CName)
+	address := byte(defaultAddr)
+	if newConf.I2CAddress != nil {
+		address = byte(*newConf.I2CAddress)
 	}
-	address := byte(*newConf.I2CAddress)
 
 	pca.mu.Lock()
 	defer pca.mu.Unlock()
 
-	needsReset := pca.boardName != newConf.BoardName || pca.i2cName != newConf.I2CName
-	if !needsReset {
-		return nil
-	}
-
 	pca.bus = bus
 	pca.address = address
-	pca.boardName = newConf.BoardName
-	pca.i2cName = newConf.I2CName
 	if err := pca.reset(ctx); err != nil {
 		return err
 	}
@@ -171,15 +151,15 @@ func (pca *PCA9685) parsePin(pin string) (int, error) {
 	return int(pinInt), nil
 }
 
-// ModelAttributes returns attributes related to the model of this board.
-func (pca *PCA9685) ModelAttributes() board.ModelAttributes {
-	return board.ModelAttributes{}
-}
-
 // SetPowerMode sets the board to the given power mode. If provided,
 // the board will exit the given power mode after the specified
 // duration.
 func (pca *PCA9685) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	return grpc.UnimplementedError
+}
+
+// WriteAnalog writes the value to the given pin.
+func (pca *PCA9685) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
 	return grpc.UnimplementedError
 }
 
@@ -201,17 +181,7 @@ func (pca *PCA9685) GPIOPinByName(pin string) (board.GPIOPin, error) {
 	return &pca.gpioPins[pinInt], nil
 }
 
-// GPIOPinNames returns the names of all known GPIO pins.
-func (pca *PCA9685) GPIOPinNames() []string {
-	return []string{
-		"0", "1", "2", "3",
-		"4", "5", "6", "7",
-		"8", "9", "10", "11",
-		"12", "13", "14", "15",
-	}
-}
-
-func (pca *PCA9685) openHandle() (board.I2CHandle, error) {
+func (pca *PCA9685) openHandle() (buses.I2CHandle, error) {
 	return pca.bus.OpenHandle(pca.address)
 }
 
@@ -281,16 +251,6 @@ func (pca *PCA9685) SetFrequency(ctx context.Context, frequency float64) error {
 	return nil
 }
 
-// SPINames returns the names of all known SPIs.
-func (pca *PCA9685) SPINames() []string {
-	return nil
-}
-
-// I2CNames returns the names of all known I2Cs.
-func (pca *PCA9685) I2CNames() []string {
-	return nil
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (pca *PCA9685) AnalogReaderNames() []string {
 	return nil
@@ -299,16 +259,6 @@ func (pca *PCA9685) AnalogReaderNames() []string {
 // DigitalInterruptNames returns the names of all known digital interrupts.
 func (pca *PCA9685) DigitalInterruptNames() []string {
 	return nil
-}
-
-// SPIByName returns the SPI by the given name if it exists.
-func (pca *PCA9685) SPIByName(name string) (board.SPI, bool) {
-	return nil, false
-}
-
-// I2CByName returns the i2c by the given name if it exists.
-func (pca *PCA9685) I2CByName(name string) (board.I2C, bool) {
-	return nil, false
 }
 
 // AnalogReaderByName returns the analog reader by the given name if it exists.
@@ -357,10 +307,10 @@ func (gp *gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float
 		utils.UncheckedError(handle.Close())
 	}()
 
-	regOnLow := board.I2CRegister{handle, gp.startAddr}
-	regOnHigh := board.I2CRegister{handle, gp.startAddr + 1}
-	regOffLow := board.I2CRegister{handle, gp.startAddr + 2}
-	regOffHigh := board.I2CRegister{handle, gp.startAddr + 3}
+	regOnLow := buses.I2CRegister{handle, gp.startAddr}
+	regOnHigh := buses.I2CRegister{handle, gp.startAddr + 1}
+	regOffLow := buses.I2CRegister{handle, gp.startAddr + 2}
+	regOffHigh := buses.I2CRegister{handle, gp.startAddr + 3}
 
 	onLow, err := regOnLow.ReadByteData(ctx)
 	if err != nil {
@@ -402,10 +352,10 @@ func (gp *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[s
 		utils.UncheckedError(handle.Close())
 	}()
 
-	regOnLow := board.I2CRegister{handle, gp.startAddr}
-	regOnHigh := board.I2CRegister{handle, gp.startAddr + 1}
-	regOffLow := board.I2CRegister{handle, gp.startAddr + 2}
-	regOffHigh := board.I2CRegister{handle, gp.startAddr + 3}
+	regOnLow := buses.I2CRegister{handle, gp.startAddr}
+	regOnHigh := buses.I2CRegister{handle, gp.startAddr + 1}
+	regOffLow := buses.I2CRegister{handle, gp.startAddr + 2}
+	regOffHigh := buses.I2CRegister{handle, gp.startAddr + 3}
 
 	if dutyCycle == 0xffff {
 		// On takes up all steps

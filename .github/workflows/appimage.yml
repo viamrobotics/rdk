@@ -23,11 +23,13 @@ jobs:
       matrix:
         include:
           - arch: [ubuntu-latest]
-            image: ghcr.io/viamrobotics/canon:amd64-cache
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
             platform: linux/amd64
+            label: amd64
           - arch: [buildjet-2vcpu-ubuntu-2204-arm]
-            image: ghcr.io/viamrobotics/canon:arm64-cache
+            image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
             platform: linux/arm64
+            label: arm64
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
@@ -53,7 +55,7 @@ jobs:
         sudo -Hu testbot bash -lc 'make clean-all'
 
     - name: Authorize GCP Upload
-      uses: google-github-actions/auth@v1
+      uses: google-github-actions/auth@v1.1.1
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
@@ -97,6 +99,65 @@ jobs:
         glob: '*'
         parent: false
         gzip: false
+
+  appimage-static-32bit:
+    name: static 32-bit for appimage
+    runs-on: buildjet-2vcpu-ubuntu-2204-arm
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+    - uses: docker/setup-buildx-action@v2
+    - uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    # note: we run this way instead of using rdk-devenv as the job's container because of https://github.com/actions/runner/issues/2115 (js-based actions install incomaptible node on 32-bit)
+    - name: build server
+      run: docker run --rm -v $PWD:/rdk ghcr.io/viamrobotics/rdk-devenv:armhf-cache sh -c "cd /rdk && make server-static"
+    - name: build aix
+      run: docker run --rm -v $PWD:/rdk ghcr.io/viamrobotics/rdk-devenv:armhf-cache sh -c 'cd /rdk && GOBIN=`pwd`/bin/`uname -s`-`uname -m` go install -ldflags "-s -w" -tags osusergo,netgo github.com/Otterverse/aix@latest'
+    - name: permissions
+      run: sudo chown -R $USER bin
+    # note: we do this because uname sees the arm64 kernel underneath the armhf container
+    - name: fix platform detection
+      run: mv bin/`uname -s`-`uname -m` bin/`uname -s`-armv7l
+    - uses: actions/upload-artifact@v3
+      with:
+        name: appimage-static-32bit
+        path: |
+          bin/*/viam-server
+          bin/*/aix
+
+  # note: this is a separate job because 1) appimage-builder doesn't work on 32-bit, 2) setup-python doesn't work on arm64
+  appimage-32bit:
+    runs-on: ubuntu-latest
+    needs: appimage-static-32bit
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+    - uses: actions/download-artifact@v3
+      with:
+        name: appimage-static-32bit
+        path: bin/
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    - name: deps
+      run: pip install appimage-builder git+https://github.com/AppImageCrafters/appimage-builder.git@42d32f11496de43a9f6a9ada7882a11296e357ca
+    - name: build
+      env:
+        BUILD_CHANNEL: ${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
+        UNAME_M: armv7l
+        DPKG_ARCH: armhf
+        APPIMAGE_ARCH: armhf
+      run: make appimage-arch
+    - uses: actions/upload-artifact@v3
+      with:
+        name: appimage-armhf
+        path: etc/packaging/appimages/deploy
 
   output_summary:
     name: Output Summary
@@ -162,17 +223,33 @@ jobs:
 
   appimage_deploy:
     name: AppImage Deploy
-    needs: appimage_test
+    needs: [appimage_test, appimage-32bit]
     runs-on: ubuntu-latest
+    env:
+      channel: ${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
 
     steps:
     - name: Authorize GCP
-      uses: google-github-actions/auth@v1
+      uses: google-github-actions/auth@v1.1.1
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
+
+    - uses: actions/download-artifact@v3
+      with:
+        name: appimage-armhf
+        path: etc/packaging/appimages/deploy
+
+    - name: deploy 32-bit
+      uses: google-github-actions/upload-cloud-storage@v0.10.4
+      with:
+        headers: "cache-control: no-cache"
+        path: etc/packaging/appimages/deploy
+        glob: viam-server-${{ env.channel }}-armhf.AppImage*
+        destination: 'packages.viam.com/apps/viam-server/'
+        parent: false
 
     - name: Publish AppImage
       run: |
@@ -180,12 +257,8 @@ jobs:
 
     - name: Output Summary
       run: |
-        channel="${{ github.ref_name }}"
-        # we call our main branch releases "latest"
-        if [ "$channel" == "main" ]; then
-          channel="latest"
-        fi
         echo "### Built AppImages for ${channel}" >> $GITHUB_STEP_SUMMARY
         echo "- arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-aarch64.AppImage" >> $GITHUB_STEP_SUMMARY
         echo "- x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-x86_64.AppImage" >> $GITHUB_STEP_SUMMARY
+        echo "- armhf: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-armhf.AppImage" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY

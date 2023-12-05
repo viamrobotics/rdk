@@ -39,6 +39,7 @@ const dispatch = createEventDispatcher<{
   'connection-error': unknown
 }>();
 
+
 const relevantSubtypesForStatus = [
   'arm',
   'gantry',
@@ -48,7 +49,9 @@ const relevantSubtypesForStatus = [
   'input_controller',
 ] as const;
 
-const impliedURL = `${location.protocol}//${location.hostname}${location.port ? `:${location.port}` : ''}`;
+const apiKeyAuthType = "api-key"
+const urlPort = location.port ? `:${location.port}` : ''
+const impliedURL = `${location.protocol}//${location.hostname}${urlPort}`;
 
 $robotClient = new Client(impliedURL, {
   enabled: webrtcEnabled,
@@ -74,7 +77,12 @@ $robotClient = new Client(impliedURL, {
   noReconnect: true,
 });
 
-let password = '';
+const passwordByAuthType: Record<string, string> = {}
+let apiKeyEntity = "";
+for (const auth of supportedAuthTypes) {
+  passwordByAuthType[auth] = ""
+}
+
 let lastStatusTS: number | null = null;
 let resourcesOnce = false;
 
@@ -92,6 +100,8 @@ const handleError = (message: string, error: unknown, onceKey: string) => {
   }
 
   notify.danger(message);
+  
+  // eslint-disable-next-line no-console
   console.error(message, { error });
 };
 
@@ -225,22 +235,22 @@ const restartStatusStream = () => {
   streamReq.setEvery(new Duration().setNanos(500_000_000));
 
   $statusStream = $robotClient.robotService.streamStatus(streamReq);
-  if ($statusStream !== null) {
-    $statusStream.on('data', (response: { getStatusList(): robotApi.Status[] }) => {
-      updateStatus(response.getStatusList());
-      lastStatusTS = Date.now();
-    });
-    $statusStream.on('status', (newStatus?: { details: unknown }) => {
-      if (!ConnectionClosedError.isError(newStatus!.details)) {
-        console.error('error streaming robot status', newStatus);
-      }
-      $statusStream = null;
-    });
-    $statusStream.on('end', () => {
-      console.error('done streaming robot status');
-      $statusStream = null;
-    });
-  }
+  $statusStream.on('data', (response: { getStatusList(): robotApi.Status[] }) => {
+    updateStatus(response.getStatusList());
+    lastStatusTS = Date.now();
+  });
+  $statusStream.on('status', (newStatus?: { details: unknown }) => {
+    if (!ConnectionClosedError.isError(newStatus!.details)) {
+      // eslint-disable-next-line no-console
+      console.error('error streaming robot status', newStatus);
+    }
+    $statusStream = null;
+  });
+  $statusStream.on('end', () => {
+    // eslint-disable-next-line no-console
+    console.error('done streaming robot status');
+    $statusStream = null;
+  });
 };
 
 // query metadata service every 0.5s
@@ -250,10 +260,10 @@ const queryMetadata = async () => {
 
   const resourcesList = await getResourceNames($robotClient);
 
-  const differences: Set<string> = new Set(
+  const differences = new Set<string>(
     $resources.map((name) => resourceNameToString(name))
   );
-  const resourceSet: Set<string> = new Set(
+  const resourceSet = new Set<string>(
     resourcesList.map((name) => resourceNameToString(name))
   );
 
@@ -285,14 +295,14 @@ const queryMetadata = async () => {
   $resources = resourcesList;
 
   resourcesOnce = true;
-  if (resourcesChanged === true) {
+  if (resourcesChanged) {
     const sensorsName = filterSubtype(resources.current, 'sensors', { remote: false })[0]?.name;
 
     $sensorNames = sensorsName === undefined ? [] : (await getSensors($robotClient, sensorsName));
 
   }
 
-  if (shouldRestartStatusStream === true) {
+  if (shouldRestartStatusStream) {
     restartStatusStream();
   }
 };
@@ -316,6 +326,7 @@ const isConnected = () => {
   );
 };
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 const tick = async () => {
   const newErrors: unknown[] = [];
 
@@ -368,6 +379,7 @@ const tick = async () => {
   $connectionStatus = 'reconnecting';
 
   try {
+    // eslint-disable-next-line no-console
     console.debug('reconnecting');
 
     // reset status/stream state
@@ -377,19 +389,22 @@ const tick = async () => {
     }
     resourcesOnce = false;
 
-    await $robotClient.connect();
+    await $robotClient.connect({ priority: 1 });
 
     const now = Date.now();
 
     $rtt = Math.max(Date.now() - now, 0);
 
     lastStatusTS = Date.now();
+    // eslint-disable-next-line no-console
     console.debug('reconnected');
     $streamManager.refreshStreams();
   } catch (error) {
     if (ConnectionClosedError.isError(error)) {
+      // eslint-disable-next-line no-console
       console.error('failed to reconnect; retrying');
     } else {
+      // eslint-disable-next-line no-console
       console.error('failed to reconnect; retrying:', error);
     }
   }
@@ -408,22 +423,27 @@ const start = () => {
   cancelTick = setAsyncInterval(tick, 500);
 };
 
-const connect = async (creds?: Credentials) => {
+const connect = async (creds?: Credentials, authEntity?: string) => {
   $connectionStatus = 'connecting';
 
-  await $robotClient.connect(bakedAuth.authEntity, creds ?? bakedAuth.creds);
+  await $robotClient.connect({ 
+    authEntity: authEntity ?? bakedAuth.authEntity,
+    creds: creds ?? bakedAuth.creds,
+    priority: 1 
+  });
 
   $connectionStatus = 'connected';
   start();
 };
 
 const login = async (authType: string) => {
-  const creds = { type: authType, payload: password };
+  const creds = { type: authType, payload: passwordByAuthType[authType] ?? ""};
 
+  const authEntity = authType === apiKeyAuthType ? apiKeyEntity: undefined
   try {
-    await connect(creds);
+    await connect(creds, authEntity);
   } catch (error) {
-    notify.danger(`failed to connect: ${(error as ServiceError).message}`);
+    notify.danger(`failed to connect: ${error as string}`);
     $connectionStatus = 'idle';
   }
 };
@@ -449,7 +469,7 @@ const init = async () => {
 
 const handleUnload = () => {
   stop();
-  $streamManager?.close();
+  $streamManager.close();
   $robotClient.disconnect();
 };
 
@@ -467,6 +487,7 @@ onDestroy(() => {
 if (supportedAuthTypes.length === 0) {
   init();
 }
+let selectedAuthType: string = supportedAuthTypes[0]!
 
 </script>
 
@@ -479,27 +500,56 @@ if (supportedAuthTypes.length === 0) {
 {#if $connectionStatus === 'connected' || $connectionStatus === 'reconnecting'}
   <slot />
 {:else}
-  {#each supportedAuthTypes as authType (authType)}
-    <div class="px-4 py-3">
-      <span>{authType}: </span>
-      <div class="w-96">
-        <input
-          bind:value={password}
-          disabled={$connectionStatus === 'connecting'}
-          class="
-            mb-2 block w-full appearance-none border p-2 text-gray-700
-            transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none
-          "
-          type="password"
-          autocomplete="off"
-          on:keyup={(event) => event.key === 'Enter' && login(authType)}
+  <div class="flex bg-[#f7f7f8] min-h-[100vh]">
+  <div
+          class="flex flex-col items-center w-full h-full md:max-w-[400px] md:h-auto bg-white border border-[#d7d7d9] m-auto p-6 pt-10">
+          <img src="https://app.viam.com/static/images/viam-logo.svg" alt="Viam"
+               class="mb-8 h-8" />
+    <div class="flex flex-row w-full mb-8">
+    {#each supportedAuthTypes as authType(authType)}
+        <button
+                class={`flex w-full h-10 items-center justify-center text-default font-medium text-sm disabled ${selectedAuthType===authType ? "bg-[#FBFBFC] border-[#C5C6CC]" : "text-[#4E4F52] bg-[#F1F1F4] border-[#E4E4E6]"} border`}
+                disabled={selectedAuthType===authType} aria-disabled={selectedAuthType===authType}
+                on:click={() => {selectedAuthType = authType;}}
         >
-        <v-button
-          disabled={$connectionStatus === 'connecting'}
-          label="Login"
-          on:click={$connectionStatus === 'connecting' ? undefined : () => login(authType)}
-        />
+          {authType}
+        </button>
+      {/each}
       </div>
+    <div class="w-full">
+        {#if selectedAuthType === apiKeyAuthType}
+          <label class="block text-xs text-[#4E4F52] leading-3 mb-2">
+            api key id
+            <input
+                    bind:value={apiKeyEntity}
+                    disabled={$connectionStatus === 'connecting'}
+                    class="
+              border border-[#E4E4E6] text-sm block w-full p-2.5 mt-2
+            "
+                    autocomplete="off"
+            ></label>
+        {/if}
+        <label class="block text-xs text-[#4E4F52] leading-3">
+            {selectedAuthType === apiKeyAuthType ? "api key" : "secret" }
+          <input
+                  bind:value={passwordByAuthType[selectedAuthType]}
+                  disabled={$connectionStatus === 'connecting'}
+                  class="
+            border border-[#E4E4E6] text-sm block w-full p-2.5 mt-2
+          "
+                  type="password"
+                  autocomplete="off"
+                  on:keyup={async (event) => event.key === 'Enter' && login(selectedAuthType)}
+          >
+        </label>
+        <button
+                disabled={$connectionStatus === 'connecting'}
+                class="block w-full h-10 p-2 mt-8 mb-2 bg-[#282829] text-sm text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:pointer-events-none"
+          on:click={$connectionStatus === 'connecting' ? undefined : async () => login(selectedAuthType)}
+        >
+          Log in
+        </button>
     </div>
-  {/each}
+    </div>
+  </div>
 {/if}

@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
@@ -20,7 +19,10 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
+	"go.viam.com/rdk/components/board/mcp3008helper"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -34,7 +36,7 @@ func RegisterBoard(modelName string, gpioMappings map[string]GPIOBoardMapping) {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (board.Board, error) {
 				return NewBoard(ctx, conf, ConstPinDefs(gpioMappings), logger)
 			},
@@ -46,7 +48,7 @@ func NewBoard(
 	ctx context.Context,
 	conf resource.Config,
 	convertConfig ConfigConverter,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (board.Board, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
@@ -58,11 +60,9 @@ func NewBoard(
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 
-		spis:       map[string]*spiBus{},
-		analogs:    map[string]*wrappedAnalog{},
-		i2cs:       map[string]*I2cBus{},
-		gpios:      map[string]*gpioPin{},
-		interrupts: map[string]*digitalInterrupt{},
+		analogReaders: map[string]*wrappedAnalogReader{},
+		gpios:         map[string]*gpioPin{},
+		interrupts:    map[string]*digitalInterrupt{},
 	}
 
 	if err := b.Reconfigure(ctx, nil, conf); err != nil {
@@ -88,13 +88,7 @@ func (b *Board) Reconfigure(
 	if err := b.reconfigureGpios(newConf); err != nil {
 		return err
 	}
-	if err := b.reconfigureSpis(newConf); err != nil {
-		return err
-	}
-	if err := b.reconfigureI2cs(newConf); err != nil {
-		return err
-	}
-	if err := b.reconfigureAnalogs(ctx, newConf); err != nil {
+	if err := b.reconfigureAnalogReaders(ctx, newConf); err != nil {
 		return err
 	}
 	if err := b.reconfigureInterrupts(newConf); err != nil {
@@ -202,97 +196,40 @@ func (b *Board) reconfigureGpios(newConf *LinuxBoardConfig) error {
 	return nil
 }
 
-// This never returns errors, but we give it the same function signature as the other
-// reconfiguration helpers for consistency.
-func (b *Board) reconfigureSpis(newConf *LinuxBoardConfig) error {
+func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoardConfig) error {
 	stillExists := map[string]struct{}{}
-	for _, c := range newConf.SPIs {
-		stillExists[c.Name] = struct{}{}
-		if curr, ok := b.spis[c.Name]; ok {
-			if busPtr := curr.bus.Load(); busPtr != nil && *busPtr != c.BusSelect {
-				curr.reset(c.BusSelect)
-			}
-			continue
-		}
-		b.spis[c.Name] = &spiBus{}
-		b.spis[c.Name].reset(c.BusSelect)
-	}
-
-	for name := range b.spis {
-		if _, ok := stillExists[name]; ok {
-			continue
-		}
-		delete(b.spis, name)
-	}
-	return nil
-}
-
-func (b *Board) reconfigureI2cs(newConf *LinuxBoardConfig) error {
-	stillExists := map[string]struct{}{}
-	for _, c := range newConf.I2Cs {
-		stillExists[c.Name] = struct{}{}
-		if curr, ok := b.i2cs[c.Name]; ok {
-			if curr.deviceName == c.Bus {
-				continue
-			}
-			if err := curr.closeableBus.Close(); err != nil {
-				b.logger.Errorw("error closing I2C bus while reconfiguring", "error", err)
-			}
-			if err := curr.reset(curr.deviceName); err != nil {
-				b.logger.Errorw("error resetting I2C bus while reconfiguring", "error", err)
-			}
-			continue
-		}
-		bus, err := NewI2cBus(c.Bus)
-		if err != nil {
-			return err
-		}
-		b.i2cs[c.Name] = bus
-	}
-
-	for name := range b.i2cs {
-		if _, ok := stillExists[name]; ok {
-			continue
-		}
-		if err := b.i2cs[name].closeableBus.Close(); err != nil {
-			b.logger.Errorw("error closing I2C bus while reconfiguring", "error", err)
-		}
-		delete(b.i2cs, name)
-	}
-	return nil
-}
-
-func (b *Board) reconfigureAnalogs(ctx context.Context, newConf *LinuxBoardConfig) error {
-	stillExists := map[string]struct{}{}
-	for _, c := range newConf.Analogs {
+	for _, c := range newConf.AnalogReaders {
 		channel, err := strconv.Atoi(c.Pin)
 		if err != nil {
 			return errors.Errorf("bad analog pin (%s)", c.Pin)
 		}
 
-		bus, ok := b.spis[c.SPIBus]
-		if !ok {
-			return errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", c.SPIBus)
-		}
+		bus := buses.NewSpiBus(c.SPIBus)
 
 		stillExists[c.Name] = struct{}{}
-		if curr, ok := b.analogs[c.Name]; ok {
+		if curr, ok := b.analogReaders[c.Name]; ok {
 			if curr.chipSelect != c.ChipSelect {
-				ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
-				curr.reset(ctx, curr.chipSelect, board.SmoothAnalogReader(ar, c, b.logger))
+				ar := &mcp3008helper.MCP3008AnalogReader{channel, bus, c.ChipSelect}
+				curr.reset(ctx, curr.chipSelect,
+					board.SmoothAnalogReader(ar, board.AnalogReaderConfig{
+						AverageOverMillis: c.AverageOverMillis, SamplesPerSecond: c.SamplesPerSecond,
+					}, b.logger))
 			}
 			continue
 		}
-		ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
-		b.analogs[c.Name] = newWrappedAnalog(ctx, c.ChipSelect, board.SmoothAnalogReader(ar, c, b.logger))
+		ar := &mcp3008helper.MCP3008AnalogReader{channel, bus, c.ChipSelect}
+		b.analogReaders[c.Name] = newWrappedAnalogReader(ctx, c.ChipSelect,
+			board.SmoothAnalogReader(ar, board.AnalogReaderConfig{
+				AverageOverMillis: c.AverageOverMillis, SamplesPerSecond: c.SamplesPerSecond,
+			}, b.logger))
 	}
 
-	for name := range b.analogs {
+	for name := range b.analogReaders {
 		if _, ok := stillExists[name]; ok {
 			continue
 		}
-		b.analogs[name].reset(ctx, "", nil)
-		delete(b.analogs, name)
+		b.analogReaders[name].reset(ctx, "", nil)
+		delete(b.analogReaders, name)
 	}
 	return nil
 }
@@ -300,7 +237,7 @@ func (b *Board) reconfigureAnalogs(ctx context.Context, newConf *LinuxBoardConfi
 // This helper function is used while reconfiguring digital interrupts. It finds the new config (if
 // any) for a pre-existing digital interrupt.
 func findNewDigIntConfig(
-	interrupt *digitalInterrupt, confs []board.DigitalInterruptConfig, logger golog.Logger,
+	interrupt *digitalInterrupt, confs []board.DigitalInterruptConfig, logger logging.Logger,
 ) *board.DigitalInterruptConfig {
 	for _, newConfig := range confs {
 		if newConfig.Pin == interrupt.config.Pin {
@@ -402,19 +339,19 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 	return nil
 }
 
-type wrappedAnalog struct {
+type wrappedAnalogReader struct {
 	mu         sync.RWMutex
 	chipSelect string
 	reader     *board.AnalogSmoother
 }
 
-func newWrappedAnalog(ctx context.Context, chipSelect string, reader *board.AnalogSmoother) *wrappedAnalog {
-	var wrapped wrappedAnalog
+func newWrappedAnalogReader(ctx context.Context, chipSelect string, reader *board.AnalogSmoother) *wrappedAnalogReader {
+	var wrapped wrappedAnalogReader
 	wrapped.reset(ctx, chipSelect, reader)
 	return &wrapped
 }
 
-func (a *wrappedAnalog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (a *wrappedAnalogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	if a.reader == nil {
@@ -423,11 +360,11 @@ func (a *wrappedAnalog) Read(ctx context.Context, extra map[string]interface{}) 
 	return a.reader.Read(ctx, extra)
 }
 
-func (a *wrappedAnalog) Close(ctx context.Context) error {
+func (a *wrappedAnalogReader) Close(ctx context.Context) error {
 	return nil
 }
 
-func (a *wrappedAnalog) reset(ctx context.Context, chipSelect string, reader *board.AnalogSmoother) {
+func (a *wrappedAnalogReader) reset(ctx context.Context, chipSelect string, reader *board.AnalogSmoother) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.reader != nil {
@@ -443,11 +380,9 @@ type Board struct {
 	mu            sync.RWMutex
 	convertConfig ConfigConverter
 
-	gpioMappings map[string]GPIOBoardMapping
-	spis         map[string]*spiBus
-	analogs      map[string]*wrappedAnalog
-	i2cs         map[string]*I2cBus
-	logger       golog.Logger
+	gpioMappings  map[string]GPIOBoardMapping
+	analogReaders map[string]*wrappedAnalogReader
+	logger        logging.Logger
 
 	gpios      map[string]*gpioPin
 	interrupts map[string]*digitalInterrupt
@@ -457,21 +392,9 @@ type Board struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// SPIByName returns the SPI by the given name if it exists.
-func (b *Board) SPIByName(name string) (board.SPI, bool) {
-	s, ok := b.spis[name]
-	return s, ok
-}
-
-// I2CByName returns the i2c by the given name if it exists.
-func (b *Board) I2CByName(name string) (board.I2C, bool) {
-	i, ok := b.i2cs[name]
-	return i, ok
-}
-
 // AnalogReaderByName returns the analog reader by the given name if it exists.
 func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
-	a, ok := b.analogs[name]
+	a, ok := b.analogReaders[name]
 	return a, ok
 }
 
@@ -514,34 +437,10 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, boo
 	return interrupt.interrupt, true
 }
 
-// SPINames returns the names of all known SPIs.
-func (b *Board) SPINames() []string {
-	if len(b.spis) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(b.spis))
-	for k := range b.spis {
-		names = append(names, k)
-	}
-	return names
-}
-
-// I2CNames returns the names of all known I2Cs.
-func (b *Board) I2CNames() []string {
-	if len(b.i2cs) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(b.i2cs))
-	for k := range b.i2cs {
-		names = append(names, k)
-	}
-	return names
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (b *Board) AnalogReaderNames() []string {
 	names := []string{}
-	for k := range b.analogs {
+	for k := range b.analogReaders {
 		names = append(names, k)
 	}
 	return names
@@ -556,18 +455,6 @@ func (b *Board) DigitalInterruptNames() []string {
 	names := []string{}
 	for name := range b.interrupts {
 		names = append(names, name)
-	}
-	return names
-}
-
-// GPIOPinNames returns the names of all known GPIO pins.
-func (b *Board) GPIOPinNames() []string {
-	if b.gpioMappings == nil {
-		return nil
-	}
-	names := []string{}
-	for k := range b.gpioMappings {
-		names = append(names, k)
 	}
 	return names
 }
@@ -591,11 +478,6 @@ func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*comm
 	return board.CreateStatus(ctx, b, extra)
 }
 
-// ModelAttributes returns attributes related to the model of this board.
-func (b *Board) ModelAttributes() board.ModelAttributes {
-	return board.ModelAttributes{}
-}
-
 // SetPowerMode sets the board to the given power mode. If provided,
 // the board will exit the given power mode after the specified
 // duration.
@@ -605,6 +487,11 @@ func (b *Board) SetPowerMode(
 	duration *time.Duration,
 ) error {
 	return grpc.UnimplementedError
+}
+
+// WriteAnalog writes the value to the given pin.
+func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+	return nil
 }
 
 // Close attempts to cleanly close each part of the board.

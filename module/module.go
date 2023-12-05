@@ -2,20 +2,20 @@ package module
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base32"
 	"fmt"
 	"net"
 	"os"
-	"runtime"
+	"path/filepath"
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"go.uber.org/zap"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
@@ -24,6 +24,7 @@ import (
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -31,17 +32,50 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-// CheckSocketAddressLength returns an error if the socket path is too long for the OS.
-func CheckSocketAddressLength(addr string) error {
+const (
+	socketSuffix = ".sock"
+	// socketHashSuffixLength determines how many characters from the module's name's hash should be used when truncating the module socket.
+	socketHashSuffixLength int = 5
 	// maxSocketAddressLength is the length (-1 for null terminator) of the .sun_path field as used in kernel bind()/connect() syscalls.
-	maxSocketAddressLength := 103
-	if runtime.GOOS == "linux" {
-		maxSocketAddressLength = 107
+	// Linux allows for a max length of 107 but to simplify this code, we truncate to the macOS limit of 103.
+	socketMaxAddressLength int = 103
+)
+
+// CreateSocketAddress returns a socket address of the form parentDir/desiredName.sock
+// if it is shorter than the socketMaxAddressLength. If this path would be too long, this function
+// truncates desiredName and returns parentDir/truncatedName-hashOfDesiredName.sock.
+//
+// Importantly, this function will return the same socket address as long as the desiredName doesn't change.
+func CreateSocketAddress(parentDir, desiredName string) (string, error) {
+	baseAddr := filepath.ToSlash(parentDir)
+	numRemainingChars := socketMaxAddressLength -
+		len(baseAddr) -
+		len(socketSuffix) -
+		1 // `/` between baseAddr and name
+	if numRemainingChars < len(desiredName) && numRemainingChars < socketHashSuffixLength+1 {
+		return "", errors.Errorf("module socket base path would result in a path greater than the OS limit of %d characters: %s",
+			socketMaxAddressLength, baseAddr)
 	}
-	if len(addr) > maxSocketAddressLength {
-		return errors.Errorf("module socket path exceeds OS limit of %d characters: %s", maxSocketAddressLength, addr)
+	// If possible, early-exit with a non-truncated socket path
+	if numRemainingChars >= len(desiredName) {
+		return filepath.Join(baseAddr, desiredName+socketSuffix), nil
 	}
-	return nil
+	// Hash the desiredName so that every invocation returns the same truncated address
+	desiredNameHashCreator := sha256.New()
+	_, err := desiredNameHashCreator.Write([]byte(desiredName))
+	if err != nil {
+		return "", errors.Errorf("failed to calculate a hash for %q while creating a truncated socket address", desiredName)
+	}
+	desiredNameHash := base32.StdEncoding.EncodeToString(desiredNameHashCreator.Sum(nil))
+	if len(desiredNameHash) < socketHashSuffixLength {
+		// sha256.Sum() should return 32 bytes so this shouldn't occur, but good to check instead of panicing
+		return "", errors.Errorf("the encoded hash %q for %q is shorter than the minimum socket suffix length %v",
+			desiredNameHash, desiredName, socketHashSuffixLength)
+	}
+	// Assemble the truncated socket address
+	socketHashSuffix := desiredNameHash[:socketHashSuffixLength]
+	truncatedName := desiredName[:(numRemainingChars - socketHashSuffixLength - 1)]
+	return filepath.Join(baseAddr, fmt.Sprintf("%s-%s%s", truncatedName, socketHashSuffix, socketSuffix)), nil
 }
 
 // HandlerMap is the format for api->model pairs that the module will service.
@@ -111,7 +145,7 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn *grpc
 type Module struct {
 	parent                  *client.RobotClient
 	server                  rpc.Server
-	logger                  *zap.SugaredLogger
+	logger                  logging.Logger
 	mu                      sync.Mutex
 	operations              *operation.Manager
 	ready                   bool
@@ -125,7 +159,7 @@ type Module struct {
 }
 
 // NewModule returns the basic module framework/structure.
-func NewModule(ctx context.Context, address string, logger *zap.SugaredLogger) (*Module, error) {
+func NewModule(ctx context.Context, address string, logger logging.Logger) (*Module, error) {
 	// TODO(PRODUCT-343): session support likely means interceptors here
 	opMgr := operation.NewManager(logger)
 	unaries := []grpc.UnaryServerInterceptor{
@@ -150,22 +184,22 @@ func NewModule(ctx context.Context, address string, logger *zap.SugaredLogger) (
 }
 
 // NewModuleFromArgs directly parses the command line argument to get its address.
-func NewModuleFromArgs(ctx context.Context, logger *zap.SugaredLogger) (*Module, error) {
+func NewModuleFromArgs(ctx context.Context, logger logging.Logger) (*Module, error) {
 	if len(os.Args) < 2 {
 		return nil, errors.New("need socket path as command line argument")
 	}
 	return NewModule(ctx, os.Args[1], logger)
 }
 
-// NewLoggerFromArgs can be used to create a golog.Logger at "DebugLevel" if
+// NewLoggerFromArgs can be used to create a logging.Logger at "DebugLevel" if
 // "--log-level=debug" is the third argument in os.Args and at "InfoLevel"
 // otherwise. See config.Module.LogLevel documentation for more info on how
 // to start modules with a "log-level" commandline argument.
-func NewLoggerFromArgs(moduleName string) golog.Logger {
+func NewLoggerFromArgs(moduleName string) logging.Logger {
 	if len(os.Args) >= 3 && os.Args[2] == "--log-level=debug" {
-		return golog.NewDebugLogger(moduleName)
+		return logging.NewDebugLogger(moduleName)
 	}
-	return golog.NewDevelopmentLogger(moduleName)
+	return logging.NewLogger(moduleName)
 }
 
 // Start starts the module service and grpc server.
@@ -408,7 +442,7 @@ func (m *Module) ValidateConfig(ctx context.Context,
 // RemoveResource receives the request for resource removal.
 func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceRequest) (*pb.RemoveResourceResponse, error) {
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcher(
-		30*time.Second, fmt.Sprintf("module resource %q is taking a while to remove", req.Name), m.logger)
+		30*time.Second, fmt.Sprintf("module resource %q is taking a while to remove", req.Name), m.logger.AsZap())
 	defer func() {
 		slowWatcherCancel()
 		<-slowWatcher

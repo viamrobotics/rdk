@@ -1,3 +1,5 @@
+//go:build !no_cgo
+
 // Package videosource defines various image sources typically registered as cameras in the API.
 package videosource
 
@@ -9,7 +11,6 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/edaniels/golog"
 	// register ppm.
 	_ "github.com/lmittmann/ppm"
 	"github.com/pkg/errors"
@@ -17,6 +18,7 @@ import (
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -33,7 +35,7 @@ func init() {
 	resource.RegisterComponent(camera.API, modelSingle,
 		resource.Registration[camera.Camera, *ServerConfig]{
 			Constructor: func(ctx context.Context, _ resource.Dependencies,
-				conf resource.Config, logger golog.Logger,
+				conf resource.Config, logger logging.Logger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*ServerConfig](conf)
 				if err != nil {
@@ -43,13 +45,13 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				return camera.FromVideoSource(conf.ResourceName(), src), nil
+				return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
 			},
 		})
 	resource.RegisterComponent(camera.API, modelDual,
 		resource.Registration[camera.Camera, *dualServerConfig]{
 			Constructor: func(ctx context.Context, _ resource.Dependencies,
-				conf resource.Config, logger golog.Logger,
+				conf resource.Config, logger logging.Logger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*dualServerConfig](conf)
 				if err != nil {
@@ -59,7 +61,7 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				return camera.FromVideoSource(conf.ResourceName(), src), nil
+				return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
 			},
 		})
 }
@@ -73,7 +75,7 @@ type dualServerSource struct {
 	Intrinsics              *transform.PinholeCameraIntrinsics
 	Stream                  camera.ImageType // returns color or depth frame with calls of Next
 	activeBackgroundWorkers sync.WaitGroup
-	logger                  golog.Logger
+	logger                  logging.Logger
 }
 
 // dualServerConfig is the attribute struct for dualServerSource.
@@ -91,7 +93,7 @@ type dualServerConfig struct {
 func newDualServerSource(
 	ctx context.Context,
 	cfg *dualServerConfig,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (camera.VideoSource, error) {
 	if (cfg.Color == "") || (cfg.Depth == "") {
 		return nil, errors.New("camera 'dual_stream' needs color and depth attributes")
@@ -176,7 +178,7 @@ type serverSource struct {
 	URL        string
 	stream     camera.ImageType // specifies color, depth
 	Intrinsics *transform.PinholeCameraIntrinsics
-	logger     golog.Logger
+	logger     logging.Logger
 }
 
 // ServerConfig is the attribute struct for serverSource.
@@ -230,7 +232,7 @@ func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 }
 
 // NewServerSource creates the VideoSource that streams color/depth data from an external server at a given URL.
-func NewServerSource(ctx context.Context, cfg *ServerConfig, logger golog.Logger) (camera.VideoSource, error) {
+func NewServerSource(ctx context.Context, cfg *ServerConfig, logger logging.Logger) (camera.VideoSource, error) {
 	if cfg.Stream == "" {
 		return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth)")
 	}

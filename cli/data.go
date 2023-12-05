@@ -21,18 +21,21 @@ import (
 	datapb "go.viam.com/api/app/data/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 const (
-	dataDir                  = "data"
-	metadataDir              = "metadata"
-	defaultParallelDownloads = 100
-	maxRetryCount            = 5
-	logEveryN                = 100
-	maxLimit                 = 100
+	dataDir       = "data"
+	metadataDir   = "metadata"
+	maxRetryCount = 5
+	logEveryN     = 100
+	maxLimit      = 100
 
 	dataTypeBinary  = "binary"
 	dataTypeTabular = "tabular"
+
+	gzFileExt = ".gz"
 )
 
 // DataExportAction is the corresponding action for 'data export'.
@@ -66,31 +69,33 @@ func (c *viamClient) dataExportAction(cCtx *cli.Context) error {
 	return nil
 }
 
-// DataDeleteAction is the corresponding action for 'data delete'.
-func DataDeleteAction(c *cli.Context) error {
-	filter, err := createDataFilter(c)
-	if err != nil {
-		return err
-	}
-
+// DataDeleteBinaryAction is the corresponding action for 'data delete'.
+func DataDeleteBinaryAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	switch c.String(dataFlagDataType) {
-	case dataTypeBinary:
-		if err := client.deleteBinaryData(filter); err != nil {
-			return err
-		}
-	case dataTypeTabular:
-		if err := client.deleteTabularData(filter); err != nil {
-			return err
-		}
-	default:
-		return errors.Errorf("%s must be binary or tabular, got %q", dataFlagDataType, c.String(dataFlagDataType))
+	filter, err := createDataFilter(c)
+	if err != nil {
+		return err
+	}
+	if err := client.deleteBinaryData(filter); err != nil {
+		return err
+	}
+	return nil
+}
+
+// DataDeleteTabularAction is the corresponding action for 'data delete-tabular'.
+func DataDeleteTabularAction(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
 	}
 
+	if err := client.deleteTabularData(c.String(dataFlagOrgID), c.Int(dataFlagDeleteTabularDataOlderThanDays)); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -179,18 +184,28 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 		return err
 	}
 
-	if err := makeDestinationDirs(dst); err != nil {
-		return errors.Wrapf(err, "could not create destination directories")
-	}
+	return c.performActionOnBinaryDataFromFilter(
+		func(id *datapb.BinaryID) error {
+			return downloadBinary(c.c.Context, c.dataClient, dst, id)
+		},
+		filter, parallelDownloads,
+		func(i int32) {
+			printf(c.c.App.Writer, "Downloaded %d files", i)
+		},
+	)
+}
 
-	if parallelDownloads == 0 {
-		parallelDownloads = defaultParallelDownloads
-	}
-
-	ids := make(chan *datapb.BinaryID, parallelDownloads)
-	// Give channel buffer of 1+parallelDownloads because that is the number of goroutines that may be passing an
-	// error into this channel (1 get ids routine + parallelDownloads download routines).
-	errs := make(chan error, 1+parallelDownloads)
+// performActionOnBinaryDataFromFilter is a helper action that retrieves all BinaryIDs associated with
+// a filter in batches and then performs actionOnBinaryData on each binary data in parallel.
+// Each time `logEveryN` actions have been performed, the printStatement logs a statement that takes in as
+// input how much binary data has been processed thus far.
+func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func(*datapb.BinaryID) error,
+	filter *datapb.Filter, parallelActions uint, printStatement func(int32),
+) error {
+	ids := make(chan *datapb.BinaryID, parallelActions)
+	// Give channel buffer of 1+parallelActions because that is the number of goroutines that may be passing an
+	// error into this channel (1 get ids routine + parallelActions download routines).
+	errs := make(chan error, 1+parallelActions)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var wg sync.WaitGroup
@@ -201,10 +216,10 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 		defer wg.Done()
 		// If limit is too high the request can time out, so limit each call to a maximum value of 100.
 		var limit uint
-		if parallelDownloads > maxLimit {
+		if parallelActions > maxLimit {
 			limit = maxLimit
 		} else {
-			limit = parallelDownloads
+			limit = parallelActions
 		}
 		if err := getMatchingBinaryIDs(ctx, c.dataClient, filter, ids, limit); err != nil {
 			errs <- err
@@ -212,16 +227,16 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 		}
 	}()
 
-	// In parallel, read from ids and download the binary for each id in batches of defaultParallelDownloads.
+	// In parallel, read from ids and perform the action on the binary data for each id in batches of parallelActions.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		var nextID *datapb.BinaryID
 		var done bool
-		var numFilesDownloaded atomic.Int32
+		var numFilesProcessed atomic.Int32
 		var downloadWG sync.WaitGroup
 		for {
-			for i := uint(0); i < parallelDownloads; i++ {
+			for i := uint(0); i < parallelActions; i++ {
 				if err := ctx.Err(); err != nil {
 					errs <- err
 					cancel()
@@ -240,15 +255,16 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 				downloadWG.Add(1)
 				go func(id *datapb.BinaryID) {
 					defer downloadWG.Done()
-					err := downloadBinary(ctx, c.dataClient, dst, id)
+					// Perform the desired action on the binary data
+					err := actionOnBinaryData(id)
 					if err != nil {
 						errs <- err
 						cancel()
 						done = true
 					}
-					numFilesDownloaded.Add(1)
-					if numFilesDownloaded.Load()%logEveryN == 0 {
-						fmt.Fprintf(c.c.App.Writer, "downloaded %d files\n", numFilesDownloaded.Load())
+					numFilesProcessed.Add(1)
+					if numFilesProcessed.Load()%logEveryN == 0 {
+						printStatement(numFilesProcessed.Load())
 					}
 				}(nextID)
 			}
@@ -257,8 +273,8 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 				break
 			}
 		}
-		if numFilesDownloaded.Load()%logEveryN != 0 {
-			fmt.Fprintf(c.c.App.Writer, "downloaded %d files to %s\n", numFilesDownloaded.Load(), dst)
+		if numFilesProcessed.Load()%logEveryN != 0 {
+			printStatement(numFilesProcessed.Load())
 		}
 	}()
 	wg.Wait()
@@ -333,22 +349,22 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	}
 
 	datum := data[0]
-	mdJSONBytes, err := protojson.Marshal(datum.GetMetadata())
+
+	fileName := filenameForDownload(datum.GetMetadata())
+	// Modify the file name in the metadata to reflect what it will be saved as.
+	metadata := datum.GetMetadata()
+	metadata.FileName = fileName
+
+	jsonPath := filepath.Join(dst, metadataDir, fileName+".json")
+	if err := os.MkdirAll(filepath.Dir(jsonPath), 0o700); err != nil {
+		return errors.Wrapf(err, "could not create metadata directory %s", filepath.Dir(jsonPath))
+	}
+	//nolint:gosec
+	jsonFile, err := os.Create(jsonPath)
 	if err != nil {
 		return err
 	}
-
-	timeRequested := datum.GetMetadata().GetTimeRequested().AsTime().Format(time.RFC3339Nano)
-	var fileName string
-	if datum.GetMetadata().GetFileName() != "" {
-		// Can use file ext directly from metadata.
-		fileName = timeRequested + "_" + strings.TrimSuffix(datum.GetMetadata().GetFileName(), datum.GetMetadata().GetFileExt())
-	} else {
-		fileName = timeRequested + "_" + datum.GetMetadata().GetId()
-	}
-
-	//nolint:gosec
-	jsonFile, err := os.Create(filepath.Join(dst, metadataDir, fileName+".json"))
+	mdJSONBytes, err := protojson.Marshal(metadata)
 	if err != nil {
 		return err
 	}
@@ -359,15 +375,27 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	bin := datum.GetBinary()
 
 	r := io.NopCloser(bytes.NewReader(bin))
-	if datum.GetMetadata().GetFileExt() == ".gz" {
+
+	dataPath := filepath.Join(dst, dataDir, fileName)
+	ext := datum.GetMetadata().GetFileExt()
+
+	// If the file is gzipped, unzip.
+	if ext == gzFileExt {
 		r, err = gzip.NewReader(r)
 		if err != nil {
 			return err
 		}
+	} else if filepath.Ext(dataPath) != ext {
+		// If the file name did not already include the extension (e.g. for data capture files), add it.
+		// Don't do this for files that we're unzipping.
+		dataPath += ext
 	}
 
+	if err := os.MkdirAll(filepath.Dir(dataPath), 0o700); err != nil {
+		return errors.Wrapf(err, "could not create data directory %s", filepath.Dir(dataPath))
+	}
 	//nolint:gosec
-	dataFile, err := os.Create(filepath.Join(dst, dataDir, fileName+datum.GetMetadata().GetFileExt()))
+	dataFile, err := os.Create(dataPath)
 	if err != nil {
 		return errors.Wrapf(err, fmt.Sprintf("could not create file for datum %s", datum.GetMetadata().GetId()))
 	}
@@ -379,6 +407,32 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 		return err
 	}
 	return nil
+}
+
+// transform datum's filename to a destination path on this computer.
+func filenameForDownload(meta *datapb.BinaryMetadata) string {
+	timeRequested := meta.GetTimeRequested().AsTime().Format(time.RFC3339Nano)
+	fileName := meta.GetFileName()
+
+	// If there is no file name, this is a data capture file.
+	if fileName == "" {
+		fileName = timeRequested + "_" + meta.GetId() + meta.GetFileExt()
+	} else if filepath.Dir(fileName) == "." {
+		// If the file name does not contain a directory, prepend if with a requested time so that it is sorted.
+		// Otherwise, keep the file name as-is to maintain the directory structure that the user uploaded the file with.
+		fileName = timeRequested + "_" + fileName
+	}
+
+	// The file name will end with .gz if the user uploaded a gzipped file. We will unzip it below, so remove the last
+	// .gz from the file name. If the user has gzipped the file multiple times, we will only unzip once.
+	if filepath.Ext(fileName) == gzFileExt {
+		fileName = strings.TrimSuffix(fileName, gzFileExt)
+	}
+
+	// Replace reserved characters.
+	fileName = datacapture.FilePathWithReplacedReservedChars(fileName)
+
+	return fileName
 }
 
 // tabularData downloads binary data matching filter to dst.
@@ -401,7 +455,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 	}
 	w := bufio.NewWriter(dataFile)
 
-	fmt.Fprintf(c.c.App.Writer, "downloading..")
+	fmt.Fprintf(c.c.App.Writer, "Downloading..") // no newline
 	var last string
 	mdIndexes := make(map[string]int)
 	mdIndex := 0
@@ -415,7 +469,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 				},
 				CountOnly: false,
 			})
-			fmt.Fprintf(c.c.App.Writer, ".")
+			fmt.Fprintf(c.c.App.Writer, ".") // no newline
 			if err == nil {
 				break
 			}
@@ -480,7 +534,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 		}
 	}
 
-	fmt.Fprintf(c.c.App.Writer, "\n")
+	printf(c.c.App.Writer, "") // newline
 	if err := w.Flush(); err != nil {
 		return errors.Wrapf(err, "could not flush writer for %s", dataFile.Name())
 	}
@@ -507,20 +561,180 @@ func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}
-	fmt.Fprintf(c.c.App.Writer, "deleted %d files\n", resp.GetDeletedCount())
+	printf(c.c.App.Writer, "Deleted %d files", resp.GetDeletedCount())
 	return nil
 }
 
 // deleteTabularData delete tabular data matching filter.
-func (c *viamClient) deleteTabularData(filter *datapb.Filter) error {
+func (c *viamClient) deleteTabularData(orgID string, deleteOlderThanDays int) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
-	resp, err := c.dataClient.DeleteTabularDataByFilter(context.Background(),
-		&datapb.DeleteTabularDataByFilterRequest{Filter: filter})
+	resp, err := c.dataClient.DeleteTabularData(context.Background(),
+		&datapb.DeleteTabularDataRequest{OrganizationId: orgID, DeleteOlderThanDays: uint32(deleteOlderThanDays)})
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}
-	fmt.Fprintf(c.c.App.Writer, "deleted %d datapoints\n", resp.GetDeletedCount())
+	printf(c.c.App.Writer, "Deleted %d datapoints", resp.GetDeletedCount())
+	return nil
+}
+
+// DataAddToDatasetByIDs is the corresponding action for 'data dataset add ids'.
+func DataAddToDatasetByIDs(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.dataAddToDatasetByIDs(c.String(datasetFlagDatasetID), c.String(dataFlagOrgID),
+		c.String(dataFlagLocationID), c.StringSlice(dataFlagFileIDs)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// dataAddToDatasetByIDs adds data, with the specified org ID, location ID, and file IDs to the dataset corresponding to the dataset ID.
+func (c *viamClient) dataAddToDatasetByIDs(datasetID, orgID, locationID string, fileIDs []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	binaryData := make([]*datapb.BinaryID, 0, len(fileIDs))
+	for _, fileID := range fileIDs {
+		binaryData = append(binaryData, &datapb.BinaryID{
+			OrganizationId: orgID,
+			LocationId:     locationID,
+			FileId:         fileID,
+		})
+	}
+	_, err := c.dataClient.AddBinaryDataToDatasetByIDs(context.Background(),
+		&datapb.AddBinaryDataToDatasetByIDsRequest{DatasetId: datasetID, BinaryIds: binaryData})
+	if err != nil {
+		return errors.Wrapf(err, "received error from server")
+	}
+	printf(c.c.App.Writer, "Added data to dataset ID %s", datasetID)
+	return nil
+}
+
+// DataAddToDatasetByFilter is the corresponding action for 'data dataset add filter'.
+func DataAddToDatasetByFilter(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	filter, err := createDataFilter(c)
+	if err != nil {
+		return err
+	}
+	if err := client.dataAddToDatasetByFilter(filter, c.String(datasetFlagDatasetID)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// dataAddToDatasetByFilter adds data, with the specified filter to the dataset corresponding to the dataset ID.
+func (c *viamClient) dataAddToDatasetByFilter(filter *datapb.Filter, datasetID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	parallelActions := uint(100)
+
+	return c.performActionOnBinaryDataFromFilter(
+		func(id *datapb.BinaryID) error {
+			_, err := c.dataClient.AddBinaryDataToDatasetByIDs(c.c.Context,
+				&datapb.AddBinaryDataToDatasetByIDsRequest{DatasetId: datasetID, BinaryIds: []*datapb.BinaryID{id}})
+			return err
+		},
+		filter, parallelActions,
+		func(i int32) {
+			printf(c.c.App.Writer, "Added %d files to dataset ID %s", i, datasetID)
+		})
+}
+
+// DataRemoveFromDataset is the corresponding action for 'data dataset remove'.
+func DataRemoveFromDataset(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.dataRemoveFromDataset(c.String(datasetFlagDatasetID), c.String(dataFlagOrgID),
+		c.String(dataFlagLocationID), c.StringSlice(dataFlagFileIDs)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// dataRemoveFromDataset removes data, with the specified org ID, location ID,
+// and file IDs from the dataset corresponding to the dataset ID.
+func (c *viamClient) dataRemoveFromDataset(datasetID, orgID, locationID string, fileIDs []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	binaryData := make([]*datapb.BinaryID, 0, len(fileIDs))
+	for _, fileID := range fileIDs {
+		binaryData = append(binaryData, &datapb.BinaryID{
+			OrganizationId: orgID,
+			LocationId:     locationID,
+			FileId:         fileID,
+		})
+	}
+	_, err := c.dataClient.RemoveBinaryDataFromDatasetByIDs(context.Background(),
+		&datapb.RemoveBinaryDataFromDatasetByIDsRequest{DatasetId: datasetID, BinaryIds: binaryData})
+	if err != nil {
+		return errors.Wrapf(err, "received error from server")
+	}
+	printf(c.c.App.Writer, "Removed data from dataset ID %s", datasetID)
+	return nil
+}
+
+// DataConfigureDatabaseUser is the corresponding action for 'data database configure'.
+func DataConfigureDatabaseUser(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.dataConfigureDatabaseUser(c.String(dataFlagOrgID), c.String(dataFlagDatabasePassword)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// dataConfigureDatabaseUser accepts a Viam organization ID and a password for the database user
+// being configured. Viam uses gRPC over TLS, so the entire request will be encrypted while in
+// flight, including the password.
+func (c *viamClient) dataConfigureDatabaseUser(orgID, password string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	_, err := c.dataClient.ConfigureDatabaseUser(context.Background(),
+		&datapb.ConfigureDatabaseUserRequest{OrganizationId: orgID, Password: password})
+	if err != nil {
+		return errors.Wrapf(err, "received error from server")
+	}
+	printf(c.c.App.Writer, "Configured database user for org %s", orgID)
+	return nil
+}
+
+// DataGetDatabaseConnection is the corresponding action for 'data database hostname'.
+func DataGetDatabaseConnection(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.dataGetDatabaseConnection(c.String(dataFlagOrgID)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// dataGetDatabaseConnection gets the hostname of the MongoDB Atlas Data Federation instance
+// for the given organization ID.
+func (c *viamClient) dataGetDatabaseConnection(orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	res, err := c.dataClient.GetDatabaseConnection(context.Background(), &datapb.GetDatabaseConnectionRequest{OrganizationId: orgID})
+	if err != nil {
+		return errors.Wrapf(err, "received error from server")
+	}
+	printf(c.c.App.Writer, "MongoDB Atlas Data Federation instance hostname: %s", res.GetHostname())
 	return nil
 }

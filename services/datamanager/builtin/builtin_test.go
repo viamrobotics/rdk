@@ -10,16 +10,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	"github.com/viamrobotics/gostream"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/internal/cloud"
 	cloudinject "go.viam.com/rdk/internal/testutils/inject"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
@@ -74,7 +74,7 @@ func newTestDataManager(t *testing.T) (internal.DMService, robot.Robot) {
 		API:                 datamanager.API,
 		ConvertedAttributes: dmCfg,
 	}
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// Create local robot with injected arm and remote.
 	r := getInjectedRobot()
@@ -94,7 +94,7 @@ func newTestDataManager(t *testing.T) (internal.DMService, robot.Robot) {
 
 func setupConfig(t *testing.T, relativePath string) (*Config, []string) {
 	t.Helper()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	testCfg, err := config.Read(context.Background(), utils.ResolveFile(relativePath), logger)
 	test.That(t, err, test.ShouldBeNil)
 	return getServiceConfig(t, testCfg)

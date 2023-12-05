@@ -11,6 +11,7 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 
 	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/referenceframe/urdf"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -27,7 +28,7 @@ func BenchmarkFK(b *testing.B) {
 // This should test forward kinematics functions.
 func TestForwardKinematics(t *testing.T) {
 	// Test the 5DOF yahboom arm to confirm kinematics works with non-6dof arms
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/yahboom/dofbot.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/dofbot.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 248.55, 0, 115
@@ -302,7 +303,7 @@ func TestKinematicsJSONvsURDF(t *testing.T) {
 
 	mJSON, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mURDF, err := frame.ParseURDFFile(utils.ResolveFile("referenceframe/testurdf/ur5_viam.urdf"), "")
+	mURDF, err := urdf.ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5_viam.urdf"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	seed := rand.New(rand.NewSource(50))

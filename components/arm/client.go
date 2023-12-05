@@ -1,3 +1,5 @@
+//go:build !no_cgo
+
 // Package arm contains a gRPC based arm client.
 package arm
 
@@ -6,14 +8,15 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/edaniels/golog"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -28,7 +31,7 @@ type client struct {
 	name   string
 	client pb.ArmServiceClient
 	model  referenceframe.Model
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -37,7 +40,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (Arm, error) {
 	pbClient := pb.NewArmServiceClient(conn)
 	c := &client{
@@ -192,7 +195,7 @@ func (c *client) updateKinematics(ctx context.Context, extra map[string]interfac
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA:
 		return referenceframe.UnmarshalModelJSON(data, c.name)
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF:
-		modelconf, err := referenceframe.ConvertURDFToConfig(data, c.name)
+		modelconf, err := urdf.UnmarshalModelXML(data, c.name)
 		if err != nil {
 			return nil, err
 		}

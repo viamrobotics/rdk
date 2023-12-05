@@ -19,6 +19,7 @@ jobs:
     uses: viamrobotics/rdk/.github/workflows/test.yml@main
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
+      DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
 
   appimage:
     needs: test
@@ -31,6 +32,14 @@ jobs:
   staticbuild:
     needs: test
     uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
+    with:
+      release_type: 'latest'
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  droid:
+    needs: test
+    uses: viamrobotics/rdk/.github/workflows/droid.yml@main
     with:
       release_type: 'latest'
     secrets:

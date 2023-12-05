@@ -3,7 +3,6 @@ package navigation
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -12,6 +11,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -24,7 +24,7 @@ type client struct {
 	resource.TriviallyCloseable
 	name   string
 	client pb.NavigationServiceClient
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -33,7 +33,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (Service, error) {
 	grpcClient := pb.NewNavigationServiceClient(conn)
 	c := &client{
@@ -60,6 +60,8 @@ func (c *client) Mode(ctx context.Context, extra map[string]interface{}) (Mode, 
 		return ModeManual, nil
 	case pb.Mode_MODE_WAYPOINT:
 		return ModeWaypoint, nil
+	case pb.Mode_MODE_EXPLORE:
+		return ModeExplore, nil
 	case pb.Mode_MODE_UNSPECIFIED:
 		fallthrough
 	default:
@@ -78,6 +80,8 @@ func (c *client) SetMode(ctx context.Context, mode Mode, extra map[string]interf
 		pbMode = pb.Mode_MODE_MANUAL
 	case ModeWaypoint:
 		pbMode = pb.Mode_MODE_WAYPOINT
+	case ModeExplore:
+		pbMode = pb.Mode_MODE_EXPLORE
 	default:
 		pbMode = pb.Mode_MODE_UNSPECIFIED
 	}
@@ -164,8 +168,12 @@ func (c *client) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extr
 	return nil
 }
 
-func (c *client) GetObstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
-	req := &pb.GetObstaclesRequest{}
+func (c *client) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	req := &pb.GetObstaclesRequest{Name: c.name, Extra: ext}
 	resp, err := c.client.GetObstacles(ctx, req)
 	if err != nil {
 		return nil, err
@@ -180,6 +188,19 @@ func (c *client) GetObstacles(ctx context.Context, extra map[string]interface{})
 		geos = append(geos, obstacle)
 	}
 	return geos, nil
+}
+
+func (c *client) Paths(ctx context.Context, extra map[string]interface{}) ([]*Path, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	req := &pb.GetPathsRequest{Name: c.name, Extra: ext}
+	resp, err := c.client.GetPaths(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return ProtoSliceToPaths(resp.GetPaths())
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

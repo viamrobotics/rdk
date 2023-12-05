@@ -9,13 +9,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.einride.tech/vlp16"
 	gutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -25,44 +25,81 @@ import (
 type channelConfig struct {
 	elevationAngle float64
 	azimuthOffset  float64
+	verticalOffset float64
 }
 
 type productConfig []channelConfig
 
 var allProductData = map[vlp16.ProductID]productConfig{
 	vlp16.ProductIDVLP32C: {
-		channelConfig{-25, 1.4},
-		channelConfig{-1, -4.2},
-		channelConfig{-1.667, 1.4},
-		channelConfig{-15.639, -1.4},
-		channelConfig{-11.31, 1.4},
-		channelConfig{0, -1.4},
-		channelConfig{-0.667, 4.2},
-		channelConfig{-8.843, -1.4},
-		channelConfig{-7.254, 1.4},
-		channelConfig{0.333, -4.2},
-		channelConfig{-0.333, 1.4},
-		channelConfig{-6.148, -1.4},
-		channelConfig{-5.333, 4.2},
-		channelConfig{1.333, -1.4},
-		channelConfig{0.667, 4.2},
-		channelConfig{-4, -1.4},
-		channelConfig{-4.667, 1.4},
-		channelConfig{1.667, -4.2},
-		channelConfig{1, 1.4},
-		channelConfig{-3.667, -4.2},
-		channelConfig{-3.333, 4.2},
-		channelConfig{3.333, -1.4},
-		channelConfig{2.333, 1.4},
-		channelConfig{-2.667, -1.4},
-		channelConfig{-3, 1.4},
-		channelConfig{7, -1.4},
-		channelConfig{4.667, 1.4},
-		channelConfig{-2.333, -4.2},
-		channelConfig{-2, 4.2},
-		channelConfig{15, -1.4},
-		channelConfig{10.333, 1.4},
-		channelConfig{-1.333, -1.4},
+		channelConfig{-25, 1.4, 0},
+		channelConfig{-1, -4.2, 0},
+		channelConfig{-1.667, 1.4, 0},
+		channelConfig{-15.639, -1.4, 0},
+		channelConfig{-11.31, 1.4, 0},
+		channelConfig{0, -1.4, 0},
+		channelConfig{-0.667, 4.2, 0},
+		channelConfig{-8.843, -1.4, 0},
+		channelConfig{-7.254, 1.4, 0},
+		channelConfig{0.333, -4.2, 0},
+		channelConfig{-0.333, 1.4, 0},
+		channelConfig{-6.148, -1.4, 0},
+		channelConfig{-5.333, 4.2, 0},
+		channelConfig{1.333, -1.4, 0},
+		channelConfig{0.667, 4.2, 0},
+		channelConfig{-4, -1.4, 0},
+		channelConfig{-4.667, 1.4, 0},
+		channelConfig{1.667, -4.2, 0},
+		channelConfig{1, 1.4, 0},
+		channelConfig{-3.667, -4.2, 0},
+		channelConfig{-3.333, 4.2, 0},
+		channelConfig{3.333, -1.4, 0},
+		channelConfig{2.333, 1.4, 0},
+		channelConfig{-2.667, -1.4, 0},
+		channelConfig{-3, 1.4, 0},
+		channelConfig{7, -1.4, 0},
+		channelConfig{4.667, 1.4, 0},
+		channelConfig{-2.333, -4.2, 0},
+		channelConfig{-2, 4.2, 0},
+		channelConfig{15, -1.4, 0},
+		channelConfig{10.333, 1.4, 0},
+		channelConfig{-1.333, -1.4, 0},
+	},
+	vlp16.ProductIDVLP16: { // This also covers VLP Puck LITE
+		channelConfig{-15, 0, 11.2},
+		channelConfig{1, 0, -0.7},
+		channelConfig{-13, 0, 9.7},
+		channelConfig{3, 0, -2.2},
+		channelConfig{11, 0, 8.1},
+		channelConfig{5, 0, -3.7},
+		channelConfig{-9, 0, 6.6},
+		channelConfig{7, 0, -5.1},
+		channelConfig{-7, 0, 5.1},
+		channelConfig{9, 0, -6.6},
+		channelConfig{-5, 0, 3.7},
+		channelConfig{11, 0, -8.1},
+		channelConfig{-3, 0, 2.2},
+		channelConfig{13, 0, -9.7},
+		channelConfig{-1, 0, 0.7},
+		channelConfig{15, 0, -11.2},
+	},
+	vlp16.ProductIDPuckHiRes: {
+		channelConfig{-10, 0, 7.4},
+		channelConfig{.67, 0, -0.9},
+		channelConfig{-8.67, 0, 6.5},
+		channelConfig{2, 0, -1.8},
+		channelConfig{-7.33, 0, 5.5},
+		channelConfig{3.33, 0, -2.7},
+		channelConfig{-6, 0, 4.6},
+		channelConfig{4.67, 0, -3.7},
+		channelConfig{-4.67, 0, 3.7},
+		channelConfig{6, 0, -4.6},
+		channelConfig{-3.3, 0, 2.7},
+		channelConfig{7.33, 0, -5.5},
+		channelConfig{-2, 0, 1.8},
+		channelConfig{8.67, 0, -6.5},
+		channelConfig{-0.67, 0, 0.9},
+		channelConfig{10, 0, -7.4},
 	},
 }
 
@@ -75,11 +112,11 @@ type Config struct {
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
 	if conf.Port == 0 {
-		return nil, gutils.NewConfigValidationFieldRequiredError(path, "port")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "port")
 	}
 
 	if conf.TTLMS == 0 {
-		return nil, gutils.NewConfigValidationFieldRequiredError(path, "ttl_ms")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "ttl_ms")
 	}
 	return nil, nil
 }
@@ -95,7 +132,7 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*Config](conf)
 				if err != nil {
@@ -123,7 +160,7 @@ type client struct {
 	bindAddress     string
 	ttlMilliseconds int
 
-	logger golog.Logger
+	logger logging.Logger
 
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
@@ -137,7 +174,7 @@ type client struct {
 }
 
 // New creates a connection to a Velodyne lidar and generates pointclouds from it.
-func New(ctx context.Context, name resource.Name, logger golog.Logger, port, ttlMilliseconds int) (camera.Camera, error) {
+func New(ctx context.Context, name resource.Name, logger logging.Logger, port, ttlMilliseconds int) (camera.Camera, error) {
 	bindAddress := fmt.Sprintf("0.0.0.0:%d", port)
 	listener, err := vlp16.ListenUDP(ctx, bindAddress)
 	if err != nil {
@@ -163,7 +200,7 @@ func New(ctx context.Context, name resource.Name, logger golog.Logger, port, ttl
 	if err != nil {
 		return nil, err
 	}
-	return camera.FromVideoSource(name, src), nil
+	return camera.FromVideoSource(name, src, logger), nil
 }
 
 func (c *client) setLastError(err error) {
@@ -293,10 +330,11 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 				}
 				pitch := config[channelID].elevationAngle
 				yaw += config[channelID].azimuthOffset
-				err := pc.Set(
-					pointFrom(utils.DegToRad(yaw), utils.DegToRad(pitch), float64(c.Distance)/1000),
-					pointcloud.NewBasicData().SetIntensity(uint16(c.Reflectivity)*255),
-				)
+
+				p := pointFrom(utils.DegToRad(yaw), utils.DegToRad(pitch), float64(c.Distance)/1000)
+				p.Z += config[channelID].verticalOffset
+
+				err := pc.Set(p, pointcloud.NewBasicData().SetIntensity(uint16(c.Reflectivity)*255))
 				if err != nil {
 					return nil, err
 				}

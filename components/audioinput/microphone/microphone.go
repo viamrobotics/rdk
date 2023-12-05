@@ -1,3 +1,5 @@
+//go:build !no_cgo
+
 // Package microphone implements a microphone audio input. Really the microphone
 // is any audio input device that can be found via gostream.
 package microphone
@@ -8,11 +10,11 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/mediadevices"
-	"github.com/viamrobotics/gostream"
 
 	"go.viam.com/rdk/components/audioinput"
+	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -27,7 +29,7 @@ func init() {
 				_ context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (audioinput.AudioInput, error) {
 				newConf, err := resource.NativeConfig[*Config](conf)
 				if err != nil {
@@ -53,7 +55,7 @@ type Config struct {
 }
 
 // newMicrophoneSource returns a new source based on a microphone discovered from the given attributes.
-func newMicrophoneSource(conf *Config, logger golog.Logger) (audioinput.AudioSource, error) {
+func newMicrophoneSource(conf *Config, logger logging.Logger) (audioinput.AudioSource, error) {
 	var err error
 
 	debug := conf.Debug
@@ -109,9 +111,9 @@ func newMicrophoneSource(conf *Config, logger golog.Logger) (audioinput.AudioSou
 func tryMicrophoneOpen(
 	path string,
 	constraints mediadevices.MediaStreamConstraints,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (audioinput.AudioSource, error) {
-	source, err := gostream.GetNamedAudioSource(filepath.Base(path), constraints, logger)
+	source, err := gostream.GetNamedAudioSource(filepath.Base(path), constraints, logger.AsZap())
 	if err != nil {
 		return nil, err
 	}

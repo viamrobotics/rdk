@@ -1,3 +1,5 @@
+//go:build !no_cgo
+
 package motionplan
 
 import (
@@ -62,10 +64,10 @@ func resolveStatesToPositions(state *ik.State) error {
 					return err
 				}
 			} else {
-				return errors.New("invalid constraint input")
+				return errInvalidConstraint
 			}
 		} else {
-			return errors.New("invalid constraint input")
+			return errInvalidConstraint
 		}
 	}
 	return nil
@@ -119,21 +121,14 @@ func (c *ConstraintHandler) CheckSegmentConstraints(segment *ik.Segment) (bool, 
 // If any constraints fail, this will return false, and an Segment representing the valid portion of the segment, if any. If no
 // part of the segment is valid, then `false, nil` is returned.
 func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *ik.Segment, resolution float64) (bool, *ik.Segment) {
-	// ensure we have cartesian positions
-	err := resolveSegmentsToPositions(ci)
+	interpolatedConfigurations, err := interpolateSegment(ci, resolution)
 	if err != nil {
 		return false, nil
 	}
-	steps := PathStepCount(ci.StartPosition, ci.EndPosition, resolution)
-
 	var lastGood []referenceframe.Input
-
-	for i := 0; i <= steps; i++ {
-		interp := float64(i) / float64(steps)
-		interpConfig := referenceframe.InterpolateInputs(ci.StartConfiguration, ci.EndConfiguration, interp)
+	for i, interpConfig := range interpolatedConfigurations {
 		interpC := &ik.State{Frame: ci.Frame, Configuration: interpConfig}
-		err = resolveStatesToPositions(interpC)
-		if err != nil {
+		if resolveStatesToPositions(interpC) != nil {
 			return false, nil
 		}
 		pass, _ := c.CheckStateConstraints(interpC)
@@ -148,6 +143,25 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *ik.Segment, r
 	}
 
 	return true, nil
+}
+
+// interpolateSegment is a helper function which produces a list of intermediate inputs, between the start and end
+// configuration of a segment at a given resolution value.
+func interpolateSegment(ci *ik.Segment, resolution float64) ([][]referenceframe.Input, error) {
+	// ensure we have cartesian positions
+	if err := resolveSegmentsToPositions(ci); err != nil {
+		return nil, err
+	}
+
+	steps := PathStepCount(ci.StartPosition, ci.EndPosition, resolution)
+
+	var interpolatedConfigurations [][]referenceframe.Input
+	for i := 0; i <= steps; i++ {
+		interp := float64(i) / float64(steps)
+		interpConfig := referenceframe.InterpolateInputs(ci.StartConfiguration, ci.EndConfiguration, interp)
+		interpolatedConfigurations = append(interpolatedConfigurations, interpConfig)
+	}
+	return interpolatedConfigurations, nil
 }
 
 // CheckSegmentAndStateValidity will check an segment input and confirm that it 1) meets all segment constraints, and 2) meets all

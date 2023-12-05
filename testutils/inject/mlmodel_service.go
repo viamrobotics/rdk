@@ -12,7 +12,7 @@ import (
 type MLModelService struct {
 	mlmodel.Service
 	name         resource.Name
-	InferFunc    func(ctx context.Context, tensors ml.Tensors, input map[string]interface{}) (ml.Tensors, map[string]interface{}, error)
+	InferFunc    func(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error)
 	MetadataFunc func(ctx context.Context) (mlmodel.MLMetadata, error)
 	CloseFunc    func(ctx context.Context) error
 }
@@ -31,12 +31,11 @@ func (s *MLModelService) Name() resource.Name {
 func (s *MLModelService) Infer(
 	ctx context.Context,
 	tensors ml.Tensors,
-	input map[string]interface{},
-) (ml.Tensors, map[string]interface{}, error) {
+) (ml.Tensors, error) {
 	if s.InferFunc == nil {
-		return s.Service.Infer(ctx, tensors, input)
+		return s.Service.Infer(ctx, tensors)
 	}
-	return s.InferFunc(ctx, tensors, input)
+	return s.InferFunc(ctx, tensors)
 }
 
 // Metadata calls the injected Metadata or the real variant.

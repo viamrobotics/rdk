@@ -5,11 +5,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
@@ -38,7 +38,7 @@ func TestValidate(t *testing.T) {
 	cfg.MinDeg = ptr(-1.5)
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"test\": min_angle_deg cannot be lower than 0")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "min_angle_deg cannot be lower than 0")
 	cfg.MinDeg = ptr(1.5)
 
 	cfg.MaxDeg = ptr(90.0)
@@ -46,13 +46,13 @@ func TestValidate(t *testing.T) {
 	cfg.MinWidthUs = ptr(uint(450))
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"test\": min_width_us cannot be lower than 500")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "min_width_us cannot be lower than 500")
 	cfg.MinWidthUs = ptr(uint(501))
 
 	cfg.MaxWidthUs = ptr(uint(2520))
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"test\": max_width_us cannot be higher than 2500")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "max_width_us cannot be higher than 2500")
 	cfg.MaxWidthUs = ptr(uint(2499))
 
 	cfg.StartPos = ptr(91.0)
@@ -60,14 +60,14 @@ func TestValidate(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(),
 		test.ShouldContainSubstring,
-		"error validating \"test\": starting_position_deg should be between minimum (1.5) and maximum (90.0) positions")
+		"starting_position_deg should be between minimum (1.5) and maximum (90.0) positions")
 
 	cfg.StartPos = ptr(1.0)
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(),
 		test.ShouldContainSubstring,
-		"error validating \"test\": starting_position_deg should be between minimum (1.5) and maximum (90.0) positions")
+		"starting_position_deg should be between minimum (1.5) and maximum (90.0) positions")
 
 	cfg.StartPos = ptr(199.0)
 	cfg.MaxDeg = nil
@@ -76,7 +76,7 @@ func TestValidate(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(),
 		test.ShouldContainSubstring,
-		"error validating \"test\": starting_position_deg should be between minimum (0.0) and maximum (180.0) positions")
+		"starting_position_deg should be between minimum (0.0) and maximum (180.0) positions")
 
 	cfg.StartPos = ptr(0.0)
 	_, err = cfg.Validate("test")
@@ -85,17 +85,13 @@ func TestValidate(t *testing.T) {
 	cfg.Board = ""
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(),
-		test.ShouldContainSubstring,
-		"error validating \"test\": \"board\" is required")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "board")
 	cfg.Board = "b"
 
 	cfg.Pin = ""
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(),
-		test.ShouldContainSubstring,
-		"error validating \"test\": \"pin\" is required")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "pin")
 }
 
 func setupDependencies(t *testing.T) resource.Dependencies {
@@ -103,9 +99,6 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 
 	deps := make(resource.Dependencies)
 	board1 := inject.NewBoard("mock")
-	board1.GPIOPinNamesFunc = func() []string {
-		return []string{"0", "1"}
-	}
 
 	innerTick1, innerTick2 := 0, 0
 	scale1, scale2 := 255, 4095
@@ -157,7 +150,7 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 }
 
 func TestServoMove(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	deps := setupDependencies(t)
 
 	ctx := context.Background()

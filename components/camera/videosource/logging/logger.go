@@ -17,19 +17,28 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 )
 
-var filePath string
+var (
+	// GLoggerCamComp is the global logger-to-file for camera components.
+	GLoggerCamComp *Logger
+	filePath       string
+)
 
 func init() {
 	t := time.Now().UTC().Format(time.RFC3339)
 	filePath = filepath.Join(config.ViamDotDir, "debug", "components", "camera", fmt.Sprintf("%s.txt", t))
+
+	var err error
+	if GLoggerCamComp, err = NewLogger(); err != nil && !errors.Is(err, UnsupportedError{}) {
+		log.Println("cannot create new logger: ", err)
+	}
 }
 
 // InfoMap is a map of information to be written to the log.
@@ -38,7 +47,7 @@ type InfoMap = map[string]string
 // Logger is a thread-safe logger that manages a single log file in config.ViamDotDir.
 type Logger struct {
 	infoCh    chan info
-	logger    golog.Logger
+	logger    logging.Logger
 	isRunning atomic.Bool
 	seenPath  map[string]bool
 	seenMap   map[string]InfoMap
@@ -88,7 +97,7 @@ func NewLogger() (*Logger, error) {
 		}
 	}
 
-	cfg := golog.NewDevelopmentLoggerConfig()
+	cfg := logging.NewZapLoggerConfig()
 	cfg.OutputPaths = []string{filePath}
 
 	// only keep message
@@ -105,7 +114,7 @@ func NewLogger() (*Logger, error) {
 
 	return &Logger{
 		infoCh: make(chan info),
-		logger: logger.Sugar().Named("camera_debugger"),
+		logger: logging.FromZapCompatible(logger.Sugar().Named("camera_debugger")),
 	}, nil
 }
 
@@ -125,10 +134,11 @@ func (l *Logger) Start(ctx context.Context) error {
 	}
 
 	utils.PanicCapturingGo(func() {
-		log.Println("started global logger")
-		defer log.Println("terminated global logger")
+		vsourceMetaLogger := logging.Global().Sublogger("videosource")
+		vsourceMetaLogger.Info("Starting videosource logger")
+		defer vsourceMetaLogger.Info("Terminating videosource logger")
 
-		l.init()
+		l.init(ctx)
 		ticker := time.NewTicker(1 * time.Second)
 		shouldReset := time.NewTimer(12 * time.Hour)
 		for {
@@ -136,7 +146,7 @@ func (l *Logger) Start(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case <-shouldReset.C:
-				l.init()
+				l.init(ctx)
 			default:
 			}
 
@@ -146,7 +156,7 @@ func (l *Logger) Start(ctx context.Context) error {
 			case info := <-l.infoCh:
 				l.write(info.title, info.m)
 			case <-ticker.C:
-				l.captureV4L2info()
+				l.captureV4L2info(ctx)
 			}
 		}
 	})
@@ -172,7 +182,7 @@ func (l *Logger) Log(title string, m InfoMap) error {
 	return nil
 }
 
-func (l *Logger) captureV4L2info() {
+func (l *Logger) captureV4L2info(ctx context.Context) {
 	v4l2Info := make(InfoMap)
 	v4l2Compliance := make(InfoMap)
 	err := filepath.Walk("/dev", func(path string, info fs.FileInfo, err error) error {
@@ -188,8 +198,8 @@ func (l *Logger) captureV4L2info() {
 		}
 
 		// some devices may not have a symbolic link under /dev/v4l so we log info from all /dev/videoN paths we find.
-		v4l2Info[path] = runCommand("v4l2-ctl", "--device", path, "--all")
-		v4l2Compliance[path] = runCommand("v4l2-compliance", "--device", path)
+		v4l2Info[path] = runCommand(ctx, "v4l2-ctl", "--device", path, "--all")
+		v4l2Compliance[path] = runCommand(ctx, "v4l2-compliance", "--device", path)
 		l.seenPath[path] = true
 		return nil
 	})
@@ -241,26 +251,26 @@ func (l *Logger) captureV4L2info() {
 	l.write("v4l2 ID", v4l2ID)
 }
 
-func (l *Logger) init() {
+func (l *Logger) init(ctx context.Context) {
 	err := os.Truncate(filePath, 0)
 	l.logError(err, "cannot truncate file")
 
 	l.seenPath = make(map[string]bool)
 	l.seenMap = make(map[string]InfoMap)
 	l.write("system information", InfoMap{
-		"kernel":    runCommand("uname", "--kernel-name"),
-		"machine":   runCommand("uname", "--machine"),
-		"processor": runCommand("uname", "--processor"),
-		"platform":  runCommand("uname", "--hardware-platform"),
-		"OS":        runCommand("uname", "--operating-system"),
-		"lscpu":     runCommand("lscpu"),
-		"model":     runCommand("cat", "/proc/device-tree/model"),
+		"kernel":    runCommand(ctx, "uname", "--kernel-name"),
+		"machine":   runCommand(ctx, "uname", "--machine"),
+		"processor": runCommand(ctx, "uname", "--processor"),
+		"platform":  runCommand(ctx, "uname", "--hardware-platform"),
+		"OS":        runCommand(ctx, "uname", "--operating-system"),
+		"lscpu":     runCommand(ctx, "lscpu"),
+		"model":     runCommand(ctx, "cat", "/proc/device-tree/model"),
 	})
 }
 
-func runCommand(name string, args ...string) string {
+func runCommand(ctx context.Context, name string, args ...string) string {
 	//nolint:errcheck
-	out, _ := exec.Command(name, args...).CombinedOutput()
+	out, _ := exec.CommandContext(ctx, name, args...).CombinedOutput()
 	return string(out)
 }
 
@@ -302,8 +312,8 @@ func (l *Logger) write(title string, m InfoMap) {
 	}
 
 	t.AppendFooter(table.Row{time.Now().UTC().Format(time.RFC3339)})
-	l.logger.Infoln(t.Render())
-	l.logger.Infoln(fmt.Sprintln())
+	l.logger.Info(t.Render())
+	l.logger.Info()
 }
 
 func (l *Logger) logError(err error, msg string) {

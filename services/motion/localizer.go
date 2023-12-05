@@ -13,6 +13,11 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// SLAMOrientationAdjustment is needed because a SLAM map pose has orientation of OZ=1, Theta=0 when the rover is intended to be pointing
+// at the +X axis of the SLAM map.
+// However, for a rover's relative planning frame, driving forwards increments +Y. Thus we must adjust where the rover thinks it is.
+var SLAMOrientationAdjustment = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90})
+
 // Localizer is an interface which both slam and movementsensor can satisfy when wrapped respectively.
 type Localizer interface {
 	CurrentPosition(context.Context) (*referenceframe.PoseInFrame, error)
@@ -30,10 +35,14 @@ func NewSLAMLocalizer(slam slam.Service) Localizer {
 
 // CurrentPosition returns slam's current position.
 func (s *slamLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
-	pose, _, err := s.GetPosition(ctx)
+	pose, _, err := s.Position(ctx)
 	if err != nil {
 		return nil, err
 	}
+	pose = spatialmath.Compose(pose, SLAMOrientationAdjustment)
+
+	// Slam poses are returned such that theta=0 points along the +X axis
+	// We must rotate 90 degrees to match the base convention of y = forwards
 	return referenceframe.NewPoseInFrame(referenceframe.World, pose), err
 }
 
@@ -64,10 +73,12 @@ func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referen
 	}
 	switch {
 	case properties.CompassHeadingSupported:
-		heading, err := m.CompassHeading(ctx, nil)
+		headingLeft, err := m.CompassHeading(ctx, nil)
 		if err != nil {
 			return nil, err
 		}
+		// CompassHeading is a left-handed value. Convert to be right-handed. Use math.Mod to ensure that 0 reports 0 rather than 360.
+		heading := math.Mod(math.Abs(headingLeft-360), 360)
 		o = &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: heading}
 	case properties.OrientationSupported:
 		o, err = m.Orientation(ctx, nil)
@@ -78,8 +89,6 @@ func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referen
 		return nil, errors.New("could not get orientation from Localizer")
 	}
 
-	pose := spatialmath.NewPose(spatialmath.GeoPointToPose(gp, m.origin).Point(), o)
-	alignEast := spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVector{OZ: 1, Theta: -math.Pi / 2})
-	correction := spatialmath.Compose(m.calibration, alignEast)
-	return referenceframe.NewPoseInFrame(m.Name().Name, spatialmath.Compose(pose, correction)), nil
+	pose := spatialmath.NewPose(spatialmath.GeoPointToPoint(gp, m.origin), o)
+	return referenceframe.NewPoseInFrame(m.Name().Name, spatialmath.Compose(pose, m.calibration)), nil
 }

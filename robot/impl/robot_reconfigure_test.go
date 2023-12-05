@@ -9,12 +9,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/a8m/envsubst"
-	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zaptest/observer"
@@ -39,7 +39,7 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/internal"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	_ "go.viam.com/rdk/services/datamanager/builtin"
@@ -63,7 +63,7 @@ func TestRobotReconfigure(t *testing.T) {
 	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 3)
 	ConfigFromFile := func(t *testing.T, filePath string) *config.Config {
 		t.Helper()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		buf, err := envsubst.ReadFile(filePath)
 		test.That(t, err, test.ShouldBeNil)
 		conf, err := config.FromReader(context.Background(), filePath, bytes.NewReader(buf), logger)
@@ -85,7 +85,7 @@ func TestRobotReconfigure(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (resource.Resource, error) {
 				// test if implicit depencies are properly propagated
 				for _, dep := range conf.ConvertedAttributes.(*mockFakeConfig).InferredDep {
@@ -110,7 +110,7 @@ func TestRobotReconfigure(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (resource.Resource, error) {
 				if reconfigurableTrue && testReconfiguringMismatch {
 					reconfigurableTrue = false
@@ -127,7 +127,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 	t.Run("no diff", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
 
 		ctx := context.Background()
@@ -256,7 +256,7 @@ func TestRobotReconfigure(t *testing.T) {
 		resetComponentFailureState()
 		testReconfiguringMismatch = true
 		// processing modify will fail
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
 		conf3 := ConfigFromFile(t, "data/diff_config_4_bad.json")
 		robot, err := New(context.Background(), conf1, logger)
@@ -400,7 +400,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 	t.Run("additive deps diff", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_deps1.json")
 		conf2 := ConfigFromFile(t, "data/diff_config_deps10.json")
 		robot, err := New(context.Background(), conf1, logger)
@@ -553,7 +553,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 	t.Run("modificative deps diff", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf3 := ConfigFromFile(t, "data/diff_config_deps3.json")
 		conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
 		robot, err := New(context.Background(), conf3, logger)
@@ -716,7 +716,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 	t.Run("deletion deps diff", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
 		conf4 := ConfigFromFile(t, "data/diff_config_deps4.json")
 		robot, err := New(context.Background(), conf2, logger)
@@ -857,7 +857,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 	t.Run("mixed deps diff", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
 		conf6 := ConfigFromFile(t, "data/diff_config_deps6.json")
 		robot, err := New(context.Background(), conf2, logger)
@@ -1042,7 +1042,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 	t.Run("from empty conf with deps", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		cempty := ConfigFromFile(t, "data/diff_config_empty.json")
 		conf6 := ConfigFromFile(t, "data/diff_config_deps6.json")
 		ctx := context.Background()
@@ -1183,7 +1183,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 	t.Run("incremental deps config", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf4 := ConfigFromFile(t, "data/diff_config_deps4.json")
 		conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
 		robot, err := New(context.Background(), conf4, logger)
@@ -1383,7 +1383,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 	t.Run("parent attribute change deps config", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
 		conf8 := ConfigFromFile(t, "data/diff_config_deps8.json")
 		robot, err := New(context.Background(), conf7, logger)
@@ -1649,7 +1649,7 @@ func TestRobotReconfigure(t *testing.T) {
 		resetComponentFailureState()
 		testReconfiguringMismatch = true
 		reconfigurableTrue = true
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
 		conf9 := ConfigFromFile(t, "data/diff_config_deps9_bad.json")
 		robot, err := New(context.Background(), conf7, logger)
@@ -2024,7 +2024,7 @@ func TestRobotReconfigure(t *testing.T) {
 	})
 	t.Run("complex diff", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_deps11.json")
 		conf2 := ConfigFromFile(t, "data/diff_config_deps12.json")
 		robot, err := New(context.Background(), conf1, logger)
@@ -2078,7 +2078,7 @@ func TestRobotReconfigure(t *testing.T) {
 	})
 	t.Run("test processes", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		tempDir := t.TempDir()
 		robot, err := New(context.Background(), &config.Config{}, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -2252,7 +2252,7 @@ func TestRobotReconfigure(t *testing.T) {
 // this serves as a test for updateWeakDependents as the sensors service defines a weak
 // dependency.
 func TestSensorsServiceReconfigure(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	emptyCfg, err := config.Read(context.Background(), "data/diff_config_empty.json", logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -2368,7 +2368,7 @@ func (s *someTypeWithWeakAndStrongDepsConfig) Validate(_ string) ([]string, erro
 }
 
 func TestUpdateWeakDependents(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	var emptyCfg config.Config
 	test.That(t, emptyCfg.Ensure(false, logger), test.ShouldBeNil)
@@ -2379,11 +2379,12 @@ func TestUpdateWeakDependents(t *testing.T) {
 		test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 	}()
 
+	// Register a `Resource` that generates weak dependencies. Specifically instance of
+	// this resource will depend on every `component` resource. See the definition of
+	// `internal.ComponentDependencyWildcardMatcher`.
 	weakAPI := resource.NewAPI(uuid.NewString(), "component", "weaktype")
 	weakModel := resource.NewModel(uuid.NewString(), "soweak", "weak1000")
 	weak1Name := resource.NewName(weakAPI, "weak1")
-	base1Name := base.Named("base1")
-
 	resource.Register(
 		weakAPI,
 		weakModel,
@@ -2392,18 +2393,23 @@ func TestUpdateWeakDependents(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (*someTypeWithWeakAndStrongDeps, error) {
 				return &someTypeWithWeakAndStrongDeps{
 					Named:     conf.ResourceName().AsNamed(),
 					resources: deps,
 				}, nil
 			},
-			WeakDependencies: []internal.ResourceMatcher{internal.ComponentDependencyWildcardMatcher},
+			WeakDependencies: []resource.Matcher{resource.TypeMatcher{Type: resource.APITypeComponentName}},
 		})
 	defer func() {
 		resource.Deregister(weakAPI, weakModel)
 	}()
+
+	// Create a configuration with a single component that has an explicit, unresolved
+	// dependency. Reconfiguring will succeed, but getting a handle on the `weak1Name` resource fails
+	// with `unresolved dependencies`.
+	base1Name := base.Named("base1")
 	weakCfg1 := config.Config{
 		Components: []resource.Config{
 			{
@@ -2419,8 +2425,13 @@ func TestUpdateWeakDependents(t *testing.T) {
 
 	_, err = robot.ResourceByName(weak1Name)
 	test.That(t, err, test.ShouldNotBeNil)
+	// Assert that the explicit dependency was observed.
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unresolved dependencies")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "base1")
 
+	// Reconfigure without the explicit dependency. While also adding a second component that would
+	// have satisfied the dependency from the prior `weakCfg1`. Due to the weak dependency wildcard
+	// matcher, this `base1` component will be parsed as a weak dependency of `weak1`.
 	weakCfg2 := config.Config{
 		Components: []resource.Config{
 			{
@@ -2439,12 +2450,15 @@ func TestUpdateWeakDependents(t *testing.T) {
 	robot.Reconfigure(context.Background(), &weakCfg2)
 
 	res, err := robot.ResourceByName(weak1Name)
+	// The resource was found and all dependencies were properly resolved.
 	test.That(t, err, test.ShouldBeNil)
 	weak1, err := resource.AsType[*someTypeWithWeakAndStrongDeps](res)
 	test.That(t, err, test.ShouldBeNil)
+	// Assert that the weak dependency was tracked.
 	test.That(t, weak1.resources, test.ShouldHaveLength, 1)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 
+	// Reconfigure again with a new third `arm` component.
 	arm1Name := arm.Named("arm1")
 	weakCfg3 := config.Config{
 		Components: []resource.Config{
@@ -2473,33 +2487,10 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
 	test.That(t, err, test.ShouldBeNil)
+	// With two other components, `weak1` now has two (weak) dependencies.
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 	test.That(t, weak1.resources, test.ShouldContainKey, arm1Name)
-
-	weakCfg4 := config.Config{
-		Components: []resource.Config{
-			{
-				Name:  weak1Name.Name,
-				API:   weakAPI,
-				Model: weakModel,
-			},
-			{
-				Name:  base1Name.Name,
-				API:   base.API,
-				Model: fake.Model,
-			},
-		},
-	}
-	test.That(t, weakCfg4.Ensure(false, logger), test.ShouldBeNil)
-	robot.Reconfigure(context.Background(), &weakCfg4)
-
-	res, err = robot.ResourceByName(weak1Name)
-	test.That(t, err, test.ShouldBeNil)
-	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, weak1.resources, test.ShouldHaveLength, 1)
-	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 
 	base2Name := base.Named("base2")
 	weakCfg5 := config.Config{
@@ -2508,6 +2499,10 @@ func TestUpdateWeakDependents(t *testing.T) {
 				Name:  weak1Name.Name,
 				API:   weakAPI,
 				Model: weakModel,
+				// We need the following `robot.Reconfigure` to call `Reconfigure` on this `weak1`
+				// component. We change the `Attributes` field from the previous (nil) value to
+				// accomplish that.
+				Attributes: rutils.AttributeMap{"version": 1},
 				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
 					deps: []resource.Name{generic.Named("foo")},
 				},
@@ -2534,9 +2529,10 @@ func TestUpdateWeakDependents(t *testing.T) {
 	weakCfg6 := config.Config{
 		Components: []resource.Config{
 			{
-				Name:  weak1Name.Name,
-				API:   weakAPI,
-				Model: weakModel,
+				Name:       weak1Name.Name,
+				API:        weakAPI,
+				Model:      weakModel,
+				Attributes: rutils.AttributeMap{"version": 2},
 				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
 					weakDeps: []resource.Name{base1Name},
 				},
@@ -2566,9 +2562,10 @@ func TestUpdateWeakDependents(t *testing.T) {
 	weakCfg7 := config.Config{
 		Components: []resource.Config{
 			{
-				Name:  weak1Name.Name,
-				API:   weakAPI,
-				Model: weakModel,
+				Name:       weak1Name.Name,
+				API:        weakAPI,
+				Model:      weakModel,
+				Attributes: rutils.AttributeMap{"version": 3},
 				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
 					deps:     []resource.Name{base2Name},
 					weakDeps: []resource.Name{base1Name},
@@ -2599,7 +2596,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 }
 
 func TestDefaultServiceReconfigure(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	dmName := "dm"
 	cfg1 := &config.Config{
@@ -2651,7 +2648,7 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 }
 
 func TestStatusServiceUpdate(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	emptyCfg, err := config.Read(context.Background(), "data/diff_config_empty.json", logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -2729,13 +2726,13 @@ func TestStatusServiceUpdate(t *testing.T) {
 }
 
 func TestRemoteRobotsGold(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
 
-	remote1, err := New(ctx, cfg, logger.Named("remote1"))
+	remote1, err := New(ctx, cfg, logger.Sublogger("remote1"))
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, remote1.Close(context.Background()), test.ShouldBeNil)
@@ -2745,7 +2742,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 	err = remote1.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	remote2, err := New(ctx, cfg, logger.Named("remote2"))
+	remote2, err := New(ctx, cfg, logger.Sublogger("remote2"))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, listener2, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -2783,7 +2780,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 			},
 		},
 	}
-	r, err := New(ctx, localConfig, logger.Named("local"))
+	r, err := New(ctx, localConfig, logger.Sublogger("local"))
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
@@ -2870,7 +2867,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 		)
 	})
 
-	remote3, err := New(ctx, cfg, logger.Named("remote3"))
+	remote3, err := New(ctx, cfg, logger.Sublogger("remote3"))
 	test.That(t, err, test.ShouldBeNil)
 
 	defer func() {
@@ -2896,7 +2893,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 }
 
 func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	fooCfg := &config.Config{
 		Components: []resource.Config{
@@ -2913,7 +2910,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 
 	ctx := context.Background()
 
-	foo, err := New(ctx, fooCfg, logger.Named("foo"))
+	foo, err := New(ctx, fooCfg, logger.Sublogger("foo"))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, listener1, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -2939,7 +2936,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 			},
 		},
 	}
-	r, err := New(ctx, localConfig, logger.Named("local"))
+	r, err := New(ctx, localConfig, logger.Sublogger("local"))
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
@@ -2996,7 +2993,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		)
 	})
 
-	foo2, err := New(ctx, fooCfg, logger.Named("foo2"))
+	foo2, err := New(ctx, fooCfg, logger.Sublogger("foo2"))
 	test.That(t, err, test.ShouldBeNil)
 
 	defer func() {
@@ -3022,7 +3019,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 }
 
 func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	fooCfg := &config.Config{
 		Components: []resource.Config{
@@ -3039,7 +3036,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 
 	ctx := context.Background()
 
-	foo, err := New(ctx, fooCfg, logger.Named("foo"))
+	foo, err := New(ctx, fooCfg, logger.Sublogger("foo"))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -3063,7 +3060,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 			},
 		},
 	}
-	r, err := New(ctx, localConfig, logger.Named("local"))
+	r, err := New(ctx, localConfig, logger.Sublogger("local"))
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
@@ -3118,7 +3115,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 }
 
 func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	remoteCfg := &config.Config{
 		Components: []resource.Config{
@@ -3135,13 +3132,13 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 
 	ctx := context.Background()
 
-	foo, err := New(ctx, remoteCfg, logger.Named("foo"))
+	foo, err := New(ctx, remoteCfg, logger.Sublogger("foo"))
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	bar, err := New(ctx, remoteCfg, logger.Named("bar"))
+	bar, err := New(ctx, remoteCfg, logger.Sublogger("bar"))
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, bar.Close(context.Background()), test.ShouldBeNil)
@@ -3178,7 +3175,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 			},
 		},
 	}
-	r, err := New(ctx, localConfig, logger.Named("local"))
+	r, err := New(ctx, localConfig, logger.Sublogger("local"))
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
@@ -3256,7 +3253,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 }
 
 func TestReconfigureModelRebuild(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
 	mockNamed := func(name string) resource.Name {
@@ -3270,7 +3267,7 @@ func TestReconfigureModelRebuild(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			return &mockFake{Named: conf.ResourceName().AsNamed(), shouldRebuild: true}, nil
 		},
@@ -3313,9 +3310,11 @@ func TestReconfigureModelRebuild(t *testing.T) {
 	newCfg := &config.Config{
 		Components: []resource.Config{
 			{
-				Name:                "one",
-				Model:               model1,
-				API:                 mockAPI,
+				Name:  "one",
+				Model: model1,
+				API:   mockAPI,
+				// Change the `Attributes` to force this component to be reconfigured.
+				Attributes:          rutils.AttributeMap{"version": 1},
 				ConvertedAttributes: resource.NoNativeConfig{},
 			},
 		},
@@ -3332,7 +3331,7 @@ func TestReconfigureModelRebuild(t *testing.T) {
 }
 
 func TestReconfigureModelSwitch(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
 	mockNamed := func(name string) resource.Name {
@@ -3348,7 +3347,7 @@ func TestReconfigureModelSwitch(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
 		},
@@ -3358,7 +3357,7 @@ func TestReconfigureModelSwitch(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			return &mockFake2{Named: conf.ResourceName().AsNamed()}, nil
 		},
@@ -3421,8 +3420,92 @@ func TestReconfigureModelSwitch(t *testing.T) {
 	test.That(t, res3.(*mockFake2).closeCount, test.ShouldEqual, 0)
 }
 
+func TestReconfigureModelSwitchErr(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
+	mockNamed := func(name string) resource.Name {
+		return resource.NewName(mockAPI, name)
+	}
+	modelName1 := utils.RandomAlphaString(5)
+	model1 := resource.DefaultModelFamily.WithModel(modelName1)
+
+	newCount := 0
+	resource.RegisterComponent(mockAPI, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (resource.Resource, error) {
+			newCount++
+			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
+		},
+	})
+
+	defer func() {
+		resource.Deregister(mockAPI, model1)
+	}()
+
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "one",
+				Model: model1,
+				API:   mockAPI,
+			},
+		},
+	}
+
+	ctx := context.Background()
+
+	r, err := New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, newCount, test.ShouldEqual, 1)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	name1 := mockNamed("one")
+	res1, err := r.ResourceByName(name1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, res1.(*mockFake).closeCount, test.ShouldEqual, 0)
+
+	modelName2 := utils.RandomAlphaString(5)
+	model2 := resource.DefaultModelFamily.WithModel(modelName2)
+
+	newCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "one",
+				Model: model2,
+				API:   mockAPI,
+			},
+		},
+	}
+	r.Reconfigure(ctx, newCfg)
+	test.That(t, newCount, test.ShouldEqual, 1)
+
+	_, err = r.ResourceByName(name1)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, res1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, res1.(*mockFake).closeCount, test.ShouldEqual, 1)
+
+	r.Reconfigure(ctx, cfg)
+	test.That(t, newCount, test.ShouldEqual, 2)
+
+	res2, err := r.ResourceByName(name1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res2, test.ShouldNotEqual, res1)
+	test.That(t, res1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, res1.(*mockFake).closeCount, test.ShouldEqual, 1)
+	test.That(t, res2.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, res2.(*mockFake).closeCount, test.ShouldEqual, 0)
+}
+
 func TestReconfigureRename(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
 	mockNamed := func(name string) resource.Name {
@@ -3438,7 +3521,7 @@ func TestReconfigureRename(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			return &mockFake{
 				Named:        conf.ResourceName().AsNamed(),
@@ -3503,17 +3586,14 @@ func TestReconfigureRename(t *testing.T) {
 func TestResourceConstructTimeout(t *testing.T) {
 	cfg := &config.Config{}
 	ctx := context.Background()
-	logger, logs := golog.NewObservedTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 	fakeModel := resource.DefaultModelFamily.WithModel("fake")
 
 	timeOutErrorCount := func() int {
 		return logs.Filter(func(o observer.LoggedEntry) bool {
-			for k, v := range o.ContextMap() {
-				if k == "error" && strings.Contains(fmt.Sprint(v), "timed out during reconfigure") {
-					return true
-				}
-			}
-			return false
+			return strings.Contains(
+				o.Entry.Message,
+				"resource build error: resource rdk:component:base/fakewheel timed out after 1ns during reconfigure.")
 		}).Len()
 	}
 
@@ -3579,6 +3659,8 @@ func TestResourceConstructTimeout(t *testing.T) {
 				Name:  "fakewheel",
 				API:   base.API,
 				Model: wheeled.Model,
+				// Added to force a component reconfigure.
+				Attributes: rutils.AttributeMap{"version": 1},
 				ConvertedAttributes: &wheeled.Config{
 					Right:                []string{"right"},
 					Left:                 []string{"left"},
@@ -3612,6 +3694,82 @@ func TestResourceConstructTimeout(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	rr.reconfigureWorkers.Wait()
+}
+
+func TestResourceConstructCtxCancel(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	contructCount := 0
+	var wg sync.WaitGroup
+
+	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
+	modelName1 := utils.RandomAlphaString(5)
+	model1 := resource.DefaultModelFamily.WithModel(modelName1)
+
+	type cancelFunc struct {
+		c context.CancelFunc
+	}
+	var cFunc cancelFunc
+
+	resource.RegisterComponent(mockAPI, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (resource.Resource, error) {
+			contructCount++
+			wg.Add(1)
+			defer wg.Done()
+			cFunc.c()
+			<-ctx.Done()
+			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
+		},
+	})
+	defer func() {
+		resource.Deregister(mockAPI, model1)
+	}()
+
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "one",
+				Model: model1,
+				API:   mockAPI,
+			},
+			{
+				Name:  "two",
+				Model: model1,
+				API:   mockAPI,
+			},
+		},
+	}
+	t.Run("new", func(t *testing.T) {
+		contructCount = 0
+		ctxWithCancel, cancel := context.WithCancel(context.Background())
+		cFunc.c = cancel
+		r, err := New(ctxWithCancel, cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+
+		wg.Wait()
+		test.That(t, contructCount, test.ShouldEqual, 1)
+	})
+	t.Run("reconfigure", func(t *testing.T) {
+		contructCount = 0
+		r, err := New(context.Background(), &config.Config{}, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, contructCount, test.ShouldEqual, 0)
+
+		ctxWithCancel, cancel := context.WithCancel(context.Background())
+		cFunc.c = cancel
+		r.Reconfigure(ctxWithCancel, cfg)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+
+		wg.Wait()
+		test.That(t, contructCount, test.ShouldEqual, 1)
+	})
 }
 
 type mockFake struct {

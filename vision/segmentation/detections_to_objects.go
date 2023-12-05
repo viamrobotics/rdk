@@ -2,6 +2,7 @@ package segmentation
 
 import (
 	"context"
+	"image"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
@@ -57,11 +58,25 @@ func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma, con
 			return nil, err
 		}
 		// get the 3D detections, and turn them into 2D image and depthmap
-		pc, err := src.NextPointCloud(ctx)
+		imgs, _, err := src.Images(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "detection segmenter")
 		}
-		img, dm, err := proj.PointCloudToRGBD(pc)
+		var img *rimage.Image
+		var dmimg image.Image
+		for _, i := range imgs {
+			thisI := i
+			if i.SourceName == "color" {
+				img = rimage.ConvertImage(thisI.Image)
+			}
+			if i.SourceName == "depth" {
+				dmimg = thisI.Image
+			}
+		}
+		if img == nil || dmimg == nil {
+			return nil, errors.New("source camera's getImages method did not have 'color' and 'depth' images")
+		}
+		dm, err := rimage.ConvertImageToDepthMap(ctx, dmimg)
 		if err != nil {
 			return nil, err
 		}

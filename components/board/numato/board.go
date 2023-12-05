@@ -15,7 +15,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/edaniels/golog"
 	goserial "github.com/jacobsa/go-serial/serial"
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
@@ -25,8 +24,8 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("numato")
@@ -35,9 +34,8 @@ var errNoBoard = errors.New("no numato boards found")
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	Analogs    []board.AnalogConfig  `json:"analogs,omitempty"`
-	Attributes rdkutils.AttributeMap `json:"attributes,omitempty"`
-	Pins       int                   `json:"pins"`
+	Analogs []board.AnalogReaderConfig `json:"analogs,omitempty"`
+	Pins    int                        `json:"pins"`
 }
 
 func init() {
@@ -49,7 +47,7 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (board.Board, error) {
 				newConf, err := resource.NativeConfig[*Config](conf)
 				if err != nil {
@@ -63,6 +61,10 @@ func init() {
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
+	if conf.Pins <= 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "pins")
+	}
+
 	for idx, conf := range conf.Analogs {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
 			return nil, err
@@ -105,13 +107,14 @@ type numatoBoard struct {
 
 	port   io.ReadWriteCloser
 	closed int32
-	logger golog.Logger
+	logger logging.Logger
 
 	lines chan string
 	mu    sync.Mutex
 
-	sent   map[string]bool
-	sentMu sync.Mutex
+	sent                    map[string]bool
+	sentMu                  sync.Mutex
+	activeBackgroundWorkers sync.WaitGroup
 }
 
 func (b *numatoBoard) addToSent(msg string) {
@@ -192,9 +195,14 @@ func (b *numatoBoard) readThread() {
 
 	in := bufio.NewReader(b.port)
 	for {
+		if atomic.LoadInt32(&b.closed) == 1 {
+			close(b.lines)
+			return
+		}
 		line, err := in.ReadString('\n')
 		if err != nil {
 			if atomic.LoadInt32(&b.closed) == 1 {
+				close(b.lines)
 				return
 			}
 			b.logger.Warnw("error reading", "err", err)
@@ -221,16 +229,6 @@ func (b *numatoBoard) readThread() {
 	}
 }
 
-// SPIByName returns an SPI bus by name.
-func (b *numatoBoard) SPIByName(name string) (board.SPI, bool) {
-	return nil, false
-}
-
-// I2CByName returns an I2C bus by name.
-func (b *numatoBoard) I2CByName(name string) (board.I2C, bool) {
-	return nil, false
-}
-
 // AnalogReaderByName returns an analog reader by name.
 func (b *numatoBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	ar, ok := b.analogs[name]
@@ -240,16 +238,6 @@ func (b *numatoBoard) AnalogReaderByName(name string) (board.AnalogReader, bool)
 // DigitalInterruptByName returns a digital interrupt by name.
 func (b *numatoBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	return nil, false
-}
-
-// SPINames returns the names of all known SPI busses.
-func (b *numatoBoard) SPINames() []string {
-	return nil
-}
-
-// I2CNames returns the names of all known I2C busses.
-func (b *numatoBoard) I2CNames() []string {
-	return nil
 }
 
 // AnalogReaderNames returns the names of all known analog readers.
@@ -263,11 +251,6 @@ func (b *numatoBoard) AnalogReaderNames() []string {
 
 // DigitalInterruptNames returns the names of all known digital interrupts.
 func (b *numatoBoard) DigitalInterruptNames() []string {
-	return nil
-}
-
-// GPIOPinNames returns the names of all known GPIO pins.
-func (b *numatoBoard) GPIOPinNames() []string {
 	return nil
 }
 
@@ -330,19 +313,37 @@ func (b *numatoBoard) Status(ctx context.Context, extra map[string]interface{}) 
 	return board.CreateStatus(ctx, b, extra)
 }
 
-// ModelAttributes returns attributes related to the model of this board.
-func (b *numatoBoard) ModelAttributes() board.ModelAttributes {
-	return board.ModelAttributes{}
+func (b *numatoBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	return grpc.UnimplementedError
 }
 
-func (b *numatoBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+// WriteAnalog writes the value to the given pin.
+func (b *numatoBoard) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
 	return grpc.UnimplementedError
 }
 
 func (b *numatoBoard) Close(ctx context.Context) error {
 	atomic.AddInt32(&b.closed, 1)
+
+	// Without this line, the coroutine gets stuck in the call to in.ReadString.
+	// Closing the device port will complete the call on some OSes, but on Mac attempting to close
+	// a serial device currently being read from will result in a deadlock.
+	// Send the board a command so we get a response back to read and complete the call so the coroutine can wake up
+	// and see it should exit.
+	_, err := b.doSendReceive(ctx, "ver")
+	if err != nil {
+		return err
+	}
 	if err := b.port.Close(); err != nil {
 		return err
+	}
+
+	b.activeBackgroundWorkers.Wait()
+
+	for _, analog := range b.analogs {
+		if err := analog.Close(ctx); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -364,11 +365,8 @@ func (ar *analogReader) Close(ctx context.Context) error {
 	return nil
 }
 
-func connect(ctx context.Context, name resource.Name, conf *Config, logger golog.Logger) (board.LocalBoard, error) {
+func connect(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (board.Board, error) {
 	pins := conf.Pins
-	if pins <= 0 {
-		return nil, errors.New("numato board needs pins set in attributes")
-	}
 
 	filter := serial.SearchFilter{Type: serial.TypeNumatoGPIO}
 	devs := serial.Search(filter)
@@ -406,7 +404,9 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger golog
 	}
 
 	b.lines = make(chan string)
-	go b.readThread()
+
+	b.activeBackgroundWorkers.Add(1)
+	utils.ManagedGo(b.readThread, b.activeBackgroundWorkers.Done)
 
 	ver, err := b.doSendReceive(ctx, "ver")
 	if err != nil {

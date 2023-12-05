@@ -22,13 +22,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/d2r2/go-i2c"
 	i2clog "github.com/d2r2/go-logger"
-	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/powersensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -61,7 +62,7 @@ var inaModels = []string{modelName219, modelName226}
 
 // Config is used for converting config attributes.
 type Config struct {
-	I2CBus          int     `json:"i2c_bus"`
+	I2CBus          string  `json:"i2c_bus"`
 	I2cAddr         int     `json:"i2c_addr,omitempty"`
 	MaxCurrent      float64 `json:"max_current_amps,omitempty"`
 	ShuntResistance float64 `json:"shunt_resistance,omitempty"`
@@ -70,8 +71,13 @@ type Config struct {
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if conf.I2CBus == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+	if conf.I2CBus == "" {
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+	}
+	// The bus should be numeric. We store it as a string for consistency with other components,
+	// but we convert it to an int later, so let's check on that now.
+	if _, err := strconv.Atoi(conf.I2CBus); err != nil {
+		return nil, fmt.Errorf("i2c_bus must be numeric, not '%s': %w", conf.I2CBus, err)
 	}
 	return deps, nil
 }
@@ -88,7 +94,7 @@ func init() {
 					ctx context.Context,
 					deps resource.Dependencies,
 					conf resource.Config,
-					logger golog.Logger,
+					logger logging.Logger,
 				) (powersensor.PowerSensor, error) {
 					newConf, err := resource.NativeConfig[*Config](conf)
 					if err != nil {
@@ -103,7 +109,7 @@ func init() {
 func newINA(
 	name resource.Name,
 	conf *Config,
-	logger golog.Logger,
+	logger logging.Logger,
 	modelName string,
 ) (powersensor.PowerSensor, error) {
 	err := i2clog.ChangePackageLogLevel("i2c", i2clog.InfoLevel)
@@ -135,22 +141,22 @@ func newINA(
 		logger.Info("using default resistor value 0.1 ohms")
 	}
 
+	busNumber, err := strconv.Atoi(conf.I2CBus)
+	if err != nil {
+		return nil, fmt.Errorf("non-numeric I2C bus number '%s': %w", conf.I2CBus, err)
+	}
+
 	s := &ina{
 		Named:      name.AsNamed(),
 		logger:     logger,
 		model:      modelName,
-		bus:        conf.I2CBus,
+		bus:        busNumber,
 		addr:       byte(addr),
 		maxCurrent: maxCurrent,
 		resistance: resistance,
 	}
 
 	err = s.setCalibrationScale(modelName)
-	if err != nil {
-		return nil, err
-	}
-
-	err = s.calibrate()
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +169,7 @@ type ina struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
-	logger     golog.Logger
+	logger     logging.Logger
 	model      string
 	bus        int
 	addr       byte
@@ -215,8 +221,8 @@ func (d *ina) calibrate() error {
 		return err
 	}
 
-	// setting config to 111 sets to normal operating mode
-	err = handle.WriteRegU16BE(configRegister, uint16(0x6F))
+	// set the config register to all default values.
+	err = handle.WriteRegU16BE(configRegister, uint16(0x399F))
 	if err != nil {
 		return err
 	}
@@ -231,7 +237,7 @@ func (d *ina) Voltage(ctx context.Context, extra map[string]interface{}) (float6
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
 
-	bus, err := handle.ReadRegU16BE(busVoltageRegister)
+	bus, err := handle.ReadRegS16BE(busVoltageRegister)
 	if err != nil {
 		return 0, false, err
 	}
@@ -259,7 +265,14 @@ func (d *ina) Current(ctx context.Context, extra map[string]interface{}) (float6
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
 
-	rawCur, err := handle.ReadRegU16BE(currentRegister)
+	// Calibrate each time the current value is read, so if anything else is also writing to these registers
+	// we have the correct value.
+	err = d.calibrate()
+	if err != nil {
+		return 0, false, err
+	}
+
+	rawCur, err := handle.ReadRegS16BE(currentRegister)
 	if err != nil {
 		return 0, false, err
 	}
@@ -277,7 +290,14 @@ func (d *ina) Power(ctx context.Context, extra map[string]interface{}) (float64,
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
 
-	pow, err := handle.ReadRegU16BE(powerRegister)
+	// Calibrate each time the power value is read, so if anything else is also writing to these registers
+	// we have the correct value.
+	err = d.calibrate()
+	if err != nil {
+		return 0, err
+	}
+
+	pow, err := handle.ReadRegS16BE(powerRegister)
 	if err != nil {
 		return 0, err
 	}

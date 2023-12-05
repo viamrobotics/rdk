@@ -16,7 +16,15 @@ import (
 )
 
 // MaxCCLIterations is a value to stop the CCL algo from going on for too long.
-const MaxCCLIterations = 300000
+const (
+	MaxCCLIterations            = 300000
+	GridSize                    = 200
+	MinPtsInPlaneDefault        = 500
+	MaxDistFromPlaneDefault     = 100
+	AngleToleranceDefault       = 30.0
+	ClusteringRadiusDefault     = 5
+	ClusteringStrictnessDefault = 1
+)
 
 // ErCCLConfig specifies the necessary parameters to apply the
 // connected components based clustering algo.
@@ -43,7 +51,7 @@ type node struct {
 func (erCCL *ErCCLConfig) CheckValid() error {
 	// min_points_in_plane
 	if erCCL.MinPtsInPlane == 0 {
-		erCCL.MinPtsInPlane = 500
+		erCCL.MinPtsInPlane = MinPtsInPlaneDefault
 	}
 	if erCCL.MinPtsInPlane <= 0 {
 		return errors.Errorf("min_points_in_plane must be greater than 0, got %v", erCCL.MinPtsInPlane)
@@ -54,7 +62,7 @@ func (erCCL *ErCCLConfig) CheckValid() error {
 	}
 	// max_dist_from_plane_mm
 	if erCCL.MaxDistFromPlane == 0 {
-		erCCL.MaxDistFromPlane = 100
+		erCCL.MaxDistFromPlane = MaxDistFromPlaneDefault
 	}
 	if erCCL.MaxDistFromPlane <= 0 {
 		return errors.Errorf("max_dist_from_plane must be greater than 0, got %v", erCCL.MaxDistFromPlane)
@@ -69,21 +77,21 @@ func (erCCL *ErCCLConfig) CheckValid() error {
 	}
 	// ground_angle_tolerance_degs
 	if erCCL.AngleTolerance == 0.0 {
-		erCCL.AngleTolerance = 30.0
+		erCCL.AngleTolerance = AngleToleranceDefault
 	}
 	if erCCL.AngleTolerance > 180 || erCCL.AngleTolerance < 0 {
 		return errors.Errorf("max_angle_of_plane must between 0 & 180 (inclusive), got %v", erCCL.AngleTolerance)
 	}
 	// clustering_radius
 	if erCCL.ClusteringRadius == 0 {
-		erCCL.ClusteringRadius = 1
+		erCCL.ClusteringRadius = ClusteringRadiusDefault
 	}
 	if erCCL.ClusteringRadius < 0 {
 		return errors.Errorf("radius must be greater than 0, got %v", erCCL.ClusteringRadius)
 	}
 	// clustering_strictness
 	if erCCL.ClusteringStrictness == 0 {
-		erCCL.ClusteringStrictness = 5
+		erCCL.ClusteringStrictness = ClusteringStrictnessDefault
 	}
 	if erCCL.ClusteringStrictness < 0 {
 		return errors.Errorf("clustering_strictness must be greater than 0, got %v", erCCL.ClusteringStrictness)
@@ -120,15 +128,20 @@ func NewERCCLClustering(params utils.AttributeMap) (Segmenter, error) {
 	return cfg.ErCCLAlgorithm, nil
 }
 
-// ErCCLAlgorithm applies the connected components clustering algorithm directly on a given point cloud.
+// ErCCLAlgorithm applies the connected components clustering algorithm to a VideoSource.
 func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
 	// get next point cloud
 	cloud, err := src.NextPointCloud(ctx)
 	if err != nil {
 		return nil, err
 	}
+	return ApplyERCCLToPointCloud(ctx, cloud, erCCL)
+}
+
+// ApplyERCCLToPointCloud clusters a point cloud according to the ER-CCL algorithm.
+func ApplyERCCLToPointCloud(ctx context.Context, cloud pc.PointCloud, cfg *ErCCLConfig) ([]*vision.Object, error) {
 	// run ransac, get pointcloud without ground plane
-	ps := NewPointCloudGroundPlaneSegmentation(cloud, erCCL.MaxDistFromPlane, erCCL.MinPtsInPlane, erCCL.AngleTolerance, erCCL.NormalVec)
+	ps := NewPointCloudGroundPlaneSegmentation(cloud, cfg.MaxDistFromPlane, cfg.MinPtsInPlane, cfg.AngleTolerance, cfg.NormalVec)
 	// if there are found planes, remove them, and keep all the non-plane points
 	_, nonPlane, err := ps.FindGroundPlane(ctx)
 	if err != nil {
@@ -137,14 +150,14 @@ func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSo
 
 	// need to figure out coordinate system
 	// if height is not y, then height is going to be z
-	heightIsY := erCCL.NormalVec.Y != 0
+	heightIsY := cfg.NormalVec.Y != 0
 
-	// calculating s value, want 200 x 200 graph
-	resolution := math.Ceil((nonPlane.MetaData().MaxX - nonPlane.MetaData().MinX) / 200)
+	// calculating s value, want GridSize x GridSize graph
+	resolution := math.Ceil((nonPlane.MetaData().MaxX - nonPlane.MetaData().MinX) / GridSize)
 	if heightIsY {
-		resolution = math.Ceil((math.Ceil((nonPlane.MetaData().MaxZ-nonPlane.MetaData().MinZ)/200) + resolution) / 2)
+		resolution = math.Ceil((math.Ceil((nonPlane.MetaData().MaxZ-nonPlane.MetaData().MinZ)/GridSize) + resolution) / 2)
 	} else {
-		resolution = math.Ceil((math.Ceil((nonPlane.MetaData().MaxY-nonPlane.MetaData().MinY)/200) + resolution) / 2)
+		resolution = math.Ceil((math.Ceil((nonPlane.MetaData().MaxY-nonPlane.MetaData().MinY)/GridSize) + resolution) / 2)
 	}
 
 	// create obstacle flag map, return that 2d slice of nodes
@@ -156,7 +169,7 @@ func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSo
 	// if similar enough update to initial label value (will also be smallest)
 	// iterate through pointcloud
 
-	err = LabelMapUpdate(labelMap, erCCL.ClusteringRadius, 0.9, erCCL.ClusteringStrictness, resolution)
+	err = LabelMapUpdate(labelMap, cfg.ClusteringRadius, 0.9, cfg.ClusteringStrictness, resolution)
 	if err != nil {
 		return nil, err
 	}
@@ -164,14 +177,18 @@ func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSo
 	// look up label value of point by looking at 2d array and seeing what label inside that struct
 	// set this label
 	var iterateErr error
-	segments := NewSegments()
+	segments := make(map[int]pc.PointCloud)
 	nonPlane.Iterate(0, 0, func(p r3.Vector, d pc.Data) bool {
 		i := int(math.Ceil((p.X - nonPlane.MetaData().MinX) / resolution))
 		j := int(math.Ceil((p.Z - nonPlane.MetaData().MinZ) / resolution))
 		if !heightIsY {
 			j = int(math.Ceil((p.Y - nonPlane.MetaData().MinY) / resolution))
 		}
-		err := segments.AssignCluster(p, d, labelMap[i][j].label)
+		_, ok := segments[labelMap[i][j].label]
+		if !ok {
+			segments[labelMap[i][j].label] = pc.New()
+		}
+		err := segments[labelMap[i][j].label].Set(p, d)
 		if err != nil {
 			iterateErr = err
 			return false
@@ -182,19 +199,21 @@ func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSo
 		return nil, iterateErr
 	}
 	// prune smaller clusters. Default minimum number of points determined by size of original point cloud.
-	minPtsInSegment := int(math.Max(float64(nonPlane.Size())/200.0, 10.0))
-	if erCCL.MinPtsInSegment != 0 {
-		minPtsInSegment = erCCL.MinPtsInSegment
+	minPtsInSegment := int(math.Max(float64(nonPlane.Size())/float64(GridSize), 10.0))
+	if cfg.MinPtsInSegment != 0 {
+		minPtsInSegment = cfg.MinPtsInSegment
 	}
-	validClouds := pc.PrunePointClouds(segments.PointClouds(), minPtsInSegment)
-	// wrap
-	objects, err := NewSegmentsFromSlice(validClouds, "")
-	if err != nil {
-		return nil, err
+	validObjects := make([]*vision.Object, 0, len(segments))
+	for _, cloud := range segments {
+		if cloud.Size() >= minPtsInSegment {
+			obj, err := vision.NewObject(cloud)
+			if err != nil {
+				return nil, err
+			}
+			validObjects = append(validObjects, obj)
+		}
 	}
-	return objects.Objects, nil
-	// this seems a bit wasteful to make segments then make more segments after filtering, but rolling with it for now
-	// TODO: RSDK-4613
+	return validObjects, nil
 }
 
 // LabelMapUpdate updates the label map until it converges or errors.

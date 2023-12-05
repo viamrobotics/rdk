@@ -9,10 +9,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/mkch/gpio"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/logging"
 )
+
+const noPin = 0xFFFFFFFF // noPin is the uint32 version of -1. A pin with this offset has no GPIO
 
 type gpioPin struct {
 	boardWorkers *sync.WaitGroup
@@ -31,7 +35,11 @@ type gpioPin struct {
 
 	mu        sync.Mutex
 	cancelCtx context.Context
-	logger    golog.Logger
+	logger    logging.Logger
+}
+
+func (pin *gpioPin) wrapError(err error) error {
+	return errors.Wrapf(err, "from GPIO device %s line %d", pin.devicePath, pin.offset)
 }
 
 // This is a private helper function that should only be called when the mutex is locked. It sets
@@ -41,7 +49,7 @@ func (pin *gpioPin) openGpioFd(isInput bool) error {
 		// We're switching from an input pin to an output one or vice versa. Close the line and
 		// repoen in the other mode.
 		if err := pin.closeGpioFd(); err != nil {
-			return err
+			return err // Already wrapped
 		}
 		pin.isInput = isInput
 	}
@@ -54,13 +62,18 @@ func (pin *gpioPin) openGpioFd(isInput bool) error {
 		// If the pin is currently used by the hardware PWM chip, shut that down before we can open
 		// it for basic GPIO use.
 		if err := pin.hwPwm.Close(); err != nil {
-			return err
+			return pin.wrapError(err)
 		}
+	}
+
+	if pin.offset == noPin {
+		// This is not a GPIO pin. Now that we've turned off the PWM, return early.
+		return nil
 	}
 
 	chip, err := gpio.OpenChip(pin.devicePath)
 	if err != nil {
-		return err
+		return pin.wrapError(err)
 	}
 	defer utils.UncheckedErrorFunc(chip.Close)
 
@@ -75,7 +88,7 @@ func (pin *gpioPin) openGpioFd(isInput bool) error {
 	// we haven't done that yet, and we instead go with whatever the default on the board is.
 	line, err := chip.OpenLine(pin.offset, 0, direction, "viam-gpio")
 	if err != nil {
-		return err
+		return pin.wrapError(err)
 	}
 	pin.line = line
 	return nil
@@ -86,7 +99,7 @@ func (pin *gpioPin) closeGpioFd() error {
 		return nil // The pin is already closed.
 	}
 	if err := pin.line.Close(); err != nil {
-		return err
+		return pin.wrapError(err)
 	}
 	pin.line = nil
 	return nil
@@ -117,7 +130,15 @@ func (pin *gpioPin) setInternal(isHigh bool) (err error) {
 		return err
 	}
 
-	return pin.line.SetValue(value)
+	if pin.offset == noPin {
+		if isHigh {
+			return errors.New("cannot set non-GPIO pin high")
+		}
+		// Otherwise, just return: we shut down any PWM stuff in openGpioFd.
+		return nil
+	}
+
+	return pin.wrapError(pin.line.SetValue(value))
 }
 
 // This helps implement the board.GPIOPin interface for gpioPin.
@@ -127,13 +148,17 @@ func (pin *gpioPin) Get(
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
+	if pin.offset == noPin {
+		return false, errors.New("cannot read from non-GPIO pin")
+	}
+
 	if err := pin.openGpioFd( /* isInput= */ true); err != nil {
 		return false, err
 	}
 
 	value, err := pin.line.Value()
 	if err != nil {
-		return false, err
+		return false, pin.wrapError(err)
 	}
 
 	// We'd expect value to be either 0 or 1, but any non-zero value should be considered high.
@@ -275,12 +300,29 @@ func (pin *gpioPin) Close() error {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
-	// If the entire server is shutting down, it's important to turn off all pins so they don't
-	// continue outputting signals we can no longer control.
-	if err := pin.setInternal(false); err != nil {
-		return err
+	if pin.hwPwm != nil {
+		if err := pin.hwPwm.Close(); err != nil {
+			return err
+		}
 	}
-	return pin.closeGpioFd()
+
+	// If a pin has never been used, leave it alone. This is more important than you might expect:
+	// on some boards (e.g., the Beaglebone AI-64), turning off a GPIO pin tells the kernel that
+	// the pin is in use by the GPIO system and therefore it cannot be used for I2C or other
+	// functions. Make sure that closing a pin here doesn't disable I2C!
+	if pin.line != nil {
+		// If the entire server is shutting down, it's important to turn off all pins so they don't
+		// continue outputting signals we can no longer control.
+		if err := pin.setInternal(false); err != nil { // setInternal won't double-lock the mutex
+			return err
+		}
+
+		if err := pin.closeGpioFd(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (b *Board) createGpioPin(mapping GPIOBoardMapping) *gpioPin {

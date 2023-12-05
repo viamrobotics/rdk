@@ -1,15 +1,16 @@
+//go:build linux
+
 package gpsnmea
 
 import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	gutils "go.viam.com/utils"
 
-	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
@@ -17,45 +18,34 @@ import (
 
 const (
 	testBoardName = "board1"
-	testBusName   = "i2c1"
+	testBusName   = "1"
 )
 
-func setupDependencies(t *testing.T) resource.Dependencies {
-	t.Helper()
-
-	deps := make(resource.Dependencies)
-
-	actualBoard := inject.NewBoard(testBoardName)
-	i2c1 := &inject.I2C{}
-	handle1 := &inject.I2CHandle{}
-	handle1.WriteFunc = func(ctx context.Context, b []byte) error {
+func createMockI2c() buses.I2C {
+	i2c := &inject.I2C{}
+	handle := &inject.I2CHandle{}
+	handle.WriteFunc = func(ctx context.Context, b []byte) error {
 		return nil
 	}
-	handle1.ReadFunc = func(ctx context.Context, count int) ([]byte, error) {
+	handle.ReadFunc = func(ctx context.Context, count int) ([]byte, error) {
 		return nil, nil
 	}
-	handle1.CloseFunc = func() error {
+	handle.CloseFunc = func() error {
 		return nil
 	}
-	i2c1.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
-		return handle1, nil
+	i2c.OpenHandleFunc = func(addr byte) (buses.I2CHandle, error) {
+		return handle, nil
 	}
-	actualBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
-		return i2c1, true
-	}
-
-	deps[board.Named(testBoardName)] = actualBoard
-
-	return deps
+	return i2c
 }
 
 func TestValidateI2C(t *testing.T) {
-	fakecfg := &I2CConfig{Board: testBoardName, I2CBus: "some-bus"}
+	fakecfg := &I2CConfig{I2CBus: "1"}
 
 	path := "path"
 	err := fakecfg.validateI2C(path)
 	test.That(t, err, test.ShouldBeError,
-		gutils.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
+		resource.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
 
 	fakecfg.I2CAddr = 66
 	err = fakecfg.validateI2C(path)
@@ -63,19 +53,20 @@ func TestValidateI2C(t *testing.T) {
 }
 
 func TestNewI2CMovementSensor(t *testing.T) {
-	deps := setupDependencies(t)
-
 	conf := resource.Config{
 		Name:  "movementsensor1",
 		Model: resource.DefaultModelFamily.WithModel("gps-nmea"),
 		API:   movementsensor.API,
 	}
 
-	logger := golog.NewTestLogger(t)
+	var deps resource.Dependencies
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
-	g, err := newNMEAGPS(ctx, deps, conf, logger)
-	test.That(t, g, test.ShouldBeNil)
+	// We try constructing a "real" component here, expecting that we never get past the config
+	// validation step.
+	g1, err := newNMEAGPS(ctx, deps, conf, logger)
+	test.That(t, g1, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeError,
 		utils.NewUnexpectedTypeError[*Config](conf.ConvertedAttributes))
 
@@ -86,20 +77,22 @@ func TestNewI2CMovementSensor(t *testing.T) {
 		ConvertedAttributes: &Config{
 			ConnectionType: "I2C",
 			DisableNMEA:    false,
-			I2CConfig:      &I2CConfig{I2CBus: testBusName, Board: testBoardName},
+			I2CConfig:      &I2CConfig{I2CBus: testBusName},
 		},
 	}
-	g, err = newNMEAGPS(ctx, deps, conf, logger)
-	passErr := "board " + testBoardName + " is not local"
-	if err == nil || err.Error() != passErr {
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, g.Close(context.Background()), test.ShouldBeNil)
-		test.That(t, g, test.ShouldNotBeNil)
-	}
+	config, err := resource.NativeConfig[*Config](conf)
+	test.That(t, err, test.ShouldBeNil)
+	mockI2c := createMockI2c()
+
+	// This time, we *do* expect to construct a real object, so we need to pass in a mock I2C bus.
+	g2, err := MakePmtkI2cGpsNmea(ctx, deps, conf.ResourceName(), config, logger, mockI2c)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, g2.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, g2, test.ShouldNotBeNil)
 }
 
 func TestReadingsI2C(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := &PmtkI2CNMEAMovementSensor{
@@ -141,7 +134,7 @@ func TestReadingsI2C(t *testing.T) {
 }
 
 func TestCloseI2C(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := &PmtkI2CNMEAMovementSensor{

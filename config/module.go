@@ -4,9 +4,10 @@ import (
 	"os"
 	"reflect"
 	"regexp"
-	"strings"
 
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/resource"
 )
 
 var moduleNameRegEx = regexp.MustCompile(`^[\w-]+$`)
@@ -27,14 +28,38 @@ type Module struct {
 	// value besides "" or "debug" is used for LogLevel ("log_level" in JSON). In other words, setting a LogLevel
 	// of something like "info" will ignore the debug setting on the server.
 	LogLevel string `json:"log_level"`
+	// Type indicates whether this is a local or registry module.
+	Type ModuleType `json:"type"`
+	// ModuleID is the id of the module in the registry. It is empty on non-registry modules.
+	ModuleID string `json:"module_id,omitempty"`
+	// Environment contains additional variables that are passed to the module process when it is started.
+	// They overwrite existing environment variables.
+	Environment map[string]string `json:"env,omitempty"`
 
+	// Status refers to the validations done in the APP to make sure a module is configured correctly
+	Status           *AppValidationStatus `json:"status"`
 	alreadyValidated bool
 	cachedErr        error
 }
 
+// ModuleType indicates where a module comes from.
+type ModuleType string
+
+const (
+	// ModuleTypeLocal is a module that resides on the host system.
+	ModuleTypeLocal ModuleType = "local"
+	// ModuleTypeRegistry is a module from our registry that is distributed in a package and is downloaded at runtime.
+	ModuleTypeRegistry ModuleType = "registry"
+)
+
 // Validate checks if the config is valid.
 func (m *Module) Validate(path string) error {
 	if m.alreadyValidated {
+		return m.cachedErr
+	}
+	if m.Status != nil {
+		m.alreadyValidated = true
+		m.cachedErr = resource.NewConfigValidationError(path, errors.New(m.Status.Error))
 		return m.cachedErr
 	}
 	m.cachedErr = m.validate(path)
@@ -45,8 +70,7 @@ func (m *Module) Validate(path string) error {
 func (m *Module) validate(path string) error {
 	// Only check if the path exists during validation for local modules because the packagemanager may not have downloaded
 	// the package yet.
-	// As of 2023-08, modules can't know if they were originally registry modules, so this roundabout check is required
-	if !(ContainsPlaceholder(m.ExePath) || strings.HasPrefix(m.ExePath, viamPackagesDir)) {
+	if m.Type == ModuleTypeLocal {
 		_, err := os.Stat(m.ExePath)
 		if err != nil {
 			return errors.Wrapf(err, "module %s executable path error", path)
@@ -69,8 +93,10 @@ func (m *Module) validate(path string) error {
 func (m Module) Equals(other Module) bool {
 	m.alreadyValidated = false
 	m.cachedErr = nil
+	m.Status = nil
 	other.alreadyValidated = false
 	other.cachedErr = nil
+	other.Status = nil
 	//nolint:govet
 	return reflect.DeepEqual(m, other)
 }

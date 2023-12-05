@@ -3,14 +3,11 @@ package replaypcd
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"github.com/viamrobotics/gostream"
 	datapb "go.viam.com/api/app/data/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -19,7 +16,9 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
@@ -55,6 +54,8 @@ type Config struct {
 	OrganizationID string       `json:"organization_id,omitempty"`
 	Interval       TimeInterval `json:"time_interval,omitempty"`
 	BatchSize      *uint64      `json:"batch_size,omitempty"`
+	APIKey         string       `json:"api_key,omitempty"`
+	APIKeyID       string       `json:"api_key_id,omitempty"`
 }
 
 // TimeInterval holds the start and end time used to filter data.
@@ -76,19 +77,25 @@ type cacheEntry struct {
 // Validate checks that the config attributes are valid for a replay camera.
 func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.Source == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "source")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "source")
 	}
 
 	if cfg.RobotID == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "robot_id")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "robot_id")
 	}
 
 	if cfg.LocationID == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "location_id")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "location_id")
 	}
 
 	if cfg.OrganizationID == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "organization_id")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "organization_id")
+	}
+	if cfg.APIKey == "" {
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "api_key")
+	}
+	if cfg.APIKeyID == "" {
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "api_key_id")
 	}
 
 	var err error
@@ -98,9 +105,6 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		if err != nil {
 			return nil, errors.New("invalid time format for start time (UTC), use RFC3339")
 		}
-		if startTime.After(time.Now()) {
-			return nil, errors.New("invalid config, start time (UTC) must be in the past")
-		}
 	}
 
 	var endTime time.Time
@@ -108,9 +112,6 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		endTime, err = time.Parse(timeFormat, cfg.Interval.End)
 		if err != nil {
 			return nil, errors.New("invalid time format for end time (UTC), use RFC3339")
-		}
-		if endTime.After(time.Now()) {
-			return nil, errors.New("invalid config, end time (UTC) must be in the past")
 		}
 	}
 
@@ -128,8 +129,10 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 // pcdCamera is a camera model that plays back pre-captured point cloud data.
 type pcdCamera struct {
 	resource.Named
-	logger golog.Logger
+	logger logging.Logger
 
+	APIKey       string
+	APIKeyID     string
 	cloudConnSvc cloud.ConnectionService
 	cloudConn    rpc.ClientConn
 	dataClient   datapb.DataServiceClient
@@ -145,7 +148,9 @@ type pcdCamera struct {
 }
 
 // newPCDCamera creates a new replay camera based on the inputted config and dependencies.
-func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (camera.Camera, error) {
+func newPCDCamera(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (camera.Camera, error) {
 	cam := &pcdCamera{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
@@ -200,7 +205,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	// If using a batch size of 1, we already received the data itself, so decode and return the
 	// binary data directly
 	if replay.limit == 1 {
-		pc, err := decodeResponseData(resp.GetData(), replay.logger)
+		pc, err := decodeResponseData(resp.GetData())
 		if err != nil {
 			return nil, err
 		}
@@ -256,7 +261,7 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context) {
 			}
 
 			// Decode response data
-			data.pc, data.err = decodeResponseData(resp.GetData(), replay.logger)
+			data.pc, data.err = decodeResponseData(resp.GetData())
 			if data.err == nil {
 				data.timeRequested = resp.GetData()[0].GetMetadata().GetTimeRequested()
 				data.timeReceived = resp.GetData()[0].GetMetadata().GetTimeReceived()
@@ -352,6 +357,8 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 	if err != nil {
 		return err
 	}
+	replay.APIKey = replayCamConfig.APIKey
+	replay.APIKeyID = replayCamConfig.APIKeyID
 
 	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
 	if err != nil {
@@ -423,7 +430,7 @@ func (replay *pcdCamera) initCloudConnection(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
 
-	_, conn, err := replay.cloudConnSvc.AcquireConnection(ctx)
+	_, conn, err := replay.cloudConnSvc.AcquireConnectionAPIKey(ctx, replay.APIKey, replay.APIKeyID)
 	if err != nil {
 		return err
 	}
@@ -434,24 +441,13 @@ func (replay *pcdCamera) initCloudConnection(ctx context.Context) error {
 	return nil
 }
 
-// decodeResponseData decompresses the gzipped byte array.
-func decodeResponseData(respData []*datapb.BinaryData, logger golog.Logger) (pointcloud.PointCloud, error) {
+// decodeResponseData decodes the pcd file byte array.
+func decodeResponseData(respData []*datapb.BinaryData) (pointcloud.PointCloud, error) {
 	if len(respData) == 0 {
 		return nil, errors.New("no response data; this should never happen")
 	}
 
-	r, err := gzip.NewReader(bytes.NewBuffer(respData[0].GetBinary()))
-	if err != nil {
-		return nil, err
-	}
-
-	defer func() {
-		if err = r.Close(); err != nil {
-			logger.Warnw("Failed to close gzip reader", "warn", err)
-		}
-	}()
-
-	pc, err := pointcloud.ReadPCD(r)
+	pc, err := pointcloud.ReadPCD(bytes.NewBuffer(respData[0].GetBinary()))
 	if err != nil {
 		return nil, err
 	}

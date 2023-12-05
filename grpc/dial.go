@@ -5,12 +5,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
+
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/utils/contextutils"
 )
 
-// Dial dials a gRPC server.
-func Dial(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (rpc.ClientConn, error) {
+// defaultDialTimeout is the default timeout for dialing a robot.
+var defaultDialTimeout = 20 * time.Second
+
+// Dial dials a gRPC server. `ctx` can be used to set a timeout/deadline for Dial. However, the signaling
+// server may have other timeouts which may prevent the full timeout from being respected.
+func Dial(ctx context.Context, address string, logger logging.Logger, opts ...rpc.DialOption) (rpc.ClientConn, error) {
 	webrtcOpts := rpc.DialWebRTCOptions{
 		Config: &DefaultWebRTCConfiguration,
 	}
@@ -26,10 +32,10 @@ func Dial(ctx context.Context, address string, logger golog.Logger, opts ...rpc.
 	optsCopy[1] = rpc.WithAllowInsecureDowngrade()
 	copy(optsCopy[2:], opts)
 
-	ctx, timeoutCancel := context.WithTimeout(ctx, 20*time.Second)
-	defer timeoutCancel()
+	ctx, cancel := contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultDialTimeout)
+	defer cancel()
 
-	return rpc.Dial(ctx, address, logger, optsCopy...)
+	return rpc.Dial(ctx, address, logger.AsZap(), optsCopy...)
 }
 
 // InferSignalingServerAddress returns the appropriate WebRTC signaling server address

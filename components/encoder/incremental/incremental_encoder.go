@@ -7,12 +7,12 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -30,9 +30,6 @@ func init() {
 // Encoder keeps track of a motor position using a rotary incremental encoder.
 type Encoder struct {
 	resource.Named
-
-	positionType encoder.PositionType
-
 	mu   sync.Mutex
 	A, B board.DigitalInterrupt
 	// The position is pRaw with the least significant bit chopped off.
@@ -48,11 +45,12 @@ type Encoder struct {
 	encAName  string
 	encBName  string
 
-	logger golog.Logger
+	logger logging.Logger
 
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
+	positionType            encoder.PositionType
 }
 
 // Pins describes the configuration of Pins for a quadrature encoder.
@@ -91,7 +89,7 @@ func NewIncrementalEncoder(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (encoder.Encoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	e := &Encoder{
@@ -324,7 +322,10 @@ func (e *Encoder) RawPosition() int64 {
 
 // Close shuts down the Encoder.
 func (e *Encoder) Close(ctx context.Context) error {
+	e.logger.Info("closing encoder")
 	e.cancelFunc()
+	e.logger.Info("cancelled context")
 	e.activeBackgroundWorkers.Wait()
+	e.logger.Info("background workers done")
 	return nil
 }

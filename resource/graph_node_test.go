@@ -88,7 +88,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "pending removal")
 
 	ourErr := errors.New("whoops")
-	node.SetLastError(ourErr)
+	node.LogAndSetLastError(ourErr)
 	_, err = node.Resource()
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "pending removal")
@@ -106,7 +106,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldEqual, ourRes)
 
-	// now it needs udpate
+	// now it needs update
 	node.SetNeedsUpdate()
 	res, err = node.Resource()
 	test.That(t, err, test.ShouldBeNil)
@@ -114,7 +114,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, node.MarkedForRemoval(), test.ShouldBeFalse)
 
 	// but an error happened
-	node.SetLastError(ourErr)
+	node.LogAndSetLastError(ourErr)
 	_, err = node.Resource()
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, ourErr.Error())
@@ -123,7 +123,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, res, test.ShouldEqual, ourRes)
 	test.That(t, node.IsUninitialized(), test.ShouldBeFalse)
 
-	// it finally reconfigured
+	// it reconfigured
 	ourRes2 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("foo"))}
 	node.SwapResource(ourRes2, resource.DefaultModelFamily.WithModel("baz"))
 	test.That(t, node.ResourceModel(), test.ShouldResemble, resource.DefaultModelFamily.WithModel("baz"))
@@ -151,7 +151,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, node.UnresolvedDependencies(), test.ShouldResemble, []string{"3", "4", "5"})
 
 	// but an error happened
-	node.SetLastError(ourErr)
+	node.LogAndSetLastError(ourErr)
 	_, err = node.Resource()
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, ourErr.Error())
@@ -159,7 +159,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldEqual, ourRes2)
 
-	// it finally reconfigured
+	// it reconfigured
 	ourRes3 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("fooa"))}
 	node.SwapResource(ourRes3, resource.DefaultModelFamily.WithModel("bazz"))
 	test.That(t, node.ResourceModel(), test.ShouldResemble, resource.DefaultModelFamily.WithModel("bazz"))

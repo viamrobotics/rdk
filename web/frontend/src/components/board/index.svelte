@@ -23,6 +23,10 @@ let setLevel = '';
 let pwm = '';
 let pwmFrequency = '';
 let getPinMessage = '';
+let writeAnalogPin = '';
+let analogPinName = '';
+let analogValue = '';
+let readAnalogMessage = '';
 
 const getGPIO = async () => {
   try {
@@ -75,20 +79,49 @@ const setPWMFrequency = async () => {
   }
 };
 
-const handleGetPinInput = (event: CustomEvent) => {
+const writeAnalog = async () => {
+  try {
+    await boardClient.writeAnalog(writeAnalogPin, Number.parseInt(analogValue, 10));
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
+};
+
+const readAnalog = async () => {
+  try {
+    const value = await boardClient.readAnalogReader(analogPinName);
+    readAnalogMessage = `${analogPinName}: value is ${value}`;
+  } catch (error) {
+    notify.danger((error as ServiceError).message);
+  }
+};
+
+const handleGetPinInput = (event: CustomEvent<{ value: string}>) => {
   getPin = event.detail.value;
 };
 
-const handleSetPinInput = (event: CustomEvent) => {
+const handleSetPinInput = (event: CustomEvent<{ value: string}>) => {
   setPin = event.detail.value;
 };
 
-const handlePwmInput = (event: CustomEvent) => {
+const handlePwmInput = (event: CustomEvent<{ value: string}>) => {
   pwm = event.detail.value;
 };
 
-const handlePwmFrequencyInput = (event: CustomEvent) => {
+const handlePwmFrequencyInput = (event: CustomEvent<{ value: string}>) => {
   pwmFrequency = event.detail.value;
+};
+
+const handleWriteAnalogPinInput = (event:CustomEvent<{ value: string}>) => {
+  writeAnalogPin = event.detail.value;
+};
+
+const handleWriteAnalogValueInput = (event:CustomEvent<{ value: string}>) => {
+  analogValue = event.detail.value;
+};
+
+const handleReadAnalogPinInput = (event:CustomEvent<{ value: string}>) => {
+  analogPinName = event.detail.value;
 };
 
 </script>
@@ -143,7 +176,7 @@ const handlePwmFrequencyInput = (event: CustomEvent) => {
           <div class="flex flex-wrap items-end gap-2">
             <v-input
               label="Pin"
-              type="integer"
+              type="text"
               value={getPin}
               on:input={handleGetPinInput}
             />
@@ -165,7 +198,6 @@ const handlePwmFrequencyInput = (event: CustomEvent) => {
           </div>
         </td>
       </tr>
-
       <tr>
         <th class="border border-medium p-2">
           Set
@@ -174,7 +206,7 @@ const handlePwmFrequencyInput = (event: CustomEvent) => {
           <div class="flex flex-wrap items-end gap-2">
             <v-input
               value={setPin}
-              type="integer"
+              type="text"
               class="mr-2"
               label="Pin"
               on:input={handleSetPinInput}
@@ -219,5 +251,61 @@ const handlePwmFrequencyInput = (event: CustomEvent) => {
         </td>
       </tr>
     </table>
-  </div>
+
+    <h3 class="mb-2">
+      Analogs
+     </h3>
+     <table class="mb-4 w-full table-auto border border-medium">
+      <tr>
+        <th class="border border-medium p-2">
+          Get
+        </th>
+        <td class="p-2">
+          <div class="flex flex-wrap items-end gap-2">
+               <v-input
+                 label="Pin"
+                 type="text"
+                 value={analogPinName}
+                 on:input={handleReadAnalogPinInput}
+               />
+             <v-button
+             class="mr-2"
+             label="Get Analog Value"
+             on:click={readAnalog}
+           />
+           <span class="py-2">
+            {readAnalogMessage}
+            </span>
+          </div>
+        </td>
+      </tr>
+      <tr>
+     <th class="border border-medium p-2">
+          Set
+        </th>
+       <td class="border border-medium p-2">
+       <div class="flex flex-wrap items-end gap-2">
+         <v-input
+           label="Pin"
+           type="text"
+           value={writeAnalogPin}
+           on:input={handleWriteAnalogPinInput}
+         />
+         <v-input
+         label="Value"
+         type="text"
+         value={analogValue}
+         on:input={handleWriteAnalogValueInput}
+       />
+       <v-button
+       class="mr-2"
+       label="Set Analog Value"
+       on:click={writeAnalog}
+      />
+        </div>
+      </td>
+    </tr>
+  </table>
+</div>
+
 </Collapse>

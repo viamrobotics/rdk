@@ -7,14 +7,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/encoder/fake"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )
@@ -50,7 +49,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	}
 	if cfg.Encoder != "" {
 		if cfg.TicksPerRotation <= 0 {
-			return nil, utils.NewConfigValidationError(path, errors.New("need nonzero TicksPerRotation for encoded motor"))
+			return nil, resource.NewConfigValidationError(path, errors.New("need nonzero TicksPerRotation for encoded motor"))
 		}
 		deps = append(deps, cfg.Encoder)
 	}
@@ -63,7 +62,7 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (motor.Motor, error) {
 			m := &Motor{
 				Named:  conf.ResourceName().AsNamed(),
@@ -95,7 +94,7 @@ type Motor struct {
 	TicksPerRotation  int
 
 	OpMgr  *operation.SingleOperationManager
-	Logger golog.Logger
+	Logger logging.Logger
 }
 
 // Reconfigure atomically reconfigures this motor in place based on the new config.
@@ -372,7 +371,7 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 		return errors.New("need nonzero TicksPerRotation for motor")
 	}
 
-	err := m.Encoder.ResetPosition(ctx, extra)
+	err := m.Encoder.SetPosition(ctx, int64(-1*offset))
 	if err != nil {
 		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.Name())
 	}

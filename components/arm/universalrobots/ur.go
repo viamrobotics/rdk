@@ -17,18 +17,19 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Model is the name of the UR5e model of an arm component.
@@ -36,7 +37,7 @@ var Model = resource.DefaultModelFamily.WithModel("ur5e")
 
 // Config is used for converting config attributes.
 type Config struct {
-	Speed               float64 `json:"speed_degs_per_sec"`
+	SpeedDegsPerSec     float64 `json:"speed_degs_per_sec"`
 	Host                string  `json:"host"`
 	ArmHostedKinematics bool    `json:"arm_hosted_kinematics,omitempty"`
 }
@@ -44,10 +45,10 @@ type Config struct {
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.Host == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "host")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "host")
 	}
-	if cfg.Speed > 1 || cfg.Speed < .1 {
-		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
+	if cfg.SpeedDegsPerSec > 180 || cfg.SpeedDegsPerSec < 3 {
+		return nil, errors.New("speed for universalrobots has to be between 3 and 180 degrees per second")
 	}
 	return []string{}, nil
 }
@@ -57,7 +58,9 @@ var ur5modeljson []byte
 
 func init() {
 	resource.RegisterComponent(arm.API, Model, resource.Registration[arm.Arm, *Config]{
-		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
+		Constructor: func(
+			ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
+		) (arm.Arm, error) {
 			return URArmConnect(ctx, conf, logger)
 		},
 	})
@@ -76,7 +79,7 @@ type URArm struct {
 	connControl             net.Conn
 	debug                   bool
 	haveData                bool
-	logger                  golog.Logger
+	logger                  logging.Logger
 	cancel                  func()
 	activeBackgroundWorkers sync.WaitGroup
 	model                   referenceframe.Model
@@ -86,7 +89,7 @@ type URArm struct {
 	state                    RobotState
 	runtimeError             error
 	inRemoteMode             bool
-	speed                    float64
+	speedRadPerSec           float64
 	urHostedKinematics       bool
 	dashboardConnection      net.Conn
 	readRobotStateConnection net.Conn
@@ -115,7 +118,7 @@ func (ua *URArm) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 		}
 		return nil
 	}
-	ua.speed = newConf.Speed
+	ua.speedRadPerSec = rdkutils.DegToRad(newConf.SpeedDegsPerSec)
 	ua.urHostedKinematics = newConf.ArmHostedKinematics
 	return nil
 }
@@ -156,17 +159,13 @@ func (ua *URArm) Close(ctx context.Context) error {
 }
 
 // URArmConnect TODO.
-func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
+func URArmConnect(ctx context.Context, conf resource.Config, logger logging.Logger) (arm.Arm, error) {
 	// this is to speed up component build failure if the UR arm is not reachable
 	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
 	defer cancel()
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
-	}
-
-	if newConf.Speed > 1 || newConf.Speed < .1 {
-		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
 	}
 
 	model, err := MakeModelFrame(conf.Name)
@@ -188,7 +187,7 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 	newArm := &URArm{
 		Named:                    conf.ResourceName().AsNamed(),
 		connControl:              nil,
-		speed:                    newConf.Speed,
+		speedRadPerSec:           rdkutils.DegToRad(newConf.SpeedDegsPerSec),
 		debug:                    false,
 		haveData:                 false,
 		logger:                   logger,
@@ -208,7 +207,8 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 		for {
 			readerWriter := bufio.NewReadWriter(bufio.NewReader(newArm.dashboardConnection), bufio.NewWriter(newArm.dashboardConnection))
 			err := dashboardReader(cancelCtx, *readerWriter, newArm)
-			if err != nil && (errors.Is(err, syscall.ECONNRESET) || errors.Is(err, io.ErrClosedPipe) || os.IsTimeout(err)) {
+			if err != nil &&
+				(errors.Is(err, syscall.ECONNRESET) || errors.Is(err, io.ErrClosedPipe) || os.IsTimeout(err) || errors.Is(err, io.EOF)) {
 				newArm.mu.Lock()
 				newArm.inRemoteMode = false
 				newArm.mu.Unlock()
@@ -254,7 +254,8 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 					close(onData)
 				})
 			})
-			if err != nil && (errors.Is(err, syscall.ECONNRESET) || errors.Is(err, io.ErrClosedPipe) || os.IsTimeout(err)) {
+			if err != nil &&
+				(errors.Is(err, syscall.ECONNRESET) || errors.Is(err, io.ErrClosedPipe) || os.IsTimeout(err) || errors.Is(err, io.EOF)) {
 				for {
 					if err := cancelCtx.Err(); err != nil {
 						return
@@ -387,7 +388,7 @@ func (ua *URArm) Stop(ctx context.Context, extra map[string]interface{}) error {
 	}
 	_, done := ua.opMgr.New(ctx)
 	defer done()
-	cmd := fmt.Sprintf("stopj(a=%1.2f)\r\n", 5.0*ua.speed)
+	cmd := fmt.Sprintf("stopj(a=%1.2f)\r\n", 5.0*ua.speedRadPerSec)
 
 	_, err := ua.connControl.Write([]byte(cmd))
 	return err
@@ -420,8 +421,8 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 		radians[3],
 		radians[4],
 		radians[5],
-		5.0*ua.speed,
-		4.0*ua.speed,
+		0.8*ua.speedRadPerSec,
+		ua.speedRadPerSec,
 	)
 
 	_, err := ua.connControl.Write([]byte(cmd))

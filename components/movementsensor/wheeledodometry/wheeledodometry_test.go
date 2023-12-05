@@ -9,12 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -39,6 +38,8 @@ var position = positions{
 	leftPos:  0.0,
 	rightPos: 0.0,
 }
+
+var relativePos = map[string]interface{}{returnRelative: true}
 
 func createFakeMotor(dir bool) motor.Motor {
 	return &inject.Motor{
@@ -94,7 +95,7 @@ func setPositions(left, right float64) {
 
 func TestNewWheeledOdometry(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	deps := make(resource.Dependencies)
 	deps[base.Named(baseName)] = createFakeBase(0.1, 0.1, 0.1)
@@ -118,7 +119,7 @@ func TestNewWheeledOdometry(t *testing.T) {
 
 func TestReconfigure(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	deps := make(resource.Dependencies)
 	deps[base.Named(baseName)] = createFakeBase(0.1, 0.1, 0)
@@ -191,7 +192,7 @@ func TestValidateConfig(t *testing.T) {
 	}
 
 	deps, err := cfg.Validate("path")
-	expectedErr := utils.NewConfigValidationFieldRequiredError("path", "base")
+	expectedErr := resource.NewConfigValidationFieldRequiredError("path", "base")
 	test.That(t, err, test.ShouldBeError, expectedErr)
 	test.That(t, deps, test.ShouldBeEmpty)
 
@@ -203,7 +204,7 @@ func TestValidateConfig(t *testing.T) {
 	}
 
 	deps, err = cfg.Validate("path")
-	expectedErr = utils.NewConfigValidationFieldRequiredError("path", "left motors")
+	expectedErr = resource.NewConfigValidationFieldRequiredError("path", "left motors")
 	test.That(t, err, test.ShouldBeError, expectedErr)
 	test.That(t, deps, test.ShouldBeEmpty)
 
@@ -215,7 +216,7 @@ func TestValidateConfig(t *testing.T) {
 	}
 
 	deps, err = cfg.Validate("path")
-	expectedErr = utils.NewConfigValidationFieldRequiredError("path", "right motors")
+	expectedErr = resource.NewConfigValidationFieldRequiredError("path", "right motors")
 	test.That(t, err, test.ShouldBeError, expectedErr)
 	test.That(t, deps, test.ShouldBeEmpty)
 
@@ -317,7 +318,7 @@ func TestMoveStraight(t *testing.T) {
 	setPositions(5, 5)
 	time.Sleep(time.Duration(od.timeIntervalMSecs*1.15) * time.Millisecond)
 
-	pos, _, err := od.Position(ctx, nil)
+	pos, _, err := od.Position(ctx, relativePos)
 	or, _ := od.Orientation(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, or.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 0, 0.1)
@@ -328,7 +329,7 @@ func TestMoveStraight(t *testing.T) {
 	setPositions(-10, -10)
 	time.Sleep(time.Duration(od.timeIntervalMSecs*1.15) * time.Millisecond)
 
-	pos, _, err = od.Position(ctx, nil)
+	pos, _, err = od.Position(ctx, relativePos)
 	or, _ = od.Orientation(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, or.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 0, 0.1)
@@ -357,7 +358,7 @@ func TestComplicatedPath(t *testing.T) {
 	setPositions(5, 5)
 	time.Sleep(time.Duration(od.timeIntervalMSecs*1.15) * time.Millisecond)
 
-	pos, _, err := od.Position(ctx, nil)
+	pos, _, err := od.Position(ctx, relativePos)
 	test.That(t, err, test.ShouldBeNil)
 	or, _ := od.Orientation(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -369,7 +370,7 @@ func TestComplicatedPath(t *testing.T) {
 	setPositions(1*(math.Pi/4), -1*(math.Pi/4))
 	time.Sleep(time.Duration(od.timeIntervalMSecs*1.15) * time.Millisecond)
 
-	pos, _, err = od.Position(ctx, nil)
+	pos, _, err = od.Position(ctx, relativePos)
 	test.That(t, err, test.ShouldBeNil)
 	or, err = od.Orientation(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -381,7 +382,7 @@ func TestComplicatedPath(t *testing.T) {
 	setPositions(5, 5)
 	time.Sleep(time.Duration(od.timeIntervalMSecs*1.15) * time.Millisecond)
 
-	pos, _, err = od.Position(ctx, nil)
+	pos, _, err = od.Position(ctx, relativePos)
 	test.That(t, err, test.ShouldBeNil)
 	or, err = od.Orientation(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -393,7 +394,7 @@ func TestComplicatedPath(t *testing.T) {
 	setPositions(-1*(math.Pi/8), 1*(math.Pi/8))
 	time.Sleep(time.Duration(od.timeIntervalMSecs*1.15) * time.Millisecond)
 
-	pos, _, err = od.Position(ctx, nil)
+	pos, _, err = od.Position(ctx, relativePos)
 	test.That(t, err, test.ShouldBeNil)
 	or, err = od.Orientation(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -405,7 +406,7 @@ func TestComplicatedPath(t *testing.T) {
 	setPositions(2, 2)
 	time.Sleep(time.Duration(od.timeIntervalMSecs*1.15) * time.Millisecond)
 
-	pos, _, err = od.Position(ctx, nil)
+	pos, _, err = od.Position(ctx, relativePos)
 	test.That(t, err, test.ShouldBeNil)
 	or, err = od.Orientation(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -417,7 +418,7 @@ func TestComplicatedPath(t *testing.T) {
 	setPositions(1*(math.Pi/4), 2*(math.Pi/4))
 	time.Sleep(time.Duration(od.timeIntervalMSecs*1.15) * time.Millisecond)
 
-	pos, _, err = od.Position(ctx, nil)
+	pos, _, err = od.Position(ctx, relativePos)
 	test.That(t, err, test.ShouldBeNil)
 	or, err = od.Orientation(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)

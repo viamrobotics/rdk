@@ -1,11 +1,11 @@
-//go:build linux || darwin
+//go:build (linux || darwin) && !no_cgo && (!(arm64 && linux) || android)
 
 package server
 
 import (
-	"github.com/viamrobotics/gostream"
-	"github.com/viamrobotics/gostream/codec/opus"
-	"github.com/viamrobotics/gostream/codec/x264"
+	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/gostream/codec/opus"
+	"go.viam.com/rdk/gostream/codec/x264"
 )
 
 func makeStreamConfig() gostream.StreamConfig {

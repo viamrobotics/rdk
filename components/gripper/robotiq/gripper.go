@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/gripper"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -31,14 +31,16 @@ type Config struct {
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.Host == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "host")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "host")
 	}
 	return nil, nil
 }
 
 func init() {
 	resource.RegisterComponent(gripper.API, model, resource.Registration[gripper.Gripper, *Config]{
-		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (gripper.Gripper, error) {
+		Constructor: func(
+			ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
+		) (gripper.Gripper, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err
@@ -57,13 +59,13 @@ type robotiqGripper struct {
 
 	openLimit  string
 	closeLimit string
-	logger     golog.Logger
+	logger     logging.Logger
 	opMgr      *operation.SingleOperationManager
 	geometries []spatialmath.Geometry
 }
 
 // newGripper instantiates a new Gripper of robotiqGripper type.
-func newGripper(ctx context.Context, conf resource.Config, host string, logger golog.Logger) (gripper.Gripper, error) {
+func newGripper(ctx context.Context, conf resource.Config, host string, logger logging.Logger) (gripper.Gripper, error) {
 	conn, err := net.Dial("tcp", host+":63352")
 	if err != nil {
 		return nil, err

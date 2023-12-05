@@ -1,3 +1,5 @@
+//go:build !no_cgo
+
 package tpspace
 
 import (
@@ -5,10 +7,10 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/edaniels/golog"
-
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 const (
@@ -18,25 +20,26 @@ const (
 )
 
 type ptgIK struct {
-	PrecomputePTG
+	PTG
 	refDist         float64
 	ptgFrame        referenceframe.Frame
 	fastGradDescent *ik.NloptIK
 
-	gridSim PTG
+	gridSim PTGSolver
 
-	mu        sync.RWMutex
-	trajCache map[float64][]*TrajNode
+	mu          sync.RWMutex
+	trajCache   map[float64][]*TrajNode
+	defaultSeed []referenceframe.Input
 }
 
-// NewPTGIK creates a new ptgIK, which creates a frame using the provided PrecomputePTG, and wraps it providing functions to fill the PTG
+// NewPTGIK creates a new ptgIK, which creates a frame using the provided PTG, and wraps it providing functions to fill the PTG
 // interface, allowing inverse kinematics queries to be run against it.
-func NewPTGIK(simPTG PrecomputePTG, logger golog.Logger, refDist float64, randSeed int) (PTG, error) {
+func NewPTGIK(simPTG PTG, logger logging.Logger, refDist float64, randSeed, trajCount int) (PTGSolver, error) {
 	if refDist <= 0 {
 		return nil, errors.New("refDist must be greater than zero")
 	}
 
-	ptgFrame := newPTGIKFrame(simPTG, refDist)
+	ptgFrame := newPTGIKFrame(simPTG, trajCount, refDist)
 
 	nlopt, err := ik.CreateNloptIKSolver(ptgFrame, logger, 1, false)
 	if err != nil {
@@ -49,13 +52,22 @@ func NewPTGIK(simPTG PrecomputePTG, logger golog.Logger, refDist float64, randSe
 		return nil, err
 	}
 
+	inputs := []referenceframe.Input{}
+	for i := 0; i < trajCount; i++ {
+		inputs = append(inputs,
+			referenceframe.Input{0},
+			referenceframe.Input{refDist / 10},
+		)
+	}
+
 	ptg := &ptgIK{
-		PrecomputePTG:   simPTG,
+		PTG:             simPTG,
 		refDist:         refDist,
 		ptgFrame:        ptgFrame,
 		fastGradDescent: nlopt,
 		gridSim:         gridSim,
 		trajCache:       map[float64][]*TrajNode{},
+		defaultSeed:     inputs,
 	}
 
 	return ptg, nil
@@ -71,6 +83,10 @@ func (ptg *ptgIK) Solve(
 	internalSolutionGen := make(chan *ik.Solution, 1)
 	defer close(internalSolutionGen)
 	var solved *ik.Solution
+
+	if seed == nil {
+		seed = ptg.defaultSeed
+	}
 
 	// Spawn the IK solver to generate a solution
 	err := ptg.fastGradDescent.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
@@ -112,38 +128,48 @@ func (ptg *ptgIK) MaxDistance() float64 {
 }
 
 func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
+	traj := []*TrajNode{}
 	ptg.mu.RLock()
 	precomp := ptg.trajCache[alpha]
 	ptg.mu.RUnlock()
-	if precomp != nil {
-		if precomp[len(precomp)-1].Dist >= dist {
-			// Caching here provides a ~33% speedup to a solve call
-			subTraj := []*TrajNode{}
-			for _, wp := range precomp {
-				if wp.Dist < dist {
-					subTraj = append(subTraj, wp)
-				} else {
-					break
+	if precomp != nil && precomp[len(precomp)-1].Dist >= dist {
+		exact := false
+		for _, wp := range precomp {
+			if wp.Dist <= dist {
+				if wp.Dist == dist {
+					exact = true
 				}
+				traj = append(traj, wp)
+			} else {
+				break
 			}
+		}
+		if !exact {
 			time := 0.
-			if len(subTraj) > 0 {
-				time = subTraj[len(subTraj)-1].Time
+			if len(traj) > 0 {
+				time = traj[len(traj)-1].Time
 			}
 			lastNode, err := computePTGNode(ptg, alpha, dist, time)
 			if err != nil {
 				return nil, err
 			}
-			subTraj = append(subTraj, lastNode)
-			return subTraj, nil
+			traj = append(traj, lastNode)
 		}
+	} else {
+		var err error
+		traj, err = ComputePTG(ptg, alpha, dist, defaultResolutionSeconds)
+		if err != nil {
+			return nil, err
+		}
+		ptg.mu.Lock()
+		// Caching here provides a ~33% speedup to a solve call
+		ptg.trajCache[alpha] = traj
+		ptg.mu.Unlock()
 	}
-	traj, err := ComputePTG(ptg, alpha, dist, defaultResolutionSeconds)
-	if err != nil {
-		return nil, err
-	}
-	ptg.mu.Lock()
-	ptg.trajCache[alpha] = traj
-	ptg.mu.Unlock()
+
 	return traj, nil
+}
+
+func (ptg *ptgIK) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
+	return ptg.ptgFrame.Transform(inputs)
 }

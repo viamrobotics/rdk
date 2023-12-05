@@ -30,7 +30,7 @@ func init() {
 // the struct that will decode that map[string]interface{} correctly.
 type Service interface {
 	resource.Resource
-	Infer(ctx context.Context, tensors ml.Tensors, input map[string]interface{}) (ml.Tensors, map[string]interface{}, error)
+	Infer(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error)
 	Metadata(ctx context.Context) (MLMetadata, error)
 }
 

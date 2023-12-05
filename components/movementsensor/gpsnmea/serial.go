@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/adrianmo/go-nmea"
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
@@ -18,6 +17,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -31,7 +31,7 @@ type SerialNMEAMovementSensor struct {
 	mu                      sync.RWMutex
 	cancelCtx               context.Context
 	cancelFunc              func()
-	logger                  golog.Logger
+	logger                  logging.Logger
 	data                    GPSData
 	activeBackgroundWorkers sync.WaitGroup
 
@@ -49,7 +49,7 @@ type SerialNMEAMovementSensor struct {
 }
 
 // NewSerialGPSNMEA gps that communicates over serial.
-func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, logger golog.Logger) (NmeaMovementSensor, error) {
+func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (NmeaMovementSensor, error) {
 	serialPath := conf.SerialConfig.SerialPath
 	if serialPath == "" {
 		return nil, fmt.Errorf("SerialNMEAMovementSensor expected non-empty string for %q", conf.SerialConfig.SerialPath)
@@ -183,9 +183,15 @@ func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context, extra map[strin
 func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
+
+	if math.IsNaN(g.data.CompassHeading) {
+		return r3.Vector{}, g.err.Get()
+	}
+
 	headingInRadians := g.data.CompassHeading * (math.Pi / 180)
 	xVelocity := g.data.Speed * math.Sin(headingInRadians)
 	yVelocity := g.data.Speed * math.Cos(headingInRadians)
+
 	return r3.Vector{X: xVelocity, Y: yVelocity, Z: 0}, g.err.Get()
 }
 
@@ -235,9 +241,16 @@ func (g *SerialNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	return g.data.FixQuality, nil
 }
 
+// ReadSatsInView returns the number of satellites in view.
+func (g *SerialNMEAMovementSensor) ReadSatsInView(ctx context.Context) (int, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.data.SatsInView, nil
+}
+
 // Readings will use return all of the MovementSensor Readings.
 func (g *SerialNMEAMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := movementsensor.Readings(ctx, g, extra)
+	readings, err := movementsensor.DefaultAPIReadings(ctx, g, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -246,8 +259,12 @@ func (g *SerialNMEAMovementSensor) Readings(ctx context.Context, extra map[strin
 	if err != nil {
 		return nil, err
 	}
-
+	satsInView, err := g.ReadSatsInView(ctx)
+	if err != nil {
+		return nil, err
+	}
 	readings["fix"] = fix
+	readings["satellites_in_view"] = satsInView
 
 	return readings, nil
 }

@@ -1,0 +1,69 @@
+name: Build for Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      release_type:
+        required: true
+        type: string
+    secrets:
+      GCP_CREDENTIALS:
+        required: true
+
+env:
+  NDK_ZIP: android-ndk-r26-linux.zip
+  TARGET: bin/viam-server-${{ inputs.release_type }}-android-aarch64
+
+jobs:
+  droid-build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+
+    - uses: actions/checkout@v3
+      if: github.event_name == 'pull_request_target'
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+
+    - uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - id: cache-ndk
+      uses: actions/cache@v3
+      with:
+        path: ${{ env.NDK_ZIP }}
+        key: ${{ env.NDK_ZIP }}
+    - name: download ndk
+      if: steps.cache-ndk.outputs.cache-hit != 'true'
+      run: wget https://dl.google.com/android/repository/${{ env.NDK_ZIP }}
+    - name: unzip ndk
+      run: unzip -d etc ${{ env.NDK_ZIP }}
+
+    - name: build
+      env:
+        BUILD_CHANNEL: ${{ inputs.release_type }}
+      run: make server-android
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: viam-server-android
+        path: ${{ env.TARGET }}
+
+    - name: Authorize GCP Upload
+      uses: google-github-actions/auth@v1.1.1
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - if: inputs.release_type == 'stable' || inputs.release_type == 'latest'
+      uses: google-github-actions/upload-cloud-storage@v0.10.4
+      with:
+        headers: "cache-control: no-cache"
+        path: ${{ env.TARGET }}
+        destination: 'packages.viam.com/apps/viam-server/'

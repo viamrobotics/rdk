@@ -5,9 +5,10 @@ import (
 	"math"
 	"net"
 	"testing"
+	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
@@ -19,6 +20,7 @@ import (
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
 	viamgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
@@ -34,10 +36,10 @@ var (
 
 func TestClient(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMS := &inject.MotionService{}
@@ -51,8 +53,13 @@ func TestClient(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
 
-	go rpcServer.Serve(listener1)
-	defer rpcServer.Stop()
+	go func() {
+		test.That(t, rpcServer.Serve(listener1), test.ShouldBeNil)
+	}()
+
+	defer func() {
+		test.That(t, rpcServer.Stop(), test.ShouldBeNil)
+	}()
 
 	zeroPose := spatialmath.NewZeroPose()
 	zeroPoseInFrame := referenceframe.NewPoseInFrame("", zeroPose)
@@ -116,7 +123,7 @@ func TestClient(t *testing.T) {
 				receivedTransforms[tf.Name()] = tf
 			}
 			return referenceframe.NewPoseInFrame(
-				destinationFrame+componentName.Name, spatialmath.NewPoseFromPoint(r3.Vector{1, 2, 3})), nil
+				destinationFrame+componentName.Name, spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})), nil
 		}
 
 		// Move
@@ -226,6 +233,307 @@ func TestClient(t *testing.T) {
 		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo", nil, map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("MoveOnGlobeNew", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+
+		test.That(t, err, test.ShouldBeNil)
+
+		client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		t.Run("returns error without calling client if params can't be cast to proto", func(t *testing.T) {
+			injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+				t.Log("should not be called")
+				t.FailNow()
+				return "", errors.New("should not be reached")
+			}
+
+			req := motion.MoveOnGlobeReq{
+				ComponentName:      baseName,
+				Heading:            math.NaN(),
+				MovementSensorName: gpsName,
+				MotionCfg:          &motion.MotionConfiguration{},
+			}
+			// nil destination is can't be converted to proto
+			executionID, err := client.MoveOnGlobeNew(ctx, req)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err, test.ShouldBeError, errors.New("must provide a destination"))
+			test.That(t, executionID, test.ShouldEqual, "")
+		})
+
+		t.Run("returns error if client returns error", func(t *testing.T) {
+			errExpected := errors.New("some client error")
+			injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+				return "", errExpected
+			}
+
+			req := motion.MoveOnGlobeReq{
+				ComponentName:      baseName,
+				Destination:        globeDest,
+				Heading:            math.NaN(),
+				MovementSensorName: gpsName,
+				MotionCfg:          &motion.MotionConfiguration{},
+			}
+			executionID, err := client.MoveOnGlobeNew(ctx, req)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
+			test.That(t, executionID, test.ShouldEqual, "")
+		})
+
+		t.Run("otherwise returns success with an executionID", func(t *testing.T) {
+			expectedExecutionID := "some execution id"
+			injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+				return expectedExecutionID, nil
+			}
+
+			req := motion.MoveOnGlobeReq{
+				ComponentName:      baseName,
+				Destination:        globeDest,
+				Heading:            math.NaN(),
+				MovementSensorName: gpsName,
+				MotionCfg:          &motion.MotionConfiguration{},
+			}
+			executionID, err := client.MoveOnGlobeNew(ctx, req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, executionID, test.ShouldEqual, expectedExecutionID)
+		})
+
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("StopPlan", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+
+		test.That(t, err, test.ShouldBeNil)
+
+		client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		t.Run("returns error if client returns error", func(t *testing.T) {
+			errExpected := errors.New("some client error")
+			injectMS.StopPlanFunc = func(
+				ctx context.Context,
+				req motion.StopPlanReq,
+			) error {
+				return errExpected
+			}
+
+			req := motion.StopPlanReq{ComponentName: base.Named("mybase")}
+			err := client.StopPlan(ctx, req)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
+		})
+
+		t.Run("otherwise returns nil", func(t *testing.T) {
+			injectMS.StopPlanFunc = func(
+				ctx context.Context,
+				req motion.StopPlanReq,
+			) error {
+				return nil
+			}
+
+			req := motion.StopPlanReq{ComponentName: base.Named("mybase")}
+			err := client.StopPlan(ctx, req)
+			test.That(t, err, test.ShouldBeNil)
+		})
+
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("ListPlanStatuses", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		t.Run("returns error if client returns error", func(t *testing.T) {
+			errExpected := errors.New("some client error")
+			injectMS.ListPlanStatusesFunc = func(
+				ctx context.Context,
+				req motion.ListPlanStatusesReq,
+			) ([]motion.PlanStatusWithID, error) {
+				return nil, errExpected
+			}
+			req := motion.ListPlanStatusesReq{}
+			resp, err := client.ListPlanStatuses(ctx, req)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
+			test.That(t, resp, test.ShouldBeEmpty)
+		})
+
+		t.Run("otherwise returns a slice of PlanStautsWithID", func(t *testing.T) {
+			planID := uuid.New()
+
+			executionID := uuid.New()
+
+			status := motion.PlanStatus{State: motion.PlanStateInProgress, Timestamp: time.Now().UTC(), Reason: nil}
+
+			expectedResp := []motion.PlanStatusWithID{
+				{PlanID: planID, ComponentName: base.Named("mybase"), ExecutionID: executionID, Status: status},
+			}
+
+			injectMS.ListPlanStatusesFunc = func(
+				ctx context.Context,
+				req motion.ListPlanStatusesReq,
+			) ([]motion.PlanStatusWithID, error) {
+				return expectedResp, nil
+			}
+
+			req := motion.ListPlanStatusesReq{}
+			resp, err := client.ListPlanStatuses(ctx, req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, resp, test.ShouldResemble, expectedResp)
+		})
+
+		t.Run("supports returning multiple PlanStautsWithID", func(t *testing.T) {
+			planIDA := uuid.New()
+
+			executionIDA := uuid.New()
+			test.That(t, err, test.ShouldBeNil)
+
+			statusA := motion.PlanStatus{State: motion.PlanStateInProgress, Timestamp: time.Now().UTC(), Reason: nil}
+
+			planIDB := uuid.New()
+
+			executionIDB := uuid.New()
+
+			reason := "failed reason"
+			statusB := motion.PlanStatus{State: motion.PlanStateInProgress, Timestamp: time.Now().UTC(), Reason: &reason}
+
+			expectedResp := []motion.PlanStatusWithID{
+				{PlanID: planIDA, ComponentName: base.Named("mybase"), ExecutionID: executionIDA, Status: statusA},
+				{PlanID: planIDB, ComponentName: base.Named("mybase"), ExecutionID: executionIDB, Status: statusB},
+			}
+
+			injectMS.ListPlanStatusesFunc = func(
+				ctx context.Context,
+				req motion.ListPlanStatusesReq,
+			) ([]motion.PlanStatusWithID, error) {
+				return expectedResp, nil
+			}
+
+			req := motion.ListPlanStatusesReq{}
+			resp, err := client.ListPlanStatuses(ctx, req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, resp, test.ShouldResemble, expectedResp)
+		})
+
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("PlanHistory", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		t.Run("returns error if client returns error", func(t *testing.T) {
+			errExpected := errors.New("some client error")
+			injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
+				return nil, errExpected
+			}
+
+			req := motion.PlanHistoryReq{ComponentName: base.Named("mybase")}
+			resp, err := client.PlanHistory(ctx, req)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
+			test.That(t, resp, test.ShouldBeEmpty)
+		})
+
+		t.Run("otherwise returns a slice of PlanWithStatus", func(t *testing.T) {
+			steps := []motion.PlanStep{
+				{base.Named("mybase"): zeroPose},
+			}
+			reason := "some reason"
+			id := uuid.New()
+			executionID := uuid.New()
+
+			timeA := time.Now().UTC()
+			timeB := time.Now().UTC()
+
+			plan := motion.Plan{
+				ID:            id,
+				ComponentName: base.Named("mybase"),
+				ExecutionID:   executionID,
+				Steps:         steps,
+			}
+			statusHistory := []motion.PlanStatus{
+				{motion.PlanStateFailed, timeB, &reason},
+				{motion.PlanStateInProgress, timeA, nil},
+			}
+			expectedResp := []motion.PlanWithStatus{{Plan: plan, StatusHistory: statusHistory}}
+			injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
+				return expectedResp, nil
+			}
+
+			req := motion.PlanHistoryReq{ComponentName: base.Named("mybase")}
+			resp, err := client.PlanHistory(ctx, req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, resp, test.ShouldResemble, expectedResp)
+		})
+
+		t.Run("supports returning a slice of PlanWithStatus with more than one plan", func(t *testing.T) {
+			steps := []motion.PlanStep{{base.Named("mybase"): zeroPose}}
+			reason := "some reason"
+
+			idA := uuid.New()
+			test.That(t, err, test.ShouldBeNil)
+
+			executionID := uuid.New()
+			test.That(t, err, test.ShouldBeNil)
+
+			timeAA := time.Now().UTC()
+			timeAB := time.Now().UTC()
+
+			planA := motion.Plan{
+				ID:            idA,
+				ComponentName: base.Named("mybase"),
+				ExecutionID:   executionID,
+				Steps:         steps,
+			}
+			statusHistoryA := []motion.PlanStatus{
+				{motion.PlanStateFailed, timeAB, &reason},
+				{motion.PlanStateInProgress, timeAA, nil},
+			}
+
+			idB := uuid.New()
+			test.That(t, err, test.ShouldBeNil)
+			timeBA := time.Now().UTC()
+			planB := motion.Plan{
+				ID:            idB,
+				ComponentName: base.Named("mybase"),
+				ExecutionID:   executionID,
+				Steps:         steps,
+			}
+
+			statusHistoryB := []motion.PlanStatus{
+				{motion.PlanStateInProgress, timeBA, nil},
+			}
+
+			expectedResp := []motion.PlanWithStatus{
+				{Plan: planB, StatusHistory: statusHistoryB},
+				{Plan: planA, StatusHistory: statusHistoryA},
+			}
+
+			injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
+				return expectedResp, nil
+			}
+
+			req := motion.PlanHistoryReq{ComponentName: base.Named("mybase")}
+			resp, err := client.PlanHistory(ctx, req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, resp, test.ShouldResemble, expectedResp)
+		})
+
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }

@@ -7,12 +7,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	rdkutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -30,14 +30,14 @@ type Config struct {
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if len(conf.Board) == 0 {
-		return nil, rdkutils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	deps = append(deps, conf.Board)
 	if len(conf.TriggerPin) == 0 {
-		return nil, rdkutils.NewConfigValidationFieldRequiredError(path, "trigger pin")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "trigger pin")
 	}
 	if len(conf.EchoInterrupt) == 0 {
-		return nil, rdkutils.NewConfigValidationFieldRequiredError(path, "echo interrupt pin")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "echo interrupt pin")
 	}
 	return deps, nil
 }
@@ -51,7 +51,7 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (sensor.Sensor, error) {
 				newConf, err := resource.NativeConfig[*Config](conf)
 				if err != nil {
@@ -64,7 +64,7 @@ func init() {
 
 // NewSensor creates and configures a new ultrasonic sensor.
 func NewSensor(ctx context.Context, deps resource.Dependencies,
-	name resource.Name, config *Config, logger golog.Logger,
+	name resource.Name, config *Config, logger logging.Logger,
 ) (sensor.Sensor, error) {
 	s := &Sensor{
 		Named:  name.AsNamed(),
@@ -118,7 +118,7 @@ type Sensor struct {
 	timeoutMs  uint
 	cancelCtx  context.Context
 	cancelFunc func()
-	logger     golog.Logger
+	logger     logging.Logger
 }
 
 func (s *Sensor) namedError(err error) error {

@@ -5,8 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/logging"
 )
 
 type sumOperand rune
@@ -21,10 +22,10 @@ type sum struct {
 	cfg       BlockConfig
 	y         []*Signal
 	operation map[string]sumOperand
-	logger    golog.Logger
+	logger    logging.Logger
 }
 
-func newSum(config BlockConfig, logger golog.Logger) (Block, error) {
+func newSum(config BlockConfig, logger logging.Logger) (Block, error) {
 	s := &sum{cfg: config, logger: logger}
 	if err := s.reset(); err != nil {
 		return nil, err
@@ -59,13 +60,13 @@ func (b *sum) reset() error {
 	if !b.cfg.Attribute.Has("sum_string") {
 		return errors.Errorf("sum block %s doesn't have a sum_string", b.cfg.Name)
 	}
-	if len(b.cfg.DependsOn) != len(b.cfg.Attribute.String("sum_string")) {
+	if len(b.cfg.DependsOn) != len(b.cfg.Attribute["sum_string"].(string)) {
 		return errors.Errorf("invalid number of inputs for sum block %s expected %d got %d",
-			b.cfg.Name, len(b.cfg.Attribute.String("sum_string")),
+			b.cfg.Name, len(b.cfg.Attribute["sum_string"].(string)),
 			len(b.cfg.DependsOn))
 	}
 	b.operation = make(map[string]sumOperand)
-	for idx, c := range b.cfg.Attribute.String("sum_string") {
+	for idx, c := range b.cfg.Attribute["sum_string"].(string) {
 		if c != '+' && c != '-' {
 			return errors.Errorf("expected +/- for sum block %s got %c", b.cfg.Name, c)
 		}

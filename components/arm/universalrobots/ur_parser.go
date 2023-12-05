@@ -7,9 +7,9 @@ import (
 	"io"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
@@ -154,7 +154,7 @@ type RobotState struct {
 	creationTime time.Time
 }
 
-func readRobotStateMessage(buf []byte, logger golog.Logger) (RobotState, error) {
+func readRobotStateMessage(buf []byte, logger logging.Logger) (RobotState, error) {
 	state := RobotState{
 		creationTime: time.Now(),
 	}
@@ -235,7 +235,7 @@ func readRobotStateMessage(buf []byte, logger golog.Logger) (RobotState, error) 
 }
 
 // return userErr, error.
-func readURRobotMessage(buf []byte, logger golog.Logger) error {
+func readURRobotMessage(buf []byte, logger logging.Logger) error {
 	ts := binary.BigEndian.Uint64(buf[1:])
 	// messageSource := buf[9]
 	robotMessageType := buf[10]

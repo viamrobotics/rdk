@@ -6,15 +6,15 @@ import (
 	"net"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
-	"github.com/viamrobotics/gostream"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/audioinput"
+	"go.viam.com/rdk/gostream"
 	viamgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -26,10 +26,10 @@ var (
 )
 
 func TestClient(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	audioData := &wave.Float32Interleaved{

@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package bme280 implements a bme280 sensor for temperature, humidity, and pressure.
 // Code based on https://github.com/sparkfun/SparkFun_bme280_Arduino_Library (MIT license)
 // and also https://github.com/rm-hull/bme280 (MIT License)
@@ -11,11 +13,9 @@ import (
 	"math"
 	"time"
 
-	"github.com/edaniels/golog"
-	"go.viam.com/utils"
-
-	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -81,7 +81,9 @@ const (
 
 // Config is used for converting config attributes.
 type Config struct {
-	Board   string `json:"board"`
+	// The I2C bus is almost certainly numeric (e.g., the "7" in /dev/i2c-7), but it is nonetheless
+	// possible for the OS to give its I2C buses a non-numeric identifier, so we store it as a
+	// string.
 	I2CBus  string `json:"i2c_bus"`
 	I2cAddr int    `json:"i2c_addr,omitempty"`
 }
@@ -89,12 +91,8 @@ type Config struct {
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if len(conf.Board) == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
-	}
-	deps = append(deps, conf.Board)
 	if len(conf.I2CBus) == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c bus")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "i2c bus")
 	}
 	return deps, nil
 }
@@ -108,7 +106,7 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (sensor.Sensor, error) {
 				newConf, err := resource.NativeConfig[*Config](conf)
 				if err != nil {
@@ -121,23 +119,17 @@ func init() {
 
 func newSensor(
 	ctx context.Context,
-	deps resource.Dependencies,
+	_ resource.Dependencies,
 	name resource.Name,
 	conf *Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (sensor.Sensor, error) {
-	b, err := board.FromDependencies(deps, conf.Board)
+	i2cbus, err := buses.NewI2cBus(conf.I2CBus)
 	if err != nil {
-		return nil, fmt.Errorf("bme280 init: failed to find board: %w", err)
+		return nil, fmt.Errorf("bme280 init: failed to open i2c bus %s: %w",
+			conf.I2CBus, err)
 	}
-	localB, ok := b.(board.LocalBoard)
-	if !ok {
-		return nil, fmt.Errorf("board %s is not local", conf.Board)
-	}
-	i2cbus, ok := localB.I2CByName(conf.I2CBus)
-	if !ok {
-		return nil, fmt.Errorf("bme280 init: failed to find i2c bus %s", conf.I2CBus)
-	}
+
 	addr := conf.I2cAddr
 	if addr == 0 {
 		addr = defaultI2Caddr
@@ -203,9 +195,9 @@ type bme280 struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
-	logger golog.Logger
+	logger logging.Logger
 
-	bus         board.I2C
+	bus         buses.I2C
 	addr        byte
 	calibration map[string]int
 	lastTemp    float64 // Store raw data from temp for humidity calculations
@@ -436,8 +428,8 @@ func (s *bme280) setOverSample(ctx context.Context, addr, offset, val byte) erro
 	if err != nil {
 		return err
 	}
-	err = s.setMode(ctx, 0b00)
-	if err != nil {
+
+	if err = s.setMode(ctx, 0b00); err != nil {
 		return err
 	}
 
@@ -453,16 +445,19 @@ func (s *bme280) setOverSample(ctx context.Context, addr, offset, val byte) erro
 	controlData &= ^((byte(1) << (offset + 2)) | (byte(1) << (offset + 1)) | (byte(1) << offset))
 	controlData |= (val << offset)
 
-	err = handle.WriteByteData(ctx, addr, controlData)
-	if err != nil {
-		return err
-	}
-	err = s.setMode(ctx, mode)
-	if err != nil {
+	if err = handle.WriteByteData(ctx, addr, controlData); err != nil {
 		return err
 	}
 
-	return handle.Close()
+	if err := handle.Close(); err != nil {
+		return err
+	}
+
+	if err = s.setMode(ctx, mode); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // setupCalibration sets up all calibration data for the chip.

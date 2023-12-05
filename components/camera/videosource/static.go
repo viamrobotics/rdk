@@ -1,13 +1,16 @@
+//go:build !no_cgo
+
 package videosource
 
 import (
 	"context"
 	"image"
+	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -21,19 +24,19 @@ func init() {
 	resource.RegisterComponent(camera.API, fileModel,
 		resource.Registration[camera.Camera, *fileSourceConfig]{
 			Constructor: func(ctx context.Context, _ resource.Dependencies,
-				conf resource.Config, logger golog.Logger,
+				conf resource.Config, logger logging.Logger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*fileSourceConfig](conf)
 				if err != nil {
 					return nil, err
 				}
-				return newCamera(context.Background(), conf.ResourceName(), newConf)
+				return newCamera(context.Background(), conf.ResourceName(), newConf, logger)
 			},
 		})
 }
 
-func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfig) (camera.Camera, error) {
-	videoSrc := &fileSource{newConf.Color, newConf.Depth, newConf.PointCloud, newConf.CameraParameters, nil, nil}
+func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfig, logger logging.Logger) (camera.Camera, error) {
+	videoSrc := &fileSource{newConf.Color, newConf.Depth, newConf.PointCloud, newConf.CameraParameters}
 	imgType := camera.ColorStream
 	if newConf.Color == "" {
 		imgType = camera.DepthStream
@@ -48,7 +51,7 @@ func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfi
 	if err != nil {
 		return nil, err
 	}
-	return camera.FromVideoSource(name, src), nil
+	return camera.FromVideoSource(name, src, logger), nil
 }
 
 // fileSource stores the paths to a color and depth image and a pointcloud.
@@ -57,8 +60,6 @@ type fileSource struct {
 	DepthFN      string
 	PointCloudFN string
 	Intrinsics   *transform.PinholeCameraIntrinsics
-	colorImg     image.Image
-	pc           pointcloud.PointCloud
 }
 
 // fileSourceConfig is the attribute struct for fileSource.
@@ -85,10 +86,6 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 		return img, func() {}, err
 	}
 
-	if fs.colorImg != nil {
-		return fs.colorImg, func() {}, nil
-	}
-
 	img, err := rimage.NewImageFromFile(fs.ColorFN)
 	if err != nil {
 		return nil, nil, err
@@ -108,26 +105,40 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 		if oddHeight {
 			newHeight--
 		}
-		fs.colorImg = img.SubImage(image.Rect(0, 0, newWidth, newHeight))
-	} else {
-		fs.colorImg = img
+		img = img.SubImage(image.Rect(0, 0, newWidth, newHeight))
 	}
+	return img, func() {}, err
+}
 
-	return fs.colorImg, func() {}, err
+// Images returns the saved color and depth image if they are present.
+func (fs *fileSource) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	if fs.ColorFN == "" && fs.DepthFN == "" {
+		return nil, resource.ResponseMetadata{}, errors.New("no image file to read, so not implemented")
+	}
+	imgs := []camera.NamedImage{}
+	if fs.ColorFN != "" {
+		img, err := rimage.NewImageFromFile(fs.ColorFN)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		imgs = append(imgs, camera.NamedImage{img, "color"})
+	}
+	if fs.DepthFN != "" {
+		dm, err := rimage.NewDepthMapFromFile(context.Background(), fs.DepthFN)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		imgs = append(imgs, camera.NamedImage{dm, "depth"})
+	}
+	ts := time.Now()
+	return imgs, resource.ResponseMetadata{CapturedAt: ts}, nil
 }
 
 // NextPointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters,
 // or the pointcloud from file if set.
 func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	if fs.PointCloudFN != "" && fs.pc == nil {
-		newPc, err := pointcloud.NewFromFile(fs.PointCloudFN, nil)
-		if err != nil {
-			return nil, err
-		}
-		fs.pc = newPc
-	}
-	if fs.pc != nil {
-		return fs.pc, nil
+	if fs.PointCloudFN != "" {
+		return pointcloud.NewFromFile(fs.PointCloudFN, nil)
 	}
 	if fs.Intrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
@@ -167,6 +178,22 @@ func (ss *StaticSource) Read(ctx context.Context) (image.Image, func(), error) {
 		return ss.ColorImg, func() {}, nil
 	}
 	return ss.DepthImg, func() {}, nil
+}
+
+// Images returns the saved color and depth image if they are present.
+func (ss *StaticSource) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	if ss.ColorImg == nil && ss.DepthImg == nil {
+		return nil, resource.ResponseMetadata{}, errors.New("no image files stored, so not implemented")
+	}
+	imgs := []camera.NamedImage{}
+	if ss.ColorImg != nil {
+		imgs = append(imgs, camera.NamedImage{ss.ColorImg, "color"})
+	}
+	if ss.DepthImg != nil {
+		imgs = append(imgs, camera.NamedImage{ss.DepthImg, "depth"})
+	}
+	ts := time.Now()
+	return imgs, resource.ResponseMetadata{CapturedAt: ts}, nil
 }
 
 // NextPointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters.

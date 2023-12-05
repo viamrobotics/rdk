@@ -2,32 +2,28 @@
 package builtin
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"math"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
 
-	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/base/fake"
-	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/internal"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/motion/builtin/state"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -36,16 +32,19 @@ func init() {
 		resource.DefaultServiceModel,
 		resource.Registration[motion.Service, *Config]{
 			Constructor: NewBuiltIn,
-			WeakDependencies: []internal.ResourceMatcher{
-				internal.SLAMDependencyWildcardMatcher,
-				internal.ComponentDependencyWildcardMatcher,
+			WeakDependencies: []resource.Matcher{
+				resource.TypeMatcher{Type: resource.APITypeComponentName},
+				resource.SubtypeMatcher{Subtype: slam.SubtypeName},
+				resource.SubtypeMatcher{Subtype: vision.SubtypeName},
 			},
-		})
+		},
+	)
 }
 
 const (
-	builtinOpLabel    = "motion-service"
-	maxTravelDistance = 5e+6 // mm (or 5km)
+	builtinOpLabel              = "motion-service"
+	maxTravelDistanceMM         = 5e6 // this is equivalent to 5km
+	lookAheadDistanceMM float64 = 5e6
 )
 
 // inputEnabledActuator is an actuator that interacts with the frame system.
@@ -60,7 +59,9 @@ type inputEnabledActuator interface {
 var ErrNotImplemented = errors.New("function coming soon but not yet implemented")
 
 // Config describes how to configure the service; currently only used for specifying dependency on framesystem service.
-type Config struct{}
+type Config struct {
+	LogFilePath string `json:"log_file_path"`
+}
 
 // Validate here adds a dependency on the internal framesystem service.
 func (c *Config) Validate(path string) ([]string, error) {
@@ -68,7 +69,9 @@ func (c *Config) Validate(path string) ([]string, error) {
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
-func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (motion.Service, error) {
+func NewBuiltIn(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (motion.Service, error) {
 	ms := &builtIn{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
@@ -85,12 +88,24 @@ func (ms *builtIn) Reconfigure(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-) (err error) {
-	ms.lock.Lock()
-	defer ms.lock.Unlock()
+) error {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
 
+	config, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+	if config.LogFilePath != "" {
+		logger, err := rdkutils.NewFilePathDebugLogger(config.LogFilePath, "motion")
+		if err != nil {
+			return err
+		}
+		ms.logger = logger
+	}
 	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
 	slamServices := make(map[resource.Name]slam.Service)
+	visionServices := make(map[resource.Name]vision.Service)
 	components := make(map[resource.Name]resource.Resource)
 	for name, dep := range deps {
 		switch dep := dep.(type) {
@@ -100,25 +115,42 @@ func (ms *builtIn) Reconfigure(
 			movementSensors[name] = dep
 		case slam.Service:
 			slamServices[name] = dep
+		case vision.Service:
+			visionServices[name] = dep
 		default:
 			components[name] = dep
 		}
 	}
 	ms.movementSensors = movementSensors
 	ms.slamServices = slamServices
+	ms.visionServices = visionServices
 	ms.components = components
+	if ms.state != nil {
+		ms.state.Stop()
+	}
+	ms.state = state.NewState(context.Background(), ms.logger)
 	return nil
 }
 
 type builtIn struct {
 	resource.Named
-	resource.TriviallyCloseable
+	mu              sync.RWMutex
 	fsService       framesystem.Service
 	movementSensors map[resource.Name]movementsensor.MovementSensor
 	slamServices    map[resource.Name]slam.Service
+	visionServices  map[resource.Name]vision.Service
 	components      map[resource.Name]resource.Resource
-	logger          golog.Logger
-	lock            sync.Mutex
+	logger          logging.Logger
+	state           *state.State
+}
+
+func (ms *builtIn) Close(ctx context.Context) error {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	if ms.state != nil {
+		ms.state.Stop()
+	}
+	return nil
 }
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
@@ -130,6 +162,9 @@ func (ms *builtIn) Move(
 	constraints *servicepb.Constraints,
 	extra map[string]interface{},
 ) (bool, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	// get goal frame
@@ -163,7 +198,16 @@ func (ms *builtIn) Move(
 	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	steps, err := motionplan.PlanMotion(ctx, ms.logger, goalPose, movingFrame, fsInputs, frameSys, worldState, constraints, extra)
+	steps, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
+		Logger:             ms.logger,
+		Goal:               goalPose,
+		Frame:              movingFrame,
+		StartConfiguration: fsInputs,
+		FrameSystem:        frameSys,
+		WorldState:         worldState,
+		ConstraintSpecs:    constraints,
+		Options:            extra,
+	})
 	if err != nil {
 		return false, err
 	}
@@ -199,28 +243,78 @@ func (ms *builtIn) MoveOnMap(
 	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
-
 	// make call to motionplan
-	plan, kb, err := ms.planMoveOnMap(ctx, componentName, destination, slamName, kinematicsOptions, extra)
+	mr, err := ms.newMoveOnMapRequest(ctx, motion.MoveOnMapReq{
+		ComponentName: componentName,
+		Destination:   destination,
+		SlamName:      slamName,
+		Extra:         extra,
+	})
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
 
-	// execute the plan
-	for i := 1; i < len(plan); i++ {
-		if inputEnabledKb, ok := kb.(inputEnabledActuator); ok {
-			if err := inputEnabledKb.GoToInputs(ctx, plan[i]); err != nil {
-				// If there is an error on GoToInputs, stop the component if possible before returning the error
-				if stopErr := kb.Stop(ctx, nil); stopErr != nil {
-					return false, errors.Wrap(err, stopErr.Error())
-				}
-				return false, err
-			}
+	planResp, err := mr.Plan(ctx)
+	if err != nil {
+		return false, err
+	}
+	resp, err := mr.Execute(ctx, planResp.Waypoints)
+	// Error
+	if err != nil {
+		return false, err
+	}
+
+	// Didn't reach goal
+	if resp.Replan {
+		ms.logger.Warnf("didn't reach the goal. Reason: %s\n", resp.ReplanReason)
+		return false, nil
+	}
+	// Reached goal
+	return true, nil
+}
+
+type validatedExtra struct {
+	maxReplans       int
+	replanCostFactor float64
+	motionProfile    string
+	extra            map[string]interface{}
+}
+
+func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
+	maxReplans := -1
+	replanCostFactor := defaultReplanCostFactor
+	motionProfile := ""
+	v := validatedExtra{}
+	if extra == nil {
+		return v, nil
+	}
+	if replansRaw, ok := extra["max_replans"]; ok {
+		if replans, ok := replansRaw.(int); ok {
+			maxReplans = replans
 		}
 	}
-	return true, nil
+	if profile, ok := extra["motion_profile"]; ok {
+		motionProfile, ok = profile.(string)
+		if !ok {
+			return v, errors.New("could not interpret motion_profile field as string")
+		}
+	}
+	if costFactorRaw, ok := extra["replan_cost_factor"]; ok {
+		costFactor, ok := costFactorRaw.(float64)
+		if !ok {
+			return validatedExtra{}, errors.New("could not interpret replan_cost_factor field as float")
+		}
+		replanCostFactor = costFactor
+	}
+	return validatedExtra{
+		maxReplans:       maxReplans,
+		motionProfile:    motionProfile,
+		replanCostFactor: replanCostFactor,
+		extra:            extra,
+	}, nil
 }
 
 // MoveOnGlobe will move the given component to the given destination on the globe.
@@ -235,180 +329,82 @@ func (ms *builtIn) MoveOnGlobe(
 	motionCfg *motion.MotionConfiguration,
 	extra map[string]interface{},
 ) (bool, error) {
-	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-
-	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
-
-	if motionCfg.LinearMPerSec != 0 {
-		kinematicsOptions.LinearVelocityMMPerSec = motionCfg.LinearMPerSec * 1000
-	}
-	if motionCfg.AngularDegsPerSec != 0 {
-		kinematicsOptions.AngularVelocityDegsPerSec = motionCfg.AngularDegsPerSec
-	}
-	if motionCfg.PlanDeviationM != 0 {
-		kinematicsOptions.PlanDeviationThresholdMM = motionCfg.PlanDeviationM * 1000
-	}
-	kinematicsOptions.GoalRadiusMM = math.Min(motionCfg.PlanDeviationM*1000, 3000)
-	kinematicsOptions.HeadingThresholdDegrees = 8
-
-	plan, kb, err := ms.planMoveOnGlobe(
-		ctx,
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	t := "MoveOnGlobe called for component: %s, destination: %+v, heading: %f, movementSensor: %s, obstacles: %v, motionCfg: %#v, extra: %s"
+	ms.logger.Debugf(t,
 		componentName,
 		destination,
+		heading,
 		movementSensorName,
 		obstacles,
-		kinematicsOptions,
+		motionCfg,
 		extra,
 	)
-	if err != nil {
-		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
+	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
+	req := motion.MoveOnGlobeReq{
+		ComponentName:      componentName,
+		Destination:        destination,
+		MovementSensorName: movementSensorName,
+		Obstacles:          obstacles,
+		MotionCfg:          motionCfg,
+		Extra:              extra,
 	}
-	// execute the plan
-	for i := 1; i < len(plan); i++ {
-		ms.logger.Info(plan[i])
-		if inputEnabledKb, ok := kb.(inputEnabledActuator); ok {
-			if err := inputEnabledKb.GoToInputs(ctx, plan[i]); err != nil {
-				// If there is an error on GoToInputs, stop the component if possible before returning the error
-				if stopErr := kb.Stop(ctx, nil); stopErr != nil {
-					return false, errors.Wrap(err, stopErr.Error())
-				}
-				return false, err
-			}
+
+	mr, err := ms.newMoveOnGlobeRequest(ctx, req, nil, 0)
+	if err != nil {
+		return false, err
+	}
+	replanCount := 0
+	// start a loop that plans every iteration and exits when something is read from the success channel
+	for {
+		planResp, err := mr.Plan(ctx)
+		if err != nil {
+			return false, err
+		}
+
+		resp, err := mr.Execute(ctx, planResp.Waypoints)
+		// failure
+		if err != nil {
+			return false, err
+		}
+		// success
+		if !resp.Replan {
+			return true, nil
+		}
+
+		// replan
+		ms.logger.Warnf("Replanning triggered: Reason: %s\n", resp.ReplanReason)
+		replanCount++
+		// TODO: RSDK-4509 obstacles should include any transient obstacles which may have triggered a replan, if any.
+		mr, err = ms.newMoveOnGlobeRequest(ctx, req, planResp.Motionplan, replanCount)
+		if err != nil {
+			return false, err
 		}
 	}
-	return true, nil
 }
 
-// planMoveOnGlobe returns the plan for MoveOnGlobe to execute.
-func (ms *builtIn) planMoveOnGlobe(
-	ctx context.Context,
-	componentName resource.Name,
-	destination *geo.Point,
-	movementSensorName resource.Name,
-	obstacles []*spatialmath.GeoObstacle,
-	kinematicsOptions kinematicbase.Options,
-	extra map[string]interface{},
-) ([][]referenceframe.Input, kinematicbase.KinematicBase, error) {
-	// build the localizer from the movement sensor
-	movementSensor, ok := ms.movementSensors[movementSensorName]
-	if !ok {
-		return nil, nil, resource.DependencyNotFoundError(movementSensorName)
+func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	ms.logger.Debugf("MoveOnGlobeNew called with %s", req)
+	// TODO: Deprecated: remove once no motion apis use the opid system
+	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
+	planExecutorConstructor := func(
+		ctx context.Context,
+		req motion.MoveOnGlobeReq,
+		seedPlan motionplan.Plan,
+		replanCount int,
+	) (state.PlanExecutor, error) {
+		return ms.newMoveOnGlobeRequest(ctx, req, seedPlan, replanCount)
 	}
-	origin, _, err := movementSensor.Position(ctx, nil)
+
+	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, planExecutorConstructor)
 	if err != nil {
-		return nil, nil, err
+		return "", err
 	}
 
-	// add an offset between the movement sensor and the base if it is applicable
-	baseOrigin := referenceframe.NewPoseInFrame(componentName.ShortName(), spatialmath.NewZeroPose())
-	movementSensorToBase, err := ms.fsService.TransformPose(ctx, baseOrigin, movementSensorName.ShortName(), nil)
-	if err != nil {
-		movementSensorToBase = baseOrigin
-	}
-	localizer := motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose())
-
-	// convert destination into spatialmath.Pose with respect to where the localizer was initialized
-	goal := spatialmath.GeoPointToPose(destination, origin)
-
-	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
-	geoms := spatialmath.GeoObstaclesToGeometries(obstacles, origin)
-
-	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
-	wrldst, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// construct limits
-	straightlineDistance := goal.Point().Norm()
-	if straightlineDistance > maxTravelDistance {
-		return nil, nil, fmt.Errorf("cannot move more than %d kilometers", int(maxTravelDistance*1e-6))
-	}
-	limits := []referenceframe.Limit{
-		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
-		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
-		{Min: -2 * math.Pi, Max: 2 * math.Pi},
-	}
-
-	if extra != nil {
-		if profile, ok := extra["motion_profile"]; ok {
-			motionProfile, ok := profile.(string)
-			if !ok {
-				return nil, nil, errors.New("could not interpret motion_profile field as string")
-			}
-			if motionProfile == motionplan.PositionOnlyMotionProfile {
-				kinematicsOptions.PositionOnlyMode = true
-			} else {
-				kinematicsOptions.PositionOnlyMode = false
-			}
-		}
-	}
-	ms.logger.Debugf("base limits: %v", limits)
-
-	// create a KinematicBase from the componentName
-	baseComponent, ok := ms.components[componentName]
-	if !ok {
-		return nil, nil, fmt.Errorf("only Base components are supported for MoveOnGlobe: could not find an Base named %v", componentName)
-	}
-	b, ok := baseComponent.(base.Base)
-	if !ok {
-		return nil, nil, fmt.Errorf("cannot move base of type %T because it is not a Base", baseComponent)
-	}
-	var kb kinematicbase.KinematicBase
-	if fake, ok := b.(*fake.Base); ok {
-		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits, kinematicsOptions)
-	} else {
-		kb, err = kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
-	}
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// we take the zero position to be the start since in the frame of the localizer we will always be at its origin
-	inputMap := map[string][]referenceframe.Input{componentName.Name: make([]referenceframe.Input, len(kb.Kinematics().DoF()))}
-
-	// create a new empty framesystem which we add the kinematic base to
-	fs := referenceframe.NewEmptyFrameSystem("")
-	kbf := kb.Kinematics()
-	if err := fs.AddFrame(kbf, fs.World()); err != nil {
-		return nil, nil, err
-	}
-
-	// TODO(RSDK-3407): this does not adequately account for geometries right now since it is a transformation after the fact.
-	// This is probably acceptable for the time being, but long term the construction of the frame system for the kinematic base should
-	// be moved under the purview of the kinematic base wrapper instead of being done here.
-	offsetFrame, err := referenceframe.NewStaticFrame("offset", movementSensorToBase.Pose())
-	if err != nil {
-		return nil, nil, err
-	}
-	if err := fs.AddFrame(offsetFrame, kbf); err != nil {
-		return nil, nil, err
-	}
-
-	// make call to motionplan
-	solutionMap, err := motionplan.PlanMotion(
-		ctx,
-		ms.logger,
-		referenceframe.NewPoseInFrame(referenceframe.World, goal),
-		offsetFrame,
-		inputMap,
-		fs,
-		wrldst,
-		nil,
-		extra,
-	)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	plan, err := motionplan.FrameStepsFromRobotPath(kbf.Name(), solutionMap)
-	if err != nil {
-		return nil, nil, err
-	}
-	for _, step := range plan {
-		ms.logger.Info(step)
-	}
-	return plan, kb, nil
+	return id.String(), nil
 }
 
 func (ms *builtIn) GetPose(
@@ -418,6 +414,8 @@ func (ms *builtIn) GetPose(
 	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	if destinationFrame == "" {
 		destinationFrame = referenceframe.World
 	}
@@ -425,115 +423,36 @@ func (ms *builtIn) GetPose(
 		ctx,
 		referenceframe.NewPoseInFrame(
 			componentName.ShortName(),
-			spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
+			spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0}),
 		),
 		destinationFrame,
 		supplementalTransforms,
 	)
 }
 
-// PlanMoveOnMap returns the plan for MoveOnMap to execute.
-func (ms *builtIn) planMoveOnMap(
+func (ms *builtIn) StopPlan(
 	ctx context.Context,
-	componentName resource.Name,
-	destination spatialmath.Pose,
-	slamName resource.Name,
-	kinematicsOptions kinematicbase.Options,
-	extra map[string]interface{},
-) ([][]referenceframe.Input, kinematicbase.KinematicBase, error) {
-	// get the SLAM Service from the slamName
-	slamSvc, ok := ms.slamServices[slamName]
-	if !ok {
-		return nil, nil, resource.DependencyNotFoundError(slamName)
-	}
+	req motion.StopPlanReq,
+) error {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	return ms.state.StopExecutionByResource(req.ComponentName)
+}
 
-	// gets the extents of the SLAM map
-	limits, err := slam.GetLimits(ctx, slamSvc)
-	if err != nil {
-		return nil, nil, err
-	}
-	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
+func (ms *builtIn) ListPlanStatuses(
+	ctx context.Context,
+	req motion.ListPlanStatusesReq,
+) ([]motion.PlanStatusWithID, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	return ms.state.ListPlanStatuses(req)
+}
 
-	// create a KinematicBase from the componentName
-	component, ok := ms.components[componentName]
-	if !ok {
-		return nil, nil, resource.DependencyNotFoundError(componentName)
-	}
-	b, ok := component.(base.Base)
-	if !ok {
-		return nil, nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
-	}
-
-	if extra != nil {
-		if profile, ok := extra["motion_profile"]; ok {
-			motionProfile, ok := profile.(string)
-			if !ok {
-				return nil, nil, errors.New("could not interpret motion_profile field as string")
-			}
-			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
-		}
-	}
-
-	var kb kinematicbase.KinematicBase
-	if fake, ok := b.(*fake.Base); ok {
-		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, motion.NewSLAMLocalizer(slamSvc), limits, kinematicsOptions)
-	} else {
-		kb, err = kinematicbase.WrapWithKinematics(
-			ctx,
-			b,
-			ms.logger,
-			motion.NewSLAMLocalizer(slamSvc),
-			limits,
-			kinematicsOptions,
-		)
-	}
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// get point cloud data in the form of bytes from pcd
-	pointCloudData, err := slam.GetPointCloudMapFull(ctx, slamSvc)
-	if err != nil {
-		return nil, nil, err
-	}
-	// store slam point cloud data  in the form of a recursive octree for collision checking
-	octree, err := pointcloud.ReadPCDToBasicOctree(bytes.NewReader(pointCloudData))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// get current position
-	inputs, err := kb.CurrentInputs(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	if kinematicsOptions.PositionOnlyMode {
-		inputs = inputs[:2]
-	}
-	ms.logger.Debugf("base position: %v", inputs)
-
-	dst := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(destination.Point()))
-
-	f := kb.Kinematics()
-	fs := referenceframe.NewEmptyFrameSystem("")
-	if err := fs.AddFrame(f, fs.World()); err != nil {
-		return nil, nil, err
-	}
-
-	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{
-		referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{octree}),
-	}, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	seedMap := map[string][]referenceframe.Input{f.Name(): inputs}
-
-	ms.logger.Debugf("goal position: %v", dst.Pose().Point())
-	solutionMap, err := motionplan.PlanMotion(ctx, ms.logger, dst, f, seedMap, fs, worldState, nil, extra)
-	if err != nil {
-		return nil, nil, err
-	}
-	plan, err := motionplan.FrameStepsFromRobotPath(f.Name(), solutionMap)
-	return plan, kb, err
+func (ms *builtIn) PlanHistory(
+	ctx context.Context,
+	req motion.PlanHistoryReq,
+) ([]motion.PlanWithStatus, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	return ms.state.PlanHistory(req)
 }

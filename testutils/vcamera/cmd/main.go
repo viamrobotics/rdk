@@ -10,13 +10,12 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/edaniels/golog"
-
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/testutils/vcamera"
 )
 
 func main() {
-	logger := golog.NewDebugLogger("vcamera")
+	logger := logging.NewDebugLogger("vcamera")
 	config, err := vcamera.Builder(logger).
 		NewCamera(1, "Low-res Camera", vcamera.Resolution{Width: 640, Height: 480}).
 		NewCamera(2, "Hi-res Camera", vcamera.Resolution{Width: 1280, Height: 720}).

@@ -1,3 +1,5 @@
+//go:build !no_cgo
+
 package transformpipeline
 
 import (
@@ -5,14 +7,14 @@ import (
 	"image"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/mediadevices/pkg/prop"
-	"github.com/viamrobotics/gostream"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
+	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
@@ -47,7 +49,7 @@ func (h *depthSourceTestHelper) Process(
 	fn string,
 	img image.Image,
 	img2 image.Image,
-	logger golog.Logger,
+	logger logging.Logger,
 ) error {
 	t.Helper()
 	dm, err := rimage.ConvertImageToDepthMap(context.Background(), img)

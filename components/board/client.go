@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
@@ -15,6 +14,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -29,7 +29,7 @@ type client struct {
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
 	client pb.BoardServiceClient
-	logger golog.Logger
+	logger logging.Logger
 
 	info           boardInfo
 	cachedStatus   *commonpb.BoardStatus
@@ -38,11 +38,8 @@ type client struct {
 
 type boardInfo struct {
 	name                  string
-	spiNames              []string
-	i2cNames              []string
 	analogReaderNames     []string
 	digitalInterruptNames []string
-	gpioPinNames          []string
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -51,7 +48,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (Board, error) {
 	info := boardInfo{name: name.ShortName()}
 	bClient := pb.NewBoardServiceClient(conn)
@@ -91,22 +88,6 @@ func (c *client) GPIOPinByName(name string) (GPIOPin, error) {
 	}, nil
 }
 
-func (c *client) SPINames() []string {
-	if c.getCachedStatus() == nil {
-		c.logger.Debugw("no cached status")
-		return []string{}
-	}
-	return copyStringSlice(c.info.spiNames)
-}
-
-func (c *client) I2CNames() []string {
-	if c.getCachedStatus() == nil {
-		c.logger.Debugw("no cached status")
-		return []string{}
-	}
-	return copyStringSlice(c.info.i2cNames)
-}
-
 func (c *client) AnalogReaderNames() []string {
 	if c.getCachedStatus() == nil {
 		c.logger.Debugw("no cached status")
@@ -121,14 +102,6 @@ func (c *client) DigitalInterruptNames() []string {
 		return []string{}
 	}
 	return copyStringSlice(c.info.digitalInterruptNames)
-}
-
-func (c *client) GPIOPinNames() []string {
-	if c.getCachedStatus() == nil {
-		c.logger.Debugw("no cached status")
-		return []string{}
-	}
-	return copyStringSlice(c.info.gpioPinNames)
 }
 
 // Status uses the cached status or a newly fetched board status to return the state
@@ -191,10 +164,6 @@ func (c *client) status(ctx context.Context) (*commonpb.BoardStatus, error) {
 	return resp.Status, nil
 }
 
-func (c *client) ModelAttributes() ModelAttributes {
-	return ModelAttributes{Remote: true}
-}
-
 func (c *client) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
 	var dur *durationpb.Duration
 	if duration != nil {
@@ -206,6 +175,22 @@ func (c *client) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.info.name, cmd)
+}
+
+// WriteAnalog writes the analog value to the specified pin.
+func (c *client) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.WriteAnalog(ctx, &pb.WriteAnalogRequest{
+		Name:  c.info.name,
+		Pin:   pin,
+		Value: value,
+		Extra: ext,
+	})
+
+	return err
 }
 
 // analogReaderClient satisfies a gRPC based board.AnalogReader. Refer to the interface

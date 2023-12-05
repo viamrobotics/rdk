@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package adxl345 implements the MovementSensor interface for the ADXL345 accelerometer.
 package adxl345
 
@@ -19,17 +21,19 @@ package adxl345
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
@@ -45,9 +49,9 @@ const (
 
 // Config is a description of how to find an ADXL345 accelerometer on the robot.
 type Config struct {
-	BoardName              string          `json:"board"`
 	I2cBus                 string          `json:"i2c_bus"`
 	UseAlternateI2CAddress bool            `json:"use_alternate_i2c_address,omitempty"`
+	BoardName              string          `json:"board,omitempty"`
 	SingleTap              *TapConfig      `json:"tap,omitempty"`
 	FreeFall               *FreeFallConfig `json:"free_fall,omitempty"`
 }
@@ -110,11 +114,20 @@ func (freefallCfg *FreeFallConfig) ValidateFreeFallConfigs(path string) error {
 // Validate ensures all parts of the config are valid, and then returns the list of things we
 // depend on.
 func (cfg *Config) Validate(path string) ([]string, error) {
+	var deps []string
 	if cfg.BoardName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+		// The board name is only required for interrupt-related functionality.
+		if cfg.SingleTap != nil || cfg.FreeFall != nil {
+			return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
+		}
+	} else {
+		if cfg.SingleTap != nil || cfg.FreeFall != nil {
+			// The board is actually used! Add it to the dependencies.
+			deps = append(deps, cfg.BoardName)
+		}
 	}
 	if cfg.I2cBus == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 	if cfg.SingleTap != nil {
 		if err := cfg.SingleTap.ValidateTapConfigs(path); err != nil {
@@ -126,8 +139,6 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 			return nil, err
 		}
 	}
-	var deps []string
-	deps = append(deps, cfg.BoardName)
 	return deps, nil
 }
 
@@ -144,9 +155,9 @@ type adxl345 struct {
 	resource.Named
 	resource.AlwaysRebuild
 
-	bus                      board.I2C
+	bus                      buses.I2C
 	i2cAddress               byte
-	logger                   golog.Logger
+	logger                   logging.Logger
 	interruptsEnabled        byte
 	interruptsFound          map[InterruptID]int
 	configuredRegisterValues map[byte]byte
@@ -170,23 +181,38 @@ func NewAdxl345(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
 	}
-	b, err := board.FromDependencies(deps, newConf.BoardName)
+
+	bus, err := buses.NewI2cBus(newConf.I2cBus)
+	if err != nil {
+		msg := fmt.Sprintf("can't find I2C bus '%q' for ADXL345 sensor", newConf.I2cBus)
+		return nil, errors.Wrap(err, msg)
+	}
+
+	// The rest of the constructor is separated out so that you can pass in a mock I2C bus during
+	// tests.
+	return makeAdxl345(ctx, deps, conf, logger, bus)
+}
+
+// makeAdxl345 is split out solely to be used during unit tests: it constructs a new object
+// representing an AXDL345 accelerometer, but with the I2C bus already created and passed in as an
+// argument. This lets you inject a mock I2C bus during the tests. It should not be used directly
+// in production code (instead, use NewAdxl345, above).
+func makeAdxl345(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+	logger logging.Logger,
+	bus buses.I2C,
+) (movementsensor.MovementSensor, error) {
+	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
-	}
-	localB, ok := b.(board.LocalBoard)
-	if !ok {
-		return nil, errors.Errorf("board %q is not local", newConf.BoardName)
-	}
-	bus, ok := localB.I2CByName(newConf.I2cBus)
-	if !ok {
-		return nil, errors.Errorf("can't find I2C bus '%q' for ADXL345 sensor", newConf.I2cBus)
 	}
 
 	var address byte
@@ -224,7 +250,7 @@ func NewAdxl345(
 	// back the device ID (0xE5).
 	deviceID, err := sensor.readByte(ctx, deviceIDRegister)
 	if err != nil {
-		return nil, movementsensor.AddressReadError(err, address, newConf.I2cBus, newConf.BoardName)
+		return nil, movementsensor.AddressReadError(err, address, newConf.I2cBus)
 	}
 	if deviceID != expectedDeviceID {
 		return nil, movementsensor.UnexpectedDeviceError(address, deviceID, sensor.Name().Name)
@@ -289,6 +315,11 @@ func NewAdxl345(
 
 	interruptMap := map[string]board.DigitalInterrupt{}
 	if (newConf.SingleTap != nil) && (newConf.SingleTap.InterruptPin != "") {
+		b, err := board.FromDependencies(deps, newConf.BoardName)
+		if err != nil {
+			return nil, err
+		}
+
 		interruptMap, err = addInterruptPin(b, newConf.SingleTap.InterruptPin, interruptMap)
 		if err != nil {
 			// shut down goroutine reading sensor in the background
@@ -298,6 +329,11 @@ func NewAdxl345(
 	}
 
 	if (newConf.FreeFall != nil) && (newConf.FreeFall.InterruptPin != "") {
+		b, err := board.FromDependencies(deps, newConf.BoardName)
+		if err != nil {
+			return nil, err
+		}
+
 		interruptMap, err = addInterruptPin(b, newConf.FreeFall.InterruptPin, interruptMap)
 		if err != nil {
 			// shut down goroutine reading sensor in the background
@@ -535,7 +571,7 @@ func (adxl *adxl345) Accuracy(ctx context.Context, extra map[string]interface{})
 }
 
 func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := movementsensor.Readings(ctx, adxl, extra)
+	readings, err := movementsensor.DefaultAPIReadings(ctx, adxl, extra)
 	if err != nil {
 		return nil, err
 	}

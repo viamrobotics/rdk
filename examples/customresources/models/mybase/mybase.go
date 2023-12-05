@@ -6,14 +6,13 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -35,7 +34,7 @@ func init() {
 	})
 }
 
-func newBase(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (base.Base, error) {
+func newBase(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (base.Base, error) {
 	b := &myBase{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
@@ -50,6 +49,9 @@ func newBase(ctx context.Context, deps resource.Dependencies, conf resource.Conf
 func (b *myBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	b.left = nil
 	b.right = nil
+
+	// This takes the generic resource.Config passed down from the parent and converts it to the
+	// model-specific (aka "native") Config structure defined above making it easier to directly access attributes.
 	baseConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
@@ -65,11 +67,13 @@ func (b *myBase) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 		return errors.Wrapf(err, "unable to get motor %v for mybase", baseConfig.RightMotor)
 	}
 
-	geometries, err := kinematicbase.CollisionGeometry(conf.Frame)
-	if err != nil {
-		b.logger.Warnf("base %v %s", b.Name(), err.Error())
+	if conf.Frame != nil && conf.Frame.Geometry != nil {
+		geometry, err := conf.Frame.Geometry.ParseConfig()
+		if err != nil {
+			return err
+		}
+		b.geometries = []spatialmath.Geometry{geometry}
 	}
-	b.geometries = geometries
 
 	// Good practice to stop motors, but also this effectively tests https://viam.atlassian.net/browse/RSDK-2496
 	return multierr.Combine(b.left.Stop(context.Background(), nil), b.right.Stop(context.Background(), nil))
@@ -86,8 +90,11 @@ type Config struct {
 	RightMotor string `json:"motorR"`
 }
 
-// Validate validates the config and returns implicit dependencies.
+// Validate validates the config and returns implicit dependencies,
+// this Validate checks if the left and right motors exist for the module's base model.
 func (cfg *Config) Validate(path string) ([]string, error) {
+	// check if the attribute fields for the right and left motors are non-empty
+	// this makes them reuqired for the model to successfully build
 	if cfg.LeftMotor == "" {
 		return nil, fmt.Errorf(`expected "motorL" attribute for mybase %q`, path)
 	}
@@ -95,6 +102,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, fmt.Errorf(`expected "motorR" attribute for mybase %q`, path)
 	}
 
+	// Return the left and right motor names so that `newBase` can access them as dependencies.
 	return []string{cfg.LeftMotor, cfg.RightMotor}, nil
 }
 
@@ -102,7 +110,7 @@ type myBase struct {
 	resource.Named
 	left       motor.Motor
 	right      motor.Motor
-	logger     golog.Logger
+	logger     logging.Logger
 	geometries []spatialmath.Geometry
 }
 

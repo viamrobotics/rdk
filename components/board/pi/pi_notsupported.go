@@ -1,17 +1,17 @@
-//go:build !(linux && (arm64 || arm))
+//go:build !(linux && (arm64 || arm) && !no_pigpio)
 
 package pi
 
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/servo"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -24,7 +24,7 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (board.Board, error) {
 			return nil, errors.New("not running on a pi")
 		}})
@@ -36,7 +36,7 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (servo.Servo, error) {
 				return nil, errors.New("not running on a pi")
 			},

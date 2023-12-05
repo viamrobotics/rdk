@@ -1,4 +1,4 @@
-//go:build linux && (arm64 || arm)
+//go:build linux && (arm64 || arm) && !no_pigpio && !no_cgo
 
 // Package piimpl contains the implementation of a supported Raspberry Pi board.
 package piimpl
@@ -29,16 +29,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
+	"go.viam.com/rdk/components/board/mcp3008helper"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -48,16 +49,37 @@ func init() {
 	resource.RegisterComponent(
 		board.API,
 		picommon.Model,
-		resource.Registration[board.Board, *genericlinux.Config]{
+		resource.Registration[board.Board, *Config]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (board.Board, error) {
 				return newPigpio(ctx, conf.ResourceName(), conf, logger)
 			},
 		})
+}
+
+// A Config describes the configuration of a board and all of its connected parts.
+type Config struct {
+	AnalogReaders     []mcp3008helper.MCP3008AnalogConfig `json:"analogs,omitempty"`
+	DigitalInterrupts []board.DigitalInterruptConfig      `json:"digital_interrupts,omitempty"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (conf *Config) Validate(path string) ([]string, error) {
+	for idx, c := range conf.AnalogReaders {
+		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
+			return nil, err
+		}
+	}
+	for idx, c := range conf.DigitalInterrupts {
+		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil
 }
 
 // piPigpio is an implementation of a board.Board of a Raspberry Pi
@@ -73,14 +95,12 @@ type piPigpio struct {
 	cancelFunc    context.CancelFunc
 	duty          int // added for mutex
 	gpioConfigSet map[int]bool
-	analogs       map[string]board.AnalogReader
-	i2cs          map[string]board.I2C
-	spis          map[string]board.SPI
+	analogReaders map[string]board.AnalogReader
 	// `interrupts` maps interrupt names to the interrupts. `interruptsHW` maps broadcom addresses
 	// to these same values. The two should always have the same set of values.
 	interrupts   map[string]board.ReconfigurableDigitalInterrupt
 	interruptsHW map[uint]board.ReconfigurableDigitalInterrupt
-	logger       golog.Logger
+	logger       logging.Logger
 	isClosed     bool
 }
 
@@ -119,7 +139,7 @@ func initializePigpio() error {
 }
 
 // newPigpio makes a new pigpio based Board using the given config.
-func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, logger golog.Logger) (board.LocalBoard, error) {
+func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, logger logging.Logger) (board.Board, error) {
 	// this is so we can run it inside a daemon
 	internals := C.gpioCfgGetInternals()
 	internals |= C.PI_CFG_NOSIGHANDLER
@@ -158,7 +178,7 @@ func (pi *piPigpio) Reconfigure(
 	_ resource.Dependencies,
 	conf resource.Config,
 ) error {
-	cfg, err := resource.NativeConfig[*genericlinux.Config](conf)
+	cfg, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
 	}
@@ -166,15 +186,7 @@ func (pi *piPigpio) Reconfigure(
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
 
-	if err := pi.reconfigureI2cs(ctx, cfg); err != nil {
-		return err
-	}
-
-	if err := pi.reconfigureSpis(ctx, cfg); err != nil {
-		return err
-	}
-
-	if err := pi.reconfigureAnalogs(ctx, cfg); err != nil {
+	if err := pi.reconfigureAnalogReaders(ctx, cfg); err != nil {
 		return err
 	}
 
@@ -190,47 +202,21 @@ func (pi *piPigpio) Reconfigure(
 	return nil
 }
 
-func (pi *piPigpio) reconfigureI2cs(ctx context.Context, cfg *genericlinux.Config) error {
-	// No need to reconfigure the old I2C buses; just throw them out and make new ones.
-	pi.i2cs = make(map[string]board.I2C, len(cfg.I2Cs))
-	for _, sc := range cfg.I2Cs {
-		id, err := strconv.Atoi(sc.Bus)
-		if err != nil {
-			return err
-		}
-		pi.i2cs[sc.Name] = &piPigpioI2C{pi: pi, id: id}
-	}
-	return nil
-}
-
-func (pi *piPigpio) reconfigureSpis(ctx context.Context, cfg *genericlinux.Config) error {
-	// No need to reconfigure the old SPI buses; just throw them out and make new ones.
-	pi.spis = make(map[string]board.SPI, len(cfg.SPIs))
-	for _, sc := range cfg.SPIs {
-		if sc.BusSelect != "0" && sc.BusSelect != "1" {
-			return errors.New("only SPI buses 0 and 1 are available on Pi boards")
-		}
-		pi.spis[sc.Name] = &piPigpioSPI{pi: pi, busSelect: sc.BusSelect}
-	}
-	return nil
-}
-
-func (pi *piPigpio) reconfigureAnalogs(ctx context.Context, cfg *genericlinux.Config) error {
+func (pi *piPigpio) reconfigureAnalogReaders(ctx context.Context, cfg *Config) error {
 	// No need to reconfigure the old analog readers; just throw them out and make new ones.
-	pi.analogs = map[string]board.AnalogReader{}
-	for _, ac := range cfg.Analogs {
+	pi.analogReaders = map[string]board.AnalogReader{}
+	for _, ac := range cfg.AnalogReaders {
 		channel, err := strconv.Atoi(ac.Pin)
 		if err != nil {
 			return errors.Errorf("bad analog pin (%s)", ac.Pin)
 		}
 
-		bus, have := pi.SPIByName(ac.SPIBus)
-		if !have {
-			return errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", ac.SPIBus)
-		}
+		bus := &piPigpioSPI{pi: pi, busSelect: ac.SPIBus}
+		ar := &mcp3008helper.MCP3008AnalogReader{channel, bus, ac.ChipSelect}
 
-		ar := &board.MCP3008AnalogReader{channel, bus, ac.ChipSelect}
-		pi.analogs[ac.Name] = board.SmoothAnalogReader(ar, ac, pi.logger)
+		pi.analogReaders[ac.Name] = board.SmoothAnalogReader(ar, board.AnalogReaderConfig{
+			AverageOverMillis: ac.AverageOverMillis, SamplesPerSecond: ac.SamplesPerSecond,
+		}, pi.logger)
 	}
 	return nil
 }
@@ -262,7 +248,7 @@ func findInterruptBcom(
 	return 0, false
 }
 
-func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *genericlinux.Config) error {
+func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *Config) error {
 	// We reuse the old interrupts when possible.
 	oldInterrupts := pi.interrupts
 	oldInterruptsHW := pi.interruptsHW
@@ -382,17 +368,6 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *genericlinux
 	pi.interrupts = newInterrupts
 	pi.interruptsHW = newInterruptsHW
 	return nil
-}
-
-// GPIOPinNames returns the names of all known GPIO pins.
-func (pi *piPigpio) GPIOPinNames() []string {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	names := make([]string, 0, len(piHWPinToBroadcom))
-	for k := range piHWPinToBroadcom {
-		names = append(names, k)
-	}
-	return names
 }
 
 // GPIOPinByName returns a GPIOPin by name.
@@ -633,7 +608,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 	return C.GoBytes(rxPtr, (C.int)(count)), nil
 }
 
-func (s *piPigpioSPI) OpenHandle() (board.SPIHandle, error) {
+func (s *piPigpioSPI) OpenHandle() (buses.SPIHandle, error) {
 	s.mu.Lock()
 	s.openHandle = &piPigpioSPIHandle{bus: s, isClosed: false}
 	return s.openHandle, nil
@@ -649,40 +624,12 @@ func (s *piPigpioSPIHandle) Close() error {
 	return nil
 }
 
-// SPINames returns the names of all known SPI buses.
-func (pi *piPigpio) SPINames() []string {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	if len(pi.spis) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(pi.spis))
-	for k := range pi.spis {
-		names = append(names, k)
-	}
-	return names
-}
-
-// I2CNames returns the names of all known SPI buses.
-func (pi *piPigpio) I2CNames() []string {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	if len(pi.i2cs) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(pi.i2cs))
-	for k := range pi.i2cs {
-		names = append(names, k)
-	}
-	return names
-}
-
 // AnalogReaderNames returns the names of all known analog readers.
 func (pi *piPigpio) AnalogReaderNames() []string {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
 	names := []string{}
-	for k := range pi.analogs {
+	for k := range pi.analogReaders {
 		names = append(names, k)
 	}
 	return names
@@ -703,24 +650,8 @@ func (pi *piPigpio) DigitalInterruptNames() []string {
 func (pi *piPigpio) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
-	a, ok := pi.analogs[name]
+	a, ok := pi.analogReaders[name]
 	return a, ok
-}
-
-// SPIByName returns an SPI bus by name.
-func (pi *piPigpio) SPIByName(name string) (board.SPI, bool) {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	s, ok := pi.spis[name]
-	return s, ok
-}
-
-// I2CByName returns an I2C by name.
-func (pi *piPigpio) I2CByName(name string) (board.I2C, bool) {
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
-	s, ok := pi.i2cs[name]
-	return s, ok
 }
 
 // DigitalInterruptByName returns a digital interrupt by name.
@@ -759,11 +690,12 @@ func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt,
 	return d, ok
 }
 
-func (pi *piPigpio) ModelAttributes() board.ModelAttributes {
-	return board.ModelAttributes{}
+func (pi *piPigpio) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	return grpc.UnimplementedError
 }
 
-func (pi *piPigpio) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+// WriteAnalog writes the value to the given pin.
+func (pi *piPigpio) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
 	return grpc.UnimplementedError
 }
 
@@ -781,15 +713,10 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	pi.cancelFunc()
 
 	var err error
-	for _, spi := range pi.spis {
-		err = multierr.Combine(err, spi.Close(ctx))
-	}
-	pi.spis = map[string]board.SPI{}
-
-	for _, analog := range pi.analogs {
+	for _, analog := range pi.analogReaders {
 		err = multierr.Combine(err, analog.Close(ctx))
 	}
-	pi.analogs = map[string]board.AnalogReader{}
+	pi.analogReaders = map[string]board.AnalogReader{}
 
 	for bcom, interrupt := range pi.interruptsHW {
 		err = multierr.Combine(err, interrupt.Close(ctx))
@@ -844,7 +771,7 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 	for instance := range instances {
 		i := instance.interruptsHW[uint(gpio)]
 		if i == nil {
-			golog.Global().Infof("no DigitalInterrupt configured for gpio %d", gpio)
+			logging.Global().Infof("no DigitalInterrupt configured for gpio %d", gpio)
 			continue
 		}
 		high := true

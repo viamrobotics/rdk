@@ -19,6 +19,10 @@ var (
 	errInvalidCandidate = errors.New("candidate did not meet constraints")
 
 	errNoCandidates = errors.New("no candidates passed in, skipping")
+
+	errInvalidConstraint = errors.New("invalid constraint input")
+
+	errHighReplanCost = errors.New("unable to create a new plan within replanCostFactor from the original")
 )
 
 func genIKConstraintErr(failures map[string]int, constraintFailCnt int) error {

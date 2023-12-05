@@ -1,3 +1,5 @@
+//go:build linux
+
 package ams
 
 import (
@@ -5,12 +7,12 @@ import (
 	"math"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -36,12 +38,9 @@ func TestConvertBytesToAngle(t *testing.T) {
 	test.That(t, deg, test.ShouldAlmostEqual, 219.990234, 1e-6)
 }
 
-func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies) {
-	testBoardName := "board"
-	i2cName := "i2c"
-
+func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies, buses.I2C) {
 	i2cConf := &I2CConfig{
-		I2CBus:  i2cName,
+		I2CBus:  "1",
 		I2CAddr: 64,
 	}
 
@@ -50,7 +49,6 @@ func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies)
 		Model: model,
 		API:   encoder.API,
 		ConvertedAttributes: &Config{
-			BoardName:      testBoardName,
 			ConnectionType: "i2c",
 			I2CConfig:      i2cConf,
 		},
@@ -64,17 +62,13 @@ func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies)
 		return nil
 	}
 	i2cHandle.CloseFunc = func() error { return nil }
-	mockBoard := &inject.Board{}
-	mockBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
-		i2c := &inject.I2C{}
-		i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
-			return i2cHandle, nil
-		}
-		return i2c, true
+
+	i2c := &inject.I2C{}
+	i2c.OpenHandleFunc = func(addr byte) (buses.I2CHandle, error) {
+		return i2cHandle, nil
 	}
-	return cfg, resource.Dependencies{
-		resource.NewName(board.API, testBoardName): mockBoard,
-	}
+
+	return cfg, resource.Dependencies{}, i2c
 }
 
 func TestAMSEncoder(t *testing.T) {
@@ -84,9 +78,9 @@ func TestAMSEncoder(t *testing.T) {
 	positionMockData[0xFE] = 100
 	positionMockData[0xFF] = 60
 
-	logger := golog.NewTestLogger(t)
-	cfg, deps := setupDependencies(positionMockData)
-	enc, err := newAS5048Encoder(ctx, deps, cfg, logger)
+	logger := logging.NewTestLogger(t)
+	cfg, deps, bus := setupDependencies(positionMockData)
+	enc, err := makeAS5048Encoder(ctx, deps, cfg, logger, bus)
 	test.That(t, err, test.ShouldBeNil)
 	defer enc.Close(ctx)
 
@@ -119,12 +113,9 @@ func TestAMSEncoder(t *testing.T) {
 	})
 }
 
-func setupDependenciesWithWrite(mockData []byte, writeData map[byte]byte) (resource.Config, resource.Dependencies) {
-	testBoardName := "board"
-	i2cName := "i2c"
-
+func setupDependenciesWithWrite(mockData []byte, writeData map[byte]byte) (resource.Config, resource.Dependencies, buses.I2C) {
 	i2cConf := &I2CConfig{
-		I2CBus:  i2cName,
+		I2CBus:  "1",
 		I2CAddr: 64,
 	}
 
@@ -133,7 +124,6 @@ func setupDependenciesWithWrite(mockData []byte, writeData map[byte]byte) (resou
 		Model: model,
 		API:   encoder.API,
 		ConvertedAttributes: &Config{
-			BoardName:      testBoardName,
 			ConnectionType: "i2c",
 			I2CConfig:      i2cConf,
 		},
@@ -148,17 +138,12 @@ func setupDependenciesWithWrite(mockData []byte, writeData map[byte]byte) (resou
 		return nil
 	}
 	i2cHandle.CloseFunc = func() error { return nil }
-	mockBoard := &inject.Board{}
-	mockBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
-		i2c := &inject.I2C{}
-		i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
-			return i2cHandle, nil
-		}
-		return i2c, true
+
+	i2c := &inject.I2C{}
+	i2c.OpenHandleFunc = func(addr byte) (buses.I2CHandle, error) {
+		return i2cHandle, nil
 	}
-	return cfg, resource.Dependencies{
-		resource.NewName(board.API, testBoardName): mockBoard,
-	}
+	return cfg, resource.Dependencies{}, i2c
 }
 
 func TestAMSEncoderReset(t *testing.T) {
@@ -170,9 +155,9 @@ func TestAMSEncoderReset(t *testing.T) {
 
 	writeData := make(map[byte]byte)
 
-	logger := golog.NewTestLogger(t)
-	cfg, deps := setupDependenciesWithWrite(positionMockData, writeData)
-	enc, err := newAS5048Encoder(ctx, deps, cfg, logger)
+	logger := logging.NewTestLogger(t)
+	cfg, deps, bus := setupDependenciesWithWrite(positionMockData, writeData)
+	enc, err := makeAS5048Encoder(ctx, deps, cfg, logger, bus)
 	test.That(t, err, test.ShouldBeNil)
 	defer enc.Close(ctx)
 

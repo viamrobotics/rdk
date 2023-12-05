@@ -76,7 +76,7 @@ func UploadBoardDefsAction(ctx *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(ctx.App.Writer, "Board definitions file was successfully uploaded!\n")
+	printf(ctx.App.Writer, "Board definitions file was successfully uploaded!")
 	return nil
 }
 
@@ -106,7 +106,38 @@ func DownloadBoardDefsAction(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "%s board definitions successfully downloaded!\n", nameArg)
+	printf(c.App.Writer, "%s board definitions successfully downloaded!", nameArg)
+
+	return nil
+}
+
+// ListBoardDefsAction is the corresponding action for "board list".
+func ListBoardDefsAction(c *cli.Context) error {
+	orgArg := c.String(organizationFlag)
+
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	// get the org from the name or id.
+	org, err := client.getOrg(orgArg)
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.listBoardDefsFiles(org.Id)
+	if err != nil {
+		return err
+	}
+
+	if len(resp.Packages) == 0 {
+		printf(c.App.Writer, "orginization %s does not have any board definitions packages", orgArg)
+	}
+
+	for i := range resp.Packages {
+		printf(c.App.Writer, "%s version %s", resp.Packages[i].Info.Name, resp.Packages[i].Info.Version)
+	}
 
 	return nil
 }
@@ -128,7 +159,7 @@ func (c *viamClient) uploadBoardDefsFile(
 	}
 
 	// Create an archive tar.gz file (required for packages).
-	file, err := createArchive(jsonFile)
+	file, err := createBoardArchive(jsonFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating archive")
 	}
@@ -212,12 +243,32 @@ func (c *viamClient) downloadBoardDefsFile(
 	}
 
 	// download the file from the gcs url into the current directory.
-	err = downloadFile(ctx, currentDir, response.Package.Url)
+	err = c.downloadFile(ctx, currentDir, response.Package.Url)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (c *viamClient) listBoardDefsFiles(orgID string) (*packagepb.ListPackagesResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	ctx := c.c.Context
+
+	packageType := packagepb.PackageType_PACKAGE_TYPE_BOARD_DEFS
+
+	req := &packagepb.ListPackagesRequest{
+		Type:           &packageType,
+		OrganizationId: orgID,
+	}
+
+	response, err := c.packageClient.ListPackages(ctx, req)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not list the requested packages")
+	}
+	return response, nil
 }
 
 // helper function to check if a package with this name and version already exists.
@@ -260,8 +311,8 @@ func sendPackageRequests(stream packagepb.PackageService_CreatePackageClient,
 	return nil
 }
 
-// createArchive creates a tar.gz from the file provided.
-func createArchive(file *os.File) (*bytes.Buffer, error) {
+// createBoardArchive creates a tar.gz from the file provided.
+func createBoardArchive(file *os.File) (*bytes.Buffer, error) {
 	// Create output buffer
 	out := new(bytes.Buffer)
 
@@ -311,8 +362,11 @@ func createArchive(file *os.File) (*bytes.Buffer, error) {
 }
 
 // helper function to download a url to a local file.
-func downloadFile(ctx context.Context, filepath, url string) error {
+func (c *viamClient) downloadFile(ctx context.Context, filepath, url string) error {
 	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+
+	c.appendAuthHeaders(getReq)
+
 	if err != nil {
 		return err
 	}
@@ -324,13 +378,36 @@ func downloadFile(ctx context.Context, filepath, url string) error {
 		return errors.Wrap(err, "error downloading the requested package")
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		bodyString := string(bodyBytes)
+		return fmt.Errorf("invalid status code %q. Url: %q, Body: %q", resp.Status, url, bodyString)
+	}
+
 	defer utils.UncheckedErrorFunc(resp.Body.Close)
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("invalid status code %q when downloading package at %q", resp.Status, url)
+	}
 
 	err = untar(filepath, resp.Body)
 	if err != nil {
 		return errors.Wrap(err, "error extracting the tar file")
 	}
 	return nil
+}
+
+// This function adds auth headers to an HTTP Request, that varies by auth mechanism used in the CLI.
+func (c *viamClient) appendAuthHeaders(req *http.Request) {
+	if token, isToken := c.conf.Auth.(*token); isToken {
+		req.Header.Set("Authorization", "Bearer "+token.AccessToken)
+	} else if APIKey, isAPIKey := c.conf.Auth.(*apiKey); isAPIKey {
+		req.Header.Set("key_id", APIKey.KeyID)
+		req.Header.Set("key", APIKey.KeyCrypto)
+	}
 }
 
 // untar extracts the tar.gz file, keeping file directory structure.

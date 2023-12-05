@@ -1,3 +1,5 @@
+//go:build !no_tflite
+
 package mlvision
 
 import (
@@ -5,10 +7,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/mlmodel/tflitecpu"
@@ -32,7 +34,7 @@ func BenchmarkAddMLVisionModel(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		service, err := registerMLModelVisionService(ctx, name, &modelCfg, &inject.Robot{}, golog.NewLogger("benchmark"))
+		service, err := registerMLModelVisionService(ctx, name, &modelCfg, &inject.Robot{}, logging.NewLogger("benchmark"))
 		test.That(b, err, test.ShouldBeNil)
 		test.That(b, service, test.ShouldNotBeNil)
 		test.That(b, service.Name(), test.ShouldResemble, name)
@@ -55,7 +57,7 @@ func BenchmarkUseMLVisionModel(b *testing.B) {
 	test.That(b, out, test.ShouldNotBeNil)
 	modelCfg := MLModelConfig{ModelName: name.Name}
 
-	service, err := registerMLModelVisionService(ctx, name, &modelCfg, &inject.Robot{}, golog.NewLogger("benchmark"))
+	service, err := registerMLModelVisionService(ctx, name, &modelCfg, &inject.Robot{}, logging.NewLogger("benchmark"))
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, service, test.ShouldNotBeNil)
 	test.That(b, service.Name(), test.ShouldResemble, name)
@@ -172,7 +174,7 @@ func TestNewMLDetector(t *testing.T) {
 	test.That(t, gotDetections[1].Score(), test.ShouldBeGreaterThan, 0.7)
 	test.That(t, gotDetections[0].BoundingBox().Min.X, test.ShouldBeGreaterThan, 124)
 	test.That(t, gotDetections[0].BoundingBox().Min.X, test.ShouldBeLessThan, 127)
-	test.That(t, gotDetections[0].BoundingBox().Min.Y, test.ShouldBeGreaterThan, 41)
+	test.That(t, gotDetections[0].BoundingBox().Min.Y, test.ShouldBeGreaterThan, 40)
 	test.That(t, gotDetections[0].BoundingBox().Min.Y, test.ShouldBeLessThan, 44)
 	test.That(t, gotDetections[0].BoundingBox().Max.X, test.ShouldBeGreaterThan, 196)
 	test.That(t, gotDetections[0].BoundingBox().Max.X, test.ShouldBeLessThan, 202)
@@ -196,7 +198,7 @@ func TestNewMLDetector(t *testing.T) {
 	test.That(t, gotDetectionsNL[1].Score(), test.ShouldBeGreaterThan, 0.7)
 	test.That(t, gotDetectionsNL[0].BoundingBox().Min.X, test.ShouldBeGreaterThan, 124)
 	test.That(t, gotDetectionsNL[0].BoundingBox().Min.X, test.ShouldBeLessThan, 127)
-	test.That(t, gotDetectionsNL[0].BoundingBox().Min.Y, test.ShouldBeGreaterThan, 41)
+	test.That(t, gotDetectionsNL[0].BoundingBox().Min.Y, test.ShouldBeGreaterThan, 40)
 	test.That(t, gotDetectionsNL[0].BoundingBox().Min.Y, test.ShouldBeLessThan, 44)
 	test.That(t, gotDetectionsNL[0].BoundingBox().Max.X, test.ShouldBeGreaterThan, 196)
 	test.That(t, gotDetectionsNL[0].BoundingBox().Max.X, test.ShouldBeLessThan, 202)

@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -34,7 +34,7 @@ type Robot struct {
 	ResourceRPCAPIsFunc    func() []resource.RPCAPI
 	ProcessManagerFunc     func() pexec.ProcessManager
 	ConfigFunc             func() *config.Config
-	LoggerFunc             func() golog.Logger
+	LoggerFunc             func() logging.Logger
 	CloseFunc              func(ctx context.Context) error
 	StopAllFunc            func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
 	FrameSystemConfigFunc  func(ctx context.Context) (*framesystem.Config, error)
@@ -175,7 +175,7 @@ func (r *Robot) Config() *config.Config {
 }
 
 // Logger calls the injected Logger or the real version.
-func (r *Robot) Logger() golog.Logger {
+func (r *Robot) Logger() logging.Logger {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.LoggerFunc == nil {

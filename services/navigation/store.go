@@ -2,6 +2,7 @@ package navigation
 
 import (
 	"context"
+	"math"
 	"sync"
 	"time"
 
@@ -31,6 +32,8 @@ type NavStore interface {
 type storeType string
 
 const (
+	// StoreTypeUnset represents when a store type was not set.
+	StoreTypeUnset = ""
 	// StoreTypeMemory is the constant for the memory store type.
 	StoreTypeMemory = "memory"
 	// StoreTypeMongoDB is the constant for the mongodb store type.
@@ -46,11 +49,23 @@ type StoreConfig struct {
 // Validate ensures all parts of the config are valid.
 func (config *StoreConfig) Validate(path string) error {
 	switch config.Type {
-	case StoreTypeMemory, StoreTypeMongoDB:
+	case StoreTypeMemory, StoreTypeMongoDB, StoreTypeUnset:
 	default:
 		return errors.Errorf("unknown store type %q", config.Type)
 	}
 	return nil
+}
+
+// NewStoreFromConfig builds a NavStore from the provided StoreConfig and returns it.
+func NewStoreFromConfig(ctx context.Context, conf StoreConfig) (NavStore, error) {
+	switch conf.Type {
+	case StoreTypeMemory, StoreTypeUnset:
+		return NewMemoryNavigationStore(), nil
+	case StoreTypeMongoDB:
+		return NewMongoDBNavigationStore(ctx, conf.Config)
+	default:
+		return nil, errors.Errorf("unknown store type %q", conf.Type)
+	}
 }
 
 // A Waypoint designates a location within a path to navigate to.
@@ -65,6 +80,12 @@ type Waypoint struct {
 // ToPoint converts the waypoint to a geo.Point.
 func (wp *Waypoint) ToPoint() *geo.Point {
 	return geo.NewPoint(wp.Lat, wp.Long)
+}
+
+// LatLongApproxEqual returns true if the lat / long of the waypoint is within a small epsilon of the parameter.
+func (wp *Waypoint) LatLongApproxEqual(wp2 Waypoint) bool {
+	const epsilon = 1e-16
+	return math.Abs(wp.Lat-wp2.Lat) < epsilon && math.Abs(wp.Long-wp2.Long) < epsilon
 }
 
 // NewMemoryNavigationStore returns and empty MemoryNavigationStore.
@@ -119,7 +140,10 @@ func (store *MemoryNavigationStore) RemoveWaypoint(ctx context.Context, id primi
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
-	newWps := make([]*Waypoint, 0, len(store.waypoints)-1)
+	// the math.Max is to avoid a panic if the store is already empty
+	// when RemoveWaypoint is called.
+	newCapacity := int(math.Max(float64(len(store.waypoints)-1), 0))
+	newWps := make([]*Waypoint, 0, newCapacity)
 	for _, wp := range store.waypoints {
 		if wp.ID == id {
 			continue

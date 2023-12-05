@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
 
 	viamgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
@@ -36,10 +36,10 @@ const (
 )
 
 func TestClientWorkingService(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	workingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	workingServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	poseSucc := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
 	componentRefSucc := "cam"
@@ -57,11 +57,11 @@ func TestClientWorkingService(t *testing.T) {
 
 	workingSLAMService := &inject.SLAMService{}
 
-	workingSLAMService.GetPositionFunc = func(ctx context.Context) (spatial.Pose, string, error) {
+	workingSLAMService.PositionFunc = func(ctx context.Context) (spatial.Pose, string, error) {
 		return poseSucc, componentRefSucc, nil
 	}
 
-	workingSLAMService.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+	workingSLAMService.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 		reader := bytes.NewReader(pcd)
 		clientBuffer := make([]byte, chunkSizePointCloud)
 		f := func() ([]byte, error) {
@@ -74,7 +74,7 @@ func TestClientWorkingService(t *testing.T) {
 		return f, nil
 	}
 
-	workingSLAMService.GetInternalStateFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+	workingSLAMService.InternalStateFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 		reader := bytes.NewReader(internalStateSucc)
 		clientBuffer := make([]byte, chunkSizeInternalState)
 		f := func() ([]byte, error) {
@@ -88,7 +88,7 @@ func TestClientWorkingService(t *testing.T) {
 		return f, nil
 	}
 
-	workingSLAMService.GetLatestMapInfoFunc = func(ctx context.Context) (time.Time, error) {
+	workingSLAMService.LatestMapInfoFunc = func(ctx context.Context) (time.Time, error) {
 		return timestampSucc, nil
 	}
 
@@ -118,27 +118,27 @@ func TestClientWorkingService(t *testing.T) {
 
 		workingSLAMClient, err := slam.NewClientFromConn(context.Background(), conn, "", slam.Named(nameSucc), logger)
 		test.That(t, err, test.ShouldBeNil)
-		// test get position
-		pose, componentRef, err := workingSLAMClient.GetPosition(context.Background())
+		// test position
+		pose, componentRef, err := workingSLAMClient.Position(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatial.PoseAlmostEqual(poseSucc, pose), test.ShouldBeTrue)
 		test.That(t, componentRef, test.ShouldEqual, componentRefSucc)
 
-		// test get point cloud map
-		fullBytesPCD, err := slam.GetPointCloudMapFull(context.Background(), workingSLAMClient)
+		// test point cloud map
+		fullBytesPCD, err := slam.PointCloudMapFull(context.Background(), workingSLAMClient)
 		test.That(t, err, test.ShouldBeNil)
 		// comparing raw bytes to ensure order is correct
 		test.That(t, fullBytesPCD, test.ShouldResemble, pcd)
 		// comparing pointclouds to ensure PCDs are correct
 		testhelper.TestComparePointCloudsFromPCDs(t, fullBytesPCD, pcd)
 
-		// test get internal state
-		fullBytesInternalState, err := slam.GetInternalStateFull(context.Background(), workingSLAMClient)
+		// test internal state
+		fullBytesInternalState, err := slam.InternalStateFull(context.Background(), workingSLAMClient)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fullBytesInternalState, test.ShouldResemble, internalStateSucc)
 
-		// test get latest map info
-		timestamp, err := workingSLAMClient.GetLatestMapInfo(context.Background())
+		// test latest map info
+		timestamp, err := workingSLAMClient.LatestMapInfo(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, timestamp, test.ShouldResemble, timestampSucc)
 
@@ -151,27 +151,27 @@ func TestClientWorkingService(t *testing.T) {
 		workingDialedClient, err := slam.NewClientFromConn(context.Background(), conn, "", slam.Named(nameSucc), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		// test get position
-		pose, componentRef, err := workingDialedClient.GetPosition(context.Background())
+		// test position
+		pose, componentRef, err := workingDialedClient.Position(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatial.PoseAlmostEqual(poseSucc, pose), test.ShouldBeTrue)
 		test.That(t, componentRef, test.ShouldEqual, componentRefSucc)
 
-		// test get point cloud map
-		fullBytesPCD, err := slam.GetPointCloudMapFull(context.Background(), workingDialedClient)
+		// test point cloud map
+		fullBytesPCD, err := slam.PointCloudMapFull(context.Background(), workingDialedClient)
 		test.That(t, err, test.ShouldBeNil)
 		// comparing raw bytes to ensure order is correct
 		test.That(t, fullBytesPCD, test.ShouldResemble, pcd)
 		// comparing pointclouds to ensure PCDs are correct
 		testhelper.TestComparePointCloudsFromPCDs(t, fullBytesPCD, pcd)
 
-		// test get internal state
-		fullBytesInternalState, err := slam.GetInternalStateFull(context.Background(), workingDialedClient)
+		// test internal state
+		fullBytesInternalState, err := slam.InternalStateFull(context.Background(), workingDialedClient)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fullBytesInternalState, test.ShouldResemble, internalStateSucc)
 
-		// test get latest map info
-		timestamp, err := workingDialedClient.GetLatestMapInfo(context.Background())
+		// test latest map info
+		timestamp, err := workingDialedClient.LatestMapInfo(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, timestamp, test.ShouldResemble, timestampSucc)
 
@@ -192,27 +192,27 @@ func TestClientWorkingService(t *testing.T) {
 		dialedClient, err := resourceAPI.RPCClient(context.Background(), conn, "", slam.Named(nameSucc), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		// test get position
-		pose, componentRef, err := dialedClient.GetPosition(context.Background())
+		// test position
+		pose, componentRef, err := dialedClient.Position(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatial.PoseAlmostEqual(poseSucc, pose), test.ShouldBeTrue)
 		test.That(t, componentRef, test.ShouldEqual, componentRefSucc)
 
-		// test get point cloud map
-		fullBytesPCD, err := slam.GetPointCloudMapFull(context.Background(), dialedClient)
+		// test point cloud map
+		fullBytesPCD, err := slam.PointCloudMapFull(context.Background(), dialedClient)
 		test.That(t, err, test.ShouldBeNil)
 		// comparing raw bytes to ensure order is correct
 		test.That(t, fullBytesPCD, test.ShouldResemble, pcd)
 		// comparing pointclouds to ensure PCDs are correct
 		testhelper.TestComparePointCloudsFromPCDs(t, fullBytesPCD, pcd)
 
-		// test get internal state
-		fullBytesInternalState, err := slam.GetInternalStateFull(context.Background(), dialedClient)
+		// test internal state
+		fullBytesInternalState, err := slam.InternalStateFull(context.Background(), dialedClient)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fullBytesInternalState, test.ShouldResemble, internalStateSucc)
 
-		// test get latest map info
-		timestamp, err := dialedClient.GetLatestMapInfo(context.Background())
+		// test latest map info
+		timestamp, err := dialedClient.LatestMapInfo(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, timestamp, test.ShouldResemble, timestampSucc)
 
@@ -221,11 +221,11 @@ func TestClientWorkingService(t *testing.T) {
 }
 
 func TestFailingClient(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
-	failingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	failingServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	pcFail := &vision.Object{}
@@ -235,19 +235,19 @@ func TestFailingClient(t *testing.T) {
 
 	failingSLAMService := &inject.SLAMService{}
 
-	failingSLAMService.GetPositionFunc = func(ctx context.Context) (spatial.Pose, string, error) {
+	failingSLAMService.PositionFunc = func(ctx context.Context) (spatial.Pose, string, error) {
 		return nil, "", errors.New("failure to get position")
 	}
 
-	failingSLAMService.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+	failingSLAMService.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 		return nil, errors.New("failure during get pointcloud map")
 	}
 
-	failingSLAMService.GetInternalStateFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+	failingSLAMService.InternalStateFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 		return nil, errors.New("failure during get internal state")
 	}
 
-	failingSLAMService.GetLatestMapInfoFunc = func(ctx context.Context) (time.Time, error) {
+	failingSLAMService.LatestMapInfoFunc = func(ctx context.Context) (time.Time, error) {
 		return time.Time{}, errors.New("failure to get latest map info")
 	}
 
@@ -273,43 +273,43 @@ func TestFailingClient(t *testing.T) {
 		ctx := context.Background()
 		cancelCtx, cancelFunc := context.WithCancel(ctx)
 		cancelFunc()
-		_, err = failingSLAMClient.GetPointCloudMap(cancelCtx)
+		_, err = failingSLAMClient.PointCloudMap(cancelCtx)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "context cancel")
-		_, err = failingSLAMClient.GetInternalState(cancelCtx)
+		_, err = failingSLAMClient.InternalState(cancelCtx)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "context cancel")
 
-		// test get position
-		pose, componentRef, err := failingSLAMClient.GetPosition(context.Background())
+		// test position
+		pose, componentRef, err := failingSLAMClient.Position(context.Background())
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get position")
 		test.That(t, pose, test.ShouldBeNil)
 		test.That(t, componentRef, test.ShouldBeEmpty)
 
-		// test get pointcloud map
-		fullBytesPCD, err := slam.GetPointCloudMapFull(context.Background(), failingSLAMClient)
+		// test pointcloud map
+		fullBytesPCD, err := slam.PointCloudMapFull(context.Background(), failingSLAMClient)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during get pointcloud map")
 		test.That(t, fullBytesPCD, test.ShouldBeNil)
 
-		// test get internal state
-		fullBytesInternalState, err := slam.GetInternalStateFull(context.Background(), failingSLAMClient)
+		// test internal state
+		fullBytesInternalState, err := slam.InternalStateFull(context.Background(), failingSLAMClient)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during get internal state")
 		test.That(t, fullBytesInternalState, test.ShouldBeNil)
 
-		// test get latest map info
-		timestamp, err := failingSLAMClient.GetLatestMapInfo(context.Background())
+		// test latest map info
+		timestamp, err := failingSLAMClient.LatestMapInfo(context.Background())
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get latest map info")
 		test.That(t, timestamp, test.ShouldResemble, time.Time{})
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
-	failingSLAMService.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+	failingSLAMService.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 		f := func() ([]byte, error) {
 			return nil, errors.New("failure during callback")
 		}
 		return f, nil
 	}
 
-	failingSLAMService.GetInternalStateFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+	failingSLAMService.InternalStateFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 		f := func() ([]byte, error) {
 			return nil, errors.New("failure during callback")
 		}
@@ -323,13 +323,13 @@ func TestFailingClient(t *testing.T) {
 		failingSLAMClient, err := slam.NewClientFromConn(context.Background(), conn, "", slam.Named(nameFail), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		// test get pointcloud map
-		fullBytesPCD, err := slam.GetPointCloudMapFull(context.Background(), failingSLAMClient)
+		// test pointcloud map
+		fullBytesPCD, err := slam.PointCloudMapFull(context.Background(), failingSLAMClient)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during callback")
 		test.That(t, fullBytesPCD, test.ShouldBeNil)
 
-		// test get internal state
-		fullBytesInternalState, err := slam.GetInternalStateFull(context.Background(), failingSLAMClient)
+		// test internal state
+		fullBytesInternalState, err := slam.InternalStateFull(context.Background(), failingSLAMClient)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during callback")
 		test.That(t, fullBytesInternalState, test.ShouldBeNil)
 

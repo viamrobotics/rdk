@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
@@ -48,6 +47,7 @@ import (
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	rgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -60,9 +60,8 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin"
-	"go.viam.com/rdk/services/mlmodel"
-	"go.viam.com/rdk/services/mlmodel/tflitecpu"
 	"go.viam.com/rdk/services/motion"
+	motionBuiltin "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
@@ -77,7 +76,7 @@ import (
 var fakeModel = resource.DefaultModelFamily.WithModel("fake")
 
 func TestConfig1(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/cfgtest1.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -99,7 +98,7 @@ func TestConfig1(t *testing.T) {
 }
 
 func TestConfigFake(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -111,7 +110,7 @@ func TestConfigFake(t *testing.T) {
 // this serves as a test for updateWeakDependents as the web service defines a weak
 // dependency on all resources.
 func TestConfigRemote(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -261,6 +260,11 @@ func TestConfigRemote(t *testing.T) {
 
 	for idx := 0; idx < expectedStatusLength; idx++ {
 		test.That(t, statuses[idx].Status, test.ShouldResemble, map[string]interface{}{})
+		// Assert that last reconfigured values are within last hour (remote
+		// recently configured all three resources).
+		lr := statuses[idx].LastReconfigured
+		test.That(t, lr, test.ShouldHappenBetween,
+			time.Now().Add(-1*time.Hour), time.Now())
 	}
 
 	statuses, err = r2.Status(
@@ -307,7 +311,7 @@ func TestConfigRemote(t *testing.T) {
 }
 
 func TestConfigRemoteWithAuth(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -539,7 +543,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 }
 
 func TestConfigRemoteWithTLSAuth(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -764,7 +768,7 @@ func (da *dummyArm) Close(ctx context.Context) error {
 }
 
 func TestStopAll(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	channel := make(chan struct{})
 
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
@@ -777,7 +781,7 @@ func TestStopAll(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (arm.Arm, error) {
 			if conf.Name == "arm1" {
 				return &dummyArm1, nil
@@ -861,20 +865,12 @@ func TestStopAll(t *testing.T) {
 }
 
 type dummyBoard struct {
-	board.LocalBoard
+	board.Board
 	closeCount int
 }
 
 func (db *dummyBoard) Name() resource.Name {
 	return board.Named("bad")
-}
-
-func (db *dummyBoard) SPINames() []string {
-	return nil
-}
-
-func (db *dummyBoard) I2CNames() []string {
-	return nil
 }
 
 func (db *dummyBoard) AnalogReaderNames() []string {
@@ -885,17 +881,13 @@ func (db *dummyBoard) DigitalInterruptNames() []string {
 	return nil
 }
 
-func (db *dummyBoard) ModelAttributes() board.ModelAttributes {
-	return board.ModelAttributes{}
-}
-
 func (db *dummyBoard) Close(ctx context.Context) error {
 	db.closeCount++
 	return nil
 }
 
 func TestNewTeardown(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 	var dummyBoard1 dummyBoard
@@ -906,7 +898,7 @@ func TestNewTeardown(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (board.Board, error) {
 			return &dummyBoard1, nil
 		}})
@@ -917,7 +909,7 @@ func TestNewTeardown(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (gripper.Gripper, error) {
 			return nil, errors.New("whoops")
 		}})
@@ -955,7 +947,7 @@ func TestNewTeardown(t *testing.T) {
 }
 
 func TestMetadataUpdate(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -993,7 +985,7 @@ func TestMetadataUpdate(t *testing.T) {
 }
 
 func TestSensorsService(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1022,7 +1014,7 @@ func TestSensorsService(t *testing.T) {
 }
 
 func TestStatusService(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1089,8 +1081,8 @@ func TestStatus(t *testing.T) {
 		resource.DeregisterAPI(failAPI)
 	}()
 
-	statuses := []robot.Status{{Name: button1, Status: map[string]interface{}{}}}
-	logger := golog.NewTestLogger(t)
+	expectedRobotStatus := robot.Status{Name: button1, Status: map[string]interface{}{}}
+	logger := logging.NewTestLogger(t)
 	resourceNames := []resource.Name{working1, button1, fail1}
 	resourceMap := map[resource.Name]resource.Resource{
 		working1: rtestutils.NewUnimplementedResource(working1),
@@ -1119,7 +1111,11 @@ func TestStatus(t *testing.T) {
 
 		resp, err := r.Status(context.Background(), []resource.Name{button1})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp, test.ShouldResemble, statuses)
+		test.That(t, len(resp), test.ShouldEqual, 1)
+		test.That(t, resp[0].Name, test.ShouldResemble, expectedRobotStatus.Name)
+		test.That(t, resp[0].Status, test.ShouldResemble, expectedRobotStatus.Status)
+		test.That(t, resp[0].LastReconfigured, test.ShouldHappenBetween,
+			time.Now().Add(-1*time.Hour), time.Now())
 	})
 
 	t.Run("failing resource", func(t *testing.T) {
@@ -1208,7 +1204,7 @@ func TestStatus(t *testing.T) {
 }
 
 func TestStatusRemote(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	// set up remotes
 	listener1 := testutils.ReserveRandomListener(t)
 	addr1 := listener1.Addr().String()
@@ -1244,11 +1240,19 @@ func TestStatusRemote(t *testing.T) {
 		EndPosition:    &commonpb.Pose{},
 		JointPositions: &armpb.JointPositions{Values: []float64{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}},
 	}
+
+	lastReconfigured, err := time.Parse("2006-01-02 15:04:05", "2011-11-11 00:00:00")
+	test.That(t, err, test.ShouldBeNil)
+
 	injectRobot1.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 		statusCallCount++
 		statuses := make([]robot.Status, 0, len(resourceNames))
 		for _, n := range resourceNames {
-			statuses = append(statuses, robot.Status{Name: n, Status: armStatus})
+			statuses = append(statuses, robot.Status{
+				Name:             n,
+				LastReconfigured: lastReconfigured,
+				Status:           armStatus,
+			})
 		}
 		return statuses, nil
 	}
@@ -1261,7 +1265,11 @@ func TestStatusRemote(t *testing.T) {
 		statusCallCount++
 		statuses := make([]robot.Status, 0, len(resourceNames))
 		for _, n := range resourceNames {
-			statuses = append(statuses, robot.Status{Name: n, Status: armStatus})
+			statuses = append(statuses, robot.Status{
+				Name:             n,
+				LastReconfigured: lastReconfigured,
+				Status:           armStatus,
+			})
 		}
 		return statuses, nil
 	}
@@ -1321,6 +1329,10 @@ func TestStatusRemote(t *testing.T) {
 		err = decoder.Decode(status.Status)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, convMap, test.ShouldResemble, armStatus)
+
+		// Test that LastReconfigured values are from remotes, and not set based on
+		// when local resource graph nodes were added for the remote resources.
+		test.That(t, status.LastReconfigured, test.ShouldEqual, lastReconfigured)
 	}
 }
 
@@ -1329,7 +1341,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	options, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
 
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	remoteRemoteConfig := &config.Config{
 		Components: []resource.Config{
@@ -1468,7 +1480,7 @@ func (someConfig) Validate(path string) ([]string, error) {
 }
 
 func TestValidationErrorOnReconfigure(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
 	badConfig := &config.Config{
@@ -1507,7 +1519,7 @@ func TestValidationErrorOnReconfigure(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		resource.NewNotAvailableError(name, errors.New("config validation error found in resource: rdk:component:base/test: fail")),
+		resource.NewNotAvailableError(name, errors.New("resource config validation error: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
@@ -1522,7 +1534,7 @@ func TestValidationErrorOnReconfigure(t *testing.T) {
 }
 
 func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
 	badConfig := &config.Config{
@@ -1564,13 +1576,17 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 				Name:  "test",
 				API:   base.API,
 				Model: fakeModel,
+				// Added to force a component reconfigure.
+				Attributes: rutils.AttributeMap{"version": 1},
 			},
 		},
 		Services: []resource.Config{
 			{
-				Name:                "fake1",
-				API:                 datamanager.API,
-				Model:               resource.DefaultServiceModel,
+				Name:  "fake1",
+				API:   datamanager.API,
+				Model: resource.DefaultServiceModel,
+				// Added to force a service reconfigure.
+				Attributes:          rutils.AttributeMap{"version": 1},
 				ConvertedAttributes: &builtin.Config{},
 			},
 		},
@@ -1589,7 +1605,7 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		resource.NewNotAvailableError(name, errors.New("config validation error found in resource: rdk:component:base/test: fail")),
+		resource.NewNotAvailableError(name, errors.New("resource config validation error: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
@@ -1618,7 +1634,7 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 }
 
 func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	armConfig := resource.Config{
 		Name:  "arm1",
@@ -1675,16 +1691,20 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 	badConfig := &config.Config{
 		Components: []resource.Config{
 			{
-				Name:                "test",
-				API:                 base.API,
-				Model:               fakeModel,
+				Name:  "test",
+				API:   base.API,
+				Model: fakeModel,
+				// Added to force a component reconfigure.
+				Attributes:          rutils.AttributeMap{"version": 1},
 				ConvertedAttributes: someConfig{},
 			},
 		},
 		Services: []resource.Config{
 			{
-				Name:                "fake1",
-				API:                 datamanager.API,
+				Name: "fake1",
+				API:  datamanager.API,
+				// Added to force a service reconfigure.
+				Attributes:          rutils.AttributeMap{"version": 1},
 				ConvertedAttributes: someConfig{},
 			},
 		},
@@ -1716,7 +1736,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		resource.NewNotAvailableError(name, errors.New("config validation error found in resource: rdk:component:base/test: fail")),
+		resource.NewNotAvailableError(name, errors.New("resource config validation error: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
@@ -1731,7 +1751,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 }
 
 func TestResourceStartsOnReconfigure(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
 	badConfig := &config.Config{
@@ -1803,7 +1823,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 }
 
 func TestConfigProcess(t *testing.T) {
-	logger, logs := golog.NewObservedTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	r, err := robotimpl.New(context.Background(), &config.Config{
 		Processes: []pexec.ProcessConfig{
@@ -1823,7 +1843,7 @@ func TestConfigProcess(t *testing.T) {
 
 func TestConfigPackages(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	fakePackageServer, err := putils.NewFakePackageServer(ctx, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -1887,80 +1907,6 @@ func TestConfigPackages(t *testing.T) {
 	test.That(t, path2, test.ShouldEqual, path.Join(packageDir, ".data", "ml_model", "package-2-v2"))
 }
 
-func TestConfigPackageReferenceReplacement(t *testing.T) {
-	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
-
-	fakePackageServer, err := putils.NewFakePackageServer(ctx, logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer utils.UncheckedErrorFunc(fakePackageServer.Shutdown)
-
-	packageDir := t.TempDir()
-	labelPath := "${packages.orgID/some-name-2}/labels.txt"
-
-	robotConfig := &config.Config{
-		Packages: []config.PackageConfig{
-			{
-				Name:    "some-name-1",
-				Package: "package-1",
-				Version: "v1",
-			},
-			{
-				Name:    "orgID/some-name-2",
-				Package: "package-2",
-				Version: "latest",
-			},
-			{
-				Name:    "my-module",
-				Package: "orgID/my-module",
-				Type:    config.PackageTypeModule,
-				Version: "1.2",
-			},
-			{
-				Name:    "my-ml-model",
-				Package: "orgID/my-ml-model",
-				Type:    config.PackageTypeMlModel,
-				Version: "latest",
-			},
-		},
-		PackagePath: packageDir,
-		Services: []resource.Config{
-			{
-				Name:  "ml-model-service",
-				API:   mlmodel.API,
-				Model: resource.DefaultModelFamily.WithModel("tflite_cpu"),
-				ConvertedAttributes: &tflitecpu.TFLiteConfig{
-					ModelPath:  "${packages.some-name-1}/model.tflite",
-					LabelPath:  labelPath,
-					NumThreads: 1,
-				},
-			},
-			{
-				Name:  "my-ml-model",
-				API:   mlmodel.API,
-				Model: resource.DefaultModelFamily.WithModel("tflite_cpu"),
-				ConvertedAttributes: &tflitecpu.TFLiteConfig{
-					ModelPath:  "${packages.ml_models.my-ml-model}/model.tflite",
-					LabelPath:  labelPath,
-					NumThreads: 2,
-				},
-			},
-		},
-		Modules: []config.Module{
-			{
-				Name:    "my-module",
-				ExePath: "${packages.modules.my-module}/exec.sh",
-			},
-		},
-	}
-
-	fakePackageServer.StorePackage(robotConfig.Packages...)
-
-	r, err := robotimpl.New(ctx, robotConfig, logger)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-}
-
 // removeDefaultServices removes default services and returns the removed
 // services for testing purposes.
 func removeDefaultServices(cfg *config.Config) []resource.Config {
@@ -1989,7 +1935,7 @@ func removeDefaultServices(cfg *config.Config) []resource.Config {
 
 func TestConfigMethod(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// Precompile complex module to avoid timeout issues when building takes too long.
 	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
@@ -2142,7 +2088,7 @@ func TestConfigMethod(t *testing.T) {
 	actualCfg.Components = nil
 	expectedCfg.Components = nil
 
-	// Manually inspect remote resource and process as Equals should be used
+	// Manually inspect remote resources, modules, and processes as Equals should be used
 	// (alreadyValidated will have been set to true).
 	test.That(t, len(actualCfg.Remotes), test.ShouldEqual, 1)
 	test.That(t, actualCfg.Remotes[0].Equals(expectedCfg.Remotes[0]), test.ShouldBeTrue)
@@ -2152,12 +2098,16 @@ func TestConfigMethod(t *testing.T) {
 	test.That(t, actualCfg.Processes[0].Equals(expectedCfg.Processes[0]), test.ShouldBeTrue)
 	actualCfg.Processes = nil
 	expectedCfg.Processes = nil
+	test.That(t, len(actualCfg.Modules), test.ShouldEqual, 1)
+	test.That(t, actualCfg.Modules[0].Equals(expectedCfg.Modules[0]), test.ShouldBeTrue)
+	actualCfg.Modules = nil
+	expectedCfg.Modules = nil
 
 	test.That(t, actualCfg, test.ShouldResemble, &expectedCfg)
 }
 
 func TestReconnectRemote(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	// start the first robot
 	ctx := context.Background()
@@ -2231,7 +2181,7 @@ func TestReconnectRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// close/disconnect the robot
-	test.That(t, robot.StopWeb(context.Background()), test.ShouldBeNil)
+	robot.StopWeb()
 	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
 	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 0)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -2270,7 +2220,7 @@ func TestReconnectRemote(t *testing.T) {
 }
 
 func TestReconnectRemoteChangeConfig(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// start the first robot
 	ctx := context.Background()
@@ -2405,20 +2355,22 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 }
 
 func TestCheckMaxInstanceValid(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg := &config.Config{
 		Services: []resource.Config{
 			{
-				Name:      "fake1",
-				Model:     resource.DefaultServiceModel,
-				API:       motion.API,
-				DependsOn: []string{framesystem.InternalServiceName.String()},
+				Name:                "fake1",
+				Model:               resource.DefaultServiceModel,
+				API:                 motion.API,
+				DependsOn:           []string{framesystem.InternalServiceName.String()},
+				ConvertedAttributes: &motionBuiltin.Config{},
 			},
 			{
-				Name:      "fake2",
-				Model:     resource.DefaultServiceModel,
-				API:       motion.API,
-				DependsOn: []string{framesystem.InternalServiceName.String()},
+				Name:                "fake2",
+				Model:               resource.DefaultServiceModel,
+				API:                 motion.API,
+				DependsOn:           []string{framesystem.InternalServiceName.String()},
+				ConvertedAttributes: &motionBuiltin.Config{},
 			},
 		},
 		Components: []resource.Config{
@@ -2449,7 +2401,7 @@ func TestCheckMaxInstanceValid(t *testing.T) {
 // The max allowed datamanager services is 1 so only one of the datamanager services
 // from this config should build.
 func TestCheckMaxInstanceInvalid(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg := &config.Config{
 		Services: []resource.Config{
 			{
@@ -2508,7 +2460,7 @@ func TestCheckMaxInstanceSkipRemote(t *testing.T) {
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	r0, err := robotimpl.New(ctx, &config.Config{}, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -2560,7 +2512,7 @@ func TestCheckMaxInstanceSkipRemote(t *testing.T) {
 
 func TestDependentResources(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	cfg := &config.Config{
 		Components: []resource.Config{
@@ -2660,7 +2612,7 @@ func TestDependentResources(t *testing.T) {
 
 func TestOrphanedResources(t *testing.T) {
 	ctx := context.Background()
-	logger, logs := golog.NewObservedTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	// Precompile modules to avoid timeout issues when building takes too long.
 	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
@@ -2696,6 +2648,9 @@ func TestOrphanedResources(t *testing.T) {
 					Name:  "g",
 					Model: gizmoModel,
 					API:   gizmoAPI,
+					Attributes: rutils.AttributeMap{
+						"arg1": "foo",
+					},
 				},
 			},
 			Services: []resource.Config{
@@ -2723,6 +2678,9 @@ func TestOrphanedResources(t *testing.T) {
 					Name:  "g",
 					Model: gizmoModel,
 					API:   gizmoAPI,
+					Attributes: rutils.AttributeMap{
+						"arg1": "foo",
+					},
 				},
 			},
 			Services: []resource.Config{
@@ -2751,6 +2709,9 @@ func TestOrphanedResources(t *testing.T) {
 					Name:  "g",
 					Model: gizmoModel,
 					API:   gizmoAPI,
+					Attributes: rutils.AttributeMap{
+						"arg1": "foo",
+					},
 				},
 			},
 			Services: []resource.Config{
@@ -2891,7 +2852,7 @@ func (d *doodad) doThroughGizmo(ctx context.Context,
 
 func TestDependentAndOrphanedResources(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// Precompile modules to avoid timeout issues when building takes too long.
 	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
@@ -2909,7 +2870,7 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			newDoodad := &doodad{
 				Named: conf.ResourceName().AsNamed(),
@@ -2946,6 +2907,9 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 				API:       resource.APINamespace("acme").WithComponentType("gizmo"),
 				Model:     gizmoModel,
 				DependsOn: []string{"m"},
+				Attributes: rutils.AttributeMap{
+					"arg1": "foo",
+				},
 			},
 			{
 				Name:                "m",
@@ -2983,6 +2947,9 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 				API:       resource.APINamespace("acme").WithComponentType("gizmo"),
 				Model:     gizmoModel,
 				DependsOn: []string{"m"},
+				Attributes: rutils.AttributeMap{
+					"arg1": "foo",
+				},
 			},
 			{
 				Name:                "m",
@@ -3019,6 +2986,9 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 				API:       resource.APINamespace("acme").WithComponentType("gizmo"),
 				Model:     gizmoModel,
 				DependsOn: []string{"m"},
+				Attributes: rutils.AttributeMap{
+					"arg1": "foo",
+				},
 			},
 			{
 				Name:                "m",
@@ -3108,7 +3078,7 @@ func TestModuleDebugReconfigure(t *testing.T) {
 
 func TestResourcelessModuleRemove(t *testing.T) {
 	ctx := context.Background()
-	logger, logs := golog.NewObservedTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	// Precompile module to avoid timeout issues when building takes too long.
 	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
@@ -3140,19 +3110,10 @@ func TestResourcelessModuleRemove(t *testing.T) {
 
 func TestCrashedModuleReconfigure(t *testing.T) {
 	ctx := context.Background()
-	logger, logs := golog.NewObservedTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
 	test.That(t, err, test.ShouldBeNil)
-
-	// Lower resource configuration timeout to avoid waiting for 60 seconds
-	// for manager.Add to time out waiting for module to start listening.
-	defer func() {
-		test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
-			test.ShouldBeNil)
-	}()
-	test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "500ms"),
-		test.ShouldBeNil)
 
 	// Manually define model, as importing it can cause double registration.
 	helperModel := resource.NewModel("rdk", "test", "helper")
@@ -3181,19 +3142,30 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	_, err = r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
 
-	// Reconfigure module to a malformed module (does not start listening).
-	// Assert that "h" is removed after reconfiguration error.
-	cfg.Modules[0].ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
-	r.Reconfigure(ctx, cfg)
+	t.Run("reconfiguration timeout", func(t *testing.T) {
+		// Lower timeouts to avoid waiting for 60 seconds for reconfig and module.
+		defer func() {
+			test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
+				test.ShouldBeNil)
+			test.That(t, os.Unsetenv(rutils.ModuleStartupTimeoutEnvVar),
+				test.ShouldBeNil)
+		}()
+		t.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "500ms")
+		t.Setenv(rutils.ModuleStartupTimeoutEnvVar, "500ms")
 
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		test.That(t, logs.FilterMessage("error reconfiguring module").Len(), test.ShouldEqual, 1)
+		// Reconfigure module to a malformed module (does not start listening).
+		// Assert that "h" is removed after reconfiguration error.
+		cfg.Modules[0].ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
+		r.Reconfigure(ctx, cfg)
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(t, logs.FilterMessage("error reconfiguring module").Len(), test.ShouldEqual, 1)
+		})
+
+		_, err = r.ResourceByName(generic.Named("h"))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(generic.Named("h")))
 	})
-
-	_, err = r.ResourceByName(generic.Named("h"))
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError,
-		resource.NewNotFoundError(generic.Named("h")))
 
 	// Reconfigure module back to testmodule. Assert that 'h' is eventually
 	// added back to the resource manager (the module recovers).
@@ -3208,7 +3180,7 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 
 func TestImplicitDepsAcrossModules(t *testing.T) {
 	ctx := context.Background()
-	logger, _ := golog.NewObservedTestLogger(t)
+	logger, _ := logging.NewObservedTestLogger(t)
 
 	// Precompile modules to avoid timeout issues when building takes too long.
 	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")

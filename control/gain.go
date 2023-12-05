@@ -5,8 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/logging"
 )
 
 type gain struct {
@@ -14,10 +15,10 @@ type gain struct {
 	cfg    BlockConfig
 	y      []*Signal
 	gain   float64
-	logger golog.Logger
+	logger logging.Logger
 }
 
-func newGain(config BlockConfig, logger golog.Logger) (Block, error) {
+func newGain(config BlockConfig, logger logging.Logger) (Block, error) {
 	g := &gain{cfg: config, logger: logger}
 	if err := g.reset(); err != nil {
 		return nil, err
@@ -44,7 +45,10 @@ func (b *gain) reset() error {
 	if len(b.cfg.DependsOn) != 1 {
 		return errors.Errorf("invalid number of inputs for gain block %s expected 1 got %d", b.cfg.Name, len(b.cfg.DependsOn))
 	}
-	b.gain = b.cfg.Attribute.Float64("gain", 1.0)
+	b.gain = b.cfg.Attribute["gain"].(float64)
+	if b.gain == 0 {
+		b.gain = 1.0
+	}
 	b.y = make([]*Signal, 1)
 	b.y[0] = makeSignal(b.cfg.Name)
 	return nil

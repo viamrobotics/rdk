@@ -1,4 +1,4 @@
-//go:build linux && (arm64 || arm)
+//go:build linux && (arm64 || arm) && !no_pigpio && !no_cgo
 
 package piimpl
 
@@ -14,7 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 )
 
@@ -102,7 +102,7 @@ func (s *piPigpioI2CHandle) WriteBlockData(ctx context.Context, register byte, d
 	return nil
 }
 
-func (s *piPigpioI2C) OpenHandle(addr byte) (board.I2CHandle, error) {
+func (s *piPigpioI2C) OpenHandle(addr byte) (buses.I2CHandle, error) {
 	handle := &piPigpioI2CHandle{bus: s}
 
 	// Raspberry Pis are all on i2c bus 1

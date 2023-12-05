@@ -1,8 +1,6 @@
 package replaypcd
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
 	"fmt"
 	"math"
@@ -14,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
 	"go.viam.com/test"
@@ -27,6 +24,7 @@ import (
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
 	cloudinject "go.viam.com/rdk/internal/testutils/inject"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -168,10 +166,10 @@ func timestampsFromFileNum(fileNum int) (*timestamppb.Timestamp, *timestamppb.Ti
 
 // createMockCloudDependencies creates a mockDataServiceServer and rpc client connection to it which is then
 // stored in a mockCloudConnectionService.
-func createMockCloudDependencies(ctx context.Context, t *testing.T, logger golog.Logger, b bool) (resource.Dependencies, func() error) {
+func createMockCloudDependencies(ctx context.Context, t *testing.T, logger logging.Logger, b bool) (resource.Dependencies, func() error) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, rpcServer.RegisterServiceServer(
@@ -206,7 +204,7 @@ func createMockCloudDependencies(ctx context.Context, t *testing.T, logger golog
 // a valid or invalid data client.
 func createNewReplayPCDCamera(ctx context.Context, t *testing.T, replayCamCfg *Config, validDeps bool,
 ) (camera.Camera, resource.Dependencies, func() error, error) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	resources, closeRPCFunc := createMockCloudDependencies(ctx, t, logger, validDeps)
 
@@ -294,7 +292,7 @@ func getFile(i, end int) (int, error) {
 }
 
 // getCompressedBytesFromArtifact will return an array of bytes from the
-// provided artifact path, compressing them using gzip.
+// provided artifact path.
 func getCompressedBytesFromArtifact(inputPath string) ([]byte, error) {
 	artifactPath, err := artifact.Path(inputPath)
 	if err != nil {
@@ -306,12 +304,7 @@ func getCompressedBytesFromArtifact(inputPath string) ([]byte, error) {
 		return nil, ErrEndOfDataset
 	}
 
-	var dataBuf bytes.Buffer
-	gz := gzip.NewWriter(&dataBuf)
-	gz.Write(data)
-	gz.Close()
-
-	return dataBuf.Bytes(), nil
+	return data, nil
 }
 
 // getPointCloudFromArtifact will return a point cloud based on the provided artifact path.

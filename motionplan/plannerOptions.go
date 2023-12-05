@@ -1,3 +1,5 @@
+//go:build !no_cgo
+
 package motionplan
 
 import (
@@ -41,6 +43,9 @@ const (
 	// default number of times to try to smooth the path.
 	defaultSmoothIter = 200
 
+	// default number of position only seeds to use for tp-space planning.
+	defaultTPspacePositionOnlySeeds = 16
+
 	// descriptions of constraints.
 	defaultLinearConstraintDesc         = "Constraint to follow linear path"
 	defaultPseudolinearConstraintDesc   = "Constraint to follow pseudolinear path, with tolerance scaled to path length"
@@ -58,6 +63,7 @@ const (
 
 var defaultNumThreads = runtime.NumCPU() / 2
 
+// TODO: Make this an enum
 // the set of supported motion profiles.
 const (
 	FreeMotionProfile         = "free"
@@ -70,8 +76,10 @@ const (
 // NewBasicPlannerOptions specifies a set of basic options for the planner.
 func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 	opt := &plannerOptions{}
+	opt.goalMetricConstructor = ik.NewSquaredNormMetric
 	opt.goalArcScore = ik.JointMetric
 	opt.DistanceFunc = ik.L2InputMetric
+	opt.ScoreFunc = ik.L2InputMetric
 	opt.pathMetric = ik.NewZeroMetric() // By default, the distance to the valid manifold is zero, unless constraints say otherwise
 	// opt.goalMetric is intentionally unset as it is likely dependent on the goal itself.
 
@@ -80,6 +88,7 @@ func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 	opt.MinScore = defaultMinIkScore
 	opt.Resolution = defaultResolution
 	opt.Timeout = defaultTimeout
+	opt.PositionSeeds = defaultTPspacePositionOnlySeeds
 
 	opt.PlanIter = defaultPlanIter
 	opt.FrameStep = defaultFrameStep
@@ -102,9 +111,10 @@ func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 // plannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
 type plannerOptions struct {
 	ConstraintHandler
-	goalMetric   ik.StateMetric // Distance function which converges to the final goal position
-	goalArcScore ik.SegmentMetric
-	pathMetric   ik.StateMetric // Distance function which converges on the valid manifold of intermediate path states
+	goalMetricConstructor func(spatialmath.Pose) ik.StateMetric
+	goalMetric            ik.StateMetric // Distance function which converges to the final goal position
+	goalArcScore          ik.SegmentMetric
+	pathMetric            ik.StateMetric // Distance function which converges on the valid manifold of intermediate path states
 
 	extra map[string]interface{}
 
@@ -145,11 +155,20 @@ type plannerOptions struct {
 	// Number of iterations to mrun before beginning to accept randomly seeded locations.
 	IterBeforeRand int `json:"iter_before_rand"`
 
+	// Number of seeds to pre-generate for bidirectional position-only solving.
+	PositionSeeds int `json:"position_seeds"`
+
 	// This is how far cbirrt will try to extend the map towards a goal per-step. Determined from FrameStep
 	qstep []float64
 
 	// DistanceFunc is the function that the planner will use to measure the degree of "closeness" between two states of the robot
 	DistanceFunc ik.SegmentMetric
+
+	// ScoreFunc is the function that the planner will use to evaluate a plan for final cost comparisons.
+	ScoreFunc ik.SegmentMetric
+
+	// profile is the string representing the motion profile
+	profile string
 
 	PlannerConstructor plannerConstructor
 
@@ -157,8 +176,8 @@ type plannerOptions struct {
 }
 
 // SetMetric sets the distance metric for the solver.
-func (p *plannerOptions) SetGoalMetric(m ik.StateMetric) {
-	p.goalMetric = m
+func (p *plannerOptions) SetGoal(goal spatialmath.Pose) {
+	p.goalMetric = p.goalMetricConstructor(goal)
 }
 
 // SetPathDist sets the distance metric for the solver to move a constraint-violating point into a valid manifold.

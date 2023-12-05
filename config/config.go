@@ -13,14 +13,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/slices"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
@@ -28,16 +27,17 @@ import (
 
 // A Config describes the configuration of a robot.
 type Config struct {
-	Cloud      *Cloud
-	Modules    []Module
-	Remotes    []Remote
-	Components []resource.Config
-	Processes  []pexec.ProcessConfig
-	Services   []resource.Config
-	Packages   []PackageConfig
-	Network    NetworkConfig
-	Auth       AuthConfig
-	Debug      bool
+	Cloud           *Cloud
+	Modules         []Module
+	Remotes         []Remote
+	Components      []resource.Config
+	Processes       []pexec.ProcessConfig
+	Services        []resource.Config
+	Packages        []PackageConfig
+	Network         NetworkConfig
+	Auth            AuthConfig
+	Debug           bool
+	GlobalLogConfig []GlobalLogConfig
 
 	ConfigFilePath string
 
@@ -77,10 +77,30 @@ type configData struct {
 	Auth                AuthConfig            `json:"auth"`
 	Debug               bool                  `json:"debug,omitempty"`
 	DisablePartialStart bool                  `json:"disable_partial_start"`
+	GlobalLogConfig     []GlobalLogConfig     `json:"global_log_configuration"`
+}
+
+// AppValidationStatus refers to the.
+type AppValidationStatus struct {
+	Error string `json:"error"`
+}
+
+func (c *Config) validateUniqueResource(logger logging.Logger, seenResources map[string]bool, name string) error {
+	if _, exists := seenResources[name]; exists {
+		errString := errors.Errorf("duplicate resource %s in robot config", name)
+		if c.DisablePartialStart {
+			return errString
+		}
+		logger.Error(errString)
+	}
+	seenResources[name] = true
+	return nil
 }
 
 // Ensure ensures all parts of the config are valid.
-func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
+func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
+	seenResources := make(map[string]bool)
+
 	if c.Cloud != nil {
 		if err := c.Cloud.Validate("cloud", fromCloud); err != nil {
 			return err
@@ -102,6 +122,9 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 			}
 			logger.Errorw("module config error; starting robot without module", "name", c.Modules[idx].Name, "error", err)
 		}
+		if err := c.validateUniqueResource(logger, seenResources, c.Modules[idx].Name); err != nil {
+			return err
+		}
 	}
 
 	for idx := 0; idx < len(c.Remotes); idx++ {
@@ -111,18 +134,28 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 			}
 			logger.Errorw("remote config error; starting robot without remote", "name", c.Remotes[idx].Name, "error", err)
 		}
+		// we need to figure out how to make it so that the remote is tied to the API
+		resourceRemoteName := resource.NewName(resource.APINamespaceRDK.WithType("remote").WithSubtype(""), c.Remotes[idx].Name)
+		if err := c.validateUniqueResource(logger, seenResources, resourceRemoteName.String()); err != nil {
+			return err
+		}
 	}
 
 	for idx := 0; idx < len(c.Components); idx++ {
-		dependsOn, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
+		component := &c.Components[idx]
+		dependsOn, err := component.Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
 		if err != nil {
-			fullErr := errors.Errorf("error validating component %s: %s", c.Components[idx].Name, err)
+			fullErr := errors.Wrapf(err, "error validating component %s: %s", component.Name, err)
 			if c.DisablePartialStart {
 				return fullErr
 			}
-			logger.Errorw("component config error; starting robot without component", "name", c.Components[idx].Name, "error", err)
+			resLogger := logger.Sublogger(component.ResourceName().String())
+			resLogger.Errorw("component config error; starting robot without component", "name", component.Name, "error", err)
 		} else {
-			c.Components[idx].ImplicitDependsOn = dependsOn
+			component.ImplicitDependsOn = dependsOn
+		}
+		if err := c.validateUniqueResource(logger, seenResources, component.ResourceName().String()); err != nil {
+			return err
 		}
 	}
 
@@ -133,17 +166,27 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 			}
 			logger.Errorw("process config error; starting robot without process", "name", c.Processes[idx].Name, "error", err)
 		}
+
+		if err := c.validateUniqueResource(logger, seenResources, c.Processes[idx].ID); err != nil {
+			return err
+		}
 	}
 
 	for idx := 0; idx < len(c.Services); idx++ {
-		dependsOn, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
+		service := &c.Services[idx]
+		dependsOn, err := service.Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
 		if err != nil {
 			if c.DisablePartialStart {
 				return err
 			}
-			logger.Errorw("service config error; starting robot without service", "name", c.Services[idx].Name, "error", err)
+			resLogger := logger.Sublogger(service.ResourceName().String())
+			resLogger.Errorw("service config error; starting robot without service", "name", service.Name, "error", err)
 		} else {
-			c.Services[idx].ImplicitDependsOn = dependsOn
+			service.ImplicitDependsOn = dependsOn
+		}
+
+		if err := c.validateUniqueResource(logger, seenResources, service.ResourceName().String()); err != nil {
+			return err
 		}
 	}
 
@@ -154,6 +197,15 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 				return fullErr
 			}
 			logger.Errorw("package config error; starting robot without package", "name", c.Packages[idx].Name, "error", err)
+		}
+		if err := c.validateUniqueResource(logger, seenResources, c.Packages[idx].Package); err != nil {
+			return err
+		}
+	}
+
+	for idx, globalLogConfig := range c.GlobalLogConfig {
+		if err := globalLogConfig.Validate(fmt.Sprintf("global_log_configuration.%d", idx)); err != nil {
+			logger.Errorw("log configuration error", "err", err)
 		}
 	}
 
@@ -198,6 +250,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.Auth = conf.Auth
 	c.Debug = conf.Debug
 	c.DisablePartialStart = conf.DisablePartialStart
+	c.GlobalLogConfig = conf.GlobalLogConfig
 
 	return nil
 }
@@ -226,6 +279,7 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		Auth:                c.Auth,
 		Debug:               c.Debug,
 		DisablePartialStart: c.DisablePartialStart,
+		GlobalLogConfig:     c.GlobalLogConfig,
 	})
 }
 
@@ -388,17 +442,17 @@ func (conf *Remote) validate(path string) error {
 	conf.adjustPartialNames()
 
 	if conf.Name == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "name")
+		return resource.NewConfigValidationFieldRequiredError(path, "name")
 	}
 	if !rutils.ValidNameRegex.MatchString(conf.Name) {
-		return utils.NewConfigValidationError(path, rutils.ErrInvalidName(conf.Name))
+		return resource.NewConfigValidationError(path, rutils.ErrInvalidName(conf.Name))
 	}
 	if conf.Address == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "address")
+		return resource.NewConfigValidationFieldRequiredError(path, "address")
 	}
 	if conf.Frame != nil {
 		if conf.Frame.Parent == "" {
-			return utils.NewConfigValidationFieldRequiredError(path, "frame.parent")
+			return resource.NewConfigValidationFieldRequiredError(path, "frame.parent")
 		}
 	}
 
@@ -519,17 +573,17 @@ func (config Cloud) MarshalJSON() ([]byte, error) {
 // Validate ensures all parts of the config are valid.
 func (config *Cloud) Validate(path string, fromCloud bool) error {
 	if config.ID == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "id")
+		return resource.NewConfigValidationFieldRequiredError(path, "id")
 	}
 	if fromCloud {
 		if config.FQDN == "" {
-			return utils.NewConfigValidationFieldRequiredError(path, "fqdn")
+			return resource.NewConfigValidationFieldRequiredError(path, "fqdn")
 		}
 		if config.LocalFQDN == "" {
-			return utils.NewConfigValidationFieldRequiredError(path, "local_fqdn")
+			return resource.NewConfigValidationFieldRequiredError(path, "local_fqdn")
 		}
 	} else if config.Secret == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "secret")
+		return resource.NewConfigValidationFieldRequiredError(path, "secret")
 	}
 	if config.RefreshInterval == 0 {
 		config.RefreshInterval = 10 * time.Second
@@ -597,17 +651,17 @@ const DefaultBindAddress = "localhost:8080"
 // Validate ensures all parts of the config are valid.
 func (nc *NetworkConfig) Validate(path string) error {
 	if nc.BindAddress != "" && nc.Listener != nil {
-		return utils.NewConfigValidationError(path, errors.New("may only set one of bind_address or listener"))
+		return resource.NewConfigValidationError(path, errors.New("may only set one of bind_address or listener"))
 	}
 	if nc.BindAddress == "" {
 		nc.BindAddress = DefaultBindAddress
 		nc.BindAddressDefaultSet = true
 	}
 	if _, _, err := net.SplitHostPort(nc.BindAddress); err != nil {
-		return utils.NewConfigValidationError(path, errors.Wrap(err, "error validating bind_address"))
+		return resource.NewConfigValidationError(path, errors.Wrap(err, "error validating bind_address"))
 	}
 	if (nc.TLSCertFile == "") != (nc.TLSKeyFile == "") {
-		return utils.NewConfigValidationError(path, errors.New("must provide both tls_cert_file and tls_key_file"))
+		return resource.NewConfigValidationError(path, errors.New("must provide both tls_cert_file and tls_key_file"))
 	}
 
 	return nc.Sessions.Validate(path + ".sessions")
@@ -660,7 +714,7 @@ func (sc *SessionsConfig) Validate(path string) error {
 		sc.HeartbeatWindow = DefaultSessionHeartbeatWindow
 	} else if sc.HeartbeatWindow < 30*time.Millisecond ||
 		sc.HeartbeatWindow > time.Minute {
-		return utils.NewConfigValidationError(path, errors.New("heartbeat_window must be between [30ms, 1m]"))
+		return resource.NewConfigValidationError(path, errors.New("heartbeat_window must be between [30ms, 1m]"))
 	}
 
 	return nil
@@ -699,32 +753,32 @@ func (c *ExternalAuthConfig) Validate(path string) error {
 	jwksPath := fmt.Sprintf("%s.jwks", path)
 	jsonJWKs, err := json.Marshal(c.JSONKeySet)
 	if err != nil {
-		return utils.NewConfigValidationError(jwksPath, errors.Wrap(err, "failed to marshal jwks"))
+		return resource.NewConfigValidationError(jwksPath, errors.Wrap(err, "failed to marshal jwks"))
 	}
 
 	keyset, err := jwks.ParseKeySet(string(jsonJWKs))
 	if err != nil {
-		return utils.NewConfigValidationError(jwksPath, errors.Wrap(err, "failed to parse jwks"))
+		return resource.NewConfigValidationError(jwksPath, errors.Wrap(err, "failed to parse jwks"))
 	}
 
 	if keyset.Len() == 0 {
-		return utils.NewConfigValidationError(jwksPath, errors.New("must contain at least 1 key"))
+		return resource.NewConfigValidationError(jwksPath, errors.New("must contain at least 1 key"))
 	}
 
 	for i := 0; i < keyset.Len(); i++ {
 		// validate keys
 		key, ok := keyset.Get(i)
 		if !ok {
-			return utils.NewConfigValidationError(fmt.Sprintf("%s.%d", jwksPath, i), errors.New("failed to parse jwks, missing index"))
+			return resource.NewConfigValidationError(fmt.Sprintf("%s.%d", jwksPath, i), errors.New("failed to parse jwks, missing index"))
 		}
 
 		if _, ok := allowedKeyTypesForExternalAuth[key.KeyType().String()]; !ok {
-			return utils.NewConfigValidationError(fmt.Sprintf("%s.%d", jwksPath, i),
+			return resource.NewConfigValidationError(fmt.Sprintf("%s.%d", jwksPath, i),
 				errors.Errorf("failed to parse jwks, invalid key type (%s) only (RSA) supported", key.KeyType().String()))
 		}
 
 		if _, ok := allowedAlgsForExternalAuth[key.Algorithm()]; !ok {
-			return utils.NewConfigValidationError(fmt.Sprintf("%s.%d", jwksPath, i),
+			return resource.NewConfigValidationError(fmt.Sprintf("%s.%d", jwksPath, i),
 				errors.Errorf("failed to parse jwks, invalid alg (%s) type only (RS256, RS384, RS512) supported", key.Algorithm()))
 		}
 	}
@@ -746,7 +800,7 @@ func (config *AuthConfig) Validate(path string) error {
 	for idx, handler := range config.Handlers {
 		handlerPath := fmt.Sprintf("%s.%s.%d", path, "handlers", idx)
 		if _, ok := seenTypes[string(handler.Type)]; ok {
-			return utils.NewConfigValidationError(handlerPath, errors.Errorf("duplicate handler type %q", handler.Type))
+			return resource.NewConfigValidationError(handlerPath, errors.Errorf("duplicate handler type %q", handler.Type))
 		}
 		seenTypes[string(handler.Type)] = struct{}{}
 		if err := handler.Validate(handlerPath); err != nil {
@@ -764,17 +818,17 @@ func (config *AuthConfig) Validate(path string) error {
 // Validate ensures all parts of the config are valid.
 func (config *AuthHandlerConfig) Validate(path string) error {
 	if config.Type == "" {
-		return utils.NewConfigValidationError(path, errors.New("handler must have type"))
+		return resource.NewConfigValidationError(path, errors.New("handler must have type"))
 	}
 	switch config.Type {
 	case rpc.CredentialsTypeAPIKey:
 		if config.Config.String("key") == "" && len(config.Config.StringSlice("keys")) == 0 {
-			return utils.NewConfigValidationError(fmt.Sprintf("%s.config", path), errors.New("key or keys is required"))
+			return resource.NewConfigValidationError(fmt.Sprintf("%s.config", path), errors.New("key or keys is required"))
 		}
 	case rpc.CredentialsTypeExternal:
 		return errors.New("robot cannot issue external auth tokens")
 	default:
-		return utils.NewConfigValidationError(path, errors.Errorf("do not know how to handle auth for %q", config.Type))
+		return resource.NewConfigValidationError(path, errors.Errorf("do not know how to handle auth for %q", config.Type))
 	}
 	return nil
 }
@@ -890,6 +944,8 @@ type PackageConfig struct {
 	// Types of the Package. If not specified it is assumed to be ml_model.
 	Type PackageType `json:"type,omitempty"`
 
+	Status *AppValidationStatus `json:"status,omitempty"`
+
 	alreadyValidated bool
 	cachedErr        error
 }
@@ -899,6 +955,13 @@ func (p *PackageConfig) Validate(path string) error {
 	if p.alreadyValidated {
 		return p.cachedErr
 	}
+
+	if p.Status != nil {
+		p.alreadyValidated = true
+		p.cachedErr = resource.NewConfigValidationError(path, errors.New(p.Status.Error))
+		return p.cachedErr
+	}
+
 	p.cachedErr = p.validate(path)
 	p.alreadyValidated = true
 	return p.cachedErr
@@ -906,25 +969,20 @@ func (p *PackageConfig) Validate(path string) error {
 
 func (p *PackageConfig) validate(path string) error {
 	if p.Name == "" {
-		return utils.NewConfigValidationError(path, errors.New("empty package name"))
+		return resource.NewConfigValidationError(path, errors.New("empty package name"))
 	}
 
 	if p.Package == "" {
-		return utils.NewConfigValidationError(path, errors.New("empty package id"))
-	}
-
-	if p.Type == "" {
-		// for backwards compatibility
-		p.Type = PackageTypeMlModel
+		return resource.NewConfigValidationError(path, errors.New("empty package id"))
 	}
 
 	if !slices.Contains(SupportedPackageTypes, p.Type) {
-		return utils.NewConfigValidationError(path, errors.Errorf("unsupported package type %q. Must be one of: %v",
+		return resource.NewConfigValidationError(path, errors.Errorf("unsupported package type %q. Must be one of: %v",
 			p.Type, SupportedPackageTypes))
 	}
 
 	if !rutils.ValidNameRegex.MatchString(p.Name) {
-		return utils.NewConfigValidationError(path, rutils.ErrInvalidName(p.Name))
+		return resource.NewConfigValidationError(path, rutils.ErrInvalidName(p.Name))
 	}
 
 	return nil
@@ -934,8 +992,10 @@ func (p *PackageConfig) validate(path string) error {
 func (p PackageConfig) Equals(other PackageConfig) bool {
 	p.alreadyValidated = false
 	p.cachedErr = nil
+	p.Status = nil
 	other.alreadyValidated = false
 	other.cachedErr = nil
+	other.Status = nil
 	//nolint:govet
 	return reflect.DeepEqual(p, other)
 }

@@ -7,16 +7,16 @@ import (
 	"os"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
 var intel515ParamsPath = utils.ResolveFile("rimage/transform/data/intel515_parameters.json")
 
 func TestExtrinsicCalibration(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	// get a file with known extrinsic parameters and make expected pose
 	cam, err := NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
 	test.That(t, err, test.ShouldBeNil)

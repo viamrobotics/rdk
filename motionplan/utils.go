@@ -1,7 +1,8 @@
+//go:build !no_cgo
+
 package motionplan
 
 import (
-	"context"
 	"fmt"
 	"math"
 
@@ -11,17 +12,54 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// FrameStepsFromRobotPath is a helper function which will extract the waypoints of a single frame from the map output of a robot path.
-func FrameStepsFromRobotPath(frameName string, path []map[string][]referenceframe.Input) ([][]referenceframe.Input, error) {
-	solution := make([][]referenceframe.Input, 0, len(path))
-	for _, step := range path {
+// Plan describes a motion plan.
+type Plan []map[string][]referenceframe.Input
+
+// GetFrameSteps is a helper function which will extract the waypoints of a single frame from the map output of a robot path.
+func (plan Plan) GetFrameSteps(frameName string) ([][]referenceframe.Input, error) {
+	solution := make([][]referenceframe.Input, 0, len(plan))
+	for _, step := range plan {
 		frameStep, ok := step[frameName]
 		if !ok {
-			return nil, fmt.Errorf("frame named %s not found in solved motion path", frameName)
+			return nil, fmt.Errorf("frame named %s not found in solved motion plan", frameName)
 		}
 		solution = append(solution, frameStep)
 	}
 	return solution, nil
+}
+
+// String returns a human-readable version of the Plan, suitable for debugging.
+func (plan Plan) String() string {
+	var str string
+	for _, step := range plan {
+		str += "\n"
+		for component, input := range step {
+			if len(input) > 0 {
+				str += fmt.Sprintf("%s: %v\t", component, input)
+			}
+		}
+	}
+	return str
+}
+
+// Evaluate assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan.
+func (plan Plan) Evaluate(distFunc ik.SegmentMetric) (totalCost float64) {
+	if len(plan) < 2 {
+		return math.Inf(1)
+	}
+	last := map[string][]referenceframe.Input{}
+	for _, step := range plan {
+		for component, inputs := range step {
+			if len(inputs) > 0 {
+				if lastInputs, ok := last[component]; ok {
+					cost := distFunc(&ik.Segment{StartConfiguration: lastInputs, EndConfiguration: inputs})
+					totalCost += cost
+				}
+				last[component] = inputs
+			}
+		}
+	}
+	return totalCost
 }
 
 // PathStepCount will determine the number of steps which should be used to get from the seed to the goal.
@@ -38,18 +76,6 @@ func PathStepCount(seedPos, goalPos spatialmath.Pose, stepSize float64) int {
 
 	nSteps := math.Max(math.Abs(mmDist/stepSize), math.Abs(utils.RadToDeg(rDist.Theta)/stepSize))
 	return int(nSteps) + 1
-}
-
-// EvaluatePlan assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan.
-func EvaluatePlan(plan [][]referenceframe.Input, distFunc ik.SegmentMetric) (totalCost float64) {
-	if len(plan) < 2 {
-		return math.Inf(1)
-	}
-	for i := 0; i < len(plan)-1; i++ {
-		cost := distFunc(&ik.Segment{StartConfiguration: plan[i], EndConfiguration: plan[i+1]})
-		totalCost += cost
-	}
-	return totalCost
 }
 
 // fixOvIncrement will detect whether the given goal position is a precise orientation increment of the current
@@ -122,24 +148,14 @@ type resultPromise struct {
 	future chan *rrtPlanReturn
 }
 
-func (r *resultPromise) result(ctx context.Context) ([][]referenceframe.Input, error) {
+func (r *resultPromise) result() ([][]referenceframe.Input, error) {
 	if r.steps != nil && len(r.steps) > 0 {
 		return r.steps, nil
 	}
 	// wait for a context cancel or a valid channel result
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-		select {
-		case planReturn := <-r.future:
-			if planReturn.err() != nil {
-				return nil, planReturn.err()
-			}
-			return nodesToInputs(planReturn.steps), nil
-		default:
-		}
+	planReturn := <-r.future
+	if planReturn.err() != nil {
+		return nil, planReturn.err()
 	}
+	return nodesToInputs(planReturn.steps), nil
 }

@@ -5,13 +5,12 @@ import (
 	"math"
 	"testing"
 
-	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor/fake"
 	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -48,7 +47,7 @@ func TestValidateRTK(t *testing.T) {
 
 		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeError,
-			utils.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
+			resource.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
 	})
 
 	t.Run("invalid config", func(t *testing.T) {
@@ -64,12 +63,12 @@ func TestValidateRTK(t *testing.T) {
 
 		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeError,
-			utils.NewConfigValidationFieldRequiredError(path, "serial_path"))
+			resource.NewConfigValidationFieldRequiredError(path, "serial_path"))
 	})
 }
 
 func TestConnect(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := rtkSerial{
@@ -98,7 +97,7 @@ func TestReadings(t *testing.T) {
 		loc   = geo.NewPoint(40.7, -73.98)
 	)
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := rtkSerial{
@@ -167,7 +166,7 @@ func TestReconfigure(t *testing.T) {
 	g := &rtkSerial{
 		writePath: "/dev/ttyUSB0",
 		wbaud:     9600,
-		logger:    golog.NewTestLogger(t),
+		logger:    logging.NewTestLogger(t),
 	}
 
 	conf := resource.Config{
@@ -191,7 +190,7 @@ func TestReconfigure(t *testing.T) {
 }
 
 func TestCloseRTK(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := rtkSerial{

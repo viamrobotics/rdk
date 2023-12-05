@@ -27,12 +27,12 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -66,7 +66,7 @@ type Encoder struct {
 	diPinName string
 
 	positionType encoder.PositionType
-	logger       golog.Logger
+	logger       logging.Logger
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -89,11 +89,11 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if conf.Pins.I == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "i")
 	}
 
 	if len(conf.BoardName) == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	deps = append(deps, conf.BoardName)
 
@@ -112,7 +112,7 @@ func NewSingleEncoder(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (encoder.Encoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	e := &Encoder{
@@ -208,7 +208,7 @@ func (e *Encoder) Start(ctx context.Context) {
 					atomic.AddInt64(&e.position, dir)
 				}
 			} else {
-				e.logger.Warn("received tick for encoder that isn't connected to a motor; ignoring")
+				e.logger.Debug("received tick for encoder that isn't connected to a motor; ignoring")
 			}
 		}
 	}, e.activeBackgroundWorkers.Done)

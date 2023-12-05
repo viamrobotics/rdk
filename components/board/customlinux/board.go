@@ -10,12 +10,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 	"periph.io/x/host/v3"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -23,7 +23,7 @@ const modelName = "customlinux"
 
 func init() {
 	if _, err := host.Init(); err != nil {
-		golog.Global().Debugw("error initializing host", "error", err)
+		logging.Global().Debugw("error initializing host", "error", err)
 	}
 
 	resource.RegisterComponent(
@@ -38,7 +38,7 @@ func createNewBoard(
 	ctx context.Context,
 	_ resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (board.Board, error) {
 	return genericlinux.NewBoard(ctx, conf, pinDefsFromFile, logger)
 }
@@ -51,7 +51,7 @@ func pinDefsFromFile(conf resource.Config) (*genericlinux.LinuxBoardConfig, erro
 		return nil, err
 	}
 
-	pinDefs, err := parsePinConfig(newConf.PinConfigFilePath)
+	pinDefs, err := parsePinConfig(newConf.BoardDefsFilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -62,11 +62,7 @@ func pinDefsFromFile(conf resource.Config) (*genericlinux.LinuxBoardConfig, erro
 	}
 
 	return &genericlinux.LinuxBoardConfig{
-		I2Cs:              newConf.I2Cs,
-		SPIs:              newConf.SPIs,
-		Analogs:           newConf.Analogs,
-		DigitalInterrupts: newConf.DigitalInterrupts,
-		GpioMappings:      gpioMappings,
+		GpioMappings: gpioMappings,
 	}, nil
 }
 
@@ -79,7 +75,8 @@ func parsePinConfig(filePath string) ([]genericlinux.PinDefinition, error) {
 	return parseRawPinData(pinData, filePath)
 }
 
-// filePath passed in for logging purposes.
+// This function is separate from parsePinConfig to make it testable without interacting with the
+// file system. The filePath is passed in just for logging purposes.
 func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.PinDefinition, error) {
 	var parsedPinData genericlinux.PinDefinitions
 	if err := json.Unmarshal(pinData, &parsedPinData); err != nil {
@@ -87,20 +84,19 @@ func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.PinDefinit
 	}
 
 	var err error
-	for _, pin := range parsedPinData.Pins {
+	for name, pin := range parsedPinData.Pins {
 		err = multierr.Combine(err, pin.Validate(filePath))
+
+		// Until we get hardware PWM working reliably on lots of boards (likely by being able to
+		// set the pin mode directly), we disable all hardware PWM on these boards.
+		// The range operator makes a copy of the value, so to change the original, we need to look
+		// it up in the map again.
+		// TODO(RSDK-5105): Undo this when we're ready to support hardware PWM.
+		parsedPinData.Pins[name].PwmChipSysfsDir = ""
+		parsedPinData.Pins[name].PwmID = -1
 	}
 	if err != nil {
 		return nil, err
 	}
 	return parsedPinData.Pins, nil
-}
-
-func createGenericLinuxConfig(conf *Config) genericlinux.Config {
-	return genericlinux.Config{
-		I2Cs:              conf.I2Cs,
-		SPIs:              conf.SPIs,
-		Analogs:           conf.Analogs,
-		DigitalInterrupts: conf.DigitalInterrupts,
-	}
 }

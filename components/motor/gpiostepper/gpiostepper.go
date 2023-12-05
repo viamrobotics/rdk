@@ -34,13 +34,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
@@ -68,16 +68,16 @@ type Config struct {
 func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.BoardName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	if cfg.TicksPerRotation == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
 	}
 	if cfg.Pins.Direction == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "dir")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "dir")
 	}
 	if cfg.Pins.Step == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "step")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "step")
 	}
 	deps = append(deps, cfg.BoardName)
 	return deps, nil
@@ -89,7 +89,7 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (motor.Motor, error) {
 			actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, conf)
 			if err != nil {
@@ -121,7 +121,7 @@ func newGPIOStepper(
 	b board.Board,
 	mc Config,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (motor.Motor, error) {
 	if b == nil {
 		return nil, errors.New("board is required")
@@ -191,7 +191,7 @@ type gpioStepper struct {
 	minDelay                    time.Duration
 	enablePinHigh, enablePinLow board.GPIOPin
 	stepPin, dirPin             board.GPIOPin
-	logger                      golog.Logger
+	logger                      logging.Logger
 
 	// state
 	lock  sync.Mutex
@@ -389,7 +389,8 @@ func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64
 func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	m.stepPosition = int64(offset * float64(m.stepsPerRotation))
+	m.stepPosition = int64(-1 * offset * float64(m.stepsPerRotation))
+	m.targetStepPosition = m.stepPosition
 	return nil
 }
 
@@ -462,13 +463,14 @@ func (m *gpioStepper) Close(ctx context.Context) error {
 	err := m.Stop(ctx, nil)
 
 	m.lock.Lock()
-	defer m.lock.Unlock()
 	if m.cancel != nil {
 		m.logger.Debugf("stopping control thread for motor (%s)", m.Name().Name)
 		m.cancel()
 		m.cancel = nil
-		m.waitGroup.Wait()
+		m.threadStarted = false
 	}
+	m.lock.Unlock()
+	m.waitGroup.Wait()
 
 	return err
 }

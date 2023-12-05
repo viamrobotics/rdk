@@ -5,12 +5,14 @@ import (
 	"testing"
 
 	"github.com/pion/mediadevices/pkg/prop"
-	"github.com/viamrobotics/gostream"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
+	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/testutils/inject"
@@ -26,6 +28,8 @@ func TestTransformPipelineColor(t *testing.T) {
 		},
 	}
 	r := &inject.Robot{}
+	logger := logging.NewTestLogger(t)
+
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
@@ -36,7 +40,7 @@ func TestTransformPipelineColor(t *testing.T) {
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, inImg.Bounds().Dy(), test.ShouldEqual, 72)
 
-	color, err := newTransformPipeline(context.Background(), src, transformConf, r)
+	color, err := newTransformPipeline(context.Background(), src, transformConf, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	outImg, _, err := camera.ReadImage(context.Background(), color)
@@ -71,6 +75,7 @@ func TestTransformPipelineDepth(t *testing.T) {
 		},
 	}
 	r := &inject.Robot{}
+	logger := logging.NewTestLogger(t)
 
 	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
@@ -82,7 +87,7 @@ func TestTransformPipelineDepth(t *testing.T) {
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, inImg.Bounds().Dy(), test.ShouldEqual, 72)
 
-	depth, err := newTransformPipeline(context.Background(), src, transformConf, r)
+	depth, err := newTransformPipeline(context.Background(), src, transformConf, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	outImg, _, err := camera.ReadImage(context.Background(), depth)
@@ -121,13 +126,14 @@ func TestTransformPipelineDepth2(t *testing.T) {
 		},
 	}
 	r := &inject.Robot{}
+	logger := logging.NewTestLogger(t)
 
 	dm, err := rimage.NewDepthMapFromFile(
 		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: dm}, prop.Video{})
 	// first depth transform
-	depth1, err := newTransformPipeline(context.Background(), source, transform1, r)
+	depth1, err := newTransformPipeline(context.Background(), source, transform1, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 	outImg, _, err := camera.ReadImage(context.Background(), depth1)
 	test.That(t, err, test.ShouldBeNil)
@@ -135,7 +141,7 @@ func TestTransformPipelineDepth2(t *testing.T) {
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 20)
 	test.That(t, depth1.Close(context.Background()), test.ShouldBeNil)
 	// second depth image
-	depth2, err := newTransformPipeline(context.Background(), source, transform2, r)
+	depth2, err := newTransformPipeline(context.Background(), source, transform2, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 	outImg, _, err = camera.ReadImage(context.Background(), depth2)
 	test.That(t, err, test.ShouldBeNil)
@@ -151,10 +157,12 @@ func TestNullPipeline(t *testing.T) {
 		Pipeline: []Transformation{},
 	}
 	r := &inject.Robot{}
+	logger := logging.NewTestLogger(t)
+
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
-	_, err = newTransformPipeline(context.Background(), source, transform1, r)
+	_, err = newTransformPipeline(context.Background(), source, transform1, r, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "pipeline has no transforms")
 
@@ -162,7 +170,7 @@ func TestNullPipeline(t *testing.T) {
 		Source:   "source",
 		Pipeline: []Transformation{{Type: "identity", Attributes: nil}},
 	}
-	pipe, err := newTransformPipeline(context.Background(), source, transform2, r)
+	pipe, err := newTransformPipeline(context.Background(), source, transform2, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 	outImg, _, err := camera.ReadImage(context.Background(), pipe) // should not transform anything
 	test.That(t, err, test.ShouldBeNil)
@@ -174,6 +182,8 @@ func TestNullPipeline(t *testing.T) {
 
 func TestPipeIntoPipe(t *testing.T) {
 	r := &inject.Robot{}
+	logger := logging.NewTestLogger(t)
+
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
@@ -193,7 +203,7 @@ func TestPipeIntoPipe(t *testing.T) {
 		},
 	}
 
-	pipe1, err := newTransformPipeline(context.Background(), source, transform1, r)
+	pipe1, err := newTransformPipeline(context.Background(), source, transform1, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 	outImg, _, err := camera.ReadImage(context.Background(), pipe1)
 	test.That(t, err, test.ShouldBeNil)
@@ -204,7 +214,7 @@ func TestPipeIntoPipe(t *testing.T) {
 	test.That(t, prop.(*transform.PinholeCameraIntrinsics).Width, test.ShouldEqual, 128)
 	test.That(t, prop.(*transform.PinholeCameraIntrinsics).Height, test.ShouldEqual, 72)
 	// transform pipeline into pipeline
-	pipe2, err := newTransformPipeline(context.Background(), pipe1, transform2, r)
+	pipe2, err := newTransformPipeline(context.Background(), pipe1, transform2, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 	outImg, _, err = camera.ReadImage(context.Background(), pipe2)
 	test.That(t, err, test.ShouldBeNil)
@@ -243,6 +253,6 @@ func TestTransformPipelineValidateFail(t *testing.T) {
 	}
 	path := "path"
 	deps, err := transformConf.Validate(path)
-	test.That(t, err.Error(), test.ShouldResemble, "error validating \"path\": \"source\" is required")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "source")
 	test.That(t, deps, test.ShouldBeNil)
 }

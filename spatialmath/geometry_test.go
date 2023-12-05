@@ -11,7 +11,7 @@ import (
 	"go.viam.com/test"
 )
 
-func TestGeometrySerialization(t *testing.T) {
+func TestGeometrySerializationJSON(t *testing.T) {
 	translation := r3.Vector{1, 1, 1}
 	orientation := OrientationConfig{}
 	testMap := loadOrientationTests(t)
@@ -84,7 +84,7 @@ func TestGeometryToFromProtobuf(t *testing.T) {
 
 	// test that bad message does not generate error
 	_, err := NewGeometryFromProto(&commonpb.Geometry{Center: PoseToProtobuf(NewZeroPose())})
-	test.That(t, err.Error(), test.ShouldContainSubstring, ErrGeometryTypeUnsupported.Error())
+	test.That(t, err.Error(), test.ShouldContainSubstring, errGeometryTypeUnsupported.Error())
 }
 
 type geometryComparisonTestCase struct {

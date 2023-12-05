@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -22,9 +21,11 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -175,11 +176,11 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("GetOperations", func(t *testing.T) {
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		injectRobot := &inject.Robot{}
 		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
-		injectRobot.LoggerFunc = func() golog.Logger {
+		injectRobot.LoggerFunc = func() logging.Logger {
 			return logger
 		}
 		server := server.New(injectRobot)
@@ -394,6 +395,12 @@ func TestServerFrameSystemConfig(t *testing.T) {
 }
 
 func TestServerGetStatus(t *testing.T) {
+	// Sample lastReconfigured times to be used across status tests.
+	lastReconfigured, err := time.Parse("2006-01-02 15:04:05", "1998-04-30 19:08:00")
+	test.That(t, err, test.ShouldBeNil)
+	lastReconfigured2, err := time.Parse("2006-01-02 15:04:05", "2011-11-11 00:00:00")
+	test.That(t, err, test.ShouldBeNil)
+
 	t.Run("failed GetStatus", func(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		server := server.New(injectRobot)
@@ -432,10 +439,17 @@ func TestServerGetStatus(t *testing.T) {
 	t.Run("working one status", func(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		server := server.New(injectRobot)
-		aStatus := robot.Status{Name: arm.Named("arm"), Status: struct{}{}}
+		aStatus := robot.Status{
+			Name:             arm.Named("arm"),
+			LastReconfigured: lastReconfigured,
+			Status:           struct{}{},
+		}
 		readings := []robot.Status{aStatus}
 		expected := map[resource.Name]interface{}{
 			aStatus.Name: map[string]interface{}{},
+		}
+		expectedLR := map[resource.Name]time.Time{
+			aStatus.Name: lastReconfigured,
 		}
 		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 			test.That(
@@ -457,18 +471,35 @@ func TestServerGetStatus(t *testing.T) {
 		observed := map[resource.Name]interface{}{
 			protoutils.ResourceNameFromProto(resp.Status[0].Name): resp.Status[0].Status.AsMap(),
 		}
+		observedLR := map[resource.Name]time.Time{
+			protoutils.ResourceNameFromProto(resp.Status[0].Name): resp.Status[0].
+				LastReconfigured.AsTime(),
+		}
 		test.That(t, observed, test.ShouldResemble, expected)
+		test.That(t, observedLR, test.ShouldResemble, expectedLR)
 	})
 
 	t.Run("working many statuses", func(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		server := server.New(injectRobot)
-		gStatus := robot.Status{Name: movementsensor.Named("gps"), Status: map[string]interface{}{"efg": []string{"hello"}}}
-		aStatus := robot.Status{Name: arm.Named("arm"), Status: struct{}{}}
+		gStatus := robot.Status{
+			Name:             movementsensor.Named("gps"),
+			LastReconfigured: lastReconfigured,
+			Status:           map[string]interface{}{"efg": []string{"hello"}},
+		}
+		aStatus := robot.Status{
+			Name:             arm.Named("arm"),
+			LastReconfigured: lastReconfigured2,
+			Status:           struct{}{},
+		}
 		statuses := []robot.Status{gStatus, aStatus}
 		expected := map[resource.Name]interface{}{
 			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
 			aStatus.Name: map[string]interface{}{},
+		}
+		expectedLRs := map[resource.Name]time.Time{
+			gStatus.Name: lastReconfigured,
+			aStatus.Name: lastReconfigured2,
 		}
 		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 			test.That(
@@ -494,7 +525,14 @@ func TestServerGetStatus(t *testing.T) {
 			protoutils.ResourceNameFromProto(resp.Status[0].Name): resp.Status[0].Status.AsMap(),
 			protoutils.ResourceNameFromProto(resp.Status[1].Name): resp.Status[1].Status.AsMap(),
 		}
+		observedLRs := map[resource.Name]time.Time{
+			protoutils.ResourceNameFromProto(resp.Status[0].Name): resp.Status[0].
+				LastReconfigured.AsTime(),
+			protoutils.ResourceNameFromProto(resp.Status[1].Name): resp.Status[1].
+				LastReconfigured.AsTime(),
+		}
 		test.That(t, observed, test.ShouldResemble, expected)
+		test.That(t, observedLRs, test.ShouldResemble, expectedLRs)
 	})
 
 	t.Run("failed StreamStatus", func(t *testing.T) {
@@ -520,7 +558,7 @@ func TestServerGetStatus(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		server := server.New(injectRobot)
 		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-			return []robot.Status{{arm.Named("arm"), struct{}{}}}, nil
+			return []robot.Status{{arm.Named("arm"), time.Time{}, struct{}{}}}, nil
 		}
 
 		cancelCtx, cancel := context.WithCancel(context.Background())
@@ -541,7 +579,7 @@ func TestServerGetStatus(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		server := server.New(injectRobot)
 		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-			return []robot.Status{{arm.Named("arm"), struct{}{}}}, nil
+			return []robot.Status{{arm.Named("arm"), time.Time{}, struct{}{}}}, nil
 		}
 
 		timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -560,7 +598,13 @@ func TestServerGetStatus(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		server := server.New(injectRobot)
 		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-			return []robot.Status{{arm.Named("arm"), struct{}{}}}, nil
+			return []robot.Status{
+				{
+					Name:             arm.Named("arm"),
+					LastReconfigured: lastReconfigured,
+					Status:           struct{}{},
+				},
+			}, nil
 		}
 
 		cancelCtx, cancel := context.WithCancel(context.Background())
@@ -585,10 +629,17 @@ func TestServerGetStatus(t *testing.T) {
 		messages = append(messages, <-messageCh)
 		messages = append(messages, <-messageCh)
 		messages = append(messages, <-messageCh)
+		expectedRobotStatus := []*pb.Status{
+			{
+				Name:             protoutils.ResourceNameToProto(arm.Named("arm")),
+				LastReconfigured: timestamppb.New(lastReconfigured),
+				Status:           expectedStatus,
+			},
+		}
 		test.That(t, messages, test.ShouldResemble, []*pb.StreamStatusResponse{
-			{Status: []*pb.Status{{Name: protoutils.ResourceNameToProto(arm.Named("arm")), Status: expectedStatus}}},
-			{Status: []*pb.Status{{Name: protoutils.ResourceNameToProto(arm.Named("arm")), Status: expectedStatus}}},
-			{Status: []*pb.Status{{Name: protoutils.ResourceNameToProto(arm.Named("arm")), Status: expectedStatus}}},
+			{Status: expectedRobotStatus},
+			{Status: expectedRobotStatus},
+			{Status: expectedRobotStatus},
 		})
 		test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 3*dur)
 		test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 6*dur)

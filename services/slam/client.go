@@ -5,11 +5,11 @@ import (
 	"errors"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam/grpchelper"
@@ -23,7 +23,7 @@ type client struct {
 	resource.TriviallyCloseable
 	name   string
 	client pb.SLAMServiceClient
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // NewClientFromConn constructs a new Client from the connection passed in.
@@ -32,7 +32,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (Service, error) {
 	grpcClient := pb.NewSLAMServiceClient(conn)
 	c := &client{
@@ -44,9 +44,9 @@ func NewClientFromConn(
 	return c, nil
 }
 
-// GetPosition creates a request, calls the slam service GetPosition, and parses the response into a Pose with a component reference string.
-func (c *client) GetPosition(ctx context.Context) (spatialmath.Pose, string, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::client::GetPosition")
+// Position creates a request, calls the slam service Position, and parses the response into a Pose with a component reference string.
+func (c *client) Position(ctx context.Context) (spatialmath.Pose, string, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::client::Position")
 	defer span.End()
 
 	req := &pb.GetPositionRequest{
@@ -64,28 +64,28 @@ func (c *client) GetPosition(ctx context.Context) (spatialmath.Pose, string, err
 	return spatialmath.NewPoseFromProtobuf(p), componentReference, nil
 }
 
-// GetPointCloudMap creates a request, calls the slam service GetPointCloudMap and returns a callback
+// PointCloudMap creates a request, calls the slam service PointCloudMap and returns a callback
 // function which will return the next chunk of the current pointcloud map when called.
-func (c *client) GetPointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
-	ctx, span := trace.StartSpan(ctx, "slam::client::GetPointCloudMap")
+func (c *client) PointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::client::PointCloudMap")
 	defer span.End()
 
-	return grpchelper.GetPointCloudMapCallback(ctx, c.name, c.client)
+	return grpchelper.PointCloudMapCallback(ctx, c.name, c.client)
 }
 
-// GetInternalState creates a request, calls the slam service GetInternalState and returns a callback
+// InternalState creates a request, calls the slam service InternalState and returns a callback
 // function which will return the next chunk of the current internal state of the slam algo when called.
-func (c *client) GetInternalState(ctx context.Context) (func() ([]byte, error), error) {
-	ctx, span := trace.StartSpan(ctx, "slam::client::GetInternalState")
+func (c *client) InternalState(ctx context.Context) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::client::InternalState")
 	defer span.End()
 
-	return grpchelper.GetInternalStateCallback(ctx, c.name, c.client)
+	return grpchelper.InternalStateCallback(ctx, c.name, c.client)
 }
 
-// GetLatestMapInfo creates a request, calls the slam service GetLatestMapInfo, and
+// LatestMapInfo creates a request, calls the slam service LatestMapInfo, and
 // returns the timestamp of the last update to the map.
-func (c *client) GetLatestMapInfo(ctx context.Context) (time.Time, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::client::GetLatestMapInfo")
+func (c *client) LatestMapInfo(ctx context.Context) (time.Time, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::client::LatestMapInfo")
 	defer span.End()
 
 	req := &pb.GetLatestMapInfoRequest{

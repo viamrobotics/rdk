@@ -5,8 +5,8 @@ package motionplan
 import (
 	"math/rand"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/rdk/logging"
 
 	"go.viam.com/rdk/referenceframe"
 )
@@ -15,7 +15,7 @@ import (
 func newCBiRRTMotionPlanner(
 	frame referenceframe.Frame,
 	seed *rand.Rand,
-	logger golog.Logger,
+	logger logging.Logger,
 	opt *plannerOptions,
 ) (motionPlanner, error) {
 	return nil, errors.New("motion planning is not yet supported on Windows")

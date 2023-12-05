@@ -6,14 +6,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
 func TestDerivativeConfig(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	for _, c := range []struct {
 		conf BlockConfig
 		err  string
@@ -77,8 +77,9 @@ func TestDerivativeConfig(t *testing.T) {
 }
 
 func TestDerivativeNext(t *testing.T) {
-	const iter int = 3000
-	logger := golog.NewTestLogger(t)
+	const iter int64 = 3000
+	const tenMs = 10 * int64(time.Millisecond)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cfg := BlockConfig{
 		Name: "Derive1",
@@ -92,8 +93,8 @@ func TestDerivativeNext(t *testing.T) {
 	d := b.(*derivative)
 	test.That(t, err, test.ShouldBeNil)
 	var sin []float64
-	for i := 0; i < iter; i++ {
-		sin = append(sin, math.Sin((time.Duration(10 * i * int(time.Millisecond)).Seconds())))
+	for i := int64(0); i < iter; i++ {
+		sin = append(sin, math.Sin(time.Duration(i*tenMs).Seconds()))
 	}
 	sig := &Signal{
 		name:      "A",
@@ -101,13 +102,13 @@ func TestDerivativeNext(t *testing.T) {
 		time:      make([]int, 1),
 		dimension: 1,
 	}
-	for i := 0; i < iter; i++ {
+	for i := int64(0); i < iter; i++ {
 		sig.SetSignalValueAt(0, sin[i])
 		out, ok := d.Next(ctx, []*Signal{sig}, (10 * time.Millisecond))
 		test.That(t, ok, test.ShouldBeTrue)
 		if i > 5 {
 			test.That(t, out[0].GetSignalValueAt(0), test.ShouldAlmostEqual,
-				-math.Sin((time.Duration(10 * i * int(time.Millisecond)).Seconds())), 0.01)
+				-math.Sin((time.Duration(i * tenMs).Seconds())), 0.01)
 		}
 	}
 	cfg = BlockConfig{
@@ -120,13 +121,13 @@ func TestDerivativeNext(t *testing.T) {
 	}
 	err = d.UpdateConfig(ctx, cfg)
 	test.That(t, err, test.ShouldBeNil)
-	for i := 0; i < iter; i++ {
+	for i := int64(0); i < iter; i++ {
 		sig.SetSignalValueAt(0, sin[i])
 		out, ok := d.Next(ctx, []*Signal{sig}, (10 * time.Millisecond))
 		test.That(t, ok, test.ShouldBeTrue)
 		if i > 5 {
 			test.That(t, out[0].GetSignalValueAt(0), test.ShouldAlmostEqual,
-				math.Cos((time.Duration(10 * i * int(time.Millisecond)).Seconds())), 0.01)
+				math.Cos((time.Duration(i * tenMs).Seconds())), 0.01)
 		}
 	}
 	cfg = BlockConfig{
@@ -140,16 +141,16 @@ func TestDerivativeNext(t *testing.T) {
 	err = d.UpdateConfig(ctx, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	sin = nil
-	for i := 0; i < iter; i++ {
-		sin = append(sin, math.Sin(2*math.Pi*(time.Duration(10*i*int(time.Millisecond)).Seconds())))
+	for i := int64(0); i < iter; i++ {
+		sin = append(sin, math.Sin(2*math.Pi*(time.Duration(i*tenMs).Seconds())))
 	}
-	for i := 0; i < iter; i++ {
+	for i := int64(0); i < iter; i++ {
 		sig.SetSignalValueAt(0, sin[i])
 		out, ok := d.Next(ctx, []*Signal{sig}, 10*time.Millisecond)
 		test.That(t, ok, test.ShouldBeTrue)
 		if i > 5 {
 			test.That(t, out[0].GetSignalValueAt(0), test.ShouldAlmostEqual,
-				2*math.Pi*math.Cos(2*math.Pi*(time.Duration(10*i*int(time.Millisecond)).Seconds())), 0.01)
+				2*math.Pi*math.Cos(2*math.Pi*(time.Duration(i*tenMs).Seconds())), 0.01)
 		}
 	}
 }

@@ -5,13 +5,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/gripper"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -33,20 +33,20 @@ type Config struct {
 func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.Board == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	if cfg.Open == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "open")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "open")
 	}
 	if cfg.Close == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "close")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "close")
 	}
 	if cfg.Power == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "power")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "power")
 	}
 
 	if cfg.AnalogReader != "psi" {
-		return nil, utils.NewConfigValidationError(path,
+		return nil, resource.NewConfigValidationError(path,
 			errors.Errorf("analog_reader %s on board must be created and called 'psi'", cfg.AnalogReader))
 	}
 	deps = append(deps, cfg.Board)
@@ -59,7 +59,7 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (gripper.Gripper, error) {
 			b, err := board.FromDependencies(deps, "local")
 			if err != nil {
@@ -85,13 +85,13 @@ type softGripper struct {
 
 	pinOpen, pinClose, pinPower board.GPIOPin
 
-	logger     golog.Logger
+	logger     logging.Logger
 	opMgr      *operation.SingleOperationManager
 	geometries []spatialmath.Geometry
 }
 
 // newGripper instantiates a new Gripper of softGripper type.
-func newGripper(b board.Board, conf resource.Config, logger golog.Logger) (gripper.Gripper, error) {
+func newGripper(b board.Board, conf resource.Config, logger logging.Logger) (gripper.Gripper, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err

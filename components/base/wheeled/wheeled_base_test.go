@@ -2,11 +2,11 @@ package wheeled
 
 import (
 	"context"
+	"errors"
 	"math"
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -14,9 +14,17 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
 )
+
+func createFakeMotor() motor.Motor {
+	return &inject.Motor{
+		StopFunc: func(ctx context.Context, extra map[string]interface{}) error { return errors.New("stop error") },
+	}
+}
 
 func newTestCfg() resource.Config {
 	return resource.Config{
@@ -32,9 +40,17 @@ func newTestCfg() resource.Config {
 	}
 }
 
+func createMockDeps(t *testing.T) resource.Dependencies {
+	t.Helper()
+	deps := make(resource.Dependencies)
+	deps[motor.Named("right")] = createFakeMotor()
+	deps[motor.Named("left")] = createFakeMotor()
+	return deps
+}
+
 func fakeMotorDependencies(t *testing.T, deps []string) resource.Dependencies {
 	t.Helper()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	result := make(resource.Dependencies)
 	for _, dep := range deps {
@@ -50,7 +66,7 @@ func fakeMotorDependencies(t *testing.T, deps []string) resource.Dependencies {
 
 func TestWheelBaseMath(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	testCfg := newTestCfg()
 	deps, err := testCfg.Validate("path", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
@@ -68,7 +84,7 @@ func TestWheelBaseMath(t *testing.T) {
 		test.That(t, props.WidthMeters, test.ShouldEqual, 100*0.001)
 
 		geometries, err := wb.Geometries(ctx, nil)
-		test.That(t, geometries, test.ShouldBeNil)
+		test.That(t, len(geometries), test.ShouldBeZeroValue)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = wb.SetVelocity(ctx, r3.Vector{X: 0, Y: 10, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 10}, nil)
@@ -81,10 +97,27 @@ func TestWheelBaseMath(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, moving, test.ShouldBeTrue)
 
+		err = wb.SetVelocity(ctx, r3.Vector{X: 0, Y: 0, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 0}, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		moving, err = wb.IsMoving(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moving, test.ShouldBeFalse)
+
 		err = wb.SetPower(ctx, r3.Vector{X: 0, Y: 10, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 10}, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, wb.Stop(ctx, nil), test.ShouldBeNil)
+
+		moving, err = wb.IsMoving(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moving, test.ShouldBeFalse)
+
+		err = wb.SetPower(ctx, r3.Vector{X: 0, Y: 10, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 10}, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = wb.SetPower(ctx, r3.Vector{X: 0, Y: 0, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 0}, nil)
+		test.That(t, err, test.ShouldBeNil)
 
 		moving, err = wb.IsMoving(ctx)
 		test.That(t, err, test.ShouldBeNil)
@@ -171,26 +204,6 @@ func TestWheelBaseMath(t *testing.T) {
 		}
 	})
 
-	test.That(t, wb.Close(context.Background()), test.ShouldBeNil)
-	t.Run("go block", func(t *testing.T) {
-		go func() {
-			time.Sleep(time.Millisecond * 10)
-			err = wb.Stop(ctx, nil)
-			if err != nil {
-				panic(err)
-			}
-		}()
-
-		err := wb.MoveStraight(ctx, 10000, 1000, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		for _, m := range wb.allMotors {
-			isOn, powerPct, err := m.IsPowered(ctx, nil)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, isOn, test.ShouldBeFalse)
-			test.That(t, powerPct, test.ShouldEqual, 0.0)
-		}
-	})
 	// Spin tests
 	t.Run("spin math", func(t *testing.T) {
 		rpms, rotations := wb.spinMath(90, 10)
@@ -216,25 +229,6 @@ func TestWheelBaseMath(t *testing.T) {
 		rpms, rotations = wb.spinMath(30, 10)
 		test.That(t, rpms, test.ShouldAlmostEqual, 0.523, 0.001)
 		test.That(t, rotations, test.ShouldAlmostEqual, 0.0261, 0.001)
-	})
-	t.Run("spin block", func(t *testing.T) {
-		go func() {
-			time.Sleep(time.Millisecond * 10)
-			err := wb.Stop(ctx, nil)
-			if err != nil {
-				panic(err)
-			}
-		}()
-
-		err := wb.Spin(ctx, 5, 5, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		for _, m := range wb.allMotors {
-			isOn, powerPct, err := m.IsPowered(ctx, nil)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, isOn, test.ShouldBeFalse)
-			test.That(t, powerPct, test.ShouldEqual, 0.0)
-		}
 	})
 
 	// Velocity tests
@@ -326,9 +320,30 @@ func TestWheelBaseMath(t *testing.T) {
 	})
 }
 
+func TestStopError(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	deps := createMockDeps(t)
+
+	fakecfg := resource.Config{
+		Name: "base",
+		ConvertedAttributes: &Config{
+			WidthMM:              100,
+			WheelCircumferenceMM: 100,
+			Left:                 []string{"left"},
+			Right:                []string{"right"},
+		},
+	}
+	base, err := createWheeledBase(ctx, deps, fakecfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = base.Stop(ctx, nil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "stop error")
+}
+
 func TestWheeledBaseConstructor(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// empty config
 	cfg := &Config{}
@@ -362,7 +377,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 
 func TestWheeledBaseReconfigure(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// valid config
 	testCfg := newTestCfg()
@@ -424,22 +439,22 @@ func TestValidate(t *testing.T) {
 	cfg := &Config{}
 	deps, err := cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "\"width_mm\" is required")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "width_mm")
 
 	cfg.WidthMM = 100
 	deps, err = cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "\"wheel_circumference_mm\" is required")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "wheel_circumference_mm")
 
 	cfg.WheelCircumferenceMM = 1000
 	deps, err = cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "\"left\" is required")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "left")
 
 	cfg.Left = []string{"fl-m", "bl-m"}
 	deps, err = cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "\"right\" is required")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "right")
 
 	cfg.Right = []string{"fr-m"}
 	deps, err = cfg.Validate("path")

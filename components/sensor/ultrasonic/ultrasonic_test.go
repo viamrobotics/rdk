@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -48,15 +48,15 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 func TestValidate(t *testing.T) {
 	fakecfg := &Config{}
 	_, err := fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"path\": \"board\" is required")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "board")
 
 	fakecfg.Board = board1
 	_, err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"path\": \"trigger pin\" is required")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "trigger pin")
 
 	fakecfg.TriggerPin = triggerPin
 	_, err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"path\": \"echo interrupt pin\" is required")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "echo interrupt pin")
 
 	fakecfg.EchoInterrupt = echoInterrupt
 	_, err = fakecfg.Validate("path")
@@ -67,7 +67,7 @@ func TestNewSensor(t *testing.T) {
 	fakecfg := &Config{TriggerPin: triggerPin, EchoInterrupt: echoInterrupt, Board: board1}
 	ctx := context.Background()
 	deps := setupDependencies(t)
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	_, err := NewSensor(ctx, deps, sensor.Named(testSensorName), fakecfg, logger)
 	test.That(t, err, test.ShouldBeNil)

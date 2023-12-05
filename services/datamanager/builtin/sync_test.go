@@ -11,12 +11,12 @@ import (
 	"time"
 
 	clk "github.com/benbjohnson/clock"
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
@@ -367,7 +367,6 @@ func TestArbitraryFileUpload(t *testing.T) {
 
 			// Set up dmsvc config.
 			dmsvc, r := newTestDataManager(t)
-			dmsvc.SetWaitAfterLastModifiedMillis(0)
 			defer dmsvc.Close(context.Background())
 			f := atomic.Bool{}
 			f.Store(tc.serviceFail)
@@ -390,6 +389,8 @@ func TestArbitraryFileUpload(t *testing.T) {
 				ConvertedAttributes: cfg,
 			})
 			test.That(t, err, test.ShouldBeNil)
+			// Ensure that we don't wait to sync files.
+			dmsvc.SetFileLastModifiedMillis(0)
 
 			// Write file to the path.
 			var fileContents []byte
@@ -439,7 +440,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 				actMD := urs[0].GetMetadata()
 				test.That(t, actMD, test.ShouldNotBeNil)
 				test.That(t, actMD.Type, test.ShouldEqual, v1.DataType_DATA_TYPE_FILE)
-				test.That(t, actMD.FileName, test.ShouldEqual, fileName)
+				test.That(t, filepath.Base(actMD.FileName), test.ShouldEqual, fileName)
 				test.That(t, actMD.FileExtension, test.ShouldEqual, fileExt)
 				test.That(t, actMD.PartId, test.ShouldNotBeBlank)
 
@@ -890,8 +891,8 @@ func (m *mockStreamingDCClient) CloseSend() error {
 }
 
 func getTestSyncerConstructorMock(client mockDataSyncServiceClient) datasync.ManagerConstructor {
-	return func(identity string, _ v1.DataSyncServiceClient, logger golog.Logger) (datasync.Manager, error) {
-		return datasync.NewManager(identity, client, logger)
+	return func(identity string, _ v1.DataSyncServiceClient, logger logging.Logger, viamCaptureDotDir string) (datasync.Manager, error) {
+		return datasync.NewManager(identity, client, logger, viamCaptureDotDir)
 	}
 }
 

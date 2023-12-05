@@ -6,14 +6,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
 func TestPIDConfig(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	for i, tc := range []struct {
 		conf BlockConfig
 		err  string
@@ -60,7 +60,7 @@ func TestPIDConfig(t *testing.T) {
 
 func TestPIDBasicIntegralWindup(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg := BlockConfig{
 		Name: "PID1",
 		Attribute: utils.AttributeMap{
@@ -117,9 +117,9 @@ func TestPIDBasicIntegralWindup(t *testing.T) {
 	test.That(t, pid.error, test.ShouldEqual, 0)
 }
 
-func TestPIDTunner(t *testing.T) {
+func TestPIDTuner(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg := BlockConfig{
 		Name: "PID1",
 		Attribute: utils.AttributeMap{

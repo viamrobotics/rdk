@@ -4,13 +4,12 @@ import (
 	"context"
 	"unsafe"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/mlmodel/v1"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/structpb"
 	"gorgonia.org/tensor"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 )
@@ -23,7 +22,7 @@ type client struct {
 	name   string
 	conn   rpc.ClientConn
 	client pb.MLModelServiceClient
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -32,7 +31,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (Service, error) {
 	grpcClient := pb.NewMLModelServiceClient(conn)
 	c := &client{
@@ -45,21 +44,10 @@ func NewClientFromConn(
 	return c, nil
 }
 
-func (c *client) Infer(ctx context.Context, tensors ml.Tensors, input map[string]interface{}) (ml.Tensors, map[string]interface{}, error) {
-	if input != nil && tensors != nil {
-		return nil, nil, errors.New("cannot have both input tensors and input map fed to Infer")
-	}
-	inProto, err := structpb.NewStruct(input)
-	if err != nil {
-		return nil, nil, err
-	}
+func (c *client) Infer(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error) {
 	tensorProto, err := TensorsToProto(tensors)
 	if err != nil {
-		return nil, nil, err
-	}
-
-	if input == nil {
-		inProto = nil
+		return nil, err
 	}
 	if tensors == nil {
 		tensorProto = nil
@@ -67,20 +55,15 @@ func (c *client) Infer(ctx context.Context, tensors ml.Tensors, input map[string
 	resp, err := c.client.Infer(ctx, &pb.InferRequest{
 		Name:         c.name,
 		InputTensors: tensorProto,
-		InputData:    inProto,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	tensorResp, err := ProtoToTensors(resp.OutputTensors)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	var mapResp map[string]interface{}
-	if resp.OutputData != nil {
-		mapResp = resp.OutputData.AsMap()
-	}
-	return tensorResp, mapResp, nil
+	return tensorResp, nil
 }
 
 // ProtoToTensors takes pb.FlatTensors and turns it into a Tensors map.

@@ -1,8 +1,6 @@
 package board
 
-import (
-	"go.viam.com/utils"
-)
+import "go.viam.com/rdk/resource"
 
 // SPIConfig enumerates a specific, shareable SPI bus.
 type SPIConfig struct {
@@ -13,7 +11,7 @@ type SPIConfig struct {
 // Validate ensures all parts of the config are valid.
 func (config *SPIConfig) Validate(path string) error {
 	if config.Name == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "name")
+		return resource.NewConfigValidationFieldRequiredError(path, "name")
 	}
 	return nil
 }
@@ -27,28 +25,26 @@ type I2CConfig struct {
 // Validate ensures all parts of the config are valid.
 func (config *I2CConfig) Validate(path string) error {
 	if config.Name == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "name")
+		return resource.NewConfigValidationFieldRequiredError(path, "name")
 	}
 	if config.Bus == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "bus")
+		return resource.NewConfigValidationFieldRequiredError(path, "bus")
 	}
 	return nil
 }
 
-// AnalogConfig describes the configuration of an analog reader on a board.
-type AnalogConfig struct {
+// AnalogReaderConfig describes the configuration of an analog reader on a board.
+type AnalogReaderConfig struct {
 	Name              string `json:"name"`
-	Pin               string `json:"pin"`         // analog input pin on the ADC itself
-	SPIBus            string `json:"spi_bus"`     // name of the SPI bus (which is configured elsewhere in the config file)
-	ChipSelect        string `json:"chip_select"` // the CS line for the ADC chip, typically a pin number on the board
+	Pin               string `json:"pin"`
 	AverageOverMillis int    `json:"average_over_ms,omitempty"`
 	SamplesPerSecond  int    `json:"samples_per_sec,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AnalogConfig) Validate(path string) error {
+func (config *AnalogReaderConfig) Validate(path string) error {
 	if config.Name == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "name")
+		return resource.NewConfigValidationFieldRequiredError(path, "name")
 	}
 	return nil
 }
@@ -64,10 +60,10 @@ type DigitalInterruptConfig struct {
 // Validate ensures all parts of the config are valid.
 func (config *DigitalInterruptConfig) Validate(path string) error {
 	if config.Name == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "name")
+		return resource.NewConfigValidationFieldRequiredError(path, "name")
 	}
 	if config.Pin == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "pin")
+		return resource.NewConfigValidationFieldRequiredError(path, "pin")
 	}
 	return nil
 }

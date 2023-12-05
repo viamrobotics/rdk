@@ -29,7 +29,6 @@ import (
 	"math"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
@@ -37,6 +36,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
@@ -45,6 +45,9 @@ import (
 var model = resource.DefaultModelFamily.WithModel("imu-wit")
 
 var baudRateList = []uint{115200, 9600, 0}
+
+// max tilt to use tilt compensation is 45 degrees.
+var maxTiltInRad = rutils.DegToRad(45)
 
 // Config is used for converting a witmotion IMU MovementSensor config attributes.
 type Config struct {
@@ -56,12 +59,12 @@ type Config struct {
 func (cfg *Config) Validate(path string) ([]string, error) {
 	// Validating serial path
 	if cfg.Port == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_path")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 
 	// Validating baud rate
 	if !rutils.ValidateBaudRate(baudRateList, int(cfg.BaudRate)) {
-		return nil, utils.NewConfigValidationError(path, errors.Errorf("Baud rate is not in %v", baudRateList))
+		return nil, resource.NewConfigValidationError(path, errors.Errorf("Baud rate is not in %v", baudRateList))
 	}
 
 	return nil, nil
@@ -88,7 +91,7 @@ type wit struct {
 	port                    io.ReadWriteCloser
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	logger                  golog.Logger
+	logger                  logging.Logger
 }
 
 func (imu *wit) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
@@ -124,26 +127,51 @@ func (imu *wit) getMagnetometer() (r3.Vector, error) {
 }
 
 func (imu *wit) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	var err error
+
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 
-	var err error
-	// this only works when the imu is level to the surface of the earth, no inclines
+	// this will compensate for a tilted IMU if the tilt is less than 45 degrees
 	// do not let the imu near permanent magnets or things that make a strong magnetic field
-	imu.compassheading = calculateCompassHeading(imu.magnetometer.X, imu.magnetometer.Y)
+	imu.compassheading = imu.calculateCompassHeading()
 
 	return imu.compassheading, err
 }
 
-func calculateCompassHeading(x, y float64) float64 {
+// Helper function to calculate compass heading with tilt compensation.
+func (imu *wit) calculateCompassHeading() float64 {
+	pitch := imu.orientation.Pitch
+	roll := imu.orientation.Roll
+
+	var x, y float64
+
+	// Tilt compensation only works if the pitch and roll are between -45 and 45 degrees.
+	if math.Abs(roll) <= maxTiltInRad && math.Abs(pitch) <= maxTiltInRad {
+		x, y = imu.calculateTiltCompensation(roll, pitch)
+	} else {
+		x = imu.magnetometer.X
+		y = imu.magnetometer.Y
+	}
+
 	// calculate -180 to 180 heading from radians
 	// North (y) is 0 so  the π/2 - atan2(y, x) identity is used
-	// directl
+	// directly
 	rad := math.Atan2(y, x) // -180 to 180 heading
 	compass := rutils.RadToDeg(rad)
 	compass = math.Mod(compass, 360)
-	compass = math.Mod(compass+360, 360)
-	return compass // change domain to 0 to 360
+	compass = math.Mod(compass+360, 360) // compass 0 to 360
+
+	return compass
+}
+
+func (imu *wit) calculateTiltCompensation(roll, pitch float64) (float64, float64) {
+	// calculate adjusted magnetometer readings. These get less accurate as the tilt angle increases.
+	xComp := imu.magnetometer.X*math.Cos(pitch) + imu.magnetometer.Z*math.Sin(pitch)
+	yComp := imu.magnetometer.X*math.Sin(roll)*math.Sin(pitch) +
+		imu.magnetometer.Y*math.Cos(roll) - imu.magnetometer.Z*math.Sin(roll)*math.Cos(pitch)
+
+	return xComp, yComp
 }
 
 func (imu *wit) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
@@ -155,7 +183,7 @@ func (imu *wit) Accuracy(ctx context.Context, extra map[string]interface{}) (map
 }
 
 func (imu *wit) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := movementsensor.Readings(ctx, imu, extra)
+	readings, err := movementsensor.DefaultAPIReadings(ctx, imu, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +214,7 @@ func newWit(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -226,7 +254,7 @@ func newWit(
 	return &i, nil
 }
 
-func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, logger golog.Logger) {
+func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, logger logging.Logger) {
 	imu.hasMagnetometer = false
 	ctx, imu.cancelFunc = context.WithCancel(ctx)
 	imu.activeBackgroundWorkers.Add(1)

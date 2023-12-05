@@ -1,4 +1,4 @@
-//go:build linux && (arm64 || arm)
+//go:build linux && (arm64 || arm) && !no_pigpio && !no_cgo
 
 package piimpl
 
@@ -13,12 +13,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/servo"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )
@@ -34,7 +34,9 @@ func init() {
 		servo.API,
 		picommon.Model,
 		resource.Registration[servo.Servo, *picommon.ServoConfig]{
-			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (servo.Servo, error) {
+			Constructor: func(
+				ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
+			) (servo.Servo, error) {
 				newConf, err := resource.NativeConfig[*picommon.ServoConfig](conf)
 				if err != nil {
 					return nil, err
@@ -106,7 +108,7 @@ type piPigpioServo struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
-	logger      golog.Logger
+	logger      logging.Logger
 	pin         C.uint
 	pinname     string
 	res         C.int

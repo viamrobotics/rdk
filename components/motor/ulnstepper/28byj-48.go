@@ -23,13 +23,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )
@@ -71,23 +70,23 @@ type Config struct {
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if conf.BoardName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 	}
 
 	if conf.Pins.In1 == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "in1")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "in1")
 	}
 
 	if conf.Pins.In2 == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "in2")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "in2")
 	}
 
 	if conf.Pins.In3 == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "in3")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "in3")
 	}
 
 	if conf.Pins.In4 == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "in4")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "in4")
 	}
 
 	deps = append(deps, conf.BoardName)
@@ -100,7 +99,9 @@ func init() {
 	})
 }
 
-func new28byj(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (motor.Motor, error) {
+func new28byj(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (motor.Motor, error) {
 	mc, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
@@ -159,7 +160,7 @@ type uln28byj struct {
 	theBoard           board.Board
 	ticksPerRotation   int
 	in1, in2, in3, in4 board.GPIOPin
-	logger             golog.Logger
+	logger             logging.Logger
 	motorName          string
 
 	// state
@@ -314,7 +315,8 @@ func (m *uln28byj) GoTo(ctx context.Context, rpm, positionRevolutions float64, e
 func (m *uln28byj) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	m.stepPosition = int64(offset * float64(m.ticksPerRotation))
+	m.stepPosition = int64(-1 * offset * float64(m.ticksPerRotation))
+	m.targetStepPosition = m.stepPosition
 	return nil
 }
 

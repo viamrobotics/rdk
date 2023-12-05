@@ -1,3 +1,5 @@
+//go:build !no_cgo
+
 // Package arm contains a gRPC based arm service server.
 package arm
 
@@ -9,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -130,13 +133,20 @@ func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKine
 	if model == nil {
 		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}, nil
 	}
-	filedata, err := model.MarshalJSON()
-	if err != nil {
-		return nil, err
+	cfg := model.ModelConfig()
+	if cfg == nil || cfg.OriginalFile == nil {
+		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}, nil
 	}
-	// Marshalled models always marshal to SVA
-	format := commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA
-	return &commonpb.GetKinematicsResponse{Format: format, KinematicsData: filedata}, nil
+	resp := &commonpb.GetKinematicsResponse{KinematicsData: cfg.OriginalFile.Bytes}
+	switch cfg.OriginalFile.Extension {
+	case "json":
+		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA
+	case urdf.Extension:
+		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF
+	default:
+		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF
+	}
+	return resp, nil
 }
 
 // DoCommand receives arbitrary commands.

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
-	"github.com/edaniels/golog"
 	"go.uber.org/zap/zapcore"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
@@ -19,6 +18,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
@@ -59,7 +59,7 @@ func TestNewCollector(t *testing.T) {
 	// If not missing parameters, should not return an error.
 	c2, err2 := NewCollector(nil, CollectorParams{
 		ComponentName: "name",
-		Logger:        golog.NewTestLogger(t),
+		Logger:        logging.NewTestLogger(t),
 		Target:        datacapture.NewBuffer("dir", nil),
 	})
 
@@ -69,7 +69,7 @@ func TestNewCollector(t *testing.T) {
 
 // Test that the Collector correctly writes the SensorData on an interval.
 func TestSuccessfulWrite(t *testing.T) {
-	l := golog.NewTestLogger(t)
+	l := logging.NewTestLogger(t)
 	tickerInterval := sleepCaptureCutoff + 1
 	sleepInterval := sleepCaptureCutoff - 1
 
@@ -139,12 +139,12 @@ func TestSuccessfulWrite(t *testing.T) {
 			c, err := NewCollector(tc.captureFunc, params)
 			test.That(t, err, test.ShouldBeNil)
 			c.Collect()
-			// We need to avoid adding time until after the the underlying goroutine has started sleeping.
+			// We need to avoid adding time until after the underlying goroutine has started sleeping.
 			// If we add time before that point, data will never be captured, because time will never be greater than
 			// the initially calculated time.
-			// Sleeping for 1ms is a hacky way to ensure that we don't encounter this situation. It gives 1ms
+			// Sleeping for 10ms is a hacky way to ensure that we don't encounter this situation. It gives 10ms
 			// for those few sequential lines in collector.go to execute, so that that occurs before we add time below.
-			time.Sleep(time.Millisecond)
+			time.Sleep(10 * time.Millisecond)
 			for i := 0; i < tc.expectReadings; i++ {
 				mockClock.Add(params.Interval)
 				select {
@@ -197,7 +197,7 @@ func TestSuccessfulWrite(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	// Set up a collector.
-	l := golog.NewTestLogger(t)
+	l := logging.NewTestLogger(t)
 	tmpDir := t.TempDir()
 	md := v1.DataCaptureMetadata{}
 	buf := datacapture.NewBuffer(tmpDir, &md)
@@ -248,7 +248,7 @@ func TestClose(t *testing.T) {
 // has been called. The collector context is cancelled as part of Close, so we expect to see context cancelled errors
 // for any running capture routines.
 func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
-	logger, logs := golog.NewObservedTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 	tmpDir := t.TempDir()
 	target := datacapture.NewBuffer(tmpDir, &v1.DataCaptureMetadata{})
 	captured := make(chan struct{})

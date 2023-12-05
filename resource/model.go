@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
-	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -52,10 +51,10 @@ func (n ModelNamespace) WithFamily(name string) ModelFamily {
 // Validate ensures that important fields exist and are valid.
 func (f ModelFamily) Validate() error {
 	if f.Namespace == "" {
-		return errors.New("namespace field for model missing")
+		return NewConfigValidationFieldRequiredError("", "namespace")
 	}
 	if f.Name == "" {
-		return errors.New("model_family field for model missing")
+		return NewConfigValidationFieldRequiredError("", "model_family")
 	}
 	if err := ContainsReservedCharacter(string(f.Namespace)); err != nil {
 		return err
@@ -106,7 +105,7 @@ func (m Model) Validate() error {
 		return err
 	}
 	if m.Name == "" {
-		return errors.New("name field for model missing")
+		return NewConfigValidationFieldRequiredError("", "name")
 	}
 	if err := ContainsReservedCharacter(m.Name); err != nil {
 		return err
@@ -129,21 +128,27 @@ func (m Model) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON parses namespace:family:modelname strings to the full Model{} struct.
 func (m *Model) UnmarshalJSON(data []byte) error {
-	modelStr := strings.Trim(string(data), "\"'")
-	if modelRegexValidator.MatchString(modelStr) {
-		matches := modelRegexValidator.FindStringSubmatch(modelStr)
-		*m = ModelNamespace(matches[1]).WithFamily(matches[2]).WithModel(matches[3])
-		return nil
-	}
-
-	if singleFieldRegexValidator.MatchString(modelStr) {
-		*m = DefaultModelFamily.WithModel(modelStr)
-		return nil
+	var modelStr string
+	if err := json.Unmarshal(data, &modelStr); err == nil {
+		switch {
+		case modelRegexValidator.MatchString(modelStr):
+			matches := modelRegexValidator.FindStringSubmatch(modelStr)
+			*m = ModelNamespace(matches[1]).WithFamily(matches[2]).WithModel(matches[3])
+			return nil
+		case singleFieldRegexValidator.MatchString(modelStr):
+			*m = DefaultModelFamily.WithModel(modelStr)
+			return nil
+		default:
+			return fmt.Errorf("not a valid Model config string. Input: `%v`", modelStr)
+		}
 	}
 
 	var tempModel map[string]string
 	if err := json.Unmarshal(data, &tempModel); err != nil {
-		return err
+		return errors.Wrapf(err,
+			"%q is not a valid model. "+
+				`models must be of the form "namespace:family:name", "name", or be valid nested JSON `+
+				`with "namespace", "model_family" and "name" fields`, modelStr)
 	}
 
 	m.Family.Namespace = ModelNamespace(tempModel["namespace"])

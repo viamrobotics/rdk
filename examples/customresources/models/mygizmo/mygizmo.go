@@ -6,22 +6,37 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
 // Model is the full model definition.
 var Model = resource.NewModel("acme", "demo", "mygizmo")
 
+// Config is the gizmo model's config.
+type Config struct {
+	Arg1 string `json:"arg1"`
+}
+
+// Validate ensures that `Arg1` is a non-empty string.
+// Validation error will stop the associated resource from building.
+func (cfg *Config) Validate(path string) ([]string, error) {
+	if cfg.Arg1 == "" {
+		return nil, fmt.Errorf(`expected "arg1" attribute for myGizmo %q`, path)
+	}
+
+	// there are no dependencies for this model, so we return an empty list of strings
+	return []string{}, nil
+}
+
 func init() {
-	resource.RegisterComponent(gizmoapi.API, Model, resource.Registration[gizmoapi.Gizmo, resource.NoNativeConfig]{
+	resource.RegisterComponent(gizmoapi.API, Model, resource.Registration[gizmoapi.Gizmo, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (gizmoapi.Gizmo, error) {
 			return NewMyGizmo(deps, conf, logger)
 		},
@@ -40,7 +55,7 @@ type myActualGizmo struct {
 func NewMyGizmo(
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (gizmoapi.Gizmo, error) {
 	g := &myActualGizmo{
 		Named: conf.ResourceName().AsNamed(),
@@ -52,8 +67,15 @@ func NewMyGizmo(
 }
 
 func (g *myActualGizmo) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	// This takes the generic resource.Config passed down from the parent and converts it to the
+	// model-specific (aka "native") Config structure defined above making it easier to directly access attributes.
+	gizmoConfig, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+
 	g.myArgMu.Lock()
-	g.myArg = conf.Attributes.String("arg1")
+	g.myArg = gizmoConfig.Arg1
 	g.myArgMu.Unlock()
 	return nil
 }

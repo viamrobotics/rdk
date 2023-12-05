@@ -11,14 +11,14 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/edaniels/golog"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
-	"github.com/viamrobotics/gostream"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 )
@@ -46,7 +46,9 @@ var model = resource.DefaultModelFamily.WithModel("ffmpeg")
 
 func init() {
 	resource.RegisterComponent(camera.API, model, resource.Registration[camera.Camera, *Config]{
-		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (camera.Camera, error) {
+		Constructor: func(
+			ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
+		) (camera.Camera, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err
@@ -55,21 +57,23 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return camera.FromVideoSource(conf.ResourceName(), src), nil
+			return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
 		},
 	})
 }
 
 type ffmpegCamera struct {
+	resource.Named
 	gostream.VideoReader
 	cancelFunc              context.CancelFunc
 	activeBackgroundWorkers sync.WaitGroup
 	inClose                 func() error
 	outClose                func() error
+	logger                  logging.Logger
 }
 
 // NewFFMPEGCamera instantiates a new camera which leverages ffmpeg to handle a variety of potential video types.
-func NewFFMPEGCamera(ctx context.Context, conf *Config, logger golog.Logger) (camera.VideoSource, error) {
+func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (camera.VideoSource, error) {
 	// make sure ffmpeg is in the path before doing anything else
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return nil, err
@@ -84,7 +88,7 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger golog.Logger) (ca
 
 	// instantiate camera with cancellable context that will be applied to all spawned processes
 	cancelableCtx, cancel := context.WithCancel(context.Background())
-	ffCam := &ffmpegCamera{cancelFunc: cancel}
+	ffCam := &ffmpegCamera{cancelFunc: cancel, logger: logger}
 
 	// launch thread to run ffmpeg and pull images from the url and put them into the pipe
 	in, out := io.Pipe()

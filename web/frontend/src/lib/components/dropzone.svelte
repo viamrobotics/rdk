@@ -26,10 +26,8 @@ const handleDrop = (event: DragEvent) => {
 
   if (format === 'string') {
     reader.readAsBinaryString(file);
-  } else if (format === 'arrayBuffer') {
-    reader.readAsArrayBuffer(file);
   } else {
-    throw new Error('Unsupported dropzone format.');
+    reader.readAsArrayBuffer(file);
   }
 };
 

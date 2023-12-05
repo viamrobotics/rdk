@@ -20,8 +20,10 @@ import (
 )
 
 var (
-	testEmail = "grogu@viam.com"
-	testToken = "thisistheway"
+	testEmail     = "grogu@viam.com"
+	testToken     = "thisistheway"
+	testKeyID     = "testkeyid"
+	testKeyCrypto = "testkeycrypto"
 )
 
 type testWriter struct {
@@ -37,24 +39,41 @@ func (tw *testWriter) Write(b []byte) (int, error) {
 // setup creates a new cli.Context and viamClient with fake auth and the passed
 // in AppServiceClient and DataServiceClient. It also returns testWriters that capture Stdout and
 // Stdin.
-func setup(asc apppb.AppServiceClient, dataClient datapb.DataServiceClient) (*cli.Context, *viamClient, *testWriter, *testWriter) {
+func setup(asc apppb.AppServiceClient, dataClient datapb.DataServiceClient,
+	defaultFlags *map[string]string, authMethod string,
+) (*cli.Context, *viamClient, *testWriter, *testWriter) {
 	out := &testWriter{}
 	errOut := &testWriter{}
 	flags := &flag.FlagSet{}
+	// init all the default flags from the input
+
+	if defaultFlags != nil {
+		for name, val := range *defaultFlags {
+			flags.String(name, val, "")
+		}
+	}
+
 	if dataClient != nil {
 		// these flags are only relevant when testing a dataClient
 		flags.String(dataFlagDataType, dataTypeTabular, "")
 		flags.String(dataFlagDestination, utils.ResolveFile(""), "")
 	}
+
 	cCtx := cli.NewContext(NewApp(out, errOut), flags, nil)
-	conf := &config{
-		Auth: &token{
+	conf := &config{}
+	if authMethod == "token" {
+		conf.Auth = &token{
 			AccessToken: testToken,
 			ExpiresAt:   time.Now().Add(time.Hour),
 			User: userData{
 				Email: testEmail,
 			},
-		},
+		}
+	} else if authMethod == "apiKey" {
+		conf.Auth = &apiKey{
+			KeyID:     testKeyID,
+			KeyCrypto: testKeyCrypto,
+		}
 	}
 	ac := &viamClient{
 		client:     asc,
@@ -69,19 +88,20 @@ func TestListOrganizationsAction(t *testing.T) {
 	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
 		opts ...grpc.CallOption,
 	) (*apppb.ListOrganizationsResponse, error) {
-		orgs := []*apppb.Organization{{Name: "jedi"}, {Name: "mandalorians"}}
+		orgs := []*apppb.Organization{{Name: "jedi", PublicNamespace: "anakin"}, {Name: "mandalorians"}}
 		return &apppb.ListOrganizationsResponse{Organizations: orgs}, nil
 	}
 	asc := &inject.AppServiceClient{
 		ListOrganizationsFunc: listOrganizationsFunc,
 	}
-	cCtx, ac, out, errOut := setup(asc, nil)
+	cCtx, ac, out, errOut := setup(asc, nil, nil, "token")
 
 	test.That(t, ac.listOrganizationsAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 3)
-	test.That(t, out.messages[0], test.ShouldEqual, fmt.Sprintf("organizations for %q:\n", testEmail))
+	test.That(t, out.messages[0], test.ShouldEqual, fmt.Sprintf("Organizations for %q:\n", testEmail))
 	test.That(t, out.messages[1], test.ShouldContainSubstring, "jedi")
+	test.That(t, out.messages[1], test.ShouldContainSubstring, "anakin")
 	test.That(t, out.messages[2], test.ShouldContainSubstring, "mandalorians")
 }
 
@@ -109,12 +129,12 @@ func TestTabularDataByFilterAction(t *testing.T) {
 		TabularDataByFilterFunc: tabularDataByFilterFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc)
+	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, "token")
 
 	test.That(t, ac.dataExportAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 4)
-	test.That(t, out.messages[0], test.ShouldEqual, "downloading..")
+	test.That(t, out.messages[0], test.ShouldEqual, "Downloading..")
 	test.That(t, out.messages[1], test.ShouldEqual, ".")
 	test.That(t, out.messages[2], test.ShouldEqual, ".")
 	test.That(t, out.messages[3], test.ShouldEqual, "\n")
@@ -150,4 +170,45 @@ func TestTabularDataByFilterAction(t *testing.T) {
 
 	savedMetadata := string(b)
 	test.That(t, savedMetadata, test.ShouldEqual, "{\"locationId\":\"loc-id\"}")
+}
+
+func TestBaseURLParsing(t *testing.T) {
+	// Test basic parsing
+	url, rpcOpts, err := parseBaseURL("https://app.viam.com:443", false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, url.Port(), test.ShouldEqual, "443")
+	test.That(t, url.Scheme, test.ShouldEqual, "https")
+	test.That(t, url.Hostname(), test.ShouldEqual, "app.viam.com")
+	test.That(t, rpcOpts, test.ShouldBeNil)
+
+	// Test parsing without a port
+	url, _, err = parseBaseURL("https://app.viam.com", false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, url.Port(), test.ShouldEqual, "443")
+	test.That(t, url.Hostname(), test.ShouldEqual, "app.viam.com")
+
+	// Test parsing locally
+	url, rpcOpts, err = parseBaseURL("http://127.0.0.1:8081", false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, url.Scheme, test.ShouldEqual, "http")
+	test.That(t, url.Port(), test.ShouldEqual, "8081")
+	test.That(t, url.Hostname(), test.ShouldEqual, "127.0.0.1")
+	test.That(t, rpcOpts, test.ShouldHaveLength, 2)
+
+	// Test localhost:8080
+	url, _, err = parseBaseURL("http://localhost:8080", false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, url.Port(), test.ShouldEqual, "8080")
+	test.That(t, url.Hostname(), test.ShouldEqual, "localhost")
+	test.That(t, rpcOpts, test.ShouldHaveLength, 2)
+
+	// Test no scheme remote
+	url, _, err = parseBaseURL("app.viam.com", false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, url.Scheme, test.ShouldEqual, "https")
+	test.That(t, url.Hostname(), test.ShouldEqual, "app.viam.com")
+
+	// Test invalid url
+	_, _, err = parseBaseURL(":5", false)
+	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "missing protocol scheme")
 }

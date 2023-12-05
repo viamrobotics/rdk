@@ -5,7 +5,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -13,11 +12,13 @@ import (
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
+	motionBuiltin "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/utils"
 )
 
@@ -34,7 +35,7 @@ func TestModularResources(t *testing.T) {
 	)
 
 	setupTest := func(t *testing.T) (*localRobot, *dummyModMan, func()) {
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		compAPISvc, err := resource.NewAPIResourceCollection[resource.Resource](compAPI, nil)
 		test.That(t, err, test.ShouldBeNil)
 		svcAPISvc, err := resource.NewAPIResourceCollection[resource.Resource](svcAPI, nil)
@@ -57,7 +58,7 @@ func TestModularResources(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (resource.Resource, error) {
 				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
 			},
@@ -67,7 +68,7 @@ func TestModularResources(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (resource.Resource, error) {
 				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
 			},
@@ -80,7 +81,7 @@ func TestModularResources(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (resource.Resource, error) {
 				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
 			},
@@ -201,7 +202,7 @@ func TestModularResources(t *testing.T) {
 			Name:                "builtin",
 			API:                 motion.API,
 			Model:               resource.DefaultServiceModel,
-			ConvertedAttributes: &fake.Config{},
+			ConvertedAttributes: &motionBuiltin.Config{},
 			DependsOn:           []string{framesystem.InternalServiceName.String()},
 		}
 		_, err = cfg3.Validate("test", resource.APITypeServiceName)
@@ -450,6 +451,18 @@ func (m *dummyModMan) ValidateConfig(ctx context.Context, cfg resource.Config) (
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return nil, nil
+}
+
+func (m *dummyModMan) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return nil
+}
+
+func (m *dummyModMan) CleanModuleDataDirectory() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return nil
 }
 
 func (m *dummyModMan) Close(ctx context.Context) error {

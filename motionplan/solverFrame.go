@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/rdk/motionplan/tpspace"
 	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -28,7 +29,7 @@ type solverFrame struct {
 	worldRooted bool
 	origSeed    map[string][]frame.Input // stores starting locations of all frames in fss that are NOT in `frames`
 
-	ptgs []tpspace.PTG
+	ptgs []tpspace.PTGSolver
 }
 
 func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, seedMap map[string][]frame.Input) (*solverFrame, error) {
@@ -250,8 +251,8 @@ func (sf *solverFrame) DoF() []frame.Limit {
 	return limits
 }
 
-// PTGs passes through the PTGs of the solving tp-space frame if it exists, otherwise nil.
-func (sf *solverFrame) PTGs() []tpspace.PTG {
+// PTGSolvers passes through the PTGs of the solving tp-space frame if it exists, otherwise nil.
+func (sf *solverFrame) PTGSolvers() []tpspace.PTGSolver {
 	return sf.ptgs
 }
 
@@ -295,6 +296,33 @@ func (sf *solverFrame) AlmostEquals(otherFrame frame.Frame) bool {
 	return false
 }
 
+// inputsToPlan takes a 2d array on inputs and converts to a Plan.
+func (sf solverFrame) inputsToPlan(inputs [][]frame.Input) Plan {
+	plan := Plan{}
+	for _, inputSlice := range inputs {
+		stepMap := sf.sliceToMap(inputSlice)
+		plan = append(plan, stepMap)
+	}
+	return plan
+}
+
+// planToNodes takes a plan and turns it into a slice of nodes.
+func (sf solverFrame) planToNodes(plan Plan) ([]node, error) {
+	planNodes := make([]node, 0, len(plan))
+	for _, step := range plan {
+		stepConfig, err := sf.mapToSlice(step)
+		if err != nil {
+			return nil, err
+		}
+		pose, err := sf.Transform(stepConfig)
+		if err != nil {
+			return nil, err
+		}
+		planNodes = append(planNodes, &basicNode{q: stepConfig, pose: pose})
+	}
+	return planNodes, nil
+}
+
 // uniqInPlaceSlice will deduplicate the values in a slice using in-place replacement on the slice. This is faster than
 // a solution using append().
 // This function does not remove anything from the input slice, but it does rearrange the elements.
@@ -335,4 +363,54 @@ func findPivotFrame(frameList1, frameList2 []frame.Frame) (frame.Frame, error) {
 		}
 	}
 	return nil, errors.New("no path from solve frame to goal frame")
+}
+
+// PlanToPlanStepsAndGeoPoses converts a plan to the relative poses the robot will move to (relative to the origin) & the geo poses.
+func PlanToPlanStepsAndGeoPoses(
+	plan Plan,
+	componentName resource.Name,
+	origin spatial.GeoPose,
+	planRequest PlanRequest,
+) ([]map[resource.Name]spatial.Pose, []spatial.GeoPose, error) {
+	sf, err := newSolverFrame(
+		planRequest.FrameSystem,
+		planRequest.Frame.Name(),
+		planRequest.Goal.Parent(),
+		planRequest.StartConfiguration)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	planNodes, err := sf.planToNodes(plan)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	seed, err := sf.mapToSlice(planRequest.StartConfiguration)
+	if err != nil {
+		return nil, nil, err
+	}
+	startPose, err := sf.Transform(seed)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	startPoseWOrientation := spatial.NewPose(planNodes[0].Pose().Point(), startPose.Orientation())
+	runningPoseWOrient := startPoseWOrientation
+	planSteps := make([]map[resource.Name]spatial.Pose, 0, len(planNodes))
+	geoPoses := []spatial.GeoPose{}
+	for _, wp := range planNodes {
+		wpPose, err := sf.Transform(wp.Q())
+		if err != nil {
+			return nil, nil, err
+		}
+
+		runningPoseWOrient = spatial.Compose(runningPoseWOrient, wpPose)
+		planSteps = append(planSteps, map[resource.Name]spatial.Pose{componentName: runningPoseWOrient})
+
+		gp := spatial.PoseToGeoPose(&origin, runningPoseWOrient)
+		geoPoses = append(geoPoses, *gp)
+	}
+
+	return planSteps, geoPoses, nil
 }

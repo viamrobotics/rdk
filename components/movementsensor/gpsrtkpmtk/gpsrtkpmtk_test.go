@@ -1,3 +1,5 @@
+//go:build linux
+
 package gpsrtkpmtk
 
 import (
@@ -5,35 +7,33 @@ import (
 	"math"
 	"testing"
 
-	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor/fake"
 	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 const (
 	testRoverName   = "testRover"
 	testStationName = "testStation"
-	testBoardName   = "board1"
-	testBusName     = "bus1"
-	testi2cAddr     = 44
+	testI2cBus      = "1"
+	testI2cAddr     = 44
 )
 
 func TestValidateRTK(t *testing.T) {
 	path := "path"
 	cfg := Config{
-		NtripURL:             "http//fakeurl",
+		NtripURL:             "http://fakeurl",
 		NtripConnectAttempts: 10,
 		NtripPass:            "somepass",
 		NtripUser:            "someuser",
 		NtripMountpoint:      "NYC",
-		Board:                testBoardName,
-		I2CBus:               testBusName,
-		I2CAddr:              testi2cAddr,
+		I2CBus:               testI2cBus,
+		I2CAddr:              testI2cAddr,
 	}
 	t.Run("valid config", func(t *testing.T) {
 		_, err := cfg.Validate(path)
@@ -47,50 +47,47 @@ func TestValidateRTK(t *testing.T) {
 			NtripPass:            "somepass",
 			NtripUser:            "someuser",
 			NtripMountpoint:      "NYC",
-			Board:                testBoardName,
-			I2CBus:               testBusName,
-			I2CAddr:              testi2cAddr,
+			I2CBus:               testI2cBus,
+			I2CAddr:              testI2cAddr,
 		}
 		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeError,
-			utils.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
+			resource.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
 	})
 
 	t.Run("invalid i2c bus", func(t *testing.T) {
 		cfg := Config{
 			I2CBus:               "",
-			NtripURL:             "http//fakeurl",
+			NtripURL:             "http://fakeurl",
 			NtripConnectAttempts: 10,
 			NtripPass:            "somepass",
 			NtripUser:            "someuser",
 			NtripMountpoint:      "NYC",
-			Board:                testBoardName,
-			I2CAddr:              testi2cAddr,
+			I2CAddr:              testI2cAddr,
 		}
 		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeError,
-			utils.NewConfigValidationFieldRequiredError(path, "i2c_bus"))
+			resource.NewConfigValidationFieldRequiredError(path, "i2c_bus"))
 	})
 
 	t.Run("invalid i2c addr", func(t *testing.T) {
 		cfg := Config{
 			I2CAddr:              0,
-			NtripURL:             "http//fakeurl",
+			NtripURL:             "http://fakeurl",
 			NtripConnectAttempts: 10,
 			NtripPass:            "somepass",
 			NtripUser:            "someuser",
 			NtripMountpoint:      "NYC",
-			Board:                testBoardName,
-			I2CBus:               testBusName,
+			I2CBus:               testI2cBus,
 		}
 		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeError,
-			utils.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
+			resource.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
 	})
 }
 
 func TestConnect(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := rtkI2C{
@@ -120,7 +117,7 @@ func TestReadings(t *testing.T) {
 		loc   = geo.NewPoint(40.7, -73.98)
 	)
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := rtkI2C{
@@ -187,32 +184,34 @@ func TestReadings(t *testing.T) {
 }
 
 func TestReconfigure(t *testing.T) {
+	mockI2c := inject.I2C{}
 	g := &rtkI2C{
-		wbaud: 9600,
-		addr:  byte(66),
+		wbaud:   9600,
+		addr:    byte(66),
+		mockI2c: &mockI2c,
+		logger:  logging.NewTestLogger(t),
 	}
 	conf := resource.Config{
 		Name: "reconfig1",
 		ConvertedAttributes: &Config{
-			NtripURL:             "http//fakeurl",
+			NtripURL:             "http://fakeurl",
 			NtripConnectAttempts: 10,
 			NtripPass:            "somepass",
 			NtripUser:            "someuser",
 			NtripMountpoint:      "NYC",
-			Board:                testBoardName,
-			I2CBus:               testBusName,
-			I2CAddr:              testi2cAddr,
+			I2CBus:               testI2cBus,
+			I2CAddr:              testI2cAddr,
 			I2CBaudRate:          115200,
 		},
 	}
 	err := g.Reconfigure(context.Background(), nil, conf)
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, g.wbaud, test.ShouldEqual, 115200)
 	test.That(t, g.addr, test.ShouldEqual, byte(44))
 }
 
 func TestCloseRTK(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := rtkI2C{

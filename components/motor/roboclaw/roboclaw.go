@@ -28,11 +28,10 @@ import (
 	"time"
 
 	"github.com/CPRT/roboclaw"
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
@@ -67,18 +66,18 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		return nil, conf.wrongChannelError()
 	}
 	if conf.SerialPath == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_path")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 	if conf.Address != 0 && (conf.Address < 128 || conf.Address > 135) {
 		return nil, errors.New("serial address must be between 128 and 135")
 	}
 
 	if conf.TicksPerRotation < 0 {
-		return nil, utils.NewConfigValidationError(path, errors.New("Ticks Per Rotation must be a positive number"))
+		return nil, resource.NewConfigValidationError(path, errors.New("Ticks Per Rotation must be a positive number"))
 	}
 
 	if !rutils.ValidateBaudRate(validBaudRates, conf.SerialBaud) {
-		return nil, utils.NewConfigValidationError(path, errors.Errorf("Baud rate invalid, must be one of these values: %v", validBaudRates))
+		return nil, resource.NewConfigValidationError(path, errors.Errorf("Baud rate invalid, must be one of these values: %v", validBaudRates))
 	}
 	return nil, nil
 }
@@ -141,7 +140,7 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (motor.Motor, error) {
 				return newRoboClaw(conf, logger)
 			},
@@ -173,7 +172,7 @@ func getOrCreateConnection(config *Config) (*roboclaw.Roboclaw, error) {
 	return connection, nil
 }
 
-func newRoboClaw(conf resource.Config, logger golog.Logger) (motor.Motor, error) {
+func newRoboClaw(conf resource.Config, logger logging.Logger) (motor.Motor, error) {
 	motorConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
@@ -212,7 +211,7 @@ type roboclawMotor struct {
 	addr   uint8
 	maxRPM float64
 
-	logger golog.Logger
+	logger logging.Logger
 	opMgr  *operation.SingleOperationManager
 
 	powerPct float64
@@ -315,7 +314,7 @@ func (m *roboclawMotor) GoTo(ctx context.Context, rpm, positionRevolutions float
 }
 
 func (m *roboclawMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	newTicks := int32(offset * float64(m.conf.TicksPerRotation))
+	newTicks := int32(-1 * offset * float64(m.conf.TicksPerRotation))
 	switch m.conf.Channel {
 	case 1:
 		return m.conn.SetEncM1(m.addr, newTicks)

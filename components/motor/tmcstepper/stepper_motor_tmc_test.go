@@ -1,65 +1,92 @@
-package tmcstepper_test
+//go:build linux
+
+// Package tmcstepper contains the TMC stepper motor driver. This file contains unit tests for it.
+package tmcstepper
 
 import (
 	"context"
 	"fmt"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/board"
-	fakeboard "go.viam.com/rdk/components/board/fake"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/components/motor/tmcstepper"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
 )
 
-// check is essentially test.That with tb.Error instead of tb.Fatal (Fatal exits and leaves fake.SPI stuck waiting).
-func check(tb testing.TB, actual interface{}, assert func(actual interface{}, expected ...interface{}) string, expected ...interface{}) {
-	tb.Helper()
-	if result := assert(actual, expected...); result != "" {
-		tb.Error(result)
+type fakeSpiHandle struct {
+	tx, rx [][]byte // tx and rx must have the same length
+	i      int      // Index of the next tx/rx pair to use
+	tb     testing.TB
+}
+
+func newFakeSpiHandle(tb testing.TB) fakeSpiHandle {
+	h := fakeSpiHandle{}
+	h.rx = [][]byte{}
+	h.tx = [][]byte{}
+	h.i = 0
+	h.tb = tb
+	return h
+}
+
+func (h *fakeSpiHandle) Xfer(
+	ctx context.Context,
+	baud uint,
+	chipSelect string,
+	mode uint,
+	tx []byte,
+) ([]byte, error) {
+	test.That(h.tb, tx, test.ShouldResemble, h.tx[h.i])
+	result := h.rx[h.i]
+	h.i++
+	return result, nil
+}
+
+func (h *fakeSpiHandle) Close() error {
+	return nil
+}
+
+func (h *fakeSpiHandle) AddExpectedTx(expects [][]byte) {
+	for _, line := range expects {
+		h.tx = append(h.tx, line)
+		h.rx = append(h.rx, make([]byte, len(line)))
 	}
 }
 
-func checkTx(t *testing.T, c chan []byte, expects [][]byte) {
-	t.Helper()
-	blank := make([]byte, 5)
-	for _, expected := range expects {
-		tx := <-c
-		check(t, tx, test.ShouldResemble, expected)
-		c <- blank
-	}
+func (h *fakeSpiHandle) AddExpectedRx(expects, sends [][]byte) {
+	h.tx = append(h.tx, expects...)
+	h.rx = append(h.rx, sends...)
 }
 
-func checkRx(t *testing.T, c chan []byte, expects, sends [][]byte) {
-	t.Helper()
-	for i, expected := range expects {
-		tx := <-c
-		check(t, tx, test.ShouldResemble, expected)
-		c <- sends[i]
+func (h *fakeSpiHandle) ExpectDone() {
+	// Assert that all expected data was transmitted
+	test.That(h.tb, h.i, test.ShouldEqual, len(h.tx))
+}
+
+func newFakeSpi(tb testing.TB) (*fakeSpiHandle, buses.SPI) {
+	handle := newFakeSpiHandle(tb)
+	fakeSpi := inject.SPI{}
+	fakeSpi.OpenHandleFunc = func() (buses.SPIHandle, error) {
+		return &handle, nil
 	}
+
+	return &handle, &fakeSpi
 }
 
 const maxRpm = 500
 
 func TestRPMBounds(t *testing.T) {
 	ctx := context.Background()
-	logger, obs := golog.NewObservedTestLogger(t)
-	c := make(chan []byte)
-	b := &fakeboard.Board{
-		Named: board.Named("foo").AsNamed(),
-	}
-	b.GPIOPins = map[string]*fakeboard.GPIOPin{}
-	b.SPIs = map[string]*fakeboard.SPI{}
-	b.SPIs["main"] = &fakeboard.SPI{FIFO: c}
+	logger, obs := logging.NewObservedTestLogger(t)
 
-	deps := resource.Dependencies(map[resource.Name]resource.Resource{b.Name(): b})
+	fakeSpiHandle, fakeSpi := newFakeSpi(t)
+	var deps resource.Dependencies
 
-	mc := tmcstepper.TMC5072Config{
-		BoardName:        b.Name().ShortName(),
-		SPIBus:           "main",
+	mc := TMC5072Config{
+		SPIBus:           "3",
 		ChipSelect:       "40",
 		Index:            0,
 		SGThresh:         0,
@@ -69,12 +96,8 @@ func TestRPMBounds(t *testing.T) {
 		TicksPerRotation: 200,
 	}
 
-	motorReg, ok := resource.LookupRegistration(motor.API, resource.DefaultModelFamily.WithModel("TMC5072"))
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, motorReg, test.ShouldNotBeNil)
-
 	// These are the setup register writes
-	go checkTx(t, c, [][]byte{
+	fakeSpiHandle.AddExpectedTx([][]byte{
 		{236, 0, 1, 0, 195},
 		{176, 0, 6, 15, 8},
 		{237, 0, 0, 0, 0},
@@ -91,17 +114,13 @@ func TestRPMBounds(t *testing.T) {
 		{161, 0, 0, 0, 0},
 	})
 
-	m, err := motorReg.Constructor(context.Background(), deps, resource.Config{
-		Name:                "motor1",
-		ConvertedAttributes: &mc,
-	}, logger)
+	name := resource.NewName(motor.API, "motor1")
+	motorDep, err := makeMotor(ctx, deps, mc, name, logger, fakeSpi)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
+		fakeSpiHandle.ExpectDone()
+		test.That(t, motorDep.Close(context.Background()), test.ShouldBeNil)
 	}()
-	motorDep, ok := m.(motor.Motor)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	test.That(t, motorDep.GoFor(ctx, 0.05, 6.6, nil), test.ShouldNotBeNil)
 	allObs := obs.All()
@@ -109,7 +128,7 @@ func TestRPMBounds(t *testing.T) {
 	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
 
 	// Check with position at 0.0 revolutions
-	go checkRx(t, c,
+	fakeSpiHandle.AddExpectedRx(
 		[][]byte{
 			{33, 0, 0, 0, 0},
 			{33, 0, 0, 0, 0},
@@ -137,19 +156,12 @@ func TestRPMBounds(t *testing.T) {
 
 func TestTMCStepperMotor(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
-	c := make(chan []byte)
-	b := &fakeboard.Board{
-		Named: board.Named("foo").AsNamed(),
-	}
-	b.GPIOPins = map[string]*fakeboard.GPIOPin{}
-	b.SPIs = map[string]*fakeboard.SPI{}
-	b.SPIs["main"] = &fakeboard.SPI{FIFO: c}
+	logger := logging.NewTestLogger(t)
 
-	deps := resource.Dependencies(map[resource.Name]resource.Resource{b.Name(): b})
+	fakeSpiHandle, fakeSpi := newFakeSpi(t)
+	var deps resource.Dependencies
 
-	mc := tmcstepper.TMC5072Config{
-		BoardName:        b.Name().ShortName(),
+	mc := TMC5072Config{
 		SPIBus:           "main",
 		ChipSelect:       "40",
 		Index:            0,
@@ -160,12 +172,8 @@ func TestTMCStepperMotor(t *testing.T) {
 		TicksPerRotation: 200,
 	}
 
-	motorReg, ok := resource.LookupRegistration(motor.API, resource.DefaultModelFamily.WithModel("TMC5072"))
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, motorReg, test.ShouldNotBeNil)
-
 	// These are the setup register writes
-	go checkTx(t, c, [][]byte{
+	fakeSpiHandle.AddExpectedTx([][]byte{
 		{236, 0, 1, 0, 195},
 		{176, 0, 6, 15, 8},
 		{237, 0, 0, 0, 0},
@@ -182,17 +190,13 @@ func TestTMCStepperMotor(t *testing.T) {
 		{161, 0, 0, 0, 0},
 	})
 
-	m, err := motorReg.Constructor(context.Background(), deps, resource.Config{
-		Name:                "motor1",
-		ConvertedAttributes: &mc,
-	}, logger)
+	name := resource.NewName(motor.API, "motor1")
+	motorDep, err := makeMotor(ctx, deps, mc, name, logger, fakeSpi)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
+		fakeSpiHandle.ExpectDone()
+		test.That(t, motorDep.Close(context.Background()), test.ShouldBeNil)
 	}()
-	motorDep, ok := m.(motor.Motor)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
 		properties, err := motorDep.Properties(ctx, nil)
@@ -202,14 +206,14 @@ func TestTMCStepperMotor(t *testing.T) {
 
 	t.Run("motor SetPower testing", func(t *testing.T) {
 		// Test Go forward at half speed
-		go checkTx(t, c, [][]byte{
+		fakeSpiHandle.AddExpectedTx([][]byte{
 			{160, 0, 0, 0, 1},
 			{167, 0, 4, 35, 42},
 		})
 		test.That(t, motorDep.SetPower(ctx, 0.5, nil), test.ShouldBeNil)
 
 		// Test Go backward at quarter speed
-		go checkTx(t, c, [][]byte{
+		fakeSpiHandle.AddExpectedTx([][]byte{
 			{160, 0, 0, 0, 2},
 			{167, 0, 2, 17, 149},
 		})
@@ -217,7 +221,7 @@ func TestTMCStepperMotor(t *testing.T) {
 	})
 
 	t.Run("motor Off testing", func(t *testing.T) {
-		go checkTx(t, c, [][]byte{
+		fakeSpiHandle.AddExpectedTx([][]byte{
 			{160, 0, 0, 0, 1},
 			{167, 0, 0, 0, 0},
 		})
@@ -226,7 +230,7 @@ func TestTMCStepperMotor(t *testing.T) {
 
 	t.Run("motor position testing", func(t *testing.T) {
 		// Check at 4.0 revolutions
-		go checkRx(t, c,
+		fakeSpiHandle.AddExpectedRx(
 			[][]byte{
 				{33, 0, 0, 0, 0},
 				{33, 0, 0, 0, 0},
@@ -243,7 +247,7 @@ func TestTMCStepperMotor(t *testing.T) {
 
 	t.Run("motor GoFor with positive rpm and positive revolutions", func(t *testing.T) {
 		// Check with position at 0.0 revolutions
-		go checkRx(t, c,
+		fakeSpiHandle.AddExpectedRx(
 			[][]byte{
 				{33, 0, 0, 0, 0},
 				{33, 0, 0, 0, 0},
@@ -266,7 +270,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, motorDep.GoFor(ctx, 50.0, 3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 4.0 revolutions
-		go checkRx(t, c,
+		fakeSpiHandle.AddExpectedRx(
 			[][]byte{
 				{33, 0, 0, 0, 0},
 				{33, 0, 0, 0, 0},
@@ -289,7 +293,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, motorDep.GoFor(ctx, 50.0, 3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 1.2 revolutions
-		go checkRx(t, c,
+		fakeSpiHandle.AddExpectedRx(
 			[][]byte{
 				{33, 0, 0, 0, 0},
 				{33, 0, 0, 0, 0},
@@ -314,7 +318,7 @@ func TestTMCStepperMotor(t *testing.T) {
 
 	t.Run("motor GoFor with negative rpm and positive revolutions", func(t *testing.T) {
 		// Check with position at 0.0 revolutions
-		go checkRx(t, c,
+		fakeSpiHandle.AddExpectedRx(
 			[][]byte{
 				{33, 0, 0, 0, 0},
 				{33, 0, 0, 0, 0},
@@ -337,7 +341,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, motorDep.GoFor(ctx, -50.0, 3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 4.0 revolutions
-		go checkRx(t, c,
+		fakeSpiHandle.AddExpectedRx(
 			[][]byte{
 				{33, 0, 0, 0, 0},
 				{33, 0, 0, 0, 0},
@@ -360,7 +364,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, motorDep.GoFor(ctx, -50.0, 3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 1.2 revolutions
-		go checkRx(t, c,
+		fakeSpiHandle.AddExpectedRx(
 			[][]byte{
 				{33, 0, 0, 0, 0},
 				{33, 0, 0, 0, 0},
@@ -385,7 +389,7 @@ func TestTMCStepperMotor(t *testing.T) {
 
 	t.Run("motor GoFor with positive rpm and negative revolutions", func(t *testing.T) {
 		// Check with position at 0.0 revolutions
-		go checkRx(t, c,
+		fakeSpiHandle.AddExpectedRx(
 			[][]byte{
 				{33, 0, 0, 0, 0},
 				{33, 0, 0, 0, 0},
@@ -408,7 +412,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, motorDep.GoFor(ctx, 50.0, -3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 4.0 revolutions
-		go checkRx(t, c,
+		fakeSpiHandle.AddExpectedRx(
 			[][]byte{
 				{33, 0, 0, 0, 0},
 				{33, 0, 0, 0, 0},
@@ -431,7 +435,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, motorDep.GoFor(ctx, 50.0, -3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 1.2 revolutions
-		go checkRx(t, c,
+		fakeSpiHandle.AddExpectedRx(
 			[][]byte{
 				{33, 0, 0, 0, 0},
 				{33, 0, 0, 0, 0},
@@ -456,7 +460,7 @@ func TestTMCStepperMotor(t *testing.T) {
 
 	t.Run("motor GoFor with negative rpm and negative revolutions", func(t *testing.T) {
 		// Check with position at 0.0 revolutions
-		go checkRx(t, c,
+		fakeSpiHandle.AddExpectedRx(
 			[][]byte{
 				{33, 0, 0, 0, 0},
 				{33, 0, 0, 0, 0},
@@ -479,7 +483,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, motorDep.GoFor(ctx, -50.0, -3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 4.0 revolutions
-		go checkRx(t, c,
+		fakeSpiHandle.AddExpectedRx(
 			[][]byte{
 				{33, 0, 0, 0, 0},
 				{33, 0, 0, 0, 0},
@@ -502,7 +506,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, motorDep.GoFor(ctx, -50.0, -3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 1.2 revolutions
-		go checkRx(t, c,
+		fakeSpiHandle.AddExpectedRx(
 			[][]byte{
 				{33, 0, 0, 0, 0},
 				{33, 0, 0, 0, 0},
@@ -531,7 +535,7 @@ func TestTMCStepperMotor(t *testing.T) {
 
 	t.Run("motor is on testing", func(t *testing.T) {
 		// Off
-		go checkRx(t, c,
+		fakeSpiHandle.AddExpectedRx(
 			[][]byte{
 				{53, 0, 0, 0, 0},
 				{53, 0, 0, 0, 0},
@@ -547,7 +551,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// On
-		go checkRx(t, c,
+		fakeSpiHandle.AddExpectedRx(
 			[][]byte{
 				{53, 0, 0, 0, 0},
 				{53, 0, 0, 0, 0},
@@ -565,7 +569,7 @@ func TestTMCStepperMotor(t *testing.T) {
 
 	t.Run("motor zero testing", func(t *testing.T) {
 		// No offset (and when actually off)
-		go checkRx(t, c,
+		fakeSpiHandle.AddExpectedRx(
 			[][]byte{
 				{53, 0, 0, 0, 0},
 				{53, 0, 0, 0, 0},
@@ -584,7 +588,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, motorDep.ResetZeroPosition(ctx, 0, nil), test.ShouldBeNil)
 
 		// No offset (and when actually on)
-		go checkRx(t, c,
+		fakeSpiHandle.AddExpectedRx(
 			[][]byte{
 				{53, 0, 0, 0, 0},
 				{53, 0, 0, 0, 0},
@@ -597,13 +601,13 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, motorDep.ResetZeroPosition(ctx, 0, nil), test.ShouldNotBeNil)
 
 		// 3.1 offset (and when actually off)
-		go checkRx(t, c,
+		fakeSpiHandle.AddExpectedRx(
 			[][]byte{
 				{53, 0, 0, 0, 0},
 				{53, 0, 0, 0, 0},
 				{160, 0, 0, 0, 3},
-				{173, 0, 2, 108, 0},
-				{161, 0, 2, 108, 0},
+				{173, 255, 253, 148, 0},
+				{161, 255, 253, 148, 0},
 			},
 			[][]byte{
 				{0, 0, 0, 4, 0},
@@ -622,8 +626,10 @@ func TestTMCStepperMotor(t *testing.T) {
 		mc.RunCurrent = 9999
 		mc.HoldCurrent = 9999
 
+		fakeSpiHandle, fakeSpi := newFakeSpi(t)
+
 		// These are the setup register writes
-		go checkTx(t, c, [][]byte{
+		fakeSpiHandle.AddExpectedTx([][]byte{
 			{236, 0, 1, 0, 195},
 			{176, 0, 15, 31, 31}, // Last three are delay, run, and hold
 			{237, 0, 0, 0, 0},
@@ -640,8 +646,9 @@ func TestTMCStepperMotor(t *testing.T) {
 			{161, 0, 0, 0, 0},
 		})
 
-		m, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc}, logger)
+		m, err := makeMotor(ctx, deps, mc, name, logger, fakeSpi)
 		test.That(t, err, test.ShouldBeNil)
+		fakeSpiHandle.ExpectDone()
 		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	})
 
@@ -650,8 +657,10 @@ func TestTMCStepperMotor(t *testing.T) {
 		mc.RunCurrent = -9999
 		mc.HoldCurrent = -9999
 
+		fakeSpiHandle, fakeSpi := newFakeSpi(t)
+
 		// These are the setup register writes
-		go checkTx(t, c, [][]byte{
+		fakeSpiHandle.AddExpectedTx([][]byte{
 			{236, 0, 1, 0, 195},
 			{176, 0, 0, 0, 0}, // Last three are delay, run, and hold
 			{237, 0, 0, 0, 0},
@@ -668,8 +677,9 @@ func TestTMCStepperMotor(t *testing.T) {
 			{161, 0, 0, 0, 0},
 		})
 
-		m, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc}, logger)
+		m, err := makeMotor(ctx, deps, mc, name, logger, fakeSpi)
 		test.That(t, err, test.ShouldBeNil)
+		fakeSpiHandle.ExpectDone()
 		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	})
 
@@ -680,8 +690,10 @@ func TestTMCStepperMotor(t *testing.T) {
 		mc.RunCurrent = 27
 		mc.HoldCurrent = 14
 
+		fakeSpiHandle, fakeSpi := newFakeSpi(t)
+
 		// These are the setup register writes
-		go checkTx(t, c, [][]byte{
+		fakeSpiHandle.AddExpectedTx([][]byte{
 			{236, 0, 1, 0, 195},
 			{176, 0, 12, 26, 13}, // Last three are delay, run, and hold
 			{237, 0, 0, 0, 0},
@@ -698,8 +710,9 @@ func TestTMCStepperMotor(t *testing.T) {
 			{161, 0, 0, 0, 0},
 		})
 
-		m, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc}, logger)
+		m, err := makeMotor(ctx, deps, mc, name, logger, fakeSpi)
 		test.That(t, err, test.ShouldBeNil)
+		fakeSpiHandle.ExpectDone()
 		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	})
 }

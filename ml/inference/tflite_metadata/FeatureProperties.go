@@ -10,7 +10,9 @@ type FeaturePropertiesT struct {
 }
 
 func (t *FeaturePropertiesT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	FeaturePropertiesStart(builder)
 	return FeaturePropertiesEnd(builder)
 }
@@ -19,7 +21,9 @@ func (rcv *FeatureProperties) UnPackTo(t *FeaturePropertiesT) {
 }
 
 func (rcv *FeatureProperties) UnPack() *FeaturePropertiesT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &FeaturePropertiesT{}
 	rcv.UnPackTo(t)
 	return t

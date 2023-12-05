@@ -1,0 +1,94 @@
+service:
+  golangci-lint-version: 1.50.x
+run:
+  deadline: 900s
+  modules-download-mode: readonly
+  skip-dirs:
+    - genfiles$
+    - gen$
+    - vendor$
+    - test$
+  tests: true
+linters:
+  enable-all: true
+  disable:
+    - asasalint
+    - containedctx
+    - cyclop
+    - deadcode
+    - exhaustivestruct
+    - exhaustruct
+    - forcetypeassert
+    - funlen
+    - gocognit
+    - godox
+    - goerr113
+    - gochecknoglobals
+    - gochecknoinits
+    - gocyclo
+    - gofmt
+    - goimports
+    - golint
+    - gomnd
+    - ifshort
+    - importas
+    - interfacebloat
+    - interfacer
+    - ireturn
+    - maintidx
+    - maligned
+    - makezero
+    - nestif
+    - nlreturn
+    - nosnakecase
+    - nonamedreturns
+    - nosprintfhostport
+    - paralleltest
+    - prealloc
+    - scopelint
+    - structcheck
+    - tagliatelle
+    - testpackage
+    - unparam # broken with generics
+    - varcheck
+    - varnamelen
+    - wrapcheck
+    - wsl
+linters-settings:
+  errcheck:
+    check-blank: true
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(gostream)
+  gofumpt:
+    lang-version: "1.18"
+    extra-rules: true
+  gosec:
+    excludes:
+      - G601
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+      - shadow
+  lll:
+    line-length: 140
+issues:
+  exclude:
+    - composites
+  exclude-rules:
+    - path: _test\.go$|^tests/|^samples/
+      linters:
+        - errcheck
+        - contextcheck
+        - exhaustive
+        - forcetypeassert
+        - goconst
+        - gosec
+        - govet
+        - noctx
+  exclude-use-default: false
+  max-per-linter: 0
+  max-same-issues: 0

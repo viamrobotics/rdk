@@ -21,7 +21,7 @@ func TestWorldStateConstruction(t *testing.T) {
 	expectedErr := NewDuplicateGeometryNameError(foo.Label()).Error()
 
 	// test that you can add two geometries of different names
-	_, err = NewWorldState([]*GeometriesInFrame{NewGeometriesInFrame("", []spatialmath.Geometry{foo, bar})}, nil)
+	_, err = NewWorldState([]*GeometriesInFrame{NewGeometriesInFrame("world", []spatialmath.Geometry{foo, bar})}, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	// test that you can't add two "foos" to the same frame

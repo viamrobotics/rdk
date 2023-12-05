@@ -7,11 +7,11 @@ import (
 
 	"github.com/disintegration/imaging"
 	"github.com/pkg/errors"
-	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 	"golang.org/x/image/draw"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -36,6 +36,10 @@ func newRotateTransform(ctx context.Context, source gostream.VideoSource, stream
 	conf, err := resource.TransformAttributeMap[*rotateConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, errors.Wrap(err, "cannot parse rotate attribute map")
+	}
+
+	if !am.Has("angle_degs") {
+		conf.Angle = 180 // Default to 180 for backwards-compatibility
 	}
 
 	props, err := propsFromVideoSource(ctx, source)

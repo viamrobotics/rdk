@@ -17,6 +17,7 @@ jobs:
     uses: viamrobotics/rdk/.github/workflows/test.yml@main
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
+      DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
 
   appimage:
     needs: test
@@ -34,6 +35,14 @@ jobs:
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
+  droid:
+    needs: test
+    uses: viamrobotics/rdk/.github/workflows/droid.yml@main
+    with:
+      release_type: 'stable'
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
   cli:
     needs: test
     uses: viamrobotics/rdk/.github/workflows/cli.yml@main
@@ -41,6 +50,12 @@ jobs:
       release_type: 'stable'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  npm_publish:
+    uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@main
+    needs: test
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   slack-workflow-status:
     if: ${{ failure() }}

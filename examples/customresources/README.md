@@ -1,6 +1,8 @@
 # CustomResources
 This example demonstrates several ways RDK can be extended with custom resources. It contains several sections. Note that `make` is used throughout to help script commands. The actual commands being run should be printed as they are used. You can also look in the various "Makefile" named files throughout, to see the exact targets and what they do.
 
+For a fully fleshed-out example of a Golang module that uses Github CI to upload to the Viam Registry, take a look at [wifi-sensor](https://github.com/viam-labs/wifi-sensor). For a list of example modules in different Viam SDKs, take a look [here](https://github.com/viamrobotics/upload-module/#example-repos).
+
 ## APIs
 APIs represent new types of components or services, with a new interface definition. They consist of protobuf descriptions for the wire level protocol, matching Go interfaces, and concrete Go implementations of a gRPC client and server.
 
@@ -24,7 +26,7 @@ A specific model (acme:demo:mygizmo) that implements the custom Gizmo API.
 A specific model (acme:demo:mysum) that implements the custom Summation API. Simply adds or subtracts numbers.
 
 ### mybase
-Custom component (acme:demo:mybase) that implements Viam's built-in Base API (rdk:service:base) and in turn depends on two secondary "real" motors from the parent robot (such parental dependencies only work in modules, not as remote servers.)
+Custom component (acme:demo:mybase) that implements Viam's built-in Base API (rdk:component:base) and in turn depends on two secondary "real" motors from the parent robot (such parental dependencies only work in modules, not as remote servers.)
 
 ### mynavigation
 Custom service (acme:demo:mynavigation) that implements Viam's built-in Nativation API (rdk:service:navigation) and only reports a static location from its config, and allows waypoints to be added/removed. Defaults to Point Nemo.

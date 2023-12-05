@@ -3,34 +3,68 @@ package mynavigation
 
 import (
 	"context"
+	"errors"
 	"sync"
 
-	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/spatialmath"
 )
 
+var errUnimplemented = errors.New("unimplemented")
+
 // Model is the full model definition.
 var Model = resource.NewModel("acme", "demo", "mynavigation")
 
 func init() {
-	resource.RegisterService(navigation.API, Model, resource.Registration[navigation.Service, resource.NoNativeConfig]{
+	resource.RegisterService(navigation.API, Model, resource.Registration[navigation.Service, *Config]{
 		Constructor: newNav,
 	})
 }
 
-func newNav(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (navigation.Service, error) {
+// Config is the navigation model's config.
+type Config struct {
+	Lat  *float64 `json:"lat,omitempty"` // omitempty for a pointer to a float64 defaults to nil in golang
+	Long *float64 `json:"long,omitempty"`
+
+	// Embed TriviallyValidateConfig to make config validation a no-op. We will not check if any attributes exist
+	// or are set to anything in particular, and there will be no implicit dependencies.
+	// Config structs used in resource registration must implement Validate.
+	resource.TriviallyValidateConfig
+}
+
+func newNav(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (navigation.Service, error) {
+	// This takes the generic resource.Config passed down from the parent and converts it to the
+	// model-specific (aka "native") Config structure defined above making it easier to directly access attributes.
+	navConfig, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
+	}
+
+	// here we set a default latitude, if the config latitude field is not omitted (omitempty)
+	// we use the value it is set to and return it in the nav service struct.
+	lat := -48.876667
+	if navConfig.Lat != nil {
+		lat = *navConfig.Lat
+	}
+
+	// here we set a default longitude, if the config latitude field is not omitted (omitempty)
+	// we use the value it is set to and return it in the nav service struct.
+	lng := -48.876667
+	if navConfig.Lat != nil {
+		lng = *navConfig.Long
+	}
+
 	navSvc := &navSvc{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
-		loc: geo.NewPoint(
-			conf.Attributes.Float64("lat", -48.876667),
-			conf.Attributes.Float64("long", -123.393333),
-		),
+		loc:    geo.NewPoint(lat, lng),
 	}
 	return navSvc, nil
 }
@@ -41,7 +75,7 @@ type navSvc struct {
 	resource.TriviallyCloseable
 
 	loc    *geo.Point
-	logger golog.Logger
+	logger logging.Logger
 
 	waypointsMu sync.RWMutex
 	waypoints   []navigation.Waypoint
@@ -91,6 +125,10 @@ func (svc *navSvc) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, ex
 	return nil
 }
 
-func (svc *navSvc) GetObstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
-	return []*spatialmath.GeoObstacle{}, nil
+func (svc *navSvc) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+	return []*spatialmath.GeoObstacle{}, errUnimplemented
+}
+
+func (svc *navSvc) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+	return []*navigation.Path{}, errUnimplemented
 }

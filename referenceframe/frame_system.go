@@ -2,15 +2,16 @@ package referenceframe
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/logging"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -62,6 +63,11 @@ type FrameSystem interface {
 
 	// MergeFrameSystem combines two frame systems together, placing the world of systemToMerge at the attachTo frame in the frame system
 	MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error
+
+	// ReplaceFrame finds the original frame which shares its name with replacementFrame. We then transfer the original
+	// frame's children and parentage to replacementFrame. The original frame is removed entirely from the frame system.
+	// replacementFrame is not allowed to exist within the frame system at the time of the call.
+	ReplaceFrame(replacementFrame Frame) error
 }
 
 // FrameSystemPart is used to collect all the info need from a named robot part to build the frame node in a frame system.
@@ -397,6 +403,39 @@ func (sfs *simpleFrameSystem) getFrameToWorldTransform(inputMap map[string][]Inp
 	return srcToWorld, err
 }
 
+// ReplaceFrame finds the original frame which shares its name with replacementFrame. We then transfer the original
+// frame's children and parentage to replacementFrame. The original frame is removed entirely from the frame system.
+// replacementFrame is not allowed to exist within the frame system at the time of the call.
+func (sfs *simpleFrameSystem) ReplaceFrame(replacementFrame Frame) error {
+	var replaceMe Frame
+	if replaceMe = sfs.Frame(replacementFrame.Name()); replaceMe == nil {
+		return fmt.Errorf("%s not found in frame system", replacementFrame.Name())
+	}
+	if replaceMe == sfs.World() {
+		return errors.New("cannot replace the World frame of a frame system")
+	}
+
+	// get replaceMe's parent
+	replaceMeParent, err := sfs.Parent(replaceMe)
+	if err != nil {
+		return err
+	}
+
+	// remove replaceMe from the frame system
+	delete(sfs.frames, replaceMe.Name())
+	delete(sfs.parents, replaceMe)
+
+	for f, parent := range sfs.parents {
+		// replace frame with parent as replaceMe with replaceWith
+		if parent == replaceMe {
+			delete(sfs.parents, f)
+			sfs.parents[f] = replacementFrame
+		}
+	}
+	// add replacementFrame to frame system with parent of replaceMe
+	return sfs.AddFrame(replacementFrame, replaceMeParent)
+}
+
 // Returns the relative pose between the parent and the destination frame.
 func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, src, dst Frame) (*PoseInFrame, error) {
 	// catch all errors together to allow for hypothetical calculations that result in errors
@@ -410,7 +449,7 @@ func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, s
 	}
 
 	// transform from source to world, world to target parent
-	return NewPoseInFrame(dst.Name(), spatial.Compose(spatial.PoseInverse(dstToWorld), srcToWorld)), nil
+	return NewPoseInFrame(dst.Name(), spatial.PoseBetween(dstToWorld, srcToWorld)), nil
 }
 
 // compose the quaternions from the input frame to the world referenceframe.
@@ -444,7 +483,7 @@ func StartPositions(fs FrameSystem) map[string][]Input {
 
 // FrameSystemToPCD takes in a framesystem and returns a map where all elements are
 // the point representation of their geometry type with respect to the world.
-func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger golog.Logger) (map[string][]r3.Vector, error) {
+func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger logging.Logger) (map[string][]r3.Vector, error) {
 	vectorMap := make(map[string][]r3.Vector)
 	geometriesInWorldFrame, err := FrameSystemGeometries(system, inputs)
 	if err != nil {
@@ -477,7 +516,8 @@ func FrameSystemGeometries(fs FrameSystem, inputMap map[string][]Input) (map[str
 		if len(geosInFrame.Geometries()) > 0 {
 			transformed, err := fs.Transform(inputMap, geosInFrame, World)
 			if err != nil {
-				return nil, err
+				errAll = multierr.Append(errAll, err)
+				continue
 			}
 			allGeometries[name] = transformed.(*GeometriesInFrame)
 		}

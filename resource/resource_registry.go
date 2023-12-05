@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
@@ -15,7 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 
-	"go.viam.com/rdk/internal"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
@@ -31,7 +30,7 @@ type (
 		ctx context.Context,
 		deps Dependencies,
 		conf Config,
-		logger golog.Logger,
+		logger logging.Logger,
 	) (ResourceT, error)
 
 	// A DeprecatedCreateWithRobot creates a resource from a robot and a given config.
@@ -41,7 +40,7 @@ type (
 		// but it's deprecated :).
 		r any,
 		conf Config,
-		logger golog.Logger,
+		logger logging.Logger,
 	) (ResourceT, error)
 
 	// CreateStatus creates a status from a given resource. The return type is expected to be comprised of string keys
@@ -56,7 +55,7 @@ type (
 		conn rpc.ClientConn,
 		remoteName string,
 		name Name,
-		logger golog.Logger,
+		logger logging.Logger,
 	) (ResourceT, error)
 
 	// An AttributeMapConverter converts an attribute map into a native config type for a resource.
@@ -130,8 +129,11 @@ type Registration[ResourceT Resource, ConfigT any] struct {
 
 	// TODO(RSDK-418): remove this legacy constructor once all resources that use it no longer need to receive the entire robot.
 	DeprecatedRobotConstructor DeprecatedCreateWithRobot[ResourceT]
-	// Not for public use yet; currently experimental
-	WeakDependencies []internal.ResourceMatcher
+
+	// WeakDependencies is a list of Matchers that find resources on the robot that fit the criteria they are looking for
+	// and register them as dependencies on the resource being registered.
+	// NOTE: This is currently an experimental feature and subject to change.
+	WeakDependencies []Matcher
 
 	// Discover looks around for information about this specific model.
 	Discover DiscoveryFunc
@@ -308,7 +310,7 @@ func makeGenericResourceRegistration[ResourceT Resource, ConfigT ConfigValidator
 			ctx context.Context,
 			deps Dependencies,
 			conf Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (Resource, error) {
 			return typed.Constructor(ctx, deps, conf, logger)
 		}
@@ -318,7 +320,7 @@ func makeGenericResourceRegistration[ResourceT Resource, ConfigT ConfigValidator
 			ctx context.Context,
 			r any,
 			conf Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (Resource, error) {
 			return typed.DeprecatedRobotConstructor(ctx, r, conf, logger)
 		}
@@ -524,7 +526,7 @@ func makeGenericAPIRegistration[ResourceT Resource](
 			conn rpc.ClientConn,
 			remoteName string,
 			name Name,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (Resource, error) {
 			return typed.RPCClient(ctx, conn, remoteName, name, logger)
 		}

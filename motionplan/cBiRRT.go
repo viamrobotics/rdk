@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build !windows && !no_cgo
 
 package motionplan
 
@@ -10,9 +10,9 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -64,7 +64,7 @@ type cBiRRTMotionPlanner struct {
 func newCBiRRTMotionPlanner(
 	frame referenceframe.Frame,
 	seed *rand.Rand,
-	logger golog.Logger,
+	logger logging.Logger,
 	opt *plannerOptions,
 ) (motionPlanner, error) {
 	if opt == nil {
@@ -94,6 +94,7 @@ func (mp *cBiRRTMotionPlanner) plan(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
 ) ([]node, error) {
+	mp.planOpts.SetGoal(goal)
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
 		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{nil, nil, solutionChan})

@@ -5,9 +5,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -19,13 +18,13 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return newSensor(conf.ResourceName(), logger), nil
 		}})
 }
 
-func newSensor(name resource.Name, logger golog.Logger) sensor.Sensor {
+func newSensor(name resource.Name, logger logging.Logger) sensor.Sensor {
 	return &Sensor{
 		Named:  name.AsNamed(),
 		logger: logger,
@@ -38,7 +37,7 @@ type Sensor struct {
 	resource.Named
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // Readings always returns the set values.

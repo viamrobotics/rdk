@@ -5,7 +5,8 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
+
+	"go.viam.com/rdk/resource"
 )
 
 // GPIOBoardMapping represents a GPIO pin's location locally within a GPIO chip
@@ -51,23 +52,21 @@ func (conf *PinDefinition) UnmarshalJSON(text []byte) error {
 // Validate ensures all parts of the config are valid.
 func (conf *PinDefinition) Validate(path string) error {
 	if conf.Name == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "name")
+		return resource.NewConfigValidationFieldRequiredError(path, "name")
 	}
 
 	if conf.DeviceName == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "device_name")
+		return resource.NewConfigValidationFieldRequiredError(path, "device_name")
 	}
 
-	if conf.LineNumber == -1 {
-		return utils.NewConfigValidationFieldRequiredError(path, "line_number")
-	}
-
-	if conf.LineNumber < 0 {
-		return utils.NewConfigValidationError(path, errors.New("line_number on gpio chip must be at least zero"))
+	// We use -1 as a sentinel value indicating that this pin does not have GPIO capabilities.
+	// Besides that, the line number must be non-negative.
+	if conf.LineNumber < -1 {
+		return resource.NewConfigValidationError(path, errors.New("line_number on gpio chip must be at least zero"))
 	}
 
 	if conf.PwmChipSysfsDir != "" && conf.PwmID == -1 {
-		return utils.NewConfigValidationError(path, errors.New("must supply pwm_id for the pwm chip"))
+		return resource.NewConfigValidationError(path, errors.New("must supply pwm_id for the pwm chip"))
 	}
 
 	return nil

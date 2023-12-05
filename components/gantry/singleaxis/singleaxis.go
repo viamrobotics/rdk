@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -17,6 +16,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -24,7 +24,11 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.DefaultModelFamily.WithModel("single-axis")
+var (
+	model = resource.DefaultModelFamily.WithModel("single-axis")
+	// homingTimeout (nanoseconds) is calculated using the gantry's rpm, mmPerRevolution, and lengthMm.
+	homingTimeout = time.Duration(15e9)
+)
 
 // limitErrorMargin is added or subtracted from the location of the limit switch to ensure the switch is not passed.
 const limitErrorMargin = 0.25
@@ -45,17 +49,17 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if len(cfg.Motor) == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "motor")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "motor")
 	}
 	deps = append(deps, cfg.Motor)
 
 	if cfg.LengthMm <= 0 {
-		err := utils.NewConfigValidationFieldRequiredError(path, "length_mm")
+		err := resource.NewConfigValidationFieldRequiredError(path, "length_mm")
 		return nil, errors.Wrap(err, "length must be non-zero and positive")
 	}
 
 	if cfg.MmPerRevolution <= 0 {
-		err := utils.NewConfigValidationFieldRequiredError(path, "mm_per_rev")
+		err := resource.NewConfigValidationFieldRequiredError(path, "mm_per_rev")
 		return nil, errors.Wrap(err, "mm_per_rev must be non-zero and positive")
 	}
 
@@ -103,13 +107,15 @@ type singleAxis struct {
 	frame r3.Vector
 
 	cancelFunc              func()
-	logger                  golog.Logger
+	logger                  logging.Logger
 	opMgr                   *operation.SingleOperationManager
 	activeBackgroundWorkers sync.WaitGroup
 }
 
 // newSingleAxis creates a new single axis gantry.
-func newSingleAxis(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (gantry.Gantry, error) {
+func newSingleAxis(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (gantry.Gantry, error) {
 	sAx := &singleAxis{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
@@ -422,6 +428,9 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 		return 0, err
 	}
 
+	// short sleep to allow pin number to switch correctly
+	time.Sleep(100 * time.Millisecond)
+
 	start := time.Now()
 	for {
 		hit, err := g.limitHit(ctx, pin)
@@ -452,9 +461,14 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 				wrongPin)
 		}
 
-		elapsed := start.Sub(start)
-		if elapsed > (time.Second * 15) {
-			return 0, errors.New("gantry timed out testing limit")
+		elapsed := time.Since(start)
+		// if the parameters checked are non-zero, calculate a timeout with a safety factor of
+		// 5 to complete the gantry's homing sequence to find the limit switches
+		if g.mmPerRevolution != 0 && g.rpm != 0 && g.lengthMm != 0 {
+			homingTimeout = time.Duration((1 / (g.rpm / 60e9 * g.mmPerRevolution / g.lengthMm) * 5))
+		}
+		if elapsed > (homingTimeout) {
+			return 0, errors.Errorf("gantry timed out testing limit, timeout = %v", homingTimeout)
 		}
 
 		if !utils.SelectContextOrWait(ctx, time.Millisecond*10) {

@@ -1,3 +1,5 @@
+//go:build !no_tflite
+
 package tflitecpu
 
 import (
@@ -5,7 +7,6 @@ import (
 	"net"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/nfnt/resize"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
@@ -13,6 +14,7 @@ import (
 	"gorgonia.org/tensor"
 
 	viamgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -70,7 +72,7 @@ func TestTFLiteCPUDetector(t *testing.T) {
 		tensor.WithShape(got.metadata.Inputs[0].Shape[1], got.metadata.Inputs[0].Shape[2], 3),
 		tensor.WithBacking(imgBytes),
 	)
-	gotOutput, _, err := got.Infer(ctx, inputMap, nil)
+	gotOutput, err := got.Infer(ctx, inputMap)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotOutput, test.ShouldNotBeNil)
 
@@ -132,7 +134,7 @@ func TestTFLiteCPUClassifier(t *testing.T) {
 		tensor.WithBacking(imgBytes),
 	)
 
-	gotOutput, _, err := got.Infer(ctx, inputMap, nil)
+	gotOutput, err := got.Infer(ctx, inputMap)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotOutput, test.ShouldNotBeNil)
 
@@ -180,7 +182,7 @@ func TestTFLiteCPUTextModel(t *testing.T) {
 	test.That(t, inputMap["input_ids"].Shape(), test.ShouldResemble, tensor.Shape{384})
 	inputMap["input_mask"] = tensor.New(tensor.WithShape(384), tensor.WithBacking(zeros))
 	inputMap["segment_ids"] = tensor.New(tensor.WithShape(384), tensor.WithBacking(zeros))
-	gotOutput, _, err := got.Infer(ctx, inputMap, nil)
+	gotOutput, err := got.Infer(ctx, inputMap)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotOutput, test.ShouldNotBeNil)
 	test.That(t, len(gotOutput), test.ShouldEqual, 2)
@@ -191,10 +193,10 @@ func TestTFLiteCPUTextModel(t *testing.T) {
 }
 
 func TestTFLiteCPUClient(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	modelParams := TFLiteConfig{ // classifier config
@@ -250,7 +252,7 @@ func TestTFLiteCPUClient(t *testing.T) {
 	test.That(t, gotMD.Outputs[1].AssociatedFiles[0].Name, test.ShouldResemble, "labelmap.txt")
 
 	// Test call to Infer
-	gotOutput, _, err := client.Infer(context.Background(), inputMap, nil)
+	gotOutput, err := client.Infer(context.Background(), inputMap)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotOutput, test.ShouldNotBeNil)
 	test.That(t, len(gotOutput), test.ShouldEqual, 4)

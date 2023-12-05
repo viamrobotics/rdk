@@ -8,15 +8,15 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/resource"
 )
 
 func TestConfigParse(t *testing.T) {
 	emptyConfig := []byte(`{"pins": [{}]}`)
 	_, err := parseRawPinData(emptyConfig, "path")
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
 
 	emptyPWMID := []byte(`{"pins": [{"name": "7", "device_name": "gpiochip1", "line_number": 71, "pwm_chip_sysfs_dir": "hi"}]}`)
 	_, err = parseRawPinData(emptyPWMID, "path")
@@ -48,19 +48,7 @@ func TestConfigValidate(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no such file or directory")
 
-	validConfig.PinConfigFilePath = "./"
+	validConfig.BoardDefsFilePath = "./"
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
-
-	validConfig.DigitalInterrupts = []board.DigitalInterruptConfig{{}}
-	_, err = validConfig.Validate("path")
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "path.digital_interrupts.0")
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
-
-	validConfig.DigitalInterrupts = []board.DigitalInterruptConfig{{Name: "20"}}
-	_, err = validConfig.Validate("path")
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "path.digital_interrupts.0")
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"pin" is required`)
 }

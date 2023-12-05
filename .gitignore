@@ -42,6 +42,7 @@ coverage2.txt
 coverage.xml
 profile*.pdf
 code-coverage-results.md
+metadata
 
 *~
 *#
@@ -78,3 +79,9 @@ google-credentials.json
 
 # frontend built artifacts are not committed (they are generated during appimage github workflow step)
 web/runtime-shared/static
+
+etc/android-ndk-*
+etc/FFmpeg
+
+# qemu core dumps
+web/cmd/server/*.core

@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
-	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -66,7 +65,7 @@ func newSegmentationsTransform(
 func (cfg *segmenterConfig) Validate(path string) ([]string, error) {
 	var deps []string
 	if len(cfg.SegmenterName) == 0 {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "segmenter_name")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "segmenter_name")
 	}
 	return deps, nil
 }

@@ -10,14 +10,14 @@ import (
 
 const (
 	defaultMaxTime       = 15.
-	defaultDiffT         = 0.005
+	defaultDiffT         = 0.01
 	defaultAlphaCnt uint = 91
 )
 
-// ptgGridSim will take a PrecomputePTG, and simulate out a number of trajectories through some requested time/distance for speed of lookup
+// ptgGridSim will take a PTG, and simulate out a number of trajectories through some requested time/distance for speed of lookup
 // later. It will store the trajectories in a grid data structure allowing relatively fast lookups.
 type ptgGridSim struct {
-	PrecomputePTG
+	PTG
 	refDist  float64
 	alphaCnt uint
 
@@ -31,8 +31,8 @@ type ptgGridSim struct {
 	endsOnly bool
 }
 
-// NewPTGGridSim creates a new PTG by simulating a PrecomputePTG for some distance, then cacheing the results in a grid for fast lookup.
-func NewPTGGridSim(simPTG PrecomputePTG, arcs uint, simDist float64, endsOnly bool) (PTG, error) {
+// NewPTGGridSim creates a new PTG by simulating a PTG for some distance, then cacheing the results in a grid for fast lookup.
+func NewPTGGridSim(simPTG PTG, arcs uint, simDist float64, endsOnly bool) (PTGSolver, error) {
 	if arcs == 0 {
 		arcs = defaultAlphaCnt
 	}
@@ -44,7 +44,7 @@ func NewPTGGridSim(simPTG PrecomputePTG, arcs uint, simDist float64, endsOnly bo
 		diffT:    defaultDiffT,
 		endsOnly: endsOnly,
 	}
-	ptg.PrecomputePTG = simPTG
+	ptg.PTG = simPTG
 
 	precomp, err := ptg.simulateTrajectories()
 	if err != nil {
