@@ -126,7 +126,7 @@ func attemptToBuildDetector(mlm mlmodel.Service, nameMap *sync.Map) (objectdetec
 			}
 			rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
 			labelNum := int(utils.Clamp(categories[i], 0, math.MaxInt))
-			
+
 			if labels == nil {
 				detections = append(detections, objectdetection.NewDetection(rect, scores[i], strconv.Itoa(labelNum)))
 			} else {
@@ -324,7 +324,7 @@ func checkIfDetectorWorks(ctx context.Context, df objectdetection.Detector) erro
 
 	_, err := df(ctx, img)
 	if err != nil {
-		return errors.Wrap(err, "Cannot use model as a detector")
+		return errors.Wrap(err, "cannot use model as a detector")
 	}
 	return nil
 }
