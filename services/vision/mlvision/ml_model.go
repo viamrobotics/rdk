@@ -112,7 +112,6 @@ func registerMLModelVisionService(
 		err = checkIfDetectorWorks(ctx, detectorFunc)
 		errList = append(errList, err)
 		if err != nil {
-			errList = append(errList, err)
 			detectorFunc = nil
 			logger.Debugw("unable to use ml model as a detector, will attempt to evaluate as 3D segmenter",
 				"model", params.ModelName, "error", err)
