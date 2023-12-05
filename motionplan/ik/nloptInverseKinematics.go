@@ -334,7 +334,7 @@ func (ik *NloptIK) calcJump(testJump float64, seed []referenceframe.Input, solve
 			if err != nil {
 				return nil, err
 			}
-			mInput.Configuration = seed
+			mInput.Configuration = seedTest
 			mInput.Position = eePos
 			checkDist := solveMetric(mInput)
 
