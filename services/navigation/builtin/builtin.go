@@ -659,7 +659,7 @@ func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]
 		geoPoints = append(geoPoints, geoPoint)
 	}
 
-	path, err := navigation.NewPath(ewp.waypoint.ID.String(), geoPoints)
+	path, err := navigation.NewPath(ewp.waypoint.ID, geoPoints)
 	if err != nil {
 		return nil, err
 	}
