@@ -646,7 +646,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 
 		// convert geo position into GeoPose
 		robotGeoPose := spatialmath.NewGeoPose(gp, baseHeading)
-		svc.logger.Debugf("robotGeoPose Location: %v, Heading: %v", robotGeoPose.Location(), robotGeoPose.Heading())
+		svc.logger.Debugf("robotGeoPose Location: %v, Heading: %v", *robotGeoPose.Location(), robotGeoPose.Heading())
 
 		// iterate through all detections and construct a geoObstacle to append
 		for i, detection := range detections {
@@ -672,21 +672,21 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			manipulatedGeom := detection.Geometry.Transform(transformBy)
 			svc.logger.Debugf(
 				"detection %d pose from movementsensor's position with camera frame coordinate axes: %v ",
-				spatialmath.PoseToProtobuf(manipulatedGeom.Pose()),
+				i, spatialmath.PoseToProtobuf(manipulatedGeom.Pose()),
 			)
 
 			// fix axes of geometry's pose such that it is in the cooordinate system of the base
 			manipulatedGeom = manipulatedGeom.Transform(spatialmath.NewPoseFromOrientation(baseToCamera.Pose().Orientation()))
 			svc.logger.Debugf(
 				"detection %d pose from movementsensor's position with base frame coordinate axes: %v ",
-				spatialmath.PoseToProtobuf(manipulatedGeom.Pose()),
+				i, spatialmath.PoseToProtobuf(manipulatedGeom.Pose()),
 			)
 
 			// get the geometry's lat & lng along with its heading with respect to north as a left handed value
 			obstacleGeoPose := spatialmath.PoseToGeoPose(robotGeoPose, manipulatedGeom.Pose())
 			svc.logger.Debugf(
 				"obstacleGeoPose Location: %v, Heading: %v",
-				obstacleGeoPose.Location(), obstacleGeoPose.Heading(),
+				*obstacleGeoPose.Location(), obstacleGeoPose.Heading(),
 			)
 
 			// prefix the label of the geometry so we know it is transient and add extra info
