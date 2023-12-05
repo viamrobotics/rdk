@@ -47,6 +47,9 @@ const (
 	defaultAttemptSolveEvery = 15
 
 	defaultBidirectional = true
+	
+	defaultCollisionWalkbackPct = 0.8
+	defaultCollisionBuffer = 150
 )
 
 var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
@@ -422,9 +425,6 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		}
 		if invert {
 			arcStartPose = spatialmath.PoseBetweenInverse(subNodePose, arcStartPose)
-			arcPose = spatialmath.Compose(subNodePose, arcPose)
-		} else {
-			arcPose = spatialmath.Compose(arcPose, subNodePose)
 		}
 
 		// Check collisions along this traj and get the longest distance viable
@@ -432,21 +432,32 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		if err != nil {
 			return nil, err
 		}
-		finalTrajNode := trajK[len(trajK)-1]
-		nodePose := mp.checkTraj(trajK, invert, arcStartPose)
-		if nodePose == nil {
+		goodNode := mp.checkTraj(trajK, invert, arcStartPose)
+		if goodNode == nil {
 			break
 		}
-
+		partialExtension := false
+		if goodNode.Q()[1].Value != subNode.Q()[1].Value {
+			// Partial PTG extension
+			partialExtension = true
+		}
+		if invert{
+			arcPose = spatialmath.Compose(goodNode.Pose(), arcPose)
+		} else {
+			arcPose = spatialmath.Compose(arcPose, goodNode.Pose())
+		}
 		// add the last node in trajectory
 		successNode = &basicNode{
 			q:      append([]referenceframe.Input{{float64(ptgNum)}}, subNode.Q()...),
-			cost:   finalTrajNode.Dist,
-			pose:   nodePose,
+			cost:   goodNode.Cost(),
+			pose:   goodNode.Pose(),
 			corner: false,
 		}
 		successNodes = append(successNodes, successNode)
-		arcStartPose = nodePose
+		arcStartPose = goodNode.Pose()
+		if partialExtension {
+			break
+		}
 	}
 
 	if len(successNodes) == 0 {
@@ -470,12 +481,12 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	return cand, nil
 }
 
-func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert bool, arcStartPose spatialmath.Pose) spatialmath.Pose {
+// Check our constraints (mainly collision) and return a valid node to add, or nil if no nodes along the traj are valid.
+func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert bool, arcStartPose spatialmath.Pose) node {
 	sinceLastCollideCheck := 0.
 	lastDist := 0.
-	var nodePose spatialmath.Pose
+	passed := []node{}
 	// Check each point along the trajectory to confirm constraints are met
-	// TODO: RSDK-5104 this could return the last good point along the given trajectory instead of erroring
 	// TODO: RSDK-5007 will allow this to use a Segment and be better integrated into our existing frameworks.
 	for i := 0; i < len(trajK); i++ {
 		trajPt := trajK[i]
@@ -487,18 +498,37 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert b
 
 		sinceLastCollideCheck += math.Abs(trajPt.Dist - lastDist)
 		trajState := &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose), Frame: mp.frame}
-		nodePose = trajState.Position
 		if sinceLastCollideCheck > mp.planOpts.Resolution {
 			ok, _ := mp.planOpts.CheckStateConstraints(trajState)
 			if !ok {
+				okDist := trajPt.Dist * defaultCollisionWalkbackPct
+				if okDist > defaultCollisionBuffer && !invert {
+					// Check that okDist is larger than the minimum distance to move to add a partial trajectory.
+					for i := len(passed) - 1; i > 0; i-- {
+						// Return the most recent node whose dist is less than okDist
+						if passed[i].Cost() < okDist {
+							return passed[i]
+						}
+					}
+				}
 				return nil
 			}
 			sinceLastCollideCheck = 0.
 		}
 
+		okNode := &basicNode{
+			q: []referenceframe.Input{{trajPt.Alpha}, {trajPt.Dist}},
+			cost: trajPt.Dist,
+			pose: trajPt.Pose,
+		}
+		passed = append(passed, okNode)
 		lastDist = trajPt.Dist
 	}
-	return nodePose
+	return &basicNode{
+		q: []referenceframe.Input{{trajK[(len(trajK) - 1)].Alpha}, {trajK[(len(trajK) - 1)].Dist}},
+		cost: trajK[(len(trajK) - 1)].Dist,
+		pose: trajK[(len(trajK) - 1)].Pose,
+	}
 }
 
 // attemptExtension will attempt to extend the rrt map towards the goal node, and will return the candidate added to the map that is
