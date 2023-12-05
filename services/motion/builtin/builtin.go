@@ -46,6 +46,7 @@ const (
 	builtinOpLabel              = "motion-service"
 	maxTravelDistanceMM         = 5e6 // this is equivalent to 5km
 	lookAheadDistanceMM float64 = 5e6
+	defaultSmoothIter           = 20
 )
 
 // inputEnabledActuator is an actuator that interacts with the frame system.
@@ -290,7 +291,7 @@ func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 	motionProfile := ""
 	v := validatedExtra{}
 	if extra == nil {
-		v.extra = map[string]interface{}{"smooth_iter": 20}
+		v.extra = map[string]interface{}{"smooth_iter": defaultSmoothIter}
 		return v, nil
 	}
 	if replansRaw, ok := extra["max_replans"]; ok {
@@ -313,7 +314,7 @@ func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 	}
 
 	if _, ok := extra["smooth_iter"]; !ok {
-		extra["smooth_iter"] = 20
+		extra["smooth_iter"] = defaultSmoothIter
 	}
 
 	return validatedExtra{
