@@ -583,7 +583,7 @@ func (ms *explore) createMotionPlan(
 	}
 
 	// replace original base frame with one that knows how to move itself and allow planning for
-	if err := ms.frameSystem.ReplaceFrame(referenceframe.NewZeroStaticFrame("viam_base_origin")); err != nil {
+	if err := ms.frameSystem.ReplaceFrame(referenceframe.NewZeroStaticFrame(kb.Kinematics().Name() + "_origin")); err != nil {
 		return nil, err
 	}
 
