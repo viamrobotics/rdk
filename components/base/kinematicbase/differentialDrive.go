@@ -26,8 +26,11 @@ import (
 // The pause time when not using a localizer before moving on to next move step.
 const defaultNoLocalizerDelay = 250 * time.Millisecond
 
-// ErrMovementTimeout is used for when a movement call times out after no movement for some time.
-var ErrMovementTimeout = errors.New("movement has timed out")
+var (
+	// ErrMovementTimeout is used for when a movement call times out after no movement for some time.
+	ErrMovementTimeout = errors.New("movement has timed out")
+	originInputs       = []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}
+)
 
 // wrapWithDifferentialDriveKinematics takes a wheeledBase component and adds a localizer to it
 // It also adds kinematic model so that it can be controlled.
@@ -81,7 +84,7 @@ func wrapWithDifferentialDriveKinematics(
 		ddk.planningFrame = ddk.executionFrame
 	}
 
-	ddk.noLocalizerCacheInputs = []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}
+	ddk.noLocalizerCacheInputs = originInputs
 	return ddk, nil
 }
 
@@ -143,7 +146,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		defer func() {
 			ddk.mutex.Lock()
 			defer ddk.mutex.Unlock()
-			ddk.noLocalizerCacheInputs = []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}
+			ddk.noLocalizerCacheInputs = originInputs
 		}()
 	}
 

@@ -155,10 +155,6 @@ type explore struct {
 	services      map[resource.Name]resource.Resource
 	fsService     framesystem.Service
 	frameSystem   referenceframe.FrameSystem
-
-	// planMutex protects the current planStep to allow the obstacle detection process to know what portion of the current plan to check
-	planMutex sync.Mutex
-	planStep  int
 }
 
 func (ms *explore) MoveOnMap(
@@ -380,16 +376,13 @@ func (ms *explore) checkForObstacles(
 			}
 
 			// Select remainder of plan to check
-			ms.planMutex.Lock()
-			remainingPlan := plan[ms.planStep:]
-			ms.planMutex.Unlock()
-
-			ms.logger.Debugf("Current transient worldState: ", worldState)
+			plan[0][kb.Name().ShortName()] = currentInputs
+			ms.logger.Debugf("Current transient worldState: ", worldState.String())
 
 			// Check remainder of plan for transient obstacles
 			err = motionplan.CheckPlan(
 				kb.Kinematics(),
-				remainingPlan,
+				plan,
 				worldState,
 				ms.frameSystem,
 				currentPose,
@@ -411,18 +404,15 @@ func (ms *explore) checkForObstacles(
 
 // executePlan will carry out the desired motionplan plan.
 func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBase, plan motionplan.Plan) {
-	ms.planMutex.Lock()
-	ms.planStep = 0
-	ms.planMutex.Unlock()
 
 	// Iterate through motionplan plan
-	for ms.planStep < len(plan) {
+	for _, p := range plan {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 			if inputEnabledKb, ok := kb.(inputEnabledActuator); ok {
-				if err := inputEnabledKb.GoToInputs(ctx, plan[ms.planStep][kb.Name().Name]); err != nil {
+				if err := inputEnabledKb.GoToInputs(ctx, p[kb.Name().Name]); err != nil {
 					// If there is an error on GoToInputs, stop the component if possible before returning the error
 					if stopErr := kb.Stop(ctx, nil); stopErr != nil {
 						ms.executionResponseChan <- moveResponse{err: err}
@@ -440,9 +430,6 @@ func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBa
 				return
 			}
 		}
-		ms.planMutex.Lock()
-		ms.planStep++
-		ms.planMutex.Unlock()
 	}
 	ms.executionResponseChan <- moveResponse{success: true}
 }
@@ -600,6 +587,10 @@ func (ms *explore) createMotionPlan(
 	}
 
 	// replace original base frame with one that knows how to move itself and allow planning for
+	if err := ms.frameSystem.ReplaceFrame(referenceframe.NewZeroStaticFrame("viam_base_origin")); err != nil {
+		return nil, err
+	}
+
 	if err := ms.frameSystem.ReplaceFrame(kb.Kinematics()); err != nil {
 		return nil, err
 	}

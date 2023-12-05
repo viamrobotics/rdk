@@ -526,7 +526,7 @@ func CheckPlan(
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
 		currentPosition,                    // starting pose
 		planNodes[len(planNodes)-1].Pose(), // goalPose
-		sf.sliceToMap(currentInputs),       // starting configuration
+		plan[0],                            // starting configuration
 		worldState,
 		nil, // no pb.Constraints
 		nil, // no plannOpts
