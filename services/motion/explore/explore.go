@@ -349,7 +349,7 @@ func (ms *explore) checkForObstacles(
 					ms.obstacleResponseChan <- moveResponse{success: false}
 					return
 				}
-				errCounterCurrentInputs += 1
+				errCounterCurrentInputs++
 			} else {
 				errCounterCurrentInputs = 0
 			}
@@ -367,7 +367,7 @@ func (ms *explore) checkForObstacles(
 					ms.obstacleResponseChan <- moveResponse{success: false}
 					return
 				}
-				errCounterGenerateTransientWorldState += 1
+				errCounterGenerateTransientWorldState++
 			} else {
 				errCounterGenerateTransientWorldState = 0
 			}
@@ -401,7 +401,6 @@ func (ms *explore) checkForObstacles(
 
 // executePlan will carry out the desired motionplan plan.
 func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBase, plan motionplan.Plan) {
-
 	// Iterate through motionplan plan
 	for _, p := range plan {
 		select {
