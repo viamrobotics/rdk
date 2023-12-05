@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
@@ -184,7 +183,7 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 
 	// Setting the active duration to 0 should always work: this is guaranteed to be less than the
 	// period, unless the period in zero. In that case, just ignore the error.
-	utils.UncheckedError(pwm.writeLine("duty_cycle", 0))
+	goutils.UncheckedError(pwm.writeLine("duty_cycle", 0))
 
 	// Now that the active duration is 0, setting the period to any number should work.
 	if err := pwm.writeLine("period", safePeriodNs); err != nil {
