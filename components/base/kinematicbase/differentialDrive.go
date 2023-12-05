@@ -29,7 +29,8 @@ const defaultNoLocalizerDelay = 250 * time.Millisecond
 var (
 	// ErrMovementTimeout is used for when a movement call times out after no movement for some time.
 	ErrMovementTimeout = errors.New("movement has timed out")
-	originInputs       = []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}
+	// Input representation of origin
+	originInputs = []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}
 )
 
 // wrapWithDifferentialDriveKinematics takes a wheeledBase component and adds a localizer to it
