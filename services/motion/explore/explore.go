@@ -37,12 +37,9 @@ var (
 	errUnimplemented = errors.New("unimplemented")
 	// The distance a detected obstacle can be from a base to trigger the Move command to stop.
 	lookAheadDistanceMM = 500.
-	// ErrClosed denotes that the slam service method was called on a closed slam resource.
-	ErrClosed = errors.Errorf("resource (%s) is closed", model.String())
 	// successiveErrorLimit places a limit on the number of errors that can occur in a row when running
 	// checkForObstacles.
 	successiveErrorLimit = 5
-
 	// Defines the limit on how far a potential kinematic base move action can be. For explore there is none.
 	defaultMoveLimitMM = math.Inf(1)
 	// The timeout for any individual move action on the kinematic base.
