@@ -24,6 +24,7 @@ import (
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/term"
 
 	"go.viam.com/rdk/logging"
 )
@@ -129,7 +130,10 @@ func (c *viamClient) loginAction(cCtx *cli.Context) error {
 		already := "Already l"
 		if !alreadyLoggedIn {
 			already = "L"
-			viamLogo(cCtx.App.ErrWriter)
+			// only print the viam logo if we are in an interative terminal
+			if term.IsTerminal(int(os.Stdout.Fd())) {
+				viamLogo(cCtx.App.Writer)
+			}
 		}
 
 		printf(cCtx.App.Writer, "%sogged in as %q, expires %s", already, t.User.Email,
