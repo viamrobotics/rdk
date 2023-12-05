@@ -452,11 +452,10 @@ func TestArmAndGantrySolve(t *testing.T) {
 }
 
 func TestMultiArmSolve(t *testing.T) {
-	t.Parallel()
 	fs := makeTestFS(t)
 	positions := frame.StartPositions(fs)
 	// Solve such that the ur5 and xArm are pointing at each other, 40mm from gripper to camera
-	goal2 := spatialmath.NewPose(r3.Vector{Z: 40}, &spatialmath.OrientationVectorDegrees{OZ: -1})
+	goal2 := spatialmath.NewPose(r3.Vector{Z: 60}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	plan, err := PlanMotion(context.Background(), &PlanRequest{
 		Logger:             logger,
 		Goal:               frame.NewPoseInFrame("urCamera", goal2),
