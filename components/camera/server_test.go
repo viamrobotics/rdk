@@ -88,6 +88,7 @@ func TestServer(t *testing.T) {
 		return camera.Properties{
 			SupportsPCD:     true,
 			IntrinsicParams: intrinsics,
+			MimeTypes:       []string{utils.MimeTypeJPEG, utils.MimeTypePNG, utils.MimeTypeH264},
 		}, nil
 	}
 	injectCamera.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
@@ -414,5 +415,8 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.IntrinsicParameters.FocalYPx, test.ShouldEqual, 200)
 		test.That(t, resp.IntrinsicParameters.CenterXPx, test.ShouldEqual, 100)
 		test.That(t, resp.IntrinsicParameters.CenterYPx, test.ShouldEqual, 100)
+		test.That(t, resp.MimeTypes, test.ShouldContain, utils.MimeTypeJPEG)
+		test.That(t, resp.MimeTypes, test.ShouldContain, utils.MimeTypePNG)
+		test.That(t, resp.MimeTypes, test.ShouldContain, utils.MimeTypeH264)
 	})
 }
