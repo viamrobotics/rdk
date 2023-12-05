@@ -534,7 +534,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 		}
 	}
 
-	printf(c.c.App.Writer, "") // newline
+	printf(c.c.App.ErrWriter, "") // newline
 	if err := w.Flush(); err != nil {
 		return errors.Wrapf(err, "could not flush writer for %s", dataFile.Name())
 	}
