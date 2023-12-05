@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"strings"
 	"sync"
+	"fmt"
 
 	"github.com/go-nlopt/nlopt"
 	"github.com/pkg/errors"
@@ -88,6 +89,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 
 	// Determine optimal jump values; start with default, and if gradient is zero, increase to 1 to try to avoid underflow.
 	jump, err := ik.calcJump(defaultJump, seed, solveMetric)
+	fmt.Println("jump", ik.id, jump, err)
 	if err != nil {
 		return err
 	}
