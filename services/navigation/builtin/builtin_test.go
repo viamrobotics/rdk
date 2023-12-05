@@ -642,9 +642,9 @@ func TestPaths(t *testing.T) {
 		// we expect 2 executions to be generated
 		executionID := uuid.New()
 		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
-		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
-				return "", err
+				return uuid.Nil, err
 			}
 			s.Lock()
 			defer s.Unlock()
@@ -682,7 +682,7 @@ func TestPaths(t *testing.T) {
 				}
 				t.Error("MoveOnGlobeNew called unexpectedly")
 			}, wg.Done)
-			return executionID.String(), nil
+			return executionID, nil
 		}
 
 		s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
@@ -779,9 +779,9 @@ func TestStartWaypoint(t *testing.T) {
 		var wg sync.WaitGroup
 		defer wg.Wait()
 		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
-		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
-				return "", err
+				return uuid.Nil, err
 			}
 			executionID := executionIDs[(counter.Inc())]
 			s.Lock()
@@ -814,7 +814,7 @@ func TestStartWaypoint(t *testing.T) {
 				}
 				t.Error("MoveOnGlobeNew called unexpectedly")
 			}, wg.Done)
-			return executionID.String(), nil
+			return executionID, nil
 		}
 
 		s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
@@ -941,9 +941,9 @@ func TestStartWaypoint(t *testing.T) {
 
 		executionID := uuid.New()
 		mogCalled := make(chan struct{}, 1)
-		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
-				return "", err
+				return uuid.Nil, err
 			}
 
 			s.Lock()
@@ -953,7 +953,7 @@ func TestStartWaypoint(t *testing.T) {
 			s.mogrs = append(s.mogrs, req)
 			s.Unlock()
 			mogCalled <- struct{}{}
-			return executionID.String(), nil
+			return executionID, nil
 		}
 
 		// PlanHistory always reports execution is in progress
@@ -1049,9 +1049,9 @@ func TestStartWaypoint(t *testing.T) {
 			uuid.New(),
 			uuid.New(),
 		}
-		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
-				return "", err
+				return uuid.Nil, err
 			}
 			s.Lock()
 			defer s.Unlock()
@@ -1066,9 +1066,9 @@ func TestStartWaypoint(t *testing.T) {
 			count := mogCounter.Inc()
 			switch count {
 			case 0:
-				return "", errors.New("motion error")
+				return uuid.Nil, errors.New("motion error")
 			case 1:
-				return "", context.Canceled
+				return uuid.Nil, context.Canceled
 			case 2, 3, 4:
 				executionID := executionIDs[count-2]
 				s.pws = []motion.PlanWithStatus{
@@ -1094,11 +1094,11 @@ func TestStartWaypoint(t *testing.T) {
 						}
 					}
 				}, wg.Done)
-				return executionID.String(), nil
+				return executionID, nil
 			default:
 				t.Error("unexpected call to MOG")
 				t.Fail()
-				return "", errors.New("unexpected call to MOG")
+				return uuid.Nil, errors.New("unexpected call to MOG")
 			}
 		}
 
@@ -1197,9 +1197,9 @@ func TestStartWaypoint(t *testing.T) {
 			defer s.closeFunc()
 
 			executionID := uuid.New()
-			s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+			s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 				if err := ctx.Err(); err != nil {
-					return "", err
+					return uuid.Nil, err
 				}
 				s.Lock()
 				defer s.Unlock()
@@ -1217,7 +1217,7 @@ func TestStartWaypoint(t *testing.T) {
 						},
 					},
 				}
-				return executionID.String(), nil
+				return executionID, nil
 			}
 
 			counter := atomic.NewInt32(0)
@@ -1309,9 +1309,9 @@ func TestStartWaypoint(t *testing.T) {
 		var wg sync.WaitGroup
 		defer wg.Wait()
 		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
-		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
-				return "", err
+				return uuid.Nil, err
 			}
 			executionID := executionIDs[(counter.Inc())]
 			s.Lock()
@@ -1347,7 +1347,7 @@ func TestStartWaypoint(t *testing.T) {
 					t.Error("MoveOnGlobeNew called unexpectedly")
 				}, wg.Done)
 			}
-			return executionID.String(), nil
+			return executionID, nil
 		}
 
 		planHistoryCalledCtx, planHistoryCalledCancelFn := context.WithTimeout(ctx, time.Millisecond*500)
@@ -1445,9 +1445,9 @@ func TestStartWaypoint(t *testing.T) {
 		pauseMOGSuccess := make(chan struct{})
 		resumeMOGSuccess := make(chan struct{})
 		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
-		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
-				return "", err
+				return uuid.Nil, err
 			}
 			executionID := executionIDs[(counter.Inc())]
 			s.Lock()
@@ -1482,7 +1482,7 @@ func TestStartWaypoint(t *testing.T) {
 				}
 				t.Error("MoveOnGlobeNew called unexpectedly")
 			}, wg.Done)
-			return executionID.String(), nil
+			return executionID, nil
 		}
 
 		s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {

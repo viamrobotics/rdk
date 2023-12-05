@@ -196,7 +196,7 @@ type Service interface {
 	MoveOnGlobeNew(
 		ctx context.Context,
 		req MoveOnGlobeReq,
-	) (string, error)
+	) (ExecutionID, error)
 	GetPose(
 		ctx context.Context,
 		componentName resource.Name,

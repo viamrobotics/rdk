@@ -106,7 +106,7 @@ func (server *serviceServer) MoveOnGlobeNew(ctx context.Context, req *pb.MoveOnG
 		return nil, err
 	}
 
-	return &pb.MoveOnGlobeNewResponse{ExecutionId: id}, nil
+	return &pb.MoveOnGlobeNewResponse{ExecutionId: id.String()}, nil
 }
 
 func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {

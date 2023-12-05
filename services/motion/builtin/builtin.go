@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/golang/geo/r3"
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
@@ -384,7 +385,7 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 }
 
-func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	ms.logger.Debugf("MoveOnGlobeNew called with %s", req)
@@ -401,10 +402,10 @@ func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq
 
 	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, planExecutorConstructor)
 	if err != nil {
-		return "", err
+		return uuid.Nil, err
 	}
 
-	return id.String(), nil
+	return id, nil
 }
 
 func (ms *builtIn) GetPose(

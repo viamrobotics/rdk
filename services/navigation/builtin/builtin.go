@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
-	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -521,15 +520,11 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 	}
 	cancelCtx, cancelFn := context.WithCancel(ctx)
 	defer cancelFn()
-	rawExecutionID, err := svc.motionService.MoveOnGlobeNew(cancelCtx, req)
+	executionID, err := svc.motionService.MoveOnGlobeNew(cancelCtx, req)
 	if err != nil {
 		return err
 	}
 
-	executionID, err := uuid.Parse(rawExecutionID)
-	if err != nil {
-		return err
-	}
 	executionWaypoint := executionWaypoint{executionID: executionID, waypoint: wp}
 	if old := svc.activeExecutionWaypoint.Swap(executionWaypoint); old != nil && old != emptyExecutionWaypoint {
 		msg := "unexpected race condition in moveOnGlobeSync, expected " +
