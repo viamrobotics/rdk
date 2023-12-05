@@ -689,7 +689,7 @@ func pollUntilMOGSuccessOrError(
 		case motion.PlanStateFailed:
 			err := errors.New("plan failed")
 			if reason := status.Reason; reason != nil {
-				err = errors.New(*reason)
+				err = errors.Wrap(err, *reason)
 			}
 			return err
 
