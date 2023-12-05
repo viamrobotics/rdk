@@ -378,7 +378,7 @@ func (ms *explore) checkForObstacles(
 			plan[0][kb.Name().ShortName()] = currentInputs
 			ms.logger.Debugf("Current transient worldState: ", worldState.String())
 
-			// Check remainder of plan for transient obstacles
+			// Check plan for transient obstacles
 			err = motionplan.CheckPlan(
 				kb.Kinematics(),
 				plan,
