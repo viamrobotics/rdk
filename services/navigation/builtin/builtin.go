@@ -673,6 +673,10 @@ func pollUntilMOGSuccessOrError(
 	req motion.PlanHistoryReq,
 ) error {
 	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
 		ph, err := m.PlanHistory(ctx, req)
 		if err != nil {
 			return err
