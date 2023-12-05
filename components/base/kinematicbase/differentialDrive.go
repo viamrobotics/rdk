@@ -27,8 +27,8 @@ import (
 const defaultNoLocalizerDelay = 250 * time.Millisecond
 
 var (
-	// ErrMovementTimeout is used for when a movement call times out after no movement for some time.
-	ErrMovementTimeout = errors.New("movement has timed out")
+	// errMovementTimeout is used for when a movement call times out after no movement for some time.
+	errMovementTimeout = errors.New("movement has timed out")
 	// Input representation of origin.
 	originInputs = []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}
 )
@@ -232,7 +232,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		} else if time.Since(lastUpdate) > ddk.options.Timeout {
 			cancel()
 			<-movementErr
-			return ErrMovementTimeout
+			return errMovementTimeout
 		}
 	}
 }
