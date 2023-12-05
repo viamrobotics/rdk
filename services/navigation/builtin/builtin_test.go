@@ -1140,8 +1140,6 @@ func TestGetObstacles(t *testing.T) {
 		return []*viz.Object{detection}, nil
 	}
 
-	// ns.Obstacles(ctx, nil)
-
 	manipulatedBoxGeom, err := spatialmath.NewBox(
 		spatialmath.NewPose(
 			r3.Vector{0, 0, 0},
