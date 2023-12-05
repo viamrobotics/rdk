@@ -24,7 +24,7 @@ func TestCreateNloptIKSolver(t *testing.T) {
 
 	// matches xarm home end effector position
 	pos := spatialmath.NewPoseFromPoint(r3.Vector{X: 207, Z: 112})
-	seed := referenceframe.FloatsToInputs([]float64{1, 1, 1, 1, 1, 0})
+	seed := referenceframe.FloatsToInputs([]float64{1, 1, -1, 1, 1, 0})
 	_, err = solveTest(context.Background(), ik, pos, seed)
 	test.That(t, err, test.ShouldBeNil)
 

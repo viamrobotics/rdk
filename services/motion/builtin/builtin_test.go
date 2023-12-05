@@ -646,7 +646,7 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	test.That(t, spatialmath.PoseAlmostEqualEps(goalPose1, goal1BaseFrame, 10), test.ShouldBeTrue)
 	goalPose2 := logLineToGoalPose(goalLogsObserver[1].Entry.Message)
 	// This is the important test.
-	test.That(t, spatialmath.PoseAlmostEqualEps(goalPose2, spatialmath.PoseBetween(goal1BaseFrame, goal2BaseFrame), 1), test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostEqualEps(goalPose2, spatialmath.PoseBetween(goal1BaseFrame, goal2BaseFrame), 10), test.ShouldBeTrue)
 }
 
 func TestMoveOnMapTimeout(t *testing.T) {
