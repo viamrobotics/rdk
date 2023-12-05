@@ -14,8 +14,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
-	goutils "go.viam.com/utils"
-)
 
 // There are times when we need to set the period to some value, any value. It must be a positive
 // number of nanoseconds, but some boards (e.g., the Jetson Orin) cannot tolerate periods below 1
