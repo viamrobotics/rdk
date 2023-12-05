@@ -132,12 +132,12 @@ func TestTabularDataByFilterAction(t *testing.T) {
 	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, "token")
 
 	test.That(t, ac.dataExportAction(cCtx), test.ShouldBeNil)
-	test.That(t, len(errOut.messages), test.ShouldEqual, 4)
-	test.That(t, len(out.messages), test.ShouldEqual, 0)
-	test.That(t, errOut.messages[0], test.ShouldEqual, "Downloading..")
-	test.That(t, errOut.messages[1], test.ShouldEqual, ".")
-	test.That(t, errOut.messages[2], test.ShouldEqual, ".")
-	test.That(t, errOut.messages[3], test.ShouldEqual, "\n")
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 4)
+	test.That(t, out.messages[0], test.ShouldEqual, "Downloading..")
+	test.That(t, out.messages[1], test.ShouldEqual, ".")
+	test.That(t, out.messages[2], test.ShouldEqual, ".")
+	test.That(t, out.messages[3], test.ShouldEqual, "\n")
 
 	// expectedDataSize is the expected string length of the data returned by the injected call
 	expectedDataSize := 98

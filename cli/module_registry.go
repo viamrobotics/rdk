@@ -243,7 +243,7 @@ func UploadModuleAction(c *cli.Context) error {
 
 	tarballPath := moduleUploadPath
 	if !isTarball(tarballPath) {
-		tarballPath, err = createTarballForUpload(moduleUploadPath, c.App.ErrWriter)
+		tarballPath, err = createTarballForUpload(moduleUploadPath, c.App.Writer)
 		if err != nil {
 			return err
 		}
@@ -369,7 +369,7 @@ func (c *viamClient) uploadModuleFile(
 	var errs error
 	// We do not add the EOF as an error because all server-side errors trigger an EOF on the stream
 	// This results in extra clutter to the error msg
-	if err := sendModuleUploadRequests(ctx, stream, file, c.c.App.ErrWriter); err != nil && !errors.Is(err, io.EOF) {
+	if err := sendModuleUploadRequests(ctx, stream, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
 		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
 	}
 
@@ -706,7 +706,7 @@ func sameModels(a, b []ModuleComponent) bool {
 	return true
 }
 
-func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_UploadModuleFileClient, file *os.File, stderr io.Writer) error {
+func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_UploadModuleFileClient, file *os.File, stdout io.Writer) error {
 	stat, err := file.Stat()
 	if err != nil {
 		return err
@@ -714,7 +714,7 @@ func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_Uploa
 	fileSize := stat.Size()
 	uploadedBytes := 0
 	// Close the line with the progress reading
-	defer printf(stderr, "")
+	defer printf(stdout, "")
 
 	//nolint:errcheck
 	defer stream.CloseSend()
@@ -741,7 +741,7 @@ func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_Uploa
 		uploadedBytes += len(uploadReq.GetFile())
 		// Simple progress reading until we have a proper tui library
 		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
-		fmt.Fprintf(stderr, "\rUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize) // no newline
+		fmt.Fprintf(stdout, "\rUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize) // no newline
 	}
 }
 

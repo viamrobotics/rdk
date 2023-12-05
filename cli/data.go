@@ -455,7 +455,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 	}
 	w := bufio.NewWriter(dataFile)
 
-	fmt.Fprintf(c.c.App.ErrWriter, "Downloading..") // no newline
+	fmt.Fprintf(c.c.App.Writer, "Downloading..") // no newline
 	var last string
 	mdIndexes := make(map[string]int)
 	mdIndex := 0
@@ -469,7 +469,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 				},
 				CountOnly: false,
 			})
-			fmt.Fprintf(c.c.App.ErrWriter, ".") // no newline
+			fmt.Fprintf(c.c.App.Writer, ".") // no newline
 			if err == nil {
 				break
 			}
@@ -534,7 +534,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 		}
 	}
 
-	printf(c.c.App.ErrWriter, "") // newline
+	printf(c.c.App.Writer, "") // newline
 	if err := w.Flush(); err != nil {
 		return errors.Wrapf(err, "could not flush writer for %s", dataFile.Name())
 	}
