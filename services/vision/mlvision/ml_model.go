@@ -87,6 +87,7 @@ func registerMLModelVisionService(
 	// what the vision service expects. This might not be necessary any more once we
 	// get the vision service to have rename maps in its configs.
 	nameMap := &sync.Map{}
+	var errList []error
 	classifierFunc, err := attemptToBuildClassifier(mlm, nameMap)
 	if err != nil {
 		logger.Debugw("unable to use ml model as a classifier, will attempt to evaluate as"+
@@ -94,6 +95,7 @@ func registerMLModelVisionService(
 	} else {
 		err := checkIfClassifierWorks(ctx, classifierFunc)
 		if err != nil {
+			errList = append(errList, err)
 			classifierFunc = nil
 			logger.Debugw("unable to use ml model as a classifier, will attempt to evaluate as detector"+
 				" and 3D segmenter", "model", params.ModelName, "error", err)
@@ -109,6 +111,7 @@ func registerMLModelVisionService(
 	} else {
 		err = checkIfDetectorWorks(ctx, detectorFunc)
 		if err != nil {
+			errList = append(errList, err)
 			detectorFunc = nil
 			logger.Debugw("unable to use ml model as a detector, will attempt to evaluate as 3D segmenter",
 				"model", params.ModelName, "error", err)
@@ -119,10 +122,19 @@ func registerMLModelVisionService(
 
 	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm, nameMap)
 	if err != nil {
+		errList = append(errList, err)
 		logger.Debugw("unable to use ml model as 3D segmenter", "model", params.ModelName, "error", err)
 	} else {
 		logger.Infow("model fulfills a vision service 3D segmenter", "model", params.ModelName)
 	}
+
+	// If nothing worked, give more info
+	if errList[0] != nil && errList[1] != nil && errList[2] != nil {
+		for _, e := range errList {
+			logger.Error(e)
+		}
+	}
+
 	// Don't return a close function, because you don't want to close the underlying ML service
 	return vision.NewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc)
 }
