@@ -893,7 +893,6 @@ func TestStartWaypoint(t *testing.T) {
 
 					test.That(t, s.mogrs[0].Extra, test.ShouldResemble, map[string]interface{}{
 						"motion_profile": "position_only",
-						"smooth_iter":    20,
 					})
 					test.That(t, s.mogrs[0].MotionCfg, test.ShouldResemble, expectedMotionCfg)
 					test.That(t, s.mogrs[0].Obstacles, test.ShouldBeNil)
@@ -905,7 +904,6 @@ func TestStartWaypoint(t *testing.T) {
 					test.That(t, s.mogrs[1].MovementSensorName, test.ShouldResemble, s.movementSensor.Name())
 					test.That(t, s.mogrs[1].Extra, test.ShouldResemble, map[string]interface{}{
 						"motion_profile": "position_only",
-						"smooth_iter":    20,
 					})
 					test.That(t, s.mogrs[1].MotionCfg, test.ShouldResemble, expectedMotionCfg)
 					test.That(t, s.mogrs[1].Obstacles, test.ShouldBeNil)
@@ -937,7 +935,7 @@ func TestStartWaypoint(t *testing.T) {
 	})
 
 	t.Run("SetMode's extra field is passed to MoveOnGlobe, with the default "+
-		"motion profile of position_only & smooth_iter of 20", func(t *testing.T) {
+		"motion profile of position_only", func(t *testing.T) {
 		s := setupStartWaypoint(ctx, t, logger)
 		defer s.closeFunc()
 
@@ -1007,7 +1005,7 @@ func TestStartWaypoint(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// SetMode with motion_profile set
-		err = s.ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"motion_profile": "some_other_motion_profile"})
+		err = s.ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"some_other": "config_param"})
 		test.That(t, err, test.ShouldBeNil)
 		<-mogCalled
 
@@ -1024,17 +1022,14 @@ func TestStartWaypoint(t *testing.T) {
 				// MoveOnGlobeNew was called twice, once for each waypoint
 				test.That(t, s.mogrs[0].Extra, test.ShouldResemble, map[string]interface{}{
 					"motion_profile": "position_only",
-					"smooth_iter":    20,
 				})
 				test.That(t, s.mogrs[1].Extra, test.ShouldResemble, map[string]interface{}{
 					"motion_profile": "position_only",
-					"smooth_iter":    20,
 				})
 				test.That(t, s.mogrs[2].Extra, test.ShouldResemble, map[string]interface{}{
-					"motion_profile": "some_other_motion_profile",
-					"smooth_iter":    20,
+					"motion_profile": "position_only",
+					"some_other":     "config_param",
 				})
-				// TODO Add non default smooth_iter
 				s.RUnlock()
 				break
 			}
@@ -1049,7 +1044,6 @@ func TestStartWaypoint(t *testing.T) {
 		mogCounter := atomic.NewInt32(-1)
 		planHistoryCounter := atomic.NewInt32(0)
 		var wg sync.WaitGroup
-		// TODO: make each execution unique
 		executionIDs := []uuid.UUID{
 			uuid.New(),
 			uuid.New(),
@@ -1204,6 +1198,9 @@ func TestStartWaypoint(t *testing.T) {
 
 			executionID := uuid.New()
 			s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+				if err := ctx.Err(); err != nil {
+					return "", err
+				}
 				s.Lock()
 				defer s.Unlock()
 				if s.mogrs == nil {
@@ -1226,6 +1223,9 @@ func TestStartWaypoint(t *testing.T) {
 			counter := atomic.NewInt32(0)
 			modeFlag := make(chan struct{}, 1)
 			s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
+				if err := ctx.Err(); err != nil {
+					return nil, err
+				}
 				s.RLock()
 				defer s.RUnlock()
 				history := make([]motion.PlanWithStatus, len(s.pws))
@@ -1238,6 +1238,9 @@ func TestStartWaypoint(t *testing.T) {
 			}
 
 			s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
 				s.Lock()
 				defer s.Unlock()
 				if s.sprs == nil {
@@ -1307,6 +1310,9 @@ func TestStartWaypoint(t *testing.T) {
 		defer wg.Wait()
 		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
 		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+			if err := ctx.Err(); err != nil {
+				return "", err
+			}
 			executionID := executionIDs[(counter.Inc())]
 			s.Lock()
 			defer s.Unlock()
@@ -1359,6 +1365,9 @@ func TestStartWaypoint(t *testing.T) {
 		}
 
 		s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			s.Lock()
 			defer s.Unlock()
 			if s.sprs == nil {
@@ -1437,6 +1446,9 @@ func TestStartWaypoint(t *testing.T) {
 		resumeMOGSuccess := make(chan struct{})
 		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
 		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+			if err := ctx.Err(); err != nil {
+				return "", err
+			}
 			executionID := executionIDs[(counter.Inc())]
 			s.Lock()
 			defer s.Unlock()
@@ -1485,6 +1497,9 @@ func TestStartWaypoint(t *testing.T) {
 		}
 
 		s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			s.Lock()
 			defer s.Unlock()
 			if s.sprs == nil {

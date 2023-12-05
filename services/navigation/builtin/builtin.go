@@ -509,7 +509,7 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	return svc.store.Close(ctx)
 }
 
-func (svc *builtIn) moveOnGlobeSync(ctx context.Context, wp navigation.Waypoint, extra map[string]interface{}) error {
+func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, extra map[string]interface{}) error {
 	req := motion.MoveOnGlobeReq{
 		ComponentName:      svc.base.Name(),
 		Destination:        wp.ToPoint(),
@@ -569,19 +569,10 @@ func (svc *builtIn) moveOnGlobeSync(ctx context.Context, wp navigation.Waypoint,
 
 func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]interface{}) {
 	if extra == nil {
-		extra = map[string]interface{}{
-			"motion_profile": "position_only",
-			"smooth_iter":    20,
-		}
+		extra = map[string]interface{}{}
 	}
 
-	if _, ok := extra["motion_profile"]; !ok {
-		extra["motion_profile"] = "position_only"
-	}
-
-	if _, ok := extra["smooth_iter"]; !ok {
-		extra["smooth_iter"] = 20
-	}
+	extra["motion_profile"] = "position_only"
 
 	svc.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
@@ -593,7 +584,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 
 			wp, err := svc.store.NextWaypoint(ctx)
 			if err != nil {
-				time.Sleep(time.Millisecond * 50)
+				time.Sleep(planHistoryPollFrequency)
 				continue
 			}
 			svc.mu.Lock()
@@ -603,7 +594,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 			svc.mu.Unlock()
 
 			svc.logger.Infof("navigating to waypoint: %+v", wp)
-			if err := svc.moveOnGlobeSync(cancelCtx, wp, extra); err != nil {
+			if err := svc.moveToWaypoint(cancelCtx, wp, extra); err != nil {
 				if svc.waypointIsDeleted() {
 					svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
 					continue
@@ -680,26 +671,6 @@ func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]
 	return []*navigation.Path{path}, nil
 }
 
-func statusToErr(status motion.PlanStatus) error {
-	switch status.State {
-	case motion.PlanStateFailed:
-		err := errors.New("plan failed")
-		if reason := status.Reason; reason != nil {
-			err = errors.New(*reason)
-		}
-		return err
-
-	case motion.PlanStateStopped:
-		return errors.New("plan stopped")
-
-	case motion.PlanStateInProgress, motion.PlanStateSucceeded:
-		return nil
-
-	default:
-		return fmt.Errorf("invalid plan state %d", status.State)
-	}
-}
-
 func pollUntilMOGSuccessOrError(
 	ctx context.Context,
 	m motion.Service,
@@ -714,12 +685,23 @@ func pollUntilMOGSuccessOrError(
 
 		status := ph[0].StatusHistory[0]
 
-		if status.State == motion.PlanStateSucceeded {
-			return nil
-		}
-
-		if err := statusToErr(status); err != nil {
+		switch status.State {
+		case motion.PlanStateInProgress:
+		case motion.PlanStateFailed:
+			err := errors.New("plan failed")
+			if reason := status.Reason; reason != nil {
+				err = errors.New(*reason)
+			}
 			return err
+
+		case motion.PlanStateStopped:
+			return errors.New("plan stopped")
+
+		case motion.PlanStateSucceeded:
+			return nil
+
+		default:
+			return fmt.Errorf("invalid plan state %d", status.State)
 		}
 
 		time.Sleep(interval)
