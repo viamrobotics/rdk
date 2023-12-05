@@ -3,6 +3,7 @@ package motion
 import (
 	"context"
 
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
@@ -131,18 +132,23 @@ func (c *client) MoveOnGlobe(
 func (c *client) MoveOnGlobeNew(
 	ctx context.Context,
 	req MoveOnGlobeReq,
-) (string, error) {
+) (ExecutionID, error) {
 	protoReq, err := req.toProtoNew(c.name)
 	if err != nil {
-		return "", err
+		return uuid.Nil, err
 	}
 
 	resp, err := c.client.MoveOnGlobeNew(ctx, protoReq)
 	if err != nil {
-		return "", err
+		return uuid.Nil, err
 	}
 
-	return resp.ExecutionId, nil
+	executionID, err := uuid.Parse(resp.ExecutionId)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return executionID, nil
 }
 
 func (c *client) GetPose(
