@@ -533,13 +533,12 @@ func TestModuleReloading(t *testing.T) {
 		}(oueRestartInterval)
 		oueRestartInterval = 10 * time.Millisecond
 
-		// Lower resource configuration timeout to avoid waiting for 60 seconds
-		// for manager.Add to time out waiting for module to start listening.
+		// Lower module startup timeout to avoid waiting for 5 mins.
 		defer func() {
-			test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
+			test.That(t, os.Unsetenv(rutils.ModuleStartupTimeoutEnvVar),
 				test.ShouldBeNil)
 		}()
-		test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "10ms"),
+		test.That(t, os.Setenv(rutils.ModuleStartupTimeoutEnvVar, "10ms"),
 			test.ShouldBeNil)
 
 		// This test neither uses a resource manager nor asserts anything about
@@ -554,7 +553,7 @@ func TestModuleReloading(t *testing.T) {
 		err = mgr.Add(ctx, modCfg)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
-			"timed out waiting for module test-module to start listening")
+			"module test-module timed out after 10ms during startup")
 
 		// Assert that number of "fakemodule is running" messages does not increase
 		// over time (the process was stopped).
@@ -662,8 +661,7 @@ func TestDebugModule(t *testing.T) {
 	}
 }
 
-func TestModuleDataDirectoryFullstack(t *testing.T) {
-	logger, logs := logging.NewObservedTestLogger(t)
+func TestModuleMisc(t *testing.T) {
 	ctx := context.Background()
 
 	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
@@ -679,19 +677,6 @@ func TestModuleDataDirectoryFullstack(t *testing.T) {
 	}
 
 	testViamHomeDir := t.TempDir()
-	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
-		UntrustedEnv: false,
-		ViamHomeDir:  testViamHomeDir,
-	})
-	// Test that cleaning the data directory before it has been created does not produce log messages
-	err = mgr.CleanModuleDataDirectory()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, logs.FilterMessageSnippet("Removing module data").Len(), test.ShouldEqual, 0)
-
-	// Add the module
-	err = mgr.Add(ctx, modCfg)
-	test.That(t, err, test.ShouldBeNil)
-
 	// Add a component that uses the module
 	myHelperModel := resource.NewModel("rdk", "test", "helper")
 	rNameMyHelper := generic.Named("myhelper")
@@ -700,40 +685,127 @@ func TestModuleDataDirectoryFullstack(t *testing.T) {
 		API:   generic.API,
 		Model: myHelperModel,
 	}
-	_, err = cfgMyHelper.Validate("test", resource.APITypeComponentName)
-	test.That(t, err, test.ShouldBeNil)
 
-	h, err := mgr.AddResource(ctx, cfgMyHelper, nil)
-	test.That(t, err, test.ShouldBeNil)
-	ok := mgr.IsModularResource(rNameMyHelper)
-	test.That(t, ok, test.ShouldBeTrue)
+	t.Run("data directory fullstack", func(t *testing.T) {
+		logger, logs := logging.NewObservedTestLogger(t)
+		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv: false,
+			ViamHomeDir:  testViamHomeDir,
+		})
+		// Test that cleaning the data directory before it has been created does not produce log messages
+		err = mgr.CleanModuleDataDirectory()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, logs.FilterMessageSnippet("Removing module data").Len(), test.ShouldEqual, 0)
 
-	// Create a file in the modules data directory and then verify that it was written
-	resp, err := h.DoCommand(ctx, map[string]interface{}{
-		"command":  "write_data_file",
-		"filename": "data.txt",
-		"contents": "hello, world!",
+		// Add the module
+		err = mgr.Add(ctx, modCfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = cfgMyHelper.Validate("test", resource.APITypeComponentName)
+		test.That(t, err, test.ShouldBeNil)
+
+		h, err := mgr.AddResource(ctx, cfgMyHelper, nil)
+		test.That(t, err, test.ShouldBeNil)
+		ok := mgr.IsModularResource(rNameMyHelper)
+		test.That(t, ok, test.ShouldBeTrue)
+
+		// Create a file in the modules data directory and then verify that it was written
+		resp, err := h.DoCommand(ctx, map[string]interface{}{
+			"command":  "write_data_file",
+			"filename": "data.txt",
+			"contents": "hello, world!",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldNotBeNil)
+		dataFullPath, ok := resp["fullpath"].(string)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, dataFullPath, test.ShouldEqual, filepath.Join(testViamHomeDir, "module-data", "local", "test-module", "data.txt"))
+		dataFileContents, err := os.ReadFile(dataFullPath)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, string(dataFileContents), test.ShouldEqual, "hello, world!")
+
+		err = mgr.RemoveResource(ctx, rNameMyHelper)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = mgr.Remove("test-module")
+		test.That(t, err, test.ShouldBeNil)
+		// test that the data directory is cleaned up
+		err = mgr.CleanModuleDataDirectory()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, logs.FilterMessageSnippet("Removing module data").Len(), test.ShouldEqual, 1)
+		_, err = os.Stat(filepath.Join(testViamHomeDir, "module-data", "local"))
+		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "no such file or directory")
+
+		err = mgr.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
 	})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldNotBeNil)
-	dataFullPath, ok := resp["fullpath"].(string)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, dataFullPath, test.ShouldEqual, filepath.Join(testViamHomeDir, "module-data", "local", "test-module", "data.txt"))
-	dataFileContents, err := os.ReadFile(dataFullPath)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, string(dataFileContents), test.ShouldEqual, "hello, world!")
+	t.Run("module working directory", func(t *testing.T) {
+		logger := logging.NewTestLogger(t)
+		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv: false,
+			ViamHomeDir:  testViamHomeDir,
+		})
 
-	err = mgr.RemoveResource(ctx, rNameMyHelper)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = mgr.Remove("test-module")
-	test.That(t, err, test.ShouldBeNil)
-	// test that the data directory is cleaned up
-	err = mgr.CleanModuleDataDirectory()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, logs.FilterMessageSnippet("Removing module data").Len(), test.ShouldEqual, 1)
-	_, err = os.Stat(filepath.Join(testViamHomeDir, "module-data", "local"))
-	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "no such file or directory")
+		// Add the module with a user-specified VIAM_MODULE_ROOT
+		modCfg := config.Module{
+			Name:        "test-module",
+			ExePath:     modPath,
+			Environment: map[string]string{"VIAM_MODULE_ROOT": "/"},
+			Type:        config.ModuleTypeLocal,
+		}
+		err = mgr.Add(ctx, modCfg)
+		test.That(t, err, test.ShouldBeNil)
 
-	err = mgr.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
+		_, err = cfgMyHelper.Validate("test", resource.APITypeComponentName)
+		test.That(t, err, test.ShouldBeNil)
+
+		h, err := mgr.AddResource(ctx, cfgMyHelper, nil)
+		test.That(t, err, test.ShouldBeNil)
+		ok := mgr.IsModularResource(rNameMyHelper)
+		test.That(t, ok, test.ShouldBeTrue)
+
+		// Create a file in the modules data directory and then verify that it was written
+		resp, err := h.DoCommand(ctx, map[string]interface{}{
+			"command": "get_working_directory",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldNotBeNil)
+		modWorkingDirectory, ok := resp["path"].(string)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, modWorkingDirectory, test.ShouldEqual, "/")
+
+		err = mgr.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+	})
+	t.Run("module working directory fallback", func(t *testing.T) {
+		logger := logging.NewTestLogger(t)
+		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv: false,
+			ViamHomeDir:  testViamHomeDir,
+		})
+		// Add the module
+		err = mgr.Add(ctx, modCfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = cfgMyHelper.Validate("test", resource.APITypeComponentName)
+		test.That(t, err, test.ShouldBeNil)
+
+		h, err := mgr.AddResource(ctx, cfgMyHelper, nil)
+		test.That(t, err, test.ShouldBeNil)
+		ok := mgr.IsModularResource(rNameMyHelper)
+		test.That(t, ok, test.ShouldBeTrue)
+
+		// Create a file in the modules data directory and then verify that it was written
+		resp, err := h.DoCommand(ctx, map[string]interface{}{
+			"command": "get_working_directory",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldNotBeNil)
+		modWorkingDirectory, ok := resp["path"].(string)
+		test.That(t, ok, test.ShouldBeTrue)
+		// MacOS prepends "/private/" to the filepath so we check the end of the path to account for this
+		// i.e.  '/private/var/folders/p1/nl3sq7jn5nx8tfkdwpz2_g7r0000gn/T/TestModuleMisc1764175663/002'
+		test.That(t, modWorkingDirectory, test.ShouldEndWith, filepath.Dir(modPath))
+		err = mgr.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+	})
 }

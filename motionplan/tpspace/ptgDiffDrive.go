@@ -43,7 +43,6 @@ func (ptg *ptgDiffDrive) Velocities(alpha, dist float64) (float64, float64, erro
 func (ptg *ptgDiffDrive) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	if len(inputs) != 2 {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), 2)
-		// ~ return nil, fmt.Errorf("ptgDiffDrive takes 2 inputs, but received %d", len(inputs))
 	}
 	alpha := inputs[0].Value
 	dist := inputs[1].Value

@@ -3,18 +3,20 @@ package builtin
 import (
 	"context"
 	"errors"
+	"math"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/golang/geo/r3"
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
+	"go.uber.org/atomic"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/base"
-	fakebase "go.viam.com/rdk/components/base/fake"
-	"go.viam.com/rdk/components/base/kinematicbase"
+	baseFake "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/camera"
 	_ "go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/components/movementsensor"
@@ -27,13 +29,23 @@ import (
 	"go.viam.com/rdk/services/motion"
 	_ "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/navigation"
-	"go.viam.com/rdk/services/slam"
-	fakeslam "go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/services/vision"
 	_ "go.viam.com/rdk/services/vision/colordetector"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
+
+type startWaypointState struct {
+	ns             navigation.Service
+	injectMS       *inject.MotionService
+	base           base.Base
+	movementSensor *inject.MovementSensor
+	closeFunc      func()
+	sync.RWMutex
+	pws   []motion.PlanWithStatus
+	mogrs []motion.MoveOnGlobeReq
+	sprs  []motion.StopPlanReq
+}
 
 func setupNavigationServiceFromConfig(t *testing.T, configFilename string) (navigation.Service, func()) {
 	t.Helper()
@@ -49,42 +61,6 @@ func setupNavigationServiceFromConfig(t *testing.T, configFilename string) (navi
 	return svc, func() {
 		myRobot.Close(context.Background())
 	}
-}
-
-func currentInputsShouldEqual(ctx context.Context, t *testing.T, kinematicBase kinematicbase.KinematicBase, pt *geo.Point) {
-	t.Helper()
-	inputs, err := kinematicBase.CurrentInputs(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	actualPt := geo.NewPoint(inputs[0].Value, inputs[1].Value)
-	test.That(t, actualPt.Lat(), test.ShouldEqual, pt.Lat())
-	test.That(t, actualPt.Lng(), test.ShouldEqual, pt.Lng())
-}
-
-func blockTillCallCount(t *testing.T, callCount int, callChan chan struct{}, timeout time.Duration) {
-	t.Helper()
-	waitForCallsTimeOutCtx, cancelFn := context.WithTimeout(context.Background(), timeout)
-	defer cancelFn()
-	for i := 0; i < callCount; i++ {
-		select {
-		case <-callChan:
-		case <-waitForCallsTimeOutCtx.Done():
-			t.Log("timed out waiting for test to finish")
-			t.FailNow()
-		}
-	}
-}
-
-func deleteAllWaypoints(ctx context.Context, svc navigation.Service) error {
-	waypoints, err := svc.(*builtIn).store.Waypoints(ctx)
-	if err != nil {
-		return err
-	}
-	for _, wp := range waypoints {
-		if err := svc.RemoveWaypoint(ctx, wp.ID, nil); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func TestValidateConfig(t *testing.T) {
@@ -128,7 +104,7 @@ func TestValidateConfig(t *testing.T) {
 			description: "invalid config no base",
 			cfg:         Config{},
 			numDeps:     0,
-			expectedErr: utils.NewConfigValidationFieldRequiredError(path, "base"),
+			expectedErr: resource.NewConfigValidationFieldRequiredError(path, "base"),
 		},
 		{
 			description: "invalid config no movement_sensor given for map type GPS",
@@ -137,7 +113,7 @@ func TestValidateConfig(t *testing.T) {
 				MapType:  "GPS",
 			},
 			numDeps:     0,
-			expectedErr: utils.NewConfigValidationFieldRequiredError(path, "movement_sensor"),
+			expectedErr: resource.NewConfigValidationFieldRequiredError(path, "movement_sensor"),
 		},
 		{
 			description: "invalid config negative degs_per_sec",
@@ -595,378 +571,992 @@ func TestNavSetup(t *testing.T) {
 
 	test.That(t, len(ns.(*builtIn).motionCfg.ObstacleDetectors), test.ShouldEqual, 1)
 
-	_, err = ns.Paths(ctx, nil)
-	test.That(t, err, test.ShouldBeError, errors.New("unimplemented"))
+	paths, err := ns.Paths(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, paths, test.ShouldBeEmpty)
 }
 
-func TestStartWaypoint(t *testing.T) {
-	// TODO(RSDK-5193): unskip this test
-	t.Skip()
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-
-	injectMS := inject.NewMotionService("test_motion")
-	cfg := resource.Config{
+func setupStartWaypoint(ctx context.Context, t *testing.T, logger logging.Logger) startWaypointState {
+	fakeBase, err := baseFake.NewBase(ctx, nil, resource.Config{
 		Name:  "test_base",
 		API:   base.API,
 		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
-	}
-
-	fakeBase, err := fakebase.NewBase(ctx, nil, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	fakeSlam := fakeslam.NewSLAM(slam.Named("foo"), logger)
-	limits, err := fakeSlam.Limits(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
-	localizer := motion.NewSLAMLocalizer(fakeSlam)
-	test.That(t, err, test.ShouldBeNil)
-
-	// cast fakeBase
-	fake, ok := fakeBase.(*fakebase.Base)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	options := kinematicbase.NewKinematicBaseOptions()
-	options.PositionOnlyMode = false
-
-	// TODO: Test this with PTGs
-	kinematicBase, err := kinematicbase.WrapWithFakeDiffDriveKinematics(ctx, fake, localizer, limits, options, nil)
+	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMovementSensor := inject.NewMovementSensor("test_movement")
-	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		inputs, err := kinematicBase.CurrentInputs(ctx)
-		return geo.NewPoint(inputs[0].Value, inputs[1].Value), 0, err
-	}
-
-	ns, err := NewBuiltIn(
-		ctx,
-		resource.Dependencies{injectMS.Name(): injectMS, fakeBase.Name(): fakeBase, injectMovementSensor.Name(): injectMovementSensor},
-		resource.Config{
-			ConvertedAttributes: &Config{
-				Store: navigation.StoreConfig{
-					Type: navigation.StoreTypeMemory,
+	visionService := inject.NewVisionService("vision")
+	camera := inject.NewCamera("camera")
+	config := resource.Config{
+		ConvertedAttributes: &Config{
+			Store: navigation.StoreConfig{
+				Type: navigation.StoreTypeMemory,
+			},
+			BaseName:           "test_base",
+			MovementSensorName: "test_movement",
+			MotionServiceName:  "test_motion",
+			DegPerSec:          1,
+			MetersPerSec:       1,
+			ObstacleDetectors: []*ObstacleDetectorNameConfig{
+				{
+					VisionServiceName: "vision",
+					CameraName:        "camera",
 				},
-				BaseName:           "test_base",
-				MovementSensorName: "test_movement",
-				MotionServiceName:  "test_motion",
-				DegPerSec:          1,
-				MetersPerSec:       1,
 			},
 		},
-		logger,
-	)
+	}
+	injectMS := inject.NewMotionService("test_motion")
+	deps := resource.Dependencies{
+		injectMS.Name():             injectMS,
+		fakeBase.Name():             fakeBase,
+		injectMovementSensor.Name(): injectMovementSensor,
+		visionService.Name():        visionService,
+		camera.Name():               camera,
+	}
+	ns, err := NewBuiltIn(ctx, deps, config, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, ns.Close(context.Background()), test.ShouldBeNil)
-	}()
+	return startWaypointState{
+		ns:             ns,
+		injectMS:       injectMS,
+		base:           fakeBase,
+		movementSensor: injectMovementSensor,
+		closeFunc:      func() { test.That(t, ns.Close(context.Background()), test.ShouldBeNil) },
+	}
+}
+
+func TestPaths(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	t.Run("Paths reflects the paths of all components which have in progress MoveOnGlobe calls", func(t *testing.T) {
+		expectedLng := 1.
+		expectedLat := 2.
+		var wg sync.WaitGroup
+		wg.Wait()
+		s := setupStartWaypoint(ctx, t, logger)
+		defer s.closeFunc()
+
+		planHistoryCalledCtx, planHistoryCalledCancelFn := context.WithCancel(ctx)
+		planSucceededCtx, planSucceededCancelFn := context.WithCancel(ctx)
+		defer planSucceededCancelFn()
+		// we expect 2 executions to be generated
+		executionID := uuid.New()
+		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
+		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+			if err := ctx.Err(); err != nil {
+				return uuid.Nil, err
+			}
+			s.Lock()
+			defer s.Unlock()
+			if s.mogrs == nil {
+				s.mogrs = []motion.MoveOnGlobeReq{}
+			}
+			s.mogrs = append(s.mogrs, req)
+			s.pws = []motion.PlanWithStatus{
+				{
+					Plan: motion.Plan{
+						ExecutionID: executionID,
+						Steps: []motion.PlanStep{map[resource.Name]spatialmath.Pose{
+							s.base.Name(): spatialmath.NewPose(r3.Vector{X: expectedLng, Y: expectedLat}, nil),
+						}},
+					},
+					StatusHistory: []motion.PlanStatus{
+						{State: motion.PlanStateInProgress},
+					},
+				},
+			}
+			logger.Infof("before cancel, len: %d", len(s.pws))
+			wg.Add(1)
+			logger.Infof("after cancel, len: %d", len(s.pws))
+			utils.ManagedGo(func() {
+				<-planSucceededCtx.Done()
+				s.Lock()
+				defer s.Unlock()
+				for i, p := range s.pws {
+					if p.Plan.ExecutionID == executionID {
+						succeeded := []motion.PlanStatus{{State: motion.PlanStateSucceeded}}
+						p.StatusHistory = append(succeeded, p.StatusHistory...)
+						s.pws[i] = p
+						return
+					}
+				}
+				t.Error("MoveOnGlobeNew called unexpectedly")
+			}, wg.Done)
+			return executionID, nil
+		}
+
+		s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			s.RLock()
+			defer s.RUnlock()
+			planHistoryCalledCancelFn()
+			logger.Infof("PlanHistory called, len: %d", len(s.pws))
+			defer logger.Infof("PlanHistory done, len: %d", len(s.pws))
+			history := make([]motion.PlanWithStatus, len(s.pws))
+			copy(history, s.pws)
+			return history, nil
+		}
+
+		s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			s.Lock()
+			defer s.Unlock()
+			if s.sprs == nil {
+				s.sprs = []motion.StopPlanReq{}
+			}
+			s.sprs = append(s.sprs, req)
+			return nil
+		}
+
+		paths, err := s.ns.Paths(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, paths, test.ShouldBeEmpty)
+
+		pt1 := geo.NewPoint(1, 0)
+		err = s.ns.AddWaypoint(ctx, pt1, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		paths, err = s.ns.Paths(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, paths, test.ShouldBeEmpty)
+
+		err = s.ns.SetMode(ctx, navigation.ModeWaypoint, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		// poll till waypoints is of length 0
+		// query PlanHistory & confirm that you get back UUID 2
+		timeoutCtx, cancelFn := context.WithTimeout(ctx, time.Millisecond*500)
+		defer cancelFn()
+		select {
+		case <-timeoutCtx.Done():
+			t.Error("test timed out")
+			t.FailNow()
+		case <-planHistoryCalledCtx.Done():
+			paths, err := s.ns.Paths(ctx, nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(paths), test.ShouldEqual, 1)
+			test.That(t, len(paths[0].DestinationWaypointID()), test.ShouldBeGreaterThan, 0)
+			test.That(t, len(paths[0].GeoPoints()), test.ShouldEqual, 1)
+			test.That(t, paths[0].GeoPoints()[0].Lat(), test.ShouldAlmostEqual, expectedLat)
+			test.That(t, paths[0].GeoPoints()[0].Lng(), test.ShouldAlmostEqual, expectedLng)
+			// trigger plan success
+			planSucceededCancelFn()
+			for {
+				if timeoutCtx.Err() != nil {
+					t.Error("test timed out")
+					t.FailNow()
+				}
+				// wait until nav detects that the plan succeeded & removes its path from the Paths method response
+				paths, err := s.ns.Paths(ctx, nil)
+				test.That(t, err, test.ShouldBeNil)
+				if len(paths) == 0 {
+					break
+				}
+				time.Sleep(time.Millisecond * 50)
+			}
+		}
+	})
+}
+
+func TestStartWaypoint(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
 
 	t.Run("Reach waypoints successfully", func(t *testing.T) {
-		callChan := make(chan struct{}, 2)
-		injectMS.MoveOnGlobeFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			destination *geo.Point,
-			heading float64,
-			movementSensorName resource.Name,
-			obstacles []*spatialmath.GeoObstacle,
-			motionCfg *motion.MotionConfiguration,
-			extra map[string]interface{},
-		) (bool, error) {
-			err := kinematicBase.GoToInputs(ctx, referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng()}))
-			callChan <- struct{}{}
-			return true, err
+		s := setupStartWaypoint(ctx, t, logger)
+		defer s.closeFunc()
+
+		// we expect 2 executions to be generated
+		executionIDs := []uuid.UUID{
+			uuid.New(),
+			uuid.New(),
 		}
-		pt := geo.NewPoint(1, 0)
-		err = ns.AddWaypoint(ctx, pt, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		pt = geo.NewPoint(3, 1)
-		err = ns.AddWaypoint(ctx, pt, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		ns.(*builtIn).mode = navigation.ModeManual
-		err = ns.SetMode(ctx, navigation.ModeWaypoint, nil)
-		test.That(t, err, test.ShouldBeNil)
-		blockTillCallCount(t, 2, callChan, time.Second*5)
-		ns.(*builtIn).wholeServiceCancelFunc()
-		ns.(*builtIn).activeBackgroundWorkers.Wait()
-
-		currentInputsShouldEqual(ctx, t, kinematicBase, pt)
-	})
-
-	t.Run("Extra defaults to motion_profile", func(t *testing.T) {
-		callChan := make(chan struct{}, 1)
-
-		injectMS.MoveOnGlobeFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			destination *geo.Point,
-			heading float64,
-			movementSensorName resource.Name,
-			obstacles []*spatialmath.GeoObstacle,
-			motionCfg *motion.MotionConfiguration,
-			extra map[string]interface{},
-		) (bool, error) {
-			callChan <- struct{}{}
-			if extra != nil && extra["motion_profile"] != nil {
-				return true, nil
+		counter := atomic.NewInt32(-1)
+		var wg sync.WaitGroup
+		defer wg.Wait()
+		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
+		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+			if err := ctx.Err(); err != nil {
+				return uuid.Nil, err
 			}
-			return false, errors.New("no motion_profile exist")
-		}
-
-		// construct new point to navigate to
-		pt := geo.NewPoint(0, 0)
-		err = ns.AddWaypoint(ctx, pt, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		cancelCtx, fn := context.WithCancel(ctx)
-		ns.(*builtIn).startWaypointMode(cancelCtx, map[string]interface{}{})
-		blockTillCallCount(t, 1, callChan, time.Second*5)
-		fn()
-		ns.(*builtIn).activeBackgroundWorkers.Wait()
-
-		// go to same point again
-		err = ns.AddWaypoint(ctx, pt, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		cancelCtx, fn = context.WithCancel(ctx)
-		ns.(*builtIn).startWaypointMode(cancelCtx, nil)
-		blockTillCallCount(t, 1, callChan, time.Second*5)
-		fn()
-		ns.(*builtIn).activeBackgroundWorkers.Wait()
-	})
-
-	t.Run("Test MoveOnGlobe cancellation and errors", func(t *testing.T) {
-		eventChannel, statusChannel := make(chan string), make(chan string, 1)
-		cancelledContextMsg := "context cancelled"
-		hitAnErrorMsg := "hit an error"
-		arrivedAtWaypointMsg := "arrived at destination"
-		invalidStateMsg := "bad message passed to event channel"
-
-		injectMS.MoveOnGlobeFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			destination *geo.Point,
-			heading float64,
-			movementSensorName resource.Name,
-			obstacles []*spatialmath.GeoObstacle,
-			motionCfg *motion.MotionConfiguration,
-			extra map[string]interface{},
-		) (bool, error) {
-			if ctx.Err() != nil {
-				statusChannel <- cancelledContextMsg
-				return false, ctx.Err()
+			executionID := executionIDs[(counter.Inc())]
+			s.Lock()
+			defer s.Unlock()
+			if s.mogrs == nil {
+				s.mogrs = []motion.MoveOnGlobeReq{}
 			}
-			select {
-			case <-ctx.Done():
-				statusChannel <- cancelledContextMsg
-				return false, ctx.Err()
-			case msg := <-eventChannel:
-				var err error
-				if msg == arrivedAtWaypointMsg {
-					err = kinematicBase.GoToInputs(
-						ctx,
-						referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng()}),
-					)
+			s.mogrs = append(s.mogrs, req)
+			s.pws = []motion.PlanWithStatus{
+				{
+					Plan: motion.Plan{
+						ExecutionID: executionID,
+					},
+					StatusHistory: []motion.PlanStatus{
+						{State: motion.PlanStateInProgress},
+					},
+				},
+			}
+			wg.Add(1)
+			utils.ManagedGo(func() {
+				s.Lock()
+				defer s.Unlock()
+				for i, p := range s.pws {
+					if p.Plan.ExecutionID == executionID {
+						succeeded := []motion.PlanStatus{{State: motion.PlanStateSucceeded}}
+						p.StatusHistory = append(succeeded, p.StatusHistory...)
+						s.pws[i] = p
+						return
+					}
 				}
-
-				statusChannel <- msg
-				switch {
-				case msg == hitAnErrorMsg:
-					return false, errors.New(hitAnErrorMsg)
-				case msg == arrivedAtWaypointMsg:
-					return true, err
-				default:
-					// should be unreachable
-					return false, errors.New(invalidStateMsg)
-				}
-			}
+				t.Error("MoveOnGlobeNew called unexpectedly")
+			}, wg.Done)
+			return executionID, nil
 		}
 
-		pt1, pt2, pt3 := geo.NewPoint(1, 2), geo.NewPoint(2, 3), geo.NewPoint(3, 4)
-		points := []*geo.Point{pt1, pt2, pt3}
-		t.Run("MoveOnGlobe error results in skipping the current waypoint", func(t *testing.T) {
-			// Set manual mode to ensure waypoint loop from prior test exits
-			err = ns.SetMode(ctx, navigation.ModeManual, nil)
-			test.That(t, err, test.ShouldBeNil)
-			ctx, cancelFunc := context.WithCancel(ctx)
-			defer ns.(*builtIn).activeBackgroundWorkers.Wait()
-			defer cancelFunc()
-			err = deleteAllWaypoints(ctx, ns)
-			for _, pt := range points {
-				err = ns.AddWaypoint(ctx, pt, nil)
-				test.That(t, err, test.ShouldBeNil)
+		s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
+			if err := ctx.Err(); err != nil {
+				return nil, err
 			}
+			s.RLock()
+			defer s.RUnlock()
+			history := make([]motion.PlanWithStatus, len(s.pws))
+			copy(history, s.pws)
+			return history, nil
+		}
 
-			ns.(*builtIn).startWaypointMode(ctx, nil)
-
-			// Get the ID of the first waypoint
-			wp1, err := ns.(*builtIn).store.NextWaypoint(ctx)
-			test.That(t, err, test.ShouldBeNil)
-
-			// Reach the first waypoint
-			eventChannel <- arrivedAtWaypointMsg
-			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
-			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
-
-			// Ensure we aren't querying before the nav service has a chance to mark the previous waypoint visited.
-			wp2, err := ns.(*builtIn).store.NextWaypoint(ctx)
-			test.That(t, err, test.ShouldBeNil)
-			for wp2.ID == wp1.ID {
-				wp2, err = ns.(*builtIn).store.NextWaypoint(ctx)
-				test.That(t, err, test.ShouldBeNil)
+		s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
+			if err := ctx.Err(); err != nil {
+				return err
 			}
-
-			// Skip the second waypoint due to an error
-			eventChannel <- hitAnErrorMsg
-			test.That(t, <-statusChannel, test.ShouldEqual, hitAnErrorMsg)
-			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
-
-			// Ensure we aren't querying before the nav service has a chance to mark the previous waypoint visited.
-			wp3, err := ns.(*builtIn).store.NextWaypoint(ctx)
-			test.That(t, err, test.ShouldBeNil)
-			for wp3.ID == wp2.ID {
-				wp3, err = ns.(*builtIn).store.NextWaypoint(ctx)
-				test.That(t, err, test.ShouldBeNil)
+			s.Lock()
+			defer s.Unlock()
+			if s.sprs == nil {
+				s.sprs = []motion.StopPlanReq{}
 			}
+			s.sprs = append(s.sprs, req)
+			return nil
+		}
 
-			// Reach the third waypoint
-			eventChannel <- arrivedAtWaypointMsg
-			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
-			currentInputsShouldEqual(ctx, t, kinematicBase, pt3)
-		})
+		pt1 := geo.NewPoint(1, 0)
+		err := s.ns.AddWaypoint(ctx, pt1, nil)
+		test.That(t, err, test.ShouldBeNil)
 
-		// Calling SetMode cancels current and future MoveOnGlobe calls
-		cases := []struct {
-			description string
-			mode        navigation.Mode
-		}{
-			{
-				description: "Calling SetMode manual cancels current and future MoveOnGlobe calls",
-				mode:        navigation.ModeManual,
-			},
-			{
-				description: "Calling SetMode explore cancels current and future MoveOnGlobe calls",
-				mode:        navigation.ModeExplore,
+		pt2 := geo.NewPoint(3, 1)
+		err = s.ns.AddWaypoint(ctx, pt2, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		wps, err := s.ns.Waypoints(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(wps), test.ShouldEqual, 2)
+
+		err = s.ns.SetMode(ctx, navigation.ModeWaypoint, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		expectedMotionCfg := &motion.MotionConfiguration{
+			PositionPollingFreqHz: 2,
+			ObstaclePollingFreqHz: 2,
+			PlanDeviationMM:       1e+12,
+			LinearMPerSec:         1,
+			AngularDegsPerSec:     1,
+			ObstacleDetectors: []motion.ObstacleDetectorName{
+				{
+					VisionServiceName: vision.Named("vision"),
+					CameraName:        camera.Named("camera"),
+				},
 			},
 		}
+		// poll till waypoints is of length 0
+		// query PlanHistory & confirm that you get back UUID 2
+		timeoutCtx, cancelFn := context.WithTimeout(ctx, time.Millisecond*500)
+		defer cancelFn()
+		for {
+			if timeoutCtx.Err() != nil {
+				t.Error("test timed out")
+				t.FailNow()
+			}
+			// once all waypoints have been consumed
+			wps, err := s.ns.Waypoints(ctx, nil)
+			test.That(t, err, test.ShouldBeNil)
+			if len(wps) == 0 {
+				s.RLock()
+				// wait until StopPlan has been called twice
+				if len(s.sprs) == 2 {
+					// MoveOnGlobeNew was called twice, once for each waypoint
+					test.That(t, len(s.mogrs), test.ShouldEqual, 2)
+					test.That(t, s.mogrs[0].ComponentName, test.ShouldResemble, s.base.Name())
+					test.That(t, math.IsNaN(s.mogrs[0].Heading), test.ShouldBeTrue)
+					test.That(t, s.mogrs[0].MovementSensorName, test.ShouldResemble, s.movementSensor.Name())
 
-		for _, tt := range cases {
-			t.Run(tt.description, func(t *testing.T) {
-				// Set manual mode to ensure waypoint loop from prior test exits
-				err = deleteAllWaypoints(ctx, ns)
-				test.That(t, err, test.ShouldBeNil)
-				for _, pt := range points {
-					err = ns.AddWaypoint(ctx, pt, nil)
+					test.That(t, s.mogrs[0].Extra, test.ShouldResemble, map[string]interface{}{
+						"motion_profile": "position_only",
+					})
+					test.That(t, s.mogrs[0].MotionCfg, test.ShouldResemble, expectedMotionCfg)
+					test.That(t, s.mogrs[0].Obstacles, test.ShouldBeNil)
+					// waypoint 1
+					test.That(t, s.mogrs[0].Destination, test.ShouldResemble, pt1)
+
+					test.That(t, s.mogrs[1].ComponentName, test.ShouldResemble, s.base.Name())
+					test.That(t, math.IsNaN(s.mogrs[1].Heading), test.ShouldBeTrue)
+					test.That(t, s.mogrs[1].MovementSensorName, test.ShouldResemble, s.movementSensor.Name())
+					test.That(t, s.mogrs[1].Extra, test.ShouldResemble, map[string]interface{}{
+						"motion_profile": "position_only",
+					})
+					test.That(t, s.mogrs[1].MotionCfg, test.ShouldResemble, expectedMotionCfg)
+					test.That(t, s.mogrs[1].Obstacles, test.ShouldBeNil)
+					// waypoint 2
+					test.That(t, s.mogrs[1].Destination, test.ShouldResemble, pt2)
+
+					// PlanStop called twice, once for each waypoint
+					test.That(t, s.sprs[0].ComponentName, test.ShouldResemble, s.base.Name())
+					test.That(t, s.sprs[1].ComponentName, test.ShouldResemble, s.base.Name())
+
+					// Motion reports that the last execution succeeded
+					ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name()})
 					test.That(t, err, test.ShouldBeNil)
+					test.That(t, len(ph), test.ShouldEqual, 1)
+					test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionIDs[1])
+					test.That(t, len(ph[0].StatusHistory), test.ShouldEqual, 2)
+					test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateSucceeded)
+
+					// paths should be empty after all MoveOnGlobe calls have terminated
+					paths, err := s.ns.Paths(ctx, nil)
+					test.That(t, err, test.ShouldBeNil)
+					test.That(t, paths, test.ShouldBeEmpty)
+					s.RUnlock()
+					break
 				}
+				s.RUnlock()
+			}
+		}
+	})
 
-				// start navigation - set ModeManual first to ensure navigation starts up
-				err = ns.SetMode(ctx, navigation.ModeWaypoint, nil)
+	t.Run("SetMode's extra field is passed to MoveOnGlobe, with the default "+
+		"motion profile of position_only", func(t *testing.T) {
+		s := setupStartWaypoint(ctx, t, logger)
+		defer s.closeFunc()
 
-				// Reach the first waypoint
-				eventChannel <- arrivedAtWaypointMsg
-				test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
-				currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
+		executionID := uuid.New()
+		mogCalled := make(chan struct{}, 1)
+		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+			if err := ctx.Err(); err != nil {
+				return uuid.Nil, err
+			}
 
-				// Change the mode --> stops navigation to waypoints
-				err = ns.SetMode(ctx, tt.mode, nil)
-				test.That(t, err, test.ShouldBeNil)
-				select {
-				case msg := <-statusChannel:
-					test.That(t, msg, test.ShouldEqual, cancelledContextMsg)
-				case <-time.After(5 * time.Second):
-					ns.(*builtIn).activeBackgroundWorkers.Wait()
-				}
-				currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
-			})
+			s.Lock()
+			if s.mogrs == nil {
+				s.mogrs = []motion.MoveOnGlobeReq{}
+			}
+			s.mogrs = append(s.mogrs, req)
+			s.Unlock()
+			mogCalled <- struct{}{}
+			return executionID, nil
 		}
 
-		t.Run("Calling RemoveWaypoint on the waypoint in progress cancels current MoveOnGlobe call", func(t *testing.T) {
-			// Set manual mode to ensure waypoint loop from prior test exits
-			err = ns.SetMode(ctx, navigation.ModeManual, nil)
-			test.That(t, err, test.ShouldBeNil)
-			err = deleteAllWaypoints(ctx, ns)
-			for _, pt := range points {
-				err = ns.AddWaypoint(ctx, pt, nil)
-				test.That(t, err, test.ShouldBeNil)
+		// PlanHistory always reports execution is in progress
+		s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
+			if err := ctx.Err(); err != nil {
+				return nil, err
 			}
+			return []motion.PlanWithStatus{
+				{
+					Plan: motion.Plan{
+						ExecutionID: executionID,
+					},
+					StatusHistory: []motion.PlanStatus{
+						{State: motion.PlanStateInProgress},
+					},
+				},
+			}, nil
+		}
 
-			// start navigation - set ModeManual first to ensure navigation starts up
-			err = ns.SetMode(ctx, navigation.ModeWaypoint, nil)
-
-			// Get the ID of the first waypoint
-			wp1, err := ns.(*builtIn).store.NextWaypoint(ctx)
-			test.That(t, err, test.ShouldBeNil)
-
-			// Reach the first waypoint
-			eventChannel <- arrivedAtWaypointMsg
-			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
-			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
-
-			// Remove the second waypoint, which is in progress. Ensure we aren't querying before the nav service has a chance to mark
-			// the previous waypoint visited.
-			wp2, err := ns.(*builtIn).store.NextWaypoint(ctx)
-			test.That(t, err, test.ShouldBeNil)
-			for wp2.ID == wp1.ID {
-				wp2, err = ns.(*builtIn).store.NextWaypoint(ctx)
-				test.That(t, err, test.ShouldBeNil)
+		s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
+			if err := ctx.Err(); err != nil {
+				return err
 			}
+			return nil
+		}
 
-			// ensure we actually start the wp2 waypoint before removing it
-			testutils.WaitForAssertion(t, func(tb testing.TB) {
-				tb.Helper()
-				ns.(*builtIn).mu.RLock()
-				svcWp := ns.(*builtIn).waypointInProgress
-				ns.(*builtIn).mu.RUnlock()
-				test.That(tb, wp2.ID, test.ShouldEqual, svcWp.ID)
-			})
+		pt1 := geo.NewPoint(1, 0)
+		err := s.ns.AddWaypoint(ctx, pt1, nil)
+		test.That(t, err, test.ShouldBeNil)
 
-			err = ns.RemoveWaypoint(ctx, wp2.ID, nil)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, <-statusChannel, test.ShouldEqual, cancelledContextMsg)
-			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
+		wps, err := s.ns.Waypoints(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(wps), test.ShouldEqual, 1)
 
-			// Reach the third waypoint
-			eventChannel <- arrivedAtWaypointMsg
-			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
-			currentInputsShouldEqual(ctx, t, kinematicBase, pt3)
-		})
+		// SetMode with nil extra
+		err = s.ns.SetMode(ctx, navigation.ModeWaypoint, nil)
+		test.That(t, err, test.ShouldBeNil)
+		<-mogCalled
 
-		t.Run("Calling RemoveWaypoint on a waypoint that is not in progress does not cancel MoveOnGlobe", func(t *testing.T) {
-			// Set manual mode to ensure waypoint loop from prior test exits
-			err = ns.SetMode(ctx, navigation.ModeManual, nil)
-			test.That(t, err, test.ShouldBeNil)
-			err = deleteAllWaypoints(ctx, ns)
-			var wp3 navigation.Waypoint
-			for i, pt := range points {
-				if i < 3 {
-					err = ns.AddWaypoint(ctx, pt, nil)
-					test.That(t, err, test.ShouldBeNil)
-				} else {
-					wp3, err = ns.(*builtIn).store.AddWaypoint(ctx, pt)
-					test.That(t, err, test.ShouldBeNil)
+		err = s.ns.SetMode(ctx, navigation.ModeManual, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		// SetMode with empty map
+		err = s.ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{})
+		test.That(t, err, test.ShouldBeNil)
+		<-mogCalled
+
+		err = s.ns.SetMode(ctx, navigation.ModeManual, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		// SetMode with motion_profile set
+		err = s.ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"some_other": "config_param"})
+		test.That(t, err, test.ShouldBeNil)
+		<-mogCalled
+
+		// poll till s.mogrs has length 3
+		timeoutCtx, cancelFn := context.WithTimeout(ctx, time.Millisecond*500)
+		defer cancelFn()
+		for {
+			if timeoutCtx.Err() != nil {
+				t.Error("test timed out")
+				t.FailNow()
+			}
+			s.RLock()
+			if len(s.mogrs) == 3 {
+				// MoveOnGlobeNew was called twice, once for each waypoint
+				test.That(t, s.mogrs[0].Extra, test.ShouldResemble, map[string]interface{}{
+					"motion_profile": "position_only",
+				})
+				test.That(t, s.mogrs[1].Extra, test.ShouldResemble, map[string]interface{}{
+					"motion_profile": "position_only",
+				})
+				test.That(t, s.mogrs[2].Extra, test.ShouldResemble, map[string]interface{}{
+					"motion_profile": "position_only",
+					"some_other":     "config_param",
+				})
+				s.RUnlock()
+				break
+			}
+			s.RUnlock()
+		}
+	})
+
+	t.Run("motion errors result in retrying the current waypoint", func(t *testing.T) {
+		s := setupStartWaypoint(ctx, t, logger)
+		defer s.closeFunc()
+
+		mogCounter := atomic.NewInt32(-1)
+		planHistoryCounter := atomic.NewInt32(0)
+		var wg sync.WaitGroup
+		executionIDs := []uuid.UUID{
+			uuid.New(),
+			uuid.New(),
+			uuid.New(),
+		}
+		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+			if err := ctx.Err(); err != nil {
+				return uuid.Nil, err
+			}
+			s.Lock()
+			defer s.Unlock()
+			if s.mogrs == nil {
+				s.mogrs = []motion.MoveOnGlobeReq{}
+			}
+			s.mogrs = append(s.mogrs, req)
+
+			// first call returns motion error
+			// second call returns context cancelled
+			// third call returns success
+			count := mogCounter.Inc()
+			switch count {
+			case 0:
+				return uuid.Nil, errors.New("motion error")
+			case 1:
+				return uuid.Nil, context.Canceled
+			case 2, 3, 4:
+				executionID := executionIDs[count-2]
+				s.pws = []motion.PlanWithStatus{
+					{
+						Plan: motion.Plan{
+							ExecutionID: executionID,
+						},
+						StatusHistory: []motion.PlanStatus{
+							{State: motion.PlanStateInProgress},
+						},
+					},
 				}
+				wg.Add(1)
+				utils.ManagedGo(func() {
+					s.Lock()
+					defer s.Unlock()
+					for i, p := range s.pws {
+						if p.Plan.ExecutionID == executionID {
+							succeeded := []motion.PlanStatus{{State: motion.PlanStateSucceeded}}
+							p.StatusHistory = append(succeeded, p.StatusHistory...)
+							s.pws[i] = p
+							return
+						}
+					}
+				}, wg.Done)
+				return executionID, nil
+			default:
+				t.Error("unexpected call to MOG")
+				t.Fail()
+				return uuid.Nil, errors.New("unexpected call to MOG")
+			}
+		}
+
+		s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			switch planHistoryCounter.Inc() {
+			case 1:
+				return nil, errors.New("motion error")
+			case 2:
+				return nil, context.Canceled
+			default:
+				s.RLock()
+				defer s.RUnlock()
+				history := make([]motion.PlanWithStatus, len(s.pws))
+				copy(history, s.pws)
+				return history, nil
+			}
+		}
+
+		s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			s.Lock()
+			defer s.Unlock()
+			if s.sprs == nil {
+				s.sprs = []motion.StopPlanReq{}
+			}
+			s.sprs = append(s.sprs, req)
+			return nil
+		}
+
+		pt1 := geo.NewPoint(1, 0)
+		err := s.ns.AddWaypoint(ctx, pt1, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = s.ns.SetMode(ctx, navigation.ModeWaypoint, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		timeoutCtx, cancelFn := context.WithTimeout(ctx, time.Millisecond*500)
+		defer cancelFn()
+		for {
+			if timeoutCtx.Err() != nil {
+				t.Error("test timed out")
+				t.FailNow()
+			}
+			// once all waypoints have been consumed
+			wps, err := s.ns.Waypoints(ctx, nil)
+			test.That(t, err, test.ShouldBeNil)
+			if len(wps) == 0 {
+				s.RLock()
+				// wait until StopPlan has been called twice
+				if len(s.sprs) == 3 {
+					test.That(t, len(s.mogrs), test.ShouldEqual, 5)
+					test.That(t, s.mogrs[0].Destination, test.ShouldResemble, pt1)
+					test.That(t, s.mogrs[1].Destination, test.ShouldResemble, pt1)
+					test.That(t, s.mogrs[2].Destination, test.ShouldResemble, pt1)
+					test.That(t, s.mogrs[3].Destination, test.ShouldResemble, pt1)
+					test.That(t, s.mogrs[4].Destination, test.ShouldResemble, pt1)
+
+					// // Motion reports that the last execution succeeded
+					ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name()})
+					test.That(t, err, test.ShouldBeNil)
+					test.That(t, len(ph), test.ShouldEqual, 1)
+					test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionIDs[2])
+					test.That(t, len(ph[0].StatusHistory), test.ShouldEqual, 2)
+					test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateSucceeded)
+					s.RUnlock()
+					break
+				}
+				s.RUnlock()
+			}
+		}
+	})
+
+	// Calling SetMode cancels current and future MoveOnGlobe calls
+	cases := []struct {
+		description string
+		mode        navigation.Mode
+	}{
+		{
+			description: "Calling SetMode manual cancels context of current and future motion calls",
+			mode:        navigation.ModeManual,
+		},
+		{
+			description: "Calling SetMode explore cancels context of current and future motion calls",
+			mode:        navigation.ModeExplore,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.description, func(t *testing.T) {
+			s := setupStartWaypoint(ctx, t, logger)
+			defer s.closeFunc()
+
+			executionID := uuid.New()
+			s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+				if err := ctx.Err(); err != nil {
+					return uuid.Nil, err
+				}
+				s.Lock()
+				defer s.Unlock()
+				if s.mogrs == nil {
+					s.mogrs = []motion.MoveOnGlobeReq{}
+				}
+				s.mogrs = append(s.mogrs, req)
+				s.pws = []motion.PlanWithStatus{
+					{
+						Plan: motion.Plan{
+							ExecutionID: executionID,
+						},
+						StatusHistory: []motion.PlanStatus{
+							{State: motion.PlanStateInProgress},
+						},
+					},
+				}
+				return executionID, nil
 			}
 
-			// start navigation - set ModeManual first to ensure navigation starts up
-			err = ns.SetMode(ctx, navigation.ModeWaypoint, nil)
+			counter := atomic.NewInt32(0)
+			modeFlag := make(chan struct{}, 1)
+			s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
+				if err := ctx.Err(); err != nil {
+					return nil, err
+				}
+				s.RLock()
+				defer s.RUnlock()
+				history := make([]motion.PlanWithStatus, len(s.pws))
+				copy(history, s.pws)
+				count := counter.Inc()
+				if count == 2 {
+					modeFlag <- struct{}{}
+				}
+				return history, nil
+			}
 
-			// Reach the first waypoint
-			eventChannel <- arrivedAtWaypointMsg
-			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
-			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
+			s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+				s.Lock()
+				defer s.Unlock()
+				if s.sprs == nil {
+					s.sprs = []motion.StopPlanReq{}
+				}
+				s.sprs = append(s.sprs, req)
+				for i, p := range s.pws {
+					if p.Plan.ExecutionID == executionID {
+						stopped := []motion.PlanStatus{{State: motion.PlanStateStopped}}
+						p.StatusHistory = append(stopped, p.StatusHistory...)
+						s.pws[i] = p
+						return nil
+					}
+				}
+				return nil
+			}
 
-			// Remove the third waypoint, which is not in progress yet
-			err = ns.RemoveWaypoint(ctx, wp3.ID, nil)
+			// Set manual mode to ensure waypoint loop from prior test exits
+			points := []*geo.Point{geo.NewPoint(1, 2), geo.NewPoint(2, 3)}
+			for _, pt := range points {
+				err := s.ns.AddWaypoint(ctx, pt, nil)
+				test.That(t, err, test.ShouldBeNil)
+			}
+			wpBefore, err := s.ns.Waypoints(ctx, nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(wpBefore), test.ShouldEqual, 2)
+			test.That(t, wpBefore[0].ToPoint(), test.ShouldResemble, points[0])
+			test.That(t, wpBefore[1].ToPoint(), test.ShouldResemble, points[1])
+
+			// start navigation - set ModeWaypoint first to ensure navigation starts up
+			err = s.ns.SetMode(ctx, navigation.ModeWaypoint, nil)
 			test.That(t, err, test.ShouldBeNil)
 
-			// Reach the second waypoint
-			eventChannel <- arrivedAtWaypointMsg
-			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
-			currentInputsShouldEqual(ctx, t, kinematicBase, pt2)
+			// wait until MoveOnGlobe has been called & are polling the history
+			<-modeFlag
+
+			// Change the mode --> cancels the context
+			err = s.ns.SetMode(ctx, tt.mode, nil)
+			test.That(t, err, test.ShouldBeNil)
+
+			// observe that no waypoints are deleted
+			wpAfter, err := s.ns.Waypoints(ctx, nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, wpAfter, test.ShouldResemble, wpBefore)
+
+			// check the last state of the execution
+			ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name()})
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(ph), test.ShouldEqual, 1)
+			test.That(t, len(ph[0].StatusHistory), test.ShouldEqual, 2)
+			// The history reports that the terminal state of the execution is stopped
+			test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateStopped)
 		})
+	}
+
+	t.Run("Calling RemoveWaypoint on the waypoint in progress cancels current MoveOnGlobe call", func(t *testing.T) {
+		s := setupStartWaypoint(ctx, t, logger)
+		defer s.closeFunc()
+
+		// we expect 2 executions to be generated
+		executionIDs := []uuid.UUID{
+			uuid.New(),
+			uuid.New(),
+		}
+		counter := atomic.NewInt32(-1)
+		var wg sync.WaitGroup
+		defer wg.Wait()
+		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
+		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+			if err := ctx.Err(); err != nil {
+				return uuid.Nil, err
+			}
+			executionID := executionIDs[(counter.Inc())]
+			s.Lock()
+			defer s.Unlock()
+			if s.mogrs == nil {
+				s.mogrs = []motion.MoveOnGlobeReq{}
+			}
+			s.mogrs = append(s.mogrs, req)
+			s.pws = []motion.PlanWithStatus{
+				{
+					Plan: motion.Plan{
+						ExecutionID: executionID,
+					},
+					StatusHistory: []motion.PlanStatus{
+						{State: motion.PlanStateInProgress},
+					},
+				},
+			}
+			// only succeed for the second execution
+			if executionID == executionIDs[1] {
+				wg.Add(1)
+				utils.ManagedGo(func() {
+					s.Lock()
+					defer s.Unlock()
+					for i, p := range s.pws {
+						if p.Plan.ExecutionID == executionID {
+							succeeded := []motion.PlanStatus{{State: motion.PlanStateSucceeded}}
+							p.StatusHistory = append(succeeded, p.StatusHistory...)
+							s.pws[i] = p
+							return
+						}
+					}
+					t.Error("MoveOnGlobeNew called unexpectedly")
+				}, wg.Done)
+			}
+			return executionID, nil
+		}
+
+		planHistoryCalledCtx, planHistoryCalledCancelFn := context.WithTimeout(ctx, time.Millisecond*500)
+		defer planHistoryCalledCancelFn()
+		s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			s.RLock()
+			defer s.RUnlock()
+			history := make([]motion.PlanWithStatus, len(s.pws))
+			copy(history, s.pws)
+			planHistoryCalledCancelFn()
+			return history, nil
+		}
+
+		s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			s.Lock()
+			defer s.Unlock()
+			if s.sprs == nil {
+				s.sprs = []motion.StopPlanReq{}
+			}
+			s.sprs = append(s.sprs, req)
+			return nil
+		}
+
+		// Set manual mode to ensure waypoint loop from prior test exits
+		points := []*geo.Point{geo.NewPoint(1, 2), geo.NewPoint(2, 3)}
+		for _, pt := range points {
+			err := s.ns.AddWaypoint(ctx, pt, nil)
+			test.That(t, err, test.ShouldBeNil)
+		}
+
+		wps, err := s.ns.Waypoints(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		wp1 := wps[0]
+		// start navigation - set ModeManual first to ensure navigation starts up
+		err = s.ns.SetMode(ctx, navigation.ModeWaypoint, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		// wait for plan history to be called, indicating that MoveOnGlobe is in progress
+		<-planHistoryCalledCtx.Done()
+
+		err = s.ns.RemoveWaypoint(ctx, wp1.ID, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Reach the second waypoint
+		timeoutCtx, cancelFn := context.WithTimeout(ctx, time.Millisecond*1000)
+		defer cancelFn()
+		for {
+			if timeoutCtx.Err() != nil {
+				t.Error("test timed out")
+				t.FailNow()
+			}
+			// once all waypoints have been consumed
+			wps, err := s.ns.Waypoints(ctx, nil)
+			test.That(t, err, test.ShouldBeNil)
+			if len(wps) == 0 {
+				s.RLock()
+				// // MoveOnGlobeNew was called twice, once for each waypoint
+				test.That(t, len(s.mogrs), test.ShouldEqual, 2)
+				// // waypoint 1
+				test.That(t, s.mogrs[0].Destination, test.ShouldResemble, points[0])
+				// // waypoint 2
+				test.That(t, s.mogrs[1].Destination, test.ShouldResemble, points[1])
+				// Motion reports that the last execution succeeded
+				s.RUnlock()
+
+				ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name()})
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, len(ph), test.ShouldEqual, 1)
+				test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionIDs[1])
+				test.That(t, len(ph[0].StatusHistory), test.ShouldEqual, 2)
+				test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateSucceeded)
+				break
+			}
+		}
+	})
+
+	t.Run("Calling RemoveWaypoint on a waypoint that is not in progress does not cancel MoveOnGlobe", func(t *testing.T) {
+		s := setupStartWaypoint(ctx, t, logger)
+		defer s.closeFunc()
+
+		// we expect 2 executions to be generated
+		executionIDs := []uuid.UUID{
+			uuid.New(),
+			uuid.New(),
+		}
+		counter := atomic.NewInt32(-1)
+		var wg sync.WaitGroup
+		defer wg.Wait()
+		pauseMOGSuccess := make(chan struct{})
+		resumeMOGSuccess := make(chan struct{})
+		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
+		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+			if err := ctx.Err(); err != nil {
+				return uuid.Nil, err
+			}
+			executionID := executionIDs[(counter.Inc())]
+			s.Lock()
+			defer s.Unlock()
+			if s.mogrs == nil {
+				s.mogrs = []motion.MoveOnGlobeReq{}
+			}
+			s.mogrs = append(s.mogrs, req)
+			s.pws = []motion.PlanWithStatus{
+				{
+					Plan: motion.Plan{
+						ExecutionID: executionID,
+					},
+					StatusHistory: []motion.PlanStatus{
+						{State: motion.PlanStateInProgress},
+					},
+				},
+			}
+			wg.Add(1)
+			utils.ManagedGo(func() {
+				pauseMOGSuccess <- struct{}{}
+				<-resumeMOGSuccess
+				s.Lock()
+				defer s.Unlock()
+				for i, p := range s.pws {
+					if p.Plan.ExecutionID == executionID {
+						succeeded := []motion.PlanStatus{{State: motion.PlanStateSucceeded}}
+						p.StatusHistory = append(succeeded, p.StatusHistory...)
+						s.pws[i] = p
+						return
+					}
+				}
+				t.Error("MoveOnGlobeNew called unexpectedly")
+			}, wg.Done)
+			return executionID, nil
+		}
+
+		s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			s.RLock()
+			defer s.RUnlock()
+			history := make([]motion.PlanWithStatus, len(s.pws))
+			copy(history, s.pws)
+			return history, nil
+		}
+
+		s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			s.Lock()
+			defer s.Unlock()
+			if s.sprs == nil {
+				s.sprs = []motion.StopPlanReq{}
+			}
+			s.sprs = append(s.sprs, req)
+			return nil
+		}
+
+		// Set manual mode to ensure waypoint loop from prior test exits
+		points := []*geo.Point{geo.NewPoint(1, 2), geo.NewPoint(2, 3)}
+		for _, pt := range points {
+			err := s.ns.AddWaypoint(ctx, pt, nil)
+			test.That(t, err, test.ShouldBeNil)
+		}
+
+		wps, err := s.ns.Waypoints(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		wp2 := wps[1]
+		// start navigation - set ModeManual first to ensure navigation starts up
+		err = s.ns.SetMode(ctx, navigation.ModeWaypoint, nil)
+		test.That(t, err, test.ShouldBeNil)
+		<-pauseMOGSuccess
+
+		err = s.ns.RemoveWaypoint(ctx, wp2.ID, nil)
+		test.That(t, err, test.ShouldBeNil)
+		resumeMOGSuccess <- struct{}{}
+
+		// Reach the second waypoint
+		timeoutCtx, cancelFn := context.WithTimeout(ctx, time.Millisecond*1000)
+		defer cancelFn()
+		for {
+			if timeoutCtx.Err() != nil {
+				t.Error("test timed out")
+				t.FailNow()
+			}
+			// once all waypoints have been consumed
+			wps, err := s.ns.Waypoints(ctx, nil)
+			test.That(t, err, test.ShouldBeNil)
+			if len(wps) == 0 {
+				s.RLock()
+				// // MoveOnGlobeNew was called once with waypoint 1
+				test.That(t, len(s.mogrs), test.ShouldEqual, 1)
+				// // waypoint 1
+				test.That(t, s.mogrs[0].Destination, test.ShouldResemble, points[0])
+				// Motion reports that the last execution succeeded
+				s.RUnlock()
+
+				ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name()})
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, len(ph), test.ShouldEqual, 1)
+				test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionIDs[0])
+				test.That(t, len(ph[0].StatusHistory), test.ShouldEqual, 2)
+				test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateSucceeded)
+				break
+			}
+		}
 	})
 }
 

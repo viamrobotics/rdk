@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -16,6 +17,7 @@ import (
 	goutils "go.viam.com/utils"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager/datacapture"
@@ -181,7 +183,7 @@ func (s *syncer) syncArbitraryFile(f *os.File) {
 			}
 
 			if !isRetryableGRPCError(uploadErr) {
-				if err := moveFailedData(f.Name(), s.captureDir); err != nil {
+				if err := moveFailedData(f.Name(), path.Dir(f.Name())); err != nil {
 					s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error moving corrupted data %s", f.Name()))
 				}
 			}
@@ -240,8 +242,7 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 		return nil
 	}
 	// Don't retry non-retryable errors.
-	s := status.Convert(err)
-	if s.Code() == codes.InvalidArgument {
+	if !isRetryableGRPCError(err) {
 		return err
 	}
 
@@ -277,23 +278,23 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 // returns false so that the data gets moved to the corrupted data directory.
 func isRetryableGRPCError(err error) bool {
 	errStatus := status.Convert(err)
-	return errStatus.Code() != codes.InvalidArgument
+	return errStatus.Code() != codes.InvalidArgument && !errors.Is(err, proto.Error)
 }
 
-// moveFailedData takes any data that could not be synced in the captureDir and
+// moveFailedData takes any data that could not be synced in the parentDir and
 // moves it to a new subdirectory "failed" that will not be synced.
-func moveFailedData(path, captureDir string) error {
-	// Remove the captureDir part of the path to the corrupted data
-	relativePath, err := filepath.Rel(captureDir, path)
+func moveFailedData(path, parentDir string) error {
+	// Remove the parentDir part of the path to the corrupted data
+	relativePath, err := filepath.Rel(parentDir, path)
 	if err != nil {
 		return errors.Wrapf(err, fmt.Sprintf("error getting relative path of corrupted data: %s", path))
 	}
-	// Create a new directory captureDir/corrupted/pathToFile
-	newDir := filepath.Join(captureDir, FailedDir, filepath.Dir(relativePath))
+	// Create a new directory parentDir/corrupted/pathToFile
+	newDir := filepath.Join(parentDir, FailedDir, filepath.Dir(relativePath))
 	if err := os.MkdirAll(newDir, 0o700); err != nil {
 		return errors.Wrapf(err, fmt.Sprintf("error making new directory for corrupted data: %s", path))
 	}
-	// Move the file from captureDir/pathToFile/file.ext to captureDir/corrupted/pathToFile/file.ext
+	// Move the file from parentDir/pathToFile/file.ext to parentDir/corrupted/pathToFile/file.ext
 	newPath := filepath.Join(newDir, filepath.Base(path))
 	if err := os.Rename(path, newPath); err != nil {
 		return errors.Wrapf(err, fmt.Sprintf("error moving corrupted data: %s", path))

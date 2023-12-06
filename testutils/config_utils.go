@@ -1,9 +1,7 @@
 // Package testutils implements test utilities.
 package testutils
 
-import (
-	"go.viam.com/utils"
-)
+import "go.viam.com/rdk/resource"
 
 // FakeConvertedAttributes is a helper for testing if validation works.
 type FakeConvertedAttributes struct {
@@ -14,7 +12,7 @@ type FakeConvertedAttributes struct {
 // in the struct, meant to implement the validator interface in component.go.
 func (convAttr *FakeConvertedAttributes) Validate(path string) ([]string, error) {
 	if convAttr.Thing == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "Thing")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "Thing")
 	}
 	return nil, nil
 }

@@ -7,7 +7,6 @@ import (
 
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor/fake"
 	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
@@ -48,7 +47,7 @@ func TestValidateRTK(t *testing.T) {
 
 		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeError,
-			utils.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
+			resource.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
 	})
 
 	t.Run("invalid config", func(t *testing.T) {
@@ -64,7 +63,7 @@ func TestValidateRTK(t *testing.T) {
 
 		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeError,
-			utils.NewConfigValidationFieldRequiredError(path, "serial_path"))
+			resource.NewConfigValidationFieldRequiredError(path, "serial_path"))
 	})
 }
 

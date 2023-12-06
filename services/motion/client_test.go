@@ -245,10 +245,10 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		t.Run("returns error without calling client if params can't be cast to proto", func(t *testing.T) {
-			injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+			injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 				t.Log("should not be called")
 				t.FailNow()
-				return "", errors.New("should not be reached")
+				return uuid.Nil, errors.New("should not be reached")
 			}
 
 			req := motion.MoveOnGlobeReq{
@@ -261,13 +261,13 @@ func TestClient(t *testing.T) {
 			executionID, err := client.MoveOnGlobeNew(ctx, req)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err, test.ShouldBeError, errors.New("must provide a destination"))
-			test.That(t, executionID, test.ShouldEqual, "")
+			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
 
 		t.Run("returns error if client returns error", func(t *testing.T) {
 			errExpected := errors.New("some client error")
-			injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
-				return "", errExpected
+			injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+				return uuid.Nil, errExpected
 			}
 
 			req := motion.MoveOnGlobeReq{
@@ -280,12 +280,12 @@ func TestClient(t *testing.T) {
 			executionID, err := client.MoveOnGlobeNew(ctx, req)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
-			test.That(t, executionID, test.ShouldEqual, "")
+			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
 
 		t.Run("otherwise returns success with an executionID", func(t *testing.T) {
-			expectedExecutionID := "some execution id"
-			injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+			expectedExecutionID := uuid.New()
+			injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 				return expectedExecutionID, nil
 			}
 
@@ -368,11 +368,9 @@ func TestClient(t *testing.T) {
 		})
 
 		t.Run("otherwise returns a slice of PlanStautsWithID", func(t *testing.T) {
-			planID, err := uuid.NewUUID()
-			test.That(t, err, test.ShouldBeNil)
+			planID := uuid.New()
 
-			executionID, err := uuid.NewUUID()
-			test.That(t, err, test.ShouldBeNil)
+			executionID := uuid.New()
 
 			status := motion.PlanStatus{State: motion.PlanStateInProgress, Timestamp: time.Now().UTC(), Reason: nil}
 
@@ -394,19 +392,16 @@ func TestClient(t *testing.T) {
 		})
 
 		t.Run("supports returning multiple PlanStautsWithID", func(t *testing.T) {
-			planIDA, err := uuid.NewUUID()
-			test.That(t, err, test.ShouldBeNil)
+			planIDA := uuid.New()
 
-			executionIDA, err := uuid.NewUUID()
+			executionIDA := uuid.New()
 			test.That(t, err, test.ShouldBeNil)
 
 			statusA := motion.PlanStatus{State: motion.PlanStateInProgress, Timestamp: time.Now().UTC(), Reason: nil}
 
-			planIDB, err := uuid.NewUUID()
-			test.That(t, err, test.ShouldBeNil)
+			planIDB := uuid.New()
 
-			executionIDB, err := uuid.NewUUID()
-			test.That(t, err, test.ShouldBeNil)
+			executionIDB := uuid.New()
 
 			reason := "failed reason"
 			statusB := motion.PlanStatus{State: motion.PlanStateInProgress, Timestamp: time.Now().UTC(), Reason: &reason}
@@ -458,10 +453,8 @@ func TestClient(t *testing.T) {
 				{base.Named("mybase"): zeroPose},
 			}
 			reason := "some reason"
-			id, err := uuid.NewUUID()
-			test.That(t, err, test.ShouldBeNil)
-			executionID, err := uuid.NewUUID()
-			test.That(t, err, test.ShouldBeNil)
+			id := uuid.New()
+			executionID := uuid.New()
 
 			timeA := time.Now().UTC()
 			timeB := time.Now().UTC()
@@ -491,10 +484,10 @@ func TestClient(t *testing.T) {
 			steps := []motion.PlanStep{{base.Named("mybase"): zeroPose}}
 			reason := "some reason"
 
-			idA, err := uuid.NewUUID()
+			idA := uuid.New()
 			test.That(t, err, test.ShouldBeNil)
 
-			executionID, err := uuid.NewUUID()
+			executionID := uuid.New()
 			test.That(t, err, test.ShouldBeNil)
 
 			timeAA := time.Now().UTC()
@@ -511,7 +504,7 @@ func TestClient(t *testing.T) {
 				{motion.PlanStateInProgress, timeAA, nil},
 			}
 
-			idB, err := uuid.NewUUID()
+			idB := uuid.New()
 			test.That(t, err, test.ShouldBeNil)
 			timeBA := time.Now().UTC()
 			planB := motion.Plan{

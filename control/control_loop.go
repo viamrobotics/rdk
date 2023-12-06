@@ -39,6 +39,7 @@ type Loop struct {
 	cancelCtx               context.Context
 	cancel                  context.CancelFunc
 	running                 bool
+	tuning                  bool
 }
 
 // NewLoop construct a new control loop for a specific endpoint.
@@ -299,4 +300,14 @@ func (l *Loop) Stop() {
 // GetConfig return the control loop config.
 func (l *Loop) GetConfig(ctx context.Context) Config {
 	return l.cfg
+}
+
+// GetTuning returns the current tuning value.
+func (l *Loop) GetTuning(ctx context.Context) bool {
+	return l.tuning
+}
+
+// SetTuning sets the tuning variable.
+func (l *Loop) SetTuning(ctx context.Context, val bool) {
+	l.tuning = val
 }

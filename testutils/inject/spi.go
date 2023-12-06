@@ -1,17 +1,17 @@
 package inject
 
 import (
-	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 )
 
 // SPI is an injected SPI.
 type SPI struct {
-	board.SPI
-	OpenHandleFunc func() (board.SPIHandle, error)
+	buses.SPI
+	OpenHandleFunc func() (buses.SPIHandle, error)
 }
 
 // OpenHandle calls the injected OpenHandle or the real version.
-func (s *SPI) OpenHandle() (board.SPIHandle, error) {
+func (s *SPI) OpenHandle() (buses.SPIHandle, error) {
 	if s.OpenHandleFunc == nil {
 		return s.SPI.OpenHandle()
 	}

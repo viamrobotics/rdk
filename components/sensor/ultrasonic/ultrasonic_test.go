@@ -48,15 +48,15 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 func TestValidate(t *testing.T) {
 	fakecfg := &Config{}
 	_, err := fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"path\": \"board\" is required")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "board")
 
 	fakecfg.Board = board1
 	_, err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"path\": \"trigger pin\" is required")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "trigger pin")
 
 	fakecfg.TriggerPin = triggerPin
 	_, err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"path\": \"echo interrupt pin\" is required")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "echo interrupt pin")
 
 	fakecfg.EchoInterrupt = echoInterrupt
 	_, err = fakecfg.Validate("path")

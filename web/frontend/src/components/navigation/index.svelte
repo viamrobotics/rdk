@@ -132,6 +132,7 @@ const handleDeleteWaypoint = async (event: CustomEvent<string>) => {
           [navigationApi.Mode.MODE_UNSPECIFIED]: '',
           [navigationApi.Mode.MODE_MANUAL]: 'Manual',
           [navigationApi.Mode.MODE_WAYPOINT]: 'Waypoint',
+          [navigationApi.Mode.MODE_EXPLORE]: 'Explore',
         }[$mode ?? navigationApi.Mode.MODE_UNSPECIFIED]}
         on:input={handleModeSelect}
       />

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	geo "github.com/kellydunn/golang-geo"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/navigation/v1"
 	"go.viam.com/test"
@@ -16,12 +17,13 @@ func TestPaths(t *testing.T) {
 	t.Parallel()
 	t.Run("convert to and from proto", func(t *testing.T) {
 		t.Parallel()
-		path, err := navigation.NewPath("test", []*geo.Point{geo.NewPoint(0, 0)})
+		id := primitive.NewObjectID()
+		path, err := navigation.NewPath(id, []*geo.Point{geo.NewPoint(0, 0)})
 		test.That(t, err, test.ShouldBeNil)
 
 		// create valid pb.path
 		pbPath := &pb.Path{
-			DestinationWaypointId: "test",
+			DestinationWaypointId: id.Hex(),
 			Geopoints:             []*commonpb.GeoPoint{{Latitude: 0, Longitude: 0}},
 		}
 
@@ -38,7 +40,7 @@ func TestPaths(t *testing.T) {
 
 	t.Run("creating invalid path", func(t *testing.T) {
 		t.Parallel()
-		shouldBeNil, err := navigation.NewPath("test", nil)
+		shouldBeNil, err := navigation.NewPath(primitive.NewObjectID(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, shouldBeNil, test.ShouldBeNil)
 	})
@@ -52,6 +54,19 @@ func TestPaths(t *testing.T) {
 
 	t.Run("converting slice of pb path with nil geoPoints", func(t *testing.T) {
 		t.Parallel()
+		id := primitive.NewObjectID()
+		malformedPath := []*pb.Path{
+			{
+				DestinationWaypointId: id.Hex(),
+				Geopoints:             nil,
+			},
+		}
+		_, err := navigation.ProtoSliceToPaths(malformedPath)
+		test.That(t, err, test.ShouldBeError, errors.New("cannot instantiate path with no geoPoints"))
+	})
+
+	t.Run("invalid DestinationWaypointId", func(t *testing.T) {
+		t.Parallel()
 		malformedPath := []*pb.Path{
 			{
 				DestinationWaypointId: "malformed",
@@ -59,7 +74,7 @@ func TestPaths(t *testing.T) {
 			},
 		}
 		_, err := navigation.ProtoSliceToPaths(malformedPath)
-		test.That(t, err, test.ShouldBeError, errors.New("cannot instantiate path with no geoPoints"))
+		test.That(t, err, test.ShouldBeError, errors.New("the provided hex string is not a valid ObjectID"))
 	})
 
 	t.Run("converting slice of pb path with nil id", func(t *testing.T) {
@@ -71,6 +86,6 @@ func TestPaths(t *testing.T) {
 			},
 		}
 		_, err := navigation.ProtoSliceToPaths(malformedPath)
-		test.That(t, err, test.ShouldBeError, errors.New("cannot instantiate path with no destinationWaypointID"))
+		test.That(t, err, test.ShouldBeError, errors.New("the provided hex string is not a valid ObjectID"))
 	})
 }

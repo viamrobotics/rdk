@@ -322,7 +322,10 @@ func (e *Encoder) RawPosition() int64 {
 
 // Close shuts down the Encoder.
 func (e *Encoder) Close(ctx context.Context) error {
+	e.logger.Info("closing encoder")
 	e.cancelFunc()
+	e.logger.Info("cancelled context")
 	e.activeBackgroundWorkers.Wait()
+	e.logger.Info("background workers done")
 	return nil
 }

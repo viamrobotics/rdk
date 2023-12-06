@@ -3,6 +3,7 @@ package motion
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -34,7 +35,7 @@ func init() {
 type PlanHistoryReq struct {
 	ComponentName resource.Name
 	LastPlanOnly  bool
-	ExecutionID   uuid.UUID
+	ExecutionID   ExecutionID
 	Extra         map[string]interface{}
 }
 
@@ -49,6 +50,28 @@ type MoveOnGlobeReq struct {
 	Obstacles          []*spatialmath.GeoObstacle
 	MotionCfg          *MotionConfiguration
 	Extra              map[string]interface{}
+}
+
+func (r MoveOnGlobeReq) String() string {
+	template := "motion.MoveOnGlobeReq{ComponentName: %s, " +
+		"Destination: %+v, Heading: %f, MovementSensorName: %s, " +
+		"Obstacles: %v, MotionCfg: %#v, Extra: %s}"
+	return fmt.Sprintf(template,
+		r.ComponentName,
+		r.Destination,
+		r.Heading,
+		r.MovementSensorName,
+		r.Obstacles,
+		r.MotionCfg,
+		r.Extra)
+}
+
+// MoveOnMapReq describes a request to MoveOnMap.
+type MoveOnMapReq struct {
+	ComponentName resource.Name
+	Destination   spatialmath.Pose
+	SlamName      resource.Name
+	Extra         map[string]interface{}
 }
 
 // StopPlanReq describes the request to the StopPlan interface method.
@@ -76,9 +99,9 @@ type PlanStep map[resource.Name]spatialmath.Pose
 // Has a unique ID, ComponentName, ExecutionID and a sequence of Steps
 // which can be executed to follow the plan.
 type Plan struct {
-	ID            uuid.UUID
+	ID            PlanID
 	ComponentName resource.Name
-	ExecutionID   uuid.UUID
+	ExecutionID   ExecutionID
 	Steps         []PlanStep
 }
 
@@ -102,13 +125,27 @@ const (
 	PlanStateFailed
 )
 
+// TerminalStateSet is a set that defines the PlanState values which are terminal
+// i.e. which represent the end of a plan.
+var TerminalStateSet = map[PlanState]struct{}{
+	PlanStateStopped:   {},
+	PlanStateSucceeded: {},
+	PlanStateFailed:    {},
+}
+
+// PlanID uniquely identifies a Plan.
+type PlanID = uuid.UUID
+
+// ExecutionID uniquely identifies an execution.
+type ExecutionID = uuid.UUID
+
 // PlanStatusWithID describes the state of a given plan at a
 // point in time plus the PlanId, ComponentName and ExecutionID
 // the status is associated with.
 type PlanStatusWithID struct {
-	PlanID        uuid.UUID
+	PlanID        PlanID
 	ComponentName resource.Name
-	ExecutionID   uuid.UUID
+	ExecutionID   ExecutionID
 	Status        PlanStatus
 }
 
@@ -159,7 +196,7 @@ type Service interface {
 	MoveOnGlobeNew(
 		ctx context.Context,
 		req MoveOnGlobeReq,
-	) (string, error)
+	) (ExecutionID, error)
 	GetPose(
 		ctx context.Context,
 		componentName resource.Name,

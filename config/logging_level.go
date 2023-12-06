@@ -28,8 +28,10 @@ func InitLoggingSettings(logger logging.Logger, cmdLineDebugFlag bool) {
 	globalLogger.cmdLineDebugFlag = cmdLineDebugFlag
 	if cmdLineDebugFlag {
 		logging.GlobalLogLevel.SetLevel(zapcore.DebugLevel)
+		logger.SetLevel(logging.DEBUG)
 	} else {
 		logging.GlobalLogLevel.SetLevel(zapcore.InfoLevel)
+		logger.SetLevel(logging.INFO)
 	}
 	globalLogger.logger.Info("Log level initialized: ", logging.GlobalLogLevel.Level())
 }

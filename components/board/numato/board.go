@@ -26,7 +26,6 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("numato")
@@ -35,9 +34,8 @@ var errNoBoard = errors.New("no numato boards found")
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	Analogs    []board.AnalogReaderConfig `json:"analogs,omitempty"`
-	Attributes rdkutils.AttributeMap      `json:"attributes,omitempty"`
-	Pins       int                        `json:"pins"`
+	Analogs []board.AnalogReaderConfig `json:"analogs,omitempty"`
+	Pins    int                        `json:"pins"`
 }
 
 func init() {
@@ -63,6 +61,10 @@ func init() {
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
+	if conf.Pins <= 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "pins")
+	}
+
 	for idx, conf := range conf.Analogs {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
 			return nil, err
@@ -227,16 +229,6 @@ func (b *numatoBoard) readThread() {
 	}
 }
 
-// SPIByName returns an SPI bus by name.
-func (b *numatoBoard) SPIByName(name string) (board.SPI, bool) {
-	return nil, false
-}
-
-// I2CByName returns an I2C bus by name.
-func (b *numatoBoard) I2CByName(name string) (board.I2C, bool) {
-	return nil, false
-}
-
 // AnalogReaderByName returns an analog reader by name.
 func (b *numatoBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	ar, ok := b.analogs[name]
@@ -246,16 +238,6 @@ func (b *numatoBoard) AnalogReaderByName(name string) (board.AnalogReader, bool)
 // DigitalInterruptByName returns a digital interrupt by name.
 func (b *numatoBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	return nil, false
-}
-
-// SPINames returns the names of all known SPI busses.
-func (b *numatoBoard) SPINames() []string {
-	return nil
-}
-
-// I2CNames returns the names of all known I2C busses.
-func (b *numatoBoard) I2CNames() []string {
-	return nil
 }
 
 // AnalogReaderNames returns the names of all known analog readers.
@@ -269,11 +251,6 @@ func (b *numatoBoard) AnalogReaderNames() []string {
 
 // DigitalInterruptNames returns the names of all known digital interrupts.
 func (b *numatoBoard) DigitalInterruptNames() []string {
-	return nil
-}
-
-// GPIOPinNames returns the names of all known GPIO pins.
-func (b *numatoBoard) GPIOPinNames() []string {
 	return nil
 }
 
@@ -336,11 +313,6 @@ func (b *numatoBoard) Status(ctx context.Context, extra map[string]interface{}) 
 	return board.CreateStatus(ctx, b, extra)
 }
 
-// ModelAttributes returns attributes related to the model of this board.
-func (b *numatoBoard) ModelAttributes() board.ModelAttributes {
-	return board.ModelAttributes{}
-}
-
 func (b *numatoBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
 	return grpc.UnimplementedError
 }
@@ -393,11 +365,8 @@ func (ar *analogReader) Close(ctx context.Context) error {
 	return nil
 }
 
-func connect(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (board.LocalBoard, error) {
+func connect(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (board.Board, error) {
 	pins := conf.Pins
-	if pins <= 0 {
-		return nil, errors.New("numato board needs pins set in attributes")
-	}
 
 	filter := serial.SearchFilter{Type: serial.TypeNumatoGPIO}
 	devs := serial.Search(filter)

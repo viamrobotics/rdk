@@ -121,7 +121,7 @@ func (p *basicPID) reset() error {
 		p.satLimLo = p.cfg.Attribute["int_sat_lim_lo"].(float64)
 	}
 
-	//  zero float64 for this value is default in the pid struct
+	// zero float64 for this value is default in the pid struct
 	// by golang
 	if p.cfg.Attribute.Has("limit_lo") {
 		p.limLo = p.cfg.Attribute["limit_lo"].(float64)
