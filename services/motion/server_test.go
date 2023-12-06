@@ -157,79 +157,79 @@ func TestServerMoveOnGlobeNew(t *testing.T) {
 			Destination:        &commonpb.GeoPoint{Latitude: 0.0, Longitude: 0.0},
 			MovementSensorName: protoutils.ResourceNameToProto(movementsensor.Named("test-gps")),
 		}
-		injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+		injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			t.Log("should not be called")
 			t.FailNow()
 			return uuid.Nil, errors.New("should not be called")
 		}
 
-		moveOnGlobeNewResponse, err := server.MoveOnGlobeNew(context.Background(), moveOnGlobeNewRequest)
+		moveOnGlobeResponse, err := server.MoveOnGlobe(context.Background(), moveOnGlobeRequest)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/\" not found"))
-		test.That(t, moveOnGlobeNewResponse, test.ShouldBeNil)
+		test.That(t, moveOnGlobeResponse, test.ShouldBeNil)
 	})
 
-	t.Run("returns error if destination is nil without calling MoveOnGlobeNew", func(t *testing.T) {
-		moveOnGlobeNewRequest := &pb.MoveOnGlobeNewRequest{
+	t.Run("returns error if destination is nil without calling MoveOnGlobe", func(t *testing.T) {
+		moveOnGlobeRequest := &pb.MoveOnGlobeRequest{
 			Name:               testMotionServiceName.ShortName(),
 			ComponentName:      protoutils.ResourceNameToProto(base.Named("test-base")),
 			MovementSensorName: protoutils.ResourceNameToProto(movementsensor.Named("test-gps")),
 		}
-		injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+		injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			t.Log("should not be called")
 			t.FailNow()
 			return uuid.Nil, errors.New("should not be called")
 		}
 
-		moveOnGlobeNewResponse, err := server.MoveOnGlobeNew(context.Background(), moveOnGlobeNewRequest)
+		moveOnGlobeResponse, err := server.MoveOnGlobe(context.Background(), moveOnGlobeRequest)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeError, errors.New("must provide a destination"))
-		test.That(t, moveOnGlobeNewResponse, test.ShouldBeNil)
+		test.That(t, moveOnGlobeResponse, test.ShouldBeNil)
 	})
 
-	validMoveOnGlobeNewRequest := &pb.MoveOnGlobeNewRequest{
+	validMoveOnGlobeRequest := &pb.MoveOnGlobeRequest{
 		Name:               testMotionServiceName.ShortName(),
 		ComponentName:      protoutils.ResourceNameToProto(base.Named("test-base")),
 		Destination:        &commonpb.GeoPoint{Latitude: 0.0, Longitude: 0.0},
 		MovementSensorName: protoutils.ResourceNameToProto(movementsensor.Named("test-gps")),
 	}
 
-	t.Run("returns error when MoveOnGlobeNew returns an error", func(t *testing.T) {
+	t.Run("returns error when MoveOnGlobe returns an error", func(t *testing.T) {
 		notYetImplementedErr := errors.New("Not yet implemented")
 
-		injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+		injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			return uuid.Nil, notYetImplementedErr
 		}
-		moveOnGlobeNewResponse, err := server.MoveOnGlobeNew(context.Background(), validMoveOnGlobeNewRequest)
+		moveOnGlobeResponse, err := server.MoveOnGlobe(context.Background(), validMoveOnGlobeRequest)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, notYetImplementedErr.Error())
-		test.That(t, moveOnGlobeNewResponse, test.ShouldBeNil)
+		test.That(t, moveOnGlobeResponse, test.ShouldBeNil)
 	})
 
 	t.Run("sets heading to NaN if nil in request", func(t *testing.T) {
 		firstExecutionID := uuid.New()
 		secondExecutionID := uuid.New()
-		injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+		injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			test.That(t, math.IsNaN(req.Heading), test.ShouldBeTrue)
 			return firstExecutionID, nil
 		}
-		moveOnGlobeNewResponse, err := server.MoveOnGlobeNew(context.Background(), validMoveOnGlobeNewRequest)
+		moveOnGlobeResponse, err := server.MoveOnGlobe(context.Background(), validMoveOnGlobeRequest)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, moveOnGlobeNewResponse.ExecutionId, test.ShouldEqual, firstExecutionID.String())
+		test.That(t, moveOnGlobeResponse.ExecutionId, test.ShouldEqual, firstExecutionID.String())
 
 		reqHeading := 6.
-		injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+		injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			test.That(t, req.Heading, test.ShouldAlmostEqual, reqHeading)
 			return secondExecutionID, nil
 		}
 
-		validMoveOnGlobeNewRequest.Heading = &reqHeading
-		moveOnGlobeNewResponse, err = server.MoveOnGlobeNew(context.Background(), validMoveOnGlobeNewRequest)
+		validMoveOnGlobeRequest.Heading = &reqHeading
+		moveOnGlobeResponse, err = server.MoveOnGlobe(context.Background(), validMoveOnGlobeRequest)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, moveOnGlobeNewResponse.ExecutionId, test.ShouldEqual, secondExecutionID.String())
+		test.That(t, moveOnGlobeResponse.ExecutionId, test.ShouldEqual, secondExecutionID.String())
 	})
 
-	t.Run("returns success when MoveOnGlobeNew returns success", func(t *testing.T) {
+	t.Run("returns success when MoveOnGlobe returns success", func(t *testing.T) {
 		expectedComponentName := base.Named("test-base")
 		expectedMovSensorName := movementsensor.Named("test-gps")
 		reqHeading := 3.
@@ -270,7 +270,7 @@ func TestServerMoveOnGlobeNew(t *testing.T) {
 			},
 		}
 
-		moveOnGlobeNewRequest := &pb.MoveOnGlobeNewRequest{
+		moveOnGlobeRequest := &pb.MoveOnGlobeRequest{
 			Name:               testMotionServiceName.ShortName(),
 			Heading:            &reqHeading,
 			ComponentName:      protoutils.ResourceNameToProto(expectedComponentName),
@@ -288,7 +288,7 @@ func TestServerMoveOnGlobeNew(t *testing.T) {
 		}
 
 		firstExecutionID := uuid.New()
-		injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+		injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			test.That(t, req.ComponentName, test.ShouldResemble, expectedComponentName)
 			test.That(t, req.Destination, test.ShouldNotBeNil)
 			test.That(t, req.Destination, test.ShouldResemble, geo.NewPoint(1, 2))
@@ -309,9 +309,9 @@ func TestServerMoveOnGlobeNew(t *testing.T) {
 			test.That(t, req.MotionCfg.ObstacleDetectors[1].CameraName, test.ShouldResemble, camera.Named("camera 2"))
 			return firstExecutionID, nil
 		}
-		moveOnGlobeNewResponse, err := server.MoveOnGlobeNew(context.Background(), moveOnGlobeNewRequest)
+		moveOnGlobeResponse, err := server.MoveOnGlobe(context.Background(), moveOnGlobeRequest)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, moveOnGlobeNewResponse.ExecutionId, test.ShouldEqual, firstExecutionID.String())
+		test.That(t, moveOnGlobeResponse.ExecutionId, test.ShouldEqual, firstExecutionID.String())
 	})
 }
 

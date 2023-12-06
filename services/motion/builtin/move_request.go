@@ -480,7 +480,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	// construct limits
 	straightlineDistance := goalPoseRaw.Point().Norm()
 	if straightlineDistance > maxTravelDistanceMM {
-		return nil, fmt.Errorf("cannot move more than %d kilometers", int(maxTravelDistanceMM*1e-6))
+		return nil, errMaxTravelDistance
 	}
 	limits := []referenceframe.Limit{
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},

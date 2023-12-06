@@ -543,7 +543,7 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 	}
 	cancelCtx, cancelFn := context.WithCancel(ctx)
 	defer cancelFn()
-	executionID, err := svc.motionService.MoveOnGlobeNew(cancelCtx, req)
+	executionID, err := svc.motionService.MoveOnGlobe(cancelCtx, req)
 	if err != nil {
 		return err
 	}
