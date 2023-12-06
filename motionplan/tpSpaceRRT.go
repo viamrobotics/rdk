@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	defaultAutoBB = 0.8 // Automatic bounding box on driveable area as a multiple of start-goal distance
+	defaultAutoBB = 1.8 // Automatic bounding box on driveable area as a multiple of start-goal distance
 	// Note: while fully holonomic planners can use the limits of the frame as implicit boundaries, with non-holonomic motion
 	// this is not the case, and the total workspace available to the planned frame is not directly related to the motion available
 	// from a single set of inputs.
@@ -283,7 +283,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	var randPosNode node = midptNode
 
 	//~ for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
-	for iter := 0; iter < 1; iter++ {
+	for iter := 0; iter < 10; iter++ {
 		mp.logger.Debugf("TP Space RRT iteration %d", iter)
 		fmt.Println("rrt goal", spatialmath.PoseToProtobuf(randPosNode.Pose()))
 		if ctx.Err() != nil {
@@ -317,7 +317,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			return
 		}
 
-		if seedReached.node != nil && goalReached.node != nil {
+		if seedReached.node != nil && goalReached.node != nil && false{
 			reachedDelta := mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: seedReached.node.Pose(), EndPosition: goalReached.node.Pose()})
 			if reachedDelta > mp.algOpts.poseSolveDist {
 				// If both maps extended, but did not reach the same point, then attempt to extend them towards each other
@@ -352,7 +352,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				return
 			}
 		}
-		if iter%mp.algOpts.attemptSolveEvery == 100 {
+		if iter%mp.algOpts.attemptSolveEvery == 0 && false{
 			// Attempt a solve; we iterate through our goal tree and attempt to find any connection to the seed tree
 			paths := [][]node{}
 			attempts := 0

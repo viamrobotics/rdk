@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"strings"
 	"sync"
-	"fmt"
 
 	"github.com/go-nlopt/nlopt"
 	"github.com/pkg/errors"
@@ -206,7 +205,6 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 			solutionRaw, result, nloptErr := opt.Optimize(referenceframe.InputsToFloats(startingPos))
-			fmt.Println("nlopt got", solutionRaw, result, nloptErr)
 			solveChan <- &optimizeReturn{solutionRaw, result, nloptErr}
 		})
 		select {
@@ -224,10 +222,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			// Ignore it, something else will find a solution
 			err = multierr.Combine(err, nloptErr)
 		}
-		inputs := referenceframe.FloatsToInputs(solutionRaw)
-		eePos, err := ik.model.Transform(inputs)
-		//~ fmt.Println("solution, score", solutionRaw, result, eePos.Point())
-		fmt.Println("solution, score", solutionRaw, result, nloptErr)
+		//~ fmt.Println("solution, score", solutionRaw, result, nloptErr)
 
 		if result < ik.epsilon || (solutionRaw != nil && !ik.exact) {
 			select {
