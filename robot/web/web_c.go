@@ -22,7 +22,6 @@ import (
 	"go.viam.com/rdk/robot"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	webstream "go.viam.com/rdk/robot/web/stream"
-	rutils "go.viam.com/rdk/utils"
 )
 
 // StreamServer manages streams and displays.
@@ -239,10 +238,8 @@ func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuning
 }
 
 func (svc *webService) startVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
-	// Honor ctx that may be coming from a Reconfigure.
-	ctxWithJPEGHint := gostream.WithMIMETypeHint(ctx, rutils.WithLazyMIMEType(rutils.MimeTypeJPEG))
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
-		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctxWithJPEGHint)
+		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
 		return webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
 	})
 }

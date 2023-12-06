@@ -89,8 +89,9 @@ func WithMIMETypeHint(ctx context.Context, mimeType string) context.Context {
 // MIMETypeHint gets the hint of what MIME type to use in encoding; if nothing is
 // set, the default provided is used.
 func MIMETypeHint(ctx context.Context, defaultType string) string {
-	if val, ok := ctx.Value(contextValueMIMETypeHint).(string); ok {
-		return val
+	val, ok := ctx.Value(contextValueMIMETypeHint).(string)
+	if !ok || val == "" {
+		return defaultType
 	}
-	return defaultType
+	return val
 }

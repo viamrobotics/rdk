@@ -12,10 +12,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
-	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -34,15 +32,15 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if conf.BusName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "bus_name")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "bus_name")
 	}
 
 	if conf.I2CAddress == nil {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_address")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "i2c_address")
 	}
 
 	if conf.MaxReadBits == nil {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "max_read_bits")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "max_read_bits")
 	}
 
 	return deps, nil
@@ -72,7 +70,7 @@ type Ezopmp struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
-	bus         board.I2C
+	bus         buses.I2C
 	I2CAddress  byte
 	maxReadBits int
 	logger      logging.Logger
@@ -95,7 +93,7 @@ const (
 func NewMotor(ctx context.Context, deps resource.Dependencies, c *Config, name resource.Name,
 	logger logging.Logger,
 ) (motor.Motor, error) {
-	bus, err := genericlinux.NewI2cBus(c.BusName)
+	bus, err := buses.NewI2cBus(c.BusName)
 	if err != nil {
 		return nil, err
 	}

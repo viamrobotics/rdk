@@ -18,31 +18,17 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // A Config describes the configuration of a fake board and all of its connected parts.
 type Config struct {
-	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
-	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
 	AnalogReaders     []board.AnalogReaderConfig     `json:"analogs,omitempty"`
 	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
-	Attributes        rdkutils.AttributeMap          `json:"attributes,omitempty"`
 	FailNew           bool                           `json:"fail_new"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
-	for idx, conf := range conf.SPIs {
-		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "spis", idx)); err != nil {
-			return nil, err
-		}
-	}
-	for idx, conf := range conf.I2Cs {
-		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "i2cs", idx)); err != nil {
-			return nil, err
-		}
-	}
 	for idx, conf := range conf.AnalogReaders {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
 			return nil, err
@@ -83,8 +69,6 @@ func init() {
 func NewBoard(ctx context.Context, conf resource.Config, logger logging.Logger) (*Board, error) {
 	b := &Board{
 		Named:         conf.ResourceName().AsNamed(),
-		I2Cs:          map[string]*I2C{},
-		SPIs:          map[string]*SPI{},
 		AnalogReaders: map[string]*AnalogReader{},
 		Digitals:      map[string]*DigitalInterruptWrapper{},
 		GPIOPins:      map[string]*GPIOPin{},
@@ -111,41 +95,6 @@ func (b *Board) processConfig(conf resource.Config) error {
 	b.GPIOPins = map[string]*GPIOPin{}
 
 	stillExists := map[string]struct{}{}
-	for _, c := range newConf.I2Cs {
-		stillExists[c.Name] = struct{}{}
-		if curr, ok := b.I2Cs[c.Name]; ok {
-			if curr.bus != c.Bus {
-				curr.reset(c.Bus)
-			}
-			continue
-		}
-		b.I2Cs[c.Name] = newI2C(c.Bus)
-	}
-	for name := range b.I2Cs {
-		if _, ok := stillExists[name]; ok {
-			continue
-		}
-		delete(b.I2Cs, name)
-	}
-	stillExists = map[string]struct{}{}
-
-	for _, c := range newConf.SPIs {
-		stillExists[c.Name] = struct{}{}
-		if curr, ok := b.SPIs[c.Name]; ok {
-			if curr.busSelect != c.BusSelect {
-				curr.reset(c.BusSelect)
-			}
-			continue
-		}
-		b.SPIs[c.Name] = newSPI(c.BusSelect)
-	}
-	for name := range b.SPIs {
-		if _, ok := stillExists[name]; ok {
-			continue
-		}
-		delete(b.SPIs, name)
-	}
-	stillExists = map[string]struct{}{}
 
 	for _, c := range newConf.AnalogReaders {
 		stillExists[c.Name] = struct{}{}
@@ -200,8 +149,6 @@ type Board struct {
 	resource.Named
 
 	mu            sync.RWMutex
-	SPIs          map[string]*SPI
-	I2Cs          map[string]*I2C
 	AnalogReaders map[string]*AnalogReader
 	Digitals      map[string]*DigitalInterruptWrapper
 	GPIOPins      map[string]*GPIOPin
@@ -272,8 +219,10 @@ func (b *Board) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *t
 	return grpc.UnimplementedError
 }
 
-// WriteAnalog writes the value to the given pin.
+// WriteAnalog writes the value to the given pin, which can be read back by adding it to AnalogReaders.
 func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+	alg := &AnalogReader{pin: pin, Value: int(value)}
+	b.AnalogReaders[pin] = alg
 	return nil
 }
 
@@ -292,119 +241,6 @@ func (b *Board) Close(ctx context.Context) error {
 		err = multierr.Combine(err, digital.Close(ctx))
 	}
 	return err
-}
-
-// A SPI allows opening an SPIHandle.
-type SPI struct {
-	FIFO chan []byte
-
-	mu        sync.Mutex
-	busSelect string
-}
-
-func newSPI(busSelect string) *SPI {
-	return &SPI{busSelect: busSelect}
-}
-
-func (s *SPI) reset(busSelect string) {
-	s.mu.Lock()
-	s.busSelect = busSelect
-	s.mu.Unlock()
-}
-
-// OpenHandle opens a handle to perform SPI transfers that must be later closed to release access to the bus.
-func (s *SPI) OpenHandle() (board.SPIHandle, error) {
-	s.mu.Lock()
-	return &SPIHandle{s}, nil
-}
-
-// Close does nothing.
-func (s *SPI) Close(ctx context.Context) error {
-	return nil
-}
-
-// A SPIHandle allows Xfer and Close.
-type SPIHandle struct {
-	bus *SPI
-}
-
-// Xfer transfers the given data.
-func (h *SPIHandle) Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error) {
-	h.bus.FIFO <- tx
-	ret := <-h.bus.FIFO
-	return ret[:len(tx)], nil
-}
-
-// Close releases access to the bus.
-func (h *SPIHandle) Close() error {
-	h.bus.mu.Unlock()
-	return nil
-}
-
-// A I2C allows opening an I2CHandle.
-type I2C struct {
-	fifo chan []byte
-
-	mu  sync.Mutex
-	bus string
-}
-
-func newI2C(bus string) *I2C {
-	return &I2C{bus: bus}
-}
-
-func (s *I2C) reset(bus string) {
-	s.mu.Lock()
-	s.bus = bus
-	s.mu.Unlock()
-}
-
-// OpenHandle opens a handle to perform I2C transfers that must be later closed to release access to the bus.
-func (s *I2C) OpenHandle(addr byte) (board.I2CHandle, error) {
-	s.mu.Lock()
-	return &I2CHandle{s, addr}, nil
-}
-
-// A I2CHandle allows read/write and Close.
-type I2CHandle struct {
-	bus  *I2C
-	addr byte
-}
-
-func (h *I2CHandle) Write(ctx context.Context, tx []byte) error {
-	h.bus.fifo <- tx
-	return nil
-}
-
-func (h *I2CHandle) Read(ctx context.Context, count int) ([]byte, error) {
-	ret := <-h.bus.fifo
-	return ret[:count], nil
-}
-
-// ReadByteData reads a byte from the i2c channel.
-func (h *I2CHandle) ReadByteData(ctx context.Context, register byte) (byte, error) {
-	return 0, errors.New("finish me")
-}
-
-// WriteByteData writes a byte to the i2c channel.
-func (h *I2CHandle) WriteByteData(ctx context.Context, register, data byte) error {
-	return errors.New("finish me")
-}
-
-// ReadBlockData reads the given number of bytes from the i2c channel.
-func (h *I2CHandle) ReadBlockData(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
-	return nil, errors.New("finish me")
-}
-
-// WriteBlockData writes the given bytes to the i2c channel.
-func (h *I2CHandle) WriteBlockData(ctx context.Context, register byte, data []byte) error {
-	return errors.New("finish me")
-}
-
-// Close releases access to the bus.
-func (h *I2CHandle) Close() error {
-	h.bus.mu.Unlock()
-	return nil
 }
 
 // An AnalogReader reads back the same set value.

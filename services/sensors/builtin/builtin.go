@@ -8,22 +8,20 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/sensor"
-	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/sensors"
 )
 
 func init() {
-	resource.RegisterDefaultService(sensors.API, resource.DefaultServiceModel, resource.Registration[sensors.Service, resource.NoNativeConfig]{
-		Constructor: NewBuiltIn,
-		// NOTE(erd): this ideally would be a matcher on all resources that
-		// contain a Readings proto method. However, these resource types
-		// are heterogeneous and do not actually have this proto method.
-		// We need to either 1. know in advance what kinds of resources are
-		// sensors 2. use a heuristic to detect it or 3. encode it in proto.
-		WeakDependencies: []internal.ResourceMatcher{internal.ComponentDependencyWildcardMatcher},
-	})
+	resource.RegisterDefaultService(
+		sensors.API,
+		resource.DefaultServiceModel,
+		resource.Registration[sensors.Service, resource.NoNativeConfig]{
+			Constructor:      NewBuiltIn,
+			WeakDependencies: []resource.Matcher{resource.InterfaceMatcher{Interface: new(resource.Sensor)}},
+		},
+	)
 }
 
 // NewBuiltIn returns a new default sensor service for the given robot.

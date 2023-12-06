@@ -7,13 +7,12 @@ import (
 	"sync"
 
 	"github.com/golang/geo/r3"
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
@@ -28,20 +27,19 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var errUnimplemented = errors.New("unimplemented")
-
 func init() {
 	resource.RegisterDefaultService(
 		motion.API,
 		resource.DefaultServiceModel,
 		resource.Registration[motion.Service, *Config]{
 			Constructor: NewBuiltIn,
-			WeakDependencies: []internal.ResourceMatcher{
-				internal.SLAMDependencyWildcardMatcher,
-				internal.ComponentDependencyWildcardMatcher,
-				internal.VisionDependencyWildcardMatcher,
+			WeakDependencies: []resource.Matcher{
+				resource.TypeMatcher{Type: resource.APITypeComponentName},
+				resource.SubtypeMatcher{Subtype: slam.SubtypeName},
+				resource.SubtypeMatcher{Subtype: vision.SubtypeName},
 			},
-		})
+		},
+	)
 }
 
 const (
@@ -260,19 +258,11 @@ func (ms *builtIn) MoveOnMap(
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
 
-	cancelCtx, cancelFn := context.WithCancel(ctx)
-	defer cancelFn()
-	// If the context is cancelled early, cancel the planner executor
-	utils.PanicCapturingGo(func() {
-		<-cancelCtx.Done()
-		mr.logger.Debug("context done")
-		mr.Cancel()
-	})
-	planResp, err := mr.Plan()
+	planResp, err := mr.Plan(ctx)
 	if err != nil {
 		return false, err
 	}
-	resp, err := mr.Execute(planResp.Waypoints)
+	resp, err := mr.Execute(ctx, planResp.Waypoints)
 	// Error
 	if err != nil {
 		return false, err
@@ -366,24 +356,15 @@ func (ms *builtIn) MoveOnGlobe(
 	if err != nil {
 		return false, err
 	}
-	cancelCtx, cancelFn := context.WithCancel(ctx)
-	defer cancelFn()
-	// If the context is cancelled early, cancel the planner executor
-	utils.PanicCapturingGo(func() {
-		<-cancelCtx.Done()
-		mr.logger.Debug("context done")
-		mr.Cancel()
-	})
-
 	replanCount := 0
 	// start a loop that plans every iteration and exits when something is read from the success channel
 	for {
-		planResp, err := mr.Plan()
+		planResp, err := mr.Plan(ctx)
 		if err != nil {
 			return false, err
 		}
 
-		resp, err := mr.Execute(planResp.Waypoints)
+		resp, err := mr.Execute(ctx, planResp.Waypoints)
 		// failure
 		if err != nil {
 			return false, err
@@ -404,10 +385,30 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 }
 
-func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+	if err := ctx.Err(); err != nil {
+		return uuid.Nil, err
+	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return "", errUnimplemented
+	ms.logger.Debugf("MoveOnGlobeNew called with %s", req)
+	// TODO: Deprecated: remove once no motion apis use the opid system
+	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
+	planExecutorConstructor := func(
+		ctx context.Context,
+		req motion.MoveOnGlobeReq,
+		seedPlan motionplan.Plan,
+		replanCount int,
+	) (state.PlanExecutor, error) {
+		return ms.newMoveOnGlobeRequest(ctx, req, seedPlan, replanCount)
+	}
+
+	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, planExecutorConstructor)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return id, nil
 }
 
 func (ms *builtIn) GetPose(
@@ -437,25 +438,34 @@ func (ms *builtIn) StopPlan(
 	ctx context.Context,
 	req motion.StopPlanReq,
 ) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return errUnimplemented
+	return ms.state.StopExecutionByResource(req.ComponentName)
 }
 
 func (ms *builtIn) ListPlanStatuses(
 	ctx context.Context,
 	req motion.ListPlanStatusesReq,
 ) ([]motion.PlanStatusWithID, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return nil, errUnimplemented
+	return ms.state.ListPlanStatuses(req)
 }
 
 func (ms *builtIn) PlanHistory(
 	ctx context.Context,
 	req motion.PlanHistoryReq,
 ) ([]motion.PlanWithStatus, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return nil, errUnimplemented
+	return ms.state.PlanHistory(req)
 }

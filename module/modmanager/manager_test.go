@@ -533,13 +533,12 @@ func TestModuleReloading(t *testing.T) {
 		}(oueRestartInterval)
 		oueRestartInterval = 10 * time.Millisecond
 
-		// Lower resource configuration timeout to avoid waiting for 60 seconds
-		// for manager.Add to time out waiting for module to start listening.
+		// Lower module startup timeout to avoid waiting for 5 mins.
 		defer func() {
-			test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
+			test.That(t, os.Unsetenv(rutils.ModuleStartupTimeoutEnvVar),
 				test.ShouldBeNil)
 		}()
-		test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "10ms"),
+		test.That(t, os.Setenv(rutils.ModuleStartupTimeoutEnvVar, "10ms"),
 			test.ShouldBeNil)
 
 		// This test neither uses a resource manager nor asserts anything about
@@ -554,7 +553,7 @@ func TestModuleReloading(t *testing.T) {
 		err = mgr.Add(ctx, modCfg)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
-			"timed out waiting for module test-module to start listening")
+			"module test-module timed out after 10ms during startup")
 
 		// Assert that number of "fakemodule is running" messages does not increase
 		// over time (the process was stopped).

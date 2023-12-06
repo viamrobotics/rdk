@@ -38,7 +38,7 @@ func WrapMotorWithEncoder(
 	}
 
 	if mc.TicksPerRotation < 0 {
-		return nil, utils.NewConfigValidationError("", errors.New("ticks_per_rotation should be positive or zero"))
+		return nil, resource.NewConfigValidationError("", errors.New("ticks_per_rotation should be positive or zero"))
 	}
 
 	if mc.TicksPerRotation == 0 {
@@ -512,6 +512,9 @@ func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, ex
 	if err := m.encoder.ResetPosition(ctx, extra); err != nil {
 		return err
 	}
+
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
 	m.offsetInTicks = -1 * offset * m.ticksPerRotation
 	return nil
 }
@@ -522,8 +525,8 @@ func (m *EncodedMotor) position(ctx context.Context, extra map[string]interface{
 	if err != nil {
 		return 0, err
 	}
-	m.stateMu.Lock()
-	defer m.stateMu.Unlock()
+	m.stateMu.RLock()
+	defer m.stateMu.RUnlock()
 	pos := ticks + m.offsetInTicks
 	return pos, nil
 }

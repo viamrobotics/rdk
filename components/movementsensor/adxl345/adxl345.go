@@ -31,7 +31,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -118,7 +118,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.BoardName == "" {
 		// The board name is only required for interrupt-related functionality.
 		if cfg.SingleTap != nil || cfg.FreeFall != nil {
-			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+			return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 		}
 	} else {
 		if cfg.SingleTap != nil || cfg.FreeFall != nil {
@@ -127,7 +127,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		}
 	}
 	if cfg.I2cBus == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 	if cfg.SingleTap != nil {
 		if err := cfg.SingleTap.ValidateTapConfigs(path); err != nil {
@@ -155,7 +155,7 @@ type adxl345 struct {
 	resource.Named
 	resource.AlwaysRebuild
 
-	bus                      board.I2C
+	bus                      buses.I2C
 	i2cAddress               byte
 	logger                   logging.Logger
 	interruptsEnabled        byte
@@ -188,7 +188,7 @@ func NewAdxl345(
 		return nil, err
 	}
 
-	bus, err := genericlinux.NewI2cBus(newConf.I2cBus)
+	bus, err := buses.NewI2cBus(newConf.I2cBus)
 	if err != nil {
 		msg := fmt.Sprintf("can't find I2C bus '%q' for ADXL345 sensor", newConf.I2cBus)
 		return nil, errors.Wrap(err, msg)
@@ -208,7 +208,7 @@ func makeAdxl345(
 	deps resource.Dependencies,
 	conf resource.Config,
 	logger logging.Logger,
-	bus board.I2C,
+	bus buses.I2C,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {

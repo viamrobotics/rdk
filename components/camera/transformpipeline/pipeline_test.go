@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/testutils/inject"
@@ -252,6 +253,6 @@ func TestTransformPipelineValidateFail(t *testing.T) {
 	}
 	path := "path"
 	deps, err := transformConf.Validate(path)
-	test.That(t, err.Error(), test.ShouldResemble, "error validating \"path\": \"source\" is required")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "source")
 	test.That(t, deps, test.ShouldBeNil)
 }

@@ -7,9 +7,8 @@ import (
 	"testing"
 
 	"go.viam.com/test"
-	gutils "go.viam.com/utils"
 
-	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -22,7 +21,7 @@ const (
 	testBusName   = "1"
 )
 
-func createMockI2c() board.I2C {
+func createMockI2c() buses.I2C {
 	i2c := &inject.I2C{}
 	handle := &inject.I2CHandle{}
 	handle.WriteFunc = func(ctx context.Context, b []byte) error {
@@ -34,7 +33,7 @@ func createMockI2c() board.I2C {
 	handle.CloseFunc = func() error {
 		return nil
 	}
-	i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+	i2c.OpenHandleFunc = func(addr byte) (buses.I2CHandle, error) {
 		return handle, nil
 	}
 	return i2c
@@ -46,7 +45,7 @@ func TestValidateI2C(t *testing.T) {
 	path := "path"
 	err := fakecfg.validateI2C(path)
 	test.That(t, err, test.ShouldBeError,
-		gutils.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
+		resource.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
 
 	fakecfg.I2CAddr = 66
 	err = fakecfg.validateI2C(path)

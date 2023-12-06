@@ -26,7 +26,7 @@ A specific model (acme:demo:mygizmo) that implements the custom Gizmo API.
 A specific model (acme:demo:mysum) that implements the custom Summation API. Simply adds or subtracts numbers.
 
 ### mybase
-Custom component (acme:demo:mybase) that implements Viam's built-in Base API (rdk:service:base) and in turn depends on two secondary "real" motors from the parent robot (such parental dependencies only work in modules, not as remote servers.)
+Custom component (acme:demo:mybase) that implements Viam's built-in Base API (rdk:component:base) and in turn depends on two secondary "real" motors from the parent robot (such parental dependencies only work in modules, not as remote servers.)
 
 ### mynavigation
 Custom service (acme:demo:mynavigation) that implements Viam's built-in Nativation API (rdk:service:navigation) and only reports a static location from its config, and allows waypoints to be added/removed. Defaults to Point Nemo.
