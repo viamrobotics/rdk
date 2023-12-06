@@ -8,21 +8,13 @@ import (
 	"go.viam.com/rdk/protoutils"
 )
 
-const (
-	defaultAngularDegsPerSec = 20.
-	defaultLinearMPerSec     = 0.3
-	defaultObstaclePollingHz = 1.
-	defaultPlanDeviationM    = 2.6
-	defaultPositionPollingHz = 1.
-)
-
 func configurationFromProto(motionCfg *pb.MotionConfiguration) *MotionConfiguration {
 	obstacleDetectors := []ObstacleDetectorName{}
-	planDeviationM := defaultPlanDeviationM
-	positionPollingHz := defaultPositionPollingHz
-	obstaclePollingHz := defaultObstaclePollingHz
-	linearMPerSec := defaultLinearMPerSec
-	angularDegsPerSec := defaultAngularDegsPerSec
+	planDeviationM := 0.
+	positionPollingHz := 0.
+	obstaclePollingHz := 0.
+	linearMPerSec := 0.
+	angularDegsPerSec := 0.
 
 	if motionCfg != nil {
 		if motionCfg.ObstacleDetectors != nil {

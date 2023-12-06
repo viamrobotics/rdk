@@ -25,12 +25,7 @@ import (
 )
 
 var defaultMotionCfg = MotionConfiguration{
-	AngularDegsPerSec:     defaultAngularDegsPerSec,
-	LinearMPerSec:         defaultLinearMPerSec,
-	ObstacleDetectors:     []ObstacleDetectorName{},
-	ObstaclePollingFreqHz: defaultObstaclePollingHz,
-	PlanDeviationMM:       defaultPlanDeviationM * 1e3,
-	PositionPollingFreqHz: defaultPositionPollingHz,
+	ObstacleDetectors: []ObstacleDetectorName{},
 }
 
 func TestPlanWithStatus(t *testing.T) {
