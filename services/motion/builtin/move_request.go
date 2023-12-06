@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/state"
 	"go.viam.com/rdk/services/slam"
@@ -65,8 +66,8 @@ type moveRequest struct {
 	seedPlan          motionplan.Plan
 	kinematicBase     kinematicbase.KinematicBase
 	obstacleDetectors map[vision.Service][]resource.Name
-	cameraToBase      map[resource.Name]spatialmath.Pose
 	replanCostFactor  float64
+	fsService         framesystem.Service
 
 	executeBackgroundWorkers *sync.WaitGroup
 	responseChan             chan moveResponse
@@ -214,9 +215,16 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				return state.ExecuteResponse{}, err
 			}
 
-			transformBy, ok := mr.cameraToBase[camName]
-			if !ok {
-				return state.ExecuteResponse{}, errors.Errorf("unknown transform of camera: %s to base", camName)
+			// determine transform of camera to base
+			cameraOrigin := referenceframe.NewPoseInFrame(camName.ShortName(), spatialmath.NewZeroPose())
+			baseToCamera, err := mr.fsService.TransformPose(ctx, cameraOrigin, mr.kinematicBase.Name().ShortName(), nil)
+			if err != nil {
+				// here we make the assumption the base is coincident with the camera
+				mr.logger.Debugf(
+					"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
+					mr.kinematicBase.Name().ShortName(), camName.ShortName(), err.Error(),
+				)
+				baseToCamera = cameraOrigin
 			}
 
 			// Any obstacles specified by the worldstate of the moveRequest will also re-detected here.
@@ -225,7 +233,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			geoms := []spatialmath.Geometry{}
 			for i, detection := range detections {
 				// put the detection in the base coordinate frame
-				geometry := detection.Geometry.Transform(transformBy)
+				geometry := detection.Geometry.Transform(baseToCamera.Pose())
 
 				// put the detection into its position in the world with the base coordinate frame
 				geometry = geometry.Transform(currentPosition.Pose())
@@ -601,7 +609,6 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	}
 
 	obstacleDetectors := make(map[vision.Service][]resource.Name)
-	cameraToBase := make(map[resource.Name]spatialmath.Pose)
 	for _, obstacleDetectorNamePair := range motionCfg.obstacleDetectors {
 		// get vision service
 		visionServiceName := obstacleDetectorNamePair.VisionServiceName
@@ -617,22 +624,6 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		} else {
 			camList = append(camList, obstacleDetectorNamePair.CameraName)
 			obstacleDetectors[visionSvc] = camList
-		}
-
-		// determine transform of camera to base
-		_, ok = cameraToBase[obstacleDetectorNamePair.CameraName]
-		if !ok {
-			cameraOrigin := referenceframe.NewPoseInFrame(obstacleDetectorNamePair.CameraName.ShortName(), spatialmath.NewZeroPose())
-			baseToCamera, err := ms.fsService.TransformPose(ctx, cameraOrigin, kb.Name().ShortName(), nil)
-			if err != nil {
-				// here we make the assumption the base is coincident with the camera
-				ms.logger.Debugf(
-					"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
-					kb.Name().ShortName(), obstacleDetectorNamePair.CameraName.Name, err.Error(),
-				)
-				baseToCamera = cameraOrigin
-			}
-			cameraToBase[obstacleDetectorNamePair.CameraName] = baseToCamera.Pose()
 		}
 	}
 
@@ -673,7 +664,7 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		kinematicBase:     kb,
 		replanCostFactor:  valExtra.replanCostFactor,
 		obstacleDetectors: obstacleDetectors,
-		cameraToBase:      cameraToBase,
+		fsService:         ms.fsService,
 
 		executeBackgroundWorkers: &backgroundWorkers,
 
