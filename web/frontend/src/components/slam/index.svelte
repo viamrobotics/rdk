@@ -375,7 +375,7 @@
   };
 
   onMount(async () => {
-    if (overrides && overrides.isCloudSlam) {
+    if (overrides?.isCloudSlam) {
       const activeSession = await overrides.getActiveMappingSession();
 
       if (activeSession) {
