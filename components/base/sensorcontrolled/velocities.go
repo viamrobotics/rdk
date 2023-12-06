@@ -42,36 +42,96 @@ func (sb *sensorBase) SetVelocity(
 ) error {
 	sb.opMgr.CancelRunning(ctx)
 	// check if a sensor context has been started
-	if sb.sensorLoopDone != nil {
-		sb.sensorLoopDone()
-	}
+	// if sb.sensorLoopDone != nil {
+	// 	sb.sensorLoopDone()
+	// }
 
-	// set the spin loop to false, so we do not skip the call to SetState in the control loop
-	sb.setPolling(false)
+	// // set the spin loop to false, so we do not skip the call to SetState in the control loop
+	// sb.setPolling(false)
 
-	// start a sensor context for the sensor loop based on the longstanding base
-	// creator context, and add a timeout for the context
-	timeOut := 10 * time.Second
-	var sensorCtx context.Context
-	sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
+	// // start a sensor context for the sensor loop based on the longstanding base
+	// // creator context, and add a timeout for the context
+	// timeOut := 10 * time.Second
+	// var sensorCtx context.Context
+	// sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
 
 	// TODO: RSDK-5355 remove control loop bool after testing
 	if useControlLoop && sb.loop != nil {
-		posConf := control.BlockConfig{
-			Name: "set_point",
+		// stop and restart loop
+		sb.loop.Stop()
+		loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
+		if err != nil {
+			return err
+		}
+		if err := loop.Start(); err != nil {
+			return err
+		}
+		sb.loop = loop
+
+		// set linear setpoint config
+		linConf := control.BlockConfig{
+			Name: "lin_setpoint",
 			Type: "constant",
 			Attribute: rdkutils.AttributeMap{
-				"constant_val": linear,
+				"constant_val": linear.Y / 1000.0,
 			},
 			DependsOn: []string{},
 		}
-		if err := sb.loop.SetConfigAt(ctx, "set_point", posConf); err != nil {
+		if err := sb.loop.SetConfigAt(ctx, "lin_setpoint", linConf); err != nil {
 			return err
 		}
+		sb.logger.Errorf("linear.Y = %v", linear.Y)
+
+		// // set linear trapz config
+		// linTrapzConf := control.BlockConfig{
+		// 	Name: "lin_trapz",
+		// 	Type: "trapezoidalVelocityProfile",
+		// 	Attribute: rdkutils.AttributeMap{
+		// 		"kpp_gain":   0.45,
+		// 		"max_acc":    30000.0,
+		// 		"max_vel":    4000.0,
+		// 		"pos_window": 0.0,
+		// 	},
+		// 	DependsOn: []string{"lin_setpoint", "endpoint"},
+		// }
+		// if err := sb.loop.SetConfigAt(ctx, "lin_setpoint", linTrapzConf); err != nil {
+		// 	return err
+		// }
+
+		// set angular setpoint config
+		angConf := control.BlockConfig{
+			Name: "ang_setpoint",
+			Type: "constant",
+			Attribute: rdkutils.AttributeMap{
+				"constant_val": angular.Z,
+			},
+			DependsOn: []string{},
+		}
+		if err := sb.loop.SetConfigAt(ctx, "ang_setpoint", angConf); err != nil {
+			return err
+		}
+		sb.logger.Errorf("angular.Z = %v", angular.Z)
+
+		// // set angular trapz config
+		// angTrapzConf := control.BlockConfig{
+		// 	Name: "ang_trapz",
+		// 	Type: "trapezoidalVelocityProfile",
+		// 	Attribute: rdkutils.AttributeMap{
+		// 		"kpp_gain":   0.45,
+		// 		"max_acc":    30000.0,
+		// 		"max_vel":    4000.0,
+		// 		"pos_window": 0.0,
+		// 	},
+		// 	DependsOn: []string{"ang_setpoint", "endpoint"},
+		// }
+		// if err := sb.loop.SetConfigAt(ctx, "lin_setpoint", angTrapzConf); err != nil {
+		// 	return err
+		// }
+
 		// if we have a loop, let's use the SetState function to call the SetVelocity command
 		// through the control loop
 		sb.logger.Info("using loop")
-		sb.pollsensors(sensorCtx, extra)
+		// sb.pollsensors(sensorCtx, extra)
 		return nil
 	}
 
@@ -134,21 +194,22 @@ func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interfac
 func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) error {
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
-	if sb.isPolling() {
-		// if the spin loop is polling, don't call set velocity, immediately return
-		// this allows us to keep the control loop running without stopping it until
-		// the resource Close has been called
-		sb.logger.Info("skipping set state call")
-		return nil
-	}
+	// if sb.isPolling() {
+	// 	// if the spin loop is polling, don't call set velocity, immediately return
+	// 	// this allows us to keep the control loop running without stopping it until
+	// 	// the resource Close has been called
+	// 	sb.logger.Info("skipping set state call")
+	// 	return nil
+	// }
 
 	// sb.logger.Info("setting state")
 	linvel := state[0].GetSignalValueAt(0)
 	angvel := state[1].GetSignalValueAt(0)
 
-	return sb.controlledBase.SetPower(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
+	sb.logger.Errorf("SETTING STATE = %v", state[0].GetSignalValueAt(0))
 
-	// return sb.SetVelocity(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
+	return sb.SetPower(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
+	// return sb.controlledBase.SetVelocity(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
 }
 
 // State is called in endpoint.go of the controls package by the control loop
@@ -156,7 +217,6 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 // movementsensor and insert its LinearVelocity and AngularVelocity values
 // in the signal in the control loop's thread in the endpoint code.
 func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
-	// sb.logger.Info("getting state")
 	linvel, err := sb.velocities.LinearVelocity(ctx, nil)
 	if err != nil {
 		return []float64{}, err
@@ -166,7 +226,8 @@ func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
 	if err != nil {
 		return []float64{}, err
 	}
-	// sb.logger.Warnf("linvel = %v, angvel = %v", linvel, angvel)
+
+	sb.logger.Errorf("GETTING STATE = %v, %v", linvel, angvel)
 
 	return []float64{linvel.Y, angvel.Z}, nil
 }
@@ -182,17 +243,17 @@ var controlLoopConfig = control.Config{
 			Name: "endpoint",
 			Type: "endpoint",
 			Attribute: rdkutils.AttributeMap{
-				"base_name": "viam_base",
+				"base_name": "feedback",
 			},
-			DependsOn: []string{"PID"},
+			DependsOn: []string{"lin_gain", "ang_gain"},
 		},
 		{
-			Name: "PID",
+			Name: "lin_PID",
 			Type: "PID",
 			Attribute: rdkutils.AttributeMap{
-				"kP":             0.0, // kP, kD and kI are random for now
 				"kD":             0.0,
-				"kI":             0.0,
+				"kI":             333.629454,
+				"kP":             299.679037,
 				"int_sat_lim_lo": -255.0,
 				"int_sat_lim_up": 255.0,
 				"limit_lo":       -255.0,
@@ -201,32 +262,87 @@ var controlLoopConfig = control.Config{
 				"tune_ssr_value": 2.0,
 				"tune_step_pct":  0.35,
 			},
-			DependsOn: []string{"gain"},
+			DependsOn: []string{"sum"},
+		},
+		{
+			Name: "ang_PID",
+			Type: "PID",
+			Attribute: rdkutils.AttributeMap{
+				"kD":             0.0,
+				"kI":             0.699107,
+				"kP":             0.628516,
+				"int_sat_lim_lo": -255.0,
+				"int_sat_lim_up": 255.0,
+				"limit_lo":       -255.0,
+				"limit_up":       255.0,
+				"tune_method":    "ziegerNicholsSomeOvershoot",
+				"tune_ssr_value": 2.0,
+				"tune_step_pct":  0.35,
+			},
+			DependsOn: []string{"sum"},
 		},
 		{
 			Name: "sum",
 			Type: "sum",
 			Attribute: rdkutils.AttributeMap{
-				"sum_string": "+-", // should this be +- or does it follow dependency order?
+				"sum_string": "++-", // should this be +- or does it follow dependency order?
 			},
-			DependsOn: []string{"endpoint", "set_point"},
+			DependsOn: []string{"lin_setpoint", "ang_setpoint", "endpoint"},
 		},
 		{
-			Name: "gain",
+			Name: "lin_gain",
 			Type: "gain",
 			Attribute: rdkutils.AttributeMap{
-				"gain": 0.3, // need to update dynamically? Or should I just use the trapezoidal velocity profile
+				"gain": 0.0039, // need to update dynamically? Or should I just use the trapezoidal velocity profile
 			},
-			DependsOn: []string{"sum"},
+			DependsOn: []string{"lin_PID"},
 		},
 		{
-			Name: "set_point",
+			Name: "ang_gain",
+			Type: "gain",
+			Attribute: rdkutils.AttributeMap{
+				"gain": 0.0039, // need to update dynamically? Or should I just use the trapezoidal velocity profile
+			},
+			DependsOn: []string{"ang_PID"},
+		},
+		{
+			Name: "lin_setpoint",
 			Type: "constant",
 			Attribute: rdkutils.AttributeMap{
 				"constant_val": 0.0,
 			},
 			DependsOn: []string{},
 		},
+		{
+			Name: "ang_setpoint",
+			Type: "constant",
+			Attribute: rdkutils.AttributeMap{
+				"constant_val": 0.0,
+			},
+			DependsOn: []string{},
+		},
+		// {
+		// 	Name: "lin_trapz",
+		// 	Type: "trapezoidalVelocityProfile",
+		// 	Attribute: rdkutils.AttributeMap{
+		// 		"kpp_gain":   0.45,
+		// 		"max_acc":    30000.0,
+		// 		"max_vel":    4000.0,
+		// 		"pos_window": 0.0,
+		// 	},
+		// 	DependsOn: []string{"lin_setpoint", "endpoint"},
+		// },
+		// {
+		// 	Name: "ang_trapz",
+		// 	Type: "trapezoidalVelocityProfile",
+		// 	Attribute: rdkutils.AttributeMap{
+		// 		"kpp_gain":   0.45,
+		// 		"max_acc":    30000.0,
+		// 		"max_vel":    4000.0,
+		// 		"pos_window": 0.0,
+		// 	},
+		// 	DependsOn: []string{"ang_setpoint", "endpoint"},
+		// },
 	},
 	Frequency: 20,
 }

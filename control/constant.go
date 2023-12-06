@@ -27,6 +27,7 @@ func newConstant(config BlockConfig, logger logging.Logger) (Block, error) {
 }
 
 func (b *constant) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
+	b.logger.Errorf("CONSTANT NEXT = %v for block %v", b.y[0].GetSignalValueAt(0), b.cfg.Name)
 	return b.y, true
 }
 

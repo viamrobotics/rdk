@@ -155,8 +155,15 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	}
 
 	if sb.velocities != nil {
-		if err := setupControlLoops(sb); err != nil {
-			return err
+		if useControlLoop {
+			loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
+			if err != nil {
+				return err
+			}
+			if err := loop.Start(); err != nil {
+				return err
+			}
+			sb.loop = loop
 		}
 	}
 
@@ -216,13 +223,10 @@ func (sb *sensorBase) Geometries(ctx context.Context, extra map[string]interface
 }
 
 func (sb *sensorBase) Close(ctx context.Context) error {
-	if err := sb.Stop(ctx, nil); err != nil {
-		return err
-	}
 	// check if a sensor context is still alive
-	if sb.sensorLoopDone != nil {
-		sb.sensorLoopDone()
-	}
+	// if sb.sensorLoopDone != nil {
+	// 	sb.sensorLoopDone()
+	// }
 
 	if sb.loop != nil {
 		sb.loop.Stop()

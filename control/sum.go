@@ -35,24 +35,50 @@ func newSum(config BlockConfig, logger logging.Logger) (Block, error) {
 
 func (b *sum) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
 	if len(x) != len(b.operation) {
-		return b.y, false
-	}
-	y := 0.0
-	for i := range x {
-		op, ok := b.operation[x[i].name]
-		if !ok {
-			return b.y, false
+		lin := 0.0
+		ang := 0.0
+		for i := range x {
+			op, ok := b.operation[x[i].name]
+			if !ok {
+				return b.y, false
+			}
+			switch op {
+			case addition:
+				if i%2 == 0 {
+					lin += x[i].GetSignalValueAt(0)
+				} else {
+					ang += x[i].GetSignalValueAt(0)
+				}
+			case subtraction:
+				if i%2 == 0 {
+					lin -= x[i].GetSignalValueAt(0)
+				} else {
+					ang -= x[i].GetSignalValueAt(0)
+				}
+			}
 		}
-		switch op {
-		case addition:
-			y += x[i].GetSignalValueAt(0)
-		case subtraction:
-			y -= x[i].GetSignalValueAt(0)
-		default:
-			return b.y, false
+		b.y[0].SetSignalValueAt(0, lin)
+		b.y[1].SetSignalValueAt(0, ang)
+	} else {
+		y := 0.0
+		for i := range x {
+			op, ok := b.operation[x[i].name]
+			if !ok {
+				return b.y, false
+			}
+			switch op {
+			case addition:
+				y += x[i].GetSignalValueAt(0)
+			case subtraction:
+				y -= x[i].GetSignalValueAt(0)
+			default:
+				return b.y, false
+			}
 		}
+		b.y[0].SetSignalValueAt(0, y)
 	}
-	b.y[0].SetSignalValueAt(0, y)
+	b.logger.Errorf("SUM NEXT (LIN) = %v for block %v", b.y[0].GetSignalValueAt(0), b.cfg.Name)
+	b.logger.Errorf("SUM NEXT (ANG) = %v for block %v", b.y[1].GetSignalValueAt(0), b.cfg.Name)
 	return b.y, true
 }
 
@@ -72,8 +98,11 @@ func (b *sum) reset() error {
 		}
 		b.operation[b.cfg.DependsOn[idx]] = sumOperand(c)
 	}
-	b.y = make([]*Signal, 1)
-	b.y[0] = makeSignal(b.cfg.Name)
+	b.y = make([]*Signal, len(b.cfg.DependsOn))
+	b.y[0] = makeSignal(b.cfg.DependsOn[0])
+	if len(b.operation) == 3 {
+		b.y[1] = makeSignal(b.cfg.DependsOn[1])
+	}
 	return nil
 }
 

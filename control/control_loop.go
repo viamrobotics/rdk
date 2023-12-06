@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -42,12 +43,10 @@ type Loop struct {
 
 // NewLoop construct a new control loop for a specific endpoint.
 func NewLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error) {
-	logger.Error("NewLoop")
 	return createLoop(logger, cfg, m)
 }
 
 func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error) {
-	logger.Error("createLoop")
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	l := Loop{
 		logger:    logger,
@@ -63,16 +62,15 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 	l.dt = time.Duration(float64(time.Second) * (1.0 / (l.cfg.Frequency)))
 	for _, bcfg := range cfg.Blocks {
 		blk, err := createBlock(bcfg, logger)
+		logger.Errorf("CREATE BLOCK %v", blk)
 		if err != nil {
 			return nil, err
 		}
 		l.blocks[bcfg.Name] = &controlBlockInternal{blk: blk, blockType: bcfg.Type}
 		if bcfg.Type == blockEndpoint {
 			l.blocks[bcfg.Name].blk.(*endpoint).ctr = m
-			logger.Errorf("endpoint ctr = %v", m)
 		}
 	}
-	logger.Errorf("blocks: %v", l.blocks)
 	for _, b := range l.blocks {
 		for _, dep := range b.blk.Config(l.cancelCtx).DependsOn {
 			blockDep, ok := l.blocks[dep]
@@ -82,10 +80,11 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 			blockDep.outs = append(blockDep.outs, make(chan []*Signal))
 			b.ins = append(b.ins, blockDep.outs[len(blockDep.outs)-1])
 		}
+		logger.Errorf("SET DEPS FOR BLOCK %v: ins = %v, outs = %v", b, b.ins, b.outs)
 	}
-	logger.Error("block dependencies done")
 	for _, b := range l.blocks {
 		if len(b.blk.Config(l.cancelCtx).DependsOn) == 0 || b.blk.Config(l.cancelCtx).Type == blockEndpoint {
+			logger.Errorf("CALLING NEXT ON BLOCK %v", b)
 			waitCh := make(chan struct{})
 			l.ts = append(l.ts, make(chan time.Time, 1))
 			l.activeBackgroundWorkers.Add(1)
@@ -96,7 +95,6 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 				for {
 					_, ok := <-t
 					if !ok {
-						logger.Errorf("NO DEPS %v !ok", b)
 						b.mu.Lock()
 						for _, out := range b.outs {
 							close(out)
@@ -105,7 +103,6 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 						b.mu.Unlock()
 						return
 					}
-					logger.Errorf("NO DEPS calling next on %v", b)
 					v, _ := b.blk.Next(l.cancelCtx, nil, l.dt)
 					for _, out := range b.outs {
 						out <- v
@@ -115,21 +112,22 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 			<-waitCh
 		}
 		if len(b.blk.Config(l.cancelCtx).DependsOn) != 0 {
+			logger.Errorf("CALLING NEXT ON BLOCK %v", b)
 			waitCh := make(chan struct{})
 			l.activeBackgroundWorkers.Add(1)
 			utils.ManagedGo(func() {
 				b := b
-				nInputs := len(b.ins)
+				// nInputs := len(b.ins)
+				// logger.Errorf("%v INPUTS FOR BLOCK %v, INS = %v", nInputs, b, b.ins)
 				close(waitCh)
 				for {
-					sw := make([]*Signal, nInputs)
-					for i, c := range b.ins {
+					sw := []*Signal{}
+					s := []*Signal{}
+					for _, c := range b.ins {
 						r, ok := <-c
 						if !ok {
-							logger.Errorf("%v !ok, i = %v, c = %v, r = %v", b, i, c, r)
 							b.mu.Lock()
 							for _, out := range b.outs {
-								logger.Errorf("out = %v", out)
 								close(out)
 							}
 							// logger.Debugf("Closing outs for block %s %+v\r\n", b.blk.Config(ctx).Name, r)
@@ -137,17 +135,27 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 							b.mu.Unlock()
 							return
 						}
-						if len(r) == 1 {
-							logger.Error("len(r) = 1")
-							sw[i] = r[0]
-						} else {
-							// TODO(npmenard) do we want to support multidimentional signals?
-							//nolint: makezero
-							sw = append(sw, r...)
+						// logger.Errorf("R = %v AT I = %v", r, i)
+						for j := 0; j < len(r); j++ {
+							if r[j] != nil {
+								sw = append(sw, r[j])
+							}
 						}
+						// TODO(npmenard) do we want to support multidimentional signals?
+						//nolint: makezero
 					}
-					logger.Errorf("calling next on %v", b)
-					v, ok := b.blk.Next(l.cancelCtx, sw, l.dt)
+					if strings.Contains(b.blk.Config(l.cancelCtx).Name, "PID") {
+						if strings.Contains(b.blk.Config(l.cancelCtx).Name, "lin") {
+							s = []*Signal{sw[0]}
+						} else if strings.Contains(b.blk.Config(l.cancelCtx).Name, "ang") {
+							s = []*Signal{sw[1]}
+						}
+					} else {
+						s = sw
+					}
+
+					// logger.Errorf("S = %v FOR BLOCK = %v", s, b.blk.Config(l.cancelCtx).Name)
+					v, ok := b.blk.Next(l.cancelCtx, s, l.dt)
 					if ok {
 						for _, out := range b.outs {
 							out <- v
@@ -158,7 +166,6 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 			<-waitCh
 		}
 	}
-	logger.Error("LOOP CREATED")
 	return &l, nil
 }
 
