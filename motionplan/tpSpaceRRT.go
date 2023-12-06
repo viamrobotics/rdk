@@ -248,6 +248,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			return
 		}
 
+		seedReached := &nodeAndError{}
 		goalReached := &nodeAndError{}
 		utils.PanicCapturingGo(func() {
 			m1chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.startMap, false)
@@ -258,7 +259,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			})
 			goalReached = <-m2chan
 		}
-		seedReached := <-m1chan
+		seedReached = <-m1chan
 
 		seedMapNode := seedReached.node
 		goalMapNode := goalReached.node
@@ -442,10 +443,16 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		if goodNode == nil {
 			break
 		}
+		partialExtend := false
 
 		if invert {
-			arcPose = spatialmath.Compose(goodNode.Pose(), arcPose)
+			arcPose = spatialmath.Compose(subNodePose, arcPose)
 		} else {
+			for i, val := range subNode.Q() {
+				if goodNode.Q()[i] != val {
+					partialExtend = true
+				}
+			}
 			arcPose = spatialmath.Compose(arcPose, goodNode.Pose())
 		}
 
@@ -458,6 +465,9 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 			corner: false,
 		}
 		successNodes = append(successNodes, successNode)
+		if partialExtend {
+			break
+		}
 	}
 
 	if len(successNodes) == 0 {
