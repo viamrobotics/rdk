@@ -55,7 +55,7 @@ const (
 
 	// When evaluating the partial node to add to a tree after defaultCollisionWalkbackPct is applied, ensure the trajectory is still at
 	// least this long.
-	defaultMinTrajectoryLength = 150
+	defaultMinTrajectoryLength = 350
 )
 
 var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
@@ -452,7 +452,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		// add the last node in trajectory
 		arcStartPose = spatialmath.Compose(arcStartPose, goodNode.Pose())
 		successNode = &basicNode{
-			q:      append([]referenceframe.Input{{float64(ptgNum)}}, subNode.Q()...),
+			q:      append([]referenceframe.Input{{float64(ptgNum)}}, goodNode.Q()...),
 			cost:   goodNode.Cost(),
 			pose:   arcStartPose,
 			corner: false,
