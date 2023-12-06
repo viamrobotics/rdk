@@ -190,28 +190,16 @@ func (c *viamClient) printModuleBuildLogs(ctx context.Context, buildID, platform
 		Platform: platform,
 	}
 
-	stream, err := c.buildClient.GetLogs(c.c.Context, logsReq)
+	stream, err := c.buildClient.GetLogs(ctx, logsReq)
 	if err != nil {
 		return err
 	}
 	lastBuildStep := ""
-	recvChan := make(chan struct{}, 1)
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		// non-blocking grpc Recv
-		var log *buildpb.GetLogsResponse
-		utils.PanicCapturingGo(func() {
-			log, err = stream.Recv()
-			recvChan <- struct{}{}
-		})
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-recvChan:
-			// continue reading
-		}
+		log, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
 			break
 		}
