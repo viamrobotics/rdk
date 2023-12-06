@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	buildpb "go.viam.com/api/app/build/v1"
+	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/logging"
@@ -29,20 +30,6 @@ const (
 	jobStatusDone       jobStatus = "Done"
 )
 
-func (c *viamClient) startBuild(repo, ref, moduleID string, platforms []string, version string) (*buildpb.StartBuildResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-	req := buildpb.StartBuildRequest{
-		Repo:          repo,
-		Ref:           &ref,
-		Platforms:     platforms,
-		ModuleId:      moduleID,
-		ModuleVersion: version,
-	}
-	return c.buildClient.StartBuild(c.c.Context, &req)
-}
-
 // ModuleBuildStartAction starts a cloud build.
 func ModuleBuildStartAction(c *cli.Context) error {
 	manifest, err := loadManifest(c.String(moduleFlagPath))
@@ -53,6 +40,9 @@ func ModuleBuildStartAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
+	}
+	if manifest.Build == nil || manifest.Build.Build == "" {
+		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
 	}
 	platforms := manifest.Build.Arch
 	if len(platforms) == 0 {
@@ -75,7 +65,7 @@ func ModuleBuildLocalAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if manifest.Build.Build == "" {
+	if manifest.Build == nil || manifest.Build.Build == "" {
 		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
 	}
 	infof(c.App.Writer, "Starting build")
@@ -107,15 +97,15 @@ func ModuleBuildLocalAction(c *cli.Context) error {
 
 // ModuleBuildListAction lists the module's build jobs.
 func ModuleBuildListAction(c *cli.Context) error {
-	manifestPath := c.String(moduleFlagPath)
+	manifestPath := c.String(moduleBuildFlagPath)
 	manifest, err := loadManifest(manifestPath)
 	if err != nil {
 		return err
 	}
 	var numberOfJobsToReturn *int32
-	if c.IsSet(moduleBuildFlagNumber) {
-		number := int32(c.Int(moduleBuildFlagNumber))
-		numberOfJobsToReturn = &number
+	if c.IsSet(moduleBuildFlagCount) {
+		count := int32(c.Int(moduleBuildFlagCount))
+		numberOfJobsToReturn = &count
 	}
 	var buildIDFilter *string
 	if c.IsSet(moduleBuildFlagBuildID) {
@@ -148,6 +138,7 @@ func ModuleBuildListAction(c *cli.Context) error {
 			job.Version,
 			job.StartTime.AsTime().Format(time.RFC3339))
 	}
+	// the table is not printed to stdout until the tabwriter is flushed
 	//nolint: errcheck,gosec
 	w.Flush()
 	return nil
@@ -175,6 +166,20 @@ func ModuleBuildLogsAction(c *cli.Context) error {
 	return nil
 }
 
+func (c *viamClient) startBuild(repo, ref, moduleID string, platforms []string, version string) (*buildpb.StartBuildResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	req := buildpb.StartBuildRequest{
+		Repo:          repo,
+		Ref:           &ref,
+		Platforms:     platforms,
+		ModuleId:      moduleID,
+		ModuleVersion: version,
+	}
+	return c.buildClient.StartBuild(c.c.Context, &req)
+}
+
 func (c *viamClient) printModuleBuildLogs(ctx context.Context, buildID, platform string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
@@ -190,11 +195,23 @@ func (c *viamClient) printModuleBuildLogs(ctx context.Context, buildID, platform
 		return err
 	}
 	lastBuildStep := ""
+	recvChan := make(chan struct{}, 1)
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		log, err := stream.Recv()
+		// non-blocking grpc Recv
+		var log *buildpb.GetLogsResponse
+		utils.PanicCapturingGo(func() {
+			log, err = stream.Recv()
+			recvChan <- struct{}{}
+		})
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-recvChan:
+			// continue reading
+		}
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -211,6 +228,18 @@ func (c *viamClient) printModuleBuildLogs(ctx context.Context, buildID, platform
 	return nil
 }
 
+func (c *viamClient) listModuleBuildJobs(moduleID moduleID, number *int32, buildIDFilter *string) (*buildpb.ListJobsResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	req := buildpb.ListJobsRequest{
+		ModuleId:      moduleID.String(),
+		MaxJobsLength: number,
+		BuildId:       buildIDFilter,
+	}
+	return c.buildClient.ListJobs(c.c.Context, &req)
+}
+
 func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 	switch s {
 	case buildpb.JobStatus_JOB_STATUS_IN_PROGRESS:
@@ -224,16 +253,4 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 	default:
 		return jobStatusUnspecified
 	}
-}
-
-func (c *viamClient) listModuleBuildJobs(moduleID moduleID, number *int32, buildIDFilter *string) (*buildpb.ListJobsResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-	req := buildpb.ListJobsRequest{
-		ModuleId:      moduleID.String(),
-		MaxJobsLength: number,
-		BuildId:       buildIDFilter,
-	}
-	return c.buildClient.ListJobs(c.c.Context, &req)
 }

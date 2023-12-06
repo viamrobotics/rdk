@@ -40,7 +40,8 @@ const (
 	moduleFlagPlatform        = "platform"
 	moduleFlagForce           = "force"
 
-	moduleBuildFlagNumber   = "number"
+	moduleBuildFlagPath     = "module"
+	moduleBuildFlagCount    = "count"
 	moduleBuildFlagVersion  = "version"
 	moduleBuildFlagBuildID  = "id"
 	moduleBuildFlagPlatform = "platform"
@@ -1113,9 +1114,8 @@ Example:
 							Name:        "start",
 							Description: "start a remote build",
 							Flags: []cli.Flag{
-								// todo: factor out common flags
 								&cli.StringFlag{
-									Name:      moduleFlagPath,
+									Name:      moduleBuildFlagPath,
 									Usage:     "path to meta.json",
 									Value:     "./meta.json",
 									TakesFile: true,
@@ -1139,9 +1139,9 @@ Example:
 									TakesFile: true,
 								},
 								&cli.IntFlag{
-									Name:        moduleBuildFlagNumber,
+									Name:        moduleBuildFlagCount,
 									Usage:       "number of builds to list",
-									Aliases:     []string{"n"},
+									Aliases:     []string{"c"},
 									DefaultText: "all",
 								},
 								&cli.StringFlag{
