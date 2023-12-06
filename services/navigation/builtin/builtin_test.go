@@ -3,7 +3,6 @@ package builtin
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -213,7 +212,6 @@ func TestValidateConfig(t *testing.T) {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, tt.expectedErr.Error())
 			}
-			fmt.Println("deps: ", deps)
 			test.That(t, len(deps), test.ShouldEqual, tt.numDeps)
 		})
 	}
