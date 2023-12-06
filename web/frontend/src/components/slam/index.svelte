@@ -324,9 +324,6 @@
 
   useConnect(() => {
     updateSLAM2dRefreshFrequency()
-    if (show3d) {
-      updateSLAM3dRefreshFrequency()
-    }
   })
 
   onDestroy(() => {
