@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/explore"
 	"go.viam.com/rdk/services/navigation"
@@ -54,7 +55,7 @@ const (
 
 	// desired speeds to maintain for the base.
 	defaultLinearVelocityMPerSec     = 0.5
-	defaultAngularVelocityDegsPerSec = 45.
+	defaultAngularVelocityDegsPerSec = 90.
 
 	// how far off the path must the robot be to trigger replanning.
 	defaultPlanDeviationM = 1e9
@@ -197,6 +198,9 @@ func (conf *Config) Validate(path string) ([]string, error) {
 			}
 		}
 	}
+
+	// add framesystem service as dependency to be used by builtin and explore motion service
+	deps = append(deps, framesystem.InternalServiceName.String())
 
 	return deps, nil
 }
