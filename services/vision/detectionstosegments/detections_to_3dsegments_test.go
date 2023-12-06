@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -12,6 +13,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/testutils/inject"
@@ -35,6 +37,9 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 	cam := &inject.Camera{}
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
 		return nil, errors.New("no pointcloud")
+	}
+	cam.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+		return nil, resource.ResponseMetadata{}, errors.New("no images")
 	}
 	cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return &transform.ParallelProjection{}, nil
@@ -78,12 +83,24 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
-	// fails since camera cannot generate point clouds
+	// fails since camera cannot return images
 	_, err = seg.GetObjectPointClouds(context.Background(), "fakeCamera", map[string]interface{}{})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no pointcloud")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no images")
 
 	// successful, creates one object with some points in it
+	cam.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+		img := rimage.NewImage(150, 150)
+		dm := rimage.NewEmptyDepthMap(150, 150)
+		dm.Set(0, 0, rimage.Depth(5))
+		dm.Set(0, 100, rimage.Depth(6))
+		dm.Set(50, 0, rimage.Depth(8))
+		dm.Set(50, 100, rimage.Depth(4))
+		dm.Set(15, 15, rimage.Depth(3))
+		dm.Set(16, 14, rimage.Depth(10))
+		imgs := []camera.NamedImage{{img, "color"}, {dm, "depth"}}
+		return imgs, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
+	}
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
 		cloud := pc.New()
 		err = cloud.Set(pc.NewVector(0, 0, 5), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))

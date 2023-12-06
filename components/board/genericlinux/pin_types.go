@@ -59,11 +59,9 @@ func (conf *PinDefinition) Validate(path string) error {
 		return resource.NewConfigValidationFieldRequiredError(path, "device_name")
 	}
 
-	if conf.LineNumber == -1 {
-		return resource.NewConfigValidationFieldRequiredError(path, "line_number")
-	}
-
-	if conf.LineNumber < 0 {
+	// We use -1 as a sentinel value indicating that this pin does not have GPIO capabilities.
+	// Besides that, the line number must be non-negative.
+	if conf.LineNumber < -1 {
 		return resource.NewConfigValidationError(path, errors.New("line_number on gpio chip must be at least zero"))
 	}
 

@@ -5,7 +5,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
@@ -67,19 +66,6 @@ type mustRebuildError struct {
 
 func (e *mustRebuildError) Error() string {
 	return fmt.Sprintf("cannot reconfigure %q; must rebuild", e.name)
-}
-
-// NewBuildTimeoutError is used when a resource times out during construction or reconfiguration.
-func NewBuildTimeoutError(name Name) error {
-	timeout := utils.GetResourceConfigurationTimeout(logging.Global())
-	extraMsg := ""
-	if timeout == utils.DefaultResourceConfigurationTimeout {
-		extraMsg = fmt.Sprintf(" Update %s env variable to override", utils.ResourceConfigurationTimeoutEnvVar)
-	}
-	return fmt.Errorf(
-		"resource %s timed out after %v during reconfigure.%v",
-		name, timeout, extraMsg,
-	)
 }
 
 // DependencyNotFoundError is used when a resource is not found in a dependencies.

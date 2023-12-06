@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
@@ -180,8 +181,8 @@ func (ms *explore) MoveOnGlobe(
 func (ms *explore) MoveOnGlobeNew(
 	ctx context.Context,
 	req motion.MoveOnGlobeReq,
-) (string, error) {
-	return "", errUnimplemented
+) (motion.ExecutionID, error) {
+	return uuid.Nil, errUnimplemented
 }
 
 func (ms *explore) GetPose(
