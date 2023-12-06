@@ -15,7 +15,7 @@
   import Collapse from '@/lib/components/collapse.svelte';
   import PCD from '@/components/pcd/pcd-view.svelte';
   import Dropzone from '@/lib/components/dropzone.svelte';
-  import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
+  import { useRobotClient, useDisconnect, useConnect } from '@/hooks/robot-client';
   import type { SLAMOverrides } from '@/types/overrides';
   import { rcLogConditionally } from '@/lib/log';
 
@@ -305,20 +305,6 @@
     startDurationTimer(start);
   };
 
-  onMount(async () => {
-    if (overrides && overrides.isCloudSlam) {
-      const activeSession = await overrides.getActiveMappingSession();
-
-      if (activeSession) {
-        hasActiveSession = true;
-        sessionId = activeSession.id;
-        const startMilliseconds =
-          (activeSession.timeCloudRunJobStarted?.seconds ?? 0) * 1000;
-        startMappingIntervals(startMilliseconds);
-      }
-    }
-  });
-
   const handleStartMapping = async () => {
     if (overrides) {
       // if input error do not start mapping
@@ -379,11 +365,6 @@
     overrides?.viewMap(sessionId);
   };
 
-  useDisconnect(clearRefresh);
-  onDestroy(() => {
-    clearInterval(durationInterval);
-  });
-
   const handleMapNameChange = (event: CustomEvent<{ value: string }>) => {
     newMapName = event.detail.value;
     mapNameError = overrides?.validateMapName(newMapName) ?? '';
@@ -392,6 +373,34 @@
   const handleDrop = (event: CustomEvent<string>) => {
     motionPath = event.detail;
   };
+
+  onMount(async () => {
+    if (overrides && overrides.isCloudSlam) {
+      const activeSession = await overrides.getActiveMappingSession();
+
+      if (activeSession) {
+        hasActiveSession = true;
+        sessionId = activeSession.id;
+        const startMilliseconds =
+          (activeSession.timeCloudRunJobStarted?.seconds ?? 0) * 1000;
+        startMappingIntervals(startMilliseconds);
+      }
+    }
+  });
+
+  useDisconnect(clearRefresh);
+
+  useConnect(() => {
+    updateSLAM2dRefreshFrequency()
+    if (show3d) {
+      updateSLAM3dRefreshFrequency()
+    }
+  })
+
+  onDestroy(() => {
+    clearInterval(durationInterval);
+  });
+
 </script>
 
 <Collapse title={name} on:toggle={toggleExpand}>
