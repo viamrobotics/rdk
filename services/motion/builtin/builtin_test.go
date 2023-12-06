@@ -14,6 +14,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -1944,7 +1945,7 @@ func TestNewValidatedMotionCfg(t *testing.T) {
 			obstaclePollingFreqHz: defaultObstaclePollingHz,
 			positionPollingFreqHz: defaultPositionPollingHz,
 			planDeviationMM:       defaultPlanDeviationM * 1e3,
-			obstacleDetectors:     nil,
+			obstacleDetectors:     []motion.ObstacleDetectorName{},
 		})
 	})
 
@@ -1957,7 +1958,7 @@ func TestNewValidatedMotionCfg(t *testing.T) {
 			obstaclePollingFreqHz: defaultObstaclePollingHz,
 			positionPollingFreqHz: defaultPositionPollingHz,
 			planDeviationMM:       defaultPlanDeviationM * 1e3,
-			obstacleDetectors:     nil,
+			obstacleDetectors:     []motion.ObstacleDetectorName{},
 		})
 	})
 

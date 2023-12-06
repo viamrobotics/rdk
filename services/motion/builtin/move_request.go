@@ -319,7 +319,9 @@ func newValidatedMotionCfg(motionCfg *motion.MotionConfiguration) (*validatedMot
 		obstaclePollingFreqHz: defaultObstaclePollingHz,
 		positionPollingFreqHz: defaultPositionPollingHz,
 		planDeviationMM:       defaultPlanDeviationM * 1e3,
+		obstacleDetectors:     []motion.ObstacleDetectorName{},
 	}
+
 	if motionCfg == nil {
 		return vmc, nil
 	}
