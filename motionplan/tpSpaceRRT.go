@@ -55,7 +55,7 @@ const (
 
 	// When evaluating the partial node to add to a tree after defaultCollisionWalkbackPct is applied, ensure the trajectory is still at
 	// least this long.
-	defaultMinArcLength = 150
+	defaultMinTrajectoryLength = 150
 )
 
 var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
@@ -502,10 +502,13 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert b
 			ok, _ := mp.planOpts.CheckStateConstraints(trajState)
 			if !ok {
 				okDist := trajPt.Dist * defaultCollisionWalkbackPct
-				if okDist > defaultMinArcLength && !invert {
+				if okDist > defaultMinTrajectoryLength && !invert {
 					// Check that okDist is larger than the minimum distance to move to add a partial trajectory.
 					for i := len(passed) - 1; i > 0; i-- {
-						// Return the most recent node whose dist is less than okDist
+						if passed[i].Cost() < defaultMinTrajectoryLength {
+							break
+						}
+						// Return the most recent node whose dist is less than okDist and larger than defaultMinTrajectoryLength
 						if passed[i].Cost() < okDist {
 							return passed[i]
 						}
