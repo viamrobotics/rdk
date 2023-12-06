@@ -54,8 +54,6 @@ const (
 	defaultMapType = navigation.GPSMap
 
 	// desired speeds to maintain for the base.
-	// defaultLinearVelocityMPerSec     = 0.5
-	// defaultAngularVelocityDegsPerSec = 90.
 	defaultLinearMPerSec     = 0.3
 	defaultAngularDegsPerSec = 20.
 
