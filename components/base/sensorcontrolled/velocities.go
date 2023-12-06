@@ -2,13 +2,14 @@ package sensorcontrolled
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/golang/geo/r3"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/control"
 	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/utils"
 )
 
 // TODO: RSDK-5355 useControlLoop bool should be removed after testing.
@@ -19,15 +20,13 @@ const useControlLoop = true
 // the sensor base in the controllable interface that implements State and GetState
 // called by the endpoing logic of the control thread and the controlLoopConfig
 // is included at the end of this file.
-func setupControlLoops(sb *sensorBase) error {
-	sb.logger.Error("setupControlLoops")
+func (sb *sensorBase) setupControlLoops() error {
 	// TODO: RSDK-5355 useControlLoop bool should be removed after testing
 	if useControlLoop {
 		loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
 		if err != nil {
 			return err
 		}
-		// time.Sleep(1 * time.Second)
 		if err := loop.Start(); err != nil {
 			return err
 		}
@@ -46,28 +45,33 @@ func (sb *sensorBase) SetVelocity(
 	// 	sb.sensorLoopDone()
 	// }
 
-	// // set the spin loop to false, so we do not skip the call to SetState in the control loop
-	// sb.setPolling(false)
+	// set the spin loop to false, so we do not skip the call to SetState in the control loop
+	sb.setPolling(false)
 
 	// // start a sensor context for the sensor loop based on the longstanding base
 	// // creator context, and add a timeout for the context
-	// timeOut := 10 * time.Second
-	// var sensorCtx context.Context
-	// sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
+	timeOut := 10 * time.Second
+	var sensorCtx context.Context
+	sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
 
 	// TODO: RSDK-5355 remove control loop bool after testing
-	if useControlLoop && sb.loop != nil {
-		// stop and restart loop
-		sb.loop.Stop()
-		loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
-		if err != nil {
-			return err
-		}
-		if err := loop.Start(); err != nil {
-			return err
-		}
-		sb.loop = loop
 
+	// stop and restart loop
+	if sb.loop != nil {
+		if err := sb.Stop(ctx, nil); err != nil {
+			sb.logger.Error(err)
+		}
+	}
+	loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
+	if err != nil {
+		return err
+	}
+	if err := loop.Start(); err != nil {
+		return err
+	}
+	sb.loop = loop
+
+	if useControlLoop && sb.loop != nil {
 		// set linear setpoint config
 		linConf := control.BlockConfig{
 			Name: "lin_setpoint",
@@ -81,22 +85,6 @@ func (sb *sensorBase) SetVelocity(
 			return err
 		}
 		sb.logger.Errorf("linear.Y = %v", linear.Y)
-
-		// // set linear trapz config
-		// linTrapzConf := control.BlockConfig{
-		// 	Name: "lin_trapz",
-		// 	Type: "trapezoidalVelocityProfile",
-		// 	Attribute: rdkutils.AttributeMap{
-		// 		"kpp_gain":   0.45,
-		// 		"max_acc":    30000.0,
-		// 		"max_vel":    4000.0,
-		// 		"pos_window": 0.0,
-		// 	},
-		// 	DependsOn: []string{"lin_setpoint", "endpoint"},
-		// }
-		// if err := sb.loop.SetConfigAt(ctx, "lin_setpoint", linTrapzConf); err != nil {
-		// 	return err
-		// }
 
 		// set angular setpoint config
 		angConf := control.BlockConfig{
@@ -112,26 +100,10 @@ func (sb *sensorBase) SetVelocity(
 		}
 		sb.logger.Errorf("angular.Z = %v", angular.Z)
 
-		// // set angular trapz config
-		// angTrapzConf := control.BlockConfig{
-		// 	Name: "ang_trapz",
-		// 	Type: "trapezoidalVelocityProfile",
-		// 	Attribute: rdkutils.AttributeMap{
-		// 		"kpp_gain":   0.45,
-		// 		"max_acc":    30000.0,
-		// 		"max_vel":    4000.0,
-		// 		"pos_window": 0.0,
-		// 	},
-		// 	DependsOn: []string{"ang_setpoint", "endpoint"},
-		// }
-		// if err := sb.loop.SetConfigAt(ctx, "lin_setpoint", angTrapzConf); err != nil {
-		// 	return err
-		// }
-
 		// if we have a loop, let's use the SetState function to call the SetVelocity command
 		// through the control loop
 		sb.logger.Info("using loop")
-		// sb.pollsensors(sensorCtx, extra)
+		sb.pollsensors(sensorCtx, extra)
 		return nil
 	}
 
@@ -188,25 +160,32 @@ func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interfac
 	}, sb.activeBackgroundWorkers.Done)
 }
 
+func sign(x float64) float64 { // A quick helper function
+	if math.Signbit(x) {
+		return -1.0
+	}
+	return 1.0
+}
+
 // SetState is called in endpoint.go of the controls package by the control loop
 // instantiated in this file. It is a helper function to call the sensor-controlled base's
 // SetVelocity from within that package.
 func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) error {
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
-	// if sb.isPolling() {
-	// 	// if the spin loop is polling, don't call set velocity, immediately return
-	// 	// this allows us to keep the control loop running without stopping it until
-	// 	// the resource Close has been called
-	// 	sb.logger.Info("skipping set state call")
-	// 	return nil
-	// }
+	if sb.isPolling() {
+		// if the spin loop is polling, don't call set velocity, immediately return
+		// this allows us to keep the control loop running without stopping it until
+		// the resource Close has been called
+		sb.logger.Info("skipping set state call")
+		return nil
+	}
 
-	// sb.logger.Info("setting state")
 	linvel := state[0].GetSignalValueAt(0)
-	angvel := state[1].GetSignalValueAt(0)
+	// FIX: multiply angvel by the sign of linvel... why does this work?
+	angvel := (state[1].GetSignalValueAt(0) * sign(linvel))
 
-	sb.logger.Errorf("SETTING STATE = %v", state[0].GetSignalValueAt(0))
+	sb.logger.Errorf("SETTING STATE = %v, %v", state[0].GetSignalValueAt(0), state[1].GetSignalValueAt(0))
 
 	return sb.SetPower(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
 	// return sb.controlledBase.SetVelocity(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
@@ -227,7 +206,7 @@ func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
 		return []float64{}, err
 	}
 
-	sb.logger.Errorf("GETTING STATE = %v, %v", linvel, angvel)
+	sb.logger.Errorf("GETTING STATE = %v, %v", linvel.Y, angvel.Z)
 
 	return []float64{linvel.Y, angvel.Z}, nil
 }
@@ -252,8 +231,8 @@ var controlLoopConfig = control.Config{
 			Type: "PID",
 			Attribute: rdkutils.AttributeMap{
 				"kD":             0.0,
-				"kI":             333.629454,
-				"kP":             299.679037,
+				"kI":             342.763911,
+				"kP":             291.489819,
 				"int_sat_lim_lo": -255.0,
 				"int_sat_lim_up": 255.0,
 				"limit_lo":       -255.0,
@@ -269,8 +248,8 @@ var controlLoopConfig = control.Config{
 			Type: "PID",
 			Attribute: rdkutils.AttributeMap{
 				"kD":             0.0,
-				"kI":             0.699107,
-				"kP":             0.628516,
+				"kI":             0.754513,
+				"kP":             0.677894,
 				"int_sat_lim_lo": -255.0,
 				"int_sat_lim_up": 255.0,
 				"limit_lo":       -255.0,
@@ -321,28 +300,6 @@ var controlLoopConfig = control.Config{
 			},
 			DependsOn: []string{},
 		},
-		// {
-		// 	Name: "lin_trapz",
-		// 	Type: "trapezoidalVelocityProfile",
-		// 	Attribute: rdkutils.AttributeMap{
-		// 		"kpp_gain":   0.45,
-		// 		"max_acc":    30000.0,
-		// 		"max_vel":    4000.0,
-		// 		"pos_window": 0.0,
-		// 	},
-		// 	DependsOn: []string{"lin_setpoint", "endpoint"},
-		// },
-		// {
-		// 	Name: "ang_trapz",
-		// 	Type: "trapezoidalVelocityProfile",
-		// 	Attribute: rdkutils.AttributeMap{
-		// 		"kpp_gain":   0.45,
-		// 		"max_acc":    30000.0,
-		// 		"max_vel":    4000.0,
-		// 		"pos_window": 0.0,
-		// 	},
-		// 	DependsOn: []string{"ang_setpoint", "endpoint"},
-		// },
 	},
 	Frequency: 20,
 }

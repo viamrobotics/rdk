@@ -77,8 +77,6 @@ func (b *sum) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signa
 		}
 		b.y[0].SetSignalValueAt(0, y)
 	}
-	b.logger.Errorf("SUM NEXT (LIN) = %v for block %v", b.y[0].GetSignalValueAt(0), b.cfg.Name)
-	b.logger.Errorf("SUM NEXT (ANG) = %v for block %v", b.y[1].GetSignalValueAt(0), b.cfg.Name)
 	return b.y, true
 }
 

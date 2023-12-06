@@ -154,15 +154,8 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	}
 
 	if sb.velocities != nil {
-		if useControlLoop {
-			loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
-			if err != nil {
-				return err
-			}
-			if err := loop.Start(); err != nil {
-				return err
-			}
-			sb.loop = loop
+		if err := sb.setupControlLoops(); err != nil {
+			return err
 		}
 	}
 
@@ -206,6 +199,9 @@ func (sb *sensorBase) SetPower(
 func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	sb.opMgr.CancelRunning(ctx)
 	sb.setPolling(false)
+	if sb.loop != nil {
+		sb.loop.Stop()
+	}
 	return sb.controlledBase.Stop(ctx, extra)
 }
 

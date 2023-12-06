@@ -35,7 +35,6 @@ func (b *gain) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Sign
 		tx := s.GetSignalValueAt(0)
 		b.y[0].SetSignalValueAt(0, tx*b.gain)
 	}
-	b.logger.Errorf("GAIN NEXT = %v for block %v", b.y[0].GetSignalValueAt(0), b.cfg.Name)
 	return b.y, true
 }
 

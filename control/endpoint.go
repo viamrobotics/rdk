@@ -33,7 +33,6 @@ func (e *endpoint) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 	case 1, 2:
 		if e.ctr != nil {
 			// e.logger.Infof("setting state %v", x)
-			e.logger.Error("ENDPOINT NEXT SETTING STATE")
 			err := e.ctr.SetState(ctx, x)
 			if err != nil {
 				return []*Signal{}, false

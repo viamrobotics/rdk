@@ -82,7 +82,6 @@ func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 		}
 		p.y[0].SetSignalValueAt(0, output)
 	}
-	p.logger.Errorf("PID NEXT = %v for block %v", p.y[0].GetSignalValueAt(0), p.cfg.Name)
 	return p.y, true
 }
 
