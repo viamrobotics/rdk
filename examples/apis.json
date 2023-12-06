@@ -62,7 +62,8 @@
   },
   "motion": {
     "func": "GetPose",
-    "args": []
+    "args": [],
+    "comment":"Note this function requires additional arguments. Please provide valid arguments for function to work properly"
   },
   "vision": {
     "func": "ClassificationsFromCamera",
