@@ -823,7 +823,6 @@ func TestReplan(t *testing.T) {
 }
 
 func TestPtgPosOnlyBidirectional(t *testing.T) {
-	t.Skip()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
