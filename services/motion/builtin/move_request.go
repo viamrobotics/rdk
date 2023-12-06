@@ -312,37 +312,62 @@ func validateNotNegNorNaN(f float64, name string) error {
 }
 
 func newValidatedMotionCfg(motionCfg *motion.MotionConfiguration) (*validatedMotionConfiguration, error) {
-	vmc := &validatedMotionConfiguration{}
+	empty := &validatedMotionConfiguration{}
+	vmc := &validatedMotionConfiguration{
+		angularDegsPerSec:     defaultAngularDegsPerSec,
+		linearMPerSec:         defaultLinearMPerSec,
+		obstaclePollingFreqHz: defaultObstaclePollingHz,
+		positionPollingFreqHz: defaultPositionPollingHz,
+		planDeviationMM:       defaultPlanDeviationM * 1e3,
+	}
 	if motionCfg == nil {
 		return vmc, nil
 	}
 
 	if err := validateNotNegNorNaN(motionCfg.LinearMPerSec, "LinearMPerSec"); err != nil {
-		return vmc, err
+		return empty, err
 	}
 
 	if err := validateNotNegNorNaN(motionCfg.AngularDegsPerSec, "AngularDegsPerSec"); err != nil {
-		return vmc, err
+		return empty, err
 	}
 
 	if err := validateNotNegNorNaN(motionCfg.PlanDeviationMM, "PlanDeviationMM"); err != nil {
-		return vmc, err
+		return empty, err
 	}
 
 	if err := validateNotNegNorNaN(motionCfg.ObstaclePollingFreqHz, "ObstaclePollingFreqHz"); err != nil {
-		return vmc, err
+		return empty, err
 	}
 
 	if err := validateNotNegNorNaN(motionCfg.PositionPollingFreqHz, "PositionPollingFreqHz"); err != nil {
-		return vmc, err
+		return empty, err
 	}
 
-	vmc.linearMPerSec = motionCfg.LinearMPerSec
-	vmc.angularDegsPerSec = motionCfg.AngularDegsPerSec
-	vmc.planDeviationMM = motionCfg.PlanDeviationMM
-	vmc.obstaclePollingFreqHz = motionCfg.ObstaclePollingFreqHz
-	vmc.positionPollingFreqHz = motionCfg.PositionPollingFreqHz
-	vmc.obstacleDetectors = motionCfg.ObstacleDetectors
+	if motionCfg.LinearMPerSec != 0 {
+		vmc.linearMPerSec = motionCfg.LinearMPerSec
+	}
+
+	if motionCfg.AngularDegsPerSec != 0 {
+		vmc.angularDegsPerSec = motionCfg.AngularDegsPerSec
+	}
+
+	if motionCfg.PlanDeviationMM != 0 {
+		vmc.planDeviationMM = motionCfg.PlanDeviationMM
+	}
+
+	if motionCfg.ObstaclePollingFreqHz != 0 {
+		vmc.obstaclePollingFreqHz = motionCfg.ObstaclePollingFreqHz
+	}
+
+	if motionCfg.PositionPollingFreqHz != 0 {
+		vmc.positionPollingFreqHz = motionCfg.PositionPollingFreqHz
+	}
+
+	if motionCfg.ObstacleDetectors != nil {
+		vmc.obstacleDetectors = motionCfg.ObstacleDetectors
+	}
+
 	return vmc, nil
 }
 
