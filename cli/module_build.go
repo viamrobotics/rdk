@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	buildpb "go.viam.com/api/app/build/v1"
-	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/logging"
