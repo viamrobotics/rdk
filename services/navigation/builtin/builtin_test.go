@@ -1606,7 +1606,7 @@ func TestGetObstacles(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// create injected/fake components and services
-	fakeBase, err := fakebase.NewBase(
+	fakeBase, err := baseFake.NewBase(
 		ctx,
 		nil,
 		resource.Config{
