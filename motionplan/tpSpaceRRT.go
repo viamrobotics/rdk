@@ -55,13 +55,14 @@ const (
 	// For bases we increase this to 30mm, a bit more than 1 inch.
 	defaultPTGCollisionResolution = 30
 
-	// If we are checking a long trajectory for collisions, then collisions become very likely, especially on a SLAM map.
-	// Rather than excluding any trajectory with a collision, we could return the last valid node, but that would yield a node pressed up
-	// against an obstacle; instead we will walk back the trajectory this far in TPspace-distance and return that node to preserve
-	// better freedom of movement.
-	defaultCollisionBuffer      = 100.
-	defaultCollisionWalkbackPct = 0.75
+	// When checking a PTG for validity and finding a collision, using the last good configuration will result in a highly restricted
+	// node that is directly facing a wall. To prevent this, we walk back along the trajectory by this percentage of the traj length
+	// so that the node we add has more freedom of movement to extend in the future.
+	defaultCollisionWalkbackPct = 0.8
 
+	// When evaluating the partial node to add to a tree after defaultCollisionWalkbackPct is applied, ensure the trajectory is still at
+	// least this long.
+	defaultMinTrajectoryLength = 350
 	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly.
 	pathdebug = true
 )
@@ -293,9 +294,9 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 
 		seedReached := &nodeAndError{}
 		goalReached := &nodeAndError{}
-		//~ utils.PanicCapturingGo(func() {
-			//~ m1chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.startMap, false)
-		//~ })
+		utils.PanicCapturingGo(func() {
+			m1chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.startMap, false)
+		})
 		if mp.algOpts.bidirectional {
 			utils.PanicCapturingGo(func() {
 				//~ flippedNode := &basicNode{
@@ -308,8 +309,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			})
 			goalReached = <-m2chan
 		}
-		//~ seedReached = <-m1chan
-		
+		seedReached = <-m1chan
 
 		err := multierr.Combine(seedReached.error, goalReached.error)
 		if err != nil {
@@ -317,7 +317,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			return
 		}
 
-		if seedReached.node != nil && goalReached.node != nil && false{
+		if seedReached.node != nil && goalReached.node != nil {
 			reachedDelta := mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: seedReached.node.Pose(), EndPosition: goalReached.node.Pose()})
 			if reachedDelta > mp.algOpts.poseSolveDist {
 				// If both maps extended, but did not reach the same point, then attempt to extend them towards each other
@@ -508,31 +508,29 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		if goodNode == nil {
 			break
 		}
-		//~ fmt.Println("goodnode", goodNode.Q())
-		// If we cut off the arc early, don't continue the next one
-		cutShort := false
-		for idx, val := range goodNode.Q() {
-			if subNode.Q()[idx] != val {
-				cutShort = true
-				break
-			}
-		}
+		partialExtend := false
+
 		if invert {
-			arcPose = spatialmath.Compose(goodNode.Pose(), arcPose)
+			arcPose = spatialmath.Compose(subNodePose, arcPose)
 		} else {
+			for i, val := range subNode.Q() {
+				if goodNode.Q()[i] != val {
+					partialExtend = true
+				}
+			}
 			arcPose = spatialmath.Compose(arcPose, goodNode.Pose())
 		}
 
 		// add the last node in trajectory
+		arcStartPose = spatialmath.Compose(arcStartPose, goodNode.Pose())
 		successNode = &basicNode{
-			q:    []referenceframe.Input{{float64(ptgNum)}, subNode.Q()[0], {goodNode.Cost()}},
-			cost: goodNode.Cost(),
-			pose: spatialmath.Compose(arcStartPose, arcPose),
+			q:      append([]referenceframe.Input{{float64(ptgNum)}}, goodNode.Q()...),
+			cost:   goodNode.Cost(),
+			pose:   arcStartPose,
+			corner: false,
 		}
-		fmt.Println("arcpose", arcPose.Point())
 		successNodes = append(successNodes, successNode)
-		arcStartPose = spatialmath.Compose(arcStartPose, arcPose)
-		if cutShort {
+		if partialExtend {
 			break
 		}
 	}
@@ -563,7 +561,6 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert bool, arcStartPose spatialmath.Pose) node {
 	sinceLastCollideCheck := 0.
 	lastDist := 0.
-	//~ var nodePose spatialmath.Pose
 	passed := []node{}
 	// Check each point along the trajectory to confirm constraints are met
 	// TODO: RSDK-5007 will allow this to use a Segment and be better integrated into our existing frameworks.
@@ -577,14 +574,17 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert b
 
 		sinceLastCollideCheck += math.Abs(trajPt.Dist - lastDist)
 		trajState := &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose), Frame: mp.frame}
-		//~ nodePose = trajState.Position
 		if sinceLastCollideCheck > mp.planOpts.Resolution {
 			ok, _ := mp.planOpts.CheckStateConstraints(trajState)
 			if !ok {
 				okDist := trajPt.Dist * defaultCollisionWalkbackPct
-				if okDist > defaultCollisionBuffer && !invert {
+				if okDist > defaultMinTrajectoryLength && !invert {
+					// Check that okDist is larger than the minimum distance to move to add a partial trajectory.
 					for i := len(passed) - 1; i > 0; i-- {
-						// Return the most recent node whose dist is less than okDist
+						if passed[i].Cost() < defaultMinTrajectoryLength {
+							break
+						}
+						// Return the most recent node whose dist is less than okDist and larger than defaultMinTrajectoryLength
 						if passed[i].Cost() < okDist {
 							return passed[i]
 						}
@@ -596,7 +596,7 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert b
 		}
 
 		okNode := &basicNode{
-			q: []referenceframe.Input{{trajPt.Alpha}, {trajPt.Dist}},
+			q:    []referenceframe.Input{{trajPt.Alpha}, {trajPt.Dist}},
 			cost: trajPt.Dist,
 			pose: trajPt.Pose,
 		}
@@ -604,9 +604,9 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert b
 		lastDist = trajPt.Dist
 	}
 	return &basicNode{
-		q: []referenceframe.Input{{trajK[(len(trajK) - 1)].Alpha}, {trajK[(len(trajK) - 1)].Dist}},
+		q:    []referenceframe.Input{{trajK[(len(trajK) - 1)].Alpha}, {trajK[(len(trajK) - 1)].Dist}},
 		cost: trajK[(len(trajK) - 1)].Dist,
-		pose: trajK[(len(trajK) - 1)].Pose,
+		pose: passed[len(passed)-1].Pose(),
 	}
 }
 

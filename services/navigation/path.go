@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	geo "github.com/kellydunn/golang-geo"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/navigation/v1"
 )
@@ -13,17 +14,14 @@ var errNilPath = errors.New("cannot convert nil path")
 
 // Path describes a series of geo points the robot will travel through.
 type Path struct {
-	destinationWaypointID string
+	destinationWaypointID primitive.ObjectID
 	geoPoints             []*geo.Point
 }
 
 // NewPath constructs a Path from a slice of geo.Points and ID.
-func NewPath(id string, geoPoints []*geo.Point) (*Path, error) {
+func NewPath(id primitive.ObjectID, geoPoints []*geo.Point) (*Path, error) {
 	if len(geoPoints) == 0 {
 		return nil, errors.New("cannot instantiate path with no geoPoints")
-	}
-	if id == "" {
-		return nil, errors.New("cannot instantiate path with no destinationWaypointID")
 	}
 	return &Path{
 		destinationWaypointID: id,
@@ -32,7 +30,7 @@ func NewPath(id string, geoPoints []*geo.Point) (*Path, error) {
 }
 
 // DestinationWaypointID returns the ID of the Path.
-func (p *Path) DestinationWaypointID() string {
+func (p *Path) DestinationWaypointID() primitive.ObjectID {
 	return p.destinationWaypointID
 }
 
@@ -66,7 +64,7 @@ func PathToProto(path *Path) (*pb.Path, error) {
 		})
 	}
 	return &pb.Path{
-		DestinationWaypointId: path.destinationWaypointID,
+		DestinationWaypointId: path.destinationWaypointID.Hex(),
 		Geopoints:             pbGeoPoints,
 	}, nil
 }
@@ -93,5 +91,10 @@ func ProtoToPath(path *pb.Path) (*Path, error) {
 	for _, pt := range path.GetGeopoints() {
 		geoPoints = append(geoPoints, geo.NewPoint(pt.GetLatitude(), pt.GetLongitude()))
 	}
-	return NewPath(path.GetDestinationWaypointId(), geoPoints)
+	id, err := primitive.ObjectIDFromHex(path.GetDestinationWaypointId())
+	if err != nil {
+		return nil, err
+	}
+
+	return NewPath(id, geoPoints)
 }

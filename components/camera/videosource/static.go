@@ -5,6 +5,7 @@ package videosource
 import (
 	"context"
 	"image"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -109,6 +110,30 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 	return img, func() {}, err
 }
 
+// Images returns the saved color and depth image if they are present.
+func (fs *fileSource) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	if fs.ColorFN == "" && fs.DepthFN == "" {
+		return nil, resource.ResponseMetadata{}, errors.New("no image file to read, so not implemented")
+	}
+	imgs := []camera.NamedImage{}
+	if fs.ColorFN != "" {
+		img, err := rimage.NewImageFromFile(fs.ColorFN)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		imgs = append(imgs, camera.NamedImage{img, "color"})
+	}
+	if fs.DepthFN != "" {
+		dm, err := rimage.NewDepthMapFromFile(context.Background(), fs.DepthFN)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		imgs = append(imgs, camera.NamedImage{dm, "depth"})
+	}
+	ts := time.Now()
+	return imgs, resource.ResponseMetadata{CapturedAt: ts}, nil
+}
+
 // NextPointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters,
 // or the pointcloud from file if set.
 func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -153,6 +178,22 @@ func (ss *StaticSource) Read(ctx context.Context) (image.Image, func(), error) {
 		return ss.ColorImg, func() {}, nil
 	}
 	return ss.DepthImg, func() {}, nil
+}
+
+// Images returns the saved color and depth image if they are present.
+func (ss *StaticSource) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	if ss.ColorImg == nil && ss.DepthImg == nil {
+		return nil, resource.ResponseMetadata{}, errors.New("no image files stored, so not implemented")
+	}
+	imgs := []camera.NamedImage{}
+	if ss.ColorImg != nil {
+		imgs = append(imgs, camera.NamedImage{ss.ColorImg, "color"})
+	}
+	if ss.DepthImg != nil {
+		imgs = append(imgs, camera.NamedImage{ss.DepthImg, "depth"})
+	}
+	ts := time.Now()
+	return imgs, resource.ResponseMetadata{CapturedAt: ts}, nil
 }
 
 // NextPointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters.

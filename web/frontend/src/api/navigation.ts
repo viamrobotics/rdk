@@ -3,11 +3,23 @@
 import * as THREE from 'three';
 import { NavigationClient, type Waypoint } from '@viamrobotics/sdk';
 import { ViamObject3D } from '@viamrobotics/three';
-import type {
-  BoxGeometry, CapsuleGeometry, Obstacle, SphereGeometry,
-} from './types/navigation';
 import { notify } from '@viamrobotics/prime';
+import { theme } from '@viamrobotics/prime-core/theme';
+import type {
+  Obstacle,
+  BoxGeometry,
+  CapsuleGeometry,
+  SphereGeometry,
+} from '@viamrobotics/prime-blocks';
 export * from './types/navigation';
+
+const STATIC_OBSTACLE_LABEL = 'static';
+const STATIC_OBSTACLE_COLOR = theme.extend.colors.cyberpunk;
+const TRANSIENT_OBSTACLE_LABEL = 'transient';
+const TRANSIENT_OBSTACLE_COLOR = theme.extend.colors.hologram;
+
+/** Transient obstacles will contain this string in the geometry's label. */
+const TRANSIENT_LABEL_SEARCH = 'transientObstacle';
 
 export const formatWaypoints = (list: Waypoint[]) => {
   return list.map((item) => {
@@ -20,14 +32,41 @@ export const formatWaypoints = (list: Waypoint[]) => {
   });
 };
 
-export const getObstacles = async (navClient: NavigationClient): Promise<Obstacle[]> => {
+export const getObstacles = async (
+  navClient: NavigationClient
+): Promise<Obstacle[]> => {
   const list = await navClient.getObstacles();
 
   return list.map((obstacle, index) => {
     const { location } = obstacle;
 
+    /*
+     * Labels are defined on each geometry, not on the
+     * obstacle itself. In practice, obstacles typically
+     * only have a single geometry. This takes the label
+     * on the first geometry and uses that even if there
+     * are multiple geometries.
+     */
+
+    const [geo] = obstacle.geometriesList;
+
+    let name = `Obstacle ${index + 1}`;
+    if (obstacle.geometriesList.length > 1) {
+      name = `${geo?.label} & others`;
+    } else if (geo?.label) {
+      name = geo.label;
+    }
+
+    const isTransient = geo?.label.includes(TRANSIENT_LABEL_SEARCH);
+    const label = isTransient
+      ? TRANSIENT_OBSTACLE_LABEL
+      : STATIC_OBSTACLE_LABEL;
+    const color = isTransient
+      ? TRANSIENT_OBSTACLE_COLOR
+      : STATIC_OBSTACLE_COLOR;
+
     return {
-      name: `Obstacle ${index + 1}`,
+      name,
       location: {
         lng: location?.longitude ?? 0,
         lat: location?.latitude ?? 0,
@@ -48,32 +87,35 @@ export const getObstacles = async (navClient: NavigationClient): Promise<Obstacl
             height: (dimsMm?.z ?? 0) / 1000,
             pose,
           } satisfies BoxGeometry;
-
         } else if (geometry.sphere) {
-
           return {
             type: 'sphere',
-            radius: (geometry.sphere.radiusMm ?? 0) / 1000,
+            radius: geometry.sphere.radiusMm / 1000,
             pose,
           } satisfies SphereGeometry;
-
         } else if (geometry.capsule) {
           const { capsule } = geometry;
 
           return {
             type: 'capsule',
-            radius: (capsule.radiusMm ?? 0) / 1000,
-            length: (capsule.lengthMm ?? 0) / 1000,
+            radius: capsule.radiusMm / 1000,
+            length: capsule.lengthMm / 1000,
             pose,
           } satisfies CapsuleGeometry;
-
         }
 
-        notify.danger('An unsupported geometry was encountered in an obstacle', JSON.stringify(geometry));
+        notify.danger(
+          'An unsupported geometry was encountered in an obstacle',
+          JSON.stringify(geometry)
+        );
         throw new Error(
-          `An unsupported geometry was encountered in an obstacle: ${JSON.stringify(geometry)}`
+          `An unsupported geometry was encountered in an obstacle: ${JSON.stringify(
+            geometry
+          )}`
         );
       }),
+      label,
+      color,
     } satisfies Obstacle;
   });
 };

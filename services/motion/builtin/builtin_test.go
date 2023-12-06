@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
-	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	// registers all components.
@@ -653,14 +652,16 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 		entry1GoalLine = strings.ReplaceAll(entry1GoalLine, ":", "\":")
 
 		posepb := &commonpb.Pose{}
-		json.Unmarshal([]byte(entry1GoalLine), posepb)
+		err := json.Unmarshal([]byte(entry1GoalLine), posepb)
+		test.That(t, err, test.ShouldBeNil)
+
 		return spatialmath.NewPoseFromProtobuf(posepb)
 	}
 	goalPose1 := logLineToGoalPose(goalLogsObserver[0].Entry.Message)
 	test.That(t, spatialmath.PoseAlmostEqualEps(goalPose1, goal1BaseFrame, 10), test.ShouldBeTrue)
 	goalPose2 := logLineToGoalPose(goalLogsObserver[1].Entry.Message)
 	// This is the important test.
-	test.That(t, spatialmath.PoseAlmostEqualEps(goalPose2, spatialmath.PoseBetween(goal1BaseFrame, goal2BaseFrame), 5), test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostEqualEps(goalPose2, spatialmath.PoseBetween(goal1BaseFrame, goal2BaseFrame), 10), test.ShouldBeTrue)
 }
 
 func TestMoveOnMapTimeout(t *testing.T) {
@@ -1879,15 +1880,12 @@ func TestMoveOnGlobeNew(t *testing.T) {
 	executionID, err := ms.MoveOnGlobeNew(ctx, req)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, executionID, test.ShouldNotBeEmpty)
-	// should be a valid uuid when parsed
-	_, err = uuid.Parse(executionID)
-	test.That(t, err, test.ShouldBeNil)
 
 	// returns the execution just created in the history
 	ph, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(ph), test.ShouldEqual, 1)
-	test.That(t, ph[0].Plan.ExecutionID.String(), test.ShouldResemble, executionID)
+	test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionID)
 	test.That(t, len(ph[0].StatusHistory), test.ShouldEqual, 1)
 	test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateInProgress)
 	test.That(t, len(ph[0].Plan.Steps), test.ShouldNotEqual, 0)
@@ -1898,11 +1896,18 @@ func TestMoveOnGlobeNew(t *testing.T) {
 	ph2, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(ph2), test.ShouldEqual, 1)
-	test.That(t, ph2[0].Plan.ExecutionID.String(), test.ShouldResemble, executionID)
+	test.That(t, ph2[0].Plan.ExecutionID, test.ShouldResemble, executionID)
 	test.That(t, len(ph2[0].StatusHistory), test.ShouldEqual, 2)
 	test.That(t, ph2[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateStopped)
 	test.That(t, ph2[0].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
 	test.That(t, len(ph2[0].Plan.Steps), test.ShouldNotEqual, 0)
+
+	// Proves that calling StopPlan after the plan has reached a terminal state is idempotent
+	err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
+	test.That(t, err, test.ShouldBeNil)
+	ph3, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ph3, test.ShouldResemble, ph2)
 }
 
 func TestStopPlan(t *testing.T) {

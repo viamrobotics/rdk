@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/golang/geo/r3"
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
@@ -384,7 +385,10 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 }
 
-func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+	if err := ctx.Err(); err != nil {
+		return uuid.Nil, err
+	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	ms.logger.Debugf("MoveOnGlobeNew called with %s", req)
@@ -401,10 +405,10 @@ func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq
 
 	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, planExecutorConstructor)
 	if err != nil {
-		return "", err
+		return uuid.Nil, err
 	}
 
-	return id.String(), nil
+	return id, nil
 }
 
 func (ms *builtIn) GetPose(
@@ -434,6 +438,9 @@ func (ms *builtIn) StopPlan(
 	ctx context.Context,
 	req motion.StopPlanReq,
 ) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	return ms.state.StopExecutionByResource(req.ComponentName)
@@ -443,6 +450,9 @@ func (ms *builtIn) ListPlanStatuses(
 	ctx context.Context,
 	req motion.ListPlanStatusesReq,
 ) ([]motion.PlanStatusWithID, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	return ms.state.ListPlanStatuses(req)
@@ -452,6 +462,9 @@ func (ms *builtIn) PlanHistory(
 	ctx context.Context,
 	req motion.PlanHistoryReq,
 ) ([]motion.PlanWithStatus, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	return ms.state.PlanHistory(req)

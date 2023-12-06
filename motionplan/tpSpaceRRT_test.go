@@ -40,6 +40,9 @@ func TestPtgRrtBidirectional(t *testing.T) {
 		false,
 	)
 	test.That(t, err, test.ShouldBeNil)
+	if pathdebug {
+		logger.Debug("$type,X,Y")
+	}
 
 	goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90})
 

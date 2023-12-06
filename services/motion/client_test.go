@@ -245,10 +245,10 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		t.Run("returns error without calling client if params can't be cast to proto", func(t *testing.T) {
-			injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+			injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 				t.Log("should not be called")
 				t.FailNow()
-				return "", errors.New("should not be reached")
+				return uuid.Nil, errors.New("should not be reached")
 			}
 
 			req := motion.MoveOnGlobeReq{
@@ -261,13 +261,13 @@ func TestClient(t *testing.T) {
 			executionID, err := client.MoveOnGlobeNew(ctx, req)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err, test.ShouldBeError, errors.New("must provide a destination"))
-			test.That(t, executionID, test.ShouldEqual, "")
+			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
 
 		t.Run("returns error if client returns error", func(t *testing.T) {
 			errExpected := errors.New("some client error")
-			injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
-				return "", errExpected
+			injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+				return uuid.Nil, errExpected
 			}
 
 			req := motion.MoveOnGlobeReq{
@@ -280,12 +280,12 @@ func TestClient(t *testing.T) {
 			executionID, err := client.MoveOnGlobeNew(ctx, req)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
-			test.That(t, executionID, test.ShouldEqual, "")
+			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
 
 		t.Run("otherwise returns success with an executionID", func(t *testing.T) {
-			expectedExecutionID := "some execution id"
-			injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+			expectedExecutionID := uuid.New()
+			injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 				return expectedExecutionID, nil
 			}
 
