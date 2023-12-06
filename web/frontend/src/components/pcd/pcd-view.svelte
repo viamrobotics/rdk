@@ -125,7 +125,7 @@ const update = (cloud: Uint8Array) => {
   mesh.name = 'points';
 
   for (let i = 0, j = 0; i < count; i += 1, j += 3) {
-    matrix.setPosition(positions[j + 0]!, positions[j + 1], positions[j + 2]);
+    matrix.setPosition(positions[j + 0]!, positions[j + 1]!, positions[j + 2]!);
     mesh.setMatrixAt(i, matrix);
 
     color.setRGB(colors[j + 0]!, colors[j + 1]!, colors[j + 2]!);
