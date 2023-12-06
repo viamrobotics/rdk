@@ -490,7 +490,7 @@ func newViamClient(c *cli.Context) (*viamClient, error) {
 	}
 
 	if conf.BaseURL != defaultBaseURL {
-		infof(c.App.Writer, "Using %q as base URL value", conf.BaseURL)
+		infof(c.App.ErrWriter, "Using %q as base URL value", conf.BaseURL)
 	}
 	baseURL, rpcOpts, err := parseBaseURL(conf.BaseURL, true)
 	if err != nil {

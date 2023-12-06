@@ -5,11 +5,14 @@ package explore
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/golang/geo/r3"
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
@@ -33,12 +36,17 @@ import (
 var (
 	model            = resource.DefaultModelFamily.WithModel("explore")
 	errUnimplemented = errors.New("unimplemented")
-	// Places a limit on how far a potential move action can be performed.
-	moveLimit = 10000.
 	// The distance a detected obstacle can be from a base to trigger the Move command to stop.
-	lookAheadDistanceMM = 1000.
-	// ErrClosed denotes that the slam service method was called on a closed slam resource.
-	ErrClosed = errors.Errorf("resource (%s) is closed", model.String())
+	lookAheadDistanceMM = 500.
+	// successiveErrorLimit places a limit on the number of errors that can occur in a row when running
+	// checkForObstacles.
+	successiveErrorLimit = 5
+	// Defines the limit on how far a potential kinematic base move action can be. For explore there is none.
+	defaultMoveLimitMM = math.Inf(1)
+	// The timeout for any individual move action on the kinematic base.
+	defaultExploreTimeout = 100 * time.Second
+	// The max angle the kinematic base spin action can be.
+	defaultMaxSpinAngleDegs = 180.
 )
 
 func init() {
@@ -145,10 +153,6 @@ type explore struct {
 	services      map[resource.Name]resource.Resource
 	fsService     framesystem.Service
 	frameSystem   referenceframe.FrameSystem
-
-	// planMutex protects the current planStep to allow the obstacle detection process to know what portion of the current plan to check
-	planMutex sync.Mutex
-	planStep  int
 }
 
 func (ms *explore) MoveOnMap(
@@ -177,8 +181,8 @@ func (ms *explore) MoveOnGlobe(
 func (ms *explore) MoveOnGlobeNew(
 	ctx context.Context,
 	req motion.MoveOnGlobeReq,
-) (string, error) {
-	return "", errUnimplemented
+) (motion.ExecutionID, error) {
+	return uuid.Nil, errUnimplemented
 }
 
 func (ms *explore) GetPose(
@@ -293,7 +297,7 @@ func (ms *explore) Move(
 
 	// once execution responds: return the result to the caller
 	case resp := <-ms.executionResponseChan:
-		ms.logger.Debugf("execution completed: %s", resp)
+		ms.logger.Debugf("execution completed: %v", resp)
 		if resp.err != nil {
 			return resp.success, resp.err
 		}
@@ -303,7 +307,7 @@ func (ms *explore) Move(
 
 	// if the checkPartialPlan process hit an error return it, otherwise exit
 	case resp := <-ms.obstacleResponseChan:
-		ms.logger.Debugf("obstacle response: %s", resp)
+		ms.logger.Debugf("obstacle response: %v", resp)
 		if resp.err != nil {
 			return resp.success, resp.err
 		}
@@ -324,36 +328,65 @@ func (ms *explore) checkForObstacles(
 	plan motionplan.Plan,
 	obstaclePollingFrequencyHz float64,
 ) {
+	ms.logger.Debug("Current Plan")
+	for i, p := range plan {
+		ms.logger.Debugf("plan[%v]: %v", i, p)
+	}
 	// Constantly check for obstacles in path at desired obstacle polling frequency
 	ticker := time.NewTicker(time.Duration(int(1000/obstaclePollingFrequencyHz)) * time.Millisecond)
 	defer ticker.Stop()
 
+	var errCounterCurrentInputs, errCounterGenerateTransientWorldState int
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			currentPose := spatialmath.NewZeroPose()
+
+			currentInputs, err := kb.CurrentInputs(ctx)
+			if err != nil {
+				ms.logger.Debugf("issue occurred getting current inputs from kinematic base: %v", err)
+				if errCounterCurrentInputs > successiveErrorLimit {
+					ms.obstacleResponseChan <- moveResponse{success: false}
+					return
+				}
+				errCounterCurrentInputs++
+			} else {
+				errCounterCurrentInputs = 0
+			}
+
+			currentPose := spatialmath.NewPose(
+				r3.Vector{X: currentInputs[0].Value, Y: currentInputs[1].Value, Z: 0},
+				&spatialmath.OrientationVector{OX: 0, OY: 0, OZ: 1, Theta: currentInputs[2].Value},
+			)
 
 			// Look for new transient obstacles and add to worldState
 			worldState, err := ms.generateTransientWorldState(ctx, obstacleDetectors)
 			if err != nil {
 				ms.logger.Debugf("issue occurred generating transient worldState: %v", err)
+				if errCounterGenerateTransientWorldState > successiveErrorLimit {
+					ms.obstacleResponseChan <- moveResponse{success: false}
+					return
+				}
+				errCounterGenerateTransientWorldState++
+			} else {
+				errCounterGenerateTransientWorldState = 0
 			}
 
-			// Select remainder of plan to check
-			ms.planMutex.Lock()
-			remainingPlan := plan[ms.planStep:]
-			ms.planMutex.Unlock()
+			// TODO: Generalize this fix to work for maps with non-transient obstacles. This current implementation
+			// relies on the plan being two steps: a start position and a goal position.
+			// JIRA Ticket: https://viam.atlassian.net/browse/RSDK-5964
+			plan[0][kb.Name().ShortName()] = currentInputs
+			ms.logger.Debugf("Current transient worldState: ", worldState.String())
 
-			// Check remainder of plan for transient obstacles
+			// Check plan for transient obstacles
 			err = motionplan.CheckPlan(
 				kb.Kinematics(),
-				remainingPlan,
+				plan,
 				worldState,
 				ms.frameSystem,
 				currentPose,
-				make([]referenceframe.Input, len(kb.Kinematics().DoF())),
+				currentInputs,
 				spatialmath.NewZeroPose(),
 				lookAheadDistanceMM,
 				ms.logger,
@@ -372,18 +405,13 @@ func (ms *explore) checkForObstacles(
 // executePlan will carry out the desired motionplan plan.
 func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBase, plan motionplan.Plan) {
 	// Iterate through motionplan plan
-
-	ms.planMutex.Lock()
-	ms.planStep = 0
-	ms.planMutex.Unlock()
-
-	for ms.planStep < len(plan) {
+	for _, p := range plan {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 			if inputEnabledKb, ok := kb.(inputEnabledActuator); ok {
-				if err := inputEnabledKb.GoToInputs(ctx, plan[ms.planStep][kb.Name().Name]); err != nil {
+				if err := inputEnabledKb.GoToInputs(ctx, p[kb.Name().Name]); err != nil {
 					// If there is an error on GoToInputs, stop the component if possible before returning the error
 					if stopErr := kb.Stop(ctx, nil); stopErr != nil {
 						ms.executionResponseChan <- moveResponse{err: err}
@@ -401,9 +429,6 @@ func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBa
 				return
 			}
 		}
-		ms.planMutex.Lock()
-		ms.planStep++
-		ms.planMutex.Unlock()
 	}
 	ms.executionResponseChan <- moveResponse{success: true}
 }
@@ -475,9 +500,14 @@ func (ms *explore) createKinematicBase(
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
 	kinematicsOptions.NoSkidSteer = true
 	kinematicsOptions.UsePTGs = false
-	kinematicsOptions.PositionOnlyMode = true
+	// PositionOnlyMode needs to be false to allow orientation info to be available in CurrentInputs as
+	// we need that to correctly place obstacles in world's reference frame.
+	kinematicsOptions.PositionOnlyMode = false
 	kinematicsOptions.AngularVelocityDegsPerSec = motionCfg.AngularDegsPerSec
-	kinematicsOptions.LinearVelocityMMPerSec = motionCfg.AngularDegsPerSec
+	kinematicsOptions.LinearVelocityMMPerSec = motionCfg.LinearMPerSec * 1000
+	kinematicsOptions.Timeout = defaultExploreTimeout
+	kinematicsOptions.MaxSpinAngleDeg = defaultMaxSpinAngleDegs
+	kinematicsOptions.MaxMoveStraightMM = defaultMoveLimitMM
 
 	// Create new kinematic base (differential drive)
 	kb, err := kinematicbase.WrapWithKinematics(
@@ -485,7 +515,11 @@ func (ms *explore) createKinematicBase(
 		b,
 		ms.logger,
 		nil,
-		[]referenceframe.Limit{{Min: -moveLimit, Max: moveLimit}, {Min: -moveLimit, Max: moveLimit}},
+		[]referenceframe.Limit{
+			{Min: -defaultMoveLimitMM, Max: defaultMoveLimitMM},
+			{Min: -defaultMoveLimitMM, Max: defaultMoveLimitMM},
+			{Min: -2 * math.Pi, Max: 2 * math.Pi},
+		},
 		kinematicsOptions,
 	)
 	if err != nil {
@@ -537,8 +571,8 @@ func (ms *explore) createMotionPlan(
 	destination *referenceframe.PoseInFrame,
 	extra map[string]interface{},
 ) (motionplan.Plan, error) {
-	if destination.Pose().Point().Norm() >= moveLimit {
-		return nil, errors.Errorf("destination %v is above the defined limit of %v", destination.Pose().Point().String(), moveLimit)
+	if destination.Pose().Point().Norm() >= defaultMoveLimitMM {
+		return nil, errors.Errorf("destination %v is above the defined limit of %v", destination.Pose().Point().String(), defaultMoveLimitMM)
 	}
 
 	worldState, err := referenceframe.NewWorldState(nil, nil)
@@ -548,6 +582,12 @@ func (ms *explore) createMotionPlan(
 
 	ms.frameSystem, err = ms.fsService.FrameSystem(ctx, worldState.Transforms())
 	if err != nil {
+		return nil, err
+	}
+
+	// replace origin base frame to remove original differential drive kinematic base geometry as it is overwritten by a bounding sphere
+	// during kinematic base creation
+	if err := ms.frameSystem.ReplaceFrame(referenceframe.NewZeroStaticFrame(kb.Kinematics().Name() + "_origin")); err != nil {
 		return nil, err
 	}
 

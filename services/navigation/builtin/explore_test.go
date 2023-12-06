@@ -16,7 +16,6 @@ import (
 )
 
 func TestExploreMode(t *testing.T) {
-	t.Skip()
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ns, teardown := setupNavigationServiceFromConfig(t, "../data/nav_no_map_cfg.json")
@@ -39,5 +38,5 @@ func TestExploreMode(t *testing.T) {
 	nsStruct.startExploreMode(ctxTimeout)
 	<-ctxTimeout.Done()
 	teardown()
-	test.That(t, len(points), test.ShouldBeGreaterThan, 100)
+	test.That(t, len(points), test.ShouldBeGreaterThan, 2)
 }

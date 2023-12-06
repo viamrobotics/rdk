@@ -517,7 +517,14 @@ func TestState(t *testing.T) {
 		test.That(t, resPWS2.pws[0].StatusHistory[0].Timestamp.After(preSuccessMsg), test.ShouldBeTrue)
 		test.That(t, planStatusTimestampsInOrder(resPWS2.pws[0].StatusHistory), test.ShouldBeTrue)
 
-		// // Failed after replanning
+		// maintains success state after calling stop
+		err = s.StopExecutionByResource(myBase)
+		test.That(t, err, test.ShouldBeNil)
+		postStopPWS1, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resPWS2.pws, test.ShouldResemble, postStopPWS1)
+
+		// Failed after replanning
 		preExecution3 := time.Now()
 		replanFailReason := errors.New("replanning failed")
 		executionID3, err := state.StartExecution(ctx, s, req.ComponentName, req, func(
@@ -592,6 +599,13 @@ func TestState(t *testing.T) {
 		test.That(t, len(resPWS3.pws[1].Plan.Steps), test.ShouldEqual, 1)
 		test.That(t, planStatusTimestampsInOrder(resPWS3.pws[0].StatusHistory), test.ShouldBeTrue)
 		test.That(t, planStatusTimestampsInOrder(resPWS3.pws[1].StatusHistory), test.ShouldBeTrue)
+
+		// maintains failed state after calling stop
+		err = s.StopExecutionByResource(myBase)
+		test.That(t, err, test.ShouldBeNil)
+		postStopPWS2, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resPWS3.pws, test.ShouldResemble, postStopPWS2)
 
 		// Failed at the end of execution
 		preExecution4 := time.Now()

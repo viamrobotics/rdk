@@ -352,7 +352,7 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("working Paths", func(t *testing.T) {
-		path, err := navigation.NewPath("test", []*geo.Point{geo.NewPoint(0, 0)})
+		path, err := navigation.NewPath(primitive.NewObjectID(), []*geo.Point{geo.NewPoint(0, 0)})
 		test.That(t, err, test.ShouldBeNil)
 		expectedOutput := []*navigation.Path{path}
 		injectSvc.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {

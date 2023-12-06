@@ -258,11 +258,15 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 			break
 		}
 
-		neighbors := kNearestNeighbors(mp.planOpts, rrtMap, &basicNode{q: newNear}, mp.algOpts.NeighborhoodSize)
-		near = &basicNode{q: newNear, cost: neighbors[0].node.Cost() + neighbors[0].dist}
+		extendCost := mp.planOpts.DistanceFunc(&ik.Segment{
+			StartConfiguration: oldNear.Q(),
+			EndConfiguration:   near.Q(),
+		})
+		near = &basicNode{q: newNear, cost: oldNear.Cost() + extendCost}
 		rrtMap[near] = oldNear
 
 		// rewire the tree
+		neighbors := kNearestNeighbors(mp.planOpts, rrtMap, &basicNode{q: newNear}, mp.algOpts.NeighborhoodSize)
 		for i, thisNeighbor := range neighbors {
 			// dont need to try to rewire nearest neighbor, so skip it
 			if i == 0 {

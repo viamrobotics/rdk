@@ -155,7 +155,7 @@ func TestExploreCheckForObstacles(t *testing.T) {
 					label:    "far_obstacle_in_path",
 				},
 			},
-			detection: true,
+			detection: false,
 		},
 		{
 			description: "obstacle in path too far",
