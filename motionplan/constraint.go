@@ -272,13 +272,6 @@ func createAllCollisionConstraints(
 		return nil, err
 	}
 
-	// fmt.Println("inputs: ", inputs)
-	// for _, obs := range obstacles.Geometries() {
-	// 	fmt.Printf("OBSTACLE: %v | X: %.2f, Y: %.2f, Z: %.2f | %.2f \n",
-	// obs.Label(), obs.Pose().Point().X, obs.Pose().Point().Y, obs.Pose().Point().Z,
-	// math.Atan2(obs.Pose().Point().Y, obs.Pose().Point().X))
-	// }
-
 	allowedCollisions, err := collisionSpecificationsFromProto(pbConstraint, frameSystemGeometries, worldState)
 	if err != nil {
 		return nil, err
