@@ -41,9 +41,9 @@ func (sb *sensorBase) SetVelocity(
 ) error {
 	sb.opMgr.CancelRunning(ctx)
 	// check if a sensor context has been started
-	// if sb.sensorLoopDone != nil {
-	// 	sb.sensorLoopDone()
-	// }
+	if sb.sensorLoopDone != nil {
+		sb.sensorLoopDone()
+	}
 
 	// set the spin loop to false, so we do not skip the call to SetState in the control loop
 	sb.setPolling(false)

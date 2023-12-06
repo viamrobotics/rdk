@@ -219,9 +219,9 @@ func (sb *sensorBase) Geometries(ctx context.Context, extra map[string]interface
 
 func (sb *sensorBase) Close(ctx context.Context) error {
 	// check if a sensor context is still alive
-	// if sb.sensorLoopDone != nil {
-	// 	sb.sensorLoopDone()
-	// }
+	if sb.sensorLoopDone != nil {
+		sb.sensorLoopDone()
+	}
 
 	if sb.loop != nil {
 		sb.loop.Stop()
