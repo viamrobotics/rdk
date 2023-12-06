@@ -47,9 +47,15 @@ const (
 	defaultAttemptSolveEvery = 15
 
 	defaultBidirectional = true
-	
+
+	// When checking a PTG for validity and finding a collision, using the last good configuration will result in a highly restricted
+	// node that is directly facing a wall. To prevent this, we walk back along the trajectory by this percentage of the traj length
+	// so that the node we add has more freedom of movement to extend in the future.
 	defaultCollisionWalkbackPct = 0.8
-	defaultCollisionBuffer = 150
+
+	// When evaluating the partial node to add to a tree after defaultCollisionWalkbackPct is applied, ensure the trajectory is still at
+	// least this long.
+	defaultMinArcLength = 150
 )
 
 var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
@@ -436,28 +442,22 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		if goodNode == nil {
 			break
 		}
-		partialExtension := false
-		if goodNode.Q()[1].Value != subNode.Q()[1].Value {
-			// Partial PTG extension
-			partialExtension = true
-		}
-		if invert{
+
+		if invert {
 			arcPose = spatialmath.Compose(goodNode.Pose(), arcPose)
 		} else {
 			arcPose = spatialmath.Compose(arcPose, goodNode.Pose())
 		}
+
 		// add the last node in trajectory
+		arcStartPose = spatialmath.Compose(arcStartPose, goodNode.Pose())
 		successNode = &basicNode{
 			q:      append([]referenceframe.Input{{float64(ptgNum)}}, subNode.Q()...),
 			cost:   goodNode.Cost(),
-			pose:   goodNode.Pose(),
+			pose:   arcStartPose,
 			corner: false,
 		}
 		successNodes = append(successNodes, successNode)
-		arcStartPose = goodNode.Pose()
-		if partialExtension {
-			break
-		}
 	}
 
 	if len(successNodes) == 0 {
@@ -502,7 +502,7 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert b
 			ok, _ := mp.planOpts.CheckStateConstraints(trajState)
 			if !ok {
 				okDist := trajPt.Dist * defaultCollisionWalkbackPct
-				if okDist > defaultCollisionBuffer && !invert {
+				if okDist > defaultMinArcLength && !invert {
 					// Check that okDist is larger than the minimum distance to move to add a partial trajectory.
 					for i := len(passed) - 1; i > 0; i-- {
 						// Return the most recent node whose dist is less than okDist
@@ -517,7 +517,7 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert b
 		}
 
 		okNode := &basicNode{
-			q: []referenceframe.Input{{trajPt.Alpha}, {trajPt.Dist}},
+			q:    []referenceframe.Input{{trajPt.Alpha}, {trajPt.Dist}},
 			cost: trajPt.Dist,
 			pose: trajPt.Pose,
 		}
@@ -525,9 +525,9 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert b
 		lastDist = trajPt.Dist
 	}
 	return &basicNode{
-		q: []referenceframe.Input{{trajK[(len(trajK) - 1)].Alpha}, {trajK[(len(trajK) - 1)].Dist}},
+		q:    []referenceframe.Input{{trajK[(len(trajK) - 1)].Alpha}, {trajK[(len(trajK) - 1)].Dist}},
 		cost: trajK[(len(trajK) - 1)].Dist,
-		pose: trajK[(len(trajK) - 1)].Pose,
+		pose: passed[len(passed)-1].Pose(),
 	}
 }
 
@@ -668,9 +668,9 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 				trajState = &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose)}
 				if mp.algOpts.pathdebug {
 					if !invert {
-						mp.logger.Debugf("$FWDTREE,%f,%f\n", trajState.Position.Point().X, trajState.Position.Point().Y)
+						mp.logger.Debugf("$FWDTREE,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
 					} else {
-						mp.logger.Debugf("$REVTREE,%f,%f\n", trajState.Position.Point().X, trajState.Position.Point().Y)
+						mp.logger.Debugf("$REVTREE,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
 					}
 				}
 				sinceLastNode += (trajPt.Dist - lastDist)
@@ -691,7 +691,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 				lastDist = trajPt.Dist
 			}
 			if mp.algOpts.pathdebug {
-				mp.logger.Debugf("$WPI,%f,%f\n", trajState.Position.Point().X, trajState.Position.Point().Y)
+				mp.logger.Debugf("$WPI,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
 			}
 		}
 		rrt[newNode] = treeNode
