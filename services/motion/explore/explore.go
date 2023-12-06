@@ -585,11 +585,13 @@ func (ms *explore) createMotionPlan(
 		return nil, err
 	}
 
-	// replace original base frame with one that knows how to move itself and allow planning for
+	// replace origin base frame to remove original differential drive kinematic base geometry as it is overwritten by a bounding sphere
+	// during kinematic base creation
 	if err := ms.frameSystem.ReplaceFrame(referenceframe.NewZeroStaticFrame(kb.Kinematics().Name() + "_origin")); err != nil {
 		return nil, err
 	}
 
+	// replace original base frame with one that knows how to move itself and allow planning for
 	if err := ms.frameSystem.ReplaceFrame(kb.Kinematics()); err != nil {
 		return nil, err
 	}
