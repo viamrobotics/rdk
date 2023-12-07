@@ -56,8 +56,8 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistFar, refDistRestricted f
 	//~ }
 	for i := 0; i < trajCount; i++ {
 		inputs = append(inputs,
-			referenceframe.Input{0},
-			referenceframe.Input{refDistRestricted * 0.9},
+			referenceframe.Input{1},
+			referenceframe.Input{refDistRestricted * 0.5},
 		)
 	}
 

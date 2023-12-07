@@ -42,7 +42,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90})
+	goalPos := spatialmath.NewPose(r3.Vector{X: 7000, Y: 200, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0})
 
 	opt := newBasicPlannerOptions(ackermanFrame)
 	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
@@ -51,8 +51,8 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
 	if pathdebug {
 		tp.logger.Debug("$type,X,Y")
-		tp.logger.Debugf("$SG,%f,%f\n", 0., 0.)
-		tp.logger.Debugf("$SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
+		tp.logger.Debugf("$SG,%f,%f", 0., 0.)
+		tp.logger.Debugf("$SG,%f,%f", goalPos.Point().X, goalPos.Point().Y)
 	}
 	test.That(t, ok, test.ShouldBeTrue)
 	plan, err := tp.plan(ctx, goalPos, nil)
@@ -68,9 +68,9 @@ func TestPtgRrtBidirectional(t *testing.T) {
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
 				if i == 0 {
-					tp.logger.Debugf("$WP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+					tp.logger.Debugf("$WP,%f,%f", intPose.Point().X, intPose.Point().Y)
 				}
-				tp.logger.Debugf("$FINALPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+				tp.logger.Debugf("$FINALPATH,%f,%f", intPose.Point().X, intPose.Point().Y)
 				if i == len(trajPts)-1 {
 					lastPose = intPose
 					break
@@ -78,7 +78,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 			}
 		}
 	}
-	tp.planOpts.SmoothIter = 20
+	tp.planOpts.SmoothIter = 0
 	plan = tp.smoothPath(ctx, plan)
 	if pathdebug {
 		lastPose = spatialmath.NewZeroPose()
@@ -87,9 +87,9 @@ func TestPtgRrtBidirectional(t *testing.T) {
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
 				if i == 0 {
-					tp.logger.Debugf("$SMOOTHWP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+					tp.logger.Debugf("$SMOOTHWP,%f,%f", intPose.Point().X, intPose.Point().Y)
 				}
-				tp.logger.Debugf("$SMOOTHPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+				tp.logger.Debugf("$SMOOTHPATH,%f,%f", intPose.Point().X, intPose.Point().Y)
 				if pt.Dist >= mynode.Q()[2].Value {
 					lastPose = intPose
 					break

@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"strings"
 	"sync"
+	//~ "fmt"
 
 	"github.com/go-nlopt/nlopt"
 	"github.com/pkg/errors"
@@ -91,6 +92,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	if err != nil {
 		return err
 	}
+	//~ fmt.Println("jump", jump)
 
 	tries := 1
 	iterations := 0
@@ -125,33 +127,37 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		mInput.Configuration = inputs
 		mInput.Position = eePos
 		dist := solveMetric(mInput)
-		for i := range gradient {
-			flip := false
-			inputs[i].Value += jump[i]
-			ub := ik.upperBound[i]
-			if inputs[i].Value >= ub {
-				flip = true
-				inputs[i].Value -= 2 * jump[i]
-			}
-
-			eePos, err := ik.model.Transform(inputs)
-			if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
-				ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
-				err = opt.ForceStop()
-				ik.logger.Errorw("forcestop error", "error", err)
-				return 0
-			}
-			mInput.Configuration = inputs
-			mInput.Position = eePos
-			dist2 := solveMetric(mInput)
-			gradient[i] = (dist2 - dist) / jump[i]
-			if flip {
+		//~ fmt.Println(x, eePos.Point(), dist)
+		if len(gradient) > 0 {
+			for i := range gradient {
+				flip := false
 				inputs[i].Value += jump[i]
-				gradient[i] *= -1
-			} else {
-				inputs[i].Value -= jump[i]
+				ub := ik.upperBound[i]
+				if inputs[i].Value >= ub {
+					flip = true
+					inputs[i].Value -= 2 * jump[i]
+				}
+
+				eePos, err := ik.model.Transform(inputs)
+				if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
+					ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
+					err = opt.ForceStop()
+					ik.logger.Errorw("forcestop error", "error", err)
+					return 0
+				}
+				mInput.Configuration = inputs
+				mInput.Position = eePos
+				dist2 := solveMetric(mInput)
+				gradient[i] = (dist2 - dist) / jump[i]
+				if flip {
+					inputs[i].Value += jump[i]
+					gradient[i] *= -1
+				} else {
+					inputs[i].Value -= jump[i]
+				}
 			}
 		}
+		//~ fmt.Println("grad", gradient)
 		return dist
 	}
 
@@ -182,6 +188,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			}
 		} else {
 			// Solvers whose ID is not 1 should skip ahead directly to trying random seeds
+			//~ fmt.Println("rand1")
 			startingPos = ik.GenerateRandomPositions(randSeed)
 			tries = constrainedTries
 		}
@@ -251,6 +258,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			if err != nil {
 				return err
 			}
+			//~ fmt.Println("rand2", iterations, ik.maxIterations)
 			startingPos = ik.GenerateRandomPositions(randSeed)
 		}
 	}
