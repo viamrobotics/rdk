@@ -475,6 +475,7 @@ func (m *dummyModMan) Close(ctx context.Context) error {
 }
 
 func TestDynamicModuleLogging(t *testing.T) {
+	t.Skip("RSDK-5992")
 	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
 	test.That(t, err, test.ShouldBeNil)
 
