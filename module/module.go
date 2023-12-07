@@ -154,6 +154,7 @@ type Module struct {
 	activeBackgroundWorkers sync.WaitGroup
 	handlers                HandlerMap
 	collections             map[resource.API]resource.APIResourceCollection[resource.Resource]
+	resLoggers              map[resource.Resource]logging.Logger
 	closeOnce               sync.Once
 	pb.UnimplementedModuleServiceServer
 }
@@ -176,6 +177,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		ready:       true,
 		handlers:    HandlerMap{},
 		collections: map[resource.API]resource.APIResourceCollection[resource.Resource]{},
+		resLoggers:  map[resource.Resource]logging.Logger{},
 	}
 	if err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m); err != nil {
 		return nil, err
@@ -332,7 +334,8 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	if resInfo.Constructor == nil {
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
-	res, err := resInfo.Constructor(ctx, deps, *conf, m.logger)
+	resLogger := m.logger.Sublogger(conf.ResourceName().String())
+	res, err := resInfo.Constructor(ctx, deps, *conf, resLogger)
 	if err != nil {
 		return nil, err
 	}
@@ -343,6 +346,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	if !ok {
 		return nil, errors.Errorf("module cannot service api: %s", conf.API)
 	}
+	m.resLoggers[res] = resLogger
 
 	return &pb.AddResourceResponse{}, coll.Add(conf.ResourceName(), res)
 }
@@ -383,6 +387,15 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	res, err = coll.Resource(conf.ResourceName().Name)
 	if err != nil {
 		return nil, err
+	}
+
+	if logger, ok := m.resLoggers[res]; ok {
+		levelStr := req.GetConfig().GetLogConfiguration().GetLevel()
+		if level, err := logging.LevelFromString(levelStr); err == nil {
+			logger.SetLevel(level)
+		} else {
+			m.logger.Warnw("LogConfiguration does not contain a valid level.", "resource", res.Name().Name, "level", levelStr)
+		}
 	}
 
 	reconfErr := res.Reconfigure(ctx, deps, *conf)

@@ -213,10 +213,10 @@ func TestNew(t *testing.T) {
 		test.That(t, svcStruct.store, test.ShouldResemble, navigation.NewMemoryNavigationStore())
 
 		test.That(t, svcStruct.motionCfg.ObstacleDetectors, test.ShouldBeNil)
-		test.That(t, svcStruct.motionCfg.AngularDegsPerSec, test.ShouldEqual, defaultAngularVelocityDegsPerSec)
-		test.That(t, svcStruct.motionCfg.LinearMPerSec, test.ShouldEqual, defaultLinearVelocityMPerSec)
-		test.That(t, svcStruct.motionCfg.PositionPollingFreqHz, test.ShouldEqual, defaultPositionPollingFrequencyHz)
-		test.That(t, svcStruct.motionCfg.ObstaclePollingFreqHz, test.ShouldEqual, defaultObstaclePollingFrequencyHz)
+		test.That(t, svcStruct.motionCfg.AngularDegsPerSec, test.ShouldEqual, defaultAngularDegsPerSec)
+		test.That(t, svcStruct.motionCfg.LinearMPerSec, test.ShouldEqual, defaultLinearMPerSec)
+		test.That(t, svcStruct.motionCfg.PositionPollingFreqHz, test.ShouldEqual, defaultPositionPollingHz)
+		test.That(t, svcStruct.motionCfg.ObstaclePollingFreqHz, test.ShouldEqual, defaultObstaclePollingHz)
 		test.That(t, svcStruct.motionCfg.PlanDeviationMM, test.ShouldEqual, defaultPlanDeviationM*1e3)
 	})
 
@@ -856,9 +856,9 @@ func TestStartWaypoint(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		expectedMotionCfg := &motion.MotionConfiguration{
-			PositionPollingFreqHz: 2,
-			ObstaclePollingFreqHz: 2,
-			PlanDeviationMM:       1e+12,
+			PositionPollingFreqHz: 1,
+			ObstaclePollingFreqHz: 1,
+			PlanDeviationMM:       2600,
 			LinearMPerSec:         1,
 			AngularDegsPerSec:     1,
 			ObstacleDetectors: []motion.ObstacleDetectorName{

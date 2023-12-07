@@ -56,19 +56,19 @@ const (
 	defaultMapType = navigation.GPSMap
 
 	// desired speeds to maintain for the base.
-	defaultLinearVelocityMPerSec     = 0.5
-	defaultAngularVelocityDegsPerSec = 90.
+	defaultLinearMPerSec     = 0.3
+	defaultAngularDegsPerSec = 20.
 
 	// how far off the path must the robot be to trigger replanning.
-	defaultPlanDeviationM = 1e9
+	defaultPlanDeviationM = 2.6
 
 	// the allowable quality change between the new plan and the remainder
 	// of the original plan.
 	defaultReplanCostFactor = 1.
 
 	// frequency measured in hertz.
-	defaultObstaclePollingFrequencyHz = 2.
-	defaultPositionPollingFrequencyHz = 2.
+	defaultObstaclePollingHz = 1.
+	defaultPositionPollingHz = 1.
 
 	// frequency in milliseconds.
 	planHistoryPollFrequency = time.Millisecond * 50
@@ -271,19 +271,19 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	// Set optional variables
-	metersPerSec := defaultLinearVelocityMPerSec
+	metersPerSec := defaultLinearMPerSec
 	if svcConfig.MetersPerSec != 0 {
 		metersPerSec = svcConfig.MetersPerSec
 	}
-	degPerSec := defaultAngularVelocityDegsPerSec
+	degPerSec := defaultAngularDegsPerSec
 	if svcConfig.DegPerSec != 0 {
 		degPerSec = svcConfig.DegPerSec
 	}
-	positionPollingFrequencyHz := defaultPositionPollingFrequencyHz
+	positionPollingFrequencyHz := defaultPositionPollingHz
 	if svcConfig.PositionPollingFrequencyHz != 0 {
 		positionPollingFrequencyHz = svcConfig.PositionPollingFrequencyHz
 	}
-	obstaclePollingFrequencyHz := defaultObstaclePollingFrequencyHz
+	obstaclePollingFrequencyHz := defaultObstaclePollingHz
 	if svcConfig.ObstaclePollingFrequencyHz != 0 {
 		obstaclePollingFrequencyHz = svcConfig.ObstaclePollingFrequencyHz
 	}
