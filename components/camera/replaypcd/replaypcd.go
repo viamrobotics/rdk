@@ -69,7 +69,7 @@ type TimeInterval struct {
 // cacheEntry stores data that was downloaded from a previous operation but has not yet been passed
 // to the caller.
 type cacheEntry struct {
-	fileId        string
+	fileID        string
 	pc            pointcloud.PointCloud
 	timeRequested *timestamppb.Timestamp
 	timeReceived  *timestamppb.Timestamp
@@ -227,10 +227,11 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	for i, dataResponse := range resp.Data {
 		md := dataResponse.GetMetadata()
 		replay.cache[i] = &cacheEntry{
-			fileId:        md.GetId(),
+			fileID:        md.GetId(),
 			uri:           md.GetUri(),
 			timeRequested: md.GetTimeRequested(),
-			timeReceived:  md.GetTimeReceived()}
+			timeReceived:  md.GetTimeReceived(),
+		}
 	}
 
 	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, downloadTimeout)
@@ -254,7 +255,7 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context) {
 
 		goutils.PanicCapturingGo(func() {
 			defer wg.Done()
-			data.pc, data.err = replay.getDataFromGCS(ctx, data.uri, data.fileId)
+			data.pc, data.err = replay.getDataFromGCS(ctx, data.uri, data.fileID)
 			if data.err != nil {
 				return
 			}
@@ -264,14 +265,14 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context) {
 }
 
 // getDataFromGCS makes a request to get the desired cartographer-module binary for the job.
-func (replay *pcdCamera) getDataFromGCS(ctx context.Context, dataURL string, fileId string) (pointcloud.PointCloud, error) {
+func (replay *pcdCamera) getDataFromGCS(ctx context.Context, dataURL, fileID string) (pointcloud.PointCloud, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, dataURL, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Add("organization_id", replay.filter.OrganizationIds[0])
 	req.Header.Add("location_id", replay.filter.LocationIds[0])
-	req.Header.Add("file_id", fileId)
+	req.Header.Add("file_id", fileID)
 	req.Header.Add("key_id", replay.APIKeyID)
 	req.Header.Add("key", replay.APIKey)
 

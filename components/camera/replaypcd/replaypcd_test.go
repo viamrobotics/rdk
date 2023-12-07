@@ -409,7 +409,6 @@ func TestReplayPCDLiveNextPointCloud(t *testing.T) {
 	// Iterate through all files that meet the provided filter
 	i := 0
 	for {
-
 		pc, err := replayCamera.NextPointCloud(ctx)
 		if i == numPCDFiles {
 			test.That(t, err, test.ShouldNotBeNil)

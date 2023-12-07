@@ -314,12 +314,9 @@ func getCompressedBytesFromArtifact(inputPath string) ([]byte, error) {
 
 // getPointCloudFromArtifact will return a point cloud based on the provided artifact path.
 func getPointCloudFromArtifact(i int) (pointcloud.PointCloud, error) {
-
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(datasetDirectory, i)))
 	pcdFile, err := os.Open(path)
-
 	if err != nil {
-
 		return nil, err
 	}
 	defer utils.UncheckedErrorFunc(pcdFile.Close)
@@ -339,10 +336,8 @@ type ctrl struct {
 
 func (c *ctrl) mockHandler(w http.ResponseWriter, r *http.Request) {
 	path := fmt.Sprintf(datasetDirectory, c.pcdFileNumber)
-	pcdFile, err := getCompressedBytesFromArtifact(path)
-	if err != nil {
+	pcdFile, _ := getCompressedBytesFromArtifact(path)
 
-	}
 	w.WriteHeader(c.statusCode)
 	w.Write(pcdFile)
 }
