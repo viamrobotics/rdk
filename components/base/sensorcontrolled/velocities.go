@@ -8,10 +8,10 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/control"
 	rdkutils "go.viam.com/rdk/utils"
-	"go.viam.com/utils"
 )
 
 // TODO: RSDK-5355 useControlLoop bool should be removed after testing.
@@ -44,15 +44,17 @@ func (sb *sensorBase) setupControlLoops() error {
 		}
 		sb.loop = loop
 	}
-	if err := sb.validateControlLoopConfig(context.Background(), controlLoopConfig); err != nil {
-		sb.Stop(context.Background(), nil)
+	if err := sb.validateControlLoopConfig(context.Background()); err != nil {
+		if err := sb.Stop(context.Background(), nil); err != nil {
+			return err
+		}
 		return err
 	}
 
 	return nil
 }
 
-func (sb *sensorBase) validateControlLoopConfig(ctx context.Context, controlLoopConfig control.Config) error {
+func (sb *sensorBase) validateControlLoopConfig(ctx context.Context) error {
 	sb.blockNames = make(map[string]string)
 	hasLinConst, hasAngConst, hasLinPID, hasAngPID := false, false, false, false
 

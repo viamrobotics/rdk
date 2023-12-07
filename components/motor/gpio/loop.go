@@ -8,6 +8,7 @@ import (
 )
 
 // TODO: RSDK-5610 test the scaling factor with a non-pi board with hardware pwm.
+
 // SetState sets the state of the motor for the built-in control loop.
 func (m *EncodedMotor) SetState(ctx context.Context, state []*control.Signal) error {
 	power := state[0].GetSignalValueAt(0)
