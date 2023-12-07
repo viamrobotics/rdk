@@ -278,7 +278,7 @@ func TestPtgWithObstacle(t *testing.T) {
 			}
 		}
 	}
-	tp.planOpts.SmoothIter = 20
+	tp.planOpts.SmoothIter = 100
 	plan = tp.smoothPath(ctx, plan)
 	if pathdebug {
 		lastPose = spatialmath.NewZeroPose()

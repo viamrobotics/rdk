@@ -26,7 +26,7 @@ const (
 	// Note: while fully holonomic planners can use the limits of the frame as implicit boundaries, with non-holonomic motion
 	// this is not the case, and the total workspace available to the planned frame is not directly related to the motion available
 	// from a single set of inputs.
-	autoBBscale = 5.
+	autoBBscale = 0.1
 
 	// whether to add intermediate waypoints.
 	defaultAddInt = true
@@ -282,8 +282,8 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	midptNode := &basicNode{pose: spatialmath.NewPose(midPt, midOrient), cost: dist}
 	var randPosNode node = midptNode
 
-	//~ for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
-	for iter := 0; iter < 10; iter++ {
+	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
+	//~ for iter := 0; iter < 10; iter++ {
 		mp.logger.Debugf("TP Space RRT iteration %d", iter)
 		fmt.Println("rrt goal", spatialmath.PoseToProtobuf(randPosNode.Pose()))
 		if ctx.Err() != nil {
@@ -317,7 +317,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			return
 		}
 
-		if seedReached.node != nil && goalReached.node != nil && false{
+		if seedReached.node != nil && goalReached.node != nil {
 			reachedDelta := mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: seedReached.node.Pose(), EndPosition: goalReached.node.Pose()})
 			if reachedDelta > mp.algOpts.poseSolveDist {
 				// If both maps extended, but did not reach the same point, then attempt to extend them towards each other
@@ -352,7 +352,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				return
 			}
 		}
-		if iter%mp.algOpts.attemptSolveEvery == 0 && false{
+		if iter%mp.algOpts.attemptSolveEvery == 1 {
 			// Attempt a solve; we iterate through our goal tree and attempt to find any connection to the seed tree
 			paths := [][]node{}
 			attempts := 0
@@ -411,7 +411,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		}
 
 		// Get random cartesian configuration
-		randPosNode, err = mp.sample(midptNode, iter+1)
+		randPosNode, err = mp.sample(midptNode, iter+50)
 		if err != nil {
 			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
 			return
@@ -540,7 +540,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	}
 
 	bestDist := targetFunc(&ik.State{Position: arcPose})
-	fmt.Println("dist, pose", bestDist, arcPose.Point())
+	//~ fmt.Println("dist, pose", bestDist, arcPose.Point())
 
 	cand := &candidate{dist: bestDist, treeNode: nearest, newNodes: successNodes}
 	// check if this  successNode is too close to nodes already in the tree, and if so, do not add.
@@ -628,7 +628,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 	defer activeSolvers.Wait()
 
 	for i := 0; i <= maxReseeds; i++ {
-		fmt.Println("reseed", i)
+		//~ fmt.Println("reseed", i)
 		select {
 		case <-ctx.Done():
 			return &nodeAndError{nil, ctx.Err()}
@@ -667,12 +667,12 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 				}
 			}
 		}
-		for _, cand := range candidates {
-			fmt.Println("cand", cand.dist)
-			for _, sn := range cand.newNodes {
-				fmt.Println(sn)
-			}
-		}
+		//~ for _, cand := range candidates {
+			//~ fmt.Println("cand", cand.dist)
+			//~ for _, sn := range cand.newNodes {
+				//~ fmt.Println(sn)
+			//~ }
+		//~ }
 		var err error
 		reseedCandidate, err = mp.extendMap(ctx, candidates, rrt, invert)
 		if err != nil && !errors.Is(err, errNoCandidates) {
@@ -775,18 +775,18 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 							pose:   trajState.Position,
 							corner: false,
 						}
-					} else {
-						// Check collisions along this traj and get the longest distance viable
-						subTrajK := trajK[:i]
-						goodNode := mp.checkTraj(subTrajK, invert, arcStartPose)
-						if goodNode != nil {
-							addedNode = &basicNode{
-								q:      referenceframe.FloatsToInputs([]float64{float64(ptgNum), trajPt.Alpha, trajPt.Dist}),
-								cost:   trajPt.Dist,
-								pose:   goodNode.Pose(),
-								corner: false,
-							}
-						}
+					//~ } else {
+						//~ // Check collisions along this traj and get the longest distance viable
+						//~ subTrajK := trajK[:i]
+						//~ goodNode := mp.checkTraj(subTrajK, invert, arcStartPose)
+						//~ if goodNode != nil {
+							//~ addedNode = &basicNode{
+								//~ q:      referenceframe.FloatsToInputs([]float64{float64(ptgNum), trajPt.Alpha, trajPt.Dist}),
+								//~ cost:   trajPt.Dist,
+								//~ pose:   goodNode.Pose(),
+								//~ corner: false,
+							//~ }
+						//~ }
 					}
 					if addedNode != nil {
 						rrt[addedNode] = treeNode
