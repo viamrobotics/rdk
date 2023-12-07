@@ -329,7 +329,14 @@ func TestServerMoveOnMapNew(t *testing.T) {
 			Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
 			SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
 		}
-		injectMS.MoveOnMapNewFunc = func(ctx context.Context, componentName resource.Name, destination spatialmath.Pose, slamName resource.Name, motionConfig *motion.MotionConfiguration, extra map[string]interface{}) (motion.ExecutionID, error) {
+		injectMS.MoveOnMapNewFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			destination spatialmath.Pose,
+			slamName resource.Name,
+			motionConfig *motion.MotionConfiguration,
+			extra map[string]interface{},
+		) (motion.ExecutionID, error) {
 			t.Log("should not be called")
 			t.FailNow()
 			return uuid.Nil, errors.New("should not be called")
@@ -345,9 +352,17 @@ func TestServerMoveOnMapNew(t *testing.T) {
 		moveOnMapNewRequest := &pb.MoveOnMapNewRequest{
 			Name:            testMotionServiceName.ShortName(),
 			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
+			Destination:     nil,
 			SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
 		}
-		injectMS.MoveOnMapNewFunc = func(ctx context.Context, componentName resource.Name, destination spatialmath.Pose, slamName resource.Name, motionConfig *motion.MotionConfiguration, extra map[string]interface{}) (motion.ExecutionID, error) {
+		injectMS.MoveOnMapNewFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			destination spatialmath.Pose,
+			slamName resource.Name,
+			motionConfig *motion.MotionConfiguration,
+			extra map[string]interface{},
+		) (motion.ExecutionID, error) {
 			t.Log("should not be called")
 			t.FailNow()
 			return uuid.Nil, errors.New("should not be called")
@@ -369,7 +384,14 @@ func TestServerMoveOnMapNew(t *testing.T) {
 	t.Run("returns error when MoveOnMapNew returns an error", func(t *testing.T) {
 		notYetImplementedErr := errors.New("Not yet implemented")
 
-		injectMS.MoveOnMapNewFunc = func(ctx context.Context, componentName resource.Name, destination spatialmath.Pose, slamName resource.Name, motionConfig *motion.MotionConfiguration, extra map[string]interface{}) (motion.ExecutionID, error) {
+		injectMS.MoveOnMapNewFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			destination spatialmath.Pose,
+			slamName resource.Name,
+			motionConfig *motion.MotionConfiguration,
+			extra map[string]interface{},
+		) (motion.ExecutionID, error) {
 			return uuid.Nil, notYetImplementedErr
 		}
 		moveOnMapNewRespose, err := server.MoveOnMapNew(context.Background(), validMoveOnMapNewRequest)
@@ -417,10 +439,18 @@ func TestServerMoveOnMapNew(t *testing.T) {
 		}
 
 		firstExecutionID := uuid.New()
-		injectMS.MoveOnMapNewFunc = func(ctx context.Context, componentName resource.Name, destination spatialmath.Pose, slamName resource.Name, motionConfig *motion.MotionConfiguration, extra map[string]interface{}) (motion.ExecutionID, error) {
+		injectMS.MoveOnMapNewFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			destination spatialmath.Pose,
+			slamName resource.Name,
+			motionConfig *motion.MotionConfiguration,
+			extra map[string]interface{},
+		) (motion.ExecutionID, error) {
 			test.That(t, componentName, test.ShouldResemble, expectedComponentName)
 			test.That(t, destination, test.ShouldNotBeNil)
-			test.That(t, destination, test.ShouldResemble, expectedDestination)
+
+			test.That(t, spatialmath.PoseAlmostEqualEps(destination, spatialmath.NewPoseFromProtobuf(expectedDestination), 1e-5), test.ShouldBeTrue)
 
 			test.That(t, slamName, test.ShouldResemble, expectedSlamName)
 

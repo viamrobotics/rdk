@@ -252,14 +252,15 @@ func TestClient(t *testing.T) {
 				destination spatialmath.Pose,
 				slamName resource.Name,
 				motionConfig *motion.MotionConfiguration,
-				extra map[string]interface{}) (motion.ExecutionID, error) {
+				extra map[string]interface{},
+			) (motion.ExecutionID, error) {
 				t.Log("should not be called")
 				t.FailNow()
 				return uuid.Nil, errors.New("should not be reached")
 			}
 
 			// nil destination is can't be converted to proto
-			executionID, err := client.MoveOnMapNew(ctx, baseName, spatialmath.NewZeroPose(), slamName, &motion.MotionConfiguration{}, nil)
+			executionID, err := client.MoveOnMapNew(ctx, baseName, nil, slamName, &motion.MotionConfiguration{}, nil)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err, test.ShouldBeError, errors.New("must provide a destination"))
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
@@ -272,7 +273,8 @@ func TestClient(t *testing.T) {
 				destination spatialmath.Pose,
 				slamName resource.Name,
 				motionConfig *motion.MotionConfiguration,
-				extra map[string]interface{}) (motion.ExecutionID, error) {
+				extra map[string]interface{},
+			) (motion.ExecutionID, error) {
 				return uuid.Nil, errExpected
 			}
 
@@ -289,7 +291,8 @@ func TestClient(t *testing.T) {
 				destination spatialmath.Pose,
 				slamName resource.Name,
 				motionConfig *motion.MotionConfiguration,
-				extra map[string]interface{}) (motion.ExecutionID, error) {
+				extra map[string]interface{},
+			) (motion.ExecutionID, error) {
 				return expectedExecutionID, nil
 			}
 

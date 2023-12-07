@@ -65,15 +65,32 @@ func (server *serviceServer) MoveOnMapNew(ctx context.Context, req *pb.MoveOnMap
 	if err != nil {
 		return nil, err
 	}
+	if req == nil {
+		return nil, errors.New("received nil *pb.MoveOnMapNewRequest")
+	}
+	if req.Destination == nil {
+		return nil, errors.New("must provide a destination")
+	}
+	protoComponentName := req.GetComponentName()
+	if protoComponentName == nil {
+		return nil, errors.New("received nil *commonpb.ResourceName for component name")
+	}
+	protoSlamServiceName := req.GetSlamServiceName()
+	if protoSlamServiceName == nil {
+		return nil, errors.New("received nil *commonpb.ResourceName for SlamService name")
+	}
 	id, err := svc.MoveOnMapNew(
 		ctx,
-		protoutils.ResourceNameFromProto(req.GetComponentName()),
+		protoutils.ResourceNameFromProto(protoComponentName),
 		spatialmath.NewPoseFromProtobuf(req.GetDestination()),
-		protoutils.ResourceNameFromProto(req.GetSlamServiceName()),
-		configurationFromProto(req.GetMotionConfiguration()),
+		protoutils.ResourceNameFromProto(protoSlamServiceName),
+		configurationFromProto(req.MotionConfiguration),
 		req.Extra.AsMap(),
 	)
-	return &pb.MoveOnMapNewResponse{ExecutionId: id.String()}, err
+	if err != nil {
+		return nil, err
+	}
+	return &pb.MoveOnMapNewResponse{ExecutionId: id.String()}, nil
 }
 
 // NOTE: Ignoring duplication as we are going to delete the current (blocking) implementation of MoveOnGlobe after the

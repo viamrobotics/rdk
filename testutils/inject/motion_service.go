@@ -117,7 +117,7 @@ func (mgs *MotionService) MoveOnMap(
 	return mgs.MoveOnMapFunc(ctx, componentName, destination, slamName, extra)
 }
 
-// MoveOnMap calls the injected MoveOnMap or the real variant.
+// MoveOnMapNew calls the injected MoveOnMap or the real variant.
 func (mgs *MotionService) MoveOnMapNew(
 	ctx context.Context,
 	componentName resource.Name,
@@ -126,7 +126,7 @@ func (mgs *MotionService) MoveOnMapNew(
 	motionCfg *motion.MotionConfiguration,
 	extra map[string]interface{},
 ) (motion.ExecutionID, error) {
-	if mgs.MoveOnMapFunc == nil {
+	if mgs.MoveOnMapNewFunc == nil {
 		return mgs.Service.MoveOnMapNew(ctx, componentName, destination, slamName, motionCfg, extra)
 	}
 	return mgs.MoveOnMapNewFunc(ctx, componentName, destination, slamName, motionCfg, extra)
