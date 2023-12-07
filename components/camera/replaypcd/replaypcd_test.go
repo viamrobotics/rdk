@@ -24,10 +24,11 @@ const (
 	validLocationID     = "location_id"
 	validAPIKey         = "a key"
 	validAPIKeyID       = "a key id"
+	numPCDFilesOriginal = 15
 )
 
 var (
-	numPCDFiles       = 15
+	numPCDFiles       = numPCDFilesOriginal
 	batchSize0        = uint64(0)
 	batchSize1        = uint64(1)
 	batchSize2        = uint64(2)
@@ -388,7 +389,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 func TestReplayPCDLiveNextPointCloud(t *testing.T) {
 	ctx := context.Background()
 
-	numPCDFilesOriginal := numPCDFiles
+	// numPCDFilesOriginal := numPCDFiles
 	numPCDFiles = 10
 	defer func() { numPCDFiles = numPCDFilesOriginal }()
 
@@ -408,6 +409,7 @@ func TestReplayPCDLiveNextPointCloud(t *testing.T) {
 	// Iterate through all files that meet the provided filter
 	i := 0
 	for {
+
 		pc, err := replayCamera.NextPointCloud(ctx)
 		if i == numPCDFiles {
 			test.That(t, err, test.ShouldNotBeNil)

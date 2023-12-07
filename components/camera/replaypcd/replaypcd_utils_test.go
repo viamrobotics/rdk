@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -41,6 +43,7 @@ const (
 // can be overwritten to allow developers to trigger desired behaviors during testing.
 type mockDataServiceServer struct {
 	datapb.UnimplementedDataServiceServer
+	httpMock []*httptest.Server
 }
 
 // BinaryDataByIDs is a mocked version of the Data Service function of a similar name. It returns a response with
@@ -121,6 +124,7 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 					OrganizationId: orgID,
 					LocationId:     locationID,
 				},
+				Uri: mDServer.httpMock[newFileNum].URL + "/myurl",
 			},
 		}
 
@@ -145,6 +149,7 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 						OrganizationId: orgID,
 						LocationId:     locationID,
 					},
+					Uri: mDServer.httpMock[newFileNum+i].URL + "/myurl",
 				},
 			}
 			resp.Data = append(resp.Data, &binaryData)
@@ -171,11 +176,11 @@ func createMockCloudDependencies(ctx context.Context, t *testing.T, logger loggi
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
-
+	srv := HTTPMock("/myurl", http.StatusOK)
 	test.That(t, rpcServer.RegisterServiceServer(
 		ctx,
 		&datapb.DataService_ServiceDesc,
-		&mockDataServiceServer{},
+		&mockDataServiceServer{httpMock: srv},
 		datapb.RegisterDataServiceHandlerFromEndpoint,
 	), test.ShouldBeNil)
 
@@ -309,12 +314,14 @@ func getCompressedBytesFromArtifact(inputPath string) ([]byte, error) {
 
 // getPointCloudFromArtifact will return a point cloud based on the provided artifact path.
 func getPointCloudFromArtifact(i int) (pointcloud.PointCloud, error) {
+
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(datasetDirectory, i)))
 	pcdFile, err := os.Open(path)
+
 	if err != nil {
+
 		return nil, err
 	}
-
 	defer utils.UncheckedErrorFunc(pcdFile.Close)
 
 	pcExpected, err := pointcloud.ReadPCD(pcdFile)
@@ -323,4 +330,32 @@ func getPointCloudFromArtifact(i int) (pointcloud.PointCloud, error) {
 	}
 
 	return pcExpected, nil
+}
+
+type ctrl struct {
+	statusCode    int
+	pcdFileNumber int
+}
+
+func (c *ctrl) mockHandler(w http.ResponseWriter, r *http.Request) {
+	path := fmt.Sprintf(datasetDirectory, c.pcdFileNumber)
+	pcdFile, err := getCompressedBytesFromArtifact(path)
+	if err != nil {
+
+	}
+	w.WriteHeader(c.statusCode)
+	w.Write(pcdFile)
+}
+
+// HTTPMock creates a mock HTTP server.
+func HTTPMock(pattern string, statusCode int) []*httptest.Server {
+	httpServers := []*httptest.Server{}
+	for i := 0; i < numPCDFilesOriginal; i++ {
+		c := &ctrl{statusCode, i}
+		handler := http.NewServeMux()
+		handler.HandleFunc(pattern, c.mockHandler)
+		httpServers = append(httpServers, httptest.NewServer(handler))
+	}
+
+	return httpServers
 }
