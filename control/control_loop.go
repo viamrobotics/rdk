@@ -47,6 +47,7 @@ func NewLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error) {
 	return createLoop(logger, cfg, m)
 }
 
+
 func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	l := Loop{
@@ -139,9 +140,9 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 					}
 					if strings.Contains(b.blk.Config(l.cancelCtx).Name, "PID") {
 						if strings.Contains(b.blk.Config(l.cancelCtx).Name, "ang") {
-							s = []*Signal{sw[1]}
+							s = append(s, sw[1])
 						} else {
-							s = []*Signal{sw[0]}
+							s = append(s, sw[0])
 						}
 					} else {
 						s = sw
