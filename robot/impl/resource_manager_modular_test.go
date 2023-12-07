@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
@@ -19,6 +20,7 @@ import (
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	motionBuiltin "go.viam.com/rdk/services/motion/builtin"
+	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils"
 )
 
@@ -470,4 +472,72 @@ func (m *dummyModMan) Close(ctx context.Context) error {
 		return errors.New("attempt to close with active resources in place")
 	}
 	return nil
+}
+
+func TestDynamicModuleLogging(t *testing.T) {
+	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
+	test.That(t, err, test.ShouldBeNil)
+
+	ctx := context.Background()
+	logger, observer := logging.NewObservedTestLogger(t)
+
+	helperConf := resource.Config{
+		Name:  "helper",
+		API:   generic.API,
+		Model: resource.NewModel("rdk", "test", "helper"),
+		LogConfiguration: resource.LogConfig{
+			Level: logging.INFO,
+		},
+	}
+	cfg := &config.Config{
+		Components: []resource.Config{helperConf},
+		Modules: []config.Module{{
+			Name:     "helperModule",
+			ExePath:  modPath,
+			LogLevel: "info",
+			Type:     "local",
+		}},
+	}
+
+	myRobot, err := RobotFromConfig(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer myRobot.Close(ctx)
+
+	client, err := generic.FromRobot(myRobot, "helper")
+	test.That(t, err, test.ShouldBeNil)
+	defer client.Close(ctx)
+
+	//nolint:lll
+	// Have the module log a line at info. It should appear as:
+	// 2023-12-06T15:55:32.590-0500	INFO	process.helperModule_/tmp/TestDynamicModuleLogging3790223620/001/testmodule.StdOut	pexec/managed_process.go:244
+	// \_ 2023-12-06T15:55:32.590-0500	INFO	TestModule.rdk:component:generic/helper	testmodule/main.go:147	special rare log line
+	logLine := "special rare log line"
+	testCmd := map[string]interface{}{"command": "log", "msg": logLine, "level": "info"}
+	_, err = client.DoCommand(ctx, testCmd)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Our log observer should find one occurrence of the log line.
+	test.That(t, observer.FilterMessageSnippet(logLine).Len(), test.ShouldEqual, 1)
+
+	// The module is currently configured to log at info. If the module tries to log at debug,
+	// nothing new should be observed.
+	testCmd = map[string]interface{}{"command": "log", "msg": logLine, "level": "debug"}
+	_, err = client.DoCommand(ctx, testCmd)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, observer.FilterMessageSnippet(logLine).Len(), test.ShouldEqual, 1)
+	test.That(t, observer.FilterMessageSnippet(logLine).FilterMessageSnippet("DEBUG").Len(), test.ShouldEqual, 0)
+
+	// Change the modular component to log at DEBUG instead of INFO.
+	cfg.Components[0].LogConfiguration.Level = logging.DEBUG
+	myRobot.Reconfigure(ctx, cfg)
+
+	// Trying to log again at DEBUG should see our log line pattern show up a second time. Now with
+	// DEBUG in the output string.
+	testCmd = map[string]interface{}{"command": "log", "msg": logLine, "level": "debug"}
+	_, err = client.DoCommand(ctx, testCmd)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, observer.FilterMessageSnippet(logLine).Len(), test.ShouldEqual, 2)
+	test.That(t, observer.FilterMessageSnippet(logLine).FilterMessageSnippet("DEBUG").Len(), test.ShouldEqual, 1)
 }
