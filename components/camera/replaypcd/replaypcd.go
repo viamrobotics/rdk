@@ -264,7 +264,7 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context) {
 	wg.Wait()
 }
 
-// getDataFromGCS makes a request to get the desired cartographer-module binary for the job.
+// getDataFromGCS makes a request directly to GCS to get the desired camera data.
 func (replay *pcdCamera) getDataFromGCS(ctx context.Context, dataURL, fileID string) (pointcloud.PointCloud, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, dataURL, nil)
 	if err != nil {
