@@ -65,7 +65,6 @@ const (
 	defaultReplanCostFactor = 1.
 
 	// frequency measured in hertz.
-	defaultSmoothIter        = 20
 	defaultObstaclePollingHz = 1.
 	defaultPositionPollingHz = 1.
 
