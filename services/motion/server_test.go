@@ -449,11 +449,8 @@ func TestServerMoveOnMapNew(t *testing.T) {
 		) (motion.ExecutionID, error) {
 			test.That(t, componentName, test.ShouldResemble, expectedComponentName)
 			test.That(t, destination, test.ShouldNotBeNil)
-
 			test.That(t, spatialmath.PoseAlmostEqualEps(destination, spatialmath.NewPoseFromProtobuf(expectedDestination), 1e-5), test.ShouldBeTrue)
-
 			test.That(t, slamName, test.ShouldResemble, expectedSlamName)
-
 			test.That(t, motionConfig.AngularDegsPerSec, test.ShouldAlmostEqual, angularDegsPerSec)
 			test.That(t, motionConfig.LinearMPerSec, test.ShouldAlmostEqual, linearMPerSec)
 			test.That(t, motionConfig.PlanDeviationMM, test.ShouldAlmostEqual, planDeviationM*1000)
