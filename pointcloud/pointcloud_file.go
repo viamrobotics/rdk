@@ -32,7 +32,7 @@ const (
 	PCDAscii PCDType = 0
 	// PCDBinary binary format for pcd.
 	PCDBinary PCDType = 1
-	// PCDCompressed binary format for pcd.
+	// PCDCompressed binary format for pcds.
 	PCDCompressed PCDType = 2
 )
 
