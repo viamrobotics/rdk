@@ -165,11 +165,12 @@ type EncodedMotor struct {
 	maxPowerPct      float64
 	ticksPerRotation float64
 
-	logger    logging.Logger
-	cancelCtx context.Context
-	cancel    func()
-	loop      *control.Loop
-	opMgr     *operation.SingleOperationManager
+	logger     logging.Logger
+	cancelCtx  context.Context
+	cancel     func()
+	blockNames map[string]string
+	loop       *control.Loop
+	opMgr      *operation.SingleOperationManager
 }
 
 // EncodedMotorState is the core, non-statistical state for the motor.

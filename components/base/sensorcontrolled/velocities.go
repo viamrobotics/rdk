@@ -3,9 +3,11 @@ package sensorcontrolled
 import (
 	"context"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/control"
 	rdkutils "go.viam.com/rdk/utils"
@@ -15,13 +17,21 @@ import (
 // TODO: RSDK-5355 useControlLoop bool should be removed after testing.
 const useControlLoop = true
 
+var (
+	errConstantBlocks = errors.New(
+		"two constant blocks are required -- one must contain 'lin' in the name, and the other must contain 'ang'")
+	errSumBlock  = errors.New("this control loop requires only one sum block")
+	errPIDBlocks = errors.New(
+		"two PID blocks are required -- one must contain 'lin' in the name, and the other must contain 'ang'")
+	errEndpointBlock = errors.New("this control loop requires only one endpoint block")
+)
+
 // setupControlLoops uses the embedded config in this file to initialize a control
 // loop using the controls package and stor in on the sensor controlled base struct
 // the sensor base in the controllable interface that implements State and GetState
 // called by the endpoing logic of the control thread and the controlLoopConfig
 // is included at the end of this file.
 func (sb *sensorBase) setupControlLoops() error {
-	// TODO: RSDK-5355 useControlLoop bool should be removed after testing
 	if useControlLoop {
 		loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
 		if err != nil {
@@ -31,6 +41,73 @@ func (sb *sensorBase) setupControlLoops() error {
 			return err
 		}
 		sb.loop = loop
+	}
+	if err := sb.validateControlLoopConfig(context.Background(), controlLoopConfig); err != nil {
+		sb.Stop(context.Background(), nil)
+		return err
+	}
+
+	return nil
+}
+
+func (sb *sensorBase) validateControlLoopConfig(ctx context.Context, controlLoopConfig control.Config) error {
+	sb.blockNames = make(map[string]string)
+	hasLinConst, hasAngConst, hasLinPID, hasAngPID := false, false, false, false
+
+	// verify linear and angular constant blocks exist, and store their names
+	constBlocks, err := sb.loop.ConfigAtType(ctx, "constant")
+	sb.logger.Errorf("const blocks = %v", constBlocks)
+	if err != nil {
+		return err
+	}
+	for _, b := range constBlocks {
+		if strings.Contains(b.Name, "lin") {
+			sb.blockNames["linear_constant"] = b.Name
+			hasLinConst = true
+		} else if strings.Contains(b.Name, "ang") {
+			sb.blockNames["angular_constant"] = b.Name
+			hasAngConst = true
+		}
+	}
+	if !(hasLinConst && hasAngConst) {
+		return errConstantBlocks
+	}
+
+	// verify sum block exists
+	sumBlocks, err := sb.loop.ConfigAtType(ctx, "sum")
+	sb.logger.Errorf("sum blocks = %v", sumBlocks)
+	if err != nil {
+		return err
+	}
+	if len(sumBlocks) > 1 {
+		return errSumBlock
+	}
+
+	// verify linear and angular PID constant blocks exist
+	pidBlocks, err := sb.loop.ConfigAtType(ctx, "PID")
+	sb.logger.Errorf("pid blocks = %v", pidBlocks)
+	if err != nil {
+		return err
+	}
+	for _, b := range pidBlocks {
+		if strings.Contains(b.Name, "lin") {
+			hasLinPID = true
+		} else if strings.Contains(b.Name, "ang") {
+			hasAngPID = true
+		}
+	}
+	if !(hasLinPID && hasAngPID) {
+		return errPIDBlocks
+	}
+
+	// verify endpoint block exists
+	endBlocks, err := sb.loop.ConfigAtType(ctx, "endpoint")
+	sb.logger.Errorf("end blocks = %v", endBlocks)
+	if err != nil {
+		return err
+	}
+	if len(endBlocks) > 1 {
+		return errEndpointBlock
 	}
 
 	return nil
@@ -48,8 +125,8 @@ func (sb *sensorBase) SetVelocity(
 	// set the spin loop to false, so we do not skip the call to SetState in the control loop
 	sb.setPolling(false)
 
-	// // start a sensor context for the sensor loop based on the longstanding base
-	// // creator context, and add a timeout for the context
+	// start a sensor context for the sensor loop based on the longstanding base
+	// creator context, and add a timeout for the context
 	timeOut := 10 * time.Second
 	var sensorCtx context.Context
 	sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
@@ -74,31 +151,29 @@ func (sb *sensorBase) SetVelocity(
 	if useControlLoop && sb.loop != nil {
 		// set linear setpoint config
 		linConf := control.BlockConfig{
-			Name: "lin_setpoint",
+			Name: sb.blockNames["linear_constant"],
 			Type: "constant",
 			Attribute: rdkutils.AttributeMap{
 				"constant_val": linear.Y / 1000.0,
 			},
 			DependsOn: []string{},
 		}
-		if err := sb.loop.SetConfigAt(ctx, "lin_setpoint", linConf); err != nil {
+		if err := sb.loop.SetConfigAt(ctx, sb.blockNames["linear_constant"], linConf); err != nil {
 			return err
 		}
-		sb.logger.Errorf("linear.Y = %v", linear.Y)
 
 		// set angular setpoint config
 		angConf := control.BlockConfig{
-			Name: "ang_setpoint",
+			Name: sb.blockNames["angular_constant"],
 			Type: "constant",
 			Attribute: rdkutils.AttributeMap{
 				"constant_val": angular.Z,
 			},
 			DependsOn: []string{},
 		}
-		if err := sb.loop.SetConfigAt(ctx, "ang_setpoint", angConf); err != nil {
+		if err := sb.loop.SetConfigAt(ctx, sb.blockNames["angular_constant"], angConf); err != nil {
 			return err
 		}
-		sb.logger.Errorf("angular.Z = %v", angular.Z)
 
 		// if we have a loop, let's use the SetState function to call the SetVelocity command
 		// through the control loop
@@ -126,18 +201,15 @@ func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interfac
 			// check if we want to poll the sensor at all
 			// other API calls set this to false so that this for loop stops
 			if !sb.isPolling() {
-				// sb.logger.Error("not polling, so stopping")
 				ticker.Stop()
 			}
 
 			if err := ctx.Err(); err != nil {
-				sb.logger.Error(err)
 				return
 			}
 
 			select {
 			case <-ctx.Done():
-				// sb.logger.Error("ctx done")
 				return
 			case <-ticker.C:
 				linvel, err := sb.velocities.LinearVelocity(ctx, extra)
@@ -185,10 +257,7 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 	// FIX: multiply angvel by the sign of linvel... why does this work?
 	angvel := (state[1].GetSignalValueAt(0) * sign(linvel))
 
-	sb.logger.Errorf("SETTING STATE = %v, %v", state[0].GetSignalValueAt(0), state[1].GetSignalValueAt(0))
-
 	return sb.SetPower(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
-	// return sb.controlledBase.SetVelocity(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
 }
 
 // State is called in endpoint.go of the controls package by the control loop
@@ -205,9 +274,6 @@ func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
 	if err != nil {
 		return []float64{}, err
 	}
-
-	sb.logger.Errorf("GETTING STATE = %v, %v", linvel.Y, angvel.Z)
-
 	return []float64{linvel.Y, angvel.Z}, nil
 }
 

@@ -72,7 +72,8 @@ type sensorBase struct {
 	orientation movementsensor.MovementSensor
 	velocities  movementsensor.MovementSensor
 
-	loop *control.Loop
+	blockNames map[string]string
+	loop       *control.Loop
 }
 
 func init() {

@@ -63,7 +63,6 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 	l.dt = time.Duration(float64(time.Second) * (1.0 / (l.cfg.Frequency)))
 	for _, bcfg := range cfg.Blocks {
 		blk, err := createBlock(bcfg, logger)
-		logger.Errorf("CREATE BLOCK %v", blk)
 		if err != nil {
 			return nil, err
 		}
@@ -81,11 +80,9 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 			blockDep.outs = append(blockDep.outs, make(chan []*Signal))
 			b.ins = append(b.ins, blockDep.outs[len(blockDep.outs)-1])
 		}
-		logger.Errorf("SET DEPS FOR BLOCK %v: ins = %v, outs = %v", b, b.ins, b.outs)
 	}
 	for _, b := range l.blocks {
 		if len(b.blk.Config(l.cancelCtx).DependsOn) == 0 || b.blk.Config(l.cancelCtx).Type == blockEndpoint {
-			logger.Errorf("CALLING NEXT ON BLOCK %v", b)
 			waitCh := make(chan struct{})
 			l.ts = append(l.ts, make(chan time.Time, 1))
 			l.activeBackgroundWorkers.Add(1)
@@ -113,13 +110,10 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 			<-waitCh
 		}
 		if len(b.blk.Config(l.cancelCtx).DependsOn) != 0 {
-			logger.Errorf("CALLING NEXT ON BLOCK %v", b)
 			waitCh := make(chan struct{})
 			l.activeBackgroundWorkers.Add(1)
 			utils.ManagedGo(func() {
 				b := b
-				// nInputs := len(b.ins)
-				// logger.Errorf("%v INPUTS FOR BLOCK %v, INS = %v", nInputs, b, b.ins)
 				close(waitCh)
 				for {
 					sw := []*Signal{}
@@ -131,12 +125,10 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 							for _, out := range b.outs {
 								close(out)
 							}
-							// logger.Debugf("Closing outs for block %s %+v\r\n", b.blk.Config(ctx).Name, r)
 							b.outs = nil
 							b.mu.Unlock()
 							return
 						}
-						// logger.Errorf("R = %v AT I = %v", r, i)
 						for j := 0; j < len(r); j++ {
 							if r[j] != nil {
 								sw = append(sw, r[j])
@@ -146,16 +138,15 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 						//nolint: makezero
 					}
 					if strings.Contains(b.blk.Config(l.cancelCtx).Name, "PID") {
-						if strings.Contains(b.blk.Config(l.cancelCtx).Name, "lin") {
-							s = []*Signal{sw[0]}
-						} else if strings.Contains(b.blk.Config(l.cancelCtx).Name, "ang") {
+						if strings.Contains(b.blk.Config(l.cancelCtx).Name, "ang") {
 							s = []*Signal{sw[1]}
+						} else {
+							s = []*Signal{sw[0]}
 						}
 					} else {
 						s = sw
 					}
 
-					// logger.Errorf("S = %v FOR BLOCK = %v", s, b.blk.Config(l.cancelCtx).Name)
 					v, ok := b.blk.Next(l.cancelCtx, s, l.dt)
 					if ok {
 						for _, out := range b.outs {
@@ -179,13 +170,30 @@ func (l *Loop) OutputAt(ctx context.Context, name string) ([]*Signal, error) {
 	return blk.blk.Output(ctx), nil
 }
 
-// ConfigAt returns the Configl at the block name, error when the block doesn't exist.
+// ConfigAt returns the Config at the block name, error when the block doesn't exist.
 func (l *Loop) ConfigAt(ctx context.Context, name string) (BlockConfig, error) {
 	blk, ok := l.blocks[name]
 	if !ok {
 		return BlockConfig{}, errors.Errorf("cannot return Config for non existing block %s", name)
 	}
 	return blk.blk.Config(ctx), nil
+}
+
+// ConfigAtType returns the Config(s) at the block type, error when the block doesn't exist.
+func (l *Loop) ConfigAtType(ctx context.Context, bType string) ([]BlockConfig, error) {
+	var blocks []BlockConfig
+	l.logger.Errorf("l.blocks = %v", l.blocks)
+	for _, b := range l.blocks {
+		l.logger.Errorf("b = %v", b)
+		if b.blockType == controlBlockType(bType) {
+			l.logger.Error("appending to blocks")
+			blocks = append(blocks, b.blk.Config(ctx))
+		}
+	}
+	if len(blocks) > 0 {
+		return blocks, nil
+	}
+	return []BlockConfig{}, errors.Errorf("cannot return Configs for non existing block type %s", bType)
 }
 
 // SetConfigAt returns the Configl at the block name, error when the block doesn't exist.
