@@ -133,6 +133,25 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 			return map[string]interface{}{}, err
 		}
 		return map[string]interface{}{"path": workingDir}, nil
+	case "log":
+		level, err := logging.LevelFromString(req["level"].(string))
+		if err != nil {
+			return nil, err
+		}
+
+		msg := req["msg"].(string)
+		switch level {
+		case logging.DEBUG:
+			h.logger.Debug(msg)
+		case logging.INFO:
+			h.logger.Info(msg)
+		case logging.WARN:
+			h.logger.Warn(msg)
+		case logging.ERROR:
+			h.logger.Error(msg)
+		}
+
+		return map[string]any{}, nil
 	default:
 		return nil, fmt.Errorf("unknown command string %s", cmd)
 	}
