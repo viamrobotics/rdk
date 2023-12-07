@@ -23,7 +23,9 @@ var (
 	errSumBlock  = errors.New("this control loop requires only one sum block")
 	errPIDBlocks = errors.New(
 		"two PID blocks are required -- one must contain 'lin' in the name, and the other must contain 'ang'")
-	errEndpointBlock = errors.New("this control loop requires only one endpoint block")
+	errEndpointBlock   = errors.New("this control loop requires only one endpoint block")
+	errSumDependencies = errors.New(
+		"ensure the dependencies for the sum block are in the following order: linear constant, angular constant, endpoint")
 )
 
 // setupControlLoops uses the embedded config in this file to initialize a control
@@ -73,7 +75,18 @@ func (sb *sensorBase) validateControlLoopConfig(ctx context.Context, controlLoop
 		return errConstantBlocks
 	}
 
-	// verify sum block exists
+	// verify endpoint block exists
+	endBlocks, err := sb.loop.ConfigAtType(ctx, "endpoint")
+	sb.logger.Errorf("end blocks = %v", endBlocks)
+	if err != nil {
+		return err
+	}
+	if len(endBlocks) > 1 {
+		return errEndpointBlock
+	}
+	endpointName := endBlocks[0].Name
+
+	// verify sum block exists and dependencies are in the right order
 	sumBlocks, err := sb.loop.ConfigAtType(ctx, "sum")
 	sb.logger.Errorf("sum blocks = %v", sumBlocks)
 	if err != nil {
@@ -81,6 +94,11 @@ func (sb *sensorBase) validateControlLoopConfig(ctx context.Context, controlLoop
 	}
 	if len(sumBlocks) > 1 {
 		return errSumBlock
+	}
+	if !strings.Contains(sumBlocks[0].DependsOn[0], "lin") ||
+		!strings.Contains(sumBlocks[0].DependsOn[1], "ang") ||
+		!strings.Contains(sumBlocks[0].DependsOn[2], endpointName) {
+		return errSumDependencies
 	}
 
 	// verify linear and angular PID constant blocks exist
@@ -98,16 +116,6 @@ func (sb *sensorBase) validateControlLoopConfig(ctx context.Context, controlLoop
 	}
 	if !(hasLinPID && hasAngPID) {
 		return errPIDBlocks
-	}
-
-	// verify endpoint block exists
-	endBlocks, err := sb.loop.ConfigAtType(ctx, "endpoint")
-	sb.logger.Errorf("end blocks = %v", endBlocks)
-	if err != nil {
-		return err
-	}
-	if len(endBlocks) > 1 {
-		return errEndpointBlock
 	}
 
 	return nil
