@@ -730,11 +730,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 				i, spatialmath.PoseToProtobuf(detection.Geometry.Pose()),
 			)
 			// the position of the detection in the camera coordinate frame if it were at the movementsensor's location
-			desiredPoint := r3.Vector{
-				X: detection.Geometry.Pose().Point().X - cameraToMovementsensor.Pose().Point().X,
-				Y: detection.Geometry.Pose().Point().Y - cameraToMovementsensor.Pose().Point().Y,
-				Z: detection.Geometry.Pose().Point().Z - cameraToMovementsensor.Pose().Point().Z,
-			}
+			desiredPoint := detection.Geometry.Pose().Point().Sub(cameraToMovementsensor.Pose().Point())
 
 			desiredPose := spatialmath.NewPose(
 				desiredPoint,
