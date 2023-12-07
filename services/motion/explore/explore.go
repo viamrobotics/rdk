@@ -165,6 +165,17 @@ func (ms *explore) MoveOnMap(
 	return false, errUnimplemented
 }
 
+func (ms *explore) MoveOnMapNew(
+	ctx context.Context,
+	componentName resource.Name,
+	destination spatialmath.Pose,
+	slamName resource.Name,
+	motionConfig *motion.MotionConfiguration,
+	extra map[string]interface{},
+) (motion.ExecutionID, error) {
+	return uuid.Nil, errors.New("unimplemented")
+}
+
 func (ms *explore) MoveOnGlobe(
 	ctx context.Context,
 	componentName resource.Name,

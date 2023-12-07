@@ -183,6 +183,14 @@ type Service interface {
 		slamName resource.Name,
 		extra map[string]interface{},
 	) (bool, error)
+	MoveOnMapNew(
+		ctx context.Context,
+		componentName resource.Name,
+		destination spatialmath.Pose,
+		slamName resource.Name,
+		motionConfig *MotionConfiguration,
+		extra map[string]interface{},
+	) (ExecutionID, error)
 	MoveOnGlobe(
 		ctx context.Context,
 		componentName resource.Name,

@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -96,6 +97,42 @@ func (c *client) MoveOnMap(
 		return false, err
 	}
 	return resp.Success, nil
+}
+
+func (c *client) MoveOnMapNew(
+	ctx context.Context,
+	componentName resource.Name,
+	destination spatialmath.Pose,
+	slamName resource.Name,
+	motionCfg *MotionConfiguration,
+	extra map[string]interface{},
+) (ExecutionID, error) {
+	ext, err := vprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if destination == nil {
+		return uuid.Nil, errors.New("must provide a destination")
+	}
+	if motionCfg == nil {
+		return uuid.Nil, errors.New("must provide a non nil motion configuration")
+	}
+	resp, err := c.client.MoveOnMapNew(ctx, &pb.MoveOnMapNewRequest{
+		Name:                c.name,
+		ComponentName:       protoutils.ResourceNameToProto(componentName),
+		Destination:         spatialmath.PoseToProtobuf(destination),
+		SlamServiceName:     protoutils.ResourceNameToProto(slamName),
+		MotionConfiguration: motionCfg.toProto(),
+		Extra:               ext,
+	})
+	if err != nil {
+		return uuid.Nil, err
+	}
+	executionID, err := uuid.Parse(resp.ExecutionId)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return executionID, nil
 }
 
 func (c *client) MoveOnGlobe(

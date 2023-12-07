@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -67,6 +68,7 @@ func TestClient(t *testing.T) {
 	gripperName := gripper.Named("fake")
 	baseName := base.Named("test-base")
 	gpsName := movementsensor.Named("test-gps")
+	slamName := slam.Named("test-slam")
 
 	notYetImplementedErr := errors.New("Not yet implemented")
 
@@ -233,6 +235,70 @@ func TestClient(t *testing.T) {
 		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo", nil, map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("MoveOnMapNew", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+
+		test.That(t, err, test.ShouldBeNil)
+
+		client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		t.Run("returns error without calling client if params can't be cast to proto", func(t *testing.T) {
+			injectMS.MoveOnMapNewFunc = func(ctx context.Context,
+				componentName resource.Name,
+				destination spatialmath.Pose,
+				slamName resource.Name,
+				motionConfig *motion.MotionConfiguration,
+				extra map[string]interface{}) (motion.ExecutionID, error) {
+				t.Log("should not be called")
+				t.FailNow()
+				return uuid.Nil, errors.New("should not be reached")
+			}
+
+			// nil destination is can't be converted to proto
+			executionID, err := client.MoveOnMapNew(ctx, baseName, spatialmath.NewZeroPose(), slamName, &motion.MotionConfiguration{}, nil)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err, test.ShouldBeError, errors.New("must provide a destination"))
+			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+		})
+
+		t.Run("returns error if client returns error", func(t *testing.T) {
+			errExpected := errors.New("some client error")
+			injectMS.MoveOnMapNewFunc = func(ctx context.Context,
+				componentName resource.Name,
+				destination spatialmath.Pose,
+				slamName resource.Name,
+				motionConfig *motion.MotionConfiguration,
+				extra map[string]interface{}) (motion.ExecutionID, error) {
+				return uuid.Nil, errExpected
+			}
+
+			executionID, err := client.MoveOnMapNew(ctx, baseName, spatialmath.NewZeroPose(), slamName, &motion.MotionConfiguration{}, nil)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
+			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+		})
+
+		t.Run("otherwise returns success with an executionID", func(t *testing.T) {
+			expectedExecutionID := uuid.New()
+			injectMS.MoveOnMapNewFunc = func(ctx context.Context,
+				componentName resource.Name,
+				destination spatialmath.Pose,
+				slamName resource.Name,
+				motionConfig *motion.MotionConfiguration,
+				extra map[string]interface{}) (motion.ExecutionID, error) {
+				return expectedExecutionID, nil
+			}
+
+			executionID, err := client.MoveOnMapNew(ctx, baseName, spatialmath.NewZeroPose(), slamName, &motion.MotionConfiguration{}, nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, executionID, test.ShouldEqual, expectedExecutionID)
+		})
+
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
