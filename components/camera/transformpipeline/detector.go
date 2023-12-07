@@ -19,14 +19,16 @@ import (
 
 // detectorConfig is the attribute struct for detectors (their name as found in the vision service).
 type detectorConfig struct {
-	DetectorName        string  `json:"detector_name"`
-	ConfidenceThreshold float64 `json:"confidence_threshold"`
+	DetectorName        string   `json:"detector_name"`
+	ConfidenceThreshold float64  `json:"confidence_threshold"`
+	ValidLabels         []string `json:"valid_labels"`
 }
 
 // detectorSource takes an image from the camera, and overlays the detections from the detector.
 type detectorSource struct {
 	stream       gostream.VideoStream
 	detectorName string
+	labelFilter  objectdetection.Postprocessor // must build from ValidLabels
 	confFilter   objectdetection.Postprocessor
 	r            robot.Robot
 }
@@ -53,9 +55,15 @@ func newDetectionsTransform(
 		cameraModel.Distortion = props.DistortionParams
 	}
 	confFilter := objectdetection.NewScoreFilter(conf.ConfidenceThreshold)
+	validLabels := make(map[string]interface{})
+	for _, l := range conf.ValidLabels {
+		validLabels[l] = struct{}{}
+	}
+	labelFilter := objectdetection.NewLabelFilter(validLabels)
 	detector := &detectorSource{
 		gostream.NewEmbeddedVideoStream(source),
 		conf.DetectorName,
+		labelFilter,
 		confFilter,
 		r,
 	}
