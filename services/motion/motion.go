@@ -39,9 +39,7 @@ type PlanHistoryReq struct {
 	Extra         map[string]interface{}
 }
 
-// MoveOnGlobeReq describes the request to the GetPlan interface method.
-// Contains the ComponentName the returned plan(s) should be associated with,
-// an optional  ExecutionID and an Extra parameter.
+// MoveOnGlobeReq describes the request to the MoveOnGlobe interface method.
 type MoveOnGlobeReq struct {
 	ComponentName      resource.Name
 	Destination        *geo.Point
