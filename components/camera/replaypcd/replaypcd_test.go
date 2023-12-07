@@ -389,7 +389,6 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 func TestReplayPCDLiveNextPointCloud(t *testing.T) {
 	ctx := context.Background()
 
-	// numPCDFilesOriginal := numPCDFiles
 	numPCDFiles = 10
 	defer func() { numPCDFiles = numPCDFilesOriginal }()
 
