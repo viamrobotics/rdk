@@ -1957,3 +1957,61 @@ func TestPlanHistory(t *testing.T) {
 	test.That(t, err, test.ShouldResemble, resource.NewNotFoundError(req.ComponentName))
 	test.That(t, history, test.ShouldBeNil)
 }
+
+func TestNewValidatedMotionCfg(t *testing.T) {
+	t.Run("returns expected defaults when given nil cfg", func(t *testing.T) {
+		vmc, err := newValidatedMotionCfg(nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, vmc, test.ShouldResemble, &validatedMotionConfiguration{
+			angularDegsPerSec:     defaultAngularDegsPerSec,
+			linearMPerSec:         defaultLinearMPerSec,
+			obstaclePollingFreqHz: defaultObstaclePollingHz,
+			positionPollingFreqHz: defaultPositionPollingHz,
+			planDeviationMM:       defaultPlanDeviationM * 1e3,
+			obstacleDetectors:     []motion.ObstacleDetectorName{},
+		})
+	})
+
+	t.Run("returns expected defaults when given zero cfg", func(t *testing.T) {
+		vmc, err := newValidatedMotionCfg(&motion.MotionConfiguration{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, vmc, test.ShouldResemble, &validatedMotionConfiguration{
+			angularDegsPerSec:     defaultAngularDegsPerSec,
+			linearMPerSec:         defaultLinearMPerSec,
+			obstaclePollingFreqHz: defaultObstaclePollingHz,
+			positionPollingFreqHz: defaultPositionPollingHz,
+			planDeviationMM:       defaultPlanDeviationM * 1e3,
+			obstacleDetectors:     []motion.ObstacleDetectorName{},
+		})
+	})
+
+	t.Run("allows overriding defaults", func(t *testing.T) {
+		vmc, err := newValidatedMotionCfg(&motion.MotionConfiguration{
+			AngularDegsPerSec:     10.,
+			LinearMPerSec:         20.,
+			PlanDeviationMM:       30.,
+			PositionPollingFreqHz: 40,
+			ObstaclePollingFreqHz: 50.,
+			ObstacleDetectors: []motion.ObstacleDetectorName{
+				{
+					VisionServiceName: vision.Named("fakeVision"),
+					CameraName:        camera.Named("fakeCamera"),
+				},
+			},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, vmc, test.ShouldResemble, &validatedMotionConfiguration{
+			angularDegsPerSec:     10.,
+			linearMPerSec:         20.,
+			planDeviationMM:       30.,
+			positionPollingFreqHz: 40.,
+			obstaclePollingFreqHz: 50.,
+			obstacleDetectors: []motion.ObstacleDetectorName{
+				{
+					VisionServiceName: vision.Named("fakeVision"),
+					CameraName:        camera.Named("fakeCamera"),
+				},
+			},
+		})
+	})
+}

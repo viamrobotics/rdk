@@ -229,8 +229,10 @@ func PoseToGeoPose(relativeTo *GeoPose, pose Pose) *GeoPose {
 	// convert headingRight to be left-handed
 	headingLeft := math.Mod(math.Abs(headingRight-360), 360)
 
+	poseAbsoluteHeading := normalizeAngle(headingLeft + headingInWorld)
+
 	// return the GeoPose at the new position with the absolute heading of pose p, i.e. the heading in the world
-	return NewGeoPose(newPosition, normalizeAngle(headingLeft+headingInWorld))
+	return NewGeoPose(newPosition, poseAbsoluteHeading)
 }
 
 // normalizeAngle takes in an angle in degrees and returns an equivalent angle in the domain [0,360).
