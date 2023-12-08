@@ -255,7 +255,7 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context) {
 
 		goutils.PanicCapturingGo(func() {
 			defer wg.Done()
-			data.pc, data.err = replay.getDataFromGCS(ctx, data.uri, data.fileID)
+			data.pc, data.err = replay.getDataFromHTTP(ctx, data.uri, data.fileID)
 			if data.err != nil {
 				return
 			}
@@ -264,8 +264,8 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context) {
 	wg.Wait()
 }
 
-// getDataFromGCS makes a request directly to GCS to get the desired camera data.
-func (replay *pcdCamera) getDataFromGCS(ctx context.Context, dataURL, fileID string) (pointcloud.PointCloud, error) {
+// getDataFromHTTP makes a request to an http endpoint app serves, which gets redirected to GCS.
+func (replay *pcdCamera) getDataFromHTTP(ctx context.Context, dataURL, fileID string) (pointcloud.PointCloud, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, dataURL, nil)
 	if err != nil {
 		return nil, err
