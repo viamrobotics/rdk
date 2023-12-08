@@ -99,7 +99,7 @@ func (pwm *pwmDevice) unexport() error {
 	// On boards like the Odroid C4, there is a race condition in the kernel where, if you unexport
 	// the pin too quickly after changing something else about it (e.g., disabling it), the whole
 	// PWM system gets corrupted. Sleep for a small amount of time to avoid this.
-	time.Sleep(time.Microsecond)
+	time.Sleep(time.Millisecond)
 	if err := pwm.writeChip("unexport", uint64(pwm.line)); err != nil {
 		return err
 	}
