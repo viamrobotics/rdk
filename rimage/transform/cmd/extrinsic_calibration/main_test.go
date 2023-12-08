@@ -6,8 +6,6 @@ import (
 	"math/rand"
 	"os"
 	"testing"
-
-
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"

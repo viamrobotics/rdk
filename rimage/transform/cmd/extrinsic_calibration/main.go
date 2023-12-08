@@ -12,8 +12,6 @@ import (
 	"io"
 	"os"
 
-	"gonum.org/v1/gonum/optimize"
-
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"gonum.org/v1/gonum/optimize"
