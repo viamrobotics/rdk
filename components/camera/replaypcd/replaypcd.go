@@ -270,9 +270,6 @@ func (replay *pcdCamera) getDataFromHTTP(ctx context.Context, dataURL, fileID st
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Add("organization_id", replay.filter.OrganizationIds[0])
-	req.Header.Add("location_id", replay.filter.LocationIds[0])
-	req.Header.Add("file_id", fileID)
 	req.Header.Add("key_id", replay.APIKeyID)
 	req.Header.Add("key", replay.APIKey)
 
