@@ -7,14 +7,27 @@ import (
 	"os"
 	"testing"
 
+
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+	"gonum.org/v1/gonum/optimize"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
+
+type mockPose struct{}
+
+func (m mockPose) Point() r3.Vector {
+	return r3.Vector{}
+}
+
+func (m mockPose) Orientation() spatialmath.Orientation {
+	return spatialmath.NewOrientationVector()
+}
 
 func TestMainCalibrate(t *testing.T) {
 	outDir := t.TempDir()
@@ -32,8 +45,12 @@ func TestMainCalibrate(t *testing.T) {
 	err = os.WriteFile(outDir+"/test.json", b, 0o644)
 	test.That(t, err, test.ShouldBeNil)
 
+	mockCalibrationFn := func(_ *optimize.Problem, _ logging.Logger) (spatialmath.Pose, error) {
+		return mockPose{}, nil
+	}
+
 	// read from temp file and process
-	calibrate(outDir+"/test.json", logger)
+	calibrate(outDir+"/test.json", logger, mockCalibrationFn)
 }
 
 func createInputConfig(c *transform.DepthColorIntrinsicsExtrinsics, n int) *transform.ExtrinsicCalibrationConfig {
