@@ -458,9 +458,7 @@ func (replay *pcdCamera) initCloudConnection(ctx context.Context) error {
 
 	replay.cloudConn = conn
 	replay.dataClient = dataServiceClient
-	replay.httpClient = &http.Client{
-		Timeout: downloadTimeout,
-	}
+	replay.httpClient = &http.Client{}
 	return nil
 }
 
