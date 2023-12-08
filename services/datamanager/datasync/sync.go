@@ -11,10 +11,12 @@ import (
 	"sync"
 	"time"
 
+	clk "github.com/benbjohnson/clock"
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	v1 "go.viam.com/api/app/datasync/v1"
 	goutils "go.viam.com/utils"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -29,7 +31,12 @@ var (
 	// RetryExponentialFactor defines the factor by which the retry wait time increases.
 	RetryExponentialFactor = atomic.NewInt32(2)
 	maxRetryInterval       = time.Hour
+
+	clock = clk.New()
 )
+
+// Default time to wait in milliseconds to check if a file has been modified.
+const defaultFileLastModifiedMillis = 10000.0
 
 // FailedDir is a subdirectory of the capture directory that holds any files that could not be synced.
 const FailedDir = "failed"
@@ -137,6 +144,23 @@ func (s *syncer) SyncFile(path string) {
 				}
 				s.syncDataCaptureFile(captureFile)
 			} else {
+				// Check file info to see if an arbitrary file is still being written to.
+				info, err := f.Stat()
+				if err  != nil {
+					s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error getting info for arbitrary file %s", f.Name()))
+				}
+				// If a file was modified within the past lastModifiedMillis, do not sync it (data
+				// may still be being written).
+				timeSinceMod := clock.Since(info.ModTime())
+				// When using a mock clock in tests, this can be negative since the file system will still use the system clock.
+				// Take max(timeSinceMod, 0) to account for this.
+				if timeSinceMod < 0 {
+					timeSinceMod = 0
+				}
+				// If the file was modified within some time, log as an error.
+				if timeSinceMod <= time.Duration(defaultFileLastModifiedMillis)*time.Millisecond {
+					s.logger.Error("file was modified while syncing %s", f.Name())
+				}
 				s.syncArbitraryFile(f)
 			}
 		}
