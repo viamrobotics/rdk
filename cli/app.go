@@ -40,6 +40,13 @@ const (
 	moduleFlagPlatform        = "platform"
 	moduleFlagForce           = "force"
 
+	moduleBuildFlagPath     = "module"
+	moduleBuildFlagCount    = "count"
+	moduleBuildFlagVersion  = "version"
+	moduleBuildFlagBuildID  = "id"
+	moduleBuildFlagPlatform = "platform"
+	moduleBuildFlagWait     = "wait"
+
 	dataFlagDestination                    = "destination"
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
@@ -1084,8 +1091,8 @@ Uses the "build" section of your meta.json.
 Example:
 "build": {
    "setup": "setup.sh",                    // optional - command to install your build dependencies
-   "build": "make module.tar.gz",          // command that will build your module
-   "path" : "module.tar.gz",               // optional - path to your built module
+   "build": "make module.tar.gz",          // command that will build your module 
+   "path" : "module.tar.gz",               // optional - path to your built module 
                                            // (passed to the 'viam module upload' command)
    "arch" : ["linux/amd64", "linux/arm64"] // architectures to build for
 }`,
@@ -1102,6 +1109,64 @@ Example:
 								},
 							},
 							Action: ModuleBuildLocalAction,
+						},
+						{
+							Name:        "start",
+							Description: "start a remote build",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:      moduleBuildFlagPath,
+									Usage:     "path to meta.json",
+									Value:     "./meta.json",
+									TakesFile: true,
+								},
+								&cli.StringFlag{
+									Name:     moduleBuildFlagVersion,
+									Usage:    "version of the module to upload (semver2.0) ex: \"0.1.0\"",
+									Required: true,
+								},
+							},
+							Action: ModuleBuildStartAction,
+						},
+						{
+							Name:  "list",
+							Usage: "check on the status of your cloud builds",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:      moduleFlagPath,
+									Usage:     "path to meta.json",
+									Value:     "./meta.json",
+									TakesFile: true,
+								},
+								&cli.IntFlag{
+									Name:        moduleBuildFlagCount,
+									Usage:       "number of builds to list",
+									Aliases:     []string{"c"},
+									DefaultText: "all",
+								},
+								&cli.StringFlag{
+									Name:  moduleBuildFlagBuildID,
+									Usage: "restrict output to just return builds that match this id",
+								},
+							},
+							Action: ModuleBuildListAction,
+						},
+						{
+							Name:  "logs",
+							Usage: "get the logs from one of your cloud builds",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     moduleBuildFlagBuildID,
+									Usage:    "build that you want to get the logs for",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     moduleBuildFlagPlatform,
+									Usage:    "build platform to get the logs for. Ex: linux/arm64",
+									Required: true,
+								},
+							},
+							Action: ModuleBuildLogsAction,
 						},
 					},
 				},

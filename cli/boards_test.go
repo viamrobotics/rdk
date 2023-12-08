@@ -10,7 +10,7 @@ import (
 )
 
 func TestAppendAuthHeadersTokenAuth(t *testing.T) {
-	cCtx, ac, _, _ := setup(&inject.AppServiceClient{}, nil, nil, "token")
+	cCtx, ac, _, _ := setup(&inject.AppServiceClient{}, nil, nil, nil, "token")
 
 	testReq, err := http.NewRequestWithContext(cCtx.Context, http.MethodGet, "/test", nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -21,7 +21,7 @@ func TestAppendAuthHeadersTokenAuth(t *testing.T) {
 }
 
 func TestAppendAuthHeadersAPIKeyAuth(t *testing.T) {
-	cCtx, ac, _, _ := setup(&inject.AppServiceClient{}, nil, nil, "apiKey")
+	cCtx, ac, _, _ := setup(&inject.AppServiceClient{}, nil, nil, nil, "apiKey")
 
 	testReq, err := http.NewRequestWithContext(cCtx.Context, http.MethodGet, "/test", nil)
 	test.That(t, err, test.ShouldBeNil)

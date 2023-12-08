@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
+	buildpb "go.viam.com/api/app/build/v1"
 	datapb "go.viam.com/api/app/data/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
@@ -48,6 +49,7 @@ type viamClient struct {
 	packageClient    packagepb.PackageServiceClient
 	datasetClient    datasetpb.DatasetServiceClient
 	mlTrainingClient mltrainingpb.MLTrainingServiceClient
+	buildClient      buildpb.BuildServiceClient
 	baseURL          *url.URL
 	rpcOpts          []rpc.DialOption
 	authFlow         *authFlow
