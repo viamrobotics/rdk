@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/urfave/cli/v2"
+	buildpb "go.viam.com/api/app/build/v1"
 	datapb "go.viam.com/api/app/data/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
@@ -39,8 +40,12 @@ func (tw *testWriter) Write(b []byte) (int, error) {
 // setup creates a new cli.Context and viamClient with fake auth and the passed
 // in AppServiceClient and DataServiceClient. It also returns testWriters that capture Stdout and
 // Stdin.
-func setup(asc apppb.AppServiceClient, dataClient datapb.DataServiceClient,
-	defaultFlags *map[string]string, authMethod string,
+func setup(
+	asc apppb.AppServiceClient,
+	dataClient datapb.DataServiceClient,
+	buildClient buildpb.BuildServiceClient,
+	defaultFlags *map[string]string,
+	authMethod string,
 ) (*cli.Context, *viamClient, *testWriter, *testWriter) {
 	out := &testWriter{}
 	errOut := &testWriter{}
@@ -76,10 +81,11 @@ func setup(asc apppb.AppServiceClient, dataClient datapb.DataServiceClient,
 		}
 	}
 	ac := &viamClient{
-		client:     asc,
-		conf:       conf,
-		c:          cCtx,
-		dataClient: dataClient,
+		client:      asc,
+		conf:        conf,
+		c:           cCtx,
+		dataClient:  dataClient,
+		buildClient: buildClient,
 	}
 	return cCtx, ac, out, errOut
 }
@@ -94,7 +100,7 @@ func TestListOrganizationsAction(t *testing.T) {
 	asc := &inject.AppServiceClient{
 		ListOrganizationsFunc: listOrganizationsFunc,
 	}
-	cCtx, ac, out, errOut := setup(asc, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 
 	test.That(t, ac.listOrganizationsAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -129,7 +135,7 @@ func TestTabularDataByFilterAction(t *testing.T) {
 		TabularDataByFilterFunc: tabularDataByFilterFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, "token")
+	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, "token")
 
 	test.That(t, ac.dataExportAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
