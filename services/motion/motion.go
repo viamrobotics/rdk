@@ -45,7 +45,8 @@ type MoveOnGlobeReq struct {
 	ComponentName resource.Name
 	// Goal destination the component should be moved to
 	Destination *geo.Point
-	// Heading the destination have a when it reaches the goal
+	// Heading the component should have a when it reaches the goal.
+	// Range [0-360] Left Hand Rule (N: 0, E: 90, S: 180, W: 270)
 	Heading float64
 	// Name of the momement sensor which can be used to derive Position & Heading
 	MovementSensorName resource.Name
