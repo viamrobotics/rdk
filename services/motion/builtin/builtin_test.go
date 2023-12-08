@@ -712,8 +712,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 	test.That(t, success, test.ShouldBeFalse)
 }
 
-func TestMoveOnGlobe(t *testing.T) {
-	t.Parallel()
+func TestMoveOnGlobeOld(t *testing.T) {
 	ctx := context.Background()
 
 	// Near antarctica 🐧
@@ -1148,7 +1147,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, success, test.ShouldBeFalse)
 	})
 
-	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
+	t.Run("ensure success planning to a nearby geo point", func(t *testing.T) {
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
@@ -1169,6 +1168,11 @@ func TestMoveOnGlobe(t *testing.T) {
 		planResp, err := mr.Plan(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(planResp.Waypoints), test.ShouldBeGreaterThan, 2)
+	})
+	t.Run("ensure success moving to a nearby geo point", func(t *testing.T) {
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -1656,6 +1660,7 @@ func TestGetPose(t *testing.T) {
 }
 
 func TestStoppableMoveFunctions(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	failToReachGoalError := errors.New("failed to reach goal")

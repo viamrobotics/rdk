@@ -7,6 +7,7 @@ import (
 	"errors"
 	//~ "math"
 	"sync"
+	//~ "fmt"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
@@ -54,10 +55,11 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistFar, refDistRestricted f
 			//~ referenceframe.Input{float64(i+1) * refDist / 10},
 		//~ )
 	//~ }
-	for i := 0; i < trajCount; i++ {
+	ptgDof := ptgFrame.DoF()
+	for i := 0; i < len(ptgDof); i++ {
+		boundRange := ptgDof[i].Max - ptgDof[i].Min
 		inputs = append(inputs,
-			referenceframe.Input{1},
-			referenceframe.Input{refDistRestricted * 0.5},
+			referenceframe.Input{ptgDof[i].Min + 0.3*boundRange},
 		)
 	}
 
@@ -104,28 +106,29 @@ func (ptg *ptgIK) Solve(
 	default:
 	}
 	if err != nil || solved == nil || solved.Configuration[1].Value < defaultZeroDist {
+		//~ fmt.Println(1, err, solved, solved.Configuration)
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
-		//~ return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
+		return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
 	}
 
-	//~ if !solved.Exact {
-		//~ // nlopt returned something but was unable to complete the solve. See if the grid check produces something better.
-		//~ err = ptg.gridSim.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
-		//~ if err == nil {
-			//~ var gridSolved *ik.Solution
-			//~ select {
-			//~ case gridSolved = <-internalSolutionGen:
-			//~ default:
-			//~ }
-			//~ // Check if the grid has a better solution
-			//~ if gridSolved != nil {
-				//~ if gridSolved.Score < solved.Score {
-					//~ // ~ fmt.Println("grid2!")
-					//~ solved = gridSolved
-				//~ }
-			//~ }
-		//~ }
-	//~ }
+	if !solved.Exact {
+		// nlopt returned something but was unable to complete the solve. See if the grid check produces something better.
+		err = ptg.gridSim.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
+		if err == nil {
+			var gridSolved *ik.Solution
+			select {
+			case gridSolved = <-internalSolutionGen:
+			default:
+			}
+			// Check if the grid has a better solution
+			if gridSolved != nil {
+				if gridSolved.Score < solved.Score {
+					// ~ fmt.Println("grid2!")
+					solved = gridSolved
+				}
+			}
+		}
+	}
 
 	solutionChan <- solved
 	return nil

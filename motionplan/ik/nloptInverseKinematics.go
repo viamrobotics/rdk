@@ -162,12 +162,12 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	}
 
 	err = multierr.Combine(
-		opt.SetFtolRel(ik.epsilon),
+		//~ opt.SetFtolRel(ik.epsilon),
 		opt.SetFtolAbs(ik.epsilon),
 		opt.SetLowerBounds(ik.lowerBound),
 		opt.SetStopVal(ik.epsilon),
 		opt.SetUpperBounds(ik.upperBound),
-		opt.SetXtolRel(ik.epsilon),
+		//~ opt.SetXtolRel(ik.epsilon),
 		opt.SetXtolAbs1(ik.epsilon),
 		opt.SetMinObjective(nloptMinFunc),
 		opt.SetMaxEval(nloptStepsPerIter),
@@ -229,7 +229,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			// Ignore it, something else will find a solution
 			err = multierr.Combine(err, nloptErr)
 		}
-		//~ fmt.Println("solution, score", solutionRaw, result, nloptErr)
+		//~ fmt.Println("score, solution", result, solutionRaw, nloptErr)
 
 		if result < ik.epsilon || (solutionRaw != nil && !ik.exact) {
 			select {

@@ -278,7 +278,7 @@ func TestPtgWithObstacle(t *testing.T) {
 			}
 		}
 	}
-	tp.planOpts.SmoothIter = 100
+	tp.planOpts.SmoothIter = 50
 	plan = tp.smoothPath(ctx, plan)
 	if pathdebug {
 		lastPose = spatialmath.NewZeroPose()
@@ -287,9 +287,9 @@ func TestPtgWithObstacle(t *testing.T) {
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
 				if i == 0 {
-					tp.logger.Debugf("$SMOOTHWP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+					tp.logger.Debugf("$SMOOTHWP,%f,%f", intPose.Point().X, intPose.Point().Y)
 				}
-				tp.logger.Debugf("$SMOOTHPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+				tp.logger.Debugf("$SMOOTHPATH,%f,%f", intPose.Point().X, intPose.Point().Y)
 				if pt.Dist >= mynode.Q()[2].Value {
 					lastPose = intPose
 					break
