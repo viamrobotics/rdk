@@ -44,7 +44,7 @@ func createTestManifest(t *testing.T, path string) {
 	err = fi.Close()
 	test.That(t, err, test.ShouldBeNil)
 }
-}
+
 func TestStartBuild(t *testing.T) {
 	manifest := filepath.Join(t.TempDir(), "meta.json")
 	createTestManifest(t, manifest)
@@ -67,12 +67,12 @@ func TestListBuild(t *testing.T) {
 		ListJobsFunc: func(ctx context.Context, in *v1.ListJobsRequest, opts ...grpc.CallOption) (*v1.ListJobsResponse, error) {
 			return &v1.ListJobsResponse{Jobs: []*v1.JobInfo{
 				{
-					BuildId:   "xyz123",
-					Platform:  "linux/amd64",
-					Version:   "1.2.3",
-					Status:    v1.JobStatus_JOB_STATUS_DONE,
+					BuildId:  "xyz123",
+					Platform: "linux/amd64",
+					Version:  "1.2.3",
+					Status:   v1.JobStatus_JOB_STATUS_DONE,
 
-					EndTime:   timestamppb.New(time.Unix(0, 0)), // Jan 1 1970
+					EndTime: timestamppb.New(time.Unix(0, 0)), // Jan 1 1970
 				},
 			}}, nil
 		},
