@@ -1916,7 +1916,7 @@ func TestMoveOnMapNew(t *testing.T) {
 		&motion.MotionConfiguration{},
 		nil,
 	)
-	test.That(t, err, test.ShouldResemble, errors.New("unimplemented"))
+	test.That(t, err.Error(), test.ShouldEqual, "unimplemented")
 	test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 }
 
