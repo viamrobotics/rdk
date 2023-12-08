@@ -69,7 +69,6 @@ type TimeInterval struct {
 // cacheEntry stores data that was downloaded from a previous operation but has not yet been passed
 // to the caller.
 type cacheEntry struct {
-	fileID        string
 	pc            pointcloud.PointCloud
 	timeRequested *timestamppb.Timestamp
 	timeReceived  *timestamppb.Timestamp
@@ -227,7 +226,6 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	for i, dataResponse := range resp.Data {
 		md := dataResponse.GetMetadata()
 		replay.cache[i] = &cacheEntry{
-			fileID:        md.GetId(),
 			uri:           md.GetUri(),
 			timeRequested: md.GetTimeRequested(),
 			timeReceived:  md.GetTimeReceived(),
@@ -255,7 +253,7 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context) {
 
 		goutils.PanicCapturingGo(func() {
 			defer wg.Done()
-			data.pc, data.err = replay.getDataFromHTTP(ctx, data.uri, data.fileID)
+			data.pc, data.err = replay.getDataFromHTTP(ctx, data.uri)
 			if data.err != nil {
 				return
 			}
@@ -265,7 +263,7 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context) {
 }
 
 // getDataFromHTTP makes a request to an http endpoint app serves, which gets redirected to GCS.
-func (replay *pcdCamera) getDataFromHTTP(ctx context.Context, dataURL, fileID string) (pointcloud.PointCloud, error) {
+func (replay *pcdCamera) getDataFromHTTP(ctx context.Context, dataURL string) (pointcloud.PointCloud, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, dataURL, nil)
 	if err != nil {
 		return nil, err
