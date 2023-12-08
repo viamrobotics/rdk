@@ -3,6 +3,7 @@ package transformpipeline
 import (
 	"context"
 	"image"
+	"strings"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -56,7 +57,7 @@ func newClassificationsTransform(
 	}
 	validLabels := make(map[string]interface{})
 	for _, l := range conf.ValidLabels {
-		validLabels[l] = struct{}{}
+		validLabels[strings.ToLower(l)] = struct{}{}
 	}
 	labelFilter := classification.NewLabelFilter(validLabels)
 	confFilter := classification.NewScoreFilter(conf.ConfidenceThreshold)
@@ -101,6 +102,7 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 	}
 	// overlay labels on the source image
 	classifications = cs.confFilter(classifications)
+	classifications = cs.labelFilter(classifications)
 	res, err := classification.Overlay(img, classifications)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not overlay labels")

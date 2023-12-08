@@ -1,6 +1,9 @@
 package objectdetection
 
-import "sort"
+import (
+	"sort"
+	"strings"
+)
 
 // Postprocessor defines a function that filters/modifies on an incoming array of Detections.
 type Postprocessor func([]Detection) []Detection
@@ -36,7 +39,7 @@ func NewLabelFilter(labels map[string]interface{}) Postprocessor {
 	return func(in []Detection) []Detection {
 		out := make([]Detection, 0, len(in))
 		for _, d := range in {
-			if _, ok := labels[d.Label()]; ok {
+			if _, ok := labels[strings.ToLower(d.Label())]; ok {
 				out = append(out, d)
 			}
 		}

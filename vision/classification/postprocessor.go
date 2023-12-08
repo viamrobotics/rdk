@@ -1,5 +1,7 @@
 package classification
 
+import "strings"
+
 // Postprocessor defines a function that filters/modifies on an incoming array of Classifications.
 type Postprocessor func(Classifications) Classifications
 
@@ -22,7 +24,7 @@ func NewLabelFilter(labels map[string]interface{}) Postprocessor {
 	return func(in Classifications) Classifications {
 		out := make(Classifications, 0, len(in))
 		for _, c := range in {
-			if _, ok := labels[c.Label()]; ok {
+			if _, ok := labels[strings.ToLower(c.Label())]; ok {
 				out = append(out, c)
 			}
 		}

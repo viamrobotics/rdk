@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"strings"
+
+	"go.opencensus.io/trace"
 
 	"go.opencensus.io/trace"
 
@@ -57,7 +60,7 @@ func newDetectionsTransform(
 	confFilter := objectdetection.NewScoreFilter(conf.ConfidenceThreshold)
 	validLabels := make(map[string]interface{})
 	for _, l := range conf.ValidLabels {
-		validLabels[l] = struct{}{}
+		validLabels[strings.ToLower(l)] = struct{}{}
 	}
 	labelFilter := objectdetection.NewLabelFilter(validLabels)
 	detector := &detectorSource{
@@ -94,6 +97,8 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 	}
 	// overlay detections of the source image
 	dets = ds.confFilter(dets)
+	dets = ds.labelFilter(dets)
+
 	res, err := objectdetection.Overlay(img, dets)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not overlay bounding boxes: %w", err)
