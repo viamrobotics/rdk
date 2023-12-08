@@ -260,7 +260,11 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	// Set framesystem service
 	for name, dep := range deps {
 		if name == framesystem.InternalServiceName {
-			svc.fsService = dep.(framesystem.Service)
+			fsService, ok := dep.(framesystem.Service)
+			if !ok {
+				return errors.New("frame system service is invalid type")
+			}
+			svc.fsService = fsService
 			break
 		}
 	}
@@ -714,7 +718,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		// convert orientation of currentPIF to be left handed
 		localizerHeading := math.Mod(math.Abs(currentPIF.Pose().Orientation().OrientationVectorDegrees().Theta-360), 360)
 
-		// convert baseToMovementSensor theta to be left handed
+		// ensure baseToMovementSensor orientation is positive
 		localizerBaseThetaDiff := math.Mod(math.Abs(baseToMovementSensor.Pose().Orientation().OrientationVectorDegrees().Theta+360), 360)
 
 		baseHeading := math.Mod(localizerHeading+localizerBaseThetaDiff, 360)
@@ -768,7 +772,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			detection.Geometry.SetLabel(label)
 
 			// determine the desired geometry pose
-			desiredPose = spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, detection.Geometry.Pose().Orientation())
+			desiredPose = spatialmath.NewPoseFromOrientation(detection.Geometry.Pose().Orientation())
 
 			// calculate what we need to transform by
 			transformBy = spatialmath.PoseBetweenInverse(detection.Geometry.Pose(), desiredPose)
