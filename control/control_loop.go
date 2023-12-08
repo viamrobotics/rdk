@@ -47,7 +47,6 @@ func NewLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error) {
 	return createLoop(logger, cfg, m)
 }
 
-
 func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	l := Loop{

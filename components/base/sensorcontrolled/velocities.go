@@ -15,7 +15,7 @@ import (
 )
 
 // TODO: RSDK-5355 useControlLoop bool should be removed after testing.
-const useControlLoop = true
+const useControlLoop = false
 
 var (
 	errConstantBlocks = errors.New(
@@ -43,12 +43,12 @@ func (sb *sensorBase) setupControlLoops() error {
 			return err
 		}
 		sb.loop = loop
-	}
-	if err := sb.validateControlLoopConfig(context.Background()); err != nil {
-		if err := sb.Stop(context.Background(), nil); err != nil {
+		if err := sb.validateControlLoopConfig(context.Background()); err != nil {
+			if err := sb.Stop(context.Background(), nil); err != nil {
+				return err
+			}
 			return err
 		}
-		return err
 	}
 
 	return nil
@@ -141,24 +141,22 @@ func (sb *sensorBase) SetVelocity(
 	var sensorCtx context.Context
 	sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
 
-	// TODO: RSDK-5355 remove control loop bool after testing
-
-	// stop and restart loop
-	if sb.loop != nil {
-		if err := sb.Stop(ctx, nil); err != nil {
-			sb.logger.Error(err)
+	if useControlLoop {
+		// stop and restart loop
+		if sb.loop != nil {
+			if err := sb.Stop(ctx, nil); err != nil {
+				sb.logger.Error(err)
+			}
 		}
-	}
-	loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
-	if err != nil {
-		return err
-	}
-	if err := loop.Start(); err != nil {
-		return err
-	}
-	sb.loop = loop
+		loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
+		if err != nil {
+			return err
+		}
+		if err := loop.Start(); err != nil {
+			return err
+		}
+		sb.loop = loop
 
-	if useControlLoop && sb.loop != nil {
 		// set linear setpoint config
 		linConf := control.BlockConfig{
 			Name: sb.blockNames["linear_constant"],
