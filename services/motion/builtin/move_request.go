@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/state"
 	"go.viam.com/rdk/services/slam"
@@ -66,6 +67,7 @@ type moveRequest struct {
 	kinematicBase     kinematicbase.KinematicBase
 	obstacleDetectors map[vision.Service][]resource.Name
 	replanCostFactor  float64
+	fsService         framesystem.Service
 
 	executeBackgroundWorkers *sync.WaitGroup
 	responseChan             chan moveResponse
@@ -192,6 +194,12 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 
 	for visSrvc, cameraNames := range mr.obstacleDetectors {
 		for _, camName := range cameraNames {
+			mr.logger.Debugf(
+				"proceeding to get detections from vision service: %s with camera: %s",
+				visSrvc.Name().ShortName(),
+				camName.ShortName(),
+			)
+
 			// get detections from vision service
 			detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
 			if err != nil {
@@ -207,12 +215,28 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				return state.ExecuteResponse{}, err
 			}
 
+			// determine transform of camera to base
+			cameraOrigin := referenceframe.NewPoseInFrame(camName.ShortName(), spatialmath.NewZeroPose())
+			baseToCamera, err := mr.fsService.TransformPose(ctx, cameraOrigin, mr.kinematicBase.Name().ShortName(), nil)
+			if err != nil {
+				// here we make the assumption the base is coincident with the camera
+				mr.logger.Debugf(
+					"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
+					mr.kinematicBase.Name().ShortName(), camName.ShortName(), err.Error(),
+				)
+				baseToCamera = cameraOrigin
+			}
+
 			// Any obstacles specified by the worldstate of the moveRequest will also re-detected here.
 			// There is no need to append the new detections to the existing worldstate.
 			// We can safely build from scratch without excluding any valuable information.
 			geoms := []spatialmath.Geometry{}
 			for i, detection := range detections {
-				geometry := detection.Geometry.Transform(currentPosition.Pose())
+				// put the detection in the base coordinate frame
+				geometry := detection.Geometry.Transform(baseToCamera.Pose())
+
+				// put the detection into its position in the world with the base coordinate frame
+				geometry = geometry.Transform(currentPosition.Pose())
 				label := camName.Name + "_transientObstacle_" + strconv.Itoa(i)
 				if geometry.Label() != "" {
 					label += "_" + geometry.Label()
@@ -221,14 +245,14 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				geoms = append(geoms, geometry)
 			}
 			gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
+			// want to have all geometry's be in the world coordinate frame
 			tf, err := mr.planRequest.FrameSystem.Transform(mr.planRequest.StartConfiguration, gif, mr.planRequest.FrameSystem.World().Name())
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
 			transformedGIF, ok := tf.((*referenceframe.GeometriesInFrame))
 			if !ok {
-				// TODO: This is not an acceptable error
-				return state.ExecuteResponse{}, errors.New("smth")
+				return state.ExecuteResponse{}, errors.New("cannot cast transformable as *referenceframe.GeometriesInFrame")
 			}
 			gifs := []*referenceframe.GeometriesInFrame{transformedGIF}
 			worldState, err := referenceframe.NewWorldState(gifs, nil)
@@ -667,6 +691,7 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		kinematicBase:     kb,
 		replanCostFactor:  valExtra.replanCostFactor,
 		obstacleDetectors: obstacleDetectors,
+		fsService:         ms.fsService,
 
 		executeBackgroundWorkers: &backgroundWorkers,
 
