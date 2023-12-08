@@ -12,8 +12,10 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -1907,9 +1909,16 @@ func TestMoveOnMapNew(t *testing.T) {
 	)
 	defer ms.Close(ctx)
 
-	uuid, err := ms.MoveOnMapNew(ctx, base.Name(), spatialmath.NewZeroPose(), slam.Named("test_slam"), &motion.MotionConfiguration{}, nil)
+	executionID, err := ms.MoveOnMapNew(
+		ctx,
+		base.Name(),
+		spatialmath.NewZeroPose(),
+		slam.Named("test_slam"),
+		&motion.MotionConfiguration{},
+		nil,
+	)
 	test.That(t, err, test.ShouldResemble, errors.New("unimplemented"))
-	test.That(t, uuid, test.ShouldBeNil)
+	test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 }
 
 func TestStopPlan(t *testing.T) {
