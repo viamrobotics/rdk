@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/control"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -395,6 +396,7 @@ func TestSensorBase(t *testing.T) {
 }
 
 func sBaseTestConfig(msNames []string) resource.Config {
+	val := 0.5
 	return resource.Config{
 		Name:  "test",
 		API:   base.API,
@@ -402,6 +404,16 @@ func sBaseTestConfig(msNames []string) resource.Config {
 		ConvertedAttributes: &Config{
 			MovementSensor: msNames,
 			Base:           "test_base",
+			LinearPID: control.PIDConfig{
+				P: &val,
+				I: &val,
+				D: &val,
+			},
+			AngularPID: control.PIDConfig{
+				P: &val,
+				I: &val,
+				D: &val,
+			},
 		},
 	}
 }
@@ -505,9 +517,6 @@ func TestReconfig(t *testing.T) {
 }
 
 func TestSensorBaseWithVelocitiesSensor(t *testing.T) {
-	if useControlLoop == false {
-		t.Skip()
-	}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	deps, cfg := msDependencies(t, []string{"setvel1"})

@@ -7,118 +7,33 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/control"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// TODO: RSDK-5355 useControlLoop bool should be removed after testing.
-const useControlLoop = false
-
-var (
-	errConstantBlocks = errors.New(
-		"two constant blocks are required -- one must contain 'lin' in the name, and the other must contain 'ang'")
-	errSumBlock  = errors.New("this control loop requires only one sum block")
-	errPIDBlocks = errors.New(
-		"two PID blocks are required -- one must contain 'lin' in the name, and the other must contain 'ang'")
-	errEndpointBlock   = errors.New("this control loop requires only one endpoint block")
-	errSumDependencies = errors.New(
-		"ensure the dependencies for the sum block are in the following order: linear constant, angular constant, endpoint")
-)
+// pidConfigured is set to true if PID values exist in the config.
+var pidConfigured = false
 
 // setupControlLoops uses the embedded config in this file to initialize a control
 // loop using the controls package and stor in on the sensor controlled base struct
 // the sensor base in the controllable interface that implements State and GetState
 // called by the endpoing logic of the control thread and the controlLoopConfig
 // is included at the end of this file.
-func (sb *sensorBase) setupControlLoops() error {
-	if useControlLoop {
-		loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
-		if err != nil {
-			return err
-		}
-		if err := loop.Start(); err != nil {
-			return err
-		}
-		sb.loop = loop
-		if err := sb.validateControlLoopConfig(context.Background()); err != nil {
-			if err := sb.Stop(context.Background(), nil); err != nil {
-				return err
-			}
-			return err
-		}
-	}
+func (sb *sensorBase) setupControlLoops(conf Config) error {
+	// set linear and angular PID values from robot config
+	newControlLoopConfig := sb.updateControlConfigPIDs(controlLoopConfig, conf)
 
-	return nil
-}
-
-func (sb *sensorBase) validateControlLoopConfig(ctx context.Context) error {
-	sb.blockNames = make(map[string]string)
-	hasLinConst, hasAngConst, hasLinPID, hasAngPID := false, false, false, false
-
-	// verify linear and angular constant blocks exist, and store their names
-	constBlocks, err := sb.loop.ConfigAtType(ctx, "constant")
-	sb.logger.Errorf("const blocks = %v", constBlocks)
+	// create control loop
+	loop, err := control.NewLoop(sb.logger, newControlLoopConfig, sb)
 	if err != nil {
 		return err
 	}
-	for _, b := range constBlocks {
-		if strings.Contains(b.Name, "lin") {
-			sb.blockNames["linear_constant"] = b.Name
-			hasLinConst = true
-		} else if strings.Contains(b.Name, "ang") {
-			sb.blockNames["angular_constant"] = b.Name
-			hasAngConst = true
-		}
-	}
-	if !(hasLinConst && hasAngConst) {
-		return errConstantBlocks
-	}
-
-	// verify endpoint block exists
-	endBlocks, err := sb.loop.ConfigAtType(ctx, "endpoint")
-	sb.logger.Errorf("end blocks = %v", endBlocks)
-	if err != nil {
+	if err := loop.Start(); err != nil {
 		return err
 	}
-	if len(endBlocks) > 1 {
-		return errEndpointBlock
-	}
-	endpointName := endBlocks[0].Name
-
-	// verify sum block exists and dependencies are in the right order
-	sumBlocks, err := sb.loop.ConfigAtType(ctx, "sum")
-	sb.logger.Errorf("sum blocks = %v", sumBlocks)
-	if err != nil {
-		return err
-	}
-	if len(sumBlocks) > 1 {
-		return errSumBlock
-	}
-	if !strings.Contains(sumBlocks[0].DependsOn[0], "lin") ||
-		!strings.Contains(sumBlocks[0].DependsOn[1], "ang") ||
-		!strings.Contains(sumBlocks[0].DependsOn[2], endpointName) {
-		return errSumDependencies
-	}
-
-	// verify linear and angular PID constant blocks exist
-	pidBlocks, err := sb.loop.ConfigAtType(ctx, "PID")
-	sb.logger.Errorf("pid blocks = %v", pidBlocks)
-	if err != nil {
-		return err
-	}
-	for _, b := range pidBlocks {
-		if strings.Contains(b.Name, "lin") {
-			hasLinPID = true
-		} else if strings.Contains(b.Name, "ang") {
-			hasAngPID = true
-		}
-	}
-	if !(hasLinPID && hasAngPID) {
-		return errPIDBlocks
-	}
+	sb.loop = loop
 
 	return nil
 }
@@ -141,7 +56,7 @@ func (sb *sensorBase) SetVelocity(
 	var sensorCtx context.Context
 	sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
 
-	if useControlLoop {
+	if pidConfigured {
 		// stop and restart loop
 		if sb.loop != nil {
 			if err := sb.Stop(ctx, nil); err != nil {
@@ -159,27 +74,27 @@ func (sb *sensorBase) SetVelocity(
 
 		// set linear setpoint config
 		linConf := control.BlockConfig{
-			Name: sb.blockNames["linear_constant"],
+			Name: "linear_setpoint",
 			Type: "constant",
 			Attribute: rdkutils.AttributeMap{
 				"constant_val": linear.Y / 1000.0,
 			},
 			DependsOn: []string{},
 		}
-		if err := sb.loop.SetConfigAt(ctx, sb.blockNames["linear_constant"], linConf); err != nil {
+		if err := sb.loop.SetConfigAt(ctx, "linear_setpoint", linConf); err != nil {
 			return err
 		}
 
 		// set angular setpoint config
 		angConf := control.BlockConfig{
-			Name: sb.blockNames["angular_constant"],
+			Name: "angular_setpoint",
 			Type: "constant",
 			Attribute: rdkutils.AttributeMap{
 				"constant_val": angular.Z,
 			},
 			DependsOn: []string{},
 		}
-		if err := sb.loop.SetConfigAt(ctx, sb.blockNames["angular_constant"], angConf); err != nil {
+		if err := sb.loop.SetConfigAt(ctx, "angular_setpoint", angConf); err != nil {
 			return err
 		}
 
@@ -285,10 +200,30 @@ func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
 	return []float64{linvel.Y, angvel.Z}, nil
 }
 
+func (sb *sensorBase) updateControlConfigPIDs(controlConf control.Config, conf Config) control.Config {
+	for i, b := range controlConf.Blocks {
+		if b.Type == "PID" {
+			if strings.Contains(b.Name, "linear") {
+				controlConf.Blocks[i].Attribute["kP"] = *conf.LinearPID.P
+				controlConf.Blocks[i].Attribute["kI"] = *conf.LinearPID.I
+				controlConf.Blocks[i].Attribute["kD"] = *conf.LinearPID.D
+			} else if strings.Contains(b.Name, "angular") {
+				controlConf.Blocks[i].Attribute["kP"] = *conf.AngularPID.P
+				controlConf.Blocks[i].Attribute["kI"] = *conf.AngularPID.I
+				controlConf.Blocks[i].Attribute["kD"] = *conf.AngularPID.D
+			}
+		}
+		if b.Type == "endpoint" {
+			controlConf.Blocks[i].Attribute["base_name"] = sb.Name().ShortName()
+		}
+	}
+	return controlConf
+}
+
 // Control Loop Configuration is embedded in this file so a user does not have to
 // configure the loop from within the attributes of the config file.
-// it sets up a loop that takes a constant -> sum -> gain -> PID -> Endpoint -> feedback to sum
-// structure. The gain is 1 to not magnify the input signal, the PID values are experimental
+// it sets up a loop that takes a constant -> sum -> PID -> gain -> Endpoint -> feedback to sum
+// structure. The gain is 0.0039 (1/255) to account for the PID range, the PID values are experimental
 // this structure can change as hardware experiments with the viam base require.
 var controlLoopConfig = control.Config{
 	Blocks: []control.BlockConfig{
@@ -298,10 +233,10 @@ var controlLoopConfig = control.Config{
 			Attribute: rdkutils.AttributeMap{
 				"base_name": "feedback",
 			},
-			DependsOn: []string{"lin_gain", "ang_gain"},
+			DependsOn: []string{"linear_gain", "angular_gain"},
 		},
 		{
-			Name: "lin_PID",
+			Name: "linear_PID",
 			Type: "PID",
 			Attribute: rdkutils.AttributeMap{
 				"kD":             0.0,
@@ -311,14 +246,14 @@ var controlLoopConfig = control.Config{
 				"int_sat_lim_up": 255.0,
 				"limit_lo":       -255.0,
 				"limit_up":       255.0,
-				"tune_method":    "ziegerNicholsSomeOvershoot",
+				"tune_method":    "ziegerNicholsPI",
 				"tune_ssr_value": 2.0,
 				"tune_step_pct":  0.35,
 			},
 			DependsOn: []string{"sum"},
 		},
 		{
-			Name: "ang_PID",
+			Name: "angular_PID",
 			Type: "PID",
 			Attribute: rdkutils.AttributeMap{
 				"kD":             0.0,
@@ -328,7 +263,7 @@ var controlLoopConfig = control.Config{
 				"int_sat_lim_up": 255.0,
 				"limit_lo":       -255.0,
 				"limit_up":       255.0,
-				"tune_method":    "ziegerNicholsSomeOvershoot",
+				"tune_method":    "ziegerNicholsPI",
 				"tune_ssr_value": 2.0,
 				"tune_step_pct":  0.35,
 			},
@@ -340,26 +275,26 @@ var controlLoopConfig = control.Config{
 			Attribute: rdkutils.AttributeMap{
 				"sum_string": "++-", // should this be +- or does it follow dependency order?
 			},
-			DependsOn: []string{"lin_setpoint", "ang_setpoint", "endpoint"},
+			DependsOn: []string{"linear_setpoint", "angular_setpoint", "endpoint"},
 		},
 		{
-			Name: "lin_gain",
+			Name: "linear_gain",
 			Type: "gain",
 			Attribute: rdkutils.AttributeMap{
 				"gain": 0.0039, // need to update dynamically? Or should I just use the trapezoidal velocity profile
 			},
-			DependsOn: []string{"lin_PID"},
+			DependsOn: []string{"linear_PID"},
 		},
 		{
-			Name: "ang_gain",
+			Name: "angular_gain",
 			Type: "gain",
 			Attribute: rdkutils.AttributeMap{
 				"gain": 0.0039, // need to update dynamically? Or should I just use the trapezoidal velocity profile
 			},
-			DependsOn: []string{"ang_PID"},
+			DependsOn: []string{"angular_PID"},
 		},
 		{
-			Name: "lin_setpoint",
+			Name: "linear_setpoint",
 			Type: "constant",
 			Attribute: rdkutils.AttributeMap{
 				"constant_val": 0.0,
@@ -367,7 +302,7 @@ var controlLoopConfig = control.Config{
 			DependsOn: []string{},
 		},
 		{
-			Name: "ang_setpoint",
+			Name: "angular_setpoint",
 			Type: "constant",
 			Attribute: rdkutils.AttributeMap{
 				"constant_val": 0.0,

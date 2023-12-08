@@ -66,7 +66,7 @@ func TestSumConfig(t *testing.T) {
 		if c.err == "" {
 			s := b.(*sum)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, len(s.y), test.ShouldEqual, 1)
+			test.That(t, len(s.y), test.ShouldEqual, 4)
 		} else {
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldResemble, c.err)

@@ -34,8 +34,10 @@ var (
 
 // Config configures a sensor controlled base.
 type Config struct {
-	MovementSensor []string `json:"movement_sensor"`
-	Base           string   `json:"base"`
+	MovementSensor []string          `json:"movement_sensor"`
+	Base           string            `json:"base"`
+	LinearPID      control.PIDConfig `json:"linear_PID,omitempty"`
+	AngularPID     control.PIDConfig `json:"angular_PID,omitempty"`
 }
 
 // Validate validates all parts of the sensor controlled base config.
@@ -72,8 +74,7 @@ type sensorBase struct {
 	orientation movementsensor.MovementSensor
 	velocities  movementsensor.MovementSensor
 
-	blockNames map[string]string
-	loop       *control.Loop
+	loop *control.Loop
 }
 
 func init() {
@@ -110,6 +111,10 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
+
+	if sb.loop != nil {
+		sb.loop.Stop()
+	}
 
 	// reset all sensors
 	sb.allSensors = nil
@@ -155,8 +160,17 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	}
 
 	if sb.velocities != nil {
-		if err := sb.setupControlLoops(); err != nil {
-			return err
+		if newConf.LinearPID.P != nil && newConf.LinearPID.I != nil && newConf.LinearPID.D != nil &&
+			newConf.AngularPID.P != nil && newConf.AngularPID.I != nil && newConf.AngularPID.D != nil {
+			if err := sb.setupControlLoops(*newConf); err != nil {
+				return err
+			}
+			pidConfigured = true
+		} else {
+			sb.logger.Warnf(
+				"for more accurate feedback control from movement sensor '%v'",
+				"follow these instructions to configure the linear_PID and angular_PID values",
+				sb.velocities.Name().ShortName())
 		}
 	}
 

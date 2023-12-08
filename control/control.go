@@ -14,6 +14,13 @@ type Controllable interface {
 	State(ctx context.Context) ([]float64, error)
 }
 
+// PIDConfig configures PID values for the control loop.
+type PIDConfig struct {
+	P *float64 `json:"p,omitempty"`
+	I *float64 `json:"i,omitempty"`
+	D *float64 `json:"d,omitempty"`
+}
+
 // Config configuration of the control loop.
 type Config struct {
 	Blocks    []BlockConfig `json:"blocks"`    // Blocks Control Block Config
