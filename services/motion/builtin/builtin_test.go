@@ -713,7 +713,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	extraSmooth := map[string]interface{}{"smooth_iter": 5}
 
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
-	expectedDst := r3.Vector{380, 0, 0} // Relative pose to the starting point of the base; facing north, Y = forwards
+	expectedDst := r3.Vector{X: 380, Y: 0, Z: 0} // Relative pose to the starting point of the base; facing north, Y = forwards
 	epsilonMM := 15.
 
 	t.Run("returns error when called with an unknown component", func(t *testing.T) {
@@ -948,6 +948,23 @@ func TestMoveOnGlobe(t *testing.T) {
 			injectedMovementSensor.Name(),
 			nil,
 			&motion.MotionConfiguration{},
+			extraSmooth,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, success, test.ShouldBeTrue)
+	})
+
+	t.Run("is able to reach a nearby geo point when the motion configuration nil", func(t *testing.T) {
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		success, err := ms.MoveOnGlobe(
+			ctx,
+			fakeBase.Name(),
+			dst,
+			90,
+			injectedMovementSensor.Name(),
+			nil,
+			nil,
 			extraSmooth,
 		)
 		test.That(t, err, test.ShouldBeNil)
