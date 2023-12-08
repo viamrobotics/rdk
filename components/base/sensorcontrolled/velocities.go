@@ -3,7 +3,6 @@ package sensorcontrolled
 import (
 	"context"
 	"math"
-	"strings"
 	"time"
 
 	"github.com/golang/geo/r3"
@@ -13,8 +12,8 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// pidConfigured is set to true if PID values exist in the config.
-var pidConfigured = false
+// TODO: RSDK-5355 useControlLoop bool should be removed after testing.
+const useControlLoop = true
 
 // setupControlLoops uses the embedded config in this file to initialize a control
 // loop using the controls package and stor in on the sensor controlled base struct
@@ -22,11 +21,8 @@ var pidConfigured = false
 // called by the endpoing logic of the control thread and the controlLoopConfig
 // is included at the end of this file.
 func (sb *sensorBase) setupControlLoops(conf Config) error {
-	// set linear and angular PID values from robot config
-	newControlLoopConfig := sb.updateControlConfigPIDs(controlLoopConfig, conf)
-
 	// create control loop
-	loop, err := control.NewLoop(sb.logger, newControlLoopConfig, sb)
+	loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
 	if err != nil {
 		return err
 	}
@@ -56,7 +52,7 @@ func (sb *sensorBase) SetVelocity(
 	var sensorCtx context.Context
 	sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
 
-	if pidConfigured {
+	if useControlLoop {
 		// stop and restart loop
 		if sb.loop != nil {
 			if err := sb.Stop(ctx, nil); err != nil {
@@ -198,26 +194,6 @@ func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
 		return []float64{}, err
 	}
 	return []float64{linvel.Y, angvel.Z}, nil
-}
-
-func (sb *sensorBase) updateControlConfigPIDs(controlConf control.Config, conf Config) control.Config {
-	for i, b := range controlConf.Blocks {
-		if b.Type == "PID" {
-			if strings.Contains(b.Name, "linear") {
-				controlConf.Blocks[i].Attribute["kP"] = *conf.LinearPID.P
-				controlConf.Blocks[i].Attribute["kI"] = *conf.LinearPID.I
-				controlConf.Blocks[i].Attribute["kD"] = *conf.LinearPID.D
-			} else if strings.Contains(b.Name, "angular") {
-				controlConf.Blocks[i].Attribute["kP"] = *conf.AngularPID.P
-				controlConf.Blocks[i].Attribute["kI"] = *conf.AngularPID.I
-				controlConf.Blocks[i].Attribute["kD"] = *conf.AngularPID.D
-			}
-		}
-		if b.Type == "endpoint" {
-			controlConf.Blocks[i].Attribute["base_name"] = sb.Name().ShortName()
-		}
-	}
-	return controlConf
 }
 
 // Control Loop Configuration is embedded in this file so a user does not have to

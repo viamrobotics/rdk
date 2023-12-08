@@ -34,10 +34,8 @@ var (
 
 // Config configures a sensor controlled base.
 type Config struct {
-	MovementSensor []string          `json:"movement_sensor"`
-	Base           string            `json:"base"`
-	LinearPID      control.PIDConfig `json:"linear_PID,omitempty"`
-	AngularPID     control.PIDConfig `json:"angular_PID,omitempty"`
+	MovementSensor []string `json:"movement_sensor"`
+	Base           string   `json:"base"`
 }
 
 // Validate validates all parts of the sensor controlled base config.
@@ -159,18 +157,9 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		return errors.Wrapf(err, "no base named (%s)", newConf.Base)
 	}
 
-	if sb.velocities != nil {
-		if newConf.LinearPID.P != nil && newConf.LinearPID.I != nil && newConf.LinearPID.D != nil &&
-			newConf.AngularPID.P != nil && newConf.AngularPID.I != nil && newConf.AngularPID.D != nil {
-			if err := sb.setupControlLoops(*newConf); err != nil {
-				return err
-			}
-			pidConfigured = true
-		} else {
-			sb.logger.Warnf(
-				"for more accurate feedback control from movement sensor '%v'",
-				"follow these instructions to configure the linear_PID and angular_PID values",
-				sb.velocities.Name().ShortName())
+	if sb.velocities != nil && useControlLoop {
+		if err := sb.setupControlLoops(*newConf); err != nil {
+			return err
 		}
 	}
 
