@@ -30,16 +30,20 @@ const (
 )
 
 // ModuleBuildStartAction starts a cloud build.
-func ModuleBuildStartAction(c *cli.Context) error {
-	manifest, err := loadManifest(c.String(moduleFlagPath))
+func ModuleBuildStartAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
-	version := c.String(moduleBuildFlagVersion)
-	client, err := newViamClient(c)
+	return c.moduleBuildStartAction(cCtx)
+}
+
+func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context) error {
+	manifest, err := loadManifest(cCtx.String(moduleFlagPath))
 	if err != nil {
 		return err
 	}
+	version := cCtx.String(moduleBuildFlagVersion)
 	if manifest.Build == nil || manifest.Build.Build == "" {
 		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
 	}
@@ -47,13 +51,13 @@ func ModuleBuildStartAction(c *cli.Context) error {
 	if len(platforms) == 0 {
 		platforms = defaultBuildInfo.Arch
 	}
-	res, err := client.startBuild(manifest.URL, "main", manifest.ModuleID, platforms, version)
+	res, err := c.startBuild(manifest.URL, "main", manifest.ModuleID, platforms, version)
 	if err != nil {
 		return err
 	}
 	// Print to stderr so that the buildID is the only thing in stdout
-	printf(c.App.ErrWriter, "Started build:")
-	printf(c.App.Writer, res.BuildId)
+	printf(cCtx.App.ErrWriter, "Started build:")
+	printf(cCtx.App.Writer, res.BuildId)
 	return nil
 }
 
@@ -95,37 +99,41 @@ func ModuleBuildLocalAction(c *cli.Context) error {
 }
 
 // ModuleBuildListAction lists the module's build jobs.
-func ModuleBuildListAction(c *cli.Context) error {
-	manifestPath := c.String(moduleBuildFlagPath)
+func ModuleBuildListAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	return c.moduleBuildListAction(cCtx)
+}
+
+func (c *viamClient) moduleBuildListAction(cCtx *cli.Context) error {
+	manifestPath := cCtx.String(moduleBuildFlagPath)
 	manifest, err := loadManifest(manifestPath)
 	if err != nil {
 		return err
 	}
 	var numberOfJobsToReturn *int32
-	if c.IsSet(moduleBuildFlagCount) {
-		count := int32(c.Int(moduleBuildFlagCount))
+	if cCtx.IsSet(moduleBuildFlagCount) {
+		count := int32(cCtx.Int(moduleBuildFlagCount))
 		numberOfJobsToReturn = &count
 	}
 	var buildIDFilter *string
-	if c.IsSet(moduleBuildFlagBuildID) {
-		filter := c.String(moduleBuildFlagBuildID)
+	if cCtx.IsSet(moduleBuildFlagBuildID) {
+		filter := cCtx.String(moduleBuildFlagBuildID)
 		buildIDFilter = &filter
-	}
-	client, err := newViamClient(c)
-	if err != nil {
-		return err
 	}
 	moduleID, err := parseModuleID(manifest.ModuleID)
 	if err != nil {
 		return err
 	}
-	jobs, err := client.listModuleBuildJobs(moduleID, numberOfJobsToReturn, buildIDFilter)
+	jobs, err := c.listModuleBuildJobs(moduleID, numberOfJobsToReturn, buildIDFilter)
 	if err != nil {
 		return err
 	}
 	// table format rules:
 	// minwidth, tabwidth, padding int, padchar byte, flags uint
-	w := tabwriter.NewWriter(c.App.Writer, 5, 4, 1, ' ', 0)
+	w := tabwriter.NewWriter(cCtx.App.Writer, 5, 4, 1, ' ', 0)
 	tableFormat := "%s\t%s\t%s\t%s\t%s\n"
 	fmt.Fprintf(w, tableFormat, "ID", "PLATFORM", "STATUS", "VERSION", "TIME")
 	for _, job := range jobs.Jobs {
