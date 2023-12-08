@@ -27,27 +27,33 @@ func init() {
 	})
 }
 
-// PlanHistoryReq describes the request to the PlanHistory interface method.
-// Contains the ComponentName the returned plan(s) should be associated with,
-// an optional ExecutionID and an Extra parameter.
-// If LastPlanOnly is set to true then only the most recent plan for the
-// component & execution in question is returned.
+// PlanHistoryReq describes the request to PlanHistory().
 type PlanHistoryReq struct {
+	// ComponentName the returned plans should be associated with.
 	ComponentName resource.Name
-	LastPlanOnly  bool
-	ExecutionID   ExecutionID
-	Extra         map[string]interface{}
+	// When true, only the most recent plan will be returned which matches the ComponentName & ExecutionID if one was provided.
+	LastPlanOnly bool
+	// Optional, when not uuid.Nil it specifies the ExecutionID of the plans that should be returned.
+	// Can be used to query plans from executions before the most recent one.
+	ExecutionID ExecutionID
+	Extra       map[string]interface{}
 }
 
 // MoveOnGlobeReq describes the request to the MoveOnGlobe interface method.
 type MoveOnGlobeReq struct {
-	ComponentName      resource.Name
-	Destination        *geo.Point
-	Heading            float64
+	// ComponentName of the component to move
+	ComponentName resource.Name
+	// Goal destination the component should be moved to
+	Destination *geo.Point
+	// Heading the destination have a when it reaches the goal
+	Heading float64
+	// Name of the momement sensor which can be used to derive Position & Heading
 	MovementSensorName resource.Name
-	Obstacles          []*spatialmath.GeoObstacle
-	MotionCfg          *MotionConfiguration
-	Extra              map[string]interface{}
+	// Static obstacles that should be navigated around
+	Obstacles []*spatialmath.GeoObstacle
+	// Optional motion configuration
+	MotionCfg *MotionConfiguration
+	Extra     map[string]interface{}
 }
 
 func (r MoveOnGlobeReq) String() string {
@@ -72,18 +78,16 @@ type MoveOnMapReq struct {
 	Extra         map[string]interface{}
 }
 
-// StopPlanReq describes the request to the StopPlan interface method.
-// Contains the ComponentName of the plan which should be stopped
-// & an Extra parameter.
+// StopPlanReq describes the request to StopPlan().
 type StopPlanReq struct {
+	// ComponentName of the plan which should be stopped
 	ComponentName resource.Name
 	Extra         map[string]interface{}
 }
 
-// ListPlanStatusesReq describes the request to the ListPlanStatuses interface method.
-// If OnlyActivePlans is true then only active plans will be returned.
-// Also contains an Extra parameter.
+// ListPlanStatusesReq describes the request to ListPlanStatuses().
 type ListPlanStatusesReq struct {
+	// If true then only active plans will be returned.
 	OnlyActivePlans bool
 	Extra           map[string]interface{}
 }
@@ -93,14 +97,16 @@ type ListPlanStatusesReq struct {
 // should move to at that step.
 type PlanStep map[resource.Name]spatialmath.Pose
 
-// Plan represnts a motion plan.
-// Has a unique ID, ComponentName, ExecutionID and a sequence of Steps
-// which can be executed to follow the plan.
+// Plan represents a motion plan.
 type Plan struct {
-	ID            PlanID
+	// Unique ID of the plan
+	ID PlanID
+	// Name of the component the plan is planning for
 	ComponentName resource.Name
-	ExecutionID   ExecutionID
-	Steps         []PlanStep
+	// Unique ID of the execution
+	ExecutionID ExecutionID
+	// Steps that describe the plan
+	Steps []PlanStep
 }
 
 // PlanState denotes the state a Plan is in.
