@@ -158,7 +158,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	}
 
 	if sb.velocities != nil && useControlLoop {
-		if err := sb.setupControlLoops(*newConf); err != nil {
+		if err := sb.setupControlLoops(); err != nil {
 			return err
 		}
 	}

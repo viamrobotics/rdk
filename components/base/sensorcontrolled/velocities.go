@@ -20,7 +20,7 @@ const useControlLoop = true
 // the sensor base in the controllable interface that implements State and GetState
 // called by the endpoing logic of the control thread and the controlLoopConfig
 // is included at the end of this file.
-func (sb *sensorBase) setupControlLoops(conf Config) error {
+func (sb *sensorBase) setupControlLoops() error {
 	// create control loop
 	loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
 	if err != nil {
