@@ -251,7 +251,7 @@ func UploadModuleAction(c *cli.Context) error {
 	if !forceUploadArg {
 		if err := validateModuleFile(client, moduleID, tarballPath, versionArg); err != nil {
 			return fmt.Errorf(
-				"error validating module: %w. For more details, please visit: https://docs.viam.com/manage/cli/#command-options-3 ",
+				"error validating module: %w. For more details, please visit: https://docs.viam.com/fleet/cli/#module ",
 				err)
 		}
 	}
