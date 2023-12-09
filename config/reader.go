@@ -486,7 +486,6 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 						return newName
 					})
 				}
-				associatedCfgs[subIdx].Attributes = nil
 				associatedCfgs[subIdx].ConvertedAttributes = converted
 				convertedAttrs = converted
 			}

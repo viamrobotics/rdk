@@ -547,18 +547,35 @@ func (m *Module) OperationManager() *operation.Manager {
 }
 
 // addConvertedAttributesToConfig uses the MapAttributeConverter to fill in the
-// ConvertedAttributes field from the Attributes.
+// ConvertedAttributes field from the Attributes and AssociatedResourceConfigs.
 func addConvertedAttributes(cfg *resource.Config) error {
 	// Try to find map converter for a resource.
 	reg, ok := resource.LookupRegistration(cfg.API, cfg.Model)
-	if !ok || reg.AttributeMapConverter == nil {
-		return nil
+	if ok && reg.AttributeMapConverter != nil {
+		converted, err := reg.AttributeMapConverter(cfg.Attributes)
+		if err != nil {
+			return errors.Wrapf(err, "error converting attributes for resource")
+		}
+		cfg.ConvertedAttributes = converted
 	}
-	converted, err := reg.AttributeMapConverter(cfg.Attributes)
-	if err != nil {
-		return errors.Wrapf(err, "error converting attributes for resource")
+
+	// Also try for associated configs (will only succeed if module itself registers the associated config API).
+	for subIdx, associatedConf := range cfg.AssociatedResourceConfigs {
+		conv, ok := resource.LookupAssociatedConfigRegistration(associatedConf.API)
+		if !ok {
+			continue
+		}
+		if conv.AttributeMapConverter != nil {
+			converted, err := conv.AttributeMapConverter(associatedConf.Attributes)
+			if err != nil {
+				return errors.Wrap(err, "error converting associated resource config attributes")
+			}
+			converted.UpdateResourceNames(func(oldName resource.Name) resource.Name {
+				return cfg.ResourceName()
+			})
+			cfg.AssociatedResourceConfigs[subIdx].ConvertedAttributes = converted
+		}
 	}
-	cfg.ConvertedAttributes = converted
 	return nil
 }
 
