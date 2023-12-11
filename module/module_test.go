@@ -33,7 +33,6 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/rdk/utils"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -621,7 +620,9 @@ func TestAttributeConversion(t *testing.T) {
 		th.mockReconfigConf.Attributes = mockAttrs
 
 		// TODO(RSDK-6022): use datamanager.DataCaptureConfigs once resource.Name can be properly marshalled/unmarshalled
-		dummySvcCfg := utils.AttributeMap{"capture_methods": []interface{}{map[string]interface{}{"name": "rdk:service:shell/mymock2", "method": "Something"}}}
+		dummySvcCfg := rutils.AttributeMap{
+			"capture_methods": []interface{}{map[string]interface{}{"name": "rdk:service:shell/mymock2", "method": "Something"}},
+		}
 		mockServiceCfg, err := protoutils.StructToStructPb(dummySvcCfg)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -653,7 +654,9 @@ func TestAttributeConversion(t *testing.T) {
 
 		th.mockReconfigConf.Attributes = mockAttrs
 
-		dummySvcCfg2 := utils.AttributeMap{"capture_methods": []interface{}{map[string]interface{}{"name": "rdk:service:shell/mymock2", "method": "Something2"}}}
+		dummySvcCfg2 := rutils.AttributeMap{
+			"capture_methods": []interface{}{map[string]interface{}{"name": "rdk:service:shell/mymock2", "method": "Something2"}},
+		}
 		mockServiceCfg, err = protoutils.StructToStructPb(dummySvcCfg2)
 		test.That(t, err, test.ShouldBeNil)
 
