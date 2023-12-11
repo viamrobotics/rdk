@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"text/tabwriter"
@@ -9,8 +8,10 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	"go.uber.org/multierr"
 	buildpb "go.viam.com/api/app/build/v1"
 	"go.viam.com/utils/pexec"
+	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/logging"
 )
@@ -28,6 +29,8 @@ const (
 	jobStatusFailed     jobStatus = "Failed"
 	jobStatusDone       jobStatus = "Done"
 )
+
+var moduleBuildPollingInterval = 2 * time.Second
 
 // ModuleBuildStartAction starts a cloud build.
 func ModuleBuildStartAction(cCtx *cli.Context) error {
@@ -108,26 +111,30 @@ func ModuleBuildListAction(cCtx *cli.Context) error {
 }
 
 func (c *viamClient) moduleBuildListAction(cCtx *cli.Context) error {
-	manifestPath := cCtx.String(moduleBuildFlagPath)
-	manifest, err := loadManifest(manifestPath)
-	if err != nil {
-		return err
+	var buildIDFilter *string
+	var moduleIDFilter string
+	// This will use the build id if present and fall back on the module manifest if not
+	if cCtx.IsSet(moduleBuildFlagBuildID) {
+		filter := cCtx.String(moduleBuildFlagBuildID)
+		buildIDFilter = &filter
+	} else {
+		manifestPath := cCtx.String(moduleBuildFlagPath)
+		manifest, err := loadManifest(manifestPath)
+		if err != nil {
+			return err
+		}
+		moduleID, err := parseModuleID(manifest.ModuleID)
+		if err != nil {
+			return err
+		}
+		moduleIDFilter = moduleID.String()
 	}
 	var numberOfJobsToReturn *int32
 	if cCtx.IsSet(moduleBuildFlagCount) {
 		count := int32(cCtx.Int(moduleBuildFlagCount))
 		numberOfJobsToReturn = &count
 	}
-	var buildIDFilter *string
-	if cCtx.IsSet(moduleBuildFlagBuildID) {
-		filter := cCtx.String(moduleBuildFlagBuildID)
-		buildIDFilter = &filter
-	}
-	moduleID, err := parseModuleID(manifest.ModuleID)
-	if err != nil {
-		return err
-	}
-	jobs, err := c.listModuleBuildJobs(moduleID, numberOfJobsToReturn, buildIDFilter)
+	jobs, err := c.listModuleBuildJobs(moduleIDFilter, numberOfJobsToReturn, buildIDFilter)
 	if err != nil {
 		return err
 	}
@@ -156,18 +163,37 @@ func ModuleBuildLogsAction(c *cli.Context) error {
 	buildID := c.String(moduleBuildFlagBuildID)
 	platform := c.String(moduleBuildFlagPlatform)
 	shouldWait := c.Bool(moduleBuildFlagWait)
-	if shouldWait {
-		return errors.New("wait not implemented")
-	}
 
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	err = client.printModuleBuildLogs(c.Context, buildID, platform)
-	if err != nil {
-		return err
+	if shouldWait {
+		if err := client.waitForBuildToFinish(buildID, platform); err != nil {
+			return err
+		}
+	}
+	if platform != "" {
+		if err := client.printModuleBuildLogs(buildID, platform); err != nil {
+			return err
+		}
+	} else {
+		platforms, err := client.getPlatformsForModuleBuild(buildID)
+		if err != nil {
+			return err
+		}
+		var combinedErr error
+		for _, platform := range platforms {
+			infof(c.App.Writer, "Logs for %q", platform)
+			err := client.printModuleBuildLogs(buildID, platform)
+			if err != nil {
+				combinedErr = multierr.Combine(combinedErr, client.printModuleBuildLogs(buildID, platform))
+			}
+		}
+		if combinedErr != nil {
+			return combinedErr
+		}
 	}
 
 	return nil
@@ -187,7 +213,7 @@ func (c *viamClient) startBuild(repo, ref, moduleID string, platforms []string, 
 	return c.buildClient.StartBuild(c.c.Context, &req)
 }
 
-func (c *viamClient) printModuleBuildLogs(ctx context.Context, buildID, platform string) error {
+func (c *viamClient) printModuleBuildLogs(buildID, platform string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -197,14 +223,14 @@ func (c *viamClient) printModuleBuildLogs(ctx context.Context, buildID, platform
 		Platform: platform,
 	}
 
-	stream, err := c.buildClient.GetLogs(ctx, logsReq)
+	stream, err := c.buildClient.GetLogs(c.c.Context, logsReq)
 	if err != nil {
 		return err
 	}
 	lastBuildStep := ""
 	for {
-		if ctx.Err() != nil {
-			return ctx.Err()
+		if c.c.Context.Err() != nil {
+			return c.c.Context.Err()
 		}
 		log, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
@@ -223,16 +249,77 @@ func (c *viamClient) printModuleBuildLogs(ctx context.Context, buildID, platform
 	return nil
 }
 
-func (c *viamClient) listModuleBuildJobs(moduleID moduleID, number *int32, buildIDFilter *string) (*buildpb.ListJobsResponse, error) {
+func (c *viamClient) listModuleBuildJobs(moduleIDFilter string, count *int32, buildIDFilter *string) (*buildpb.ListJobsResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
 	req := buildpb.ListJobsRequest{
-		ModuleId:      moduleID.String(),
-		MaxJobsLength: number,
+		ModuleId:      moduleIDFilter,
+		MaxJobsLength: count,
 		BuildId:       buildIDFilter,
 	}
 	return c.buildClient.ListJobs(c.c.Context, &req)
+}
+
+// waitForBuildToFinish calls listModuleBuildJobs every moduleBuildPollingInterval
+// Will wait until the status of the specified job is DONE or FAILED
+// if platform is empty, it waits for all jobs associated with the ID.
+func (c *viamClient) waitForBuildToFinish(buildID, platform string) error {
+	// If the platform is not empty, we should check that the platform is actually present on the build
+	// this is mostly to protect against users misspelling the platform
+	if platform != "" {
+		platformsForBuild, err := c.getPlatformsForModuleBuild(buildID)
+		if err != nil {
+			return err
+		}
+		if !slices.Contains(platformsForBuild, platform) {
+			return fmt.Errorf("platform %q is not present on build %q", platform, buildID)
+		}
+	}
+	ticker := time.NewTicker(moduleBuildPollingInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-c.c.Context.Done():
+			return c.c.Context.Err()
+		case <-ticker.C:
+			jobsResponse, err := c.listModuleBuildJobs("", nil, &buildID)
+			if err != nil {
+				return errors.Wrap(err, "failed to list module build jobs")
+			}
+			if len(jobsResponse.Jobs) == 0 {
+				return fmt.Errorf("build id %q it returned no jobs", buildID)
+			}
+			// Loop through all the jobs and check if all the matching jobs are done
+			allDone := true
+			for _, job := range jobsResponse.Jobs {
+				if platform == "" || job.Platform == platform {
+					status := jobStatusFromProto(job.Status)
+					if status != jobStatusDone && status != jobStatusFailed {
+						allDone = false
+						break
+					}
+				}
+			}
+			// If all jobs are done, return
+			if allDone {
+				return nil
+			}
+		}
+	}
+}
+
+func (c *viamClient) getPlatformsForModuleBuild(buildID string) ([]string, error) {
+	platforms := []string{}
+	jobsResponse, err := c.listModuleBuildJobs("", nil, &buildID)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to list module build jobs")
+	}
+	for _, job := range jobsResponse.Jobs {
+		platforms = append(platforms, job.Platform)
+	}
+	return platforms, nil
 }
 
 func jobStatusFromProto(s buildpb.JobStatus) jobStatus {

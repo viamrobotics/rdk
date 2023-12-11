@@ -494,9 +494,6 @@ func parseModuleID(id string) (moduleID, error) {
 }
 
 func (m *moduleID) String() string {
-	if m.prefix == "" {
-		return m.name
-	}
 	return fmt.Sprintf("%s:%s", m.prefix, m.name)
 }
 
