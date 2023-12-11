@@ -1,7 +1,11 @@
 /* eslint-disable no-underscore-dangle */
 
 import * as THREE from 'three';
-import { NavigationClient, type Waypoint } from '@viamrobotics/sdk';
+import {
+  NavigationClient,
+  type Path as SDKPath,
+  type Waypoint,
+} from '@viamrobotics/sdk';
 import { ViamObject3D } from '@viamrobotics/three';
 import { notify } from '@viamrobotics/prime';
 import { theme } from '@viamrobotics/prime-core/theme';
@@ -10,6 +14,7 @@ import type {
   BoxGeometry,
   CapsuleGeometry,
   SphereGeometry,
+  Path,
 } from '@viamrobotics/prime-blocks';
 export * from './types/navigation';
 
@@ -118,4 +123,13 @@ export const getObstacles = async (
       color,
     } satisfies Obstacle;
   });
+};
+
+export const formatPaths = (list: SDKPath[]): Path[] => {
+  return list.map(({ geopointsList }) =>
+    geopointsList.map((geo) => ({
+      lng: geo.longitude,
+      lat: geo.latitude,
+    }))
+  );
 };
