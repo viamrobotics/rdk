@@ -103,3 +103,15 @@ func (logger *zLogger) AsZap() *zap.SugaredLogger {
 func (logger zLogger) Sublogger(name string) Logger {
 	return &zLogger{logger.AsZap().Named(name)}
 }
+
+func (logger zLogger) CDebug(ctx context.Context, args ...interface{}) {
+	logger.Debug(args...)
+}
+
+func (logger zLogger) CDebugf(ctx context.Context, template string, args ...interface{}) {
+	logger.Debugf(template, args...)
+}
+
+func (logger zLogger) CDebugw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	logger.Debugw(msg, keysAndValues...)
+}

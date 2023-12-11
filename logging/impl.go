@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -192,13 +193,46 @@ func (imp *impl) Debug(args ...interface{}) {
 	}
 }
 
+func (imp *impl) CDebug(ctx context.Context, args ...interface{}) {
+	if dbgName := GetName(ctx); dbgName != "" {
+		imp.log(imp.format(DEBUG, append(args, fmt.Sprintf("\t{\"traceKey\": \"%s\"}", dbgName))...))
+		return
+	}
+
+	if imp.shouldLog(DEBUG) {
+		imp.log(imp.format(DEBUG, args...))
+	}
+}
+
 func (imp *impl) Debugf(template string, args ...interface{}) {
 	if imp.shouldLog(DEBUG) {
 		imp.log(imp.formatf(DEBUG, template, args...))
 	}
 }
 
+func (imp *impl) CDebugf(ctx context.Context, template string, args ...interface{}) {
+	if dbgName := GetName(ctx); dbgName != "" {
+		imp.log(imp.formatf(DEBUG, fmt.Sprintf("%s\t{\"traceKey\": \"%%s\"}", template), append(args, dbgName)...))
+		return
+	}
+
+	if imp.shouldLog(DEBUG) {
+		imp.log(imp.formatf(DEBUG, template, args...))
+	}
+}
+
 func (imp *impl) Debugw(msg string, keysAndValues ...interface{}) {
+	if imp.shouldLog(DEBUG) {
+		imp.log(imp.formatw(DEBUG, msg, keysAndValues...))
+	}
+}
+
+func (imp *impl) CDebugw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	if dbgName := GetName(ctx); dbgName != "" {
+		imp.log(imp.formatw(DEBUG, msg, append([]any{"traceKey", dbgName}, keysAndValues...)...))
+		return
+	}
+
 	if imp.shouldLog(DEBUG) {
 		imp.log(imp.formatw(DEBUG, msg, keysAndValues...))
 	}
