@@ -35,7 +35,7 @@ func NewScoreFilter(conf float64) Postprocessor {
 }
 
 // NewLabelFilter returns a function that filters out detections without one of the chosen labels.
-// Does not filter when input is empty
+// Does not filter when input is empty.
 func NewLabelFilter(labels map[string]interface{}) Postprocessor {
 	return func(in []Detection) []Detection {
 		if len(labels) < 1 {
