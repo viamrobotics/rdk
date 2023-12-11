@@ -33,6 +33,7 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -619,8 +620,9 @@ func TestAttributeConversion(t *testing.T) {
 
 		th.mockReconfigConf.Attributes = mockAttrs
 
-		// uses JSON representation because otherwise DataCaptureConfig.Name can't be properly unmarshalled
-		mockServiceCfg, err := protoutils.StructToStructPb(map[string]any{"capture_methods": []map[string]string{{"method": "Something"}}})
+		// uses JSON representation because otherwise resource.Name can't be properly marshalled/unmarshalled
+		dummySvcCfg := utils.AttributeMap{"capture_methods": []interface{}{map[string]interface{}{"method": "Something"}}}
+		mockServiceCfg, err := protoutils.StructToStructPb(dummySvcCfg)
 		test.That(t, err, test.ShouldBeNil)
 
 		th.mockReconfigConf.ServiceConfigs = append(th.mockReconfigConf.ServiceConfigs, &v1.ResourceLevelServiceConfig{
@@ -651,7 +653,8 @@ func TestAttributeConversion(t *testing.T) {
 
 		th.mockReconfigConf.Attributes = mockAttrs
 
-		mockServiceCfg, err = protoutils.StructToStructPb(map[string]any{"capture_methods": []map[string]string{{"method": "Something2"}}})
+		dummySvcCfg2 := utils.AttributeMap{"capture_methods": []interface{}{map[string]interface{}{"method": "Something2"}}}
+		mockServiceCfg, err = protoutils.StructToStructPb(dummySvcCfg2)
 		test.That(t, err, test.ShouldBeNil)
 
 		th.mockReconfigConf.ServiceConfigs = append([]*v1.ResourceLevelServiceConfig{}, &v1.ResourceLevelServiceConfig{
@@ -681,9 +684,12 @@ func TestAttributeConversion(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor2").String()})
 
-		svcCfg, ok := th.reconfigConf2.AssociatedResourceConfigs[0].ConvertedAttributes.(*datamanager.DataCaptureConfigs)
+		svcCfg := th.reconfigConf2.AssociatedResourceConfigs[0].Attributes
+		test.That(t, svcCfg, test.ShouldResemble, dummySvcCfg2)
+
+		convSvcCfg, ok := th.reconfigConf2.AssociatedResourceConfigs[0].ConvertedAttributes.(*datamanager.DataCaptureConfigs)
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, svcCfg.CaptureMethods[0].Method, test.ShouldResemble, "Something2")
+		test.That(t, convSvcCfg.CaptureMethods[0].Method, test.ShouldResemble, "Something2")
 
 		// and as a final confirmation, check that original values weren't modified
 		_, ok = (*th.reconfigDeps1)[motor.Named("motor1")]
@@ -694,9 +700,12 @@ func TestAttributeConversion(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor1").String()})
 
-		svcCfg, ok = th.reconfigConf1.AssociatedResourceConfigs[0].ConvertedAttributes.(*datamanager.DataCaptureConfigs)
+		svcCfg = th.reconfigConf1.AssociatedResourceConfigs[0].Attributes
+		test.That(t, svcCfg, test.ShouldResemble, dummySvcCfg)
+
+		convSvcCfg, ok = th.reconfigConf1.AssociatedResourceConfigs[0].ConvertedAttributes.(*datamanager.DataCaptureConfigs)
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, svcCfg.CaptureMethods[0].Method, test.ShouldResemble, "Something")
+		test.That(t, convSvcCfg.CaptureMethods[0].Method, test.ShouldResemble, "Something")
 	})
 }
 
