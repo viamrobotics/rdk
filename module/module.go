@@ -193,17 +193,6 @@ func NewModuleFromArgs(ctx context.Context, logger logging.Logger) (*Module, err
 	return NewModule(ctx, os.Args[1], logger)
 }
 
-// NewLoggerFromArgs can be used to create a logging.Logger at "DebugLevel" if
-// "--log-level=debug" is the third argument in os.Args and at "InfoLevel"
-// otherwise. See config.Module.LogLevel documentation for more info on how
-// to start modules with a "log-level" commandline argument.
-func NewLoggerFromArgs(moduleName string) logging.Logger {
-	if len(os.Args) >= 3 && os.Args[2] == "--log-level=debug" {
-		return logging.NewDebugLogger(moduleName)
-	}
-	return logging.NewLogger(moduleName)
-}
-
 // Start starts the module service and grpc server.
 func (m *Module) Start(ctx context.Context) error {
 	m.mu.Lock()
@@ -296,6 +285,10 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.parentAddr = req.GetParentAddress()
+	// If logger is a moduleLogger, start gRPC logging.
+	if moduleLogger, ok := m.logger.(*moduleLogger); ok {
+		moduleLogger.startLoggingViaGRPC(m)
+	}
 
 	return &pb.ReadyResponse{
 		Ready:      m.ready,
