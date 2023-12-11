@@ -127,9 +127,9 @@ func NewPTGFrameFromKinematicOptions(
 
 	farPtgsToUse := []ptgFactory{}
 	restrictedPtgsToUse := []ptgFactory{}
-	//~ if turnRadMeters == 0 {
-		//~ farPtgsToUse = append(farPtgsToUse, defaultDiffPTG)
-	//~ }
+	if turnRadMeters == 0 {
+		farPtgsToUse = append(farPtgsToUse, defaultDiffPTG)
+	}
 	if !diffDriveOnly {
 		farPtgsToUse = append(farPtgsToUse, defaultPTGs...)
 		restrictedPtgsToUse = append(restrictedPtgsToUse, defaultRestrictedPtgs...)

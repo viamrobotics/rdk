@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"strings"
 	"sync"
-	//~ "fmt"
+	"fmt"
 
 	"github.com/go-nlopt/nlopt"
 	"github.com/pkg/errors"
@@ -229,7 +229,9 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			// Ignore it, something else will find a solution
 			err = multierr.Combine(err, nloptErr)
 		}
-		//~ fmt.Println("score, solution", result, solutionRaw, nloptErr)
+		if result < ik.epsilon {
+			fmt.Println("score, solution", result, solutionRaw, nloptErr, "true")
+		}
 
 		if result < ik.epsilon || (solutionRaw != nil && !ik.exact) {
 			select {

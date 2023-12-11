@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/rand"
 	"testing"
+	"fmt"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
@@ -264,6 +265,7 @@ func TestPtgWithObstacle(t *testing.T) {
 
 	if pathdebug {
 		for _, mynode := range plan {
+			fmt.Println(mynode.Q())
 			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
