@@ -216,7 +216,7 @@ var controlLoopConfig = control.Config{
 			Type: "PID",
 			Attribute: rdkutils.AttributeMap{
 				"kD":             0.0,
-				"kI":             342.763911,
+				"kI":             520.763911,
 				"kP":             291.489819,
 				"int_sat_lim_lo": -255.0,
 				"int_sat_lim_up": 255.0,
@@ -233,7 +233,7 @@ var controlLoopConfig = control.Config{
 			Type: "PID",
 			Attribute: rdkutils.AttributeMap{
 				"kD":             0.0,
-				"kI":             0.754513,
+				"kI":             0.904513,
 				"kP":             0.677894,
 				"int_sat_lim_lo": -255.0,
 				"int_sat_lim_up": 255.0,
@@ -257,7 +257,7 @@ var controlLoopConfig = control.Config{
 			Name: "linear_gain",
 			Type: "gain",
 			Attribute: rdkutils.AttributeMap{
-				"gain": 0.0039, // need to update dynamically? Or should I just use the trapezoidal velocity profile
+				"gain": 0.00392157, // need to update dynamically? Or should I just use the trapezoidal velocity profile
 			},
 			DependsOn: []string{"linear_PID"},
 		},
@@ -265,7 +265,7 @@ var controlLoopConfig = control.Config{
 			Name: "angular_gain",
 			Type: "gain",
 			Attribute: rdkutils.AttributeMap{
-				"gain": 0.0039, // need to update dynamically? Or should I just use the trapezoidal velocity profile
+				"gain": 0.00392157, // need to update dynamically? Or should I just use the trapezoidal velocity profile
 			},
 			DependsOn: []string{"angular_PID"},
 		},
@@ -286,5 +286,5 @@ var controlLoopConfig = control.Config{
 			DependsOn: []string{},
 		},
 	},
-	Frequency: 20,
+	Frequency: 100,
 }
