@@ -167,7 +167,7 @@ func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, log
 		instanceMu.Lock()
 		pigpioInitialized = false
 		instanceMu.Unlock()
-		logger.CError(ctx, "Pi GPIO terminated due to failed init.")
+		logger.Error("Pi GPIO terminated due to failed init.")
 		return nil, err
 	}
 	return piInstance, nil
@@ -279,7 +279,7 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *Config) erro
 		} else {
 			// This should never happen. However, if it does, nothing is obviously broken, so we'll
 			// just log the weirdness and continue.
-			pi.logger.CErrorf(ctx,
+			pi.logger.Errorf(
 				"Tried reconfiguring old interrupt to new name %s and broadcom address %s, "+
 					"but couldn't find its old name!?", name, bcom)
 		}
@@ -291,7 +291,7 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *Config) erro
 			}
 		} else {
 			// This should never happen, either, but is similarly not really a problem.
-			pi.logger.CErrorf(ctx,
+			pi.logger.Errorf(
 				"Tried reconfiguring old interrupt to new name %s and broadcom address %s, "+
 					"but couldn't find its old bcom!?", name, bcom)
 		}
