@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"strings"
 	"sync"
-	"fmt"
 
 	"github.com/go-nlopt/nlopt"
 	"github.com/pkg/errors"
@@ -92,7 +91,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	if err != nil {
 		return err
 	}
-	//~ fmt.Println("jump", jump)
+	// ~ fmt.Println("jump", jump)
 
 	tries := 1
 	iterations := 0
@@ -100,7 +99,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	startingPos := seed
 
 	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(ik.model.DoF())))
-	//~ opt, err := nlopt.NewNLopt(nlopt.GD_MLSL_LDS, uint(len(ik.model.DoF())))
+	// ~ opt, err := nlopt.NewNLopt(nlopt.GD_MLSL_LDS, uint(len(ik.model.DoF())))
 	defer opt.Destroy()
 	if err != nil {
 		return errors.Wrap(err, "nlopt creation error")
@@ -127,7 +126,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		mInput.Configuration = inputs
 		mInput.Position = eePos
 		dist := solveMetric(mInput)
-		//~ fmt.Println(x, eePos.Point(), dist)
+		// ~ fmt.Println(x, eePos.Point(), dist)
 		if len(gradient) > 0 {
 			for i := range gradient {
 				flip := false
@@ -157,17 +156,17 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				}
 			}
 		}
-		//~ fmt.Println("grad", gradient)
+		// ~ fmt.Println("grad", gradient)
 		return dist
 	}
 
 	err = multierr.Combine(
-		//~ opt.SetFtolRel(ik.epsilon),
+		// ~ opt.SetFtolRel(ik.epsilon),
 		opt.SetFtolAbs(ik.epsilon),
 		opt.SetLowerBounds(ik.lowerBound),
 		opt.SetStopVal(ik.epsilon),
 		opt.SetUpperBounds(ik.upperBound),
-		//~ opt.SetXtolRel(ik.epsilon),
+		// ~ opt.SetXtolRel(ik.epsilon),
 		opt.SetXtolAbs1(ik.epsilon),
 		opt.SetMinObjective(nloptMinFunc),
 		opt.SetMaxEval(nloptStepsPerIter),
@@ -188,7 +187,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			}
 		} else {
 			// Solvers whose ID is not 1 should skip ahead directly to trying random seeds
-			//~ fmt.Println("rand1")
+			// ~ fmt.Println("rand1")
 			startingPos = ik.GenerateRandomPositions(randSeed)
 			tries = constrainedTries
 		}
@@ -229,9 +228,6 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			// Ignore it, something else will find a solution
 			err = multierr.Combine(err, nloptErr)
 		}
-		if result < ik.epsilon {
-			fmt.Println("score, solution", result, solutionRaw, nloptErr, "true")
-		}
 
 		if result < ik.epsilon || (solutionRaw != nil && !ik.exact) {
 			select {
@@ -260,7 +256,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			if err != nil {
 				return err
 			}
-			//~ fmt.Println("rand2", iterations, ik.maxIterations)
+			// ~ fmt.Println("rand2", iterations, ik.maxIterations)
 			startingPos = ik.GenerateRandomPositions(randSeed)
 		}
 	}

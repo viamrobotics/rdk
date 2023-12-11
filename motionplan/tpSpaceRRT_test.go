@@ -7,7 +7,6 @@ import (
 	"math"
 	"math/rand"
 	"testing"
-	"fmt"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
@@ -43,7 +42,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	goalPos := spatialmath.NewPose(r3.Vector{X: 7000, Y: 200, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0})
+	goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0})
 
 	opt := newBasicPlannerOptions(ackermanFrame)
 	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
@@ -265,7 +264,6 @@ func TestPtgWithObstacle(t *testing.T) {
 
 	if pathdebug {
 		for _, mynode := range plan {
-			fmt.Println(mynode.Q())
 			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
@@ -280,7 +278,7 @@ func TestPtgWithObstacle(t *testing.T) {
 			}
 		}
 	}
-	tp.planOpts.SmoothIter = 50
+	tp.planOpts.SmoothIter = 10
 	plan = tp.smoothPath(ctx, plan)
 	if pathdebug {
 		lastPose = spatialmath.NewZeroPose()

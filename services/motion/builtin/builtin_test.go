@@ -485,40 +485,33 @@ func TestMoveWithObstacles(t *testing.T) {
 }
 
 func TestMoveOnMapLongDistance(t *testing.T) {
-	t.Parallel()
 	ctx := context.Background()
 	extra := map[string]interface{}{"smooth_iter": 0, "motion_profile": "position_only"}
-	//~ extra := map[string]interface{}{"smooth_iter": 50}
 	// goal position is scaled to be in mm
 	goalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: -32.508 * 1000, Y: -2.092 * 1000})
-	// ~ goalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: -52.555 * 1000, Y: -27.215 * 1000})
 	goalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, goalInBaseFrame)
 
-	t.Run("test tp-space planning on office map", func(t *testing.T) {
-		t.Parallel()
-		kb, ms := createMoveOnMapEnvironment(
-			ctx,
-			t,
-			"slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd",
-			//~ "pointcloud/octagonspace.pcd",
-			110,
-			spatialmath.NewPoseFromPoint(r3.Vector{0, -1600, 0}),
-		)
-		success, err := ms.(*builtIn).MoveOnMap(
-			context.Background(),
-			base.Named("test-base"),
-			goalInSLAMFrame,
-			slam.Named("test_slam"),
-			extra,
-		)
-		defer ms.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, success, test.ShouldBeTrue)
-		endPos, err := kb.CurrentPosition(ctx)
-		test.That(t, err, test.ShouldBeNil)
+	kb, ms := createMoveOnMapEnvironment(
+		ctx,
+		t,
+		"slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd",
+		110,
+		spatialmath.NewPoseFromPoint(r3.Vector{0, -1600, 0}),
+	)
+	success, err := ms.(*builtIn).MoveOnMap(
+		context.Background(),
+		base.Named("test-base"),
+		goalInSLAMFrame,
+		slam.Named("test_slam"),
+		extra,
+	)
+	defer ms.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, success, test.ShouldBeTrue)
+	endPos, err := kb.CurrentPosition(ctx)
+	test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goalInBaseFrame, 50), test.ShouldBeTrue)
-	})
+	test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goalInBaseFrame, 50), test.ShouldBeTrue)
 }
 
 func TestMoveOnMapPlans(t *testing.T) {
@@ -713,6 +706,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 }
 
 func TestMoveOnGlobeOld(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 
 	// Near antarctica 🐧
@@ -1660,7 +1654,6 @@ func TestGetPose(t *testing.T) {
 }
 
 func TestStoppableMoveFunctions(t *testing.T) {
-	t.Parallel()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	failToReachGoalError := errors.New("failed to reach goal")
