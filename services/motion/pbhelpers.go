@@ -184,21 +184,20 @@ func (r MoveOnGlobeReq) toProto(name string) (*pb.MoveOnGlobeRequest, error) {
 		return nil, errors.New("must provide a destination")
 	}
 
-	if r.MotionCfg == nil {
-		return nil, errors.New("must provide a non nil motion configuration")
-	}
-
 	req := &pb.MoveOnGlobeRequest{
-		Name:                name,
-		ComponentName:       rprotoutils.ResourceNameToProto(r.ComponentName),
-		Destination:         &commonpb.GeoPoint{Latitude: r.Destination.Lat(), Longitude: r.Destination.Lng()},
-		MovementSensorName:  rprotoutils.ResourceNameToProto(r.MovementSensorName),
-		MotionConfiguration: r.MotionCfg.toProto(),
-		Extra:               ext,
+		Name:               name,
+		ComponentName:      rprotoutils.ResourceNameToProto(r.ComponentName),
+		Destination:        &commonpb.GeoPoint{Latitude: r.Destination.Lat(), Longitude: r.Destination.Lng()},
+		MovementSensorName: rprotoutils.ResourceNameToProto(r.MovementSensorName),
+		Extra:              ext,
 	}
 
 	if !math.IsNaN(r.Heading) {
 		req.Heading = &r.Heading
+	}
+
+	if r.MotionCfg != nil {
+		req.MotionConfiguration = r.MotionCfg.toProto()
 	}
 
 	if len(r.Obstacles) > 0 {
@@ -224,21 +223,20 @@ func (r MoveOnGlobeReq) toProtoNew(name string) (*pb.MoveOnGlobeNewRequest, erro
 		return nil, errors.New("must provide a destination")
 	}
 
-	if r.MotionCfg == nil {
-		return nil, errors.New("must provide a non nil motion configuration")
-	}
-
 	req := &pb.MoveOnGlobeNewRequest{
-		Name:                name,
-		ComponentName:       rprotoutils.ResourceNameToProto(r.ComponentName),
-		Destination:         &commonpb.GeoPoint{Latitude: r.Destination.Lat(), Longitude: r.Destination.Lng()},
-		MovementSensorName:  rprotoutils.ResourceNameToProto(r.MovementSensorName),
-		MotionConfiguration: r.MotionCfg.toProto(),
-		Extra:               ext,
+		Name:               name,
+		ComponentName:      rprotoutils.ResourceNameToProto(r.ComponentName),
+		Destination:        &commonpb.GeoPoint{Latitude: r.Destination.Lat(), Longitude: r.Destination.Lng()},
+		MovementSensorName: rprotoutils.ResourceNameToProto(r.MovementSensorName),
+		Extra:              ext,
 	}
 
 	if !math.IsNaN(r.Heading) {
 		req.Heading = &r.Heading
+	}
+
+	if r.MotionCfg != nil {
+		req.MotionConfiguration = r.MotionCfg.toProto()
 	}
 
 	if len(r.Obstacles) > 0 {

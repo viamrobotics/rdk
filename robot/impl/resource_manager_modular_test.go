@@ -8,6 +8,7 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
@@ -517,7 +518,10 @@ func TestDynamicModuleLogging(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Our log observer should find one occurrence of the log line.
-	test.That(t, observer.FilterMessageSnippet(logLine).Len(), test.ShouldEqual, 1)
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, observer.FilterMessageSnippet(logLine).Len(), test.ShouldEqual, 1)
+	})
 
 	// The module is currently configured to log at info. If the module tries to log at debug,
 	// nothing new should be observed.
@@ -538,6 +542,9 @@ func TestDynamicModuleLogging(t *testing.T) {
 	_, err = client.DoCommand(ctx, testCmd)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, observer.FilterMessageSnippet(logLine).Len(), test.ShouldEqual, 2)
-	test.That(t, observer.FilterMessageSnippet(logLine).FilterMessageSnippet("DEBUG").Len(), test.ShouldEqual, 1)
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, observer.FilterMessageSnippet(logLine).Len(), test.ShouldEqual, 2)
+		test.That(tb, observer.FilterMessageSnippet(logLine).FilterMessageSnippet("DEBUG").Len(), test.ShouldEqual, 1)
+	})
 }

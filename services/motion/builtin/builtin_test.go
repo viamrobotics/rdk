@@ -714,7 +714,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	extraSmooth := map[string]interface{}{"smooth_iter": 5}
 
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
-	expectedDst := r3.Vector{380, 0, 0} // Relative pose to the starting point of the base; facing north, Y = forwards
+	expectedDst := r3.Vector{X: 380, Y: 0, Z: 0} // Relative pose to the starting point of the base; facing north, Y = forwards
 	epsilonMM := 15.
 
 	t.Run("returns error when called with an unknown component", func(t *testing.T) {
@@ -949,6 +949,23 @@ func TestMoveOnGlobe(t *testing.T) {
 			injectedMovementSensor.Name(),
 			nil,
 			&motion.MotionConfiguration{},
+			extraSmooth,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, success, test.ShouldBeTrue)
+	})
+
+	t.Run("is able to reach a nearby geo point when the motion configuration nil", func(t *testing.T) {
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		success, err := ms.MoveOnGlobe(
+			ctx,
+			fakeBase.Name(),
+			dst,
+			90,
+			injectedMovementSensor.Name(),
+			nil,
+			nil,
 			extraSmooth,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -1956,4 +1973,62 @@ func TestPlanHistory(t *testing.T) {
 	history, err := ms.PlanHistory(ctx, req)
 	test.That(t, err, test.ShouldResemble, resource.NewNotFoundError(req.ComponentName))
 	test.That(t, history, test.ShouldBeNil)
+}
+
+func TestNewValidatedMotionCfg(t *testing.T) {
+	t.Run("returns expected defaults when given nil cfg", func(t *testing.T) {
+		vmc, err := newValidatedMotionCfg(nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, vmc, test.ShouldResemble, &validatedMotionConfiguration{
+			angularDegsPerSec:     defaultAngularDegsPerSec,
+			linearMPerSec:         defaultLinearMPerSec,
+			obstaclePollingFreqHz: defaultObstaclePollingHz,
+			positionPollingFreqHz: defaultPositionPollingHz,
+			planDeviationMM:       defaultPlanDeviationM * 1e3,
+			obstacleDetectors:     []motion.ObstacleDetectorName{},
+		})
+	})
+
+	t.Run("returns expected defaults when given zero cfg", func(t *testing.T) {
+		vmc, err := newValidatedMotionCfg(&motion.MotionConfiguration{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, vmc, test.ShouldResemble, &validatedMotionConfiguration{
+			angularDegsPerSec:     defaultAngularDegsPerSec,
+			linearMPerSec:         defaultLinearMPerSec,
+			obstaclePollingFreqHz: defaultObstaclePollingHz,
+			positionPollingFreqHz: defaultPositionPollingHz,
+			planDeviationMM:       defaultPlanDeviationM * 1e3,
+			obstacleDetectors:     []motion.ObstacleDetectorName{},
+		})
+	})
+
+	t.Run("allows overriding defaults", func(t *testing.T) {
+		vmc, err := newValidatedMotionCfg(&motion.MotionConfiguration{
+			AngularDegsPerSec:     10.,
+			LinearMPerSec:         20.,
+			PlanDeviationMM:       30.,
+			PositionPollingFreqHz: 40,
+			ObstaclePollingFreqHz: 50.,
+			ObstacleDetectors: []motion.ObstacleDetectorName{
+				{
+					VisionServiceName: vision.Named("fakeVision"),
+					CameraName:        camera.Named("fakeCamera"),
+				},
+			},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, vmc, test.ShouldResemble, &validatedMotionConfiguration{
+			angularDegsPerSec:     10.,
+			linearMPerSec:         20.,
+			planDeviationMM:       30.,
+			positionPollingFreqHz: 40.,
+			obstaclePollingFreqHz: 50.,
+			obstacleDetectors: []motion.ObstacleDetectorName{
+				{
+					VisionServiceName: vision.Named("fakeVision"),
+					CameraName:        camera.Named("fakeCamera"),
+				},
+			},
+		})
+	})
 }

@@ -61,8 +61,6 @@ type manifestBuildInfo struct {
 }
 
 // defaultBuildInfo has defaults for unset fields in "build".
-//
-//nolint:unused
 var defaultBuildInfo = manifestBuildInfo{
 	Build: "make module.tar.gz",
 	Path:  "module.tar.gz",
@@ -253,7 +251,7 @@ func UploadModuleAction(c *cli.Context) error {
 	if !forceUploadArg {
 		if err := validateModuleFile(client, moduleID, tarballPath, versionArg); err != nil {
 			return fmt.Errorf(
-				"error validating module: %w. For more details, please visit: https://docs.viam.com/manage/cli/#command-options-3 ",
+				"error validating module: %w. For more details, please visit: https://docs.viam.com/fleet/cli/#module ",
 				err)
 		}
 	}
@@ -489,8 +487,8 @@ func parseModuleID(id string) (moduleID, error) {
 	splitModuleName := strings.Split(id, ":")
 	if len(splitModuleName) != 2 {
 		return moduleID{}, errors.Errorf("invalid module name '%s'."+
-			" Module name must be in the form 'prefix:module-name' for public modules"+
-			" or just 'module-name' for private modules in organizations without a public namespace", id)
+			" Module name must be in the form 'public-namespace:module-name' for public modules"+
+			" or 'org-id:module-name' for private modules in organizations without a public namespace", id)
 	}
 	return moduleID{prefix: splitModuleName[0], name: splitModuleName[1]}, nil
 }
