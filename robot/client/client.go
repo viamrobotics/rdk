@@ -16,6 +16,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
@@ -933,5 +934,17 @@ func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[
 		e = append(e, p)
 	}
 	_, err := rc.client.StopAll(ctx, &pb.StopAllRequest{Extra: e})
+	return err
+}
+
+// ModuleLog sends a log entry to the server. To be used by Golang modules wanting to log over gRPC and not
+// by normal Golang SDK clients.
+func (rc *RobotClient) ModuleLog(ctx context.Context, log zapcore.Entry) error {
+	logRequest := &pb.ModuleLogRequest{
+		ModuleName: log.LoggerName, // assume logger name is module name
+		Level:      log.Level.String(),
+		Message:    log.Message,
+	}
+	_, err := rc.client.ModuleLog(ctx, logRequest)
 	return err
 }

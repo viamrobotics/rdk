@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
@@ -19,7 +20,7 @@ import (
 var myModel = resource.NewModel("acme", "demo", "mycounter")
 
 func main() {
-	utils.ContextualMain(mainWithArgs, logging.NewLogger("SimpleModule"))
+	utils.ContextualMain(mainWithArgs, module.NewLoggerFromArgs("simple-module"))
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
@@ -47,11 +48,16 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		return err
 	}
 
-	// This will block (leaving the module running) until the context is cancelled.
-	// The utils.ContextualMain catches OS signals and will cancel our context for us when one is sent for shutdown/termination.
-	<-ctx.Done()
-	// The deferred myMod.Close() will now run.
-	return nil
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil
+		}
+		time.Sleep(time.Second)
+		logger.Debug("debug message")
+		logger.Info("info message")
+		logger.Warn("warn message")
+		logger.Error("error message")
+	}
 }
 
 // newCounter is used to create a new instance of our specific model. It is called for each component in the robot's config with this model.

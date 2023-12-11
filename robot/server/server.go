@@ -404,3 +404,20 @@ func (s *Server) SendSessionHeartbeat(ctx context.Context, req *pb.SendSessionHe
 	}
 	return &pb.SendSessionHeartbeatResponse{}, nil
 }
+
+func (s *Server) ModuleLog(ctx context.Context, req *pb.ModuleLogRequest) (*pb.ModuleLogResponse, error) {
+	switch strings.ToLower(req.Level) {
+	case "debug":
+		s.r.Logger().Debugf("%v: %v", req.ModuleName, req.Message)
+	case "info":
+		s.r.Logger().Infof("%v: %v", req.ModuleName, req.Message)
+	case "warn":
+		s.r.Logger().Warnf("%v: %v", req.ModuleName, req.Message)
+	case "error":
+		s.r.Logger().Errorf("%v: %v", req.ModuleName, req.Message)
+	default:
+		s.r.Logger().Warn("module named %q sent a log with an invalid level %q", req.ModuleName, req.Level)
+	}
+
+	return &pb.ModuleLogResponse{}, nil
+}

@@ -1,12 +1,13 @@
 package module
 
 import (
-	"go.viam.com/rdk/logging"
+	"context"
 	"os"
+	"time"
+
+	"go.viam.com/rdk/logging"
 
 	"go.uber.org/zap/zapcore"
-	pb "go.viam.com/api/app/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type moduleAppender struct {
@@ -18,7 +19,8 @@ type moduleAppender struct {
 }
 
 func newModuleAppender() *moduleAppender {
-	return &moduleAppender{}
+	stdoutAppender := logging.NewStdoutAppender()
+	return &moduleAppender{stdoutAppender: &stdoutAppender}
 }
 
 func (ma *moduleAppender) setModule(m *Module) {
@@ -27,23 +29,23 @@ func (ma *moduleAppender) setModule(m *Module) {
 
 // Write sends the log entry back to the module's parent via gRPC or, if not
 // possible, outputs the log entry to the underlying stream.
-func (ma *moduleAppender) Write(entry zapcore.Entry, fields []zapcore.Field) error {
+func (ma *moduleAppender) Write(log zapcore.Entry, fields []zapcore.Field) error {
 	if ma.module == nil {
-		return ma.stdoutAppender.Write(entry, fields)
+		return ma.stdoutAppender.Write(log, fields)
 	}
 
-	log := &pb.LogEntry{
-		Host:       ma.module.addr, // TODO(benji)?
-		Level:      entry.Level.String(),
-		Time:       timestamppb.New(entry.Time),
-		LoggerName: entry.LoggerName,
-		Message:    entry.Message,
-		Stack:      entry.Stack,
+	// Only give 5 seconds for client creation and eventual ModuleLog call in
+	// case parent (RDK) is shutting down or otherwise unreachable.
+	connectCtx, connectCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer connectCancel()
+	if err := ma.module.connectParent(connectCtx); err != nil {
+		return err
 	}
 
-	// TODO(benji): send over gRPC.
+	moduleLogCtx, moduleLogCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer moduleLogCancel()
 
-	return nil
+	return ma.module.parent.ModuleLog(moduleLogCtx, log)
 }
 
 // Sync is a no-op (moduleAppenders do not currently have buffers that needs
