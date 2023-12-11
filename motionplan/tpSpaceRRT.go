@@ -64,7 +64,7 @@ const (
 	// least this long.
 	defaultMinTrajectoryLength = 350
 	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly.
-	pathdebug = true
+	pathdebug = false
 )
 
 var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
