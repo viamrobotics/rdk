@@ -2,8 +2,8 @@ package gpio
 
 import (
 	"context"
+	"errors"
 
-	"github.com/pkg/errors"
 	"go.viam.com/rdk/control"
 	rdkutils "go.viam.com/rdk/utils"
 )
