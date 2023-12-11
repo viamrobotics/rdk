@@ -375,7 +375,7 @@ func TestServerMoveOnMapNew(t *testing.T) {
 		}
 		moveOnMapNewRespose, err := server.MoveOnMapNew(context.Background(), validMoveOnMapNewRequest)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, notYetImplementedErr.Error())
+		test.That(t, err, test.ShouldBeError, notYetImplementedErr)
 		test.That(t, moveOnMapNewRespose, test.ShouldBeNil)
 	})
 
