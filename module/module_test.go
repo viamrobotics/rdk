@@ -620,7 +620,7 @@ func TestAttributeConversion(t *testing.T) {
 
 		th.mockReconfigConf.Attributes = mockAttrs
 
-		// uses JSON representation because otherwise resource.Name can't be properly marshalled/unmarshalled
+		// TODO(RSDK-6022): use datamanager.DataCaptureConfigs once resource.Name can be properly marshalled/unmarshalled
 		dummySvcCfg := utils.AttributeMap{"capture_methods": []interface{}{map[string]interface{}{"method": "Something"}}}
 		mockServiceCfg, err := protoutils.StructToStructPb(dummySvcCfg)
 		test.That(t, err, test.ShouldBeNil)
