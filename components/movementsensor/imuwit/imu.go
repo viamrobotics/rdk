@@ -242,7 +242,7 @@ func newWit(
 		logger: logger,
 		err:    movementsensor.NewLastError(1, 1),
 	}
-	logger.Debugf("initializing wit serial connection with parameters: %+v", options)
+	logger.CDebugf(ctx, "initializing wit serial connection with parameters: %+v", options)
 	i.port, err = slib.Open(options)
 	if err != nil {
 		return nil, err
@@ -360,9 +360,9 @@ func (imu *wit) parseWIT(line string) error {
 
 // Close shuts down wit and closes imu.port.
 func (imu *wit) Close(ctx context.Context) error {
-	imu.logger.Debug("Closing wit motion imu")
+	imu.logger.CDebug(ctx, "Closing wit motion imu")
 	imu.cancelFunc()
 	imu.activeBackgroundWorkers.Wait()
-	imu.logger.Debug("Closed wit motion imu")
+	imu.logger.CDebug(ctx, "Closed wit motion imu")
 	return imu.err.Get()
 }

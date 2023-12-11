@@ -297,7 +297,7 @@ func (ms *explore) Move(
 
 	// once execution responds: return the result to the caller
 	case resp := <-ms.executionResponseChan:
-		ms.logger.Debugf("execution completed: %v", resp)
+		ms.logger.CDebugf(ctx, "execution completed: %v", resp)
 		if resp.err != nil {
 			return resp.success, resp.err
 		}
@@ -307,7 +307,7 @@ func (ms *explore) Move(
 
 	// if the checkPartialPlan process hit an error return it, otherwise exit
 	case resp := <-ms.obstacleResponseChan:
-		ms.logger.Debugf("obstacle response: %v", resp)
+		ms.logger.CDebugf(ctx, "obstacle response: %v", resp)
 		if resp.err != nil {
 			return resp.success, resp.err
 		}
@@ -363,7 +363,7 @@ func (ms *explore) checkForObstacles(
 			// Look for new transient obstacles and add to worldState
 			worldState, err := ms.generateTransientWorldState(ctx, obstacleDetectors)
 			if err != nil {
-				ms.logger.Debugf("issue occurred generating transient worldState: %v", err)
+				ms.logger.CDebugf(ctx, "issue occurred generating transient worldState: %v", err)
 				if errCounterGenerateTransientWorldState > successiveErrorLimit {
 					ms.obstacleResponseChan <- moveResponse{success: false}
 					return
@@ -393,7 +393,7 @@ func (ms *explore) checkForObstacles(
 			)
 			if err != nil {
 				if strings.Contains(err.Error(), "found collision between positions") {
-					ms.logger.Debug("collision found in given range")
+					ms.logger.CDebug(ctx, "collision found in given range")
 					ms.obstacleResponseChan <- moveResponse{success: true}
 					return
 				}
@@ -607,7 +607,7 @@ func (ms *explore) createMotionPlan(
 		return nil, err
 	}
 
-	ms.logger.Debugf("goal position: %v", goalPose.Pose().Point())
+	ms.logger.CDebugf(ctx, "goal position: %v", goalPose.Pose().Point())
 	return motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
 		Logger:             ms.logger,
 		Goal:               goalPose,

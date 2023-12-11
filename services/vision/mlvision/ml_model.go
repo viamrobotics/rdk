@@ -90,14 +90,14 @@ func registerMLModelVisionService(
 	var errList []error
 	classifierFunc, err := attemptToBuildClassifier(mlm, nameMap)
 	if err != nil {
-		logger.Debugw("unable to use ml model as a classifier, will attempt to evaluate as"+
+		logger.CDebugw(ctx, "unable to use ml model as a classifier, will attempt to evaluate as"+
 			"detector and segmenter", "model", params.ModelName, "error", err)
 	} else {
 		err := checkIfClassifierWorks(ctx, classifierFunc)
 		errList = append(errList, err)
 		if err != nil {
 			classifierFunc = nil
-			logger.Debugw("unable to use ml model as a classifier, will attempt to evaluate as detector"+
+			logger.CDebugw(ctx, "unable to use ml model as a classifier, will attempt to evaluate as detector"+
 				" and 3D segmenter", "model", params.ModelName, "error", err)
 		} else {
 			logger.Infow("model fulfills a vision service classifier", "model", params.ModelName)
@@ -106,14 +106,14 @@ func registerMLModelVisionService(
 
 	detectorFunc, err := attemptToBuildDetector(mlm, nameMap)
 	if err != nil {
-		logger.Debugw("unable to use ml model as a detector, will attempt to evaluate as 3D segmenter",
+		logger.CDebugw(ctx, "unable to use ml model as a detector, will attempt to evaluate as 3D segmenter",
 			"model", params.ModelName, "error", err)
 	} else {
 		err = checkIfDetectorWorks(ctx, detectorFunc)
 		errList = append(errList, err)
 		if err != nil {
 			detectorFunc = nil
-			logger.Debugw("unable to use ml model as a detector, will attempt to evaluate as 3D segmenter",
+			logger.CDebugw(ctx, "unable to use ml model as a detector, will attempt to evaluate as 3D segmenter",
 				"model", params.ModelName, "error", err)
 		} else {
 			logger.Infow("model fulfills a vision service detector", "model", params.ModelName)
@@ -123,7 +123,7 @@ func registerMLModelVisionService(
 	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm, nameMap)
 	errList = append(errList, err)
 	if err != nil {
-		logger.Debugw("unable to use ml model as 3D segmenter", "model", params.ModelName, "error", err)
+		logger.CDebugw(ctx, "unable to use ml model as 3D segmenter", "model", params.ModelName, "error", err)
 	} else {
 		logger.Infow("model fulfills a vision service 3D segmenter", "model", params.ModelName)
 	}

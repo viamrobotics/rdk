@@ -244,7 +244,7 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 	if err != nil {
 		return false, err
 	}
-	ddk.logger.Debugf("distErr: %.2f\theadingErr %.2f", distErr, headingErr)
+	ddk.logger.CDebug(ctx, "distErr: %.2f\theadingErr %.2f", distErr, headingErr)
 	if distErr > ddk.options.GoalRadiusMM && math.Abs(headingErr) > ddk.options.HeadingThresholdDegrees {
 		// base is headed off course; spin to correct
 		err := ddk.Spin(ctx, math.Min(headingErr, ddk.options.MaxSpinAngleDeg), ddk.options.AngularVelocityDegsPerSec, nil)

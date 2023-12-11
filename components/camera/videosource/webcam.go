@@ -67,7 +67,7 @@ type CameraConfig struct {
 }
 
 // Discover webcam attributes.
-func Discover(_ context.Context, getDrivers func() []driver.Driver, logger logging.Logger) (*pb.Webcams, error) {
+func Discover(ctx context.Context, getDrivers func() []driver.Driver, logger logging.Logger) (*pb.Webcams, error) {
 	mediadevicescamera.Initialize()
 	var webcams []*pb.Webcam
 	drivers := getDrivers()
@@ -76,15 +76,15 @@ func Discover(_ context.Context, getDrivers func() []driver.Driver, logger loggi
 
 		props, err := getProperties(d)
 		if len(props) == 0 {
-			logger.Debugw("no properties detected for driver, skipping discovery...", "driver", driverInfo.Label)
+			logger.CDebugw(ctx, "no properties detected for driver, skipping discovery...", "driver", driverInfo.Label)
 			continue
 		} else if err != nil {
-			logger.Debugw("cannot access driver properties, skipping discovery...", "driver", driverInfo.Label, "error", err)
+			logger.CDebugw(ctx, "cannot access driver properties, skipping discovery...", "driver", driverInfo.Label, "error", err)
 			continue
 		}
 
 		if d.Status() == driver.StateRunning {
-			logger.Debugw("driver is in use, skipping discovery...", "driver", driverInfo.Label)
+			logger.CDebugw(ctx, "driver is in use, skipping discovery...", "driver", driverInfo.Label)
 			continue
 		}
 
@@ -351,7 +351,7 @@ func (c *monitoredWebcam) Reconfigure(
 		c.conf = *newConf
 		return nil
 	}
-	c.logger.Debug("reinitializing driver")
+	c.logger.CDebug(ctx, "reinitializing driver")
 
 	c.targetPath = newConf.Path
 	if err := c.reconnectCamera(newConf); err != nil {

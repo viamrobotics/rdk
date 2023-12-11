@@ -208,7 +208,7 @@ func (e *Encoder) Start(ctx context.Context) {
 					atomic.AddInt64(&e.position, dir)
 				}
 			} else {
-				e.logger.Debug("received tick for encoder that isn't connected to a motor; ignoring")
+				e.logger.CDebug(ctx, "received tick for encoder that isn't connected to a motor; ignoring")
 			}
 		}
 	}, e.activeBackgroundWorkers.Done)

@@ -372,7 +372,7 @@ func (g *singleAxis) homeLimSwitch(ctx context.Context) error {
 	if g.positionRange == 0 {
 		g.logger.Error("positionRange is 0 or not a valid number")
 	} else {
-		g.logger.Debugf("positionA: %0.2f positionB: %0.2f range: %0.2f", positionA, positionB, g.positionRange)
+		g.logger.CDebugf(ctx, "positionA: %0.2f positionB: %0.2f range: %0.2f", positionA, positionB, g.positionRange)
 	}
 
 	// Go to start position at the middle of the axis.
@@ -534,7 +534,7 @@ func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []flo
 
 	if len(speeds) == 0 {
 		speeds = append(speeds, g.rpm)
-		g.logger.Debug("single-axis received invalid speed, using default gantry speed")
+		g.logger.CDebug(ctx, "single-axis received invalid speed, using default gantry speed")
 	} else if rdkutils.Float64AlmostEqual(math.Abs(speeds[0]), 0.0, 0.1) {
 		if err := g.motor.Stop(ctx, nil); err != nil {
 			return err
@@ -560,7 +560,7 @@ func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []flo
 		}
 	}
 
-	g.logger.Debugf("going to %.2f at speed %.2f", x, r)
+	g.logger.CDebugf(ctx, "going to %.2f at speed %.2f", x, r)
 	if err := g.motor.GoTo(ctx, r, x, extra); err != nil {
 		return err
 	}

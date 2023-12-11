@@ -121,14 +121,14 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		dataCopy := data
 
 		if err := r.ParseForm(); err != nil {
-			logger.Debugw("failed to parse form", "error", err)
+			logger.CDebugw(ctx, "failed to parse form", "error", err)
 		}
 		if r.Form.Get("grpc") == "true" {
 			data.WebRTCEnabled = false
 		}
 
 		if err := template.Execute(w, dataCopy); err != nil {
-			logger.Debugw("couldn't execute web page", "error", err)
+			logger.CDebugw(ctx, "couldn't execute web page", "error", err)
 		}
 	}))
 

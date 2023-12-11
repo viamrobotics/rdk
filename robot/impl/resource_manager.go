@@ -178,7 +178,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		res, err := rr.ResourceByName(remoteResName) // this returns a remote known OR foreign resource client
 		if err != nil {
 			if errors.Is(err, client.ErrMissingClientRegistration) {
-				manager.logger.Debugw("couldn't obtain remote resource interface",
+				manager.logger.CDebugw(ctx, "couldn't obtain remote resource interface",
 					"name", remoteResName,
 					"reason", err)
 			} else {
@@ -223,7 +223,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		if isActive {
 			continue
 		}
-		manager.logger.Debugw("removing remote resource", "name", resName)
+		manager.logger.CDebugw(ctx, "removing remote resource", "name", resName)
 		if err := manager.markChildrenForUpdate(resName); err != nil {
 			manager.logger.Errorw(
 				"failed to mark children of remote for update",
@@ -482,7 +482,7 @@ func (manager *resourceManager) completeConfig(
 		} else {
 			verb = "reconfiguring"
 		}
-		manager.logger.Debugw(fmt.Sprintf("now %s a remote", verb), "resource", resName)
+		manager.logger.CDebugw(ctx, fmt.Sprintf("now %s a remote", verb), "resource", resName)
 		switch resName.API {
 		case client.RemoteAPI:
 			remConf, err := resource.NativeConfig[*config.Remote](gNode.Config())
@@ -529,7 +529,7 @@ func (manager *resourceManager) completeConfig(
 	// now resolve prior to sorting in case there's anything newly discovered
 	if err := manager.resources.ResolveDependencies(manager.logger); err != nil {
 		// debug here since the resolver will log on its own
-		manager.logger.Debugw("error resolving dependencies", "error", err)
+		manager.logger.CDebugw(ctx, "error resolving dependencies", "error", err)
 	}
 
 	resourceNames := manager.resources.ReverseTopologicalSort()
@@ -565,7 +565,7 @@ func (manager *resourceManager) completeConfig(
 			} else {
 				verb = "reconfiguring"
 			}
-			manager.logger.Debugw(fmt.Sprintf("now %s resource", verb), "resource", resName)
+			manager.logger.CDebugw(ctx, fmt.Sprintf("now %s resource", verb), "resource", resName)
 			conf := gNode.Config()
 
 			// this is done in config validation but partial start rules require us to check again
@@ -709,7 +709,7 @@ func (manager *resourceManager) processRemote(
 	config config.Remote,
 ) (*client.RobotClient, error) {
 	dialOpts := remoteDialOptions(config, manager.opts)
-	manager.logger.Debugw("connecting now to remote", "remote", config.Name)
+	manager.logger.CDebugw(ctx, "connecting now to remote", "remote", config.Name)
 	robotClient, err := dialRobotClient(ctx, config, manager.logger, dialOpts...)
 	if err != nil {
 		if errors.Is(err, rpc.ErrInsecureWithCredentials) {
@@ -721,7 +721,7 @@ func (manager *resourceManager) processRemote(
 		}
 		return nil, errors.Errorf("couldn't connect to robot remote (%s): %s", config.Address, err)
 	}
-	manager.logger.Debugw("connected now to remote", "remote", config.Name)
+	manager.logger.CDebugw(ctx, "connected now to remote", "remote", config.Name)
 	return robotClient, nil
 }
 
@@ -808,18 +808,18 @@ func (manager *resourceManager) processResource(
 			return nil, false, err
 		}
 	} else {
-		manager.logger.Debugw("resource models differ so it must be rebuilt",
+		manager.logger.CDebugw(ctx, "resource models differ so it must be rebuilt",
 			"name", resName, "old_model", gNode.ResourceModel(), "new_model", conf.Model)
 	}
 
-	manager.logger.Debugw("rebuilding", "name", resName)
+	manager.logger.CDebugw(ctx, "rebuilding", "name", resName)
 	if err := r.manager.closeResource(ctx, currentRes); err != nil {
 		manager.logger.Error(err)
 	}
 	newRes, err := r.newResource(ctx, gNode, conf)
 	if err != nil {
 		gNode.UnsetResource()
-		manager.logger.Debugw(
+		manager.logger.CDebugw(ctx,
 			"failed to build resource of new model, removing closed resource of old model from graph node",
 			"name", resName,
 			"old_model", gNode.ResourceModel(),

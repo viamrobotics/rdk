@@ -49,10 +49,10 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	if argsParsed.Dump {
 		all := gostream.QueryVideoDevices()
 		for _, info := range all {
-			logger.Debugf("%s", info.ID)
-			logger.Debugf("\t labels: %v", info.Labels)
+			logger.CDebugf(ctx, "%s", info.ID)
+			logger.CDebugf(ctx, "\t labels: %v", info.Labels)
 			for _, p := range info.Properties {
-				logger.Debugf("\t %v %d x %d", p.FrameFormat, p.Width, p.Height)
+				logger.CDebugf(ctx, "\t %v %d x %d", p.FrameFormat, p.Width, p.Height)
 			}
 		}
 		return nil
@@ -81,7 +81,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	}
 
 	if argsParsed.Debug {
-		logger.Debugf("conf: %v", conf)
+		logger.CDebugf(ctx, "conf: %v", conf)
 	}
 
 	return viewCamera(ctx, argsMap, int(argsParsed.Port), argsParsed.Debug, logger)
@@ -103,7 +103,7 @@ func viewCamera(ctx context.Context, conf videosource.WebcamConfig, port int, de
 		}
 		defer closer()
 		if debug {
-			logger.Debugf("image type: %T dimensions: %v", img, img.Bounds())
+			logger.CDebugf(ctx, "image type: %T dimensions: %v", img, img.Bounds())
 		}
 		return nil
 	}(); err != nil {

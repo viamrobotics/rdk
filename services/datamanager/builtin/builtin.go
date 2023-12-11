@@ -344,7 +344,7 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 
 	identity, conn, err := svc.cloudConnSvc.AcquireConnection(ctx)
 	if errors.Is(err, cloud.ErrNotCloudManaged) {
-		svc.logger.Debug("Using no-op sync manager when not cloud managed")
+		svc.logger.CDebug(ctx, "Using no-op sync manager when not cloud managed")
 		svc.syncer = datasync.NewNoopManager()
 	}
 	if err != nil {

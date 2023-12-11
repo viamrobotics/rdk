@@ -498,7 +498,7 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 	// if you call GoFor with 0 revolutions, the motor will spin forever. If we are at the target,
 	// we must avoid this by not calling GoFor.
 	if rdkutils.Float64AlmostEqual(rotations, 0, 0.1) {
-		m.logger.Debug("GoTo distance nearly zero, not moving")
+		m.logger.CDebug(ctx, "GoTo distance nearly zero, not moving")
 		return nil
 	}
 	return m.GoFor(ctx, rpm, rotations, extra)

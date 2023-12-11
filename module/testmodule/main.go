@@ -29,7 +29,7 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
-	logger.Debug("debug mode enabled")
+	logger.CDebug(ctx, "debug mode enabled")
 
 	var err error
 	myMod, err = module.NewModuleFromArgs(ctx, logger)

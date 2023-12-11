@@ -149,7 +149,7 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 		return err
 	}
 	svc.parts = sortedParts
-	svc.logger.Debugf("updated robot frame system:\n%v", (&Config{Parts: sortedParts}).String())
+	svc.logger.CDebugf(ctx, "updated robot frame system:\n%v", (&Config{Parts: sortedParts}).String())
 	return nil
 }
 

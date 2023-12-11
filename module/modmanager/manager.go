@@ -784,7 +784,7 @@ func (m *module) startProcess(
 		moduleWorkingDirectory = filepath.Dir(absoluteExePath)
 		logger.Warnf("VIAM_MODULE_ROOT was not passed to module %q. Defaulting to %q", m.cfg.Name, moduleWorkingDirectory)
 	} else {
-		logger.Debugf("Starting module %q in working directory %q", m.cfg.Name, moduleWorkingDirectory)
+		logger.CDebugf(ctx, "Starting module %q in working directory %q", m.cfg.Name, moduleWorkingDirectory)
 	}
 
 	pconf := pexec.ProcessConfig{

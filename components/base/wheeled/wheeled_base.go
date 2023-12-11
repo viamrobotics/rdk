@@ -236,7 +236,7 @@ func createWheeledBase(
 func (wb *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	ctx, done := wb.opMgr.New(ctx)
 	defer done()
-	wb.logger.Debugf("received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
+	wb.logger.CDebugf(ctx, "received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
 
 	// Stop the motors if the speed is 0
 	if math.Abs(degsPerSec) < 0.0001 {
@@ -257,7 +257,7 @@ func (wb *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, e
 func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	ctx, done := wb.opMgr.New(ctx)
 	defer done()
-	wb.logger.Debugf("received a MoveStraight with distanceMM:%d, mmPerSec:%.2f", distanceMm, mmPerSec)
+	wb.logger.CDebugf(ctx, "received a MoveStraight with distanceMM:%d, mmPerSec:%.2f", distanceMm, mmPerSec)
 
 	// Stop the motors if the speed or distance are 0
 	if math.Abs(mmPerSec) < 0.0001 || distanceMm == 0 {
@@ -344,7 +344,7 @@ func (wb *wheeledBase) differentialDrive(forward, left float64) (float64, float6
 
 // SetVelocity commands the base to move at the input linear and angular velocities.
 func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
-	wb.logger.Debugf(
+	wb.logger.CDebugf(ctx,
 		"received a SetVelocity with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f(mmPerSec),"+
 			" angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
 		linear.X, linear.Y, linear.Z, angular.X, angular.Y, angular.Z)
@@ -352,7 +352,7 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 	// check if we're receiving a vector of magnitude zero (all components zero) from linear and angular velcoity
 	// and interpret that as a signal to stop the base
 	if linear.Norm() == 0 && angular.Norm() == 0 {
-		wb.logger.Debug("received a SetVelocity command of linear 0,0,0, and angular 0,0,0, stopping base")
+		wb.logger.CDebug(ctx, "received a SetVelocity command of linear 0,0,0, and angular 0,0,0, stopping base")
 		return wb.Stop(ctx, nil)
 	}
 
@@ -383,7 +383,7 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 func (wb *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	wb.opMgr.CancelRunning(ctx)
 
-	wb.logger.Debugf(
+	wb.logger.CDebugf(ctx,
 		"received a SetPower with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f,"+
 			" angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
 		linear.X, linear.Y, linear.Z, angular.X, angular.Y, angular.Z)
@@ -391,7 +391,7 @@ func (wb *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, 
 	// check if we're receiving a vector of magnitude zero (all components zero) from linear and angular velcoity
 	// and interpret that as a signal to stop the base
 	if linear.Norm() == 0 && angular.Norm() == 0 {
-		wb.logger.Debug("received a SetPower command of linear 0,0,0, and angular 0,0,0, stopping base")
+		wb.logger.CDebug(ctx, "received a SetPower command of linear 0,0,0, and angular 0,0,0, stopping base")
 		return wb.Stop(ctx, nil)
 	}
 

@@ -212,7 +212,7 @@ func (s *bme280) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	}
 	err = handle.Write(ctx, []byte{byte(bme280MeasurementsReg)})
 	if err != nil {
-		s.logger.Debug("Failed to request temperature")
+		s.logger.CDebug(ctx, "Failed to request temperature")
 	}
 	buffer, err := handle.Read(ctx, 8)
 	if err != nil {

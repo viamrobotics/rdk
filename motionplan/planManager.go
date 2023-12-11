@@ -352,7 +352,7 @@ func (pm *planManager) planParallelRRTMotion(
 	// publish endpoint of plan if it is known
 	var nextSeed node
 	if len(maps.goalMap) == 1 {
-		pm.logger.Debug("only one IK solution, returning endpoint preview")
+		pm.logger.CDebug(ctx, "only one IK solution, returning endpoint preview")
 		for key := range maps.goalMap {
 			nextSeed = key
 		}
@@ -412,10 +412,10 @@ func (pm *planManager) planParallelRRTMotion(
 		if finalSteps.err() == nil {
 			if fallbackPlanner != nil {
 				if ok, score := pm.goodPlan(finalSteps, pm.opt()); ok {
-					pm.logger.Debugf("got path with score %f, close enough to optimal %f", score, maps.optNode.Cost())
+					pm.logger.CDebugf(ctx, "got path with score %f, close enough to optimal %f", score, maps.optNode.Cost())
 					fallbackPlanner = nil
 				} else {
-					pm.logger.Debugf("path with score %f not close enough to optimal %f, falling back", score, maps.optNode.Cost())
+					pm.logger.CDebugf(ctx, "path with score %f not close enough to optimal %f, falling back", score, maps.optNode.Cost())
 
 					// If we have a connected but bad path, we recreate new IK solutions and start from scratch
 					// rather than seeding with a completed, known-bad tree
@@ -462,10 +462,10 @@ func (pm *planManager) planParallelRRTMotion(
 				// The fallback should emerge pre-smoothed, so that should be a non-issue
 				altCost := pm.frame.inputsToPlan(alternate).Evaluate(pm.opt().ScoreFunc)
 				if altCost < score {
-					pm.logger.Debugf("replacing path with score %f with better score %f", score, altCost)
+					pm.logger.CDebugf(ctx, "replacing path with score %f with better score %f", score, altCost)
 					finalSteps = &rrtPlanReturn{steps: stepsToNodes(alternate)}
 				} else {
-					pm.logger.Debugf("fallback path with score %f worse than original score %f; using original", altCost, score)
+					pm.logger.CDebugf(ctx, "fallback path with score %f worse than original score %f; using original", altCost, score)
 				}
 			}
 		}

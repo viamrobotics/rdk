@@ -139,7 +139,7 @@ func makeMpu6050(
 	} else {
 		address = expectedDefaultAddress
 	}
-	logger.Debugf("Using address %d for MPU6050 sensor", address)
+	logger.CDebugf(ctx, "Using address %d for MPU6050 sensor", address)
 
 	backgroundContext, cancelFunc := context.WithCancel(context.Background())
 	sensor := &mpu6050{

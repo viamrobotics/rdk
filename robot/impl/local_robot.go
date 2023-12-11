@@ -404,11 +404,11 @@ func newWithResources(
 			if !errors.Is(err, context.DeadlineExceeded) {
 				return nil, err
 			}
-			r.logger.Debug("Using no-op PackageManager when internet not available")
+			r.logger.CDebug(ctx, "Using no-op PackageManager when internet not available")
 			r.packageManager = packages.NewNoopManager()
 		}
 	} else {
-		r.logger.Debug("Using no-op PackageManager when Cloud config is not available")
+		r.logger.CDebug(ctx, "Using no-op PackageManager when Cloud config is not available")
 		r.packageManager = packages.NewNoopManager()
 	}
 
@@ -664,7 +664,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		res, err := r.ResourceByName(n)
 		if err != nil {
 			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
-				r.Logger().Debugw("error finding resource during weak dependent update", "resource", n, "error", err)
+				r.Logger().CDebugw(ctx, "error finding resource during weak dependent update", "resource", n, "error", err)
 			}
 			continue
 		}
@@ -749,7 +749,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		if len(r.getWeakDependencyMatchers(conf.API, conf.Model)) == 0 {
 			return
 		}
-		r.Logger().Debugw("handling weak update for resource", "resource", resName)
+		r.Logger().CDebugw(ctx, "handling weak update for resource", "resource", resName)
 		deps, err := r.getDependencies(ctx, resName, resNode)
 		if err != nil {
 			r.Logger().Errorw("failed to get dependencies during weak update; skipping", "resource", resName, "error", err)
@@ -858,7 +858,7 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 	for _, remoteCfg := range cfg.Remotes {
 		// build the frame system part that connects remote world to base world
 		if remoteCfg.Frame == nil { // skip over remote if it has no frame info
-			r.logger.Debugf("remote %q has no frame config info, skipping", remoteCfg.Name)
+			r.logger.CDebugf(ctx, "remote %q has no frame config info, skipping", remoteCfg.Name)
 			continue
 		}
 		lif, err := remoteCfg.Frame.ParseConfig()
@@ -1078,7 +1078,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 
 	if r.revealSensitiveConfigDiffs {
-		r.logger.Debugf("(re)configuring with %+v", diff)
+		r.logger.CDebugf(ctx, "(re)configuring with %+v", diff)
 	}
 
 	// Set mostRecentConfig if resources were not equal.

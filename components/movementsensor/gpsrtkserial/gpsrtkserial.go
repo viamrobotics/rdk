@@ -196,7 +196,7 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	g.ntripconfigMu.Unlock()
 
-	g.logger.Debug("done reconfiguring")
+	g.logger.CDebug(ctx, "done reconfiguring")
 
 	return nil
 }

@@ -350,7 +350,7 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 	m.stepperDelay = time.Duration(int64(float64(time.Minute) / (math.Abs(rpm) * float64(m.stepsPerRotation))))
 	if m.stepperDelay < m.minDelay {
 		m.stepperDelay = m.minDelay
-		m.logger.Debugf(
+		m.logger.CDebugf(ctx,
 			"calculated delay less than the minimum delay for stepper motor setting to %+v", m.stepperDelay,
 		)
 	}
@@ -377,11 +377,11 @@ func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64
 	// if you call GoFor with 0 revolutions, the motor will spin forever. If we are at the target,
 	// we must avoid this by not calling GoFor.
 	if rdkutils.Float64AlmostEqual(moveDistance, 0, 0.1) {
-		m.logger.Debugf("GoTo distance nearly zero for motor (%s), not moving", m.Name().Name)
+		m.logger.CDebugf(ctx, "GoTo distance nearly zero for motor (%s), not moving", m.Name().Name)
 		return nil
 	}
 
-	m.logger.Debugf("motor (%s) going to %.2f at rpm %.2f", m.Name().Name, moveDistance, math.Abs(rpm))
+	m.logger.CDebugf(ctx, "motor (%s) going to %.2f at rpm %.2f", m.Name().Name, moveDistance, math.Abs(rpm))
 	return m.GoFor(ctx, math.Abs(rpm), moveDistance, extra)
 }
 
@@ -464,7 +464,7 @@ func (m *gpioStepper) Close(ctx context.Context) error {
 
 	m.lock.Lock()
 	if m.cancel != nil {
-		m.logger.Debugf("stopping control thread for motor (%s)", m.Name().Name)
+		m.logger.CDebugf(ctx, "stopping control thread for motor (%s)", m.Name().Name)
 		m.cancel()
 		m.cancel = nil
 		m.threadStarted = false
