@@ -207,13 +207,13 @@ func TestContextLogging(t *testing.T) {
 	ctx = EnableDebugModeWithKey(ctx, traceKey)
 	logger.CDebug(ctx, "Debug log")
 	assertLogMatches(t, notStdout,
-		`2023-10-30T09:12:09.459Z	DEBUG	impl	logging/impl_test.go:200	Debug log	{"traceKey": "foobar"}`)
+		`2023-10-30T09:12:09.459Z	DEBUG	impl	logging/impl_test.go:200	Debug log`)
 
 	logger.CDebugf(ctx, "Debugf log %v", "debugf")
 	assertLogMatches(t, notStdout,
-		`2023-10-30T09:12:09.459Z	DEBUG	impl	logging/impl_test.go:200	Debugf log debugf	{"traceKey": "foobar"}`)
+		`2023-10-30T09:12:09.459Z	DEBUG	impl	logging/impl_test.go:200	Debugf log debugf`)
 
 	logger.CDebugw(ctx, "Debugw log", "key", "value")
 	assertLogMatches(t, notStdout,
-		`2023-10-30T09:12:09.459Z	DEBUG	impl	logging/impl_test.go:200	Debugw log	{"traceKey":"foobar","key":"value"}`)
+		`2023-10-30T09:12:09.459Z	DEBUG	impl	logging/impl_test.go:200	Debugw log	{"key":"value"}`)
 }
