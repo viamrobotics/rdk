@@ -76,6 +76,7 @@ type MoveOnMapReq struct {
 	ComponentName resource.Name
 	Destination   spatialmath.Pose
 	SlamName      resource.Name
+	MotionCfg     *MotionConfiguration
 	Extra         map[string]interface{}
 }
 
@@ -190,11 +191,7 @@ type Service interface {
 	) (bool, error)
 	MoveOnMapNew(
 		ctx context.Context,
-		componentName resource.Name,
-		destination spatialmath.Pose,
-		slamName resource.Name,
-		motionConfig *MotionConfiguration,
-		extra map[string]interface{},
+		req MoveOnMapReq,
 	) (ExecutionID, error)
 	MoveOnGlobe(
 		ctx context.Context,

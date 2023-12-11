@@ -1925,14 +1925,13 @@ func TestMoveOnMapNew(t *testing.T) {
 	)
 	defer ms.Close(ctx)
 
-	executionID, err := ms.MoveOnMapNew(
-		ctx,
-		base.Name(),
-		spatialmath.NewZeroPose(),
-		slam.Named("test_slam"),
-		&motion.MotionConfiguration{},
-		nil,
-	)
+	req := motion.MoveOnMapReq{
+		ComponentName: base.Name(),
+		Destination:   spatialmath.NewZeroPose(),
+		SlamName:      slam.Named("test_slam"),
+	}
+
+	executionID, err := ms.MoveOnMapNew(ctx, req)
 	test.That(t, err.Error(), test.ShouldEqual, "unimplemented")
 	test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 }

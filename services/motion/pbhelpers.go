@@ -387,3 +387,51 @@ func getPlanRequestFromProto(req *pb.GetPlanRequest) (PlanHistoryReq, error) {
 		Extra:         req.Extra.AsMap(),
 	}, nil
 }
+
+func moveOnMapNewRequestFromProto(req *pb.MoveOnMapNewRequest) (MoveOnMapReq, error) {
+	if req == nil {
+		return MoveOnMapReq{}, errors.New("received nil *pb.MoveOnMapNewRequest")
+	}
+	if req.GetDestination() == nil {
+		return MoveOnMapReq{}, errors.New("must provide a destination")
+	}
+	protoComponentName := req.GetComponentName()
+	if protoComponentName == nil {
+		return MoveOnMapReq{}, errors.New("received nil *commonpb.ResourceName for component name")
+	}
+	protoSlamServiceName := req.GetSlamServiceName()
+	if protoSlamServiceName == nil {
+		return MoveOnMapReq{}, errors.New("received nil *commonpb.ResourceName for SlamService name")
+	}
+	return MoveOnMapReq{
+		ComponentName: rprotoutils.ResourceNameFromProto(protoComponentName),
+		Destination:   spatialmath.NewPoseFromProtobuf(req.GetDestination()),
+		SlamName:      rprotoutils.ResourceNameFromProto(protoSlamServiceName),
+		MotionCfg:     configurationFromProto(req.MotionConfiguration),
+		Extra:         req.Extra.AsMap(),
+	}, nil
+}
+
+func (r MoveOnMapReq) toProtoNew(name string) (*pb.MoveOnMapNewRequest, error) {
+	ext, err := vprotoutils.StructToStructPb(r.Extra)
+	if err != nil {
+		return nil, err
+	}
+	if r.Destination == nil {
+		return nil, errors.New("must provide a destination")
+	}
+
+	req := &pb.MoveOnMapNewRequest{
+		Name:            name,
+		ComponentName:   rprotoutils.ResourceNameToProto(r.ComponentName),
+		Destination:     spatialmath.PoseToProtobuf(r.Destination),
+		SlamServiceName: rprotoutils.ResourceNameToProto(r.SlamName),
+		Extra:           ext,
+	}
+
+	if r.MotionCfg != nil {
+		req.MotionConfiguration = r.MotionCfg.toProto()
+	}
+
+	return req, nil
+}

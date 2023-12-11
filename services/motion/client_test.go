@@ -246,21 +246,20 @@ func TestClient(t *testing.T) {
 		client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		t.Run("returns error without calling client if params can't be cast to proto", func(t *testing.T) {
-			injectMS.MoveOnMapNewFunc = func(ctx context.Context,
-				componentName resource.Name,
-				destination spatialmath.Pose,
-				slamName resource.Name,
-				motionConfig *motion.MotionConfiguration,
-				extra map[string]interface{},
-			) (motion.ExecutionID, error) {
+		t.Run("returns error without calling client since destination is nil", func(t *testing.T) {
+			injectMS.MoveOnMapNewFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
 				t.Log("should not be called")
 				t.FailNow()
 				return uuid.Nil, errors.New("should not be reached")
 			}
 
+			req := motion.MoveOnMapReq{
+				ComponentName: baseName,
+				SlamName:      slamName,
+			}
+
 			// nil destination is can't be converted to proto
-			executionID, err := client.MoveOnMapNew(ctx, baseName, nil, slamName, &motion.MotionConfiguration{}, nil)
+			executionID, err := client.MoveOnMapNew(ctx, req)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err, test.ShouldBeError, errors.New("must provide a destination"))
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
@@ -268,17 +267,18 @@ func TestClient(t *testing.T) {
 
 		t.Run("returns error if client returns error", func(t *testing.T) {
 			errExpected := errors.New("some client error")
-			injectMS.MoveOnMapNewFunc = func(ctx context.Context,
-				componentName resource.Name,
-				destination spatialmath.Pose,
-				slamName resource.Name,
-				motionConfig *motion.MotionConfiguration,
-				extra map[string]interface{},
-			) (motion.ExecutionID, error) {
+			injectMS.MoveOnMapNewFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
 				return uuid.Nil, errExpected
 			}
 
-			executionID, err := client.MoveOnMapNew(ctx, baseName, spatialmath.NewZeroPose(), slamName, &motion.MotionConfiguration{}, nil)
+			req := motion.MoveOnMapReq{
+				ComponentName: baseName,
+				Destination:   spatialmath.NewZeroPose(),
+				SlamName:      slamName,
+				MotionCfg:     &motion.MotionConfiguration{},
+			}
+
+			executionID, err := client.MoveOnMapNew(ctx, req)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
@@ -286,17 +286,18 @@ func TestClient(t *testing.T) {
 
 		t.Run("otherwise returns success with an executionID", func(t *testing.T) {
 			expectedExecutionID := uuid.New()
-			injectMS.MoveOnMapNewFunc = func(ctx context.Context,
-				componentName resource.Name,
-				destination spatialmath.Pose,
-				slamName resource.Name,
-				motionConfig *motion.MotionConfiguration,
-				extra map[string]interface{},
-			) (motion.ExecutionID, error) {
+			injectMS.MoveOnMapNewFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
 				return expectedExecutionID, nil
 			}
 
-			executionID, err := client.MoveOnMapNew(ctx, baseName, spatialmath.NewZeroPose(), slamName, &motion.MotionConfiguration{}, nil)
+			req := motion.MoveOnMapReq{
+				ComponentName: baseName,
+				Destination:   spatialmath.NewZeroPose(),
+				SlamName:      slamName,
+				MotionCfg:     &motion.MotionConfiguration{},
+			}
+
+			executionID, err := client.MoveOnMapNew(ctx, req)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, executionID, test.ShouldEqual, expectedExecutionID)
 		})

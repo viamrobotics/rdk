@@ -329,14 +329,7 @@ func TestServerMoveOnMapNew(t *testing.T) {
 			Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
 			SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
 		}
-		injectMS.MoveOnMapNewFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			destination spatialmath.Pose,
-			slamName resource.Name,
-			motionConfig *motion.MotionConfiguration,
-			extra map[string]interface{},
-		) (motion.ExecutionID, error) {
+		injectMS.MoveOnMapNewFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
 			t.Log("should not be called")
 			t.FailNow()
 			return uuid.Nil, errors.New("should not be called")
@@ -355,14 +348,7 @@ func TestServerMoveOnMapNew(t *testing.T) {
 			Destination:     nil,
 			SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
 		}
-		injectMS.MoveOnMapNewFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			destination spatialmath.Pose,
-			slamName resource.Name,
-			motionConfig *motion.MotionConfiguration,
-			extra map[string]interface{},
-		) (motion.ExecutionID, error) {
+		injectMS.MoveOnMapNewFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
 			t.Log("should not be called")
 			t.FailNow()
 			return uuid.Nil, errors.New("should not be called")
@@ -384,14 +370,7 @@ func TestServerMoveOnMapNew(t *testing.T) {
 	t.Run("returns error when MoveOnMapNew returns an error", func(t *testing.T) {
 		notYetImplementedErr := errors.New("Not yet implemented")
 
-		injectMS.MoveOnMapNewFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			destination spatialmath.Pose,
-			slamName resource.Name,
-			motionConfig *motion.MotionConfiguration,
-			extra map[string]interface{},
-		) (motion.ExecutionID, error) {
+		injectMS.MoveOnMapNewFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
 			return uuid.Nil, notYetImplementedErr
 		}
 		moveOnMapNewRespose, err := server.MoveOnMapNew(context.Background(), validMoveOnMapNewRequest)
@@ -439,28 +418,24 @@ func TestServerMoveOnMapNew(t *testing.T) {
 		}
 
 		firstExecutionID := uuid.New()
-		injectMS.MoveOnMapNewFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			destination spatialmath.Pose,
-			slamName resource.Name,
-			motionConfig *motion.MotionConfiguration,
-			extra map[string]interface{},
-		) (motion.ExecutionID, error) {
-			test.That(t, componentName, test.ShouldResemble, expectedComponentName)
-			test.That(t, destination, test.ShouldNotBeNil)
-			test.That(t, spatialmath.PoseAlmostEqualEps(destination, spatialmath.NewPoseFromProtobuf(expectedDestination), 1e-5), test.ShouldBeTrue)
-			test.That(t, slamName, test.ShouldResemble, expectedSlamName)
-			test.That(t, motionConfig.AngularDegsPerSec, test.ShouldAlmostEqual, angularDegsPerSec)
-			test.That(t, motionConfig.LinearMPerSec, test.ShouldAlmostEqual, linearMPerSec)
-			test.That(t, motionConfig.PlanDeviationMM, test.ShouldAlmostEqual, planDeviationM*1000)
-			test.That(t, motionConfig.ObstaclePollingFreqHz, test.ShouldAlmostEqual, obstaclePollingFrequencyHz)
-			test.That(t, motionConfig.PositionPollingFreqHz, test.ShouldAlmostEqual, positionPollingFrequencyHz)
-			test.That(t, len(motionConfig.ObstacleDetectors), test.ShouldAlmostEqual, 2)
-			test.That(t, motionConfig.ObstacleDetectors[0].VisionServiceName, test.ShouldResemble, vision.Named("vision service 1"))
-			test.That(t, motionConfig.ObstacleDetectors[0].CameraName, test.ShouldResemble, camera.Named("camera 1"))
-			test.That(t, motionConfig.ObstacleDetectors[1].VisionServiceName, test.ShouldResemble, vision.Named("vision service 2"))
-			test.That(t, motionConfig.ObstacleDetectors[1].CameraName, test.ShouldResemble, camera.Named("camera 2"))
+		injectMS.MoveOnMapNewFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
+			test.That(t, req.ComponentName, test.ShouldResemble, expectedComponentName)
+			test.That(t, req.Destination, test.ShouldNotBeNil)
+			test.That(t,
+				spatialmath.PoseAlmostEqualEps(req.Destination, spatialmath.NewPoseFromProtobuf(expectedDestination), 1e-5),
+				test.ShouldBeTrue,
+			)
+			test.That(t, req.SlamName, test.ShouldResemble, expectedSlamName)
+			test.That(t, req.MotionCfg.AngularDegsPerSec, test.ShouldAlmostEqual, angularDegsPerSec)
+			test.That(t, req.MotionCfg.LinearMPerSec, test.ShouldAlmostEqual, linearMPerSec)
+			test.That(t, req.MotionCfg.PlanDeviationMM, test.ShouldAlmostEqual, planDeviationM*1000)
+			test.That(t, req.MotionCfg.ObstaclePollingFreqHz, test.ShouldAlmostEqual, obstaclePollingFrequencyHz)
+			test.That(t, req.MotionCfg.PositionPollingFreqHz, test.ShouldAlmostEqual, positionPollingFrequencyHz)
+			test.That(t, len(req.MotionCfg.ObstacleDetectors), test.ShouldAlmostEqual, 2)
+			test.That(t, req.MotionCfg.ObstacleDetectors[0].VisionServiceName, test.ShouldResemble, vision.Named("vision service 1"))
+			test.That(t, req.MotionCfg.ObstacleDetectors[0].CameraName, test.ShouldResemble, camera.Named("camera 1"))
+			test.That(t, req.MotionCfg.ObstacleDetectors[1].VisionServiceName, test.ShouldResemble, vision.Named("vision service 2"))
+			test.That(t, req.MotionCfg.ObstacleDetectors[1].CameraName, test.ShouldResemble, camera.Named("camera 2"))
 			return firstExecutionID, nil
 		}
 

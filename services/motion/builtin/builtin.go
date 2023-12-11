@@ -283,13 +283,7 @@ func (ms *builtIn) MoveOnMap(
 	return true, nil
 }
 
-func (ms *builtIn) MoveOnMapNew(ctx context.Context,
-	componentName resource.Name,
-	destination spatialmath.Pose,
-	slamName resource.Name,
-	motionConfig *motion.MotionConfiguration,
-	extra map[string]interface{},
-) (motion.ExecutionID, error) {
+func (ms *builtIn) MoveOnMapNew(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
 	return uuid.Nil, errors.New("unimplemented")
 }
 
