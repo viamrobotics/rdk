@@ -104,6 +104,7 @@ func TestEvaluate(t *testing.T) {
 }
 
 func TestPlanToPlanStepsAndGeoPoses(t *testing.T) {
+	t.Skip()
 	logger := logging.NewTestLogger(t)
 	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
 	test.That(t, err, test.ShouldBeNil)

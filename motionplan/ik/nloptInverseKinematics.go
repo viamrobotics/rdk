@@ -43,6 +43,8 @@ type NloptIK struct {
 	// Nlopt will try to minimize a configuration for whatever is passed in. If exact is false, then the solver will emit partial
 	// solutions where it was not able to meet the goal criteria but still was able to improve upon the seed.
 	exact bool
+
+	useRelTol bool
 }
 
 type optimizeReturn struct {
@@ -54,7 +56,7 @@ type optimizeReturn struct {
 // CreateNloptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on
 // which Transform() will be called, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set
 // to the default of 5000.
-func CreateNloptIKSolver(mdl referenceframe.Frame, logger logging.Logger, iter int, exact bool) (*NloptIK, error) {
+func CreateNloptIKSolver(mdl referenceframe.Frame, logger logging.Logger, iter int, exact, useRelTol bool) (*NloptIK, error) {
 	ik := &NloptIK{logger: logger}
 
 	ik.model = mdl
@@ -70,6 +72,7 @@ func CreateNloptIKSolver(mdl referenceframe.Frame, logger logging.Logger, iter i
 	ik.maxIterations = iter
 	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.DoF())
 	ik.exact = exact
+	ik.useRelTol = useRelTol
 
 	return ik, nil
 }
@@ -91,7 +94,6 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	if err != nil {
 		return err
 	}
-	// ~ fmt.Println("jump", jump)
 
 	tries := 1
 	iterations := 0
@@ -99,7 +101,6 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	startingPos := seed
 
 	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(ik.model.DoF())))
-	// ~ opt, err := nlopt.NewNLopt(nlopt.GD_MLSL_LDS, uint(len(ik.model.DoF())))
 	defer opt.Destroy()
 	if err != nil {
 		return errors.Wrap(err, "nlopt creation error")
@@ -126,7 +127,6 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		mInput.Configuration = inputs
 		mInput.Position = eePos
 		dist := solveMetric(mInput)
-		// ~ fmt.Println(x, eePos.Point(), dist)
 		if len(gradient) > 0 {
 			for i := range gradient {
 				flip := false
@@ -156,21 +156,25 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				}
 			}
 		}
-		// ~ fmt.Println("grad", gradient)
 		return dist
 	}
 
 	err = multierr.Combine(
-		// ~ opt.SetFtolRel(ik.epsilon),
 		opt.SetFtolAbs(ik.epsilon),
 		opt.SetLowerBounds(ik.lowerBound),
 		opt.SetStopVal(ik.epsilon),
 		opt.SetUpperBounds(ik.upperBound),
-		// ~ opt.SetXtolRel(ik.epsilon),
 		opt.SetXtolAbs1(ik.epsilon),
 		opt.SetMinObjective(nloptMinFunc),
 		opt.SetMaxEval(nloptStepsPerIter),
 	)
+	if ik.useRelTol {
+		err = multierr.Combine(
+			err,
+			opt.SetFtolRel(ik.epsilon),
+			opt.SetXtolRel(ik.epsilon),
+		)
+	}
 
 	if ik.id > 0 {
 		// Solver with ID 1 seeds off current angles
@@ -187,7 +191,6 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			}
 		} else {
 			// Solvers whose ID is not 1 should skip ahead directly to trying random seeds
-			// ~ fmt.Println("rand1")
 			startingPos = ik.GenerateRandomPositions(randSeed)
 			tries = constrainedTries
 		}

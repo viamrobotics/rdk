@@ -41,7 +41,7 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistFar, refDistRestricted f
 	}
 	ptgFrame := newPTGIKFrame(simPTG, trajCount, refDistFar, refDistRestricted)
 
-	nlopt, err := ik.CreateNloptIKSolver(ptgFrame, logger, 1, false)
+	nlopt, err := ik.CreateNloptIKSolver(ptgFrame, logger, 1, false, false)
 	if err != nil {
 		return nil, err
 	}
