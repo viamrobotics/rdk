@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -1543,4 +1544,183 @@ func validMoveOnGlobeRequest() MoveOnGlobeReq {
 		},
 		Extra: nil,
 	}
+}
+
+func TestMoveOnMapReq(t *testing.T) {
+	visionCameraPairs := [][]resource.Name{
+		{vision.Named("vision service 1"), camera.Named("camera 1")},
+		{vision.Named("vision service 2"), camera.Named("camera 2")},
+	}
+	obstacleDetectors := []ObstacleDetectorName{}
+	for _, pair := range visionCameraPairs {
+		obstacleDetectors = append(obstacleDetectors, ObstacleDetectorName{
+			VisionServiceName: pair[0],
+			CameraName:        pair[1],
+		})
+	}
+	myBase := base.Named("mybase")
+	mySlam := slam.Named(("mySlam"))
+	motionCfg := &MotionConfiguration{
+		ObstacleDetectors:     obstacleDetectors,
+		LinearMPerSec:         1,
+		AngularDegsPerSec:     2,
+		PlanDeviationMM:       3,
+		PositionPollingFreqHz: 4,
+		ObstaclePollingFreqHz: 5,
+	}
+
+	validMoveOnMapReq := MoveOnMapReq{
+		ComponentName: myBase,
+		Destination:   spatialmath.NewZeroPose(),
+		SlamName:      mySlam,
+		MotionCfg:     motionCfg,
+		Extra:         map[string]interface{}{},
+	}
+
+	validPbMoveOnMapNewRequest := &pb.MoveOnMapNewRequest{
+		Name:                "bloop",
+		Destination:         spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
+		ComponentName:       rprotoutils.ResourceNameToProto(myBase),
+		SlamServiceName:     rprotoutils.ResourceNameToProto(mySlam),
+		MotionConfiguration: motionCfg.toProto(),
+		Extra:               &structpb.Struct{},
+	}
+
+	t.Run("toProto", func(t *testing.T) {
+		type testCase struct {
+			description string
+			input       MoveOnMapReq
+			name        string
+			result      *pb.MoveOnMapNewRequest
+			err         error
+		}
+
+		testCases := []testCase{
+			{
+				description: "empty struct fails due to nil destination",
+				input:       MoveOnMapReq{},
+				name:        "bloop",
+				result:      nil,
+				err:         errors.New("must provide a destination"),
+			},
+			{
+				description: "success",
+				input:       validMoveOnMapReq,
+				name:        "bloop",
+				result:      validPbMoveOnMapNewRequest,
+				err:         nil,
+			},
+			{
+				description: "allows nil motion cfg",
+				input: MoveOnMapReq{
+					ComponentName: myBase,
+					Destination:   spatialmath.NewZeroPose(),
+					SlamName:      mySlam,
+				},
+				name: "bloop",
+				result: &pb.MoveOnMapNewRequest{
+					Name:            "bloop",
+					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
+					ComponentName:   rprotoutils.ResourceNameToProto(myBase),
+					SlamServiceName: rprotoutils.ResourceNameToProto(mySlam),
+					Extra:           &structpb.Struct{},
+				},
+				err: nil,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.description, func(t *testing.T) {
+				res, err := tc.input.toProtoNew(tc.name)
+				if tc.err != nil {
+					test.That(t, err, test.ShouldBeError, tc.err)
+				} else {
+					test.That(t, err, test.ShouldBeNil)
+				}
+				test.That(t, res, test.ShouldResemble, tc.result)
+			})
+		}
+	})
+
+	t.Run("moveOnMapNewRequestFromProto", func(t *testing.T) {
+		type testCase struct {
+			description string
+			input       *pb.MoveOnMapNewRequest
+			result      MoveOnMapReq
+			err         error
+		}
+
+		testCases := []testCase{
+			{
+				description: "nil request fails",
+				input:       nil,
+				result:      MoveOnMapReq{},
+				err:         errors.New("received nil *pb.MoveOnMapNewRequest"),
+			},
+			{
+				description: "nil destination causes failure",
+				input:       &pb.MoveOnMapNewRequest{},
+				result:      MoveOnMapReq{},
+				err:         errors.New("received nil *commonpb.Pose for destination"),
+			},
+			{
+				description: "nil componentName causes failure",
+				input: &pb.MoveOnMapNewRequest{
+					Destination: spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
+				},
+				result: MoveOnMapReq{},
+				err:    errors.New("received nil *commonpb.ResourceName for component name"),
+			},
+			{
+				description: "nil SlamName causes failure",
+				input: &pb.MoveOnMapNewRequest{
+					Destination:   spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
+					ComponentName: rprotoutils.ResourceNameToProto(myBase),
+				},
+				result: MoveOnMapReq{},
+				err:    errors.New("received nil *commonpb.ResourceName for SlamService name"),
+			},
+			{
+				description: "success",
+				input:       validPbMoveOnMapNewRequest,
+				result:      validMoveOnMapReq,
+				err:         nil,
+			},
+			{
+				description: "success - allow nil motionCfg",
+				input: &pb.MoveOnMapNewRequest{
+					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
+					ComponentName:   rprotoutils.ResourceNameToProto(myBase),
+					SlamServiceName: rprotoutils.ResourceNameToProto(mySlam),
+				},
+				result: MoveOnMapReq{
+					ComponentName: myBase,
+					Destination:   spatialmath.NewZeroPose(),
+					SlamName:      mySlam,
+					MotionCfg: &MotionConfiguration{
+						ObstacleDetectors:     []ObstacleDetectorName{},
+						PositionPollingFreqHz: 0,
+						ObstaclePollingFreqHz: 0,
+						PlanDeviationMM:       0,
+						LinearMPerSec:         0,
+						AngularDegsPerSec:     0,
+					},
+					Extra: map[string]interface{}{},
+				},
+				err: nil,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.description, func(t *testing.T) {
+				res, err := moveOnMapNewRequestFromProto(tc.input)
+				if tc.err != nil {
+					test.That(t, err, test.ShouldBeError, tc.err)
+				} else {
+					test.That(t, err, test.ShouldBeNil)
+				}
+				test.That(t, res, test.ShouldResemble, tc.result)
+			})
+		}
+	})
 }

@@ -393,7 +393,7 @@ func moveOnMapNewRequestFromProto(req *pb.MoveOnMapNewRequest) (MoveOnMapReq, er
 		return MoveOnMapReq{}, errors.New("received nil *pb.MoveOnMapNewRequest")
 	}
 	if req.GetDestination() == nil {
-		return MoveOnMapReq{}, errors.New("must provide a destination")
+		return MoveOnMapReq{}, errors.New("received nil *commonpb.Pose for destination")
 	}
 	protoComponentName := req.GetComponentName()
 	if protoComponentName == nil {

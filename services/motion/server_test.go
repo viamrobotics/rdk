@@ -356,7 +356,7 @@ func TestServerMoveOnMapNew(t *testing.T) {
 
 		moveOnMapNewRespose, err := server.MoveOnMapNew(context.Background(), moveOnMapNewRequest)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New("must provide a destination"))
+		test.That(t, err, test.ShouldBeError, errors.New("received nil *commonpb.Pose for destination"))
 		test.That(t, moveOnMapNewRespose, test.ShouldBeNil)
 	})
 
