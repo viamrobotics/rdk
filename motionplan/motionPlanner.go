@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"sort"
+	"slices"
 	"sync"
 	"time"
 
@@ -441,7 +441,7 @@ IK:
 	for k := range solutions {
 		keys = append(keys, k)
 	}
-	sort.Float64s(keys)
+	slices.Sort(keys)
 
 	orderedSolutions := make([]node, 0)
 	for _, key := range keys {
