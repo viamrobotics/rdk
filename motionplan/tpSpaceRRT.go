@@ -22,17 +22,19 @@ import (
 )
 
 const (
-	defaultAutoBB = 1.4 // Automatic bounding box on driveable area as a multiple of start-goal distance
+	defaultAutoBB = 1.0 // Automatic bounding box on driveable area as a multiple of start-goal distance
 	// Note: while fully holonomic planners can use the limits of the frame as implicit boundaries, with non-holonomic motion
 	// this is not the case, and the total workspace available to the planned frame is not directly related to the motion available
 	// from a single set of inputs.
+
+	// How much the bounding box of random points to sample increases in size with each algorithm iteration.
 	autoBBscale = 0.05
 
 	// whether to add intermediate waypoints.
 	defaultAddInt = true
 	// Add a subnode every this many mm along a valid trajectory. Large values run faster, small gives better paths
 	// Meaningless if the above is false.
-	defaultAddNodeEvery = 600.
+	defaultAddNodeEvery = 400.
 
 	// Don't add new RRT tree nodes if there is an existing node within this distance.
 	// Consider nodes on trees to be connected if they are within this distance.
@@ -63,8 +65,9 @@ const (
 	// When evaluating the partial node to add to a tree after defaultCollisionWalkbackPct is applied, ensure the trajectory is still at
 	// least this long.
 	defaultMinTrajectoryLength = 350
+
 	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly.
-	pathdebug = true
+	pathdebug = false
 )
 
 var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
@@ -290,8 +293,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	midptNode := &basicNode{pose: spatialmath.NewPose(midPt, midOrient), cost: goalScore}
 	var randPosNode node = midptNode
 
-	// ~ for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
-	for iter := 0; iter < 20; iter++ {
+	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
 		mp.logger.Debugf("TP Space RRT iteration %d", iter)
 		if ctx.Err() != nil {
 			mp.logger.Debugf("TP Space RRT timed out after %d iterations", iter)

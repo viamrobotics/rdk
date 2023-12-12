@@ -111,6 +111,8 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	}
 	var activeSolvers sync.WaitGroup
 
+	jumpVal := 0.
+
 	// x is our set of inputs
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.
 	nloptMinFunc := func(x, gradient []float64) float64 {
@@ -129,12 +131,13 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		dist := solveMetric(mInput)
 		if len(gradient) > 0 {
 			for i := range gradient {
+				jumpVal = jump[i]
 				flip := false
-				inputs[i].Value += jump[i]
+				inputs[i].Value += jumpVal
 				ub := ik.upperBound[i]
 				if inputs[i].Value >= ub {
 					flip = true
-					inputs[i].Value -= 2 * jump[i]
+					inputs[i].Value -= 2 * jumpVal
 				}
 
 				eePos, err := ik.model.Transform(inputs)
@@ -147,12 +150,12 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				mInput.Configuration = inputs
 				mInput.Position = eePos
 				dist2 := solveMetric(mInput)
-				gradient[i] = (dist2 - dist) / jump[i]
+				gradient[i] = (dist2 - dist) / jumpVal
 				if flip {
-					inputs[i].Value += jump[i]
+					inputs[i].Value += jumpVal
 					gradient[i] *= -1
 				} else {
-					inputs[i].Value -= jump[i]
+					inputs[i].Value -= jumpVal
 				}
 			}
 		}
