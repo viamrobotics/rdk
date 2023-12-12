@@ -71,8 +71,7 @@ func TestListBuild(t *testing.T) {
 					Platform: "linux/amd64",
 					Version:  "1.2.3",
 					Status:   v1.JobStatus_JOB_STATUS_DONE,
-
-					EndTime: timestamppb.New(time.Unix(0, 0)), // Jan 1 1970
+					EndTime:  timestamppb.New(time.Unix(0, 0)), // Jan 1 1970
 				},
 			}}, nil
 		},
@@ -84,4 +83,65 @@ func TestListBuild(t *testing.T) {
 xyz123 linux/amd64 Done   1.2.3   1970-01-01T00:00:00Z
 `)
 	test.That(t, errOut.messages, test.ShouldHaveLength, 0)
+}
+
+func TestModuleBuildWait(t *testing.T) {
+	// this creates a race condiition if there are multiple tests testing the moduleBuildPollingInterval
+	originalPollingInterval := moduleBuildPollingInterval
+	moduleBuildPollingInterval = 200 * time.Millisecond
+	defer func() { moduleBuildPollingInterval = originalPollingInterval }()
+	startTime := time.Now()
+	//nolint:dogsled
+	_, ac, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{
+		ListJobsFunc: func(ctx context.Context, in *v1.ListJobsRequest, opts ...grpc.CallOption) (*v1.ListJobsResponse, error) {
+			// this will only report DONE after 2.5 polling intervals
+			status := v1.JobStatus_JOB_STATUS_DONE
+			if time.Since(startTime).Seconds() < moduleBuildPollingInterval.Seconds()*2.5 {
+				status = v1.JobStatus_JOB_STATUS_IN_PROGRESS
+			}
+			return &v1.ListJobsResponse{Jobs: []*v1.JobInfo{
+				{
+					BuildId:  "xyz123",
+					Platform: "linux/amd64",
+					Version:  "1.2.3",
+					Status:   status,
+				},
+			}}, nil
+		},
+	}, &map[string]string{}, "token")
+	startWaitTime := time.Now()
+	err := ac.waitForBuildToFinish("xyz123", "")
+	test.That(t, err, test.ShouldBeNil)
+	// ensure that we had to wait for at least 2, but no more than 5 polling intervals
+	test.That(t,
+		time.Since(startWaitTime).Seconds(),
+		test.ShouldBeBetween,
+		2*moduleBuildPollingInterval.Seconds(),
+		5*moduleBuildPollingInterval.Seconds())
+}
+
+func TestModuleGetPlatformsForModule(t *testing.T) {
+	//nolint:dogsled
+	_, ac, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{
+		ListJobsFunc: func(ctx context.Context, in *v1.ListJobsRequest, opts ...grpc.CallOption) (*v1.ListJobsResponse, error) {
+			return &v1.ListJobsResponse{Jobs: []*v1.JobInfo{
+				{
+					BuildId:  "xyz123",
+					Platform: "linux/amd64",
+					Version:  "1.2.3",
+					Status:   v1.JobStatus_JOB_STATUS_DONE,
+				},
+
+				{
+					BuildId:  "xyz123",
+					Platform: "linux/arm64",
+					Version:  "1.2.3",
+					Status:   v1.JobStatus_JOB_STATUS_DONE,
+				},
+			}}, nil
+		},
+	}, &map[string]string{}, "token")
+	platforms, err := ac.getPlatformsForModuleBuild("xyz123")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, platforms, test.ShouldResemble, []string{"linux/amd64", "linux/arm64"})
 }
