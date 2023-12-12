@@ -89,6 +89,7 @@ func fromRemoteNameToRemoteNodeName(name string) resource.Name {
 }
 
 func (manager *resourceManager) startModuleManager(
+	ctx context.Context,
 	parentAddr string,
 	removeOrphanedResources func(context.Context, []resource.Name),
 	untrustedEnv bool,
@@ -102,7 +103,7 @@ func (manager *resourceManager) startModuleManager(
 		ViamHomeDir:             viamHomeDir,
 		RobotCloudID:            robotCloudID,
 	}
-	manager.moduleManager = modmanager.NewManager(parentAddr, logger, mmOpts)
+	manager.moduleManager = modmanager.NewManager(ctx, parentAddr, logger, mmOpts)
 }
 
 // addRemote adds a remote to the manager.

@@ -50,7 +50,7 @@ func TestModManagerFunctions(t *testing.T) {
 
 	t.Log("test Helpers")
 	viamHomeTemp := t.TempDir()
-	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp})
+	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp})
 
 	mod := &module{
 		cfg: config.Module{
@@ -104,7 +104,7 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 
 	t.Log("test AddModule")
-	mgr = NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr = NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, err, test.ShouldBeNil)
 
 	modCfg := config.Module{
@@ -229,7 +229,7 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Log("test UntrustedEnv")
-	mgr = NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: true})
+	mgr = NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: true})
 
 	modCfg = config.Module{
 		Name:    "simple-module",
@@ -239,7 +239,7 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldEqual, errModularResourcesDisabled)
 
 	t.Log("test empty dir for CleanModuleDataDirectory")
-	mgr = NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: ""})
+	mgr = NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: ""})
 	err = mgr.CleanModuleDataDirectory()
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "cannot clean a root level module data directory")
 
@@ -247,7 +247,12 @@ func TestModManagerFunctions(t *testing.T) {
 	viamHomeTemp = t.TempDir()
 	robotCloudID := "a-b-c-d"
 	expectedDataDir := filepath.Join(viamHomeTemp, parentModuleDataFolderName, robotCloudID)
-	mgr = NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp, RobotCloudID: robotCloudID})
+	mgr = NewManager(
+		ctx,
+		parentAddr,
+		logger,
+		modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp, RobotCloudID: robotCloudID},
+	)
 	// check that premature clean is okay
 	err = mgr.CleanModuleDataDirectory()
 	test.That(t, err, test.ShouldBeNil)
@@ -319,7 +324,7 @@ func TestModManagerValidation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Log("adding complex module")
-	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 
 	modCfg := config.Module{
 		Name:    "complex-module",
@@ -390,7 +395,7 @@ func TestModuleReloading(t *testing.T) {
 		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {
 			dummyRemoveOrphanedResourcesCallCount.Add(1)
 		}
-		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
+		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv:            false,
 			RemoveOrphanedResources: dummyRemoveOrphanedResources,
 		})
@@ -464,7 +469,7 @@ func TestModuleReloading(t *testing.T) {
 		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {
 			dummyRemoveOrphanedResourcesCallCount.Add(1)
 		}
-		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
+		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv:            false,
 			RemoveOrphanedResources: dummyRemoveOrphanedResources,
 		})
@@ -534,19 +539,14 @@ func TestModuleReloading(t *testing.T) {
 		oueRestartInterval = 10 * time.Millisecond
 
 		// Lower module startup timeout to avoid waiting for 5 mins.
-		defer func() {
-			test.That(t, os.Unsetenv(rutils.ModuleStartupTimeoutEnvVar),
-				test.ShouldBeNil)
-		}()
-		test.That(t, os.Setenv(rutils.ModuleStartupTimeoutEnvVar, "10ms"),
-			test.ShouldBeNil)
+		t.Setenv(rutils.ModuleStartupTimeoutEnvVar, "10ms")
 
 		// This test neither uses a resource manager nor asserts anything about
 		// the existence of resources in the graph. Use a dummy
 		// RemoveOrphanedResources function so orphaned resource logic does not
 		// panic.
 		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {}
-		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
+		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv:            false,
 			RemoveOrphanedResources: dummyRemoveOrphanedResources,
 		})
@@ -554,6 +554,48 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"module test-module timed out after 10ms during startup")
+
+		// Assert that number of "fakemodule is running" messages does not increase
+		// over time (the process was stopped).
+		msgNum := logs.FilterMessageSnippet("fakemodule is running").Len()
+		time.Sleep(100 * time.Millisecond)
+		test.That(t, logs.FilterMessageSnippet("fakemodule is running").Len(), test.ShouldEqual, msgNum)
+
+		// Assert that manager removes module.
+		test.That(t, len(mgr.Configs()), test.ShouldEqual, 0)
+
+		err = mgr.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("cancelled module process is stopped", func(t *testing.T) {
+		logger, logs := logging.NewObservedTestLogger(t)
+
+		modCfg.ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
+
+		// Lower global timeout early to avoid race with actual restart code.
+		defer func(oriOrigVal time.Duration) {
+			oueRestartInterval = oriOrigVal
+		}(oueRestartInterval)
+		oueRestartInterval = 10 * time.Millisecond
+
+		// Lower module startup timeout to avoid waiting for 5 mins.
+		t.Setenv(rutils.ModuleStartupTimeoutEnvVar, "30s")
+
+		// This test neither uses a resource manager nor asserts anything about
+		// the existence of resources in the graph. Use a dummy
+		// RemoveOrphanedResources function so orphaned resource logic does not
+		// panic.
+		ctx, cancel := context.WithCancel(ctx)
+		cancel()
+		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {}
+		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv:            false,
+			RemoveOrphanedResources: dummyRemoveOrphanedResources,
+		})
+		err = mgr.Add(ctx, modCfg)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "context canceled")
 
 		// Assert that number of "fakemodule is running" messages does not increase
 		// over time (the process was stopped).
@@ -632,7 +674,7 @@ func TestDebugModule(t *testing.T) {
 			} else {
 				logger, logs = rtestutils.NewInfoObservedTestLogger(t)
 			}
-			mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+			mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 			defer mgr.Close(ctx)
 
 			modCfg := config.Module{
@@ -688,7 +730,7 @@ func TestModuleMisc(t *testing.T) {
 
 	t.Run("data directory fullstack", func(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
-		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
+		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv: false,
 			ViamHomeDir:  testViamHomeDir,
 		})
@@ -740,7 +782,7 @@ func TestModuleMisc(t *testing.T) {
 	})
 	t.Run("module working directory", func(t *testing.T) {
 		logger := logging.NewTestLogger(t)
-		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
+		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv: false,
 			ViamHomeDir:  testViamHomeDir,
 		})
@@ -778,7 +820,7 @@ func TestModuleMisc(t *testing.T) {
 	})
 	t.Run("module working directory fallback", func(t *testing.T) {
 		logger := logging.NewTestLogger(t)
-		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
+		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv: false,
 			ViamHomeDir:  testViamHomeDir,
 		})
