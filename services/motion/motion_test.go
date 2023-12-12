@@ -1399,153 +1399,6 @@ func TestMoveOnGlobeReq(t *testing.T) {
 	})
 }
 
-func TestPlanHistoryReq(t *testing.T) {
-	t.Run("toProto", func(t *testing.T) {
-		type testCase struct {
-			description string
-			input       PlanHistoryReq
-			name        string
-			result      *pb.GetPlanRequest
-			err         error
-		}
-
-		executionID := uuid.New()
-		mybase := base.Named("mybase")
-		executionIDStr := executionID.String()
-
-		testCases := []testCase{
-			{
-				description: "empty struct returns an empty struct",
-				input:       PlanHistoryReq{},
-				name:        "some name",
-				result: &pb.GetPlanRequest{
-					Name:          "some name",
-					ComponentName: rprotoutils.ResourceNameToProto(resource.Name{}),
-					Extra:         &structpb.Struct{},
-				},
-			},
-			{
-				description: "full struct returns a full struct",
-				input: PlanHistoryReq{
-					ComponentName: mybase,
-					ExecutionID:   executionID,
-					LastPlanOnly:  true,
-				},
-				name: "some name",
-				result: &pb.GetPlanRequest{
-					Name:          "some name",
-					ComponentName: rprotoutils.ResourceNameToProto(mybase),
-					ExecutionId:   &executionIDStr,
-					LastPlanOnly:  true,
-					Extra:         &structpb.Struct{},
-				},
-			},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.description, func(t *testing.T) {
-				res, err := tc.input.toProto(tc.name)
-
-				if tc.err != nil {
-					test.That(t, err, test.ShouldBeError, tc.err)
-				} else {
-					test.That(t, err, test.ShouldBeNil)
-				}
-				test.That(t, res, test.ShouldResemble, tc.result)
-			})
-		}
-	})
-
-	t.Run("getPlanRequestFromProto", func(t *testing.T) {
-		type testCase struct {
-			description string
-			input       *pb.GetPlanRequest
-			result      PlanHistoryReq
-			err         error
-		}
-
-		executionID := uuid.New()
-		mybase := base.Named("mybase")
-		executionIDStr := executionID.String()
-
-		testCases := []testCase{
-			{
-				description: "returns an error if component name is nil",
-				input:       &pb.GetPlanRequest{},
-				result:      PlanHistoryReq{},
-				err:         errors.New("received nil *commonpb.ResourceName"),
-			},
-			{
-				description: "empty struct returns an empty struct",
-				input: &pb.GetPlanRequest{
-					ComponentName: rprotoutils.ResourceNameToProto(resource.Name{}),
-				},
-				result: PlanHistoryReq{Extra: map[string]interface{}{}},
-			},
-			{
-				description: "full struct returns a full struct",
-				input: &pb.GetPlanRequest{
-					Name:          "some name",
-					ComponentName: rprotoutils.ResourceNameToProto(mybase),
-					ExecutionId:   &executionIDStr,
-					LastPlanOnly:  true,
-					Extra:         &structpb.Struct{},
-				},
-				result: PlanHistoryReq{
-					ComponentName: mybase,
-					ExecutionID:   executionID,
-					LastPlanOnly:  true,
-					Extra:         map[string]interface{}{},
-				},
-			},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.description, func(t *testing.T) {
-				res, err := getPlanRequestFromProto(tc.input)
-
-				if tc.err != nil {
-					test.That(t, err, test.ShouldBeError, tc.err)
-				} else {
-					test.That(t, err, test.ShouldBeNil)
-				}
-				test.That(t, res, test.ShouldResemble, tc.result)
-			})
-		}
-	})
-}
-
-func validMoveOnGlobeRequest() MoveOnGlobeReq {
-	dst := geo.NewPoint(1, 2)
-	visionCameraPairs := [][]resource.Name{
-		{vision.Named("vision service 1"), camera.Named("camera 1")},
-		{vision.Named("vision service 2"), camera.Named("camera 2")},
-	}
-	obstacleDetectors := []ObstacleDetectorName{}
-	for _, pair := range visionCameraPairs {
-		obstacleDetectors = append(obstacleDetectors, ObstacleDetectorName{
-			VisionServiceName: pair[0],
-			CameraName:        pair[1],
-		})
-	}
-	return MoveOnGlobeReq{
-		ComponentName:      base.Named("my-base"),
-		Destination:        dst,
-		Heading:            0.5,
-		MovementSensorName: movementsensor.Named("my-movementsensor"),
-		Obstacles:          nil,
-		MotionCfg: &MotionConfiguration{
-			ObstacleDetectors:     obstacleDetectors,
-			LinearMPerSec:         1,
-			AngularDegsPerSec:     2,
-			PlanDeviationMM:       3,
-			PositionPollingFreqHz: 4,
-			ObstaclePollingFreqHz: 5,
-		},
-		Extra: nil,
-	}
-}
-
 func TestMoveOnMapReq(t *testing.T) {
 	visionCameraPairs := [][]resource.Name{
 		{vision.Named("vision service 1"), camera.Named("camera 1")},
@@ -1723,4 +1576,151 @@ func TestMoveOnMapReq(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestPlanHistoryReq(t *testing.T) {
+	t.Run("toProto", func(t *testing.T) {
+		type testCase struct {
+			description string
+			input       PlanHistoryReq
+			name        string
+			result      *pb.GetPlanRequest
+			err         error
+		}
+
+		executionID := uuid.New()
+		mybase := base.Named("mybase")
+		executionIDStr := executionID.String()
+
+		testCases := []testCase{
+			{
+				description: "empty struct returns an empty struct",
+				input:       PlanHistoryReq{},
+				name:        "some name",
+				result: &pb.GetPlanRequest{
+					Name:          "some name",
+					ComponentName: rprotoutils.ResourceNameToProto(resource.Name{}),
+					Extra:         &structpb.Struct{},
+				},
+			},
+			{
+				description: "full struct returns a full struct",
+				input: PlanHistoryReq{
+					ComponentName: mybase,
+					ExecutionID:   executionID,
+					LastPlanOnly:  true,
+				},
+				name: "some name",
+				result: &pb.GetPlanRequest{
+					Name:          "some name",
+					ComponentName: rprotoutils.ResourceNameToProto(mybase),
+					ExecutionId:   &executionIDStr,
+					LastPlanOnly:  true,
+					Extra:         &structpb.Struct{},
+				},
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.description, func(t *testing.T) {
+				res, err := tc.input.toProto(tc.name)
+
+				if tc.err != nil {
+					test.That(t, err, test.ShouldBeError, tc.err)
+				} else {
+					test.That(t, err, test.ShouldBeNil)
+				}
+				test.That(t, res, test.ShouldResemble, tc.result)
+			})
+		}
+	})
+
+	t.Run("getPlanRequestFromProto", func(t *testing.T) {
+		type testCase struct {
+			description string
+			input       *pb.GetPlanRequest
+			result      PlanHistoryReq
+			err         error
+		}
+
+		executionID := uuid.New()
+		mybase := base.Named("mybase")
+		executionIDStr := executionID.String()
+
+		testCases := []testCase{
+			{
+				description: "returns an error if component name is nil",
+				input:       &pb.GetPlanRequest{},
+				result:      PlanHistoryReq{},
+				err:         errors.New("received nil *commonpb.ResourceName"),
+			},
+			{
+				description: "empty struct returns an empty struct",
+				input: &pb.GetPlanRequest{
+					ComponentName: rprotoutils.ResourceNameToProto(resource.Name{}),
+				},
+				result: PlanHistoryReq{Extra: map[string]interface{}{}},
+			},
+			{
+				description: "full struct returns a full struct",
+				input: &pb.GetPlanRequest{
+					Name:          "some name",
+					ComponentName: rprotoutils.ResourceNameToProto(mybase),
+					ExecutionId:   &executionIDStr,
+					LastPlanOnly:  true,
+					Extra:         &structpb.Struct{},
+				},
+				result: PlanHistoryReq{
+					ComponentName: mybase,
+					ExecutionID:   executionID,
+					LastPlanOnly:  true,
+					Extra:         map[string]interface{}{},
+				},
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.description, func(t *testing.T) {
+				res, err := getPlanRequestFromProto(tc.input)
+
+				if tc.err != nil {
+					test.That(t, err, test.ShouldBeError, tc.err)
+				} else {
+					test.That(t, err, test.ShouldBeNil)
+				}
+				test.That(t, res, test.ShouldResemble, tc.result)
+			})
+		}
+	})
+}
+
+func validMoveOnGlobeRequest() MoveOnGlobeReq {
+	dst := geo.NewPoint(1, 2)
+	visionCameraPairs := [][]resource.Name{
+		{vision.Named("vision service 1"), camera.Named("camera 1")},
+		{vision.Named("vision service 2"), camera.Named("camera 2")},
+	}
+	obstacleDetectors := []ObstacleDetectorName{}
+	for _, pair := range visionCameraPairs {
+		obstacleDetectors = append(obstacleDetectors, ObstacleDetectorName{
+			VisionServiceName: pair[0],
+			CameraName:        pair[1],
+		})
+	}
+	return MoveOnGlobeReq{
+		ComponentName:      base.Named("my-base"),
+		Destination:        dst,
+		Heading:            0.5,
+		MovementSensorName: movementsensor.Named("my-movementsensor"),
+		Obstacles:          nil,
+		MotionCfg: &MotionConfiguration{
+			ObstacleDetectors:     obstacleDetectors,
+			LinearMPerSec:         1,
+			AngularDegsPerSec:     2,
+			PlanDeviationMM:       3,
+			PositionPollingFreqHz: 4,
+			ObstaclePollingFreqHz: 5,
+		},
+		Extra: nil,
+	}
 }
