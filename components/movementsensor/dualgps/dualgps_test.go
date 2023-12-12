@@ -5,11 +5,12 @@ import (
 	"testing"
 
 	geo "github.com/kellydunn/golang-geo"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
 )
 
 const (
@@ -76,7 +77,6 @@ func TestCreateValidateAndReconfigure(t *testing.T) {
 	dgps, ok = ms.(*dualGPS)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, dgps.gps2.gps.Name().ShortName(), test.ShouldResemble, testGPS3)
-
 }
 
 func TestGetHeading(t *testing.T) {

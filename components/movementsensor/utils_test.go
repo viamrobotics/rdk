@@ -16,7 +16,6 @@ var (
 	nanPos   = geo.NewPoint(math.NaN(), math.NaN())
 )
 
-
 func TestNoErrors(t *testing.T) {
 	le := NewLastError(1, 1)
 	test.That(t, le.Get(), test.ShouldBeNil)

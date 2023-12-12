@@ -1,3 +1,5 @@
+// Package dualgps implements a movement sensor that calculates Compass from two
+// gps movement sensors
 package dualgps
 
 import (
@@ -7,6 +9,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -34,6 +37,8 @@ type Config struct {
 	Offset float64 `json:"offset_degrees,omitempty"`
 }
 
+// Validate validates the dual gps model's config to make sure that it has
+// two gps movement sensors.
 func (c *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
@@ -115,10 +120,11 @@ type gpsWithLock struct {
 	gpsLock sync.Mutex
 }
 
-func (lgps *gpsWithLock) getPosition(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (lgps *gpsWithLock) getPosition(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
 	lgps.gpsLock.Lock()
 	defer lgps.gpsLock.Unlock()
-	return lgps.gps.Position(ctx, extra)
+	pos, _, err := lgps.gps.Position(ctx, extra)
+	return pos, err
 }
 
 // Position gets the position of a fake movementsensor.
@@ -130,7 +136,7 @@ func (dg *dualGPS) Position(ctx context.Context, extra map[string]interface{}) (
 // 0 degrees is North, 90 degrees is East, 180 degrees is South, 270 is West.
 func getHeading(first, second *geo.Point, yawOffset float64) (float64, float64, float64) {
 	// convert latitude and longitude readings from degrees to radians
-	// so we can use use go's periodic math functions
+	// so we can use go's periodic math functions
 	firstLat := utils.DegToRad(first.Lat())
 	firstLong := utils.DegToRad(first.Lng())
 	secondLat := utils.DegToRad(second.Lat())
@@ -171,12 +177,12 @@ func getHeading(first, second *geo.Point, yawOffset float64) (float64, float64, 
 
 // CompassHeading gets the compass headings of a fake movementsensor.
 func (dg *dualGPS) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	geoPoint1, _, err := dg.gps1.getPosition(context.Background(), extra)
+	geoPoint1, err := dg.gps1.getPosition(context.Background(), extra)
 	if err != nil {
 		return math.NaN(), err
 	}
 
-	geoPoint2, _, err := dg.gps2.getPosition(context.Background(), extra)
+	geoPoint2, err := dg.gps2.getPosition(context.Background(), extra)
 	if err != nil {
 		return math.NaN(), err
 	}
@@ -194,14 +200,13 @@ func (dg *dualGPS) Properties(ctx context.Context, extra map[string]interface{})
 		OrientationSupported:        false,
 		LinearAccelerationSupported: false,
 	}, nil
-
 }
 
 func (dg *dualGPS) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	return movementsensor.DefaultAPIReadings(ctx, dg, extra)
 }
 
-// Unimplemented functions
+// Unimplemented functions.
 func (dg *dualGPS) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }
