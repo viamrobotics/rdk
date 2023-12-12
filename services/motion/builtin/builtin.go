@@ -53,8 +53,6 @@ const (
 	defaultPositionPollingHz         = 1.
 )
 
-var errMaxTravelDistance = fmt.Errorf("cannot move more than %d kilometers", int(maxTravelDistanceMM*1e-6))
-
 // inputEnabledActuator is an actuator that interacts with the frame system.
 // This allows us to figure out where the actuator currently is and then
 // move it. Input units are always in meters or radians.

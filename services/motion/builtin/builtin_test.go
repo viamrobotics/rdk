@@ -1281,7 +1281,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			Destination:        geo.NewPoint(0, 0),
 		}
 		executionID, err := ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeError, errMaxTravelDistance)
+		test.That(t, err, test.ShouldBeError, errors.New("cannot move more than 5 kilometers"))
 		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 	})
 
