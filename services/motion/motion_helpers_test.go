@@ -6,9 +6,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
-	// registers all components.
-
 	"go.viam.com/test"
 
 	_ "go.viam.com/rdk/components/register"

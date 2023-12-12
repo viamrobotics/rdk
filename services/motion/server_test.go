@@ -117,42 +117,8 @@ func TestServerMoveOnGlobe(t *testing.T) {
 	}
 	server, err := newServer(resources)
 	test.That(t, err, test.ShouldBeNil)
-
-	moveOnGlobeRequest := &pb.MoveOnGlobeRequest{
-		Name:               testMotionServiceName.ShortName(),
-		ComponentName:      protoutils.ResourceNameToProto(base.Named("test-base")),
-		Destination:        &commonpb.GeoPoint{Latitude: 0.0, Longitude: 0.0},
-		MovementSensorName: protoutils.ResourceNameToProto(movementsensor.Named("test-gps")),
-	}
-	notYetImplementedErr := errors.New("Not yet implemented")
-
-	injectMS.MoveOnGlobeFunc = func(
-		ctx context.Context,
-		componentName resource.Name,
-		destination *geo.Point,
-		heading float64,
-		movementSensorName resource.Name,
-		obstacles []*spatialmath.GeoObstacle,
-		motionCfg *motion.MotionConfiguration,
-		extra map[string]interface{},
-	) (bool, error) {
-		return false, notYetImplementedErr
-	}
-	moveOnGlobeResponse, err := server.MoveOnGlobe(context.Background(), moveOnGlobeRequest)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, notYetImplementedErr.Error())
-	test.That(t, moveOnGlobeResponse.GetSuccess(), test.ShouldBeFalse)
-}
-
-func TestServerMoveOnGlobeNew(t *testing.T) {
-	injectMS := &inject.MotionService{}
-	resources := map[resource.Name]motion.Service{
-		testMotionServiceName: injectMS,
-	}
-	server, err := newServer(resources)
-	test.That(t, err, test.ShouldBeNil)
-	t.Run("returns error without calling MoveOnGlobeNew if req.Name doesn't map to a resource", func(t *testing.T) {
-		moveOnGlobeNewRequest := &pb.MoveOnGlobeNewRequest{
+	t.Run("returns error without calling MoveOnGlobe if req.Name doesn't map to a resource", func(t *testing.T) {
+		moveOnGlobeRequest := &pb.MoveOnGlobeRequest{
 			ComponentName:      protoutils.ResourceNameToProto(base.Named("test-base")),
 			Destination:        &commonpb.GeoPoint{Latitude: 0.0, Longitude: 0.0},
 			MovementSensorName: protoutils.ResourceNameToProto(movementsensor.Named("test-gps")),
