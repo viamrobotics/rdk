@@ -316,7 +316,6 @@ func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, l
 					logger.Error(err)
 				case len(line) != 11:
 					imu.numBadReadings++
-					logger.Debug("too many bad readings, returning")
 					return
 				default:
 					imu.err.Set(imu.parseWIT(line))
