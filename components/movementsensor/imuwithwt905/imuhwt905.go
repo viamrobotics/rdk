@@ -302,9 +302,6 @@ func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, l
 				switch {
 				case err != nil:
 					logger.Error(err)
-					if imu.numBadReadings > 100 {
-						return
-					}
 				case len(line) != 11:
 					imu.numBadReadings++
 					return
