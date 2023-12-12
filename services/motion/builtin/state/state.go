@@ -323,11 +323,18 @@ func NewState(ctx context.Context, ttl time.Duration, logger logging.Logger) *St
 			}
 			select {
 			case <-cancelCtx.Done():
+				return
 			case <-ticker.C:
+				s.purgeOlderThanTTL()
 			}
 		}
 	}, s.waitGroup.Done)
 	return &s
+}
+
+func (s *State) purgeOlderThanTTL() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 }
 
 // StartExecution creates a new execution from a state.
