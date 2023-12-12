@@ -32,6 +32,10 @@ type MotionService struct {
 		slamName resource.Name,
 		extra map[string]interface{},
 	) (bool, error)
+	MoveOnMapNewFunc func(
+		ctx context.Context,
+		req motion.MoveOnMapReq,
+	) (motion.ExecutionID, error)
 	MoveOnGlobeFunc func(
 		ctx context.Context,
 		componentName resource.Name,
@@ -107,6 +111,17 @@ func (mgs *MotionService) MoveOnMap(
 		return mgs.Service.MoveOnMap(ctx, componentName, destination, slamName, extra)
 	}
 	return mgs.MoveOnMapFunc(ctx, componentName, destination, slamName, extra)
+}
+
+// MoveOnMapNew calls the injected MoveOnMap or the real variant.
+func (mgs *MotionService) MoveOnMapNew(
+	ctx context.Context,
+	req motion.MoveOnMapReq,
+) (motion.ExecutionID, error) {
+	if mgs.MoveOnMapNewFunc == nil {
+		return mgs.Service.MoveOnMapNew(ctx, req)
+	}
+	return mgs.MoveOnMapNewFunc(ctx, req)
 }
 
 // MoveOnGlobe calls the injected MoveOnGlobe or the real variant.
