@@ -28,7 +28,7 @@ const (
 	// from a single set of inputs.
 
 	// How much the bounding box of random points to sample increases in size with each algorithm iteration.
-	autoBBscale = 0.1
+	autoBBscale = 0.05
 
 	// whether to add intermediate waypoints.
 	defaultAddInt = true
@@ -290,7 +290,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	midPt := startPose.Point().Add(goalPose.Point()).Mul(0.5)
 	midOrient := &spatialmath.OrientationVector{OZ: 1, Theta: math.Atan2(-midPt.X, midPt.Y)}
 
-	midptNode := &basicNode{pose: spatialmath.NewPose(midPt, midOrient), cost: goalScore}
+	midptNode := &basicNode{pose: spatialmath.NewPose(midPt, midOrient), cost: midPt.Sub(startPose.Point()).Norm()}
 	var randPosNode node = midptNode
 
 	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
@@ -355,7 +355,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				return
 			}
 		}
-		if iter%mp.algOpts.attemptSolveEvery == 1 {
+		if iter%mp.algOpts.attemptSolveEvery == 0 {
 			// Attempt a solve; we iterate through our goal tree and attempt to find any connection to the seed tree
 			paths := [][]node{}
 			attempts := 0
