@@ -19,6 +19,8 @@ import (
 	"go.viam.com/rdk/services/motion"
 )
 
+var ttlCheckInterval = time.Second
+
 // Waypoints represent the waypoints of the plan.
 type Waypoints [][]referenceframe.Input
 
@@ -311,6 +313,20 @@ func NewState(ctx context.Context, ttl time.Duration, logger logging.Logger) *St
 		ttl:                       ttl,
 		logger:                    logger,
 	}
+	s.waitGroup.Add(1)
+	utils.ManagedGo(func() {
+		ticker := time.NewTicker(ttlCheckInterval)
+		defer ticker.Stop()
+		for {
+			if cancelCtx.Err() != nil {
+				return
+			}
+			select {
+			case <-cancelCtx.Done():
+			case <-ticker.C:
+			}
+		}
+	}, s.waitGroup.Done)
 	return &s
 }
 
@@ -347,6 +363,8 @@ func StartExecution[R any](
 	if err := e.start(ctx); err != nil {
 		return uuid.Nil, err
 	}
+
+	// If the background goroutine hasn't been booted yet, boot it now
 
 	return e.id, nil
 }
