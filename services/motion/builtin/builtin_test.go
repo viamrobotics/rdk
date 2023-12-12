@@ -1230,6 +1230,7 @@ func TestMoveOnGlobeOld(t *testing.T) {
 	})
 
 	t.Run("fail because of obstacle", func(t *testing.T) {
+		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 

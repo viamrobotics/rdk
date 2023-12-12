@@ -25,6 +25,8 @@ func newPTGIKFrame(ptg PTG, trajCount int, distFar, distNear float64) referencef
 	for i := 0; i < trajCount; i++ {
 		dist := distNear
 		if i == 0 {
+			// We only want to increase the length of the first leg of the PTG. Since gradient descent does not currently optimize
+			// for reducing path length, having more than one long leg will result in very inefficient paths.
 			dist = distFar
 		}
 		limits = append(limits,

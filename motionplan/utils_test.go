@@ -104,7 +104,7 @@ func TestEvaluate(t *testing.T) {
 }
 
 func TestPlanToPlanStepsAndGeoPoses(t *testing.T) {
-	t.Skip()
+	t.Skip() // TODO: ordering of PTGs should not be assumed to be stable, and so hardcoding inputs like this is not guaranteed to work.
 	logger := logging.NewTestLogger(t)
 	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
 	test.That(t, err, test.ShouldBeNil)

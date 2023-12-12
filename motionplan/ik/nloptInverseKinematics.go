@@ -262,7 +262,6 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			if err != nil {
 				return err
 			}
-			// ~ fmt.Println("rand2", iterations, ik.maxIterations)
 			startingPos = ik.GenerateRandomPositions(randSeed)
 		}
 	}

@@ -101,7 +101,18 @@ func (ptg *ptgIK) Solve(
 	case solved = <-internalSolutionGen:
 	default:
 	}
-	if err != nil || solved == nil || solved.Configuration[1].Value < defaultZeroDist {
+	seedOutput := true
+	if solved != nil {
+		// If nlopt failed to gradient descend, it will return the seed. If the seed is what was returned, we want to use our precomputed
+		// grid check instead.
+		for i, v := range solved.Configuration {
+			if v.Value != seed[i].Value {
+				seedOutput = false
+				break
+			}
+		}
+	}
+	if err != nil || solved == nil || solved.Configuration[1].Value < defaultZeroDist || seedOutput {
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
 		return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
 	}
