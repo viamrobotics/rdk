@@ -14,14 +14,23 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// the default offset between the two gps devices describes a setup where
+// one gps is mounted on the right side of the base and one gps is mounted on the left side of the base
+//   ___________
+//  |	base	|
+//  |			|
+// GPS2			GPS1
+//  |			|
+//  |___________|
+
 const defaultOffsetDegrees = 90.0
 
-var model = resource.DefaultModelFamily.WithModel("dual-gps")
+var model = resource.DefaultModelFamily.WithModel("dual-gps-rtk")
 
 // Config is used for converting fake movementsensor attributes.
 type Config struct {
-	Gps2   string  `json:"first_gps"`
-	Gps1   string  `json:"second_gps"`
+	Gps1   string  `json:"first_gps"`
+	Gps2   string  `json:"second_gps"`
 	Offset float64 `json:"offset_degrees,omitempty"`
 }
 
@@ -97,7 +106,7 @@ func (dg *dualGPS) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 		dg.gps2.gps = second
 	}
 
-	dg.offset = 90
+	dg.offset = defaultOffsetDegrees
 	if newConf.Offset != 0 {
 		dg.offset = newConf.Offset
 	}
@@ -118,10 +127,7 @@ func (lgps *gpsWithLock) getPosition(ctx context.Context, extra map[string]inter
 
 // Position gets the position of a fake movementsensor.
 func (dg *dualGPS) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-	// TODO
-	dg.mu.Lock()
-	defer dg.mu.Unlock()
-	return dg.gps1.getPosition(ctx, extra)
+	return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), movementsensor.ErrMethodUnimplementedPosition
 }
 
 // getHeading calculates bearing and absolute heading angles given 2 geoPoint coordinates
@@ -182,8 +188,8 @@ func (dg *dualGPS) CompassHeading(ctx context.Context, extra map[string]interfac
 
 func (dg *dualGPS) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
-		PositionSupported:           true,
 		CompassHeadingSupported:     true,
+		PositionSupported:           false,
 		LinearVelocitySupported:     false,
 		AngularVelocitySupported:    false,
 		OrientationSupported:        false,
