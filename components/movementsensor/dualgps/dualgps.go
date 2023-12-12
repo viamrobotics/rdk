@@ -94,17 +94,13 @@ func (dg *dualGPS) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	if err != nil {
 		return err
 	}
-	if newConf.Gps1 != first.Name().ShortName() {
-		dg.gps1.gps = first
-	}
+	dg.gps1.gps = first
 
 	second, err := movementsensor.FromDependencies(deps, newConf.Gps2)
 	if err != nil {
 		return err
 	}
-	if newConf.Gps2 != second.Name().ShortName() {
-		dg.gps2.gps = second
-	}
+	dg.gps2.gps = second
 
 	dg.offset = defaultOffsetDegrees
 	if newConf.Offset != 0 {
@@ -134,37 +130,40 @@ func (dg *dualGPS) Position(ctx context.Context, extra map[string]interface{}) (
 // 0 degrees is North, 90 degrees is East, 180 degrees is South, 270 is West.
 func getHeading(first, second *geo.Point, yawOffset float64) (float64, float64, float64) {
 	// convert latitude and longitude readings from degrees to radians
+	// so we can use use go's periodic math functions
 	firstLat := utils.DegToRad(first.Lat())
 	firstLong := utils.DegToRad(first.Lng())
 	secondLat := utils.DegToRad(second.Lat())
 	secondLong := utils.DegToRad(second.Lng())
 
-	// calculate bearing from gps1 to gps 2
+	// calculate the bearing between gps1 and gps2
 	deltaLong := secondLong - firstLong
 	y := math.Sin(deltaLong) * math.Cos(secondLat)
 	x := math.Cos(firstLat)*math.Sin(secondLat) - math.Sin(firstLat)*math.Cos(secondLat)*math.Cos(deltaLong)
 	bearing := utils.RadToDeg(math.Atan2(y, x))
 
-	// maps bearing to 0-360 degrees
+	// maps the bearing to the range of 0-360 degrees
 	if bearing < 0 {
 		bearing += 360
 	}
 
-	// calculate absolute heading from bearing, accounting for yaw offset
+	// calculate heading from bearing, accounting for yaw offset between the two gps devices
 	// e.g if the MovementSensor antennas are mounted on the left and right sides of the robot,
 	// the yaw offset would be roughly 90 degrees
+	heading := bearing - yawOffset
+	// make heading positive again
+	if heading < 0 {
+		diff := math.Abs(heading)
+		heading = 360 - diff
+	}
+
+	// return the standard bearing in the -180 to 180 range, with North being 0, East being 90
+	// South being 180/-180 and West being -90
 	var standardBearing float64
 	if bearing > 180 {
 		standardBearing = -(360 - bearing)
 	} else {
 		standardBearing = bearing
-	}
-	heading := bearing - yawOffset
-
-	// make heading positive again
-	if heading < 0 {
-		diff := math.Abs(heading)
-		heading = 360 - diff
 	}
 
 	return bearing, heading, standardBearing
@@ -182,8 +181,8 @@ func (dg *dualGPS) CompassHeading(ctx context.Context, extra map[string]interfac
 		return math.NaN(), err
 	}
 
-	bearing, _, _ := getHeading(geoPoint1, geoPoint2, 0)
-	return bearing, nil
+	_, heading, _ := getHeading(geoPoint1, geoPoint2, 0)
+	return heading, nil
 }
 
 func (dg *dualGPS) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
