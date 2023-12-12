@@ -98,6 +98,25 @@ func (c *client) MoveOnMap(
 	return resp.Success, nil
 }
 
+func (c *client) MoveOnMapNew(ctx context.Context, req MoveOnMapReq) (ExecutionID, error) {
+	protoReq, err := req.toProtoNew(c.name)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	resp, err := c.client.MoveOnMapNew(ctx, protoReq)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	executionID, err := uuid.Parse(resp.ExecutionId)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return executionID, nil
+}
+
 func (c *client) MoveOnGlobe(
 	ctx context.Context,
 	componentName resource.Name,
