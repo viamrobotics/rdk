@@ -24,10 +24,11 @@ const (
 	validLocationID     = "location_id"
 	validAPIKey         = "a key"
 	validAPIKeyID       = "a key id"
+	numPCDFilesOriginal = 15
 )
 
 var (
-	numPCDFiles       = 15
+	numPCDFiles       = numPCDFilesOriginal
 	batchSize0        = uint64(0)
 	batchSize1        = uint64(1)
 	batchSize2        = uint64(2)
@@ -388,7 +389,6 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 func TestReplayPCDLiveNextPointCloud(t *testing.T) {
 	ctx := context.Background()
 
-	numPCDFilesOriginal := numPCDFiles
 	numPCDFiles = 10
 	defer func() { numPCDFiles = numPCDFilesOriginal }()
 
