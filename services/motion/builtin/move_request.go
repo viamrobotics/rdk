@@ -146,7 +146,7 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, w
 			}
 			return state.ExecuteResponse{}, nil
 		default:
-			//mr.planRequest.Logger.Info(waypoints[i])
+			mr.planRequest.Logger.Info(waypoints[i])
 			if err := mr.kinematicBase.GoToInputs(ctx, waypoints[i]); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				mr.logger.Debugf("calling kinematicBase.Stop due to %s\n", err)
@@ -206,8 +206,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				return state.ExecuteResponse{}, err
 			}
 
-			mr.logger.Debugf("got %d detections", len(detections))
-
 			// Note: detections are initially observed from the camera frame but must be transformed to be in
 			// world frame. We cannot use the inputs of the base to transform the detections since they are relative
 
@@ -234,23 +232,11 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// We can safely build from scratch without excluding any valuable information.
 			geoms := []spatialmath.Geometry{}
 			for i, detection := range detections {
-				mr.logger.Debugf(
-					"detection %d as observed from the camera frame coordinate system: %s - %s",
-					i, camName.ShortName(), detection.Geometry.String(),
-				)
-
+				// put the detection in the base coordinate frame
 				geometry := detection.Geometry.Transform(baseToCamera.Pose())
-				mr.logger.Debugf(
-					"detection %d as observed from the base frame coordinate system: %s has pose: %v",
-					i, mr.kinematicBase.Kinematics().Name(), spatialmath.PoseToProtobuf(detection.Geometry.Pose()),
-				)
 
 				// put the detection into its position in the world with the base coordinate frame
 				geometry = geometry.Transform(currentPosition.Pose())
-				mr.logger.Debugf(
-					"detection %d observed in the world with the base frame coordinate system: %s has pose: %v",
-					i, mr.kinematicBase.Kinematics().Name(), spatialmath.PoseToProtobuf(detection.Geometry.Pose()),
-				)
 				label := camName.Name + "_transientObstacle_" + strconv.Itoa(i)
 				if geometry.Label() != "" {
 					label += "_" + geometry.Label()
@@ -296,11 +282,9 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				lookAheadDistanceMM,
 				mr.planRequest.Logger,
 			); err != nil {
-				mr.planRequest.Logger.Info("WE HAVE AN ERR")
 				mr.planRequest.Logger.Info(err.Error())
 				return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
 			}
-			mr.planRequest.Logger.Info("NO ERR\n")
 		}
 	}
 	return state.ExecuteResponse{}, nil
@@ -505,9 +489,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	} // Note: this is only for diff drive, not used for PTGs
 	ms.logger.Debugf("base limits: %v", limits)
 
-	otherLogger := logging.NewLogger("otherLogger")
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, otherLogger, localizer, limits, kinematicsOptions)
-	// kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
 	if err != nil {
 		return nil, err
 	}
