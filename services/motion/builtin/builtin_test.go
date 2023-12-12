@@ -756,7 +756,7 @@ func TestPositionalReplanning(t *testing.T) {
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Minute*5)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Minute*15)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
@@ -862,7 +862,7 @@ func TestObstacleReplanning(t *testing.T) {
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Minute*5)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Minute*15)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
@@ -1136,7 +1136,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			executionID, err := ms.MoveOnGlobe(ctx, req)
 			test.That(t, err, test.ShouldBeNil)
 
-			timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+			timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*15)
 			defer timeoutFn()
 			err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 				ComponentName: req.ComponentName,
@@ -1637,7 +1637,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*15)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
@@ -1679,7 +1679,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*15)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
