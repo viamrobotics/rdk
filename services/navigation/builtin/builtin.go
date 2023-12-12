@@ -571,7 +571,7 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 		}
 	}()
 
-	err = pollUntilMOGSuccessOrError(cancelCtx, svc.motionService, planHistoryPollFrequency,
+	err = motion.PollHistoryUntilSuccessOrError(cancelCtx, svc.motionService, planHistoryPollFrequency,
 		motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
 			ExecutionID:   executionID,
@@ -834,45 +834,4 @@ func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]
 		return nil, err
 	}
 	return []*navigation.Path{path}, nil
-}
-
-func pollUntilMOGSuccessOrError(
-	ctx context.Context,
-	m motion.Service,
-	interval time.Duration,
-	req motion.PlanHistoryReq,
-) error {
-	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-
-		ph, err := m.PlanHistory(ctx, req)
-		if err != nil {
-			return err
-		}
-
-		status := ph[0].StatusHistory[0]
-
-		switch status.State {
-		case motion.PlanStateInProgress:
-		case motion.PlanStateFailed:
-			err := errors.New("plan failed")
-			if reason := status.Reason; reason != nil {
-				err = errors.Wrap(err, *reason)
-			}
-			return err
-
-		case motion.PlanStateStopped:
-			return errors.New("plan stopped")
-
-		case motion.PlanStateSucceeded:
-			return nil
-
-		default:
-			return fmt.Errorf("invalid plan state %d", status.State)
-		}
-
-		time.Sleep(interval)
-	}
 }

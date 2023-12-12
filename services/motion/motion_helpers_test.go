@@ -73,7 +73,7 @@ func TestPollHistoryUntilSuccessOrError(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("returns polls until a termianl state is reached", func(t *testing.T) {
+	t.Run("returns polls until a terminal state is reached", func(t *testing.T) {
 		var callCount int
 		ms.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
 			callCount++
