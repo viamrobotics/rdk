@@ -18,27 +18,28 @@ import (
 )
 
 // the default offset between the two gps devices describes a setup where
-// one gps is mounted on the right side of the base and one gps is mounted on the left side of the base
+// one gps is mounted on the right side of the base and
+// the other gps is mounted on the left side of the base
 //   ___________
-//  |	base	|
-//  |			|
-// GPS2			GPS1
-//  |			|
+//  |   base    |
+//  |           |
+// GPS2       GPS1
+//  |           |
 //  |___________|
 
 const defaultOffsetDegrees = 90.0
 
 var model = resource.DefaultModelFamily.WithModel("dual-gps-rtk")
 
-// Config is used for converting fake movementsensor attributes.
+// Config is used for converting the movementsensor attributes.
 type Config struct {
-	Gps1   string  `json:"first_gps"`
-	Gps2   string  `json:"second_gps"`
-	Offset float64 `json:"offset_degrees,omitempty"`
+	Gps1   string   `json:"first_gps"`
+	Gps2   string   `json:"second_gps"`
+	Offset *float64 `json:"offset_degrees,omitempty"`
 }
 
-// Validate validates the dual gps model's config to make sure that it has
-// two gps movement sensors.
+// Validate validates the dual gps model's config to
+// make sure that it has two gps movement sensors.
 func (c *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
@@ -72,7 +73,7 @@ type dualGPS struct {
 	gps2 gpsWithLock
 }
 
-// newDualGPS makes a new fake movement sensor.
+// newDualGPS makes a new movement sensor.
 func newDualGPS(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (movementsensor.MovementSensor, error) {
 	dg := dualGPS{
@@ -108,8 +109,8 @@ func (dg *dualGPS) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	dg.gps2.gps = second
 
 	dg.offset = defaultOffsetDegrees
-	if newConf.Offset != 0 {
-		dg.offset = newConf.Offset
+	if newConf.Offset != nil {
+		dg.offset = *newConf.Offset
 	}
 
 	return nil
@@ -127,28 +128,29 @@ func (lgps *gpsWithLock) getPosition(ctx context.Context, extra map[string]inter
 	return pos, err
 }
 
-// Position gets the position of a fake movementsensor.
-func (dg *dualGPS) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-	return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), movementsensor.ErrMethodUnimplementedPosition
-}
-
-// getHeading calculates bearing and absolute heading angles given 2 geoPoint coordinates
-// 0 degrees is North, 90 degrees is East, 180 degrees is South, 270 is West.
+// getHeading calculates bearing, absolute heading and standardBearing angles given 2 geoPoint coordinates
+// heading: 0 degrees is North, 90 degrees is East, 180 degrees is South, 270 is West.
+// bearing: 0 degrees is North, 90 degrees is East, 180 degrees is South, 270 is West.
+// standarBearing: 0 degrees is North, 90 degrees is East, 180 degrees is South, -90 is West.
+// reference: https://www.igismap.com/formula-to-find-bearing-or-heading-angle-between-two-points-latitude-longitude/
 func getHeading(first, second *geo.Point, yawOffset float64) (float64, float64, float64) {
 	// convert latitude and longitude readings from degrees to radians
-	// so we can use go's periodic math functions
+	// so we can use go's periodic math functions.
 	firstLat := utils.DegToRad(first.Lat())
 	firstLong := utils.DegToRad(first.Lng())
 	secondLat := utils.DegToRad(second.Lat())
 	secondLong := utils.DegToRad(second.Lng())
 
-	// calculate the bearing between gps1 and gps2
+	// calculate the bearing between gps1 and gps2.
 	deltaLong := secondLong - firstLong
 	y := math.Sin(deltaLong) * math.Cos(secondLat)
 	x := math.Cos(firstLat)*math.Sin(secondLat) - math.Sin(firstLat)*math.Cos(secondLat)*math.Cos(deltaLong)
-	bearing := utils.RadToDeg(math.Atan2(y, x))
+	// return the standard bearing in the -180 to 180 range, with North being 0, East being 90
+	// South being 180/-180 and West being -90
+	standardBearing := utils.RadToDeg(math.Atan2(y, x))
 
-	// maps the bearing to the range of 0-360 degrees
+	// maps the bearing to the range of 0-360 degrees.
+	bearing := standardBearing
 	if bearing < 0 {
 		bearing += 360
 	}
@@ -159,23 +161,12 @@ func getHeading(first, second *geo.Point, yawOffset float64) (float64, float64, 
 	heading := bearing - yawOffset
 	// make heading positive again
 	if heading < 0 {
-		diff := math.Abs(heading)
-		heading = 360 - diff
-	}
-
-	// return the standard bearing in the -180 to 180 range, with North being 0, East being 90
-	// South being 180/-180 and West being -90
-	var standardBearing float64
-	if bearing > 180 {
-		standardBearing = -(360 - bearing)
-	} else {
-		standardBearing = bearing
+		heading += 360
 	}
 
 	return bearing, heading, standardBearing
 }
 
-// CompassHeading gets the compass headings of a fake movementsensor.
 func (dg *dualGPS) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	geoPoint1, err := dg.gps1.getPosition(context.Background(), extra)
 	if err != nil {
@@ -207,6 +198,10 @@ func (dg *dualGPS) Readings(ctx context.Context, extra map[string]interface{}) (
 }
 
 // Unimplemented functions.
+func (dg *dualGPS) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), movementsensor.ErrMethodUnimplementedPosition
+}
+
 func (dg *dualGPS) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }
