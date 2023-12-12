@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -335,6 +336,39 @@ func NewState(ctx context.Context, ttl time.Duration, logger logging.Logger) *St
 func (s *State) purgeOlderThanTTL() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	now := time.Now()
+	newComponentStateByComponent := make(map[resource.Name]componentState)
+	for resource, componencomponentState := range s.componentStateByComponent {
+		historyLen := len(componencomponentState.executionIDHistory)
+		lastStateChangesPlusTTL := make([]time.Time, 0, historyLen)
+		for _, id := range componencomponentState.executionIDHistory {
+			execution, ok := componencomponentState.executionsByID[id]
+			if !ok {
+				continue
+			}
+			lastStateChangesPlusTTL = append(lastStateChangesPlusTTL, execution.history[0].StatusHistory[0].Timestamp.Add(s.ttl))
+		}
+		// TODO: This isn't going to work, you need to
+		slices.BinarySearchFunc(lastStateChangesPlusTTL, now, func(a, b time.Time) int {
+			// need to flip sign as the list is in decreasing order
+			return -a.Compare(b)
+		})
+		//for i > 0 {
+		//	i--
+		//	execution, ok := componencomponentState.executionsByID[componencomponentState.executionIDHistory[i]]
+		//	if !ok {
+		//		//TODO: Log big error
+		//	}
+		//	lastStateChange := execution.history[0].StatusHistory[0].Timestamp
+		//	expired := lastStateChange.Add(s.ttl).Before(now)
+		//	if !expired {
+		//		// once we find one which is not expired, we know all the rest are also not expired
+		//		break
+		//	}
+		//	// still within the TTL,
+		//}
+
+	}
 }
 
 // StartExecution creates a new execution from a state.
