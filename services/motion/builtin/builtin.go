@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
@@ -25,6 +26,8 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
+
+var stateTTL = time.Hour * 24
 
 func init() {
 	resource.RegisterDefaultService(
@@ -134,7 +137,7 @@ func (ms *builtIn) Reconfigure(
 	if ms.state != nil {
 		ms.state.Stop()
 	}
-	ms.state = state.NewState(context.Background(), ms.logger)
+	ms.state = state.NewState(context.Background(), stateTTL, ms.logger)
 	return nil
 }
 

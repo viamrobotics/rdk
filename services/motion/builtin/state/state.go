@@ -294,19 +294,21 @@ type State struct {
 	cancelCtx  context.Context
 	cancelFunc context.CancelFunc
 	logger     logging.Logger
+	ttl        time.Duration
 	// mu protects the componentStateByComponent
 	mu                        sync.RWMutex
 	componentStateByComponent map[resource.Name]componentState
 }
 
 // NewState creates a new state.
-func NewState(ctx context.Context, logger logging.Logger) *State {
+func NewState(ctx context.Context, ttl time.Duration, logger logging.Logger) *State {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	s := State{
 		cancelCtx:                 cancelCtx,
 		cancelFunc:                cancelFunc,
 		waitGroup:                 &sync.WaitGroup{},
 		componentStateByComponent: make(map[resource.Name]componentState),
+		ttl:                       ttl,
 		logger:                    logger,
 	}
 	return &s
