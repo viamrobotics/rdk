@@ -36,7 +36,7 @@ const (
 	testTime           = "2000-01-01T12:00:%02dZ"
 	orgID              = "slam_org_id"
 	locationID         = "slam_location_id"
-	testingHttpPattern = "/myurl"
+	testingHTTPPattern = "/myurl"
 )
 
 // mockDataServiceServer is a struct that includes unimplemented versions of all the Data Service endpoints. These
@@ -83,7 +83,7 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 					OrganizationId: orgID,
 					LocationId:     locationID,
 				},
-				Uri: mDServer.httpMock[newFileNum].URL + testingHttpPattern,
+				Uri: mDServer.httpMock[newFileNum].URL + testingHTTPPattern,
 			},
 		}
 
@@ -109,7 +109,7 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 						OrganizationId: orgID,
 						LocationId:     locationID,
 					},
-					Uri: mDServer.httpMock[newFileNum+i].URL + testingHttpPattern,
+					Uri: mDServer.httpMock[newFileNum+i].URL + testingHTTPPattern,
 				},
 			}
 			resp.Data = append(resp.Data, &binaryData)
@@ -138,7 +138,7 @@ func createMockCloudDependencies(ctx context.Context, t *testing.T, logger loggi
 	test.That(t, err, test.ShouldBeNil)
 
 	// This creates a mock server for each pcd file used in testing
-	srv := newHTTPMock(testingHttpPattern, http.StatusOK)
+	srv := newHTTPMock(testingHTTPPattern, http.StatusOK)
 	test.That(t, rpcServer.RegisterServiceServer(
 		ctx,
 		&datapb.DataService_ServiceDesc,
@@ -296,7 +296,7 @@ type ctrl struct {
 	pcdFileNumber int
 }
 
-// mockHandler will return the pcd file attached to the mock server
+// mockHandler will return the pcd file attached to the mock server.
 func (c *ctrl) mockHandler(w http.ResponseWriter, r *http.Request) {
 	path := fmt.Sprintf(datasetDirectory, c.pcdFileNumber)
 	pcdFile, _ := getCompressedBytesFromArtifact(path)
@@ -305,7 +305,7 @@ func (c *ctrl) mockHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(pcdFile)
 }
 
-// newHTTPMock creates a set of mock http servers based on the number of PCD files used for testing
+// newHTTPMock creates a set of mock http servers based on the number of PCD files used for testing.
 func newHTTPMock(pattern string, statusCode int) []*httptest.Server {
 	httpServers := []*httptest.Server{}
 	for i := 0; i < numPCDFilesOriginal; i++ {
