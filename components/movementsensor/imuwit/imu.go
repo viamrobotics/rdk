@@ -88,10 +88,30 @@ type wit struct {
 	err                     movementsensor.LastError
 	hasMagnetometer         bool
 	mu                      sync.Mutex
+	reconfigMu              sync.Mutex
 	port                    io.ReadWriteCloser
 	cancelFunc              func()
+	cancelCtx               context.Context
 	activeBackgroundWorkers sync.WaitGroup
 	logger                  logging.Logger
+	baudRate                uint
+}
+
+func (imu *wit) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	imu.reconfigMu.Lock()
+	defer imu.reconfigMu.Unlock()
+
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+
+	if !rutils.ValidateBaudRate(baudRateList, int(newConf.BaudRate)) {
+		imu.baudRate = 9600
+		imu.logger.Debug("Setting default baudRate 9600")
+	}
+
+	return nil
 }
 
 func (imu *wit) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
