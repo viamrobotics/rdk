@@ -34,6 +34,7 @@ type ptgFactory func(float64, float64) PTG
 
 var defaultRestrictedPtgs = []ptgFactory{
 	NewCirclePTG,
+	NewCCPTG,
 }
 
 var defaultPTGs = []ptgFactory{

@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	defaultAutoBB = 1.2 // Automatic bounding box on driveable area as a multiple of start-goal distance
+	defaultAutoBB = 1.4 // Automatic bounding box on driveable area as a multiple of start-goal distance
 	// Note: while fully holonomic planners can use the limits of the frame as implicit boundaries, with non-holonomic motion
 	// this is not the case, and the total workspace available to the planned frame is not directly related to the motion available
 	// from a single set of inputs.
@@ -32,7 +32,7 @@ const (
 	defaultAddInt = true
 	// Add a subnode every this many mm along a valid trajectory. Large values run faster, small gives better paths
 	// Meaningless if the above is false.
-	defaultAddNodeEvery = 400.
+	defaultAddNodeEvery = 600.
 
 	// Don't add new RRT tree nodes if there is an existing node within this distance.
 	// Consider nodes on trees to be connected if they are within this distance.
@@ -52,8 +52,8 @@ const (
 	defaultBidirectional = true
 
 	// default motion planning collision resolution is every 2mm.
-	// For bases we increase this to 30mm, a bit more than 1 inch.
-	defaultPTGCollisionResolution = 30
+	// For bases we increase this to 60mm, a bit more than 2 inches.
+	defaultPTGCollisionResolution = 60
 
 	// When checking a PTG for validity and finding a collision, using the last good configuration will result in a highly restricted
 	// node that is directly facing a wall. To prevent this, we walk back along the trajectory by this percentage of the traj length
@@ -64,7 +64,7 @@ const (
 	// least this long.
 	defaultMinTrajectoryLength = 350
 	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly.
-	pathdebug = false
+	pathdebug = true
 )
 
 var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
@@ -208,6 +208,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	// get start and goal poses
 	var startPose spatialmath.Pose
 	var goalPose spatialmath.Pose
+	var goalNode node
 	goalScore := math.Inf(1)
 	for k, v := range rrt.maps.startMap {
 		if v == nil {
@@ -225,13 +226,13 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			// There may be more than one node in the tree which satisfies the goal, i.e. its parent is nil.
 			// However for the purposes of this we can just take the first one we see.
 			if k.Pose() != nil {
-				mp.goalNodes = append(mp.goalNodes, k)
 				dist := mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: startPose, EndPosition: k.Pose()})
 				if dist < goalScore {
 					// Update to use the closest goal to the start.
 					// This is necessary in order to solve deterministically.
 					goalPose = k.Pose()
 					goalScore = dist
+					goalNode = k
 				}
 			} else {
 				rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("node %v must provide a Pose", k)}
@@ -239,6 +240,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			}
 		}
 	}
+	mp.goalNodes = append(mp.goalNodes, goalNode)
 	mp.logger.Debugf("Starting TPspace solving with startMap len %d and goalMap len %d", len(rrt.maps.startMap), len(rrt.maps.goalMap))
 
 	returnFinishedPath := func(path []node) {
