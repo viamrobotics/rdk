@@ -102,6 +102,7 @@ func (ptg *ptgIK) Solve(
 	default:
 	}
 	seedOutput := true
+
 	if solved != nil {
 		// If nlopt failed to gradient descend, it will return the seed. If the seed is what was returned, we want to use our precomputed
 		// grid check instead.
@@ -112,7 +113,7 @@ func (ptg *ptgIK) Solve(
 			}
 		}
 	}
-	if err != nil || solved == nil || solved.Configuration[1].Value < defaultZeroDist || seedOutput {
+	if err != nil || solved == nil || ptg.arcDist(solved.Configuration) < defaultZeroDist || seedOutput {
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
 		return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
 	}
@@ -170,4 +171,12 @@ func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
 
 func (ptg *ptgIK) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	return ptg.ptgFrame.Transform(inputs)
+}
+
+func (ptg *ptgIK) arcDist(inputs []referenceframe.Input) float64 {
+	dist := 0.
+	for i := 1; i < len(inputs); i += 2 {
+		dist += (inputs[i].Value - defaultMinPTGlen)
+	}
+	return dist
 }

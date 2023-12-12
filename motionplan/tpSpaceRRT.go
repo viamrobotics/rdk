@@ -67,10 +67,10 @@ const (
 	defaultMinTrajectoryLength = 350
 
 	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly.
-	pathdebug = false
+	pathdebug = true
 )
 
-var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
+var defaultGoalMetricConstructor = ik.NewPosWeightSquaredNormMetric
 
 // This should only be used when bidirectional mode is `false`.
 var defaultPosOnlyGoalMetricConstructor = ik.NewPositionOnlyMetric

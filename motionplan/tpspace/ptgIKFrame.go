@@ -10,6 +10,8 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+const defaultMinPTGlen = 10.
+
 // ptgFrame wraps a tpspace.PTG so that it fills the Frame interface and can be used by IK.
 type ptgIKFrame struct {
 	PTG
@@ -31,7 +33,7 @@ func newPTGIKFrame(ptg PTG, trajCount int, distFar, distNear float64) referencef
 		}
 		limits = append(limits,
 			referenceframe.Limit{Min: -math.Pi, Max: math.Pi},
-			referenceframe.Limit{Min: 0, Max: dist},
+			referenceframe.Limit{Min: defaultMinPTGlen, Max: dist},
 		)
 	}
 

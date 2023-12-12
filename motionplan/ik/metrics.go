@@ -98,6 +98,16 @@ func NewSquaredNormMetric(goal spatial.Pose) StateMetric {
 	return weightedSqNormDist
 }
 
+// NewPosWeightSquaredNormMetric is a distance function between two poses to be used for gradient descent.
+func NewPosWeightSquaredNormMetric(goal spatial.Pose) StateMetric {
+	weightedSqNormDist := func(query *State) float64 {
+		delta := spatial.PoseDelta(goal, query.Position)
+		// Increase weight for orientation since it's a small number
+		return delta.Point().Mul(0.1).Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationDistanceScaling).Norm2()
+	}
+	return weightedSqNormDist
+}
+
 // NewPoseFlexOVMetricConstructor will provide a distance function which will converge on a pose with an OV within an arclength of `alpha`
 // of the ov of the goal given.
 func NewPoseFlexOVMetricConstructor(alpha float64) func(spatial.Pose) StateMetric {
