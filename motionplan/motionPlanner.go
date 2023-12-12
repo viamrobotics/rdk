@@ -7,13 +7,13 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"slices"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
+	"slices"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
