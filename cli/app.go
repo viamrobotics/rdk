@@ -1161,9 +1161,12 @@ Example:
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:     moduleBuildFlagPlatform,
-									Usage:    "build platform to get the logs for. Ex: linux/arm64",
-									Required: true,
+									Name:  moduleBuildFlagPlatform,
+									Usage: "build platform to get the logs for. Ex: linux/arm64. If a platform is not provided, it returns logs for all platforms",
+								},
+								&cli.BoolFlag{
+									Name:  moduleBuildFlagWait,
+									Usage: "wait for the build to finish before outputting any logs",
 								},
 							},
 							Action: ModuleBuildLogsAction,
