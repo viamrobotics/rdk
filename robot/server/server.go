@@ -23,6 +23,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -40,15 +41,19 @@ type Server struct {
 	activeBackgroundWorkers sync.WaitGroup
 	cancelCtx               context.Context
 	cancel                  func()
+	moduleLogger            logging.Logger
 }
 
 // New constructs a gRPC service server for a Robot.
 func New(r robot.Robot) pb.RobotServiceServer {
 	cancelCtx, cancel := context.WithCancel(context.Background())
+	modLogger := r.Logger().Sublogger("module")
+	modLogger.SetLevel(logging.DEBUG)
 	return &Server{
-		r:         r,
-		cancelCtx: cancelCtx,
-		cancel:    cancel,
+		r:            r,
+		cancelCtx:    cancelCtx,
+		cancel:       cancel,
+		moduleLogger: modLogger,
 	}
 }
 
@@ -406,17 +411,19 @@ func (s *Server) SendSessionHeartbeat(ctx context.Context, req *pb.SendSessionHe
 }
 
 func (s *Server) ModuleLog(ctx context.Context, req *pb.ModuleLogRequest) (*pb.ModuleLogResponse, error) {
-	switch strings.ToLower(req.Level) {
-	case "debug":
-		s.r.Logger().Debugf("%v: %v", req.ModuleName, req.Message)
-	case "info":
-		s.r.Logger().Infof("%v: %v", req.ModuleName, req.Message)
-	case "warn":
-		s.r.Logger().Warnf("%v: %v", req.ModuleName, req.Message)
-	case "error":
-		s.r.Logger().Errorf("%v: %v", req.ModuleName, req.Message)
+	level, err := logging.LevelFromString(req.Level)
+	switch {
+	case err != nil:
+		s.moduleLogger.Warn("module named %q sent a log with an invalid level %q", req.ModuleName, req.Level)
+	case level == logging.DEBUG:
+		s.moduleLogger.Debugf("%v: %v", req.ModuleName, req.Message)
+	case level == logging.INFO:
+		s.moduleLogger.Infof("%v: %v", req.ModuleName, req.Message)
+	case level == logging.WARN:
+		s.moduleLogger.Warnf("%v: %v", req.ModuleName, req.Message)
+	case level == logging.ERROR:
+		s.moduleLogger.Errorf("%v: %v", req.ModuleName, req.Message)
 	default:
-		s.r.Logger().Warn("module named %q sent a log with an invalid level %q", req.ModuleName, req.Level)
 	}
 
 	return &pb.ModuleLogResponse{}, nil
