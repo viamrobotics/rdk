@@ -78,7 +78,6 @@ func init() {
 
 type wit struct {
 	resource.Named
-	resource.AlwaysRebuild
 	angularVelocity         spatialmath.AngularVelocity
 	orientation             spatialmath.EulerAngles
 	acceleration            r3.Vector
@@ -88,12 +87,31 @@ type wit struct {
 	err                     movementsensor.LastError
 	hasMagnetometer         bool
 	mu                      sync.Mutex
+	reconfigMu              sync.Mutex
 	port                    io.ReadWriteCloser
 	cancelFunc              func()
+	cancelCtx               context.Context
 	activeBackgroundWorkers sync.WaitGroup
 	logger                  logging.Logger
+	baudRate                uint
 }
 
+func (imu *wit) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	imu.reconfigMu.Lock()
+	defer imu.reconfigMu.Unlock()
+
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+
+	if !rutils.ValidateBaudRate(baudRateList, int(newConf.BaudRate)) {
+		imu.baudRate = 9600
+		imu.logger.Debug("Setting default baudRate 9600")
+	}
+
+	return nil
+}
 func (imu *wit) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
@@ -220,6 +238,15 @@ func newWit(
 	if err != nil {
 		return nil, err
 	}
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+
+	i := wit{
+		Named:      conf.ResourceName().AsNamed(),
+		logger:     logger,
+		err:        movementsensor.NewLastError(1, 1),
+		cancelFunc: cancelFunc,
+		cancelCtx:  cancelCtx,
+	}
 
 	options := slib.OpenOptions{
 		PortName:        newConf.Port,
@@ -229,19 +256,18 @@ func newWit(
 		MinimumReadSize: 1,
 	}
 
+	if err := i.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
+	}
+
 	if newConf.BaudRate > 0 {
-		options.BaudRate = newConf.BaudRate
+		options.BaudRate = i.baudRate
 	} else {
 		logger.Warnf(
 			"no valid serial_baud_rate set, setting to default of %d, baud rate of wit imus are: %v", options.BaudRate, baudRateList,
 		)
 	}
 
-	i := wit{
-		Named:  conf.ResourceName().AsNamed(),
-		logger: logger,
-		err:    movementsensor.NewLastError(1, 1),
-	}
 	logger.Debugf("initializing wit serial connection with parameters: %+v", options)
 	i.port, err = slib.Open(options)
 	if err != nil {
@@ -256,7 +282,6 @@ func newWit(
 
 func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, logger logging.Logger) {
 	imu.hasMagnetometer = false
-	ctx, imu.cancelFunc = context.WithCancel(ctx)
 	imu.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer utils.UncheckedErrorFunc(func() error {
@@ -272,24 +297,21 @@ func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, l
 		defer imu.activeBackgroundWorkers.Done()
 
 		for {
-			if ctx.Err() != nil {
+
+			if imu.cancelCtx.Err() != nil {
 				return
 			}
+
 			select {
-			case <-ctx.Done():
+			case <-imu.cancelCtx.Done():
 				return
 			default:
 			}
 
 			line, err := portReader.ReadString('U')
-
 			func() {
-				imu.mu.Lock()
-				defer imu.mu.Unlock()
-
 				switch {
 				case err != nil:
-					imu.err.Set(err)
 					logger.Error(err)
 				case len(line) != 11:
 					imu.numBadReadings++
