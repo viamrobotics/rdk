@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	// registers all components.
@@ -1911,6 +1912,28 @@ func TestMoveOnGlobeNew(t *testing.T) {
 	ph3, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ph3, test.ShouldResemble, ph2)
+}
+
+func TestMoveOnMapNew(t *testing.T) {
+	ctx := context.Background()
+
+	base, ms := createMoveOnMapEnvironment(
+		context.Background(),
+		t,
+		"slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd",
+		110,
+	)
+	defer ms.Close(ctx)
+
+	req := motion.MoveOnMapReq{
+		ComponentName: base.Name(),
+		Destination:   spatialmath.NewZeroPose(),
+		SlamName:      slam.Named("test_slam"),
+	}
+
+	executionID, err := ms.MoveOnMapNew(ctx, req)
+	test.That(t, err.Error(), test.ShouldEqual, "unimplemented")
+	test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 }
 
 func TestStopPlan(t *testing.T) {

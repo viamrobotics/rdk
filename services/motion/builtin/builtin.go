@@ -283,6 +283,10 @@ func (ms *builtIn) MoveOnMap(
 	return true, nil
 }
 
+func (ms *builtIn) MoveOnMapNew(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
+	return uuid.Nil, errors.New("unimplemented")
+}
+
 type validatedExtra struct {
 	maxReplans       int
 	replanCostFactor float64

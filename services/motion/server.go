@@ -60,6 +60,24 @@ func (server *serviceServer) MoveOnMap(ctx context.Context, req *pb.MoveOnMapReq
 	return &pb.MoveOnMapResponse{Success: success}, err
 }
 
+func (server *serviceServer) MoveOnMapNew(ctx context.Context, req *pb.MoveOnMapNewRequest) (*pb.MoveOnMapNewResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	r, err := moveOnMapNewRequestFromProto(req)
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := svc.MoveOnMapNew(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.MoveOnMapNewResponse{ExecutionId: id.String()}, nil
+}
+
 // NOTE: Ignoring duplication as we are going to delete the current (blocking) implementation of MoveOnGlobe after the
 // "Expose Paths To Users" project is complete
 //
