@@ -3,13 +3,14 @@ package imuwit
 
 /*
 Sensor Manufacturer:  		Wit-motion
-Supported Sensor Models: 	HWT901B, BWT901, BWT61CL
+Supported Sensor Models: 	HWT901B, BWT901, BWT61CL, HWT905
 Supported OS: Linux
 Tested Sensor Models and User Manuals:
 
 	BWT61CL: https://drive.google.com/file/d/1cUTginKXArkHvwPB4LdqojG-ixm7PXCQ/view
 	BWT901:	https://drive.google.com/file/d/18bScCGO5vVZYcEeNKjXNtjnT8OVlrHGI/view
 	HWT901B TTL: https://drive.google.com/file/d/10HW4MhvhJs4RP0ko7w2nnzwmzsFCKPs6/view
+	HWT905 TTL: https://drive.google.com/file/d/1RV7j8yzZjPsPmvQY--1UHr_FhBzc2YwO/view
 
 This driver will connect to the sensor using a usb connection given as a serial path
 using a default baud rate of 115200. We allow baud rate values of: 9600, 115200
@@ -315,6 +316,7 @@ func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, l
 					logger.Error(err)
 				case len(line) != 11:
 					imu.numBadReadings++
+					logger.Debug("too many bad readings, returning")
 					return
 				default:
 					imu.err.Set(imu.parseWIT(line))
