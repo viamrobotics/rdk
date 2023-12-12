@@ -539,12 +539,7 @@ func TestModuleReloading(t *testing.T) {
 		oueRestartInterval = 10 * time.Millisecond
 
 		// Lower module startup timeout to avoid waiting for 5 mins.
-		defer func() {
-			test.That(t, os.Unsetenv(rutils.ModuleStartupTimeoutEnvVar),
-				test.ShouldBeNil)
-		}()
-		test.That(t, os.Setenv(rutils.ModuleStartupTimeoutEnvVar, "10ms"),
-			test.ShouldBeNil)
+		t.Setenv(rutils.ModuleStartupTimeoutEnvVar, "10ms")
 
 		// This test neither uses a resource manager nor asserts anything about
 		// the existence of resources in the graph. Use a dummy
@@ -585,12 +580,7 @@ func TestModuleReloading(t *testing.T) {
 		oueRestartInterval = 10 * time.Millisecond
 
 		// Lower module startup timeout to avoid waiting for 5 mins.
-		defer func() {
-			test.That(t, os.Unsetenv(rutils.ModuleStartupTimeoutEnvVar),
-				test.ShouldBeNil)
-		}()
-		test.That(t, os.Setenv(rutils.ModuleStartupTimeoutEnvVar, "30s"),
-			test.ShouldBeNil)
+		t.Setenv(rutils.ModuleStartupTimeoutEnvVar, "30s")
 
 		// This test neither uses a resource manager nor asserts anything about
 		// the existence of resources in the graph. Use a dummy
