@@ -50,8 +50,12 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistFar, refDistRestricted f
 	ptgDof := ptgFrame.DoF()
 	for i := 0; i < len(ptgDof); i++ {
 		boundRange := ptgDof[i].Max - ptgDof[i].Min
+		minAdj := boundRange * 0.2
+		if boundRange == refDistRestricted {
+			minAdj = boundRange * 0.9
+		}
 		inputs = append(inputs,
-			referenceframe.Input{ptgDof[i].Min + 0.2*boundRange},
+			referenceframe.Input{ptgDof[i].Min + minAdj},
 		)
 	}
 
@@ -100,24 +104,6 @@ func (ptg *ptgIK) Solve(
 	if err != nil || solved == nil || solved.Configuration[1].Value < defaultZeroDist {
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
 		return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
-	}
-
-	if !solved.Exact {
-		// nlopt returned something but was unable to complete the solve. See if the grid check produces something better.
-		err = ptg.gridSim.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
-		if err == nil {
-			var gridSolved *ik.Solution
-			select {
-			case gridSolved = <-internalSolutionGen:
-			default:
-			}
-			// Check if the grid has a better solution
-			if gridSolved != nil {
-				if gridSolved.Score < solved.Score {
-					solved = gridSolved
-				}
-			}
-		}
 	}
 
 	solutionChan <- solved
