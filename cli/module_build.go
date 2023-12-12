@@ -289,7 +289,7 @@ func (c *viamClient) waitForBuildToFinish(buildID, platform string) error {
 				return errors.Wrap(err, "failed to list module build jobs")
 			}
 			if len(jobsResponse.Jobs) == 0 {
-				return fmt.Errorf("build id %q it returned no jobs", buildID)
+				return fmt.Errorf("build id %q returned no jobs", buildID)
 			}
 			// Loop through all the jobs and check if all the matching jobs are done
 			allDone := true
