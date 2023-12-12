@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -195,16 +196,6 @@ type Service interface {
 	) (ExecutionID, error)
 	MoveOnGlobe(
 		ctx context.Context,
-		componentName resource.Name,
-		destination *geo.Point,
-		heading float64,
-		movementSensorName resource.Name,
-		obstacles []*spatialmath.GeoObstacle,
-		motionConfig *MotionConfiguration,
-		extra map[string]interface{},
-	) (bool, error)
-	MoveOnGlobeNew(
-		ctx context.Context,
 		req MoveOnGlobeReq,
 	) (ExecutionID, error)
 	GetPose(
@@ -362,5 +353,51 @@ func (ps PlanState) String() string {
 		return "unspecified"
 	default:
 		return "unknown"
+	}
+}
+
+// PollHistoryUntilSuccessOrError polls `PlanHistory()` with `req` every `interval`
+// until a terminal state is reached.
+// An error is returned if the terminal state is Failed, Stopped or an invalid state
+// or if the context has an error.
+// nil is returned if the terminal state is Succeeded.
+func PollHistoryUntilSuccessOrError(
+	ctx context.Context,
+	m Service,
+	interval time.Duration,
+	req PlanHistoryReq,
+) error {
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		ph, err := m.PlanHistory(ctx, req)
+		if err != nil {
+			return err
+		}
+
+		status := ph[0].StatusHistory[0]
+
+		switch status.State {
+		case PlanStateInProgress:
+		case PlanStateFailed:
+			err := errors.New("plan failed")
+			if reason := status.Reason; reason != nil {
+				err = errors.Wrap(err, *reason)
+			}
+			return err
+
+		case PlanStateStopped:
+			return errors.New("plan stopped")
+
+		case PlanStateSucceeded:
+			return nil
+
+		default:
+			return fmt.Errorf("invalid plan state %d", status.State)
+		}
+
+		time.Sleep(interval)
 	}
 }

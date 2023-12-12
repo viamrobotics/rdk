@@ -13,7 +13,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
-	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
 	goutils "go.viam.com/utils"
@@ -170,19 +169,6 @@ func (ms *explore) MoveOnMapNew(ctx context.Context, req motion.MoveOnMapReq) (m
 }
 
 func (ms *explore) MoveOnGlobe(
-	ctx context.Context,
-	componentName resource.Name,
-	destination *geo.Point,
-	heading float64,
-	movementSensorName resource.Name,
-	obstacles []*spatialmath.GeoObstacle,
-	motionCfg *motion.MotionConfiguration,
-	extra map[string]interface{},
-) (bool, error) {
-	return false, errUnimplemented
-}
-
-func (ms *explore) MoveOnGlobeNew(
 	ctx context.Context,
 	req motion.MoveOnGlobeReq,
 ) (motion.ExecutionID, error) {
