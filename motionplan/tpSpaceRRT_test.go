@@ -299,6 +299,79 @@ func TestPtgWithObstacle(t *testing.T) {
 	}
 }
 
+func TestTPsmoothing(t *testing.T) {
+	t.Parallel()
+	logger := logging.NewTestLogger(t)
+	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
+	test.That(t, err, test.ShouldBeNil)
+	geometries := []spatialmath.Geometry{roverGeom}
+
+	ctx := context.Background()
+
+	ackermanFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
+		"ackframe",
+		logger,
+		300.,
+		0,
+		testTurnRad,
+		0,
+		0,
+		geometries,
+		false,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	opt := newBasicPlannerOptions(ackermanFrame)
+	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
+	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
+	test.That(t, err, test.ShouldBeNil)
+	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
+
+	// plan which is known to be able to use some smoothing
+	planInputs := [][]referenceframe.Input{
+		{{0}, {0}, {0}},
+		{{3}, {-0.20713797715976653}, {848.2300164692441}},
+		{{4}, {0.0314906475636095}, {848.2300108402619}},
+		{{4}, {0.0016660735709435135}, {848.2300146893297}},
+		{{0}, {0.00021343061342569985}, {408}},
+		{{4}, {1.9088870836327245}, {737.7547597081078}},
+		{{2}, {-1.3118738553451883}, {848.2300164692441}},
+		{{0}, {-3.1070696573964987}, {848.2300164692441}},
+		{{0}, {-2.5547017183037877}, {306}},
+		{{4}, {-2.31209484211255}, {408}},
+		{{0}, {1.1943809502464207}, {571.4368241014894}},
+		{{0}, {0.724950779684863}, {848.2300164692441}},
+		{{0}, {-1.2295409308605127}, {848.2294213788913}},
+		{{4}, {2.677652944060827}, {848.230013198154}},
+		{{0}, {2.7618396954635545}, {848.2300164692441}},
+		{{0}, {0}, {0}},
+	}
+	plan := []node{}
+	for _, inp := range planInputs {
+		thisNode := &basicNode{
+			q:    inp,
+			cost: inp[2].Value,
+		}
+		plan = append(plan, thisNode)
+	}
+	plan, err = rectifyTPspacePath(plan, tp.frame, spatialmath.NewZeroPose())
+	test.That(t, err, test.ShouldBeNil)
+
+	tp.planOpts.SmoothIter = 20
+
+	newplan := tp.smoothPath(ctx, plan)
+	test.That(t, newplan, test.ShouldNotBeNil)
+	oldcost := 0.
+	smoothcost := 0.
+	for _, planNode := range plan {
+		oldcost += planNode.Cost()
+	}
+	for _, planNode := range newplan {
+		smoothcost += planNode.Cost()
+	}
+	test.That(t, smoothcost, test.ShouldBeLessThan, oldcost)
+}
+
 func TestPtgCheckPlan(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
