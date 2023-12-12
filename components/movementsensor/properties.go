@@ -6,11 +6,11 @@ import pb "go.viam.com/api/component/movementsensor/v1"
 // of a movementsensor.
 type Properties struct {
 	PositionSupported           bool
+	OrientationSupported        bool
+	CompassHeadingSupported     bool
 	LinearVelocitySupported     bool
 	AngularVelocitySupported    bool
 	LinearAccelerationSupported bool
-	CompassHeadingSupported     bool
-	OrientationSupported        bool
 }
 
 // ProtoFeaturesToProperties takes a GetPropertiesResponse and returns
@@ -18,11 +18,11 @@ type Properties struct {
 func ProtoFeaturesToProperties(resp *pb.GetPropertiesResponse) *Properties {
 	return &Properties{
 		PositionSupported:           resp.PositionSupported,
+		OrientationSupported:        resp.OrientationSupported,
+		CompassHeadingSupported:     resp.CompassHeadingSupported,
 		LinearVelocitySupported:     resp.LinearVelocitySupported,
 		AngularVelocitySupported:    resp.AngularVelocitySupported,
 		LinearAccelerationSupported: resp.LinearAccelerationSupported,
-		CompassHeadingSupported:     resp.CompassHeadingSupported,
-		OrientationSupported:        resp.OrientationSupported,
 	}
 }
 
@@ -33,10 +33,10 @@ func PropertiesToProtoResponse(
 ) (*pb.GetPropertiesResponse, error) {
 	return &pb.GetPropertiesResponse{
 		PositionSupported:           features.PositionSupported,
+		OrientationSupported:        features.OrientationSupported,
+		CompassHeadingSupported:     features.CompassHeadingSupported,
 		LinearVelocitySupported:     features.LinearVelocitySupported,
 		AngularVelocitySupported:    features.AngularVelocitySupported,
 		LinearAccelerationSupported: features.LinearAccelerationSupported,
-		CompassHeadingSupported:     features.CompassHeadingSupported,
-		OrientationSupported:        features.OrientationSupported,
 	}, nil
 }
