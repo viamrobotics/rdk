@@ -30,7 +30,7 @@ func CreateCombinedIKSolver(model referenceframe.Frame, logger logging.Logger, n
 		nCPU = 1
 	}
 	for i := 1; i <= nCPU; i++ {
-		nlopt, err := CreateNloptIKSolver(model, logger, -1, true, true)
+		nlopt, err := CreateNloptIKSolver(model, logger, -1, true, true, goalThreshold)
 		nlopt.id = i
 		if err != nil {
 			return nil, err

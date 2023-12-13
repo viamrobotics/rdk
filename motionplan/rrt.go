@@ -19,9 +19,6 @@ const (
 	// The maximum percent of a joints range of motion to allow per step.
 	defaultFrameStep = 0.015
 
-	// If the dot product between two sets of joint angles is less than this, consider them identical.
-	defaultJointSolveDist = 0.0001
-
 	// Number of iterations to run before beginning to accept randomly seeded locations.
 	defaultIterBeforeRand = 50
 )

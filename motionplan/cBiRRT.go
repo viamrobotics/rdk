@@ -75,7 +75,7 @@ func newCBiRRTMotionPlanner(
 		return nil, err
 	}
 	// nlopt should try only once
-	nlopt, err := ik.CreateNloptIKSolver(frame, logger, 1, true, true)
+	nlopt, err := ik.CreateNloptIKSolver(frame, logger, 1, true, true, defaultGoalThreshold)
 	if err != nil {
 		return nil, err
 	}

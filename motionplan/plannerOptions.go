@@ -46,6 +46,9 @@ const (
 	// default number of position only seeds to use for tp-space planning.
 	defaultTPspacePositionOnlySeeds = 16
 
+	// If the dot product between two sets of joint angles is less than this, consider them identical.
+	defaultGoalThreshold = 0.0001
+
 	// descriptions of constraints.
 	defaultLinearConstraintDesc         = "Constraint to follow linear path"
 	defaultPseudolinearConstraintDesc   = "Constraint to follow pseudolinear path, with tolerance scaled to path length"
@@ -82,8 +85,6 @@ func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 	opt.ScoreFunc = ik.L2InputMetric
 	opt.pathMetric = ik.NewZeroMetric() // By default, the distance to the valid manifold is zero, unless constraints say otherwise
 	// opt.goalMetric is intentionally unset as it is likely dependent on the goal itself.
-
-	opt.GoalThreshold = 0.1
 	// Set defaults
 	opt.MaxSolutions = defaultSolutionsToSeed
 	opt.MinScore = defaultMinIkScore
@@ -93,7 +94,7 @@ func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 
 	opt.PlanIter = defaultPlanIter
 	opt.FrameStep = defaultFrameStep
-	opt.JointSolveDist = defaultJointSolveDist
+	opt.GoalThreshold = defaultJointSolveDist
 	opt.IterBeforeRand = defaultIterBeforeRand
 	opt.qstep = getFrameSteps(frame, defaultFrameStep)
 
@@ -141,7 +142,7 @@ type plannerOptions struct {
 	// Number of cpu cores to use
 	NumThreads int `json:"num_threads"`
 
-	// How close to get to the goal
+	// How closely to connect 
 	GoalThreshold float64 `json:"goal_threshold"`
 
 	// Number of planner iterations before giving up.
@@ -149,9 +150,6 @@ type plannerOptions struct {
 
 	// The maximum percent of a joints range of motion to allow per step.
 	FrameStep float64 `json:"frame_step"`
-
-	// If the dot product between two sets of joint angles is less than this, consider them identical.
-	JointSolveDist float64 `json:"joint_solve_dist"`
 
 	// Number of iterations to mrun before beginning to accept randomly seeded locations.
 	IterBeforeRand int `json:"iter_before_rand"`
