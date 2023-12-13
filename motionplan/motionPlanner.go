@@ -441,6 +441,7 @@ IK:
 	for k := range solutions {
 		keys = append(keys, k)
 	}
+	// TODO: switch this to slices.Sort when golang 1.21 is supported by RDK
 	sort.Float64s(keys)
 
 	orderedSolutions := make([]node, 0)
