@@ -118,8 +118,8 @@ type nodeAndError struct {
 // tpSpaceRRTMotionPlanner.
 type tpSpaceRRTMotionPlanner struct {
 	*planner
-	algOpts   *tpspaceOptions
-	tpFrame   tpspace.PTGProvider
+	algOpts *tpspaceOptions
+	tpFrame tpspace.PTGProvider
 
 	// This tracks the nodes added to the goal tree in an ordered fashion. Nodes will always be added to this slice in the
 	// same order, yielding deterministic results when the goal tree is iterated over.
@@ -797,7 +797,6 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 }
 
 func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
-
 	if mp.planOpts.Resolution == defaultResolution {
 		mp.planOpts.Resolution = defaultPTGCollisionResolution
 	}

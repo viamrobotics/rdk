@@ -1762,6 +1762,7 @@ func TestMoveOnMapNew(t *testing.T) {
 		t,
 		"slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd",
 		110,
+		nil,
 	)
 	defer ms.Close(ctx)
 
