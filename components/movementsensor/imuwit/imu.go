@@ -19,6 +19,9 @@ We ask the user to refer to the datasheet if any baud rate changes are required 
 Other models that connect over serial may work, but we ask the user to refer to wit-motion's datasheet
 in that case as well. As of Feb 2023, Wit-motion has 48 gyro/inclinometer/imu models with varied levels of
 driver commonality.
+
+Note: Model HWT905-TTL is not supported under the model name "imu-wit". Use the model name "imu-wit-hwt905"
+for HWT905-TTL.
 */
 
 import (
@@ -106,10 +109,7 @@ func (imu *wit) Reconfigure(ctx context.Context, deps resource.Dependencies, con
 		return err
 	}
 
-	if !rutils.ValidateBaudRate(baudRateList, int(newConf.BaudRate)) {
-		imu.baudRate = 9600
-		imu.logger.Debug("Setting default baudRate 9600")
-	}
+	imu.baudRate = newConf.BaudRate
 
 	return nil
 }
