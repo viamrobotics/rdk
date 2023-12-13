@@ -246,6 +246,7 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 			Ppy:    intrinsics.CenterYPx,
 		}
 	}
+	result.MimeTypes = resp.MimeTypes
 	result.SupportsPCD = resp.SupportsPcd
 	// if no distortion model present, return result with no model
 	if resp.DistortionParameters == nil {

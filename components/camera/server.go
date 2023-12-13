@@ -264,6 +264,8 @@ func (s *serviceServer) GetProperties(
 			Parameters: props.DistortionParams.Parameters(),
 		}
 	}
+
+	result.MimeTypes = props.MimeTypes
 	return result, nil
 }
 
