@@ -275,10 +275,10 @@ jobs:
       - name: Check Results
         run: |
           echo Pi Tests: ${{ needs.test_pi.result }}
-          echo Main Tests: ${{ needs.build_and_test.result }}
+          echo Main Tests: ${{ needs.comments.result }}
           echo E2E Tests: ${{ needs.test_e2e.result }}
           echo 32-bit Tests: ${{ needs.test32.result }}
           [ "${{ needs.test_pi.result }}" == "success" ] && \
-          [ "${{ needs.build_and_test.result }}" == "success" ] && \
+          [ "${{ needs.comments.result }}" == "success" ] && \
           [ "${{ needs.test_e2e.result }}" == "success" ] && \
           [ "${{ needs.test32.result }}" == "success" ]
