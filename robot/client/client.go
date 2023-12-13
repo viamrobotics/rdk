@@ -4,6 +4,7 @@ package client
 import (
 	"context"
 	"flag"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -17,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
+	apppb "go.viam.com/api/app/v1"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
@@ -53,6 +55,10 @@ var (
 
 	// defaultResourcesTimeout is the default timeout for getting resources.
 	defaultResourcesTimeout = 5 * time.Second
+
+	// moduleTSLogKey is the key used in conjunction with the timestamp of module logs sent back to
+	// the RDK.
+	moduleTSLogKey = "module_log_ts"
 )
 
 type reconfigurableClientConn struct {
@@ -939,12 +945,30 @@ func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[
 
 // ModuleLog sends a log entry to the server. To be used by Golang modules wanting to log over gRPC and not
 // by normal Golang SDK clients.
-func (rc *RobotClient) ModuleLog(ctx context.Context, log zapcore.Entry) error {
-	logRequest := &pb.ModuleLogRequest{
-		ModuleName: log.LoggerName, // assume logger name is module name
-		Level:      log.Level.String(),
-		Message:    log.Message,
+func (rc *RobotClient) ModuleLog(ctx context.Context, log zapcore.Entry, fields []zapcore.Field) error {
+	// NOTE(benjirewis): formatting string is my best guess at what would be the
+	// useful pieces of the whole time stamp for module users (month, day, hour,
+	// minute, second).
+	timeStr := log.Time.Format("Jan 02 15:04:05")
+	message := fmt.Sprintf(`%v %q {%q: %v`, log.Caller.TrimmedPath(), log.Message, moduleTSLogKey, timeStr)
+	for _, field := range fields {
+		message = fmt.Sprintf("%v, %v: %v", message, field.Key, field.String)
 	}
+	message = fmt.Sprintf("%v}", message) // close }
+
+	logRequest := &pb.ModuleLogRequest{
+		Log: &apppb.LogEntry{
+			// leave out Host; Host is not meaningful for module logging
+			Level: log.Level.String(),
+			// leave out Time; Time is already in message field below
+			LoggerName: log.LoggerName,
+			Message:    message,
+			// leave out Caller; Caller is already in Message field above
+			Stack: log.Stack,
+			// leave out Fields; Caller is already in Message field above
+		},
+	}
+
 	_, err := rc.client.ModuleLog(ctx, logRequest)
 	return err
 }

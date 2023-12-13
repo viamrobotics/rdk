@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
@@ -41,19 +42,15 @@ type Server struct {
 	activeBackgroundWorkers sync.WaitGroup
 	cancelCtx               context.Context
 	cancel                  func()
-	moduleLogger            logging.Logger
 }
 
 // New constructs a gRPC service server for a Robot.
 func New(r robot.Robot) pb.RobotServiceServer {
 	cancelCtx, cancel := context.WithCancel(context.Background())
-	modLogger := r.Logger().Sublogger("module")
-	modLogger.SetLevel(logging.DEBUG)
 	return &Server{
-		r:            r,
-		cancelCtx:    cancelCtx,
-		cancel:       cancel,
-		moduleLogger: modLogger,
+		r:         r,
+		cancelCtx: cancelCtx,
+		cancel:    cancel,
 	}
 }
 
@@ -411,18 +408,26 @@ func (s *Server) SendSessionHeartbeat(ctx context.Context, req *pb.SendSessionHe
 }
 
 func (s *Server) ModuleLog(ctx context.Context, req *pb.ModuleLogRequest) (*pb.ModuleLogResponse, error) {
-	level, err := logging.LevelFromString(req.Level)
+	log := req.Log
+	if log == nil {
+		return nil, errors.New("ModuleLogRequest received with no associated Log")
+	}
+
+	// Use a sublogger of robot logger with module's logger name. Disable caller
+	// to mimic caller passed in from module.
+	logger := s.r.Logger().Sublogger(log.LoggerName).WithOptions(zap.WithCaller(false))
+	level, err := logging.LevelFromString(log.Level)
 	switch {
 	case err != nil:
-		s.moduleLogger.Warn("module named %q sent a log with an invalid level %q", req.ModuleName, req.Level)
+		logger.Warn("Module logger named %q sent a log with an invalid level %q", log.LoggerName, log.Level)
 	case level == logging.DEBUG:
-		s.moduleLogger.Debugf("%v: %v", req.ModuleName, req.Message)
+		logger.Debug(log.Message)
 	case level == logging.INFO:
-		s.moduleLogger.Infof("%v: %v", req.ModuleName, req.Message)
+		logger.Info(log.Message)
 	case level == logging.WARN:
-		s.moduleLogger.Warnf("%v: %v", req.ModuleName, req.Message)
+		logger.Warn(log.Message)
 	case level == logging.ERROR:
-		s.moduleLogger.Errorf("%v: %v", req.ModuleName, req.Message)
+		logger.Error(log.Message)
 	default:
 	}
 

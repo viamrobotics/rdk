@@ -53,10 +53,10 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 			return nil
 		}
 		time.Sleep(time.Second)
-		logger.Debug("debug message")
-		logger.Info("info message")
-		logger.Warn("warn message")
-		logger.Error("error message")
+		logger.Debugw("debug message", "myKey", "myVal")
+		logger.Infow("info message", "myKey", "myVal")
+		logger.Warnw("warn message", "myKey", "myVal")
+		logger.Errorw("error message", "myKey", "myVal")
 	}
 }
 

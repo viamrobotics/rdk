@@ -45,7 +45,7 @@ func (ma *moduleAppender) Write(log zapcore.Entry, fields []zapcore.Field) error
 	moduleLogCtx, moduleLogCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer moduleLogCancel()
 
-	return ma.module.parent.ModuleLog(moduleLogCtx, log)
+	return ma.module.parent.ModuleLog(moduleLogCtx, log, fields)
 }
 
 // Sync is a no-op (moduleAppenders do not currently have buffers that needs
