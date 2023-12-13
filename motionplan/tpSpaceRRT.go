@@ -120,6 +120,9 @@ type tpSpaceRRTMotionPlanner struct {
 	*planner
 	algOpts   *tpspaceOptions
 	tpFrame   tpspace.PTGProvider
+
+	// This tracks the nodes added to the goal tree in an ordered fashion. Nodes will always be added to this slice in the
+	// same order, yielding deterministic results when the goal tree is iterated over.
 	goalNodes []node
 }
 
@@ -794,6 +797,11 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 }
 
 func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
+
+	if mp.planOpts.Resolution == defaultResolution {
+		mp.planOpts.Resolution = defaultPTGCollisionResolution
+	}
+
 	tpOpt := &tpspaceOptions{
 		autoBB: defaultAutoBB,
 
