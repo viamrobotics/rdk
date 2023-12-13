@@ -55,7 +55,7 @@ func (c *Config) Validate(path string) ([]string, error) {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "second_gps")
 	}
 
-	if *c.Offset < 0 || *c.Offset > 360 {
+	if c.Offset != nil && (*c.Offset < 0 || *c.Offset > 360) {
 		return nil, resource.NewConfigValidationError(
 			path,
 			errors.New("this driver only allows offset values from 0 to 360"))
@@ -153,7 +153,7 @@ func getHeading(firstPoint, secondPoint *geo.Point, yawOffset float64,
 		bearing += 360
 	}
 
-	// calculate heading from bearing, accounting for yaw offset between the two gps devices
+	// calculate heading from bearing, accounting for yaw offset between the two gps ©
 	// e.g if the MovementSensor antennas are mounted on the left and right sides of the robot,
 	// the yaw offset would be roughly 90 degrees
 	heading := bearing - yawOffset
