@@ -13,7 +13,7 @@ Tested Sensor Models and User Manuals:
 import (
 	"bufio"
 	"context"
-	"fmt"
+	"errors"
 	"time"
 
 	slib "github.com/jacobsa/go-serial/serial"
@@ -94,7 +94,7 @@ func (imu *wit) start905UpdateLoop(portReader *bufio.Reader, logger logging.Logg
 			case <-imu.cancelCtx.Done():
 				return
 			case <-time.After(10 * time.Second):
-				logger.Warnf("ReadString timeout exceeded")
+				logger.Warn("ReadString timeout exceeded")
 				return
 			default:
 				line, err := readWithTimeout(portReader, 'U')
@@ -134,6 +134,6 @@ func readWithTimeout(r *bufio.Reader, delim byte) (string, error) {
 	case err := <-errChan:
 		return "", err
 	case <-time.After(10 * time.Second):
-		return "", fmt.Errorf("timeout exceeded while reading from serial port")
+		return "", errors.New("timeout exceeded while reading from serial port")
 	}
 }
