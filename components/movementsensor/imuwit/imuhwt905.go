@@ -13,6 +13,8 @@ Tested Sensor Models and User Manuals:
 import (
 	"bufio"
 	"context"
+	"fmt"
+	"time"
 
 	slib "github.com/jacobsa/go-serial/serial"
 	"go.viam.com/utils"
@@ -41,6 +43,7 @@ func newWit905(
 	if err != nil {
 		return nil, err
 	}
+
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	i := wit{
@@ -49,26 +52,19 @@ func newWit905(
 		err:        movementsensor.NewLastError(1, 1),
 		cancelFunc: cancelFunc,
 		cancelCtx:  cancelCtx,
+		baudRate:   newConf.BaudRate,
+		serialPath: newConf.Port,
 	}
 
 	options := slib.OpenOptions{
-		PortName:        newConf.Port,
-		BaudRate:        115200,
+		PortName:        i.serialPath,
+		BaudRate:        i.baudRate,
 		DataBits:        8,
 		StopBits:        1,
 		MinimumReadSize: 1,
 	}
-
 	if err := i.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
-	}
-
-	if newConf.BaudRate > 0 {
-		options.BaudRate = i.baudRate
-	} else {
-		logger.Warnf(
-			"no valid serial_baud_rate set, setting to default of %d, baud rate of wit imus are: %v", options.BaudRate, baudRateList,
-		)
 	}
 
 	logger.Debugf("initializing wit serial connection with parameters: %+v", options)
@@ -87,16 +83,6 @@ func (imu *wit) start905UpdateLoop(portReader *bufio.Reader, logger logging.Logg
 	imu.hasMagnetometer = false
 	imu.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer utils.UncheckedErrorFunc(func() error {
-			if imu.port != nil {
-				if err := imu.port.Close(); err != nil {
-					imu.port = nil
-					return err
-				}
-				imu.port = nil
-			}
-			return nil
-		})
 		defer imu.activeBackgroundWorkers.Done()
 
 		for {
@@ -107,21 +93,47 @@ func (imu *wit) start905UpdateLoop(portReader *bufio.Reader, logger logging.Logg
 			select {
 			case <-imu.cancelCtx.Done():
 				return
+			case <-time.After(10 * time.Second):
+				logger.Warnf("ReadString timeout exceeded")
+				return
 			default:
-			}
-
-			line, err := portReader.ReadString('U')
-			func() {
-				switch {
-				case err != nil:
+				line, err := readWithTimeout(portReader, 'U')
+				if err != nil {
 					logger.Error(err)
+					continue
+				}
+
+				switch {
 				case len(line) != 11:
 					imu.numBadReadings++
-					return
 				default:
 					imu.err.Set(imu.parseWIT(line))
 				}
-			}()
+			}
 		}
 	})
+}
+
+// readWithTimeout tries to read from the buffer until the delimiter is found or timeout occurs.
+func readWithTimeout(r *bufio.Reader, delim byte) (string, error) {
+	lineChan := make(chan string)
+	errChan := make(chan error)
+
+	go func() {
+		line, err := r.ReadString(delim)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		lineChan <- line
+	}()
+
+	select {
+	case line := <-lineChan:
+		return line, nil
+	case err := <-errChan:
+		return "", err
+	case <-time.After(10 * time.Second):
+		return "", fmt.Errorf("timeout exceeded while reading from serial port")
+	}
 }

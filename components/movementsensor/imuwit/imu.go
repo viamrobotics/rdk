@@ -98,6 +98,7 @@ type wit struct {
 	activeBackgroundWorkers sync.WaitGroup
 	logger                  logging.Logger
 	baudRate                uint
+	serialPath              string
 }
 
 func (imu *wit) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
@@ -110,6 +111,7 @@ func (imu *wit) Reconfigure(ctx context.Context, deps resource.Dependencies, con
 	}
 
 	imu.baudRate = newConf.BaudRate
+	imu.serialPath = newConf.Port
 
 	return nil
 }
