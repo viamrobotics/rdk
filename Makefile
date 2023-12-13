@@ -73,6 +73,9 @@ check-web:
 cover: test-go
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
 
+cover-only: tool-install
+	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
+
 test: test-go test-web
 
 test-no-race: test-go-no-race test-web

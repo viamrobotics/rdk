@@ -13,8 +13,7 @@ env:
   MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
 jobs:
-  build_and_test:
-    name: Build and Test
+  lint:
     strategy:
       fail-fast: false
       matrix:
@@ -23,12 +22,10 @@ jobs:
             image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
             platform: linux/amd64
             platform_name: linux-amd64
-            test_cmd: "make cover test-web"
           - arch: [buildjet-8vcpu-ubuntu-2204-arm]
             image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
             platform: linux/arm64
             platform_name: linux-arm64
-            test_cmd: "make cover test-web"
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
@@ -36,16 +33,53 @@ jobs:
     timeout-minutes: 30
 
     steps:
-    - name: Check out code
-      if: github.event_name != 'pull_request_target'
-      uses: actions/checkout@v3
-
-    - name: Check out PR branch code
-      if: github.event_name == 'pull_request_target'
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v3
       with:
-        ref: ${{ github.event.pull_request.head.sha }}
-        fetch-depth: 0 # 0 so we can analyze history for coverage
+        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
+        fetch-depth: ${{ github.event_name == 'pull_request_target' && '0' || '1' }} # 0 aka full history, so we can analyze history for coverage
+
+    - name: chown
+      run: chown -R testbot:testbot .
+
+    - name: Verify no uncommitted changes from "make build lint"
+      run: |
+        git init
+        git add .
+        chown -R testbot:testbot .
+        sudo -Hu testbot bash -lc 'make build lint'
+        GEN_DIFF=$(git status -s)
+
+        if [ -n "$GEN_DIFF" ]; then
+            echo '"make build lint" resulted in changes not in git' 1>&2
+            git status
+            exit 1
+        fi
+
+  test:
+    needs: [lint]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: [buildjet-8vcpu-ubuntu-2204]
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+            platform: linux/amd64
+            platform_name: linux-amd64
+          - arch: [buildjet-8vcpu-ubuntu-2204-arm]
+            image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
+            platform: linux/arm64
+            platform_name: linux-arm64
+    runs-on: ${{ matrix.arch }}
+    container:
+      image: ${{ matrix.image }}
+      options: --platform ${{ matrix.platform }}
+    timeout-minutes: 30
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
+        fetch-depth: ${{ github.event_name == 'pull_request_target' && '0' || '1' }} # 0 aka full history, so we can analyze history for coverage
 
     - name: Set main env vars
       if: github.event_name != 'pull_request_target'
@@ -63,23 +97,12 @@ jobs:
         echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
         echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
 
-    - name: Verify no uncommitted changes from "make build lint"
-      run: |
-        git init
-        git add .
-        chown -R testbot:testbot .
-        sudo -Hu testbot bash -lc 'make build lint'
-        GEN_DIFF=$(git status -s)
-
-        if [ -n "$GEN_DIFF" ]; then
-            echo '"make build lint" resulted in changes not in git' 1>&2
-            git status
-            exit 1
-        fi
+    - name: chown
+      run: chown -R testbot:testbot .
 
     - name: Test
       run: |
-        sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc '${{ matrix.test_cmd }}'
+        sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make test-go test-web'
 
     - name: Upload test.json
       if: always()
@@ -89,9 +112,71 @@ jobs:
         path: json.log
         retention-days: 30
 
+  coverage:
+    # note: we split 'test' and 'coverage' steps because running race-detection + covprofile simultaneously is slow enough to cause flakes
+    needs: [lint]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: [buildjet-8vcpu-ubuntu-2204]
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+            platform: linux/amd64
+            platform_name: linux-amd64
+          - arch: [buildjet-8vcpu-ubuntu-2204-arm]
+            image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
+            platform: linux/arm64
+            platform_name: linux-arm64
+    runs-on: ${{ matrix.arch }}
+    container:
+      image: ${{ matrix.image }}
+      options: --platform ${{ matrix.platform }}
+    timeout-minutes: 30
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
+        fetch-depth: ${{ github.event_name == 'pull_request_target' && '0' || '1' }} # 0 aka full history, so we can analyze history for coverage
+
+    - name: Set main env vars
+      if: github.event_name != 'pull_request_target'
+      run: |
+        echo "GITHUB_X_HEAD_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
+        echo "GITHUB_X_HEAD_REF=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+
+    - name: Set PR env vars
+      if: github.event_name == 'pull_request_target'
+      env:
+        GITHUB_HEAD_REF_SAN: ${{ github.event.pull_request.head.label }}
+      run: |
+        echo "GITHUB_X_HEAD_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
+        echo "GITHUB_X_HEAD_REF=${GITHUB_HEAD_REF_SAN}" >> $GITHUB_ENV
+        echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
+        echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
+
+    - name: chown
+      run: chown -R testbot:testbot .
+
+    - name: Test
+      run: |
+        sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make cover-only'
+
+    - name: Upload code coverage
+      uses: actions/upload-artifact@v3
+      with:
+        name: pr-code-coverage
+        path: |
+          pr.env
+          code-coverage-results.md
+        retention-days: 1
+
+  comments:
+    runs-on: ubuntu-latest
+    needs: [test, coverage]
+    steps:
     # Now that RDK is public, can't directly comment without token having full read/write access
     # code-coverage-comment.yml will trigger seperately and post the actual comments
-
     - name: Prepare code comment
       run: |
         echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> pr.env
@@ -105,15 +190,6 @@ jobs:
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
       run: |
         echo "STATIC=true" >> pr.env
-
-    - name: Upload code coverage
-      uses: actions/upload-artifact@v3
-      with:
-        name: pr-code-coverage
-        path: |
-         pr.env
-         code-coverage-results.md
-        retention-days: 1
 
   test32:
     name: 32-bit test
@@ -192,7 +268,7 @@ jobs:
 
   test_passing:
     name: All Tests Passing
-    needs: [test_pi, build_and_test, test_e2e, test32]
+    needs: [test_pi, comments, test_e2e, test32]
     runs-on: [ubuntu-latest]
     if: always()
     steps:
