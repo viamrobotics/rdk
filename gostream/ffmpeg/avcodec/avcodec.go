@@ -12,7 +12,12 @@ package avcodec
 //#include <libavcodec/packet.h>
 //#include <libavutil/avutil.h>
 import "C"
-import "unsafe"
+
+import (
+	"unsafe"
+
+	"go.viam.com/rdk/gostream/ffmpeg/avlog"
+)
 
 // AvPixFmtYuv420p the pixel format AV_PIX_FMT_YUV420P
 const AvPixFmtYuv420p = C.AV_PIX_FMT_YUV420P
@@ -265,4 +270,28 @@ func (p *Packet) Data() *uint8 {
 // Size returns the packet size
 func (p *Packet) Size() int {
 	return int(p.size)
+}
+
+// EncoderIsAvailable returns true if the given encoder is available, false otherwise.
+func EncoderIsAvailable(enc string) bool {
+	// Quiet logging during function execution, but reset afterward.
+	lvl := avlog.GetLevel()
+	defer avlog.SetLevel(lvl)
+	avlog.SetLevel(avlog.LogQuiet)
+
+	codec := FindEncoderByName(enc)
+	if codec == nil {
+		return false
+	}
+
+	context := codec.AllocContext3()
+	if context == nil {
+		return false
+	}
+
+	// Only need positive values
+	context.SetEncodeParams(1, 1, AvPixFmtYuv420p, false, 1)
+	context.SetFramerate(1)
+
+	return context.Open2(codec, nil) == 0
 }
