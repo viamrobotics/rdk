@@ -178,7 +178,7 @@ func (dg *dualGPS) CompassHeading(ctx context.Context, extra map[string]interfac
 		return math.NaN(), err
 	}
 
-	_, heading, _ := getHeading(geoPoint1, geoPoint2, 0)
+	_, heading, _ := getHeading(geoPoint1, geoPoint2, dg.offset)
 	return heading, nil
 }
 
