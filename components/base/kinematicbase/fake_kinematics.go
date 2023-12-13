@@ -136,23 +136,23 @@ type fakePTGKinematics struct {
 	sleepTime   time.Duration
 }
 
-// WrapWithFakePTGKinematics creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled
-// interfaces.
-func WrapWithFakePTGKinematics(
+type NewPTGFrameFromKinematicOptionsReq struct {
+	Base    *fake.Base
+	Origin  *referenceframe.PoseInFrame
+	Options Options
+}
+
+func NewPTGFrameFromKinematicOptions(
 	ctx context.Context,
-	b *fake.Base,
+	req NewPTGFrameFromKinematicOptionsReq,
 	logger logging.Logger,
-	origin *referenceframe.PoseInFrame,
-	options Options,
-	sensorNoise spatialmath.Pose,
-	sleepTimeMS int,
-) (KinematicBase, error) {
-	properties, err := b.Properties(ctx, nil)
+) (referenceframe.Frame, error) {
+	properties, err := req.Base.Properties(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	baseMillimetersPerSecond := options.LinearVelocityMMPerSec
+	baseMillimetersPerSecond := req.Options.LinearVelocityMMPerSec
 	if baseMillimetersPerSecond == 0 {
 		baseMillimetersPerSecond = defaultLinearVelocityMMPerSec
 	}
@@ -162,39 +162,69 @@ func WrapWithFakePTGKinematics(
 		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than or equal to zero")
 	}
 
-	geometries, err := b.Geometries(ctx, nil)
+	geometries, err := req.Base.Geometries(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
-		b.Name().ShortName(),
+	return tpspace.NewPTGFrameFromKinematicOptions(
+		req.Base.Name().ShortName(),
 		logger,
 		baseMillimetersPerSecond,
-		options.AngularVelocityDegsPerSec,
+		req.Options.AngularVelocityDegsPerSec,
 		baseTurningRadiusMeters,
-		options.MaxMoveStraightMM, // If zero, will use default on the receiver end.
-		0,                         // If zero, will use default on the receiver end.
+		req.Options.MaxMoveStraightMM, // If zero, will use default on the receiver end.
+		0,                             // If zero, will use default on the receiver end.
 		geometries,
-		options.NoSkidSteer,
+		req.Options.NoSkidSteer,
 	)
-	if err != nil {
-		return nil, err
+}
+
+type WrapWithFakePTGKinematicsReq struct {
+	Base          *fake.Base
+	Origin        *referenceframe.PoseInFrame
+	Options       Options
+	SensorNoise   spatialmath.Pose
+	OverRideFrame referenceframe.Frame
+	SleepTime     time.Duration
+}
+
+// WrapWithFakePTGKinematics creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled
+// interfaces.
+func WrapWithFakePTGKinematics(
+	ctx context.Context,
+	req WrapWithFakePTGKinematicsReq,
+	logger logging.Logger,
+) (KinematicBase, error) {
+
+	frame := req.OverRideFrame
+	if frame == nil {
+		f, err := NewPTGFrameFromKinematicOptions(ctx, NewPTGFrameFromKinematicOptionsReq{
+			Base:    req.Base,
+			Origin:  req.Origin,
+			Options: req.Options,
+		}, logger)
+
+		if err != nil {
+			return nil, err
+		}
+		frame = f
 	}
 
+	sensorNoise := req.SensorNoise
 	if sensorNoise == nil {
 		sensorNoise = spatialmath.NewZeroPose()
 	}
 	fk := &fakePTGKinematics{
-		Base:        b,
+		Base:        req.Base,
 		frame:       frame,
-		origin:      origin,
+		origin:      req.Origin,
 		sensorNoise: sensorNoise,
 		logger:      logger,
-		sleepTime:   time.Duration(sleepTimeMS) * time.Millisecond,
+		sleepTime:   req.SleepTime,
 	}
 
-	fk.options = options
+	fk.options = req.Options
 	return fk, nil
 }
 
