@@ -2,7 +2,7 @@
 // See https://ffmpeg.org/doxygen/3.0/log_8h.html
 package avlog
 
-//#cgo CFLAGS: -Wno-deprecated-declarations -I${SRCDIR}/../include
+//#cgo CFLAGS: -I${SRCDIR}/../include
 //#cgo linux,arm64 LDFLAGS: -L${SRCDIR}/../Linux-aarch64/lib -lavformat -lavcodec -lavutil
 //#cgo linux,amd64 LDFLAGS: -L${SRCDIR}/../Linux-x86_64/lib -lavformat -lavcodec -lavutil
 //#include <libavutil/log.h>
