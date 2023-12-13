@@ -1,9 +1,10 @@
-// Package dualgps implements a movement sensor that calculates Compass from two
-// gps movement sensors
+// Package dualgps implements a movement sensor that calculates compass heading
+// from two gps movement sensors
 package dualgps
 
 import (
 	"context"
+	"errors"
 	"math"
 	"sync"
 
@@ -20,6 +21,8 @@ import (
 // the default offset between the two gps devices describes a setup where
 // one gps is mounted on the right side of the base and
 // the other gps is mounted on the left side of the base
+// works with gps-rtk modules. This driver si not guaranteed to be performant with
+// non-rtk corrected gps modules with larger error in their position.
 //   ___________
 //  |   base    |
 //  |           |
@@ -51,6 +54,12 @@ func (c *Config) Validate(path string) ([]string, error) {
 	if c.Gps2 == "" {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "second_gps")
 	}
+
+	if *c.Offset < 0 || *c.Offset > 360 {
+		return nil, resource.NewConfigValidationError(
+			path,
+			errors.New("this driver only allows offset values from 0 to 360"))
+	}
 	deps = append(deps, c.Gps2)
 
 	return deps, nil
@@ -69,8 +78,8 @@ type dualGPS struct {
 	mu     sync.Mutex
 	offset float64
 
-	gps1 gpsWithLock
-	gps2 gpsWithLock
+	gps1 movementsensor.MovementSensor
+	gps2 movementsensor.MovementSensor
 }
 
 // newDualGPS makes a new movement sensor.
@@ -100,13 +109,13 @@ func (dg *dualGPS) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	if err != nil {
 		return err
 	}
-	dg.gps1.gps = first
+	dg.gps1 = first
 
 	second, err := movementsensor.FromDependencies(deps, newConf.Gps2)
 	if err != nil {
 		return err
 	}
-	dg.gps2.gps = second
+	dg.gps2 = second
 
 	dg.offset = defaultOffsetDegrees
 	if newConf.Offset != nil {
@@ -116,30 +125,19 @@ func (dg *dualGPS) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	return nil
 }
 
-type gpsWithLock struct {
-	gps     movementsensor.MovementSensor
-	gpsLock sync.Mutex
-}
-
-func (lgps *gpsWithLock) getPosition(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
-	lgps.gpsLock.Lock()
-	defer lgps.gpsLock.Unlock()
-	pos, _, err := lgps.gps.Position(ctx, extra)
-	return pos, err
-}
-
 // getHeading calculates bearing, absolute heading and standardBearing angles given 2 geoPoint coordinates
 // heading: 0 degrees is North, 90 degrees is East, 180 degrees is South, 270 is West.
 // bearing: 0 degrees is North, 90 degrees is East, 180 degrees is South, 270 is West.
 // standarBearing: 0 degrees is North, 90 degrees is East, 180 degrees is South, -90 is West.
 // reference: https://www.igismap.com/formula-to-find-bearing-or-heading-angle-between-two-points-latitude-longitude/
-func getHeading(first, second *geo.Point, yawOffset float64) (float64, float64, float64) {
+func getHeading(firstPoint, secondPoint *geo.Point, yawOffset float64,
+) (float64, float64, float64) {
 	// convert latitude and longitude readings from degrees to radians
 	// so we can use go's periodic math functions.
-	firstLat := utils.DegToRad(first.Lat())
-	firstLong := utils.DegToRad(first.Lng())
-	secondLat := utils.DegToRad(second.Lat())
-	secondLong := utils.DegToRad(second.Lng())
+	firstLat := utils.DegToRad(firstPoint.Lat())
+	firstLong := utils.DegToRad(firstPoint.Lng())
+	secondLat := utils.DegToRad(secondPoint.Lat())
+	secondLong := utils.DegToRad(secondPoint.Lng())
 
 	// calculate the bearing between gps1 and gps2.
 	deltaLong := secondLong - firstLong
@@ -168,12 +166,15 @@ func getHeading(first, second *geo.Point, yawOffset float64) (float64, float64, 
 }
 
 func (dg *dualGPS) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	geoPoint1, err := dg.gps1.getPosition(context.Background(), extra)
+	dg.mu.Lock()
+	defer dg.mu.Unlock()
+
+	geoPoint1, _, err := dg.gps1.Position(context.Background(), extra)
 	if err != nil {
 		return math.NaN(), err
 	}
 
-	geoPoint2, err := dg.gps2.getPosition(context.Background(), extra)
+	geoPoint2, _, err := dg.gps2.Position(context.Background(), extra)
 	if err != nil {
 		return math.NaN(), err
 	}

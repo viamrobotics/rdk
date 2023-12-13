@@ -61,7 +61,7 @@ func TestCreateValidateAndReconfigure(t *testing.T) {
 	test.That(t, ms, test.ShouldNotBeNil)
 	dgps, ok := ms.(*dualGPS)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, dgps.gps2.gps.Name().ShortName(), test.ShouldResemble, testGPS2)
+	test.That(t, dgps.gps2.Name().ShortName(), test.ShouldResemble, testGPS2)
 
 	cfg = resource.Config{
 		Name:  testName,
@@ -76,7 +76,7 @@ func TestCreateValidateAndReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	dgps, ok = ms.(*dualGPS)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, dgps.gps2.gps.Name().ShortName(), test.ShouldResemble, testGPS3)
+	test.That(t, dgps.gps2.Name().ShortName(), test.ShouldResemble, testGPS3)
 }
 
 func TestGetHeading(t *testing.T) {
