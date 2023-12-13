@@ -241,6 +241,7 @@ func createMoveOnMapEnvironment(
 	t *testing.T,
 	pcdPath string,
 	geomSize float64,
+	logger logging.Logger,
 ) (kinematicbase.KinematicBase, motion.Service) {
 	injectSlam := createInjectedSlam("test_slam", pcdPath)
 
