@@ -15,9 +15,18 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 func TestObstacleDist(t *testing.T) {
+	// Setting a global in utils is unsafe, and was originally in an init() which causes races.
+	// This is still not ideal, but as this is the only test function in this package, it should be okay for now.
+	origParallelFactor := utils.ParallelFactor
+	utils.ParallelFactor = 1
+	defer func() {
+		utils.ParallelFactor = origParallelFactor
+	}()
+
 	inp := DistanceDetectorConfig{
 		NumQueries: 10,
 	}

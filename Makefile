@@ -70,8 +70,8 @@ lint-web: check-web
 check-web:
 	npm run check --prefix web/frontend
 
-cover: tool-install
-	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover-with-race
+cover: test-go
+	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
 
 test: test-go test-web
 

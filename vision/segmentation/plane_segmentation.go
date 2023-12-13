@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+	"sync"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -17,6 +18,8 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// Setting a global here is dangerous and doesn't work in parallel.
+// This is only ever set for testing, and tests need to be careful to revert it to false afterwards.
 var sortPositions bool
 
 // GetPointCloudPositions extracts the positions of the points from the pointcloud into a Vec3 slice.
@@ -176,6 +179,7 @@ func findBestEq(ctx context.Context, cloud pc.PointCloud, nIterations int, equat
 		inliers  int
 	}
 	var bestResults []bestResult
+	var bestResultsMu sync.Mutex
 	if err := utils.GroupWorkParallel(
 		ctx,
 		nIterations,
@@ -183,8 +187,10 @@ func findBestEq(ctx context.Context, cloud pc.PointCloud, nIterations int, equat
 			bestResults = make([]bestResult, numGroups)
 		},
 		func(groupNum, groupSize, from, to int) (utils.MemberWorkFunc, utils.GroupWorkDoneFunc) {
+			var groupMu sync.Mutex
 			bestEquation := [4]float64{}
 			bestInliers := 0
+
 			return func(memberNum, workNum int) {
 					currentInliers := 0
 					currentEquation := equations[workNum]
@@ -197,10 +203,14 @@ func findBestEq(ctx context.Context, cloud pc.PointCloud, nIterations int, equat
 					}
 					// if the current plane contains more pixels than the previously stored one, save this one as the biggest plane
 					if currentInliers > bestInliers {
+						groupMu.Lock()
+						defer groupMu.Unlock()
 						bestEquation = currentEquation
 						bestInliers = currentInliers
 					}
 				}, func() {
+					bestResultsMu.Lock()
+					defer bestResultsMu.Unlock()
 					bestResults[groupNum] = bestResult{bestEquation, bestInliers}
 				}
 		},
