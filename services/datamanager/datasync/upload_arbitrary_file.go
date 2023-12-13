@@ -5,13 +5,20 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
+	clk "github.com/benbjohnson/clock"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 )
 
 // UploadChunkSize defines the size of the data included in each message of a FileUpload stream.
 var UploadChunkSize = 64 * 1024
+
+// Default time to wait in milliseconds to check if a file has been modified.
+const defaultFileLastModifiedMillis = 10000.0
+
+var clock = clk.New()
 
 func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, f *os.File, partID string, tags []string) error {
 	stream, err := client.FileUpload(ctx)
@@ -23,6 +30,16 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, f
 	if err != nil {
 		return err
 	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	timeSinceMod := clock.Since(info.ModTime())
+	if timeSinceMod >= defaultFileLastModifiedMillis*time.Millisecond {
+		return errors.New("file modified too recently")
+	}
+
 	md := &v1.UploadMetadata{
 		PartId:        partID,
 		Type:          v1.DataType_DATA_TYPE_FILE,
