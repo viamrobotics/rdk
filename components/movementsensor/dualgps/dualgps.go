@@ -122,6 +122,13 @@ func (dg *dualGPS) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 		dg.offset = *newConf.Offset
 	}
 
+	dg.logger.Debug(
+		"using gps named %v as first gps and gps named %v as secodn gps, with an offset of %v",
+		first.Name().ShortName(),
+		second.Name().ShortName(),
+		dg.offset,
+	)
+
 	return nil
 }
 
