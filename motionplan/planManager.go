@@ -81,6 +81,9 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	seedPlan Plan,
 	motionConfig map[string]interface{},
 ) ([][]referenceframe.Input, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	seed, err := pm.frame.mapToSlice(seedMap)
 	if err != nil {
 		return nil, err
@@ -137,6 +140,9 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 
 		from := seedPos
 		for i := 1; i < numSteps; i++ {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
 			by := float64(i) / float64(numSteps)
 			to := spatialmath.Interpolate(seedPos, goalPos, by)
 			goals = append(goals, to)
@@ -163,6 +169,9 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	planners := make([]motionPlanner, 0, len(opts))
 	// Set up planners for later execution
 	for _, opt := range opts {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		// Build planner
 		//nolint: gosec
 		pathPlanner, err := opt.PlannerConstructor(
@@ -207,6 +216,9 @@ func (pm *planManager) planAtomicWaypoints(
 	planners []motionPlanner,
 	seedPlan Plan,
 ) ([][]referenceframe.Input, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	var err error
 	// A resultPromise can be queried in the future and will eventually yield either a set of planner waypoints, or an error.
 	// Each atomic waypoint produces one result promise, all of which are resolved at the end, allowing multiple to be solved in parallel.
@@ -215,10 +227,8 @@ func (pm *planManager) planAtomicWaypoints(
 	// try to solve each goal, one at a time
 	for i, goal := range goals {
 		// Check if ctx is done between each waypoint
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
+		if err := ctx.Err(); err != nil {
+			return nil, err
 		}
 
 		pathPlanner := planners[i]
