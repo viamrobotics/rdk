@@ -454,7 +454,15 @@ func newWithResources(
 		cloudID = cfg.Cloud.ID
 	}
 	// Once web service is started, start module manager
-	r.manager.startModuleManager(r.webSvc.ModuleAddress(), r.removeOrphanedResources, cfg.UntrustedEnv, config.ViamDotDir, cloudID, logger)
+	r.manager.startModuleManager(
+		closeCtx,
+		r.webSvc.ModuleAddress(),
+		r.removeOrphanedResources,
+		cfg.UntrustedEnv,
+		config.ViamDotDir,
+		cloudID,
+		logger,
+	)
 
 	r.activeBackgroundWorkers.Add(1)
 	r.configTicker = time.NewTicker(5 * time.Second)
