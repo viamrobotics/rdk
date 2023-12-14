@@ -54,14 +54,13 @@ func (c *Config) Validate(path string) ([]string, error) {
 	if c.Gps2 == "" {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "second_gps")
 	}
+	deps = append(deps, c.Gps2)
 
 	if c.Offset != nil && (*c.Offset < 0 || *c.Offset > 360) {
 		return nil, resource.NewConfigValidationError(
 			path,
 			errors.New("this driver only allows offset values from 0 to 360"))
 	}
-	deps = append(deps, c.Gps2)
-
 	return deps, nil
 }
 
