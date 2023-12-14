@@ -3,6 +3,7 @@ package transformpipeline
 import (
 	"context"
 	"image"
+	"strings"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -19,9 +20,10 @@ import (
 
 // classifierConfig is the attribute struct for classifiers.
 type classifierConfig struct {
-	ClassifierName      string  `json:"classifier_name"`
-	ConfidenceThreshold float64 `json:"confidence_threshold"`
-	MaxClassifications  uint32  `json:"max_classifications"`
+	ClassifierName      string   `json:"classifier_name"`
+	ConfidenceThreshold float64  `json:"confidence_threshold"`
+	MaxClassifications  uint32   `json:"max_classifications"`
+	ValidLabels         []string `json:"valid_labels"`
 }
 
 // classifierSource takes an image from the camera, and overlays labels from the classifier.
@@ -29,6 +31,7 @@ type classifierSource struct {
 	stream             gostream.VideoStream
 	classifierName     string
 	maxClassifications uint32
+	labelFilter        classification.Postprocessor
 	confFilter         classification.Postprocessor
 	r                  robot.Robot
 }
@@ -52,6 +55,11 @@ func newClassificationsTransform(
 	if props.DistortionParams != nil {
 		cameraModel.Distortion = props.DistortionParams
 	}
+	validLabels := make(map[string]interface{})
+	for _, l := range conf.ValidLabels {
+		validLabels[strings.ToLower(l)] = struct{}{}
+	}
+	labelFilter := classification.NewLabelFilter(validLabels)
 	confFilter := classification.NewScoreFilter(conf.ConfidenceThreshold)
 	var maxClassifications uint32 = 1
 	if conf.MaxClassifications != 0 {
@@ -61,6 +69,7 @@ func newClassificationsTransform(
 		gostream.NewEmbeddedVideoStream(source),
 		conf.ClassifierName,
 		maxClassifications,
+		labelFilter,
 		confFilter,
 		r,
 	}
@@ -93,6 +102,7 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 	}
 	// overlay labels on the source image
 	classifications = cs.confFilter(classifications)
+	classifications = cs.labelFilter(classifications)
 	res, err := classification.Overlay(img, classifications)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not overlay labels")
