@@ -144,8 +144,6 @@ func (e *execution[R]) newPlanWithExecutor(ctx context.Context, seedPlan motionp
 
 // Start starts an execution with a given plan.
 func (e *execution[R]) start(ctx context.Context) error {
-	e.logger.Debugf("start called")
-	defer e.logger.Debugf("start done")
 	var replanCount int
 	originalPlanWithExecutor, err := e.newPlanWithExecutor(ctx, nil, replanCount)
 	if err != nil {
@@ -325,7 +323,6 @@ func StartExecution[R any](
 	if s == nil {
 		return uuid.Nil, errors.New("state is nil")
 	}
-	s.logger.Debugf("StartExecution called")
 
 	if err := s.ValidateNoActiveExecutionID(componentName); err != nil {
 		return uuid.Nil, err
@@ -479,8 +476,6 @@ func (s *State) ListPlanStatuses(req motion.ListPlanStatusesReq) ([]motion.PlanS
 // ValidateNoActiveExecutionID returns an error if there is already an active
 // Execution for the resource name within the State.
 func (s *State) ValidateNoActiveExecutionID(name resource.Name) error {
-	s.logger.Debugf("ValidateNoActiveExecutionID called")
-	defer s.logger.Debugf("ValidateNoActiveExecutionID done")
 	if es, err := s.activeExecution(name); err == nil {
 		return fmt.Errorf("there is already an active executionID: %s", es.id)
 	}
