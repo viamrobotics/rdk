@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -486,6 +487,9 @@ func TestMoveWithObstacles(t *testing.T) {
 }
 
 func TestMoveOnMapLongDistance(t *testing.T) {
+	if runtime.GOARCH == "arm" {
+		t.Skip("skipping on 32-bit ARM, large maps use too much memory")
+	}
 	ctx := context.Background()
 	extra := map[string]interface{}{"smooth_iter": 0, "motion_profile": "position_only"}
 	// goal position is scaled to be in mm
@@ -512,7 +516,7 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 	endPos, err := kb.CurrentPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goalInBaseFrame, 50), test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goalInBaseFrame, 15), test.ShouldBeTrue)
 }
 
 func TestMoveOnMapPlans(t *testing.T) {
@@ -538,7 +542,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 		test.That(t, success, test.ShouldBeTrue)
 		endPos, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goalInBaseFrame, 35), test.ShouldBeTrue)
+		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goalInBaseFrame, 15), test.ShouldBeTrue)
 	})
 
 	t.Run("check that straight line path executes", func(t *testing.T) {

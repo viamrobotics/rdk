@@ -49,7 +49,7 @@ const (
 	defaultAttemptSolveEvery = 15
 
 	// When attempting a solve per the above, make no more than this many tries. Preserves performance with large trees.
-	defaultMaxConnectAttempts = 30
+	defaultMaxConnectAttempts = 20
 
 	defaultBidirectional = true
 
@@ -248,7 +248,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	mp.goalNodes = append(mp.goalNodes, goalNode)
 	mp.logger.Debugf("Starting TPspace solving with startMap len %d and goalMap len %d", len(rrt.maps.startMap), len(rrt.maps.goalMap))
 
-	returnFinishedPath := func(path []node) {
+	publishFinishedPath := func(path []node) {
 		// If we've reached the goal, extract the path from the RRT trees and return
 		correctedPath, err := rectifyTPspacePath(path, mp.frame, spatialmath.NewZeroPose())
 		if err != nil {
@@ -323,7 +323,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
 			return
 		}
-
 		if seedReached.node != nil && goalReached.node != nil {
 			reachedDelta := mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: seedReached.node.Pose(), EndPosition: goalReached.node.Pose()})
 			if reachedDelta > mp.planOpts.GoalThreshold {
@@ -353,7 +352,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			if reachedDelta <= mp.planOpts.GoalThreshold {
 				// If we've reached the goal, extract the path from the RRT trees and return
 				path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalReached.node}, false)
-				returnFinishedPath(path)
+				publishFinishedPath(path)
 				return
 			}
 		}
@@ -363,8 +362,8 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 
 			// Exhaustively searching the tree gets expensive quickly, so we cap the number of connect attempts we make each time we call
 			// this.
-			attempts := 0                                                               // Track the number of connection attempts we have made
-			pctCheck := float64(defaultMaxConnectAttempts) / float64(len(mp.goalNodes)) // Target checking this proportion of nodes.
+			attempts := 0                                                                     // Track the number of connection attempts we have made
+			pctCheck := 100 * float64(defaultMaxConnectAttempts) / float64(len(mp.goalNodes)) // Target checking this proportion of nodes.
 
 			for _, goalMapNode := range mp.goalNodes {
 				if ctx.Err() != nil {
@@ -376,9 +375,8 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				if attempts > defaultMaxConnectAttempts {
 					break
 				}
-
-				if pctCheck < 1. {
-					doCheck := mp.randseed.Float64()
+				if pctCheck < 100. { // If we're not checking every node, see if this node is one of the ones we want to check.
+					doCheck := 100 * mp.randseed.Float64()
 					if doCheck < pctCheck {
 						continue
 					}
@@ -415,7 +413,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 						bestPath = goodPath
 					}
 				}
-				returnFinishedPath(bestPath)
+				publishFinishedPath(bestPath)
 				return
 			}
 		}
@@ -719,6 +717,12 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 		if cand.dist < bestDist {
 			bestCand = cand
 			bestDist = cand.dist
+		} else if cand.dist == bestDist {
+			// Need a tiebreaker for determinism
+			if cand.newNodes[0].Q()[0].Value < bestCand.newNodes[0].Q()[0].Value {
+				bestCand = cand
+				bestDist = cand.dist
+			}
 		}
 	}
 	treeNode := bestCand.treeNode // The node already in the tree to which we are parenting
@@ -850,7 +854,6 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 		}
 		solutionChan := make(chan *ik.Solution, 1)
 		err := ptg.Solve(context.Background(), solutionChan, nil, targetFunc, randSeed.Int())
-
 		var closeNode *ik.Solution
 		select {
 		case closeNode = <-solutionChan:

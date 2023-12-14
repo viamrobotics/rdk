@@ -133,6 +133,8 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		mInput.Position = eePos
 		dist := solveMetric(mInput)
 		if len(gradient) > 0 {
+			// Yes, the for loop below is logically equivalent to not having this if statement. But CPU branch prediction means having the
+			// if statement is faster.
 			for i := range gradient {
 				jumpVal = jump[i]
 				flip := false
