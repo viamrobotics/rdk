@@ -100,8 +100,6 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	seed []referenceframe.Input,
 	rrt *rrtParallelPlannerShared,
 ) {
-	mp.logger.Info("rrtBackgroundRunner called")
-	defer mp.logger.Info("rrtBackgroundRunner done")
 	mp.logger.Debug("Starting RRT*")
 	defer close(rrt.solutionChan)
 
