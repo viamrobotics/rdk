@@ -147,52 +147,56 @@ func createFrameSystemService(
 	return fsSvc, nil
 }
 
-func newFakeBase(ctx context.Context, t *testing.T, logger logging.Logger) base.Base {
+type testCtx struct {
+	ctx    context.Context
+	t      *testing.T
+	logger logging.Logger
+}
+
+func newFakeBase(tc testCtx, radius float64) base.Base {
 	// create fake base
 	baseCfg := resource.Config{
 		Name:  "test-base",
 		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 20}},
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: radius}},
 	}
-	fakeBase, err := baseFake.NewBase(ctx, nil, baseCfg, logger)
-	test.That(t, err, test.ShouldBeNil)
+	fakeBase, err := baseFake.NewBase(tc.ctx, nil, baseCfg, tc.logger)
+	test.That(tc.t, err, test.ShouldBeNil)
 	return fakeBase
 }
 
 type createMoveOnGlobeEnvironmentReq struct {
-	origin        *geo.Point
-	noise         spatialmath.Pose
-	fakeBase      base.Base
-	options       kinematicbase.Options
-	sleepTime     time.Duration
-	overRideFrame referenceframe.Frame
+	origin    *geo.Point
+	noise     spatialmath.Pose
+	fakeBase  base.Base
+	options   kinematicbase.Options
+	sleepTime time.Duration
+	frame     referenceframe.Frame
 }
 
 func createMoveOnGlobeEnvironment(
-	ctx context.Context,
-	t *testing.T,
+	tc testCtx,
 	req createMoveOnGlobeEnvironmentReq,
-	logger logging.Logger,
 ) (
 	*inject.MovementSensor, framesystem.Service, kinematicbase.KinematicBase, motion.Service,
 ) {
 	// create a fake kinematic base
-	kb, err := kinematicbase.WrapWithFakePTGKinematics(
-		ctx,
-		kinematicbase.WrapWithFakePTGKinematicsReq{
-			Base:          req.fakeBase.(*baseFake.Base),
-			Origin:        referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
-			Options:       req.options,
-			SensorNoise:   req.noise,
-			OverRideFrame: req.overRideFrame,
-			SleepTime:     req.sleepTime,
+	kb, err := kinematicbase.WrapWithFakePTGKinematicsWithFrame(
+		tc.ctx,
+		kinematicbase.WrapWithFakePTGKinematicsWithFrameReq{
+			Base:        req.fakeBase.(*baseFake.Base),
+			Origin:      referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+			Options:     req.options,
+			SensorNoise: req.noise,
+			Frame:       req.frame,
+			SleepTime:   req.sleepTime,
 		},
-		logger,
+		tc.logger,
 	)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(tc.t, err, test.ShouldBeNil)
 
 	// create base link
-	baseLink := createBaseLink(t)
+	baseLink := createBaseLink(tc.t)
 	// create MovementSensor link
 	movementSensorLink := referenceframe.NewLinkInFrame(
 		baseLink.Name(),
@@ -205,7 +209,7 @@ func createMoveOnGlobeEnvironment(
 	dynamicMovementSensor := inject.NewMovementSensor("test-gps")
 	dynamicMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 		poseInFrame, err := kb.CurrentPosition(ctx)
-		test.That(t, err, test.ShouldBeNil)
+		test.That(tc.t, err, test.ShouldBeNil)
 		heading := poseInFrame.Pose().Orientation().OrientationVectorDegrees().Theta
 		distance := poseInFrame.Pose().Point().Norm()
 		pt := req.origin.PointAtDistanceAndBearing(distance*1e-6, heading)
@@ -225,7 +229,7 @@ func createMoveOnGlobeEnvironment(
 		spatialmath.NewZeroPose(),
 		r3.Vector{X: 1, Y: 1, Z: 1}, "camera",
 	)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(tc.t, err, test.ShouldBeNil)
 
 	injectedCamera := inject.NewCamera("injectedCamera")
 	cameraLink := referenceframe.NewLinkInFrame(
@@ -248,49 +252,54 @@ func createMoveOnGlobeEnvironment(
 		injectedCamera.Name():        injectedCamera,
 	}
 
-	fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
-	test.That(t, err, test.ShouldBeNil)
+	fsSvc, err := createFrameSystemService(tc.ctx, deps, fsParts, tc.logger)
+	test.That(tc.t, err, test.ShouldBeNil)
 
 	conf := resource.Config{ConvertedAttributes: &Config{}}
-	ms, err := NewBuiltIn(ctx, deps, conf, logger)
-	test.That(t, err, test.ShouldBeNil)
+	ms, err := NewBuiltIn(tc.ctx, deps, conf, tc.logger)
+	test.That(tc.t, err, test.ShouldBeNil)
 
 	return dynamicMovementSensor, fsSvc, kb, ms
 }
 
+type createMoveOnMapEnvironmentReq struct {
+	pcdPath           string
+	geomSize          float64
+	kinematicsOptions kinematicbase.Options
+	frame             referenceframe.Frame
+	base              base.Base
+}
+
 func createMoveOnMapEnvironment(
-	ctx context.Context,
-	t *testing.T,
-	pcdPath string,
-	geomSize float64,
-	kinematicsOptions kinematicbase.Options,
-	logger logging.Logger,
+	tc testCtx,
+	req createMoveOnMapEnvironmentReq,
 ) (kinematicbase.KinematicBase, motion.Service) {
-	injectSlam := createInjectedSlam("test_slam", pcdPath)
+	injectSlam := createInjectedSlam("test_slam", req.pcdPath)
 
-	baseLink := createBaseLink(t)
+	baseLink := createBaseLink(tc.t)
 
-	cfg := resource.Config{
-		Name:  "test-base",
-		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: geomSize}},
-	}
-	fakeBase, err := baseFake.NewBase(ctx, nil, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	kb, err := kinematicbase.WrapWithFakePTGKinematics(
-		ctx,
-		kinematicbase.WrapWithFakePTGKinematicsReq{
-			Base:        fakeBase.(*baseFake.Base),
+	// cfg := resource.Config{
+	// 	Name:  "test-base",
+	// 	API:   base.API,
+	// 	Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: req.geomSize}},
+	// }
+	// fakeBase, err := baseFake.NewBase(tc.ctx, nil, cfg, tc.logger)
+	// test.That(tc.t, err, test.ShouldBeNil)
+	kb, err := kinematicbase.WrapWithFakePTGKinematicsWithFrame(
+		tc.ctx,
+		kinematicbase.WrapWithFakePTGKinematicsWithFrameReq{
+			Base:        req.base.(*baseFake.Base),
 			Origin:      referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
-			Options:     kinematicsOptions,
+			Options:     req.kinematicsOptions,
 			SensorNoise: spatialmath.NewZeroPose(),
+			Frame:       req.frame,
 			SleepTime:   time.Millisecond * 50,
 		},
-		logger,
+		tc.logger,
 	)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(tc.t, err, test.ShouldBeNil)
 
-	deps := resource.Dependencies{injectSlam.Name(): injectSlam, fakeBase.Name(): kb}
+	deps := resource.Dependencies{injectSlam.Name(): injectSlam, req.base.Name(): kb}
 	conf := resource.Config{ConvertedAttributes: &Config{}}
 
 	// create the frame system
@@ -298,11 +307,11 @@ func createMoveOnMapEnvironment(
 		{FrameConfig: baseLink},
 	}
 
-	_, err = createFrameSystemService(ctx, deps, fsParts, logger)
-	test.That(t, err, test.ShouldBeNil)
+	_, err = createFrameSystemService(tc.ctx, deps, fsParts, tc.logger)
+	test.That(tc.t, err, test.ShouldBeNil)
 
-	ms, err := NewBuiltIn(ctx, deps, conf, logger)
-	test.That(t, err, test.ShouldBeNil)
+	ms, err := NewBuiltIn(tc.ctx, deps, conf, tc.logger)
+	test.That(tc.t, err, test.ShouldBeNil)
 	return kb, ms
 }
 
@@ -334,9 +343,9 @@ func TestMoveResponseString(t *testing.T) {
 			moveResponse{},
 		},
 	}
-	for _, tc := range testCases {
-		t.Run(tc.description, func(t *testing.T) {
-			test.That(t, tc.moveResponse.String(), test.ShouldEqual, tc.expected)
+	for _, testCase := range testCases {
+		t.Run(testCase.description, func(t *testing.T) {
+			test.That(t, testCase.moveResponse.String(), test.ShouldEqual, testCase.expected)
 		})
 	}
 }
@@ -369,9 +378,9 @@ func TestReplanResponseString(t *testing.T) {
 			replanResponse{err: errors.New("an error")},
 		},
 	}
-	for _, tc := range testCases {
-		t.Run(tc.description, func(t *testing.T) {
-			test.That(t, tc.replanResponse.String(), test.ShouldEqual, tc.expected)
+	for _, testCase := range testCases {
+		t.Run(testCase.description, func(t *testing.T) {
+			test.That(t, testCase.replanResponse.String(), test.ShouldEqual, testCase.expected)
 		})
 	}
 }
@@ -501,25 +510,39 @@ func TestMoveWithObstacles(t *testing.T) {
 	})
 }
 
+func newTestCtx(t *testing.T) testCtx {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	return testCtx{t: t, ctx: ctx, logger: logger}
+}
+
 func TestMoveOnMapLongDistance(t *testing.T) {
 	t.Skip()
 	t.Parallel()
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
+	tc := newTestCtx(t)
+	fb := newFakeBase(tc, 20)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
+		Base:    fb.(*baseFake.Base),
+		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+		Options: kbOptions(),
+	}, tc.logger)
+	test.That(t, err, test.ShouldBeNil)
 	// goal position is scaled to be in mm
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: -32.508 * 1000, Y: -2.092 * 1000})
 
 	t.Run("test tp-space planning on office map", func(t *testing.T) {
 		t.Parallel()
 		_, ms := createMoveOnMapEnvironment(
-			ctx,
-			t,
-			"slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd",
-			110,
-			kbOptions(),
-			logger,
+			tc,
+			createMoveOnMapEnvironmentReq{
+				pcdPath:           "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd",
+				geomSize:          110,
+				kinematicsOptions: kbOptions(),
+				base:              fb,
+				frame:             frame,
+			},
 		)
-		defer ms.Close(ctx)
+		defer ms.Close(tc.ctx)
 		extra := make(map[string]interface{})
 		req := motion.MoveOnMapReq{
 			ComponentName: base.Named("test-base"),
@@ -534,8 +557,14 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 }
 
 func TestMoveOnMapPlans(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
+	tc := newTestCtx(t)
+	fb := newFakeBase(tc, 20)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
+		Base:    fb.(*baseFake.Base),
+		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+		Options: kbOptions(),
+	}, tc.logger)
+	test.That(t, err, test.ShouldBeNil)
 	// goal x-position of 1.32m is scaled to be in mm
 	// Orientation theta should be at least 3 degrees away from an integer multiple of 22.5 to ensure the position-only test functions.
 	goalInBaseFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 55})
@@ -545,13 +574,15 @@ func TestMoveOnMapPlans(t *testing.T) {
 
 	t.Run("ensure success of movement around obstacle", func(t *testing.T) {
 		kb, ms := createMoveOnMapEnvironment(
-			ctx,
-			t,
-			"pointcloud/octagonspace.pcd",
-			40,
-			kbOptions(),
-			logger)
-		defer ms.Close(ctx)
+			tc,
+			createMoveOnMapEnvironmentReq{
+				pcdPath:           "pointcloud/octagonspace.pcd",
+				geomSize:          40,
+				kinematicsOptions: kbOptions(),
+				base:              fb,
+				frame:             frame,
+			})
+		defer ms.Close(tc.ctx)
 		success, err := ms.MoveOnMap(
 			context.Background(),
 			base.Named("test-base"),
@@ -561,20 +592,22 @@ func TestMoveOnMapPlans(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
-		endPos, err := kb.CurrentPosition(ctx)
+		endPos, err := kb.CurrentPosition(tc.ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goalInBaseFrame, 15), test.ShouldBeTrue)
 	})
 
 	t.Run("check that straight line path executes", func(t *testing.T) {
 		kb, ms := createMoveOnMapEnvironment(
-			ctx,
-			t,
-			"pointcloud/octagonspace.pcd",
-			40,
-			kbOptions(),
-			logger)
-		defer ms.Close(ctx)
+			tc,
+			createMoveOnMapEnvironmentReq{
+				pcdPath:           "pointcloud/octagonspace.pcd",
+				geomSize:          40,
+				kinematicsOptions: kbOptions(),
+				base:              fb,
+				frame:             frame,
+			})
+		defer ms.Close(tc.ctx)
 		easyGoalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
 		easyGoalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, easyGoalInBaseFrame)
 		success, err := ms.MoveOnMap(
@@ -586,7 +619,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
-		endPos, err := kb.CurrentPosition(ctx)
+		endPos, err := kb.CurrentPosition(tc.ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), easyGoalInBaseFrame, 10), test.ShouldBeTrue)
 	})
@@ -595,13 +628,15 @@ func TestMoveOnMapPlans(t *testing.T) {
 		// TODO(RSDK-5758): unskip this
 		t.Skip()
 		kb, ms := createMoveOnMapEnvironment(
-			ctx,
-			t,
-			"pointcloud/octagonspace.pcd",
-			40,
-			kbOptions(),
-			logger)
-		defer ms.Close(ctx)
+			tc,
+			createMoveOnMapEnvironmentReq{
+				pcdPath:           "pointcloud/octagonspace.pcd",
+				geomSize:          40,
+				kinematicsOptions: kbOptions(),
+				base:              fb,
+				frame:             frame,
+			})
+		defer ms.Close(tc.ctx)
 		success, err := ms.MoveOnMap(
 			context.Background(),
 			base.Named("test-base"),
@@ -611,7 +646,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
-		endPos, err := kb.CurrentPosition(ctx)
+		endPos, err := kb.CurrentPosition(tc.ctx)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goalInBaseFrame, 15), test.ShouldBeTrue)
@@ -624,8 +659,14 @@ func TestMoveOnMapPlans(t *testing.T) {
 }
 
 func TestMoveOnMapSubsequent(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
+	tc := newTestCtx(t)
+	fb := newFakeBase(tc, 20)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
+		Base:    fb.(*baseFake.Base),
+		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+		Options: kbOptions(),
+	}, tc.logger)
+	test.That(t, err, test.ShouldBeNil)
 	// goal x-position of 1.32m is scaled to be in mm
 	goal1SLAMFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 55})
 	goal1BaseFrame := spatialmath.Compose(goal1SLAMFrame, motion.SLAMOrientationAdjustment)
@@ -633,13 +674,15 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	goal2BaseFrame := spatialmath.Compose(goal2SLAMFrame, motion.SLAMOrientationAdjustment)
 
 	kb, ms := createMoveOnMapEnvironment(
-		ctx,
-		t,
-		"pointcloud/octagonspace.pcd",
-		40,
-		kbOptions(),
-		logger)
-	defer ms.Close(ctx)
+		tc,
+		createMoveOnMapEnvironmentReq{
+			pcdPath:           "pointcloud/octagonspace.pcd",
+			geomSize:          40,
+			kinematicsOptions: kbOptions(),
+			base:              fb,
+			frame:             frame,
+		})
+	defer ms.Close(tc.ctx)
 	msBuiltin, ok := ms.(*builtIn)
 	test.That(t, ok, test.ShouldBeTrue)
 
@@ -657,7 +700,7 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, success, test.ShouldNotBeNil)
-	endPos, err := kb.CurrentPosition(ctx)
+	endPos, err := kb.CurrentPosition(tc.ctx)
 	test.That(t, err, test.ShouldBeNil)
 	logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))
 	test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal1BaseFrame, 10), test.ShouldBeTrue)
@@ -673,7 +716,7 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, success, test.ShouldNotBeNil)
-	endPos, err = kb.CurrentPosition(ctx)
+	endPos, err = kb.CurrentPosition(tc.ctx)
 	test.That(t, err, test.ShouldBeNil)
 	logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))
 	test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal2BaseFrame, 1), test.ShouldBeTrue)
@@ -753,9 +796,14 @@ func TestMoveOnMapTimeout(t *testing.T) {
 
 func TestPositionalReplanning(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-	fb := newFakeBase(ctx, t, logger)
+	tc := newTestCtx(t)
+	fb := newFakeBase(tc, 20)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
+		Base:    fb.(*baseFake.Base),
+		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+		Options: kbOptions(),
+	}, tc.logger)
+	test.That(t, err, test.ShouldBeNil)
 
 	gpsPoint := geo.NewPoint(0, 0)
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
@@ -795,33 +843,31 @@ func TestPositionalReplanning(t *testing.T) {
 		},
 	}
 
-	testFn := func(t *testing.T, tc testCase) {
+	testFn := func(t *testing.T, testC testCase) {
 		t.Helper()
 		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(
-			ctx,
-			t,
+			tc,
 			createMoveOnGlobeEnvironmentReq{
 				origin:    gpsPoint,
-				noise:     spatialmath.NewPoseFromPoint(tc.noise),
+				noise:     spatialmath.NewPoseFromPoint(testC.noise),
 				fakeBase:  fb,
+				frame:     frame,
 				options:   kbOptions(),
 				sleepTime: time.Millisecond * 5,
-			},
-			logger,
-		)
-		defer ms.Close(ctx)
+			})
+		defer ms.Close(tc.ctx)
 
 		req := motion.MoveOnGlobeReq{
 			ComponentName:      kb.Name(),
 			Destination:        dst,
 			MovementSensorName: injectedMovementSensor.Name(),
 			MotionCfg:          motionCfg,
-			Extra:              tc.extra,
+			Extra:              testC.extra,
 		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
+		executionID, err := ms.MoveOnGlobe(tc.ctx, req)
 		test.That(t, err, test.ShouldBeNil)
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Minute*5)
+		timeoutCtx, timeoutFn := context.WithTimeout(tc.ctx, time.Minute*5)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
@@ -829,10 +875,10 @@ func TestPositionalReplanning(t *testing.T) {
 			LastPlanOnly:  true,
 		})
 
-		if tc.expectedSuccess {
+		if testC.expectedSuccess {
 			test.That(t, err, test.ShouldBeNil)
 		} else {
-			test.That(t, err.Error(), test.ShouldEqual, tc.expectedErr)
+			test.That(t, err.Error(), test.ShouldEqual, testC.expectedErr)
 		}
 	}
 
@@ -847,9 +893,14 @@ func TestPositionalReplanning(t *testing.T) {
 
 func TestObstacleReplanning(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-	fb := newFakeBase(ctx, t, logger)
+	tc := newTestCtx(t)
+	fb := newFakeBase(tc, 20)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
+		Base:    fb.(*baseFake.Base),
+		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+		Options: kbOptions(),
+	}, tc.logger)
+	test.That(t, err, test.ShouldBeNil)
 
 	gpsOrigin := geo.NewPoint(0, 0)
 	dst := geo.NewPoint(gpsOrigin.Lat(), gpsOrigin.Lng()+1e-5)
@@ -904,25 +955,23 @@ func TestObstacleReplanning(t *testing.T) {
 		},
 	}
 
-	testFn := func(t *testing.T, tc testCase) {
+	testFn := func(t *testing.T, testC testCase) {
 		t.Helper()
 		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(
-			ctx,
-			t,
+			tc,
 			createMoveOnGlobeEnvironmentReq{
 				origin:    gpsOrigin,
 				noise:     spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0}),
 				fakeBase:  fb,
+				frame:     frame,
 				options:   kbOptions(),
 				sleepTime: time.Millisecond * 5000,
-			},
-			logger,
-		)
-		defer ms.Close(ctx)
+			})
+		defer ms.Close(tc.ctx)
 
 		srvc, ok := ms.(*builtIn).visionServices[cfg.ObstacleDetectors[0].VisionServiceName].(*inject.VisionService)
 		test.That(t, ok, test.ShouldBeTrue)
-		srvc.GetObjectPointCloudsFunc = tc.getPCfunc
+		srvc.GetObjectPointCloudsFunc = testC.getPCfunc
 
 		req := motion.MoveOnGlobeReq{
 			ComponentName:      kb.Name(),
@@ -931,10 +980,10 @@ func TestObstacleReplanning(t *testing.T) {
 			MotionCfg:          cfg,
 			Extra:              extra,
 		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
+		executionID, err := ms.MoveOnGlobe(tc.ctx, req)
 		test.That(t, err, test.ShouldBeNil)
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Minute*5)
+		timeoutCtx, timeoutFn := context.WithTimeout(tc.ctx, time.Minute*5)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
@@ -942,10 +991,10 @@ func TestObstacleReplanning(t *testing.T) {
 			LastPlanOnly:  true,
 		})
 
-		if tc.expectedSuccess {
+		if testC.expectedSuccess {
 			test.That(t, err, test.ShouldBeNil)
 		} else {
-			test.That(t, err.Error(), test.ShouldEqual, tc.expectedErr)
+			test.That(t, err.Error(), test.ShouldEqual, testC.expectedErr)
 		}
 	}
 
@@ -1258,21 +1307,19 @@ func TestStoppableMoveFunctions(t *testing.T) {
 
 func TestMoveOnGlobe(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-	fb := newFakeBase(ctx, t, logger)
+	tc := newTestCtx(t)
 	origin := geo.NewPoint(-70, 40)
 	goal := geo.NewPoint(origin.Lat(), origin.Lng()+1e-5)
 	straightLineDistanceMM := spatialmath.GeoPointToPoint(origin, goal).Norm()
-	logger.Infof("Straight line distance from origin to goal: %fmm", straightLineDistanceMM)
+	tc.logger.Infof("Straight line distance from origin to goal: %fmm", straightLineDistanceMM)
 	expectedDstMM := r3.Vector{X: 380, Y: 0, Z: 0}
 	epsilonMM := .5
-	// TODO: Get the below working
-	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
+	fb := newFakeBase(tc, 20)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
 		Base:    fb.(*baseFake.Base),
 		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 		Options: kbOptions(),
-	}, logger)
+	}, tc.logger)
 	test.That(t, err, test.ShouldBeNil)
 	// Near antarctica 🐧
 	test.That(t, straightLineDistanceMM, test.ShouldAlmostEqual, expectedDstMM.X, epsilonMM)
@@ -1294,18 +1341,15 @@ func TestMoveOnGlobe(t *testing.T) {
 			err         error
 		}
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(
-			ctx,
-			t,
+			tc,
 			createMoveOnGlobeEnvironmentReq{
-				origin:        origin,
-				overRideFrame: frame,
-				fakeBase:      fb,
-				options:       kbOptions(),
-				sleepTime:     time.Millisecond,
-			},
-			logger,
-		)
-		defer ms.Close(ctx)
+				origin:    origin,
+				frame:     frame,
+				fakeBase:  fb,
+				options:   kbOptions(),
+				sleepTime: time.Millisecond,
+			})
+		defer ms.Close(tc.ctx)
 		componentName := fakeBase.Name()
 		movementSensorName := injectedMovementSensor.Name()
 
@@ -1492,10 +1536,10 @@ func TestMoveOnGlobe(t *testing.T) {
 				err: errors.New("LinearMPerSec may not be NaN"),
 			},
 		}
-		for _, tc := range tcs {
-			t.Run(tc.description, func(t *testing.T) {
-				executionID, err := ms.MoveOnGlobe(ctx, tc.req)
-				test.That(t, err, test.ShouldBeError, tc.err)
+		for _, testC := range tcs {
+			t.Run(testC.description, func(t *testing.T) {
+				executionID, err := ms.MoveOnGlobe(tc.ctx, testC.req)
+				test.That(t, err, test.ShouldBeError, testC.err)
 				test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 			})
 		}
@@ -1503,15 +1547,15 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("passes validations", func(t *testing.T) {
 		cMOGEReq := createMoveOnGlobeEnvironmentReq{
-			origin:        origin,
-			fakeBase:      fb,
-			overRideFrame: frame,
-			options:       kbOptions(),
-			sleepTime:     time.Millisecond,
+			origin:    origin,
+			fakeBase:  fb,
+			frame:     frame,
+			options:   kbOptions(),
+			sleepTime: time.Millisecond,
 		}
 
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, cMOGEReq, logger)
-		defer ms.Close(ctx)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(tc, cMOGEReq)
+		defer ms.Close(tc.ctx)
 		t.Run("when goal is within 5km and optional params are not provided", func(t *testing.T) {
 			// injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, cMOGEReq, logger)
 			// defer ms.Close(ctx)
@@ -1521,10 +1565,10 @@ func TestMoveOnGlobe(t *testing.T) {
 				Destination:        goal,
 				Extra:              positionOnlyExtra,
 			}
-			executionID, err := ms.MoveOnGlobe(ctx, req)
+			executionID, err := ms.MoveOnGlobe(tc.ctx, req)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
-			err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
+			err = ms.StopPlan(tc.ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
 			test.That(t, err, test.ShouldBeNil)
 		})
 
@@ -1538,10 +1582,10 @@ func TestMoveOnGlobe(t *testing.T) {
 				Heading:            math.NaN(),
 				Extra:              positionOnlyExtra,
 			}
-			executionID, err := ms.MoveOnGlobe(ctx, req)
+			executionID, err := ms.MoveOnGlobe(tc.ctx, req)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
-			err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
+			err = ms.StopPlan(tc.ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
 			test.That(t, err, test.ShouldBeNil)
 		})
 
@@ -1555,17 +1599,16 @@ func TestMoveOnGlobe(t *testing.T) {
 				Destination:        goal,
 				Extra:              extra,
 			}
-			executionID, err := ms.MoveOnGlobe(ctx, req)
+			executionID, err := ms.MoveOnGlobe(tc.ctx, req)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
-			err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
+			err = ms.StopPlan(tc.ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
 			test.That(t, err, test.ShouldBeNil)
 		})
 
 		t.Run("when goal is within 5km and heading is negative", func(t *testing.T) {
 			// injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, cMOGEReq, logger)
 			// defer ms.Close(ctx)
-			logger.Info("create req")
 			req := motion.MoveOnGlobeReq{
 				ComponentName:      fakeBase.Name(),
 				MovementSensorName: injectedMovementSensor.Name(),
@@ -1573,13 +1616,10 @@ func TestMoveOnGlobe(t *testing.T) {
 				Destination:        goal,
 				Extra:              extra,
 			}
-			logger.Info("call MOG")
-			executionID, err := ms.MoveOnGlobe(ctx, req)
-			logger.Info("MOG reply")
+			executionID, err := ms.MoveOnGlobe(tc.ctx, req)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
-			err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
-			logger.Info("Stop Plan reply")
+			err = ms.StopPlan(tc.ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
 			test.That(t, err, test.ShouldBeNil)
 		})
 
@@ -1593,10 +1633,10 @@ func TestMoveOnGlobe(t *testing.T) {
 				MotionCfg:          &motion.MotionConfiguration{},
 				Extra:              extra,
 			}
-			executionID, err := ms.MoveOnGlobe(ctx, req)
+			executionID, err := ms.MoveOnGlobe(tc.ctx, req)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
-			err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
+			err = ms.StopPlan(tc.ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
 			test.That(t, err, test.ShouldBeNil)
 		})
 
@@ -1609,10 +1649,10 @@ func TestMoveOnGlobe(t *testing.T) {
 				Destination:        goal,
 				Extra:              extra,
 			}
-			executionID, err := ms.MoveOnGlobe(ctx, req)
+			executionID, err := ms.MoveOnGlobe(tc.ctx, req)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
-			err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
+			err = ms.StopPlan(tc.ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
 			test.That(t, err, test.ShouldBeNil)
 		})
 	})
@@ -1620,18 +1660,15 @@ func TestMoveOnGlobe(t *testing.T) {
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
 		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(
-			ctx,
-			t,
+			tc,
 			createMoveOnGlobeEnvironmentReq{
-				origin:        origin,
-				fakeBase:      fb,
-				overRideFrame: frame,
-				options:       kbOptions(),
-				sleepTime:     time.Millisecond,
-			},
-			logger,
-		)
-		defer ms.Close(ctx)
+				origin:    origin,
+				fakeBase:  fb,
+				frame:     frame,
+				options:   kbOptions(),
+				sleepTime: time.Millisecond,
+			})
+		defer ms.Close(tc.ctx)
 		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 		req := motion.MoveOnGlobeReq{
 			ComponentName:      fakeBase.Name(),
@@ -1641,21 +1678,21 @@ func TestMoveOnGlobe(t *testing.T) {
 			MotionCfg:          motionCfg,
 			Extra:              positionOnlyExtra,
 		}
-		mr, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, req, nil, 0)
+		mr, err := ms.(*builtIn).newMoveOnGlobeRequest(tc.ctx, req, nil, 0)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, mr.planRequest.Goal.Pose().Point().X, test.ShouldAlmostEqual, expectedDstMM.X, epsilonMM)
 		test.That(t, mr.planRequest.Goal.Pose().Point().Y, test.ShouldAlmostEqual, expectedDstMM.Y, epsilonMM)
 
-		planResp, err := mr.Plan(ctx)
+		planResp, err := mr.Plan(tc.ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(planResp.Waypoints), test.ShouldBeGreaterThan, 2)
 
-		executionID, err := ms.MoveOnGlobe(ctx, req)
+		executionID, err := ms.MoveOnGlobe(tc.ctx, req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		timeoutCtx, timeoutFn := context.WithTimeout(tc.ctx, time.Second*5)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
@@ -1668,18 +1705,15 @@ func TestMoveOnGlobe(t *testing.T) {
 	t.Run("go around an obstacle", func(t *testing.T) {
 		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(
-			ctx,
-			t,
+			tc,
 			createMoveOnGlobeEnvironmentReq{
-				origin:        origin,
-				fakeBase:      fb,
-				overRideFrame: frame,
-				options:       kbOptions(),
-				sleepTime:     time.Millisecond,
-			},
-			logger,
-		)
-		defer ms.Close(ctx)
+				origin:    origin,
+				fakeBase:  fb,
+				frame:     frame,
+				options:   kbOptions(),
+				sleepTime: time.Millisecond,
+			})
+		defer ms.Close(tc.ctx)
 		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 50, Y: 0, Z: 0})
@@ -1687,7 +1721,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
 		test.That(t, err, test.ShouldBeNil)
 		geoObstacle := spatialmath.NewGeoObstacle(origin, []spatialmath.Geometry{geometries})
-		startPose, err := fakeBase.CurrentPosition(ctx)
+		startPose, err := fakeBase.CurrentPosition(tc.ctx)
 		test.That(t, err, test.ShouldBeNil)
 
 		req := motion.MoveOnGlobeReq{
@@ -1698,17 +1732,17 @@ func TestMoveOnGlobe(t *testing.T) {
 			MotionCfg:          motionCfg,
 			Extra:              positionOnlyExtra,
 		}
-		mr, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, req, nil, 0)
+		mr, err := ms.(*builtIn).newMoveOnGlobeRequest(tc.ctx, req, nil, 0)
 		test.That(t, err, test.ShouldBeNil)
-		planResp, err := mr.Plan(ctx)
+		planResp, err := mr.Plan(tc.ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(planResp.Waypoints), test.ShouldBeGreaterThan, 2)
 
-		executionID, err := ms.MoveOnGlobe(ctx, req)
+		executionID, err := ms.MoveOnGlobe(tc.ctx, req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		timeoutCtx, timeoutFn := context.WithTimeout(tc.ctx, time.Second*5)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
@@ -1717,7 +1751,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		endPose, err := fakeBase.CurrentPosition(ctx)
+		endPose, err := fakeBase.CurrentPosition(tc.ctx)
 		test.That(t, err, test.ShouldBeNil)
 		movedPose := spatialmath.PoseBetween(startPose.Pose(), endPose.Pose())
 		test.That(t, movedPose.Point().X, test.ShouldAlmostEqual, expectedDstMM.X, epsilonMM)
@@ -1727,18 +1761,15 @@ func TestMoveOnGlobe(t *testing.T) {
 	t.Run("fail because of obstacle", func(t *testing.T) {
 		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(
-			ctx,
-			t,
+			tc,
 			createMoveOnGlobeEnvironmentReq{
-				origin:        origin,
-				fakeBase:      fb,
-				overRideFrame: frame,
-				options:       kbOptions(),
-				sleepTime:     time.Millisecond,
-			},
-			logger,
-		)
-		defer ms.Close(ctx)
+				origin:    origin,
+				fakeBase:  fb,
+				frame:     frame,
+				options:   kbOptions(),
+				sleepTime: time.Millisecond,
+			})
+		defer ms.Close(tc.ctx)
 
 		// Construct a set of obstacles that entirely enclose the goal point
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 50, Y: 0, Z: 0})
@@ -1767,9 +1798,9 @@ func TestMoveOnGlobe(t *testing.T) {
 			MotionCfg:          &motion.MotionConfiguration{},
 			Extra:              positionOnlyExtra,
 		}
-		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, req, nil, 0)
+		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(tc.ctx, req, nil, 0)
 		test.That(t, err, test.ShouldBeNil)
-		planResp, err := moveRequest.Plan(ctx)
+		planResp, err := moveRequest.Plan(tc.ctx)
 		test.That(t, err, test.ShouldBeError)
 		test.That(t, len(planResp.Motionplan), test.ShouldEqual, 0)
 	})
@@ -1777,20 +1808,17 @@ func TestMoveOnGlobe(t *testing.T) {
 	t.Run("check offset constructed correctly", func(t *testing.T) {
 		t.Parallel()
 		_, fsSvc, _, ms := createMoveOnGlobeEnvironment(
-			ctx,
-			t,
+			tc,
 			createMoveOnGlobeEnvironmentReq{
-				origin:        origin,
-				fakeBase:      fb,
-				overRideFrame: frame,
-				options:       kbOptions(),
-				sleepTime:     time.Millisecond,
-			},
-			logger,
-		)
-		defer ms.Close(ctx)
+				origin:    origin,
+				fakeBase:  fb,
+				frame:     frame,
+				options:   kbOptions(),
+				sleepTime: time.Millisecond,
+			})
+		defer ms.Close(tc.ctx)
 		baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
-		movementSensorToBase, err := fsSvc.TransformPose(ctx, baseOrigin, "test-gps", nil)
+		movementSensorToBase, err := fsSvc.TransformPose(tc.ctx, baseOrigin, "test-gps", nil)
 		if err != nil {
 			movementSensorToBase = baseOrigin
 		}
@@ -1799,18 +1827,26 @@ func TestMoveOnGlobe(t *testing.T) {
 }
 
 func TestMoveOnMapNew(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
+	tc := newTestCtx(t)
+	fb := newFakeBase(tc, 20)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
+		Base:    fb.(*baseFake.Base),
+		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+		Options: kbOptions(),
+	}, tc.logger)
+	test.That(t, err, test.ShouldBeNil)
 
 	base, ms := createMoveOnMapEnvironment(
-		context.Background(),
-		t,
-		"slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd",
-		110,
-		kbOptions(),
-		logger,
+		tc,
+		createMoveOnMapEnvironmentReq{
+			pcdPath:           "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd",
+			geomSize:          110,
+			kinematicsOptions: kbOptions(),
+			base:              fb,
+			frame:             frame,
+		},
 	)
-	defer ms.Close(ctx)
+	defer ms.Close(tc.ctx)
 
 	req := motion.MoveOnMapReq{
 		ComponentName: base.Name(),
@@ -1818,82 +1854,93 @@ func TestMoveOnMapNew(t *testing.T) {
 		SlamName:      slam.Named("test_slam"),
 	}
 
-	executionID, err := ms.MoveOnMapNew(ctx, req)
+	executionID, err := ms.MoveOnMapNew(tc.ctx, req)
 	test.That(t, err.Error(), test.ShouldEqual, "unimplemented")
 	test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 }
 
 func TestStopPlan(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-	fb := newFakeBase(ctx, t, logger)
+	tc := newTestCtx(t)
+	fb := newFakeBase(tc, 20)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
+		Base:    fb.(*baseFake.Base),
+		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+		Options: kbOptions(),
+	}, tc.logger)
+	test.That(t, err, test.ShouldBeNil)
 	gpsPoint := geo.NewPoint(0, 0)
 	//nolint:dogsled
 	_, _, _, ms := createMoveOnGlobeEnvironment(
-		ctx,
-		t,
+		tc,
 		createMoveOnGlobeEnvironmentReq{
 			origin:    gpsPoint,
 			fakeBase:  fb,
+			frame:     frame,
 			options:   kbOptions(),
 			sleepTime: time.Millisecond,
-		},
-		logger,
-	)
-	defer ms.Close(ctx)
+		})
+	defer ms.Close(tc.ctx)
 
 	req := motion.StopPlanReq{}
-	err := ms.StopPlan(ctx, req)
+	err = ms.StopPlan(tc.ctx, req)
 	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(req.ComponentName))
 }
 
 func TestListPlanStatuses(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-	fb := newFakeBase(ctx, t, logger)
+	tc := newTestCtx(t)
+	fb := newFakeBase(tc, 20)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
+		Base:    fb.(*baseFake.Base),
+		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+		Options: kbOptions(),
+	}, tc.logger)
+	test.That(t, err, test.ShouldBeNil)
 	gpsPoint := geo.NewPoint(0, 0)
 	//nolint:dogsled
-	_, _, _, ms := createMoveOnGlobeEnvironment(ctx,
-		t,
+	_, _, _, ms := createMoveOnGlobeEnvironment(tc,
 		createMoveOnGlobeEnvironmentReq{
 			origin:    gpsPoint,
 			fakeBase:  fb,
+			frame:     frame,
 			options:   kbOptions(),
 			sleepTime: time.Millisecond,
-		},
-		logger)
-	defer ms.Close(ctx)
+		})
+	defer ms.Close(tc.ctx)
 
 	req := motion.ListPlanStatusesReq{}
 	// returns no results as no move on globe calls have been made
-	planStatusesWithIDs, err := ms.ListPlanStatuses(ctx, req)
+	planStatusesWithIDs, err := ms.ListPlanStatuses(tc.ctx, req)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(planStatusesWithIDs), test.ShouldEqual, 0)
 }
 
 func TestPlanHistory(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
+	tc := newTestCtx(t)
 	origin := geo.NewPoint(-70, 40)
 	goal := geo.NewPoint(origin.Lat(), origin.Lng()+1e-5)
 	straightLineDistanceMM := spatialmath.GeoPointToPoint(origin, goal).Norm()
-	logger.Infof("Straight line distance from origin to goal: %fmm", straightLineDistanceMM)
+	tc.logger.Infof("Straight line distance from origin to goal: %fmm", straightLineDistanceMM)
 	expectedDstMM := r3.Vector{X: 380}
 	epsilonMM := .5
 	test.That(t, straightLineDistanceMM, test.ShouldAlmostEqual, expectedDstMM.X, epsilonMM)
 	test.That(t, straightLineDistanceMM, test.ShouldAlmostEqual, expectedDstMM.X, epsilonMM)
-	fb := newFakeBase(ctx, t, logger)
+	fb := newFakeBase(tc, 20)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
+		Base:    fb.(*baseFake.Base),
+		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+		Options: kbOptions(),
+	}, tc.logger)
+	test.That(t, err, test.ShouldBeNil)
 	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(
-		ctx,
-		t,
+		tc,
 		createMoveOnGlobeEnvironmentReq{
 			origin:    origin,
 			sleepTime: time.Millisecond,
 			options:   kbOptions(),
 			fakeBase:  fb,
-		},
-		logger)
-	defer ms.Close(ctx)
+			frame:     frame,
+		})
+	defer ms.Close(tc.ctx)
 	// create motion config
 	positionOnlyExtra := map[string]interface{}{
 		"motion_profile": "position_only",
@@ -1903,7 +1950,7 @@ func TestPlanHistory(t *testing.T) {
 
 	t.Run("returns error if no execution exists for the component", func(t *testing.T) {
 		req := motion.PlanHistoryReq{}
-		history, err := ms.PlanHistory(ctx, req)
+		history, err := ms.PlanHistory(tc.ctx, req)
 		test.That(t, err, test.ShouldResemble, resource.NewNotFoundError(req.ComponentName))
 		test.That(t, history, test.ShouldBeNil)
 	})
@@ -1914,12 +1961,12 @@ func TestPlanHistory(t *testing.T) {
 			Destination:        goal,
 			Extra:              positionOnlyExtra,
 		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
+		executionID, err := ms.MoveOnGlobe(tc.ctx, req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotBeEmpty)
 
 		// returns the execution just created in the history
-		ph, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
+		ph, err := ms.PlanHistory(tc.ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(ph), test.ShouldEqual, 1)
 		test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionID)
@@ -1927,10 +1974,10 @@ func TestPlanHistory(t *testing.T) {
 		test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateInProgress)
 		test.That(t, len(ph[0].Plan.Steps), test.ShouldNotEqual, 0)
 
-		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
+		err = ms.StopPlan(tc.ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
 		test.That(t, err, test.ShouldBeNil)
 
-		ph2, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
+		ph2, err := ms.PlanHistory(tc.ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(ph2), test.ShouldEqual, 1)
 		test.That(t, ph2[0].Plan.ExecutionID, test.ShouldResemble, executionID)
@@ -1940,9 +1987,9 @@ func TestPlanHistory(t *testing.T) {
 		test.That(t, len(ph2[0].Plan.Steps), test.ShouldNotEqual, 0)
 
 		// Proves that calling StopPlan after the plan has reached a terminal state is idempotent
-		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
+		err = ms.StopPlan(tc.ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
 		test.That(t, err, test.ShouldBeNil)
-		ph3, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
+		ph3, err := ms.PlanHistory(tc.ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ph3, test.ShouldResemble, ph2)
 	})

@@ -133,7 +133,7 @@ type fakePTGKinematics struct {
 	origin      *referenceframe.PoseInFrame
 	lock        sync.RWMutex
 	logger      logging.Logger
-	sleepTime   time.Duration
+	sleepTime   int
 }
 
 type NewPTGFrameFromKinematicOptionsReq struct {
@@ -180,50 +180,97 @@ func NewPTGFrameFromKinematicOptions(
 	)
 }
 
-type WrapWithFakePTGKinematicsReq struct {
-	Base          *fake.Base
-	Origin        *referenceframe.PoseInFrame
-	Options       Options
-	SensorNoise   spatialmath.Pose
-	OverRideFrame referenceframe.Frame
-	SleepTime     time.Duration
-}
-
 // WrapWithFakePTGKinematics creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled
 // interfaces.
 func WrapWithFakePTGKinematics(
 	ctx context.Context,
-	req WrapWithFakePTGKinematicsReq,
+	b *fake.Base,
 	logger logging.Logger,
+	origin *referenceframe.PoseInFrame,
+	options Options,
+	sensorNoise spatialmath.Pose,
+	sleepTime int,
 ) (KinematicBase, error) {
-	frame := req.OverRideFrame
-	if frame == nil {
-		f, err := NewPTGFrameFromKinematicOptions(ctx, NewPTGFrameFromKinematicOptionsReq{
-			Base:    req.Base,
-			Origin:  req.Origin,
-			Options: req.Options,
-		}, logger)
-		if err != nil {
-			return nil, err
-		}
-		frame = f
+	properties, err := b.Properties(ctx, nil)
+	if err != nil {
+		return nil, err
 	}
 
-	sensorNoise := req.SensorNoise
+	baseMillimetersPerSecond := options.LinearVelocityMMPerSec
+	if baseMillimetersPerSecond == 0 {
+		baseMillimetersPerSecond = defaultLinearVelocityMMPerSec
+	}
+
+	baseTurningRadiusMeters := properties.TurningRadiusMeters
+	if baseTurningRadiusMeters < 0 {
+		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than or equal to zero")
+	}
+
+	geometries, err := b.Geometries(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
+		b.Name().ShortName(),
+		logger,
+		baseMillimetersPerSecond,
+		options.AngularVelocityDegsPerSec,
+		baseTurningRadiusMeters,
+		options.MaxMoveStraightMM, // If zero, will use default on the receiver end.
+		0,                         // If zero, will use default on the receiver end.
+		geometries,
+		options.NoSkidSteer,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	if sensorNoise == nil {
 		sensorNoise = spatialmath.NewZeroPose()
 	}
 	fk := &fakePTGKinematics{
-		Base:        req.Base,
+		Base:        b,
 		frame:       frame,
+		origin:      origin,
+		sensorNoise: sensorNoise,
+		logger:      logger,
+		sleepTime:   sleepTime,
+	}
+
+	fk.options = options
+	return fk, nil
+}
+
+type WrapWithFakePTGKinematicsWithFrameReq struct {
+	Base        *fake.Base
+	Origin      *referenceframe.PoseInFrame
+	Options     Options
+	SensorNoise spatialmath.Pose
+	Frame       referenceframe.Frame
+	SleepTime   time.Duration
+}
+
+// WrapWithFakePTGKinematicsWithFrame creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled
+// interfaces.
+func WrapWithFakePTGKinematicsWithFrame(
+	ctx context.Context,
+	req WrapWithFakePTGKinematicsWithFrameReq,
+	logger logging.Logger,
+) (KinematicBase, error) {
+	sensorNoise := req.SensorNoise
+	if sensorNoise == nil {
+		sensorNoise = spatialmath.NewZeroPose()
+	}
+	return &fakePTGKinematics{
+		Base:        req.Base,
+		frame:       req.Frame,
 		origin:      req.Origin,
 		sensorNoise: sensorNoise,
 		logger:      logger,
-		sleepTime:   req.SleepTime,
-	}
-
-	fk.options = req.Options
-	return fk, nil
+		options:     req.Options,
+		sleepTime:   int(req.SleepTime.Milliseconds()),
+	}, nil
 }
 
 func (fk *fakePTGKinematics) Kinematics() referenceframe.Frame {
@@ -249,7 +296,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referencef
 	fk.lock.Lock()
 	fk.origin = referenceframe.NewPoseInFrame(fk.origin.Parent(), spatialmath.Compose(fk.origin.Pose(), newPose))
 	fk.lock.Unlock()
-	timeoutCtx, cancelFn := context.WithTimeout(ctx, fk.sleepTime)
+	timeoutCtx, cancelFn := context.WithTimeout(ctx, time.Millisecond*time.Duration(fk.sleepTime))
 	defer cancelFn()
 	<-timeoutCtx.Done()
 	return ctx.Err()
