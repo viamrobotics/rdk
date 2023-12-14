@@ -81,11 +81,6 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	seedPlan Plan,
 	motionConfig map[string]interface{},
 ) ([][]referenceframe.Input, error) {
-	pm.logger.Debug("PlanSingleWaypoint called")
-	defer pm.logger.Debug("PlanSingleWaypoint done")
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
 	seed, err := pm.frame.mapToSlice(seedMap)
 	if err != nil {
 		return nil, err
@@ -142,9 +137,6 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 
 		from := seedPos
 		for i := 1; i < numSteps; i++ {
-			if err := ctx.Err(); err != nil {
-				return nil, err
-			}
 			by := float64(i) / float64(numSteps)
 			to := spatialmath.Interpolate(seedPos, goalPos, by)
 			goals = append(goals, to)
@@ -171,9 +163,6 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	planners := make([]motionPlanner, 0, len(opts))
 	// Set up planners for later execution
 	for _, opt := range opts {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
 		// Build planner
 		//nolint: gosec
 		pathPlanner, err := opt.PlannerConstructor(
@@ -198,7 +187,6 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	}
 
 	resultSlices, err := pm.planAtomicWaypoints(ctx, goals, seed, planners, seedPlan)
-	pm.logger.Debug("waiting for activeBackgroundWorkers")
 	pm.activeBackgroundWorkers.Wait()
 	if err != nil {
 		if len(goals) > 1 {
@@ -219,31 +207,24 @@ func (pm *planManager) planAtomicWaypoints(
 	planners []motionPlanner,
 	seedPlan Plan,
 ) ([][]referenceframe.Input, error) {
-	pm.logger.Debug("planAtomicWaypoints called")
-	defer pm.logger.Debug("planAtomicWaypoints done")
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
 	var err error
 	// A resultPromise can be queried in the future and will eventually yield either a set of planner waypoints, or an error.
 	// Each atomic waypoint produces one result promise, all of which are resolved at the end, allowing multiple to be solved in parallel.
 	resultPromises := []*resultPromise{}
 
 	// try to solve each goal, one at a time
-	pm.logger.Debugf("planAtomicWaypoints goals len: %f", len(goals))
 	for i, goal := range goals {
 		// Check if ctx is done between each waypoint
-		defer pm.logger.Debugf("planAtomicWaypoints working on goal: %d", i)
-		if err := ctx.Err(); err != nil {
-			pm.logger.Debug("planAtomicWaypoints done b/c ctx.Err")
-			return nil, err
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
 		}
 
 		pathPlanner := planners[i]
 
 		var maps *rrtMaps
 		if seedPlan != nil {
-			pm.logger.Debug("planAtomicWaypoints calling	planToRRTGoalMap")
 			maps, err = pm.planToRRTGoalMap(seedPlan, goal)
 			if err != nil {
 				return nil, err
@@ -253,14 +234,12 @@ func (pm *planManager) planAtomicWaypoints(
 			if maps == nil {
 				maps = &rrtMaps{}
 			}
-			pm.logger.Debug("planAtomicWaypoints calling planToRRTGoalMap")
 			err = maps.fillPosOnlyGoal(goal, pm.opt().PositionSeeds, len(pm.frame.DoF()))
 			if err != nil {
 				return nil, err
 			}
 		}
 		// Plan the single waypoint, and accumulate objects which will be used to constrauct the plan after all planning has finished
-		pm.logger.Debug("planAtomicWaypoints calling planSingleAtomicWaypoint")
 		newseed, future, err := pm.planSingleAtomicWaypoint(ctx, goal, seed, pathPlanner, maps)
 		if err != nil {
 			return nil, err
@@ -268,13 +247,11 @@ func (pm *planManager) planAtomicWaypoints(
 		seed = newseed
 		resultPromises = append(resultPromises, future)
 	}
-	pm.logger.Debugf("planAtomicWaypoints past first for loop, resultPromises len: %d", len(resultPromises))
 
 	resultSlices := [][]referenceframe.Input{}
 
 	// All goals have been submitted for solving. Reconstruct in order
-	for i, future := range resultPromises {
-		pm.logger.Debugf("running future: %d", i)
+	for _, future := range resultPromises {
 		steps, err := future.result()
 		if err != nil {
 			return nil, err
@@ -295,7 +272,6 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	maps *rrtMaps,
 ) ([]referenceframe.Input, *resultPromise, error) {
 	if parPlan, ok := pathPlanner.(rrtParallelPlanner); ok {
-		pm.logger.Debugf("doing parallel path planning")
 		// rrtParallelPlanner supports solution look-ahead for parallel waypoint solving
 		// This will set that up, and if we get a result on `endpointPreview`, then the next iteration will be started, and the steps
 		// for this solve will be rectified at the end.
@@ -304,18 +280,12 @@ func (pm *planManager) planSingleAtomicWaypoint(
 		pm.activeBackgroundWorkers.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer pm.activeBackgroundWorkers.Done()
-			pm.logger.Debugf("planParallelRRTMotion called")
-			defer pm.logger.Debugf("calling planParallelRRTMotion done")
 			pm.planParallelRRTMotion(ctx, goal, seed, parPlan, endpointPreview, solutionChan, maps)
 		})
 		// We don't want to check context here; context cancellation will be handled by planParallelRRTMotion.
 		// Instead, if a timeout occurs while we are smoothing, we want to return the best plan we have so far, rather than nothing at all.
 		// This matches the behavior of a non-rrtParallelPlanner
-		pm.logger.Debugf("waiting for endpointPreview or solutionChan")
 		select {
-		case <-ctx.Done():
-			pm.logger.Fatal("context was cancelled")
-			return nil, nil, nil
 		case nextSeed := <-endpointPreview:
 			return nextSeed.Q(), &resultPromise{future: solutionChan}, nil
 		case planReturn := <-solutionChan:
@@ -328,9 +298,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	} else {
 		// This ctx is used exclusively for the running of the new planner and timing it out. It may be different from the main `ctx`
 		// timeout due to planner fallbacks.
-		duration := time.Duration(pathPlanner.opt().Timeout * float64(time.Second))
-		pm.logger.Debugf("planSingleAtomicWaypoint duration: %s", duration)
-		plannerctx, cancel := context.WithTimeout(ctx, duration)
+		plannerctx, cancel := context.WithTimeout(ctx, time.Duration(pathPlanner.opt().Timeout*float64(time.Second)))
 		defer cancel()
 		steps, err := pathPlanner.plan(plannerctx, goal, seed)
 		if err != nil {
@@ -356,8 +324,6 @@ func (pm *planManager) planParallelRRTMotion(
 	solutionChan chan *rrtPlanReturn,
 	maps *rrtMaps,
 ) {
-	pm.logger.Debugf("planParallelRRTMotion called")
-	defer pm.logger.Debugf("planParallelRRTMotion done")
 	var rrtBackground sync.WaitGroup
 	var err error
 	// If we don't pass in pre-made maps, initialize and seed with IK solutions here
@@ -398,9 +364,7 @@ func (pm *planManager) planParallelRRTMotion(
 
 	// This ctx is used exclusively for the running of the new planner and timing it out. It may be different from the main `ctx` timeout
 	// due to planner fallbacks.
-	duration := time.Duration(pathPlanner.opt().Timeout * float64(time.Second))
-	pm.logger.Debugf("planParallelRRTMotion timeout: %s", duration)
-	plannerctx, cancel := context.WithTimeout(ctx, duration)
+	plannerctx, cancel := context.WithTimeout(ctx, time.Duration(pathPlanner.opt().Timeout*float64(time.Second)))
 	defer cancel()
 
 	plannerChan := make(chan *rrtPlanReturn, 1)
@@ -409,29 +373,21 @@ func (pm *planManager) planParallelRRTMotion(
 	rrtBackground.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer rrtBackground.Done()
-		pm.logger.Debug("rrtBackgroundRunner called")
-		defer pm.logger.Debug("rrtBackgroundRunner done")
 		pathPlanner.rrtBackgroundRunner(plannerctx, seed, &rrtParallelPlannerShared{maps, endpointPreview, plannerChan})
 	})
 
 	// Wait for results from the planner. This will also handle calling the fallback if needed, and will ultimately return the best path
-	pm.logger.Debug("planParallelRRTMotion waiting for result")
 	select {
 	case <-ctx.Done():
 		// Error will be caught by monitoring loop
-		pm.logger.Debug("ctx done, waiting for background workers to be done")
 		rrtBackground.Wait()
-		pm.logger.Debug("writing to so chan")
 		solutionChan <- &rrtPlanReturn{planerr: ctx.Err()}
 		return
 	default:
-		pm.logger.Debug("default")
 	}
 
-	pm.logger.Debug("planParallelRRTMotion waiting for plannerChan or ctx.Done")
 	select {
 	case finalSteps := <-plannerChan:
-		pm.logger.Debug("planParallelRRTMotion waiting for plannerChan returned")
 		// We didn't get a solution preview (possible error), so we get and process the full step set and error.
 
 		mapSeed := finalSteps.maps
@@ -518,11 +474,8 @@ func (pm *planManager) planParallelRRTMotion(
 		return
 
 	case <-ctx.Done():
-		pm.logger.Debug("planParallelRRTMotion after ctx.Done()")
 		rrtBackground.Wait()
-		pm.logger.Debug("planParallelRRTMotion after rrtBackground.Wait()")
 		solutionChan <- &rrtPlanReturn{planerr: ctx.Err()}
-		pm.logger.Debug("planParallelRRTMotion after solutionChan write")
 		return
 	}
 }
