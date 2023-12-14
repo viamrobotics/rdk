@@ -477,7 +477,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 					return errors.Wrap(err, "error converting associated resource config attributes")
 				}
 				// associated resource configs for local resources might be missing the resource name,
-				// which can be inferred its resource config.
+				// which can be inferred from its resource config.
 				// associated resource configs for remote resources might be missing the remote name for the resource,
 				// which can be inferred from its remote config.
 				converted.UpdateResourceNames(func(oldName resource.Name) resource.Name {
