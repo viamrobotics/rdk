@@ -44,6 +44,9 @@ type NloptIK struct {
 	// solutions where it was not able to meet the goal criteria but still was able to improve upon the seed.
 	exact bool
 
+	// useRelTol specifies whether the SetXtolRel and SetFtolRel values will be set for nlopt.
+	// If true, this will terminate solving when nlopt alg iterations change the distance to goal by less than some proportion of calculated
+	// distance. This can cause premature terminations when the distances are large.
 	useRelTol bool
 }
 
