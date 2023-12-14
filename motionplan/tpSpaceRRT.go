@@ -280,33 +280,50 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		goalMapNode := goalReached.node
 		err := multierr.Combine(seedReached.error, goalReached.error)
 		if err != nil {
+			mp.logger.Debugf("writing to rrt.solutionChan")
 			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+			mp.logger.Debugf("rrt.solutionChan written to")
 			return
 		}
 
 		if seedMapNode != nil && goalMapNode != nil {
+			mp.logger.Debugf("mp.planOpts.DistanceFunc called")
 			reachedDelta := mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: seedReached.node.Pose(), EndPosition: goalReached.node.Pose()})
+			mp.logger.Debugf("mp.planOpts.DistanceFunc returned")
 			if reachedDelta > mp.algOpts.poseSolveDist {
 				// If both maps extended, but did not reach the same point, then attempt to extend them towards each other
+				mp.logger.Debugf("attemptExtension called")
 				seedReached = mp.attemptExtension(ctx, goalMapNode, rrt.maps.startMap, false)
+				mp.logger.Debugf("attemptExtension returned")
 				if seedReached.error != nil {
+					mp.logger.Debugf("writing to rrt.solutionChan")
 					rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
+					mp.logger.Debugf("rrt.solutionChan written to")
 					return
 				}
 				if seedReached.node == nil {
+					mp.logger.Debugf("continue")
 					continue
 				}
+				mp.logger.Debugf("attemptExtension called")
 				goalReached = mp.attemptExtension(ctx, seedReached.node, rrt.maps.goalMap, true)
+				mp.logger.Debugf("attemptExtension returned")
 				if goalReached.error != nil {
+					mp.logger.Debugf("writing to rrt.solutionChan")
 					rrt.solutionChan <- &rrtPlanReturn{planerr: goalReached.error, maps: rrt.maps}
+					mp.logger.Debugf("rrt.solutionChan written to ")
 					return
 				}
 				if goalReached.node == nil {
+					mp.logger.Debugf("continue")
 					continue
 				}
+				mp.logger.Debugf("mp.planOpts.DistanceFunc called")
 				reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: seedReached.node.Pose(), EndPosition: goalReached.node.Pose()})
+				mp.logger.Debugf("mp.planOpts.DistanceFunc returned")
 			}
 			if reachedDelta <= mp.algOpts.poseSolveDist {
+				mp.logger.Debugf("reachedDelta <= mp.algOpts.poseSolveDist")
 				// If we've reached the goal, extract the path from the RRT trees and return
 				path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalReached.node}, false)
 				correctedPath, err := rectifyTPspacePath(path, mp.frame, spatialmath.NewZeroPose())
@@ -319,29 +336,41 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			}
 		}
 		if iter%mp.algOpts.attemptSolveEvery == 0 {
+			mp.logger.Debugf("iter%mp.algOpts.attemptSolveEvery == 0")
 			// Attempt a solve; we exhaustively iterate through our goal tree and attempt to find any connection to the seed tree
 			paths := [][]node{}
+			mp.logger.Debugf("len(rrt.maps.goalMap) %d", len(rrt.maps.goalMap))
 			for goalMapNode := range rrt.maps.goalMap {
 				seedReached := mp.attemptExtension(ctx, goalMapNode, rrt.maps.startMap, false)
 				if seedReached.error != nil {
+					mp.logger.Debugf("writing to rrt.solutionChan")
 					rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
+					mp.logger.Debugf("rrt.solutionChan written to")
 					return
 				}
 				if seedReached.node == nil {
+					mp.logger.Debugf("continue")
 					continue
 				}
 				var reachedDelta float64
 				if mp.algOpts.bidirectional {
+					mp.logger.Debugf("BEGIN DistanceFunc")
 					reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: seedReached.node.Pose(), EndPosition: goalMapNode.Pose()})
+					mp.logger.Debugf("END DistanceFunc")
 				} else {
+					mp.logger.Debugf("BEGIN goalMetric")
 					reachedDelta = mp.planOpts.goalMetric(&ik.State{Position: seedReached.node.Pose()})
+					mp.logger.Debugf("END goalMetric")
 				}
 				if reachedDelta <= mp.algOpts.poseSolveDist {
 					// If we've reached the goal, extract the path from the RRT trees and return
+					mp.logger.Debugf("BEGIN extractPath")
 					path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalMapNode}, false)
+					mp.logger.Debugf("END extractPath")
 					paths = append(paths, path)
 				}
 			}
+			mp.logger.Debugf("len(paths): %d", len(paths))
 			if len(paths) > 0 {
 				var bestPath []node
 				bestCost := math.Inf(1)
@@ -352,12 +381,18 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 						bestPath = goodPath
 					}
 				}
+				mp.logger.Debugf("BEGIN rectifyTPspacePath")
 				correctedPath, err := rectifyTPspacePath(bestPath, mp.frame, spatialmath.NewZeroPose())
+				mp.logger.Debugf("END rectifyTPspacePath")
 				if err != nil {
+					mp.logger.Debugf("writing to rrt.solutionChan")
 					rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+					mp.logger.Debugf("rrt.solutionChan written to")
 					return
 				}
+				mp.logger.Debugf("writing to rrt.solutionChan")
 				rrt.solutionChan <- &rrtPlanReturn{steps: correctedPath, maps: rrt.maps}
+				mp.logger.Debugf("rrt.solutionChan written to")
 				return
 			}
 		}
@@ -365,11 +400,15 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		// Get random cartesian configuration
 		randPosNode, err = mp.sample(midptNode, iter+1)
 		if err != nil {
+			mp.logger.Debugf("writing to rrt.solutionChan")
 			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+			mp.logger.Debugf("rrt.solutionChan written to")
 			return
 		}
 	}
+	mp.logger.Debugf("writing to rrt.solutionChan")
 	rrt.solutionChan <- &rrtPlanReturn{maps: rrt.maps, planerr: errors.New("tpspace RRT unable to create valid path")}
+	mp.logger.Debugf("rrt.solutionChan written to")
 }
 
 // getExtensionCandidate will return either nil, or the best node on a valid PTG to reach the desired random node and its RRT tree parent.
