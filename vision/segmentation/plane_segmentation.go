@@ -202,9 +202,9 @@ func findBestEq(ctx context.Context, cloud pc.PointCloud, nIterations int, equat
 						}
 					}
 					// if the current plane contains more pixels than the previously stored one, save this one as the biggest plane
+					groupMu.Lock()
+					defer groupMu.Unlock()
 					if currentInliers > bestInliers {
-						groupMu.Lock()
-						defer groupMu.Unlock()
 						bestEquation = currentEquation
 						bestInliers = currentInliers
 					}
