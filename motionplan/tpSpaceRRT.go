@@ -242,6 +242,9 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	midptNode := &basicNode{pose: spatialmath.NewPose(midPt, midOrient), cost: dist}
 	var randPosNode node = midptNode
 
+	mp.logger.Debugf("mp.planOpts.PlanIter, %d", mp.planOpts.PlanIter)
+	mp.logger.Debugf("mp.algOpts.attemptSolveEvery %d", mp.algOpts.attemptSolveEvery)
+
 	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
 		mp.logger.Debugf("TP Space RRT iteration %d", iter)
 		if ctx.Err() != nil {
