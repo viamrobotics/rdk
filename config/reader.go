@@ -425,14 +425,16 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 		})
 	}
 
-	// for assocations
+	// We keep track of resource configs per API to facilitate linking resource configs to
+	// its associated resource configs. Associated resource configs are configs that are
+	// linked to and used by a different resource config.
 	resCfgsPerAPI := map[resource.API][]*resource.Config{}
 
 	processResources := func(confs []resource.Config) error {
 		for idx, conf := range confs {
 			copied := conf
 
-			// for resource to resource assocations
+			// for resource to resource associations
 			resCfgsPerAPI[copied.API] = append(resCfgsPerAPI[copied.API], &confs[idx])
 			resName := copied.ResourceName()
 
@@ -474,23 +476,26 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 				if err != nil {
 					return errors.Wrap(err, "error converting associated resource config attributes")
 				}
-				if resName != nil || remoteName != nil {
-					converted.UpdateResourceNames(func(oldName resource.Name) resource.Name {
-						newName := oldName
-						if resName != nil {
-							newName = *resName
-						}
-						if remoteName != nil {
-							newName = newName.PrependRemote(*remoteName)
-						}
-						return newName
-					})
-				}
+				// associated resource configs for local resources might be missing the resource name,
+				// which can be inferred its resource config.
+				// associated resource configs for remote resources might be missing the remote name for the resource,
+				// which can be inferred from its remote config.
+				converted.UpdateResourceNames(func(oldName resource.Name) resource.Name {
+					newName := oldName
+					if resName != nil {
+						newName = *resName
+					}
+					if remoteName != nil {
+						newName = newName.PrependRemote(*remoteName)
+					}
+					return newName
+				})
 				associatedCfgs[subIdx].ConvertedAttributes = converted
 				convertedAttrs = converted
 			}
 
-			// always associate
+			// for APIs with an associated config linker, link the current associated config with
+			// each resource config of that API.
 			for _, assocConf := range resCfgsPerAPI[associatedConf.API] {
 				reg, ok := resource.LookupRegistration(associatedConf.API, assocConf.Model)
 				if !ok || reg.AssociatedConfigLinker == nil {
@@ -504,7 +509,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 		return nil
 	}
 
-	processAssocations := func(confs []resource.Config) error {
+	processAssociations := func(confs []resource.Config) error {
 		for _, conf := range confs {
 			copied := conf
 			resName := copied.ResourceName()
@@ -516,10 +521,10 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 		return nil
 	}
 
-	if err := processAssocations(cfg.Components); err != nil {
+	if err := processAssociations(cfg.Components); err != nil {
 		return nil, err
 	}
-	if err := processAssocations(cfg.Services); err != nil {
+	if err := processAssociations(cfg.Services); err != nil {
 		return nil, err
 	}
 

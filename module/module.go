@@ -570,6 +570,8 @@ func addConvertedAttributes(cfg *resource.Config) error {
 			if err != nil {
 				return errors.Wrap(err, "error converting associated resource config attributes")
 			}
+			// associated resource configs for resources might be missing a resource name
+			// which can be inferred from its resource config.
 			converted.UpdateResourceNames(func(oldName resource.Name) resource.Name {
 				return cfg.ResourceName()
 			})
