@@ -54,7 +54,8 @@ const (
 
 	// maxMoveStraightMM is the maximum distance the base should move with a single MoveStraight command.
 	// used to break up large driving segments to prevent error from building up due to slightly incorrect angle.
-	defaultMaxMoveStraightMM = 0.
+	// Only used for diff drive kinematics, as PTGs do not use MoveStraight.
+	defaultMaxMoveStraightMM = 2000.
 
 	// maxSpinAngleDeg is the maximum amount of degrees the base should turn with a single Spin command.
 	// used to break up large turns into smaller chunks to prevent error from building up.

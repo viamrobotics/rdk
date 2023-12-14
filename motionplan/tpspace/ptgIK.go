@@ -34,12 +34,11 @@ type ptgIK struct {
 
 // NewPTGIK creates a new ptgIK, which creates a frame using the provided PTG, and wraps it providing functions to fill the PTG
 // interface, allowing inverse kinematics queries to be run against it.
-func NewPTGIK(simPTG PTG, logger logging.Logger, refDistFar, refDistRestricted float64, randSeed, trajCount int) (PTGSolver, error) {
-	refDist := refDistFar
-	if refDist <= 0 {
-		return nil, errors.New("refDist must be greater than zero")
+func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float64, randSeed, trajCount int) (PTGSolver, error) {
+	if refDistLong <= 0 {
+		return nil, errors.New("refDistLong must be greater than zero")
 	}
-	ptgFrame := newPTGIKFrame(simPTG, trajCount, refDistFar, refDistRestricted)
+	ptgFrame := newPTGIKFrame(simPTG, trajCount, refDistLong, refDistShort)
 
 	nlopt, err := ik.CreateNloptIKSolver(ptgFrame, logger, 1, false, false)
 	if err != nil {
@@ -48,10 +47,14 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistFar, refDistRestricted f
 
 	inputs := []referenceframe.Input{}
 	ptgDof := ptgFrame.DoF()
+
+	// Set the seed to be used for nlopt solving based on the individual DoF range of the PTG.
+	// If the DoF only allows short PTGs, seed near the end of its length, otherwise seed near the beginning.
+	// TODO: RSDK-6054 should make this much less important.
 	for i := 0; i < len(ptgDof); i++ {
 		boundRange := ptgDof[i].Max - ptgDof[i].Min
 		minAdj := boundRange * 0.2
-		if boundRange == refDistRestricted {
+		if boundRange == refDistShort {
 			minAdj = boundRange * 0.9
 		}
 		inputs = append(inputs,
@@ -61,7 +64,7 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistFar, refDistRestricted f
 
 	ptg := &ptgIK{
 		PTG:             simPTG,
-		refDist:         refDist,
+		refDist:         refDistLong,
 		ptgFrame:        ptgFrame,
 		fastGradDescent: nlopt,
 		trajCache:       map[float64][]*TrajNode{},
@@ -69,7 +72,7 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistFar, refDistRestricted f
 	}
 
 	// create an ends-only grid sim for quick end-of-trajectory calculations
-	gridSim, err := NewPTGGridSim(simPTG, 0, refDistRestricted, true)
+	gridSim, err := NewPTGGridSim(simPTG, 0, refDistShort, true)
 	if err != nil {
 		return nil, err
 	}

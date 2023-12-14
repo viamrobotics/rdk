@@ -25,18 +25,20 @@ const (
 
 // If refDist is not explicitly set, default to pi radians times this adjustment value.
 const (
-	defaultRefDistFar         = 100000 // 100 meters
+	defaultRefDistLong        = 100000. // 100 meters
 	defaultRefDistHalfCircles = 0.9
 	defaultTrajCount          = 2
 )
 
 type ptgFactory func(float64, float64) PTG
 
-var defaultRestrictedPtgs = []ptgFactory{
+// These PTGs do not end in a straight line, and thus are restricted to a shorter maximum length.
+var defaultShortPtgs = []ptgFactory{
 	NewCirclePTG,
 	NewCCPTG,
 }
 
+// These PTGs curve at the beginning and then have a straight line of arbitrary length, which is allowed to extend to defaultRefDistLong.
 var defaultPTGs = []ptgFactory{
 	NewCCSPTG,
 	NewCSPTG,
@@ -62,7 +64,7 @@ type ptgGroupFrame struct {
 func NewPTGFrameFromKinematicOptions(
 	name string,
 	logger logging.Logger,
-	velocityMMps, angVelocityDegps, turnRadMeters, userRefDist float64,
+	velocityMMps, angVelocityDegps, turnRadMeters float64,
 	trajCount int,
 	geoms []spatialmath.Geometry,
 	diffDriveOnly bool,
@@ -72,9 +74,6 @@ func NewPTGFrameFromKinematicOptions(
 	}
 	if turnRadMeters < 0 {
 		return nil, fmt.Errorf("cannot create ptg frame, turning radius %f must be >0", turnRadMeters)
-	}
-	if userRefDist < 0 {
-		return nil, fmt.Errorf("cannot create ptg frame, refDist %f must be >=0", userRefDist)
 	}
 	if diffDriveOnly && turnRadMeters != 0 {
 		return nil, errors.New("if diffDriveOnly is used, turning radius must be zero")
@@ -115,40 +114,34 @@ func NewPTGFrameFromKinematicOptions(
 			)
 		}
 	}
-	refDistFar := userRefDist
-	refDistRestricted := userRefDist
+	refDistLong := defaultRefDistLong
+	refDistShort := velocityMMps / angVelocityRadps * math.Pi * defaultRefDistHalfCircles
 
-	if userRefDist == 0 {
-		// Default to a distance of just over one half of a circle turning at max radius
-		refDistFar = defaultRefDistFar
-		refDistRestricted = velocityMMps / angVelocityRadps * math.Pi * defaultRefDistHalfCircles
-	}
-
-	farPtgsToUse := []ptgFactory{}
-	restrictedPtgsToUse := []ptgFactory{}
+	longPtgsToUse := []ptgFactory{}
+	shortPtgsToUse := []ptgFactory{}
 	if turnRadMeters == 0 {
-		farPtgsToUse = append(farPtgsToUse, defaultDiffPTG)
+		longPtgsToUse = append(longPtgsToUse, defaultDiffPTG)
 	}
 	if !diffDriveOnly {
-		farPtgsToUse = append(farPtgsToUse, defaultPTGs...)
-		restrictedPtgsToUse = append(restrictedPtgsToUse, defaultRestrictedPtgs...)
+		longPtgsToUse = append(longPtgsToUse, defaultPTGs...)
+		shortPtgsToUse = append(shortPtgsToUse, defaultShortPtgs...)
 	}
 
 	pf := &ptgGroupFrame{name: name}
 
-	farPtgs := initializePTGs(velocityMMps, angVelocityRadps, farPtgsToUse)
-	farSolvers, err := initializeSolvers(logger, refDistFar, refDistRestricted, trajCount, farPtgs)
+	longPtgs := initializePTGs(velocityMMps, angVelocityRadps, longPtgsToUse)
+	longSolvers, err := initializeSolvers(logger, refDistLong, refDistShort, trajCount, longPtgs)
 	if err != nil {
 		return nil, err
 	}
-	restPtgs := initializePTGs(velocityMMps, angVelocityRadps, restrictedPtgsToUse)
-	restSolvers, err := initializeSolvers(logger, refDistRestricted, refDistRestricted, trajCount, restPtgs)
+	shortPtgs := initializePTGs(velocityMMps, angVelocityRadps, shortPtgsToUse)
+	shortSolvers, err := initializeSolvers(logger, refDistShort, refDistShort, trajCount, shortPtgs)
 	if err != nil {
 		return nil, err
 	}
 
-	farSolvers = append(farSolvers, restSolvers...)
-	pf.solvers = farSolvers
+	longSolvers = append(longSolvers, shortSolvers...)
+	pf.solvers = longSolvers
 	pf.geometries = geoms
 	pf.velocityMMps = velocityMMps
 	pf.angVelocityRadps = angVelocityRadps
@@ -159,7 +152,7 @@ func NewPTGFrameFromKinematicOptions(
 	pf.limits = []referenceframe.Limit{
 		{Min: 0, Max: float64(len(pf.solvers) - 1)},
 		{Min: -math.Pi, Max: math.Pi},
-		{Min: 0, Max: refDistFar},
+		{Min: 0, Max: refDistLong},
 	}
 
 	return pf, nil

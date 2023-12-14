@@ -70,6 +70,9 @@ const (
 	pathdebug = false
 )
 
+// Using the standard SquaredNormMetric, we run into issues where far apart distances will underflow gradient calculations.
+// This metric, used only for gradient descent, computes the gradient using centimeters rather than millimeters allowing for smaller
+// values that do not underflow.
 var defaultGoalMetricConstructor = ik.NewPosWeightSquaredNormMetric
 
 // This should only be used when bidirectional mode is `false`.
@@ -135,10 +138,6 @@ func newTPSpaceMotionPlanner(
 ) (motionPlanner, error) {
 	if opt == nil {
 		return nil, errNoPlannerOptions
-	}
-
-	if opt.Resolution == defaultResolution {
-		opt.Resolution = defaultPTGCollisionResolution
 	}
 
 	mp, err := newPlanner(frame, seed, logger, opt)
@@ -361,11 +360,11 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		if iter%mp.algOpts.attemptSolveEvery == 0 {
 			// Attempt a solve; we iterate through our goal tree and attempt to find any connection to the seed tree
 			paths := [][]node{}
-			attempts := 0
-			pctCheck := 0.
-			if len(mp.goalNodes) > defaultMaxConnectAttempts {
-				pctCheck = float64(defaultMaxConnectAttempts) / float64(len(mp.goalNodes))
-			}
+
+			// Exhaustively searching the tree gets expensive quickly, so we cap the number of connect attempts we make each time we call
+			// this.
+			attempts := 0                                                               // Track the number of connection attempts we have made
+			pctCheck := float64(defaultMaxConnectAttempts) / float64(len(mp.goalNodes)) // Target checking this proportion of nodes.
 
 			for _, goalMapNode := range mp.goalNodes {
 				if ctx.Err() != nil {
@@ -378,9 +377,9 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 					break
 				}
 
-				if pctCheck > 0 {
+				if pctCheck < 1. {
 					doCheck := mp.randseed.Float64()
-					if doCheck > pctCheck {
+					if doCheck < pctCheck {
 						continue
 					}
 				}

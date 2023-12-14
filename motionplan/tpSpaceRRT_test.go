@@ -36,13 +36,12 @@ func TestPtgRrtBidirectional(t *testing.T) {
 		0,
 		testTurnRad,
 		0,
-		0,
 		geometries,
 		false,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0})
+	goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90})
 
 	opt := newBasicPlannerOptions(ackermanFrame)
 	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
@@ -78,7 +77,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 			}
 		}
 	}
-	tp.planOpts.SmoothIter = 0
+	tp.planOpts.SmoothIter = 20
 	plan = tp.smoothPath(ctx, plan)
 	if pathdebug {
 		lastPose = spatialmath.NewZeroPose()
@@ -114,7 +113,6 @@ func TestPtgRrtUnidirectional(t *testing.T) {
 		300.,
 		0,
 		testTurnRad,
-		0,
 		0,
 		geometries,
 		false,
@@ -191,7 +189,6 @@ func TestPtgWithObstacle(t *testing.T) {
 		300.,
 		0,
 		testTurnRad,
-		0,
 		0,
 		geometries,
 		false,
@@ -278,7 +275,7 @@ func TestPtgWithObstacle(t *testing.T) {
 			}
 		}
 	}
-	tp.planOpts.SmoothIter = 10
+	tp.planOpts.SmoothIter = 20
 	plan = tp.smoothPath(ctx, plan)
 	if pathdebug {
 		lastPose = spatialmath.NewZeroPose()
@@ -314,7 +311,6 @@ func TestTPsmoothing(t *testing.T) {
 		300.,
 		0,
 		testTurnRad,
-		0,
 		0,
 		geometries,
 		false,
@@ -383,7 +379,6 @@ func TestPtgCheckPlan(t *testing.T) {
 		300.,
 		0,
 		testTurnRad,
-		0,
 		0,
 		geometries,
 		false,
