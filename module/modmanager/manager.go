@@ -47,8 +47,10 @@ var (
 )
 
 // NewManager returns a Manager.
-func NewManager(parentAddr string, logger logging.Logger, options modmanageroptions.Options) modmaninterface.ModuleManager {
-	restartCtx, restartCtxCancel := context.WithCancel(context.Background())
+func NewManager(
+	ctx context.Context, parentAddr string, logger logging.Logger, options modmanageroptions.Options,
+) modmaninterface.ModuleManager {
+	restartCtx, restartCtxCancel := context.WithCancel(ctx)
 	return &Manager{
 		logger:                  logger,
 		modules:                 map[string]*module{},
@@ -815,7 +817,10 @@ func (m *module) startProcess(
 	for {
 		select {
 		case <-ctxTimeout.Done():
-			return rutils.NewModuleStartUpTimeoutError(m.cfg.Name)
+			if errors.Is(ctxTimeout.Err(), context.DeadlineExceeded) {
+				return rutils.NewModuleStartUpTimeoutError(m.cfg.Name)
+			}
+			return ctxTimeout.Err()
 		default:
 		}
 		err = modlib.CheckSocketOwner(m.addr)

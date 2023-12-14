@@ -36,6 +36,9 @@ const (
 
 	// MimeTypeDefault used if mimetype cannot be inferred.
 	MimeTypeDefault = "application/octet-stream"
+
+	// MimeTypeH264 used to indicate H264 frames.
+	MimeTypeH264 = "video/h264"
 )
 
 // WithLazyMIMEType attaches the lazy suffix to a MIME.

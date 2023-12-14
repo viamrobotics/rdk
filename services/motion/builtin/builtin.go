@@ -8,7 +8,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
-	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
 
@@ -283,6 +282,10 @@ func (ms *builtIn) MoveOnMap(
 	return true, nil
 }
 
+func (ms *builtIn) MoveOnMapNew(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
+	return uuid.Nil, errors.New("unimplemented")
+}
+
 type validatedExtra struct {
 	maxReplans       int
 	replanCostFactor float64
@@ -330,80 +333,13 @@ func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 	}, nil
 }
 
-// MoveOnGlobe will move the given component to the given destination on the globe.
-// Bases are the only component that supports this.
-func (ms *builtIn) MoveOnGlobe(
-	ctx context.Context,
-	componentName resource.Name,
-	destination *geo.Point,
-	heading float64,
-	movementSensorName resource.Name,
-	obstacles []*spatialmath.GeoObstacle,
-	motionCfg *motion.MotionConfiguration,
-	extra map[string]interface{},
-) (bool, error) {
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	t := "MoveOnGlobe called for component: %s, destination: %+v, heading: %f, movementSensor: %s, obstacles: %v, motionCfg: %#v, extra: %s"
-	ms.logger.Debugf(t,
-		componentName,
-		destination,
-		heading,
-		movementSensorName,
-		obstacles,
-		motionCfg,
-		extra,
-	)
-	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-	req := motion.MoveOnGlobeReq{
-		ComponentName:      componentName,
-		Destination:        destination,
-		MovementSensorName: movementSensorName,
-		Obstacles:          obstacles,
-		MotionCfg:          motionCfg,
-		Extra:              extra,
-	}
-
-	mr, err := ms.newMoveOnGlobeRequest(ctx, req, nil, 0)
-	if err != nil {
-		return false, err
-	}
-	replanCount := 0
-	// start a loop that plans every iteration and exits when something is read from the success channel
-	for {
-		planResp, err := mr.Plan(ctx)
-		if err != nil {
-			return false, err
-		}
-
-		resp, err := mr.Execute(ctx, planResp.Waypoints)
-		// failure
-		if err != nil {
-			return false, err
-		}
-		// success
-		if !resp.Replan {
-			return true, nil
-		}
-
-		// replan
-		ms.logger.Warnf("Replanning triggered: Reason: %s\n", resp.ReplanReason)
-		replanCount++
-		// TODO: RSDK-4509 obstacles should include any transient obstacles which may have triggered a replan, if any.
-		mr, err = ms.newMoveOnGlobeRequest(ctx, req, planResp.Motionplan, replanCount)
-		if err != nil {
-			return false, err
-		}
-	}
-}
-
-func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+func (ms *builtIn) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 	if err := ctx.Err(); err != nil {
 		return uuid.Nil, err
 	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	ms.logger.Debugf("MoveOnGlobeNew called with %s", req)
+	ms.logger.Debugf("MoveOnGlobe called with %s", req)
 	// TODO: Deprecated: remove once no motion apis use the opid system
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 	planExecutorConstructor := func(

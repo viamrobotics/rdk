@@ -1,7 +1,11 @@
 /* eslint-disable no-underscore-dangle */
 
 import * as THREE from 'three';
-import { NavigationClient, type Waypoint } from '@viamrobotics/sdk';
+import {
+  type GeoObstacle,
+  type Path as SDKPath,
+  type Waypoint,
+} from '@viamrobotics/sdk';
 import { ViamObject3D } from '@viamrobotics/three';
 import { notify } from '@viamrobotics/prime';
 import { theme } from '@viamrobotics/prime-core/theme';
@@ -10,6 +14,7 @@ import type {
   BoxGeometry,
   CapsuleGeometry,
   SphereGeometry,
+  Path,
 } from '@viamrobotics/prime-blocks';
 export * from './types/navigation';
 
@@ -18,8 +23,8 @@ const STATIC_OBSTACLE_COLOR = theme.extend.colors.cyberpunk;
 const TRANSIENT_OBSTACLE_LABEL = 'transient';
 const TRANSIENT_OBSTACLE_COLOR = theme.extend.colors.hologram;
 
-/** Transient obstacles will contain this string in the geometry's label. */
-const TRANSIENT_LABEL_SEARCH = 'transientObstacle';
+/** Transient obstacles will start with this string in the geometry's label. */
+const TRANSIENT_LABEL_SEARCH = 'transient';
 
 export const formatWaypoints = (list: Waypoint[]) => {
   return list.map((item) => {
@@ -32,11 +37,7 @@ export const formatWaypoints = (list: Waypoint[]) => {
   });
 };
 
-export const getObstacles = async (
-  navClient: NavigationClient
-): Promise<Obstacle[]> => {
-  const list = await navClient.getObstacles();
-
+export const formatObstacles = (list: GeoObstacle[]): Obstacle[] => {
   return list.map((obstacle, index) => {
     const { location } = obstacle;
 
@@ -57,7 +58,7 @@ export const getObstacles = async (
       name = geo.label;
     }
 
-    const isTransient = geo?.label.includes(TRANSIENT_LABEL_SEARCH);
+    const isTransient = geo?.label.startsWith(TRANSIENT_LABEL_SEARCH);
     const label = isTransient
       ? TRANSIENT_OBSTACLE_LABEL
       : STATIC_OBSTACLE_LABEL;
@@ -118,4 +119,13 @@ export const getObstacles = async (
       color,
     } satisfies Obstacle;
   });
+};
+
+export const formatPaths = (list: SDKPath[]): Path[] => {
+  return list.map(({ geopointsList }) =>
+    geopointsList.map((geo) => ({
+      lng: geo.longitude,
+      lat: geo.latitude,
+    }))
+  );
 };

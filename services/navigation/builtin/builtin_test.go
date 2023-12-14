@@ -640,8 +640,8 @@ func TestPaths(t *testing.T) {
 		defer planSucceededCancelFn()
 		// we expect 2 executions to be generated
 		executionID := uuid.New()
-		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
-		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+		// MoveOnGlobe will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
+		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
 				return uuid.Nil, err
 			}
@@ -679,7 +679,7 @@ func TestPaths(t *testing.T) {
 						return
 					}
 				}
-				t.Error("MoveOnGlobeNew called unexpectedly")
+				t.Error("MoveOnGlobe called unexpectedly")
 			}, wg.Done)
 			return executionID, nil
 		}
@@ -777,8 +777,8 @@ func TestStartWaypoint(t *testing.T) {
 		counter := atomic.NewInt32(-1)
 		var wg sync.WaitGroup
 		defer wg.Wait()
-		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
-		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+		// MoveOnGlobe will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
+		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
 				return uuid.Nil, err
 			}
@@ -811,7 +811,7 @@ func TestStartWaypoint(t *testing.T) {
 						return
 					}
 				}
-				t.Error("MoveOnGlobeNew called unexpectedly")
+				t.Error("MoveOnGlobe called unexpectedly")
 			}, wg.Done)
 			return executionID, nil
 		}
@@ -884,7 +884,7 @@ func TestStartWaypoint(t *testing.T) {
 				s.RLock()
 				// wait until StopPlan has been called twice
 				if len(s.sprs) == 2 {
-					// MoveOnGlobeNew was called twice, once for each waypoint
+					// MoveOnGlobe was called twice, once for each waypoint
 					test.That(t, len(s.mogrs), test.ShouldEqual, 2)
 					test.That(t, s.mogrs[0].ComponentName, test.ShouldResemble, s.base.Name())
 					test.That(t, math.IsNaN(s.mogrs[0].Heading), test.ShouldBeTrue)
@@ -940,7 +940,7 @@ func TestStartWaypoint(t *testing.T) {
 
 		executionID := uuid.New()
 		mogCalled := make(chan struct{}, 1)
-		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
 				return uuid.Nil, err
 			}
@@ -1018,7 +1018,7 @@ func TestStartWaypoint(t *testing.T) {
 			}
 			s.RLock()
 			if len(s.mogrs) == 3 {
-				// MoveOnGlobeNew was called twice, once for each waypoint
+				// MoveOnGlobe was called twice, once for each waypoint
 				test.That(t, s.mogrs[0].Extra, test.ShouldResemble, map[string]interface{}{
 					"motion_profile": "position_only",
 				})
@@ -1048,7 +1048,7 @@ func TestStartWaypoint(t *testing.T) {
 			uuid.New(),
 			uuid.New(),
 		}
-		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
 				return uuid.Nil, err
 			}
@@ -1160,7 +1160,7 @@ func TestStartWaypoint(t *testing.T) {
 					test.That(t, s.mogrs[3].Destination, test.ShouldResemble, pt1)
 					test.That(t, s.mogrs[4].Destination, test.ShouldResemble, pt1)
 
-					// // Motion reports that the last execution succeeded
+					// Motion reports that the last execution succeeded
 					ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name()})
 					test.That(t, err, test.ShouldBeNil)
 					test.That(t, len(ph), test.ShouldEqual, 1)
@@ -1196,7 +1196,7 @@ func TestStartWaypoint(t *testing.T) {
 			defer s.closeFunc()
 
 			executionID := uuid.New()
-			s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+			s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 				if err := ctx.Err(); err != nil {
 					return uuid.Nil, err
 				}
@@ -1307,8 +1307,8 @@ func TestStartWaypoint(t *testing.T) {
 		counter := atomic.NewInt32(-1)
 		var wg sync.WaitGroup
 		defer wg.Wait()
-		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
-		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+		// MoveOnGlobe will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
+		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
 				return uuid.Nil, err
 			}
@@ -1343,7 +1343,7 @@ func TestStartWaypoint(t *testing.T) {
 							return
 						}
 					}
-					t.Error("MoveOnGlobeNew called unexpectedly")
+					t.Error("MoveOnGlobe called unexpectedly")
 				}, wg.Done)
 			}
 			return executionID, nil
@@ -1409,11 +1409,11 @@ func TestStartWaypoint(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			if len(wps) == 0 {
 				s.RLock()
-				// // MoveOnGlobeNew was called twice, once for each waypoint
+				// MoveOnGlobe was called twice, once for each waypoint
 				test.That(t, len(s.mogrs), test.ShouldEqual, 2)
-				// // waypoint 1
+				// waypoint 1
 				test.That(t, s.mogrs[0].Destination, test.ShouldResemble, points[0])
-				// // waypoint 2
+				// waypoint 2
 				test.That(t, s.mogrs[1].Destination, test.ShouldResemble, points[1])
 				// Motion reports that the last execution succeeded
 				s.RUnlock()
@@ -1443,8 +1443,8 @@ func TestStartWaypoint(t *testing.T) {
 		defer wg.Wait()
 		pauseMOGSuccess := make(chan struct{})
 		resumeMOGSuccess := make(chan struct{})
-		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
-		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+		// MoveOnGlobe will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
+		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
 				return uuid.Nil, err
 			}
@@ -1479,7 +1479,7 @@ func TestStartWaypoint(t *testing.T) {
 						return
 					}
 				}
-				t.Error("MoveOnGlobeNew called unexpectedly")
+				t.Error("MoveOnGlobe called unexpectedly")
 			}, wg.Done)
 			return executionID, nil
 		}
@@ -1540,9 +1540,9 @@ func TestStartWaypoint(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			if len(wps) == 0 {
 				s.RLock()
-				// // MoveOnGlobeNew was called once with waypoint 1
+				// MoveOnGlobe was called once with waypoint 1
 				test.That(t, len(s.mogrs), test.ShouldEqual, 1)
-				// // waypoint 1
+				// waypoint 1
 				test.That(t, s.mogrs[0].Destination, test.ShouldResemble, points[0])
 				// Motion reports that the last execution succeeded
 				s.RUnlock()

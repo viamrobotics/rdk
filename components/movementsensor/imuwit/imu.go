@@ -19,6 +19,9 @@ We ask the user to refer to the datasheet if any baud rate changes are required 
 Other models that connect over serial may work, but we ask the user to refer to wit-motion's datasheet
 in that case as well. As of Feb 2023, Wit-motion has 48 gyro/inclinometer/imu models with varied levels of
 driver commonality.
+
+Note: Model HWT905-TTL is not supported under the model name "imu-wit". Use the model name "imu-wit-hwt905"
+for HWT905-TTL.
 */
 
 import (
@@ -88,10 +91,29 @@ type wit struct {
 	err                     movementsensor.LastError
 	hasMagnetometer         bool
 	mu                      sync.Mutex
+	reconfigMu              sync.Mutex
 	port                    io.ReadWriteCloser
 	cancelFunc              func()
+	cancelCtx               context.Context
 	activeBackgroundWorkers sync.WaitGroup
 	logger                  logging.Logger
+	baudRate                uint
+	serialPath              string
+}
+
+func (imu *wit) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	imu.reconfigMu.Lock()
+	defer imu.reconfigMu.Unlock()
+
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+
+	imu.baudRate = newConf.BaudRate
+	imu.serialPath = newConf.Port
+
+	return nil
 }
 
 func (imu *wit) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
