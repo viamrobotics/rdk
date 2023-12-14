@@ -1515,7 +1515,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, cMOGEReq, logger)
 		defer ms.Close(ctx)
-		t.Run("when goal is within 5km an optionl params are not provided", func(t *testing.T) {
+		t.Run("when goal is within 5km and optional params are not provided", func(t *testing.T) {
 			// injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, cMOGEReq, logger)
 			// defer ms.Close(ctx)
 			req := motion.MoveOnGlobeReq{
