@@ -168,8 +168,6 @@ func (ms *builtIn) Move(
 	constraints *servicepb.Constraints,
 	extra map[string]interface{},
 ) (bool, error) {
-	ms.logger.Debug("Move called")
-	defer ms.logger.Debug("Move call completed")
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 
@@ -251,8 +249,6 @@ func (ms *builtIn) MoveOnMap(
 	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
-	ms.logger.Debug("MoveOnMap called")
-	defer ms.logger.Debug("MoveOnMap call completed")
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
@@ -287,8 +283,6 @@ func (ms *builtIn) MoveOnMap(
 }
 
 func (ms *builtIn) MoveOnMapNew(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
-	ms.logger.Debug("MoveOnMapNew called")
-	defer ms.logger.Debug("MoveOnMapNew call completed")
 	return uuid.Nil, errors.New("unimplemented")
 }
 
@@ -340,13 +334,12 @@ func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 }
 
 func (ms *builtIn) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
-	ms.logger.Debugf("MoveOnGlobe called with %s", req)
-	defer ms.logger.Debugf("MoveOnGlobe call completed with %s", req)
 	if err := ctx.Err(); err != nil {
 		return uuid.Nil, err
 	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
+	ms.logger.Debugf("MoveOnGlobe called with %s", req)
 	// TODO: Deprecated: remove once no motion apis use the opid system
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 	planExecutorConstructor := func(
@@ -358,7 +351,6 @@ func (ms *builtIn) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlobeReq) (
 		return ms.newMoveOnGlobeRequest(ctx, req, seedPlan, replanCount)
 	}
 
-	ms.logger.Debugf("MoveOnGlobe calling StartExecution")
 	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, planExecutorConstructor)
 	if err != nil {
 		return uuid.Nil, err
@@ -374,8 +366,6 @@ func (ms *builtIn) GetPose(
 	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
-	ms.logger.Debug("GetPose called")
-	defer ms.logger.Debug("GetPose call completed")
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	if destinationFrame == "" {
@@ -396,8 +386,6 @@ func (ms *builtIn) StopPlan(
 	ctx context.Context,
 	req motion.StopPlanReq,
 ) error {
-	ms.logger.Debug("StopPlan called")
-	defer ms.logger.Debug("StopPlan call completed")
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -410,8 +398,6 @@ func (ms *builtIn) ListPlanStatuses(
 	ctx context.Context,
 	req motion.ListPlanStatusesReq,
 ) ([]motion.PlanStatusWithID, error) {
-	ms.logger.Debug("ListPlanStatuses called")
-	defer ms.logger.Debug("ListPlanStatuses call completed")
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -424,8 +410,6 @@ func (ms *builtIn) PlanHistory(
 	ctx context.Context,
 	req motion.PlanHistoryReq,
 ) ([]motion.PlanWithStatus, error) {
-	ms.logger.Debug("PlanHistory called")
-	defer ms.logger.Debug("PlanHistory call completed")
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
