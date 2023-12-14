@@ -259,7 +259,7 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 		return true, err
 	} else if distErr > ddk.options.GoalRadiusMM {
 		// base is pointed the correct direction but not there yet; forge onward
-		err := ddk.MoveStraight(ctx, int(math.Min(distErr, defaultMaxMoveStraightMM)), ddk.options.LinearVelocityMMPerSec, nil)
+		err := ddk.MoveStraight(ctx, int(math.Min(distErr, ddk.options.MaxMoveStraightMM)), ddk.options.LinearVelocityMMPerSec, nil)
 
 		// Update the cached current inputs to the resultant position of the move straight command when the localizer is nil
 		if ddk.Localizer == nil {
