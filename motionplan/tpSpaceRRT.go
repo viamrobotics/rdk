@@ -195,6 +195,8 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	_ []referenceframe.Input, // TODO: this may be needed for smoothing
 	rrt *rrtParallelPlannerShared,
 ) {
+	mp.logger.Info("rrtBackgroundRunner called")
+	defer mp.logger.Info("rrtBackgroundRunner done")
 	defer close(rrt.solutionChan)
 	// get start and goal poses
 	var startPose spatialmath.Pose
@@ -250,16 +252,29 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 
 		seedReached := &nodeAndError{}
 		goalReached := &nodeAndError{}
+		mp.logger.Debugf("starting attemptExtension goroutine")
 		utils.PanicCapturingGo(func() {
-			m1chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.startMap, false)
+			mp.logger.Debugf("attemptExtension goroutine startbed")
+			defer mp.logger.Debugf("attemptExtension goroutine terminated")
+			r := mp.attemptExtension(ctx, randPosNode, rrt.maps.startMap, false)
+			mp.logger.Debugf("attemptExtension goroutine writing to channel")
+			m1chan <- r
 		})
 		if mp.algOpts.bidirectional {
+			mp.logger.Debugf("starting bidirectional attemptExtension goroutine")
 			utils.PanicCapturingGo(func() {
-				m2chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.goalMap, true)
+				mp.logger.Debugf("bidirectional attemptExtension goroutine started")
+				defer mp.logger.Debugf("bidirectional attemptExtension goroutine terminated")
+				r := mp.attemptExtension(ctx, randPosNode, rrt.maps.goalMap, true)
+				mp.logger.Debugf("bidirectional attemptExtension goroutine writing to channel")
+				m2chan <- r
 			})
 			goalReached = <-m2chan
+			mp.logger.Debugf("goalReached written to")
 		}
+		mp.logger.Debugf("writing to seedReached")
 		seedReached = <-m1chan
+		mp.logger.Debugf("seedReached written")
 
 		seedMapNode := seedReached.node
 		goalMapNode := goalReached.node

@@ -110,6 +110,8 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	seed []referenceframe.Input,
 	rrt *rrtParallelPlannerShared,
 ) {
+	mp.logger.Info("rrtBackgroundRunner called")
+	defer mp.logger.Info("rrtBackgroundRunner done")
 	defer close(rrt.solutionChan)
 
 	// setup planner options
