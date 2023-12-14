@@ -13,7 +13,8 @@ env:
   MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
 jobs:
-  test:
+  test_go:
+    name: Go Unit Tests
     strategy:
       fail-fast: false
       matrix:
@@ -36,7 +37,6 @@ jobs:
     - uses: actions/checkout@v3
       with:
         ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
-        fetch-depth: ${{ github.event_name == 'pull_request_target' && '0' || '1' }} # 0 aka full history, so we can analyze history for coverage
 
     - name: Set main env vars
       if: github.event_name != 'pull_request_target'
@@ -54,10 +54,10 @@ jobs:
         echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
         echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
 
-    - name: chown
+    - name: Chown
       run: chown -R testbot:testbot .
 
-    - name: Test
+    - name: Run go unit tests
       run: |
         sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make test-go'
 
@@ -69,8 +69,9 @@ jobs:
         path: json.log
         retention-days: 30
 
-  lint_and_coverage:
-    # note: we split 'test' and 'coverage' steps because running race-detection + covprofile simultaneously is slow enough to cause flakes
+  test_coverage:
+    name: Go Coverage Tests
+    # note: we split 'test_go' and 'test_coverage' steps because running race-detection + covprofile simultaneously is slow enough to cause flakes
     strategy:
       fail-fast: false
       matrix:
@@ -114,11 +115,9 @@ jobs:
     - name: chown
       run: chown -R testbot:testbot .
 
-    - name: Verify no uncommitted changes from "make build lint"
+    - name: Verify no uncommitted changes from "make build-go lint-go"
       run: |
-        git init
-        git add .
-        sudo -Hu testbot bash -lc 'make build-go lint-go'
+        sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go'
         GEN_DIFF=$(git status -s)
 
         if [ -n "$GEN_DIFF" ]; then
@@ -127,7 +126,7 @@ jobs:
             exit 1
         fi
 
-    - name: Test
+    - name: Run go coverage tests
       run: |
         sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make cover-only'
 
@@ -141,7 +140,7 @@ jobs:
         retention-days: 1
 
   test32:
-    name: 32-bit test
+    name: Go 32-bit Unit Tests
     runs-on: buildjet-8vcpu-ubuntu-2204-arm
     timeout-minutes: 30
 
@@ -149,7 +148,6 @@ jobs:
     - uses: actions/checkout@v3
       with:
         ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
-        fetch-depth: ${{ github.event_name == 'pull_request_target' && '0' || '1' }} # 0 aka full history, so we can analyze history for coverage
 
     - uses: docker/login-action@v2
       with:
@@ -158,7 +156,7 @@ jobs:
     - uses: docker/setup-qemu-action@v3
     - uses: docker/setup-buildx-action@v3
 
-    - name: Test
+    - name: Run go unit tests
       run: |
         docker run \
           --platform linux/arm/v7 \
@@ -172,71 +170,70 @@ jobs:
     timeout-minutes: 5
 
     steps:
-    - name: Clean Workspace
+    - name: Clean workspace
       run: |
         shopt -s dotglob
         sudo chown -R `whoami` ./
         rm -rf ./*
 
-    - name: Check out main branch code
-      if: github.event_name != 'pull_request_target'
-      uses: actions/checkout@v3
-
-    - name: Check out PR branch code
-      if: github.event_name == 'pull_request_target'
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v3
       with:
-        ref: ${{ github.event.pull_request.head.sha }}
+        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
 
-    - name: Test
+    - name: Run go unit tests on Pi
       run: make test-pi
 
-  test_e2e:
-    name: Test End-to-End and web
+  test_web_e2e:
+    name: Test End-to-End and Web
     runs-on: [buildjet-8vcpu-ubuntu-2204]
     container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
     steps:
-      - name: Check out main branch code
-        if: github.event_name != 'pull_request_target'
-        uses: actions/checkout@v3
+    - uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
 
-      - name: Check out PR branch code
-        if: github.event_name == 'pull_request_target'
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
+    - name: Chown
+      run: chown -R testbot:testbot .
 
-      - name: Install dependencies
-        run: |
-          apt-get update && apt-get -qy install libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb netcat-openbsd lsof
+    - name: Verify no uncommitted changes from "make build-web lint-web"
+      run: |
+        sudo -Hu testbot bash -lc 'git init && git add . && make build-web lint-web'
+        GEN_DIFF=$(git status -s)
 
-      - name: chown
-        run: chown -R testbot:testbot .
+        if [ -n "$GEN_DIFF" ]; then
+            echo '"make build-web lint-web" resulted in changes not in git' 1>&2
+            git status
+            exit 1
+        fi
 
-      - name: build and lint
-        run: sudo -Hu testbot bash -lc 'make build-web lint-web'
+    - name: Install dependencies
+      run: |
+        apt-get update && apt-get -qy install libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb netcat-openbsd lsof
 
-      - name: Run e2e and web Tests
-        run: sudo -Hu testbot bash -lc 'make test-web test-e2e E2E_ARGS="-k"'
+    - name: Run web tests
+      run: sudo -Hu testbot bash -lc 'make test-web'
+
+    - name: Run e2e tests
+      run: sudo -Hu testbot bash -lc 'make test-e2e E2E_ARGS="-k"'
 
   test_passing:
     name: All Tests Passing
-    needs: [test_pi, test, lint_and_coverage, test_e2e, test32]
+    needs: [test_go, test_coverage, test_web_e2e, test_pi, test32]
     runs-on: [ubuntu-latest]
     if: always()
     steps:
       - name: Check Results
         run: |
-          echo Pi Tests: ${{ needs.test_pi.result }}
-          echo Lint and test: ${{ needs.test.result }}
-          echo Coverage: ${{ needs.lint_and_coverage.result }}
-          echo E2E Tests: ${{ needs.test_e2e.result }}
-          echo 32-bit Tests: ${{ needs.test32.result }}
+          echo Go Unit Tests: ${{ needs.test_go.result }}
+          echo Go 32-bit Tests: ${{ needs.test32.result }}
+          echo Go Pi Tests: ${{ needs.test_pi.result }}
+          echo Go Coverage Tests: ${{ needs.test_coverage.result }}
+          echo Web/E2E Tests: ${{ needs.test_web_e2e.result }}
+          [ "${{ needs.test_go.result }}" == "success" ] && \
+          [ "${{ needs.test32.result }}" == "success" ] && \
           [ "${{ needs.test_pi.result }}" == "success" ] && \
-          [ "${{ needs.test.result }}" == "success" ] && \
-          [ "${{ needs.lint_and_coverage.result }}" == "success" ] && \
-          [ "${{ needs.test_e2e.result }}" == "success" ] && \
-          [ "${{ needs.test32.result }}" == "success" ]
+          [ "${{ needs.test_coverage.result }}" == "success" ] && \
+          [ "${{ needs.test_web_e2e.result }}" == "success" ]
 
       # Now that RDK is public, can't directly comment without token having full read/write access
       # code-coverage-comment.yml will trigger seperately and post the actual comments

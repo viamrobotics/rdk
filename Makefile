@@ -67,7 +67,7 @@ lint-go: tool-install
 lint-web: check-web
 	npm run lint --prefix web/frontend
 
-check-web:
+check-web: build-web
 	npm run check --prefix web/frontend
 
 cover-only: tool-install
