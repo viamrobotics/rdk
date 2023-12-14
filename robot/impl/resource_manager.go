@@ -89,16 +89,21 @@ func fromRemoteNameToRemoteNodeName(name string) resource.Name {
 }
 
 func (manager *resourceManager) startModuleManager(
+	ctx context.Context,
 	parentAddr string,
 	removeOrphanedResources func(context.Context, []resource.Name),
 	untrustedEnv bool,
+	viamHomeDir string,
+	robotCloudID string,
 	logger logging.Logger,
 ) {
 	mmOpts := modmanageroptions.Options{
 		UntrustedEnv:            untrustedEnv,
 		RemoveOrphanedResources: removeOrphanedResources,
+		ViamHomeDir:             viamHomeDir,
+		RobotCloudID:            robotCloudID,
 	}
-	manager.moduleManager = modmanager.NewManager(parentAddr, logger, mmOpts)
+	manager.moduleManager = modmanager.NewManager(ctx, parentAddr, logger, mmOpts)
 }
 
 // addRemote adds a remote to the manager.
@@ -457,22 +462,6 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 	return allErrs
 }
 
-// checkReconfigure returns whether or not the resource can be (re)configured based on the state of the graph node.
-// It also handles error management based on aforementioned state.
-func checkReconfigure(manager *resourceManager, gNode *resource.GraphNode) bool {
-	err := gNode.CheckReconfigure()
-	if err != nil {
-		if res, lastErr := gNode.Resource(); res == nil && lastErr.Error() == err.Error() {
-			manager.logger.Debug(err)
-		} else {
-			manager.logger.Error(err)
-			gNode.SetLastError(err)
-		}
-		return false
-	}
-	return true
-}
-
 // completeConfig process the tree in reverse order and attempts to build
 // or reconfigure resources that are wrapped in a placeholderResource.
 func (manager *resourceManager) completeConfig(
@@ -488,11 +477,6 @@ func (manager *resourceManager) completeConfig(
 		if !ok || !gNode.NeedsReconfigure() {
 			continue
 		}
-		shouldTryReconfigure := checkReconfigure(manager, gNode)
-		if !shouldTryReconfigure {
-			continue
-		}
-		gNode.IncrementTimesReconfigured()
 		var verb string
 		if gNode.IsUninitialized() {
 			verb = "configuring"
@@ -513,14 +497,14 @@ func (manager *resourceManager) completeConfig(
 			}
 			// this is done in config validation but partial start rules require us to check again
 			if _, err := remConf.Validate(""); err != nil {
-				manager.logger.Errorw("remote config validation error", "remote", remConf.Name, "error", err)
-				gNode.SetLastError(errors.Wrap(err, "config validation error found in remote: "+remConf.Name))
+				gNode.LogAndSetLastError(
+					fmt.Errorf("remote config validation error: %w", err), "remote", remConf.Name)
 				continue
 			}
 			rr, err := manager.processRemote(ctx, *remConf)
 			if err != nil {
-				manager.logger.Errorw("error connecting to remote", "remote", remConf.Name, "error", err)
-				gNode.SetLastError(errors.Wrap(err, "remote connection error"))
+				gNode.LogAndSetLastError(
+					fmt.Errorf("error connecting to remote: %w", err), "remote", remConf.Name)
 				continue
 			}
 			manager.addRemote(ctx, rr, gNode, *remConf)
@@ -557,11 +541,13 @@ func (manager *resourceManager) completeConfig(
 			return
 		default:
 		}
+
 		resChan := make(chan struct{}, 1)
 		resName := resName
 		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
 		defer timeoutCancel()
 		robot.reconfigureWorkers.Add(1)
+
 		goutils.PanicCapturingGo(func() {
 			defer func() {
 				resChan <- struct{}{}
@@ -571,11 +557,6 @@ func (manager *resourceManager) completeConfig(
 			if !ok || !gNode.NeedsReconfigure() {
 				return
 			}
-			shouldTryReconfigure := checkReconfigure(manager, gNode)
-			if !shouldTryReconfigure {
-				return
-			}
-			gNode.IncrementTimesReconfigured()
 			if !(resName.API.IsComponent() || resName.API.IsService()) {
 				return
 			}
@@ -590,14 +571,18 @@ func (manager *resourceManager) completeConfig(
 
 			// this is done in config validation but partial start rules require us to check again
 			if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
-				manager.logger.Errorw("resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
-				gNode.SetLastError(errors.Wrap(err, "config validation error found in resource: "+conf.ResourceName().String()))
+				gNode.LogAndSetLastError(
+					fmt.Errorf("resource config validation error: %w", err),
+					"resource", conf.ResourceName(),
+					"model", conf.Model)
 				return
 			}
 			if manager.moduleManager.Provides(conf) {
 				if _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
-					manager.logger.Errorw("modular resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
-					gNode.SetLastError(errors.Wrap(err, "config validation error found in modular resource: "+conf.ResourceName().String()))
+					gNode.LogAndSetLastError(
+						fmt.Errorf("modular resource config validation error: %w", err),
+						"resource", conf.ResourceName(),
+						"model", conf.Model)
 					return
 				}
 			}
@@ -613,11 +598,15 @@ func (manager *resourceManager) completeConfig(
 							"reason", err)
 					}
 				}
+
 				if err != nil {
-					manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
-					gNode.SetLastError(errors.Wrap(err, "resource build error"))
+					gNode.LogAndSetLastError(
+						fmt.Errorf("resource build error: %w", err),
+						"resource", conf.ResourceName(),
+						"model", conf.Model)
 					return
 				}
+
 				// if the ctxWithTimeout fails with DeadlineExceeded, then that means that
 				// resource generation is running async, and we don't currently have good
 				// validation around how this might affect the resource graph. So, we avoid
@@ -627,22 +616,23 @@ func (manager *resourceManager) completeConfig(
 				} else {
 					gNode.SwapResource(newRes, conf.Model)
 				}
+
 			default:
 				err := errors.New("config is not for a component or service")
-				manager.logger.Errorw(err.Error(), "resource", resName)
-				gNode.SetLastError(err)
+				gNode.LogAndSetLastError(err, "resource", resName)
 			}
 		})
+
 		select {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				robot.logger.Warn(resource.NewBuildTimeoutError(resName))
+				robot.logger.Warn(rutils.NewBuildTimeoutError(resName.String()))
 			}
 		case <-ctx.Done():
 			return
 		}
-	}
+	} // for-each resource name
 }
 
 // cleanAppImageEnv attempts to revert environment variable changes so
@@ -809,6 +799,7 @@ func (manager *resourceManager) processResource(
 			return currentRes, false, nil
 		}
 
+		gNode.SetLogLevel(conf.LogConfiguration.Level)
 		err = currentRes.Reconfigure(ctx, deps, conf)
 		if err == nil {
 			return currentRes, false, nil
@@ -960,6 +951,7 @@ func (manager *resourceManager) updateResources(
 			manager.logger.Errorw("process config validation error; skipping", "process", p.Name, "error", err)
 			continue
 		}
+
 		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
 		if err != nil {
 			manager.logger.Errorw("error while adding process; skipping", "process", p.ID, "error", err)
@@ -989,6 +981,7 @@ func (manager *resourceManager) updateResources(
 			manager.logger.Errorw("process config validation error; skipping", "process", p.Name, "error", err)
 			continue
 		}
+
 		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
 		if err != nil {
 			manager.logger.Errorw("error while changing process; skipping", "process", p.ID, "error", err)

@@ -10,7 +10,6 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/movementsensor"
@@ -116,11 +115,10 @@ var (
 )
 
 func TestNewReplayMovementSensor(t *testing.T) {
-	// Remove skip once fix is complete: https://viam.atlassian.net/browse/RSDK-5315
-	t.Skip("remove skip once RSDK-5315 bug fix is complete")
 	ctx := context.Background()
 
 	initializePropertiesTimeout = 2 * time.Second
+	tabularDataByFilterTimeout = 1 * time.Second
 
 	cases := []struct {
 		description          string
@@ -283,6 +281,7 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 	ctx := context.Background()
 
 	initializePropertiesTimeout = 2 * time.Second
+	tabularDataByFilterTimeout = 1 * time.Second
 
 	cases := []struct {
 		description        string
@@ -621,7 +620,7 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 			cfg: &Config{
 				Interval: TimeInterval{},
 			},
-			expectedErr: utils.NewConfigValidationFieldRequiredError("", validSource),
+			expectedErr: resource.NewConfigValidationFieldRequiredError("", validSource),
 		},
 		{
 			description: "Invalid config no robot_id",
@@ -633,7 +632,7 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 				APIKeyID:       validAPIKeyID,
 				Interval:       TimeInterval{},
 			},
-			expectedErr: utils.NewConfigValidationFieldRequiredError("", validRobotID),
+			expectedErr: resource.NewConfigValidationFieldRequiredError("", validRobotID),
 		},
 		{
 			description: "Invalid config no location_id",
@@ -643,7 +642,7 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 				OrganizationID: validOrganizationID,
 				Interval:       TimeInterval{},
 			},
-			expectedErr: utils.NewConfigValidationFieldRequiredError("", validLocationID),
+			expectedErr: resource.NewConfigValidationFieldRequiredError("", validLocationID),
 		},
 		{
 			description: "Invalid config no organization_id",
@@ -653,7 +652,7 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 				LocationID: validLocationID,
 				Interval:   TimeInterval{},
 			},
-			expectedErr: utils.NewConfigValidationFieldRequiredError("", validOrganizationID),
+			expectedErr: resource.NewConfigValidationFieldRequiredError("", validOrganizationID),
 		},
 		{
 			description: "Invalid config with bad start timestamp format",

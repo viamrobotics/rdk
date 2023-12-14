@@ -13,6 +13,7 @@ import (
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
@@ -238,11 +239,28 @@ func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuning
 	<-waitCh
 }
 
+func (svc *webService) propertiesFromStream(ctx context.Context, stream gostream.Stream) (camera.Properties, error) {
+	res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
+	if err != nil {
+		return camera.Properties{}, err
+	}
+
+	cam, ok := res.(camera.Camera)
+	if !ok {
+		return camera.Properties{}, errors.Errorf("cannot convert resource (type %T) to type (%T)", res, camera.Camera(nil))
+	}
+
+	return cam.Properties(ctx)
+}
+
 func (svc *webService) startVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
-	// Honor ctx that may be coming from a Reconfigure.
-	ctxWithJPEGHint := gostream.WithMIMETypeHint(ctx, rutils.WithLazyMIMEType(rutils.MimeTypeJPEG))
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
-		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctxWithJPEGHint)
+		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
+		// Use H264 for cameras that support it; but do not override upstream values.
+		if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
+			streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
+		}
+
 		return webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
 	})
 }

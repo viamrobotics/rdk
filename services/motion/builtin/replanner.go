@@ -7,19 +7,20 @@ import (
 	"time"
 
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion/builtin/state"
 )
 
 // replanResponse is the struct returned by the replanner.
 type replanResponse struct {
-	err    error
-	replan bool
+	err             error
+	executeResponse state.ExecuteResponse
 }
 
 // replanFn is an alias for a function that will be polled by a replanner.
-type replanFn func(context.Context, [][]referenceframe.Input, int) (bool, error)
+type replanFn func(context.Context, state.Waypoints, int) (state.ExecuteResponse, error)
 
 func (rr replanResponse) String() string {
-	return fmt.Sprintf("builtin.replanResponse{replan: %t, err: %v}", rr.replan, rr.err)
+	return fmt.Sprintf("builtin.replanResponse{executeResponse: %#v, err: %v}", rr.executeResponse, rr.err)
 }
 
 // replanner bundles everything needed to execute a function at a given interval and return.
@@ -52,9 +53,10 @@ func (r *replanner) startPolling(ctx context.Context, plan [][]referenceframe.In
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			replan, err := r.needReplan(ctx, plan, int(waypointIndex.Load()))
-			if err != nil || replan {
-				r.responseChan <- replanResponse{replan: replan, err: err}
+			executeResp, err := r.needReplan(ctx, plan, int(waypointIndex.Load()))
+			if err != nil || executeResp.Replan {
+				res := replanResponse{executeResponse: executeResp, err: err}
+				r.responseChan <- res
 				return
 			}
 		}

@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -92,7 +91,7 @@ func NewCloudManager(
 		packagesDir:     packagesDir,
 		packagesDataDir: packagesDataDir,
 		managedPackages: make(map[PackageName]*managedPackage),
-		logger:          logging.FromZapCompatible(logger.Named("package_manager")),
+		logger:          logger.Sublogger("package_manager"),
 	}, nil
 }
 
@@ -129,38 +128,31 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 	newManagedPackages := make(map[PackageName]*managedPackage, len(packages))
 
-	for idx, p := range packages {
+	for _, p := range packages {
+		// Package exists in known cache.
+		if m.packageIsManaged(p) {
+			newManagedPackages[PackageName(p.Name)] = m.managedPackages[PackageName(p.Name)]
+			continue
+		}
+	}
+
+	// Process the packages that are new or changed
+	changedPackages := m.validateAndGetChangedPackages(packages)
+	if len(changedPackages) > 0 {
+		m.logger.Info("Package changes have been detected, starting sync")
+	}
+
+	start := time.Now()
+	for idx, p := range changedPackages {
+		pkgStart := time.Now()
 		if err := ctx.Err(); err != nil {
 			return multierr.Append(outErr, err)
 		}
 
-		if err := p.Validate(""); err != nil {
-			m.logger.Errorw("package config validation error; skipping", "package", p.Name, "error", err)
-			continue
-		}
-
-		start := time.Now()
-		m.logger.Debugf("Starting package sync [%d/%d] %s:%s", idx+1, len(packages), p.Package, p.Version)
-
-		// Package exists in known cache.
-		existing, ok := m.managedPackages[PackageName(p.Name)]
-		if ok {
-			if existing.thePackage.Package == p.Package && existing.thePackage.Version == p.Version {
-				m.logger.Debug("Package already managed, skipping")
-				newManagedPackages[PackageName(p.Name)] = existing
-				continue
-			}
-			// anything left over in the m.managedPackages will be cleaned up later.
-		}
+		m.logger.Debugf("Starting package sync [%d/%d] %s:%s", idx+1, len(changedPackages), p.Package, p.Version)
 
 		// Lookup the packages http url
 		includeURL := true
-
-		var platform *string
-		if p.Type == config.PackageTypeModule {
-			platformVal := fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
-			platform = &platformVal
-		}
 
 		packageType, err := config.PackageTypeToProto(p.Type)
 		if err != nil {
@@ -170,7 +162,6 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 			Id:         p.Package,
 			Version:    p.Version,
 			Type:       packageType,
-			Platform:   platform,
 			IncludeUrl: &includeURL,
 		})
 		if err != nil {
@@ -197,13 +188,45 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		// add to managed packages
 		newManagedPackages[PackageName(p.Name)] = &managedPackage{thePackage: p, modtime: time.Now()}
 
-		m.logger.Debugf("Sync complete after %v", time.Since(start))
+		m.logger.Debugf("Package sync complete [%d/%d] %s:%s after %v", idx+1, len(changedPackages), p.Package, p.Version, time.Since(pkgStart))
+	}
+
+	if len(changedPackages) > 0 {
+		m.logger.Infof("Package sync complete after %v", time.Since(start))
 	}
 
 	// swap for new managed packags.
 	m.managedPackages = newManagedPackages
 
 	return outErr
+}
+
+func (m *cloudManager) validateAndGetChangedPackages(packages []config.PackageConfig) []config.PackageConfig {
+	changed := make([]config.PackageConfig, 0)
+	for _, p := range packages {
+		// don't consider invalid config as synced or unsynced
+		if err := p.Validate(""); err != nil {
+			m.logger.Errorw("package config validation error; skipping", "package", p.Name, "error", err)
+			continue
+		}
+		if existing := m.packageIsManaged(p); !existing {
+			newPackage := p
+			changed = append(changed, newPackage)
+		} else {
+			m.logger.Debug("Package %s:%s already managed, skipping", p.Package, p.Version)
+		}
+	}
+	return changed
+}
+
+func (m *cloudManager) packageIsManaged(p config.PackageConfig) bool {
+	existing, ok := m.managedPackages[PackageName(p.Name)]
+	if ok {
+		if existing.thePackage.Package == p.Package && existing.thePackage.Version == p.Version {
+			return true
+		}
+	}
+	return false
 }
 
 // Cleanup removes all unknown packages from the working directory.

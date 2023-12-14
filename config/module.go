@@ -4,9 +4,10 @@ import (
 	"os"
 	"reflect"
 	"regexp"
-	"strings"
 
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/resource"
 )
 
 var moduleNameRegEx = regexp.MustCompile(`^[\w-]+$`)
@@ -35,6 +36,8 @@ type Module struct {
 	// They overwrite existing environment variables.
 	Environment map[string]string `json:"env,omitempty"`
 
+	// Status refers to the validations done in the APP to make sure a module is configured correctly
+	Status           *AppValidationStatus `json:"status"`
 	alreadyValidated bool
 	cachedErr        error
 }
@@ -54,6 +57,11 @@ func (m *Module) Validate(path string) error {
 	if m.alreadyValidated {
 		return m.cachedErr
 	}
+	if m.Status != nil {
+		m.alreadyValidated = true
+		m.cachedErr = resource.NewConfigValidationError(path, errors.New(m.Status.Error))
+		return m.cachedErr
+	}
 	m.cachedErr = m.validate(path)
 	m.alreadyValidated = true
 	return m.cachedErr
@@ -62,8 +70,7 @@ func (m *Module) Validate(path string) error {
 func (m *Module) validate(path string) error {
 	// Only check if the path exists during validation for local modules because the packagemanager may not have downloaded
 	// the package yet.
-	// As of 2023-08, modules can't know if they were originally registry modules, so this roundabout check is required
-	if !(ContainsPlaceholder(m.ExePath) || strings.HasPrefix(m.ExePath, viamPackagesDir)) {
+	if m.Type == ModuleTypeLocal {
 		_, err := os.Stat(m.ExePath)
 		if err != nil {
 			return errors.Wrapf(err, "module %s executable path error", path)
@@ -86,8 +93,10 @@ func (m *Module) validate(path string) error {
 func (m Module) Equals(other Module) bool {
 	m.alreadyValidated = false
 	m.cachedErr = nil
+	m.Status = nil
 	other.alreadyValidated = false
 	other.cachedErr = nil
+	other.Status = nil
 	//nolint:govet
 	return reflect.DeepEqual(m, other)
 }

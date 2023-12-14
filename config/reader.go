@@ -17,6 +17,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/sys/cpu"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -39,7 +40,22 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	platform := fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
+
+	arch := runtime.GOARCH
+	// "arm" is used for arm32. "arm64" is used for versions after v7
+	if arch == "arm" {
+		// armv7 added LPAE (Large Page Address Extension).
+		// this is an official way to detect armv7
+		// https://go-review.googlesource.com/c/go/+/525637/2/src/internal/cpu/cpu_arm.go#36
+		if cpu.ARM.HasLPAE {
+			arch = "arm32v7"
+		} else {
+			// fallback to armv6
+			arch = "arm32v6"
+		}
+	}
+
+	platform := fmt.Sprintf("%s/%s", runtime.GOOS, arch)
 
 	return &apppb.AgentInfo{
 		Host:        hostname,
@@ -570,7 +586,6 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logge
 		// Check cache?
 		return nil, shouldCheckCacheOnFailure, err
 	}
-
 	cfg, err := FromProto(res.Config, logger)
 	if err != nil {
 		// Check cache?

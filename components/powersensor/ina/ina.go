@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/d2r2/go-i2c"
 	i2clog "github.com/d2r2/go-logger"
@@ -61,7 +62,7 @@ var inaModels = []string{modelName219, modelName226}
 
 // Config is used for converting config attributes.
 type Config struct {
-	I2CBus          int     `json:"i2c_bus"`
+	I2CBus          string  `json:"i2c_bus"`
 	I2cAddr         int     `json:"i2c_addr,omitempty"`
 	MaxCurrent      float64 `json:"max_current_amps,omitempty"`
 	ShuntResistance float64 `json:"shunt_resistance,omitempty"`
@@ -70,8 +71,13 @@ type Config struct {
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if conf.I2CBus == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+	if conf.I2CBus == "" {
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+	}
+	// The bus should be numeric. We store it as a string for consistency with other components,
+	// but we convert it to an int later, so let's check on that now.
+	if _, err := strconv.Atoi(conf.I2CBus); err != nil {
+		return nil, fmt.Errorf("i2c_bus must be numeric, not '%s': %w", conf.I2CBus, err)
 	}
 	return deps, nil
 }
@@ -135,11 +141,16 @@ func newINA(
 		logger.Info("using default resistor value 0.1 ohms")
 	}
 
+	busNumber, err := strconv.Atoi(conf.I2CBus)
+	if err != nil {
+		return nil, fmt.Errorf("non-numeric I2C bus number '%s': %w", conf.I2CBus, err)
+	}
+
 	s := &ina{
 		Named:      name.AsNamed(),
 		logger:     logger,
 		model:      modelName,
-		bus:        conf.I2CBus,
+		bus:        busNumber,
 		addr:       byte(addr),
 		maxCurrent: maxCurrent,
 		resistance: resistance,

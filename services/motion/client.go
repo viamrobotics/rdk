@@ -3,7 +3,7 @@ package motion
 import (
 	"context"
 
-	geo "github.com/kellydunn/golang-geo"
+	"github.com/google/uuid"
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -97,52 +97,45 @@ func (c *client) MoveOnMap(
 	return resp.Success, nil
 }
 
-func (c *client) MoveOnGlobe(
-	ctx context.Context,
-	componentName resource.Name,
-	destination *geo.Point,
-	heading float64,
-	movementSensorName resource.Name,
-	obstacles []*spatialmath.GeoObstacle,
-	motionCfg *MotionConfiguration,
-	extra map[string]interface{},
-) (bool, error) {
-	req, err := MoveOnGlobeReq{
-		ComponentName:      componentName,
-		Destination:        destination,
-		Heading:            heading,
-		MovementSensorName: movementSensorName,
-		Obstacles:          obstacles,
-		MotionCfg:          motionCfg,
-		Extra:              extra,
-	}.toProto(c.name)
-	if err != nil {
-		return false, err
-	}
-
-	resp, err := c.client.MoveOnGlobe(ctx, req)
-	if err != nil {
-		return false, err
-	}
-
-	return resp.Success, nil
-}
-
-func (c *client) MoveOnGlobeNew(
-	ctx context.Context,
-	req MoveOnGlobeReq,
-) (string, error) {
+func (c *client) MoveOnMapNew(ctx context.Context, req MoveOnMapReq) (ExecutionID, error) {
 	protoReq, err := req.toProtoNew(c.name)
 	if err != nil {
-		return "", err
+		return uuid.Nil, err
 	}
 
-	resp, err := c.client.MoveOnGlobeNew(ctx, protoReq)
+	resp, err := c.client.MoveOnMapNew(ctx, protoReq)
 	if err != nil {
-		return "", err
+		return uuid.Nil, err
 	}
 
-	return resp.ExecutionId, nil
+	executionID, err := uuid.Parse(resp.ExecutionId)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return executionID, nil
+}
+
+func (c *client) MoveOnGlobe(
+	ctx context.Context,
+	req MoveOnGlobeReq,
+) (ExecutionID, error) {
+	protoReq, err := req.toProto(c.name)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	resp, err := c.client.MoveOnGlobe(ctx, protoReq)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	executionID, err := uuid.Parse(resp.ExecutionId)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return executionID, nil
 }
 
 func (c *client) GetPose(

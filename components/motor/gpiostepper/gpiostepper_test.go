@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	fakeboard "go.viam.com/rdk/components/board/fake"
@@ -70,13 +69,13 @@ func TestConfigs(t *testing.T) {
 
 		_, err := mc.Validate("")
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError("", "dir"))
+		test.That(t, err, test.ShouldBeError, resource.NewConfigValidationFieldRequiredError("", "dir"))
 
 		mc = goodConfig
 		mc.Pins.Step = ""
 		_, err = mc.Validate("")
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError("", "step"))
+		test.That(t, err, test.ShouldBeError, resource.NewConfigValidationFieldRequiredError("", "step"))
 	})
 
 	t.Run("config missing ticks", func(t *testing.T) {
@@ -85,7 +84,7 @@ func TestConfigs(t *testing.T) {
 
 		_, err := mc.Validate("")
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError("", "ticks_per_rotation"))
+		test.That(t, err, test.ShouldBeError, resource.NewConfigValidationFieldRequiredError("", "ticks_per_rotation"))
 	})
 
 	t.Run("config missing board", func(t *testing.T) {
@@ -94,7 +93,7 @@ func TestConfigs(t *testing.T) {
 
 		_, err := mc.Validate("")
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError("", "board"))
+		test.That(t, err, test.ShouldBeError, resource.NewConfigValidationFieldRequiredError("", "board"))
 	})
 
 	t.Run("initializing good with enable pins", func(t *testing.T) {

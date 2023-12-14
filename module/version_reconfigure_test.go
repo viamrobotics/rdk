@@ -75,7 +75,7 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 	_, err = robot.ResourceByName(generic.Named("generic1"))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring,
-		`config validation error found in modular resource: rdk:component:generic/generic1:`)
+		`rdk:component:generic/generic1`)
 	test.That(t, err.Error(), test.ShouldContainSubstring,
 		`version 2 requires a parameter`)
 

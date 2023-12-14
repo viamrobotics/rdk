@@ -5,7 +5,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
@@ -69,30 +68,20 @@ func (e *mustRebuildError) Error() string {
 	return fmt.Sprintf("cannot reconfigure %q; must rebuild", e.name)
 }
 
-// NewBuildTimeoutError is used when a resource times out during construction or reconfiguration.
-func NewBuildTimeoutError(name Name) error {
-	timeout := utils.GetResourceConfigurationTimeout(logging.Global())
-	extraMsg := ""
-	if timeout == utils.DefaultResourceConfigurationTimeout {
-		extraMsg = fmt.Sprintf(" Update %s env variable to override", utils.ResourceConfigurationTimeoutEnvVar)
-	}
-	return fmt.Errorf(
-		"resource %s timed out after %v during reconfigure.%v",
-		name, timeout, extraMsg,
-	)
-}
-
 // DependencyNotFoundError is used when a resource is not found in a dependencies.
 func DependencyNotFoundError(name Name) error {
-	return errors.Errorf("%q missing from dependencies", name)
+	// This error represents a logical configuration error. No need to include a stack trace.
+	return fmt.Errorf("Resource missing from dependencies. Resource: %v", name)
 }
 
 // DependencyTypeError is used when a resource doesn't implement the expected interface.
 func DependencyTypeError[T Resource](name Name, actual interface{}) error {
+	// This error represents a coding error. Include a stack trace for diagnostics.
 	return errors.Errorf("dependency %q should be an implementation of %s but it was a %T", name, utils.TypeStr[T](), actual)
 }
 
 // TypeError is used when a resource is an unexpected type.
 func TypeError[T Resource](actual Resource) error {
+	// This error represents a coding error. Include a stack trace for diagnostics.
 	return errors.Errorf("expected implementation of %s but it was a %T", utils.TypeStr[T](), actual)
 }

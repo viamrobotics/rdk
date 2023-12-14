@@ -439,22 +439,22 @@ func TestValidate(t *testing.T) {
 	cfg := &Config{}
 	deps, err := cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "\"width_mm\" is required")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "width_mm")
 
 	cfg.WidthMM = 100
 	deps, err = cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "\"wheel_circumference_mm\" is required")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "wheel_circumference_mm")
 
 	cfg.WheelCircumferenceMM = 1000
 	deps, err = cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "\"left\" is required")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "left")
 
 	cfg.Left = []string{"fl-m", "bl-m"}
 	deps, err = cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "\"right\" is required")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "right")
 
 	cfg.Right = []string{"fr-m"}
 	deps, err = cfg.Validate("path")

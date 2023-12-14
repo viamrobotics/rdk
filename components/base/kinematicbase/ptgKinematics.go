@@ -41,6 +41,7 @@ type ptgBaseKinematics struct {
 	ptgs         []tpspace.PTGSolver
 	inputLock    sync.RWMutex
 	currentInput []referenceframe.Input
+	origin       spatialmath.Pose
 }
 
 // wrapWithPTGKinematics takes a Base component and adds a PTG kinematic model so that it can be controlled.
@@ -98,6 +99,14 @@ func wrapWithPTGKinematics(
 		return nil, errors.New("unable to cast ptgk frame to a PTG Provider")
 	}
 	ptgs := ptgProv.PTGSolvers()
+	origin := spatialmath.NewZeroPose()
+	if localizer != nil {
+		originPIF, err := localizer.CurrentPosition(ctx)
+		if err != nil {
+			return nil, err
+		}
+		origin = originPIF.Pose()
+	}
 
 	return &ptgBaseKinematics{
 		Base:         b,
@@ -106,6 +115,7 @@ func wrapWithPTGKinematics(
 		frame:        frame,
 		ptgs:         ptgs,
 		currentInput: zeroInput,
+		origin:       origin,
 	}, nil
 }
 
@@ -136,7 +146,9 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 	selectedPTG := ptgk.ptgs[int(math.Round(inputs[ptgIndex].Value))]
 	selectedTraj, err := selectedPTG.Trajectory(inputs[trajectoryIndexWithinPTG].Value, inputs[distanceAlongTrajectoryIndex].Value)
 	if err != nil {
-		return multierr.Combine(err, ptgk.Base.Stop(ctx, nil))
+		stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancelFn()
+		return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
 	}
 
 	lastDist := 0.
@@ -173,18 +185,23 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 				nil,
 			)
 			if err != nil {
-				return multierr.Combine(err, ptgk.Base.Stop(ctx, nil))
+				stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
+				defer cancelFn()
+				return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
 			}
 			lastLinVel = linVel
 			lastAngVel = angVel
 		}
 		if !utils.SelectContextOrWait(ctx, timestep) {
+			ptgk.logger.Debug(ctx.Err().Error())
 			// context cancelled
 			break
 		}
 	}
 
-	return ptgk.Base.Stop(ctx, nil)
+	stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancelFn()
+	return ptgk.Base.Stop(stopCtx, nil)
 }
 
 func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenceframe.Input, currentNode int) (spatialmath.Pose, error) {
@@ -193,10 +210,11 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenc
 	}
 
 	// Get pose-in-frame of the base via its localizer. The offset between the localizer and its base should already be accounted for.
-	actualPIF, err := ptgk.CurrentPosition(ctx)
+	actualPIFRaw, err := ptgk.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
+	actualPIF := spatialmath.PoseBetween(ptgk.origin, actualPIFRaw.Pose())
 
 	var nominalPose spatialmath.Pose
 
@@ -224,5 +242,5 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenc
 	}
 	nominalPose = spatialmath.Compose(runningPose, currPose)
 
-	return spatialmath.PoseBetween(nominalPose, actualPIF.Pose()), nil
+	return spatialmath.PoseBetween(nominalPose, actualPIF), nil
 }

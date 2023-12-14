@@ -19,6 +19,9 @@ We ask the user to refer to the datasheet if any baud rate changes are required 
 Other models that connect over serial may work, but we ask the user to refer to wit-motion's datasheet
 in that case as well. As of Feb 2023, Wit-motion has 48 gyro/inclinometer/imu models with varied levels of
 driver commonality.
+
+Note: Model HWT905-TTL is not supported under the model name "imu-wit". Use the model name "imu-wit-hwt905"
+for HWT905-TTL.
 */
 
 import (
@@ -59,12 +62,12 @@ type Config struct {
 func (cfg *Config) Validate(path string) ([]string, error) {
 	// Validating serial path
 	if cfg.Port == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_path")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 
 	// Validating baud rate
 	if !rutils.ValidateBaudRate(baudRateList, int(cfg.BaudRate)) {
-		return nil, utils.NewConfigValidationError(path, errors.Errorf("Baud rate is not in %v", baudRateList))
+		return nil, resource.NewConfigValidationError(path, errors.Errorf("Baud rate is not in %v", baudRateList))
 	}
 
 	return nil, nil
@@ -88,10 +91,29 @@ type wit struct {
 	err                     movementsensor.LastError
 	hasMagnetometer         bool
 	mu                      sync.Mutex
+	reconfigMu              sync.Mutex
 	port                    io.ReadWriteCloser
 	cancelFunc              func()
+	cancelCtx               context.Context
 	activeBackgroundWorkers sync.WaitGroup
 	logger                  logging.Logger
+	baudRate                uint
+	serialPath              string
+}
+
+func (imu *wit) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	imu.reconfigMu.Lock()
+	defer imu.reconfigMu.Unlock()
+
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+
+	imu.baudRate = newConf.BaudRate
+	imu.serialPath = newConf.Port
+
+	return nil
 }
 
 func (imu *wit) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {

@@ -60,9 +60,23 @@ func (server *serviceServer) MoveOnMap(ctx context.Context, req *pb.MoveOnMapReq
 	return &pb.MoveOnMapResponse{Success: success}, err
 }
 
-// NOTE: Ignoring duplication as we are going to delete the current (blocking) implementation of MoveOnGlobe after the
-// "Expose Paths To Users" project is complete
-//
+func (server *serviceServer) MoveOnMapNew(ctx context.Context, req *pb.MoveOnMapNewRequest) (*pb.MoveOnMapNewResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	r, err := moveOnMapNewRequestFromProto(req)
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := svc.MoveOnMapNew(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.MoveOnMapNewResponse{ExecutionId: id.String()}, nil
+}
 
 func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlobeRequest) (*pb.MoveOnGlobeResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
@@ -74,39 +88,12 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 		return nil, err
 	}
 
-	success, err := svc.MoveOnGlobe(
-		ctx,
-		r.ComponentName,
-		r.Destination,
-		r.Heading,
-		r.MovementSensorName,
-		r.Obstacles,
-		r.MotionCfg,
-		r.Extra,
-	)
-	return &pb.MoveOnGlobeResponse{Success: success}, err
-}
-
-// NOTE: Ignoring duplication as we are going to delete the current (blocking) implementation of MoveOnGlobe after the
-// "Expose Paths To Users" project is complete
-//
-
-func (server *serviceServer) MoveOnGlobeNew(ctx context.Context, req *pb.MoveOnGlobeNewRequest) (*pb.MoveOnGlobeNewResponse, error) {
-	svc, err := server.coll.Resource(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	r, err := moveOnGlobeNewRequestFromProto(req)
+	id, err := svc.MoveOnGlobe(ctx, r)
 	if err != nil {
 		return nil, err
 	}
 
-	id, err := svc.MoveOnGlobeNew(ctx, r)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.MoveOnGlobeNewResponse{ExecutionId: id}, nil
+	return &pb.MoveOnGlobeResponse{ExecutionId: id.String()}, nil
 }
 
 func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {

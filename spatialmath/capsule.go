@@ -84,7 +84,8 @@ func (c *capsule) MarshalJSON() ([]byte, error) {
 
 // String returns a human readable string that represents the capsule.
 func (c *capsule) String() string {
-	return fmt.Sprintf("Type: Capsule, Radius: %.0f, Length: %.0f", c.radius, c.length)
+	return fmt.Sprintf("Type: Capsule | Position: X:%.1f, Y:%.1f, Z:%.1f | Radius: %.0f | Length: %.0f",
+		c.center.X, c.center.Y, c.center.Z, c.radius, c.length)
 }
 
 // Label returns the label of this capsule.
@@ -108,7 +109,7 @@ func (c *capsule) AlmostEqual(g Geometry) bool {
 	if !ok {
 		return false
 	}
-	return PoseAlmostEqual(c.pose, other.pose) &&
+	return PoseAlmostEqualEps(c.pose, other.pose, 1e-6) &&
 		utils.Float64AlmostEqual(c.radius, other.radius, 1e-8) &&
 		utils.Float64AlmostEqual(c.length, other.length, 1e-8)
 }

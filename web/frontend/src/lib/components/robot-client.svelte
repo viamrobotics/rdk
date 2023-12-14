@@ -39,6 +39,7 @@ const dispatch = createEventDispatcher<{
   'connection-error': unknown
 }>();
 
+
 const relevantSubtypesForStatus = [
   'arm',
   'gantry',
@@ -48,6 +49,7 @@ const relevantSubtypesForStatus = [
   'input_controller',
 ] as const;
 
+const apiKeyAuthType = "api-key"
 const urlPort = location.port ? `:${location.port}` : ''
 const impliedURL = `${location.protocol}//${location.hostname}${urlPort}`;
 
@@ -75,7 +77,12 @@ $robotClient = new Client(impliedURL, {
   noReconnect: true,
 });
 
-let password = '';
+const passwordByAuthType: Record<string, string> = {}
+let apiKeyEntity = "";
+for (const auth of supportedAuthTypes) {
+  passwordByAuthType[auth] = ""
+}
+
 let lastStatusTS: number | null = null;
 let resourcesOnce = false;
 
@@ -416,11 +423,11 @@ const start = () => {
   cancelTick = setAsyncInterval(tick, 500);
 };
 
-const connect = async (creds?: Credentials) => {
+const connect = async (creds?: Credentials, authEntity?: string) => {
   $connectionStatus = 'connecting';
 
   await $robotClient.connect({ 
-    authEntity: bakedAuth.authEntity, 
+    authEntity: authEntity ?? bakedAuth.authEntity,
     creds: creds ?? bakedAuth.creds,
     priority: 1 
   });
@@ -430,12 +437,13 @@ const connect = async (creds?: Credentials) => {
 };
 
 const login = async (authType: string) => {
-  const creds = { type: authType, payload: password };
+  const creds = { type: authType, payload: passwordByAuthType[authType] ?? ""};
 
+  const authEntity = authType === apiKeyAuthType ? apiKeyEntity: undefined
   try {
-    await connect(creds);
+    await connect(creds, authEntity);
   } catch (error) {
-    notify.danger(`failed to connect: ${(error as ServiceError).message}`);
+    notify.danger(`failed to connect: ${error as string}`);
     $connectionStatus = 'idle';
   }
 };
@@ -479,6 +487,7 @@ onDestroy(() => {
 if (supportedAuthTypes.length === 0) {
   init();
 }
+let selectedAuthType: string = supportedAuthTypes[0]!
 
 </script>
 
@@ -490,28 +499,51 @@ if (supportedAuthTypes.length === 0) {
 
 {#if $connectionStatus === 'connected' || $connectionStatus === 'reconnecting'}
   <slot />
-{:else}
-  {#each supportedAuthTypes as authType (authType)}
-    <div class="px-4 py-3">
-      <span>{authType}: </span>
-      <div class="w-96">
-        <input
-          bind:value={password}
+{:else if supportedAuthTypes.length > 0 }
+  <div class="flex bg-[#f7f7f8] min-h-[100vh]">
+  <div class="flex flex-col items-center w-full h-full md:max-w-[400px] md:h-auto bg-white border border-[#d7d7d9] m-auto p-6 pt-10">
+      <img src="https://app.viam.com/static/images/viam-logo.svg" alt="Viam"
+           class="mb-8 h-8" />
+      <div class="flex flex-row w-full mb-8">
+          {#each supportedAuthTypes as authType(authType)}
+              <button
+                class={`flex w-full h-10 items-center justify-center text-default font-medium text-sm disabled ${selectedAuthType===authType ? "bg-[#FBFBFC] border-[#C5C6CC]" : "text-[#4E4F52] bg-[#F1F1F4] border-[#E4E4E6]"} border`}
+                disabled={selectedAuthType===authType} aria-disabled={selectedAuthType===authType}
+                on:click={() => {selectedAuthType = authType;}}>
+                  {authType}
+              </button>
+          {/each}
+      </div>
+      <div class="w-full">
+        {#if selectedAuthType === apiKeyAuthType}
+          <label class="block text-xs text-[#4E4F52] leading-3 mb-2">
+            api key id
+            <input
+                bind:value={apiKeyEntity}
+                disabled={$connectionStatus === 'connecting'}
+                class="border border-[#E4E4E6] text-sm block w-full p-2.5 mt-2"
+                autocomplete="off">
+          </label>
+        {/if}
+        <label class="block text-xs text-[#4E4F52] leading-3">
+            {selectedAuthType === apiKeyAuthType ? "api key" : "secret" }
+          <input
+             bind:value={passwordByAuthType[selectedAuthType]}
+             disabled={$connectionStatus === 'connecting'}
+             class="border border-[#E4E4E6] text-sm block w-full p-2.5 mt-2"
+             type="password"
+             autocomplete="off"
+             on:keyup={async (event) => event.key === 'Enter' && login(selectedAuthType)}
+          >
+        </label>
+        <button
           disabled={$connectionStatus === 'connecting'}
-          class="
-            mb-2 block w-full appearance-none border p-2 text-gray-700
-            transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none
-          "
-          type="password"
-          autocomplete="off"
-          on:keyup={async (event) => event.key === 'Enter' && login(authType)}
+          class="block w-full h-10 p-2 mt-8 mb-2 bg-[#282829] text-sm text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:pointer-events-none"
+          on:click={$connectionStatus === 'connecting' ? undefined : async () => login(selectedAuthType)}
         >
-        <v-button
-          disabled={$connectionStatus === 'connecting'}
-          label="Login"
-          on:click={$connectionStatus === 'connecting' ? undefined : async () => login(authType)}
-        />
+          Log in
+        </button>
       </div>
     </div>
-  {/each}
+  </div>
 {/if}

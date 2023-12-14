@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package tmcstepper implements a TMC stepper motor.
 package tmcstepper
 
@@ -11,6 +13,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -25,7 +28,7 @@ type PinConfig struct {
 // TMC5072Config describes the configuration of a motor.
 type TMC5072Config struct {
 	Pins             PinConfig `json:"pins"`
-	BoardName        string    `json:"board"` // used to get encoders
+	BoardName        string    `json:"board,omitempty"` // used solely for the PinConfig
 	MaxRPM           float64   `json:"max_rpm,omitempty"`
 	MaxAcceleration  float64   `json:"max_acceleration_rpm_per_sec,omitempty"`
 	TicksPerRotation int       `json:"ticks_per_rotation"`
@@ -45,22 +48,24 @@ var model = resource.DefaultModelFamily.WithModel("TMC5072")
 // Validate ensures all parts of the config are valid.
 func (config *TMC5072Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if config.BoardName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+	if config.Pins.EnablePinLow != "" {
+		if config.BoardName == "" {
+			return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
+		}
+		deps = append(deps, config.BoardName)
 	}
 	if config.SPIBus == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "spi_bus")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "spi_bus")
 	}
 	if config.ChipSelect == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "chip_select")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "chip_select")
 	}
 	if config.Index <= 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "index")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "index")
 	}
 	if config.TicksPerRotation <= 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
 	}
-	deps = append(deps, config.BoardName)
 	return deps, nil
 }
 
@@ -86,8 +91,7 @@ type Motor struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
-	board       board.Board
-	bus         board.SPI
+	bus         buses.SPI
 	csPin       string
 	index       int
 	enLowPin    board.GPIOPin
@@ -147,19 +151,15 @@ const (
 func NewMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, name resource.Name,
 	logger logging.Logger,
 ) (motor.Motor, error) {
-	b, err := board.FromDependencies(deps, c.BoardName)
-	if err != nil {
-		return nil, errors.Errorf("%q is not a board", c.BoardName)
-	}
-	localB, ok := b.(board.LocalBoard)
-	if !ok {
-		return nil, errors.Errorf("board %s is not local", c.BoardName)
-	}
-	bus, ok := localB.SPIByName(c.SPIBus)
-	if !ok {
-		return nil, errors.Errorf("can't find SPI bus (%s) requested by Motor", c.SPIBus)
-	}
+	bus := buses.NewSpiBus(c.SPIBus)
+	return makeMotor(ctx, deps, c, name, logger, bus)
+}
 
+// makeMotor returns a TMC5072 driven motor. It is separate from NewMotor, above, so you can inject
+// a mock SPI bus in here during testing.
+func makeMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, name resource.Name,
+	logger logging.Logger, bus buses.SPI,
+) (motor.Motor, error) {
 	if c.CalFactor == 0 {
 		c.CalFactor = 1.0
 	}
@@ -176,7 +176,6 @@ func NewMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, 
 
 	m := &Motor{
 		Named:       name.AsNamed(),
-		board:       b,
 		bus:         bus,
 		csPin:       c.ChipSelect,
 		index:       c.Index,
@@ -245,7 +244,7 @@ func NewMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, 
 
 	iCfg := c.HoldDelay<<16 | c.RunCurrent<<8 | c.HoldCurrent
 
-	err = multierr.Combine(
+	err := multierr.Combine(
 		m.writeReg(ctx, chopConf, 0x000100C3), // TOFF=3, HSTRT=4, HEND=1, TBL=2, CHM=0 (spreadCycle)
 		m.writeReg(ctx, iHoldIRun, iCfg),
 		m.writeReg(ctx, coolConf, coolConfig), // Sets just the SGThreshold (for now)
@@ -270,6 +269,11 @@ func NewMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, 
 	}
 
 	if c.Pins.EnablePinLow != "" {
+		b, err := board.FromDependencies(deps, c.BoardName)
+		if err != nil {
+			return nil, errors.Errorf("%q is not a board", c.BoardName)
+		}
+
 		m.enLowPin, err = b.GPIOPinByName(c.Pins.EnablePinLow)
 		if err != nil {
 			return nil, err

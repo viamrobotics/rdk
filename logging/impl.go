@@ -13,17 +13,10 @@ import (
 )
 
 type (
-	// Appender is an output for log entries. This is a subset of the `zapcore.Core` interface.
-	Appender interface {
-		// Write submits a structured log entry to the appender for logging.
-		Write(zapcore.Entry, []zapcore.Field) error
-		// Sync is for signaling that any buffered logs to `Write` should be flushed. E.g: at shutdown.
-		Sync() error
-	}
-
 	impl struct {
 		name  string
-		level Level
+		level AtomicLevel
+		inUTC bool
 
 		appenders []Appender
 	}
@@ -35,34 +28,55 @@ type (
 	}
 )
 
-func (impl *impl) NewLogEntry() *LogEntry {
+func (imp *impl) NewLogEntry() *LogEntry {
 	ret := &LogEntry{}
 	ret.Time = time.Now()
-	ret.LoggerName = impl.name
+	ret.LoggerName = imp.name
 	ret.Caller = getCaller()
 
 	return ret
 }
 
-func (impl *impl) AddAppender(appender Appender) {
-	impl.appenders = append(impl.appenders, appender)
+func (imp *impl) AddAppender(appender Appender) {
+	imp.appenders = append(imp.appenders, appender)
 }
 
-func (impl *impl) Desugar() *zap.Logger {
-	return nil
+func (imp *impl) Desugar() *zap.Logger {
+	return imp.AsZap().Desugar()
 }
 
-func (impl *impl) Level() zapcore.Level {
-	return zapcore.InfoLevel
+func (imp *impl) SetLevel(level Level) {
+	imp.level.Set(level)
 }
 
-func (impl *impl) Named(name string) *zap.SugaredLogger {
-	return nil
+func (imp *impl) GetLevel() Level {
+	return imp.level.Get()
 }
 
-func (impl *impl) Sync() error {
+func (imp *impl) Level() zapcore.Level {
+	return imp.GetLevel().AsZap()
+}
+
+func (imp *impl) Sublogger(subname string) Logger {
+	newName := subname
+	if imp.name != "" {
+		newName = fmt.Sprintf("%s.%s", imp.name, subname)
+	}
+
+	return &impl{
+		name:      newName,
+		level:     NewAtomicLevelAt(imp.level.Get()),
+		appenders: imp.appenders,
+	}
+}
+
+func (imp *impl) Named(name string) *zap.SugaredLogger {
+	return imp.AsZap().Named(name)
+}
+
+func (imp *impl) Sync() error {
 	var errs []error
-	for _, appender := range impl.appenders {
+	for _, appender := range imp.appenders {
 		if err := appender.Sync(); err != nil {
 			errs = append(errs, err)
 		}
@@ -71,24 +85,56 @@ func (impl *impl) Sync() error {
 	return multierr.Combine(errs...)
 }
 
-func (impl *impl) With(args ...interface{}) *zap.SugaredLogger {
-	return nil
+func (imp *impl) With(args ...interface{}) *zap.SugaredLogger {
+	return imp.AsZap().With(args...)
 }
 
-func (impl *impl) WithOptions(opts ...zap.Option) *zap.SugaredLogger {
-	return nil
+func (imp *impl) WithOptions(opts ...zap.Option) *zap.SugaredLogger {
+	return imp.AsZap().WithOptions(opts...)
 }
 
-func (impl *impl) AsZap() *zap.SugaredLogger {
-	return NewLogger("").AsZap()
+func (imp *impl) AsZap() *zap.SugaredLogger {
+	// When downconverting to a SugaredLogger, copy those that implement the `zapcore.Core`
+	// interface. This includes the net logger for viam servers and the observed logs for tests.
+	var copiedCores []zapcore.Core
+	for _, appender := range imp.appenders {
+		if core, ok := appender.(zapcore.Core); ok {
+			copiedCores = append(copiedCores, core)
+		}
+	}
+
+	config := NewZapLoggerConfig()
+	// Use the global zap `AtomicLevel` such that the constructed zap logger can observe changes to
+	// the debug flag.
+	if imp.level.Get() == DEBUG {
+		config.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
+	} else {
+		config.Level = GlobalLogLevel
+	}
+	ret := zap.Must(config.Build()).Sugar().Named(imp.name)
+	for _, core := range copiedCores {
+		ret = ret.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
+			return zapcore.NewTee(c, core)
+		}))
+	}
+
+	return ret
 }
 
-func (impl *impl) shouldLog(logLevel Level) bool {
-	return logLevel >= impl.level
+func (imp *impl) shouldLog(logLevel Level) bool {
+	if GlobalLogLevel.Level() == zapcore.DebugLevel {
+		return true
+	}
+
+	return logLevel >= imp.level.Get()
 }
 
-func (impl *impl) log(entry *LogEntry) {
-	for _, appender := range impl.appenders {
+func (imp *impl) log(entry *LogEntry) {
+	if imp.inUTC {
+		entry.Time = entry.Time.UTC()
+	}
+
+	for _, appender := range imp.appenders {
 		err := appender.Write(entry.Entry, entry.fields)
 		if err != nil {
 			fmt.Fprint(os.Stderr, err)
@@ -97,8 +143,8 @@ func (impl *impl) log(entry *LogEntry) {
 }
 
 // Constructs the log message by forwarding to `fmt.Sprint`.
-func (impl *impl) format(logLevel Level, args ...interface{}) *LogEntry {
-	logEntry := impl.NewLogEntry()
+func (imp *impl) format(logLevel Level, args ...interface{}) *LogEntry {
+	logEntry := imp.NewLogEntry()
 	logEntry.Level = logLevel.AsZap()
 	logEntry.Message = fmt.Sprint(args...)
 
@@ -106,8 +152,8 @@ func (impl *impl) format(logLevel Level, args ...interface{}) *LogEntry {
 }
 
 // Constructs the log message by forwarding to `fmt.Sprintf`.
-func (impl *impl) formatf(logLevel Level, template string, args ...interface{}) *LogEntry {
-	logEntry := impl.NewLogEntry()
+func (imp *impl) formatf(logLevel Level, template string, args ...interface{}) *LogEntry {
+	logEntry := imp.NewLogEntry()
 	logEntry.Level = logLevel.AsZap()
 	logEntry.Message = fmt.Sprintf(template, args...)
 
@@ -117,8 +163,8 @@ func (impl *impl) formatf(logLevel Level, template string, args ...interface{}) 
 // Turns `keysAndValues` into a map where the odd elements are the keys and their following even
 // counterpart is the value. The keys are expected to be strings. The values are json
 // serialized. Only public fields are included in the serialization.
-func (impl *impl) formatw(logLevel Level, msg string, keysAndValues ...interface{}) *LogEntry {
-	logEntry := impl.NewLogEntry()
+func (imp *impl) formatw(logLevel Level, msg string, keysAndValues ...interface{}) *LogEntry {
+	logEntry := imp.NewLogEntry()
 	logEntry.Level = logLevel.AsZap()
 	logEntry.Message = msg
 
@@ -144,91 +190,91 @@ func (impl *impl) formatw(logLevel Level, msg string, keysAndValues ...interface
 	return logEntry
 }
 
-func (impl *impl) Debug(args ...interface{}) {
-	if impl.shouldLog(DEBUG) {
-		impl.log(impl.format(DEBUG, args...))
+func (imp *impl) Debug(args ...interface{}) {
+	if imp.shouldLog(DEBUG) {
+		imp.log(imp.format(DEBUG, args...))
 	}
 }
 
-func (impl *impl) Debugf(template string, args ...interface{}) {
-	if impl.shouldLog(DEBUG) {
-		impl.log(impl.formatf(DEBUG, template, args...))
+func (imp *impl) Debugf(template string, args ...interface{}) {
+	if imp.shouldLog(DEBUG) {
+		imp.log(imp.formatf(DEBUG, template, args...))
 	}
 }
 
-func (impl *impl) Debugw(msg string, keysAndValues ...interface{}) {
-	if impl.shouldLog(DEBUG) {
-		impl.log(impl.formatw(DEBUG, msg, keysAndValues...))
+func (imp *impl) Debugw(msg string, keysAndValues ...interface{}) {
+	if imp.shouldLog(DEBUG) {
+		imp.log(imp.formatw(DEBUG, msg, keysAndValues...))
 	}
 }
 
-func (impl *impl) Info(args ...interface{}) {
-	if impl.shouldLog(INFO) {
-		impl.log(impl.format(INFO, args...))
+func (imp *impl) Info(args ...interface{}) {
+	if imp.shouldLog(INFO) {
+		imp.log(imp.format(INFO, args...))
 	}
 }
 
-func (impl *impl) Infof(template string, args ...interface{}) {
-	if impl.shouldLog(INFO) {
-		impl.log(impl.formatf(INFO, template, args...))
+func (imp *impl) Infof(template string, args ...interface{}) {
+	if imp.shouldLog(INFO) {
+		imp.log(imp.formatf(INFO, template, args...))
 	}
 }
 
-func (impl *impl) Infow(msg string, keysAndValues ...interface{}) {
-	if impl.shouldLog(INFO) {
-		impl.log(impl.formatw(INFO, msg, keysAndValues...))
+func (imp *impl) Infow(msg string, keysAndValues ...interface{}) {
+	if imp.shouldLog(INFO) {
+		imp.log(imp.formatw(INFO, msg, keysAndValues...))
 	}
 }
 
-func (impl *impl) Warn(args ...interface{}) {
-	if impl.shouldLog(WARN) {
-		impl.log(impl.format(WARN, args...))
+func (imp *impl) Warn(args ...interface{}) {
+	if imp.shouldLog(WARN) {
+		imp.log(imp.format(WARN, args...))
 	}
 }
 
-func (impl *impl) Warnf(template string, args ...interface{}) {
-	if impl.shouldLog(WARN) {
-		impl.log(impl.formatf(WARN, template, args...))
+func (imp *impl) Warnf(template string, args ...interface{}) {
+	if imp.shouldLog(WARN) {
+		imp.log(imp.formatf(WARN, template, args...))
 	}
 }
 
-func (impl *impl) Warnw(msg string, keysAndValues ...interface{}) {
-	if impl.shouldLog(WARN) {
-		impl.log(impl.formatw(WARN, msg, keysAndValues...))
+func (imp *impl) Warnw(msg string, keysAndValues ...interface{}) {
+	if imp.shouldLog(WARN) {
+		imp.log(imp.formatw(WARN, msg, keysAndValues...))
 	}
 }
 
-func (impl *impl) Error(args ...interface{}) {
-	if impl.shouldLog(ERROR) {
-		impl.log(impl.format(ERROR, args...))
+func (imp *impl) Error(args ...interface{}) {
+	if imp.shouldLog(ERROR) {
+		imp.log(imp.format(ERROR, args...))
 	}
 }
 
-func (impl *impl) Errorf(template string, args ...interface{}) {
-	if impl.shouldLog(ERROR) {
-		impl.log(impl.formatf(ERROR, template, args...))
+func (imp *impl) Errorf(template string, args ...interface{}) {
+	if imp.shouldLog(ERROR) {
+		imp.log(imp.formatf(ERROR, template, args...))
 	}
 }
 
-func (impl *impl) Errorw(msg string, keysAndValues ...interface{}) {
-	if impl.shouldLog(ERROR) {
-		impl.log(impl.formatw(ERROR, msg, keysAndValues...))
+func (imp *impl) Errorw(msg string, keysAndValues ...interface{}) {
+	if imp.shouldLog(ERROR) {
+		imp.log(imp.formatw(ERROR, msg, keysAndValues...))
 	}
 }
 
 // These Fatal* methods log as errors then exit the process.
-func (impl *impl) Fatal(args ...interface{}) {
-	impl.log(impl.format(ERROR, args...))
+func (imp *impl) Fatal(args ...interface{}) {
+	imp.log(imp.format(ERROR, args...))
 	os.Exit(1)
 }
 
-func (impl *impl) Fatalf(template string, args ...interface{}) {
-	impl.log(impl.formatf(ERROR, template, args...))
+func (imp *impl) Fatalf(template string, args ...interface{}) {
+	imp.log(imp.formatf(ERROR, template, args...))
 	os.Exit(1)
 }
 
-func (impl *impl) Fatalw(msg string, keysAndValues ...interface{}) {
-	impl.log(impl.formatw(ERROR, msg, keysAndValues...))
+func (imp *impl) Fatalw(msg string, keysAndValues ...interface{}) {
+	imp.log(imp.formatw(ERROR, msg, keysAndValues...))
 	os.Exit(1)
 }
 

@@ -3,10 +3,12 @@ package motion
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -26,43 +28,69 @@ func init() {
 	})
 }
 
-// PlanHistoryReq describes the request to the PlanHistory interface method.
-// Contains the ComponentName the returned plan(s) should be associated with,
-// an optional ExecutionID and an Extra parameter.
-// If LastPlanOnly is set to true then only the most recent plan for the
-// component & execution in question is returned.
+// PlanHistoryReq describes the request to PlanHistory().
 type PlanHistoryReq struct {
+	// ComponentName the returned plans should be associated with.
 	ComponentName resource.Name
-	LastPlanOnly  bool
-	ExecutionID   uuid.UUID
-	Extra         map[string]interface{}
+	// When true, only the most recent plan will be returned which matches the ComponentName & ExecutionID if one was provided.
+	LastPlanOnly bool
+	// Optional, when not uuid.Nil it specifies the ExecutionID of the plans that should be returned.
+	// Can be used to query plans from executions before the most recent one.
+	ExecutionID ExecutionID
+	Extra       map[string]interface{}
 }
 
-// MoveOnGlobeReq describes the request to the GetPlan interface method.
-// Contains the ComponentName the returned plan(s) should be associated with,
-// an optional  ExecutionID and an Extra parameter.
+// MoveOnGlobeReq describes the request to the MoveOnGlobe interface method.
 type MoveOnGlobeReq struct {
-	ComponentName      resource.Name
-	Destination        *geo.Point
-	Heading            float64
+	// ComponentName of the component to move
+	ComponentName resource.Name
+	// Goal destination the component should be moved to
+	Destination *geo.Point
+	// Heading the component should have a when it reaches the goal.
+	// Range [0-360] Left Hand Rule (N: 0, E: 90, S: 180, W: 270)
+	Heading float64
+	// Name of the momement sensor which can be used to derive Position & Heading
 	MovementSensorName resource.Name
-	Obstacles          []*spatialmath.GeoObstacle
-	MotionCfg          *MotionConfiguration
-	Extra              map[string]interface{}
+	// Static obstacles that should be navigated around
+	Obstacles []*spatialmath.GeoObstacle
+	// Optional motion configuration
+	MotionCfg *MotionConfiguration
+	Extra     map[string]interface{}
 }
 
-// StopPlanReq describes the request to the StopPlan interface method.
-// Contains the ComponentName of the plan which should be stopped
-// & an Extra parameter.
+func (r MoveOnGlobeReq) String() string {
+	template := "motion.MoveOnGlobeReq{ComponentName: %s, " +
+		"Destination: %+v, Heading: %f, MovementSensorName: %s, " +
+		"Obstacles: %v, MotionCfg: %#v, Extra: %s}"
+	return fmt.Sprintf(template,
+		r.ComponentName,
+		r.Destination,
+		r.Heading,
+		r.MovementSensorName,
+		r.Obstacles,
+		r.MotionCfg,
+		r.Extra)
+}
+
+// MoveOnMapReq describes a request to MoveOnMap.
+type MoveOnMapReq struct {
+	ComponentName resource.Name
+	Destination   spatialmath.Pose
+	SlamName      resource.Name
+	MotionCfg     *MotionConfiguration
+	Extra         map[string]interface{}
+}
+
+// StopPlanReq describes the request to StopPlan().
 type StopPlanReq struct {
+	// ComponentName of the plan which should be stopped
 	ComponentName resource.Name
 	Extra         map[string]interface{}
 }
 
-// ListPlanStatusesReq describes the request to the ListPlanStatuses interface method.
-// If OnlyActivePlans is true then only active plans will be returned.
-// Also contains an Extra parameter.
+// ListPlanStatusesReq describes the request to ListPlanStatuses().
 type ListPlanStatusesReq struct {
+	// If true then only active plans will be returned.
 	OnlyActivePlans bool
 	Extra           map[string]interface{}
 }
@@ -72,14 +100,16 @@ type ListPlanStatusesReq struct {
 // should move to at that step.
 type PlanStep map[resource.Name]spatialmath.Pose
 
-// Plan represnts a motion plan.
-// Has a unique ID, ComponentName, ExecutionID and a sequence of Steps
-// which can be executed to follow the plan.
+// Plan represents a motion plan.
 type Plan struct {
-	ID            uuid.UUID
+	// Unique ID of the plan
+	ID PlanID
+	// Name of the component the plan is planning for
 	ComponentName resource.Name
-	ExecutionID   uuid.UUID
-	Steps         []PlanStep
+	// Unique ID of the execution
+	ExecutionID ExecutionID
+	// Steps that describe the plan
+	Steps []PlanStep
 }
 
 // PlanState denotes the state a Plan is in.
@@ -102,13 +132,27 @@ const (
 	PlanStateFailed
 )
 
+// TerminalStateSet is a set that defines the PlanState values which are terminal
+// i.e. which represent the end of a plan.
+var TerminalStateSet = map[PlanState]struct{}{
+	PlanStateStopped:   {},
+	PlanStateSucceeded: {},
+	PlanStateFailed:    {},
+}
+
+// PlanID uniquely identifies a Plan.
+type PlanID = uuid.UUID
+
+// ExecutionID uniquely identifies an execution.
+type ExecutionID = uuid.UUID
+
 // PlanStatusWithID describes the state of a given plan at a
 // point in time plus the PlanId, ComponentName and ExecutionID
 // the status is associated with.
 type PlanStatusWithID struct {
-	PlanID        uuid.UUID
+	PlanID        PlanID
 	ComponentName resource.Name
-	ExecutionID   uuid.UUID
+	ExecutionID   ExecutionID
 	Status        PlanStatus
 }
 
@@ -146,20 +190,14 @@ type Service interface {
 		slamName resource.Name,
 		extra map[string]interface{},
 	) (bool, error)
+	MoveOnMapNew(
+		ctx context.Context,
+		req MoveOnMapReq,
+	) (ExecutionID, error)
 	MoveOnGlobe(
 		ctx context.Context,
-		componentName resource.Name,
-		destination *geo.Point,
-		heading float64,
-		movementSensorName resource.Name,
-		obstacles []*spatialmath.GeoObstacle,
-		motionConfig *MotionConfiguration,
-		extra map[string]interface{},
-	) (bool, error)
-	MoveOnGlobeNew(
-		ctx context.Context,
 		req MoveOnGlobeReq,
-	) (string, error)
+	) (ExecutionID, error)
 	GetPose(
 		ctx context.Context,
 		componentName resource.Name,
@@ -315,5 +353,51 @@ func (ps PlanState) String() string {
 		return "unspecified"
 	default:
 		return "unknown"
+	}
+}
+
+// PollHistoryUntilSuccessOrError polls `PlanHistory()` with `req` every `interval`
+// until a terminal state is reached.
+// An error is returned if the terminal state is Failed, Stopped or an invalid state
+// or if the context has an error.
+// nil is returned if the terminal state is Succeeded.
+func PollHistoryUntilSuccessOrError(
+	ctx context.Context,
+	m Service,
+	interval time.Duration,
+	req PlanHistoryReq,
+) error {
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		ph, err := m.PlanHistory(ctx, req)
+		if err != nil {
+			return err
+		}
+
+		status := ph[0].StatusHistory[0]
+
+		switch status.State {
+		case PlanStateInProgress:
+		case PlanStateFailed:
+			err := errors.New("plan failed")
+			if reason := status.Reason; reason != nil {
+				err = errors.Wrap(err, *reason)
+			}
+			return err
+
+		case PlanStateStopped:
+			return errors.New("plan stopped")
+
+		case PlanStateSucceeded:
+			return nil
+
+		default:
+			return fmt.Errorf("invalid plan state %d", status.State)
+		}
+
+		time.Sleep(interval)
 	}
 }

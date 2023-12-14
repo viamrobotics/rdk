@@ -3,7 +3,6 @@ package inject
 import (
 	"context"
 
-	geo "github.com/kellydunn/golang-geo"
 	servicepb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/referenceframe"
@@ -32,20 +31,14 @@ type MotionService struct {
 		slamName resource.Name,
 		extra map[string]interface{},
 	) (bool, error)
+	MoveOnMapNewFunc func(
+		ctx context.Context,
+		req motion.MoveOnMapReq,
+	) (motion.ExecutionID, error)
 	MoveOnGlobeFunc func(
 		ctx context.Context,
-		componentName resource.Name,
-		destination *geo.Point,
-		heading float64,
-		movementSensorName resource.Name,
-		obstacles []*spatialmath.GeoObstacle,
-		motionCfg *motion.MotionConfiguration,
-		extra map[string]interface{},
-	) (bool, error)
-	MoveOnGlobeNewFunc func(
-		ctx context.Context,
 		req motion.MoveOnGlobeReq,
-	) (string, error)
+	) (motion.ExecutionID, error)
 	GetPoseFunc func(
 		ctx context.Context,
 		componentName resource.Name,
@@ -109,29 +102,23 @@ func (mgs *MotionService) MoveOnMap(
 	return mgs.MoveOnMapFunc(ctx, componentName, destination, slamName, extra)
 }
 
-// MoveOnGlobe calls the injected MoveOnGlobe or the real variant.
-func (mgs *MotionService) MoveOnGlobe(
+// MoveOnMapNew calls the injected MoveOnMap or the real variant.
+func (mgs *MotionService) MoveOnMapNew(
 	ctx context.Context,
-	componentName resource.Name,
-	destination *geo.Point,
-	heading float64,
-	movementSensorName resource.Name,
-	obstacles []*spatialmath.GeoObstacle,
-	motionCfg *motion.MotionConfiguration,
-	extra map[string]interface{},
-) (bool, error) {
-	if mgs.MoveOnGlobeFunc == nil {
-		return mgs.Service.MoveOnGlobe(ctx, componentName, destination, heading, movementSensorName, obstacles, motionCfg, extra)
+	req motion.MoveOnMapReq,
+) (motion.ExecutionID, error) {
+	if mgs.MoveOnMapNewFunc == nil {
+		return mgs.Service.MoveOnMapNew(ctx, req)
 	}
-	return mgs.MoveOnGlobeFunc(ctx, componentName, destination, heading, movementSensorName, obstacles, motionCfg, extra)
+	return mgs.MoveOnMapNewFunc(ctx, req)
 }
 
-// MoveOnGlobeNew calls the injected MoveOnGlobeNew or the real variant.
-func (mgs *MotionService) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
-	if mgs.MoveOnGlobeNewFunc == nil {
-		return mgs.Service.MoveOnGlobeNew(ctx, req)
+// MoveOnGlobe calls the injected MoveOnGlobe or the real variant.
+func (mgs *MotionService) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+	if mgs.MoveOnGlobeFunc == nil {
+		return mgs.Service.MoveOnGlobe(ctx, req)
 	}
-	return mgs.MoveOnGlobeNewFunc(ctx, req)
+	return mgs.MoveOnGlobeFunc(ctx, req)
 }
 
 // GetPose calls the injected GetPose or the real variant.

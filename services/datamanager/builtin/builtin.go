@@ -18,7 +18,6 @@ import (
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
@@ -26,6 +25,7 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/utils"
 )
 
@@ -47,9 +47,10 @@ func init() {
 
 				return nil
 			},
-			// NOTE(erd): this would be better as a weak dependencies returned through a more
-			// typed validate or different system.
-			WeakDependencies: []internal.ResourceMatcher{internal.ComponentDependencyWildcardMatcher, internal.SLAMDependencyWildcardMatcher},
+			WeakDependencies: []resource.Matcher{
+				resource.TypeMatcher{Type: resource.APITypeComponentName},
+				resource.SubtypeMatcher{Subtype: slam.SubtypeName},
+			},
 		})
 }
 
@@ -137,7 +138,8 @@ type builtIn struct {
 	cloudConn           rpc.ClientConn
 	syncTicker          *clk.Ticker
 
-	syncSensor selectiveSyncer
+	syncSensor           selectiveSyncer
+	selectiveSyncEnabled bool
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -159,6 +161,7 @@ func NewBuiltIn(
 		tags:                   []string{},
 		fileLastModifiedMillis: defaultFileLastModifiedMillis,
 		syncerConstructor:      datasync.NewManager,
+		selectiveSyncEnabled:   false,
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
@@ -228,6 +231,11 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 	return time.Duration(float32(time.Second) / captureFrequencyHz)
 }
 
+var metadataToAdditionalParamFields = map[string]string{
+	generateMetadataKey("rdk:component:board", "Analogs"): "reader_name",
+	generateMetadataKey("rdk:component:board", "Gpios"):   "pin_name",
+}
+
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
 func (svc *builtIn) initializeOrUpdateCollector(
@@ -267,7 +275,6 @@ func (svc *builtIn) initializeOrUpdateCollector(
 
 	// Parameters to initialize collector.
 	interval := getDurationFromHz(config.CaptureFrequencyHz)
-
 	// Set queue size to defaultCaptureQueueSize if it was not set in the config.
 	captureQueueSize := config.CaptureQueueSize
 	if captureQueueSize == 0 {
@@ -278,7 +285,15 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	if captureBufferSize == 0 {
 		captureBufferSize = defaultCaptureBufferSize
 	}
-
+	additionalParamKey, ok := metadataToAdditionalParamFields[generateMetadataKey(
+		md.MethodMetadata.API.String(),
+		md.MethodMetadata.MethodName)]
+	if ok {
+		if _, ok := config.AdditionalParams[additionalParamKey]; !ok {
+			return nil, errors.Errorf("failed to validate additional_params for %s, must supply %s",
+				md.MethodMetadata.API.String(), additionalParamKey)
+		}
+	}
 	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(config.AdditionalParams)
 	if err != nil {
 		return nil, err
@@ -351,6 +366,8 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 //       If so, how could a user cancel it?
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
+// If automated sync is also enabled, calling Sync will upload the files,
+// regardless of whether or not is the scheduled time.
 func (svc *builtIn) Sync(ctx context.Context, _ map[string]interface{}) error {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
@@ -361,7 +378,7 @@ func (svc *builtIn) Sync(ctx context.Context, _ map[string]interface{}) error {
 		}
 	}
 
-	svc.sync(ctx)
+	svc.sync()
 	return nil
 }
 
@@ -455,10 +472,13 @@ func (svc *builtIn) Reconfigure(
 
 	var syncSensor sensor.Sensor
 	if svcConfig.SelectiveSyncerName != "" {
+		svc.selectiveSyncEnabled = true
 		syncSensor, err = sensor.FromDependencies(deps, svcConfig.SelectiveSyncerName)
 		if err != nil {
-			svc.logger.Errorw("unable to initialize selective syncer", "error", err.Error())
+			svc.logger.Errorw("unable to initialize selective syncer; will not sync at all until fixed or removed from config", "error", err.Error())
 		}
+	} else {
+		svc.selectiveSyncEnabled = false
 	}
 	if svc.syncSensor != syncSensor {
 		svc.syncSensor = syncSensor
@@ -539,7 +559,16 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			case <-svc.syncTicker.C:
 				svc.lock.Lock()
 				if svc.syncer != nil {
-					svc.sync(cancelCtx)
+					// If selective sync is disabled, sync. If it is enabled, check the condition below.
+					shouldSync := !svc.selectiveSyncEnabled
+					// If selective sync is enabled and the sensor has been properly initialized,
+					// try to get the reading from the selective sensor that indicates whether to sync
+					if svc.syncSensor != nil && svc.selectiveSyncEnabled {
+						shouldSync = readyToSync(cancelCtx, svc.syncSensor, svc.logger)
+					}
+					if shouldSync {
+						svc.sync()
+					}
 				}
 				svc.lock.Unlock()
 			}
@@ -547,22 +576,15 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 	})
 }
 
-func (svc *builtIn) sync(ctx context.Context) {
+func (svc *builtIn) sync() {
 	svc.flushCollectors()
-	shouldSync := true
-	// If selective sync is enabled and the sensor has been properly initialized,
-	// try to get the reading from the selective sensor that indicates whether to sync
-	if svc.syncSensor != nil {
-		shouldSync = readyToSync(ctx, svc.syncSensor, svc.logger)
+
+	toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
+	for _, ap := range svc.additionalSyncPaths {
+		toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
 	}
-	if shouldSync {
-		toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
-		for _, ap := range svc.additionalSyncPaths {
-			toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
-		}
-		for _, p := range toSync {
-			svc.syncer.SyncFile(p)
-		}
+	for _, p := range toSync {
+		svc.syncer.SyncFile(p)
 	}
 }
 
@@ -617,4 +639,8 @@ func (svc *builtIn) updateDataCaptureConfigs(
 		resConf.Resource = res
 		resConf.CaptureDirectory = captureDir
 	}
+}
+
+func generateMetadataKey(component, method string) string {
+	return fmt.Sprintf("%s/%s", component, method)
 }

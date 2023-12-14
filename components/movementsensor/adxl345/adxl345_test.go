@@ -1,3 +1,5 @@
+//go:build linux
+
 package adxl345
 
 import (
@@ -7,10 +9,10 @@ import (
 
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -21,17 +23,13 @@ func nowNanosTest() uint64 {
 	return uint64(time.Now().UnixNano())
 }
 
-func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies) {
-	testBoardName := "board"
-	i2cName := "i2c"
-
+func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies, buses.I2C) {
 	cfg := resource.Config{
 		Name:  "movementsensor",
 		Model: model,
 		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
-			BoardName:              testBoardName,
-			I2cBus:                 i2cName,
+			I2cBus:                 "2",
 			UseAlternateI2CAddress: true,
 		},
 	}
@@ -47,17 +45,13 @@ func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies)
 		return nil
 	}
 	i2cHandle.CloseFunc = func() error { return nil }
-	mockBoard := &inject.Board{}
-	mockBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
-		i2c := &inject.I2C{}
-		i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
-			return i2cHandle, nil
-		}
-		return i2c, true
+
+	i2c := &inject.I2C{}
+	i2c.OpenHandleFunc = func(addr byte) (buses.I2CHandle, error) {
+		return i2cHandle, nil
 	}
-	return cfg, resource.Dependencies{
-		resource.NewName(board.API, testBoardName): mockBoard,
-	}
+
+	return cfg, resource.Dependencies{}, i2c
 }
 
 func sendInterrupt(ctx context.Context, adxl movementsensor.MovementSensor, t *testing.T, interrupt board.DigitalInterrupt, key string) {
@@ -71,30 +65,47 @@ func sendInterrupt(ctx context.Context, adxl movementsensor.MovementSensor, t *t
 
 func TestValidateConfig(t *testing.T) {
 	boardName := "local"
-	t.Run("fails with no board supplied", func(t *testing.T) {
+	t.Run("fails when interrupts are used without a supplied board", func(t *testing.T) {
+		tapCfg := TapConfig{
+			AccelerometerPin: 1,
+			InterruptPin:     "on_missing_board",
+		}
 		cfg := Config{
-			I2cBus: "thing",
+			I2cBus:    "3",
+			SingleTap: &tapCfg,
 		}
 		deps, err := cfg.Validate("path")
-		expectedErr := utils.NewConfigValidationFieldRequiredError("path", "board")
+		expectedErr := resource.NewConfigValidationFieldRequiredError("path", "board")
 		test.That(t, err, test.ShouldBeError, expectedErr)
 		test.That(t, deps, test.ShouldBeEmpty)
 	})
 
 	t.Run("fails with no I2C bus", func(t *testing.T) {
-		cfg := Config{
-			BoardName: boardName,
-		}
+		cfg := Config{}
 		deps, err := cfg.Validate("path")
-		expectedErr := utils.NewConfigValidationFieldRequiredError("path", "i2c_bus")
+		expectedErr := resource.NewConfigValidationFieldRequiredError("path", "i2c_bus")
 		test.That(t, err, test.ShouldBeError, expectedErr)
 		test.That(t, deps, test.ShouldBeEmpty)
 	})
 
-	t.Run("adds board name to dependencies on success", func(t *testing.T) {
+	t.Run("passes with no board supplied, no dependencies", func(t *testing.T) {
+		cfg := Config{
+			I2cBus: "3",
+		}
+		deps, err := cfg.Validate("path")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(deps), test.ShouldEqual, 0)
+	})
+
+	t.Run("adds board name to dependencies on success with interrupts", func(t *testing.T) {
+		tapCfg := TapConfig{
+			AccelerometerPin: 1,
+			InterruptPin:     "on_present_board",
+		}
 		cfg := Config{
 			BoardName: boardName,
-			I2cBus:    "thing2",
+			I2cBus:    "2",
+			SingleTap: &tapCfg,
 		}
 		deps, err := cfg.Validate("path")
 
@@ -106,8 +117,6 @@ func TestValidateConfig(t *testing.T) {
 
 func TestInitializationFailureOnChipCommunication(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	testBoardName := "board"
-	i2cName := "i2c"
 
 	t.Run("fails on read error", func(t *testing.T) {
 		cfg := resource.Config{
@@ -115,10 +124,10 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 			Model: model,
 			API:   movementsensor.API,
 			ConvertedAttributes: &Config{
-				BoardName: testBoardName,
-				I2cBus:    i2cName,
+				I2cBus: "2",
 			},
 		}
+
 		i2cHandle := &inject.I2CHandle{}
 		readErr := errors.New("read error")
 		i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
@@ -128,18 +137,13 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 			return []byte{}, nil
 		}
 		i2cHandle.CloseFunc = func() error { return nil }
-		mockBoard := &inject.Board{}
-		mockBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
-			i2c := &inject.I2C{}
-			i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
-				return i2cHandle, nil
-			}
-			return i2c, true
+
+		i2c := &inject.I2C{}
+		i2c.OpenHandleFunc = func(addr byte) (buses.I2CHandle, error) {
+			return i2cHandle, nil
 		}
-		deps := resource.Dependencies{
-			resource.NewName(board.API, testBoardName): mockBoard,
-		}
-		sensor, err := NewAdxl345(context.Background(), deps, cfg, logger)
+
+		sensor, err := makeAdxl345(context.Background(), resource.Dependencies{}, cfg, logger, i2c)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, sensor, test.ShouldBeNil)
 	})
@@ -166,9 +170,7 @@ func TestInterrupts(t *testing.T) {
 	}
 
 	i2c := &inject.I2C{}
-	i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) { return i2cHandle, nil }
-
-	mockBoard.I2CByNameFunc = func(name string) (board.I2C, bool) { return i2c, true }
+	i2c.OpenHandleFunc = func(addr byte) (buses.I2CHandle, error) { return i2cHandle, nil }
 
 	logger := logging.NewTestLogger(t)
 
@@ -192,14 +194,14 @@ func TestInterrupts(t *testing.T) {
 		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
 			BoardName: "board",
-			I2cBus:    "bus",
+			I2cBus:    "3",
 			SingleTap: tap,
 			FreeFall:  ff,
 		},
 	}
 
 	t.Run("new adxl has interrupt counts set to 0", func(t *testing.T) {
-		adxl, err := NewAdxl345(ctx, deps, cfg, logger)
+		adxl, err := makeAdxl345(ctx, deps, cfg, logger, i2c)
 		test.That(t, err, test.ShouldBeNil)
 
 		readings, err := adxl.Readings(ctx, map[string]interface{}{})
@@ -209,7 +211,7 @@ func TestInterrupts(t *testing.T) {
 	})
 
 	t.Run("interrupts have been found correctly when both are configured to the same pin", func(t *testing.T) {
-		adxl, err := NewAdxl345(ctx, deps, cfg, logger)
+		adxl, err := makeAdxl345(ctx, deps, cfg, logger, i2c)
 		test.That(t, err, test.ShouldBeNil)
 
 		sendInterrupt(ctx, adxl, t, interrupt, "freefall_count")
@@ -227,12 +229,12 @@ func TestInterrupts(t *testing.T) {
 			API:   movementsensor.API,
 			ConvertedAttributes: &Config{
 				BoardName: "board",
-				I2cBus:    "bus",
+				I2cBus:    "3",
 				SingleTap: tap,
 			},
 		}
 
-		adxl, err := NewAdxl345(ctx, deps, cfg, logger)
+		adxl, err := makeAdxl345(ctx, deps, cfg, logger, i2c)
 		test.That(t, err, test.ShouldBeNil)
 
 		sendInterrupt(ctx, adxl, t, interrupt, "single_tap_count")
@@ -250,12 +252,12 @@ func TestInterrupts(t *testing.T) {
 			API:   movementsensor.API,
 			ConvertedAttributes: &Config{
 				BoardName: "board",
-				I2cBus:    "bus",
+				I2cBus:    "3",
 				FreeFall:  ff,
 			},
 		}
 
-		adxl, err := NewAdxl345(ctx, deps, cfg, logger)
+		adxl, err := makeAdxl345(ctx, deps, cfg, logger, i2c)
 		test.That(t, err, test.ShouldBeNil)
 
 		sendInterrupt(ctx, adxl, t, interrupt, "freefall_count")
@@ -273,7 +275,7 @@ func TestReadInterrupts(t *testing.T) {
 	i2cHandle := &inject.I2CHandle{}
 	i2cHandle.CloseFunc = func() error { return nil }
 	i2c := &inject.I2C{}
-	i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+	i2c.OpenHandleFunc = func(addr byte) (buses.I2CHandle, error) {
 		return i2cHandle, nil
 	}
 
@@ -366,8 +368,8 @@ func TestLinearAcceleration(t *testing.T) {
 	expectedAccelZ := 3.0656250000000003
 
 	logger := logging.NewTestLogger(t)
-	cfg, deps := setupDependencies(linearAccelMockData)
-	sensor, err := NewAdxl345(context.Background(), deps, cfg, logger)
+	cfg, deps, i2c := setupDependencies(linearAccelMockData)
+	sensor, err := makeAdxl345(context.Background(), deps, cfg, logger, i2c)
 	test.That(t, err, test.ShouldBeNil)
 	defer sensor.Close(context.Background())
 	testutils.WaitForAssertion(t, func(tb testing.TB) {

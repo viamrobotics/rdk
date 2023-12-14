@@ -97,7 +97,7 @@ func NewLogger() (*Logger, error) {
 		}
 	}
 
-	cfg := logging.NewLoggerConfig()
+	cfg := logging.NewZapLoggerConfig()
 	cfg.OutputPaths = []string{filePath}
 
 	// only keep message
@@ -134,10 +134,11 @@ func (l *Logger) Start(ctx context.Context) error {
 	}
 
 	utils.PanicCapturingGo(func() {
-		log.Println("started global logger")
-		defer log.Println("terminated global logger")
+		vsourceMetaLogger := logging.Global().Sublogger("videosource")
+		vsourceMetaLogger.Info("Starting videosource logger")
+		defer vsourceMetaLogger.Info("Terminating videosource logger")
 
-		l.init()
+		l.init(ctx)
 		ticker := time.NewTicker(1 * time.Second)
 		shouldReset := time.NewTimer(12 * time.Hour)
 		for {
@@ -145,7 +146,7 @@ func (l *Logger) Start(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case <-shouldReset.C:
-				l.init()
+				l.init(ctx)
 			default:
 			}
 
@@ -155,7 +156,7 @@ func (l *Logger) Start(ctx context.Context) error {
 			case info := <-l.infoCh:
 				l.write(info.title, info.m)
 			case <-ticker.C:
-				l.captureV4L2info()
+				l.captureV4L2info(ctx)
 			}
 		}
 	})
@@ -181,7 +182,7 @@ func (l *Logger) Log(title string, m InfoMap) error {
 	return nil
 }
 
-func (l *Logger) captureV4L2info() {
+func (l *Logger) captureV4L2info(ctx context.Context) {
 	v4l2Info := make(InfoMap)
 	v4l2Compliance := make(InfoMap)
 	err := filepath.Walk("/dev", func(path string, info fs.FileInfo, err error) error {
@@ -197,8 +198,8 @@ func (l *Logger) captureV4L2info() {
 		}
 
 		// some devices may not have a symbolic link under /dev/v4l so we log info from all /dev/videoN paths we find.
-		v4l2Info[path] = runCommand("v4l2-ctl", "--device", path, "--all")
-		v4l2Compliance[path] = runCommand("v4l2-compliance", "--device", path)
+		v4l2Info[path] = runCommand(ctx, "v4l2-ctl", "--device", path, "--all")
+		v4l2Compliance[path] = runCommand(ctx, "v4l2-compliance", "--device", path)
 		l.seenPath[path] = true
 		return nil
 	})
@@ -250,26 +251,26 @@ func (l *Logger) captureV4L2info() {
 	l.write("v4l2 ID", v4l2ID)
 }
 
-func (l *Logger) init() {
+func (l *Logger) init(ctx context.Context) {
 	err := os.Truncate(filePath, 0)
 	l.logError(err, "cannot truncate file")
 
 	l.seenPath = make(map[string]bool)
 	l.seenMap = make(map[string]InfoMap)
 	l.write("system information", InfoMap{
-		"kernel":    runCommand("uname", "--kernel-name"),
-		"machine":   runCommand("uname", "--machine"),
-		"processor": runCommand("uname", "--processor"),
-		"platform":  runCommand("uname", "--hardware-platform"),
-		"OS":        runCommand("uname", "--operating-system"),
-		"lscpu":     runCommand("lscpu"),
-		"model":     runCommand("cat", "/proc/device-tree/model"),
+		"kernel":    runCommand(ctx, "uname", "--kernel-name"),
+		"machine":   runCommand(ctx, "uname", "--machine"),
+		"processor": runCommand(ctx, "uname", "--processor"),
+		"platform":  runCommand(ctx, "uname", "--hardware-platform"),
+		"OS":        runCommand(ctx, "uname", "--operating-system"),
+		"lscpu":     runCommand(ctx, "lscpu"),
+		"model":     runCommand(ctx, "cat", "/proc/device-tree/model"),
 	})
 }
 
-func runCommand(name string, args ...string) string {
+func runCommand(ctx context.Context, name string, args ...string) string {
 	//nolint:errcheck
-	out, _ := exec.Command(name, args...).CombinedOutput()
+	out, _ := exec.CommandContext(ctx, name, args...).CombinedOutput()
 	return string(out)
 }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	buildpb "go.viam.com/api/app/build/v1"
 	datapb "go.viam.com/api/app/data/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
@@ -24,6 +25,7 @@ import (
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/term"
 
 	"go.viam.com/rdk/logging"
 )
@@ -129,7 +131,10 @@ func (c *viamClient) loginAction(cCtx *cli.Context) error {
 		already := "Already l"
 		if !alreadyLoggedIn {
 			already = "L"
-			viamLogo(cCtx.App.Writer)
+			// only print the viam logo if we are in an interative terminal
+			if term.IsTerminal(int(os.Stdout.Fd())) {
+				viamLogo(cCtx.App.Writer)
+			}
 		}
 
 		printf(cCtx.App.Writer, "%sogged in as %q, expires %s", already, t.User.Email,
@@ -137,7 +142,7 @@ func (c *viamClient) loginAction(cCtx *cli.Context) error {
 	}
 
 	if _, isAPIKey := c.conf.Auth.(*apiKey); isAPIKey {
-		warningf(c.c.App.Writer, "was logged in with an api-key. logging out")
+		warningf(c.c.App.ErrWriter, "was logged in with an api-key. logging out")
 		utils.UncheckedError(c.logout())
 	}
 	currentToken, _ := c.conf.Auth.(*token) // currentToken can be nil
@@ -497,6 +502,7 @@ func (c *viamClient) ensureLoggedIn() error {
 	c.packageClient = packagepb.NewPackageServiceClient(conn)
 	c.datasetClient = datasetpb.NewDatasetServiceClient(conn)
 	c.mlTrainingClient = mltrainingpb.NewMLTrainingServiceClient(conn)
+	c.buildClient = buildpb.NewBuildServiceClient(conn)
 
 	return nil
 }

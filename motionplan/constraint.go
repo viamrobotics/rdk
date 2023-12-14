@@ -280,7 +280,7 @@ func createAllCollisionConstraints(
 	if len(obstacles.Geometries()) > 0 {
 		// create constraint to keep moving geometries from hitting world state obstacles
 		// can use zeroth element of worldState.Obstacles because ToWorldFrame returns only one GeometriesInFrame
-		obstacleConstraint, err := newCollisionConstraint(
+		obstacleConstraint, err := NewCollisionConstraint(
 			movingGeometries.Geometries(),
 			obstacles.Geometries(),
 			allowedCollisions,
@@ -294,7 +294,7 @@ func createAllCollisionConstraints(
 
 	if len(staticGeometries) > 0 {
 		// create constraint to keep moving geometries from hitting other geometries on robot that are not moving
-		robotConstraint, err := newCollisionConstraint(movingGeometries.Geometries(), staticGeometries, allowedCollisions, false)
+		robotConstraint, err := NewCollisionConstraint(movingGeometries.Geometries(), staticGeometries, allowedCollisions, false)
 		if err != nil {
 			return nil, err
 		}
@@ -303,7 +303,7 @@ func createAllCollisionConstraints(
 
 	// create constraint to keep moving geometries from hitting themselves
 	if len(movingGeometries.Geometries()) > 1 {
-		selfCollisionConstraint, err := newCollisionConstraint(movingGeometries.Geometries(), nil, allowedCollisions, false)
+		selfCollisionConstraint, err := NewCollisionConstraint(movingGeometries.Geometries(), nil, allowedCollisions, false)
 		if err != nil {
 			return nil, err
 		}
@@ -312,11 +312,11 @@ func createAllCollisionConstraints(
 	return constraintMap, nil
 }
 
-// newCollisionConstraint is the most general method to create a collision constraint, which will be violated if geometries constituting
+// NewCollisionConstraint is the most general method to create a collision constraint, which will be violated if geometries constituting
 // the given frame ever come into collision with obstacle geometries outside of the collisions present for the observationInput.
 // Collisions specified as collisionSpecifications will also be ignored
 // if reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
-func newCollisionConstraint(
+func NewCollisionConstraint(
 	moving, static []spatial.Geometry,
 	collisionSpecifications []*Collision,
 	reportDistances bool,

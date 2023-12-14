@@ -39,7 +39,6 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
@@ -2401,7 +2400,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 					resources: deps,
 				}, nil
 			},
-			WeakDependencies: []internal.ResourceMatcher{internal.ComponentDependencyWildcardMatcher},
+			WeakDependencies: []resource.Matcher{resource.TypeMatcher{Type: resource.APITypeComponentName}},
 		})
 	defer func() {
 		resource.Deregister(weakAPI, weakModel)
@@ -2428,6 +2427,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	// Assert that the explicit dependency was observed.
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unresolved dependencies")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "base1")
 
 	// Reconfigure without the explicit dependency. While also adding a second component that would
 	// have satisfied the dependency from the prior `weakCfg1`. Due to the weak dependency wildcard
@@ -2732,7 +2732,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 
 	ctx := context.Background()
 
-	remote1, err := New(ctx, cfg, logging.FromZapCompatible(logger.Named("remote1")))
+	remote1, err := New(ctx, cfg, logger.Sublogger("remote1"))
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, remote1.Close(context.Background()), test.ShouldBeNil)
@@ -2742,7 +2742,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 	err = remote1.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	remote2, err := New(ctx, cfg, logging.FromZapCompatible(logger.Named("remote2")))
+	remote2, err := New(ctx, cfg, logger.Sublogger("remote2"))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, listener2, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -2780,7 +2780,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 			},
 		},
 	}
-	r, err := New(ctx, localConfig, logging.FromZapCompatible(logger.Named("local")))
+	r, err := New(ctx, localConfig, logger.Sublogger("local"))
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
@@ -2867,7 +2867,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 		)
 	})
 
-	remote3, err := New(ctx, cfg, logging.FromZapCompatible(logger.Named("remote3")))
+	remote3, err := New(ctx, cfg, logger.Sublogger("remote3"))
 	test.That(t, err, test.ShouldBeNil)
 
 	defer func() {
@@ -2910,7 +2910,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 
 	ctx := context.Background()
 
-	foo, err := New(ctx, fooCfg, logging.FromZapCompatible(logger.Named("foo")))
+	foo, err := New(ctx, fooCfg, logger.Sublogger("foo"))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, listener1, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -2936,7 +2936,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 			},
 		},
 	}
-	r, err := New(ctx, localConfig, logging.FromZapCompatible(logger.Named("local")))
+	r, err := New(ctx, localConfig, logger.Sublogger("local"))
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
@@ -2993,7 +2993,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		)
 	})
 
-	foo2, err := New(ctx, fooCfg, logging.FromZapCompatible(logger.Named("foo2")))
+	foo2, err := New(ctx, fooCfg, logger.Sublogger("foo2"))
 	test.That(t, err, test.ShouldBeNil)
 
 	defer func() {
@@ -3036,7 +3036,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 
 	ctx := context.Background()
 
-	foo, err := New(ctx, fooCfg, logging.FromZapCompatible(logger.Named("foo")))
+	foo, err := New(ctx, fooCfg, logger.Sublogger("foo"))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -3060,7 +3060,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 			},
 		},
 	}
-	r, err := New(ctx, localConfig, logging.FromZapCompatible(logger.Named("local")))
+	r, err := New(ctx, localConfig, logger.Sublogger("local"))
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
@@ -3132,13 +3132,13 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 
 	ctx := context.Background()
 
-	foo, err := New(ctx, remoteCfg, logging.FromZapCompatible(logger.Named("foo")))
+	foo, err := New(ctx, remoteCfg, logger.Sublogger("foo"))
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	bar, err := New(ctx, remoteCfg, logging.FromZapCompatible(logger.Named("bar")))
+	bar, err := New(ctx, remoteCfg, logger.Sublogger("bar"))
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, bar.Close(context.Background()), test.ShouldBeNil)
@@ -3175,7 +3175,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 			},
 		},
 	}
-	r, err := New(ctx, localConfig, logging.FromZapCompatible(logger.Named("local")))
+	r, err := New(ctx, localConfig, logger.Sublogger("local"))
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
@@ -3591,12 +3591,9 @@ func TestResourceConstructTimeout(t *testing.T) {
 
 	timeOutErrorCount := func() int {
 		return logs.Filter(func(o observer.LoggedEntry) bool {
-			for k, v := range o.ContextMap() {
-				if k == "error" && strings.Contains(fmt.Sprint(v), "timed out after") {
-					return true
-				}
-			}
-			return false
+			return strings.Contains(
+				o.Entry.Message,
+				"resource build error: resource rdk:component:base/fakewheel timed out after 1ns during reconfigure.")
 		}).Len()
 	}
 

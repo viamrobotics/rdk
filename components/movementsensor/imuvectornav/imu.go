@@ -14,8 +14,7 @@ import (
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
-	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -37,19 +36,19 @@ type Config struct {
 func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.SPI == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "spi")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "spi")
 	}
 
 	if cfg.Speed == nil {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "spi_baud_rate")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "spi_baud_rate")
 	}
 
 	if cfg.Pfreq == nil {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "polling_freq_hz")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "polling_freq_hz")
 	}
 
 	if cfg.CSPin == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "cs_pin (chip select pin)")
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "cs_pin (chip select pin)")
 	}
 	return deps, nil
 }
@@ -77,7 +76,7 @@ type vectornav struct {
 
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	bus                     board.SPI
+	bus                     buses.SPI
 	cs                      string
 	speed                   int
 	logger                  logging.Logger
@@ -132,7 +131,7 @@ func newVectorNav(
 	pfreq := *newConf.Pfreq
 	v := &vectornav{
 		Named:     conf.ResourceName().AsNamed(),
-		bus:       genericlinux.NewSpiBus(newConf.SPI),
+		bus:       buses.NewSpiBus(newConf.SPI),
 		logger:    logger,
 		cs:        newConf.CSPin,
 		speed:     speed,

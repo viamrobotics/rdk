@@ -16,6 +16,8 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
+const noPin = 0xFFFFFFFF // noPin is the uint32 version of -1. A pin with this offset has no GPIO
+
 type gpioPin struct {
 	boardWorkers *sync.WaitGroup
 
@@ -62,6 +64,11 @@ func (pin *gpioPin) openGpioFd(isInput bool) error {
 		if err := pin.hwPwm.Close(); err != nil {
 			return pin.wrapError(err)
 		}
+	}
+
+	if pin.offset == noPin {
+		// This is not a GPIO pin. Now that we've turned off the PWM, return early.
+		return nil
 	}
 
 	chip, err := gpio.OpenChip(pin.devicePath)
@@ -123,6 +130,14 @@ func (pin *gpioPin) setInternal(isHigh bool) (err error) {
 		return err
 	}
 
+	if pin.offset == noPin {
+		if isHigh {
+			return errors.New("cannot set non-GPIO pin high")
+		}
+		// Otherwise, just return: we shut down any PWM stuff in openGpioFd.
+		return nil
+	}
+
 	return pin.wrapError(pin.line.SetValue(value))
 }
 
@@ -132,6 +147,10 @@ func (pin *gpioPin) Get(
 ) (result bool, err error) {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
+
+	if pin.offset == noPin {
+		return false, errors.New("cannot read from non-GPIO pin")
+	}
 
 	if err := pin.openGpioFd( /* isInput= */ true); err != nil {
 		return false, err

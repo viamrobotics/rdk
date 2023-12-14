@@ -108,10 +108,13 @@ func attemptToBuildClassifier(mlm mlmodel.Service, nameMap *sync.Map) (classific
 		}
 		classifications := make(classification.Classifications, 0, len(confs))
 		for i := 0; i < len(confs); i++ {
-			if labels != nil {
-				classifications = append(classifications, classification.NewClassification(confs[i], labels[i]))
-			} else {
+			if labels == nil {
 				classifications = append(classifications, classification.NewClassification(confs[i], strconv.Itoa(i)))
+			} else {
+				if i >= len(labels) {
+					return nil, errors.Errorf("cannot access label number %v from label file with %v labels", i, len(labels))
+				}
+				classifications = append(classifications, classification.NewClassification(confs[i], labels[i]))
 			}
 		}
 		return classifications, nil
@@ -132,7 +135,7 @@ func checkIfClassifierWorks(ctx context.Context, cf classification.Classifier) e
 
 	_, err := cf(ctx, img)
 	if err != nil {
-		return errors.Wrap(err, "Cannot use model as a classifier")
+		return errors.Wrap(err, "cannot use model as a classifier")
 	}
 	return nil
 }

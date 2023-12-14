@@ -203,14 +203,14 @@ func TestConfigEnsure(t *testing.T) {
 	err := invalidCloud.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `cloud`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "id")
 	invalidCloud.Cloud.ID = "some_id"
 	err = invalidCloud.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"secret" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "secret")
 	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"fqdn" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "fqdn")
 	invalidCloud.Cloud.Secret = "my_secret"
 	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
 	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
@@ -218,7 +218,7 @@ func TestConfigEnsure(t *testing.T) {
 	invalidCloud.Cloud.FQDN = "wooself"
 	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"local_fqdn" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "local_fqdn")
 	invalidCloud.Cloud.LocalFQDN = "yeeself"
 	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldBeNil)
 
@@ -229,13 +229,13 @@ func TestConfigEnsure(t *testing.T) {
 	err = invalidRemotes.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `remotes.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
 	invalidRemotes.Remotes[0] = config.Remote{
 		Name: "foo",
 	}
 	err = invalidRemotes.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"address" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "address")
 	invalidRemotes.Remotes[0] = config.Remote{
 		Name:    "foo",
 		Address: "bar",
@@ -249,7 +249,7 @@ func TestConfigEnsure(t *testing.T) {
 	err = invalidComponents.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `components.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
 	invalidComponents.Components[0] = resource.Config{
 		Name:  "foo",
 		API:   base.API,
@@ -460,14 +460,14 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	err := invalidCloud.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `cloud`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "id")
 	invalidCloud.Cloud.ID = "some_id"
 	err = invalidCloud.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"secret" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "secret")
 	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"fqdn" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "fqdn")
 	invalidCloud.Cloud.Secret = "my_secret"
 	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
 	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
@@ -475,7 +475,7 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	invalidCloud.Cloud.FQDN = "wooself"
 	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"local_fqdn" is required`)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "local_fqdn")
 	invalidCloud.Cloud.LocalFQDN = "yeeself"
 	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldBeNil)
 
@@ -517,6 +517,49 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	invalidProcesses.Processes[0].Name = "foo"
 	test.That(t, invalidProcesses.Ensure(false, logger), test.ShouldBeNil)
+
+	cloudErr := "bad cloud err doing validation"
+	invalidModules := config.Config{
+		Modules: []config.Module{{
+			Name:        "testmodErr",
+			ExePath:     ".",
+			LogLevel:    "debug",
+			Type:        config.ModuleTypeRegistry,
+			ModuleID:    "mod:testmodErr",
+			Environment: map[string]string{},
+			Status: &config.AppValidationStatus{
+				Error: cloudErr,
+			},
+		}},
+	}
+	invalidModules.DisablePartialStart = true
+	err = invalidModules.Ensure(false, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, cloudErr)
+
+	invalidModules.DisablePartialStart = false
+	err = invalidModules.Ensure(false, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	invalidPackges := config.Config{
+		Packages: []config.PackageConfig{{
+			Name:    "testPackage",
+			Type:    config.PackageTypeMlModel,
+			Package: "hi/package/test",
+			Status: &config.AppValidationStatus{
+				Error: cloudErr,
+			},
+		}},
+	}
+
+	invalidModules.DisablePartialStart = true
+	err = invalidModules.Ensure(false, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, cloudErr)
+
+	invalidModules.DisablePartialStart = false
+	err = invalidPackges.Ensure(false, logger)
+	test.That(t, err, test.ShouldBeNil)
 
 	invalidNetwork := config.Config{
 		Network: config.NetworkConfig{
@@ -1115,7 +1158,7 @@ func TestPackageConfig(t *testing.T) {
 				Package: "my_org/my_package",
 				Version: "0",
 			},
-			expectedRealFilePath: filepath.Join(viamDotDir, "packages", ".data", "ml_model", "my_org-my_package-0"),
+			shouldFailValidation: true,
 		},
 		{
 			config: config.PackageConfig{

@@ -124,6 +124,7 @@ type fakePTGKinematics struct {
 	origin      *referenceframe.PoseInFrame
 	lock        sync.RWMutex
 	logger      logging.Logger
+	sleepTime   int
 }
 
 // WrapWithFakePTGKinematics creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled
@@ -135,6 +136,7 @@ func WrapWithFakePTGKinematics(
 	origin *referenceframe.PoseInFrame,
 	options Options,
 	sensorNoise spatialmath.Pose,
+	sleepTime int,
 ) (KinematicBase, error) {
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {
@@ -180,6 +182,7 @@ func WrapWithFakePTGKinematics(
 		origin:      origin,
 		sensorNoise: sensorNoise,
 		logger:      logger,
+		sleepTime:   sleepTime,
 	}
 
 	fk.options = options
@@ -203,7 +206,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referencef
 	fk.lock.Lock()
 	fk.origin = referenceframe.NewPoseInFrame(fk.origin.Parent(), spatialmath.Compose(fk.origin.Pose(), newPose))
 	fk.lock.Unlock()
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(time.Duration(fk.sleepTime) * time.Millisecond)
 	return nil
 }
 
