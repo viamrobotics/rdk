@@ -946,13 +946,10 @@ func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[
 // ModuleLog sends a log entry to the server. To be used by Golang modules wanting to log over gRPC and not
 // by normal Golang SDK clients.
 func (rc *RobotClient) ModuleLog(ctx context.Context, log zapcore.Entry, fields []zapcore.Field) error {
-	// NOTE(benjirewis): formatting string is my best guess at what would be the
-	// useful pieces of the whole time stamp for module users (month, day, hour,
-	// minute, second).
-	timeStr := log.Time.Format("Jan 02 15:04:05")
-	message := fmt.Sprintf(`%v %q {%q: %v`, log.Caller.TrimmedPath(), log.Message, moduleTSLogKey, timeStr)
+	timeStr := log.Time.Format(logging.DefaultTimeFormatStr)
+	message := fmt.Sprintf(`%v %q {%q: %q`, log.Caller.TrimmedPath(), log.Message, moduleTSLogKey, timeStr)
 	for _, field := range fields {
-		message = fmt.Sprintf("%v, %v: %v", message, field.Key, field.String)
+		message = fmt.Sprintf("%v, %q: %q", message, field.Key, field.String)
 	}
 	message = fmt.Sprintf("%v}", message) // close }
 
