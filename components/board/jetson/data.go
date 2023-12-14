@@ -5,11 +5,7 @@ import (
 )
 
 const (
-	claraAGXXavier = "clara_agx_xavier"
-	jetsonNX       = "jetson_nx"
-	jetsonXavier   = "jetson_xavier"
 	jetsonTX2      = "jetson_tx2"
-	jetsonTX1      = "jetson_tx1"
 	jetsonNano     = "jetson_nano"
 	jetsonTX2NX    = "jetson_tx2_NX"
 	jetsonOrinAGX  = "jetson_orin_agx"
@@ -17,95 +13,6 @@ const (
 	jetsonOrinNano = "jetson_orin_nano"
 )
 
-// TODO [RSDK-3596]: fix device names in pin definitions for the jetsonTX1, jetsonNano.
-var claraAGXXavierPins = []genericlinux.PinDefinition{
-	{Name: "7", DeviceName: "UNKNOWN169", LineNumber: 106, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "11", DeviceName: "UNKNOWN169", LineNumber: 112, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "12", DeviceName: "UNKNOWN169", LineNumber: 51, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "13", DeviceName: "UNKNOWN169", LineNumber: 96, PwmChipSysfsDir: "", PwmID: -1},
-	//  Older versions of L4T don"t enable this PWM controller in DT, so this PWM
-	// channel may not be available.
-	{Name: "15", DeviceName: "UNKNOWN169", LineNumber: 84, PwmChipSysfsDir: "3280000.pwm", PwmID: 0},
-	{Name: "16", DeviceName: "UNKNOWN30", LineNumber: 8, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "18", DeviceName: "UNKNOWN169", LineNumber: 44, PwmChipSysfsDir: "32c0000.pwm", PwmID: 0},
-	{Name: "19", DeviceName: "UNKNOWN169", LineNumber: 162, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "21", DeviceName: "UNKNOWN169", LineNumber: 161, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "22", DeviceName: "UNKNOWN169", LineNumber: 101, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "23", DeviceName: "UNKNOWN169", LineNumber: 160, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "24", DeviceName: "UNKNOWN169", LineNumber: 163, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "26", DeviceName: "UNKNOWN169", LineNumber: 164, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "29", DeviceName: "UNKNOWN30", LineNumber: 3, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "31", DeviceName: "UNKNOWN30", LineNumber: 2, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "32", DeviceName: "UNKNOWN30", LineNumber: 9, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "33", DeviceName: "UNKNOWN30", LineNumber: 0, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "35", DeviceName: "UNKNOWN69", LineNumber: 54, PwmChipSysfsDir: "", PwmID: -1},
-	// Input-only (due to base board)
-	{Name: "36", DeviceName: "UNKNOWN169", LineNumber: 113, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "37", DeviceName: "UNKNOWN30", LineNumber: 1, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "38", DeviceName: "UNKNOWN69", LineNumber: 53, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "40", DeviceName: "UNKNOWN69", LineNumber: 52, PwmChipSysfsDir: "", PwmID: -1},
-}
-
-//nolint:dupl // This is not actually a duplicate of jetsonTX2NXPins despite what the linter thinks
-var jetsonNXPins = []genericlinux.PinDefinition{
-	{Name: "7", DeviceName: "UNKNOWN169", LineNumber: 118, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "11", DeviceName: "UNKNOWN169", LineNumber: 112, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "12", DeviceName: "UNKNOWN169", LineNumber: 127, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "13", DeviceName: "UNKNOWN169", LineNumber: 149, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "15", DeviceName: "UNKNOWN30", LineNumber: 16, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "16", DeviceName: "UNKNOWN169", LineNumber: 153, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "18", DeviceName: "UNKNOWN169", LineNumber: 152, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "19", DeviceName: "UNKNOWN169", LineNumber: 162, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "21", DeviceName: "UNKNOWN169", LineNumber: 161, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "22", DeviceName: "UNKNOWN169", LineNumber: 150, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "23", DeviceName: "UNKNOWN169", LineNumber: 160, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "24", DeviceName: "UNKNOWN169", LineNumber: 163, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "26", DeviceName: "UNKNOWN169", LineNumber: 164, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "29", DeviceName: "UNKNOWN169", LineNumber: 105, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "31", DeviceName: "UNKNOWN169", LineNumber: 106, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "32", DeviceName: "UNKNOWN169", LineNumber: 108, PwmChipSysfsDir: "32f0000.pwm", PwmID: 0},
-	{Name: "33", DeviceName: "UNKNOWN169", LineNumber: 84, PwmChipSysfsDir: "3280000.pwm", PwmID: 0},
-	{Name: "35", DeviceName: "UNKNOWN169", LineNumber: 130, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "36", DeviceName: "UNKNOWN169", LineNumber: 113, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "37", DeviceName: "UNKNOWN169", LineNumber: 151, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "38", DeviceName: "UNKNOWN169", LineNumber: 129, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "40", DeviceName: "UNKNOWN169", LineNumber: 128, PwmChipSysfsDir: "", PwmID: -1},
-}
-
-// It's not clear that this has ever worked properly: back when we identified chips by the ngpio
-// number, the two chips supposedly had 169 and 30 lines on them, but folks online seem to claim
-// that the Xavier's chips have 223 and 39 lines. So, these are probably broken right now but could
-// be fixed with some inspection of an actual Xavier board (which we don't have in the office).
-// More likely, they'll be fixed when someone creates a customlinux pin definition file.
-var jetsonXavierPins = []genericlinux.PinDefinition{
-	{Name: "7", DeviceName: "UNKNOWN169", LineNumber: 106, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "11", DeviceName: "UNKNOWN169", LineNumber: 112, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "12", DeviceName: "UNKNOWN169", LineNumber: 51, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "13", DeviceName: "UNKNOWN169", LineNumber: 108, PwmChipSysfsDir: "32f0000.pwm", PwmID: 0},
-	// Older versions of L4T don't enable this PWM controller in DT, so this PWM
-	// channel may not be available.
-	{Name: "15", DeviceName: "UNKNOWN169", LineNumber: 84, PwmChipSysfsDir: "3280000.pwm", PwmID: 0},
-	{Name: "16", DeviceName: "UNKNOWN30", LineNumber: 8, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "18", DeviceName: "UNKNOWN169", LineNumber: 44, PwmChipSysfsDir: "32c0000.pwm", PwmID: 0},
-	{Name: "19", DeviceName: "UNKNOWN169", LineNumber: 162, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "21", DeviceName: "UNKNOWN169", LineNumber: 161, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "22", DeviceName: "UNKNOWN169", LineNumber: 101, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "23", DeviceName: "UNKNOWN169", LineNumber: 160, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "24", DeviceName: "UNKNOWN169", LineNumber: 163, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "26", DeviceName: "UNKNOWN169", LineNumber: 164, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "29", DeviceName: "UNKNOWN30", LineNumber: 3, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "31", DeviceName: "UNKNOWN30", LineNumber: 2, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "32", DeviceName: "UNKNOWN30", LineNumber: 9, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "33", DeviceName: "UNKNOWN30", LineNumber: 0, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "35", DeviceName: "UNKNOWN169", LineNumber: 54, PwmChipSysfsDir: "", PwmID: -1},
-	// Input-only (due to base board)
-	{Name: "36", DeviceName: "UNKNOWN169", LineNumber: 113, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "37", DeviceName: "UNKNOWN30", LineNumber: 1, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "38", DeviceName: "UNKNOWN169", LineNumber: 53, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "40", DeviceName: "UNKNOWN169", LineNumber: 52, PwmChipSysfsDir: "", PwmID: -1},
-}
-
-//nolint:dupl // This is not actually a duplicate of jetsonNXPins despite what the linter thinks
 var jetsonTX2NXPins = []genericlinux.PinDefinition{
 	{Name: "7", DeviceName: "gpiochip0", LineNumber: 76, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "11", DeviceName: "gpiochip1", LineNumber: 28, PwmChipSysfsDir: "", PwmID: -1},
@@ -137,12 +44,14 @@ var jetsonTX2Pins = []genericlinux.PinDefinition{
 	{Name: "11", DeviceName: "gpiochip0", LineNumber: 146, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "12", DeviceName: "gpiochip0", LineNumber: 72, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "13", DeviceName: "gpiochip0", LineNumber: 77, PwmChipSysfsDir: "", PwmID: -1},
+	// TODO[RSDK-6089]: fix this
 	{Name: "15", DeviceName: "UNKNOWN", LineNumber: 15, PwmChipSysfsDir: "", PwmID: -1},
 	// Input-only (due to module):
 	{Name: "16", DeviceName: "gpiochip1", LineNumber: 40, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "18", DeviceName: "gpiochip0", LineNumber: 161, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "19", DeviceName: "gpiochip0", LineNumber: 109, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "21", DeviceName: "gpiochip0", LineNumber: 108, PwmChipSysfsDir: "", PwmID: -1},
+	// TODO[RSDK-6089]: fix this
 	{Name: "22", DeviceName: "UNKNOWN", LineNumber: 14, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "23", DeviceName: "gpiochip0", LineNumber: 107, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "24", DeviceName: "gpiochip0", LineNumber: 110, PwmChipSysfsDir: "", PwmID: -1},
@@ -161,35 +70,6 @@ var jetsonTX2Pins = []genericlinux.PinDefinition{
 	{Name: "40", DeviceName: "gpiochip0", LineNumber: 73, PwmChipSysfsDir: "", PwmID: -1},
 }
 
-var jetsonTX1Pins = []genericlinux.PinDefinition{
-	{Name: "7", DeviceName: "UNKNOWN", LineNumber: 216, PwmChipSysfsDir: "", PwmID: -1},
-	// Output-only (due to base board)
-	{Name: "11", DeviceName: "UNKNOWN", LineNumber: 162, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "12", DeviceName: "UNKNOWN", LineNumber: 11, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "13", DeviceName: "UNKNOWN", LineNumber: 38, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "15", DeviceName: "UNKNOWN", LineNumber: 15, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "16", DeviceName: "UNKNOWN", LineNumber: 37, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "18", DeviceName: "UNKNOWN", LineNumber: 184, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "19", DeviceName: "UNKNOWN", LineNumber: 16, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "21", DeviceName: "UNKNOWN", LineNumber: 17, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "22", DeviceName: "UNKNOWN", LineNumber: 14, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "23", DeviceName: "UNKNOWN", LineNumber: 18, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "24", DeviceName: "UNKNOWN", LineNumber: 19, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "26", DeviceName: "UNKNOWN", LineNumber: 20, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "29", DeviceName: "UNKNOWN", LineNumber: 219, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "31", DeviceName: "UNKNOWN", LineNumber: 186, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "32", DeviceName: "UNKNOWN", LineNumber: 36, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "33", DeviceName: "UNKNOWN", LineNumber: 63, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "35", DeviceName: "UNKNOWN", LineNumber: 8, PwmChipSysfsDir: "", PwmID: -1},
-	// Input-only (due to base board) IF NVIDIA debug card NOT plugged in
-	// Input-only (due to base board) (always reads fixed value) IF NVIDIA debug card plugged in
-	{Name: "36", DeviceName: "UNKNOWN", LineNumber: 163, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "37", DeviceName: "UNKNOWN", LineNumber: 187, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "38", DeviceName: "UNKNOWN", LineNumber: 9, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "40", DeviceName: "UNKNOWN", LineNumber: 10, PwmChipSysfsDir: "", PwmID: -1},
-}
-
-//nolint:dupl // This is not actually a duplicate of jetsonNXPins despite what the linter thinks
 var jetsonNanoPins = []genericlinux.PinDefinition{
 	{Name: "7", DeviceName: "gpiochip0", LineNumber: 216, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "11", DeviceName: "gpiochip0", LineNumber: 50, PwmChipSysfsDir: "", PwmID: -1},
@@ -285,29 +165,6 @@ var jetsonOrinNXPins = []genericlinux.PinDefinition{
 }
 
 var boardInfoMappings = map[string]genericlinux.BoardInformation{
-	claraAGXXavier: {
-		claraAGXXavierPins,
-		[]string{"nvidia,e3900-0000+p2888-0004"},
-	},
-	jetsonNX: {
-		jetsonNXPins,
-		[]string{
-			"nvidia,p3509-0000+p3668-0000",
-			"nvidia,p3509-0000+p3668-0001",
-			"nvidia,p3449-0000+p3668-0000",
-			"nvidia,p3449-0000+p3668-0001",
-		},
-	},
-	jetsonXavier: {
-		jetsonXavierPins,
-		[]string{
-			"nvidia,p2972-0000",
-			"nvidia,p2972-0006",
-			"nvidia,jetson-xavier",
-			"nvidia,galen-industrial",
-			"nvidia,jetson-xavier-industrial",
-		},
-	},
 	jetsonTX2NX: {
 		jetsonTX2NXPins,
 		[]string{
@@ -323,13 +180,6 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			"nvidia,lightning",
 			"nvidia,quill",
 			"nvidia,storm",
-		},
-	},
-	jetsonTX1: {
-		jetsonTX1Pins,
-		[]string{
-			"nvidia,p2371-2180",
-			"nvidia,jetson-cv",
 		},
 	},
 	jetsonNano: {
