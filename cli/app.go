@@ -896,6 +896,7 @@ var app = &cli.App{
 						},
 						{
 							Name:      "logs",
+							Aliases:   []string{"log"},
 							Usage:     "display part logs",
 							UsageText: "viam machines part logs <machine> <part> [other options]",
 							Flags: []cli.Flag{
@@ -1196,8 +1197,9 @@ Example:
 							Action: ModuleBuildListAction,
 						},
 						{
-							Name:  "logs",
-							Usage: "get the logs from one of your cloud builds",
+							Name:    "logs",
+							Aliases: []string{"log"},
+							Usage:   "get the logs from one of your cloud builds",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     moduleBuildFlagBuildID,
