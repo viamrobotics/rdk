@@ -13,6 +13,7 @@ const (
 	jetsonOrinNano = "jetson_orin_nano"
 )
 
+//nolint:dupl // This is not actually a duplicate of jetsonNanoPins despite what the linter thinks
 var jetsonTX2NXPins = []genericlinux.PinDefinition{
 	{Name: "7", DeviceName: "gpiochip0", LineNumber: 76, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "11", DeviceName: "gpiochip1", LineNumber: 28, PwmChipSysfsDir: "", PwmID: -1},
@@ -70,6 +71,7 @@ var jetsonTX2Pins = []genericlinux.PinDefinition{
 	{Name: "40", DeviceName: "gpiochip0", LineNumber: 73, PwmChipSysfsDir: "", PwmID: -1},
 }
 
+//nolint:dupl // This is not actually a duplicate of jetsonTX2NXPins despite what the linter thinks
 var jetsonNanoPins = []genericlinux.PinDefinition{
 	{Name: "7", DeviceName: "gpiochip0", LineNumber: 216, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "11", DeviceName: "gpiochip0", LineNumber: 50, PwmChipSysfsDir: "", PwmID: -1},
