@@ -63,6 +63,10 @@ func TestWorkingClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	injectBoard := &inject.Board{}
 
+	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
+		return nil, viamgrpc.UnimplementedError
+	}
+
 	listener, cleanup := setupService(t, injectBoard)
 	defer cleanup()
 
