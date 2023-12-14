@@ -1,4 +1,4 @@
-//go:build cgo && linux
+//go:build cgo && linux && !arm
 
 // Package avcodec is a wrapper around FFmpeg/release6.1.
 // See: https://github.com/FFmpeg/FFmpeg/tree/release/6.1

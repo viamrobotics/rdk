@@ -1,4 +1,4 @@
-//go:build cgo && linux
+//go:build cgo && linux && !arm
 
 package server
 

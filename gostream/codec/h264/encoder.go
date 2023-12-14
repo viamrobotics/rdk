@@ -1,4 +1,4 @@
-//go:build cgo && linux
+//go:build cgo && linux && !arm
 
 // Package h264 uses a V4L2-compatible h.264 hardware encoder (h264_v4l2m2m) to encode images.
 package h264
