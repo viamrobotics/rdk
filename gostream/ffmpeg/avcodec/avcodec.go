@@ -17,8 +17,6 @@ import "C"
 import (
 	"unsafe"
 
-	"unsafe"
-
 	"go.viam.com/rdk/gostream/ffmpeg/avlog"
 )
 
