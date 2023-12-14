@@ -140,10 +140,12 @@ $(FFMPEG_ROOT):
 # For ARM64 builds, use the image ghcr.io/viamrobotics/antique:arm64 for backward compatibility
 FFMPEG_PREFIX ?= $(shell realpath .)/gostream/ffmpeg/$(shell uname -s)-$(shell uname -m)
 FFMPEG_OPTS = --disable-programs --disable-doc --disable-everything --prefix=$(FFMPEG_PREFIX) --enable-pic --disable-autodetect
-ifeq ($(shell uname -m),arm64)
+ifeq ($(shell uname -m),aarch64)
 	FFMPEG_OPTS += --enable-encoder=h264_v4l2m2m
+	FFMPEG_OPTS += --enable-v4l2-m2m
 endif
 ffmpeg: $(FFMPEG_ROOT)
+	cd $(FFMPEG_ROOT) && $(MAKE) distclean
 	cd $(FFMPEG_ROOT) && ./configure $(FFMPEG_OPTS)
 	cd $(FFMPEG_ROOT) && $(MAKE)
 	cd $(FFMPEG_ROOT) && $(MAKE) install
