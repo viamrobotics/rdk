@@ -10,12 +10,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/utils"
 )
-
-func init() {
-	utils.ParallelFactor = 1
-}
 
 type chunkImageDebug struct{}
 
