@@ -123,7 +123,7 @@ func (dg *dualGPS) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	}
 
 	dg.logger.Debug(
-		"using gps named %v as first gps and gps named %v as secodn gps, with an offset of %v",
+		"using gps named %v as first gps and gps named %v as second gps, with an offset of %v",
 		first.Name().ShortName(),
 		second.Name().ShortName(),
 		dg.offset,
@@ -160,7 +160,7 @@ func getHeading(firstPoint, secondPoint *geo.Point, yawOffset float64,
 		bearing += 360
 	}
 
-	// calculate heading from bearing, accounting for yaw offset between the two gps ©
+	// calculate heading from bearing, accounting for yaw offset between the two gps
 	// e.g if the MovementSensor antennas are mounted on the left and right sides of the robot,
 	// the yaw offset would be roughly 90 degrees
 	heading := bearing - yawOffset
