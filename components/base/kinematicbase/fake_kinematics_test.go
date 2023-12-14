@@ -3,6 +3,7 @@ package kinematicbase
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
@@ -91,7 +92,15 @@ func TestNewFakePTGKinematics(t *testing.T) {
 	options.PositionOnlyMode = false
 	noise := spatialmath.NewPoseFromPoint(r3.Vector{1, 0, 0})
 	origin := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose())
-	kb, err := WrapWithFakePTGKinematics(ctx, b.(*fakebase.Base), logger, origin, options, noise, 5)
+	kb, err := WrapWithFakePTGKinematics(ctx,
+		WrapWithFakePTGKinematicsReq{
+			Base:        b.(*fakebase.Base),
+			Origin:      origin,
+			Options:     options,
+			SensorNoise: noise,
+			SleepTime:   time.Millisecond * 5,
+		},
+		logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	startpose, err := kb.CurrentPosition(ctx)

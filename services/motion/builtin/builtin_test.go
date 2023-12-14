@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -177,7 +176,6 @@ func createMoveOnGlobeEnvironment(
 ) (
 	*inject.MovementSensor, framesystem.Service, kinematicbase.KinematicBase, motion.Service,
 ) {
-
 	// create a fake kinematic base
 	kb, err := kinematicbase.WrapWithFakePTGKinematics(
 		ctx,
@@ -1259,7 +1257,6 @@ func TestStoppableMoveFunctions(t *testing.T) {
 }
 
 func TestMoveOnGlobe(t *testing.T) {
-
 	t.Parallel()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
@@ -1881,7 +1878,7 @@ func TestPlanHistory(t *testing.T) {
 	goal := geo.NewPoint(origin.Lat(), origin.Lng()+1e-5)
 	straightLineDistanceMM := spatialmath.GeoPointToPoint(origin, goal).Norm()
 	logger.Infof("Straight line distance from origin to goal: %fmm", straightLineDistanceMM)
-	expectedDstMM := r3.Vector{X: 380, Y: 0, Z: 0}
+	expectedDstMM := r3.Vector{X: 380}
 	epsilonMM := .5
 	test.That(t, straightLineDistanceMM, test.ShouldAlmostEqual, expectedDstMM.X, epsilonMM)
 	test.That(t, straightLineDistanceMM, test.ShouldAlmostEqual, expectedDstMM.X, epsilonMM)

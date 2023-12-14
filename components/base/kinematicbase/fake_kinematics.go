@@ -196,7 +196,6 @@ func WrapWithFakePTGKinematics(
 	req WrapWithFakePTGKinematicsReq,
 	logger logging.Logger,
 ) (KinematicBase, error) {
-
 	frame := req.OverRideFrame
 	if frame == nil {
 		f, err := NewPTGFrameFromKinematicOptions(ctx, NewPTGFrameFromKinematicOptionsReq{
@@ -204,7 +203,6 @@ func WrapWithFakePTGKinematics(
 			Origin:  req.Origin,
 			Options: req.Options,
 		}, logger)
-
 		if err != nil {
 			return nil, err
 		}
