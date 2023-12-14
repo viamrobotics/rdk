@@ -392,7 +392,7 @@ func (c *viamClient) locationAPIKeyCreateAction(cCtx *cli.Context) error {
 	return nil
 }
 
-// RobotAPIKeyCreateAction corresponds to `robot api-key create`.
+// RobotAPIKeyCreateAction corresponds to `machine api-key create`.
 func RobotAPIKeyCreateAction(cCtx *cli.Context) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
@@ -412,7 +412,7 @@ func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context) error {
 	orgID := cCtx.String(dataFlagOrgID)
 
 	if robotID == "" {
-		return errors.New("cannot create an api-key for a robot without an ID")
+		return errors.New("cannot create an api-key for a machine without an ID")
 	}
 
 	if keyName == "" {
@@ -442,7 +442,7 @@ func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context) error {
 	key, err := c.client.CreateKey(c.c.Context, req)
 	if err != nil {
 		if strings.Contains(err.Error(), "multiple orgs") {
-			return errors.New("cannot create the robot api-key as there are multiple orgs on the location. " +
+			return errors.New("cannot create the machine api-key as there are multiple orgs on the location. " +
 				"Please re-run the command with an organization-id flag set")
 		}
 		return err
@@ -450,7 +450,7 @@ func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context) error {
 	infof(cCtx.App.Writer, "Successfully created key:")
 	printf(cCtx.App.Writer, "Key ID: %s", key.GetId())
 	printf(cCtx.App.Writer, "Key Value: %s", key.GetKey())
-	warningf(cCtx.App.Writer, "Keep this key somewhere safe; it has full write access to your robot")
+	warningf(cCtx.App.Writer, "Keep this key somewhere safe; it has full write access to your machine")
 
 	return nil
 }

@@ -118,7 +118,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	err := ac.robotAPIKeyCreateAction(cCtx)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot create an api-key for a robot without an ID")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot create an api-key for a machine without an ID")
 
 	// test for a location with multiple orgs doesn't work if you don't provide an orgID
 	createKeyFunc = func(ctx context.Context, in *apppb.CreateKeyRequest,
@@ -140,7 +140,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	test.That(t, len(out.messages), test.ShouldEqual, 0)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot create the robot api-key as there are multiple orgs on the location.")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot create the machine api-key as there are multiple orgs on the location.")
 }
 
 func TestLocationAPIKeyCreateAction(t *testing.T) {
