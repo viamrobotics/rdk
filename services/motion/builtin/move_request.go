@@ -80,6 +80,8 @@ type moveRequest struct {
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
 func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
+	mr.logger.Debug("Plan called")
+	defer mr.logger.Debug("Plan done")
 	inputs, err := mr.kinematicBase.CurrentInputs(ctx)
 	if err != nil {
 		return state.PlanResponse{}, err

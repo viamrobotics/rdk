@@ -135,6 +135,8 @@ func PlanFrameMotion(ctx context.Context,
 // Replan plans a motion from a provided plan request, and then will return that plan only if its cost is better than the cost of the
 // passed-in plan multiplied by `replanCostFactor`.
 func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanCostFactor float64) (Plan, error) {
+	request.Logger.Debug("Replan called")
+	defer request.Logger.Debug("Replan done")
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -184,6 +186,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		return nil, err
 	}
 
+	request.Logger.Debug("got new plan manager")
 	resultSlices, err := sfPlanner.PlanSingleWaypoint(
 		ctx,
 		request.StartConfiguration,
@@ -196,7 +199,9 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	if err != nil {
 		return nil, err
 	}
+	request.Logger.Debug("got resultslices")
 	newPlan := sf.inputsToPlan(resultSlices)
+	request.Logger.Debug("got inputs to plan")
 
 	if replanCostFactor > 0 && currentPlan != nil {
 		initialPlanCost := currentPlan.Evaluate(sfPlanner.opt().ScoreFunc)
