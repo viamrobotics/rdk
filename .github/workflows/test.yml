@@ -13,50 +13,7 @@ env:
   MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
 jobs:
-  lint:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: [buildjet-8vcpu-ubuntu-2204]
-            image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
-            platform: linux/amd64
-            platform_name: linux-amd64
-          - arch: [buildjet-8vcpu-ubuntu-2204-arm]
-            image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
-            platform: linux/arm64
-            platform_name: linux-arm64
-    runs-on: ${{ matrix.arch }}
-    container:
-      image: ${{ matrix.image }}
-      options: --platform ${{ matrix.platform }}
-    timeout-minutes: 30
-
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
-        fetch-depth: ${{ github.event_name == 'pull_request_target' && '0' || '1' }} # 0 aka full history, so we can analyze history for coverage
-
-    - name: chown
-      run: chown -R testbot:testbot .
-
-    - name: Verify no uncommitted changes from "make build lint"
-      run: |
-        git init
-        git add .
-        chown -R testbot:testbot .
-        sudo -Hu testbot bash -lc 'make build lint'
-        GEN_DIFF=$(git status -s)
-
-        if [ -n "$GEN_DIFF" ]; then
-            echo '"make build lint" resulted in changes not in git' 1>&2
-            git status
-            exit 1
-        fi
-
   test:
-    needs: [lint]
     strategy:
       fail-fast: false
       matrix:
@@ -102,7 +59,7 @@ jobs:
 
     - name: Test
       run: |
-        sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make test-go test-web'
+        sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make test-go'
 
     - name: Upload test.json
       if: always()
@@ -112,9 +69,8 @@ jobs:
         path: json.log
         retention-days: 30
 
-  coverage:
+  lint_and_coverage:
     # note: we split 'test' and 'coverage' steps because running race-detection + covprofile simultaneously is slow enough to cause flakes
-    needs: [lint]
     strategy:
       fail-fast: false
       matrix:
@@ -157,6 +113,19 @@ jobs:
 
     - name: chown
       run: chown -R testbot:testbot .
+
+    - name: Verify no uncommitted changes from "make build lint"
+      run: |
+        git init
+        git add .
+        sudo -Hu testbot bash -lc 'make build-go lint-go'
+        GEN_DIFF=$(git status -s)
+
+        if [ -n "$GEN_DIFF" ]; then
+            echo '"make build lint" resulted in changes not in git' 1>&2
+            git status
+            exit 1
+        fi
 
     - name: Test
       run: |
@@ -170,26 +139,6 @@ jobs:
           pr.env
           code-coverage-results.md
         retention-days: 1
-
-  comments:
-    runs-on: ubuntu-latest
-    needs: [test, coverage]
-    steps:
-    # Now that RDK is public, can't directly comment without token having full read/write access
-    # code-coverage-comment.yml will trigger seperately and post the actual comments
-    - name: Prepare code comment
-      run: |
-        echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> pr.env
-
-    - name: Mark appimage label
-      if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
-      run: |
-        echo "APPIMAGE=true" >> pr.env
-
-    - name: Mark static label
-      if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
-      run: |
-        echo "STATIC=true" >> pr.env
 
   test32:
     name: 32-bit test
@@ -243,7 +192,7 @@ jobs:
       run: make test-pi
 
   test_e2e:
-    name: Test End-to-End
+    name: Test End-to-End and web
     runs-on: [buildjet-8vcpu-ubuntu-2204]
     container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
     steps:
@@ -261,24 +210,43 @@ jobs:
         run: |
           apt-get -qy install libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb netcat-openbsd lsof
 
-      - name: Run e2e Tests
-        run: |
-          chown -R testbot:testbot .
-          sudo -Hu testbot bash -lc 'make build-web test-e2e E2E_ARGS="-k"'
+      - name: chown
+        run: chown -R testbot:testbot .
+
+      - name: build and lint
+        run: sudo -Hu testbot bash -lc 'make build-web lint-web'
+
+      - name: Run e2e and web Tests
+        run: sudo -Hu testbot bash -lc 'make test-web test-e2e E2E_ARGS="-k"'
 
   test_passing:
     name: All Tests Passing
-    needs: [test_pi, comments, test_e2e, test32]
+    needs: [test_pi, test, lint_and_coverage, test_e2e, test32]
     runs-on: [ubuntu-latest]
     if: always()
     steps:
       - name: Check Results
         run: |
           echo Pi Tests: ${{ needs.test_pi.result }}
-          echo Main Tests: ${{ needs.comments.result }}
+          echo Lint and test: ${{ needs.test.result }}
+          echo Coverage: ${{ needs.lint_and_coverage.result }}
           echo E2E Tests: ${{ needs.test_e2e.result }}
           echo 32-bit Tests: ${{ needs.test32.result }}
           [ "${{ needs.test_pi.result }}" == "success" ] && \
-          [ "${{ needs.comments.result }}" == "success" ] && \
+          [ "${{ needs.test.result }}" == "success" ] && \
+          [ "${{ needs.lint_and_coverage.result }}" == "success" ] && \
           [ "${{ needs.test_e2e.result }}" == "success" ] && \
           [ "${{ needs.test32.result }}" == "success" ]
+
+      # Now that RDK is public, can't directly comment without token having full read/write access
+      # code-coverage-comment.yml will trigger seperately and post the actual comments
+      - name: Prepare code comment
+        run: echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> pr.env
+
+      - name: Mark appimage label
+        if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
+        run: echo "APPIMAGE=true" >> pr.env
+
+      - name: Mark static label
+        if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
+        run: echo "STATIC=true" >> pr.env
