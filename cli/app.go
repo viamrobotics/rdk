@@ -41,6 +41,7 @@ const (
 	moduleFlagForce           = "force"
 
 	moduleBuildFlagPath     = "module"
+	moduleBuildFlagRef      = "ref"
 	moduleBuildFlagCount    = "count"
 	moduleBuildFlagVersion  = "version"
 	moduleBuildFlagBuildID  = "id"
@@ -1124,6 +1125,11 @@ Example:
 									Name:     moduleBuildFlagVersion,
 									Usage:    "version of the module to upload (semver2.0) ex: \"0.1.0\"",
 									Required: true,
+								},
+								&cli.StringFlag{
+									Name:  moduleBuildFlagRef,
+									Usage: "git ref to clone when building your module. This can be a branch name or a commit hash",
+									Value: "main",
 								},
 							},
 							Action: ModuleBuildStartAction,
