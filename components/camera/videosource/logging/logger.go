@@ -36,7 +36,7 @@ func init() {
 
 	var err error
 	if GLoggerCamComp, err = NewLogger(); err != nil {
-		logging.NewDebugLogger("camera").Info(err)
+		logging.NewLogger("camera").Info(err)
 	}
 }
 
