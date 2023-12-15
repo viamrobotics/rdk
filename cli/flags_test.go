@@ -7,8 +7,8 @@ import (
 	"go.viam.com/test"
 )
 
-func TestViamStringFlag(t *testing.T) {
-	f := ViamStringFlag{
+func TestAliasStringFlag(t *testing.T) {
+	f := AliasStringFlag{
 		cli.StringFlag{
 			Name: "foo",
 		},
@@ -16,7 +16,7 @@ func TestViamStringFlag(t *testing.T) {
 	test.That(t, f.Names(), test.ShouldResemble, []string{"foo"})
 	test.That(t, f.String(), test.ShouldEqual, f.StringFlag.String())
 
-	f = ViamStringFlag{
+	f = AliasStringFlag{
 		cli.StringFlag{
 			Name:    "foo",
 			Aliases: []string{"hello"},
@@ -25,7 +25,7 @@ func TestViamStringFlag(t *testing.T) {
 	test.That(t, f.Names(), test.ShouldResemble, []string{"hello", "foo"})
 	test.That(t, f.String(), test.ShouldEqual, f.StringFlag.String())
 
-	f = ViamStringFlag{
+	f = AliasStringFlag{
 		cli.StringFlag{
 			Name:    "foo",
 			Aliases: []string{"hello", "world"},

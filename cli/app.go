@@ -252,7 +252,7 @@ var app = &cli.App{
 							Name:  dataFlagLocationIDs,
 							Usage: "locations filter",
 						},
-						&ViamStringFlag{
+						&AliasStringFlag{
 							cli.StringFlag{
 								Name:    dataFlagMachineID,
 								Aliases: []string{dataFlagAliasRobotID},
@@ -263,7 +263,7 @@ var app = &cli.App{
 							Name:  dataFlagPartID,
 							Usage: "part id filter",
 						},
-						&ViamStringFlag{
+						&AliasStringFlag{
 							cli.StringFlag{
 								Name:    dataFlagMachineName,
 								Aliases: []string{dataFlagAliasRobotName},
@@ -334,7 +334,7 @@ var app = &cli.App{
 									Name:  dataFlagLocationIDs,
 									Usage: "locations filter",
 								},
-								&ViamStringFlag{
+								&AliasStringFlag{
 									cli.StringFlag{
 										Name:    dataFlagMachineID,
 										Aliases: []string{dataFlagAliasRobotID},
@@ -345,7 +345,7 @@ var app = &cli.App{
 									Name:  dataFlagPartID,
 									Usage: "part id filter",
 								},
-								&ViamStringFlag{
+								&AliasStringFlag{
 									cli.StringFlag{
 										Name:    dataFlagMachineName,
 										Aliases: []string{dataFlagAliasRobotName},
@@ -498,7 +498,7 @@ var app = &cli.App{
 											Name:  dataFlagLocationIDs,
 											Usage: "locations filter",
 										},
-										&ViamStringFlag{
+										&AliasStringFlag{
 											cli.StringFlag{
 												Name:    dataFlagMachineID,
 												Aliases: []string{dataFlagAliasRobotID},
@@ -509,7 +509,7 @@ var app = &cli.App{
 											Name:  dataFlagPartID,
 											Usage: "part id filter",
 										},
-										&ViamStringFlag{
+										&AliasStringFlag{
 											cli.StringFlag{
 												Name:    dataFlagMachineName,
 												Aliases: []string{dataFlagAliasRobotName},
@@ -789,7 +789,7 @@ var app = &cli.App{
 							Name:  "create",
 							Usage: "create an api-key for your machine",
 							Flags: []cli.Flag{
-								&ViamStringFlag{
+								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     apiKeyFlagMachineID,
 										Aliases:  []string{apiKeyFlagAliasRobotID},
@@ -824,7 +824,7 @@ var app = &cli.App{
 							Name:        locationFlag,
 							DefaultText: "first location alphabetically",
 						},
-						&ViamStringFlag{
+						&AliasStringFlag{
 							cli.StringFlag{
 								Name:     machineFlag,
 								Aliases:  []string{aliasRobotFlag},
@@ -848,7 +848,7 @@ var app = &cli.App{
 							Name:        locationFlag,
 							DefaultText: "first location alphabetically",
 						},
-						&ViamStringFlag{
+						&AliasStringFlag{
 							cli.StringFlag{
 								Name:     machineFlag,
 								Aliases:  []string{aliasRobotFlag},
@@ -880,7 +880,7 @@ var app = &cli.App{
 									Name:        locationFlag,
 									DefaultText: "first location alphabetically",
 								},
-								&ViamStringFlag{
+								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     machineFlag,
 										Aliases:  []string{aliasRobotFlag},
@@ -908,7 +908,7 @@ var app = &cli.App{
 									Name:        locationFlag,
 									DefaultText: "first location alphabetically",
 								},
-								&ViamStringFlag{
+								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     machineFlag,
 										Aliases:  []string{aliasRobotFlag},
@@ -944,7 +944,7 @@ var app = &cli.App{
 									Name:     locationFlag,
 									Required: true,
 								},
-								&ViamStringFlag{
+								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     machineFlag,
 										Aliases:  []string{aliasRobotFlag},
@@ -980,7 +980,7 @@ var app = &cli.App{
 									Name:     locationFlag,
 									Required: true,
 								},
-								&ViamStringFlag{
+								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     machineFlag,
 										Aliases:  []string{aliasRobotFlag},
