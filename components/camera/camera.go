@@ -68,6 +68,7 @@ type Properties struct {
 	ImageType        ImageType
 	IntrinsicParams  *transform.PinholeCameraIntrinsics
 	DistortionParams transform.Distorter
+	MimeTypes        []string
 }
 
 // NamedImage is a struct that associates the source from where the image came from to the Image.

@@ -106,7 +106,11 @@ func (imp *impl) AsZap() *zap.SugaredLogger {
 	config := NewZapLoggerConfig()
 	// Use the global zap `AtomicLevel` such that the constructed zap logger can observe changes to
 	// the debug flag.
-	config.Level = GlobalLogLevel
+	if imp.level.Get() == DEBUG {
+		config.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
+	} else {
+		config.Level = GlobalLogLevel
+	}
 	ret := zap.Must(config.Build()).Sugar().Named(imp.name)
 	for _, core := range copiedCores {
 		ret = ret.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
