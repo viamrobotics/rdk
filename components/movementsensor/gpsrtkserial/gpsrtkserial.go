@@ -443,6 +443,11 @@ func (g *rtkSerial) connectAndParseSourceTable() error {
 
 // connectToNTRIP connects to NTRIP stream.
 func (g *rtkSerial) connectToNTRIP() error {
+	select {
+	case <-g.cancelCtx.Done():
+		return errors.New("Canceled")
+	default:
+	}
 	err := g.connectAndParseSourceTable()
 	if err != nil {
 		return g.err.Get()
