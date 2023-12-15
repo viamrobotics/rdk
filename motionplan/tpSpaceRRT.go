@@ -67,7 +67,7 @@ const (
 	defaultMinTrajectoryLength = 350
 
 	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly.
-	pathdebug = true
+	pathdebug = false
 )
 
 // Using the standard SquaredNormMetric, we run into issues where far apart distances will underflow gradient calculations.
