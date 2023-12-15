@@ -20,7 +20,12 @@ import (
 )
 
 func TestERCCL(t *testing.T) {
-	t.Parallel()
+	// Setting a global in utils is unsafe, and is likely to cause races. Cannot be used with t.Parallel()
+	origParallelFactor := utils.ParallelFactor
+	utils.ParallelFactor = 1
+	defer func() {
+		utils.ParallelFactor = origParallelFactor
+	}()
 	logger := logging.NewTestLogger(t)
 	injectCamera := &inject.Camera{}
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
