@@ -445,7 +445,7 @@ func (g *rtkSerial) connectAndParseSourceTable() error {
 func (g *rtkSerial) connectToNTRIP() error {
 	select {
 	case <-g.cancelCtx.Done():
-		return errors.New("Canceled")
+		return errors.New("context canceled")
 	default:
 	}
 	err := g.connectAndParseSourceTable()
