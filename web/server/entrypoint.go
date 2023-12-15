@@ -106,7 +106,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 
 	if argsParsed.Logging {
-		if err := vlogging.GLoggerCamComp.Start(ctx); err != nil && argsParsed.Debug {
+		if err := vlogging.GLoggerCamComp.Start(ctx); err != nil {
 			logger.Debug(err)
 		}
 	}
