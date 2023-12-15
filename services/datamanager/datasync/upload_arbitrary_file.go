@@ -31,6 +31,9 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, f
 		return err
 	}
 
+	// Only sync non-datacapture files that have not been modified in the last
+	// defaultFileLastModifiedMillis to avoid uploading files that are being
+	// to written to.
 	info, err := os.Stat(path)
 	if err != nil {
 		return err
