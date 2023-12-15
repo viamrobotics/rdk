@@ -4,7 +4,6 @@ import { commonApi } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import { resourceNameToString } from '@/lib/resource';
 import { doCommand } from '@/api/do-command';
-import Collapse from '@/lib/components/collapse.svelte';
 import { useRobotClient } from '@/hooks/robot-client';
 
 export let resources: commonApi.ResourceName.AsObject[];
@@ -66,50 +65,48 @@ const namesToPrettySelect = (resourcesToPretty: commonApi.ResourceName.AsObject[
 
 </script>
 
-<Collapse title="DoCommand()">
-  <div class="h-full w-full border border-t-0 border-medium p-4">
-    <v-select
-      label="Selected component"
-      placeholder="Select a component"
-      options={namesToPrettySelect(resources)}
-      value={selectedComponent}
-      disabled={executing ? 'true' : 'false'}
-      class="mb-4"
-      on:input={handleSelectComponent}
-    />
-    <div class="flex h-full w-full flex-row flex-wrap gap-2">
-      <div class="h-full w-full">
-        <p class="text-sm">
-          Input
-        </p>
-        <div class="h-[250px] w-full max-w-full border border-medium p-2">
-          <v-code-editor
-            language="json"
-            value={'{}'}
-            on:input={handleEditorInput}
-          />
-        </div>
-      </div>
-      <div class="flex min-w-[90px] flex-col justify-center">
-        <v-button
-          variant="inverse-primary"
-          label={executing ? 'RUNNING...' : 'DO'}
-          disabled={!selectedComponent || !input || executing ? 'true' : 'false'}
-          on:click={async () => handleDoCommand(selectedComponent, input)}
+<div class="h-full w-full border border-t-0 border-medium p-4">
+  <v-select
+    label="Selected component"
+    placeholder="Select a component"
+    options={namesToPrettySelect(resources)}
+    value={selectedComponent}
+    disabled={executing ? 'true' : 'false'}
+    class="mb-4"
+    on:input={handleSelectComponent}
+  />
+  <div class="flex h-full w-full flex-row flex-wrap gap-2">
+    <div class="h-full w-full">
+      <p class="text-sm">
+        Input
+      </p>
+      <div class="h-[250px] w-full max-w-full border border-medium p-2">
+        <v-code-editor
+          language="json"
+          value={'{}'}
+          on:input={handleEditorInput}
         />
       </div>
-      <div class="h-full w-full">
-        <p class="text-sm">
-          Output
-        </p>
-        <div class="h-[250px] w-full border border-medium p-2">
-          <v-code-editor
-            language="json"
-            value={output}
-            readonly="true"
-          />
-        </div>
+    </div>
+    <div class="flex min-w-[90px] flex-col justify-center">
+      <v-button
+        variant="inverse-primary"
+        label={executing ? 'RUNNING...' : 'DO'}
+        disabled={!selectedComponent || !input || executing ? 'true' : 'false'}
+        on:click={async () => handleDoCommand(selectedComponent, input)}
+      />
+    </div>
+    <div class="h-full w-full">
+      <p class="text-sm">
+        Output
+      </p>
+      <div class="h-[250px] w-full border border-medium p-2">
+        <v-code-editor
+          language="json"
+          value={output}
+          readonly="true"
+        />
       </div>
     </div>
   </div>
-</Collapse>
+</div>

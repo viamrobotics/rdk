@@ -2,8 +2,6 @@
   /* eslint-disable require-atomic-updates */
 
   import * as THREE from 'three';
-  import { onMount, onDestroy } from 'svelte';
-
   import { SlamClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
   import { SlamMap2D } from '@viamrobotics/prime-blocks';
   import { copyToClipboard } from '@/lib/copy-to-clipboard';
@@ -12,14 +10,15 @@
   import { notify } from '@viamrobotics/prime';
   import { setAsyncInterval } from '@/lib/schedule';
   import { components } from '@/stores/resources';
-  import Collapse from '@/lib/components/collapse.svelte';
+  import type { StopCallback } from '@/lib/components/collapse.svelte';
   import Dropzone from '@/lib/components/dropzone.svelte';
-  import { useRobotClient, useDisconnect, useConnect } from '@/hooks/robot-client';
+  import { useRobotClient, useConnect } from '@/hooks/robot-client';
   import type { SLAMOverrides } from '@/types/overrides';
   import { rcLogConditionally } from '@/lib/log';
 
   export let name: string;
   export let overrides: SLAMOverrides | undefined;
+  export let onStop: StopCallback
 
   const { robotClient, operations } = useRobotClient();
   const slamClient = new SlamClient($robotClient, name, {
@@ -223,16 +222,6 @@
     }
   };
 
-  const toggleExpand = (event: CustomEvent<{ open: boolean }>) => {
-    const { open } = event.detail;
-
-    if (open) {
-      toggle2dExpand();
-    } else {
-      clear2dRefresh?.();
-    }
-  };
-
   const startMappingIntervals = (start: number) => {
     updateSLAM2dRefreshFrequency();
     startDurationTimer(start);
@@ -306,7 +295,7 @@
     motionPath = event.detail;
   };
 
-  onMount(async () => {
+  const cloudSlamStart = async () => {
     if (overrides?.isCloudSlam) {
       const activeSession = await overrides.getActiveMappingSession();
 
@@ -318,114 +307,206 @@
         startMappingIntervals(startMilliseconds);
       }
     }
-  });
+  };
 
-  useDisconnect(clearRefresh);
+  onStop(handleStopMoveClick)
 
   useConnect(() => {
+    toggle2dExpand();
+    cloudSlamStart()
     updateSLAM2dRefreshFrequency()
+    return () => {
+      clearRefresh();
+      clearInterval(durationInterval);
+    }
   })
-
-  onDestroy(() => {
-    clearInterval(durationInterval);
-  });
-
 </script>
 
-<Collapse title={name} on:toggle={toggleExpand}>
-  <v-breadcrumbs slot="title" crumbs="slam" />
-  <v-button
-    slot="header"
-    variant="danger"
-    icon="stop-circle-outline"
-    disabled={moveClicked ? 'false' : 'true'}
-    label="Stop"
-    on:click={handleStopMoveClick}
-    on:keydown={handleStopMoveClick}
-  />
-  <div
-    class="flex flex-wrap gap-4 border border-t-0 border-medium sm:flex-nowrap"
-  >
-    <div class="flex min-w-fit flex-col gap-4 p-4 pr-0">
-      <div class="pb-4 flex flex-col gap-6">
-        {#if overrides?.isCloudSlam && overrides.mappingDetails}
-          <header class="flex flex-col text-xs justify-between gap-3">
-            <div class="flex flex-col">
-              <span class="font-bold text-gray-800">Mapping mode</span>
-              <span class="capitalize text-subtle-2"
-                >{overrides.mappingDetails.mode}</span
-              >
-            </div>
-            <div class="flex gap-8">
-              {#if overrides.mappingDetails.name}
-                <div class="flex flex-col">
-                  <span class="font-bold text-gray-800">Map name</span>
+<div
+  class="flex flex-wrap gap-4 border border-t-0 border-medium sm:flex-nowrap"
+>
+  <div class="flex min-w-fit flex-col gap-4 p-4 pr-0">
+    <div class="pb-4 flex flex-col gap-6">
+      {#if overrides?.isCloudSlam && overrides.mappingDetails}
+        <header class="flex flex-col text-xs justify-between gap-3">
+          <div class="flex flex-col">
+            <span class="font-bold text-gray-800">Mapping mode</span>
+            <span class="capitalize text-subtle-2"
+              >{overrides.mappingDetails.mode}</span
+            >
+          </div>
+          <div class="flex gap-8">
+            {#if overrides.mappingDetails.name}
+              <div class="flex flex-col">
+                <span class="font-bold text-gray-800">Map name</span>
+                <span class="text-subtle-2"
+                  >{overrides.mappingDetails.name}</span
+                >
+              </div>
+            {/if}
+            {#if overrides.mappingDetails.version}
+              <div class="flex flex-col">
+                <span class="font-bold text-gray-800">Version</span>
+                <span class="text-subtle-2"
+                  >{overrides.mappingDetails.version}</span
+                >
+              </div>
+            {/if}
+          </div>
+          {#if !overrides.mappingDetails.name}
+            <v-input
+              label="Map name"
+              value={newMapName}
+              state={mapNameError ? 'error' : ''}
+              message={mapNameError}
+              on:input={handleMapNameChange}
+            />
+          {/if}
+        </header>
+      {/if}
+      <div class="flex items-end gap-2 min-w-fit grow">
+        {#if overrides && overrides.isCloudSlam}
+          <div class="flex grow">
+            {#if hasActiveSession || mappingSessionEnded}
+              <div class="flex justify-between w-full items-center">
+                <div class="flex items-center text-xs gap-1">
+                  <div
+                    class="border-success-border bg-success-bg text-success-fg px-2 py-1 rounded-full"
+                    class:border-medium={mappingSessionEnded}
+                    class:bg-3={mappingSessionEnded}
+                    class:text-default={mappingSessionEnded}
+                  >
+                    <span>{mappingSessionEnded ? 'Saved' : 'Running'}</span>
+                  </div>
                   <span class="text-subtle-2"
-                    >{overrides.mappingDetails.name}</span
+                    >{formatDuration(sessionDuration)}</span
                   >
                 </div>
-              {/if}
-              {#if overrides.mappingDetails.version}
-                <div class="flex flex-col">
-                  <span class="font-bold text-gray-800">Version</span>
-                  <span class="text-subtle-2"
-                    >{overrides.mappingDetails.version}</span
-                  >
-                </div>
-              {/if}
-            </div>
-            {#if !overrides.mappingDetails.name}
-              <v-input
-                label="Map name"
-                value={newMapName}
-                state={mapNameError ? 'error' : ''}
-                message={mapNameError}
-                on:input={handleMapNameChange}
+                {#if hasActiveSession}
+                  <v-button label="End session" on:click={handleEndMapping} />
+                {/if}
+                {#if mappingSessionEnded}
+                  <v-button
+                    label="View map"
+                    icon="open-in-new"
+                    on:click={handleViewMap}
+                  />
+                {/if}
+              </div>
+            {:else}
+              <v-button
+                label="Start session"
+                on:click={handleStartMapping}
+                variant="inverse-primary"
               />
             {/if}
-          </header>
-        {/if}
-        <div class="flex items-end gap-2 min-w-fit grow">
-          {#if overrides && overrides.isCloudSlam}
-            <div class="flex grow">
-              {#if hasActiveSession || mappingSessionEnded}
-                <div class="flex justify-between w-full items-center">
-                  <div class="flex items-center text-xs gap-1">
-                    <div
-                      class="border-success-border bg-success-bg text-success-fg px-2 py-1 rounded-full"
-                      class:border-medium={mappingSessionEnded}
-                      class:bg-3={mappingSessionEnded}
-                      class:text-default={mappingSessionEnded}
-                    >
-                      <span>{mappingSessionEnded ? 'Saved' : 'Running'}</span>
-                    </div>
-                    <span class="text-subtle-2"
-                      >{formatDuration(sessionDuration)}</span
-                    >
-                  </div>
-                  {#if hasActiveSession}
-                    <v-button label="End session" on:click={handleEndMapping} />
-                  {/if}
-                  {#if mappingSessionEnded}
-                    <v-button
-                      label="View map"
-                      icon="open-in-new"
-                      on:click={handleViewMap}
-                    />
-                  {/if}
-                </div>
-              {:else}
-                <v-button
-                  label="Start session"
-                  on:click={handleStartMapping}
-                  variant="inverse-primary"
-                />
-              {/if}
+          </div>
+        {:else}
+          <div>
+            <div class="flex gap-2 mb-1">
+              <p class="font-bold text-gray-800">End position</p>
+              <button
+                class="text-xs hover:underline"
+                on:click={() =>
+                  (labelUnits = labelUnits === 'mm' ? 'm' : 'mm')}
+              >
+                ({labelUnits})
+              </button>
             </div>
-          {:else}
-            <div>
-              <div class="flex gap-2 mb-1">
-                <p class="font-bold text-gray-800">End position</p>
+            <div class="flex flex-row items-end gap-2 pb-2">
+              <v-input
+                type="number"
+                label="x"
+                incrementor="slider"
+                value={destination
+                  ? (destination.x * unitScale).toFixed(5)
+                  : ''}
+                step={labelUnits === 'mm' ? '10' : '1'}
+                on:input={handleUpdateDestX}
+              />
+              <v-input
+                type="number"
+                label="y"
+                incrementor="slider"
+                value={destination
+                  ? (destination.y * unitScale).toFixed(5)
+                  : ''}
+                step={labelUnits === 'mm' ? '10' : '1'}
+                on:input={handleUpdateDestY}
+              />
+              <v-button
+                class="pt-1 fill-white"
+                label="Move"
+                variant="success"
+                icon="play-circle-outline"
+                disabled={allowMove ? 'false' : 'true'}
+                on:click={handleMoveClick}
+                on:keydown={handleMoveClick}
+              />
+              <v-button
+                variant="icon"
+                icon="trash-can-outline"
+                on:click={deleteDestinationMarker}
+                on:keydown={deleteDestinationMarker}
+              />
+            </div>
+          </div>
+        {/if}
+      </div>
+      <div class="flex w-[70%] items-end gap-2">
+        <div class="grow">
+          <p class="mb-1 text-xs text-gray-500">Refresh frequency</p>
+          <select
+            bind:value={refresh2dRate}
+            class="
+              m-0 w-full min-w-[200px] appearance-none border border-solid border-medium bg-white bg-clip-padding
+              px-3 py-1.5 text-xs font-normal text-default focus:outline-none
+            "
+            aria-label="Default select example"
+            on:change={updateSLAM2dRefreshFrequency}
+          >
+            <option value="manual"> Manual refresh </option>
+            <option value="30"> Every 30 seconds </option>
+            <option value="10"> Every 10 seconds </option>
+            <option value="5"> Every 5 seconds </option>
+            {#if !overrides?.isCloudSlam}
+              <option value="1"> Every second </option>
+            {/if}
+          </select>
+          <v-icon
+            name="chevron-down"
+            class="pointer-events-none absolute bottom-0 h-[30px] right-0 flex items-center px-2"
+          />
+        </div>
+        <v-button
+          label="Refresh"
+          icon="refresh"
+          on:click={refresh2dMap}
+          on:keydown={refresh2dMap}
+        />
+      </div>
+    </div>
+    <v-switch
+      class="pt-2"
+      label="Show grid"
+      value={showAxes ? 'on' : 'off'}
+      on:input={toggleAxes}
+    />
+  </div>
+  <div class="gap-4x border-border-1 w-full justify-start sm:border-l">
+    {#if refreshErrorMessage2d && show2d}
+      <div class="border-l-4 border-red-500 bg-gray-100 px-4 py-3">
+        {refreshErrorMessage2d}
+      </div>
+    {/if}
+
+    {#if show2d}
+      {#if pointcloudLoaded}
+        <div>
+          <div class="flex flex-row pl-5 py-2 border-b border-b-light">
+            <div class="flex flex-col gap-0.5">
+              <div class="flex gap-2">
+                <p class="text-xs">Current position</p>
                 <button
                   class="text-xs hover:underline"
                   on:click={() =>
@@ -434,193 +515,90 @@
                   ({labelUnits})
                 </button>
               </div>
-              <div class="flex flex-row items-end gap-2 pb-2">
-                <v-input
-                  type="number"
-                  label="x"
-                  incrementor="slider"
-                  value={destination
-                    ? (destination.x * unitScale).toFixed(5)
-                    : ''}
-                  step={labelUnits === 'mm' ? '10' : '1'}
-                  on:input={handleUpdateDestX}
-                />
-                <v-input
-                  type="number"
-                  label="y"
-                  incrementor="slider"
-                  value={destination
-                    ? (destination.y * unitScale).toFixed(5)
-                    : ''}
-                  step={labelUnits === 'mm' ? '10' : '1'}
-                  on:input={handleUpdateDestY}
-                />
-                <v-button
-                  class="pt-1 fill-white"
-                  label="Move"
-                  variant="success"
-                  icon="play-circle-outline"
-                  disabled={allowMove ? 'false' : 'true'}
-                  on:click={handleMoveClick}
-                  on:keydown={handleMoveClick}
-                />
-                <v-button
-                  variant="icon"
-                  icon="trash-can-outline"
-                  on:click={deleteDestinationMarker}
-                  on:keydown={deleteDestinationMarker}
-                />
-              </div>
-            </div>
-          {/if}
-        </div>
-        <div class="flex w-[70%] items-end gap-2">
-          <div class="grow">
-            <p class="mb-1 text-xs text-gray-500">Refresh frequency</p>
-            <select
-              bind:value={refresh2dRate}
-              class="
-                m-0 w-full min-w-[200px] appearance-none border border-solid border-medium bg-white bg-clip-padding
-                px-3 py-1.5 text-xs font-normal text-default focus:outline-none
-              "
-              aria-label="Default select example"
-              on:change={updateSLAM2dRefreshFrequency}
-            >
-              <option value="manual"> Manual refresh </option>
-              <option value="30"> Every 30 seconds </option>
-              <option value="10"> Every 10 seconds </option>
-              <option value="5"> Every 5 seconds </option>
-              {#if !overrides?.isCloudSlam}
-                <option value="1"> Every second </option>
+
+              {#if pose}
+                <div class="flex flex-row items-center">
+                  <p class="items-end pr-1.5 text-xs text-gray-500">x</p>
+                  <p>{(pose.x * unitScale).toFixed(1)}</p>
+
+                  <p class="pl-6 pr-1.5 text-xs text-gray-500">y</p>
+                  <p>{(pose.y * unitScale).toFixed(1)}</p>
+
+                  <p class="pl-6 pr-1.5 text-xs text-gray-500">z</p>
+                  <p>{(pose.z * unitScale).toFixed(1)}</p>
+                </div>
               {/if}
-            </select>
-            <v-icon
-              name="chevron-down"
-              class="pointer-events-none absolute bottom-0 h-[30px] right-0 flex items-center px-2"
+            </div>
+            <div class="flex flex-col gap-0.5 pl-10">
+              <p class="text-xs">Current orientation</p>
+
+              {#if pose}
+                <div class="flex flex-row items-center">
+                  <p class="pr-1.5 text-xs text-gray-500">o<sub>x</sub></p>
+                  <p>{pose.oX.toFixed(1)}</p>
+
+                  <p class="pl-6 pr-1.5 text-xs text-gray-500">
+                    o<sub>y</sub>
+                  </p>
+                  <p>{pose.oY.toFixed(1)}</p>
+
+                  <p class="pl-6 pr-1.5 text-xs text-gray-500">
+                    o<sub>z</sub>
+                  </p>
+                  <p>{pose.oZ.toFixed(1)}</p>
+
+                  <p class="pl-6 pr-1.5 text-xs text-gray-500">&theta;</p>
+                  <p>{pose.theta.toFixed(1)}</p>
+                </div>
+              {/if}
+            </div>
+
+            <v-button
+              tooltip="Copy pose to clipboard"
+              class="pl-4 pt-2"
+              variant="icon"
+              icon="content-copy"
+              on:click={baseCopyPosition}
+              on:keydown={baseCopyPosition}
             />
           </div>
-          <v-button
-            label="Refresh"
-            icon="refresh"
-            on:click={refresh2dMap}
-            on:keydown={refresh2dMap}
-          />
-        </div>
-      </div>
-      <v-switch
-        class="pt-2"
-        label="Show grid"
-        value={showAxes ? 'on' : 'off'}
-        on:input={toggleAxes}
-      />
-    </div>
-    <div class="gap-4x border-border-1 w-full justify-start sm:border-l">
-      {#if refreshErrorMessage2d && show2d}
-        <div class="border-l-4 border-red-500 bg-gray-100 px-4 py-3">
-          {refreshErrorMessage2d}
-        </div>
-      {/if}
 
-      {#if show2d}
-        {#if pointcloudLoaded}
-          <div>
-            <div class="flex flex-row pl-5 py-2 border-b border-b-light">
-              <div class="flex flex-col gap-0.5">
-                <div class="flex gap-2">
-                  <p class="text-xs">Current position</p>
-                  <button
-                    class="text-xs hover:underline"
-                    on:click={() =>
-                      (labelUnits = labelUnits === 'mm' ? 'm' : 'mm')}
-                  >
-                    ({labelUnits})
-                  </button>
-                </div>
-
-                {#if pose}
-                  <div class="flex flex-row items-center">
-                    <p class="items-end pr-1.5 text-xs text-gray-500">x</p>
-                    <p>{(pose.x * unitScale).toFixed(1)}</p>
-
-                    <p class="pl-6 pr-1.5 text-xs text-gray-500">y</p>
-                    <p>{(pose.y * unitScale).toFixed(1)}</p>
-
-                    <p class="pl-6 pr-1.5 text-xs text-gray-500">z</p>
-                    <p>{(pose.z * unitScale).toFixed(1)}</p>
-                  </div>
-                {/if}
-              </div>
-              <div class="flex flex-col gap-0.5 pl-10">
-                <p class="text-xs">Current orientation</p>
-
-                {#if pose}
-                  <div class="flex flex-row items-center">
-                    <p class="pr-1.5 text-xs text-gray-500">o<sub>x</sub></p>
-                    <p>{pose.oX.toFixed(1)}</p>
-
-                    <p class="pl-6 pr-1.5 text-xs text-gray-500">
-                      o<sub>y</sub>
-                    </p>
-                    <p>{pose.oY.toFixed(1)}</p>
-
-                    <p class="pl-6 pr-1.5 text-xs text-gray-500">
-                      o<sub>z</sub>
-                    </p>
-                    <p>{pose.oZ.toFixed(1)}</p>
-
-                    <p class="pl-6 pr-1.5 text-xs text-gray-500">&theta;</p>
-                    <p>{pose.theta.toFixed(1)}</p>
-                  </div>
-                {/if}
-              </div>
-
-              <v-button
-                tooltip="Copy pose to clipboard"
-                class="pl-4 pt-2"
-                variant="icon"
-                icon="content-copy"
-                on:click={baseCopyPosition}
-                on:keydown={baseCopyPosition}
+          <Dropzone on:drop={handleDrop}>
+            <div class="relative w-full h-[400px]">
+              <SlamMap2D
+                {pointcloud}
+                {destination}
+                {motionPath}
+                basePose={pose
+                  ? {
+                    x: pose.x,
+                    y: pose.y,
+                    theta: pose.theta,
+                  }
+                  : undefined}
+                helpers={showAxes}
+                on:click={handle2dRenderClick}
               />
             </div>
-
-            <Dropzone on:drop={handleDrop}>
-              <div class="relative w-full h-[400px]">
-                <SlamMap2D
-                  {pointcloud}
-                  {destination}
-                  {motionPath}
-                  basePose={pose
-                    ? {
-                      x: pose.x,
-                      y: pose.y,
-                      theta: pose.theta,
-                    }
-                    : undefined}
-                  helpers={showAxes}
-                  on:click={handle2dRenderClick}
-                />
-              </div>
-            </Dropzone>
+          </Dropzone>
+        </div>
+      {:else if overrides?.isCloudSlam && sessionId}
+        <div
+          class="flex flex-col h-full w-full items-center justify-center gap-4"
+        >
+          <div class="animate-[spin_3s_linear_infinite]">
+            <v-icon name="cog" size="4xl" />
           </div>
-        {:else if overrides?.isCloudSlam && sessionId}
-          <div
-            class="flex flex-col h-full w-full items-center justify-center gap-4"
-          >
-            <div class="animate-[spin_3s_linear_infinite]">
-              <v-icon name="cog" size="4xl" />
-            </div>
-            <div class="flex flex-col items-center text-xs">
-              {#if mappingSessionStarted}
-                <span>Starting slam session in the cloud.</span>
-                <span>This typically takes about 2 minutes.</span>
-              {:else}
-                <span>Loading point cloud...</span>
-              {/if}
-            </div>
+          <div class="flex flex-col items-center text-xs">
+            {#if mappingSessionStarted}
+              <span>Starting slam session in the cloud.</span>
+              <span>This typically takes about 2 minutes.</span>
+            {:else}
+              <span>Loading point cloud...</span>
+            {/if}
           </div>
-        {/if}
+        </div>
       {/if}
-    </div>
+    {/if}
   </div>
-</Collapse>
+</div>

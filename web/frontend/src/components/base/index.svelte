@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
   import { BaseClient, type ServiceError } from '@viamrobotics/sdk';
   import { filterSubtype } from '../../lib/resource';
   import { displayError } from '../../lib/error';
@@ -9,11 +8,12 @@
   import { rcLogConditionally } from '../../lib/log';
   import { selectedMap } from '../../lib/camera-state';
   import { clickOutside } from '../../lib/click-outside';
-  import Collapse from '@/lib/components/collapse.svelte';
   import { components } from '@/stores/resources';
-  import { useRobotClient } from '@/hooks/robot-client';
+  import { useConnect, useRobotClient } from '@/hooks/robot-client';
+  import type { StopCallback } from '@/lib/components/collapse.svelte';
 
   export let name: string;
+  export let onStop: StopCallback
 
   const enum Keymap {
     LEFT = 'a',
@@ -293,234 +293,211 @@
     }
   };
 
-  const handleOnKeyUpStop = (event: KeyboardInput) => {
-    if (event.key === 'Enter') {
-      stop();
-    }
-  };
+  onStop(stop)
 
-  onMount(() => {
-    window.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // Safety measure for system prompts, etc.
-    window.addEventListener('blur', handleOnBlur);
-
+  useConnect(() => {
     for (const camera of cameras) {
       openCameras[camera.name] = false;
     }
-  });
 
-  onDestroy(() => {
-    handleOnBlur();
-
-    window.removeEventListener('visibilitychange', handleVisibilityChange);
-    window.removeEventListener('blur', handleOnBlur);
-  });
+    return () => handleOnBlur();
+  })
 </script>
+
+<!-- Safety measure for system prompts, etc. -->
+<svelte:window
+  on:visibilitychange={handleVisibilityChange}
+  on:blur={handleOnBlur}
+/>
 
 <div use:clickOutside={() => {
   isKeyboardActive = false;
 }}>
-  <Collapse title={name}>
-    <v-breadcrumbs slot="title" crumbs="base" />
+  <div
+    class="flex flex-wrap gap-4 border border-t-0 border-medium sm:flex-nowrap"
+  >
+    <div class="flex min-w-fit flex-col gap-4 p-4">
+      <h2 class="font-bold">Motor controls</h2>
+      <v-radio
+        label="Control mode"
+        options="Keyboard, Discrete"
+        selected={selectedMode}
+        on:input={handleControlModeSelect}
+      />
 
-    <v-button
-      slot="header"
-      variant="danger"
-      icon="stop-circle-outline"
-      label="Stop"
-      on:click={stop}
-      on:keyup={handleOnKeyUpStop}
-      role="button"
-      tabindex="0"
-    />
+      {#if selectedMode === 'Keyboard'}
+        <div>
+          <KeyboardInput
+            isActive={isKeyboardActive}
+            onKeyDown={handleKeyDown}
+            onKeyUp={handleKeyUp}
+            onUpdateKeyboardState={handleUpdateKeyboardState}
+          />
+          <v-slider
+            id="power"
+            class="w-full max-w-xs pt-2"
+            min={0}
+            max={100}
+            step={1}
+            suffix="%"
+            label="Power %"
+            value={power}
+            on:input={handlePowerSlider}
+          />
+        </div>
+      {/if}
 
-    <div
-      class="flex flex-wrap gap-4 border border-t-0 border-medium sm:flex-nowrap"
-    >
-      <div class="flex min-w-fit flex-col gap-4 p-4">
-        <h2 class="font-bold">Motor controls</h2>
-        <v-radio
-          label="Control mode"
-          options="Keyboard, Discrete"
-          selected={selectedMode}
-          on:input={handleControlModeSelect}
-        />
-
-        {#if selectedMode === 'Keyboard'}
-          <div>
-            <KeyboardInput
-              isActive={isKeyboardActive}
-              onKeyDown={handleKeyDown}
-              onKeyUp={handleKeyUp}
-              onUpdateKeyboardState={handleUpdateKeyboardState}
-            />
-            <v-slider
-              id="power"
-              class="w-full max-w-xs pt-2"
-              min={0}
-              max={100}
-              step={1}
-              suffix="%"
-              label="Power %"
-              value={power}
-              on:input={handlePowerSlider}
-            />
-          </div>
-        {/if}
-
-        {#if selectedMode === 'Discrete'}
-          <div class="flex flex-col gap-4">
+      {#if selectedMode === 'Discrete'}
+        <div class="flex flex-col gap-4">
+          <v-radio
+            label="Movement mode"
+            options="Straight, Spin"
+            selected={movementMode}
+            on:input={handleSelectMovementMode}
+          />
+          {#if movementMode === 'Straight'}
             <v-radio
-              label="Movement mode"
-              options="Straight, Spin"
-              selected={movementMode}
-              on:input={handleSelectMovementMode}
+              label="Movement type"
+              options="Continuous, Discrete"
+              selected={movementType}
+              on:input={handleSelectMovementType}
             />
-            {#if movementMode === 'Straight'}
-              <v-radio
-                label="Movement type"
-                options="Continuous, Discrete"
-                selected={movementType}
-                on:input={handleSelectMovementType}
-              />
-              <v-radio
-                label="Direction"
-                options="Forwards, Backwards"
-                selected={direction}
-                on:input={handleSetDirection}
-              />
+            <v-radio
+              label="Direction"
+              options="Forwards, Backwards"
+              selected={direction}
+              on:input={handleSetDirection}
+            />
+            <v-input
+              type="number"
+              value={speed}
+              label="Speed (mm/sec)"
+              on:input={handleSetSpeed}
+            />
+            {#if movementType === 'Continuous'}
               <v-input
                 type="number"
-                value={speed}
-                label="Speed (mm/sec)"
-                on:input={handleSetSpeed}
+                value={increment}
+                tabindex="-1"
+                disabled
+                label="Distance (mm)"
               />
-              {#if movementType === 'Continuous'}
-                <v-input
-                  type="number"
-                  value={increment}
-                  tabindex="-1"
-                  disabled
-                  label="Distance (mm)"
-                />
-              {:else}
-                <v-input
-                  type="number"
-                  value={increment}
-                  label="Distance (mm)"
-                  on:input={handleSetIncrement}
-                />
-              {/if}
-            {/if}
-            {#if movementMode === 'Spin'}
+            {:else}
               <v-input
                 type="number"
-                value={spinSpeed}
-                label="Speed (deg/sec)"
-                on:input={handleSetSpinSpeed}
+                value={increment}
+                label="Distance (mm)"
+                on:input={handleSetIncrement}
               />
-              <v-radio
-                label="Movement Type"
-                options="Clockwise, Counterclockwise"
-                selected={spinType}
-                on:input={handleSetSpinType}
-              />
-              <div>
-                <v-slider
-                  min={0}
-                  max={360}
-                  step={15}
-                  suffix="°"
-                  label="Angle"
-                  value={angle}
-                  on:input={handleSetAngle}
-                />
-              </div>
             {/if}
+          {/if}
+          {#if movementMode === 'Spin'}
+            <v-input
+              type="number"
+              value={spinSpeed}
+              label="Speed (deg/sec)"
+              on:input={handleSetSpinSpeed}
+            />
+            <v-radio
+              label="Movement Type"
+              options="Clockwise, Counterclockwise"
+              selected={spinType}
+              on:input={handleSetSpinType}
+            />
+            <div>
+              <v-slider
+                min={0}
+                max={360}
+                step={15}
+                suffix="°"
+                label="Angle"
+                value={angle}
+                on:input={handleSetAngle}
+              />
+            </div>
+          {/if}
+          <v-button
+            icon="play-circle-outline"
+            variant="success"
+            label="Run"
+            on:click={baseRun}
+            on:keyup={handleOnKeyUpRun}
+            role="button"
+            tabindex="0"
+          />
+        </div>
+      {/if}
+
+      <hr class="my-4 border-t border-medium" />
+
+      <h2 class="font-bold">Live feeds</h2>
+
+      <v-radio
+        label="View"
+        options="Stacked, Grid"
+        selected={selectedView}
+        disable={disableViews ? 'true' : 'false'}
+        on:input={handleViewSelect}
+      />
+
+      {#if cameras}
+        <div class="flex flex-col gap-2">
+          {#each cameras as camera (camera.name)}
+            <v-switch
+              label={camera.name}
+              aria-label={`Refresh frequency for ${camera.name}`}
+              value={openCameras[camera.name] ? 'on' : 'off'}
+              on:input={() => {
+                handleSwitch(camera.name);
+              }}
+            />
+          {/each}
+
+          <div class="mt-2 flex items-end gap-2">
+            <v-select
+              value={refreshFrequency}
+              label="Refresh frequency"
+              aria-label="Refresh frequency"
+              options={Object.keys(selectedMap).join(',')}
+              disabled={disableRefresh ? 'true' : 'false'}
+              on:input={handleSetRefreshFrequency}
+            />
+
             <v-button
-              icon="play-circle-outline"
-              variant="success"
-              label="Run"
-              on:click={baseRun}
-              on:keyup={handleOnKeyUpRun}
+              class={refreshFrequency === 'Live' ? 'invisible' : ''}
+              icon="refresh"
+              label="Refresh"
+              disabled={disableRefresh ? 'true' : 'false'}
+              on:click={() => {
+                triggerRefresh = !triggerRefresh;
+              }}
+              on:keyup ={() => {
+                triggerRefresh = !triggerRefresh;
+              }}
               role="button"
               tabindex="0"
             />
           </div>
-        {/if}
-
-        <hr class="my-4 border-t border-medium" />
-
-        <h2 class="font-bold">Live feeds</h2>
-
-        <v-radio
-          label="View"
-          options="Stacked, Grid"
-          selected={selectedView}
-          disable={disableViews ? 'true' : 'false'}
-          on:input={handleViewSelect}
-        />
-
-        {#if cameras}
-          <div class="flex flex-col gap-2">
-            {#each cameras as camera (camera.name)}
-              <v-switch
-                label={camera.name}
-                aria-label={`Refresh frequency for ${camera.name}`}
-                value={openCameras[camera.name] ? 'on' : 'off'}
-                on:input={() => {
-                  handleSwitch(camera.name);
-                }}
-              />
-            {/each}
-
-            <div class="mt-2 flex items-end gap-2">
-              <v-select
-                value={refreshFrequency}
-                label="Refresh frequency"
-                aria-label="Refresh frequency"
-                options={Object.keys(selectedMap).join(',')}
-                disabled={disableRefresh ? 'true' : 'false'}
-                on:input={handleSetRefreshFrequency}
-              />
-
-              <v-button
-                class={refreshFrequency === 'Live' ? 'invisible' : ''}
-                icon="refresh"
-                label="Refresh"
-                disabled={disableRefresh ? 'true' : 'false'}
-                on:click={() => {
-                  triggerRefresh = !triggerRefresh;
-                }}
-                on:keyup ={() => {
-                  triggerRefresh = !triggerRefresh;
-                }}
-                role="button"
-                tabindex="0"
-              />
-            </div>
-          </div>
-        {/if}
-      </div>
-      <div
-        class="justify-start gap-4 border-medium p-4 sm:border-l {selectedView ===
-        'Stacked'
-          ? 'flex flex-col'
-          : 'grid grid-cols-2 gap-4'}"
-      >
-        <!-- ******* CAMERAS *******  -->
-        {#each cameras as camera (`base ${camera.name}`)}
-          {#if openCameras[camera.name]}
-            <Camera
-              cameraName={camera.name}
-              showExportScreenshot
-              refreshRate={refreshFrequency}
-              triggerRefresh={triggerRefresh}
-            />
-          {/if}
-        {/each}
-      </div>
+        </div>
+      {/if}
     </div>
-  </Collapse>
+    <div
+      class="justify-start gap-4 border-medium p-4 sm:border-l {selectedView ===
+      'Stacked'
+        ? 'flex flex-col'
+        : 'grid grid-cols-2 gap-4'}"
+    >
+      <!-- ******* CAMERAS *******  -->
+      {#each cameras as camera (`base ${camera.name}`)}
+        {#if openCameras[camera.name]}
+          <Camera
+            cameraName={camera.name}
+            showExportScreenshot
+            refreshRate={refreshFrequency}
+            triggerRefresh={triggerRefresh}
+          />
+        {/if}
+      {/each}
+    </div>
+  </div>
 </div>

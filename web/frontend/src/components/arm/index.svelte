@@ -1,11 +1,10 @@
 <script lang="ts">
-
 import { ArmClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
+import type { StopCallback } from '@/lib/components/collapse.svelte';
 import { copyToClipboard } from '@/lib/copy-to-clipboard';
 import { displayError } from '@/lib/error';
 import { roundTo2Decimals } from '@/lib/math';
 import { rcLogConditionally } from '@/lib/log';
-import Collapse from '@/lib/components/collapse.svelte';
 import { useRobotClient } from '@/hooks/robot-client';
 
 interface ArmStatus {
@@ -27,6 +26,7 @@ export let status: {
   end_position: Record<string, number>
   joint_positions: { values: number[] }
 } | undefined;
+export let onStop: StopCallback
 
 const { robotClient } = useRobotClient();
 
@@ -249,172 +249,159 @@ const armCopyJoints = () => {
   }, {})));
 };
 
+onStop(stop)
+
 </script>
 
-<Collapse title={name}>
-  <v-breadcrumbs
-    slot="title"
-    crumbs="arm"
-  />
+<div class="border border-t-0 border-medium p-4 text-sm">
+  {#if status}
+    <div class="flex flex-wrap gap-12">
+      <div>
+        <h3 class="mb-2 font-bold flex items-center gap-2">
+          End position (mms)
+          <v-button
+            variant='icon'
+            tooltip='Copy to clipboard'
+            icon='content-copy'
+            on:click={armCopyPosition}
+          />
+        </h3>
 
-  <v-button
-    slot="header"
-    variant="danger"
-    icon="stop-circle-outline"
-    label="Stop"
-    on:click|stopPropagation={stop}
-  />
-
-  <div class="border border-t-0 border-medium p-4 text-sm">
-    {#if status}
-      <div class="flex flex-wrap gap-12">
-        <div>
-          <h3 class="mb-2 font-bold flex items-center gap-2">
-            End position (mms)
+        <div class="flex flex-col gap-1 pb-1">
+          {#if modifyAll}
+            {#each modifyAllStatus.pos_pieces as piece (piece.endPosition[0])}
+              <label class="flex gap-2 items-center">
+                <p class='min-w-[3rem] text-right'>{piece.endPosition[1]}</p>
+                <input
+                  type='number'
+                  bind:value={piece.endPositionValue}
+                  class="
+                    w-full py-1.5 px-2 leading-tight text-xs h-[30px] border outline-none appearance-none
+                    pl-2.5 bg-white border-light hover:border-medium focus:border-gray-9
+                  "
+                />
+              </label>
+            {/each}
             <v-button
-              variant='icon'
-              tooltip='Copy to clipboard'
-              icon='content-copy'
-              on:click={armCopyPosition}
+              icon='play-circle-filled'
+              label="Go"
+              class='mt-2 text-right'
+              on:click={armModifyAllDoEndPosition}
             />
-          </h3>
 
-          <div class="flex flex-col gap-1 pb-1">
-            {#if modifyAll}
-              {#each modifyAllStatus.pos_pieces as piece (piece.endPosition[0])}
-                <label class="flex gap-2 items-center">
-                  <p class='min-w-[3rem] text-right'>{piece.endPosition[1]}</p>
-                  <input
-                    type='number'
-                    bind:value={piece.endPositionValue}
-                    class="
-                      w-full py-1.5 px-2 leading-tight text-xs h-[30px] border outline-none appearance-none
-                      pl-2.5 bg-white border-light hover:border-medium focus:border-gray-9
-                    "
-                  />
-                </label>
-              {/each}
-              <v-button
-                icon='play-circle-filled'
-                label="Go"
-                class='mt-2 text-right'
-                on:click={armModifyAllDoEndPosition}
-              />
-
-            {:else}
-              {#each posPieces as piece (piece.endPosition[0])}
-                <div class='flex gap-1'>
-                  <h4 class='self-center justify-self-end min-w-[3rem] text-right pr-2'>
-                    {piece.endPosition[1]}
-                  </h4>
-                  <v-button
-                    label="--"
-                    on:click={async () => armEndPositionInc(piece.endPosition[1], -10)}
-                  />
-                  <v-button
-                    label="-"
-                    on:click={async () => armEndPositionInc(piece.endPosition[1], -1)}
-                  />
-                  <p class='place-self-center min-w-[5rem] text-xs flex place-content-center'>
-                    {piece.endPositionValue.toFixed(2)}
-                  </p>
-                  <v-button
-                    label="+"
-                    on:click={async () => armEndPositionInc(piece.endPosition[1], 1)}
-                  />
-                  <v-button
-                    label="++"
-                    on:click={async () => armEndPositionInc(piece.endPosition[1], 10)}
-                  />
-                </div>
-              {/each}
-            {/if}
-          </div>
-        </div>
-
-        <div>
-          <h3 class="mb-2 font-bold flex items-center gap-2">
-            Joints (degrees)
-            <v-button
-              variant='icon'
-              tooltip='Copy to clipboard'
-              icon='content-copy'
-              on:click={armCopyJoints}
-            />
-          </h3>
-
-          <div class="flex flex-col gap-1 pb-1">
-            {#if modifyAll}
-              {#each modifyAllStatus.joint_pieces as piece (piece.joint)}
-                <label class="flex gap-2 items-center">
-                  <p class='min-w-[3rem] text-right'>Joint {piece.joint}</p>
-                  <input
-                    type='number'
-                    bind:value={piece.jointValue}
-                    class="
-                      w-full py-1.5 px-2 leading-tight text-xs h-[30px] border outline-none appearance-none
-                      pl-2.5 bg-white border-light hover:border-medium focus:border-gray-9
-                    "
-                  />
-                </label>
-              {/each}
-              <v-button
-                class='mt-2 text-right'
-                icon='play-circle-outline'
-                label="Go"
-                on:click={armModifyAllDoJoint}
-              />
-
-            {:else}
-              {#each jointPieces as piece (piece.joint)}
-                <div class='flex gap-1'>
-                  <h4 class="self-center justify-self-end min-w-[4rem] text-right pr-2">
-                    Joint {piece.joint}
-                  </h4>
-                  <v-button
-                    label="--"
-                    on:click={async () => armJointInc(piece.joint, -10)}
-                  />
-                  <v-button
-                    label="-"
-                    on:click={async () => armJointInc(piece.joint, -1)}
-                  />
-                  <p class='place-self-center min-w-[5rem] text-xs flex place-content-center'>
-                    {piece.jointValue.toFixed(2)}
-                  </p>
-                  <v-button
-                    label="+"
-                    on:click={async () => armJointInc(piece.joint, 1)}
-                  />
-                  <v-button
-                    label="++"
-                    on:click={async () => armJointInc(piece.joint, 10)}
-                  />
-                </div>
-              {/each}
-            {/if}
-          </div>
+          {:else}
+            {#each posPieces as piece (piece.endPosition[0])}
+              <div class='flex gap-1'>
+                <h4 class='self-center justify-self-end min-w-[3rem] text-right pr-2'>
+                  {piece.endPosition[1]}
+                </h4>
+                <v-button
+                  label="--"
+                  on:click={async () => armEndPositionInc(piece.endPosition[1], -10)}
+                />
+                <v-button
+                  label="-"
+                  on:click={async () => armEndPositionInc(piece.endPosition[1], -1)}
+                />
+                <p class='place-self-center min-w-[5rem] text-xs flex place-content-center'>
+                  {piece.endPositionValue.toFixed(2)}
+                </p>
+                <v-button
+                  label="+"
+                  on:click={async () => armEndPositionInc(piece.endPosition[1], 1)}
+                />
+                <v-button
+                  label="++"
+                  on:click={async () => armEndPositionInc(piece.endPosition[1], 10)}
+                />
+              </div>
+            {/each}
+          {/if}
         </div>
       </div>
-      <div class='mt-6 flex gap-2'>
-        {#if modifyAll}
+
+      <div>
+        <h3 class="mb-2 font-bold flex items-center gap-2">
+          Joints (degrees)
           <v-button
-            label="Cancel"
-            on:click={() => {
-              modifyAll = false;
-            }}
+            variant='icon'
+            tooltip='Copy to clipboard'
+            icon='content-copy'
+            on:click={armCopyJoints}
           />
-        {:else}
-          <v-button
-            label="Modify all"
-            on:click={armModifyAll}
-          />
-          <v-button
-            label="Go home"
-            on:click={armHome}
-          />
-        {/if}
+        </h3>
+
+        <div class="flex flex-col gap-1 pb-1">
+          {#if modifyAll}
+            {#each modifyAllStatus.joint_pieces as piece (piece.joint)}
+              <label class="flex gap-2 items-center">
+                <p class='min-w-[3rem] text-right'>Joint {piece.joint}</p>
+                <input
+                  type='number'
+                  bind:value={piece.jointValue}
+                  class="
+                    w-full py-1.5 px-2 leading-tight text-xs h-[30px] border outline-none appearance-none
+                    pl-2.5 bg-white border-light hover:border-medium focus:border-gray-9
+                  "
+                />
+              </label>
+            {/each}
+            <v-button
+              class='mt-2 text-right'
+              icon='play-circle-outline'
+              label="Go"
+              on:click={armModifyAllDoJoint}
+            />
+
+          {:else}
+            {#each jointPieces as piece (piece.joint)}
+              <div class='flex gap-1'>
+                <h4 class="self-center justify-self-end min-w-[4rem] text-right pr-2">
+                  Joint {piece.joint}
+                </h4>
+                <v-button
+                  label="--"
+                  on:click={async () => armJointInc(piece.joint, -10)}
+                />
+                <v-button
+                  label="-"
+                  on:click={async () => armJointInc(piece.joint, -1)}
+                />
+                <p class='place-self-center min-w-[5rem] text-xs flex place-content-center'>
+                  {piece.jointValue.toFixed(2)}
+                </p>
+                <v-button
+                  label="+"
+                  on:click={async () => armJointInc(piece.joint, 1)}
+                />
+                <v-button
+                  label="++"
+                  on:click={async () => armJointInc(piece.joint, 10)}
+                />
+              </div>
+            {/each}
+          {/if}
+        </div>
       </div>
-    {/if}
-  </div>
-</Collapse>
+    </div>
+    <div class='mt-6 flex gap-2'>
+      {#if modifyAll}
+        <v-button
+          label="Cancel"
+          on:click={() => {
+            modifyAll = false;
+          }}
+        />
+      {:else}
+        <v-button
+          label="Modify all"
+          on:click={armModifyAll}
+        />
+        <v-button
+          label="Go home"
+          on:click={armHome}
+        />
+      {/if}
+    </div>
+  {/if}
+</div>

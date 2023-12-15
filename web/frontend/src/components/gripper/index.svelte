@@ -3,10 +3,11 @@
 import { gripperApi } from '@viamrobotics/sdk';
 import { displayError } from '../../lib/error';
 import { rcLogConditionally } from '../../lib/log';
-import Collapse from '@/lib/components/collapse.svelte';
+import type { StopCallback } from '@/lib/components/collapse.svelte';
 import { useRobotClient } from '@/hooks/robot-client';
 
 export let name: string;
+export let onStop: StopCallback | undefined;
 
 const { robotClient } = useRobotClient();
 
@@ -34,32 +35,17 @@ const grab = () => {
   $robotClient.gripperService.grab(request, displayError);
 };
 
+onStop?.(stop)
+
 </script>
 
-<Collapse title={name}>
-  <v-breadcrumbs
-    slot="title"
-    crumbs="gripper"
+<div class="flex gap-2 border border-t-0 border-medium p-4">
+  <v-button
+    label="Open"
+    on:click={open}
   />
-  <div
-    slot="header"
-    class="flex items-center justify-between gap-2"
-  >
-    <v-button
-      variant="danger"
-      icon="stop-circle-outline"
-      label="Stop"
-      on:click|stopPropagation={stop}
-    />
-  </div>
-  <div class="flex gap-2 border border-t-0 border-medium p-4">
-    <v-button
-      label="Open"
-      on:click={open}
-    />
-    <v-button
-      label="Grab"
-      on:click={grab}
-    />
-  </div>
-</Collapse>
+  <v-button
+    label="Grab"
+    on:click={grab}
+  />
+</div>

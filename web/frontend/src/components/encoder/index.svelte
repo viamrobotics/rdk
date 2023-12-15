@@ -4,8 +4,7 @@ import { encoderApi, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { setAsyncInterval } from '@/lib/schedule';
 import { getProperties, getPosition, getPositionDegrees, reset } from '@/api/encoder';
-import Collapse from '@/lib/components/collapse.svelte';
-import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
+import { useRobotClient, useConnect } from '@/hooks/robot-client';
 
 export let name: string;
 
@@ -39,63 +38,59 @@ const handleResetClick = async () => {
   }
 };
 
-const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
-  if (event.detail.open) {
-    try {
-      properties = await getProperties($robotClient, name);
-      await refresh();
-      cancelInterval = setAsyncInterval(refresh, 500);
-    } catch (error) {
-      displayError(error as ServiceError);
-    }
-  } else {
-    cancelInterval?.();
+const init = async () => {
+  try {
+    properties = await getProperties($robotClient, name);
+    await refresh();
+    cancelInterval = setAsyncInterval(refresh, 500);
+  } catch (error) {
+    displayError(error as ServiceError);
   }
-};
+}
 
-useDisconnect(() => cancelInterval?.());
+useConnect(() => {
+  init()
+  
+  return () => {
+    cancelInterval?.()
+  }
+})
 
 $: showPositionTicks = properties?.ticksCountSupported ?? (!properties?.ticksCountSupported && !properties?.angleDegreesSupported)
 $: showPositionDegrees = properties?.angleDegreesSupported ?? (!properties?.ticksCountSupported && !properties?.angleDegreesSupported)
 
 </script>
 
-<Collapse title={name} on:toggle={handleToggle}>
-  <v-breadcrumbs
-    slot="title"
-    crumbs="encoder"
-  />
-  <div class="overflow-auto border border-t-0 border-medium p-4 text-left text-sm">
-    <table class="bborder-medium table-auto border">
-      {#if showPositionTicks}
-        <tr>
-          <th class="border border-medium p-2">
-            Count
-          </th>
-          <td class="border border-medium p-2">
-            {positionTicks?.toFixed(2)}
-          </td>
-        </tr>
-      {/if}
+<div class="overflow-auto border border-t-0 border-medium p-4 text-left text-sm">
+  <table class="bborder-medium table-auto border">
+    {#if showPositionTicks}
+      <tr>
+        <th class="border border-medium p-2">
+          Count
+        </th>
+        <td class="border border-medium p-2">
+          {positionTicks?.toFixed(2)}
+        </td>
+      </tr>
+    {/if}
 
-      {#if showPositionDegrees}
-        <tr>
-          <th class="border border-medium p-2">
-            Angle (degrees)
-          </th>
-          <td class="border border-medium p-2">
-            {positionDegrees?.toFixed(2)}
-          </td>
-        </tr>
-      {/if}
-    </table>
+    {#if showPositionDegrees}
+      <tr>
+        <th class="border border-medium p-2">
+          Angle (degrees)
+        </th>
+        <td class="border border-medium p-2">
+          {positionDegrees?.toFixed(2)}
+        </td>
+      </tr>
+    {/if}
+  </table>
 
-    <div class="mt-2 flex gap-2">
-      <v-button
-        label="Reset"
-        class="flex-auto"
-        on:click={handleResetClick}
-      />
-    </div>
+  <div class="mt-2 flex gap-2">
+    <v-button
+      label="Reset"
+      class="flex-auto"
+      on:click={handleResetClick}
+    />
   </div>
-</Collapse>
+</div>

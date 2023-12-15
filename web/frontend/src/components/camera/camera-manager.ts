@@ -1,5 +1,6 @@
 import { CameraClient, type ServiceError, StreamClient, type Client } from '@viamrobotics/sdk';
 import { displayError } from '../../lib/error';
+import { rcLogConditionally } from '@/lib/log';
 
 export class CameraManager {
   cameraClient: CameraClient;
@@ -13,7 +14,7 @@ export class CameraManager {
     public streamCount = 0,
     public videoStream: MediaStream = new MediaStream()
   ) {
-    this.cameraClient = new CameraClient(client, cameraName);
+    this.cameraClient = new CameraClient(client, cameraName, { requestLogger: rcLogConditionally });
   }
 
   addStream () {

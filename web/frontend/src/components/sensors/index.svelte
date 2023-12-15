@@ -3,7 +3,6 @@
   import { notify } from '@viamrobotics/prime';
   import { resourceNameToString } from '@/lib/resource';
   import { rcLogConditionally } from '@/lib/log';
-  import Collapse from '@/lib/components/collapse.svelte';
   import { useRobotClient } from '@/hooks/robot-client';
 
   interface SensorName {
@@ -71,59 +70,57 @@
   };
 </script>
 
-<Collapse title="Sensors">
-  <div class="overflow-auto border border-t-0 border-medium p-4 text-sm">
-    <table class="w-full table-auto border border-medium">
+<div class="overflow-auto border border-t-0 border-medium p-4 text-sm">
+  <table class="w-full table-auto border border-medium">
+    <tr>
+      <th class="border border-medium p-2"> Name </th>
+      <th class="border border-medium p-2"> Type </th>
+      <th class="border border-medium p-2"> Readings </th>
+      <th class="border border-medium p-2 text-center">
+        <v-button
+          label="Get All Readings"
+          on:click|stopPropagation={() => {
+            getReadings(sensorNames);
+          }}
+        />
+      </th>
+    </tr>
+    {#each sensorNames as sensorName (sensorName.name)}
       <tr>
-        <th class="border border-medium p-2"> Name </th>
-        <th class="border border-medium p-2"> Type </th>
-        <th class="border border-medium p-2"> Readings </th>
-        <th class="border border-medium p-2 text-center">
+        <td class="border border-medium p-2">
+          {sensorName.name}
+        </td>
+        <td class="border border-medium p-2">
+          {sensorName.subtype}
+        </td>
+        <td class="border border-medium p-2">
+          <table style="font-size:.7em; text-align: left;">
+            {#each getData(sensorReadings, sensorName) as [sensorField, sensorValue] (sensorField)}
+              <tr>
+                <th>{sensorField}</th>
+                <td>
+                  {JSON.stringify(sensorValue)}
+                  <!-- eslint-disable-next-line no-underscore-dangle -->
+                  {#if sensorValue._type === 'geopoint'}
+                  <a
+                    href={`https://www.google.com/maps/search/${sensorValue.lat},${sensorValue.lng}`}
+                    >google maps</a
+                  >
+                  {/if}
+                </td>
+              </tr>
+            {/each}
+          </table>
+        </td>
+        <td class="border border-medium p-2 text-center">
           <v-button
-            label="Get All Readings"
+            label="Get Readings"
             on:click|stopPropagation={() => {
-              getReadings(sensorNames);
+              getReadings([sensorName]);
             }}
           />
-        </th>
+        </td>
       </tr>
-      {#each sensorNames as sensorName (sensorName.name)}
-        <tr>
-          <td class="border border-medium p-2">
-            {sensorName.name}
-          </td>
-          <td class="border border-medium p-2">
-            {sensorName.subtype}
-          </td>
-          <td class="border border-medium p-2">
-            <table style="font-size:.7em; text-align: left;">
-              {#each getData(sensorReadings, sensorName) as [sensorField, sensorValue] (sensorField)}
-                <tr>
-                  <th>{sensorField}</th>
-                  <td>
-                    {JSON.stringify(sensorValue)}
-                    <!-- eslint-disable-next-line no-underscore-dangle -->
-                    {#if sensorValue._type === 'geopoint'}
-                    <a
-                      href={`https://www.google.com/maps/search/${sensorValue.lat},${sensorValue.lng}`}
-                      >google maps</a
-                    >
-                    {/if}
-                  </td>
-                </tr>
-              {/each}
-            </table>
-          </td>
-          <td class="border border-medium p-2 text-center">
-            <v-button
-              label="Get Readings"
-              on:click|stopPropagation={() => {
-                getReadings([sensorName]);
-              }}
-            />
-          </td>
-        </tr>
-      {/each}
-    </table>
-  </div>
-</Collapse>
+    {/each}
+  </table>
+</div>

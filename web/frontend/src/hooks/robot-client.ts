@@ -2,7 +2,7 @@ import type { Client, ResponseStream, commonApi, robotApi } from '@viamrobotics/
 import { components, resources, services, statuses } from '@/stores/resources';
 import { currentWritable } from '@threlte/core';
 import { StreamManager } from '@/lib/stream-manager';
-import { onDestroy } from 'svelte';
+import { onMount } from 'svelte';
 
 const context = {
   robotClient: currentWritable<Client>(null!),
@@ -25,28 +25,39 @@ const context = {
 
 export const useRobotClient = () => context;
 
+export type DisconnectCallback = () => void
+export type ConnectCallback = () => DisconnectCallback | undefined
+
 /**
- * This hook will fire whenever a connection occurs.
+ * Pass a callback to this hook that will fire whenever an initial connection or reconnect occurs.
+ * 
+ * The callback can return a disconnection callback that will fire whenever a disconnect or unmount occurs.
+ * 
+ * @example
+ * ```ts
+ * useConnect(() => {
+ *    const clearPoll = startPolling()
+ *    return () => clearPoll()
+ * })
+ * ```
  */
-export const useConnect = (callback: () => void) => {
+export const useConnect = (callback: ConnectCallback) => {
   const { connectionStatus } = useRobotClient();
 
-  const unsub = connectionStatus.subscribe((value) => {
-    if (value === 'connected') {
-      callback();
+  let disconnectCallback: DisconnectCallback | undefined
+
+  onMount(() => {
+    const unsubscribe = connectionStatus.subscribe((value) => {
+      if (value === 'connected') {
+        disconnectCallback = callback();
+      } else if (value === 'reconnecting') {
+        disconnectCallback?.()
+      }
+    })
+
+    return () => {
+      unsubscribe()
+      disconnectCallback?.()
     }
   });
-
-  onDestroy(() => unsub());
-};
-
-/**
- * This hook will fire whenever a disconnect occurs or when a component unmounts.
- */
-export const useDisconnect = (callback: () => void) => {
-  const { statusStream } = useRobotClient();
-
-  statusStream.subscribe((update) => update?.on('end', callback));
-
-  onDestroy(callback);
 };

@@ -3,8 +3,8 @@
 import { motorApi, MotorClient, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
-import Collapse from '@/lib/components/collapse.svelte';
-import { useRobotClient } from '@/hooks/robot-client';
+import type { StopCallback } from '@/lib/components/collapse.svelte';
+import { useConnect, useRobotClient } from '@/hooks/robot-client';
 
 export let name: string;
 export let status: undefined | {
@@ -12,6 +12,7 @@ export let status: undefined | {
   position?: number
   is_moving?: boolean
 };
+export let onStop: StopCallback | undefined
 
 const motorPosFormat = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 3,
@@ -180,11 +181,7 @@ const motorStop = async () => {
   }
 };
 
-const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
-  if (!event.detail.open) {
-    return;
-  }
-
+const init = async () => {
   try {
     properties = await motorClient.getProperties();
   } catch (error) {
@@ -192,122 +189,121 @@ const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
   }
 };
 
+onStop?.(() => {
+  motorStop()
+})
+
+useConnect(() => {
+  init()
+  return () => {}
+})
+
 </script>
 
-<Collapse title={name} on:toggle={handleToggle}>
-  <v-breadcrumbs crumbs="motor" slot="title" />
-  <div class="flex items-center justify-between gap-2" slot="header">
-    {#if properties?.positionReporting}
-      <v-badge label="Position {motorPosFormat.format(status?.position ?? 0)}" />
-    {/if}
-    {#if status?.is_powered}
-      <v-badge variant="green" label="Running" />
-    {:else}
-      <v-badge variant="gray" label="Idle" />
-    {/if}
+<div class="border border-t-0 border-medium p-4">
+  {#if properties?.positionReporting}
+    <v-badge label="Position {motorPosFormat.format(status?.position ?? 0)}" />
+  {/if}
+  {#if status?.is_powered}
+    <v-badge variant="green" label="Running" />
+  {:else}
+    <v-badge variant="gray" label="Idle" />
+  {/if}
+
+  <div class='mb-6'>
+    <v-radio
+      class='inline-block'
+      label="Set power"
+      options={properties?.positionReporting ? 'Go, Go for, Go to' : 'Go'}
+      selected={movementType}
+      on:input={setMovementType}
+    />
+    <small class='block pt-2 text-xs text-subtle-2'>
+      {#if movementType === 'Go'}
+        Continuously moves
+      {:else if movementType === 'Go for'}
+        Relative to where the robot is currently
+      {:else if movementType === 'Go to'}
+        Relative to home
+      {/if}
+    </small>
+  </div>
+
+  <div class="flex flex-col gap-2">
+    <div class='flex gap-4 items-end'>
+      {#if movementType === 'Go to'}
+        <v-input
+          type="number"
+          label="Position in revolutions"
+          placeholder='0'
+          value={position}
+          class="w-36 pr-2"
+          on:input={setPosition}
+          on:blur={setPosition}
+        />
+        <v-input
+          type="number"
+          class="w-36 pr-2"
+          label="RPM"
+          placeholder='0'
+          value={rpm}
+          on:input={setRpm}
+        />
+      {:else if movementType === 'Go for'}
+        <v-input
+          type="number"
+          class="w-36"
+          label="# in revolutions"
+          placeholder='0'
+          value={revolutions}
+          on:input={setRevolutions}
+          on:blur={setRevolutions}
+        />
+        <v-radio
+          label="Direction of rotation"
+          options="Forwards, Backwards"
+          selected={direction === 1 ? 'Forwards' : 'Backwards'}
+          on:input={setDirection}
+        />
+        <v-input
+          type="number"
+          label="RPM"
+          placeholder='0'
+          class="w-36"
+          value={rpm}
+          on:input={setRpm}
+          on:blur={setRpm}
+        />
+      {:else if movementType === 'Go'}
+        <v-radio
+          label="Direction of rotation"
+          options="Forwards, Backwards"
+          selected="{direction === 1 ? 'Forwards' : 'Backwards'}"
+          on:input={setDirection}
+        />
+        <div class="w-64">
+          <v-slider
+            id="power"
+            class="ml-2 max-w-xs"
+            min="0"
+            max="100"
+            step="1"
+            suffix="%"
+            label="Power %"
+            value={power}
+            on:input={setPowerSlider}
+          />
+        </div>
+      {/if}
+    </div>
+  </div>
+
+  <div class="flex flex-row-reverse flex-wrap">
     <v-button
-      variant="danger"
-      icon="stop-circle-outline"
-      label="Stop"
-      on:click|stopPropagation={motorStop}
+      icon="play-circle-outline"
+      variant="success"
+      label="Run"
+      on:click={motorRun}
     />
   </div>
-  <div class="border border-t-0 border-medium p-4">
-    <div class='mb-6'>
-      <v-radio
-        class='inline-block'
-        label="Set power"
-        options={properties?.positionReporting ? 'Go, Go for, Go to' : 'Go'}
-        selected={movementType}
-        on:input={setMovementType}
-      />
-      <small class='block pt-2 text-xs text-subtle-2'>
-        {#if movementType === 'Go'}
-          Continuously moves
-        {:else if movementType === 'Go for'}
-          Relative to where the robot is currently
-        {:else if movementType === 'Go to'}
-          Relative to home
-        {/if}
-      </small>
-    </div>
-
-    <div class="flex flex-col gap-2">
-      <div class='flex gap-4 items-end'>
-        {#if movementType === 'Go to'}
-          <v-input
-            type="number"
-            label="Position in revolutions"
-            placeholder='0'
-            value={position}
-            class="w-36 pr-2"
-            on:input={setPosition}
-            on:blur={setPosition}
-          />
-          <v-input
-            type="number"
-            class="w-36 pr-2"
-            label="RPM"
-            placeholder='0'
-            value={rpm}
-            on:input={setRpm}
-          />
-        {:else if movementType === 'Go for'}
-          <v-input
-            type="number"
-            class="w-36"
-            label="# in revolutions"
-            placeholder='0'
-            value={revolutions}
-            on:input={setRevolutions}
-            on:blur={setRevolutions}
-          />
-          <v-radio
-            label="Direction of rotation"
-            options="Forwards, Backwards"
-            selected={direction === 1 ? 'Forwards' : 'Backwards'}
-            on:input={setDirection}
-          />
-          <v-input
-            type="number"
-            label="RPM"
-            placeholder='0'
-            class="w-36"
-            value={rpm}
-            on:input={setRpm}
-            on:blur={setRpm}
-          />
-        {:else if movementType === 'Go'}
-          <v-radio
-            label="Direction of rotation"
-            options="Forwards, Backwards"
-            selected="{direction === 1 ? 'Forwards' : 'Backwards'}"
-            on:input={setDirection}
-          />
-          <div class="w-64">
-            <v-slider
-              id="power"
-              class="ml-2 max-w-xs"
-              min="0"
-              max="100"
-              step="1"
-              suffix="%"
-              label="Power %"
-              value={power}
-              on:input={setPowerSlider}
-            />
-          </div>
-        {/if}
-      </div>
-    </div>
-
-    <div class="flex flex-row-reverse flex-wrap">
-      <v-button
-        icon="play-circle-outline"
-        variant="success"
-        label="Run"
-        on:click={motorRun}
-      />
-    </div>
-  </div>
-</Collapse>
+</div>

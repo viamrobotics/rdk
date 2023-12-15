@@ -1,14 +1,20 @@
-<!--
-  Rendering embedded maps inside of a shadow dom is currently broken for MapLibreGL.
-  This Collapse component is taken from PRIME but removes all web component behavior.
-  Once we've completed the svelte migration it can be removed and replaced with the PRIME component.
--->
+<script lang='ts' context='module'>
+  export type StopCallback = (callback: () => void) => void
+</script>
+
 <script lang="ts">
 
 import { onMount, createEventDispatcher, tick } from 'svelte';
+import { Button } from '@viamrobotics/prime-core';
 
 export let title = '';
+export let crumbs = '';
 export let open = Boolean(localStorage.getItem(`rc.collapse.${title}.open`));
+export let hasStop = false
+
+let stopCallback = () => {}
+
+const onStop = (callback: () => void) => { stopCallback = callback }
 
 const dispatch = createEventDispatcher();
 
@@ -30,6 +36,11 @@ const handleClick = async (event: Event) => {
   dispatch('toggle', { open });
 };
 
+const handleStopClick = (event: MouseEvent) => {
+  event.preventDefault()
+  stopCallback()
+}
+
 onMount(() => {
   if (open) {
     dispatch('toggle', { open: true });
@@ -39,11 +50,12 @@ onMount(() => {
 </script>
 
 <div class="relative w-full">
-  <div
+  <button
     class='
       border border-light bg-white w-full py-2 px-4
       flex flex-reverse items-center justify-between text-default cursor-pointer
     '
+    aria-label='Toggle card'
     on:click={handleClick}
     on:keyup|stopPropagation|preventDefault={handleClick}
   >
@@ -52,11 +64,22 @@ onMount(() => {
         <h2 class="m-0 text-sm">{title}</h2>
       {/if}
 
-      <slot name="title" />
+      {#if crumbs}
+        <v-breadcrumbs {crumbs} />
+      {/if}
     </div>
 
     <div class="h-full flex items-center gap-3">
-      <slot name="header" />
+      {#if hasStop}
+        <Button
+          variant="danger"
+          icon="stop-circle-outline"
+          tabindex='0'
+          on:click={handleStopClick}
+        >
+          Stop
+        </Button>
+      {/if}
 
       <v-icon
         class:rotate-0={!open}
@@ -65,9 +88,9 @@ onMount(() => {
         size="2xl"
       />
     </div>
-  </div>
+  </button>
 
   {#if open}
-    <slot />
+    <slot {onStop} />
   {/if}
 </div>

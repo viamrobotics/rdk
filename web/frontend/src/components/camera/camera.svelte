@@ -1,10 +1,9 @@
 <script lang="ts">
 
-import { onMount } from 'svelte';
 import { displayError } from '@/lib/error';
 import { CameraClient, type ServiceError } from '@viamrobotics/sdk';
 import { selectedMap } from '@/lib/camera-state';
-import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
+import { useRobotClient, useConnect } from '@/hooks/robot-client';
 
 export let cameraName: string;
 export let showExportScreenshot: boolean;
@@ -55,25 +54,25 @@ const exportScreenshot = async () => {
   window.open(URL.createObjectURL(blob), '_blank');
 };
 
-onMount(() => {
+useConnect(() => {
   videoEl.srcObject = cameraManager.videoStream;
 
   cameraManager.onOpen = () => {
     videoEl.srcObject = cameraManager.videoStream;
   };
-});
 
-useDisconnect(() => {
-  if (isLive) {
-    cameraManager.removeStream();
+  return () => {
+    if (isLive) {
+      cameraManager.removeStream();
+    }
+
+    cameraManager.onOpen = undefined;
+
+    isLive = false;
+
+    clearFrameInterval();
   }
-
-  cameraManager.onOpen = undefined;
-
-  isLive = false;
-
-  clearFrameInterval();
-});
+})
 
 // on refreshRate change update camera and manage live connections
 $: {

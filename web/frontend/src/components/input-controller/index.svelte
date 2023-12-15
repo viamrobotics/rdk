@@ -1,7 +1,5 @@
 <script lang="ts">
-
   import type { inputControllerApi } from '@viamrobotics/sdk';
-  import Collapse from '@/lib/components/collapse.svelte';
 
   // TODO (RSDK-4451): Figure out why value is not always defined
   type InputControllerEvent = (Omit<inputControllerApi.Event.AsObject, 'value'> & {value?: number});
@@ -72,29 +70,25 @@
   })(events);
 </script>
 
-<Collapse title={name}>
-  <v-breadcrumbs slot="title" crumbs="input_controller" />
-  <div slot="header" class="flex flex-wrap items-center">
-    {#if connected}
-      <v-badge color="green" label="Connected" />
-    {:else}
-      <v-badge color="gray" label="Disconnected" />
-    {/if}
-  </div>
-  <div class="border border-t-0 border-medium p-4">
-    {#if connected}
-      {#each controls as control (control[0])}
-        <v-input
-          readonly
-          class='w-20'
-          labelposition='left'
-          label={control[0]}
-          value={control[1]}
-        />
-      {/each}
-    {/if}
-  </div>
-</Collapse>
+<div class="border border-t-0 border-medium p-4">
+  {#if connected}
+    <v-badge color="green" label="Connected" />
+  {:else}
+    <v-badge color="gray" label="Disconnected" />
+  {/if}
+
+  {#if connected}
+    {#each controls as control (control[0])}
+      <v-input
+        readonly
+        class='w-20'
+        labelposition='left'
+        label={control[0]}
+        value={control[1]}
+      />
+    {/each}
+  {/if}
+</div>
 
 <style>
   .subtitle {

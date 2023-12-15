@@ -1,13 +1,11 @@
 <script lang='ts'>
 
-import { onMount } from 'svelte';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import { ConnectionClosedError } from '@viamrobotics/rpc';
 import { inputControllerApi as InputController, type ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import { rcLogConditionally } from '@/lib/log';
-import Collapse from '@/lib/components/collapse.svelte';
-import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
+import { useRobotClient, useConnect } from '@/hooks/robot-client';
 
 export let name: string;
 
@@ -223,19 +221,24 @@ const tick = () => {
   handle = window.setTimeout(tick, 10);
 };
 
-onMount(() => {
-  window.addEventListener('gamepadconnected', (event) => {
-    if (gamepadIdx) {
-      return;
-    }
-    gamepadIdx = event.gamepad.index;
-    tick();
-  });
-  window.addEventListener('gamepaddisconnected', (event) => {
-    if (gamepadIdx === event.gamepad.index || !currentGamepad?.connected) {
-      gamepadIdx = null;
-    }
-  });
+const handleGamepadConnect = (event: GamepadEvent) => {
+  if (gamepadIdx) {
+    return;
+  }
+  gamepadIdx = event.gamepad.index;
+  tick();
+}
+
+const handleGamepadDisconnect = (event: GamepadEvent) => {
+  if (gamepadIdx === event.gamepad.index || !currentGamepad?.connected) {
+    gamepadIdx = null;
+  }
+}
+
+useConnect(() => {
+  window.addEventListener('gamepadconnected', handleGamepadConnect);
+  window.addEventListener('gamepaddisconnected', handleGamepadDisconnect);
+
   // initial search
   const pads = navigator.getGamepads();
   for (const pad of pads) {
@@ -250,9 +253,13 @@ onMount(() => {
   }
   prevStates = { ...prevStates, ...curStates };
   tick();
-});
 
-useDisconnect(() => clearTimeout(handle));
+  return () => {
+    clearTimeout(handle)
+    window.removeEventListener('gamepadconnected', handleGamepadConnect);
+    window.removeEventListener('gamepaddisconnected', handleGamepadDisconnect);
+  }
+})
 
 $: {
   connectEvent(enabled);
@@ -260,16 +267,14 @@ $: {
 
 </script>
 
-<Collapse title={name}>
-  <svelte:fragment slot='title'>
-    <v-breadcrumbs crumbs="input_controller" />
+<div class="h-full w-full border border-t-0 border-medium p-4">
+  <div class="flex flex-row">
+    <v-switch
+      label='Enable gamepad'
+      value={enabled ? 'on' : 'off'}
+      on:input={() => (enabled = !enabled)}
+    />
 
-    {#if currentGamepad?.connected}
-      ({currentGamepad.id})
-    {/if}
-  </svelte:fragment>
-
-  <div slot="header">
     {#if currentGamepad?.connected && enabled}
       <v-badge variant='green' label='Enabled' />
     {:else}
@@ -277,27 +282,17 @@ $: {
     {/if}
   </div>
 
-  <div class="h-full w-full border border-t-0 border-medium p-4">
-    <div class="flex flex-row">
-      <v-switch
-        label='Enable gamepad'
-        value={enabled ? 'on' : 'off'}
-        on:input={() => (enabled = !enabled)}
-      />
+  {#if currentGamepad?.connected}
+    <div class="flex h-full w-full flex-row justify-between gap-2">
+      {#each Object.keys(curStates) as stateName, value}
+        <div class="ml-0 flex w-[8ex] flex-col text-center">
+          <p class="subtitle m-0">{stateName}</p>
+          {value.toFixed((/X|Y|Z$/u).test(stateName.toString()) ? 4 : 0)}
+        </div>
+      {/each}
     </div>
-
-    {#if currentGamepad?.connected}
-      <div class="flex h-full w-full flex-row justify-between gap-2">
-        {#each Object.keys(curStates) as stateName, value}
-          <div class="ml-0 flex w-[8ex] flex-col text-center">
-            <p class="subtitle m-0">{stateName}</p>
-            {value.toFixed((/X|Y|Z$/u).test(stateName.toString()) ? 4 : 0)}
-          </div>
-        {/each}
-      </div>
-    {/if}
-  </div>
-</Collapse>
+  {/if}
+</div>
 
 <style>
 

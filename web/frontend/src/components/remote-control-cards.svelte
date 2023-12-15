@@ -24,9 +24,10 @@ import Servo from './servo/index.svelte';
 import Sensors from './sensors/index.svelte';
 import Slam from './slam/index.svelte';
 import Client from '@/lib/components/robot-client.svelte';
+import Collapse from '@/lib/components/collapse.svelte';
 import type { RCOverrides } from '@/types/overrides';
 
-const { resources, components, services, statuses, sensorNames } = useRobotClient();
+const { resources, components, services, statuses, sensorNames, sessionsSupported } = useRobotClient();
 
 export let host: string;
 export let bakedAuth: { authEntity?: string; creds?: Credentials; } | undefined = {};
@@ -94,85 +95,115 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
   <div class="flex flex-col gap-4 p-3">
     <!-- ******* BASE *******  -->
     {#each filterSubtype($components, 'base') as { name } (name)}
-      <Base {name} />
+      <Collapse title={name} crumbs='base' hasStop let:onStop>
+        <Base {name} {onStop} />
+      </Collapse>
     {/each}
 
     <!-- ******* SLAM *******  -->
     {#each filterSubtype($services, 'slam') as { name } (name)}
-      <Slam {name} overrides={overrides?.slam} />
+      <Collapse title={name} crumbs="slam" hasStop let:onStop>
+        <Slam {name} overrides={overrides?.slam} {onStop} />
+      </Collapse>
     {/each}
 
     <!-- ******* ENCODER *******  -->
     {#each filterSubtype($components, 'encoder') as { name } (name)}
-      <Encoder {name} />
+      <Collapse title={name} crumbs="encoder">
+        <Encoder {name} />
+      </Collapse>
     {/each}
 
     <!-- ******* GANTRY *******  -->
     {#each filterWithStatus($components, $statuses, 'gantry') as gantry (gantry.name)}
-      <Gantry
-        name={gantry.name}
-        status={getStatus($statuses, gantry)}
-      />
+      <Collapse title={gantry.name} crumbs="gantry" hasStop let:onStop>
+        <Gantry
+          name={gantry.name}
+          status={getStatus($statuses, gantry)}
+          {onStop}
+        />
+      </Collapse>
     {/each}
 
     <!-- ******* MOVEMENT SENSOR *******  -->
     {#each filterSubtype($components, 'movement_sensor') as { name } (name)}
-      <MovementSensor {name} />
+      <Collapse title={name} crumbs="movement_sensor">
+        <MovementSensor {name} />
+      </Collapse>
     {/each}
 
      <!-- ******* POWER SENSOR *******  -->
     {#each filterSubtype($components, 'power_sensor') as { name } (name)}
-      <PowerSensor {name} />
+      <Collapse title={name} crumbs="power_sensor">
+        <PowerSensor {name} />
+      </Collapse>
     {/each}
 
     <!-- ******* ARM *******  -->
     {#each filterSubtype($components, 'arm') as arm (arm.name)}
-      <Arm
-        name={arm.name}
-        status={getStatus($statuses, arm)}
-      />
+      <Collapse title={arm.name} crumbs="arm" hasStop let:onStop>
+        <Arm
+          name={arm.name}
+          status={getStatus($statuses, arm)}
+          {onStop}
+        />
+      </Collapse>
     {/each}
 
     <!-- ******* GRIPPER *******  -->
     {#each filterSubtype($components, 'gripper') as { name } (name)}
-      <Gripper {name} />
+      <Collapse title={name} crumbs="gripper" hasStop let:onStop>
+        <Gripper {name} {onStop} />
+      </Collapse>
     {/each}
 
     <!-- ******* SERVO *******  -->
     {#each filterWithStatus($components, $statuses, 'servo') as servo (servo.name)}
-      <Servo
-        name={servo.name}
-        status={getStatus($statuses, servo)}
-      />
+      <Collapse title={servo.name} crumbs="servo" hasStop let:onStop>
+        <Servo
+          name={servo.name}
+          status={getStatus($statuses, servo)}
+          {onStop}
+        />
+      </Collapse>
     {/each}
 
     <!-- ******* MOTOR *******  -->
     {#each filterWithStatus($components, $statuses, 'motor') as motor (motor.name)}
-      <Motor
-        name={motor.name}
-        status={getStatus($statuses, motor)}
-      />
+      <Collapse title={motor.name} crumbs="motor" hasStop let:onStop>
+        <Motor
+          name={motor.name}
+          status={getStatus($statuses, motor)}
+          {onStop}
+        />
+      </Collapse>
     {/each}
 
     <!-- ******* INPUT VIEW *******  -->
     {#each filteredInputControllerList as controller (controller.name)}
-      <InputController
-        name={controller.name}
-        status={getStatus($statuses, controller)}
-      />
+      <Collapse title={controller.name} crumbs="input_controller">
+        <InputController
+          name={controller.name}
+          status={getStatus($statuses, controller)}
+        />
+      </Collapse>
     {/each}
 
     <!-- ******* WEB CONTROLS *******  -->
     {#each filteredWebGamepads as { name } (name)}
-      <Gamepad {name} />
+      <Collapse title={name} crumbs='input_controller'>
+        <Gamepad {name} />
+      </Collapse>
     {/each}
 
     <!-- ******* BOARD *******  -->
     {#each filterWithStatus($components, $statuses, 'board') as board (board.name)}
-      <Board
-        name={board.name}
-        status={getStatus($statuses, board)}
-      />
+      <Collapse title={board.name} crumbs="board">
+        <Board
+          name={board.name}
+          status={getStatus($statuses, board)}
+        />
+      </Collapse>
     {/each}
 
     <!-- ******* CAMERA *******  -->
@@ -180,28 +211,38 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
 
     <!-- ******* NAVIGATION *******  -->
     {#each filterSubtype($services, 'navigation') as { name } (name)}
-      <Navigation {name} />
+      <Collapse title={name} crumbs='navigation' hasStop let:onStop>
+        <Navigation {name} {onStop} />
+      </Collapse>
     {/each}
 
     <!-- ******* SENSOR *******  -->
     {#if Object.keys($sensorNames).length > 0}
-      <Sensors
-        name={filterSubtype($resources, 'sensors', { remote: false })[0]?.name ?? ''}
-        sensorNames={$sensorNames}
-      />
+      <Collapse title="Sensors">
+        <Sensors
+          name={filterSubtype($resources, 'sensors', { remote: false })[0]?.name ?? ''}
+          sensorNames={$sensorNames}
+        />
+      </Collapse>
     {/if}
 
     <!-- ******* AUDIO *******  -->
     {#each filterSubtype($components, 'audio_input') as { name } (name)}
-      <AudioInput {name} />
+      <Collapse title={name} crumbs="audio_input">
+        <AudioInput {name} />
+      </Collapse>
     {/each}
 
     <!-- ******* DO *******  -->
     {#if filterSubtype($components, 'generic').length > 0}
-      <DoCommand resources={filterSubtype($components, 'generic')} />
+      <Collapse title="DoCommand()">
+        <DoCommand resources={filterSubtype($components, 'generic')} />
+      </Collapse>
     {/if}
 
     <!-- ******* OPERATIONS AND SESSIONS *******  -->
-    <OperationsSessions />
+    <Collapse title={$sessionsSupported ? 'Operations & Sessions' : 'Operations'}>
+      <OperationsSessions />
+    </Collapse>
   </div>
 </Client>

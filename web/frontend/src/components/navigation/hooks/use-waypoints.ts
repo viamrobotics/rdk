@@ -2,7 +2,7 @@ import { type LngLat, formatWaypoints } from '@/api/navigation';
 import { type ServiceError } from '@viamrobotics/sdk';
 import { type Waypoint } from '@viamrobotics/prime-blocks';
 import { writable } from 'svelte/store';
-import { useDisconnect } from '@/hooks/robot-client';
+import { useConnect } from '@/hooks/robot-client';
 import { setAsyncInterval } from '@/lib/schedule';
 import { useNavClient } from './use-nav-client';
 
@@ -47,9 +47,11 @@ export const useWaypoints = (name: string) => {
     }
   };
 
-  const clearUpdateWaypointInterval = setAsyncInterval(updateWaypoints, 1000);
-  updateWaypoints();
-  useDisconnect(() => clearUpdateWaypointInterval());
+  useConnect(() => {
+    const clearInterval = setAsyncInterval(updateWaypoints, 1000);
+    void updateWaypoints();
+    return () => clearInterval()
+  })
 
   return { waypoints, error, addWaypoint, deleteWaypoint };
 };
