@@ -126,7 +126,7 @@ func ListLocationsAction(c *cli.Context) error {
 	return listLocations(orgStr)
 }
 
-// ListRobotsAction is the corresponding Action for 'robots list'.
+// ListRobotsAction is the corresponding Action for 'machines list'.
 func ListRobotsAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -136,7 +136,7 @@ func ListRobotsAction(c *cli.Context) error {
 	locStr := c.String(locationFlag)
 	robots, err := client.listRobots(orgStr, locStr)
 	if err != nil {
-		return errors.Wrap(err, "could not list robots")
+		return errors.Wrap(err, "could not list machines")
 	}
 
 	if orgStr == "" || locStr == "" {
@@ -149,7 +149,7 @@ func ListRobotsAction(c *cli.Context) error {
 	return nil
 }
 
-// RobotsStatusAction is the corresponding Action for 'robots status'.
+// RobotsStatusAction is the corresponding Action for 'machines status'.
 func RobotsStatusAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -158,13 +158,13 @@ func RobotsStatusAction(c *cli.Context) error {
 
 	orgStr := c.String(organizationFlag)
 	locStr := c.String(locationFlag)
-	robot, err := client.robot(orgStr, locStr, c.String(robotFlag))
+	robot, err := client.robot(orgStr, locStr, c.String(machineFlag))
 	if err != nil {
 		return err
 	}
 	parts, err := client.robotParts(client.selectedOrg.Id, client.selectedLoc.Id, robot.Id)
 	if err != nil {
-		return errors.Wrap(err, "could not get robot parts")
+		return errors.Wrap(err, "could not get machine parts")
 	}
 
 	if orgStr == "" || locStr == "" {
@@ -204,7 +204,7 @@ func RobotsStatusAction(c *cli.Context) error {
 	return nil
 }
 
-// RobotsLogsAction is the corresponding Action for 'robots logs'.
+// RobotsLogsAction is the corresponding Action for 'machines logs'.
 func RobotsLogsAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -213,15 +213,15 @@ func RobotsLogsAction(c *cli.Context) error {
 
 	orgStr := c.String(organizationFlag)
 	locStr := c.String(locationFlag)
-	robotStr := c.String(robotFlag)
+	robotStr := c.String(machineFlag)
 	robot, err := client.robot(orgStr, locStr, robotStr)
 	if err != nil {
-		return errors.Wrap(err, "could not get robot")
+		return errors.Wrap(err, "could not get machine")
 	}
 
 	parts, err := client.robotParts(orgStr, locStr, robotStr)
 	if err != nil {
-		return errors.Wrap(err, "could not get robot parts")
+		return errors.Wrap(err, "could not get machine parts")
 	}
 
 	for i, part := range parts {
@@ -241,14 +241,14 @@ func RobotsLogsAction(c *cli.Context) error {
 			"\t",
 			header,
 		); err != nil {
-			return errors.Wrap(err, "could not print robot logs")
+			return errors.Wrap(err, "could not print machine logs")
 		}
 	}
 
 	return nil
 }
 
-// RobotsPartStatusAction is the corresponding Action for 'robots part status'.
+// RobotsPartStatusAction is the corresponding Action for 'machines part status'.
 func RobotsPartStatusAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -257,15 +257,15 @@ func RobotsPartStatusAction(c *cli.Context) error {
 
 	orgStr := c.String(organizationFlag)
 	locStr := c.String(locationFlag)
-	robotStr := c.String(robotFlag)
+	robotStr := c.String(machineFlag)
 	robot, err := client.robot(orgStr, locStr, robotStr)
 	if err != nil {
-		return errors.Wrap(err, "could not get robot")
+		return errors.Wrap(err, "could not get machine")
 	}
 
 	part, err := client.robotPart(orgStr, locStr, robotStr, c.String(partFlag))
 	if err != nil {
-		return errors.Wrap(err, "could not get robot part")
+		return errors.Wrap(err, "could not get machine part")
 	}
 
 	if orgStr == "" || locStr == "" || robotStr == "" {
@@ -288,7 +288,7 @@ func RobotsPartStatusAction(c *cli.Context) error {
 	return nil
 }
 
-// RobotsPartLogsAction is the corresponding Action for 'robots part logs'.
+// RobotsPartLogsAction is the corresponding Action for 'machines part logs'.
 func RobotsPartLogsAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -297,10 +297,10 @@ func RobotsPartLogsAction(c *cli.Context) error {
 
 	orgStr := c.String(organizationFlag)
 	locStr := c.String(locationFlag)
-	robotStr := c.String(robotFlag)
+	robotStr := c.String(machineFlag)
 	robot, err := client.robot(orgStr, locStr, robotStr)
 	if err != nil {
-		return errors.Wrap(err, "could not get robot")
+		return errors.Wrap(err, "could not get machine")
 	}
 
 	var header string
@@ -323,7 +323,7 @@ func RobotsPartLogsAction(c *cli.Context) error {
 	)
 }
 
-// RobotsPartRunAction is the corresponding Action for 'robots part run'.
+// RobotsPartRunAction is the corresponding Action for 'machines part run'.
 func RobotsPartRunAction(c *cli.Context) error {
 	svcMethod := c.Args().First()
 	if svcMethod == "" {
@@ -344,7 +344,7 @@ func RobotsPartRunAction(c *cli.Context) error {
 	return client.runRobotPartCommand(
 		c.String(organizationFlag),
 		c.String(locationFlag),
-		c.String(robotFlag),
+		c.String(machineFlag),
 		c.String(partFlag),
 		svcMethod,
 		c.String(runFlagData),
@@ -354,9 +354,9 @@ func RobotsPartRunAction(c *cli.Context) error {
 	)
 }
 
-// RobotsPartShellAction is the corresponding Action for 'robots part shell'.
+// RobotsPartShellAction is the corresponding Action for 'machines part shell'.
 func RobotsPartShellAction(c *cli.Context) error {
-	infof(c.App.Writer, "Ensure robot part has a valid shell type service")
+	infof(c.App.Writer, "Ensure machine part has a valid shell type service")
 
 	client, err := newViamClient(c)
 	if err != nil {
@@ -372,7 +372,7 @@ func RobotsPartShellAction(c *cli.Context) error {
 	return client.startRobotPartShell(
 		c.String(organizationFlag),
 		c.String(locationFlag),
-		c.String(robotFlag),
+		c.String(machineFlag),
 		c.String(partFlag),
 		c.Bool(debugFlag),
 		logger,
@@ -732,7 +732,7 @@ func (c *viamClient) robot(orgStr, locStr, robotStr string) (*apppb.Robot, error
 		Id: robotStr,
 	})
 	if err != nil {
-		return nil, errors.Errorf("no robot found for %q", robotStr)
+		return nil, errors.Errorf("no machine found for %q", robotStr)
 	}
 
 	return resp.GetRobot(), nil
@@ -751,7 +751,7 @@ func (c *viamClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb
 			return part, nil
 		}
 	}
-	return nil, errors.Errorf("no robot part found for %q", partStr)
+	return nil, errors.Errorf("no machine part found for %q", partStr)
 }
 
 func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool) ([]*apppb.LogEntry, error) {
@@ -960,7 +960,7 @@ func (c *viamClient) startRobotPartShell(
 	}
 	robotClient, err := client.New(dialCtx, fqdn, logger, client.WithDialOptions(rpcOpts...))
 	if err != nil {
-		return errors.Wrap(err, "could not connect to robot part")
+		return errors.Wrap(err, "could not connect to machine part")
 	}
 
 	defer func() {
@@ -977,17 +977,17 @@ func (c *viamClient) startRobotPartShell(
 		}
 	}
 	if found == nil {
-		return errors.New("shell service is not enabled on this robot part")
+		return errors.New("shell service is not enabled on this machine part")
 	}
 
 	shellRes, err := robotClient.ResourceByName(*found)
 	if err != nil {
-		return errors.Wrap(err, "could not get shell service from robot part")
+		return errors.Wrap(err, "could not get shell service from machine part")
 	}
 
 	shellSvc, ok := shellRes.(shell.Service)
 	if !ok {
-		return errors.New("could not get shell service from robot part")
+		return errors.New("could not get shell service from machine part")
 	}
 
 	input, output, err := shellSvc.Shell(c.c.Context, map[string]interface{}{})
