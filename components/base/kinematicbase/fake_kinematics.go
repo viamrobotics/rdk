@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/tpspace"
@@ -78,12 +79,18 @@ func (fk *fakeDiffDriveKinematics) Kinematics() referenceframe.Frame {
 }
 
 func (fk *fakeDiffDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	fk.lock.RLock()
 	defer fk.lock.RUnlock()
 	return fk.inputs, nil
 }
 
 func (fk *fakeDiffDriveKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	_, err := fk.planningFrame.Transform(inputs)
 	if err != nil {
 		return err
@@ -106,6 +113,9 @@ func (fk *fakeDiffDriveKinematics) ErrorState(
 }
 
 func (fk *fakeDiffDriveKinematics) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	fk.lock.RLock()
 	inputs := fk.inputs
 	fk.lock.RUnlock()
@@ -125,6 +135,46 @@ type fakePTGKinematics struct {
 	lock        sync.RWMutex
 	logger      logging.Logger
 	sleepTime   int
+}
+
+// NewPTGFrameFromKinematicOptions returns a new PTGFrame based on the properties & geometries of the base.
+func NewPTGFrameFromKinematicOptions(
+	ctx context.Context,
+	base base.Base,
+	options Options,
+	logger logging.Logger,
+) (referenceframe.Frame, error) {
+	properties, err := base.Properties(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	baseMillimetersPerSecond := options.LinearVelocityMMPerSec
+	if baseMillimetersPerSecond == 0 {
+		baseMillimetersPerSecond = defaultLinearVelocityMMPerSec
+	}
+
+	baseTurningRadiusMeters := properties.TurningRadiusMeters
+	if baseTurningRadiusMeters < 0 {
+		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than or equal to zero")
+	}
+
+	geometries, err := base.Geometries(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return tpspace.NewPTGFrameFromKinematicOptions(
+		base.Name().ShortName(),
+		logger,
+		baseMillimetersPerSecond,
+		options.AngularVelocityDegsPerSec,
+		baseTurningRadiusMeters,
+		options.MaxMoveStraightMM, // If zero, will use default on the receiver end.
+		0,                         // If zero, will use default on the receiver end.
+		geometries,
+		options.NoSkidSteer,
+	)
 }
 
 // WrapWithFakePTGKinematics creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled
@@ -189,15 +239,58 @@ func WrapWithFakePTGKinematics(
 	return fk, nil
 }
 
+// WrapWithFakePTGKinematicsWithFrameReq is the request to WrapWithFakePTGKinematicsWithFrame.
+type WrapWithFakePTGKinematicsWithFrameReq struct {
+	Base        *fake.Base
+	Origin      *referenceframe.PoseInFrame
+	Options     Options
+	SensorNoise spatialmath.Pose
+	Frame       referenceframe.Frame
+	SleepTime   time.Duration
+}
+
+// WrapWithFakePTGKinematicsWithFrame creates a PTG KinematicBase from
+// the fake Base & frame so that it satisfies the ModelFramer and InputEnabled
+// interfaces.
+func WrapWithFakePTGKinematicsWithFrame(
+	ctx context.Context,
+	req WrapWithFakePTGKinematicsWithFrameReq,
+	logger logging.Logger,
+) (KinematicBase, error) {
+	if req.Base == nil {
+		return nil, errors.New("WrapWithFakePTGKinematicsWithFrameReq.Base can't be nil")
+	}
+
+	sensorNoise := req.SensorNoise
+	if sensorNoise == nil {
+		sensorNoise = spatialmath.NewZeroPose()
+	}
+	return &fakePTGKinematics{
+		Base:        req.Base,
+		frame:       req.Frame,
+		origin:      req.Origin,
+		sensorNoise: sensorNoise,
+		logger:      logger,
+		options:     req.Options,
+		sleepTime:   int(req.SleepTime.Milliseconds()),
+	}, nil
+}
+
 func (fk *fakePTGKinematics) Kinematics() referenceframe.Frame {
 	return fk.frame
 }
 
 func (fk *fakePTGKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	return make([]referenceframe.Input, 3), nil
 }
 
 func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	newPose, err := fk.frame.Transform(inputs)
 	if err != nil {
 		return err
@@ -206,8 +299,10 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referencef
 	fk.lock.Lock()
 	fk.origin = referenceframe.NewPoseInFrame(fk.origin.Parent(), spatialmath.Compose(fk.origin.Pose(), newPose))
 	fk.lock.Unlock()
-	time.Sleep(time.Duration(fk.sleepTime) * time.Millisecond)
-	return nil
+	timeoutCtx, cancelFn := context.WithTimeout(ctx, time.Millisecond*time.Duration(fk.sleepTime))
+	defer cancelFn()
+	<-timeoutCtx.Done()
+	return ctx.Err()
 }
 
 func (fk *fakePTGKinematics) ErrorState(
@@ -215,10 +310,16 @@ func (fk *fakePTGKinematics) ErrorState(
 	plan [][]referenceframe.Input,
 	currentNode int,
 ) (spatialmath.Pose, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	return fk.sensorNoise, nil
 }
 
 func (fk *fakePTGKinematics) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	fk.lock.RLock()
 	defer fk.lock.RUnlock()
 	origin := fk.origin
