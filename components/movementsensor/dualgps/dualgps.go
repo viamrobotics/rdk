@@ -21,7 +21,7 @@ import (
 // the default offset between the two gps devices describes a setup where
 // one gps is mounted on the right side of the base and
 // the other gps is mounted on the left side of the base
-// works with gps-rtk modules. This driver si not guaranteed to be performant with
+// works with gps-rtk modules. This driver is not guaranteed to be performant with
 // non-rtk corrected gps modules with larger error in their position.
 //   ___________
 //  |   base    |

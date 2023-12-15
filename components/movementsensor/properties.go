@@ -7,7 +7,7 @@ import pb "go.viam.com/api/component/movementsensor/v1"
 // The order is in terms of order of derivatives in time
 // with position, orientation, compassheading at the top (zeroth derivative)
 // linear and angular velocities next (first derivative)
-// linear acceleration laste (second derivative).
+// linear acceleration last (second derivative).
 type Properties struct {
 	PositionSupported           bool
 	OrientationSupported        bool
