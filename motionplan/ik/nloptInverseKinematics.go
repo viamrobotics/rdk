@@ -338,7 +338,7 @@ func (ik *NloptIK) calcJump(testJump float64, seed []referenceframe.Input, solve
 	seedDist := solveMetric(mInput)
 	for i, testVal := range seed {
 		seedTest := append(make([]referenceframe.Input, 0, len(seed)), seed...)
-		for jumpVal := testJump; jumpVal < 1; jumpVal *= 10 {
+		for jumpVal := testJump; jumpVal < 0.1; jumpVal *= 10 {
 			seedTest[i] = referenceframe.Input{testVal.Value + jumpVal}
 			if seedTest[i].Value > ik.upperBound[i] {
 				seedTest[i] = referenceframe.Input{testVal.Value - jumpVal}
