@@ -1712,20 +1712,20 @@ func TestMoveOnGlobe(t *testing.T) {
 		defer ms.Close(ctx)
 
 		// Construct a set of obstacles that entirely enclose the goal point
-		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 50, Y: 0, Z: 0})
-		boxDims := r3.Vector{X: 40, Y: 6660, Z: 10}
+		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 250, Y: 0, Z: 0})
+		boxDims := r3.Vector{X: 20, Y: 6660, Z: 10}
 		geometry1, err := spatialmath.NewBox(boxPose, boxDims, "wall1")
 		test.That(t, err, test.ShouldBeNil)
 		boxPose = spatialmath.NewPoseFromPoint(r3.Vector{X: 5000, Y: 0, Z: 0})
-		boxDims = r3.Vector{X: 40, Y: 6660, Z: 10}
+		boxDims = r3.Vector{X: 20, Y: 6660, Z: 10}
 		geometry2, err := spatialmath.NewBox(boxPose, boxDims, "wall2")
 		test.That(t, err, test.ShouldBeNil)
 		boxPose = spatialmath.NewPoseFromPoint(r3.Vector{X: 2500, Y: 2500, Z: 0})
-		boxDims = r3.Vector{X: 6660, Y: 40, Z: 10}
+		boxDims = r3.Vector{X: 6660, Y: 20, Z: 10}
 		geometry3, err := spatialmath.NewBox(boxPose, boxDims, "wall3")
 		test.That(t, err, test.ShouldBeNil)
 		boxPose = spatialmath.NewPoseFromPoint(r3.Vector{X: 2500, Y: -2500, Z: 0})
-		boxDims = r3.Vector{X: 6660, Y: 40, Z: 10}
+		boxDims = r3.Vector{X: 6660, Y: 20, Z: 10}
 		geometry4, err := spatialmath.NewBox(boxPose, boxDims, "wall4")
 		test.That(t, err, test.ShouldBeNil)
 		geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometry1, geometry2, geometry3, geometry4})
