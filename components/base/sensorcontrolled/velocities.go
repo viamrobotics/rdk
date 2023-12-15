@@ -37,6 +37,39 @@ func (sb *sensorBase) setupControlLoops() error {
 	return nil
 }
 
+func (sb *sensorBase) updateControlConfig(
+	ctx context.Context, linearValue, angularValue float64,
+) error {
+	// set linear setpoint config
+	linConf := control.BlockConfig{
+		Name: "linear_setpoint",
+		Type: "constant",
+		Attribute: rdkutils.AttributeMap{
+			// conver mmPerSec to mPerSec
+			"constant_val": linearValue / 1000.0,
+		},
+		DependsOn: []string{},
+	}
+	if err := sb.loop.SetConfigAt(ctx, "linear_setpoint", linConf); err != nil {
+		return err
+	}
+
+	// set angular setpoint config
+	angConf := control.BlockConfig{
+		Name: "angular_setpoint",
+		Type: "constant",
+		Attribute: rdkutils.AttributeMap{
+			"constant_val": angularValue,
+		},
+		DependsOn: []string{},
+	}
+	if err := sb.loop.SetConfigAt(ctx, "angular_setpoint", angConf); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (sb *sensorBase) SetVelocity(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
@@ -71,30 +104,7 @@ func (sb *sensorBase) SetVelocity(
 		}
 		sb.loop = loop
 
-		// set linear setpoint config
-		linConf := control.BlockConfig{
-			Name: "linear_setpoint",
-			Type: "constant",
-			Attribute: rdkutils.AttributeMap{
-				// conver mmPerSec to mPerSec
-				"constant_val": linear.Y / 1000.0,
-			},
-			DependsOn: []string{},
-		}
-		if err := sb.loop.SetConfigAt(ctx, "linear_setpoint", linConf); err != nil {
-			return err
-		}
-
-		// set angular setpoint config
-		angConf := control.BlockConfig{
-			Name: "angular_setpoint",
-			Type: "constant",
-			Attribute: rdkutils.AttributeMap{
-				"constant_val": angular.Z,
-			},
-			DependsOn: []string{},
-		}
-		if err := sb.loop.SetConfigAt(ctx, "angular_setpoint", angConf); err != nil {
+		if err := sb.updateControlConfig(ctx, linear.Y, angular.Z); err != nil {
 			return err
 		}
 
