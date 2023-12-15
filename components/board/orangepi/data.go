@@ -2,10 +2,10 @@ package orangepi
 
 import "go.viam.com/rdk/components/board/genericlinux"
 
-const OPzero2 = "OrangePi Zero2"
+const opzero2 = "OrangePi Zero2"
 
 var boardInfoMappings = map[string]genericlinux.BoardInformation{
-	OPzero2: {
+	opzero2: {
 		PinDefinitions: []genericlinux.PinDefinition{
 			{Name: "3", DeviceName: "gpiochip0", LineNumber: 229},
 			{Name: "5", DeviceName: "gpiochip0", LineNumber: 228},
