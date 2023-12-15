@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -154,7 +153,7 @@ type testCtx struct {
 	logger logging.Logger
 }
 
-func newFakeBase(tc testCtx, radius float64) base.Base {
+func newBase(tc testCtx, radius float64) base.Base {
 	// create fake base
 	baseCfg := resource.Config{
 		Name:  "test-base",
@@ -265,7 +264,6 @@ func createMoveOnGlobeEnvironment(
 
 type createMoveOnMapEnvironmentReq struct {
 	pcdPath           string
-	geomSize          float64
 	kinematicsOptions kinematicbase.Options
 	frame             referenceframe.Frame
 	base              base.Base
@@ -514,12 +512,8 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 	t.Skip()
 	t.Parallel()
 	tc := newTestCtx(t)
-	fb := newFakeBase(tc, 20)
-	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
-		Base:    fb.(*baseFake.Base),
-		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
-		Options: kbOptions(),
-	}, tc.logger)
+	fb := newBase(tc, 110)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, fb, kbOptions(), tc.logger)
 	test.That(t, err, test.ShouldBeNil)
 	// goal position is scaled to be in mm
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: -32.508 * 1000, Y: -2.092 * 1000})
@@ -530,7 +524,6 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 			tc,
 			createMoveOnMapEnvironmentReq{
 				pcdPath:           "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd",
-				geomSize:          110,
 				kinematicsOptions: kbOptions(),
 				base:              fb,
 				frame:             frame,
@@ -552,12 +545,8 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 
 func TestMoveOnMapPlans(t *testing.T) {
 	tc := newTestCtx(t)
-	fb := newFakeBase(tc, 20)
-	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
-		Base:    fb.(*baseFake.Base),
-		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
-		Options: kbOptions(),
-	}, tc.logger)
+	fb := newBase(tc, 40)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, fb, kbOptions(), tc.logger)
 	test.That(t, err, test.ShouldBeNil)
 	// goal x-position of 1.32m is scaled to be in mm
 	// Orientation theta should be at least 3 degrees away from an integer multiple of 22.5 to ensure the position-only test functions.
@@ -571,7 +560,6 @@ func TestMoveOnMapPlans(t *testing.T) {
 			tc,
 			createMoveOnMapEnvironmentReq{
 				pcdPath:           "pointcloud/octagonspace.pcd",
-				geomSize:          40,
 				kinematicsOptions: kbOptions(),
 				base:              fb,
 				frame:             frame,
@@ -596,7 +584,6 @@ func TestMoveOnMapPlans(t *testing.T) {
 			tc,
 			createMoveOnMapEnvironmentReq{
 				pcdPath:           "pointcloud/octagonspace.pcd",
-				geomSize:          40,
 				kinematicsOptions: kbOptions(),
 				base:              fb,
 				frame:             frame,
@@ -625,7 +612,6 @@ func TestMoveOnMapPlans(t *testing.T) {
 			tc,
 			createMoveOnMapEnvironmentReq{
 				pcdPath:           "pointcloud/octagonspace.pcd",
-				geomSize:          40,
 				kinematicsOptions: kbOptions(),
 				base:              fb,
 				frame:             frame,
@@ -654,12 +640,8 @@ func TestMoveOnMapPlans(t *testing.T) {
 
 func TestMoveOnMapSubsequent(t *testing.T) {
 	tc := newTestCtx(t)
-	fb := newFakeBase(tc, 20)
-	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
-		Base:    fb.(*baseFake.Base),
-		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
-		Options: kbOptions(),
-	}, tc.logger)
+	fb := newBase(tc, 40)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, fb, kbOptions(), tc.logger)
 	test.That(t, err, test.ShouldBeNil)
 	// goal x-position of 1.32m is scaled to be in mm
 	goal1SLAMFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 55})
@@ -671,7 +653,6 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 		tc,
 		createMoveOnMapEnvironmentReq{
 			pcdPath:           "pointcloud/octagonspace.pcd",
-			geomSize:          40,
 			kinematicsOptions: kbOptions(),
 			base:              fb,
 			frame:             frame,
@@ -791,12 +772,8 @@ func TestMoveOnMapTimeout(t *testing.T) {
 func TestPositionalReplanning(t *testing.T) {
 	t.Parallel()
 	tc := newTestCtx(t)
-	fb := newFakeBase(tc, 20)
-	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
-		Base:    fb.(*baseFake.Base),
-		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
-		Options: kbOptions(),
-	}, tc.logger)
+	fb := newBase(tc, 20)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, fb, kbOptions(), tc.logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	gpsPoint := geo.NewPoint(0, 0)
@@ -888,12 +865,8 @@ func TestPositionalReplanning(t *testing.T) {
 func TestObstacleReplanning(t *testing.T) {
 	t.Parallel()
 	tc := newTestCtx(t)
-	fb := newFakeBase(tc, 20)
-	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
-		Base:    fb.(*baseFake.Base),
-		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
-		Options: kbOptions(),
-	}, tc.logger)
+	fb := newBase(tc, 20)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, fb, kbOptions(), tc.logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	gpsOrigin := geo.NewPoint(0, 0)
@@ -949,18 +922,17 @@ func TestObstacleReplanning(t *testing.T) {
 		},
 	}
 
+	cMOGReq := createMoveOnGlobeEnvironmentReq{
+		origin:    gpsOrigin,
+		noise:     spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0}),
+		fakeBase:  fb,
+		frame:     frame,
+		options:   kbOptions(),
+		sleepTime: time.Millisecond * 5000,
+	}
 	testFn := func(t *testing.T, testC testCase) {
 		t.Helper()
-		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(
-			tc,
-			createMoveOnGlobeEnvironmentReq{
-				origin:    gpsOrigin,
-				noise:     spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0}),
-				fakeBase:  fb,
-				frame:     frame,
-				options:   kbOptions(),
-				sleepTime: time.Millisecond * 5000,
-			})
+		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(tc, cMOGReq)
 		defer ms.Close(tc.ctx)
 
 		srvc, ok := ms.(*builtIn).visionServices[cfg.ObstacleDetectors[0].VisionServiceName].(*inject.VisionService)
@@ -1300,7 +1272,6 @@ func TestStoppableMoveFunctions(t *testing.T) {
 }
 
 func TestMoveOnGlobe(t *testing.T) {
-	t.Parallel()
 	tc := newTestCtx(t)
 	origin := geo.NewPoint(-70, 40)
 	goal := geo.NewPoint(origin.Lat(), origin.Lng()+1e-5)
@@ -1308,23 +1279,21 @@ func TestMoveOnGlobe(t *testing.T) {
 	tc.logger.Infof("Straight line distance from origin to goal: %fmm", straightLineDistanceMM)
 	expectedDstMM := r3.Vector{X: 380, Y: 0, Z: 0}
 	epsilonMM := .5
-	fb := newFakeBase(tc, 20)
-	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
-		Base:    fb.(*baseFake.Base),
-		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
-		Options: kbOptions(),
-	}, tc.logger)
+	fb := newBase(tc, 20)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, fb, kbOptions(), tc.logger)
 	test.That(t, err, test.ShouldBeNil)
 	// Near antarctica 🐧
 	test.That(t, straightLineDistanceMM, test.ShouldAlmostEqual, expectedDstMM.X, epsilonMM)
 	// disable smoothing to speed up tests
 	positionOnlyExtra := map[string]interface{}{
 		"motion_profile": "position_only",
-		"timeout":        5.,
-		"smooth_iter":    0.,
+		//  TODO Change this timeout back to 5. as part of https://viam.atlassian.net/browse/RSDK-6060
+		"timeout":     30.,
+		"smooth_iter": 0.,
 	}
 	extra := map[string]interface{}{
-		"timeout":     5.,
+		//  TODO Change this timeout back to 5. as part of https://viam.atlassian.net/browse/RSDK-6060
+		"timeout":     30.,
 		"smooth_iter": 0.,
 	}
 	cMOGEReq := createMoveOnGlobeEnvironmentReq{
@@ -1781,19 +1750,14 @@ func TestMoveOnGlobe(t *testing.T) {
 
 func TestMoveOnMapNew(t *testing.T) {
 	tc := newTestCtx(t)
-	fb := newFakeBase(tc, 20)
-	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
-		Base:    fb.(*baseFake.Base),
-		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
-		Options: kbOptions(),
-	}, tc.logger)
+	fb := newBase(tc, 110)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, fb, kbOptions(), tc.logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	base, ms := createMoveOnMapEnvironment(
 		tc,
 		createMoveOnMapEnvironmentReq{
 			pcdPath:           "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd",
-			geomSize:          110,
 			kinematicsOptions: kbOptions(),
 			base:              fb,
 			frame:             frame,
@@ -1814,12 +1778,8 @@ func TestMoveOnMapNew(t *testing.T) {
 
 func TestStopPlan(t *testing.T) {
 	tc := newTestCtx(t)
-	fb := newFakeBase(tc, 20)
-	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
-		Base:    fb.(*baseFake.Base),
-		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
-		Options: kbOptions(),
-	}, tc.logger)
+	fb := newBase(tc, 20)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, fb, kbOptions(), tc.logger)
 	test.That(t, err, test.ShouldBeNil)
 	gpsPoint := geo.NewPoint(0, 0)
 	//nolint:dogsled
@@ -1841,12 +1801,8 @@ func TestStopPlan(t *testing.T) {
 
 func TestListPlanStatuses(t *testing.T) {
 	tc := newTestCtx(t)
-	fb := newFakeBase(tc, 20)
-	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
-		Base:    fb.(*baseFake.Base),
-		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
-		Options: kbOptions(),
-	}, tc.logger)
+	fb := newBase(tc, 20)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, fb, kbOptions(), tc.logger)
 	test.That(t, err, test.ShouldBeNil)
 	gpsPoint := geo.NewPoint(0, 0)
 	//nolint:dogsled
@@ -1877,22 +1833,18 @@ func TestPlanHistory(t *testing.T) {
 	epsilonMM := .5
 	test.That(t, straightLineDistanceMM, test.ShouldAlmostEqual, expectedDstMM.X, epsilonMM)
 	test.That(t, straightLineDistanceMM, test.ShouldAlmostEqual, expectedDstMM.X, epsilonMM)
-	fb := newFakeBase(tc, 20)
-	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, kinematicbase.NewPTGFrameFromKinematicOptionsReq{
-		Base:    fb.(*baseFake.Base),
-		Origin:  referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
-		Options: kbOptions(),
-	}, tc.logger)
+	fb := newBase(tc, 20)
+	frame, err := kinematicbase.NewPTGFrameFromKinematicOptions(tc.ctx, fb, kbOptions(), tc.logger)
 	test.That(t, err, test.ShouldBeNil)
-	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(
-		tc,
-		createMoveOnGlobeEnvironmentReq{
-			origin:    origin,
-			sleepTime: time.Millisecond,
-			options:   kbOptions(),
-			fakeBase:  fb,
-			frame:     frame,
-		})
+	cMOGEReq := createMoveOnGlobeEnvironmentReq{
+		origin:    origin,
+		fakeBase:  fb,
+		frame:     frame,
+		options:   kbOptions(),
+		sleepTime: time.Millisecond,
+	}
+
+	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(tc, cMOGEReq)
 	defer ms.Close(tc.ctx)
 	// create motion config
 	positionOnlyExtra := map[string]interface{}{

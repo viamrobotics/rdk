@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/tpspace"
@@ -136,23 +137,22 @@ type fakePTGKinematics struct {
 	sleepTime   int
 }
 
-type NewPTGFrameFromKinematicOptionsReq struct {
-	Base    *fake.Base
-	Origin  *referenceframe.PoseInFrame
-	Options Options
-}
+// NewPTGFrameFromKinematicOptionsReq describes a request to NewPTGFrameFromKinematicOptions.
+type NewPTGFrameFromKinematicOptionsReq struct{}
 
+// NewPTGFrameFromKinematicOptions returns a new PTGFrame.
 func NewPTGFrameFromKinematicOptions(
 	ctx context.Context,
-	req NewPTGFrameFromKinematicOptionsReq,
+	base base.Base,
+	options Options,
 	logger logging.Logger,
 ) (referenceframe.Frame, error) {
-	properties, err := req.Base.Properties(ctx, nil)
+	properties, err := base.Properties(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	baseMillimetersPerSecond := req.Options.LinearVelocityMMPerSec
+	baseMillimetersPerSecond := options.LinearVelocityMMPerSec
 	if baseMillimetersPerSecond == 0 {
 		baseMillimetersPerSecond = defaultLinearVelocityMMPerSec
 	}
@@ -162,21 +162,21 @@ func NewPTGFrameFromKinematicOptions(
 		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than or equal to zero")
 	}
 
-	geometries, err := req.Base.Geometries(ctx, nil)
+	geometries, err := base.Geometries(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	return tpspace.NewPTGFrameFromKinematicOptions(
-		req.Base.Name().ShortName(),
+		base.Name().ShortName(),
 		logger,
 		baseMillimetersPerSecond,
-		req.Options.AngularVelocityDegsPerSec,
+		options.AngularVelocityDegsPerSec,
 		baseTurningRadiusMeters,
-		req.Options.MaxMoveStraightMM, // If zero, will use default on the receiver end.
-		0,                             // If zero, will use default on the receiver end.
+		options.MaxMoveStraightMM, // If zero, will use default on the receiver end.
+		0,                         // If zero, will use default on the receiver end.
 		geometries,
-		req.Options.NoSkidSteer,
+		options.NoSkidSteer,
 	)
 }
 
@@ -242,6 +242,7 @@ func WrapWithFakePTGKinematics(
 	return fk, nil
 }
 
+// WrapWithFakePTGKinematicsWithFrameReq is the request to WrapWithFakePTGKinematicsWithFrame.
 type WrapWithFakePTGKinematicsWithFrameReq struct {
 	Base        *fake.Base
 	Origin      *referenceframe.PoseInFrame
@@ -251,13 +252,18 @@ type WrapWithFakePTGKinematicsWithFrameReq struct {
 	SleepTime   time.Duration
 }
 
-// WrapWithFakePTGKinematicsWithFrame creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled
+// WrapWithFakePTGKinematicsWithFrame creates a PTG KinematicBase from
+// the fake Base & frame so that it satisfies the ModelFramer and InputEnabled
 // interfaces.
 func WrapWithFakePTGKinematicsWithFrame(
 	ctx context.Context,
 	req WrapWithFakePTGKinematicsWithFrameReq,
 	logger logging.Logger,
 ) (KinematicBase, error) {
+	if req.Base == nil {
+		return nil, errors.New("WrapWithFakePTGKinematicsWithFrameReq.Base can't be nil")
+	}
+
 	sensorNoise := req.SensorNoise
 	if sensorNoise == nil {
 		sensorNoise = spatialmath.NewZeroPose()
