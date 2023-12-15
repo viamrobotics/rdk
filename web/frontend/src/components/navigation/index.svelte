@@ -14,9 +14,10 @@ import { useBasePose } from './hooks/use-base-pose';
 import type { Map } from 'maplibre-gl';
 import { useObstacles } from './hooks/use-obstacles';
 import { usePaths } from './hooks/use-paths';
+import type { StopCallback } from '@/lib/components/collapse.svelte';
 
 export let name: string;
-export let onStop: (callback: () => Promise<void>) => void
+export let onStop: StopCallback | undefined = undefined;
 
 let map: Map | undefined;
 
@@ -75,7 +76,7 @@ const handleDeleteWaypoint = async (event: CustomEvent<string>) => {
   }
 };
 
-onStop(stopNavigation)
+onStop?.(stopNavigation)
 
 </script>
 

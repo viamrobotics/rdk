@@ -7,7 +7,7 @@ import type { StopCallback } from '@/lib/components/collapse.svelte';
 import { useRobotClient } from '@/hooks/robot-client';
 
 export let name: string;
-export let onStop: StopCallback | undefined;
+export let onStop: StopCallback | undefined = undefined;
 
 const { robotClient } = useRobotClient();
 

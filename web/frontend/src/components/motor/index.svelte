@@ -12,7 +12,7 @@ export let status: undefined | {
   position?: number
   is_moving?: boolean
 };
-export let onStop: StopCallback | undefined
+export let onStop: StopCallback | undefined = undefined;
 
 const motorPosFormat = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 3,

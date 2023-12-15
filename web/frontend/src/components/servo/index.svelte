@@ -7,8 +7,8 @@ import { move } from '@/api/servo';
 import { useRobotClient } from '@/hooks/robot-client';
 
 export let name: string;
-export let status: undefined | { position_deg: number };
-export let onStop: StopCallback | undefined;
+export let status: { position_deg: number } | undefined = undefined;
+export let onStop: StopCallback | undefined = undefined;
 
 const { robotClient } = useRobotClient();
 

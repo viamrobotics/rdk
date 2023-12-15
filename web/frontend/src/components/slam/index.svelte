@@ -17,8 +17,8 @@
   import { rcLogConditionally } from '@/lib/log';
 
   export let name: string;
-  export let overrides: SLAMOverrides | undefined;
-  export let onStop: StopCallback
+  export let overrides: SLAMOverrides | undefined = undefined;
+  export let onStop: StopCallback | undefined = undefined;
 
   const { robotClient, operations } = useRobotClient();
   const slamClient = new SlamClient($robotClient, name, {
@@ -309,7 +309,7 @@
     }
   };
 
-  onStop(handleStopMoveClick)
+  onStop?.(handleStopMoveClick)
 
   useConnect(() => {
     toggle2dExpand();

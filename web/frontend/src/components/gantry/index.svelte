@@ -16,7 +16,7 @@ export let status: {
   lengths_mm: [],
   positions_mm: [],
 };
-export let onStop: StopCallback
+export let onStop: StopCallback | undefined = undefined
 
 interface GantryStatus {
   pieces: {
@@ -108,7 +108,7 @@ const stop = () => {
   $robotClient.gantryService.stop(req, displayError);
 };
 
-onStop(stop)
+onStop?.(stop)
 
 </script>
 

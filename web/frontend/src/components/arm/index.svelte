@@ -26,7 +26,7 @@ export let status: {
   end_position: Record<string, number>
   joint_positions: { values: number[] }
 } | undefined;
-export let onStop: StopCallback
+export let onStop: StopCallback | undefined = undefined
 
 const { robotClient } = useRobotClient();
 
@@ -249,7 +249,7 @@ const armCopyJoints = () => {
   }, {})));
 };
 
-onStop(stop)
+onStop?.(stop)
 
 </script>
 
