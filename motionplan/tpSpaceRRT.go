@@ -403,6 +403,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 					paths = append(paths, path)
 				}
 			}
+			mp.goalNodes = []node{goalNode}
 			if len(paths) > 0 {
 				var bestPath []node
 				bestCost := math.Inf(1)
