@@ -1,4 +1,4 @@
-//go:build (darwin || arm) && !no_cgo && android
+//go:build (darwin || arm || android) && !no_cgo
 
 package server
 
