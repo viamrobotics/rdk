@@ -149,7 +149,7 @@ ffmpeg: $(FFMPEG_ROOT)
 	cd $(FFMPEG_ROOT) && $(MAKE)
 	cd $(FFMPEG_ROOT) && $(MAKE) install
 
-	# only keep archive files
+	# Only keep archive files. Different architectures can share the same source files.
 	find $(FFMPEG_PREFIX)/* -type d ! -wholename $(FFMPEG_PREFIX)/lib | xargs rm -rf
 
 
