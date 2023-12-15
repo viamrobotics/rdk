@@ -1717,7 +1717,12 @@ func TestMoveOnGlobe(t *testing.T) {
 				MovementSensorName: injectedMovementSensor.Name(),
 				Obstacles:          []*spatialmath.GeoObstacle{geoObstacle},
 				MotionCfg:          &motion.MotionConfiguration{},
-				Extra:              positionOnlyExtra,
+				Extra: map[string]interface{}{
+					"motion_profile": "position_only",
+					// We set this to 5 seconds as this test is always going to run until the timeout to prevent slowing down the test suite
+					"timeout":     5.,
+					"smooth_iter": 0.,
+				},
 			}
 			moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(tc.ctx, req, nil, 0)
 			test.That(t, err, test.ShouldBeNil)
