@@ -93,10 +93,10 @@ func (b *sum) reset() error {
 		}
 		b.operation[b.cfg.DependsOn[idx]] = sumOperand(c)
 	}
+
 	b.y = make([]*Signal, len(b.cfg.DependsOn))
-	b.y[0] = makeSignal(b.cfg.DependsOn[0])
-	if len(b.operation) == 3 {
-		b.y[1] = makeSignal(b.cfg.DependsOn[1])
+	for i := range b.cfg.DependsOn {
+		b.y[i] = makeSignal(b.cfg.DependsOn[i])
 	}
 	return nil
 }
