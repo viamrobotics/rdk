@@ -255,10 +255,10 @@
       try {
         hasActiveSession = true;
         if (!mappingSessionStarted) {
-          sessionId = await overrides.startMappingSession(mapName);
+          mappingSessionStarted = true;
+          sessionId = await overrides.startMappingSession(mapName)
+          startMappingIntervals(Date.now());
         }
-        mappingSessionStarted = true;
-        startMappingIntervals(Date.now());
       } catch {
         hasActiveSession = false;
         sessionDuration = 0;
