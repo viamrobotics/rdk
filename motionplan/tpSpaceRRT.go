@@ -22,13 +22,13 @@ import (
 )
 
 const (
-	defaultAutoBB = 1.0 // Automatic bounding box on driveable area as a multiple of start-goal distance
+	defaultAutoBB = 0.7 // Automatic bounding box on driveable area as a multiple of start-goal distance
 	// Note: while fully holonomic planners can use the limits of the frame as implicit boundaries, with non-holonomic motion
 	// this is not the case, and the total workspace available to the planned frame is not directly related to the motion available
 	// from a single set of inputs.
 
 	// How much the bounding box of random points to sample increases in size with each algorithm iteration.
-	autoBBscale = 0.05
+	autoBBscale = 0.1
 
 	// whether to add intermediate waypoints.
 	defaultAddInt = true
@@ -54,8 +54,8 @@ const (
 	defaultBidirectional = true
 
 	// default motion planning collision resolution is every 2mm.
-	// For bases we increase this to 30mm, a bit more than 1 inch.
-	defaultPTGCollisionResolution = 30
+	// For bases we increase this to 60mm, a bit more than 2 inches.
+	defaultPTGCollisionResolution = 60
 
 	// When checking a PTG for validity and finding a collision, using the last good configuration will result in a highly restricted
 	// node that is directly facing a wall. To prevent this, we walk back along the trajectory by this percentage of the traj length
