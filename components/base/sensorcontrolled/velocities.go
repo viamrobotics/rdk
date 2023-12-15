@@ -13,7 +13,10 @@ import (
 )
 
 // TODO: RSDK-5355 useControlLoop bool should be removed after testing.
-const useControlLoop = true
+const (
+	useControlLoop = false
+	rPiGain        = 0.00392157
+)
 
 // setupControlLoops uses the embedded config in this file to initialize a control
 // loop using the controls package and stor in on the sensor controlled base struct
@@ -73,6 +76,7 @@ func (sb *sensorBase) SetVelocity(
 			Name: "linear_setpoint",
 			Type: "constant",
 			Attribute: rdkutils.AttributeMap{
+				// conver mmPerSec to mPerSec
 				"constant_val": linear.Y / 1000.0,
 			},
 			DependsOn: []string{},
@@ -249,7 +253,7 @@ var controlLoopConfig = control.Config{
 			Name: "sum",
 			Type: "sum",
 			Attribute: rdkutils.AttributeMap{
-				"sum_string": "++-", // should this be +- or does it follow dependency order?
+				"sum_string": "++-",
 			},
 			DependsOn: []string{"linear_setpoint", "angular_setpoint", "endpoint"},
 		},
@@ -257,7 +261,7 @@ var controlLoopConfig = control.Config{
 			Name: "linear_gain",
 			Type: "gain",
 			Attribute: rdkutils.AttributeMap{
-				"gain": 0.00392157, // need to update dynamically? Or should I just use the trapezoidal velocity profile
+				"gain": rPiGain,
 			},
 			DependsOn: []string{"linear_PID"},
 		},
@@ -265,7 +269,7 @@ var controlLoopConfig = control.Config{
 			Name: "angular_gain",
 			Type: "gain",
 			Attribute: rdkutils.AttributeMap{
-				"gain": 0.00392157, // need to update dynamically? Or should I just use the trapezoidal velocity profile
+				"gain": rPiGain,
 			},
 			DependsOn: []string{"angular_PID"},
 		},
