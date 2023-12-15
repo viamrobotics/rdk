@@ -22,31 +22,40 @@ import (
 )
 
 const (
-	defaultGoalCheck = 5   // Check if the goal is reachable every this many iterations
-	defaultAutoBB    = 0.3 // Automatic bounding box on driveable area as a multiple of start-goal distance
+	defaultAutoBB = 0.7 // Automatic bounding box on driveable area as a multiple of start-goal distance
 	// Note: while fully holonomic planners can use the limits of the frame as implicit boundaries, with non-holonomic motion
 	// this is not the case, and the total workspace available to the planned frame is not directly related to the motion available
 	// from a single set of inputs.
+
+	// How much the bounding box of random points to sample increases in size with each algorithm iteration.
+	autoBBscale = 0.1
 
 	// whether to add intermediate waypoints.
 	defaultAddInt = true
 	// Add a subnode every this many mm along a valid trajectory. Large values run faster, small gives better paths
 	// Meaningless if the above is false.
-	defaultAddNodeEvery = 100.
+	defaultAddNodeEvery = 400.
 
 	// Don't add new RRT tree nodes if there is an existing node within this distance.
 	// Consider nodes on trees to be connected if they are within this distance.
-	defaultIdenticalNodeDistance = 5.
+	defaultIdenticalNodeDistance = 80.
 
 	// When extending the RRT tree towards some point, do not extend more than this many times in a single RRT invocation.
-	defaultMaxReseeds = 50
+	defaultMaxReseeds = 20
 
 	// Make an attempt to solve the tree every this many iterations
 	// For a unidirectional solve, this means attempting to reach the goal rather than a random point
 	// For a bidirectional solve, this means trying to connect the two trees directly.
 	defaultAttemptSolveEvery = 15
 
+	// When attempting a solve per the above, make no more than this many tries. Preserves performance with large trees.
+	defaultMaxConnectAttempts = 20
+
 	defaultBidirectional = true
+
+	// default motion planning collision resolution is every 2mm.
+	// For bases we increase this to 60mm, a bit more than 2 inches.
+	defaultPTGCollisionResolution = 60
 
 	// When checking a PTG for validity and finding a collision, using the last good configuration will result in a highly restricted
 	// node that is directly facing a wall. To prevent this, we walk back along the trajectory by this percentage of the traj length
@@ -56,16 +65,20 @@ const (
 	// When evaluating the partial node to add to a tree after defaultCollisionWalkbackPct is applied, ensure the trajectory is still at
 	// least this long.
 	defaultMinTrajectoryLength = 350
+
+	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly.
+	pathdebug = false
 )
 
-var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
+// Using the standard SquaredNormMetric, we run into issues where far apart distances will underflow gradient calculations.
+// This metric, used only for gradient descent, computes the gradient using centimeters rather than millimeters allowing for smaller
+// values that do not underflow.
+var defaultGoalMetricConstructor = ik.NewPosWeightSquaredNormMetric
 
 // This should only be used when bidirectional mode is `false`.
 var defaultPosOnlyGoalMetricConstructor = ik.NewPositionOnlyMetric
 
 type tpspaceOptions struct {
-	goalCheck int // Check if goal is reachable every this many iters
-
 	// TODO: base this on frame limits?
 	autoBB float64 // Automatic bounding box on driveable area as a multiple of start-goal distance
 
@@ -81,9 +94,6 @@ type tpspaceOptions struct {
 	// For a unidirectional solve, this means attempting to reach the goal rather than a random point
 	// For a bidirectional solve, this means trying to connect the two trees directly
 	attemptSolveEvery int
-
-	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly
-	pathdebug bool
 
 	// Whether to attempt to solve with both trees simultaneously or just one
 	bidirectional bool
@@ -111,9 +121,12 @@ type nodeAndError struct {
 // tpSpaceRRTMotionPlanner.
 type tpSpaceRRTMotionPlanner struct {
 	*planner
-	mu      sync.Mutex
 	algOpts *tpspaceOptions
 	tpFrame tpspace.PTGProvider
+
+	// This tracks the nodes added to the goal tree in an ordered fashion. Nodes will always be added to this slice in the
+	// same order, yielding deterministic results when the goal tree is iterated over.
+	goalNodes []node
 }
 
 // newTPSpaceMotionPlanner creates a newTPSpaceMotionPlanner object with a user specified random seed.
@@ -126,6 +139,7 @@ func newTPSpaceMotionPlanner(
 	if opt == nil {
 		return nil, errNoPlannerOptions
 	}
+
 	mp, err := newPlanner(frame, seed, logger, opt)
 	if err != nil {
 		return nil, err
@@ -199,6 +213,8 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	// get start and goal poses
 	var startPose spatialmath.Pose
 	var goalPose spatialmath.Pose
+	var goalNode node
+	goalScore := math.Inf(1)
 	for k, v := range rrt.maps.startMap {
 		if v == nil {
 			if k.Pose() != nil {
@@ -215,29 +231,68 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			// There may be more than one node in the tree which satisfies the goal, i.e. its parent is nil.
 			// However for the purposes of this we can just take the first one we see.
 			if k.Pose() != nil {
-				goalPose = k.Pose()
+				dist := mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: startPose, EndPosition: k.Pose()})
+				if dist < goalScore {
+					// Update to use the closest goal to the start.
+					// This is necessary in order to solve deterministically.
+					goalPose = k.Pose()
+					goalScore = dist
+					goalNode = k
+				}
 			} else {
 				rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("node %v must provide a Pose", k)}
 				return
 			}
-			break
 		}
 	}
+	mp.goalNodes = append(mp.goalNodes, goalNode)
 	mp.logger.Debugf("Starting TPspace solving with startMap len %d and goalMap len %d", len(rrt.maps.startMap), len(rrt.maps.goalMap))
+
+	publishFinishedPath := func(path []node) {
+		// If we've reached the goal, extract the path from the RRT trees and return
+		correctedPath, err := rectifyTPspacePath(path, mp.frame, spatialmath.NewZeroPose())
+		if err != nil {
+			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+			return
+		}
+		rrt.solutionChan <- &rrtPlanReturn{steps: correctedPath, maps: rrt.maps}
+
+		// Print debug info if requested
+		if pathdebug {
+			allPtgs := mp.tpFrame.PTGSolvers()
+			lastPose := spatialmath.NewZeroPose()
+			for _, mynode := range correctedPath {
+				trajPts, err := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+				if err != nil {
+					// Unimportant; this is just for debug visualization
+					break
+				}
+				for i, pt := range trajPts {
+					intPose := spatialmath.Compose(lastPose, pt.Pose)
+					if i == 0 {
+						mp.logger.Debugf("$WP,%f,%f", intPose.Point().X, intPose.Point().Y)
+					}
+					mp.logger.Debugf("$FINALPATH,%f,%f", intPose.Point().X, intPose.Point().Y)
+					if i == len(trajPts)-1 {
+						lastPose = intPose
+						break
+					}
+				}
+			}
+		}
+	}
 
 	m1chan := make(chan *nodeAndError, 1)
 	m2chan := make(chan *nodeAndError, 1)
 	defer close(m1chan)
 	defer close(m2chan)
 
-	dist := math.Sqrt(mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: startPose, EndPosition: goalPose}))
-
 	// The midpoint should not be the 50% interpolation of start/goal poses, but should be the 50% interpolated point with the orientation
 	// pointing at the goal from the start
 	midPt := startPose.Point().Add(goalPose.Point()).Mul(0.5)
 	midOrient := &spatialmath.OrientationVector{OZ: 1, Theta: math.Atan2(-midPt.X, midPt.Y)}
 
-	midptNode := &basicNode{pose: spatialmath.NewPose(midPt, midOrient), cost: dist}
+	midptNode := &basicNode{pose: spatialmath.NewPose(midPt, midOrient), cost: midPt.Sub(startPose.Point()).Norm()}
 	var randPosNode node = midptNode
 
 	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
@@ -250,64 +305,85 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 
 		seedReached := &nodeAndError{}
 		goalReached := &nodeAndError{}
+		rseed := mp.randseed.Int31()
 		utils.PanicCapturingGo(func() {
-			m1chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.startMap, false)
+			m1chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.startMap, false, rseed)
 		})
 		if mp.algOpts.bidirectional {
+			rseed2 := mp.randseed.Int31()
 			utils.PanicCapturingGo(func() {
-				m2chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.goalMap, true)
+				m2chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.goalMap, true, rseed2)
 			})
 			goalReached = <-m2chan
 		}
 		seedReached = <-m1chan
 
-		seedMapNode := seedReached.node
-		goalMapNode := goalReached.node
 		err := multierr.Combine(seedReached.error, goalReached.error)
 		if err != nil {
 			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
 			return
 		}
-
-		if seedMapNode != nil && goalMapNode != nil {
+		if seedReached.node != nil && goalReached.node != nil {
 			reachedDelta := mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: seedReached.node.Pose(), EndPosition: goalReached.node.Pose()})
-			if reachedDelta > mp.algOpts.poseSolveDist {
+			if reachedDelta > mp.planOpts.GoalThreshold {
 				// If both maps extended, but did not reach the same point, then attempt to extend them towards each other
-				seedReached = mp.attemptExtension(ctx, goalMapNode, rrt.maps.startMap, false)
+				seedReached = mp.attemptExtension(ctx, goalReached.node, rrt.maps.startMap, false, mp.randseed.Int31())
 				if seedReached.error != nil {
 					rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
 					return
 				}
-				if seedReached.node == nil {
-					continue
+				if seedReached.node != nil {
+					reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{
+						StartPosition: seedReached.node.Pose(),
+						EndPosition:   goalReached.node.Pose(),
+					})
+					if reachedDelta > mp.planOpts.GoalThreshold {
+						goalReached = mp.attemptExtension(ctx, seedReached.node, rrt.maps.goalMap, true, mp.randseed.Int31())
+						if goalReached.error != nil {
+							rrt.solutionChan <- &rrtPlanReturn{planerr: goalReached.error, maps: rrt.maps}
+							return
+						}
+					}
+					if goalReached.node != nil {
+						reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: seedReached.node.Pose(), EndPosition: goalReached.node.Pose()})
+					}
 				}
-				goalReached = mp.attemptExtension(ctx, seedReached.node, rrt.maps.goalMap, true)
-				if goalReached.error != nil {
-					rrt.solutionChan <- &rrtPlanReturn{planerr: goalReached.error, maps: rrt.maps}
-					return
-				}
-				if goalReached.node == nil {
-					continue
-				}
-				reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: seedReached.node.Pose(), EndPosition: goalReached.node.Pose()})
 			}
-			if reachedDelta <= mp.algOpts.poseSolveDist {
+			if reachedDelta <= mp.planOpts.GoalThreshold {
 				// If we've reached the goal, extract the path from the RRT trees and return
 				path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalReached.node}, false)
-				correctedPath, err := rectifyTPspacePath(path, mp.frame, spatialmath.NewZeroPose())
-				if err != nil {
-					rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
-					return
-				}
-				rrt.solutionChan <- &rrtPlanReturn{steps: correctedPath, maps: rrt.maps}
+				publishFinishedPath(path)
 				return
 			}
 		}
 		if iter%mp.algOpts.attemptSolveEvery == 0 {
-			// Attempt a solve; we exhaustively iterate through our goal tree and attempt to find any connection to the seed tree
+			// Attempt a solve; we iterate through our goal tree and attempt to find any connection to the seed tree
 			paths := [][]node{}
-			for goalMapNode := range rrt.maps.goalMap {
-				seedReached := mp.attemptExtension(ctx, goalMapNode, rrt.maps.startMap, false)
+
+			// Exhaustively searching the tree gets expensive quickly, so we cap the number of connect attempts we make each time we call
+			// this.
+			attempts := 0                                                                     // Track the number of connection attempts we have made
+			pctCheck := 100 * float64(defaultMaxConnectAttempts) / float64(len(mp.goalNodes)) // Target checking this proportion of nodes.
+
+			for _, goalMapNode := range mp.goalNodes {
+				if ctx.Err() != nil {
+					rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
+					return
+				}
+
+				// Exhaustively iterating the goal map gets *very* expensive, so we only iterate a given number of times
+				if attempts > defaultMaxConnectAttempts {
+					break
+				}
+				if pctCheck < 100. { // If we're not checking every node, see if this node is one of the ones we want to check.
+					doCheck := 100 * mp.randseed.Float64()
+					if doCheck < pctCheck {
+						continue
+					}
+				}
+				attempts++
+
+				seedReached := mp.attemptExtension(ctx, goalMapNode, rrt.maps.startMap, false, mp.randseed.Int31())
 				if seedReached.error != nil {
 					rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
 					return
@@ -321,12 +397,13 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				} else {
 					reachedDelta = mp.planOpts.goalMetric(&ik.State{Position: seedReached.node.Pose()})
 				}
-				if reachedDelta <= mp.algOpts.poseSolveDist {
+				if reachedDelta <= mp.planOpts.GoalThreshold {
 					// If we've reached the goal, extract the path from the RRT trees and return
 					path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalMapNode}, false)
 					paths = append(paths, path)
 				}
 			}
+			mp.goalNodes = []node{goalNode}
 			if len(paths) > 0 {
 				var bestPath []node
 				bestCost := math.Inf(1)
@@ -337,18 +414,13 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 						bestPath = goodPath
 					}
 				}
-				correctedPath, err := rectifyTPspacePath(bestPath, mp.frame, spatialmath.NewZeroPose())
-				if err != nil {
-					rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
-					return
-				}
-				rrt.solutionChan <- &rrtPlanReturn{steps: correctedPath, maps: rrt.maps}
+				publishFinishedPath(bestPath)
 				return
 			}
 		}
 
 		// Get random cartesian configuration
-		randPosNode, err = mp.sample(midptNode, iter+1)
+		randPosNode, err = mp.sample(midptNode, iter)
 		if err != nil {
 			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
 			return
@@ -366,6 +438,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	rrt rrtMap,
 	nearest node,
 	invert bool,
+	rseed int,
 ) (*candidate, error) {
 	nm := &neighborManager{nCPU: mp.planOpts.NumThreads / len(mp.tpFrame.PTGSolvers())}
 	nm.parallelNeighbors = 10
@@ -400,9 +473,6 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		targetFunc = mp.algOpts.goalMetricConstructor(relPose)
 	}
 	solutionChan := make(chan *ik.Solution, 1)
-	mp.mu.Lock()
-	rseed := mp.randseed.Int()
-	mp.mu.Unlock()
 	err := curPtg.Solve(context.Background(), solutionChan, nil, targetFunc, rseed)
 
 	var bestNode *ik.Solution
@@ -415,7 +485,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	}
 	arcStartPose := nearest.Pose()
 	successNodes := []node{}
-	arcPose := spatialmath.NewZeroPose() // This will be the full pose that is the delta from one end of the combined traj to the other.
+	arcPose := spatialmath.NewZeroPose() // This will be the relative pose that is the delta from one end of the combined traj to the other.
 	// We may produce more than one consecutive arc. Reduce the one configuration to several 2dof arcs
 	for i := 0; i < len(bestNode.Configuration); i += 2 {
 		var subNode node
@@ -508,7 +578,8 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert b
 
 		sinceLastCollideCheck += math.Abs(trajPt.Dist - lastDist)
 		trajState := &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose), Frame: mp.frame}
-		if sinceLastCollideCheck > mp.planOpts.Resolution {
+		if sinceLastCollideCheck > mp.planOpts.Resolution || i == 0 || i == len(trajK)-1 {
+			// In addition to checking every `Resolution`, we also check both endpoints.
 			ok, _ := mp.planOpts.CheckStateConstraints(trajState)
 			if !ok {
 				okDist := trajPt.Dist * defaultCollisionWalkbackPct
@@ -551,6 +622,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 	goalNode node,
 	rrt rrtMap,
 	invert bool,
+	rseed int32,
 ) *nodeAndError {
 	var reseedCandidate *candidate
 	var seedNode node
@@ -575,7 +647,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 			activeSolvers.Add(1)
 			utils.PanicCapturingGo(func() {
 				defer activeSolvers.Done()
-				cand, err := mp.getExtensionCandidate(ctx, goalNode, ptgNumPar, curPtgPar, rrt, seedNode, invert)
+				cand, err := mp.getExtensionCandidate(ctx, goalNode, ptgNumPar, curPtgPar, rrt, seedNode, invert, int(rseed))
 				if err != nil && !errors.Is(err, errNoNeighbors) && !errors.Is(err, errInvalidCandidate) {
 					candChan <- nil
 					return
@@ -647,6 +719,12 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 		if cand.dist < bestDist {
 			bestCand = cand
 			bestDist = cand.dist
+		} else if cand.dist == bestDist {
+			// Need a tiebreaker for determinism
+			if cand.newNodes[0].Q()[0].Value < bestCand.newNodes[0].Q()[0].Value {
+				bestCand = cand
+				bestDist = cand.dist
+			}
 		}
 	}
 	treeNode := bestCand.treeNode // The node already in the tree to which we are parenting
@@ -675,37 +753,47 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 				if invert {
 					trajPt = trajK[(len(trajK)-1)-i]
 				}
+				if i == 0 {
+					lastDist = trajPt.Dist
+				}
 				if ctx.Err() != nil {
 					return nil, ctx.Err()
 				}
 				trajState = &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose)}
-				if mp.algOpts.pathdebug {
+				if pathdebug {
 					if !invert {
 						mp.logger.Debugf("$FWDTREE,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
 					} else {
 						mp.logger.Debugf("$REVTREE,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
 					}
 				}
-				sinceLastNode += (trajPt.Dist - lastDist)
+				sinceLastNode += math.Abs(trajPt.Dist - lastDist)
 
 				// Optionally add sub-nodes along the way. Will make the final path a bit better
 				// Intermediate nodes currently disabled on the goal map because they do not invert nicely
-				if sinceLastNode > mp.algOpts.addNodeEvery && !invert {
-					// add the last node in trajectory
-					addedNode = &basicNode{
-						q:      referenceframe.FloatsToInputs([]float64{float64(ptgNum), randAlpha, trajPt.Dist}),
-						cost:   trajPt.Dist,
-						pose:   trajState.Position,
-						corner: false,
+				if sinceLastNode > mp.algOpts.addNodeEvery {
+					if !invert {
+						// add the last node in trajectory
+						addedNode = &basicNode{
+							q:      referenceframe.FloatsToInputs([]float64{float64(ptgNum), randAlpha, trajPt.Dist}),
+							cost:   trajPt.Dist,
+							pose:   trajState.Position,
+							corner: false,
+						}
 					}
-					rrt[addedNode] = treeNode
-					sinceLastNode = 0.
+					if addedNode != nil {
+						rrt[addedNode] = treeNode
+						sinceLastNode = 0.
+					}
 				}
 				lastDist = trajPt.Dist
 			}
-			if mp.algOpts.pathdebug {
+			if pathdebug {
 				mp.logger.Debugf("$WPI,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
 			}
+		}
+		if invert {
+			mp.goalNodes = append(mp.goalNodes, newNode)
 		}
 		rrt[newNode] = treeNode
 		treeNode = newNode
@@ -714,9 +802,12 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 }
 
 func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
+	if mp.planOpts.Resolution == defaultResolution {
+		mp.planOpts.Resolution = defaultPTGCollisionResolution
+	}
+
 	tpOpt := &tpspaceOptions{
-		goalCheck: defaultGoalCheck,
-		autoBB:    defaultAutoBB,
+		autoBB: defaultAutoBB,
 
 		addIntermediate:   defaultAddInt,
 		addNodeEvery:      defaultAddNodeEvery,
@@ -743,10 +834,8 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 // distances can be computed in TP space using the given PTG.
 func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGSolver, invert bool) *plannerOptions {
 	opts := newBasicPlannerOptions(mp.frame)
-	mp.mu.Lock()
 	//nolint: gosec
-	randSeed := rand.New(rand.NewSource(mp.randseed.Int63() + mp.randseed.Int63()))
-	mp.mu.Unlock()
+	randSeed := rand.New(rand.NewSource(mp.randseed.Int63()))
 
 	segMetric := func(seg *ik.Segment) float64 {
 		// When running NearestNeighbor:
@@ -767,7 +856,6 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 		}
 		solutionChan := make(chan *ik.Solution, 1)
 		err := ptg.Solve(context.Background(), solutionChan, nil, targetFunc, randSeed.Int())
-
 		var closeNode *ik.Solution
 		select {
 		case closeNode = <-solutionChan:
@@ -787,7 +875,7 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 }
 
 func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) []node {
-	toIter := int(math.Min(float64(len(path)*len(path))/5, float64(mp.planOpts.SmoothIter)))
+	toIter := int(math.Min(float64(len(path)*len(path))/2, float64(mp.planOpts.SmoothIter)))
 	currCost := sumCosts(path)
 
 	maxCost := math.Inf(-1)
@@ -835,6 +923,30 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		path = goalInputSteps
 		currCost = sumCosts(path)
 	}
+
+	if pathdebug {
+		allPtgs := mp.tpFrame.PTGSolvers()
+		lastPose := spatialmath.NewZeroPose()
+		for _, mynode := range path {
+			trajPts, err := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+			if err != nil {
+				// Unimportant; this is just for debug visualization
+				break
+			}
+			for i, pt := range trajPts {
+				intPose := spatialmath.Compose(lastPose, pt.Pose)
+				if i == 0 {
+					mp.logger.Debugf("$SMOOTHWP,%f,%f", intPose.Point().X, intPose.Point().Y)
+				}
+				mp.logger.Debugf("$SMOOTHPATH,%f,%f", intPose.Point().X, intPose.Point().Y)
+				if pt.Dist >= mynode.Q()[2].Value {
+					lastPose = intPose
+					break
+				}
+			}
+		}
+	}
+
 	return path
 }
 
@@ -873,7 +985,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 		parentPose = parent.Pose()
 	}
 	// TODO: everything below this point can become an invocation of `smoother.planRunner`
-	reached := smoother.attemptExtension(ctx, path[secondEdge], startMap, false)
+	reached := smoother.attemptExtension(ctx, path[secondEdge], startMap, false, mp.randseed.Int31()+mp.randseed.Int31())
 	if reached.error != nil || reached.node == nil {
 		return nil, errors.New("could not extend to smoothing destination")
 	}
@@ -897,7 +1009,7 @@ func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {
 	if dist == 0 {
 		dist = 1.0
 	}
-	rDist := dist * (mp.algOpts.autoBB + float64(iter)/10.)
+	rDist := dist * (mp.algOpts.autoBB + float64(iter)*autoBBscale)
 	randPosX := float64(mp.randseed.Intn(int(rDist)))
 	randPosY := float64(mp.randseed.Intn(int(rDist)))
 	randPosTheta := math.Pi * (mp.randseed.Float64() - 0.5)
