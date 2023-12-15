@@ -20,7 +20,7 @@ func init() {
 	gpioMappings, err := genericlinux.GetGPIOBoardMappings(modelName, boardInfoMappings)
 	var noBoardErr genericlinux.NoBoardFoundError
 	if errors.As(err, &noBoardErr) {
-		logging.Global().Debugw("error getting beaglebone GPIO board mapping", "error", err)
+		logging.Global().Debugw("error getting odroid GPIO board mapping", "error", err)
 	}
 
 	genericlinux.RegisterBoard(modelName, gpioMappings)
