@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -32,56 +33,17 @@ import (
 )
 
 const (
-	testTime   = "2000-01-01T12:00:%02dZ"
-	orgID      = "slam_org_id"
-	locationID = "slam_location_id"
+	testTime           = "2000-01-01T12:00:%02dZ"
+	orgID              = "slam_org_id"
+	locationID         = "slam_location_id"
+	testingHTTPPattern = "/myurl"
 )
 
 // mockDataServiceServer is a struct that includes unimplemented versions of all the Data Service endpoints. These
 // can be overwritten to allow developers to trigger desired behaviors during testing.
 type mockDataServiceServer struct {
 	datapb.UnimplementedDataServiceServer
-}
-
-// BinaryDataByIDs is a mocked version of the Data Service function of a similar name. It returns a response with
-// data corresponding to a stored pcd artifact based on the given ID.
-func (mDServer *mockDataServiceServer) BinaryDataByIDs(ctx context.Context, req *datapb.BinaryDataByIDsRequest,
-) (*datapb.BinaryDataByIDsResponse, error) {
-	// Parse request
-	fileID := req.BinaryIds[0].GetFileId()
-
-	data, err := getCompressedBytesFromArtifact(fileID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Construct response
-	fileNumStr := strings.TrimPrefix(strings.TrimSuffix(fileID, ".pcd"), "slam/mock_lidar/")
-	fileNum, err := strconv.Atoi(fileNumStr)
-	if err != nil {
-		return nil, err
-	}
-	timeReq, timeRec, err := timestampsFromFileNum(fileNum)
-	if err != nil {
-		return nil, err
-	}
-	binaryData := datapb.BinaryData{
-		Binary: data,
-		Metadata: &datapb.BinaryMetadata{
-			Id:            fileID,
-			TimeRequested: timeReq,
-			TimeReceived:  timeRec,
-			CaptureMetadata: &datapb.CaptureMetadata{
-				OrganizationId: orgID,
-				LocationId:     locationID,
-			},
-		},
-	}
-	resp := &datapb.BinaryDataByIDsResponse{
-		Data: []*datapb.BinaryData{&binaryData},
-	}
-
-	return resp, nil
+	httpMock []*httptest.Server
 }
 
 // BinaryDataByFilter is a mocked version of the Data Service function of a similar name. It returns a response with
@@ -121,6 +83,7 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 					OrganizationId: orgID,
 					LocationId:     locationID,
 				},
+				Uri: mDServer.httpMock[newFileNum].URL + testingHTTPPattern,
 			},
 		}
 
@@ -136,6 +99,7 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 			if err != nil {
 				return nil, err
 			}
+
 			binaryData := datapb.BinaryData{
 				Metadata: &datapb.BinaryMetadata{
 					Id:            fmt.Sprintf(datasetDirectory, newFileNum+i),
@@ -145,6 +109,7 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 						OrganizationId: orgID,
 						LocationId:     locationID,
 					},
+					Uri: mDServer.httpMock[newFileNum+i].URL + testingHTTPPattern,
 				},
 			}
 			resp.Data = append(resp.Data, &binaryData)
@@ -172,10 +137,12 @@ func createMockCloudDependencies(ctx context.Context, t *testing.T, logger loggi
 	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
+	// This creates a mock server for each pcd file used in testing
+	srv := newHTTPMock(testingHTTPPattern, http.StatusOK)
 	test.That(t, rpcServer.RegisterServiceServer(
 		ctx,
 		&datapb.DataService_ServiceDesc,
-		&mockDataServiceServer{},
+		&mockDataServiceServer{httpMock: srv},
 		datapb.RegisterDataServiceHandlerFromEndpoint,
 	), test.ShouldBeNil)
 
@@ -314,7 +281,6 @@ func getPointCloudFromArtifact(i int) (pointcloud.PointCloud, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	defer utils.UncheckedErrorFunc(pcdFile.Close)
 
 	pcExpected, err := pointcloud.ReadPCD(pcdFile)
@@ -323,4 +289,31 @@ func getPointCloudFromArtifact(i int) (pointcloud.PointCloud, error) {
 	}
 
 	return pcExpected, nil
+}
+
+type ctrl struct {
+	statusCode    int
+	pcdFileNumber int
+}
+
+// mockHandler will return the pcd file attached to the mock server.
+func (c *ctrl) mockHandler(w http.ResponseWriter, r *http.Request) {
+	path := fmt.Sprintf(datasetDirectory, c.pcdFileNumber)
+	pcdFile, _ := getCompressedBytesFromArtifact(path)
+
+	w.WriteHeader(c.statusCode)
+	w.Write(pcdFile)
+}
+
+// newHTTPMock creates a set of mock http servers based on the number of PCD files used for testing.
+func newHTTPMock(pattern string, statusCode int) []*httptest.Server {
+	httpServers := []*httptest.Server{}
+	for i := 0; i < numPCDFilesOriginal; i++ {
+		c := &ctrl{statusCode, i}
+		handler := http.NewServeMux()
+		handler.HandleFunc(pattern, c.mockHandler)
+		httpServers = append(httpServers, httptest.NewServer(handler))
+	}
+
+	return httpServers
 }

@@ -499,57 +499,51 @@ let selectedAuthType: string = supportedAuthTypes[0]!
 
 {#if $connectionStatus === 'connected' || $connectionStatus === 'reconnecting'}
   <slot />
-{:else}
+{:else if supportedAuthTypes.length > 0 }
   <div class="flex bg-[#f7f7f8] min-h-[100vh]">
-  <div
-          class="flex flex-col items-center w-full h-full md:max-w-[400px] md:h-auto bg-white border border-[#d7d7d9] m-auto p-6 pt-10">
-          <img src="https://app.viam.com/static/images/viam-logo.svg" alt="Viam"
-               class="mb-8 h-8" />
-    <div class="flex flex-row w-full mb-8">
-    {#each supportedAuthTypes as authType(authType)}
-        <button
+  <div class="flex flex-col items-center w-full h-full md:max-w-[400px] md:h-auto bg-white border border-[#d7d7d9] m-auto p-6 pt-10">
+      <img src="https://app.viam.com/static/images/viam-logo.svg" alt="Viam"
+           class="mb-8 h-8" />
+      <div class="flex flex-row w-full mb-8">
+          {#each supportedAuthTypes as authType(authType)}
+              <button
                 class={`flex w-full h-10 items-center justify-center text-default font-medium text-sm disabled ${selectedAuthType===authType ? "bg-[#FBFBFC] border-[#C5C6CC]" : "text-[#4E4F52] bg-[#F1F1F4] border-[#E4E4E6]"} border`}
                 disabled={selectedAuthType===authType} aria-disabled={selectedAuthType===authType}
-                on:click={() => {selectedAuthType = authType;}}
-        >
-          {authType}
-        </button>
-      {/each}
+                on:click={() => {selectedAuthType = authType;}}>
+                  {authType}
+              </button>
+          {/each}
       </div>
-    <div class="w-full">
+      <div class="w-full">
         {#if selectedAuthType === apiKeyAuthType}
           <label class="block text-xs text-[#4E4F52] leading-3 mb-2">
             api key id
             <input
-                    bind:value={apiKeyEntity}
-                    disabled={$connectionStatus === 'connecting'}
-                    class="
-              border border-[#E4E4E6] text-sm block w-full p-2.5 mt-2
-            "
-                    autocomplete="off"
-            ></label>
+                bind:value={apiKeyEntity}
+                disabled={$connectionStatus === 'connecting'}
+                class="border border-[#E4E4E6] text-sm block w-full p-2.5 mt-2"
+                autocomplete="off">
+          </label>
         {/if}
         <label class="block text-xs text-[#4E4F52] leading-3">
             {selectedAuthType === apiKeyAuthType ? "api key" : "secret" }
           <input
-                  bind:value={passwordByAuthType[selectedAuthType]}
-                  disabled={$connectionStatus === 'connecting'}
-                  class="
-            border border-[#E4E4E6] text-sm block w-full p-2.5 mt-2
-          "
-                  type="password"
-                  autocomplete="off"
-                  on:keyup={async (event) => event.key === 'Enter' && login(selectedAuthType)}
+             bind:value={passwordByAuthType[selectedAuthType]}
+             disabled={$connectionStatus === 'connecting'}
+             class="border border-[#E4E4E6] text-sm block w-full p-2.5 mt-2"
+             type="password"
+             autocomplete="off"
+             on:keyup={async (event) => event.key === 'Enter' && login(selectedAuthType)}
           >
         </label>
         <button
-                disabled={$connectionStatus === 'connecting'}
-                class="block w-full h-10 p-2 mt-8 mb-2 bg-[#282829] text-sm text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:pointer-events-none"
+          disabled={$connectionStatus === 'connecting'}
+          class="block w-full h-10 p-2 mt-8 mb-2 bg-[#282829] text-sm text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:pointer-events-none"
           on:click={$connectionStatus === 'connecting' ? undefined : async () => login(selectedAuthType)}
         >
           Log in
         </button>
-    </div>
+      </div>
     </div>
   </div>
 {/if}

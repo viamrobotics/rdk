@@ -308,7 +308,6 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 		return EncodeImage(ctx, lazy.decodedImage, actualOutMIME)
 	}
 	var buf bytes.Buffer
-	bounds := img.Bounds()
 	switch actualOutMIME {
 	case ut.MimeTypeRawDepth:
 		if _, err := WriteViamDepthMapTo(img, &buf); err != nil {
@@ -321,6 +320,7 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 		buf.Write(RGBABitmapMagicNumber)
 		widthBytes := make([]byte, 4)
 		heightBytes := make([]byte, 4)
+		bounds := img.Bounds()
 		binary.BigEndian.PutUint32(widthBytes, uint32(bounds.Dx()))
 		binary.BigEndian.PutUint32(heightBytes, uint32(bounds.Dy()))
 		buf.Write(widthBytes)
@@ -340,6 +340,9 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 		if err := qoi.Encode(&buf, img); err != nil {
 			return nil, err
 		}
+	case ut.MimeTypeH264:
+		frame := img.(H264)
+		buf.Write(frame.Bytes)
 	default:
 		return nil, errors.Errorf("do not know how to encode %q", actualOutMIME)
 	}

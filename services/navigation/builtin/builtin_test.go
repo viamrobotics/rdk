@@ -23,8 +23,10 @@ import (
 	_ "go.viam.com/rdk/components/movementsensor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
 	_ "go.viam.com/rdk/services/motion/builtin"
@@ -33,6 +35,7 @@ import (
 	_ "go.viam.com/rdk/services/vision/colordetector"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	viz "go.viam.com/rdk/vision"
 )
 
 type startWaypointState struct {
@@ -210,10 +213,10 @@ func TestNew(t *testing.T) {
 		test.That(t, svcStruct.store, test.ShouldResemble, navigation.NewMemoryNavigationStore())
 
 		test.That(t, svcStruct.motionCfg.ObstacleDetectors, test.ShouldBeNil)
-		test.That(t, svcStruct.motionCfg.AngularDegsPerSec, test.ShouldEqual, defaultAngularVelocityDegsPerSec)
-		test.That(t, svcStruct.motionCfg.LinearMPerSec, test.ShouldEqual, defaultLinearVelocityMPerSec)
-		test.That(t, svcStruct.motionCfg.PositionPollingFreqHz, test.ShouldEqual, defaultPositionPollingFrequencyHz)
-		test.That(t, svcStruct.motionCfg.ObstaclePollingFreqHz, test.ShouldEqual, defaultObstaclePollingFrequencyHz)
+		test.That(t, svcStruct.motionCfg.AngularDegsPerSec, test.ShouldEqual, defaultAngularDegsPerSec)
+		test.That(t, svcStruct.motionCfg.LinearMPerSec, test.ShouldEqual, defaultLinearMPerSec)
+		test.That(t, svcStruct.motionCfg.PositionPollingFreqHz, test.ShouldEqual, defaultPositionPollingHz)
+		test.That(t, svcStruct.motionCfg.ObstaclePollingFreqHz, test.ShouldEqual, defaultObstaclePollingHz)
 		test.That(t, svcStruct.motionCfg.PlanDeviationMM, test.ShouldEqual, defaultPlanDeviationM*1e3)
 	})
 
@@ -565,10 +568,6 @@ func TestNavSetup(t *testing.T) {
 	err = ns.RemoveWaypoint(ctx, id, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	obs, err := ns.Obstacles(ctx, nil)
-	test.That(t, len(obs), test.ShouldEqual, 1)
-	test.That(t, err, test.ShouldBeNil)
-
 	test.That(t, len(ns.(*builtIn).motionCfg.ObstacleDetectors), test.ShouldEqual, 1)
 
 	paths, err := ns.Paths(ctx, nil)
@@ -641,8 +640,8 @@ func TestPaths(t *testing.T) {
 		defer planSucceededCancelFn()
 		// we expect 2 executions to be generated
 		executionID := uuid.New()
-		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
-		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+		// MoveOnGlobe will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
+		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
 				return uuid.Nil, err
 			}
@@ -680,7 +679,7 @@ func TestPaths(t *testing.T) {
 						return
 					}
 				}
-				t.Error("MoveOnGlobeNew called unexpectedly")
+				t.Error("MoveOnGlobe called unexpectedly")
 			}, wg.Done)
 			return executionID, nil
 		}
@@ -778,8 +777,8 @@ func TestStartWaypoint(t *testing.T) {
 		counter := atomic.NewInt32(-1)
 		var wg sync.WaitGroup
 		defer wg.Wait()
-		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
-		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+		// MoveOnGlobe will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
+		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
 				return uuid.Nil, err
 			}
@@ -812,7 +811,7 @@ func TestStartWaypoint(t *testing.T) {
 						return
 					}
 				}
-				t.Error("MoveOnGlobeNew called unexpectedly")
+				t.Error("MoveOnGlobe called unexpectedly")
 			}, wg.Done)
 			return executionID, nil
 		}
@@ -857,9 +856,9 @@ func TestStartWaypoint(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		expectedMotionCfg := &motion.MotionConfiguration{
-			PositionPollingFreqHz: 2,
-			ObstaclePollingFreqHz: 2,
-			PlanDeviationMM:       1e+12,
+			PositionPollingFreqHz: 1,
+			ObstaclePollingFreqHz: 1,
+			PlanDeviationMM:       2600,
 			LinearMPerSec:         1,
 			AngularDegsPerSec:     1,
 			ObstacleDetectors: []motion.ObstacleDetectorName{
@@ -885,7 +884,7 @@ func TestStartWaypoint(t *testing.T) {
 				s.RLock()
 				// wait until StopPlan has been called twice
 				if len(s.sprs) == 2 {
-					// MoveOnGlobeNew was called twice, once for each waypoint
+					// MoveOnGlobe was called twice, once for each waypoint
 					test.That(t, len(s.mogrs), test.ShouldEqual, 2)
 					test.That(t, s.mogrs[0].ComponentName, test.ShouldResemble, s.base.Name())
 					test.That(t, math.IsNaN(s.mogrs[0].Heading), test.ShouldBeTrue)
@@ -941,7 +940,7 @@ func TestStartWaypoint(t *testing.T) {
 
 		executionID := uuid.New()
 		mogCalled := make(chan struct{}, 1)
-		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
 				return uuid.Nil, err
 			}
@@ -1019,7 +1018,7 @@ func TestStartWaypoint(t *testing.T) {
 			}
 			s.RLock()
 			if len(s.mogrs) == 3 {
-				// MoveOnGlobeNew was called twice, once for each waypoint
+				// MoveOnGlobe was called twice, once for each waypoint
 				test.That(t, s.mogrs[0].Extra, test.ShouldResemble, map[string]interface{}{
 					"motion_profile": "position_only",
 				})
@@ -1049,7 +1048,7 @@ func TestStartWaypoint(t *testing.T) {
 			uuid.New(),
 			uuid.New(),
 		}
-		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
 				return uuid.Nil, err
 			}
@@ -1161,7 +1160,7 @@ func TestStartWaypoint(t *testing.T) {
 					test.That(t, s.mogrs[3].Destination, test.ShouldResemble, pt1)
 					test.That(t, s.mogrs[4].Destination, test.ShouldResemble, pt1)
 
-					// // Motion reports that the last execution succeeded
+					// Motion reports that the last execution succeeded
 					ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name()})
 					test.That(t, err, test.ShouldBeNil)
 					test.That(t, len(ph), test.ShouldEqual, 1)
@@ -1197,7 +1196,7 @@ func TestStartWaypoint(t *testing.T) {
 			defer s.closeFunc()
 
 			executionID := uuid.New()
-			s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+			s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 				if err := ctx.Err(); err != nil {
 					return uuid.Nil, err
 				}
@@ -1308,8 +1307,8 @@ func TestStartWaypoint(t *testing.T) {
 		counter := atomic.NewInt32(-1)
 		var wg sync.WaitGroup
 		defer wg.Wait()
-		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
-		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+		// MoveOnGlobe will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
+		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
 				return uuid.Nil, err
 			}
@@ -1344,7 +1343,7 @@ func TestStartWaypoint(t *testing.T) {
 							return
 						}
 					}
-					t.Error("MoveOnGlobeNew called unexpectedly")
+					t.Error("MoveOnGlobe called unexpectedly")
 				}, wg.Done)
 			}
 			return executionID, nil
@@ -1410,11 +1409,11 @@ func TestStartWaypoint(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			if len(wps) == 0 {
 				s.RLock()
-				// // MoveOnGlobeNew was called twice, once for each waypoint
+				// MoveOnGlobe was called twice, once for each waypoint
 				test.That(t, len(s.mogrs), test.ShouldEqual, 2)
-				// // waypoint 1
+				// waypoint 1
 				test.That(t, s.mogrs[0].Destination, test.ShouldResemble, points[0])
-				// // waypoint 2
+				// waypoint 2
 				test.That(t, s.mogrs[1].Destination, test.ShouldResemble, points[1])
 				// Motion reports that the last execution succeeded
 				s.RUnlock()
@@ -1444,8 +1443,8 @@ func TestStartWaypoint(t *testing.T) {
 		defer wg.Wait()
 		pauseMOGSuccess := make(chan struct{})
 		resumeMOGSuccess := make(chan struct{})
-		// MoveOnGlobeNew will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
-		s.injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+		// MoveOnGlobe will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
+		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
 				return uuid.Nil, err
 			}
@@ -1480,7 +1479,7 @@ func TestStartWaypoint(t *testing.T) {
 						return
 					}
 				}
-				t.Error("MoveOnGlobeNew called unexpectedly")
+				t.Error("MoveOnGlobe called unexpectedly")
 			}, wg.Done)
 			return executionID, nil
 		}
@@ -1541,9 +1540,9 @@ func TestStartWaypoint(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			if len(wps) == 0 {
 				s.RLock()
-				// // MoveOnGlobeNew was called once with waypoint 1
+				// MoveOnGlobe was called once with waypoint 1
 				test.That(t, len(s.mogrs), test.ShouldEqual, 1)
-				// // waypoint 1
+				// waypoint 1
 				test.That(t, s.mogrs[0].Destination, test.ShouldResemble, points[0])
 				// Motion reports that the last execution succeeded
 				s.RUnlock()
@@ -1600,4 +1599,188 @@ func TestValidateGeometry(t *testing.T) {
 		_, err := cfg.Validate("")
 		test.That(t, err, test.ShouldBeNil)
 	})
+}
+
+func TestGetObstacles(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// create injected/fake components and services
+	fakeBase, err := baseFake.NewBase(
+		ctx,
+		nil,
+		resource.Config{
+			Name:  "test_base",
+			API:   base.API,
+			Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
+		},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	injectMS := inject.NewMotionService("test_motion")
+	injectedVis := inject.NewVisionService("test_vision")
+	injectMovementSensor := inject.NewMovementSensor("test_movement")
+	injectedCam := inject.NewCamera("test_camera")
+
+	// set the dependencies for the navigation service
+	deps := resource.Dependencies{
+		fakeBase.Name():             fakeBase,
+		injectMovementSensor.Name(): injectMovementSensor,
+		injectedCam.Name():          injectedCam,
+	}
+
+	// create static geo obstacle
+	sphereGeom, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 1.0, "test-sphere")
+	test.That(t, err, test.ShouldBeNil)
+	sphereGob := spatialmath.NewGeoObstacle(geo.NewPoint(1, 1), []spatialmath.Geometry{sphereGeom})
+	gobCfg, err := spatialmath.NewGeoObstacleConfig(sphereGob)
+	test.That(t, err, test.ShouldBeNil)
+
+	// construct the navigation service
+	ns, err := NewBuiltIn(
+		ctx,
+		resource.Dependencies{
+			injectMS.Name():             injectMS,
+			fakeBase.Name():             fakeBase,
+			injectMovementSensor.Name(): injectMovementSensor,
+			injectedVis.Name():          injectedVis,
+			injectedCam.Name():          injectedCam,
+		},
+		resource.Config{
+			ConvertedAttributes: &Config{
+				Store: navigation.StoreConfig{
+					Type: navigation.StoreTypeMemory,
+				},
+				BaseName:           "test_base",
+				MovementSensorName: "test_movement",
+				MotionServiceName:  "test_motion",
+				DegPerSec:          1,
+				MetersPerSec:       1,
+				MapType:            "",
+				Obstacles:          []*spatialmath.GeoObstacleConfig{gobCfg},
+				ObstacleDetectors: []*ObstacleDetectorNameConfig{
+					{VisionServiceName: injectedVis.Name().Name, CameraName: injectedCam.Name().Name},
+				},
+			},
+		},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, ns.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	// create links for framesystem
+	baseLink := createBaseLink(t)
+	movementSensorLink := referenceframe.NewLinkInFrame(
+		baseLink.Name(),
+		spatialmath.NewPose(r3.Vector{-5, 7, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90}),
+		"test_movement",
+		nil,
+	)
+	cameraGeom, err := spatialmath.NewBox(
+		spatialmath.NewZeroPose(),
+		r3.Vector{1, 1, 1}, "camera",
+	)
+	test.That(t, err, test.ShouldBeNil)
+	cameraLink := referenceframe.NewLinkInFrame(
+		baseLink.Name(),
+		spatialmath.NewPose(r3.Vector{6, -3, 0}, &spatialmath.OrientationVectorDegrees{OX: 1, Theta: -90}),
+		"test_camera",
+		cameraGeom,
+	)
+
+	// construct the framesystem
+	fsParts := []*referenceframe.FrameSystemPart{
+		{FrameConfig: movementSensorLink},
+		{FrameConfig: baseLink},
+		{FrameConfig: cameraLink},
+	}
+	fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// set the framesystem service for the navigation service
+	ns.(*builtIn).fsService = fsSvc
+
+	// set injectMovementSensor functions
+	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		return geo.NewPoint(1, 1), 0, nil
+	}
+	injectMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+		return &movementsensor.Properties{
+			CompassHeadingSupported: true,
+		}, nil
+	}
+	injectMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		// this is a left-handed value
+		return 315, nil
+	}
+
+	// set injectedVis functions
+	injectedVis.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+		boxGeom, err := spatialmath.NewBox(
+			spatialmath.NewPose(r3.Vector{-10, 0, 11}, &spatialmath.OrientationVectorDegrees{OZ: -1, OX: 1}),
+			r3.Vector{5, 5, 1},
+			"test-box",
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-box", boxGeom.ToProtobuf())
+		test.That(t, err, test.ShouldBeNil)
+		return []*viz.Object{detection}, nil
+	}
+
+	manipulatedBoxGeom, err := spatialmath.NewBox(
+		spatialmath.NewPose(
+			r3.Vector{0, 0, 0},
+			&spatialmath.OrientationVectorDegrees{OZ: -1, OX: 1},
+		),
+		r3.Vector{5, 5, 1},
+		"transient_0_test_camera_test-box",
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	dets, err := ns.Obstacles(ctx, nil)
+
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(dets), test.ShouldEqual, 2)
+	test.That(t, dets[0], test.ShouldResemble, sphereGob)
+	test.That(t, dets[1].Location(), test.ShouldResemble, geo.NewPoint(0.9999998600983906, 1.0000001399229705))
+	test.That(t, len(dets[1].Geometries()), test.ShouldEqual, 1)
+	test.That(t, dets[1].Geometries()[0].AlmostEqual(manipulatedBoxGeom), test.ShouldBeTrue)
+	test.That(t, dets[1].Geometries()[0].Label(), test.ShouldEqual, manipulatedBoxGeom.Label())
+}
+
+func createBaseLink(t *testing.T) *referenceframe.LinkInFrame {
+	baseBox, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{20, 20, 20}, "base-box")
+	test.That(t, err, test.ShouldBeNil)
+	baseLink := referenceframe.NewLinkInFrame(
+		referenceframe.World,
+		spatialmath.NewZeroPose(),
+		"test_base",
+		baseBox,
+	)
+	return baseLink
+}
+
+func createFrameSystemService(
+	ctx context.Context,
+	deps resource.Dependencies,
+	fsParts []*referenceframe.FrameSystemPart,
+	logger logging.Logger,
+) (framesystem.Service, error) {
+	fsSvc, err := framesystem.New(ctx, deps, logger)
+	if err != nil {
+		return nil, err
+	}
+	conf := resource.Config{
+		ConvertedAttributes: &framesystem.Config{Parts: fsParts},
+	}
+	if err := fsSvc.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
+	}
+	deps[fsSvc.Name()] = fsSvc
+
+	return fsSvc, nil
 }
