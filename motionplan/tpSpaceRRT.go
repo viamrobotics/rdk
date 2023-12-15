@@ -41,7 +41,7 @@ const (
 	defaultIdenticalNodeDistance = 80.
 
 	// When extending the RRT tree towards some point, do not extend more than this many times in a single RRT invocation.
-	defaultMaxReseeds = 10
+	defaultMaxReseeds = 20
 
 	// Make an attempt to solve the tree every this many iterations
 	// For a unidirectional solve, this means attempting to reach the goal rather than a random point
