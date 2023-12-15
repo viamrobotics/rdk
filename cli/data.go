@@ -108,14 +108,14 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	if c.StringSlice(dataFlagLocationIDs) != nil {
 		filter.LocationIds = c.StringSlice(dataFlagLocationIDs)
 	}
-	if c.String(dataFlagRobotID) != "" {
-		filter.RobotId = c.String(dataFlagRobotID)
+	if c.String(dataFlagMachineID) != "" {
+		filter.RobotId = c.String(dataFlagMachineID)
 	}
 	if c.String(dataFlagPartID) != "" {
 		filter.PartId = c.String(dataFlagPartID)
 	}
-	if c.String(dataFlagRobotName) != "" {
-		filter.RobotName = c.String(dataFlagRobotName)
+	if c.String(dataFlagMachineName) != "" {
+		filter.RobotName = c.String(dataFlagMachineName)
 	}
 	if c.String(dataFlagPartName) != "" {
 		filter.PartName = c.String(dataFlagPartName)

@@ -54,7 +54,8 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context) error {
 	if len(platforms) == 0 {
 		platforms = defaultBuildInfo.Arch
 	}
-	res, err := c.startBuild(manifest.URL, "main", manifest.ModuleID, platforms, version)
+	gitRef := cCtx.String(moduleBuildFlagRef)
+	res, err := c.startBuild(manifest.URL, gitRef, manifest.ModuleID, platforms, version)
 	if err != nil {
 		return err
 	}
