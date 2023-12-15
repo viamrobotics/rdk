@@ -137,10 +137,7 @@ type fakePTGKinematics struct {
 	sleepTime   int
 }
 
-// NewPTGFrameFromKinematicOptionsReq describes a request to NewPTGFrameFromKinematicOptions.
-type NewPTGFrameFromKinematicOptionsReq struct{}
-
-// NewPTGFrameFromKinematicOptions returns a new PTGFrame.
+// NewPTGFrameFromKinematicOptions returns a new PTGFrame based on the properties & geometries of the base.
 func NewPTGFrameFromKinematicOptions(
 	ctx context.Context,
 	base base.Base,
