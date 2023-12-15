@@ -134,8 +134,7 @@ license-check:
 
 FFMPEG_ROOT ?= etc/FFmpeg
 $(FFMPEG_ROOT):
-	cd etc && git clone https://github.com/FFmpeg/FFmpeg.git
-	git -C $(FFMPEG_ROOT) checkout release/6.1
+	cd etc && git clone https://github.com/FFmpeg/FFmpeg.git --depth 1 --branch release/6.1
 
 # For ARM64 builds, use the image ghcr.io/viamrobotics/antique:arm64 for backward compatibility
 FFMPEG_PREFIX ?= $(shell realpath .)/gostream/ffmpeg/$(shell uname -s)-$(shell uname -m)
@@ -145,7 +144,7 @@ ifeq ($(shell uname -m),aarch64)
 	FFMPEG_OPTS += --enable-v4l2-m2m
 endif
 ffmpeg: $(FFMPEG_ROOT)
-	cd $(FFMPEG_ROOT) && $(MAKE) distclean
+	cd $(FFMPEG_ROOT) && ($(MAKE) distclean || true)
 	cd $(FFMPEG_ROOT) && ./configure $(FFMPEG_OPTS)
 	cd $(FFMPEG_ROOT) && $(MAKE)
 	cd $(FFMPEG_ROOT) && $(MAKE) install
