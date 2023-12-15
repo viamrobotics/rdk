@@ -2,7 +2,6 @@ package tpspace
 
 import (
 	"errors"
-	"math"
 
 	pb "go.viam.com/api/component/arm/v1"
 
@@ -20,25 +19,8 @@ type ptgIKFrame struct {
 
 // NewPTGIKFrame will create a new frame intended to be passed to an Inverse Kinematics solver, allowing IK to solve for parameters
 // for the passed in PTG.
-func newPTGIKFrame(ptg PTG, trajCount int, distFar, distNear float64) referenceframe.Frame {
-	pf := &ptgIKFrame{PTG: ptg}
-
-	limits := []referenceframe.Limit{}
-	for i := 0; i < trajCount; i++ {
-		dist := distNear
-		if i == 0 {
-			// We only want to increase the length of the first leg of the PTG. Since gradient descent does not currently optimize
-			// for reducing path length, having more than one long leg will result in very inefficient paths.
-			dist = distFar
-		}
-		limits = append(limits,
-			referenceframe.Limit{Min: -math.Pi, Max: math.Pi},
-			referenceframe.Limit{Min: defaultMinPTGlen, Max: dist},
-		)
-	}
-
-	pf.limits = limits
-	return pf
+func newPTGIKFrame(ptg PTG, limits []referenceframe.Limit) referenceframe.Frame {
+	return &ptgIKFrame{PTG: ptg, limits: limits}
 }
 
 func (pf *ptgIKFrame) DoF() []referenceframe.Limit {

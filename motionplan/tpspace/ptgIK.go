@@ -5,6 +5,7 @@ package tpspace
 import (
 	"context"
 	"errors"
+	"math"
 	"sync"
 
 	"go.viam.com/rdk/logging"
@@ -38,7 +39,22 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float
 	if refDistLong <= 0 {
 		return nil, errors.New("refDistLong must be greater than zero")
 	}
-	ptgFrame := newPTGIKFrame(simPTG, trajCount, refDistLong, refDistShort)
+
+	limits := []referenceframe.Limit{}
+	for i := 0; i < trajCount; i++ {
+		dist := refDistShort
+		if i == 0 {
+			// We only want to increase the length of the first leg of the PTG. Since gradient descent does not currently optimize
+			// for reducing path length, having more than one long leg will result in very inefficient paths.
+			dist = refDistLong
+		}
+		limits = append(limits,
+			referenceframe.Limit{Min: -math.Pi, Max: math.Pi},
+			referenceframe.Limit{Min: defaultMinPTGlen, Max: dist},
+		)
+	}
+
+	ptgFrame := newPTGIKFrame(simPTG, limits)
 
 	nlopt, err := ik.CreateNloptIKSolver(ptgFrame, logger, 1, false, false)
 	if err != nil {
