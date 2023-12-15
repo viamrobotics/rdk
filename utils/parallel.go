@@ -16,7 +16,7 @@ import (
 
 // ParallelFactor controls the max level of parallelization. This might be useful
 // to set in tests where too much parallelism actually slows tests down in
-// aggregate.
+// aggregate. MUST NOT be used with t.Parallel() or via init()!
 var ParallelFactor = runtime.GOMAXPROCS(0)
 
 func init() {
