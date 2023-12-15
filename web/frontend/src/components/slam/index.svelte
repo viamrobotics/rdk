@@ -261,6 +261,7 @@
         }
       } catch {
         hasActiveSession = false;
+        mappingSessionStarted = false;
         sessionDuration = 0;
         clearInterval(durationInterval);
       }
