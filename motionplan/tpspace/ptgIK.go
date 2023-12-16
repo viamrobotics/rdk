@@ -150,7 +150,7 @@ func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
 	ptg.mu.RLock()
 	precomp := ptg.trajCache[alpha]
 	ptg.mu.RUnlock()
-	if precomp != nil && precomp[len(precomp)-1].Dist >= dist {
+	if precomp != nil && precomp[len(precomp)-1].Dist >= dist && dist > 0 {
 		exact := false
 		for _, wp := range precomp {
 			if wp.Dist <= dist {

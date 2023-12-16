@@ -3,6 +3,7 @@ package tpspace
 
 import (
 	"math"
+	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
@@ -70,6 +71,11 @@ func wrapTo2Pi(theta float64) float64 {
 
 // ComputePTG will compute all nodes of simPTG at the requested alpha, out to the requested distance, at the specified diffT resolution.
 func ComputePTG(simPTG PTG, alpha, dist, diffT float64) ([]*TrajNode, error) {
+	
+	if dist < 0 {
+		return computeInvertedPTG(simPTG, alpha, dist, diffT)
+	}
+	
 	// Initialize trajectory with an all-zero node
 	alphaTraj := []*TrajNode{{Pose: spatialmath.NewZeroPose()}}
 
@@ -131,6 +137,34 @@ func computePTGNode(simPTG PTG, alpha, dist, atT float64) (*TrajNode, error) {
 		return nil, err
 	}
 	return &TrajNode{pose, atT, dist, alpha, v, w}, nil
+}
+
+func computeInvertedPTG(simPTG PTG, alpha, dist, diffT float64) ([]*TrajNode, error) {
+	forwardsPTG, err := ComputePTG(simPTG, alpha, dist*-1, diffT)
+	if err != nil {
+		return nil, err
+	}
+	flippedTraj := make([]*TrajNode, 0, len(forwardsPTG))
+	startNode := forwardsPTG[len(forwardsPTG)-1] // Cache for convenience
+	
+	for i := len(forwardsPTG)-1; i >= 0; i-- {
+		fwdNode := forwardsPTG[i]
+		flippedPose := spatialmath.PoseBetween(startNode.Pose, fwdNode.Pose)
+		flippedPose = spatialmath.NewPose(
+			r3.Vector{flippedPose.Point().X*-1, flippedPose.Point().Y*-1, flippedPose.Point().Z},
+			flippedPose.Orientation(),
+		)
+		flippedTraj = append(flippedTraj,
+			&TrajNode{
+				flippedPose,
+				startNode.Time-fwdNode.Time,
+				startNode.Dist-fwdNode.Dist,
+				startNode.Alpha,
+				fwdNode.LinVelMMPS,
+				fwdNode.AngVelRPS * -1,
+		})
+	}
+	return flippedTraj, nil
 }
 
 // PTGSegmentMetric is a metric which returns the TP-space distance traversed in a segment. Since PTG inputs are relative, the distance

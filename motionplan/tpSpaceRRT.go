@@ -219,7 +219,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	var goalNode node
 	
 	// Used to flip goal nodes so they can solve forwards
-	//~ flipPose := spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ:1, Theta: 180})
+	flipPose := spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ:1, Theta: 180})
 	
 	goalScore := math.Inf(1)
 	for k, v := range rrt.maps.startMap {
@@ -303,9 +303,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	var randPosNode node = midptNode
 
 	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
-	//~ for iter := 0; iter < 20; iter++ {
 		mp.logger.Debugf("TP Space RRT iteration %d", iter)
-		fmt.Println("rand pos node", randPosNode)
 		if ctx.Err() != nil {
 			mp.logger.Debugf("TP Space RRT timed out after %d iterations", iter)
 			rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
@@ -321,12 +319,12 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		if mp.algOpts.bidirectional {
 			rseed2 := mp.randseed.Int31()
 			utils.PanicCapturingGo(func() {
-				//~ flippedNode := &basicNode{
-					//~ pose: spatialmath.Compose(randPosNode.Pose(), flipPose),
-					//~ cost: randPosNode.Cost(),
-				//~ }
-				//~ m2chan <- mp.attemptExtension(ctx, flippedNode, rrt.maps.goalMap, false, rseed2)
-				m2chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.goalMap, true, rseed2)
+				flippedNode := &basicNode{
+					pose: spatialmath.Compose(randPosNode.Pose(), flipPose),
+					cost: randPosNode.Cost(),
+				}
+				m2chan <- mp.attemptExtension(ctx, flippedNode, rrt.maps.goalMap, false, rseed2)
+				//~ m2chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.goalMap, true, rseed2)
 			})
 			goalReached = <-m2chan
 		}
@@ -340,12 +338,8 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		if seedReached.node != nil && goalReached.node != nil {
 			reachedDelta := mp.planOpts.DistanceFunc(&ik.Segment{
 				StartPosition: seedReached.node.Pose(),
-				EndPosition: goalReached.node.Pose(),
-				//~ EndPosition: spatialmath.Compose(goalReached.node.Pose(), flipPose),
+				EndPosition: spatialmath.Compose(goalReached.node.Pose(), flipPose),
 			})
-			//~ fmt.Println(reachedDelta)
-			//~ fmt.Println(spatialmath.PoseToProtobuf(seedReached.node.Pose()))
-			//~ fmt.Println(spatialmath.PoseToProtobuf(spatialmath.Compose(goalReached.node.Pose(), flipPose)))
 			if reachedDelta > mp.planOpts.GoalThreshold {
 				// If both maps extended, but did not reach the same point, then attempt to extend them towards each other
 				seedReached = mp.attemptExtension(ctx, goalReached.node, rrt.maps.startMap, false, mp.randseed.Int31())
@@ -359,12 +353,11 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 						EndPosition:   goalReached.node.Pose(),
 					})
 					if reachedDelta > mp.planOpts.GoalThreshold {
-						goalReached = mp.attemptExtension(ctx, seedReached.node, rrt.maps.goalMap, true, mp.randseed.Int31())
-						//~ flippedNode := &basicNode{
-							//~ pose: spatialmath.Compose(seedReached.node.Pose(), flipPose),
-							//~ cost: seedReached.node.Cost(),
-						//~ }
-						//~ goalReached = mp.attemptExtension(ctx, flippedNode, rrt.maps.goalMap, false, mp.randseed.Int31())
+						flippedNode := &basicNode{
+							pose: spatialmath.Compose(seedReached.node.Pose(), flipPose),
+							cost: seedReached.node.Cost(),
+						}
+						goalReached = mp.attemptExtension(ctx, flippedNode, rrt.maps.goalMap, false, mp.randseed.Int31())
 						if goalReached.error != nil {
 							rrt.solutionChan <- &rrtPlanReturn{planerr: goalReached.error, maps: rrt.maps}
 							return
@@ -373,23 +366,19 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 					if goalReached.node != nil {
 						reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{
 								StartPosition: seedReached.node.Pose(),
-								EndPosition: goalReached.node.Pose(),
-								//~ EndPosition: spatialmath.Compose(goalReached.node.Pose(), flipPose),
+								EndPosition: spatialmath.Compose(goalReached.node.Pose(), flipPose),
 						})
-						//~ fmt.Println(reachedDelta)
-						//~ fmt.Println(spatialmath.PoseToProtobuf(seedReached.node.Pose()))
-						//~ fmt.Println(spatialmath.PoseToProtobuf(spatialmath.Compose(goalReached.node.Pose(), flipPose)))
 					}
 				}
 			}
 			if reachedDelta <= mp.planOpts.GoalThreshold {
 				// If we've reached the goal, extract the path from the RRT trees and return
-				path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalReached.node}, false)
+				path := extractTPspacePath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalReached.node})
 				publishFinishedPath(path)
 				return
 			}
 		}
-		if iter%mp.algOpts.attemptSolveEvery == 0 {
+		if iter%mp.algOpts.attemptSolveEvery == mp.algOpts.attemptSolveEvery - 1 {
 			// Attempt a solve; we iterate through our goal tree and attempt to find any connection to the seed tree
 			paths := [][]node{}
 
@@ -432,7 +421,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				}
 				if reachedDelta <= mp.planOpts.GoalThreshold {
 					// If we've reached the goal, extract the path from the RRT trees and return
-					path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalMapNode}, false)
+					path := extractTPspacePath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalMapNode})
 					paths = append(paths, path)
 				}
 			}
@@ -711,7 +700,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 			return &nodeAndError{nil, err}
 		}
 		if newReseedCandidate == nil {
-			fmt.Println("breaking", newReseedCandidate, reseedCandidate)
+			//~ fmt.Println("breaking", newReseedCandidate, reseedCandidate)
 			if reseedCandidate == nil {
 				// We failed to extend at all
 				return &nodeAndError{nil, nil}
@@ -737,7 +726,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 
 		seedNode = endNode
 	}
-	fmt.Println("return final")
+	//~ fmt.Println("return final")
 	return &nodeAndError{reseedCandidate.newNodes[len(reseedCandidate.newNodes)-1], nil}
 }
 
@@ -1077,4 +1066,43 @@ func rectifyTPspacePath(path []node, frame referenceframe.Frame, startPose spati
 		correctedPath = append(correctedPath, thisNode)
 	}
 	return correctedPath, nil
+}
+
+func extractTPspacePath(startMap, goalMap map[node]node, pair *nodePair) []node {
+	// need to figure out which of the two nodes is in the start map
+	var startReached, goalReached node
+	if _, ok := startMap[pair.a]; ok {
+		startReached, goalReached = pair.a, pair.b
+	} else {
+		startReached, goalReached = pair.b, pair.a
+	}
+
+	// extract the path to the seed
+	path := make([]node, 0)
+	for startReached != nil {
+		path = append(path, startReached)
+		startReached = startMap[startReached]
+	}
+
+	// reverse the slice
+	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
+		path[i], path[j] = path[j], path[i]
+	}
+
+	if goalReached != nil {
+		// extract the path to the goal
+		for goalReached != nil {
+			goalQ := goalReached.Q()
+			goalQ[2].Value = -1*goalQ[2].Value
+			goalReachedReversed := &basicNode{
+				q: goalQ,
+				cost: goalReached.Cost(),
+				pose: goalReached.Pose(),
+				corner: goalReached.Corner(),
+			}
+			path = append(path, goalReachedReversed)
+			goalReached = goalMap[goalReached]
+		}
+	}
+	return path
 }

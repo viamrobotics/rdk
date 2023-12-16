@@ -152,7 +152,7 @@ func NewPTGFrameFromKinematicOptions(
 	pf.limits = []referenceframe.Limit{
 		{Min: 0, Max: float64(len(pf.solvers) - 1)},
 		{Min: -math.Pi, Max: math.Pi},
-		{Min: 0, Max: refDistLong},
+		{Min: -refDistLong, Max: refDistLong},
 	}
 
 	return pf, nil

@@ -77,7 +77,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 			}
 		}
 	}
-	tp.planOpts.SmoothIter = 20
+	tp.planOpts.SmoothIter = 0
 	plan = tp.smoothPath(ctx, plan)
 	if pathdebug {
 		lastPose = spatialmath.NewZeroPose()
@@ -275,7 +275,7 @@ func TestPtgWithObstacle(t *testing.T) {
 			}
 		}
 	}
-	tp.planOpts.SmoothIter = 20
+	tp.planOpts.SmoothIter = 0
 	plan = tp.smoothPath(ctx, plan)
 	if pathdebug {
 		lastPose = spatialmath.NewZeroPose()
