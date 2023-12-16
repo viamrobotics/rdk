@@ -67,7 +67,7 @@ const (
 	defaultMinTrajectoryLength = 350
 
 	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly.
-	pathdebug = false
+	pathdebug = true
 )
 
 // Using the standard SquaredNormMetric, we run into issues where far apart distances will underflow gradient calculations.
@@ -323,8 +323,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 					pose: spatialmath.Compose(randPosNode.Pose(), flipPose),
 					cost: randPosNode.Cost(),
 				}
-				m2chan <- mp.attemptExtension(ctx, flippedNode, rrt.maps.goalMap, false, rseed2)
-				//~ m2chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.goalMap, true, rseed2)
+				m2chan <- mp.attemptExtension(ctx, flippedNode, rrt.maps.goalMap, true, rseed2)
 			})
 			goalReached = <-m2chan
 		}
@@ -357,7 +356,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 							pose: spatialmath.Compose(seedReached.node.Pose(), flipPose),
 							cost: seedReached.node.Cost(),
 						}
-						goalReached = mp.attemptExtension(ctx, flippedNode, rrt.maps.goalMap, false, mp.randseed.Int31())
+						goalReached = mp.attemptExtension(ctx, flippedNode, rrt.maps.goalMap, true, mp.randseed.Int31())
 						if goalReached.error != nil {
 							rrt.solutionChan <- &rrtPlanReturn{planerr: goalReached.error, maps: rrt.maps}
 							return
@@ -459,7 +458,6 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	curPtg tpspace.PTGSolver,
 	rrt rrtMap,
 	nearest node,
-	invert bool,
 	rseed int,
 ) (*candidate, error) {
 	nm := &neighborManager{nCPU: mp.planOpts.NumThreads / len(mp.tpFrame.PTGSolvers())}
@@ -468,9 +466,6 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	var successNode node
 	// Get the distance function that will find the nearest RRT map node in TP-space of *this* PTG
 	ptgDistOpt := mp.algOpts.distOptions[curPtg]
-	if invert {
-		ptgDistOpt = mp.algOpts.invertDistOptions[curPtg]
-	}
 
 	if nearest == nil {
 		// Get nearest neighbor to rand config in tree using this PTG
@@ -485,15 +480,8 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 
 	// Get cartesian distance from NN to rand
 	var targetFunc ik.StateMetric
-	if invert {
-		sqMet := mp.algOpts.goalMetricConstructor(randPosNode.Pose())
-		targetFunc = func(pose *ik.State) float64 {
-			return sqMet(&ik.State{Position: spatialmath.PoseBetweenInverse(pose.Position, nearest.Pose())})
-		}
-	} else {
-		relPose := spatialmath.PoseBetween(nearest.Pose(), randPosNode.Pose())
-		targetFunc = mp.algOpts.goalMetricConstructor(relPose)
-	}
+	relPose := spatialmath.PoseBetween(nearest.Pose(), randPosNode.Pose())
+	targetFunc = mp.algOpts.goalMetricConstructor(relPose)
 	solutionChan := make(chan *ik.Solution, 1)
 	err := curPtg.Solve(context.Background(), solutionChan, nil, targetFunc, rseed)
 
@@ -511,42 +499,25 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	// We may produce more than one consecutive arc. Reduce the one configuration to several 2dof arcs
 	for i := 0; i < len(bestNode.Configuration); i += 2 {
 		var subNode node
-		if invert {
-			nodeIdx := len(bestNode.Configuration) - (i + 2)
-			subNode = newConfigurationNode(bestNode.Configuration[nodeIdx : nodeIdx+2])
-		} else {
-			subNode = newConfigurationNode(bestNode.Configuration[i : i+2])
-		}
-
-		subNodePose, err := curPtg.Transform(subNode.Q())
-		if err != nil {
-			return nil, err
-		}
-		if invert {
-			arcStartPose = spatialmath.PoseBetweenInverse(subNodePose, arcStartPose)
-		}
+		subNode = newConfigurationNode(bestNode.Configuration[i : i+2])
 
 		// Check collisions along this traj and get the longest distance viable
 		trajK, err := curPtg.Trajectory(subNode.Q()[0].Value, subNode.Q()[1].Value)
 		if err != nil {
 			return nil, err
 		}
-		goodNode := mp.checkTraj(trajK, invert, arcStartPose)
+		goodNode := mp.checkTraj(trajK, arcStartPose)
 		if goodNode == nil {
 			break
 		}
 		partialExtend := false
 
-		if invert {
-			arcPose = spatialmath.Compose(subNodePose, arcPose)
-		} else {
-			for i, val := range subNode.Q() {
-				if goodNode.Q()[i] != val {
-					partialExtend = true
-				}
+		for i, val := range subNode.Q() {
+			if goodNode.Q()[i] != val {
+				partialExtend = true
 			}
-			arcPose = spatialmath.Compose(arcPose, goodNode.Pose())
 		}
+		arcPose = spatialmath.Compose(arcPose, goodNode.Pose())
 
 		// add the last node in trajectory
 		arcStartPose = spatialmath.Compose(arcStartPose, goodNode.Pose())
@@ -584,7 +555,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 }
 
 // Check our constraints (mainly collision) and return a valid node to add, or nil if no nodes along the traj are valid.
-func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert bool, arcStartPose spatialmath.Pose) node {
+func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, arcStartPose spatialmath.Pose) node {
 	sinceLastCollideCheck := 0.
 	lastDist := 0.
 	passed := []node{}
@@ -592,11 +563,6 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert b
 	// TODO: RSDK-5007 will allow this to use a Segment and be better integrated into our existing frameworks.
 	for i := 0; i < len(trajK); i++ {
 		trajPt := trajK[i]
-		if invert {
-			// Start at known-good map point and extend
-			// For the goal tree this means iterating backwards
-			trajPt = trajK[(len(trajK)-1)-i]
-		}
 
 		sinceLastCollideCheck += math.Abs(trajPt.Dist - lastDist)
 		trajState := &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose), Frame: mp.frame}
@@ -605,7 +571,7 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert b
 			ok, _ := mp.planOpts.CheckStateConstraints(trajState)
 			if !ok {
 				okDist := trajPt.Dist * defaultCollisionWalkbackPct
-				if okDist > defaultMinTrajectoryLength && !invert {
+				if okDist > defaultMinTrajectoryLength {
 					// Check that okDist is larger than the minimum distance to move to add a partial trajectory.
 					for i := len(passed) - 1; i > 0; i-- {
 						if passed[i].Cost() < defaultMinTrajectoryLength {
@@ -643,7 +609,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 	ctx context.Context,
 	goalNode node,
 	rrt rrtMap,
-	invert bool,
+	isGoalTree bool,
 	rseed int32,
 ) *nodeAndError {
 	var reseedCandidate *candidate
@@ -669,7 +635,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 			activeSolvers.Add(1)
 			utils.PanicCapturingGo(func() {
 				defer activeSolvers.Done()
-				cand, err := mp.getExtensionCandidate(ctx, goalNode, ptgNumPar, curPtgPar, rrt, seedNode, invert, int(rseed))
+				cand, err := mp.getExtensionCandidate(ctx, goalNode, ptgNumPar, curPtgPar, rrt, seedNode, int(rseed))
 				if err != nil && !errors.Is(err, errNoNeighbors) && !errors.Is(err, errInvalidCandidate) {
 					candChan <- nil
 					return
@@ -695,7 +661,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 			}
 		}
 		var err error
-		newReseedCandidate, err := mp.extendMap(ctx, candidates, rrt, invert)
+		newReseedCandidate, err := mp.extendMap(ctx, candidates, rrt, isGoalTree)
 		if err != nil && !errors.Is(err, errNoCandidates) {
 			return &nodeAndError{nil, err}
 		}
@@ -735,7 +701,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 	ctx context.Context,
 	candidates []*candidate,
 	rrt rrtMap,
-	invert bool,
+	isGoalTree bool,
 ) (*candidate, error) {
 	if len(candidates) == 0 {
 		return nil, errNoCandidates
@@ -769,9 +735,6 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 			return nil, err
 		}
 		arcStartPose := treeNode.Pose()
-		if invert {
-			arcStartPose = spatialmath.PoseBetweenInverse(trajK[len(trajK)-1].Pose, arcStartPose)
-		}
 		lastDist := 0.
 		sinceLastNode := 0.
 
@@ -779,9 +742,6 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 		if mp.algOpts.addIntermediate {
 			for i := 0; i < len(trajK); i++ {
 				trajPt := trajK[i]
-				if invert {
-					trajPt = trajK[(len(trajK)-1)-i]
-				}
 				if i == 0 {
 					lastDist = trajPt.Dist
 				}
@@ -790,7 +750,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 				}
 				trajState = &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose)}
 				if pathdebug {
-					if !invert {
+					if !isGoalTree {
 						mp.logger.Debugf("$FWDTREE,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
 					} else {
 						mp.logger.Debugf("$REVTREE,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
@@ -799,16 +759,13 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 				sinceLastNode += math.Abs(trajPt.Dist - lastDist)
 
 				// Optionally add sub-nodes along the way. Will make the final path a bit better
-				// Intermediate nodes currently disabled on the goal map because they do not invert nicely
 				if sinceLastNode > mp.algOpts.addNodeEvery {
-					if !invert {
-						// add the last node in trajectory
-						addedNode = &basicNode{
-							q:      referenceframe.FloatsToInputs([]float64{float64(ptgNum), randAlpha, trajPt.Dist}),
-							cost:   trajPt.Dist,
-							pose:   trajState.Position,
-							corner: false,
-						}
+					// add the last node in trajectory
+					addedNode = &basicNode{
+						q:      referenceframe.FloatsToInputs([]float64{float64(ptgNum), randAlpha, trajPt.Dist}),
+						cost:   trajPt.Dist,
+						pose:   trajState.Position,
+						corner: false,
 					}
 					if addedNode != nil {
 						rrt[addedNode] = treeNode
@@ -821,7 +778,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 				mp.logger.Debugf("$WPI,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
 			}
 		}
-		if invert {
+		if isGoalTree {
 			mp.goalNodes = append(mp.goalNodes, newNode)
 		}
 		rrt[newNode] = treeNode
@@ -846,15 +803,13 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 		identicalNodeDistance: defaultIdenticalNodeDistance,
 
 		distOptions:       map[tpspace.PTG]*plannerOptions{},
-		invertDistOptions: map[tpspace.PTG]*plannerOptions{},
 
 		bidirectional:         defaultBidirectional,
 		goalMetricConstructor: defaultGoalMetricConstructor,
 	}
 
 	for _, curPtg := range mp.tpFrame.PTGSolvers() {
-		tpOpt.distOptions[curPtg] = mp.make2DTPSpaceDistanceOptions(curPtg, false)
-		tpOpt.invertDistOptions[curPtg] = mp.make2DTPSpaceDistanceOptions(curPtg, true)
+		tpOpt.distOptions[curPtg] = mp.make2DTPSpaceDistanceOptions(curPtg)
 	}
 
 	mp.algOpts = tpOpt
@@ -862,7 +817,7 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 
 // make2DTPSpaceDistanceOptions will create a plannerOptions object with a custom DistanceFunc constructed such that
 // distances can be computed in TP space using the given PTG.
-func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGSolver, invert bool) *plannerOptions {
+func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGSolver) *plannerOptions {
 	opts := newBasicPlannerOptions(mp.frame)
 	//nolint: gosec
 	randSeed := rand.New(rand.NewSource(mp.randseed.Int63()))
@@ -875,15 +830,8 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 			return math.Inf(1)
 		}
 		var targetFunc ik.StateMetric
-		if invert {
-			sqMet := mp.algOpts.goalMetricConstructor(seg.StartPosition)
-			targetFunc = func(pose *ik.State) float64 {
-				return sqMet(&ik.State{Position: spatialmath.PoseBetweenInverse(pose.Position, seg.EndPosition)})
-			}
-		} else {
-			relPose := spatialmath.PoseBetween(seg.EndPosition, seg.StartPosition)
-			targetFunc = mp.algOpts.goalMetricConstructor(relPose)
-		}
+		relPose := spatialmath.PoseBetween(seg.EndPosition, seg.StartPosition)
+		targetFunc = mp.algOpts.goalMetricConstructor(relPose)
 		solutionChan := make(chan *ik.Solution, 1)
 		err := ptg.Solve(context.Background(), solutionChan, nil, targetFunc, randSeed.Int())
 		var closeNode *ik.Solution

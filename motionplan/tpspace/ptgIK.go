@@ -107,13 +107,21 @@ func (ptg *ptgIK) Solve(
 	internalSolutionGen := make(chan *ik.Solution, 1)
 	defer close(internalSolutionGen)
 	var solved *ik.Solution
-
+	var gridSolved *ik.Solution
+	
 	if seed == nil {
 		seed = ptg.defaultSeed
 	}
+	
+	err := ptg.gridSim.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
+	select {
+	case gridSolved = <-internalSolutionGen:
+	default:
+	}
+	//~ seed[0] = gridSolved.Configuration[0]
 
 	// Spawn the IK solver to generate a solution
-	err := ptg.fastGradDescent.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
+	err = ptg.fastGradDescent.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
 	// We should have zero or one solutions
 
 	select {
@@ -134,7 +142,8 @@ func (ptg *ptgIK) Solve(
 	}
 	if err != nil || solved == nil || ptg.arcDist(solved.Configuration) < defaultZeroDist || seedOutput {
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
-		return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
+		solutionChan <- gridSolved
+		return nil
 	}
 
 	solutionChan <- solved
