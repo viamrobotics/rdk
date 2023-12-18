@@ -140,6 +140,7 @@ $(FFMPEG_ROOT):
 FFMPEG_PREFIX ?= $(shell realpath .)/gostream/ffmpeg/$(shell uname -s)-$(shell uname -m)
 FFMPEG_OPTS = --disable-programs --disable-doc --disable-everything --prefix=$(FFMPEG_PREFIX) --enable-pic --disable-autodetect
 ifeq ($(shell uname -m),aarch64)
+	# We only support hardware encoding on a Raspberry Pi.
 	FFMPEG_OPTS += --enable-encoder=h264_v4l2m2m
 	FFMPEG_OPTS += --enable-v4l2-m2m
 endif
