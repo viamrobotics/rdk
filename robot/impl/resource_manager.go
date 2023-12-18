@@ -123,6 +123,12 @@ func (manager *resourceManager) addRemote(
 			return
 		}
 	} else {
+		oldRemote, ok := manager.RemoteByName(c.Name)
+		if ok {
+			if err := oldRemote.Close(ctx); err != nil {
+				manager.logger.Errorw("failed to close remote", "name", rName, "error", err)
+			}
+		}
 		gNode.SwapResource(rr, builtinModel)
 	}
 	manager.updateRemoteResourceNames(ctx, rName, rr)
