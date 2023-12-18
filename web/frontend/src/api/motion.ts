@@ -4,6 +4,8 @@ import { getPosition } from './slam';
 import { rcLogConditionally } from '@/lib/log';
 
 export const moveOnMap = async (robotClient: Client, name: string, componentName: string, x: number, y: number) => {
+  const req = new motionApi.NewMoveOnMapNewRequest();
+
   const request = new motionApi.MoveOnMapRequest();
 
   /*

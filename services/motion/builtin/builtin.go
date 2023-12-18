@@ -258,8 +258,7 @@ func (ms *builtIn) MoveOnMap(
 		Destination:   destination,
 		SlamName:      slamName,
 		Extra:         extra,
-	}, nil, 999,
-	)
+	}, nil, 999)
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
