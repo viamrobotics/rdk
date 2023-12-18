@@ -2,13 +2,14 @@ package tpspace
 
 import (
 	"errors"
-	"math"
 
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
+
+const defaultMinPTGlen = 10.
 
 // ptgFrame wraps a tpspace.PTG so that it fills the Frame interface and can be used by IK.
 type ptgIKFrame struct {
@@ -18,18 +19,8 @@ type ptgIKFrame struct {
 
 // NewPTGIKFrame will create a new frame intended to be passed to an Inverse Kinematics solver, allowing IK to solve for parameters
 // for the passed in PTG.
-func newPTGIKFrame(ptg PTG, trajCount int, dist float64) referenceframe.Frame {
-	pf := &ptgIKFrame{PTG: ptg}
-
-	limits := []referenceframe.Limit{}
-	for i := 0; i < trajCount; i++ {
-		limits = append(limits,
-			referenceframe.Limit{Min: -math.Pi, Max: math.Pi},
-			referenceframe.Limit{Min: 0, Max: dist},
-		)
-	}
-	pf.limits = limits
-	return pf
+func newPTGIKFrame(ptg PTG, limits []referenceframe.Limit) referenceframe.Frame {
+	return &ptgIKFrame{PTG: ptg, limits: limits}
 }
 
 func (pf *ptgIKFrame) DoF() []referenceframe.Limit {

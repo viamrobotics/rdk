@@ -254,11 +254,14 @@
 
       try {
         hasActiveSession = true;
-        sessionId = await overrides.startMappingSession(mapName);
-        mappingSessionStarted = true;
-        startMappingIntervals(Date.now());
+        if (!mappingSessionStarted) {
+          mappingSessionStarted = true;
+          sessionId = await overrides.startMappingSession(mapName)
+          startMappingIntervals(Date.now());
+        }
       } catch {
         hasActiveSession = false;
+        mappingSessionStarted = false;
         sessionDuration = 0;
         clearInterval(durationInterval);
       }

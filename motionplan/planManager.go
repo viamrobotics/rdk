@@ -92,6 +92,23 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 
 	var cancel func()
 
+	if pathdebug {
+		pm.logger.Debug("$type,X,Y")
+		pm.logger.Debugf("$SG,%f,%f", 0., 0.)
+		pm.logger.Debugf("$SG,%f,%f", goalPos.Point().X, goalPos.Point().Y)
+		gifs, err := worldState.ObstaclesInWorldFrame(pm.fs, seedMap)
+		if err == nil {
+			for _, geom := range gifs.Geometries() {
+				pts := geom.ToPoints(1.)
+				for _, pt := range pts {
+					if math.Abs(pt.Z) < 0.1 {
+						pm.logger.Debugf("$OBS,%f,%f", pt.X, pt.Y)
+					}
+				}
+			}
+		}
+	}
+
 	// set timeout for entire planning process if specified
 	if timeout, ok := motionConfig["timeout"].(float64); ok {
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout*float64(time.Second)))
