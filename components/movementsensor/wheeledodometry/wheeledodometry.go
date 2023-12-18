@@ -152,6 +152,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	if o.baseWidth == 0 || o.wheelCircumference == 0 {
 		return errors.New("base width or wheel circumference are 0, movement sensor cannot be created")
 	}
+	o.logger.Debugf("using base %v for wheeled_odometry sensor", newBase.Name().ShortName())
 
 	// check if new motors have been added, or the existing motors have been changed, and update the motorPairs accorodingly
 	for i := range newConf.LeftMotors {
@@ -185,19 +186,14 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 		thisPair := motorPair{left: motorLeft, right: motorRight}
 		if i >= len(o.motors) {
 			o.motors = append(o.motors, thisPair)
-			o.logger.Debugf("using motors %v for wheeled odometery", []string{
-				thisPair.left.Name().ShortName(), thisPair.right.Name().ShortName(),
-			},
-			)
 		} else if (o.motors[i].left.Name().ShortName() != newConf.LeftMotors[i]) ||
 			(o.motors[i].right.Name().ShortName() != newConf.RightMotors[i]) {
 			o.motors[i].left = motorLeft
 			o.motors[i].right = motorRight
-			o.logger.Debugf("using motors %v for wheeled odometery", []string{
-				motorLeft.Name().ShortName(), motorRight.Name().ShortName(),
-			},
-			)
 		}
+		o.logger.Debugf("using motors %v for wheeled odometery",
+			[]string{motorLeft.Name().ShortName(), motorRight.Name().ShortName()})
+
 	}
 
 	if len(o.motors) > 1 {
