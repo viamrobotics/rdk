@@ -43,6 +43,11 @@ type NloptIK struct {
 	// Nlopt will try to minimize a configuration for whatever is passed in. If exact is false, then the solver will emit partial
 	// solutions where it was not able to meet the goal criteria but still was able to improve upon the seed.
 	exact bool
+
+	// useRelTol specifies whether the SetXtolRel and SetFtolRel values will be set for nlopt.
+	// If true, this will terminate solving when nlopt alg iterations change the distance to goal by less than some proportion of calculated
+	// distance. This can cause premature terminations when the distances are large.
+	useRelTol bool
 }
 
 type optimizeReturn struct {
@@ -54,7 +59,7 @@ type optimizeReturn struct {
 // CreateNloptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on
 // which Transform() will be called, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set
 // to the default of 5000.
-func CreateNloptIKSolver(mdl referenceframe.Frame, logger logging.Logger, iter int, exact bool) (*NloptIK, error) {
+func CreateNloptIKSolver(mdl referenceframe.Frame, logger logging.Logger, iter int, exact, useRelTol bool) (*NloptIK, error) {
 	ik := &NloptIK{logger: logger}
 
 	ik.model = mdl
@@ -70,6 +75,7 @@ func CreateNloptIKSolver(mdl referenceframe.Frame, logger logging.Logger, iter i
 	ik.maxIterations = iter
 	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.DoF())
 	ik.exact = exact
+	ik.useRelTol = useRelTol
 
 	return ik, nil
 }
@@ -108,6 +114,8 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	}
 	var activeSolvers sync.WaitGroup
 
+	jumpVal := 0.
+
 	// x is our set of inputs
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.
 	nloptMinFunc := func(x, gradient []float64) float64 {
@@ -124,48 +132,57 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		mInput.Configuration = inputs
 		mInput.Position = eePos
 		dist := solveMetric(mInput)
+		if len(gradient) > 0 {
+			// Yes, the for loop below is logically equivalent to not having this if statement. But CPU branch prediction means having the
+			// if statement is faster.
+			for i := range gradient {
+				jumpVal = jump[i]
+				flip := false
+				inputs[i].Value += jumpVal
+				ub := ik.upperBound[i]
+				if inputs[i].Value >= ub {
+					flip = true
+					inputs[i].Value -= 2 * jumpVal
+				}
 
-		for i := range gradient {
-			flip := false
-			inputs[i].Value += jump[i]
-			ub := ik.upperBound[i]
-			if inputs[i].Value >= ub {
-				flip = true
-				inputs[i].Value -= 2 * jump[i]
-			}
-
-			eePos, err := ik.model.Transform(inputs)
-			if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
-				ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
-				err = opt.ForceStop()
-				ik.logger.Errorw("forcestop error", "error", err)
-				return 0
-			}
-			mInput.Configuration = inputs
-			mInput.Position = eePos
-			dist2 := solveMetric(mInput)
-			gradient[i] = (dist2 - dist) / jump[i]
-			if flip {
-				inputs[i].Value += jump[i]
-				gradient[i] *= -1
-			} else {
-				inputs[i].Value -= jump[i]
+				eePos, err := ik.model.Transform(inputs)
+				if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
+					ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
+					err = opt.ForceStop()
+					ik.logger.Errorw("forcestop error", "error", err)
+					return 0
+				}
+				mInput.Configuration = inputs
+				mInput.Position = eePos
+				dist2 := solveMetric(mInput)
+				gradient[i] = (dist2 - dist) / jumpVal
+				if flip {
+					inputs[i].Value += jumpVal
+					gradient[i] *= -1
+				} else {
+					inputs[i].Value -= jumpVal
+				}
 			}
 		}
 		return dist
 	}
 
 	err = multierr.Combine(
-		opt.SetFtolRel(ik.epsilon),
 		opt.SetFtolAbs(ik.epsilon),
 		opt.SetLowerBounds(ik.lowerBound),
 		opt.SetStopVal(ik.epsilon),
 		opt.SetUpperBounds(ik.upperBound),
-		opt.SetXtolRel(ik.epsilon),
 		opt.SetXtolAbs1(ik.epsilon),
 		opt.SetMinObjective(nloptMinFunc),
 		opt.SetMaxEval(nloptStepsPerIter),
 	)
+	if ik.useRelTol {
+		err = multierr.Combine(
+			err,
+			opt.SetFtolRel(ik.epsilon),
+			opt.SetXtolRel(ik.epsilon),
+		)
+	}
 
 	if ik.id > 0 {
 		// Solver with ID 1 seeds off current angles
@@ -321,7 +338,7 @@ func (ik *NloptIK) calcJump(testJump float64, seed []referenceframe.Input, solve
 	seedDist := solveMetric(mInput)
 	for i, testVal := range seed {
 		seedTest := append(make([]referenceframe.Input, 0, len(seed)), seed...)
-		for jumpVal := testJump; jumpVal < 1; jumpVal *= 10 {
+		for jumpVal := testJump; jumpVal < 0.1; jumpVal *= 10 {
 			seedTest[i] = referenceframe.Input{testVal.Value + jumpVal}
 			if seedTest[i].Value > ik.upperBound[i] {
 				seedTest[i] = referenceframe.Input{testVal.Value - jumpVal}

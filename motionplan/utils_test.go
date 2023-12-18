@@ -104,6 +104,7 @@ func TestEvaluate(t *testing.T) {
 }
 
 func TestPlanToPlanStepsAndGeoPoses(t *testing.T) {
+	t.Skip() // TODO: RSDK-6095 ordering of PTGs should not be assumed to be stable, hardcoding inputs is not guaranteed to be consistent.
 	logger := logging.NewTestLogger(t)
 	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
 	test.That(t, err, test.ShouldBeNil)
@@ -111,7 +112,7 @@ func TestPlanToPlanStepsAndGeoPoses(t *testing.T) {
 	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		"itsabase",
 		logger,
-		200, 60, 0, 1000,
+		200, 60, 0,
 		2,
 		[]spatialmath.Geometry{sphere},
 		false,

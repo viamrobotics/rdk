@@ -5,6 +5,7 @@ package tpspace
 import (
 	"context"
 	"errors"
+	"math"
 	"sync"
 
 	"go.viam.com/rdk/logging"
@@ -34,41 +35,64 @@ type ptgIK struct {
 
 // NewPTGIK creates a new ptgIK, which creates a frame using the provided PTG, and wraps it providing functions to fill the PTG
 // interface, allowing inverse kinematics queries to be run against it.
-func NewPTGIK(simPTG PTG, logger logging.Logger, refDist float64, randSeed, trajCount int) (PTGSolver, error) {
-	if refDist <= 0 {
-		return nil, errors.New("refDist must be greater than zero")
+func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float64, randSeed, trajCount int) (PTGSolver, error) {
+	if refDistLong <= 0 {
+		return nil, errors.New("refDistLong must be greater than zero")
 	}
 
-	ptgFrame := newPTGIKFrame(simPTG, trajCount, refDist)
-
-	nlopt, err := ik.CreateNloptIKSolver(ptgFrame, logger, 1, false)
-	if err != nil {
-		return nil, err
+	limits := []referenceframe.Limit{}
+	for i := 0; i < trajCount; i++ {
+		dist := refDistShort
+		if i == 0 {
+			// We only want to increase the length of the first leg of the PTG. Since gradient descent does not currently optimize
+			// for reducing path length, having more than one long leg will result in very inefficient paths.
+			dist = refDistLong
+		}
+		limits = append(limits,
+			referenceframe.Limit{Min: -math.Pi, Max: math.Pi},
+			referenceframe.Limit{Min: defaultMinPTGlen, Max: dist},
+		)
 	}
 
-	// create an ends-only grid sim for quick end-of-trajectory calculations
-	gridSim, err := NewPTGGridSim(simPTG, 0, refDist, true)
+	ptgFrame := newPTGIKFrame(simPTG, limits)
+
+	nlopt, err := ik.CreateNloptIKSolver(ptgFrame, logger, 1, false, false)
 	if err != nil {
 		return nil, err
 	}
 
 	inputs := []referenceframe.Input{}
-	for i := 0; i < trajCount; i++ {
+	ptgDof := ptgFrame.DoF()
+
+	// Set the seed to be used for nlopt solving based on the individual DoF range of the PTG.
+	// If the DoF only allows short PTGs, seed near the end of its length, otherwise seed near the beginning.
+	// TODO: RSDK-6054 should make this much less important.
+	for i := 0; i < len(ptgDof); i++ {
+		boundRange := ptgDof[i].Max - ptgDof[i].Min
+		minAdj := boundRange * 0.2
+		if boundRange == refDistShort {
+			minAdj = boundRange * 0.9
+		}
 		inputs = append(inputs,
-			referenceframe.Input{0},
-			referenceframe.Input{refDist / 10},
+			referenceframe.Input{ptgDof[i].Min + minAdj},
 		)
 	}
 
 	ptg := &ptgIK{
 		PTG:             simPTG,
-		refDist:         refDist,
+		refDist:         refDistLong,
 		ptgFrame:        ptgFrame,
 		fastGradDescent: nlopt,
-		gridSim:         gridSim,
 		trajCache:       map[float64][]*TrajNode{},
 		defaultSeed:     inputs,
 	}
+
+	// create an ends-only grid sim for quick end-of-trajectory calculations
+	gridSim, err := NewPTGGridSim(simPTG, 0, refDistShort, true)
+	if err != nil {
+		return nil, err
+	}
+	ptg.gridSim = gridSim
 
 	return ptg, nil
 }
@@ -96,27 +120,21 @@ func (ptg *ptgIK) Solve(
 	case solved = <-internalSolutionGen:
 	default:
 	}
-	if err != nil || solved == nil || solved.Configuration[1].Value < defaultZeroDist {
-		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
-		return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
-	}
+	seedOutput := true
 
-	if !solved.Exact {
-		// nlopt returned something but was unable to complete the solve. See if the grid check produces something better.
-		err = ptg.gridSim.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
-		if err == nil {
-			var gridSolved *ik.Solution
-			select {
-			case gridSolved = <-internalSolutionGen:
-			default:
-			}
-			// Check if the grid has a better solution
-			if gridSolved != nil {
-				if gridSolved.Score < solved.Score {
-					solved = gridSolved
-				}
+	if solved != nil {
+		// If nlopt failed to gradient descend, it will return the seed. If the seed is what was returned, we want to use our precomputed
+		// grid check instead.
+		for i, v := range solved.Configuration {
+			if v.Value != seed[i].Value {
+				seedOutput = false
+				break
 			}
 		}
+	}
+	if err != nil || solved == nil || ptg.arcDist(solved.Configuration) < defaultZeroDist || seedOutput {
+		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
+		return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
 	}
 
 	solutionChan <- solved
@@ -172,4 +190,12 @@ func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
 
 func (ptg *ptgIK) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	return ptg.ptgFrame.Transform(inputs)
+}
+
+func (ptg *ptgIK) arcDist(inputs []referenceframe.Input) float64 {
+	dist := 0.
+	for i := 1; i < len(inputs); i += 2 {
+		dist += (inputs[i].Value - defaultMinPTGlen)
+	}
+	return dist
 }

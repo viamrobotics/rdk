@@ -120,7 +120,9 @@ func Discover(_ context.Context, getDrivers func() []driver.Driver, logger loggi
 		webcams = append(webcams, wc)
 	}
 
-	goutils.UncheckedError(debugLogger.GLoggerCamComp.Log("discovery service", webcamsToMap(webcams)))
+	if err := debugLogger.GLoggerCamComp.Log("discovery service", webcamsToMap(webcams)); err != nil {
+		logger.Debug(err)
+	}
 	return &pb.Webcams{Webcams: webcams}, nil
 }
 
@@ -288,23 +290,27 @@ func NewWebcam(
 
 	s, err := cam.Stream(ctx)
 	if err != nil {
-		goutils.UncheckedError(debugLogger.GLoggerCamComp.Log("camera test results",
+		if err := debugLogger.GLoggerCamComp.Log("camera test results",
 			debugLogger.InfoMap{
 				"name":  cam.Name().Name,
 				"error": fmt.Sprint(err),
 			},
-		))
+		); err != nil {
+			logger.Debug(err)
+		}
 		return cam, nil
 	}
 
 	img, _, err := s.Next(ctx)
-	goutils.UncheckedError(debugLogger.GLoggerCamComp.Log("camera test results",
+	if err := debugLogger.GLoggerCamComp.Log("camera test results",
 		debugLogger.InfoMap{
 			"camera name":        cam.Name().Name,
 			"has non-nil image?": fmt.Sprintf("%t", img != nil),
 			"error:":             fmt.Sprintf("%s", err),
 		},
-	))
+	); err != nil {
+		logger.Debug(err)
+	}
 
 	return cam, nil
 }
