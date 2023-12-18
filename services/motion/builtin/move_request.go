@@ -107,13 +107,15 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 		// we do not care about the origin GeoPose
 		origin := spatialmath.NewGeoPose(geo.NewPoint(0, 0), 0)
 		posesByComponent, _, err := motionplan.PlanToPlanStepsAndGeoPoses(plan, mr.kinematicBase.Name(), *origin, *mr.planRequest)
+		if err != nil {
+			return state.PlanResponse{}, err
+		}
+
 		planSteps := []motion.PlanStep{}
 		for i := range posesByComponent {
 			planSteps = append(planSteps, motion.PlanStep(posesByComponent[i]))
 		}
-		if err != nil {
-			return state.PlanResponse{}, err
-		}
+
 		return state.PlanResponse{
 			Waypoints:        waypoints,
 			Motionplan:       plan,
