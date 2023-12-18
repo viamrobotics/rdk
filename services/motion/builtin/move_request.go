@@ -107,13 +107,17 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 		// we do not care about the origin GeoPose
 		origin := spatialmath.NewGeoPose(geo.NewPoint(0, 0), 0)
 		posesByComponent, _, err := motionplan.PlanToPlanStepsAndGeoPoses(plan, mr.kinematicBase.Name(), *origin, *mr.planRequest)
+		planSteps := []motion.PlanStep{}
+		for i := range posesByComponent {
+			planSteps = append(planSteps, motion.PlanStep(posesByComponent[i]))
+		}
 		if err != nil {
 			return state.PlanResponse{}, err
 		}
 		return state.PlanResponse{
 			Waypoints:        waypoints,
 			Motionplan:       plan,
-			PosesByComponent: posesByComponent,
+			PosesByComponent: planSteps,
 		}, nil
 	case requestTypeMoveOnGlobe:
 		posesByComponent, geoPoses, err := motionplan.PlanToPlanStepsAndGeoPoses(plan, mr.kinematicBase.Name(), mr.origin, *mr.planRequest)
@@ -810,7 +814,7 @@ func (mr *moveRequest) stop() error {
 	return nil
 }
 
-func toGeoPosePlanSteps(posesByComponent []motion.PlanStep, geoPoses []spatialmath.GeoPose) ([]motion.PlanStep, error) {
+func toGeoPosePlanSteps(posesByComponent []map[resource.Name]spatialmath.Pose, geoPoses []spatialmath.GeoPose) ([]motion.PlanStep, error) {
 	if len(geoPoses) != len(posesByComponent) {
 		msg := "GeoPoses (len: %d) & PosesByComponent (len: %d) must have the same length"
 		return nil, fmt.Errorf(msg, len(geoPoses), len(posesByComponent))

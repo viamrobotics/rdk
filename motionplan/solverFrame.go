@@ -9,7 +9,6 @@ import (
 	"go.viam.com/rdk/motionplan/tpspace"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/motion"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -372,7 +371,7 @@ func PlanToPlanStepsAndGeoPoses(
 	componentName resource.Name,
 	origin spatial.GeoPose,
 	planRequest PlanRequest,
-) ([]motion.PlanStep, []spatial.GeoPose, error) {
+) ([]map[resource.Name]spatial.Pose, []spatial.GeoPose, error) {
 	sf, err := newSolverFrame(
 		planRequest.FrameSystem,
 		planRequest.Frame.Name(),
@@ -398,7 +397,7 @@ func PlanToPlanStepsAndGeoPoses(
 
 	startPoseWOrientation := spatial.NewPose(planNodes[0].Pose().Point(), startPose.Orientation())
 	runningPoseWOrient := startPoseWOrientation
-	planSteps := make([]motion.PlanStep, 0, len(planNodes))
+	planSteps := make([]map[resource.Name]spatial.Pose, 0, len(planNodes))
 	geoPoses := []spatial.GeoPose{}
 	for _, wp := range planNodes {
 		wpPose, err := sf.Transform(wp.Q())
