@@ -160,7 +160,7 @@ func (imp *impl) format(logLevel Level, traceKey string, args ...interface{}) *L
 }
 
 // Constructs the log message by forwarding to `fmt.Sprintf`. `traceKey` may be the empty string.
-func (imp *impl) formatf(logLevel Level, traceKey string, template string, args ...interface{}) *LogEntry {
+func (imp *impl) formatf(logLevel Level, traceKey, template string, args ...interface{}) *LogEntry {
 	logEntry := imp.NewLogEntry()
 	logEntry.Level = logLevel.AsZap()
 	logEntry.Message = fmt.Sprintf(template, args...)
@@ -175,7 +175,7 @@ func (imp *impl) formatf(logLevel Level, traceKey string, template string, args 
 // counterpart is the value. The keys are expected to be strings. The values are json
 // serialized. Only public fields are included in the serialization. `traceKey` may be the empty
 // string.
-func (imp *impl) formatw(logLevel Level, traceKey string, msg string, keysAndValues ...interface{}) *LogEntry {
+func (imp *impl) formatw(logLevel Level, traceKey, msg string, keysAndValues ...interface{}) *LogEntry {
 	logEntry := imp.NewLogEntry()
 	logEntry.Level = logLevel.AsZap()
 	logEntry.Message = msg
