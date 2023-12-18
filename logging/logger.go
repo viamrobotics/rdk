@@ -1,6 +1,8 @@
 package logging
 
 import (
+	"context"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -14,6 +16,22 @@ type Logger interface {
 	Sublogger(subname string) Logger
 	AddAppender(appender Appender)
 	AsZap() *zap.SugaredLogger
+
+	CDebug(ctx context.Context, args ...interface{})
+	CDebugf(ctx context.Context, template string, args ...interface{})
+	CDebugw(ctx context.Context, msg string, keysAndValues ...interface{})
+
+	CInfo(ctx context.Context, args ...interface{})
+	CInfof(ctx context.Context, template string, args ...interface{})
+	CInfow(ctx context.Context, msg string, keysAndValues ...interface{})
+
+	CWarn(ctx context.Context, args ...interface{})
+	CWarnf(ctx context.Context, template string, args ...interface{})
+	CWarnw(ctx context.Context, msg string, keysAndValues ...interface{})
+
+	CError(ctx context.Context, args ...interface{})
+	CErrorf(ctx context.Context, template string, args ...interface{})
+	CErrorw(ctx context.Context, msg string, keysAndValues ...interface{})
 }
 
 // ZapCompatibleLogger is a backwards compatibility layer for existing usages of the RDK as a
