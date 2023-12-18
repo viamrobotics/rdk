@@ -1,3 +1,5 @@
+//go:build cgo && linux && !(arm || android)
+
 // Package avlog is libav's logging facilities
 // See https://ffmpeg.org/doxygen/3.0/log_8h.html
 package avlog
