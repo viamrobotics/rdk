@@ -101,14 +101,15 @@ func (m *merged) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 
 		for _, name := range names {
 			ms, err := movementsensor.FromDependencies(deps, name)
+			msName := ms.Name().ShortName()
 			if err != nil {
-				logger.Debugf("error getting sensor %v from dependencies", ms.Name().ShortName())
+				logger.Debugf("error getting sensor %v from dependencies", msName)
 				continue
 			}
 
 			props, err := ms.Properties(ctx, nil)
 			if err != nil {
-				logger.Debugf("error in getting sensor %v properties", ms.Name().ShortName())
+				logger.Debugf("error in getting sensor %v properties", msName)
 				continue
 			}
 
@@ -139,6 +140,7 @@ func (m *merged) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 			}
 
 			// we've found the sensor that reports everything we want
+			m.logger.Debugf("using sensor %v as %s sensor", msName, propname)
 			return ms, nil
 		}
 
