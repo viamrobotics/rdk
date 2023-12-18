@@ -82,12 +82,12 @@ func (m *Manager) StreamServerInterceptor(
 func (m *Manager) CreateFromIncomingContext(ctx context.Context, method string) (context.Context, func()) {
 	meta, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		m.logger.Warnw("failed to pull metadata from context", "method", method)
+		m.logger.CWarnw(ctx, "failed to pull metadata from context", "method", method)
 		return m.Create(ctx, method, nil)
 	}
 	opid, err := GetOrCreateFromMetadata(meta)
 	if err != nil {
-		m.logger.Warnw("failed to create operation id from metadata", "error", err)
+		m.logger.CWarnw(ctx, "failed to create operation id from metadata", "error", err)
 		return m.Create(ctx, method, nil)
 	}
 	return m.createWithID(ctx, opid, method, nil)

@@ -67,7 +67,7 @@ type CameraConfig struct {
 }
 
 // Discover webcam attributes.
-func Discover(_ context.Context, getDrivers func() []driver.Driver, logger logging.Logger) (*pb.Webcams, error) {
+func Discover(ctx context.Context, getDrivers func() []driver.Driver, logger logging.Logger) (*pb.Webcams, error) {
 	mediadevicescamera.Initialize()
 	var webcams []*pb.Webcam
 	drivers := getDrivers()
@@ -76,15 +76,15 @@ func Discover(_ context.Context, getDrivers func() []driver.Driver, logger loggi
 
 		props, err := getProperties(d)
 		if len(props) == 0 {
-			logger.Debugw("no properties detected for driver, skipping discovery...", "driver", driverInfo.Label)
+			logger.CDebugw(ctx, "no properties detected for driver, skipping discovery...", "driver", driverInfo.Label)
 			continue
 		} else if err != nil {
-			logger.Debugw("cannot access driver properties, skipping discovery...", "driver", driverInfo.Label, "error", err)
+			logger.CDebugw(ctx, "cannot access driver properties, skipping discovery...", "driver", driverInfo.Label, "error", err)
 			continue
 		}
 
 		if d.Status() == driver.StateRunning {
-			logger.Debugw("driver is in use, skipping discovery...", "driver", driverInfo.Label)
+			logger.CDebugw(ctx, "driver is in use, skipping discovery...", "driver", driverInfo.Label)
 			continue
 		}
 
@@ -357,7 +357,7 @@ func (c *monitoredWebcam) Reconfigure(
 		c.conf = *newConf
 		return nil
 	}
-	c.logger.Debug("reinitializing driver")
+	c.logger.CDebug(ctx, "reinitializing driver")
 
 	c.targetPath = newConf.Path
 	if err := c.reconnectCamera(newConf); err != nil {
@@ -643,7 +643,7 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 		dInfo, err := c.driverInfo()
 		if err != nil {
 			if !c.hasLoggedIntrinsicsInfo {
-				c.logger.Errorw("can't find driver info for camera")
+				c.logger.CErrorw(ctx, "can't find driver info for camera")
 				c.hasLoggedIntrinsicsInfo = true
 			}
 		}
@@ -651,7 +651,7 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 		cameraIntrinsics, exists := data[dInfo.Name]
 		if !exists {
 			if !c.hasLoggedIntrinsicsInfo {
-				c.logger.Info("camera model not found in known camera models for: ", dInfo.Name, ". returning "+
+				c.logger.CInfo(ctx, "camera model not found in known camera models for: ", dInfo.Name, ". returning "+
 					"properties without intrinsics")
 				c.hasLoggedIntrinsicsInfo = true
 			}
@@ -660,7 +660,7 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 		if c.conf.Width != 0 {
 			if c.conf.Width != cameraIntrinsics.Width {
 				if !c.hasLoggedIntrinsicsInfo {
-					c.logger.Info("camera model found in known camera models for: ", dInfo.Name, " but "+
+					c.logger.CInfo(ctx, "camera model found in known camera models for: ", dInfo.Name, " but "+
 						"intrinsics width doesn't match configured image width")
 					c.hasLoggedIntrinsicsInfo = true
 				}
@@ -670,7 +670,7 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 		if c.conf.Height != 0 {
 			if c.conf.Height != cameraIntrinsics.Height {
 				if !c.hasLoggedIntrinsicsInfo {
-					c.logger.Info("camera model found in known camera models for: ", dInfo.Name, " but "+
+					c.logger.CInfo(ctx, "camera model found in known camera models for: ", dInfo.Name, " but "+
 						"intrinsics height doesn't match configured image height")
 					c.hasLoggedIntrinsicsInfo = true
 				}
@@ -678,7 +678,7 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 			}
 		}
 		if !c.hasLoggedIntrinsicsInfo {
-			c.logger.Info("Intrinsics are known for camera model: ", dInfo.Name, ". adding intrinsics "+
+			c.logger.CInfo(ctx, "Intrinsics are known for camera model: ", dInfo.Name, ". adding intrinsics "+
 				"to camera properties")
 			c.hasLoggedIntrinsicsInfo = true
 		}

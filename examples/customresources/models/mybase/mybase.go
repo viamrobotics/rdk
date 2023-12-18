@@ -131,7 +131,7 @@ func (b *myBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, ext
 
 // SetPower computes relative power between the wheels and sets power for both motors.
 func (b *myBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
-	b.logger.Debugf("SetPower Linear: %.2f Angular: %.2f", linear.Y, angular.Z)
+	b.logger.CDebugf(ctx, "SetPower Linear: %.2f Angular: %.2f", linear.Y, angular.Z)
 	if math.Abs(linear.Y) < 0.01 && math.Abs(angular.Z) < 0.01 {
 		return b.Stop(ctx, extra)
 	}
@@ -143,7 +143,7 @@ func (b *myBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra 
 
 // Stop halts motion.
 func (b *myBase) Stop(ctx context.Context, extra map[string]interface{}) error {
-	b.logger.Debug("Stop")
+	b.logger.CDebug(ctx, "Stop")
 	err1 := b.left.Stop(ctx, extra)
 	err2 := b.right.Stop(ctx, extra)
 	return multierr.Combine(err1, err2)

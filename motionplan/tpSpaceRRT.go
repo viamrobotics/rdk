@@ -246,7 +246,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		}
 	}
 	mp.goalNodes = append(mp.goalNodes, goalNode)
-	mp.logger.Debugf("Starting TPspace solving with startMap len %d and goalMap len %d", len(rrt.maps.startMap), len(rrt.maps.goalMap))
+	mp.logger.CDebugf(ctx, "Starting TPspace solving with startMap len %d and goalMap len %d", len(rrt.maps.startMap), len(rrt.maps.goalMap))
 
 	publishFinishedPath := func(path []node) {
 		// If we've reached the goal, extract the path from the RRT trees and return
@@ -296,9 +296,9 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	var randPosNode node = midptNode
 
 	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
-		mp.logger.Debugf("TP Space RRT iteration %d", iter)
+		mp.logger.CDebugf(ctx, "TP Space RRT iteration %d", iter)
 		if ctx.Err() != nil {
-			mp.logger.Debugf("TP Space RRT timed out after %d iterations", iter)
+			mp.logger.CDebugf(ctx, "TP Space RRT timed out after %d iterations", iter)
 			rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
 			return
 		}
@@ -762,9 +762,9 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 				trajState = &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose)}
 				if pathdebug {
 					if !invert {
-						mp.logger.Debugf("$FWDTREE,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
+						mp.logger.CDebugf(ctx, "$FWDTREE,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
 					} else {
-						mp.logger.Debugf("$REVTREE,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
+						mp.logger.CDebugf(ctx, "$REVTREE,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
 					}
 				}
 				sinceLastNode += math.Abs(trajPt.Dist - lastDist)
@@ -789,7 +789,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 				lastDist = trajPt.Dist
 			}
 			if pathdebug {
-				mp.logger.Debugf("$WPI,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
+				mp.logger.CDebugf(ctx, "$WPI,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
 			}
 		}
 		if invert {
@@ -891,7 +891,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 	smoothPlanner := smoothPlannerMP.(*tpSpaceRRTMotionPlanner)
 	smoothPlanner.algOpts.bidirectional = true
 	for i := 0; i < toIter; i++ {
-		mp.logger.Debugf("TP Space smoothing iteration %d of %d", i, toIter)
+		mp.logger.CDebugf(ctx, "TP Space smoothing iteration %d of %d", i, toIter)
 		select {
 		case <-ctx.Done():
 			return path

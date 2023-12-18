@@ -133,7 +133,7 @@ func newSensor(
 	addr := conf.I2cAddr
 	if addr == 0 {
 		addr = defaultI2Caddr
-		logger.Warn("using i2c address : 0x77")
+		logger.CWarn(ctx, "using i2c address : 0x77")
 	}
 
 	s := &bme280{
@@ -207,12 +207,12 @@ type bme280 struct {
 func (s *bme280) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	handle, err := s.bus.OpenHandle(s.addr)
 	if err != nil {
-		s.logger.Errorf("can't open bme280 i2c %s", err)
+		s.logger.CErrorf(ctx, "can't open bme280 i2c %s", err)
 		return nil, err
 	}
 	err = handle.Write(ctx, []byte{byte(bme280MeasurementsReg)})
 	if err != nil {
-		s.logger.Debug("Failed to request temperature")
+		s.logger.CDebug(ctx, "Failed to request temperature")
 	}
 	buffer, err := handle.Read(ctx, 8)
 	if err != nil {

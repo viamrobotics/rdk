@@ -212,7 +212,7 @@ func (svc *builtIn) registerCallbacks(ctx context.Context, state *throttleState)
 		defer svc.mu.RUnlock()
 		err := svc.base.Stop(ctx, map[string]interface{}{})
 		if err != nil {
-			svc.logger.Error(err)
+			svc.logger.CError(ctx, err)
 		}
 
 		if !updateLastEvent(event) {

@@ -322,7 +322,7 @@ func (c *Controller) newAxis(ctx context.Context, brd board.Board, analogName st
 			}
 			rawVal, err := reader.Read(ctx, nil)
 			if err != nil {
-				c.logger.Error(err)
+				c.logger.CError(ctx, err)
 			}
 
 			if rawVal > cfg.Max {

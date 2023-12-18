@@ -186,31 +186,31 @@ func TestFunctions(t *testing.T) {
 	m := mm.(*uln28byj)
 
 	t.Run("test goMath", func(t *testing.T) {
-		targetPos, stepperdelay := m.goMath(100, 100)
+		targetPos, stepperdelay := m.goMath(ctx, 100, 100)
 		test.That(t, targetPos, test.ShouldEqual, 10000)
 		test.That(t, stepperdelay, test.ShouldEqual, (6 * time.Millisecond))
 
-		targetPos, stepperdelay = m.goMath(-100, 100)
+		targetPos, stepperdelay = m.goMath(ctx, -100, 100)
 		test.That(t, targetPos, test.ShouldEqual, -10000)
 		test.That(t, stepperdelay, test.ShouldEqual, (6 * time.Millisecond))
 
-		targetPos, stepperdelay = m.goMath(-100, -100)
+		targetPos, stepperdelay = m.goMath(ctx, -100, -100)
 		test.That(t, targetPos, test.ShouldEqual, 10000)
 		test.That(t, stepperdelay, test.ShouldEqual, (6 * time.Millisecond))
 
-		targetPos, stepperdelay = m.goMath(-2, 50)
+		targetPos, stepperdelay = m.goMath(ctx, -2, 50)
 		test.That(t, targetPos, test.ShouldEqual, -5000)
 		test.That(t, stepperdelay, test.ShouldEqual, (300 * time.Millisecond))
 
-		targetPos, stepperdelay = m.goMath(1, 400)
+		targetPos, stepperdelay = m.goMath(ctx, 1, 400)
 		test.That(t, targetPos, test.ShouldEqual, 40000)
 		test.That(t, stepperdelay, test.ShouldEqual, (600 * time.Millisecond))
 
-		targetPos, stepperdelay = m.goMath(400, 2)
+		targetPos, stepperdelay = m.goMath(ctx, 400, 2)
 		test.That(t, targetPos, test.ShouldEqual, 200)
 		test.That(t, stepperdelay, test.ShouldEqual, (1500 * time.Microsecond))
 
-		targetPos, stepperdelay = m.goMath(0, 2)
+		targetPos, stepperdelay = m.goMath(ctx, 0, 2)
 		test.That(t, targetPos, test.ShouldEqual, 200)
 		test.That(t, stepperdelay, test.ShouldEqual, (100 * time.Microsecond))
 	})

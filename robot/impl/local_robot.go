@@ -270,7 +270,7 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 		remote, ok := r.RemoteByName(remoteName)
 		if !ok {
 			// should never happen
-			r.Logger().Errorw("remote robot not found in resource graph while creating status",
+			r.Logger().CErrorw(ctx, "remote robot not found in resource graph while creating status",
 				"remote", remoteName)
 			continue
 		}
@@ -288,7 +288,7 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 			mappedName, ok := resourceNameMappings[remoteResourceStatus.Name]
 			if !ok {
 				// should never happen
-				r.Logger().Errorw(
+				r.Logger().CErrorw(ctx,
 					"failed to find corresponding resource name for remote resource name while creating status",
 					"resource", remoteResourceStatus.Name,
 				)
@@ -388,7 +388,7 @@ func newWithResources(
 	defer func() {
 		if !successful {
 			if err := r.Close(context.Background()); err != nil {
-				logger.Errorw("failed to close robot down after startup failure", "error", err)
+				logger.CErrorw(ctx, "failed to close robot down after startup failure", "error", err)
 			}
 		}
 	}()
@@ -404,11 +404,11 @@ func newWithResources(
 			if !errors.Is(err, context.DeadlineExceeded) {
 				return nil, err
 			}
-			r.logger.Debug("Using no-op PackageManager when internet not available")
+			r.logger.CDebug(ctx, "Using no-op PackageManager when internet not available")
 			r.packageManager = packages.NewNoopManager()
 		}
 	} else {
-		r.logger.Debug("Using no-op PackageManager when Cloud config is not available")
+		r.logger.CDebug(ctx, "Using no-op PackageManager when Cloud config is not available")
 		r.packageManager = packages.NewNoopManager()
 	}
 
@@ -527,7 +527,7 @@ func (r *localRobot) removeOrphanedResources(ctx context.Context,
 ) {
 	r.manager.markResourcesRemoved(rNames, nil)
 	if err := r.manager.removeMarkedAndClose(ctx, nil); err != nil {
-		r.logger.Errorw("error removing and closing marked resources",
+		r.logger.CErrorw(ctx, "error removing and closing marked resources",
 			"error", err)
 	}
 	r.updateWeakDependents(ctx)
@@ -652,7 +652,7 @@ func (r *localRobot) newResource(
 	if resInfo.DeprecatedRobotConstructor == nil {
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
-	r.logger.Warnw("using deprecated robot constructor", "api", resName.API, "model", conf.Model)
+	r.logger.CWarnw(ctx, "using deprecated robot constructor", "api", resName.API, "model", conf.Model)
 	return resInfo.DeprecatedRobotConstructor(ctx, r, conf, resLogger)
 }
 
@@ -672,7 +672,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		res, err := r.ResourceByName(n)
 		if err != nil {
 			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
-				r.Logger().Debugw("error finding resource during weak dependent update", "resource", n, "error", err)
+				r.Logger().CDebugw(ctx, "error finding resource during weak dependent update", "resource", n, "error", err)
 			}
 			continue
 		}
@@ -704,20 +704,20 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 			switch resName {
 			case web.InternalServiceName:
 				if err := res.Reconfigure(ctxWithTimeout, allResources, resource.Config{}); err != nil {
-					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+					r.Logger().CErrorw(ctx, "failed to reconfigure internal service", "service", resName, "error", err)
 				}
 			case framesystem.InternalServiceName:
 				fsCfg, err := r.FrameSystemConfig(ctxWithTimeout)
 				if err != nil {
-					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+					r.Logger().CErrorw(ctx, "failed to reconfigure internal service", "service", resName, "error", err)
 					break
 				}
 				if err := res.Reconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
-					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+					r.Logger().CErrorw(ctx, "failed to reconfigure internal service", "service", resName, "error", err)
 				}
 			case packages.InternalServiceName, cloud.InternalServiceName:
 			default:
-				r.logger.Warnw("do not know how to reconfigure internal service", "service", resName)
+				r.logger.CWarnw(ctx, "do not know how to reconfigure internal service", "service", resName)
 			}
 		})
 
@@ -725,7 +725,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				r.logger.Warn(utils.NewBuildTimeoutError(resName.String()))
+				r.logger.CWarn(ctx, utils.NewBuildTimeoutError(resName.String()))
 			}
 		case <-ctx.Done():
 			return
@@ -757,14 +757,14 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		if len(r.getWeakDependencyMatchers(conf.API, conf.Model)) == 0 {
 			return
 		}
-		r.Logger().Debugw("handling weak update for resource", "resource", resName)
+		r.Logger().CDebugw(ctx, "handling weak update for resource", "resource", resName)
 		deps, err := r.getDependencies(ctx, resName, resNode)
 		if err != nil {
-			r.Logger().Errorw("failed to get dependencies during weak update; skipping", "resource", resName, "error", err)
+			r.Logger().CErrorw(ctx, "failed to get dependencies during weak update; skipping", "resource", resName, "error", err)
 			return
 		}
 		if err := res.Reconfigure(ctx, deps, conf); err != nil {
-			r.Logger().Errorw("failed to reconfigure resource with weak dependencies", "resource", resName, "error", err)
+			r.Logger().CErrorw(ctx, "failed to reconfigure resource with weak dependencies", "resource", resName, "error", err)
 		}
 	}
 
@@ -791,7 +791,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				r.logger.Warn(utils.NewBuildTimeoutError(conf.ResourceName().String()))
+				r.logger.CWarn(ctx, utils.NewBuildTimeoutError(conf.ResourceName().String()))
 			}
 		case <-ctx.Done():
 			return
@@ -866,7 +866,7 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 	for _, remoteCfg := range cfg.Remotes {
 		// build the frame system part that connects remote world to base world
 		if remoteCfg.Frame == nil { // skip over remote if it has no frame info
-			r.logger.Debugf("remote %q has no frame config info, skipping", remoteCfg.Name)
+			r.logger.CDebugf(ctx, "remote %q has no frame config info, skipping", remoteCfg.Name)
 			continue
 		}
 		lif, err := remoteCfg.Frame.ParseConfig()
@@ -930,7 +930,7 @@ func (r *localRobot) TransformPointCloud(
 func RobotFromConfigPath(ctx context.Context, cfgPath string, logger logging.Logger, opts ...Option) (robot.LocalRobot, error) {
 	cfg, err := config.Read(ctx, cfgPath, logger)
 	if err != nil {
-		logger.Error("cannot read config")
+		logger.CError(ctx, "cannot read config")
 		return nil, err
 	}
 	return RobotFromConfig(ctx, cfg, logger, opts...)
@@ -970,7 +970,7 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 	for q := range deduped {
 		reg, ok := resource.LookupRegistration(q.API, q.Model)
 		if !ok || reg.Discover == nil {
-			r.logger.Warnw("no discovery function registered", "api", q.API, "model", q.Model)
+			r.logger.CWarnw(ctx, "no discovery function registered", "api", q.API, "model", q.Model)
 			continue
 		}
 
@@ -1078,7 +1078,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// with the current generated config to see what has changed
 	diff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
-		r.logger.Errorw("error diffing the configs", "error", err)
+		r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
 		return
 	}
 	if diff.ResourcesEqual {
@@ -1086,7 +1086,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 
 	if r.revealSensitiveConfigDiffs {
-		r.logger.Debugf("(re)configuring with %+v", diff)
+		r.logger.CDebugf(ctx, "(re)configuring with %+v", diff)
 	}
 
 	// Set mostRecentConfig if resources were not equal.
@@ -1125,7 +1125,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
 
 	if allErrs != nil {
-		r.logger.Errorw("the following errors were gathered during reconfiguration", "errors", allErrs)
+		r.logger.CErrorw(ctx, "the following errors were gathered during reconfiguration", "errors", allErrs)
 	}
 }
 

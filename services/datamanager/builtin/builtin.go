@@ -99,17 +99,17 @@ func readyToSync(ctx context.Context, s selectiveSyncer, logger logging.Logger) 
 	readyToSync = false
 	readings, err := s.Readings(ctx, nil)
 	if err != nil {
-		logger.Errorw("error getting readings from selective syncer", "error", err.Error())
+		logger.CErrorw(ctx, "error getting readings from selective syncer", "error", err.Error())
 		return
 	}
 	readyToSyncVal, ok := readings[datamanager.ShouldSyncKey]
 	if !ok {
-		logger.Errorf("value for should sync key %s not present in readings", datamanager.ShouldSyncKey)
+		logger.CErrorf(ctx, "value for should sync key %s not present in readings", datamanager.ShouldSyncKey)
 		return
 	}
 	readyToSyncBool, err := utils.AssertType[bool](readyToSyncVal)
 	if err != nil {
-		logger.Errorw("error converting should sync key to bool", "key", datamanager.ShouldSyncKey, "error", err.Error())
+		logger.CErrorw(ctx, "error converting should sync key to bool", "key", datamanager.ShouldSyncKey, "error", err.Error())
 		return
 	}
 	readyToSync = readyToSyncBool
@@ -344,7 +344,7 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 
 	identity, conn, err := svc.cloudConnSvc.AcquireConnection(ctx)
 	if errors.Is(err, cloud.ErrNotCloudManaged) {
-		svc.logger.Debug("Using no-op sync manager when not cloud managed")
+		svc.logger.CDebug(ctx, "Using no-op sync manager when not cloud managed")
 		svc.syncer = datasync.NewNoopManager()
 	}
 	if err != nil {
@@ -448,7 +448,7 @@ func (svc *builtIn) Reconfigure(
 
 				newCollectorAndConfig, err := svc.initializeOrUpdateCollector(componentMethodMetadata, resConf)
 				if err != nil {
-					svc.logger.Errorw("failed to initialize or update collector", "error", err)
+					svc.logger.CErrorw(ctx, "failed to initialize or update collector", "error", err)
 				} else {
 					newCollectors[componentMethodMetadata] = newCollectorAndConfig
 				}
@@ -475,7 +475,8 @@ func (svc *builtIn) Reconfigure(
 		svc.selectiveSyncEnabled = true
 		syncSensor, err = sensor.FromDependencies(deps, svcConfig.SelectiveSyncerName)
 		if err != nil {
-			svc.logger.Errorw("unable to initialize selective syncer; will not sync at all until fixed or removed from config", "error", err.Error())
+			svc.logger.CErrorw(
+				ctx, "unable to initialize selective syncer; will not sync at all until fixed or removed from config", "error", err.Error())
 		}
 	} else {
 		svc.selectiveSyncEnabled = false

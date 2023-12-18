@@ -51,7 +51,7 @@ func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 			p.kD = p.tuner.kD
 			p.kI = p.tuner.kI
 			p.kP = p.tuner.kP
-			p.logger.Infof("Calculated gains are Kp %1.6f, Ki: %1.6f, Kd: %1.6f", p.kP, p.kI, p.kD)
+			p.logger.CInfof(ctx, "Calculated gains are Kp %1.6f, Ki: %1.6f, Kd: %1.6f", p.kP, p.kI, p.kD)
 			p.tuning = false
 		}
 		p.y[0].SetSignalValueAt(0, out)

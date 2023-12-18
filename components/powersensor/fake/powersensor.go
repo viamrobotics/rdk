@@ -64,17 +64,17 @@ func (f *PowerSensor) Power(ctx context.Context, cmd map[string]interface{}) (fl
 func (f *PowerSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	volts, isAC, err := f.Voltage(ctx, nil)
 	if err != nil {
-		f.logger.Errorf("failed to get voltage reading: %s", err.Error())
+		f.logger.CErrorf(ctx, "failed to get voltage reading: %s", err.Error())
 	}
 
 	amps, _, err := f.Current(ctx, nil)
 	if err != nil {
-		f.logger.Errorf("failed to get current reading: %s", err.Error())
+		f.logger.CErrorf(ctx, "failed to get current reading: %s", err.Error())
 	}
 
 	watts, err := f.Power(ctx, nil)
 	if err != nil {
-		f.logger.Errorf("failed to get power reading: %s", err.Error())
+		f.logger.CErrorf(ctx, "failed to get power reading: %s", err.Error())
 	}
 	return map[string]interface{}{
 		"volts": volts,
