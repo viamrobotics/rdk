@@ -164,8 +164,7 @@ func WrapWithFakePTGKinematics(
 		baseMillimetersPerSecond,
 		options.AngularVelocityDegsPerSec,
 		baseTurningRadiusMeters,
-		options.MaxMoveStraightMM, // If zero, will use default on the receiver end.
-		0,                         // If zero, will use default on the receiver end.
+		0, // If zero, will use default on the receiver end.
 		geometries,
 		options.NoSkidSteer,
 	)
