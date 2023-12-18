@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -501,7 +502,7 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 			SlamName:      slam.Named("test_slam"),
 			Extra:         extra,
 		}
-		mr, err := ms.(*builtIn).newMoveOnMapRequest(context.Background(), req)
+		mr, err := ms.(*builtIn).newMoveOnMapRequest(context.Background(), req, nil, 999)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mr, test.ShouldNotBeNil)
 	})
