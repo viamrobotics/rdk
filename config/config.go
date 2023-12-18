@@ -97,20 +97,24 @@ func (c *Config) validateUniqueResource(logger logging.Logger, seenResources map
 	return nil
 }
 
-// Ensure ensures all parts of the config are valid.
+// Ensure ensures all parts of the config are valid, which may include updating it. Only returns an error
+// if c.DisablePartialStart is true (default: false).
 func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	seenResources := make(map[string]bool)
 
 	if c.Cloud != nil {
+		// Adds default for RefreshInterval if not set.
 		if err := c.Cloud.Validate("cloud", fromCloud); err != nil {
 			return err
 		}
 	}
 
+	//  Adds default BindAddress and HeartbeatWindow if not set.
 	if err := c.Network.Validate("network"); err != nil {
 		return err
 	}
 
+	// Updates ValidatedKeySet once validated.
 	if err := c.Auth.Validate("auth"); err != nil {
 		return err
 	}
@@ -143,6 +147,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 
 	for idx := 0; idx < len(c.Components); idx++ {
 		component := &c.Components[idx]
+		// dependsOn will only be populated if attributes have been converted.
 		dependsOn, err := component.Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
 		if err != nil {
 			fullErr := errors.Wrapf(err, "error validating component %s: %s", component.Name, err)
@@ -174,6 +179,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 
 	for idx := 0; idx < len(c.Services); idx++ {
 		service := &c.Services[idx]
+		// dependsOn will only be populated if attributes have been converted.
 		dependsOn, err := service.Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
 		if err != nil {
 			if c.DisablePartialStart {
@@ -570,7 +576,7 @@ func (config Cloud) MarshalJSON() ([]byte, error) {
 	return json.Marshal(temp)
 }
 
-// Validate ensures all parts of the config are valid.
+// Validate ensures all parts of the config are valid. Adds default for RefreshInterval if not set.
 func (config *Cloud) Validate(path string, fromCloud bool) error {
 	if config.ID == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "id")
@@ -648,7 +654,7 @@ func (nc NetworkConfig) MarshalJSON() ([]byte, error) {
 // the server will bind to all interfaces.
 const DefaultBindAddress = "localhost:8080"
 
-// Validate ensures all parts of the config are valid.
+// Validate ensures all parts of the config are valid. Adds default BindAddress and HeartbeatWindow if not set.
 func (nc *NetworkConfig) Validate(path string) error {
 	if nc.BindAddress != "" && nc.Listener != nil {
 		return resource.NewConfigValidationError(path, errors.New("may only set one of bind_address or listener"))
@@ -708,7 +714,7 @@ func (sc SessionsConfig) MarshalJSON() ([]byte, error) {
 // It can be set with network.sessions.heartbeat_window.
 const DefaultSessionHeartbeatWindow = 2 * time.Second
 
-// Validate ensures all parts of the config are valid.
+// Validate ensures all parts of the config are valid. Sets default HeartbeatWindow if not set.
 func (sc *SessionsConfig) Validate(path string) error {
 	if sc.HeartbeatWindow == 0 {
 		sc.HeartbeatWindow = DefaultSessionHeartbeatWindow
@@ -749,6 +755,7 @@ var (
 )
 
 // Validate returns true if the config is valid. Ensures each key is valid and meets the required constraints.
+// Updates ValidatedKeySet once validated.
 func (c *ExternalAuthConfig) Validate(path string) error {
 	jwksPath := fmt.Sprintf("%s.jwks", path)
 	jsonJWKs, err := json.Marshal(c.JSONKeySet)
@@ -794,7 +801,7 @@ type AuthHandlerConfig struct {
 	Config rutils.AttributeMap `json:"config"`
 }
 
-// Validate ensures all parts of the config are valid.
+// Validate ensures all parts of the config are valid. If it exists, updates ExternalAuthConfig's ValidatedKeySet once validated.
 func (config *AuthConfig) Validate(path string) error {
 	seenTypes := make(map[string]struct{}, len(config.Handlers))
 	for idx, handler := range config.Handlers {
