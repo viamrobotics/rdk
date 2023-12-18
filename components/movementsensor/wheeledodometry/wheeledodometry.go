@@ -193,7 +193,6 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 		}
 		o.logger.Debugf("using motors %v for wheeled odometery",
 			[]string{motorLeft.Name().ShortName(), motorRight.Name().ShortName()})
-
 	}
 
 	if len(o.motors) > 1 {
