@@ -540,6 +540,15 @@ func (ms *builtIn) newMoveOnMapRequest(
 		}
 	}
 
+	motionCfg, err := newValidatedMotionCfg(req.MotionCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Destination == nil {
+		return nil, errors.New("destination cannot be nil")
+	}
+
 	// get the SLAM Service from the slamName
 	slamSvc, ok := ms.slamServices[req.SlamName]
 	if !ok {
@@ -552,6 +561,15 @@ func (ms *builtIn) newMoveOnMapRequest(
 		return nil, err
 	}
 	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
+	deltaX := limits[0].Max - limits[0].Min
+	deltaY := limits[1].Max - limits[1].Min
+	limitsHypotenusMM := math.Sqrt(math.Pow(deltaX, 2) + math.Pow(deltaY, 2))
+	straightlineDistance := req.Destination.Point().Norm()
+	if straightlineDistance > limitsHypotenusMM {
+		if straightlineDistance > maxTravelDistanceMM {
+			return nil, fmt.Errorf("cannot move more than %d millimeters", int(limitsHypotenusMM))
+		}
+	}
 
 	// create a KinematicBase from the componentName
 	component, ok := ms.components[req.ComponentName]
@@ -561,11 +579,6 @@ func (ms *builtIn) newMoveOnMapRequest(
 	b, ok := component.(base.Base)
 	if !ok {
 		return nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
-	}
-
-	motionCfg, err := newValidatedMotionCfg(req.MotionCfg)
-	if err != nil {
-		return nil, err
 	}
 
 	// build kinematic options
@@ -603,8 +616,13 @@ func (ms *builtIn) newMoveOnMapRequest(
 		[]spatialmath.Geometry{octree},
 		valExtra,
 	)
+	if err != nil {
+		return nil, err
+	}
+	mr.seedPlan = seedPlan
+	mr.replanCostFactor = valExtra.replanCostFactor
 	mr.requestType = requestTypeMoveOnMap
-	return mr, err
+	return mr, nil
 }
 
 func (ms *builtIn) relativeMoveRequestFromAbsolute(
