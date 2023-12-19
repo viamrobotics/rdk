@@ -27,9 +27,9 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// NewPositionCollector returns a collector to register a position method. If one is already registered
+// newPositionCollector returns a collector to register a position method. If one is already registered
 // with the same MethodMetadata it will panic.
-func NewPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	gantry, err := assertGantry(resource)
 	if err != nil {
 		return nil, err
@@ -52,9 +52,9 @@ func NewPositionCollector(resource interface{}, params data.CollectorParams) (da
 	return data.NewCollector(cFunc, params)
 }
 
-// NewLengthsCollector returns a collector to register a lengths method. If one is already registered
+// newLengthsCollector returns a collector to register a lengths method. If one is already registered
 // with the same MethodMetadata it will panic.
-func NewLengthsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newLengthsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	gantry, err := assertGantry(resource)
 	if err != nil {
 		return nil, err

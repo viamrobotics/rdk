@@ -45,7 +45,7 @@ func assertPowerSensor(resource interface{}) (PowerSensor, error) {
 
 // NewVoltageCollector returns a collector to register a voltage method. If one is already registered
 // with the same MethodMetadata it will panic.
-func NewVoltageCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newVoltageCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ps, err := assertPowerSensor(resource)
 	if err != nil {
 		return nil, err
@@ -71,7 +71,7 @@ func NewVoltageCollector(resource interface{}, params data.CollectorParams) (dat
 
 // NewCurrentCollector returns a collector to register a current method. If one is already registered
 // with the same MethodMetadata it will panic.
-func NewCurrentCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newCurrentCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ps, err := assertPowerSensor(resource)
 	if err != nil {
 		return nil, err
@@ -97,7 +97,7 @@ func NewCurrentCollector(resource interface{}, params data.CollectorParams) (dat
 
 // NewPowerCollector returns a collector to register a power method. If one is already registered
 // with the same MethodMetadata it will panic.
-func NewPowerCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newPowerCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ps, err := assertPowerSensor(resource)
 	if err != nil {
 		return nil, err
@@ -122,7 +122,7 @@ func NewPowerCollector(resource interface{}, params data.CollectorParams) (data.
 
 // NewReadingsCollector returns a collector to register a readings method. If one is already registered
 // with the same MethodMetadata it will panic.
-func NewReadingsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newReadingsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ps, err := assertPowerSensor(resource)
 	if err != nil {
 		return nil, err

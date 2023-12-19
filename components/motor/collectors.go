@@ -27,9 +27,9 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// NewPositionCollector returns a collector to register a position method. If one is already registered
+// newPositionCollector returns a collector to register a position method. If one is already registered
 // with the same MethodMetadata it will panic.
-func NewPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	motor, err := assertMotor(resource)
 	if err != nil {
 		return nil, err
@@ -52,9 +52,9 @@ func NewPositionCollector(resource interface{}, params data.CollectorParams) (da
 	return data.NewCollector(cFunc, params)
 }
 
-// NewIsPoweredCollector returns a collector to register an is powered method. If one is already registered
+// newIsPoweredCollector returns a collector to register an is powered method. If one is already registered
 // with the same MethodMetadata it will panic.
-func NewIsPoweredCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	motor, err := assertMotor(resource)
 	if err != nil {
 		return nil, err

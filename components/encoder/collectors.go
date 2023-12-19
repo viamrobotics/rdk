@@ -23,9 +23,9 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// NewTicksCountCollector returns a collector to register a ticks count method. If one is already registered
+// newTicksCountCollector returns a collector to register a ticks count method. If one is already registered
 // with the same MethodMetadata it will panic.
-func NewTicksCountCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newTicksCountCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	encoder, err := assertEncoder(resource)
 	if err != nil {
 		return nil, err
