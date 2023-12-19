@@ -2,6 +2,7 @@ package universalrobots
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -154,7 +155,7 @@ type RobotState struct {
 	creationTime time.Time
 }
 
-func readRobotStateMessage(buf []byte, logger logging.Logger) (RobotState, error) {
+func readRobotStateMessage(ctx context.Context, buf []byte, logger logging.Logger) (RobotState, error) {
 	state := RobotState{
 		creationTime: time.Now(),
 	}
@@ -227,7 +228,7 @@ func readRobotStateMessage(buf []byte, logger logging.Logger) (RobotState, error
 		case 12:
 			// Tool mode info, skipping, don't think we need
 		default:
-			logger.Debugf("unknown packageType: %d size: %d content size: %d\n", packageType, sz, len(content))
+			logger.CDebugf(ctx, "unknown packageType: %d size: %d content size: %d\n", packageType, sz, len(content))
 		}
 	}
 
@@ -235,7 +236,7 @@ func readRobotStateMessage(buf []byte, logger logging.Logger) (RobotState, error
 }
 
 // return userErr, error.
-func readURRobotMessage(buf []byte, logger logging.Logger) error {
+func readURRobotMessage(ctx context.Context, buf []byte, logger logging.Logger) error {
 	ts := binary.BigEndian.Uint64(buf[1:])
 	// messageSource := buf[9]
 	robotMessageType := buf[10]
@@ -244,7 +245,7 @@ func readURRobotMessage(buf []byte, logger logging.Logger) error {
 
 	switch robotMessageType {
 	case 0: // text?
-		logger.Debugf("ur log: %s\n", string(buf))
+		logger.CDebugf(ctx, "ur log: %s\n", string(buf))
 
 	case 6: // error
 		robotMessageCode := binary.BigEndian.Uint32(buf)
@@ -254,7 +255,7 @@ func readURRobotMessage(buf []byte, logger logging.Logger) error {
 		robotMessageData := binary.BigEndian.Uint32(buf[16:])
 		robotCommTextMessage := string(buf[20:])
 
-		logger.Debugf("robot error! code: C%dA%d reportLevel: %d, dataType: %d, data: %d, msg: %s\n",
+		logger.CDebugf(ctx, "robot error! code: C%dA%d reportLevel: %d, dataType: %d, data: %d, msg: %s\n",
 			robotMessageCode, robotMessageArgument, robotMessageReportLevel, robotMessageDataType, robotMessageData, robotCommTextMessage)
 
 	case 3: // Version
@@ -267,16 +268,16 @@ func readURRobotMessage(buf []byte, logger logging.Logger) error {
 		bugFixVersion := binary.BigEndian.Uint32(buf[pos+2:])
 		buildNumber := binary.BigEndian.Uint32(buf[pos+8:])
 
-		logger.Debugf("UR version %v.%v.%v.%v\n", majorVersion, minorVersion, bugFixVersion, buildNumber)
+		logger.CDebugf(ctx, "UR version %v.%v.%v.%v\n", majorVersion, minorVersion, bugFixVersion, buildNumber)
 
 	case 12: // i have no idea what this is
 		if len(buf) != 9 {
-			logger.Debugf("got a weird robot message of type 12 with bad length: %d\n", len(buf))
+			logger.CDebugf(ctx, "got a weird robot message of type 12 with bad length: %d\n", len(buf))
 		} else {
 			a := binary.BigEndian.Uint64(buf)
 			b := buf[8]
 			if a != 0 || b != 1 {
-				logger.Debugf("got a weird robot message of type 12 with bad data: %v %v\n", a, b)
+				logger.CDebugf(ctx, "got a weird robot message of type 12 with bad data: %v %v\n", a, b)
 			}
 		}
 
@@ -289,7 +290,7 @@ func readURRobotMessage(buf []byte, logger logging.Logger) error {
 
 		if false {
 			// TODO(erh): this is better than sleeping in other code, be smart!!
-			logger.Debugf("KeyMessage robotMessageCode: %d robotMessageArgument: %d robotMessageTitle: %s keyTextMessage: %s\n",
+			logger.CDebugf(ctx, "KeyMessage robotMessageCode: %d robotMessageArgument: %d robotMessageTitle: %s keyTextMessage: %s\n",
 				robotMessageCode, robotMessageArgument, robotMessageTitle, keyTextMessage)
 		}
 	case 10: // ROBOT_MESSAGE_TYPE_RUNTIME_EXCEPTION
@@ -299,7 +300,7 @@ func readURRobotMessage(buf []byte, logger logging.Logger) error {
 		runtimeErr := errors.Errorf("runtime error at line: %d col: %d msg: %s", scriptLineNumber, scriptColumnNumber, msg)
 		return runtimeErr
 	default:
-		logger.Debugf("unknown robotMessageType: %d ts: %v %v\n", robotMessageType, ts, buf)
+		logger.CDebugf(ctx, "unknown robotMessageType: %d ts: %v %v\n", robotMessageType, ts, buf)
 		return nil
 	}
 

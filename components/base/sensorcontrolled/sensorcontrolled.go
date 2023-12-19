@@ -129,7 +129,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		if err == nil && props.OrientationSupported {
 			// return first sensor that does not error that satisfies the properties wanted
 			sb.orientation = ms
-			sb.logger.Infof("using sensor %s as orientation sensor for base", sb.orientation.Name().ShortName())
+			sb.logger.CInfof(ctx, "using sensor %s as orientation sensor for base", sb.orientation.Name().ShortName())
 			break
 		}
 	}
@@ -139,7 +139,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		if err == nil && props.AngularVelocitySupported && props.LinearVelocitySupported {
 			// return first sensor that does not error that satisfies the properties wanted
 			sb.velocities = ms
-			sb.logger.Infof("using sensor %s as velocity sensor for base", sb.velocities.Name().ShortName())
+			sb.logger.CInfof(ctx, "using sensor %s as velocity sensor for base", sb.velocities.Name().ShortName())
 			break
 		}
 	}

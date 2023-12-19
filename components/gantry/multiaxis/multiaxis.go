@@ -208,7 +208,7 @@ func (g *multiAxis) Stop(ctx context.Context, extra map[string]interface{}) erro
 		g.workers.Add(1)
 		utils.ManagedGo(func() {
 			if err := currG.Stop(ctx, extra); err != nil {
-				g.logger.Errorw("failed to stop subaxis", "error", err)
+				g.logger.CErrorw(ctx, "failed to stop subaxis", "error", err)
 			}
 		}, g.workers.Done)
 	}

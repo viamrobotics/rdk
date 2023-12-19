@@ -129,7 +129,7 @@ func (rc *RobotClient) sessionMetadata(ctx context.Context, method string) (cont
 		if s, ok := status.FromError(err); ok && s.Code() == codes.Unimplemented {
 			falseVal := false
 			rc.sessionsSupported = &falseVal
-			rc.logger.Infow("sessions unsupported; will not try again")
+			rc.logger.CInfow(ctx, "sessions unsupported; will not try again")
 			return ctx, nil
 		}
 		return nil, err
@@ -138,7 +138,7 @@ func (rc *RobotClient) sessionMetadata(ctx context.Context, method string) (cont
 	heartbeatWindow := startResp.HeartbeatWindow.AsDuration()
 	sessionHeartbeatInterval := heartbeatWindow / 5
 	if heartbeatWindow <= 0 || sessionHeartbeatInterval <= 0 {
-		rc.logger.Infow("session heartbeat window invalid; will not try again", "heartbeat_window", heartbeatWindow)
+		rc.logger.CInfow(ctx, "session heartbeat window invalid; will not try again", "heartbeat_window", heartbeatWindow)
 		return ctx, nil
 	}
 

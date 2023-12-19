@@ -166,7 +166,7 @@ func (x *xArm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf
 		}
 		if x.conn != nil {
 			if err := x.conn.Close(); err != nil {
-				x.logger.Warnw("error closing old connection but will continue with reconfiguration", "error", err)
+				x.logger.CWarnw(ctx, "error closing old connection but will continue with reconfiguration", "error", err)
 			}
 		}
 		x.conn = newConn

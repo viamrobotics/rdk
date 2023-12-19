@@ -191,7 +191,7 @@ func (rc *RobotClient) handleUnaryDisconnect(
 	}
 
 	if err := rc.checkConnected(); err != nil {
-		rc.Logger().Debugw("connection is down, skipping method call", "method", method)
+		rc.Logger().CDebugw(ctx, "connection is down, skipping method call", "method", method)
 		return status.Error(codes.Unavailable, err.Error())
 	}
 
@@ -237,7 +237,7 @@ func (rc *RobotClient) handleStreamDisconnect(
 	}
 
 	if err := rc.checkConnected(); err != nil {
-		rc.Logger().Debugw("connection is down, skipping method call", "method", method)
+		rc.Logger().CDebugw(ctx, "connection is down, skipping method call", "method", method)
 		return nil, status.Error(codes.Unavailable, err.Error())
 	}
 
@@ -425,7 +425,7 @@ func (rc *RobotClient) updateResourceClients(ctx context.Context) error {
 		// check if no longer an active resource
 		if !activeResources[resourceName] {
 			if err := client.Close(ctx); err != nil {
-				rc.Logger().Error(err)
+				rc.Logger().CError(ctx, err)
 				continue
 			}
 			delete(rc.resourceClients, resourceName)
@@ -453,12 +453,12 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 			return
 		}
 		if !rc.connected.Load() {
-			rc.Logger().Infow("trying to reconnect to remote at address", "address", rc.address)
+			rc.Logger().CInfow(ctx, "trying to reconnect to remote at address", "address", rc.address)
 			if err := rc.connect(ctx); err != nil {
-				rc.Logger().Errorw("failed to reconnect remote", "error", err, "address", rc.address)
+				rc.Logger().CErrorw(ctx, "failed to reconnect remote", "error", err, "address", rc.address)
 				continue
 			}
-			rc.Logger().Infow("successfully reconnected remote at address", "address", rc.address)
+			rc.Logger().CInfow(ctx, "successfully reconnected remote at address", "address", rc.address)
 		} else {
 			check := func() error {
 				if refresh {
@@ -490,7 +490,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				}
 			}
 			if outerError != nil {
-				rc.Logger().Errorw(
+				rc.Logger().CErrorw(ctx,
 					"lost connection to remote",
 					"error", outerError,
 					"address", rc.address,
@@ -504,7 +504,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 
 				var notifyParentFn func()
 				if rc.notifyParent != nil {
-					rc.Logger().Debugf("connection was lost for remote %q", rc.address)
+					rc.Logger().CDebugf(ctx, "connection was lost for remote %q", rc.address)
 					// RSDK-3670: This callback may ultimately acquire the `robotClient.mu`
 					// mutex. Execute the function after releasing the mutex.
 					notifyParentFn = rc.notifyParent
@@ -552,7 +552,7 @@ func (rc *RobotClient) RefreshEvery(ctx context.Context, every time.Duration) {
 		if err := rc.Refresh(ctx); err != nil {
 			// we want to keep refreshing and hopefully the ticker is not
 			// too fast so that we do not thrash.
-			rc.Logger().Errorw("failed to refresh resources from remote", "error", err)
+			rc.Logger().CErrorw(ctx, "failed to refresh resources from remote", "error", err)
 		}
 	}
 }
@@ -646,7 +646,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 				// has a remote. This can be solved by either integrating reflection into
 				// robot.proto or by overriding the gRPC reflection service to return
 				// reflection results from its remotes.
-				rc.Logger().Debugw("failed to find symbol for resource API", "api", resAPI, "error", err)
+				rc.Logger().CDebugw(ctx, "failed to find symbol for resource API", "api", resAPI, "error", err)
 				continue
 			}
 			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
@@ -923,7 +923,7 @@ func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[
 	for name, params := range extra {
 		param, err := protoutils.StructToStructPb(params)
 		if err != nil {
-			rc.Logger().Warnf("failed to convert extra params for resource %s with error: %s", name.Name, err)
+			rc.Logger().CWarnf(ctx, "failed to convert extra params for resource %s with error: %s", name.Name, err)
 			continue
 		}
 		p := &pb.StopExtraParameters{

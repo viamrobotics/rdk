@@ -277,7 +277,7 @@ func (g *robotiqGripper) Calibrate(ctx context.Context) error {
 	}
 	g.closeLimit = x[4:]
 
-	g.logger.Debugf("limits %s %s", g.openLimit, g.closeLimit)
+	g.logger.CDebugf(ctx, "limits %s %s", g.openLimit, g.closeLimit)
 	return nil
 }
 

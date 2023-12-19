@@ -124,7 +124,7 @@ func (m *Motor) Reconfigure(ctx context.Context, deps resource.Dependencies, con
 	m.MaxRPM = newConf.MaxRPM
 
 	if m.MaxRPM == 0 {
-		m.Logger.Infof("Max RPM not provided to a fake motor, defaulting to %v", defaultMaxRpm)
+		m.Logger.CInfof(ctx, "Max RPM not provided to a fake motor, defaulting to %v", defaultMaxRpm)
 		m.MaxRPM = defaultMaxRpm
 	}
 
@@ -185,7 +185,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	defer m.mu.Unlock()
 
 	m.OpMgr.CancelRunning(ctx)
-	m.Logger.Debugf("Motor SetPower %f", powerPct)
+	m.Logger.CDebugf(ctx, "Motor SetPower %f", powerPct)
 	m.setPowerPct(powerPct)
 
 	if m.Encoder != nil {
@@ -258,10 +258,10 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration, float6
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
-		m.Logger.Warn("motor speed is nearly 0 rev_per_min")
+		m.Logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
 		return motor.NewZeroRPMError()
 	case m.MaxRPM > 0 && speed > m.MaxRPM-0.1:
-		m.Logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.MaxRPM)
+		m.Logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.MaxRPM)
 	default:
 	}
 
@@ -306,9 +306,9 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
-		m.Logger.Warn("motor speed is nearly 0 rev_per_min")
+		m.Logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
 	case m.MaxRPM > 0 && speed > m.MaxRPM-0.1:
-		m.Logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.MaxRPM)
+		m.Logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.MaxRPM)
 	default:
 	}
 
@@ -350,7 +350,7 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.Logger.Debug("Motor Stopped")
+	m.Logger.CDebug(ctx, "Motor Stopped")
 	m.setPowerPct(0.0)
 	if m.Encoder != nil {
 		err := m.Encoder.SetSpeed(ctx, 0.0)

@@ -22,7 +22,7 @@ const (
 func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	if int(angleDeg) >= 360 {
 		sb.setPolling(false)
-		sb.logger.Warn("feedback for spin calls over 360 not supported yet, spinning without sensor")
+		sb.logger.CWarn(ctx, "feedback for spin calls over 360 not supported yet, spinning without sensor")
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, nil)
 	}
 	ctx, done := sb.opMgr.New(ctx)
@@ -118,7 +118,7 @@ func (sb *sensorBase) stopSpinWithSensor(
 				if err != nil {
 					errCounter++
 					if errCounter > 100 {
-						sb.logger.Error(errors.Wrap(
+						sb.logger.CError(ctx, errors.Wrap(
 							err,
 							"imu sensor unreachable, 100 error counts when trying to read yaw angle, stopping base"))
 						if err = sb.Stop(ctx, nil); err != nil {
@@ -132,9 +132,9 @@ func (sb *sensorBase) stopSpinWithSensor(
 				atTarget, overShot, minTravel := getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg, errBound)
 
 				if sensorDebug {
-					sb.logger.Debugf("minTravel %t, atTarget %t, overshot %t", minTravel, atTarget, overShot)
-					sb.logger.Debugf("angleDeg %.2f", angleDeg)
-					sb.logger.Debugf(
+					sb.logger.CDebugf(ctx, "minTravel %t, atTarget %t, overshot %t", minTravel, atTarget, overShot)
+					sb.logger.CDebugf(ctx, "angleDeg %.2f", angleDeg)
+					sb.logger.CDebugf(ctx,
 						"currYaw %.2f, startYaw %.2f, targetYaw %.2f",
 						currYaw, startYaw, targetYaw)
 				}
@@ -144,7 +144,7 @@ func (sb *sensorBase) stopSpinWithSensor(
 				// check if we've travelled at all
 				if minTravel && (atTarget || overShot) {
 					if sensorDebug {
-						sb.logger.Debugf(
+						sb.logger.CDebugf(ctx,
 							"stopping base with errAngle:%.2f, overshot? %t",
 							math.Abs(targetYaw-currYaw), overShot)
 					}
@@ -155,7 +155,7 @@ func (sb *sensorBase) stopSpinWithSensor(
 				}
 
 				if time.Since(startTime) > timeOut {
-					sb.logger.Warn("exceeded time for Spin call, stopping base")
+					sb.logger.CWarn(ctx, "exceeded time for Spin call, stopping base")
 					if err := sb.Stop(ctx, nil); err != nil {
 						return
 					}
