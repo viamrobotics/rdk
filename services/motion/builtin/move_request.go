@@ -414,7 +414,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	req motion.MoveOnGlobeReq,
 	seedPlan motionplan.Plan,
 	replanCount int,
-) (*moveRequest, error) {
+) (state.PlanExecutor, error) {
 	valExtra, err := newValidatedExtra(req.Extra)
 	if err != nil {
 		return nil, err
@@ -534,7 +534,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	req motion.MoveOnMapReq,
 	seedPlan motionplan.Plan,
 	replanCount int,
-) (*moveRequest, error) {
+) (state.PlanExecutor, error) {
 	valExtra, err := newValidatedExtra(req.Extra)
 	if err != nil {
 		return nil, err

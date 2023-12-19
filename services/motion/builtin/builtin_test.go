@@ -1409,8 +1409,11 @@ func TestMoveOnGlobe(t *testing.T) {
 			MotionCfg:          motionCfg,
 			Extra:              extra,
 		}
-		mr, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, req, nil, 0)
+		planExecutor, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, req, nil, 0)
 		test.That(t, err, test.ShouldBeNil)
+
+		mr, ok := planExecutor.(*moveRequest)
+		test.That(t, ok, test.ShouldBeTrue)
 
 		test.That(t, mr.planRequest.Goal.Pose().Point().X, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
 		test.That(t, mr.planRequest.Goal.Pose().Point().Y, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)

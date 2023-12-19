@@ -289,18 +289,11 @@ func (ms *builtIn) MoveOnMapNew(ctx context.Context, req motion.MoveOnMapReq) (m
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	ms.logger.Debugf("MoveOnGlobe called with %v", req)
+
 	// TODO: Deprecated: remove once no motion apis use the opid system
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-	planExecutorConstructor := func(
-		ctx context.Context,
-		req motion.MoveOnMapReq,
-		seedPlan motionplan.Plan,
-		replanCount int,
-	) (state.PlanExecutor, error) {
-		return ms.newMoveOnMapRequest(ctx, req, seedPlan, replanCount)
-	}
 
-	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, planExecutorConstructor)
+	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, ms.newMoveOnMapRequest)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -362,18 +355,11 @@ func (ms *builtIn) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlobeReq) (
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	ms.logger.Debugf("MoveOnGlobe called with %s", req)
+
 	// TODO: Deprecated: remove once no motion apis use the opid system
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-	planExecutorConstructor := func(
-		ctx context.Context,
-		req motion.MoveOnGlobeReq,
-		seedPlan motionplan.Plan,
-		replanCount int,
-	) (state.PlanExecutor, error) {
-		return ms.newMoveOnGlobeRequest(ctx, req, seedPlan, replanCount)
-	}
 
-	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, planExecutorConstructor)
+	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, ms.newMoveOnGlobeRequest)
 	if err != nil {
 		return uuid.Nil, err
 	}
