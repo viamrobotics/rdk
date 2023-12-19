@@ -37,7 +37,7 @@ type ExecuteResponse struct {
 	ReplanReason string
 }
 
-// PlanExecutorConstructor creates a PlannerExecutor
+// PlannerExecutorConstructor creates a PlannerExecutor
 // if ctx is cancelled then all PlannerExecutor interface
 // methods must terminate & return errors
 // req is the request that will be used during planning & execution
@@ -46,15 +46,15 @@ type ExecuteResponse struct {
 // replanCount is the number of times replanning has occurred,
 // zero the first time planning occurs.
 // R is a genric type which is able to be used to create a PlannerExecutor.
-type PlanExecutorConstructor[R any] func(
+type PlannerExecutorConstructor[R any] func(
 	ctx context.Context,
 	req R,
 	seedPlan motionplan.Plan,
 	replanCount int,
-) (PlanExecutor, error)
+) (PlannerExecutor, error)
 
-// PlanExecutor implements Plan and Execute.
-type PlanExecutor interface {
+// PlannerExecutor implements Plan and Execute.
+type PlannerExecutor interface {
 	Plan(ctx context.Context) (PlanResponse, error)
 	Execute(context.Context, Waypoints) (ExecuteResponse, error)
 }
@@ -104,27 +104,27 @@ func (cs componentState) lastExecutionID() motion.ExecutionID {
 // execution represents the state of a motion planning execution.
 // it only ever exists in state.StartExecution function & the go routine created.
 type execution[R any] struct {
-	id                      motion.ExecutionID
-	state                   *State
-	waitGroup               *sync.WaitGroup
-	cancelCtx               context.Context
-	cancelFunc              context.CancelFunc
-	logger                  logging.Logger
-	componentName           resource.Name
-	req                     R
-	planExecutorConstructor PlanExecutorConstructor[R]
+	id                         motion.ExecutionID
+	state                      *State
+	waitGroup                  *sync.WaitGroup
+	cancelCtx                  context.Context
+	cancelFunc                 context.CancelFunc
+	logger                     logging.Logger
+	componentName              resource.Name
+	req                        R
+	plannerExecutorConstructor PlannerExecutorConstructor[R]
 }
 
 type planWithExecutor struct {
-	plan         motion.Plan
-	planExecutor PlanExecutor
-	waypoints    Waypoints
-	motionplan   motionplan.Plan
+	plan            motion.Plan
+	plannerExecutor PlannerExecutor
+	waypoints       Waypoints
+	motionplan      motionplan.Plan
 }
 
 // NewPlan creates a new motion.Plan from an execution & returns an error if one was not able to be created.
 func (e *execution[R]) newPlanWithExecutor(ctx context.Context, seedPlan motionplan.Plan, replanCount int) (planWithExecutor, error) {
-	pe, err := e.planExecutorConstructor(e.cancelCtx, e.req, seedPlan, replanCount)
+	pe, err := e.plannerExecutorConstructor(e.cancelCtx, e.req, seedPlan, replanCount)
 	if err != nil {
 		return planWithExecutor{}, err
 	}
@@ -139,7 +139,7 @@ func (e *execution[R]) newPlanWithExecutor(ctx context.Context, seedPlan motionp
 		ComponentName: e.componentName,
 		Steps:         resp.PosesByComponent,
 	}
-	return planWithExecutor{plan: plan, planExecutor: pe, waypoints: resp.Waypoints, motionplan: resp.Motionplan}, nil
+	return planWithExecutor{plan: plan, plannerExecutor: pe, waypoints: resp.Waypoints, motionplan: resp.Motionplan}, nil
 }
 
 // Start starts an execution with a given plan.
@@ -173,7 +173,7 @@ func (e *execution[R]) start(ctx context.Context) error {
 		// 3. the execution failed
 		// 4. replanning failed
 		for {
-			resp, err := lastPWE.planExecutor.Execute(e.cancelCtx, lastPWE.waypoints)
+			resp, err := lastPWE.plannerExecutor.Execute(e.cancelCtx, lastPWE.waypoints)
 
 			switch {
 			// stoped
@@ -318,7 +318,7 @@ func StartExecution[R any](
 	s *State,
 	componentName resource.Name,
 	req R,
-	planExecutorConstructor PlanExecutorConstructor[R],
+	plannerExecutorConstructor PlannerExecutorConstructor[R],
 ) (motion.ExecutionID, error) {
 	if s == nil {
 		return uuid.Nil, errors.New("state is nil")
@@ -331,15 +331,15 @@ func StartExecution[R any](
 	// the state being cancelled should cause all executions derived from that state to also be cancelled
 	cancelCtx, cancelFunc := context.WithCancel(s.cancelCtx)
 	e := execution[R]{
-		id:                      uuid.New(),
-		state:                   s,
-		cancelCtx:               cancelCtx,
-		cancelFunc:              cancelFunc,
-		waitGroup:               &sync.WaitGroup{},
-		logger:                  s.logger,
-		req:                     req,
-		componentName:           componentName,
-		planExecutorConstructor: planExecutorConstructor,
+		id:                         uuid.New(),
+		state:                      s,
+		cancelCtx:                  cancelCtx,
+		cancelFunc:                 cancelFunc,
+		waitGroup:                  &sync.WaitGroup{},
+		logger:                     s.logger,
+		req:                        req,
+		componentName:              componentName,
+		plannerExecutorConstructor: plannerExecutorConstructor,
 	}
 
 	if err := e.start(ctx); err != nil {
