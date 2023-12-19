@@ -138,6 +138,7 @@ $(FFMPEG_ROOT):
 
 # For ARM64 builds, use the image ghcr.io/viamrobotics/antique:arm64 for backward compatibility
 FFMPEG_PREFIX ?= $(shell realpath .)/gostream/ffmpeg/$(shell uname -s)-$(shell uname -m)
+# See compilation guide here https://trac.ffmpeg.org/wiki/CompilationGuide
 FFMPEG_OPTS = --disable-programs --disable-doc --disable-everything --prefix=$(FFMPEG_PREFIX) --disable-autodetect
 ifeq ($(shell uname -m),aarch64)
 	# We only support hardware encoding on a Raspberry Pi.
