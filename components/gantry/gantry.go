@@ -22,11 +22,11 @@ func init() {
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: position.String(),
-	}, NewPositionCollector)
+	}, newPositionCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: lengths.String(),
-	}, NewLengthsCollector)
+	}, newLengthsCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "gantry".
