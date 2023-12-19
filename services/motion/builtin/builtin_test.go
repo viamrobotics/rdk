@@ -491,8 +491,8 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 		t.Skip("skipping on 32-bit ARM, large maps use too much memory")
 	}
 	ctx := context.Background()
-	//~ extra := map[string]interface{}{"smooth_iter": 30, "motion_profile": "position_only"}
-	extra := map[string]interface{}{"motion_profile": "position_only"}
+	extra := map[string]interface{}{"smooth_iter": 0, "motion_profile": "position_only"}
+	//~ extra := map[string]interface{}{"motion_profile": "position_only"}
 	// goal position is scaled to be in mm
 	goalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: -32.508 * 1000, Y: -2.092 * 1000})
 	goalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, goalInBaseFrame)

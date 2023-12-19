@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	defaultAutoBB = 0.9 // Automatic bounding box on driveable area as a multiple of start-goal distance
+	defaultAutoBB = 1.0 // Automatic bounding box on driveable area as a multiple of start-goal distance
 	// Note: while fully holonomic planners can use the limits of the frame as implicit boundaries, with non-holonomic motion
 	// this is not the case, and the total workspace available to the planned frame is not directly related to the motion available
 	// from a single set of inputs.
@@ -67,7 +67,7 @@ const (
 	defaultMinTrajectoryLength = 350
 
 	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly.
-	pathdebug = false
+	pathdebug = true
 )
 
 // Using the standard SquaredNormMetric, we run into issues where far apart distances will underflow gradient calculations.
@@ -303,7 +303,8 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	midptNode := &basicNode{pose: spatialmath.NewPose(midPt, midOrient), cost: midPt.Sub(startPose.Point()).Norm()}
 	var randPosNode node = midptNode
 
-	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
+	//~ for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
+	for iter := 0; iter < 5; iter++ {
 		mp.logger.Debugf("TP Space RRT iteration %d", iter)
 		if ctx.Err() != nil {
 			mp.logger.Debugf("TP Space RRT timed out after %d iterations", iter)
@@ -331,23 +332,24 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
 			return
 		}
+		reachedDelta := math.Inf(1)
 		if seedReached.node != nil && goalReached.node != nil {
-			reachedDelta := mp.planOpts.DistanceFunc(&ik.Segment{
+			reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{
 				StartPosition: seedReached.node.Pose(),
 				EndPosition: spatialmath.Compose(goalReached.node.Pose(), flipPose),
 			})
 			if reachedDelta > mp.planOpts.GoalThreshold {
 				// If both maps extended, but did not reach the same point, then attempt to extend them towards each other
-				//~ seedReached = mp.attemptExtension(ctx, flipNode(goalReached.node), rrt.maps.startMap, false, mp.randseed.Int31())
-				//~ if seedReached.error != nil {
-					//~ rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
-					//~ return
-				//~ }
-				//~ if seedReached.node != nil {
-					//~ reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{
-						//~ StartPosition: seedReached.node.Pose(),
-						//~ EndPosition:   goalReached.node.Pose(),
-					//~ })
+				seedReached = mp.attemptExtension(ctx, flipNode(goalReached.node), rrt.maps.startMap, false, mp.randseed.Int31())
+				if seedReached.error != nil {
+					rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
+					return
+				}
+				if seedReached.node != nil {
+					reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{
+						StartPosition: seedReached.node.Pose(),
+						EndPosition:   spatialmath.Compose(goalReached.node.Pose(), flipPose),
+					})
 					if reachedDelta > mp.planOpts.GoalThreshold {
 						goalReached = mp.attemptExtension(ctx, flipNode(seedReached.node), rrt.maps.goalMap, true, mp.randseed.Int31())
 						if goalReached.error != nil {
@@ -361,7 +363,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 								EndPosition: spatialmath.Compose(goalReached.node.Pose(), flipPose),
 						})
 					}
-				//~ }
+				}
 			}
 			if reachedDelta <= mp.planOpts.GoalThreshold {
 				// If we've reached the goal, extract the path from the RRT trees and return
@@ -407,7 +409,10 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				}
 				var reachedDelta float64
 				if mp.algOpts.bidirectional {
-					reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: seedReached.node.Pose(), EndPosition: goalMapNode.Pose()})
+					reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{
+						StartPosition: seedReached.node.Pose(),
+						EndPosition: spatialmath.Compose(goalMapNode.Pose(), flipPose)},
+					)
 				} else {
 					reachedDelta = mp.planOpts.goalMetric(&ik.State{Position: seedReached.node.Pose()})
 				}
