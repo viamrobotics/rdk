@@ -1,6 +1,5 @@
 <script lang='ts' context='module'>
   import { onMount, createEventDispatcher, tick, getContext, setContext } from 'svelte';
-  import { writable } from 'svelte/store';
 
   interface CollapseContext {
     /**
@@ -9,10 +8,16 @@
     onStop(callback: () => void): void
   }
 
-  export let collapseContextKey = Symbol('Collapse context')
+  const collapseContextKey = Symbol('Collapse context')
 
-  export const useStop = () => {
-    return getContext<CollapseContext>(collapseContextKey)
+  export const useStop = (): CollapseContext => {
+    const context = getContext<CollapseContext>(collapseContextKey)
+
+    if (!context) {
+      throw new Error('No `useStop` context found. This hook must be called within a child of `<Collapse>`.')
+    }
+
+    return context
   }
 </script>
 
@@ -39,7 +44,7 @@ export let open = Boolean(localStorage.getItem(`rc.collapse.${title}.open`));
  */
 export let stop = false
 
-let stopCallback = () => {}
+let stopCallback: (() => void) | undefined
 
 setContext<CollapseContext>(collapseContextKey, {
   onStop(callback: () => void) {
@@ -69,7 +74,7 @@ const handleClick = async (event: Event) => {
 
 const handleStopClick = (event: MouseEvent) => {
   event.stopPropagation()
-  stopCallback()
+  stopCallback?.()
 }
 
 onMount(() => {
