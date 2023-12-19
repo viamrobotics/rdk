@@ -23,7 +23,7 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// NewPositionCollector returns a collector to register a position method. If one is already registered
+// newPositionCollector returns a collector to register a position method. If one is already registered
 // with the same MethodMetadata it will panic.
 func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	servo, err := assertServo(resource)
