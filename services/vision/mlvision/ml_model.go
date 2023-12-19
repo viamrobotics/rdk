@@ -5,6 +5,7 @@ package mlvision
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -132,6 +133,23 @@ func registerMLModelVisionService(
 	if errList[0] != nil && errList[1] != nil && errList[2] != nil {
 		for _, e := range errList {
 			logger.Error(e)
+		}
+		md, err := mlm.Metadata(ctx)
+		if err != nil {
+			logger.Error("could not get metadata from the model")
+		} else {
+			inputs := ""
+			for _, tensor := range md.Inputs {
+				inputs += fmt.Sprintf("%s(%v) ", tensor.Name, tensor.Shape)
+			}
+			outputs := ""
+			for _, tensor := range md.Outputs {
+				outputs += fmt.Sprintf("%s(%v) ", tensor.Name, tensor.Shape)
+			}
+			logger.Infow("the model has the following input and outputs tensors, name(shape)",
+				"inputs", inputs,
+				"outputs", outputs,
+			)
 		}
 	}
 
