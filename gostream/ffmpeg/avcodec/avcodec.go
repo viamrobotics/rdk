@@ -1,4 +1,4 @@
-//go:build cgo && linux && !(arm || android)
+//go:build cgo && linux && !android
 
 // Package avcodec is a wrapper around FFmpeg/release6.1.
 // See: https://github.com/FFmpeg/FFmpeg/tree/release/6.1
@@ -7,6 +7,7 @@ package avcodec
 //#cgo CFLAGS: -I${SRCDIR}/../include
 //#cgo linux,arm64 LDFLAGS: -L${SRCDIR}/../Linux-aarch64/lib -lavformat -lavcodec -lavutil -lm
 //#cgo linux,amd64 LDFLAGS: -L${SRCDIR}/../Linux-x86_64/lib -lavformat -lavcodec -lavutil -lm
+//#cgo linux,arm LDFLAGS: -L${SRCDIR}/../Linux-x86_64/lib -lavformat -lavcodec -lavutil -lm
 //#include <libavformat/avformat.h>
 //#include <libavcodec/avcodec.h>
 //#include <libavcodec/packet.h>
