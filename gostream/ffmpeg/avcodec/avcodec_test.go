@@ -3,8 +3,9 @@
 package avcodec
 
 import (
-	"go.viam.com/test"
 	"testing"
+
+	"go.viam.com/test"
 )
 
 func TestEncoderIsAvailable(t *testing.T) {
