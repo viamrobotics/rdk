@@ -38,12 +38,7 @@ const handleRefreshInput = (name: string) => {
 </script>
 
 {#each resources as camera (camera.name)}
-  <Collapse title={camera.name}>
-    <v-breadcrumbs
-      slot="title"
-      crumbs="camera"
-    />
-
+  <Collapse title={camera.name} crumbs='camera'>
     <div class="flex flex-col gap-4 border border-t-0 border-medium p-4">
       <v-switch
         label={`View ${camera.name}`}
