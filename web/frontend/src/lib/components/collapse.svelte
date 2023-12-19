@@ -1,28 +1,8 @@
-<script lang='ts' context='module'>
-  import { onMount, createEventDispatcher, tick, getContext, setContext } from 'svelte';
-
-  interface CollapseContext {
-    /**
-     * Fires when a stop command is issued from the navbar of the `<Collapse>` component.
-     */
-    onStop(callback: () => void): void
-  }
-
-  const collapseContextKey = Symbol('Collapse context')
-
-  export const useStop = (): CollapseContext => {
-    const context = getContext<CollapseContext>(collapseContextKey)
-
-    if (!context) {
-      throw new Error('No `useStop` context found. This hook must be called within a child of `<Collapse>`.')
-    }
-
-    return context
-  }
-</script>
 
 <script lang="ts">
+import { onMount, createEventDispatcher, tick, setContext } from 'svelte';
 import { Button } from '@viamrobotics/prime-core';
+import { type CollapseContext, collapseContextKey } from './collapse';
 
 /**
  * The name of the component.
@@ -47,7 +27,7 @@ export let stop = false
 let stopCallback: (() => void) | undefined
 
 setContext<CollapseContext>(collapseContextKey, {
-  onStop(callback: () => void) {
+  onStop: (callback: () => void) => {
     stopCallback = callback
   }
 })

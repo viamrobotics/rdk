@@ -4,7 +4,7 @@ import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
 import { move } from '@/api/servo';
 import { useRobotClient } from '@/hooks/robot-client';
-import { useStop } from '@/lib/components/collapse.svelte';
+import { useStop } from '@/lib/components/collapse';
 
 export let name: string;
 export let status: { position_deg: number } | undefined = undefined;

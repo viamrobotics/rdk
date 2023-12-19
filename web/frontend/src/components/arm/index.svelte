@@ -5,7 +5,7 @@ import { displayError } from '@/lib/error';
 import { roundTo2Decimals } from '@/lib/math';
 import { rcLogConditionally } from '@/lib/log';
 import { useRobotClient } from '@/hooks/robot-client';
-import { useStop } from '@/lib/components/collapse.svelte';
+import { useStop } from '@/lib/components/collapse';
 
 interface ArmStatus {
   pos_pieces: {

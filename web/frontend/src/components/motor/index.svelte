@@ -4,7 +4,7 @@ import { motorApi, MotorClient, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
 import { useConnect, useRobotClient } from '@/hooks/robot-client';
-import { useStop } from '@/lib/components/collapse.svelte';
+import { useStop } from '@/lib/components/collapse';
 
 export let name: string;
 export let status: undefined | {
@@ -192,7 +192,6 @@ onStop(async () => {
 
 useConnect(() => {
   init()
-  return () => {}
 })
 
 </script>

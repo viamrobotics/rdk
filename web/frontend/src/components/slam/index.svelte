@@ -12,7 +12,7 @@
   import { components } from '@/stores/resources';
   import Dropzone from '@/lib/components/dropzone.svelte';
   import { useRobotClient, useConnect } from '@/hooks/robot-client';
-  import { useStop } from '@/lib/components/collapse.svelte';
+  import { useStop } from '@/lib/components/collapse';
   import type { SLAMOverrides } from '@/types/overrides';
   import { rcLogConditionally } from '@/lib/log';
 

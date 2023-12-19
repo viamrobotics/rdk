@@ -26,7 +26,7 @@ const context = {
 export const useRobotClient = () => context;
 
 export type DisconnectCallback = () => void
-export type ConnectCallback = () => DisconnectCallback | undefined
+export type ConnectCallback = (() => DisconnectCallback) | (() => void)
 
 /**
  * Pass a callback to this hook that will fire whenever an initial connection or reconnect occurs.
@@ -44,7 +44,8 @@ export type ConnectCallback = () => DisconnectCallback | undefined
 export const useConnect = (callback: ConnectCallback) => {
   const { connectionStatus } = useRobotClient();
 
-  let disconnectCallback: DisconnectCallback | undefined
+  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+  let disconnectCallback: DisconnectCallback | void
 
   onMount(() => {
     const unsubscribe = connectionStatus.subscribe((value) => {

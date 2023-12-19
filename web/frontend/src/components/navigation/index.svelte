@@ -14,7 +14,7 @@ import { useBasePose } from './hooks/use-base-pose';
 import type { Map } from 'maplibre-gl';
 import { useObstacles } from './hooks/use-obstacles';
 import { usePaths } from './hooks/use-paths';
-import { useStop } from '@/lib/components/collapse.svelte';
+import { useStop } from '@/lib/components/collapse';
 
 export let name: string;
 

@@ -10,7 +10,7 @@
   import { clickOutside } from '../../lib/click-outside';
   import { components } from '@/stores/resources';
   import { useConnect, useRobotClient } from '@/hooks/robot-client';
-  import { useStop } from '@/lib/components/collapse.svelte';
+  import { useStop } from '@/lib/components/collapse';
   
   export let name: string;
 
@@ -294,7 +294,7 @@
 
   const { onStop } = useStop()
 
-  onStop(() => stop())
+  onStop(stop)
 
   useConnect(() => {
     for (const camera of cameras) {
