@@ -90,6 +90,9 @@ type tpspaceOptions struct {
 	// If the squared norm between two poses is less than this, consider them equal
 	poseSolveDist float64
 
+	// Don't add new RRT tree nodes if there is an existing node within this distance.
+	identicalNodeDistance float64
+
 	// Make an attempt to solve the tree every this many iterations
 	// For a unidirectional solve, this means attempting to reach the goal rather than a random point
 	// For a bidirectional solve, this means trying to connect the two trees directly
@@ -554,7 +557,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		dist := mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: successNode.Pose(), EndPosition: nearest.Pose()})
 		// Ensure successNode is sufficiently far from the nearest node already existing in the tree
 		// If too close, don't add a new node
-		if dist < defaultIdenticalNodeDistance {
+		if dist < mp.algOpts.identicalNodeDistance {
 			cand = nil
 		}
 	}
@@ -813,7 +816,8 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 		addNodeEvery:      defaultAddNodeEvery,
 		attemptSolveEvery: defaultAttemptSolveEvery,
 
-		poseSolveDist: defaultIdenticalNodeDistance,
+		poseSolveDist:         defaultIdenticalNodeDistance,
+		identicalNodeDistance: defaultIdenticalNodeDistance,
 
 		distOptions:       map[tpspace.PTG]*plannerOptions{},
 		invertDistOptions: map[tpspace.PTG]*plannerOptions{},
@@ -890,6 +894,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 	}
 	smoothPlanner := smoothPlannerMP.(*tpSpaceRRTMotionPlanner)
 	smoothPlanner.algOpts.bidirectional = true
+	smoothPlanner.algOpts.identicalNodeDistance = -1
 	for i := 0; i < toIter; i++ {
 		mp.logger.Debugf("TP Space smoothing iteration %d of %d", i, toIter)
 		select {
@@ -900,7 +905,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		// get start node of first edge. Cannot be either the last or second-to-last node.
 		// Intn will return an int in the half-open interval half-open interval [0,n)
 		firstEdge := mp.randseed.Intn(len(path) - 2)
-		secondEdge := firstEdge + 2 + mp.randseed.Intn((len(path)-2)-firstEdge)
+		secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-1)-firstEdge)
 
 		newInputSteps, err := mp.attemptSmooth(ctx, path, firstEdge, secondEdge, smoothPlanner)
 		if err != nil || newInputSteps == nil {
@@ -908,20 +913,11 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		}
 		newCost := sumCosts(newInputSteps)
 		if newCost >= currCost {
+			// The smoothed path is longer than the original
 			continue
 		}
-		// Re-connect to the final goal
-		if newInputSteps[len(newInputSteps)-1] != path[len(path)-1] {
-			newInputSteps = append(newInputSteps, path[len(path)-1])
-		}
-
-		goalInputSteps, err := mp.attemptSmooth(ctx, newInputSteps, len(newInputSteps)-3, len(newInputSteps)-1, smoothPlanner)
-		if err != nil || goalInputSteps == nil {
-			continue
-		}
-		goalInputSteps = append(goalInputSteps, path[len(path)-1])
-		path = goalInputSteps
-		currCost = sumCosts(path)
+		path = newInputSteps
+		currCost = newCost
 	}
 
 	if pathdebug {
