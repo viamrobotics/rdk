@@ -67,7 +67,7 @@ const (
 	defaultMinTrajectoryLength = 350
 
 	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly.
-	pathdebug = true
+	pathdebug = false
 )
 
 // Using the standard SquaredNormMetric, we run into issues where far apart distances will underflow gradient calculations.
@@ -877,7 +877,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		// get start node of first edge. Cannot be either the last or second-to-last node.
 		// Intn will return an int in the half-open interval half-open interval [0,n)
 		firstEdge := mp.randseed.Intn(len(path) - 2)
-		secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-1)-firstEdge)
+		secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
 
 		newInputSteps, err := mp.attemptSmooth(ctx, path, firstEdge, secondEdge, smoothPlanner)
 		if err != nil || newInputSteps == nil {
@@ -888,6 +888,9 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 			// The smoothed path is longer than the original
 			continue
 		}
+		//~ if newInputSteps[len(newInputSteps)-1] != path[len(path)-1] {
+			//~ newInputSteps = append(newInputSteps, path[len(path)-1])
+		//~ }
 		path = newInputSteps
 		currCost = newCost
 	}
@@ -968,6 +971,8 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 
 	if secondEdge < len(path)-1 {
 		newInputSteps = append(newInputSteps, path[secondEdge+1:]...)
+	} else {
+		newInputSteps = append(newInputSteps, path[len(path)-1])
 	}
 	return rectifyTPspacePath(newInputSteps, mp.frame, spatialmath.NewZeroPose())
 }
