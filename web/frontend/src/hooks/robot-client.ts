@@ -36,8 +36,10 @@ export type ConnectCallback = (() => DisconnectCallback) | (() => void)
  * @example
  * ```ts
  * useConnect(() => {
- *    const clearPoll = startPolling()
- *    return () => clearPoll()
+ *   // This will fire after component mount, once a robot has connected, and on reconnect.
+ *   return () => {
+ *     // This will fire if a robot disconnects, or when the component is destroyed.
+ *   }
  * })
  * ```
  */
