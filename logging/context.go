@@ -8,6 +8,10 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+// emptyTraceKey is a sentinal value for internal helper functions when there's no context in debug
+// mode.
+const emptyTraceKey = ""
+
 type debugLogKeyType int
 
 const debugLogKeyID = debugLogKeyType(iota)
@@ -41,7 +45,7 @@ func GetName(ctx context.Context) string {
 		return val
 	}
 
-	return ""
+	return emptyTraceKey
 }
 
 const dtNameMetadataKey = "dtName"

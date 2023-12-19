@@ -143,10 +143,6 @@ func (imp *impl) log(entry *LogEntry) {
 	}
 }
 
-// emptyTraceKey is a sentinal value for internal helper functions when there's no context in debug
-// mode.
-const emptyTraceKey = ""
-
 // Constructs the log message by forwarding to `fmt.Sprint`. `traceKey` may be the empty string.
 func (imp *impl) format(logLevel Level, traceKey string, args ...interface{}) *LogEntry {
 	logEntry := imp.NewLogEntry()
