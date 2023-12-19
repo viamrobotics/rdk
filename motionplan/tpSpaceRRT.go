@@ -303,8 +303,8 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	midptNode := &basicNode{pose: spatialmath.NewPose(midPt, midOrient), cost: midPt.Sub(startPose.Point()).Norm()}
 	var randPosNode node = midptNode
 
-	//~ for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
-	for iter := 0; iter < 5; iter++ {
+	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
+	//~ for iter := 0; iter < 5; iter++ {
 		mp.logger.Debugf("TP Space RRT iteration %d", iter)
 		if ctx.Err() != nil {
 			mp.logger.Debugf("TP Space RRT timed out after %d iterations", iter)
