@@ -174,7 +174,7 @@ func newGPIOServo(
 	// microsecond, but rarely over 10. Call it 50 microseconds just to be safe.
 	const maxDeadbandWidthUs = 50
 	if maxFrequency := 1e6 / (maxUs + maxDeadbandWidthUs); frequency > maxFrequency {
-		logger.Warnf("servo frequency (%f.1) is above maximum (%f.1), setting to max instead",
+		logger.CWarnf(ctx, "servo frequency (%f.1) is above maximum (%f.1), setting to max instead",
 			frequency, maxFrequency)
 		frequency = maxFrequency
 	}
@@ -289,7 +289,7 @@ func (s *servoGPIO) findPWMResolution(ctx context.Context) error {
 			return errors.New("context canceled while looking for servo's PWM resolution")
 		}
 		realPct, err := s.pin.PWM(ctx, nil)
-		s.logger.Debugf("starting step %d currPct %.7f target Pct %.14f realPct %.14f", val, currPct, pct, realPct)
+		s.logger.CDebugf(ctx, "starting step %d currPct %.7f target Pct %.14f realPct %.14f", val, currPct, pct, realPct)
 		if err != nil {
 			return errors.Wrap(err, "couldn't find servo PWM resolution")
 		}
@@ -298,7 +298,7 @@ func (s *servoGPIO) findPWMResolution(ctx context.Context) error {
 				s.pwmRes = uint(val)
 			} else {
 				val = int(math.Abs(math.Round(1 / (currPct - realPct))))
-				s.logger.Debugf("the servo moved but the expected duty cyle (%.7f) is not the one reported (%.7f) we are guessing %d",
+				s.logger.CDebugf(ctx, "the servo moved but the expected duty cyle (%.7f) is not the one reported (%.7f) we are guessing %d",
 					pct, realPct, val)
 				s.pwmRes = uint(val)
 			}

@@ -150,7 +150,7 @@ func newVectorNav(
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf(
+	logger.CDebugf(ctx,
 		"model detected %s sn %d %d.%d.%d.%d",
 		string(mdl),
 		binary.LittleEndian.Uint32(sn),
@@ -216,7 +216,7 @@ func newVectorNav(
 	cancelCtx, v.cancelFunc = context.WithCancel(context.Background())
 	// optionally start a polling goroutine
 	if pfreq > 0 {
-		logger.Debugf("vecnav: will pool at %d Hz", pfreq)
+		logger.CDebugf(ctx, "vecnav: will pool at %d Hz", pfreq)
 		waitCh := make(chan struct{})
 		s := 1.0 / float64(pfreq)
 		v.activeBackgroundWorkers.Add(1)
@@ -500,7 +500,7 @@ func (vn *vectornav) compensateAccelBias(ctx context.Context, smpSize uint) erro
 	if err != nil {
 		return errors.Wrap(err, "could not write the acceleration register")
 	}
-	vn.logger.Infof("Acceleration compensated with %1.6f %1.6f %1.6f ref accZ %1.6f", accMX, accMY, accMZ, accZ)
+	vn.logger.CInfof(ctx, "Acceleration compensated with %1.6f %1.6f %1.6f ref accZ %1.6f", accMX, accMY, accMZ, accZ)
 	return nil
 }
 
@@ -530,16 +530,16 @@ func (vn *vectornav) compensateDVBias(ctx context.Context, smpSize uint) error {
 	vn.bdVX = float64(bX) / float64(smpSize)
 	vn.bdVY = float64(bY) / float64(smpSize)
 	vn.bdVZ = float64(bZ) / float64(smpSize)
-	vn.logger.Infof("velocity bias compensated with %1.6f %1.6f %1.6f",
+	vn.logger.CInfof(ctx, "velocity bias compensated with %1.6f %1.6f %1.6f",
 		vn.bdVX, vn.bdVY, vn.bdVZ)
 	return nil
 }
 
 func (vn *vectornav) Close(ctx context.Context) error {
-	vn.logger.Debug("closing vecnav imu")
+	vn.logger.CDebug(ctx, "closing vecnav imu")
 	vn.cancelFunc()
 	vn.busClosed = true
 	vn.activeBackgroundWorkers.Wait()
-	vn.logger.Debug("closed vecnav imu")
+	vn.logger.CDebug(ctx, "closed vecnav imu")
 	return nil
 }

@@ -200,7 +200,7 @@ func (e *execution[R]) start(ctx context.Context) error {
 					msg := "failed to replan for execution %s and component: %s, " +
 						"due to replan reason: %s, tried setting previous plan %s " +
 						"to failed due to error: %s\n"
-					e.logger.Warnf(msg, e.id, e.componentName, resp.ReplanReason, lastPWE.plan.ID, err.Error())
+					e.logger.CWarnf(ctx, msg, e.id, e.componentName, resp.ReplanReason, lastPWE.plan.ID, err.Error())
 
 					e.notifyStatePlanFailed(lastPWE.plan, err.Error(), time.Now())
 					return
