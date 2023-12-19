@@ -45,7 +45,7 @@ const (
 	builtinOpLabel                   = "motion-service"
 	maxTravelDistanceMM              = 5e6 // this is equivalent to 5km
 	lookAheadDistanceMM      float64 = 5e6
-	defaultSmoothIter                = 20
+	defaultSmoothIter                = 30
 	defaultAngularDegsPerSec         = 20.
 	defaultLinearMPerSec             = 0.3
 	defaultObstaclePollingHz         = 1.
