@@ -3,8 +3,8 @@
 import { motorApi, MotorClient, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
-import type { StopCallback } from '@/lib/components/collapse.svelte';
 import { useConnect, useRobotClient } from '@/hooks/robot-client';
+import { useStop } from '@/lib/components/collapse.svelte';
 
 export let name: string;
 export let status: undefined | {
@@ -12,7 +12,6 @@ export let status: undefined | {
   position?: number
   is_moving?: boolean
 };
-export let onStop: StopCallback | undefined = undefined;
 
 const motorPosFormat = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 3,
@@ -173,14 +172,6 @@ const motorRun = async () => {
   }
 };
 
-const motorStop = async () => {
-  try {
-    await motorClient.stop();
-  } catch (error) {
-    displayError(error as ServiceError);
-  }
-};
-
 const init = async () => {
   try {
     properties = await motorClient.getProperties();
@@ -189,8 +180,14 @@ const init = async () => {
   }
 };
 
-onStop?.(() => {
-  motorStop()
+const { onStop } = useStop();
+
+onStop(async () => {
+  try {
+    await motorClient.stop();
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
 })
 
 useConnect(() => {

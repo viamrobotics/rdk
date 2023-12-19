@@ -10,15 +10,14 @@
   import { notify } from '@viamrobotics/prime';
   import { setAsyncInterval } from '@/lib/schedule';
   import { components } from '@/stores/resources';
-  import type { StopCallback } from '@/lib/components/collapse.svelte';
   import Dropzone from '@/lib/components/dropzone.svelte';
   import { useRobotClient, useConnect } from '@/hooks/robot-client';
+  import { useStop } from '@/lib/components/collapse.svelte';
   import type { SLAMOverrides } from '@/types/overrides';
   import { rcLogConditionally } from '@/lib/log';
 
   export let name: string;
   export let overrides: SLAMOverrides | undefined = undefined;
-  export let onStop: StopCallback | undefined = undefined;
 
   const { robotClient, operations } = useRobotClient();
   const slamClient = new SlamClient($robotClient, name, {
@@ -214,14 +213,6 @@
     }
   };
 
-  const handleStopMoveClick = async () => {
-    try {
-      await stopMoveOnMap($robotClient, $operations);
-    } catch (error) {
-      notify.danger((error as ServiceError).message);
-    }
-  };
-
   const startMappingIntervals = (start: number) => {
     updateSLAM2dRefreshFrequency();
     startDurationTimer(start);
@@ -309,7 +300,15 @@
     }
   };
 
-  onStop?.(handleStopMoveClick)
+  const { onStop } = useStop();
+
+  onStop(async () => {
+    try {
+      await stopMoveOnMap($robotClient, $operations);
+    } catch (error) {
+      notify.danger((error as ServiceError).message);
+    }
+  })
 
   useConnect(() => {
     toggle2dExpand();

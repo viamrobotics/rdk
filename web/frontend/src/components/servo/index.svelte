@@ -2,23 +2,14 @@
 import { type ServiceError, servoApi } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
-import type { StopCallback } from '@/lib/components/collapse.svelte';
 import { move } from '@/api/servo';
 import { useRobotClient } from '@/hooks/robot-client';
+import { useStop } from '@/lib/components/collapse.svelte';
 
 export let name: string;
 export let status: { position_deg: number } | undefined = undefined;
-export let onStop: StopCallback | undefined = undefined;
 
 const { robotClient } = useRobotClient();
-
-const stop = () => {
-  const req = new servoApi.StopRequest();
-  req.setName(name);
-
-  rcLogConditionally(req);
-  $robotClient.servoService.stop(req, displayError);
-};
 
 const handleMove = async (amount: number) => {
   const oldAngle = status?.position_deg ?? 0;
@@ -31,7 +22,15 @@ const handleMove = async (amount: number) => {
   }
 };
 
-onStop?.(stop)
+const { onStop } = useStop();
+
+onStop(() => {
+  const req = new servoApi.StopRequest();
+  req.setName(name);
+
+  rcLogConditionally(req);
+  $robotClient.servoService.stop(req, displayError);
+})
 
 </script>
 

@@ -95,15 +95,15 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
   <div class="flex flex-col gap-4 p-3">
     <!-- ******* BASE *******  -->
     {#each filterSubtype($components, 'base') as { name } (name)}
-      <Collapse title={name} crumbs='base' hasStop let:onStop>
-        <Base {name} {onStop} />
+      <Collapse title={name} crumbs='base' stop>
+        <Base {name} />
       </Collapse>
     {/each}
 
     <!-- ******* SLAM *******  -->
     {#each filterSubtype($services, 'slam') as { name } (name)}
-      <Collapse title={name} crumbs="slam" hasStop let:onStop>
-        <Slam {name} overrides={overrides?.slam} {onStop} />
+      <Collapse title={name} crumbs="slam" stop>
+        <Slam {name} overrides={overrides?.slam} />
       </Collapse>
     {/each}
 
@@ -116,11 +116,10 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
 
     <!-- ******* GANTRY *******  -->
     {#each filterWithStatus($components, $statuses, 'gantry') as gantry (gantry.name)}
-      <Collapse title={gantry.name} crumbs="gantry" hasStop let:onStop>
+      <Collapse title={gantry.name} crumbs="gantry" stop>
         <Gantry
           name={gantry.name}
           status={getStatus($statuses, gantry)}
-          {onStop}
         />
       </Collapse>
     {/each}
@@ -141,40 +140,37 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
 
     <!-- ******* ARM *******  -->
     {#each filterSubtype($components, 'arm') as arm (arm.name)}
-      <Collapse title={arm.name} crumbs="arm" hasStop let:onStop>
+      <Collapse title={arm.name} crumbs="arm" stop>
         <Arm
           name={arm.name}
           status={getStatus($statuses, arm)}
-          {onStop}
         />
       </Collapse>
     {/each}
 
     <!-- ******* GRIPPER *******  -->
     {#each filterSubtype($components, 'gripper') as { name } (name)}
-      <Collapse title={name} crumbs="gripper" hasStop let:onStop>
-        <Gripper {name} {onStop} />
+      <Collapse title={name} crumbs="gripper" stop>
+        <Gripper {name} />
       </Collapse>
     {/each}
 
     <!-- ******* SERVO *******  -->
     {#each filterWithStatus($components, $statuses, 'servo') as servo (servo.name)}
-      <Collapse title={servo.name} crumbs="servo" hasStop let:onStop>
+      <Collapse title={servo.name} crumbs="servo" stop>
         <Servo
           name={servo.name}
           status={getStatus($statuses, servo)}
-          {onStop}
         />
       </Collapse>
     {/each}
 
     <!-- ******* MOTOR *******  -->
     {#each filterWithStatus($components, $statuses, 'motor') as motor (motor.name)}
-      <Collapse title={motor.name} crumbs="motor" hasStop let:onStop>
+      <Collapse title={motor.name} crumbs="motor" stop>
         <Motor
           name={motor.name}
           status={getStatus($statuses, motor)}
-          {onStop}
         />
       </Collapse>
     {/each}
@@ -211,8 +207,8 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
 
     <!-- ******* NAVIGATION *******  -->
     {#each filterSubtype($services, 'navigation') as { name } (name)}
-      <Collapse title={name} crumbs='navigation' hasStop let:onStop>
-        <Navigation {name} {onStop} />
+      <Collapse title={name} crumbs='navigation' stop>
+        <Navigation {name} />
       </Collapse>
     {/each}
 

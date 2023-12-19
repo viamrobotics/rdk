@@ -3,8 +3,8 @@
 import { gantryApi } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
-import type { StopCallback } from '@/lib/components/collapse.svelte';
 import { useRobotClient } from '@/hooks/robot-client';
+import { useStop } from '@/lib/components/collapse.svelte';
 
 export let name: string;
 export let status: {
@@ -16,7 +16,6 @@ export let status: {
   lengths_mm: [],
   positions_mm: [],
 };
-export let onStop: StopCallback | undefined = undefined
 
 interface GantryStatus {
   pieces: {
@@ -100,15 +99,15 @@ const gantryModifyAll = () => {
   modifyAll = true;
 };
 
-const stop = () => {
+const { onStop } = useStop()
+
+onStop(() => {
   const req = new gantryApi.StopRequest();
   req.setName(name);
 
   rcLogConditionally(req);
   $robotClient.gantryService.stop(req, displayError);
-};
-
-onStop?.(stop)
+});
 
 </script>
 

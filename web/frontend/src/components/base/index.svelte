@@ -10,10 +10,9 @@
   import { clickOutside } from '../../lib/click-outside';
   import { components } from '@/stores/resources';
   import { useConnect, useRobotClient } from '@/hooks/robot-client';
-  import type { StopCallback } from '@/lib/components/collapse.svelte';
-
+  import { useStop } from '@/lib/components/collapse.svelte';
+  
   export let name: string;
-  export let onStop: StopCallback | undefined = undefined
 
   const enum Keymap {
     LEFT = 'a',
@@ -293,7 +292,9 @@
     }
   };
 
-  onStop?.(stop)
+  const { onStop } = useStop()
+
+  onStop(() => stop())
 
   useConnect(() => {
     for (const camera of cameras) {

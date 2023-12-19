@@ -1,11 +1,11 @@
 <script lang="ts">
 import { ArmClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
-import type { StopCallback } from '@/lib/components/collapse.svelte';
 import { copyToClipboard } from '@/lib/copy-to-clipboard';
 import { displayError } from '@/lib/error';
 import { roundTo2Decimals } from '@/lib/math';
 import { rcLogConditionally } from '@/lib/log';
 import { useRobotClient } from '@/hooks/robot-client';
+import { useStop } from '@/lib/components/collapse.svelte';
 
 interface ArmStatus {
   pos_pieces: {
@@ -26,7 +26,6 @@ export let status: {
   end_position: Record<string, number>
   joint_positions: { values: number[] }
 } | undefined;
-export let onStop: StopCallback | undefined = undefined
 
 const { robotClient } = useRobotClient();
 
@@ -87,14 +86,6 @@ let modifyAllStatus: ArmStatus = {
 };
 
 const armClient = new ArmClient($robotClient, name, { requestLogger: rcLogConditionally });
-
-const stop = async () => {
-  try {
-    await armClient.stop();
-  } catch (error) {
-    displayError(error as ServiceError);
-  }
-};
 
 const armModifyAllDoEndPosition = async () => {
   const newPieces = modifyAllStatus.pos_pieces;
@@ -249,7 +240,15 @@ const armCopyJoints = () => {
   }, {})));
 };
 
-onStop?.(stop)
+const { onStop } = useStop()
+
+onStop(async () => {
+  try {
+    await armClient.stop();
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
+})
 
 </script>
 

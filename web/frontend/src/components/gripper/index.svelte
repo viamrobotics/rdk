@@ -3,21 +3,12 @@
 import { gripperApi } from '@viamrobotics/sdk';
 import { displayError } from '../../lib/error';
 import { rcLogConditionally } from '../../lib/log';
-import type { StopCallback } from '@/lib/components/collapse.svelte';
 import { useRobotClient } from '@/hooks/robot-client';
+import { useStop } from '@/lib/components/collapse.svelte';
 
 export let name: string;
-export let onStop: StopCallback | undefined = undefined;
 
 const { robotClient } = useRobotClient();
-
-const stop = () => {
-  const request = new gripperApi.StopRequest();
-  request.setName(name);
-
-  rcLogConditionally(request);
-  $robotClient.gripperService.stop(request, displayError);
-};
 
 const open = () => {
   const request = new gripperApi.OpenRequest();
@@ -35,7 +26,15 @@ const grab = () => {
   $robotClient.gripperService.grab(request, displayError);
 };
 
-onStop?.(stop)
+const { onStop } = useStop();
+
+onStop(() => {
+  const request = new gripperApi.StopRequest();
+  request.setName(name);
+
+  rcLogConditionally(request);
+  $robotClient.gripperService.stop(request, displayError);
+});
 
 </script>
 

@@ -1,20 +1,51 @@
 <script lang='ts' context='module'>
-  export type StopCallback = (callback: () => void) => void
+  import { onMount, createEventDispatcher, tick, getContext, setContext } from 'svelte';
+  import { writable } from 'svelte/store';
+
+  interface CollapseContext {
+    /**
+     * Fires when a stop command is issued from the navbar of the `<Collapse>` component.
+     */
+    onStop(callback: () => void): void
+  }
+
+  export let collapseContextKey = Symbol('Collapse context')
+
+  export const useStop = () => {
+    return getContext<CollapseContext>(collapseContextKey)
+  }
 </script>
 
 <script lang="ts">
-
-import { onMount, createEventDispatcher, tick } from 'svelte';
 import { Button } from '@viamrobotics/prime-core';
 
+/**
+ * The name of the component.
+ */
 export let title = '';
+
+/**
+ * Component metadata.
+ */
 export let crumbs = '';
+
+/**
+ * Whether the card body is displayed or not.
+ */
 export let open = Boolean(localStorage.getItem(`rc.collapse.${title}.open`));
-export let hasStop = false
+
+/**
+ * Whether the component has a stop command. Will render a button to issue commands.
+ */
+export let stop = false
 
 let stopCallback = () => {}
 
-const onStop = (callback: () => void) => { stopCallback = callback }
+setContext<CollapseContext>(collapseContextKey, {
+  onStop(callback: () => void) {
+    stopCallback = callback
+  }
+})
 
 const dispatch = createEventDispatcher();
 
@@ -37,7 +68,7 @@ const handleClick = async (event: Event) => {
 };
 
 const handleStopClick = (event: MouseEvent) => {
-  event.preventDefault()
+  event.stopPropagation()
   stopCallback()
 }
 
@@ -70,7 +101,7 @@ onMount(() => {
     </div>
 
     <div class="h-full flex items-center gap-3">
-      {#if hasStop}
+      {#if stop}
         <Button
           variant="danger"
           icon="stop-circle-outline"
@@ -91,6 +122,6 @@ onMount(() => {
   </button>
 
   {#if open}
-    <slot {onStop} />
+    <slot />
   {/if}
 </div>
