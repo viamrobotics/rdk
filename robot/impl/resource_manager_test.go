@@ -456,6 +456,44 @@ func TestManagerWithSameNameInBaseAndRemote(t *testing.T) {
 	_, err = manager.ResourceByName(arm.Named("remote1:arm1"))
 	test.That(t, err, test.ShouldBeNil)
 }
+func TestManagerWithDuplicateRemote(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	injectRobot := setupInjectRobot(logger)
+
+	manager := managerForDummyRobot(injectRobot)
+	defer func() {
+		test.That(t, manager.Close(context.Background()), test.ShouldBeNil)
+	}()
+	manager.addRemote(
+		context.Background(),
+		newDummyRobot(setupInjectRobot(logger)),
+		nil,
+		config.Remote{Name: "remote1"},
+	)
+
+	test.That(
+		t,
+		utils.NewStringSet(manager.RemoteNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("remote1"),
+	)
+
+	// oldRemote, _ := manager.RemoteByName("remote1")
+
+	manager.addRemote(
+		context.Background(),
+		newDummyRobot(setupInjectRobot(logger)),
+		resource.NewUninitializedNode(),
+		config.Remote{Name: "remote1"},
+	)
+
+	test.That(
+		t,
+		utils.NewStringSet(manager.RemoteNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("remote1"),
+	)
+}
 
 func TestManagerAdd(t *testing.T) {
 	logger := logging.NewTestLogger(t)
@@ -753,6 +791,7 @@ func managerForTest(ctx context.Context, t *testing.T, l logging.Logger) *resour
 		nil,
 		config.Remote{Name: "remote2"},
 	)
+
 	_, err := manager.processManager.AddProcess(ctx, &fakeProcess{id: "1"}, false)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = manager.processManager.AddProcess(ctx, &fakeProcess{id: "2"}, false)
