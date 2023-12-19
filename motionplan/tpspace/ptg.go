@@ -3,7 +3,7 @@ package tpspace
 
 import (
 	"math"
-	"github.com/golang/geo/r3"
+	//~ "github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
@@ -11,6 +11,7 @@ import (
 )
 
 const floatEpsilon = 0.0001 // If floats are closer than this consider them equal
+var flipPose = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ:1, Theta: 180})
 
 // PTGSolver wraps a PTG with the ability to perform Inverse Kinematics.
 type PTGSolver interface {
@@ -149,10 +150,8 @@ func computeInvertedPTG(simPTG PTG, alpha, dist, diffT float64) ([]*TrajNode, er
 	
 	for i := len(forwardsPTG)-1; i >= 0; i-- {
 		fwdNode := forwardsPTG[i]
-		flippedPose := spatialmath.PoseBetween(startNode.Pose, fwdNode.Pose)
-		flippedPose = spatialmath.NewPose(
-			r3.Vector{flippedPose.Point().X*-1, flippedPose.Point().Y*-1, flippedPose.Point().Z},
-			flippedPose.Orientation(),
+		flippedPose := spatialmath.PoseBetween(
+			spatialmath.Compose(startNode.Pose, flipPose), spatialmath.Compose(fwdNode.Pose, flipPose),
 		)
 		flippedTraj = append(flippedTraj,
 			&TrajNode{

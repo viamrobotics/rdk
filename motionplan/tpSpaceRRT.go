@@ -67,7 +67,7 @@ const (
 	defaultMinTrajectoryLength = 350
 
 	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly.
-	pathdebug = true
+	pathdebug = false
 )
 
 // Using the standard SquaredNormMetric, we run into issues where far apart distances will underflow gradient calculations.
@@ -77,6 +77,9 @@ var defaultGoalMetricConstructor = ik.NewPosWeightSquaredNormMetric
 
 // This should only be used when bidirectional mode is `false`.
 var defaultPosOnlyGoalMetricConstructor = ik.NewPositionOnlyMetric
+
+// Used to flip goal nodes so they can solve forwards
+var flipPose = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ:1, Theta: 180})
 
 type tpspaceOptions struct {
 	// TODO: base this on frame limits?
@@ -89,6 +92,8 @@ type tpspaceOptions struct {
 
 	// If the squared norm between two poses is less than this, consider them equal
 	poseSolveDist float64
+	
+	identicalNodeDist float64
 
 	// Don't add new RRT tree nodes if there is an existing node within this distance.
 	identicalNodeDistance float64
@@ -105,7 +110,6 @@ type tpspaceOptions struct {
 
 	// Cached functions for calculating TP-space distances for each PTG
 	distOptions       map[tpspace.PTG]*plannerOptions
-	invertDistOptions map[tpspace.PTG]*plannerOptions
 }
 
 // candidate is putative node which could be added to an RRT tree. It includes a distance score, the new node and its future parent.
@@ -177,7 +181,7 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 	seedPos := spatialmath.NewZeroPose()
 
 	startNode := &basicNode{q: make([]referenceframe.Input, len(mp.frame.DoF())), cost: 0, pose: seedPos, corner: false}
-	goalNode := &basicNode{q: make([]referenceframe.Input, len(mp.frame.DoF())), cost: 0, pose: goal, corner: false}
+	goalNode := &basicNode{q: make([]referenceframe.Input, len(mp.frame.DoF())), cost: 0, pose: spatialmath.Compose(goal, flipPose), corner: false}
 
 	var planRunners sync.WaitGroup
 
@@ -217,9 +221,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	var startPose spatialmath.Pose
 	var goalPose spatialmath.Pose
 	var goalNode node
-	
-	// Used to flip goal nodes so they can solve forwards
-	flipPose := spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ:1, Theta: 180})
 	
 	goalScore := math.Inf(1)
 	for k, v := range rrt.maps.startMap {
@@ -319,11 +320,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		if mp.algOpts.bidirectional {
 			rseed2 := mp.randseed.Int31()
 			utils.PanicCapturingGo(func() {
-				flippedNode := &basicNode{
-					pose: spatialmath.Compose(randPosNode.Pose(), flipPose),
-					cost: randPosNode.Cost(),
-				}
-				m2chan <- mp.attemptExtension(ctx, flippedNode, rrt.maps.goalMap, true, rseed2)
+				m2chan <- mp.attemptExtension(ctx, flipNode(randPosNode), rrt.maps.goalMap, true, rseed2)
 			})
 			goalReached = <-m2chan
 		}
@@ -341,22 +338,18 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			})
 			if reachedDelta > mp.planOpts.GoalThreshold {
 				// If both maps extended, but did not reach the same point, then attempt to extend them towards each other
-				seedReached = mp.attemptExtension(ctx, goalReached.node, rrt.maps.startMap, false, mp.randseed.Int31())
-				if seedReached.error != nil {
-					rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
-					return
-				}
-				if seedReached.node != nil {
-					reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{
-						StartPosition: seedReached.node.Pose(),
-						EndPosition:   goalReached.node.Pose(),
-					})
+				//~ seedReached = mp.attemptExtension(ctx, flipNode(goalReached.node), rrt.maps.startMap, false, mp.randseed.Int31())
+				//~ if seedReached.error != nil {
+					//~ rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
+					//~ return
+				//~ }
+				//~ if seedReached.node != nil {
+					//~ reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{
+						//~ StartPosition: seedReached.node.Pose(),
+						//~ EndPosition:   goalReached.node.Pose(),
+					//~ })
 					if reachedDelta > mp.planOpts.GoalThreshold {
-						flippedNode := &basicNode{
-							pose: spatialmath.Compose(seedReached.node.Pose(), flipPose),
-							cost: seedReached.node.Cost(),
-						}
-						goalReached = mp.attemptExtension(ctx, flippedNode, rrt.maps.goalMap, true, mp.randseed.Int31())
+						goalReached = mp.attemptExtension(ctx, flipNode(seedReached.node), rrt.maps.goalMap, true, mp.randseed.Int31())
 						if goalReached.error != nil {
 							rrt.solutionChan <- &rrtPlanReturn{planerr: goalReached.error, maps: rrt.maps}
 							return
@@ -368,7 +361,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 								EndPosition: spatialmath.Compose(goalReached.node.Pose(), flipPose),
 						})
 					}
-				}
+				//~ }
 			}
 			if reachedDelta <= mp.planOpts.GoalThreshold {
 				// If we've reached the goal, extract the path from the RRT trees and return
@@ -404,7 +397,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				}
 				attempts++
 
-				seedReached := mp.attemptExtension(ctx, goalMapNode, rrt.maps.startMap, false, mp.randseed.Int31())
+				seedReached := mp.attemptExtension(ctx, flipNode(goalMapNode), rrt.maps.startMap, false, mp.randseed.Int31())
 				if seedReached.error != nil {
 					rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
 					return
@@ -909,7 +902,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 					mp.logger.Debugf("$SMOOTHWP,%f,%f", intPose.Point().X, intPose.Point().Y)
 				}
 				mp.logger.Debugf("$SMOOTHPATH,%f,%f", intPose.Point().X, intPose.Point().Y)
-				if pt.Dist >= mynode.Q()[2].Value {
+				if pt.Dist >= math.Abs(mynode.Q()[2].Value) {
 					lastPose = intPose
 					break
 				}
@@ -1040,12 +1033,14 @@ func extractTPspacePath(startMap, goalMap map[node]node, pair *nodePair) []node 
 	if goalReached != nil {
 		// extract the path to the goal
 		for goalReached != nil {
-			goalQ := goalReached.Q()
-			goalQ[2].Value = -1*goalQ[2].Value
 			goalReachedReversed := &basicNode{
-				q: goalQ,
+				q: []referenceframe.Input{
+					goalReached.Q()[0],
+					goalReached.Q()[1],
+					{goalReached.Q()[2].Value * -1},
+				},
 				cost: goalReached.Cost(),
-				pose: goalReached.Pose(),
+				pose: spatialmath.Compose(goalReached.Pose(), flipPose),
 				corner: goalReached.Corner(),
 			}
 			path = append(path, goalReachedReversed)
@@ -1053,4 +1048,14 @@ func extractTPspacePath(startMap, goalMap map[node]node, pair *nodePair) []node 
 		}
 	}
 	return path
+}
+
+// Returns a new node whose orientation is flipped 180 degrees from the provided node
+func flipNode(n node) node {
+	return &basicNode{
+		q:      n.Q(),
+		cost:   n.Cost(),
+		pose:   spatialmath.Compose(n.Pose(), flipPose),
+		corner: n.Corner(),
+	}
 }

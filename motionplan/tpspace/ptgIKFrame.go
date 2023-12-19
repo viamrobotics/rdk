@@ -2,7 +2,7 @@ package tpspace
 
 import (
 	"errors"
-	"github.com/golang/geo/r3"
+	//~ "github.com/golang/geo/r3"
 
 	pb "go.viam.com/api/component/arm/v1"
 
@@ -74,11 +74,7 @@ func (pf *ptgIKFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose
 			return nil, err
 		}
 		if invert {
-			p2 = spatialmath.PoseBetween(p2, spatialmath.NewZeroPose())
-			p2 = spatialmath.NewPose(
-				r3.Vector{p2.Point().X, p2.Point().Y*-1, p2.Point().Z},
-				p2.Orientation(),
-			)
+			p2 = spatialmath.PoseBetween(spatialmath.Compose(p2, flipPose), flipPose)
 		}
 		p1 = spatialmath.Compose(p1, p2)
 	}

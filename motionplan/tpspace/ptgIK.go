@@ -7,6 +7,7 @@ import (
 	"errors"
 	"math"
 	"sync"
+	//~ "fmt"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
@@ -142,10 +143,12 @@ func (ptg *ptgIK) Solve(
 	}
 	if err != nil || solved == nil || ptg.arcDist(solved.Configuration) < defaultZeroDist || seedOutput {
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
+		//~ fmt.Println("gridSolved", gridSolved.Configuration)
 		solutionChan <- gridSolved
 		return nil
 	}
 
+	//~ fmt.Println("realsolved", solved.Configuration)
 	solutionChan <- solved
 	return nil
 }
@@ -188,10 +191,12 @@ func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
 		if err != nil {
 			return nil, err
 		}
-		ptg.mu.Lock()
-		// Caching here provides a ~33% speedup to a solve call
-		ptg.trajCache[alpha] = traj
-		ptg.mu.Unlock()
+		if dist > 0 {
+			ptg.mu.Lock()
+			// Caching here provides a ~33% speedup to a solve call
+			ptg.trajCache[alpha] = traj
+			ptg.mu.Unlock()
+		}
 	}
 
 	return traj, nil
