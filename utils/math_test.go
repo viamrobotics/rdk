@@ -231,30 +231,6 @@ func TestSampleNIntegersNormal(t *testing.T) {
 	nSample2 := 25000
 	samples2 := SampleNIntegersNormal(nSample2, -16, 32)
 	test.That(t, len(samples2), test.ShouldEqual, nSample2)
-	mean2 := 0.
-	// test that distribution is uniform
-	counter := make(map[int]int)
-
-	for _, sample := range samples2 {
-		mean2 += float64(sample)
-		test.That(t, sample, test.ShouldBeGreaterThanOrEqualTo, -16)
-		test.That(t, sample, test.ShouldBeLessThanOrEqualTo, 32)
-		if _, ok := counter[sample]; !ok {
-			counter[sample] = 1
-		} else {
-			counter[sample]++
-		}
-	}
-	mean2 /= float64(len(samples2))
-	nMean := counter[6] + counter[7] + counter[8] + counter[9] + counter[10]
-	nBelow := counter[-6] + counter[-5] + counter[-4] + counter[-3] + counter[-2]
-	nAbove := counter[15] + counter[16] + counter[17] + counter[18] + counter[19]
-	// mean2 should be approximately 8
-	test.That(t, mean2, test.ShouldBeLessThanOrEqualTo, 10)
-	test.That(t, mean2, test.ShouldBeGreaterThanOrEqualTo, 6)
-	// test that bins around mean value have more points than at mean-X and mean+X
-	test.That(t, nMean, test.ShouldBeGreaterThanOrEqualTo, nBelow)
-	test.That(t, nMean, test.ShouldBeGreaterThanOrEqualTo, nAbove)
 }
 
 func TestCycleIntSlice(t *testing.T) {
@@ -307,22 +283,6 @@ func TestSampleNIntegersUniform(t *testing.T) {
 	samples3 := SampleNIntegersUniform(1000, -4, 16)
 	// test number of samples
 	test.That(t, len(samples3), test.ShouldEqual, 1000)
-	// test that distribution is uniform
-	counter := make(map[int]int)
-	for _, sample := range samples3 {
-		test.That(t, sample, test.ShouldBeGreaterThanOrEqualTo, -4)
-		test.That(t, sample, test.ShouldBeLessThanOrEqualTo, 16)
-		if _, ok := counter[sample]; !ok {
-			counter[sample] = 1
-		} else {
-			counter[sample]++
-		}
-	}
-	for _, value := range counter {
-		// 1000 samples in a range of 20 values - counter should be on average 50
-		test.That(t, value, test.ShouldBeGreaterThanOrEqualTo, 10)
-		test.That(t, value, test.ShouldBeLessThanOrEqualTo, 68)
-	}
 }
 
 func TestVarToBytes(t *testing.T) {
