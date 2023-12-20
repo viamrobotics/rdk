@@ -117,5 +117,6 @@ func TestSumNext(t *testing.T) {
 	}
 	out, ok := s.Next(ctx, signals, time.Millisecond*1)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, -1.0)
+	test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 0.0)
+	test.That(t, out[1].GetSignalValueAt(0), test.ShouldEqual, -1.0)
 }

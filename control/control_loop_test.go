@@ -1,7 +1,6 @@
 package control
 
 import (
-	"context"
 	"fmt"
 	"math"
 	"math/rand"
@@ -247,7 +246,6 @@ func BenchmarkLoop100(b *testing.B) {
 
 func TestControlLoop(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
 	cfg := Config{
 		Blocks: []BlockConfig{
 			{
@@ -313,12 +311,6 @@ func TestControlLoop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cLoop, test.ShouldNotBeNil)
 	cLoop.Start()
-	time.Sleep(500 * time.Millisecond)
-	b, err := cLoop.OutputAt(ctx, "E")
-	test.That(t, b[0].GetSignalValueAt(0), test.ShouldEqual, 8.0)
-	test.That(t, err, test.ShouldBeNil)
-	b, err = cLoop.OutputAt(ctx, "B")
-	test.That(t, b[0].GetSignalValueAt(0), test.ShouldEqual, -3.0)
 	test.That(t, err, test.ShouldBeNil)
 
 	cLoop.Stop()

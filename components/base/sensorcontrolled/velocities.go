@@ -187,7 +187,8 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 	}
 
 	linvel := state[0].GetSignalValueAt(0)
-	// FIX: multiply angvel by the sign of linvel... why does this work?
+	// multiply by the direction of the linear velocity so that angular direction
+	// (cw/ccw) doesn't switch when the base is moving backwards
 	angvel := (state[1].GetSignalValueAt(0) * sign(linvel))
 
 	return sb.SetPower(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
