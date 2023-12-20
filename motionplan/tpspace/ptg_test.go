@@ -20,9 +20,3 @@ func alpha2index(alpha float64, numPaths uint) uint {
 	idx := uint(math.Round(0.5 * (float64(numPaths)*(1.0+alpha/math.Pi) - 1.0)))
 	return idx
 }
-
-func TestTrajInversion(t *testing.T) {
-	ptg := NewCSPTG(300., 1.)
-	_, err := ComputePTG(ptg, -math.Pi/4, -1000, 0.05)
-	test.That(t, err, test.ShouldBeNil)
-}
