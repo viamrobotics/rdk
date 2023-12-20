@@ -149,6 +149,7 @@ func (e *execution[R]) start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	e.logger.Info("no issues with e.newPlanWithExecutor")
 	e.notifyStateNewExecution(e.toStateExecution(), originalPlanWithExecutor.plan, time.Now())
 	// We need to add to both the state & execution waitgroups
 	// B/c both the state & the stateExecution need to know if this
@@ -328,6 +329,8 @@ func StartExecution[R any](
 		return uuid.Nil, err
 	}
 
+	s.logger.Info("entered StartExecution")
+
 	// the state being cancelled should cause all executions derived from that state to also be cancelled
 	cancelCtx, cancelFunc := context.WithCancel(s.cancelCtx)
 	e := execution[R]{
@@ -341,6 +344,8 @@ func StartExecution[R any](
 		componentName:              componentName,
 		plannerExecutorConstructor: plannerExecutorConstructor,
 	}
+
+	s.logger.Info("about to enter e.start")
 
 	if err := e.start(ctx); err != nil {
 		return uuid.Nil, err
@@ -390,6 +395,7 @@ func (s *State) StopExecutionByResource(componentName resource.Name) error {
 func (s *State) PlanHistory(req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	s.logger.Infof("s.componentStateByComponent: %v", s.componentStateByComponent)
 	cs, exists := s.componentStateByComponent[req.ComponentName]
 	if !exists {
 		return nil, resource.NewNotFoundError(req.ComponentName)

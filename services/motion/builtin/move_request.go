@@ -102,6 +102,8 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 		return state.PlanResponse{}, err
 	}
 
+	mr.logger.Infof("plan: %v", plan)
+
 	switch mr.requestType {
 	case requestTypeMoveOnMap:
 		// we do not care about the origin GeoPose
@@ -299,6 +301,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			}
 		}
 	}
+	mr.logger.Info("got through obstacles intersect plan well!")
 	return state.ExecuteResponse{}, nil
 }
 

@@ -419,7 +419,8 @@ func (ms *builtIn) PlanHistory(
 	req motion.PlanHistoryReq,
 ) ([]motion.PlanWithStatus, error) {
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		e := errors.New("returning err from within builtin planHistory but before we enter the state bc context cancelled?: " + err.Error())
+		return nil, e
 	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
