@@ -177,10 +177,6 @@ func TestPtgWithObstacle(t *testing.T) {
 
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
-
-	tp.planOpts.SmoothIter = 20
-	smoothplan := tp.smoothPath(ctx, plan)
-	test.That(t, len(smoothplan), test.ShouldBeLessThan, len(plan))
 }
 
 func TestTPsmoothing(t *testing.T) {
