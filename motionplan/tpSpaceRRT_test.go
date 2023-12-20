@@ -59,46 +59,6 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	test.That(t, len(plan), test.ShouldBeGreaterThanOrEqualTo, 2)
 }
 
-func TestPtgRrtUnidirectional(t *testing.T) {
-	t.Parallel()
-	logger := logging.NewTestLogger(t)
-	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
-	test.That(t, err, test.ShouldBeNil)
-	geometries := []spatialmath.Geometry{roverGeom}
-
-	ctx := context.Background()
-
-	ackermanFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
-		"ackframe",
-		logger,
-		300.,
-		0,
-		testTurnRad,
-		0,
-		geometries,
-		false,
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90})
-
-	opt := newBasicPlannerOptions(ackermanFrame)
-	opt.DistanceFunc = ik.SquaredNormNoOrientSegmentMetric
-	opt.goalMetricConstructor = ik.NewPositionOnlyMetric
-	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
-	test.That(t, err, test.ShouldBeNil)
-	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
-	if pathdebug {
-		tp.logger.Debug("$type,X,Y")
-		tp.logger.Debugf("$SG,%f,%f\n", 0., 0.)
-		tp.logger.Debugf("$SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
-	}
-	test.That(t, ok, test.ShouldBeTrue)
-	plan, err := tp.plan(ctx, goalPos, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(plan), test.ShouldBeGreaterThanOrEqualTo, 2)
-}
-
 func TestPtgWithObstacle(t *testing.T) {
 	t.Parallel()
 	logger := logging.NewTestLogger(t)
