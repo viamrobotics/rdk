@@ -45,13 +45,13 @@ func createNewBoard(
 
 // This is a ConfigConverter which loads pin definitions from a file, assuming that the config
 // passed in is a customlinux.Config underneath.
-func pinDefsFromFile(conf resource.Config) (*genericlinux.LinuxBoardConfig, error) {
+func pinDefsFromFile(conf resource.Config, logger logging.Logger) (*genericlinux.LinuxBoardConfig, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
 	}
 
-	pinDefs, err := parsePinConfig(newConf.BoardDefsFilePath)
+	pinDefs, err := parsePinConfig(newConf.BoardDefsFilePath, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -66,18 +66,18 @@ func pinDefsFromFile(conf resource.Config) (*genericlinux.LinuxBoardConfig, erro
 	}, nil
 }
 
-func parsePinConfig(filePath string) ([]genericlinux.PinDefinition, error) {
+func parsePinConfig(filePath string, logger logging.Logger) ([]genericlinux.PinDefinition, error) {
 	pinData, err := os.ReadFile(filepath.Clean(filePath))
 	if err != nil {
 		return nil, err
 	}
 
-	return parseRawPinData(pinData, filePath)
+	return parseRawPinData(pinData, filePath, logger)
 }
 
 // This function is separate from parsePinConfig to make it testable without interacting with the
 // file system. The filePath is passed in just for logging purposes.
-func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.PinDefinition, error) {
+func parseRawPinData(pinData []byte, filePath string, logger logging.Logger) ([]genericlinux.PinDefinition, error) {
 	var parsedPinData genericlinux.PinDefinitions
 	if err := json.Unmarshal(pinData, &parsedPinData); err != nil {
 		return nil, err
@@ -91,7 +91,7 @@ func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.PinDefinit
 		// hardware pwm enabled will be hardware pwm only. Disabling gpio functionality on these
 		// pins.
 		if parsedPinData.Pins[name].PwmChipSysfsDir != "" && parsedPinData.Pins[name].LineNumber >= 0 {
-			logging.Global().Warnf("pin %s can be used for PWM only", parsedPinData.Pins[name].Name)
+			logger.Warnf("pin %s can be used for PWM only", parsedPinData.Pins[name].Name)
 			parsedPinData.Pins[name].LineNumber = -1
 		}
 	}
