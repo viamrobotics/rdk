@@ -78,6 +78,7 @@ func (c *Codec) AllocContext3() *Context {
 // the provided pointer.
 func (ctxt *Context) FreeContext() {
 	pCtxt := (*C.struct_AVCodecContext)(ctxt)
+	//nolint:gocritic // suppresses "dupSubExpr: suspicious identical LHS and RHS for `==` operator"
 	C.avcodec_free_context(&pCtxt)
 }
 
