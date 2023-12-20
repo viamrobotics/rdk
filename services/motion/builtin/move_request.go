@@ -154,13 +154,14 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, w
 	for i := int(waypointIndex.Load()); i < len(waypoints); i++ {
 		select {
 		case <-ctx.Done():
-			mr.logger.CDebugf(ctx, "calling kinematicBase.Stop due to %s\n", ctx.Err())
+			mr.planRequest.Logger.Infof("calling kinematicBase.Stop due to %s\n", ctx.Err())
 			if stopErr := mr.stop(); stopErr != nil {
 				return state.ExecuteResponse{}, errors.Wrap(ctx.Err(), stopErr.Error())
 			}
+			mr.planRequest.Logger.Info("about the exit the execute loop")
 			return state.ExecuteResponse{}, nil
 		default:
-			mr.planRequest.Logger.CInfo(ctx, waypoints[i])
+			mr.planRequest.Logger.Info(waypoints[i])
 			if err := mr.kinematicBase.GoToInputs(ctx, waypoints[i]); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				mr.logger.CDebugf(ctx, "calling kinematicBase.Stop due to %s\n", err)
@@ -174,6 +175,7 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, w
 			}
 		}
 	}
+	mr.logger.Info("WE ARE DONE WITH THE PLAN AND WILL NOW ENTER DEVIATED ONCE AGAIN")
 	// the plan has been fully executed so check to see if where we are at is close enough to the goal.
 	return mr.deviatedFromPlan(ctx, waypoints, len(waypoints)-1)
 }
@@ -181,15 +183,20 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, w
 // deviatedFromPlan takes a list of waypoints and an index of a waypoint on that Plan and returns whether or not it is still
 // following the plan as described by the PlanDeviation specified for the moveRequest.
 func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints state.Waypoints, waypointIndex int) (state.ExecuteResponse, error) {
+	mr.logger.Info("deviatedFromPlan")
 	errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, waypointIndex)
 	if err != nil {
+		mr.logger.Info("errstate not nil")
+		mr.logger.Infof("errstate not nil: %v", err.Error())
 		return state.ExecuteResponse{}, err
 	}
 	if errorState.Point().Norm() > mr.config.planDeviationMM {
+		mr.logger.Info("errstate execeed planDevMM")
 		msg := "error state exceeds planDeviationMM; planDeviationMM: %f, errorstate.Point().Norm(): %f, errorstate.Point(): %#v "
 		reason := fmt.Sprintf(msg, mr.config.planDeviationMM, errorState.Point().Norm(), errorState.Point())
 		return state.ExecuteResponse{Replan: true, ReplanReason: reason}, nil
 	}
+	mr.logger.Info("got through deviatedFromPlan well!")
 	return state.ExecuteResponse{}, nil
 }
 
@@ -775,7 +782,11 @@ func (mr *moveRequest) start(ctx context.Context, waypoints [][]referenceframe.I
 	mr.executeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		executeResp, err := mr.execute(ctx, waypoints, mr.waypointIndex)
+		mr.logger.Info("MR EXECUTE HAS RETURNED1 INSIDE START")
+		mr.logger.Debugf("executeResp: %v", executeResp)
+		mr.logger.Debugf("err: %v", err)
 		resp := moveResponse{executeResponse: executeResp, err: err}
+		mr.logger.Info("ABOUT TO WRITE TO THE RESPONSE CHANNEL")
 		mr.responseChan <- resp
 	}, mr.executeBackgroundWorkers.Done)
 }
@@ -783,11 +794,12 @@ func (mr *moveRequest) start(ctx context.Context, waypoints [][]referenceframe.I
 func (mr *moveRequest) listen(ctx context.Context) (state.ExecuteResponse, error) {
 	select {
 	case <-ctx.Done():
-		mr.logger.CDebugf(ctx, "context err: %s", ctx.Err())
+		mr.logger.Debugf("context err: %s", ctx.Err())
 		return state.ExecuteResponse{}, ctx.Err()
 
 	case resp := <-mr.responseChan:
-		mr.logger.CDebugf(ctx, "execution response: %s", resp)
+		mr.logger.Info("MR EXECUTE HAS RETURNED INSIDE LISTEN")
+		mr.logger.Debugf("execution response: %s", resp)
 		return resp.executeResponse, resp.err
 
 	case resp := <-mr.position.responseChan:
