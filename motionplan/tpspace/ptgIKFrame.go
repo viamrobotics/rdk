@@ -2,6 +2,7 @@ package tpspace
 
 import (
 	"errors"
+	"math"
 
 	pb "go.viam.com/api/component/arm/v1"
 
@@ -62,16 +63,12 @@ func (pf *ptgIKFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose
 	}
 	p1 := spatialmath.NewZeroPose()
 	for i := 0; i < len(inputs); i += 2 {
-		dist := inputs[i+1].Value
-		invert := dist < 0
-		if invert {
-			dist *= -1
-		}
+		dist := math.Abs(inputs[i+1].Value)
 		p2, err := pf.PTG.Transform([]referenceframe.Input{inputs[i], {dist}})
 		if err != nil {
 			return nil, err
 		}
-		if invert {
+		if inputs[i+1].Value < 0 {
 			p2 = spatialmath.PoseBetween(spatialmath.Compose(p2, flipPose), flipPose)
 		}
 		p1 = spatialmath.Compose(p1, p2)

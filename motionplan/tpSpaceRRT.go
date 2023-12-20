@@ -34,7 +34,8 @@ const (
 	// Meaningless if the above is false.
 	defaultAddNodeEvery = 1000.
 
-	// Don't add new RRT tree nodes if there is an existing node within this distance.
+	// Don't add new RRT tree nodes if there is an existing node within this distance. This is the distance determined by the DistanceFunc,
+	// so is the sum of the square of the distance in mm, and the orientation distance accounting for scale adjustment.
 	// Note that since the orientation adjustment is very large, this must be as well.
 	defaultIdenticalNodeDistance = 2000.
 
@@ -1015,22 +1016,20 @@ func extractTPspacePath(startMap, goalMap map[node]node, pair *nodePair) []node 
 		path[i], path[j] = path[j], path[i]
 	}
 
-	if goalReached != nil {
-		// extract the path to the goal
-		for goalReached != nil {
-			goalReachedReversed := &basicNode{
-				q: []referenceframe.Input{
-					goalReached.Q()[0],
-					goalReached.Q()[1],
-					{goalReached.Q()[2].Value * -1},
-				},
-				cost:   goalReached.Cost(),
-				pose:   spatialmath.Compose(goalReached.Pose(), flipPose),
-				corner: goalReached.Corner(),
-			}
-			path = append(path, goalReachedReversed)
-			goalReached = goalMap[goalReached]
+	// extract the path to the goal
+	for goalReached != nil {
+		goalReachedReversed := &basicNode{
+			q: []referenceframe.Input{
+				goalReached.Q()[0],
+				goalReached.Q()[1],
+				{goalReached.Q()[2].Value * -1},
+			},
+			cost:   goalReached.Cost(),
+			pose:   spatialmath.Compose(goalReached.Pose(), flipPose),
+			corner: goalReached.Corner(),
 		}
+		path = append(path, goalReachedReversed)
+		goalReached = goalMap[goalReached]
 	}
 	return path
 }
