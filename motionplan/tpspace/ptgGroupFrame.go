@@ -35,7 +35,7 @@ type ptgFactory func(float64, float64) PTG
 // These PTGs do not end in a straight line, and thus are restricted to a shorter maximum length.
 var defaultShortPtgs = []ptgFactory{
 	NewCCPTG,
-	NewCCSPTG,
+	// ~ NewCCSPTG,
 	NewCirclePTG,
 }
 

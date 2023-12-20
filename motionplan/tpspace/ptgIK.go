@@ -7,7 +7,6 @@ import (
 	"errors"
 	"math"
 	"sync"
-	//~ "fmt"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
@@ -109,17 +108,19 @@ func (ptg *ptgIK) Solve(
 	defer close(internalSolutionGen)
 	var solved *ik.Solution
 	var gridSolved *ik.Solution
-	
+
 	if seed == nil {
 		seed = ptg.defaultSeed
 	}
-	
+
 	err := ptg.gridSim.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
+	if err != nil {
+		return err
+	}
 	select {
 	case gridSolved = <-internalSolutionGen:
 	default:
 	}
-	//~ seed[0] = gridSolved.Configuration[0]
 
 	// Spawn the IK solver to generate a solution
 	err = ptg.fastGradDescent.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
@@ -143,12 +144,12 @@ func (ptg *ptgIK) Solve(
 	}
 	if err != nil || solved == nil || ptg.arcDist(solved.Configuration) < defaultZeroDist || seedOutput {
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
-		//~ fmt.Println("gridSolved", gridSolved.Configuration)
 		solutionChan <- gridSolved
+		// If err is not nil, return the grid solution
+		//nolint: nilerr
 		return nil
 	}
 
-	//~ fmt.Println("realsolved", solved.Configuration)
 	solutionChan <- solved
 	return nil
 }

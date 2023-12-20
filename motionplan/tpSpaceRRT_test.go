@@ -57,9 +57,6 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	plan, err := tp.plan(ctx, goalPos, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThanOrEqualTo, 2)
-
-	tp.planOpts.SmoothIter = 0
-	plan = tp.smoothPath(ctx, plan)
 }
 
 func TestPtgRrtUnidirectional(t *testing.T) {
@@ -100,9 +97,6 @@ func TestPtgRrtUnidirectional(t *testing.T) {
 	plan, err := tp.plan(ctx, goalPos, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThanOrEqualTo, 2)
-
-	tp.planOpts.SmoothIter = 20
-	plan = tp.smoothPath(ctx, plan)
 }
 
 func TestPtgWithObstacle(t *testing.T) {
@@ -185,7 +179,8 @@ func TestPtgWithObstacle(t *testing.T) {
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 
 	tp.planOpts.SmoothIter = 20
-	plan = tp.smoothPath(ctx, plan)
+	smoothplan := tp.smoothPath(ctx, plan)
+	test.That(t, len(smoothplan), test.ShouldBeLessThan, len(plan))
 }
 
 func TestTPsmoothing(t *testing.T) {

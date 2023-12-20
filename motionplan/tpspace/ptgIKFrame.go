@@ -2,7 +2,6 @@ package tpspace
 
 import (
 	"errors"
-	//~ "github.com/golang/geo/r3"
 
 	pb "go.viam.com/api/component/arm/v1"
 

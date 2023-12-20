@@ -3,7 +3,6 @@ package tpspace
 
 import (
 	"math"
-	//~ "github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
@@ -11,7 +10,7 @@ import (
 )
 
 const floatEpsilon = 0.0001 // If floats are closer than this consider them equal
-var flipPose = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ:1, Theta: 180})
+var flipPose = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
 
 // PTGSolver wraps a PTG with the ability to perform Inverse Kinematics.
 type PTGSolver interface {
@@ -72,11 +71,10 @@ func wrapTo2Pi(theta float64) float64 {
 
 // ComputePTG will compute all nodes of simPTG at the requested alpha, out to the requested distance, at the specified diffT resolution.
 func ComputePTG(simPTG PTG, alpha, dist, diffT float64) ([]*TrajNode, error) {
-	
 	if dist < 0 {
 		return computeInvertedPTG(simPTG, alpha, dist, diffT)
 	}
-	
+
 	// Initialize trajectory with an all-zero node
 	alphaTraj := []*TrajNode{{Pose: spatialmath.NewZeroPose()}}
 
@@ -147,8 +145,8 @@ func computeInvertedPTG(simPTG PTG, alpha, dist, diffT float64) ([]*TrajNode, er
 	}
 	flippedTraj := make([]*TrajNode, 0, len(forwardsPTG))
 	startNode := forwardsPTG[len(forwardsPTG)-1] // Cache for convenience
-	
-	for i := len(forwardsPTG)-1; i >= 0; i-- {
+
+	for i := len(forwardsPTG) - 1; i >= 0; i-- {
 		fwdNode := forwardsPTG[i]
 		flippedPose := spatialmath.PoseBetween(
 			spatialmath.Compose(startNode.Pose, flipPose), spatialmath.Compose(fwdNode.Pose, flipPose),
@@ -156,12 +154,12 @@ func computeInvertedPTG(simPTG PTG, alpha, dist, diffT float64) ([]*TrajNode, er
 		flippedTraj = append(flippedTraj,
 			&TrajNode{
 				flippedPose,
-				startNode.Time-fwdNode.Time,
-				startNode.Dist-fwdNode.Dist,
+				startNode.Time - fwdNode.Time,
+				startNode.Dist - fwdNode.Dist,
 				startNode.Alpha,
 				fwdNode.LinVelMMPS,
 				fwdNode.AngVelRPS * -1,
-		})
+			})
 	}
 	return flippedTraj, nil
 }
