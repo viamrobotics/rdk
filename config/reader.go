@@ -484,6 +484,7 @@ func processConfig(unprocessedConfig *Config, // Dan: We call this an `unprocess
 	// We keep track of resource configs per API to facilitate linking resource configs to
 	// its associated resource configs. Associated resource configs are configs that are
 	// linked to and used by a different resource config.
+	// can limit to APIs with Associated Config linkers registered
 	resCfgsPerAPI := map[resource.API][]*resource.Config{}
 
 	processResources := func(confs []resource.Config) error {
@@ -512,6 +513,8 @@ func processConfig(unprocessedConfig *Config, // Dan: We call this an `unprocess
 			}
 
 			// if conversion errors, the robot will not learn of the new config until it is corrected.
+
+			// conversion has to happen otherwise we can't populate implicit dependencies.
 			converted, err := reg.AttributeMapConverter(conf.Attributes)
 			if err != nil {
 				// Dan: I assume this means the user has a bad config. We should document that here
