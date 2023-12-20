@@ -63,9 +63,8 @@ func (pf *ptgIKFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose
 	p1 := spatialmath.NewZeroPose()
 	for i := 0; i < len(inputs); i += 2 {
 		dist := inputs[i+1].Value
-		invert := false
-		if dist < 0 {
-			invert = true
+		invert := dist < 0
+		if invert {
 			dist *= -1
 		}
 		p2, err := pf.PTG.Transform([]referenceframe.Input{inputs[i], {dist}})
