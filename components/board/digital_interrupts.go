@@ -5,10 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/erh/scheme"
 	"github.com/pkg/errors"
-
-	"go.viam.com/rdk/utils"
 )
 
 // ServoRollingAverageWindow is how many entries to average over for
@@ -68,19 +65,7 @@ type PostProcessor func(raw int64) int64
 // CreateDigitalInterrupt is a factory method for creating a specific DigitalInterrupt based
 // on the given config. If no type is specified, a BasicDigitalInterrupt is returned.
 func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (ReconfigurableDigitalInterrupt, error) {
-	if cfg.Type == "" {
-		cfg.Type = "basic"
-	}
-
-	var i ReconfigurableDigitalInterrupt
-	switch cfg.Type {
-	case "basic":
-		i = &BasicDigitalInterrupt{}
-	case "servo":
-		i = &ServoDigitalInterrupt{ra: utils.NewRollingAverage(ServoRollingAverageWindow)}
-	default:
-		panic(errors.Errorf("unknown interrupt type (%s)", cfg.Type))
-	}
+	i := &BasicDigitalInterrupt{}
 
 	if err := i.Reconfigure(cfg); err != nil {
 		return nil, err
@@ -175,142 +160,11 @@ func (i *BasicDigitalInterrupt) Close(ctx context.Context) error {
 	return nil
 }
 
-func processFormula(oldFormula, newFormula, name string) (func(raw int64) int64, bool, error) {
-	if oldFormula == newFormula {
-		return nil, false, nil
-	}
-	x, err := scheme.Parse(newFormula)
-	if err != nil {
-		return nil, false, errors.Wrapf(err, "couldn't parse formula for %s", name)
-	}
-
-	testScope := scheme.Scope{}
-	num := 1.0
-	testScope["raw"] = &scheme.Value{Float: &num}
-	_, err = scheme.Eval(x, testScope)
-	if err != nil {
-		return nil, false, errors.Wrapf(err, "test exec failed for %s", name)
-	}
-
-	return func(raw int64) int64 {
-		scope := scheme.Scope{}
-		rr := float64(raw) // TODO(erh): fix
-		scope["raw"] = &scheme.Value{Float: &rr}
-		res, err := scheme.Eval(x, scope)
-		if err != nil {
-			panic(err)
-		}
-		f, err := res.ToFloat()
-		if err != nil {
-			panic(err)
-		}
-		return int64(f)
-	}, true, nil
-}
-
 // Reconfigure reconfigures this digital interrupt with a new formula.
 func (i *BasicDigitalInterrupt) Reconfigure(conf DigitalInterruptConfig) error {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
-	newFormula, isNew, err := processFormula(i.cfg.Formula, conf.Formula, conf.Name)
-	if err != nil {
-		return err
-	}
-	if !isNew {
-		return nil
-	}
-	i.pp = newFormula
 	i.cfg = conf
-	return nil
-}
-
-// A ServoDigitalInterrupt is an interrupt associated with a servo in order to
-// track the amount of time that has passed between low signals (pulse width). Post processors
-// make meaning of these widths.
-type ServoDigitalInterrupt struct {
-	last uint64
-	ra   *utils.RollingAverage
-
-	mu  sync.RWMutex
-	cfg DigitalInterruptConfig
-	pp  PostProcessor
-}
-
-// Value will return the window averaged value followed by its post processed
-// result.
-func (i *ServoDigitalInterrupt) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
-	i.mu.RLock()
-	defer i.mu.RUnlock()
-	v := int64(i.ra.Average())
-	if i.pp != nil {
-		return i.pp(v), nil
-	}
-
-	return v, nil
-}
-
-// Tick records the time between two successive low signals (pulse width). How it is
-// interpreted is based off the consumer of Value.
-func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint64) error {
-	i.mu.RLock()
-	defer i.mu.RUnlock()
-	diff := now - i.last
-	i.last = now
-
-	if i.last == 0 {
-		return nil
-	}
-
-	if high {
-		// this is time between signals, ignore
-		return nil
-	}
-
-	i.ra.Add(int(diff / 1000))
-	return nil
-}
-
-// AddCallback currently panics.
-func (i *ServoDigitalInterrupt) AddCallback(c chan Tick) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	panic("servos can't have callback")
-}
-
-// RemoveCallback currently panics.
-func (i *ServoDigitalInterrupt) RemoveCallback(c chan Tick) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	panic("servos can't have callback")
-}
-
-// AddPostProcessor sets the post processor that will modify the value that
-// Value returns.
-func (i *ServoDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	i.pp = pp
-}
-
-// Reconfigure reconfigures this digital interrupt with a new formula.
-func (i *ServoDigitalInterrupt) Reconfigure(conf DigitalInterruptConfig) error {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-
-	newFormula, isNew, err := processFormula(i.cfg.Formula, conf.Formula, conf.Name)
-	if err != nil {
-		return err
-	}
-	if !isNew {
-		return nil
-	}
-	i.pp = newFormula
-	i.cfg = conf
-	return nil
-}
-
-// Close does nothing.
-func (i *ServoDigitalInterrupt) Close(ctx context.Context) error {
 	return nil
 }
