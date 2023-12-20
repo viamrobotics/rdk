@@ -421,7 +421,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	defer svc.actionMu.Unlock()
 
 	svc.mu.RLock()
-	svc.logger.Infof("SetMode called: transitioning from %s to %s", svc.mode, mode)
+	svc.logger.CInfof(ctx, "SetMode called: transitioning from %s to %s", svc.mode, mode)
 	if svc.mode == mode {
 		svc.mu.RUnlock()
 		return nil
@@ -487,7 +487,7 @@ func (svc *builtIn) Waypoints(ctx context.Context, extra map[string]interface{})
 }
 
 func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
-	svc.logger.Infof("AddWaypoint called with %#v", *point)
+	svc.logger.CInfof(ctx, "AddWaypoint called with %#v", *point)
 	_, err := svc.store.AddWaypoint(ctx, point)
 	return err
 }
@@ -495,7 +495,7 @@ func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map
 func (svc *builtIn) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	svc.logger.Infof("RemoveWaypoint called with waypointID: %s", id)
+	svc.logger.CInfof(ctx, "RemoveWaypoint called with waypointID: %s", id)
 	if svc.waypointInProgress != nil && svc.waypointInProgress.ID == id {
 		if svc.currentWaypointCancelFunc != nil {
 			svc.currentWaypointCancelFunc()
@@ -552,7 +552,7 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 	if old := svc.activeExecutionWaypoint.Swap(executionWaypoint); old != nil && old != emptyExecutionWaypoint {
 		msg := "unexpected race condition in moveOnGlobeSync, expected " +
 			"replaced waypoint & execution id to be nil or %#v; instead was %s"
-		svc.logger.Errorf(msg, emptyExecutionWaypoint, old)
+		svc.logger.CErrorf(ctx, msg, emptyExecutionWaypoint, old)
 	}
 	// call StopPlan upon exiting moveOnGlobeSync
 	// is a NoOp if execution has already terminted
@@ -561,13 +561,13 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 		defer timeoutCancelFn()
 		err := svc.motionService.StopPlan(timeoutCtx, motion.StopPlanReq{ComponentName: req.ComponentName})
 		if err != nil {
-			svc.logger.Error("hit error trying to stop plan %s", err)
+			svc.logger.CError(ctx, "hit error trying to stop plan %s", err)
 		}
 
 		if old := svc.activeExecutionWaypoint.Swap(emptyExecutionWaypoint); old != executionWaypoint {
 			msg := "unexpected race condition in moveOnGlobeSync, expected " +
 				"replaced waypoint & execution id to equal %s, was actually %s"
-			svc.logger.Errorf(msg, executionWaypoint, old)
+			svc.logger.CErrorf(ctx, msg, executionWaypoint, old)
 		}
 	}()
 
@@ -611,16 +611,16 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 			svc.currentWaypointCancelFunc = cancelFunc
 			svc.mu.Unlock()
 
-			svc.logger.Infof("navigating to waypoint: %+v", wp)
+			svc.logger.CInfof(ctx, "navigating to waypoint: %+v", wp)
 			if err := svc.moveToWaypoint(cancelCtx, wp, extra); err != nil {
 				if svc.waypointIsDeleted() {
-					svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
+					svc.logger.CInfof(ctx, "skipping waypoint %+v since it was deleted", wp)
 					continue
 				}
-				svc.logger.Warnf("retrying navigation to waypoint %+v since it errored out: %s", wp, err)
+				svc.logger.CWarnf(ctx, "retrying navigation to waypoint %+v since it errored out: %s", wp, err)
 				continue
 			}
-			svc.logger.Infof("reached waypoint: %+v", wp)
+			svc.logger.CInfof(ctx, "reached waypoint: %+v", wp)
 		}
 	}, svc.activeBackgroundWorkers.Done)
 }
@@ -652,7 +652,8 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			return nil, fmt.Errorf("vision service with name: %s not found", detector.VisionServiceName)
 		}
 
-		svc.logger.Debugf(
+		svc.logger.CDebugf(
+			ctx,
 			"proceeding to get detections from vision service: %s with camera: %s",
 			detector.VisionServiceName.ShortName(),
 			detector.CameraName.ShortName(),
@@ -669,38 +670,41 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		cameraToMovementsensor, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, detector.CameraName.ShortName(), nil)
 		if err != nil {
 			// here we make the assumption the movementsensor is coincident with the camera
-			svc.logger.Debugf(
+			svc.logger.CDebugf(
+				ctx,
 				"we assume the movementsensor named: %s is coincident with the camera named: %s due to err: %v",
 				svc.movementSensor.Name().ShortName(), detector.CameraName.ShortName(), err.Error(),
 			)
 			cameraToMovementsensor = movementsensorOrigin
 		}
-		svc.logger.Debugf("cameraToMovementsensor Pose: %v", spatialmath.PoseToProtobuf(cameraToMovementsensor.Pose()))
+		svc.logger.CDebugf(ctx, "cameraToMovementsensor Pose: %v", spatialmath.PoseToProtobuf(cameraToMovementsensor.Pose()))
 
 		// determine transform from base to movement sensor
 		baseToMovementSensor, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, svc.base.Name().ShortName(), nil)
 		if err != nil {
 			// here we make the assumption the movementsensor is coincident with the base
-			svc.logger.Debugf(
+			svc.logger.CDebugf(
+				ctx,
 				"we assume the movementsensor named: %s is coincident with the base named: %s due to err: %v",
 				svc.movementSensor.Name().ShortName(), svc.base.Name().ShortName(), err.Error(),
 			)
 			baseToMovementSensor = movementsensorOrigin
 		}
-		svc.logger.Debugf("baseToMovementSensor Pose: %v", spatialmath.PoseToProtobuf(baseToMovementSensor.Pose()))
+		svc.logger.CDebugf(ctx, "baseToMovementSensor Pose: %v", spatialmath.PoseToProtobuf(baseToMovementSensor.Pose()))
 
 		// determine transform from base to camera
 		cameraOrigin := referenceframe.NewPoseInFrame(detector.CameraName.ShortName(), spatialmath.NewZeroPose())
 		baseToCamera, err := svc.fsService.TransformPose(ctx, cameraOrigin, svc.base.Name().ShortName(), nil)
 		if err != nil {
 			// here we make the assumption the base is coincident with the camera
-			svc.logger.Debugf(
+			svc.logger.CDebugf(
+				ctx,
 				"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
 				svc.base.Name().ShortName(), detector.CameraName.ShortName(), err.Error(),
 			)
 			baseToCamera = cameraOrigin
 		}
-		svc.logger.Debugf("baseToCamera Pose: %v", spatialmath.PoseToProtobuf(baseToCamera.Pose()))
+		svc.logger.CDebugf(ctx, "baseToCamera Pose: %v", spatialmath.PoseToProtobuf(baseToCamera.Pose()))
 
 		// get current geo position of robot
 		gp, _, err := svc.movementSensor.Position(ctx, nil)
@@ -725,11 +729,12 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 
 		// convert geo position into GeoPose
 		robotGeoPose := spatialmath.NewGeoPose(gp, baseHeading)
-		svc.logger.Debugf("robotGeoPose Location: %v, Heading: %v", *robotGeoPose.Location(), robotGeoPose.Heading())
+		svc.logger.CDebugf(ctx, "robotGeoPose Location: %v, Heading: %v", *robotGeoPose.Location(), robotGeoPose.Heading())
 
 		// iterate through all detections and construct a geoObstacle to append
 		for i, detection := range detections {
-			svc.logger.Infof(
+			svc.logger.CInfof(
+				ctx,
 				"detection %d pose with respect to camera frame: %v",
 				i, spatialmath.PoseToProtobuf(detection.Geometry.Pose()),
 			)
@@ -745,21 +750,24 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 
 			// get the manipulated geometry
 			manipulatedGeom := detection.Geometry.Transform(transformBy)
-			svc.logger.Debugf(
+			svc.logger.CDebugf(
+				ctx,
 				"detection %d pose from movementsensor's position with camera frame coordinate axes: %v ",
 				i, spatialmath.PoseToProtobuf(manipulatedGeom.Pose()),
 			)
 
 			// fix axes of geometry's pose such that it is in the cooordinate system of the base
 			manipulatedGeom = manipulatedGeom.Transform(spatialmath.NewPoseFromOrientation(baseToCamera.Pose().Orientation()))
-			svc.logger.Debugf(
+			svc.logger.CDebugf(
+				ctx,
 				"detection %d pose from movementsensor's position with base frame coordinate axes: %v ",
 				i, spatialmath.PoseToProtobuf(manipulatedGeom.Pose()),
 			)
 
 			// get the geometry's lat & lng along with its heading with respect to north as a left handed value
 			obstacleGeoPose := spatialmath.PoseToGeoPose(robotGeoPose, manipulatedGeom.Pose())
-			svc.logger.Debugf(
+			svc.logger.CDebugf(
+				ctx,
 				"obstacleGeoPose Location: %v, Heading: %v",
 				*obstacleGeoPose.Location(), obstacleGeoPose.Heading(),
 			)

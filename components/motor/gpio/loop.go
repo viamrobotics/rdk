@@ -67,21 +67,21 @@ func (m *EncodedMotor) validateControlConfig(ctx context.Context) error {
 	if err != nil {
 		return errConstantBlock
 	}
-	m.logger.Debugf("constant block: %v", constBlock)
+	m.logger.CDebugf(ctx, "constant block: %v", constBlock)
 	endBlock, err := m.loop.ConfigAt(ctx, "endpoint")
 	if err != nil {
 		return errEndpointBlock
 	}
-	m.logger.Debugf("endpoint block: %v", endBlock)
+	m.logger.CDebugf(ctx, "endpoint block: %v", endBlock)
 	trapzBlock, err := m.loop.ConfigAt(ctx, "trapz")
 	if err != nil {
 		return errTrapzBlock
 	}
-	m.logger.Debugf("trapz block: %v", trapzBlock)
+	m.logger.CDebugf(ctx, "trapz block: %v", trapzBlock)
 	pidBlock, err := m.loop.ConfigAt(ctx, "PID")
 	if err != nil {
 		return errPIDBlock
 	}
-	m.logger.Debugf("PID block: %v", pidBlock)
+	m.logger.CDebugf(ctx, "PID block: %v", pidBlock)
 	return nil
 }

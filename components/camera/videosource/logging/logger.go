@@ -122,8 +122,8 @@ func (l *Logger) Start(ctx context.Context) error {
 
 	utils.PanicCapturingGo(func() {
 		vsourceMetaLogger := logging.Global().Sublogger("videosource")
-		vsourceMetaLogger.Info("Starting videosource logger")
-		defer vsourceMetaLogger.Info("Terminating videosource logger")
+		vsourceMetaLogger.CInfo(ctx, "Starting videosource logger")
+		defer vsourceMetaLogger.CInfo(ctx, "Terminating videosource logger")
 
 		l.init(ctx)
 		ticker := time.NewTicker(1 * time.Second)
