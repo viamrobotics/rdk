@@ -32,7 +32,7 @@ const (
 
 	// Add a subnode every this many mm along a valid trajectory. Large values run faster, small gives better paths
 	// Meaningless if the above is false.
-	defaultAddNodeEvery = 400.
+	defaultAddNodeEvery = 1000.
 
 	// Don't add new RRT tree nodes if there is an existing node within this distance.
 	// Note that since the orientation adjustment is very large, this must be as well.
@@ -48,8 +48,6 @@ const (
 
 	// When attempting a solve per the above, make no more than this many tries. Preserves performance with large trees.
 	defaultMaxConnectAttempts = 20
-
-	defaultBidirectional = true
 
 	// default motion planning collision resolution is every 2mm.
 	// For bases we increase this to 60mm, a bit more than 2 inches.
@@ -77,9 +75,6 @@ const (
 // values that do not underflow.
 var defaultGoalMetricConstructor = ik.NewPosWeightSquaredNormMetric
 
-// This should only be used when bidirectional mode is `false`.
-var defaultPosOnlyGoalMetricConstructor = ik.NewPositionOnlyMetric
-
 // Used to flip goal nodes so they can solve forwards.
 var flipPose = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
 
@@ -98,9 +93,6 @@ type tpspaceOptions struct {
 	// For a unidirectional solve, this means attempting to reach the goal rather than a random point
 	// For a bidirectional solve, this means trying to connect the two trees directly
 	attemptSolveEvery int
-
-	// Whether to attempt to solve with both trees simultaneously or just one
-	bidirectional bool
 
 	goalMetricConstructor func(spatialmath.Pose) ik.StateMetric
 
@@ -158,10 +150,6 @@ func newTPSpaceMotionPlanner(
 		tpFrame: tpFrame,
 	}
 	tpPlanner.setupTPSpaceOptions()
-	if opt.profile == PositionOnlyMotionProfile && opt.PositionSeeds <= 0 {
-		tpPlanner.algOpts.bidirectional = false
-		tpPlanner.algOpts.goalMetricConstructor = defaultPosOnlyGoalMetricConstructor
-	}
 
 	return tpPlanner, nil
 }
@@ -177,11 +165,20 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 	seedPos := spatialmath.NewZeroPose()
 
 	startNode := &basicNode{q: make([]referenceframe.Input, len(mp.frame.DoF())), cost: 0, pose: seedPos, corner: false}
-	goalNode := &basicNode{
-		q:      make([]referenceframe.Input, len(mp.frame.DoF())),
-		cost:   0,
-		pose:   spatialmath.Compose(goal, flipPose),
-		corner: false,
+	maps := &rrtMaps{startMap: map[node]node{startNode: nil}}
+	if mp.opt().PositionSeeds > 0 && mp.opt().profile == PositionOnlyMotionProfile {
+		err := maps.fillPosOnlyGoal(goal, mp.opt().PositionSeeds, len(mp.frame.DoF()))
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		goalNode := &basicNode{
+			q:      make([]referenceframe.Input, len(mp.frame.DoF())),
+			cost:   0,
+			pose:   spatialmath.Compose(goal, flipPose),
+			corner: false,
+		}
+		maps.goalMap = map[node]node{goalNode: nil}
 	}
 
 	var planRunners sync.WaitGroup
@@ -190,10 +187,7 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 	utils.PanicCapturingGo(func() {
 		defer planRunners.Done()
 		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{
-			&rrtMaps{
-				startMap: map[node]node{startNode: nil},
-				goalMap:  map[node]node{goalNode: nil},
-			},
+			maps,
 			nil,
 			solutionChan,
 		})
@@ -312,20 +306,16 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			return
 		}
 
-		seedReached := &nodeAndError{}
-		goalReached := &nodeAndError{}
 		rseed := mp.randseed.Int31()
+		rseed2 := mp.randseed.Int31()
 		utils.PanicCapturingGo(func() {
 			m1chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.startMap, false, rseed)
 		})
-		if mp.algOpts.bidirectional {
-			rseed2 := mp.randseed.Int31()
-			utils.PanicCapturingGo(func() {
-				m2chan <- mp.attemptExtension(ctx, flipNode(randPosNode), rrt.maps.goalMap, true, rseed2)
-			})
-			goalReached = <-m2chan
-		}
-		seedReached = <-m1chan
+		utils.PanicCapturingGo(func() {
+			m2chan <- mp.attemptExtension(ctx, flipNode(randPosNode), rrt.maps.goalMap, true, rseed2)
+		})
+		seedReached := <-m1chan
+		goalReached := <-m2chan
 
 		err := multierr.Combine(seedReached.error, goalReached.error)
 		if err != nil {
@@ -335,9 +325,10 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 
 		var reachedDelta float64
 		if seedReached.node != nil && goalReached.node != nil {
+			// Flip the orientation of the goal node for distance calculation and seed extension
 			reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{
 				StartPosition: seedReached.node.Pose(),
-				EndPosition:   spatialmath.Compose(goalReached.node.Pose(), flipPose),
+				EndPosition:   flipNode(goalReached.node).Pose(),
 			})
 			if reachedDelta > mp.planOpts.GoalThreshold {
 				// If both maps extended, but did not reach the same point, then attempt to extend them towards each other
@@ -349,7 +340,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				if seedReached.node != nil {
 					reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{
 						StartPosition: seedReached.node.Pose(),
-						EndPosition:   spatialmath.Compose(goalReached.node.Pose(), flipPose),
+						EndPosition:   flipNode(goalReached.node).Pose(),
 					})
 					if reachedDelta > mp.planOpts.GoalThreshold {
 						goalReached = mp.attemptExtension(ctx, flipNode(seedReached.node), rrt.maps.goalMap, true, mp.randseed.Int31())
@@ -361,7 +352,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 					if goalReached.node != nil {
 						reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{
 							StartPosition: seedReached.node.Pose(),
-							EndPosition:   spatialmath.Compose(goalReached.node.Pose(), flipPose),
+							EndPosition:   flipNode(goalReached.node).Pose(),
 						})
 					}
 				}
@@ -408,15 +399,10 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				if seedReached.node == nil {
 					continue
 				}
-				if mp.algOpts.bidirectional {
-					reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{
-						StartPosition: seedReached.node.Pose(),
-						EndPosition:   spatialmath.Compose(goalMapNode.Pose(), flipPose),
-					},
-					)
-				} else {
-					reachedDelta = mp.planOpts.goalMetric(&ik.State{Position: seedReached.node.Pose()})
-				}
+				reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{
+					StartPosition: seedReached.node.Pose(),
+					EndPosition:   flipNode(goalMapNode).Pose(),
+				})
 				if reachedDelta <= mp.planOpts.GoalThreshold {
 					// If we've reached the goal, extract the path from the RRT trees and return
 					path := extractTPspacePath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalMapNode})
@@ -795,7 +781,6 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 
 		distOptions: map[tpspace.PTG]*plannerOptions{},
 
-		bidirectional:         defaultBidirectional,
 		goalMetricConstructor: defaultGoalMetricConstructor,
 	}
 
@@ -858,7 +843,6 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		return path
 	}
 	smoothPlanner := smoothPlannerMP.(*tpSpaceRRTMotionPlanner)
-	smoothPlanner.algOpts.bidirectional = true
 	smoothPlanner.algOpts.identicalNodeDistance = -1
 	for i := 0; i < toIter; i++ {
 		mp.logger.CDebugf(ctx, "TP Space smoothing iteration %d of %d", i, toIter)

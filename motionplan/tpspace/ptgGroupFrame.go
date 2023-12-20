@@ -35,14 +35,13 @@ type ptgFactory func(float64, float64) PTG
 // These PTGs do not end in a straight line, and thus are restricted to a shorter maximum length.
 var defaultShortPtgs = []ptgFactory{
 	NewCCPTG,
-	// ~ NewCCSPTG,
+	NewCCSPTG,
 	NewCirclePTG,
 }
 
 // These PTGs curve at the beginning and then have a straight line of arbitrary length, which is allowed to extend to defaultRefDistLong.
 var defaultPTGs = []ptgFactory{
 	NewCSPTG,
-	NewSideSPTG,
 	NewSideSOverturnPTG,
 }
 
