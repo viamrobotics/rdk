@@ -36,27 +36,12 @@ func (config *DigitalInterruptConfig) Validate(path string) error {
 // servo ticks.
 const ServoRollingAverageWindow = 10
 
-// Tick represents a signal received by an interrupt pin. This signal is communicated
-// via registered channel to the various drivers. Depending on board implementation there may be a
-// wraparound in timestamp values past 4294967295000 nanoseconds (~72 minutes) if the value
-// was originally in microseconds as a 32-bit integer. The timestamp in nanoseconds of the
-// tick SHOULD ONLY BE USED FOR CALCULATING THE TIME ELAPSED BETWEEN CONSECUTIVE TICKS AND NOT
-// AS AN ABSOLUTE TIMESTAMP.
-type Tick struct {
-	High             bool
-	TimestampNanosec uint64
-}
-
 // A ReconfigurableDigitalInterrupt is a simple reconfigurable digital interrupt that expects
 // reconfiguration within the same type.
 type ReconfigurableDigitalInterrupt interface {
 	board.DigitalInterrupt
 	Reconfigure(cfg DigitalInterruptConfig) error
 }
-
-// A PostProcessor takes a raw input and transforms it into a new value.
-// Multiple post processors can be stacked on each other.
-type PostProcessor func(raw int64) int64
 
 // CreateDigitalInterrupt is a factory method for creating a specific DigitalInterrupt based
 // on the given config. If no type is specified, a BasicDigitalInterrupt is returned.
@@ -86,11 +71,11 @@ func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (ReconfigurableDigitalIn
 type BasicDigitalInterrupt struct {
 	count int64
 
-	callbacks []chan Tick
+	callbacks []chan board.Tick
 
 	mu  sync.RWMutex
 	cfg DigitalInterruptConfig
-	pp  PostProcessor
+	pp  board.PostProcessor
 }
 
 // Value returns the amount of ticks that have occurred.
@@ -127,21 +112,21 @@ func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds
 		select {
 		case <-ctx.Done():
 			return errors.New("context cancelled")
-		case c <- Tick{High: high, TimestampNanosec: nanoseconds}:
+		case c <- board.Tick{High: high, TimestampNanosec: nanoseconds}:
 		}
 	}
 	return nil
 }
 
 // AddCallback adds a listener for interrupts.
-func (i *BasicDigitalInterrupt) AddCallback(c chan Tick) {
+func (i *BasicDigitalInterrupt) AddCallback(c chan board.Tick) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	i.callbacks = append(i.callbacks, c)
 }
 
 // RemoveCallback removes a listener for interrupts.
-func (i *BasicDigitalInterrupt) RemoveCallback(c chan Tick) {
+func (i *BasicDigitalInterrupt) RemoveCallback(c chan board.Tick) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	for id := range i.callbacks {
@@ -157,7 +142,7 @@ func (i *BasicDigitalInterrupt) RemoveCallback(c chan Tick) {
 
 // AddPostProcessor sets the post processor that will modify the value that
 // Value returns.
-func (i *BasicDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
+func (i *BasicDigitalInterrupt) AddPostProcessor(pp board.PostProcessor) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	i.pp = pp
@@ -227,7 +212,7 @@ type ServoDigitalInterrupt struct {
 
 	mu  sync.RWMutex
 	cfg DigitalInterruptConfig
-	pp  PostProcessor
+	pp  board.PostProcessor
 }
 
 // Value will return the window averaged value followed by its post processed
@@ -265,14 +250,14 @@ func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint64)
 }
 
 // AddCallback currently panics.
-func (i *ServoDigitalInterrupt) AddCallback(c chan Tick) {
+func (i *ServoDigitalInterrupt) AddCallback(c chan board.Tick) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	panic("servos can't have callback")
 }
 
 // RemoveCallback currently panics.
-func (i *ServoDigitalInterrupt) RemoveCallback(c chan Tick) {
+func (i *ServoDigitalInterrupt) RemoveCallback(c chan board.Tick) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	panic("servos can't have callback")
@@ -280,7 +265,7 @@ func (i *ServoDigitalInterrupt) RemoveCallback(c chan Tick) {
 
 // AddPostProcessor sets the post processor that will modify the value that
 // Value returns.
-func (i *ServoDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
+func (i *ServoDigitalInterrupt) AddPostProcessor(pp board.PostProcessor) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	i.pp = pp
