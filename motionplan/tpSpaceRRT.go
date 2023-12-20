@@ -948,6 +948,11 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 	if secondEdge < len(path)-1 {
 		newInputSteps = append(newInputSteps, path[secondEdge+1:]...)
 	} else {
+		// If secondEdge is the last node of the plan, then it's the node at the goal pose whose configuration should be 0, 0, 0.
+		// newInputSteps will not contain this 0, 0, 0 node because it just extended to it. But path[secondEdge+1:] will not include it
+		// either, it will reach past the end of the path.
+		// Essentially, if we smoothed all the way to the goal node, then that smoothing process will have removed the path endpoint node,
+		// so this step will replace it.
 		newInputSteps = append(newInputSteps, path[len(path)-1])
 	}
 	return rectifyTPspacePath(newInputSteps, mp.frame, spatialmath.NewZeroPose())
