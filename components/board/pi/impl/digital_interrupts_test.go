@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/rdk/components/board"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/components/board"
 )
 
 func nowNanosecondsTest() uint64 {

@@ -15,21 +15,21 @@ import (
 
 // DigitalInterruptConfig describes the configuration of digital interrupt for the board.
 type DigitalInterruptConfig struct {
-    Name    string `json:"name"`
-    Pin     string `json:"pin"`
-    Type    string `json:"type,omitempty"` // e.g. basic, servo
-    Formula string `json:"formula,omitempty"`
+	Name    string `json:"name"`
+	Pin     string `json:"pin"`
+	Type    string `json:"type,omitempty"` // e.g. basic, servo
+	Formula string `json:"formula,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (config *DigitalInterruptConfig) Validate(path string) error {
-    if config.Name == "" {
-        return resource.NewConfigValidationFieldRequiredError(path, "name")
-    }
-    if config.Pin == "" {
-        return resource.NewConfigValidationFieldRequiredError(path, "pin")
-    }
-    return nil
+	if config.Name == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	if config.Pin == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "pin")
+	}
+	return nil
 }
 
 // ServoRollingAverageWindow is how many entries to average over for
