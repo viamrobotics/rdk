@@ -107,13 +107,23 @@ func (ptg *ptgIK) Solve(
 	internalSolutionGen := make(chan *ik.Solution, 1)
 	defer close(internalSolutionGen)
 	var solved *ik.Solution
+	var gridSolved *ik.Solution
 
 	if seed == nil {
 		seed = ptg.defaultSeed
 	}
 
+	err := ptg.gridSim.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
+	if err != nil {
+		return err
+	}
+	select {
+	case gridSolved = <-internalSolutionGen:
+	default:
+	}
+
 	// Spawn the IK solver to generate a solution
-	err := ptg.fastGradDescent.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
+	err = ptg.fastGradDescent.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
 	// We should have zero or one solutions
 
 	select {
@@ -134,7 +144,10 @@ func (ptg *ptgIK) Solve(
 	}
 	if err != nil || solved == nil || ptg.arcDist(solved.Configuration) < defaultZeroDist || seedOutput {
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
-		return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
+		solutionChan <- gridSolved
+		// If err is not nil, return the grid solution
+		//nolint: nilerr
+		return nil
 	}
 
 	solutionChan <- solved
@@ -150,7 +163,7 @@ func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
 	ptg.mu.RLock()
 	precomp := ptg.trajCache[alpha]
 	ptg.mu.RUnlock()
-	if precomp != nil && precomp[len(precomp)-1].Dist >= dist {
+	if precomp != nil && precomp[len(precomp)-1].Dist >= dist && dist > 0 {
 		exact := false
 		for _, wp := range precomp {
 			if wp.Dist <= dist {
@@ -179,10 +192,12 @@ func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
 		if err != nil {
 			return nil, err
 		}
-		ptg.mu.Lock()
-		// Caching here provides a ~33% speedup to a solve call
-		ptg.trajCache[alpha] = traj
-		ptg.mu.Unlock()
+		if dist > 0 {
+			ptg.mu.Lock()
+			// Caching here provides a ~33% speedup to a solve call
+			ptg.trajCache[alpha] = traj
+			ptg.mu.Unlock()
+		}
 	}
 
 	return traj, nil
