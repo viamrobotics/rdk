@@ -31,7 +31,7 @@ func TestPiHardware(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	cfg := genericlinux.Config{
-		DigitalInterrupts: []board.DigitalInterruptConfig{
+		DigitalInterrupts: []DigitalInterruptConfig{
 			{Name: "i1", Pin: "11"},                     // plug physical 12(18) into this (17)
 			{Name: "servo-i", Pin: "22", Type: "servo"}, // bcom-25
 			{Name: "a", Pin: "33"},                      // bcom 13
