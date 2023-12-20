@@ -26,38 +26,10 @@ type Tick struct {
 	TimestampNanosec uint64
 }
 
-// A DigitalInterrupt represents a configured interrupt on the board that
-// when interrupted, calls the added callbacks. Post processors can also
-// be added to modify what Value ultimately returns.
-type DigitalInterrupt interface {
-	// Value returns the current value of the interrupt which is
-	// based on the type of interrupt.
-	Value(ctx context.Context, extra map[string]interface{}) (int64, error)
-
-	// Tick is to be called either manually if the interrupt is a proxy to some real
-	// hardware interrupt or for tests.
-	// nanoseconds is from an arbitrary point in time, but always increasing and always needs
-	// to be accurate.
-	Tick(ctx context.Context, high bool, nanoseconds uint64) error
-
-	// AddCallback adds a callback to be sent a low/high value to when a tick
-	// happens.
-	AddCallback(c chan Tick)
-
-	// AddPostProcessor adds a post processor that should be used to modify
-	// what is returned by Value.
-	AddPostProcessor(pp PostProcessor)
-
-	// RemoveCallback removes a listener for interrupts
-	RemoveCallback(c chan Tick)
-
-	Close(ctx context.Context) error
-}
-
 // A ReconfigurableDigitalInterrupt is a simple reconfigurable digital interrupt that expects
 // reconfiguration within the same type.
 type ReconfigurableDigitalInterrupt interface {
-	DigitalInterrupt
+	board.DigitalInterrupt
 	Reconfigure(cfg DigitalInterruptConfig) error
 }
 
