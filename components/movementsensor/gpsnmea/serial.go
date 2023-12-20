@@ -58,12 +58,12 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 	baudRate := conf.SerialConfig.SerialBaudRate
 	if baudRate == 0 {
 		baudRate = 38400
-		logger.Info("SerialNMEAMovementSensor: serial_baud_rate using default 38400")
+		logger.CInfo(ctx, "SerialNMEAMovementSensor: serial_baud_rate using default 38400")
 	}
 
 	disableNmea := conf.DisableNMEA
 	if disableNmea {
-		logger.Info("SerialNMEAMovementSensor: NMEA reading disabled")
+		logger.CInfo(ctx, "SerialNMEAMovementSensor: NMEA reading disabled")
 	}
 	options := serial.OpenOptions{
 		PortName:        serialPath,
@@ -95,7 +95,7 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 	}
 
 	if err := g.Start(ctx); err != nil {
-		g.logger.Errorf("Did not create nmea gps with err %#v", err.Error())
+		g.logger.CErrorf(ctx, "Did not create nmea gps with err %#v", err.Error())
 	}
 
 	return g, err
@@ -117,7 +117,7 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 			if !g.disableNmea && !g.isClosed {
 				line, err := r.ReadString('\n')
 				if err != nil {
-					g.logger.Errorf("can't read gps serial %s", err)
+					g.logger.CErrorf(ctx, "can't read gps serial %s", err)
 					g.err.Set(err)
 					return
 				}
@@ -126,7 +126,7 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 				err = g.data.ParseAndUpdate(line)
 				g.mu.Unlock()
 				if err != nil {
-					g.logger.Warnf("can't parse nmea sentence: %#v", err)
+					g.logger.CWarnf(ctx, "can't parse nmea sentence: %#v", err)
 				}
 			}
 		}
@@ -280,7 +280,7 @@ func (g *SerialNMEAMovementSensor) Properties(ctx context.Context, extra map[str
 
 // Close shuts down the SerialNMEAMovementSensor.
 func (g *SerialNMEAMovementSensor) Close(ctx context.Context) error {
-	g.logger.Debug("Closing SerialNMEAMovementSensor")
+	g.logger.CDebug(ctx, "Closing SerialNMEAMovementSensor")
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
 
@@ -292,7 +292,7 @@ func (g *SerialNMEAMovementSensor) Close(ctx context.Context) error {
 			return err
 		}
 		g.dev = nil
-		g.logger.Debug("SerialNMEAMovementSensor Closed")
+		g.logger.CDebug(ctx, "SerialNMEAMovementSensor Closed")
 	}
 	return nil
 }

@@ -255,7 +255,7 @@ func goForMath(rpm, revolutions float64) (float64, time.Duration) {
 func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	speed := math.Abs(rpm)
 	if speed < 0.1 {
-		m.logger.Warn("motor speed is nearly 0 rev_per_min")
+		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
 		return motor.NewZeroRPMError()
 	}
 
@@ -267,7 +267,7 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 			rpm = -1 * maxRPM
 		}
 		powerPct, waitDur := goForMath(rpm, revolutions)
-		m.logger.Info("distance traveled is a time based estimation with max RPM 250. For increased accuracy, connect encoders")
+		m.logger.CInfo(ctx, "distance traveled is a time based estimation with max RPM 250. For increased accuracy, connect encoders")
 		err := m.SetPower(ctx, powerPct, extra)
 		if err != nil {
 			return errors.Wrap(err, "error in GoFor")

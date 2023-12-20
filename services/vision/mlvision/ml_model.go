@@ -5,6 +5,7 @@ package mlvision
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -90,48 +91,65 @@ func registerMLModelVisionService(
 	var errList []error
 	classifierFunc, err := attemptToBuildClassifier(mlm, nameMap)
 	if err != nil {
-		logger.Debugw("unable to use ml model as a classifier, will attempt to evaluate as"+
+		logger.CDebugw(ctx, "unable to use ml model as a classifier, will attempt to evaluate as"+
 			"detector and segmenter", "model", params.ModelName, "error", err)
 	} else {
 		err := checkIfClassifierWorks(ctx, classifierFunc)
 		errList = append(errList, err)
 		if err != nil {
 			classifierFunc = nil
-			logger.Debugw("unable to use ml model as a classifier, will attempt to evaluate as detector"+
+			logger.CDebugw(ctx, "unable to use ml model as a classifier, will attempt to evaluate as detector"+
 				" and 3D segmenter", "model", params.ModelName, "error", err)
 		} else {
-			logger.Infow("model fulfills a vision service classifier", "model", params.ModelName)
+			logger.CInfow(ctx, "model fulfills a vision service classifier", "model", params.ModelName)
 		}
 	}
 
 	detectorFunc, err := attemptToBuildDetector(mlm, nameMap)
 	if err != nil {
-		logger.Debugw("unable to use ml model as a detector, will attempt to evaluate as 3D segmenter",
+		logger.CDebugw(ctx, "unable to use ml model as a detector, will attempt to evaluate as 3D segmenter",
 			"model", params.ModelName, "error", err)
 	} else {
 		err = checkIfDetectorWorks(ctx, detectorFunc)
 		errList = append(errList, err)
 		if err != nil {
 			detectorFunc = nil
-			logger.Debugw("unable to use ml model as a detector, will attempt to evaluate as 3D segmenter",
+			logger.CDebugw(ctx, "unable to use ml model as a detector, will attempt to evaluate as 3D segmenter",
 				"model", params.ModelName, "error", err)
 		} else {
-			logger.Infow("model fulfills a vision service detector", "model", params.ModelName)
+			logger.CInfow(ctx, "model fulfills a vision service detector", "model", params.ModelName)
 		}
 	}
 
 	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm, nameMap)
 	errList = append(errList, err)
 	if err != nil {
-		logger.Debugw("unable to use ml model as 3D segmenter", "model", params.ModelName, "error", err)
+		logger.CDebugw(ctx, "unable to use ml model as 3D segmenter", "model", params.ModelName, "error", err)
 	} else {
-		logger.Infow("model fulfills a vision service 3D segmenter", "model", params.ModelName)
+		logger.CInfow(ctx, "model fulfills a vision service 3D segmenter", "model", params.ModelName)
 	}
 
 	// If nothing worked, give more info
 	if errList[0] != nil && errList[1] != nil && errList[2] != nil {
 		for _, e := range errList {
 			logger.Error(e)
+		}
+		md, err := mlm.Metadata(ctx)
+		if err != nil {
+			logger.Error("could not get metadata from the model")
+		} else {
+			inputs := ""
+			for _, tensor := range md.Inputs {
+				inputs += fmt.Sprintf("%s(%v) ", tensor.Name, tensor.Shape)
+			}
+			outputs := ""
+			for _, tensor := range md.Outputs {
+				outputs += fmt.Sprintf("%s(%v) ", tensor.Name, tensor.Shape)
+			}
+			logger.Infow("the model has the following input and outputs tensors, name(shape)",
+				"inputs", inputs,
+				"outputs", outputs,
+			)
 		}
 	}
 

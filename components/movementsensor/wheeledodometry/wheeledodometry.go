@@ -135,7 +135,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 		o.timeIntervalMSecs = defaultTimeIntervalMSecs
 	}
 	if o.timeIntervalMSecs > 1000 {
-		o.logger.Warn("if the time interval is more than 1000 ms, be sure to move the base slowly for better accuracy")
+		o.logger.CWarn(ctx, "if the time interval is more than 1000 ms, be sure to move the base slowly for better accuracy")
 	}
 
 	// set baseWidth and wheelCircumference from the new base properties
@@ -196,7 +196,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	}
 
 	if len(o.motors) > 1 {
-		o.logger.Warn("odometry will not be accurate if the left and right motors that are paired are not listed in the same order")
+		o.logger.CWarn(ctx, "odometry will not be accurate if the left and right motors that are paired are not listed in the same order")
 	}
 
 	o.orientation.Yaw = 0
@@ -343,13 +343,13 @@ func (o *odometry) trackPosition(ctx context.Context) {
 
 			_, positions, err := rdkutils.GetInParallel(ctx, positionFuncs())
 			if err != nil {
-				o.logger.Error(err)
+				o.logger.CError(ctx, err)
 				continue
 			}
 
 			// Current position of the left and right motors in revolutions.
 			if len(positions) != len(o.motors)*2 {
-				o.logger.Error("error getting both motor positions, trying again")
+				o.logger.CError(ctx, "error getting both motor positions, trying again")
 				continue
 			}
 			left := positions[0]

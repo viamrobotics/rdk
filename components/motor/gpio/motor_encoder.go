@@ -53,7 +53,7 @@ func WrapMotorWithEncoder(
 	single, isSingle := e.(*single.Encoder)
 	if isSingle {
 		single.AttachDirectionalAwareness(mm)
-		logger.Info("direction attached to single encoder from encoded motor")
+		logger.CInfo(ctx, "direction attached to single encoder from encoded motor")
 	}
 
 	return mm, nil
@@ -419,10 +419,10 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
-		m.logger.Warn("motor speed is nearly 0 rev_per_min")
+		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
 		return motor.NewZeroRPMError()
 	case m.cfg.MaxRPM > 0 && speed > m.cfg.MaxRPM-0.1:
-		m.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.cfg.MaxRPM)
+		m.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.cfg.MaxRPM)
 	default:
 	}
 
@@ -498,7 +498,7 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 	// if you call GoFor with 0 revolutions, the motor will spin forever. If we are at the target,
 	// we must avoid this by not calling GoFor.
 	if rdkutils.Float64AlmostEqual(rotations, 0, 0.1) {
-		m.logger.Debug("GoTo distance nearly zero, not moving")
+		m.logger.CDebug(ctx, "GoTo distance nearly zero, not moving")
 		return nil
 	}
 	return m.GoFor(ctx, rpm, rotations, extra)

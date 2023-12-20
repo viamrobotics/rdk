@@ -45,7 +45,7 @@ const (
 	builtinOpLabel                   = "motion-service"
 	maxTravelDistanceMM              = 5e6 // this is equivalent to 5km
 	lookAheadDistanceMM      float64 = 5e6
-	defaultSmoothIter                = 20
+	defaultSmoothIter                = 30
 	defaultAngularDegsPerSec         = 20.
 	defaultLinearMPerSec             = 0.3
 	defaultObstaclePollingHz         = 1.
@@ -175,7 +175,7 @@ func (ms *builtIn) Move(
 
 	// get goal frame
 	goalFrameName := destination.Parent()
-	ms.logger.Debugf("goal given in frame of %q", goalFrameName)
+	ms.logger.CDebugf(ctx, "goal given in frame of %q", goalFrameName)
 
 	frameSys, err := ms.fsService.FrameSystem(ctx, worldState.Transforms())
 	if err != nil {
@@ -190,7 +190,7 @@ func (ms *builtIn) Move(
 
 	movingFrame := frameSys.Frame(componentName.ShortName())
 
-	ms.logger.Debugf("frame system inputs: %v", fsInputs)
+	ms.logger.CDebugf(ctx, "frame system inputs: %v", fsInputs)
 	if movingFrame == nil {
 		return false, fmt.Errorf("component named %s not found in robot frame system", componentName.ShortName())
 	}
@@ -275,7 +275,7 @@ func (ms *builtIn) MoveOnMap(
 
 	// Didn't reach goal
 	if resp.Replan {
-		ms.logger.Warnf("didn't reach the goal. Reason: %s\n", resp.ReplanReason)
+		ms.logger.CWarnf(ctx, "didn't reach the goal. Reason: %s\n", resp.ReplanReason)
 		return false, nil
 	}
 	// Reached goal
@@ -354,8 +354,7 @@ func (ms *builtIn) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlobeReq) (
 	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	ms.logger.Debugf("MoveOnGlobe called with %s", req)
-
+	ms.logger.CDebugf(ctx, "MoveOnGlobe called with %s", req)
 	// TODO: Deprecated: remove once no motion apis use the opid system
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 

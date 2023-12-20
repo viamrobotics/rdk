@@ -154,16 +154,16 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, w
 	for i := int(waypointIndex.Load()); i < len(waypoints); i++ {
 		select {
 		case <-ctx.Done():
-			mr.logger.Debugf("calling kinematicBase.Stop due to %s\n", ctx.Err())
+			mr.logger.CDebugf(ctx, "calling kinematicBase.Stop due to %s\n", ctx.Err())
 			if stopErr := mr.stop(); stopErr != nil {
 				return state.ExecuteResponse{}, errors.Wrap(ctx.Err(), stopErr.Error())
 			}
 			return state.ExecuteResponse{}, nil
 		default:
-			mr.planRequest.Logger.Info(waypoints[i])
+			mr.planRequest.Logger.CInfo(ctx, waypoints[i])
 			if err := mr.kinematicBase.GoToInputs(ctx, waypoints[i]); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
-				mr.logger.Debugf("calling kinematicBase.Stop due to %s\n", err)
+				mr.logger.CDebugf(ctx, "calling kinematicBase.Stop due to %s\n", err)
 				if stopErr := mr.stop(); stopErr != nil {
 					return state.ExecuteResponse{}, errors.Wrap(err, stopErr.Error())
 				}
@@ -296,7 +296,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				lookAheadDistanceMM,
 				mr.planRequest.Logger,
 			); err != nil {
-				mr.planRequest.Logger.Info(err.Error())
+				mr.planRequest.Logger.CInfo(ctx, err.Error())
 				return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
 			}
 		}
@@ -502,7 +502,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -2 * math.Pi, Max: 2 * math.Pi},
 	} // Note: this is only for diff drive, not used for PTGs
-	ms.logger.Debugf("base limits: %v", limits)
+	ms.logger.CDebugf(ctx, "base limits: %v", limits)
 
 	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
 	if err != nil {
@@ -671,8 +671,8 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 
 	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
 	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
-	ms.logger.Infof("startPose: %v", spatialmath.PoseToProtobuf(startPose.Pose()))
-	ms.logger.Infof("requested world goal: %v", spatialmath.PoseToProtobuf(goalPoseInWorld))
+	ms.logger.CInfof(ctx, "startPose: %v", spatialmath.PoseToProtobuf(startPose.Pose()))
+	ms.logger.CInfof(ctx, "requested world goal: %v", spatialmath.PoseToProtobuf(goalPoseInWorld))
 	if err != nil {
 		return nil, err
 	}
@@ -783,19 +783,19 @@ func (mr *moveRequest) start(ctx context.Context, waypoints [][]referenceframe.I
 func (mr *moveRequest) listen(ctx context.Context) (state.ExecuteResponse, error) {
 	select {
 	case <-ctx.Done():
-		mr.logger.Debugf("context err: %s", ctx.Err())
+		mr.logger.CDebugf(ctx, "context err: %s", ctx.Err())
 		return state.ExecuteResponse{}, ctx.Err()
 
 	case resp := <-mr.responseChan:
-		mr.logger.Debugf("execution response: %s", resp)
+		mr.logger.CDebugf(ctx, "execution response: %s", resp)
 		return resp.executeResponse, resp.err
 
 	case resp := <-mr.position.responseChan:
-		mr.logger.Debugf("position response: %s", resp)
+		mr.logger.CDebugf(ctx, "position response: %s", resp)
 		return resp.executeResponse, resp.err
 
 	case resp := <-mr.obstacle.responseChan:
-		mr.logger.Debugf("obstacle response: %s", resp)
+		mr.logger.CDebugf(ctx, "obstacle response: %s", resp)
 		return resp.executeResponse, resp.err
 	}
 }

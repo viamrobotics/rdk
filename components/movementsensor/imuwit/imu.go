@@ -254,7 +254,7 @@ func newWit(
 	if newConf.BaudRate > 0 {
 		options.BaudRate = newConf.BaudRate
 	} else {
-		logger.Warnf(
+		logger.CWarnf(ctx,
 			"no valid serial_baud_rate set, setting to default of %d, baud rate of wit imus are: %v", options.BaudRate, baudRateList,
 		)
 	}
@@ -264,7 +264,7 @@ func newWit(
 		logger: logger,
 		err:    movementsensor.NewLastError(1, 1),
 	}
-	logger.Debugf("initializing wit serial connection with parameters: %+v", options)
+	logger.CDebugf(ctx, "initializing wit serial connection with parameters: %+v", options)
 	i.port, err = slib.Open(options)
 	if err != nil {
 		return nil, err
@@ -312,7 +312,13 @@ func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, l
 				switch {
 				case err != nil:
 					imu.err.Set(err)
-					logger.Error(err)
+					imu.numBadReadings++
+					if imu.numBadReadings < 20 {
+						logger.CError(ctx, err, "Check if wit imu is disconnected from port")
+					} else {
+						logger.CDebug(ctx, err)
+					}
+
 				case len(line) != 11:
 					imu.numBadReadings++
 					return
@@ -382,9 +388,9 @@ func (imu *wit) parseWIT(line string) error {
 
 // Close shuts down wit and closes imu.port.
 func (imu *wit) Close(ctx context.Context) error {
-	imu.logger.Debug("Closing wit motion imu")
+	imu.logger.CDebug(ctx, "Closing wit motion imu")
 	imu.cancelFunc()
 	imu.activeBackgroundWorkers.Wait()
-	imu.logger.Debug("Closed wit motion imu")
+	imu.logger.CDebug(ctx, "Closed wit motion imu")
 	return imu.err.Get()
 }
