@@ -34,25 +34,46 @@ func newSum(config BlockConfig, logger logging.Logger) (Block, error) {
 }
 
 func (b *sum) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
-	if len(x) != len(b.operation) {
+	// sum blocks only support signals with the same number of inputs
+	if len(x)%2 != 0 {
 		return b.y, false
 	}
-	y := 0.0
-	for i := range x {
+	y := make([]float64, len(x)/2)
+	half := len(x) / 2
+
+	// loop through the first set of inputs and add or subract from the corresponding output
+	for i := 0; i < half; i++ {
 		op, ok := b.operation[x[i].name]
 		if !ok {
 			return b.y, false
 		}
 		switch op {
 		case addition:
-			y += x[i].GetSignalValueAt(0)
+			y[i] += x[i].GetSignalValueAt(0)
 		case subtraction:
-			y -= x[i].GetSignalValueAt(0)
-		default:
-			return b.y, false
+			y[i] -= x[i].GetSignalValueAt(0)
 		}
 	}
-	b.y[0].SetSignalValueAt(0, y)
+
+	// loop through the second set of inputs and add or subract from the corresponding output
+	for i := half; i < len(x); i++ {
+		op, ok := b.operation[x[i].name]
+		if !ok {
+			return b.y, false
+		}
+		switch op {
+		case addition:
+			y[i-half] += x[i].GetSignalValueAt(0)
+		case subtraction:
+			y[i-half] -= x[i].GetSignalValueAt(0)
+		}
+	}
+
+	// loop through the output and set the signal
+	for i := range y {
+		b.y[i].SetSignalValueAt(0, y[i])
+	}
+
 	return b.y, true
 }
 
@@ -72,8 +93,11 @@ func (b *sum) reset() error {
 		}
 		b.operation[b.cfg.DependsOn[idx]] = sumOperand(c)
 	}
-	b.y = make([]*Signal, 1)
-	b.y[0] = makeSignal(b.cfg.Name)
+
+	b.y = make([]*Signal, len(b.cfg.DependsOn))
+	for i := range b.cfg.DependsOn {
+		b.y[i] = makeSignal(b.cfg.DependsOn[i])
+	}
 	return nil
 }
 

@@ -355,7 +355,7 @@ func (pm *planManager) planParallelRRTMotion(
 		}
 	} else {
 		if maps == nil {
-			goalNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), pose: goal}
+			goalNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), pose: spatialmath.Compose(goal, flipPose)}
 			maps = &rrtMaps{
 				goalMap: map[node]node{goalNode: nil},
 			}
