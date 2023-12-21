@@ -2,8 +2,7 @@
   /* eslint-disable require-atomic-updates */
 
   import * as THREE from 'three';
-  import { onMount, onDestroy } from 'svelte';
-
+  import { onMount } from 'svelte';
   import { SlamClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
   import { SlamMap2D } from '@viamrobotics/prime-blocks';
   import { copyToClipboard } from '@/lib/copy-to-clipboard';
