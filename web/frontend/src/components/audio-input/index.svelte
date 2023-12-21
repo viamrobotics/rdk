@@ -28,7 +28,6 @@ const handleTrack = (event: unknown) => {
     return;
   }
 
-  console.log(audio, eventStream)
   audio.srcObject = eventStream;
 };
 
