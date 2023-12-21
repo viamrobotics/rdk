@@ -328,6 +328,8 @@ func TestArbitraryFileUpload(t *testing.T) {
 	datasync.RetryExponentialFactor.Store(int32(1))
 	fileName := "some_file_name.txt"
 	fileExt := ".txt"
+	// Disable the check to see if the file was modified recently,
+	// since we are testing instanteous arbitrary file uploads.
 	datasync.SetFileLastModifiedMillis(0)
 	tests := []struct {
 		name                 string
