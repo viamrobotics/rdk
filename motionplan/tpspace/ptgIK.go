@@ -107,7 +107,6 @@ func (ptg *ptgIK) Solve(
 	internalSolutionGen := make(chan *ik.Solution, 1)
 	defer close(internalSolutionGen)
 	var solved *ik.Solution
-	var gridSolved *ik.Solution
 
 	seed := make([]referenceframe.Input, 0, len(ptg.defaultSeed))
 	for _, defaultSeedVal := range ptg.defaultSeed {
@@ -121,18 +120,8 @@ func (ptg *ptgIK) Solve(
 		}
 	}
 
-	err := ptg.gridSim.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
-	if err != nil {
-		return err
-	}
-	select {
-	case gridSolved = <-internalSolutionGen:
-	default:
-	}
-	seed[0] = gridSolved.Configuration[0]
-
 	// Spawn the IK solver to generate a solution
-	err = ptg.fastGradDescent.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
+	err := ptg.fastGradDescent.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
 	// We should have zero or one solutions
 	select {
 	case solved = <-internalSolutionGen:
@@ -152,10 +141,10 @@ func (ptg *ptgIK) Solve(
 	}
 	if err != nil || solved == nil || ptg.arcDist(solved.Configuration) < defaultZeroDist || seedOutput {
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
-		solutionChan <- gridSolved
+		//~ solutionChan <- gridSolved
 		// If err is not nil, return the grid solution
 		//nolint: nilerr
-		return nil
+		return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
 	}
 
 	solutionChan <- solved
