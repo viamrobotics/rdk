@@ -954,7 +954,8 @@ func (rc *RobotClient) ModuleLog(ctx context.Context, log zapcore.Entry, fields 
 	message = fmt.Sprintf("%v}", message) // close }
 
 	logRequest := &pb.ModuleLogRequest{
-		Log: &apppb.LogEntry{
+		// no batching for now (one LogEntry at a time).
+		Logs: []*apppb.LogEntry{{
 			// leave out Host; Host is not meaningful for module logging
 			Level: log.Level.String(),
 			// leave out Time; Time is already in message field below
@@ -963,7 +964,7 @@ func (rc *RobotClient) ModuleLog(ctx context.Context, log zapcore.Entry, fields 
 			// leave out Caller; Caller is already in Message field above
 			Stack: log.Stack,
 			// leave out Fields; Caller is already in Message field above
-		},
+		}},
 	}
 
 	_, err := rc.client.ModuleLog(ctx, logRequest)

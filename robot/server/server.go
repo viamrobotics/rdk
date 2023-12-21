@@ -408,10 +408,13 @@ func (s *Server) SendSessionHeartbeat(ctx context.Context, req *pb.SendSessionHe
 }
 
 func (s *Server) ModuleLog(ctx context.Context, req *pb.ModuleLogRequest) (*pb.ModuleLogResponse, error) {
-	log := req.Log
-	if log == nil {
-		return nil, errors.New("ModuleLogRequest received with no associated Log")
+	if req.Logs == nil {
+		return nil, errors.New("ModuleLogRequest received with no associated logs")
 	}
+	if len(req.Logs) > 1 {
+		return nil, errors.New("ModuleLogRequest received with multiple logs; batching not yet supported")
+	}
+	log := req.Logs[0]
 
 	// Use a sublogger of robot logger with module's logger name. Disable caller
 	// to mimic caller passed in from module.
