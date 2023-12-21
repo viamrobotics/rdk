@@ -19,7 +19,7 @@ var UploadChunkSize = 64 * 1024
 var fileLastModifiedMillis = 10000
 
 // SetFileLastModifiedMillis allows configuring the time to wait in milliseconds
-// to check if a file has been modified for arbitrary file uploads
+// to check if a file has been modified for arbitrary file uploads.
 func SetFileLastModifiedMillis(lastModifiedMillis int) {
 	fileLastModifiedMillis = lastModifiedMillis
 }

@@ -321,8 +321,6 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 		})
 	}
 }
-
-
 func TestArbitraryFileUpload(t *testing.T) {
 	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
 	datasync.RetryExponentialFactor.Store(int32(1))
