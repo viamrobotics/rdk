@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"math"
-
 	"sync"
 
 	"go.viam.com/rdk/logging"
