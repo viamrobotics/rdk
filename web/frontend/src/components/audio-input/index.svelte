@@ -51,7 +51,6 @@ onMount(() => {
 });
 
 $: if (connected && expanded && !added) {
-  console.log('add')
   streamClient.add(name).catch((error) => displayError(error as ServiceError));
   added = true;
 } else if (added) {
