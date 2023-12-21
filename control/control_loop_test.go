@@ -246,6 +246,7 @@ func BenchmarkLoop100(b *testing.B) {
 }
 
 func TestControlLoop(t *testing.T) {
+	// flaky test, will see behavior after RSDK-6164
 	t.Skip()
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()

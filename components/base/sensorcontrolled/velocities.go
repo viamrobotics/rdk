@@ -21,9 +21,9 @@ const (
 )
 
 // setupControlLoops uses the embedded config in this file to initialize a control
-// loop using the controls package and stor in on the sensor controlled base struct
+// loop using the controls package and store in on the sensor controlled base struct
 // the sensor base in the controllable interface that implements State and GetState
-// called by the endpoing logic of the control thread and the controlLoopConfig
+// called by the endpoint logic of the control thread and the controlLoopConfig
 // is included at the end of this file.
 func (sb *sensorBase) setupControlLoops() error {
 	// create control loop
@@ -47,8 +47,7 @@ func (sb *sensorBase) updateControlConfig(
 		Name: "linear_setpoint",
 		Type: "constant",
 		Attribute: rdkutils.AttributeMap{
-			// convert mmPerSec to mPerSec
-			"constant_val": linearValue / 1000.0,
+			"constant_val": linearValue,
 		},
 		DependsOn: []string{},
 	}
@@ -106,7 +105,8 @@ func (sb *sensorBase) SetVelocity(
 		}
 		sb.loop = loop
 
-		if err := sb.updateControlConfig(ctx, linear.Y, angular.Z); err != nil {
+		// convert linear.Y mmPerSec to mPerSec, angular.Z is degPerSec
+		if err := sb.updateControlConfig(ctx, linear.Y/1000.0, angular.Z); err != nil {
 			return err
 		}
 

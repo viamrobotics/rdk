@@ -135,7 +135,6 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 							}
 						}
 						// TODO(npmenard) do we want to support multidimentional signals?
-						//nolint: makezero
 					}
 					if strings.Contains(b.blk.Config(l.cancelCtx).Name, "PID") {
 						if strings.Contains(b.blk.Config(l.cancelCtx).Name, "ang") {
