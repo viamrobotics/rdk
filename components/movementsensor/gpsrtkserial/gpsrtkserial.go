@@ -160,15 +160,15 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	if newConf.SerialPath != "" {
 		g.writePath = newConf.SerialPath
-		g.logger.CInfof(ctx, "updated serial_path to #%v", newConf.SerialPath)
+		g.logger.Infof("updated serial_path to #%v", newConf.SerialPath)
 	}
 
 	if newConf.SerialBaudRate != 0 {
 		g.wbaud = newConf.SerialBaudRate
-		g.logger.CInfof(ctx, "updated serial_baud_rate to %v", newConf.SerialBaudRate)
+		g.logger.Infof("updated serial_baud_rate to %v", newConf.SerialBaudRate)
 	} else {
 		g.wbaud = 38400
-		g.logger.CInfo(ctx, "serial_baud_rate using default baud rate 38400")
+		g.logger.Info("serial_baud_rate using default baud rate 38400")
 	}
 
 	g.ntripconfigMu.Lock()
@@ -197,7 +197,7 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	g.ntripconfigMu.Unlock()
 
-	g.logger.CDebug(ctx, "done reconfiguring")
+	g.logger.Debug("done reconfiguring")
 
 	return nil
 }
@@ -426,11 +426,18 @@ func (g *rtkSerial) connectAndParseSourceTable() error {
 	}
 
 	g.logger.Debug("gettting source table")
+
+	srcReader, err := g.ntripClient.Client.GetSourcetable()
+	g.logger.Debugf("getSourceTable sends: %v\n", srcReader)
+	g.logger.Debugf("error from getsourcetable: %v\n", err)
+
 	srcTable, err := g.ntripClient.Client.ParseSourcetable()
 	if err != nil {
 		g.logger.Errorf("failed to get source table: %v", err)
 		return err
 	}
+	g.logger.Debugf("sourceTable is: %v\n", srcTable)
+
 	g.logger.Debug("got sourcetable, parsing it...")
 	g.isVirtualBase, err = rtk.FindLineWithMountPoint(srcTable, g.ntripClient.MountPoint)
 	if err != nil {
@@ -680,7 +687,7 @@ func (g *rtkSerial) Accuracy(ctx context.Context, extra map[string]interface{}) 
 	float32, float32, movementsensor.NmeaGGAFixType, float32, error) {
 	lastError := g.err.Get()
 	if lastError != nil {
-		return map[string]float32{}, 0, 0, movementsensor.NmeaGGAFixType(math.NaN()), 0, lastError
+		return map[string]float32{}, 0, 0, 0, 0, lastError
 	}
 
 	return g.nmeamovementsensor.Accuracy(ctx, extra)
