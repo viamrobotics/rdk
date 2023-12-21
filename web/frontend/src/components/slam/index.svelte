@@ -14,7 +14,7 @@
   import { components } from '@/stores/resources';
   import Collapse from '@/lib/components/collapse.svelte';
   import Dropzone from '@/lib/components/dropzone.svelte';
-  import { useRobotClient, useDisconnect, useConnect } from '@/hooks/robot-client';
+  import { useRobotClient, useConnect } from '@/hooks/robot-client';
   import type { SLAMOverrides } from '@/types/overrides';
   import { rcLogConditionally } from '@/lib/log';
 
@@ -323,16 +323,14 @@
     }
   });
 
-  useDisconnect(clearRefresh);
-
   useConnect(() => {
-    updateSLAM2dRefreshFrequency()
+    updateSLAM2dRefreshFrequency();
+
+    return () => {
+      clearRefresh();
+      clearInterval(durationInterval);
+    }
   })
-
-  onDestroy(() => {
-    clearInterval(durationInterval);
-  });
-
 </script>
 
 <Collapse title={name} on:toggle={toggleExpand}>

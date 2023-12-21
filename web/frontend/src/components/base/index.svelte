@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
   import { BaseClient, type ServiceError } from '@viamrobotics/sdk';
   import { filterSubtype } from '../../lib/resource';
   import { displayError } from '../../lib/error';
@@ -299,24 +298,16 @@
     }
   };
 
-  onMount(() => {
-    window.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // Safety measure for system prompts, etc.
-    window.addEventListener('blur', handleOnBlur);
-
-    for (const camera of cameras) {
-      openCameras[camera.name] = false;
-    }
-  });
-
-  onDestroy(() => {
-    handleOnBlur();
-
-    window.removeEventListener('visibilitychange', handleVisibilityChange);
-    window.removeEventListener('blur', handleOnBlur);
-  });
+  for (const camera of cameras) {
+    openCameras[camera.name] = false;
+  }
 </script>
+
+<!-- Safety measure for system prompts, etc. -->
+<svelte:window
+  on:visibilitychange={handleVisibilityChange}
+  on:blur={handleOnBlur}
+/>
 
 <div use:clickOutside={() => {
   isKeyboardActive = false;

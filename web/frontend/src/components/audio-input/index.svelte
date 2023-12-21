@@ -3,7 +3,7 @@
 import { StreamClient, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import Collapse from '@/lib/components/collapse.svelte';
-import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
+import { useRobotClient } from '@/hooks/robot-client';
 
 export let name: string;
 
@@ -29,13 +29,12 @@ const handleTrack = (event: unknown) => {
   audio.srcObject = eventStream;
 };
 
-const toggleExpand = async () => {
-  isOn = !isOn;
-
-  streamClient.on('track', handleTrack);
+const toggle = async (value: boolean) => {
+  isOn = value;
 
   if (isOn) {
     try {
+      streamClient.on('track', handleTrack);
       await streamClient.add(name);
     } catch (error) {
       displayError(error as ServiceError);
@@ -44,37 +43,24 @@ const toggleExpand = async () => {
   }
 
   try {
+    streamClient.off('track', handleTrack);
     await streamClient.remove(name);
   } catch (error) {
     displayError(error as ServiceError);
   }
 };
 
-useDisconnect(() => {
-  streamClient.off('track', handleTrack);
-});
-
 </script>
 
 <Collapse title={name}>
   <v-breadcrumbs slot="title" crumbs="audio_input" />
   <div class="h-auto border border-t-0 border-medium p-2">
-    <div class="flex items-center gap-2">
-      <v-switch
-        id="audio-input"
-        label='Listen'
-        value={isOn ? 'on' : 'off'}
-        on:input={toggleExpand}
-      />
-    </div>
-
-    {#if isOn}
-      <audio
-        class='py-2'
-        controls
-        autoplay
-        bind:this={audio}
-      />
-    {/if}
+    <audio
+      bind:this={audio}
+      class='py-2'
+      controls
+      on:play={() => toggle(true)}
+      on:pause={() => toggle(false)}
+    />
   </div>
 </Collapse>
