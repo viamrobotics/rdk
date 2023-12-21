@@ -63,6 +63,8 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+type NmeaGGAFixType int
+
 // A MovementSensor reports information about the robot's direction, position and speed.
 type MovementSensor interface {
 	resource.Sensor
@@ -153,4 +155,54 @@ func DefaultAPIReadings(ctx context.Context, g MovementSensor, extra map[string]
 	}
 
 	return readings, nil
+}
+
+func ToNmeaGGAFixType(fixType *pb.NmeaGGAFix) NmeaGGAFixType {
+	switch fixType {
+	case nil:
+		return 0
+	case pb.NmeaGGAFix_NMEA_GGA_FIX_GNSS.Enum():
+		return 1
+	case pb.NmeaGGAFix_NMEA_GGA_FIX_DGPS.Enum():
+		return 2
+	case pb.NmeaGGAFix_NMEA_GGA_FIX_PPS.Enum():
+		return 3
+	case pb.NmeaGGAFix_NMEA_GGA_FIX_RTK_FIXED.Enum():
+		return 4
+	case pb.NmeaGGAFix_NMEA_GGA_FIX_RTK_FLOAT.Enum():
+		return 5
+	case pb.NmeaGGAFix_NMEA_GGA_FIX_DEAD_RECKONING.Enum():
+		return 6
+	case pb.NmeaGGAFix_NMEA_GGA_FIX_MANUAL.Enum():
+		return 7
+	case pb.NmeaGGAFix_NMEA_GGA_FIX_SIMULATION.Enum():
+		return 8
+	default:
+		return -1
+	}
+}
+
+func ToProtoNmeaGGAFixType(fixType NmeaGGAFixType) pb.NmeaGGAFix {
+	switch fixType {
+	case 0:
+		return pb.NmeaGGAFix_NMEA_GGA_FIX_INVALID_UNSPECIFIED
+	case 1:
+		return pb.NmeaGGAFix_NMEA_GGA_FIX_GNSS
+	case 2:
+		return pb.NmeaGGAFix_NMEA_GGA_FIX_DGPS
+	case 3:
+		return pb.NmeaGGAFix_NMEA_GGA_FIX_PPS
+	case 4:
+		return pb.NmeaGGAFix_NMEA_GGA_FIX_RTK_FIXED
+	case 5:
+		return pb.NmeaGGAFix_NMEA_GGA_FIX_RTK_FLOAT
+	case 6:
+		return pb.NmeaGGAFix_NMEA_GGA_FIX_DEAD_RECKONING
+	case 7:
+		return pb.NmeaGGAFix_NMEA_GGA_FIX_MANUAL
+	case 8:
+		return pb.NmeaGGAFix_NMEA_GGA_FIX_SIMULATION
+	default:
+		return -1
+	}
 }
