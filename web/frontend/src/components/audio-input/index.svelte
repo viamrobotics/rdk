@@ -4,7 +4,7 @@ import { StreamClient, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import Collapse from '@/lib/components/collapse.svelte';
 import { useConnect, useRobotClient } from '@/hooks/robot-client';
-import { onDestroy, onMount } from 'svelte';
+import { onMount } from 'svelte';
 
 export let name: string;
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { BaseClient, type ServiceError } from '@viamrobotics/sdk';
   import { filterSubtype } from '../../lib/resource';
   import { displayError } from '../../lib/error';
@@ -11,7 +12,6 @@
   import Collapse from '@/lib/components/collapse.svelte';
   import { components } from '@/stores/resources';
   import { useRobotClient } from '@/hooks/robot-client';
-import { onMount } from 'svelte';
 
   export let name: string;
 
