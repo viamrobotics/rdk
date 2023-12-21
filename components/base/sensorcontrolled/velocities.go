@@ -15,7 +15,9 @@ import (
 // TODO: RSDK-5355 useControlLoop bool should be removed after testing.
 const (
 	useControlLoop = false
-	rPiGain        = 0.00392157
+	// rPiGain is 1/255 because the PWM signal on a pi (and most other boards)
+	// is limited to 8 bits, or the range 0-255.
+	rPiGain = 0.00392157
 )
 
 // setupControlLoops uses the embedded config in this file to initialize a control
@@ -45,7 +47,7 @@ func (sb *sensorBase) updateControlConfig(
 		Name: "linear_setpoint",
 		Type: "constant",
 		Attribute: rdkutils.AttributeMap{
-			// conver mmPerSec to mPerSec
+			// convert mmPerSec to mPerSec
 			"constant_val": linearValue / 1000.0,
 		},
 		DependsOn: []string{},
