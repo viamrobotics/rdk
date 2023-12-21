@@ -80,11 +80,11 @@ func MakePmtkI2cGpsNmea(
 	}
 	if conf.I2CConfig.I2CBaudRate == 0 {
 		conf.I2CConfig.I2CBaudRate = 38400
-		logger.Warn("using default baudrate : 38400")
+		logger.CWarn(ctx, "using default baudrate : 38400")
 	}
 	disableNmea := conf.DisableNMEA
 	if disableNmea {
-		logger.Info("SerialNMEAMovementSensor: NMEA reading disabled")
+		logger.CInfo(ctx, "SerialNMEAMovementSensor: NMEA reading disabled")
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
@@ -115,7 +115,7 @@ func MakePmtkI2cGpsNmea(
 func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 	handle, err := g.bus.OpenHandle(g.addr)
 	if err != nil {
-		g.logger.Errorf("can't open gps i2c %s", err)
+		g.logger.CErrorf(ctx, "can't open gps i2c %s", err)
 		return err
 	}
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
@@ -126,21 +126,21 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 
 	err = handle.Write(ctx, cmd251)
 	if err != nil {
-		g.logger.Debug("Failed to set baud rate")
+		g.logger.CDebug(ctx, "Failed to set baud rate")
 	}
 	err = handle.Write(ctx, cmd314)
 	if err != nil {
-		g.logger.Errorf("i2c handle write failed %s", err)
+		g.logger.CErrorf(ctx, "i2c handle write failed %s", err)
 		return err
 	}
 	err = handle.Write(ctx, cmd220)
 	if err != nil {
-		g.logger.Errorf("i2c handle write failed %s", err)
+		g.logger.CErrorf(ctx, "i2c handle write failed %s", err)
 		return err
 	}
 	err = handle.Close()
 	if err != nil {
-		g.logger.Errorf("failed to close handle: %s", err)
+		g.logger.CErrorf(ctx, "failed to close handle: %s", err)
 		return err
 	}
 
@@ -162,7 +162,7 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 				// ephemeral errors later.
 				g.err.Set(err)
 				if err != nil {
-					g.logger.Errorf("can't open gps i2c handle: %s", err)
+					g.logger.CErrorf(ctx, "can't open gps i2c handle: %s", err)
 					return
 				}
 				buffer, err := handle.Read(ctx, 1024)
@@ -170,11 +170,11 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 				hErr := handle.Close()
 				g.err.Set(hErr)
 				if hErr != nil {
-					g.logger.Errorf("failed to close handle: %s", hErr)
+					g.logger.CErrorf(ctx, "failed to close handle: %s", hErr)
 					return
 				}
 				if err != nil {
-					g.logger.Error(err)
+					g.logger.CError(ctx, err)
 					continue
 				}
 				for _, b := range buffer {
@@ -187,7 +187,7 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 							err = g.data.ParseAndUpdate(strBuf)
 							g.mu.Unlock()
 							if err != nil {
-								g.logger.Debugf("can't parse nmea : %s, %v", strBuf, err)
+								g.logger.CDebugf(ctx, "can't parse nmea : %s, %v", strBuf, err)
 							}
 						}
 						strBuf = ""

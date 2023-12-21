@@ -139,7 +139,7 @@ func makeMpu6050(
 	} else {
 		address = expectedDefaultAddress
 	}
-	logger.Debugf("Using address %d for MPU6050 sensor", address)
+	logger.CDebugf(ctx, "Using address %d for MPU6050 sensor", address)
 
 	backgroundContext, cancelFunc := context.WithCancel(context.Background())
 	sensor := &mpu6050{
@@ -188,7 +188,7 @@ func makeMpu6050(
 				// Record `err` no matter what: even if it's nil, that's useful information.
 				sensor.err.Set(err)
 				if err != nil {
-					sensor.logger.Errorf("error reading MPU6050 sensor: '%s'", err)
+					sensor.logger.CErrorf(ctx, "error reading MPU6050 sensor: '%s'", err)
 					continue
 				}
 
@@ -230,7 +230,7 @@ func (mpu *mpu6050) readBlock(ctx context.Context, register byte, length uint8) 
 	defer func() {
 		err := handle.Close()
 		if err != nil {
-			mpu.logger.Error(err)
+			mpu.logger.CError(ctx, err)
 		}
 	}()
 
@@ -246,7 +246,7 @@ func (mpu *mpu6050) writeByte(ctx context.Context, register, value byte) error {
 	defer func() {
 		err := handle.Close()
 		if err != nil {
-			mpu.logger.Error(err)
+			mpu.logger.CError(ctx, err)
 		}
 	}()
 
@@ -353,7 +353,7 @@ func (mpu *mpu6050) Close(ctx context.Context) error {
 	// Set the Sleep bit (bit 6) in the power control register (register 107).
 	err := mpu.writeByte(ctx, 107, 1<<6)
 	if err != nil {
-		mpu.logger.Error(err)
+		mpu.logger.CError(ctx, err)
 	}
 	return err
 }

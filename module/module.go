@@ -154,6 +154,7 @@ type Module struct {
 	activeBackgroundWorkers sync.WaitGroup
 	handlers                HandlerMap
 	collections             map[resource.API]resource.APIResourceCollection[resource.Resource]
+	resLoggers              map[resource.Resource]logging.Logger
 	closeOnce               sync.Once
 	pb.UnimplementedModuleServiceServer
 }
@@ -176,6 +177,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		ready:       true,
 		handlers:    HandlerMap{},
 		collections: map[resource.API]resource.APIResourceCollection[resource.Resource]{},
+		resLoggers:  map[resource.Resource]logging.Logger{},
 	}
 	if err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m); err != nil {
 		return nil, err
@@ -332,7 +334,8 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	if resInfo.Constructor == nil {
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
-	res, err := resInfo.Constructor(ctx, deps, *conf, m.logger)
+	resLogger := m.logger.Sublogger(conf.ResourceName().String())
+	res, err := resInfo.Constructor(ctx, deps, *conf, resLogger)
 	if err != nil {
 		return nil, err
 	}
@@ -343,6 +346,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	if !ok {
 		return nil, errors.Errorf("module cannot service api: %s", conf.API)
 	}
+	m.resLoggers[res] = resLogger
 
 	return &pb.AddResourceResponse{}, coll.Add(conf.ResourceName(), res)
 }
@@ -383,6 +387,15 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	res, err = coll.Resource(conf.ResourceName().Name)
 	if err != nil {
 		return nil, err
+	}
+
+	if logger, ok := m.resLoggers[res]; ok {
+		levelStr := req.GetConfig().GetLogConfiguration().GetLevel()
+		if level, err := logging.LevelFromString(levelStr); err == nil {
+			logger.SetLevel(level)
+		} else {
+			m.logger.Warnw("LogConfiguration does not contain a valid level.", "resource", res.Name().Name, "level", levelStr)
+		}
 	}
 
 	reconfErr := res.Reconfigure(ctx, deps, *conf)
@@ -534,18 +547,37 @@ func (m *Module) OperationManager() *operation.Manager {
 }
 
 // addConvertedAttributesToConfig uses the MapAttributeConverter to fill in the
-// ConvertedAttributes field from the Attributes.
+// ConvertedAttributes field from the Attributes and AssociatedResourceConfigs.
 func addConvertedAttributes(cfg *resource.Config) error {
 	// Try to find map converter for a resource.
 	reg, ok := resource.LookupRegistration(cfg.API, cfg.Model)
-	if !ok || reg.AttributeMapConverter == nil {
-		return nil
+	if ok && reg.AttributeMapConverter != nil {
+		converted, err := reg.AttributeMapConverter(cfg.Attributes)
+		if err != nil {
+			return errors.Wrapf(err, "error converting attributes for resource")
+		}
+		cfg.ConvertedAttributes = converted
 	}
-	converted, err := reg.AttributeMapConverter(cfg.Attributes)
-	if err != nil {
-		return errors.Wrapf(err, "error converting attributes for resource")
+
+	// Also try for associated configs (will only succeed if module itself registers the associated config API).
+	for subIdx, associatedConf := range cfg.AssociatedResourceConfigs {
+		conv, ok := resource.LookupAssociatedConfigRegistration(associatedConf.API)
+		if !ok {
+			continue
+		}
+		if conv.AttributeMapConverter != nil {
+			converted, err := conv.AttributeMapConverter(associatedConf.Attributes)
+			if err != nil {
+				return errors.Wrap(err, "error converting associated resource config attributes")
+			}
+			// associated resource configs for resources might be missing a resource name
+			// which can be inferred from its resource config.
+			converted.UpdateResourceNames(func(oldName resource.Name) resource.Name {
+				return cfg.ResourceName()
+			})
+			cfg.AssociatedResourceConfigs[subIdx].ConvertedAttributes = converted
+		}
 	}
-	cfg.ConvertedAttributes = converted
 	return nil
 }
 

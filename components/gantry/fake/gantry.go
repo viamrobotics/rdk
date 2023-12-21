@@ -70,7 +70,7 @@ func (g *Gantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]f
 
 // Home runs the homing sequence of the gantry and returns true once completed.
 func (g *Gantry) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
-	g.logger.Info("homing")
+	g.logger.CInfo(ctx, "homing")
 	return true, nil
 }
 

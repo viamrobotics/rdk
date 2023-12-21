@@ -21,11 +21,11 @@ func init() {
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: position.String(),
-	}, NewPositionCollector)
+	}, newPositionCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: isPowered.String(),
-	}, NewIsPoweredCollector)
+	}, newIsPoweredCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "motor".

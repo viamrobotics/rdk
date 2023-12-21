@@ -129,14 +129,14 @@ func (ua *URArm) Close(ctx context.Context) error {
 
 	closeConn := func() {
 		if err := ua.dashboardConnection.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
-			ua.logger.Errorw("error closing arm's Dashboard connection", "error", err)
+			ua.logger.CErrorw(ctx, "error closing arm's Dashboard connection", "error", err)
 		}
 		if err := ua.readRobotStateConnection.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
-			ua.logger.Errorw("error closing arm's State connection", "error", err)
+			ua.logger.CErrorw(ctx, "error closing arm's State connection", "error", err)
 		}
 		if ua.connControl != nil {
 			if err := ua.connControl.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
-				ua.logger.Errorw("error closing arm's control connection", "error", err)
+				ua.logger.CErrorw(ctx, "error closing arm's control connection", "error", err)
 			}
 		}
 	}
@@ -216,7 +216,7 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger logging.Logg
 					if err := cancelCtx.Err(); err != nil {
 						return
 					}
-					logger.Debug("attempting to reconnect to ur arm dashboard")
+					logger.CDebug(ctx, "attempting to reconnect to ur arm dashboard")
 					time.Sleep(1 * time.Second)
 					connDashboard, err = d.DialContext(cancelCtx, "tcp", newArm.host+":29999")
 					if err == nil {
@@ -235,7 +235,7 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger logging.Logg
 					}
 				}
 			} else if err != nil {
-				logger.Errorw("dashboard reader failed", "error", err)
+				logger.CErrorw(ctx, "dashboard reader failed", "error", err)
 				newArm.mu.Lock()
 				newArm.isConnected = false
 				newArm.mu.Unlock()
@@ -260,7 +260,7 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger logging.Logg
 					if err := cancelCtx.Err(); err != nil {
 						return
 					}
-					logger.Debug("attempting to reconnect to ur arm 30011")
+					logger.CDebug(ctx, "attempting to reconnect to ur arm 30011")
 					connReadRobotState, err = d.DialContext(cancelCtx, "tcp", newArm.host+":30011")
 					if err == nil {
 						newArm.mu.Lock()
@@ -273,7 +273,7 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger logging.Logg
 					}
 				}
 			} else if err != nil {
-				logger.Errorw("reader failed", "error", err)
+				logger.CErrorw(ctx, "reader failed", "error", err)
 				return
 			}
 		}
@@ -616,14 +616,14 @@ func reader(ctx context.Context, conn net.Conn, ua *URArm, onHaveData func()) er
 
 		switch buf[0] {
 		case 16:
-			state, err := readRobotStateMessage(buf[1:], ua.logger)
+			state, err := readRobotStateMessage(ctx, buf[1:], ua.logger)
 			if err != nil {
 				return err
 			}
 			ua.setState(state)
 			onHaveData()
 			if ua.debug {
-				ua.logger.Debugf("isOn: %v stopped: %v joints: %f %f %f %f %f %f cartesian: %f %f %f %f %f %f\n",
+				ua.logger.CDebugf(ctx, "isOn: %v stopped: %v joints: %f %f %f %f %f %f cartesian: %f %f %f %f %f %f\n",
 					state.RobotModeData.IsRobotPowerOn,
 					state.RobotModeData.IsEmergencyStopped || state.RobotModeData.IsProtectiveStopped,
 					state.Joints[0].AngleValues(),
@@ -640,31 +640,31 @@ func reader(ctx context.Context, conn net.Conn, ua *URArm, onHaveData func()) er
 					state.CartesianInfo.Rz)
 			}
 		case 20:
-			userErr := readURRobotMessage(buf, ua.logger)
+			userErr := readURRobotMessage(ctx, buf, ua.logger)
 			if userErr != nil {
 				ua.setRuntimeError(userErr)
 			}
 		case 5: // MODBUS_INFO_MESSAGE
 			data := binary.BigEndian.Uint32(buf[1:])
 			if data != 0 {
-				ua.logger.Debugf("got unexpected MODBUS_INFO_MESSAGE %d\n", data)
+				ua.logger.CDebugf(ctx, "got unexpected MODBUS_INFO_MESSAGE %d\n", data)
 			}
 		case 23: // SAFETY_SETUP_BROADCAST_MESSAGE
 		case 24: // SAFETY_COMPLIANCE_TOLERANCES_MESSAGE
 		case 25: // PROGRAM_STATE_MESSAGE
 			if len(buf) != 12 {
-				ua.logger.Debug("got bad PROGRAM_STATE_MESSAGE ??")
+				ua.logger.CDebug(ctx, "got bad PROGRAM_STATE_MESSAGE ??")
 			} else {
 				a := binary.BigEndian.Uint32(buf[1:])
 				b := buf[9]
 				c := buf[10]
 				d := buf[11]
 				if a != 4294967295 || b != 1 || c != 0 || d != 0 {
-					ua.logger.Debugf("got unknown PROGRAM_STATE_MESSAGE %v %v %v %v\n", a, b, c, d)
+					ua.logger.CDebugf(ctx, "got unknown PROGRAM_STATE_MESSAGE %v %v %v %v\n", a, b, c, d)
 				}
 			}
 		default:
-			ua.logger.Debugf("ur: unknown messageType: %v size: %d %v\n", buf[0], len(buf), buf)
+			ua.logger.CDebugf(ctx, "ur: unknown messageType: %v size: %d %v\n", buf[0], len(buf), buf)
 		}
 	}
 }

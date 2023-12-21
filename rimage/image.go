@@ -1,5 +1,3 @@
-//go:build !no_cgo
-
 // Package rimage defines fundamental image and color processing primitives.
 //
 // The golang standard library, while useful, is not very productive when it
@@ -157,4 +155,37 @@ func ConvertColorImageToLuminanceFloat(img *Image) *mat.Dense {
 		out.Set(y, x, l)
 	})
 	return out
+}
+
+// H264 is an image.Image that holds an H264 encoded frame.
+type H264 struct {
+	Bytes   []byte
+	Width   int
+	Height  int
+	GOPSize int
+}
+
+// ColorModel unimplemented.
+func (h H264) ColorModel() color.Model {
+	panic("not implemented")
+}
+
+// Bounds unimplemented.
+func (h H264) Bounds() image.Rectangle {
+	panic("not implemented")
+}
+
+// At unimplemented.
+func (h H264) At(x, y int) color.Color {
+	panic("not implemented")
+}
+
+// NewH264Image returns a new image.Image from the given bytes and stores the given parameters.
+func NewH264Image(bytes []byte, width, height, gopSize int) image.Image {
+	return H264{
+		Bytes:   bytes,
+		Width:   width,
+		Height:  height,
+		GOPSize: gopSize,
+	}
 }

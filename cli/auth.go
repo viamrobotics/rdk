@@ -17,6 +17,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	buildpb "go.viam.com/api/app/build/v1"
 	datapb "go.viam.com/api/app/data/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
@@ -391,7 +392,7 @@ func (c *viamClient) locationAPIKeyCreateAction(cCtx *cli.Context) error {
 	return nil
 }
 
-// RobotAPIKeyCreateAction corresponds to `robot api-key create`.
+// RobotAPIKeyCreateAction corresponds to `machine api-key create`.
 func RobotAPIKeyCreateAction(cCtx *cli.Context) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
@@ -406,12 +407,12 @@ func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context) error {
 		return err
 	}
 
-	robotID := cCtx.String(apiKeyFlagRobotID)
+	robotID := cCtx.String(apiKeyFlagMachineID)
 	keyName := cCtx.String(apiKeyCreateFlagName)
 	orgID := cCtx.String(dataFlagOrgID)
 
 	if robotID == "" {
-		return errors.New("cannot create an api-key for a robot without an ID")
+		return errors.New("cannot create an api-key for a machine without an ID")
 	}
 
 	if keyName == "" {
@@ -441,7 +442,7 @@ func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context) error {
 	key, err := c.client.CreateKey(c.c.Context, req)
 	if err != nil {
 		if strings.Contains(err.Error(), "multiple orgs") {
-			return errors.New("cannot create the robot api-key as there are multiple orgs on the location. " +
+			return errors.New("cannot create the machine api-key as there are multiple orgs on the location. " +
 				"Please re-run the command with an organization-id flag set")
 		}
 		return err
@@ -449,7 +450,7 @@ func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context) error {
 	infof(cCtx.App.Writer, "Successfully created key:")
 	printf(cCtx.App.Writer, "Key ID: %s", key.GetId())
 	printf(cCtx.App.Writer, "Key Value: %s", key.GetKey())
-	warningf(cCtx.App.Writer, "Keep this key somewhere safe; it has full write access to your robot")
+	warningf(cCtx.App.Writer, "Keep this key somewhere safe; it has full write access to your machine")
 
 	return nil
 }
@@ -501,6 +502,7 @@ func (c *viamClient) ensureLoggedIn() error {
 	c.packageClient = packagepb.NewPackageServiceClient(conn)
 	c.datasetClient = datasetpb.NewDatasetServiceClient(conn)
 	c.mlTrainingClient = mltrainingpb.NewMLTrainingServiceClient(conn)
+	c.buildClient = buildpb.NewBuildServiceClient(conn)
 
 	return nil
 }

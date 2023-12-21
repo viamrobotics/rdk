@@ -189,7 +189,7 @@ func (m *Motor) Close(ctx context.Context) error {
 	}
 	err := m.Stop(context.Background(), nil)
 	if err != nil {
-		m.c.logger.Error(err)
+		m.c.logger.CError(ctx, err)
 	}
 
 	m.c.mu.Lock()
@@ -203,7 +203,7 @@ func (m *Motor) Close(ctx context.Context) error {
 	if m.c.port != nil {
 		err = m.c.port.Close()
 		if err != nil {
-			m.c.logger.Error(err)
+			m.c.logger.CError(ctx, err)
 		}
 	}
 	globalMu.Lock()
@@ -450,10 +450,10 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 
 	switch pow := math.Abs(powerPct); {
 	case pow < 0.1:
-		m.c.logger.Warn("motor speed is nearly 0 rev_per_min")
+		m.c.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
 		return m.Stop(ctx, extra)
 	case m.maxRPM > 0 && pow*m.maxRPM > m.maxRPM-0.1:
-		m.c.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
+		m.c.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
 	default:
 	}
 
@@ -503,10 +503,10 @@ func (m *Motor) stopJog() error {
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
-		m.c.logger.Warn("motor speed is nearly 0 rev_per_min")
+		m.c.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
 		return motor.NewZeroRPMError()
 	case m.maxRPM > 0 && speed > m.maxRPM-0.1:
-		m.c.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
+		m.c.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
 	default:
 	}
 	ctx, done := m.opMgr.New(ctx)
@@ -662,7 +662,7 @@ func (m *Motor) Home(ctx context.Context) error {
 	// wait for routine to finish
 	defer func() {
 		if err := m.Stop(ctx, nil); err != nil {
-			m.c.logger.Error(err)
+			m.c.logger.CError(ctx, err)
 		}
 	}()
 

@@ -34,11 +34,11 @@ func init() {
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: endPosition.String(),
-	}, NewEndPositionCollector)
+	}, newEndPositionCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: jointPositions.String(),
-	}, NewJointPositionsCollector)
+	}, newJointPositionsCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "arm".

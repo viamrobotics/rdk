@@ -81,7 +81,7 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	}
 
 	if resp.MimeType != expectedType {
-		c.logger.Debugw("got different MIME type than what was asked for", "sent", expectedType, "received", resp.MimeType)
+		c.logger.CDebugw(ctx, "got different MIME type than what was asked for", "sent", expectedType, "received", resp.MimeType)
 	} else {
 		resp.MimeType = mimeType
 	}
@@ -246,6 +246,7 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 			Ppy:    intrinsics.CenterYPx,
 		}
 	}
+	result.MimeTypes = resp.MimeTypes
 	result.SupportsPCD = resp.SupportsPcd
 	// if no distortion model present, return result with no model
 	if resp.DistortionParameters == nil {

@@ -14,7 +14,7 @@
   import { components } from '@/stores/resources';
   import Collapse from '@/lib/components/collapse.svelte';
   import Dropzone from '@/lib/components/dropzone.svelte';
-  import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
+  import { useRobotClient, useDisconnect, useConnect } from '@/hooks/robot-client';
   import type { SLAMOverrides } from '@/types/overrides';
   import { rcLogConditionally } from '@/lib/log';
 
@@ -238,20 +238,6 @@
     startDurationTimer(start);
   };
 
-  onMount(async () => {
-    if (overrides && overrides.isCloudSlam) {
-      const activeSession = await overrides.getActiveMappingSession();
-
-      if (activeSession) {
-        hasActiveSession = true;
-        sessionId = activeSession.id;
-        const startMilliseconds =
-          (activeSession.timeCloudRunJobStarted?.seconds ?? 0) * 1000;
-        startMappingIntervals(startMilliseconds);
-      }
-    }
-  });
-
   const handleStartMapping = async () => {
     if (overrides) {
       // if input error do not start mapping
@@ -268,11 +254,14 @@
 
       try {
         hasActiveSession = true;
-        sessionId = await overrides.startMappingSession(mapName);
-        mappingSessionStarted = true;
-        startMappingIntervals(Date.now());
+        if (!mappingSessionStarted) {
+          mappingSessionStarted = true;
+          sessionId = await overrides.startMappingSession(mapName)
+          startMappingIntervals(Date.now());
+        }
       } catch {
         hasActiveSession = false;
+        mappingSessionStarted = false;
         sessionDuration = 0;
         clearInterval(durationInterval);
       }
@@ -311,11 +300,6 @@
     overrides?.viewMap(sessionId);
   };
 
-  useDisconnect(clearRefresh);
-  onDestroy(() => {
-    clearInterval(durationInterval);
-  });
-
   const handleMapNameChange = (event: CustomEvent<{ value: string }>) => {
     newMapName = event.detail.value;
     mapNameError = overrides?.validateMapName(newMapName) ?? '';
@@ -324,6 +308,31 @@
   const handleDrop = (event: CustomEvent<string>) => {
     motionPath = event.detail;
   };
+
+  onMount(async () => {
+    if (overrides?.isCloudSlam) {
+      const activeSession = await overrides.getActiveMappingSession();
+
+      if (activeSession) {
+        hasActiveSession = true;
+        sessionId = activeSession.id;
+        const startMilliseconds =
+          (activeSession.timeCloudRunJobStarted?.seconds ?? 0) * 1000;
+        startMappingIntervals(startMilliseconds);
+      }
+    }
+  });
+
+  useDisconnect(clearRefresh);
+
+  useConnect(() => {
+    updateSLAM2dRefreshFrequency()
+  })
+
+  onDestroy(() => {
+    clearInterval(durationInterval);
+  });
+
 </script>
 
 <Collapse title={name} on:toggle={toggleExpand}>

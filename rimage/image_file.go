@@ -1,5 +1,3 @@
-//go:build !no_cgo
-
 package rimage
 
 import (
@@ -17,7 +15,6 @@ import (
 
 	"github.com/lmittmann/ppm"
 	"github.com/pkg/errors"
-	libjpeg "github.com/viam-labs/go-libjpeg/jpeg"
 	"github.com/xfmoulet/qoi"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
@@ -36,8 +33,6 @@ var RGBABitmapMagicNumber = []byte("RGBA")
 // DepthMapMagicNumber represents the magic number for our custom header
 // for raw DEPTH data.
 var DepthMapMagicNumber = []byte("DEPTHMAP")
-
-var jpegEncoderOptions = &libjpeg.EncoderOptions{Quality: 75, DCTMethod: libjpeg.DCTIFast}
 
 // RawRGBAHeaderLength is the length of our custom header for raw RGBA data
 // in bytes. See above as to why.
@@ -246,23 +241,6 @@ func SaveImage(pic image.Image, loc string) error {
 	return nil
 }
 
-// EncodeJPEG encode an image.Image in JPEG using libjpeg.
-func EncodeJPEG(w io.Writer, src image.Image) error {
-	switch v := src.(type) {
-	case *Image:
-		imgRGBA := image.NewRGBA(src.Bounds())
-		ConvertToRGBA(imgRGBA, v)
-		return libjpeg.Encode(w, imgRGBA, jpegEncoderOptions)
-	default:
-		return libjpeg.Encode(w, src, jpegEncoderOptions)
-	}
-}
-
-// DecodeJPEG decode JPEG []bytes into an image.Image using libjpeg.
-func DecodeJPEG(r io.Reader) (img image.Image, err error) {
-	return libjpeg.Decode(r, &libjpeg.DecoderOptions{DCTMethod: libjpeg.DCTIFast})
-}
-
 // DecodeImage takes an image buffer and decodes it, using the mimeType
 // and the dimensions, to return the image.
 func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string) (image.Image, error) {
@@ -308,7 +286,6 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 		return EncodeImage(ctx, lazy.decodedImage, actualOutMIME)
 	}
 	var buf bytes.Buffer
-	bounds := img.Bounds()
 	switch actualOutMIME {
 	case ut.MimeTypeRawDepth:
 		if _, err := WriteViamDepthMapTo(img, &buf); err != nil {
@@ -321,6 +298,7 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 		buf.Write(RGBABitmapMagicNumber)
 		widthBytes := make([]byte, 4)
 		heightBytes := make([]byte, 4)
+		bounds := img.Bounds()
 		binary.BigEndian.PutUint32(widthBytes, uint32(bounds.Dx()))
 		binary.BigEndian.PutUint32(heightBytes, uint32(bounds.Dy()))
 		buf.Write(widthBytes)
@@ -340,6 +318,9 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 		if err := qoi.Encode(&buf, img); err != nil {
 			return nil, err
 		}
+	case ut.MimeTypeH264:
+		frame := img.(H264)
+		buf.Write(frame.Bytes)
 	default:
 		return nil, errors.Errorf("do not know how to encode %q", actualOutMIME)
 	}

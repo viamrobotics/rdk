@@ -80,7 +80,7 @@ func newSensor(
 	addr := conf.I2cAddr
 	if addr == 0 {
 		addr = defaultI2Caddr
-		logger.Warn("using i2c address : 0x44")
+		logger.CWarn(ctx, "using i2c address : 0x44")
 	}
 
 	s := &sht3xd{
@@ -114,12 +114,12 @@ func (s *sht3xd) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	tryRead := func() ([]byte, error) {
 		handle, err := s.bus.OpenHandle(s.addr)
 		if err != nil {
-			s.logger.Errorf("can't open sht3xd i2c %s", err)
+			s.logger.CErrorf(ctx, "can't open sht3xd i2c %s", err)
 			return nil, err
 		}
 		err = handle.Write(ctx, []byte{sht3xdCOMMANDPOLLINGH1, sht3xdCOMMANDPOLLINGH2})
 		if err != nil {
-			s.logger.Debug("Failed to request temperature")
+			s.logger.CDebug(ctx, "Failed to request temperature")
 			return nil, multierr.Append(err, handle.Close())
 		}
 		buffer, err := handle.Read(ctx, 2)
@@ -158,7 +158,7 @@ func (s *sht3xd) Readings(ctx context.Context, extra map[string]interface{}) (ma
 func (s *sht3xd) reset(ctx context.Context) error {
 	handle, err := s.bus.OpenHandle(s.addr)
 	if err != nil {
-		s.logger.Errorf("can't open sht3xd i2c %s", err)
+		s.logger.CErrorf(ctx, "can't open sht3xd i2c %s", err)
 		return err
 	}
 	err = handle.Write(ctx, []byte{sht3xdCOMMANDSOFTRESET1, sht3xdCOMMANDSOFTRESET2})

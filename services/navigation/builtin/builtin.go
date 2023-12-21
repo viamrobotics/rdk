@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -21,7 +22,9 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/explore"
 	"go.viam.com/rdk/services/navigation"
@@ -53,19 +56,19 @@ const (
 	defaultMapType = navigation.GPSMap
 
 	// desired speeds to maintain for the base.
-	defaultLinearVelocityMPerSec     = 0.5
-	defaultAngularVelocityDegsPerSec = 45.
+	defaultLinearMPerSec     = 0.3
+	defaultAngularDegsPerSec = 20.
 
 	// how far off the path must the robot be to trigger replanning.
-	defaultPlanDeviationM = 1e9
+	defaultPlanDeviationM = 2.6
 
 	// the allowable quality change between the new plan and the remainder
 	// of the original plan.
 	defaultReplanCostFactor = 1.
 
 	// frequency measured in hertz.
-	defaultObstaclePollingFrequencyHz = 2.
-	defaultPositionPollingFrequencyHz = 2.
+	defaultObstaclePollingHz = 1.
+	defaultPositionPollingHz = 1.
 
 	// frequency in milliseconds.
 	planHistoryPollFrequency = time.Millisecond * 50
@@ -198,6 +201,9 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		}
 	}
 
+	// add framesystem service as dependency to be used by builtin and explore motion service
+	deps = append(deps, framesystem.InternalServiceName.String())
+
 	return deps, nil
 }
 
@@ -226,9 +232,11 @@ type builtIn struct {
 	mode                    navigation.Mode
 	mapType                 navigation.MapType
 
-	base           base.Base
-	movementSensor movementsensor.MovementSensor
-	motionService  motion.Service
+	fsService            framesystem.Service
+	base                 base.Base
+	movementSensor       movementsensor.MovementSensor
+	visionServicesByName map[resource.Name]vision.Service
+	motionService        motion.Service
 	// exploreMotionService will be removed once the motion explore model is integrated into motion builtin
 	exploreMotionService motion.Service
 	obstacles            []*spatialmath.GeoObstacle
@@ -249,25 +257,37 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	svc.stopActiveMode()
 
+	// Set framesystem service
+	for name, dep := range deps {
+		if name == framesystem.InternalServiceName {
+			fsService, ok := dep.(framesystem.Service)
+			if !ok {
+				return errors.New("frame system service is invalid type")
+			}
+			svc.fsService = fsService
+			break
+		}
+	}
+
 	svcConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
 	}
 
 	// Set optional variables
-	metersPerSec := defaultLinearVelocityMPerSec
+	metersPerSec := defaultLinearMPerSec
 	if svcConfig.MetersPerSec != 0 {
 		metersPerSec = svcConfig.MetersPerSec
 	}
-	degPerSec := defaultAngularVelocityDegsPerSec
+	degPerSec := defaultAngularDegsPerSec
 	if svcConfig.DegPerSec != 0 {
 		degPerSec = svcConfig.DegPerSec
 	}
-	positionPollingFrequencyHz := defaultPositionPollingFrequencyHz
+	positionPollingFrequencyHz := defaultPositionPollingHz
 	if svcConfig.PositionPollingFrequencyHz != 0 {
 		positionPollingFrequencyHz = svcConfig.PositionPollingFrequencyHz
 	}
-	obstaclePollingFrequencyHz := defaultObstaclePollingFrequencyHz
+	obstaclePollingFrequencyHz := defaultObstaclePollingHz
 	if svcConfig.ObstaclePollingFrequencyHz != 0 {
 		obstaclePollingFrequencyHz = svcConfig.ObstaclePollingFrequencyHz
 	}
@@ -322,6 +342,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	var obstacleDetectorNamePairs []motion.ObstacleDetectorName
+	visionServicesByName := make(map[resource.Name]vision.Service)
 	for _, pbObstacleDetectorPair := range svcConfig.ObstacleDetectors {
 		visionSvc, err := vision.FromDependencies(deps, pbObstacleDetectorPair.VisionServiceName)
 		if err != nil {
@@ -334,6 +355,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		obstacleDetectorNamePairs = append(obstacleDetectorNamePairs, motion.ObstacleDetectorName{
 			VisionServiceName: visionSvc.Name(), CameraName: camera.Name(),
 		})
+		visionServicesByName[visionSvc.Name()] = visionSvc
 	}
 
 	// Parse movement sensor from the configuration if map type is GPS
@@ -375,6 +397,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.motionService = motionSvc
 	svc.obstacles = newObstacles
 	svc.replanCostFactor = replanCostFactor
+	svc.visionServicesByName = visionServicesByName
 	svc.motionCfg = &motion.MotionConfiguration{
 		ObstacleDetectors:     obstacleDetectorNamePairs,
 		LinearMPerSec:         metersPerSec,
@@ -398,7 +421,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	defer svc.actionMu.Unlock()
 
 	svc.mu.RLock()
-	svc.logger.Infof("SetMode called: transitioning from %s to %s", svc.mode, mode)
+	svc.logger.CInfof(ctx, "SetMode called: transitioning from %s to %s", svc.mode, mode)
 	if svc.mode == mode {
 		svc.mu.RUnlock()
 		return nil
@@ -464,7 +487,7 @@ func (svc *builtIn) Waypoints(ctx context.Context, extra map[string]interface{})
 }
 
 func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
-	svc.logger.Infof("AddWaypoint called with %#v", *point)
+	svc.logger.CInfof(ctx, "AddWaypoint called with %#v", *point)
 	_, err := svc.store.AddWaypoint(ctx, point)
 	return err
 }
@@ -472,7 +495,7 @@ func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map
 func (svc *builtIn) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	svc.logger.Infof("RemoveWaypoint called with waypointID: %s", id)
+	svc.logger.CInfof(ctx, "RemoveWaypoint called with waypointID: %s", id)
 	if svc.waypointInProgress != nil && svc.waypointInProgress.ID == id {
 		if svc.currentWaypointCancelFunc != nil {
 			svc.currentWaypointCancelFunc()
@@ -520,7 +543,7 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 	}
 	cancelCtx, cancelFn := context.WithCancel(ctx)
 	defer cancelFn()
-	executionID, err := svc.motionService.MoveOnGlobeNew(cancelCtx, req)
+	executionID, err := svc.motionService.MoveOnGlobe(cancelCtx, req)
 	if err != nil {
 		return err
 	}
@@ -529,7 +552,7 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 	if old := svc.activeExecutionWaypoint.Swap(executionWaypoint); old != nil && old != emptyExecutionWaypoint {
 		msg := "unexpected race condition in moveOnGlobeSync, expected " +
 			"replaced waypoint & execution id to be nil or %#v; instead was %s"
-		svc.logger.Errorf(msg, emptyExecutionWaypoint, old)
+		svc.logger.CErrorf(ctx, msg, emptyExecutionWaypoint, old)
 	}
 	// call StopPlan upon exiting moveOnGlobeSync
 	// is a NoOp if execution has already terminted
@@ -538,17 +561,17 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 		defer timeoutCancelFn()
 		err := svc.motionService.StopPlan(timeoutCtx, motion.StopPlanReq{ComponentName: req.ComponentName})
 		if err != nil {
-			svc.logger.Error("hit error trying to stop plan %s", err)
+			svc.logger.CError(ctx, "hit error trying to stop plan %s", err)
 		}
 
 		if old := svc.activeExecutionWaypoint.Swap(emptyExecutionWaypoint); old != executionWaypoint {
 			msg := "unexpected race condition in moveOnGlobeSync, expected " +
 				"replaced waypoint & execution id to equal %s, was actually %s"
-			svc.logger.Errorf(msg, executionWaypoint, old)
+			svc.logger.CErrorf(ctx, msg, executionWaypoint, old)
 		}
 	}()
 
-	err = pollUntilMOGSuccessOrError(cancelCtx, svc.motionService, planHistoryPollFrequency,
+	err = motion.PollHistoryUntilSuccessOrError(cancelCtx, svc.motionService, planHistoryPollFrequency,
 		motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
 			ExecutionID:   executionID,
@@ -588,16 +611,16 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 			svc.currentWaypointCancelFunc = cancelFunc
 			svc.mu.Unlock()
 
-			svc.logger.Infof("navigating to waypoint: %+v", wp)
+			svc.logger.CInfof(ctx, "navigating to waypoint: %+v", wp)
 			if err := svc.moveToWaypoint(cancelCtx, wp, extra); err != nil {
 				if svc.waypointIsDeleted() {
-					svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
+					svc.logger.CInfof(ctx, "skipping waypoint %+v since it was deleted", wp)
 					continue
 				}
-				svc.logger.Warnf("retrying navigation to waypoint %+v since it errored out: %s", wp, err)
+				svc.logger.CWarnf(ctx, "retrying navigation to waypoint %+v since it errored out: %s", wp, err)
 				continue
 			}
-			svc.logger.Infof("reached waypoint: %+v", wp)
+			svc.logger.CInfof(ctx, "reached waypoint: %+v", wp)
 		}
 	}, svc.activeBackgroundWorkers.Done)
 }
@@ -618,7 +641,162 @@ func (svc *builtIn) waypointIsDeleted() bool {
 func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.obstacles, nil
+
+	// get static geoObstacles
+	geoObstacles := svc.obstacles
+
+	for _, detector := range svc.motionCfg.ObstacleDetectors {
+		// get the vision service
+		visSvc, ok := svc.visionServicesByName[detector.VisionServiceName]
+		if !ok {
+			return nil, fmt.Errorf("vision service with name: %s not found", detector.VisionServiceName)
+		}
+
+		svc.logger.CDebugf(
+			ctx,
+			"proceeding to get detections from vision service: %s with camera: %s",
+			detector.VisionServiceName.ShortName(),
+			detector.CameraName.ShortName(),
+		)
+
+		// get the detections
+		detections, err := visSvc.GetObjectPointClouds(ctx, detector.CameraName.Name, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		// determine transform from camera to movement sensor
+		movementsensorOrigin := referenceframe.NewPoseInFrame(svc.movementSensor.Name().ShortName(), spatialmath.NewZeroPose())
+		cameraToMovementsensor, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, detector.CameraName.ShortName(), nil)
+		if err != nil {
+			// here we make the assumption the movementsensor is coincident with the camera
+			svc.logger.CDebugf(
+				ctx,
+				"we assume the movementsensor named: %s is coincident with the camera named: %s due to err: %v",
+				svc.movementSensor.Name().ShortName(), detector.CameraName.ShortName(), err.Error(),
+			)
+			cameraToMovementsensor = movementsensorOrigin
+		}
+		svc.logger.CDebugf(ctx, "cameraToMovementsensor Pose: %v", spatialmath.PoseToProtobuf(cameraToMovementsensor.Pose()))
+
+		// determine transform from base to movement sensor
+		baseToMovementSensor, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, svc.base.Name().ShortName(), nil)
+		if err != nil {
+			// here we make the assumption the movementsensor is coincident with the base
+			svc.logger.CDebugf(
+				ctx,
+				"we assume the movementsensor named: %s is coincident with the base named: %s due to err: %v",
+				svc.movementSensor.Name().ShortName(), svc.base.Name().ShortName(), err.Error(),
+			)
+			baseToMovementSensor = movementsensorOrigin
+		}
+		svc.logger.CDebugf(ctx, "baseToMovementSensor Pose: %v", spatialmath.PoseToProtobuf(baseToMovementSensor.Pose()))
+
+		// determine transform from base to camera
+		cameraOrigin := referenceframe.NewPoseInFrame(detector.CameraName.ShortName(), spatialmath.NewZeroPose())
+		baseToCamera, err := svc.fsService.TransformPose(ctx, cameraOrigin, svc.base.Name().ShortName(), nil)
+		if err != nil {
+			// here we make the assumption the base is coincident with the camera
+			svc.logger.CDebugf(
+				ctx,
+				"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
+				svc.base.Name().ShortName(), detector.CameraName.ShortName(), err.Error(),
+			)
+			baseToCamera = cameraOrigin
+		}
+		svc.logger.CDebugf(ctx, "baseToCamera Pose: %v", spatialmath.PoseToProtobuf(baseToCamera.Pose()))
+
+		// get current geo position of robot
+		gp, _, err := svc.movementSensor.Position(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		// instantiate a localizer and use it to get our current position
+		localizer := motion.NewMovementSensorLocalizer(svc.movementSensor, gp, spatialmath.NewZeroPose())
+		currentPIF, err := localizer.CurrentPosition(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		// convert orientation of currentPIF to be left handed
+		localizerHeading := math.Mod(math.Abs(currentPIF.Pose().Orientation().OrientationVectorDegrees().Theta-360), 360)
+
+		// ensure baseToMovementSensor orientation is positive
+		localizerBaseThetaDiff := math.Mod(math.Abs(baseToMovementSensor.Pose().Orientation().OrientationVectorDegrees().Theta+360), 360)
+
+		baseHeading := math.Mod(localizerHeading+localizerBaseThetaDiff, 360)
+
+		// convert geo position into GeoPose
+		robotGeoPose := spatialmath.NewGeoPose(gp, baseHeading)
+		svc.logger.CDebugf(ctx, "robotGeoPose Location: %v, Heading: %v", *robotGeoPose.Location(), robotGeoPose.Heading())
+
+		// iterate through all detections and construct a geoObstacle to append
+		for i, detection := range detections {
+			svc.logger.CInfof(
+				ctx,
+				"detection %d pose with respect to camera frame: %v",
+				i, spatialmath.PoseToProtobuf(detection.Geometry.Pose()),
+			)
+			// the position of the detection in the camera coordinate frame if it were at the movementsensor's location
+			desiredPoint := detection.Geometry.Pose().Point().Sub(cameraToMovementsensor.Pose().Point())
+
+			desiredPose := spatialmath.NewPose(
+				desiredPoint,
+				detection.Geometry.Pose().Orientation(),
+			)
+
+			transformBy := spatialmath.PoseBetweenInverse(detection.Geometry.Pose(), desiredPose)
+
+			// get the manipulated geometry
+			manipulatedGeom := detection.Geometry.Transform(transformBy)
+			svc.logger.CDebugf(
+				ctx,
+				"detection %d pose from movementsensor's position with camera frame coordinate axes: %v ",
+				i, spatialmath.PoseToProtobuf(manipulatedGeom.Pose()),
+			)
+
+			// fix axes of geometry's pose such that it is in the cooordinate system of the base
+			manipulatedGeom = manipulatedGeom.Transform(spatialmath.NewPoseFromOrientation(baseToCamera.Pose().Orientation()))
+			svc.logger.CDebugf(
+				ctx,
+				"detection %d pose from movementsensor's position with base frame coordinate axes: %v ",
+				i, spatialmath.PoseToProtobuf(manipulatedGeom.Pose()),
+			)
+
+			// get the geometry's lat & lng along with its heading with respect to north as a left handed value
+			obstacleGeoPose := spatialmath.PoseToGeoPose(robotGeoPose, manipulatedGeom.Pose())
+			svc.logger.CDebugf(
+				ctx,
+				"obstacleGeoPose Location: %v, Heading: %v",
+				*obstacleGeoPose.Location(), obstacleGeoPose.Heading(),
+			)
+
+			// prefix the label of the geometry so we know it is transient and add extra info
+			label := "transient_" + strconv.Itoa(i) + "_" + detector.CameraName.Name
+			if detection.Geometry.Label() != "" {
+				label += "_" + detection.Geometry.Label()
+			}
+			detection.Geometry.SetLabel(label)
+
+			// determine the desired geometry pose
+			desiredPose = spatialmath.NewPoseFromOrientation(detection.Geometry.Pose().Orientation())
+
+			// calculate what we need to transform by
+			transformBy = spatialmath.PoseBetweenInverse(detection.Geometry.Pose(), desiredPose)
+
+			// set the geometry's pose to desiredPose
+			manipulatedGeom = detection.Geometry.Transform(transformBy)
+
+			// create the geo obstacle
+			obstacle := spatialmath.NewGeoObstacle(obstacleGeoPose.Location(), []spatialmath.Geometry{manipulatedGeom})
+
+			// add manipulatedGeom to list of geoObstacles we return
+			geoObstacles = append(geoObstacles, obstacle)
+		}
+	}
+
+	return geoObstacles, nil
 }
 
 func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
@@ -664,45 +842,4 @@ func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]
 		return nil, err
 	}
 	return []*navigation.Path{path}, nil
-}
-
-func pollUntilMOGSuccessOrError(
-	ctx context.Context,
-	m motion.Service,
-	interval time.Duration,
-	req motion.PlanHistoryReq,
-) error {
-	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-
-		ph, err := m.PlanHistory(ctx, req)
-		if err != nil {
-			return err
-		}
-
-		status := ph[0].StatusHistory[0]
-
-		switch status.State {
-		case motion.PlanStateInProgress:
-		case motion.PlanStateFailed:
-			err := errors.New("plan failed")
-			if reason := status.Reason; reason != nil {
-				err = errors.Wrap(err, *reason)
-			}
-			return err
-
-		case motion.PlanStateStopped:
-			return errors.New("plan stopped")
-
-		case motion.PlanStateSucceeded:
-			return nil
-
-		default:
-			return fmt.Errorf("invalid plan state %d", status.State)
-		}
-
-		time.Sleep(interval)
-	}
 }

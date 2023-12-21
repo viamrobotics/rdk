@@ -10,6 +10,8 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+const defaultMinPTGlen = 10.
+
 // ptgFrame wraps a tpspace.PTG so that it fills the Frame interface and can be used by IK.
 type ptgIKFrame struct {
 	PTG
@@ -18,18 +20,8 @@ type ptgIKFrame struct {
 
 // NewPTGIKFrame will create a new frame intended to be passed to an Inverse Kinematics solver, allowing IK to solve for parameters
 // for the passed in PTG.
-func newPTGIKFrame(ptg PTG, trajCount int, dist float64) referenceframe.Frame {
-	pf := &ptgIKFrame{PTG: ptg}
-
-	limits := []referenceframe.Limit{}
-	for i := 0; i < trajCount; i++ {
-		limits = append(limits,
-			referenceframe.Limit{Min: -math.Pi, Max: math.Pi},
-			referenceframe.Limit{Min: 0, Max: dist},
-		)
-	}
-	pf.limits = limits
-	return pf
+func newPTGIKFrame(ptg PTG, limits []referenceframe.Limit) referenceframe.Frame {
+	return &ptgIKFrame{PTG: ptg, limits: limits}
 }
 
 func (pf *ptgIKFrame) DoF() []referenceframe.Limit {
@@ -71,9 +63,13 @@ func (pf *ptgIKFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose
 	}
 	p1 := spatialmath.NewZeroPose()
 	for i := 0; i < len(inputs); i += 2 {
-		p2, err := pf.PTG.Transform(inputs[i : i+2])
+		dist := math.Abs(inputs[i+1].Value)
+		p2, err := pf.PTG.Transform([]referenceframe.Input{inputs[i], {dist}})
 		if err != nil {
 			return nil, err
+		}
+		if inputs[i+1].Value < 0 {
+			p2 = spatialmath.PoseBetween(spatialmath.Compose(p2, flipPose), flipPose)
 		}
 		p1 = spatialmath.Compose(p1, p2)
 	}

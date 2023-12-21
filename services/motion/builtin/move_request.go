@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/state"
 	"go.viam.com/rdk/services/slam"
@@ -66,6 +67,7 @@ type moveRequest struct {
 	kinematicBase     kinematicbase.KinematicBase
 	obstacleDetectors map[vision.Service][]resource.Name
 	replanCostFactor  float64
+	fsService         framesystem.Service
 
 	executeBackgroundWorkers *sync.WaitGroup
 	responseChan             chan moveResponse
@@ -138,16 +140,16 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, w
 	for i := int(waypointIndex.Load()); i < len(waypoints); i++ {
 		select {
 		case <-ctx.Done():
-			mr.logger.Debugf("calling kinematicBase.Stop due to %s\n", ctx.Err())
+			mr.logger.CDebugf(ctx, "calling kinematicBase.Stop due to %s\n", ctx.Err())
 			if stopErr := mr.stop(); stopErr != nil {
 				return state.ExecuteResponse{}, errors.Wrap(ctx.Err(), stopErr.Error())
 			}
 			return state.ExecuteResponse{}, nil
 		default:
-			mr.planRequest.Logger.Info(waypoints[i])
+			mr.planRequest.Logger.CInfo(ctx, waypoints[i])
 			if err := mr.kinematicBase.GoToInputs(ctx, waypoints[i]); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
-				mr.logger.Debugf("calling kinematicBase.Stop due to %s\n", err)
+				mr.logger.CDebugf(ctx, "calling kinematicBase.Stop due to %s\n", err)
 				if stopErr := mr.stop(); stopErr != nil {
 					return state.ExecuteResponse{}, errors.Wrap(err, stopErr.Error())
 				}
@@ -192,6 +194,12 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 
 	for visSrvc, cameraNames := range mr.obstacleDetectors {
 		for _, camName := range cameraNames {
+			mr.logger.Debugf(
+				"proceeding to get detections from vision service: %s with camera: %s",
+				visSrvc.Name().ShortName(),
+				camName.ShortName(),
+			)
+
 			// get detections from vision service
 			detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
 			if err != nil {
@@ -207,12 +215,28 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				return state.ExecuteResponse{}, err
 			}
 
+			// determine transform of camera to base
+			cameraOrigin := referenceframe.NewPoseInFrame(camName.ShortName(), spatialmath.NewZeroPose())
+			baseToCamera, err := mr.fsService.TransformPose(ctx, cameraOrigin, mr.kinematicBase.Name().ShortName(), nil)
+			if err != nil {
+				// here we make the assumption the base is coincident with the camera
+				mr.logger.Debugf(
+					"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
+					mr.kinematicBase.Name().ShortName(), camName.ShortName(), err.Error(),
+				)
+				baseToCamera = cameraOrigin
+			}
+
 			// Any obstacles specified by the worldstate of the moveRequest will also re-detected here.
 			// There is no need to append the new detections to the existing worldstate.
 			// We can safely build from scratch without excluding any valuable information.
 			geoms := []spatialmath.Geometry{}
 			for i, detection := range detections {
-				geometry := detection.Geometry.Transform(currentPosition.Pose())
+				// put the detection in the base coordinate frame
+				geometry := detection.Geometry.Transform(baseToCamera.Pose())
+
+				// put the detection into its position in the world with the base coordinate frame
+				geometry = geometry.Transform(currentPosition.Pose())
 				label := camName.Name + "_transientObstacle_" + strconv.Itoa(i)
 				if geometry.Label() != "" {
 					label += "_" + geometry.Label()
@@ -221,14 +245,14 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				geoms = append(geoms, geometry)
 			}
 			gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
+			// want to have all geometry's be in the world coordinate frame
 			tf, err := mr.planRequest.FrameSystem.Transform(mr.planRequest.StartConfiguration, gif, mr.planRequest.FrameSystem.World().Name())
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
 			transformedGIF, ok := tf.((*referenceframe.GeometriesInFrame))
 			if !ok {
-				// TODO: This is not an acceptable error
-				return state.ExecuteResponse{}, errors.New("smth")
+				return state.ExecuteResponse{}, errors.New("cannot cast transformable as *referenceframe.GeometriesInFrame")
 			}
 			gifs := []*referenceframe.GeometriesInFrame{transformedGIF}
 			worldState, err := referenceframe.NewWorldState(gifs, nil)
@@ -258,7 +282,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				lookAheadDistanceMM,
 				mr.planRequest.Logger,
 			); err != nil {
-				mr.planRequest.Logger.Info(err.Error())
+				mr.planRequest.Logger.CInfo(ctx, err.Error())
 				return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
 			}
 		}
@@ -312,37 +336,64 @@ func validateNotNegNorNaN(f float64, name string) error {
 }
 
 func newValidatedMotionCfg(motionCfg *motion.MotionConfiguration) (*validatedMotionConfiguration, error) {
-	vmc := &validatedMotionConfiguration{}
+	empty := &validatedMotionConfiguration{}
+	vmc := &validatedMotionConfiguration{
+		angularDegsPerSec:     defaultAngularDegsPerSec,
+		linearMPerSec:         defaultLinearMPerSec,
+		obstaclePollingFreqHz: defaultObstaclePollingHz,
+		positionPollingFreqHz: defaultPositionPollingHz,
+		planDeviationMM:       defaultPlanDeviationM * 1e3,
+		obstacleDetectors:     []motion.ObstacleDetectorName{},
+	}
+
 	if motionCfg == nil {
 		return vmc, nil
 	}
 
 	if err := validateNotNegNorNaN(motionCfg.LinearMPerSec, "LinearMPerSec"); err != nil {
-		return vmc, err
+		return empty, err
 	}
 
 	if err := validateNotNegNorNaN(motionCfg.AngularDegsPerSec, "AngularDegsPerSec"); err != nil {
-		return vmc, err
+		return empty, err
 	}
 
 	if err := validateNotNegNorNaN(motionCfg.PlanDeviationMM, "PlanDeviationMM"); err != nil {
-		return vmc, err
+		return empty, err
 	}
 
 	if err := validateNotNegNorNaN(motionCfg.ObstaclePollingFreqHz, "ObstaclePollingFreqHz"); err != nil {
-		return vmc, err
+		return empty, err
 	}
 
 	if err := validateNotNegNorNaN(motionCfg.PositionPollingFreqHz, "PositionPollingFreqHz"); err != nil {
-		return vmc, err
+		return empty, err
 	}
 
-	vmc.linearMPerSec = motionCfg.LinearMPerSec
-	vmc.angularDegsPerSec = motionCfg.AngularDegsPerSec
-	vmc.planDeviationMM = motionCfg.PlanDeviationMM
-	vmc.obstaclePollingFreqHz = motionCfg.ObstaclePollingFreqHz
-	vmc.positionPollingFreqHz = motionCfg.PositionPollingFreqHz
-	vmc.obstacleDetectors = motionCfg.ObstacleDetectors
+	if motionCfg.LinearMPerSec != 0 {
+		vmc.linearMPerSec = motionCfg.LinearMPerSec
+	}
+
+	if motionCfg.AngularDegsPerSec != 0 {
+		vmc.angularDegsPerSec = motionCfg.AngularDegsPerSec
+	}
+
+	if motionCfg.PlanDeviationMM != 0 {
+		vmc.planDeviationMM = motionCfg.PlanDeviationMM
+	}
+
+	if motionCfg.ObstaclePollingFreqHz != 0 {
+		vmc.obstaclePollingFreqHz = motionCfg.ObstaclePollingFreqHz
+	}
+
+	if motionCfg.PositionPollingFreqHz != 0 {
+		vmc.positionPollingFreqHz = motionCfg.PositionPollingFreqHz
+	}
+
+	if motionCfg.ObstacleDetectors != nil {
+		vmc.obstacleDetectors = motionCfg.ObstacleDetectors
+	}
+
 	return vmc, nil
 }
 
@@ -436,7 +487,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -2 * math.Pi, Max: 2 * math.Pi},
 	} // Note: this is only for diff drive, not used for PTGs
-	ms.logger.Debugf("base limits: %v", limits)
+	ms.logger.CDebugf(ctx, "base limits: %v", limits)
 
 	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
 	if err != nil {
@@ -578,8 +629,8 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 
 	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
 	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
-	ms.logger.Infof("startPose: %v", spatialmath.PoseToProtobuf(startPose.Pose()))
-	ms.logger.Infof("requested world goal: %v", spatialmath.PoseToProtobuf(goalPoseInWorld))
+	ms.logger.CInfof(ctx, "startPose: %v", spatialmath.PoseToProtobuf(startPose.Pose()))
+	ms.logger.CInfof(ctx, "requested world goal: %v", spatialmath.PoseToProtobuf(goalPoseInWorld))
 	if err != nil {
 		return nil, err
 	}
@@ -640,6 +691,7 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		kinematicBase:     kb,
 		replanCostFactor:  valExtra.replanCostFactor,
 		obstacleDetectors: obstacleDetectors,
+		fsService:         ms.fsService,
 
 		executeBackgroundWorkers: &backgroundWorkers,
 
@@ -689,19 +741,19 @@ func (mr *moveRequest) start(ctx context.Context, waypoints [][]referenceframe.I
 func (mr *moveRequest) listen(ctx context.Context) (state.ExecuteResponse, error) {
 	select {
 	case <-ctx.Done():
-		mr.logger.Debugf("context err: %s", ctx.Err())
+		mr.logger.CDebugf(ctx, "context err: %s", ctx.Err())
 		return state.ExecuteResponse{}, ctx.Err()
 
 	case resp := <-mr.responseChan:
-		mr.logger.Debugf("execution response: %s", resp)
+		mr.logger.CDebugf(ctx, "execution response: %s", resp)
 		return resp.executeResponse, resp.err
 
 	case resp := <-mr.position.responseChan:
-		mr.logger.Debugf("position response: %s", resp)
+		mr.logger.CDebugf(ctx, "position response: %s", resp)
 		return resp.executeResponse, resp.err
 
 	case resp := <-mr.obstacle.responseChan:
-		mr.logger.Debugf("obstacle response: %s", resp)
+		mr.logger.CDebugf(ctx, "obstacle response: %s", resp)
 		return resp.executeResponse, resp.err
 	}
 }

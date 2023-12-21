@@ -75,7 +75,7 @@ func newCBiRRTMotionPlanner(
 		return nil, err
 	}
 	// nlopt should try only once
-	nlopt, err := ik.CreateNloptIKSolver(frame, logger, 1, true)
+	nlopt, err := ik.CreateNloptIKSolver(frame, logger, 1, true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		}
 		rrt.maps = planSeed.maps
 	}
-	mp.logger.Infof("goal node: %v\n", rrt.maps.optNode.Q())
+	mp.logger.CInfof(ctx, "goal node: %v\n", rrt.maps.optNode.Q())
 	target := newConfigurationNode(referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5))
 
 	map1, map2 := rrt.maps.startMap, rrt.maps.goalMap
@@ -149,7 +149,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		return
 	}
 
-	mp.logger.Debugf(
+	mp.logger.CDebugf(ctx,
 		"running CBiRRT from start pose %v with start map of size %d and goal map of size %d",
 		spatialmath.PoseToProtobuf(seedPos),
 		len(rrt.maps.startMap),
@@ -159,7 +159,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	for i := 0; i < mp.planOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
-			mp.logger.Debugf("CBiRRT timed out after %d iterations", i)
+			mp.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", i)
 			rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("cbirrt timeout %w", ctx.Err()), maps: rrt.maps}
 			return
 		default:
@@ -223,7 +223,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 
 		// Solved!
 		if reachedDelta <= mp.planOpts.JointSolveDist {
-			mp.logger.Debugf("CBiRRT found solution after %d iterations", i)
+			mp.logger.CDebugf(ctx, "CBiRRT found solution after %d iterations", i)
 			cancel()
 			path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{map1reached, map2reached}, true)
 			rrt.solutionChan <- &rrtPlanReturn{steps: path, maps: rrt.maps}

@@ -19,6 +19,9 @@ We ask the user to refer to the datasheet if any baud rate changes are required 
 Other models that connect over serial may work, but we ask the user to refer to wit-motion's datasheet
 in that case as well. As of Feb 2023, Wit-motion has 48 gyro/inclinometer/imu models with varied levels of
 driver commonality.
+
+Note: Model HWT905-TTL is not supported under the model name "imu-wit". Use the model name "imu-wit-hwt905"
+for HWT905-TTL.
 */
 
 import (
@@ -88,10 +91,29 @@ type wit struct {
 	err                     movementsensor.LastError
 	hasMagnetometer         bool
 	mu                      sync.Mutex
+	reconfigMu              sync.Mutex
 	port                    io.ReadWriteCloser
 	cancelFunc              func()
+	cancelCtx               context.Context
 	activeBackgroundWorkers sync.WaitGroup
 	logger                  logging.Logger
+	baudRate                uint
+	serialPath              string
+}
+
+func (imu *wit) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	imu.reconfigMu.Lock()
+	defer imu.reconfigMu.Unlock()
+
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+
+	imu.baudRate = newConf.BaudRate
+	imu.serialPath = newConf.Port
+
+	return nil
 }
 
 func (imu *wit) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
@@ -232,7 +254,7 @@ func newWit(
 	if newConf.BaudRate > 0 {
 		options.BaudRate = newConf.BaudRate
 	} else {
-		logger.Warnf(
+		logger.CWarnf(ctx,
 			"no valid serial_baud_rate set, setting to default of %d, baud rate of wit imus are: %v", options.BaudRate, baudRateList,
 		)
 	}
@@ -242,7 +264,7 @@ func newWit(
 		logger: logger,
 		err:    movementsensor.NewLastError(1, 1),
 	}
-	logger.Debugf("initializing wit serial connection with parameters: %+v", options)
+	logger.CDebugf(ctx, "initializing wit serial connection with parameters: %+v", options)
 	i.port, err = slib.Open(options)
 	if err != nil {
 		return nil, err
@@ -290,7 +312,13 @@ func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, l
 				switch {
 				case err != nil:
 					imu.err.Set(err)
-					logger.Error(err)
+					imu.numBadReadings++
+					if imu.numBadReadings < 20 {
+						logger.CError(ctx, err, "Check if wit imu is disconnected from port")
+					} else {
+						logger.CDebug(ctx, err)
+					}
+
 				case len(line) != 11:
 					imu.numBadReadings++
 					return
@@ -360,9 +388,9 @@ func (imu *wit) parseWIT(line string) error {
 
 // Close shuts down wit and closes imu.port.
 func (imu *wit) Close(ctx context.Context) error {
-	imu.logger.Debug("Closing wit motion imu")
+	imu.logger.CDebug(ctx, "Closing wit motion imu")
 	imu.cancelFunc()
 	imu.activeBackgroundWorkers.Wait()
-	imu.logger.Debug("Closed wit motion imu")
+	imu.logger.CDebug(ctx, "Closed wit motion imu")
 	return imu.err.Get()
 }

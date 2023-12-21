@@ -101,7 +101,7 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 		as.data = utils.NewRollingAverage(numSamples)
 		nanosBetween = 1e9 / as.SamplesPerSecond
 	} else {
-		as.logger.Debug("Too few samples to smooth over; defaulting to raw data.")
+		as.logger.CDebug(ctx, "Too few samples to smooth over; defaulting to raw data.")
 		as.data = nil
 		nanosBetween = as.AverageOverMillis * 1e6
 	}
@@ -116,7 +116,7 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 				if errors.Is(err, errStopReading) {
 					break
 				}
-				as.logger.Infow("error reading analog", "error", err)
+				as.logger.CInfow(ctx, "error reading analog", "error", err)
 				continue
 			}
 

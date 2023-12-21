@@ -857,7 +857,11 @@ func TestWebWithStreams(t *testing.T) {
 
 	// Start a robot with a camera
 	robot := &inject.Robot{}
-	cam1 := &inject.Camera{}
+	cam1 := &inject.Camera{
+		PropertiesFunc: func(ctx context.Context) (camera.Properties, error) {
+			return camera.Properties{}, nil
+		},
+	}
 	rs := map[resource.Name]resource.Resource{camera.Named(camera1Key): cam1}
 	robot.MockResourcesFromMap(rs)
 
@@ -883,15 +887,23 @@ func TestWebWithStreams(t *testing.T) {
 	test.That(t, resp.Names, test.ShouldHaveLength, 1)
 
 	// Add another camera and update
-	cam2 := &inject.Camera{}
+	cam2 := &inject.Camera{
+		PropertiesFunc: func(ctx context.Context) (camera.Properties, error) {
+			return camera.Properties{}, nil
+		},
+	}
+	robot.Mu.Lock()
 	rs[camera.Named(camera2Key)] = cam2
+	robot.Mu.Unlock()
 	robot.MockResourcesFromMap(rs)
 	err = svc.Reconfigure(context.Background(), rs, resource.Config{})
 	test.That(t, err, test.ShouldBeNil)
 
 	// Add an audio stream
 	audio := &inject.AudioInput{}
+	robot.Mu.Lock()
 	rs[audioinput.Named(audioKey)] = audio
+	robot.Mu.Unlock()
 	robot.MockResourcesFromMap(rs)
 	err = svc.Reconfigure(context.Background(), rs, resource.Config{})
 	test.That(t, err, test.ShouldBeNil)
@@ -941,7 +953,9 @@ func TestWebAddFirstStream(t *testing.T) {
 
 	// Add first camera and update
 	cam1 := &inject.Camera{}
+	robot.Mu.Lock()
 	rs[camera.Named(camera1Key)] = cam1
+	robot.Mu.Unlock()
 	robot.MockResourcesFromMap(rs)
 	err = svc.Reconfigure(ctx, rs, resource.Config{})
 	test.That(t, err, test.ShouldBeNil)

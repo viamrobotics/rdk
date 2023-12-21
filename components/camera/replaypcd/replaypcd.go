@@ -4,10 +4,12 @@ package replaypcd
 import (
 	"bytes"
 	"context"
+	"net/http"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -67,10 +69,10 @@ type TimeInterval struct {
 // cacheEntry stores data that was downloaded from a previous operation but has not yet been passed
 // to the caller.
 type cacheEntry struct {
-	id            *datapb.BinaryID
 	pc            pointcloud.PointCloud
 	timeRequested *timestamppb.Timestamp
 	timeReceived  *timestamppb.Timestamp
+	uri           string
 	err           error
 }
 
@@ -136,6 +138,7 @@ type pcdCamera struct {
 	cloudConnSvc cloud.ConnectionService
 	cloudConn    rpc.ClientConn
 	dataClient   datapb.DataServiceClient
+	httpClient   *http.Client
 
 	lastData string
 	limit    uint64
@@ -222,11 +225,11 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	replay.cache = make([]*cacheEntry, len(resp.Data))
 	for i, dataResponse := range resp.Data {
 		md := dataResponse.GetMetadata()
-		replay.cache[i] = &cacheEntry{id: &datapb.BinaryID{
-			FileId:         md.GetId(),
-			OrganizationId: md.GetCaptureMetadata().GetOrganizationId(),
-			LocationId:     md.GetCaptureMetadata().GetLocationId(),
-		}}
+		replay.cache[i] = &cacheEntry{
+			uri:           md.GetUri(),
+			timeRequested: md.GetTimeRequested(),
+			timeReceived:  md.GetTimeReceived(),
+		}
 	}
 
 	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, downloadTimeout)
@@ -250,25 +253,42 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context) {
 
 		goutils.PanicCapturingGo(func() {
 			defer wg.Done()
-
-			var resp *datapb.BinaryDataByIDsResponse
-			resp, data.err = replay.dataClient.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
-				BinaryIds:     []*datapb.BinaryID{data.id},
-				IncludeBinary: true,
-			})
+			data.pc, data.err = replay.getDataFromHTTP(ctx, data.uri)
 			if data.err != nil {
 				return
-			}
-
-			// Decode response data
-			data.pc, data.err = decodeResponseData(resp.GetData())
-			if data.err == nil {
-				data.timeRequested = resp.GetData()[0].GetMetadata().GetTimeRequested()
-				data.timeReceived = resp.GetData()[0].GetMetadata().GetTimeReceived()
 			}
 		})
 	}
 	wg.Wait()
+}
+
+// getDataFromHTTP makes a request to an http endpoint app serves, which gets redirected to GCS.
+func (replay *pcdCamera) getDataFromHTTP(ctx context.Context, dataURL string) (pointcloud.PointCloud, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, dataURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("key_id", replay.APIKeyID)
+	req.Header.Add("key", replay.APIKey)
+
+	res, err := replay.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	pc, err := pointcloud.ReadPCD(res.Body)
+	if err != nil {
+		return nil, multierr.Combine(err, res.Body.Close())
+	}
+	if res.StatusCode != http.StatusOK {
+		return nil, multierr.Combine(errors.New(res.Status), res.Body.Close())
+	}
+
+	if err := res.Body.Close(); err != nil {
+		return nil, err
+	}
+
+	return pc, nil
 }
 
 // getDataFromCache retrieves the next cached data and removes it from the cache. It assumes the
@@ -438,6 +458,7 @@ func (replay *pcdCamera) initCloudConnection(ctx context.Context) error {
 
 	replay.cloudConn = conn
 	replay.dataClient = dataServiceClient
+	replay.httpClient = &http.Client{}
 	return nil
 }
 

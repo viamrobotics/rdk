@@ -1,5 +1,3 @@
-//go:build !no_cgo
-
 package rimage
 
 import (

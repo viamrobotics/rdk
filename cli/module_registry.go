@@ -61,8 +61,6 @@ type manifestBuildInfo struct {
 }
 
 // defaultBuildInfo has defaults for unset fields in "build".
-//
-//nolint:unused
 var defaultBuildInfo = manifestBuildInfo{
 	Build: "make module.tar.gz",
 	Path:  "module.tar.gz",
@@ -253,7 +251,7 @@ func UploadModuleAction(c *cli.Context) error {
 	if !forceUploadArg {
 		if err := validateModuleFile(client, moduleID, tarballPath, versionArg); err != nil {
 			return fmt.Errorf(
-				"error validating module: %w. For more details, please visit: https://docs.viam.com/manage/cli/#command-options-3 ",
+				"error validating module: %w. For more details, please visit: https://docs.viam.com/fleet/cli/#module ",
 				err)
 		}
 	}
@@ -489,16 +487,13 @@ func parseModuleID(id string) (moduleID, error) {
 	splitModuleName := strings.Split(id, ":")
 	if len(splitModuleName) != 2 {
 		return moduleID{}, errors.Errorf("invalid module name '%s'."+
-			" Module name must be in the form 'prefix:module-name' for public modules"+
-			" or just 'module-name' for private modules in organizations without a public namespace", id)
+			" Module name must be in the form 'public-namespace:module-name' for public modules"+
+			" or 'org-id:module-name' for private modules in organizations without a public namespace", id)
 	}
 	return moduleID{prefix: splitModuleName[0], name: splitModuleName[1]}, nil
 }
 
 func (m *moduleID) String() string {
-	if m.prefix == "" {
-		return m.name
-	}
 	return fmt.Sprintf("%s:%s", m.prefix, m.name)
 }
 
@@ -663,7 +658,7 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 		ExePath: path,
 	}
 
-	mgr := modmanager.NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr := modmanager.NewManager(context.Background(), parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 	defer vutils.UncheckedErrorFunc(func() error { return mgr.Close(context.Background()) })
 
 	err = mgr.Add(context.TODO(), cfg)

@@ -252,7 +252,7 @@ func (c *client) connectStream(ctx context.Context) {
 
 		stream, err := c.client.StreamEvents(streamCtx, req)
 		if err != nil {
-			c.logger.Error(err)
+			c.logger.CError(ctx, err)
 			if utils.SelectContextOrWait(ctx, 3*time.Second) {
 				continue
 			} else {
@@ -290,14 +290,14 @@ func (c *client) connectStream(ctx context.Context) {
 				}
 				c.sendConnectionStatus(ctx, false)
 				if utils.SelectContextOrWait(ctx, 3*time.Second) {
-					c.logger.Error(err)
+					c.logger.CError(ctx, err)
 					break
 				} else {
 					return
 				}
 			}
 			if err != nil {
-				c.logger.Error(err)
+				c.logger.CError(ctx, err)
 			}
 			eventIn := streamResp.Event
 			eventOut := Event{

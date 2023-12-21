@@ -194,12 +194,12 @@ func associateSession(
 	}
 	meta, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		m.logger.Warnw("failed to pull metadata from context", "method", method)
+		m.logger.CWarnw(ctx, "failed to pull metadata from context", "method", method)
 		return ctx, nil
 	}
 	sessID, err = sessionFromMetadata(meta)
 	if err != nil {
-		m.logger.Warnw("failed to get session id from metadata", "error", err)
+		m.logger.CWarnw(ctx, "failed to get session id from metadata", "error", err)
 		return ctx, err
 	}
 	if sessID == uuid.Nil {

@@ -18,8 +18,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var printPath = false
-
 const testTurnRad = 0.3
 
 func TestPtgRrtBidirectional(t *testing.T) {
@@ -38,7 +36,6 @@ func TestPtgRrtBidirectional(t *testing.T) {
 		0,
 		testTurnRad,
 		0,
-		0,
 		geometries,
 		false,
 	)
@@ -51,149 +48,15 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
-	tp.algOpts.pathdebug = printPath
-	if tp.algOpts.pathdebug {
+	if pathdebug {
 		tp.logger.Debug("$type,X,Y")
-		tp.logger.Debugf("$SG,%f,%f\n", 0., 0.)
-		tp.logger.Debugf("$SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
+		tp.logger.Debugf("$SG,%f,%f", 0., 0.)
+		tp.logger.Debugf("$SG,%f,%f", goalPos.Point().X, goalPos.Point().Y)
 	}
 	test.That(t, ok, test.ShouldBeTrue)
 	plan, err := tp.plan(ctx, goalPos, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThanOrEqualTo, 2)
-
-	allPtgs := ackermanFrame.(tpspace.PTGProvider).PTGSolvers()
-	lastPose := spatialmath.NewZeroPose()
-
-	if tp.algOpts.pathdebug {
-		for _, mynode := range plan {
-			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
-			for i, pt := range trajPts {
-				intPose := spatialmath.Compose(lastPose, pt.Pose)
-				if i == 0 {
-					tp.logger.Debugf("$WP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
-				}
-				tp.logger.Debugf("$FINALPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
-				if i == len(trajPts)-1 {
-					lastPose = intPose
-					break
-				}
-			}
-		}
-	}
-	tp.planOpts.SmoothIter = 20
-	plan = tp.smoothPath(ctx, plan)
-	if tp.algOpts.pathdebug {
-		lastPose = spatialmath.NewZeroPose()
-		for _, mynode := range plan {
-			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
-			for i, pt := range trajPts {
-				intPose := spatialmath.Compose(lastPose, pt.Pose)
-				if i == 0 {
-					tp.logger.Debugf("$SMOOTHWP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
-				}
-				tp.logger.Debugf("$SMOOTHPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
-				if pt.Dist >= mynode.Q()[2].Value {
-					lastPose = intPose
-					break
-				}
-			}
-		}
-	}
-}
-
-func TestPtgPosOnlyUnidirectional(t *testing.T) {
-	t.Parallel()
-	logger := logging.NewTestLogger(t)
-	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
-	test.That(t, err, test.ShouldBeNil)
-	geometries := []spatialmath.Geometry{roverGeom}
-
-	ctx := context.Background()
-
-	ackermanFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
-		"ackframe",
-		logger,
-		300.,
-		0,
-		testTurnRad,
-		0,
-		0,
-		geometries,
-		false,
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 190})
-
-	opt := newBasicPlannerOptions(ackermanFrame)
-	opt.profile = PositionOnlyMotionProfile
-	opt.DistanceFunc = ik.SquaredNormNoOrientSegmentMetric
-	opt.goalMetricConstructor = ik.NewPositionOnlyMetric
-	opt.PositionSeeds = 0
-	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
-	test.That(t, err, test.ShouldBeNil)
-	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
-
-	test.That(t, tp.algOpts.bidirectional, test.ShouldBeFalse)
-
-	tp.algOpts.pathdebug = printPath
-	if tp.algOpts.pathdebug {
-		tp.logger.Debug("$type,X,Y")
-		tp.logger.Debugf("$SG,%f,%f\n", 0., 0.)
-		tp.logger.Debugf("$SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
-	}
-	test.That(t, ok, test.ShouldBeTrue)
-	plan, err := tp.plan(ctx, goalPos, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(plan), test.ShouldBeGreaterThanOrEqualTo, 2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatialmath.PoseAlmostCoincidentEps(goalPos, plan[len(plan)-1].Pose(), 5), test.ShouldBeTrue)
-
-	// Unidirectional Position-only plan should NOT match the above goalPos orientation
-	test.That(t, spatialmath.OrientationAlmostEqual(
-		goalPos.Orientation(),
-		plan[len(plan)-1].Pose().Orientation(),
-	), test.ShouldBeFalse)
-
-	allPtgs := ackermanFrame.(tpspace.PTGProvider).PTGSolvers()
-	lastPose := spatialmath.NewZeroPose()
-
-	if tp.algOpts.pathdebug {
-		for _, mynode := range plan {
-			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
-			for i, pt := range trajPts {
-				intPose := spatialmath.Compose(lastPose, pt.Pose)
-				if i == 0 {
-					tp.logger.Debugf("$WP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
-				}
-				tp.logger.Debugf("$FINALPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
-				if i == len(trajPts)-1 {
-					lastPose = intPose
-					break
-				}
-			}
-		}
-	}
-	tp.planOpts.SmoothIter = 20
-	plan = tp.smoothPath(ctx, plan)
-	if tp.algOpts.pathdebug {
-		lastPose = spatialmath.NewZeroPose()
-		for _, mynode := range plan {
-			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
-			for i, pt := range trajPts {
-				intPose := spatialmath.Compose(lastPose, pt.Pose)
-				if i == 0 {
-					tp.logger.Debugf("$SMOOTHWP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
-				}
-				tp.logger.Debugf("$SMOOTHPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
-				if pt.Dist >= mynode.Q()[2].Value {
-					lastPose = intPose
-					break
-				}
-			}
-		}
-	}
 }
 
 func TestPtgWithObstacle(t *testing.T) {
@@ -208,7 +71,6 @@ func TestPtgWithObstacle(t *testing.T) {
 		300.,
 		0,
 		testTurnRad,
-		0,
 		0,
 		geometries,
 		false,
@@ -258,63 +120,23 @@ func TestPtgWithObstacle(t *testing.T) {
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
-	tp.algOpts.pathdebug = printPath
-	if tp.algOpts.pathdebug {
+	if pathdebug {
 		tp.logger.Debug("$type,X,Y")
 		for _, geom := range geoms {
 			pts := geom.ToPoints(1.)
 			for _, pt := range pts {
 				if math.Abs(pt.Z) < 0.1 {
-					tp.logger.Debugf("$OBS,%f,%f\n", pt.X, pt.Y)
+					tp.logger.Debugf("$OBS,%f,%f", pt.X, pt.Y)
 				}
 			}
 		}
-		tp.logger.Debugf("$SG,%f,%f\n", 0., 0.)
-		tp.logger.Debugf("$SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
+		tp.logger.Debugf("$SG,%f,%f", 0., 0.)
+		tp.logger.Debugf("$SG,%f,%f", goalPos.Point().X, goalPos.Point().Y)
 	}
 	plan, err := tp.plan(ctx, goalPos, nil)
 
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
-
-	allPtgs := ackermanFrame.(tpspace.PTGProvider).PTGSolvers()
-	lastPose := spatialmath.NewZeroPose()
-
-	if tp.algOpts.pathdebug {
-		for _, mynode := range plan {
-			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
-			for i, pt := range trajPts {
-				intPose := spatialmath.Compose(lastPose, pt.Pose)
-				if i == 0 {
-					tp.logger.Debugf("$WP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
-				}
-				tp.logger.Debugf("$FINALPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
-				if i == len(trajPts)-1 {
-					lastPose = intPose
-					break
-				}
-			}
-		}
-	}
-	tp.planOpts.SmoothIter = 20
-	plan = tp.smoothPath(ctx, plan)
-	if tp.algOpts.pathdebug {
-		lastPose = spatialmath.NewZeroPose()
-		for _, mynode := range plan {
-			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
-			for i, pt := range trajPts {
-				intPose := spatialmath.Compose(lastPose, pt.Pose)
-				if i == 0 {
-					tp.logger.Debugf("$SMOOTHWP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
-				}
-				tp.logger.Debugf("$SMOOTHPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
-				if pt.Dist >= mynode.Q()[2].Value {
-					lastPose = intPose
-					break
-				}
-			}
-		}
-	}
 }
 
 func TestTPsmoothing(t *testing.T) {
@@ -333,7 +155,6 @@ func TestTPsmoothing(t *testing.T) {
 		0,
 		testTurnRad,
 		0,
-		0,
 		geometries,
 		false,
 	)
@@ -349,10 +170,10 @@ func TestTPsmoothing(t *testing.T) {
 	planInputs := [][]referenceframe.Input{
 		{{0}, {0}, {0}},
 		{{3}, {-0.20713797715976653}, {848.2300164692441}},
-		{{5}, {0.0314906475636095}, {848.2300108402619}},
-		{{5}, {0.0016660735709435135}, {848.2300146893297}},
+		{{4}, {0.0314906475636095}, {848.2300108402619}},
+		{{4}, {0.0016660735709435135}, {848.2300146893297}},
 		{{0}, {0.00021343061342569985}, {408}},
-		{{5}, {1.9088870836327245}, {737.7547597081078}},
+		{{4}, {1.9088870836327245}, {737.7547597081078}},
 		{{2}, {-1.3118738553451883}, {848.2300164692441}},
 		{{0}, {-3.1070696573964987}, {848.2300164692441}},
 		{{0}, {-2.5547017183037877}, {306}},
@@ -360,7 +181,7 @@ func TestTPsmoothing(t *testing.T) {
 		{{0}, {1.1943809502464207}, {571.4368241014894}},
 		{{0}, {0.724950779684863}, {848.2300164692441}},
 		{{0}, {-1.2295409308605127}, {848.2294213788913}},
-		{{5}, {2.677652944060827}, {848.230013198154}},
+		{{4}, {2.677652944060827}, {848.230013198154}},
 		{{0}, {2.7618396954635545}, {848.2300164692441}},
 		{{0}, {0}, {0}},
 	}
@@ -375,8 +196,7 @@ func TestTPsmoothing(t *testing.T) {
 	plan, err = rectifyTPspacePath(plan, tp.frame, spatialmath.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
 
-	// TODO (RSDK-5104) this should be able to be a smaller value once 5104 is complete
-	tp.planOpts.SmoothIter = 80
+	tp.planOpts.SmoothIter = 20
 
 	newplan := tp.smoothPath(ctx, plan)
 	test.That(t, newplan, test.ShouldNotBeNil)
@@ -402,7 +222,6 @@ func TestPtgCheckPlan(t *testing.T) {
 		300.,
 		0,
 		testTurnRad,
-		0,
 		0,
 		geometries,
 		false,

@@ -2,6 +2,7 @@ package logging
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -69,15 +70,21 @@ func assertLogMatches(t *testing.T, actual *bytes.Buffer, expected string) {
 	expectedParts := strings.Split(expected, "\t")
 	partsIdx := 0
 
+	// Example log:
+	//   2023-10-30T09:12:09.459Z	ERROR	impl	logging/impl_test.go:200	Errorw log	{"traceKey":"foobar","key":"value"}
+	//   ^1                         ^2      ^3      ^4                          ^5          ^6
+	//   Date                       Level   Name    File/Line                   Message     Structured Data
+
 	// Use the length of the first string as a weak verification of checking that the result looks like a date.
 	test.That(t, len(actualParts[partsIdx]), EqualsWithLogLine, len(expectedParts[partsIdx]), "Date length mismatch", actualTrimmed)
-	// Logger name
-	partsIdx++
-	test.That(t, actualParts[partsIdx], EqualsWithLogLine, expectedParts[partsIdx], "Logger name mismatch", actualTrimmed)
 
 	// Log level.
 	partsIdx++
 	test.That(t, actualParts[partsIdx], EqualsWithLogLine, expectedParts[partsIdx], "Log level mismatch", actualTrimmed)
+
+	// Logger name.
+	partsIdx++
+	test.That(t, actualParts[partsIdx], EqualsWithLogLine, expectedParts[partsIdx], "Logger name mismatch", actualTrimmed)
 
 	// Filename:line_number.
 	partsIdx++
@@ -189,4 +196,77 @@ func TestConsoleOutputFormat(t *testing.T) {
 	impl.Infow("impl logw", "key", "val", "fmt.Sprintf", fmt.Sprintf("%+v", anonymousTypedValue))
 	assertLogMatches(t, notStdout,
 		`2023-10-31T14:25:49.124Z	INFO	impl	logging/impl_test.go:177	impl logw	{"key":"val","fmt.Sprintf":"{x:1 y:{Y1:y1} Z:z}"}`)
+}
+
+func TestContextLogging(t *testing.T) {
+	ctxNoDebug := context.Background()
+
+	// A logger object that will write to the `notStdout` buffer.
+	const inUTC = true
+	notStdout := &bytes.Buffer{}
+	// The default log level is error.
+	logger := &impl{"impl", NewAtomicLevelAt(ERROR), inUTC, []Appender{NewWriterAppender(notStdout)}}
+
+	logger.CDebug(ctxNoDebug, "Debug log")
+	test.That(t, notStdout.Len(), test.ShouldEqual, 0)
+
+	traceKey := "foobar"
+	ctxWithDebug := EnableDebugModeWithKey(ctxNoDebug, traceKey)
+	logger.CDebug(ctxWithDebug, "Debug log")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	DEBUG	impl	logging/impl_test.go:200	Debug log	{"traceKey":"foobar"}`)
+
+	logger.CDebugf(ctxWithDebug, "Debugf log %v", "Debugf")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	DEBUG	impl	logging/impl_test.go:200	Debugf log Debugf	{"traceKey":"foobar"}`)
+
+	logger.CDebugw(ctxWithDebug, "Debugw log", "key", "value")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	DEBUG	impl	logging/impl_test.go:200	Debugw log	{"traceKey":"foobar","key":"value"}`)
+
+	// Run the same battery of tests on the "Info" loggers.
+	logger.CInfo(ctxNoDebug, "Info log")
+	test.That(t, notStdout.Len(), test.ShouldEqual, 0)
+
+	logger.CInfo(ctxWithDebug, "Info log")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	INFO	impl	logging/impl_test.go:200	Info log	{"traceKey":"foobar"}`)
+
+	logger.CInfof(ctxWithDebug, "Infof log %v", "Infof")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	INFO	impl	logging/impl_test.go:200	Infof log Infof	{"traceKey":"foobar"}`)
+
+	logger.CInfow(ctxWithDebug, "Infow log", "key", "value")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	INFO	impl	logging/impl_test.go:200	Infow log	{"traceKey":"foobar","key":"value"}`)
+
+	// Run the same battery of tests on the "Warn" loggers.
+	logger.CWarn(ctxNoDebug, "Warn log")
+	test.That(t, notStdout.Len(), test.ShouldEqual, 0)
+
+	logger.CWarn(ctxWithDebug, "Warn log")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	WARN	impl	logging/impl_test.go:200	Warn log	{"traceKey":"foobar"}`)
+
+	logger.CWarnf(ctxWithDebug, "Warnf log %v", "Warnf")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	WARN	impl	logging/impl_test.go:200	Warnf log Warnf	{"traceKey":"foobar"}`)
+
+	logger.CWarnw(ctxWithDebug, "Warnw log", "key", "value")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	WARN	impl	logging/impl_test.go:200	Warnw log	{"traceKey":"foobar","key":"value"}`)
+
+	// Run the same calls on the "CError*" loggers. Because "Error" is the log level, the context
+	// isn't needed for logging. But we continue to assert that the `traceKey` is included.
+	logger.CError(ctxWithDebug, "Error log")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	ERROR	impl	logging/impl_test.go:200	Error log	{"traceKey":"foobar"}`)
+
+	logger.CErrorf(ctxWithDebug, "Errorf log %v", "Errorf")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	ERROR	impl	logging/impl_test.go:200	Errorf log Errorf	{"traceKey":"foobar"}`)
+
+	logger.CErrorw(ctxWithDebug, "Errorw log", "key", "value")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	ERROR	impl	logging/impl_test.go:200	Errorw log	{"traceKey":"foobar","key":"value"}`)
 }

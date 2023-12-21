@@ -272,13 +272,13 @@ func (jpcc *joinPointCloudCamera) NextPointCloudICP(ctx context.Context) (pointc
 			return nil, err
 		}
 		if jpcc.debug {
-			jpcc.logger.Debugf("Learned Transform = %v", info.OptResult.Location.X)
+			jpcc.logger.CDebugf(ctx, "Learned Transform = %v", info.OptResult.Location.X)
 		}
 		transformDist := math.Sqrt(math.Pow(info.OptResult.Location.X[0]-info.X0[0], 2) +
 			math.Pow(info.OptResult.Location.X[1]-info.X0[1], 2) +
 			math.Pow(info.OptResult.Location.X[2]-info.X0[2], 2))
 		if transformDist > 100 {
-			jpcc.logger.Warnf(`Transform is %f away from transform defined in frame system.
+			jpcc.logger.CWarnf(ctx, `Transform is %f away from transform defined in frame system.
 			This may indicate an incorrect frame system.`, transformDist)
 		}
 		registeredPointCloud.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
@@ -319,7 +319,7 @@ func (jpcc *joinPointCloudCamera) Read(ctx context.Context) (image.Image, func()
 		return nil, nil, err
 	}
 	if jpcc.debug && pc != nil {
-		jpcc.logger.Debugf("joinPointCloudSource Read: number of points in pointcloud: %d", pc.Size())
+		jpcc.logger.CDebugf(ctx, "joinPointCloudSource Read: number of points in pointcloud: %d", pc.Size())
 	}
 	img, _, err := proj.PointCloudToRGBD(pc)
 	return img, func() {}, err // return color image

@@ -112,12 +112,12 @@ func (sb *sensorBase) SetVelocity(
 
 		// if we have a loop, let's use the SetState function to call the SetVelocity command
 		// through the control loop
-		sb.logger.Info("using loop")
+		sb.logger.CInfo(ctx, "using loop")
 		sb.pollsensors(sensorCtx, extra)
 		return nil
 	}
 
-	sb.logger.Info("setting velocity without loop")
+	sb.logger.CInfo(ctx, "setting velocity without loop")
 	// else do not use the control loop and pass through the SetVelocity command
 	return sb.controlledBase.SetVelocity(ctx, linear, angular, extra)
 }
@@ -149,18 +149,18 @@ func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interfac
 			case <-ticker.C:
 				linvel, err := sb.velocities.LinearVelocity(ctx, extra)
 				if err != nil {
-					sb.logger.Error(err)
+					sb.logger.CError(ctx, err)
 					return
 				}
 
 				angvel, err := sb.velocities.AngularVelocity(ctx, extra)
 				if err != nil {
-					sb.logger.Error(err)
+					sb.logger.CError(ctx, err)
 					return
 				}
 
 				if sensorDebug {
-					sb.logger.Infof("sensor readings: linear: %#v, angular %#v", linvel, angvel)
+					sb.logger.CInfof(ctx, "sensor readings: linear: %#v, angular %#v", linvel, angvel)
 				}
 			}
 		}
@@ -184,10 +184,11 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 		// if the spin loop is polling, don't call set velocity, immediately return
 		// this allows us to keep the control loop running without stopping it until
 		// the resource Close has been called
-		sb.logger.Info("skipping set state call")
+		sb.logger.CInfo(ctx, "skipping set state call")
 		return nil
 	}
 
+	sb.logger.CInfo(ctx, "setting state")
 	linvel := state[0].GetSignalValueAt(0)
 	// multiply by the direction of the linear velocity so that angular direction
 	// (cw/ccw) doesn't switch when the base is moving backwards
@@ -201,6 +202,7 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 // movementsensor and insert its LinearVelocity and AngularVelocity values
 // in the signal in the control loop's thread in the endpoint code.
 func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
+	sb.logger.CInfo(ctx, "getting state")
 	linvel, err := sb.velocities.LinearVelocity(ctx, nil)
 	if err != nil {
 		return []float64{}, err

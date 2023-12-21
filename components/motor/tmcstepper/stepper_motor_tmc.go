@@ -169,7 +169,7 @@ func makeMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config,
 	}
 
 	if c.HomeRPM == 0 {
-		logger.Warn("home_rpm not set: defaulting to 1/4 of max_rpm")
+		logger.CWarn(ctx, "home_rpm not set: defaulting to 1/4 of max_rpm")
 		c.HomeRPM = c.MaxRPM / 4
 	}
 	c.HomeRPM *= -1
@@ -318,7 +318,7 @@ func (m *Motor) writeReg(ctx context.Context, addr uint8, value int32) error {
 	}
 	defer func() {
 		if err := handle.Close(); err != nil {
-			m.logger.Error(err)
+			m.logger.CError(ctx, err)
 		}
 	}()
 
@@ -344,7 +344,7 @@ func (m *Motor) readReg(ctx context.Context, addr uint8) (int32, error) {
 	}
 	defer func() {
 		if err := handle.Close(); err != nil {
-			m.logger.Error(err)
+			m.logger.CError(ctx, err)
 		}
 	}()
 
@@ -425,9 +425,9 @@ func (m *Motor) doJog(ctx context.Context, rpm float64) error {
 
 	switch speed0 := math.Abs(rpm); {
 	case speed0 < 0.1:
-		m.logger.Warn("motor speed is nearly 0 rev_per_min")
+		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
 	case m.maxRPM > 0 && speed0 > m.maxRPM:
-		m.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
+		m.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
 	default:
 	}
 
@@ -443,7 +443,7 @@ func (m *Motor) doJog(ctx context.Context, rpm float64) error {
 // Note: if both are negative the motor will spin in the forward direction.
 func (m *Motor) GoFor(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
 	if math.Abs(rpm) < 0.1 {
-		m.logger.Warn("motor speed is nearly 0 rev_per_min")
+		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
 		return motor.NewZeroRPMError()
 	}
 
@@ -494,9 +494,9 @@ func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extr
 
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
-		m.logger.Warn("motor speed is nearly 0 rev_per_min")
+		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
 	case m.maxRPM > 0 && speed > m.maxRPM-0.1:
-		m.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
+		m.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
 	default:
 	}
 
@@ -598,7 +598,7 @@ func (m *Motor) goTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 			m.writeReg(ctx, swMode, 0x000),
 			m.doJog(ctx, 0),
 		); err != nil {
-			m.logger.Error(err)
+			m.logger.CError(ctx, err)
 		}
 	}()
 

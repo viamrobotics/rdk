@@ -25,7 +25,7 @@ import (
 const (
 	defaultOptimalityMultiple      = 2.0
 	defaultFallbackTimeout         = 1.5
-	defaultTPspaceOrientationScale = 60.
+	defaultTPspaceOrientationScale = 500.
 )
 
 // planManager is intended to be the single entry point to motion planners, wrapping all others, dealing with fallbacks, etc.
@@ -91,6 +91,23 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	}
 
 	var cancel func()
+
+	if pathdebug {
+		pm.logger.Debug("$type,X,Y")
+		pm.logger.Debugf("$SG,%f,%f", 0., 0.)
+		pm.logger.Debugf("$SG,%f,%f", goalPos.Point().X, goalPos.Point().Y)
+		gifs, err := worldState.ObstaclesInWorldFrame(pm.fs, seedMap)
+		if err == nil {
+			for _, geom := range gifs.Geometries() {
+				pts := geom.ToPoints(1.)
+				for _, pt := range pts {
+					if math.Abs(pt.Z) < 0.1 {
+						pm.logger.Debugf("$OBS,%f,%f", pt.X, pt.Y)
+					}
+				}
+			}
+		}
+	}
 
 	// set timeout for entire planning process if specified
 	if timeout, ok := motionConfig["timeout"].(float64); ok {
@@ -338,7 +355,7 @@ func (pm *planManager) planParallelRRTMotion(
 		}
 	} else {
 		if maps == nil {
-			goalNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), pose: goal}
+			goalNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), pose: spatialmath.Compose(goal, flipPose)}
 			maps = &rrtMaps{
 				goalMap: map[node]node{goalNode: nil},
 			}
@@ -352,7 +369,7 @@ func (pm *planManager) planParallelRRTMotion(
 	// publish endpoint of plan if it is known
 	var nextSeed node
 	if len(maps.goalMap) == 1 {
-		pm.logger.Debug("only one IK solution, returning endpoint preview")
+		pm.logger.CDebug(ctx, "only one IK solution, returning endpoint preview")
 		for key := range maps.goalMap {
 			nextSeed = key
 		}
@@ -412,10 +429,10 @@ func (pm *planManager) planParallelRRTMotion(
 		if finalSteps.err() == nil {
 			if fallbackPlanner != nil {
 				if ok, score := pm.goodPlan(finalSteps, pm.opt()); ok {
-					pm.logger.Debugf("got path with score %f, close enough to optimal %f", score, maps.optNode.Cost())
+					pm.logger.CDebugf(ctx, "got path with score %f, close enough to optimal %f", score, maps.optNode.Cost())
 					fallbackPlanner = nil
 				} else {
-					pm.logger.Debugf("path with score %f not close enough to optimal %f, falling back", score, maps.optNode.Cost())
+					pm.logger.CDebugf(ctx, "path with score %f not close enough to optimal %f, falling back", score, maps.optNode.Cost())
 
 					// If we have a connected but bad path, we recreate new IK solutions and start from scratch
 					// rather than seeding with a completed, known-bad tree
@@ -462,10 +479,10 @@ func (pm *planManager) planParallelRRTMotion(
 				// The fallback should emerge pre-smoothed, so that should be a non-issue
 				altCost := pm.frame.inputsToPlan(alternate).Evaluate(pm.opt().ScoreFunc)
 				if altCost < score {
-					pm.logger.Debugf("replacing path with score %f with better score %f", score, altCost)
+					pm.logger.CDebugf(ctx, "replacing path with score %f with better score %f", score, altCost)
 					finalSteps = &rrtPlanReturn{steps: stepsToNodes(alternate)}
 				} else {
-					pm.logger.Debugf("fallback path with score %f worse than original score %f; using original", altCost, score)
+					pm.logger.CDebugf(ctx, "fallback path with score %f worse than original score %f; using original", altCost, score)
 				}
 			}
 		}

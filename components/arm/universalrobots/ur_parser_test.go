@@ -1,6 +1,7 @@
 package universalrobots
 
 import (
+	"context"
 	"math"
 	"os"
 	"testing"
@@ -16,7 +17,7 @@ func Test1(t *testing.T) {
 	data, err := os.ReadFile(artifact.MustPath("robots/universalrobots/test1.raw"))
 	test.That(t, err, test.ShouldBeNil)
 
-	state, err := readRobotStateMessage(data, logger)
+	state, err := readRobotStateMessage(context.Background(), data, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, int(math.Round(state.Joints[0].AngleValues())), test.ShouldEqual, 90)

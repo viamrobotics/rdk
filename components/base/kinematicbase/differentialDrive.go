@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/golang/geo/r3"
@@ -22,8 +23,15 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// ErrMovementTimeout is used for when a movement call times out after no movement for some time.
-var ErrMovementTimeout = errors.New("movement has timed out")
+// The pause time when not using a localizer before moving on to next move step.
+const defaultNoLocalizerDelay = 250 * time.Millisecond
+
+var (
+	// errMovementTimeout is used for when a movement call times out after no movement for some time.
+	errMovementTimeout = errors.New("movement has timed out")
+	// Input representation of origin.
+	originInputs = []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}
+)
 
 // wrapWithDifferentialDriveKinematics takes a wheeledBase component and adds a localizer to it
 // It also adds kinematic model so that it can be controlled.
@@ -41,38 +49,44 @@ func wrapWithDifferentialDriveKinematics(
 		logger:    logger,
 		options:   options,
 	}
+	ddk.mutex.Lock()
+	defer ddk.mutex.Unlock()
 
 	geometries, err := b.Geometries(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	// RSDK-4131 will update this so it is no longer necessary
-	var geometry spatialmath.Geometry
+	var geometry, boundingSphere spatialmath.Geometry
 	if len(geometries) > 1 {
-		ddk.logger.Warn("multiple geometries specified for differential drive kinematic base, only can use the first at this time")
+		ddk.logger.CWarn(ctx, "multiple geometries specified for differential drive kinematic base, only can use the first at this time")
 	}
 	if len(geometries) > 0 {
 		geometry = geometries[0]
 	}
-	sphere, err := spatialmath.BoundingSphere(geometry)
-	if err != nil {
-		logger.Warn("base %s not configured with a geometry, will be considered a point mass for collision detection purposes.")
-		sphere = spatialmath.NewPoint(r3.Vector{}, b.Name().Name)
+	if geometry != nil {
+		boundingSphere, err = spatialmath.BoundingSphere(geometry)
+	}
+	if boundingSphere == nil || err != nil {
+		logger.CWarn(ctx, "base %s not configured with a geometry, will be considered a point mass for collision detection purposes.")
+		boundingSphere = spatialmath.NewPoint(r3.Vector{}, b.Name().Name)
 	}
 
-	ddk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, sphere)
+	ddk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, boundingSphere)
 	if err != nil {
 		return nil, err
 	}
 
 	if options.PositionOnlyMode {
-		ddk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits[:2], sphere)
+		ddk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits[:2], boundingSphere)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		ddk.planningFrame = ddk.executionFrame
 	}
+
+	ddk.noLocalizerCacheInputs = originInputs
 	return ddk, nil
 }
 
@@ -82,6 +96,8 @@ type differentialDriveKinematics struct {
 	logger                        logging.Logger
 	planningFrame, executionFrame referenceframe.Model
 	options                       Options
+	noLocalizerCacheInputs        []referenceframe.Input
+	mutex                         sync.RWMutex
 }
 
 func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
@@ -89,8 +105,14 @@ func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
 }
 
 func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	// If no localizer is present, CurrentInputs returns the expected position of the robot assuming after
+	// each part of move command was completed accurately.
 	if ddk.Localizer == nil {
-		return []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}, nil
+		ddk.mutex.RLock()
+		defer ddk.mutex.RUnlock()
+		currentInputs := ddk.noLocalizerCacheInputs
+
+		return currentInputs, nil
 	}
 
 	// TODO(rb): make a transformation from the component reference to the base frame
@@ -121,6 +143,14 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 
 	cancelContext, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	if ddk.Localizer == nil {
+		defer func() {
+			ddk.mutex.Lock()
+			defer ddk.mutex.Unlock()
+			ddk.noLocalizerCacheInputs = originInputs
+		}()
+	}
 
 	utils.PanicCapturingGo(func() {
 		// this loop polls the error state and issues a corresponding command to move the base to the objective
@@ -162,18 +192,12 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 					return
 				}
 			}
-			// If no localizer is present assume desired location was reached and exit
-			if ddk.Localizer == nil {
-				movementErr <- nil
-				return
-			}
-
 			current, err = ddk.CurrentInputs(cancelContext)
 			if err != nil {
 				movementErr <- err
 				return
 			}
-			ddk.logger.Infof("current inputs: %v", current)
+			ddk.logger.CInfof(ctx, "current inputs: %v", current)
 		}
 		movementErr <- err
 	})
@@ -189,10 +213,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 			return err
 		default:
 		}
-		// Skip position checks and just wait for response from movementErr channel
-		if ddk.Localizer == nil {
-			continue
-		}
+
 		currentInputs, err := ddk.CurrentInputs(ctx)
 		if err != nil {
 			cancel()
@@ -212,7 +233,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		} else if time.Since(lastUpdate) > ddk.options.Timeout {
 			cancel()
 			<-movementErr
-			return ErrMovementTimeout
+			return errMovementTimeout
 		}
 	}
 }
@@ -225,13 +246,31 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 	if err != nil {
 		return false, err
 	}
-	ddk.logger.Debug("distErr: %f\theadingErr %f", distErr, headingErr)
+	ddk.logger.CDebugf(ctx, "distErr: %.2f\theadingErr %.2f", distErr, headingErr)
 	if distErr > ddk.options.GoalRadiusMM && math.Abs(headingErr) > ddk.options.HeadingThresholdDegrees {
 		// base is headed off course; spin to correct
-		return true, ddk.Spin(ctx, math.Min(headingErr, ddk.options.MaxSpinAngleDeg), ddk.options.AngularVelocityDegsPerSec, nil)
+		err := ddk.Spin(ctx, math.Min(headingErr, ddk.options.MaxSpinAngleDeg), ddk.options.AngularVelocityDegsPerSec, nil)
+
+		// Update the cached current inputs to the resultant position of the spin command when the localizer is nil
+		if ddk.Localizer == nil {
+			ddk.mutex.Lock()
+			defer ddk.mutex.Unlock()
+			ddk.noLocalizerCacheInputs = []referenceframe.Input{{Value: 0}, {Value: 0}, desired[2]}
+			time.Sleep(defaultNoLocalizerDelay)
+		}
+		return true, err
 	} else if distErr > ddk.options.GoalRadiusMM {
 		// base is pointed the correct direction but not there yet; forge onward
-		return true, ddk.MoveStraight(ctx, int(math.Min(distErr, ddk.options.MaxMoveStraightMM)), ddk.options.LinearVelocityMMPerSec, nil)
+		err := ddk.MoveStraight(ctx, int(math.Min(distErr, ddk.options.MaxMoveStraightMM)), ddk.options.LinearVelocityMMPerSec, nil)
+
+		// Update the cached current inputs to the resultant position of the move straight command when the localizer is nil
+		if ddk.Localizer == nil {
+			ddk.mutex.Lock()
+			defer ddk.mutex.Unlock()
+			ddk.noLocalizerCacheInputs = desired
+			time.Sleep(defaultNoLocalizerDelay)
+		}
+		return true, err
 	}
 	return false, nil
 }
