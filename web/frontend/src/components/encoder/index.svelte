@@ -19,7 +19,9 @@ let expanded = false;
 let cancelInterval: (() => void) | undefined;
 
 const refresh = async () => {
-  if (!expanded) return
+  if (!expanded) {
+    return;
+  }
 
   try {
     const results = await Promise.all([
@@ -42,12 +44,8 @@ const handleResetClick = async () => {
   }
 };
 
-const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
-  if (event.detail.open) {
-    
-  } else {
-    cancelInterval?.();
-  }
+const handleToggle = (event: CustomEvent<{ open: boolean }>) => {
+  expanded = event.detail.open;
 };
 
 const startPolling = async () => {
@@ -61,9 +59,9 @@ const startPolling = async () => {
 }
 
 useConnect(() => {
-  startPolling()
-  return () => cancelInterval?.()
-})
+  startPolling();
+  return () => cancelInterval?.();
+});
 
 $: showPositionTicks = properties?.ticksCountSupported ?? (!properties?.ticksCountSupported && !properties?.angleDegreesSupported)
 $: showPositionDegrees = properties?.angleDegreesSupported ?? (!properties?.ticksCountSupported && !properties?.angleDegreesSupported)

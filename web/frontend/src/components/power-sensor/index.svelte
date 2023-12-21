@@ -17,8 +17,6 @@ let powerValue: number | undefined;
 
 let expanded = false;
 
-let clearInterval: (() => void) | undefined;
-
 const refresh = async () => {
   if (!expanded) {
     return;

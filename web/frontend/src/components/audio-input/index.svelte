@@ -59,8 +59,8 @@ const toggle = async (value: boolean) => {
       bind:this={audio}
       class='py-2'
       controls
-      on:play={() => toggle(true)}
-      on:pause={() => toggle(false)}
+      on:play={async () => toggle(true)}
+      on:pause={async () => toggle(false)}
     />
   </div>
 </Collapse>

@@ -25,8 +25,8 @@ const context = {
 
 export const useRobotClient = () => context;
 
-export type DisconnectCallback = () => void
-export type ConnectCallback = (() => DisconnectCallback) | (() => void)
+export type DisconnectCallback = () => void;
+export type ConnectCallback = (() => DisconnectCallback) | (() => void);
 
 /**
  * Pass a callback to this hook that will fire whenever an initial connection or reconnect occurs.
@@ -54,13 +54,13 @@ export const useConnect = (callback: ConnectCallback) => {
       if (value === 'connected') {
         disconnectCallback = callback();
       } else if (value === 'reconnecting') {
-        disconnectCallback?.()
+        disconnectCallback?.();
       }
     })
 
     return () => {
-      unsubscribe()
-      disconnectCallback?.()
+      unsubscribe();
+      disconnectCallback?.();
     }
   });
 };

@@ -28,7 +28,7 @@ let coordinate: commonApi.GeoPoint.AsObject | undefined;
 let altitudeM: number | undefined;
 let properties: movementsensorApi.GetPropertiesResponse.AsObject | undefined;
 
-let expanded = false
+let expanded = false;
 
 const refresh = async () => {
   if (!expanded) {
@@ -64,7 +64,7 @@ const refresh = async () => {
 };
 
 const handleToggle = (event: CustomEvent<{ open: boolean }>) => {
-  expanded = event.detail.open
+  expanded = event.detail.open;
 };
 
 useConnect(() => {

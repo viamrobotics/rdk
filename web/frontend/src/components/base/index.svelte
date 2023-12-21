@@ -11,6 +11,7 @@
   import Collapse from '@/lib/components/collapse.svelte';
   import { components } from '@/stores/resources';
   import { useRobotClient } from '@/hooks/robot-client';
+import { onMount } from 'svelte';
 
   export let name: string;
 
@@ -298,9 +299,11 @@
     }
   };
 
-  for (const camera of cameras) {
-    openCameras[camera.name] = false;
-  }
+  onMount(() => {
+    for (const camera of cameras) {
+      openCameras[camera.name] = false;
+    }
+  });
 </script>
 
 <!-- Safety measure for system prompts, etc. -->

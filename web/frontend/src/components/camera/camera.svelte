@@ -54,7 +54,7 @@ const exportScreenshot = async () => {
 };
 
 useConnect(() => {
-  updateCameraRefreshRate()
+  updateCameraRefreshRate();
   return () => clearFrameInterval();
 })
 
@@ -79,7 +79,7 @@ $: if (lastTriggerRefresh !== triggerRefresh) {
   {/if}
 
   <div class="max-w-screen-md">
-    {#if refreshRate === 'live'}
+    {#if refreshRate === 'Live'}
       <LiveCamera {cameraName} {cameraManager} />
     {/if}
 

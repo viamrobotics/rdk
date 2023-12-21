@@ -8,6 +8,7 @@ export let cameraManager: CameraManager
 let videoEl: HTMLVideoElement;
 
 useConnect(() => {
+  console.log('hiiii')
   videoEl.srcObject = cameraManager.videoStream;
   cameraManager.onOpen = () => {
     videoEl.srcObject = cameraManager.videoStream;
@@ -19,7 +20,7 @@ useConnect(() => {
     cameraManager.onOpen = undefined;
     cameraManager.removeStream();
   }
-})
+});
 
 </script>
 
