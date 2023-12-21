@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	//~ "fmt"
 	"sync"
 
 	"go.viam.com/rdk/logging"
@@ -100,7 +101,7 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float
 func (ptg *ptgIK) Solve(
 	ctx context.Context,
 	solutionChan chan<- *ik.Solution,
-	seed []referenceframe.Input,
+	seedVals []referenceframe.Input,
 	solveMetric ik.StateMetric,
 	nloptSeed int,
 ) error {
@@ -109,8 +110,16 @@ func (ptg *ptgIK) Solve(
 	var solved *ik.Solution
 	var gridSolved *ik.Solution
 
-	if seed == nil {
-		seed = ptg.defaultSeed
+	seed := make([]referenceframe.Input, 0, len(ptg.defaultSeed))
+	for _, defaultSeedVal := range ptg.defaultSeed {
+		seed = append(seed, referenceframe.Input{defaultSeedVal.Value})
+	}
+
+	if seedVals != nil {
+		// use the passed seed as the first dist if in range
+		if seedVals[0].Value < ptg.ptgFrame.DoF()[1].Max {
+			seed[1].Value = seedVals[0].Value
+		}
 	}
 
 	err := ptg.gridSim.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
@@ -121,11 +130,11 @@ func (ptg *ptgIK) Solve(
 	case gridSolved = <-internalSolutionGen:
 	default:
 	}
+	seed[0] = gridSolved.Configuration[0]
 
 	// Spawn the IK solver to generate a solution
 	err = ptg.fastGradDescent.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
 	// We should have zero or one solutions
-
 	select {
 	case solved = <-internalSolutionGen:
 	default:
