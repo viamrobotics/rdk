@@ -5,7 +5,7 @@ import { displayError } from '@/lib/error';
 import { setAsyncInterval } from '@/lib/schedule';
 import { getProperties, getPosition, getPositionDegrees, reset } from '@/api/encoder';
 import Collapse from '@/lib/components/collapse.svelte';
-import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
+import { useRobotClient, useConnect } from '@/hooks/robot-client';
 
 export let name: string;
 
@@ -15,9 +15,14 @@ let properties: encoderApi.GetPropertiesResponse.AsObject | undefined;
 let positionTicks: number | undefined;
 let positionDegrees: number | undefined;
 
+let expanded = false;
 let cancelInterval: (() => void) | undefined;
 
 const refresh = async () => {
+  if (!expanded) {
+    return;
+  }
+
   try {
     const results = await Promise.all([
       getPosition($robotClient, name),
@@ -39,21 +44,24 @@ const handleResetClick = async () => {
   }
 };
 
-const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
-  if (event.detail.open) {
-    try {
-      properties = await getProperties($robotClient, name);
-      await refresh();
-      cancelInterval = setAsyncInterval(refresh, 500);
-    } catch (error) {
-      displayError(error as ServiceError);
-    }
-  } else {
-    cancelInterval?.();
-  }
+const handleToggle = (event: CustomEvent<{ open: boolean }>) => {
+  expanded = event.detail.open;
 };
 
-useDisconnect(() => cancelInterval?.());
+const startPolling = async () => {
+  try {
+    properties = await getProperties($robotClient, name);
+    await refresh();
+    cancelInterval = setAsyncInterval(refresh, 500);
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
+}
+
+useConnect(() => {
+  startPolling();
+  return () => cancelInterval?.();
+});
 
 $: showPositionTicks = properties?.ticksCountSupported ?? (!properties?.ticksCountSupported && !properties?.angleDegreesSupported)
 $: showPositionDegrees = properties?.angleDegreesSupported ?? (!properties?.ticksCountSupported && !properties?.angleDegreesSupported)

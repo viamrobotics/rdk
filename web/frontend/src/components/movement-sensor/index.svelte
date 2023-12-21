@@ -13,7 +13,7 @@ import {
   getCompassHeading,
   getPosition,
 } from '@/api/movement-sensor';
-import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
+import { useRobotClient, useConnect } from '@/hooks/robot-client';
 
 export let name: string;
 
@@ -28,9 +28,13 @@ let coordinate: commonApi.GeoPoint.AsObject | undefined;
 let altitudeM: number | undefined;
 let properties: movementsensorApi.GetPropertiesResponse.AsObject | undefined;
 
-let clearInterval: (() => void) | undefined;
+let expanded = false;
 
 const refresh = async () => {
+  if (!expanded) {
+    return;
+  }
+
   properties = await getProperties($robotClient, name);
 
   if (!properties) {
@@ -60,15 +64,14 @@ const refresh = async () => {
 };
 
 const handleToggle = (event: CustomEvent<{ open: boolean }>) => {
-  if (event.detail.open) {
-    refresh();
-    clearInterval = setAsyncInterval(refresh, 500);
-  } else {
-    clearInterval?.();
-  }
+  expanded = event.detail.open;
 };
 
-useDisconnect(() => clearInterval?.());
+useConnect(() => {
+  refresh();
+  const clearInterval = setAsyncInterval(refresh, 500);
+  return () => clearInterval?.();
+});
 
 </script>
 
