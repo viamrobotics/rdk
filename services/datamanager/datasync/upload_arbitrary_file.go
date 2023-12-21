@@ -16,7 +16,7 @@ import (
 var UploadChunkSize = 64 * 1024
 
 // Default time to wait in milliseconds to check if a file has been modified.
-var fileLastModifiedMillis int = 10000
+var fileLastModifiedMillis = 10000
 
 // SetFileLastModifiedMillis allows configuring the time to wait in milliseconds
 // to check if a file has been modified for arbitrary file uploads
