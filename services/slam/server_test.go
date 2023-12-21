@@ -159,6 +159,25 @@ func TestWorkingServer(t *testing.T) {
 		test.That(t, respInfo.LastMapUpdate.AsTime(), test.ShouldResemble, timestamp)
 	})
 
+	t.Run("working GetProperties", func(t *testing.T) {
+		prop := slam.Properties{
+			CloudSlam:   false,
+			MappingMode: slam.MappingModeNewMap,
+		}
+		injectSvc.PropertiesFunc = func(ctx context.Context) (slam.Properties, error) {
+			return prop, nil
+		}
+
+		reqInfo := &pb.GetPropertiesRequest{
+			Name: testSlamServiceName,
+		}
+
+		respInfo, err := slamServer.GetProperties(context.Background(), reqInfo)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, respInfo.CloudSlam, test.ShouldResemble, prop.CloudSlam)
+		test.That(t, respInfo.MappingMode, test.ShouldResemble, pb.MappingMode_MAPPING_MODE_CREATE_NEW_MAP)
+	})
+
 	t.Run("Multiple services Valid", func(t *testing.T) {
 		resourceMap = map[resource.Name]slam.Service{
 			slam.Named(testSlamServiceName):  injectSvc,
@@ -299,6 +318,17 @@ func TestFailingServer(t *testing.T) {
 
 		respInfo, err := slamServer.GetLatestMapInfo(context.Background(), reqInfo)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get latest map info")
+		test.That(t, respInfo, test.ShouldBeNil)
+	})
+
+	t.Run("failing GetProperties", func(t *testing.T) {
+		injectSvc.PropertiesFunc = func(ctx context.Context) (slam.Properties, error) {
+			return slam.Properties{}, errors.New("failure to get properties")
+		}
+		reqInfo := &pb.GetPropertiesRequest{Name: testSlamServiceName}
+
+		respInfo, err := slamServer.GetProperties(context.Background(), reqInfo)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get properties")
 		test.That(t, respInfo, test.ShouldBeNil)
 	})
 

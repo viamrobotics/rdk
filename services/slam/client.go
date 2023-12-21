@@ -100,6 +100,42 @@ func (c *client) LatestMapInfo(ctx context.Context) (time.Time, error) {
 	return lastMapUpdate, err
 }
 
+// LatestMapInfo creates a request, calls the slam service LatestMapInfo, and
+// returns the timestamp of the last update to the map.
+func (c *client) Properties(ctx context.Context) (Properties, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::client::GetProperties")
+	defer span.End()
+
+	req := &pb.GetPropertiesRequest{
+		Name: c.name,
+	}
+
+	resp, err := c.client.GetProperties(ctx, req)
+	if err != nil {
+		return Properties{}, errors.New("failure to get properties")
+	}
+
+	var mappingMode MappingMode
+	switch resp.MappingMode {
+	case pb.MappingMode_MAPPING_MODE_CREATE_NEW_MAP:
+		mappingMode = MappingModeNewMap
+	case pb.MappingMode_MAPPING_MODE_LOCALIZE_ONLY:
+		mappingMode = MappingModeLocalizationOnly
+	case pb.MappingMode_MAPPING_MODE_UPDATE_EXISTING_MAP:
+		mappingMode = MappingModeUpdateExistingMap
+	case pb.MappingMode_MAPPING_MODE_UNSPECIFIED:
+		fallthrough
+	default:
+		return Properties{}, errors.New("properties error")
+	}
+
+	prop := Properties{
+		CloudSlam:   resp.CloudSlam,
+		MappingMode: mappingMode,
+	}
+	return prop, err
+}
+
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::client::DoCommand")
 	defer span.End()

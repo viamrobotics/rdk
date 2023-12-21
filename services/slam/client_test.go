@@ -50,6 +50,10 @@ func TestClientWorkingService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	timestampSucc := time.Now().UTC()
+	propSucc := slam.Properties{
+		CloudSlam:   false,
+		MappingMode: slam.MappingModeNewMap,
+	}
 
 	err = pcSucc.PointCloud.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -90,6 +94,10 @@ func TestClientWorkingService(t *testing.T) {
 
 	workingSLAMService.LatestMapInfoFunc = func(ctx context.Context) (time.Time, error) {
 		return timestampSucc, nil
+	}
+
+	workingSLAMService.PropertiesFunc = func(ctx context.Context) (slam.Properties, error) {
+		return propSucc, nil
 	}
 
 	workingSvc, err := resource.NewAPIResourceCollection(slam.API, map[resource.Name]slam.Service{slam.Named(nameSucc): workingSLAMService})
@@ -142,6 +150,13 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, timestamp, test.ShouldResemble, timestampSucc)
 
+		// test properties
+		prop, err := workingSLAMClient.Properties(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, prop.CloudSlam, test.ShouldBeFalse)
+		test.That(t, prop.CloudSlam, test.ShouldEqual, propSucc.CloudSlam)
+		test.That(t, prop.MappingMode, test.ShouldEqual, propSucc.MappingMode)
+
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
@@ -174,6 +189,13 @@ func TestClientWorkingService(t *testing.T) {
 		timestamp, err := workingDialedClient.LatestMapInfo(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, timestamp, test.ShouldResemble, timestampSucc)
+
+		// test properties
+		prop, err := workingDialedClient.Properties(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, prop.CloudSlam, test.ShouldBeFalse)
+		test.That(t, prop.CloudSlam, test.ShouldEqual, propSucc.CloudSlam)
+		test.That(t, prop.MappingMode, test.ShouldEqual, propSucc.MappingMode)
 
 		// test do command
 		workingSLAMService.DoCommandFunc = testutils.EchoFunc
@@ -216,6 +238,13 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, timestamp, test.ShouldResemble, timestampSucc)
 
+		// test properties
+		prop, err := dialedClient.Properties(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, prop.CloudSlam, test.ShouldBeFalse)
+		test.That(t, prop.CloudSlam, test.ShouldEqual, propSucc.CloudSlam)
+		test.That(t, prop.MappingMode, test.ShouldEqual, propSucc.MappingMode)
+
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
@@ -249,6 +278,10 @@ func TestFailingClient(t *testing.T) {
 
 	failingSLAMService.LatestMapInfoFunc = func(ctx context.Context) (time.Time, error) {
 		return time.Time{}, errors.New("failure to get latest map info")
+	}
+
+	failingSLAMService.PropertiesFunc = func(ctx context.Context) (slam.Properties, error) {
+		return slam.Properties{}, errors.New("failure to get properties")
 	}
 
 	failingSvc, err := resource.NewAPIResourceCollection(slam.API, map[resource.Name]slam.Service{slam.Named(nameFail): failingSLAMService})
@@ -298,6 +331,11 @@ func TestFailingClient(t *testing.T) {
 		timestamp, err := failingSLAMClient.LatestMapInfo(context.Background())
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get latest map info")
 		test.That(t, timestamp, test.ShouldResemble, time.Time{})
+
+		// test properties
+		prop, err := failingSLAMClient.Properties(context.Background())
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get properties")
+		test.That(t, prop, test.ShouldResemble, slam.Properties{})
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})

@@ -171,6 +171,29 @@ func (server *serviceServer) GetPaths(ctx context.Context, req *pb.GetPathsReque
 	return &pb.GetPathsResponse{Paths: pbPaths}, nil
 }
 
+func (server *serviceServer) GetProperties(ctx context.Context, req *pb.GetPropertiesRequest) (*pb.GetPropertiesResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	prop, err := svc.Properties(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	mapType := pb.MapType_MAP_TYPE_UNSPECIFIED
+	switch prop.MapType {
+	case NoMap:
+		mapType = pb.MapType_MAP_TYPE_NONE
+	case GPSMap:
+		mapType = pb.MapType_MAP_TYPE_GPS
+	}
+
+	return &pb.GetPropertiesResponse{
+		MapType: mapType,
+	}, nil
+}
+
 // DoCommand receives arbitrary commands.
 func (server *serviceServer) DoCommand(
 	ctx context.Context,

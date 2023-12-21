@@ -98,6 +98,11 @@ func TestClient(t *testing.T) {
 		return receviedPaths, nil
 	}
 
+	prop := navigation.Properties{MapType: navigation.NoMap}
+	workingNavigationService.PropertiesFunc = func(ctx context.Context) (navigation.Properties, error) {
+		return prop, nil
+	}
+
 	failingNavigationService.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
 		return navigation.ModeManual, errors.New("failure to retrieve mode")
 	}
@@ -124,6 +129,10 @@ func TestClient(t *testing.T) {
 	}
 	failingNavigationService.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
 		return nil, errors.New("unimplemented")
+	}
+
+	failingNavigationService.PropertiesFunc = func(ctx context.Context) (navigation.Properties, error) {
+		return navigation.Properties{}, errors.New("unimplemented")
 	}
 
 	workingSvc, err := resource.NewAPIResourceCollection(navigation.API, map[resource.Name]navigation.Service{
@@ -204,6 +213,11 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, paths, test.ShouldResemble, receviedPaths)
 
+		// test Properties
+		prop, err := workingNavClient.Properties(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, prop.MapType, test.ShouldEqual, prop.MapType)
+
 		// test do command
 		workingNavigationService.DoCommandFunc = testutils.EchoFunc
 		resp, err := workingNavClient.DoCommand(context.Background(), testutils.TestCommand)
@@ -282,6 +296,12 @@ func TestClient(t *testing.T) {
 		paths, err := failingNavClient.Paths(context.Background(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, paths, test.ShouldBeNil)
+
+		// test Properties
+		prop, err := failingNavClient.Properties(context.Background())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, prop, test.ShouldResemble, navigation.Properties{})
+
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 

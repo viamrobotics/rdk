@@ -97,6 +97,20 @@ func (slamSvc *SLAM) LatestMapInfo(ctx context.Context) (time.Time, error) {
 	return slamSvc.mapTimestamp, nil
 }
 
+// Properties returns the mapping mode of the slam service as well as a boolean indicating if it running
+// in the cloud or locally. In the case of fake slam, it will return that the service is being run locally
+// and is creating a new map.
+func (slamSvc *SLAM) Properties(ctx context.Context) (slam.Properties, error) {
+	_, span := trace.StartSpan(ctx, "slam::fake::Properties")
+	defer span.End()
+
+	prop := slam.Properties{
+		CloudSlam:   false,
+		MappingMode: slam.MappingModeNewMap,
+	}
+	return prop, nil
+}
+
 // incrementDataCount is not thread safe but that is ok as we only intend a single user to be interacting
 // with it at a time.
 func (slamSvc *SLAM) incrementDataCount() {

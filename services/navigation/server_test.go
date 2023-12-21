@@ -376,6 +376,29 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldBeNil)
 	})
 
+	t.Run("working Properties", func(t *testing.T) {
+		prop := navigation.Properties{
+			MapType: navigation.NoMap,
+		}
+		injectSvc.PropertiesFunc = func(ctx context.Context) (navigation.Properties, error) {
+			return prop, nil
+		}
+		req := &pb.GetPropertiesRequest{Name: testSvcName1.ShortName()}
+		resp, err := navServer.GetProperties(context.Background(), req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.MapType, test.ShouldEqual, pb.MapType_MAP_TYPE_NONE)
+	})
+	t.Run("failing Properties", func(t *testing.T) {
+		expectedErr := errors.New("unimplemented")
+		injectSvc.PropertiesFunc = func(ctx context.Context) (navigation.Properties, error) {
+			return navigation.Properties{}, expectedErr
+		}
+		req := &pb.GetPropertiesRequest{Name: testSvcName1.ShortName()}
+		resp, err := navServer.GetProperties(context.Background(), req)
+		test.That(t, err, test.ShouldResemble, expectedErr)
+		test.That(t, resp, test.ShouldBeNil)
+	})
+
 	injectAPISvc, _ = resource.NewAPIResourceCollection(navigation.API, map[resource.Name]navigation.Service{})
 	navServer = navigation.NewRPCServiceServer(injectAPISvc).(pb.NavigationServiceServer)
 	t.Run("failing on nonexistent server", func(t *testing.T) {

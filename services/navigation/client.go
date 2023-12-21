@@ -203,6 +203,30 @@ func (c *client) Paths(ctx context.Context, extra map[string]interface{}) ([]*Pa
 	return ProtoSliceToPaths(resp.GetPaths())
 }
 
+func (c *client) Properties(ctx context.Context) (Properties, error) {
+	resp, err := c.client.GetProperties(ctx, &pb.GetPropertiesRequest{Name: c.name})
+	if err != nil {
+		return Properties{}, errors.New("failure to get properties")
+	}
+
+	var mapType MapType
+	switch resp.MapType {
+	case pb.MapType_MAP_TYPE_NONE:
+		mapType = NoMap
+	case pb.MapType_MAP_TYPE_GPS:
+		mapType = GPSMap
+	case pb.MapType_MAP_TYPE_UNSPECIFIED:
+		fallthrough
+	default:
+		return Properties{}, errors.New("properties error")
+	}
+
+	prop := Properties{
+		MapType: mapType,
+	}
+	return prop, nil
+}
+
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

@@ -39,10 +39,26 @@ func init() {
 }
 
 // SubtypeName is the name of the type of service.
-const SubtypeName = "slam"
+const (
+	SubtypeName       = "slam"
+	MappingModeNewMap = MappingMode(iota)
+	MappingModeLocalizationOnly
+	MappingModeUpdateExistingMap
+)
 
 // API is a variable that identifies the slam resource API.
 var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
+
+// MappingMode describes what mapping mode the slam service is in, including
+// creating a new map, localizing on an existing map or updating an existing map.
+type MappingMode uint8
+
+// Properties returns various information regarding the current slam service,
+// including whether the slam process is running in the cloud and its mapping mode.
+type Properties struct {
+	CloudSlam   bool
+	MappingMode MappingMode
+}
 
 // Named is a helper for getting the named service's typed resource name.
 func Named(name string) resource.Name {
@@ -61,6 +77,7 @@ type Service interface {
 	PointCloudMap(ctx context.Context) (func() ([]byte, error), error)
 	InternalState(ctx context.Context) (func() ([]byte, error), error)
 	LatestMapInfo(ctx context.Context) (time.Time, error)
+	Properties(ctx context.Context) (Properties, error)
 }
 
 // HelperConcatenateChunksToFull concatenates the chunks from a streamed grpc endpoint.

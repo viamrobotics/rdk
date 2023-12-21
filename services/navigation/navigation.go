@@ -74,6 +74,12 @@ func StringToMapType(mapTypeName string) (MapType, error) {
 	return 0, errors.Errorf("invalid map_type '%v' given", mapTypeName)
 }
 
+// Properties reutns information regarding the current navigation service. This includes the map type
+// being ingested and used by the navigation service.
+type Properties struct {
+	MapType MapType
+}
+
 // A Service controls the navigation for a robot.
 type Service interface {
 	resource.Resource
@@ -89,6 +95,8 @@ type Service interface {
 	Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error)
 
 	Paths(ctx context.Context, extra map[string]interface{}) ([]*Path, error)
+
+	Properties(ctx context.Context) (Properties, error)
 }
 
 // SubtypeName is the name of the type of service.
