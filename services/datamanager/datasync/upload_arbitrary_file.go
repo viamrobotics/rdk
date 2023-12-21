@@ -45,7 +45,7 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, f
 		return err
 	}
 	timeSinceMod := clock.Since(info.ModTime())
-	if timeSinceMod >= time.Duration(fileLastModifiedMillis)*time.Millisecond {
+	if timeSinceMod < time.Duration(fileLastModifiedMillis)*time.Millisecond {
 		return errors.New("file modified too recently")
 	}
 
