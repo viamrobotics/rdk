@@ -158,7 +158,10 @@ func interpolateSegment(ci *ik.Segment, resolution float64) ([][]referenceframe.
 	var interpolatedConfigurations [][]referenceframe.Input
 	for i := 0; i <= steps; i++ {
 		interp := float64(i) / float64(steps)
-		interpConfig := referenceframe.InterpolateInputs(ci.StartConfiguration, ci.EndConfiguration, interp)
+		interpConfig, err := ci.Frame.Interpolate(ci.StartConfiguration, ci.EndConfiguration, interp)
+		if err != nil {
+			return nil, err
+		}
 		interpolatedConfigurations = append(interpolatedConfigurations, interpConfig)
 	}
 	return interpolatedConfigurations, nil

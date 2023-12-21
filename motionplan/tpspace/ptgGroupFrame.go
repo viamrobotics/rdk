@@ -189,6 +189,17 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 	return traj[len(traj)-1].Pose, nil
 }
 
+// For PTGs, Interpolate is used to interpolate along the `to` arc after the `from` arc has completed. So we disregard `from` and just
+// interpolate along the dist of `to`.
+func (pf *ptgGroupFrame) Interpolate(_, to []referenceframe.Input, by float64) ([]referenceframe.Input, error) {
+	if len(to) != len(pf.DoF()) {
+		return nil, referenceframe.NewIncorrectInputLengthError(len(to), len(pf.DoF()))
+	}
+
+	distTo := to[distanceAlongTrajectoryIndex].Value
+	return []referenceframe.Input{to[ptgIndex], to[trajectoryAlphaWithinPTG], {distTo * by}}, nil
+}
+
 func (pf *ptgGroupFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {
 	n := make([]referenceframe.Input, len(jp.Values))
 	for idx, d := range jp.Values {

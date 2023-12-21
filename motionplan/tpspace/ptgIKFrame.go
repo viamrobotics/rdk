@@ -75,3 +75,17 @@ func (pf *ptgIKFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose
 	}
 	return p1, nil
 }
+
+// For PTGs, Interpolate is used to interpolate along the `to` arc after the `from` arc has completed. So we disregard `from` and just
+// interpolate along the dist of `to`.
+func (pf *ptgIKFrame) Interpolate(_, to []referenceframe.Input, by float64) ([]referenceframe.Input, error) {
+	if len(to) != len(pf.DoF()) && len(to) != 2 {
+		// We also want to always support 2 inputs
+		return nil, referenceframe.NewIncorrectInputLengthError(len(to), len(pf.DoF()))
+	}
+	interp := make([]referenceframe.Input, 0, len(to))
+	for i := 0; i < len(to); i += 2 {
+		interp = append(interp, to[i], referenceframe.Input{to[i+1].Value * by})
+	}
+	return interp, nil
+}

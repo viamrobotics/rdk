@@ -301,8 +301,14 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 		firstEdge := mp.randseed.Intn(len(path) - 2)
 		secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
 
-		wayPoint1 := frame.InterpolateInputs(path[firstEdge].Q(), path[firstEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
-		wayPoint2 := frame.InterpolateInputs(path[secondEdge].Q(), path[secondEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
+		wayPoint1, err := mp.frame.Interpolate(path[firstEdge].Q(), path[firstEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
+		if err != nil {
+			return path
+		}
+		wayPoint2, err := mp.frame.Interpolate(path[secondEdge].Q(), path[secondEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
+		if err != nil {
+			return path
+		}
 
 		if mp.checkPath(wayPoint1, wayPoint2) {
 			newpath := []node{}

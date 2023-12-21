@@ -74,6 +74,25 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 	return frames[0].transform, err
 }
 
+// Interpolate interpolates the given amount between the two sets of inputs.
+func (m *SimpleModel) Interpolate(from, to []Input, by float64) ([]Input, error) {
+	interp := make([]Input, 0, len(from))
+	posIdx := 0
+	for _, transform := range m.OrdTransforms {
+		dof := len(transform.DoF()) + posIdx
+		fromSubset := from[posIdx:dof]
+		toSubset := to[posIdx:dof]
+		posIdx = dof
+
+		interpSubset, err := transform.Interpolate(fromSubset, toSubset, by)
+		if err != nil {
+			return nil, err
+		}
+		interp = append(interp, interpSubset...)
+	}
+	return interp, nil
+}
+
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	inputs := make([]Input, 0, len(jp.Values))

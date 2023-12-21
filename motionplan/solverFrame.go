@@ -182,6 +182,32 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	return tf.(*frame.PoseInFrame).Pose(), nil
 }
 
+// Interpolate interpolates the given amount between the two sets of inputs.
+func (sf *solverFrame) Interpolate(from, to []frame.Input, by float64) ([]frame.Input, error) {
+	if len(from) != len(sf.DoF()) {
+		return nil, frame.NewIncorrectInputLengthError(len(from), len(sf.DoF()))
+	}
+	if len(to) != len(sf.DoF()) {
+		return nil, frame.NewIncorrectInputLengthError(len(to), len(sf.DoF()))
+	}
+	interp := make([]frame.Input, 0, len(to))
+	posIdx := 0
+	for _, transform := range sf.frames {
+		dof := len(transform.DoF()) + posIdx
+		fromSubset := from[posIdx:dof]
+		toSubset := to[posIdx:dof]
+		posIdx = dof
+
+		interpSub, err := transform.Interpolate(fromSubset, toSubset, by)
+		if err != nil {
+			return nil, err
+		}
+
+		interp = append(interp, interpSub...)
+	}
+	return interp, nil
+}
+
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (sf *solverFrame) InputFromProtobuf(jp *pb.JointPositions) []frame.Input {
 	inputs := make([]frame.Input, 0, len(jp.Values))

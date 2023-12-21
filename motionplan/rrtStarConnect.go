@@ -119,7 +119,12 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		}
 		rrt.maps = planSeed.maps
 	}
-	target := newConfigurationNode(referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5))
+	targetConf, err := mp.frame.Interpolate(seed, rrt.maps.optNode.Q(), 0.5)
+	target := newConfigurationNode(targetConf)
+	if err != nil {
+		rrt.solutionChan <- &rrtPlanReturn{planerr: err}
+		return
+	}
 	map1, map2 := rrt.maps.startMap, rrt.maps.goalMap
 
 	// Keep a list of the node pairs that have the same inputs
@@ -178,7 +183,12 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
 		if reachedDelta > mp.planOpts.JointSolveDist {
-			target = newConfigurationNode(referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5))
+			targetConf, err = mp.frame.Interpolate(map1reached.Q(), map2reached.Q(), 0.5)
+			if err != nil {
+				rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+				return
+			}
+			target = newConfigurationNode(targetConf)
 			map1reached, map2reached, err = tryExtend(target)
 			if err != nil {
 				rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}

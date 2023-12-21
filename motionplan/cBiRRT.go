@@ -134,7 +134,12 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		rrt.maps = planSeed.maps
 	}
 	mp.logger.CInfof(ctx, "goal node: %v\n", rrt.maps.optNode.Q())
-	target := newConfigurationNode(referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5))
+	interpConfig, err := mp.frame.Interpolate(seed, rrt.maps.optNode.Q(), 0.5)
+	if err != nil {
+		rrt.solutionChan <- &rrtPlanReturn{planerr: err}
+		return
+	}
+	target := newConfigurationNode(interpConfig)
 
 	map1, map2 := rrt.maps.startMap, rrt.maps.goalMap
 
@@ -212,7 +217,12 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 
 		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
 		if reachedDelta > mp.planOpts.JointSolveDist {
-			target = newConfigurationNode(referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5))
+			targetConf, err := mp.frame.Interpolate(map1reached.Q(), map2reached.Q(), 0.5)
+			if err != nil {
+				rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+				return
+			}
+			target = newConfigurationNode(targetConf)
 			map1reached, map2reached, err = tryExtend(target)
 			if err != nil {
 				rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
