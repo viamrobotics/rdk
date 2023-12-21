@@ -302,9 +302,10 @@ func TestPlanToPlanStepsAndGeoPoses(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.msg, func(t *testing.T) {
-			ps, gps, err := PlanToPlanStepsAndGeoPoses(plan, baseName, tc.origin, *planRequest)
+			ps, err := PlanToPlanSteps(plan, baseName, *planRequest)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(ps), test.ShouldEqual, len(expectedPoses))
+			gps := PlanStepsToGeoPoses(ps, tc.origin)
 			for i, step := range ps {
 				if len(step) != 1 {
 					t.Logf("iteration %d expected steps with a single component\n", i)
