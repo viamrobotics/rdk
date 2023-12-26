@@ -54,6 +54,12 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 	return robot.ResourceFromRobot[Service](r, Named(name))
 }
 
+// FromDependencies is a helper for getting the named SLAM service from a collection of
+// dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
+	return resource.FromDependencies[Service](deps, Named(name))
+}
+
 // Service describes the functions that are available to the service.
 type Service interface {
 	resource.Resource
