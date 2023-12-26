@@ -16,6 +16,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/utils"
 )
 
 type jobStatus string
@@ -161,20 +162,9 @@ func (c *viamClient) moduleBuildListAction(cCtx *cli.Context) error {
 	return nil
 }
 
-// filterMap is a helper that returns a new map based on k,v pairs that pass predicate.
-func filterMap[K comparable, V any](orig map[K]V, predicate func(K, V) bool) map[K]V {
-	ret := make(map[K]V)
-	for key, val := range orig {
-		if predicate(key, val) {
-			ret[key] = val
-		}
-	}
-	return ret
-}
-
 // anyFailed returns a useful error based on which platforms failed, or nil if all good.
 func buildError(statuses map[string]jobStatus) error {
-	failedPlatforms := filterMap(
+	failedPlatforms := utils.FilterMap(
 		statuses,
 		func(_ string, s jobStatus) bool { return s != jobStatusDone },
 	)
