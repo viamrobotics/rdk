@@ -40,7 +40,7 @@ func TestTwoErrors(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldEqual, "second")
 }
 
-func TestSetGetSet(t *testing.T) {
+func TestSetGetTwice(t *testing.T) {
 	le := NewLastError(1, 1)
 
 	le.Set(errors.New("first"))
