@@ -192,7 +192,7 @@ func (dg *dualGPS) CompassHeading(ctx context.Context, extra map[string]interfac
 func (dg *dualGPS) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		CompassHeadingSupported:     true,
-		PositionSupported:           false,
+		PositionSupported:           true,
 		LinearVelocitySupported:     false,
 		AngularVelocitySupported:    false,
 		OrientationSupported:        false,
