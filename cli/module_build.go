@@ -195,12 +195,10 @@ func ModuleBuildLogsAction(c *cli.Context) error {
 		return err
 	}
 
+	var statuses map[string]jobStatus
 	if shouldWait {
-		statuses, err := client.waitForBuildToFinish(buildID, platform)
+		statuses, err = client.waitForBuildToFinish(buildID, platform)
 		if err != nil {
-			return err
-		}
-		if err := buildError(statuses); err != nil {
 			return err
 		}
 	}
@@ -226,6 +224,9 @@ func ModuleBuildLogsAction(c *cli.Context) error {
 		}
 	}
 
+	if err := buildError(statuses); err != nil {
+		return err
+	}
 	return nil
 }
 
