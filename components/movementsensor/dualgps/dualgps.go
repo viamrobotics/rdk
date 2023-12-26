@@ -204,11 +204,24 @@ func (dg *dualGPS) Readings(ctx context.Context, extra map[string]interface{}) (
 	return movementsensor.DefaultAPIReadings(ctx, dg, extra)
 }
 
-// Unimplemented functions.
 func (dg *dualGPS) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-	return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), movementsensor.ErrMethodUnimplementedPosition
+	dg.mu.Lock()
+	defer dg.mu.Unlock()
+	geoPoint1, alt1, err := dg.gps1.Position(ctx, nil)
+	if err != nil {
+		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), err
+	}
+	geoPoint2, alt2, err := dg.gps2.Position(ctx, nil)
+	if err != nil {
+		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), err
+	}
+
+	mid := geoPoint1.MidpointTo(geoPoint2)
+
+	return mid, (alt2 - alt1) * 0.5, nil
 }
 
+// Unimplemented functions.
 func (dg *dualGPS) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }
