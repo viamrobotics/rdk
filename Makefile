@@ -67,11 +67,13 @@ lint-go: tool-install
 lint-web: check-web
 	npm run lint --prefix web/frontend
 
-check-web:
+check-web: build-web
 	npm run check --prefix web/frontend
 
-cover: tool-install
-	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover-with-race
+cover-only: tool-install
+	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
+
+cover: test-go cover-only
 
 test: test-go test-web
 
@@ -132,24 +134,25 @@ license-check:
 
 FFMPEG_ROOT ?= etc/FFmpeg
 $(FFMPEG_ROOT):
-	cd etc && git clone https://github.com/FFmpeg/FFmpeg.git
-	git -C $(FFMPEG_ROOT) checkout release/6.1
+	cd etc && git clone https://github.com/FFmpeg/FFmpeg.git --depth 1 --branch release/6.1
 
 # For ARM64 builds, use the image ghcr.io/viamrobotics/antique:arm64 for backward compatibility
-FFMPEG_H264_PREFIX ?= $(shell realpath .)/gostream/codec/h264/ffmpeg/$(shell uname -s)-$(shell uname -m)
-ffmpeg-h264-static: $(FFMPEG_ROOT)
-	cd $(FFMPEG_ROOT) && ./configure \
-		--disable-programs \
-		--disable-doc \
-		--disable-everything \
-		--enable-encoder=h264_v4l2m2m \
-		--prefix=$(FFMPEG_H264_PREFIX) \
-		--enable-pic
+FFMPEG_PREFIX ?= $(shell realpath .)/gostream/ffmpeg/$(shell uname -s)-$(shell uname -m)
+# See compilation guide here https://trac.ffmpeg.org/wiki/CompilationGuide
+FFMPEG_OPTS = --disable-programs --disable-doc --disable-everything --prefix=$(FFMPEG_PREFIX) --disable-autodetect
+ifeq ($(shell uname -m),aarch64)
+	# We only support hardware encoding on a Raspberry Pi.
+	FFMPEG_OPTS += --enable-encoder=h264_v4l2m2m
+	FFMPEG_OPTS += --enable-v4l2-m2m
+endif
+ffmpeg: $(FFMPEG_ROOT)
+	cd $(FFMPEG_ROOT) && ($(MAKE) distclean || true)
+	cd $(FFMPEG_ROOT) && ./configure $(FFMPEG_OPTS)
 	cd $(FFMPEG_ROOT) && $(MAKE)
 	cd $(FFMPEG_ROOT) && $(MAKE) install
 
-	# remove pkg-config and shared library files
-	rm -rf $(FFMPEG_H264_PREFIX)/lib/pkgconfig
-	rm -rf $(FFMPEG_H264_PREFIX)/share
+	# Only keep archive files. Different architectures can share the same source files.
+	find $(FFMPEG_PREFIX)/* -type d ! -wholename $(FFMPEG_PREFIX)/lib | xargs rm -rf
+
 
 include *.make

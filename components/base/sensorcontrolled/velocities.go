@@ -2,6 +2,7 @@ package sensorcontrolled
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/golang/geo/r3"
@@ -12,27 +13,59 @@ import (
 )
 
 // TODO: RSDK-5355 useControlLoop bool should be removed after testing.
-const useControlLoop = false
+const (
+	useControlLoop = false
+	// rPiGain is 1/255 because the PWM signal on a pi (and most other boards)
+	// is limited to 8 bits, or the range 0-255.
+	rPiGain = 0.00392157
+)
 
 // setupControlLoops uses the embedded config in this file to initialize a control
-// loop using the controls package and stor in on the sensor controlled base struct
+// loop using the controls package and store in on the sensor controlled base struct
 // the sensor base in the controllable interface that implements State and GetState
-// called by the endpoing logic of the control thread and the controlLoopConfig
+// called by the endpoint logic of the control thread and the controlLoopConfig
 // is included at the end of this file.
-func setupControlLoops(sb *sensorBase) error {
-	// TODO: RSDK-5355 useControlLoop bool should be removed after testing
-	if useControlLoop {
-		loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
-		if err != nil {
-			return err
-		}
-		sb.loop = loop
+func (sb *sensorBase) setupControlLoops() error {
+	// create control loop
+	loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
+	if err != nil {
+		return err
+	}
+	if err := loop.Start(); err != nil {
+		return err
+	}
+	sb.loop = loop
 
-		if sb.loop != nil {
-			if err := sb.loop.Start(); err != nil {
-				return err
-			}
-		}
+	return nil
+}
+
+func (sb *sensorBase) updateControlConfig(
+	ctx context.Context, linearValue, angularValue float64,
+) error {
+	// set linear setpoint config
+	linConf := control.BlockConfig{
+		Name: "linear_setpoint",
+		Type: "constant",
+		Attribute: rdkutils.AttributeMap{
+			"constant_val": linearValue,
+		},
+		DependsOn: []string{},
+	}
+	if err := sb.loop.SetConfigAt(ctx, "linear_setpoint", linConf); err != nil {
+		return err
+	}
+
+	// set angular setpoint config
+	angConf := control.BlockConfig{
+		Name: "angular_setpoint",
+		Type: "constant",
+		Attribute: rdkutils.AttributeMap{
+			"constant_val": angularValue,
+		},
+		DependsOn: []string{},
+	}
+	if err := sb.loop.SetConfigAt(ctx, "angular_setpoint", angConf); err != nil {
+		return err
 	}
 
 	return nil
@@ -56,16 +89,35 @@ func (sb *sensorBase) SetVelocity(
 	var sensorCtx context.Context
 	sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
 
-	// TODO: RSDK-5355 remove control loop bool after testing
-	if useControlLoop && sb.loop != nil {
+	if useControlLoop {
+		// stop and restart loop
+		if sb.loop != nil {
+			if err := sb.Stop(ctx, nil); err != nil {
+				sb.logger.Error(err)
+			}
+		}
+		loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
+		if err != nil {
+			return err
+		}
+		if err := loop.Start(); err != nil {
+			return err
+		}
+		sb.loop = loop
+
+		// convert linear.Y mmPerSec to mPerSec, angular.Z is degPerSec
+		if err := sb.updateControlConfig(ctx, linear.Y/1000.0, angular.Z); err != nil {
+			return err
+		}
+
 		// if we have a loop, let's use the SetState function to call the SetVelocity command
 		// through the control loop
-		sb.logger.Info("using loop")
+		sb.logger.CInfo(ctx, "using loop")
 		sb.pollsensors(sensorCtx, extra)
 		return nil
 	}
 
-	sb.logger.Info("setting velocity without loop")
+	sb.logger.CInfo(ctx, "setting velocity without loop")
 	// else do not use the control loop and pass through the SetVelocity command
 	return sb.controlledBase.SetVelocity(ctx, linear, angular, extra)
 }
@@ -97,22 +149,29 @@ func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interfac
 			case <-ticker.C:
 				linvel, err := sb.velocities.LinearVelocity(ctx, extra)
 				if err != nil {
-					sb.logger.Error(err)
+					sb.logger.CError(ctx, err)
 					return
 				}
 
 				angvel, err := sb.velocities.AngularVelocity(ctx, extra)
 				if err != nil {
-					sb.logger.Error(err)
+					sb.logger.CError(ctx, err)
 					return
 				}
 
 				if sensorDebug {
-					sb.logger.Infof("sensor readings: linear: %#v, angular %#v", linvel, angvel)
+					sb.logger.CInfof(ctx, "sensor readings: linear: %#v, angular %#v", linvel, angvel)
 				}
 			}
 		}
 	}, sb.activeBackgroundWorkers.Done)
+}
+
+func sign(x float64) float64 { // A quick helper function
+	if math.Signbit(x) {
+		return -1.0
+	}
+	return 1.0
 }
 
 // SetState is called in endpoint.go of the controls package by the control loop
@@ -123,17 +182,19 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 	defer sb.mu.Unlock()
 	if sb.isPolling() {
 		// if the spin loop is polling, don't call set velocity, immediately return
-		// this allows us to keep the control loop unning without stopping it until
+		// this allows us to keep the control loop running without stopping it until
 		// the resource Close has been called
-		sb.logger.Info("skipping set state call")
+		sb.logger.CInfo(ctx, "skipping set state call")
 		return nil
 	}
 
-	sb.logger.Info("setting state")
+	sb.logger.CInfo(ctx, "setting state")
 	linvel := state[0].GetSignalValueAt(0)
-	angvel := state[1].GetSignalValueAt(0)
+	// multiply by the direction of the linear velocity so that angular direction
+	// (cw/ccw) doesn't switch when the base is moving backwards
+	angvel := (state[1].GetSignalValueAt(0) * sign(linvel))
 
-	return sb.SetVelocity(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
+	return sb.SetPower(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
 }
 
 // State is called in endpoint.go of the controls package by the control loop
@@ -141,7 +202,7 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 // movementsensor and insert its LinearVelocity and AngularVelocity values
 // in the signal in the control loop's thread in the endpoint code.
 func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
-	sb.logger.Info("getting state")
+	sb.logger.CInfo(ctx, "getting state")
 	linvel, err := sb.velocities.LinearVelocity(ctx, nil)
 	if err != nil {
 		return []float64{}, err
@@ -151,59 +212,98 @@ func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
 	if err != nil {
 		return []float64{}, err
 	}
-
 	return []float64{linvel.Y, angvel.Z}, nil
 }
 
 // Control Loop Configuration is embedded in this file so a user does not have to
 // configure the loop from within the attributes of the config file.
-// it sets up a loop that takes a constant -> sum -> gain -> PID -> Endpoint -> feedback to sum
-// structure. The gain is 1 to not magnify the input signal, the PID values are experimental
+// it sets up a loop that takes a constant -> sum -> PID -> gain -> Endpoint -> feedback to sum
+// structure. The gain is 0.0039 (1/255) to account for the PID range, the PID values are experimental
 // this structure can change as hardware experiments with the viam base require.
 var controlLoopConfig = control.Config{
 	Blocks: []control.BlockConfig{
 		{
-			Name: "sensor-base",
+			Name: "endpoint",
 			Type: "endpoint",
 			Attribute: rdkutils.AttributeMap{
-				"base_name": "base",
+				"base_name": "feedback",
 			},
-			DependsOn: []string{"pid_block"},
+			DependsOn: []string{"linear_gain", "angular_gain"},
 		},
 		{
-			Name: "pid_block",
+			Name: "linear_PID",
 			Type: "PID",
 			Attribute: rdkutils.AttributeMap{
-				"kP": 1.0, // kP, kD and kI are random for now
-				"kD": 0.5,
-				"kI": 0.2,
+				"kD":             0.0,
+				"kI":             520.763911,
+				"kP":             291.489819,
+				"int_sat_lim_lo": -255.0,
+				"int_sat_lim_up": 255.0,
+				"limit_lo":       -255.0,
+				"limit_up":       255.0,
+				"tune_method":    "ziegerNicholsPI",
+				"tune_ssr_value": 2.0,
+				"tune_step_pct":  0.35,
 			},
-			DependsOn: []string{"sum_block"},
+			DependsOn: []string{"sum"},
 		},
 		{
-			Name: "sum_block",
+			Name: "angular_PID",
+			Type: "PID",
+			Attribute: rdkutils.AttributeMap{
+				"kD":             0.0,
+				"kI":             0.904513,
+				"kP":             0.677894,
+				"int_sat_lim_lo": -255.0,
+				"int_sat_lim_up": 255.0,
+				"limit_lo":       -255.0,
+				"limit_up":       255.0,
+				"tune_method":    "ziegerNicholsPI",
+				"tune_ssr_value": 2.0,
+				"tune_step_pct":  0.35,
+			},
+			DependsOn: []string{"sum"},
+		},
+		{
+			Name: "sum",
 			Type: "sum",
 			Attribute: rdkutils.AttributeMap{
-				"sum_string": "-+", // should this be +- or does it follow dependency order?
+				"sum_string": "++-",
 			},
-			DependsOn: []string{"sensor-base", "constant"},
+			DependsOn: []string{"linear_setpoint", "angular_setpoint", "endpoint"},
 		},
 		{
-			Name: "gain_block",
+			Name: "linear_gain",
 			Type: "gain",
 			Attribute: rdkutils.AttributeMap{
-				"gain": 1.0, // need to update dynamically? Or should I just use the trapezoidal velocity profile
+				"gain": rPiGain,
 			},
-			DependsOn: []string{"sum_block"},
+			DependsOn: []string{"linear_PID"},
 		},
 		{
-			Name: "constant",
+			Name: "angular_gain",
+			Type: "gain",
+			Attribute: rdkutils.AttributeMap{
+				"gain": rPiGain,
+			},
+			DependsOn: []string{"angular_PID"},
+		},
+		{
+			Name: "linear_setpoint",
 			Type: "constant",
 			Attribute: rdkutils.AttributeMap{
-				"constant_val": 1.0,
+				"constant_val": 0.0,
+			},
+			DependsOn: []string{},
+		},
+		{
+			Name: "angular_setpoint",
+			Type: "constant",
+			Attribute: rdkutils.AttributeMap{
+				"constant_val": 0.0,
 			},
 			DependsOn: []string{},
 		},
 	},
-	Frequency: 20,
+	Frequency: 100,
 }

@@ -24,9 +24,9 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// NewReadingsCollector returns a collector to register a sensor reading method. If one is already registered
+// newReadingsCollector returns a collector to register a sensor reading method. If one is already registered
 // with the same MethodMetadata it will panic.
-func NewReadingsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newReadingsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	sensorResource, err := assertSensor(resource)
 	if err != nil {
 		return nil, err

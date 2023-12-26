@@ -35,6 +35,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"strings"
@@ -159,15 +160,15 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	if newConf.SerialPath != "" {
 		g.writePath = newConf.SerialPath
-		g.logger.Infof("updated serial_path to #%v", newConf.SerialPath)
+		g.logger.CInfof(ctx, "updated serial_path to #%v", newConf.SerialPath)
 	}
 
 	if newConf.SerialBaudRate != 0 {
 		g.wbaud = newConf.SerialBaudRate
-		g.logger.Infof("updated serial_baud_rate to %v", newConf.SerialBaudRate)
+		g.logger.CInfof(ctx, "updated serial_baud_rate to %v", newConf.SerialBaudRate)
 	} else {
 		g.wbaud = 38400
-		g.logger.Info("serial_baud_rate using default baud rate 38400")
+		g.logger.CInfo(ctx, "serial_baud_rate using default baud rate 38400")
 	}
 
 	g.ntripconfigMu.Lock()
@@ -196,7 +197,7 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	g.ntripconfigMu.Unlock()
 
-	g.logger.Debug("done reconfiguring")
+	g.logger.CDebug(ctx, "done reconfiguring")
 
 	return nil
 }
@@ -333,6 +334,7 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 		// if the error is related to ICY, we log it as warning.
 		if strings.Contains(err.Error(), "ICY") {
 			g.logger.Warnf("Detected old HTTP protocol: %s", err)
+			g.err.Set(err)
 		} else {
 			g.logger.Errorf("Can't connect to NTRIP stream: %s", err)
 			return err
@@ -399,6 +401,7 @@ func (g *rtkSerial) connectAndParseSourceTable() error {
 
 	g.urlMutex.Lock()
 	defer g.urlMutex.Unlock()
+
 	err := g.connect(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
 		g.err.Set(err)
@@ -406,7 +409,20 @@ func (g *rtkSerial) connectAndParseSourceTable() error {
 	}
 
 	if !g.ntripClient.Client.IsCasterAlive() {
-		g.logger.Infof("caster %s seems to be down", g.ntripClient.URL)
+		g.logger.Infof("caster %s seems to be down, retrying", g.ntripClient.URL)
+		attempts := 0
+		// we will try to connect to the caster five times if it's down.
+		for attempts < 5 {
+			if !g.ntripClient.Client.IsCasterAlive() {
+				attempts++
+				g.logger.Debugf("attempt(s) to connect to caster: %v ", attempts)
+			} else {
+				break
+			}
+		}
+		if attempts == 5 {
+			return fmt.Errorf("caster %s is down", g.ntripClient.URL)
+		}
 	}
 
 	g.logger.Debug("gettting source table")
@@ -427,6 +443,11 @@ func (g *rtkSerial) connectAndParseSourceTable() error {
 
 // connectToNTRIP connects to NTRIP stream.
 func (g *rtkSerial) connectToNTRIP() error {
+	select {
+	case <-g.cancelCtx.Done():
+		return errors.New("context canceled")
+	default:
+	}
 	err := g.connectAndParseSourceTable()
 	if err != nil {
 		return g.err.Get()
@@ -692,6 +713,7 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 	g.ntripMu.Lock()
 	g.cancelFunc()
 
+	g.logger.Debug("Closing GPS RTK Serial")
 	if err := g.nmeamovementsensor.Close(ctx); err != nil {
 		g.ntripMu.Unlock()
 		return err
@@ -727,6 +749,8 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 	if err := g.err.Get(); err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
+
+	g.logger.Debug("GPS RTK Serial is closed")
 	return nil
 }
 

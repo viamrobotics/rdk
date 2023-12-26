@@ -87,7 +87,7 @@ func (rc *rtspCamera) Close(ctx context.Context) error {
 	rc.cancelFunc()
 	rc.activeBackgroundWorkers.Wait()
 	if err := rc.client.Close(); err != nil && !errors.Is(err, liberrors.ErrClientTerminated{}) {
-		rc.logger.Infow("error while closing rtsp client:", "error", err)
+		rc.logger.CInfow(ctx, "error while closing rtsp client:", "error", err)
 	}
 	return nil
 }

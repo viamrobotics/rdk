@@ -43,7 +43,7 @@ func getMIMETypeFromData(ctx context.Context, data []byte, logger logging.Logger
 				"attempted to decode raw rgba data, but data was not encoded with the expected header format")
 		}
 	} else if (actualMime != "") && (actualMime != detectedMimeType) {
-		logger.Debugf(
+		logger.CDebugf(ctx,
 			"mime type requested %s for decode was not detected format %s,"+
 				" using detected format", actualMime, detectedMimeType,
 		)
@@ -52,7 +52,7 @@ func getMIMETypeFromData(ctx context.Context, data []byte, logger logging.Logger
 	// which the data was originally encoded, or failing that, provide the same
 	// default ("application/octet-stream") as other standard libraries.
 	if requestedMime == "" {
-		logger.Debugf(
+		logger.CDebugf(ctx,
 			"no MIME type specified, defaulting to detected type %s", detectedMimeType)
 	}
 	if isLazy {

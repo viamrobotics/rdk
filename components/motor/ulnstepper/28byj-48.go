@@ -252,16 +252,16 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
-		m.logger.Warn("motor speed is nearly 0 rev_per_min")
+		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
 		return motor.NewZeroRPMError()
 	case speed > 146-0.1:
-		m.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", 146)
+		m.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", 146)
 		return m.Stop(ctx, nil)
 	default:
 	}
 
 	m.lock.Lock()
-	m.targetStepPosition, m.stepperDelay = m.goMath(rpm, revolutions)
+	m.targetStepPosition, m.stepperDelay = m.goMath(ctx, rpm, revolutions)
 	m.lock.Unlock()
 
 	err := m.doRun(ctx)
@@ -271,7 +271,7 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 	return nil
 }
 
-func (m *uln28byj) goMath(rpm, revolutions float64) (int64, time.Duration) {
+func (m *uln28byj) goMath(ctx context.Context, rpm, revolutions float64) (int64, time.Duration) {
 	var d int64 = 1
 
 	if math.Signbit(revolutions) != math.Signbit(rpm) {
@@ -285,7 +285,7 @@ func (m *uln28byj) goMath(rpm, revolutions float64) (int64, time.Duration) {
 
 	stepperDelay := time.Duration(int64((1/(math.Abs(rpm)*float64(m.ticksPerRotation)/60.0))*1000000)) * time.Microsecond
 	if stepperDelay < minDelayBetweenTicks {
-		m.logger.Debugf("Computed sleep time between ticks (%v) too short. Defaulting to %v", stepperDelay, minDelayBetweenTicks)
+		m.logger.CDebugf(ctx, "Computed sleep time between ticks (%v) too short. Defaulting to %v", stepperDelay, minDelayBetweenTicks)
 		stepperDelay = minDelayBetweenTicks
 	}
 
@@ -302,7 +302,7 @@ func (m *uln28byj) GoTo(ctx context.Context, rpm, positionRevolutions float64, e
 	}
 	moveDistance := positionRevolutions - curPos
 
-	m.logger.Debugf("Moving %v ticks at %v rpm", moveDistance, rpm)
+	m.logger.CDebugf(ctx, "Moving %v ticks at %v rpm", moveDistance, rpm)
 
 	if moveDistance == 0 {
 		return nil

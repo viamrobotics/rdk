@@ -32,7 +32,7 @@ var (
 	errNoGoodSensor = errors.New("no appropriate sensor for orientation or velocity feedback")
 )
 
-// Config configures a sencor controlled base.
+// Config configures a sensor controlled base.
 type Config struct {
 	MovementSensor []string `json:"movement_sensor"`
 	Base           string   `json:"base"`
@@ -110,6 +110,10 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
 
+	if sb.loop != nil {
+		sb.loop.Stop()
+	}
+
 	// reset all sensors
 	sb.allSensors = nil
 	sb.velocities = nil
@@ -129,7 +133,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		if err == nil && props.OrientationSupported {
 			// return first sensor that does not error that satisfies the properties wanted
 			sb.orientation = ms
-			sb.logger.Infof("using sensor %s as orientation sensor for base", sb.orientation.Name().ShortName())
+			sb.logger.CInfof(ctx, "using sensor %s as orientation sensor for base", sb.orientation.Name().ShortName())
 			break
 		}
 	}
@@ -139,7 +143,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		if err == nil && props.AngularVelocitySupported && props.LinearVelocitySupported {
 			// return first sensor that does not error that satisfies the properties wanted
 			sb.velocities = ms
-			sb.logger.Infof("using sensor %s as velocity sensor for base", sb.velocities.Name().ShortName())
+			sb.logger.CInfof(ctx, "using sensor %s as velocity sensor for base", sb.velocities.Name().ShortName())
 			break
 		}
 	}
@@ -153,8 +157,8 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		return errors.Wrapf(err, "no base named (%s)", newConf.Base)
 	}
 
-	if sb.velocities != nil {
-		if err := setupControlLoops(sb); err != nil {
+	if sb.velocities != nil && useControlLoop {
+		if err := sb.setupControlLoops(); err != nil {
 			return err
 		}
 	}
@@ -199,6 +203,9 @@ func (sb *sensorBase) SetPower(
 func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	sb.opMgr.CancelRunning(ctx)
 	sb.setPolling(false)
+	if sb.loop != nil {
+		sb.loop.Stop()
+	}
 	return sb.controlledBase.Stop(ctx, extra)
 }
 
@@ -221,10 +228,6 @@ func (sb *sensorBase) Close(ctx context.Context) error {
 	// check if a sensor context is still alive
 	if sb.sensorLoopDone != nil {
 		sb.sensorLoopDone()
-	}
-
-	if sb.loop != nil {
-		sb.loop.Stop()
 	}
 
 	sb.activeBackgroundWorkers.Wait()

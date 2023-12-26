@@ -78,12 +78,12 @@ func (c *client) Shell(ctx context.Context, extra map[string]interface{}) (chan<
 						DataIn: dataIn,
 						Extra:  ext,
 					}); err != nil {
-						c.logger.Errorw("error sending data", "error", err)
+						c.logger.CErrorw(ctx, "error sending data", "error", err)
 						return
 					}
 				} else {
 					if err := client.CloseSend(); err != nil {
-						c.logger.Errorw("error closing input via CloseSend", "error", err)
+						c.logger.CErrorw(ctx, "error closing input via CloseSend", "error", err)
 						return
 					}
 					return

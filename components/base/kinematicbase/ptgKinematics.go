@@ -64,7 +64,7 @@ func wrapWithPTGKinematics(
 
 	baseTurningRadiusMeters := properties.TurningRadiusMeters
 
-	logger.Infof(
+	logger.CInfof(ctx,
 		"using baseMillimetersPerSecond %f and baseTurningRadius %f for PTG base kinematics",
 		baseMillimetersPerSecond,
 		baseTurningRadiusMeters,
@@ -85,8 +85,7 @@ func wrapWithPTGKinematics(
 		baseMillimetersPerSecond,
 		options.AngularVelocityDegsPerSec,
 		baseTurningRadiusMeters,
-		options.MaxMoveStraightMM, // If zero, will use default on the receiver end.
-		0,                         // If zero, will use default on the receiver end.
+		0, // If zero, will use default on the receiver end.
 		geometries,
 		options.NoSkidSteer,
 	)
@@ -141,7 +140,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		ptgk.inputLock.Unlock()
 	}()
 
-	ptgk.logger.Debugf("GoToInputs going to %v", inputs)
+	ptgk.logger.CDebugf(ctx, "GoToInputs going to %v", inputs)
 
 	selectedPTG := ptgk.ptgs[int(math.Round(inputs[ptgIndex].Value))]
 	selectedTraj, err := selectedPTG.Trajectory(inputs[trajectoryIndexWithinPTG].Value, inputs[distanceAlongTrajectoryIndex].Value)
@@ -171,7 +170,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		// 1) this is the first iteration of the loop, or
 		// 2) either of the linear or angular velocities has changed
 		if i == 0 || !(linVel.ApproxEqual(lastLinVel) && angVel.ApproxEqual(lastAngVel)) {
-			ptgk.logger.Debugf(
+			ptgk.logger.CDebugf(ctx,
 				"setting velocity to linear %v angular %v and running velocity step for %s",
 				linVel,
 				angVel,
@@ -193,7 +192,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 			lastAngVel = angVel
 		}
 		if !utils.SelectContextOrWait(ctx, timestep) {
-			ptgk.logger.Debug(ctx.Err().Error())
+			ptgk.logger.CDebug(ctx, ctx.Err().Error())
 			// context cancelled
 			break
 		}

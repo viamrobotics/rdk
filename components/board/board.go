@@ -29,11 +29,11 @@ func init() {
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: analogs.String(),
-	}, NewAnalogCollector)
+	}, newAnalogCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: gpios.String(),
-	}, NewGPIOCollector)
+	}, newGPIOCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "board".

@@ -129,7 +129,7 @@ func (g *gamepad) eventDispatcher(ctx context.Context) {
 		case <-ctx.Done():
 			err := g.dev.Close()
 			if err != nil {
-				g.logger.Error(err)
+				g.logger.CError(ctx, err)
 			}
 			return
 		case eventIn := <-evChan:
@@ -149,12 +149,12 @@ func (g *gamepad) eventDispatcher(ctx context.Context) {
 					g.sendConnectionStatus(ctx, false)
 					err := g.dev.Close()
 					if err != nil {
-						g.logger.Error(err)
+						g.logger.CError(ctx, err)
 					}
 					g.dev = nil
 					return
 				}
-				g.logger.Debugf("unhandled event: %+v", eventIn)
+				g.logger.CDebugf(ctx, "unhandled event: %+v", eventIn)
 
 			case evdev.EventAbsolute:
 				thisAxis, ok := g.Mapping.Axes[eventIn.Type.(evdev.AbsoluteType)]
@@ -219,7 +219,7 @@ func (g *gamepad) eventDispatcher(ctx context.Context) {
 				evdev.EventSwitch:
 				fallthrough
 			default:
-				g.logger.Debugf("unhandled event: %+v", eventIn)
+				g.logger.CDebugf(ctx, "unhandled event: %+v", eventIn)
 			}
 
 			g.makeCallbacks(ctx, eventOut)
@@ -305,7 +305,7 @@ func (g *gamepad) connectDev(ctx context.Context) error {
 		name = strings.TrimSpace(name)
 		mapping, ok := MappingForModel(name)
 		if ok {
-			g.logger.Infof("found known gamepad: '%s' at %s", name, n)
+			g.logger.CInfof(ctx, "found known gamepad: '%s' at %s", name, n)
 			g.dev = dev
 			g.Model = g.dev.Name()
 			g.Mapping = mapping
@@ -326,8 +326,8 @@ func (g *gamepad) connectDev(ctx context.Context) error {
 			}
 			if isGamepad(dev) {
 				name := dev.Name()
-				g.logger.Infof("found gamepad: '%s' at %s", name, n)
-				g.logger.Infof("no button mapping for '%s', using default: '%s'", name, defaultMapping)
+				g.logger.CInfof(ctx, "found gamepad: '%s' at %s", name, n)
+				g.logger.CInfof(ctx, "no button mapping for '%s', using default: '%s'", name, defaultMapping)
 				g.dev = dev
 				g.Model = g.dev.Name()
 				g.Mapping, _ = MappingForModel(defaultMapping)
@@ -364,7 +364,7 @@ func (g *gamepad) Close(ctx context.Context) error {
 	g.activeBackgroundWorkers.Wait()
 	if g.dev != nil {
 		if err := g.dev.Close(); err != nil {
-			g.logger.Error(err)
+			g.logger.CError(ctx, err)
 		}
 	}
 	return nil

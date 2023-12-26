@@ -2,8 +2,7 @@
   /* eslint-disable require-atomic-updates */
 
   import * as THREE from 'three';
-  import { onMount, onDestroy } from 'svelte';
-
+  import { onMount } from 'svelte';
   import { SlamClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
   import { SlamMap2D } from '@viamrobotics/prime-blocks';
   import { copyToClipboard } from '@/lib/copy-to-clipboard';
@@ -14,7 +13,7 @@
   import { components } from '@/stores/resources';
   import Collapse from '@/lib/components/collapse.svelte';
   import Dropzone from '@/lib/components/dropzone.svelte';
-  import { useRobotClient, useDisconnect, useConnect } from '@/hooks/robot-client';
+  import { useRobotClient, useConnect } from '@/hooks/robot-client';
   import type { SLAMOverrides } from '@/types/overrides';
   import { rcLogConditionally } from '@/lib/log';
 
@@ -254,11 +253,14 @@
 
       try {
         hasActiveSession = true;
-        sessionId = await overrides.startMappingSession(mapName);
-        mappingSessionStarted = true;
-        startMappingIntervals(Date.now());
+        if (!mappingSessionStarted) {
+          mappingSessionStarted = true;
+          sessionId = await overrides.startMappingSession(mapName)
+          startMappingIntervals(Date.now());
+        }
       } catch {
         hasActiveSession = false;
+        mappingSessionStarted = false;
         sessionDuration = 0;
         clearInterval(durationInterval);
       }
@@ -320,16 +322,14 @@
     }
   });
 
-  useDisconnect(clearRefresh);
-
   useConnect(() => {
-    updateSLAM2dRefreshFrequency()
+    updateSLAM2dRefreshFrequency();
+
+    return () => {
+      clearRefresh();
+      clearInterval(durationInterval);
+    }
   })
-
-  onDestroy(() => {
-    clearInterval(durationInterval);
-  });
-
 </script>
 
 <Collapse title={name} on:toggle={toggleExpand}>

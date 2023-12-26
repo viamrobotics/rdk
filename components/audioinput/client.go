@@ -62,7 +62,7 @@ func (c *client) Read(ctx context.Context) (wave.Audio, func(), error) {
 	}
 	defer func() {
 		if err := stream.Close(ctx); err != nil {
-			c.logger.Errorw("error closing stream", "error", err)
+			c.logger.CErrorw(ctx, "error closing stream", "error", err)
 		}
 	}()
 	return stream.Next(ctx)

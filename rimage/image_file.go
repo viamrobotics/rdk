@@ -1,5 +1,3 @@
-//go:build !no_cgo
-
 package rimage
 
 import (
@@ -17,7 +15,6 @@ import (
 
 	"github.com/lmittmann/ppm"
 	"github.com/pkg/errors"
-	libjpeg "github.com/viam-labs/go-libjpeg/jpeg"
 	"github.com/xfmoulet/qoi"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
@@ -36,8 +33,6 @@ var RGBABitmapMagicNumber = []byte("RGBA")
 // DepthMapMagicNumber represents the magic number for our custom header
 // for raw DEPTH data.
 var DepthMapMagicNumber = []byte("DEPTHMAP")
-
-var jpegEncoderOptions = &libjpeg.EncoderOptions{Quality: 75, DCTMethod: libjpeg.DCTIFast}
 
 // RawRGBAHeaderLength is the length of our custom header for raw RGBA data
 // in bytes. See above as to why.
@@ -244,23 +239,6 @@ func SaveImage(pic image.Image, loc string) error {
 		return errors.Wrapf(err, "the 'image' will not encode")
 	}
 	return nil
-}
-
-// EncodeJPEG encode an image.Image in JPEG using libjpeg.
-func EncodeJPEG(w io.Writer, src image.Image) error {
-	switch v := src.(type) {
-	case *Image:
-		imgRGBA := image.NewRGBA(src.Bounds())
-		ConvertToRGBA(imgRGBA, v)
-		return libjpeg.Encode(w, imgRGBA, jpegEncoderOptions)
-	default:
-		return libjpeg.Encode(w, src, jpegEncoderOptions)
-	}
-}
-
-// DecodeJPEG decode JPEG []bytes into an image.Image using libjpeg.
-func DecodeJPEG(r io.Reader) (img image.Image, err error) {
-	return libjpeg.Decode(r, &libjpeg.DecoderOptions{DCTMethod: libjpeg.DCTIFast})
 }
 
 // DecodeImage takes an image buffer and decodes it, using the mimeType

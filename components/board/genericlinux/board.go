@@ -77,7 +77,7 @@ func (b *Board) Reconfigure(
 	_ resource.Dependencies,
 	conf resource.Config,
 ) error {
-	newConf, err := b.convertConfig(conf)
+	newConf, err := b.convertConfig(conf, b.logger)
 	if err != nil {
 		return err
 	}

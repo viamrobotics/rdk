@@ -57,26 +57,28 @@ func wrapWithDifferentialDriveKinematics(
 		return nil, err
 	}
 	// RSDK-4131 will update this so it is no longer necessary
-	var geometry spatialmath.Geometry
+	var geometry, boundingSphere spatialmath.Geometry
 	if len(geometries) > 1 {
-		ddk.logger.Warn("multiple geometries specified for differential drive kinematic base, only can use the first at this time")
+		ddk.logger.CWarn(ctx, "multiple geometries specified for differential drive kinematic base, only can use the first at this time")
 	}
 	if len(geometries) > 0 {
 		geometry = geometries[0]
 	}
-	sphere, err := spatialmath.BoundingSphere(geometry)
-	if err != nil {
-		logger.Warn("base %s not configured with a geometry, will be considered a point mass for collision detection purposes.")
-		sphere = spatialmath.NewPoint(r3.Vector{}, b.Name().Name)
+	if geometry != nil {
+		boundingSphere, err = spatialmath.BoundingSphere(geometry)
+	}
+	if boundingSphere == nil || err != nil {
+		logger.CWarn(ctx, "base %s not configured with a geometry, will be considered a point mass for collision detection purposes.")
+		boundingSphere = spatialmath.NewPoint(r3.Vector{}, b.Name().Name)
 	}
 
-	ddk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, sphere)
+	ddk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, boundingSphere)
 	if err != nil {
 		return nil, err
 	}
 
 	if options.PositionOnlyMode {
-		ddk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits[:2], sphere)
+		ddk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits[:2], boundingSphere)
 		if err != nil {
 			return nil, err
 		}
@@ -195,7 +197,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 				movementErr <- err
 				return
 			}
-			ddk.logger.Infof("current inputs: %v", current)
+			ddk.logger.CInfof(ctx, "current inputs: %v", current)
 		}
 		movementErr <- err
 	})
@@ -244,7 +246,7 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 	if err != nil {
 		return false, err
 	}
-	ddk.logger.Debugf("distErr: %.2f\theadingErr %.2f", distErr, headingErr)
+	ddk.logger.CDebugf(ctx, "distErr: %.2f\theadingErr %.2f", distErr, headingErr)
 	if distErr > ddk.options.GoalRadiusMM && math.Abs(headingErr) > ddk.options.HeadingThresholdDegrees {
 		// base is headed off course; spin to correct
 		err := ddk.Spin(ctx, math.Min(headingErr, ddk.options.MaxSpinAngleDeg), ddk.options.AngularVelocityDegsPerSec, nil)
