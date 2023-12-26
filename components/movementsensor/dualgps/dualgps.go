@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
@@ -207,18 +208,34 @@ func (dg *dualGPS) Readings(ctx context.Context, extra map[string]interface{}) (
 func (dg *dualGPS) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	dg.mu.Lock()
 	defer dg.mu.Unlock()
-	geoPoint1, alt1, err := dg.gps1.Position(ctx, nil)
-	if err != nil {
-		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), err
-	}
-	geoPoint2, alt2, err := dg.gps2.Position(ctx, nil)
-	if err != nil {
-		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), err
+
+	geoPoint1, alt1, err1 := dg.gps1.Position(ctx, nil)
+	geoPoint2, alt2, err2 := dg.gps2.Position(ctx, nil)
+
+	var mid *geo.Point
+	var alt float64
+	var err error
+
+	switch {
+	case (err1 != nil) && (err2 == nil):
+		mid = geoPoint2
+		alt = alt2
+		err = errors.New("only using second gps position, error getting position from first gps")
+	case (err2 != nil) && (err1 == nil):
+		mid = geoPoint1
+		alt = alt1
+		err = errors.New("only using first gps position, error getting position from second gps")
+	case (err1 != nil) && (err2 != nil):
+		mid = geo.NewPoint(math.NaN(), math.NaN())
+		alt = math.NaN()
+		err = multierr.Combine(err1, err2)
+	default:
+		mid = geoPoint1.MidpointTo(geoPoint2)
+		alt = (alt2 - alt1) * 0.5
+		err = nil
 	}
 
-	mid := geoPoint1.MidpointTo(geoPoint2)
-
-	return mid, (alt2 - alt1) * 0.5, nil
+	return mid, alt, err
 }
 
 // Unimplemented functions.
