@@ -225,14 +225,17 @@ func (dg *dualGPS) Position(ctx context.Context, extra map[string]interface{}) (
 	case (err1 != nil) && (err2 == nil):
 		mid = geoPoint2
 		alt = alt2
+		dg.logger.CError(ctx, err1)
 		err = errFirstGPSInvalid
 	case (err2 != nil) && (err1 == nil):
 		mid = geoPoint1
 		alt = alt1
+		dg.logger.CError(ctx, err2)
 		err = errSecondGPSInvalid
 	case (err1 != nil) && (err2 != nil):
 		mid = geo.NewPoint(math.NaN(), math.NaN())
 		alt = math.NaN()
+		dg.logger.CError(ctx, err1, err2)
 		err = errBothGPSInvalid
 	default:
 		mid = geoPoint1.MidpointTo(geoPoint2)
