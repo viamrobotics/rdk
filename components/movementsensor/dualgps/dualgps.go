@@ -10,7 +10,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
@@ -32,6 +31,12 @@ import (
 //  |___________|
 
 const defaultOffsetDegrees = 90.0
+
+var (
+	errFirstGPSInvalid  = errors.New("only using second gps position, error getting position from first gps")
+	errSecondGPSInvalid = errors.New("only using first gps position, error getting position from second gps")
+	errBothGPSInvalid   = errors.New("unable to get a position from either GPS device, not reporting position")
+)
 
 var model = resource.DefaultModelFamily.WithModel("dual-gps-rtk")
 
@@ -220,18 +225,18 @@ func (dg *dualGPS) Position(ctx context.Context, extra map[string]interface{}) (
 	case (err1 != nil) && (err2 == nil):
 		mid = geoPoint2
 		alt = alt2
-		err = errors.New("only using second gps position, error getting position from first gps")
+		err = errFirstGPSInvalid
 	case (err2 != nil) && (err1 == nil):
 		mid = geoPoint1
 		alt = alt1
-		err = errors.New("only using first gps position, error getting position from second gps")
+		err = errSecondGPSInvalid
 	case (err1 != nil) && (err2 != nil):
 		mid = geo.NewPoint(math.NaN(), math.NaN())
 		alt = math.NaN()
-		err = multierr.Combine(err1, err2)
+		err = errBothGPSInvalid
 	default:
 		mid = geoPoint1.MidpointTo(geoPoint2)
-		alt = (alt2 - alt1) * 0.5
+		alt = (alt2 + alt1) * 0.5
 		err = nil
 	}
 
