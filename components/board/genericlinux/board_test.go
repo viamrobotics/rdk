@@ -96,6 +96,8 @@ func TestConfigValidate(t *testing.T) {
 }
 
 func TestNewBoard(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
 
 	// Create a fake board mapping with two pins for testing.
 	testBoardMappings := make(map[string]GPIOBoardMapping, 2)
@@ -115,8 +117,6 @@ func TestNewBoard(t *testing.T) {
 		PWMID:          1,
 		HWPWMSupported: true,
 	}
-	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
 
 	conf := &Config{}
 	conf.AnalogReaders = []mcp3008helper.MCP3008AnalogConfig{{Name: "an1", Pin: "1"}}
