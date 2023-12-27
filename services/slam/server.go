@@ -150,6 +150,30 @@ func (server *serviceServer) GetLatestMapInfo(ctx context.Context, req *pb.GetLa
 	}, nil
 }
 
+// GetProperties returns the mapping mode and of the slam process and whether it is being done locally
+// or in the cloud.
+func (server *serviceServer) GetProperties(ctx context.Context, req *pb.GetPropertiesRequest) (
+	*pb.GetPropertiesResponse, error,
+) {
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetProperties")
+	defer span.End()
+
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	prop, err := svc.Properties(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.GetPropertiesResponse{
+		CloudSlam:   prop.CloudSlam,
+		MappingMode: mappingModeToProtobuf(prop.MappingMode),
+	}, nil
+}
+
 // DoCommand receives arbitrary commands.
 func (server *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,

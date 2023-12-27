@@ -53,6 +53,15 @@ func TestFakeSLAMLatestMapInfo(t *testing.T) {
 	test.That(t, timestamp2.After(timestamp1), test.ShouldBeTrue)
 }
 
+func TestFakeProperties(t *testing.T) {
+	slamSvc := NewSLAM(slam.Named("test"), logging.NewTestLogger(t))
+
+	prop, err := slamSvc.Properties(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, prop.CloudSlam, test.ShouldBeFalse)
+	test.That(t, prop.MappingMode, test.ShouldEqual, slam.MappingModeNewMap)
+}
+
 func TestFakeSLAMStateful(t *testing.T) {
 	t.Run("Test getting a PCD map via streaming APIs advances the test data", func(t *testing.T) {
 		orgMaxDataCount := maxDataCount

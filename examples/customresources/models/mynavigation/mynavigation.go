@@ -132,3 +132,7 @@ func (svc *navSvc) Obstacles(ctx context.Context, extra map[string]interface{}) 
 func (svc *navSvc) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
 	return []*navigation.Path{}, errUnimplemented
 }
+
+func (svc *navSvc) Properties(ctx context.Context) (navigation.Properties, error) {
+	return navigation.Properties{}, errUnimplemented
+}

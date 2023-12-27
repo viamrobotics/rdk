@@ -2,9 +2,9 @@ package slam
 
 import (
 	"context"
-	"errors"
 	"time"
 
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/utils/rpc"
@@ -98,6 +98,33 @@ func (c *client) LatestMapInfo(ctx context.Context) (time.Time, error) {
 	}
 	lastMapUpdate := resp.LastMapUpdate.AsTime()
 	return lastMapUpdate, err
+}
+
+// Properties returns information regarding the current SLAM session, including
+// if the session is running in the cloud and what mapping mode it is in.
+func (c *client) Properties(ctx context.Context) (Properties, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::client::GetProperties")
+	defer span.End()
+
+	req := &pb.GetPropertiesRequest{
+		Name: c.name,
+	}
+
+	resp, err := c.client.GetProperties(ctx, req)
+	if err != nil {
+		return Properties{}, errors.Wrapf(err, "failure to get properties")
+	}
+
+	mappingMode, err := protobufToMappingMode(resp.MappingMode)
+	if err != nil {
+		return Properties{}, err
+	}
+
+	prop := Properties{
+		CloudSlam:   resp.CloudSlam,
+		MappingMode: mappingMode,
+	}
+	return prop, err
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

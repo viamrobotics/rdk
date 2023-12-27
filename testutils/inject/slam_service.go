@@ -17,6 +17,7 @@ type SLAMService struct {
 	PointCloudMapFunc func(ctx context.Context) (func() ([]byte, error), error)
 	InternalStateFunc func(ctx context.Context) (func() ([]byte, error), error)
 	LatestMapInfoFunc func(ctx context.Context) (time.Time, error)
+	PropertiesFunc    func(ctx context.Context) (slam.Properties, error)
 	DoCommandFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc         func(ctx context.Context) error
 }
@@ -61,6 +62,14 @@ func (slamSvc *SLAMService) LatestMapInfo(ctx context.Context) (time.Time, error
 		return slamSvc.Service.LatestMapInfo(ctx)
 	}
 	return slamSvc.LatestMapInfoFunc(ctx)
+}
+
+// Properties calls the injected PropertiesFunc or the real version.
+func (slamSvc *SLAMService) Properties(ctx context.Context) (slam.Properties, error) {
+	if slamSvc.PropertiesFunc == nil {
+		return slamSvc.Service.Properties(ctx)
+	}
+	return slamSvc.PropertiesFunc(ctx)
 }
 
 // DoCommand calls the injected DoCommand or the real variant.
