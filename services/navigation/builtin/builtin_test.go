@@ -1752,6 +1752,30 @@ func TestGetObstacles(t *testing.T) {
 	test.That(t, dets[1].Geometries()[0].Label(), test.ShouldEqual, manipulatedBoxGeom.Label())
 }
 
+func TestProperties(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("no map case", func(t *testing.T) {
+		svc := builtIn{
+			mapType: navigation.NoMap,
+		}
+
+		prop, err := svc.Properties(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, prop.MapType, test.ShouldEqual, svc.mapType)
+	})
+
+	t.Run("gps map case", func(t *testing.T) {
+		svc := builtIn{
+			mapType: navigation.GPSMap,
+		}
+
+		prop, err := svc.Properties(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, prop.MapType, test.ShouldEqual, svc.mapType)
+	})
+}
+
 func createBaseLink(t *testing.T) *referenceframe.LinkInFrame {
 	baseBox, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{20, 20, 20}, "base-box")
 	test.That(t, err, test.ShouldBeNil)
