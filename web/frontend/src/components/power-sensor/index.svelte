@@ -5,7 +5,7 @@ import { displayError } from '@/lib/error';
 import Collapse from '@/lib/components/collapse.svelte';
 import { setAsyncInterval } from '@/lib/schedule';
 import { getVoltage, getCurrent, getPower } from '@/api/power-sensor';
-import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
+import { useRobotClient, useConnect } from '@/hooks/robot-client';
 
 export let name: string;
 
@@ -15,9 +15,13 @@ let voltageValue: number | undefined;
 let currentValue: number | undefined;
 let powerValue: number | undefined;
 
-let clearInterval: (() => void) | undefined;
+let expanded = false;
 
 const refresh = async () => {
+  if (!expanded) {
+    return;
+  }
+
   try {
     const results = await Promise.all([
       getVoltage($robotClient, name),
@@ -34,15 +38,14 @@ const refresh = async () => {
 };
 
 const handleToggle = (event: CustomEvent<{ open: boolean }>) => {
-  if (event.detail.open) {
-    refresh();
-    clearInterval = setAsyncInterval(refresh, 500);
-  } else {
-    clearInterval?.();
-  }
+  expanded = event.detail.open;
 };
 
-useDisconnect(() => clearInterval?.());
+useConnect(() => {
+  refresh();
+  const clearInterval = setAsyncInterval(refresh, 500);
+  return () => clearInterval?.();
+})
 
 </script>
 

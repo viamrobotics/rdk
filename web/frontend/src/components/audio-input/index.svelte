@@ -3,15 +3,17 @@
 import { StreamClient, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import Collapse from '@/lib/components/collapse.svelte';
-import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
+import { useConnect, useRobotClient } from '@/hooks/robot-client';
+import { onMount } from 'svelte';
 
 export let name: string;
 
 const { robotClient } = useRobotClient();
 
 let audio: HTMLAudioElement;
-
-let isOn = false;
+let expanded = false;
+let connected = false;
+let added = false;
 
 const streamClient = new StreamClient($robotClient);
 
@@ -29,52 +31,42 @@ const handleTrack = (event: unknown) => {
   audio.srcObject = eventStream;
 };
 
-const toggleExpand = async () => {
-  isOn = !isOn;
-
-  streamClient.on('track', handleTrack);
-
-  if (isOn) {
-    try {
-      await streamClient.add(name);
-    } catch (error) {
-      displayError(error as ServiceError);
-    }
-    return;
-  }
-
-  try {
-    await streamClient.remove(name);
-  } catch (error) {
-    displayError(error as ServiceError);
-  }
+const handleToggle = (event: CustomEvent<{ open: boolean }>) => {
+  expanded = event.detail.open;
 };
 
-useDisconnect(() => {
-  streamClient.off('track', handleTrack);
+useConnect(() => {
+  connected = true;
+
+  return () => {
+    connected = false;
+  }
 });
+
+
+onMount(() => {
+  streamClient.on('track', handleTrack);
+  return () => streamClient.off('track', handleTrack)
+});
+
+$: if (connected && expanded && !added) {
+  streamClient.add(name).catch((error) => displayError(error as ServiceError));
+  added = true;
+} else if (added) {
+  streamClient.remove(name).catch((error) => displayError(error as ServiceError));
+  added = false;
+}
 
 </script>
 
-<Collapse title={name}>
+<Collapse title={name} on:toggle={handleToggle}>
   <v-breadcrumbs slot="title" crumbs="audio_input" />
   <div class="h-auto border border-t-0 border-medium p-2">
-    <div class="flex items-center gap-2">
-      <v-switch
-        id="audio-input"
-        label='Listen'
-        value={isOn ? 'on' : 'off'}
-        on:input={toggleExpand}
-      />
-    </div>
-
-    {#if isOn}
-      <audio
-        class='py-2'
-        controls
-        autoplay
-        bind:this={audio}
-      />
-    {/if}
+    <audio
+      bind:this={audio}
+      class='py-2'
+      controls
+      volume={1}
+    />
   </div>
 </Collapse>
