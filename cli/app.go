@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/urfave/cli/v2"
 )
@@ -78,21 +77,6 @@ const (
 	boardFlagPath    = "path"
 	boardFlagVersion = "version"
 )
-
-func createUsageText(command string, flags []string, otherOptions bool) string {
-	formattedFlags := make([]string, len(flags)+1)
-	for i, flag := range flags {
-		formattedFlags[i] = fmt.Sprintf("--%s=<%s>", flag, flag)
-	}
-	if otherOptions{
-		lastIdx := len(flags)-1
-		if len(flags) == 0 {
-			lastIdx = 0
-		}
-		formattedFlags[lastIdx] = "[other options]"
-	}
-	return fmt.Sprintf("%s %s", command, strings.Join(formattedFlags, " "))
-}
 
 var app = &cli.App{
 	Name:            "viam",
@@ -248,7 +232,8 @@ var app = &cli.App{
 				{
 					Name:  "export",
 					Usage: "download data from Viam cloud",
-					UsageText: createUsageText("viam data export", []string{dataFlagDestination, dataFlagDataType}, false),
+					UsageText: fmt.Sprintf("viam data export <%s> <%s> [other options]",
+						dataFlagDestination, dataFlagDataType),
 					Flags: []cli.Flag{
 						&cli.PathFlag{
 							Name:     dataFlagDestination,
@@ -340,7 +325,7 @@ var app = &cli.App{
 						{
 							Name:      "binary",
 							Usage:     "delete binary data from Viam cloud",
-							UsageText: createUsageText("viam data delete binary", nil, true),
+							UsageText: "viam data delete binary [other options]",
 							Flags: []cli.Flag{
 								&cli.StringSliceFlag{
 									Name:  dataFlagOrgIDs,
@@ -402,7 +387,7 @@ var app = &cli.App{
 						{
 							Name:      "tabular",
 							Usage:     "delete tabular data from Viam cloud",
-							UsageText: createUsageText("viam data delete tabular", nil, true),
+							UsageText: "viam data delete tabular [other options]",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     dataFlagOrgID,
@@ -427,7 +412,7 @@ var app = &cli.App{
 						{
 							Name:      "configure",
 							Usage:     "configures a database user for the Viam org's MongoDB Atlas Data Federation instance",
-							UsageText: createUsageText("viam data database configure", []string{dataFlagOrgID, dataFlagDatabasePassword}, false),
+							UsageText: fmt.Sprintf("viam data database configure <%s> <%s>", dataFlagOrgID, dataFlagDatabasePassword),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     dataFlagOrgID,
@@ -445,7 +430,7 @@ var app = &cli.App{
 						{
 							Name:      "hostname",
 							Usage:     "gets the hostname to access a MongoDB Atlas Data Federation Instance",
-							UsageText: createUsageText("viam data database hostname", []string{dataFlagOrgID}, false),
+							UsageText: fmt.Sprintf("viam data database hostname <%s>", dataFlagOrgID),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     dataFlagOrgID,
@@ -460,7 +445,7 @@ var app = &cli.App{
 				{
 					Name:      "dataset",
 					Usage:     "add or remove data from datasets",
-					UsageText: createUsageText("viam data dataset", nil, true),
+					UsageText: "viam data dataset [other options]",
 					Subcommands: []*cli.Command{
 						{
 							Name:  "add",
@@ -469,8 +454,9 @@ var app = &cli.App{
 								{
 									Name:  "ids",
 									Usage: "adds binary data with file IDs in a single org and location to dataset",
-									UsageText: createUsageText("viam data dataset add ids", []string{datasetFlagDatasetID, dataFlagOrgID,
-										dataFlagLocationID, dataFlagFileIDs}, false),
+									UsageText: fmt.Sprintf("viam data dataset add ids --%s=<%s> --%s=<%s> --%s=<%s> --%s=<%s> [other options]",
+										datasetFlagDatasetID, datasetFlagDatasetID, dataFlagOrgID, dataFlagOrgID,
+										dataFlagLocationID, dataFlagLocationID, dataFlagFileIDs, dataFlagFileIDs),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
 											Name:     datasetFlagDatasetID,
@@ -498,7 +484,7 @@ var app = &cli.App{
 
 								{
 									Name:      "filter",
-									UsageText: createUsageText("viam data dataset add filter", nil, true),
+									UsageText: fmt.Sprintln("viam data dataset add filter [other options]"),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
 											Name:     datasetFlagDatasetID,
@@ -577,7 +563,9 @@ var app = &cli.App{
 						{
 							Name:  "remove",
 							Usage: "removes binary data with file IDs in a single org and location from dataset",
-							UsageText: createUsageText("viam data dataset remove", []string{datasetFlagDatasetID, dataFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false),
+							UsageText: fmt.Sprintf("viam data dataset remove --%s=<%s> --%s=<%s> --%s=<%s> --%s=<%s> [other options]",
+								datasetFlagDatasetID, datasetFlagDatasetID, dataFlagOrgID, dataFlagOrgID,
+								dataFlagLocationID, dataFlagLocationID, dataFlagFileIDs, dataFlagFileIDs),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     datasetFlagDatasetID,
@@ -614,7 +602,8 @@ var app = &cli.App{
 				{
 					Name:  "create",
 					Usage: "create a new dataset",
-					UsageText: createUsageText("viam dataset create", []string{dataFlagOrgID, datasetFlagName}, false),
+					UsageText: fmt.Sprintf("viam dataset create --%s=<%s>  --%s=<%s> ",
+						dataFlagOrgID, dataFlagOrgID, datasetFlagName, datasetFlagName),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     dataFlagOrgID,
@@ -632,8 +621,8 @@ var app = &cli.App{
 				{
 					Name:  "rename",
 					Usage: "rename an existing dataset",
-					UsageText: createUsageText("viam dataset rename",
-						[]string{datasetFlagDatasetID, datasetFlagName}, false),
+					UsageText: fmt.Sprintf("viam dataset rename --%s=<%s>  --%s=<%s>",
+						datasetFlagDatasetID, datasetFlagDatasetID, datasetFlagName, datasetFlagName),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     datasetFlagDatasetID,
@@ -668,7 +657,8 @@ var app = &cli.App{
 				{
 					Name:  "delete",
 					Usage: "delete a dataset",
-					UsageText: createUsageText("viam dataset delete" , []string{datasetFlagDatasetID}, false),
+					UsageText: fmt.Sprintf("viam dataset delete --%s=<%s>",
+						datasetFlagDatasetID, datasetFlagDatasetID),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     datasetFlagDatasetID,
@@ -688,7 +678,8 @@ var app = &cli.App{
 				{
 					Name:  "submit",
 					Usage: "submits training job on data in Viam cloud",
-					UsageText: createUsageText("viam train submit", []string{dataFlagOrgIDs, dataFlagOrgIDs}, true),
+					UsageText: fmt.Sprintf("viam train submit <%s> [other options]",
+						dataFlagOrgIDs),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     datasetFlagDatasetID,
@@ -727,7 +718,7 @@ var app = &cli.App{
 				{
 					Name:      "get",
 					Usage:     "gets training job from Viam cloud based on training job ID",
-					UsageText: createUsageText("viam train get", []string{trainFlagJobID}, false),
+					UsageText: fmt.Sprintf("viam train get <%s>", trainFlagJobID),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     trainFlagJobID,
@@ -740,7 +731,7 @@ var app = &cli.App{
 				{
 					Name:      "cancel",
 					Usage:     "cancels training job in Viam cloud based on training job ID",
-					UsageText: createUsageText("viam train cancel", []string{trainFlagJobID}, false),
+					UsageText: fmt.Sprintf("viam train cancel <%s>", trainFlagJobID),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     trainFlagJobID,
@@ -753,7 +744,7 @@ var app = &cli.App{
 				{
 					Name:      "list",
 					Usage:     "list training jobs in Viam cloud based on organization ID",
-					UsageText: createUsageText("viam train list" , []string{dataFlagOrgID, trainFlagJobStatus}, false),
+					UsageText: fmt.Sprintf("viam train list <%s> <%s>", dataFlagOrgID, trainFlagJobStatus),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     dataFlagOrgID,
@@ -1146,8 +1137,8 @@ Uses the "build" section of your meta.json.
 Example:
 "build": {
    "setup": "setup.sh",                    // optional - command to install your build dependencies
-   "build": "make module.tar.gz",          // command that will build your module
-   "path" : "module.tar.gz",               // optional - path to your built module
+   "build": "make module.tar.gz",          // command that will build your module 
+   "path" : "module.tar.gz",               // optional - path to your built module 
                                            // (passed to the 'viam module upload' command)
    "arch" : ["linux/amd64", "linux/arm64"] // architectures to build for
 }`,
