@@ -395,7 +395,7 @@ func TestServer(t *testing.T) {
 		}
 		req := &pb.GetPropertiesRequest{Name: testSvcName1.ShortName()}
 		resp, err := navServer.GetProperties(context.Background(), req)
-		test.That(t, err, test.ShouldResemble, expectedErr)
+		test.That(t, err, test.ShouldBeError, expectedErr)
 		test.That(t, resp, test.ShouldBeNil)
 	})
 

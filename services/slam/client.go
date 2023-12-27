@@ -2,9 +2,9 @@ package slam
 
 import (
 	"context"
-	"errors"
 	"time"
 
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/utils/rpc"
@@ -100,8 +100,8 @@ func (c *client) LatestMapInfo(ctx context.Context) (time.Time, error) {
 	return lastMapUpdate, err
 }
 
-// LatestMapInfo creates a request, calls the slam service LatestMapInfo, and
-// returns the timestamp of the last update to the map.
+// Properties returns information regarding the current SLAM session, including
+// if the session is running in the cloud and what mapping mode it is in.
 func (c *client) Properties(ctx context.Context) (Properties, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::client::GetProperties")
 	defer span.End()
@@ -112,21 +112,12 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 
 	resp, err := c.client.GetProperties(ctx, req)
 	if err != nil {
-		return Properties{}, errors.New("failure to get properties")
+		return Properties{}, errors.Wrapf(err, "failure to get properties")
 	}
 
-	var mappingMode MappingMode
-	switch resp.MappingMode {
-	case pb.MappingMode_MAPPING_MODE_CREATE_NEW_MAP:
-		mappingMode = MappingModeNewMap
-	case pb.MappingMode_MAPPING_MODE_LOCALIZE_ONLY:
-		mappingMode = MappingModeLocalizationOnly
-	case pb.MappingMode_MAPPING_MODE_UPDATE_EXISTING_MAP:
-		mappingMode = MappingModeUpdateExistingMap
-	case pb.MappingMode_MAPPING_MODE_UNSPECIFIED:
-		fallthrough
-	default:
-		return Properties{}, errors.New("properties error")
+	mappingMode, err := protobufToMappingMode(resp.MappingMode)
+	if err != nil {
+		return Properties{}, errors.New("converting properties from protobuf")
 	}
 
 	prop := Properties{

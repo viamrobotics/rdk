@@ -74,7 +74,7 @@ func StringToMapType(mapTypeName string) (MapType, error) {
 	return 0, errors.Errorf("invalid map_type '%v' given", mapTypeName)
 }
 
-// Properties reutns information regarding the current navigation service. This includes the map type
+// Properties returns information regarding the current navigation service. This includes the map type
 // being ingested and used by the navigation service.
 type Properties struct {
 	MapType MapType
@@ -113,4 +113,27 @@ func Named(name string) resource.Name {
 // FromRobot is a helper for getting the named navigation service from the given Robot.
 func FromRobot(r robot.Robot, name string) (Service, error) {
 	return robot.ResourceFromRobot[Service](r, Named(name))
+}
+
+func mapTypeToProtobuf(mapType MapType) servicepb.MapType {
+
+	switch mapType {
+	case NoMap:
+		return servicepb.MapType_MAP_TYPE_NONE
+	case GPSMap:
+		return servicepb.MapType_MAP_TYPE_GPS
+	default:
+		return servicepb.MapType_MAP_TYPE_UNSPECIFIED
+	}
+}
+
+func protobufToMapType(mapType servicepb.MapType) (MapType, error) {
+	switch mapType {
+	case servicepb.MapType_MAP_TYPE_NONE:
+		return NoMap, nil
+	case servicepb.MapType_MAP_TYPE_GPS:
+		return GPSMap, nil
+	default:
+		return 0, errors.New("map type unspecified")
+	}
 }

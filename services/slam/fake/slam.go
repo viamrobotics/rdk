@@ -97,7 +97,7 @@ func (slamSvc *SLAM) LatestMapInfo(ctx context.Context) (time.Time, error) {
 	return slamSvc.mapTimestamp, nil
 }
 
-// Properties returns the mapping mode of the slam service as well as a boolean indicating if it running
+// Properties returns the mapping mode of the slam service as well as a boolean indicating if it is running
 // in the cloud or locally. In the case of fake slam, it will return that the service is being run locally
 // and is creating a new map.
 func (slamSvc *SLAM) Properties(ctx context.Context) (slam.Properties, error) {

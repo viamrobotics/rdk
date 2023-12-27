@@ -175,7 +175,7 @@ func TestWorkingServer(t *testing.T) {
 		respInfo, err := slamServer.GetProperties(context.Background(), reqInfo)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, respInfo.CloudSlam, test.ShouldResemble, prop.CloudSlam)
-		test.That(t, respInfo.MappingMode, test.ShouldResemble, pb.MappingMode_MAPPING_MODE_CREATE_NEW_MAP)
+		test.That(t, respInfo.MappingMode, test.ShouldEqual, pb.MappingMode_MAPPING_MODE_CREATE_NEW_MAP)
 	})
 
 	t.Run("Multiple services Valid", func(t *testing.T) {
@@ -328,7 +328,7 @@ func TestFailingServer(t *testing.T) {
 		reqInfo := &pb.GetPropertiesRequest{Name: testSlamServiceName}
 
 		respInfo, err := slamServer.GetProperties(context.Background(), reqInfo)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get properties")
+		test.That(t, err, test.ShouldBeError, errors.New("failure to get properties"))
 		test.That(t, respInfo, test.ShouldBeNil)
 	})
 

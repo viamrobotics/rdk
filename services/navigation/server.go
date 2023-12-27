@@ -181,16 +181,8 @@ func (server *serviceServer) GetProperties(ctx context.Context, req *pb.GetPrope
 		return nil, err
 	}
 
-	mapType := pb.MapType_MAP_TYPE_UNSPECIFIED
-	switch prop.MapType {
-	case NoMap:
-		mapType = pb.MapType_MAP_TYPE_NONE
-	case GPSMap:
-		mapType = pb.MapType_MAP_TYPE_GPS
-	}
-
 	return &pb.GetPropertiesResponse{
-		MapType: mapType,
+		MapType: mapTypeToProtobuf(prop.MapType),
 	}, nil
 }
 

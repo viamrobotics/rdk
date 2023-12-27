@@ -209,15 +209,8 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 		return Properties{}, errors.New("failure to get properties")
 	}
 
-	var mapType MapType
-	switch resp.MapType {
-	case pb.MapType_MAP_TYPE_NONE:
-		mapType = NoMap
-	case pb.MapType_MAP_TYPE_GPS:
-		mapType = GPSMap
-	case pb.MapType_MAP_TYPE_UNSPECIFIED:
-		fallthrough
-	default:
+	mapType, err := protobufToMapType(resp.MapType)
+	if err != nil {
 		return Properties{}, errors.New("properties error")
 	}
 

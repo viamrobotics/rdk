@@ -168,19 +168,9 @@ func (server *serviceServer) GetProperties(ctx context.Context, req *pb.GetPrope
 		return nil, err
 	}
 
-	mappingMode := pb.MappingMode_MAPPING_MODE_UNSPECIFIED
-	switch prop.MappingMode {
-	case MappingModeNewMap:
-		mappingMode = pb.MappingMode_MAPPING_MODE_CREATE_NEW_MAP
-	case MappingModeLocalizationOnly:
-		mappingMode = pb.MappingMode_MAPPING_MODE_LOCALIZE_ONLY
-	case MappingModeUpdateExistingMap:
-		mappingMode = pb.MappingMode_MAPPING_MODE_UPDATE_EXISTING_MAP
-	}
-
 	return &pb.GetPropertiesResponse{
 		CloudSlam:   prop.CloudSlam,
-		MappingMode: mappingMode,
+		MappingMode: mappingModeToProtobuf(prop.MappingMode),
 	}, nil
 }
 

@@ -90,17 +90,17 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	var receviedPaths []*navigation.Path
+	var receivedPaths []*navigation.Path
 	workingNavigationService.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
 		path, err := navigation.NewPath(primitive.NewObjectID(), []*geo.Point{geo.NewPoint(0, 0)})
 		test.That(t, err, test.ShouldBeNil)
-		receviedPaths = []*navigation.Path{path}
-		return receviedPaths, nil
+		receivedPaths = []*navigation.Path{path}
+		return receivedPaths, nil
 	}
 
-	prop := navigation.Properties{MapType: navigation.NoMap}
+	receivedProp := navigation.Properties{MapType: navigation.NoMap}
 	workingNavigationService.PropertiesFunc = func(ctx context.Context) (navigation.Properties, error) {
-		return prop, nil
+		return receivedProp, nil
 	}
 
 	failingNavigationService.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
@@ -211,12 +211,12 @@ func TestClient(t *testing.T) {
 		ctx := context.Background()
 		paths, err := workingNavClient.Paths(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, paths, test.ShouldResemble, receviedPaths)
+		test.That(t, paths, test.ShouldResemble, receivedPaths)
 
 		// test Properties
 		prop, err := workingNavClient.Properties(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, prop.MapType, test.ShouldEqual, prop.MapType)
+		test.That(t, prop.MapType, test.ShouldEqual, receivedProp.MapType)
 
 		// test do command
 		workingNavigationService.DoCommandFunc = testutils.EchoFunc

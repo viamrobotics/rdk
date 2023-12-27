@@ -135,3 +135,29 @@ func Limits(ctx context.Context, svc Service) ([]referenceframe.Limit, error) {
 		{Min: dims.MinY, Max: dims.MaxY},
 	}, nil
 }
+
+func mappingModeToProtobuf(mappingMode MappingMode) pb.MappingMode {
+	switch mappingMode {
+	case MappingModeNewMap:
+		return pb.MappingMode_MAPPING_MODE_CREATE_NEW_MAP
+	case MappingModeLocalizationOnly:
+		return pb.MappingMode_MAPPING_MODE_LOCALIZE_ONLY
+	case MappingModeUpdateExistingMap:
+		return pb.MappingMode_MAPPING_MODE_UPDATE_EXISTING_MAP
+	default:
+		return pb.MappingMode_MAPPING_MODE_UNSPECIFIED
+	}
+}
+
+func protobufToMappingMode(mappingMode pb.MappingMode) (MappingMode, error) {
+	switch mappingMode {
+	case pb.MappingMode_MAPPING_MODE_CREATE_NEW_MAP:
+		return MappingModeNewMap, nil
+	case pb.MappingMode_MAPPING_MODE_LOCALIZE_ONLY:
+		return MappingModeLocalizationOnly, nil
+	case pb.MappingMode_MAPPING_MODE_UPDATE_EXISTING_MAP:
+		return MappingModeUpdateExistingMap, nil
+	default:
+		return 0, errors.New("mapping mode unspecified")
+	}
+}
