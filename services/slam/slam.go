@@ -39,10 +39,26 @@ func init() {
 }
 
 // SubtypeName is the name of the type of service.
-const SubtypeName = "slam"
+const (
+	SubtypeName       = "slam"
+	MappingModeNewMap = MappingMode(iota)
+	MappingModeLocalizationOnly
+	MappingModeUpdateExistingMap
+)
 
 // API is a variable that identifies the slam resource API.
 var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
+
+// MappingMode describes what mapping mode the slam service is in, including
+// creating a new map, localizing on an existing map or updating an existing map.
+type MappingMode uint8
+
+// Properties returns various information regarding the current slam service,
+// including whether the slam process is running in the cloud and its mapping mode.
+type Properties struct {
+	CloudSlam   bool
+	MappingMode MappingMode
+}
 
 // Named is a helper for getting the named service's typed resource name.
 func Named(name string) resource.Name {
@@ -67,6 +83,7 @@ type Service interface {
 	PointCloudMap(ctx context.Context) (func() ([]byte, error), error)
 	InternalState(ctx context.Context) (func() ([]byte, error), error)
 	LatestMapInfo(ctx context.Context) (time.Time, error)
+	Properties(ctx context.Context) (Properties, error)
 }
 
 // HelperConcatenateChunksToFull concatenates the chunks from a streamed grpc endpoint.
@@ -123,4 +140,32 @@ func Limits(ctx context.Context, svc Service) ([]referenceframe.Limit, error) {
 		{Min: dims.MinX, Max: dims.MaxX},
 		{Min: dims.MinY, Max: dims.MaxY},
 	}, nil
+}
+
+func mappingModeToProtobuf(mappingMode MappingMode) pb.MappingMode {
+	switch mappingMode {
+	case MappingModeNewMap:
+		return pb.MappingMode_MAPPING_MODE_CREATE_NEW_MAP
+	case MappingModeLocalizationOnly:
+		return pb.MappingMode_MAPPING_MODE_LOCALIZE_ONLY
+	case MappingModeUpdateExistingMap:
+		return pb.MappingMode_MAPPING_MODE_UPDATE_EXISTING_MAP
+	default:
+		return pb.MappingMode_MAPPING_MODE_UNSPECIFIED
+	}
+}
+
+func protobufToMappingMode(mappingMode pb.MappingMode) (MappingMode, error) {
+	switch mappingMode {
+	case pb.MappingMode_MAPPING_MODE_CREATE_NEW_MAP:
+		return MappingModeNewMap, nil
+	case pb.MappingMode_MAPPING_MODE_LOCALIZE_ONLY:
+		return MappingModeLocalizationOnly, nil
+	case pb.MappingMode_MAPPING_MODE_UPDATE_EXISTING_MAP:
+		return MappingModeUpdateExistingMap, nil
+	case pb.MappingMode_MAPPING_MODE_UNSPECIFIED:
+		fallthrough
+	default:
+		return 0, errors.New("mapping mode unspecified")
+	}
 }
