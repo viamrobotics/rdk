@@ -366,7 +366,7 @@ func findPivotFrame(frameList1, frameList2 []frame.Frame) (frame.Frame, error) {
 	return nil, errors.New("no path from solve frame to goal frame")
 }
 
-// PlanToPlanSteps converts a plan to the relative poses the robot will move to (relative to the origin)
+// PlanToPlanSteps converts a plan to the relative poses the robot will move to (relative to the origin).
 func PlanToPlanSteps(
 	plan Plan,
 	componentName resource.Name,
@@ -414,7 +414,7 @@ func PlanToPlanSteps(
 	return planSteps, nil
 }
 
-// PlanStepsToGeoPoses converts the relative poses the robot will move to into geo poses
+// PlanStepsToGeoPoses converts the relative poses the robot will move to into geo poses.
 func PlanStepsToGeoPoses(
 	planSteps []motion.PlanStep,
 	origin spatial.GeoPose,

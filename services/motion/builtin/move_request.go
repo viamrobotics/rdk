@@ -561,14 +561,16 @@ func (ms *builtIn) newMoveOnMapRequest(
 		return nil, err
 	}
 	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
-	deltaX := limits[0].Max - limits[0].Min
-	deltaY := limits[1].Max - limits[1].Min
-	limitsHypotenusMM := math.Sqrt(math.Pow(deltaX, 2) + math.Pow(deltaY, 2))
-	straightlineDistance := req.Destination.Point().Norm()
-	if straightlineDistance > limitsHypotenusMM {
-		if straightlineDistance > maxTravelDistanceMM {
-			return nil, fmt.Errorf("cannot move more than %d millimeters", int(limitsHypotenusMM))
-		}
+
+	// TODO(NF): smarter checking of if a destination is valid
+	// construct the slam point cloud map and check if the destination as a point exists within it
+	checkX := limits[0].Max > req.Destination.Point().X && req.Destination.Point().X > limits[0].Min
+	checkY := limits[1].Max > req.Destination.Point().Y && req.Destination.Point().X > limits[1].Min
+	if !checkX || !checkY {
+		return nil, fmt.Errorf(
+			"destination must be within the following limits, X: %v, Y:%v",
+			limits[0], limits[1],
+		)
 	}
 
 	// create a KinematicBase from the componentName
@@ -594,6 +596,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 		return nil, err
 	}
 	goalPoseAdj := spatialmath.Compose(req.Destination, motion.SLAMOrientationAdjustment)
+	ms.logger.Debugf("goalPoseAdj: %v\n", goalPoseAdj.Point())
 
 	// get point cloud data in the form of bytes from pcd
 	pointCloudData, err := slam.PointCloudMapFull(ctx, slamSvc)
