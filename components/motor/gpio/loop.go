@@ -91,6 +91,7 @@ func (m *EncodedMotor) validateControlConfig(ctx context.Context) error {
 // trapezoidalVelocityProfile-> sum -> PID -> gain -> endpoint -> derivative back to sum, and endpoint
 // back to trapezoidalVelocityProfile structure. The gain is 0.0039 (1/255) to account for the PID range,
 // the PID values are experimental this structure can change as hardware experiments with an encoded motor require.
+//
 //nolint:unused
 var controlLoopConfig = control.Config{
 	Blocks: []control.BlockConfig{
