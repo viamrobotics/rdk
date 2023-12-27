@@ -30,6 +30,7 @@ import (
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -354,7 +355,7 @@ func (c *MockConfig) Validate(path string) ([]string, error) {
 	return c.Motors, nil
 }
 
-// TestAttributeConversion tests that modular resource configs have attributes converted with a registred converter,
+// TestAttributeConversion tests that modular resource configs have attributes converted with a registered converter,
 // and that validation then works on those converted attributes.
 func TestAttributeConversion(t *testing.T) {
 	type testHarness struct {
@@ -606,6 +607,7 @@ func TestAttributeConversion(t *testing.T) {
 		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor1").String()})
 	})
 
+	// also check that associated resource configs are processed correctly
 	t.Run("reconfigurable reconfiguration", func(t *testing.T) {
 		th, teardown := setupTest(t)
 		defer teardown()
@@ -616,6 +618,19 @@ func TestAttributeConversion(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		th.mockReconfigConf.Attributes = mockAttrs
+
+		// TODO(RSDK-6022): use datamanager.DataCaptureConfigs once resource.Name can be properly marshalled/unmarshalled
+		dummySvcCfg := rutils.AttributeMap{
+			"capture_methods": []interface{}{map[string]interface{}{"name": "rdk:service:shell/mymock2", "method": "Something"}},
+		}
+		mockServiceCfg, err := protoutils.StructToStructPb(dummySvcCfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		th.mockReconfigConf.ServiceConfigs = append(th.mockReconfigConf.ServiceConfigs, &v1.ResourceLevelServiceConfig{
+			Type:       datamanager.API.String(),
+			Attributes: mockServiceCfg,
+		})
+
 		th.mockReconfigConf.Model = th.modelWithReconfigure.String()
 
 		validateResp, err := th.m.ValidateConfig(ctx, &pb.ValidateConfigRequest{
@@ -639,6 +654,17 @@ func TestAttributeConversion(t *testing.T) {
 
 		th.mockReconfigConf.Attributes = mockAttrs
 
+		dummySvcCfg2 := rutils.AttributeMap{
+			"capture_methods": []interface{}{map[string]interface{}{"name": "rdk:service:shell/mymock2", "method": "Something2"}},
+		}
+		mockServiceCfg, err = protoutils.StructToStructPb(dummySvcCfg2)
+		test.That(t, err, test.ShouldBeNil)
+
+		th.mockReconfigConf.ServiceConfigs = append([]*v1.ResourceLevelServiceConfig{}, &v1.ResourceLevelServiceConfig{
+			Type:       datamanager.API.String(),
+			Attributes: mockServiceCfg,
+		})
+
 		validateResp, err = th.m.ValidateConfig(ctx, &pb.ValidateConfigRequest{
 			Config: th.mockReconfigConf,
 		})
@@ -661,6 +687,14 @@ func TestAttributeConversion(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor2").String()})
 
+		svcCfg := th.reconfigConf2.AssociatedResourceConfigs[0].Attributes
+		test.That(t, svcCfg, test.ShouldResemble, dummySvcCfg2)
+
+		convSvcCfg, ok := th.reconfigConf2.AssociatedResourceConfigs[0].ConvertedAttributes.(*datamanager.DataCaptureConfigs)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, convSvcCfg.CaptureMethods[0].Name, test.ShouldResemble, shell.Named("mymock2"))
+		test.That(t, convSvcCfg.CaptureMethods[0].Method, test.ShouldEqual, "Something2")
+
 		// and as a final confirmation, check that original values weren't modified
 		_, ok = (*th.reconfigDeps1)[motor.Named("motor1")]
 		test.That(t, ok, test.ShouldBeTrue)
@@ -669,6 +703,14 @@ func TestAttributeConversion(t *testing.T) {
 		mc, ok = th.reconfigConf1.ConvertedAttributes.(*MockConfig)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor1").String()})
+
+		svcCfg = th.reconfigConf1.AssociatedResourceConfigs[0].Attributes
+		test.That(t, svcCfg, test.ShouldResemble, dummySvcCfg)
+
+		convSvcCfg, ok = th.reconfigConf1.AssociatedResourceConfigs[0].ConvertedAttributes.(*datamanager.DataCaptureConfigs)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, convSvcCfg.CaptureMethods[0].Name, test.ShouldResemble, shell.Named("mymock2"))
+		test.That(t, convSvcCfg.CaptureMethods[0].Method, test.ShouldEqual, "Something")
 	})
 }
 

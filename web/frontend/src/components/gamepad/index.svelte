@@ -1,13 +1,13 @@
 <script lang='ts'>
 
-import { onMount } from 'svelte';
+import { onDestroy, onMount } from 'svelte';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import { ConnectionClosedError } from '@viamrobotics/rpc';
 import { inputControllerApi as InputController, type ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import { rcLogConditionally } from '@/lib/log';
 import Collapse from '@/lib/components/collapse.svelte';
-import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
+import { useRobotClient } from '@/hooks/robot-client';
 
 export let name: string;
 
@@ -252,7 +252,7 @@ onMount(() => {
   tick();
 });
 
-useDisconnect(() => clearTimeout(handle));
+onDestroy(() => clearTimeout(handle));
 
 $: {
   connectEvent(enabled);

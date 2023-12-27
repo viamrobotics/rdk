@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -113,31 +114,39 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 			l.activeBackgroundWorkers.Add(1)
 			utils.ManagedGo(func() {
 				b := b
-				nInputs := len(b.ins)
 				close(waitCh)
 				for {
-					sw := make([]*Signal, nInputs)
-					for i, c := range b.ins {
+					sw := []*Signal{}
+					s := []*Signal{}
+					for _, c := range b.ins {
 						r, ok := <-c
 						if !ok {
 							b.mu.Lock()
 							for _, out := range b.outs {
 								close(out)
 							}
-							// logger.Debugf("Closing outs for block %s %+v\r\n", b.blk.Config(ctx).Name, r)
 							b.outs = nil
 							b.mu.Unlock()
 							return
 						}
-						if len(r) == 1 {
-							sw[i] = r[0]
-						} else {
-							// TODO(npmenard) do we want to support multidimentional signals?
-							//nolint: makezero
-							sw = append(sw, r...)
+						for j := 0; j < len(r); j++ {
+							if r[j] != nil {
+								sw = append(sw, r[j])
+							}
 						}
+						// TODO(npmenard) do we want to support multidimentional signals?
 					}
-					v, ok := b.blk.Next(l.cancelCtx, sw, l.dt)
+					if strings.Contains(b.blk.Config(l.cancelCtx).Name, "PID") {
+						if strings.Contains(b.blk.Config(l.cancelCtx).Name, "ang") {
+							s = append(s, sw[1])
+						} else {
+							s = append(s, sw[0])
+						}
+					} else {
+						s = sw
+					}
+
+					v, ok := b.blk.Next(l.cancelCtx, s, l.dt)
 					if ok {
 						for _, out := range b.outs {
 							out <- v
@@ -160,7 +169,7 @@ func (l *Loop) OutputAt(ctx context.Context, name string) ([]*Signal, error) {
 	return blk.blk.Output(ctx), nil
 }
 
-// ConfigAt returns the Configl at the block name, error when the block doesn't exist.
+// ConfigAt returns the Config at the block name, error when the block doesn't exist.
 func (l *Loop) ConfigAt(ctx context.Context, name string) (BlockConfig, error) {
 	blk, ok := l.blocks[name]
 	if !ok {
