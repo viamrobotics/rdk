@@ -206,12 +206,12 @@ func (c *client) Paths(ctx context.Context, extra map[string]interface{}) ([]*Pa
 func (c *client) Properties(ctx context.Context) (Properties, error) {
 	resp, err := c.client.GetProperties(ctx, &pb.GetPropertiesRequest{Name: c.name})
 	if err != nil {
-		return Properties{}, errors.New("failure to get properties")
+		return Properties{}, errors.Wrapf(err, "failure to get properties")
 	}
 
 	mapType, err := protobufToMapType(resp.MapType)
 	if err != nil {
-		return Properties{}, errors.New("properties error")
+		return Properties{}, errors.New("converting properties from protobuf")
 	}
 
 	prop := Properties{

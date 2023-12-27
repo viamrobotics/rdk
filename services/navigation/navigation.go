@@ -116,7 +116,6 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 }
 
 func mapTypeToProtobuf(mapType MapType) servicepb.MapType {
-
 	switch mapType {
 	case NoMap:
 		return servicepb.MapType_MAP_TYPE_NONE
@@ -133,6 +132,8 @@ func protobufToMapType(mapType servicepb.MapType) (MapType, error) {
 		return NoMap, nil
 	case servicepb.MapType_MAP_TYPE_GPS:
 		return GPSMap, nil
+	case servicepb.MapType_MAP_TYPE_UNSPECIFIED:
+		fallthrough
 	default:
 		return 0, errors.New("map type unspecified")
 	}

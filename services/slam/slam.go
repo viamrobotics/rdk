@@ -157,6 +157,8 @@ func protobufToMappingMode(mappingMode pb.MappingMode) (MappingMode, error) {
 		return MappingModeLocalizationOnly, nil
 	case pb.MappingMode_MAPPING_MODE_UPDATE_EXISTING_MAP:
 		return MappingModeUpdateExistingMap, nil
+	case pb.MappingMode_MAPPING_MODE_UNSPECIFIED:
+		fallthrough
 	default:
 		return 0, errors.New("mapping mode unspecified")
 	}

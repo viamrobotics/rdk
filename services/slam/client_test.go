@@ -280,7 +280,7 @@ func TestFailingClient(t *testing.T) {
 		return time.Time{}, errors.New("failure to get latest map info")
 	}
 
-	var errBadProperties = errors.New("failure to get properties")
+	errBadProperties := errors.New("failure to get properties")
 	failingSLAMService.PropertiesFunc = func(ctx context.Context) (slam.Properties, error) {
 		return slam.Properties{}, errBadProperties
 	}
