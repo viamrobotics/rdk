@@ -211,7 +211,7 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 
 	mapType, err := protobufToMapType(resp.MapType)
 	if err != nil {
-		return Properties{}, errors.New("converting properties from protobuf")
+		return Properties{}, err
 	}
 
 	prop := Properties{

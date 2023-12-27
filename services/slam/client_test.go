@@ -280,9 +280,8 @@ func TestFailingClient(t *testing.T) {
 		return time.Time{}, errors.New("failure to get latest map info")
 	}
 
-	errBadProperties := errors.New("failure to get properties")
 	failingSLAMService.PropertiesFunc = func(ctx context.Context) (slam.Properties, error) {
-		return slam.Properties{}, errBadProperties
+		return slam.Properties{}, errors.New("failure to get properties")
 	}
 
 	failingSvc, err := resource.NewAPIResourceCollection(slam.API, map[resource.Name]slam.Service{slam.Named(nameFail): failingSLAMService})
