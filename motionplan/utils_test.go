@@ -302,7 +302,7 @@ func TestPlanToPlanStepsAndGeoPoses(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.msg, func(t *testing.T) {
-			ps, err := PlanToPlanSteps(plan, baseName, *planRequest)
+			ps, err := PlanToPlanSteps(plan, baseName, *planRequest, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(ps), test.ShouldEqual, len(expectedPoses))
 			gps := PlanStepsToGeoPoses(ps, tc.origin)

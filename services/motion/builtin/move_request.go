@@ -58,8 +58,9 @@ const (
 // moveRequest is a structure that contains all the information necessary for to make a move call.
 type moveRequest struct {
 	requestType requestType
-	// origin is only set if requestType == requestTypeMoveOnGlobe
-	origin            spatialmath.GeoPose
+	// geoPoseOrigin is only set if requestType == requestTypeMoveOnGlobe
+	geoPoseOrigin     spatialmath.GeoPose
+	poseOrigin        spatialmath.Pose
 	logger            logging.Logger
 	config            *validatedMotionConfiguration
 	planRequest       *motionplan.PlanRequest
@@ -101,12 +102,9 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 		return state.PlanResponse{}, err
 	}
 
-	mr.logger.Infof("plan: %v", plan)
-
 	switch mr.requestType {
 	case requestTypeMoveOnMap:
-		// we do not care about the origin GeoPose
-		planSteps, err := motionplan.PlanToPlanSteps(plan, mr.kinematicBase.Name(), *mr.planRequest)
+		planSteps, err := motionplan.PlanToPlanSteps(plan, mr.kinematicBase.Name(), *mr.planRequest, mr.poseOrigin)
 		if err != nil {
 			return state.PlanResponse{}, err
 		}
@@ -117,18 +115,17 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 			PosesByComponent: planSteps,
 		}, nil
 	case requestTypeMoveOnGlobe:
-		planSteps, err := motionplan.PlanToPlanSteps(plan, mr.kinematicBase.Name(), *mr.planRequest)
+		planSteps, err := motionplan.PlanToPlanSteps(plan, mr.kinematicBase.Name(), *mr.planRequest, nil)
 		if err != nil {
 			return state.PlanResponse{}, err
 		}
-		geoPoses := motionplan.PlanStepsToGeoPoses(planSteps, mr.origin)
+		geoPoses := motionplan.PlanStepsToGeoPoses(planSteps, mr.geoPoseOrigin)
 
 		// NOTE: Here we are smuggling GeoPoses into Poses by component
 		planSteps, err = toGeoPosePlanSteps(planSteps, geoPoses)
 		if err != nil {
 			return state.PlanResponse{}, err
 		}
-		fmt.Println("planSteps", planSteps)
 
 		return state.PlanResponse{
 			Waypoints:        waypoints,
@@ -153,7 +150,6 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, w
 			if stopErr := mr.stop(); stopErr != nil {
 				return state.ExecuteResponse{}, errors.Wrap(ctx.Err(), stopErr.Error())
 			}
-			mr.planRequest.Logger.Info("about the exit the execute loop")
 			return state.ExecuteResponse{}, nil
 		default:
 			mr.planRequest.Logger.Info(waypoints[i])
@@ -170,7 +166,6 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, w
 			}
 		}
 	}
-	mr.logger.Info("WE ARE DONE WITH THE PLAN AND WILL NOW ENTER DEVIATED ONCE AGAIN")
 	// the plan has been fully executed so check to see if where we are at is close enough to the goal.
 	return mr.deviatedFromPlan(ctx, waypoints, len(waypoints)-1)
 }
@@ -178,20 +173,15 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, w
 // deviatedFromPlan takes a list of waypoints and an index of a waypoint on that Plan and returns whether or not it is still
 // following the plan as described by the PlanDeviation specified for the moveRequest.
 func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints state.Waypoints, waypointIndex int) (state.ExecuteResponse, error) {
-	mr.logger.Info("deviatedFromPlan")
 	errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, waypointIndex)
 	if err != nil {
-		mr.logger.Info("errstate not nil")
-		mr.logger.Infof("errstate not nil: %v", err.Error())
 		return state.ExecuteResponse{}, err
 	}
 	if errorState.Point().Norm() > mr.config.planDeviationMM {
-		mr.logger.Info("errstate execeed planDevMM")
 		msg := "error state exceeds planDeviationMM; planDeviationMM: %f, errorstate.Point().Norm(): %f, errorstate.Point(): %#v "
 		reason := fmt.Sprintf(msg, mr.config.planDeviationMM, errorState.Point().Norm(), errorState.Point())
 		return state.ExecuteResponse{Replan: true, ReplanReason: reason}, nil
 	}
-	mr.logger.Info("got through deviatedFromPlan well!")
 	return state.ExecuteResponse{}, nil
 }
 
@@ -303,7 +293,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			}
 		}
 	}
-	mr.logger.Info("got through obstacles intersect plan well!")
 	return state.ExecuteResponse{}, nil
 }
 
@@ -529,7 +518,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	mr.seedPlan = seedPlan
 	mr.replanCostFactor = valExtra.replanCostFactor
 	mr.requestType = requestTypeMoveOnGlobe
-	mr.origin = *spatialmath.NewGeoPose(origin, heading)
+	mr.geoPoseOrigin = *spatialmath.NewGeoPose(origin, heading)
 	return mr, nil
 }
 
@@ -742,6 +731,8 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		responseChan: make(chan moveResponse, 1),
 
 		waypointIndex: &waypointIndex,
+
+		poseOrigin: startPose.Pose(),
 	}
 
 	// TODO: Change deviatedFromPlan to just query positionPollingFreq on the struct & the same for the obstaclesIntersectPlan
@@ -777,11 +768,7 @@ func (mr *moveRequest) start(ctx context.Context, waypoints [][]referenceframe.I
 	mr.executeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		executeResp, err := mr.execute(ctx, waypoints, mr.waypointIndex)
-		mr.logger.Info("MR EXECUTE HAS RETURNED1 INSIDE START")
-		mr.logger.Debugf("executeResp: %v", executeResp)
-		mr.logger.Debugf("err: %v", err)
 		resp := moveResponse{executeResponse: executeResp, err: err}
-		mr.logger.Info("ABOUT TO WRITE TO THE RESPONSE CHANNEL")
 		mr.responseChan <- resp
 	}, mr.executeBackgroundWorkers.Done)
 }
@@ -789,20 +776,15 @@ func (mr *moveRequest) start(ctx context.Context, waypoints [][]referenceframe.I
 func (mr *moveRequest) listen(ctx context.Context) (state.ExecuteResponse, error) {
 	select {
 	case <-ctx.Done():
-		mr.logger.Debugf("context err: %s", ctx.Err())
 		return state.ExecuteResponse{}, ctx.Err()
 
 	case resp := <-mr.responseChan:
-		mr.logger.Info("MR EXECUTE HAS RETURNED INSIDE LISTEN")
-		mr.logger.Debugf("execution response: %s", resp)
 		return resp.executeResponse, resp.err
 
 	case resp := <-mr.position.responseChan:
-		mr.logger.CDebugf(ctx, "position response: %s", resp)
 		return resp.executeResponse, resp.err
 
 	case resp := <-mr.obstacle.responseChan:
-		mr.logger.CDebugf(ctx, "obstacle response: %s", resp)
 		return resp.executeResponse, resp.err
 	}
 }

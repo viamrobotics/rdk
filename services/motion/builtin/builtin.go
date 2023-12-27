@@ -109,9 +109,7 @@ func (ms *builtIn) Reconfigure(
 		}
 		ms.logger = logger
 	}
-	ms.logger.Info("WE ARE IN THE RECONFIG FUNCTION")
-	ms.logger.Infof("deps: %v", deps)
-	ms.logger.Infof("config: %v", config)
+
 	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
 	slamServices := make(map[resource.Name]slam.Service)
 	visionServices := make(map[resource.Name]vision.Service)
@@ -134,15 +132,7 @@ func (ms *builtIn) Reconfigure(
 	ms.slamServices = slamServices
 	ms.visionServices = visionServices
 	ms.components = components
-	// if ms.state != nil && !ms.state.IsActive() {
-	// 	ms.logger.Debug("STOP IS BEING CALLED FROM WITHIN RECONFIGURE")
-	// 	ms.logger.Debug("ISACTIVE == FALSE")
-	// 	ms.state.Stop()
-	// } else {
-	// 	ms.logger.Debug("ISACTIVE == TRUE NO NEED TO CANCEL")
-	// }
 	if ms.state != nil {
-		ms.logger.Debug("STOP IS BEING CALLED FROM WITHIN RECONFIGURE")
 		ms.state.Stop()
 	}
 	ms.state = state.NewState(context.Background(), ms.logger)
@@ -164,9 +154,7 @@ type builtIn struct {
 func (ms *builtIn) Close(ctx context.Context) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
-	ms.logger.Info("inside ms.Close")
 	if ms.state != nil {
-		ms.logger.Info("about to call state stop")
 		ms.state.Stop()
 	}
 	return nil

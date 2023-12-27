@@ -149,7 +149,6 @@ func (e *execution[R]) start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	e.logger.CInfo(ctx, "no issues with e.newPlanWithExecutor")
 	e.notifyStateNewExecution(e.toStateExecution(), originalPlanWithExecutor.plan, time.Now())
 	// We need to add to both the state & execution waitgroups
 	// B/c both the state & the stateExecution need to know if this
@@ -175,27 +174,10 @@ func (e *execution[R]) start(ctx context.Context) error {
 		// 4. replanning failed
 		for {
 			resp, err := lastPWE.plannerExecutor.Execute(e.cancelCtx, lastPWE.waypoints)
-			e.logger.Info("LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE ")
-			e.logger.Info("LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE ")
-			e.logger.Info("LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE ")
-			e.logger.Info("LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE ")
-			e.logger.Info("LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE ")
-			e.logger.Info("LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE ")
-			e.logger.Info("LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE ")
-			e.logger.Info("LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE ")
-			e.logger.Info("LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE ")
-			e.logger.Info("LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE ")
-			e.logger.Info("LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE ")
-			e.logger.Info("LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE ")
-			e.logger.Info("LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE ")
-			e.logger.Info("LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE LOOK HERE ")
-			e.logger.CInfof(ctx, "RESP UPON RETURN %v", resp)
-			e.logger.CInfof(ctx, "ERR UPON RETURN %v", err)
 
 			switch {
 			// stoped
 			case errors.Is(err, context.Canceled):
-				e.logger.CInfo(ctx, "err is context cancelled within monitoring loop")
 				e.notifyStatePlanStopped(lastPWE.plan, time.Now())
 				return
 
@@ -206,13 +188,11 @@ func (e *execution[R]) start(ctx context.Context) error {
 
 			// success
 			case !resp.Replan:
-				e.logger.Info("NOTIFY THE PLAN HAS SUCCCEEDED ")
 				e.notifyStatePlanSucceeded(lastPWE.plan, time.Now())
 				return
 
 			// replan
 			default:
-				e.logger.Info("ENTERED DEFAULT ")
 				replanCount++
 				newPWE, err := e.newPlanWithExecutor(e.cancelCtx, lastPWE.motionplan, replanCount)
 				// replan failed
@@ -231,8 +211,6 @@ func (e *execution[R]) start(ctx context.Context) error {
 			}
 		}
 	})
-
-	e.logger.Info("ABOUT TO RETURN NIL YAY!!!!!")
 
 	return nil
 }
@@ -350,8 +328,6 @@ func StartExecution[R any](
 		return uuid.Nil, err
 	}
 
-	s.logger.Info("entered StartExecution")
-
 	// the state being cancelled should cause all executions derived from that state to also be cancelled
 	cancelCtx, cancelFunc := context.WithCancel(s.cancelCtx)
 	e := execution[R]{
@@ -366,8 +342,6 @@ func StartExecution[R any](
 		plannerExecutorConstructor: plannerExecutorConstructor,
 	}
 
-	s.logger.Info("about to enter e.start")
-
 	if err := e.start(ctx); err != nil {
 		return uuid.Nil, err
 	}
@@ -377,14 +351,12 @@ func StartExecution[R any](
 
 // Stop stops all executions within the State.
 func (s *State) Stop() {
-	s.logger.Info("STATE STOP IS CALLED")
 	s.cancelFunc()
 	s.waitGroup.Wait()
 }
 
 // StopExecutionByResource stops the active execution with a given resource name in the State.
 func (s *State) StopExecutionByResource(componentName resource.Name) error {
-	s.logger.Info("STATE StopExecutionByResource IS CALLED")
 	// Read lock held to get the execution
 	s.mu.RLock()
 	componentExectionState, exists := s.componentStateByComponent[componentName]
@@ -418,7 +390,6 @@ func (s *State) StopExecutionByResource(componentName resource.Name) error {
 func (s *State) PlanHistory(req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	s.logger.Infof("s.componentStateByComponent: %v", s.componentStateByComponent)
 	cs, exists := s.componentStateByComponent[req.ComponentName]
 	if !exists {
 		return nil, resource.NewNotFoundError(req.ComponentName)

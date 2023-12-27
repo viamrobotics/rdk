@@ -371,6 +371,7 @@ func PlanToPlanSteps(
 	plan Plan,
 	componentName resource.Name,
 	planRequest PlanRequest,
+	startPose spatial.Pose,
 ) ([]motion.PlanStep, error) {
 	sf, err := newSolverFrame(
 		planRequest.FrameSystem,
@@ -386,17 +387,19 @@ func PlanToPlanSteps(
 		return nil, err
 	}
 
-	seed, err := sf.mapToSlice(planRequest.StartConfiguration)
-	if err != nil {
-		return nil, err
-	}
-	startPose, err := sf.Transform(seed)
-	if err != nil {
-		return nil, err
+	if startPose == nil {
+		seed, err := sf.mapToSlice(planRequest.StartConfiguration)
+		if err != nil {
+			return nil, err
+		}
+		seedPose, err := sf.Transform(seed)
+		if err != nil {
+			return nil, err
+		}
+		startPose = spatial.NewPose(planNodes[0].Pose().Point(), seedPose.Orientation())
 	}
 
-	startPoseWOrientation := spatial.NewPose(planNodes[0].Pose().Point(), startPose.Orientation())
-	runningPoseWOrient := startPoseWOrientation
+	runningPoseWOrient := startPose
 	planSteps := []motion.PlanStep{}
 	for _, wp := range planNodes {
 		wpPose, err := sf.Transform(wp.Q())
