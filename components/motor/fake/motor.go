@@ -9,8 +9,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/components/board"
-	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/encoder/fake"
 	"go.viam.com/rdk/components/motor"
@@ -19,17 +17,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var (
-	motorModel    = resource.DefaultModelFamily.WithModel("fake")
-	b             board.Board
-	fakeBoardConf = resource.Config{
-		Name: "fakeboard",
-		API:  board.API,
-		ConvertedAttributes: &fakeboard.Config{
-			FailNew: false,
-		},
-	}
-)
+var motorModel = resource.DefaultModelFamily.WithModel("fake")
 
 const defaultMaxRpm = 100
 
@@ -82,7 +70,6 @@ type Motor struct {
 	mu                sync.Mutex
 	powerPct          float64
 	Board             string
-	PWM               board.GPIOPin
 	PositionReporting bool
 	Encoder           fake.Encoder
 	MaxRPM            float64
@@ -95,7 +82,6 @@ type Motor struct {
 
 // NewMotor creates a new fake motor.
 func NewMotor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (motor.Motor, error) {
-	logger.Error("in new motor")
 	m := &Motor{
 		Named:  conf.ResourceName().AsNamed(),
 		Logger: logger,
@@ -104,43 +90,15 @@ func NewMotor(ctx context.Context, deps resource.Dependencies, conf resource.Con
 	if err := m.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
-	logger.Errorf("new motor = %v", m)
 	return m, nil
 }
 
 // Reconfigure atomically reconfigures this motor in place based on the new config.
 func (m *Motor) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	m.Logger.Error("in reconfigure")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return err
-	}
-	if newConf.BoardName != "" {
-		m.Board = newConf.BoardName
-		b, err = board.FromDependencies(deps, m.Board)
-		if err != nil {
-			return err
-		}
-	} else {
-		m.Logger.Info("board not provided, using a fake board")
-		m.Board = "fakeboard"
-		b, err = fakeboard.NewBoard(ctx, fakeBoardConf, m.Logger)
-		if err != nil {
-			return err
-		}
-	}
-
-	pwmPin := "1"
-	if newConf.Pins.PWM != "" {
-		pwmPin = newConf.Pins.PWM
-	}
-	m.PWM, err = b.GPIOPinByName(pwmPin)
-	if err != nil {
-		return err
-	}
-	if err = m.PWM.SetPWMFreq(ctx, newConf.PWMFreq, nil); err != nil {
 		return err
 	}
 
