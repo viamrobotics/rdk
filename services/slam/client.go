@@ -112,7 +112,7 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 
 	resp, err := c.client.GetProperties(ctx, req)
 	if err != nil {
-		return Properties{}, err
+		return Properties{}, errors.Wrapf(err, "failure to get properties")
 	}
 
 	mappingMode, err := protobufToMappingMode(resp.MappingMode)
