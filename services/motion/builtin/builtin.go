@@ -109,7 +109,6 @@ func (ms *builtIn) Reconfigure(
 		}
 		ms.logger = logger
 	}
-
 	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
 	slamServices := make(map[resource.Name]slam.Service)
 	visionServices := make(map[resource.Name]vision.Service)
@@ -419,8 +418,7 @@ func (ms *builtIn) PlanHistory(
 	req motion.PlanHistoryReq,
 ) ([]motion.PlanWithStatus, error) {
 	if err := ctx.Err(); err != nil {
-		e := errors.New("returning err from within builtin planHistory but before we enter the state bc context cancelled?: " + err.Error())
-		return nil, e
+		return nil, err
 	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()

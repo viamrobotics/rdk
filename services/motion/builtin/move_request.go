@@ -146,13 +146,13 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, w
 	for i := int(waypointIndex.Load()); i < len(waypoints); i++ {
 		select {
 		case <-ctx.Done():
-			mr.planRequest.Logger.Infof("calling kinematicBase.Stop due to %s\n", ctx.Err())
+			mr.logger.CDebugf(ctx, "calling kinematicBase.Stop due to %s\n", ctx.Err())
 			if stopErr := mr.stop(); stopErr != nil {
 				return state.ExecuteResponse{}, errors.Wrap(ctx.Err(), stopErr.Error())
 			}
 			return state.ExecuteResponse{}, nil
 		default:
-			mr.planRequest.Logger.Info(waypoints[i])
+			mr.planRequest.Logger.CInfo(ctx, waypoints[i])
 			if err := mr.kinematicBase.GoToInputs(ctx, waypoints[i]); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				mr.logger.CDebugf(ctx, "calling kinematicBase.Stop due to %s\n", err)
@@ -776,15 +776,19 @@ func (mr *moveRequest) start(ctx context.Context, waypoints [][]referenceframe.I
 func (mr *moveRequest) listen(ctx context.Context) (state.ExecuteResponse, error) {
 	select {
 	case <-ctx.Done():
+		mr.logger.CDebugf(ctx, "context err: %s", ctx.Err())
 		return state.ExecuteResponse{}, ctx.Err()
 
 	case resp := <-mr.responseChan:
+		mr.logger.CDebugf(ctx, "execution response: %s", resp)
 		return resp.executeResponse, resp.err
 
 	case resp := <-mr.position.responseChan:
+		mr.logger.CDebugf(ctx, "position response: %s", resp)
 		return resp.executeResponse, resp.err
 
 	case resp := <-mr.obstacle.responseChan:
+		mr.logger.CDebugf(ctx, "obstacle response: %s", resp)
 		return resp.executeResponse, resp.err
 	}
 }
