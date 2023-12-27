@@ -9,6 +9,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/components/board"
+	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/encoder/fake"
 	"go.viam.com/rdk/components/motor"
@@ -17,7 +19,16 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var motorModel = resource.DefaultModelFamily.WithModel("fake")
+var (
+	motorModel    = resource.DefaultModelFamily.WithModel("fake")
+	fakeBoardConf = resource.Config{
+		Name: "fakeboard",
+		API:  board.API,
+		ConvertedAttributes: &fakeboard.Config{
+			FailNew: false,
+		},
+	}
+)
 
 const defaultMaxRpm = 100
 
@@ -70,6 +81,7 @@ type Motor struct {
 	mu                sync.Mutex
 	powerPct          float64
 	Board             string
+	PWM               board.GPIOPin
 	PositionReporting bool
 	Encoder           fake.Encoder
 	MaxRPM            float64
@@ -99,6 +111,34 @@ func (m *Motor) Reconfigure(ctx context.Context, deps resource.Dependencies, con
 	defer m.mu.Unlock()
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
+		return err
+	}
+
+	var b board.Board
+	if newConf.BoardName != "" {
+		m.Board = newConf.BoardName
+		b, err = board.FromDependencies(deps, m.Board)
+		if err != nil {
+			return err
+		}
+	} else {
+		m.Logger.CInfo(ctx, "board not provided, using a fake board")
+		m.Board = "fakeboard"
+		b, err = fakeboard.NewBoard(ctx, fakeBoardConf, m.Logger)
+		if err != nil {
+			return err
+		}
+	}
+
+	pwmPin := "1"
+	if newConf.Pins.PWM != "" {
+		pwmPin = newConf.Pins.PWM
+	}
+	m.PWM, err = b.GPIOPinByName(pwmPin)
+	if err != nil {
+		return err
+	}
+	if err = m.PWM.SetPWMFreq(ctx, newConf.PWMFreq, nil); err != nil {
 		return err
 	}
 
