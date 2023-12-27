@@ -248,7 +248,7 @@ var app = &cli.App{
 				{
 					Name:      "export",
 					Usage:     "download data from Viam cloud",
-					UsageText: createUsageText("viam data export", []string{dataFlagDestination, dataFlagDataType}, false),
+					UsageText: createUsageText("viam data export", []string{dataFlagDestination, dataFlagDataType}, true),
 					Flags: []cli.Flag{
 						&cli.PathFlag{
 							Name:     dataFlagDestination,
@@ -689,9 +689,10 @@ var app = &cli.App{
 			UsageText: "viam train [other options]",
 			Subcommands: []*cli.Command{
 				{
-					Name:      "submit",
-					Usage:     "submits training job on data in Viam cloud",
-					UsageText: createUsageText("viam train submit", []string{dataFlagOrgIDs, dataFlagOrgIDs}, true),
+					Name:  "submit",
+					Usage: "submits training job on data in Viam cloud",
+					UsageText: createUsageText("viam train submit",
+						[]string{datasetFlagDatasetID, trainFlagModelOrgID, trainFlagModelName, trainFlagModelType, trainFlagModelLabels}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     datasetFlagDatasetID,
