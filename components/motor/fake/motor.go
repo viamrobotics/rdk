@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	model    = resource.DefaultModelFamily.WithModel("fake")
+	model         = resource.DefaultModelFamily.WithModel("fake")
 	fakeBoardConf = resource.Config{
 		Name: "fakeboard",
 		API:  board.API,
@@ -67,7 +67,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(motor.API, motorModel, resource.Registration[motor.Motor, *Config]{
+	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
 		Constructor: NewMotor,
 	})
 }
