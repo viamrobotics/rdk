@@ -80,18 +80,14 @@ const (
 )
 
 // createUsageText is a helper for formatting the flags, if otherOptions is set to true
-// then [other options] is appended to the end of the text
+// then [other options] is appended to the end of the text.
 func createUsageText(command string, flags []string, otherOptions bool) string {
 	formattedFlags := make([]string, len(flags)+1)
 	for i, flag := range flags {
 		formattedFlags[i] = fmt.Sprintf("--%s=<%s>", flag, flag)
 	}
 	if otherOptions {
-		lastIdx := len(flags) - 1
-		if len(flags) == 0 {
-			lastIdx = 0
-		}
-		formattedFlags[lastIdx] = "[other options]"
+		formattedFlags[len(flags)] = "[other options]"
 	}
 	return fmt.Sprintf("%s %s", command, strings.Join(formattedFlags, " "))
 }
@@ -502,7 +498,7 @@ var app = &cli.App{
 
 								{
 									Name:      "filter",
-									UsageText: createUsageText("viam data dataset add filter", nil, true),
+									UsageText: createUsageText("viam data dataset add filter", []string{datasetFlagDatasetID}, true),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
 											Name:     datasetFlagDatasetID,
