@@ -508,6 +508,9 @@ func processConfig(unprocessedConfig *Config, // Dan: We call this an `unprocess
 			// not good enough? Is there a default `AttributeMapConverter`? When is an
 			// `AttributeMapConverter` nil? If there are custom `AttributeMapConverter` what
 			// properties do they rely on with respect to the `conf.Attributes` input?
+
+			// we could possibly always register an attribute map converter and avoid the if checks in the register resource model
+			// func
 			if !ok || reg.AttributeMapConverter == nil {
 				continue
 			}
@@ -545,6 +548,7 @@ func processConfig(unprocessedConfig *Config, // Dan: We call this an `unprocess
 			// ones be supplied?
 
 			// there is no default converter for associated config converters. custom ones can be supplied through registering it on the API level.
+			// we can likely provide a default associated config converter as well
 			conv, ok := resource.LookupAssociatedConfigRegistration(associatedConf.API)
 			if !ok {
 				continue
