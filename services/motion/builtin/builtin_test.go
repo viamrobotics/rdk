@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"os"
-	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -19,15 +17,11 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils"
-	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/arm"
 	armFake "go.viam.com/rdk/components/arm/fake"
 	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/components/base"
-	baseFake "go.viam.com/rdk/components/base/fake"
-	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
@@ -37,7 +31,6 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot/framesystem"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/state"
@@ -47,248 +40,6 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 	viz "go.viam.com/rdk/vision"
 )
-
-func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.Service, func()) {
-	t.Helper()
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(ctx, configFilename, logger)
-	test.That(t, err, test.ShouldBeNil)
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	svc, err := motion.FromRobot(myRobot, "builtin")
-	test.That(t, err, test.ShouldBeNil)
-	return svc, func() {
-		myRobot.Close(context.Background())
-	}
-}
-
-func getPointCloudMap(path string) (func() ([]byte, error), error) {
-	const chunkSizeBytes = 1 * 1024 * 1024
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	chunk := make([]byte, chunkSizeBytes)
-	f := func() ([]byte, error) {
-		bytesRead, err := file.Read(chunk)
-		if err != nil {
-			defer utils.UncheckedErrorFunc(file.Close)
-			return nil, err
-		}
-		return chunk[:bytesRead], err
-	}
-	return f, nil
-}
-
-func createInjectedMovementSensor(name string, gpsPoint *geo.Point) *inject.MovementSensor {
-	injectedMovementSensor := inject.NewMovementSensor(name)
-	injectedMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		return gpsPoint, 0, nil
-	}
-	injectedMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-		return 0, nil
-	}
-	injectedMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
-		return &movementsensor.Properties{CompassHeadingSupported: true}, nil
-	}
-
-	return injectedMovementSensor
-}
-
-func createInjectedSlam(name, pcdPath string, origin spatialmath.Pose) *inject.SLAMService {
-	injectSlam := inject.NewSLAMService(name)
-	injectSlam.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
-		return getPointCloudMap(filepath.Clean(artifact.MustPath(pcdPath)))
-	}
-	injectSlam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
-		if origin != nil {
-			return origin, "", nil
-		}
-		return spatialmath.NewZeroPose(), "", nil
-	}
-	return injectSlam
-}
-
-func createBaseLink(t *testing.T) *referenceframe.LinkInFrame {
-	basePose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
-	baseSphere, err := spatialmath.NewSphere(basePose, 10, "base-sphere")
-	test.That(t, err, test.ShouldBeNil)
-	baseLink := referenceframe.NewLinkInFrame(
-		referenceframe.World,
-		spatialmath.NewZeroPose(),
-		"test-base",
-		baseSphere,
-	)
-	return baseLink
-}
-
-func createFrameSystemService(
-	ctx context.Context,
-	deps resource.Dependencies,
-	fsParts []*referenceframe.FrameSystemPart,
-	logger logging.Logger,
-) (framesystem.Service, error) {
-	fsSvc, err := framesystem.New(ctx, deps, logger)
-	if err != nil {
-		return nil, err
-	}
-	conf := resource.Config{
-		ConvertedAttributes: &framesystem.Config{Parts: fsParts},
-	}
-	if err := fsSvc.Reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
-	}
-	deps[fsSvc.Name()] = fsSvc
-
-	return fsSvc, nil
-}
-
-func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo.Point, noise spatialmath.Pose, sleepTime int) (
-	*inject.MovementSensor, framesystem.Service, kinematicbase.KinematicBase, motion.Service,
-) {
-	logger := logging.NewTestLogger(t)
-
-	// create fake base
-	baseCfg := resource.Config{
-		Name:  "test-base",
-		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 40}},
-	}
-	fakeBase, err := baseFake.NewBase(ctx, nil, baseCfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	// create base link
-	baseLink := createBaseLink(t)
-	// create MovementSensor link
-	movementSensorLink := referenceframe.NewLinkInFrame(
-		baseLink.Name(),
-		spatialmath.NewPoseFromPoint(r3.Vector{X: -10, Y: 0, Z: 0}),
-		"test-gps",
-		nil,
-	)
-
-	// create a fake kinematic base
-	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
-	kinematicsOptions.PlanDeviationThresholdMM = 1 // can afford to do this for tests
-	kb, err := kinematicbase.WrapWithFakePTGKinematics(
-		ctx,
-		fakeBase.(*baseFake.Base),
-		logger,
-		referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
-		kinematicsOptions,
-		noise,
-		sleepTime,
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	// create injected MovementSensor
-	dynamicMovementSensor := inject.NewMovementSensor("test-gps")
-	dynamicMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		poseInFrame, err := kb.CurrentPosition(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		heading := poseInFrame.Pose().Orientation().OrientationVectorDegrees().Theta
-		distance := poseInFrame.Pose().Point().Norm()
-		pt := origin.PointAtDistanceAndBearing(distance*1e-6, heading)
-		return pt, 0, nil
-	}
-	dynamicMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-		return 0, nil
-	}
-	dynamicMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
-		return &movementsensor.Properties{CompassHeadingSupported: true}, nil
-	}
-
-	// create injected vision service
-	injectedVisionSvc := inject.NewVisionService("injectedVisionSvc")
-
-	cameraGeom, err := spatialmath.NewBox(
-		spatialmath.NewZeroPose(),
-		r3.Vector{X: 1, Y: 1, Z: 1}, "camera",
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	injectedCamera := inject.NewCamera("injectedCamera")
-	cameraLink := referenceframe.NewLinkInFrame(
-		baseLink.Name(),
-		spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 0, Z: 0}),
-		"injectedCamera",
-		cameraGeom,
-	)
-
-	// create the frame system
-	fsParts := []*referenceframe.FrameSystemPart{
-		{FrameConfig: movementSensorLink},
-		{FrameConfig: baseLink},
-		{FrameConfig: cameraLink},
-	}
-	deps := resource.Dependencies{
-		fakeBase.Name():              kb,
-		dynamicMovementSensor.Name(): dynamicMovementSensor,
-		injectedVisionSvc.Name():     injectedVisionSvc,
-		injectedCamera.Name():        injectedCamera,
-	}
-
-	fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	conf := resource.Config{ConvertedAttributes: &Config{}}
-	ms, err := NewBuiltIn(ctx, deps, conf, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	return dynamicMovementSensor, fsSvc, kb, ms
-}
-
-func createMoveOnMapEnvironment(
-	ctx context.Context,
-	t *testing.T,
-	pcdPath string,
-	geomSize float64,
-	origin spatialmath.Pose,
-) (kinematicbase.KinematicBase, motion.Service) {
-	if origin == nil {
-		origin = spatialmath.NewZeroPose()
-	}
-	injectSlam := createInjectedSlam("test_slam", pcdPath, origin)
-
-	baseLink := createBaseLink(t)
-
-	cfg := resource.Config{
-		Name:  "test-base",
-		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: geomSize}},
-	}
-	logger := logging.NewTestLogger(t)
-	fakeBase, err := baseFake.NewBase(ctx, nil, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
-	kinematicsOptions.PlanDeviationThresholdMM = 1 // can afford to do this for tests
-	kb, err := kinematicbase.WrapWithFakePTGKinematics(
-		ctx,
-		fakeBase.(*baseFake.Base),
-		logger,
-		referenceframe.NewPoseInFrame(referenceframe.World, origin),
-		kinematicsOptions,
-		spatialmath.NewZeroPose(),
-		50,
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	deps := resource.Dependencies{injectSlam.Name(): injectSlam, fakeBase.Name(): kb}
-	conf := resource.Config{ConvertedAttributes: &Config{}}
-
-	// create the frame system
-	fsParts := []*referenceframe.FrameSystemPart{
-		{FrameConfig: baseLink},
-	}
-
-	_, err = createFrameSystemService(ctx, deps, fsParts, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	ms, err := NewBuiltIn(ctx, deps, conf, logger)
-	test.That(t, err, test.ShouldBeNil)
-	return kb, ms
-}
 
 func TestMoveResponseString(t *testing.T) {
 	type testCase struct {
@@ -1300,81 +1051,6 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, ph3, test.ShouldResemble, ph2)
 	})
 
-	t.Run("returns error when called with an unknown component", func(t *testing.T) {
-		injectedMovementSensor, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      base.Named("non existent base"),
-			MovementSensorName: injectedMovementSensor.Name(),
-			Destination:        geo.NewPoint(0, 0),
-		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:base/non existent base\" not found"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
-	t.Run("returns error when called with an unknown movement sensor", func(t *testing.T) {
-		_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: movementsensor.Named("non existent movement sensor"),
-			Destination:        geo.NewPoint(0, 0),
-		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
-		e := "Resource missing from dependencies. Resource: rdk:component:movement_sensor/non existent movement sensor"
-		test.That(t, err, test.ShouldBeError, errors.New(e))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
-	t.Run("returns error when request would require moving more than 5 km", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
-			Destination:        geo.NewPoint(0, 0),
-		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("cannot move more than 5 kilometers"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
-	t.Run("returns error when destination is nil", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
-		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("destination cannot be nil"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
-	t.Run("returns error when destination contains NaN", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
-		}
-
-		dests := []*geo.Point{
-			geo.NewPoint(math.NaN(), math.NaN()),
-			geo.NewPoint(0, math.NaN()),
-			geo.NewPoint(math.NaN(), 0),
-		}
-
-		for _, d := range dests {
-			req.Destination = d
-			executionID, err := ms.MoveOnGlobe(ctx, req)
-			test.That(t, err, test.ShouldBeError, errors.New("destination may not contain NaN"))
-			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-		}
-	})
-
 	t.Run("is able to reach a nearby geo point with empty values", func(t *testing.T) {
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
@@ -1434,36 +1110,6 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 	})
 
-	t.Run("returns an error if the base provided is not a base", func(t *testing.T) {
-		injectedMovementSensor, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      injectedMovementSensor.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
-			Heading:            90,
-			Destination:        dst,
-			Extra:              extra,
-		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:movement_sensor/test-gps\" not found"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
-	t.Run("returns an error if the movement_sensor provided is not a movement_sensor", func(t *testing.T) {
-		_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: fakeBase.Name(),
-			Heading:            90,
-			Destination:        dst,
-			Extra:              extra,
-		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk:component:base/test-base"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
 	t.Run("is able to reach a nearby geo point when the motion configuration is empty", func(t *testing.T) {
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
@@ -1493,156 +1139,6 @@ func TestMoveOnGlobe(t *testing.T) {
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
-	})
-
-	t.Run("errors when motion configuration has a negative PlanDeviationMM", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
-			Heading:            90,
-			Destination:        dst,
-			MotionCfg:          &motion.MotionConfiguration{PlanDeviationMM: -1},
-		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("PlanDeviationMM may not be negative"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
-	t.Run("errors when motion configuration has a NaN PlanDeviationMM", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
-			Heading:            90,
-			Destination:        dst,
-			MotionCfg:          &motion.MotionConfiguration{PlanDeviationMM: math.NaN()},
-		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("PlanDeviationMM may not be NaN"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
-	t.Run("returns an error when the motion configuration has a negative ObstaclePollingFreqHz", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
-			Heading:            90,
-			Destination:        dst,
-			MotionCfg:          &motion.MotionConfiguration{ObstaclePollingFreqHz: -1},
-		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("ObstaclePollingFreqHz may not be negative"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
-	t.Run("returns an error when the motion configuration has a NaN ObstaclePollingFreqHz", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
-			Heading:            90,
-			Destination:        dst,
-			MotionCfg:          &motion.MotionConfiguration{ObstaclePollingFreqHz: math.NaN()},
-		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("ObstaclePollingFreqHz may not be NaN"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
-	t.Run("returns an error when the motion configuration has a negative PositionPollingFreqHz", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
-			Heading:            90,
-			Destination:        dst,
-			MotionCfg:          &motion.MotionConfiguration{PositionPollingFreqHz: -1},
-		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("PositionPollingFreqHz may not be negative"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
-	t.Run("returns an error when the motion configuration has a NaN PositionPollingFreqHz", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
-			Heading:            90,
-			Destination:        dst,
-			MotionCfg:          &motion.MotionConfiguration{PositionPollingFreqHz: math.NaN()},
-		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("PositionPollingFreqHz may not be NaN"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
-	t.Run("returns an error when motion configuration has a negative AngularDegsPerSec", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
-			Heading:            90,
-			Destination:        dst,
-			MotionCfg:          &motion.MotionConfiguration{AngularDegsPerSec: -1},
-		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("AngularDegsPerSec may not be negative"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
-	t.Run("returns an error when motion configuration has a NaN AngularDegsPerSec", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
-			Heading:            90,
-			Destination:        dst,
-			MotionCfg:          &motion.MotionConfiguration{AngularDegsPerSec: math.NaN()},
-		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("AngularDegsPerSec may not be NaN"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
-	t.Run("returns an error when motion configuration has a negative LinearMPerSec", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
-			Heading:            90,
-			Destination:        dst,
-			MotionCfg:          &motion.MotionConfiguration{LinearMPerSec: -1},
-		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("LinearMPerSec may not be negative"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
-	t.Run("returns an error when motion configuration has a NaN LinearMPerSec", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
-			Heading:            90,
-			Destination:        dst,
-			MotionCfg:          &motion.MotionConfiguration{LinearMPerSec: math.NaN()},
-		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("LinearMPerSec may not be NaN"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 	})
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
@@ -2115,65 +1611,6 @@ func TestMoveOnMapNew(t *testing.T) {
 		test.That(t, ph3, test.ShouldResemble, ph2)
 	})
 
-	t.Run("Returns error when called with an unknown component", func(t *testing.T) {
-		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-		defer ms.Close(ctx)
-
-		req := motion.MoveOnMapReq{
-			ComponentName: base.Named("non existent base"),
-			Destination:   spatialmath.NewZeroPose(),
-			SlamName:      slam.Named("test_slam"),
-		}
-
-		executionID, err := ms.(*builtIn).MoveOnMapNew(context.Background(), req)
-		test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk:component:base/non existent base"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
-	t.Run("Returns error when destination is nil", func(t *testing.T) {
-		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-		defer ms.Close(ctx)
-
-		req := motion.MoveOnMapReq{
-			ComponentName: base.Named("test-base"),
-			SlamName:      slam.Named("test_slam"),
-		}
-
-		executionID, err := ms.(*builtIn).MoveOnMapNew(context.Background(), req)
-		test.That(t, err, test.ShouldBeError, errors.New("destination cannot be nil"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
-	t.Run("Returns an error if the base provided is not a base", func(t *testing.T) {
-		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-		defer ms.Close(ctx)
-
-		req := motion.MoveOnMapReq{
-			ComponentName: slam.Named("test_slam"),
-			Destination:   spatialmath.NewZeroPose(),
-			SlamName:      slam.Named("test_slam"),
-		}
-
-		executionID, err := ms.(*builtIn).MoveOnMapNew(context.Background(), req)
-		test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk:service:slam/test_slam"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
-	t.Run("Returns an error if the slamName provided is not SLAM", func(t *testing.T) {
-		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-		defer ms.Close(ctx)
-
-		req := motion.MoveOnMapReq{
-			ComponentName: slam.Named("test-base"),
-			Destination:   spatialmath.NewZeroPose(),
-			SlamName:      slam.Named("test-base"),
-		}
-
-		executionID, err := ms.(*builtIn).MoveOnMapNew(context.Background(), req)
-		test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk:service:slam/test-base"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-	})
-
 	t.Run("Is able to reach a nearby pose when the motion configuration is empty", func(t *testing.T) {
 		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
@@ -2189,8 +1626,77 @@ func TestMoveOnMapNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 	})
+}
 
-	t.Run("Returns error when request would require moving more than the hypotenus of the limits", func(t *testing.T) {
+func TestMoveCallInputs(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	t.Run("Returns error when called with an unknown component", func(t *testing.T) {
+		t.Parallel()
+		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+		defer ms.Close(ctx)
+
+		req := motion.MoveOnMapReq{
+			ComponentName: base.Named("non existent base"),
+			Destination:   spatialmath.NewZeroPose(),
+			SlamName:      slam.Named("test_slam"),
+		}
+
+		executionID, err := ms.(*builtIn).MoveOnMapNew(context.Background(), req)
+		test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk:component:base/non existent base"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	t.Run("Returns error when destination is nil", func(t *testing.T) {
+		t.Parallel()
+		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+		defer ms.Close(ctx)
+
+		req := motion.MoveOnMapReq{
+			ComponentName: base.Named("test-base"),
+			SlamName:      slam.Named("test_slam"),
+		}
+
+		executionID, err := ms.(*builtIn).MoveOnMapNew(context.Background(), req)
+		test.That(t, err, test.ShouldBeError, errors.New("destination cannot be nil"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	t.Run("Returns an error if the base provided is not a base", func(t *testing.T) {
+		t.Parallel()
+		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+		defer ms.Close(ctx)
+
+		req := motion.MoveOnMapReq{
+			ComponentName: slam.Named("test_slam"),
+			Destination:   spatialmath.NewZeroPose(),
+			SlamName:      slam.Named("test_slam"),
+		}
+
+		executionID, err := ms.(*builtIn).MoveOnMapNew(context.Background(), req)
+		test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk:service:slam/test_slam"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	t.Run("Returns an error if the slamName provided is not SLAM", func(t *testing.T) {
+		t.Parallel()
+		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+		defer ms.Close(ctx)
+
+		req := motion.MoveOnMapReq{
+			ComponentName: slam.Named("test-base"),
+			Destination:   spatialmath.NewZeroPose(),
+			SlamName:      slam.Named("test-base"),
+		}
+
+		executionID, err := ms.(*builtIn).MoveOnMapNew(context.Background(), req)
+		test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk:service:slam/test-base"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	t.Run("Returns an error when request would require moving past the bounds of the limits", func(t *testing.T) {
+		t.Parallel()
 		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
 
@@ -2202,11 +1708,14 @@ func TestMoveOnMapNew(t *testing.T) {
 		}
 
 		executionID, err := ms.(*builtIn).MoveOnMapNew(context.Background(), req)
-		test.That(t, err, test.ShouldBeError, errors.New("cannot move more than 3429 millimeters"))
+		test.That(t, err, test.ShouldBeError,
+			errors.New("destination must be within the following limits, X: {-591.0999999999999 1858.9}, Y:{-1231.2 1168.8}"),
+		)
 		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 	})
 
-	t.Run("Errors when motion configuration has a negative PlanDeviationMM", func(t *testing.T) {
+	t.Run("Returns an error when motion configuration has a negative PlanDeviationMM", func(t *testing.T) {
+		t.Parallel()
 		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
 
@@ -2222,7 +1731,8 @@ func TestMoveOnMapNew(t *testing.T) {
 		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 	})
 
-	t.Run("Errors when motion configuration has a NaN PlanDeviationMM", func(t *testing.T) {
+	t.Run("Returns an error when motion configuration has a NaN PlanDeviationMM", func(t *testing.T) {
+		t.Parallel()
 		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
 
@@ -2239,6 +1749,7 @@ func TestMoveOnMapNew(t *testing.T) {
 	})
 
 	t.Run("Returns an error when the motion configuration has a negative ObstaclePollingFreqHz", func(t *testing.T) {
+		t.Parallel()
 		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
 
@@ -2255,6 +1766,7 @@ func TestMoveOnMapNew(t *testing.T) {
 	})
 
 	t.Run("Returns an error when the motion configuration has a NaN ObstaclePollingFreqHz", func(t *testing.T) {
+		t.Parallel()
 		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
 
@@ -2271,6 +1783,7 @@ func TestMoveOnMapNew(t *testing.T) {
 	})
 
 	t.Run("Returns an error when the motion configuration has a negative PositionPollingFreqHz", func(t *testing.T) {
+		t.Parallel()
 		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
 
@@ -2287,6 +1800,7 @@ func TestMoveOnMapNew(t *testing.T) {
 	})
 
 	t.Run("Returns an error when the motion configuration has a NaN PositionPollingFreqHz", func(t *testing.T) {
+		t.Parallel()
 		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
 
@@ -2303,6 +1817,7 @@ func TestMoveOnMapNew(t *testing.T) {
 	})
 
 	t.Run("Returns an error when motion configuration has a negative AngularDegsPerSec", func(t *testing.T) {
+		t.Parallel()
 		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
 
@@ -2319,6 +1834,7 @@ func TestMoveOnMapNew(t *testing.T) {
 	})
 
 	t.Run("Returns an error when motion configuration has a NaN AngularDegsPerSec", func(t *testing.T) {
+		t.Parallel()
 		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
 
@@ -2335,6 +1851,7 @@ func TestMoveOnMapNew(t *testing.T) {
 	})
 
 	t.Run("Returns an error when motion configuration has a negative LinearMPerSec", func(t *testing.T) {
+		t.Parallel()
 		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
 
@@ -2351,6 +1868,7 @@ func TestMoveOnMapNew(t *testing.T) {
 	})
 
 	t.Run("Returns an error when motion configuration has a NaN LinearMPerSec", func(t *testing.T) {
+		t.Parallel()
 		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
 
@@ -2362,6 +1880,287 @@ func TestMoveOnMapNew(t *testing.T) {
 		}
 
 		executionID, err := ms.(*builtIn).MoveOnMapNew(context.Background(), req)
+		test.That(t, err, test.ShouldBeError, errors.New("LinearMPerSec may not be NaN"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	// Near antarctica 🐧
+	gpsPoint := geo.NewPoint(-70, 40)
+	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
+	// create motion config
+	extra := map[string]interface{}{
+		"motion_profile": "position_only",
+		"timeout":        5.,
+		"smooth_iter":    5.,
+	}
+	t.Run("returns error when called with an unknown component", func(t *testing.T) {
+		t.Parallel()
+		injectedMovementSensor, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      base.Named("non existent base"),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Destination:        geo.NewPoint(0, 0),
+		}
+		executionID, err := ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:base/non existent base\" not found"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	t.Run("returns error when called with an unknown movement sensor", func(t *testing.T) {
+		t.Parallel()
+		_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: movementsensor.Named("non existent movement sensor"),
+			Destination:        geo.NewPoint(0, 0),
+		}
+		executionID, err := ms.MoveOnGlobe(ctx, req)
+		e := "Resource missing from dependencies. Resource: rdk:component:movement_sensor/non existent movement sensor"
+		test.That(t, err, test.ShouldBeError, errors.New(e))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	t.Run("returns error when request would require moving more than 5 km", func(t *testing.T) {
+		t.Parallel()
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Destination:        geo.NewPoint(0, 0),
+		}
+		executionID, err := ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeError, errors.New("cannot move more than 5 kilometers"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	t.Run("returns error when destination is nil", func(t *testing.T) {
+		t.Parallel()
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+		}
+		executionID, err := ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeError, errors.New("destination cannot be nil"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	t.Run("returns error when destination contains NaN", func(t *testing.T) {
+		t.Parallel()
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+		}
+
+		dests := []*geo.Point{
+			geo.NewPoint(math.NaN(), math.NaN()),
+			geo.NewPoint(0, math.NaN()),
+			geo.NewPoint(math.NaN(), 0),
+		}
+
+		for _, d := range dests {
+			req.Destination = d
+			executionID, err := ms.MoveOnGlobe(ctx, req)
+			test.That(t, err, test.ShouldBeError, errors.New("destination may not contain NaN"))
+			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+		}
+	})
+
+	t.Run("returns an error if the base provided is not a base", func(t *testing.T) {
+		t.Parallel()
+		injectedMovementSensor, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      injectedMovementSensor.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Heading:            90,
+			Destination:        dst,
+			Extra:              extra,
+		}
+		executionID, err := ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:movement_sensor/test-gps\" not found"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	t.Run("returns an error if the movement_sensor provided is not a movement_sensor", func(t *testing.T) {
+		t.Parallel()
+		_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: fakeBase.Name(),
+			Heading:            90,
+			Destination:        dst,
+			Extra:              extra,
+		}
+		executionID, err := ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk:component:base/test-base"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	t.Run("errors when motion configuration has a negative PlanDeviationMM", func(t *testing.T) {
+		t.Parallel()
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Heading:            90,
+			Destination:        dst,
+			MotionCfg:          &motion.MotionConfiguration{PlanDeviationMM: -1},
+		}
+		executionID, err := ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeError, errors.New("PlanDeviationMM may not be negative"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	t.Run("errors when motion configuration has a NaN PlanDeviationMM", func(t *testing.T) {
+		t.Parallel()
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Heading:            90,
+			Destination:        dst,
+			MotionCfg:          &motion.MotionConfiguration{PlanDeviationMM: math.NaN()},
+		}
+		executionID, err := ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeError, errors.New("PlanDeviationMM may not be NaN"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	t.Run("returns an error when the motion configuration has a negative ObstaclePollingFreqHz", func(t *testing.T) {
+		t.Parallel()
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Heading:            90,
+			Destination:        dst,
+			MotionCfg:          &motion.MotionConfiguration{ObstaclePollingFreqHz: -1},
+		}
+		executionID, err := ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeError, errors.New("ObstaclePollingFreqHz may not be negative"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	t.Run("returns an error when the motion configuration has a NaN ObstaclePollingFreqHz", func(t *testing.T) {
+		t.Parallel()
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Heading:            90,
+			Destination:        dst,
+			MotionCfg:          &motion.MotionConfiguration{ObstaclePollingFreqHz: math.NaN()},
+		}
+		executionID, err := ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeError, errors.New("ObstaclePollingFreqHz may not be NaN"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	t.Run("returns an error when the motion configuration has a negative PositionPollingFreqHz", func(t *testing.T) {
+		t.Parallel()
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Heading:            90,
+			Destination:        dst,
+			MotionCfg:          &motion.MotionConfiguration{PositionPollingFreqHz: -1},
+		}
+		executionID, err := ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeError, errors.New("PositionPollingFreqHz may not be negative"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	t.Run("returns an error when the motion configuration has a NaN PositionPollingFreqHz", func(t *testing.T) {
+		t.Parallel()
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Heading:            90,
+			Destination:        dst,
+			MotionCfg:          &motion.MotionConfiguration{PositionPollingFreqHz: math.NaN()},
+		}
+		executionID, err := ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeError, errors.New("PositionPollingFreqHz may not be NaN"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	t.Run("returns an error when motion configuration has a negative AngularDegsPerSec", func(t *testing.T) {
+		t.Parallel()
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Heading:            90,
+			Destination:        dst,
+			MotionCfg:          &motion.MotionConfiguration{AngularDegsPerSec: -1},
+		}
+		executionID, err := ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeError, errors.New("AngularDegsPerSec may not be negative"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	t.Run("returns an error when motion configuration has a NaN AngularDegsPerSec", func(t *testing.T) {
+		t.Parallel()
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Heading:            90,
+			Destination:        dst,
+			MotionCfg:          &motion.MotionConfiguration{AngularDegsPerSec: math.NaN()},
+		}
+		executionID, err := ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeError, errors.New("AngularDegsPerSec may not be NaN"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	t.Run("returns an error when motion configuration has a negative LinearMPerSec", func(t *testing.T) {
+		t.Parallel()
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Heading:            90,
+			Destination:        dst,
+			MotionCfg:          &motion.MotionConfiguration{LinearMPerSec: -1},
+		}
+		executionID, err := ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeError, errors.New("LinearMPerSec may not be negative"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+
+	t.Run("returns an error when motion configuration has a NaN LinearMPerSec", func(t *testing.T) {
+		t.Parallel()
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Heading:            90,
+			Destination:        dst,
+			MotionCfg:          &motion.MotionConfiguration{LinearMPerSec: math.NaN()},
+		}
+		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeError, errors.New("LinearMPerSec may not be NaN"))
 		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 	})
