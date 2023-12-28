@@ -9,7 +9,6 @@ import (
 	"go.viam.com/rdk/motionplan/tpspace"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/motion"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -372,7 +371,7 @@ func PlanToPlanSteps(
 	componentName resource.Name,
 	planRequest PlanRequest,
 	startPose spatial.Pose,
-) ([]motion.PlanStep, error) {
+) ([]PlanStep, error) {
 	sf, err := newSolverFrame(
 		planRequest.FrameSystem,
 		planRequest.Frame.Name(),
@@ -400,7 +399,7 @@ func PlanToPlanSteps(
 	}
 
 	runningPoseWOrient := startPose
-	planSteps := []motion.PlanStep{}
+	planSteps := []PlanStep{}
 	for _, wp := range planNodes {
 		wpPose, err := sf.Transform(wp.Q())
 		if err != nil {
@@ -416,7 +415,7 @@ func PlanToPlanSteps(
 
 // PlanStepsToGeoPoses converts the relative poses the robot will move to into geo poses.
 func PlanStepsToGeoPoses(
-	planSteps []motion.PlanStep,
+	planSteps []PlanStep,
 	origin spatial.GeoPose,
 ) []spatial.GeoPose {
 	geoPoses := []spatial.GeoPose{}

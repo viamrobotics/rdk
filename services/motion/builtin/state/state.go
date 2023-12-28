@@ -26,7 +26,7 @@ type Waypoints [][]referenceframe.Input
 type PlanResponse struct {
 	Waypoints        Waypoints
 	Motionplan       motionplan.Plan
-	PosesByComponent []motion.PlanStep
+	PosesByComponent []motionplan.PlanStep
 }
 
 // ExecuteResponse is the response from Execute.

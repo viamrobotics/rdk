@@ -562,8 +562,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	}
 	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
 
-	// TODO(NF): smarter checking of if a destination is valid
-	// construct the slam point cloud map and check if the destination as a point exists within it
+	// naive check that the destination is within slam's limits
 	checkX := limits[0].Max > req.Destination.Point().X && req.Destination.Point().X > limits[0].Min
 	checkY := limits[1].Max > req.Destination.Point().Y && req.Destination.Point().X > limits[1].Min
 	if !checkX || !checkY {
@@ -815,12 +814,12 @@ func (mr *moveRequest) stop() error {
 	return nil
 }
 
-func toGeoPosePlanSteps(posesByComponent []motion.PlanStep, geoPoses []spatialmath.GeoPose) ([]motion.PlanStep, error) {
+func toGeoPosePlanSteps(posesByComponent []motionplan.PlanStep, geoPoses []spatialmath.GeoPose) ([]motionplan.PlanStep, error) {
 	if len(geoPoses) != len(posesByComponent) {
 		msg := "GeoPoses (len: %d) & PosesByComponent (len: %d) must have the same length"
 		return nil, fmt.Errorf(msg, len(geoPoses), len(posesByComponent))
 	}
-	steps := make([]motion.PlanStep, 0, len(posesByComponent))
+	steps := make([]motionplan.PlanStep, 0, len(posesByComponent))
 	for i, ps := range posesByComponent {
 		if len(ps) == 0 {
 			continue

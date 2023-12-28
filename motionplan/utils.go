@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"math"
 
+	pb "go.viam.com/api/service/motion/v1"
+
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -60,6 +63,22 @@ func (plan Plan) Evaluate(distFunc ik.SegmentMetric) (totalCost float64) {
 		}
 	}
 	return totalCost
+}
+
+// PlanStep represents a single step of the plan
+// Describes the pose each resource described by the plan
+// should move to at that step.
+type PlanStep map[resource.Name]spatialmath.Pose
+
+// ToProto converts a Step to a *pb.PlanStep.
+func (s PlanStep) ToProto() *pb.PlanStep {
+	step := make(map[string]*pb.ComponentState)
+	for name, pose := range s {
+		pbPose := spatialmath.PoseToProtobuf(pose)
+		step[name.String()] = &pb.ComponentState{Pose: pbPose}
+	}
+
+	return &pb.PlanStep{Step: step}
 }
 
 // PathStepCount will determine the number of steps which should be used to get from the seed to the goal.

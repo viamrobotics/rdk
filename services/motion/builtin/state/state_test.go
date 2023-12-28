@@ -538,13 +538,13 @@ func TestState(t *testing.T) {
 					// first plan succeeds
 					if replanCount == 0 {
 						pbc := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
-						return state.PlanResponse{PosesByComponent: []motion.PlanStep{pbc}}, nil
+						return state.PlanResponse{PosesByComponent: []motionplan.PlanStep{pbc}}, nil
 					}
 					// first replan succeeds
 					if replanCount == 1 {
 						pbc1 := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
 						pbc2 := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
-						return state.PlanResponse{PosesByComponent: []motion.PlanStep{pbc1, pbc2}}, nil
+						return state.PlanResponse{PosesByComponent: []motionplan.PlanStep{pbc1, pbc2}}, nil
 					}
 					// second replan fails
 					return state.PlanResponse{}, replanFailReason
