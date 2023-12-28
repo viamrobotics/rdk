@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	motorModel    = resource.DefaultModelFamily.WithModel("fake")
+	model    = resource.DefaultModelFamily.WithModel("fake")
 	fakeBoardConf = resource.Config{
 		Name: "fakeboard",
 		API:  board.API,
