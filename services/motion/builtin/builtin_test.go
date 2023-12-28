@@ -1611,7 +1611,7 @@ func TestMoveOnMapNew(t *testing.T) {
 		test.That(t, ph3, test.ShouldResemble, ph2)
 	})
 
-	t.Run("Is able to reach a nearby pose when the motion configuration is empty", func(t *testing.T) {
+	t.Run("Is able to reach the zero pose with an empty motion configuration", func(t *testing.T) {
 		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
 
