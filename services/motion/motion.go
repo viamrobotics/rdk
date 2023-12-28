@@ -369,14 +369,12 @@ func PollHistoryUntilSuccessOrError(
 ) error {
 	for {
 		if err := ctx.Err(); err != nil {
-			e := errors.New("returning on context cancelled?: " + err.Error())
-			return e
+			return err
 		}
 
 		ph, err := m.PlanHistory(ctx, req)
 		if err != nil {
-			e := errors.New("returning bc planHistory returned err: " + err.Error())
-			return e
+			return err
 		}
 
 		status := ph[0].StatusHistory[0]
@@ -384,20 +382,20 @@ func PollHistoryUntilSuccessOrError(
 		switch status.State {
 		case PlanStateInProgress:
 		case PlanStateFailed:
-			err := errors.New("plan failed - CASE 1")
+			err := errors.New("plan failed")
 			if reason := status.Reason; reason != nil {
 				err = errors.Wrap(err, *reason)
 			}
 			return err
 
 		case PlanStateStopped:
-			return errors.New("plan stopped  - CASE 2")
+			return errors.New("plan stopped")
 
 		case PlanStateSucceeded:
 			return nil
 
 		default:
-			return fmt.Errorf("invalid plan state %d  - CASE 3", status.State)
+			return fmt.Errorf("invalid plan state %d", status.State)
 		}
 
 		time.Sleep(interval)
