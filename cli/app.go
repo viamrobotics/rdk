@@ -79,6 +79,8 @@ const (
 	boardFlagVersion = "version"
 )
 
+// createUsageText is a helper for formatting the flags, if otherOptions is set to true
+// then [other options] is appended to the end of the text
 func createUsageText(command string, flags []string, otherOptions bool) string {
 	formattedFlags := make([]string, len(flags)+1)
 	for i, flag := range flags {
