@@ -3,7 +3,7 @@
 
   import * as THREE from 'three';
   import { onMount } from 'svelte';
-  import { SlamClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
+  import { SlamClient, type Pose, MappingMode, type ServiceError } from '@viamrobotics/sdk';
   import { SlamMap2D } from '@viamrobotics/prime-blocks';
   import { copyToClipboard } from '@/lib/copy-to-clipboard';
   import { filterSubtype } from '@/lib/resource';
@@ -70,13 +70,6 @@
     }, 400);
   };
 
-  const localizationMode = (mapTimestamp: Date | undefined) => {
-    if (mapTimestamp === undefined) {
-      return false;
-    }
-    return mapTimestamp === lastTimestamp;
-  };
-
   const refresh2d = async () => {
     try {
       let nextPose;
@@ -93,8 +86,8 @@
          * A new call to getPointCloudMap is made if an update has occured.
          */
       } else {
-        const mapTimestamp = await slamClient.getLatestMapInfo();
-        if (localizationMode(mapTimestamp)) {
+        const prop = await slamClient.getProperties();
+        if (prop.MappingMode === slamClient.MappingMode.MAPPING_MODE_LOCALIZE_ONLY) {
           const response = await slamClient.getPosition();
           nextPose = response.pose;
         } else {
@@ -104,10 +97,6 @@
             slamClient.getPosition(),
           ]);
           nextPose = response.pose;
-        }
-
-        if (mapTimestamp) {
-          lastTimestamp = mapTimestamp;
         }
       }
 
