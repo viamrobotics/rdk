@@ -22,6 +22,7 @@ package adxl345
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -566,8 +567,10 @@ func (adxl *adxl345) Position(ctx context.Context, extra map[string]interface{})
 	return geo.NewPoint(0, 0), 0, movementsensor.ErrMethodUnimplementedPosition
 }
 
-func (adxl *adxl345) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
-	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
+func (adxl *adxl345) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32,
+	float32, float32, movementsensor.NmeaGGAFixType, float32, error) {
+	return map[string]float32{}, float32(math.NaN()), float32(math.NaN()), -1, float32(math.NaN()),
+		movementsensor.ErrMethodUnimplementedAccuracy
 }
 
 func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {

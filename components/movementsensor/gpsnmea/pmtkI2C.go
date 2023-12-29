@@ -207,7 +207,7 @@ func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (buses.I2C, byte) {
 	return g.bus, g.addr
 }
 
-//nolint
+// nolint
 // Position returns the current geographic location of the MovementSensor.
 func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	lastPosition := g.lastPosition.GetLastPosition()
@@ -240,10 +240,13 @@ func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[stri
 }
 
 // Accuracy returns the accuracy, hDOP and vDOP.
-func (g *PmtkI2CNMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
+func (g *PmtkI2CNMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32,
+	float32, float32, movementsensor.NmeaGGAFixType, float32, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return map[string]float32{"hDOP": float32(g.data.HDOP), "vDOP": float32(g.data.HDOP)}, g.err.Get()
+	return map[string]float32{"hDOP": float32(g.data.HDOP), "vDOP": float32(g.data.HDOP)},
+		float32(g.data.HDOP), float32(g.data.VDOP), movementsensor.NmeaGGAFixType(g.data.FixQuality), float32(math.NaN()),
+		g.err.Get()
 }
 
 // LinearVelocity returns the current speed of the MovementSensor.

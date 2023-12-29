@@ -172,14 +172,15 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 	return currentPosition, g.data.Alt, g.err.Get()
 }
 
-// Accuracy returns the accuracy, hDOP and vDOP.
+// Accuracy returns the accuracy map, hDOP, vDOP, Fixquality and compass heading error.
 func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32,
 	float32, float32, movementsensor.NmeaGGAFixType, float32, error,
 ) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return map[string]float32{"hDOP": float32(g.data.HDOP), "vDOP": float32(g.data.VDOP)},
-		float32(g.data.HDOP), float32(g.data.VDOP), movementsensor.NmeaGGAFixType(math.NaN()), 0, nil
+		float32(g.data.HDOP), float32(g.data.VDOP), movementsensor.NmeaGGAFixType(g.data.FixQuality), float32(math.NaN()),
+		g.err.Get()
 }
 
 // LinearVelocity linear velocity.
