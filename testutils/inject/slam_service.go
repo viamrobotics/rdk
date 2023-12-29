@@ -56,14 +56,6 @@ func (slamSvc *SLAMService) InternalState(ctx context.Context) (func() ([]byte, 
 	return slamSvc.InternalStateFunc(ctx)
 }
 
-// LatestMapInfo calls the injected LatestMapInfoFunc or the real version.
-func (slamSvc *SLAMService) LatestMapInfo(ctx context.Context) (time.Time, error) {
-	if slamSvc.LatestMapInfoFunc == nil {
-		return slamSvc.Service.LatestMapInfo(ctx)
-	}
-	return slamSvc.LatestMapInfoFunc(ctx)
-}
-
 // Properties calls the injected PropertiesFunc or the real version.
 func (slamSvc *SLAMService) Properties(ctx context.Context) (slam.Properties, error) {
 	if slamSvc.PropertiesFunc == nil {

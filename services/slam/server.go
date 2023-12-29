@@ -8,7 +8,6 @@ import (
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/slam/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -125,29 +124,6 @@ func (server *serviceServer) GetInternalState(req *pb.GetInternalStateRequest,
 			return err
 		}
 	}
-}
-
-// GetLatestMapInfo returns the timestamp of when the map was last updated.
-func (server *serviceServer) GetLatestMapInfo(ctx context.Context, req *pb.GetLatestMapInfoRequest) (
-	*pb.GetLatestMapInfoResponse, error,
-) {
-	ctx, span := trace.StartSpan(ctx, "slam::server::GetLatestMapInfo")
-	defer span.End()
-
-	svc, err := server.coll.Resource(req.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	mapTimestamp, err := svc.LatestMapInfo(ctx)
-	if err != nil {
-		return nil, err
-	}
-	protoTimestamp := timestamppb.New(mapTimestamp)
-
-	return &pb.GetLatestMapInfoResponse{
-		LastMapUpdate: protoTimestamp,
-	}, nil
 }
 
 // GetProperties returns the mapping mode and of the slam process and whether it is being done locally

@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"time"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -82,7 +81,6 @@ type Service interface {
 	Position(ctx context.Context) (spatialmath.Pose, string, error)
 	PointCloudMap(ctx context.Context) (func() ([]byte, error), error)
 	InternalState(ctx context.Context) (func() ([]byte, error), error)
-	LatestMapInfo(ctx context.Context) (time.Time, error)
 	Properties(ctx context.Context) (Properties, error)
 }
 

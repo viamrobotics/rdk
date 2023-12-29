@@ -88,15 +88,6 @@ func (slamSvc *SLAM) InternalState(ctx context.Context) (func() ([]byte, error),
 	return fakeInternalState(ctx, datasetDirectory, slamSvc)
 }
 
-// LatestMapInfo returns information used to determine whether the slam mode is localizing.
-// Fake Slam is always in mapping mode, so it always returns a new timestamp.
-func (slamSvc *SLAM) LatestMapInfo(ctx context.Context) (time.Time, error) {
-	_, span := trace.StartSpan(ctx, "slam::fake::LatestMapInfo")
-	defer span.End()
-	slamSvc.mapTimestamp = time.Now().UTC()
-	return slamSvc.mapTimestamp, nil
-}
-
 // Properties returns the mapping mode of the slam service as well as a boolean indicating if it is running
 // in the cloud or locally. In the case of fake slam, it will return that the service is being run locally
 // and is creating a new map.
