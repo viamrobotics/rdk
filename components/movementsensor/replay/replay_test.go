@@ -763,6 +763,7 @@ func TestUnimplementedFunctionAccuracy(t *testing.T) {
 	replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true)
 	test.That(t, err, test.ShouldBeNil)
 
+	//nolint:dogsled
 	acc, _, _, _, _, err := replay.Accuracy(ctx, map[string]interface{}{})
 	test.That(t, err, test.ShouldResemble, movementsensor.ErrMethodUnimplementedAccuracy)
 	test.That(t, acc, test.ShouldResemble, map[string]float32{})

@@ -46,7 +46,6 @@ type SerialNMEAMovementSensor struct {
 	baudRate           uint
 	correctionBaudRate uint
 	correctionPath     string
-	nmeaGGAFixType     movementsensor.NmeaGGAFixType
 }
 
 // NewSerialGPSNMEA gps that communicates over serial.

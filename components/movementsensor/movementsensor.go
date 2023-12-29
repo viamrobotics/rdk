@@ -63,6 +63,8 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// NmeaGGAFixType defines an integer type for representing various
+// GPS fix types as defined in the NMEA standard: https://docs.novatel.com/OEM7/Content/Logs/GPGGA.htm#GPSQualityIndicators
 type NmeaGGAFixType int
 
 // A MovementSensor reports information about the robot's direction, position and speed.
@@ -157,6 +159,8 @@ func DefaultAPIReadings(ctx context.Context, g MovementSensor, extra map[string]
 	return readings, nil
 }
 
+// ToNmeaGGAFixType converts a pb.NmeaGGAFix enumeration to its corresponding NmeaGGAFixType.
+// This function serves as a translator between the protobuf representation of GPS fix types.
 func ToNmeaGGAFixType(fixType *pb.NmeaGGAFix) NmeaGGAFixType {
 	switch fixType {
 	case nil:
@@ -182,6 +186,9 @@ func ToNmeaGGAFixType(fixType *pb.NmeaGGAFix) NmeaGGAFixType {
 	}
 }
 
+// ToProtoNmeaGGAFixType converts a NmeaGGAFixType to its corresponding pb.NmeaGGAFix enum.
+// This function takes an NmeaGGAFixType as input and returns the equivalent protobuf NmeaGGAFix enumeration.
+// The conversion is based on predefined cases where each case corresponds to a specific type of GPS fix.
 func ToProtoNmeaGGAFixType(fixType NmeaGGAFixType) pb.NmeaGGAFix {
 	switch fixType {
 	case 0:

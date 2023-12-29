@@ -240,6 +240,7 @@ func TestCreation(t *testing.T) {
 	test.That(t, properties.AngularVelocitySupported, test.ShouldBeTrue)
 	test.That(t, properties.LinearVelocitySupported, test.ShouldBeTrue)
 
+	//nolint:dogsled
 	accuracies, _, _, _, _, err := ms.Accuracy(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, accuracies, test.ShouldResemble,
@@ -314,6 +315,7 @@ func TestCreation(t *testing.T) {
 	test.That(t, properties.AngularVelocitySupported, test.ShouldBeTrue)
 	test.That(t, properties.LinearVelocitySupported, test.ShouldBeTrue)
 
+	//nolint:dogsled
 	accuracies, _, _, _, _, err = ms.Accuracy(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, accuracies, test.ShouldResemble,
@@ -343,6 +345,7 @@ func TestCreation(t *testing.T) {
 	err = ms.Reconfigure(ctx, deps, conf)
 	test.That(t, err, test.ShouldBeNil)
 
+	//nolint:dogsled
 	accuracies, _, _, _, _, err = ms.Accuracy(ctx, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
