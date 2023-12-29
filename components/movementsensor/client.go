@@ -152,7 +152,8 @@ func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (ma
 }
 
 func (c *client) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32,
-	float32, float32, NmeaGGAFixType, float32, error) {
+	float32, float32, NmeaGGAFixType, float32, error,
+) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return nil, 0, 0, -1, 0, err

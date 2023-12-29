@@ -230,11 +230,13 @@ func TestServer(t *testing.T) {
 	t.Run("GetAccuracy", func(t *testing.T) {
 		acc := map[string]float32{"x": 1.1}
 		injectMovementSensor.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]float32, float32,
-			float32, movementsensor.NmeaGGAFixType, float32, error) {
+			float32, movementsensor.NmeaGGAFixType, float32, error,
+		) {
 			return acc, 0, 0, -1, 0, nil
 		}
 		injectMovementSensor2.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]float32, float32,
-			float32, movementsensor.NmeaGGAFixType, float32, error) {
+			float32, movementsensor.NmeaGGAFixType, float32, error,
+		) {
 			return nil, 0, 0, -1, 0, errAccuracy
 		}
 

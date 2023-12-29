@@ -136,7 +136,8 @@ func (i *MovementSensor) Properties(ctx context.Context, extra map[string]interf
 
 // Accuracy func or passthrough.
 func (i *MovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32,
-	float32, float32, movementsensor.NmeaGGAFixType, float32, error) {
+	float32, float32, movementsensor.NmeaGGAFixType, float32, error,
+) {
 	if i.AccuracyFunc == nil {
 		return i.MovementSensor.Accuracy(ctx, extra)
 	}

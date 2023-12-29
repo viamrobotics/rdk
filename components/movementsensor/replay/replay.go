@@ -380,7 +380,8 @@ func (replay *replayMovementSensor) Properties(ctx context.Context, extra map[st
 
 // Accuracy is currently not defined for replay movement sensors.
 func (replay *replayMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32,
-	float32, float32, movementsensor.NmeaGGAFixType, float32, error) {
+	float32, float32, movementsensor.NmeaGGAFixType, float32, error,
+) {
 	return map[string]float32{}, 0, 0, 0, 0, movementsensor.ErrMethodUnimplementedAccuracy
 }
 

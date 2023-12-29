@@ -80,7 +80,8 @@ func setupMovementSensor(
 		return &prop, nil
 	}
 	ms.AccuracyFunc = func(ctx context.Context, exta map[string]interface{}) (map[string]float32,
-		float32, float32, movementsensor.NmeaGGAFixType, float32, error) {
+		float32, float32, movementsensor.NmeaGGAFixType, float32, error,
+	) {
 		if errAcc {
 			return nil, 0, 0, -1, 0, errAccuracy
 		}

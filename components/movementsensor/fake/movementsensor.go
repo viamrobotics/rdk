@@ -81,7 +81,8 @@ func (f *MovementSensor) DoCommand(ctx context.Context, cmd map[string]interface
 
 // Accuracy gets the accuracy of a fake movementsensor.
 func (f *MovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32,
-	float32, float32, movementsensor.NmeaGGAFixType, float32, error) {
+	float32, float32, movementsensor.NmeaGGAFixType, float32, error,
+) {
 	return map[string]float32{}, 0, 0, 6, 0, nil
 }
 

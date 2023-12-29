@@ -272,7 +272,8 @@ func mapWithSensorName(name string, accMap map[string]float32) map[string]float3
 }
 
 func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32,
-	float32, float32, movementsensor.NmeaGGAFixType, float32, error) {
+	float32, float32, movementsensor.NmeaGGAFixType, float32, error,
+) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
