@@ -347,7 +347,7 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 		maps.Copy(accMap, mapWithSensorName(m.linAcc.Name().ShortName(), linaccAcc))
 	}
 
-	return accMap, 0, 0, -1, 0, errs
+	return accMap, float32(math.NaN()), float32(math.NaN()), -1, float32(math.NaN()), errs
 }
 
 func (m *merged) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {

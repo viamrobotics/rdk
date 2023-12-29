@@ -3,6 +3,7 @@ package movementsensor_test
 import (
 	"context"
 	"errors"
+	"math"
 	"net"
 	"testing"
 
@@ -85,7 +86,7 @@ func TestClient(t *testing.T) {
 	injectMovementSensor.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]float32,
 		float32, float32, movementsensor.NmeaGGAFixType, float32, error,
 	) {
-		return acy, 0, 0, -1, 0, nil
+		return acy, float32(math.NaN()), float32(math.NaN()), -1, float32(math.NaN()), nil
 	}
 	injectMovementSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 		return rs, nil

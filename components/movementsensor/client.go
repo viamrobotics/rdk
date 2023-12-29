@@ -2,6 +2,7 @@ package movementsensor
 
 import (
 	"context"
+	"math"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
@@ -156,14 +157,14 @@ func (c *client) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 ) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
-		return nil, 0, 0, -1, 0, err
+		return nil, float32(math.NaN()), float32(math.NaN()), -1, float32(math.NaN()), err
 	}
 	resp, err := c.client.GetAccuracy(ctx, &pb.GetAccuracyRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return nil, 0, 0, -1, 0, err
+		return nil, float32(math.NaN()), float32(math.NaN()), -1, float32(math.NaN()), err
 	}
 	nmeaFixType := ToNmeaGGAFixType(resp.PositionNmeaGgaFix)
 	return resp.Accuracy, *resp.PositionHdop,

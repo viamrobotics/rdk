@@ -688,7 +688,7 @@ func (g *rtkSerial) Accuracy(ctx context.Context, extra map[string]interface{}) 
 ) {
 	lastError := g.err.Get()
 	if lastError != nil {
-		return map[string]float32{}, 0, 0, 0, 0, lastError
+		return map[string]float32{}, float32(math.NaN()), float32(math.NaN()), -1, float32(math.NaN()), lastError
 	}
 
 	return g.nmeamovementsensor.Accuracy(ctx, extra)

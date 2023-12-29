@@ -83,9 +83,9 @@ func setupMovementSensor(
 		float32, float32, movementsensor.NmeaGGAFixType, float32, error,
 	) {
 		if errAcc {
-			return nil, 0, 0, -1, 0, errAccuracy
+			return nil, float32(math.NaN()), float32(math.NaN()), -1, float32(math.NaN()), errAccuracy
 		}
-		return map[string]float32{"accuracy": 32}, 0, 0, -1, 0, nil
+		return map[string]float32{"accuracy": 32}, float32(math.NaN()), float32(math.NaN()), -1, float32(math.NaN()), nil
 	}
 
 	switch {
