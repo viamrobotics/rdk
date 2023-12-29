@@ -34,13 +34,13 @@ type ptgFactory func(float64, float64) PTG
 
 // These PTGs do not end in a straight line, and thus are restricted to a shorter maximum length.
 var defaultShortPtgs = []ptgFactory{
-	NewCirclePTG,
 	NewCCPTG,
+	NewCCSPTG,
+	NewCirclePTG,
 }
 
 // These PTGs curve at the beginning and then have a straight line of arbitrary length, which is allowed to extend to defaultRefDistLong.
 var defaultPTGs = []ptgFactory{
-	NewCCSPTG,
 	NewCSPTG,
 	NewSideSOverturnPTG,
 }
@@ -152,7 +152,7 @@ func NewPTGFrameFromKinematicOptions(
 	pf.limits = []referenceframe.Limit{
 		{Min: 0, Max: float64(len(pf.solvers) - 1)},
 		{Min: -math.Pi, Max: math.Pi},
-		{Min: 0, Max: refDistLong},
+		{Min: -refDistLong, Max: refDistLong},
 	}
 
 	return pf, nil

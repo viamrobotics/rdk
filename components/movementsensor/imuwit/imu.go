@@ -314,7 +314,13 @@ func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, l
 				switch {
 				case err != nil:
 					imu.err.Set(err)
-					logger.CError(ctx, err)
+					imu.numBadReadings++
+					if imu.numBadReadings < 20 {
+						logger.CError(ctx, err, "Check if wit imu is disconnected from port")
+					} else {
+						logger.CDebug(ctx, err)
+					}
+
 				case len(line) != 11:
 					imu.numBadReadings++
 					return

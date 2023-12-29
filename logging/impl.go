@@ -347,7 +347,7 @@ func (imp *impl) CError(ctx context.Context, args ...interface{}) {
 	dbgName := GetName(ctx)
 
 	// We log if the logger is configured for error, or if there's a trace key.
-	if imp.shouldLog(WARN) || dbgName != emptyTraceKey {
+	if imp.shouldLog(ERROR) || dbgName != emptyTraceKey {
 		imp.log(imp.format(ERROR, dbgName, args...))
 	}
 }
@@ -362,7 +362,7 @@ func (imp *impl) CErrorf(ctx context.Context, template string, args ...interface
 	dbgName := GetName(ctx)
 
 	// We log if the logger is configured for error, or if there's a trace key.
-	if imp.shouldLog(WARN) || dbgName != emptyTraceKey {
+	if imp.shouldLog(ERROR) || dbgName != emptyTraceKey {
 		imp.log(imp.formatf(ERROR, dbgName, template, args...))
 	}
 }
@@ -377,7 +377,7 @@ func (imp *impl) CErrorw(ctx context.Context, msg string, keysAndValues ...inter
 	dbgName := GetName(ctx)
 
 	// We log if the logger is configured for error, or if there's a trace key.
-	if imp.shouldLog(WARN) || dbgName != emptyTraceKey {
+	if imp.shouldLog(ERROR) || dbgName != emptyTraceKey {
 		imp.log(imp.formatw(ERROR, dbgName, msg, keysAndValues...))
 	}
 }

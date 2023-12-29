@@ -32,6 +32,12 @@ import (
 
 const defaultOffsetDegrees = 90.0
 
+var (
+	errFirstGPSInvalid  = errors.New("only using second gps position, error getting position from first gps")
+	errSecondGPSInvalid = errors.New("only using first gps position, error getting position from second gps")
+	errBothGPSInvalid   = errors.New("unable to get a position from either GPS device, not reporting position")
+)
+
 var model = resource.DefaultModelFamily.WithModel("dual-gps-rtk")
 
 // Config is used for converting the movementsensor attributes.
@@ -192,7 +198,7 @@ func (dg *dualGPS) CompassHeading(ctx context.Context, extra map[string]interfac
 func (dg *dualGPS) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		CompassHeadingSupported:     true,
-		PositionSupported:           false,
+		PositionSupported:           true,
 		LinearVelocitySupported:     false,
 		AngularVelocitySupported:    false,
 		OrientationSupported:        false,
@@ -204,11 +210,43 @@ func (dg *dualGPS) Readings(ctx context.Context, extra map[string]interface{}) (
 	return movementsensor.DefaultAPIReadings(ctx, dg, extra)
 }
 
-// Unimplemented functions.
 func (dg *dualGPS) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-	return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), movementsensor.ErrMethodUnimplementedPosition
+	dg.mu.Lock()
+	defer dg.mu.Unlock()
+
+	geoPoint1, alt1, err1 := dg.gps1.Position(ctx, nil)
+	geoPoint2, alt2, err2 := dg.gps2.Position(ctx, nil)
+
+	var mid *geo.Point
+	var alt float64
+	var err error
+
+	switch {
+	case (err1 != nil) && (err2 == nil):
+		mid = geoPoint2
+		alt = alt2
+		dg.logger.CError(ctx, err1)
+		err = errFirstGPSInvalid
+	case (err2 != nil) && (err1 == nil):
+		mid = geoPoint1
+		alt = alt1
+		dg.logger.CError(ctx, err2)
+		err = errSecondGPSInvalid
+	case (err1 != nil) && (err2 != nil):
+		mid = geo.NewPoint(math.NaN(), math.NaN())
+		alt = math.NaN()
+		dg.logger.CError(ctx, err1, err2)
+		err = errBothGPSInvalid
+	default:
+		mid = geoPoint1.MidpointTo(geoPoint2)
+		alt = (alt2 + alt1) * 0.5
+		err = nil
+	}
+
+	return mid, alt, err
 }
 
+// Unimplemented functions.
 func (dg *dualGPS) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }

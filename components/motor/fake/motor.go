@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/board"
+	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/encoder/fake"
 	"go.viam.com/rdk/components/motor"
@@ -18,7 +19,16 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var model = resource.DefaultModelFamily.WithModel("fake")
+var (
+	model         = resource.DefaultModelFamily.WithModel("fake")
+	fakeBoardConf = resource.Config{
+		Name: "fakeboard",
+		API:  board.API,
+		ConvertedAttributes: &fakeboard.Config{
+			FailNew: false,
+		},
+	}
+)
 
 const defaultMaxRpm = 100
 
@@ -30,8 +40,8 @@ type PinConfig struct {
 
 // Config describes the configuration of a motor.
 type Config struct {
-	Pins             PinConfig `json:"pins"`
-	BoardName        string    `json:"board"`
+	Pins             PinConfig `json:"pins,omitempty"`
+	BoardName        string    `json:"board,omitempty"`
 	MinPowerPct      float64   `json:"min_power_pct,omitempty"`
 	MaxPowerPct      float64   `json:"max_power_pct,omitempty"`
 	PWMFreq          uint      `json:"pwm_freq,omitempty"`
@@ -58,22 +68,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 func init() {
 	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
-		Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger logging.Logger,
-		) (motor.Motor, error) {
-			m := &Motor{
-				Named:  conf.ResourceName().AsNamed(),
-				Logger: logger,
-				OpMgr:  operation.NewSingleOperationManager(),
-			}
-			if err := m.Reconfigure(ctx, deps, conf); err != nil {
-				return nil, err
-			}
-			return m, nil
-		},
+		Constructor: NewMotor,
 	})
 }
 
@@ -97,6 +92,19 @@ type Motor struct {
 	Logger logging.Logger
 }
 
+// NewMotor creates a new fake motor.
+func NewMotor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (motor.Motor, error) {
+	m := &Motor{
+		Named:  conf.ResourceName().AsNamed(),
+		Logger: logger,
+		OpMgr:  operation.NewSingleOperationManager(),
+	}
+	if err := m.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // Reconfigure atomically reconfigures this motor in place based on the new config.
 func (m *Motor) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	m.mu.Lock()
@@ -105,22 +113,35 @@ func (m *Motor) Reconfigure(ctx context.Context, deps resource.Dependencies, con
 	if err != nil {
 		return err
 	}
+
+	var b board.Board
 	if newConf.BoardName != "" {
 		m.Board = newConf.BoardName
-		b, err := board.FromDependencies(deps, m.Board)
+		b, err = board.FromDependencies(deps, m.Board)
 		if err != nil {
 			return err
 		}
-		if newConf.Pins.PWM != "" {
-			m.PWM, err = b.GPIOPinByName(newConf.Pins.PWM)
-			if err != nil {
-				return err
-			}
-			if err = m.PWM.SetPWMFreq(ctx, newConf.PWMFreq, nil); err != nil {
-				return err
-			}
+	} else {
+		m.Logger.CInfo(ctx, "board not provided, using a fake board")
+		m.Board = "fakeboard"
+		b, err = fakeboard.NewBoard(ctx, fakeBoardConf, m.Logger)
+		if err != nil {
+			return err
 		}
 	}
+
+	pwmPin := "1"
+	if newConf.Pins.PWM != "" {
+		pwmPin = newConf.Pins.PWM
+	}
+	m.PWM, err = b.GPIOPinByName(pwmPin)
+	if err != nil {
+		return err
+	}
+	if err = m.PWM.SetPWMFreq(ctx, newConf.PWMFreq, nil); err != nil {
+		return err
+	}
+
 	m.MaxRPM = newConf.MaxRPM
 
 	if m.MaxRPM == 0 {
