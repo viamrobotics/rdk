@@ -79,11 +79,12 @@ func setupMovementSensor(
 		}
 		return &prop, nil
 	}
-	ms.AccuracyFunc = func(ctx context.Context, exta map[string]interface{}) (map[string]float32, error) {
+	ms.AccuracyFunc = func(ctx context.Context, exta map[string]interface{}) (map[string]float32,
+		float32, float32, movementsensor.NmeaGGAFixType, float32, error) {
 		if errAcc {
-			return nil, errAccuracy
+			return nil, 0, 0, -1, 0, errAccuracy
 		}
-		return map[string]float32{"accuracy": 32}, nil
+		return map[string]float32{"accuracy": 32}, 0, 0, -1, 0, nil
 	}
 
 	switch {
@@ -238,7 +239,7 @@ func TestCreation(t *testing.T) {
 	test.That(t, properties.AngularVelocitySupported, test.ShouldBeTrue)
 	test.That(t, properties.LinearVelocitySupported, test.ShouldBeTrue)
 
-	accuracies, err := ms.Accuracy(ctx, nil)
+	accuracies, _, _, _, _, err := ms.Accuracy(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, accuracies, test.ShouldResemble,
 		map[string]float32{
@@ -312,7 +313,7 @@ func TestCreation(t *testing.T) {
 	test.That(t, properties.AngularVelocitySupported, test.ShouldBeTrue)
 	test.That(t, properties.LinearVelocitySupported, test.ShouldBeTrue)
 
-	accuracies, err = ms.Accuracy(ctx, nil)
+	accuracies, _, _, _, _, err = ms.Accuracy(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, accuracies, test.ShouldResemble,
 		map[string]float32{
@@ -341,7 +342,7 @@ func TestCreation(t *testing.T) {
 	err = ms.Reconfigure(ctx, deps, conf)
 	test.That(t, err, test.ShouldBeNil)
 
-	accuracies, err = ms.Accuracy(ctx, nil)
+	accuracies, _, _, _, _, err = ms.Accuracy(ctx, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	for k, v := range accuracies {

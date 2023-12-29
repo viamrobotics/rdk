@@ -271,7 +271,8 @@ func mapWithSensorName(name string, accMap map[string]float32) map[string]float3
 	return result
 }
 
-func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
+func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32,
+	float32, float32, movementsensor.NmeaGGAFixType, float32, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -279,7 +280,7 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 	var errs error
 
 	if m.ori != nil {
-		oriAcc, err := m.ori.Accuracy(ctx, extra)
+		oriAcc, _, _, _, _, err := m.ori.Accuracy(ctx, extra)
 		if err != nil {
 			// replace entire map with a map that shows that it has errors
 			oriAcc = map[string]float32{
@@ -291,7 +292,7 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 	}
 
 	if m.pos != nil {
-		posAcc, err := m.pos.Accuracy(ctx, extra)
+		posAcc, _, _, _, _, err := m.pos.Accuracy(ctx, extra)
 		if err != nil {
 			posAcc = map[string]float32{
 				m.pos.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
@@ -302,7 +303,7 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 	}
 
 	if m.compass != nil {
-		compassAcc, err := m.compass.Accuracy(ctx, extra)
+		compassAcc, _, _, _, _, err := m.compass.Accuracy(ctx, extra)
 		if err != nil {
 			compassAcc = map[string]float32{
 				m.compass.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
@@ -313,7 +314,7 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 	}
 
 	if m.linVel != nil {
-		linvelAcc, err := m.linVel.Accuracy(ctx, extra)
+		linvelAcc, _, _, _, _, err := m.linVel.Accuracy(ctx, extra)
 		if err != nil {
 			linvelAcc = map[string]float32{
 				m.linVel.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
@@ -324,7 +325,7 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 	}
 
 	if m.angVel != nil {
-		angvelAcc, err := m.angVel.Accuracy(ctx, extra)
+		angvelAcc, _, _, _, _, err := m.angVel.Accuracy(ctx, extra)
 		if err != nil {
 			angvelAcc = map[string]float32{
 				m.angVel.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
@@ -335,7 +336,7 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 	}
 
 	if m.linAcc != nil {
-		linaccAcc, err := m.linAcc.Accuracy(ctx, extra)
+		linaccAcc, _, _, _, _, err := m.linAcc.Accuracy(ctx, extra)
 		if err != nil {
 			linaccAcc = map[string]float32{
 				m.linAcc.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
@@ -345,7 +346,7 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 		maps.Copy(accMap, mapWithSensorName(m.linAcc.Name().ShortName(), linaccAcc))
 	}
 
-	return accMap, errs
+	return accMap, 0, 0, -1, 0, errs
 }
 
 func (m *merged) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
