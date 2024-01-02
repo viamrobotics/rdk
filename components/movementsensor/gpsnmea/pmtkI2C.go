@@ -187,7 +187,9 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 							err = g.data.ParseAndUpdate(strBuf)
 							g.mu.Unlock()
 							if err != nil {
-								g.logger.CDebugf(ctx, "can't parse nmea : %s, %v", strBuf, err)
+								g.logger.CDebugf(ctx, "can't parse nmea sentence: %s, %v", strBuf, err)
+								g.logger.Debug("Check: GPS requires clear sky view." +
+									"Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
 							}
 						}
 						strBuf = ""
@@ -207,7 +209,7 @@ func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (buses.I2C, byte) {
 	return g.bus, g.addr
 }
 
-//nolint
+// nolint
 // Position returns the current geographic location of the MovementSensor.
 func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	lastPosition := g.lastPosition.GetLastPosition()
