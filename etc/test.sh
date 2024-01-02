@@ -1,6 +1,7 @@
 #!/bin/bash
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+TEST_TARGET=${TEST_TARGET:-./...}
 ROOT_DIR="$DIR/../"
 cd $ROOT_DIR
 
@@ -18,7 +19,7 @@ if [[ "$1" == "race" ]]; then
 fi
 
 # We run analyzetests on every run, pass or fail. We only run analyzecoverage when all tests passed.
-PION_LOG_WARN=webrtc,datachannel,sctp gotestsum --format standard-verbose $LOGFILE -- -tags=no_skip $RACE $COVER ./...
+PION_LOG_WARN=webrtc,datachannel,sctp gotestsum --format standard-verbose $LOGFILE -- -tags=no_skip $RACE $COVER $TEST_TARGET
 SUCCESS=$?
 
 if [[ $RACE != "" ]]; then
