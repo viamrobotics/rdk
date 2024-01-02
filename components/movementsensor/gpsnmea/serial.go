@@ -127,6 +127,8 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 				g.mu.Unlock()
 				if err != nil {
 					g.logger.CWarnf(ctx, "can't parse nmea sentence: %#v", err)
+					g.logger.Debug("Check: GPS requires clear sky view." +
+						"Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
 				}
 			}
 		}
