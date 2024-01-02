@@ -66,7 +66,6 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float
 
 	// Set the seed to be used for nlopt solving based on the individual DoF range of the PTG.
 	// If the DoF only allows short PTGs, seed near the end of its length, otherwise seed near the beginning.
-	// TODO: RSDK-6054 should make this much less important.
 	for i := 0; i < len(ptgDof); i++ {
 		boundRange := ptgDof[i].Max - ptgDof[i].Min
 		minAdj := boundRange * 0.2
@@ -141,9 +140,6 @@ func (ptg *ptgIK) Solve(
 	}
 	if err != nil || solved == nil || ptg.arcDist(solved.Configuration) < defaultZeroDist || seedOutput {
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
-		//~ solutionChan <- gridSolved
-		// If err is not nil, return the grid solution
-		//nolint: nilerr
 		return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
 	}
 

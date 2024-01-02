@@ -21,7 +21,6 @@ type ptgGridSim struct {
 	refDist  float64
 	alphaCnt uint
 
-	maxTime float64 // secs of robot execution to simulate
 	diffT   float64 // discretize trajectory simulation to this time granularity
 
 	precomputeTraj [][]*TrajNode
@@ -40,7 +39,6 @@ func NewPTGGridSim(simPTG PTG, arcs uint, simDist float64, endsOnly bool) (PTGSo
 	ptg := &ptgGridSim{
 		refDist:  simDist,
 		alphaCnt: arcs,
-		maxTime:  defaultMaxTime,
 		diffT:    defaultDiffT,
 		endsOnly: endsOnly,
 	}
