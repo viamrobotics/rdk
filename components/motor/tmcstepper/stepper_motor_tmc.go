@@ -63,6 +63,9 @@ func (config *TMC5072Config) Validate(path string) ([]string, error) {
 	if config.Index <= 0 {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "index")
 	}
+	if config.Index != 1 && config.Index != 2 {
+		return nil, errors.New("tmcstepper motor index should be 1 or 2")
+	}
 	if config.TicksPerRotation <= 0 {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
 	}
@@ -112,7 +115,7 @@ const (
 	uSteps  = 256      // Microsteps per fullstep
 )
 
-// TMC5072 Register Addressses (for motor index 0)
+// TMC5072 Register Addressses (for motor index 1)
 // TODO full register set.
 const (
 	// add 0x10 for motor 2.
@@ -288,8 +291,8 @@ func makeMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config,
 }
 
 func (m *Motor) shiftAddr(addr uint8) uint8 {
-	// Shift register address for motor 1 instead of motor zero
-	if m.index == 1 {
+	// Shift register address for motor 2 instead of motor 1
+	if m.index == 2 {
 		switch {
 		case addr >= 0x10 && addr <= 0x11:
 			addr += 0x08
