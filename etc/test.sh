@@ -24,7 +24,9 @@ SUCCESS=$?
 
 if [[ $RACE != "" ]]; then
 	cat json.log | go run ./etc/analyzetests/main.go
-	exit $?
+	if [ "$?" != "0" ]; then
+		exit 1
+	fi
 fi
 
 if [ "$SUCCESS" != "0" ]; then
