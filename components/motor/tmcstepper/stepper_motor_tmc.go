@@ -63,7 +63,7 @@ func (config *TMC5072Config) Validate(path string) ([]string, error) {
 	if config.Index <= 0 {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "index")
 	}
-	if config.Index != 1 && config.Index != 2 {
+	if config.Index > 2 {
 		return nil, errors.New("tmcstepper motor index should be 1 or 2")
 	}
 	if config.TicksPerRotation <= 0 {
