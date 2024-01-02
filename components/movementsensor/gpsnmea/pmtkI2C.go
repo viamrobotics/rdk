@@ -189,7 +189,7 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 							if err != nil {
 								g.logger.CDebugf(ctx, "can't parse nmea sentence: %s, %v", strBuf, err)
 								g.logger.Debug("Check: GPS requires clear sky view." +
-									"Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
+									" Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
 							}
 						}
 						strBuf = ""
