@@ -9,7 +9,11 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-const floatEpsilon = 0.0001 // If floats are closer than this consider them equal
+const (
+	floatEpsilon      = 0.0001 // If floats are closer than this consider them equal
+	defaultPTGSeedAdj = 0.2
+)
+
 var flipPose = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
 
 // PTGSolver wraps a PTG with the ability to perform Inverse Kinematics.
@@ -176,7 +180,7 @@ func PTGIKSeed(ptg PTGSolver) []referenceframe.Input {
 	// If the DoF only allows short PTGs, seed near the end of its length, otherwise seed near the beginning.
 	for i := 0; i < len(ptgDof); i++ {
 		boundRange := ptgDof[i].Max - ptgDof[i].Min
-		minAdj := boundRange * 0.2
+		minAdj := boundRange * defaultPTGSeedAdj
 		inputs = append(inputs,
 			referenceframe.Input{ptgDof[i].Min + minAdj},
 		)
