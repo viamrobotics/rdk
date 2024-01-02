@@ -1645,6 +1645,8 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 	})
 
+	// test starts with a working config, then reconfigures into a config where dependencies
+	// fail to reconfigure, and then to a working config again.
 	t.Run("child component fails dep", func(t *testing.T) {
 		resetComponentFailureState()
 		testReconfiguringMismatch = true
@@ -1952,9 +1954,12 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = board.FromRobot(robot, "board2")
 		test.That(t, err, test.ShouldBeNil)
 
+		// resources which failed previous reconfiguration attempts because of missing dependencies will be rebuilt,
+		// so reconfCount should be 0. resources which failed previous reconfiguration attempts because of an error
+		// during reconfiguration would not have its reconfCount reset, so reconfCount for mock4 should be 1.
 		mock1, err = robot.ResourceByName(mockNamed("mock1"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
 		mock2, err = robot.ResourceByName(mockNamed("mock2"))
 		test.That(t, err, test.ShouldBeNil)
@@ -1970,7 +1975,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		mock5, err = robot.ResourceByName(mockNamed("mock5"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock5.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, mock5.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
 		// `mock6` is configured to be in a "failing" state.
 		_, err = robot.ResourceByName(mockNamed("mock6"))

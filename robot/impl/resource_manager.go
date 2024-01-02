@@ -408,11 +408,24 @@ func (manager *resourceManager) closeResource(ctx context.Context, res resource.
 	resName := res.Name()
 	if manager.moduleManager != nil && manager.moduleManager.IsModularResource(resName) {
 		if err := manager.moduleManager.RemoveResource(ctx, resName); err != nil {
-			allErrs = multierr.Combine(err, errors.Wrap(err, "error removing modular resource for closure"))
+			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error removing modular resource for closure"))
 		}
 	}
 
 	return allErrs
+}
+
+// closeAndUnsetResource attempts to close and unset the resource from the graph node.
+func (manager *resourceManager) closeAndUnsetResource(ctx context.Context, gNode *resource.GraphNode) error {
+	res, err := gNode.Resource()
+	if err != nil {
+		return err
+	}
+	err = manager.closeResource(ctx, res)
+
+	// resource may fail to close, but even in that case, resource should be unset from the node
+	gNode.UnsetResource()
+	return err
 }
 
 // removeMarkedAndClose removes all resources marked for removal from the graph and
@@ -788,7 +801,13 @@ func (manager *resourceManager) processResource(
 	resName := conf.ResourceName()
 	deps, err := r.getDependencies(ctx, resName, gNode)
 	if err != nil {
-		return nil, false, multierr.Combine(err, manager.closeResource(ctx, currentRes))
+		manager.logger.CDebugw(ctx,
+			"failed to get dependencies for existing resource during reconfiguration, closing and removing resource from graph node",
+			"name", resName,
+			"old_model", gNode.ResourceModel(),
+			"new_model", conf.Model,
+		)
+		return nil, false, multierr.Combine(err, manager.closeAndUnsetResource(ctx, gNode))
 	}
 
 	isModular := manager.moduleManager.Provides(conf)
@@ -814,15 +833,20 @@ func (manager *resourceManager) processResource(
 			"name", resName, "old_model", gNode.ResourceModel(), "new_model", conf.Model)
 	}
 
-	manager.logger.CDebugw(ctx, "rebuilding", "name", resName)
-	if err := r.manager.closeResource(ctx, currentRes); err != nil {
+	manager.logger.CDebugw(
+		ctx,
+		"rebuilding resource, closing and removing existing resource from graph node",
+		"name", resName,
+		"old_model", gNode.ResourceModel(),
+		"new_model", conf.Model,
+	)
+	if err := r.manager.closeAndUnsetResource(ctx, gNode); err != nil {
 		manager.logger.CError(ctx, err)
 	}
 	newRes, err := r.newResource(ctx, gNode, conf)
 	if err != nil {
-		gNode.UnsetResource()
 		manager.logger.CDebugw(ctx,
-			"failed to build resource of new model, removing closed resource of old model from graph node",
+			"failed to build resource of new model",
 			"name", resName,
 			"old_model", gNode.ResourceModel(),
 			"new_model", conf.Model,
