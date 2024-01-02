@@ -61,30 +61,14 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float
 		return nil, err
 	}
 
-	inputs := []referenceframe.Input{}
-	ptgDof := ptgFrame.DoF()
-
-	// Set the seed to be used for nlopt solving based on the individual DoF range of the PTG.
-	// If the DoF only allows short PTGs, seed near the end of its length, otherwise seed near the beginning.
-	for i := 0; i < len(ptgDof); i++ {
-		boundRange := ptgDof[i].Max - ptgDof[i].Min
-		minAdj := boundRange * 0.2
-		if boundRange == refDistShort {
-			minAdj = boundRange * 0.9
-		}
-		inputs = append(inputs,
-			referenceframe.Input{ptgDof[i].Min + minAdj},
-		)
-	}
-
 	ptg := &ptgIK{
 		PTG:             simPTG,
 		refDist:         refDistLong,
 		ptgFrame:        ptgFrame,
 		fastGradDescent: nlopt,
 		trajCache:       map[float64][]*TrajNode{},
-		defaultSeed:     inputs,
 	}
+	ptg.defaultSeed = PTGIKSeed(ptg)
 
 	// create an ends-only grid sim for quick end-of-trajectory calculations
 	gridSim, err := NewPTGGridSim(simPTG, 0, refDistShort, true)
@@ -99,24 +83,15 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float
 func (ptg *ptgIK) Solve(
 	ctx context.Context,
 	solutionChan chan<- *ik.Solution,
-	seedVals []referenceframe.Input,
+	seed []referenceframe.Input,
 	solveMetric ik.StateMetric,
 	nloptSeed int,
 ) error {
 	internalSolutionGen := make(chan *ik.Solution, 1)
 	defer close(internalSolutionGen)
 	var solved *ik.Solution
-
-	seed := make([]referenceframe.Input, 0, len(ptg.defaultSeed))
-	for _, defaultSeedVal := range ptg.defaultSeed {
-		seed = append(seed, referenceframe.Input{defaultSeedVal.Value})
-	}
-
-	if seedVals != nil {
-		// use the passed seed as the first dist if in range
-		if seedVals[0].Value < ptg.ptgFrame.DoF()[1].Max {
-			seed[1].Value = seedVals[0].Value
-		}
+	if seed == nil {
+		seed = ptg.defaultSeed
 	}
 
 	// Spawn the IK solver to generate a solution
@@ -198,6 +173,11 @@ func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
 
 func (ptg *ptgIK) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	return ptg.ptgFrame.Transform(inputs)
+}
+
+// DoF returns the DoF of the associated referenceframe.
+func (ptg *ptgIK) DoF() []referenceframe.Limit {
+	return ptg.ptgFrame.DoF()
 }
 
 func (ptg *ptgIK) arcDist(inputs []referenceframe.Input) float64 {

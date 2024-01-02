@@ -469,8 +469,11 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	relPose := spatialmath.PoseBetween(nearest.Pose(), randPosNode.Pose())
 	targetFunc = mp.algOpts.goalMetricConstructor(relPose)
 	seedDist := relPose.Point().Norm()
+	seed := tpspace.PTGIKSeed(curPtg)
+	seed[1].Value = seedDist
+
 	solutionChan := make(chan *ik.Solution, 1)
-	err := curPtg.Solve(context.Background(), solutionChan, []referenceframe.Input{{seedDist}}, targetFunc, rseed)
+	err := curPtg.Solve(context.Background(), solutionChan, seed, targetFunc, rseed)
 
 	var bestNode *ik.Solution
 	select {
@@ -811,8 +814,10 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 		relPose := spatialmath.PoseBetween(seg.EndPosition, seg.StartPosition)
 		seedDist := relPose.Point().Norm()
 		targetFunc = mp.algOpts.goalMetricConstructor(relPose)
+		seed := tpspace.PTGIKSeed(ptg)
+		seed[1].Value = seedDist
 		solutionChan := make(chan *ik.Solution, 1)
-		err := ptg.Solve(context.Background(), solutionChan, []referenceframe.Input{{seedDist}}, targetFunc, randSeed.Int())
+		err := ptg.Solve(context.Background(), solutionChan, seed, targetFunc, randSeed.Int())
 		var closeNode *ik.Solution
 		select {
 		case closeNode = <-solutionChan:

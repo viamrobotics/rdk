@@ -21,7 +21,7 @@ type ptgGridSim struct {
 	refDist  float64
 	alphaCnt uint
 
-	diffT   float64 // discretize trajectory simulation to this time granularity
+	diffT float64 // discretize trajectory simulation to this time granularity
 
 	precomputeTraj [][]*TrajNode
 
@@ -114,6 +114,14 @@ func (ptg *ptgGridSim) MaxDistance() float64 {
 
 func (ptg *ptgGridSim) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
 	return ComputePTG(ptg, alpha, dist, defaultDiffT)
+}
+
+// DoF returns the DoF of the associated referenceframe.
+func (ptg *ptgGridSim) DoF() []referenceframe.Limit {
+	return []referenceframe.Limit{
+		{Min: -1 * math.Pi, Max: math.Pi},
+		{Min: 0, Max: ptg.refDist},
+	}
 }
 
 func (ptg *ptgGridSim) simulateTrajectories() ([][]*TrajNode, error) {
