@@ -470,7 +470,8 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	targetFunc = mp.algOpts.goalMetricConstructor(relPose)
 	seedDist := relPose.Point().Norm()
 	seed := tpspace.PTGIKSeed(curPtg)
-	seed[1].Value = seedDist
+	dof := curPtg.DoF()
+	seed[1].Value = math.Max(seedDist, dof[1].Max)
 
 	solutionChan := make(chan *ik.Solution, 1)
 	err := curPtg.Solve(context.Background(), solutionChan, seed, targetFunc, rseed)
@@ -815,7 +816,8 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 		seedDist := relPose.Point().Norm()
 		targetFunc = mp.algOpts.goalMetricConstructor(relPose)
 		seed := tpspace.PTGIKSeed(ptg)
-		seed[1].Value = seedDist
+		dof := ptg.DoF()
+		seed[1].Value = math.Max(seedDist, dof[1].Max)
 		solutionChan := make(chan *ik.Solution, 1)
 		err := ptg.Solve(context.Background(), solutionChan, seed, targetFunc, randSeed.Int())
 		var closeNode *ik.Solution
