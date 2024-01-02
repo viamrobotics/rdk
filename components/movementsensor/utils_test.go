@@ -40,6 +40,18 @@ func TestTwoErrors(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldEqual, "second")
 }
 
+func TestSetGetTwice(t *testing.T) {
+	le := NewLastError(1, 1)
+
+	le.Set(errors.New("first"))
+	err := le.Get()
+	test.That(t, err.Error(), test.ShouldEqual, "first")
+
+	le.Set(errors.New("second"))
+	err = le.Get()
+	test.That(t, err.Error(), test.ShouldEqual, "second")
+}
+
 func TestSuppressRareErrors(t *testing.T) {
 	le := NewLastError(2, 2) // Only report if 2 of the last 2 are non-nil errors
 

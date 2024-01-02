@@ -2,6 +2,8 @@ package dualgps
 
 import (
 	"context"
+	"errors"
+	"math"
 	"testing"
 
 	geo "github.com/kellydunn/golang-geo"
@@ -18,8 +20,20 @@ const (
 	testGPS1 = "gps1"
 	testGPS2 = "gps2"
 	testGPS3 = "gps3"
+	testGPS4 = "gps4"
 	testPath = "somepath"
 )
+
+func makeNewFakeGPS(name string, point *geo.Point, alt float64, err error) *inject.MovementSensor {
+	ms := inject.NewMovementSensor(name)
+	ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		return point, alt, err
+	}
+	ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+		return &movementsensor.Properties{PositionSupported: true}, nil
+	}
+	return ms
+}
 
 func TestCreateValidateAndReconfigure(t *testing.T) {
 	cfg := resource.Config{
@@ -48,9 +62,10 @@ func TestCreateValidateAndReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	deps := make(resource.Dependencies)
-	deps[movementsensor.Named(testGPS1)] = inject.NewMovementSensor(testGPS1)
-	deps[movementsensor.Named(testGPS2)] = inject.NewMovementSensor(testGPS2)
-	deps[movementsensor.Named(testGPS3)] = inject.NewMovementSensor(testGPS3)
+	deps[movementsensor.Named(testGPS1)] = makeNewFakeGPS(testGPS1, geo.NewPoint(2.0, 2.0), 2.0, nil)
+	deps[movementsensor.Named(testGPS2)] = makeNewFakeGPS(testGPS2, geo.NewPoint(4.0, 4.0), 2.0, nil)
+	deps[movementsensor.Named(testGPS3)] = makeNewFakeGPS(testGPS3, geo.NewPoint(6.0, 6.0), 1.0, errors.New("fail"))
+	deps[movementsensor.Named(testGPS4)] = makeNewFakeGPS(testGPS4, geo.NewPoint(8.0, 8.0), 1.0, errors.New("bad"))
 
 	ms, err := newDualGPS(
 		context.Background(),
@@ -62,6 +77,15 @@ func TestCreateValidateAndReconfigure(t *testing.T) {
 	dgps, ok := ms.(*dualGPS)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, dgps.gps2.Name().ShortName(), test.ShouldResemble, testGPS2)
+
+	pos, alt, err := ms.Position(context.Background(), nil)
+	test.That(t, pos.Lat(), test.ShouldAlmostEqual, 3.0, 1e-1)
+	test.That(t, pos.Lng(), test.ShouldAlmostEqual, 3.0, 1e-1)
+	test.That(t, alt, test.ShouldAlmostEqual, 2.0)
+	test.That(t, err, test.ShouldBeNil)
+	compass, err := ms.CompassHeading(context.Background(), nil)
+	test.That(t, compass, test.ShouldAlmostEqual, 315, 1e-1)
+	test.That(t, err, test.ShouldBeNil)
 
 	cfg = resource.Config{
 		Name:  testName,
@@ -77,6 +101,39 @@ func TestCreateValidateAndReconfigure(t *testing.T) {
 	dgps, ok = ms.(*dualGPS)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, dgps.gps2.Name().ShortName(), test.ShouldResemble, testGPS3)
+
+	pos, alt, err = ms.Position(context.Background(), nil)
+	test.That(t, pos.Lat(), test.ShouldAlmostEqual, 2.0)
+	test.That(t, pos.Lng(), test.ShouldAlmostEqual, 2.0)
+	test.That(t, alt, test.ShouldAlmostEqual, 2.0)
+	test.That(t, err, test.ShouldBeError, errSecondGPSInvalid)
+	compass, err = ms.CompassHeading(context.Background(), nil)
+	test.That(t, math.IsNaN(compass), test.ShouldBeTrue)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	cfg = resource.Config{
+		Name:  testName,
+		Model: model,
+		API:   movementsensor.API,
+		ConvertedAttributes: &Config{
+			Gps1: testGPS4,
+			Gps2: testGPS3,
+		},
+	}
+	err = ms.Reconfigure(context.Background(), deps, cfg)
+	test.That(t, err, test.ShouldBeNil)
+	dgps, ok = ms.(*dualGPS)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, dgps.gps2.Name().ShortName(), test.ShouldResemble, testGPS3)
+
+	pos, alt, err = ms.Position(context.Background(), nil)
+	test.That(t, math.IsNaN(pos.Lat()), test.ShouldBeTrue)
+	test.That(t, math.IsNaN(pos.Lng()), test.ShouldBeTrue)
+	test.That(t, math.IsNaN(alt), test.ShouldBeTrue)
+	test.That(t, err, test.ShouldBeError, errBothGPSInvalid)
+	compass, err = ms.CompassHeading(context.Background(), nil)
+	test.That(t, math.IsNaN(compass), test.ShouldBeTrue)
+	test.That(t, err, test.ShouldNotBeNil)
 }
 
 func TestGetHeading(t *testing.T) {

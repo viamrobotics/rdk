@@ -94,3 +94,52 @@ func TestConfigValidate(t *testing.T) {
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 }
+
+func TestNewBoard(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	// Create a fake board mapping with two pins for testing.
+	testBoardMappings := make(map[string]GPIOBoardMapping, 2)
+	testBoardMappings["1"] = GPIOBoardMapping{
+		GPIOChipDev:    "gpiochip0",
+		GPIO:           1,
+		GPIOName:       "1",
+		PWMSysFsDir:    "",
+		PWMID:          -1,
+		HWPWMSupported: false,
+	}
+	testBoardMappings["2"] = GPIOBoardMapping{
+		GPIOChipDev:    "gpiochip0",
+		GPIO:           2,
+		GPIOName:       "2",
+		PWMSysFsDir:    "pwm.00",
+		PWMID:          1,
+		HWPWMSupported: true,
+	}
+
+	conf := &Config{}
+	conf.AnalogReaders = []mcp3008helper.MCP3008AnalogConfig{{Name: "an1", Pin: "1"}}
+
+	config := resource.Config{
+		Name:                "board1",
+		ConvertedAttributes: conf,
+	}
+	b, err := NewBoard(ctx, config, ConstPinDefs(testBoardMappings), logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, b, test.ShouldNotBeNil)
+
+	ans := b.AnalogReaderNames()
+	test.That(t, ans, test.ShouldResemble, []string{"an1"})
+
+	dis := b.DigitalInterruptNames()
+	test.That(t, dis, test.ShouldResemble, []string{})
+
+	gn1, err := b.GPIOPinByName("1")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gn1, test.ShouldNotBeNil)
+
+	gn2, err := b.GPIOPinByName("2")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gn2, test.ShouldNotBeNil)
+}

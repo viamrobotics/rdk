@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -11,9 +12,11 @@ import (
 	"go.uber.org/multierr"
 	buildpb "go.viam.com/api/app/build/v1"
 	"go.viam.com/utils/pexec"
+	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/utils"
 )
 
 type jobStatus string
@@ -159,6 +162,18 @@ func (c *viamClient) moduleBuildListAction(cCtx *cli.Context) error {
 	return nil
 }
 
+// anyFailed returns a useful error based on which platforms failed, or nil if all good.
+func buildError(statuses map[string]jobStatus) error {
+	failedPlatforms := utils.FilterMap(
+		statuses,
+		func(_ string, s jobStatus) bool { return s != jobStatusDone },
+	)
+	if len(failedPlatforms) == 0 {
+		return nil
+	}
+	return fmt.Errorf("some platforms failed to build: %s", strings.Join(maps.Keys(failedPlatforms), ", "))
+}
+
 // ModuleBuildLogsAction retrieves the logs for a specific build step.
 func ModuleBuildLogsAction(c *cli.Context) error {
 	buildID := c.String(moduleBuildFlagBuildID)
@@ -170,8 +185,10 @@ func ModuleBuildLogsAction(c *cli.Context) error {
 		return err
 	}
 
+	var statuses map[string]jobStatus
 	if shouldWait {
-		if err := client.waitForBuildToFinish(buildID, platform); err != nil {
+		statuses, err = client.waitForBuildToFinish(buildID, platform)
+		if err != nil {
 			return err
 		}
 	}
@@ -197,6 +214,9 @@ func ModuleBuildLogsAction(c *cli.Context) error {
 		}
 	}
 
+	if err := buildError(statuses); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -265,38 +285,40 @@ func (c *viamClient) listModuleBuildJobs(moduleIDFilter string, count *int32, bu
 // waitForBuildToFinish calls listModuleBuildJobs every moduleBuildPollingInterval
 // Will wait until the status of the specified job is DONE or FAILED
 // if platform is empty, it waits for all jobs associated with the ID.
-func (c *viamClient) waitForBuildToFinish(buildID, platform string) error {
+func (c *viamClient) waitForBuildToFinish(buildID, platform string) (map[string]jobStatus, error) {
 	// If the platform is not empty, we should check that the platform is actually present on the build
 	// this is mostly to protect against users misspelling the platform
 	if platform != "" {
 		platformsForBuild, err := c.getPlatformsForModuleBuild(buildID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !slices.Contains(platformsForBuild, platform) {
-			return fmt.Errorf("platform %q is not present on build %q", platform, buildID)
+			return nil, fmt.Errorf("platform %q is not present on build %q", platform, buildID)
 		}
 	}
+	statuses := make(map[string]jobStatus)
 	ticker := time.NewTicker(moduleBuildPollingInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-c.c.Context.Done():
-			return c.c.Context.Err()
+			return nil, c.c.Context.Err()
 		case <-ticker.C:
 			jobsResponse, err := c.listModuleBuildJobs("", nil, &buildID)
 			if err != nil {
-				return errors.Wrap(err, "failed to list module build jobs")
+				return nil, errors.Wrap(err, "failed to list module build jobs")
 			}
 			if len(jobsResponse.Jobs) == 0 {
-				return fmt.Errorf("build id %q returned no jobs", buildID)
+				return nil, fmt.Errorf("build id %q returned no jobs", buildID)
 			}
 			// Loop through all the jobs and check if all the matching jobs are done
 			allDone := true
 			for _, job := range jobsResponse.Jobs {
 				if platform == "" || job.Platform == platform {
 					status := jobStatusFromProto(job.Status)
+					statuses[job.Platform] = status
 					if status != jobStatusDone && status != jobStatusFailed {
 						allDone = false
 						break
@@ -305,7 +327,7 @@ func (c *viamClient) waitForBuildToFinish(buildID, platform string) error {
 			}
 			// If all jobs are done, return
 			if allDone {
-				return nil
+				return statuses, nil
 			}
 		}
 	}
