@@ -1645,6 +1645,8 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 	})
 
+	// test starts with a working config, then reconfigures into a config where dependencies
+	// fail to reconfigure, and then to a working config again.
 	t.Run("child component fails dep", func(t *testing.T) {
 		resetComponentFailureState()
 		testReconfiguringMismatch = true
