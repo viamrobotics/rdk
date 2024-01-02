@@ -209,8 +209,9 @@ func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (buses.I2C, byte) {
 	return g.bus, g.addr
 }
 
-// nolint:all
 // Position returns the current geographic location of the MovementSensor.
+//
+//nolint:all
 func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	lastPosition := g.lastPosition.GetLastPosition()
 
