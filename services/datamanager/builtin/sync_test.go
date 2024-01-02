@@ -11,6 +11,7 @@ import (
 	"time"
 
 	clk "github.com/benbjohnson/clock"
+	detectrace "github.com/ipfs/go-detect-race"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
@@ -27,9 +28,18 @@ const (
 	syncInterval     = time.Millisecond * 50
 )
 
+// skipIfRaceMode skips when RACE var is passed in test.sh.
+func skipIfRaceMode(t *testing.T) {
+	// delete this once no longer used
+	// it is a temporary patch from data races being skipped
+	if detectrace.WithRace() {
+		t.Skip("this was affected by the outage in race detection -- skipping temporarily")
+	}
+}
+
 // TODO DATA-849: Add a test that validates that sync interval is accurately respected.
 func TestSyncEnabled(t *testing.T) {
-	t.Skip("this was affected by the outage in race detection -- skipping temporarily")
+	skipIfRaceMode(t)
 	captureInterval := time.Millisecond * 10
 	tests := []struct {
 		name                        string
@@ -601,7 +611,7 @@ func TestStreamingDCUpload(t *testing.T) {
 }
 
 func TestSyncConfigUpdateBehavior(t *testing.T) {
-	t.Skip("this was affected by the outage in race detection -- skipping temporarily")
+	skipIfRaceMode(t)
 	newSyncIntervalMins := 0.009
 	tests := []struct {
 		name                 string
