@@ -176,7 +176,7 @@ func PTGIKSeed(ptg PTGSolver) []referenceframe.Input {
 	// If the DoF only allows short PTGs, seed near the end of its length, otherwise seed near the beginning.
 	for i := 0; i < len(ptgDof); i++ {
 		boundRange := ptgDof[i].Max - ptgDof[i].Min
-		minAdj := boundRange * 0.2
+		minAdj := boundRange * 0.9
 		inputs = append(inputs,
 			referenceframe.Input{ptgDof[i].Min + minAdj},
 		)
