@@ -175,7 +175,9 @@ func (svc *builtIn) Close(_ context.Context) error {
 	svc.lock.Lock()
 	svc.closeCollectors()
 	svc.closeSyncer()
-	svc.cancelSyncScheduler()
+	if svc.syncRoutineCancelFn != nil {
+		svc.syncRoutineCancelFn()
+	}
 
 	svc.lock.Unlock()
 	svc.backgroundWorkers.Wait()
@@ -530,6 +532,7 @@ func (svc *builtIn) startSyncScheduler(intervalMins float64) {
 func (svc *builtIn) cancelSyncScheduler() {
 	if svc.syncRoutineCancelFn != nil {
 		svc.syncRoutineCancelFn()
+		svc.backgroundWorkers.Wait()
 		svc.syncRoutineCancelFn = nil
 	}
 }
