@@ -109,6 +109,7 @@ func (ms *builtIn) Reconfigure(
 		}
 		ms.logger = logger
 	}
+	ms.logger.Debug("WE ARE IN THE MS RECONFIG FUNC")
 	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
 	slamServices := make(map[resource.Name]slam.Service)
 	visionServices := make(map[resource.Name]vision.Service)
