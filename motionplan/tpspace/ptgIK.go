@@ -61,31 +61,14 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float
 		return nil, err
 	}
 
-	inputs := []referenceframe.Input{}
-	ptgDof := ptgFrame.DoF()
-
-	// Set the seed to be used for nlopt solving based on the individual DoF range of the PTG.
-	// If the DoF only allows short PTGs, seed near the end of its length, otherwise seed near the beginning.
-	// TODO: RSDK-6054 should make this much less important.
-	for i := 0; i < len(ptgDof); i++ {
-		boundRange := ptgDof[i].Max - ptgDof[i].Min
-		minAdj := boundRange * 0.2
-		if boundRange == refDistShort {
-			minAdj = boundRange * 0.9
-		}
-		inputs = append(inputs,
-			referenceframe.Input{ptgDof[i].Min + minAdj},
-		)
-	}
-
 	ptg := &ptgIK{
 		PTG:             simPTG,
 		refDist:         refDistLong,
 		ptgFrame:        ptgFrame,
 		fastGradDescent: nlopt,
 		trajCache:       map[float64][]*TrajNode{},
-		defaultSeed:     inputs,
 	}
+	ptg.defaultSeed = PTGIKSeed(ptg)
 
 	// create an ends-only grid sim for quick end-of-trajectory calculations
 	gridSim, err := NewPTGGridSim(simPTG, 0, refDistShort, true)
@@ -107,25 +90,13 @@ func (ptg *ptgIK) Solve(
 	internalSolutionGen := make(chan *ik.Solution, 1)
 	defer close(internalSolutionGen)
 	var solved *ik.Solution
-	var gridSolved *ik.Solution
-
 	if seed == nil {
 		seed = ptg.defaultSeed
 	}
 
-	err := ptg.gridSim.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
-	if err != nil {
-		return err
-	}
-	select {
-	case gridSolved = <-internalSolutionGen:
-	default:
-	}
-
 	// Spawn the IK solver to generate a solution
-	err = ptg.fastGradDescent.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
+	err := ptg.fastGradDescent.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
 	// We should have zero or one solutions
-
 	select {
 	case solved = <-internalSolutionGen:
 	default:
@@ -144,10 +115,7 @@ func (ptg *ptgIK) Solve(
 	}
 	if err != nil || solved == nil || ptg.arcDist(solved.Configuration) < defaultZeroDist || seedOutput {
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
-		solutionChan <- gridSolved
-		// If err is not nil, return the grid solution
-		//nolint: nilerr
-		return nil
+		return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
 	}
 
 	solutionChan <- solved
@@ -205,6 +173,11 @@ func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
 
 func (ptg *ptgIK) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	return ptg.ptgFrame.Transform(inputs)
+}
+
+// DoF returns the DoF of the associated referenceframe.
+func (ptg *ptgIK) DoF() []referenceframe.Limit {
+	return ptg.ptgFrame.DoF()
 }
 
 func (ptg *ptgIK) arcDist(inputs []referenceframe.Input) float64 {
