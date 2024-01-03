@@ -140,15 +140,14 @@ const (
 )
 
 // NewMotor returns a TMC5072 driven motor.
-func newMotor(ctx context.Context, deps resource.Dependencies, c resource.Config, name resource.Name,
-	logger logging.Logger,
+func newMotor(ctx context.Context, deps resource.Dependencies, c resource.Config, logger logging.Logger,
 ) (motor.Motor, error) {
-	conf, err := resource.NativeConfig[*TMC5072Config](conf)
+	conf, err := resource.NativeConfig[*TMC5072Config](c)
 	if err != nil {
 		return nil, err
 	}
-	bus := buses.NewSpiBus(c.SPIBus)
-	return makeMotor(ctx, deps, conf, name, logger, bus)
+	bus := buses.NewSpiBus(conf.SPIBus)
+	return makeMotor(ctx, deps, *conf, c.ResourceName(), logger, bus)
 }
 
 // makeMotor returns a TMC5072 driven motor. It is separate from NewMotor, above, so you can inject
