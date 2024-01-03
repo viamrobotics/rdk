@@ -175,8 +175,12 @@ func (svc *builtIn) Close(_ context.Context) error {
 	svc.lock.Lock()
 	svc.closeCollectors()
 	svc.closeSyncer()
+	if svc.syncRoutineCancelFn != nil {
+		svc.syncRoutineCancelFn()
+	}
 	svc.lock.Unlock()
-	svc.cancelSyncScheduler()
+
+	svc.backgroundWorkers.Wait()
 	return nil
 }
 
