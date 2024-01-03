@@ -44,7 +44,7 @@ func (b *encoderToRPM) reset() error {
 	b.ticksPerRevolution = b.cfg.Attribute["ticks_per_revolution"].(int) // default 0
 	b.prevEncCount = 0
 	b.y = make([]*Signal, 1)
-	b.y[0] = makeSignal(b.cfg.Name)
+	b.y[0] = makeSignal(b.cfg.Name, string(b.cfg.Type))
 	return nil
 }
 

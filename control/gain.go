@@ -50,7 +50,7 @@ func (b *gain) reset() error {
 		b.gain = 1.0
 	}
 	b.y = make([]*Signal, 1)
-	b.y[0] = makeSignal(b.cfg.Name)
+	b.y[0] = makeSignal(b.cfg.Name, string(b.cfg.Type))
 	return nil
 }
 

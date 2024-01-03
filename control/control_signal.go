@@ -8,16 +8,18 @@ type Signal struct {
 	time      []int
 	dimension int
 	name      string
+	blockType string
 	mu        sync.Mutex
 }
 
-func makeSignal(name string) *Signal {
+func makeSignal(name string, blockType string) *Signal {
 	var s Signal
 	dimension := 1
 	s.dimension = dimension
 	s.signal = make([]float64, dimension)
 	s.time = make([]int, dimension)
 	s.name = name
+	s.blockType = blockType
 	return &s
 }
 

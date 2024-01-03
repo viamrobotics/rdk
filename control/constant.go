@@ -39,7 +39,7 @@ func (b *constant) reset() error {
 	}
 	b.constant = b.cfg.Attribute["constant_val"].(float64) // default 0
 	b.y = make([]*Signal, 1)
-	b.y[0] = makeSignal(b.cfg.Name)
+	b.y[0] = makeSignal(b.cfg.Name, string(b.cfg.Type))
 	b.y[0].SetSignalValueAt(0, b.constant)
 	return nil
 }

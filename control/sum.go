@@ -96,7 +96,7 @@ func (b *sum) reset() error {
 
 	b.y = make([]*Signal, len(b.cfg.DependsOn))
 	for i := range b.cfg.DependsOn {
-		b.y[i] = makeSignal(b.cfg.DependsOn[i])
+		b.y[i] = makeSignal(b.cfg.DependsOn[i], "sum")
 	}
 	return nil
 }
