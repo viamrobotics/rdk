@@ -85,8 +85,17 @@ func RandomFrameInputs(m Frame, rSeed *rand.Rand) []Input {
 	return pos
 }
 
+// Limited represents anything that has Limits.
+type Limited interface {
+	// DoF will return a slice with length equal to the number of degrees of freedom.
+	// Each element describes the min and max movement limit of that degree of freedom.
+	// For robot parts that don't move, it returns an empty slice.
+	DoF() []Limit
+}
+
 // Frame represents a reference frame, e.g. an arm, a joint, a gripper, a board, etc.
 type Frame interface {
+	Limited
 	// Name returns the name of the referenceframe.
 	Name() string
 
@@ -96,11 +105,6 @@ type Frame interface {
 	// Geometries returns a map between names and geometries for the reference frame and any intermediate frames that
 	// may be defined for it, e.g. links in an arm. If a frame does not have a geometry it will not be added into the map
 	Geometries([]Input) (*GeometriesInFrame, error)
-
-	// DoF will return a slice with length equal to the number of joints/degrees of freedom.
-	// Each element describes the min and max movement limit of that joint/degree of freedom.
-	// For robot parts that don't move, it returns an empty slice.
-	DoF() []Limit
 
 	// InputFromProtobuf does there correct thing for this frame to convert protobuf units (degrees/mm) to input units (radians/mm)
 	InputFromProtobuf(*pb.JointPositions) []Input
