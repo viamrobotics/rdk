@@ -27,6 +27,8 @@ type NavigationService struct {
 	ObstaclesFunc func(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error)
 	PathsFunc     func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error)
 
+	PropertiesFunc func(ctx context.Context) (navigation.Properties, error)
+
 	DoCommandFunc func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc     func(ctx context.Context) error
 }
@@ -103,6 +105,14 @@ func (ns *NavigationService) Paths(ctx context.Context, extra map[string]interfa
 		return ns.Service.Paths(ctx, extra)
 	}
 	return ns.PathsFunc(ctx, extra)
+}
+
+// Properties calls the injected Properties or the real variant.
+func (ns *NavigationService) Properties(ctx context.Context) (navigation.Properties, error) {
+	if ns.PropertiesFunc == nil {
+		return ns.Service.Properties(ctx)
+	}
+	return ns.PropertiesFunc(ctx)
 }
 
 // DoCommand calls the injected DoCommand or the real variant.

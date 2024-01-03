@@ -203,6 +203,23 @@ func (c *client) Paths(ctx context.Context, extra map[string]interface{}) ([]*Pa
 	return ProtoSliceToPaths(resp.GetPaths())
 }
 
+func (c *client) Properties(ctx context.Context) (Properties, error) {
+	resp, err := c.client.GetProperties(ctx, &pb.GetPropertiesRequest{Name: c.name})
+	if err != nil {
+		return Properties{}, errors.Wrapf(err, "failure to get properties")
+	}
+
+	mapType, err := protobufToMapType(resp.MapType)
+	if err != nil {
+		return Properties{}, err
+	}
+
+	prop := Properties{
+		MapType: mapType,
+	}
+	return prop, nil
+}
+
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
