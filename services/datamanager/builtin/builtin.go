@@ -178,8 +178,8 @@ func (svc *builtIn) Close(_ context.Context) error {
 	if svc.syncRoutineCancelFn != nil {
 		svc.syncRoutineCancelFn()
 	}
-	svc.lock.Unlock()
 
+	svc.lock.Unlock()
 	svc.backgroundWorkers.Wait()
 	return nil
 }
