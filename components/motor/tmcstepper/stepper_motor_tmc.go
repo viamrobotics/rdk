@@ -74,18 +74,7 @@ func (config *TMC5072Config) Validate(path string) ([]string, error) {
 
 func init() {
 	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *TMC5072Config]{
-		Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger logging.Logger,
-		) (motor.Motor, error) {
-			newConf, err := resource.NativeConfig[*TMC5072Config](conf)
-			if err != nil {
-				return nil, err
-			}
-			return NewMotor(ctx, deps, *newConf, conf.ResourceName(), logger)
-		},
+		Constructor: newMotor,
 	})
 }
 
@@ -151,11 +140,15 @@ const (
 )
 
 // NewMotor returns a TMC5072 driven motor.
-func NewMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, name resource.Name,
+func newMotor(ctx context.Context, deps resource.Dependencies, c resource.Config, name resource.Name,
 	logger logging.Logger,
 ) (motor.Motor, error) {
+	conf, err := resource.NativeConfig[*TMC5072Config](conf)
+	if err != nil {
+		return nil, err
+	}
 	bus := buses.NewSpiBus(c.SPIBus)
-	return makeMotor(ctx, deps, c, name, logger, bus)
+	return makeMotor(ctx, deps, conf, name, logger, bus)
 }
 
 // makeMotor returns a TMC5072 driven motor. It is separate from NewMotor, above, so you can inject
