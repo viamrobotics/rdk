@@ -2,19 +2,16 @@ package gpio
 
 import (
 	"context"
-	"errors"
 
+	"github.com/pkg/errors"
 	"go.viam.com/rdk/control"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
 // TODO: RSDK-5610 test the scaling factor with a non-pi board with hardware pwm.
-var (
-	errConstantBlock = errors.New("constant block should be called 'set_point")
-	errEndpointBlock = errors.New("endpoint block should be called 'endpoint")
-	errTrapzBlock    = errors.New("trapezoidalVelocityProfile block should be called 'trapz")
-	errPIDBlock      = errors.New("PID block should be called 'PID")
-)
+func errMissingBlock(blockType string) error {
+	return errors.Errorf("one block of type %s is required", blockType)
+}
 
 // SetState sets the state of the motor for the built-in control loop.
 func (m *EncodedMotor) SetState(ctx context.Context, state []*control.Signal) error {
@@ -32,7 +29,7 @@ func (m *EncodedMotor) State(ctx context.Context) ([]float64, error) {
 func (m *EncodedMotor) updateControlBlock(ctx context.Context, setPoint, maxVel float64) error {
 	// Update the Trapezoidal Velocity Profile block with the given maxVel for velocity control
 	velConf := control.BlockConfig{
-		Name: "trapz",
+		Name: m.blockNames["trapz"],
 		Type: "trapezoidalVelocityProfile",
 		Attribute: rdkutils.AttributeMap{
 			"max_vel":    maxVel,
@@ -40,22 +37,22 @@ func (m *EncodedMotor) updateControlBlock(ctx context.Context, setPoint, maxVel 
 			"pos_window": 0.0,
 			"kpp_gain":   0.45,
 		},
-		DependsOn: []string{"set_point", "endpoint"},
+		DependsOn: []string{m.blockNames["constant"], m.blockNames["endpoint"]},
 	}
-	if err := m.loop.SetConfigAt(ctx, "trapz", velConf); err != nil {
+	if err := m.loop.SetConfigAt(ctx, m.blockNames["trapz"], velConf); err != nil {
 		return err
 	}
 
 	// Update the Constant block with the given setPoint for position control
 	posConf := control.BlockConfig{
-		Name: "set_point",
+		Name: m.blockNames["constant"],
 		Type: "constant",
 		Attribute: rdkutils.AttributeMap{
 			"constant_val": setPoint,
 		},
 		DependsOn: []string{},
 	}
-	if err := m.loop.SetConfigAt(ctx, "set_point", posConf); err != nil {
+	if err := m.loop.SetConfigAt(ctx, m.blockNames["constant"], posConf); err != nil {
 		return err
 	}
 	return nil
@@ -63,26 +60,42 @@ func (m *EncodedMotor) updateControlBlock(ctx context.Context, setPoint, maxVel 
 
 // validateControlConfig ensures the programmatically edited blocks are named correctly.
 func (m *EncodedMotor) validateControlConfig(ctx context.Context) error {
-	constBlock, err := m.loop.ConfigAt(ctx, "set_point")
+	m.blockNames = make(map[string]string)
+
+	// These three blocks are the only block names that are used by EncodedMotor
+	// verify constant block exits and store its name
+	constBlocks, err := m.loop.ConfigAtType(ctx, "constant")
+	m.logger.CDebugf(ctx, "const blocks = %v", constBlocks)
 	if err != nil {
-		return errConstantBlock
+		return err
 	}
-	m.logger.CDebugf(ctx, "constant block: %v", constBlock)
-	endBlock, err := m.loop.ConfigAt(ctx, "endpoint")
+	if len(constBlocks) != 1 {
+		return errMissingBlock("constant")
+	}
+	m.blockNames["constant"] = constBlocks[0].Name
+
+	// verify trapz block exists and store its name
+	trapzBlocks, err := m.loop.ConfigAtType(ctx, "trapezoidalVelocityProfile")
+	m.logger.CDebugf(ctx, "trapz blocks = %v", trapzBlocks)
 	if err != nil {
-		return errEndpointBlock
+		return err
 	}
-	m.logger.CDebugf(ctx, "endpoint block: %v", endBlock)
-	trapzBlock, err := m.loop.ConfigAt(ctx, "trapz")
+	if len(trapzBlocks) != 1 {
+		return errMissingBlock("trapezoidalVelocityProfile")
+	}
+	m.blockNames["trapz"] = trapzBlocks[0].Name
+
+	// verify endpoint block exists and store its name
+	endBlocks, err := m.loop.ConfigAtType(ctx, "endpoint")
+	m.logger.CDebugf(ctx, "endpoint blocks = %v", endBlocks)
 	if err != nil {
-		return errTrapzBlock
+		return err
 	}
-	m.logger.CDebugf(ctx, "trapz block: %v", trapzBlock)
-	pidBlock, err := m.loop.ConfigAt(ctx, "PID")
-	if err != nil {
-		return errPIDBlock
+	if len(endBlocks) != 1 {
+		return errMissingBlock("endpoint")
 	}
-	m.logger.CDebugf(ctx, "PID block: %v", pidBlock)
+	m.blockNames["endpoing"] = endBlocks[0].Name
+
 	return nil
 }
 

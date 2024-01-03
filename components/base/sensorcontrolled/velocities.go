@@ -3,13 +3,24 @@ package sensorcontrolled
 import (
 	"context"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/control"
 	rdkutils "go.viam.com/rdk/utils"
+)
+
+var (
+	errConstantBlocks = errors.New(
+		"two constant blocks are required -- one must contain 'lin' in the name, and the other must contain 'ang'")
+	errSumBlock  = errors.New("this control loop requires only one sum block")
+	errPIDBlocks = errors.New(
+		"two PID blocks are required -- one must contain 'lin' in the name, and the other must contain 'ang'")
+	errEndpointBlock = errors.New("this control loop requires only one endpoint block")
 )
 
 // TODO: RSDK-5355 useControlLoop bool should be removed after testing.
@@ -44,27 +55,27 @@ func (sb *sensorBase) updateControlConfig(
 ) error {
 	// set linear setpoint config
 	linConf := control.BlockConfig{
-		Name: "linear_setpoint",
+		Name: sb.blockNames["linear_constant"],
 		Type: "constant",
 		Attribute: rdkutils.AttributeMap{
 			"constant_val": linearValue,
 		},
 		DependsOn: []string{},
 	}
-	if err := sb.loop.SetConfigAt(ctx, "linear_setpoint", linConf); err != nil {
+	if err := sb.loop.SetConfigAt(ctx, sb.blockNames["linear_constant"], linConf); err != nil {
 		return err
 	}
 
 	// set angular setpoint config
 	angConf := control.BlockConfig{
-		Name: "angular_setpoint",
+		Name: sb.blockNames["angular_constant"],
 		Type: "constant",
 		Attribute: rdkutils.AttributeMap{
 			"constant_val": angularValue,
 		},
 		DependsOn: []string{},
 	}
-	if err := sb.loop.SetConfigAt(ctx, "angular_setpoint", angConf); err != nil {
+	if err := sb.loop.SetConfigAt(ctx, sb.blockNames["angular_constant"], angConf); err != nil {
 		return err
 	}
 
@@ -213,6 +224,33 @@ func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
 		return []float64{}, err
 	}
 	return []float64{linvel.Y, angvel.Z}, nil
+}
+
+func (sb *sensorBase) validateControlLoopConfig(ctx context.Context, controlLoopConfig control.Config) error {
+	sb.blockNames = make(map[string]string)
+	hasLinConst, hasAngConst := false, false
+
+	// Verify linear and angular constant blocks exist and store their names.
+	// These two blocks are the only block names that are used by sensorBase
+	constBlocks, err := sb.loop.ConfigAtType(ctx, "constant")
+	sb.logger.CDebugf(ctx, "const blocks = %v", constBlocks)
+	if err != nil {
+		return err
+	}
+	for _, b := range constBlocks {
+		if strings.Contains(b.Name, "lin") {
+			sb.blockNames["linear_constant"] = b.Name
+			hasLinConst = true
+		} else if strings.Contains(b.Name, "ang") {
+			sb.blockNames["angular_constant"] = b.Name
+			hasAngConst = true
+		}
+	}
+	if !(hasLinConst && hasAngConst) {
+		return errConstantBlocks
+	}
+
+	return nil
 }
 
 // Control Loop Configuration is embedded in this file so a user does not have to

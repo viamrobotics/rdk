@@ -178,6 +178,20 @@ func (l *Loop) ConfigAt(ctx context.Context, name string) (BlockConfig, error) {
 	return blk.blk.Config(ctx), nil
 }
 
+// ConfigAtType returns the Config(s) at the block type, error when the block doesn't exist.
+func (l *Loop) ConfigAtType(ctx context.Context, bType string) ([]BlockConfig, error) {
+	var blocks []BlockConfig
+	for _, b := range l.blocks {
+		if b.blockType == controlBlockType(bType) {
+			blocks = append(blocks, b.blk.Config(ctx))
+		}
+	}
+	if len(blocks) > 0 {
+		return blocks, nil
+	}
+	return []BlockConfig{}, errors.Errorf("cannot return Configs for non existing block type %s", bType)
+}
+
 // SetConfigAt returns the Configl at the block name, error when the block doesn't exist.
 func (l *Loop) SetConfigAt(ctx context.Context, name string, config BlockConfig) error {
 	blk, ok := l.blocks[name]
