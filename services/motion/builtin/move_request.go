@@ -588,6 +588,9 @@ func (ms *builtIn) newMoveOnMapRequest(
 		[]spatialmath.Geometry{octree},
 		valExtra,
 	)
+	if err != nil {
+		return nil, err
+	}
 	mr.requestType = requestTypeMoveOnMap
 	return mr, err
 }
