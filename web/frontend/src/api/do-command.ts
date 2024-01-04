@@ -1,23 +1,45 @@
-import { type Client, commonApi } from '@viamrobotics/sdk';
-import { Struct, type JavaScriptValue } from 'google-protobuf/google/protobuf/struct_pb';
+import {
+  commonApi,
+  doCommandFromClient,
+  type ServiceError,
+} from '@viamrobotics/sdk';
+import { type JavaScriptValue } from 'google-protobuf/google/protobuf/struct_pb';
 import { rcLogConditionally } from '@/lib/log';
+import type { grpc } from '@improbable-eng/grpc-web';
 
-export const doCommand = async (robotClient: Client, name: string, command: string) => {
-  const request = new commonApi.DoCommandRequest();
-  request.setName(name);
-  request.setCommand(Struct.fromJavaScript(JSON.parse(command) as Record<string, JavaScriptValue>));
+/*
+ * TODO (DTCurrie): Callback, ServiceFunc, and DoCommandClient are all copy/paste from the
+ * SDK. We should consider renaming them Callback and ServiceFunc to be more specific and
+ * export them along with DoCommandClient to make `doCommandFromClient` more useable.
+ */
+type Callback<T> = (error: ServiceError | null, response: T | null) => void;
 
-  rcLogConditionally(request);
+type ServiceFunc<Req, Resp> = (
+  request: Req,
+  metadata: grpc.Metadata,
+  callback: Callback<Resp>
+) => void;
 
-  const response = await new Promise<commonApi.DoCommandResponse | null>((resolve, reject) => {
-    robotClient.genericService.doCommand(request, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
+export interface DoCommandClient {
+  doCommand: ServiceFunc<
+    commonApi.DoCommandRequest,
+    commonApi.DoCommandResponse
+  >;
+}
+
+export const doCommand = async (
+  client: DoCommandClient,
+  name: string,
+  command: string
+) => {
+  const parsedCommand = JSON.parse(command) as Record<string, JavaScriptValue>;
+
+  rcLogConditionally({
+    request: 'DoCommandRequest',
+    client,
+    name,
+    command: parsedCommand,
   });
 
-  return response?.getResult()?.toObject();
+  return doCommandFromClient(client, name, parsedCommand);
 };

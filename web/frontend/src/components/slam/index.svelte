@@ -1,339 +1,338 @@
 <script lang="ts">
-  /* eslint-disable require-atomic-updates */
+/* eslint-disable require-atomic-updates */
 
-  import * as THREE from 'three';
-  import { onMount } from 'svelte';
-  import { SlamClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
-  import { SlamMap2D } from '@viamrobotics/prime-blocks';
-  import { copyToClipboard } from '@/lib/copy-to-clipboard';
-  import { filterSubtype } from '@/lib/resource';
-  import { moveOnMap, stopMoveOnMap } from '@/api/motion';
-  import { notify } from '@viamrobotics/prime';
-  import { setAsyncInterval } from '@/lib/schedule';
-  import { components } from '@/stores/resources';
-  import Collapse from '@/lib/components/collapse.svelte';
-  import Dropzone from '@/lib/components/dropzone.svelte';
-  import { useRobotClient, useConnect } from '@/hooks/robot-client';
-  import type { SLAMOverrides } from '@/types/overrides';
-  import { rcLogConditionally } from '@/lib/log';
+import * as THREE from 'three';
+import { onMount } from 'svelte';
+import { SlamClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
+import { SlamMap2D } from '@viamrobotics/prime-blocks';
+import { copyToClipboard } from '@/lib/copy-to-clipboard';
+import { filterSubtype } from '@/lib/resource';
+import { moveOnMap, stopMoveOnMap } from '@/api/motion';
+import { notify } from '@viamrobotics/prime';
+import { setAsyncInterval } from '@/lib/schedule';
+import { components } from '@/stores/resources';
+import Collapse from '@/lib/components/collapse.svelte';
+import Dropzone from '@/lib/components/dropzone.svelte';
+import { useRobotClient, useConnect } from '@/hooks/robot-client';
+import type { SLAMOverrides } from '@/types/overrides';
+import { rcLogConditionally } from '@/lib/log';
 
-  export let name: string;
-  export let overrides: SLAMOverrides | undefined;
+export let name: string;
+export let overrides: SLAMOverrides | undefined;
 
-  const { robotClient, operations } = useRobotClient();
-  const slamClient = new SlamClient($robotClient, name, {
-    requestLogger: rcLogConditionally,
-  });
+const { robotClient, operations } = useRobotClient();
+const slamClient = new SlamClient($robotClient, name, {});
 
-  const refreshErrorMessage =
-    'Error refreshing map. The map shown may be stale.';
+const refreshErrorMessage = 'Error refreshing map. The map shown may be stale.';
 
-  let clear2dRefresh: (() => void) | undefined;
+let clear2dRefresh: (() => void) | undefined;
 
-  let refreshErrorMessage2d: string | undefined;
-  let refresh2dRate = '5';
-  let pointcloud: Uint8Array | undefined;
-  let pose: Pose | undefined;
-  let lastTimestamp = new Date();
-  let show2d = false;
-  let showAxes = true;
-  let destination: THREE.Vector2 | undefined;
-  let labelUnits = 'm';
-  let hasActiveSession = false;
-  let sessionId = '';
-  let mappingSessionEnded = false;
-  let sessionDuration = 0;
-  let durationInterval: number | undefined;
-  let newMapName = '';
-  let mapNameError = '';
-  let motionPath: string | undefined;
-  let mappingSessionStarted = false;
+let refreshErrorMessage2d: string | undefined;
+let refresh2dRate = '5';
+let pointcloud: Uint8Array | undefined;
+let pose: Pose | undefined;
+let lastTimestamp = new Date();
+let show2d = false;
+let showAxes = true;
+let destination: THREE.Vector2 | undefined;
+let labelUnits = 'm';
+let hasActiveSession = false;
+let sessionId = '';
+let mappingSessionEnded = false;
+let sessionDuration = 0;
+let durationInterval: number | undefined;
+let newMapName = '';
+let mapNameError = '';
+let motionPath: string | undefined;
+let mappingSessionStarted = false;
 
-  $: pointcloudLoaded = Boolean(pointcloud?.length) && pose !== undefined;
-  $: moveClicked = $operations.find(({ op }) =>
-    op.method.includes('MoveOnMap'));
-  $: unitScale = labelUnits === 'm' ? 1 : 1000;
+$: pointcloudLoaded = Boolean(pointcloud?.length) && pose !== undefined;
+$: moveClicked = $operations.find(({ op }) => op.method.includes('MoveOnMap'));
+$: unitScale = labelUnits === 'm' ? 1 : 1000;
 
-  // get all resources which are bases
-  $: bases = filterSubtype($components, 'base');
+// get all resources which are bases
+$: bases = filterSubtype($components, 'base');
 
-  // allowMove is only true if we have a base, there exists a destination and there is no in-flight MoveOnMap req
-  $: allowMove = bases.length === 1 && destination && !moveClicked;
+// allowMove is only true if we have a base, there exists a destination and there is no in-flight MoveOnMap req
+$: allowMove = bases.length === 1 && destination && !moveClicked;
 
-  const deleteDestinationMarker = () => {
-    destination = undefined;
-  };
+const deleteDestinationMarker = () => {
+  destination = undefined;
+};
 
-  const startDurationTimer = (start: number) => {
-    durationInterval = window.setInterval(() => {
-      sessionDuration = Date.now() - start;
-    }, 400);
-  };
+const startDurationTimer = (start: number) => {
+  durationInterval = window.setInterval(() => {
+    sessionDuration = Date.now() - start;
+  }, 400);
+};
 
-  const localizationMode = (mapTimestamp: Date | undefined) => {
-    if (mapTimestamp === undefined) {
-      return false;
-    }
-    return mapTimestamp === lastTimestamp;
-  };
+const localizationMode = (mapTimestamp: Date | undefined) => {
+  if (mapTimestamp === undefined) {
+    return false;
+  }
+  return mapTimestamp === lastTimestamp;
+};
 
-  const refresh2d = async () => {
-    try {
-      let nextPose;
-      if (overrides?.isCloudSlam && overrides.getMappingSessionPCD) {
-        const { map, pose: poseData } = await overrides.getMappingSessionPCD(
-          sessionId
-        );
-        nextPose = poseData;
-        pointcloud = map;
-
-        /*
-         * The map timestamp is compared to the last timestamp
-         * to see if a change has been made to the pointcloud map.
-         * A new call to getPointCloudMap is made if an update has occured.
-         */
-      } else {
-        const mapTimestamp = await slamClient.getLatestMapInfo();
-        if (localizationMode(mapTimestamp)) {
-          const response = await slamClient.getPosition();
-          nextPose = response.pose;
-        } else {
-          let response;
-          [pointcloud, response] = await Promise.all([
-            slamClient.getPointCloudMap(),
-            slamClient.getPosition(),
-          ]);
-          nextPose = response.pose;
-        }
-
-        if (mapTimestamp) {
-          lastTimestamp = mapTimestamp;
-        }
-      }
+const refresh2d = async () => {
+  try {
+    let nextPose;
+    if (overrides?.isCloudSlam && overrides.getMappingSessionPCD) {
+      const { map, pose: poseData } =
+        await overrides.getMappingSessionPCD(sessionId);
+      nextPose = poseData;
+      pointcloud = map;
 
       /*
-       * The pose is returned in millimeters, but we need
-       * to convert to meters to display on the frontend.
+       * The map timestamp is compared to the last timestamp
+       * to see if a change has been made to the pointcloud map.
+       * A new call to getPointCloudMap is made if an update has occured.
        */
-      if (nextPose) {
-        nextPose.x /= 1000;
-        nextPose.y /= 1000;
-        nextPose.z /= 1000;
+    } else {
+      const mapTimestamp = await slamClient.getLatestMapInfo();
+      if (localizationMode(mapTimestamp)) {
+        const response = await slamClient.getPosition();
+        nextPose = response.pose;
+      } else {
+        let response;
+        [pointcloud, response] = await Promise.all([
+          slamClient.getPointCloudMap(),
+          slamClient.getPosition(),
+        ]);
+        nextPose = response.pose;
       }
-      pose = nextPose;
-      refreshErrorMessage2d = undefined;
-    } catch (error) {
-      refreshErrorMessage2d =
-        error !== null && typeof error === 'object' && 'message' in error
-          ? `${refreshErrorMessage} ${(error as { message: string }).message}`
-          : `${refreshErrorMessage} ${error as string}`;
+
+      if (mapTimestamp) {
+        lastTimestamp = mapTimestamp;
+      }
     }
-  };
 
-  const updateSLAM2dRefreshFrequency = () => {
-    clear2dRefresh?.();
-    refresh2d();
-
+    /*
+     * The pose is returned in millimeters, but we need
+     * to convert to meters to display on the frontend.
+     */
+    if (nextPose) {
+      nextPose.x /= 1000;
+      nextPose.y /= 1000;
+      nextPose.z /= 1000;
+    }
+    pose = nextPose;
     refreshErrorMessage2d = undefined;
+  } catch (error) {
+    refreshErrorMessage2d =
+      error !== null && typeof error === 'object' && 'message' in error
+        ? `${refreshErrorMessage} ${(error as { message: string }).message}`
+        : `${refreshErrorMessage} ${error as string}`;
+  }
+};
 
-    if (refresh2dRate !== 'manual') {
-      clear2dRefresh = setAsyncInterval(
-        refresh2d,
-        Number.parseFloat(refresh2dRate) * 1000
-      );
-    }
-  };
+const updateSLAM2dRefreshFrequency = () => {
+  clear2dRefresh?.();
+  refresh2d();
 
-  const toggle2dExpand = () => {
-    show2d = !show2d;
-    if (!show2d) {
-      refresh2dRate = 'manual';
+  refreshErrorMessage2d = undefined;
+
+  if (refresh2dRate !== 'manual') {
+    clear2dRefresh = setAsyncInterval(
+      refresh2d,
+      Number.parseFloat(refresh2dRate) * 1000
+    );
+  }
+};
+
+const toggle2dExpand = () => {
+  show2d = !show2d;
+  if (!show2d) {
+    refresh2dRate = 'manual';
+    return;
+  }
+  updateSLAM2dRefreshFrequency();
+};
+
+const refresh2dMap = () => {
+  refresh2dRate = 'manual';
+  updateSLAM2dRefreshFrequency();
+};
+
+const handle2dRenderClick = (event: CustomEvent<THREE.Vector3>) => {
+  if (!overrides?.isCloudSlam) {
+    destination = new THREE.Vector2(event.detail.x, event.detail.y);
+  }
+};
+
+const handleUpdateDestX = (event: CustomEvent<{ value: string }>) => {
+  if (!overrides?.isCloudSlam) {
+    destination ??= new THREE.Vector2();
+    destination.x =
+      Number.parseFloat(event.detail.value) * (labelUnits === 'mm' ? 0.001 : 1);
+  }
+};
+
+const handleUpdateDestY = (event: CustomEvent<{ value: string }>) => {
+  if (!overrides?.isCloudSlam) {
+    destination ??= new THREE.Vector2();
+    destination.y =
+      Number.parseFloat(event.detail.value) * (labelUnits === 'mm' ? 0.001 : 1);
+  }
+};
+
+const baseCopyPosition = () => {
+  copyToClipboard(
+    JSON.stringify({
+      x: pose?.x,
+      y: pose?.y,
+      z: pose?.z,
+      ox: 0,
+      oy: 0,
+      oz: 1,
+      th: pose?.theta,
+    })
+  );
+};
+
+const toggleAxes = () => {
+  showAxes = !showAxes;
+};
+
+const handleMoveClick = async () => {
+  try {
+    await moveOnMap(
+      $robotClient,
+      name,
+      bases[0]!.name,
+      destination!.x,
+      destination!.y
+    );
+  } catch (error) {
+    notify.danger((error as ServiceError).message);
+  }
+};
+
+const handleStopMoveClick = async () => {
+  try {
+    await stopMoveOnMap($robotClient, $operations);
+  } catch (error) {
+    notify.danger((error as ServiceError).message);
+  }
+};
+
+const toggleExpand = (event: CustomEvent<{ open: boolean }>) => {
+  const { open } = event.detail;
+
+  if (open) {
+    toggle2dExpand();
+  } else {
+    clear2dRefresh?.();
+  }
+};
+
+const startMappingIntervals = (start: number) => {
+  updateSLAM2dRefreshFrequency();
+  startDurationTimer(start);
+};
+
+const handleStartMapping = async () => {
+  if (overrides) {
+    // if input error do not start mapping
+    if (mapNameError) {
       return;
     }
-    updateSLAM2dRefreshFrequency();
-  };
 
-  const refresh2dMap = () => {
-    refresh2dRate = 'manual';
-    updateSLAM2dRefreshFrequency();
-  };
-
-  const handle2dRenderClick = (event: CustomEvent<THREE.Vector3>) => {
-    if (!overrides?.isCloudSlam) {
-      destination = new THREE.Vector2(event.detail.x, event.detail.y);
+    // error may not be present if user has not yet typed in input
+    const mapName = overrides.mappingDetails.name ?? newMapName;
+    if (!mapName) {
+      mapNameError = 'Please enter a name for this map';
+      return;
     }
-  };
 
-  const handleUpdateDestX = (event: CustomEvent<{ value: string }>) => {
-    if (!overrides?.isCloudSlam) {
-      destination ??= new THREE.Vector2();
-      destination.x =
-        Number.parseFloat(event.detail.value) *
-        (labelUnits === 'mm' ? 0.001 : 1);
-    }
-  };
-
-  const handleUpdateDestY = (event: CustomEvent<{ value: string }>) => {
-    if (!overrides?.isCloudSlam) {
-      destination ??= new THREE.Vector2();
-      destination.y =
-        Number.parseFloat(event.detail.value) *
-        (labelUnits === 'mm' ? 0.001 : 1);
-    }
-  };
-
-  const baseCopyPosition = () => {
-    copyToClipboard(
-      JSON.stringify({
-        x: pose?.x,
-        y: pose?.y,
-        z: pose?.z,
-        ox: 0,
-        oy: 0,
-        oz: 1,
-        th: pose?.theta,
-      })
-    );
-  };
-
-  const toggleAxes = () => {
-    showAxes = !showAxes;
-  };
-
-  const handleMoveClick = async () => {
     try {
-      await moveOnMap(
-        $robotClient,
-        name,
-        bases[0]!.name,
-        destination!.x,
-        destination!.y
-      );
-    } catch (error) {
-      notify.danger((error as ServiceError).message);
-    }
-  };
-
-  const handleStopMoveClick = async () => {
-    try {
-      await stopMoveOnMap($robotClient, $operations);
-    } catch (error) {
-      notify.danger((error as ServiceError).message);
-    }
-  };
-
-  const toggleExpand = (event: CustomEvent<{ open: boolean }>) => {
-    const { open } = event.detail;
-
-    if (open) {
-      toggle2dExpand();
-    } else {
-      clear2dRefresh?.();
-    }
-  };
-
-  const startMappingIntervals = (start: number) => {
-    updateSLAM2dRefreshFrequency();
-    startDurationTimer(start);
-  };
-
-  const handleStartMapping = async () => {
-    if (overrides) {
-      // if input error do not start mapping
-      if (mapNameError) {
-        return;
+      hasActiveSession = true;
+      if (!mappingSessionStarted) {
+        mappingSessionStarted = true;
+        sessionId = await overrides.startMappingSession(mapName);
+        startMappingIntervals(Date.now());
       }
-
-      // error may not be present if user has not yet typed in input
-      const mapName = overrides.mappingDetails.name ?? newMapName;
-      if (!mapName) {
-        mapNameError = 'Please enter a name for this map';
-        return;
-      }
-
-      try {
-        hasActiveSession = true;
-        if (!mappingSessionStarted) {
-          mappingSessionStarted = true;
-          sessionId = await overrides.startMappingSession(mapName)
-          startMappingIntervals(Date.now());
-        }
-      } catch {
-        hasActiveSession = false;
-        mappingSessionStarted = false;
-        sessionDuration = 0;
-        clearInterval(durationInterval);
-      }
-    }
-  };
-
-  const clearRefresh = () => {
-    clear2dRefresh?.();
-  };
-
-  const handleEndMapping = () => {
-    hasActiveSession = false;
-    mappingSessionEnded = true;
-    clearRefresh();
-    clearInterval(durationInterval);
-    overrides?.endMappingSession(sessionId);
-  };
-
-  const formatDisplayTime = (time: number): string => {
-    return time < 10 ? `0${time}` : `${time}`;
-  }
-
-  const formatDuration = (milliseconds: number) => {
-    let seconds = Math.floor(milliseconds / 1000);
-    const hours = Math.floor(seconds / 3600);
-    seconds %= 3600;
-    const minutes = Math.floor(seconds / 60);
-    seconds %= 60;
-
-    return `${formatDisplayTime(hours)}:${formatDisplayTime(
-      minutes
-    )}:${formatDisplayTime(seconds)}`;
-  };
-
-  const handleViewMap = () => {
-    overrides?.viewMap(sessionId);
-  };
-
-  const handleMapNameChange = (event: CustomEvent<{ value: string }>) => {
-    newMapName = event.detail.value;
-    mapNameError = overrides?.validateMapName(newMapName) ?? '';
-  };
-
-  const handleDrop = (event: CustomEvent<string>) => {
-    motionPath = event.detail;
-  };
-
-  onMount(async () => {
-    if (overrides?.isCloudSlam) {
-      const activeSession = await overrides.getActiveMappingSession();
-
-      if (activeSession) {
-        hasActiveSession = true;
-        sessionId = activeSession.id;
-        const startMilliseconds =
-          (activeSession.timeCloudRunJobStarted?.seconds ?? 0) * 1000;
-        startMappingIntervals(startMilliseconds);
-      }
-    }
-  });
-
-  useConnect(() => {
-    updateSLAM2dRefreshFrequency();
-
-    return () => {
-      clearRefresh();
+    } catch {
+      hasActiveSession = false;
+      mappingSessionStarted = false;
+      sessionDuration = 0;
       clearInterval(durationInterval);
     }
-  })
+  }
+};
+
+const clearRefresh = () => {
+  clear2dRefresh?.();
+};
+
+const handleEndMapping = () => {
+  hasActiveSession = false;
+  mappingSessionEnded = true;
+  clearRefresh();
+  clearInterval(durationInterval);
+  overrides?.endMappingSession(sessionId);
+};
+
+const formatDisplayTime = (time: number): string => {
+  return time < 10 ? `0${time}` : `${time}`;
+};
+
+const formatDuration = (milliseconds: number) => {
+  let seconds = Math.floor(milliseconds / 1000);
+  const hours = Math.floor(seconds / 3600);
+  seconds %= 3600;
+  const minutes = Math.floor(seconds / 60);
+  seconds %= 60;
+
+  return `${formatDisplayTime(hours)}:${formatDisplayTime(
+    minutes
+  )}:${formatDisplayTime(seconds)}`;
+};
+
+const handleViewMap = () => {
+  overrides?.viewMap(sessionId);
+};
+
+const handleMapNameChange = (event: CustomEvent<{ value: string }>) => {
+  newMapName = event.detail.value;
+  mapNameError = overrides?.validateMapName(newMapName) ?? '';
+};
+
+const handleDrop = (event: CustomEvent<string>) => {
+  motionPath = event.detail;
+};
+
+onMount(async () => {
+  if (overrides?.isCloudSlam) {
+    const activeSession = await overrides.getActiveMappingSession();
+
+    if (activeSession) {
+      hasActiveSession = true;
+      sessionId = activeSession.id;
+      const startMilliseconds =
+        (activeSession.timeCloudRunJobStarted?.seconds ?? 0) * 1000;
+      startMappingIntervals(startMilliseconds);
+    }
+  }
+});
+
+useConnect(() => {
+  updateSLAM2dRefreshFrequency();
+
+  return () => {
+    clearRefresh();
+    clearInterval(durationInterval);
+  };
+});
 </script>
 
-<Collapse title={name} on:toggle={toggleExpand}>
-  <v-breadcrumbs slot="title" crumbs="slam" />
+<Collapse
+  title={name}
+  on:toggle={toggleExpand}
+>
+  <v-breadcrumbs
+    slot="title"
+    crumbs="slam"
+  />
   <v-button
     slot="header"
     variant="danger"
@@ -347,9 +346,9 @@
     class="flex flex-wrap gap-4 border border-t-0 border-medium sm:flex-nowrap"
   >
     <div class="flex min-w-fit flex-col gap-4 p-4 pr-0">
-      <div class="pb-4 flex flex-col gap-6">
+      <div class="flex flex-col gap-6 pb-4">
         {#if overrides?.isCloudSlam && overrides.mappingDetails}
-          <header class="flex flex-col text-xs justify-between gap-3">
+          <header class="flex flex-col justify-between gap-3 text-xs">
             <div class="flex flex-col">
               <span class="font-bold text-gray-800">Mapping mode</span>
               <span class="capitalize text-subtle-2"
@@ -385,14 +384,14 @@
             {/if}
           </header>
         {/if}
-        <div class="flex items-end gap-2 min-w-fit grow">
+        <div class="flex min-w-fit grow items-end gap-2">
           {#if overrides && overrides.isCloudSlam}
             <div class="flex grow">
               {#if hasActiveSession || mappingSessionEnded}
-                <div class="flex justify-between w-full items-center">
-                  <div class="flex items-center text-xs gap-1">
+                <div class="flex w-full items-center justify-between">
+                  <div class="flex items-center gap-1 text-xs">
                     <div
-                      class="border-success-border bg-success-bg text-success-fg px-2 py-1 rounded-full"
+                      class="rounded-full border-success-border bg-success-bg px-2 py-1 text-success-fg"
                       class:border-medium={mappingSessionEnded}
                       class:bg-3={mappingSessionEnded}
                       class:text-default={mappingSessionEnded}
@@ -404,7 +403,10 @@
                     >
                   </div>
                   {#if hasActiveSession}
-                    <v-button label="End session" on:click={handleEndMapping} />
+                    <v-button
+                      label="End session"
+                      on:click={handleEndMapping}
+                    />
                   {/if}
                   {#if mappingSessionEnded}
                     <v-button
@@ -424,7 +426,7 @@
             </div>
           {:else}
             <div>
-              <div class="flex gap-2 mb-1">
+              <div class="mb-1 flex gap-2">
                 <p class="font-bold text-gray-800">End position</p>
                 <button
                   class="text-xs hover:underline"
@@ -456,7 +458,7 @@
                   on:input={handleUpdateDestY}
                 />
                 <v-button
-                  class="pt-1 fill-white"
+                  class="fill-white pt-1"
                   label="Move"
                   variant="success"
                   icon="play-circle-outline"
@@ -496,7 +498,7 @@
             </select>
             <v-icon
               name="chevron-down"
-              class="pointer-events-none absolute bottom-0 h-[30px] right-0 flex items-center px-2"
+              class="pointer-events-none absolute bottom-0 right-0 flex h-[30px] items-center px-2"
             />
           </div>
           <v-button
@@ -524,7 +526,7 @@
       {#if show2d}
         {#if pointcloudLoaded}
           <div>
-            <div class="flex flex-row pl-5 py-2 border-b border-b-light">
+            <div class="flex flex-row border-b border-b-light py-2 pl-5">
               <div class="flex flex-col gap-0.5">
                 <div class="flex gap-2">
                   <p class="text-xs">Current position</p>
@@ -585,17 +587,17 @@
             </div>
 
             <Dropzone on:drop={handleDrop}>
-              <div class="relative w-full h-[400px]">
+              <div class="relative h-[400px] w-full">
                 <SlamMap2D
                   {pointcloud}
                   {destination}
                   {motionPath}
                   basePose={pose
                     ? {
-                      x: pose.x,
-                      y: pose.y,
-                      theta: pose.theta,
-                    }
+                        x: pose.x,
+                        y: pose.y,
+                        theta: pose.theta,
+                      }
                     : undefined}
                   helpers={showAxes}
                   on:click={handle2dRenderClick}
@@ -605,10 +607,13 @@
           </div>
         {:else if overrides?.isCloudSlam && sessionId}
           <div
-            class="flex flex-col h-full w-full items-center justify-center gap-4"
+            class="flex h-full w-full flex-col items-center justify-center gap-4"
           >
             <div class="animate-[spin_3s_linear_infinite]">
-              <v-icon name="cog" size="4xl" />
+              <v-icon
+                name="cog"
+                size="4xl"
+              />
             </div>
             <div class="flex flex-col items-center text-xs">
               {#if mappingSessionStarted}

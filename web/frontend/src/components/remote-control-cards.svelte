@@ -1,8 +1,11 @@
 <script lang="ts">
-
 import { type Credentials } from '@viamrobotics/rpc';
 import { commonApi } from '@viamrobotics/sdk';
-import { resourceNameToString, filterWithStatus, filterSubtype } from '@/lib/resource';
+import {
+  resourceNameToString,
+  filterWithStatus,
+  filterSubtype,
+} from '@/lib/resource';
 import { useRobotClient } from '@/hooks/robot-client';
 import Arm from './arm/index.svelte';
 import AudioInput from './audio-input/index.svelte';
@@ -26,10 +29,12 @@ import Slam from './slam/index.svelte';
 import Client from '@/lib/components/robot-client.svelte';
 import type { RCOverrides } from '@/types/overrides';
 
-const { resources, components, services, statuses, sensorNames } = useRobotClient();
+const { resources, components, services, statuses, sensorNames } =
+  useRobotClient();
 
 export let host: string;
-export let bakedAuth: { authEntity?: string; creds?: Credentials; } | undefined = {};
+export let bakedAuth: { authEntity?: string; creds?: Credentials } | undefined =
+  {};
 export let supportedAuthTypes: string[] | undefined = [];
 export let webrtcEnabled: boolean;
 export let signalingAddress: string;
@@ -58,17 +63,20 @@ $: filteredInputControllerList = $components.filter((component) => {
   return (
     component.subtype === 'input_controller' &&
     Boolean(component.name) &&
-    remSplit.at(-1) !== 'WebGamepad' && resourceStatusByName(component)
+    remSplit.at(-1) !== 'WebGamepad' &&
+    resourceStatusByName(component)
   );
 });
 
-const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.ResourceName.AsObject) => {
+const getStatus = (
+  statusMap: Record<string, unknown>,
+  resource: commonApi.ResourceName.AsObject
+) => {
   const key = resourceNameToString(resource);
   // todo(mp) Find a way to fix this type error
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
-  return key ? statusMap[key] as any : undefined;
+  return key ? (statusMap[key] as any) : undefined;
 };
-
 </script>
 
 <Client
@@ -79,16 +87,16 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
   {supportedAuthTypes}
 >
   <v-notify
-    slot='connecting'
-    class='p-3'
-    variant='info'
+    slot="connecting"
+    class="p-3"
+    variant="info"
     title={`Connecting via ${webrtcEnabled ? 'WebRTC' : 'gRPC'}...`}
   />
 
   <v-notify
-    slot='reconnecting'
-    variant='danger'
-    title='Connection lost, attempting to reconnect ...'
+    slot="reconnecting"
+    variant="danger"
+    title="Connection lost, attempting to reconnect ..."
   />
 
   <div class="flex flex-col gap-4 p-3">
@@ -99,7 +107,10 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
 
     <!-- ******* SLAM *******  -->
     {#each filterSubtype($services, 'slam') as { name } (name)}
-      <Slam {name} overrides={overrides?.slam} />
+      <Slam
+        {name}
+        overrides={overrides?.slam}
+      />
     {/each}
 
     <!-- ******* ENCODER *******  -->
@@ -120,7 +131,7 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
       <MovementSensor {name} />
     {/each}
 
-     <!-- ******* POWER SENSOR *******  -->
+    <!-- ******* POWER SENSOR *******  -->
     {#each filterSubtype($components, 'power_sensor') as { name } (name)}
       <PowerSensor {name} />
     {/each}
@@ -186,7 +197,8 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
     <!-- ******* SENSOR *******  -->
     {#if Object.keys($sensorNames).length > 0}
       <Sensors
-        name={filterSubtype($resources, 'sensors', { remote: false })[0]?.name ?? ''}
+        name={filterSubtype($resources, 'sensors', { remote: false })[0]
+          ?.name ?? ''}
         sensorNames={$sensorNames}
       />
     {/if}
@@ -198,7 +210,7 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
 
     <!-- ******* DO *******  -->
     {#if filterSubtype($components, 'generic').length > 0}
-      <DoCommand resources={filterSubtype($components, 'generic')} />
+      <DoCommand resources={[...$components, ...$services]} />
     {/if}
 
     <!-- ******* OPERATIONS AND SESSIONS *******  -->
