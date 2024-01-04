@@ -224,15 +224,15 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 
 	batch := nl.toLog[:batchSize]
 	err := nl.remoteWriter.write(batch)
-	if err == nil {
-		// On success remove the batch from the queue.
-		nl.toLog = nl.toLog[batchSize:]
-		return len(nl.toLog) > 0, nil
-	} else {
+	if err != nil {
 		// On error, abort the sync attempt. But keep the logs to sync in the queue. Such that a
 		// follow-up sync call does not miss logs.
 		return false, err
 	}
+
+	// On success remove the batch from the queue.
+	nl.toLog = nl.toLog[batchSize:]
+	return len(nl.toLog) > 0, nil
 }
 
 // Sync will flush the internal buffer of logs.
