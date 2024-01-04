@@ -34,6 +34,9 @@ var (
 // FailedDir is a subdirectory of the capture directory that holds any files that could not be synced.
 const FailedDir = "failed"
 
+// maxParallelSyncRoutines is the maximum number of sync goroutines that can be running at once.
+const maxParallelSyncRoutines = 1000
+
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
 	SyncFile(path string)
@@ -58,6 +61,8 @@ type syncer struct {
 	closed     atomic.Bool
 	logRoutine sync.WaitGroup
 
+	syncRoutineTracker chan struct{}
+
 	captureDir string
 }
 
@@ -68,15 +73,16 @@ type ManagerConstructor func(identity string, client v1.DataSyncServiceClient, l
 func NewManager(identity string, client v1.DataSyncServiceClient, logger logging.Logger, captureDir string) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
-		partID:            identity,
-		client:            client,
-		logger:            logger,
-		cancelCtx:         cancelCtx,
-		cancelFunc:        cancelFunc,
-		arbitraryFileTags: []string{},
-		inProgress:        make(map[string]bool),
-		syncErrs:          make(chan error, 10),
-		captureDir:        captureDir,
+		partID:             identity,
+		client:             client,
+		logger:             logger,
+		cancelCtx:          cancelCtx,
+		cancelFunc:         cancelFunc,
+		arbitraryFileTags:  []string{},
+		inProgress:         make(map[string]bool),
+		syncErrs:           make(chan error, 10),
+		syncRoutineTracker: make(chan struct{}, maxParallelSyncRoutines),
+		captureDir:         captureDir,
 	}
 	ret.logRoutine.Add(1)
 	goutils.PanicCapturingGo(func() {
@@ -102,9 +108,14 @@ func (s *syncer) SetArbitraryFileTags(tags []string) {
 }
 
 func (s *syncer) SyncFile(path string) {
+	// Block if there the maximum number of goroutines has been hit.
+	s.syncRoutineTracker <- struct{}{}
+
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer s.backgroundWorkers.Done()
+		// At the end, decrement the number of sync routines.
+		defer func() { <-s.syncRoutineTracker }()
 		select {
 		case <-s.cancelCtx.Done():
 			return
