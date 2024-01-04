@@ -531,6 +531,7 @@ func CheckPlan(
 		worldState,
 		nil, // no pb.Constraints
 		nil, // no plannOpts
+		logger,
 	); err != nil {
 		return err
 	}
@@ -584,6 +585,7 @@ func CheckPlan(
 			} else {
 				poseInPath = spatialmath.Compose(poseInPath, errorState)
 			}
+			logger.Debugf("poseInPath: %v", spatialmath.PoseToProtobuf(poseInPath))
 
 			modifiedState := &ik.State{Frame: sf, Position: poseInPath}
 

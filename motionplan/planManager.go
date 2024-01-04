@@ -157,7 +157,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 			by := float64(i) / float64(numSteps)
 			to := spatialmath.Interpolate(seedPos, goalPos, by)
 			goals = append(goals, to)
-			opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, constraintSpec, motionConfig)
+			opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, constraintSpec, motionConfig, pm.logger)
 			if err != nil {
 				return nil, err
 			}
@@ -169,7 +169,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 		seedPos = from
 	}
 	goals = append(goals, goalPos)
-	opt, err := pm.plannerSetupFromMoveRequest(seedPos, goalPos, seedMap, worldState, constraintSpec, motionConfig)
+	opt, err := pm.plannerSetupFromMoveRequest(seedPos, goalPos, seedMap, worldState, constraintSpec, motionConfig, pm.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -504,6 +504,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	worldState *referenceframe.WorldState,
 	constraints *pb.Constraints,
 	planningOpts map[string]interface{},
+	logger logging.Logger,
 ) (*plannerOptions, error) {
 	planAlg := ""
 
@@ -521,6 +522,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		worldState,
 		seedMap,
 		constraints.GetCollisionSpecification(),
+		logger,
 	)
 	if err != nil {
 		return nil, err
@@ -643,7 +645,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			// time to run the first planning attempt before falling back
 			try1["timeout"] = defaultFallbackTimeout
 			try1["planning_alg"] = "rrtstar"
-			try1Opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, constraints, try1)
+			try1Opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, constraints, try1, logger)
 			if err != nil {
 				return nil, err
 			}
