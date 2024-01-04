@@ -75,6 +75,14 @@ func (c *Codec) AllocContext3() *Context {
 	return (*Context)(C.avcodec_alloc_context3((*C.struct_AVCodec)(c)))
 }
 
+// FreeContext Free the codec context and everything associated with it and write NULL to
+// the provided pointer.
+func (ctxt *Context) FreeContext() {
+	pCtxt := (*C.struct_AVCodecContext)(ctxt)
+	//nolint:gocritic // suppresses "dupSubExpr: suspicious identical LHS and RHS for `==` operator"
+	C.avcodec_free_context(&pCtxt)
+}
+
 // SetEncodeParams sets the context's width, height, pixel format (pxlFmt), if it has b-frames and GOP size.
 func (ctxt *Context) SetEncodeParams(width, height int, pxlFmt PixelFormat, hasBFrames bool, gopSize int) {
 	ctxt.width = C.int(width)
@@ -289,6 +297,7 @@ func EncoderIsAvailable(enc string) bool {
 	if context == nil {
 		return false
 	}
+	defer context.FreeContext()
 
 	// Only need positive values
 	context.SetEncodeParams(1, 1, AvPixFmtYuv420p, false, 1)
