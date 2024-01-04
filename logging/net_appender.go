@@ -33,21 +33,6 @@ type CloudConfig struct {
 // NewNetAppender creates a NetAppender to send log events to the app backend. NetAppenders ought to
 // be `Close`d prior to shutdown to flush remaining logs.
 func NewNetAppender(config *CloudConfig) (*NetAppender, error) {
-	ret, err := newNetAppenderWithoutWorker(config)
-	if err != nil {
-		return nil, err
-	}
-
-	ret.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(ret.backgroundWorker, ret.activeBackgroundWorkers.Done)
-	return ret, nil
-}
-
-// newNetAppenderWithoutWorker creates a new NetAppender, but does not spawn a background worker
-// that flushes to logs over the network. This is for use in testing that calls into `Sync` and
-// `Close` concurrently with the background worker. Where tests expect logs to arrive in a certain
-// order.
-func newNetAppenderWithoutWorker(config *CloudConfig) (*NetAppender, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
@@ -66,6 +51,9 @@ func newNetAppenderWithoutWorker(config *CloudConfig) (*NetAppender, error) {
 		maxQueueSize:     defaultMaxQueueSize,
 		loggerWithoutNet: NewLogger("netlogger"),
 	}
+
+	nl.activeBackgroundWorkers.Add(1)
+	utils.ManagedGo(nl.backgroundWorker, nl.activeBackgroundWorkers.Done)
 	return nl, nil
 }
 
