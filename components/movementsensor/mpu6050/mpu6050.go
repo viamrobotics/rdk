@@ -198,14 +198,6 @@ func makeMpu6050(
 	return sensor, nil
 }
 
-func (mpu *mpu6050) readByte(ctx context.Context, register byte) (byte, error) {
-	result, err := mpu.readBlock(ctx, register, 1)
-	if err != nil {
-		return 0, err
-	}
-	return result[0], err
-}
-
 func (mpu *mpu6050) readBlock(ctx context.Context, register byte, length uint8) ([]byte, error) {
 	handle, err := mpu.bus.OpenHandle(mpu.i2cAddress)
 	if err != nil {
