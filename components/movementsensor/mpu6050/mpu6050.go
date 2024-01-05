@@ -22,7 +22,6 @@ package mpu6050
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -88,11 +87,6 @@ type mpu6050 struct {
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 	logger                  logging.Logger
-}
-
-func addressReadError(err error, address byte, bus string) error {
-	msg := fmt.Sprintf("can't read from I2C address %d on bus %s", address, bus)
-	return errors.Wrap(err, msg)
 }
 
 // NewMpu6050 constructs a new Mpu6050 object.
