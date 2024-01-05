@@ -39,9 +39,9 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 			},
 		}
 		i2cHandle := &inject.I2CHandle{}
-		readErr := errors.New("read error")
-		i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
-			return []byte{}, nil
+		writeError := errors.New("write error")
+		i2cHandle.WriteByteDataFunc = func(ctx context.Context, register, data byte) error {
+			return writeError
 		}
 		i2cHandle.CloseFunc = func() error { return nil }
 		i2c := &inject.I2C{}
@@ -52,7 +52,8 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 		deps := resource.Dependencies{}
 		sensor, err := makeMpu6050(context.Background(), deps, cfg, logger, i2c)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, addressReadError(readErr, defaultAddress, i2cName))
+		test.That(t, err, test.ShouldBeError,
+			errors.Errorf("Unable to wake up MPU6050: '%s'", writeError))
 		test.That(t, sensor, test.ShouldBeNil)
 	})
 }
