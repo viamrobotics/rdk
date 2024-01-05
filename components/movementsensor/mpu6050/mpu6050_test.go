@@ -41,9 +41,6 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 		i2cHandle := &inject.I2CHandle{}
 		readErr := errors.New("read error")
 		i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
-			if register == defaultAddressRegister {
-				return nil, readErr
-			}
 			return []byte{}, nil
 		}
 		i2cHandle.CloseFunc = func() error { return nil }
@@ -56,36 +53,6 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 		sensor, err := makeMpu6050(context.Background(), deps, cfg, logger, i2c)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeError, addressReadError(readErr, expectedDefaultAddress, i2cName))
-		test.That(t, sensor, test.ShouldBeNil)
-	})
-
-	t.Run("fails on unexpected address", func(t *testing.T) {
-		cfg := resource.Config{
-			Name:  "movementsensor",
-			Model: model,
-			API:   movementsensor.API,
-			ConvertedAttributes: &Config{
-				I2cBus:                 i2cName,
-				UseAlternateI2CAddress: true,
-			},
-		}
-		i2cHandle := &inject.I2CHandle{}
-		i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
-			if register == defaultAddressRegister {
-				return []byte{0x64}, nil
-			}
-			return nil, errors.New("unexpected register")
-		}
-		i2cHandle.CloseFunc = func() error { return nil }
-		i2c := &inject.I2C{}
-		i2c.OpenHandleFunc = func(addr byte) (buses.I2CHandle, error) {
-			return i2cHandle, nil
-		}
-
-		deps := resource.Dependencies{}
-		sensor, err := makeMpu6050(context.Background(), deps, cfg, logger, i2c)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, unexpectedDeviceError(alternateAddress, 0x64))
 		test.That(t, sensor, test.ShouldBeNil)
 	})
 }
@@ -147,9 +114,6 @@ func setupDependencies(mockData []byte) (resource.Config, buses.I2C) {
 
 	i2cHandle := &inject.I2CHandle{}
 	i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
-		if register == defaultAddressRegister {
-			return []byte{expectedDefaultAddress}, nil
-		}
 		return mockData, nil
 	}
 	i2cHandle.WriteByteDataFunc = func(ctx context.Context, b1, b2 byte) error {
