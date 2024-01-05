@@ -1,4 +1,4 @@
-//go:build cgo && linux && !android
+//go:build cgo && (linux && !android || darwin,arm64)
 
 // Package avlog is libav's logging facilities
 // See https://ffmpeg.org/doxygen/3.0/log_8h.html
@@ -8,6 +8,7 @@ package avlog
 //#cgo linux,arm64 LDFLAGS: -L${SRCDIR}/../Linux-aarch64/lib -lavformat -lavcodec -lavutil -lm
 //#cgo linux,amd64 LDFLAGS: -L${SRCDIR}/../Linux-x86_64/lib -lavformat -lavcodec -lavutil -lm
 //#cgo linux,arm LDFLAGS: -L${SRCDIR}/../Linux-armv7l/lib -lavformat -lavcodec -lavutil -lm
+//#cgo darwin,arm64 LDFLAGS: -L${SRCDIR}/../Darwin-arm64/lib -lavformat -lavcodec -lavutil -lm
 //#include <libavutil/log.h>
 import "C"
 
