@@ -25,9 +25,7 @@ func main() {
 	confPtr := flag.String("conf", "", "path of configuration for extrinsic parameter finding")
 	flag.Parse()
 	logger := logging.NewLogger("extrinsic_calibration")
-	calibrate(*confPtr, logger, func(prob *optimize.Problem, logger logging.Logger) (spatialmath.Pose, error) {
-		return transform.RunPinholeExtrinsicCalibration(prob, logger, false)
-	})
+	calibrate(*confPtr, logger, transform.RunPinholeExtrinsicCalibration)
 	os.Exit(0)
 }
 

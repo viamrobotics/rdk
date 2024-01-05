@@ -38,7 +38,7 @@ func TestExtrinsicCalibration(t *testing.T) {
 	// create the optimization problem
 	prob, err := BuildExtrinsicOptProblem(extConf)
 	test.That(t, err, test.ShouldBeNil)
-	pose, err := RunPinholeExtrinsicCalibration(prob, logger, true)
+	pose, err := RunPinholeExtrinsicCalibration(prob, logger)
 	test.That(t, err, test.ShouldBeNil)
 	translation := pose.Point()
 	rotation := pose.Orientation()
