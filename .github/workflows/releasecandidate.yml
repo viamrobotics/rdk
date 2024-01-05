@@ -48,3 +48,22 @@ jobs:
     needs: test
     secrets:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  slack-workflow-status:
+    if: ${{ failure() }}
+    name: Post Workflow Status To Slack
+    needs:
+      - test
+      - appimage
+      - staticbuild
+    runs-on: ubuntu-latest
+    permissions:
+      actions: 'read'
+    steps:
+      - name: Slack Workflow Notification
+        uses: Gamesight/slack-workflow-status@master
+        with:
+          repo_token: ${{secrets.GITHUB_TOKEN}}
+          slack_webhook_url: ${{secrets.SLACK_WEBHOOK_URL}}
+          channel: '#team-devops'
+          name: 'Workflow Status'
