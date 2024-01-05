@@ -29,7 +29,7 @@ type ExtrinsicCalibrationConfig struct {
 // RunPinholeExtrinsicCalibration will solve the optimization problem to find the rigid pose
 // (translation and rotation) that changes the reference frame from the
 // point of view of the depth camera to the point of the view of the color camera.
-func RunPinholeExtrinsicCalibration(prob *optimize.Problem, logger logging.Logger) (spatialmath.Pose, error) {
+func RunPinholeExtrinsicCalibration(prob *optimize.Problem, logger logging.Logger, deterministic bool) (spatialmath.Pose, error) {
 	// optimization method
 	method := &optimize.GradientDescent{
 		StepSizer:         &optimize.FirstOrderStepSize{},
@@ -46,8 +46,15 @@ func RunPinholeExtrinsicCalibration(prob *optimize.Problem, logger logging.Logge
 	}
 	// initial value for rotation euler angles(3) and translation(3)
 	params := make([]float64, 6)
+	var randFloat func() float64
+	if deterministic {
+		source := rand.New(rand.NewSource(0))
+		randFloat = source.Float64
+	} else {
+		randFloat = rand.Float64
+	}
 	for i := range params {
-		params[i] = (rand.Float64() - 0.5) / 10. //nolint:gosec // initial values for parameters
+		params[i] = (randFloat() - 0.5) / 10. //nolint:gosec // initial values for parameters
 	}
 	// do the minimization
 	res, err := optimize.Minimize(*prob, params, settings, method)
