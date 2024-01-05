@@ -42,15 +42,14 @@ func Testing() bool {
 type randWrapper struct{}
 
 func (randWrapper) Float64() float64 {
-	return rand.Float64()
+	return rand.Float64() //nolint:gosec
 }
 
 // SafeTestingRand returns a wrapper around the shared math/rand source in prod,
 // and a deterministic rand.Rand seeded with 0 in test.
 func SafeTestingRand() Rand {
 	if Testing() {
-		return rand.New(rand.NewSource(0))
-	} else {
-		return randWrapper{}
+		return rand.New(rand.NewSource(0)) //nolint:gosec
 	}
+	return randWrapper{}
 }
