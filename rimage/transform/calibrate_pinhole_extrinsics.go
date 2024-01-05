@@ -48,13 +48,13 @@ func RunPinholeExtrinsicCalibration(prob *optimize.Problem, logger logging.Logge
 	params := make([]float64, 6)
 	var randFloat func() float64
 	if deterministic {
-		source := rand.New(rand.NewSource(0))
+		source := rand.New(rand.NewSource(0)) //nolint:gosec
 		randFloat = source.Float64
 	} else {
 		randFloat = rand.Float64
 	}
 	for i := range params {
-		params[i] = (randFloat() - 0.5) / 10. //nolint:gosec // initial values for parameters
+		params[i] = (randFloat() - 0.5) / 10.
 	}
 	// do the minimization
 	res, err := optimize.Minimize(*prob, params, settings, method)
