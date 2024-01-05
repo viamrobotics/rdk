@@ -1,4 +1,4 @@
-//go:build cgo && (linux && !android || darwin,arm64)
+//go:build cgo && ((linux && !android) || (darwin && arm64))
 
 // Package avutil is a wrapper around FFmpeg/release6.1.
 // See: https://github.com/FFmpeg/FFmpeg/tree/release/6.1

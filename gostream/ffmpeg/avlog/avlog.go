@@ -1,4 +1,4 @@
-//go:build cgo && (linux && !android || darwin,arm64)
+//go:build cgo && ((linux && !android) || (darwin && arm64))
 
 // Package avlog is libav's logging facilities
 // See https://ffmpeg.org/doxygen/3.0/log_8h.html
