@@ -42,9 +42,8 @@ import (
 var model = resource.DefaultModelFamily.WithModel("gyro-mpu6050")
 
 const (
-	defaultAddressRegister = 117
-	expectedDefaultAddress = 0x68
-	alternateAddress       = 0x69
+	defaultAddress   = 0x68
+	alternateAddress = 0x69
 )
 
 // Config is used to configure the attributes of the chip.
@@ -96,11 +95,6 @@ func addressReadError(err error, address byte, bus string) error {
 	return errors.Wrap(err, msg)
 }
 
-func unexpectedDeviceError(address, defaultAddress byte) error {
-	return errors.Errorf("unexpected non-MPU6050 device at address %d: response '%d'",
-		address, defaultAddress)
-}
-
 // NewMpu6050 constructs a new Mpu6050 object.
 func NewMpu6050(
 	ctx context.Context,
@@ -137,7 +131,7 @@ func makeMpu6050(
 	if newConf.UseAlternateI2CAddress {
 		address = alternateAddress
 	} else {
-		address = expectedDefaultAddress
+		address = defaultAddress
 	}
 	logger.CDebugf(ctx, "Using address %d for MPU6050 sensor", address)
 
@@ -152,16 +146,6 @@ func makeMpu6050(
 		// On overloaded boards, the I2C bus can become flaky. Only report errors if at least 5 of
 		// the last 10 attempts to talk to the device have failed.
 		err: movementsensor.NewLastError(10, 5),
-	}
-
-	// To check that we're able to talk to the chip, we should be able to read register 117 and get
-	// back the device's non-alternative address (0x68)
-	defaultAddress, err := sensor.readByte(ctx, defaultAddressRegister)
-	if err != nil {
-		return nil, addressReadError(err, address, newConf.I2cBus)
-	}
-	if defaultAddress != expectedDefaultAddress {
-		return nil, unexpectedDeviceError(address, defaultAddress)
 	}
 
 	// The chip starts out in standby mode (the Sleep bit in the power management register defaults
