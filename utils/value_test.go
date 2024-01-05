@@ -2,6 +2,7 @@ package utils
 
 import (
 	"math/rand"
+	"os/exec"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -40,6 +41,10 @@ func TestFilterMap(t *testing.T) {
 
 func TestTesting(t *testing.T) {
 	test.That(t, Testing(), test.ShouldBeTrue)
+	cmd := exec.Command("go", "run", "./test_detector")
+	cmd.Start()
+	cmd.Wait()
+	test.That(t, cmd.ProcessState.ExitCode(), test.ShouldEqual, 0)
 }
 
 func TestSafeRand(t *testing.T) {
