@@ -164,7 +164,7 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 func (l *Loop) OutputAt(ctx context.Context, name string) ([]*Signal, error) {
 	blk, ok := l.blocks[name]
 	if !ok {
-		return []*Signal{}, errors.Errorf("cannot return Signals for non existing block %s", name)
+		return []*Signal{}, errors.Errorf("cannot return Signals for nonexistent %s", name)
 	}
 	return blk.blk.Output(ctx), nil
 }
@@ -173,13 +173,13 @@ func (l *Loop) OutputAt(ctx context.Context, name string) ([]*Signal, error) {
 func (l *Loop) ConfigAt(ctx context.Context, name string) (BlockConfig, error) {
 	blk, ok := l.blocks[name]
 	if !ok {
-		return BlockConfig{}, errors.Errorf("cannot return Config for non existing block %s", name)
+		return BlockConfig{}, errors.Errorf("cannot return Config for nonexistent %s", name)
 	}
 	return blk.blk.Config(ctx), nil
 }
 
-// ConfigAtType returns the Config(s) at the block type, error when the block doesn't exist.
-func (l *Loop) ConfigAtType(ctx context.Context, bType string) ([]BlockConfig, error) {
+// ConfigsAtType returns the Config(s) at the block type, error when the block doesn't exist.
+func (l *Loop) ConfigsAtType(ctx context.Context, bType string) ([]BlockConfig, error) {
 	var blocks []BlockConfig
 	for _, b := range l.blocks {
 		if b.blockType == controlBlockType(bType) {
@@ -189,14 +189,14 @@ func (l *Loop) ConfigAtType(ctx context.Context, bType string) ([]BlockConfig, e
 	if len(blocks) > 0 {
 		return blocks, nil
 	}
-	return []BlockConfig{}, errors.Errorf("cannot return Configs for non existing block type %s", bType)
+	return []BlockConfig{}, errors.Errorf("cannot return Configs for nonexistent type %s", bType)
 }
 
 // SetConfigAt returns the Configl at the block name, error when the block doesn't exist.
 func (l *Loop) SetConfigAt(ctx context.Context, name string, config BlockConfig) error {
 	blk, ok := l.blocks[name]
 	if !ok {
-		return errors.Errorf("cannot return Config for non existing block %s", name)
+		return errors.Errorf("cannot return Config for nonexistent %s", name)
 	}
 	return blk.blk.UpdateConfig(ctx, config)
 }

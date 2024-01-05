@@ -4,8 +4,16 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
+
 	"go.viam.com/rdk/control"
 	rdkutils "go.viam.com/rdk/utils"
+)
+
+const (
+	blockNameEndpoint    = "endpoint"
+	blockNameConstant    = "constant"
+	blockNameTrapezoidal = "trapz"
 )
 
 // TODO: RSDK-5610 test the scaling factor with a non-pi board with hardware pwm.
@@ -29,7 +37,7 @@ func (m *EncodedMotor) State(ctx context.Context) ([]float64, error) {
 func (m *EncodedMotor) updateControlBlock(ctx context.Context, setPoint, maxVel float64) error {
 	// Update the Trapezoidal Velocity Profile block with the given maxVel for velocity control
 	velConf := control.BlockConfig{
-		Name: m.blockNames["trapz"],
+		Name: m.blockNames[blockNameTrapezoidal],
 		Type: "trapezoidalVelocityProfile",
 		Attribute: rdkutils.AttributeMap{
 			"max_vel":    maxVel,
@@ -37,24 +45,36 @@ func (m *EncodedMotor) updateControlBlock(ctx context.Context, setPoint, maxVel 
 			"pos_window": 0.0,
 			"kpp_gain":   0.45,
 		},
-		DependsOn: []string{m.blockNames["constant"], m.blockNames["endpoint"]},
+		DependsOn: []string{m.blockNames[blockNameConstant], m.blockNames[blockNameEndpoint]},
 	}
-	if err := m.loop.SetConfigAt(ctx, m.blockNames["trapz"], velConf); err != nil {
+	if err := m.loop.SetConfigAt(ctx, m.blockNames[blockNameTrapezoidal], velConf); err != nil {
 		return err
 	}
 
 	// Update the Constant block with the given setPoint for position control
 	posConf := control.BlockConfig{
-		Name: m.blockNames["constant"],
+		Name: m.blockNames[blockNameConstant],
 		Type: "constant",
 		Attribute: rdkutils.AttributeMap{
 			"constant_val": setPoint,
 		},
 		DependsOn: []string{},
 	}
-	if err := m.loop.SetConfigAt(ctx, m.blockNames["constant"], posConf); err != nil {
+	if err := m.loop.SetConfigAt(ctx, m.blockNames[blockNameConstant], posConf); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (m *EncodedMotor) storeBlockOfType(ctx context.Context, bType, bName string) error {
+	blocks, err := m.loop.ConfigsAtType(ctx, bType)
+	if err != nil {
+		return err
+	}
+	if len(blocks) != 1 {
+		return errMissingBlock(bType)
+	}
+	m.blockNames[bName] = blocks[0].Name
 	return nil
 }
 
@@ -63,40 +83,11 @@ func (m *EncodedMotor) validateControlConfig(ctx context.Context) error {
 	m.blockNames = make(map[string]string)
 
 	// These three blocks are the only block names that are used by EncodedMotor
-	// verify constant block exits and store its name
-	constBlocks, err := m.loop.ConfigAtType(ctx, "constant")
-	m.logger.CDebugf(ctx, "const blocks = %v", constBlocks)
-	if err != nil {
-		return err
-	}
-	if len(constBlocks) != 1 {
-		return errMissingBlock("constant")
-	}
-	m.blockNames["constant"] = constBlocks[0].Name
-
-	// verify trapz block exists and store its name
-	trapzBlocks, err := m.loop.ConfigAtType(ctx, "trapezoidalVelocityProfile")
-	m.logger.CDebugf(ctx, "trapz blocks = %v", trapzBlocks)
-	if err != nil {
-		return err
-	}
-	if len(trapzBlocks) != 1 {
-		return errMissingBlock("trapezoidalVelocityProfile")
-	}
-	m.blockNames["trapz"] = trapzBlocks[0].Name
-
-	// verify endpoint block exists and store its name
-	endBlocks, err := m.loop.ConfigAtType(ctx, "endpoint")
-	m.logger.CDebugf(ctx, "endpoint blocks = %v", endBlocks)
-	if err != nil {
-		return err
-	}
-	if len(endBlocks) != 1 {
-		return errMissingBlock("endpoint")
-	}
-	m.blockNames["endpoing"] = endBlocks[0].Name
-
-	return nil
+	return multierr.Combine(
+		m.storeBlockOfType(ctx, "constant", blockNameConstant),
+		m.storeBlockOfType(ctx, "trapezoidalVelocityProfile", blockNameTrapezoidal),
+		m.storeBlockOfType(ctx, "endpoint", blockNameEndpoint),
+	)
 }
 
 // Control Loop Configuration is embedded in this file so a user does not have to configure the loop

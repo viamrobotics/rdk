@@ -12,7 +12,7 @@ type Signal struct {
 	mu        sync.Mutex
 }
 
-func makeSignal(name string, blockType string) *Signal {
+func makeSignal(name, blockType string) *Signal {
 	var s Signal
 	dimension := 1
 	s.dimension = dimension

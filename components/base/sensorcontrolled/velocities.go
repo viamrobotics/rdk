@@ -14,21 +14,17 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var (
-	errConstantBlocks = errors.New(
-		"two constant blocks are required -- one must contain 'lin' in the name, and the other must contain 'ang'")
-	errSumBlock  = errors.New("this control loop requires only one sum block")
-	errPIDBlocks = errors.New(
-		"two PID blocks are required -- one must contain 'lin' in the name, and the other must contain 'ang'")
-	errEndpointBlock = errors.New("this control loop requires only one endpoint block")
-)
+var errConstantBlocks = errors.New(
+	"two constant blocks are required -- one must contain 'lin' in the name, and the other must contain 'ang'")
 
 // TODO: RSDK-5355 useControlLoop bool should be removed after testing.
 const (
 	useControlLoop = false
 	// rPiGain is 1/255 because the PWM signal on a pi (and most other boards)
 	// is limited to 8 bits, or the range 0-255.
-	rPiGain = 0.00392157
+	rPiGain                  = 0.00392157
+	blockNameLinearConstant  = "linear_constant"
+	blockNameAngularConstant = "angular_constant"
 )
 
 // setupControlLoops uses the embedded config in this file to initialize a control
@@ -55,27 +51,27 @@ func (sb *sensorBase) updateControlConfig(
 ) error {
 	// set linear setpoint config
 	linConf := control.BlockConfig{
-		Name: sb.blockNames["linear_constant"],
+		Name: sb.blockNames[blockNameLinearConstant],
 		Type: "constant",
 		Attribute: rdkutils.AttributeMap{
 			"constant_val": linearValue,
 		},
 		DependsOn: []string{},
 	}
-	if err := sb.loop.SetConfigAt(ctx, sb.blockNames["linear_constant"], linConf); err != nil {
+	if err := sb.loop.SetConfigAt(ctx, sb.blockNames[blockNameLinearConstant], linConf); err != nil {
 		return err
 	}
 
 	// set angular setpoint config
 	angConf := control.BlockConfig{
-		Name: sb.blockNames["angular_constant"],
+		Name: sb.blockNames[blockNameAngularConstant],
 		Type: "constant",
 		Attribute: rdkutils.AttributeMap{
 			"constant_val": angularValue,
 		},
 		DependsOn: []string{},
 	}
-	if err := sb.loop.SetConfigAt(ctx, sb.blockNames["angular_constant"], angConf); err != nil {
+	if err := sb.loop.SetConfigAt(ctx, sb.blockNames[blockNameAngularConstant], angConf); err != nil {
 		return err
 	}
 
@@ -226,23 +222,24 @@ func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
 	return []float64{linvel.Y, angvel.Z}, nil
 }
 
-func (sb *sensorBase) validateControlLoopConfig(ctx context.Context, controlLoopConfig control.Config) error {
+func (sb *sensorBase) validateControlLoopConfig(ctx context.Context) error {
 	sb.blockNames = make(map[string]string)
 	hasLinConst, hasAngConst := false, false
 
 	// Verify linear and angular constant blocks exist and store their names.
 	// These two blocks are the only block names that are used by sensorBase
-	constBlocks, err := sb.loop.ConfigAtType(ctx, "constant")
-	sb.logger.CDebugf(ctx, "const blocks = %v", constBlocks)
+	constBlocks, err := sb.loop.ConfigsAtType(ctx, "constant")
+	sb.logger.Debugf("const blocks = %v", constBlocks)
 	if err != nil {
 		return err
 	}
+
 	for _, b := range constBlocks {
 		if strings.Contains(b.Name, "lin") {
-			sb.blockNames["linear_constant"] = b.Name
+			sb.blockNames[blockNameLinearConstant] = b.Name
 			hasLinConst = true
 		} else if strings.Contains(b.Name, "ang") {
-			sb.blockNames["angular_constant"] = b.Name
+			sb.blockNames[blockNameAngularConstant] = b.Name
 			hasAngConst = true
 		}
 	}
