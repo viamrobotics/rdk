@@ -52,7 +52,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 		deps := resource.Dependencies{}
 		sensor, err := makeMpu6050(context.Background(), deps, cfg, logger, i2c)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, addressReadError(readErr, expectedDefaultAddress, i2cName))
+		test.That(t, err, test.ShouldBeError, addressReadError(readErr, defaultAddress, i2cName))
 		test.That(t, sensor, test.ShouldBeNil)
 	})
 }
@@ -72,7 +72,7 @@ func TestSuccessfulInitializationAndClose(t *testing.T) {
 	}
 	i2cHandle := &inject.I2CHandle{}
 	i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
-		return []byte{expectedDefaultAddress}, nil
+		return []byte{defaultAddress}, nil
 	}
 	// the only write operations that the sensor implementation performs is
 	// the command to put it into either measurement mode or sleep mode,
