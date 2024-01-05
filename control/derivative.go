@@ -126,7 +126,7 @@ func (d *derivative) reset() error {
 	d.y = make([]*Signal, len(d.cfg.DependsOn))
 	for i := range d.px {
 		d.px[i] = make([]float64, len(d.stencil.Coeffs))
-		d.y[i] = makeSignal(d.cfg.Name, string(d.cfg.Type))
+		d.y[i] = makeSignal(d.cfg.Name, d.cfg.Type)
 	}
 	return nil
 }

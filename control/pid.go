@@ -160,7 +160,7 @@ func (p *basicPID) reset() error {
 		p.tuning = true
 	}
 	p.y = make([]*Signal, 1)
-	p.y[0] = makeSignal(p.cfg.Name, string(p.cfg.Type))
+	p.y[0] = makeSignal(p.cfg.Name, p.cfg.Type)
 	return nil
 }
 

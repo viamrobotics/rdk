@@ -8,11 +8,11 @@ type Signal struct {
 	time      []int
 	dimension int
 	name      string
-	blockType string
+	blockType controlBlockType
 	mu        sync.Mutex
 }
 
-func makeSignal(name, blockType string) *Signal {
+func makeSignal(name string, blockType controlBlockType) *Signal {
 	var s Signal
 	dimension := 1
 	s.dimension = dimension

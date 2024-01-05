@@ -45,7 +45,7 @@ func (f *filterStruct) initFilter() error {
 		return errors.Errorf("filter %s config should have a type field", f.cfg.Name)
 	}
 	f.y = make([]*Signal, 1)
-	f.y[0] = makeSignal(f.cfg.Name, string(f.cfg.Type))
+	f.y[0] = makeSignal(f.cfg.Name, f.cfg.Type)
 	fType := f.cfg.Attribute["type"].(string)
 	switch filterType(fType) {
 	case filterFIRMovingAverage:

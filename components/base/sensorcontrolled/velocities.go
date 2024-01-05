@@ -228,11 +228,8 @@ func (sb *sensorBase) validateControlLoopConfig(ctx context.Context) error {
 
 	// Verify linear and angular constant blocks exist and store their names.
 	// These two blocks are the only block names that are used by sensorBase
-	constBlocks, err := sb.loop.ConfigsAtType(ctx, "constant")
+	constBlocks := sb.loop.ConfigsAtType(ctx, "constant")
 	sb.logger.Debugf("const blocks = %v", constBlocks)
-	if err != nil {
-		return err
-	}
 
 	for _, b := range constBlocks {
 		if strings.Contains(b.Name, "lin") {

@@ -62,15 +62,15 @@ func (e *endpoint) reset() error {
 	if motorOk {
 		e.logger.Info("making a signal of length 1")
 		e.y = make([]*Signal, 1)
-		e.y[0] = makeSignal(e.cfg.Name, string(e.cfg.Type))
+		e.y[0] = makeSignal(e.cfg.Name, e.cfg.Type)
 	}
 
 	_, baseOk := e.cfg.Attribute["base_name"]
 	if baseOk {
 		e.logger.Info("making a signal of length 2")
 		e.y = make([]*Signal, 2)
-		e.y[0] = makeSignal(e.cfg.Name, string(e.cfg.Type))
-		e.y[1] = makeSignal(e.cfg.Name, string(e.cfg.Type))
+		e.y[0] = makeSignal(e.cfg.Name, e.cfg.Type)
+		e.y[1] = makeSignal(e.cfg.Name, e.cfg.Type)
 	}
 
 	if !motorOk && !baseOk {

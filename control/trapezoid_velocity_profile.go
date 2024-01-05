@@ -48,11 +48,12 @@ func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []*Signal, dt t
 	var pos float64
 	var setPoint float64
 	if len(x) == 2 {
+		//nolint: exhaustive
 		for _, sig := range x {
 			switch sig.blockType {
-			case "constant":
+			case blockConstant:
 				setPoint = sig.GetSignalValueAt(0)
-			case "endpoint":
+			case blockEndpoint:
 				pos = sig.GetSignalValueAt(0)
 			default:
 				return s.y, false
@@ -126,7 +127,7 @@ func (s *trapezoidVelocityGenerator) reset() error {
 
 	s.currentPhase = rest
 	s.y = make([]*Signal, 1)
-	s.y[0] = makeSignal(s.cfg.Name, string(s.cfg.Type))
+	s.y[0] = makeSignal(s.cfg.Name, s.cfg.Type)
 	return nil
 }
 

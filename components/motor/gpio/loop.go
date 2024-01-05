@@ -17,6 +17,7 @@ const (
 )
 
 // TODO: RSDK-5610 test the scaling factor with a non-pi board with hardware pwm.
+
 func errMissingBlock(blockType string) error {
 	return errors.Errorf("one block of type %s is required", blockType)
 }
@@ -67,10 +68,7 @@ func (m *EncodedMotor) updateControlBlock(ctx context.Context, setPoint, maxVel 
 }
 
 func (m *EncodedMotor) storeBlockOfType(ctx context.Context, bType, bName string) error {
-	blocks, err := m.loop.ConfigsAtType(ctx, bType)
-	if err != nil {
-		return err
-	}
+	blocks := m.loop.ConfigsAtType(ctx, bType)
 	if len(blocks) != 1 {
 		return errMissingBlock(bType)
 	}

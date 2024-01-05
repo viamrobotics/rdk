@@ -85,14 +85,16 @@ func TestTrapezoidVelocityProfileGenerator(t *testing.T) {
 
 	ins := []*Signal{
 		{
-			name:   "set_point",
-			time:   []int{},
-			signal: []float64{targetPos},
+			name:      "set_point",
+			blockType: blockConstant,
+			time:      []int{},
+			signal:    []float64{targetPos},
 		},
 		{
-			name:   "endpoint",
-			time:   []int{},
-			signal: []float64{0.0},
+			name:      "endpoint",
+			blockType: blockEndpoint,
+			time:      []int{},
+			signal:    []float64{0.0},
 		},
 	}
 
