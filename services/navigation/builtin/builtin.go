@@ -843,3 +843,13 @@ func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]
 	}
 	return []*navigation.Path{path}, nil
 }
+
+func (svc *builtIn) Properties(ctx context.Context) (navigation.Properties, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+
+	prop := navigation.Properties{
+		MapType: svc.mapType,
+	}
+	return prop, nil
+}

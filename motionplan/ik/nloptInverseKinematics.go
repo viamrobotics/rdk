@@ -303,6 +303,11 @@ func (ik *NloptIK) Frame() referenceframe.Frame {
 	return ik.model
 }
 
+// DoF returns the DoF of the associated referenceframe.
+func (ik *NloptIK) DoF() []referenceframe.Limit {
+	return ik.model.DoF()
+}
+
 // updateBounds will set the allowable maximum/minimum joint angles to disincentivise large swings before small swings
 // have been tried.
 func (ik *NloptIK) updateBounds(seed []referenceframe.Input, tries int, opt *nlopt.NLopt) error {

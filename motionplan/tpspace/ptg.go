@@ -9,7 +9,11 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-const floatEpsilon = 0.0001 // If floats are closer than this consider them equal
+const (
+	floatEpsilon      = 0.0001 // If floats are closer than this consider them equal
+	defaultPTGSeedAdj = 0.2
+)
+
 var flipPose = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
 
 // PTGSolver wraps a PTG with the ability to perform Inverse Kinematics.
@@ -17,9 +21,6 @@ type PTGSolver interface {
 	// Solve will return the (alpha, dist) TP-space coordinates whose corresponding relative pose minimizes the given function
 	ik.InverseKinematics
 	PTG
-
-	// MaxDistance returns the maximum distance that a single trajectory may travel
-	MaxDistance() float64
 
 	// Returns the set of trajectory nodes along the given trajectory, out to the requested distance
 	Trajectory(alpha, dist float64) ([]*TrajNode, error)
@@ -168,4 +169,22 @@ func computeInvertedPTG(simPTG PTG, alpha, dist, diffT float64) ([]*TrajNode, er
 // travelled is the distance field of the ending configuration.
 func PTGSegmentMetric(segment *ik.Segment) float64 {
 	return segment.EndConfiguration[distanceAlongTrajectoryIndex].Value
+}
+
+// PTGIKSeed will generate a consistent set of valid, in-bounds inputs to be used with a PTGSolver as a seed for gradient descent.
+func PTGIKSeed(ptg PTGSolver) []referenceframe.Input {
+	inputs := []referenceframe.Input{}
+	ptgDof := ptg.DoF()
+
+	// Set the seed to be used for nlopt solving based on the individual DoF range of the PTG.
+	// If the DoF only allows short PTGs, seed near the end of its length, otherwise seed near the beginning.
+	for i := 0; i < len(ptgDof); i++ {
+		boundRange := ptgDof[i].Max - ptgDof[i].Min
+		minAdj := boundRange * defaultPTGSeedAdj
+		inputs = append(inputs,
+			referenceframe.Input{ptgDof[i].Min + minAdj},
+		)
+	}
+
+	return inputs
 }

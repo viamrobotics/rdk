@@ -25,7 +25,7 @@ jobs:
           platform: linux/amd64
           image: rdk-devenv
           file: etc/Dockerfile.cache
-        - arch: buildjet-2vcpu-ubuntu-2204-arm
+        - arch: buildjet-4vcpu-ubuntu-2204-arm
           tag: arm64
           platform: linux/arm64
           image: rdk-devenv

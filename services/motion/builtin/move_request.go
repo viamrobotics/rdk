@@ -721,8 +721,6 @@ func (ms *builtIn) newMoveOnMapRequest(
 	if err != nil {
 		return nil, err
 	}
-	mr.seedPlan = seedPlan
-	mr.replanCostFactor = valExtra.replanCostFactor
 	mr.requestType = requestTypeMoveOnMap
 	return mr, nil
 }

@@ -317,13 +317,11 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			return
 		}
 
-		rseed := mp.randseed.Int31()
-		rseed2 := mp.randseed.Int31()
 		utils.PanicCapturingGo(func() {
-			m1chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.startMap, false, rseed)
+			m1chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.startMap, false)
 		})
 		utils.PanicCapturingGo(func() {
-			m2chan <- mp.attemptExtension(ctx, flipNode(randPosNode), rrt.maps.goalMap, true, rseed2)
+			m2chan <- mp.attemptExtension(ctx, flipNode(randPosNode), rrt.maps.goalMap, true)
 		})
 		seedReached := <-m1chan
 		goalReached := <-m2chan
@@ -343,7 +341,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			})
 			if reachedDelta > mp.planOpts.GoalThreshold {
 				// If both maps extended, but did not reach the same point, then attempt to extend them towards each other
-				seedReached = mp.attemptExtension(ctx, flipNode(goalReached.node), rrt.maps.startMap, false, mp.randseed.Int31())
+				seedReached = mp.attemptExtension(ctx, flipNode(goalReached.node), rrt.maps.startMap, false)
 				if seedReached.error != nil {
 					rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
 					return
@@ -354,7 +352,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 						EndPosition:   flipNode(goalReached.node).Pose(),
 					})
 					if reachedDelta > mp.planOpts.GoalThreshold {
-						goalReached = mp.attemptExtension(ctx, flipNode(seedReached.node), rrt.maps.goalMap, true, mp.randseed.Int31())
+						goalReached = mp.attemptExtension(ctx, flipNode(seedReached.node), rrt.maps.goalMap, true)
 						if goalReached.error != nil {
 							rrt.solutionChan <- &rrtPlanReturn{planerr: goalReached.error, maps: rrt.maps}
 							return
@@ -402,7 +400,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				}
 				attempts++
 
-				seedReached := mp.attemptExtension(ctx, flipNode(goalMapNode), rrt.maps.startMap, false, mp.randseed.Int31())
+				seedReached := mp.attemptExtension(ctx, flipNode(goalMapNode), rrt.maps.startMap, false)
 				if seedReached.error != nil {
 					rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
 					return
@@ -454,7 +452,6 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	curPtg tpspace.PTGSolver,
 	rrt rrtMap,
 	nearest node,
-	rseed int,
 ) (*candidate, error) {
 	nm := &neighborManager{nCPU: mp.planOpts.NumThreads / len(mp.tpFrame.PTGSolvers())}
 	nm.parallelNeighbors = 10
@@ -478,8 +475,15 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	var targetFunc ik.StateMetric
 	relPose := spatialmath.PoseBetween(nearest.Pose(), randPosNode.Pose())
 	targetFunc = mp.algOpts.goalMetricConstructor(relPose)
+	seedDist := relPose.Point().Norm()
+	seed := tpspace.PTGIKSeed(curPtg)
+	dof := curPtg.DoF()
+	if seedDist < dof[1].Max {
+		seed[1].Value = seedDist
+	}
+
 	solutionChan := make(chan *ik.Solution, 1)
-	err := curPtg.Solve(context.Background(), solutionChan, nil, targetFunc, rseed)
+	err := curPtg.Solve(context.Background(), solutionChan, seed, targetFunc, 0)
 
 	var bestNode *ik.Solution
 	select {
@@ -606,7 +610,6 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 	goalNode node,
 	rrt rrtMap,
 	isGoalTree bool,
-	rseed int32,
 ) *nodeAndError {
 	var reseedCandidate *candidate
 	var seedNode node
@@ -631,7 +634,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 			activeSolvers.Add(1)
 			utils.PanicCapturingGo(func() {
 				defer activeSolvers.Done()
-				cand, err := mp.getExtensionCandidate(ctx, goalNode, ptgNumPar, curPtgPar, rrt, seedNode, int(rseed))
+				cand, err := mp.getExtensionCandidate(ctx, goalNode, ptgNumPar, curPtgPar, rrt, seedNode)
 				if err != nil && !errors.Is(err, errNoNeighbors) && !errors.Is(err, errInvalidCandidate) {
 					candChan <- nil
 					return
@@ -806,9 +809,6 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 // distances can be computed in TP space using the given PTG.
 func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGSolver) *plannerOptions {
 	opts := newBasicPlannerOptions(mp.frame)
-	//nolint: gosec
-	randSeed := rand.New(rand.NewSource(mp.randseed.Int63()))
-
 	segMetric := func(seg *ik.Segment) float64 {
 		// When running NearestNeighbor:
 		// StartPosition is the seed/query
@@ -818,9 +818,15 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 		}
 		var targetFunc ik.StateMetric
 		relPose := spatialmath.PoseBetween(seg.EndPosition, seg.StartPosition)
+		seedDist := relPose.Point().Norm()
 		targetFunc = mp.algOpts.goalMetricConstructor(relPose)
+		seed := tpspace.PTGIKSeed(ptg)
+		dof := ptg.DoF()
+		if seedDist < dof[1].Max {
+			seed[1].Value = seedDist
+		}
 		solutionChan := make(chan *ik.Solution, 1)
-		err := ptg.Solve(context.Background(), solutionChan, nil, targetFunc, randSeed.Int())
+		err := ptg.Solve(context.Background(), solutionChan, seed, targetFunc, 0)
 		var closeNode *ik.Solution
 		select {
 		case closeNode = <-solutionChan:
@@ -943,7 +949,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 		parentPose = parent.Pose()
 	}
 	// TODO: everything below this point can become an invocation of `smoother.planRunner`
-	reached := smoother.attemptExtension(ctx, path[secondEdge], startMap, false, mp.randseed.Int31()+mp.randseed.Int31())
+	reached := smoother.attemptExtension(ctx, path[secondEdge], startMap, false)
 	if reached.error != nil || reached.node == nil {
 		return nil, errors.New("could not extend to smoothing destination")
 	}
