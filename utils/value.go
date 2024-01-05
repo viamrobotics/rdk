@@ -34,7 +34,7 @@ type Rand interface {
 
 // Testing returns true when you are running in test suite.
 func Testing() bool {
-	// TODO use official Testing method when available https://github.com/golang/go/issues/52600
+	// TODO switch to official testing.Testing method when we are on go 1.21
 	return flag.Lookup("test.v") != nil
 }
 
