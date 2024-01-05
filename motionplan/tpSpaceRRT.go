@@ -696,22 +696,31 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 	var addedNode *basicNode
 	// If we found any valid nodes that we can extend to, find the very best one and add that to the tree
 	bestDist := math.Inf(1)
+	bestCost := math.Inf(1)
 	var bestCand *candidate
 	for _, cand := range candidates {
-		if cand.dist < bestDist {
-			bestCand = cand
-			bestDist = cand.dist
-		} else if cand.dist == bestDist {
-			// Need a tiebreaker for determinism
-			if cand.newNodes[0].Q()[0].Value < bestCand.newNodes[0].Q()[0].Value {
+		if cand.dist <= bestDist || cand.dist < mp.planOpts.GoalThreshold {
+			update := false
+			candCost := 0.
+			for _, candNode := range cand.newNodes {
+				candCost += candNode.Cost()
+			}
+			if bestDist > mp.planOpts.GoalThreshold {
+				update = true
+			} else {
+				if candCost < bestCost {
+					update = true
+				}
+			}
+			if update {
 				bestCand = cand
 				bestDist = cand.dist
+				bestCost = candCost
 			}
 		}
 	}
 	treeNode := bestCand.treeNode // The node already in the tree to which we are parenting
 	newNodes := bestCand.newNodes // The node we are adding because it was the best extending PTG
-
 	for _, newNode := range newNodes {
 		ptgNum := int(newNode.Q()[0].Value)
 		randAlpha := newNode.Q()[1].Value
