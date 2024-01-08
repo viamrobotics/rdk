@@ -27,7 +27,7 @@ const (
 // is included at the end of this file.
 func (sb *sensorBase) setupControlLoops() error {
 	// create control loop
-	loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
+	loop, err := control.NewLoop(sb.logger, sb.controlLoopConfig, sb)
 	if err != nil {
 		return err
 	}
@@ -96,14 +96,9 @@ func (sb *sensorBase) SetVelocity(
 				sb.logger.Error(err)
 			}
 		}
-		loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
-		if err != nil {
+		if err := sb.setupControlLoops(); err != nil {
 			return err
 		}
-		if err := loop.Start(); err != nil {
-			return err
-		}
-		sb.loop = loop
 
 		// convert linear.Y mmPerSec to mPerSec, angular.Z is degPerSec
 		if err := sb.updateControlConfig(ctx, linear.Y/1000.0, angular.Z); err != nil {
@@ -215,95 +210,97 @@ func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
 	return []float64{linvel.Y, angvel.Z}, nil
 }
 
-// Control Loop Configuration is embedded in this file so a user does not have to
-// configure the loop from within the attributes of the config file.
+// createControlLoopConfig created a control loop config that is embedded in this file so a user
+// does not have to configure the loop from within the attributes of the config file.
 // it sets up a loop that takes a constant -> sum -> PID -> gain -> Endpoint -> feedback to sum
 // structure. The gain is 0.0039 (1/255) to account for the PID range, the PID values are experimental
 // this structure can change as hardware experiments with the viam base require.
-var controlLoopConfig = control.Config{
-	Blocks: []control.BlockConfig{
-		{
-			Name: "endpoint",
-			Type: "endpoint",
-			Attribute: rdkutils.AttributeMap{
-				"base_name": "feedback",
+func (sb *sensorBase) createControlLoopConfig() control.Config {
+	return control.Config{
+		Blocks: []control.BlockConfig{
+			{
+				Name: "endpoint",
+				Type: "endpoint",
+				Attribute: rdkutils.AttributeMap{
+					"base_name": sb.Name().ShortName(),
+				},
+				DependsOn: []string{"linear_gain", "angular_gain"},
 			},
-			DependsOn: []string{"linear_gain", "angular_gain"},
-		},
-		{
-			Name: "linear_PID",
-			Type: "PID",
-			Attribute: rdkutils.AttributeMap{
-				"kD":             0.0,
-				"kI":             520.763911,
-				"kP":             291.489819,
-				"int_sat_lim_lo": -255.0,
-				"int_sat_lim_up": 255.0,
-				"limit_lo":       -255.0,
-				"limit_up":       255.0,
-				"tune_method":    "ziegerNicholsPI",
-				"tune_ssr_value": 2.0,
-				"tune_step_pct":  0.35,
+			{
+				Name: "linear_PID",
+				Type: "PID",
+				Attribute: rdkutils.AttributeMap{
+					"kD":             0.0,
+					"kI":             520.763911,
+					"kP":             291.489819,
+					"int_sat_lim_lo": -255.0,
+					"int_sat_lim_up": 255.0,
+					"limit_lo":       -255.0,
+					"limit_up":       255.0,
+					"tune_method":    "ziegerNicholsPI",
+					"tune_ssr_value": 2.0,
+					"tune_step_pct":  0.35,
+				},
+				DependsOn: []string{"sum"},
 			},
-			DependsOn: []string{"sum"},
-		},
-		{
-			Name: "angular_PID",
-			Type: "PID",
-			Attribute: rdkutils.AttributeMap{
-				"kD":             0.0,
-				"kI":             0.904513,
-				"kP":             0.677894,
-				"int_sat_lim_lo": -255.0,
-				"int_sat_lim_up": 255.0,
-				"limit_lo":       -255.0,
-				"limit_up":       255.0,
-				"tune_method":    "ziegerNicholsPI",
-				"tune_ssr_value": 2.0,
-				"tune_step_pct":  0.35,
+			{
+				Name: "angular_PID",
+				Type: "PID",
+				Attribute: rdkutils.AttributeMap{
+					"kD":             0.0,
+					"kI":             0.904513,
+					"kP":             0.677894,
+					"int_sat_lim_lo": -255.0,
+					"int_sat_lim_up": 255.0,
+					"limit_lo":       -255.0,
+					"limit_up":       255.0,
+					"tune_method":    "ziegerNicholsPI",
+					"tune_ssr_value": 2.0,
+					"tune_step_pct":  0.35,
+				},
+				DependsOn: []string{"sum"},
 			},
-			DependsOn: []string{"sum"},
-		},
-		{
-			Name: "sum",
-			Type: "sum",
-			Attribute: rdkutils.AttributeMap{
-				"sum_string": "++-",
+			{
+				Name: "sum",
+				Type: "sum",
+				Attribute: rdkutils.AttributeMap{
+					"sum_string": "++-",
+				},
+				DependsOn: []string{"linear_setpoint", "angular_setpoint", "endpoint"},
 			},
-			DependsOn: []string{"linear_setpoint", "angular_setpoint", "endpoint"},
-		},
-		{
-			Name: "linear_gain",
-			Type: "gain",
-			Attribute: rdkutils.AttributeMap{
-				"gain": rPiGain,
+			{
+				Name: "linear_gain",
+				Type: "gain",
+				Attribute: rdkutils.AttributeMap{
+					"gain": rPiGain,
+				},
+				DependsOn: []string{"linear_PID"},
 			},
-			DependsOn: []string{"linear_PID"},
-		},
-		{
-			Name: "angular_gain",
-			Type: "gain",
-			Attribute: rdkutils.AttributeMap{
-				"gain": rPiGain,
+			{
+				Name: "angular_gain",
+				Type: "gain",
+				Attribute: rdkutils.AttributeMap{
+					"gain": rPiGain,
+				},
+				DependsOn: []string{"angular_PID"},
 			},
-			DependsOn: []string{"angular_PID"},
-		},
-		{
-			Name: "linear_setpoint",
-			Type: "constant",
-			Attribute: rdkutils.AttributeMap{
-				"constant_val": 0.0,
+			{
+				Name: "linear_setpoint",
+				Type: "constant",
+				Attribute: rdkutils.AttributeMap{
+					"constant_val": 0.0,
+				},
+				DependsOn: []string{},
 			},
-			DependsOn: []string{},
-		},
-		{
-			Name: "angular_setpoint",
-			Type: "constant",
-			Attribute: rdkutils.AttributeMap{
-				"constant_val": 0.0,
+			{
+				Name: "angular_setpoint",
+				Type: "constant",
+				Attribute: rdkutils.AttributeMap{
+					"constant_val": 0.0,
+				},
+				DependsOn: []string{},
 			},
-			DependsOn: []string{},
 		},
-	},
-	Frequency: 100,
+		Frequency: 100,
+	}
 }
