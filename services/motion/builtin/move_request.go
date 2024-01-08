@@ -234,6 +234,10 @@ func (mr *moveRequest) getTransientDetections(
 		visSrvc.Name().ShortName(),
 		camName.ShortName(),
 	)
+	// Any obstacles specified by the worldstate of the moveRequest will also re-detected here.
+	// There is no need to append the new detections to the existing worldstate.
+	// We can safely build from scratch without excluding any valuable information.
+
 	// get detections from vision service
 	detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
 	if err != nil {
@@ -241,7 +245,8 @@ func (mr *moveRequest) getTransientDetections(
 	}
 	mr.logger.CDebugf(ctx, "got %d detections", len(detections))
 
-	// THIS NEEDS TO BE ALIGNED WITH THE CAMERA FRAME !!!!!!!! THIS NEEDS TO BE HANDLED
+	// Here we make the assumption that the localizer's current position is shared with the observing camera
+	// TODO: ENSURE THIS ASSUMPTION HOLDS
 	currentPositionInWorld, err := mr.fsService.TransformPose(ctx, localizerCurrentPosition, "world", nil)
 	if err != nil {
 		currentPositionInWorld = localizerCurrentPosition
@@ -253,19 +258,17 @@ func (mr *moveRequest) getTransientDetections(
 	cameraToWorld, err := mr.fsService.TransformPose(ctx, cameraOrigin, "world", nil)
 	if err != nil {
 		// here we make the assumption the camera is coincident with the world
-		mr.logger.CDebugf(
-			ctx,
-			"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
-			mr.kinematicBase.Name().ShortName(), camName.ShortName(), err.Error(),
+		mr.logger.CDebugf(ctx,
+			"we assume the world is coincident with the camera named: %s due to err: %v",
+			camName.ShortName(), err.Error(),
 		)
 		cameraToWorld = cameraOrigin
 	}
-	mr.logger.CDebugf(ctx, "cameraToWorld: %v", spatialmath.PoseToProtobuf(cameraToWorld.Pose()))
+	mr.logger.CDebugf(ctx, "cameraToWorld transform: %v", spatialmath.PoseToProtobuf(cameraToWorld.Pose()))
 
-	// Any obstacles specified by the worldstate of the moveRequest will also re-detected here.
-	// There is no need to append the new detections to the existing worldstate.
-	// We can safely build from scratch without excluding any valuable information.
+	// detections in the world frame
 	absoluteGeoms := []spatialmath.Geometry{}
+	// detection in the base frame
 	relativeGeoms := []spatialmath.Geometry{}
 	for i, detection := range detections {
 		geometry := detection.Geometry
@@ -287,20 +290,38 @@ func (mr *moveRequest) getTransientDetections(
 			i, spatialmath.PoseToProtobuf(geometry.Pose()),
 		)
 
-		// here is where we want the relative???
-		relativeGeom := geometry.Transform(spatialmath.PoseInverse(motion.SLAMOrientationAdjustment))
-		mr.logger.CDebugf(ctx, "relativeGeom Pose: %v",
-			spatialmath.PoseToProtobuf(relativeGeom.Pose()),
+		relativeGeom := geometry
+		switch mr.requestType {
+		// transform the geometry to be relative to the base frame which is Y forwards
+		case requestTypeMoveOnMap:
+			relativeGeom = geometry.Transform(spatialmath.PoseInverse(motion.SLAMOrientationAdjustment))
+
+		case requestTypeMoveOnGlobe:
+			cameraToBase, err := mr.fsService.TransformPose(ctx, cameraOrigin, mr.kinematicBase.Name().ShortName(), nil)
+			if err != nil {
+				// here we make the assumption the camera is coincident with the world
+				mr.logger.CDebugf(ctx,
+					"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
+					mr.kinematicBase.Name().ShortName(), camName.ShortName(), err.Error(),
+				)
+				cameraToBase = cameraOrigin
+			}
+			relativeGeom = geometry.Transform(cameraToBase.Pose())
+
+		case requestTypeUnspecified:
+			fallthrough
+		default:
+			return nil, nil, fmt.Errorf("invalid moveRequest.requestType: %d", mr.requestType)
+		}
+		mr.logger.CDebugf(ctx, "detection %d as observed from the camera in the base frame coordinate system has pose: %v",
+			i, spatialmath.PoseToProtobuf(relativeGeom.Pose()),
 		)
 		relativeGeoms = append(relativeGeoms, relativeGeom)
 
-		desiredPoint := geometry.Pose().Point().Add(currentPositionInWorld.Pose().Point())
-
 		desiredPose := spatialmath.NewPose(
-			desiredPoint,
+			geometry.Pose().Point().Add(currentPositionInWorld.Pose().Point()),
 			geometry.Pose().Orientation(),
 		)
-
 		transformBy := spatialmath.PoseBetweenInverse(geometry.Pose(), desiredPose)
 
 		// put the detection into its position in the world with the base coordinate frame
