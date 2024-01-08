@@ -216,7 +216,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	// get start and goal poses
 	var startPose spatialmath.Pose
 	var goalPose spatialmath.Pose
-	var startNode node
 	var goalNode node
 
 	goalScore := math.Inf(1)
@@ -224,7 +223,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		if v == nil {
 			if k.Pose() != nil {
 				startPose = k.Pose()
-				startNode = k
 			} else {
 				rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("node %v must provide a Pose", k)}
 				return
@@ -286,14 +284,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				}
 			}
 		}
-	}
-
-	// check if we start at the goal
-	if mp.planOpts.DistanceFunc(
-		&ik.Segment{StartPosition: startNode.Pose(), EndPosition: goalNode.Pose()},
-	) < mp.planOpts.GoalThreshold {
-		publishFinishedPath([]node{startNode, goalNode})
-		return
 	}
 
 	m1chan := make(chan *nodeAndError, 1)
