@@ -164,7 +164,7 @@
           event.speed * event.direction
         );
       } catch (error) {
-        if (error != 'context canceled') {
+        if (error !== 'context canceled') {
         displayError(error as ServiceError);
         }
       }
