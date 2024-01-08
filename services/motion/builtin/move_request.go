@@ -343,6 +343,110 @@ func (mr *moveRequest) getTransientDetections(
 	return absoluteGIFs, relativeGIFs, nil
 }
 
+func (mr *moveRequest) other(
+	ctx context.Context,
+	visSrvc vision.Service,
+	camName resource.Name,
+	localizerCurrentPosition *referenceframe.PoseInFrame,
+) ([]*referenceframe.GeometriesInFrame, []*referenceframe.GeometriesInFrame, error) {
+	mr.logger.Debugf(
+		"proceeding to get detections from vision service: %s with camera: %s",
+		visSrvc.Name().ShortName(),
+		camName.ShortName(),
+	)
+	// get detections from vision service
+	detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	mr.logger.Debugf("got %d detections", len(detections))
+
+	// THIS NEEDS TO BE ALIGNED WITH THE CAMERA FRAME !!!!!!!! THIS NEEDS TO BE HANDLED
+	mr.logger.Debugf("localizerCurrentPosition: %v", spatialmath.PoseToProtobuf(localizerCurrentPosition.Pose()))
+
+	currentPositionInWorld, err := mr.fsService.TransformPose(ctx, localizerCurrentPosition, "world", nil)
+	if err != nil {
+		mr.logger.Debug("WE ASSUME THERE IS NO TRANSFORM TO CONVERT LOCALIZER CP INTO WORLD")
+		currentPositionInWorld = localizerCurrentPosition
+	}
+	mr.logger.Debugf("currentPositionInWorld: %v", spatialmath.PoseToProtobuf(currentPositionInWorld.Pose()))
+
+	// determine transform of camera to world
+	cameraOrigin := referenceframe.NewPoseInFrame(camName.ShortName(), spatialmath.NewZeroPose())
+	cameraToWorld, err := mr.fsService.TransformPose(ctx, cameraOrigin, "world", nil)
+	if err != nil {
+		// here we make the assumption the camera is coincident with the world
+		mr.logger.Debugf(
+			"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
+			mr.kinematicBase.Name().ShortName(), camName.ShortName(), err.Error(),
+		)
+		cameraToWorld = cameraOrigin
+	}
+	mr.logger.Debugf("cameraToWorld: %v", spatialmath.PoseToProtobuf(cameraToWorld.Pose()))
+
+	// Any obstacles specified by the worldstate of the moveRequest will also re-detected here.
+	// There is no need to append the new detections to the existing worldstate.
+	// We can safely build from scratch without excluding any valuable information.
+	absoluteGeoms := []spatialmath.Geometry{}
+	relativeGeoms := []spatialmath.Geometry{}
+	for i, detection := range detections {
+		geometry := detection.Geometry
+		// if more than 1.5 meters away lets not concern ourselves with avoiding this detection
+		if geometry.Pose().Point().Norm() > 1500 {
+			continue
+		}
+		label := camName.Name + "_transientObstacle_" + strconv.Itoa(i)
+		if geometry.Label() != "" {
+			label += "_" + geometry.Label()
+		}
+		geometry.SetLabel(label)
+		mr.logger.Debugf("geometry.String(): %v", geometry.String())
+		mr.logger.Debugf(
+			"detection %d as observed from the camera frame coordinate system: %s - %v",
+			i, camName.ShortName(), spatialmath.PoseToProtobuf(geometry.Pose()),
+		)
+
+		geometry = geometry.Transform(cameraToWorld.Pose())
+		mr.logger.Debugf(
+			"detection %d as observed from the camera in the world frame coordinate system has pose: %v",
+			i, spatialmath.PoseToProtobuf(geometry.Pose()),
+		)
+
+		// here is where we want the relative???
+		relativeGeom := geometry.Transform(spatialmath.PoseInverse(motion.SLAMOrientationAdjustment))
+		mr.logger.Debugf(
+			"relativeGeom Pose: %v",
+			spatialmath.PoseToProtobuf(relativeGeom.Pose()),
+		)
+		relativeGeoms = append(relativeGeoms, relativeGeom)
+
+		desiredPoint := geometry.Pose().Point().Add(currentPositionInWorld.Pose().Point())
+		mr.logger.Debugf("desiredPoint: %v", desiredPoint)
+
+		desiredPose := spatialmath.NewPose(
+			desiredPoint,
+			geometry.Pose().Orientation(),
+		)
+		mr.logger.Debugf("desiredPose: %v", spatialmath.PoseToProtobuf(desiredPose))
+
+		transformBy := spatialmath.PoseBetweenInverse(geometry.Pose(), desiredPose)
+
+		// put the detection into its position in the world with the base coordinate frame
+		geometry = geometry.Transform(transformBy)
+		mr.logger.Debugf(
+			"detection %d observed from world frame has pose: %v",
+			i, spatialmath.PoseToProtobuf(geometry.Pose()),
+		)
+
+		absoluteGeoms = append(absoluteGeoms, geometry)
+	}
+
+	absoluteGIFs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, absoluteGeoms)}
+	relativeGIFs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, relativeGeoms)}
+
+	return absoluteGIFs, relativeGIFs, nil
+}
+
 func (mr *moveRequest) obstaclesIntersectPlan(
 	ctx context.Context,
 	waypoints state.Waypoints,
