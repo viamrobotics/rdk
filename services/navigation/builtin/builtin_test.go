@@ -3,6 +3,7 @@ package builtin
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 	"testing"
@@ -1775,6 +1776,118 @@ func TestProperties(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, prop.MapType, test.ShouldEqual, svc.mapType)
 	})
+}
+
+func TestSanity(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// create injected/fake components and services
+	fakeBase, err := baseFake.NewBase(
+		ctx,
+		nil,
+		resource.Config{
+			Name:  "test_base",
+			API:   base.API,
+			Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
+		},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	injectMS := inject.NewMotionService("test_motion")
+	injectedVis := inject.NewVisionService("test_vision")
+	injectMovementSensor := inject.NewMovementSensor("test_movement")
+	injectedCam := inject.NewCamera("test_camera")
+
+	// set the dependencies for the navigation service
+	deps := resource.Dependencies{
+		fakeBase.Name():             fakeBase,
+		injectMovementSensor.Name(): injectMovementSensor,
+		injectedCam.Name():          injectedCam,
+	}
+
+	// construct the navigation service
+	ns, err := NewBuiltIn(
+		ctx,
+		resource.Dependencies{
+			injectMS.Name():             injectMS,
+			fakeBase.Name():             fakeBase,
+			injectMovementSensor.Name(): injectMovementSensor,
+			injectedVis.Name():          injectedVis,
+			injectedCam.Name():          injectedCam,
+		},
+		resource.Config{
+			ConvertedAttributes: &Config{
+				Store: navigation.StoreConfig{
+					Type: navigation.StoreTypeMemory,
+				},
+				BaseName:           "test_base",
+				MovementSensorName: "test_movement",
+				MotionServiceName:  "test_motion",
+				DegPerSec:          1,
+				MetersPerSec:       1,
+				MapType:            "",
+				ObstacleDetectors: []*ObstacleDetectorNameConfig{
+					{VisionServiceName: injectedVis.Name().Name, CameraName: injectedCam.Name().Name},
+				},
+			},
+		},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, ns.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	// create links for framesystem
+	baseLink := createBaseLink(t)
+	movementSensorLink := referenceframe.NewLinkInFrame(
+		baseLink.Name(),
+		spatialmath.NewPose(r3.Vector{-5, 7, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1}),
+		"test_movement",
+		nil,
+	)
+	cameraGeom, err := spatialmath.NewBox(
+		spatialmath.NewZeroPose(),
+		r3.Vector{1, 1, 1}, "camera",
+	)
+	test.That(t, err, test.ShouldBeNil)
+	cameraLink := referenceframe.NewLinkInFrame(
+		baseLink.Name(),
+		spatialmath.NewPose(r3.Vector{0, 0, 0}, &spatialmath.OrientationVectorDegrees{OX: 1, Theta: 270}),
+		"test_camera",
+		cameraGeom,
+	)
+
+	// construct the framesystem
+	fsParts := []*referenceframe.FrameSystemPart{
+		{FrameConfig: movementSensorLink},
+		{FrameConfig: baseLink},
+		{FrameConfig: cameraLink},
+	}
+	fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// set the framesystem service for the navigation service
+	ns.(*builtIn).fsService = fsSvc
+
+	detecetion, _ := spatialmath.NewBox(
+		spatialmath.NewPoseFromPoint(r3.Vector{-10, -52, 550}),
+		r3.Vector{20, 20, 10}, "det",
+	)
+
+	cameraOrigin := referenceframe.NewPoseInFrame("test_camera", spatialmath.NewZeroPose())
+	cameraToWorld, err := fsSvc.TransformPose(ctx, cameraOrigin, "world", nil)
+	if err != nil {
+		// here we make the assumption the camera is coincident with the world
+		cameraToWorld = cameraOrigin
+	}
+	fmt.Println("cameraToWorld: ", spatialmath.PoseToProtobuf(cameraToWorld.Pose()))
+	new := detecetion.Transform(cameraToWorld.Pose())
+	fmt.Println("new: ", spatialmath.PoseToProtobuf(new.Pose()))
+	new = new.Transform(spatialmath.PoseInverse(motion.SLAMOrientationAdjustment))
+	fmt.Println("new: ", spatialmath.PoseToProtobuf(new.Pose()))
 }
 
 func createBaseLink(t *testing.T) *referenceframe.LinkInFrame {

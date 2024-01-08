@@ -266,6 +266,17 @@ func (mr *moveRequest) getTransientDetections(
 	}
 	mr.logger.CDebugf(ctx, "cameraToWorld transform: %v", spatialmath.PoseToProtobuf(cameraToWorld.Pose()))
 
+	// determine transform of camera to base
+	cameraToBase, err := mr.fsService.TransformPose(ctx, cameraOrigin, mr.kinematicBase.Name().ShortName(), nil)
+	if err != nil {
+		// here we make the assumption the camera is coincident with the world
+		mr.logger.CDebugf(ctx,
+			"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
+			mr.kinematicBase.Name().ShortName(), camName.ShortName(), err.Error(),
+		)
+		cameraToBase = cameraOrigin
+	}
+
 	// detections in the world frame
 	absoluteGeoms := []spatialmath.Geometry{}
 	// detection in the base frame
@@ -276,6 +287,7 @@ func (mr *moveRequest) getTransientDetections(
 		if geometry.Pose().Point().Norm() > 1500 {
 			continue
 		}
+
 		label := camName.Name + "_transientObstacle_" + strconv.Itoa(i)
 		if geometry.Label() != "" {
 			label += "_" + geometry.Label()
@@ -285,29 +297,16 @@ func (mr *moveRequest) getTransientDetections(
 			i, camName.ShortName(), geometry.String(),
 		)
 
-		geometry = geometry.Transform(cameraToWorld.Pose())
-		mr.logger.CDebugf(ctx, "detection %d as observed from the camera in the world frame coordinate system has pose: %v",
-			i, spatialmath.PoseToProtobuf(geometry.Pose()),
-		)
-
+		// transform the geometry to be relative to the base frame which is Y forwards
 		relativeGeom := geometry
 		switch mr.requestType {
-		// transform the geometry to be relative to the base frame which is Y forwards
 		case requestTypeMoveOnMap:
-			relativeGeom = geometry.Transform(spatialmath.PoseInverse(motion.SLAMOrientationAdjustment))
-
-		case requestTypeMoveOnGlobe:
-			cameraToBase, err := mr.fsService.TransformPose(ctx, cameraOrigin, mr.kinematicBase.Name().ShortName(), nil)
-			if err != nil {
-				// here we make the assumption the camera is coincident with the world
-				mr.logger.CDebugf(ctx,
-					"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
-					mr.kinematicBase.Name().ShortName(), camName.ShortName(), err.Error(),
-				)
-				cameraToBase = cameraOrigin
-			}
+			// TODO: ADD COMMENTS AND MAKE SURE THIS MAKES SENSE
 			relativeGeom = geometry.Transform(cameraToBase.Pose())
-
+			relativeGeom = relativeGeom.Transform(spatialmath.PoseInverse(motion.SLAMOrientationAdjustment))
+		case requestTypeMoveOnGlobe:
+			// TODO: ADD COMMENTS AND MAKE SURE THIS MAKES SENSE
+			relativeGeom = geometry.Transform(cameraToBase.Pose())
 		case requestTypeUnspecified:
 			fallthrough
 		default:
@@ -318,13 +317,18 @@ func (mr *moveRequest) getTransientDetections(
 		)
 		relativeGeoms = append(relativeGeoms, relativeGeom)
 
+		// transform the geometry into the world frame from the camera's position
+		geometry = geometry.Transform(cameraToWorld.Pose())
+		mr.logger.CDebugf(ctx, "detection %d as observed from the camera in the world frame coordinate system has pose: %v",
+			i, spatialmath.PoseToProtobuf(geometry.Pose()),
+		)
+
+		// transform the geometry into it's absolute coordinates, i.e. into the world frame
 		desiredPose := spatialmath.NewPose(
 			geometry.Pose().Point().Add(currentPositionInWorld.Pose().Point()),
 			geometry.Pose().Orientation(),
 		)
 		transformBy := spatialmath.PoseBetweenInverse(geometry.Pose(), desiredPose)
-
-		// put the detection into its position in the world with the base coordinate frame
 		geometry = geometry.Transform(transformBy)
 		mr.logger.CDebugf(ctx, "detection %d observed from world frame has pose: %v",
 			i, spatialmath.PoseToProtobuf(geometry.Pose()),
