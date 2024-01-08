@@ -594,7 +594,7 @@ func CheckPlan(
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a
 			// collision is detected.
 			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedState); !isValid {
-				logger.Debugf("poseInPath: %v", spatialmath.PoseToProtobuf(poseInPath))
+				logger.Debugf("poseInPath responsible for collision: %v", spatialmath.PoseToProtobuf(poseInPath))
 				return fmt.Errorf("found collision between positions %v and %v", currentPose.Point(), nextPose.Point())
 			}
 		}
