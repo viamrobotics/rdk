@@ -3,7 +3,6 @@ package movementsensor_test
 import (
 	"context"
 	"errors"
-	"math"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -229,16 +228,12 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("GetAccuracy", func(t *testing.T) {
-		acc := map[string]float32{"x": 1.1}
-		injectMovementSensor.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]float32, float32,
-			float32, movementsensor.NmeaGGAFixType, float32, error,
-		) {
-			return acc, float32(math.NaN()), float32(math.NaN()), -1, float32(math.NaN()), nil
+		acc := &movementsensor.Accuracy{AccuracyMap: map[string]float32{"x": 1.1}}
+		injectMovementSensor.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
+			return acc, nil
 		}
-		injectMovementSensor2.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]float32, float32,
-			float32, movementsensor.NmeaGGAFixType, float32, error,
-		) {
-			return nil, float32(math.NaN()), float32(math.NaN()), -1, float32(math.NaN()), errAccuracy
+		injectMovementSensor2.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
+			return nil, errAccuracy
 		}
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})

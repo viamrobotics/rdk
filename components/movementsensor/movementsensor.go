@@ -63,10 +63,6 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// NmeaGGAFixType defines an integer type for representing various
-// GPS fix types as defined in the NMEA standard: https://docs.novatel.com/OEM7/Content/Logs/GPGGA.htm#GPSQualityIndicators
-type NmeaGGAFixType int
-
 // A MovementSensor reports information about the robot's direction, position and speed.
 type MovementSensor interface {
 	resource.Sensor
@@ -78,7 +74,7 @@ type MovementSensor interface {
 	CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) // [0->360)
 	Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error)
 	Properties(ctx context.Context, extra map[string]interface{}) (*Properties, error)
-	Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, float32, float32, NmeaGGAFixType, float32, error)
+	Accuracy(ctx context.Context, extra map[string]interface{}) (*Accuracy, error)
 }
 
 // FromDependencies is a helper for getting the named movementsensor from a collection of
@@ -157,59 +153,4 @@ func DefaultAPIReadings(ctx context.Context, g MovementSensor, extra map[string]
 	}
 
 	return readings, nil
-}
-
-// ToNmeaGGAFixType converts a pb.NmeaGGAFix enumeration to its corresponding NmeaGGAFixType.
-// This function serves as a translator between the protobuf representation of GPS fix types.
-func ToNmeaGGAFixType(fixType *pb.NmeaGGAFix) NmeaGGAFixType {
-	switch fixType {
-	case nil:
-		return 0
-	case pb.NmeaGGAFix_NMEA_GGA_FIX_GNSS.Enum():
-		return 1
-	case pb.NmeaGGAFix_NMEA_GGA_FIX_DGPS.Enum():
-		return 2
-	case pb.NmeaGGAFix_NMEA_GGA_FIX_PPS.Enum():
-		return 3
-	case pb.NmeaGGAFix_NMEA_GGA_FIX_RTK_FIXED.Enum():
-		return 4
-	case pb.NmeaGGAFix_NMEA_GGA_FIX_RTK_FLOAT.Enum():
-		return 5
-	case pb.NmeaGGAFix_NMEA_GGA_FIX_DEAD_RECKONING.Enum():
-		return 6
-	case pb.NmeaGGAFix_NMEA_GGA_FIX_MANUAL.Enum():
-		return 7
-	case pb.NmeaGGAFix_NMEA_GGA_FIX_SIMULATION.Enum():
-		return 8
-	default:
-		return -1
-	}
-}
-
-// ToProtoNmeaGGAFixType converts a NmeaGGAFixType to its corresponding pb.NmeaGGAFix enum.
-// This function takes an NmeaGGAFixType as input and returns the equivalent protobuf NmeaGGAFix enumeration.
-// The conversion is based on predefined cases where each case corresponds to a specific type of GPS fix.
-func ToProtoNmeaGGAFixType(fixType NmeaGGAFixType) pb.NmeaGGAFix {
-	switch fixType {
-	case 0:
-		return pb.NmeaGGAFix_NMEA_GGA_FIX_INVALID_UNSPECIFIED
-	case 1:
-		return pb.NmeaGGAFix_NMEA_GGA_FIX_GNSS
-	case 2:
-		return pb.NmeaGGAFix_NMEA_GGA_FIX_DGPS
-	case 3:
-		return pb.NmeaGGAFix_NMEA_GGA_FIX_PPS
-	case 4:
-		return pb.NmeaGGAFix_NMEA_GGA_FIX_RTK_FIXED
-	case 5:
-		return pb.NmeaGGAFix_NMEA_GGA_FIX_RTK_FLOAT
-	case 6:
-		return pb.NmeaGGAFix_NMEA_GGA_FIX_DEAD_RECKONING
-	case 7:
-		return pb.NmeaGGAFix_NMEA_GGA_FIX_MANUAL
-	case 8:
-		return pb.NmeaGGAFix_NMEA_GGA_FIX_SIMULATION
-	default:
-		return -1
-	}
 }

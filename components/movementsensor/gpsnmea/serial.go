@@ -140,7 +140,7 @@ func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
 	return g.correctionPath, g.correctionBaudRate
 }
 
-//nolint
+// nolint
 // Position position, altitide.
 func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	lastPosition := g.lastPosition.GetLastPosition()
@@ -173,14 +173,18 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 }
 
 // Accuracy returns the accuracy map, hDOP, vDOP, Fixquality and compass heading error.
-func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32,
-	float32, float32, movementsensor.NmeaGGAFixType, float32, error,
+func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
 ) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return map[string]float32{"hDOP": float32(g.data.HDOP), "vDOP": float32(g.data.VDOP)},
-		float32(g.data.HDOP), float32(g.data.VDOP), movementsensor.NmeaGGAFixType(g.data.FixQuality), float32(math.NaN()),
-		g.err.Get()
+	acc := movementsensor.Accuracy{
+		AccuracyMap:        map[string]float32{"hDOP": float32(g.data.HDOP), "vDOP": float32(g.data.VDOP)},
+		Hdop:               float32(g.data.HDOP),
+		Vdop:               float32(g.data.VDOP),
+		NmeaFix:            int32(g.data.FixQuality),
+		CompassDegreeError: float32(math.NaN()),
+	}
+	return &acc, g.err.Get()
 }
 
 // LinearVelocity linear velocity.

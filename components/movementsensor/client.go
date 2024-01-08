@@ -2,7 +2,6 @@ package movementsensor
 
 import (
 	"context"
-	"math"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
@@ -152,23 +151,20 @@ func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	return protoutils.ReadingProtoToGo(resp.Readings)
 }
 
-func (c *client) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32,
-	float32, float32, NmeaGGAFixType, float32, error,
+func (c *client) Accuracy(ctx context.Context, extra map[string]interface{}) (*Accuracy, error,
 ) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
-		return nil, float32(math.NaN()), float32(math.NaN()), -1, float32(math.NaN()), err
+		return nil, err
 	}
 	resp, err := c.client.GetAccuracy(ctx, &pb.GetAccuracyRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return nil, float32(math.NaN()), float32(math.NaN()), -1, float32(math.NaN()), err
+		return nil, err
 	}
-	nmeaFixType := ToNmeaGGAFixType(resp.PositionNmeaGgaFix)
-	return resp.Accuracy, *resp.PositionHdop,
-		*resp.PositionVdop, nmeaFixType, *resp.CompassDegreesError, nil
+	return ProtoFeaturesToAccuracy(resp), nil
 }
 
 func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (*Properties, error) {

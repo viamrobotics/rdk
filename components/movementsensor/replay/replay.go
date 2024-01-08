@@ -3,7 +3,6 @@ package replay
 
 import (
 	"context"
-	"math"
 	"strings"
 	"sync"
 	"time"
@@ -380,11 +379,9 @@ func (replay *replayMovementSensor) Properties(ctx context.Context, extra map[st
 }
 
 // Accuracy is currently not defined for replay movement sensors.
-func (replay *replayMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32,
-	float32, float32, movementsensor.NmeaGGAFixType, float32, error,
+func (replay *replayMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
 ) {
-	return map[string]float32{}, float32(math.NaN()), float32(math.NaN()), -1, float32(math.NaN()),
-		movementsensor.ErrMethodUnimplementedAccuracy
+	return nil, movementsensor.ErrMethodUnimplementedAccuracy
 }
 
 // Close stops the replay movement sensor, closes its channels and its connections to the cloud.

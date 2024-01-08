@@ -167,11 +167,13 @@ func (s *serviceServer) GetAccuracy(
 	if err != nil {
 		return nil, err
 	}
-	acc, hdop, vdop, nmeaFix, compErr, err := msDevice.Accuracy(ctx, req.Extra.AsMap())
-	tempNmeaFix := ToProtoNmeaGGAFixType(nmeaFix)
+	accuracy, err := msDevice.Accuracy(ctx, req.Extra.AsMap())
 	return &pb.GetAccuracyResponse{
-		Accuracy: acc, PositionHdop: &hdop, PositionVdop: &vdop,
-		PositionNmeaGgaFix: &tempNmeaFix, CompassDegreesError: &compErr,
+		Accuracy:            accuracy.AccuracyMap,
+		PositionHdop:        &accuracy.Hdop,
+		PositionVdop:        &accuracy.Vdop,
+		PositionNmeaGgaFix:  &accuracy.NmeaFix,
+		CompassDegreesError: &accuracy.CompassDegreeError,
 	}, err
 }
 

@@ -683,12 +683,11 @@ func (g *rtkSerial) Properties(ctx context.Context, extra map[string]interface{}
 }
 
 // Accuracy passthrough.
-func (g *rtkSerial) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32,
-	float32, float32, movementsensor.NmeaGGAFixType, float32, error,
+func (g *rtkSerial) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
 ) {
 	lastError := g.err.Get()
 	if lastError != nil {
-		return map[string]float32{}, float32(math.NaN()), float32(math.NaN()), -1, float32(math.NaN()), lastError
+		return nil, lastError
 	}
 
 	return g.nmeamovementsensor.Accuracy(ctx, extra)

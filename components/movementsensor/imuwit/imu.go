@@ -200,11 +200,9 @@ func (imu *wit) Position(ctx context.Context, extra map[string]interface{}) (*ge
 	return geo.NewPoint(0, 0), 0, movementsensor.ErrMethodUnimplementedPosition
 }
 
-func (imu *wit) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32,
-	float32, float32, movementsensor.NmeaGGAFixType, float32, error,
+func (imu *wit) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
 ) {
-	return map[string]float32{}, float32(math.NaN()), float32(math.NaN()), -1, float32(math.NaN()),
-		movementsensor.ErrMethodUnimplementedAccuracy
+	return nil, movementsensor.ErrMethodUnimplementedAccuracy
 }
 
 func (imu *wit) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {

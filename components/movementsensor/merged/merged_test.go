@@ -79,13 +79,19 @@ func setupMovementSensor(
 		}
 		return &prop, nil
 	}
-	ms.AccuracyFunc = func(ctx context.Context, exta map[string]interface{}) (map[string]float32,
-		float32, float32, movementsensor.NmeaGGAFixType, float32, error,
+	ms.AccuracyFunc = func(ctx context.Context, exta map[string]interface{}) (*movementsensor.Accuracy, error,
 	) {
 		if errAcc {
-			return nil, float32(math.NaN()), float32(math.NaN()), -1, float32(math.NaN()), errAccuracy
+			return nil, errAccuracy
 		}
-		return map[string]float32{"accuracy": 32}, float32(math.NaN()), float32(math.NaN()), -1, float32(math.NaN()), nil
+		acc := &movementsensor.Accuracy{
+			AccuracyMap:        map[string]float32{"accuracy": 32},
+			Hdop:               float32(math.NaN()),
+			Vdop:               float32(math.NaN()),
+			NmeaFix:            -1,
+			CompassDegreeError: float32(math.NaN()),
+		}
+		return acc, nil
 	}
 
 	switch {
@@ -241,7 +247,7 @@ func TestCreation(t *testing.T) {
 	test.That(t, properties.LinearVelocitySupported, test.ShouldBeTrue)
 
 	//nolint:dogsled
-	accuracies, _, _, _, _, err := ms.Accuracy(ctx, nil)
+	accuracies, err := ms.Accuracy(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, accuracies, test.ShouldResemble,
 		map[string]float32{
@@ -316,7 +322,7 @@ func TestCreation(t *testing.T) {
 	test.That(t, properties.LinearVelocitySupported, test.ShouldBeTrue)
 
 	//nolint:dogsled
-	accuracies, _, _, _, _, err = ms.Accuracy(ctx, nil)
+	accuracies, err = ms.Accuracy(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, accuracies, test.ShouldResemble,
 		map[string]float32{
@@ -346,13 +352,9 @@ func TestCreation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	//nolint:dogsled
-	accuracies, _, _, _, _, err = ms.Accuracy(ctx, nil)
+	accuracies, err = ms.Accuracy(ctx, nil)
 	test.That(t, err, test.ShouldNotBeNil)
-
-	for k, v := range accuracies {
-		test.That(t, k, test.ShouldContainSubstring, errStrAccuracy)
-		test.That(t, math.IsNaN(float64(v)), test.ShouldBeTrue)
-	}
+	test.That(t, accuracies, test.ShouldBeNil)
 
 	// close the sensor, this test is done
 	test.That(t, ms.Close(ctx), test.ShouldBeNil)

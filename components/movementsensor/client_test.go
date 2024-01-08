@@ -3,7 +3,6 @@ package movementsensor_test
 import (
 	"context"
 	"errors"
-	"math"
 	"net"
 	"testing"
 
@@ -52,7 +51,7 @@ func TestClient(t *testing.T) {
 	heading := 202.
 	props := &movementsensor.Properties{LinearVelocitySupported: true}
 	aclZ := 1.0
-	acy := map[string]float32{"x": 1.1}
+	acy := &movementsensor.Accuracy{AccuracyMap: map[string]float32{"x": 1.1}}
 	rs := map[string]interface{}{
 		"position":            loc,
 		"altitude":            alt,
@@ -83,10 +82,8 @@ func TestClient(t *testing.T) {
 	injectMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 		return props, nil
 	}
-	injectMovementSensor.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]float32,
-		float32, float32, movementsensor.NmeaGGAFixType, float32, error,
-	) {
-		return acy, float32(math.NaN()), float32(math.NaN()), -1, float32(math.NaN()), nil
+	injectMovementSensor.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
+		return acy, nil
 	}
 	injectMovementSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 		return rs, nil
@@ -182,7 +179,7 @@ func TestClient(t *testing.T) {
 		test.That(t, props1.LinearVelocitySupported, test.ShouldResemble, props.LinearVelocitySupported)
 		test.That(t, injectMovementSensor.PropertiesFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
-		acc1, _, _, _, _, err := gps1Client.Accuracy(context.Background(), map[string]interface{}{"foo": "bar"})
+		acc1, err := gps1Client.Accuracy(context.Background(), map[string]interface{}{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, acc1, test.ShouldResemble, acy)
 		test.That(t, injectMovementSensor.AccuracyFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
