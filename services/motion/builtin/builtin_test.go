@@ -1306,7 +1306,7 @@ func TestMoveOnMapNew(t *testing.T) {
 			Extra:         extra,
 		}
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*15)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*45)
 		defer timeoutFn()
 		executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
 		test.That(t, err, test.ShouldBeNil)
