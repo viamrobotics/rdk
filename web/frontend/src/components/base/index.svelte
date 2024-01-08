@@ -164,7 +164,9 @@
           event.speed * event.direction
         );
       } catch (error) {
+        if (error != 'context canceled') {
         displayError(error as ServiceError);
+        }
       }
     }
   };
@@ -335,7 +337,7 @@
       <div class="flex min-w-fit flex-col gap-4 p-4">
         <h2 class="font-bold">Motor controls</h2>
         <v-radio
-          label="Control mode"
+          label="CONTROL MODE"
           options="Keyboard, Discrete"
           selected={selectedMode}
           on:input={handleControlModeSelect}

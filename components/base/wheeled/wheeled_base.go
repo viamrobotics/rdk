@@ -255,6 +255,8 @@ func (wb *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, e
 
 // MoveStraight commands a base to drive forward or backwards  at a linear speed and for a specific distance.
 func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
+	fmt.Println("IN MOVE STRAIGHT")
+	wb.logger.Infof("IN MOVE STRAIGHT")
 	ctx, done := wb.opMgr.New(ctx)
 	defer done()
 	wb.logger.CDebugf(ctx, "received a MoveStraight with distanceMM:%d, mmPerSec:%.2f", distanceMm, mmPerSec)
@@ -298,7 +300,12 @@ func (wb *wheeledBase) runAllGoFor(ctx context.Context, leftRPM, leftRotations, 
 	}()
 
 	if _, err := rdkutils.RunInParallel(ctx, goForFuncs); err != nil {
-		return multierr.Combine(err, wb.Stop(ctx, nil))
+		fmt.Println("error run in parallel")
+		fmt.Println(err)
+		err := multierr.Combine(err, wb.Stop(ctx, nil))
+		fmt.Println("error with Stop")
+		fmt.Println(err)
+		return err
 	}
 	return nil
 }
