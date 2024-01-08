@@ -298,7 +298,11 @@ func (wb *wheeledBase) runAllGoFor(ctx context.Context, leftRPM, leftRotations, 
 	}()
 
 	if _, err := rdkutils.RunInParallel(ctx, goForFuncs); err != nil {
-		return multierr.Combine(err, wb.Stop(ctx, nil))
+		err := multierr.Combine(err, wb.Stop(ctx, nil))
+		// Ignore the context canceled error - this occurs when the base is stopped by the user.
+		if !errors.Is(err, context.Canceled) {
+			return err
+		}
 	}
 	return nil
 }
