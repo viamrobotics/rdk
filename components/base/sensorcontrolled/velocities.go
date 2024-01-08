@@ -195,7 +195,7 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 		return nil
 	}
 
-	sb.logger.CInfo(ctx, "setting state")
+	sb.logger.CDebug(ctx, "setting state")
 	linvel := state[0].GetSignalValueAt(0)
 	// multiply by the direction of the linear velocity so that angular direction
 	// (cw/ccw) doesn't switch when the base is moving backwards
@@ -209,7 +209,7 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 // movementsensor and insert its LinearVelocity and AngularVelocity values
 // in the signal in the control loop's thread in the endpoint code.
 func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
-	sb.logger.CInfo(ctx, "getting state")
+	sb.logger.CDebug(ctx, "getting state")
 	linvel, err := sb.velocities.LinearVelocity(ctx, nil)
 	if err != nil {
 		return []float64{}, err
