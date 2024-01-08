@@ -1621,7 +1621,7 @@ func TestMoveOnMapNew(t *testing.T) {
 	})
 
 	t.Run("Is able to reach the zero pose with an empty motion configuration", func(t *testing.T) {
-
+		// TODO(RSDK-6272): How to handle solving for zerpo poses
 		t.Skip()
 		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
