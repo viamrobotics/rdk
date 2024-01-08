@@ -15,7 +15,19 @@ func ProtoFeaturesToAccuracy(resp *pb.GetAccuracyResponse) *Accuracy {
 		AccuracyMap:        resp.Accuracy,
 		Hdop:               *resp.PositionHdop,
 		Vdop:               *resp.PositionVdop,
-		NmeaFix:            int32(*resp.PositionNmeaGgaFix),
+		NmeaFix:            *resp.PositionNmeaGgaFix,
 		CompassDegreeError: *resp.CompassDegreesError,
 	}
+}
+
+func AccuracyToProtoResponse(
+	features *Accuracy,
+) (*pb.GetAccuracyResponse, error) {
+	return &pb.GetAccuracyResponse{
+		Accuracy:            features.AccuracyMap,
+		PositionHdop:        &features.Hdop,
+		PositionVdop:        &features.Vdop,
+		PositionNmeaGgaFix:  &features.NmeaFix,
+		CompassDegreesError: &features.CompassDegreeError,
+	}, nil
 }
