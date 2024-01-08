@@ -11,23 +11,37 @@ type Accuracy struct {
 }
 
 func ProtoFeaturesToAccuracy(resp *pb.GetAccuracyResponse) *Accuracy {
+	var hdop, vdop, compassError float32
+	var nmeaFix int32
+
+	if resp.PositionHdop != nil {
+		hdop = *resp.PositionHdop
+	}
+	if resp.PositionVdop != nil {
+		vdop = *resp.PositionVdop
+	}
+	if resp.PositionNmeaGgaFix != nil {
+		nmeaFix = *resp.PositionNmeaGgaFix
+	}
+	if resp.CompassDegreesError != nil {
+		compassError = *resp.CompassDegreesError
+	}
+
 	return &Accuracy{
 		AccuracyMap:        resp.Accuracy,
-		Hdop:               *resp.PositionHdop,
-		Vdop:               *resp.PositionVdop,
-		NmeaFix:            *resp.PositionNmeaGgaFix,
-		CompassDegreeError: *resp.CompassDegreesError,
+		Hdop:               hdop,
+		Vdop:               vdop,
+		NmeaFix:            nmeaFix,
+		CompassDegreeError: compassError,
 	}
 }
 
-func AccuracyToProtoResponse(
-	features *Accuracy,
-) (*pb.GetAccuracyResponse, error) {
+func AccuracyToProtoResponse(acc *Accuracy) (*pb.GetAccuracyResponse, error) {
 	return &pb.GetAccuracyResponse{
-		Accuracy:            features.AccuracyMap,
-		PositionHdop:        &features.Hdop,
-		PositionVdop:        &features.Vdop,
-		PositionNmeaGgaFix:  &features.NmeaFix,
-		CompassDegreesError: &features.CompassDegreeError,
+		Accuracy:            acc.AccuracyMap,
+		PositionHdop:        &acc.Hdop,
+		PositionVdop:        &acc.Vdop,
+		PositionNmeaGgaFix:  &acc.NmeaFix,
+		CompassDegreesError: &acc.CompassDegreeError,
 	}, nil
 }
