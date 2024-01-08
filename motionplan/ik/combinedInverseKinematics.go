@@ -121,3 +121,8 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 func (ik *CombinedIK) Frame() referenceframe.Frame {
 	return ik.model
 }
+
+// DoF returns the DoF of the associated referenceframe.
+func (ik *CombinedIK) DoF() []referenceframe.Limit {
+	return ik.model.DoF()
+}

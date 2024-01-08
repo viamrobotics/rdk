@@ -19,6 +19,7 @@ const (
 // InverseKinematics defines an interface which, provided with seed inputs and a Metric to minimize to zero, will output all found
 // solutions to the provided channel until cancelled or otherwise completes.
 type InverseKinematics interface {
+	referenceframe.Limited
 	// Solve receives a context, the goal arm position, and current joint angles.
 	Solve(context.Context, chan<- *Solution, []referenceframe.Input, StateMetric, int) error
 }

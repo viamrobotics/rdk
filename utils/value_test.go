@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"math/rand"
+	"os/exec"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -35,4 +37,18 @@ func (m myAssertInt) method1() error {
 func TestFilterMap(t *testing.T) {
 	ret := FilterMap(map[string]int{"x": 1, "y": 2}, func(_ string, val int) bool { return val > 1 })
 	test.That(t, ret, test.ShouldResemble, map[string]int{"y": 2})
+}
+
+func TestTesting(t *testing.T) {
+	test.That(t, Testing(), test.ShouldBeTrue)
+	cmd := exec.Command("go", "run", "./test_detector")
+	cmd.Start()
+	cmd.Wait()
+	test.That(t, cmd.ProcessState.ExitCode(), test.ShouldEqual, 0)
+}
+
+func TestSafeRand(t *testing.T) {
+	instance := SafeTestingRand()
+	source := rand.New(rand.NewSource(0))
+	test.That(t, instance.Float64(), test.ShouldEqual, source.Float64())
 }
