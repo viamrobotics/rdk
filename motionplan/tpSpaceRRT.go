@@ -970,9 +970,6 @@ func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {
 		dist = 1.0
 	}
 	rDist := dist * (mp.algOpts.autoBB + float64(iter)*autoBBscale)
-	if rDist < 2 {
-		rDist = 2
-	}
 	randPosX := float64(mp.randseed.Intn(int(rDist)))
 	randPosY := float64(mp.randseed.Intn(int(rDist)))
 	randPosTheta := math.Pi * (mp.randseed.Float64() - 0.5)
