@@ -273,7 +273,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 	ctx := context.Background()
 	// goal x-position of 1.32m is scaled to be in mm
 	// Orientation theta should be at least 3 degrees away from an integer multiple of 22.5 to ensure the position-only test functions.
-	goalInBaseFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
+	goalInBaseFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 170})
 	goalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, goalInBaseFrame)
 	extra := map[string]interface{}{"smooth_iter": 0}
 	extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
@@ -315,8 +315,6 @@ func TestMoveOnMapPlans(t *testing.T) {
 	})
 
 	t.Run("check that position-only mode executes", func(t *testing.T) {
-		// TODO(RSDK-6271): unskip this
-		t.Skip()
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnMap(
@@ -1329,7 +1327,7 @@ func TestMoveOnMapNew(t *testing.T) {
 	t.Run("Plans", func(t *testing.T) {
 		// goal x-position of 1.32m is scaled to be in mm
 		// Orientation theta should be at least 3 degrees away from an integer multiple of 22.5 to ensure the position-only test functions.
-		goalInBaseFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
+		goalInBaseFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 170})
 		goalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, goalInBaseFrame)
 		extra := map[string]interface{}{"smooth_iter": 0}
 		extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
@@ -1400,8 +1398,6 @@ func TestMoveOnMapNew(t *testing.T) {
 		})
 
 		t.Run("check that position-only mode executes", func(t *testing.T) {
-			// TODO(RSDK-6271): unskip this
-			t.Skip()
 			kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 			defer ms.Close(ctx)
 
