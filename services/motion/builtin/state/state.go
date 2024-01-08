@@ -430,16 +430,6 @@ func (s *State) PlanHistory(req motion.PlanHistoryReq) ([]motion.PlanWithStatus,
 	return history, nil
 }
 
-// IsActive returns a bool indicating if we have active execution for any component.
-func (s *State) IsActive() bool {
-	for name := range s.componentStateByComponent {
-		if _, err := s.activeExecution(name); err == nil {
-			return true
-		}
-	}
-	return false
-}
-
 // ListPlanStatuses returns the status of plans created by MoveOnGlobe requests
 // that are executing OR are part of an execution which changed it state
 // within the a 24HR TTL OR until the robot reinitializes.

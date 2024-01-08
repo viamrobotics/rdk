@@ -305,7 +305,7 @@ func TestPlanToPlanStepsAndGeoPoses(t *testing.T) {
 			ps, err := PlanToPlanSteps(plan, baseName, *planRequest, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(ps), test.ShouldEqual, len(expectedPoses))
-			gps := PlanStepsToGeoPoses(ps, tc.origin)
+			gps := PlanStepsToGeoPoses(ps, baseName, tc.origin)
 			for i, step := range ps {
 				if len(step) != 1 {
 					t.Logf("iteration %d expected steps with a single component\n", i)

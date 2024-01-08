@@ -9,7 +9,6 @@ import (
 	"github.com/golang/geo/r3"
 	pb "go.viam.com/api/service/motion/v1"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -236,7 +235,6 @@ func createAllCollisionConstraints(
 	worldState *referenceframe.WorldState,
 	inputs map[string][]referenceframe.Input,
 	pbConstraint []*pb.CollisionSpecification,
-	logger logging.Logger,
 ) (map[string]StateConstraint, error) {
 	constraintMap := map[string]StateConstraint{}
 
@@ -274,12 +272,6 @@ func createAllCollisionConstraints(
 		return nil, err
 	}
 
-	if len(obstacles.Geometries()) > 0 {
-		for _, g := range obstacles.Geometries() {
-			logger.Debugf("g: %s", g.String())
-		}
-	}
-
 	allowedCollisions, err := collisionSpecificationsFromProto(pbConstraint, frameSystemGeometries, worldState)
 	if err != nil {
 		return nil, err
@@ -293,7 +285,6 @@ func createAllCollisionConstraints(
 			obstacles.Geometries(),
 			allowedCollisions,
 			false,
-			logger,
 		)
 		if err != nil {
 			return nil, err
@@ -303,7 +294,7 @@ func createAllCollisionConstraints(
 
 	if len(staticGeometries) > 0 {
 		// create constraint to keep moving geometries from hitting other geometries on robot that are not moving
-		robotConstraint, err := NewCollisionConstraint(movingGeometries.Geometries(), staticGeometries, allowedCollisions, false, logger)
+		robotConstraint, err := NewCollisionConstraint(movingGeometries.Geometries(), staticGeometries, allowedCollisions, false)
 		if err != nil {
 			return nil, err
 		}
@@ -312,7 +303,7 @@ func createAllCollisionConstraints(
 
 	// create constraint to keep moving geometries from hitting themselves
 	if len(movingGeometries.Geometries()) > 1 {
-		selfCollisionConstraint, err := NewCollisionConstraint(movingGeometries.Geometries(), nil, allowedCollisions, false, logger)
+		selfCollisionConstraint, err := NewCollisionConstraint(movingGeometries.Geometries(), nil, allowedCollisions, false)
 		if err != nil {
 			return nil, err
 		}
@@ -329,15 +320,12 @@ func NewCollisionConstraint(
 	moving, static []spatial.Geometry,
 	collisionSpecifications []*Collision,
 	reportDistances bool,
-	logger logging.Logger,
 ) (StateConstraint, error) {
 	// create the reference collisionGraph
 	zeroCG, err := newCollisionGraph(moving, static, nil, true)
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("ZEROCG: %v", zeroCG)
-	logger.Debugf("ZEROCG.geometryGraph: %v", zeroCG.geometryGraph)
 	for _, specification := range collisionSpecifications {
 		zeroCG.addCollisionSpecification(specification)
 	}

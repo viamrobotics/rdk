@@ -188,7 +188,6 @@ func TestLineFollow(t *testing.T) {
 }
 
 func TestCollisionConstraints(t *testing.T) {
-	logger := logging.NewTestLogger(t)
 	zeroPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	cases := []struct {
 		input    []frame.Input
@@ -219,7 +218,7 @@ func TestCollisionConstraints(t *testing.T) {
 	sf, err := newSolverFrame(fs, model.Name(), frame.World, frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
 	handler := &ConstraintHandler{}
-	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, logger)
+	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil)
 	test.That(t, err, test.ShouldBeNil)
 	for name, constraint := range collisionConstraints {
 		handler.AddStateConstraint(name, constraint)
@@ -238,7 +237,6 @@ func TestCollisionConstraints(t *testing.T) {
 var bt bool
 
 func BenchmarkCollisionConstraints(b *testing.B) {
-	logger := logging.NewLogger("l")
 	// define external obstacles
 	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
 	test.That(b, err, test.ShouldBeNil)
@@ -257,7 +255,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	sf, err := newSolverFrame(fs, model.Name(), frame.World, frame.StartPositions(fs))
 	test.That(b, err, test.ShouldBeNil)
 	handler := &ConstraintHandler{}
-	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, logger)
+	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil)
 	test.That(b, err, test.ShouldBeNil)
 	for name, constraint := range collisionConstraints {
 		handler.AddStateConstraint(name, constraint)

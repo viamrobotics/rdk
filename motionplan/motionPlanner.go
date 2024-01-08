@@ -535,7 +535,6 @@ func CheckPlan(
 		worldState,
 		nil, // no pb.Constraints
 		nil, // no plannOpts
-		logger,
 	); err != nil {
 		return err
 	}
@@ -589,13 +588,13 @@ func CheckPlan(
 			} else {
 				poseInPath = spatialmath.Compose(poseInPath, errorState)
 			}
-			logger.Debugf("poseInPath: %v", spatialmath.PoseToProtobuf(poseInPath))
 
 			modifiedState := &ik.State{Frame: sf, Position: poseInPath}
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a
 			// collision is detected.
 			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedState); !isValid {
+				logger.Debugf("poseInPath: %v", spatialmath.PoseToProtobuf(poseInPath))
 				return fmt.Errorf("found collision between positions %v and %v", currentPose.Point(), nextPose.Point())
 			}
 		}

@@ -126,8 +126,6 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 	if err != nil {
 		return state.PlanResponse{}, err
 	}
-	mr.logger.Debug("SLEEPING FOR A SECOND")
-	time.Sleep(time.Second)
 
 	waypoints, err := plan.GetFrameSteps(mr.kinematicBase.Kinematics().Name())
 	if err != nil {
@@ -144,7 +142,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 		for _, step := range planSteps {
 			asMap := map[resource.Name]spatialmath.Pose(step)
 			for n, p := range asMap {
-				mr.logger.Debugf("n: %s with pose: %v", n.Name, spatialmath.PoseToProtobuf(p))
+				mr.logger.Debugf("%s - pose: %v", n.Name, spatialmath.PoseToProtobuf(p))
 			}
 		}
 
@@ -158,7 +156,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 		if err != nil {
 			return state.PlanResponse{}, err
 		}
-		geoPoses := motionplan.PlanStepsToGeoPoses(planSteps, mr.geoPoseOrigin)
+		geoPoses := motionplan.PlanStepsToGeoPoses(planSteps, mr.kinematicBase.Name(), mr.geoPoseOrigin)
 
 		// NOTE: Here we are smuggling GeoPoses into Poses by component
 		planSteps, err = toGeoPosePlanSteps(planSteps, geoPoses)
@@ -244,11 +242,8 @@ func (mr *moveRequest) getTransientDetections(
 	mr.logger.Debugf("got %d detections", len(detections))
 
 	// THIS NEEDS TO BE ALIGNED WITH THE CAMERA FRAME !!!!!!!! THIS NEEDS TO BE HANDLED
-	mr.logger.Debugf("localizerCurrentPosition: %v", spatialmath.PoseToProtobuf(localizerCurrentPosition.Pose()))
-
 	currentPositionInWorld, err := mr.fsService.TransformPose(ctx, localizerCurrentPosition, "world", nil)
 	if err != nil {
-		mr.logger.Debug("WE ASSUME THERE IS NO TRANSFORM TO CONVERT LOCALIZER CP INTO WORLD")
 		currentPositionInWorld = localizerCurrentPosition
 	}
 	mr.logger.Debugf("currentPositionInWorld: %v", spatialmath.PoseToProtobuf(currentPositionInWorld.Pose()))
@@ -282,10 +277,9 @@ func (mr *moveRequest) getTransientDetections(
 			label += "_" + geometry.Label()
 		}
 		geometry.SetLabel(label)
-		mr.logger.Debugf("geometry.String(): %v", geometry.String())
 		mr.logger.Debugf(
-			"detection %d as observed from the camera frame coordinate system: %s - %v",
-			i, camName.ShortName(), spatialmath.PoseToProtobuf(geometry.Pose()),
+			"detection %d as observed from the camera frame coordinate system: %s - %s",
+			i, camName.ShortName(), geometry.String(),
 		)
 
 		geometry = geometry.Transform(cameraToWorld.Pose())
@@ -303,13 +297,11 @@ func (mr *moveRequest) getTransientDetections(
 		relativeGeoms = append(relativeGeoms, relativeGeom)
 
 		desiredPoint := geometry.Pose().Point().Add(currentPositionInWorld.Pose().Point())
-		mr.logger.Debugf("desiredPoint: %v", desiredPoint)
 
 		desiredPose := spatialmath.NewPose(
 			desiredPoint,
 			geometry.Pose().Orientation(),
 		)
-		mr.logger.Debugf("desiredPose: %v", spatialmath.PoseToProtobuf(desiredPose))
 
 		transformBy := spatialmath.PoseBetweenInverse(geometry.Pose(), desiredPose)
 
@@ -385,13 +377,11 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				lookAheadDistanceMM,
 				mr.planRequest.Logger,
 			); err != nil {
-				mr.logger.Debug("HUZZAH WE HAVE AN ERROR\n")
 				mr.planRequest.Logger.CInfo(ctx, err.Error())
 				return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
 			}
 		}
 	}
-	mr.logger.Debug("GOT THROUGH OBS INTERSECT PLAN WITHOUT ERROR")
 	return state.ExecuteResponse{}, nil
 }
 
@@ -693,9 +683,8 @@ func (ms *builtIn) newMoveOnMapRequest(
 	if err != nil {
 		return nil, err
 	}
-	ms.logger.Debugf("req.Destination: %v\n", spatialmath.PoseToProtobuf(req.Destination))
+
 	goalPoseAdj := spatialmath.Compose(req.Destination, motion.SLAMOrientationAdjustment)
-	ms.logger.Debugf("goalPoseAdj: %v\n", spatialmath.PoseToProtobuf(goalPoseAdj))
 
 	// get point cloud data in the form of bytes from pcd
 	pointCloudData, err := slam.PointCloudMapFull(ctx, slamSvc)
@@ -750,26 +739,18 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	if err != nil {
 		return nil, err
 	}
-	ms.logger.Debugf("startPose: %v", spatialmath.PoseToProtobuf(startPose.Pose()))
 	startPoseInv := spatialmath.PoseInverse(startPose.Pose())
-	ms.logger.Debugf("startPoseInv: %v", spatialmath.PoseToProtobuf(startPoseInv))
 
 	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld))
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
 	geoms := make([]spatialmath.Geometry, 0, len(worldObstacles))
 	for _, geom := range worldObstacles {
-		ms.logger.Debugf("GEOMS BEFORE: %v", spatialmath.PoseToProtobuf(geom.Pose()))
-		transformed := geom.Transform(startPoseInv)
-		ms.logger.Debugf("GEOMS AFTER: %v", spatialmath.PoseToProtobuf(transformed.Pose()))
-		geoms = append(geoms, transformed)
-
+		geoms = append(geoms, geom.Transform(startPoseInv))
 	}
 
 	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
 	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
-	ms.logger.CInfof(ctx, "startPose: %v", spatialmath.PoseToProtobuf(startPose.Pose()))
-	ms.logger.CInfof(ctx, "requested world goal: %v", spatialmath.PoseToProtobuf(goalPoseInWorld))
 	if err != nil {
 		return nil, err
 	}

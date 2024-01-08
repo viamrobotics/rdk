@@ -109,7 +109,6 @@ func (ms *builtIn) Reconfigure(
 		}
 		ms.logger = logger
 	}
-	ms.logger.Debug("WE ARE IN THE MS RECONFIG FUNC")
 	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
 	slamServices := make(map[resource.Name]slam.Service)
 	visionServices := make(map[resource.Name]vision.Service)
@@ -289,7 +288,7 @@ func (ms *builtIn) MoveOnMapNew(ctx context.Context, req motion.MoveOnMapReq) (m
 	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	ms.logger.Debugf("MoveOnGlobe called with %v", req)
+	ms.logger.CDebugf(ctx, "MoveOnGlobe called with %s", req)
 
 	// TODO: Deprecated: remove once no motion apis use the opid system
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)

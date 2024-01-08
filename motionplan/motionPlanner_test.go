@@ -217,7 +217,7 @@ func simple2DMap() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, logging.NewLogger("l"))
+	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +256,7 @@ func simpleXArmMotion() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	collisionConstraints, err := createAllCollisionConstraints(sf, fs, nil, frame.StartPositions(fs), nil, logging.NewLogger("l"))
+	collisionConstraints, err := createAllCollisionConstraints(sf, fs, nil, frame.StartPositions(fs), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +292,7 @@ func simpleUR5eMotion() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	collisionConstraints, err := createAllCollisionConstraints(sf, fs, nil, frame.StartPositions(fs), nil, logging.NewLogger("l"))
+	collisionConstraints, err := createAllCollisionConstraints(sf, fs, nil, frame.StartPositions(fs), nil)
 	if err != nil {
 		return nil, err
 	}

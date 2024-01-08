@@ -435,13 +435,16 @@ func PlanToPlanSteps(
 // PlanStepsToGeoPoses converts the relative poses the robot will move to into geo poses.
 func PlanStepsToGeoPoses(
 	planSteps []PlanStep,
+	componentName resource.Name,
 	origin spatial.GeoPose,
 ) []spatial.GeoPose {
 	geoPoses := []spatial.GeoPose{}
 	for _, step := range planSteps {
-		for _, pose := range step {
-			gp := spatial.PoseToGeoPose(&origin, pose)
-			geoPoses = append(geoPoses, *gp)
+		for name, pose := range step {
+			if name == componentName {
+				gp := spatial.PoseToGeoPose(&origin, pose)
+				geoPoses = append(geoPoses, *gp)
+			}
 		}
 	}
 
