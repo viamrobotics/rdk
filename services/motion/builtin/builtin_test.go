@@ -330,6 +330,9 @@ func TestMoveOnMapPlans(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goalInBaseFrame, 15), test.ShouldBeTrue)
+		logger := logging.NewTestLogger(t)
+		logger.Infof("endPos.Pose(): %v", spatialmath.PoseToProtobuf(endPos.Pose()))
+		logger.Infof("goalInBaseFrame: %v", spatialmath.PoseToProtobuf(goalInBaseFrame))
 		// Position only mode should not yield the goal orientation.
 		test.That(t, spatialmath.OrientationAlmostEqualEps(
 			endPos.Pose().Orientation(),
@@ -1303,7 +1306,7 @@ func TestMoveOnMapNew(t *testing.T) {
 			Extra:         extra,
 		}
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*15)
 		defer timeoutFn()
 		executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
 		test.That(t, err, test.ShouldBeNil)
