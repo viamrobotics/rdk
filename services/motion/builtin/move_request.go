@@ -222,14 +222,14 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints state.Way
 	return state.ExecuteResponse{}, nil
 }
 
-// want func that returns obstacles in worldstate
+// want func that returns obstacles in worldstate.
 func (mr *moveRequest) getTransientDetections(
 	ctx context.Context,
 	visSrvc vision.Service,
 	camName resource.Name,
 	localizerCurrentPosition *referenceframe.PoseInFrame,
 ) ([]*referenceframe.GeometriesInFrame, []*referenceframe.GeometriesInFrame, error) {
-	mr.logger.Debugf(
+	mr.logger.CDebugf(ctx,
 		"proceeding to get detections from vision service: %s with camera: %s",
 		visSrvc.Name().ShortName(),
 		camName.ShortName(),
@@ -239,27 +239,28 @@ func (mr *moveRequest) getTransientDetections(
 	if err != nil {
 		return nil, nil, err
 	}
-	mr.logger.Debugf("got %d detections", len(detections))
+	mr.logger.CDebugf(ctx, "got %d detections", len(detections))
 
 	// THIS NEEDS TO BE ALIGNED WITH THE CAMERA FRAME !!!!!!!! THIS NEEDS TO BE HANDLED
 	currentPositionInWorld, err := mr.fsService.TransformPose(ctx, localizerCurrentPosition, "world", nil)
 	if err != nil {
 		currentPositionInWorld = localizerCurrentPosition
 	}
-	mr.logger.Debugf("currentPositionInWorld: %v", spatialmath.PoseToProtobuf(currentPositionInWorld.Pose()))
+	mr.logger.CDebugf(ctx, "currentPositionInWorld: %v", spatialmath.PoseToProtobuf(currentPositionInWorld.Pose()))
 
 	// determine transform of camera to world
 	cameraOrigin := referenceframe.NewPoseInFrame(camName.ShortName(), spatialmath.NewZeroPose())
 	cameraToWorld, err := mr.fsService.TransformPose(ctx, cameraOrigin, "world", nil)
 	if err != nil {
 		// here we make the assumption the camera is coincident with the world
-		mr.logger.Debugf(
+		mr.logger.CDebugf(
+			ctx,
 			"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
 			mr.kinematicBase.Name().ShortName(), camName.ShortName(), err.Error(),
 		)
 		cameraToWorld = cameraOrigin
 	}
-	mr.logger.Debugf("cameraToWorld: %v", spatialmath.PoseToProtobuf(cameraToWorld.Pose()))
+	mr.logger.CDebugf(ctx, "cameraToWorld: %v", spatialmath.PoseToProtobuf(cameraToWorld.Pose()))
 
 	// Any obstacles specified by the worldstate of the moveRequest will also re-detected here.
 	// There is no need to append the new detections to the existing worldstate.
@@ -277,21 +278,18 @@ func (mr *moveRequest) getTransientDetections(
 			label += "_" + geometry.Label()
 		}
 		geometry.SetLabel(label)
-		mr.logger.Debugf(
-			"detection %d as observed from the camera frame coordinate system: %s - %s",
+		mr.logger.CDebugf(ctx, "detection %d as observed from the camera frame coordinate system: %s - %s",
 			i, camName.ShortName(), geometry.String(),
 		)
 
 		geometry = geometry.Transform(cameraToWorld.Pose())
-		mr.logger.Debugf(
-			"detection %d as observed from the camera in the world frame coordinate system has pose: %v",
+		mr.logger.CDebugf(ctx, "detection %d as observed from the camera in the world frame coordinate system has pose: %v",
 			i, spatialmath.PoseToProtobuf(geometry.Pose()),
 		)
 
 		// here is where we want the relative???
 		relativeGeom := geometry.Transform(spatialmath.PoseInverse(motion.SLAMOrientationAdjustment))
-		mr.logger.Debugf(
-			"relativeGeom Pose: %v",
+		mr.logger.CDebugf(ctx, "relativeGeom Pose: %v",
 			spatialmath.PoseToProtobuf(relativeGeom.Pose()),
 		)
 		relativeGeoms = append(relativeGeoms, relativeGeom)
@@ -307,8 +305,7 @@ func (mr *moveRequest) getTransientDetections(
 
 		// put the detection into its position in the world with the base coordinate frame
 		geometry = geometry.Transform(transformBy)
-		mr.logger.Debugf(
-			"detection %d observed from world frame has pose: %v",
+		mr.logger.CDebugf(ctx, "detection %d observed from world frame has pose: %v",
 			i, spatialmath.PoseToProtobuf(geometry.Pose()),
 		)
 

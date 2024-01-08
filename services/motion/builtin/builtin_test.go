@@ -1633,6 +1633,7 @@ func TestMoveCallInputs(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("MoveOnMapNew", func(t *testing.T) {
+		t.Parallel()
 		t.Run("Returns error when called with an unknown component", func(t *testing.T) {
 			t.Parallel()
 			_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
@@ -1887,6 +1888,7 @@ func TestMoveCallInputs(t *testing.T) {
 	})
 
 	t.Run("MoveOnGlobe", func(t *testing.T) {
+		t.Parallel()
 		// Near antarctica 🐧
 		gpsPoint := geo.NewPoint(-70, 40)
 		dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)

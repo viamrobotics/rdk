@@ -175,7 +175,6 @@ func TestPlanningWithGripper(t *testing.T) {
 // |                      |
 // ------------------------.
 func simple2DMap() (*planConfig, error) {
-
 	// build model
 	limits := []frame.Limit{{Min: -100, Max: 100}, {Min: -100, Max: 100}, {Min: -2 * math.Pi, Max: 2 * math.Pi}}
 	physicalGeometry, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{X: 10, Y: 10, Z: 10}, "")
