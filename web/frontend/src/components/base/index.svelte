@@ -335,7 +335,7 @@
       <div class="flex min-w-fit flex-col gap-4 p-4">
         <h2 class="font-bold">Motor controls</h2>
         <v-radio
-          label="Control Mode"
+          label="Control mode"
           options="Keyboard, Discrete"
           selected={selectedMode}
           on:input={handleControlModeSelect}
