@@ -164,7 +164,8 @@ type plannerOptions struct {
 	qstep []float64
 
 	// DistanceFunc is the function that the planner will use to measure the degree of "closeness" between two states of the robot
-	DistanceFunc ik.SegmentMetric
+	DistanceFunc             ik.SegmentMetric
+	distanceWithSolutionFunc func(*ik.Segment) distanceAndSolution
 
 	// ScoreFunc is the function that the planner will use to evaluate a plan for final cost comparisons.
 	ScoreFunc ik.SegmentMetric
