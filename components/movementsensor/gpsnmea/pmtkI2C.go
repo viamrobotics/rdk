@@ -1,6 +1,6 @@
 //go:build linux
 
-// Package gpsnmea implements a GPS NMEA component
+// Package gpsnmea implements a GPS NMEA component.
 package gpsnmea
 
 import (
@@ -187,7 +187,9 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 							err = g.data.ParseAndUpdate(strBuf)
 							g.mu.Unlock()
 							if err != nil {
-								g.logger.CDebugf(ctx, "can't parse nmea : %s, %v", strBuf, err)
+								g.logger.CDebugf(ctx, "can't parse nmea sentence: %s, %v", strBuf, err)
+								g.logger.Debug("Check: GPS requires clear sky view." +
+									" Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
 							}
 						}
 						strBuf = ""
