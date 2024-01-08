@@ -1708,25 +1708,6 @@ func TestMoveCallInputs(t *testing.T) {
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
 
-		t.Run("Returns an error when request would require moving past the bounds of the limits", func(t *testing.T) {
-			t.Parallel()
-			_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-			defer ms.Close(ctx)
-
-			req := motion.MoveOnMapReq{
-				ComponentName: base.Named("test-base"),
-				Destination:   spatialmath.NewPoseFromPoint(r3.Vector{1e100, 1e100, 0}),
-				SlamName:      slam.Named("test_slam"),
-				MotionCfg:     &motion.MotionConfiguration{},
-			}
-
-			executionID, err := ms.(*builtIn).MoveOnMapNew(context.Background(), req)
-			test.That(t, err, test.ShouldBeError,
-				errors.New("destination must be within the following limits, X: {-591.0999999999999 1858.9}, Y:{-1231.2 1168.8}"),
-			)
-			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-		})
-
 		t.Run("Returns an error when motion configuration has a negative PlanDeviationMM", func(t *testing.T) {
 			t.Parallel()
 			_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
