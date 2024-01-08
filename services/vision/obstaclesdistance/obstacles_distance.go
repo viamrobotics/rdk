@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	svision "go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -35,18 +34,18 @@ type DistanceDetectorConfig struct {
 
 func init() {
 	resource.RegisterService(svision.API, model, resource.Registration[svision.Service, *DistanceDetectorConfig]{
-		DeprecatedRobotConstructor: func(
-			ctx context.Context, r any, c resource.Config, logger logging.Logger,
+		Constructor: func(
+			ctx context.Context, deps resource.Dependencies, c resource.Config, logger logging.Logger,
 		) (svision.Service, error) {
 			attrs, err := resource.NativeConfig[*DistanceDetectorConfig](c)
 			if err != nil {
 				return nil, err
 			}
-			actualR, err := utils.AssertType[robot.Robot](r)
-			if err != nil {
-				return nil, err
-			}
-			return registerObstacleDistanceDetector(ctx, c.ResourceName(), attrs, actualR)
+
+			return registerObstacleDistanceDetector(ctx, c.ResourceName(), attrs, deps)
+		},
+		WeakDependencies: []resource.Matcher{
+			resource.SubtypeMatcher{Subtype: camera.SubtypeName},
 		},
 	})
 }
@@ -67,7 +66,7 @@ func registerObstacleDistanceDetector(
 	ctx context.Context,
 	name resource.Name,
 	conf *DistanceDetectorConfig,
-	r robot.Robot,
+	deps resource.Dependencies,
 ) (svision.Service, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::registerObstacleDistanceDetector")
 	defer span.End()
@@ -113,7 +112,7 @@ func registerObstacleDistanceDetector(
 
 		return toReturn, nil
 	}
-	return svision.NewService(name, r, nil, nil, nil, segmenter)
+	return svision.NewService(name, deps, nil, nil, nil, segmenter)
 }
 
 func medianFromPointClouds(ctx context.Context, clouds []pointcloud.PointCloud) (r3.Vector, error) {

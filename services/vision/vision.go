@@ -75,7 +75,7 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 type vizModel struct {
 	resource.Named
 	resource.AlwaysRebuild
-	r               robot.Robot                     // in order to get access to all cameras
+	deps            resource.Dependencies           // in order to get access to all cameras
 	closerFunc      func(ctx context.Context) error // close the underlying model
 	classifierFunc  classification.Classifier
 	detectorFunc    objectdetection.Detector
@@ -85,7 +85,7 @@ type vizModel struct {
 // NewService wraps the vision model in the struct that fulfills the vision service interface.
 func NewService(
 	name resource.Name,
-	r robot.Robot,
+	d resource.Dependencies,
 	c func(ctx context.Context) error,
 	cf classification.Classifier,
 	df objectdetection.Detector,
@@ -97,7 +97,7 @@ func NewService(
 	}
 	return &vizModel{
 		Named:           name.AsNamed(),
-		r:               r,
+		deps:            d,
 		closerFunc:      c,
 		classifierFunc:  cf,
 		detectorFunc:    df,
@@ -130,7 +130,7 @@ func (vm *vizModel) DetectionsFromCamera(
 	if vm.detectorFunc == nil {
 		return nil, errors.Errorf("vision model %q does not implement a Detector", vm.Named.Name())
 	}
-	cam, err := camera.FromRobot(vm.r, cameraName)
+	cam, err := camera.FromDependencies(vm.deps, cameraName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
@@ -173,7 +173,7 @@ func (vm *vizModel) ClassificationsFromCamera(
 	if vm.classifierFunc == nil {
 		return nil, errors.Errorf("vision model %q does not implement a Classifier", vm.Named.Name())
 	}
-	cam, err := camera.FromRobot(vm.r, cameraName)
+	cam, err := camera.FromDependencies(vm.deps, cameraName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
@@ -196,7 +196,7 @@ func (vm *vizModel) GetObjectPointClouds(ctx context.Context, cameraName string,
 	}
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetObjectPointClouds::"+vm.Named.Name().String())
 	defer span.End()
-	cam, err := camera.FromRobot(vm.r, cameraName)
+	cam, err := camera.FromDependencies(vm.deps, cameraName)
 	if err != nil {
 		return nil, err
 	}

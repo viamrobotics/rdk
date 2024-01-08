@@ -18,10 +18,8 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/robot"
 	svision "go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 	vision "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/segmentation"
 )
@@ -30,18 +28,18 @@ var model = resource.DefaultModelFamily.WithModel("obstacles_depth")
 
 func init() {
 	resource.RegisterService(svision.API, model, resource.Registration[svision.Service, *ObsDepthConfig]{
-		DeprecatedRobotConstructor: func(
-			ctx context.Context, r any, c resource.Config, logger logging.Logger,
+		Constructor: func(
+			ctx context.Context, deps resource.Dependencies, c resource.Config, logger logging.Logger,
 		) (svision.Service, error) {
 			attrs, err := resource.NativeConfig[*ObsDepthConfig](c)
 			if err != nil {
 				return nil, err
 			}
-			actualR, err := utils.AssertType[robot.Robot](r)
-			if err != nil {
-				return nil, err
-			}
-			return registerObstaclesDepth(ctx, c.ResourceName(), attrs, actualR, logger)
+
+			return registerObstaclesDepth(ctx, c.ResourceName(), attrs, deps, logger)
+		},
+		WeakDependencies: []resource.Matcher{
+			resource.SubtypeMatcher{Subtype: camera.SubtypeName},
 		},
 	})
 }
@@ -67,7 +65,7 @@ func registerObstaclesDepth(
 	ctx context.Context,
 	name resource.Name,
 	conf *ObsDepthConfig,
-	r robot.Robot,
+	deps resource.Dependencies,
 	logger logging.Logger,
 ) (svision.Service, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::registerObstacleDepth")
@@ -94,7 +92,7 @@ func registerObstaclesDepth(
 	}
 
 	segmenter := myObsDep.buildObsDepth(logger) // does the thing
-	return svision.NewService(name, r, nil, nil, nil, segmenter)
+	return svision.NewService(name, deps, nil, nil, nil, segmenter)
 }
 
 // BuildObsDepth will check for intrinsics and determine how to build based on that.
