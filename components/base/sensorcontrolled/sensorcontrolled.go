@@ -72,8 +72,7 @@ type sensorBase struct {
 	orientation movementsensor.MovementSensor
 	velocities  movementsensor.MovementSensor
 
-	loop       *control.Loop
-	blockNames map[string]string
+	loop *control.Loop
 }
 
 func init() {
@@ -160,9 +159,6 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 
 	if sb.velocities != nil && useControlLoop {
 		if err := sb.setupControlLoops(); err != nil {
-			return err
-		}
-		if err := sb.validateControlLoopConfig(ctx); err != nil {
 			return err
 		}
 	}
