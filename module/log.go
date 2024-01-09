@@ -54,6 +54,7 @@ func (ma *moduleAppender) Sync() error {
 	return nil
 }
 
+// TODO(RSDK-6280): Preserve timezones for moduleLogger.
 type moduleLogger struct {
 	logging.Logger
 	modAppender *moduleAppender

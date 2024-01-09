@@ -947,7 +947,8 @@ func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[
 // by normal Golang SDK clients.
 func (rc *RobotClient) ModuleLog(ctx context.Context, log zapcore.Entry, fields []zapcore.Field) error {
 	timeStr := log.Time.Format(logging.DefaultTimeFormatStr)
-	message := fmt.Sprintf(`%v %q {%q: %q`, log.Caller.TrimmedPath(), log.Message, moduleTSLogKey, timeStr)
+	// TODO(RSDK-6280): Preserve the type of all `fields`.
+	message := fmt.Sprintf("%v\t%v\t{%q: %q", log.Caller.TrimmedPath(), log.Message, moduleTSLogKey, timeStr)
 	for _, field := range fields {
 		message = fmt.Sprintf("%v, %q: %q", message, field.Key, field.String)
 	}
