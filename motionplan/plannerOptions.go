@@ -96,7 +96,7 @@ func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 	opt.FrameStep = defaultFrameStep
 	opt.JointSolveDist = defaultJointSolveDist
 	opt.IterBeforeRand = defaultIterBeforeRand
-	opt.qstep = getFrameSteps(frame, defaultFrameStep)
+	opt.qstep = GetFrameInputs(frame, defaultFrameStep)
 
 	// Note the direct reference to a default here.
 	// This is due to a Go compiler issue where it will incorrectly refuse to compile with a circular reference error if this
@@ -175,6 +175,9 @@ type plannerOptions struct {
 	PlannerConstructor plannerConstructor
 
 	Fallback *plannerOptions
+
+	// TODO: comment me
+	relativeInputs bool
 }
 
 // SetMetric sets the distance metric for the solver.

@@ -315,20 +315,22 @@ func (sf *solverFrame) AlmostEquals(otherFrame frame.Frame) bool {
 	return false
 }
 
-// inputsToPlan takes a 2d array on inputs and converts to a Plan.
-func (sf solverFrame) inputsToPlan(inputs [][]frame.Input) Plan {
-	plan := Plan{}
-	for _, inputSlice := range inputs {
-		stepMap := sf.sliceToMap(inputSlice)
-		plan = append(plan, stepMap)
+// TODO: move this from being a method on sf to a normal helper in plan.go
+// nodesToTrajectory takes a slice of nodes and converts it to a Trajectory.
+func (sf solverFrame) nodesToTrajectory(nodes []node) Trajectory {
+	traj := make(Trajectory, 0, len(nodes))
+	for _, n := range nodes {
+		stepMap := sf.sliceToMap(n.Q())
+		traj = append(traj, stepMap)
 	}
-	return plan
+	return traj
 }
 
-// planToNodes takes a plan and turns it into a slice of nodes.
-func (sf solverFrame) planToNodes(plan Plan) ([]node, error) {
-	planNodes := make([]node, 0, len(plan))
-	for _, step := range plan {
+// TODO: is this necessary?
+// trajToNodes takes a trajectory and turns it into a slice of nodes.
+func (sf solverFrame) trajToNodes(traj Trajectory) ([]node, error) {
+	planNodes := make([]node, 0, len(traj))
+	for _, step := range traj {
 		stepConfig, err := sf.mapToSlice(step)
 		if err != nil {
 			return nil, err
@@ -384,23 +386,18 @@ func findPivotFrame(frameList1, frameList2 []frame.Frame) (frame.Frame, error) {
 	return nil, errors.New("no path from solve frame to goal frame")
 }
 
-// PlanToPlanSteps converts a plan to the relative poses the robot will move to (relative to the origin).
-func PlanToPlanSteps(
-	plan Plan,
+// PlanToPathSteps converts a plan to the relative poses the robot will move to (relative to the origin).
+func PlanToPathSteps(
+	plan *Plan,
 	componentName resource.Name,
 	planRequest PlanRequest,
 	startPose spatial.Pose,
-) ([]PlanStep, error) {
+) ([]PathStep, error) {
 	sf, err := newSolverFrame(
 		planRequest.FrameSystem,
 		planRequest.Frame.Name(),
 		planRequest.Goal.Parent(),
 		planRequest.StartConfiguration)
-	if err != nil {
-		return nil, err
-	}
-
-	planNodes, err := sf.planToNodes(plan)
 	if err != nil {
 		return nil, err
 	}
@@ -430,23 +427,4 @@ func PlanToPlanSteps(
 	}
 
 	return planSteps, nil
-}
-
-// PlanStepsToGeoPoses converts the relative poses the robot will move to into geo poses.
-func PlanStepsToGeoPoses(
-	planSteps []PlanStep,
-	componentName resource.Name,
-	origin spatial.GeoPose,
-) []spatial.GeoPose {
-	geoPoses := []spatial.GeoPose{}
-	for _, step := range planSteps {
-		for name, pose := range step {
-			if name == componentName {
-				gp := spatial.PoseToGeoPose(&origin, pose)
-				geoPoses = append(geoPoses, *gp)
-			}
-		}
-	}
-
-	return geoPoses
 }

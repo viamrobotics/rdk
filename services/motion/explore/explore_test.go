@@ -91,7 +91,7 @@ func TestExplorePlanMove(t *testing.T) {
 				nil,
 			)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, len(planInputs), test.ShouldEqual, tt.expectedMotionPlanLength)
+			test.That(t, len(planInputs.Trajectory), test.ShouldEqual, tt.expectedMotionPlanLength)
 		})
 	}
 }
@@ -208,7 +208,7 @@ func TestExploreCheckForObstacles(t *testing.T) {
 			)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
-			test.That(t, len(plan), test.ShouldBeGreaterThan, 0)
+			test.That(t, len(plan.Trajectory), test.ShouldBeGreaterThan, 0)
 
 			// Create a vision service using provided obstacles and place it in an obstacle DetectorPair object
 			visionService := createMockVisionService("", tt.obstacle)
@@ -357,7 +357,7 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 			)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
-			test.That(t, len(plan), test.ShouldBeGreaterThan, 0)
+			test.That(t, len(plan.Trajectory), test.ShouldBeGreaterThan, 0)
 
 			// Create a vision service using provided obstacles and place it in an obstacle DetectorPair object
 			var obstacleDetectors []obstacleDetectorObject

@@ -654,11 +654,16 @@ func TestPaths(t *testing.T) {
 			s.mogrs = append(s.mogrs, req)
 			s.pws = []motion.PlanWithStatus{
 				{
-					Plan: motion.Plan{
+					Plan: motion.PlanWithMetadata{
 						ExecutionID: executionID,
-						Steps: []motionplan.PlanStep{map[resource.Name]spatialmath.Pose{
-							s.base.Name(): spatialmath.NewPose(r3.Vector{X: expectedLng, Y: expectedLat}, nil),
-						}},
+						Plan: &motionplan.Plan{
+							Path: motionplan.Path{{
+								s.base.Name().ShortName(): referenceframe.NewPoseInFrame(
+									referenceframe.World,
+									spatialmath.NewPose(r3.Vector{X: expectedLng, Y: expectedLat}, nil),
+								),
+							}},
+						},
 					},
 					StatusHistory: []motion.PlanStatus{
 						{State: motion.PlanStateInProgress},
@@ -792,7 +797,7 @@ func TestStartWaypoint(t *testing.T) {
 			s.mogrs = append(s.mogrs, req)
 			s.pws = []motion.PlanWithStatus{
 				{
-					Plan: motion.Plan{
+					Plan: motion.PlanWithMetadata{
 						ExecutionID: executionID,
 					},
 					StatusHistory: []motion.PlanStatus{
@@ -963,7 +968,7 @@ func TestStartWaypoint(t *testing.T) {
 			}
 			return []motion.PlanWithStatus{
 				{
-					Plan: motion.Plan{
+					Plan: motion.PlanWithMetadata{
 						ExecutionID: executionID,
 					},
 					StatusHistory: []motion.PlanStatus{
@@ -1073,7 +1078,7 @@ func TestStartWaypoint(t *testing.T) {
 				executionID := executionIDs[count-2]
 				s.pws = []motion.PlanWithStatus{
 					{
-						Plan: motion.Plan{
+						Plan: motion.PlanWithMetadata{
 							ExecutionID: executionID,
 						},
 						StatusHistory: []motion.PlanStatus{
@@ -1209,7 +1214,7 @@ func TestStartWaypoint(t *testing.T) {
 				s.mogrs = append(s.mogrs, req)
 				s.pws = []motion.PlanWithStatus{
 					{
-						Plan: motion.Plan{
+						Plan: motion.PlanWithMetadata{
 							ExecutionID: executionID,
 						},
 						StatusHistory: []motion.PlanStatus{
@@ -1322,7 +1327,7 @@ func TestStartWaypoint(t *testing.T) {
 			s.mogrs = append(s.mogrs, req)
 			s.pws = []motion.PlanWithStatus{
 				{
-					Plan: motion.Plan{
+					Plan: motion.PlanWithMetadata{
 						ExecutionID: executionID,
 					},
 					StatusHistory: []motion.PlanStatus{
@@ -1458,7 +1463,7 @@ func TestStartWaypoint(t *testing.T) {
 			s.mogrs = append(s.mogrs, req)
 			s.pws = []motion.PlanWithStatus{
 				{
-					Plan: motion.Plan{
+					Plan: motion.PlanWithMetadata{
 						ExecutionID: executionID,
 					},
 					StatusHistory: []motion.PlanStatus{

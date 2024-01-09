@@ -315,11 +315,11 @@ func (ms *explore) checkForObstacles(
 	ctx context.Context,
 	obstacleDetectors []obstacleDetectorObject,
 	kb kinematicbase.KinematicBase,
-	plan motionplan.Plan,
+	plan *motionplan.Plan,
 	obstaclePollingFrequencyHz float64,
 ) {
 	ms.logger.Debug("Current Plan")
-	for i, p := range plan {
+	for i, p := range plan.Trajectory {
 		ms.logger.Debugf("plan[%v]: %v", i, p)
 	}
 	// Constantly check for obstacles in path at desired obstacle polling frequency
@@ -366,7 +366,7 @@ func (ms *explore) checkForObstacles(
 			// TODO: Generalize this fix to work for maps with non-transient obstacles. This current implementation
 			// relies on the plan being two steps: a start position and a goal position.
 			// JIRA Ticket: https://viam.atlassian.net/browse/RSDK-5964
-			plan[0][kb.Name().ShortName()] = currentInputs
+			plan.Trajectory[0][kb.Name().ShortName()] = currentInputs
 			ms.logger.Debugf("Current transient worldState: ", worldState.String())
 
 			// Check plan for transient obstacles
@@ -393,9 +393,9 @@ func (ms *explore) checkForObstacles(
 }
 
 // executePlan will carry out the desired motionplan plan.
-func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBase, plan motionplan.Plan) {
+func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBase, plan *motionplan.Plan) {
 	// Iterate through motionplan plan
-	for _, p := range plan {
+	for _, p := range plan.Trajectory {
 		select {
 		case <-ctx.Done():
 			return
@@ -560,7 +560,7 @@ func (ms *explore) createMotionPlan(
 	kb kinematicbase.KinematicBase,
 	destination *referenceframe.PoseInFrame,
 	extra map[string]interface{},
-) (motionplan.Plan, error) {
+) (*motionplan.Plan, error) {
 	if destination.Pose().Point().Norm() >= defaultMoveLimitMM {
 		return nil, errors.Errorf("destination %v is above the defined limit of %v", destination.Pose().Point().String(), defaultMoveLimitMM)
 	}

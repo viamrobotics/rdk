@@ -245,22 +245,17 @@ func TestPtgCheckPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
 
-	plan, err := tp.plan(context.Background(), goalPos, nil)
+	nodes, err := tp.plan(context.Background(), goalPos, nil)
 	test.That(t, err, test.ShouldBeNil)
-	planAsInputs := nodesToInputs(plan)
+	plan, err := newPlan(nodes, sf, true)
 	test.That(t, err, test.ShouldBeNil)
-	steps := []map[string][]referenceframe.Input{}
-	for _, resultSlice := range planAsInputs {
-		stepMap := sf.sliceToMap(resultSlice)
-		steps = append(steps, stepMap)
-	}
 
 	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
 	errorState := startPose
 	inputs := referenceframe.FloatsToInputs([]float64{0, 0, 0})
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
-		err := CheckPlan(ackermanFrame, steps, nil, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
+		err := CheckPlan(ackermanFrame, plan, nil, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -274,7 +269,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
+		err = CheckPlan(ackermanFrame, plan, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -311,7 +306,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
+		err = CheckPlan(ackermanFrame, plan, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("obstacles NOT in world frame cause collision - integration test", func(t *testing.T) {
@@ -326,7 +321,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
+		err = CheckPlan(ackermanFrame, plan, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 	t.Run("checking from partial-plan, ensure success with obstacles - integration test", func(t *testing.T) {
@@ -349,7 +344,10 @@ func TestPtgCheckPlan(t *testing.T) {
 
 		startPose := spatialmath.NewPose(vector, ov)
 
-		err = CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
+		remainingPlan, err := newPlan(nodes[2:len(nodes)-1], sf, true)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = CheckPlan(ackermanFrame, remainingPlan, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("verify partial plan with non-nil errorState and obstacle", func(t *testing.T) {
@@ -368,14 +366,17 @@ func TestPtgCheckPlan(t *testing.T) {
 		errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 1000, 0})
 		startPose = errorState
 
-		err = CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
+		remainingPlan, err := newPlan(nodes[2:len(nodes)-1], sf, true)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = CheckPlan(ackermanFrame, remainingPlan, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
 
-func planToTpspaceRec(plan Plan, f referenceframe.Frame) ([]node, error) {
+func planToTpspaceRec(plan *Plan, f referenceframe.Frame) ([]node, error) {
 	nodes := []node{}
-	for _, inp := range plan {
+	for _, inp := range plan.Trajectory {
 		thisNode := &basicNode{
 			q:    inp[f.Name()],
 			cost: inp[f.Name()][2].Value,

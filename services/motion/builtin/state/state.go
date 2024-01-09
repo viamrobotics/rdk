@@ -14,19 +14,14 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 )
 
-// Waypoints represent the waypoints of the plan.
-type Waypoints [][]referenceframe.Input
-
-// PlanResponse is the response from Plan.
-type PlanResponse struct {
-	Waypoints        Waypoints
-	Motionplan       motionplan.Plan
-	PosesByComponent []motionplan.PlanStep
+// PlanExecutor implements Plan and Execute.
+type PlanExecutor interface {
+	Plan(ctx context.Context) (*motionplan.Plan, error)
+	Execute(context.Context, *motionplan.Plan) (ExecuteResponse, error)
 }
 
 // ExecuteResponse is the response from Execute.
@@ -49,15 +44,9 @@ type ExecuteResponse struct {
 type PlannerExecutorConstructor[R any] func(
 	ctx context.Context,
 	req R,
-	seedPlan motionplan.Plan,
+	seedPlan *motionplan.Plan,
 	replanCount int,
-) (PlannerExecutor, error)
-
-// PlannerExecutor implements Plan and Execute.
-type PlannerExecutor interface {
-	Plan(ctx context.Context) (PlanResponse, error)
-	Execute(context.Context, Waypoints) (ExecuteResponse, error)
-}
+) (PlanExecutor, error)
 
 type componentState struct {
 	executionIDHistory []motion.ExecutionID
@@ -65,7 +54,7 @@ type componentState struct {
 }
 
 type planMsg struct {
-	plan       motion.Plan
+	plan       motion.PlanWithMetadata
 	planStatus motion.PlanStatus
 }
 
@@ -116,30 +105,29 @@ type execution[R any] struct {
 }
 
 type planWithExecutor struct {
-	plan            motion.Plan
-	plannerExecutor PlannerExecutor
-	waypoints       Waypoints
-	motionplan      motionplan.Plan
+	plan     motion.PlanWithMetadata
+	executor PlanExecutor
 }
 
 // NewPlan creates a new motion.Plan from an execution & returns an error if one was not able to be created.
-func (e *execution[R]) newPlanWithExecutor(ctx context.Context, seedPlan motionplan.Plan, replanCount int) (planWithExecutor, error) {
+func (e *execution[R]) newPlanWithExecutor(ctx context.Context, seedPlan *motionplan.Plan, replanCount int) (planWithExecutor, error) {
 	pe, err := e.plannerExecutorConstructor(e.cancelCtx, e.req, seedPlan, replanCount)
 	if err != nil {
 		return planWithExecutor{}, err
 	}
-	resp, err := pe.Plan(ctx)
+	plan, err := pe.Plan(ctx)
 	if err != nil {
 		return planWithExecutor{}, err
 	}
-
-	plan := motion.Plan{
-		ID:            uuid.New(),
-		ExecutionID:   e.id,
-		ComponentName: e.componentName,
-		Steps:         resp.PosesByComponent,
-	}
-	return planWithExecutor{plan: plan, plannerExecutor: pe, waypoints: resp.Waypoints, motionplan: resp.Motionplan}, nil
+	return planWithExecutor{
+		plan: motion.PlanWithMetadata{
+			Plan:          plan,
+			ID:            uuid.New(),
+			ExecutionID:   e.id,
+			ComponentName: e.componentName,
+		},
+		executor: pe,
+	}, nil
 }
 
 // Start starts an execution with a given plan.
@@ -173,6 +161,7 @@ func (e *execution[R]) start(ctx context.Context) error {
 		// 3. the execution failed
 		// 4. replanning failed
 		for {
+			resp, err := lastPWE.executor.Execute(e.cancelCtx, lastPWE.plan.Plan)
 			resp, err := lastPWE.plannerExecutor.Execute(e.cancelCtx, lastPWE.waypoints)
 
 			switch {
@@ -194,7 +183,7 @@ func (e *execution[R]) start(ctx context.Context) error {
 			// replan
 			default:
 				replanCount++
-				newPWE, err := e.newPlanWithExecutor(e.cancelCtx, lastPWE.motionplan, replanCount)
+				newPWE, err := e.newPlanWithExecutor(e.cancelCtx, lastPWE.plan.Plan, replanCount)
 				// replan failed
 				if err != nil {
 					msg := "failed to replan for execution %s and component: %s, " +
@@ -224,7 +213,7 @@ func (e *execution[R]) toStateExecution() stateExecution {
 	}
 }
 
-func (e *execution[R]) notifyStateNewExecution(execution stateExecution, plan motion.Plan, time time.Time) {
+func (e *execution[R]) notifyStateNewExecution(execution stateExecution, plan motion.PlanWithMetadata, time time.Time) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	// NOTE: We hold the lock for both updateStateNewExecution & updateStateNewPlan to ensure no readers
@@ -236,7 +225,7 @@ func (e *execution[R]) notifyStateNewExecution(execution stateExecution, plan mo
 	})
 }
 
-func (e *execution[R]) notifyStateReplan(lastPlan motion.Plan, reason string, newPlan motion.Plan, time time.Time) {
+func (e *execution[R]) notifyStateReplan(lastPlan motion.PlanWithMetadata, reason string, newPlan motion.PlanWithMetadata, time time.Time) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	// NOTE: We hold the lock for both updateStateNewExecution & updateStateNewPlan to ensure no readers
@@ -254,7 +243,7 @@ func (e *execution[R]) notifyStateReplan(lastPlan motion.Plan, reason string, ne
 	})
 }
 
-func (e *execution[R]) notifyStatePlanFailed(plan motion.Plan, reason string, time time.Time) {
+func (e *execution[R]) notifyStatePlanFailed(plan motion.PlanWithMetadata, reason string, time time.Time) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	e.state.updateStateStatusUpdate(stateUpdateMsg{
@@ -265,7 +254,7 @@ func (e *execution[R]) notifyStatePlanFailed(plan motion.Plan, reason string, ti
 	})
 }
 
-func (e *execution[R]) notifyStatePlanSucceeded(plan motion.Plan, time time.Time) {
+func (e *execution[R]) notifyStatePlanSucceeded(plan motion.PlanWithMetadata, time time.Time) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	e.state.updateStateStatusUpdate(stateUpdateMsg{
@@ -276,7 +265,7 @@ func (e *execution[R]) notifyStatePlanSucceeded(plan motion.Plan, time time.Time
 	})
 }
 
-func (e *execution[R]) notifyStatePlanStopped(plan motion.Plan, time time.Time) {
+func (e *execution[R]) notifyStatePlanStopped(plan motion.PlanWithMetadata, time time.Time) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	e.state.updateStateStatusUpdate(stateUpdateMsg{

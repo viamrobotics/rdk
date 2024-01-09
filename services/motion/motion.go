@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -96,16 +97,21 @@ type ListPlanStatusesReq struct {
 	Extra           map[string]interface{}
 }
 
-// Plan represents a motion plan.
-type Plan struct {
+// PlanStep represents a single step of the plan
+// Describes the pose each resource described by the plan
+// should move to at that step.
+type PlanStep map[resource.Name]spatialmath.Pose
+
+// PlanWithMetadata represents a motion plan with additional metadata used by the motion service.
+type PlanWithMetadata struct {
 	// Unique ID of the plan
 	ID PlanID
 	// Name of the component the plan is planning for
 	ComponentName resource.Name
 	// Unique ID of the execution
 	ExecutionID ExecutionID
-	// Steps that describe the plan
-	Steps []motionplan.PlanStep
+	// The motionplan itself
+	*motionplan.Plan
 }
 
 // PlanState denotes the state a Plan is in.
@@ -164,7 +170,7 @@ type PlanStatus struct {
 // PlanWithStatus contains a plan, its current status, and all state changes that came prior
 // sorted by ascending timestamp.
 type PlanWithStatus struct {
-	Plan          Plan
+	Plan          PlanWithMetadata
 	StatusHistory []PlanStatus
 }
 
@@ -294,10 +300,10 @@ func (ps PlanStatus) ToProto() *pb.PlanStatus {
 }
 
 // ToProto converts a Plan to a *pb.Plan.
-func (p Plan) ToProto() *pb.Plan {
+func (p PlanWithMetadata) ToProto() *pb.Plan {
 	steps := []*pb.PlanStep{}
-	for _, s := range p.Steps {
-		steps = append(steps, s.ToProto())
+	for _, s := range p.Path {
+		steps = append(steps, pathStepToProto(s))
 	}
 
 	return &pb.Plan{

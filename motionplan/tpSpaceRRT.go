@@ -156,10 +156,7 @@ func newTPSpaceMotionPlanner(
 }
 
 // TODO: seed is not immediately useful for TP-space.
-func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
-	goal spatialmath.Pose,
-	seed []referenceframe.Input,
-) ([]node, error) {
+func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context, goal spatialmath.Pose, seed []referenceframe.Input) ([]node, error) {
 	mp.planOpts.SetGoal(goal)
 	solutionChan := make(chan *rrtPlanReturn, 1)
 
@@ -187,19 +184,15 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 	planRunners.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer planRunners.Done()
-		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{
-			maps,
-			nil,
-			solutionChan,
-		})
+		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{maps, nil, solutionChan})
 	})
 	select {
 	case <-ctx.Done():
 		planRunners.Wait()
 		return nil, ctx.Err()
-	case plan := <-solutionChan:
-		if plan != nil {
-			return plan.steps, plan.err()
+	case solution := <-solutionChan:
+		if solution != nil {
+			return solution.steps, solution.err
 		}
 		return nil, errors.New("nil tp-space plan returned, unable to complete plan")
 	}
@@ -224,7 +217,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			if k.Pose() != nil {
 				startPose = k.Pose()
 			} else {
-				rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("node %v must provide a Pose", k)}
+				rrt.solutionChan <- &rrtPlanReturn{err: fmt.Errorf("node %v must provide a Pose", k)}
 				return
 			}
 			break
@@ -244,7 +237,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 					goalNode = k
 				}
 			} else {
-				rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("node %v must provide a Pose", k)}
+				rrt.solutionChan <- &rrtPlanReturn{err: fmt.Errorf("node %v must provide a Pose", k)}
 				return
 			}
 		}
@@ -256,7 +249,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		// If we've reached the goal, extract the path from the RRT trees and return
 		correctedPath, err := rectifyTPspacePath(path, mp.frame, spatialmath.NewZeroPose())
 		if err != nil {
-			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+			rrt.solutionChan <- &rrtPlanReturn{err: err, maps: rrt.maps}
 			return
 		}
 		rrt.solutionChan <- &rrtPlanReturn{steps: correctedPath, maps: rrt.maps}
@@ -303,7 +296,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		mp.logger.CDebugf(ctx, "TP Space RRT iteration %d", iter)
 		if ctx.Err() != nil {
 			mp.logger.CDebugf(ctx, "TP Space RRT timed out after %d iterations", iter)
-			rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
+			rrt.solutionChan <- &rrtPlanReturn{err: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
 			return
 		}
 
@@ -318,7 +311,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 
 		err := multierr.Combine(seedReached.error, goalReached.error)
 		if err != nil {
-			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+			rrt.solutionChan <- &rrtPlanReturn{err: err, maps: rrt.maps}
 			return
 		}
 
@@ -333,7 +326,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				// If both maps extended, but did not reach the same point, then attempt to extend them towards each other
 				seedReached = mp.attemptExtension(ctx, flipNode(goalReached.node), rrt.maps.startMap, false)
 				if seedReached.error != nil {
-					rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
+					rrt.solutionChan <- &rrtPlanReturn{err: seedReached.error, maps: rrt.maps}
 					return
 				}
 				if seedReached.node != nil {
@@ -344,7 +337,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 					if reachedDelta > mp.planOpts.GoalThreshold {
 						goalReached = mp.attemptExtension(ctx, flipNode(seedReached.node), rrt.maps.goalMap, true)
 						if goalReached.error != nil {
-							rrt.solutionChan <- &rrtPlanReturn{planerr: goalReached.error, maps: rrt.maps}
+							rrt.solutionChan <- &rrtPlanReturn{err: goalReached.error, maps: rrt.maps}
 							return
 						}
 					}
@@ -374,7 +367,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 
 			for _, goalMapNode := range mp.goalNodes {
 				if ctx.Err() != nil {
-					rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
+					rrt.solutionChan <- &rrtPlanReturn{err: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
 					return
 				}
 
@@ -392,7 +385,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 
 				seedReached := mp.attemptExtension(ctx, flipNode(goalMapNode), rrt.maps.startMap, false)
 				if seedReached.error != nil {
-					rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
+					rrt.solutionChan <- &rrtPlanReturn{err: seedReached.error, maps: rrt.maps}
 					return
 				}
 				if seedReached.node == nil {
@@ -427,11 +420,11 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		// Get random cartesian configuration
 		randPosNode, err = mp.sample(midptNode, iter)
 		if err != nil {
-			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+			rrt.solutionChan <- &rrtPlanReturn{err: err, maps: rrt.maps}
 			return
 		}
 	}
-	rrt.solutionChan <- &rrtPlanReturn{maps: rrt.maps, planerr: errors.New("tpspace RRT unable to create valid path")}
+	rrt.solutionChan <- &rrtPlanReturn{maps: rrt.maps, err: errors.New("tpspace RRT unable to create valid path")}
 }
 
 // getExtensionCandidate will return either nil, or the best node on a valid PTG to reach the desired random node and its RRT tree parent.

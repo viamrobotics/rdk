@@ -823,18 +823,10 @@ func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]
 		return nil, err
 	}
 
-	geoPoints := make([]*geo.Point, 0, len(ph[0].Plan.Steps))
-	for _, s := range ph[0].Plan.Steps {
-		if len(s) > 1 {
-			return nil, errors.New("multi component paths are unsupported")
-		}
-		var pose spatialmath.Pose
-		for _, p := range s {
-			pose = p
-		}
-
-		geoPoint := geo.NewPoint(pose.Point().Y, pose.Point().X)
-		geoPoints = append(geoPoints, geoPoint)
+	geoPoints := make([]*geo.Point, 0, len(ph[0].Plan.Path))
+	poses := ph[0].Plan.Path.GetFramePoses(svc.base.Name().ShortName())
+	for _, p := range poses {
+		geoPoints = append(geoPoints, geo.NewPoint(p.Pose().Point().Y, p.Pose().Point().X))
 	}
 
 	path, err := navigation.NewPath(ewp.waypoint.ID, geoPoints)

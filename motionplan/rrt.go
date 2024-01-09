@@ -39,22 +39,11 @@ type rrtParallelPlannerShared struct {
 
 type rrtMap map[node]node
 
+// TODO would like to rename this to solution since now plans are more of a defined thing
 type rrtPlanReturn struct {
-	steps   []node
-	planerr error
-	maps    *rrtMaps
-}
-
-func nodesToInputs(nodes []node) [][]referenceframe.Input {
-	inputs := make([][]referenceframe.Input, 0, len(nodes))
-	for _, step := range nodes {
-		inputs = append(inputs, step.Q())
-	}
-	return inputs
-}
-
-func (plan *rrtPlanReturn) err() error {
-	return plan.planerr
+	steps []node
+	err   error
+	maps  *rrtMaps
 }
 
 type rrtMaps struct {
@@ -96,7 +85,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 	// get many potential end goals from IK solver
 	solutions, err := mp.getSolutions(ctx, seed)
 	if err != nil {
-		rrt.planerr = err
+		rrt.err = err
 		return rrt
 	}
 
@@ -127,7 +116,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 
 func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
 	if len(nodePairs) == 0 {
-		return &rrtPlanReturn{planerr: errPlannerFailed, maps: maps}
+		return &rrtPlanReturn{err: errPlannerFailed, maps: maps}
 	}
 	minIdx := 0
 	minDist := nodePairs[0].sumCosts()

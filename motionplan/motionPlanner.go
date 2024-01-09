@@ -97,7 +97,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 }
 
 // PlanMotion plans a motion from a provided plan request.
-func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
+func PlanMotion(ctx context.Context, request *PlanRequest) (*Plan, error) {
 	// Calls Replan but without a seed plan
 	return Replan(ctx, request, nil, 0)
 }
@@ -129,12 +129,12 @@ func PlanFrameMotion(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	return plan.GetFrameSteps(f.Name())
+	return plan.Trajectory.GetFrameInputs(f.Name())
 }
 
 // Replan plans a motion from a provided plan request, and then will return that plan only if its cost is better than the cost of the
 // passed-in plan multiplied by `replanCostFactor`.
-func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanCostFactor float64) (Plan, error) {
+func Replan(ctx context.Context, request *PlanRequest, currentPlan *Plan, replanCostFactor float64) (*Plan, error) {
 	// make sure request is well formed and not missing vital information
 	if err := request.validatePlanRequest(); err != nil {
 		return nil, err
@@ -185,7 +185,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		return nil, err
 	}
 
-	resultSlices, err := sfPlanner.PlanSingleWaypoint(
+	newPlan, err := sfPlanner.PlanSingleWaypoint(
 		ctx,
 		request.StartConfiguration,
 		request.Goal.Pose(),
@@ -197,11 +197,10 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	if err != nil {
 		return nil, err
 	}
-	newPlan := sf.inputsToPlan(resultSlices)
 
 	if replanCostFactor > 0 && currentPlan != nil {
-		initialPlanCost := currentPlan.Evaluate(sfPlanner.opt().ScoreFunc)
-		finalPlanCost := newPlan.Evaluate(sfPlanner.opt().ScoreFunc)
+		initialPlanCost := currentPlan.Trajectory.Evaluate(sfPlanner.opt().ScoreFunc)
+		finalPlanCost := newPlan.Trajectory.Evaluate(sfPlanner.opt().ScoreFunc)
 		request.Logger.CDebugf(ctx,
 			"initialPlanCost %f adjusted with cost factor to %f, replan cost %f",
 			initialPlanCost, initialPlanCost*replanCostFactor, finalPlanCost,
@@ -460,7 +459,7 @@ IK:
 // with an error with additional collision details.
 func CheckPlan(
 	checkFrame frame.Frame,
-	plan Plan,
+	plan *Plan,
 	worldState *frame.WorldState,
 	fs frame.FrameSystem,
 	currentPosition spatialmath.Pose,
@@ -470,14 +469,14 @@ func CheckPlan(
 	logger logging.Logger,
 ) error {
 	// ensure that we can actually perform the check
-	if len(plan) < 1 {
+	if len(plan.Trajectory) < 1 {
 		return errors.New("plan must have at least one element")
 	}
 
 	// construct solverFrame
 	// Note that this requires all frames which move as part of the plan, to have an
 	// entry in the very first plan waypoint
-	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, plan[0])
+	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, plan.Trajectory[0])
 	if err != nil {
 		return err
 	}
@@ -489,7 +488,7 @@ func CheckPlan(
 	}
 
 	// convert plan into nodes
-	planNodes, err := sf.planToNodes(plan)
+	planNodes, err := sf.trajToNodes(plan.Trajectory)
 	if err != nil {
 		return err
 	}
@@ -499,6 +498,7 @@ func CheckPlan(
 	// The solver frame will have had its PTGs filled in the newPlanManager() call, if applicable.
 	relative := len(sf.PTGSolvers()) > 0
 
+	// TODO: should be able to get rid of all the casing around is relative now
 	if relative {
 		// get pose of robot along the current trajectory it is executing
 		lastPose, err := sf.Transform(currentInputs)
@@ -531,7 +531,7 @@ func CheckPlan(
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
 		currentPosition,                    // starting pose
 		planNodes[len(planNodes)-1].Pose(), // goalPose
-		plan[0],                            // starting configuration
+		plan.Trajectory[0],                 // starting configuration
 		worldState,
 		nil, // no pb.Constraints
 		nil, // no plannOpts

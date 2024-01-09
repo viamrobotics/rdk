@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
@@ -41,6 +42,16 @@ func TestPlanWithStatus(t *testing.T) {
 	timestamp := time.Now().UTC()
 	timestampb := timestamppb.New(timestamp)
 	reason := "some reason"
+
+	plan := PlanWithMetadata{
+		ID:            planID,
+		ExecutionID:   executionID,
+		ComponentName: baseName,
+		Steps: []motionplan.PathStep{
+			map[resource.Name]spatialmath.Pose{baseName: poseA},
+			map[resource.Name]spatialmath.Pose{baseName: poseB},
+		},
+	}
 
 	t.Run("planWithStatusFromProto", func(t *testing.T) {
 		type testCase struct {
@@ -65,14 +76,14 @@ func TestPlanWithStatus(t *testing.T) {
 			},
 			{
 				description: "empty status returns an error",
-				input:       &pb.PlanWithStatus{Plan: Plan{}.ToProto()},
+				input:       &pb.PlanWithStatus{Plan: PlanWithMetadata{}.ToProto()},
 				result:      PlanWithStatus{},
 				err:         errors.New("received nil *pb.PlanStatus"),
 			},
 			{
 				description: "nil pointers in the status history returns an error",
 				input: &pb.PlanWithStatus{
-					Plan:          Plan{}.ToProto(),
+					Plan:          PlanWithMetadata{}.ToProto(),
 					Status:        PlanStatus{}.ToProto(),
 					StatusHistory: []*pb.PlanStatus{nil},
 				},
@@ -82,11 +93,11 @@ func TestPlanWithStatus(t *testing.T) {
 			{
 				description: "empty *pb.PlanWithStatus status returns an empty PlanWithStatus",
 				input: &pb.PlanWithStatus{
-					Plan:   Plan{}.ToProto(),
+					Plan:   PlanWithMetadata{}.ToProto(),
 					Status: PlanStatus{}.ToProto(),
 				},
 				result: PlanWithStatus{
-					Plan:          Plan{},
+					Plan:          PlanWithMetadata{},
 					StatusHistory: []PlanStatus{{}},
 				},
 			},
@@ -123,15 +134,7 @@ func TestPlanWithStatus(t *testing.T) {
 					},
 				},
 				result: PlanWithStatus{
-					Plan: Plan{
-						ID:            planID,
-						ExecutionID:   executionID,
-						ComponentName: baseName,
-						Steps: []motionplan.PlanStep{
-							map[resource.Name]spatialmath.Pose{baseName: poseA},
-							map[resource.Name]spatialmath.Pose{baseName: poseB},
-						},
-					},
+					Plan: plan,
 					StatusHistory: []PlanStatus{
 						{State: PlanStateFailed, Timestamp: timestamp, Reason: &reason},
 						{State: PlanStateInProgress, Timestamp: timestamp},
@@ -163,20 +166,12 @@ func TestPlanWithStatus(t *testing.T) {
 			{
 				description: "an empty PlanWithStatus returns an empty *pb.PlanWithStatus",
 				input:       PlanWithStatus{},
-				result:      &pb.PlanWithStatus{Plan: Plan{}.ToProto()},
+				result:      &pb.PlanWithStatus{Plan: PlanWithMetadata{}.ToProto()},
 			},
 			{
 				description: "full PlanWithStatus without status history returns a full *pb.PlanWithStatus",
 				input: PlanWithStatus{
-					Plan: Plan{
-						ID:            planID,
-						ExecutionID:   executionID,
-						ComponentName: baseName,
-						Steps: []motionplan.PlanStep{
-							map[resource.Name]spatialmath.Pose{baseName: poseA},
-							map[resource.Name]spatialmath.Pose{baseName: poseB},
-						},
-					},
+					Plan: plan,
 					StatusHistory: []PlanStatus{
 						{State: PlanStateInProgress, Timestamp: timestamp},
 					},
@@ -208,15 +203,7 @@ func TestPlanWithStatus(t *testing.T) {
 			{
 				description: "full PlanWithStatus with status history returns a full *pb.PlanWithStatus",
 				input: PlanWithStatus{
-					Plan: Plan{
-						ID:            planID,
-						ExecutionID:   executionID,
-						ComponentName: baseName,
-						Steps: []motionplan.PlanStep{
-							map[resource.Name]spatialmath.Pose{baseName: poseA},
-							map[resource.Name]spatialmath.Pose{baseName: poseB},
-						},
-					},
+					Plan: plan,
 					StatusHistory: []PlanStatus{
 						{State: PlanStateFailed, Timestamp: timestamp, Reason: &reason},
 						{State: PlanStateInProgress, Timestamp: timestamp},
@@ -599,7 +586,7 @@ func TestPlan(t *testing.T) {
 		type testCase struct {
 			description string
 			input       *pb.Plan
-			result      Plan
+			result      PlanWithMetadata
 			err         error
 		}
 
@@ -614,25 +601,25 @@ func TestPlan(t *testing.T) {
 			{
 				description: "nil pointer returns error",
 				input:       nil,
-				result:      Plan{},
+				result:      PlanWithMetadata{},
 				err:         errors.New("received nil *pb.Plan"),
 			},
 			{
 				description: "empty PlanID in *pb.Plan{} returns an error",
 				input:       &pb.Plan{},
-				result:      Plan{},
+				result:      PlanWithMetadata{},
 				err:         errors.New("invalid UUID length: 0"),
 			},
 			{
 				description: "empty ExecutionID in *pb.Plan{} returns an error",
 				input:       &pb.Plan{Id: planID.String()},
-				result:      Plan{},
+				result:      PlanWithMetadata{},
 				err:         errors.New("invalid UUID length: 0"),
 			},
 			{
 				description: "empty ComponentName in *pb.Plan{} returns an error",
 				input:       &pb.Plan{Id: planID.String(), ExecutionId: executionID.String()},
-				result:      Plan{},
+				result:      PlanWithMetadata{},
 				err:         errors.New("received nil *pb.ResourceName"),
 			},
 			{
@@ -643,7 +630,7 @@ func TestPlan(t *testing.T) {
 					ComponentName: rprotoutils.ResourceNameToProto(resource.Name{}),
 					Steps:         []*pb.PlanStep{nil},
 				},
-				result: Plan{},
+				result: PlanWithMetadata{},
 				err:    errors.New("received nil *pb.PlanStep"),
 			},
 			{
@@ -653,7 +640,7 @@ func TestPlan(t *testing.T) {
 					ExecutionId:   executionID.String(),
 					ComponentName: rprotoutils.ResourceNameToProto(resource.Name{}),
 				},
-				result: Plan{
+				result: PlanWithMetadata{
 					ID:            planID,
 					ExecutionID:   executionID,
 					ComponentName: resource.Name{},
@@ -678,7 +665,7 @@ func TestPlan(t *testing.T) {
 						},
 					},
 				},
-				result: Plan{
+				result: PlanWithMetadata{
 					ID:            planID,
 					ExecutionID:   executionID,
 					ComponentName: baseName,
@@ -705,7 +692,7 @@ func TestPlan(t *testing.T) {
 	t.Run("ToProto()", func(t *testing.T) {
 		type testCase struct {
 			description string
-			input       Plan
+			input       PlanWithMetadata
 			result      *pb.Plan
 		}
 
@@ -719,7 +706,7 @@ func TestPlan(t *testing.T) {
 		testCases := []testCase{
 			{
 				description: "an empty Plan returns an empty *pb.Plan",
-				input:       Plan{},
+				input:       PlanWithMetadata{},
 				result: &pb.Plan{
 					Id:            uuid.Nil.String(),
 					ComponentName: rprotoutils.ResourceNameToProto(resource.Name{}),
@@ -728,7 +715,7 @@ func TestPlan(t *testing.T) {
 			},
 			{
 				description: "full Plan returns full *pb.Plan",
-				input: Plan{
+				input: PlanWithMetadata{
 					ID:            planID,
 					ExecutionID:   executionID,
 					ComponentName: baseName,
@@ -819,7 +806,7 @@ func TestPlanStep(t *testing.T) {
 		}
 		for _, tc := range testCases {
 			t.Run(tc.description, func(t *testing.T) {
-				res, err := planStepFromProto(tc.input)
+				res, err := pathStepFromProto(tc.input)
 				if tc.err != nil {
 					test.That(t, err, test.ShouldBeError, tc.err)
 				} else {

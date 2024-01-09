@@ -63,8 +63,7 @@ func TestClient(t *testing.T) {
 		test.That(t, rpcServer.Stop(), test.ShouldBeNil)
 	}()
 
-	zeroPose := spatialmath.NewZeroPose()
-	zeroPoseInFrame := referenceframe.NewPoseInFrame("", zeroPose)
+	zeroPoseInFrame := referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())
 	globeDest := geo.NewPoint(0.0, 0.0)
 	gripperName := gripper.Named("fake")
 	baseName := base.Named("test-base")
@@ -481,9 +480,7 @@ func TestClient(t *testing.T) {
 		})
 
 		t.Run("otherwise returns a slice of PlanWithStatus", func(t *testing.T) {
-			steps := []motionplan.PlanStep{
-				{base.Named("mybase"): zeroPose},
-			}
+			steps := []motionplan.PathStep{{"mybase": zeroPoseInFrame}}
 			reason := "some reason"
 			id := uuid.New()
 			executionID := uuid.New()
@@ -491,11 +488,11 @@ func TestClient(t *testing.T) {
 			timeA := time.Now().UTC()
 			timeB := time.Now().UTC()
 
-			plan := motion.Plan{
+			plan := motion.PlanWithMetadata{
 				ID:            id,
 				ComponentName: base.Named("mybase"),
 				ExecutionID:   executionID,
-				Steps:         steps,
+				Plan:          &motionplan.Plan{Path: steps},
 			}
 			statusHistory := []motion.PlanStatus{
 				{motion.PlanStateFailed, timeB, &reason},
@@ -513,7 +510,7 @@ func TestClient(t *testing.T) {
 		})
 
 		t.Run("supports returning a slice of PlanWithStatus with more than one plan", func(t *testing.T) {
-			steps := []motionplan.PlanStep{{base.Named("mybase"): zeroPose}}
+			steps := []motionplan.PathStep{{"mybase": zeroPoseInFrame}}
 			reason := "some reason"
 
 			idA := uuid.New()
@@ -525,11 +522,11 @@ func TestClient(t *testing.T) {
 			timeAA := time.Now().UTC()
 			timeAB := time.Now().UTC()
 
-			planA := motion.Plan{
+			planA := motion.PlanWithMetadata{
 				ID:            idA,
 				ComponentName: base.Named("mybase"),
 				ExecutionID:   executionID,
-				Steps:         steps,
+				Plan:          &motionplan.Plan{Path: steps},
 			}
 			statusHistoryA := []motion.PlanStatus{
 				{motion.PlanStateFailed, timeAB, &reason},
@@ -539,11 +536,11 @@ func TestClient(t *testing.T) {
 			idB := uuid.New()
 			test.That(t, err, test.ShouldBeNil)
 			timeBA := time.Now().UTC()
-			planB := motion.Plan{
+			planB := motion.PlanWithMetadata{
 				ID:            idB,
 				ComponentName: base.Named("mybase"),
 				ExecutionID:   executionID,
-				Steps:         steps,
+				Plan:          &motionplan.Plan{Path: steps},
 			}
 
 			statusHistoryB := []motion.PlanStatus{

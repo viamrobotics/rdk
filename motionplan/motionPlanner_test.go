@@ -155,7 +155,7 @@ func TestPlanningWithGripper(t *testing.T) {
 		FrameSystem:        fs,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(solutionMap), test.ShouldBeGreaterThanOrEqualTo, 2)
+	test.That(t, len(solutionMap.Trajectory), test.ShouldBeGreaterThanOrEqualTo, 2)
 }
 
 // simple2DMapConfig returns a planConfig with the following map
@@ -317,16 +317,15 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := plannerFunc(cfg.RobotFrame, rand.New(rand.NewSource(int64(seed))), logger, cfg.Options)
 	test.That(t, err, test.ShouldBeNil)
-	pathNodes, err := mp.plan(context.Background(), cfg.Goal, cfg.Start)
+	nodes, err := mp.plan(context.Background(), cfg.Goal, cfg.Start)
 	test.That(t, err, test.ShouldBeNil)
-	path := nodesToInputs(pathNodes)
 
 	// test that path doesn't violate constraints
-	test.That(t, len(path), test.ShouldBeGreaterThanOrEqualTo, 2)
-	for j := 0; j < len(path)-1; j++ {
+	test.That(t, len(nodes), test.ShouldBeGreaterThanOrEqualTo, 2)
+	for j := 0; j < len(nodes)-1; j++ {
 		ok, _ := cfg.Options.ConstraintHandler.CheckSegmentAndStateValidity(&ik.Segment{
-			StartConfiguration: path[j],
-			EndConfiguration:   path[j+1],
+			StartConfiguration: nodes[j].Q(),
+			EndConfiguration:   nodes[j+1].Q(),
 			Frame:              cfg.RobotFrame,
 		}, cfg.Options.Resolution)
 		test.That(t, ok, test.ShouldBeTrue)
@@ -443,7 +442,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose, err := fs.Transform(
-		plan[len(plan)-1],
+		plan.Trajectory[len(plan.Trajectory)-1],
 		frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()),
 		frame.World,
 	)
@@ -467,10 +466,14 @@ func TestMultiArmSolve(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Both frames should wind up at the goal relative to one another
-	solvedPose, err := fs.Transform(plan[len(plan)-1], frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()), "urCamera")
+	solvedPose, err := fs.Transform(
+		plan.Trajectory[len(plan.Trajectory)-1],
+		frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()),
+		"urCamera",
+	)
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose2, err := fs.Transform(
-		plan[len(plan)-1],
+		plan.Trajectory[len(plan.Trajectory)-1],
 		frame.NewPoseInFrame("urCamera", spatialmath.NewZeroPose()),
 		"xArmVgripper",
 	)
@@ -505,7 +508,7 @@ func TestReachOverArm(t *testing.T) {
 	})
 
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(plan), test.ShouldEqual, 2)
+	test.That(t, len(plan.Trajectory), test.ShouldEqual, 2)
 
 	// now add a UR arm in its way
 	ur5, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
@@ -523,7 +526,7 @@ func TestReachOverArm(t *testing.T) {
 		Options:            opts,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
+	test.That(t, len(plan.Trajectory), test.ShouldBeGreaterThan, 2)
 }
 
 func TestPlanMapMotion(t *testing.T) {
@@ -574,7 +577,7 @@ func TestPlanMapMotion(t *testing.T) {
 		if err != nil {
 			return nil, err
 		}
-		return plan.GetFrameSteps(f.Name())
+		return plan.GetFrameInputs(f.Name())
 	}
 
 	plan, err := PlanMapMotion(ctx, logger, dst, model, make([]frame.Input, 3), worldState)
@@ -601,7 +604,7 @@ func TestSolverFrameGeometries(t *testing.T) {
 
 	sfPlanner, err := newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
-	position, err := sfPlanner.PlanSingleWaypoint(
+	plan, err := sfPlanner.PlanSingleWaypoint(
 		context.Background(),
 		sf.sliceToMap(make([]frame.Input, len(sf.DoF()))),
 		spatialmath.NewPoseFromPoint(r3.Vector{300, 300, 100}),
@@ -611,7 +614,9 @@ func TestSolverFrameGeometries(t *testing.T) {
 		map[string]interface{}{"smooth_iter": 5},
 	)
 	test.That(t, err, test.ShouldBeNil)
-	gf, _ := sf.Geometries(position[len(position)-1])
+	inputs, err := sf.mapToSlice(plan.Trajectory[len(plan.Trajectory)-1])
+	test.That(t, err, test.ShouldBeNil)
+	gf, _ := sf.Geometries(inputs)
 	test.That(t, gf, test.ShouldNotBeNil)
 
 	geoms := gf.Geometries()
@@ -814,7 +819,7 @@ func TestReplan(t *testing.T) {
 	// This should easily pass
 	newPlan1, err := Replan(ctx, planRequest, firstplan, 1.0)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(newPlan1), test.ShouldBeGreaterThan, 2)
+	test.That(t, len(newPlan1.Trajectory), test.ShouldBeGreaterThan, 2)
 
 	// But if we drop the replan factor to a very low number, it should now fail
 	newPlan2, err := Replan(ctx, planRequest, firstplan, 0.1)

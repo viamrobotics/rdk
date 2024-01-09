@@ -12,7 +12,7 @@ import (
 
 	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -94,26 +94,26 @@ func planStatusWithIDFromProto(ps *pb.PlanStatusWithID) (PlanStatusWithID, error
 }
 
 // planFromProto converts a *pb.Plan to a Plan.
-func planFromProto(p *pb.Plan) (Plan, error) {
+func planFromProto(p *pb.Plan) (PlanWithMetadata, error) {
 	if p == nil {
-		return Plan{}, errors.New("received nil *pb.Plan")
+		return PlanWithMetadata{}, errors.New("received nil *pb.Plan")
 	}
 
 	id, err := uuid.Parse(p.Id)
 	if err != nil {
-		return Plan{}, err
+		return PlanWithMetadata{}, err
 	}
 
 	executionID, err := uuid.Parse(p.ExecutionId)
 	if err != nil {
-		return Plan{}, err
+		return PlanWithMetadata{}, err
 	}
 
 	if p.ComponentName == nil {
-		return Plan{}, errors.New("received nil *pb.ResourceName")
+		return PlanWithMetadata{}, errors.New("received nil *pb.ResourceName")
 	}
 
-	plan := Plan{
+	plan := PlanWithMetadata{
 		ID:            id,
 		ComponentName: rprotoutils.ResourceNameFromProto(p.ComponentName),
 		ExecutionID:   executionID,
@@ -123,35 +123,39 @@ func planFromProto(p *pb.Plan) (Plan, error) {
 		return plan, nil
 	}
 
-	steps := []motionplan.PlanStep{}
+	steps := motionplan.Path{}
 	for _, s := range p.Steps {
-		step, err := planStepFromProto(s)
+		step, err := pathStepFromProto(s)
 		if err != nil {
-			return Plan{}, err
+			return PlanWithMetadata{}, err
 		}
 		steps = append(steps, step)
 	}
-
-	plan.Steps = steps
+	plan.Path = steps
 
 	return plan, nil
 }
 
-// planStepFromProto converts a *pb.PlanStep to a PlanStep.
-func planStepFromProto(s *pb.PlanStep) (motionplan.PlanStep, error) {
+// pathStepFromProto converts a *pb.PlanStep to a PlanStep.
+func pathStepFromProto(s *pb.PlanStep) (motionplan.PathStep, error) {
 	if s == nil {
-		return motionplan.PlanStep{}, errors.New("received nil *pb.PlanStep")
+		return nil, errors.New("received nil *pb.PlanStep")
 	}
 
-	step := make(motionplan.PlanStep)
+	step := make(motionplan.PathStep)
 	for k, v := range s.Step {
-		name, err := resource.NewFromString(k)
-		if err != nil {
-			return motionplan.PlanStep{}, err
-		}
-		step[name] = spatialmath.NewPoseFromProtobuf(v.Pose)
+		step[k] = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromProtobuf(v.Pose))
 	}
 	return step, nil
+}
+
+func pathStepToProto(s motionplan.PathStep) *pb.PlanStep {
+	step := make(map[string]*pb.ComponentState)
+	for name, pose := range s {
+		pbPose := spatialmath.PoseToProtobuf(pose.Pose())
+		step[name] = &pb.ComponentState{Pose: pbPose}
+	}
+	return &pb.PlanStep{Step: step}
 }
 
 // planStateFromProto converts a pb.PlanState to a PlanState.

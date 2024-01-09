@@ -204,7 +204,7 @@ func (ms *builtIn) Move(
 	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	steps, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
+	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
 		Logger:             ms.logger,
 		Goal:               goalPose,
 		Frame:              movingFrame,
@@ -219,7 +219,7 @@ func (ms *builtIn) Move(
 	}
 
 	// move all the components
-	for _, step := range steps {
+	for _, step := range plan.Trajectory {
 		// TODO(erh): what order? parallel?
 		for name, inputs := range step {
 			if len(inputs) == 0 {
@@ -263,11 +263,11 @@ func (ms *builtIn) MoveOnMap(
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
 
-	planResp, err := mr.Plan(ctx)
+	plan, err := mr.Plan(ctx)
 	if err != nil {
 		return false, err
 	}
-	resp, err := mr.Execute(ctx, planResp.Waypoints)
+	resp, err := mr.Execute(ctx, plan)
 	// Error
 	if err != nil {
 		return false, err
