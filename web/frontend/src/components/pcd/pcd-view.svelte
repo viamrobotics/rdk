@@ -289,7 +289,7 @@ $: if (pointcloud) {
       type="number"
       min="0.1"
       step="0.1"
-      value="1"
+      value="3"
       incrementor="slider"
       on:input={handlePointsResize}
     />
