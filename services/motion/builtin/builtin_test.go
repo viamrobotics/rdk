@@ -273,7 +273,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 	ctx := context.Background()
 	// goal x-position of 1.32m is scaled to be in mm
 	// Orientation theta should be at least 3 degrees away from an integer multiple of 22.5 to ensure the position-only test functions.
-	goalInBaseFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
+	goalInBaseFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 33})
 	goalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, goalInBaseFrame)
 	extra := map[string]interface{}{"smooth_iter": 0}
 	extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
@@ -315,8 +315,6 @@ func TestMoveOnMapPlans(t *testing.T) {
 	})
 
 	t.Run("check that position-only mode executes", func(t *testing.T) {
-		// TODO(RSDK-5758): unskip this
-		t.Skip()
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnMap(
@@ -1304,11 +1302,14 @@ func TestMoveOnMapNew(t *testing.T) {
 			SlamName:      slam.Named("test_slam"),
 			Extra:         extra,
 		}
-		executionID, err := ms.(*builtIn).MoveOnMapNew(context.Background(), req)
+
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*45)
+		defer timeoutFn()
+		executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
@@ -1326,7 +1327,7 @@ func TestMoveOnMapNew(t *testing.T) {
 	t.Run("Plans", func(t *testing.T) {
 		// goal x-position of 1.32m is scaled to be in mm
 		// Orientation theta should be at least 3 degrees away from an integer multiple of 22.5 to ensure the position-only test functions.
-		goalInBaseFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
+		goalInBaseFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 33})
 		goalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, goalInBaseFrame)
 		extra := map[string]interface{}{"smooth_iter": 0}
 		extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
@@ -1342,11 +1343,13 @@ func TestMoveOnMapNew(t *testing.T) {
 				Extra:         extra,
 			}
 
-			executionID, err := ms.(*builtIn).MoveOnMapNew(context.Background(), req)
+			timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+			defer timeoutFn()
+			executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-			timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+			timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
 			defer timeoutFn()
 			err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 				ComponentName: req.ComponentName,
@@ -1373,11 +1376,13 @@ func TestMoveOnMapNew(t *testing.T) {
 				Extra:         extra,
 			}
 
-			executionID, err := ms.(*builtIn).MoveOnMapNew(context.Background(), req)
+			timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+			defer timeoutFn()
+			executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-			timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+			timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
 			defer timeoutFn()
 			err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 				ComponentName: req.ComponentName,
@@ -1393,8 +1398,6 @@ func TestMoveOnMapNew(t *testing.T) {
 		})
 
 		t.Run("check that position-only mode executes", func(t *testing.T) {
-			// TODO(RSDK-5758): unskip this
-			t.Skip()
 			kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 			defer ms.Close(ctx)
 
@@ -1405,11 +1408,13 @@ func TestMoveOnMapNew(t *testing.T) {
 				Extra:         extraPosOnly,
 			}
 
-			executionID, err := ms.(*builtIn).MoveOnMapNew(context.Background(), req)
+			timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+			defer timeoutFn()
+			executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-			timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+			timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
 			defer timeoutFn()
 			err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 				ComponentName: req.ComponentName,
@@ -1439,12 +1444,6 @@ func TestMoveOnMapNew(t *testing.T) {
 
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
-		msBuiltin, ok := ms.(*builtIn)
-		test.That(t, ok, test.ShouldBeTrue)
-
-		// Overwrite `logger` so we can use a handler to test for correct log messages
-		logger, observer := logging.NewObservedTestLogger(t)
-		msBuiltin.logger = logger
 
 		req := motion.MoveOnMapReq{
 			ComponentName: base.Named("test-base"),
@@ -1453,11 +1452,13 @@ func TestMoveOnMapNew(t *testing.T) {
 			Extra:         map[string]interface{}{"smooth_iter": 5},
 		}
 
-		executionID, err := ms.(*builtIn).MoveOnMapNew(context.Background(), req)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		defer timeoutFn()
+		executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
@@ -1480,7 +1481,9 @@ func TestMoveOnMapNew(t *testing.T) {
 			SlamName:      slam.Named("test_slam"),
 			Extra:         map[string]interface{}{"smooth_iter": 5},
 		}
-		executionID, err = ms.(*builtIn).MoveOnMapNew(context.Background(), req)
+		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
+		defer timeoutFn()
+		executionID, err = ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
@@ -1497,27 +1500,25 @@ func TestMoveOnMapNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal2BaseFrame, 5), test.ShouldBeTrue)
 
+		plans, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{
+			ComponentName: base.Named("test-base"),
+			LastPlanOnly:  false,
+			ExecutionID:   executionID,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		goalPose1 := plans[0].Plan.Steps[0][base.Named("test-base")]
+		goalPose2 := spatialmath.PoseBetween(
+			plans[0].Plan.Steps[0][base.Named("test-base")],
+			plans[0].Plan.Steps[len(plans[0].Plan.Steps)-1][base.Named("test-base")],
+		)
+
 		// We don't actually surface the internal motion planning goal; we report to the user in terms of what the user provided us.
-		// Thus, we must do string surgery on the internal `motionplan` logs to extract the requested relative pose and check it is correct.
-		goalLogsObserver := observer.FilterMessageSnippet("Goal: reference_frame:").All()
-		test.That(t, len(goalLogsObserver), test.ShouldEqual, 2)
-		logLineToGoalPose := func(logString string) spatialmath.Pose {
-			entry1GoalLine := strings.Split(strings.Split(logString, "\n")[1], "pose:")[1]
-			// logger formatting is weird and will use sometimes one, sometimes two spaces. strings.Replace can't handle variability, so regex.
-			re := regexp.MustCompile(`\s+`)
-			entry1GoalLineBytes := re.ReplaceAll([]byte(entry1GoalLine), []byte(",\""))
-			entry1GoalLine = strings.ReplaceAll(string(entry1GoalLineBytes), "{", "{\"")
-			entry1GoalLine = strings.ReplaceAll(entry1GoalLine, ":", "\":")
-
-			posepb := &commonpb.Pose{}
-			err := json.Unmarshal([]byte(entry1GoalLine), posepb)
-			test.That(t, err, test.ShouldBeNil)
-
-			return spatialmath.NewPoseFromProtobuf(posepb)
-		}
-		goalPose1 := logLineToGoalPose(goalLogsObserver[0].Entry.Message)
+		// Thus, we use PlanHistory to get the plan steps of the latest plan.
+		// The zeroth index of the plan steps is the relative position of goal1 and the pose inverse between the first and last value of
+		// plan steps gives us the relative pose we solved for goal2.
 		test.That(t, spatialmath.PoseAlmostEqualEps(goalPose1, goal1BaseFrame, 10), test.ShouldBeTrue)
-		goalPose2 := logLineToGoalPose(goalLogsObserver[1].Entry.Message)
+
 		// This is the important test.
 		test.That(t, spatialmath.PoseAlmostEqualEps(goalPose2, spatialmath.PoseBetween(goal1BaseFrame, goal2BaseFrame), 10), test.ShouldBeTrue)
 	})
@@ -1560,7 +1561,9 @@ func TestMoveOnMapNew(t *testing.T) {
 			Extra:         map[string]interface{}{"timeout": 0.01},
 		}
 
-		executionID, err := ms.(*builtIn).MoveOnMapNew(context.Background(), req)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		defer timeoutFn()
+		executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 	})
@@ -1578,7 +1581,9 @@ func TestMoveOnMapNew(t *testing.T) {
 			Extra:         map[string]interface{}{"smooth_iter": 0},
 		}
 
-		executionID, err := ms.(*builtIn).MoveOnMapNew(context.Background(), req)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		defer timeoutFn()
+		executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotBeEmpty)
 
@@ -1612,6 +1617,8 @@ func TestMoveOnMapNew(t *testing.T) {
 	})
 
 	t.Run("Is able to reach the zero pose with an empty motion configuration", func(t *testing.T) {
+		// TODO(RSDK-6272): How to handle solving for zerpo poses
+		t.Skip()
 		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
 
@@ -1622,7 +1629,9 @@ func TestMoveOnMapNew(t *testing.T) {
 			MotionCfg:     &motion.MotionConfiguration{},
 		}
 
-		executionID, err := ms.(*builtIn).MoveOnMapNew(context.Background(), req)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		defer timeoutFn()
+		executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 	})

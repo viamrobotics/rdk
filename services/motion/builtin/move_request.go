@@ -59,7 +59,8 @@ const (
 type moveRequest struct {
 	requestType requestType
 	// geoPoseOrigin is only set if requestType == requestTypeMoveOnGlobe
-	geoPoseOrigin     spatialmath.GeoPose
+	geoPoseOrigin spatialmath.GeoPose
+	// poseOrigin is only set if requestType == requestTypeMoveOnMap
 	poseOrigin        spatialmath.Pose
 	logger            logging.Logger
 	config            *validatedMotionConfiguration
@@ -152,7 +153,8 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 			PosesByComponent: planSteps,
 		}, nil
 	case requestTypeMoveOnGlobe:
-		planSteps, err := motionplan.PlanToPlanSteps(plan, mr.kinematicBase.Name(), *mr.planRequest, nil)
+		// safe to use mr.poseOrigin since it is nil for requestTypeMoveOnGlobe
+		planSteps, err := motionplan.PlanToPlanSteps(plan, mr.kinematicBase.Name(), *mr.planRequest, mr.poseOrigin)
 		if err != nil {
 			return state.PlanResponse{}, err
 		}
@@ -837,6 +839,11 @@ func (ms *builtIn) newMoveOnMapRequest(
 	if err != nil {
 		return nil, err
 	}
+	startPose, err := mr.kinematicBase.CurrentPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	mr.poseOrigin = startPose.Pose()
 	mr.requestType = requestTypeMoveOnMap
 	return mr, nil
 }
