@@ -50,7 +50,7 @@ func (traj Trajectory) GetFrameInputs(frameName string) ([][]referenceframe.Inpu
 	for _, step := range traj {
 		frameStep, ok := step[frameName]
 		if !ok {
-			return nil, fmt.Errorf("frame named %s not found in solved motion plan", frameName)
+			return nil, fmt.Errorf("frame named %s not found in Trajectory", frameName)
 		}
 		solution = append(solution, frameStep)
 	}
@@ -118,21 +118,14 @@ func newPath(solution []node, sf *solverFrame) (Path, error) {
 	return path, nil
 }
 
-// PathStepsToGeoPoses converts the relative poses the robot will move to into geo poses.
-func PathStepsToGeoPoses(
-	planSteps []PathStep,
-	frameName string,
-	origin spatialmath.GeoPose,
-) []spatialmath.GeoPose {
-	geoPoses := []spatialmath.GeoPose{}
-	for _, step := range planSteps {
-		for name, pose := range step {
-			if name == frameName {
-				gp := spatialmath.PoseToGeoPose(&origin, pose.Pose())
-				geoPoses = append(geoPoses, *gp)
-			}
+func (path Path) GetFramePoses(frameName string) ([]spatialmath.Pose, error) {
+	poses := []spatialmath.Pose{}
+	for _, step := range path {
+		pose, ok := step[frameName]
+		if !ok {
+			return nil, fmt.Errorf("frame named %s not found in Path", frameName)
 		}
+		poses = append(poses, pose.Pose())
 	}
-
-	return geoPoses
+	return poses, nil
 }

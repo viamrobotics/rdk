@@ -522,7 +522,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 func (ms *builtIn) newMoveOnMapRequest(
 	ctx context.Context,
 	req motion.MoveOnMapReq,
-	seedPlan motionplan.Plan,
+	seedPlan *motionplan.Plan,
 	replanCount int,
 ) (state.PlannerExecutor, error) {
 	valExtra, err := newValidatedExtra(req.Extra)

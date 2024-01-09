@@ -8,7 +8,6 @@ import (
 
 	"go.viam.com/rdk/motionplan/tpspace"
 	frame "go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -384,47 +383,4 @@ func findPivotFrame(frameList1, frameList2 []frame.Frame) (frame.Frame, error) {
 		}
 	}
 	return nil, errors.New("no path from solve frame to goal frame")
-}
-
-// PlanToPathSteps converts a plan to the relative poses the robot will move to (relative to the origin).
-func PlanToPathSteps(
-	plan *Plan,
-	componentName resource.Name,
-	planRequest PlanRequest,
-	startPose spatial.Pose,
-) ([]PathStep, error) {
-	sf, err := newSolverFrame(
-		planRequest.FrameSystem,
-		planRequest.Frame.Name(),
-		planRequest.Goal.Parent(),
-		planRequest.StartConfiguration)
-	if err != nil {
-		return nil, err
-	}
-
-	if startPose == nil {
-		seed, err := sf.mapToSlice(planRequest.StartConfiguration)
-		if err != nil {
-			return nil, err
-		}
-		seedPose, err := sf.Transform(seed)
-		if err != nil {
-			return nil, err
-		}
-		startPose = spatial.NewPose(planNodes[0].Pose().Point(), seedPose.Orientation())
-	}
-
-	runningPoseWOrient := startPose
-	planSteps := []PlanStep{}
-	for _, wp := range planNodes {
-		wpPose, err := sf.Transform(wp.Q())
-		if err != nil {
-			return nil, err
-		}
-
-		runningPoseWOrient = spatial.Compose(runningPoseWOrient, wpPose)
-		planSteps = append(planSteps, map[resource.Name]spatial.Pose{componentName: runningPoseWOrient})
-	}
-
-	return planSteps, nil
 }

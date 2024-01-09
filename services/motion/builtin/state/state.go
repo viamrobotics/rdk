@@ -18,8 +18,8 @@ import (
 	"go.viam.com/rdk/services/motion"
 )
 
-// PlanExecutor implements Plan and Execute.
-type PlanExecutor interface {
+// PlannerExecutor implements Plan and Execute.
+type PlannerExecutor interface {
 	Plan(ctx context.Context) (*motionplan.Plan, error)
 	Execute(context.Context, *motionplan.Plan) (ExecuteResponse, error)
 }
@@ -46,7 +46,7 @@ type PlannerExecutorConstructor[R any] func(
 	req R,
 	seedPlan *motionplan.Plan,
 	replanCount int,
-) (PlanExecutor, error)
+) (PlannerExecutor, error)
 
 type componentState struct {
 	executionIDHistory []motion.ExecutionID
@@ -106,7 +106,7 @@ type execution[R any] struct {
 
 type planWithExecutor struct {
 	plan     motion.PlanWithMetadata
-	executor PlanExecutor
+	executor PlannerExecutor
 }
 
 // NewPlan creates a new motion.Plan from an execution & returns an error if one was not able to be created.
@@ -162,7 +162,6 @@ func (e *execution[R]) start(ctx context.Context) error {
 		// 4. replanning failed
 		for {
 			resp, err := lastPWE.executor.Execute(e.cancelCtx, lastPWE.plan.Plan)
-			resp, err := lastPWE.plannerExecutor.Execute(e.cancelCtx, lastPWE.waypoints)
 
 			switch {
 			// stoped

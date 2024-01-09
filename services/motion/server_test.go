@@ -20,7 +20,6 @@ import (
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -636,7 +635,7 @@ func TestServerGetPlan(t *testing.T) {
 		planID2 := uuid.New()
 
 		base1 := base.Named("base1")
-		steps := []motionplanplan.PathStep{{base1.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose())}}
+		steps := []motionplan.PathStep{{base1.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose())}}
 
 		plan1 := motion.PlanWithMetadata{
 			ID:            planID1,

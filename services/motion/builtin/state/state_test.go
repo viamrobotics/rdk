@@ -541,14 +541,14 @@ func TestState(t *testing.T) {
 						pbc := motionplan.PathStep{
 							req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 						}
-						return &motionplan.Plan{Path: []motionplanplan.PathStep{pbc}}, nil
+						return &motionplan.Plan{Path: []motionplan.PathStep{pbc}}, nil
 					}
 					// first replan succeeds
 					if replanCount == 1 {
 						pbc := motionplan.PathStep{
 							req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 						}
-						return &motionplan.Plan{Path: []motionplanplan.PathStep{pbc, pbc}}, nil
+						return &motionplan.Plan{Path: []motionplan.PathStep{pbc, pbc}}, nil
 					}
 					// second replan fails
 					return nil, replanFailReason
