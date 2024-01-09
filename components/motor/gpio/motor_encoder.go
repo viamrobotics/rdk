@@ -172,9 +172,9 @@ type EncodedMotor struct {
 	opMgr     *operation.SingleOperationManager
 
 	controlLoopConfig control.Config
-  blockNames        map[string]string
+	blockNames        map[string]string
 	loop              *control.Loop
-
+}
 
 // EncodedMotorState is the core, non-statistical state for the motor.
 // Multiple values should be updated atomically at the same time.
