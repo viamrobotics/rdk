@@ -1,6 +1,8 @@
+import get from 'lodash-es/get';
+
 const GRPC_MESSAGE_KEY = 'grpc-message';
 
-export interface GRPCUnimplementedError {
+export interface GRPCUnimplementedError extends Error {
   metadata: {
     headersMap: {
       [GRPC_MESSAGE_KEY]: string[];
@@ -9,17 +11,11 @@ export interface GRPCUnimplementedError {
 }
 
 export const isUnimplementedError = (error: unknown) => {
-  const unimplemented = error as GRPCUnimplementedError;
-  if (
-    typeof unimplemented !== 'object' ||
-    typeof unimplemented.metadata !== 'object' ||
-    typeof unimplemented.metadata.headersMap !== 'object' ||
-    unimplemented.metadata.headersMap[GRPC_MESSAGE_KEY].length === 0
-  ) {
-    return false;
-  }
+  const errorMessages = get(
+    error,
+    `metadata.headersMap.${GRPC_MESSAGE_KEY}`,
+    [] as string[]
+  );
 
-  return (error as GRPCUnimplementedError).metadata.headersMap[
-    GRPC_MESSAGE_KEY
-  ].includes('DoCommand unimplemented');
+  return errorMessages.includes('DoCommand unimplemented');
 };

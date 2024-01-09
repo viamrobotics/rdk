@@ -13,7 +13,9 @@ export let resources: commonApi.ResourceName.AsObject[];
 
 const { robotClient } = useRobotClient();
 
-$: selectedComponent = undefined as commonApi.ResourceName.AsObject | undefined;
+let selectedComponent = undefined as
+  | commonApi.ResourceName.AsObject
+  | undefined;
 let input = '{}';
 let output = '';
 let executing = false;
@@ -23,7 +25,7 @@ const handleDoCommand = async (type: string, name: string, command: string) => {
     return;
   }
 
-  let client = getClientByType($robotClient, type);
+  const client = getClientByType($robotClient, type);
   if (!client) {
     return;
   }
