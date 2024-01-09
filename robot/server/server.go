@@ -416,21 +416,25 @@ func (s *Server) ModuleLog(ctx context.Context, req *pb.ModuleLogRequest) (*pb.M
 	}
 	log := req.Logs[0]
 
-	// Use a sublogger of robot logger with module's logger name. Disable caller
-	// to mimic caller passed in from module.
-	logger := s.r.Logger().Sublogger(log.LoggerName).WithOptions(zap.WithCaller(false))
+	// Use a sublogger of robot logger with module's logger name. Set a level of
+	// DEBUG to allow modules to log at DEBUG level even when RDK is not on DEBUG
+	// level. Disable caller to mimic caller passed in from module.
+	logger := s.r.Logger().Sublogger(log.LoggerName)
+	logger.SetLevel(logging.DEBUG)
+	l := logger.WithOptions(zap.WithCaller(false))
+
 	level, err := logging.LevelFromString(log.Level)
 	switch {
 	case err != nil:
-		logger.Warn("Module logger named %q sent a log with an invalid level %q", log.LoggerName, log.Level)
+		l.Warn("Module logger named %q sent a log with an invalid level %q", log.LoggerName, log.Level)
 	case level == logging.DEBUG:
-		logger.Debug(log.Message)
+		l.Debug(log.Message)
 	case level == logging.INFO:
-		logger.Info(log.Message)
+		l.Info(log.Message)
 	case level == logging.WARN:
-		logger.Warn(log.Message)
+		l.Warn(log.Message)
 	case level == logging.ERROR:
-		logger.Error(log.Message)
+		l.Error(log.Message)
 	default:
 	}
 
