@@ -103,6 +103,7 @@ func newEncodedMotor(
 
 	// setup control loop
 	if len(motorConfig.ControlLoop.Blocks) != 0 {
+		em.controlLoopConfig = em.createControlLoopConfig()
 		cLoop, err := control.NewLoop(em.logger, em.cfg.ControlLoop, em)
 		if err != nil {
 			em.logger.Error(err)
@@ -165,12 +166,14 @@ type EncodedMotor struct {
 	maxPowerPct      float64
 	ticksPerRotation float64
 
-	logger     logging.Logger
-	cancelCtx  context.Context
-	cancel     func()
-	loop       *control.Loop
-	blockNames map[string]string
-	opMgr      *operation.SingleOperationManager
+	logger    logging.Logger
+	cancelCtx context.Context
+	cancel    func()
+	opMgr     *operation.SingleOperationManager
+
+	controlLoopConfig control.Config
+	blockNames        map[string]string
+	loop              *control.Loop
 }
 
 // EncodedMotorState is the core, non-statistical state for the motor.
