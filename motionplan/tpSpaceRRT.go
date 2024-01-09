@@ -795,44 +795,91 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 	mp.algOpts = tpOpt
 }
 
+type distanceAndSolution struct {
+	distance float64
+	solution *ik.Solution
+}
+
+type memoizedDistFunc struct {
+	sync.RWMutex
+	memo map[[2]spatialmath.Pose]distanceAndSolution
+}
+
 // make2DTPSpaceDistanceOptions will create a plannerOptions object with a custom DistanceFunc constructed such that
 // distances can be computed in TP space using the given PTG.
-func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGSolver) *plannerOptions {
+func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGSolver) (*plannerOptions, *memoizedDistFunc) {
+	m := memoizedDistFunc{memo: make(map[[2]spatialmath.Pose]distanceAndSolution)}
 	opts := newBasicPlannerOptions(mp.frame)
 	segMetric := func(seg *ik.Segment) float64 {
+		distance := math.Inf(1)
+		var solution *ik.Solution
+		key := [2]spatialmath.Pose{seg.StartPosition, seg.EndPosition}
+		m.RLock()
+		val, ok := m.memo[key]
+		if ok {
+			val = distanceAndSolution{distance: distance, solution: solution}
+			m.Lock()
+			m.memo[key] = val
+			m.Unlock()
+			return val.distance
+		}
+		m.RUnlock()
 		// When running NearestNeighbor:
 		// StartPosition is the seed/query
 		// EndPosition is the pose already in the RRT tree
 		if seg.StartPosition == nil || seg.EndPosition == nil {
-			return math.Inf(1)
+			val = distanceAndSolution{distance: distance, solution: solution}
+			m.Lock()
+			m.memo[key] = val
+			m.Unlock()
+			return distance
 		}
+
 		var targetFunc ik.StateMetric
 		relPose := spatialmath.PoseBetween(seg.EndPosition, seg.StartPosition)
 		seedDist := relPose.Point().Norm()
 		targetFunc = mp.algOpts.goalMetricConstructor(relPose)
 		seed := tpspace.PTGIKSeed(ptg)
 		dof := ptg.DoF()
+
 		if seedDist < dof[1].Max {
 			seed[1].Value = seedDist
 		}
 		solutionChan := make(chan *ik.Solution, 1)
 		err := ptg.Solve(context.Background(), solutionChan, seed, targetFunc, 0)
-		var closeNode *ik.Solution
 		select {
-		case closeNode = <-solutionChan:
+		case solution = <-solutionChan:
 		default:
 		}
-		if err != nil || closeNode == nil {
-			return math.Inf(1)
+
+		if err != nil || solution == nil {
+			val = distanceAndSolution{distance: distance, solution: solution}
+			m.Lock()
+			m.memo[key] = val
+			m.Unlock()
+			return distance
 		}
-		pose, err := ptg.Transform(closeNode.Configuration)
+
+		pose, err := ptg.Transform(solution.Configuration)
 		if err != nil {
-			return math.Inf(1)
+			val = distanceAndSolution{distance: distance, solution: solution}
+			m.Lock()
+			m.memo[key] = val
+			m.Unlock()
+			return distance
 		}
-		return targetFunc(&ik.State{Position: pose})
+
+		distance = targetFunc(&ik.State{Position: pose})
+		val = distanceAndSolution{distance: distance, solution: solution}
+
+		m.Lock()
+		m.memo[key] = val
+		m.Unlock()
+
+		return distance
 	}
 	opts.DistanceFunc = segMetric
-	return opts
+	return opts, &m
 }
 
 func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) []node {
