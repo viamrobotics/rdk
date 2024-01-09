@@ -210,7 +210,7 @@ func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
 	return []float64{linvel.Y, angvel.Z}, nil
 }
 
-// createControlLoopConfig created a control loop config that is embedded in this file so a user
+// createControlLoopConfig creates a control loop config that is embedded in this file so a user
 // does not have to configure the loop from within the attributes of the config file.
 // it sets up a loop that takes a constant -> sum -> PID -> gain -> Endpoint -> feedback to sum
 // structure. The gain is 0.0039 (1/255) to account for the PID range, the PID values are experimental

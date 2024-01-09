@@ -86,7 +86,7 @@ func (m *EncodedMotor) validateControlConfig(ctx context.Context) error {
 	return nil
 }
 
-// createControlLoopConfig created a Control Loop Configuration that is embedded in this file so a user does not
+// createControlLoopConfig creates a Control Loop Configuration that is embedded in this file so a user does not
 // have to configure the loop from within the attributes of the config file. It sets up a loop that takes a constant ->
 // trapezoidalVelocityProfile-> sum -> PID -> gain -> endpoint -> derivative back to sum, and endpoint
 // back to trapezoidalVelocityProfile structure. The gain is 0.0039 (1/255) to account for the PID range,
