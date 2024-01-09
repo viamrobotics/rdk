@@ -18,22 +18,14 @@ import (
 )
 
 func TestRadiusClusteringSegmentation(t *testing.T) {
-	r := &inject.Robot{}
-	cam := &inject.Camera{}
+	cam := inject.NewCamera("fakeCamera")
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
 		return nil, errors.New("no pointcloud")
 	}
-	r.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{camera.Named("fakeCamera")}
-	}
-	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
-		switch n.Name {
-		case "fakeCamera":
-			return cam, nil
-		default:
-			return nil, resource.NewNotFoundError(n)
-		}
-	}
+	// Set up dependencies
+	deps := make(resource.Dependencies)
+	deps[camera.Named("fakeCamera")] = cam
+
 	params := &segmentation.ErCCLConfig{
 		MinPtsInPlane:        100,
 		MaxDistFromPlane:     10,
@@ -45,24 +37,24 @@ func TestRadiusClusteringSegmentation(t *testing.T) {
 	}
 	// bad registration, no parameters
 	name := vision.Named("test_rcs")
-	_, err := registerOPSegmenter(context.Background(), name, nil, r)
+	_, err := registerOPSegmenter(context.Background(), name, nil, deps)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
 	// bad registration, parameters out of bounds
 	params.ClusteringRadius = -3
-	_, err = registerOPSegmenter(context.Background(), name, params, r)
+	_, err = registerOPSegmenter(context.Background(), name, params, deps)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "segmenter config error")
 	// successful registration
 	params.ClusteringRadius = 1
-	seg, err := registerOPSegmenter(context.Background(), name, params, r)
+	seg, err := registerOPSegmenter(context.Background(), name, params, deps)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, seg.Name(), test.ShouldResemble, name)
 
 	// fails on not finding camera
 	_, err = seg.GetObjectPointClouds(context.Background(), "no_camera", map[string]interface{}{})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "missing")
 
 	// fails since camera cannot generate point clouds
 	_, err = seg.GetObjectPointClouds(context.Background(), "fakeCamera", map[string]interface{}{})

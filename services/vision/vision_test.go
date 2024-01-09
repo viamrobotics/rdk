@@ -45,9 +45,9 @@ func (s *simpleDetector) Detect(context.Context, image.Image) ([]objectdetection
 }
 
 func TestNewService(t *testing.T) {
-	var r inject.Robot
+	var d resource.Dependencies
 	var m simpleDetector
-	svc, err := vision.NewService(vision.Named("testService"), &r, nil, nil, m.Detect, nil)
+	svc, err := vision.NewService(vision.Named("testService"), d, nil, nil, m.Detect, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc, test.ShouldNotBeNil)
 	result, err := svc.Detections(context.Background(), nil, nil)

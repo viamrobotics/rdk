@@ -11,10 +11,10 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/mlmodel/tflitecpu"
-	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/vision/classification"
 )
 
@@ -32,9 +32,11 @@ func BenchmarkAddMLVisionModel(b *testing.B) {
 	test.That(b, out, test.ShouldNotBeNil)
 	modelCfg := MLModelConfig{ModelName: name.Name}
 
+	deps := make(resource.Dependencies)
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		service, err := registerMLModelVisionService(ctx, name, &modelCfg, &inject.Robot{}, logging.NewLogger("benchmark"))
+		service, err := registerMLModelVisionService(ctx, name, &modelCfg, deps, logging.NewLogger("benchmark"))
 		test.That(b, err, test.ShouldBeNil)
 		test.That(b, service, test.ShouldNotBeNil)
 		test.That(b, service.Name(), test.ShouldResemble, name)
@@ -57,7 +59,8 @@ func BenchmarkUseMLVisionModel(b *testing.B) {
 	test.That(b, out, test.ShouldNotBeNil)
 	modelCfg := MLModelConfig{ModelName: name.Name}
 
-	service, err := registerMLModelVisionService(ctx, name, &modelCfg, &inject.Robot{}, logging.NewLogger("benchmark"))
+	deps := make(resource.Dependencies)
+	service, err := registerMLModelVisionService(ctx, name, &modelCfg, deps, logging.NewLogger("benchmark"))
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, service, test.ShouldNotBeNil)
 	test.That(b, service.Name(), test.ShouldResemble, name)

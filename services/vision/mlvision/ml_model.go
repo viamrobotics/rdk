@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"go.viam.com/rdk/components/camera"
 	"math"
 	"os"
 	"path/filepath"
@@ -18,6 +17,7 @@ import (
 	"go.opencensus.io/trace"
 	"golang.org/x/exp/constraints"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"

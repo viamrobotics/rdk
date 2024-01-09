@@ -29,12 +29,15 @@ func (s *simpleDetector) Detect(context.Context, image.Image) ([]objectdetection
 }
 
 func Test3DSegmentsFromDetector(t *testing.T) {
-	r := &inject.Robot{}
+	deps := make(resource.Dependencies)
+	deps2 := make(resource.Dependencies)
 	m := &simpleDetector{}
 	name := vision.Named("testDetector")
-	svc, err := vision.NewService(name, r, nil, nil, m.Detect, nil)
+
+	svc, err := vision.NewService(name, deps, nil, nil, m.Detect, nil)
 	test.That(t, err, test.ShouldBeNil)
-	cam := &inject.Camera{}
+
+	cam := inject.NewCamera("fakeCamera")
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
 		return nil, errors.New("no pointcloud")
 	}
@@ -44,44 +47,35 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 	cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return &transform.ParallelProjection{}, nil
 	}
-	r.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{camera.Named("fakeCamera"), name}
-	}
-	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
-		switch n.Name {
-		case "fakeCamera":
-			return cam, nil
-		case "testDetector":
-			return svc, nil
-		default:
-			return nil, resource.NewNotFoundError(n)
-		}
-	}
+	// set up cams as dependencies
+	deps2[vision.Named("testDetector")] = svc
+	deps2[camera.Named("fakeCamera")] = cam
+
 	params := &segmentation.DetectionSegmenterConfig{
 		DetectorName:     "testDetector",
 		ConfidenceThresh: 0.2,
 	}
 	// bad registration, no parameters
 	name2 := vision.Named("test_seg")
-	_, err = register3DSegmenterFromDetector(context.Background(), name2, nil, r)
+	_, err = register3DSegmenterFromDetector(context.Background(), name2, nil, deps2)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
 	// bad registration, no such detector
 	params.DetectorName = "noDetector"
-	_, err = register3DSegmenterFromDetector(context.Background(), name2, params, r)
+	_, err = register3DSegmenterFromDetector(context.Background(), name2, params, deps2)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "could not find necessary dependency")
 	// successful registration
 	params.DetectorName = "testDetector"
 	name3 := vision.Named("test_rcs")
-	seg, err := register3DSegmenterFromDetector(context.Background(), name3, params, r)
+	seg, err := register3DSegmenterFromDetector(context.Background(), name3, params, deps2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, seg.Name(), test.ShouldResemble, name3)
 
 	// fails on not finding camera
 	_, err = seg.GetObjectPointClouds(context.Background(), "no_camera", map[string]interface{}{})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "missing")
 
 	// fails since camera cannot return images
 	_, err = seg.GetObjectPointClouds(context.Background(), "fakeCamera", map[string]interface{}{})

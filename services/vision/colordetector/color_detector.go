@@ -4,11 +4,10 @@ package colordetector
 
 import (
 	"context"
-	"go.viam.com/rdk/components/camera"
-
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/vision"
