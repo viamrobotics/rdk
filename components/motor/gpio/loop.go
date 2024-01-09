@@ -2,19 +2,25 @@ package gpio
 
 import (
 	"context"
-	"errors"
+
+	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/control"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// TODO: RSDK-5610 test the scaling factor with a non-pi board with hardware pwm.
-var (
-	errConstantBlock = errors.New("constant block should be called 'set_point")
-	errEndpointBlock = errors.New("endpoint block should be called 'endpoint")
-	errTrapzBlock    = errors.New("trapezoidalVelocityProfile block should be called 'trapz")
-	errPIDBlock      = errors.New("PID block should be called 'PID")
+const (
+	blockNameEndpoint    = "endpoint"
+	blockNameConstant    = "constant"
+	blockNameTrapezoidal = "trapz"
 )
+
+// TODO: RSDK-5610 test the scaling factor with a non-pi board with hardware pwm.
+
+func errMissingBlock(blockType string) error {
+	return errors.Errorf("one block of type %s is required", blockType)
+}
 
 // SetState sets the state of the motor for the built-in control loop.
 func (m *EncodedMotor) SetState(ctx context.Context, state []*control.Signal) error {
@@ -32,7 +38,7 @@ func (m *EncodedMotor) State(ctx context.Context) ([]float64, error) {
 func (m *EncodedMotor) updateControlBlock(ctx context.Context, setPoint, maxVel float64) error {
 	// Update the Trapezoidal Velocity Profile block with the given maxVel for velocity control
 	velConf := control.BlockConfig{
-		Name: "trapz",
+		Name: m.blockNames[blockNameTrapezoidal],
 		Type: "trapezoidalVelocityProfile",
 		Attribute: rdkutils.AttributeMap{
 			"max_vel":    maxVel,
@@ -40,50 +46,46 @@ func (m *EncodedMotor) updateControlBlock(ctx context.Context, setPoint, maxVel 
 			"pos_window": 0.0,
 			"kpp_gain":   0.45,
 		},
-		DependsOn: []string{"set_point", "endpoint"},
+		DependsOn: []string{m.blockNames[blockNameConstant], m.blockNames[blockNameEndpoint]},
 	}
-	if err := m.loop.SetConfigAt(ctx, "trapz", velConf); err != nil {
+	if err := m.loop.SetConfigAt(ctx, m.blockNames[blockNameTrapezoidal], velConf); err != nil {
 		return err
 	}
 
 	// Update the Constant block with the given setPoint for position control
 	posConf := control.BlockConfig{
-		Name: "set_point",
+		Name: m.blockNames[blockNameConstant],
 		Type: "constant",
 		Attribute: rdkutils.AttributeMap{
 			"constant_val": setPoint,
 		},
 		DependsOn: []string{},
 	}
-	if err := m.loop.SetConfigAt(ctx, "set_point", posConf); err != nil {
+	if err := m.loop.SetConfigAt(ctx, m.blockNames[blockNameConstant], posConf); err != nil {
 		return err
 	}
 	return nil
 }
 
+func (m *EncodedMotor) storeBlockOfType(ctx context.Context, bType, bName string) error {
+	blocks := m.loop.ConfigsAtType(ctx, bType)
+	if len(blocks) != 1 {
+		return errMissingBlock(bType)
+	}
+	m.blockNames[bName] = blocks[0].Name
+	return nil
+}
+
 // validateControlConfig ensures the programmatically edited blocks are named correctly.
 func (m *EncodedMotor) validateControlConfig(ctx context.Context) error {
-	constBlock, err := m.loop.ConfigAt(ctx, "set_point")
-	if err != nil {
-		return errConstantBlock
-	}
-	m.logger.CDebugf(ctx, "constant block: %v", constBlock)
-	endBlock, err := m.loop.ConfigAt(ctx, "endpoint")
-	if err != nil {
-		return errEndpointBlock
-	}
-	m.logger.CDebugf(ctx, "endpoint block: %v", endBlock)
-	trapzBlock, err := m.loop.ConfigAt(ctx, "trapz")
-	if err != nil {
-		return errTrapzBlock
-	}
-	m.logger.CDebugf(ctx, "trapz block: %v", trapzBlock)
-	pidBlock, err := m.loop.ConfigAt(ctx, "PID")
-	if err != nil {
-		return errPIDBlock
-	}
-	m.logger.CDebugf(ctx, "PID block: %v", pidBlock)
-	return nil
+	m.blockNames = make(map[string]string)
+
+	// These three blocks are the only block names that are used by EncodedMotor
+	return multierr.Combine(
+		m.storeBlockOfType(ctx, "constant", blockNameConstant),
+		m.storeBlockOfType(ctx, "trapezoidalVelocityProfile", blockNameTrapezoidal),
+		m.storeBlockOfType(ctx, "endpoint", blockNameEndpoint),
+	)
 }
 
 // Control Loop Configuration is embedded in this file so a user does not have to configure the loop

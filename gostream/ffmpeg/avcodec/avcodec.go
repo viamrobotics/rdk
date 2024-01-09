@@ -1,4 +1,4 @@
-//go:build cgo && linux && !android
+//go:build cgo && ((linux && !android) || (darwin && arm64))
 
 // Package avcodec is a wrapper around FFmpeg/release6.1.
 // See: https://github.com/FFmpeg/FFmpeg/tree/release/6.1
@@ -8,6 +8,7 @@ package avcodec
 //#cgo linux,arm64 LDFLAGS: -L${SRCDIR}/../Linux-aarch64/lib -lavformat -lavcodec -lavutil -lm
 //#cgo linux,amd64 LDFLAGS: -L${SRCDIR}/../Linux-x86_64/lib -lavformat -lavcodec -lavutil -lm
 //#cgo linux,arm LDFLAGS: -L${SRCDIR}/../Linux-armv7l/lib -lavformat -lavcodec -lavutil -lm
+//#cgo darwin,arm64 LDFLAGS: -L${SRCDIR}/../Darwin-arm64/lib -lavformat -lavcodec -lavutil -lm
 //#include <libavformat/avformat.h>
 //#include <libavcodec/avcodec.h>
 //#include <libavcodec/packet.h>
@@ -73,6 +74,14 @@ func PacketAlloc() *Packet {
 // @return An AVCodecContext filled with default values or NULL on failure.
 func (c *Codec) AllocContext3() *Context {
 	return (*Context)(C.avcodec_alloc_context3((*C.struct_AVCodec)(c)))
+}
+
+// FreeContext Free the codec context and everything associated with it and write NULL to
+// the provided pointer.
+func (ctxt *Context) FreeContext() {
+	pCtxt := (*C.struct_AVCodecContext)(ctxt)
+	//nolint:gocritic // suppresses "dupSubExpr: suspicious identical LHS and RHS for `==` operator"
+	C.avcodec_free_context(&pCtxt)
 }
 
 // SetEncodeParams sets the context's width, height, pixel format (pxlFmt), if it has b-frames and GOP size.
@@ -289,6 +298,7 @@ func EncoderIsAvailable(enc string) bool {
 	if context == nil {
 		return false
 	}
+	defer context.FreeContext()
 
 	// Only need positive values
 	context.SetEncodeParams(1, 1, AvPixFmtYuv420p, false, 1)

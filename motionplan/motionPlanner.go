@@ -157,6 +157,10 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		return nil, err
 	}
 	// make sure there is no transformation between the PTG frame and World frame in the Solver frame
+	// TODO: RSDK-5391 this will trigger currently if we try to call Plan() on a robot which is currently executing another motion plan.
+	// Additionally, when RSDK-5391 is done, we will need to alter this such that the pose returned by `CurrentInputs` does not
+	// break this. We may want to as part of that ticket migrate the functionality of service/motion/builtin/relativeMoveRequestFromAbsolute
+	// to this package.
 	if len(sf.PTGSolvers()) > 0 && !spatialmath.PoseAlmostEqual(startPose, spatialmath.NewZeroPose()) {
 		return nil, errors.New("cannot have non-zero transformation between the PTG frame and World frame in the Solver frame")
 	}
