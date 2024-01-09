@@ -461,10 +461,13 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		if nearest == nil {
 			return nil, errNoNeighbors
 		}
-		key := [2]spatialmath.Pose{localGoal.Pose(), nearest.Pose()}
-		val, ok := distMap.memo[key]
+		rawVal, ok := distMap.Load(nearest.Pose())
 		if !ok {
 			return nil, errors.New("NICK: this error should never happen")
+		}
+		val, ok := rawVal.(*ik.Solution)
+		if !ok {
+			return nil, errors.New("NICK: this error should never happen either")
 		}
 		solution = val
 		relPose := spatialmath.PoseBetween(nearest.Pose(), localGoal.Pose())
@@ -802,20 +805,14 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 	mp.algOpts = tpOpt
 }
 
-type memoizedDistFunc struct {
-	sync.RWMutex
-	memo map[[2]spatialmath.Pose]*ik.Solution
-}
-
 // make2DTPSpaceDistanceOptions will create a plannerOptions object with a custom DistanceFunc constructed such that
 // distances can be computed in TP space using the given PTG.
-func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGSolver) (*plannerOptions, *memoizedDistFunc) {
-	m := memoizedDistFunc{memo: make(map[[2]spatialmath.Pose]*ik.Solution)}
+func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGSolver) (*plannerOptions, *sync.Map) {
+	m := sync.Map{}
 	opts := newBasicPlannerOptions(mp.frame)
 	segMetric := func(seg *ik.Segment) float64 {
 		distance := math.Inf(1)
 		var solution *ik.Solution
-		key := [2]spatialmath.Pose{seg.StartPosition, seg.EndPosition}
 		// When running NearestNeighbor:
 		// StartPosition is the seed/query
 		// EndPosition is the pose already in the RRT tree
@@ -850,9 +847,7 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 		}
 
 		distance = targetFunc(&ik.State{Position: pose})
-		m.Lock()
-		m.memo[key] = solution
-		m.Unlock()
+		m.Store(seg.EndPosition, solution)
 
 		return distance
 	}
