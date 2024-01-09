@@ -3,6 +3,7 @@ package colordetector
 import (
 	"context"
 	"testing"
+
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 

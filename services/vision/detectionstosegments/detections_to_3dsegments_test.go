@@ -33,10 +33,8 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 	deps2 := make(resource.Dependencies)
 	m := &simpleDetector{}
 	name := vision.Named("testDetector")
-
 	svc, err := vision.NewService(name, deps, nil, nil, m.Detect, nil)
 	test.That(t, err, test.ShouldBeNil)
-
 	cam := inject.NewCamera("fakeCamera")
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
 		return nil, errors.New("no pointcloud")

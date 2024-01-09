@@ -26,7 +26,6 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-
 			return registerOPSegmenter(ctx, c.ResourceName(), attrs, deps)
 		},
 		WeakDependencies: []resource.Matcher{

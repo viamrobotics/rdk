@@ -46,7 +46,6 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-
 			return registerMLModelVisionService(ctx, c.ResourceName(), attrs, deps, logger)
 		},
 		WeakDependencies: []resource.Matcher{

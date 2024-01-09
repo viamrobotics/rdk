@@ -4,6 +4,7 @@ package colordetector
 
 import (
 	"context"
+
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 

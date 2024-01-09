@@ -5,6 +5,7 @@ package detectionstosegments
 import (
 	"context"
 	"image"
+
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
@@ -27,7 +28,6 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-
 			return register3DSegmenterFromDetector(ctx, c.ResourceName(), attrs, deps)
 		},
 		WeakDependencies: []resource.Matcher{

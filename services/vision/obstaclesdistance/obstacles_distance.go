@@ -41,7 +41,6 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-
 			return registerObstacleDistanceDetector(ctx, c.ResourceName(), attrs, deps)
 		},
 		WeakDependencies: []resource.Matcher{
