@@ -306,7 +306,7 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (*m
 			errs = multierr.Combine(errs, err)
 		}
 		if posAcc != nil {
-			maps.Copy(accMap, mapWithSensorName(m.ori.Name().ShortName(), posAcc.AccuracyMap))
+			maps.Copy(accMap, mapWithSensorName(m.pos.Name().ShortName(), posAcc.AccuracyMap))
 		}
 	}
 
@@ -322,7 +322,7 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (*m
 			errs = multierr.Combine(errs, err)
 		}
 		if compassAcc != nil {
-			maps.Copy(accMap, mapWithSensorName(m.ori.Name().ShortName(), compassAcc.AccuracyMap))
+			maps.Copy(accMap, mapWithSensorName(m.compass.Name().ShortName(), compassAcc.AccuracyMap))
 		}
 	}
 
@@ -338,7 +338,7 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (*m
 			errs = multierr.Combine(errs, err)
 		}
 		if linvelAcc != nil {
-			maps.Copy(accMap, mapWithSensorName(m.ori.Name().ShortName(), linvelAcc.AccuracyMap))
+			maps.Copy(accMap, mapWithSensorName(m.linVel.Name().ShortName(), linvelAcc.AccuracyMap))
 		}
 	}
 
@@ -354,7 +354,7 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (*m
 			errs = multierr.Combine(errs, err)
 		}
 		if angvelAcc != nil {
-			maps.Copy(accMap, mapWithSensorName(m.ori.Name().ShortName(), angvelAcc.AccuracyMap))
+			maps.Copy(accMap, mapWithSensorName(m.angVel.Name().ShortName(), angvelAcc.AccuracyMap))
 		}
 	}
 
@@ -370,7 +370,7 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (*m
 			errs = multierr.Combine(errs, err)
 		}
 		if linaccAcc != nil {
-			maps.Copy(accMap, mapWithSensorName(m.ori.Name().ShortName(), linaccAcc.AccuracyMap))
+			maps.Copy(accMap, mapWithSensorName(m.linAcc.Name().ShortName(), linaccAcc.AccuracyMap))
 		}
 	}
 

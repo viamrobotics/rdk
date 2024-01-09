@@ -248,7 +248,7 @@ func TestCreation(t *testing.T) {
 
 	accuracies, err := ms.Accuracy(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, accuracies, test.ShouldResemble,
+	test.That(t, accuracies.AccuracyMap, test.ShouldResemble,
 		map[string]float32{
 			"goodAngVel_accuracy": 32,
 			"goodLinVel_accuracy": 32,
@@ -322,7 +322,7 @@ func TestCreation(t *testing.T) {
 
 	accuracies, err = ms.Accuracy(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, accuracies, test.ShouldResemble,
+	test.That(t, accuracies.AccuracyMap, test.ShouldResemble,
 		map[string]float32{
 			"goodOri_accuracy":     32,
 			"goodPos_accuracy":     32,
@@ -351,7 +351,10 @@ func TestCreation(t *testing.T) {
 
 	accuracies, err = ms.Accuracy(ctx, nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, accuracies, test.ShouldBeNil)
+	for k, v := range accuracies.AccuracyMap {
+		test.That(t, k, test.ShouldContainSubstring, errStrAccuracy)
+		test.That(t, math.IsNaN(float64(v)), test.ShouldBeTrue)
+	}
 
 	// close the sensor, this test is done
 	test.That(t, ms.Close(ctx), test.ShouldBeNil)
