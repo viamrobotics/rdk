@@ -5,7 +5,6 @@ package transform
 import (
 	"fmt"
 	"math"
-	"math/rand"
 
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
@@ -16,6 +15,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // ExtrinsicCalibrationConfig stores all the necessary parameters to do an extrinsic calibration.
@@ -46,8 +46,9 @@ func RunPinholeExtrinsicCalibration(prob *optimize.Problem, logger logging.Logge
 	}
 	// initial value for rotation euler angles(3) and translation(3)
 	params := make([]float64, 6)
+	source := utils.SafeTestingRand()
 	for i := range params {
-		params[i] = (rand.Float64() - 0.5) / 10. //nolint:gosec // initial values for parameters
+		params[i] = (source.Float64() - 0.5) / 10.
 	}
 	// do the minimization
 	res, err := optimize.Minimize(*prob, params, settings, method)

@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -634,7 +635,7 @@ func TestServerGetPlan(t *testing.T) {
 		planID2 := uuid.New()
 
 		base1 := base.Named("base1")
-		steps := []motion.PlanStep{{base1: spatialmath.NewZeroPose()}}
+		steps := []motionplan.PlanStep{{base1: spatialmath.NewZeroPose()}}
 
 		plan1 := motion.Plan{
 			ID:            planID1,
