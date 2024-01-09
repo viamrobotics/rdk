@@ -58,8 +58,10 @@ const (
 // moveRequest is a structure that contains all the information necessary for to make a move call.
 type moveRequest struct {
 	requestType requestType
-	// origin is only set if requestType == requestTypeMoveOnGlobe
-	origin            spatialmath.GeoPose
+	// geoPoseOrigin is only set if requestType == requestTypeMoveOnGlobe
+	geoPoseOrigin spatialmath.GeoPose
+	// poseOrigin is only set if requestType == requestTypeMoveOnMap
+	poseOrigin        spatialmath.Pose
 	logger            logging.Logger
 	config            *validatedMotionConfiguration
 	planRequest       *motionplan.PlanRequest
@@ -103,20 +105,26 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 
 	switch mr.requestType {
 	case requestTypeMoveOnMap:
-		// TODO: In order for MoveOnMap plans to show up in GetPlan & ListPlanStatuses we will need to
-		// add PosesByComponent to this response
-		return state.PlanResponse{
-			Waypoints:  waypoints,
-			Motionplan: plan,
-		}, nil
-	case requestTypeMoveOnGlobe:
-		posesByComponent, geoPoses, err := motionplan.PlanToPlanStepsAndGeoPoses(plan, mr.kinematicBase.Name(), mr.origin, *mr.planRequest)
+		planSteps, err := motionplan.PlanToPlanSteps(plan, mr.kinematicBase.Name(), *mr.planRequest, mr.poseOrigin)
 		if err != nil {
 			return state.PlanResponse{}, err
 		}
 
+		return state.PlanResponse{
+			Waypoints:        waypoints,
+			Motionplan:       plan,
+			PosesByComponent: planSteps,
+		}, nil
+	case requestTypeMoveOnGlobe:
+		// safe to use mr.poseOrigin since it is nil for requestTypeMoveOnGlobe
+		planSteps, err := motionplan.PlanToPlanSteps(plan, mr.kinematicBase.Name(), *mr.planRequest, mr.poseOrigin)
+		if err != nil {
+			return state.PlanResponse{}, err
+		}
+		geoPoses := motionplan.PlanStepsToGeoPoses(planSteps, mr.kinematicBase.Name(), mr.geoPoseOrigin)
+
 		// NOTE: Here we are smuggling GeoPoses into Poses by component
-		planSteps, err := toGeoPosePlanSteps(posesByComponent, geoPoses)
+		planSteps, err = toGeoPosePlanSteps(planSteps, geoPoses)
 		if err != nil {
 			return state.PlanResponse{}, err
 		}
@@ -402,7 +410,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	req motion.MoveOnGlobeReq,
 	seedPlan motionplan.Plan,
 	replanCount int,
-) (*moveRequest, error) {
+) (state.PlannerExecutor, error) {
 	valExtra, err := newValidatedExtra(req.Extra)
 	if err != nil {
 		return nil, err
@@ -512,7 +520,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	mr.seedPlan = seedPlan
 	mr.replanCostFactor = valExtra.replanCostFactor
 	mr.requestType = requestTypeMoveOnGlobe
-	mr.origin = *spatialmath.NewGeoPose(origin, heading)
+	mr.geoPoseOrigin = *spatialmath.NewGeoPose(origin, heading)
 	return mr, nil
 }
 
@@ -520,11 +528,29 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 func (ms *builtIn) newMoveOnMapRequest(
 	ctx context.Context,
 	req motion.MoveOnMapReq,
-) (*moveRequest, error) {
+	seedPlan motionplan.Plan,
+	replanCount int,
+) (state.PlannerExecutor, error) {
 	valExtra, err := newValidatedExtra(req.Extra)
 	if err != nil {
 		return nil, err
 	}
+
+	if valExtra.maxReplans >= 0 {
+		if replanCount > valExtra.maxReplans {
+			return nil, fmt.Errorf("exceeded maximum number of replans: %d", valExtra.maxReplans)
+		}
+	}
+
+	motionCfg, err := newValidatedMotionCfg(req.MotionCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Destination == nil {
+		return nil, errors.New("destination cannot be nil")
+	}
+
 	// get the SLAM Service from the slamName
 	slamSvc, ok := ms.slamServices[req.SlamName]
 	if !ok {
@@ -548,11 +574,6 @@ func (ms *builtIn) newMoveOnMapRequest(
 		return nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
 	}
 
-	motionCfg, err := newValidatedMotionCfg(nil)
-	if err != nil {
-		return nil, err
-	}
-
 	// build kinematic options
 	kinematicsOptions := kbOptionsFromCfg(motionCfg, valExtra)
 
@@ -565,6 +586,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	if err != nil {
 		return nil, err
 	}
+
 	goalPoseAdj := spatialmath.Compose(req.Destination, motion.SLAMOrientationAdjustment)
 
 	// get point cloud data in the form of bytes from pcd
@@ -591,8 +613,13 @@ func (ms *builtIn) newMoveOnMapRequest(
 	if err != nil {
 		return nil, err
 	}
+	startPose, err := mr.kinematicBase.CurrentPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	mr.poseOrigin = startPose.Pose()
 	mr.requestType = requestTypeMoveOnMap
-	return mr, err
+	return mr, nil
 }
 
 func (ms *builtIn) relativeMoveRequestFromAbsolute(
@@ -632,8 +659,6 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 
 	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
 	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
-	ms.logger.CInfof(ctx, "startPose: %v", spatialmath.PoseToProtobuf(startPose.Pose()))
-	ms.logger.CInfof(ctx, "requested world goal: %v", spatialmath.PoseToProtobuf(goalPoseInWorld))
 	if err != nil {
 		return nil, err
 	}
@@ -780,12 +805,12 @@ func (mr *moveRequest) stop() error {
 	return nil
 }
 
-func toGeoPosePlanSteps(posesByComponent []map[resource.Name]spatialmath.Pose, geoPoses []spatialmath.GeoPose) ([]motion.PlanStep, error) {
+func toGeoPosePlanSteps(posesByComponent []motionplan.PlanStep, geoPoses []spatialmath.GeoPose) ([]motionplan.PlanStep, error) {
 	if len(geoPoses) != len(posesByComponent) {
 		msg := "GeoPoses (len: %d) & PosesByComponent (len: %d) must have the same length"
 		return nil, fmt.Errorf(msg, len(geoPoses), len(posesByComponent))
 	}
-	steps := make([]motion.PlanStep, 0, len(posesByComponent))
+	steps := make([]motionplan.PlanStep, 0, len(posesByComponent))
 	for i, ps := range posesByComponent {
 		if len(ps) == 0 {
 			continue

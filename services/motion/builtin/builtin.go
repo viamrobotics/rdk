@@ -258,7 +258,7 @@ func (ms *builtIn) MoveOnMap(
 		Destination:   destination,
 		SlamName:      slamName,
 		Extra:         extra,
-	})
+	}, nil, defaultMaxReplans)
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
@@ -283,7 +283,22 @@ func (ms *builtIn) MoveOnMap(
 }
 
 func (ms *builtIn) MoveOnMapNew(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
-	return uuid.Nil, errors.New("unimplemented")
+	if err := ctx.Err(); err != nil {
+		return uuid.Nil, err
+	}
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	ms.logger.CDebugf(ctx, "MoveOnMapNew called with %s", req)
+
+	// TODO: Deprecated: remove once no motion apis use the opid system
+	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
+
+	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, ms.newMoveOnMapRequest)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return id, nil
 }
 
 type validatedExtra struct {
@@ -342,16 +357,8 @@ func (ms *builtIn) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlobeReq) (
 	ms.logger.CDebugf(ctx, "MoveOnGlobe called with %s", req)
 	// TODO: Deprecated: remove once no motion apis use the opid system
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-	planExecutorConstructor := func(
-		ctx context.Context,
-		req motion.MoveOnGlobeReq,
-		seedPlan motionplan.Plan,
-		replanCount int,
-	) (state.PlanExecutor, error) {
-		return ms.newMoveOnGlobeRequest(ctx, req, seedPlan, replanCount)
-	}
 
-	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, planExecutorConstructor)
+	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, ms.newMoveOnGlobeRequest)
 	if err != nil {
 		return uuid.Nil, err
 	}

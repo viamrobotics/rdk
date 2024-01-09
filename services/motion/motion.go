@@ -12,6 +12,7 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -95,11 +96,6 @@ type ListPlanStatusesReq struct {
 	Extra           map[string]interface{}
 }
 
-// PlanStep represents a single step of the plan
-// Describes the pose each resource described by the plan
-// should move to at that step.
-type PlanStep map[resource.Name]spatialmath.Pose
-
 // Plan represents a motion plan.
 type Plan struct {
 	// Unique ID of the plan
@@ -109,7 +105,7 @@ type Plan struct {
 	// Unique ID of the execution
 	ExecutionID ExecutionID
 	// Steps that describe the plan
-	Steps []PlanStep
+	Steps []motionplan.PlanStep
 }
 
 // PlanState denotes the state a Plan is in.
@@ -310,17 +306,6 @@ func (p Plan) ToProto() *pb.Plan {
 		ExecutionId:   p.ExecutionID.String(),
 		Steps:         steps,
 	}
-}
-
-// ToProto converts a Step to a *pb.PlanStep.
-func (s PlanStep) ToProto() *pb.PlanStep {
-	step := make(map[string]*pb.ComponentState)
-	for name, pose := range s {
-		pbPose := spatialmath.PoseToProtobuf(pose)
-		step[name.String()] = &pb.ComponentState{Pose: pbPose}
-	}
-
-	return &pb.PlanStep{Step: step}
 }
 
 // ToProto converts a PlanState to a pb.PlanState.
