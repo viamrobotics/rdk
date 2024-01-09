@@ -452,9 +452,8 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	// Get the distance function that will find the nearest RRT map node in TP-space of *this* PTG
 	// ptgDistOpt := mp.algOpts.distOptions[curPtg]
 
-	relPose := spatialmath.PoseBetween(nearest.Pose(), localGoal.Pose())
-	targetFunc := mp.algOpts.goalMetricConstructor(relPose)
 	var solution *ik.Solution
+	var targetFunc ik.StateMetric
 	if nearest == nil {
 		// Get nearest neighbor to rand config in tree using this PTG
 		// TODO: running nearestNeighbor actually involves a ptg.Solve() call, duplicating work.
@@ -468,7 +467,11 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 			return nil, errors.New("NICK: this error should never happen")
 		}
 		solution = val
+		relPose := spatialmath.PoseBetween(nearest.Pose(), localGoal.Pose())
+		targetFunc = mp.algOpts.goalMetricConstructor(relPose)
 	} else {
+		relPose := spatialmath.PoseBetween(nearest.Pose(), localGoal.Pose())
+		targetFunc = mp.algOpts.goalMetricConstructor(relPose)
 		seedDist := relPose.Point().Norm()
 		seed := tpspace.PTGIKSeed(curPtg)
 		dof := curPtg.DoF()
