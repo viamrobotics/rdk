@@ -277,6 +277,7 @@ func (mr *moveRequest) getTransientDetections(
 		cameraToBase = cameraOrigin
 	}
 
+	// TODO: make sure the rotation of dims of obstacles make sense!
 	// detections in the world frame
 	absoluteGeoms := []spatialmath.Geometry{}
 	// detection in the base frame
