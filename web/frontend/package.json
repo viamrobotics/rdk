@@ -71,6 +71,7 @@
     "eslint-plugin-unicorn": "48.0.1",
     "google-protobuf": "3.21.2",
     "jshashes": "1.0.8",
+    "lodash-es": "^4.17.21",
     "maplibre-gl": "^3.3.0",
     "postcss": "8.4.27",
     "prettier": "^3.0.3",
@@ -86,8 +87,5 @@
     "vite": "4.4.9",
     "vite-plugin-css-injected-by-js": "3.3.0",
     "vitest": "0.34.1"
-  },
-  "dependencies": {
-    "lodash-es": "^4.17.21"
   }
 }
