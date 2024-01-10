@@ -41,10 +41,6 @@ type DigitalInterrupt interface {
 	// happens.
 	AddCallback(c chan Tick)
 
-	// AddPostProcessor adds a post processor that should be used to modify
-	// what is returned by Value.
-	AddPostProcessor(pp PostProcessor)
-
 	// RemoveCallback removes a listener for interrupts
 	RemoveCallback(c chan Tick)
 
@@ -58,8 +54,8 @@ type ReconfigurableDigitalInterrupt interface {
 	Reconfigure(cfg DigitalInterruptConfig) error
 }
 
-// A PostProcessor takes a raw input and transforms it into a new value.
-// Multiple post processors can be stacked on each other.
+// A PostProcessor takes a raw input and transforms it into a new value. Multiple post processors
+// can be stacked on each other. PostProcessors are only used in the SDK.
 type PostProcessor func(raw int64) int64
 
 // CreateDigitalInterrupt is a factory method for creating a specific DigitalInterrupt based
