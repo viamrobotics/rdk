@@ -12,7 +12,6 @@ import (
 
 	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -125,7 +124,7 @@ func planFromProto(p *pb.Plan) (PlanWithMetadata, error) {
 
 	steps := motionplan.Path{}
 	for _, s := range p.Steps {
-		step, err := pathStepFromProto(s)
+		step, err := motionplan.PathStepFromProto(s)
 		if err != nil {
 			return PlanWithMetadata{}, err
 		}
@@ -134,28 +133,6 @@ func planFromProto(p *pb.Plan) (PlanWithMetadata, error) {
 	plan.Path = steps
 
 	return plan, nil
-}
-
-// pathStepFromProto converts a *pb.PlanStep to a PlanStep.
-func pathStepFromProto(s *pb.PlanStep) (motionplan.PathStep, error) {
-	if s == nil {
-		return nil, errors.New("received nil *pb.PlanStep")
-	}
-
-	step := make(motionplan.PathStep)
-	for k, v := range s.Step {
-		step[k] = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromProtobuf(v.Pose))
-	}
-	return step, nil
-}
-
-func pathStepToProto(s motionplan.PathStep) *pb.PlanStep {
-	step := make(map[string]*pb.ComponentState)
-	for name, pose := range s {
-		pbPose := spatialmath.PoseToProtobuf(pose.Pose())
-		step[name] = &pb.ComponentState{Pose: pbPose}
-	}
-	return &pb.PlanStep{Step: step}
 }
 
 // planStateFromProto converts a pb.PlanState to a PlanState.

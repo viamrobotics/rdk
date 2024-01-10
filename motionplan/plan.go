@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 
+	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -93,6 +94,28 @@ func (traj Trajectory) Evaluate(distFunc ik.SegmentMetric) (totalCost float64) {
 
 // TODO: If the frame system ever uses resource names instead of strings this should be adjusted too
 type PathStep map[string]*referenceframe.PoseInFrame
+
+func (ps PathStep) ToProto() *pb.PlanStep {
+	step := make(map[string]*pb.ComponentState)
+	for name, pose := range ps {
+		pbPose := spatialmath.PoseToProtobuf(pose.Pose())
+		step[name] = &pb.ComponentState{Pose: pbPose}
+	}
+	return &pb.PlanStep{Step: step}
+}
+
+// pathStepFromProto converts a *pb.PlanStep to a PlanStep.
+func PathStepFromProto(ps *pb.PlanStep) (PathStep, error) {
+	if ps == nil {
+		return nil, errors.New("received nil *pb.PlanStep")
+	}
+
+	step := make(PathStep)
+	for k, v := range ps.Step {
+		step[k] = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromProtobuf(v.Pose))
+	}
+	return step, nil
+}
 
 type Path []PathStep
 

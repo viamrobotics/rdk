@@ -204,10 +204,10 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 	return ptgk.Base.Stop(stopCtx, nil)
 }
 
-func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan *motionplan.Plan, currentNode int) (spatialmath.Pose, error) {
+func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan *motionplan.Plan, waypointIndex int) (spatialmath.Pose, error) {
 	planLength := len(plan.Trajectory)
-	if currentNode < 0 || currentNode >= planLength {
-		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be >= 0 and less than plan length %d", currentNode, planLength)
+	if waypointIndex < 0 || waypointIndex >= planLength {
+		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be >= 0 and less than plan length %d", waypointIndex, planLength)
 	}
 
 	// Get pose-in-frame of the base via its localizer. The offset between the localizer and its base should already be accounted for.
@@ -219,7 +219,11 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan *motionplan.
 
 	// Determine the nominal pose, that is, the pose where the robot ought be if it had followed the plan perfectly up until this point.
 	// TODO: double check this math
-	nominalPose := plan.Path.GetFramePoses(ptgk.Name().ShortName())[currentNode-1].Pose()
+	path, err := plan.Path.GetFramePoses(ptgk.Name().ShortName())
+	if err != nil {
+		return nil, err
+	}
+	nominalPose := path[waypointIndex-1]
 
 	// Determine how far through the current trajectory we are
 	currentInputs, err := ptgk.CurrentInputs(ctx)

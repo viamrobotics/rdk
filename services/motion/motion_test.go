@@ -19,8 +19,8 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
@@ -47,9 +47,11 @@ func TestPlanWithStatus(t *testing.T) {
 		ID:            planID,
 		ExecutionID:   executionID,
 		ComponentName: baseName,
-		Steps: []motionplan.PathStep{
-			map[resource.Name]spatialmath.Pose{baseName: poseA},
-			map[resource.Name]spatialmath.Pose{baseName: poseB},
+		Plan: &motionplan.Plan{
+			Path: []motionplan.PathStep{
+				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
+				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
+			},
 		},
 	}
 
@@ -582,6 +584,42 @@ func TestPlanStatus(t *testing.T) {
 }
 
 func TestPlan(t *testing.T) {
+	planID := uuid.New()
+	executionID := uuid.New()
+
+	baseName := base.Named("my-base1")
+	poseA := spatialmath.NewZeroPose()
+	poseB := spatialmath.NewPose(r3.Vector{X: 100}, spatialmath.NewOrientationVector())
+
+	protoAB := &pb.Plan{
+		Id:            planID.String(),
+		ExecutionId:   executionID.String(),
+		ComponentName: rprotoutils.ResourceNameToProto(baseName),
+		Steps: []*pb.PlanStep{
+			{
+				Step: map[string]*pb.ComponentState{
+					baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseA)},
+				},
+			},
+			{
+				Step: map[string]*pb.ComponentState{
+					baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseB)},
+				},
+			},
+		},
+	}
+	planAB := PlanWithMetadata{
+		ID:            planID,
+		ExecutionID:   executionID,
+		ComponentName: baseName,
+		Plan: &motionplan.Plan{
+			Path: []motionplan.PathStep{
+				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
+				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
+			},
+		},
+	}
+
 	t.Run("planFromProto", func(t *testing.T) {
 		type testCase struct {
 			description string
@@ -589,13 +627,6 @@ func TestPlan(t *testing.T) {
 			result      PlanWithMetadata
 			err         error
 		}
-
-		planID := uuid.New()
-		executionID := uuid.New()
-
-		baseName := base.Named("my-base1")
-		poseA := spatialmath.NewZeroPose()
-		poseB := spatialmath.NewPose(r3.Vector{X: 100}, spatialmath.NewOrientationVector())
 
 		testCases := []testCase{
 			{
@@ -648,32 +679,8 @@ func TestPlan(t *testing.T) {
 			},
 			{
 				description: "success case for full steps",
-				input: &pb.Plan{
-					Id:            planID.String(),
-					ExecutionId:   executionID.String(),
-					ComponentName: rprotoutils.ResourceNameToProto(baseName),
-					Steps: []*pb.PlanStep{
-						{
-							Step: map[string]*pb.ComponentState{
-								baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseA)},
-							},
-						},
-						{
-							Step: map[string]*pb.ComponentState{
-								baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseB)},
-							},
-						},
-					},
-				},
-				result: PlanWithMetadata{
-					ID:            planID,
-					ExecutionID:   executionID,
-					ComponentName: baseName,
-					Steps: []motionplan.PlanStep{
-						map[resource.Name]spatialmath.Pose{baseName: poseA},
-						map[resource.Name]spatialmath.Pose{baseName: poseB},
-					},
-				},
+				input:       protoAB,
+				result:      planAB,
 			},
 		}
 		for _, tc := range testCases {
@@ -696,13 +703,6 @@ func TestPlan(t *testing.T) {
 			result      *pb.Plan
 		}
 
-		planID := uuid.New()
-		executionID := uuid.New()
-
-		baseName := base.Named("my-base1")
-		poseA := spatialmath.NewZeroPose()
-		poseB := spatialmath.NewPose(r3.Vector{X: 100}, spatialmath.NewOrientationVector())
-
 		testCases := []testCase{
 			{
 				description: "an empty Plan returns an empty *pb.Plan",
@@ -715,138 +715,8 @@ func TestPlan(t *testing.T) {
 			},
 			{
 				description: "full Plan returns full *pb.Plan",
-				input: PlanWithMetadata{
-					ID:            planID,
-					ExecutionID:   executionID,
-					ComponentName: baseName,
-					Steps: []motionplan.PlanStep{
-						map[resource.Name]spatialmath.Pose{baseName: poseA},
-						map[resource.Name]spatialmath.Pose{baseName: poseB},
-					},
-				},
-				result: &pb.Plan{
-					Id:            planID.String(),
-					ExecutionId:   executionID.String(),
-					ComponentName: rprotoutils.ResourceNameToProto(baseName),
-					Steps: []*pb.PlanStep{
-						{
-							Step: map[string]*pb.ComponentState{
-								baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseA)},
-							},
-						},
-						{
-							Step: map[string]*pb.ComponentState{
-								baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseB)},
-							},
-						},
-					},
-				},
-			},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.description, func(t *testing.T) {
-				res := tc.input.ToProto()
-				test.That(t, res, test.ShouldResemble, tc.result)
-			})
-		}
-	})
-}
-
-func TestPlanStep(t *testing.T) {
-	baseNameA := base.Named("my-base1")
-	baseNameB := base.Named("my-base2")
-	poseA := spatialmath.NewZeroPose()
-	poseB := spatialmath.NewPose(r3.Vector{X: 100}, spatialmath.NewOrientationVector())
-
-	t.Run("planStepFromProto", func(t *testing.T) {
-		type testCase struct {
-			description string
-			input       *pb.PlanStep
-			result      motionplan.PlanStep
-			err         error
-		}
-
-		testCases := []testCase{
-			{
-				description: "nil pointer returns an error",
-				input:       nil,
-				result:      motionplan.PlanStep{},
-				err:         errors.New("received nil *pb.PlanStep"),
-			},
-			{
-				description: "returns an error if any of the step resource names are invalid",
-				input: &pb.PlanStep{
-					Step: map[string]*pb.ComponentState{
-						baseNameA.String():       {Pose: spatialmath.PoseToProtobuf(poseA)},
-						"invalid component name": {Pose: spatialmath.PoseToProtobuf(poseB)},
-					},
-				},
-				result: motionplan.PlanStep{},
-				err:    errors.New("string \"invalid component name\" is not a valid resource name"),
-			},
-			{
-				description: "an empty *pb.PlanStep returns an empty PlanStep{}",
-				input:       &pb.PlanStep{},
-				result:      motionplan.PlanStep{},
-			},
-			{
-				description: "a full *pb.PlanStep returns an full PlanStep{}",
-				input: &pb.PlanStep{
-					Step: map[string]*pb.ComponentState{
-						baseNameA.String(): {Pose: spatialmath.PoseToProtobuf(poseA)},
-						baseNameB.String(): {Pose: spatialmath.PoseToProtobuf(poseB)},
-					},
-				},
-				result: map[resource.Name]spatialmath.Pose{
-					baseNameA: poseA,
-					baseNameB: poseB,
-				},
-			},
-		}
-		for _, tc := range testCases {
-			t.Run(tc.description, func(t *testing.T) {
-				res, err := pathStepFromProto(tc.input)
-				if tc.err != nil {
-					test.That(t, err, test.ShouldBeError, tc.err)
-				} else {
-					test.That(t, err, test.ShouldBeNil)
-				}
-				test.That(t, res, test.ShouldResemble, tc.result)
-			})
-		}
-	})
-
-	t.Run("ToProto()", func(t *testing.T) {
-		type testCase struct {
-			description string
-			input       motionplan.PlanStep
-			result      *pb.PlanStep
-		}
-
-		testCases := []testCase{
-			{
-				description: "an nil PlanStep returns an empty *pb.PlanStep",
-				input:       nil,
-				result:      &pb.PlanStep{},
-			},
-			{
-				description: "an empty PlanStep returns an empty *pb.PlanStep",
-				input:       motionplan.PlanStep{},
-				result:      &pb.PlanStep{},
-			},
-			{
-				description: "a full PlanStep{} returns an full *pb.PlanStep",
-				input: map[resource.Name]spatialmath.Pose{
-					baseNameA: poseA,
-					baseNameB: poseB,
-				},
-				result: &pb.PlanStep{
-					Step: map[string]*pb.ComponentState{
-						baseNameA.String(): {Pose: spatialmath.PoseToProtobuf(poseA)},
-						baseNameB.String(): {Pose: spatialmath.PoseToProtobuf(poseB)},
-					},
-				},
+				input:       planAB,
+				result:      protoAB,
 			},
 		}
 
