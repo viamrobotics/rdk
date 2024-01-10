@@ -380,7 +380,9 @@ func (svc *builtIn) Sync(ctx context.Context, _ map[string]interface{}) error {
 		}
 	}
 
-	svc.sync()
+	cancelCtx, _ := context.WithCancel(context.Background())
+
+	svc.sync(cancelCtx)
 	return nil
 }
 
@@ -533,6 +535,7 @@ func (svc *builtIn) cancelSyncScheduler() {
 	if svc.syncRoutineCancelFn != nil {
 		svc.syncRoutineCancelFn()
 		svc.backgroundWorkers.Wait()
+		fmt.Println("got all background workers")
 		svc.syncRoutineCancelFn = nil
 	}
 }
@@ -569,26 +572,39 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 					if svc.syncSensor != nil && svc.selectiveSyncEnabled {
 						shouldSync = readyToSync(cancelCtx, svc.syncSensor, svc.logger)
 					}
+					svc.lock.Unlock()
+
 					if shouldSync {
-						svc.sync()
+						svc.sync(cancelCtx)
 					}
+				} else {
+					svc.lock.Unlock()
 				}
-				svc.lock.Unlock()
 			}
 		}
 	})
 }
 
-func (svc *builtIn) sync() {
+func (svc *builtIn) sync(cancelCtx context.Context) {
 	svc.flushCollectors()
 
+	svc.lock.Lock()
 	toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
 	for _, ap := range svc.additionalSyncPaths {
 		toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
 	}
-	for _, p := range toSync {
-		svc.syncer.SyncFile(p)
-	}
+	svc.lock.Unlock()
+
+	goutils.PanicCapturingGo(func() {
+		select {
+		case <-cancelCtx.Done():
+			return
+		default:
+			for _, p := range toSync {
+				svc.syncer.SyncFile(p)
+			}
+		}
+	})
 }
 
 //nolint

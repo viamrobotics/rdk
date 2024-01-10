@@ -108,14 +108,25 @@ func (s *syncer) SetArbitraryFileTags(tags []string) {
 }
 
 func (s *syncer) SyncFile(path string) {
-	// Block if there the maximum number of goroutines has been hit.
-	s.syncRoutineTracker <- struct{}{}
+	// If the file is already being synced, do not kick off a new goroutine.
+	// The goroutine will again check and return early if sync is already in progress.
+	s.progressLock.Lock()
+	if s.inProgress[path] {
+		s.progressLock.Unlock()
+		return
+	}
+	s.progressLock.Unlock()
 
+	// Block if the maximum number of goroutines has been hit.
+	s.syncRoutineTracker <- struct{}{}
 	s.backgroundWorkers.Add(1)
+
 	goutils.PanicCapturingGo(func() {
 		defer s.backgroundWorkers.Done()
 		// At the end, decrement the number of sync routines.
-		defer func() { <-s.syncRoutineTracker }()
+		defer func() {
+			<-s.syncRoutineTracker
+		}()
 		select {
 		case <-s.cancelCtx.Done():
 			return
