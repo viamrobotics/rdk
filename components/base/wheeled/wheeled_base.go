@@ -255,8 +255,6 @@ func (wb *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, e
 
 // MoveStraight commands a base to drive forward or backwards  at a linear speed and for a specific distance.
 func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
-	ctx, done := wb.opMgr.New(ctx)
-	defer done()
 	wb.logger.CDebugf(ctx, "received a MoveStraight with distanceMM:%d, mmPerSec:%.2f", distanceMm, mmPerSec)
 
 	// Stop the motors if the speed or distance are 0
@@ -271,6 +269,12 @@ func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSe
 	// Straight math
 	rpm, rotations := wb.straightDistanceToMotorInputs(distanceMm, mmPerSec)
 
+	wb.mu.Lock()
+	wb.opMgr.CancelRunning(ctx)
+	wb.mu.Unlock()
+
+	ctx, done := wb.opMgr.New(ctx)
+	defer done()
 	return wb.runAllGoFor(ctx, rpm, rotations, rpm, rotations)
 }
 
