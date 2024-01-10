@@ -148,6 +148,24 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 		delete(origSeed, frame.Name())
 	}
 
+	var ptgs []tpspace.PTGSolver
+	anyPTG := false     // Whether PTG frames have been observed
+	anyNonzero := false // Whether non-PTG frames
+	for _, movingFrame := range frames {
+		if ptgFrame, isPTGframe := movingFrame.(tpspace.PTGProvider); isPTGframe {
+			if anyPTG {
+				return nil, errors.New("only one PTG frame can be planned for at a time")
+			}
+			anyPTG = true
+			ptgs = ptgFrame.PTGSolvers()
+		} else if len(movingFrame.DoF()) > 0 {
+			anyNonzero = true
+		}
+		if anyNonzero && anyPTG {
+			return nil, errors.New("cannot combine ptg with other nonzero DOF frames in a single planning call")
+		}
+	}
+
 	return &solverFrame{
 		name:        solveFrame.Name() + "_" + goalFrame.Name(),
 		fss:         fs,
@@ -157,6 +175,7 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 		goalFrame:   goalFrame,
 		worldRooted: worldRooted,
 		origSeed:    origSeed,
+		ptgs:        ptgs,
 	}, nil
 }
 
@@ -365,52 +384,69 @@ func findPivotFrame(frameList1, frameList2 []frame.Frame) (frame.Frame, error) {
 	return nil, errors.New("no path from solve frame to goal frame")
 }
 
-// PlanToPlanStepsAndGeoPoses converts a plan to the relative poses the robot will move to (relative to the origin) & the geo poses.
-func PlanToPlanStepsAndGeoPoses(
+// PlanToPlanSteps converts a plan to the relative poses the robot will move to (relative to the origin).
+func PlanToPlanSteps(
 	plan Plan,
 	componentName resource.Name,
-	origin spatial.GeoPose,
 	planRequest PlanRequest,
-) ([]map[resource.Name]spatial.Pose, []spatial.GeoPose, error) {
+	startPose spatial.Pose,
+) ([]PlanStep, error) {
 	sf, err := newSolverFrame(
 		planRequest.FrameSystem,
 		planRequest.Frame.Name(),
 		planRequest.Goal.Parent(),
 		planRequest.StartConfiguration)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	planNodes, err := sf.planToNodes(plan)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	seed, err := sf.mapToSlice(planRequest.StartConfiguration)
-	if err != nil {
-		return nil, nil, err
-	}
-	startPose, err := sf.Transform(seed)
-	if err != nil {
-		return nil, nil, err
+	if startPose == nil {
+		seed, err := sf.mapToSlice(planRequest.StartConfiguration)
+		if err != nil {
+			return nil, err
+		}
+		seedPose, err := sf.Transform(seed)
+		if err != nil {
+			return nil, err
+		}
+		startPose = spatial.NewPose(planNodes[0].Pose().Point(), seedPose.Orientation())
 	}
 
-	startPoseWOrientation := spatial.NewPose(planNodes[0].Pose().Point(), startPose.Orientation())
-	runningPoseWOrient := startPoseWOrientation
-	planSteps := make([]map[resource.Name]spatial.Pose, 0, len(planNodes))
-	geoPoses := []spatial.GeoPose{}
+	runningPoseWOrient := startPose
+	planSteps := []PlanStep{}
 	for _, wp := range planNodes {
 		wpPose, err := sf.Transform(wp.Q())
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
 		runningPoseWOrient = spatial.Compose(runningPoseWOrient, wpPose)
 		planSteps = append(planSteps, map[resource.Name]spatial.Pose{componentName: runningPoseWOrient})
-
-		gp := spatial.PoseToGeoPose(&origin, runningPoseWOrient)
-		geoPoses = append(geoPoses, *gp)
 	}
 
-	return planSteps, geoPoses, nil
+	return planSteps, nil
+}
+
+// PlanStepsToGeoPoses converts the relative poses the robot will move to into geo poses.
+func PlanStepsToGeoPoses(
+	planSteps []PlanStep,
+	componentName resource.Name,
+	origin spatial.GeoPose,
+) []spatial.GeoPose {
+	geoPoses := []spatial.GeoPose{}
+	for _, step := range planSteps {
+		for name, pose := range step {
+			if name == componentName {
+				gp := spatial.PoseToGeoPose(&origin, pose)
+				geoPoses = append(geoPoses, *gp)
+			}
+		}
+	}
+
+	return geoPoses
 }
