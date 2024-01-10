@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"testing"
 	"time"
 
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest"
 )
 
 type (
@@ -20,6 +22,9 @@ type (
 		inUTC bool
 
 		appenders []Appender
+		// Logging to a `testing.T` always includes a filename/line number. We use this helper to
+		// avoid that. This function is a no-op for non-test loggers.
+		testHelper func()
 	}
 
 	// LogEntry embeds a zapcore Entry and slice of Fields.
@@ -98,21 +103,35 @@ func (imp *impl) AsZap() *zap.SugaredLogger {
 	// When downconverting to a SugaredLogger, copy those that implement the `zapcore.Core`
 	// interface. This includes the net logger for viam servers and the observed logs for tests.
 	var copiedCores []zapcore.Core
+
+	// When we find a `testAppender`, copy the underlying `testing.TB` object and construct a
+	// `zaptest.NewLogger` from it.
+	var testingObj testing.TB
 	for _, appender := range imp.appenders {
 		if core, ok := appender.(zapcore.Core); ok {
 			copiedCores = append(copiedCores, core)
 		}
+		if testAppender, ok := appender.(*testAppender); ok {
+			testingObj = testAppender.tb
+		}
 	}
 
-	config := NewZapLoggerConfig()
-	// Use the global zap `AtomicLevel` such that the constructed zap logger can observe changes to
-	// the debug flag.
-	if imp.level.Get() == DEBUG {
-		config.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
+	var ret *zap.SugaredLogger
+	if testingObj == nil {
+		config := NewZapLoggerConfig()
+		// Use the global zap `AtomicLevel` such that the constructed zap logger can observe changes to
+		// the debug flag.
+		if imp.level.Get() == DEBUG {
+			config.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
+		} else {
+			config.Level = GlobalLogLevel
+		}
+		ret = zap.Must(config.Build()).Sugar().Named(imp.name)
 	} else {
-		config.Level = GlobalLogLevel
+		// `zaptest.NewLogger` always constructs a logger at the `zapcore.DebugLevel`.
+		ret = zaptest.NewLogger(testingObj, zaptest.WrapOptions(zap.AddCaller())).Sugar().Named(imp.name)
 	}
-	ret := zap.Must(config.Build()).Sugar().Named(imp.name)
+
 	for _, core := range copiedCores {
 		ret = ret.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 			return zapcore.NewTee(c, core)
@@ -131,6 +150,7 @@ func (imp *impl) shouldLog(logLevel Level) bool {
 }
 
 func (imp *impl) log(entry *LogEntry) {
+	imp.testHelper()
 	if imp.inUTC {
 		entry.Time = entry.Time.UTC()
 	}
@@ -203,12 +223,14 @@ func (imp *impl) formatw(logLevel Level, traceKey, msg string, keysAndValues ...
 }
 
 func (imp *impl) Debug(args ...interface{}) {
+	imp.testHelper()
 	if imp.shouldLog(DEBUG) {
 		imp.log(imp.format(DEBUG, emptyTraceKey, args...))
 	}
 }
 
 func (imp *impl) CDebug(ctx context.Context, args ...interface{}) {
+	imp.testHelper()
 	dbgName := GetName(ctx)
 
 	// We log if the logger is configured for debug, or if there's a trace key.
@@ -218,12 +240,14 @@ func (imp *impl) CDebug(ctx context.Context, args ...interface{}) {
 }
 
 func (imp *impl) Debugf(template string, args ...interface{}) {
+	imp.testHelper()
 	if imp.shouldLog(DEBUG) {
 		imp.log(imp.formatf(DEBUG, emptyTraceKey, template, args...))
 	}
 }
 
 func (imp *impl) CDebugf(ctx context.Context, template string, args ...interface{}) {
+	imp.testHelper()
 	dbgName := GetName(ctx)
 
 	// We log if the logger is configured for debug, or if there's a trace key.
@@ -233,12 +257,14 @@ func (imp *impl) CDebugf(ctx context.Context, template string, args ...interface
 }
 
 func (imp *impl) Debugw(msg string, keysAndValues ...interface{}) {
+	imp.testHelper()
 	if imp.shouldLog(DEBUG) {
 		imp.log(imp.formatw(DEBUG, emptyTraceKey, msg, keysAndValues...))
 	}
 }
 
 func (imp *impl) CDebugw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	imp.testHelper()
 	dbgName := GetName(ctx)
 
 	// We log if the logger is configured for debug, or if there's a trace key.
@@ -248,12 +274,14 @@ func (imp *impl) CDebugw(ctx context.Context, msg string, keysAndValues ...inter
 }
 
 func (imp *impl) Info(args ...interface{}) {
+	imp.testHelper()
 	if imp.shouldLog(INFO) {
 		imp.log(imp.format(INFO, emptyTraceKey, args...))
 	}
 }
 
 func (imp *impl) CInfo(ctx context.Context, args ...interface{}) {
+	imp.testHelper()
 	dbgName := GetName(ctx)
 
 	// We log if the logger is configured for info, or if there's a trace key.
@@ -263,12 +291,14 @@ func (imp *impl) CInfo(ctx context.Context, args ...interface{}) {
 }
 
 func (imp *impl) Infof(template string, args ...interface{}) {
+	imp.testHelper()
 	if imp.shouldLog(INFO) {
 		imp.log(imp.formatf(INFO, emptyTraceKey, template, args...))
 	}
 }
 
 func (imp *impl) CInfof(ctx context.Context, template string, args ...interface{}) {
+	imp.testHelper()
 	dbgName := GetName(ctx)
 
 	// We log if the logger is configured for info, or if there's a trace key.
@@ -278,12 +308,14 @@ func (imp *impl) CInfof(ctx context.Context, template string, args ...interface{
 }
 
 func (imp *impl) Infow(msg string, keysAndValues ...interface{}) {
+	imp.testHelper()
 	if imp.shouldLog(INFO) {
 		imp.log(imp.formatw(INFO, emptyTraceKey, msg, keysAndValues...))
 	}
 }
 
 func (imp *impl) CInfow(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	imp.testHelper()
 	dbgName := GetName(ctx)
 
 	// We log if the logger is configured for info, or if there's a trace key.
@@ -293,12 +325,14 @@ func (imp *impl) CInfow(ctx context.Context, msg string, keysAndValues ...interf
 }
 
 func (imp *impl) Warn(args ...interface{}) {
+	imp.testHelper()
 	if imp.shouldLog(WARN) {
 		imp.log(imp.format(WARN, emptyTraceKey, args...))
 	}
 }
 
 func (imp *impl) CWarn(ctx context.Context, args ...interface{}) {
+	imp.testHelper()
 	dbgName := GetName(ctx)
 
 	// We log if the logger is configured for warn, or if there's a trace key.
@@ -308,12 +342,14 @@ func (imp *impl) CWarn(ctx context.Context, args ...interface{}) {
 }
 
 func (imp *impl) Warnf(template string, args ...interface{}) {
+	imp.testHelper()
 	if imp.shouldLog(WARN) {
 		imp.log(imp.formatf(WARN, emptyTraceKey, template, args...))
 	}
 }
 
 func (imp *impl) CWarnf(ctx context.Context, template string, args ...interface{}) {
+	imp.testHelper()
 	dbgName := GetName(ctx)
 
 	// We log if the logger is configured for warn, or if there's a trace key.
@@ -323,12 +359,14 @@ func (imp *impl) CWarnf(ctx context.Context, template string, args ...interface{
 }
 
 func (imp *impl) Warnw(msg string, keysAndValues ...interface{}) {
+	imp.testHelper()
 	if imp.shouldLog(WARN) {
 		imp.log(imp.formatw(WARN, emptyTraceKey, msg, keysAndValues...))
 	}
 }
 
 func (imp *impl) CWarnw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	imp.testHelper()
 	dbgName := GetName(ctx)
 
 	// We log if the logger is configured for warn, or if there's a trace key.
@@ -338,12 +376,14 @@ func (imp *impl) CWarnw(ctx context.Context, msg string, keysAndValues ...interf
 }
 
 func (imp *impl) Error(args ...interface{}) {
+	imp.testHelper()
 	if imp.shouldLog(ERROR) {
 		imp.log(imp.format(ERROR, emptyTraceKey, args...))
 	}
 }
 
 func (imp *impl) CError(ctx context.Context, args ...interface{}) {
+	imp.testHelper()
 	dbgName := GetName(ctx)
 
 	// We log if the logger is configured for error, or if there's a trace key.
@@ -353,12 +393,14 @@ func (imp *impl) CError(ctx context.Context, args ...interface{}) {
 }
 
 func (imp *impl) Errorf(template string, args ...interface{}) {
+	imp.testHelper()
 	if imp.shouldLog(ERROR) {
 		imp.log(imp.formatf(ERROR, emptyTraceKey, template, args...))
 	}
 }
 
 func (imp *impl) CErrorf(ctx context.Context, template string, args ...interface{}) {
+	imp.testHelper()
 	dbgName := GetName(ctx)
 
 	// We log if the logger is configured for error, or if there's a trace key.
@@ -368,12 +410,14 @@ func (imp *impl) CErrorf(ctx context.Context, template string, args ...interface
 }
 
 func (imp *impl) Errorw(msg string, keysAndValues ...interface{}) {
+	imp.testHelper()
 	if imp.shouldLog(ERROR) {
 		imp.log(imp.formatw(ERROR, emptyTraceKey, msg, keysAndValues...))
 	}
 }
 
 func (imp *impl) CErrorw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	imp.testHelper()
 	dbgName := GetName(ctx)
 
 	// We log if the logger is configured for error, or if there's a trace key.
@@ -384,16 +428,19 @@ func (imp *impl) CErrorw(ctx context.Context, msg string, keysAndValues ...inter
 
 // These Fatal* methods log as errors then exit the process.
 func (imp *impl) Fatal(args ...interface{}) {
+	imp.testHelper()
 	imp.log(imp.format(ERROR, emptyTraceKey, args...))
 	os.Exit(1)
 }
 
 func (imp *impl) Fatalf(template string, args ...interface{}) {
+	imp.testHelper()
 	imp.log(imp.formatf(ERROR, emptyTraceKey, template, args...))
 	os.Exit(1)
 }
 
 func (imp *impl) Fatalw(msg string, keysAndValues ...interface{}) {
+	imp.testHelper()
 	imp.log(imp.formatw(ERROR, emptyTraceKey, msg, keysAndValues...))
 	os.Exit(1)
 }
@@ -402,8 +449,8 @@ func (imp *impl) Fatalw(msg string, keysAndValues ...interface{}) {
 func getCaller() zapcore.EntryCaller {
 	var ok bool
 	var entryCaller zapcore.EntryCaller
-	const skipToLogCaller = 4
-	entryCaller.PC, entryCaller.File, entryCaller.Line, ok = runtime.Caller(skipToLogCaller)
+	const framesToSkip = 4
+	entryCaller.PC, entryCaller.File, entryCaller.Line, ok = runtime.Caller(framesToSkip)
 	if !ok {
 		return entryCaller
 	}

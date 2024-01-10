@@ -145,7 +145,13 @@ func TestConsoleOutputFormat(t *testing.T) {
 	// A logger object that will write to the `notStdout` buffer.
 	const inUTC = true
 	notStdout := &bytes.Buffer{}
-	impl := &impl{"impl", NewAtomicLevelAt(DEBUG), inUTC, []Appender{NewWriterAppender(notStdout)}}
+	impl := &impl{
+		name:       "impl",
+		level:      NewAtomicLevelAt(DEBUG),
+		inUTC:      true,
+		appenders:  []Appender{NewWriterAppender(notStdout)},
+		testHelper: func() {},
+	}
 
 	impl.Info("impl Info log")
 	// Note the use of tabs between the date, level, file location and log line. The
@@ -205,7 +211,13 @@ func TestContextLogging(t *testing.T) {
 	const inUTC = true
 	notStdout := &bytes.Buffer{}
 	// The default log level is error.
-	logger := &impl{"impl", NewAtomicLevelAt(ERROR), inUTC, []Appender{NewWriterAppender(notStdout)}}
+	logger := &impl{
+		name:       "impl",
+		level:      NewAtomicLevelAt(ERROR),
+		inUTC:      true,
+		appenders:  []Appender{NewWriterAppender(notStdout)},
+		testHelper: func() {},
+	}
 
 	logger.CDebug(ctxNoDebug, "Debug log")
 	test.That(t, notStdout.Len(), test.ShouldEqual, 0)
