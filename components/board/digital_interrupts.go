@@ -24,8 +24,7 @@ type Tick struct {
 }
 
 // A DigitalInterrupt represents a configured interrupt on the board that
-// when interrupted, calls the added callbacks. Post processors can also
-// be added to modify what Value ultimately returns.
+// when interrupted, calls the added callbacks.
 type DigitalInterrupt interface {
 	// Value returns the current value of the interrupt which is
 	// based on the type of interrupt.
