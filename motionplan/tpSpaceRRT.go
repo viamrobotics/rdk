@@ -437,27 +437,25 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 // getExtensionCandidate will return either nil, or the best node on a valid PTG to reach the desired random node and its RRT tree parent.
 func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	ctx context.Context,
-	localGoal node,
+	randPosNode node,
 	ptgNum int,
 	curPtg tpspace.PTGSolver,
 	rrt rrtMap,
 	nearest node,
 ) (*candidate, error) {
+	// Get the distance function that will find the nearest RRT map node in TP-space of *this* PTG
 	ptgDistOpt, distMap := mp.make2DTPSpaceDistanceOptions(curPtg)
 
 	nm := &neighborManager{nCPU: mp.planOpts.NumThreads / len(mp.tpFrame.PTGSolvers())}
 	nm.parallelNeighbors = 10
 
 	var successNode node
-	// Get the distance function that will find the nearest RRT map node in TP-space of *this* PTG
-	// ptgDistOpt := mp.algOpts.distOptions[curPtg]
 
 	var solution *ik.Solution
 	var targetFunc ik.StateMetric
 	if nearest == nil {
 		// Get nearest neighbor to rand config in tree using this PTG
-		// TODO: running nearestNeighbor actually involves a ptg.Solve() call, duplicating work.
-		nearest = nm.nearestNeighbor(ctx, ptgDistOpt, localGoal, rrt)
+		nearest = nm.nearestNeighbor(ctx, ptgDistOpt, randPosNode, rrt)
 		if nearest == nil {
 			return nil, errNoNeighbors
 		}
@@ -472,10 +470,10 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 			return nil, errNoNeighbors
 		}
 		solution = val
-		relPose := spatialmath.PoseBetween(nearest.Pose(), localGoal.Pose())
+		relPose := spatialmath.PoseBetween(nearest.Pose(), randPosNode.Pose())
 		targetFunc = mp.algOpts.goalMetricConstructor(relPose)
 	} else {
-		relPose := spatialmath.PoseBetween(nearest.Pose(), localGoal.Pose())
+		relPose := spatialmath.PoseBetween(nearest.Pose(), randPosNode.Pose())
 		targetFunc = mp.algOpts.goalMetricConstructor(relPose)
 		seedDist := relPose.Point().Norm()
 		seed := tpspace.PTGIKSeed(curPtg)
