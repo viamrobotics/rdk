@@ -463,11 +463,13 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		}
 		rawVal, ok := distMap.Load(nearest.Pose())
 		if !ok {
-			return nil, errors.New("NICK: this error should never happen")
+			mp.logger.Error("nearest neighbor failed to find nearest pose in distMap")
+			return nil, errNoNeighbors
 		}
 		val, ok := rawVal.(*ik.Solution)
 		if !ok {
-			return nil, errors.New("NICK: this error should never happen either")
+			mp.logger.Error("nearest neighbor ik.Solution type conversion failed")
+			return nil, errNoNeighbors
 		}
 		solution = val
 		relPose := spatialmath.PoseBetween(nearest.Pose(), localGoal.Pose())
