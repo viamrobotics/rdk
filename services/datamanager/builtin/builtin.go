@@ -127,16 +127,17 @@ type builtIn struct {
 	backgroundWorkers      sync.WaitGroup
 	fileLastModifiedMillis int
 
-	additionalSyncPaths []string
-	tags                []string
-	syncDisabled        bool
-	syncIntervalMins    float64
-	syncRoutineCancelFn context.CancelFunc
-	syncer              datasync.Manager
-	syncerConstructor   datasync.ManagerConstructor
-	cloudConnSvc        cloud.ConnectionService
-	cloudConn           rpc.ClientConn
-	syncTicker          *clk.Ticker
+	additionalSyncPaths  []string
+	tags                 []string
+	syncDisabled         bool
+	syncIntervalMins     float64
+	syncRoutineCancelCtx context.Context
+	syncRoutineCancelFn  context.CancelFunc
+	syncer               datasync.Manager
+	syncerConstructor    datasync.ManagerConstructor
+	cloudConnSvc         cloud.ConnectionService
+	cloudConn            rpc.ClientConn
+	syncTicker           *clk.Ticker
 
 	syncSensor           selectiveSyncer
 	selectiveSyncEnabled bool
@@ -380,9 +381,7 @@ func (svc *builtIn) Sync(ctx context.Context, _ map[string]interface{}) error {
 		}
 	}
 
-	cancelCtx, _ := context.WithCancel(context.Background())
-
-	svc.sync(cancelCtx)
+	svc.sync()
 	return nil
 }
 
@@ -525,8 +524,9 @@ func (svc *builtIn) Reconfigure(
 // startSyncScheduler starts the goroutine that calls Sync repeatedly if scheduled sync is enabled.
 func (svc *builtIn) startSyncScheduler(intervalMins float64) {
 	cancelCtx, fn := context.WithCancel(context.Background())
+	svc.syncRoutineCancelCtx = cancelCtx
 	svc.syncRoutineCancelFn = fn
-	svc.uploadData(cancelCtx, intervalMins)
+	svc.uploadData(intervalMins)
 }
 
 // cancelSyncScheduler cancels the goroutine that calls Sync repeatedly if scheduled sync is enabled.
@@ -539,7 +539,7 @@ func (svc *builtIn) cancelSyncScheduler() {
 	}
 }
 
-func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) {
+func (svc *builtIn) uploadData(intervalMins float64) {
 	// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
 	intervalMillis := 60000.0 * intervalMins
 	// The ticker must be created before uploadData returns to prevent race conditions between clock.Ticker and
@@ -551,7 +551,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 		defer svc.syncTicker.Stop()
 
 		for {
-			if err := cancelCtx.Err(); err != nil {
+			if err := svc.syncRoutineCancelCtx.Err(); err != nil {
 				if !errors.Is(err, context.Canceled) {
 					svc.logger.Errorw("data manager context closed unexpectedly", "error", err)
 				}
@@ -559,7 +559,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			}
 
 			select {
-			case <-cancelCtx.Done():
+			case <-svc.syncRoutineCancelCtx.Done():
 				return
 			case <-svc.syncTicker.C:
 				svc.lock.Lock()
@@ -569,12 +569,12 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 					// If selective sync is enabled and the sensor has been properly initialized,
 					// try to get the reading from the selective sensor that indicates whether to sync
 					if svc.syncSensor != nil && svc.selectiveSyncEnabled {
-						shouldSync = readyToSync(cancelCtx, svc.syncSensor, svc.logger)
+						shouldSync = readyToSync(svc.syncRoutineCancelCtx, svc.syncSensor, svc.logger)
 					}
 					svc.lock.Unlock()
 
 					if shouldSync {
-						svc.sync(cancelCtx)
+						svc.sync()
 					}
 				} else {
 					svc.lock.Unlock()
@@ -584,7 +584,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 	})
 }
 
-func (svc *builtIn) sync(cancelCtx context.Context) {
+func (svc *builtIn) sync() {
 	svc.flushCollectors()
 
 	svc.lock.Lock()
@@ -596,7 +596,7 @@ func (svc *builtIn) sync(cancelCtx context.Context) {
 
 	goutils.PanicCapturingGo(func() {
 		select {
-		case <-cancelCtx.Done():
+		case <-svc.syncRoutineCancelCtx.Done():
 			return
 		default:
 			for _, p := range toSync {
