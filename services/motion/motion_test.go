@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
@@ -126,7 +127,7 @@ func TestPlanWithStatus(t *testing.T) {
 						ID:            planID,
 						ExecutionID:   executionID,
 						ComponentName: baseName,
-						Steps: []PlanStep{
+						Steps: []motionplan.PlanStep{
 							map[resource.Name]spatialmath.Pose{baseName: poseA},
 							map[resource.Name]spatialmath.Pose{baseName: poseB},
 						},
@@ -171,7 +172,7 @@ func TestPlanWithStatus(t *testing.T) {
 						ID:            planID,
 						ExecutionID:   executionID,
 						ComponentName: baseName,
-						Steps: []PlanStep{
+						Steps: []motionplan.PlanStep{
 							map[resource.Name]spatialmath.Pose{baseName: poseA},
 							map[resource.Name]spatialmath.Pose{baseName: poseB},
 						},
@@ -211,7 +212,7 @@ func TestPlanWithStatus(t *testing.T) {
 						ID:            planID,
 						ExecutionID:   executionID,
 						ComponentName: baseName,
-						Steps: []PlanStep{
+						Steps: []motionplan.PlanStep{
 							map[resource.Name]spatialmath.Pose{baseName: poseA},
 							map[resource.Name]spatialmath.Pose{baseName: poseB},
 						},
@@ -681,7 +682,7 @@ func TestPlan(t *testing.T) {
 					ID:            planID,
 					ExecutionID:   executionID,
 					ComponentName: baseName,
-					Steps: []PlanStep{
+					Steps: []motionplan.PlanStep{
 						map[resource.Name]spatialmath.Pose{baseName: poseA},
 						map[resource.Name]spatialmath.Pose{baseName: poseB},
 					},
@@ -731,7 +732,7 @@ func TestPlan(t *testing.T) {
 					ID:            planID,
 					ExecutionID:   executionID,
 					ComponentName: baseName,
-					Steps: []PlanStep{
+					Steps: []motionplan.PlanStep{
 						map[resource.Name]spatialmath.Pose{baseName: poseA},
 						map[resource.Name]spatialmath.Pose{baseName: poseB},
 					},
@@ -775,7 +776,7 @@ func TestPlanStep(t *testing.T) {
 		type testCase struct {
 			description string
 			input       *pb.PlanStep
-			result      PlanStep
+			result      motionplan.PlanStep
 			err         error
 		}
 
@@ -783,7 +784,7 @@ func TestPlanStep(t *testing.T) {
 			{
 				description: "nil pointer returns an error",
 				input:       nil,
-				result:      PlanStep{},
+				result:      motionplan.PlanStep{},
 				err:         errors.New("received nil *pb.PlanStep"),
 			},
 			{
@@ -794,13 +795,13 @@ func TestPlanStep(t *testing.T) {
 						"invalid component name": {Pose: spatialmath.PoseToProtobuf(poseB)},
 					},
 				},
-				result: PlanStep{},
+				result: motionplan.PlanStep{},
 				err:    errors.New("string \"invalid component name\" is not a valid resource name"),
 			},
 			{
 				description: "an empty *pb.PlanStep returns an empty PlanStep{}",
 				input:       &pb.PlanStep{},
-				result:      PlanStep{},
+				result:      motionplan.PlanStep{},
 			},
 			{
 				description: "a full *pb.PlanStep returns an full PlanStep{}",
@@ -832,7 +833,7 @@ func TestPlanStep(t *testing.T) {
 	t.Run("ToProto()", func(t *testing.T) {
 		type testCase struct {
 			description string
-			input       PlanStep
+			input       motionplan.PlanStep
 			result      *pb.PlanStep
 		}
 
@@ -844,7 +845,7 @@ func TestPlanStep(t *testing.T) {
 			},
 			{
 				description: "an empty PlanStep returns an empty *pb.PlanStep",
-				input:       PlanStep{},
+				input:       motionplan.PlanStep{},
 				result:      &pb.PlanStep{},
 			},
 			{
