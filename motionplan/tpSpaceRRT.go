@@ -807,6 +807,7 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 
 // make2DTPSpaceDistanceOptions will create a plannerOptions object with a custom DistanceFunc constructed such that
 // distances can be computed in TP space using the given PTG.
+// Also returns a pointer to a sync.Map of nearest poses -> ik.Solution so the (expensive to compute) solution can be reused.
 func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGSolver) (*plannerOptions, *sync.Map) {
 	m := sync.Map{}
 	opts := newBasicPlannerOptions(mp.frame)
