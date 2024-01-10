@@ -39,21 +39,25 @@ var jetsonTX2NXPins = []genericlinux.PinDefinition{
 	{Name: "40", DeviceName: "gpiochip0", LineNumber: 73, PwmChipSysfsDir: "", PwmID: -1},
 }
 
+// NOTE: The Jetson TX2 (like many of the others defined in this file) has hardware PWM
+// capabilities that we are not using. We can add that in, but the board is old enough that very
+// few people are likely to use it, so don't bother until someone wants it.
 var jetsonTX2Pins = []genericlinux.PinDefinition{
+	// There exist other pins on the header (e.g., physical pins 3 and 5), but the spreadsheets at
+	// the bottom of https://jetsonhacks.com/nvidia-jetson-tx2-j21-header-pinout/ recommend against
+	// using them for GPIO.
 	{Name: "7", DeviceName: "gpiochip0", LineNumber: 76, PwmChipSysfsDir: "", PwmID: -1},
 	// Output-only (due to base board)
 	{Name: "11", DeviceName: "gpiochip0", LineNumber: 146, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "12", DeviceName: "gpiochip0", LineNumber: 72, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "13", DeviceName: "gpiochip0", LineNumber: 77, PwmChipSysfsDir: "", PwmID: -1},
-	// TODO[RSDK-6089]: fix this
-	{Name: "15", DeviceName: "UNKNOWN", LineNumber: 15, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "15", DeviceName: "gpiochip2", LineNumber: 15, PwmChipSysfsDir: "", PwmID: -1},
 	// Input-only (due to module):
 	{Name: "16", DeviceName: "gpiochip1", LineNumber: 40, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "18", DeviceName: "gpiochip0", LineNumber: 161, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "19", DeviceName: "gpiochip0", LineNumber: 109, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "21", DeviceName: "gpiochip0", LineNumber: 108, PwmChipSysfsDir: "", PwmID: -1},
-	// TODO[RSDK-6089]: fix this
-	{Name: "22", DeviceName: "UNKNOWN", LineNumber: 14, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "22", DeviceName: "gpiochip2", LineNumber: 14, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "23", DeviceName: "gpiochip0", LineNumber: 107, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "24", DeviceName: "gpiochip0", LineNumber: 110, PwmChipSysfsDir: "", PwmID: -1},
 	// Board pin 26 is not available on this board
