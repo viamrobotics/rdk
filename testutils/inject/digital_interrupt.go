@@ -9,11 +9,11 @@ import (
 // DigitalInterrupt is an injected digital interrupt.
 type DigitalInterrupt struct {
 	board.DigitalInterrupt
-	ValueFunc            func(ctx context.Context, extra map[string]interface{}) (int64, error)
-	valueCap             []interface{}
-	TickFunc             func(ctx context.Context, high bool, nanoseconds uint64) error
-	tickCap              []interface{}
-	AddCallbackFunc      func(c chan board.Tick)
+	ValueFunc       func(ctx context.Context, extra map[string]interface{}) (int64, error)
+	valueCap        []interface{}
+	TickFunc        func(ctx context.Context, high bool, nanoseconds uint64) error
+	tickCap         []interface{}
+	AddCallbackFunc func(c chan board.Tick)
 }
 
 // Value calls the injected Value or the real version.
