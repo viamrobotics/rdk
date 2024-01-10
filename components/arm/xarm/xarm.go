@@ -69,8 +69,8 @@ var xArm6modeljson []byte
 //go:embed xarm7_kinematics.json
 var xArm7modeljson []byte
 
-//go:embed xarmlite_kinematics.json
-var xArmLitemodeljson []byte
+//go:embed lite6_kinematics.json
+var lite6modeljson []byte
 
 const (
 	ModelName6DOF = "xArm6" // ModelName6DOF is the name of a UFactory xArm 6
@@ -84,7 +84,7 @@ func MakeModelFrame(name, modelName string) (referenceframe.Model, error) {
 	case ModelName6DOF:
 		return referenceframe.UnmarshalModelJSON(xArm6modeljson, name)
 	case ModelNameLite:
-		return referenceframe.UnmarshalModelJSON(xArmLitemodeljson, name)
+		return referenceframe.UnmarshalModelJSON(lite6modeljson, name)
 	case ModelName7DOF:
 		return referenceframe.UnmarshalModelJSON(xArm7modeljson, name)
 	default:
