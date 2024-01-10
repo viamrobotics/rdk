@@ -459,39 +459,29 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		if nearest == nil {
 			return nil, errNoNeighbors
 		}
+
 		rawVal, ok := distMap.Load(nearest.Pose())
 		if !ok {
 			mp.logger.Error("nearest neighbor failed to find nearest pose in distMap")
 			return nil, errNoNeighbors
 		}
+
 		val, ok := rawVal.(*ik.Solution)
 		if !ok {
 			mp.logger.Error("nearest neighbor ik.Solution type conversion failed")
 			return nil, errNoNeighbors
 		}
+
 		solution = val
 		relPose := spatialmath.PoseBetween(nearest.Pose(), randPosNode.Pose())
 		targetFunc = mp.algOpts.goalMetricConstructor(relPose)
 	} else {
-		relPose := spatialmath.PoseBetween(nearest.Pose(), randPosNode.Pose())
-		targetFunc = mp.algOpts.goalMetricConstructor(relPose)
-		seedDist := relPose.Point().Norm()
-		seed := tpspace.PTGIKSeed(curPtg)
-		dof := curPtg.DoF()
-		if seedDist < dof[1].Max {
-			seed[1].Value = seedDist
-		}
-
-		solutionChan := make(chan *ik.Solution, 1)
-		err := curPtg.Solve(context.Background(), solutionChan, seed, targetFunc, 0)
-
-		select {
-		case solution = <-solutionChan:
-		default:
-		}
-		if err != nil || solution == nil {
+		ptgSolution, ptgTargetFunc, err := mp.ptgSolutionAndMetric(curPtg, nearest.Pose(), randPosNode.Pose())
+		if err != nil || ptgSolution == nil {
 			return nil, err
 		}
+		solution = ptgSolution
+		targetFunc = ptgTargetFunc
 	}
 	// TODO: We could potentially improve solving by first getting the rough distance to the randPosNode to any point in the rrt tree,
 	// then dynamically expanding or contracting the limits of IK to be some fraction of that distance.
@@ -805,6 +795,30 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 	mp.algOpts = tpOpt
 }
 
+func (mp *tpSpaceRRTMotionPlanner) ptgSolutionAndMetric(ptg tpspace.PTGSolver,
+	nearestPose, randPosNodePose spatialmath.Pose,
+) (*ik.Solution, ik.StateMetric, error) {
+	relPose := spatialmath.PoseBetween(nearestPose, randPosNodePose)
+	targetFunc := mp.algOpts.goalMetricConstructor(relPose)
+	seedDist := relPose.Point().Norm()
+	seed := tpspace.PTGIKSeed(ptg)
+	dof := ptg.DoF()
+	if seedDist < dof[1].Max {
+		seed[1].Value = seedDist
+	}
+
+	solutionChan := make(chan *ik.Solution, 1)
+	err := ptg.Solve(context.Background(), solutionChan, seed, targetFunc, 0)
+
+	var solution *ik.Solution
+	select {
+	case solution = <-solutionChan:
+	default:
+	}
+
+	return solution, targetFunc, err
+}
+
 // make2DTPSpaceDistanceOptions will create a plannerOptions object with a custom DistanceFunc constructed such that
 // distances can be computed in TP space using the given PTG.
 // Also returns a pointer to a sync.Map of nearest poses -> ik.Solution so the (expensive to compute) solution can be reused.
@@ -813,30 +827,13 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 	opts := newBasicPlannerOptions(mp.frame)
 	segMetric := func(seg *ik.Segment) float64 {
 		distance := math.Inf(1)
-		var solution *ik.Solution
 		// When running NearestNeighbor:
 		// StartPosition is the seed/query
 		// EndPosition is the pose already in the RRT tree
 		if seg.StartPosition == nil || seg.EndPosition == nil {
 			return distance
 		}
-
-		var targetFunc ik.StateMetric
-		relPose := spatialmath.PoseBetween(seg.EndPosition, seg.StartPosition)
-		seedDist := relPose.Point().Norm()
-		targetFunc = mp.algOpts.goalMetricConstructor(relPose)
-		seed := tpspace.PTGIKSeed(ptg)
-		dof := ptg.DoF()
-
-		if seedDist < dof[1].Max {
-			seed[1].Value = seedDist
-		}
-		solutionChan := make(chan *ik.Solution, 1)
-		err := ptg.Solve(context.Background(), solutionChan, seed, targetFunc, 0)
-		select {
-		case solution = <-solutionChan:
-		default:
-		}
+		solution, targetFunc, err := mp.ptgSolutionAndMetric(ptg, seg.EndPosition, seg.StartPosition)
 
 		if err != nil || solution == nil {
 			return distance
