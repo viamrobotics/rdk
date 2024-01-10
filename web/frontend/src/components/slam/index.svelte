@@ -3,7 +3,7 @@
 
   import * as THREE from 'three';
   import { onMount } from 'svelte';
-  import { SlamClient, type Pose, MappingMode, type ServiceError } from '@viamrobotics/sdk';
+  import { slamApi, SlamClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
   import { SlamMap2D } from '@viamrobotics/prime-blocks';
   import { copyToClipboard } from '@/lib/copy-to-clipboard';
   import { filterSubtype } from '@/lib/resource';
@@ -34,7 +34,6 @@
   let refresh2dRate = '5';
   let pointcloud: Uint8Array | undefined;
   let pose: Pose | undefined;
-  let lastTimestamp = new Date();
   let show2d = false;
   let showAxes = true;
   let destination: THREE.Vector2 | undefined;
@@ -82,12 +81,12 @@
 
         /*
          * The map timestamp is compared to the last timestamp
-         * to see if a change has been made to the pointcloud map.
-         * A new call to getPointCloudMap is made if an update has occured.
+         * to see if a change has been made to the point cloud map.
+         * A new call to getPointCloudMap is made if an update has occurred.
          */
       } else {
-        const prop = await slamClient.getProperties();
-        if (prop.MappingMode === slamClient.MappingMode.MAPPING_MODE_LOCALIZE_ONLY) {
+        const props = await slamClient.getProperties();
+        if (props.mappingMode === slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY && pointcloud !== undefined) {
           const response = await slamClient.getPosition();
           nextPose = response.pose;
         } else {
