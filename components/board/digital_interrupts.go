@@ -78,7 +78,6 @@ type BasicDigitalInterrupt struct {
 
 	mu  sync.RWMutex
 	cfg DigitalInterruptConfig
-	pp  PostProcessor
 }
 
 // Value returns the amount of ticks that have occurred.
@@ -86,9 +85,6 @@ func (i *BasicDigitalInterrupt) Value(ctx context.Context, extra map[string]inte
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	count := atomic.LoadInt64(&i.count)
-	if i.pp != nil {
-		return i.pp(count), nil
-	}
 	return count, nil
 }
 
@@ -141,14 +137,6 @@ func (i *BasicDigitalInterrupt) RemoveCallback(c chan Tick) {
 			break
 		}
 	}
-}
-
-// AddPostProcessor sets the post processor that will modify the value that
-// Value returns.
-func (i *BasicDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	i.pp = pp
 }
 
 // Close does nothing.
