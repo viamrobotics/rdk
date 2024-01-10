@@ -77,7 +77,6 @@ type BasicDigitalInterrupt struct {
 
 	mu  sync.RWMutex
 	cfg DigitalInterruptConfig
-	pp  board.PostProcessor
 }
 
 // Value returns the amount of ticks that have occurred.
@@ -85,9 +84,6 @@ func (i *BasicDigitalInterrupt) Value(ctx context.Context, extra map[string]inte
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	count := atomic.LoadInt64(&i.count)
-	if i.pp != nil {
-		return i.pp(count), nil
-	}
 	return count, nil
 }
 
@@ -142,14 +138,6 @@ func (i *BasicDigitalInterrupt) RemoveCallback(c chan board.Tick) {
 	}
 }
 
-// AddPostProcessor sets the post processor that will modify the value that
-// Value returns.
-func (i *BasicDigitalInterrupt) AddPostProcessor(pp board.PostProcessor) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	i.pp = pp
-}
-
 // Close does nothing.
 func (i *BasicDigitalInterrupt) Close(ctx context.Context) error {
 	return nil
@@ -192,15 +180,6 @@ func processFormula(oldFormula, newFormula, name string) (func(raw int64) int64,
 func (i *BasicDigitalInterrupt) Reconfigure(conf DigitalInterruptConfig) error {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-
-	newFormula, isNew, err := processFormula(i.cfg.Formula, conf.Formula, conf.Name)
-	if err != nil {
-		return err
-	}
-	if !isNew {
-		return nil
-	}
-	i.pp = newFormula
 	i.cfg = conf
 	return nil
 }
@@ -214,7 +193,6 @@ type ServoDigitalInterrupt struct {
 
 	mu  sync.RWMutex
 	cfg DigitalInterruptConfig
-	pp  board.PostProcessor
 }
 
 // Value will return the window averaged value followed by its post processed
@@ -223,10 +201,6 @@ func (i *ServoDigitalInterrupt) Value(ctx context.Context, extra map[string]inte
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	v := int64(i.ra.Average())
-	if i.pp != nil {
-		return i.pp(v), nil
-	}
-
 	return v, nil
 }
 
@@ -265,27 +239,11 @@ func (i *ServoDigitalInterrupt) RemoveCallback(c chan board.Tick) {
 	panic("servos can't have callback")
 }
 
-// AddPostProcessor sets the post processor that will modify the value that
-// Value returns.
-func (i *ServoDigitalInterrupt) AddPostProcessor(pp board.PostProcessor) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	i.pp = pp
-}
-
 // Reconfigure reconfigures this digital interrupt with a new formula.
 func (i *ServoDigitalInterrupt) Reconfigure(conf DigitalInterruptConfig) error {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
-	newFormula, isNew, err := processFormula(i.cfg.Formula, conf.Formula, conf.Name)
-	if err != nil {
-		return err
-	}
-	if !isNew {
-		return nil
-	}
-	i.pp = newFormula
 	i.cfg = conf
 	return nil
 }
