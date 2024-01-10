@@ -107,7 +107,7 @@ func (ps PathStep) ToProto() *pb.PlanStep {
 // pathStepFromProto converts a *pb.PlanStep to a PlanStep.
 func PathStepFromProto(ps *pb.PlanStep) (PathStep, error) {
 	if ps == nil {
-		return nil, errors.New("received nil *pb.PlanStep")
+		return PathStep{}, errors.New("received nil *pb.PlanStep")
 	}
 
 	step := make(PathStep)
