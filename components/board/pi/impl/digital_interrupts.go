@@ -7,7 +7,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/erh/scheme"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/board"
@@ -141,39 +140,6 @@ func (i *BasicDigitalInterrupt) RemoveCallback(c chan board.Tick) {
 // Close does nothing.
 func (i *BasicDigitalInterrupt) Close(ctx context.Context) error {
 	return nil
-}
-
-func processFormula(oldFormula, newFormula, name string) (func(raw int64) int64, bool, error) {
-	if oldFormula == newFormula {
-		return nil, false, nil
-	}
-	x, err := scheme.Parse(newFormula)
-	if err != nil {
-		return nil, false, errors.Wrapf(err, "couldn't parse formula for %s", name)
-	}
-
-	testScope := scheme.Scope{}
-	num := 1.0
-	testScope["raw"] = &scheme.Value{Float: &num}
-	_, err = scheme.Eval(x, testScope)
-	if err != nil {
-		return nil, false, errors.Wrapf(err, "test exec failed for %s", name)
-	}
-
-	return func(raw int64) int64 {
-		scope := scheme.Scope{}
-		rr := float64(raw) // TODO(erh): fix
-		scope["raw"] = &scheme.Value{Float: &rr}
-		res, err := scheme.Eval(x, scope)
-		if err != nil {
-			panic(err)
-		}
-		f, err := res.ToFloat()
-		if err != nil {
-			panic(err)
-		}
-		return int64(f)
-	}, true, nil
 }
 
 // Reconfigure reconfigures this digital interrupt with a new formula.
