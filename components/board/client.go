@@ -253,10 +253,6 @@ func (dic *digitalInterruptClient) RemoveCallback(c chan Tick) {
 	panic(errUnimplemented)
 }
 
-func (dic *digitalInterruptClient) AddPostProcessor(pp PostProcessor) {
-	panic(errUnimplemented)
-}
-
 // gpioPinClient satisfies a gRPC based board.GPIOPin. Refer to the interface
 // for descriptions of its methods.
 type gpioPinClient struct {

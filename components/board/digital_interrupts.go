@@ -54,10 +54,6 @@ type ReconfigurableDigitalInterrupt interface {
 	Reconfigure(cfg DigitalInterruptConfig) error
 }
 
-// A PostProcessor takes a raw input and transforms it into a new value. Multiple post processors
-// can be stacked on each other. PostProcessors are only used in the SDK.
-type PostProcessor func(raw int64) int64
-
 // CreateDigitalInterrupt is a factory method for creating a specific DigitalInterrupt based
 // on the given config. If no type is specified, a BasicDigitalInterrupt is returned.
 func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (ReconfigurableDigitalInterrupt, error) {
