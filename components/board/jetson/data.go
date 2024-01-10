@@ -43,6 +43,9 @@ var jetsonTX2NXPins = []genericlinux.PinDefinition{
 // capabilities that we are not using. We can add that in, but the board is old enough that very
 // few people are likely to use it, so don't bother until someone wants it.
 var jetsonTX2Pins = []genericlinux.PinDefinition{
+	// There exist other pins on the header (e.g., physical pins 3 and 5), but the spreadsheets at
+	// the bottom of https://jetsonhacks.com/nvidia-jetson-tx2-j21-header-pinout/ recommend against
+	// using them for GPIO.
 	{Name: "7", DeviceName: "gpiochip0", LineNumber: 76, PwmChipSysfsDir: "", PwmID: -1},
 	// Output-only (due to base board)
 	{Name: "11", DeviceName: "gpiochip0", LineNumber: 146, PwmChipSysfsDir: "", PwmID: -1},
