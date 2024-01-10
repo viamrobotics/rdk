@@ -130,7 +130,9 @@ func planFromProto(p *pb.Plan) (PlanWithMetadata, error) {
 		}
 		steps = append(steps, step)
 	}
-	plan.Path = steps
+	plan.Plan = &motionplan.Plan{
+		Path: steps,
+	}
 
 	return plan, nil
 }

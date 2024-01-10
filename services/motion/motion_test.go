@@ -55,6 +55,24 @@ func TestPlanWithStatus(t *testing.T) {
 		},
 	}
 
+	protoPlan := &pb.Plan{
+		Id:            planID.String(),
+		ExecutionId:   executionID.String(),
+		ComponentName: rprotoutils.ResourceNameToProto(baseName),
+		Steps: []*pb.PlanStep{
+			{
+				Step: map[string]*pb.ComponentState{
+					baseName.ShortName(): {Pose: spatialmath.PoseToProtobuf(poseA)},
+				},
+			},
+			{
+				Step: map[string]*pb.ComponentState{
+					baseName.ShortName(): {Pose: spatialmath.PoseToProtobuf(poseB)},
+				},
+			},
+		},
+	}
+
 	t.Run("planWithStatusFromProto", func(t *testing.T) {
 		type testCase struct {
 			description string
@@ -106,23 +124,7 @@ func TestPlanWithStatus(t *testing.T) {
 			{
 				description: "full *pb.PlanWithStatus status returns a full PlanWithStatus",
 				input: &pb.PlanWithStatus{
-					Plan: &pb.Plan{
-						Id:            planID.String(),
-						ExecutionId:   executionID.String(),
-						ComponentName: rprotoutils.ResourceNameToProto(baseName),
-						Steps: []*pb.PlanStep{
-							{
-								Step: map[string]*pb.ComponentState{
-									baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseA)},
-								},
-							},
-							{
-								Step: map[string]*pb.ComponentState{
-									baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseB)},
-								},
-							},
-						},
-					},
+					Plan: protoPlan,
 					Status: &pb.PlanStatus{
 						State:     pb.PlanState_PLAN_STATE_FAILED,
 						Timestamp: timestampb,
@@ -179,23 +181,7 @@ func TestPlanWithStatus(t *testing.T) {
 					},
 				},
 				result: &pb.PlanWithStatus{
-					Plan: &pb.Plan{
-						Id:            planID.String(),
-						ExecutionId:   executionID.String(),
-						ComponentName: rprotoutils.ResourceNameToProto(baseName),
-						Steps: []*pb.PlanStep{
-							{
-								Step: map[string]*pb.ComponentState{
-									baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseA)},
-								},
-							},
-							{
-								Step: map[string]*pb.ComponentState{
-									baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseB)},
-								},
-							},
-						},
-					},
+					Plan: protoPlan,
 					Status: &pb.PlanStatus{
 						State:     pb.PlanState_PLAN_STATE_IN_PROGRESS,
 						Timestamp: timestampb,
@@ -212,23 +198,7 @@ func TestPlanWithStatus(t *testing.T) {
 					},
 				},
 				result: &pb.PlanWithStatus{
-					Plan: &pb.Plan{
-						Id:            planID.String(),
-						ExecutionId:   executionID.String(),
-						ComponentName: rprotoutils.ResourceNameToProto(baseName),
-						Steps: []*pb.PlanStep{
-							{
-								Step: map[string]*pb.ComponentState{
-									baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseA)},
-								},
-							},
-							{
-								Step: map[string]*pb.ComponentState{
-									baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseB)},
-								},
-							},
-						},
-					},
+					Plan: protoPlan,
 					Status: &pb.PlanStatus{
 						State:     pb.PlanState_PLAN_STATE_FAILED,
 						Timestamp: timestampb,
@@ -598,12 +568,12 @@ func TestPlan(t *testing.T) {
 		Steps: []*pb.PlanStep{
 			{
 				Step: map[string]*pb.ComponentState{
-					baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseA)},
+					baseName.ShortName(): {Pose: spatialmath.PoseToProtobuf(poseA)},
 				},
 			},
 			{
 				Step: map[string]*pb.ComponentState{
-					baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseB)},
+					baseName.ShortName(): {Pose: spatialmath.PoseToProtobuf(poseB)},
 				},
 			},
 		},
@@ -716,107 +686,6 @@ func TestPlan(t *testing.T) {
 			{
 				description: "full Plan returns full *pb.Plan",
 				input:       planAB,
-				result:      protoAB,
-			},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.description, func(t *testing.T) {
-				res := tc.input.ToProto()
-				test.That(t, res, test.ShouldResemble, tc.result)
-			})
-		}
-	})
-}
-
-func TestPlanStep(t *testing.T) {
-	baseNameA := base.Named("my-base1")
-	baseNameB := base.Named("my-base2")
-	poseA := spatialmath.NewZeroPose()
-	poseB := spatialmath.NewPose(r3.Vector{X: 100}, spatialmath.NewOrientationVector())
-
-	protoAB := &pb.PlanStep{
-		Step: map[string]*pb.ComponentState{
-			baseNameA.String(): {Pose: spatialmath.PoseToProtobuf(poseA)},
-			baseNameB.String(): {Pose: spatialmath.PoseToProtobuf(poseB)},
-		},
-	}
-	stepAB := motionplan.PathStep{
-		baseNameA.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA),
-		baseNameB.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB),
-	}
-
-	t.Run("pathStepFromProto", func(t *testing.T) {
-		type testCase struct {
-			description string
-			input       *pb.PlanStep
-			result      motionplan.PathStep
-			err         error
-		}
-
-		testCases := []testCase{
-			{
-				description: "nil pointer returns an error",
-				input:       nil,
-				result:      motionplan.PathStep{},
-				err:         errors.New("received nil *pb.PlanStep"),
-			},
-			{
-				description: "returns an error if any of the step resource names are invalid",
-				input: &pb.PlanStep{
-					Step: map[string]*pb.ComponentState{
-						baseNameA.String():       {Pose: spatialmath.PoseToProtobuf(poseA)},
-						"invalid component name": {Pose: spatialmath.PoseToProtobuf(poseB)},
-					},
-				},
-				result: motionplan.PathStep{},
-				err:    errors.New("string \"invalid component name\" is not a valid resource name"),
-			},
-			{
-				description: "an empty *pb.PlanStep returns an empty PathStep{}",
-				input:       &pb.PlanStep{},
-				result:      motionplan.PathStep{},
-			},
-			{
-				description: "a full *pb.PlanStep returns an full PathStep{}",
-				input:       protoAB,
-				result:      stepAB,
-			},
-		}
-		for _, tc := range testCases {
-			t.Run(tc.description, func(t *testing.T) {
-				res, err := motionplan.PathStepFromProto(tc.input)
-				if tc.err != nil {
-					test.That(t, err, test.ShouldBeError, tc.err)
-				} else {
-					test.That(t, err, test.ShouldBeNil)
-				}
-				test.That(t, res, test.ShouldResemble, tc.result)
-			})
-		}
-	})
-
-	t.Run("ToProto()", func(t *testing.T) {
-		type testCase struct {
-			description string
-			input       motionplan.PathStep
-			result      *pb.PlanStep
-		}
-
-		testCases := []testCase{
-			{
-				description: "an nil PathStep returns an empty *pb.PlanStep",
-				input:       nil,
-				result:      &pb.PlanStep{},
-			},
-			{
-				description: "an empty PathStep returns an empty *pb.PlanStep",
-				input:       motionplan.PathStep{},
-				result:      &pb.PlanStep{},
-			},
-			{
-				description: "a full PathStep{} returns an full *pb.PlanStep",
-				input:       stepAB,
 				result:      protoAB,
 			},
 		}

@@ -302,8 +302,10 @@ func (ps PlanStatus) ToProto() *pb.PlanStatus {
 // ToProto converts a Plan to a *pb.Plan.
 func (p PlanWithMetadata) ToProto() *pb.Plan {
 	steps := []*pb.PlanStep{}
-	for _, s := range p.Path {
-		steps = append(steps, s.ToProto())
+	if p.Plan != nil {
+		for _, s := range p.Path {
+			steps = append(steps, s.ToProto())
+		}
 	}
 
 	return &pb.Plan{

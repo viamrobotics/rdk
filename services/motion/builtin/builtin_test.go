@@ -1260,7 +1260,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		planResp, err := moveRequest.Plan(ctx)
 		test.That(t, err, test.ShouldBeError)
-		test.That(t, len(planResp.Trajectory), test.ShouldEqual, 0)
+		test.That(t, planResp, test.ShouldBeNil)
 	})
 
 	t.Run("check offset constructed correctly", func(t *testing.T) {

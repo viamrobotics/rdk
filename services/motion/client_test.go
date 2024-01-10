@@ -63,7 +63,7 @@ func TestClient(t *testing.T) {
 		test.That(t, rpcServer.Stop(), test.ShouldBeNil)
 	}()
 
-	zeroPoseInFrame := referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())
+	zeroPoseInFrame := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose())
 	globeDest := geo.NewPoint(0.0, 0.0)
 	gripperName := gripper.Named("fake")
 	baseName := base.Named("test-base")
