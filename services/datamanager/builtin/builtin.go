@@ -535,7 +535,6 @@ func (svc *builtIn) cancelSyncScheduler() {
 	if svc.syncRoutineCancelFn != nil {
 		svc.syncRoutineCancelFn()
 		svc.backgroundWorkers.Wait()
-		fmt.Println("got all background workers")
 		svc.syncRoutineCancelFn = nil
 	}
 }
