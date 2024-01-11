@@ -449,9 +449,10 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 			resCfgsPerAPI[copied.API] = append(resCfgsPerAPI[copied.API], &confs[idx])
 			resName := copied.ResourceName()
 
-			// Look up if a resource model registered an attribute map converter. Attribute conversion converts an untyped, JSON-like object to a typed
-			// Go struct. There is a default converter if no AttributeMapConverter is registered during resource model registration.
-			// Lookup will fail for non-builtin models (so lookup will fail for modular resources) but conversion will happen on the module-side.
+			// Look up if a resource model registered an attribute map converter. Attribute conversion converts
+			// an untyped, JSON-like object to a typed Go struct. There is a default converter if no
+			// AttributeMapConverter is registered during resource model registration. Lookup will fail for
+			// non-builtin models (so lookup will fail for modular resources) but conversion will happen on the module-side.
 			reg, ok := resource.LookupRegistration(resName.API, copied.Model)
 			if !ok || reg.AttributeMapConverter == nil {
 				continue
