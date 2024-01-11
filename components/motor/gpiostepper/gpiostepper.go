@@ -167,7 +167,6 @@ func newGPIOStepper(
 	}
 
 	m.minDelay = time.Duration(mc.StepperDelay * int(time.Microsecond))
-	m.logger.Errorf("min delay = %v, stepper delay = %v", m.minDelay, mc.StepperDelay)
 
 	err = m.enable(ctx, false)
 	if err != nil {
@@ -206,7 +205,6 @@ type gpioStepper struct {
 
 // SetPower sets the percentage of power the motor should employ between 0-1.
 func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-	m.logger.Errorf("powerpct = %v", powerPct)
 	if math.Abs(powerPct) <= .0001 {
 		m.stop()
 		return nil
