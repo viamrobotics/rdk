@@ -259,7 +259,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
 			return
 		}
-		rrt.solutionChan <- &rrtPlanReturn{steps: correctedPath, maps: rrt.maps}
 
 		// Print debug info if requested
 		if pathdebug {
@@ -284,6 +283,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				}
 			}
 		}
+		rrt.solutionChan <- &rrtPlanReturn{steps: correctedPath, maps: rrt.maps}
 	}
 
 	m1chan := make(chan *nodeAndError, 1)
