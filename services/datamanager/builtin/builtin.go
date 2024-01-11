@@ -372,14 +372,15 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 // regardless of whether or not is the scheduled time.
 func (svc *builtIn) Sync(ctx context.Context, _ map[string]interface{}) error {
 	svc.lock.Lock()
-	defer svc.lock.Unlock()
 	if svc.syncer == nil {
 		err := svc.initSyncer(ctx)
 		if err != nil {
+			svc.lock.Unlock()
 			return err
 		}
 	}
 
+	svc.lock.Unlock()
 	svc.sync()
 	return nil
 }
