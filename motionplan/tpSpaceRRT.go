@@ -530,6 +530,9 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	}
 
 	bestDist := targetFunc(&ik.State{Position: arcPose})
+	if bestDist != solution.Score {
+		mp.logger.Fatalf("bestDist: %d, solution.Score: %d", bestDist, solution.Score)
+	}
 
 	cand := &candidate{dist: bestDist, treeNode: nearest, newNodes: successNodes}
 	// check if this  successNode is too close to nodes already in the tree, and if so, do not add.
