@@ -635,7 +635,12 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	// replace original base frame with one that knows how to move itself and allow planning for
 	kinematicFrame := kb.Kinematics()
 	if err := fs.ReplaceFrame(kinematicFrame); err != nil {
-		return nil, err
+		// If the base frame is not in the frame system, add it to world. This will result in planning for a frame system containing
+		// only world and the base after the FrameSystemSubset.
+		err = fs.AddFrame(kinematicFrame, fs.Frame(referenceframe.World))
+		if err != nil {
+			return nil, err
+		}
 	}
 	// We want to disregard anything in the FS whose eventual parent is not the base, because we don't know where it is.
 	baseOnlyFS, err := fs.FrameSystemSubset(kinematicFrame)
