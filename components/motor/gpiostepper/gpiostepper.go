@@ -166,9 +166,8 @@ func newGPIOStepper(
 		return nil, err
 	}
 
-	if mc.StepperDelay > 0 {
-		m.minDelay = time.Duration(mc.StepperDelay * int(time.Microsecond))
-	}
+	m.minDelay = time.Duration(mc.StepperDelay * int(time.Microsecond))
+	m.logger.Errorf("min delay = %v, stepper delay = %v", m.minDelay, mc.StepperDelay)
 
 	err = m.enable(ctx, false)
 	if err != nil {
@@ -207,12 +206,28 @@ type gpioStepper struct {
 
 // SetPower sets the percentage of power the motor should employ between 0-1.
 func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+	m.logger.Errorf("powerpct = %v", powerPct)
 	if math.Abs(powerPct) <= .0001 {
 		m.stop()
 		return nil
 	}
 
-	return errors.Errorf("gpioStepper doesn't support raw power mode in motor (%s)", m.Name().Name)
+	if m.minDelay == 0 {
+		return errors.Errorf(
+			"if you want to set the power, set 'stepper_delay_usec' in the motor config at "+
+				"the minimum time delay between pulses for your stepper motor (%s)",
+			m.Name().Name)
+	}
+
+	m.stepperDelay = time.Duration(float64(m.minDelay) / math.Abs(powerPct))
+
+	if powerPct < 0 {
+		m.targetStepPosition = math.MinInt64
+	} else {
+		m.targetStepPosition = math.MaxInt64
+	}
+
+	return nil
 }
 
 func (m *gpioStepper) startThread() {
@@ -329,7 +344,7 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float64) error {
 	if revolutions == 0 {
 		// go a large number of revolutions if 0 is passed in, at the desired speed
-		revolutions = 1000000
+		revolutions = math.MaxInt64
 	}
 
 	speed := math.Abs(rpm)
