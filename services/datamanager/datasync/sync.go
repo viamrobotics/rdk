@@ -117,52 +117,58 @@ func (s *syncer) SyncFile(path string) {
 	}
 	s.progressLock.Unlock()
 
-	// Block if the maximum number of goroutines has been hit.
-	s.syncRoutineTracker <- struct{}{}
-	s.backgroundWorkers.Add(1)
+	select {
+	case <-s.cancelCtx.Done():
+		return
+	// Kick off a sync goroutine if under the limit of goroutines.
+	case s.syncRoutineTracker <- struct{}{}:
+		s.backgroundWorkers.Add(1)
 
-	goutils.PanicCapturingGo(func() {
-		defer s.backgroundWorkers.Done()
-		// At the end, decrement the number of sync routines.
-		defer func() {
-			<-s.syncRoutineTracker
-		}()
-		select {
-		case <-s.cancelCtx.Done():
-			return
-		default:
-			if !s.markInProgress(path) {
+		goutils.PanicCapturingGo(func() {
+			defer s.backgroundWorkers.Done()
+			// At the end, decrement the number of sync routines.
+			defer func() {
+				<-s.syncRoutineTracker
+			}()
+			select {
+			case <-s.cancelCtx.Done():
 				return
-			}
-			defer s.unmarkInProgress(path)
-			//nolint:gosec
-			f, err := os.Open(path)
-			if err != nil {
-				// Don't log if the file does not exist, because that means it was successfully synced and deleted
-				// in between paths being built and this executing.
-				if !errors.Is(err, os.ErrNotExist) {
-					s.logger.Errorw("error opening file", "error", err)
+			default:
+				if !s.markInProgress(path) {
+					return
 				}
-				return
-			}
-
-			if datacapture.IsDataCaptureFile(f) {
-				captureFile, err := datacapture.ReadFile(f)
+				defer s.unmarkInProgress(path)
+				//nolint:gosec
+				f, err := os.Open(path)
 				if err != nil {
-					if err = f.Close(); err != nil {
-						s.syncErrs <- errors.Wrap(err, "error closing data capture file")
-					}
-					if err := moveFailedData(f.Name(), s.captureDir); err != nil {
-						s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error moving corrupted data %s", f.Name()))
+					// Don't log if the file does not exist, because that means it was successfully synced and deleted
+					// in between paths being built and this executing.
+					if !errors.Is(err, os.ErrNotExist) {
+						s.logger.Errorw("error opening file", "error", err)
 					}
 					return
 				}
-				s.syncDataCaptureFile(captureFile)
-			} else {
-				s.syncArbitraryFile(f)
+
+				if datacapture.IsDataCaptureFile(f) {
+					captureFile, err := datacapture.ReadFile(f)
+					if err != nil {
+						if err = f.Close(); err != nil {
+							s.syncErrs <- errors.Wrap(err, "error closing data capture file")
+						}
+						if err := moveFailedData(f.Name(), s.captureDir); err != nil {
+							s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error moving corrupted data %s", f.Name()))
+						}
+						return
+					}
+					s.syncDataCaptureFile(captureFile)
+				} else {
+					s.syncArbitraryFile(f)
+				}
 			}
-		}
-	})
+		})
+	default:
+		// Avoid blocking main thread if currently at goroutine capacity.
+	}
 }
 
 func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
