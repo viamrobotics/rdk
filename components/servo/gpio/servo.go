@@ -367,7 +367,6 @@ func (s *servoGPIO) Position(ctx context.Context, extra map[string]interface{}) 
 		}
 	}
 	if err != nil {
-
 		return 0, errors.Wrap(err, "couldn't get servo pin duty cycle")
 	}
 	return uint32(mapDutyCylePctToDeg(s.minUs, s.maxUs, s.minDeg, s.maxDeg, pct, s.frequency)), nil
