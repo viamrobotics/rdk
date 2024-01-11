@@ -58,10 +58,11 @@ type PinConfig struct {
 
 // Config describes the configuration of a motor.
 type Config struct {
-	Pins             PinConfig `json:"pins"`
-	BoardName        string    `json:"board"`
-	StepperDelay     int       `json:"stepper_delay_usec,omitempty"` // When using stepper motors, the time to remain high
-	TicksPerRotation int       `json:"ticks_per_rotation"`
+	Pins      PinConfig `json:"pins"`
+	BoardName string    `json:"board"`
+	// if you want to use SetPower give minimum delay between pulses for your stepper motor
+	StepperDelay     int `json:"stepper_delay_usec,omitempty"` // When using stepper motors, the time to remain high
+	TicksPerRotation int `json:"ticks_per_rotation"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -266,7 +267,7 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 
 	// wait the stepper delay to return from the doRun for loop or select
 	// context if the duration has not elapsed.
-	return m.stepperDelay, nil
+	return 0, nil
 }
 
 // have to be locked to call.
@@ -278,14 +279,14 @@ func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 		return err
 	}
 	// stay high for half the delay
-	time.Sleep(m.stepperDelay / 2)
+	time.Sleep(m.stepperDelay / 2.0)
 
 	if err := m.stepPin.Set(ctx, false, nil); err != nil {
 		return err
 	}
 
 	// stay low for the other half
-	time.Sleep(m.stepperDelay / 2)
+	time.Sleep(m.stepperDelay / 2.0)
 
 	if forward {
 		m.stepPosition++
