@@ -466,13 +466,12 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 			return nil, errNoNeighbors
 		}
 
-		val, ok := rawVal.(*ik.Solution)
+		solution, ok = rawVal.(*ik.Solution)
 		if !ok {
 			mp.logger.Error("nearest neighbor ik.Solution type conversion failed")
 			return nil, errNoNeighbors
 		}
 
-		solution = val
 		relPose := spatialmath.PoseBetween(nearest.Pose(), randPosNode.Pose())
 		targetFunc = mp.algOpts.goalMetricConstructor(relPose)
 	} else {
