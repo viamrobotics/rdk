@@ -835,18 +835,13 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 		if seg.StartPosition == nil || seg.EndPosition == nil {
 			return distance
 		}
-		solution, targetFunc, err := mp.ptgSolutionAndMetric(ptg, seg.EndPosition, seg.StartPosition)
+		solution, _, err := mp.ptgSolutionAndMetric(ptg, seg.EndPosition, seg.StartPosition)
 
 		if err != nil || solution == nil {
 			return distance
 		}
 
-		pose, err := ptg.Transform(solution.Configuration)
-		if err != nil {
-			return distance
-		}
-
-		distance = targetFunc(&ik.State{Position: pose})
+		distance = solution.Score
 		m.Store(seg.EndPosition, solution)
 
 		return distance
