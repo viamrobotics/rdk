@@ -71,6 +71,7 @@ jobs:
 
   test_coverage:
     name: Go Coverage Tests
+    if: false # toggle this off, delete after 3/1/24 if nobody misses it
     # note: we split 'test_go' and 'test_coverage' steps because running race-detection + covprofile simultaneously is slow enough to cause flakes
     strategy:
       fail-fast: false
@@ -218,7 +219,7 @@ jobs:
 
   test_passing:
     name: All Tests Passing
-    needs: [test_go, test_coverage, test_web_e2e, test_pi, test32]
+    needs: [test_go, test_web_e2e, test_pi, test32]
     runs-on: [ubuntu-latest]
     if: always()
     steps:
@@ -227,12 +228,10 @@ jobs:
           echo Go Unit Tests: ${{ needs.test_go.result }}
           echo Go 32-bit Tests: ${{ needs.test32.result }}
           echo Go Pi Tests: ${{ needs.test_pi.result }}
-          echo Go Coverage Tests: ${{ needs.test_coverage.result }}
           echo Web/E2E Tests: ${{ needs.test_web_e2e.result }}
           [ "${{ needs.test_go.result }}" == "success" ] && \
           [ "${{ needs.test32.result }}" == "success" ] && \
           [ "${{ needs.test_pi.result }}" == "success" ] && \
-          [ "${{ needs.test_coverage.result }}" == "success" ] && \
           [ "${{ needs.test_web_e2e.result }}" == "success" ]
 
       # Now that RDK is public, can't directly comment without token having full read/write access
