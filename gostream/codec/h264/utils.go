@@ -1,4 +1,4 @@
-//go:build cgo && linux && !android
+//go:build cgo && linux && !(arm || android)
 
 package h264
 

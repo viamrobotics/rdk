@@ -139,10 +139,21 @@ $(FFMPEG_ROOT):
 # For ARM64 builds, use the image ghcr.io/viamrobotics/antique:arm64 for backward compatibility
 FFMPEG_PREFIX ?= $(shell realpath .)/gostream/ffmpeg/$(shell uname -s)-$(shell uname -m)
 # See compilation guide here https://trac.ffmpeg.org/wiki/CompilationGuide
-FFMPEG_OPTS = --disable-programs --disable-doc --disable-everything --prefix=$(FFMPEG_PREFIX) --disable-autodetect --disable-x86asm
+FFMPEG_OPTS = \
+	--prefix=$(FFMPEG_PREFIX) \
+	--disable-programs \
+	--disable-doc \
+	--disable-everything \
+	--disable-autodetect \
+	--enable-libx264 \
+	--enable-decoder=h264 \
+	--enable-decoder=mjpeg \
+	--enable-gpl \
+	--enable-demuxer=rtp \
+    --enable-demuxer=rtsp
 ifeq ($(shell uname -m),aarch64)
 	# We only support hardware encoding on a Raspberry Pi.
-	FFMPEG_OPTS += --enable-encoder=h264_v4l2m2m
+	FFMPEG_OPTS += --enable-encoder=h264_v4l2m2m --enable-decoder=h264_v4l2m2m
 	FFMPEG_OPTS += --enable-v4l2-m2m
 endif
 ffmpeg: $(FFMPEG_ROOT)

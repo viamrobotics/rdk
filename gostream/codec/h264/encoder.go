@@ -1,4 +1,4 @@
-//go:build cgo && linux && !android
+//go:build cgo && linux && !(arm || android)
 
 // Package h264 uses a V4L2-compatible h.264 hardware encoder (h264_v4l2m2m) to encode images.
 package h264
@@ -16,14 +16,13 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/gostream/codec"
-	"go.viam.com/rdk/gostream/ffmpeg/avcodec"
-	"go.viam.com/rdk/gostream/ffmpeg/avutil"
+	"go.viam.com/rdk/gostream/ffmpeg"
 )
 
 const (
 	// pixelFormat This format is one of the output formats support by the bcm2835-codec at /dev/video11
 	// It is also known as YU12. See https://www.kernel.org/doc/html/v4.10/media/uapi/v4l/pixfmt-yuv420.html
-	pixelFormat = avcodec.AvPixFmtYuv420p
+	pixelFormat = ffmpeg.YUV420P
 	// V4l2m2m Is a V4L2 memory-to-memory H.264 hardware encoder.
 	V4l2m2m = "h264_v4l2m2m"
 	// macroBlock is the encoder boundary block size in bytes.
@@ -35,11 +34,11 @@ const (
 type encoder struct {
 	img     image.Image
 	reader  video.Reader
-	codec   *avcodec.Codec
-	context *avcodec.Context
+	codec   ffmpeg.Codec
+	context ffmpeg.CodecContext
 	width   int
 	height  int
-	frame   *avutil.Frame
+	frame   ffmpeg.Frame
 	pts     int64
 	logger  golog.Logger
 }
@@ -53,28 +52,27 @@ func (h *encoder) Read() (img image.Image, release func(), err error) {
 func NewEncoder(width, height, keyFrameInterval int, logger golog.Logger) (codec.VideoEncoder, error) {
 	h := &encoder{width: width, height: height, logger: logger}
 
-	if h.codec = avcodec.FindEncoderByName(V4l2m2m); h.codec == nil {
-		return nil, errors.Errorf("cannot find encoder '%s'", V4l2m2m)
+	var err error
+	if h.codec, err = ffmpeg.FindEncoderByName(V4l2m2m); err != nil {
+		return nil, err
 	}
 
-	if h.context = h.codec.AllocContext3(); h.context == nil {
-		return nil, errors.New("cannot allocate video codec context")
+	if h.context, err = h.codec.AllocContext3(context.Background()); err != nil {
+		return nil, errors.Wrap(err, "cannot allocate video codec context")
 	}
 
-	h.context.SetEncodeParams(width, height, avcodec.PixelFormat(pixelFormat), false, keyFrameInterval)
+	h.context.SetEncodeParams(width, height, ffmpeg.PixelFormat(pixelFormat), false, keyFrameInterval)
 	h.context.SetFramerate(keyFrameInterval)
 
 	h.reader = video.ToI420((video.ReaderFunc)(h.Read))
 
-	if h.context.Open2(h.codec, nil) < 0 {
-		return nil, errors.New("cannot open codec")
+	if err = h.context.Open2(context.Background(), h.codec); err != nil {
+		return nil, errors.Wrap(err, "cannot open codec")
 	}
 
-	if h.frame = avutil.FrameAlloc(); h.frame == nil {
-		if err := h.Close(); err != nil {
-			return nil, errors.Wrap(err, "cannot close codec")
-		}
-		return nil, errors.New("cannot alloc frame")
+	if h.frame, err = ffmpeg.FrameAlloc(); err != nil {
+		h.Close() //nolint:errcheck
+		return nil, errors.Wrap(err, "cannot alloc frame")
 	}
 
 	// give the encoder some time to warm up
@@ -84,12 +82,12 @@ func NewEncoder(width, height, keyFrameInterval int, logger golog.Logger) (codec
 }
 
 func (h *encoder) Encode(ctx context.Context, img image.Image) ([]byte, error) {
-	if err := avutil.SetFrame(h.frame, h.width, h.height, pixelFormat); err != nil {
+	if err := ffmpeg.SetFrame(h.frame, h.width, h.height, pixelFormat); err != nil {
 		return nil, errors.Wrap(err, "cannot set frame properties")
 	}
 
-	if ret := avutil.FrameMakeWritable(h.frame); ret < 0 {
-		return nil, errors.Wrap(avutil.ErrorFromCode(ret), "cannot make frame writable")
+	if ret := ffmpeg.FrameMakeWritable(h.frame); ret < 0 {
+		return nil, errors.Wrap(ffmpeg.ErrorFromCode(ret), "cannot make frame writable")
 	}
 
 	select {
@@ -119,15 +117,15 @@ func (h *encoder) Encode(ctx context.Context, img image.Image) ([]byte, error) {
 }
 
 func (h *encoder) encodeBytes(ctx context.Context) ([]byte, error) {
-	pkt := avcodec.PacketAlloc()
-	if pkt == nil {
-		return nil, errors.New("cannot allocate packet")
+	pkt, err := ffmpeg.PacketAlloc()
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot allocate packet")
 	}
 	defer pkt.Unref()
-	defer avutil.FrameUnref(h.frame)
+	defer h.frame.Unref()
 
-	if ret := h.context.SendFrame((*avcodec.Frame)(unsafe.Pointer(h.frame))); ret < 0 {
-		return nil, errors.Wrap(avutil.ErrorFromCode(ret), "cannot supply raw video to encoder")
+	if ret := h.context.SendFrame(h.frame); ret < 0 {
+		return nil, errors.Wrap(ffmpeg.ErrorFromCode(ret), "cannot supply raw video to encoder")
 	}
 
 	var bytes []byte
@@ -143,14 +141,14 @@ loop:
 
 		ret = h.context.ReceivePacket(pkt)
 		switch ret {
-		case avutil.Success:
+		case ffmpeg.Success:
 			payload := C.GoBytes(unsafe.Pointer(pkt.Data()), C.int(pkt.Size()))
 			bytes = append(bytes, payload...)
 			pkt.Unref()
-		case avutil.EAGAIN, avutil.EOF:
+		case ffmpeg.EAGAIN, ffmpeg.EOF:
 			break loop
 		default:
-			return nil, avutil.ErrorFromCode(ret)
+			return nil, ffmpeg.ErrorFromCode(ret)
 		}
 	}
 
@@ -160,14 +158,8 @@ loop:
 // Close closes the encoder. It is safe to call this method multiple times.
 // It is also safe to call this method after a call to Encode.
 func (h *encoder) Close() error {
-	if h.frame != nil {
-		avutil.FrameUnref(h.frame)
-		h.frame = nil
-	}
-	if h.context != nil {
-		h.context.FreeContext()
-		h.context = nil
-	}
+	h.frame.Free()
+	h.context.FreeContext()
 
 	return nil
 }
