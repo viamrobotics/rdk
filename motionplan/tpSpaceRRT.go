@@ -825,23 +825,21 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 	m := sync.Map{}
 	opts := newBasicPlannerOptions(mp.frame)
 	segMetric := func(seg *ik.Segment) float64 {
-		distance := math.Inf(1)
 		// When running NearestNeighbor:
 		// StartPosition is the seed/query
 		// EndPosition is the pose already in the RRT tree
 		if seg.StartPosition == nil || seg.EndPosition == nil {
-			return distance
+			return math.Inf(1)
 		}
 		solution, _, err := mp.ptgSolutionAndMetric(ptg, seg.EndPosition, seg.StartPosition)
 
 		if err != nil || solution == nil {
-			return distance
+			return math.Inf(1)
 		}
 
-		distance = solution.Score
 		m.Store(seg.EndPosition, solution)
 
-		return distance
+		return solution.Score
 	}
 	opts.DistanceFunc = segMetric
 	return opts, &m
