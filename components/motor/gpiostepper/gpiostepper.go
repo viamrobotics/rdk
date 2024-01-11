@@ -58,11 +58,10 @@ type PinConfig struct {
 
 // Config describes the configuration of a motor.
 type Config struct {
-	Pins      PinConfig `json:"pins"`
-	BoardName string    `json:"board"`
-	// if you want to use SetPower give minimum delay between pulses for your stepper motor
-	StepperDelay     int `json:"stepper_delay_usec,omitempty"` // When using stepper motors, the time to remain high
-	TicksPerRotation int `json:"ticks_per_rotation"`
+	Pins             PinConfig `json:"pins"`
+	BoardName        string    `json:"board"`
+	StepperDelay     int       `json:"stepper_delay_usec,omitempty"` // When using stepper motors, the time to remain high
+	TicksPerRotation int       `json:"ticks_per_rotation"`
 }
 
 // Validate ensures all parts of the config are valid.
