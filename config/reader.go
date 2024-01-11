@@ -391,27 +391,12 @@ func processConfigLocalConfig(unprocessedConfig *Config, logger logging.Logger) 
 }
 
 // processConfig processes the config passed in. The config can be either JSON or gRPC derived.
-func processConfig(unprocessedConfig *Config, // Dan: We call this an `unprocessedConfig` but the
-	// object used here is not annotated with the json field names. There's some conversion that
-	// happens. I think `processConfig` is central enough where we should note anything exceptional
-	// that happens between the raw json config input that everyone must be familiar with to work on
-	// this code and what actually gets passed in here.
-	fromCloud bool, logger logging.Logger) (*Config, error) {
-
-	// Dan: Does `Ensure` have any side-effects? It can be interpreted as "validating" which implies
-	// no side-effects, or it can also mean substituting in some defaults. If this has side-effects,
-	// what would be the consequence of not ensuring?
-
+func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Logger) (*Config, error) {
 	// Ensure validates the config but also substitutes in some defaults. Implicit dependencies for builtin resource
-	// models will not be filled in until attributes are converted.
+	// models are not filled in until attributes are converted.
 	if err := unprocessedConfig.Ensure(fromCloud, logger); err != nil {
 		return nil, err
 	}
-
-	// Dan: The name mostly makes sense (maybe "CreateCopyWithOnlyPublicFields"), but why? If I were to
-	// be adding fields to a `Config` how would I decide whether the field should be public or
-	// private? Also, notably -- all fields on `Config` are* public. Private fields only exist
-	// inside of members with types such as `Module`.
 
 	// we cached the unprocessed config, so make a copy before changing it too much. Also ensures validation
 	// happens again on resources, remotes, and modules.
@@ -420,42 +405,16 @@ func processConfig(unprocessedConfig *Config, // Dan: We call this an `unprocess
 		return nil, errors.Wrap(err, "error copying config")
 	}
 
-	// Dan: I think this is our template-y ${} substition. Given we've already parsed out keys and values
-	// into their types, I expect this can modify any value of type `string`? Can users define
-	// placeholder variables? Or is there a predefined set of viam substitutions? If the latter,
-	// this comment should direct the reader to how they can find that list in the source code.
+	// Copy does not preserve ConfigFilePath and we need to pass it along manually
+	// ConfigFilePath needs to be preserved so the correct config watcher can be instantiated later in
+	// the flow.
+	cfg.ConfigFilePath = unprocessedConfig.ConfigFilePath
 
 	// replacement can happen in resource attributes and in the module config. look at config/placeholder_replace.go
 	// for available substitution types.
 	if err := cfg.ReplacePlaceholders(); err != nil {
 		logger.Errorw("error during placeholder replacement", "err", err)
 	}
-
-	// Dan: Three remarks. 1) Not sure what the consequence is of not having this? I think the
-	// comment is saying that copying the config leaves an empty `ConfigFilePath` member in the
-	// copy? 2) I see `CopyOnlyPublicFields` is only called by this method and some place in the
-	// cloud watcher code. Could we have this assignment happen in `CopyOnlyPublicFields` and move
-	// the complexity of "but `ConfigFilePath` is special" into the less complex cloud watcher code?
-	// 3) Is it important this is done after `ReplacePlaceholders`?
-	//
-
-	// Copy does not preserve ConfigFilePath and we need to pass it along manually
-	// ConfigFilePath needs to be preserved so the correct config watcher can be instantiated later in
-	// the flow. We could move this into CopyOnlyPublicFields since this is a public field.
-	// It is not important AFAIK
-	// we do need this here because ConfigFilePath is not JSON-exported.
-	cfg.ConfigFilePath = unprocessedConfig.ConfigFilePath
-
-	// Dan: Huh? I know we run things that aren't necessarily part of the config. I guess this is where we add them. This code should declare its intent a bit better. Specifically, I would expect these three for-loops to be written as:
-	//  for name in defaultServices:
-	//    if name not in cfg.Services:
-	//      cfg.Services.Append(thing)
-	//
-	// The multiple for-loops and temporary variables makes me feel:
-	// - This code generates a different output than my above example
-	// - `unconfiguredDefaultServices` is used further down in the function in some way.
-	//
-	// I've diffed in some scoping to also better help the communicate the lines of code covered by the existing comment.
 
 	// See if default service already exists in the config and add them in if not. This code allows for default services to be
 	// defined under a name other than "builtin".
@@ -476,23 +435,14 @@ func processConfig(unprocessedConfig *Config, // Dan: We call this an `unprocess
 		})
 	}
 
-	// Dan: Associations need to be introduced here. And the datastructure needs to be explained
-	// such that a reader can predict the intended state after processing resources. Alternatively,
-	// this can construct this data structure closer to where its consumed and maybe avoid some
-	// complexity due to the increased lifetime of this variable.
-
 	// We keep track of resource configs per API to facilitate linking resource configs to
 	// its associated resource configs. Associated resource configs are configs that are
-	// linked to and used by a different resource config.
-	// can limit to APIs with Associated Config linkers registered
+	// linked to and used by a different resource config. Within the rdk repo, the only API
+	// that uses associated resource configs is the data manager service.
 	resCfgsPerAPI := map[resource.API][]*resource.Config{}
 
 	processResources := func(confs []resource.Config) error {
 		for idx, conf := range confs {
-			// Dan: ??. `conf` _is_ a "copy" of the element inside `confs`. If this is needed it
-			// should be justified in documentation.
-
-			// not sure about how needed this is.
 			copied := conf
 
 			// for resource to resource associations
@@ -500,29 +450,16 @@ func processConfig(unprocessedConfig *Config, // Dan: We call this an `unprocess
 			resName := copied.ResourceName()
 
 			// Look up if a resource model registered an attribute map converter. Attribute conversion converts an untyped, JSON-like object to a typed
-			// Go struct. There are no default converters, a converter will be automatically registered if the resource model registers a config struct alongside
-			// its resource constructor.
+			// Go struct. There is a default converter if no AttributeMapConverter is registered during resource model registration.
 			// Lookup will fail for non-builtin models (so lookup will fail for modular resources) but conversion will happen on the module-side.
 			reg, ok := resource.LookupRegistration(resName.API, copied.Model)
-			// Dan: ConvertedAttributes needs to be introduced here. Why are the `conf.Attributes`
-			// not good enough? Is there a default `AttributeMapConverter`? When is an
-			// `AttributeMapConverter` nil? If there are custom `AttributeMapConverter` what
-			// properties do they rely on with respect to the `conf.Attributes` input?
-
-			// we could possibly always register an attribute map converter and avoid the if checks in the register resource model
-			// func
 			if !ok || reg.AttributeMapConverter == nil {
 				continue
 			}
 
-			// if conversion errors, the robot will not learn of the new config until it is corrected.
-
-			// conversion has to happen otherwise we can't populate implicit dependencies.
 			converted, err := reg.AttributeMapConverter(conf.Attributes)
 			if err != nil {
-				// Dan: I assume this means the user has a bad config. We should document that here
-				// and that a robot will not learn of the updated config until its been corrected.
-
+				// if conversion errors, the robot will not learn of the new config until it is corrected.
 				return errors.Wrapf(err, "error converting attributes for (%s, %s)", resName.API, copied.Model)
 			}
 			confs[idx].ConvertedAttributes = converted
@@ -544,30 +481,14 @@ func processConfig(unprocessedConfig *Config, // Dan: We call this an `unprocess
 		associatedCfgs []resource.AssociatedResourceConfig,
 	) error {
 		for subIdx, associatedConf := range associatedCfgs {
-			// Dan: Same remark as `ConvertedAttributes`. Is there a default converter? Can custom
-			// ones be supplied?
-
 			// there is no default converter for associated config converters. custom ones can be supplied through registering it on the API level.
-			// we can likely provide a default associated config converter as well
 			conv, ok := resource.LookupAssociatedConfigRegistration(associatedConf.API)
 			if !ok {
 				continue
 			}
 
-			// Dan: I'm see that `resource.Config` objects have an `Attributes` and
-			// `ConvertedAttributes` members. `resource.Config` also has an
-			// `AssociatedResourceConfigs` member which also contain an `Attributes` and
-			// `ConvertedAttributes` (different type declaration, but presumably the same
-			// thing?). What's the relationship here?
-
-			// The relationship is that both Attributes are not structured, and we convert the attributes into
-			// a Go struct through the use of converters and stick it in ConvertedAttributes.
 			var convertedAttrs interface{} = associatedConf.Attributes
 			if conv.AttributeMapConverter != nil {
-				// Dan: What properties to do `AttributeMapConverter`s require of their input
-				// `associatedConf.Attributes`?
-
-				// associatedConf.Attributes is expected to be JSON-like.
 				converted, err := conv.AttributeMapConverter(associatedConf.Attributes)
 				if err != nil {
 					return errors.Wrap(err, "error converting associated resource config attributes")
@@ -590,11 +511,6 @@ func processConfig(unprocessedConfig *Config, // Dan: We call this an `unprocess
 				convertedAttrs = converted
 			}
 
-			// Dan: ??. I think I've lost context by now that I was in a bigger for-loop over
-			// `associatedCfgs`. So we're doing some pairwise operation. The high-level algorithm
-			// should be described in words outside the for-loop. And the reader should be reminded
-			// where this part of the algorithm fits into the high level bit.
-
 			// for APIs with an associated config linker, link the current associated config with
 			// each resource config of that API.
 			for _, assocConf := range resCfgsPerAPI[associatedConf.API] {
@@ -602,9 +518,6 @@ func processConfig(unprocessedConfig *Config, // Dan: We call this an `unprocess
 				if !ok || reg.AssociatedConfigLinker == nil {
 					continue
 				}
-
-				// Dan: ??. Any documentation that can tie what an `assocConf.ConvertedAttributes`
-				// is in the raw json config and `convertedAttrs` would be useful here.
 
 				// link the converted attributes for the current resource config (convertedAttrs) to the config that accepts
 				// associated configs.
@@ -621,9 +534,6 @@ func processConfig(unprocessedConfig *Config, // Dan: We call this an `unprocess
 			copied := conf
 			resName := copied.ResourceName()
 
-			// Dan: Where do `AssociatedResourceConfigs` come from? User-written json or typically
-			// part of auto-injected default services such as data capture?
-
 			// convert and associate user-written associated resource configs here.
 			if err := convertAndAssociateResourceConfigs(&resName, nil, conf.AssociatedResourceConfigs); err != nil {
 				return errors.Wrapf(err, "error processing associated service configs for %q", resName)
@@ -639,20 +549,15 @@ func processConfig(unprocessedConfig *Config, // Dan: We call this an `unprocess
 		return nil, err
 	}
 
-	// Dan: How are remotes similar to components/services? What associations do we put on them?
-
-	// associations can be put on resources on remotes
+	// associated configs can be put on resources in remotes as well, so check remote configs
 	for _, c := range cfg.Remotes {
 		if err := convertAndAssociateResourceConfigs(nil, &c.Name, c.AssociatedResourceConfigs); err != nil {
 			return nil, errors.Wrapf(err, "error processing associated service configs for remote %q", c.Name)
 		}
 	}
 
-	// Dan: Again? Are we not confident the mutations we've made are legal? If this is defensive,
-	// that should be called out. If there's a reason this is expected to happen, that should be
-	// called out.
+	// now that the attribute maps are converted, validate configs and get implicit dependencies for builtin resource models
 
-	// get implicit dependencies for builtin resource models
 	if err := cfg.Ensure(fromCloud, logger); err != nil {
 		return nil, err
 	}
