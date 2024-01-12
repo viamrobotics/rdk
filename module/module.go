@@ -263,8 +263,12 @@ func (m *Module) connectParent(ctx context.Context) error {
 		if err := CheckSocketOwner(m.parentAddr); err != nil {
 			return err
 		}
+		// NOTE(benjirewis): moduleLoggers may be creating the client connection
+		// below, so use a different logger here to avoid a deadlock where the
+		// client connection tries to recursively connect to the parent.
+		clientLogger := logging.NewDebugLogger("module connection")
 		// TODO(PRODUCT-343): add session support to modules
-		rc, err := client.New(ctx, "unix://"+m.parentAddr, m.logger, client.WithDisableSessions())
+		rc, err := client.New(ctx, "unix://"+m.parentAddr, clientLogger, client.WithDisableSessions())
 		if err != nil {
 			return err
 		}
