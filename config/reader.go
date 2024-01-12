@@ -391,6 +391,8 @@ func processConfigLocalConfig(unprocessedConfig *Config, logger logging.Logger) 
 }
 
 // processConfig processes the config passed in. The config can be either JSON or gRPC derived.
+// If any part of this function errors, the function will exit and no part of the new config will be returned
+// until it is corrected.
 func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Logger) (*Config, error) {
 	// Ensure validates the config but also substitutes in some defaults. Implicit dependencies for builtin resource
 	// models are not filled in until attributes are converted.
@@ -405,9 +407,9 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 		return nil, errors.Wrap(err, "error copying config")
 	}
 
-	// Copy does not preserve ConfigFilePath and we need to pass it along manually
-	// ConfigFilePath needs to be preserved so the correct config watcher can be instantiated later in
-	// the flow.
+	// Copy does not preserve ConfigFilePath since it preserves only JSON-exported fields and so we need
+	// to pass it along manually. ConfigFilePath needs to be preserved so the correct config watcher can
+	// be instantiated later in the flow.
 	cfg.ConfigFilePath = unprocessedConfig.ConfigFilePath
 
 	// replacement can happen in resource attributes and in the module config. look at config/placeholder_replace.go
@@ -460,7 +462,8 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 			converted, err := reg.AttributeMapConverter(conf.Attributes)
 			if err != nil {
-				// if conversion errors, the robot will not learn of the new config until it is corrected.
+				// if any of the conversion errors, the function will exit and no part of the new config will be returned
+				// until it is corrected.
 				return errors.Wrapf(err, "error converting attributes for (%s, %s)", resName.API, copied.Model)
 			}
 			confs[idx].ConvertedAttributes = converted
