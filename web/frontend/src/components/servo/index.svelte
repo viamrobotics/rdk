@@ -27,12 +27,13 @@ const handleMove = async (amount: number) => {
   if(angle < 0) {
     displayError("Servo angle must be positive")
   }
-
+  else {
   try {
     await move($robotClient, name, angle);
   } catch (error) {
     displayError(error as ServiceError);
   }
+}
 };
 
 </script>
