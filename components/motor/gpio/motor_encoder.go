@@ -102,9 +102,15 @@ func newEncodedMotor(
 	em.encoder = realEncoder
 
 	// setup control loop
-	if len(motorConfig.ControlLoop.Blocks) != 0 {
-		em.controlLoopConfig = em.createControlLoopConfig()
-		cLoop, err := control.NewLoop(em.logger, em.cfg.ControlLoop, em)
+	if motorConfig.ControlParameters != nil {
+		// create control loop config with PID values from config
+		em.controlLoopConfig = em.createControlLoopConfig(
+			motorConfig.ControlParameters.P,
+			motorConfig.ControlParameters.I,
+			motorConfig.ControlParameters.D,
+		)
+
+		cLoop, err := control.NewLoop(em.logger, em.controlLoopConfig, em)
 		if err != nil {
 			em.logger.Error(err)
 		}
@@ -112,16 +118,22 @@ func newEncodedMotor(
 			em.logger.Error(err)
 		}
 		em.loop = cLoop
+
+		// validate control loop config
 		if err = em.validateControlConfig(cancelCtx); err != nil {
 			return nil, err
 		}
-		pidBlock, err := em.loop.ConfigAt(cancelCtx, "PID")
-		if err != nil {
-			return nil, err
+
+		// SetTuning to true if all PID values are 0
+		if motorConfig.ControlParameters.P == 0.0 &&
+			motorConfig.ControlParameters.I == 0.0 &&
+			motorConfig.ControlParameters.D == 0.0 {
+			em.loop.SetTuning(context.Background(), true)
 		}
-		if pidBlock.Attribute["kP"].(float64) == 0.0 && pidBlock.Attribute["kI"].(float64) == 0.0 && pidBlock.Attribute["kD"].(float64) == 0.0 {
-			em.loop.SetTuning(cancelCtx, true)
-		}
+	} else {
+		// TODO DOCS-1524: link to docs that explain control parameters
+		em.logger.Warn(
+			"recommended: for more accurate motor control, configure 'control_parameters' in the motor config")
 	}
 
 	if em.rampRate < 0 || em.rampRate > 1 {
@@ -195,8 +207,8 @@ func (m *EncodedMotor) rpmMonitorStart() {
 		}
 	}
 	// create new control loop if control config exists
-	if len(m.cfg.ControlLoop.Blocks) != 0 {
-		cLoop, err := control.NewLoop(m.logger, m.cfg.ControlLoop, m)
+	if m.cfg.ControlParameters != nil {
+		cLoop, err := control.NewLoop(m.logger, m.controlLoopConfig, m)
 		if err != nil {
 			m.logger.Error(err)
 		}

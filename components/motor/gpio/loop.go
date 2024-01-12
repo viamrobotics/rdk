@@ -93,14 +93,14 @@ func (m *EncodedMotor) validateControlConfig(ctx context.Context) error {
 // trapezoidalVelocityProfile-> sum -> PID -> gain -> endpoint -> derivative back to sum, and endpoint
 // back to trapezoidalVelocityProfile structure. The gain is 0.0039 (1/255) to account for the PID range,
 // the PID values are experimental this structure can change as hardware experiments with an encoded motor require.
-func (m *EncodedMotor) createControlLoopConfig() control.Config {
-	return control.Config{
+func (m *EncodedMotor) createControlLoopConfig(p, i, d float64) control.Config {
+	conf := control.Config{
 		Blocks: []control.BlockConfig{
 			{
 				Name: "set_point",
 				Type: "constant",
 				Attribute: rdkutils.AttributeMap{
-					"constant_val": 0,
+					"constant_val": 0.0,
 				},
 			},
 			{
@@ -108,33 +108,25 @@ func (m *EncodedMotor) createControlLoopConfig() control.Config {
 				Type: "trapezoidalVelocityProfile",
 				Attribute: rdkutils.AttributeMap{
 					"kpp_gain":   0.45,
-					"max_acc":    30000,
-					"max_vel":    4000,
-					"pos_window": 0,
+					"max_acc":    30000.0,
+					"max_vel":    4000.0,
+					"pos_window": 0.0,
 				},
 				DependsOn: []string{"set_point", "endpoint"},
-			},
-			{
-				Name: "sum",
-				Type: "sum",
-				Attribute: rdkutils.AttributeMap{
-					"sum_string": "+-",
-				},
-				DependsOn: []string{"trapz", "derivative"},
 			},
 			{
 				Name: "PID",
 				Type: "PID",
 				Attribute: rdkutils.AttributeMap{
-					"int_sat_lim_lo": -255,
-					"int_sat_lim_up": 255,
-					"kD":             0,
-					"kI":             0.53977,
-					"kP":             0.048401,
-					"limit_lo":       -255,
-					"limit_up":       255,
-					"tune_method":    "ziegerNicholsSomeOvershoot",
-					"tune_ssr_value": 2,
+					"int_sat_lim_lo": -255.0,
+					"int_sat_lim_up": 255.0,
+					"kD":             d,
+					"kI":             i,
+					"kP":             p,
+					"limit_lo":       -255.0,
+					"limit_up":       255.0,
+					"tune_method":    "ziegerNichlsPI",
+					"tune_ssr_value": 2.0,
 					"tune_step_pct":  0.35,
 				},
 				DependsOn: []string{"sum"},
@@ -164,6 +156,34 @@ func (m *EncodedMotor) createControlLoopConfig() control.Config {
 				DependsOn: []string{"endpoint"},
 			},
 		},
-		Frequency: 100,
+		Frequency: 100.0,
 	}
+
+	if p == 0.0 && i == 0.0 && d == 0.0 {
+		// when tuning (all PID are zero), the loop has to exclude the trapz block, so the sum block is
+		// temporarily changed to depend on the constant block instead of the trapz block to pass over trapz
+		sumBlock := control.BlockConfig{
+			Name: "sum",
+			Type: "sum",
+			Attribute: rdkutils.AttributeMap{
+				"sum_string": "+-",
+			},
+			DependsOn: []string{"set_point", "derivative"},
+		}
+		conf.Blocks = append(conf.Blocks, sumBlock)
+	} else {
+		// if not tuning, set the sum block to once again depend
+		// on the trapz block instead of the constant bloc
+		sumBlock := control.BlockConfig{
+			Name: "sum",
+			Type: "sum",
+			Attribute: rdkutils.AttributeMap{
+				"sum_string": "+-",
+			},
+			DependsOn: []string{"trapz", "derivative"},
+		}
+		conf.Blocks = append(conf.Blocks, sumBlock)
+	}
+
+	return conf
 }

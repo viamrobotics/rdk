@@ -14,11 +14,12 @@ import (
 
 // controlBlockInternal Holds internal variables to control the flow of data between blocks.
 type controlBlockInternal struct {
-	mu        sync.Mutex
-	blockType controlBlockType
-	ins       []chan []*Signal
-	outs      []chan []*Signal
-	blk       Block
+	mu         sync.Mutex
+	blockType  controlBlockType
+	ins        []chan []*Signal
+	outs       []chan []*Signal
+	blk        Block
+	blockIndex int
 }
 
 // controlTicker Used to emit impulse on blocks which do not depend on inputs or are endpoints.
@@ -61,12 +62,13 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 		return nil, errors.New("loop frequency shouldn't be 0 or above 200Hz")
 	}
 	l.dt = time.Duration(float64(time.Second) * (1.0 / (l.cfg.Frequency)))
-	for _, bcfg := range cfg.Blocks {
+	for i, bcfg := range cfg.Blocks {
 		blk, err := createBlock(bcfg, logger)
 		if err != nil {
 			return nil, err
 		}
 		l.blocks[bcfg.Name] = &controlBlockInternal{blk: blk, blockType: bcfg.Type}
+		l.blocks[bcfg.Name].blockIndex = i
 		if bcfg.Type == blockEndpoint {
 			l.blocks[bcfg.Name].blk.(*endpoint).ctr = m
 		}
@@ -195,7 +197,11 @@ func (l *Loop) SetConfigAt(ctx context.Context, name string, config BlockConfig)
 	if !ok {
 		return errors.Errorf("cannot return Config for nonexistent %s", name)
 	}
-	return blk.blk.UpdateConfig(ctx, config)
+	if err := blk.blk.UpdateConfig(ctx, config); err != nil {
+		return err
+	}
+	l.cfg.Blocks[blk.blockIndex] = blk.blk.Config(ctx)
+	return nil
 }
 
 // BlockList returns the list of blocks in a control loop error when the list is empty.
