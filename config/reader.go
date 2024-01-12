@@ -439,8 +439,8 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 	// We keep track of resource configs per API to facilitate linking resource configs to
 	// its associated resource configs. Associated resource configs are configs that are
-	// linked to and used by a different resource config. Within the rdk repo, the only API
-	// that uses associated resource configs is the data manager service.
+	// linked to and used by a different resource config. See the data manager 
+	// service for an example of a resource that uses associated resource configs.
 	resCfgsPerAPI := map[resource.API][]*resource.Config{}
 
 	processResources := func(confs []resource.Config) error {
