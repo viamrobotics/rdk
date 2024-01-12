@@ -50,7 +50,7 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float
 		}
 		limits = append(limits,
 			referenceframe.Limit{Min: -math.Pi, Max: math.Pi},
-			referenceframe.Limit{Min: 0, Max: dist},
+			referenceframe.Limit{Min: defaultMinPTGlen, Max: dist},
 		)
 	}
 
