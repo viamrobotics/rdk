@@ -129,6 +129,8 @@ func newEncodedMotor(
 			motorConfig.ControlParameters.I == 0.0 &&
 			motorConfig.ControlParameters.D == 0.0 {
 			em.loop.SetTuning(context.Background(), true)
+		} else {
+			em.loop.SetTuning(context.Background(), false)
 		}
 	} else {
 		// TODO DOCS-1524: link to docs that explain control parameters
