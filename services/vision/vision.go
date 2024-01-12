@@ -74,7 +74,7 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 // vizModel wraps the vision model with all the service interface methods.
 type vizModel struct {
 	resource.Named
-	resource.AlwaysRebuild
+	resource.TriviallyReconfigurable
 	deps            resource.Dependencies           // in order to get access to all cameras
 	closerFunc      func(ctx context.Context) error // close the underlying model
 	classifierFunc  classification.Classifier

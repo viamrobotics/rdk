@@ -46,6 +46,7 @@ func init() {
 // ObsDepthConfig specifies the parameters to be used for the obstacle depth service.
 type ObsDepthConfig struct {
 	resource.TriviallyValidateConfig
+	resource.TriviallyReconfigurable
 	MinPtsInPlane        int     `json:"min_points_in_plane"`
 	MinPtsInSegment      int     `json:"min_points_in_segment"`
 	MaxDistFromPlane     float64 `json:"max_dist_from_plane_mm"`

@@ -57,6 +57,7 @@ func init() {
 
 // MLModelConfig specifies the parameters needed to turn an ML model into a vision Model.
 type MLModelConfig struct {
+	resource.TriviallyReconfigurable
 	ModelName string `json:"mlmodel_name"`
 }
 
