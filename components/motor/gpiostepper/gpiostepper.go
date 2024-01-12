@@ -285,7 +285,7 @@ func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 	}
 
 	// stay low for the other half
-	time.Sleep(m.stepperDelay / 2.0)
+	time.Sleep(m.stepperDelay * 0.5)
 
 	if forward {
 		m.stepPosition++
