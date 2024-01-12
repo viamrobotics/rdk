@@ -355,7 +355,9 @@ func (s *servoGPIO) Move(ctx context.Context, ang uint32, extra map[string]inter
 // Position returns the current set angle (degrees) of the servo.
 func (s *servoGPIO) Position(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 	pct, err := s.pin.PWM(ctx, nil)
-
+	if err != nil {
+		return 0, errors.Wrap(err, "couldn't get servo pin duty cycle")
+	}
 	// Since Stop() sets the dutyCycle to 0.0 in order to maintain the position of the servo,
 	// we are setting the dutyCycle back to the last known dutyCycle to prevent the servo
 	// from going back to zero position.
@@ -366,9 +368,7 @@ func (s *servoGPIO) Position(ctx context.Context, extra map[string]interface{}) 
 			return 0, errors.Wrap(err, "couldn't get servo pin duty cycle")
 		}
 	}
-	if err != nil {
-		return 0, errors.Wrap(err, "couldn't get servo pin duty cycle")
-	}
+
 	return uint32(mapDutyCylePctToDeg(s.minUs, s.maxUs, s.minDeg, s.maxDeg, pct, s.frequency)), nil
 }
 
