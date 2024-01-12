@@ -115,7 +115,7 @@ func NewPTGFrameFromKinematicOptions(
 		}
 	}
 	refDistLong := defaultRefDistLong
-	refDistShort := math.Min(velocityMMps / angVelocityRadps * math.Pi * defaultRefDistHalfCircles, refDistLong * 0.1)
+	refDistShort := math.Min(velocityMMps/angVelocityRadps*math.Pi*defaultRefDistHalfCircles, refDistLong*0.1)
 
 	longPtgsToUse := []ptgFactory{}
 	shortPtgsToUse := []ptgFactory{}

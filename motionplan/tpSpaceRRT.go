@@ -698,24 +698,22 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 	}
 	var addedNode *basicNode
 	// If we found any valid nodes that we can extend to, find the very best one and add that to the tree
+	// Dist measures how close our candidate gets us to a goal.
 	bestDist := math.Inf(1)
+	// Cost measures how long a candidate's path is.
 	bestCost := math.Inf(1)
 	var bestCand *candidate
 	for _, cand := range candidates {
 		if cand.dist <= bestDist || cand.dist < mp.planOpts.GoalThreshold {
-			update := false
 			candCost := 0.
 			for _, candNode := range cand.newNodes {
 				candCost += candNode.Cost()
 			}
-			if bestDist > mp.planOpts.GoalThreshold {
-				update = true
-			} else {
-				if candCost < bestCost {
-					update = true
-				}
-			}
-			if update {
+			if bestDist > mp.planOpts.GoalThreshold || candCost < bestCost {
+				// Update the new best candidate if one of the following is true:
+				// 1. The former bestDist is greater than the goal threshold, thus this candidate gets us closer to the goal
+				// 2. The cost of this candidate is lower than the cost of the current best candidate.
+				// Note that if in this block, then we are already guaranteed to be either a dist improvement, or below goal threshold.
 				bestCand = cand
 				bestDist = cand.dist
 				bestCost = candCost
