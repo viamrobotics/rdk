@@ -147,7 +147,11 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 
 	for idx := 0; idx < len(c.Components); idx++ {
 		component := &c.Components[idx]
-		// dependsOn will only be populated if attributes have been converted.
+		// dependsOn will only be populated if attributes have been converted, which does not happen in this function.
+		// Attributes can be converted from an untyped, JSON-like object to a typed Go struct based on whether a converter/the typed struct
+		// was registered during resource model registration. If no converter but a typed struct was registered, the RDK provides a
+		// default converter. For modular resources, since lookup will fail as no converter or a typed struct is registered, implicit
+		// dependencies are gathered during robot reconfiguration itself.
 		dependsOn, err := component.Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
 		if err != nil {
 			fullErr := errors.Wrapf(err, "error validating component %s: %s", component.Name, err)
@@ -179,7 +183,11 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 
 	for idx := 0; idx < len(c.Services); idx++ {
 		service := &c.Services[idx]
-		// dependsOn will only be populated if attributes have been converted.
+		// dependsOn will only be populated if attributes have been converted, which does not happen in this function.
+		// Attributes can be converted from an untyped, JSON-like object to a typed Go struct based on whether a converter/the typed struct
+		// was registered during resource model registration. If no converter but a typed struct was registered, the RDK provides a
+		// default converter. For modular resources, since lookup will fail as no converter or a typed struct is registered, implicit
+		// dependencies are gathered during robot reconfiguration itself.
 		dependsOn, err := service.Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
 		if err != nil {
 			if c.DisablePartialStart {
@@ -755,7 +763,21 @@ var (
 )
 
 // Validate returns true if the config is valid. Ensures each key is valid and meets the required constraints.
-// Updates ValidatedKeySet once validated.
+// Updates ValidatedKeySet once validated. A sample ExternalAuthConfig in JSON form is shown below, where "keys" contains a list of JSON Web Keys as defined in https://datatracker.ietf.org/doc/html/rfc7517.
+//
+//	"external_auth_config": {
+//		"jwks": {
+//			"keys": [
+//				{
+//					"alg": "XXXX",
+//					"e": "XXXX",
+//					"kid": "XXXX",
+//					"kty": "XXXX",
+//					"n": "XXXX"
+//				}
+//			]
+//		}
+//	}
 func (c *ExternalAuthConfig) Validate(path string) error {
 	jwksPath := fmt.Sprintf("%s.jwks", path)
 	jsonJWKs, err := json.Marshal(c.JSONKeySet)
@@ -802,6 +824,23 @@ type AuthHandlerConfig struct {
 }
 
 // Validate ensures all parts of the config are valid. If it exists, updates ExternalAuthConfig's ValidatedKeySet once validated.
+// A sample AuthConfig in JSON form is shown below, where "handlers" contains a list of auth handlers. The only accepted credential
+// type for the RDK in the config is "api-key" currently. An auth handler for utils.CredentialsTypeRobotLocationSecret may be added
+// later by the RDK during processing.
+//
+//	"auth": {
+//			"handlers": [
+//				{
+//					"type": "api-key",
+//					"config": {
+//						"API_KEY_ID": "API_KEY",
+//						"API_KEY_ID_2": "API_KEY_2",
+//						"keys": ["API_KEY_ID", "API_KEY_ID_2"]
+//					}
+//				}
+//			],
+//		"external_auth_config": {}
+//	}
 func (config *AuthConfig) Validate(path string) error {
 	seenTypes := make(map[string]struct{}, len(config.Handlers))
 	for idx, handler := range config.Handlers {

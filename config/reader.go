@@ -400,8 +400,9 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 		return nil, err
 	}
 
-	// we cached the unprocessed config, so make a copy before changing it too much. Also ensures validation
-	// happens again on resources, remotes, and modules.
+	// The unprocessed config is cached, so make a deep copy before continuing. By caching a relatively
+	// unchanged config, changes to the way RDK processes configs between versions will not cause a cache to be broken.
+	// Also ensures validation happens again on resources, remotes, and modules since the cached validation fields are not public.
 	cfg, err := unprocessedConfig.CopyOnlyPublicFields()
 	if err != nil {
 		return nil, errors.Wrap(err, "error copying config")
@@ -439,7 +440,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 	// We keep track of resource configs per API to facilitate linking resource configs to
 	// its associated resource configs. Associated resource configs are configs that are
-	// linked to and used by a different resource config. See the data manager 
+	// linked to and used by a different resource config. See the data manager
 	// service for an example of a resource that uses associated resource configs.
 	resCfgsPerAPI := map[resource.API][]*resource.Config{}
 
@@ -561,7 +562,6 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	}
 
 	// now that the attribute maps are converted, validate configs and get implicit dependencies for builtin resource models
-
 	if err := cfg.Ensure(fromCloud, logger); err != nil {
 		return nil, err
 	}
