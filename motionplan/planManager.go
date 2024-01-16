@@ -568,6 +568,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		opt.ScoreFunc = tpspace.PTGSegmentMetric
 
 		planAlg = "tpspace"
+		opt.relativeInputs = true
 	}
 
 	switch motionProfile {

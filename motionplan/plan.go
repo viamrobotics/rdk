@@ -22,9 +22,15 @@ type Plan struct {
 
 func newPlan(solution []node, sf *solverFrame, relative bool) (*Plan, error) {
 	traj := sf.nodesToTrajectory(solution)
-	path, err := newPath(solution, sf)
+	path, err := newRelativePath(solution, sf)
 	if err != nil {
 		return nil, err
+	}
+	if relative {
+		path, err = newAbsolutePathFromRelative(path)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &Plan{
 		Trajectory: traj,
@@ -40,6 +46,22 @@ func (plan *Plan) Remaining(waypointIndex int) *Plan {
 		Path:       plan.Path[waypointIndex:],
 		Trajectory: plan.Trajectory[waypointIndex:],
 		nodes:      plan.nodes[waypointIndex:],
+	}
+}
+
+func (plan *Plan) Offset(offset spatialmath.Pose) *Plan {
+	newPath := make([]PathStep, 0, len(plan.Path))
+	for _, step := range plan.Path {
+		newStep := make(PathStep, len(step))
+		for frame, pose := range step {
+			newStep[frame] = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(offset, pose.Pose()))
+		}
+		newPath = append(newPath, newStep)
+	}
+	return &Plan{
+		Path:       newPath,
+		Trajectory: plan.Trajectory,
+		nodes:      plan.nodes,
 	}
 }
 
@@ -119,9 +141,8 @@ func PathStepFromProto(ps *pb.PlanStep) (PathStep, error) {
 
 type Path []PathStep
 
-func newPath(solution []node, sf *solverFrame) (Path, error) {
+func newRelativePath(solution []node, sf *solverFrame) (Path, error) {
 	path := Path{}
-
 	for _, step := range solution {
 		stepMap := sf.sliceToMap(step.Q())
 		step := make(map[string]*referenceframe.PoseInFrame)
@@ -139,6 +160,22 @@ func newPath(solution []node, sf *solverFrame) (Path, error) {
 		path = append(path, step)
 	}
 	return path, nil
+}
+
+func newAbsolutePathFromRelative(path Path) (Path, error) {
+	if len(path) < 2 {
+		return nil, errors.New("need to have at least 2 elements in Path")
+	}
+	newPath := make([]PathStep, 0, len(path))
+	newPath = append(newPath, path[0])
+	for i, step := range path[1:] {
+		newStep := make(PathStep, len(step))
+		for frame, pose := range step {
+			newStep[frame] = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(newPath[i][frame].Pose(), pose.Pose()))
+		}
+		newPath = append(newPath, newStep)
+	}
+	return newPath, nil
 }
 
 func (path Path) GetFramePoses(frameName string) ([]spatialmath.Pose, error) {

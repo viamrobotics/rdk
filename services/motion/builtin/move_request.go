@@ -99,7 +99,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (*motionplan.Plan, error) {
 
 	switch mr.requestType {
 	case requestTypeMoveOnMap:
-		return plan, nil
+		return plan.Offset(mr.poseOrigin), nil
 	case requestTypeMoveOnGlobe:
 		// modify the Plan to smuggle the geoPoses as poses inside its Path
 		return motion.AsGeoPlan(plan, &mr.geoPoseOrigin)

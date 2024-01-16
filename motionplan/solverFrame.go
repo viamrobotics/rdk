@@ -283,6 +283,9 @@ func (sf *solverFrame) movingFrame(name string) bool {
 func (sf *solverFrame) mapToSlice(inputMap map[string][]frame.Input) ([]frame.Input, error) {
 	var inputs []frame.Input
 	for _, f := range sf.frames {
+		if len(f.DoF()) == 0 {
+			continue
+		}
 		input, err := frame.GetFrameInputs(f, inputMap)
 		if err != nil {
 			return nil, err
@@ -299,6 +302,9 @@ func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.I
 	}
 	i := 0
 	for _, frame := range sf.frames {
+		if len(frame.DoF()) == 0 {
+			continue
+		}
 		fLen := i + len(frame.DoF())
 		inputs[frame.Name()] = inputSlice[i:fLen]
 		i = fLen
