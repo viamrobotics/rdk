@@ -223,8 +223,6 @@ func accurateSleep(ctx context.Context, duration time.Duration) bool {
 	// https://blog.bearcats.nl/accurate-sleep-function/
 	// On a raspberry pi 4, naively calling utils.SelectContextOrWait tended to have an error of
 	// about 140-300 microseconds, while this version had an error of 0.3-0.6 microseconds.
-	// Unexpectedly, setting the maxBusyWaitTime to less than 1000 microseconds tended to give both
-	// approaches similar errors.
 	startTime := time.Now()
 	maxBusyWaitTime := 1500 * time.Microsecond
 	if duration > maxBusyWaitTime {
