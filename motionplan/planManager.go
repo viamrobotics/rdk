@@ -46,29 +46,12 @@ func newPlanManager(
 	logger logging.Logger,
 	seed int,
 ) (*planManager, error) {
-	anyPTG := false     // Whether PTG frames have been observed
-	anyNonzero := false // Whether non-PTG frames
-	for _, movingFrame := range frame.frames {
-		if ptgFrame, isPTGframe := movingFrame.(tpspace.PTGProvider); isPTGframe {
-			if anyPTG {
-				return nil, errors.New("only one PTG frame can be planned for at a time")
-			}
-			anyPTG = true
-			frame.ptgs = ptgFrame.PTGSolvers()
-		} else if len(movingFrame.DoF()) > 0 {
-			anyNonzero = true
-		}
-		if anyNonzero && anyPTG {
-			return nil, errors.New("cannot combine ptg with other nonzero DOF frames in a single planning call")
-		}
-	}
-
 	//nolint: gosec
 	p, err := newPlanner(frame, rand.New(rand.NewSource(int64(seed))), logger, newBasicPlannerOptions(frame))
 	if err != nil {
 		return nil, err
 	}
-	return &planManager{planner: p, frame: frame, fs: fs, useTPspace: anyPTG}, nil
+	return &planManager{planner: p, frame: frame, fs: fs, useTPspace: len(frame.PTGSolvers()) > 0}, nil
 }
 
 // PlanSingleWaypoint will solve the solver frame to one individual pose. If you have multiple waypoints to hit, call this multiple times.

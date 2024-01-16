@@ -51,6 +51,7 @@ func NewNetAppender(config *CloudConfig) (*NetAppender, error) {
 		maxQueueSize:     defaultMaxQueueSize,
 		loggerWithoutNet: NewLogger("netlogger"),
 	}
+
 	nl.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(nl.backgroundWorker, nl.activeBackgroundWorkers.Done)
 	return nl, nil
@@ -206,39 +207,44 @@ func (nl *NetAppender) backgroundWorker() {
 	}
 }
 
+// Returns whether there is more work to do or if an error was encountered while trying to ship logs
+// over the network.
+func (nl *NetAppender) syncOnce() (bool, error) {
+	nl.toLogMutex.Lock()
+	defer nl.toLogMutex.Unlock()
+
+	if len(nl.toLog) == 0 {
+		return false, nil
+	}
+
+	batchSize := writeBatchSize
+	if len(nl.toLog) < writeBatchSize {
+		batchSize = len(nl.toLog)
+	}
+
+	batch := nl.toLog[:batchSize]
+	err := nl.remoteWriter.write(batch)
+	if err != nil {
+		// On error, abort the sync attempt. But keep the logs to sync in the queue. Such that a
+		// follow-up sync call does not miss logs.
+		return false, err
+	}
+
+	// On success remove the batch from the queue.
+	nl.toLog = nl.toLog[batchSize:]
+	return len(nl.toLog) > 0, nil
+}
+
 // Sync will flush the internal buffer of logs.
 func (nl *NetAppender) Sync() error {
 	for {
-		batch := func() []*apppb.LogEntry {
-			nl.toLogMutex.Lock()
-			defer nl.toLogMutex.Unlock()
-
-			if len(nl.toLog) == 0 {
-				return nil
-			}
-
-			batchSize := writeBatchSize
-			if len(nl.toLog) < writeBatchSize {
-				batchSize = len(nl.toLog)
-			}
-
-			ret := nl.toLog[:batchSize]
-			nl.toLog = nl.toLog[batchSize:]
-
-			return ret
-		}()
-
-		if len(batch) == 0 {
-			return nil
+		moreToDo, err := nl.syncOnce()
+		if err != nil {
+			return err
 		}
 
-		err := nl.remoteWriter.write(batch)
-		if err != nil {
-			// On an error, the failed batch gets put on the back of the queue. Logs can be sent out
-			// of order. We depend on log front-ends to sort the results by time if they care about
-			// order.
-			nl.addBatchToQueue(batch)
-			return err
+		if !moreToDo {
+			return nil
 		}
 	}
 }
