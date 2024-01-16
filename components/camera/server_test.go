@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"go.viam.com/rdk/data"
+	goprotoutils "go.viam.com/utils/protoutils"
 	"image"
 	"image/png"
 	"sync"
@@ -418,5 +420,86 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.MimeTypes, test.ShouldContain, utils.MimeTypeJPEG)
 		test.That(t, resp.MimeTypes, test.ShouldContain, utils.MimeTypePNG)
 		test.That(t, resp.MimeTypes, test.ShouldContain, utils.MimeTypeH264)
+	})
+
+	t.Run("GetImage with extra", func(t *testing.T) {
+		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+			extra, ok := camera.FromContext(ctx)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, *extra, test.ShouldBeEmpty)
+			return nil, errStreamFailed
+		}
+
+		_, err := cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
+			Name: testCameraName,
+		})
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
+
+		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+			extra, ok := camera.FromContext(ctx)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, len(*extra), test.ShouldEqual, 1)
+			test.That(t, (*extra)["hello"], test.ShouldEqual, "world")
+			return nil, errStreamFailed
+		}
+
+		ext, err := goprotoutils.StructToStructPb(camera.Extra{"hello": "world"})
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
+			Name:  testCameraName,
+			Extra: ext,
+		})
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
+
+		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+			extra, ok := camera.FromContext(ctx)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, len(*extra), test.ShouldEqual, 1)
+			test.That(t, (*extra)[data.FromDMString], test.ShouldBeTrue)
+
+			return nil, errStreamFailed
+		}
+
+		// one kvp created with data.FromDMContextKey
+		ext, err = goprotoutils.StructToStructPb(map[string]interface{}{data.FromDMString: true})
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
+			Name:  testCameraName,
+			Extra: ext,
+		})
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
+
+		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+			extra, ok := camera.FromContext(ctx)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, len(*extra), test.ShouldEqual, 2)
+			test.That(t, (*extra)["hello"], test.ShouldEqual, "world")
+			test.That(t, (*extra)[data.FromDMString], test.ShouldBeTrue)
+			return nil, errStreamFailed
+		}
+
+		// use values from data and camera
+		ext, err = goprotoutils.StructToStructPb(
+			map[string]interface{}{
+				data.FromDMString: true,
+				"hello":           "world",
+			},
+		)
+
+		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
+			Name:  testCameraName,
+			Extra: ext,
+		})
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
 	})
 }
