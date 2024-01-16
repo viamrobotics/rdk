@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"go.viam.com/rdk/data"
-	goprotoutils "go.viam.com/utils/protoutils"
 	"image"
 	"image/png"
 	"sync"
@@ -14,8 +12,10 @@ import (
 
 	pb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/test"
+	goprotoutils "go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
@@ -493,6 +493,7 @@ func TestServer(t *testing.T) {
 				"hello":           "world",
 			},
 		)
+		test.That(t, err, test.ShouldBeNil)
 
 		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
 			Name:  testCameraName,

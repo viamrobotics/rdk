@@ -3,7 +3,6 @@ package camera_test
 import (
 	"bytes"
 	"context"
-	"go.viam.com/rdk/data"
 	"image"
 	"image/color"
 	"image/png"
@@ -18,6 +17,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
