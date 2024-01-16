@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"google.golang.org/protobuf/proto"
 	"image"
 	"sync"
 
@@ -62,18 +63,33 @@ func NewClientFromConn(
 	}, nil
 }
 
+func getExtra(ctx context.Context) (*structpb.Struct, error) {
+	ext := &structpb.Struct{}
+	if extra, ok := FromContext(ctx); ok {
+		var err error
+		if ext, err = goprotoutils.StructToStructPb(*extra); err != nil {
+			return nil, err
+		}
+	}
+
+	dataExt, err := data.GetExtraFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	proto.Merge(ext, dataExt)
+	return ext, nil
+}
+
 func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Read")
 	defer span.End()
 	mimeType := gostream.MIMETypeHint(ctx, "")
 	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
 
-	var ext *structpb.Struct
-	if extra, ok := FromContext(ctx); ok {
-		var err error
-		if ext, err = goprotoutils.StructToStructPb(extra); err != nil {
-			return nil, nil, err
-		}
+	ext, err := getExtra(ctx)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{

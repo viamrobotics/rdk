@@ -74,7 +74,6 @@ func (s *serviceServer) GetImage(
 
 	ext := req.Extra.AsMap()
 	ctx = NewContext(ctx, (*Extra)(&ext))
-	req.Extra.AsMap()
 
 	img, release, err := ReadImage(gostream.WithMIMETypeHint(ctx, req.MimeType), cam)
 	if err != nil {

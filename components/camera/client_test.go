@@ -261,6 +261,41 @@ func TestClient(t *testing.T) {
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
+	t.Run("camera client extra", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		camClient, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+			extra, ok := camera.FromContext(ctx)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, *extra, test.ShouldBeEmpty)
+			return nil, errStreamFailed
+		}
+
+		ctx := context.Background()
+		_, _, err = camera.ReadImage(ctx, camClient)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
+
+		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+			extra, ok := camera.FromContext(ctx)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, len(*extra), test.ShouldEqual, 1)
+			test.That(t, (*extra)["hello"], test.ShouldEqual, "world")
+			return nil, errStreamFailed
+		}
+
+		ext := camera.Extra{"hello": "world"}
+		ctx = camera.NewContext(ctx, &ext)
+		_, _, err = camera.ReadImage(ctx, camClient)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
+
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
 }
 
 func TestClientProperties(t *testing.T) {

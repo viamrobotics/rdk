@@ -17,6 +17,6 @@ func NewContext(ctx context.Context, e *Extra) context.Context {
 
 // FromContext returns the Extra value stored in ctx, if any.
 func FromContext(ctx context.Context) (*Extra, bool) {
-	u, ok := ctx.Value(extraKey).(*Extra)
-	return u, ok
+	ext, ok := ctx.Value(extraKey).(*Extra)
+	return ext, ok
 }
