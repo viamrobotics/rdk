@@ -366,19 +366,6 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 	// interrupted. Moreover, `motor.GoFor` will return immediately when given zero revolutions.
 	const numRevolutions = 0
 
-	// wb.mu.Lock()
-	// // Because `SetVelocity` does not create a new operation, canceling must be done atomically with
-	// // engaging the underlying motors. Otherwise, for example:
-	// //
-	// // 1) A new `Spin` command can register an operation
-	// // 2) but the motor instructions get overwritten by `SetVelocity`
-	// //
-	// // Resulting in the spin operation being "leaked" and/or the encoders trying to measure when to
-	// // finish "spinning" have undefined behavior due to the motors actually running at a
-	// // speed/direction that was not intended.
-	// wb.opMgr.CancelRunning(ctx)
-	// wb.mu.Unlock()
-
 	// start new operation after all calculations are made
 	ctx, done := wb.opMgr.New(ctx)
 	defer done()
