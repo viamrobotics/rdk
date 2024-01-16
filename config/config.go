@@ -763,7 +763,8 @@ var (
 )
 
 // Validate returns true if the config is valid. Ensures each key is valid and meets the required constraints.
-// Updates ValidatedKeySet once validated. A sample ExternalAuthConfig in JSON form is shown below, where "keys" contains a list of JSON Web Keys as defined in https://datatracker.ietf.org/doc/html/rfc7517.
+// Updates ValidatedKeySet once validated. A sample ExternalAuthConfig in JSON form is shown below, where "keys"
+// contains a list of JSON Web Keys as defined in https://datatracker.ietf.org/doc/html/rfc7517.
 //
 //	"external_auth_config": {
 //		"jwks": {
