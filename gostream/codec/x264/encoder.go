@@ -64,3 +64,8 @@ func (v *encoder) Encode(_ context.Context, img image.Image) ([]byte, error) {
 	release()
 	return dataCopy, err
 }
+
+// Close closes the encoder.
+func (v *encoder) Close() error {
+	return v.codec.Close()
+}
