@@ -67,7 +67,7 @@ func getExtra(ctx context.Context) (*structpb.Struct, error) {
 	ext := &structpb.Struct{}
 	if extra, ok := FromContext(ctx); ok {
 		var err error
-		if ext, err = goprotoutils.StructToStructPb(*extra); err != nil {
+		if ext, err = goprotoutils.StructToStructPb(extra); err != nil {
 			return nil, err
 		}
 	}

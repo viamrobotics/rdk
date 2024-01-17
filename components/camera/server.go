@@ -73,7 +73,7 @@ func (s *serviceServer) GetImage(
 	req.MimeType = utils.WithLazyMIMEType(req.MimeType)
 
 	ext := req.Extra.AsMap()
-	ctx = NewContext(ctx, (*Extra)(&ext))
+	ctx = NewContext(ctx, ext)
 
 	img, release, err := ReadImage(gostream.WithMIMETypeHint(ctx, req.MimeType), cam)
 	if err != nil {

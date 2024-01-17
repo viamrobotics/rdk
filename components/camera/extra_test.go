@@ -20,8 +20,8 @@ func TestExtraRoundtrip(t *testing.T) {
 		"even two":    "by two",
 	}
 
-	ctx = NewContext(ctx, &expected)
+	ctx = NewContext(ctx, expected)
 	actual, ok := FromContext(ctx)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, *actual, test.ShouldEqual, expected)
+	test.That(t, actual, test.ShouldEqual, expected)
 }

@@ -272,7 +272,7 @@ func TestClient(t *testing.T) {
 		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 			extra, ok := camera.FromContext(ctx)
 			test.That(t, ok, test.ShouldBeTrue)
-			test.That(t, *extra, test.ShouldBeEmpty)
+			test.That(t, extra, test.ShouldBeEmpty)
 			return nil, errStreamFailed
 		}
 
@@ -284,14 +284,14 @@ func TestClient(t *testing.T) {
 		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 			extra, ok := camera.FromContext(ctx)
 			test.That(t, ok, test.ShouldBeTrue)
-			test.That(t, len(*extra), test.ShouldEqual, 1)
-			test.That(t, (*extra)["hello"], test.ShouldEqual, "world")
+			test.That(t, len(extra), test.ShouldEqual, 1)
+			test.That(t, extra["hello"], test.ShouldEqual, "world")
 			return nil, errStreamFailed
 		}
 
 		// one kvp created with camera.Extra
 		ext := camera.Extra{"hello": "world"}
-		ctx = camera.NewContext(ctx, &ext)
+		ctx = camera.NewContext(ctx, ext)
 		_, _, err = camera.ReadImage(ctx, camClient)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
@@ -299,8 +299,8 @@ func TestClient(t *testing.T) {
 		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 			extra, ok := camera.FromContext(ctx)
 			test.That(t, ok, test.ShouldBeTrue)
-			test.That(t, len(*extra), test.ShouldEqual, 1)
-			test.That(t, (*extra)[data.FromDMString], test.ShouldBeTrue)
+			test.That(t, len(extra), test.ShouldEqual, 1)
+			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
 
 			return nil, errStreamFailed
 		}
@@ -314,15 +314,15 @@ func TestClient(t *testing.T) {
 		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 			extra, ok := camera.FromContext(ctx)
 			test.That(t, ok, test.ShouldBeTrue)
-			test.That(t, len(*extra), test.ShouldEqual, 2)
-			test.That(t, (*extra)["hello"], test.ShouldEqual, "world")
-			test.That(t, (*extra)[data.FromDMString], test.ShouldBeTrue)
+			test.That(t, len(extra), test.ShouldEqual, 2)
+			test.That(t, extra["hello"], test.ShouldEqual, "world")
+			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
 			return nil, errStreamFailed
 		}
 
 		// merge values from data and camera
 		ext = camera.Extra{"hello": "world"}
-		ctx = camera.NewContext(ctx, &ext)
+		ctx = camera.NewContext(ctx, ext)
 		_, _, err = camera.ReadImage(ctx, camClient)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
