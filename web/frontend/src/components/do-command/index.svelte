@@ -1,5 +1,5 @@
 <script lang="ts">
-import { commonApi } from '@viamrobotics/sdk';
+import { commonApi, type StructType } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import { resourceNameToString } from '@/lib/resource';
 import { doCommand } from '@/api/do-command';
@@ -40,7 +40,7 @@ const handleDoCommand = async (type: string, name: string, command: string) => {
       notify.success('Command issued');
     } else {
       notify.danger(
-        `Invalid response when executing command on ${name}: ${outputObject}`
+        `Invalid response when executing command on ${name}`
       );
     }
   } catch (error) {

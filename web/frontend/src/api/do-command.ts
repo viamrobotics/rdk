@@ -2,8 +2,8 @@ import {
   commonApi,
   doCommandFromClient,
   type ServiceError,
+  type StructType,
 } from '@viamrobotics/sdk';
-import { type JavaScriptValue } from 'google-protobuf/google/protobuf/struct_pb';
 import { rcLogConditionally } from '@/lib/log';
 import type { grpc } from '@improbable-eng/grpc-web';
 
@@ -32,7 +32,7 @@ export const doCommand = async (
   name: string,
   command: string
 ) => {
-  const parsedCommand = JSON.parse(command) as Record<string, JavaScriptValue>;
+  const parsedCommand = JSON.parse(command) as StructType;
 
   rcLogConditionally({
     request: 'DoCommandRequest',
