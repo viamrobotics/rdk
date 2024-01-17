@@ -1141,9 +1141,9 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 					Action: UploadModuleAction,
 				},
 				{
-					Name:   "build",
-					Hidden: true,
-					Usage: `build your module on different operating systems and cpu architectures via cloud runners.
+					Name:  "build",
+					Usage: "build your module for different architectures using cloud runners",
+					UsageText: `Build your module on different operating systems and cpu architectures via cloud runners.
 Uses the "build" section of your meta.json.
 Example:
 "build": {
@@ -1156,7 +1156,7 @@ Example:
 					Subcommands: []*cli.Command{
 						{
 							Name:  "local",
-							Usage: "run your module's build commands locally",
+							Usage: "run your meta.json build command locally",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:      moduleFlagPath,
@@ -1168,8 +1168,8 @@ Example:
 							Action: ModuleBuildLocalAction,
 						},
 						{
-							Name:        "start",
-							Description: "start a remote build",
+							Name:  "start",
+							Usage: "start a remote build",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:      moduleBuildFlagPath,
