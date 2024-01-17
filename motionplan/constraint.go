@@ -4,6 +4,7 @@ package motionplan
 
 import (
 	"errors"
+	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -278,14 +279,31 @@ func createAllCollisionConstraints(
 	}
 
 	if len(obstacles.Geometries()) > 0 {
+		moving := movingGeometries.Geometries()
+		static := obstacles.Geometries()
+		// Check if a moving geometry is in collision with a pointcloud. If so, error.
+		// TODO: This is not the most robust way to deal with this but is better than driving through walls.
+		var zeroCG *collisionGraph
+		for _, geom := range static {
+			if octree, ok := geom.(*pointcloud.BasicOctree); ok {
+				if zeroCG == nil {
+					zeroCG, err = setupZeroCG(moving, static, allowedCollisions)
+					if err != nil {
+						return nil, err
+					}
+				}
+				for _, collision := range zeroCG.collisions() {
+					if collision.name1 == octree.Label() {
+						return nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name2)
+					} else if collision.name2 == octree.Label() {
+						return nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name1)
+					}
+				}
+			}
+		}
+
 		// create constraint to keep moving geometries from hitting world state obstacles
-		// can use zeroth element of worldState.Obstacles because ToWorldFrame returns only one GeometriesInFrame
-		obstacleConstraint, err := NewCollisionConstraint(
-			movingGeometries.Geometries(),
-			obstacles.Geometries(),
-			allowedCollisions,
-			false,
-		)
+		obstacleConstraint, err := NewCollisionConstraint(moving, static, allowedCollisions, false)
 		if err != nil {
 			return nil, err
 		}
@@ -312,6 +330,18 @@ func createAllCollisionConstraints(
 	return constraintMap, nil
 }
 
+func setupZeroCG(moving, static []spatial.Geometry, collisionSpecifications []*Collision) (*collisionGraph, error) {
+	// create the reference collisionGraph
+	zeroCG, err := newCollisionGraph(moving, static, nil, true)
+	if err != nil {
+		return nil, err
+	}
+	for _, specification := range collisionSpecifications {
+		zeroCG.addCollisionSpecification(specification)
+	}
+	return zeroCG, nil
+}
+
 // NewCollisionConstraint is the most general method to create a collision constraint, which will be violated if geometries constituting
 // the given frame ever come into collision with obstacle geometries outside of the collisions present for the observationInput.
 // Collisions specified as collisionSpecifications will also be ignored
@@ -321,13 +351,9 @@ func NewCollisionConstraint(
 	collisionSpecifications []*Collision,
 	reportDistances bool,
 ) (StateConstraint, error) {
-	// create the reference collisionGraph
-	zeroCG, err := newCollisionGraph(moving, static, nil, true)
+	zeroCG, err := setupZeroCG(moving, static, collisionSpecifications)
 	if err != nil {
 		return nil, err
-	}
-	for _, specification := range collisionSpecifications {
-		zeroCG.addCollisionSpecification(specification)
 	}
 
 	// create constraint from reference collision graph
