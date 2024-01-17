@@ -1,5 +1,10 @@
 <?xml version="1.0" ?>
-<!-- This URDF is an example of a gantry with purely prismatic joints, such as a rack-and-pinion and pneumatic slide -->
+<!-- 
+This is almost a valid URDF file. 
+It is missing joint limit effort & velocity attributes (as they are not currently known).
+It is used in tests.
+This file is an example of a gantry with purely prismatic joints, such as a rack-and-pinion and pneumatic slide 
+-->
 <robot name="gantry">
   <link name="world"/>
 
@@ -16,7 +21,7 @@
     <child link="gantry_carriage"/>
     <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.15"/>
     <axis xyz="0 1 0"/>
-    <limit effort="150" lower="-0.1" upper="2.1" velocity="3.141592" />
+    <limit lower="-0.1" upper="2.1" />
   </joint>
 
   <link name="gantry_carriage" />
@@ -26,7 +31,7 @@
     <child link="gantry_mount"/>
     <origin rpy="0.0 0.0 0.0" xyz="0.2 0.1 0.1"/>
     <axis xyz="1 0 0"/>
-    <limit effort="150" lower="-0.05" upper="0.250" velocity="3.141592" />
+    <limit lower="-0.05" upper="0.250" />
   </joint>
 
   <link name="gantry_mount" />
