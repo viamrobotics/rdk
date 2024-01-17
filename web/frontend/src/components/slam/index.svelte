@@ -148,7 +148,9 @@
 
   const handle2dRenderClick = (event: CustomEvent<THREE.Vector3>) => {
     if (!overrides?.isCloudSlam) {
-      destination = new THREE.Vector2(event.detail.x, event.detail.y);
+      const roundedX = Number.parseFloat(event.detail.x.toFixed(5))
+      const roundedY = Number.parseFloat(event.detail.y.toFixed(5))
+      destination = new THREE.Vector2(roundedX, roundedY);
     }
   };
 
@@ -424,21 +426,21 @@
               </div>
               <div class="flex flex-row items-end gap-2 pb-2">
                 <v-input
-                  type="number"
+                  type="string"
                   label="x"
                   incrementor="slider"
-                  value={destination
-                    ? (destination.x * unitScale).toFixed(5)
+                  value={destination && !Number.isNaN(destination.x)
+                    ? (destination.x * unitScale)
                     : ''}
                   step={labelUnits === 'mm' ? '10' : '1'}
                   on:input={handleUpdateDestX}
                 />
                 <v-input
-                  type="number"
+                  type="string"
                   label="y"
                   incrementor="slider"
-                  value={destination
-                    ? (destination.y * unitScale).toFixed(5)
+                  value={destination && !Number.isNaN(destination.y)
+                    ? (destination.y * unitScale)
                     : ''}
                   step={labelUnits === 'mm' ? '10' : '1'}
                   on:input={handleUpdateDestY}
