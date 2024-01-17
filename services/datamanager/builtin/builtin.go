@@ -372,14 +372,15 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 // regardless of whether or not is the scheduled time.
 func (svc *builtIn) Sync(ctx context.Context, _ map[string]interface{}) error {
 	svc.lock.Lock()
-	defer svc.lock.Unlock()
 	if svc.syncer == nil {
 		err := svc.initSyncer(ctx)
 		if err != nil {
+			svc.lock.Unlock()
 			return err
 		}
 	}
 
+	svc.lock.Unlock()
 	svc.sync()
 	return nil
 }
@@ -569,11 +570,14 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 					if svc.syncSensor != nil && svc.selectiveSyncEnabled {
 						shouldSync = readyToSync(cancelCtx, svc.syncSensor, svc.logger)
 					}
+					svc.lock.Unlock()
+
 					if shouldSync {
 						svc.sync()
 					}
+				} else {
+					svc.lock.Unlock()
 				}
-				svc.lock.Unlock()
 			}
 		}
 	})
@@ -582,10 +586,13 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 func (svc *builtIn) sync() {
 	svc.flushCollectors()
 
+	svc.lock.Lock()
 	toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
 	for _, ap := range svc.additionalSyncPaths {
 		toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
 	}
+	svc.lock.Unlock()
+
 	for _, p := range toSync {
 		svc.syncer.SyncFile(p)
 	}

@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
@@ -480,7 +481,7 @@ func TestClient(t *testing.T) {
 		})
 
 		t.Run("otherwise returns a slice of PlanWithStatus", func(t *testing.T) {
-			steps := []motion.PlanStep{
+			steps := []motionplan.PlanStep{
 				{base.Named("mybase"): zeroPose},
 			}
 			reason := "some reason"
@@ -512,7 +513,7 @@ func TestClient(t *testing.T) {
 		})
 
 		t.Run("supports returning a slice of PlanWithStatus with more than one plan", func(t *testing.T) {
-			steps := []motion.PlanStep{{base.Named("mybase"): zeroPose}}
+			steps := []motionplan.PlanStep{{base.Named("mybase"): zeroPose}}
 			reason := "some reason"
 
 			idA := uuid.New()

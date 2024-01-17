@@ -23,6 +23,7 @@ import (
 	_ "go.viam.com/rdk/components/movementsensor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -655,7 +656,7 @@ func TestPaths(t *testing.T) {
 				{
 					Plan: motion.Plan{
 						ExecutionID: executionID,
-						Steps: []motion.PlanStep{map[resource.Name]spatialmath.Pose{
+						Steps: []motionplan.PlanStep{map[resource.Name]spatialmath.Pose{
 							s.base.Name(): spatialmath.NewPose(r3.Vector{X: expectedLng, Y: expectedLat}, nil),
 						}},
 					},
