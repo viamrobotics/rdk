@@ -20,7 +20,11 @@ let input = '{}';
 let output = '';
 let executing = false;
 
-const handleDoCommand = async (type: string, name: string, command: string) => {
+const handleDoCommand = async (
+  type: string | undefined,
+  name: string | undefined,
+  command: string
+) => {
   if (!type || !name || !command) {
     return;
   }
@@ -110,8 +114,8 @@ const namesToPrettySelect = (): string[] => {
           disabled={!selectedComponent || !input || executing}
           on:click={async () =>
             handleDoCommand(
-              selectedComponent?.subtype ?? '',
-              selectedComponent?.name ?? '',
+              selectedComponent?.subtype,
+              selectedComponent?.name,
               input
             )}
         >
