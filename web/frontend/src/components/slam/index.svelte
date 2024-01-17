@@ -148,7 +148,9 @@
 
   const handle2dRenderClick = (event: CustomEvent<THREE.Vector3>) => {
     if (!overrides?.isCloudSlam) {
-      destination = new THREE.Vector2(event.detail.x, event.detail.y);
+      const roundedX = Number.parseFloat(event.detail.x.toFixed(5))
+      const roundedY = Number.parseFloat(event.detail.y.toFixed(5))
+      destination = new THREE.Vector2(roundedX, roundedY);
     }
   };
 
