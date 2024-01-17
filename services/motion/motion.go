@@ -96,11 +96,6 @@ type ListPlanStatusesReq struct {
 	Extra           map[string]interface{}
 }
 
-// PlanStep represents a single step of the plan
-// Describes the pose each resource described by the plan
-// should move to at that step.
-type PlanStep map[resource.Name]spatialmath.Pose
-
 // PlanWithMetadata represents a motion plan with additional metadata used by the motion service.
 type PlanWithMetadata struct {
 	// Unique ID of the plan

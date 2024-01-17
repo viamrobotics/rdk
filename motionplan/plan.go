@@ -40,8 +40,8 @@ func newPlan(solution []node, sf *solverFrame, relative bool) (*Plan, error) {
 	}, nil
 }
 
-// TODO: can probably think of a better name for this function
-func (plan *Plan) Remaining(waypointIndex int) *Plan {
+// RemainingPlan returns a new Plan equal to the given plan from the waypointIndex onwards.
+func (plan *Plan) RemainingPlan(waypointIndex int) *Plan {
 	// TODO: I don't think a deep copy should be necessary here but maybe?
 	return &Plan{
 		Path:       plan.Path[waypointIndex:],
@@ -117,7 +117,7 @@ func (traj Trajectory) String() string {
 	return str
 }
 
-// Evaluate assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the Trajectory.
+// Evaluate assigns a numeric score to a Trajectory as measured by the given distFunc Metric.
 func (traj Trajectory) Evaluate(distFunc ik.SegmentMetric) (totalCost float64) {
 	if len(traj) < 2 {
 		return math.Inf(1)

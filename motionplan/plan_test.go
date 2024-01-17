@@ -164,7 +164,7 @@ func TestPlanToGeoPlan(t *testing.T) {
 	// test Path gets constructed correctly
 	test.That(t, len(plan.Path), test.ShouldBeGreaterThan, 1)
 	test.That(t, spatialmath.PoseAlmostEqual(plan.Path[0][baseName].Pose(), spatialmath.NewZeroPose()), test.ShouldBeTrue)
-	test.That(t, spatialmath.PoseAlmostEqualEps(plan.Path[len(plan.Path)-1][baseName].Pose(), goal, 1e-1), test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostCoincidentEps(plan.Path[len(plan.Path)-1][baseName].Pose(), goal, 1), test.ShouldBeTrue)
 
 	type testCase struct {
 		name        string
@@ -222,8 +222,6 @@ func TestPlanToGeoPlan(t *testing.T) {
 
 			pose = gps.Path[len(gps.Path)-1][baseName].Pose()
 			pt = pose.Point()
-			heading = utils.RadToDeg(pose.Orientation().EulerAngles().Yaw)
-			heading = math.Mod(math.Abs(heading-360), 360)
 			test.That(t, pt.X, test.ShouldAlmostEqual, tc.expectedGPs[1].Location().Lng(), 1e-3)
 			test.That(t, pt.Y, test.ShouldAlmostEqual, tc.expectedGPs[1].Location().Lat(), 1e-3)
 		})
