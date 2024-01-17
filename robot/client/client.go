@@ -18,7 +18,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
-	apppb "go.viam.com/api/app/v1"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
@@ -956,7 +955,7 @@ func (rc *RobotClient) ModuleLog(ctx context.Context, log zapcore.Entry, fields 
 
 	logRequest := &pb.ModuleLogRequest{
 		// no batching for now (one LogEntry at a time).
-		Logs: []*apppb.LogEntry{{
+		Logs: []*commonpb.LogEntry{{
 			// leave out Host; Host is not meaningful for module logging
 			Level: log.Level.String(),
 			// leave out Time; Time is already in message field below
