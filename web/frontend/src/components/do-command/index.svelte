@@ -1,5 +1,5 @@
 <script lang="ts">
-import { commonApi, type StructType } from '@viamrobotics/sdk';
+import { commonApi } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import { resourceNameToString } from '@/lib/resource';
 import { doCommand } from '@/api/do-command';
