@@ -158,7 +158,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Two known auth handlers (LocationSecret, WebOauth).
+// Three known auth handlers (LocationSecret, External, APIKey).
 func hasManagedAuthHandlers(handlers []config.AuthHandlerConfig) bool {
 	hasLocationSecretHandler := false
 	for _, h := range handlers {
