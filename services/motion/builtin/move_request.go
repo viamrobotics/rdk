@@ -687,16 +687,6 @@ func (ms *builtIn) newMoveOnMapRequest(
 	}
 	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
 
-	// naive check that the destination is within slam's limits
-	checkX := limits[0].Max > req.Destination.Point().X && req.Destination.Point().X > limits[0].Min
-	checkY := limits[1].Max > req.Destination.Point().Y && req.Destination.Point().X > limits[1].Min
-	if !checkX || !checkY {
-		return nil, fmt.Errorf(
-			"destination must be within the following limits, X: %v, Y:%v",
-			limits[0], limits[1],
-		)
-	}
-
 	// create a KinematicBase from the componentName
 	component, ok := ms.components[req.ComponentName]
 	if !ok {
@@ -864,8 +854,6 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		responseChan: make(chan moveResponse, 1),
 
 		waypointIndex: &waypointIndex,
-
-		poseOrigin: startPose.Pose(),
 	}
 
 	// TODO: Change deviatedFromPlan to just query positionPollingFreq on the struct & the same for the obstaclesIntersectPlan
