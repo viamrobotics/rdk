@@ -199,8 +199,8 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan *Plan, replan
 	}
 
 	if replanCostFactor > 0 && currentPlan != nil {
-		initialPlanCost := currentPlan.Trajectory.Evaluate(sfPlanner.opt().ScoreFunc)
-		finalPlanCost := newPlan.Trajectory.Evaluate(sfPlanner.opt().ScoreFunc)
+		initialPlanCost := currentPlan.Trajectory.EvaluateCost(sfPlanner.opt().ScoreFunc)
+		finalPlanCost := newPlan.Trajectory.EvaluateCost(sfPlanner.opt().ScoreFunc)
 		request.Logger.CDebugf(ctx,
 			"initialPlanCost %f adjusted with cost factor to %f, replan cost %f",
 			initialPlanCost, initialPlanCost*replanCostFactor, finalPlanCost,

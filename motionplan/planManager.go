@@ -450,7 +450,7 @@ func (pm *planManager) planParallelRRTMotion(
 		finalSteps.steps = <-smoothChan
 		score := math.Inf(1)
 		if finalSteps.steps != nil {
-			score = pm.frame.nodesToTrajectory(finalSteps.steps).Evaluate(pm.opt().ScoreFunc)
+			score = pm.frame.nodesToTrajectory(finalSteps.steps).EvaluateCost(pm.opt().ScoreFunc)
 		}
 
 		// If we ran a fallback, retrieve the result and compare to the smoothed path
@@ -459,7 +459,7 @@ func (pm *planManager) planParallelRRTMotion(
 			if err == nil {
 				// If the fallback successfully found a path, check if it is better than our smoothed previous path.
 				// The fallback should emerge pre-smoothed, so that should be a non-issue
-				altCost := pm.frame.nodesToTrajectory(alternate).Evaluate(pm.opt().ScoreFunc)
+				altCost := pm.frame.nodesToTrajectory(alternate).EvaluateCost(pm.opt().ScoreFunc)
 				if altCost < score {
 					pm.logger.CDebugf(ctx, "replacing path with score %f with better score %f", score, altCost)
 					finalSteps = &rrtPlanReturn{steps: alternate}
@@ -645,7 +645,7 @@ func (pm *planManager) goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, f
 		if pr.maps.optNode.Cost() <= 0 {
 			return true, solutionCost
 		}
-		solutionCost = pm.frame.nodesToTrajectory(pr.steps).Evaluate(opt.ScoreFunc)
+		solutionCost = pm.frame.nodesToTrajectory(pr.steps).EvaluateCost(opt.ScoreFunc)
 		if solutionCost < pr.maps.optNode.Cost()*defaultOptimalityMultiple {
 			return true, solutionCost
 		}

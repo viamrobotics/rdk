@@ -41,13 +41,17 @@ func newPlan(solution []node, sf *solverFrame, relative bool) (*Plan, error) {
 }
 
 // RemainingPlan returns a new Plan equal to the given plan from the waypointIndex onwards.
-func (plan *Plan) RemainingPlan(waypointIndex int) *Plan {
+func (plan *Plan) RemainingPlan(waypointIndex int) (*Plan, error) {
 	// TODO: I don't think a deep copy should be necessary here but maybe?
+	// TODO: should probably make Plan have a len field
+	if waypointIndex < 0 || waypointIndex >= len(plan.Trajectory) {
+		return nil, fmt.Errorf("could not access plan using waypoint %d, must be between 0 and %d", waypointIndex, len(plan.Trajectory))
+	}
 	return &Plan{
 		Path:       plan.Path[waypointIndex:],
 		Trajectory: plan.Trajectory[waypointIndex:],
 		nodes:      plan.nodes[waypointIndex:],
-	}
+	}, nil
 }
 
 func (plan *Plan) Offset(offset spatialmath.Pose) *Plan {
@@ -108,29 +112,29 @@ func (traj Trajectory) String() string {
 	var str string
 	for _, step := range traj {
 		str += "\n"
-		for component, input := range step {
+		for frame, input := range step {
 			if len(input) > 0 {
-				str += fmt.Sprintf("%s: %v\t", component, input)
+				str += fmt.Sprintf("%s: %v\t", frame, input)
 			}
 		}
 	}
 	return str
 }
 
-// Evaluate assigns a numeric score to a Trajectory as measured by the given distFunc Metric.
-func (traj Trajectory) Evaluate(distFunc ik.SegmentMetric) (totalCost float64) {
+// EvaluateCost calculates a cost to a Trajectory as measured by the given distFunc Metric.
+func (traj Trajectory) EvaluateCost(distFunc ik.SegmentMetric) (totalCost float64) {
 	if len(traj) < 2 {
 		return math.Inf(1)
 	}
 	last := map[string][]referenceframe.Input{}
 	for _, step := range traj {
-		for component, inputs := range step {
+		for frame, inputs := range step {
 			if len(inputs) > 0 {
-				if lastInputs, ok := last[component]; ok {
+				if lastInputs, ok := last[frame]; ok {
 					cost := distFunc(&ik.Segment{StartConfiguration: lastInputs, EndConfiguration: inputs})
 					totalCost += cost
 				}
-				last[component] = inputs
+				last[frame] = inputs
 			}
 		}
 	}
@@ -155,7 +159,7 @@ func PathStepFromProto(ps *pb.PlanStep) (PathStep, error) {
 		return PathStep{}, errors.New("received nil *pb.PlanStep")
 	}
 
-	step := make(PathStep)
+	step := make(PathStep, len(ps.Step))
 	for k, v := range ps.Step {
 		step[k] = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromProtobuf(v.Pose))
 	}

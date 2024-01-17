@@ -200,7 +200,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 					stepMap := map[string][]referenceframe.Input{mp.frame.Name(): step.Q()}
 					traj = append(traj, stepMap)
 				}
-				solutionCost := traj.Evaluate(mp.planOpts.ScoreFunc)
+				solutionCost := traj.EvaluateCost(mp.planOpts.ScoreFunc)
 				if solutionCost-rrt.maps.optNode.Cost() < defaultOptimalityThreshold*rrt.maps.optNode.Cost() {
 					mp.logger.CDebug(ctx, "RRT* progress: sufficiently optimal path found, exiting")
 					rrt.solutionChan <- solution
