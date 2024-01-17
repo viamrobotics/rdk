@@ -429,7 +429,7 @@
                   type="string"
                   label="x"
                   incrementor="slider"
-                  value={destination && !isNaN(destination.x)
+                  value={destination && !Number.isNaN(destination.x)
                     ? (destination.x * unitScale)
                     : ''}
                   step={labelUnits === 'mm' ? '10' : '1'}
@@ -439,7 +439,7 @@
                   type="string"
                   label="y"
                   incrementor="slider"
-                  value={destination && !isNaN(destination.y)
+                  value={destination && !Number.isNaN(destination.y)
                     ? (destination.y * unitScale)
                     : ''}
                   step={labelUnits === 'mm' ? '10' : '1'}
