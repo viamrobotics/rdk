@@ -244,10 +244,6 @@ func (m *Module) Close(ctx context.Context) {
 
 // GetParentResource returns a resource from the parent robot by name.
 func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (resource.Resource, error) {
-	if err := m.connectParent(ctx); err != nil {
-		return nil, err
-	}
-
 	// Refresh parent to ensure it has the most up-to-date resources before calling
 	// ResourceByName.
 	if err := m.parent.Refresh(ctx); err != nil {
@@ -257,23 +253,21 @@ func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (res
 }
 
 func (m *Module) connectParent(ctx context.Context) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.parent == nil {
-		if err := CheckSocketOwner(m.parentAddr); err != nil {
-			return err
-		}
-		// NOTE(benjirewis): moduleLoggers may be creating the client connection
-		// below, so use a different logger here to avoid a deadlock where the
-		// client connection tries to recursively connect to the parent.
-		clientLogger := logging.NewDebugLogger("module connection")
-		// TODO(PRODUCT-343): add session support to modules
-		rc, err := client.New(ctx, "unix://"+m.parentAddr, clientLogger, client.WithDisableSessions())
-		if err != nil {
-			return err
-		}
-		m.parent = rc
+	if err := CheckSocketOwner(m.parentAddr); err != nil {
+		return err
 	}
+
+	// NOTE(benjirewis): moduleLoggers may be creating the client connection
+	// below, so use a different logger here to avoid a deadlock where the
+	// client connection tries to recursively connect to the parent.
+	clientLogger := logging.NewDebugLogger("module-connection")
+	// TODO(PRODUCT-343): add session support to modules
+	rc, err := client.New(ctx, "unix://"+m.parentAddr, clientLogger, client.WithDisableSessions())
+	if err != nil {
+		return err
+	}
+
+	m.parent = rc
 	return nil
 }
 
@@ -289,6 +283,9 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.parentAddr = req.GetParentAddress()
+	if err := m.connectParent(ctx); err != nil {
+		return nil, err
+	}
 	// If logger is a moduleLogger, start gRPC logging.
 	if moduleLogger, ok := m.logger.(*moduleLogger); ok {
 		moduleLogger.startLoggingViaGRPC(m)

@@ -5,9 +5,9 @@ import (
 	"os"
 	"time"
 
-	"go.viam.com/rdk/logging"
-
 	"go.uber.org/zap/zapcore"
+
+	"go.viam.com/rdk/logging"
 )
 
 type moduleAppender struct {
@@ -34,17 +34,10 @@ func (ma *moduleAppender) Write(log zapcore.Entry, fields []zapcore.Field) error
 		return ma.stdoutAppender.Write(log, fields)
 	}
 
-	// Only give 5 seconds for client creation and eventual ModuleLog call in
-	// case parent (RDK) is shutting down or otherwise unreachable.
-	connectCtx, connectCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer connectCancel()
-	if err := ma.module.connectParent(connectCtx); err != nil {
-		return err
-	}
-
+	// Only give 5 seconds for ModuleLog call in case parent (RDK) is shutting
+	// down or otherwise unreachable.
 	moduleLogCtx, moduleLogCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer moduleLogCancel()
-
 	return ma.module.parent.ModuleLog(moduleLogCtx, log, fields)
 }
 

@@ -407,6 +407,7 @@ func (s *Server) SendSessionHeartbeat(ctx context.Context, req *pb.SendSessionHe
 	return &pb.SendSessionHeartbeatResponse{}, nil
 }
 
+// ModuleLog receives logs from a module to be logged by this parent robot.
 func (s *Server) ModuleLog(ctx context.Context, req *pb.ModuleLogRequest) (*pb.ModuleLogResponse, error) {
 	if req.Logs == nil {
 		return nil, errors.New("ModuleLogRequest received with no associated logs")
