@@ -424,21 +424,21 @@
               </div>
               <div class="flex flex-row items-end gap-2 pb-2">
                 <v-input
-                  type="number"
+                  type="string"
                   label="x"
                   incrementor="slider"
-                  value={destination
-                    ? (destination.x * unitScale).toFixed(5)
+                  value={destination && !isNaN(destination.x)
+                    ? (destination.x * unitScale)
                     : ''}
                   step={labelUnits === 'mm' ? '10' : '1'}
                   on:input={handleUpdateDestX}
                 />
                 <v-input
-                  type="number"
+                  type="string"
                   label="y"
                   incrementor="slider"
-                  value={destination
-                    ? (destination.y * unitScale).toFixed(5)
+                  value={destination && !isNaN(destination.y)
+                    ? (destination.y * unitScale)
                     : ''}
                   step={labelUnits === 'mm' ? '10' : '1'}
                   on:input={handleUpdateDestY}
