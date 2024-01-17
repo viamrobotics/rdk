@@ -1,6 +1,6 @@
+<?xml version="1.0" ?>
 <!-- This URDF is an (almost) exact conversion of our ModelJSON representation of a UR5 -->
 <!-- See components/arm/universalrobots/ur5e.json for the original content -->
-<?xml version="1.0" ?>
 <robot name="ur5">
   <!-- This does not actually feature in the original ModelJSON, but is important to anchor the world_joint -->
   <link name="world"/>
@@ -26,7 +26,7 @@
     <child link="shoulder_link"/>
     <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.1625"/>
     <axis xyz="0 0 1"/>
-    <limit lower="-6.283185" upper="6.283185" />
+    <limit effort="150" lower="-6.283185" upper="6.283185" velocity="3.141592" />
   </joint>
 
   <link name="shoulder_link" />
@@ -36,7 +36,7 @@
     <child link="upper_arm_link"/>
     <origin rpy="0.0 0.0 0.0" xyz="-0.425 0.0 0.0"/>
     <axis xyz="0 -1 0"/>
-    <limit lower="-6.283185" upper="6.283185" />
+    <limit effort="150" lower="-6.283185" upper="6.283185" velocity="3.141592" />
   </joint>
 
   <link name="upper_arm_link">
@@ -53,7 +53,7 @@
     <child link="forearm_link"/>
     <origin rpy="0.0 0.0 0.0" xyz="-0.3922 0.0 0.0"/>
     <axis xyz="0 -1 0"/>
-    <limit lower="-3.141592" upper="3.141592" />
+    <limit effort="150" lower="-3.141592" upper="3.141592" velocity="3.141592" />
   </joint>
 
   <link name="forearm_link">
@@ -70,7 +70,7 @@
     <child link="wrist_1_link"/>
     <origin rpy="0.0 0.0 0.0" xyz="0.0 -0.1333 0.0"/>
     <axis xyz="0 -1 0"/>
-    <limit lower="-6.283185" upper="6.283185" />
+    <limit effort="28" lower="-6.283185" upper="6.283185" velocity="3.141592" />
   </joint>
 
   <link name="wrist_1_link">
@@ -87,7 +87,7 @@
     <child link="wrist_2_link"/>
     <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.0997"/>
     <axis xyz="0 0 -1"/>
-    <limit lower="-6.283185" upper="6.283185" />
+    <limit effort="28" lower="-6.283185" upper="6.283185" velocity="3.141592" />
   </joint>
 
   <link name="wrist_2_link">
@@ -104,7 +104,7 @@
     <child link="ee_link"/>
     <origin rpy="1.5707963 0.0 0.0" xyz="0.0 -0.0996 0.0"/>
     <axis xyz="0 -1 0"/>
-    <limit lower="-6.283185" upper="6.283185" />
+    <limit effort="28" lower="-6.283185" upper="6.283185" velocity="3.141592" />
   </joint>
 
   <link name="ee_link" />
