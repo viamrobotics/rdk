@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
@@ -393,22 +392,4 @@ func PollHistoryUntilSuccessOrError(
 
 		time.Sleep(interval)
 	}
-}
-
-// TODO: could make Plan an interface and type this specifically as a geoPlan but this might be overkill
-func AsGeoPlan(plan *motionplan.Plan, geoOrigin *spatialmath.GeoPose) (*motionplan.Plan, error) {
-	newPath := make([]motionplan.PathStep, 0, len(plan.Path))
-	for _, step := range plan.Path {
-		newStep := make(motionplan.PathStep)
-		for frame, pif := range step {
-			pose := pif.Pose()
-			geoPose := spatialmath.PoseToGeoPose(geoOrigin, pose)
-			smuggledGeoPose := spatialmath.NewPose(r3.Vector{X: geoPose.Location().Lng(), Y: geoPose.Location().Lat()}, pose.Orientation())
-			newStep[frame] = referenceframe.NewPoseInFrame(pif.Parent(), smuggledGeoPose)
-		}
-		newPath = append(newPath, newStep)
-	}
-
-	plan.Path = newPath
-	return plan, nil
 }

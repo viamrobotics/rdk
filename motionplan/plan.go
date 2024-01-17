@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/golang/geo/r3"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
@@ -63,6 +64,28 @@ func (plan *Plan) Offset(offset spatialmath.Pose) *Plan {
 		Trajectory: plan.Trajectory,
 		nodes:      plan.nodes,
 	}
+}
+
+// TODO: could make Plan an interface and type this specifically as a geoPlan but this might be overkill
+func (plan *Plan) ToGeoPlan(geoOrigin *spatialmath.GeoPose) (*Plan, error) {
+	newPath := make([]PathStep, 0, len(plan.Path))
+	for _, step := range plan.Path {
+		newStep := make(PathStep)
+		for frame, pif := range step {
+			pose := pif.Pose()
+			geoPose := spatialmath.PoseToGeoPose(geoOrigin, pose)
+			heading := math.Mod(math.Abs(geoPose.Heading()-360), 360)
+			o := &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: heading}
+			smuggledGeoPose := spatialmath.NewPose(r3.Vector{X: geoPose.Location().Lng(), Y: geoPose.Location().Lat()}, o)
+			newStep[frame] = referenceframe.NewPoseInFrame(pif.Parent(), smuggledGeoPose)
+		}
+		newPath = append(newPath, newStep)
+	}
+	return &Plan{
+		Trajectory: plan.Trajectory,
+		Path:       newPath,
+		nodes:      plan.nodes,
+	}, nil
 }
 
 type Trajectory []map[string][]referenceframe.Input

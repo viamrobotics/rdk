@@ -1,16 +1,20 @@
 package motionplan
 
 import (
+	"context"
 	"math"
 	"testing"
 
 	"github.com/golang/geo/r3"
+	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/test"
 )
 
@@ -135,4 +139,93 @@ func TestPlanStep(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestPlanToGeoPlan(t *testing.T) {
+	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
+	test.That(t, err, test.ShouldBeNil)
+	baseName := "myBase"
+	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(baseName, logger, 200, 60, 0, 2, []spatialmath.Geometry{sphere}, false)
+	test.That(t, err, test.ShouldBeNil)
+	baseFS := referenceframe.NewEmptyFrameSystem("baseFS")
+	err = baseFS.AddFrame(kinematicFrame, baseFS.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1000, Y: 8000, Z: 0})
+	plan, err := Replan(context.Background(), &PlanRequest{
+		Logger:             logging.NewTestLogger(t),
+		Goal:               referenceframe.NewPoseInFrame(referenceframe.World, goal),
+		Frame:              kinematicFrame,
+		FrameSystem:        baseFS,
+		StartConfiguration: referenceframe.StartPositions(baseFS),
+	}, nil, math.NaN())
+	test.That(t, err, test.ShouldBeNil)
+
+	// test Path gets constructed correctly
+	test.That(t, len(plan.Path), test.ShouldBeGreaterThan, 1)
+	test.That(t, spatialmath.PoseAlmostEqual(plan.Path[0][baseName].Pose(), spatialmath.NewZeroPose()), test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostEqualEps(plan.Path[len(plan.Path)-1][baseName].Pose(), goal, 1e-1), test.ShouldBeTrue)
+
+	type testCase struct {
+		name        string
+		origin      *spatialmath.GeoPose
+		expectedGPs []spatialmath.GeoPose
+	}
+
+	tcs := []testCase{
+		{
+			name:   "null island origin & north heading",
+			origin: spatialmath.NewGeoPose(geo.NewPoint(0, 0), 0),
+			expectedGPs: []spatialmath.GeoPose{
+				*spatialmath.NewGeoPose(geo.NewPoint(0, 0), 0),
+				*spatialmath.NewGeoPose(geo.NewPoint(7.059656988760095e-05, 1.498635280806064e-05), 8.101305308745282),
+			},
+		},
+		{
+			name:   "null island origin & east heading",
+			origin: spatialmath.NewGeoPose(geo.NewPoint(0, 0), 90),
+			expectedGPs: []spatialmath.GeoPose{
+				*spatialmath.NewGeoPose(geo.NewPoint(0, 0), 90.),
+				*spatialmath.NewGeoPose(geo.NewPoint(-1.498635280674151e-05, 7.059656989571761e-05), 98.10130530874528),
+			},
+		},
+		{
+			name:   "central park origin & west heading",
+			origin: spatialmath.NewGeoPose(geo.NewPoint(40.770190, -73.977192), 270),
+			expectedGPs: []spatialmath.GeoPose{
+				*spatialmath.NewGeoPose(geo.NewPoint(40.77019, -73.97719199999997), 270),
+				*spatialmath.NewGeoPose(geo.NewPoint(40.77020498631531, -73.97728521712797), 278.1013053087453),
+			},
+		},
+		{
+			name:   "central park origin & south heading",
+			origin: spatialmath.NewGeoPose(geo.NewPoint(40.770190, -73.977192), 180),
+			expectedGPs: []spatialmath.GeoPose{
+				*spatialmath.NewGeoPose(geo.NewPoint(40.77019, -73.97719199999997), 180),
+				*spatialmath.NewGeoPose(geo.NewPoint(40.770119403428424, -73.97721178825562), 188.10130530874528),
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			// test Path gets converted to a GeoPlan correctly
+			gps, err := plan.ToGeoPlan(tc.origin)
+			test.That(t, err, test.ShouldBeNil)
+			pose := gps.Path[0][baseName].Pose()
+			pt := pose.Point()
+			heading := utils.RadToDeg(pose.Orientation().EulerAngles().Yaw)
+			heading = math.Mod(math.Abs(heading-360), 360)
+			test.That(t, pt.X, test.ShouldAlmostEqual, tc.expectedGPs[0].Location().Lng(), 1e-6)
+			test.That(t, pt.Y, test.ShouldAlmostEqual, tc.expectedGPs[0].Location().Lat(), 1e-6)
+			test.That(t, heading, test.ShouldAlmostEqual, tc.expectedGPs[0].Heading(), 1e-3)
+
+			pose = gps.Path[len(gps.Path)-1][baseName].Pose()
+			pt = pose.Point()
+			heading = utils.RadToDeg(pose.Orientation().EulerAngles().Yaw)
+			heading = math.Mod(math.Abs(heading-360), 360)
+			test.That(t, pt.X, test.ShouldAlmostEqual, tc.expectedGPs[1].Location().Lng(), 1e-3)
+			test.That(t, pt.Y, test.ShouldAlmostEqual, tc.expectedGPs[1].Location().Lat(), 1e-3)
+		})
+	}
 }
