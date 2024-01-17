@@ -4,7 +4,7 @@ package colordetector
 
 import (
 	"context"
-
+	"fmt"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
@@ -26,6 +26,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
+
 			return registerColorDetector(ctx, c.ResourceName(), attrs, deps)
 		},
 		WeakDependencies: []resource.Matcher{
@@ -43,6 +44,13 @@ func registerColorDetector(
 ) (vision.Service, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::registerColorDetector")
 	defer span.End()
+
+	fmt.Println("Printing COL DETECTOR DEPS")
+	for _, d := range deps {
+		fmt.Println(d)
+		fmt.Println()
+	}
+
 	if conf == nil {
 		return nil, errors.New("object detection config for color detector cannot be nil")
 	}

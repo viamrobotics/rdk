@@ -79,6 +79,12 @@ func registerMLModelVisionService(
 	_, span := trace.StartSpan(ctx, "service::vision::registerMLModelVisionService")
 	defer span.End()
 
+	fmt.Println("Printing ML MODEL DEPS")
+	for _, d := range deps {
+		fmt.Println(d)
+		fmt.Println()
+	}
+
 	mlm, err := mlmodel.FromDependencies(deps, params.ModelName)
 	if err != nil {
 		return nil, err
