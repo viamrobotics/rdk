@@ -39,9 +39,7 @@ const handleDoCommand = async (type: string, name: string, command: string) => {
       output = JSON.stringify(outputObject, null, '\t');
       notify.success('Command issued');
     } else {
-      notify.danger(
-        `Invalid response when executing command on ${name}`
-      );
+      notify.danger(`Invalid response when executing command on ${name}`);
     }
   } catch (error) {
     // Use a human-readable error message when we detect the do command is unimplemented
