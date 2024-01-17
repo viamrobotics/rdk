@@ -401,10 +401,9 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			}
 
 			if err := motionplan.CheckPlan(
-				// mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
-				mr.planRequest.Frame, // frame we wish to check for collisions
-				plan,                 // remainder of plan we wish to check against
-				worldState,           // detected obstacles by this instance of camera + service
+				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
+				plan,                          // remainder of plan we wish to check against
+				worldState,                    // detected obstacles by this instance of camera + service
 				mr.planRequest.FrameSystem,
 				currentPosition.Pose(), // currentPosition of robot accounts for errorState
 				currentInputs,
