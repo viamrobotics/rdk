@@ -11,7 +11,10 @@ import (
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/component/camera/v1"
 	goutils "go.viam.com/utils"
+	goprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
@@ -60,13 +63,31 @@ func NewClientFromConn(
 	}, nil
 }
 
+func getExtra(ctx context.Context) (*structpb.Struct, error) {
+	ext := &structpb.Struct{}
+	if extra, ok := FromContext(ctx); ok {
+		var err error
+		if ext, err = goprotoutils.StructToStructPb(extra); err != nil {
+			return nil, err
+		}
+	}
+
+	dataExt, err := data.GetExtraFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	proto.Merge(ext, dataExt)
+	return ext, nil
+}
+
 func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Read")
 	defer span.End()
 	mimeType := gostream.MIMETypeHint(ctx, "")
 	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
 
-	ext, err := data.GetExtraFromContext(ctx)
+	ext, err := getExtra(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
