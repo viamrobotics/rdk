@@ -1,12 +1,12 @@
-// Package fake implements a fake generic component.
+// Package fake implements a fake generic service.
 package fake
 
 import (
 	"context"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/generic"
 )
 
 func init() {
@@ -27,7 +27,7 @@ func newGeneric(name resource.Name, logger logging.Logger) resource.Resource {
 	return &Generic{Named: name.AsNamed(), logger: logger}
 }
 
-// Generic is a fake Generic device that always echos inputs back to the caller.
+// Generic is a fake Generic service that always echos inputs back to the caller.
 type Generic struct {
 	resource.Named
 	resource.TriviallyReconfigurable

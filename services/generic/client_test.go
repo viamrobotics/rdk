@@ -8,10 +8,10 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/generic"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -28,8 +28,8 @@ func TestClient(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	workingGeneric := &inject.GenericComponent{}
-	failingGeneric := &inject.GenericComponent{}
+	workingGeneric := &inject.GenericService{}
+	failingGeneric := &inject.GenericService{}
 
 	workingGeneric.DoFunc = testutils.EchoFunc
 	failingGeneric.DoFunc = func(
