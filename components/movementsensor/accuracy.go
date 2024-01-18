@@ -37,34 +37,18 @@ type Accuracy struct {
 
 // ProtoFeaturesToAccuracy converts a GetAccuracyResponse from a protocol buffer (protobuf)
 // into an Accuracy struct.
-func ProtoFeaturesToAccuracy(resp *pb.GetAccuracyResponse) *Accuracy {
-	var hdop, vdop, compassError float32
-	var nmeaFix int32
-
-	if resp.PositionHdop != nil {
-		hdop = *resp.PositionHdop
-	}
-	if resp.PositionVdop != nil {
-		vdop = *resp.PositionVdop
-	}
-	if resp.PositionNmeaGgaFix != nil {
-		nmeaFix = *resp.PositionNmeaGgaFix
-	}
-	if resp.CompassDegreesError != nil {
-		compassError = *resp.CompassDegreesError
-	}
-
+func protoFeaturesToAccuracy(resp *pb.GetAccuracyResponse) *Accuracy {
 	return &Accuracy{
 		AccuracyMap:        resp.Accuracy,
-		Hdop:               hdop,
-		Vdop:               vdop,
-		NmeaFix:            nmeaFix,
-		CompassDegreeError: compassError,
+		Hdop:               *resp.PositionHdop,
+		Vdop:               *resp.PositionVdop,
+		NmeaFix:            *resp.PositionNmeaGgaFix,
+		CompassDegreeError: *resp.CompassDegreesError,
 	}
 }
 
 // AccuracyToProtoResponse converts an Accuracy struct into a protobuf GetAccuracyResponse.
-func AccuracyToProtoResponse(acc *Accuracy) (*pb.GetAccuracyResponse, error) {
+func accuracyToProtoResponse(acc *Accuracy) (*pb.GetAccuracyResponse, error) {
 	return &pb.GetAccuracyResponse{
 		Accuracy:            acc.AccuracyMap,
 		PositionHdop:        &acc.Hdop,

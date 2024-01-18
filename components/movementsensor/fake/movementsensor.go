@@ -85,7 +85,7 @@ func (f *MovementSensor) Accuracy(ctx context.Context, extra map[string]interfac
 		AccuracyMap:        map[string]float32{},
 		Hdop:               0,
 		Vdop:               0,
-		NmeaFix:            6,
+		NmeaFix:            4,
 		CompassDegreeError: 0,
 	}
 

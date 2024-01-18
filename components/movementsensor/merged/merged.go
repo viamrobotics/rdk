@@ -281,6 +281,7 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (*m
 	if m.ori != nil {
 		oriAcc, err := m.ori.Accuracy(ctx, extra)
 		if err != nil {
+			// replace entire map with a map that shows that it has errors
 			errorAcc := &movementsensor.Accuracy{
 				AccuracyMap: map[string]float32{
 					m.ori.Name().ShortName() + errStrAccuracy: float32(math.NaN()),

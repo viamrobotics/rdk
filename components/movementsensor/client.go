@@ -164,7 +164,7 @@ func (c *client) Accuracy(ctx context.Context, extra map[string]interface{}) (*A
 	if err != nil {
 		return nil, err
 	}
-	return ProtoFeaturesToAccuracy(resp), nil
+	return protoFeaturesToAccuracy(resp), nil
 }
 
 func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (*Properties, error) {
