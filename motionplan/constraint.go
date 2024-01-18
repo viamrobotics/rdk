@@ -9,6 +9,7 @@ import (
 	"github.com/golang/geo/r3"
 	pb "go.viam.com/api/service/motion/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -235,6 +236,7 @@ func createAllCollisionConstraints(
 	worldState *referenceframe.WorldState,
 	inputs map[string][]referenceframe.Input,
 	pbConstraint []*pb.CollisionSpecification,
+	logger logging.Logger,
 ) (map[string]StateConstraint, error) {
 	constraintMap := map[string]StateConstraint{}
 
@@ -252,7 +254,7 @@ func createAllCollisionConstraints(
 		}
 	}
 
-	// find all geoemetries that are not moving but are in the frame system
+	// find all geometries that are not moving but are in the frame system
 	staticGeometries := make([]spatial.Geometry, 0)
 	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(fs, inputs)
 	if err != nil {
@@ -271,10 +273,23 @@ func createAllCollisionConstraints(
 	if err != nil {
 		return nil, err
 	}
+	if len(obstacles.Geometries()) > 0 {
+		logger.Debugf("listing all obstacles in world frame below")
+		for _, geom := range obstacles.Geometries() {
+			logger.Debugf("geom.Pose: %v", spatial.PoseToProtobuf(geom.Pose()))
+			logger.Debugf("geom.String: %s", geom.String())
+		}
+	}
 
 	allowedCollisions, err := collisionSpecificationsFromProto(pbConstraint, frameSystemGeometries, worldState)
 	if err != nil {
 		return nil, err
+	}
+	logger.Debugf("allowedCollisions: %v", allowedCollisions)
+	if len(allowedCollisions) > 0 {
+		for _, c := range allowedCollisions {
+			logger.Debugf("allowed collision: %v", c)
+		}
 	}
 
 	if len(obstacles.Geometries()) > 0 {
