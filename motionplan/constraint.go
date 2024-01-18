@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -278,6 +279,7 @@ func createAllCollisionConstraints(
 		logger.Debugf("listing all obstacles in world frame below")
 		for _, geom := range obstacles.Geometries() {
 			logger.Debugf("geom.Pose: %v", spatial.PoseToProtobuf(geom.Pose()))
+			logger.Debugf("geom.Label %s", geom.Label())
 			logger.Debugf("geom.String: %s", geom.String())
 		}
 	}
@@ -295,6 +297,11 @@ func createAllCollisionConstraints(
 
 	if len(obstacles.Geometries()) > 0 {
 		moving := movingGeometries.Geometries()
+		for _, m := range moving {
+			logger.Debugf("moving geom label: %s", m.Label())
+			logger.Debugf("moving geom string: %s", m.String())
+			logger.Debugf("moving geom pose: %v", spatialmath.PoseToProtobuf(m.Pose()))
+		}
 		static := obstacles.Geometries()
 		// Check if a moving geometry is in collision with a pointcloud. If so, error.
 		// TODO: This is not the most robust way to deal with this but is better than driving through walls.

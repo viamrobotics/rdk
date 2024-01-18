@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -279,15 +280,19 @@ func (mr *moveRequest) getTransientDetections(
 		)
 		cameraToBase = cameraOrigin
 	}
+	mr.logger.CDebugf(ctx, "cameraToBase transform: %v", spatialmath.PoseToProtobuf(cameraToBase.Pose()))
 
-	// detections in the world frame
+	// detections in the world frame used for CheckPlan
 	absoluteGeoms := []spatialmath.Geometry{}
-	// detection in the base frame
+
+	// detection in the base frame used for Replan
 	relativeGeoms := []spatialmath.Geometry{}
+
 	for i, detection := range detections {
 		geometry := detection.Geometry
-		// if more than 1.5 meters away lets not concern ourselves with avoiding this detection
-		if geometry.Pose().Point().Norm() > 1500 {
+		// this is here so that we don't deal with junk on this specific hardware test
+		// this real version should not have this conditional.
+		if geometry.Pose().Point().Z > 1000 {
 			continue
 		}
 
@@ -304,12 +309,13 @@ func (mr *moveRequest) getTransientDetections(
 		relativeGeom := geometry
 		switch mr.requestType {
 		case requestTypeMoveOnMap:
-			relativeGeom = relativeGeom.Transform(cameraToBase.Pose())
 			// the base's orientation is be default rotated -90 RH degrees, here we fix that.
 			// this assumes base and cam are co-incident
-			relativeGeom = relativeGeom.Transform(spatialmath.PoseInverse(motion.SLAMOrientationAdjustment))
+			relativeGeom = relativeGeom.Transform(cameraToBase.Pose())
+			relativeGeom = relativeGeom.Transform(spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90}))
+			// this is incorrectly placing geoms im pretty sure
 		case requestTypeMoveOnGlobe:
-			relativeGeom = geometry.Transform(cameraToBase.Pose())
+			relativeGeom = relativeGeom.Transform(cameraToBase.Pose())
 		case requestTypeUnspecified:
 			fallthrough
 		default:
@@ -325,11 +331,8 @@ func (mr *moveRequest) getTransientDetections(
 		switch mr.requestType {
 		case requestTypeMoveOnMap:
 			baseTheta := currentPositionInWorld.Pose().Orientation().OrientationVectorDegrees().Theta
-			mr.logger.CDebugf(ctx, "baseTheta: %f", baseTheta)
-			th := baseTheta + 90
-			mr.logger.CDebugf(ctx, "th: %f", th)
 			geometry = geometry.Transform(
-				spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: th}),
+				spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: baseTheta + 90}),
 			)
 		}
 		mr.logger.CDebugf(ctx, "detection %d observed from the camera in the world frame coordinate system has pose: %v",
@@ -378,27 +381,63 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			}
 
 			// Note: detections are initially observed from the camera frame but must be transformed to be in
-			// world frame. We cannot use the inputs of the base to transform the detections since they are relative
+			// world frame. We cannot use the inputs of the base to transform the detections since they are relative.
 			absoluteGIFs, _, err := mr.getTransientDetections(ctx, visSrvc, camName, currentPosition)
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
+
+			// get the already defined geometries of worldstate
+			existingGifs, err := mr.planRequest.WorldState.ObstaclesInWorldFrame(
+				mr.planRequest.FrameSystem,
+				referenceframe.StartPositions(mr.planRequest.FrameSystem),
+			)
+			if err != nil {
+				return state.ExecuteResponse{}, err
+			}
+
+			// existing geometries are in their relative position, i.e. with respect to the base's frame
+			// here we transform them into their absolute positions. i.e. with respect to the world frame
+			// Note: we remove any existing transient obstacle geometries as they will be re-detected
+			existingGeomsAbs := []spatialmath.Geometry{}
+			for _, g := range existingGifs.Geometries() {
+				if strings.Contains(g.Label(), "_transientObstacle_") {
+					continue
+				}
+				mr.logger.Debugf("g BEFORE TRANSFORM %v", spatialmath.PoseToProtobuf(g.Pose()))
+
+				firstTransform := g.Transform(mr.poseOrigin)
+				mr.logger.Debugf("AFTER FIRST TRANSFORM: %v", spatialmath.PoseToProtobuf(firstTransform.Pose()))
+
+				secondTransform := firstTransform.Transform(currentPosition.Pose())
+				mr.logger.Debugf("AFTER SECOND TRANSFORM: %v", spatialmath.PoseToProtobuf(secondTransform.Pose()))
+
+				existingGeomsAbs = append(existingGeomsAbs, secondTransform)
+			}
+			absExistingGifs := referenceframe.NewGeometriesInFrame(referenceframe.World, existingGeomsAbs)
+
+			// append the existing elements of the worldstate in their absolute positions
+			absoluteGIFs = append(absoluteGIFs, absExistingGifs)
 
 			worldState, err := referenceframe.NewWorldState(absoluteGIFs, nil)
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
 
+			mr.logger.Debugf("currentPosition: %v", spatialmath.PoseToProtobuf(currentPosition.Pose()))
+
 			currentInputs, err := mr.kinematicBase.CurrentInputs(ctx)
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
+			mr.logger.Debugf("currentInputs: %v", currentInputs)
 
 			// get the pose difference between where the robot is versus where it ought to be.
 			errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, waypointIndex)
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
+			mr.logger.Debugf("errorState: %v", spatialmath.PoseToProtobuf(errorState))
 
 			if err := motionplan.CheckPlan(
 				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
@@ -775,14 +814,19 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	if err != nil {
 		return nil, err
 	}
+	ms.logger.Debugf("startPose: %v", spatialmath.PoseToProtobuf(startPose.Pose()))
 	startPoseInv := spatialmath.PoseInverse(startPose.Pose())
+	ms.logger.Debugf("startPoseInv: %v", spatialmath.PoseToProtobuf(startPoseInv))
 
 	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld))
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
 	geoms := make([]spatialmath.Geometry, 0, len(worldObstacles))
 	for _, geom := range worldObstacles {
-		geoms = append(geoms, geom.Transform(startPoseInv))
+		ms.logger.Debugf("WRLDST GEOM - BEFORE - TRANSFORM: %v", spatialmath.PoseToProtobuf(geom.Pose()))
+		after := geom.Transform(startPoseInv)
+		geoms = append(geoms, after)
+		ms.logger.Debugf("WRLDST GEOM - AFTER - TRANSFORM: %v", spatialmath.PoseToProtobuf(after.Pose()))
 	}
 
 	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
