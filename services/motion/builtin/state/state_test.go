@@ -599,8 +599,8 @@ func TestState(t *testing.T) {
 		test.That(t, *resPWS3.pws[0].StatusHistory[0].Reason, test.ShouldResemble, replanFailReason.Error())
 		test.That(t, resPWS3.pws[0].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
 		test.That(t, resPWS3.pws[0].StatusHistory[1].Reason, test.ShouldBeNil)
-		test.That(t, len(resPWS3.pws[0].Plan.Path), test.ShouldEqual, 2)
-		test.That(t, len(resPWS3.pws[1].Plan.Path), test.ShouldEqual, 1)
+		test.That(t, len(resPWS3.pws[0].Plan.AsPath()), test.ShouldEqual, 2)
+		test.That(t, len(resPWS3.pws[1].Plan.AsPath()), test.ShouldEqual, 1)
 		test.That(t, planStatusTimestampsInOrder(resPWS3.pws[0].StatusHistory), test.ShouldBeTrue)
 		test.That(t, planStatusTimestampsInOrder(resPWS3.pws[1].StatusHistory), test.ShouldBeTrue)
 

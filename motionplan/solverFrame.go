@@ -321,9 +321,9 @@ func (sf *solverFrame) AlmostEquals(otherFrame frame.Frame) bool {
 }
 
 // TODO: move this from being a method on sf to a normal helper in plan.go
-// nodesToTrajectory takes a slice of nodes and converts it to a Trajectory.
-func (sf solverFrame) nodesToTrajectory(nodes []node) Trajectory {
-	traj := make(Trajectory, 0, len(nodes))
+// nodesToTrajectory takes a slice of nodes and converts it to a trajectory.
+func (sf solverFrame) nodesToTrajectory(nodes []node) trajectory {
+	traj := make(trajectory, 0, len(nodes))
 	for _, n := range nodes {
 		stepMap := sf.sliceToMap(n.Q())
 		traj = append(traj, stepMap)
@@ -333,7 +333,7 @@ func (sf solverFrame) nodesToTrajectory(nodes []node) Trajectory {
 
 // TODO: is this necessary?
 // trajToNodes takes a trajectory and turns it into a slice of nodes.
-func (sf solverFrame) trajToNodes(traj Trajectory) ([]node, error) {
+func (sf solverFrame) trajToNodes(traj trajectory) ([]node, error) {
 	planNodes := make([]node, 0, len(traj))
 	for _, step := range traj {
 		stepConfig, err := sf.mapToSlice(step)

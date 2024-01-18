@@ -205,7 +205,8 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 }
 
 func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan *motionplan.Plan, waypointIndex int) (spatialmath.Pose, error) {
-	planLength := len(plan.Trajectory)
+	path := plan.AsPath()
+	planLength := len(path)
 	if waypointIndex < 0 || waypointIndex >= planLength {
 		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be >= 0 and less than plan length %d", waypointIndex, planLength)
 	}
@@ -219,11 +220,11 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan *motionplan.
 
 	// Determine the nominal pose, that is, the pose where the robot ought be if it had followed the plan perfectly up until this point.
 	// TODO: double check this math
-	path, err := plan.Path.GetFramePoses(ptgk.Name().ShortName())
+	poses, err := path.GetFramePoses(ptgk.Name().ShortName())
 	if err != nil {
 		return nil, err
 	}
-	nominalPose := path[waypointIndex-1]
+	nominalPose := poses[waypointIndex-1]
 
 	// Determine how far through the current trajectory we are
 	currentInputs, err := ptgk.CurrentInputs(ctx)

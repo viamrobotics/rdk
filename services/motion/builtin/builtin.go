@@ -219,9 +219,13 @@ func (ms *builtIn) Move(
 	}
 
 	// move all the components
-	for _, step := range plan.Trajectory {
-		// TODO(erh): what order? parallel?
+	for i := 0; i < plan.Length(); i++ {
+		step, err := plan.GetInput(i)
+		if err != nil {
+			return false, err
+		}
 		for name, inputs := range step {
+			// TODO: pretty sure this is impossible now
 			if len(inputs) == 0 {
 				continue
 			}

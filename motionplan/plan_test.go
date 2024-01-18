@@ -19,15 +19,12 @@ import (
 )
 
 func TestEvaluateTrajectory(t *testing.T) {
-	plan := Trajectory{
+	plan := trajectory{
+		map[string][]referenceframe.Input{"": {{1.}, {2.}, {3.}}},
 		map[string][]referenceframe.Input{"": {{1.}, {2.}, {3.}}},
 	}
-	score := plan.EvaluateCost(ik.L2InputMetric)
-	test.That(t, score, test.ShouldEqual, math.Inf(1))
-
 	// Test no change
-	plan = append(plan, map[string][]referenceframe.Input{"": {{1.}, {2.}, {3.}}})
-	score = plan.EvaluateCost(ik.L2InputMetric)
+	score := plan.EvaluateCost(ik.L2InputMetric)
 	test.That(t, score, test.ShouldEqual, 0)
 
 	// Test L2 for "", and nothing for plan with only one entry
@@ -162,9 +159,9 @@ func TestPlanToGeoPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// test Path gets constructed correctly
-	test.That(t, len(plan.Path), test.ShouldBeGreaterThan, 1)
-	test.That(t, spatialmath.PoseAlmostEqual(plan.Path[0][baseName].Pose(), spatialmath.NewZeroPose()), test.ShouldBeTrue)
-	test.That(t, spatialmath.PoseAlmostCoincidentEps(plan.Path[len(plan.Path)-1][baseName].Pose(), goal, 1), test.ShouldBeTrue)
+	test.That(t, len(plan.path), test.ShouldBeGreaterThan, 1)
+	test.That(t, spatialmath.PoseAlmostEqual(plan.path[0][baseName].Pose(), spatialmath.NewZeroPose()), test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostCoincidentEps(plan.path[len(plan.path)-1][baseName].Pose(), goal, 1), test.ShouldBeTrue)
 
 	type testCase struct {
 		name        string
@@ -212,7 +209,7 @@ func TestPlanToGeoPlan(t *testing.T) {
 			// test Path gets converted to a GeoPlan correctly
 			gps, err := plan.ToGeoPlan(tc.origin)
 			test.That(t, err, test.ShouldBeNil)
-			pose := gps.Path[0][baseName].Pose()
+			pose := gps.path[0][baseName].Pose()
 			pt := pose.Point()
 			heading := utils.RadToDeg(pose.Orientation().EulerAngles().Yaw)
 			heading = math.Mod(math.Abs(heading-360), 360)
@@ -220,7 +217,7 @@ func TestPlanToGeoPlan(t *testing.T) {
 			test.That(t, pt.Y, test.ShouldAlmostEqual, tc.expectedGPs[0].Location().Lat(), 1e-6)
 			test.That(t, heading, test.ShouldAlmostEqual, tc.expectedGPs[0].Heading(), 1e-3)
 
-			pose = gps.Path[len(gps.Path)-1][baseName].Pose()
+			pose = gps.path[len(gps.path)-1][baseName].Pose()
 			pt = pose.Point()
 			test.That(t, pt.X, test.ShouldAlmostEqual, tc.expectedGPs[1].Location().Lng(), 1e-3)
 			test.That(t, pt.Y, test.ShouldAlmostEqual, tc.expectedGPs[1].Location().Lat(), 1e-3)

@@ -297,7 +297,7 @@ func (ps PlanStatus) ToProto() *pb.PlanStatus {
 func (p PlanWithMetadata) ToProto() *pb.Plan {
 	steps := []*pb.PlanStep{}
 	if p.Plan != nil {
-		for _, s := range p.Path {
+		for _, s := range p.AsPath() {
 			steps = append(steps, s.ToProto())
 		}
 	}

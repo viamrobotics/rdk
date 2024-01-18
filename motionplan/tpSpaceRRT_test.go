@@ -376,7 +376,7 @@ func TestPtgCheckPlan(t *testing.T) {
 
 func planToTpspaceRec(plan *Plan, f referenceframe.Frame) ([]node, error) {
 	nodes := []node{}
-	for _, inp := range plan.Trajectory {
+	for _, inp := range plan.trajectory {
 		thisNode := &basicNode{
 			q:    inp[f.Name()],
 			cost: inp[f.Name()][2].Value,

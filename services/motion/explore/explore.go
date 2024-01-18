@@ -319,9 +319,8 @@ func (ms *explore) checkForObstacles(
 	obstaclePollingFrequencyHz float64,
 ) {
 	ms.logger.Debug("Current Plan")
-	for i, p := range plan.Trajectory {
-		ms.logger.Debugf("plan[%v]: %v", i, p)
-	}
+	ms.logger.Debug(plan)
+
 	// Constantly check for obstacles in path at desired obstacle polling frequency
 	ticker := time.NewTicker(time.Duration(int(1000/obstaclePollingFrequencyHz)) * time.Millisecond)
 	defer ticker.Stop()
@@ -394,28 +393,26 @@ func (ms *explore) checkForObstacles(
 
 // executePlan will carry out the desired motionplan plan.
 func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBase, plan *motionplan.Plan) {
-	// Iterate through motionplan plan
-	for _, p := range plan.Trajectory {
+	steps, err := plan.GetFrameInputs(kb.Name().Name)
+	if err != nil {
+		return
+	}
+	for _, inputs := range steps {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			if inputEnabledKb, ok := kb.(inputEnabledActuator); ok {
-				if err := inputEnabledKb.GoToInputs(ctx, p[kb.Name().Name]); err != nil {
-					// If there is an error on GoToInputs, stop the component if possible before returning the error
-					if stopErr := kb.Stop(ctx, nil); stopErr != nil {
-						ms.executionResponseChan <- moveResponse{err: err}
-						return
-					}
-					// If the error was simply a cancellation of context return without erroring out
-					if errors.Is(err, context.Canceled) {
-						return
-					}
+			if err := kb.GoToInputs(ctx, inputs); err != nil {
+				// If there is an error on GoToInputs, stop the component if possible before returning the error
+				if stopErr := kb.Stop(ctx, nil); stopErr != nil {
 					ms.executionResponseChan <- moveResponse{err: err}
 					return
 				}
-			} else {
-				ms.executionResponseChan <- moveResponse{err: errors.New("unable to cast kinematic base to inputEnabledActuator")}
+				// If the error was simply a cancellation of context return without erroring out
+				if errors.Is(err, context.Canceled) {
+					return
+				}
+				ms.executionResponseChan <- moveResponse{err: err}
 				return
 			}
 		}

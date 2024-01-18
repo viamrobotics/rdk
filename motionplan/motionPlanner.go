@@ -129,7 +129,7 @@ func PlanFrameMotion(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	return plan.Trajectory.GetFrameInputs(f.Name())
+	return plan.GetFrameInputs(f.Name())
 }
 
 // Replan plans a motion from a provided plan request, and then will return that plan only if its cost is better than the cost of the
@@ -199,8 +199,8 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan *Plan, replan
 	}
 
 	if replanCostFactor > 0 && currentPlan != nil {
-		initialPlanCost := currentPlan.Trajectory.EvaluateCost(sfPlanner.opt().ScoreFunc)
-		finalPlanCost := newPlan.Trajectory.EvaluateCost(sfPlanner.opt().ScoreFunc)
+		initialPlanCost := currentPlan.EvaluateCost(sfPlanner.opt().ScoreFunc)
+		finalPlanCost := newPlan.EvaluateCost(sfPlanner.opt().ScoreFunc)
 		request.Logger.CDebugf(ctx,
 			"initialPlanCost %f adjusted with cost factor to %f, replan cost %f",
 			initialPlanCost, initialPlanCost*replanCostFactor, finalPlanCost,
@@ -468,27 +468,23 @@ func CheckPlan(
 	lookAheadDistanceMM float64,
 	logger logging.Logger,
 ) error {
-	// ensure that we can actually perform the check
-	if len(plan.Trajectory) < 1 {
-		return errors.New("plan must have at least one element")
-	}
-
-	// construct solverFrame
-	// Note that this requires all frames which move as part of the plan, to have an
-	// entry in the very first plan waypoint
-	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, plan.Trajectory[0])
+	startingInput, err := plan.GetInput(0)
 	if err != nil {
 		return err
 	}
 
-	// construct planager
+	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, startingInput)
+	if err != nil {
+		return err
+	}
+
 	sfPlanner, err := newPlanManager(sf, fs, logger, defaultRandomSeed)
 	if err != nil {
 		return err
 	}
 
-	// convert plan into nodes
-	planNodes, err := sf.trajToNodes(plan.Trajectory)
+	// TODO: shouldnt have to access the trajectory here, fix this
+	planNodes, err := sf.trajToNodes(plan.trajectory)
 	if err != nil {
 		return err
 	}
@@ -531,7 +527,7 @@ func CheckPlan(
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
 		currentPosition,                    // starting pose
 		planNodes[len(planNodes)-1].Pose(), // goalPose
-		plan.Trajectory[0],                 // starting configuration
+		startingInput,
 		worldState,
 		nil, // no pb.Constraints
 		nil, // no plannOpts

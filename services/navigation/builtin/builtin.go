@@ -823,20 +823,20 @@ func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]
 		return nil, err
 	}
 
-	geoPoints := make([]*geo.Point, 0, len(ph[0].Plan.Path))
-	poses, err := ph[0].Plan.Path.GetFramePoses(svc.base.Name().ShortName())
+	path := ph[0].Plan.AsPath()
+	geoPoints := make([]*geo.Point, 0, len(path))
+	poses, err := path.GetFramePoses(svc.base.Name().ShortName())
 	if err != nil {
 		return nil, err
 	}
 	for _, p := range poses {
 		geoPoints = append(geoPoints, geo.NewPoint(p.Point().Y, p.Point().X))
 	}
-
-	path, err := navigation.NewPath(ewp.waypoint.ID, geoPoints)
+	navPath, err := navigation.NewPath(ewp.waypoint.ID, geoPoints)
 	if err != nil {
 		return nil, err
 	}
-	return []*navigation.Path{path}, nil
+	return []*navigation.Path{navPath}, nil
 }
 
 func (svc *builtIn) Properties(ctx context.Context) (navigation.Properties, error) {

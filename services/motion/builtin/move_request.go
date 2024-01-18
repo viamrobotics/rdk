@@ -246,10 +246,14 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			}
 
 			// check no obstacles intersect the portion of the plan which has yet to be executed
+			remainingPlan, err := plan.RemainingPlan(waypointIndex)
+			if err != nil {
+				return state.ExecuteResponse{}, err
+			}
 			if err := motionplan.CheckPlan(
-				mr.kinematicBase.Kinematics(),     // frame we wish to check for collisions
-				plan.RemainingPlan(waypointIndex), // remainder of plan we wish to check against
-				worldState,                        // detected obstacles by this instance of camera + service
+				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
+				remainingPlan,
+				worldState, // detected obstacles by this instance of camera + service
 				mr.planRequest.FrameSystem,
 				currentPosition.Pose(), // currentPosition of robot accounts for errorState
 				currentInputs,

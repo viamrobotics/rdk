@@ -1027,7 +1027,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionID)
 		test.That(t, len(ph[0].StatusHistory), test.ShouldEqual, 1)
 		test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateInProgress)
-		test.That(t, len(ph[0].Plan.Path), test.ShouldNotEqual, 0)
+		test.That(t, len(ph[0].Plan.AsPath()), test.ShouldNotEqual, 0)
 
 		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
 		test.That(t, err, test.ShouldBeNil)
@@ -1039,7 +1039,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, len(ph2[0].StatusHistory), test.ShouldEqual, 2)
 		test.That(t, ph2[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateStopped)
 		test.That(t, ph2[0].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
-		test.That(t, len(ph2[0].Plan.Path), test.ShouldNotEqual, 0)
+		test.That(t, len(ph2[0].Plan.AsPath()), test.ShouldNotEqual, 0)
 
 		// Proves that calling StopPlan after the plan has reached a terminal state is idempotent
 		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
@@ -1162,7 +1162,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 		planResp, err := mr.Plan(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(planResp.Trajectory), test.ShouldBeGreaterThan, 2)
+		test.That(t, planResp.Length(), test.ShouldBeGreaterThan, 2)
 
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
@@ -1203,7 +1203,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		planResp, err := mr.Plan(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(planResp.Trajectory), test.ShouldBeGreaterThan, 2)
+		test.That(t, planResp.Length(), test.ShouldBeGreaterThan, 2)
 
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
@@ -1507,10 +1507,10 @@ func TestMoveOnMapNew(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		goalPose1 := plans[0].Plan.Path[0]["test-base"].Pose()
+		goalPose1 := plans[0].Plan.AsPath()[0]["test-base"].Pose()
 		goalPose2 := spatialmath.PoseBetween(
-			plans[0].Plan.Path[0]["test-base"].Pose(),
-			plans[0].Plan.Path[len(plans[0].Plan.Path)-1]["test-base"].Pose(),
+			plans[0].Plan.AsPath()[0]["test-base"].Pose(),
+			plans[0].Plan.AsPath()[len(plans[0].Plan.AsPath())-1]["test-base"].Pose(),
 		)
 
 		// We don't actually surface the internal motion planning goal; we report to the user in terms of what the user provided us.
@@ -1594,7 +1594,7 @@ func TestMoveOnMapNew(t *testing.T) {
 		test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionID)
 		test.That(t, len(ph[0].StatusHistory), test.ShouldEqual, 1)
 		test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateInProgress)
-		test.That(t, len(ph[0].Plan.Path), test.ShouldNotEqual, 0)
+		test.That(t, len(ph[0].Plan.AsPath()), test.ShouldNotEqual, 0)
 
 		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: kb.Name()})
 		test.That(t, err, test.ShouldBeNil)
@@ -1606,7 +1606,7 @@ func TestMoveOnMapNew(t *testing.T) {
 		test.That(t, len(ph2[0].StatusHistory), test.ShouldEqual, 2)
 		test.That(t, ph2[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateStopped)
 		test.That(t, ph2[0].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
-		test.That(t, len(ph2[0].Plan.Path), test.ShouldNotEqual, 0)
+		test.That(t, len(ph2[0].Plan.AsPath()), test.ShouldNotEqual, 0)
 
 		// Proves that calling StopPlan after the plan has reached a terminal state is idempotent
 		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: kb.Name()})

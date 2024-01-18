@@ -155,7 +155,7 @@ func TestPlanningWithGripper(t *testing.T) {
 		FrameSystem:        fs,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(solutionMap.Trajectory), test.ShouldBeGreaterThanOrEqualTo, 2)
+	test.That(t, len(solutionMap.trajectory), test.ShouldBeGreaterThanOrEqualTo, 2)
 }
 
 // simple2DMapConfig returns a planConfig with the following map
@@ -442,7 +442,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose, err := fs.Transform(
-		plan.Trajectory[len(plan.Trajectory)-1],
+		plan.trajectory[len(plan.trajectory)-1],
 		frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()),
 		frame.World,
 	)
@@ -467,13 +467,13 @@ func TestMultiArmSolve(t *testing.T) {
 
 	// Both frames should wind up at the goal relative to one another
 	solvedPose, err := fs.Transform(
-		plan.Trajectory[len(plan.Trajectory)-1],
+		plan.trajectory[len(plan.trajectory)-1],
 		frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()),
 		"urCamera",
 	)
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose2, err := fs.Transform(
-		plan.Trajectory[len(plan.Trajectory)-1],
+		plan.trajectory[len(plan.trajectory)-1],
 		frame.NewPoseInFrame("urCamera", spatialmath.NewZeroPose()),
 		"xArmVgripper",
 	)
@@ -508,7 +508,7 @@ func TestReachOverArm(t *testing.T) {
 	})
 
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(plan.Trajectory), test.ShouldEqual, 2)
+	test.That(t, len(plan.trajectory), test.ShouldEqual, 2)
 
 	// now add a UR arm in its way
 	ur5, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
@@ -526,7 +526,7 @@ func TestReachOverArm(t *testing.T) {
 		Options:            opts,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(plan.Trajectory), test.ShouldBeGreaterThan, 2)
+	test.That(t, len(plan.trajectory), test.ShouldBeGreaterThan, 2)
 }
 
 func TestPlanMapMotion(t *testing.T) {
@@ -614,7 +614,7 @@ func TestSolverFrameGeometries(t *testing.T) {
 		map[string]interface{}{"smooth_iter": 5},
 	)
 	test.That(t, err, test.ShouldBeNil)
-	inputs, err := sf.mapToSlice(plan.Trajectory[len(plan.Trajectory)-1])
+	inputs, err := sf.mapToSlice(plan.trajectory[len(plan.trajectory)-1])
 	test.That(t, err, test.ShouldBeNil)
 	gf, _ := sf.Geometries(inputs)
 	test.That(t, gf, test.ShouldNotBeNil)
@@ -819,7 +819,7 @@ func TestReplan(t *testing.T) {
 	// This should easily pass
 	newPlan1, err := Replan(ctx, planRequest, firstplan, 1.0)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(newPlan1.Trajectory), test.ShouldBeGreaterThan, 2)
+	test.That(t, len(newPlan1.trajectory), test.ShouldBeGreaterThan, 2)
 
 	// But if we drop the replan factor to a very low number, it should now fail
 	newPlan2, err := Replan(ctx, planRequest, firstplan, 0.1)

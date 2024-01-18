@@ -195,10 +195,10 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			// Check if we can return
 			if nSolved%defaultOptimalityCheckIter == 0 {
 				solution := shortestPath(rrt.maps, shared)
-				traj := Trajectory{}
+				// TODO: can't use a constructor here because can't guarantee its a solverframe being used
+				traj := trajectory{}
 				for _, step := range solution.steps {
-					stepMap := map[string][]referenceframe.Input{mp.frame.Name(): step.Q()}
-					traj = append(traj, stepMap)
+					traj = append(traj, InputStep{mp.frame.Name(): step.Q()})
 				}
 				solutionCost := traj.EvaluateCost(mp.planOpts.ScoreFunc)
 				if solutionCost-rrt.maps.optNode.Cost() < defaultOptimalityThreshold*rrt.maps.optNode.Cost() {
