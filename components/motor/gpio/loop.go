@@ -162,28 +162,25 @@ func (m *EncodedMotor) createControlLoopConfig(p, i, d float64) control.Config {
 	if p == 0.0 && i == 0.0 && d == 0.0 {
 		// when tuning (all PID are zero), the loop has to exclude the trapz block, so the sum block is
 		// temporarily changed to depend on the constant block instead of the trapz block to pass over trapz
-		sumBlock := control.BlockConfig{
-			Name: "sum",
-			Type: "sum",
-			Attribute: rdkutils.AttributeMap{
-				"sum_string": "+-",
-			},
-			DependsOn: []string{"set_point", "derivative"},
-		}
-		conf.Blocks = append(conf.Blocks, sumBlock)
+		conf = setSumBlock(conf, "set_point")
 	} else {
 		// if not tuning, set the sum block to once again depend
 		// on the trapz block instead of the constant bloc
-		sumBlock := control.BlockConfig{
-			Name: "sum",
-			Type: "sum",
-			Attribute: rdkutils.AttributeMap{
-				"sum_string": "+-",
-			},
-			DependsOn: []string{"trapz", "derivative"},
-		}
-		conf.Blocks = append(conf.Blocks, sumBlock)
+		conf = setSumBlock(conf, "trapz")
 	}
 
+	return conf
+}
+
+func setSumBlock(conf control.Config, firstDependency string) control.Config {
+	sumBlock := control.BlockConfig{
+		Name: "sum",
+		Type: "sum",
+		Attribute: rdkutils.AttributeMap{
+			"sum_string": "+-",
+		},
+		DependsOn: []string{firstDependency, "derivative"},
+	}
+	conf.Blocks = append(conf.Blocks, sumBlock)
 	return conf
 }
