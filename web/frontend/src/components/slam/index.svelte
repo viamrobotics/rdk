@@ -20,7 +20,7 @@
   export let name: string;
   export let overrides: SLAMOverrides | undefined;
 
-  const { robotClient, operations } = useRobotClient();
+  const { robotClient } = useRobotClient();
   const slamClient = new SlamClient($robotClient, name, {
     requestLogger: rcLogConditionally,
   });
@@ -31,6 +31,7 @@
   let clear2dRefresh: (() => void) | undefined;
 
   let refreshErrorMessage2d: string | undefined;
+  let executionID: string | undefined;
   let refresh2dRate = '5';
   let pointcloud: Uint8Array | undefined;
   let pose: Pose | undefined;
@@ -49,8 +50,7 @@
   let mappingSessionStarted = false;
 
   $: pointcloudLoaded = Boolean(pointcloud?.length) && pose !== undefined;
-  $: moveClicked = $operations.find(({ op }) =>
-    op.method.includes('MoveOnMap'));
+  $: moveClicked = Boolean(executionID);
   $: unitScale = labelUnits === 'm' ? 1 : 1000;
 
   // get all resources which are bases
@@ -121,6 +121,7 @@
   const updateSLAM2dRefreshFrequency = () => {
     clear2dRefresh?.();
     refresh2d();
+    // refreshPaths();
 
     refreshErrorMessage2d = undefined;
 
@@ -206,7 +207,7 @@
 
   const handleStopMoveClick = async () => {
     try {
-      await stopMoveOnMap($robotClient, $operations);
+      await stopMoveOnMap($robotClient, bases[0]!.name);
     } catch (error) {
       notify.danger((error as ServiceError).message);
     }

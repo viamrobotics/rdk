@@ -1,10 +1,10 @@
-import { type Client, commonApi, motionApi, robotApi } from '@viamrobotics/sdk';
+import { type Client, commonApi, motionApi } from '@viamrobotics/sdk';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { getPosition } from './slam';
-import { rcLogConditionally } from '@/lib/log';
+import type { ResourceName } from '@viamrobotics/sdk/dist/gen/common/v1/common_pb';
 
-export const moveOnMap = async (robotClient: Client, name: string, componentName: string, x: number, y: number) => {
-  const request = new motionApi.MoveOnMapRequest();
+export const moveOnMap = async (robotClient: Client, name: string, componentName: string, x: number, y: number): Promise<string | undefined> =>  {
+  const request = new motionApi.MoveOnMapNewRequest();
 
   /*
    * here we set the name of the motion service the user is using
@@ -33,12 +33,7 @@ export const moveOnMap = async (robotClient: Client, name: string, componentName
   request.setSlamServiceName(slamResourceName);
 
   // set component name
-  const baseResourceName = new commonApi.ResourceName();
-  baseResourceName.setNamespace('rdk');
-  baseResourceName.setType('component');
-  baseResourceName.setSubtype('base');
-  baseResourceName.setName(componentName);
-  request.setComponentName(baseResourceName);
+  request.setComponentName(namedBase(componentName));
 
   // set extra as position-only constraint
   request.setExtra(
@@ -47,8 +42,8 @@ export const moveOnMap = async (robotClient: Client, name: string, componentName
     })
   );
 
-  const response = await new Promise<motionApi.MoveOnMapResponse | null>((resolve, reject) => {
-    robotClient.motionService.moveOnMap(request, (error, res) => {
+  const response = await new Promise<motionApi.MoveOnMapNewResponse | null>((resolve, reject) => {
+    robotClient.motionService.moveOnMapNew(request, (error, res) => {
       if (error) {
         reject(error);
       } else {
@@ -57,22 +52,26 @@ export const moveOnMap = async (robotClient: Client, name: string, componentName
     });
   });
 
-  return response?.getSuccess();
+  return response?.getExecutionId()
 };
 
-export const stopMoveOnMap = async (robotClient: Client, operations: { op: robotApi.Operation.AsObject }[]) => {
-  const match = operations.find(({ op }) => op.method.includes('MoveOnMap'));
+const namedBase = (componentName: string): ResourceName => {
+  const baseResourceName = new commonApi.ResourceName();
+  baseResourceName.setNamespace('rdk');
+  baseResourceName.setType('component');
+  baseResourceName.setSubtype('base');
+  baseResourceName.setName(componentName);
+  return baseResourceName
+}
 
-  if (!match) {
-    throw new Error('Operation not found!');
-  }
+export const stopMoveOnMap = async (robotClient: Client, componentName: string) => {
+  const request = new motionApi.StopPlanRequest();
+  // TODO: This needs to be the actual name of the motion service
+  request.setName('builtin');
+  request.setComponentName(namedBase(componentName));
 
-  const req = new robotApi.CancelOperationRequest();
-  req.setId(match.op.id);
-  rcLogConditionally(req);
-
-  const response = await new Promise<robotApi.CancelOperationResponse | null>((resolve, reject) => {
-    robotClient.robotService.cancelOperation(req, (error, res) => {
+  await new Promise<motionApi.StopPlanResponse | null>((resolve, reject) => {
+    robotClient.motionService.stopPlan(request, (error, res) => {
       if (error) {
         reject(error);
       } else {
@@ -80,6 +79,4 @@ export const stopMoveOnMap = async (robotClient: Client, operations: { op: robot
       }
     });
   });
-
-  return response?.toObject();
-};
+}
