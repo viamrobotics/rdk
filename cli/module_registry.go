@@ -98,9 +98,15 @@ func CreateModuleAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	// Check to make sure the user doesn't accidentally overwrite a module manifest
-	if _, err := os.Stat(defaultManifestFilename); err == nil {
-		return errors.New("another module's meta.json already exists in the current directory. Delete it and try again")
+
+	// If a meta.json exists in the current directory and it matches the name and public-namespace,
+	// create the module and update it. If it does not match, give an error telling the user about the mismatch.
+	modManifest, err := loadManifest(defaultManifestFilename)
+	if err == nil {
+		manifestModuleID, err := parseModuleID(modManifest.ModuleID)
+		if err != nil || manifestModuleID.name != moduleNameArg || (manifestModuleID.prefix != orgIDArg && manifestModuleID.prefix != publicNamespaceArg) {
+			return errors.Errorf("another module's meta.json (%q) already exists in the current directory. Delete it and try again", modManifest.ModuleID)
+		}
 	}
 
 	response, err := client.createModule(moduleNameArg, org.GetId())
@@ -117,20 +123,33 @@ func CreateModuleAction(c *cli.Context) error {
 	if response.GetUrl() != "" {
 		printf(c.App.Writer, "You can view it here: %s", response.GetUrl())
 	}
-	emptyManifest := moduleManifest{
-		ModuleID:   returnedModuleID.String(),
-		Visibility: moduleVisibilityPrivate,
-		// This is done so that the json has an empty example
-		Models: []ModuleComponent{
-			{},
-		},
-		// TODO(RSDK-5608) don't auto populate until we are ready to release the build subcommand
-		// Build: defaultBuildInfo,
+
+	if modManifest != nil {
+		// if the original module manifest we read was non-nil, we also want to run an update
+		_, err := client.updateModule(returnedModuleID, *modManifest)
+		// we want to silently fail because this isn't an action the user asked for, so if it fails,
+		// an error message would cause confusion
+		if err != nil {
+			warningf(c.App.Writer, "Tried to update module with info from your meta.json but got: %v", err)
+		} else {
+			printf(c.App.Writer, "Module successfully updated with info from your existing meta.json!")
+		}
+	} else {
+		// otherwise we should create a new empty meta.json and write that
+		emptyManifest := moduleManifest{
+			ModuleID:   returnedModuleID.String(),
+			Visibility: moduleVisibilityPrivate,
+			// This is done so that the json has an empty example
+			Models: []ModuleComponent{
+				{},
+			},
+		}
+		if err := writeManifest(defaultManifestFilename, emptyManifest); err != nil {
+			return err
+		}
+
+		printf(c.App.Writer, "Configuration for the module has been written to meta.json")
 	}
-	if err := writeManifest(defaultManifestFilename, emptyManifest); err != nil {
-		return err
-	}
-	printf(c.App.Writer, "Configuration for the module has been written to meta.json")
 	return nil
 }
 
@@ -155,7 +174,7 @@ func UpdateModuleAction(c *cli.Context) error {
 		return err
 	}
 
-	response, err := client.updateModule(moduleID, manifest)
+	response, err := client.updateModule(moduleID, *manifest)
 	if err != nil {
 		return err
 	}
@@ -170,7 +189,7 @@ func UpdateModuleAction(c *cli.Context) error {
 		if org.PublicNamespace != "" {
 			moduleID.prefix = org.PublicNamespace
 			manifest.ModuleID = moduleID.String()
-			if err := writeManifest(manifestPath, manifest); err != nil {
+			if err := writeManifest(manifestPath, *manifest); err != nil {
 				return errors.Wrap(err, "failed to update meta.json with new information from Viam")
 			}
 		}
@@ -284,7 +303,7 @@ func UpdateModelsAction(c *cli.Context) error {
 	}
 
 	manifest.Models = newModels
-	return writeManifest(c.String(moduleFlagPath), manifest)
+	return writeManifest(c.String(moduleFlagPath), *manifest)
 }
 
 func (c *viamClient) createModule(moduleName, organizationID string) (*apppb.CreateModuleResponse, error) {
@@ -425,6 +444,12 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 		// if path == entrypoint, we have found the right file
 		if filepath.Clean(path) == filepath.Clean(entrypoint) {
 			info := header.FileInfo()
+			if info.IsDir() {
+				return errors.Errorf(
+					"the module archive contains a directory at the entrypoint %q instead of an executable file",
+					entrypoint)
+			}
+
 			if info.Mode().Perm()&0o100 == 0 {
 				return errors.Errorf(
 					"the archive contained a file at the entrypoint %q, but that file is not marked as executable",
@@ -570,20 +595,20 @@ func isValidOrgID(str string) bool {
 	return err == nil
 }
 
-func loadManifest(manifestPath string) (moduleManifest, error) {
+func loadManifest(manifestPath string) (*moduleManifest, error) {
 	//nolint:gosec
 	manifestBytes, err := os.ReadFile(manifestPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return moduleManifest{}, errors.Wrapf(err, "cannot find %s", manifestPath)
+			return nil, errors.Wrapf(err, "cannot find %s", manifestPath)
 		}
-		return moduleManifest{}, err
+		return nil, err
 	}
 	var manifest moduleManifest
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
-		return moduleManifest{}, err
+		return nil, err
 	}
-	return manifest, nil
+	return &manifest, nil
 }
 
 func writeManifest(manifestPath string, manifest moduleManifest) error {
