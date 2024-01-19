@@ -228,11 +228,11 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("GetAccuracy", func(t *testing.T) {
-		acc := map[string]float32{"x": 1.1}
-		injectMovementSensor.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
+		acc := &movementsensor.Accuracy{AccuracyMap: map[string]float32{"x": 1.1}}
+		injectMovementSensor.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
 			return acc, nil
 		}
-		injectMovementSensor2.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
+		injectMovementSensor2.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
 			return nil, errAccuracy
 		}
 
@@ -240,7 +240,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := gpsServer.GetAccuracy(context.Background(), &pb.GetAccuracyRequest{Name: testMovementSensorName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Accuracy, test.ShouldResemble, acc)
+		test.That(t, resp.Accuracy, test.ShouldResemble, acc.AccuracyMap)
 		test.That(t, injectMovementSensor.AccuracyFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
 		_, err = gpsServer.GetAccuracy(context.Background(), &pb.GetAccuracyRequest{Name: failMovementSensorName})
