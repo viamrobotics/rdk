@@ -17,9 +17,9 @@ const (
 	leafNodeFilled
 	// This value allows for high level of granularity in the octree while still allowing for fast access times
 	// even on a pi.
-	maxRecursionDepth = 250 // This gives us enough resolution to model the observable universe in planck lengths.
+	maxRecursionDepth = 250  // This gives us enough resolution to model the observable universe in planck lengths.
 	floatEpsilon      = 1e-6 // This is also effectively half of the minimum side length.
-	nodeRegionOverlap = floatEpsilon/2
+	nodeRegionOverlap = floatEpsilon / 2
 	// TODO (RSDK-3767): pass these in a different way.
 	confidenceThreshold = 50    // value between 0-100, threshold sets the confidence level required for a point to be considered a collision
 	buffer              = 150.0 // max distance from base to point for it to be considered a collision in mm
