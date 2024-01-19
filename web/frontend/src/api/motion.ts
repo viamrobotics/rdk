@@ -5,7 +5,6 @@ import type { ResourceName } from '@viamrobotics/sdk/dist/gen/common/v1/common_p
 
 export const moveOnMap = async (robotClient: Client, name: string, componentName: string, x: number, y: number): Promise<string | undefined> =>  {
   const request = new motionApi.MoveOnMapNewRequest();
-
   /*
    * here we set the name of the motion service the user is using
    */

@@ -3,7 +3,7 @@
 
   import * as THREE from 'three';
   import { onMount } from 'svelte';
-  import { slamApi, SlamClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
+  import { slamApi, SlamClient, MotionClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
   import { SlamMap2D } from '@viamrobotics/prime-blocks';
   import { copyToClipboard } from '@/lib/copy-to-clipboard';
   import { filterSubtype } from '@/lib/resource';
@@ -16,11 +16,15 @@
   import { useRobotClient, useConnect } from '@/hooks/robot-client';
   import type { SLAMOverrides } from '@/types/overrides';
   import { rcLogConditionally } from '@/lib/log';
+import { grpc } from '@improbable-eng/grpc-web';
 
   export let name: string;
   export let overrides: SLAMOverrides | undefined;
 
   const { robotClient } = useRobotClient();
+  const motionClient = new MotionClient($robotClient, "builtin", {
+    requestLogger: rcLogConditionally,
+  });
   const slamClient = new SlamClient($robotClient, name, {
     requestLogger: rcLogConditionally,
   });
@@ -31,6 +35,7 @@
   let clear2dRefresh: (() => void) | undefined;
 
   let refreshErrorMessage2d: string | undefined;
+  let refreshErrorMessagePaths: string | undefined;
   let executionID: string | undefined;
   let refresh2dRate = '5';
   let pointcloud: Uint8Array | undefined;
@@ -118,12 +123,49 @@
     }
   };
 
+  // TODO: Why is this running twice per iteration?
+  const refreshPaths = async () => {
+    try {
+      refreshErrorMessagePaths = undefined;
+      let res = await motionClient.getPlan({
+        namespace: "rdk",
+        type: "component",
+        subtype: "base",
+        name: bases[0]!.name,
+      }, true)
+      // TODO: Fiure out how to refer to the proto defined constant for the success state
+      if (res.currentPlanWithStatus.status.state == 1) {
+        executionID = res.currentPlanWithStatus.plan.executionId;
+        motionPath = res.currentPlanWithStatus.plan.stepsList.map(step => (
+         `${step.stepMap[0][1].pose.x},${step.stepMap[0][1].pose.y}`
+        )).join("\n");
+        return;
+      }
+      motionPath = undefined
+      executionID = undefined
+    } catch (error) {
+      // This is the error code when the component has not been used in a plan yet.
+      if (error !== null && typeof error === 'object' && 'code' in error && 'message' in error) {
+        if (error.code !== grpc.Code.Unknown) {
+          refreshErrorMessagePaths = `${refreshErrorMessage} ${(error as { message: string }).message}`;
+        }
+      } else {
+        refreshErrorMessagePaths = `${refreshErrorMessage} ${error as string}`
+      }
+      motionPath = undefined
+      executionID = undefined
+    }
+    // If we didn't early return it means that the executionID & motionPath were not set
+
+  }
+
   const updateSLAM2dRefreshFrequency = () => {
     clear2dRefresh?.();
     refresh2d();
-    // refreshPaths();
+    refreshPaths();
 
     refreshErrorMessage2d = undefined;
+    refreshErrorMessagePaths = undefined;
 
     if (refresh2dRate !== 'manual') {
       clear2dRefresh = setAsyncInterval(
@@ -200,6 +242,7 @@
         destination!.x,
         destination!.y
       );
+      await refreshPaths();
     } catch (error) {
       notify.danger((error as ServiceError).message);
     }
@@ -208,6 +251,7 @@
   const handleStopMoveClick = async () => {
     try {
       await stopMoveOnMap($robotClient, bases[0]!.name);
+      await refreshPaths();
     } catch (error) {
       notify.danger((error as ServiceError).message);
     }
@@ -509,6 +553,11 @@
       {#if refreshErrorMessage2d && show2d}
         <div class="border-l-4 border-red-500 bg-gray-100 px-4 py-3">
           {refreshErrorMessage2d}
+        </div>
+      {/if}
+      {#if refreshErrorMessagePaths && show2d}
+        <div class="border-l-4 border-red-500 bg-gray-100 px-4 py-3">
+          {refreshErrorMessagePaths}
         </div>
       {/if}
 
