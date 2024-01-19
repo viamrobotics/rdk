@@ -271,7 +271,7 @@ func mapWithSensorName(name string, accMap map[string]float32) map[string]float3
 	return result
 }
 
-func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
+func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -282,70 +282,108 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 		oriAcc, err := m.ori.Accuracy(ctx, extra)
 		if err != nil {
 			// replace entire map with a map that shows that it has errors
-			oriAcc = map[string]float32{
-				m.ori.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
+			errorAcc := &movementsensor.Accuracy{
+				AccuracyMap: map[string]float32{
+					m.ori.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
+				},
 			}
+			oriAcc = errorAcc
 			errs = multierr.Combine(errs, err)
 		}
-		maps.Copy(accMap, mapWithSensorName(m.ori.Name().ShortName(), oriAcc))
+		if oriAcc != nil {
+			maps.Copy(accMap, mapWithSensorName(m.ori.Name().ShortName(), oriAcc.AccuracyMap))
+		}
 	}
 
 	if m.pos != nil {
 		posAcc, err := m.pos.Accuracy(ctx, extra)
 		if err != nil {
-			posAcc = map[string]float32{
-				m.pos.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
+			errorAcc := &movementsensor.Accuracy{
+				AccuracyMap: map[string]float32{
+					m.pos.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
+				},
 			}
+			posAcc = errorAcc
 			errs = multierr.Combine(errs, err)
 		}
-		maps.Copy(accMap, mapWithSensorName(m.pos.Name().ShortName(), posAcc))
+		if posAcc != nil {
+			maps.Copy(accMap, mapWithSensorName(m.pos.Name().ShortName(), posAcc.AccuracyMap))
+		}
 	}
 
 	if m.compass != nil {
 		compassAcc, err := m.compass.Accuracy(ctx, extra)
 		if err != nil {
-			compassAcc = map[string]float32{
-				m.compass.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
+			errorAcc := &movementsensor.Accuracy{
+				AccuracyMap: map[string]float32{
+					m.compass.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
+				},
 			}
+			compassAcc = errorAcc
 			errs = multierr.Combine(errs, err)
 		}
-		maps.Copy(accMap, mapWithSensorName(m.compass.Name().ShortName(), compassAcc))
+		if compassAcc != nil {
+			maps.Copy(accMap, mapWithSensorName(m.compass.Name().ShortName(), compassAcc.AccuracyMap))
+		}
 	}
 
 	if m.linVel != nil {
 		linvelAcc, err := m.linVel.Accuracy(ctx, extra)
 		if err != nil {
-			linvelAcc = map[string]float32{
-				m.linVel.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
+			errorAcc := &movementsensor.Accuracy{
+				AccuracyMap: map[string]float32{
+					m.linVel.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
+				},
 			}
+			linvelAcc = errorAcc
 			errs = multierr.Combine(errs, err)
 		}
-		maps.Copy(accMap, mapWithSensorName(m.linVel.Name().ShortName(), linvelAcc))
+		if linvelAcc != nil {
+			maps.Copy(accMap, mapWithSensorName(m.linVel.Name().ShortName(), linvelAcc.AccuracyMap))
+		}
 	}
 
 	if m.angVel != nil {
 		angvelAcc, err := m.angVel.Accuracy(ctx, extra)
 		if err != nil {
-			angvelAcc = map[string]float32{
-				m.angVel.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
+			errorAcc := &movementsensor.Accuracy{
+				AccuracyMap: map[string]float32{
+					m.angVel.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
+				},
 			}
+			angvelAcc = errorAcc
 			errs = multierr.Combine(errs, err)
 		}
-		maps.Copy(accMap, mapWithSensorName(m.angVel.Name().ShortName(), angvelAcc))
+		if angvelAcc != nil {
+			maps.Copy(accMap, mapWithSensorName(m.angVel.Name().ShortName(), angvelAcc.AccuracyMap))
+		}
 	}
 
 	if m.linAcc != nil {
 		linaccAcc, err := m.linAcc.Accuracy(ctx, extra)
 		if err != nil {
-			linaccAcc = map[string]float32{
-				m.linAcc.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
+			errorAcc := &movementsensor.Accuracy{
+				AccuracyMap: map[string]float32{
+					m.linAcc.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
+				},
 			}
+			linaccAcc = errorAcc
 			errs = multierr.Combine(errs, err)
 		}
-		maps.Copy(accMap, mapWithSensorName(m.linAcc.Name().ShortName(), linaccAcc))
+		if linaccAcc != nil {
+			maps.Copy(accMap, mapWithSensorName(m.linAcc.Name().ShortName(), linaccAcc.AccuracyMap))
+		}
 	}
 
-	return accMap, errs
+	acc := movementsensor.Accuracy{
+		AccuracyMap:        accMap,
+		Hdop:               float32(math.NaN()),
+		Vdop:               float32(math.NaN()),
+		NmeaFix:            -1,
+		CompassDegreeError: float32(math.NaN()),
+	}
+
+	return &acc, errs
 }
 
 func (m *merged) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
