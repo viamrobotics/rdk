@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	resource.RegisterComponent(
+	resource.RegisterService(
 		generic.API,
 		resource.DefaultModelFamily.WithModel("fake"),
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: func(
