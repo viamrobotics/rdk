@@ -133,8 +133,8 @@ import { grpc } from '@improbable-eng/grpc-web';
         subtype: "base",
         name: bases[0]!.name,
       }, true)
-      // TODO: Fiure out how to refer to the proto defined constant for the success state
-      if (res.currentPlanWithStatus.status.state == 1) {
+      // TODO: Fiure out how to refer to the proto defined constant for the in progress state
+      if (res.currentPlanWithStatus.status.state === 1) {
         executionID = res.currentPlanWithStatus.plan.executionId;
         motionPath = res.currentPlanWithStatus.plan.stepsList.map(step => (
          `${step.stepMap[0][1].pose.x},${step.stepMap[0][1].pose.y}`
@@ -144,8 +144,8 @@ import { grpc } from '@improbable-eng/grpc-web';
       motionPath = undefined
       executionID = undefined
     } catch (error) {
-      // This is the error code when the component has not been used in a plan yet.
       if (error !== null && typeof error === 'object' && 'code' in error && 'message' in error) {
+        // This is the error code when the component has not been used in a plan yet.
         if (error.code !== grpc.Code.Unknown) {
           refreshErrorMessagePaths = `${refreshErrorMessage} ${(error as { message: string }).message}`;
         }
@@ -155,8 +155,6 @@ import { grpc } from '@improbable-eng/grpc-web';
       motionPath = undefined
       executionID = undefined
     }
-    // If we didn't early return it means that the executionID & motionPath were not set
-
   }
 
   const updateSLAM2dRefreshFrequency = () => {
