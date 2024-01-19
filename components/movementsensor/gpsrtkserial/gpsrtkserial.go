@@ -197,7 +197,7 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	g.ntripconfigMu.Unlock()
 
-	g.logger.CDebug(ctx, "done reconfiguring")
+	g.logger.Debug("done reconfiguring")
 
 	return nil
 }
@@ -426,11 +426,18 @@ func (g *rtkSerial) connectAndParseSourceTable() error {
 	}
 
 	g.logger.Debug("gettting source table")
+
+	srcReader, err := g.ntripClient.Client.GetSourcetable()
+	g.logger.Debugf("getSourceTable sends: %v\n", srcReader)
+	g.logger.Debugf("error from getsourcetable: %v\n", err)
+
 	srcTable, err := g.ntripClient.Client.ParseSourcetable()
 	if err != nil {
 		g.logger.Errorf("failed to get source table: %v", err)
 		return err
 	}
+	g.logger.Debugf("sourceTable is: %v\n", srcTable)
+
 	g.logger.Debug("got sourcetable, parsing it...")
 	g.isVirtualBase, err = rtk.FindLineWithMountPoint(srcTable, g.ntripClient.MountPoint)
 	if err != nil {
@@ -676,10 +683,11 @@ func (g *rtkSerial) Properties(ctx context.Context, extra map[string]interface{}
 }
 
 // Accuracy passthrough.
-func (g *rtkSerial) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
+func (g *rtkSerial) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
+) {
 	lastError := g.err.Get()
 	if lastError != nil {
-		return map[string]float32{}, lastError
+		return nil, lastError
 	}
 
 	return g.nmeamovementsensor.Accuracy(ctx, extra)
