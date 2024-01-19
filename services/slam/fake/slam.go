@@ -4,7 +4,6 @@ package fake
 import (
 	"bytes"
 	"context"
-	"sync/atomic"
 	"time"
 
 	"go.opencensus.io/trace"
@@ -43,28 +42,26 @@ type SLAM struct {
 	resource.Named
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
-	dataCount    *atomic.Int32
+	dataCount    int
 	logger       logging.Logger
 	mapTimestamp time.Time
 }
 
-func (slamSvc *SLAM) inc() int {
-	return (int(slamSvc.dataCount.Add(1)) - 1) % maxDataCount
-}
-
-func (slamSvc *SLAM) getDataCount() int {
-	return int(slamSvc.dataCount.Load()) % maxDataCount
-}
-
 // NewSLAM is a constructor for a fake slam service.
 func NewSLAM(name resource.Name, logger logging.Logger) *SLAM {
-	var dataCount atomic.Int32
 	return &SLAM{
 		Named:        name.AsNamed(),
 		logger:       logger,
-		dataCount:    &dataCount,
+		dataCount:    -1,
 		mapTimestamp: time.Now().UTC(),
 	}
+}
+
+func (slamSvc *SLAM) getCount() int {
+	if slamSvc.dataCount < 0 {
+		return 0
+	}
+	return slamSvc.dataCount
 }
 
 // Position returns a Pose and a component reference string of the robot's current location according to SLAM.
@@ -79,6 +76,7 @@ func (slamSvc *SLAM) Position(ctx context.Context) (spatialmath.Pose, string, er
 func (slamSvc *SLAM) PointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
 	ctx, span := trace.StartSpan(ctx, "slam::fake::PointCloudMap")
 	defer span.End()
+	slamSvc.incrementDataCount()
 	return fakePointCloudMap(ctx, datasetDirectory, slamSvc)
 }
 
@@ -102,6 +100,12 @@ func (slamSvc *SLAM) Properties(ctx context.Context) (slam.Properties, error) {
 		MappingMode: slam.MappingModeNewMap,
 	}
 	return prop, nil
+}
+
+// incrementDataCount is not thread safe but that is ok as we only intend a single user to be interacting
+// with it at a time.
+func (slamSvc *SLAM) incrementDataCount() {
+	slamSvc.dataCount = ((slamSvc.dataCount + 1) % maxDataCount)
 }
 
 // Limits returns the bounds of the slam map as a list of referenceframe.Limits.

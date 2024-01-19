@@ -69,7 +69,7 @@ func TestFakeSLAMInternalState(t *testing.T) {
 	t.Run(testName, func(t *testing.T) {
 		slamSvc := NewSLAM(slam.Named("test"), logging.NewTestLogger(t))
 
-		path := filepath.Clean(artifact.MustPath(fmt.Sprintf(internalStateTemplate, datasetDirectory, slamSvc.inc())))
+		path := filepath.Clean(artifact.MustPath(fmt.Sprintf(internalStateTemplate, datasetDirectory, slamSvc.getCount())))
 		expectedData, err := os.ReadFile(path)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -92,7 +92,7 @@ func TestFakeSLAMPointMap(t *testing.T) {
 		data := getDataFromStream(t, slamSvc.PointCloudMap)
 		test.That(t, len(data), test.ShouldBeGreaterThan, 0)
 
-		path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDirectory, slamSvc.inc())))
+		path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDirectory, slamSvc.getCount())))
 		expectedData, err := os.ReadFile(path)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -101,7 +101,7 @@ func TestFakeSLAMPointMap(t *testing.T) {
 		data2 := getDataFromStream(t, slamSvc.PointCloudMap)
 		test.That(t, len(data2), test.ShouldBeGreaterThan, 0)
 
-		path2 := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDirectory, slamSvc.inc())))
+		path2 := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDirectory, slamSvc.getCount())))
 		expectedData2, err := os.ReadFile(path2)
 		test.That(t, err, test.ShouldBeNil)
 

@@ -48,7 +48,7 @@ const (
 )
 
 func fakePointCloudMap(ctx context.Context, datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
-	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDir, slamSvc.inc())))
+	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDir, slamSvc.getCount())))
 	slamSvc.logger.CDebug(ctx, "Reading "+path)
 	file, err := os.Open(path)
 	if err != nil {
@@ -67,7 +67,7 @@ func fakePointCloudMap(ctx context.Context, datasetDir string, slamSvc *SLAM) (f
 }
 
 func fakeInternalState(ctx context.Context, datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
-	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(internalStateTemplate, datasetDir, slamSvc.getDataCount())))
+	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(internalStateTemplate, datasetDir, slamSvc.getCount())))
 	slamSvc.logger.CDebug(ctx, "Reading "+path)
 	file, err := os.Open(path)
 	if err != nil {
@@ -86,7 +86,7 @@ func fakeInternalState(ctx context.Context, datasetDir string, slamSvc *SLAM) (f
 }
 
 func fakePosition(ctx context.Context, datasetDir string, slamSvc *SLAM) (spatialmath.Pose, string, error) {
-	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(positionTemplate, datasetDir, slamSvc.getDataCount())))
+	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(positionTemplate, datasetDir, slamSvc.getCount())))
 	slamSvc.logger.CDebug(ctx, "Reading "+path)
 	data, err := os.ReadFile(path)
 	if err != nil {
