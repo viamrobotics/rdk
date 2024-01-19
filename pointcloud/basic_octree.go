@@ -183,8 +183,11 @@ func (octree *BasicOctree) Transform(pose spatialmath.Pose) spatialmath.Geometry
 
 	octree.Iterate(0, 0, func(p r3.Vector, d Data) bool {
 		tformPt := spatialmath.Compose(pose, spatialmath.NewPoseFromPoint(p)).Point()
+		// We don't do anything with this error, as returning false here merely silently truncates the pointcloud.
+		// Preference is to lose one point than the rest of them.
 		err := newOctree.Set(tformPt, d)
-		return err == nil
+		_ = err
+		return true
 	})
 	return newOctree
 }
