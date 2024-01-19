@@ -104,8 +104,11 @@ func CreateModuleAction(c *cli.Context) error {
 	modManifest, err := loadManifest(defaultManifestFilename)
 	if err == nil {
 		manifestModuleID, err := parseModuleID(modManifest.ModuleID)
-		if err != nil || manifestModuleID.name != moduleNameArg || (manifestModuleID.prefix != orgIDArg && manifestModuleID.prefix != publicNamespaceArg) {
-			return errors.Errorf("another module's meta.json (%q) already exists in the current directory. Delete it and try again", modManifest.ModuleID)
+		if err != nil ||
+			manifestModuleID.name != moduleNameArg ||
+			(manifestModuleID.prefix != orgIDArg && manifestModuleID.prefix != publicNamespaceArg) {
+			return errors.Errorf("another module's meta.json (%q) already exists in the current directory. Delete it and try again",
+				modManifest.ModuleID)
 		}
 	}
 
@@ -127,8 +130,8 @@ func CreateModuleAction(c *cli.Context) error {
 	if modManifest != nil {
 		// if the original module manifest we read was non-nil, we also want to run an update
 		_, err := client.updateModule(returnedModuleID, *modManifest)
-		// we want to silently fail because this isn't an action the user asked for, so if it fails,
-		// an error message would cause confusion
+		// we want to fail with a warning rather than an error because this isn't an action the user asked for,
+		// so red scary error messages would cause confusion
 		if err != nil {
 			warningf(c.App.Writer, "Tried to update module with info from your meta.json but got: %v", err)
 		} else {
@@ -444,12 +447,6 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 		// if path == entrypoint, we have found the right file
 		if filepath.Clean(path) == filepath.Clean(entrypoint) {
 			info := header.FileInfo()
-			if info.IsDir() {
-				return errors.Errorf(
-					"the module archive contains a directory at the entrypoint %q instead of an executable file",
-					entrypoint)
-			}
-
 			if info.Mode().Perm()&0o100 == 0 {
 				return errors.Errorf(
 					"the archive contained a file at the entrypoint %q, but that file is not marked as executable",
