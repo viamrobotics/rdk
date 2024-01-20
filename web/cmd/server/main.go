@@ -1,5 +1,3 @@
-// Package main provides a server offering gRPC/REST/GUI APIs to control and monitor
-// a robot.
 package main
 
 import (
@@ -16,5 +14,6 @@ import (
 var logger = logging.NewDebugLogger("robot_server")
 
 func main() {
-	utils.ContextualMain(server.RunServer, logger)
+utils.ContextualMain(server.RunServer, logger)
+//THIS WILL NOT PASS THE LINTER            fadfasdfasdf;sdakfjsadkflasjddafk;lsdjfsadkl;fjsdaklfjsadkaflsajdfklasdjfasdklfjsadflkasdjfl;kasdfjasdkl;f;jasdfas;kldfjasdlk;fjasdkflasjdafadslfjas
 }
