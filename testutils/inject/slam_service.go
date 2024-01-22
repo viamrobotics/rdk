@@ -2,7 +2,6 @@ package inject
 
 import (
 	"context"
-	"time"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
@@ -16,7 +15,6 @@ type SLAMService struct {
 	PositionFunc      func(ctx context.Context) (spatialmath.Pose, string, error)
 	PointCloudMapFunc func(ctx context.Context) (func() ([]byte, error), error)
 	InternalStateFunc func(ctx context.Context) (func() ([]byte, error), error)
-	LatestMapInfoFunc func(ctx context.Context) (time.Time, error)
 	PropertiesFunc    func(ctx context.Context) (slam.Properties, error)
 	DoCommandFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc         func(ctx context.Context) error
