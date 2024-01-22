@@ -66,7 +66,7 @@ func NewEncoder(width, height, keyFrameInterval int, logger golog.Logger) (codec
 	}
 
 	if h.frame = avutil.FrameAlloc(); h.frame == nil {
-		h.Close()
+		h.Close() //nolint:errcheck
 		return nil, errors.New("cannot alloc frame")
 	}
 
