@@ -425,9 +425,15 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 		// if path == entrypoint, we have found the right file
 		if filepath.Clean(path) == filepath.Clean(entrypoint) {
 			info := header.FileInfo()
+			if info.IsDir() {
+				return errors.Errorf(
+					"the module archive contains a directory at the entrypoint %q instead of an executable file",
+					entrypoint)
+			}
+
 			if info.Mode().Perm()&0o100 == 0 {
 				return errors.Errorf(
-					"the archive contained a file at the entrypoint %q, but that file is not marked as executable",
+					"the module archive contains a file at the entrypoint %q, but that file is not marked as executable",
 					entrypoint)
 			}
 			// executable file at entrypoint. validation succeeded.
