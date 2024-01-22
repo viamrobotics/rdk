@@ -623,6 +623,12 @@ func (r *localRobot) newResource(
 		}
 	}()
 	resName := conf.ResourceName()
+
+	// create logger to make sure errors can be logged before doing anything
+	resLogger := r.logger.Sublogger(resName.String())
+	resLogger.SetLevel(conf.LogConfiguration.Level)
+	gNode.SetLogger(resLogger)
+
 	resInfo, ok := resource.LookupRegistration(resName.API, conf.Model)
 	if !ok {
 		return nil, errors.Errorf("unknown resource type: API %q with model %q not registered", resName.API, conf.Model)
@@ -643,9 +649,6 @@ func (r *localRobot) newResource(
 		}
 	}
 
-	resLogger := r.logger.Sublogger(conf.ResourceName().String())
-	resLogger.SetLevel(conf.LogConfiguration.Level)
-	gNode.SetLogger(resLogger)
 	if resInfo.Constructor != nil {
 		return resInfo.Constructor(ctx, deps, conf, resLogger)
 	}
