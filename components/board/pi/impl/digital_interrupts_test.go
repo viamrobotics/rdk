@@ -177,8 +177,8 @@ func TestServoInterrupt(t *testing.T) {
 
 func TestServoInterruptWithPP(t *testing.T) {
 	config := DigitalInterruptConfig{
-		Name:    "s1",
-		Type:    "servo",
+		Name: "s1",
+		Type: "servo",
 	}
 
 	s, err := CreateDigitalInterrupt(config)
