@@ -136,15 +136,14 @@ import { grpc } from '@improbable-eng/grpc-web';
       }, true)
       if (res.currentPlanWithStatus?.status?.state === motionApi.PlanState.PLAN_STATE_IN_PROGRESS) {
         executionID = res.currentPlanWithStatus.plan?.executionId;
-        motionPath = res.currentPlanWithStatus.plan?.stepsList.flatMap(({stepMap: [stepMap]}) => {
+        motionPath = res.currentPlanWithStatus.plan?.stepsList.map(({stepMap: [stepMap]}) => {
           if (Array.isArray(stepMap) && 
           typeof stepMap[1] === 'object' && 
           'pose' in stepMap[1] && 
           typeof stepMap[1].pose === 'object') {
-            return [`${stepMap[1].pose.x},${stepMap[1].pose.y}`];
+            return `${stepMap[1].pose.x},${stepMap[1].pose.y}`;
           }
-          return [];
-
+          throw new Error("motion.GetPlan response's contained unexpected structure, types or values")
         }).join("\n");
         return;
       }
