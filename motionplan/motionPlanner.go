@@ -478,7 +478,10 @@ func CheckPlan(
 	// construct solverFrame
 	// Note that this requires all frames which move as part of the plan, to have an
 	// entry in the very first plan waypoint
-	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, plan[0])
+	seedMap := map[string][]frame.Input{
+		checkFrame.Name(): currentInputs,
+	}
+	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, seedMap)
 	if err != nil {
 		return err
 	}
@@ -509,8 +512,11 @@ func CheckPlan(
 		logger.Debugf("lastPose: %v", spatialmath.PoseToProtobuf(lastPose))
 
 		// where ought the robot be on the plan
-		// pathPosition := spatialmath.PoseBetweenInverse(errorState, currentPosition)
-		// logger.Debugf("pathPosition: %v", spatialmath.PoseToProtobuf(pathPosition))
+		pathPosition := spatialmath.PoseBetweenInverse(errorState, currentPosition)
+		logger.Debugf("pathPosition: %v", spatialmath.PoseToProtobuf(pathPosition))
+
+		otherFormerRunningPose := spatialmath.PoseBetweenInverse(lastPose, pathPosition)
+		logger.Debugf("OTHER - FormerRunningPose: %v", spatialmath.PoseToProtobuf(otherFormerRunningPose))
 
 		// absolute pose of the previous node we've passed
 		formerRunningPose := spatialmath.PoseBetweenInverse(lastPose, currentPosition)
@@ -535,6 +541,8 @@ func CheckPlan(
 
 	for _, node := range planNodes {
 		logger.Debugf("node Pose: %v", spatialmath.PoseToProtobuf(node.Pose()))
+		logger.Debugf("node inputs: %v", node.Q())
+		logger.Debugf(" ")
 	}
 
 	// create constraints
@@ -571,6 +579,7 @@ func CheckPlan(
 			EndConfiguration:   endConfiguration,
 			Frame:              sf,
 		}
+		logger.Debugf("segment startcfg - %v endcfg - %v", segment.StartConfiguration, segment.EndConfiguration)
 
 		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
 		if err != nil {

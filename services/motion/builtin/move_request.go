@@ -373,10 +373,8 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 	for _, inputs := range waypoints[waypointIndex:] {
 		input := make(map[string][]referenceframe.Input)
 		input[mr.kinematicBase.Name().Name] = inputs
-		// mr.logger.Debugf("appending %v to plan", input)
 		plan = append(plan, input)
 	}
-	mr.logger.Debugf("plan: %v", plan)
 
 	for visSrvc, cameraNames := range mr.obstacleDetectors {
 		for _, camName := range cameraNames {
