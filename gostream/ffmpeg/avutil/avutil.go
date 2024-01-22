@@ -73,9 +73,8 @@ func ptr(buf []byte) *C.uint8_t {
 	return (*C.uint8_t)(unsafe.Pointer(h.Data))
 }
 
-// SetFrameFromImgMacroAlign sets the frame from the given image.YCbCr
-// Adding line padding to the image to ensure that the data is aligned
-// to the given boundary
+// SetFrameFromImgMacroAlign sets the frame from the given image.YCbCr adding
+// line padding to the image to ensure that the data is aligned to the given boundary.
 func (f *Frame) SetFrameFromImgMacroAlign(img *image.YCbCr, boundary int) {
 	// Calculating padded strides
 	// Rounding up to next multiple of boundary value
@@ -89,9 +88,7 @@ func (f *Frame) SetFrameFromImgMacroAlign(img *image.YCbCr, boundary int) {
 	paddedCb := make([]byte, paddedCbCrStride*img.Rect.Dy()/2)
 	paddedCr := make([]byte, paddedCbCrStride*img.Rect.Dy()/2)
 
-	// Copy data from img to padded buffers
-	// Copying line by line which incurs a performance penalty
-	// TODO: Use SIMD to copy data
+	// Copy data from img to padded buffers line by line
 	for i := 0; i < img.Rect.Dy(); i++ {
 		copy(paddedY[i*paddedYStride:(i+1)*paddedYStride], img.Y[i*img.YStride:])
 	}
@@ -101,7 +98,6 @@ func (f *Frame) SetFrameFromImgMacroAlign(img *image.YCbCr, boundary int) {
 	}
 
 	// Update AVFrame data pointers and linesize
-	// AVFrame expects unsigned char*
 	// Casting from go slice to C array without changing memory
 	f.data[0] = (*C.uchar)(unsafe.Pointer(&paddedY[0]))
 	f.data[1] = (*C.uchar)(unsafe.Pointer(&paddedCb[0]))
