@@ -19,7 +19,6 @@ type DigitalInterruptConfig struct {
 	Name    string `json:"name"`
 	Pin     string `json:"pin"`
 	Type    string `json:"type,omitempty"` // e.g. basic, servo
-	Formula string `json:"formula,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -142,7 +141,7 @@ func (i *BasicDigitalInterrupt) Close(ctx context.Context) error {
 	return nil
 }
 
-// Reconfigure reconfigures this digital interrupt with a new formula.
+// Reconfigure reconfigures this digital interrupt.
 func (i *BasicDigitalInterrupt) Reconfigure(conf DigitalInterruptConfig) error {
 	i.mu.Lock()
 	defer i.mu.Unlock()
@@ -205,7 +204,7 @@ func (i *ServoDigitalInterrupt) RemoveCallback(c chan board.Tick) {
 	panic("servos can't have callback")
 }
 
-// Reconfigure reconfigures this digital interrupt with a new formula.
+// Reconfigure reconfigures this digital interrupt.
 func (i *ServoDigitalInterrupt) Reconfigure(conf DigitalInterruptConfig) error {
 	i.mu.Lock()
 	defer i.mu.Unlock()
