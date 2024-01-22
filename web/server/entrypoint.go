@@ -3,6 +3,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -12,15 +13,18 @@ import (
 	"runtime/pprof"
 	"time"
 
+	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/slices"
 
 	vlogging "go.viam.com/rdk/components/camera/videosource/logging"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -44,6 +48,7 @@ type Arguments struct {
 	UntrustedEnv               bool   `flag:"untrusted-env,usage=disable processes and shell from running in a untrusted environment"`
 	OutputTelemetry            bool   `flag:"output-telemetry,usage=print out telemetry data (metrics and spans)"`
 	DisableMulticastDNS        bool   `flag:"disable-mdns,usage=disable server discovery through multicast DNS"`
+	DumpResourceRegistrations  bool   `flag:"dump-resources,usage=print all resource registrations and attribute schemas to stdout"`
 }
 
 type robotServer struct {
@@ -62,6 +67,10 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	ctx, err = rutils.WithTrustedEnvironment(ctx, !argsParsed.UntrustedEnv)
 	if err != nil {
 		return err
+	}
+
+	if argsParsed.DumpResourceRegistrations {
+		return dumpResourceRegistrations()
 	}
 
 	// Replace logger with logger based on flags.
@@ -426,4 +435,49 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		return err
 	}
 	return web.RunWeb(ctx, myRobot, options, s.logger)
+}
+
+// dumpResourceRegistrations prints all builtin resource registrations as a json array
+// to stdout. If you edit this function, ensure that etc/system_manifest/main.go is
+// updated correspondingly.
+func dumpResourceRegistrations() error {
+	type resourceRegistration struct {
+		API             string             `json:"api"`
+		Model           string             `json:"model"`
+		AttributeSchema *jsonschema.Schema `json:"attribute_schema,omitempty"`
+	}
+
+	// create the array of all resource registrations
+	resources := make([]resourceRegistration, 0, len(resource.RegisteredResources()))
+	for apimodel, reg := range resource.RegisteredResources() {
+		var attributeSchema *jsonschema.Schema
+		reflectType := reg.ConfigReflectType()
+		if reflectType != nil {
+			attributeSchema = jsonschema.ReflectFromType(reflectType)
+		}
+		resources = append(resources, resourceRegistration{
+			API:             apimodel.API.String(),
+			Model:           apimodel.Model.String(),
+			AttributeSchema: attributeSchema,
+		})
+	}
+
+	// sort the list alphabetically by API+Model
+	slices.SortFunc(resources, func(a, b resourceRegistration) bool {
+		if a.API != b.API {
+			return a.API < b.API
+		}
+		return a.Model < b.Model
+	})
+
+	// marshall and print the registrations to stdout
+	jsonResult, err := json.Marshal(resources)
+	if err != nil {
+		return errors.Wrap(err, "unable to marshall resources")
+	}
+
+	if _, err := os.Stdout.Write(jsonResult); err != nil {
+		return errors.Wrap(err, "unable to write resulting object to stdout")
+	}
+	return nil
 }
