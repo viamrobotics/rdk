@@ -39,6 +39,7 @@ type client struct {
 	activeBackgroundWorkers sync.WaitGroup
 	cancelCtx               context.Context
 	cancel                  func()
+	closeCh                 chan struct{}
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -49,7 +50,9 @@ func NewClientFromConn(
 	name resource.Name,
 	logger logging.Logger,
 ) (Camera, error) {
+	logger.Info(">>> NEW CAMERA CLIENT")
 	cancelCtx, cancel := context.WithCancel(context.Background())
+	closeCh := make(chan struct{})
 	c := pb.NewCameraServiceClient(conn)
 	return &client{
 		Named:     name.PrependRemote(remoteName).AsNamed(),
@@ -59,6 +62,7 @@ func NewClientFromConn(
 		logger:    logger,
 		cancelCtx: cancelCtx,
 		cancel:    cancel,
+		closeCh:   closeCh,
 	}, nil
 }
 
@@ -121,7 +125,7 @@ func (c *client) Stream(
 	ctx, span := trace.StartSpan(ctx, "camera::client::Stream")
 
 	cancelCtxWithMIME := gostream.WithMIMETypeHint(c.cancelCtx, gostream.MIMETypeHint(ctx, ""))
-	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](cancelCtxWithMIME)
+	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](cancelCtxWithMIME, c.closeCh)
 
 	c.mu.Lock()
 	if err := c.cancelCtx.Err(); err != nil {
@@ -290,8 +294,10 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 }
 
 func (c *client) Close(ctx context.Context) error {
+	c.logger.Info(">>> CLOSING CAMERA CLIENT")
 	c.mu.Lock()
 	c.cancel()
+	// c.closeCh <- struct{}{}
 	c.mu.Unlock()
 	c.activeBackgroundWorkers.Wait()
 	return nil
