@@ -1061,13 +1061,6 @@ func TestClientDialerOption(t *testing.T) {
 }
 
 func TestClientResources(t *testing.T) {
-	// TODO(RSDK-6185): robot.proto importing app.proto causes this test to fail
-	// (gRPC reflection breaks for the RobotService proto service because the RDK
-	// does not know how to generate Go code for tagger.proto since that
-	// generation requires a protoc-gen-gotag Golang dep that the RDK does not
-	// have).
-	t.Skip()
-
 	injectRobot := &inject.Robot{}
 
 	desc1, err := grpcreflect.LoadServiceDescriptor(&pb.RobotService_ServiceDesc)
