@@ -512,11 +512,11 @@ func CheckPlan(
 		logger.Debugf("lastPose: %v", spatialmath.PoseToProtobuf(lastPose))
 
 		// where ought the robot be on the plan
-		pathPosition := spatialmath.PoseBetweenInverse(errorState, currentPosition)
-		logger.Debugf("pathPosition: %v", spatialmath.PoseToProtobuf(pathPosition))
+		// pathPosition := spatialmath.PoseBetweenInverse(errorState, currentPosition)
+		// logger.Debugf("pathPosition: %v", spatialmath.PoseToProtobuf(pathPosition))
 
-		otherFormerRunningPose := spatialmath.PoseBetweenInverse(lastPose, pathPosition)
-		logger.Debugf("OTHER - FormerRunningPose: %v", spatialmath.PoseToProtobuf(otherFormerRunningPose))
+		// otherFormerRunningPose := spatialmath.PoseBetweenInverse(lastPose, pathPosition)
+		// logger.Debugf("OTHER - FormerRunningPose: %v", spatialmath.PoseToProtobuf(otherFormerRunningPose))
 
 		// absolute pose of the previous node we've passed
 		formerRunningPose := spatialmath.PoseBetweenInverse(lastPose, currentPosition)
