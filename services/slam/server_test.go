@@ -8,7 +8,6 @@ import (
 	"math"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
@@ -142,21 +141,6 @@ func TestWorkingServer(t *testing.T) {
 		err := slamServer.GetInternalState(req, mockServer)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mockServer.rawBytes, test.ShouldResemble, internalStateSucc)
-	})
-
-	t.Run("working GetLatestMapInfo", func(t *testing.T) {
-		timestamp := time.Now().UTC()
-		injectSvc.LatestMapInfoFunc = func(ctx context.Context) (time.Time, error) {
-			return timestamp, nil
-		}
-
-		reqInfo := &pb.GetLatestMapInfoRequest{
-			Name: testSlamServiceName,
-		}
-
-		respInfo, err := slamServer.GetLatestMapInfo(context.Background(), reqInfo)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, respInfo.LastMapUpdate.AsTime(), test.ShouldResemble, timestamp)
 	})
 
 	t.Run("working GetProperties", func(t *testing.T) {
@@ -308,17 +292,6 @@ func TestFailingServer(t *testing.T) {
 
 		err = slamServer.GetInternalState(req, mockServer)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "callback error")
-	})
-
-	t.Run("failing GetLatestMapInfo", func(t *testing.T) {
-		injectSvc.LatestMapInfoFunc = func(ctx context.Context) (time.Time, error) {
-			return time.Time{}, errors.New("failure to get latest map info")
-		}
-		reqInfo := &pb.GetLatestMapInfoRequest{Name: testSlamServiceName}
-
-		respInfo, err := slamServer.GetLatestMapInfo(context.Background(), reqInfo)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get latest map info")
-		test.That(t, respInfo, test.ShouldBeNil)
 	})
 
 	t.Run("failing GetProperties", func(t *testing.T) {

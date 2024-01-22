@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -49,7 +48,6 @@ func TestClientWorkingService(t *testing.T) {
 	pcd, err := os.ReadFile(pcdPath)
 	test.That(t, err, test.ShouldBeNil)
 
-	timestampSucc := time.Now().UTC()
 	propSucc := slam.Properties{
 		CloudSlam:   false,
 		MappingMode: slam.MappingModeNewMap,
@@ -90,10 +88,6 @@ func TestClientWorkingService(t *testing.T) {
 			return clientBuffer[:n], err
 		}
 		return f, nil
-	}
-
-	workingSLAMService.LatestMapInfoFunc = func(ctx context.Context) (time.Time, error) {
-		return timestampSucc, nil
 	}
 
 	workingSLAMService.PropertiesFunc = func(ctx context.Context) (slam.Properties, error) {
@@ -145,11 +139,6 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fullBytesInternalState, test.ShouldResemble, internalStateSucc)
 
-		// test latest map info
-		timestamp, err := workingSLAMClient.LatestMapInfo(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, timestamp, test.ShouldResemble, timestampSucc)
-
 		// test properties
 		prop, err := workingSLAMClient.Properties(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -184,11 +173,6 @@ func TestClientWorkingService(t *testing.T) {
 		fullBytesInternalState, err := slam.InternalStateFull(context.Background(), workingDialedClient)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fullBytesInternalState, test.ShouldResemble, internalStateSucc)
-
-		// test latest map info
-		timestamp, err := workingDialedClient.LatestMapInfo(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, timestamp, test.ShouldResemble, timestampSucc)
 
 		// test properties
 		prop, err := workingDialedClient.Properties(context.Background())
@@ -233,11 +217,6 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fullBytesInternalState, test.ShouldResemble, internalStateSucc)
 
-		// test latest map info
-		timestamp, err := dialedClient.LatestMapInfo(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, timestamp, test.ShouldResemble, timestampSucc)
-
 		// test properties
 		prop, err := dialedClient.Properties(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -274,10 +253,6 @@ func TestFailingClient(t *testing.T) {
 
 	failingSLAMService.InternalStateFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 		return nil, errors.New("failure during get internal state")
-	}
-
-	failingSLAMService.LatestMapInfoFunc = func(ctx context.Context) (time.Time, error) {
-		return time.Time{}, errors.New("failure to get latest map info")
 	}
 
 	failingSLAMService.PropertiesFunc = func(ctx context.Context) (slam.Properties, error) {
@@ -332,12 +307,6 @@ func TestFailingClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during get internal state")
 		test.That(t, fullBytesInternalState, test.ShouldBeNil)
-
-		// test latest map info
-		timestamp, err := failingSLAMClient.LatestMapInfo(context.Background())
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get latest map info")
-		test.That(t, timestamp, test.ShouldResemble, time.Time{})
 
 		// test properties
 		prop, err := failingSLAMClient.Properties(context.Background())
