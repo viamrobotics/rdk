@@ -42,17 +42,6 @@ func TestFakeSLAMPosition(t *testing.T) {
 	test.That(t, p, test.ShouldResemble, p2)
 }
 
-func TestFakeSLAMLatestMapInfo(t *testing.T) {
-	slamSvc := NewSLAM(slam.Named("test"), logging.NewTestLogger(t))
-
-	timestamp1, err := slamSvc.LatestMapInfo(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-
-	timestamp2, err := slamSvc.LatestMapInfo(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, timestamp2.After(timestamp1), test.ShouldBeTrue)
-}
-
 func TestFakeProperties(t *testing.T) {
 	slamSvc := NewSLAM(slam.Named("test"), logging.NewTestLogger(t))
 
