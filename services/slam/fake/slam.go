@@ -52,7 +52,7 @@ func NewSLAM(name resource.Name, logger logging.Logger) *SLAM {
 	return &SLAM{
 		Named:        name.AsNamed(),
 		logger:       logger,
-		dataCount:    -1,
+		dataCount:    23,
 		mapTimestamp: time.Now().UTC(),
 	}
 }
@@ -105,7 +105,7 @@ func (slamSvc *SLAM) Properties(ctx context.Context) (slam.Properties, error) {
 // incrementDataCount is not thread safe but that is ok as we only intend a single user to be interacting
 // with it at a time.
 func (slamSvc *SLAM) incrementDataCount() {
-	slamSvc.dataCount = ((slamSvc.dataCount + 1) % maxDataCount)
+	// slamSvc.dataCount = ((slamSvc.dataCount + 1) % maxDataCount)
 }
 
 // Limits returns the bounds of the slam map as a list of referenceframe.Limits.
