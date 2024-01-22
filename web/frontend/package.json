@@ -55,7 +55,7 @@
     "@viamrobotics/eslint-config": "^0.2.6",
     "@viamrobotics/prettier-config": "^0.3.4",
     "@viamrobotics/prime": "0.5.9",
-    "@viamrobotics/prime-blocks": "^0.0.24",
+    "@viamrobotics/prime-blocks": "file:../../../prime/packages/blocks",
     "@viamrobotics/prime-core": "^0.0.69",
     "@viamrobotics/rpc": "0.1.37",
     "@viamrobotics/sdk": "0.9.1",

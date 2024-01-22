@@ -33,6 +33,7 @@
   let refreshErrorMessage2d: string | undefined;
   let refresh2dRate = '5';
   let pointcloud: Uint8Array | undefined;
+  let slamPath: Uint8Array | undefined;
   let pose: Pose | undefined;
   let show2d = false;
   let showAxes = true;
@@ -47,6 +48,7 @@
   let mapNameError = '';
   let motionPath: string | undefined;
   let mappingSessionStarted = false;
+  let adjustPointCloudWithPosition = true;
 
   $: pointcloudLoaded = Boolean(pointcloud?.length) && pose !== undefined;
   $: moveClicked = $operations.find(({ op }) =>
@@ -97,6 +99,14 @@
           ]);
           nextPose = response.pose;
         }
+
+        if (adjustPointCloudWithPosition) {
+            const command = "slam_path_point_cloud"
+            let slamPathStruct = await slamClient.doCommand({"slam_path_point_cloud": ""})
+            if (slamPathStruct[command]) {
+              slamPath = new Uint8Array(slamPathStruct[command] as Uint8Array)
+            }
+          }
       }
 
       /*
@@ -576,6 +586,7 @@
               <div class="relative w-full h-[400px]">
                 <SlamMap2D
                   {pointcloud}
+                  {slamPath}
                   {destination}
                   {motionPath}
                   basePose={pose
