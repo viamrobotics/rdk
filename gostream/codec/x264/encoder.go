@@ -20,7 +20,7 @@ type encoder struct {
 }
 
 // Gives suitable results. Probably want to make this configurable this in the future.
-const bitrate = 3_200_000
+const bitrate = 1_200_000
 
 // NewEncoder returns an x264 encoder that can encode images of the given width and height. It will
 // also ensure that it produces key frames at the given interval.
@@ -63,4 +63,9 @@ func (v *encoder) Encode(_ context.Context, img image.Image) ([]byte, error) {
 	copy(dataCopy, data)
 	release()
 	return dataCopy, err
+}
+
+// Close closes the encoder.
+func (v *encoder) Close() error {
+	return v.codec.Close()
 }

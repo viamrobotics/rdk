@@ -502,8 +502,9 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 }
 
-//nolint
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not
+//
+//nolint:all
 func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()
 	defer g.ntripMu.Unlock()
@@ -640,10 +641,10 @@ func (g *rtkI2C) Properties(ctx context.Context, extra map[string]interface{}) (
 }
 
 // Accuracy passthrough.
-func (g *rtkI2C) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
+func (g *rtkI2C) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
 	lastError := g.err.Get()
 	if lastError != nil {
-		return map[string]float32{}, lastError
+		return nil, lastError
 	}
 
 	return g.nmeamovementsensor.Accuracy(ctx, extra)

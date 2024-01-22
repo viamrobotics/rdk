@@ -53,10 +53,15 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context) error {
 	if manifest.Build == nil || manifest.Build.Build == "" {
 		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
 	}
+
+	// Clean the version argument to ensure compatibility with github tag standards
+	version = strings.TrimPrefix(version, "v")
+
 	platforms := manifest.Build.Arch
 	if len(platforms) == 0 {
 		platforms = defaultBuildInfo.Arch
 	}
+
 	gitRef := cCtx.String(moduleBuildFlagRef)
 	res, err := c.startBuild(manifest.URL, gitRef, manifest.ModuleID, platforms, version)
 	if err != nil {

@@ -355,7 +355,7 @@ func fromReader(
 	logger logging.Logger,
 	shouldReadFromCloud bool,
 ) (*Config, error) {
-	// First read and processes config from disk
+	// First read and process config from disk
 	unprocessedConfig := Config{
 		ConfigFilePath: originalPath,
 	}
@@ -390,24 +390,37 @@ func processConfigLocalConfig(unprocessedConfig *Config, logger logging.Logger) 
 	return processConfig(unprocessedConfig, false, logger)
 }
 
+// processConfig processes the config passed in. The config can be either JSON or gRPC derived.
+// If any part of this function errors, the function will exit and no part of the new config will be returned
+// until it is corrected.
 func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Logger) (*Config, error) {
+	// Ensure validates the config but also substitutes in some defaults. Implicit dependencies for builtin resource
+	// models are not filled in until attributes are converted.
 	if err := unprocessedConfig.Ensure(fromCloud, logger); err != nil {
 		return nil, err
 	}
 
+	// The unprocessed config is cached, so make a deep copy before continuing. By caching a relatively
+	// unchanged config, changes to the way RDK processes configs between versions will not cause a cache to be broken.
+	// Also ensures validation happens again on resources, remotes, and modules since the cached validation fields are not public.
 	cfg, err := unprocessedConfig.CopyOnlyPublicFields()
 	if err != nil {
 		return nil, errors.Wrap(err, "error copying config")
 	}
 
+	// Copy does not preserve ConfigFilePath since it preserves only JSON-exported fields and so we need
+	// to pass it along manually. ConfigFilePath needs to be preserved so the correct config watcher can
+	// be instantiated later in the flow.
+	cfg.ConfigFilePath = unprocessedConfig.ConfigFilePath
+
+	// replacement can happen in resource attributes and in the module config. look at config/placeholder_replace.go
+	// for available substitution types.
 	if err := cfg.ReplacePlaceholders(); err != nil {
 		logger.Errorw("error during placeholder replacement", "err", err)
 	}
 
-	// Copy does not presve ConfigFilePath and we need to pass it along manually
-	cfg.ConfigFilePath = unprocessedConfig.ConfigFilePath
-
-	// See if default service already exists in the config
+	// See if default service already exists in the config and add them in if not. This code allows for default services to be
+	// defined under a name other than "builtin".
 	defaultServices := resource.DefaultServices()
 	unconfiguredDefaultServices := make(map[resource.API]resource.Name, len(defaultServices))
 	for _, name := range defaultServices {
@@ -427,7 +440,8 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 	// We keep track of resource configs per API to facilitate linking resource configs to
 	// its associated resource configs. Associated resource configs are configs that are
-	// linked to and used by a different resource config.
+	// linked to and used by a different resource config. See the data manager
+	// service for an example of a resource that uses associated resource configs.
 	resCfgsPerAPI := map[resource.API][]*resource.Config{}
 
 	processResources := func(confs []resource.Config) error {
@@ -438,6 +452,10 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 			resCfgsPerAPI[copied.API] = append(resCfgsPerAPI[copied.API], &confs[idx])
 			resName := copied.ResourceName()
 
+			// Look up if a resource model registered an attribute map converter. Attribute conversion converts
+			// an untyped, JSON-like object to a typed Go struct. There is a default converter if no
+			// AttributeMapConverter is registered during resource model registration. Lookup will fail for
+			// non-builtin models (so lookup will fail for modular resources) but conversion will happen on the module-side.
 			reg, ok := resource.LookupRegistration(resName.API, copied.Model)
 			if !ok || reg.AttributeMapConverter == nil {
 				continue
@@ -445,6 +463,8 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 			converted, err := reg.AttributeMapConverter(conf.Attributes)
 			if err != nil {
+				// if any of the conversion errors, the function will exit and no part of the new config will be returned
+				// until it is corrected.
 				return errors.Wrapf(err, "error converting attributes for (%s, %s)", resName.API, copied.Model)
 			}
 			confs[idx].ConvertedAttributes = converted
@@ -459,12 +479,14 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 		return nil, err
 	}
 
+	// Look through all associated configs for a resource config and link it to the configs that each associated config is linked to
 	convertAndAssociateResourceConfigs := func(
 		resName *resource.Name,
 		remoteName *string,
 		associatedCfgs []resource.AssociatedResourceConfig,
 	) error {
 		for subIdx, associatedConf := range associatedCfgs {
+			// there is no default converter for associated config converters. custom ones can be supplied through registering it on the API level.
 			conv, ok := resource.LookupAssociatedConfigRegistration(associatedConf.API)
 			if !ok {
 				continue
@@ -501,6 +523,9 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 				if !ok || reg.AssociatedConfigLinker == nil {
 					continue
 				}
+
+				// link the converted attributes for the current resource config (convertedAttrs) to the config that accepts
+				// associated configs.
 				if err := reg.AssociatedConfigLinker(assocConf.ConvertedAttributes, convertedAttrs); err != nil {
 					return errors.Wrapf(err, "error associating resource association config to resource %q", assocConf.Model)
 				}
@@ -514,6 +539,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 			copied := conf
 			resName := copied.ResourceName()
 
+			// convert and associate user-written associated resource configs here.
 			if err := convertAndAssociateResourceConfigs(&resName, nil, conf.AssociatedResourceConfigs); err != nil {
 				return errors.Wrapf(err, "error processing associated service configs for %q", resName)
 			}
@@ -528,12 +554,14 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 		return nil, err
 	}
 
+	// associated configs can be put on resources in remotes as well, so check remote configs
 	for _, c := range cfg.Remotes {
 		if err := convertAndAssociateResourceConfigs(nil, &c.Name, c.AssociatedResourceConfigs); err != nil {
 			return nil, errors.Wrapf(err, "error processing associated service configs for remote %q", c.Name)
 		}
 	}
 
+	// now that the attribute maps are converted, validate configs and get implicit dependencies for builtin resource models
 	if err := cfg.Ensure(fromCloud, logger); err != nil {
 		return nil, err
 	}

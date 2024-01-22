@@ -10,6 +10,7 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -122,7 +123,7 @@ func planFromProto(p *pb.Plan) (Plan, error) {
 		return plan, nil
 	}
 
-	steps := []PlanStep{}
+	steps := []motionplan.PlanStep{}
 	for _, s := range p.Steps {
 		step, err := planStepFromProto(s)
 		if err != nil {
@@ -137,16 +138,16 @@ func planFromProto(p *pb.Plan) (Plan, error) {
 }
 
 // planStepFromProto converts a *pb.PlanStep to a PlanStep.
-func planStepFromProto(s *pb.PlanStep) (PlanStep, error) {
+func planStepFromProto(s *pb.PlanStep) (motionplan.PlanStep, error) {
 	if s == nil {
-		return PlanStep{}, errors.New("received nil *pb.PlanStep")
+		return motionplan.PlanStep{}, errors.New("received nil *pb.PlanStep")
 	}
 
-	step := make(PlanStep)
+	step := make(motionplan.PlanStep)
 	for k, v := range s.Step {
 		name, err := resource.NewFromString(k)
 		if err != nil {
-			return PlanStep{}, err
+			return motionplan.PlanStep{}, err
 		}
 		step[name] = spatialmath.NewPoseFromProtobuf(v.Pose)
 	}

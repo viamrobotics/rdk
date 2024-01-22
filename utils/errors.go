@@ -32,7 +32,7 @@ func NewBuildTimeoutError(name string) error {
 	timeout := GetResourceConfigurationTimeout(logging.Global())
 	id := fmt.Sprintf("resource %s", name)
 	timeoutMsg := "reconfigure"
-	return timeoutErrorHelper(id, timeout, timeoutMsg, DefaultResourceConfigurationTimeout, ResourceConfigurationTimeoutEnvVar)
+	return timeoutErrorHelper(id, timeout, timeoutMsg)
 }
 
 // NewModuleStartUpTimeoutError is used when a module times out during startup.
@@ -40,16 +40,9 @@ func NewModuleStartUpTimeoutError(name string) error {
 	timeout := GetModuleStartupTimeout(logging.Global())
 	id := fmt.Sprintf("module %s", name)
 	timeoutMsg := "startup"
-	return timeoutErrorHelper(id, timeout, timeoutMsg, DefaultModuleStartupTimeout, ModuleStartupTimeoutEnvVar)
+	return timeoutErrorHelper(id, timeout, timeoutMsg)
 }
 
-func timeoutErrorHelper(id string, timeout time.Duration, timeoutMsg string, defaultTimeout time.Duration, timeoutEnvVar string) error {
-	extraMsg := ""
-	if timeout == defaultTimeout {
-		extraMsg = fmt.Sprintf(" Update %s env variable to override", timeoutEnvVar)
-	}
-	return fmt.Errorf(
-		"%s timed out after %v during %v.%v",
-		id, timeout, timeoutMsg, extraMsg,
-	)
+func timeoutErrorHelper(id string, timeout time.Duration, timeoutMsg string) error {
+	return fmt.Errorf("%s timed out after %v during %v", id, timeout, timeoutMsg)
 }

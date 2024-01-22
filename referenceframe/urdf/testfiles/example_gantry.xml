@@ -1,5 +1,10 @@
-<!-- This URDF is an example of a gantry with purely prismatic joints, such as a rack-and-pinion and pneumatic slide -->
 <?xml version="1.0" ?>
+<!-- 
+This is almost a valid URDF file. 
+It is missing joint limit effort & velocity attributes (as they are not currently known).
+It is used in tests.
+This file is an example of a gantry with purely prismatic joints, such as a rack-and-pinion and pneumatic slide 
+-->
 <robot name="gantry">
   <link name="world"/>
 

@@ -55,20 +55,28 @@ type Robot struct {
 
 // MockResourcesFromMap mocks ResourceNames and ResourceByName based on a resource map.
 func (r *Robot) MockResourcesFromMap(rs map[resource.Name]resource.Resource) {
-	r.ResourceNamesFunc = func() []resource.Name {
-		result := []resource.Name{}
-		for name := range rs {
-			result = append(result, name)
+	func() {
+		r.Mu.Lock()
+		defer r.Mu.Unlock()
+		r.ResourceNamesFunc = func() []resource.Name {
+			result := []resource.Name{}
+			for name := range rs {
+				result = append(result, name)
+			}
+			return result
 		}
-		return result
-	}
-	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
-		result, ok := rs[name]
-		if ok {
-			return result, nil
+	}()
+	func() {
+		r.Mu.Lock()
+		defer r.Mu.Unlock()
+		r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+			result, ok := rs[name]
+			if ok {
+				return result, nil
+			}
+			return nil, errors.New("not found")
 		}
-		return nil, errors.New("not found")
-	}
+	}()
 }
 
 // RemoteByName calls the injected RemoteByName or the real version.

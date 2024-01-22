@@ -1,6 +1,6 @@
 //go:build linux
 
-// Package gpsnmea implements a GPS NMEA component
+// Package gpsnmea implements a GPS NMEA component.
 package gpsnmea
 
 import (
@@ -187,7 +187,9 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 							err = g.data.ParseAndUpdate(strBuf)
 							g.mu.Unlock()
 							if err != nil {
-								g.logger.CDebugf(ctx, "can't parse nmea : %s, %v", strBuf, err)
+								g.logger.CDebugf(ctx, "can't parse nmea sentence: %s, %v", strBuf, err)
+								g.logger.Debug("Check: GPS requires clear sky view." +
+									" Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
 							}
 						}
 						strBuf = ""
@@ -207,8 +209,9 @@ func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (buses.I2C, byte) {
 	return g.bus, g.addr
 }
 
-//nolint
 // Position returns the current geographic location of the MovementSensor.
+//
+//nolint:all
 func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	lastPosition := g.lastPosition.GetLastPosition()
 
@@ -240,10 +243,17 @@ func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[stri
 }
 
 // Accuracy returns the accuracy, hDOP and vDOP.
-func (g *PmtkI2CNMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
+func (g *PmtkI2CNMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return map[string]float32{"hDOP": float32(g.data.HDOP), "vDOP": float32(g.data.HDOP)}, g.err.Get()
+	acc := movementsensor.Accuracy{
+		AccuracyMap:        map[string]float32{"hDOP": float32(g.data.HDOP), "vDOP": float32(g.data.VDOP)},
+		Hdop:               float32(g.data.HDOP),
+		Vdop:               float32(g.data.VDOP),
+		NmeaFix:            int32(g.data.FixQuality),
+		CompassDegreeError: float32(math.NaN()),
+	}
+	return &acc, g.err.Get()
 }
 
 // LinearVelocity returns the current speed of the MovementSensor.

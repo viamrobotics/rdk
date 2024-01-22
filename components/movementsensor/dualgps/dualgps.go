@@ -263,8 +263,8 @@ func (dg *dualGPS) Orientation(ctx context.Context, extra map[string]interface{}
 	return spatialmath.NewZeroOrientation(), movementsensor.ErrMethodUnimplementedOrientation
 }
 
-func (dg *dualGPS) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
-	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
+func (dg *dualGPS) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
+	return nil, movementsensor.ErrMethodUnimplementedAccuracy
 }
 
 func (dg *dualGPS) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
