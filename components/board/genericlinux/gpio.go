@@ -232,7 +232,7 @@ func accurateSleep(ctx context.Context, duration time.Duration) bool {
 		}
 	}
 
-	for time.Now().Sub(startTime) < duration {
+	for time.Since(startTime) < duration {
 		select {
 		case <-ctx.Done():
 			return false

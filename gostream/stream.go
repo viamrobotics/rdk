@@ -10,7 +10,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
-
 	// register screen drivers.
 	_ "github.com/pion/mediadevices/pkg/driver/microphone"
 	"github.com/pion/mediadevices/pkg/prop"
@@ -181,7 +180,7 @@ func (bs *basicStream) Stop() {
 		bs.audioEncoder.Close()
 	}
 	if bs.videoEncoder != nil {
-		bs.videoEncoder.Close()
+		bs.videoEncoder.Close() //nolint:gosec,errcheck
 	}
 
 	// reset
