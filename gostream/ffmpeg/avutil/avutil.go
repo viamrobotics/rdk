@@ -75,6 +75,8 @@ func ptr(buf []byte) *C.uint8_t {
 
 // SetFrameFromImgMacroAlign sets the frame from the given image.YCbCr adding
 // line padding to the image to ensure that the data is aligned to the given boundary.
+// For example see alignment requirements for the Raspberry Pi GPU codec:
+// https://github.com/raspberrypi/linux/blob/rpi-6.1.y/drivers/staging/vc04_services/bcm2835-codec/bcm2835-v4l2-codec.c#L174
 func (f *Frame) SetFrameFromImgMacroAlign(img *image.YCbCr, boundary int) {
 	// Calculating padded strides
 	// Rounding up to next multiple of boundary value
