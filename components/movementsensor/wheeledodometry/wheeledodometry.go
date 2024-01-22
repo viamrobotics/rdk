@@ -286,8 +286,9 @@ func (o *odometry) Readings(ctx context.Context, extra map[string]interface{}) (
 	return readings, nil
 }
 
-func (o *odometry) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
-	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
+func (o *odometry) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
+) {
+	return nil, movementsensor.ErrMethodUnimplementedAccuracy
 }
 
 func (o *odometry) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {

@@ -1,4 +1,4 @@
-// Package xarm implements some xArms.
+// Package xarm implements some UFactory arms (xArm 6, xArm 7, and Lite 6).
 package xarm
 
 import (
@@ -69,13 +69,13 @@ var xArm6modeljson []byte
 //go:embed xarm7_kinematics.json
 var xArm7modeljson []byte
 
-//go:embed xarmlite_kinematics.json
-var xArmLitemodeljson []byte
+//go:embed lite6_kinematics.json
+var lite6modeljson []byte
 
 const (
-	ModelName6DOF = "xArm6"    // ModelName6DOF is the name of an xArm6
-	ModelName7DOF = "xArm7"    // ModelName7DOF is the name of an xArm7
-	ModelNameLite = "xArmLite" // ModelNameLite is the name of an xArmLite
+	ModelName6DOF = "xArm6" // ModelName6DOF is the name of a UFactory xArm 6
+	ModelName7DOF = "xArm7" // ModelName7DOF is the name of a UFactory xArm 7
+	ModelNameLite = "lite6" // ModelNameLite is the name of a UFactory Lite 6
 )
 
 // MakeModelFrame returns the kinematics model of the xarm arm, which has all Frame information.
@@ -84,7 +84,7 @@ func MakeModelFrame(name, modelName string) (referenceframe.Model, error) {
 	case ModelName6DOF:
 		return referenceframe.UnmarshalModelJSON(xArm6modeljson, name)
 	case ModelNameLite:
-		return referenceframe.UnmarshalModelJSON(xArmLitemodeljson, name)
+		return referenceframe.UnmarshalModelJSON(lite6modeljson, name)
 	case ModelName7DOF:
 		return referenceframe.UnmarshalModelJSON(xArm7modeljson, name)
 	default:

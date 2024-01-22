@@ -167,8 +167,11 @@ func (s *serviceServer) GetAccuracy(
 	if err != nil {
 		return nil, err
 	}
-	acc, err := msDevice.Accuracy(ctx, req.Extra.AsMap())
-	return &pb.GetAccuracyResponse{Accuracy: acc}, err
+	accuracy, err := msDevice.Accuracy(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return accuracyToProtoResponse(accuracy)
 }
 
 // DoCommand receives arbitrary commands.

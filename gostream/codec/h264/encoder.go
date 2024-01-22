@@ -66,7 +66,7 @@ func NewEncoder(width, height, keyFrameInterval int, logger golog.Logger) (codec
 	}
 
 	if h.frame = avutil.FrameAlloc(); h.frame == nil {
-		h.context.Close()
+		h.Close() //nolint:errcheck
 		return nil, errors.New("cannot alloc frame")
 	}
 
@@ -145,4 +145,19 @@ loop:
 	}
 
 	return bytes, nil
+}
+
+// Close closes the encoder. It is safe to call this method multiple times.
+// It is also safe to call this method after a call to Encode.
+func (h *encoder) Close() error {
+	if h.frame != nil {
+		avutil.FrameUnref(h.frame)
+		h.frame = nil
+	}
+	if h.context != nil {
+		h.context.FreeContext()
+		h.context = nil
+	}
+
+	return nil
 }

@@ -23,7 +23,7 @@ jobs:
             image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
             platform: linux/amd64
             platform_name: linux-amd64
-          - arch: [buildjet-8vcpu-ubuntu-2204-arm]
+          - arch: [buildjet-8vcpu-ubuntu-2204-arm, buildjet-pinned-location_de_arm]
             image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
             platform: linux/arm64
             platform_name: linux-arm64
@@ -57,6 +57,17 @@ jobs:
     - name: Chown
       run: chown -R testbot:testbot .
 
+    - name: Verify no uncommitted changes from "make build-go lint-go"
+      run: |
+        sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go'
+        GEN_DIFF=$(git status -s)
+
+        if [ -n "$GEN_DIFF" ]; then
+            echo '"make build lint" resulted in changes not in git' 1>&2
+            git status
+            exit 1
+        fi
+
     - name: Run go unit tests
       run: |
         sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make test-go'
@@ -71,6 +82,7 @@ jobs:
 
   test_coverage:
     name: Go Coverage Tests
+    if: false # toggle this off, delete after 3/1/24 if nobody misses it
     # note: we split 'test_go' and 'test_coverage' steps because running race-detection + covprofile simultaneously is slow enough to cause flakes
     strategy:
       fail-fast: false
@@ -141,7 +153,7 @@ jobs:
 
   test32:
     name: Go 32-bit Unit Tests
-    runs-on: buildjet-8vcpu-ubuntu-2204-arm
+    runs-on: [buildjet-8vcpu-ubuntu-2204-arm, buildjet-pinned-location_de_arm]
     timeout-minutes: 30
 
     steps:
@@ -218,7 +230,7 @@ jobs:
 
   test_passing:
     name: All Tests Passing
-    needs: [test_go, test_coverage, test_web_e2e, test_pi, test32]
+    needs: [test_go, test_web_e2e, test_pi, test32]
     runs-on: [ubuntu-latest]
     if: always()
     steps:
@@ -227,12 +239,10 @@ jobs:
           echo Go Unit Tests: ${{ needs.test_go.result }}
           echo Go 32-bit Tests: ${{ needs.test32.result }}
           echo Go Pi Tests: ${{ needs.test_pi.result }}
-          echo Go Coverage Tests: ${{ needs.test_coverage.result }}
           echo Web/E2E Tests: ${{ needs.test_web_e2e.result }}
           [ "${{ needs.test_go.result }}" == "success" ] && \
           [ "${{ needs.test32.result }}" == "success" ] && \
           [ "${{ needs.test_pi.result }}" == "success" ] && \
-          [ "${{ needs.test_coverage.result }}" == "success" ] && \
           [ "${{ needs.test_web_e2e.result }}" == "success" ]
 
       # Now that RDK is public, can't directly comment without token having full read/write access

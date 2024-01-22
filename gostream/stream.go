@@ -179,6 +179,9 @@ func (bs *basicStream) Stop() {
 	if bs.audioEncoder != nil {
 		bs.audioEncoder.Close()
 	}
+	if bs.videoEncoder != nil {
+		bs.videoEncoder.Close() //nolint:gosec,errcheck
+	}
 
 	// reset
 	bs.outputVideoChan = make(chan []byte)
