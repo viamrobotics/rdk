@@ -124,6 +124,8 @@ func (c *client) Stream(
 ) (gostream.VideoStream, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Stream")
 
+	// TODO: consider using https://pkg.go.dev/context#WithoutCancel when we upgrade to
+	// go version 1.21
 	cancelCtxWithMIME := gostream.WithMIMETypeHint(c.cancelCtx, gostream.MIMETypeHint(ctx, ""))
 	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](cancelCtxWithMIME, c.closeCh)
 
