@@ -112,7 +112,7 @@ func (w *GraphNode) Resource() (Resource, error) {
 }
 
 // SetLogger associates a logger object with this resource node. This is expected to be the logger
-// passed into the `Constructor` when registering component resources.
+// passed into the `Constructor` when registering resources.
 func (w *GraphNode) SetLogger(logger logging.Logger) {
 	w.logger = logger
 }
