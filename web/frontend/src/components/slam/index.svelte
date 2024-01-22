@@ -3,7 +3,7 @@
 
   import * as THREE from 'three';
   import { onMount } from 'svelte';
-  import { slamApi, SlamClient, MotionClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
+  import { slamApi, motionApi, SlamClient, MotionClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
   import { SlamMap2D } from '@viamrobotics/prime-blocks';
   import { copyToClipboard } from '@/lib/copy-to-clipboard';
   import { filterSubtype } from '@/lib/resource';
@@ -127,18 +127,19 @@ import { grpc } from '@improbable-eng/grpc-web';
   const refreshPaths = async () => {
     try {
       refreshErrorMessagePaths = undefined;
-      let res = await motionClient.getPlan({
+      const res = await motionClient.getPlan({
         namespace: "rdk",
         type: "component",
         subtype: "base",
         name: bases[0]!.name,
       }, true)
-      // TODO: Fiure out how to refer to the proto defined constant for the in progress state
-      if (res.currentPlanWithStatus.status.state === 1) {
+      if (res.currentPlanWithStatus?.status?.state === motionApi.PlanState.PLAN_STATE_IN_PROGRESS) {
         executionID = res.currentPlanWithStatus.plan.executionId;
-        motionPath = res.currentPlanWithStatus.plan.stepsList.map(step => (
-         `${step.stepMap[0][1].pose.x},${step.stepMap[0][1].pose.y}`
-        )).join("\n");
+        motionPath = res.currentPlanWithStatus.plan.stepsList.map(({stepMap: [[, map]]}) => {
+          // TODO: I don't know how to convince the TS typesystem that map is always has a pose.
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          return `${map.pose.x},${map.pose.y}`;
+        }).join("\n");
         return;
       }
       motionPath = undefined
