@@ -135,7 +135,7 @@ func CreateModuleAction(c *cli.Context) error {
 		if err != nil {
 			warningf(c.App.Writer, "Tried to update module with info from your meta.json but got: %v", err)
 		} else {
-			printf(c.App.Writer, "Module successfully updated with info from your existing meta.json!")
+			printf(c.App.Writer, "Module successfully updated with info from your existing meta.json")
 		}
 	} else {
 		// otherwise we should create a new empty meta.json and write that
