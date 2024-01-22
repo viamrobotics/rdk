@@ -128,6 +128,9 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 	if err != nil {
 		return state.PlanResponse{}, err
 	}
+	mr.logger.Debugf("plan: %v\n", plan)
+	mr.logger.Debugf("sleeping now!")
+	time.Sleep(time.Second * 3)
 
 	waypoints, err := plan.GetFrameSteps(mr.kinematicBase.Kinematics().Name())
 	if err != nil {
@@ -364,13 +367,16 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 	waypoints state.Waypoints,
 	waypointIndex int,
 ) (state.ExecuteResponse, error) {
+	mr.logger.Debugf("waypointIndex: %d", waypointIndex)
 	var plan motionplan.Plan
 	// We only care to check against waypoints we have not reached yet.
 	for _, inputs := range waypoints[waypointIndex:] {
 		input := make(map[string][]referenceframe.Input)
 		input[mr.kinematicBase.Name().Name] = inputs
+		// mr.logger.Debugf("appending %v to plan", input)
 		plan = append(plan, input)
 	}
+	mr.logger.Debugf("plan: %v", plan)
 
 	for visSrvc, cameraNames := range mr.obstacleDetectors {
 		for _, camName := range cameraNames {
@@ -406,13 +412,10 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				}
 				mr.logger.Debugf("g BEFORE TRANSFORM %v", spatialmath.PoseToProtobuf(g.Pose()))
 
-				firstTransform := g.Transform(mr.poseOrigin)
-				mr.logger.Debugf("AFTER FIRST TRANSFORM: %v", spatialmath.PoseToProtobuf(firstTransform.Pose()))
+				absolutePositionGeom := g.Transform(mr.poseOrigin)
+				mr.logger.Debugf("AFTER FIRST TRANSFORM: %v", spatialmath.PoseToProtobuf(absolutePositionGeom.Pose()))
 
-				secondTransform := firstTransform.Transform(currentPosition.Pose())
-				mr.logger.Debugf("AFTER SECOND TRANSFORM: %v", spatialmath.PoseToProtobuf(secondTransform.Pose()))
-
-				existingGeomsAbs = append(existingGeomsAbs, secondTransform)
+				existingGeomsAbs = append(existingGeomsAbs, absolutePositionGeom)
 			}
 			absExistingGifs := referenceframe.NewGeometriesInFrame(referenceframe.World, existingGeomsAbs)
 
@@ -822,6 +825,7 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
 	geoms := make([]spatialmath.Geometry, 0, len(worldObstacles))
+	// TODO: understand this better and what to do when placing into abosolute position
 	for _, geom := range worldObstacles {
 		ms.logger.Debugf("WRLDST GEOM - BEFORE - TRANSFORM: %v", spatialmath.PoseToProtobuf(geom.Pose()))
 		after := geom.Transform(startPoseInv)

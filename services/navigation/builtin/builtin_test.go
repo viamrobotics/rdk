@@ -1855,7 +1855,7 @@ func TestSanity(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	cameraLink := referenceframe.NewLinkInFrame(
 		baseLink.Name(),
-		spatialmath.NewPose(r3.Vector{0, 0, 0}, &spatialmath.OrientationVectorDegrees{OX: 1, Theta: 270}),
+		spatialmath.NewPose(r3.Vector{10, 0, 0}, &spatialmath.OrientationVectorDegrees{OX: 1, Theta: 270}),
 		"test_camera",
 		cameraGeom,
 	)
@@ -1897,24 +1897,24 @@ func TestSanity(t *testing.T) {
 }
 
 func TestSmth(t *testing.T) {
-	// startPose: x:-1004.7494299782011  y:-569.9649988045  o_z:0.9999999999999999  theta:-91.99456446034169
-	// startPoseInv: x:-604.5896647245538  y:984.303232856616  o_z:0.9999999999999999  theta:91.99456446034169
-	// WRLDST GEOM - BEFORE - TRANSFORM: x:19.100000000000023  y:-71.80000000000018  o_z:1
-	// WRLDST GEOM - AFTER - TRANSFORM: x:-533.4979354564355  y:1005.8906372783753  o_z:1
+	// currentPosition: x:-876.8675030565523  y:-675.2921882983317  o_z:1  theta:-89.34568797575734
+	// errorState: x:3.337314388357567  y:-108.93581602042391  o_z:0.9999999999999998  theta:-108.93581602042391
+	// lastPose: x:-30.729197878452062  y:326.5625827904969  o_z:1.0000000000000002  theta:5.375643870322421
 
-	startPose := spatialmath.NewPose(r3.Vector{-1004, -569, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90})
-	// startPoseInverse := spatialmath.PoseInverse(startPose)
-	startPoseInverse := spatialmath.NewPose(r3.Vector{-569, 1004, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90})
-	// expect X: -569, Y: 1004 OZ:1, Theta:90
-	// fmt.Println("startPoseInverse: ", spatialmath.PoseToProtobuf(startPoseInverse))
+	lastPose := spatialmath.NewPose(r3.Vector{-30.729197878452062, 326.5625827904969, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 5.375643870322421})
+	errorState := spatialmath.NewPose(r3.Vector{3.337314388357567, -108.93581602042391, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -108.93581602042391})
 
-	geomPose := spatialmath.NewPoseFromPoint(r3.Vector{19., -71., 0})
-	transformedGeom := spatialmath.Compose(startPoseInverse, geomPose)
-	fmt.Println("transformedGeom: ", spatialmath.PoseToProtobuf(transformedGeom))
-	newtransformedGeom := spatialmath.Compose(startPose, transformedGeom)
-	fmt.Println("transformedGeom: ", spatialmath.PoseToProtobuf(newtransformedGeom))
-	newnewtgp := spatialmath.Compose(startPose, newtransformedGeom)
-	fmt.Println("transformedGeom: ", spatialmath.PoseToProtobuf(newnewtgp))
+	smth := spatialmath.PoseBetweenInverse(errorState, lastPose)
+	fmt.Println("smth: ", spatialmath.PoseToProtobuf(smth))
+
+	// currentPosition := spatialmath.NewPoseFromPoint(r3.Vector{8, 10, 0})
+	// errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 10, 0})
+
+	// pathPosition := spatialmath.PoseBetweenInverse(errorState, currentPosition)
+	// fmt.Println("pathPosition: ", spatialmath.PoseToProtobuf(pathPosition))
+
+	// formerRunningPose := spatialmath.PoseBetweenInverse(lastPose, pathPosition)
+	// fmt.Println("formerRunningPose: ", spatialmath.PoseToProtobuf(formerRunningPose))
 
 }
 

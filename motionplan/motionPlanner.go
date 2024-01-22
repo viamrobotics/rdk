@@ -500,32 +500,30 @@ func CheckPlan(
 	// The solver frame will have had its PTGs filled in the newPlanManager() call, if applicable.
 	relative := len(sf.PTGSolvers()) > 0
 
-	logger.Debugf("relative %v", relative)
-
 	if relative {
-		// // get pose of robot along the current trajectory it is executing
-		// lastPose, err := sf.Transform(currentInputs)
-		// if err != nil {
-		// 	return err
-		// }
-		// logger.Debugf("lastPose: %v", spatialmath.PoseToProtobuf(lastPose))
+		// get pose of robot along the current trajectory it is executing
+		lastPose, err := sf.Transform(currentInputs)
+		if err != nil {
+			return err
+		}
+		logger.Debugf("lastPose: %v", spatialmath.PoseToProtobuf(lastPose))
 
-		// // where ought the robot be on the plan
+		// where ought the robot be on the plan
 		// pathPosition := spatialmath.PoseBetweenInverse(errorState, currentPosition)
 		// logger.Debugf("pathPosition: %v", spatialmath.PoseToProtobuf(pathPosition))
 
-		// // absolute pose of the previous node we've passed
-		// formerRunningPose := spatialmath.PoseBetweenInverse(lastPose, pathPosition)
-		// logger.Debugf("formerRunningPose: %v", spatialmath.PoseToProtobuf(formerRunningPose))
+		// absolute pose of the previous node we've passed
+		formerRunningPose := spatialmath.PoseBetweenInverse(lastPose, currentPosition)
+		logger.Debugf("formerRunningPose: %v", spatialmath.PoseToProtobuf(formerRunningPose))
 
-		// // convert planNode's poses to be in absolute coordinates
-		// if planNodes, err = rectifyTPspacePath(planNodes, sf, formerRunningPose); err != nil {
-		// 	return err
-		// }
 		// convert planNode's poses to be in absolute coordinates
-		if planNodes, err = rectifyTPspacePath(planNodes, sf, currentPosition); err != nil {
+		if planNodes, err = rectifyTPspacePath(planNodes, sf, formerRunningPose); err != nil {
 			return err
 		}
+		// convert planNode's poses to be in absolute coordinates
+		// if planNodes, err = rectifyTPspacePath(planNodes, sf, currentPosition); err != nil {
+		// 	return err
+		// }
 	}
 
 	// // adjust planNodes by the errorState
