@@ -19,7 +19,7 @@ func nowNanosecondsTest() uint64 {
 
 func TestBasicDigitalInterrupt1(t *testing.T) {
 	config := DigitalInterruptConfig{
-		Name:    "i1",
+		Name: "i1",
 	}
 
 	i, err := CreateDigitalInterrupt(config)

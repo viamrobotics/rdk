@@ -16,9 +16,9 @@ import (
 
 // DigitalInterruptConfig describes the configuration of digital interrupt for the board.
 type DigitalInterruptConfig struct {
-	Name    string `json:"name"`
-	Pin     string `json:"pin"`
-	Type    string `json:"type,omitempty"` // e.g. basic, servo
+	Name string `json:"name"`
+	Pin  string `json:"pin"`
+	Type string `json:"type,omitempty"` // e.g. basic, servo
 }
 
 // Validate ensures all parts of the config are valid.
