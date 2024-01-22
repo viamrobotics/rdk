@@ -75,6 +75,7 @@ import { grpc } from '@improbable-eng/grpc-web';
   };
 
   const refresh2d = async () => {
+    refreshPaths();
     try {
       let nextPose;
       if (overrides?.isCloudSlam && overrides.getMappingSessionPCD) {
@@ -161,7 +162,6 @@ import { grpc } from '@improbable-eng/grpc-web';
   const updateSLAM2dRefreshFrequency = () => {
     clear2dRefresh?.();
     refresh2d();
-    refreshPaths();
 
     refreshErrorMessage2d = undefined;
     refreshErrorMessagePaths = undefined;
