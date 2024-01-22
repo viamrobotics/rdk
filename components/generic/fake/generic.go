@@ -27,7 +27,7 @@ func newGeneric(name resource.Name, logger logging.Logger) resource.Resource {
 	return &Generic{Named: name.AsNamed(), logger: logger}
 }
 
-// Generic is a fake Generic device that always echos inputs back to the caller.
+// Generic is a fake Generic device.
 type Generic struct {
 	resource.Named
 	resource.TriviallyReconfigurable
