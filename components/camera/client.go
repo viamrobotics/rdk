@@ -37,8 +37,6 @@ type client struct {
 	client                  pb.CameraServiceClient
 	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
-	cancelCtx               context.Context
-	cancel                  func()
 	closeCh                 chan struct{}
 }
 
@@ -50,19 +48,15 @@ func NewClientFromConn(
 	name resource.Name,
 	logger logging.Logger,
 ) (Camera, error) {
-	logger.Info(">>> NEW CAMERA CLIENT")
-	cancelCtx, cancel := context.WithCancel(context.Background())
 	closeCh := make(chan struct{})
 	c := pb.NewCameraServiceClient(conn)
 	return &client{
-		Named:     name.PrependRemote(remoteName).AsNamed(),
-		name:      name.ShortName(),
-		conn:      conn,
-		client:    c,
-		logger:    logger,
-		cancelCtx: cancelCtx,
-		cancel:    cancel,
-		closeCh:   closeCh,
+		Named:   name.PrependRemote(remoteName).AsNamed(),
+		name:    name.ShortName(),
+		conn:    conn,
+		client:  c,
+		logger:  logger,
+		closeCh: closeCh,
 	}, nil
 }
 
@@ -124,23 +118,16 @@ func (c *client) Stream(
 ) (gostream.VideoStream, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Stream")
 
-	c.logger.Info(">>> NEW STREAM")
-
 	// TODO: consider using https://pkg.go.dev/context#WithoutCancel when we upgrade to
 	// go version 1.21
-	cancelCtxWithMIME := gostream.WithMIMETypeHint(c.cancelCtx, gostream.MIMETypeHint(ctx, ""))
+	cancelCtxWithMIME := gostream.WithMIMETypeHint(context.Background(), gostream.MIMETypeHint(ctx, ""))
 	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](cancelCtxWithMIME, c.closeCh)
 
 	c.mu.Lock()
-	if err := c.cancelCtx.Err(); err != nil {
-		c.mu.Unlock()
-		return nil, err
-	}
 	c.activeBackgroundWorkers.Add(1)
 	c.mu.Unlock()
 
 	goutils.PanicCapturingGo(func() {
-		c.logger.Info(">>> NEW STREAM GOROUTINE")
 		streamCtx = trace.NewContext(streamCtx, span)
 		defer span.End()
 
@@ -171,7 +158,6 @@ func (c *client) Stream(
 		}
 	})
 
-	c.logger.Info(">>> ADDED NEW STREAM")
 	return stream, nil
 }
 
@@ -300,12 +286,9 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 }
 
 func (c *client) Close(ctx context.Context) error {
-	c.logger.Info(">>> CLOSING CAMERA CLIENT")
 	c.mu.Lock()
-	// c.cancel()
 	c.closeCh <- struct{}{}
 	c.mu.Unlock()
 	c.activeBackgroundWorkers.Wait()
-	c.logger.Info(">>> DONE CLOSING CAMERA CLIENT")
 	return nil
 }
