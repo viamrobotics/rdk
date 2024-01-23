@@ -1649,8 +1649,8 @@ func TestMoveOnMapNew(t *testing.T) {
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 		defer timeoutFn()
 		executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
+		test.That(t, err, test.ShouldBeError, errors.New("no need to move, already within planDeviationMM: 2600.000000"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 	})
 }
 
