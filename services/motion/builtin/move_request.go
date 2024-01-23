@@ -632,8 +632,8 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	worldObstacles []spatialmath.Geometry,
 	valExtra validatedExtra,
 ) (*moveRequest, error) {
-	if spatialmath.PoseAlmostEqual(goalPoseInWorld, spatialmath.NewZeroPose()) {
-		return nil, errors.New("no need to move robot, already at goal")
+	if spatialmath.PoseAlmostEqualEps(goalPoseInWorld, spatialmath.NewZeroPose(), motionCfg.planDeviationMM) {
+		return nil, errors.Errorf("no need to move, already within planDeviationMM: %f", motionCfg.planDeviationMM)
 	}
 	// replace original base frame with one that knows how to move itself and allow planning for
 	kinematicFrame := kb.Kinematics()
