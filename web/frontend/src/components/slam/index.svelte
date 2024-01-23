@@ -124,7 +124,6 @@ import { grpc } from '@improbable-eng/grpc-web';
     }
   };
 
-  // TODO: Why is this running twice per iteration?
   const refreshPaths = async () => {
     try {
       refreshErrorMessagePaths = undefined;
