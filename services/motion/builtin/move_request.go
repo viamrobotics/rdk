@@ -367,7 +367,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 	waypoints state.Waypoints,
 	waypointIndex int,
 ) (state.ExecuteResponse, error) {
-	mr.logger.Debugf("waypointIndex: %d", waypointIndex)
 	var plan motionplan.Plan
 	// We only care to check against waypoints we have not reached yet.
 	for _, inputs := range waypoints[waypointIndex:] {
@@ -408,11 +407,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				if strings.Contains(g.Label(), "_transientObstacle_") {
 					continue
 				}
-				mr.logger.Debugf("g BEFORE TRANSFORM %v", spatialmath.PoseToProtobuf(g.Pose()))
-
 				absolutePositionGeom := g.Transform(mr.poseOrigin)
-				mr.logger.Debugf("AFTER FIRST TRANSFORM: %v", spatialmath.PoseToProtobuf(absolutePositionGeom.Pose()))
-
 				existingGeomsAbs = append(existingGeomsAbs, absolutePositionGeom)
 			}
 			absExistingGifs := referenceframe.NewGeometriesInFrame(referenceframe.World, existingGeomsAbs)
@@ -425,20 +420,22 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				return state.ExecuteResponse{}, err
 			}
 
-			mr.logger.Debugf("currentPosition: %v", spatialmath.PoseToProtobuf(currentPosition.Pose()))
-
 			currentInputs, err := mr.kinematicBase.CurrentInputs(ctx)
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
-			mr.logger.Debugf("currentInputs: %v", currentInputs)
 
 			// get the pose difference between where the robot is versus where it ought to be.
 			errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, waypointIndex)
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
-			mr.logger.Debugf("errorState: %v", spatialmath.PoseToProtobuf(errorState))
+
+			mr.logger.CDebugf(ctx, "CheckPlan inputs: \n currentPosition: %v\n, currentInputs: %v\n, errorState: %v",
+				spatialmath.PoseToProtobuf(currentPosition.Pose()),
+				currentInputs,
+				spatialmath.PoseToProtobuf(errorState),
+			)
 
 			if err := motionplan.CheckPlan(
 				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
@@ -451,13 +448,11 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				lookAheadDistanceMM,
 				mr.planRequest.Logger,
 			); err != nil {
-				mr.logger.Debug("WE HAVE A COLLISION")
 				mr.planRequest.Logger.CInfo(ctx, err.Error())
 				return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
 			}
 		}
 	}
-	mr.logger.Debug("HUZZAH NO ERRORS")
 	return state.ExecuteResponse{}, nil
 }
 
@@ -815,20 +810,14 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	if err != nil {
 		return nil, err
 	}
-	ms.logger.Debugf("startPose: %v", spatialmath.PoseToProtobuf(startPose.Pose()))
 	startPoseInv := spatialmath.PoseInverse(startPose.Pose())
-	ms.logger.Debugf("startPoseInv: %v", spatialmath.PoseToProtobuf(startPoseInv))
 
 	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld))
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
 	geoms := make([]spatialmath.Geometry, 0, len(worldObstacles))
-	// TODO: understand this better and what to do when placing into abosolute position
 	for _, geom := range worldObstacles {
-		ms.logger.Debugf("WRLDST GEOM - BEFORE - TRANSFORM: %v", spatialmath.PoseToProtobuf(geom.Pose()))
-		after := geom.Transform(startPoseInv)
-		geoms = append(geoms, after)
-		ms.logger.Debugf("WRLDST GEOM - AFTER - TRANSFORM: %v", spatialmath.PoseToProtobuf(after.Pose()))
+		geoms = append(geoms, geom.Transform(startPoseInv))
 	}
 
 	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)

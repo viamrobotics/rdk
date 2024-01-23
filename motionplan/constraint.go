@@ -10,11 +10,9 @@ import (
 	"github.com/golang/geo/r3"
 	pb "go.viam.com/api/service/motion/v1"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -238,7 +236,6 @@ func createAllCollisionConstraints(
 	worldState *referenceframe.WorldState,
 	inputs map[string][]referenceframe.Input,
 	pbConstraint []*pb.CollisionSpecification,
-	logger logging.Logger,
 ) (map[string]StateConstraint, error) {
 	constraintMap := map[string]StateConstraint{}
 
@@ -275,33 +272,14 @@ func createAllCollisionConstraints(
 	if err != nil {
 		return nil, err
 	}
-	if len(obstacles.Geometries()) > 0 {
-		logger.Debugf("listing all obstacles in world frame below")
-		for _, geom := range obstacles.Geometries() {
-			logger.Debugf("geom.Pose: %v", spatial.PoseToProtobuf(geom.Pose()))
-			logger.Debugf("geom.Label %s", geom.Label())
-			logger.Debugf("geom.String: %s", geom.String())
-		}
-	}
 
 	allowedCollisions, err := collisionSpecificationsFromProto(pbConstraint, frameSystemGeometries, worldState)
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("allowedCollisions: %v", allowedCollisions)
-	if len(allowedCollisions) > 0 {
-		for _, c := range allowedCollisions {
-			logger.Debugf("allowed collision: %v", c)
-		}
-	}
 
 	if len(obstacles.Geometries()) > 0 {
 		moving := movingGeometries.Geometries()
-		for _, m := range moving {
-			logger.Debugf("moving geom label: %s", m.Label())
-			logger.Debugf("moving geom string: %s", m.String())
-			logger.Debugf("moving geom pose: %v", spatialmath.PoseToProtobuf(m.Pose()))
-		}
 		static := obstacles.Geometries()
 		// Check if a moving geometry is in collision with a pointcloud. If so, error.
 		// TODO: This is not the most robust way to deal with this but is better than driving through walls.

@@ -216,7 +216,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	// get start and goal poses
 	var startPose spatialmath.Pose
 	var goalPose spatialmath.Pose
-	var startNode node
 	var goalNode node
 
 	goalScore := math.Inf(1)
@@ -224,7 +223,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		if v == nil {
 			if k.Pose() != nil {
 				startPose = k.Pose()
-				startNode = k
 			} else {
 				rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("node %v must provide a Pose", k)}
 				return
@@ -286,14 +284,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			}
 		}
 		rrt.solutionChan <- &rrtPlanReturn{steps: correctedPath, maps: rrt.maps}
-	}
-
-	// check if we start at the goal
-	if mp.planOpts.DistanceFunc(
-		&ik.Segment{StartPosition: startNode.Pose(), EndPosition: goalNode.Pose()},
-	) < mp.planOpts.GoalThreshold {
-		publishFinishedPath([]node{startNode, goalNode})
-		return
 	}
 
 	m1chan := make(chan *nodeAndError, 1)
@@ -997,9 +987,6 @@ func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {
 		dist = 1.0
 	}
 	rDist := dist * (mp.algOpts.autoBB + float64(iter)*autoBBscale)
-	if rDist < 2 {
-		rDist = 2
-	}
 	randPosX := float64(mp.randseed.Intn(int(rDist)))
 	randPosY := float64(mp.randseed.Intn(int(rDist)))
 	randPosTheta := math.Pi * (mp.randseed.Float64() - 0.5)
