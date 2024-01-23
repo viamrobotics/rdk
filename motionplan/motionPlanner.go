@@ -523,13 +523,15 @@ func CheckPlan(
 	planNodes = transformNodes(planNodes, errorState)
 
 	// pre-pend node with current position of robot to planNodes
+	// Note that currentPosition is assumed to have accounted for the errorState
+	// Note that currentInputs is assumed to have NOT accounted for the errorState
 	planNodes = append([]node{&basicNode{pose: currentPosition, q: currentInputs}}, planNodes...)
 
 	// create constraints
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
 		currentPosition,                    // starting pose
 		planNodes[len(planNodes)-1].Pose(), // goalPose
-		sf.sliceToMap(currentInputs),       // starting configuration
+		plan[0],                            // starting configuration
 		worldState,
 		nil, // no pb.Constraints
 		nil, // no plannOpts
@@ -581,9 +583,8 @@ func CheckPlan(
 			// we must compose poseInPath with currentPose to get the absolute position.
 			// In both cases we ultimately compose with errorState.
 			if relative {
-				poseInPath = spatialmath.Compose(currentPose, poseInPath)
-				// rectifyBy := spatialmath.Compose(currentPose, errorState)
-				// poseInPath = spatialmath.Compose(rectifyBy, poseInPath)
+				rectifyBy := spatialmath.Compose(currentPose, errorState)
+				poseInPath = spatialmath.Compose(rectifyBy, poseInPath)
 			} else {
 				poseInPath = spatialmath.Compose(poseInPath, errorState)
 			}
