@@ -99,17 +99,25 @@ func CreateModuleAction(c *cli.Context) error {
 		return err
 	}
 
-	// If a meta.json exists in the current directory and it matches the name and public-namespace,
-	// create the module and update it. If it does not match, give an error telling the user about the mismatch.
-	modManifest, err := loadManifest(defaultManifestFilename)
-	if err == nil {
+	shouldWriteNewEmptyManifest := true
+
+	// If a meta.json exists in the current directory, we have a slightly different creation flow
+	// in order to minimize user frustration. We will continue the creation if the args passed to create
+	// match the values in the meta.json
+	if _, err := os.Stat(defaultManifestFilename); err == nil {
+		modManifest, err := loadManifest(defaultManifestFilename)
+		if err != nil {
+			return errors.Errorf("another meta.json already exists in the current directory. Delete it and try again")
+		}
 		manifestModuleID, err := parseModuleID(modManifest.ModuleID)
 		if err != nil ||
 			manifestModuleID.name != moduleNameArg ||
-			(manifestModuleID.prefix != orgIDArg && manifestModuleID.prefix != publicNamespaceArg) {
-			return errors.Errorf("another module's meta.json (%q) already exists in the current directory. Delete it and try again",
+			(manifestModuleID.prefix != org.GetId() && manifestModuleID.prefix != org.GetPublicNamespace()) {
+			return errors.Errorf("a different module's meta.json (%q) already exists in the current directory. "+
+				"Either delete that meta.json, or edit its module_id to match the args passed to this command",
 				modManifest.ModuleID)
 		}
+		shouldWriteNewEmptyManifest = false
 	}
 
 	response, err := client.createModule(moduleNameArg, org.GetId())
@@ -127,18 +135,7 @@ func CreateModuleAction(c *cli.Context) error {
 		printf(c.App.Writer, "You can view it here: %s", response.GetUrl())
 	}
 
-	if modManifest != nil {
-		// if the original module manifest we read was non-nil, we also want to run an update
-		_, err := client.updateModule(returnedModuleID, *modManifest)
-		// we want to fail with a warning rather than an error because this isn't an action the user asked for,
-		// so red scary error messages would cause confusion
-		if err != nil {
-			warningf(c.App.Writer, "Tried to update module with info from your meta.json but got: %v", err)
-		} else {
-			printf(c.App.Writer, "Module successfully updated with info from your existing meta.json")
-		}
-	} else {
-		// otherwise we should create a new empty meta.json and write that
+	if shouldWriteNewEmptyManifest {
 		emptyManifest := moduleManifest{
 			ModuleID:   returnedModuleID.String(),
 			Visibility: moduleVisibilityPrivate,
@@ -177,7 +174,7 @@ func UpdateModuleAction(c *cli.Context) error {
 		return err
 	}
 
-	response, err := client.updateModule(moduleID, *manifest)
+	response, err := client.updateModule(moduleID, manifest)
 	if err != nil {
 		return err
 	}
@@ -192,7 +189,7 @@ func UpdateModuleAction(c *cli.Context) error {
 		if org.PublicNamespace != "" {
 			moduleID.prefix = org.PublicNamespace
 			manifest.ModuleID = moduleID.String()
-			if err := writeManifest(manifestPath, *manifest); err != nil {
+			if err := writeManifest(manifestPath, manifest); err != nil {
 				return errors.Wrap(err, "failed to update meta.json with new information from Viam")
 			}
 		}
@@ -306,7 +303,7 @@ func UpdateModelsAction(c *cli.Context) error {
 	}
 
 	manifest.Models = newModels
-	return writeManifest(c.String(moduleFlagPath), *manifest)
+	return writeManifest(c.String(moduleFlagPath), manifest)
 }
 
 func (c *viamClient) createModule(moduleName, organizationID string) (*apppb.CreateModuleResponse, error) {
@@ -592,20 +589,20 @@ func isValidOrgID(str string) bool {
 	return err == nil
 }
 
-func loadManifest(manifestPath string) (*moduleManifest, error) {
+func loadManifest(manifestPath string) (moduleManifest, error) {
 	//nolint:gosec
 	manifestBytes, err := os.ReadFile(manifestPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return nil, errors.Wrapf(err, "cannot find %s", manifestPath)
+			return moduleManifest{}, errors.Wrapf(err, "cannot find %s", manifestPath)
 		}
-		return nil, err
+		return moduleManifest{}, err
 	}
 	var manifest moduleManifest
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
-		return nil, err
+		return moduleManifest{}, err
 	}
-	return &manifest, nil
+	return manifest, nil
 }
 
 func writeManifest(manifestPath string, manifest moduleManifest) error {
