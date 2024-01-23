@@ -299,7 +299,9 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 // `Close` when a client is permanently removed.
 func (c *client) Close(ctx context.Context) error {
 	c.mu.Lock()
-	close(c.stopStreamsCh)
+	if c.stopStreamsCh != nil {
+		close(c.stopStreamsCh)
+	}
 	c.mu.Unlock()
 	c.activeBackgroundWorkers.Wait()
 	c.mu.Lock()
