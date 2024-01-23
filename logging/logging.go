@@ -60,21 +60,33 @@ func NewZapLoggerConfig() zap.Config {
 
 // NewLogger returns a new logger that outputs Info+ logs to stdout in UTC.
 func NewLogger(name string) Logger {
-	const inUTC = true
-	return &impl{name, NewAtomicLevelAt(INFO), inUTC, []Appender{NewStdoutAppender()}}
+	return &impl{
+		name:       name,
+		level:      NewAtomicLevelAt(INFO),
+		appenders:  []Appender{NewStdoutAppender()},
+		testHelper: func() {},
+	}
 }
 
 // NewDebugLogger returns a new logger that outputs Debug+ logs to stdout in UTC.
 func NewDebugLogger(name string) Logger {
-	const inUTC = true
-	return &impl{name, NewAtomicLevelAt(DEBUG), inUTC, []Appender{NewStdoutAppender()}}
+	return &impl{
+		name:       name,
+		level:      NewAtomicLevelAt(DEBUG),
+		appenders:  []Appender{NewStdoutAppender()},
+		testHelper: func() {},
+	}
 }
 
 // NewBlankLogger returns a new logger that outputs Debug+ logs in UTC, but without any
 // pre-existing appenders/outputs.
 func NewBlankLogger(name string) Logger {
-	const inUTC = true
-	return &impl{name, NewAtomicLevelAt(DEBUG), inUTC, []Appender{}}
+	return &impl{
+		name:       name,
+		level:      NewAtomicLevelAt(DEBUG),
+		appenders:  []Appender{},
+		testHelper: func() {},
+	}
 }
 
 // NewTestLogger returns a new logger that outputs Debug+ logs to stdout in local time.
@@ -85,12 +97,16 @@ func NewTestLogger(tb testing.TB) Logger {
 
 // NewObservedTestLogger is like NewTestLogger but also saves logs to an in memory observer.
 func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
-	const inUTC = false
-	logger := &impl{"", NewAtomicLevelAt(DEBUG), inUTC, []Appender{}}
-	logger.AddAppender(NewStdoutTestAppender())
-
 	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
-	logger.AddAppender(observerCore)
+	logger := &impl{
+		name:  "",
+		level: NewAtomicLevelAt(DEBUG),
+		appenders: []Appender{
+			NewTestAppender(tb),
+			observerCore,
+		},
+		testHelper: tb.Helper,
+	}
 
 	return logger, observedLogs
 }
