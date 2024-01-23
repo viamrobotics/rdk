@@ -19,7 +19,6 @@ type (
 	impl struct {
 		name  string
 		level AtomicLevel
-		inUTC bool
 
 		appenders []Appender
 		// Logging to a `testing.T` always includes a filename/line number. We use this helper to
@@ -152,10 +151,6 @@ func (imp *impl) shouldLog(logLevel Level) bool {
 
 func (imp *impl) log(entry *LogEntry) {
 	imp.testHelper()
-	if imp.inUTC {
-		entry.Time = entry.Time.UTC()
-	}
-
 	for _, appender := range imp.appenders {
 		err := appender.Write(entry.Entry, entry.fields)
 		if err != nil {

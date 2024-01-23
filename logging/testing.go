@@ -17,6 +17,8 @@ type testAppender struct {
 //     useful to us.
 //   - Correctly associates the log line with a Golang "Test*" function.
 //
+// Additionally, this test appender will log in the local/machine timezone.
+//
 // For tests that run in series (i.e: do not call `t.Parallel()`), writing to stdout (i.e:
 // `fmt.Print`) this does not matter. Go's best effort detection works fine. But for tests running
 // in parallel, the best-effort algorithm can map log lines to the wrong test. This is most
@@ -44,7 +46,7 @@ func (tapp *testAppender) Write(entry zapcore.Entry, fields []zapcore.Field) err
 	tapp.tb.Helper()
 	const maxLength = 10
 	toPrint := make([]string, 0, maxLength)
-	toPrint = append(toPrint, entry.Time.Format("2006-01-02T15:04:05.000Z0700"))
+	toPrint = append(toPrint, entry.Time.Format(timeFormatStr))
 
 	toPrint = append(toPrint, strings.ToUpper(entry.Level.String()))
 	toPrint = append(toPrint, entry.LoggerName)

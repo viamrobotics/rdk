@@ -63,7 +63,6 @@ func NewLogger(name string) Logger {
 	return &impl{
 		name:       name,
 		level:      NewAtomicLevelAt(INFO),
-		inUTC:      true,
 		appenders:  []Appender{NewStdoutAppender()},
 		testHelper: func() {},
 	}
@@ -74,7 +73,6 @@ func NewDebugLogger(name string) Logger {
 	return &impl{
 		name:       name,
 		level:      NewAtomicLevelAt(DEBUG),
-		inUTC:      true,
 		appenders:  []Appender{NewStdoutAppender()},
 		testHelper: func() {},
 	}
@@ -86,7 +84,6 @@ func NewBlankLogger(name string) Logger {
 	return &impl{
 		name:       name,
 		level:      NewAtomicLevelAt(DEBUG),
-		inUTC:      true,
 		appenders:  []Appender{},
 		testHelper: func() {},
 	}
@@ -100,17 +97,16 @@ func NewTestLogger(tb testing.TB) Logger {
 
 // NewObservedTestLogger is like NewTestLogger but also saves logs to an in memory observer.
 func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
+	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
 	logger := &impl{
-		name:       "",
-		level:      NewAtomicLevelAt(DEBUG),
-		inUTC:      false,
-		appenders:  []Appender{},
+		name:  "",
+		level: NewAtomicLevelAt(DEBUG),
+		appenders: []Appender{
+			NewTestAppender(tb),
+			observerCore,
+		},
 		testHelper: tb.Helper,
 	}
-	logger.AddAppender(NewTestAppender(tb))
-
-	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
-	logger.AddAppender(observerCore)
 
 	return logger, observedLogs
 }

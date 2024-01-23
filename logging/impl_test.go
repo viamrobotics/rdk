@@ -147,7 +147,6 @@ func TestConsoleOutputFormat(t *testing.T) {
 	impl := &impl{
 		name:       "impl",
 		level:      NewAtomicLevelAt(DEBUG),
-		inUTC:      true,
 		appenders:  []Appender{NewWriterAppender(notStdout)},
 		testHelper: func() {},
 	}
@@ -212,7 +211,6 @@ func TestContextLogging(t *testing.T) {
 	logger := &impl{
 		name:       "impl",
 		level:      NewAtomicLevelAt(ERROR),
-		inUTC:      true,
 		appenders:  []Appender{NewWriterAppender(notStdout)},
 		testHelper: func() {},
 	}
