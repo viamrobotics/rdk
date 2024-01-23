@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/internal/testutils/inject"
 	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -582,10 +583,12 @@ func TestPlan(t *testing.T) {
 		ID:            planID,
 		ExecutionID:   executionID,
 		ComponentName: baseName,
-		Plan: &motionplan.Plan{
-			Path: []motionplan.PathStep{
-				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
-				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
+		Plan: &inject.Plan{
+			PathFunc: func() motionplan.Path {
+				return []motionplan.PathStep{
+					{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
+					{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
+				}
 			},
 		},
 	}
@@ -1369,3 +1372,81 @@ func validMoveOnGlobeRequest() MoveOnGlobeReq {
 		Extra: nil,
 	}
 }
+
+// ------------------------------------------------------------------------------------------------------------------------------------
+// The below functions exist for round trip testing purposes but since proto plans cannot be converted into a valid motionplan.Plan
+// these cannot exist in the main
+// ------------------------------------------------------------------------------------------------------------------------------------
+
+// // planWithStatusFromProto converts a *pb.PlanWithStatus to a PlanWithStatus.
+// func planWithStatusFromProto(pws *pb.PlanWithStatus) (PlanWithStatus, error) {
+// 	if pws == nil {
+// 		return PlanWithStatus{}, errors.New("received nil *pb.PlanWithStatus")
+// 	}
+
+// 	plan, err := planFromProto(pws.Plan)
+// 	if err != nil {
+// 		return PlanWithStatus{}, err
+// 	}
+
+// 	status, err := planStatusFromProto(pws.Status)
+// 	if err != nil {
+// 		return PlanWithStatus{}, err
+// 	}
+// 	statusHistory := []PlanStatus{}
+// 	statusHistory = append(statusHistory, status)
+// 	for _, s := range pws.StatusHistory {
+// 		ps, err := planStatusFromProto(s)
+// 		if err != nil {
+// 			return PlanWithStatus{}, err
+// 		}
+// 		statusHistory = append(statusHistory, ps)
+// 	}
+
+// 	return PlanWithStatus{
+// 		Plan:          plan,
+// 		StatusHistory: statusHistory,
+// 	}, nil
+// }
+
+// // planFromProto converts a *pb.Plan to a Plan.
+// func planFromProto(p *pb.Plan) (PlanWithMetadata, error) {
+// 	if p == nil {
+// 		return PlanWithMetadata{}, errors.New("received nil *pb.Plan")
+// 	}
+
+// 	id, err := uuid.Parse(p.Id)
+// 	if err != nil {
+// 		return PlanWithMetadata{}, err
+// 	}
+
+// 	executionID, err := uuid.Parse(p.ExecutionId)
+// 	if err != nil {
+// 		return PlanWithMetadata{}, err
+// 	}
+
+// 	if p.ComponentName == nil {
+// 		return PlanWithMetadata{}, errors.New("received nil *pb.ResourceName")
+// 	}
+
+// 	plan := PlanWithMetadata{
+// 		ID:            id,
+// 		ComponentName: rprotoutils.ResourceNameFromProto(p.ComponentName),
+// 		ExecutionID:   executionID,
+// 	}
+
+// 	if len(p.Steps) == 0 {
+// 		return plan, nil
+// 	}
+
+// 	steps := motionplan.Path{}
+// 	for _, s := range p.Steps {
+// 		step, err := motionplan.PathStepFromProto(s)
+// 		if err != nil {
+// 			return PlanWithMetadata{}, err
+// 		}
+// 		steps = append(steps, step)
+// 	}
+// 	plan.Plan = inject.NewPlan(steps)
+// 	return plan, nil
+// }

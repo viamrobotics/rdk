@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/state"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 var replanReason = "replan triggered due to location drift"
@@ -541,14 +542,18 @@ func TestState(t *testing.T) {
 						pbc := motionplan.PathStep{
 							req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 						}
-						return &motionplan.Plan{Path: []motionplan.PathStep{pbc}}, nil
+						return &inject.Plan{PathFunc: func() motionplan.Path {
+							return []motionplan.PathStep{pbc}
+						}}, nil
 					}
 					// first replan succeeds
 					if replanCount == 1 {
 						pbc := motionplan.PathStep{
 							req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 						}
-						return &motionplan.Plan{Path: []motionplan.PathStep{pbc, pbc}}, nil
+						return &inject.Plan{PathFunc: func() motionplan.Path {
+							return []motionplan.PathStep{pbc}
+						}}, nil
 					}
 					// second replan fails
 					return nil, replanFailReason
@@ -569,8 +574,7 @@ func TestState(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID2, test.ShouldNotResemble, executionID1)
 
-		resPWS3, succ := pollUntil(cancelCtx, func() (pwsRes, bool,
-		) {
+		resPWS3, succ := pollUntil(cancelCtx, func() (pwsRes, bool) {
 			st := pwsRes{}
 			pws, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase})
 			if err == nil && len(pws) == 2 && len(pws[0].StatusHistory) == 2 {

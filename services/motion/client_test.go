@@ -492,7 +492,7 @@ func TestClient(t *testing.T) {
 				ID:            id,
 				ComponentName: base.Named("mybase"),
 				ExecutionID:   executionID,
-				Plan:          &motionplan.Plan{Path: steps},
+				Plan:          newIncompletePlan(steps),
 			}
 			statusHistory := []motion.PlanStatus{
 				{motion.PlanStateFailed, timeB, &reason},

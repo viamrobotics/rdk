@@ -130,10 +130,7 @@ func planFromProto(p *pb.Plan) (PlanWithMetadata, error) {
 		}
 		steps = append(steps, step)
 	}
-	plan.Plan = &motionplan.Plan{
-		Path: steps,
-	}
-
+	plan.Plan = &incompletePlan{steps}
 	return plan, nil
 }
 
@@ -327,4 +324,18 @@ func (r MoveOnMapReq) toProtoNew(name string) (*pb.MoveOnMapNewRequest, error) {
 	}
 
 	return req, nil
+}
+
+// incompletePlan is a plan without any Trajectory information and will return an empty Trajectory if it is requested.
+// It is necessary since the proto definition for a plan does not contain this information. Use with caution.
+type incompletePlan struct {
+	path motionplan.Path
+}
+
+func (plan *incompletePlan) Path() motionplan.Path {
+	return plan.path
+}
+
+func (plan *incompletePlan) Trajectory() motionplan.Trajectory {
+	return motionplan.Trajectory{}
 }
