@@ -557,7 +557,7 @@ func TestPositionalReplanning(t *testing.T) {
 }
 
 func TestObstacleReplanning(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	ctx := context.Background()
 
 	gpsOrigin := geo.NewPoint(0, 0)
