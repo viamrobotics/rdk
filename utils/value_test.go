@@ -31,3 +31,8 @@ type myAssertInt int
 func (m myAssertInt) method1() error {
 	return errors.New("cool 8)")
 }
+
+func TestFilterMap(t *testing.T) {
+	ret := FilterMap(map[string]int{"x": 1, "y": 2}, func(_ string, val int) bool { return val > 1 })
+	test.That(t, ret, test.ShouldResemble, map[string]int{"y": 2})
+}

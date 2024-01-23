@@ -45,7 +45,7 @@ type LastError struct {
 // NewLastError creates a LastError object which will let you retrieve the most recent error if at
 // least `threshold` of the most recent `size` items put into it are non-nil.
 func NewLastError(size, threshold int) LastError {
-	return LastError{errs: make([]error, size), threshold: threshold}
+	return LastError{errs: make([]error, size), threshold: threshold, size: size}
 }
 
 // Set stores an error to be retrieved later.

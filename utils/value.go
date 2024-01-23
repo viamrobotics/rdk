@@ -10,3 +10,14 @@ func AssertType[T any](from interface{}) (T, error) {
 	}
 	return asserted, nil
 }
+
+// FilterMap is a helper that returns a new map based on k,v pairs that pass predicate.
+func FilterMap[K comparable, V any](orig map[K]V, predicate func(K, V) bool) map[K]V {
+	ret := make(map[K]V)
+	for key, val := range orig {
+		if predicate(key, val) {
+			ret[key] = val
+		}
+	}
+	return ret
+}

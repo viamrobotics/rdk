@@ -3,7 +3,7 @@ import type { GeoPose } from '@viamrobotics/prime-blocks';
 import { useNavClient } from './use-nav-client';
 import { writable, get } from 'svelte/store';
 import { setAsyncInterval } from '@/lib/schedule';
-import { useDisconnect } from '@/hooks/robot-client';
+import { useConnect } from '@/hooks/robot-client';
 
 export const useBasePose = (name: string) => {
   const navClient = useNavClient(name);
@@ -35,10 +35,12 @@ export const useBasePose = (name: string) => {
     }
   };
 
-  updateLocation();
-  const clearUpdateLocationInterval = setAsyncInterval(updateLocation, 300);
 
-  useDisconnect(() => clearUpdateLocationInterval());
+  useConnect(() => {
+    updateLocation();
+    const clearInterval = setAsyncInterval(updateLocation, 300);
+    return () => clearInterval();
+  })
 
   return { pose, error };
 };

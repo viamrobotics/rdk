@@ -85,6 +85,15 @@ xyz123 linux/amd64 Done   1.2.3   1970-01-01T00:00:00Z
 	test.That(t, errOut.messages, test.ShouldHaveLength, 0)
 }
 
+func TestBuildError(t *testing.T) {
+	err := buildError(map[string]jobStatus{"ok": jobStatusDone})
+	test.That(t, err, test.ShouldBeNil)
+	err = buildError(map[string]jobStatus{"bad": jobStatusFailed})
+	test.That(t, err.Error(), test.ShouldEqual, "some platforms failed to build: bad")
+	err = buildError(map[string]jobStatus{"ok": jobStatusDone, "bad": jobStatusFailed})
+	test.That(t, err.Error(), test.ShouldEqual, "some platforms failed to build: bad")
+}
+
 func TestModuleBuildWait(t *testing.T) {
 	// this creates a race condiition if there are multiple tests testing the moduleBuildPollingInterval
 	originalPollingInterval := moduleBuildPollingInterval
@@ -110,8 +119,9 @@ func TestModuleBuildWait(t *testing.T) {
 		},
 	}, &map[string]string{}, "token")
 	startWaitTime := time.Now()
-	err := ac.waitForBuildToFinish("xyz123", "")
+	statuses, err := ac.waitForBuildToFinish("xyz123", "")
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, statuses, test.ShouldResemble, map[string]jobStatus{"linux/amd64": "Done"})
 	// ensure that we had to wait for at least 2, but no more than 5 polling intervals
 	test.That(t,
 		time.Since(startWaitTime).Seconds(),
