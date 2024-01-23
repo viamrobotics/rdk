@@ -6,21 +6,21 @@ import (
 	"testing"
 
 	commonpb "go.viam.com/api/common/v1"
-	genericpb "go.viam.com/api/component/generic/v1"
+	genericpb "go.viam.com/api/service/generic/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/generic"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 var errDoFailed = errors.New("do failed")
 
-func newServer() (genericpb.GenericServiceServer, *inject.GenericComponent, *inject.GenericComponent, error) {
-	injectGeneric := &inject.GenericComponent{}
-	injectGeneric2 := &inject.GenericComponent{}
+func newServer() (genericpb.GenericServiceServer, *inject.GenericService, *inject.GenericService, error) {
+	injectGeneric := &inject.GenericService{}
+	injectGeneric2 := &inject.GenericService{}
 	resourceMap := map[resource.Name]resource.Resource{
 		generic.Named(testGenericName): injectGeneric,
 		generic.Named(failGenericName): injectGeneric2,
