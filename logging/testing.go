@@ -33,6 +33,8 @@ type testAppender struct {
 //
 // Notably, zap's testing logger has a bug in this regard. Due to forgetting a `tb.Helper` call,
 // test logs through their library always include `logger.go:130` instead of the actual log line.
+//
+//nolint:lll
 func NewTestAppender(tb testing.TB) Appender {
 	return &testAppender{tb}
 }
