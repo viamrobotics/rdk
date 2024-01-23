@@ -113,8 +113,8 @@ func CreateModuleAction(c *cli.Context) error {
 		if err != nil ||
 			manifestModuleID.name != moduleNameArg ||
 			(manifestModuleID.prefix != org.GetId() && manifestModuleID.prefix != org.GetPublicNamespace()) {
-			return errors.Errorf("a different module's meta.json (%q) already exists in the current directory. "+
-				"Either delete that meta.json, or edit its module_id to match the args passed to this command",
+			return errors.Errorf("a different module's meta.json already exists in the current directory. "+
+				"Either delete that meta.json, or edit its module_id (%q) to match the args passed to this command",
 				modManifest.ModuleID)
 		}
 		shouldWriteNewEmptyManifest = false
