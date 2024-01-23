@@ -19,7 +19,7 @@ func TestFakeBoard(t *testing.T) {
 		},
 		DigitalInterrupts: []board.DigitalInterruptConfig{
 			{Name: "i1", Pin: "35"},
-			{Name: "i2", Pin: "31", Type: "servo"},
+			{Name: "i2", Pin: "31"},
 			{Name: "a", Pin: "38"},
 			{Name: "b", Pin: "40"},
 		},

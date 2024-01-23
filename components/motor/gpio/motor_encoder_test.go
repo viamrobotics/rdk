@@ -39,7 +39,6 @@ func MakeSingleBoard(t *testing.T) *fakeboard.Board {
 	interrupt, _ := fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
 		Name: "10",
 		Pin:  "10",
-		Type: "basic",
 	})
 
 	interrupts := map[string]*fakeboard.DigitalInterruptWrapper{
@@ -58,13 +57,11 @@ func MakeIncrementalBoard(t *testing.T) *fakeboard.Board {
 	interrupt11, _ := fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
 		Name: "11",
 		Pin:  "11",
-		Type: "basic",
 	})
 
 	interrupt13, _ := fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
 		Name: "13",
 		Pin:  "13",
-		Type: "basic",
 	})
 
 	interrupts := map[string]*fakeboard.DigitalInterruptWrapper{
@@ -775,9 +772,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		fakeMotor := &fakemotor.Motor{
 			OpMgr: operation.NewSingleOperationManager(),
 		}
-		b.Digitals["a"], _ = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
-			Type: "basic",
-		})
+		b.Digitals["a"], _ = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{})
 
 		ctx := context.Background()
 		deps := make(resource.Dependencies)
@@ -818,12 +813,8 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		fakeMotor := &fakemotor.Motor{
 			OpMgr: operation.NewSingleOperationManager(),
 		}
-		b.Digitals["a"], _ = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
-			Type: "basic",
-		})
-		b.Digitals["b"], _ = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
-			Type: "basic",
-		})
+		b.Digitals["a"], _ = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{})
+		b.Digitals["b"], _ = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{})
 
 		ctx := context.Background()
 		deps := make(resource.Dependencies)
