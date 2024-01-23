@@ -178,7 +178,7 @@ jobs:
 
   appimage_test:
     name: AppImage Test
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -227,6 +227,7 @@ jobs:
   appimage_deploy:
     name: AppImage Deploy
     needs: [appimage_test, appimage-32bit]
+    if: always() && needs.appimage-32bit.result == 'success' && contains(fromJSON('["success", "skipped"]'), needs.appimage_test.result)
     runs-on: ubuntu-latest
     env:
       channel: ${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
