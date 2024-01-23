@@ -25,6 +25,8 @@ const (
 	pixelFormat = avcodec.AvPixFmtYuv420p
 	// V4l2m2m Is a V4L2 memory-to-memory H.264 hardware encoder.
 	V4l2m2m = "h264_v4l2m2m"
+	// macroBlock is the encoder boundary block size in bytes.
+	macroBlock = 64
 )
 
 type encoder struct {
@@ -96,7 +98,7 @@ func (h *encoder) Encode(ctx context.Context, img image.Image) ([]byte, error) {
 		return nil, errors.Wrap(err, "cannot read image")
 	}
 
-	h.frame.SetFrameFromImg(yuvImg.(*image.YCbCr))
+	h.frame.SetFrameFromImgMacroAlign(yuvImg.(*image.YCbCr), macroBlock)
 	h.frame.SetFramePTS(h.pts)
 	h.pts++
 
