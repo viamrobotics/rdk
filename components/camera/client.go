@@ -37,7 +37,7 @@ type client struct {
 	client                  pb.CameraServiceClient
 	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
-	closeCh                 chan struct{}
+	stopStreamsCh           chan struct{}
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -48,15 +48,15 @@ func NewClientFromConn(
 	name resource.Name,
 	logger logging.Logger,
 ) (Camera, error) {
-	closeCh := make(chan struct{})
+	stopStreamsCh := make(chan struct{})
 	c := pb.NewCameraServiceClient(conn)
 	return &client{
-		Named:   name.PrependRemote(remoteName).AsNamed(),
-		name:    name.ShortName(),
-		conn:    conn,
-		client:  c,
-		logger:  logger,
-		closeCh: closeCh,
+		Named:         name.PrependRemote(remoteName).AsNamed(),
+		name:          name.ShortName(),
+		conn:          conn,
+		client:        c,
+		logger:        logger,
+		stopStreamsCh: stopStreamsCh,
 	}, nil
 }
 
@@ -121,7 +121,7 @@ func (c *client) Stream(
 	// TODO: consider using https://pkg.go.dev/context#WithoutCancel when we upgrade to
 	// go version 1.21
 	cancelCtxWithMIME := gostream.WithMIMETypeHint(context.Background(), gostream.MIMETypeHint(ctx, ""))
-	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](cancelCtxWithMIME, c.closeCh)
+	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](cancelCtxWithMIME, c.stopStreamsCh)
 
 	c.mu.Lock()
 	c.activeBackgroundWorkers.Add(1)
@@ -286,9 +286,13 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 }
 
 func (c *client) Close(ctx context.Context) error {
-	c.mu.Lock()
-	c.closeCh <- struct{}{}
-	c.mu.Unlock()
+	c.stopStreams()
 	c.activeBackgroundWorkers.Wait()
 	return nil
+}
+
+func (c *client) stopStreams() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.stopStreamsCh <- struct{}{}
 }
