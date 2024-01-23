@@ -120,8 +120,8 @@ func (c *client) Stream(
 
 	// TODO: consider using https://pkg.go.dev/context#WithoutCancel when we upgrade to
 	// go version 1.21
-	cancelCtxWithMIME := gostream.WithMIMETypeHint(context.Background(), gostream.MIMETypeHint(ctx, ""))
-	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](cancelCtxWithMIME, c.stopStreamsCh)
+	ctxWithMIME := gostream.WithMIMETypeHint(context.Background(), gostream.MIMETypeHint(ctx, ""))
+	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](ctxWithMIME)
 
 	c.mu.Lock()
 	c.activeBackgroundWorkers.Add(1)
@@ -149,6 +149,10 @@ func (c *client) Stream(
 			select {
 			case <-streamCtx.Done():
 				return
+			case <-c.stopStreamsCh:
+				if err := stream.Close(ctxWithMIME); err != nil {
+					panic(err)
+				}
 			case frameCh <- gostream.MediaReleasePairWithError[image.Image]{
 				Media:   frame,
 				Release: release,

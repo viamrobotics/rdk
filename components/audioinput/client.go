@@ -72,9 +72,7 @@ func (c *client) Stream(
 	ctx context.Context,
 	errHandlers ...gostream.ErrorHandler,
 ) (gostream.AudioStream, error) {
-	// TODO: add to struct
-	stopCh := make(chan struct{})
-	streamCtx, stream, chunkCh := gostream.NewMediaStreamForChannel[wave.Audio](c.cancelCtx, stopCh)
+	streamCtx, stream, chunkCh := gostream.NewMediaStreamForChannel[wave.Audio](c.cancelCtx)
 
 	chunksClient, err := c.client.Chunks(ctx, &pb.ChunksRequest{
 		Name:         c.name,
