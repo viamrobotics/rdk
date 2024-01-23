@@ -12,6 +12,7 @@ import {
   getLinearVelocity,
   getCompassHeading,
   getPosition,
+  getAccuracy,
 } from '@/api/movement-sensor';
 import { useRobotClient, useConnect } from '@/hooks/robot-client';
 
@@ -27,6 +28,7 @@ let compassHeading: number | undefined;
 let coordinate: commonApi.GeoPoint.AsObject | undefined;
 let altitudeM: number | undefined;
 let properties: movementsensorApi.GetPropertiesResponse.AsObject | undefined;
+let accuracy: movementsensorApi.GetAccuracyResponse.AsObject | undefined;
 
 let expanded = false;
 
@@ -35,7 +37,13 @@ const refresh = async () => {
     return;
   }
 
-  properties = await getProperties($robotClient, name);
+  const results = await Promise.all([
+    getProperties($robotClient, name),
+    getAccuracy($robotClient, name),
+  ])
+
+  properties = results[0];
+  accuracy = results[1];
 
   if (!properties) {
     return;
@@ -106,6 +114,34 @@ useConnect(() => {
               {altitudeM?.toFixed(2)}
             </td>
           </tr>
+          <tr>
+            <th class="border border-medium p-2">
+              NMEA Fix Quality
+            </th>
+            <td class="border border-medium p-2">
+              {accuracy.positionNmeaGgaFix}
+            </td>
+          </tr>
+
+          {#if accuracy?.positionHdop && accuracy?.positionVdop}
+            <tr>
+              <th class="border border-medium p-2">
+                HDOP
+              </th>
+              <td class="border border-medium p-2">
+                {accuracy.positionHdop.toFixed(2)}
+              </td>
+            </tr>
+            <tr>
+              <th class="border border-medium p-2">
+                VDOP
+              </th>
+              <td class="border border-medium p-2">
+                {accuracy.positionVdop.toFixed(2)}
+              </td>
+            </tr>
+          {/if}
+
         </table>
         <a
           class="text-[#045681] underline"
@@ -272,10 +308,31 @@ useConnect(() => {
             </th>
             <td class="border border-medium p-2">
               {compassHeading?.toFixed(2)}
+          </tr>
+          <tr>
+            <th class="border border-medium p-2">
+              Compass Degrees Error
+            </th>
+            <td class="border border-medium p-2">
+              {accuracy.compassDegreesError.toFixed(2)}
             </td>
           </tr>
         </table>
       </div>
     {/if}
+
+    {#if accuracy?.accuracyMap}
+    <div class="overflow-auto">
+      <h3 class="mb-1">
+        Accuracy Map
+      </h3>
+      <table class="w-full border border-t-0 border-medium p-4">
+        <tr>
+          <td class="border border-medium p-2">
+            {accuracy.accuracyMap?.toFixed(2)}
+        </tr>
+      </table>
+    </div>
+  {/if}
   </div>
 </Collapse>
