@@ -61,9 +61,9 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	goalPos spatialmath.Pose,
 	worldState *referenceframe.WorldState,
 	constraintSpec *pb.Constraints,
-	seedPlan *Plan,
+	seedPlan Plan,
 	motionConfig map[string]interface{},
-) (*Plan, error) {
+) (Plan, error) {
 	seed, err := pm.frame.mapToSlice(seedMap)
 	if err != nil {
 		return nil, err
@@ -124,7 +124,12 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	}
 
 	// If we are seeding off of a pre-existing plan, we don't need the speedup of subwaypoints
+	var plan *rrtPlan
 	if seedPlan != nil {
+		var ok bool
+		if plan, ok = seedPlan.(*rrtPlan); !ok {
+			return nil, errBadPlanImpl
+		}
 		subWaypoints = false
 	}
 
@@ -186,7 +191,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 		}
 	}
 
-	plan, err := pm.planAtomicWaypoints(ctx, goals, seed, planners, seedPlan)
+	plan, err = pm.planAtomicWaypoints(ctx, goals, seed, planners, plan)
 	pm.activeBackgroundWorkers.Wait()
 	if err != nil {
 		if len(goals) > 1 {
@@ -205,8 +210,8 @@ func (pm *planManager) planAtomicWaypoints(
 	goals []spatialmath.Pose,
 	seed []referenceframe.Input,
 	planners []motionPlanner,
-	seedPlan *Plan,
-) (*Plan, error) {
+	seedPlan *rrtPlan,
+) (*rrtPlan, error) {
 	var err error
 	// A resultPromise can be queried in the future and will eventually yield either a set of planner waypoints, or an error.
 	// Each atomic waypoint produces one result promise, all of which are resolved at the end, allowing multiple to be solved in parallel.
@@ -258,7 +263,7 @@ func (pm *planManager) planAtomicWaypoints(
 		resultSlices = append(resultSlices, steps...)
 	}
 
-	return newPlan(resultSlices, pm.frame, pm.planner.opt().relativeInputs)
+	return newRRTPlan(resultSlices, pm.frame, pm.planner.opt().relativeInputs)
 }
 
 // planSingleAtomicWaypoint attempts to plan a single waypoint. It may optionally be pre-seeded with rrt maps; these will be passed to the
@@ -654,7 +659,7 @@ func (pm *planManager) goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, f
 	return false, solutionCost
 }
 
-func (pm *planManager) planToRRTGoalMap(plan *Plan, goal spatialmath.Pose) (*rrtMaps, error) {
+func (pm *planManager) planToRRTGoalMap(plan *rrtPlan, goal spatialmath.Pose) (*rrtMaps, error) {
 	planNodes := plan.nodes
 	if pm.useTPspace {
 		// Fill in positions from the old origin to where the goal was during the last run

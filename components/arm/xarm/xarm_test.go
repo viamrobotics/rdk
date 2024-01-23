@@ -93,7 +93,7 @@ func TestWriteViam(t *testing.T) {
 			Options:            opt,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		input, err := plan.GetInput(plan.Length() - 1)
+		input, err := plan.Path().GetInput(plan.Length() - 1)
 		test.That(t, err, test.ShouldBeNil)
 		return input
 	}

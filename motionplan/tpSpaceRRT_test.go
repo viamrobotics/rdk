@@ -247,12 +247,12 @@ func TestPtgCheckPlan(t *testing.T) {
 
 	nodes, err := tp.plan(context.Background(), goalPos, nil)
 	test.That(t, err, test.ShouldBeNil)
-	plan, err := newPlan(nodes, sf, true)
+	plan, err := newRRTPlan(nodes, sf, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
 	errorState := startPose
-	inputs := referenceframe.FloatsToInputs([]float64{0, 0, 0})
+	inputs := plan.Trajectory()[0]
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
 		err := CheckPlan(ackermanFrame, plan, nil, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
@@ -344,7 +344,7 @@ func TestPtgCheckPlan(t *testing.T) {
 
 		startPose := spatialmath.NewPose(vector, ov)
 
-		remainingPlan, err := newPlan(nodes[2:len(nodes)-1], sf, true)
+		remainingPlan, err := newRRTPlan(nodes[2:len(nodes)-1], sf, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = CheckPlan(ackermanFrame, remainingPlan, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
@@ -366,7 +366,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 1000, 0})
 		startPose = errorState
 
-		remainingPlan, err := newPlan(nodes[2:len(nodes)-1], sf, true)
+		remainingPlan, err := newRRTPlan(nodes[2:len(nodes)-1], sf, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = CheckPlan(ackermanFrame, remainingPlan, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
@@ -374,9 +374,9 @@ func TestPtgCheckPlan(t *testing.T) {
 	})
 }
 
-func planToTpspaceRec(plan *Plan, f referenceframe.Frame) ([]node, error) {
+func planToTpspaceRec(plan Plan, f referenceframe.Frame) ([]node, error) {
 	nodes := []node{}
-	for _, inp := range plan.trajectory {
+	for _, inp := range plan.Trajectory() {
 		thisNode := &basicNode{
 			q:    inp[f.Name()],
 			cost: inp[f.Name()][2].Value,

@@ -12,76 +12,57 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-type Plan struct {
-	trajectory
-	path Path
-
-	// nodes corresponding to inputs can be cached with the Plan for easy conversion back into a form usable by RRT
-	// depending on how the trajectory is constructed these may be nil and should be computed before usage
-	nodes []node
-}
-
-func newPlan(solution []node, sf *solverFrame, relative bool) (*Plan, error) {
-	if len(solution) < 2 {
-		return nil, errors.New("cannot construct a Plan using fewer than two nodes")
-	}
-	traj := sf.nodesToTrajectory(solution)
-	path, err := newRelativePath(solution, sf)
-	if err != nil {
-		return nil, err
-	}
-	if relative {
-		path, err = newAbsolutePathFromRelative(path)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return &Plan{
-		trajectory: traj,
-		path:       path,
-		nodes:      solution,
-	}, nil
-}
-
-// TODO: Is AsPath a good name?
-func (plan *Plan) AsPath() Path {
-	return plan.path
+type Plan interface {
+	Trajectory() Trajectory
+	Path() Path
 }
 
 // RemainingPlan returns a new Plan equal to the given plan from the waypointIndex onwards.
-func (plan *Plan) RemainingPlan(waypointIndex int) (*Plan, error) {
-	// TODO: I don't think a deep copy should be necessary here but maybe?
-	if _, err := plan.GetInput(waypointIndex); err != nil {
-		return nil, err
+func RemainingPlan(p Plan, waypointIndex int) (Plan, error) {
+	plan, ok := p.(*rrtPlan)
+	if !ok {
+		return nil, errBadPlanImpl
 	}
-	return &Plan{
-		path:       plan.path[waypointIndex:],
-		trajectory: plan.trajectory[waypointIndex:],
-		nodes:      plan.nodes[waypointIndex:],
+	if waypointIndex < 0 || waypointIndex > len(plan.traj) {
+		return nil, fmt.Errorf("could not access trajectory index %d, must be between 0 and %d", waypointIndex, len(plan.traj))
+	}
+	return &rrtPlan{
+		path:  plan.Path()[waypointIndex:],
+		traj:  plan.Trajectory()[waypointIndex:],
+		nodes: plan.nodes[waypointIndex:],
 	}, nil
 }
 
 // TODO: this should probably be a method on Path
-func (plan *Plan) Offset(offset spatialmath.Pose) *Plan {
-	newPath := make([]PathStep, 0, len(plan.path))
-	for _, step := range plan.path {
+func OffsetPlan(p Plan, offset spatialmath.Pose) (Plan, error) {
+	plan, ok := p.(*rrtPlan)
+	if !ok {
+		return nil, errBadPlanImpl
+	}
+	newPath := make([]PathStep, 0, len(plan.Path()))
+	for _, step := range plan.Path() {
 		newStep := make(PathStep, len(step))
 		for frame, pose := range step {
 			newStep[frame] = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(offset, pose.Pose()))
 		}
 		newPath = append(newPath, newStep)
 	}
-	return &Plan{
-		path:       newPath,
-		trajectory: plan.trajectory,
-		nodes:      plan.nodes,
-	}
+	return &rrtPlan{
+		path:  newPath,
+		traj:  plan.traj,
+		nodes: plan.nodes,
+	}, nil
 }
 
-// TODO: could make Plan an interface and type this specifically as a geoPlan but this might be overkill
-func (plan *Plan) ToGeoPlan(geoOrigin *spatialmath.GeoPose) (*Plan, error) {
-	newPath := make([]PathStep, 0, len(plan.path))
-	for _, step := range plan.path {
+type geoPlan rrtPlan
+
+func NewGeoPlan(p Plan, geoOrigin *spatialmath.GeoPose) (*geoPlan, error) {
+	plan, ok := p.(*rrtPlan)
+	if !ok {
+		return nil, errBadPlanImpl
+	}
+	newPath := make([]PathStep, 0, len(plan.Path()))
+	for _, step := range plan.Path() {
 		newStep := make(PathStep)
 		for frame, pif := range step {
 			pose := pif.Pose()
@@ -93,30 +74,17 @@ func (plan *Plan) ToGeoPlan(geoOrigin *spatialmath.GeoPose) (*Plan, error) {
 		}
 		newPath = append(newPath, newStep)
 	}
-	return &Plan{
-		trajectory: plan.trajectory,
-		path:       newPath,
-		nodes:      plan.nodes,
+	return &geoPlan{
+		traj:  plan.traj,
+		path:  newPath,
+		nodes: plan.nodes,
 	}, nil
 }
 
-type trajectory []InputStep
-
-type InputStep map[string][]referenceframe.Input
-
-func (traj trajectory) Length() int {
-	return len(traj)
-}
-
-func (traj trajectory) GetInput(index int) (InputStep, error) {
-	if index < 0 || index > len(traj) {
-		return nil, fmt.Errorf("could not access trajectory index %d, must be between 0 and %d", index, len(traj))
-	}
-	return traj[index], nil
-}
+type Trajectory []map[string][]referenceframe.Input
 
 // GetFrameInputs is a helper function which will extract the waypoints of a single frame from the map output of a trajectory.
-func (traj trajectory) GetFrameInputs(frameName string) ([][]referenceframe.Input, error) {
+func (traj Trajectory) GetFrameInputs(frameName string) ([][]referenceframe.Input, error) {
 	solution := make([][]referenceframe.Input, 0, len(traj))
 	for _, step := range traj {
 		frameStep, ok := step[frameName]
@@ -129,7 +97,7 @@ func (traj trajectory) GetFrameInputs(frameName string) ([][]referenceframe.Inpu
 }
 
 // String returns a human-readable version of the trajectory, suitable for debugging.
-func (traj trajectory) String() string {
+func (traj Trajectory) String() string {
 	var str string
 	for _, step := range traj {
 		str += "\n"
@@ -143,7 +111,7 @@ func (traj trajectory) String() string {
 }
 
 // EvaluateCost calculates a cost to a trajectory as measured by the given distFunc Metric.
-func (traj trajectory) EvaluateCost(distFunc ik.SegmentMetric) (totalCost float64) {
+func (traj Trajectory) EvaluateCost(distFunc ik.SegmentMetric) (totalCost float64) {
 	last := map[string][]referenceframe.Input{}
 	for _, step := range traj {
 		for frame, inputs := range step {

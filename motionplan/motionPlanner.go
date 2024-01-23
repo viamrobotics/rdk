@@ -17,6 +17,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -97,7 +98,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 }
 
 // PlanMotion plans a motion from a provided plan request.
-func PlanMotion(ctx context.Context, request *PlanRequest) (*Plan, error) {
+func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
 	// Calls Replan but without a seed plan
 	return Replan(ctx, request, nil, 0)
 }
@@ -129,12 +130,12 @@ func PlanFrameMotion(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	return plan.GetFrameInputs(f.Name())
+	return plan.Trajectory().GetFrameInputs(f.Name())
 }
 
 // Replan plans a motion from a provided plan request, and then will return that plan only if its cost is better than the cost of the
 // passed-in plan multiplied by `replanCostFactor`.
-func Replan(ctx context.Context, request *PlanRequest, currentPlan *Plan, replanCostFactor float64) (*Plan, error) {
+func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanCostFactor float64) (Plan, error) {
 	// make sure request is well formed and not missing vital information
 	if err := request.validatePlanRequest(); err != nil {
 		return nil, err
@@ -199,8 +200,8 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan *Plan, replan
 	}
 
 	if replanCostFactor > 0 && currentPlan != nil {
-		initialPlanCost := currentPlan.EvaluateCost(sfPlanner.opt().ScoreFunc)
-		finalPlanCost := newPlan.EvaluateCost(sfPlanner.opt().ScoreFunc)
+		initialPlanCost := currentPlan.Trajectory().EvaluateCost(sfPlanner.opt().ScoreFunc)
+		finalPlanCost := newPlan.Trajectory().EvaluateCost(sfPlanner.opt().ScoreFunc)
 		request.Logger.CDebugf(ctx,
 			"initialPlanCost %f adjusted with cost factor to %f, replan cost %f",
 			initialPlanCost, initialPlanCost*replanCostFactor, finalPlanCost,
@@ -459,21 +460,16 @@ IK:
 // with an error with additional collision details.
 func CheckPlan(
 	checkFrame frame.Frame,
-	plan *Plan,
+	plan Plan,
 	worldState *frame.WorldState,
 	fs frame.FrameSystem,
 	currentPosition spatialmath.Pose,
-	currentInputs []frame.Input,
+	currentInputs map[string][]referenceframe.Input,
 	errorState spatialmath.Pose,
 	lookAheadDistanceMM float64,
 	logger logging.Logger,
 ) error {
-	startingInput, err := plan.GetInput(0)
-	if err != nil {
-		return err
-	}
-
-	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, startingInput)
+	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, currentInputs)
 	if err != nil {
 		return err
 	}
@@ -483,51 +479,21 @@ func CheckPlan(
 		return err
 	}
 
-	// TODO: shouldnt have to access the trajectory here, fix this
-	planNodes, err := sf.trajToNodes(plan.trajectory)
-	if err != nil {
-		return err
-	}
-
 	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
 	// Currently this is only TP-space, so we check if the PTG length is >0.
 	// The solver frame will have had its PTGs filled in the newPlanManager() call, if applicable.
 	relative := len(sf.PTGSolvers()) > 0
 
-	// TODO: should be able to get rid of all the casing around is relative now
-	if relative {
-		// get pose of robot along the current trajectory it is executing
-		lastPose, err := sf.Transform(currentInputs)
-		if err != nil {
-			return err
-		}
-
-		// where ought the robot be on the plan
-		pathPosition := spatialmath.PoseBetweenInverse(errorState, currentPosition)
-
-		// absolute pose of the previous node we've passed
-		formerRunningPose := spatialmath.PoseBetweenInverse(lastPose, pathPosition)
-
-		// convert planNode's poses to be in absolute coordinates
-		if planNodes, err = rectifyTPspacePath(planNodes, sf, formerRunningPose); err != nil {
-			return err
-		}
+	offsetPlan, err := OffsetPlan(plan, errorState)
+	if err != nil {
+		return err
 	}
-
-	// adjust planNodes by the errorState
-	// this only changes a node's pose and not its inputs
-	planNodes = transformNodes(planNodes, errorState)
-
-	// pre-pend node with current position of robot to planNodes
-	// Note that currentPosition is assumed to have accounted for the errorState
-	// Note that currentInputs is assumed to have NOT accounted for the errorState
-	planNodes = append([]node{&basicNode{pose: currentPosition, q: currentInputs}}, planNodes...)
 
 	// create constraints
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
-		currentPosition,                    // starting pose
-		planNodes[len(planNodes)-1].Pose(), // goalPose
-		startingInput,
+		currentPosition, // starting pose
+		offsetPlan.Path()[len(offsetPlan.Path())-1][checkFrame.Name()].Pose(), // goalPose
+		currentInputs,
 		worldState,
 		nil, // no pb.Constraints
 		nil, // no plannOpts
@@ -535,29 +501,37 @@ func CheckPlan(
 		return err
 	}
 
-	// go through plan and check that we can move from plan[i] to plan[i+1]
-	var totalTravelDistanceMM float64
-	for i := 0; i < len(planNodes)-1; i++ {
-		currentPose := planNodes[i].Pose()
-		nextPose := planNodes[i+1].Pose()
-		startConfiguration := planNodes[i].Q()
-		endConfiguration := planNodes[i+1].Q()
+	createSegment := func(
+		currPose, nextPose spatialmath.Pose,
+		currInput, nextInput map[string][]referenceframe.Input,
+		sf *solverFrame,
+	) (*ik.Segment, error) {
+		startInputSlice, err := sf.mapToSlice(currInput)
+		if err != nil {
+			return nil, err
+		}
+		nextInputSlice, err := sf.mapToSlice(nextInput)
+		if err != nil {
+			return nil, err
+		}
 
 		// If we are working with a PTG plan we redefine the startConfiguration in terms of the endConfiguration.
 		// This allows us the properly interpolate along the same arc family and sub-arc within that family.
 		if relative {
-			startConfiguration = []frame.Input{
-				{Value: endConfiguration[0].Value}, {Value: endConfiguration[1].Value}, {Value: 0},
+			startInputSlice = []frame.Input{
+				{Value: nextInputSlice[0].Value}, {Value: nextInputSlice[1].Value}, {Value: 0},
 			}
 		}
-		segment := &ik.Segment{
-			StartPosition:      currentPose,
+		return &ik.Segment{
+			StartPosition:      currPose,
 			EndPosition:        nextPose,
-			StartConfiguration: startConfiguration,
-			EndConfiguration:   endConfiguration,
+			StartConfiguration: startInputSlice,
+			EndConfiguration:   nextInputSlice,
 			Frame:              sf,
-		}
+		}, nil
+	}
 
+	checkSegment := func(segment *ik.Segment, travelDist float64) error {
 		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
 		if err != nil {
 			return err
@@ -569,7 +543,7 @@ func CheckPlan(
 			}
 
 			// Check if look ahead distance has been reached
-			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
+			currentTravelDistanceMM := travelDist + poseInPath.Point().Distance(segment.StartPosition.Point())
 			if currentTravelDistanceMM > lookAheadDistanceMM {
 				return nil
 			}
@@ -579,7 +553,7 @@ func CheckPlan(
 			// we must compose poseInPath with currentPose to get the absolute position.
 			// In both cases we ultimately compose with errorState.
 			if relative {
-				rectifyBy := spatialmath.Compose(currentPose, errorState)
+				rectifyBy := spatialmath.Compose(segment.StartPosition, errorState)
 				poseInPath = spatialmath.Compose(rectifyBy, poseInPath)
 			} else {
 				poseInPath = spatialmath.Compose(poseInPath, errorState)
@@ -590,11 +564,45 @@ func CheckPlan(
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a
 			// collision is detected.
 			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedState); !isValid {
-				return fmt.Errorf("found collision between positions %v and %v", currentPose.Point(), nextPose.Point())
+				return fmt.Errorf("found collision between positions %v and %v", segment.StartPosition.Point(), segment.EndPosition.Point())
 			}
 		}
+		return nil
+	}
 
-		// Update total traveled distance after segment has been checked
+	// go through plan and check that we can move from plan[i] to plan[i+1]
+	var totalTravelDistanceMM float64
+
+	// the first segment we need to check is the one between the current position and the first one in the plan
+	segment, err := createSegment(
+		currentPosition,
+		offsetPlan.Path()[0][checkFrame.Name()].Pose(),
+		currentInputs,
+		offsetPlan.Trajectory()[0],
+		sf,
+	)
+	if err != nil {
+		return err
+	}
+	if err := checkSegment(segment, totalTravelDistanceMM); err != nil {
+		return err
+	}
+	totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
+
+	for i := 0; i < len(offsetPlan.Path())-1; i++ {
+		segment, err = createSegment(
+			offsetPlan.Path()[i][checkFrame.Name()].Pose(),
+			offsetPlan.Path()[i+1][checkFrame.Name()].Pose(),
+			offsetPlan.Trajectory()[i],
+			offsetPlan.Trajectory()[i+1],
+			sf,
+		)
+		if err != nil {
+			return err
+		}
+		if err := checkSegment(segment, totalTravelDistanceMM); err != nil {
+			return err
+		}
 		totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
 	}
 

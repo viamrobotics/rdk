@@ -19,7 +19,7 @@ import (
 )
 
 func TestEvaluateTrajectory(t *testing.T) {
-	plan := trajectory{
+	plan := Trajectory{
 		map[string][]referenceframe.Input{"": {{1.}, {2.}, {3.}}},
 		map[string][]referenceframe.Input{"": {{1.}, {2.}, {3.}}},
 	}
@@ -138,7 +138,7 @@ func TestPlanStep(t *testing.T) {
 	})
 }
 
-func TestPlanToGeoPlan(t *testing.T) {
+func TestNewGeoPlan(t *testing.T) {
 	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
 	test.That(t, err, test.ShouldBeNil)
 	baseName := "myBase"
@@ -159,9 +159,9 @@ func TestPlanToGeoPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// test Path gets constructed correctly
-	test.That(t, len(plan.path), test.ShouldBeGreaterThan, 1)
-	test.That(t, spatialmath.PoseAlmostEqual(plan.path[0][baseName].Pose(), spatialmath.NewZeroPose()), test.ShouldBeTrue)
-	test.That(t, spatialmath.PoseAlmostCoincidentEps(plan.path[len(plan.path)-1][baseName].Pose(), goal, 1), test.ShouldBeTrue)
+	test.That(t, len(plan.Path()), test.ShouldBeGreaterThan, 1)
+	test.That(t, spatialmath.PoseAlmostEqual(plan.Path()[0][baseName].Pose(), spatialmath.NewZeroPose()), test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostCoincidentEps(plan.Path()[len(plan.Path())-1][baseName].Pose(), goal, 1), test.ShouldBeTrue)
 
 	type testCase struct {
 		name        string
@@ -207,7 +207,7 @@ func TestPlanToGeoPlan(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			// test Path gets converted to a GeoPlan correctly
-			gps, err := plan.ToGeoPlan(tc.origin)
+			gps, err := NewGeoPlan(plan, tc.origin)
 			test.That(t, err, test.ShouldBeNil)
 			pose := gps.path[0][baseName].Pose()
 			pt := pose.Point()

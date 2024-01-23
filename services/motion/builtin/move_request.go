@@ -80,7 +80,7 @@ type moveRequest struct {
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
-func (mr *moveRequest) Plan(ctx context.Context) (*motionplan.Plan, error) {
+func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	inputs, err := mr.kinematicBase.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (*motionplan.Plan, error) {
 
 	switch mr.requestType {
 	case requestTypeMoveOnMap:
-		return plan.Offset(mr.poseOrigin), nil
+		return motionplan.OffsetPlan(plan, mr.poseOrigin)
 	case requestTypeMoveOnGlobe:
 		// modify the Plan to smuggle the geoPoses as poses inside its Path
 		return plan.ToGeoPlan(&mr.geoPoseOrigin)

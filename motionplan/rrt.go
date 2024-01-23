@@ -272,3 +272,42 @@ func transformNodes(path []node, transformBy spatialmath.Pose) []node {
 	}
 	return transformedNodes
 }
+
+type rrtPlan struct {
+	traj Trajectory
+	path Path
+
+	// nodes corresponding to inputs can be cached with the Plan for easy conversion back into a form usable by RRT
+	// depending on how the trajectory is constructed these may be nil and should be computed before usage
+	nodes []node
+}
+
+func newRRTPlan(solution []node, sf *solverFrame, relative bool) (*rrtPlan, error) {
+	if len(solution) < 2 {
+		return nil, errors.New("cannot construct a Plan using fewer than two nodes")
+	}
+	traj := sf.nodesToTrajectory(solution)
+	path, err := newRelativePath(solution, sf)
+	if err != nil {
+		return nil, err
+	}
+	if relative {
+		path, err = newAbsolutePathFromRelative(path)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &rrtPlan{
+		traj: traj,
+		path:       path,
+		nodes:      solution,
+	}, nil
+}
+
+func (plan *rrtPlan) Path() Path {
+	return plan.path
+}
+
+func (plan *rrtPlan) Trajectory() Trajectory {
+	return plan.traj
+}
