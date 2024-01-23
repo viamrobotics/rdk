@@ -107,7 +107,7 @@ func CreateModuleAction(c *cli.Context) error {
 	if _, err := os.Stat(defaultManifestFilename); err == nil {
 		modManifest, err := loadManifest(defaultManifestFilename)
 		if err != nil {
-			return errors.Errorf("another meta.json already exists in the current directory. Delete it and try again")
+			return errors.New("another meta.json already exists in the current directory. Delete it and try again")
 		}
 		manifestModuleID, err := parseModuleID(modManifest.ModuleID)
 		if err != nil ||
