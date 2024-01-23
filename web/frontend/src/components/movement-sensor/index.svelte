@@ -320,8 +320,9 @@ useConnect(() => {
         </table>
       </div>
     {/if}
-
-    {#if accuracy?.accuracyMap}
+    
+  <Collapse title={"Accuracy Map"} on:toggle={handleToggle}>
+  {#if accuracy?.accuracyMap}
     <div class="overflow-auto">
       <h3 class="mb-1">
         Accuracy Map
@@ -334,5 +335,6 @@ useConnect(() => {
       </table>
     </div>
   {/if}
+  </Collapse>
   </div>
 </Collapse>
