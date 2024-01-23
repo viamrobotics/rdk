@@ -433,8 +433,7 @@ func TestState(t *testing.T) {
 		triggerReplanning()
 
 		// poll until there are 2 plans in the history
-		resPWS, succ := pollUntil(cancelCtx, func() (pwsRes, bool,
-		) {
+		resPWS, succ := pollUntil(cancelCtx, func() (pwsRes, bool) {
 			st := pwsRes{}
 			pws, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase})
 			if err == nil && len(pws) == 2 {
@@ -552,7 +551,7 @@ func TestState(t *testing.T) {
 							req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 						}
 						return &inject.Plan{PathFunc: func() motionplan.Path {
-							return []motionplan.PathStep{pbc}
+							return []motionplan.PathStep{pbc, pbc}
 						}}, nil
 					}
 					// second replan fails

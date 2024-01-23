@@ -492,7 +492,9 @@ func TestClient(t *testing.T) {
 				ID:            id,
 				ComponentName: base.Named("mybase"),
 				ExecutionID:   executionID,
-				Plan:          newIncompletePlan(steps),
+				Plan: &inject.Plan{PathFunc: func() motionplan.Path {
+					return steps
+				}},
 			}
 			statusHistory := []motion.PlanStatus{
 				{motion.PlanStateFailed, timeB, &reason},
@@ -526,7 +528,9 @@ func TestClient(t *testing.T) {
 				ID:            idA,
 				ComponentName: base.Named("mybase"),
 				ExecutionID:   executionID,
-				Plan:          &motionplan.Plan{Path: steps},
+				Plan: &inject.Plan{PathFunc: func() motionplan.Path {
+					return steps
+				}},
 			}
 			statusHistoryA := []motion.PlanStatus{
 				{motion.PlanStateFailed, timeAB, &reason},
@@ -540,7 +544,9 @@ func TestClient(t *testing.T) {
 				ID:            idB,
 				ComponentName: base.Named("mybase"),
 				ExecutionID:   executionID,
-				Plan:          &motionplan.Plan{Path: steps},
+				Plan: &inject.Plan{PathFunc: func() motionplan.Path {
+					return steps
+				}},
 			}
 
 			statusHistoryB := []motion.PlanStatus{

@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/internal/testutils/inject"
 	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -48,8 +47,8 @@ func TestPlanWithStatus(t *testing.T) {
 		ID:            planID,
 		ExecutionID:   executionID,
 		ComponentName: baseName,
-		Plan: &motionplan.Plan{
-			Path: []motionplan.PathStep{
+		Plan: &incompletePlan{
+			path: []motionplan.PathStep{
 				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
 				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
 			},
@@ -583,12 +582,10 @@ func TestPlan(t *testing.T) {
 		ID:            planID,
 		ExecutionID:   executionID,
 		ComponentName: baseName,
-		Plan: &inject.Plan{
-			PathFunc: func() motionplan.Path {
-				return []motionplan.PathStep{
-					{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
-					{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
-				}
+		Plan: &incompletePlan{
+			path: []motionplan.PathStep{
+				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
+				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
 			},
 		},
 	}

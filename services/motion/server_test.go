@@ -641,14 +641,18 @@ func TestServerGetPlan(t *testing.T) {
 			ID:            planID1,
 			ComponentName: base1,
 			ExecutionID:   executionID,
-			Plan:          &motionplan.Plan{Path: steps},
+			Plan:          &inject.Plan{PathFunc: func() motionplan.Path {
+				return steps
+			}},
 		}
 
 		plan2 := motion.PlanWithMetadata{
 			ID:            planID2,
 			ComponentName: base1,
 			ExecutionID:   executionID,
-			Plan:          &motionplan.Plan{Path: steps},
+			Plan:          &inject.Plan{PathFunc: func() motionplan.Path {
+				return steps
+			}},
 		}
 
 		time1A := time.Now()
