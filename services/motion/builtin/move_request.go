@@ -128,9 +128,6 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 	if err != nil {
 		return state.PlanResponse{}, err
 	}
-	mr.logger.Debugf("plan: %v\n", plan)
-	mr.logger.Debugf("sleeping now!")
-	time.Sleep(time.Second * 3)
 
 	waypoints, err := plan.GetFrameSteps(mr.kinematicBase.Kinematics().Name())
 	if err != nil {
@@ -142,13 +139,6 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 		planSteps, err := motionplan.PlanToPlanSteps(plan, mr.kinematicBase.Name(), *mr.planRequest, mr.poseOrigin)
 		if err != nil {
 			return state.PlanResponse{}, err
-		}
-		mr.logger.Debug("PRINTING THE PLANSTEPS HERE")
-		for _, step := range planSteps {
-			asMap := map[resource.Name]spatialmath.Pose(step)
-			for n, p := range asMap {
-				mr.logger.Debugf("%s - pose: %v", n.Name, spatialmath.PoseToProtobuf(p))
-			}
 		}
 
 		return state.PlanResponse{
@@ -251,9 +241,7 @@ func (mr *moveRequest) getTransientDetections(
 	}
 	mr.logger.CDebugf(ctx, "got %d detections", len(detections))
 
-	// Here we make the assumption that the localizer's current position/orientation
-	// is shared with the observing camera?? or base??
-	// TODO: ENSURE THIS ASSUMPTION HOLDS
+	// get currentPosition in world frame
 	currentPositionInWorld, err := mr.fsService.TransformPose(ctx, localizerCurrentPosition, "world", nil)
 	if err != nil {
 		currentPositionInWorld = localizerCurrentPosition
@@ -287,17 +275,11 @@ func (mr *moveRequest) getTransientDetections(
 
 	// detections in the world frame used for CheckPlan
 	absoluteGeoms := []spatialmath.Geometry{}
-
 	// detection in the base frame used for Replan
 	relativeGeoms := []spatialmath.Geometry{}
 
 	for i, detection := range detections {
 		geometry := detection.Geometry
-		// this is here so that we don't deal with junk on this specific hardware test
-		// this real version should not have this conditional.
-		if geometry.Pose().Point().Z > 1000 {
-			continue
-		}
 
 		label := camName.Name + "_transientObstacle_" + strconv.Itoa(i)
 		if geometry.Label() != "" {
@@ -316,8 +298,8 @@ func (mr *moveRequest) getTransientDetections(
 			// this assumes base and cam are co-incident
 			relativeGeom = relativeGeom.Transform(cameraToBase.Pose())
 			relativeGeom = relativeGeom.Transform(spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90}))
-			// this is incorrectly placing geoms im pretty sure
 		case requestTypeMoveOnGlobe:
+			// TODO: Further work needs to be done to validate that this is all that needs to be done
 			relativeGeom = relativeGeom.Transform(cameraToBase.Pose())
 		case requestTypeUnspecified:
 			fallthrough
@@ -337,6 +319,7 @@ func (mr *moveRequest) getTransientDetections(
 			geometry = geometry.Transform(
 				spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: baseTheta + 90}),
 			)
+			// TODO: Determine if there should be a case for requestTypeMoveOnGlobe
 		}
 		mr.logger.CDebugf(ctx, "detection %d observed from the camera in the world frame coordinate system has pose: %v",
 			i, spatialmath.PoseToProtobuf(geometry.Pose()),
