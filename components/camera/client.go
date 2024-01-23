@@ -124,6 +124,8 @@ func (c *client) Stream(
 ) (gostream.VideoStream, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Stream")
 
+	c.logger.Info(">>> NEW STREAM")
+
 	// TODO: consider using https://pkg.go.dev/context#WithoutCancel when we upgrade to
 	// go version 1.21
 	cancelCtxWithMIME := gostream.WithMIMETypeHint(c.cancelCtx, gostream.MIMETypeHint(ctx, ""))
@@ -138,6 +140,7 @@ func (c *client) Stream(
 	c.mu.Unlock()
 
 	goutils.PanicCapturingGo(func() {
+		c.logger.Info(">>> NEW STREAM GOROUTINE")
 		streamCtx = trace.NewContext(streamCtx, span)
 		defer span.End()
 
@@ -168,6 +171,7 @@ func (c *client) Stream(
 		}
 	})
 
+	c.logger.Info(">>> ADDED NEW STREAM")
 	return stream, nil
 }
 
@@ -298,9 +302,10 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 func (c *client) Close(ctx context.Context) error {
 	c.logger.Info(">>> CLOSING CAMERA CLIENT")
 	c.mu.Lock()
-	c.cancel()
-	// c.closeCh <- struct{}{}
+	// c.cancel()
+	c.closeCh <- struct{}{}
 	c.mu.Unlock()
 	c.activeBackgroundWorkers.Wait()
+	c.logger.Info(">>> DONE CLOSING CAMERA CLIENT")
 	return nil
 }
