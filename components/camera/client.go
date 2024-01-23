@@ -37,7 +37,7 @@ type client struct {
 	client                  pb.CameraServiceClient
 	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
-	stopStreamsCh           chan struct{}
+	healthyClientCh         chan struct{}
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -115,18 +115,18 @@ func (c *client) Stream(
 	errHandlers ...gostream.ErrorHandler,
 ) (gostream.VideoStream, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Stream")
+
 	c.mu.Lock()
-	if c.stopStreamsCh == nil {
-		c.stopStreamsCh = make(chan struct{})
+	if c.healthyClientCh == nil {
+		c.healthyClientCh = make(chan struct{})
 	}
+	healthyClientCh := c.healthyClientCh
 	c.mu.Unlock()
 
 	ctxWithMIME := gostream.WithMIMETypeHint(context.Background(), gostream.MIMETypeHint(ctx, ""))
 	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](ctxWithMIME)
 
-	c.mu.Lock()
 	c.activeBackgroundWorkers.Add(1)
-	c.mu.Unlock()
 
 	goutils.PanicCapturingGo(func() {
 		streamCtx = trace.NewContext(streamCtx, span)
@@ -150,7 +150,7 @@ func (c *client) Stream(
 			select {
 			case <-streamCtx.Done():
 				return
-			case <-c.stopStreamsCh:
+			case <-healthyClientCh:
 				if err := stream.Close(ctxWithMIME); err != nil {
 					panic(err)
 				}
@@ -299,13 +299,12 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 // `Close` when a client is permanently removed.
 func (c *client) Close(ctx context.Context) error {
 	c.mu.Lock()
-	if c.stopStreamsCh != nil {
-		close(c.stopStreamsCh)
+	defer c.mu.Unlock()
+
+	if c.healthyClientCh != nil {
+		close(c.healthyClientCh)
 	}
-	c.mu.Unlock()
 	c.activeBackgroundWorkers.Wait()
-	c.mu.Lock()
-	c.stopStreamsCh = nil
-	c.mu.Unlock()
+	c.healthyClientCh = nil
 	return nil
 }
