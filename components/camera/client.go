@@ -48,15 +48,13 @@ func NewClientFromConn(
 	name resource.Name,
 	logger logging.Logger,
 ) (Camera, error) {
-	stopStreamsCh := make(chan struct{})
 	c := pb.NewCameraServiceClient(conn)
 	return &client{
-		Named:         name.PrependRemote(remoteName).AsNamed(),
-		name:          name.ShortName(),
-		conn:          conn,
-		client:        c,
-		logger:        logger,
-		stopStreamsCh: stopStreamsCh,
+		Named:  name.PrependRemote(remoteName).AsNamed(),
+		name:   name.ShortName(),
+		conn:   conn,
+		client: c,
+		logger: logger,
 	}, nil
 }
 
@@ -117,6 +115,11 @@ func (c *client) Stream(
 	errHandlers ...gostream.ErrorHandler,
 ) (gostream.VideoStream, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Stream")
+	c.mu.Lock()
+	if c.stopStreamsCh == nil {
+		c.stopStreamsCh = make(chan struct{})
+	}
+	c.mu.Unlock()
 
 	// TODO: consider using https://pkg.go.dev/context#WithoutCancel when we upgrade to
 	// go version 1.21
@@ -290,13 +293,12 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 }
 
 func (c *client) Close(ctx context.Context) error {
-	c.stopStreams()
-	c.activeBackgroundWorkers.Wait()
-	return nil
-}
-
-func (c *client) stopStreams() {
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.stopStreamsCh <- struct{}{}
+	close(c.stopStreamsCh)
+	c.mu.Unlock()
+	c.activeBackgroundWorkers.Wait()
+	c.mu.Lock()
+	c.stopStreamsCh = nil
+	c.mu.Unlock()
+	return nil
 }
