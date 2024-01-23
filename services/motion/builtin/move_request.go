@@ -431,7 +431,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				return state.ExecuteResponse{}, err
 			}
 
-			mr.logger.CDebugf(ctx, "CheckPlan inputs: \n currentPosition: %v\n, currentInputs: %v\n, errorState: %v",
+			mr.logger.CDebugf(ctx, "CheckPlan inputs: \n currentPosition: %v\n currentInputs: %v\n errorState: %v",
 				spatialmath.PoseToProtobuf(currentPosition.Pose()),
 				currentInputs,
 				spatialmath.PoseToProtobuf(errorState),

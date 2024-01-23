@@ -469,7 +469,6 @@ func CheckPlan(
 	lookAheadDistanceMM float64,
 	logger logging.Logger,
 ) error {
-	logger.Debugf("plan: %v", plan)
 	// ensure that we can actually perform the check
 	if len(plan) < 1 {
 		return errors.New("plan must have at least one element")
@@ -478,10 +477,7 @@ func CheckPlan(
 	// construct solverFrame
 	// Note that this requires all frames which move as part of the plan, to have an
 	// entry in the very first plan waypoint
-	seedMap := map[string][]frame.Input{
-		checkFrame.Name(): currentInputs,
-	}
-	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, seedMap)
+	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, plan[0])
 	if err != nil {
 		return err
 	}
@@ -509,41 +505,25 @@ func CheckPlan(
 		if err != nil {
 			return err
 		}
-		logger.Debugf("lastPose: %v", spatialmath.PoseToProtobuf(lastPose))
 
 		// where ought the robot be on the plan
-		// pathPosition := spatialmath.PoseBetweenInverse(errorState, currentPosition)
-		// logger.Debugf("pathPosition: %v", spatialmath.PoseToProtobuf(pathPosition))
-
-		// otherFormerRunningPose := spatialmath.PoseBetweenInverse(lastPose, pathPosition)
-		// logger.Debugf("OTHER - FormerRunningPose: %v", spatialmath.PoseToProtobuf(otherFormerRunningPose))
+		pathPosition := spatialmath.PoseBetweenInverse(errorState, currentPosition)
 
 		// absolute pose of the previous node we've passed
-		formerRunningPose := spatialmath.PoseBetweenInverse(lastPose, currentPosition)
-		logger.Debugf("formerRunningPose: %v", spatialmath.PoseToProtobuf(formerRunningPose))
+		formerRunningPose := spatialmath.PoseBetweenInverse(lastPose, pathPosition)
 
 		// convert planNode's poses to be in absolute coordinates
 		if planNodes, err = rectifyTPspacePath(planNodes, sf, formerRunningPose); err != nil {
 			return err
 		}
-		// convert planNode's poses to be in absolute coordinates
-		// if planNodes, err = rectifyTPspacePath(planNodes, sf, currentPosition); err != nil {
-		// 	return err
-		// }
 	}
 
-	// // adjust planNodes by the errorState
-	// // this only changes a node's pose and not its inputs
-	// planNodes = transformNodes(planNodes, errorState)
+	// adjust planNodes by the errorState
+	// this only changes a node's pose and not its inputs
+	planNodes = transformNodes(planNodes, errorState)
 
 	// pre-pend node with current position of robot to planNodes
 	planNodes = append([]node{&basicNode{pose: currentPosition, q: currentInputs}}, planNodes...)
-
-	for _, node := range planNodes {
-		logger.Debugf("node Pose: %v", spatialmath.PoseToProtobuf(node.Pose()))
-		logger.Debugf("node inputs: %v", node.Q())
-		logger.Debugf(" ")
-	}
 
 	// create constraints
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
@@ -579,7 +559,6 @@ func CheckPlan(
 			EndConfiguration:   endConfiguration,
 			Frame:              sf,
 		}
-		logger.Debugf("segment startcfg - %v endcfg - %v", segment.StartConfiguration, segment.EndConfiguration)
 
 		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
 		if err != nil {
@@ -610,12 +589,10 @@ func CheckPlan(
 			}
 
 			modifiedState := &ik.State{Frame: sf, Position: poseInPath}
-			logger.Debugf("poseInPath: %v", spatialmath.PoseToProtobuf(poseInPath))
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a
 			// collision is detected.
 			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedState); !isValid {
-				logger.Debugf("poseInPath responsible for collision: %v", spatialmath.PoseToProtobuf(poseInPath))
 				return fmt.Errorf("found collision between positions %v and %v", currentPose.Point(), nextPose.Point())
 			}
 		}
