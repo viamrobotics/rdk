@@ -313,13 +313,12 @@ func (mr *moveRequest) getTransientDetections(
 
 		// transform the geometry into the world frame coordinate system
 		geometry = geometry.Transform(cameraToWorld.Pose())
-		switch mr.requestType {
-		case requestTypeMoveOnMap:
+		// TODO: Determine if there should be a case for requestTypeMoveOnGlobe
+		if mr.requestType == requestTypeMoveOnMap {
 			baseTheta := currentPositionInWorld.Pose().Orientation().OrientationVectorDegrees().Theta
 			geometry = geometry.Transform(
 				spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: baseTheta + 90}),
 			)
-			// TODO: Determine if there should be a case for requestTypeMoveOnGlobe
 		}
 		mr.logger.CDebugf(ctx, "detection %d observed from the camera in the world frame coordinate system has pose: %v",
 			i, spatialmath.PoseToProtobuf(geometry.Pose()),

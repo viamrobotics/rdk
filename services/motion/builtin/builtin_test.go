@@ -557,7 +557,7 @@ func TestPositionalReplanning(t *testing.T) {
 }
 
 func TestObstacleReplanning(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	ctx := context.Background()
 
 	gpsOrigin := geo.NewPoint(0, 0)
@@ -576,10 +576,12 @@ func TestObstacleReplanning(t *testing.T) {
 	}
 
 	cfg := &motion.MotionConfiguration{
-		PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, ObstacleDetectors: obstacleDetectorSlice,
+		PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM, ObstacleDetectors: obstacleDetectorSlice,
 	}
 
 	extra := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
+
+	i := 0
 
 	testCases := []testCase{
 		{
@@ -599,14 +601,19 @@ func TestObstacleReplanning(t *testing.T) {
 		{
 			name: "ensure replan due to obstacle collision",
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 1100, Y: 0, Z: 0})
-				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 100, Y: 100, Z: 10}, "test-case-1")
-				test.That(t, err, test.ShouldBeNil)
+				if i == 0 {
+					i++
+					return []*viz.Object{}, nil
+				} else {
+					obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 500, Y: 0, Z: 0})
+					box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 50, Y: 100, Z: 10}, "test-case-1")
+					test.That(t, err, test.ShouldBeNil)
 
-				detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", box.ToProtobuf())
-				test.That(t, err, test.ShouldBeNil)
+					detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", box.ToProtobuf())
+					test.That(t, err, test.ShouldBeNil)
 
-				return []*viz.Object{detection}, nil
+					return []*viz.Object{detection}, nil
+				}
 			},
 			expectedSuccess: false,
 			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 0),
