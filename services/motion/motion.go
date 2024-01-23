@@ -105,7 +105,7 @@ type PlanWithMetadata struct {
 	// Unique ID of the execution
 	ExecutionID ExecutionID
 	// The motionplan itself
-	*motionplan.Plan
+	motionplan.Plan
 }
 
 // PlanState denotes the state a Plan is in.
@@ -297,7 +297,7 @@ func (ps PlanStatus) ToProto() *pb.PlanStatus {
 func (p PlanWithMetadata) ToProto() *pb.Plan {
 	steps := []*pb.PlanStep{}
 	if p.Plan != nil {
-		for _, s := range p.AsPath() {
+		for _, s := range p.Path() {
 			steps = append(steps, s.ToProto())
 		}
 	}

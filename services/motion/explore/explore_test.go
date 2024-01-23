@@ -85,7 +85,7 @@ func TestExplorePlanMove(t *testing.T) {
 			dest := referenceframe.NewPoseInFrame(testBaseName.Name, tt.destination)
 			plan, err := msStruct.createMotionPlan(ctx, kb, dest, nil)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, plan.Length, test.ShouldEqual, tt.expectedMotionPlanLength)
+			test.That(t, len(plan.Path()), test.ShouldEqual, tt.expectedMotionPlanLength)
 		})
 	}
 }
@@ -202,7 +202,7 @@ func TestExploreCheckForObstacles(t *testing.T) {
 			)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
-			test.That(t, plan.Length(), test.ShouldBeGreaterThan, 0)
+			test.That(t, len(plan.Path()), test.ShouldBeGreaterThan, 0)
 
 			// Create a vision service using provided obstacles and place it in an obstacle DetectorPair object
 			visionService := createMockVisionService("", tt.obstacle)
@@ -351,7 +351,7 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 			)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
-			test.That(t, plan.Length(), test.ShouldBeGreaterThan, 0)
+			test.That(t, len(plan.Path()), test.ShouldBeGreaterThan, 0)
 
 			// Create a vision service using provided obstacles and place it in an obstacle DetectorPair object
 			var obstacleDetectors []obstacleDetectorObject

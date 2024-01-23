@@ -823,7 +823,7 @@ func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]
 		return nil, err
 	}
 
-	path := ph[0].Plan.AsPath()
+	path := ph[0].Plan.Path()
 	geoPoints := make([]*geo.Point, 0, len(path))
 	poses, err := path.GetFramePoses(svc.base.Name().ShortName())
 	if err != nil {

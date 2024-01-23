@@ -204,8 +204,8 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 	return ptgk.Base.Stop(stopCtx, nil)
 }
 
-func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan *motionplan.Plan, waypointIndex int) (spatialmath.Pose, error) {
-	path := plan.AsPath()
+func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, waypointIndex int) (spatialmath.Pose, error) {
+	path := plan.Path()
 	planLength := len(path)
 	if waypointIndex < 0 || waypointIndex >= planLength {
 		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be >= 0 and less than plan length %d", waypointIndex, planLength)

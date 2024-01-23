@@ -20,8 +20,8 @@ import (
 
 // PlannerExecutor implements Plan and Execute.
 type PlannerExecutor interface {
-	Plan(ctx context.Context) (*motionplan.Plan, error)
-	Execute(context.Context, *motionplan.Plan) (ExecuteResponse, error)
+	Plan(ctx context.Context) (motionplan.Plan, error)
+	Execute(context.Context, motionplan.Plan) (ExecuteResponse, error)
 }
 
 // ExecuteResponse is the response from Execute.
@@ -44,7 +44,7 @@ type ExecuteResponse struct {
 type PlannerExecutorConstructor[R any] func(
 	ctx context.Context,
 	req R,
-	seedPlan *motionplan.Plan,
+	seedPlan motionplan.Plan,
 	replanCount int,
 ) (PlannerExecutor, error)
 
@@ -110,7 +110,7 @@ type planWithExecutor struct {
 }
 
 // NewPlan creates a new motion.Plan from an execution & returns an error if one was not able to be created.
-func (e *execution[R]) newPlanWithExecutor(ctx context.Context, seedPlan *motionplan.Plan, replanCount int) (planWithExecutor, error) {
+func (e *execution[R]) newPlanWithExecutor(ctx context.Context, seedPlan motionplan.Plan, replanCount int) (planWithExecutor, error) {
 	pe, err := e.plannerExecutorConstructor(e.cancelCtx, e.req, seedPlan, replanCount)
 	if err != nil {
 		return planWithExecutor{}, err

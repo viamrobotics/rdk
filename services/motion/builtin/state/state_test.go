@@ -24,12 +24,12 @@ var replanReason = "replan triggered due to location drift"
 
 // testPlannerExecutor is a mock PlannerExecutor implementation.
 type testPlannerExecutor struct {
-	planFunc    func(context.Context) (*motionplan.Plan, error)
-	executeFunc func(context.Context, *motionplan.Plan) (state.ExecuteResponse, error)
+	planFunc    func(context.Context) (motionplan.Plan, error)
+	executeFunc func(context.Context, motionplan.Plan) (state.ExecuteResponse, error)
 }
 
 // by default Plan successfully returns an empty plan.
-func (tpe *testPlannerExecutor) Plan(ctx context.Context) (*motionplan.Plan, error) {
+func (tpe *testPlannerExecutor) Plan(ctx context.Context) (motionplan.Plan, error) {
 	if tpe.planFunc != nil {
 		return tpe.planFunc(ctx)
 	}
@@ -37,7 +37,7 @@ func (tpe *testPlannerExecutor) Plan(ctx context.Context) (*motionplan.Plan, err
 }
 
 // by default Execute returns a success response.
-func (tpe *testPlannerExecutor) Execute(ctx context.Context, plan *motionplan.Plan) (state.ExecuteResponse, error) {
+func (tpe *testPlannerExecutor) Execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 	if tpe.executeFunc != nil {
 		return tpe.executeFunc(ctx, plan)
 	}
@@ -52,11 +52,11 @@ func TestState(t *testing.T) {
 	executionWaitingForCtxCancelledPlanConstructor := func(
 		ctx context.Context,
 		req motion.MoveOnGlobeReq,
-		seedPlan *motionplan.Plan,
+		seedplan motionplan.Plan,
 		replanCount int,
 	) (state.PlannerExecutor, error) {
 		return &testPlannerExecutor{
-			executeFunc: func(ctx context.Context, plan *motionplan.Plan) (state.ExecuteResponse, error) {
+			executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 				<-ctx.Done()
 				return state.ExecuteResponse{}, ctx.Err()
 			},
@@ -66,11 +66,11 @@ func TestState(t *testing.T) {
 	successPlanConstructor := func(
 		ctx context.Context,
 		req motion.MoveOnGlobeReq,
-		seedPlan *motionplan.Plan,
+		seedplan motionplan.Plan,
 		replanCount int,
 	) (state.PlannerExecutor, error) {
 		return &testPlannerExecutor{
-			executeFunc: func(ctx context.Context, plan *motionplan.Plan) (state.ExecuteResponse, error) {
+			executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 				if err := ctx.Err(); err != nil {
 					return state.ExecuteResponse{}, err
 				}
@@ -82,10 +82,10 @@ func TestState(t *testing.T) {
 	replanPlanConstructor := func(
 		ctx context.Context,
 		req motion.MoveOnGlobeReq,
-		seedPlan *motionplan.Plan,
+		seedplan motionplan.Plan,
 		replanCount int,
 	) (state.PlannerExecutor, error) {
-		return &testPlannerExecutor{executeFunc: func(ctx context.Context, plan *motionplan.Plan) (state.ExecuteResponse, error) {
+		return &testPlannerExecutor{executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 			if err := ctx.Err(); err != nil {
 				return state.ExecuteResponse{}, err
 			}
@@ -96,10 +96,10 @@ func TestState(t *testing.T) {
 	failedExecutionPlanConstructor := func(
 		ctx context.Context,
 		_ motion.MoveOnGlobeReq,
-		_ *motionplan.Plan,
+		_ motionplan.Plan,
 		_ int,
 	) (state.PlannerExecutor, error) {
-		return &testPlannerExecutor{executeFunc: func(ctx context.Context, plan *motionplan.Plan) (state.ExecuteResponse, error) {
+		return &testPlannerExecutor{executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 			if err := ctx.Err(); err != nil {
 				return state.ExecuteResponse{}, err
 			}
@@ -111,14 +111,14 @@ func TestState(t *testing.T) {
 	failedPlanningPlanConstructor := func(
 		ctx context.Context,
 		_ motion.MoveOnGlobeReq,
-		_ *motionplan.Plan,
+		_ motionplan.Plan,
 		_ int,
 	) (state.PlannerExecutor, error) {
 		return &testPlannerExecutor{
-			planFunc: func(context.Context) (*motionplan.Plan, error) {
+			planFunc: func(context.Context) (motionplan.Plan, error) {
 				return nil, errors.New("planning failed")
 			},
-			executeFunc: func(ctx context.Context, plan *motionplan.Plan) (state.ExecuteResponse, error) {
+			executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 				t.Log("should not be called as planning failed")
 				t.FailNow()
 
@@ -133,16 +133,16 @@ func TestState(t *testing.T) {
 	failedReplanningPlanConstructor := func(
 		ctx context.Context,
 		_ motion.MoveOnGlobeReq,
-		_ *motionplan.Plan,
+		_ motionplan.Plan,
 		replanCount int,
 	) (state.PlannerExecutor, error) {
 		// first replan fails during planning
 		if replanCount == 1 {
 			return &testPlannerExecutor{
-				planFunc: func(ctx context.Context) (*motionplan.Plan, error) {
+				planFunc: func(ctx context.Context) (motionplan.Plan, error) {
 					return nil, errors.New("planning failed")
 				},
-				executeFunc: func(ctx context.Context, plan *motionplan.Plan) (state.ExecuteResponse, error) {
+				executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 					if err := ctx.Err(); err != nil {
 						return state.ExecuteResponse{}, err
 					}
@@ -152,7 +152,7 @@ func TestState(t *testing.T) {
 		}
 		// first plan generates a plan but execution triggers a replan
 		return &testPlannerExecutor{
-			executeFunc: func(ctx context.Context, plan *motionplan.Plan) (state.ExecuteResponse, error) {
+			executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 				if err := ctx.Err(); err != nil {
 					return state.ExecuteResponse{}, err
 				}
@@ -397,11 +397,11 @@ func TestState(t *testing.T) {
 		executionID2, err := state.StartExecution(ctx, s, req.ComponentName, req, func(
 			ctx context.Context,
 			req motion.MoveOnGlobeReq,
-			seedPlan *motionplan.Plan,
+			seedplan motionplan.Plan,
 			replanCount int,
 		) (state.PlannerExecutor, error) {
 			return &testPlannerExecutor{
-				executeFunc: func(ctx context.Context, plan *motionplan.Plan) (state.ExecuteResponse, error) {
+				executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 					if replanCount == 0 {
 						// wait for replanning
 						<-ctxReplanning.Done()
@@ -531,11 +531,11 @@ func TestState(t *testing.T) {
 		executionID3, err := state.StartExecution(ctx, s, req.ComponentName, req, func(
 			ctx context.Context,
 			req motion.MoveOnGlobeReq,
-			seedPlan *motionplan.Plan,
+			seedplan motionplan.Plan,
 			replanCount int,
 		) (state.PlannerExecutor, error) {
 			return &testPlannerExecutor{
-				planFunc: func(ctx context.Context) (*motionplan.Plan, error) {
+				planFunc: func(ctx context.Context) (motionplan.Plan, error) {
 					// first plan succeeds
 					if replanCount == 0 {
 						pbc := motionplan.PathStep{
@@ -553,7 +553,7 @@ func TestState(t *testing.T) {
 					// second replan fails
 					return nil, replanFailReason
 				},
-				executeFunc: func(ctx context.Context, plan *motionplan.Plan) (state.ExecuteResponse, error) {
+				executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 					if replanCount == 0 {
 						return state.ExecuteResponse{Replan: true, ReplanReason: replanReason}, nil
 					}
@@ -599,8 +599,8 @@ func TestState(t *testing.T) {
 		test.That(t, *resPWS3.pws[0].StatusHistory[0].Reason, test.ShouldResemble, replanFailReason.Error())
 		test.That(t, resPWS3.pws[0].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
 		test.That(t, resPWS3.pws[0].StatusHistory[1].Reason, test.ShouldBeNil)
-		test.That(t, len(resPWS3.pws[0].Plan.AsPath()), test.ShouldEqual, 2)
-		test.That(t, len(resPWS3.pws[1].Plan.AsPath()), test.ShouldEqual, 1)
+		test.That(t, len(resPWS3.pws[0].Plan.Path()), test.ShouldEqual, 2)
+		test.That(t, len(resPWS3.pws[1].Plan.Path()), test.ShouldEqual, 1)
 		test.That(t, planStatusTimestampsInOrder(resPWS3.pws[0].StatusHistory), test.ShouldBeTrue)
 		test.That(t, planStatusTimestampsInOrder(resPWS3.pws[1].StatusHistory), test.ShouldBeTrue)
 
@@ -617,11 +617,11 @@ func TestState(t *testing.T) {
 		executionID4, err := state.StartExecution(ctx, s, req.ComponentName, req, func(
 			ctx context.Context,
 			req motion.MoveOnGlobeReq,
-			seedPlan *motionplan.Plan,
+			seedplan motionplan.Plan,
 			replanCount int,
 		) (state.PlannerExecutor, error) {
 			return &testPlannerExecutor{
-				executeFunc: func(ctx context.Context, plan *motionplan.Plan) (state.ExecuteResponse, error) {
+				executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 					if replanCount == 0 {
 						return state.ExecuteResponse{Replan: true, ReplanReason: replanReason}, nil
 					}

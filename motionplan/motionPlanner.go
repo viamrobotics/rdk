@@ -563,6 +563,7 @@ func CheckPlan(
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a
 			// collision is detected.
+			// TODO: should this instead be changed to check segments?
 			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedState); !isValid {
 				return fmt.Errorf("found collision between positions %v and %v", segment.StartPosition.Point(), segment.EndPosition.Point())
 			}
@@ -573,6 +574,7 @@ func CheckPlan(
 	// go through plan and check that we can move from plan[i] to plan[i+1]
 	var totalTravelDistanceMM float64
 
+	// TODO: probably can write this cleaner before merging.
 	// the first segment we need to check is the one between the current position and the first one in the plan
 	segment, err := createSegment(
 		currentPosition,
@@ -587,8 +589,13 @@ func CheckPlan(
 	if err := checkSegment(segment, totalTravelDistanceMM); err != nil {
 		return err
 	}
+	if err != nil {
+		return err
+	}
+	// Update total traveled distance after segment has been checked
 	totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
 
+	// create segments for the rest of the plan
 	for i := 0; i < len(offsetPlan.Path())-1; i++ {
 		segment, err = createSegment(
 			offsetPlan.Path()[i][checkFrame.Name()].Pose(),

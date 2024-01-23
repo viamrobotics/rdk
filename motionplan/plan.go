@@ -54,7 +54,9 @@ func OffsetPlan(p Plan, offset spatialmath.Pose) (Plan, error) {
 	}, nil
 }
 
-type geoPlan rrtPlan
+type geoPlan struct {
+	rrtPlan
+}
 
 func NewGeoPlan(p Plan, geoOrigin *spatialmath.GeoPose) (*geoPlan, error) {
 	plan, ok := p.(*rrtPlan)
@@ -74,11 +76,11 @@ func NewGeoPlan(p Plan, geoOrigin *spatialmath.GeoPose) (*geoPlan, error) {
 		}
 		newPath = append(newPath, newStep)
 	}
-	return &geoPlan{
+	return &geoPlan{rrtPlan{
 		traj:  plan.traj,
 		path:  newPath,
 		nodes: plan.nodes,
-	}, nil
+	}}, nil
 }
 
 type Trajectory []map[string][]referenceframe.Input

@@ -334,8 +334,8 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired 
 	return capsule, nil
 }
 
-func (ddk *differentialDriveKinematics) ErrorState(ctx context.Context, plan *motionplan.Plan, currentNode int) (spatialmath.Pose, error) {
-	waypoints, err := plan.GetFrameInputs(ddk.Name().ShortName())
+func (ddk *differentialDriveKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, currentNode int) (spatialmath.Pose, error) {
+	waypoints, err := plan.Trajectory().GetFrameInputs(ddk.Name().ShortName())
 	if currentNode <= 0 || currentNode >= len(waypoints) {
 		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be > 0 and less than plan length %d", currentNode, len(waypoints))
 	}
