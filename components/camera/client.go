@@ -292,6 +292,13 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
+// TODO(RSDK-6433): This method can be called more than once during a client's lifecycle.
+// For example, consider a case where a remote camera goes offline and then back online.
+// We will call `Close` on the camera client when we detect the disconnection to remove
+// active streams but then reuse the client when the connection is re-established. It
+// would be ideal if we exposed another interface method (e.g. `HandleDisconnect`) to
+// perform side-effects related to non-permanent close scenarios like this one, and call
+// `Close` when a client is permanently removed.
 func (c *client) Close(ctx context.Context) error {
 	c.mu.Lock()
 	close(c.stopStreamsCh)
