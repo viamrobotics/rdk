@@ -48,9 +48,6 @@ const isAxis = (key: string) => {
 }
 
 const sendEvent = (newEvent: InputController.Event) => {
-  if (!enabled) {
-    return;
-  }
   const req = new InputController.TriggerEventRequest();
   req.setController(name);
   req.setEvent(newEvent);
@@ -115,9 +112,13 @@ gamepad.leftStick.on('change', ({ value }) => process('X', value.x))
 gamepad.leftStick.on('change', ({ value }) => process('Y', value.y))
 gamepad.rightStick.on('change', ({ value }) => process('RX', value.x))
 gamepad.rightStick.on('change', ({ value }) => process('RY', value.y))
+gamepad.leftStickButton.on('change', ({ value }) => process('LThumb', value))
+gamepad.rightStickButton.on('change', ({ value }) => process('RThumb', value))
 
 gamepad.leftTrigger.on('change', ({ value }) => process('Z', value))
 gamepad.rightTrigger.on('change', ({ value }) => process('RZ', value))
+gamepad.leftBumper.on('change', ({ value }) => process('LT', value))
+gamepad.rightBumper.on('change', ({ value }) => process('RT', value))
 
 const onDirXChange = () => process('Hat0X', -gamepad.directionalLeft.value + gamepad.directionalRight.value)
 gamepad.directionalLeft.on('change', onDirXChange)
@@ -130,20 +131,14 @@ gamepad.directionalBottom.on('change', onDirYChange)
 gamepad.clusterBottom.on('change', ({ value }) => process('South', value))
 gamepad.clusterRight.on('change', ({ value }) => process('East', value))
 gamepad.clusterLeft.on('change', ({ value }) => process('West', value))
+gamepad.clusterTop.on('change', ({ value }) => process('North', value))
 
-  curStates.West = trunc(gamepad.buttons[2]?.value);
-  curStates.North = trunc(gamepad.buttons[3]?.value);
-  curStates.LT = trunc(gamepad.buttons[4]?.value);
-  curStates.RT = trunc(gamepad.buttons[5]?.value);
-  curStates.Select = trunc(gamepad.buttons[8]?.value);
-  curStates.Start = trunc(gamepad.buttons[9]?.value);
-  curStates.LThumb = trunc(gamepad.buttons[10]?.value);
-  curStates.RThumb = trunc(gamepad.buttons[11]?.value);
-  curStates.Menu = trunc(gamepad.buttons[16]?.value);
+gamepad.select.on('change', ({ value }) => process('Select', value))
+gamepad.start.on('change', ({ value }) => process('Start', value))
+gamepad.center.on('change', ({ value }) => process('Menu', value))
 
 $: connected = gamepad.connected
 $: updateConnection($connected && enabled);
-
 </script>
 
 <Collapse title={name}>
