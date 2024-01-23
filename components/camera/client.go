@@ -121,8 +121,6 @@ func (c *client) Stream(
 	}
 	c.mu.Unlock()
 
-	// TODO: consider using https://pkg.go.dev/context#WithoutCancel when we upgrade to
-	// go version 1.21
 	ctxWithMIME := gostream.WithMIMETypeHint(context.Background(), gostream.MIMETypeHint(ctx, ""))
 	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](ctxWithMIME)
 
