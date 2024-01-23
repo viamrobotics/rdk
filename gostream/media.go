@@ -396,7 +396,11 @@ type MediaReleasePairWithError[T any] struct {
 }
 
 // NewMediaStreamForChannel returns a MediaStream backed by a channel.
-func NewMediaStreamForChannel[T any](ctx context.Context, stopCh <-chan struct{}) (context.Context, MediaStream[T], chan<- MediaReleasePairWithError[T]) {
+func NewMediaStreamForChannel[T any](ctx context.Context, stopCh <-chan struct{}) (
+	context.Context,
+	MediaStream[T],
+	chan<- MediaReleasePairWithError[T],
+) {
 	cancelCtx, cancel := context.WithCancel(ctx)
 	ch := make(chan MediaReleasePairWithError[T])
 	return cancelCtx, &mediaStreamFromChannel[T]{
