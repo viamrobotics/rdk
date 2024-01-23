@@ -107,7 +107,6 @@ func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
 		appenders:  []Appender{},
 		testHelper: tb.Helper,
 	}
-	// logger.AddAppender(NewStdoutTestAppender())
 	logger.AddAppender(NewTestAppender(tb))
 
 	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))

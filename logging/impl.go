@@ -23,7 +23,8 @@ type (
 
 		appenders []Appender
 		// Logging to a `testing.T` always includes a filename/line number. We use this helper to
-		// avoid that. This function is a no-op for non-test loggers.
+		// avoid that. This function is a no-op for non-test loggers. See `NewTestAppender`
+		// documentation for more details.
 		testHelper func()
 	}
 

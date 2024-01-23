@@ -11,17 +11,37 @@ type testAppender struct {
 	tb testing.TB
 }
 
-// NewTestAppender returns a logger appender that logs to the underlying `testing.TB` object.
+// NewTestAppender returns a logger appender that logs to the underlying `testing.TB`
+// object. Writing logs with `tb.Log` does two things:
+//   - Prepends the log with the filename/line number that called the `tb.Log` method. This is not
+//     useful to us.
+//   - Correctly associates the log line with a Golang "Test*" function.
+//
+// For tests that run in series (i.e: do not call `t.Parallel()`), writing to stdout (i.e:
+// `fmt.Print`) this does not matter. Go's best effort detection works fine. But for tests running
+// in parallel, the best-effort algorithm can map log lines to the wrong test. This is most
+// noticeable when json logging is enabled. Where each log line has its test name, e.g:
+//
+// {"Time":"2024-01-23T09:26:57.843619918-05:00","Action":"output","Package":"go.viam.com/rdk/robot","Test":"TestSessions/window_size=2s","Output":"local_robot.go:760: 2024-01-23T09:26:57.843-0500\tDEBUG\t\timpl/local_robot.go:760\thandlingweak update for..."}
+//
+// A note about the filename/line that Go prepends to these test logs. Go normally finds this by
+// walking up a couple stack frames to discover where a call to `t.Log` came from. However, it's
+// not our desire for that to refer to the `tapp.tb.Log` call from the `testAppender.Write` method
+// below. Go exposes a `tb.Helper()` method for this. All functions that call `tb.Helper` will add
+// their stack frame to a filter. Go will walk up and report the first filename/line number from the
+// first method that does not exempt itself.
+//
+// Notably, zap's testing logger has a bug in this regard. Due to forgetting a `tb.Helper` call,
+// test logs through their library always include `logger.go:130` instead of the actual log line.
 func NewTestAppender(tb testing.TB) Appender {
 	return &testAppender{tb}
 }
 
-// Write outputs the log entryt o the underlying test object `Log` method.
+// Write outputs the log entry to the underlying test object `Log` method.
 func (tapp *testAppender) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 	tapp.tb.Helper()
 	const maxLength = 10
 	toPrint := make([]string, 0, maxLength)
-	// toPrint = append(toPrint, entry.Time.Format(appender.timeFormatStr))
 	toPrint = append(toPrint, entry.Time.Format("2006-01-02T15:04:05.000Z0700"))
 
 	toPrint = append(toPrint, strings.ToUpper(entry.Level.String()))
@@ -50,6 +70,7 @@ func (tapp *testAppender) Write(entry zapcore.Entry, fields []zapcore.Field) err
 	return nil
 }
 
+// Sync is a no-op.
 func (tapp *testAppender) Sync() error {
 	return nil
 }

@@ -143,7 +143,6 @@ func assertLogMatches(t *testing.T, actual *bytes.Buffer, expected string) {
 //	2023-10-30T09:12:09.459-0400	INFO	logging/impl_test.go:87	zap Info log
 func TestConsoleOutputFormat(t *testing.T) {
 	// A logger object that will write to the `notStdout` buffer.
-	const inUTC = true
 	notStdout := &bytes.Buffer{}
 	impl := &impl{
 		name:       "impl",
@@ -208,7 +207,6 @@ func TestContextLogging(t *testing.T) {
 	ctxNoDebug := context.Background()
 
 	// A logger object that will write to the `notStdout` buffer.
-	const inUTC = true
 	notStdout := &bytes.Buffer{}
 	// The default log level is error.
 	logger := &impl{
