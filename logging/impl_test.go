@@ -278,3 +278,23 @@ func TestContextLogging(t *testing.T) {
 	assertLogMatches(t, notStdout,
 		`2023-10-30T09:12:09.459Z	ERROR	impl	logging/impl_test.go:200	Errorw log	{"traceKey":"foobar","key":"value"}`)
 }
+
+func TestSublogger(t *testing.T) {
+	// A logger object that will write to the `notStdout` buffer.
+	notStdout := &bytes.Buffer{}
+	logger := &impl{
+		name:       "impl",
+		level:      NewAtomicLevelAt(DEBUG),
+		appenders:  []Appender{NewWriterAppender(notStdout)},
+		testHelper: func() {},
+	}
+
+	logger.Info("info log")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	INFO	impl	logging/impl_test.go:67	info log`)
+
+	subLogger := logger.Sublogger("sub")
+	subLogger.Info("info log")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	INFO	impl.sub	logging/impl_test.go:67	info log`)
+}

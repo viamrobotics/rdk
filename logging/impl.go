@@ -69,10 +69,13 @@ func (imp *impl) Sublogger(subname string) Logger {
 		newName = fmt.Sprintf("%s.%s", imp.name, subname)
 	}
 
+	// Force all parameters to be passed. Avoid bugs where adding members to `impl` silently
+	// succeeds without a change here.
 	return &impl{
-		name:      newName,
-		level:     NewAtomicLevelAt(imp.level.Get()),
-		appenders: imp.appenders,
+		newName,
+		NewAtomicLevelAt(imp.level.Get()),
+		imp.appenders,
+		imp.testHelper,
 	}
 }
 
