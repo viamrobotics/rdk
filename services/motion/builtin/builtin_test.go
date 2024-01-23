@@ -604,16 +604,16 @@ func TestObstacleReplanning(t *testing.T) {
 				if i == 0 {
 					i++
 					return []*viz.Object{}, nil
-				} else {
-					obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 500, Y: 0, Z: 0})
-					box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 50, Y: 100, Z: 10}, "test-case-1")
-					test.That(t, err, test.ShouldBeNil)
-
-					detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", box.ToProtobuf())
-					test.That(t, err, test.ShouldBeNil)
-
-					return []*viz.Object{detection}, nil
 				}
+				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 500, Y: 0, Z: 0})
+				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 50, Y: 100, Z: 10}, "test-case-1")
+				test.That(t, err, test.ShouldBeNil)
+
+				detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", box.ToProtobuf())
+				test.That(t, err, test.ShouldBeNil)
+
+				return []*viz.Object{detection}, nil
+
 			},
 			expectedSuccess: false,
 			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 0),
