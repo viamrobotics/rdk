@@ -209,7 +209,7 @@ func TestNewGeoPlan(t *testing.T) {
 			// test Path gets converted to a GeoPlan correctly
 			gps, err := NewGeoPlan(plan, tc.origin)
 			test.That(t, err, test.ShouldBeNil)
-			pose := gps.path[0][baseName].Pose()
+			pose := gps.Path()[0][baseName].Pose()
 			pt := pose.Point()
 			heading := utils.RadToDeg(pose.Orientation().EulerAngles().Yaw)
 			heading = math.Mod(math.Abs(heading-360), 360)
@@ -217,7 +217,7 @@ func TestNewGeoPlan(t *testing.T) {
 			test.That(t, pt.Y, test.ShouldAlmostEqual, tc.expectedGPs[0].Location().Lat(), 1e-6)
 			test.That(t, heading, test.ShouldAlmostEqual, tc.expectedGPs[0].Heading(), 1e-3)
 
-			pose = gps.path[len(gps.path)-1][baseName].Pose()
+			pose = gps.Path()[len(gps.Path())-1][baseName].Pose()
 			pt = pose.Point()
 			test.That(t, pt.X, test.ShouldAlmostEqual, tc.expectedGPs[1].Location().Lng(), 1e-3)
 			test.That(t, pt.Y, test.ShouldAlmostEqual, tc.expectedGPs[1].Location().Lat(), 1e-3)

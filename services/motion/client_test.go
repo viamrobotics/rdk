@@ -508,7 +508,7 @@ func TestClient(t *testing.T) {
 			req := motion.PlanHistoryReq{ComponentName: base.Named("mybase")}
 			resp, err := client.PlanHistory(ctx, req)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, resp, test.ShouldResemble, expectedResp)
+			planHistoriesEqual(t, resp, expectedResp) 
 		})
 
 		t.Run("supports returning a slice of PlanWithStatus with more than one plan", func(t *testing.T) {
@@ -565,10 +565,21 @@ func TestClient(t *testing.T) {
 			req := motion.PlanHistoryReq{ComponentName: base.Named("mybase")}
 			resp, err := client.PlanHistory(ctx, req)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, resp, test.ShouldResemble, expectedResp)
+			planHistoriesEqual(t, resp, expectedResp)
 		})
 
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
+}
+
+func planHistoriesEqual(t *testing.T, resp, expectedResp []motion.PlanWithStatus) {
+	test.That(t, len(resp), test.ShouldResemble, len(expectedResp))
+	for i := 0; i < len(resp); i++ {
+		test.That(t, resp[i].Plan.ID, test.ShouldResemble, expectedResp[i].Plan.ID)
+		test.That(t, resp[i].Plan.Path(), test.ShouldResemble, expectedResp[i].Plan.Path())
+		test.That(t, resp[i].StatusHistory, test.ShouldResemble, expectedResp[i].StatusHistory)
+		test.That(t, resp[i].Plan.ExecutionID, test.ShouldResemble, expectedResp[i].Plan.ExecutionID)
+		test.That(t, resp[i].Plan.ComponentName, test.ShouldResemble, expectedResp[i].Plan.ComponentName)
+	}
 }

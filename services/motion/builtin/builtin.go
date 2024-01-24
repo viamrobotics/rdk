@@ -221,6 +221,9 @@ func (ms *builtIn) Move(
 	// move all the components
 	for _, step := range plan.Trajectory() {
 		for name, inputs := range step {
+			if len(inputs) == 0 {
+				continue
+			}
 			r := resources[name]
 			if err := r.GoToInputs(ctx, inputs); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error

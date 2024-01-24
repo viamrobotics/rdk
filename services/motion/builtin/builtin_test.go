@@ -582,7 +582,7 @@ func TestObstacleReplanning(t *testing.T) {
 		{
 			name: "ensure replan due to obstacle collision",
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 1100, Y: 0, Z: 0})
+				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 300, Z: 0})
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 100, Y: 100, Z: 10}, "test-case-1")
 				test.That(t, err, test.ShouldBeNil)
 
@@ -632,6 +632,7 @@ func TestObstacleReplanning(t *testing.T) {
 		if tc.expectedSuccess {
 			test.That(t, err, test.ShouldBeNil)
 		} else {
+			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldEqual, tc.expectedErr)
 		}
 	}

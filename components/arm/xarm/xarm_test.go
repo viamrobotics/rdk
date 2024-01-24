@@ -93,10 +93,10 @@ func TestWriteViam(t *testing.T) {
 			Options:            opt,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		return plan.Trajectory()[len(plan.Path())-1]
+		return plan.Trajectory()[len(plan.Trajectory())-1]
 	}
 
-	seed := plan.Trajectory()[len(plan.Path())-1]
+	seed := plan.Trajectory()[len(plan.Trajectory())-1]
 	for _, goal = range viamPoints {
 		seed = goToGoal(seed, goal)
 	}

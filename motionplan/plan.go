@@ -58,7 +58,7 @@ type geoPlan struct {
 	rrtPlan
 }
 
-func NewGeoPlan(p Plan, geoOrigin *spatialmath.GeoPose) (*geoPlan, error) {
+func NewGeoPlan(p Plan, geoOrigin *spatialmath.GeoPose) (Plan, error) {
 	plan, ok := p.(*rrtPlan)
 	if !ok {
 		return nil, errBadPlanImpl
@@ -76,11 +76,11 @@ func NewGeoPlan(p Plan, geoOrigin *spatialmath.GeoPose) (*geoPlan, error) {
 		}
 		newPath = append(newPath, newStep)
 	}
-	return &geoPlan{rrtPlan{
+	return &rrtPlan{
 		traj:  plan.traj,
 		path:  newPath,
 		nodes: plan.nodes,
-	}}, nil
+	}, nil
 }
 
 type Trajectory []map[string][]referenceframe.Input
@@ -178,6 +178,17 @@ func (path Path) GetFramePoses(frameName string) ([]spatialmath.Pose, error) {
 		poses = append(poses, pose.Pose())
 	}
 	return poses, nil
+}
+
+func (path Path) String() string {
+	var str string
+	for _, step := range path {
+		str += "\n"
+		for frame, pose := range step {
+			str += fmt.Sprintf("%s: %v\t", frame, pose.Pose().Point())
+		}
+	}
+	return str
 }
 
 // TODO: If the frame system ever uses resource names instead of strings this should be adjusted too

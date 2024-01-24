@@ -58,8 +58,7 @@ const (
 type moveRequest struct {
 	requestType requestType
 	// geoPoseOrigin is only set if requestType == requestTypeMoveOnGlobe
-	geoPoseOrigin spatialmath.GeoPose
-	// poseOrigin is only set if requestType == requestTypeMoveOnMap
+	geoPoseOrigin     spatialmath.GeoPose
 	poseOrigin        spatialmath.Pose
 	logger            logging.Logger
 	config            *validatedMotionConfiguration
@@ -96,18 +95,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	switch mr.requestType {
-	case requestTypeMoveOnMap:
-		return motionplan.OffsetPlan(plan, mr.poseOrigin)
-	case requestTypeMoveOnGlobe:
-		// modify the Plan to smuggle the geoPoses as poses inside its Path
-		return motionplan.NewGeoPlan(plan, &mr.geoPoseOrigin)
-	case requestTypeUnspecified:
-		fallthrough
-	default:
-		return nil, fmt.Errorf("invalid moveRequest.requestType: %d", mr.requestType)
-	}
+	return motionplan.OffsetPlan(plan, mr.poseOrigin)
 }
 
 // execute attempts to follow a given Plan starting from the index percribed by waypointIndex.
@@ -188,6 +176,8 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
+			mr.logger.Debug(currentPosition.Pose().Point())
+			mr.logger.Debug(currentPosition.Pose().Orientation().AxisAngles())
 
 			// determine transform of camera to base
 			cameraOrigin := referenceframe.NewPoseInFrame(camName.ShortName(), spatialmath.NewZeroPose())
@@ -211,6 +201,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 
 				// put the detection into its position in the world with the base coordinate frame
 				geometry = geometry.Transform(currentPosition.Pose())
+				mr.logger.Debug(geometry.Pose().Point())
 				label := camName.Name + "_transientObstacle_" + strconv.Itoa(i)
 				if geometry.Label() != "" {
 					label += "_" + geometry.Label()
@@ -253,6 +244,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
+			mr.logger.Debug(plan.Path())
 			if err := motionplan.CheckPlan(
 				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
 				remainingPlan,
@@ -494,6 +486,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	mr.seedPlan = seedPlan
 	mr.replanCostFactor = valExtra.replanCostFactor
 	mr.requestType = requestTypeMoveOnGlobe
+	mr.poseOrigin = spatialmath.NewZeroPose()
 	mr.geoPoseOrigin = *spatialmath.NewGeoPose(origin, heading)
 	return mr, nil
 }
