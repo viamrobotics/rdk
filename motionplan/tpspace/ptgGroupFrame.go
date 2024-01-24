@@ -25,7 +25,7 @@ const (
 // If refDist is not explicitly set, default to pi radians times this adjustment value.
 const (
 	defaultRefDistLong        = 100000. // 100 meters
-	defaultRefDistShortMin    = 500. // 500 mm
+	defaultRefDistShortMin    = 500.    // 500 mm
 	defaultRefDistHalfCircles = 0.9
 	defaultTrajCount          = 2
 )
@@ -81,7 +81,6 @@ func NewPTGFrameFromKinematicOptions(
 
 	turnRadMillimeters := turnRadMeters * 1000
 
-	
 	refDistLong := defaultRefDistLong
 	refDistShort := math.Max(
 		math.Min(turnRadMillimeters*math.Pi*defaultRefDistHalfCircles, refDistLong*0.1),

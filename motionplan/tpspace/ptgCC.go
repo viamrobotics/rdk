@@ -12,7 +12,7 @@ import (
 // Alpha determines how far to reverse before moving forwards.
 type ptgCC struct {
 	turnRadius float64
-	circle *ptgC
+	circle     *ptgC
 }
 
 // NewCCPTG creates a new PTG of type ptgCC.
@@ -20,8 +20,8 @@ func NewCCPTG(turnRadius float64) PTG {
 	circle := NewCirclePTG(turnRadius).(*ptgC)
 
 	return &ptgCC{
-		turnRadius:  turnRadius,
-		circle:  circle,
+		turnRadius: turnRadius,
+		circle:     circle,
 	}
 }
 
@@ -29,7 +29,6 @@ func NewCCPTG(turnRadius float64) PTG {
 // Note that this will NOT work as-is for 0-radius turning. Robots capable of turning in place will need to be special-cased
 // because they will have zero linear velocity through their turns, not max.
 func (ptg *ptgCC) Velocities(alpha, dist float64) (float64, float64, error) {
-
 	u := math.Abs(alpha) * 0.5
 
 	v := 1.0

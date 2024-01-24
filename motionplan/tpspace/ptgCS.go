@@ -14,7 +14,7 @@ const (
 // ptgCS defines a PTG family combined of two stages; first driving forwards while turning at radius, going straight.
 // Alpha determines how far to turn before going straight.
 type ptgCS struct {
-	circle  *ptgC
+	circle       *ptgC
 	turnStraight float64
 }
 
@@ -23,7 +23,7 @@ func NewCSPTG(turnRadius float64) PTG {
 	circle := NewCirclePTG(turnRadius).(*ptgC)
 	turnStraight := turnStraightConst * turnRadius
 	return &ptgCS{
-		circle:      circle,
+		circle:       circle,
 		turnStraight: turnStraight,
 	}
 }
@@ -62,7 +62,7 @@ func (ptg *ptgCS) Transform(inputs []referenceframe.Input) (spatialmath.Pose, er
 	return spatialmath.Compose(arcPose, fwdPose), nil
 }
 
-// turnDist calculates the arc distance of a turn given an alpha value
+// turnDist calculates the arc distance of a turn given an alpha value.
 func (ptg *ptgCS) turnDist(alpha float64) float64 {
 	// Magic number; rotate this much before going straight
 	return math.Sqrt(math.Abs(alpha)) * ptg.turnStraight

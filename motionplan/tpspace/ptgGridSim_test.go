@@ -6,9 +6,7 @@ import (
 	"go.viam.com/test"
 )
 
-var (
-	turnRadMeters = 0.3
-)
+var turnRadMeters = 0.3
 
 func TestSim(t *testing.T) {
 	simDist := 2500.

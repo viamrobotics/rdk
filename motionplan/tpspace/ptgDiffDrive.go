@@ -13,8 +13,7 @@ import (
 
 // ptgDiffDrive defines a PTG family composed of a rotation in place, whose magnitude is determined by alpha, followed by moving straight.
 // This is essentially the same as the CS PTG, but with a turning radius of zero.
-type ptgDiffDrive struct {
-}
+type ptgDiffDrive struct{}
 
 // NewDiffDrivePTG creates a new PTG of type ptgDiffDrive.
 func NewDiffDrivePTG(turnRadius float64) PTG {

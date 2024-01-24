@@ -1,4 +1,4 @@
-// Package fake implements a fake Generic component.
+// Package fake implements a fake generic component.
 package fake
 
 import (
@@ -33,4 +33,9 @@ type Generic struct {
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
 	logger logging.Logger
+}
+
+// DoCommand echos input back to the caller.
+func (fg *Generic) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
 }

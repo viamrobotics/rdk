@@ -153,7 +153,7 @@ func WrapWithFakePTGKinematics(
 	if baseTurningRadiusMeters < 0 {
 		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than or equal to zero")
 	}
-	
+
 	angVelocityDegsPerSecond, err := correctAngularVelocityWithTurnRadius(
 		logger,
 		baseTurningRadiusMeters,
@@ -168,7 +168,7 @@ func WrapWithFakePTGKinematics(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	nonzeroBaseTurningRadiusMeters := (baseMillimetersPerSecond / rdkutils.DegToRad(angVelocityDegsPerSecond)) / 1000.
 
 	frame, err := tpspace.NewPTGFrameFromKinematicOptions(

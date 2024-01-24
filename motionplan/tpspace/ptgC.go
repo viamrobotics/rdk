@@ -10,8 +10,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-const maxTurnAmount = 0.95
-
 // ptgC defines a PTG family composed of circular trajectories with an alpha-dependent radius.
 type ptgC struct {
 	turnRadius float64 // millimeters per second velocity to target
@@ -41,7 +39,6 @@ func (ptg *ptgC) Velocities(alpha, dist float64) (float64, float64, error) {
 // where 0 is straight ahead, pi is turning at min turning radius to the right, and a value between 0 and pi represents turning at a radius
 // of (input/pi)*minradius. A negative value denotes turning left. The second input is the distance traveled along this arc.
 func (ptg *ptgC) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
-
 	if len(inputs) != 2 {
 		return nil, fmt.Errorf("ptgC takes 2 inputs, but received %d", len(inputs))
 	}
@@ -64,7 +61,7 @@ func (ptg *ptgC) Transform(inputs []referenceframe.Input) (spatialmath.Pose, err
 	angleRads := 0.
 	if alpha != 0 {
 		arcRadius := math.Pi * ptg.turnRadius / math.Abs(alpha) // radius of arc
-		angleRads = dist / arcRadius                     // number of radians to travel along arc
+		angleRads = dist / arcRadius                            // number of radians to travel along arc
 		pt = r3.Vector{arcRadius * (1 - math.Cos(angleRads)), arcRadius * math.Sin(angleRads), 0}
 		if alpha > 0 {
 			// positive alpha = positive rotation = left turn = negative X

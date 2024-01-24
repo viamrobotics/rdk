@@ -64,7 +64,7 @@ func init() {
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
 	AnalogReaders     []mcp3008helper.MCP3008AnalogConfig `json:"analogs,omitempty"`
-	DigitalInterrupts []board.DigitalInterruptConfig      `json:"digital_interrupts,omitempty"`
+	DigitalInterrupts []DigitalInterruptConfig            `json:"digital_interrupts,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -98,8 +98,8 @@ type piPigpio struct {
 	analogReaders map[string]board.AnalogReader
 	// `interrupts` maps interrupt names to the interrupts. `interruptsHW` maps broadcom addresses
 	// to these same values. The two should always have the same set of values.
-	interrupts   map[string]board.ReconfigurableDigitalInterrupt
-	interruptsHW map[uint]board.ReconfigurableDigitalInterrupt
+	interrupts   map[string]ReconfigurableDigitalInterrupt
+	interruptsHW map[uint]ReconfigurableDigitalInterrupt
 	logger       logging.Logger
 	isClosed     bool
 }
@@ -224,8 +224,8 @@ func (pi *piPigpio) reconfigureAnalogReaders(ctx context.Context, cfg *Config) e
 // This is a helper function for digital interrupt reconfiguration. It finds the key in the map
 // whose value is the given interrupt, and returns that key and whether we successfully found it.
 func findInterruptName(
-	interrupt board.ReconfigurableDigitalInterrupt,
-	interrupts map[string]board.ReconfigurableDigitalInterrupt,
+	interrupt ReconfigurableDigitalInterrupt,
+	interrupts map[string]ReconfigurableDigitalInterrupt,
 ) (string, bool) {
 	for key, value := range interrupts {
 		if value == interrupt {
@@ -237,8 +237,8 @@ func findInterruptName(
 
 // This is a very similar helper function, which does the same thing but for broadcom addresses.
 func findInterruptBcom(
-	interrupt board.ReconfigurableDigitalInterrupt,
-	interruptsHW map[uint]board.ReconfigurableDigitalInterrupt,
+	interrupt ReconfigurableDigitalInterrupt,
+	interruptsHW map[uint]ReconfigurableDigitalInterrupt,
 ) (uint, bool) {
 	for key, value := range interruptsHW {
 		if value == interrupt {
@@ -254,18 +254,18 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *Config) erro
 	oldInterruptsHW := pi.interruptsHW
 	// Like with pi.interrupts and pi.interruptsHW, these two will have identical values, mapped to
 	// using different keys.
-	newInterrupts := map[string]board.ReconfigurableDigitalInterrupt{}
-	newInterruptsHW := map[uint]board.ReconfigurableDigitalInterrupt{}
+	newInterrupts := map[string]ReconfigurableDigitalInterrupt{}
+	newInterruptsHW := map[uint]ReconfigurableDigitalInterrupt{}
 
 	// This begins as a set of all interrupts, but we'll remove the ones we reuse. Then, we'll
 	// close whatever is left over.
-	interruptsToClose := make(map[board.ReconfigurableDigitalInterrupt]struct{}, len(oldInterrupts))
+	interruptsToClose := make(map[ReconfigurableDigitalInterrupt]struct{}, len(oldInterrupts))
 	for _, interrupt := range oldInterrupts {
 		interruptsToClose[interrupt] = struct{}{}
 	}
 
 	reuseInterrupt := func(
-		interrupt board.ReconfigurableDigitalInterrupt, name string, bcom uint,
+		interrupt ReconfigurableDigitalInterrupt, name string, bcom uint,
 	) error {
 		newInterrupts[name] = interrupt
 		newInterruptsHW[bcom] = interrupt
@@ -324,7 +324,7 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *Config) erro
 		}
 
 		// Otherwise, create the new interrupt from scratch.
-		di, err := board.CreateDigitalInterrupt(newConfig)
+		di, err := CreateDigitalInterrupt(newConfig)
 		if err != nil {
 			return err
 		}
@@ -668,7 +668,7 @@ func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt,
 			if d, ok := pi.interruptsHW[bcom]; ok {
 				return d, ok
 			}
-			d, err = board.CreateDigitalInterrupt(board.DigitalInterruptConfig{
+			d, err = CreateDigitalInterrupt(DigitalInterruptConfig{
 				Name: name,
 				Pin:  name,
 				Type: "basic",
@@ -724,8 +724,8 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 			err = multierr.Combine(err, picommon.ConvertErrorCodeToMessage(int(result), "error"))
 		}
 	}
-	pi.interrupts = map[string]board.ReconfigurableDigitalInterrupt{}
-	pi.interruptsHW = map[uint]board.ReconfigurableDigitalInterrupt{}
+	pi.interrupts = map[string]ReconfigurableDigitalInterrupt{}
+	pi.interruptsHW = map[uint]ReconfigurableDigitalInterrupt{}
 
 	instanceMu.Lock()
 	if len(instances) == 1 {

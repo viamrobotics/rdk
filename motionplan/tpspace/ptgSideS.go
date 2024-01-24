@@ -65,8 +65,8 @@ func (ptg *ptgSideS) Transform(inputs []referenceframe.Input) (spatialmath.Pose,
 	alpha := inputs[0].Value
 	dist := inputs[1].Value
 
-	flip := math.Copysign(1., alpha)           // left or right
-	direction := math.Copysign(1., dist)       // forwards or backwards
+	flip := math.Copysign(1., alpha)                    // left or right
+	direction := math.Copysign(1., dist)                // forwards or backwards
 	arcLength := math.Abs(alpha) * 0.5 * ptg.turnRadius //
 
 	revPose, err := ptg.circle.Transform([]referenceframe.Input{{flip * math.Pi}, {direction * math.Min(dist, arcLength)}})

@@ -47,11 +47,11 @@ type PTG interface {
 // the elapsed time along the trajectory, and the linear and angular velocity at that point.
 type TrajNode struct {
 	// TODO: cache pose point and orientation so that we don't recompute every time we need it
-	Pose       spatialmath.Pose // for 2d, we only use x, y, and OV theta
-	Dist       float64          // distance travelled down trajectory
-	Alpha      float64          // alpha k-value at this node
-	LinVel     float64          // Linear velocity as a proportion of maximum at this node [-1, 1]
-	AngVel     float64          // Angular velocity as a proportion of maximum at this node [-1, 1]
+	Pose   spatialmath.Pose // for 2d, we only use x, y, and OV theta
+	Dist   float64          // distance travelled down trajectory
+	Alpha  float64          // alpha k-value at this node
+	LinVel float64          // Linear velocity as a proportion of maximum at this node [-1, 1]
+	AngVel float64          // Angular velocity as a proportion of maximum at this node [-1, 1]
 }
 
 // discretized path to alpha.

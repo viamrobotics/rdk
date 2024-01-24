@@ -10,8 +10,8 @@ import (
 // ptgCCS defines a PTG family combining the CC and CS trajectories, essentially executing the CC trajectory
 // followed by a straight line.
 type ptgCCS struct {
-	turnRadius       float64
-	circle  *ptgC
+	turnRadius float64
+	circle     *ptgC
 }
 
 // NewCCSPTG creates a new PTG of type ptgCCS.
@@ -19,8 +19,8 @@ func NewCCSPTG(turnRadius float64) PTG {
 	circle := NewCirclePTG(turnRadius).(*ptgC)
 
 	return &ptgCCS{
-		turnRadius:       turnRadius,
-		circle:  circle,
+		turnRadius: turnRadius,
+		circle:     circle,
 	}
 }
 

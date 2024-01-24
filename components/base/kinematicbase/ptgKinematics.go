@@ -40,20 +40,21 @@ const (
 type ptgBaseKinematics struct {
 	base.Base
 	motion.Localizer
-	logger       logging.Logger
-	frame        referenceframe.Frame
-	ptgs         []tpspace.PTGSolver
-	
-	linVelocityMMPerSecond float64
+	logger logging.Logger
+	frame  referenceframe.Frame
+	ptgs   []tpspace.PTGSolver
+
+	linVelocityMMPerSecond   float64
 	angVelocityDegsPerSecond float64
-	inputLock    sync.RWMutex
-	currentInput []referenceframe.Input
-	origin       spatialmath.Pose
+	inputLock                sync.RWMutex
+	currentInput             []referenceframe.Input
+	origin                   spatialmath.Pose
+	geometries               []spatialmath.Geometry
 }
 
 type arcStep struct {
-	linVelMMps  r3.Vector
-	angVelDegps r3.Vector
+	linVelMMps      r3.Vector
+	angVelDegps     r3.Vector
 	timestepSeconds float64
 }
 
@@ -75,12 +76,12 @@ func wrapWithPTGKinematics(
 		linVelocityMMPerSecond = defaultLinearVelocityMMPerSec
 	}
 
-	// Update our angular velocity and our 
+	// Update our angular velocity and our
 	baseTurningRadiusMeters := properties.TurningRadiusMeters
 	if baseTurningRadiusMeters < 0 {
 		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than or equal to zero")
 	}
-	
+
 	angVelocityDegsPerSecond, err := correctAngularVelocityWithTurnRadius(
 		logger,
 		baseTurningRadiusMeters,
@@ -99,8 +100,9 @@ func wrapWithPTGKinematics(
 	)
 
 	geometries, err := b.Geometries(ctx, nil)
-	if err != nil {
-		return nil, err
+	if len(geometries) == 0 || err != nil {
+		logger.CWarn(ctx, "base %s not configured with a geometry, will be considered a point mass for collision detection purposes.")
+		geometries = []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{}, b.Name().Name)}
 	}
 
 	nonzeroBaseTurningRadiusMeters := (linVelocityMMPerSecond / rdkutils.DegToRad(angVelocityDegsPerSecond)) / 1000.
@@ -132,15 +134,16 @@ func wrapWithPTGKinematics(
 	}
 
 	return &ptgBaseKinematics{
-		Base:         b,
-		Localizer:    localizer,
-		logger:       logger,
-		frame:        frame,
-		ptgs:         ptgs,
-		linVelocityMMPerSecond: linVelocityMMPerSecond,
+		Base:                     b,
+		Localizer:                localizer,
+		logger:                   logger,
+		frame:                    frame,
+		ptgs:                     ptgs,
+		linVelocityMMPerSecond:   linVelocityMMPerSecond,
 		angVelocityDegsPerSecond: angVelocityDegsPerSecond,
-		currentInput: zeroInput,
-		origin:       origin,
+		currentInput:             zeroInput,
+		origin:                   origin,
+		geometries:               geometries,
 	}, nil
 }
 
@@ -181,7 +184,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
 		ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {0}}
 		ptgk.inputLock.Unlock()
-		
+
 		timestep := time.Duration(step.timestepSeconds*1000*1000) * time.Microsecond
 
 		ptgk.logger.CDebugf(ctx,
@@ -197,7 +200,6 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 			step.angVelDegps,
 			nil,
 		)
-		
 		if err != nil {
 			stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
 			defer cancelFn()
@@ -213,10 +215,10 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 				ptgk.inputLock.Lock()
 				ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {math.Abs(distIncVel) * timeElapsed}}
 				ptgk.inputLock.Unlock()
-				utils.SelectContextOrWait(ctx, time.Duration(inputUpdateStep * 1000 * 1000) * time.Microsecond)
+				utils.SelectContextOrWait(ctx, time.Duration(inputUpdateStep*1000*1000)*time.Microsecond)
 			}
 		})
-		
+
 		if !utils.SelectContextOrWait(ctx, timestep) {
 			ptgk.logger.CDebug(ctx, ctx.Err().Error())
 			// context cancelled
@@ -278,7 +280,7 @@ func (ptgk *ptgBaseKinematics) trajectoryToArcsteps(traj []*tpspace.TrajNode) []
 	lastLinVel := r3.Vector{0, traj[0].LinVel, 0}
 	lastAngVel := r3.Vector{0, 0, traj[0].AngVel}
 	nextStep := &arcStep{
-		linVelMMps: lastLinVel,
+		linVelMMps:  lastLinVel,
 		angVelDegps: lastAngVel,
 	}
 	for _, trajPt := range traj {
@@ -288,7 +290,7 @@ func (ptgk *ptgBaseKinematics) trajectoryToArcsteps(traj []*tpspace.TrajNode) []
 			nextStep.timestepSeconds = timeStep
 			finalSteps = append(finalSteps, nextStep)
 			nextStep = &arcStep{
-				linVelMMps: nextLinVel,
+				linVelMMps:  nextLinVel,
 				angVelDegps: nextAngVel,
 			}
 			timeStep = 0.
@@ -316,7 +318,7 @@ func correctAngularVelocityWithTurnRadius(logger logging.Logger, turnRadMeters, 
 		angVelocityRadps = velocityMMps / turnRadMillimeters
 	} else if turnRadMeters > 0 {
 		// Compute smallest allowable turning radius permitted by the given speeds. Use the greater of the two.
-		calcTurnRadius := (velocityMMps / angVelocityRadps) 
+		calcTurnRadius := (velocityMMps / angVelocityRadps)
 		if calcTurnRadius > turnRadMillimeters {
 			// This is a debug message because the user will never notice the difference; the trajectories executed by the base will be a
 			// subset of the ones that would have been had this conditional not been hit.
@@ -339,4 +341,7 @@ func correctAngularVelocityWithTurnRadius(logger logging.Logger, turnRadMeters, 
 	}
 	return rdkutils.RadToDeg(angVelocityRadps), nil
 }
- 
+
+func (ptgk *ptgBaseKinematics) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	return ptgk.geometries, nil
+}
