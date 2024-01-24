@@ -758,6 +758,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 
 			// fix axes of geometry's pose such that it is in the cooordinate system of the base
 			manipulatedGeom = manipulatedGeom.Transform(spatialmath.NewPoseFromOrientation(baseToCamera.Pose().Orientation()))
+			manipulatedGeom = manipulatedGeom.Transform(spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90}))
 			svc.logger.CDebugf(
 				ctx,
 				"detection %d pose from movementsensor's position with base frame coordinate axes: %v ",
