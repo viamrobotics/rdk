@@ -234,12 +234,12 @@ func TestMoveWithObstacles(t *testing.T) {
 }
 
 func TestMoveOnMapLongDistance(t *testing.T) {
-	ctx := context.Background()
 	// TODO(RSDK-6326) - fix test failure and unskip
 	t.Skip()
 	if runtime.GOARCH == "arm" {
 		t.Skip("skipping on 32-bit ARM, large maps use too much memory")
 	}
+	ctx := context.Background()
 	extra := map[string]interface{}{"smooth_iter": 0, "motion_profile": "position_only"}
 	// goal position is scaled to be in mm
 	goalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: -32.508 * 1000, Y: -2.092 * 1000})

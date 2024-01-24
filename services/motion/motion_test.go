@@ -1248,6 +1248,7 @@ func TestMoveOnMapReq(t *testing.T) {
 		Extra:         map[string]interface{}{},
 	}
 
+	//nolint:staticcheck
 	validPbMoveOnMapNewRequest := &pb.MoveOnMapNewRequest{
 		Name:                "bloop",
 		Destination:         spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
@@ -1262,8 +1263,9 @@ func TestMoveOnMapReq(t *testing.T) {
 			description string
 			input       MoveOnMapReq
 			name        string
-			result      *pb.MoveOnMapNewRequest
-			err         error
+			//nolint:staticcheck
+			result *pb.MoveOnMapNewRequest
+			err    error
 		}
 
 		testCases := []testCase{
@@ -1289,6 +1291,7 @@ func TestMoveOnMapReq(t *testing.T) {
 					SlamName:      mySlam,
 				},
 				name: "bloop",
+				//nolint:staticcheck
 				result: &pb.MoveOnMapNewRequest{
 					Name:            "bloop",
 					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
@@ -1316,9 +1319,10 @@ func TestMoveOnMapReq(t *testing.T) {
 	t.Run("moveOnMapNewRequestFromProto", func(t *testing.T) {
 		type testCase struct {
 			description string
-			input       *pb.MoveOnMapNewRequest
-			result      MoveOnMapReq
-			err         error
+			//nolint:staticcheck
+			input  *pb.MoveOnMapNewRequest
+			result MoveOnMapReq
+			err    error
 		}
 
 		testCases := []testCase{
@@ -1330,12 +1334,14 @@ func TestMoveOnMapReq(t *testing.T) {
 			},
 			{
 				description: "nil destination causes failure",
-				input:       &pb.MoveOnMapNewRequest{},
-				result:      MoveOnMapReq{},
-				err:         errors.New("received nil *commonpb.Pose for destination"),
+				//nolint:staticcheck
+				input:  &pb.MoveOnMapNewRequest{},
+				result: MoveOnMapReq{},
+				err:    errors.New("received nil *commonpb.Pose for destination"),
 			},
 			{
 				description: "nil componentName causes failure",
+				//nolint:staticcheck
 				input: &pb.MoveOnMapNewRequest{
 					Destination: spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
 				},
@@ -1344,6 +1350,7 @@ func TestMoveOnMapReq(t *testing.T) {
 			},
 			{
 				description: "nil SlamName causes failure",
+				//nolint:staticcheck
 				input: &pb.MoveOnMapNewRequest{
 					Destination:   spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
 					ComponentName: rprotoutils.ResourceNameToProto(myBase),
@@ -1359,6 +1366,7 @@ func TestMoveOnMapReq(t *testing.T) {
 			},
 			{
 				description: "success - allow nil motionCfg",
+				//nolint:staticcheck
 				input: &pb.MoveOnMapNewRequest{
 					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
 					ComponentName:   rprotoutils.ResourceNameToProto(myBase),
