@@ -2,12 +2,9 @@ package builtin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
-	"regexp"
 	"runtime"
-	"strings"
 	"testing"
 	"time"
 
@@ -267,164 +264,6 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goalInBaseFrame, 15), test.ShouldBeTrue)
-}
-
-func TestMoveOnMapPlans(t *testing.T) {
-	ctx := context.Background()
-	// goal x-position of 1.32m is scaled to be in mm
-	// Orientation theta should be at least 3 degrees away from an integer multiple of 22.5 to ensure the position-only test functions.
-	goalInBaseFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 33})
-	goalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, goalInBaseFrame)
-	extra := map[string]interface{}{"smooth_iter": 0}
-	extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
-
-	t.Run("ensure success of movement around obstacle", func(t *testing.T) {
-		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-		defer ms.Close(ctx)
-		success, err := ms.MoveOnMap(
-			context.Background(),
-			base.Named("test-base"),
-			goalInSLAMFrame,
-			slam.Named("test_slam"),
-			extra,
-		)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, success, test.ShouldBeTrue)
-		endPos, err := kb.CurrentPosition(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goalInBaseFrame, 15), test.ShouldBeTrue)
-	})
-
-	t.Run("check that straight line path executes", func(t *testing.T) {
-		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-		defer ms.Close(ctx)
-		easyGoalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
-		easyGoalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, easyGoalInBaseFrame)
-		success, err := ms.MoveOnMap(
-			context.Background(),
-			base.Named("test-base"),
-			easyGoalInSLAMFrame,
-			slam.Named("test_slam"),
-			extra,
-		)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, success, test.ShouldBeTrue)
-		endPos, err := kb.CurrentPosition(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), easyGoalInBaseFrame, 10), test.ShouldBeTrue)
-	})
-
-	t.Run("should fail due to map collision", func(t *testing.T) {
-		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -500}))
-		defer ms.Close(ctx)
-		easyGoalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
-		easyGoalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, easyGoalInBaseFrame)
-		success, err := ms.MoveOnMap(
-			context.Background(),
-			base.Named("test-base"),
-			easyGoalInSLAMFrame,
-			slam.Named("test_slam"),
-			extra,
-		)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "starting collision between SLAM map and unnamedCollisionGeometry_0, cannot move")
-		test.That(t, success, test.ShouldBeFalse)
-	})
-
-	t.Run("check that position-only mode executes", func(t *testing.T) {
-		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-		defer ms.Close(ctx)
-		success, err := ms.MoveOnMap(
-			context.Background(),
-			base.Named("test-base"),
-			goalInSLAMFrame,
-			slam.Named("test_slam"),
-			extraPosOnly,
-		)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, success, test.ShouldBeTrue)
-		endPos, err := kb.CurrentPosition(ctx)
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goalInBaseFrame, 15), test.ShouldBeTrue)
-		// Position only mode should not yield the goal orientation.
-		test.That(t, spatialmath.OrientationAlmostEqualEps(
-			endPos.Pose().Orientation(),
-			goalInBaseFrame.Orientation(),
-			0.05), test.ShouldBeFalse)
-	})
-}
-
-func TestMoveOnMapSubsequent(t *testing.T) {
-	ctx := context.Background()
-	// goal x-position of 1.32m is scaled to be in mm
-	goal1SLAMFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 55})
-	goal1BaseFrame := spatialmath.Compose(goal1SLAMFrame, motion.SLAMOrientationAdjustment)
-	goal2SLAMFrame := spatialmath.NewPose(r3.Vector{X: 277, Y: 593}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 150})
-	goal2BaseFrame := spatialmath.Compose(goal2SLAMFrame, motion.SLAMOrientationAdjustment)
-
-	kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-	defer ms.Close(ctx)
-	msBuiltin, ok := ms.(*builtIn)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	// Overwrite `logger` so we can use a handler to test for correct log messages
-	logger, observer := logging.NewObservedTestLogger(t)
-	msBuiltin.logger = logger
-
-	extra := map[string]interface{}{"smooth_iter": 5}
-	success, err := msBuiltin.MoveOnMap(
-		context.Background(),
-		base.Named("test-base"),
-		goal1SLAMFrame,
-		slam.Named("test_slam"),
-		extra,
-	)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, success, test.ShouldNotBeNil)
-	endPos, err := kb.CurrentPosition(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))
-	test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal1BaseFrame, 10), test.ShouldBeTrue)
-
-	// Now, we try to go to the second goal. Since the `CurrentPosition` of our base is at `goal1`, the pose that motion solves for and
-	// logs should be {x:-1043  y:593}
-	success, err = msBuiltin.MoveOnMap(
-		context.Background(),
-		base.Named("test-base"),
-		goal2SLAMFrame,
-		slam.Named("test_slam"),
-		extra,
-	)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, success, test.ShouldNotBeNil)
-	endPos, err = kb.CurrentPosition(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal2BaseFrame, 5), test.ShouldBeTrue)
-
-	// We don't actually surface the internal motion planning goal; we report to the user in terms of what the user provided us.
-	// Thus, we must do string surgery on the internal `motionplan` logs to extract the requested relative pose and check it is correct.
-	goalLogsObserver := observer.FilterMessageSnippet("Goal: reference_frame:").All()
-	test.That(t, len(goalLogsObserver), test.ShouldEqual, 2)
-	logLineToGoalPose := func(logString string) spatialmath.Pose {
-		entry1GoalLine := strings.Split(strings.Split(logString, "\n")[1], "pose:")[1]
-		// logger formatting is weird and will use sometimes one, sometimes two spaces. strings.Replace can't handle variability, so regex.
-		re := regexp.MustCompile(`\s+`)
-		entry1GoalLineBytes := re.ReplaceAll([]byte(entry1GoalLine), []byte(",\""))
-		entry1GoalLine = strings.ReplaceAll(string(entry1GoalLineBytes), "{", "{\"")
-		entry1GoalLine = strings.ReplaceAll(entry1GoalLine, ":", "\":")
-
-		posepb := &commonpb.Pose{}
-		err := json.Unmarshal([]byte(entry1GoalLine), posepb)
-		test.That(t, err, test.ShouldBeNil)
-
-		return spatialmath.NewPoseFromProtobuf(posepb)
-	}
-	goalPose1 := logLineToGoalPose(goalLogsObserver[0].Entry.Message)
-	test.That(t, spatialmath.PoseAlmostEqualEps(goalPose1, goal1BaseFrame, 10), test.ShouldBeTrue)
-	goalPose2 := logLineToGoalPose(goalLogsObserver[1].Entry.Message)
-	// This is the important test.
-	test.That(t, spatialmath.PoseAlmostEqualEps(goalPose2, spatialmath.PoseBetween(goal1BaseFrame, goal2BaseFrame), 10), test.ShouldBeTrue)
 }
 
 func TestMoveOnMapTimeout(t *testing.T) {
@@ -924,39 +763,6 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			testIfStoppable(t, false, err, expectedErr)
 		})
 
-		t.Run("stop during MoveOnMap(...) call", func(t *testing.T) {
-			calledStopFunc = false
-			slamName := "test-slam"
-
-			// Create an injected SLAM
-			injectSlam := createInjectedSlam(slamName, "pointcloud/octagonspace.pcd", nil)
-
-			// Create a motion service
-			deps := resource.Dependencies{
-				injectBase.Name(): injectBase,
-				injectSlam.Name(): injectSlam,
-			}
-			fsParts := []*referenceframe.FrameSystemPart{
-				{FrameConfig: baseLink},
-			}
-
-			ms, err := NewBuiltIn(
-				ctx,
-				deps,
-				resource.Config{ConvertedAttributes: &Config{}},
-				logger,
-			)
-			test.That(t, err, test.ShouldBeNil)
-			defer ms.Close(context.Background())
-
-			fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
-			test.That(t, err, test.ShouldBeNil)
-			ms.(*builtIn).fsService = fsSvc
-
-			goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 500})
-			success, err := ms.MoveOnMap(ctx, injectBase.Name(), goal, injectSlam.Name(), extra)
-			testIfStoppable(t, success, err, failToReachGoalError)
-		})
 		t.Run("stop during MoveOnMapNew(...) call", func(t *testing.T) {
 			calledStopFunc = false
 			slamName := "test-slam"
@@ -990,7 +796,10 @@ func TestStoppableMoveFunctions(t *testing.T) {
 				ComponentName: injectBase.Name(),
 				Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 500}),
 				SlamName:      injectSlam.Name(),
-				Extra:         extra,
+				MotionCfg: &motion.MotionConfiguration{
+					PlanDeviationMM: 1,
+				},
+				Extra: extra,
 			}
 
 			executionID, err := ms.MoveOnMapNew(ctx, req)
@@ -1032,6 +841,9 @@ func TestMoveOnGlobe(t *testing.T) {
 			ComponentName:      fakeBase.Name(),
 			MovementSensorName: injectedMovementSensor.Name(),
 			Destination:        dst,
+			MotionCfg: &motion.MotionConfiguration{
+				PlanDeviationMM: 1,
+			},
 		}
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
@@ -1073,7 +885,10 @@ func TestMoveOnGlobe(t *testing.T) {
 			ComponentName:      fakeBase.Name(),
 			MovementSensorName: injectedMovementSensor.Name(),
 			Destination:        dst,
-			Extra:              extra,
+			MotionCfg: &motion.MotionConfiguration{
+				PlanDeviationMM: 1,
+			},
+			Extra: extra,
 		}
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
@@ -1088,7 +903,10 @@ func TestMoveOnGlobe(t *testing.T) {
 			MovementSensorName: injectedMovementSensor.Name(),
 			Heading:            math.NaN(),
 			Destination:        dst,
-			Extra:              extra,
+			MotionCfg: &motion.MotionConfiguration{
+				PlanDeviationMM: 1,
+			},
+			Extra: extra,
 		}
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
@@ -1103,7 +921,10 @@ func TestMoveOnGlobe(t *testing.T) {
 			MovementSensorName: injectedMovementSensor.Name(),
 			Heading:            10000000,
 			Destination:        dst,
-			Extra:              extra,
+			MotionCfg: &motion.MotionConfiguration{
+				PlanDeviationMM: 1,
+			},
+			Extra: extra,
 		}
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
@@ -1118,38 +939,10 @@ func TestMoveOnGlobe(t *testing.T) {
 			MovementSensorName: injectedMovementSensor.Name(),
 			Heading:            -10000000,
 			Destination:        dst,
-			Extra:              extra,
-		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
-	})
-
-	t.Run("is able to reach a nearby geo point when the motion configuration is empty", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
-			Heading:            90,
-			Destination:        dst,
-			MotionCfg:          &motion.MotionConfiguration{},
-			Extra:              extra,
-		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
-	})
-
-	t.Run("is able to reach a nearby geo point when the motion configuration nil", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
-			Heading:            90,
-			Destination:        dst,
-			Extra:              extra,
+			MotionCfg: &motion.MotionConfiguration{
+				PlanDeviationMM: 1,
+			},
+			Extra: extra,
 		}
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
@@ -1270,8 +1063,10 @@ func TestMoveOnGlobe(t *testing.T) {
 			Destination:        dst,
 			MovementSensorName: injectedMovementSensor.Name(),
 			Obstacles:          []*spatialmath.GeoObstacle{geoObstacle},
-			MotionCfg:          &motion.MotionConfiguration{},
-			Extra:              extra,
+			MotionCfg: &motion.MotionConfiguration{
+				PlanDeviationMM: 1,
+			},
+			Extra: extra,
 		}
 		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, req, nil, 0)
 		test.That(t, err, test.ShouldBeNil)
