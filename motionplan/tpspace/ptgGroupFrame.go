@@ -146,15 +146,13 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 	}
 
 	ptgIdx := int(math.Round(inputs[ptgIndex].Value))
-	alpha := inputs[trajectoryAlphaWithinPTG].Value
-	dist := inputs[distanceAlongTrajectoryIndex].Value
 
-	traj, err := pf.solvers[ptgIdx].Trajectory(alpha, dist)
+	pose, err := pf.solvers[ptgIdx].Transform([]referenceframe.Input{inputs[trajectoryAlphaWithinPTG], inputs[distanceAlongTrajectoryIndex]})
 	if err != nil {
 		return nil, err
 	}
 
-	return traj[len(traj)-1].Pose, nil
+	return pose, nil
 }
 
 func (pf *ptgGroupFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {

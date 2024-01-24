@@ -107,8 +107,8 @@ func (ptg *ptgGridSim) MaxDistance() float64 {
 	return ptg.refDist
 }
 
-func (ptg *ptgGridSim) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
-	return ComputePTG(ptg, alpha, dist, 0)
+func (ptg *ptgGridSim) Trajectory(alpha, dist, resolution float64) ([]*TrajNode, error) {
+	return ComputePTG(ptg, alpha, dist, resolution)
 }
 
 // DoF returns the DoF of the associated referenceframe.

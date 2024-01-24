@@ -172,7 +172,14 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 	ptgk.logger.CDebugf(ctx, "GoToInputs going to %v", inputs)
 
 	selectedPTG := ptgk.ptgs[int(math.Round(inputs[ptgIndex].Value))]
-	selectedTraj, err := selectedPTG.Trajectory(inputs[trajectoryIndexWithinPTG].Value, inputs[distanceAlongTrajectoryIndex].Value)
+
+	distResolution := ptgk.linVelocityMMPerSecond / inputUpdateStep
+
+	selectedTraj, err := selectedPTG.Trajectory(
+		inputs[trajectoryIndexWithinPTG].Value,
+		inputs[distanceAlongTrajectoryIndex].Value,
+		distResolution,
+	)
 	if err != nil {
 		stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
 		defer cancelFn()

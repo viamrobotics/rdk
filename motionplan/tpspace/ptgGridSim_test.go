@@ -6,7 +6,10 @@ import (
 	"go.viam.com/test"
 )
 
-var turnRadMeters = 0.3
+const (
+	turnRadMeters = 0.3
+	resolution    = 20
+)
 
 func TestSim(t *testing.T) {
 	simDist := 2500.
@@ -18,7 +21,7 @@ func TestSim(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for i := uint(0); i < alphaCnt; i++ {
-			traj, err := grid.Trajectory(index2alpha(i, alphaCnt), simDist)
+			traj, err := grid.Trajectory(index2alpha(i, alphaCnt), simDist, resolution)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, traj, test.ShouldNotBeNil)
 		}

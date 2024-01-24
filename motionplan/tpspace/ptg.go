@@ -24,7 +24,7 @@ type PTGSolver interface {
 	PTG
 
 	// Returns the set of trajectory nodes along the given trajectory, out to the requested distance
-	Trajectory(alpha, dist float64) ([]*TrajNode, error)
+	Trajectory(alpha, dist, resolution float64) ([]*TrajNode, error)
 }
 
 // PTGProvider is something able to provide a set of PTGs associsated with it. For example, a frame which precomputes

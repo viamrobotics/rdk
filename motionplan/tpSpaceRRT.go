@@ -22,13 +22,13 @@ import (
 )
 
 const (
-	defaultAutoBB = 0.8 // Automatic bounding box on driveable area as a multiple of start-goal distance
+	defaultAutoBB = 1.1 // Automatic bounding box on driveable area as a multiple of start-goal distance
 	// Note: while fully holonomic planners can use the limits of the frame as implicit boundaries, with non-holonomic motion
 	// this is not the case, and the total workspace available to the planned frame is not directly related to the motion available
 	// from a single set of inputs.
 
 	// How much the bounding box of random points to sample increases in size with each algorithm iteration.
-	autoBBscale = 0.2
+	autoBBscale = 0.1
 
 	// Add a subnode every this many mm along a valid trajectory. Large values run faster, small gives better paths
 	// Meaningless if the above is false.
@@ -265,7 +265,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			allPtgs := mp.tpFrame.PTGSolvers()
 			lastPose := spatialmath.NewZeroPose()
 			for _, mynode := range correctedPath {
-				trajPts, err := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+				trajPts, err := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value, mp.planOpts.Resolution)
 				if err != nil {
 					// Unimportant; this is just for debug visualization
 					break
@@ -300,6 +300,9 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	var randPosNode node = midptNode
 
 	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
+		if pathdebug {
+			mp.logger.Debugf("$RRTGOAL,%f,%f", randPosNode.Pose().Point().X, randPosNode.Pose().Point().Y)
+		}
 		mp.logger.CDebugf(ctx, "TP Space RRT iteration %d", iter)
 		if ctx.Err() != nil {
 			mp.logger.CDebugf(ctx, "TP Space RRT timed out after %d iterations", iter)
@@ -493,7 +496,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		subNode := newConfigurationNode(solution.Configuration[i : i+2])
 
 		// Check collisions along this traj and get the longest distance viable
-		trajK, err := curPtg.Trajectory(subNode.Q()[0].Value, subNode.Q()[1].Value)
+		trajK, err := curPtg.Trajectory(subNode.Q()[0].Value, subNode.Q()[1].Value, mp.planOpts.Resolution)
 		if err != nil {
 			return nil, err
 		}
@@ -726,7 +729,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 		randAlpha := newNode.Q()[1].Value
 		randDist := newNode.Q()[2].Value
 
-		trajK, err := mp.tpFrame.PTGSolvers()[ptgNum].Trajectory(randAlpha, randDist)
+		trajK, err := mp.tpFrame.PTGSolvers()[ptgNum].Trajectory(randAlpha, randDist, mp.planOpts.Resolution)
 		if err != nil {
 			return nil, err
 		}
@@ -897,7 +900,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		allPtgs := mp.tpFrame.PTGSolvers()
 		lastPose := spatialmath.NewZeroPose()
 		for _, mynode := range path {
-			trajPts, err := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+			trajPts, err := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value, mp.planOpts.Resolution)
 			if err != nil {
 				// Unimportant; this is just for debug visualization
 				break
@@ -938,7 +941,11 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 			adj := float64(adjNum) / float64(defaultSmoothChunkCount)
 			fullQ := pathNode.Q()
 			newQ := []referenceframe.Input{fullQ[0], fullQ[1], {fullQ[2].Value * adj}}
-			trajK, err := smoother.tpFrame.PTGSolvers()[int(math.Round(newQ[0].Value))].Trajectory(newQ[1].Value, newQ[2].Value)
+			trajK, err := smoother.tpFrame.PTGSolvers()[int(math.Round(newQ[0].Value))].Trajectory(
+				newQ[1].Value,
+				newQ[2].Value,
+				mp.planOpts.Resolution,
+			)
 			if err != nil {
 				continue
 			}

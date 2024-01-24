@@ -124,7 +124,7 @@ func (ptg *ptgIK) MaxDistance() float64 {
 	return ptg.refDist
 }
 
-func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
+func (ptg *ptgIK) Trajectory(alpha, dist, resolution float64) ([]*TrajNode, error) {
 	traj := []*TrajNode{}
 	ptg.mu.RLock()
 	precomp := ptg.trajCache[alpha]
@@ -150,7 +150,7 @@ func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
 		}
 	} else {
 		var err error
-		traj, err = ComputePTG(ptg, alpha, dist, 0)
+		traj, err = ComputePTG(ptg, alpha, dist, resolution)
 		if err != nil {
 			return nil, err
 		}
