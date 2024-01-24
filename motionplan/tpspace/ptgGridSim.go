@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	defaultAlphaCnt uint = 91
+	defaultAlphaCnt             uint    = 91
 	defaultSimulationResolution float64 = 50.
 )
 

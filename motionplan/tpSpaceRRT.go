@@ -22,13 +22,13 @@ import (
 )
 
 const (
-	defaultAutoBB = 1.5 // Automatic bounding box on driveable area as a multiple of start-goal distance
+	defaultAutoBB = 2.1 // Automatic bounding box on driveable area as a multiple of start-goal distance
 	// Note: while fully holonomic planners can use the limits of the frame as implicit boundaries, with non-holonomic motion
 	// this is not the case, and the total workspace available to the planned frame is not directly related to the motion available
 	// from a single set of inputs.
 
 	// How much the bounding box of random points to sample increases in size with each algorithm iteration.
-	autoBBscale = 0.2
+	autoBBscale = 0.1
 
 	// Add a subnode every this many mm along a valid trajectory. Large values run faster, small gives better paths
 	// Meaningless if the above is false.
