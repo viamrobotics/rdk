@@ -132,7 +132,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 	baseCfg := resource.Config{
 		Name:  "test-base",
 		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 40}},
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 80}},
 	}
 	fakeBase, err := baseFake.NewBase(ctx, nil, baseCfg, logger)
 	test.That(t, err, test.ShouldBeNil)

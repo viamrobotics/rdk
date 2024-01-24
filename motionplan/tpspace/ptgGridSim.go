@@ -10,6 +10,7 @@ import (
 
 const (
 	defaultAlphaCnt uint = 91
+	defaultSimulationResolution float64 = 50.
 )
 
 // ptgGridSim will take a PTG, and simulate out a number of trajectories through some requested time/distance for speed of lookup
@@ -125,7 +126,7 @@ func (ptg *ptgGridSim) simulateTrajectories() ([][]*TrajNode, error) {
 
 	for k := uint(0); k < ptg.alphaCnt; k++ {
 		alpha := index2alpha(k, ptg.alphaCnt)
-		alphaTraj, err := ComputePTG(ptg, alpha, ptg.refDist, 0)
+		alphaTraj, err := ComputePTG(ptg, alpha, ptg.refDist, defaultSimulationResolution)
 		if err != nil {
 			return nil, err
 		}
