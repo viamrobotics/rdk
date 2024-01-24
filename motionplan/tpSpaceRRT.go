@@ -22,13 +22,13 @@ import (
 )
 
 const (
-	defaultAutoBB = 0.8 // Automatic bounding box on driveable area as a multiple of start-goal distance
+	defaultAutoBB = 1.5 // Automatic bounding box on driveable area as a multiple of start-goal distance
 	// Note: while fully holonomic planners can use the limits of the frame as implicit boundaries, with non-holonomic motion
 	// this is not the case, and the total workspace available to the planned frame is not directly related to the motion available
 	// from a single set of inputs.
 
 	// How much the bounding box of random points to sample increases in size with each algorithm iteration.
-	autoBBscale = 0.1
+	autoBBscale = 0.2
 
 	// Add a subnode every this many mm along a valid trajectory. Large values run faster, small gives better paths
 	// Meaningless if the above is false.
@@ -551,36 +551,29 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 
 // Check our constraints (mainly collision) and return a valid node to add, or nil if no nodes along the traj are valid.
 func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, arcStartPose spatialmath.Pose) node {
-	sinceLastCollideCheck := 0.
-	lastDist := 0.
 	passed := []node{}
 	// Check each point along the trajectory to confirm constraints are met
-	// TODO: RSDK-5007 will allow this to use a Segment and be better integrated into our existing frameworks.
 	for i := 0; i < len(trajK); i++ {
 		trajPt := trajK[i]
 
-		sinceLastCollideCheck += math.Abs(trajPt.Dist - lastDist)
 		trajState := &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose), Frame: mp.frame}
-		if sinceLastCollideCheck > mp.planOpts.Resolution || i == 0 || i == len(trajK)-1 {
-			// In addition to checking every `Resolution`, we also check both endpoints.
-			ok, _ := mp.planOpts.CheckStateConstraints(trajState)
-			if !ok {
-				okDist := trajPt.Dist * defaultCollisionWalkbackPct
-				if okDist > defaultMinTrajectoryLength {
-					// Check that okDist is larger than the minimum distance to move to add a partial trajectory.
-					for i := len(passed) - 1; i > 0; i-- {
-						if passed[i].Cost() < defaultMinTrajectoryLength {
-							break
-						}
-						// Return the most recent node whose dist is less than okDist and larger than defaultMinTrajectoryLength
-						if passed[i].Cost() < okDist {
-							return passed[i]
-						}
+		// In addition to checking every `Resolution`, we also check both endpoints.
+		ok, _ := mp.planOpts.CheckStateConstraints(trajState)
+		if !ok {
+			okDist := trajPt.Dist * defaultCollisionWalkbackPct
+			if okDist > defaultMinTrajectoryLength {
+				// Check that okDist is larger than the minimum distance to move to add a partial trajectory.
+				for i := len(passed) - 1; i > 0; i-- {
+					if passed[i].Cost() < defaultMinTrajectoryLength {
+						break
+					}
+					// Return the most recent node whose dist is less than okDist and larger than defaultMinTrajectoryLength
+					if passed[i].Cost() < okDist {
+						return passed[i]
 					}
 				}
-				return nil
 			}
-			sinceLastCollideCheck = 0.
+			return nil
 		}
 
 		okNode := &basicNode{
@@ -589,7 +582,6 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, arcStart
 			pose: trajPt.Pose,
 		}
 		passed = append(passed, okNode)
-		lastDist = trajPt.Dist
 	}
 	return &basicNode{
 		q:    []referenceframe.Input{{trajK[(len(trajK) - 1)].Alpha}, {trajK[(len(trajK) - 1)].Dist}},
