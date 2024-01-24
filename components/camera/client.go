@@ -31,15 +31,13 @@ import (
 type client struct {
 	resource.Named
 	resource.TriviallyReconfigurable
-	resource.TriviallyCloseable
 	mu                      sync.Mutex
 	name                    string
 	conn                    rpc.ClientConn
 	client                  pb.CameraServiceClient
 	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
-	cancelCtx               context.Context
-	cancel                  func()
+	healthyClientCh         chan struct{}
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -50,16 +48,13 @@ func NewClientFromConn(
 	name resource.Name,
 	logger logging.Logger,
 ) (Camera, error) {
-	cancelCtx, cancel := context.WithCancel(context.Background())
 	c := pb.NewCameraServiceClient(conn)
 	return &client{
-		Named:     name.PrependRemote(remoteName).AsNamed(),
-		name:      name.ShortName(),
-		conn:      conn,
-		client:    c,
-		logger:    logger,
-		cancelCtx: cancelCtx,
-		cancel:    cancel,
+		Named:  name.PrependRemote(remoteName).AsNamed(),
+		name:   name.ShortName(),
+		conn:   conn,
+		client: c,
+		logger: logger,
 	}, nil
 }
 
@@ -121,16 +116,39 @@ func (c *client) Stream(
 ) (gostream.VideoStream, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Stream")
 
-	cancelCtxWithMIME := gostream.WithMIMETypeHint(c.cancelCtx, gostream.MIMETypeHint(ctx, ""))
-	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](cancelCtxWithMIME)
-
+	// RSDK-6340: The resource manager closes remote resources when the underlying
+	// connection goes bad. However, when the connection is re-established, the client
+	// objects these resources represent are not re-initialized/marked "healthy".
+	// `healthyClientCh` helps track these transitions between healthy and unhealthy
+	// states.
+	//
+	// When a new `client.Stream()` is created we will either use the existing
+	// `healthyClientCh` or create a new one.
+	//
+	// The goroutine a `Stream()` method spins off will listen to its version of the
+	// `healthyClientCh` to be notified when the connection has died so it can gracefully
+	// terminate.
+	//
+	// When a connection becomes unhealthy, the resource manager will call `Close` on the
+	// camera client object. Closing the client will:
+	// 1. close its `client.healthyClientCh` channel
+	// 2. wait for existing "stream" goroutines to drain
+	// 3. nil out the `client.healthyClientCh` member variable
+	//
+	// New streams concurrent with closing cannot start until this drain completes. There
+	// will never be stream goroutines from the old "generation" running concurrently
+	// with those from the new "generation".
 	c.mu.Lock()
-	if err := c.cancelCtx.Err(); err != nil {
-		c.mu.Unlock()
-		return nil, err
+	if c.healthyClientCh == nil {
+		c.healthyClientCh = make(chan struct{})
 	}
-	c.activeBackgroundWorkers.Add(1)
+	healthyClientCh := c.healthyClientCh
 	c.mu.Unlock()
+
+	ctxWithMIME := gostream.WithMIMETypeHint(context.Background(), gostream.MIMETypeHint(ctx, ""))
+	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](ctxWithMIME)
+
+	c.activeBackgroundWorkers.Add(1)
 
 	goutils.PanicCapturingGo(func() {
 		streamCtx = trace.NewContext(streamCtx, span)
@@ -153,6 +171,11 @@ func (c *client) Stream(
 
 			select {
 			case <-streamCtx.Done():
+				return
+			case <-healthyClientCh:
+				if err := stream.Close(ctxWithMIME); err != nil {
+					c.logger.Warn("error closing stream", err)
+				}
 				return
 			case frameCh <- gostream.MediaReleasePairWithError[image.Image]{
 				Media:   frame,
@@ -290,10 +313,18 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
+// TODO(RSDK-6433): This method can be called more than once during a client's lifecycle.
+// For example, consider a case where a remote camera goes offline and then back online.
+// We will call `Close` on the camera client when we detect the disconnection to remove
+// active streams but then reuse the client when the connection is re-established.
 func (c *client) Close(ctx context.Context) error {
 	c.mu.Lock()
-	c.cancel()
-	c.mu.Unlock()
+	defer c.mu.Unlock()
+
+	if c.healthyClientCh != nil {
+		close(c.healthyClientCh)
+	}
 	c.activeBackgroundWorkers.Wait()
+	c.healthyClientCh = nil
 	return nil
 }

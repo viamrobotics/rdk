@@ -42,6 +42,9 @@ func NewClientFromConn(
 	name resource.Name,
 	logger logging.Logger,
 ) (AudioInput, error) {
+	// TODO(RSDK-6340): This client might still try to create audio streams after this
+	// context is canceled. These subsequent audio streams will not work. To fix this,
+	// use a channel instead of a context like we do in `component/audioinput/client.go`
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	c := pb.NewAudioInputServiceClient(conn)
 	return &client{
