@@ -40,13 +40,13 @@
       return;
     }
   
-    const results = await Promise.all([
+    const result = await Promise.all([
       getProperties($robotClient, name),
       getAccuracy($robotClient, name),
     ]);
   
-    properties = results[0];
-    accuracy = results[1];
+    properties = result[0];
+    accuracy = result[1];
   
     if (!properties) {
       return;
@@ -134,10 +134,10 @@
               <th class="border border-medium p-2"> NMEA Fix Quality </th>
               <td class="border border-medium p-2">
                 {accuracy.positionNmeaGgaFix}
-                {#if accuracy.positionNmeaGgaFix == 1 || accuracy.positionNmeaGgaFix == 2}
+                {#if accuracy.positionNmeaGgaFix === 1 || accuracy.positionNmeaGgaFix === 2}
                   <div>expect 1m-5m accuracy</div>
                 {/if}
-                {#if accuracy.positionNmeaGgaFix == 4 || accuracy.positionNmeaGgaFix == 5}
+                {#if accuracy.positionNmeaGgaFix === 4 || accuracy.positionNmeaGgaFix === 5}
                   <div>expect 2cm-50cm accuracy</div>
                 {/if}
               </td>
