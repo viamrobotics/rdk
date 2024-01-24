@@ -1358,8 +1358,11 @@ func TestMoveOnMapNew(t *testing.T) {
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
 				Destination:   goalInSLAMFrame,
-				SlamName:      slam.Named("test_slam"),
-				Extra:         extra,
+				MotionCfg: &motion.MotionConfiguration{
+					PlanDeviationMM: 1,
+				},
+				SlamName: slam.Named("test_slam"),
+				Extra:    extra,
 			}
 
 			timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
@@ -1391,8 +1394,11 @@ func TestMoveOnMapNew(t *testing.T) {
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
 				Destination:   easyGoalInSLAMFrame,
-				SlamName:      slam.Named("test_slam"),
-				Extra:         extra,
+				MotionCfg: &motion.MotionConfiguration{
+					PlanDeviationMM: 1,
+				},
+				SlamName: slam.Named("test_slam"),
+				Extra:    extra,
 			}
 
 			timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
@@ -1423,8 +1429,11 @@ func TestMoveOnMapNew(t *testing.T) {
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
 				Destination:   goalInSLAMFrame,
-				SlamName:      slam.Named("test_slam"),
-				Extra:         extraPosOnly,
+				MotionCfg: &motion.MotionConfiguration{
+					PlanDeviationMM: 1,
+				},
+				SlamName: slam.Named("test_slam"),
+				Extra:    extraPosOnly,
 			}
 
 			timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
@@ -1467,8 +1476,11 @@ func TestMoveOnMapNew(t *testing.T) {
 		req := motion.MoveOnMapReq{
 			ComponentName: base.Named("test-base"),
 			Destination:   goal1SLAMFrame,
-			SlamName:      slam.Named("test_slam"),
-			Extra:         map[string]interface{}{"smooth_iter": 5},
+			MotionCfg: &motion.MotionConfiguration{
+				PlanDeviationMM: 1,
+			},
+			SlamName: slam.Named("test_slam"),
+			Extra:    map[string]interface{}{"smooth_iter": 5},
 		}
 
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
@@ -1497,8 +1509,11 @@ func TestMoveOnMapNew(t *testing.T) {
 		req = motion.MoveOnMapReq{
 			ComponentName: base.Named("test-base"),
 			Destination:   goal2SLAMFrame,
-			SlamName:      slam.Named("test_slam"),
-			Extra:         map[string]interface{}{"smooth_iter": 5},
+			MotionCfg: &motion.MotionConfiguration{
+				PlanDeviationMM: 1,
+			},
+			SlamName: slam.Named("test_slam"),
+			Extra:    map[string]interface{}{"smooth_iter": 5},
 		}
 		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
 		defer timeoutFn()
@@ -1596,8 +1611,11 @@ func TestMoveOnMapNew(t *testing.T) {
 		req := motion.MoveOnMapReq{
 			ComponentName: base.Named("test-base"),
 			Destination:   easyGoalInSLAMFrame,
-			SlamName:      slam.Named("test_slam"),
-			Extra:         map[string]interface{}{"smooth_iter": 0},
+			MotionCfg: &motion.MotionConfiguration{
+				PlanDeviationMM: 1,
+			},
+			SlamName: slam.Named("test_slam"),
+			Extra:    map[string]interface{}{"smooth_iter": 0},
 		}
 
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
