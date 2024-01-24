@@ -128,12 +128,21 @@ useConnect(() => {
               {altitudeM?.toFixed(2)}
             </td>
           </tr>
+
+          {#if accuracy?.positionNmeaGgaFix}
           <tr>
             <th class="border border-medium p-2"> NMEA Fix Quality </th>
             <td class="border border-medium p-2">
               {accuracy.positionNmeaGgaFix}
+              {#if accuracy.positionNmeaGgaFix == 1 || accuracy.positionNmeaGgaFix == 2}
+                <div>expect 1m-5m accuracy</div>
+              {/if}
+              {#if accuracy.positionNmeaGgaFix == 4 || accuracy.positionNmeaGgaFix == 5}
+                <div>expect 2cm-50cm accuracy</div>
+              {/if}
             </td>
           </tr>
+          {/if}
 
           {#if accuracy?.positionHdop && accuracy?.positionVdop}
             <tr>
