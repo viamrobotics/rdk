@@ -239,9 +239,9 @@ const armModifyAll = () => {
 };
 
 const armCopyPosition = () => {
-  // eslint-disable-next-line unicorn/no-array-reduce
   copyToClipboard(
     JSON.stringify(
+      // eslint-disable-next-line unicorn/no-array-reduce
       posPieces.reduce((acc, cur) => {
         return {
           ...acc,
@@ -253,9 +253,9 @@ const armCopyPosition = () => {
 };
 
 const armCopyJoints = () => {
-  // eslint-disable-next-line unicorn/no-array-reduce
   copyToClipboard(
     JSON.stringify(
+      // eslint-disable-next-line unicorn/no-array-reduce
       jointPieces.reduce((acc, cur) => {
         return {
           ...acc,

@@ -15,8 +15,8 @@
     "preview": "vite preview",
     "_prettier": "prettier \"**/*.{ts,js,cjs,svelte,json,html,md}\"",
     "_eslint": "eslint \"**/*.{ts,js,svelte}\"",
-    "lint": "pnpm run _prettier --check && pnpm run _eslint",
-    "format": "pnpm run _prettier --write && pnpm run _eslint --fix",
+    "lint": "npm run _prettier --check && npm run _eslint",
+    "format": "npm run _prettier --write && npm run _eslint --fix",
     "cypress:ci": "cypress run",
     "cypress": "cypress open",
     "test:unit": "echo \"no tests exist yet\""
