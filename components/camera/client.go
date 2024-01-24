@@ -152,8 +152,9 @@ func (c *client) Stream(
 				return
 			case <-healthyClientCh:
 				if err := stream.Close(ctxWithMIME); err != nil {
-					panic(err)
+					c.logger.Warn("error closing stream", err)
 				}
+				return
 			case frameCh <- gostream.MediaReleasePairWithError[image.Image]{
 				Media:   frame,
 				Release: release,
