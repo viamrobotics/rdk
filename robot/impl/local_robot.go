@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/app/packages/v1"
+	modulepb "go.viam.com/api/module/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -965,6 +966,10 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 
 	discoveries := make([]resource.Discovery, 0, len(deduped))
 	for q := range deduped {
+		if internalDiscovery, isInternal := r.discoverRobotInternals(q); isInternal {
+			discoveries = append(discoveries, resource.Discovery{Query: q, Results: internalDiscovery})
+			continue
+		}
 		reg, ok := resource.LookupRegistration(q.API, q.Model)
 		if !ok || reg.Discover == nil {
 			r.logger.CWarnw(ctx, "no discovery function registered", "api", q.API, "model", q.Model)
@@ -980,6 +985,24 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 		}
 	}
 	return discoveries, nil
+}
+
+// discoverRobotInternals is used to discover parts of the robot that are not in the resource graph
+// It accepts a query and should return the Discovery Results object along with an ok value.
+func (r *localRobot) discoverRobotInternals(query resource.DiscoveryQuery) (interface{}, bool) {
+	switch {
+	// these strings are hardcoded because their existence would be misleading anywhere outside of this function
+	case query.API.String() == "rdk:builtin:module-manager" && query.Model.String() == "rdk:builtin:module-manager":
+		handles := map[string]modulepb.HandlerMap{}
+		for moduleName, handleMap := range r.manager.moduleManager.Handles() {
+			handles[moduleName] = *handleMap.ToProto()
+		}
+		return map[string]interface{}{
+			"resource_handles": handles,
+		}, true
+	default:
+		return nil, false
+	}
 }
 
 func dialRobotClient(

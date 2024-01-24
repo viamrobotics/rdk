@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	modulepb "go.viam.com/api/module/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
@@ -12,6 +13,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	rtestutils "go.viam.com/rdk/testutils"
 )
 
 func setupNewLocalRobot(t *testing.T) robot.LocalRobot {
@@ -37,6 +39,10 @@ var (
 
 	noDiscoverModel = resource.DefaultModelFamily.WithModel("nodiscoverModel")
 	noDiscoverQ     = resource.DiscoveryQuery{failAPI, noDiscoverModel}
+
+	modManagerAPI   = resource.APINamespace("rdk").WithType("builtin").WithSubtype("module-manager")
+	modManagerModel = resource.ModelNamespaceRDK.WithFamily("builtin").WithModel("module-manager")
+	modManagerQ     = resource.NewDiscoveryQuery(modManagerAPI, modManagerModel)
 
 	missingQ = resource.NewDiscoveryQuery(failAPI, resource.DefaultModelFamily.WithModel("missing"))
 
@@ -132,5 +138,65 @@ func TestDiscovery(t *testing.T) {
 		discoveries, err := r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{workingQ, missingQ})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, discoveries, test.ShouldResemble, []resource.Discovery{{Query: workingQ, Results: workingDiscovery}})
+	})
+
+	t.Run("internal module manager Discover", func(t *testing.T) {
+		r := setupNewLocalRobot(t)
+		ctx := context.Background()
+		defer func() {
+			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+		}()
+
+		// test with empty modmanager
+		discoveries, err := r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{modManagerQ})
+		test.That(t, err, test.ShouldBeNil)
+		expectedHandlerMap := map[string]modulepb.HandlerMap{}
+		expectedDiscovery := map[string]interface{}{
+			"resource_handles": expectedHandlerMap,
+		}
+		test.That(t, discoveries, test.ShouldResemble, []resource.Discovery{{Query: modManagerQ, Results: expectedDiscovery}})
+
+		// add modules
+		complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+		test.That(t, err, test.ShouldBeNil)
+		simplePath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+		test.That(t, err, test.ShouldBeNil)
+		cfg := &config.Config{
+			Modules: []config.Module{
+				{
+					Name:    "simple",
+					ExePath: simplePath,
+				},
+				{
+					Name:    "complex",
+					ExePath: complexPath,
+				},
+			},
+		}
+		r.Reconfigure(ctx, cfg)
+
+		// rerun discovery expecting a full tree of resources
+		discoveries, err = r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{modManagerQ})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, discoveries, test.ShouldHaveLength, 1)
+		modManagerDiscovery, ok := discoveries[0].Results.(map[string]interface{})
+		test.That(t, ok, test.ShouldBeTrue)
+		resourceHandles := modManagerDiscovery["resource_handles"].(map[string]modulepb.HandlerMap)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, resourceHandles, test.ShouldHaveLength, 2)
+		//nolint:govet // we copy an internal lock -- it is okay
+		simpleHandles, ok := resourceHandles["simple"]
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, simpleHandles.Handlers, test.ShouldHaveLength, 1)
+		test.That(t, simpleHandles.Handlers[0].Models, test.ShouldResemble, []string{"acme:demo:mycounter"})
+		test.That(t, simpleHandles.Handlers[0].Subtype.Subtype.Namespace, test.ShouldResemble, "rdk")
+		test.That(t, simpleHandles.Handlers[0].Subtype.Subtype.Type, test.ShouldResemble, "component")
+		test.That(t, simpleHandles.Handlers[0].Subtype.Subtype.Subtype, test.ShouldResemble, "generic")
+
+		//nolint:govet // we copy an internal lock -- it is okay
+		complexHandles, ok := resourceHandles["complex"]
+		test.That(t, ok, test.ShouldBeTrue)
+		// this module is changed semi-frequently so I opted for a simpler test
+		test.That(t, len(complexHandles.Handlers), test.ShouldBeGreaterThan, 1)
 	})
 }
