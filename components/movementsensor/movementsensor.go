@@ -74,7 +74,7 @@ type MovementSensor interface {
 	CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) // [0->360)
 	Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error)
 	Properties(ctx context.Context, extra map[string]interface{}) (*Properties, error)
-	Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error)
+	Accuracy(ctx context.Context, extra map[string]interface{}) (*Accuracy, error)
 }
 
 // FromDependencies is a helper for getting the named movementsensor from a collection of

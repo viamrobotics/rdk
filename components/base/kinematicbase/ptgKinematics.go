@@ -43,6 +43,7 @@ type ptgBaseKinematics struct {
 	inputLock    sync.RWMutex
 	currentInput []referenceframe.Input
 	origin       spatialmath.Pose
+	geometries   []spatialmath.Geometry
 }
 
 // wrapWithPTGKinematics takes a Base component and adds a PTG kinematic model so that it can be controlled.
@@ -76,8 +77,9 @@ func wrapWithPTGKinematics(
 	}
 
 	geometries, err := b.Geometries(ctx, nil)
-	if err != nil {
-		return nil, err
+	if len(geometries) == 0 || err != nil {
+		logger.CWarn(ctx, "base %s not configured with a geometry, will be considered a point mass for collision detection purposes.")
+		geometries = []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{}, b.Name().Name)}
 	}
 
 	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
@@ -116,6 +118,7 @@ func wrapWithPTGKinematics(
 		ptgs:         ptgs,
 		currentInput: zeroInput,
 		origin:       origin,
+		geometries:   geometries,
 	}, nil
 }
 
@@ -238,4 +241,8 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan motionplan.P
 	nominalPose = spatialmath.Compose(nominalPose, currPose)
 
 	return spatialmath.PoseBetween(nominalPose, actualPIF), nil
+}
+
+func (ptgk *ptgBaseKinematics) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	return ptgk.geometries, nil
 }

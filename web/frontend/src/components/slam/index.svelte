@@ -3,7 +3,7 @@
 
   import * as THREE from 'three';
   import { onMount } from 'svelte';
-  import { SlamClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
+  import { slamApi, motionApi, SlamClient, MotionClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
   import { SlamMap2D } from '@viamrobotics/prime-blocks';
   import { copyToClipboard } from '@/lib/copy-to-clipboard';
   import { filterSubtype } from '@/lib/resource';
@@ -16,11 +16,15 @@
   import { useRobotClient, useConnect } from '@/hooks/robot-client';
   import type { SLAMOverrides } from '@/types/overrides';
   import { rcLogConditionally } from '@/lib/log';
+import { grpc } from '@improbable-eng/grpc-web';
 
   export let name: string;
   export let overrides: SLAMOverrides | undefined;
 
-  const { robotClient, operations } = useRobotClient();
+  const { robotClient } = useRobotClient();
+  const motionClient = new MotionClient($robotClient, "builtin", {
+    requestLogger: rcLogConditionally,
+  });
   const slamClient = new SlamClient($robotClient, name, {
     requestLogger: rcLogConditionally,
   });
@@ -31,10 +35,11 @@
   let clear2dRefresh: (() => void) | undefined;
 
   let refreshErrorMessage2d: string | undefined;
+  let refreshErrorMessagePaths: string | undefined;
+  let executionID: string | undefined;
   let refresh2dRate = '5';
   let pointcloud: Uint8Array | undefined;
   let pose: Pose | undefined;
-  let lastTimestamp = new Date();
   let show2d = false;
   let showAxes = true;
   let destination: THREE.Vector2 | undefined;
@@ -50,8 +55,7 @@
   let mappingSessionStarted = false;
 
   $: pointcloudLoaded = Boolean(pointcloud?.length) && pose !== undefined;
-  $: moveClicked = $operations.find(({ op }) =>
-    op.method.includes('MoveOnMap'));
+  $: moveClicked = Boolean(executionID);
   $: unitScale = labelUnits === 'm' ? 1 : 1000;
 
   // get all resources which are bases
@@ -70,14 +74,8 @@
     }, 400);
   };
 
-  const localizationMode = (mapTimestamp: Date | undefined) => {
-    if (mapTimestamp === undefined) {
-      return false;
-    }
-    return mapTimestamp === lastTimestamp;
-  };
-
   const refresh2d = async () => {
+    refreshPaths();
     try {
       let nextPose;
       if (overrides?.isCloudSlam && overrides.getMappingSessionPCD) {
@@ -89,12 +87,12 @@
 
         /*
          * The map timestamp is compared to the last timestamp
-         * to see if a change has been made to the pointcloud map.
-         * A new call to getPointCloudMap is made if an update has occured.
+         * to see if a change has been made to the point cloud map.
+         * A new call to getPointCloudMap is made if an update has occurred.
          */
       } else {
-        const mapTimestamp = await slamClient.getLatestMapInfo();
-        if (localizationMode(mapTimestamp)) {
+        const props = await slamClient.getProperties();
+        if (props.mappingMode === slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY && pointcloud !== undefined) {
           const response = await slamClient.getPosition();
           nextPose = response.pose;
         } else {
@@ -104,10 +102,6 @@
             slamClient.getPosition(),
           ]);
           nextPose = response.pose;
-        }
-
-        if (mapTimestamp) {
-          lastTimestamp = mapTimestamp;
         }
       }
 
@@ -130,11 +124,49 @@
     }
   };
 
+  const refreshPaths = async () => {
+    try {
+      refreshErrorMessagePaths = undefined;
+      const res = await motionClient.getPlan({
+        namespace: "rdk",
+        type: "component",
+        subtype: "base",
+        name: bases[0]!.name,
+      }, true)
+      if (res.currentPlanWithStatus?.status?.state === motionApi.PlanState.PLAN_STATE_IN_PROGRESS) {
+        executionID = res.currentPlanWithStatus.plan?.executionId;
+        const paths: string[] = [];
+        for (const { stepMap: [stepMap] } of res.currentPlanWithStatus.plan?.stepsList ?? []) {
+            const { pose: stepPose } = stepMap?.[1] ?? {}
+              if (stepPose) {
+                paths.push(`${stepPose.x},${stepPose.y}`);
+              }
+        }
+        motionPath = paths.join('\n');
+        return;
+      }
+      motionPath = undefined
+      executionID = undefined
+    } catch (error) {
+      if (error !== null && typeof error === 'object' && 'code' in error && 'message' in error) {
+        // This is the error code when the component has not been used in a plan yet.
+        if (error.code !== grpc.Code.Unknown) {
+          refreshErrorMessagePaths = `${refreshErrorMessage} ${(error as { message: string }).message}`;
+        }
+      } else {
+        refreshErrorMessagePaths = `${refreshErrorMessage} ${error as string}`
+      }
+      motionPath = undefined
+      executionID = undefined
+    }
+  }
+
   const updateSLAM2dRefreshFrequency = () => {
     clear2dRefresh?.();
     refresh2d();
 
     refreshErrorMessage2d = undefined;
+    refreshErrorMessagePaths = undefined;
 
     if (refresh2dRate !== 'manual') {
       clear2dRefresh = setAsyncInterval(
@@ -160,7 +192,9 @@
 
   const handle2dRenderClick = (event: CustomEvent<THREE.Vector3>) => {
     if (!overrides?.isCloudSlam) {
-      destination = new THREE.Vector2(event.detail.x, event.detail.y);
+      const roundedX = Number.parseFloat(event.detail.x.toFixed(5))
+      const roundedY = Number.parseFloat(event.detail.y.toFixed(5))
+      destination = new THREE.Vector2(roundedX, roundedY);
     }
   };
 
@@ -209,6 +243,7 @@
         destination!.x,
         destination!.y
       );
+      await refreshPaths();
     } catch (error) {
       notify.danger((error as ServiceError).message);
     }
@@ -216,7 +251,8 @@
 
   const handleStopMoveClick = async () => {
     try {
-      await stopMoveOnMap($robotClient, $operations);
+      await stopMoveOnMap($robotClient, bases[0]!.name);
+      await refreshPaths();
     } catch (error) {
       notify.danger((error as ServiceError).message);
     }
@@ -436,21 +472,21 @@
               </div>
               <div class="flex flex-row items-end gap-2 pb-2">
                 <v-input
-                  type="number"
+                  type="string"
                   label="x"
                   incrementor="slider"
-                  value={destination
-                    ? (destination.x * unitScale).toFixed(5)
+                  value={destination && !Number.isNaN(destination.x)
+                    ? (destination.x * unitScale)
                     : ''}
                   step={labelUnits === 'mm' ? '10' : '1'}
                   on:input={handleUpdateDestX}
                 />
                 <v-input
-                  type="number"
+                  type="string"
                   label="y"
                   incrementor="slider"
-                  value={destination
-                    ? (destination.y * unitScale).toFixed(5)
+                  value={destination && !Number.isNaN(destination.y)
+                    ? (destination.y * unitScale)
                     : ''}
                   step={labelUnits === 'mm' ? '10' : '1'}
                   on:input={handleUpdateDestY}
@@ -518,6 +554,11 @@
       {#if refreshErrorMessage2d && show2d}
         <div class="border-l-4 border-red-500 bg-gray-100 px-4 py-3">
           {refreshErrorMessage2d}
+        </div>
+      {/if}
+      {#if refreshErrorMessagePaths && show2d}
+        <div class="border-l-4 border-red-500 bg-gray-100 px-4 py-3">
+          {refreshErrorMessagePaths}
         </div>
       {/if}
 

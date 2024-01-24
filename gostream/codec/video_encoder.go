@@ -18,6 +18,7 @@ const DefaultKeyFrameInterval = 30
 // An encoder that produces bytes of different encoding formats per call is invalid.
 type VideoEncoder interface {
 	Encode(ctx context.Context, img image.Image) ([]byte, error)
+	Close() error
 }
 
 // A VideoEncoderFactory produces VideoEncoders and provides information about the underlying encoder itself.

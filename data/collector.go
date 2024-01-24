@@ -34,6 +34,7 @@ var sleepCaptureCutoff = 2 * time.Millisecond
 type CaptureFunc func(ctx context.Context, params map[string]*anypb.Any) (interface{}, error)
 
 // FromDMContextKey is used to check whether the context is from data management.
+// Deprecated: use a camera.Extra with camera.NewContext instead.
 type FromDMContextKey struct{}
 
 // FromDMString is used to access the 'fromDataManagement' value from a request's Extra struct.
@@ -327,6 +328,7 @@ func FailedToReadErr(component, method string, err error) error {
 }
 
 // GetExtraFromContext sets the extra struct with "fromDataManagement": true if the flag is true in the context.
+// Deprecated: Use camera.FromContext instead.
 func GetExtraFromContext(ctx context.Context) (*structpb.Struct, error) {
 	extra := make(map[string]interface{})
 	if ctx.Value(FromDMContextKey{}) == true {

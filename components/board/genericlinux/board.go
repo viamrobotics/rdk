@@ -419,11 +419,9 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, boo
 		return nil, false
 	}
 
-	const defaultInterruptType = "basic"
 	defaultInterruptConfig := board.DigitalInterruptConfig{
 		Name: name,
 		Pin:  name,
-		Type: defaultInterruptType,
 	}
 	interrupt, err := b.createDigitalInterrupt(
 		b.cancelCtx, defaultInterruptConfig, b.gpioMappings, nil)

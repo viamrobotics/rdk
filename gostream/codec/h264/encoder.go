@@ -25,6 +25,8 @@ const (
 	pixelFormat = avcodec.AvPixFmtYuv420p
 	// V4l2m2m Is a V4L2 memory-to-memory H.264 hardware encoder.
 	V4l2m2m = "h264_v4l2m2m"
+	// macroBlock is the encoder boundary block size in bytes.
+	macroBlock = 64
 )
 
 type encoder struct {
@@ -66,7 +68,7 @@ func NewEncoder(width, height, keyFrameInterval int, logger golog.Logger) (codec
 	}
 
 	if h.frame = avutil.FrameAlloc(); h.frame == nil {
-		h.context.Close()
+		h.Close() //nolint:errcheck
 		return nil, errors.New("cannot alloc frame")
 	}
 
@@ -96,7 +98,7 @@ func (h *encoder) Encode(ctx context.Context, img image.Image) ([]byte, error) {
 		return nil, errors.Wrap(err, "cannot read image")
 	}
 
-	h.frame.SetFrameFromImg(yuvImg.(*image.YCbCr))
+	h.frame.SetFrameFromImgMacroAlign(yuvImg.(*image.YCbCr), macroBlock)
 	h.frame.SetFramePTS(h.pts)
 	h.pts++
 
@@ -145,4 +147,19 @@ loop:
 	}
 
 	return bytes, nil
+}
+
+// Close closes the encoder. It is safe to call this method multiple times.
+// It is also safe to call this method after a call to Encode.
+func (h *encoder) Close() error {
+	if h.frame != nil {
+		avutil.FrameUnref(h.frame)
+		h.frame = nil
+	}
+	if h.context != nil {
+		h.context.FreeContext()
+		h.context = nil
+	}
+
+	return nil
 }

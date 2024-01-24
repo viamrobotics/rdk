@@ -88,11 +88,6 @@ type AnalogReader interface {
 	Close(ctx context.Context) error
 }
 
-// A PostProcessor takes a raw input and transforms it into a new value.
-// Multiple post processors can be stacked on each other. This is currently
-// only used in DigitalInterrupt readings.
-type PostProcessor func(raw int64) int64
-
 // FromDependencies is a helper for getting the named board from a collection of
 // dependencies.
 func FromDependencies(deps resource.Dependencies, name string) (Board, error) {

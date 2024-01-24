@@ -14,7 +14,7 @@ import (
 
 func TestParseURDFFile(t *testing.T) {
 	// Test a URDF which has prismatic joints
-	u, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/example_gantry.urdf"), "")
+	u, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/example_gantry.xml"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(u.DoF()), test.ShouldEqual, 2)
 

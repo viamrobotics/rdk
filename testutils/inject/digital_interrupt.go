@@ -9,12 +9,11 @@ import (
 // DigitalInterrupt is an injected digital interrupt.
 type DigitalInterrupt struct {
 	board.DigitalInterrupt
-	ValueFunc            func(ctx context.Context, extra map[string]interface{}) (int64, error)
-	valueCap             []interface{}
-	TickFunc             func(ctx context.Context, high bool, nanoseconds uint64) error
-	tickCap              []interface{}
-	AddCallbackFunc      func(c chan board.Tick)
-	AddPostProcessorFunc func(pp board.PostProcessor)
+	ValueFunc       func(ctx context.Context, extra map[string]interface{}) (int64, error)
+	valueCap        []interface{}
+	TickFunc        func(ctx context.Context, high bool, nanoseconds uint64) error
+	tickCap         []interface{}
+	AddCallbackFunc func(c chan board.Tick)
 }
 
 // Value calls the injected Value or the real version.
@@ -60,13 +59,4 @@ func (d *DigitalInterrupt) AddCallback(c chan board.Tick) {
 		return
 	}
 	d.AddCallbackFunc(c)
-}
-
-// AddPostProcessor calls the injected AddPostProcessor or the real version.
-func (d *DigitalInterrupt) AddPostProcessor(pp board.PostProcessor) {
-	if d.AddPostProcessorFunc == nil {
-		d.DigitalInterrupt.AddPostProcessor(pp)
-		return
-	}
-	d.AddPostProcessorFunc(pp)
 }
