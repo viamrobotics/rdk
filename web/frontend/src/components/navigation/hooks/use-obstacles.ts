@@ -26,7 +26,7 @@ export const useObstacles = (name: string) => {
     void updateObstacles();
     const clearInterval = setAsyncInterval(updateObstacles, 1000);
     return () => clearInterval();
-  })
+  });
 
   return { obstacles, error };
 };

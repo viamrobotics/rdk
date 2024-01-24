@@ -16,7 +16,7 @@
     "_prettier": "prettier --ignore-path=.eslintignore \"**/*.{ts,js,cjs,svelte,json,html,md}\"",
     "_eslint": "eslint \"**/*.{ts,js,svelte}\"",
     "lint": "npm run _eslint",
-    "format": "npm run _prettier --write && npm run _eslint --fix",
+    "format": "npm run _prettier -- --write && npm run _eslint --fix",
     "cypress:ci": "cypress run",
     "cypress": "cypress open",
     "test:unit": "echo \"no tests exist yet\""

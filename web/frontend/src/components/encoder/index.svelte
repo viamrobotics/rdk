@@ -1,9 +1,13 @@
 <script lang="ts">
-
 import { encoderApi, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { setAsyncInterval } from '@/lib/schedule';
-import { getProperties, getPosition, getPositionDegrees, reset } from '@/api/encoder';
+import {
+  getProperties,
+  getPosition,
+  getPositionDegrees,
+  reset,
+} from '@/api/encoder';
 import Collapse from '@/lib/components/collapse.svelte';
 import { useRobotClient, useConnect } from '@/hooks/robot-client';
 
@@ -26,7 +30,9 @@ const refresh = async () => {
   try {
     const results = await Promise.all([
       getPosition($robotClient, name),
-      properties?.angleDegreesSupported ? getPositionDegrees($robotClient, name) : undefined,
+      properties?.angleDegreesSupported
+        ? getPositionDegrees($robotClient, name)
+        : undefined,
     ] as const);
 
     positionTicks = results[0];
@@ -56,30 +62,36 @@ const startPolling = async () => {
   } catch (error) {
     displayError(error as ServiceError);
   }
-}
+};
 
 useConnect(() => {
   startPolling();
   return () => cancelInterval?.();
 });
 
-$: showPositionTicks = properties?.ticksCountSupported ?? (!properties?.ticksCountSupported && !properties?.angleDegreesSupported)
-$: showPositionDegrees = properties?.angleDegreesSupported ?? (!properties?.ticksCountSupported && !properties?.angleDegreesSupported)
-
+$: showPositionTicks =
+  properties?.ticksCountSupported ??
+  (!properties?.ticksCountSupported && !properties?.angleDegreesSupported);
+$: showPositionDegrees =
+  properties?.angleDegreesSupported ??
+  (!properties?.ticksCountSupported && !properties?.angleDegreesSupported);
 </script>
 
-<Collapse title={name} on:toggle={handleToggle}>
+<Collapse
+  title={name}
+  on:toggle={handleToggle}
+>
   <v-breadcrumbs
     slot="title"
     crumbs="encoder"
   />
-  <div class="overflow-auto border border-t-0 border-medium p-4 text-left text-sm">
+  <div
+    class="overflow-auto border border-t-0 border-medium p-4 text-left text-sm"
+  >
     <table class="bborder-medium table-auto border">
       {#if showPositionTicks}
         <tr>
-          <th class="border border-medium p-2">
-            Count
-          </th>
+          <th class="border border-medium p-2"> Count </th>
           <td class="border border-medium p-2">
             {positionTicks?.toFixed(2)}
           </td>
@@ -88,9 +100,7 @@ $: showPositionDegrees = properties?.angleDegreesSupported ?? (!properties?.tick
 
       {#if showPositionDegrees}
         <tr>
-          <th class="border border-medium p-2">
-            Angle (degrees)
-          </th>
+          <th class="border border-medium p-2"> Angle (degrees) </th>
           <td class="border border-medium p-2">
             {positionDegrees?.toFixed(2)}
           </td>
