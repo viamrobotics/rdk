@@ -181,11 +181,8 @@ type Service interface {
 	) (bool, error)
 	MoveOnMap(
 		ctx context.Context,
-		componentName resource.Name,
-		destination spatialmath.Pose,
-		slamName resource.Name,
-		extra map[string]interface{},
-	) (bool, error)
+		req MoveOnMapReq,
+	) (ExecutionID, error)
 	MoveOnMapNew(
 		ctx context.Context,
 		req MoveOnMapReq,
