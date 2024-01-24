@@ -12,7 +12,7 @@
     getLinearVelocity,
     getCompassHeading,
     getPosition,
-    getAccuracy,
+    getAccuracy
   } from '@/api/movement-sensor';
   import { useRobotClient, useConnect } from '@/hooks/robot-client';
   
@@ -44,7 +44,7 @@
   
     properties = result[0];
     accuracy = result[1];
-
+  
     properties = await getProperties($robotClient, name);
   
     if (!properties) {
@@ -321,8 +321,8 @@
               </td>
             </tr>
           {/if}
-        </table>
-      </div>
+          </table>
+        </div>
       {/if}
 
       {#if accuracy?.accuracyMap}
