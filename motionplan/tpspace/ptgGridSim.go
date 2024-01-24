@@ -9,8 +9,6 @@ import (
 )
 
 const (
-	defaultMaxTime       = 15.
-	defaultDiffT         = 0.01
 	defaultAlphaCnt uint = 91
 )
 
@@ -20,8 +18,6 @@ type ptgGridSim struct {
 	PTG
 	refDist  float64
 	alphaCnt uint
-
-	diffT float64 // discretize trajectory simulation to this time granularity
 
 	precomputeTraj [][]*TrajNode
 
@@ -39,7 +35,6 @@ func NewPTGGridSim(simPTG PTG, arcs uint, simDist float64, endsOnly bool) (PTGSo
 	ptg := &ptgGridSim{
 		refDist:  simDist,
 		alphaCnt: arcs,
-		diffT:    defaultDiffT,
 		endsOnly: endsOnly,
 	}
 	ptg.PTG = simPTG
@@ -113,7 +108,7 @@ func (ptg *ptgGridSim) MaxDistance() float64 {
 }
 
 func (ptg *ptgGridSim) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
-	return ComputePTG(ptg, alpha, dist, defaultDiffT)
+	return ComputePTG(ptg, alpha, dist, 0)
 }
 
 // DoF returns the DoF of the associated referenceframe.
@@ -130,8 +125,7 @@ func (ptg *ptgGridSim) simulateTrajectories() ([][]*TrajNode, error) {
 
 	for k := uint(0); k < ptg.alphaCnt; k++ {
 		alpha := index2alpha(k, ptg.alphaCnt)
-
-		alphaTraj, err := ComputePTG(ptg, alpha, ptg.refDist, ptg.diffT)
+		alphaTraj, err := ComputePTG(ptg, alpha, ptg.refDist, 0)
 		if err != nil {
 			return nil, err
 		}

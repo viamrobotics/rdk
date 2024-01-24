@@ -12,6 +12,7 @@ import (
 const (
 	floatEpsilon      = 0.0001 // If floats are closer than this consider them equal
 	defaultPTGSeedAdj = 0.2
+	defaultResolution = 5.
 )
 
 var flipPose = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
@@ -37,7 +38,7 @@ type PTGProvider interface {
 // PTG coordinates are specified in polar coordinates (alpha, d)
 // One of these is needed for each sort of motion that can be done.
 type PTG interface {
-	// Velocities returns the linear and angular velocity at a specific point along a trajectory
+	// Velocities returns the linear and angular velocity at a specific point along a trajectory as a [-1, 1] proportion of maximum.
 	Velocities(alpha, dist float64) (float64, float64, error)
 	Transform([]referenceframe.Input) (spatialmath.Pose, error)
 }
@@ -47,11 +48,10 @@ type PTG interface {
 type TrajNode struct {
 	// TODO: cache pose point and orientation so that we don't recompute every time we need it
 	Pose       spatialmath.Pose // for 2d, we only use x, y, and OV theta
-	Time       float64          // elapsed time on trajectory
 	Dist       float64          // distance travelled down trajectory
 	Alpha      float64          // alpha k-value at this node
-	LinVelMMPS float64          // linvel in millimeters per second at this node
-	AngVelRPS  float64          // angvel in radians per second at this node
+	LinVel     float64          // Linear velocity as a proportion of maximum at this node [-1, 1]
+	AngVel     float64          // Angular velocity as a proportion of maximum at this node [-1, 1]
 }
 
 // discretized path to alpha.
@@ -71,61 +71,56 @@ func wrapTo2Pi(theta float64) float64 {
 }
 
 // ComputePTG will compute all nodes of simPTG at the requested alpha, out to the requested distance, at the specified diffT resolution.
-func ComputePTG(simPTG PTG, alpha, dist, diffT float64) ([]*TrajNode, error) {
+func ComputePTG(simPTG PTG, alpha, dist, resolution float64) ([]*TrajNode, error) {
 	if dist < 0 {
-		return computeInvertedPTG(simPTG, alpha, dist, diffT)
+		return computeInvertedPTG(simPTG, alpha, dist, resolution)
+	}
+	if resolution <= 0 {
+		resolution = defaultResolution
 	}
 
 	// Initialize trajectory with an all-zero node
 	alphaTraj := []*TrajNode{{Pose: spatialmath.NewZeroPose()}}
 
 	var err error
-	var t, v, w float64
+	var v, w float64
 	distTravelled := 0.
 
 	// Step through each time point for this alpha
 	for math.Abs(distTravelled) < math.Abs(dist) {
-		t += diffT
-		nextNode, err := computePTGNode(simPTG, alpha, distTravelled, t)
+		nextNode, err := computePTGNode(simPTG, alpha, distTravelled)
 		if err != nil {
 			return nil, err
 		}
-		v = nextNode.LinVelMMPS
-		w = nextNode.AngVelRPS
+		v = nextNode.LinVel
+		w = nextNode.AngVel
 
 		// Update velocities of last node because the computed velocities at this node are what should be set after passing the last node.
 		// Reasoning: if the distance passed in is 0, then we want the first node to return velocity 0. However, if we want a nonzero
 		// distance such that we return two nodes, then the first node, which has zero translation, should set a nonzero velocity so that
 		// the next node, which has a nonzero translation, is arrived at when it ought to be.
-		alphaTraj[len(alphaTraj)-1].LinVelMMPS = v
-		alphaTraj[len(alphaTraj)-1].AngVelRPS = w
+		alphaTraj[len(alphaTraj)-1].LinVel = v
+		alphaTraj[len(alphaTraj)-1].AngVel = w
 
 		alphaTraj = append(alphaTraj, nextNode)
-		displacement := diffT
-		switch {
-		case v != 0:
-			displacement = math.Copysign(math.Abs(v)*diffT, dist)
-		case w != 0:
-			displacement = math.Copysign(math.Abs(w)*diffT, dist)
-		}
-		distTravelled += displacement
+		distTravelled += resolution
 	}
 
 	// Add final node
-	alphaTraj[len(alphaTraj)-1].LinVelMMPS = v
-	alphaTraj[len(alphaTraj)-1].AngVelRPS = w
+	alphaTraj[len(alphaTraj)-1].LinVel = v
+	alphaTraj[len(alphaTraj)-1].AngVel = w
 	pose, err := simPTG.Transform([]referenceframe.Input{{alpha}, {dist}})
 	if err != nil {
 		return nil, err
 	}
-	tNode := &TrajNode{pose, t, dist, alpha, v, w}
+	tNode := &TrajNode{pose, dist, alpha, v, w}
 	alphaTraj = append(alphaTraj, tNode)
 	return alphaTraj, nil
 }
 
 // computePTGNode will return the TrajNode of the requested PTG, at the specified alpha and dist. The provided time is used
 // to fill in the time field.
-func computePTGNode(simPTG PTG, alpha, dist, atT float64) (*TrajNode, error) {
+func computePTGNode(simPTG PTG, alpha, dist float64) (*TrajNode, error) {
 	v, w, err := simPTG.Velocities(alpha, dist)
 	if err != nil {
 		return nil, err
@@ -136,11 +131,11 @@ func computePTGNode(simPTG PTG, alpha, dist, atT float64) (*TrajNode, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &TrajNode{pose, atT, dist, alpha, v, w}, nil
+	return &TrajNode{pose, dist, alpha, v, w}, nil
 }
 
-func computeInvertedPTG(simPTG PTG, alpha, dist, diffT float64) ([]*TrajNode, error) {
-	forwardsPTG, err := ComputePTG(simPTG, alpha, dist*-1, diffT)
+func computeInvertedPTG(simPTG PTG, alpha, dist, resolution float64) ([]*TrajNode, error) {
+	forwardsPTG, err := ComputePTG(simPTG, alpha, dist*-1, resolution)
 	if err != nil {
 		return nil, err
 	}
@@ -155,11 +150,10 @@ func computeInvertedPTG(simPTG PTG, alpha, dist, diffT float64) ([]*TrajNode, er
 		flippedTraj = append(flippedTraj,
 			&TrajNode{
 				flippedPose,
-				startNode.Time - fwdNode.Time,
 				startNode.Dist - fwdNode.Dist,
 				startNode.Alpha,
-				fwdNode.LinVelMMPS,
-				fwdNode.AngVelRPS * -1,
+				fwdNode.LinVel,
+				fwdNode.AngVel * -1,
 			})
 	}
 	return flippedTraj, nil

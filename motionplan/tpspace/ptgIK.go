@@ -15,8 +15,6 @@ import (
 )
 
 const (
-	defaultResolutionSeconds = 0.01 // seconds. Return trajectories updating velocities at this resolution.
-
 	defaultZeroDist = 1e-3 // Sometimes nlopt will minimize trajectories to zero. Ensure min traj dist is at least this
 )
 
@@ -37,7 +35,7 @@ type ptgIK struct {
 // interface, allowing inverse kinematics queries to be run against it.
 func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float64, randSeed, trajCount int) (PTGSolver, error) {
 	if refDistLong <= 0 {
-		return nil, errors.New("refDistLong must be greater than zero")
+		return nil, errors.New("refDistLong must be greater than zero to create a ptgIK")
 	}
 
 	limits := []referenceframe.Limit{}
@@ -144,11 +142,7 @@ func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
 			}
 		}
 		if !exact {
-			time := 0.
-			if len(traj) > 0 {
-				time = traj[len(traj)-1].Time
-			}
-			lastNode, err := computePTGNode(ptg, alpha, dist, time)
+			lastNode, err := computePTGNode(ptg, alpha, dist)
 			if err != nil {
 				return nil, err
 			}
@@ -156,7 +150,7 @@ func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
 		}
 	} else {
 		var err error
-		traj, err = ComputePTG(ptg, alpha, dist, defaultResolutionSeconds)
+		traj, err = ComputePTG(ptg, alpha, dist, 0)
 		if err != nil {
 			return nil, err
 		}

@@ -112,10 +112,11 @@ func TestPlanToPlanStepsAndGeoPoses(t *testing.T) {
 	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		"itsabase",
 		logger,
-		200, 60, 0,
+		200./60.,
 		2,
 		[]spatialmath.Geometry{sphere},
 		false,
+		true,
 	)
 	test.That(t, err, test.ShouldBeNil)
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1000, Y: 8000, Z: 0})

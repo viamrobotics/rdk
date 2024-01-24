@@ -33,15 +33,28 @@ const (
 	distanceAlongTrajectoryIndex
 )
 
+const (
+	inputUpdateStep = 0.1 // seconds
+)
+
 type ptgBaseKinematics struct {
 	base.Base
 	motion.Localizer
 	logger       logging.Logger
 	frame        referenceframe.Frame
 	ptgs         []tpspace.PTGSolver
+	
+	linVelocityMMPerSecond float64
+	angVelocityDegsPerSecond float64
 	inputLock    sync.RWMutex
 	currentInput []referenceframe.Input
 	origin       spatialmath.Pose
+}
+
+type arcStep struct {
+	linVelMMps  r3.Vector
+	angVelDegps r3.Vector
+	timestepSeconds float64
 }
 
 // wrapWithPTGKinematics takes a Base component and adds a PTG kinematic model so that it can be controlled.
@@ -57,37 +70,48 @@ func wrapWithPTGKinematics(
 		return nil, err
 	}
 
-	baseMillimetersPerSecond := options.LinearVelocityMMPerSec
-	if baseMillimetersPerSecond == 0 {
-		baseMillimetersPerSecond = defaultLinearVelocityMMPerSec
+	linVelocityMMPerSecond := options.LinearVelocityMMPerSec
+	if linVelocityMMPerSecond == 0 {
+		linVelocityMMPerSecond = defaultLinearVelocityMMPerSec
 	}
 
+	// Update our angular velocity and our 
 	baseTurningRadiusMeters := properties.TurningRadiusMeters
-
-	logger.CInfof(ctx,
-		"using baseMillimetersPerSecond %f and baseTurningRadius %f for PTG base kinematics",
-		baseMillimetersPerSecond,
-		baseTurningRadiusMeters,
-	)
-
 	if baseTurningRadiusMeters < 0 {
 		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than or equal to zero")
 	}
+	
+	angVelocityDegsPerSecond, err := correctAngularVelocityWithTurnRadius(
+		logger,
+		baseTurningRadiusMeters,
+		linVelocityMMPerSecond,
+		options.AngularVelocityDegsPerSec,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.CInfof(ctx,
+		"using linVelocityMMPerSecond %f, angVelocityDegsPerSecond %f, and baseTurningRadiusMeters %f for PTG base kinematics",
+		linVelocityMMPerSecond,
+		angVelocityDegsPerSecond,
+		baseTurningRadiusMeters,
+	)
 
 	geometries, err := b.Geometries(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
+	nonzeroBaseTurningRadiusMeters := (linVelocityMMPerSecond / rdkutils.DegToRad(angVelocityDegsPerSecond)) / 1000.
 	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		b.Name().ShortName(),
 		logger,
-		baseMillimetersPerSecond,
-		options.AngularVelocityDegsPerSec,
-		baseTurningRadiusMeters,
-		0, // If zero, will use default on the receiver end.
+		nonzeroBaseTurningRadiusMeters,
+		0, // If zero, will use default trajectory count on the receiver end.
 		geometries,
 		options.NoSkidSteer,
+		baseTurningRadiusMeters == 0,
 	)
 	if err != nil {
 		return nil, err
@@ -113,6 +137,8 @@ func wrapWithPTGKinematics(
 		logger:       logger,
 		frame:        frame,
 		ptgs:         ptgs,
+		linVelocityMMPerSecond: linVelocityMMPerSecond,
+		angVelocityDegsPerSecond: angVelocityDegsPerSecond,
 		currentInput: zeroInput,
 		origin:       origin,
 	}, nil
@@ -149,48 +175,48 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		defer cancelFn()
 		return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
 	}
+	arcSteps := ptgk.trajectoryToArcsteps(selectedTraj)
 
-	lastDist := 0.
-	lastTime := 0.
-	lastLinVel := r3.Vector{}
-	lastAngVel := r3.Vector{}
-	for i, trajNode := range selectedTraj {
+	for _, step := range arcSteps {
 		ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
-		ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {lastDist}}
+		ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {0}}
 		ptgk.inputLock.Unlock()
-		lastDist = trajNode.Dist
-		// TODO: Most trajectories update their velocities infrequently, or sometimes never.
-		// This function could be improved by looking ahead through the trajectory and minimizing the amount of SetVelocity calls.
-		timestep := time.Duration((trajNode.Time-lastTime)*1000*1000) * time.Microsecond
-		lastTime = trajNode.Time
-		linVel := r3.Vector{0, trajNode.LinVelMMPS, 0}
-		angVel := r3.Vector{0, 0, rdkutils.RadToDeg(trajNode.AngVelRPS)}
+		
+		timestep := time.Duration(step.timestepSeconds*1000*1000) * time.Microsecond
 
-		// This should call SetVelocity if:
-		// 1) this is the first iteration of the loop, or
-		// 2) either of the linear or angular velocities has changed
-		if i == 0 || !(linVel.ApproxEqual(lastLinVel) && angVel.ApproxEqual(lastAngVel)) {
-			ptgk.logger.CDebugf(ctx,
-				"setting velocity to linear %v angular %v and running velocity step for %s",
-				linVel,
-				angVel,
-				timestep,
-			)
+		ptgk.logger.CDebugf(ctx,
+			"setting velocity to linear %v angular %v and running velocity step for %s",
+			step.linVelMMps,
+			step.angVelDegps,
+			timestep,
+		)
 
-			err := ptgk.Base.SetVelocity(
-				ctx,
-				linVel,
-				angVel,
-				nil,
-			)
-			if err != nil {
-				stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
-				defer cancelFn()
-				return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
-			}
-			lastLinVel = linVel
-			lastAngVel = angVel
+		err := ptgk.Base.SetVelocity(
+			ctx,
+			step.linVelMMps,
+			step.angVelDegps,
+			nil,
+		)
+		
+		if err != nil {
+			stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancelFn()
+			return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
 		}
+		utils.PanicCapturingGo(func() {
+			// We need to update currentInputs as we move through the arc.
+			for timeElapsed := 0.; timeElapsed <= step.timestepSeconds; timeElapsed += inputUpdateStep {
+				distIncVel := step.linVelMMps.Y
+				if distIncVel == 0 {
+					distIncVel = step.angVelDegps.Z
+				}
+				ptgk.inputLock.Lock()
+				ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {math.Abs(distIncVel) * timeElapsed}}
+				ptgk.inputLock.Unlock()
+				utils.SelectContextOrWait(ctx, time.Duration(inputUpdateStep * 1000 * 1000) * time.Microsecond)
+			}
+		})
+		
 		if !utils.SelectContextOrWait(ctx, timestep) {
 			ptgk.logger.CDebug(ctx, ctx.Err().Error())
 			// context cancelled
@@ -243,3 +269,74 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenc
 
 	return spatialmath.PoseBetween(nominalPose, actualPIF), nil
 }
+
+func (ptgk *ptgBaseKinematics) trajectoryToArcsteps(traj []*tpspace.TrajNode) []*arcStep {
+	finalSteps := []*arcStep{}
+	timeStep := 0.
+	curDist := 0.
+	// Trajectory distance is either length in mm, or if linear distance is not increasing, number of degrees to rotate in place.
+	lastLinVel := r3.Vector{0, traj[0].LinVel, 0}
+	lastAngVel := r3.Vector{0, 0, traj[0].AngVel}
+	nextStep := &arcStep{
+		linVelMMps: lastLinVel,
+		angVelDegps: lastAngVel,
+	}
+	for _, trajPt := range traj {
+		nextLinVel := r3.Vector{0, trajPt.LinVel, 0}
+		nextAngVel := r3.Vector{0, 0, trajPt.AngVel}
+		if !nextStep.linVelMMps.ApproxEqual(nextLinVel) || !nextStep.angVelDegps.ApproxEqual(nextAngVel) {
+			nextStep.timestepSeconds = timeStep
+			finalSteps = append(finalSteps, nextStep)
+			nextStep = &arcStep{
+				linVelMMps: nextLinVel,
+				angVelDegps: nextAngVel,
+			}
+			timeStep = 0.
+		}
+		distIncrement := trajPt.Dist - curDist
+		curDist += distIncrement
+		if nextStep.linVelMMps.Y != 0 {
+			timeStep += distIncrement / (math.Abs(nextStep.linVelMMps.Y) * ptgk.linVelocityMMPerSecond)
+		} else {
+			timeStep += distIncrement / (math.Abs(nextStep.angVelDegps.Z) * ptgk.angVelocityDegsPerSecond)
+		}
+	}
+	nextStep.timestepSeconds = timeStep
+	finalSteps = append(finalSteps, nextStep)
+	return finalSteps
+}
+
+func correctAngularVelocityWithTurnRadius(logger logging.Logger, turnRadMeters, velocityMMps, angVelocityDegps float64) (float64, error) {
+	angVelocityRadps := rdkutils.DegToRad(angVelocityDegps)
+	turnRadMillimeters := turnRadMeters * 1000.
+	if angVelocityRadps == 0 {
+		if turnRadMeters == 0 {
+			return -1, errors.New("cannot create ptg frame, turning radius and angular velocity cannot both be zero")
+		}
+		angVelocityRadps = velocityMMps / turnRadMillimeters
+	} else if turnRadMeters > 0 {
+		// Compute smallest allowable turning radius permitted by the given speeds. Use the greater of the two.
+		calcTurnRadius := (velocityMMps / angVelocityRadps) 
+		if calcTurnRadius > turnRadMillimeters {
+			// This is a debug message because the user will never notice the difference; the trajectories executed by the base will be a
+			// subset of the ones that would have been had this conditional not been hit.
+			logger.Debugf(
+				"given turning radius was %f but a linear velocity of %f "+
+					"meters per sec and angular velocity of %f degs per sec only allow a turning radius of %f, using that instead",
+				turnRadMeters, velocityMMps/1000., angVelocityDegps, calcTurnRadius,
+			)
+		} else if calcTurnRadius < turnRadMillimeters {
+			// If max allowed angular velocity would turn tighter than given turn radius, shrink the max used angular velocity
+			// to match the requested tightest turn radius.
+			angVelocityRadps = velocityMMps / turnRadMillimeters
+			// This is a warning message because the user will observe the base turning at a different speed than the one requested.
+			logger.Warnf(
+				"given turning radius was %f but a linear velocity of %f "+
+					"meters per sec and angular velocity of %f degs per sec would turn at a radius of %f. Decreasing angular velocity to %f.",
+				turnRadMeters, velocityMMps/1000., angVelocityDegps, calcTurnRadius, rdkutils.RadToDeg(angVelocityRadps),
+			)
+		}
+	}
+	return rdkutils.RadToDeg(angVelocityRadps), nil
+}
+ 

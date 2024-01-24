@@ -28,7 +28,7 @@ const (
 	// from a single set of inputs.
 
 	// How much the bounding box of random points to sample increases in size with each algorithm iteration.
-	autoBBscale = 0.1
+	autoBBscale = 0.2
 
 	// Add a subnode every this many mm along a valid trajectory. Large values run faster, small gives better paths
 	// Meaningless if the above is false.
@@ -40,7 +40,7 @@ const (
 	defaultIdenticalNodeDistance = 2000.
 
 	// When extending the RRT tree towards some point, do not extend more than this many times in a single RRT invocation.
-	defaultMaxReseeds = 20
+	defaultMaxReseeds = 10
 
 	// Make an attempt to solve the tree every this many iterations
 	// For a unidirectional solve, this means attempting to reach the goal rather than a random point
@@ -306,7 +306,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
 			return
 		}
-
 		utils.PanicCapturingGo(func() {
 			m1chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.startMap, false)
 		})
