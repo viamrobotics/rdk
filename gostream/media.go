@@ -417,6 +417,13 @@ func (ms *mediaStreamFromChannel[T]) Next(ctx context.Context) (T, func(), error
 	defer span.End()
 
 	var zero T
+	if ms.cancelCtx.Err() != nil {
+		return zero, nil, ms.cancelCtx.Err()
+	}
+	if ctx.Err() != nil {
+		return zero, nil, ctx.Err()
+	}
+
 	select {
 	case <-ms.cancelCtx.Done():
 		return zero, nil, ms.cancelCtx.Err()
