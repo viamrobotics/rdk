@@ -5,7 +5,6 @@ package motionplan
 import (
 	"math"
 
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -81,14 +80,6 @@ func fixOvIncrement(goal, seed spatialmath.Pose) spatialmath.Pose {
 	goalOrientation.Theta += adj
 
 	return spatialmath.NewPose(goalPt, goalOrientation)
-}
-
-func stepsToNodes(steps [][]referenceframe.Input) []node {
-	nodes := make([]node, 0, len(steps))
-	for _, step := range steps {
-		nodes = append(nodes, &basicNode{q: step})
-	}
-	return nodes
 }
 
 type resultPromise struct {

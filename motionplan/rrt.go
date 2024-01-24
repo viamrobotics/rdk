@@ -39,7 +39,7 @@ type rrtParallelPlannerShared struct {
 
 type rrtMap map[node]node
 
-// TODO would like to rename this to solution since now plans are more of a defined thing
+// TODO would like to rename this to solution since now plans are more of a defined thing.
 type rrtPlanReturn struct {
 	steps []node
 	err   error
@@ -259,20 +259,6 @@ func sumCosts(path []node) float64 {
 	return cost
 }
 
-func transformNodes(path []node, transformBy spatialmath.Pose) []node {
-	transformedNodes := []node{}
-	for _, n := range path {
-		newNode := &basicNode{
-			q:      n.Q(),
-			cost:   n.Cost(),
-			pose:   spatialmath.Compose(n.Pose(), transformBy),
-			corner: n.Corner(),
-		}
-		transformedNodes = append(transformedNodes, newNode)
-	}
-	return transformedNodes
-}
-
 type rrtPlan struct {
 	traj Trajectory
 	path Path
@@ -298,9 +284,9 @@ func newRRTPlan(solution []node, sf *solverFrame, relative bool) (*rrtPlan, erro
 		}
 	}
 	return &rrtPlan{
-		traj: traj,
-		path:       path,
-		nodes:      solution,
+		traj:  traj,
+		path:  path,
+		nodes: solution,
 	}, nil
 }
 

@@ -508,7 +508,7 @@ func TestClient(t *testing.T) {
 			req := motion.PlanHistoryReq{ComponentName: base.Named("mybase")}
 			resp, err := client.PlanHistory(ctx, req)
 			test.That(t, err, test.ShouldBeNil)
-			planHistoriesEqual(t, resp, expectedResp) 
+			planHistoriesEqual(t, resp, expectedResp)
 		})
 
 		t.Run("supports returning a slice of PlanWithStatus with more than one plan", func(t *testing.T) {

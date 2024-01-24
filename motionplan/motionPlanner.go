@@ -17,7 +17,6 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
-	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -464,7 +463,7 @@ func CheckPlan(
 	worldState *frame.WorldState,
 	fs frame.FrameSystem,
 	currentPosition spatialmath.Pose,
-	currentInputs map[string][]referenceframe.Input,
+	currentInputs map[string][]frame.Input,
 	errorState spatialmath.Pose,
 	lookAheadDistanceMM float64,
 	logger logging.Logger,
@@ -503,7 +502,7 @@ func CheckPlan(
 
 	createSegment := func(
 		currPose, nextPose spatialmath.Pose,
-		currInput, nextInput map[string][]referenceframe.Input,
+		currInput, nextInput map[string][]frame.Input,
 		sf *solverFrame,
 	) (*ik.Segment, error) {
 		startInputSlice, err := sf.mapToSlice(currInput)
@@ -589,9 +588,7 @@ func CheckPlan(
 	if err := checkSegment(segment, totalTravelDistanceMM); err != nil {
 		return err
 	}
-	if err != nil {
-		return err
-	}
+
 	// Update total traveled distance after segment has been checked
 	totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
 

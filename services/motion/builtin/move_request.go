@@ -103,7 +103,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan, waypointIndex *atomic.Int32) (state.ExecuteResponse, error) {
 	waypoints, err := plan.Trajectory().GetFrameInputs(mr.kinematicBase.Name().ShortName())
 	if err != nil {
-		return state.ExecuteResponse{}, nil
+		return state.ExecuteResponse{}, err
 	}
 
 	// Iterate through the list of waypoints and issue a command to move to each

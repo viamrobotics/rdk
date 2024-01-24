@@ -331,24 +331,6 @@ func (sf solverFrame) nodesToTrajectory(nodes []node) Trajectory {
 	return traj
 }
 
-// TODO: is this necessary?
-// trajToNodes takes a trajectory and turns it into a slice of nodes.
-func (sf solverFrame) trajToNodes(traj Trajectory) ([]node, error) {
-	planNodes := make([]node, 0, len(traj))
-	for _, step := range traj {
-		stepConfig, err := sf.mapToSlice(step)
-		if err != nil {
-			return nil, err
-		}
-		pose, err := sf.Transform(stepConfig)
-		if err != nil {
-			return nil, err
-		}
-		planNodes = append(planNodes, &basicNode{q: stepConfig, pose: pose})
-	}
-	return planNodes, nil
-}
-
 // uniqInPlaceSlice will deduplicate the values in a slice using in-place replacement on the slice. This is faster than
 // a solution using append().
 // This function does not remove anything from the input slice, but it does rearrange the elements.

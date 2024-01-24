@@ -7,11 +7,15 @@ import (
 
 	"github.com/golang/geo/r3"
 	pb "go.viam.com/api/service/motion/v1"
+
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
 
+// Plan is an interface that describes plans returned by this package.  There are two key components to a Plan:
+// Its Trajectory contains information pertaining to the commands required to actuate the robot to realize the Plan.
+// Its Path contains information describing the Pose of the robot as it travels the Plan.
 type Plan interface {
 	Trajectory() Trajectory
 	Path() Path
@@ -33,7 +37,7 @@ func RemainingPlan(p Plan, waypointIndex int) (Plan, error) {
 	}, nil
 }
 
-// TODO: this should probably be a method on Path
+// OffsetPlan returns a new Plan that is equivalent to the given Plan if its Path was offset by the given Pose.
 func OffsetPlan(p Plan, offset spatialmath.Pose) (Plan, error) {
 	plan, ok := p.(*rrtPlan)
 	if !ok {
@@ -54,10 +58,9 @@ func OffsetPlan(p Plan, offset spatialmath.Pose) (Plan, error) {
 	}, nil
 }
 
-type geoPlan struct {
-	rrtPlan
-}
-
+// NewGeoPlan returns a Plan containing GPS coordinates smuggled into the Pose struct. Each GPS point is created using:
+// A Point with X as the longitude and Y as the latitude
+// An orientation using the heading as the theta in an OrientationVector with Z=1.
 func NewGeoPlan(p Plan, geoOrigin *spatialmath.GeoPose) (Plan, error) {
 	plan, ok := p.(*rrtPlan)
 	if !ok {
@@ -83,6 +86,8 @@ func NewGeoPlan(p Plan, geoOrigin *spatialmath.GeoPose) (Plan, error) {
 	}, nil
 }
 
+// Trajectory is a slice of maps describing a series of Inputs for a robot to travel to in the course of following a Plan.
+// Each item in this slice maps a Frame to the Inputs that Frame should be modified by.
 type Trajectory []map[string][]referenceframe.Input
 
 // GetFrameInputs is a helper function which will extract the waypoints of a single frame from the map output of a trajectory.
@@ -129,6 +134,7 @@ func (traj Trajectory) EvaluateCost(distFunc ik.SegmentMetric) (totalCost float6
 	return totalCost
 }
 
+// Path is a slice of PathSteps describing a series of Poses for a robot to travel to in the course of following a Plan.
 type Path []PathStep
 
 func newRelativePath(solution []node, sf *solverFrame) (Path, error) {
@@ -168,6 +174,7 @@ func newAbsolutePathFromRelative(path Path) (Path, error) {
 	return newPath, nil
 }
 
+// GetFramePoses returns a slice of poses a given frame should visit in the course of the Path.
 func (path Path) GetFramePoses(frameName string) ([]spatialmath.Pose, error) {
 	poses := []spatialmath.Pose{}
 	for _, step := range path {
@@ -191,9 +198,11 @@ func (path Path) String() string {
 	return str
 }
 
-// TODO: If the frame system ever uses resource names instead of strings this should be adjusted too
+// PathStep is a mapping of Frame names to PoseInFrames.
+// TODO: If the frame system ever uses resource names instead of strings this should be adjusted too.
 type PathStep map[string]*referenceframe.PoseInFrame
 
+// ToProto converts a PathStep to its representation in protobuf.
 func (ps PathStep) ToProto() *pb.PlanStep {
 	step := make(map[string]*pb.ComponentState)
 	for name, pose := range ps {
@@ -203,7 +212,7 @@ func (ps PathStep) ToProto() *pb.PlanStep {
 	return &pb.PlanStep{Step: step}
 }
 
-// pathStepFromProto converts a *pb.PlanStep to a PlanStep.
+// PathStepFromProto converts a *pb.PlanStep to a PlanStep.
 func PathStepFromProto(ps *pb.PlanStep) (PathStep, error) {
 	if ps == nil {
 		return PathStep{}, errors.New("received nil *pb.PlanStep")

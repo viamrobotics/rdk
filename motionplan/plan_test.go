@@ -9,13 +9,14 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/test"
 )
 
 func TestEvaluateTrajectory(t *testing.T) {

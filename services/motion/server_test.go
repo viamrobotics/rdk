@@ -641,7 +641,7 @@ func TestServerGetPlan(t *testing.T) {
 			ID:            planID1,
 			ComponentName: base1,
 			ExecutionID:   executionID,
-			Plan:          &inject.Plan{PathFunc: func() motionplan.Path {
+			Plan: &inject.Plan{PathFunc: func() motionplan.Path {
 				return steps
 			}},
 		}
@@ -650,7 +650,7 @@ func TestServerGetPlan(t *testing.T) {
 			ID:            planID2,
 			ComponentName: base1,
 			ExecutionID:   executionID,
-			Plan:          &inject.Plan{PathFunc: func() motionplan.Path {
+			Plan: &inject.Plan{PathFunc: func() motionplan.Path {
 				return steps
 			}},
 		}
