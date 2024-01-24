@@ -28,7 +28,7 @@ func init() {
 			Constructor: func(ctx context.Context, deps resource.Dependencies,
 				conf resource.Config, logger logging.Logger,
 			) (camera.Camera, error) {
-				newConf, err := resource.NativeConfig[*extrinsicsConfig](conf)
+				newConf, err := parseExtrinsicsConfigFromAttributes(conf.Attributes)
 				if err != nil {
 					return nil, err
 				}
@@ -49,26 +49,6 @@ func init() {
 				}
 				return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
 			},
-			AttributeMapConverter: func(attributes rdkutils.AttributeMap) (*extrinsicsConfig, error) {
-				if !attributes.Has("camera_system") {
-					return nil, errors.New("missing camera_system")
-				}
-
-				b, err := json.Marshal(attributes["camera_system"])
-				if err != nil {
-					return nil, err
-				}
-				matrices, err := transform.NewDepthColorIntrinsicsExtrinsicsFromBytes(b)
-				if err != nil {
-					return nil, err
-				}
-				if err := matrices.CheckValid(); err != nil {
-					return nil, err
-				}
-				attributes["camera_system"] = matrices
-
-				return resource.TransformAttributeMap[*extrinsicsConfig](attributes)
-			},
 		})
 }
 
@@ -81,6 +61,27 @@ type extrinsicsConfig struct {
 	Depth                string                             `json:"depth_camera_name"`
 	Debug                bool                               `json:"debug,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
+}
+
+func parseExtrinsicsConfigFromAttributes(attributes rdkutils.AttributeMap) (*extrinsicsConfig, error) {
+	if !attributes.Has("camera_system") {
+		return nil, errors.New("missing camera_system")
+	}
+
+	b, err := json.Marshal(attributes["camera_system"])
+	if err != nil {
+		return nil, err
+	}
+	matrices, err := transform.NewDepthColorIntrinsicsExtrinsicsFromBytes(b)
+	if err != nil {
+		return nil, err
+	}
+	if err := matrices.CheckValid(); err != nil {
+		return nil, err
+	}
+	attributes["camera_system"] = matrices
+
+	return resource.TransformAttributeMap[*extrinsicsConfig](attributes)
 }
 
 func (cfg *extrinsicsConfig) Validate(path string) ([]string, error) {

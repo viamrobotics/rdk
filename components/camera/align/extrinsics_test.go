@@ -24,8 +24,8 @@ func TestAlignExtrinsics(t *testing.T) {
 	c := conf.FindComponent("extrinsics_cam")
 	test.That(t, c, test.ShouldNotBeNil)
 
-	extConf, ok := c.ConvertedAttributes.(*extrinsicsConfig)
-	test.That(t, ok, test.ShouldBeTrue)
+	extConf, err := parseExtrinsicsConfigFromAttributes(c.Attributes)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, extConf, test.ShouldNotBeNil)
 	img, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs_color.png"))
 	test.That(t, err, test.ShouldBeNil)
