@@ -14,7 +14,8 @@ env:
 
 jobs:
   test_go:
-    name: Go Unit Tests
+    # note: we have automations that match on platform_name. be careful changing this.
+    name: ${{ matrix.platform_name }} Go Unit Tests
     strategy:
       fail-fast: false
       matrix:
