@@ -323,9 +323,9 @@
           {/if}
         </table>
       </div>
-    {/if}
+      {/if}
 
-    {#if accuracy?.accuracyMap}
+      {#if accuracy?.accuracyMap}
       <div class="overflow-auto">
         <h3 class="mb-1">Accuracy Map</h3>
         <table class="w-full border border-t-0 border-medium p-4">
@@ -342,6 +342,6 @@
           {/each}
         </table>
       </div>
-    {/if}
-  </div>
+      {/if}
+    </div>
   </Collapse>
