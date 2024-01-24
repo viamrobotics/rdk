@@ -143,7 +143,7 @@ func (m *EncodedMotor) createControlLoopConfig(p, i, d float64) control.Config {
 				Name: "endpoint",
 				Type: "endpoint",
 				Attribute: rdkutils.AttributeMap{
-					"motor_name": "motor",
+					"motor_name": m.Name().ShortName(),
 				},
 				DependsOn: []string{"gain"},
 			},
