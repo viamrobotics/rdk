@@ -290,23 +290,37 @@ func TestMoveOnMapPlans(t *testing.T) {
 	extra := map[string]interface{}{"smooth_iter": 0}
 	extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 
+	//nolint:dupl
 	t.Run("ensure success of movement around obstacle", func(t *testing.T) {
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
-		executionID, err := ms.MoveOnMap(
-			context.Background(),
-			motion.MoveOnMapReq{
-				ComponentName: base.Named("test-base"),
-				Destination:   goalInSLAMFrame,
-				SlamName:      slam.Named("test_slam"),
-				Extra:         extra,
-			},
-		)
+
+		req := motion.MoveOnMapReq{
+			ComponentName: base.Named("test-base"),
+			Destination:   goalInSLAMFrame,
+			SlamName:      slam.Named("test_slam"),
+			Extra:         extra,
+		}
+
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		defer timeoutFn()
+		executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
+
+		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
+		defer timeoutFn()
+		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
+			ComponentName: req.ComponentName,
+			ExecutionID:   executionID,
+			LastPlanOnly:  true,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
 		endPos, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goalInBaseFrame, 15), test.ShouldBeTrue)
+
+		test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goalInBaseFrame, 15), test.ShouldBeTrue)
 	})
 
 	t.Run("check that straight line path executes", func(t *testing.T) {
@@ -314,19 +328,32 @@ func TestMoveOnMapPlans(t *testing.T) {
 		defer ms.Close(ctx)
 		easyGoalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
 		easyGoalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, easyGoalInBaseFrame)
-		executionID, err := ms.MoveOnMap(
-			context.Background(),
-			motion.MoveOnMapReq{
-				ComponentName: base.Named("test-base"),
-				Destination:   easyGoalInSLAMFrame,
-				SlamName:      slam.Named("test_slam"),
-				Extra:         extra,
-			},
-		)
+
+		req := motion.MoveOnMapReq{
+			ComponentName: base.Named("test-base"),
+			Destination:   easyGoalInSLAMFrame,
+			SlamName:      slam.Named("test_slam"),
+			Extra:         extra,
+		}
+
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		defer timeoutFn()
+		executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
+
+		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
+		defer timeoutFn()
+		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
+			ComponentName: req.ComponentName,
+			ExecutionID:   executionID,
+			LastPlanOnly:  true,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
 		endPos, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
+
 		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), easyGoalInBaseFrame, 10), test.ShouldBeTrue)
 	})
 
@@ -349,20 +376,33 @@ func TestMoveOnMapPlans(t *testing.T) {
 		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 	})
 
+	//nolint:dupl
 	t.Run("check that position-only mode executes", func(t *testing.T) {
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
-		executionID, err := ms.MoveOnMap(
-			context.Background(),
-			motion.MoveOnMapReq{
-				ComponentName: base.Named("test-base"),
-				Destination:   goalInSLAMFrame,
-				SlamName:      slam.Named("test_slam"),
-				Extra:         extraPosOnly,
-			},
-		)
+
+		req := motion.MoveOnMapReq{
+			ComponentName: base.Named("test-base"),
+			Destination:   goalInSLAMFrame,
+			SlamName:      slam.Named("test_slam"),
+			Extra:         extraPosOnly,
+		}
+
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		defer timeoutFn()
+		executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
+
+		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
+		defer timeoutFn()
+		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
+			ComponentName: req.ComponentName,
+			ExecutionID:   executionID,
+			LastPlanOnly:  true,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
 		endPos, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -1410,6 +1450,7 @@ func TestMoveOnMapNew(t *testing.T) {
 		extra := map[string]interface{}{"smooth_iter": 0}
 		extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 
+		//nolint:dupl
 		t.Run("ensure success of movement around obstacle", func(t *testing.T) {
 			kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 			defer ms.Close(ctx)
@@ -1475,6 +1516,7 @@ func TestMoveOnMapNew(t *testing.T) {
 			test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), easyGoalInBaseFrame, 10), test.ShouldBeTrue)
 		})
 
+		//nolint:dupl
 		t.Run("check that position-only mode executes", func(t *testing.T) {
 			kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 			defer ms.Close(ctx)
