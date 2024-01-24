@@ -1248,6 +1248,7 @@ func TestMoveOnMapReq(t *testing.T) {
 		Extra:         map[string]interface{}{},
 	}
 
+	// RSDK-6444
 	//nolint:staticcheck
 	validPbMoveOnMapNewRequest := &pb.MoveOnMapNewRequest{
 		Name:                "bloop",
@@ -1263,6 +1264,7 @@ func TestMoveOnMapReq(t *testing.T) {
 			description string
 			input       MoveOnMapReq
 			name        string
+			// RSDK-6444
 			//nolint:staticcheck
 			result *pb.MoveOnMapNewRequest
 			err    error
@@ -1291,6 +1293,7 @@ func TestMoveOnMapReq(t *testing.T) {
 					SlamName:      mySlam,
 				},
 				name: "bloop",
+				// RSDK-6444
 				//nolint:staticcheck
 				result: &pb.MoveOnMapNewRequest{
 					Name:            "bloop",
@@ -1319,6 +1322,7 @@ func TestMoveOnMapReq(t *testing.T) {
 	t.Run("moveOnMapNewRequestFromProto", func(t *testing.T) {
 		type testCase struct {
 			description string
+			// RSDK-6444
 			//nolint:staticcheck
 			input  *pb.MoveOnMapNewRequest
 			result MoveOnMapReq
@@ -1334,6 +1338,7 @@ func TestMoveOnMapReq(t *testing.T) {
 			},
 			{
 				description: "nil destination causes failure",
+				// RSDK-6444
 				//nolint:staticcheck
 				input:  &pb.MoveOnMapNewRequest{},
 				result: MoveOnMapReq{},
@@ -1341,6 +1346,7 @@ func TestMoveOnMapReq(t *testing.T) {
 			},
 			{
 				description: "nil componentName causes failure",
+				// RSDK-6444
 				//nolint:staticcheck
 				input: &pb.MoveOnMapNewRequest{
 					Destination: spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
@@ -1350,6 +1356,7 @@ func TestMoveOnMapReq(t *testing.T) {
 			},
 			{
 				description: "nil SlamName causes failure",
+				// RSDK-6444
 				//nolint:staticcheck
 				input: &pb.MoveOnMapNewRequest{
 					Destination:   spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
@@ -1366,6 +1373,7 @@ func TestMoveOnMapReq(t *testing.T) {
 			},
 			{
 				description: "success - allow nil motionCfg",
+				// RSDK-6444
 				//nolint:staticcheck
 				input: &pb.MoveOnMapNewRequest{
 					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),

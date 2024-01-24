@@ -290,6 +290,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 	extra := map[string]interface{}{"smooth_iter": 0}
 	extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 
+	// RSDK-6444
 	//nolint:dupl
 	t.Run("ensure success of movement around obstacle", func(t *testing.T) {
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
@@ -376,6 +377,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 	})
 
+	// RSDK-6444
 	//nolint:dupl
 	t.Run("check that position-only mode executes", func(t *testing.T) {
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
@@ -1450,6 +1452,7 @@ func TestMoveOnMapNew(t *testing.T) {
 		extra := map[string]interface{}{"smooth_iter": 0}
 		extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 
+		// RSDK-6444
 		//nolint:dupl
 		t.Run("ensure success of movement around obstacle", func(t *testing.T) {
 			kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
@@ -1516,6 +1519,7 @@ func TestMoveOnMapNew(t *testing.T) {
 			test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), easyGoalInBaseFrame, 10), test.ShouldBeTrue)
 		})
 
+		// RSDK-6444
 		//nolint:dupl
 		t.Run("check that position-only mode executes", func(t *testing.T) {
 			kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)

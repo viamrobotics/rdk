@@ -298,6 +298,8 @@ func getPlanRequestFromProto(req *pb.GetPlanRequest) (PlanHistoryReq, error) {
 	}, nil
 }
 
+// RSDK-6444
+//
 //nolint:staticcheck
 func moveOnMapNewRequestFromProto(req *pb.MoveOnMapNewRequest) (MoveOnMapReq, error) {
 	if req == nil {
@@ -347,6 +349,8 @@ func moveOnMapRequestFromProto(req *pb.MoveOnMapRequest) (MoveOnMapReq, error) {
 	}, nil
 }
 
+// RSDK-6444
+//
 //nolint:staticcheck
 func (r MoveOnMapReq) toProtoNew(name string) (*pb.MoveOnMapNewRequest, error) {
 	ext, err := vprotoutils.StructToStructPb(r.Extra)
@@ -357,6 +361,7 @@ func (r MoveOnMapReq) toProtoNew(name string) (*pb.MoveOnMapNewRequest, error) {
 		return nil, errors.New("must provide a destination")
 	}
 
+	// RSDK-6444
 	//nolint:staticcheck
 	req := &pb.MoveOnMapNewRequest{
 		Name:            name,

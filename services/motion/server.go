@@ -62,6 +62,8 @@ func (server *serviceServer) MoveOnMap(ctx context.Context, req *pb.MoveOnMapReq
 	return &pb.MoveOnMapResponse{ExecutionId: id.String()}, nil
 }
 
+// RSDK-6444
+//
 //nolint:staticcheck
 func (server *serviceServer) MoveOnMapNew(ctx context.Context, req *pb.MoveOnMapNewRequest) (*pb.MoveOnMapNewResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
@@ -78,6 +80,7 @@ func (server *serviceServer) MoveOnMapNew(ctx context.Context, req *pb.MoveOnMap
 		return nil, err
 	}
 
+	// RSDK-6444
 	//nolint:staticcheck
 	return &pb.MoveOnMapNewResponse{ExecutionId: id.String()}, nil
 }

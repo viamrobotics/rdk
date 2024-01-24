@@ -291,6 +291,7 @@ func TestServerMoveOnMapNew(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("returns error without calling MoveOnMapNew if req.Name doesn't map to a resource", func(t *testing.T) {
+		// RSDK-6444
 		//nolint:staticcheck
 		moveOnMapNewRequest := &pb.MoveOnMapNewRequest{
 			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
@@ -303,6 +304,7 @@ func TestServerMoveOnMapNew(t *testing.T) {
 			return uuid.Nil, errors.New("should not be called")
 		}
 
+		// RSDK-6444
 		//nolint:staticcheck
 		moveOnMapNewRespose, err := server.MoveOnMapNew(context.Background(), moveOnMapNewRequest)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -311,6 +313,7 @@ func TestServerMoveOnMapNew(t *testing.T) {
 	})
 
 	t.Run("returns error if destination is nil without calling MoveOnMapNew", func(t *testing.T) {
+		// RSDK-6444
 		//nolint:staticcheck
 		moveOnMapNewRequest := &pb.MoveOnMapNewRequest{
 			Name:            testMotionServiceName.ShortName(),
@@ -324,6 +327,7 @@ func TestServerMoveOnMapNew(t *testing.T) {
 			return uuid.Nil, errors.New("should not be called")
 		}
 
+		// RSDK-6444
 		//nolint:staticcheck
 		moveOnMapNewRespose, err := server.MoveOnMapNew(context.Background(), moveOnMapNewRequest)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -331,6 +335,7 @@ func TestServerMoveOnMapNew(t *testing.T) {
 		test.That(t, moveOnMapNewRespose, test.ShouldBeNil)
 	})
 
+	// RSDK-6444
 	//nolint:staticcheck
 	validMoveOnMapNewRequest := &pb.MoveOnMapNewRequest{
 		Name:            testMotionServiceName.ShortName(),
@@ -345,6 +350,7 @@ func TestServerMoveOnMapNew(t *testing.T) {
 		injectMS.MoveOnMapNewFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
 			return uuid.Nil, notYetImplementedErr
 		}
+		// RSDK-6444
 		//nolint:staticcheck
 		moveOnMapNewRespose, err := server.MoveOnMapNew(context.Background(), validMoveOnMapNewRequest)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -373,6 +379,7 @@ func TestServerMoveOnMapNew(t *testing.T) {
 			},
 		}
 
+		// RSDK-6444
 		//nolint:staticcheck
 		moveOnMapNewRequest := &pb.MoveOnMapNewRequest{
 			Name: testMotionServiceName.ShortName(),
@@ -413,6 +420,7 @@ func TestServerMoveOnMapNew(t *testing.T) {
 			return firstExecutionID, nil
 		}
 
+		// RSDK-6444
 		//nolint:staticcheck
 		moveOnMapNewRespose, err := server.MoveOnMapNew(context.Background(), moveOnMapNewRequest)
 		test.That(t, err, test.ShouldBeNil)

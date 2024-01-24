@@ -97,6 +97,7 @@ func (c *client) MoveOnMapNew(ctx context.Context, req MoveOnMapReq) (ExecutionI
 		return uuid.Nil, err
 	}
 
+	// RSDK-6444
 	//nolint:staticcheck
 	resp, err := c.client.MoveOnMapNew(ctx, protoReq)
 	if err != nil {
