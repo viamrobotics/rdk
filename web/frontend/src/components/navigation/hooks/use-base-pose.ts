@@ -20,10 +20,18 @@ export const useBasePose = (name: string) => {
 
       const { latitude, longitude } = location;
 
-      const position = { lat: latitude, lng: longitude, rotation: compassHeading };
+      const position = {
+        lat: latitude,
+        lng: longitude,
+        rotation: compassHeading,
+      };
       const { lat, lng, rotation } = get(pose) ?? {};
 
-      if (lat === position.lat && lng === position.lng && rotation === position.rotation) {
+      if (
+        lat === position.lat &&
+        lng === position.lng &&
+        rotation === position.rotation
+      ) {
         return;
       }
 
@@ -35,12 +43,11 @@ export const useBasePose = (name: string) => {
     }
   };
 
-
   useConnect(() => {
     updateLocation();
     const clearInterval = setAsyncInterval(updateLocation, 300);
     return () => clearInterval();
-  })
+  });
 
   return { pose, error };
 };

@@ -3,7 +3,13 @@ import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { getPosition } from './slam';
 import { rcLogConditionally } from '@/lib/log';
 
-export const moveOnMap = async (robotClient: Client, name: string, componentName: string, x: number, y: number) => {
+export const moveOnMap = async (
+  robotClient: Client,
+  name: string,
+  componentName: string,
+  x: number,
+  y: number
+) => {
   const request = new motionApi.MoveOnMapRequest();
 
   /*
@@ -47,20 +53,25 @@ export const moveOnMap = async (robotClient: Client, name: string, componentName
     })
   );
 
-  const response = await new Promise<motionApi.MoveOnMapResponse | null>((resolve, reject) => {
-    robotClient.motionService.moveOnMap(request, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
+  const response = await new Promise<motionApi.MoveOnMapResponse | null>(
+    (resolve, reject) => {
+      robotClient.motionService.moveOnMap(request, (error, res) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(res);
+        }
+      });
+    }
+  );
 
   return response?.getSuccess();
 };
 
-export const stopMoveOnMap = async (robotClient: Client, operations: { op: robotApi.Operation.AsObject }[]) => {
+export const stopMoveOnMap = async (
+  robotClient: Client,
+  operations: { op: robotApi.Operation.AsObject }[]
+) => {
   const match = operations.find(({ op }) => op.method.includes('MoveOnMap'));
 
   if (!match) {
@@ -71,15 +82,17 @@ export const stopMoveOnMap = async (robotClient: Client, operations: { op: robot
   req.setId(match.op.id);
   rcLogConditionally(req);
 
-  const response = await new Promise<robotApi.CancelOperationResponse | null>((resolve, reject) => {
-    robotClient.robotService.cancelOperation(req, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
+  const response = await new Promise<robotApi.CancelOperationResponse | null>(
+    (resolve, reject) => {
+      robotClient.robotService.cancelOperation(req, (error, res) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(res);
+        }
+      });
+    }
+  );
 
   return response?.toObject();
 };

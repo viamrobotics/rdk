@@ -1,4 +1,3 @@
-
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import Hashes from 'jshashes';
 import { defineConfig } from 'vite';
@@ -8,9 +7,7 @@ import url from 'node:url';
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 const MD5 = new Hashes.MD5();
 
-export const plugins = [
-  svelte(),
-];
+export const plugins = [svelte()];
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -31,7 +28,9 @@ export default defineConfig({
         entryFileNames: '[name].js',
         chunkFileNames: (chunk) => {
           // @ts-expect-error Fix this
-          const { modules } = (chunk as { modules: Record<string, { code: string }> })
+          const { modules } = chunk as {
+            modules: Record<string, { code: string }>;
+          };
           // eslint-disable-next-line unicorn/no-array-reduce
           const code = Object.keys(modules).reduce(
             (prev, key) => `${prev}${modules[key]!.code}`,
@@ -62,7 +61,10 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), './src'),
+      '@': path.resolve(
+        path.dirname(url.fileURLToPath(import.meta.url)),
+        './src'
+      ),
     },
   },
 });

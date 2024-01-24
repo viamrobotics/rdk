@@ -1,5 +1,4 @@
 <script lang="ts">
-
 import { displayError } from '@/lib/error';
 import { CameraClient, type ServiceError } from '@viamrobotics/sdk';
 import { selectedMap } from '@/lib/camera-state';
@@ -27,9 +26,12 @@ const viewCameraFrame = (time: number) => {
   clearFrameInterval();
   cameraManager.setImageSrc(imgEl);
   if (time > 0) {
-    cameraFrameIntervalId = window.setInterval(() => {
-      cameraManager.setImageSrc(imgEl);
-    }, Number(time) * 1000);
+    cameraFrameIntervalId = window.setInterval(
+      () => {
+        cameraManager.setImageSrc(imgEl);
+      },
+      Number(time) * 1000
+    );
   }
 };
 
@@ -56,7 +58,7 @@ const exportScreenshot = async () => {
 useConnect(() => {
   updateCameraRefreshRate();
   return () => clearFrameInterval();
-})
+});
 
 // Refresh camera when the trigger changes
 let lastTriggerRefresh = triggerRefresh;
@@ -64,7 +66,6 @@ $: if (lastTriggerRefresh !== triggerRefresh) {
   lastTriggerRefresh = triggerRefresh;
   updateCameraRefreshRate();
 }
-
 </script>
 
 <div class="flex flex-col gap-2">
@@ -80,14 +81,17 @@ $: if (lastTriggerRefresh !== triggerRefresh) {
 
   <div class="max-w-screen-md">
     {#if refreshRate === 'Live'}
-      <LiveCamera {cameraName} {cameraManager} />
+      <LiveCamera
+        {cameraName}
+        {cameraManager}
+      />
     {/if}
 
     <img
-      alt='Camera stream'
+      alt="Camera stream"
       bind:this={imgEl}
       class:hidden={refreshRate === 'Live'}
       aria-label={`${cameraName} stream`}
-    >
+    />
   </div>
 </div>

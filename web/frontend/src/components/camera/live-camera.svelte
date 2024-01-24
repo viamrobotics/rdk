@@ -1,9 +1,9 @@
-<script lang='ts'>
+<script lang="ts">
 import { useConnect } from '@/hooks/robot-client';
 import type { CameraManager } from './camera-manager';
 
 export let cameraName: string;
-export let cameraManager: CameraManager
+export let cameraManager: CameraManager;
 
 let videoEl: HTMLVideoElement;
 
@@ -18,9 +18,8 @@ useConnect(() => {
   return () => {
     cameraManager.onOpen = undefined;
     cameraManager.removeStream();
-  }
+  };
 });
-
 </script>
 
 <video

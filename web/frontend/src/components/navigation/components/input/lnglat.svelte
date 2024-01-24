@@ -1,5 +1,4 @@
-<script lang='ts'>
-
+<script lang="ts">
 import { createEventDispatcher } from 'svelte';
 import type { LngLat } from '@/api/navigation';
 
@@ -25,23 +24,22 @@ const handleLat = (event: CustomEvent<{ value: string }>) => {
   }
   dispatch('input', { lng: lng ?? 0, lat: Number.parseFloat(value) });
 };
-
 </script>
 
-<div class='flex gap-1.5 items-end'>
+<div class="flex items-end gap-1.5">
   <v-input
-    type='number'
+    type="number"
     label={label ?? 'Latitude'}
-    placeholder='0'
+    placeholder="0"
     incrementor={readonly ? undefined : 'slider'}
     value={lat}
     on:input={handleLat}
     {readonly}
   />
   <v-input
-    type='number'
+    type="number"
     label={label ? '' : 'Longitude'}
-    placeholder='0'
+    placeholder="0"
     incrementor={readonly ? undefined : 'slider'}
     value={lng}
     on:input={handleLng}
