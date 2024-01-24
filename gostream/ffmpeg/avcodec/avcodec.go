@@ -21,8 +21,15 @@ import (
 	"go.viam.com/rdk/gostream/ffmpeg/avlog"
 )
 
-// AvPixFmtYuv420p the pixel format AV_PIX_FMT_YUV420P
-const AvPixFmtYuv420p = C.AV_PIX_FMT_YUV420P
+const (
+	// AvPixFmtYuv420p the pixel format AV_PIX_FMT_YUV420P
+	AvPixFmtYuv420p = C.AV_PIX_FMT_YUV420P
+	// Target bitrate in bits per second.
+	bitrate = 1_200_000
+	// Target bitrate tolerance factor.
+	// E.g., 2.0 gives 100% deviation from the target bitrate.
+	bitrateDeviation = 2
+)
 
 type (
 	// Codec an AVCodec
@@ -88,7 +95,7 @@ func (ctxt *Context) FreeContext() {
 func (ctxt *Context) SetEncodeParams(width, height int, pxlFmt PixelFormat, hasBFrames bool, gopSize int) {
 	ctxt.width = C.int(width)
 	ctxt.height = C.int(height)
-	ctxt.bit_rate = 2000000
+	ctxt.bit_rate = bitrate
 	ctxt.gop_size = C.int(gopSize)
 	if hasBFrames {
 		ctxt.has_b_frames = 1
@@ -96,6 +103,7 @@ func (ctxt *Context) SetEncodeParams(width, height int, pxlFmt PixelFormat, hasB
 		ctxt.has_b_frames = 0
 	}
 	ctxt.pix_fmt = int32(pxlFmt)
+	ctxt.rc_buffer_size = bitrate * bitrateDeviation
 }
 
 // SetFramerate sets the context's framerate

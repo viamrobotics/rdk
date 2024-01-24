@@ -143,9 +143,13 @@ func assertLogMatches(t *testing.T, actual *bytes.Buffer, expected string) {
 //	2023-10-30T09:12:09.459-0400	INFO	logging/impl_test.go:87	zap Info log
 func TestConsoleOutputFormat(t *testing.T) {
 	// A logger object that will write to the `notStdout` buffer.
-	const inUTC = true
 	notStdout := &bytes.Buffer{}
-	impl := &impl{"impl", NewAtomicLevelAt(DEBUG), inUTC, []Appender{NewWriterAppender(notStdout)}}
+	impl := &impl{
+		name:       "impl",
+		level:      NewAtomicLevelAt(DEBUG),
+		appenders:  []Appender{NewWriterAppender(notStdout)},
+		testHelper: func() {},
+	}
 
 	impl.Info("impl Info log")
 	// Note the use of tabs between the date, level, file location and log line. The
@@ -202,10 +206,14 @@ func TestContextLogging(t *testing.T) {
 	ctxNoDebug := context.Background()
 
 	// A logger object that will write to the `notStdout` buffer.
-	const inUTC = true
 	notStdout := &bytes.Buffer{}
 	// The default log level is error.
-	logger := &impl{"impl", NewAtomicLevelAt(ERROR), inUTC, []Appender{NewWriterAppender(notStdout)}}
+	logger := &impl{
+		name:       "impl",
+		level:      NewAtomicLevelAt(ERROR),
+		appenders:  []Appender{NewWriterAppender(notStdout)},
+		testHelper: func() {},
+	}
 
 	logger.CDebug(ctxNoDebug, "Debug log")
 	test.That(t, notStdout.Len(), test.ShouldEqual, 0)
@@ -269,4 +277,24 @@ func TestContextLogging(t *testing.T) {
 	logger.CErrorw(ctxWithDebug, "Errorw log", "key", "value")
 	assertLogMatches(t, notStdout,
 		`2023-10-30T09:12:09.459Z	ERROR	impl	logging/impl_test.go:200	Errorw log	{"traceKey":"foobar","key":"value"}`)
+}
+
+func TestSublogger(t *testing.T) {
+	// A logger object that will write to the `notStdout` buffer.
+	notStdout := &bytes.Buffer{}
+	logger := &impl{
+		name:       "impl",
+		level:      NewAtomicLevelAt(DEBUG),
+		appenders:  []Appender{NewWriterAppender(notStdout)},
+		testHelper: func() {},
+	}
+
+	logger.Info("info log")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	INFO	impl	logging/impl_test.go:67	info log`)
+
+	subLogger := logger.Sublogger("sub")
+	subLogger.Info("info log")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	INFO	impl.sub	logging/impl_test.go:67	info log`)
 }

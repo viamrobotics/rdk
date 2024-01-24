@@ -765,7 +765,7 @@ func TestUnimplementedFunctionAccuracy(t *testing.T) {
 
 	acc, err := replay.Accuracy(ctx, map[string]interface{}{})
 	test.That(t, err, test.ShouldResemble, movementsensor.ErrMethodUnimplementedAccuracy)
-	test.That(t, acc, test.ShouldResemble, map[string]float32{})
+	test.That(t, acc, test.ShouldBeNil)
 
 	err = replay.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)

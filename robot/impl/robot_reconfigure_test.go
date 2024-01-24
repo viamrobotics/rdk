@@ -3598,7 +3598,7 @@ func TestResourceConstructTimeout(t *testing.T) {
 		return logs.Filter(func(o observer.LoggedEntry) bool {
 			return strings.Contains(
 				o.Entry.Message,
-				"resource build error: resource rdk:component:base/fakewheel timed out after 1ns during reconfigure.")
+				"resource build error: resource rdk:component:base/fakewheel timed out after 1ns during reconfigure")
 		}).Len()
 	}
 
