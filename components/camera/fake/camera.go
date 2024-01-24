@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"time"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -57,11 +58,12 @@ func NewCamera(
 	}
 	resModel, width, height := fakeModel(newConf.Width, newConf.Height)
 	cam := &Camera{
-		Named:  conf.ResourceName().AsNamed(),
-		Model:  resModel,
-		Width:  width,
-		Height: height,
-		logger: logger,
+		Named:    conf.ResourceName().AsNamed(),
+		Model:    resModel,
+		Width:    width,
+		Height:   height,
+		Animated: newConf.Animated,
+		logger:   logger,
 	}
 	src, err := camera.NewVideoSourceFromReader(ctx, cam, resModel, camera.ColorStream)
 	if err != nil {
@@ -72,8 +74,9 @@ func NewCamera(
 
 // Config are the attributes of the fake camera config.
 type Config struct {
-	Width  int `json:"width,omitempty"`
-	Height int `json:"height,omitempty"`
+	Width    int  `json:"width,omitempty"`
+	Height   int  `json:"height,omitempty"`
+	Animated bool `json:"animated,omitempty"`
 }
 
 // Validate checks that the config attributes are valid for a fake camera.
@@ -167,6 +170,7 @@ type Camera struct {
 	Model           *transform.PinholeCameraModel
 	Width           int
 	Height          int
+	Animated        bool
 	cacheImage      *image.RGBA
 	cachePointCloud pointcloud.PointCloud
 	logger          logging.Logger
@@ -183,16 +187,27 @@ func (c *Camera) Read(ctx context.Context) (image.Image, func(), error) {
 
 	totalDist := math.Sqrt(math.Pow(0-width, 2) + math.Pow(0-height, 2))
 
+	tick := time.Now().UnixMilli() / 20
 	var x, y float64
 	for x = 0; x < width; x++ {
 		for y = 0; y < height; y++ {
 			dist := math.Sqrt(math.Pow(0-x, 2) + math.Pow(0-y, 2))
 			dist /= totalDist
 			thisColor := color.RGBA{uint8(255 - (255 * dist)), uint8(255 - (255 * dist)), uint8(0 + (255 * dist)), 255}
-			img.Set(int(x), int(y), thisColor)
+
+			var px, py int
+			if c.Animated {
+				px = int(int64(x)+tick) % int(width)
+				py = int(y)
+			} else {
+				px, py = int(x), int(y)
+			}
+			img.Set(px, py, thisColor)
 		}
 	}
-	c.cacheImage = img
+	if !c.Animated {
+		c.cacheImage = img
+	}
 	return rimage.ConvertImage(img), func() {}, nil
 }
 
