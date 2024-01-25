@@ -279,16 +279,17 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenc
 	return spatialmath.PoseBetween(nominalPose, actualPIF), nil
 }
 
-func (ptgk *ptgBaseKinematics) trajectoryToArcsteps(traj []*tpspace.TrajNode) []*arcStep {
-	finalSteps := []*arcStep{}
+func (ptgk *ptgBaseKinematics) trajectoryToArcsteps(traj []*tpspace.TrajNode) []arcStep {
+	finalSteps := []arcStep{}
 	timeStep := 0.
 	curDist := 0.
 	// Trajectory distance is either length in mm, or if linear distance is not increasing, number of degrees to rotate in place.
-	lastLinVel := r3.Vector{0, traj[0].LinVel, 0}
-	lastAngVel := r3.Vector{0, 0, traj[0].AngVel}
-	nextStep := &arcStep{
-		linVelMMps:  lastLinVel,
-		angVelDegps: lastAngVel,
+	lastLinVel := r3.Vector{0, traj[0].LinVel * ptgk.linVelocityMMPerSecond, 0}
+	lastAngVel := r3.Vector{0, 0, traj[0].AngVel * ptgk.angVelocityDegsPerSecond}
+	nextStep := arcStep{
+		linVelMMps:      lastLinVel,
+		angVelDegps:     lastAngVel,
+		timestepSeconds: 0,
 	}
 	for _, trajPt := range traj {
 		nextLinVel := r3.Vector{0, trajPt.LinVel * ptgk.linVelocityMMPerSecond, 0}
@@ -296,9 +297,10 @@ func (ptgk *ptgBaseKinematics) trajectoryToArcsteps(traj []*tpspace.TrajNode) []
 		if !nextStep.linVelMMps.ApproxEqual(nextLinVel) || !nextStep.angVelDegps.ApproxEqual(nextAngVel) {
 			nextStep.timestepSeconds = timeStep
 			finalSteps = append(finalSteps, nextStep)
-			nextStep = &arcStep{
-				linVelMMps:  nextLinVel,
-				angVelDegps: nextAngVel,
+			nextStep = arcStep{
+				linVelMMps:      nextLinVel,
+				angVelDegps:     nextAngVel,
+				timestepSeconds: 0,
 			}
 			timeStep = 0.
 		}
@@ -306,7 +308,7 @@ func (ptgk *ptgBaseKinematics) trajectoryToArcsteps(traj []*tpspace.TrajNode) []
 		curDist += distIncrement
 		if nextStep.linVelMMps.Y != 0 {
 			timeStep += distIncrement / (math.Abs(nextStep.linVelMMps.Y))
-		} else {
+		} else if nextStep.angVelDegps.Z != 0 {
 			timeStep += distIncrement / (math.Abs(nextStep.angVelDegps.Z))
 		}
 	}

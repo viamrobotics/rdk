@@ -44,6 +44,9 @@ func NewSideSOverturnPTG(turnRadius float64) PTG {
 // Note that this will NOT work as-is for 0-radius turning. Robots capable of turning in place will need to be special-cased
 // because they will have zero linear velocity through their turns, not max.
 func (ptg *ptgSideS) Velocities(alpha, dist float64) (float64, float64, error) {
+	if dist == 0 {
+		return 0, 0, nil
+	}
 	arcLength := math.Abs(alpha) * 0.5 * ptg.turnRadius
 	v := 1.0
 	w := 0.

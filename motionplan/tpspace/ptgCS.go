@@ -32,6 +32,9 @@ func NewCSPTG(turnRadius float64) PTG {
 // Note that this will NOT work as-is for 0-radius turning. Robots capable of turning in place will need to be special-cased
 // because they will have zero linear velocity through their turns, not max.
 func (ptg *ptgCS) Velocities(alpha, dist float64) (float64, float64, error) {
+	if dist == 0 {
+		return 0, 0, nil
+	}
 	if dist < ptg.turnDist(alpha) {
 		return ptg.circle.Velocities(alpha, dist)
 	}

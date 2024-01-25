@@ -80,7 +80,7 @@ func ComputePTG(simPTG PTG, alpha, dist, resolution float64) ([]*TrajNode, error
 	}
 
 	// Initialize trajectory with an all-zero node
-	alphaTraj := []*TrajNode{{Pose: spatialmath.NewZeroPose()}}
+	alphaTraj := []*TrajNode{}
 
 	var err error
 	var v, w float64
@@ -99,22 +99,24 @@ func ComputePTG(simPTG PTG, alpha, dist, resolution float64) ([]*TrajNode, error
 		// Reasoning: if the distance passed in is 0, then we want the first node to return velocity 0. However, if we want a nonzero
 		// distance such that we return two nodes, then the first node, which has zero translation, should set a nonzero velocity so that
 		// the next node, which has a nonzero translation, is arrived at when it ought to be.
-		alphaTraj[len(alphaTraj)-1].LinVel = v
-		alphaTraj[len(alphaTraj)-1].AngVel = w
+		if len(alphaTraj) > 0 {
+			alphaTraj[len(alphaTraj)-1].LinVel = v
+			alphaTraj[len(alphaTraj)-1].AngVel = w
+		}
 
 		alphaTraj = append(alphaTraj, nextNode)
 		distTravelled += resolution
 	}
-
 	// Add final node
-	alphaTraj[len(alphaTraj)-1].LinVel = v
-	alphaTraj[len(alphaTraj)-1].AngVel = w
-	pose, err := simPTG.Transform([]referenceframe.Input{{alpha}, {dist}})
+	lastNode, err := computePTGNode(simPTG, alpha, dist)
 	if err != nil {
 		return nil, err
 	}
-	tNode := &TrajNode{pose, dist, alpha, v, w}
-	alphaTraj = append(alphaTraj, tNode)
+	if len(alphaTraj) > 0 {
+		alphaTraj[len(alphaTraj)-1].LinVel = lastNode.LinVel
+		alphaTraj[len(alphaTraj)-1].AngVel = lastNode.AngVel
+	}
+	alphaTraj = append(alphaTraj, lastNode)
 	return alphaTraj, nil
 }
 
