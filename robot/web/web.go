@@ -23,6 +23,7 @@ import (
 
 	"github.com/Masterminds/sprig"
 	"github.com/NYTimes/gziphandler"
+	"github.com/goccy/go-graphviz"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
@@ -47,8 +48,6 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/web"
-
-	"github.com/goccy/go-graphviz"
 )
 
 // SubtypeName is a constant that identifies the internal web resource subtype string.

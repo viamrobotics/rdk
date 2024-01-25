@@ -119,7 +119,7 @@ func (g *Graph) Clone() *Graph {
 	return g.clone()
 }
 
-// Dot exports the resource graph as a DOT file for vizualization
+// Dot exports the resource graph as a DOT file for vizualization.
 func (g *Graph) Dot() ([]byte, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
