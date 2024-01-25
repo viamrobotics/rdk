@@ -291,8 +291,8 @@ func (ptgk *ptgBaseKinematics) trajectoryToArcsteps(traj []*tpspace.TrajNode) []
 		angVelDegps: lastAngVel,
 	}
 	for _, trajPt := range traj {
-		nextLinVel := r3.Vector{0, trajPt.LinVel, 0}
-		nextAngVel := r3.Vector{0, 0, trajPt.AngVel}
+		nextLinVel := r3.Vector{0, trajPt.LinVel * ptgk.linVelocityMMPerSecond, 0}
+		nextAngVel := r3.Vector{0, 0, trajPt.AngVel * ptgk.angVelocityDegsPerSecond}
 		if !nextStep.linVelMMps.ApproxEqual(nextLinVel) || !nextStep.angVelDegps.ApproxEqual(nextAngVel) {
 			nextStep.timestepSeconds = timeStep
 			finalSteps = append(finalSteps, nextStep)
@@ -305,9 +305,9 @@ func (ptgk *ptgBaseKinematics) trajectoryToArcsteps(traj []*tpspace.TrajNode) []
 		distIncrement := trajPt.Dist - curDist
 		curDist += distIncrement
 		if nextStep.linVelMMps.Y != 0 {
-			timeStep += distIncrement / (math.Abs(nextStep.linVelMMps.Y) * ptgk.linVelocityMMPerSecond)
+			timeStep += distIncrement / (math.Abs(nextStep.linVelMMps.Y))
 		} else {
-			timeStep += distIncrement / (math.Abs(nextStep.angVelDegps.Z) * ptgk.angVelocityDegsPerSecond)
+			timeStep += distIncrement / (math.Abs(nextStep.angVelDegps.Z))
 		}
 	}
 	nextStep.timestepSeconds = timeStep
