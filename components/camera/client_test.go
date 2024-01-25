@@ -551,3 +551,75 @@ func TestClientWithInterceptor(t *testing.T) {
 
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
+
+func TestClientStreamAfterClose(t *testing.T) {
+	// Set up gRPC server
+	logger := logging.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Set up camera that can stream images
+	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
+	injectCamera := &inject.Camera{}
+	injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
+	}
+	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+			return img, func() {}, nil
+		})), nil
+	}
+
+	// Register CameraService API in our gRPC server.
+	resources := map[resource.Name]camera.Camera{
+		camera.Named(testCameraName): injectCamera,
+	}
+	cameraSvc, err := resource.NewAPIResourceCollection(camera.API, resources)
+	test.That(t, err, test.ShouldBeNil)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[camera.Camera](camera.API)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, cameraSvc), test.ShouldBeNil)
+
+	// Start serving requests.
+	go rpcServer.Serve(listener)
+	defer rpcServer.Stop()
+
+	// Make client connection
+	conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	client, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Get a stream
+	stream, err := client.Stream(context.Background())
+	test.That(t, stream, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Read from stream
+	media, _, err := stream.Next(context.Background())
+	test.That(t, media, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Close client and read from stream
+	test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	media, _, err = stream.Next(context.Background())
+	test.That(t, media, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "context canceled")
+
+	// Get a new stream
+	stream, err = client.Stream(context.Background())
+	test.That(t, stream, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Read from the new stream
+	media, _, err = stream.Next(context.Background())
+	test.That(t, media, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Close client and connection
+	test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
+}
