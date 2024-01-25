@@ -176,7 +176,8 @@ type plannerOptions struct {
 
 	Fallback *plannerOptions
 
-	// TODO: comment me
+	// relativeInputs is a flag that is set by the planning algorithm describing if the solutions it generates are
+	// relative as in each step in the solution builds off a previous one, as opposed to being asolute with respect to some reference frame.
 	relativeInputs bool
 }
 

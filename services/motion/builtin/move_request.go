@@ -176,8 +176,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
-			mr.logger.Debug(currentPosition.Pose().Point())
-			mr.logger.Debug(currentPosition.Pose().Orientation().AxisAngles())
 
 			// determine transform of camera to base
 			cameraOrigin := referenceframe.NewPoseInFrame(camName.ShortName(), spatialmath.NewZeroPose())
@@ -185,7 +183,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			if err != nil {
 				// here we make the assumption the base is coincident with the camera
 				mr.logger.Debugf(
-					"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
+					"assuming base named: %s is coincident with the camera named: %s due to err: %v",
 					mr.kinematicBase.Name().ShortName(), camName.ShortName(), err.Error(),
 				)
 				baseToCamera = cameraOrigin
@@ -201,7 +199,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 
 				// put the detection into its position in the world with the base coordinate frame
 				geometry = geometry.Transform(currentPosition.Pose())
-				mr.logger.Debug(geometry.Pose().Point())
 				label := camName.Name + "_transientObstacle_" + strconv.Itoa(i)
 				if geometry.Label() != "" {
 					label += "_" + geometry.Label()
