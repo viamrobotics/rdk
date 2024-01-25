@@ -906,7 +906,12 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 			return
 		}
 		gv := graphviz.New()
-		defer gv.Close()
+		defer func() {
+			closeErr := gv.Close()
+			if closeErr != nil {
+				svc.r.Logger().Warn("failed to close graph visualizer")
+			}
+		}()
 
 		graph, err := graphviz.ParseBytes(dot)
 		if err != nil {
