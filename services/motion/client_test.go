@@ -574,7 +574,8 @@ func TestClient(t *testing.T) {
 }
 
 func planHistoriesEqual(t *testing.T, resp, expectedResp []motion.PlanWithStatus) {
-	test.That(t, len(resp), test.ShouldResemble, len(expectedResp))
+	t.Helper()
+	test.That(t, len(resp), test.ShouldEqual, len(expectedResp))
 	for i := 0; i < len(resp); i++ {
 		test.That(t, resp[i].Plan.ID, test.ShouldResemble, expectedResp[i].Plan.ID)
 		test.That(t, resp[i].Plan.Path(), test.ShouldResemble, expectedResp[i].Plan.Path())
