@@ -124,7 +124,10 @@ func newColorDepthExtrinsics(
 	intrinsicExtrinsic *transform.DepthColorIntrinsicsExtrinsics,
 	logger logging.Logger,
 ) (camera.VideoSource, error) {
-	alignment, err := rdkutils.AssertType[*transform.DepthColorIntrinsicsExtrinsics](intrinsicExtrinsic)
+	if intrinsicExtrinsic == nil {
+		return nil, errors.New("expected *transform.DepthColorIntrinsicsExtrinsics to not be nil, yet it was")
+	}
+	alignment, err := rdkutils.AssertType[transform.DepthColorIntrinsicsExtrinsics](*intrinsicExtrinsic)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +148,7 @@ func newColorDepthExtrinsics(
 		colorName: conf.Color,
 		depth:     gostream.NewEmbeddedVideoStream(depth),
 		depthName: conf.Depth,
-		aligner:   alignment,
+		aligner:   &alignment,
 		projector: conf.CameraParameters,
 		imageType: imgType,
 		height:    conf.CameraParameters.Height,

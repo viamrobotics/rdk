@@ -59,6 +59,11 @@ func TestAlignExtrinsics(t *testing.T) {
 	test.That(t, depthVideoSrc.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, is.Close(context.Background()), test.ShouldBeNil)
 
+	// expect error with nil intrinsics extrinsics
+	_, err = newColorDepthExtrinsics(context.Background(), colorVideoSrc, depthVideoSrc, extConf, nil, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *transform.DepthColorIntrinsicsExtrinsics")
+
 	// set necessary fields to nil, expect errors
 	extConf.CameraParameters = nil
 	_, err = newColorDepthExtrinsics(context.Background(), colorVideoSrc, depthVideoSrc, extConf, intrinsicExtrinsic, logger)
@@ -69,9 +74,4 @@ func TestAlignExtrinsics(t *testing.T) {
 	_, err = newColorDepthExtrinsics(context.Background(), colorVideoSrc, depthVideoSrc, extConf, intrinsicExtrinsic, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "Got illegal dimensions")
-
-	extConf.IntrinsicExtrinsic = nil
-	_, err = newColorDepthExtrinsics(context.Background(), colorVideoSrc, depthVideoSrc, extConf, intrinsicExtrinsic, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *transform.DepthColorIntrinsicsExtrinsics")
 }
