@@ -126,14 +126,13 @@ server-android:
 		-o bin/viam-server-$(BUILD_CHANNEL)-android-aarch64 \
 		./web/cmd/server
 
-server-apk-x86:
-	# x86 APK for emulator testing
+rdk.apk:
+	# APK for emulator testing (in theory multi-arch)
 	# if it can't find NDK, go to android studio splash screen -> 'more actions' dropdown -> sdk manager -> languages + frameworks -> SDK -> SDK tools tab -> check NDK
 	gomobile build -v \
-		-target android/amd64 \
 		-androidapi 29 \
 		-tags no_cgo \
-		-o bin/viam-server.amd64.apk \
+		-o $@ \
 		./web/cmd/server
 
 clean-all:
