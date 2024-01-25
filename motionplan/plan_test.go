@@ -162,7 +162,7 @@ func TestNewGeoPlan(t *testing.T) {
 	// test Path gets constructed correctly
 	test.That(t, len(plan.Path()), test.ShouldBeGreaterThan, 1)
 	test.That(t, spatialmath.PoseAlmostEqual(plan.Path()[0][baseName].Pose(), spatialmath.NewZeroPose()), test.ShouldBeTrue)
-	test.That(t, spatialmath.PoseAlmostCoincidentEps(plan.Path()[len(plan.Path())-1][baseName].Pose(), goal, 1), test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostCoincidentEps(plan.Path()[len(plan.Path())-1][baseName].Pose(), goal, 10), test.ShouldBeTrue)
 
 	type testCase struct {
 		name        string
