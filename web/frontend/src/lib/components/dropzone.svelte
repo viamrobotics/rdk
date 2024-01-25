@@ -1,5 +1,4 @@
-<script lang='ts'>
-
+<script lang="ts">
 /* eslint-disable unicorn/prefer-blob-reading-methods */
 import { createEventDispatcher } from 'svelte';
 
@@ -30,7 +29,6 @@ const handleDrop = (event: DragEvent) => {
     reader.readAsArrayBuffer(file);
   }
 };
-
 </script>
 
 <div

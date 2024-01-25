@@ -1,9 +1,11 @@
-<script lang='ts'>
-
+<script lang="ts">
 import { onDestroy, onMount } from 'svelte';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import { ConnectionClosedError } from '@viamrobotics/rpc';
-import { inputControllerApi as InputController, type ServiceError } from '@viamrobotics/sdk';
+import {
+  inputControllerApi as InputController,
+  type ServiceError,
+} from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import { rcLogConditionally } from '@/lib/log';
 import Collapse from '@/lib/components/collapse.svelte';
@@ -17,7 +19,7 @@ let gamepadIdx: number | null = null;
 let gamepadConnectedPrev = false;
 let enabled = false;
 
-const curStates : Record<string, number> = ({
+const curStates: Record<string, number> = {
   X: Number.NaN,
   Y: Number.NaN,
   RX: Number.NaN,
@@ -37,7 +39,7 @@ const curStates : Record<string, number> = ({
   Select: Number.NaN,
   Start: Number.NaN,
   Menu: Number.NaN,
-});
+};
 
 let handle = -1;
 let prevStates: Record<string, number> = {};
@@ -51,36 +53,45 @@ const sendEvent = (newEvent: InputController.Event) => {
   req.setController(name);
   req.setEvent(newEvent);
   rcLogConditionally(req);
-  $robotClient.inputControllerService.triggerEvent(req, (error: ServiceError | null) => {
-    if (error) {
-      if (ConnectionClosedError.isError(error)) {
-        return;
-      }
-      const now = Date.now();
-      if (now - lastError > 1000) {
-        lastError = now;
-        notify.danger(error.message);
+  $robotClient.inputControllerService.triggerEvent(
+    req,
+    (error: ServiceError | null) => {
+      if (error) {
+        if (ConnectionClosedError.isError(error)) {
+          return;
+        }
+        const now = Date.now();
+        if (now - lastError > 1000) {
+          lastError = now;
+          notify.danger(error.message);
+        }
       }
     }
-  });
+  );
 };
 
 let lastTS = Timestamp.fromDate(new Date());
 const nextTS = () => {
   let nowTS = Timestamp.fromDate(new Date());
-  if (lastTS.getSeconds() > nowTS.getSeconds() ||
-    (lastTS.getSeconds() === nowTS.getSeconds() && lastTS.getNanos() > nowTS.getNanos())) {
+  if (
+    lastTS.getSeconds() > nowTS.getSeconds() ||
+    (lastTS.getSeconds() === nowTS.getSeconds() &&
+      lastTS.getNanos() > nowTS.getNanos())
+  ) {
     nowTS = lastTS;
   }
-  if (nowTS.getSeconds() === lastTS.getSeconds() &&
-    nowTS.getNanos() === lastTS.getNanos()) {
+  if (
+    nowTS.getSeconds() === lastTS.getSeconds() &&
+    nowTS.getNanos() === lastTS.getNanos()
+  ) {
     nowTS.setNanos(nowTS.getNanos() + 1);
   }
   lastTS = nowTS;
   return nowTS;
 };
 
-$: currentGamepad = gamepadIdx === null ? null : navigator.getGamepads()[gamepadIdx];
+$: currentGamepad =
+  gamepadIdx === null ? null : navigator.getGamepads()[gamepadIdx];
 
 const connectEvent = (con: boolean) => {
   const gamepad = currentGamepad;
@@ -100,7 +111,7 @@ const connectEvent = (con: boolean) => {
       newEvent.setEvent(con ? 'Connect' : 'Disconnect');
       newEvent.setValue(0);
 
-      if ((/X|Y|Z$/u).test(ctrl)) {
+      if (/X|Y|Z$/u.test(ctrl)) {
         newEvent.setControl(`Absolute${ctrl}`);
       } else {
         newEvent.setControl(`Button${ctrl}`);
@@ -133,13 +144,16 @@ const processEvents = (connected: boolean) => {
 
   try {
     for (const [key, value] of Object.entries(curStates)) {
-      if (value === prevStates[key] || (Number.isNaN(value) && Number.isNaN(prevStates[key]))) {
+      if (
+        value === prevStates[key] ||
+        (Number.isNaN(value) && Number.isNaN(prevStates[key]))
+      ) {
         continue;
       }
       const newEvent = new InputController.Event();
       nowTS.setNanos(nowTS.getNanos() + 1);
       newEvent.setTime(nowTS);
-      if ((/X|Y|Z$/u).test(key)) {
+      if (/X|Y|Z$/u.test(key)) {
         newEvent.setControl(`Absolute${key}`);
         newEvent.setEvent('PositionChangeAbs');
       } else {
@@ -202,8 +216,14 @@ const tick = () => {
   curStates.RY = trunc(gamepad.axes[3]);
   curStates.Z = trunc(gamepad.buttons[6]?.value);
   curStates.RZ = trunc(gamepad.buttons[7]?.value);
-  curStates.Hat0X = trunc((checkVal(gamepad.buttons[14]?.value) * -1) + checkVal(gamepad.buttons[15]?.value));
-  curStates.Hat0Y = trunc((checkVal(gamepad.buttons[12]?.value) * -1) + checkVal(gamepad.buttons[13]?.value));
+  curStates.Hat0X = trunc(
+    checkVal(gamepad.buttons[14]?.value) * -1 +
+      checkVal(gamepad.buttons[15]?.value)
+  );
+  curStates.Hat0Y = trunc(
+    checkVal(gamepad.buttons[12]?.value) * -1 +
+      checkVal(gamepad.buttons[13]?.value)
+  );
   curStates.South = trunc(gamepad.buttons[0]?.value);
   curStates.East = trunc(gamepad.buttons[1]?.value);
   curStates.West = trunc(gamepad.buttons[2]?.value);
@@ -257,11 +277,10 @@ onDestroy(() => clearTimeout(handle));
 $: {
   connectEvent(enabled);
 }
-
 </script>
 
 <Collapse title={name}>
-  <svelte:fragment slot='title'>
+  <svelte:fragment slot="title">
     <v-breadcrumbs crumbs="input_controller" />
 
     {#if currentGamepad?.connected}
@@ -271,16 +290,22 @@ $: {
 
   <div slot="header">
     {#if currentGamepad?.connected && enabled}
-      <v-badge variant='green' label='Enabled' />
+      <v-badge
+        variant="green"
+        label="Enabled"
+      />
     {:else}
-      <v-badge variant='gray' label='Disabled' />
+      <v-badge
+        variant="gray"
+        label="Disabled"
+      />
     {/if}
   </div>
 
   <div class="h-full w-full border border-t-0 border-medium p-4">
     <div class="flex flex-row">
       <v-switch
-        label='Enable gamepad'
+        label="Enable gamepad"
         value={enabled ? 'on' : 'off'}
         on:input={() => (enabled = !enabled)}
       />
@@ -291,7 +316,7 @@ $: {
         {#each Object.keys(curStates) as stateName, value}
           <div class="ml-0 flex w-[8ex] flex-col text-center">
             <p class="subtitle m-0">{stateName}</p>
-            {value.toFixed((/X|Y|Z$/u).test(stateName.toString()) ? 4 : 0)}
+            {value.toFixed(/X|Y|Z$/u.test(stateName.toString()) ? 4 : 0)}
           </div>
         {/each}
       </div>
@@ -300,9 +325,7 @@ $: {
 </Collapse>
 
 <style>
-
 .subtitle {
   color: var(--black-70);
 }
-
 </style>
