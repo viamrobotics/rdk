@@ -57,7 +57,7 @@ let sessionDuration = 0;
 let durationInterval: number | undefined;
 let newMapName = '';
 let mapNameError = '';
-let motionPath: string | undefined;
+let motionPath: Float32Array | undefined;
 let mappingSessionStarted = false;
 
 $: pointcloudLoaded = Boolean(pointcloud?.length) && pose !== undefined;
@@ -149,16 +149,16 @@ const refreshPaths = async () => {
       motionApi.PlanState.PLAN_STATE_IN_PROGRESS
     ) {
       executionID = res.currentPlanWithStatus.plan?.executionId;
-      const paths: string[] = [];
+      const pathsInMeters: number[] = [];
       for (const {
         stepMap: [stepMap],
       } of res.currentPlanWithStatus.plan?.stepsList ?? []) {
         const { pose: stepPose } = stepMap?.[1] ?? {};
         if (stepPose) {
-          paths.push(`${stepPose.x},${stepPose.y}`);
+          pathsInMeters.push(stepPose.x / 1000, stepPose.y / 1000);
         }
       }
-      motionPath = paths.join('\n');
+      motionPath = new Float32Array(pathsInMeters);
       return;
     }
     motionPath = undefined;
@@ -361,9 +361,21 @@ const handleMapNameChange = (event: CustomEvent<{ value: string }>) => {
   mapNameError = overrides?.validateMapName(newMapName) ?? '';
 };
 
-const handleDrop = (event: CustomEvent<string>) => {
-  motionPath = event.detail;
-};
+const handleDrop = (event: CustomEvent<string>) =>
+  (motionPath = new Float32Array(
+    event.detail.split('\n').flatMap((str) => {
+      const [xStr, yStr] = str.split(',');
+      if (xStr && yStr) {
+        const x = Number.parseFloat(xStr) / 1000;
+        const y = Number.parseFloat(yStr) / 1000;
+        if (!Number.isNaN(x) && !Number.isNaN(y)) {
+          return [x, y];
+        }
+        return [];
+      }
+      return [];
+    })
+  ));
 
 onMount(async () => {
   if (overrides?.isCloudSlam) {
