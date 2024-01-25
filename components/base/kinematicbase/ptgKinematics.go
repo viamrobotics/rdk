@@ -294,7 +294,8 @@ func (ptgk *ptgBaseKinematics) trajectoryToArcsteps(traj []*tpspace.TrajNode) []
 	for _, trajPt := range traj {
 		nextLinVel := r3.Vector{0, trajPt.LinVel * ptgk.linVelocityMMPerSecond, 0}
 		nextAngVel := r3.Vector{0, 0, trajPt.AngVel * ptgk.angVelocityDegsPerSecond}
-		if !nextStep.linVelMMps.ApproxEqual(nextLinVel) || !nextStep.angVelDegps.ApproxEqual(nextAngVel) {
+		if nextStep.linVelMMps.Sub(nextLinVel).Norm2() > 1e-6 || nextStep.angVelDegps.Sub(nextAngVel).Norm2() > 1e-6 {
+			// Changed velocity, make a new step
 			nextStep.timestepSeconds = timeStep
 			finalSteps = append(finalSteps, nextStep)
 			nextStep = arcStep{
