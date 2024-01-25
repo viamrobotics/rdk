@@ -86,11 +86,12 @@ require (
 	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
 	go.viam.com/utils v0.1.59
 	goji.io v2.0.2+incompatible
-	golang.org/x/image v0.12.0
-	golang.org/x/sys v0.13.0
-	golang.org/x/term v0.13.0
+	golang.org/x/image v0.15.0
+	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
+	golang.org/x/sys v0.16.0
+	golang.org/x/term v0.16.0
 	golang.org/x/time v0.3.0
-	golang.org/x/tools v0.10.0
+	golang.org/x/tools v0.17.0
 	gonum.org/v1/gonum v0.12.0
 	gonum.org/v1/plot v0.12.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20230711160842-782d3b101e98
@@ -360,13 +361,14 @@ require (
 	gitlab.com/bosi/decorder v0.2.3 // indirect
 	go.uber.org/goleak v1.2.1 // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 // indirect
-	golang.org/x/crypto v0.14.0 // indirect
+	golang.org/x/crypto v0.18.0 // indirect
+	golang.org/x/exp/shiny v0.0.0-20230817173708-d852ddb80c63 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20230203172020-98cc5a0785f9 // indirect
-	golang.org/x/mod v0.11.0 // indirect
-	golang.org/x/net v0.17.0 // indirect
+	golang.org/x/mod v0.14.0 // indirect
+	golang.org/x/net v0.20.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
-	golang.org/x/sync v0.3.0 // indirect
-	golang.org/x/text v0.13.0 // indirect
+	golang.org/x/sync v0.6.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/api v0.126.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
