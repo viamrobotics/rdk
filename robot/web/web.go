@@ -922,7 +922,10 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 		if err != nil {
 			return
 		}
-		w.Write(buf.Bytes())
+		_, err = w.Write(buf.Bytes())
+		if err != nil {
+			return
+		}
 	})
 
 	prefix := "/viam"
