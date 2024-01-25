@@ -1,1 +1,1 @@
-export type Shapes = 'box' | 'sphere' | 'capsule'
+export type Shapes = 'box' | 'sphere' | 'capsule';

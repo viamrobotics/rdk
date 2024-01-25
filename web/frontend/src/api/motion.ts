@@ -3,7 +3,13 @@ import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { getPosition } from './slam';
 import type { ResourceName } from '@viamrobotics/sdk/dist/gen/common/v1/common_pb';
 
-export const moveOnMap = async (robotClient: Client, name: string, componentName: string, x: number, y: number): Promise<string | undefined> =>  {
+export const moveOnMap = async (
+  robotClient: Client,
+  name: string,
+  componentName: string,
+  x: number,
+  y: number
+): Promise<string | undefined> => {
   const request = new motionApi.MoveOnMapNewRequest();
   /*
    * here we set the name of the motion service the user is using
@@ -41,17 +47,19 @@ export const moveOnMap = async (robotClient: Client, name: string, componentName
     })
   );
 
-  const response = await new Promise<motionApi.MoveOnMapNewResponse | null>((resolve, reject) => {
-    robotClient.motionService.moveOnMapNew(request, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
+  const response = await new Promise<motionApi.MoveOnMapNewResponse | null>(
+    (resolve, reject) => {
+      robotClient.motionService.moveOnMapNew(request, (error, res) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(res);
+        }
+      });
+    }
+  );
 
-  return response?.getExecutionId()
+  return response?.getExecutionId();
 };
 
 const namedBase = (componentName: string): ResourceName => {
@@ -60,10 +68,13 @@ const namedBase = (componentName: string): ResourceName => {
   baseResourceName.setType('component');
   baseResourceName.setSubtype('base');
   baseResourceName.setName(componentName);
-  return baseResourceName
-}
+  return baseResourceName;
+};
 
-export const stopMoveOnMap = async (robotClient: Client, componentName: string) => {
+export const stopMoveOnMap = async (
+  robotClient: Client,
+  componentName: string
+) => {
   const request = new motionApi.StopPlanRequest();
   // TODO: This needs to be the actual name of the motion service
   request.setName('builtin');
@@ -78,4 +89,4 @@ export const stopMoveOnMap = async (robotClient: Client, componentName: string) 
       }
     });
   });
-}
+};
