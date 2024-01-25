@@ -4,7 +4,6 @@ package web
 import (
 	"bytes"
 	"context"
-	"embed"
 	"fmt"
 	"html/template"
 	"image/jpeg"
@@ -64,9 +63,6 @@ var InternalServiceName = resource.NewName(API, "builtin")
 // defaultMethodTimeout is the default context timeout for all inbound gRPC
 // methods used when no deadline is set on the context.
 var defaultMethodTimeout = 10 * time.Minute
-
-//go:embed graph
-var graphStatic embed.FS
 
 // robotWebApp hosts a web server to interact with a robot in addition to hosting
 // a gRPC/REST server.
