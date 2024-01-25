@@ -623,12 +623,6 @@ func (r *localRobot) newResource(
 		}
 	}()
 	resName := conf.ResourceName()
-
-	// create logger to make sure errors can be logged before doing anything
-	resLogger := r.logger.Sublogger(resName.String())
-	resLogger.SetLevel(conf.LogConfiguration.Level)
-	gNode.SetLogger(resLogger)
-
 	resInfo, ok := resource.LookupRegistration(resName.API, conf.Model)
 	if !ok {
 		return nil, errors.Errorf("unknown resource type: API %q with model %q not registered", resName.API, conf.Model)
@@ -650,13 +644,13 @@ func (r *localRobot) newResource(
 	}
 
 	if resInfo.Constructor != nil {
-		return resInfo.Constructor(ctx, deps, conf, resLogger)
+		return resInfo.Constructor(ctx, deps, conf, gNode.Logger())
 	}
 	if resInfo.DeprecatedRobotConstructor == nil {
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
 	r.logger.CWarnw(ctx, "using deprecated robot constructor", "api", resName.API, "model", conf.Model)
-	return resInfo.DeprecatedRobotConstructor(ctx, r, conf, resLogger)
+	return resInfo.DeprecatedRobotConstructor(ctx, r, conf, gNode.Logger())
 }
 
 func (r *localRobot) updateWeakDependents(ctx context.Context) {
