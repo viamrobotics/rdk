@@ -1,11 +1,15 @@
-<script lang='ts'>
-
+<script lang="ts">
 /* eslint-disable require-atomic-updates */
 import { grpc } from '@improbable-eng/grpc-web';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import { onMount, onDestroy, createEventDispatcher } from 'svelte';
 import { type Credentials, ConnectionClosedError } from '@viamrobotics/rpc';
-import { Client, robotApi, commonApi, type ServiceError } from '@viamrobotics/sdk';
+import {
+  Client,
+  robotApi,
+  commonApi,
+  type ServiceError,
+} from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import { StreamManager } from '@/lib/stream-manager';
 import { getOperations, getResourceNames, getSessions } from '@/api/robot';
@@ -17,7 +21,7 @@ import { resourceNameToString, filterSubtype } from '@/lib/resource';
 export let webrtcEnabled: boolean;
 export let host: string;
 export let signalingAddress: string;
-export let bakedAuth: { authEntity?: string; creds?: Credentials; } = {};
+export let bakedAuth: { authEntity?: string; creds?: Credentials } = {};
 export let supportedAuthTypes: string[] = [];
 
 const {
@@ -36,9 +40,8 @@ const {
 } = useRobotClient();
 
 const dispatch = createEventDispatcher<{
-  'connection-error': unknown
+  'connection-error': unknown;
 }>();
-
 
 const relevantSubtypesForStatus = [
   'arm',
@@ -49,8 +52,8 @@ const relevantSubtypesForStatus = [
   'input_controller',
 ] as const;
 
-const apiKeyAuthType = "api-key"
-const urlPort = location.port ? `:${location.port}` : ''
+const apiKeyAuthType = 'api-key';
+const urlPort = location.port ? `:${location.port}` : '';
 const impliedURL = `${location.protocol}//${location.hostname}${urlPort}`;
 
 $robotClient = new Client(impliedURL, {
@@ -77,10 +80,10 @@ $robotClient = new Client(impliedURL, {
   noReconnect: true,
 });
 
-const passwordByAuthType: Record<string, string> = {}
-let apiKeyEntity = "";
+const passwordByAuthType: Record<string, string> = {};
+let apiKeyEntity = '';
 for (const auth of supportedAuthTypes) {
-  passwordByAuthType[auth] = ""
+  passwordByAuthType[auth] = '';
 }
 
 let lastStatusTS: number | null = null;
@@ -100,12 +103,15 @@ const handleError = (message: string, error: unknown, onceKey: string) => {
   }
 
   notify.danger(message);
-  
+
   // eslint-disable-next-line no-console
   console.error(message, { error });
 };
 
-const handleCallErrors = (list: { resources: boolean; ops: boolean }, newErrors: unknown) => {
+const handleCallErrors = (
+  list: { resources: boolean; ops: boolean },
+  newErrors: unknown
+) => {
   const errorsList = document.createElement('ul');
   errorsList.classList.add('list-disc', 'pl-4');
 
@@ -164,7 +170,7 @@ const loadCurrentOps = async () => {
   for (const op of list) {
     ops.push({
       op,
-      elapsed: op.started ? Date.now() - (op.started.seconds * 1000) : -1,
+      elapsed: op.started ? Date.now() - op.started.seconds * 1000 : -1,
     });
   }
 
@@ -235,10 +241,13 @@ const restartStatusStream = () => {
   streamReq.setEvery(new Duration().setNanos(500_000_000));
 
   $statusStream = $robotClient.robotService.streamStatus(streamReq);
-  $statusStream.on('data', (response: { getStatusList(): robotApi.Status[] }) => {
-    updateStatus(response.getStatusList());
-    lastStatusTS = Date.now();
-  });
+  $statusStream.on(
+    'data',
+    (response: { getStatusList(): robotApi.Status[] }) => {
+      updateStatus(response.getStatusList());
+      lastStatusTS = Date.now();
+    }
+  );
   $statusStream.on('status', (newStatus?: { details: unknown }) => {
     if (!ConnectionClosedError.isError(newStatus!.details)) {
       // eslint-disable-next-line no-console
@@ -284,7 +293,9 @@ const queryMetadata = async () => {
       if (
         resource.namespace === 'rdk' &&
         resource.type === 'component' &&
-        relevantSubtypesForStatus.includes(resource.subtype as typeof relevantSubtypesForStatus[number])
+        relevantSubtypesForStatus.includes(
+          resource.subtype as (typeof relevantSubtypesForStatus)[number]
+        )
       ) {
         shouldRestartStatusStream = true;
         break;
@@ -296,10 +307,14 @@ const queryMetadata = async () => {
 
   resourcesOnce = true;
   if (resourcesChanged) {
-    const sensorsName = filterSubtype(resources.current, 'sensors', { remote: false })[0]?.name;
+    const sensorsName = filterSubtype(resources.current, 'sensors', {
+      remote: false,
+    })[0]?.name;
 
-    $sensorNames = sensorsName === undefined ? [] : (await getSensors($robotClient, sensorsName));
-
+    $sensorNames =
+      sensorsName === undefined
+        ? []
+        : await getSensors($robotClient, sensorsName);
   }
 
   if (shouldRestartStatusStream) {
@@ -322,7 +337,7 @@ const isConnected = () => {
     connections.resources &&
     connections.ops &&
     // check status on interval if direct grpc
-    (webrtcEnabled || (Date.now() - lastStatusTS! <= checkIntervalMillis))
+    (webrtcEnabled || Date.now() - lastStatusTS! <= checkIntervalMillis)
   );
 };
 
@@ -426,10 +441,10 @@ const start = () => {
 const connect = async (creds?: Credentials, authEntity?: string) => {
   $connectionStatus = 'connecting';
 
-  await $robotClient.connect({ 
+  await $robotClient.connect({
     authEntity: authEntity ?? bakedAuth.authEntity,
     creds: creds ?? bakedAuth.creds,
-    priority: 1 
+    priority: 1,
   });
 
   $connectionStatus = 'connected';
@@ -437,9 +452,9 @@ const connect = async (creds?: Credentials, authEntity?: string) => {
 };
 
 const login = async (authType: string) => {
-  const creds = { type: authType, payload: passwordByAuthType[authType] ?? ""};
+  const creds = { type: authType, payload: passwordByAuthType[authType] ?? '' };
 
-  const authEntity = authType === apiKeyAuthType ? apiKeyEntity: undefined
+  const authEntity = authType === apiKeyAuthType ? apiKeyEntity : undefined;
   try {
     await connect(creds, authEntity);
   } catch (error) {
@@ -487,59 +502,75 @@ onDestroy(() => {
 if (supportedAuthTypes.length === 0) {
   init();
 }
-let selectedAuthType: string = supportedAuthTypes[0]!
-
+let selectedAuthType: string = supportedAuthTypes[0]!;
 </script>
 
 {#if $connectionStatus === 'connecting'}
-  <slot name='connecting' />
+  <slot name="connecting" />
 {:else if $connectionStatus === 'reconnecting'}
-  <slot name='reconnecting' />
+  <slot name="reconnecting" />
 {/if}
 
 {#if $connectionStatus === 'connected' || $connectionStatus === 'reconnecting'}
   <slot />
-{:else if supportedAuthTypes.length > 0 }
-  <div class="flex bg-[#f7f7f8] min-h-[100vh]">
-  <div class="flex flex-col items-center w-full h-full md:max-w-[400px] md:h-auto bg-white border border-[#d7d7d9] m-auto p-6 pt-10">
-      <img src="https://app.viam.com/static/images/viam-logo.svg" alt="Viam"
-           class="mb-8 h-8" />
-      <div class="flex flex-row w-full mb-8">
-          {#each supportedAuthTypes as authType(authType)}
-              <button
-                class={`flex w-full h-10 items-center justify-center text-default font-medium text-sm disabled ${selectedAuthType===authType ? "bg-[#FBFBFC] border-[#C5C6CC]" : "text-[#4E4F52] bg-[#F1F1F4] border-[#E4E4E6]"} border`}
-                disabled={selectedAuthType===authType} aria-disabled={selectedAuthType===authType}
-                on:click={() => {selectedAuthType = authType;}}>
-                  {authType}
-              </button>
-          {/each}
+{:else if supportedAuthTypes.length > 0}
+  <div class="flex min-h-[100vh] bg-[#f7f7f8]">
+    <div
+      class="m-auto flex h-full w-full flex-col items-center border border-[#d7d7d9] bg-white p-6 pt-10 md:h-auto md:max-w-[400px]"
+    >
+      <img
+        src="https://app.viam.com/static/images/viam-logo.svg"
+        alt="Viam"
+        class="mb-8 h-8"
+      />
+      <div class="mb-8 flex w-full flex-row">
+        {#each supportedAuthTypes as authType (authType)}
+          <button
+            class={`disabled flex h-10 w-full items-center justify-center text-sm font-medium text-default ${
+              selectedAuthType === authType
+                ? 'border-[#C5C6CC] bg-[#FBFBFC]'
+                : 'border-[#E4E4E6] bg-[#F1F1F4] text-[#4E4F52]'
+            } border`}
+            disabled={selectedAuthType === authType}
+            aria-disabled={selectedAuthType === authType}
+            on:click={() => {
+              selectedAuthType = authType;
+            }}
+          >
+            {authType}
+          </button>
+        {/each}
       </div>
       <div class="w-full">
         {#if selectedAuthType === apiKeyAuthType}
-          <label class="block text-xs text-[#4E4F52] leading-3 mb-2">
+          <label class="mb-2 block text-xs leading-3 text-[#4E4F52]">
             api key id
             <input
-                bind:value={apiKeyEntity}
-                disabled={$connectionStatus === 'connecting'}
-                class="border border-[#E4E4E6] text-sm block w-full p-2.5 mt-2"
-                autocomplete="off">
+              bind:value={apiKeyEntity}
+              disabled={$connectionStatus === 'connecting'}
+              class="mt-2 block w-full border border-[#E4E4E6] p-2.5 text-sm"
+              autocomplete="off"
+            />
           </label>
         {/if}
-        <label class="block text-xs text-[#4E4F52] leading-3">
-            {selectedAuthType === apiKeyAuthType ? "api key" : "secret" }
+        <label class="block text-xs leading-3 text-[#4E4F52]">
+          {selectedAuthType === apiKeyAuthType ? 'api key' : 'secret'}
           <input
-             bind:value={passwordByAuthType[selectedAuthType]}
-             disabled={$connectionStatus === 'connecting'}
-             class="border border-[#E4E4E6] text-sm block w-full p-2.5 mt-2"
-             type="password"
-             autocomplete="off"
-             on:keyup={async (event) => event.key === 'Enter' && login(selectedAuthType)}
-          >
+            bind:value={passwordByAuthType[selectedAuthType]}
+            disabled={$connectionStatus === 'connecting'}
+            class="mt-2 block w-full border border-[#E4E4E6] p-2.5 text-sm"
+            type="password"
+            autocomplete="off"
+            on:keyup={async (event) =>
+              event.key === 'Enter' && login(selectedAuthType)}
+          />
         </label>
         <button
           disabled={$connectionStatus === 'connecting'}
-          class="block w-full h-10 p-2 mt-8 mb-2 bg-[#282829] text-sm text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:pointer-events-none"
-          on:click={$connectionStatus === 'connecting' ? undefined : async () => login(selectedAuthType)}
+          class="mb-2 mt-8 block h-10 w-full bg-[#282829] p-2 text-sm text-white disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+          on:click={$connectionStatus === 'connecting'
+            ? undefined
+            : async () => login(selectedAuthType)}
         >
           Log in
         </button>

@@ -25,8 +25,8 @@ export const usePaths = (name: string) => {
   useConnect(() => {
     void updatePaths();
     const clearInterval = setAsyncInterval(updatePaths, 1000);
-    return () => clearInterval()
-  })
+    return () => clearInterval();
+  });
 
   return { paths, error };
 };
