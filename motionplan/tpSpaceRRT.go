@@ -23,7 +23,7 @@ import (
 
 const (
 	// Automatic bounding box on driveable area as a multiple of start-goal distance.
-	defaultAutoBB = 1.5
+	defaultAutoBB = 0.8
 	// Note: while fully holonomic planners can use the limits of the frame as implicit boundaries, with non-holonomic motion
 	// this is not the case, and the total workspace available to the planned frame is not directly related to the motion available
 	// from a single set of inputs.
@@ -41,7 +41,7 @@ const (
 	defaultIdenticalNodeDistance = 2000.
 
 	// When extending the RRT tree towards some point, do not extend more than this many times in a single RRT invocation.
-	defaultMaxReseeds = 10
+	defaultMaxReseeds = 20
 
 	// Make an attempt to solve the tree every this many iterations
 	// For a unidirectional solve, this means attempting to reach the goal rather than a random point
