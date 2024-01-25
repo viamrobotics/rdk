@@ -81,7 +81,7 @@ func (c *client) Stream(
 	// terminate.
 	//
 	// When a connection becomes unhealthy, the resource manager will call `Close` on the
-	// camera client object. Closing the client will:
+	// audioinput client object. Closing the client will:
 	// 1. close its `client.healthyClientCh` channel
 	// 2. wait for existing "stream" goroutines to drain
 	// 3. nil out the `client.healthyClientCh` member variable
@@ -212,6 +212,11 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
+// TODO(RSDK-6433): This method can be called more than once during a client's lifecycle.
+// For example, consider a case where a remote audioinput goes offline and then back
+// online. We will call `Close` on the audioinput client when we detect the disconnection
+// to remove active streams but then reuse the client when the connection is
+// re-established.
 func (c *client) Close(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()

@@ -141,7 +141,7 @@ func TestClientStreamAfterClose(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	// Set up camera that can stream images
+	// Set up audioinput that can stream audio
 
 	audioData := &wave.Float32Interleaved{
 		Data: []float32{
