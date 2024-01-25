@@ -2,7 +2,6 @@ package resource
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -120,36 +119,28 @@ func (g *Graph) Clone() *Graph {
 	return g.clone()
 }
 
-// Export the resource graph as a DOT file for vizualization
-func (g *Graph) Export() error {
+// Dot exports the resource graph as a DOT file for vizualization
+func (g *Graph) Dot() ([]byte, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	// create file
-	file, err := os.Create("graph.dot")
-	if err != nil {
-		return err
-	}
-	defer file.Close()
+	sb := strings.Builder{}
 
-	// Write the graph to a file
-	_, err = file.WriteString("digraph {\n")
+	_, err := sb.WriteString("digraph {\n")
 	if err != nil {
-		return err
+		return nil, err
 	}
-	// _, err = file.WriteString("\tgraph [rankdir=LR ranksep=2]\n")
-	// _, err = file.WriteString("\tgraph [rankdir=LR ranksep=1 ratio=\"compress\" size=\"9,9\"]\n")
-	_, err = file.WriteString("\tgraph [ratio=\"compress\" size=\"15,15\"]\n")
+	_, err = sb.WriteString("\tgraph [ratio=\"compress\" size=\"15,15\"]\n")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for node := range g.nodes {
 		fmt.Println("Writing node ", node.Name)
 		line := fmt.Sprintf("\t%s;\n", node.Name)
-		_, err = file.WriteString(line)
+		_, err = sb.WriteString(line)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -157,17 +148,17 @@ func (g *Graph) Export() error {
 		for child := range children {
 			fmt.Println("Writing node ", node.Name, " and child ", child.Name)
 			line := fmt.Sprintf("\t%s -> %s;\n", child.Name, node.Name)
-			_, err = file.WriteString(line)
+			_, err = sb.WriteString(line)
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
-	_, err = file.WriteString("}\n")
+	_, err = sb.WriteString("}\n")
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return []byte(sb.String()), nil
 }
 
 func (g *Graph) clone() *Graph {

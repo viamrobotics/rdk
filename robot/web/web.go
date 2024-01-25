@@ -3,6 +3,7 @@ package web
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"html/template"
 	"io"
@@ -59,6 +60,9 @@ var InternalServiceName = resource.NewName(API, "builtin")
 // defaultMethodTimeout is the default context timeout for all inbound gRPC
 // methods used when no deadline is set on the context.
 var defaultMethodTimeout = 10 * time.Minute
+
+//go:embed graph
+var graphStatic embed.FS
 
 // robotWebApp hosts a web server to interact with a robot in addition to hosting
 // a gRPC/REST server.
@@ -890,6 +894,19 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 		mux.HandleFunc(pat.New("/debug/pprof/symbol"), pprof.Symbol)
 		mux.HandleFunc(pat.New("/debug/pprof/trace"), pprof.Trace)
 	}
+
+	// serve resource graph visualization
+	mux.HandleFunc(pat.New("/debug/graph"), func(w http.ResponseWriter, r *http.Request) {
+		localRobot, isLocal := svc.r.(robot.LocalRobot)
+		if !isLocal {
+			return
+		}
+		dot, err := localRobot.Dot()
+		if err != nil {
+			return
+		}
+		w.Write(dot)
+	})
 
 	prefix := "/viam"
 	addPrefix := func(h http.Handler) http.Handler {

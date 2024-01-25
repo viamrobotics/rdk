@@ -67,6 +67,10 @@ type localRobot struct {
 	frameSvc framesystem.Service
 }
 
+func (r *localRobot) Dot() ([]byte, error) {
+	return r.manager.Dot()
+}
+
 // RemoteByName returns a remote robot by name. If it does not exist
 // nil is returned.
 func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {

@@ -88,6 +88,10 @@ func fromRemoteNameToRemoteNodeName(name string) resource.Name {
 	return resource.NewName(client.RemoteAPI, name)
 }
 
+func (manager *resourceManager) Dot() ([]byte, error) {
+	return manager.resources.Dot()
+}
+
 func (manager *resourceManager) startModuleManager(
 	ctx context.Context,
 	parentAddr string,
@@ -646,11 +650,6 @@ func (manager *resourceManager) completeConfig(
 		case <-ctx.Done():
 			return
 		}
-	}
-
-	robot.logger.Debug("Here I go exporting graphs again")
-	if err := manager.resources.Export(); err != nil {
-		robot.logger.Warn("Failed to generate graph!")
 	}
 }
 
