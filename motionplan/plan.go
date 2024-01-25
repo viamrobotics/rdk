@@ -140,10 +140,10 @@ type Path []PathStep
 func newRelativePath(solution []node, sf *solverFrame) (Path, error) {
 	path := make(Path, 0, len(solution))
 	for _, step := range solution {
-		stepMap := sf.sliceToMap(step.Q())
-		step := make(map[string]*referenceframe.PoseInFrame)
-		for frame := range stepMap {
-			tf, err := sf.fss.Transform(stepMap, referenceframe.NewPoseInFrame(frame, spatialmath.NewZeroPose()), referenceframe.World)
+		inputMap := sf.sliceToMap(step.Q())
+		poseMap := make(map[string]*referenceframe.PoseInFrame)
+		for frame := range inputMap {
+			tf, err := sf.fss.Transform(inputMap, referenceframe.NewPoseInFrame(frame, spatialmath.NewZeroPose()), referenceframe.World)
 			if err != nil {
 				return nil, err
 			}
@@ -151,9 +151,9 @@ func newRelativePath(solution []node, sf *solverFrame) (Path, error) {
 			if !ok {
 				return nil, errors.New("pose not transformable")
 			}
-			step[frame] = pose
+			poseMap[frame] = pose
 		}
-		path = append(path, step)
+		path = append(path, poseMap)
 	}
 	return path, nil
 }
@@ -178,11 +178,11 @@ func newAbsolutePathFromRelative(path Path) (Path, error) {
 func (path Path) GetFramePoses(frameName string) ([]spatialmath.Pose, error) {
 	poses := []spatialmath.Pose{}
 	for _, step := range path {
-		pose, ok := step[frameName]
+		poseInFrame, ok := step[frameName]
 		if !ok {
 			return nil, fmt.Errorf("frame named %s not found in path", frameName)
 		}
-		poses = append(poses, pose.Pose())
+		poses = append(poses, poseInFrame.Pose())
 	}
 	return poses, nil
 }
@@ -199,7 +199,6 @@ func (path Path) String() string {
 }
 
 // PathStep is a mapping of Frame names to PoseInFrames.
-// TODO: If the frame system ever uses resource names instead of strings this should be adjusted too.
 type PathStep map[string]*referenceframe.PoseInFrame
 
 // ToProto converts a PathStep to its representation in protobuf.
