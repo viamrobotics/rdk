@@ -2,10 +2,12 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"fmt"
 	"html/template"
+	"image/jpeg"
 	"io"
 	"io/fs"
 	"net"
@@ -46,6 +48,8 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/web"
+
+	"github.com/goccy/go-graphviz"
 )
 
 // SubtypeName is a constant that identifies the internal web resource subtype string.
@@ -896,6 +900,7 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 	}
 
 	// serve resource graph visualization
+	// TODO: hide behind option
 	mux.HandleFunc(pat.New("/debug/graph"), func(w http.ResponseWriter, r *http.Request) {
 		localRobot, isLocal := svc.r.(robot.LocalRobot)
 		if !isLocal {
@@ -905,7 +910,23 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 		if err != nil {
 			return
 		}
-		w.Write(dot)
+		gv := graphviz.New()
+		defer gv.Close()
+
+		graph, err := graphviz.ParseBytes(dot)
+		if err != nil {
+			return
+		}
+		img, err := gv.RenderImage(graph)
+		if err != nil {
+			return
+		}
+		buf := new(bytes.Buffer)
+		err = jpeg.Encode(buf, img, nil)
+		if err != nil {
+			return
+		}
+		w.Write(buf.Bytes())
 	})
 
 	prefix := "/viam"
