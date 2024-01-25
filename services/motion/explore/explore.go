@@ -74,6 +74,14 @@ type moveResponse struct {
 	success bool
 }
 
+// inputEnabledActuator is an actuator that interacts with the frame system.
+// This allows us to figure out where the actuator currently is and then
+// move it. Input units are always in meters or radians.
+type inputEnabledActuator interface {
+	resource.Actuator
+	referenceframe.InputEnabled
+}
+
 // obstacleDetectorObject provides a map for matching vision services to any and all cameras names they use.
 type obstacleDetectorObject map[vision.Service]resource.Name
 
@@ -394,18 +402,21 @@ func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBa
 		case <-ctx.Done():
 			return
 		default:
-			if err := kb.GoToInputs(ctx, inputs); err != nil {
-				// If there is an error on GoToInputs, stop the component if possible before returning the error
-				if stopErr := kb.Stop(ctx, nil); stopErr != nil {
-					ms.executionResponseChan <- moveResponse{err: err}
+			if inputEnabledKb, ok := kb.(inputEnabledActuator); ok {
+				if err := inputEnabledKb.GoToInputs(ctx, inputs); err != nil {
+					// If there is an error on GoToInputs, stop the component if possible before returning the error
+					if stopErr := kb.Stop(ctx, nil); stopErr != nil {
+						ms.executionResponseChan <- moveResponse{err: err}
+						return
+					}
+					// If the error was simply a cancellation of context return without erroring out
+					if errors.Is(err, context.Canceled) {
+						return
+					}
+				} else {
+					ms.executionResponseChan <- moveResponse{err: errors.New("unable to cast kinematic base to inputEnabledActuator")}
 					return
 				}
-				// If the error was simply a cancellation of context return without erroring out
-				if errors.Is(err, context.Canceled) {
-					return
-				}
-				ms.executionResponseChan <- moveResponse{err: err}
-				return
 			}
 		}
 	}
