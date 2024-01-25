@@ -28,22 +28,29 @@ func init() {
 			Constructor: func(ctx context.Context, deps resource.Dependencies,
 				conf resource.Config, logger logging.Logger,
 			) (camera.Camera, error) {
-				newConf, err := parseExtrinsicsConfigFromAttributes(conf.Attributes)
+				intrinsicExtrinsic, err := getIntrinsicExtrinsic(conf.Attributes)
 				if err != nil {
 					return nil, err
 				}
-				colorName := newConf.Color
+
+				extConf, err := resource.NativeConfig[*extrinsicsConfig](conf)
+				if err != nil {
+					return nil, err
+				}
+
+				colorName := extConf.Color
 				color, err := camera.FromDependencies(deps, colorName)
 				if err != nil {
 					return nil, fmt.Errorf("no color camera (%s): %w", colorName, err)
 				}
 
-				depthName := newConf.Depth
+				depthName := extConf.Depth
 				depth, err := camera.FromDependencies(deps, depthName)
 				if err != nil {
 					return nil, fmt.Errorf("no depth camera (%s): %w", depthName, err)
 				}
-				src, err := newColorDepthExtrinsics(ctx, color, depth, newConf, logger)
+
+				src, err := newColorDepthExtrinsics(ctx, color, depth, extConf, intrinsicExtrinsic, logger)
 				if err != nil {
 					return nil, err
 				}
@@ -63,7 +70,7 @@ type extrinsicsConfig struct {
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 }
 
-func parseExtrinsicsConfigFromAttributes(attributes rdkutils.AttributeMap) (*extrinsicsConfig, error) {
+func getIntrinsicExtrinsic(attributes rdkutils.AttributeMap) (*transform.DepthColorIntrinsicsExtrinsics, error) {
 	if !attributes.Has("camera_system") {
 		return nil, errors.New("missing camera_system")
 	}
@@ -79,9 +86,8 @@ func parseExtrinsicsConfigFromAttributes(attributes rdkutils.AttributeMap) (*ext
 	if err := matrices.CheckValid(); err != nil {
 		return nil, err
 	}
-	attributes["camera_system"] = matrices
 
-	return resource.TransformAttributeMap[*extrinsicsConfig](attributes)
+	return matrices, nil
 }
 
 func (cfg *extrinsicsConfig) Validate(path string) ([]string, error) {
@@ -111,9 +117,14 @@ type colorDepthExtrinsics struct {
 }
 
 // newColorDepthExtrinsics creates a gostream.VideoSource that aligned color and depth channels.
-func newColorDepthExtrinsics(ctx context.Context, color, depth camera.VideoSource, conf *extrinsicsConfig, logger logging.Logger,
+func newColorDepthExtrinsics(
+	ctx context.Context,
+	color, depth camera.VideoSource,
+	conf *extrinsicsConfig,
+	intrinsicExtrinsic *transform.DepthColorIntrinsicsExtrinsics,
+	logger logging.Logger,
 ) (camera.VideoSource, error) {
-	alignment, err := rdkutils.AssertType[*transform.DepthColorIntrinsicsExtrinsics](conf.IntrinsicExtrinsic)
+	alignment, err := rdkutils.AssertType[*transform.DepthColorIntrinsicsExtrinsics](intrinsicExtrinsic)
 	if err != nil {
 		return nil, err
 	}
