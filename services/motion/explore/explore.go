@@ -413,6 +413,8 @@ func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBa
 					if errors.Is(err, context.Canceled) {
 						return
 					}
+					ms.executionResponseChan <- moveResponse{err: err}
+					return
 				}
 			} else {
 				ms.executionResponseChan <- moveResponse{err: errors.New("unable to cast kinematic base to inputEnabledActuator")}

@@ -87,7 +87,7 @@ func NewGeoPlan(p Plan, geoOrigin *spatialmath.GeoPose) (Plan, error) {
 }
 
 // Trajectory is a slice of maps describing a series of Inputs for a robot to travel to in the course of following a Plan.
-// Each item in this slice maps a Frame to the Inputs that Frame should be modified by.
+// Each item in this slice maps a Frame's name (found by calling frame.Name()) to the Inputs that Frame should be modified by.
 type Trajectory []map[string][]referenceframe.Input
 
 // GetFrameInputs is a helper function which will extract the waypoints of a single frame from the map output of a trajectory.
@@ -118,7 +118,8 @@ func (traj Trajectory) String() string {
 }
 
 // EvaluateCost calculates a cost to a trajectory as measured by the given distFunc Metric.
-func (traj Trajectory) EvaluateCost(distFunc ik.SegmentMetric) (totalCost float64) {
+func (traj Trajectory) EvaluateCost(distFunc ik.SegmentMetric) float64 {
+	var totalCost float64
 	last := map[string][]referenceframe.Input{}
 	for _, step := range traj {
 		for frame, inputs := range step {
@@ -192,7 +193,7 @@ func (path Path) String() string {
 	for _, step := range path {
 		str += "\n"
 		for frame, pose := range step {
-			str += fmt.Sprintf("%s: %v\t", frame, pose.Pose().Point())
+			str += fmt.Sprintf("%s: %v %v\t", frame, pose.Pose().Point(), pose.Pose().Orientation().OrientationVectorDegrees())
 		}
 	}
 	return str
