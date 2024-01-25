@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	defaultAutoBB = 2.1 // Automatic bounding box on driveable area as a multiple of start-goal distance
+	// Automatic bounding box on driveable area as a multiple of start-goal distance.
+	defaultAutoBB = 1.5
 	// Note: while fully holonomic planners can use the limits of the frame as implicit boundaries, with non-holonomic motion
 	// this is not the case, and the total workspace available to the planned frame is not directly related to the motion available
 	// from a single set of inputs.
@@ -660,18 +661,22 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 		}
 		reseedCandidate = newReseedCandidate
 		endNode := reseedCandidate.newNodes[len(reseedCandidate.newNodes)-1]
-		dist := mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: endNode.Pose(), EndPosition: goalNode.Pose()})
-		if dist < mp.planOpts.GoalThreshold || lastIteration {
+		distTravelledByCandidate := 0.
+		for _, newNode := range reseedCandidate.newNodes {
+			distTravelledByCandidate += newNode.Q()[2].Value
+		}
+		distToGoal := endNode.Pose().Point().Distance(goalNode.Pose().Point())
+		if distToGoal < mp.planOpts.GoalThreshold || lastIteration {
 			// Reached the goal position, or otherwise failed to fully extend to the end of a trajectory
 			return &nodeAndError{endNode, nil}
 		}
 		if i == 0 {
 			// TP-space distance is NOT the same thing as cartesian distance, but they track sufficiently well that this is valid to do.
-			maxReseeds = int(math.Min(float64(defaultMaxReseeds), math.Ceil(math.Sqrt(dist)/endNode.Q()[2].Value)+2))
+			maxReseeds = int(math.Min(float64(defaultMaxReseeds), math.Ceil(distToGoal/(distTravelledByCandidate/4))+2))
 		}
 		// If our most recent traj was not a full-length extension, try to extend one more time and then return our best node.
 		// This helps prevent the planner from doing a 15-point turn to adjust orientation, which is very difficult to accurately execute.
-		if math.Sqrt(dist) < endNode.Q()[2].Value/2 {
+		if distToGoal < distTravelledByCandidate/4 {
 			lastIteration = true
 		}
 
