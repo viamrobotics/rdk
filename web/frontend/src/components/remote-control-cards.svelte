@@ -197,9 +197,7 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
     {/each}
 
     <!-- ******* DO *******  -->
-    {#if filterSubtype($components, 'generic').length > 0}
-      <DoCommand resources={[...$components, ...$services]} />
-    {/if}
+    <DoCommand resources={[...$components, ...$services]} />
 
     <!-- ******* OPERATIONS AND SESSIONS *******  -->
     <OperationsSessions />
