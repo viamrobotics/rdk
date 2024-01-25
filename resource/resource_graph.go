@@ -136,7 +136,6 @@ func (g *Graph) Dot() ([]byte, error) {
 	}
 
 	for node := range g.nodes {
-		fmt.Println("Writing node ", node.Name)
 		line := fmt.Sprintf("\t%s;\n", node.Name)
 		_, err = sb.WriteString(line)
 		if err != nil {
@@ -146,7 +145,6 @@ func (g *Graph) Dot() ([]byte, error) {
 
 	for node, children := range g.children {
 		for child := range children {
-			fmt.Println("Writing node ", node.Name, " and child ", child.Name)
 			line := fmt.Sprintf("\t%s -> %s;\n", child.Name, node.Name)
 			_, err = sb.WriteString(line)
 			if err != nil {
