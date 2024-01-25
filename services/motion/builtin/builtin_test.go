@@ -613,7 +613,6 @@ func TestObstacleReplanning(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 
 				return []*viz.Object{detection}, nil
-
 			},
 			expectedSuccess: false,
 			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 0),
