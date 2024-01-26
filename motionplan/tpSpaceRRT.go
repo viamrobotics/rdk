@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	defaultAutoBB = 1.8 // Automatic bounding box on driveable area as a multiple of start-goal distance
+	defaultAutoBB = 0.8 // Automatic bounding box on driveable area as a multiple of start-goal distance
 	// Note: while fully holonomic planners can use the limits of the frame as implicit boundaries, with non-holonomic motion
 	// this is not the case, and the total workspace available to the planned frame is not directly related to the motion available
 	// from a single set of inputs.
@@ -37,7 +37,7 @@ const (
 	// Don't add new RRT tree nodes if there is an existing node within this distance. This is the distance determined by the DistanceFunc,
 	// so is the sum of the square of the distance in mm, and the orientation distance accounting for scale adjustment.
 	// Note that since the orientation adjustment is very large, this must be as well.
-	defaultIdenticalNodeDistance = 2000.
+	defaultIdenticalNodeDistance = 4000.
 
 	// When extending the RRT tree towards some point, do not extend more than this many times in a single RRT invocation.
 	defaultMaxReseeds = 20
@@ -68,7 +68,7 @@ const (
 	defaultSmoothChunkCount = 6
 
 	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly.
-	pathdebug = true
+	pathdebug = false
 )
 
 // Using the standard SquaredNormMetric, we run into issues where far apart distances will underflow gradient calculations.

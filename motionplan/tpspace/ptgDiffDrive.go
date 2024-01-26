@@ -10,6 +10,8 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+const angleAdjust = 0.97 // ajdust alpha radian conversion by this much to prevent paired 180-degree flips
+
 // ptgDiffDrive defines a PTG family composed of a rotation in place, whose magnitude is determined by alpha, followed by moving straight.
 // This is essentially the same as the CS PTG, but with a turning radius of zero.
 type ptgDiffDrive struct {
@@ -32,7 +34,7 @@ func (ptg *ptgDiffDrive) Velocities(alpha, dist float64) (float64, float64, erro
 		return 0, 0, nil
 	}
 	k := math.Copysign(1.0, dist)
-	if dist <= math.Abs(alpha) {
+	if dist <= math.Abs(alpha) * angleAdjust {
 		return 0, math.Copysign(ptg.maxRPS, alpha), nil
 	}
 	return ptg.maxMMPS * k, 0, nil
@@ -58,7 +60,7 @@ func (ptg *ptgDiffDrive) Transform(inputs []referenceframe.Input) (spatialmath.P
 	if alpha < -1*math.Pi {
 		alpha = -1 * math.Pi
 	}
-	turnAngle := math.Copysign(math.Min(dist, math.Abs(alpha)), alpha)
+	turnAngle := math.Copysign(math.Min(dist, math.Abs(alpha)), alpha) * angleAdjust
 
 	pose := spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVector{OZ: 1, Theta: turnAngle})
 
