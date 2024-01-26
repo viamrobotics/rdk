@@ -311,7 +311,7 @@ useConnect(() => {
       </div>
     {/if}
 
-    {#if accuracy?.accuracyMap}
+    {#if (accuracy?.accuracyMap?.size ?? 0) > 0}
       <div class="overflow-auto">
         <h3 class="mb-1">Accuracy Map</h3>
         <table class="w-full border border-t-0 border-medium p-4">
