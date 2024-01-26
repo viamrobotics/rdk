@@ -428,6 +428,22 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		return nil
 	}
 
+	if m.loop != nil {
+		positionReached := func(ctx context.Context) (bool, error) {
+			m.stateMu.Lock()
+			goal := m.state.goalPos
+			m.stateMu.Unlock()
+			pos, err := m.position(ctx, extra)
+			m.logger.Errorf("POS = %v, GOAL = %v", pos, goal)
+			return pos == goal, err
+		}
+		return m.opMgr.WaitForSuccess(
+			ctx,
+			10*time.Millisecond,
+			positionReached,
+		)
+	}
+
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
@@ -596,9 +612,9 @@ func (m *EncodedMotor) GetMotorState(ctx context.Context) EncodedMotorState {
 // Stop stops rpmMonitor and stops the real motor.
 func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.stateMu.Lock()
-	defer m.stateMu.Unlock()
 	m.state.goalRPM = 0
 	m.state.regulated = false
+	m.stateMu.Unlock()
 
 	// after the motor is created, Stop is called, but if the PID controller
 	// is auto-tuning, the loop needs to keep running
