@@ -10,7 +10,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-const angleAdjust = 0.97 // ajdust alpha radian conversion by this much to prevent paired 180-degree flips
+const angleAdjust = 0.99 // ajdust alpha radian conversion by this much to prevent paired 180-degree flips
 
 // ptgDiffDrive defines a PTG family composed of a rotation in place, whose magnitude is determined by alpha, followed by moving straight.
 // This is essentially the same as the CS PTG, but with a turning radius of zero.

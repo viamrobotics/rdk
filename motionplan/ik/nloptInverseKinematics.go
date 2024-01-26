@@ -28,6 +28,7 @@ const (
 	constrainedTries  = 30
 	nloptStepsPerIter = 4001
 	defaultJump       = 1e-8
+	log10magScale     = 3.
 )
 
 // NloptIK TODO.
@@ -84,9 +85,9 @@ func scaledSolveMetric(metric StateMetric) StateMetric {
 	return func(state *State) float64 {
 		dist := metric(state)
 		magnitude := math.Log10(dist)
-		if magnitude > 2. {
-			for i := int(magnitude) + 2; i < int(math.Log10(dist)); i++ {
-				dist = math.Pow10(i) + (dist - math.Pow10(i))/10
+		if magnitude > log10magScale {
+			for i := log10magScale; i < math.Log10(dist); i+=1. {
+				dist = math.Pow10(int(i)) + (dist - math.Pow10(int(i)))/10
 			}
 		}
 		return dist
