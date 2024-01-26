@@ -131,27 +131,31 @@ useConnect(() => {
             </td>
           </tr>
           {#if accuracy?.positionNmeaGgaFix}
-          <tr>
-            <th class="border border-medium p-2"> NMEA Fix Quality </th>
-            <td class="border border-medium p-2">
-              {accuracy.positionNmeaGgaFix}
-              {#if accuracy.positionNmeaGgaFix === 1 || accuracy.positionNmeaGgaFix === 2}
-                <Tooltip let:tooltipID>
-                  <p aria-describedby={tooltipID}><Icon name="information" /></p>
-                  <p slot="description">expect 1m-5m accuracy</p>
-                </Tooltip>
-              {/if}
-              {#if accuracy.positionNmeaGgaFix === 4 || accuracy.positionNmeaGgaFix === 5}
-                <Tooltip let:tooltipID>
-                  <p aria-describedby={tooltipID}><Icon name="information" /></p>
-                  <p slot="description">expect 2cm-50cm accuracy</p>
-                </Tooltip>
-              {/if}
-            </td>
-          </tr>
+            <tr>
+              <th class="border border-medium p-2"> NMEA Fix Quality </th>
+              <td class="border border-medium p-2">
+                {accuracy.positionNmeaGgaFix}
+                {#if accuracy.positionNmeaGgaFix === 1 || accuracy.positionNmeaGgaFix === 2}
+                  <Tooltip let:tooltipID>
+                    <p aria-describedby={tooltipID}>
+                      <Icon name="information" />
+                    </p>
+                    <p slot="description">expect 1m-5m accuracy</p>
+                  </Tooltip>
+                {/if}
+                {#if accuracy.positionNmeaGgaFix === 4 || accuracy.positionNmeaGgaFix === 5}
+                  <Tooltip let:tooltipID>
+                    <p aria-describedby={tooltipID}>
+                      <Icon name="information" />
+                    </p>
+                    <p slot="description">expect 2cm-50cm accuracy</p>
+                  </Tooltip>
+                {/if}
+              </td>
+            </tr>
           {/if}
 
-          {#if accuracy?.positionHdop && accuracy?.positionVdop}
+          {#if accuracy?.positionHdop && accuracy.positionVdop}
             <tr>
               <th class="border border-medium p-2"> HDOP </th>
               <td class="border border-medium p-2">
@@ -296,13 +300,13 @@ useConnect(() => {
             </td>
           </tr>
           {#if accuracy?.compassDegreesError}
-          <tr>
-            <th class="border border-medium p-2"> Compass Degrees Error </th>
-            <td class="border border-medium p-2">
-              {accuracy.compassDegreesError.toFixed(2)}
-            </td>
-          </tr>
-        {/if}
+            <tr>
+              <th class="border border-medium p-2"> Compass Degrees Error </th>
+              <td class="border border-medium p-2">
+                {accuracy.compassDegreesError.toFixed(2)}
+              </td>
+            </tr>
+          {/if}
         </table>
       </div>
     {/if}

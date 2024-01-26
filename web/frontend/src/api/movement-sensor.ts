@@ -176,15 +176,18 @@ export const getAccuracy = async (robotClient: Client, name: string) => {
 
   rcLogConditionally(req);
 
-  const response = await new Promise<movementSensorApi.GetAccuracyResponse | null>((resolve, reject) => {
-    robotClient.movementSensorService.getAccuracy(req, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
+  const response =
+    await new Promise<movementSensorApi.GetAccuracyResponse | null>(
+      (resolve, reject) => {
+        robotClient.movementSensorService.getAccuracy(req, (error, res) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve(res);
+          }
+        });
       }
-    });
-  });
+    );
 
   return response?.toObject();
 };
