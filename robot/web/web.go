@@ -896,6 +896,8 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 
 	// serve resource graph visualization
 	// TODO: hide behind option
+	// TODO: move into robot/web/web_c.go
+	// TODO: accept params to display different formats
 	mux.HandleFunc(pat.New("/debug/graph"), func(w http.ResponseWriter, r *http.Request) {
 		localRobot, isLocal := svc.r.(robot.LocalRobot)
 		if !isLocal {
