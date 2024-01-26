@@ -18,6 +18,8 @@ import {
   getAccuracy,
 } from '@/api/movement-sensor';
 import { useRobotClient, useConnect } from '@/hooks/robot-client';
+import { Icon } from '@viamrobotics/prime-core';
+import { Tooltip } from '@viamrobotics/prime-core';
 
 export let name: string;
 
@@ -47,8 +49,6 @@ const refresh = async () => {
 
   properties = result[0];
   accuracy = result[1];
-
-  properties = await getProperties($robotClient, name);
 
   if (!properties) {
     return;
@@ -136,10 +136,16 @@ useConnect(() => {
             <td class="border border-medium p-2">
               {accuracy.positionNmeaGgaFix}
               {#if accuracy.positionNmeaGgaFix === 1 || accuracy.positionNmeaGgaFix === 2}
-                <div>expect 1m-5m accuracy</div>
+                <Tooltip let:tooltipID>
+                  <p aria-describedby={tooltipID}><Icon name="information" /></p>
+                  <p slot="description">expect 1m-5m accuracy</p>
+                </Tooltip>
               {/if}
               {#if accuracy.positionNmeaGgaFix === 4 || accuracy.positionNmeaGgaFix === 5}
-                <div>expect 2cm-50cm accuracy</div>
+                <Tooltip let:tooltipID>
+                  <p aria-describedby={tooltipID}><Icon name="information" /></p>
+                  <p slot="description">expect 2cm-50cm accuracy</p>
+                </Tooltip>
               {/if}
             </td>
           </tr>
