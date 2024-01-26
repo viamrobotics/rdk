@@ -24,6 +24,8 @@ const (
 	boundCheckTurn     = 2.0
 	boundCheckTarget   = 5.0
 	sensorDebug        = false
+	typeLinVel         = "linear_velocity"
+	typeAngVel         = "angular_velocity"
 )
 
 var (
@@ -32,10 +34,19 @@ var (
 	errNoGoodSensor = errors.New("no appropriate sensor for orientation or velocity feedback")
 )
 
+// basePIDConfig contains the PID value and type that are accesible from control component configs.
+type basePIDConfig struct {
+	Type string  `json:"type"`
+	P    float64 `json:"p"`
+	I    float64 `json:"i"`
+	D    float64 `json:"d"`
+}
+
 // Config configures a sensor controlled base.
 type Config struct {
-	MovementSensor []string `json:"movement_sensor"`
-	Base           string   `json:"base"`
+	MovementSensor    []string        `json:"movement_sensor"`
+	Base              string          `json:"base"`
+	ControlParameters []basePIDConfig `json:"control_parameters,omitempty"`
 }
 
 // Validate validates all parts of the sensor controlled base config.
@@ -56,6 +67,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 type sensorBase struct {
 	resource.Named
+	conf   *Config
 	logger logging.Logger
 	mu     sync.Mutex
 
@@ -104,6 +116,7 @@ func createSensorBase(
 
 func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	newConf, err := resource.NativeConfig[*Config](conf)
+	sb.conf = newConf
 	if err != nil {
 		return err
 	}
@@ -158,11 +171,47 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		return errors.Wrapf(err, "no base named (%s)", newConf.Base)
 	}
 
-	if sb.velocities != nil && useControlLoop {
-		sb.controlLoopConfig = sb.createControlLoopConfig()
-		if err := sb.setupControlLoops(); err != nil {
-			return err
+	if sb.velocities != nil && len(newConf.ControlParameters) != 0 {
+		// assign linear and angular PID correctly based on the given type
+		var linear, angular basePIDConfig
+		for _, c := range newConf.ControlParameters {
+			if c.Type == typeLinVel {
+				linear = c
+			} else if c.Type == typeAngVel {
+				angular = c
+			}
 		}
+
+		sb.mu.Unlock()
+		// check if both linear and angular need to be tuned, and if so start by tuning linear
+		if !(linear.P == 0.0 && linear.I == 0.0 && linear.D == 0.0 &&
+			angular.P == 0.0 && angular.I == 0.0 && angular.D == 0.0) {
+			sb.controlLoopConfig = sb.createControlLoopConfig(linear, angular)
+			if err := sb.setupControlLoops(); err != nil {
+				sb.mu.Lock()
+				return err
+			}
+		} else {
+			// to tune linear PID values, angular PI values must be non-zero
+			fakeConf := basePIDConfig{Type: typeAngVel, P: 0.5, I: 0.5, D: 0.0}
+			sb.logger.Info("tuning linear PID")
+			if err := sb.autoTuningProcess(ctx, linear, fakeConf); err != nil {
+				sb.mu.Lock()
+				return err
+			}
+			if err := sb.Stop(ctx, nil); err != nil {
+				sb.mu.Lock()
+				return err
+			}
+			// to tune angular PID values, linear PI values must be non-zero
+			fakeConf.Type = typeLinVel
+			sb.logger.Info("tuning angular PID")
+			if err := sb.autoTuningProcess(ctx, fakeConf, angular); err != nil {
+				sb.mu.Lock()
+				return err
+			}
+		}
+		sb.mu.Lock()
 	}
 
 	return nil
@@ -212,7 +261,21 @@ func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) er
 }
 
 func (sb *sensorBase) IsMoving(ctx context.Context) (bool, error) {
-	return sb.controlledBase.IsMoving(ctx)
+	if sb.velocities == nil {
+		return sb.controlledBase.IsMoving(ctx)
+	}
+	lin, err := sb.velocities.LinearVelocity(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	ang, err := sb.velocities.AngularVelocity(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	if lin.Y == 0.0 && ang.Z == 0.0 {
+		return false, nil
+	}
+	return true, nil
 }
 
 func (sb *sensorBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {

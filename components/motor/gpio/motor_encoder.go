@@ -123,15 +123,6 @@ func newEncodedMotor(
 		if err = em.validateControlConfig(cancelCtx); err != nil {
 			return nil, err
 		}
-
-		// SetTuning to true if all PID values are 0
-		if motorConfig.ControlParameters.P == 0.0 &&
-			motorConfig.ControlParameters.I == 0.0 &&
-			motorConfig.ControlParameters.D == 0.0 {
-			em.loop.SetTuning(context.Background(), true)
-		} else {
-			em.loop.SetTuning(context.Background(), false)
-		}
 	} else {
 		// TODO DOCS-1524: link to docs that explain control parameters
 		em.logger.Warn(

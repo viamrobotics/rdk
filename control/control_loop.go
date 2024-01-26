@@ -39,7 +39,7 @@ type Loop struct {
 	cancelCtx               context.Context
 	cancel                  context.CancelFunc
 	running                 bool
-	tuning                  bool
+	pidBlocks               []*basicPID
 }
 
 // NewLoop construct a new control loop for a specific endpoint.
@@ -62,7 +62,7 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 	}
 	l.dt = time.Duration(float64(time.Second) * (1.0 / (l.cfg.Frequency)))
 	for _, bcfg := range cfg.Blocks {
-		blk, err := createBlock(bcfg, logger)
+		blk, err := l.createBlock(bcfg, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -195,10 +195,7 @@ func (l *Loop) SetConfigAt(ctx context.Context, name string, config BlockConfig)
 	if !ok {
 		return errors.Errorf("cannot return Config for nonexistent %s", name)
 	}
-	if err := blk.blk.UpdateConfig(ctx, config); err != nil {
-		return err
-	}
-	return nil
+	return blk.blk.UpdateConfig(ctx, config)
 }
 
 // BlockList returns the list of blocks in a control loop error when the list is empty.
@@ -306,12 +303,32 @@ func (l *Loop) GetConfig(ctx context.Context) Config {
 	return l.cfg
 }
 
-// GetTuning returns the current tuning value.
-func (l *Loop) GetTuning(ctx context.Context) bool {
-	return l.tuning
+// MonitorTuning waits for tuning to start, and then returns once it's done.
+func (l *Loop) MonitorTuning(ctx context.Context) error {
+	// wait until tuning has started
+	for {
+		tuning := l.GetTuning(ctx)
+		if tuning {
+			break
+		}
+	}
+	// wait until tuning is done
+	for {
+		tuning := l.GetTuning(ctx)
+		if !tuning {
+			break
+		}
+	}
+
+	return nil
 }
 
-// SetTuning sets the tuning variable.
-func (l *Loop) SetTuning(ctx context.Context, val bool) {
-	l.tuning = val
+// GetTuning returns the current tuning value.
+func (l *Loop) GetTuning(ctx context.Context) bool {
+	for _, b := range l.pidBlocks {
+		if b.GetTuning() {
+			return true
+		}
+	}
+	return false
 }
