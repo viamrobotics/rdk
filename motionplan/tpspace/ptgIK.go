@@ -128,10 +128,10 @@ func (ptg *ptgIK) Trajectory(alpha, dist, resolution float64) ([]*TrajNode, erro
 	var precomp, traj []*TrajNode
 	ptg.mu.RLock()
 	thisRes := ptg.trajCache[resolution]
-	ptg.mu.RUnlock()
 	if thisRes != nil {
 		precomp = thisRes[alpha]
 	}
+	ptg.mu.RUnlock()
 	if precomp != nil && precomp[len(precomp)-1].Dist >= dist && dist > 0 {
 		exact := false
 		for _, wp := range precomp {
