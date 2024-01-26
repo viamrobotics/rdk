@@ -2,11 +2,9 @@
 package web
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"html/template"
-	"image/jpeg"
 	"io"
 	"io/fs"
 	"net"
@@ -23,7 +21,6 @@ import (
 
 	"github.com/Masterminds/sprig"
 	"github.com/NYTimes/gziphandler"
-	"github.com/goccy/go-graphviz"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
@@ -896,43 +893,8 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 
 	// serve resource graph visualization
 	// TODO: hide behind option
-	// TODO: move into robot/web/web_c.go
 	// TODO: accept params to display different formats
-	mux.HandleFunc(pat.New("/debug/graph"), func(w http.ResponseWriter, r *http.Request) {
-		localRobot, isLocal := svc.r.(robot.LocalRobot)
-		if !isLocal {
-			return
-		}
-		dot, err := localRobot.ExportResourcesAsDot()
-		if err != nil {
-			return
-		}
-		gv := graphviz.New()
-		defer func() {
-			closeErr := gv.Close()
-			if closeErr != nil {
-				svc.r.Logger().Warn("failed to close graph visualizer")
-			}
-		}()
-
-		graph, err := graphviz.ParseBytes([]byte(dot))
-		if err != nil {
-			return
-		}
-		img, err := gv.RenderImage(graph)
-		if err != nil {
-			return
-		}
-		buf := new(bytes.Buffer)
-		err = jpeg.Encode(buf, img, nil)
-		if err != nil {
-			return
-		}
-		_, err = w.Write(buf.Bytes())
-		if err != nil {
-			return
-		}
-	})
+	mux.HandleFunc(pat.New("/debug/graph"), svc.handleVisualizeResourceGraph)
 
 	prefix := "/viam"
 	addPrefix := func(h http.Handler) http.Handler {
