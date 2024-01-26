@@ -916,7 +916,7 @@ func TestState(t *testing.T) {
 		// test.That(t, resPWS.err, test.ShouldBeNil)
 		// test.That(t, len(resPWS.pws), test.ShouldEqual, 2)
 		//// Previous plan is moved to higher index
-		//test.That(t, resPWS.pws[1].Plan, test.ShouldResemble, pws4[0].Plan)
+		// test.That(t, resPWS.pws[1].Plan, test.ShouldResemble, pws4[0].Plan)
 		//// Current plan is a new plan
 		//test.That(t, resPWS.pws[0].Plan.ID, test.ShouldNotResemble, pws4[0].Plan.ID)
 		//// From the same execution (definition of a replan)
@@ -942,7 +942,7 @@ func TestState(t *testing.T) {
 		// pws6, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase, LastPlanOnly: true})
 		// test.That(t, err, test.ShouldBeNil)
 		// test.That(t, len(pws6), test.ShouldEqual, 1)
-		//test.That(t, pws6[0], test.ShouldResemble, resPWS.pws[0])
+		// test.That(t, pws6[0], test.ShouldResemble, resPWS.pws[0])
 
 		//// only the last plan is returned if LastPlanOnly is true
 		//// and the execution id is provided which matches the last execution for the component
@@ -952,7 +952,7 @@ func TestState(t *testing.T) {
 		//	ExecutionID:   pws6[0].Plan.ExecutionID,
 		// })
 		// test.That(t, err, test.ShouldBeNil)
-		//test.That(t, pws7, test.ShouldResemble, pws6)
+		// test.That(t, pws7, test.ShouldResemble, pws6)
 
 		//// Succeeded status
 		// preSuccessMsg := time.Now()
@@ -970,7 +970,7 @@ func TestState(t *testing.T) {
 		//	return st, false
 		// })
 		////
-		//test.That(t, succ, test.ShouldBeTrue)
+		// test.That(t, succ, test.ShouldBeTrue)
 		//test.That(t, resPWS2.err, test.ShouldBeNil)
 		//test.That(t, len(resPWS2.pws), test.ShouldEqual, 2)
 		//// last plan is unchanged
@@ -990,7 +990,7 @@ func TestState(t *testing.T) {
 		// err = s.StopExecutionByResource(myBase)
 		// test.That(t, err, test.ShouldBeNil)
 		// postStopPWS1, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase})
-		//test.That(t, err, test.ShouldBeNil)
+		// test.That(t, err, test.ShouldBeNil)
 		//test.That(t, resPWS2.pws, test.ShouldResemble, postStopPWS1)
 
 		//// Failed after replanning
@@ -1001,7 +1001,7 @@ func TestState(t *testing.T) {
 		//	req motion.MoveOnGlobeReq,
 		//	seedPlan motionplan.Plan,
 		//	replanCount int,
-		//) (state.PlannerExecutor, error) {
+		// ) (state.PlannerExecutor, error) {
 		//	return &testPlannerExecutor{
 		//		planFunc: func(ctx context.Context) (state.PlanResponse, error) {
 		//			// first plan succeeds
@@ -1050,8 +1050,7 @@ func TestState(t *testing.T) {
 
 		// test.That(t, len(resPWS3.pws), test.ShouldEqual, 2)
 
-
-		//test.That(t, resPWS3.pws[0].Plan.ID, test.ShouldNotEqual, resPWS2.pws[1].Plan.ID)
+		// test.That(t, resPWS3.pws[0].Plan.ID, test.ShouldNotEqual, resPWS2.pws[1].Plan.ID)
 		//test.That(t, len(resPWS3.pws[1].StatusHistory), test.ShouldEqual, 2)
 		//test.That(t, resPWS3.pws[1].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateFailed)
 		//test.That(t, *resPWS3.pws[1].StatusHistory[0].Reason, test.ShouldResemble, replanReason)
@@ -1072,7 +1071,7 @@ func TestState(t *testing.T) {
 		// err = s.StopExecutionByResource(myBase)
 		// test.That(t, err, test.ShouldBeNil)
 		// postStopPWS2, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase})
-		//test.That(t, err, test.ShouldBeNil)
+		// test.That(t, err, test.ShouldBeNil)
 		//test.That(t, resPWS3.pws, test.ShouldResemble, postStopPWS2)
 
 		//// Failed at the end of execution
@@ -1083,7 +1082,7 @@ func TestState(t *testing.T) {
 		//	req motion.MoveOnGlobeReq,
 		//	seedPlan motionplan.Plan,
 		//	replanCount int,
-		//) (state.PlannerExecutor, error) {
+		// ) (state.PlannerExecutor, error) {
 		//	return &testPlannerExecutor{
 		//		executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
 		//			if replanCount == 0 {
@@ -1111,8 +1110,7 @@ func TestState(t *testing.T) {
 
 		// test.That(t, len(resPWS4.pws), test.ShouldEqual, 2)
 
-
-		//test.That(t, resPWS4.pws[0].Plan.ID, test.ShouldNotEqual, resPWS3.pws[1].Plan.ID)
+		// test.That(t, resPWS4.pws[0].Plan.ID, test.ShouldNotEqual, resPWS3.pws[1].Plan.ID)
 		//test.That(t, len(resPWS4.pws[1].StatusHistory), test.ShouldEqual, 2)
 		//test.That(t, resPWS4.pws[1].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateFailed)
 		//test.That(t, *resPWS4.pws[1].StatusHistory[0].Reason, test.ShouldResemble, replanReason)
@@ -1134,7 +1132,7 @@ func TestState(t *testing.T) {
 		// pws13, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase, ExecutionID: executionID3, LastPlanOnly: true})
 		// test.That(t, err, test.ShouldBeNil)
 		// test.That(t, len(pws13), test.ShouldEqual, 1)
-		//test.That(t, pws13[0], test.ShouldResemble, resPWS3.pws[0])
+		// test.That(t, pws13[0], test.ShouldResemble, resPWS3.pws[0])
 
 		//// providing an executionID which is not known to the state returns an error
 		// pws14, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase, ExecutionID: uuid.New()})
@@ -1145,43 +1143,36 @@ func TestState(t *testing.T) {
 		// ps7, err := s.ListPlanStatuses(motion.ListPlanStatusesReq{})
 		// test.That(t, err, test.ShouldBeNil)
 		// test.That(t, len(ps7), test.ShouldEqual, 7)
-		//test.That(t, ps7[0].ComponentName, test.ShouldResemble, myBase)
+		// test.That(t, ps7[0].ComponentName, test.ShouldResemble, myBase)
 		//test.That(t, ps7[0].ExecutionID, test.ShouldResemble, executionID4)
 		//test.That(t, ps7[0].PlanID, test.ShouldResemble, resPWS4.pws[0].Plan.ID)
 		//test.That(t, ps7[0].Status, test.ShouldResemble, resPWS4.pws[0].StatusHistory[0])
 
 		// test.That(t, ps7[1].ExecutionID, test.ShouldResemble, executionID4)
 
-		//test.That(t, ps7[1].Status, test.ShouldResemble, resPWS4.pws[1].StatusHistory[0])
+
 
 		// test.That(t, ps7[2].ComponentName, test.ShouldResemble, myBase)
 
-
-		//test.That(t, ps7[2].Status, test.ShouldResemble, resPWS3.pws[0].StatusHistory[0])
+		// test.That(t, ps7[2].Status, test.ShouldResemble, resPWS3.pws[0].StatusHistory[0])
 
 		// test.That(t, ps7[3].ComponentName, test.ShouldResemble, myBase)
 
-
-		//test.That(t, ps7[3].Status, test.ShouldResemble, resPWS3.pws[1].StatusHistory[0])
+		// test.That(t, ps7[3].Status, test.ShouldResemble, resPWS3.pws[1].StatusHistory[0])
 
 		// test.That(t, ps7[4].ComponentName, test.ShouldResemble, myBase)
 
-
-		//test.That(t, ps7[4].Status, test.ShouldResemble, resPWS2.pws[0].StatusHistory[0])
+		// test.That(t, ps7[4].Status, test.ShouldResemble, resPWS2.pws[0].StatusHistory[0])
 
 		// test.That(t, ps7[5].ComponentName, test.ShouldResemble, myBase)
 
-
-		//test.That(t, ps7[5].Status, test.ShouldResemble, resPWS2.pws[1].StatusHistory[0])
+		// test.That(t, ps7[5].Status, test.ShouldResemble, resPWS2.pws[1].StatusHistory[0])
 
 		// test.That(t, ps7[6].ComponentName, test.ShouldResemble, myBase)
 
-
-		//test.That(t, ps7[6].Status, test.ShouldResemble, pws2[0].StatusHistory[0])
+		// test.That(t, ps7[6].Status, test.ShouldResemble, pws2[0].StatusHistory[0])
 
 		// ps8, err := s.ListPlanStatuses(motion.ListPlanStatusesReq{OnlyActivePlans: true})
-
-
 	})
 }
 
