@@ -362,6 +362,12 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 	if err != nil {
 		return
 	}
+	layout := r.URL.Query().Get("layout")
+	if layout == "none" {
+		w.Write([]byte(dot))
+		return
+	}
+
 	gv := graphviz.New()
 	defer func() {
 		closeErr := gv.Close()
@@ -374,8 +380,12 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 	if err != nil {
 		return
 	}
+	if layout != "" {
+		gv.SetLayout(graphviz.Layout(layout))
+	}
 	img, err := gv.RenderImage(graph)
 	if err != nil {
+		w.Write([]byte(err.Error()))
 		return
 	}
 	buf := new(bytes.Buffer)
