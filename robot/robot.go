@@ -111,7 +111,7 @@ type LocalRobot interface {
 	ModuleAddress() (string, error)
 
 	// ExportResourcesAsDot exports the resource graph as a DOT representation for
-	// vizualization.
+	// visualization.
 	// DOT reference: https://graphviz.org/doc/info/lang.html
 	ExportResourcesAsDot() (string, error)
 }

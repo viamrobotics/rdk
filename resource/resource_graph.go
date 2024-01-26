@@ -119,7 +119,7 @@ func (g *Graph) Clone() *Graph {
 	return g.clone()
 }
 
-// ExportDot exports the resource graph as a DOT representation for vizualization.
+// ExportDot exports the resource graph as a DOT representation for visualization.
 // DOT reference: https://graphviz.org/doc/info/lang.html
 func (g *Graph) ExportDot() (string, error) {
 	g.mu.Lock()
