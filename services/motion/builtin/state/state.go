@@ -5,12 +5,14 @@ package state
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+	"golang.org/x/exp/maps"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -18,8 +20,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 )
-
-var ttlCheckInterval = time.Second
 
 // Waypoints represent the waypoints of the plan.
 type Waypoints [][]referenceframe.Input
@@ -302,20 +302,38 @@ type State struct {
 	componentStateByComponent map[resource.Name]componentState
 }
 
+// Request describes a request to NewState.
+type Request struct {
+	TTL              time.Duration
+	TTLCheckInterval time.Duration
+	Logger           logging.Logger
+}
+
 // NewState creates a new state.
-func NewState(ctx context.Context, ttl time.Duration, logger logging.Logger) *State {
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+func NewState(r Request) (*State, error) {
+	if r.TTL == 0 {
+		return nil, errors.New("TTL can't be unset")
+	}
+
+	if r.TTLCheckInterval == 0 {
+		return nil, errors.New("TTLCheckInterval can't be unset")
+	}
+
+	if r.TTL < r.TTLCheckInterval {
+		return nil, errors.New("TTL can't be lower than the TTL check interval")
+	}
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	s := State{
 		cancelCtx:                 cancelCtx,
 		cancelFunc:                cancelFunc,
 		waitGroup:                 &sync.WaitGroup{},
 		componentStateByComponent: make(map[resource.Name]componentState),
-		ttl:                       ttl,
-		logger:                    logger,
+		ttl:                       r.TTL,
+		logger:                    r.Logger,
 	}
 	s.waitGroup.Add(1)
 	utils.ManagedGo(func() {
-		ticker := time.NewTicker(ttlCheckInterval)
+		ticker := time.NewTicker(r.TTLCheckInterval)
 		defer ticker.Stop()
 		for {
 			if cancelCtx.Err() != nil {
@@ -333,7 +351,7 @@ func NewState(ctx context.Context, ttl time.Duration, logger logging.Logger) *St
 			}
 		}
 	}, s.waitGroup.Done)
-	return &s
+	return &s, nil
 }
 
 // findKeepIndex returns the index of the executionHistory slice which should be kept
@@ -349,8 +367,10 @@ func findKeepIndex(componentState componentState, purgeCutoff time.Time) (int, e
 			return 0, fmt.Errorf(msg, executionID, executionIndex)
 		}
 
-		mostRecentTimestamp := execution.history[0].StatusHistory[0].Timestamp
-		if mostRecentTimestamp.After(purgeCutoff) {
+		mostRecentStatus := execution.history[0].StatusHistory[0]
+		_, terminated := motion.TerminalStateSet[mostRecentStatus.State]
+		withinTTL := mostRecentStatus.Timestamp.After(purgeCutoff)
+		if withinTTL || !terminated {
 			return executionIndex, nil
 		}
 	}
@@ -379,6 +399,7 @@ func (s *State) purgeOlderThanTTL() error {
 			delete(componentState.executionsByID, executionID)
 		}
 		componentState.executionIDHistory = executionIdsToKeep
+		s.componentStateByComponent[resource] = componentState
 	}
 	return nil
 }
@@ -512,8 +533,13 @@ func (s *State) ListPlanStatuses(req motion.ListPlanStatusesReq) ([]motion.PlanS
 	defer s.mu.RUnlock()
 
 	statuses := []motion.PlanStatusWithID{}
+	componentNames := maps.Keys(s.componentStateByComponent)
+	sort.Slice(componentNames, func(a, b int) bool {
+		return componentNames[a].String() < componentNames[b].String()
+	})
+
 	if req.OnlyActivePlans {
-		for name := range s.componentStateByComponent {
+		for _, name := range componentNames {
 			if e, err := s.activeExecution(name); err == nil {
 				statuses = append(statuses, motion.PlanStatusWithID{
 					ExecutionID:   e.id,
@@ -526,7 +552,11 @@ func (s *State) ListPlanStatuses(req motion.ListPlanStatusesReq) ([]motion.PlanS
 		return statuses, nil
 	}
 
-	for _, cs := range s.componentStateByComponent {
+	for _, name := range componentNames {
+		cs, ok := s.componentStateByComponent[name]
+		if !ok {
+			return nil, errors.New("state is corrupted")
+		}
 		for _, executionID := range cs.executionIDHistory {
 			e, exists := cs.executionsByID[executionID]
 			if !exists {

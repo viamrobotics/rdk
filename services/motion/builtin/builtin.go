@@ -27,7 +27,10 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var stateTTL = time.Hour * 24
+var (
+	stateTTL              = time.Hour * 24
+	stateTTLCheckInterval = time.Second
+)
 
 func init() {
 	resource.RegisterDefaultService(
@@ -137,7 +140,16 @@ func (ms *builtIn) Reconfigure(
 	if ms.state != nil {
 		ms.state.Stop()
 	}
-	ms.state = state.NewState(context.Background(), stateTTL, ms.logger)
+
+	state, err := state.NewState(state.Request{
+		TTL:              stateTTL,
+		TTLCheckInterval: stateTTLCheckInterval,
+		Logger:           ms.logger,
+	})
+	if err != nil {
+		return err
+	}
+	ms.state = state
 	return nil
 }
 
