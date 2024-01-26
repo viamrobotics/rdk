@@ -34,7 +34,8 @@ const (
 )
 
 const (
-	inputUpdateStep = 0.1 // seconds
+	inputUpdateStep    = 0.1 // seconds
+	stepDistResolution = 1.  // Before post-processing trajectory will have velocities every this many mm (or degs if spinning in place)
 )
 
 type ptgBaseKinematics struct {
@@ -173,12 +174,10 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 
 	selectedPTG := ptgk.ptgs[int(math.Round(inputs[ptgIndex].Value))]
 
-	distResolution := ptgk.linVelocityMMPerSecond / inputUpdateStep
-
 	selectedTraj, err := selectedPTG.Trajectory(
 		inputs[trajectoryIndexWithinPTG].Value,
 		inputs[distanceAlongTrajectoryIndex].Value,
-		distResolution,
+		stepDistResolution,
 	)
 	if err != nil {
 		stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
