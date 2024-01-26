@@ -67,8 +67,11 @@ type localRobot struct {
 	frameSvc framesystem.Service
 }
 
-func (r *localRobot) Dot() ([]byte, error) {
-	return r.manager.Dot()
+// ExportResourcesAsDot exports the resource graph as a DOT representation for
+// vizualization.
+// DOT reference: https://graphviz.org/doc/info/lang.html
+func (r *localRobot) ExportResourcesAsDot() (string, error) {
+	return r.manager.ExportDot()
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist

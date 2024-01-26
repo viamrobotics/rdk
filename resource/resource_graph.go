@@ -119,44 +119,38 @@ func (g *Graph) Clone() *Graph {
 	return g.clone()
 }
 
-// Dot exports the resource graph as a DOT file for vizualization.
-func (g *Graph) Dot() ([]byte, error) {
+// ExportDot exports the resource graph as a DOT representation for vizualization.
+// DOT reference: https://graphviz.org/doc/info/lang.html
+func (g *Graph) ExportDot() (string, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
 	sb := strings.Builder{}
 
-	_, err := sb.WriteString("digraph {\n")
+	_, err := sb.WriteString("digraph {\n\tgraph [ratio=\"compress\" size=\"15,15\"]\n")
 	if err != nil {
-		return nil, err
-	}
-	_, err = sb.WriteString("\tgraph [ratio=\"compress\" size=\"15,15\"]\n")
-	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	for node := range g.nodes {
 		line := fmt.Sprintf("\t%s;\n", node.Name)
-		_, err = sb.WriteString(line)
-		if err != nil {
-			return nil, err
+		if _, err := sb.WriteString(line); err != nil {
+			return "", err
 		}
 	}
 
 	for node, children := range g.children {
 		for child := range children {
 			line := fmt.Sprintf("\t%s -> %s;\n", child.Name, node.Name)
-			_, err = sb.WriteString(line)
-			if err != nil {
-				return nil, err
+			if _, err := sb.WriteString(line); err != nil {
+				return "", err
 			}
 		}
 	}
-	_, err = sb.WriteString("}\n")
-	if err != nil {
-		return nil, err
+	if _, err := sb.WriteString("}\n"); err != nil {
+		return "", err
 	}
-	return []byte(sb.String()), nil
+	return sb.String(), nil
 }
 
 func (g *Graph) clone() *Graph {

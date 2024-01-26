@@ -88,8 +88,10 @@ func fromRemoteNameToRemoteNodeName(name string) resource.Name {
 	return resource.NewName(client.RemoteAPI, name)
 }
 
-func (manager *resourceManager) Dot() ([]byte, error) {
-	return manager.resources.Dot()
+// ExportDot exports the resource graph as a DOT representation for vizualization.
+// DOT reference: https://graphviz.org/doc/info/lang.html
+func (manager *resourceManager) ExportDot() (string, error) {
+	return manager.resources.ExportDot()
 }
 
 func (manager *resourceManager) startModuleManager(

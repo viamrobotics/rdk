@@ -110,8 +110,10 @@ type LocalRobot interface {
 	// ModuleAddress returns the address (path) of the unix socket modules use to contact the parent.
 	ModuleAddress() (string, error)
 
-	// Debug: Export resource graph in DOT format
-	Dot() ([]byte, error)
+	// ExportResourcesAsDot exports the resource graph as a DOT representation for
+	// vizualization.
+	// DOT reference: https://graphviz.org/doc/info/lang.html
+	ExportResourcesAsDot() (string, error)
 }
 
 // A RemoteRobot is a Robot that was created through a connection.

@@ -901,7 +901,7 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 		if !isLocal {
 			return
 		}
-		dot, err := localRobot.Dot()
+		dot, err := localRobot.ExportResourcesAsDot()
 		if err != nil {
 			return
 		}
@@ -913,7 +913,7 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 			}
 		}()
 
-		graph, err := graphviz.ParseBytes(dot)
+		graph, err := graphviz.ParseBytes([]byte(dot))
 		if err != nil {
 			return
 		}
