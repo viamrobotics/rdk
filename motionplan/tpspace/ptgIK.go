@@ -16,8 +16,8 @@ import (
 
 const (
 	defaultResolutionSeconds = 0.01 // seconds. Return trajectories updating velocities at this resolution.
-
-	defaultZeroDist = 1e-3 // Sometimes nlopt will minimize trajectories to zero. Ensure min traj dist is at least this
+	defaultZeroDist = 1e-3 // Sometimes nlopt will minimize trajectories to zero. Ensure min total traj dist is at least this
+	defaultMinPTGlen = 0.
 )
 
 type ptgIK struct {

@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	defaultAutoBB = 0.8 // Automatic bounding box on driveable area as a multiple of start-goal distance
+	defaultAutoBB = 1.8 // Automatic bounding box on driveable area as a multiple of start-goal distance
 	// Note: while fully holonomic planners can use the limits of the frame as implicit boundaries, with non-holonomic motion
 	// this is not the case, and the total workspace available to the planned frame is not directly related to the motion available
 	// from a single set of inputs.
@@ -68,13 +68,13 @@ const (
 	defaultSmoothChunkCount = 6
 
 	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly.
-	pathdebug = false
+	pathdebug = true
 )
 
 // Using the standard SquaredNormMetric, we run into issues where far apart distances will underflow gradient calculations.
 // This metric, used only for gradient descent, computes the gradient using centimeters rather than millimeters allowing for smaller
 // values that do not underflow.
-var defaultGoalMetricConstructor = ik.NewPosWeightSquaredNormMetric
+var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
 
 // Used to flip goal nodes so they can solve forwards.
 var flipPose = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
@@ -300,6 +300,9 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	var randPosNode node = midptNode
 
 	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
+		if pathdebug {
+			mp.logger.Debugf("$RRTGOAL,%f,%f", randPosNode.Pose().Point().X, randPosNode.Pose().Point().Y)
+		}
 		mp.logger.CDebugf(ctx, "TP Space RRT iteration %d", iter)
 		if ctx.Err() != nil {
 			mp.logger.CDebugf(ctx, "TP Space RRT timed out after %d iterations", iter)

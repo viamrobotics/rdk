@@ -80,6 +80,19 @@ func CreateNloptIKSolver(mdl referenceframe.Frame, logger logging.Logger, iter i
 	return ik, nil
 }
 
+func scaledSolveMetric(metric StateMetric) StateMetric {
+	return func(state *State) float64 {
+		dist := metric(state)
+		magnitude := math.Log10(dist)
+		if magnitude > 2. {
+			for i := int(magnitude) + 2; i < int(math.Log10(dist)); i++ {
+				dist = math.Pow10(i) + (dist - math.Pow10(i))/10
+			}
+		}
+		return dist
+	}
+}
+
 // Solve runs the actual solver and sends any solutions found to the given channel.
 func (ik *NloptIK) Solve(ctx context.Context,
 	solutionChan chan<- *Solution,
@@ -87,6 +100,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	solveMetric StateMetric,
 	rseed int,
 ) error {
+	solveMetric = scaledSolveMetric(solveMetric)
 	//nolint: gosec
 	randSeed := rand.New(rand.NewSource(int64(rseed)))
 	var err error
