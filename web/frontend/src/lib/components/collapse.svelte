@@ -4,7 +4,6 @@
   Once we've completed the svelte migration it can be removed and replaced with the PRIME component.
 -->
 <script lang="ts">
-
 import { onMount, createEventDispatcher, tick } from 'svelte';
 
 export let title = '';
@@ -35,19 +34,18 @@ onMount(() => {
     dispatch('toggle', { open: true });
   }
 });
-
 </script>
 
 <div class="relative w-full">
   <div
-    class='
-      border border-light bg-white w-full py-2 px-4
-      flex flex-reverse items-center justify-between text-default cursor-pointer
-    '
+    class="
+      flex-reverse flex w-full cursor-pointer items-center justify-between
+      border border-light bg-white px-4 py-2 text-default
+    "
     on:click={handleClick}
     on:keyup|stopPropagation|preventDefault={handleClick}
   >
-    <div class="flex flex-wrap gap-x-3 gap-y-1 items-center">
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
       {#if title}
         <h2 class="m-0 text-sm">{title}</h2>
       {/if}
@@ -55,7 +53,7 @@ onMount(() => {
       <slot name="title" />
     </div>
 
-    <div class="h-full flex items-center gap-3">
+    <div class="flex h-full items-center gap-3">
       <slot name="header" />
 
       <v-icon

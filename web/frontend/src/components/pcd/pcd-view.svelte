@@ -1,6 +1,5 @@
 <!-- eslint-disable multiline-comment-style -->
 <script lang="ts">
-
 import { onMount, onDestroy } from 'svelte';
 import * as THREE from 'three';
 import { ViewHelper, GridHelper } from 'trzy';
@@ -20,16 +19,19 @@ let transformEnabled = false;
 
 const click = new THREE.Vector3();
 
-$: distanceFromCamera = Math.round(Math.hypot((click.x), (click.y), (click.z)));
+$: distanceFromCamera = Math.round(Math.hypot(click.x, click.y, click.z));
 
 const loader = new PCDLoader();
 const scene = new THREE.Scene();
 
-const ambientLight = new THREE.AmbientLight(0xFF_FF_FF, 3);
+const ambientLight = new THREE.AmbientLight(0xff_ff_ff, 3);
 scene.add(ambientLight);
 
 const camera = new THREE.PerspectiveCamera(
-  75, window.innerWidth / window.innerHeight, 0.01, 2000
+  75,
+  window.innerWidth / window.innerHeight,
+  0.01,
+  2000
 );
 camera.position.set(0.5, 0.5, 1);
 camera.lookAt(0, 0, 0);
@@ -111,12 +113,17 @@ const update = (cloud: Uint8Array) => {
 
   const points = loader.parse(cloud.buffer);
   points.name = 'points';
-  const positions = (points.geometry.attributes.position as THREE.BufferAttribute).array as Float32Array;
+  const positions = (
+    points.geometry.attributes.position as THREE.BufferAttribute
+  ).array as Float32Array;
 
   // TODO (hackday): colors is not consistently returned, if not just render all points as blue
   // eslint-disable-next-line unicorn/prefer-spread
-  const colorAttrib = points.geometry.attributes.color as THREE.BufferAttribute | undefined;
-  const colors = colorAttrib?.array ?? [...positions].flatMap(() => [0.3, 0.5, 0.7]);
+  const colorAttrib = points.geometry.attributes.color as
+    | THREE.BufferAttribute
+    | undefined;
+  const colors =
+    colorAttrib?.array ?? [...positions].flatMap(() => [0.3, 0.5, 0.7]);
 
   const count = positions.length / 3;
   const material = new THREE.MeshBasicMaterial();
@@ -151,8 +158,10 @@ const getMouseNormalizedDeviceCoordinates = (event: MouseEvent) => {
   const rect = canvas.getBoundingClientRect();
 
   return {
-    x: (((event.clientX - rect.left) / canvas.width * devicePixelRatio) * 2) - 1,
-    y: (-((event.clientY - rect.top) / canvas.height * devicePixelRatio) * 2) + 1,
+    x: ((event.clientX - rect.left) / canvas.width) * devicePixelRatio * 2 - 1,
+    y:
+      -(((event.clientY - rect.top) / canvas.height) * devicePixelRatio) * 2 +
+      1,
   };
 };
 
@@ -185,7 +194,9 @@ const handleCanvasMouseUp = (event: MouseEvent) => {
 
   raycaster.setFromCamera(mouse, camera);
 
-  const [intersect] = raycaster.intersectObjects([scene.getObjectByName('points')!]);
+  const [intersect] = raycaster.intersectObjects([
+    scene.getObjectByName('points')!,
+  ]);
   const points = scene.getObjectByName('points') as THREE.InstancedMesh;
 
   if (intersect?.instanceId === undefined) {
@@ -226,7 +237,9 @@ const handleToggleTransformControls = () => {
 const handleTransformModeChange = (event: CustomEvent<{ value: string }>) => {
   const { value } = event.detail;
 
-  transformControls.setMode(value.toLowerCase() as 'translate' | 'rotate' | 'scale');
+  transformControls.setMode(
+    value.toLowerCase() as 'translate' | 'rotate' | 'scale'
+  );
 };
 
 const handlePointsResize = (event: CustomEvent<{ value: number }>) => {
@@ -278,7 +291,6 @@ onDestroy(() => {
 $: if (pointcloud) {
   init(pointcloud);
 }
-
 </script>
 
 <div class="flex gap-4">
@@ -337,9 +349,7 @@ $: if (pointcloud) {
     </div>
 
     <div class="flex flex-wrap gap-2">
-      <div class="w-full text-xs">
-        Selected point position
-      </div>
+      <div class="w-full text-xs">Selected point position</div>
       <v-input
         class="w-20"
         readonly

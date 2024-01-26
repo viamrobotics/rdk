@@ -23,15 +23,13 @@ import (
 type client struct {
 	resource.Named
 	resource.TriviallyReconfigurable
-	resource.TriviallyCloseable
 	conn                    rpc.ClientConn
 	client                  pb.AudioInputServiceClient
 	logger                  logging.Logger
 	mu                      sync.Mutex
 	name                    string
 	activeBackgroundWorkers sync.WaitGroup
-	cancelCtx               context.Context
-	cancel                  func()
+	healthyClientCh         chan struct{}
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -42,19 +40,13 @@ func NewClientFromConn(
 	name resource.Name,
 	logger logging.Logger,
 ) (AudioInput, error) {
-	// TODO(RSDK-6340): This client might still try to create audio streams after this
-	// context is canceled. These subsequent audio streams will not work. To fix this,
-	// use a channel instead of a context like we do in `component/audioinput/client.go`
-	cancelCtx, cancel := context.WithCancel(context.Background())
 	c := pb.NewAudioInputServiceClient(conn)
 	return &client{
-		Named:     name.PrependRemote(remoteName).AsNamed(),
-		name:      name.ShortName(),
-		conn:      conn,
-		client:    c,
-		logger:    logger,
-		cancelCtx: cancelCtx,
-		cancel:    cancel,
+		Named:  name.PrependRemote(remoteName).AsNamed(),
+		name:   name.ShortName(),
+		conn:   conn,
+		client: c,
+		logger: logger,
 	}, nil
 }
 
@@ -75,7 +67,36 @@ func (c *client) Stream(
 	ctx context.Context,
 	errHandlers ...gostream.ErrorHandler,
 ) (gostream.AudioStream, error) {
-	streamCtx, stream, chunkCh := gostream.NewMediaStreamForChannel[wave.Audio](c.cancelCtx)
+	// RSDK-6340: The resource manager closes remote resources when the underlying
+	// connection goes bad. However, when the connection is re-established, the client
+	// objects these resources represent are not re-initialized/marked "healthy".
+	// `healthyClientCh` helps track these transitions between healthy and unhealthy
+	// states.
+	//
+	// When a new `client.Stream()` is created we will either use the existing
+	// `healthyClientCh` or create a new one.
+	//
+	// The goroutine a `Stream()` method spins off will listen to its version of the
+	// `healthyClientCh` to be notified when the connection has died so it can gracefully
+	// terminate.
+	//
+	// When a connection becomes unhealthy, the resource manager will call `Close` on the
+	// audioinput client object. Closing the client will:
+	// 1. close its `client.healthyClientCh` channel
+	// 2. wait for existing "stream" goroutines to drain
+	// 3. nil out the `client.healthyClientCh` member variable
+	//
+	// New streams concurrent with closing cannot start until this drain completes. There
+	// will never be stream goroutines from the old "generation" running concurrently
+	// with those from the new "generation".
+	c.mu.Lock()
+	if c.healthyClientCh == nil {
+		c.healthyClientCh = make(chan struct{})
+	}
+	healthyClientCh := c.healthyClientCh
+	c.mu.Unlock()
+
+	streamCtx, stream, chunkCh := gostream.NewMediaStreamForChannel[wave.Audio](context.Background())
 
 	chunksClient, err := c.client.Chunks(ctx, &pb.ChunksRequest{
 		Name:         c.name,
@@ -152,6 +173,11 @@ func (c *client) Stream(
 			select {
 			case <-streamCtx.Done():
 				return
+			case <-healthyClientCh:
+				if err := stream.Close(context.Background()); err != nil {
+					c.logger.Warn("error closing stream", err)
+				}
+				return
 			case chunkCh <- gostream.MediaReleasePairWithError[wave.Audio]{
 				Media:   chunk,
 				Release: func() {},
@@ -186,10 +212,19 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
+// TODO(RSDK-6433): This method can be called more than once during a client's lifecycle.
+// For example, consider a case where a remote audioinput goes offline and then back
+// online. We will call `Close` on the audioinput client when we detect the disconnection
+// to remove active streams but then reuse the client when the connection is
+// re-established.
 func (c *client) Close(ctx context.Context) error {
 	c.mu.Lock()
-	c.cancel()
-	c.mu.Unlock()
+	defer c.mu.Unlock()
+
+	if c.healthyClientCh != nil {
+		close(c.healthyClientCh)
+	}
 	c.activeBackgroundWorkers.Wait()
+	c.healthyClientCh = nil
 	return nil
 }
