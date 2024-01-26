@@ -135,9 +135,9 @@ rdk.apk:
 		-o $@ \
 		./web/cmd/server
 
-android-bind:
+droid-rdk.aar:
 	# creates an android library that can be imported by native code
-	gomobile bind -v -target android/386 -androidapi 29 -tags no_cgo ./web/cmd/droid
+	gomobile bind -v -target android -androidapi 29 -tags no_cgo -o $@ ./web/cmd/droid
 
 clean-all:
 	git clean -fxd
