@@ -61,12 +61,10 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 		inputs := inputMap[""]
 		selectedPTG := ptgBase.ptgs[int(math.Round(inputs[ptgIndex].Value))]
 
-		distResolution := ptgBase.linVelocityMMPerSecond / inputUpdateStep
-
 		selectedTraj, err := selectedPTG.Trajectory(
 			inputs[trajectoryIndexWithinPTG].Value,
 			inputs[distanceAlongTrajectoryIndex].Value,
-			distResolution,
+			stepDistResolution,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		arcSteps := ptgBase.trajectoryToArcsteps(selectedTraj)

@@ -71,7 +71,7 @@ func NewPTGFrameFromKinematicOptions(
 	if turnRadMeters <= 0 {
 		return nil, fmt.Errorf("cannot create ptg frame, turning radius %f must be >0", turnRadMeters)
 	}
-	if diffDriveOnly && canRotateInPlace {
+	if diffDriveOnly && !canRotateInPlace {
 		return nil, errors.New("if diffDriveOnly is used, canRotateInPlace must be true")
 	}
 

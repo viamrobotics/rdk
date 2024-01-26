@@ -27,7 +27,7 @@ type ptgIK struct {
 	gridSim PTGSolver
 
 	mu          sync.RWMutex
-	trajCache   map[float64][]*TrajNode
+	trajCache   map[float64]map[float64][]*TrajNode
 	defaultSeed []referenceframe.Input
 }
 
@@ -64,7 +64,7 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float
 		refDist:         refDistLong,
 		ptgFrame:        ptgFrame,
 		fastGradDescent: nlopt,
-		trajCache:       map[float64][]*TrajNode{},
+		trajCache:       map[float64]map[float64][]*TrajNode{},
 	}
 	ptg.defaultSeed = PTGIKSeed(ptg)
 
@@ -125,10 +125,13 @@ func (ptg *ptgIK) MaxDistance() float64 {
 }
 
 func (ptg *ptgIK) Trajectory(alpha, dist, resolution float64) ([]*TrajNode, error) {
-	traj := []*TrajNode{}
+	var precomp, traj []*TrajNode
 	ptg.mu.RLock()
-	precomp := ptg.trajCache[alpha]
+	thisRes := ptg.trajCache[resolution]
 	ptg.mu.RUnlock()
+	if thisRes != nil {
+		precomp = thisRes[alpha]
+	}
 	if precomp != nil && precomp[len(precomp)-1].Dist >= dist && dist > 0 {
 		exact := false
 		for _, wp := range precomp {
@@ -157,7 +160,10 @@ func (ptg *ptgIK) Trajectory(alpha, dist, resolution float64) ([]*TrajNode, erro
 		if dist > 0 {
 			ptg.mu.Lock()
 			// Caching here provides a ~33% speedup to a solve call
-			ptg.trajCache[alpha] = traj
+			if ptg.trajCache[resolution] == nil {
+				ptg.trajCache[resolution] = map[float64][]*TrajNode{}
+			}
+			ptg.trajCache[resolution][alpha] = traj
 			ptg.mu.Unlock()
 		}
 	}
