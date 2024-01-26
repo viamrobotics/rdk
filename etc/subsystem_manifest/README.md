@@ -1,4 +1,4 @@
-This go script is used to create metadata that is uploaded to gcs along with each upload of viam-server. This script is designed to not be clever or hold magic-strings but rather to keep those values in `package.make`.
+This go script is used to create metadata that is uploaded to gcs along with each upload of viam-server. This script is invoked primarily from `package.make` and all of the magic-values should be stored in there rather than in this script (if possible).
 
 It accepts the following cli arguments:
 

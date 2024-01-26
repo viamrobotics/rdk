@@ -45,7 +45,7 @@ type substemManifest struct {
 }
 
 func main() {
-	subsystem := flag.String("subsystem", viamServer, "subsystem type")
+	subsystem := flag.String("subsystem", viamServer, "subsystem type") // default to viam-server
 	binaryPath := flag.String("binary-path", "", "path to subsystem binary")
 	objectPath := flag.String("object-path", "", "path where this binary will be stored in gcs")
 	version := flag.String("version", "", "version")
@@ -78,6 +78,8 @@ func main() {
 		Sha256:     binarySha,
 		Metadata:   metadata,
 	}
+
+	// marshall and output the manifest to stdout
 	jsonResult, err := json.MarshalIndent(manifest, "", "\t")
 	if err != nil {
 		log.Fatalf("failed to marshall json result %v", err)
