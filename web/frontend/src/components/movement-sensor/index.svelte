@@ -315,7 +315,7 @@ useConnect(() => {
       <div class="overflow-auto">
         <h3 class="mb-1">Accuracy Map</h3>
         <table class="w-full border border-t-0 border-medium p-4">
-          {#each (accuracy?.accuracyMap || []) as pair (pair[0])}
+          {#each accuracy?.accuracyMap ?? [] as pair (pair[0])}
             <tr>
               <td class="border border-medium p-2">
                 {pair[0]}
