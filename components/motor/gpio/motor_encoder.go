@@ -434,7 +434,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 			goal := m.state.goalPos
 			m.stateMu.Unlock()
 			pos, err := m.position(ctx, extra)
-			return rdkutils.Float64AlmostEqual(pos, goal, 1.0), err
+			return rdkutils.Float64AlmostEqual(pos, goal, 5.0), err
 		}
 		return m.opMgr.WaitForSuccess(
 			ctx,
