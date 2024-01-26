@@ -19,7 +19,10 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var replanReason = "replan triggered due to location drift"
+var (
+	replanReason = "replan triggered due to location drift"
+	ttl          = time.Hour * 24
+)
 
 // testPlannerExecutor is a mock PlannerExecutor implementation.
 type testPlannerExecutor struct {
@@ -165,13 +168,13 @@ func TestState(t *testing.T) {
 
 	t.Run("creating & stopping a state with no intermediary calls", func(t *testing.T) {
 		t.Parallel()
-		s := state.NewState(ctx, logger)
+		s := state.NewState(ctx, ttl, logger)
 		defer s.Stop()
 	})
 
 	t.Run("starting a new execution & stopping the state", func(t *testing.T) {
 		t.Parallel()
-		s := state.NewState(ctx, logger)
+		s := state.NewState(ctx, ttl, logger)
 		defer s.Stop()
 		_, err := state.StartExecution(ctx, s, emptyReq.ComponentName, emptyReq, successPlanConstructor)
 		test.That(t, err, test.ShouldBeNil)
@@ -179,7 +182,7 @@ func TestState(t *testing.T) {
 
 	t.Run("starting & stopping an execution & stopping the state", func(t *testing.T) {
 		t.Parallel()
-		s := state.NewState(ctx, logger)
+		s := state.NewState(ctx, ttl, logger)
 		defer s.Stop()
 
 		_, err := state.StartExecution(ctx, s, emptyReq.ComponentName, emptyReq, executionWaitingForCtxCancelledPlanConstructor)
@@ -221,7 +224,7 @@ func TestState(t *testing.T) {
 
 	t.Run("stopping an execution is idempotnet", func(t *testing.T) {
 		t.Parallel()
-		s := state.NewState(ctx, logger)
+		s := state.NewState(ctx, ttl, logger)
 		defer s.Stop()
 		req := motion.MoveOnGlobeReq{ComponentName: myBase}
 		_, err := state.StartExecution(ctx, s, req.ComponentName, req, executionWaitingForCtxCancelledPlanConstructor)
@@ -235,7 +238,7 @@ func TestState(t *testing.T) {
 
 	t.Run("stopping the state is idempotnet", func(t *testing.T) {
 		t.Parallel()
-		s := state.NewState(ctx, logger)
+		s := state.NewState(ctx, ttl, logger)
 		defer s.Stop()
 		req := motion.MoveOnGlobeReq{ComponentName: myBase}
 		_, err := state.StartExecution(ctx, s, req.ComponentName, req, executionWaitingForCtxCancelledPlanConstructor)
@@ -247,7 +250,7 @@ func TestState(t *testing.T) {
 
 	t.Run("stopping an execution after stopping the state", func(t *testing.T) {
 		t.Parallel()
-		s := state.NewState(ctx, logger)
+		s := state.NewState(ctx, ttl, logger)
 		defer s.Stop()
 		req := motion.MoveOnGlobeReq{ComponentName: myBase}
 		_, err := state.StartExecution(ctx, s, req.ComponentName, req, executionWaitingForCtxCancelledPlanConstructor)
@@ -261,7 +264,7 @@ func TestState(t *testing.T) {
 
 	t.Run("querying for an unknown resource returns an unknown resource error", func(t *testing.T) {
 		t.Parallel()
-		s := state.NewState(ctx, logger)
+		s := state.NewState(ctx, ttl, logger)
 		defer s.Stop()
 		req := motion.MoveOnGlobeReq{ComponentName: myBase}
 		_, err := state.StartExecution(ctx, s, req.ComponentName, req, executionWaitingForCtxCancelledPlanConstructor)
@@ -273,7 +276,7 @@ func TestState(t *testing.T) {
 
 	t.Run("end to end test", func(t *testing.T) {
 		t.Parallel()
-		s := state.NewState(ctx, logger)
+		s := state.NewState(ctx, ttl, logger)
 		defer s.Stop()
 
 		// no plan statuses as no executions have been created

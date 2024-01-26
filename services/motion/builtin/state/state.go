@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
-	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -322,53 +321,66 @@ func NewState(ctx context.Context, ttl time.Duration, logger logging.Logger) *St
 			if cancelCtx.Err() != nil {
 				return
 			}
+
 			select {
 			case <-cancelCtx.Done():
 				return
 			case <-ticker.C:
-				s.purgeOlderThanTTL()
+				err := s.purgeOlderThanTTL()
+				if err != nil {
+					s.logger.Error(err.Error())
+				}
 			}
 		}
 	}, s.waitGroup.Done)
 	return &s
 }
 
-func (s *State) purgeOlderThanTTL() {
+// findKeepIndex returns the index of the executionHistory slice which should be kept
+// after purging i.e. are after the purgeCutoff
+// returns -1 if none of the executions are after the cutoff i.e. if all need to be purged.
+func findKeepIndex(componentState componentState, purgeCutoff time.Time) (int, error) {
+	// iterate in reverse order (i.e. from oldest execution to newest execution)
+	for executionIndex := len(componentState.executionIDHistory) - 1; executionIndex >= 0; executionIndex-- {
+		executionID := componentState.executionIDHistory[executionIndex]
+		execution, ok := componentState.executionsByID[executionID]
+		if !ok {
+			msg := "executionID %s exists at index %d of executionIDHistory but is not present in executionsByID"
+			return 0, fmt.Errorf(msg, executionID, executionIndex)
+		}
+
+		mostRecentTimestamp := execution.history[0].StatusHistory[0].Timestamp
+		if mostRecentTimestamp.After(purgeCutoff) {
+			return executionIndex, nil
+		}
+	}
+	return -1, nil
+}
+
+func (s *State) purgeOlderThanTTL() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	now := time.Now()
-	newComponentStateByComponent := make(map[resource.Name]componentState)
-	for resource, componencomponentState := range s.componentStateByComponent {
-		historyLen := len(componencomponentState.executionIDHistory)
-		lastStateChangesPlusTTL := make([]time.Time, 0, historyLen)
-		for _, id := range componencomponentState.executionIDHistory {
-			execution, ok := componencomponentState.executionsByID[id]
-			if !ok {
-				continue
-			}
-			lastStateChangesPlusTTL = append(lastStateChangesPlusTTL, execution.history[0].StatusHistory[0].Timestamp.Add(s.ttl))
-		}
-		// TODO: This isn't going to work, you need to
-		slices.BinarySearchFunc(lastStateChangesPlusTTL, now, func(a, b time.Time) int {
-			// need to flip sign as the list is in decreasing order
-			return -a.Compare(b)
-		})
-		//for i > 0 {
-		//	i--
-		//	execution, ok := componencomponentState.executionsByID[componencomponentState.executionIDHistory[i]]
-		//	if !ok {
-		//		//TODO: Log big error
-		//	}
-		//	lastStateChange := execution.history[0].StatusHistory[0].Timestamp
-		//	expired := lastStateChange.Add(s.ttl).Before(now)
-		//	if !expired {
-		//		// once we find one which is not expired, we know all the rest are also not expired
-		//		break
-		//	}
-		//	// still within the TTL,
-		//}
 
+	purgeCutoff := time.Now().Add(-s.ttl)
+	for resource, componentState := range s.componentStateByComponent {
+		keepIndex, err := findKeepIndex(componentState, purgeCutoff)
+		if err != nil {
+			return err
+		}
+		// If there are no executions to keep, then delete the resource.
+		if keepIndex == -1 {
+			delete(s.componentStateByComponent, resource)
+		}
+
+		executionIdsToKeep := componentState.executionIDHistory[:keepIndex+1]
+		executionIdsToDelete := componentState.executionIDHistory[keepIndex+1:]
+
+		for _, executionID := range executionIdsToDelete {
+			delete(componentState.executionsByID, executionID)
+		}
+		componentState.executionIDHistory = executionIdsToKeep
 	}
+	return nil
 }
 
 // StartExecution creates a new execution from a state.
