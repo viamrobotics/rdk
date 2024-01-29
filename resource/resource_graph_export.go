@@ -107,9 +107,9 @@ func exportNode(bw *blockWriter, name Name, node *GraphNode) {
 	switch {
 	// Nodes without errors inherit the standard color. Nodes with errors show up as red with a
 	// tooltip relaying the error string.
-	case err == nil && limboState == false:
+	case err == nil && !limboState:
 		bw.WriteStringf("%s [tooltip=%q];", genNodeName(name), tooltipNoError)
-	case err == nil && limboState == true:
+	case err == nil && limboState:
 		bw.WriteStringf("%s [color=salmon,tooltip=%q];", genNodeName(name), tooltipNoError)
 	case errors.Is(err, errPendingRemoval):
 		tooltip := fmt.Sprintf("State: Pending Removal\\n%s", tooltipNoError)

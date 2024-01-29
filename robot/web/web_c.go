@@ -382,5 +382,7 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 	if layout != "" {
 		gv.SetLayout(graphviz.Layout(layout))
 	}
-	gv.Render(graph, graphviz.SVG, w)
+	if err = gv.Render(graph, graphviz.SVG, w); err != nil {
+		return
+	}
 }

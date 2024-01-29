@@ -661,7 +661,7 @@ func (manager *resourceManager) completeConfig(
 		case <-ctx.Done():
 			return
 		}
-	}
+	} // for-each resource name
 }
 
 // cleanAppImageEnv attempts to revert environment variable changes so
