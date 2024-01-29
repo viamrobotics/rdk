@@ -560,9 +560,7 @@ func CheckPlan(
 
 			modifiedState := &ik.State{Frame: sf, Position: poseInPath}
 
-			// Checks for collision along the interpolated route and returns a the first interpolated pose where a
-			// collision is detected.
-			// TODO: should this instead be changed to check segments?
+			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
 			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedState); !isValid {
 				return fmt.Errorf("found collision between positions %v and %v", segment.StartPosition.Point(), segment.EndPosition.Point())
 			}

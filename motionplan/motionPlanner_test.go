@@ -616,7 +616,8 @@ func TestSolverFrameGeometries(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	inputs, err := sf.mapToSlice(plan.Trajectory()[len(plan.Trajectory())-1])
 	test.That(t, err, test.ShouldBeNil)
-	gf, _ := sf.Geometries(inputs)
+	gf, err := sf.Geometries(inputs)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gf, test.ShouldNotBeNil)
 
 	geoms := gf.Geometries()
