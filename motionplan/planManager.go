@@ -124,13 +124,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	}
 
 	// If we are seeding off of a pre-existing plan, we don't need the speedup of subwaypoints
-	var plan *rrtPlan
 	if seedPlan != nil {
-		var ok bool
-		// TODO: make this work with any implementation of Plan
-		if plan, ok = seedPlan.(*rrtPlan); !ok {
-			return nil, errBadPlanImpl
-		}
 		subWaypoints = false
 	}
 
@@ -192,7 +186,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 		}
 	}
 
-	plan, err = pm.planAtomicWaypoints(ctx, goals, seed, planners, plan)
+	plan, err := pm.planAtomicWaypoints(ctx, goals, seed, planners, seedPlan)
 	pm.activeBackgroundWorkers.Wait()
 	if err != nil {
 		if len(goals) > 1 {
@@ -211,8 +205,8 @@ func (pm *planManager) planAtomicWaypoints(
 	goals []spatialmath.Pose,
 	seed []referenceframe.Input,
 	planners []motionPlanner,
-	seedPlan *rrtPlan,
-) (*rrtPlan, error) {
+	seedPlan Plan,
+) (Plan, error) {
 	var err error
 	// A resultPromise can be queried in the future and will eventually yield either a set of planner waypoints, or an error.
 	// Each atomic waypoint produces one result promise, all of which are resolved at the end, allowing multiple to be solved in parallel.
@@ -660,8 +654,15 @@ func (pm *planManager) goodPlan(pr *rrtSolution, opt *plannerOptions) (bool, flo
 	return false, solutionCost
 }
 
-func (pm *planManager) planToRRTGoalMap(plan *rrtPlan, goal spatialmath.Pose) (*rrtMaps, error) {
-	planNodes := plan.nodes
+func (pm *planManager) planToRRTGoalMap(plan Plan, goal spatialmath.Pose) (*rrtMaps, error) {
+	// TODO: make this work with any implementation of Plan
+	var rrt *rrtPlan
+	var ok bool
+	if rrt, ok = plan.(*rrtPlan); !ok {
+		return nil, errBadPlanImpl
+	}
+	planNodes := rrt.nodes
+
 	if pm.useTPspace {
 		// Fill in positions from the old origin to where the goal was during the last run
 		planNodesOld, err := rectifyTPspacePath(planNodes, pm.frame, spatialmath.NewZeroPose())
