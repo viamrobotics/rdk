@@ -259,8 +259,7 @@ func sumCosts(path []node) float64 {
 }
 
 type rrtPlan struct {
-	traj Trajectory
-	path Path
+	*SimplePlan
 
 	// nodes corresponding to inputs can be cached with the Plan for easy conversion back into a form usable by RRT
 	// depending on how the trajectory is constructed these may be nil and should be computed before usage
@@ -283,9 +282,8 @@ func newRRTPlan(solution []node, sf *solverFrame, relative bool) (*rrtPlan, erro
 		}
 	}
 	return &rrtPlan{
-		traj:  traj,
-		path:  path,
-		nodes: solution,
+		SimplePlan: NewSimplePlan(path, traj),
+		nodes:      solution,
 	}, nil
 }
 

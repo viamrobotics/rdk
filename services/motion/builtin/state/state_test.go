@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/state"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/testutils/inject"
 )
 
 var replanReason = "replan triggered due to location drift"
@@ -541,18 +540,14 @@ func TestState(t *testing.T) {
 						pbc := motionplan.PathStep{
 							req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 						}
-						return &inject.Plan{PathFunc: func() motionplan.Path {
-							return []motionplan.PathStep{pbc}
-						}}, nil
+						return motionplan.NewSimplePlan([]motionplan.PathStep{pbc}, nil), nil
 					}
 					// first replan succeeds
 					if replanCount == 1 {
 						pbc := motionplan.PathStep{
 							req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 						}
-						return &inject.Plan{PathFunc: func() motionplan.Path {
-							return []motionplan.PathStep{pbc, pbc}
-						}}, nil
+						return motionplan.NewSimplePlan([]motionplan.PathStep{pbc, pbc}, nil), nil
 					}
 					// second replan fails
 					return nil, replanFailReason

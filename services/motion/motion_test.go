@@ -47,12 +47,13 @@ func TestPlanWithStatus(t *testing.T) {
 		ID:            planID,
 		ExecutionID:   executionID,
 		ComponentName: baseName,
-		Plan: &incompletePlan{
-			path: []motionplan.PathStep{
+		Plan: motionplan.NewSimplePlan(
+			[]motionplan.PathStep{
 				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
 				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
 			},
-		},
+			nil,
+		),
 	}
 
 	protoPlan := &pb.Plan{
@@ -582,12 +583,13 @@ func TestPlan(t *testing.T) {
 		ID:            planID,
 		ExecutionID:   executionID,
 		ComponentName: baseName,
-		Plan: &incompletePlan{
-			path: []motionplan.PathStep{
+		Plan: motionplan.NewSimplePlan(
+			[]motionplan.PathStep{
 				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
 				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
 			},
-		},
+			nil,
+		),
 	}
 
 	t.Run("planFromProto", func(t *testing.T) {

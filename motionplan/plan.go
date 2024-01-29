@@ -22,27 +22,25 @@ type Plan interface {
 }
 
 // RemainingPlan returns a new Plan equal to the given plan from the waypointIndex onwards.
-func RemainingPlan(p Plan, waypointIndex int) (Plan, error) {
-	plan, ok := p.(*rrtPlan)
-	if !ok {
-		return nil, errBadPlanImpl
+func RemainingPlan(plan Plan, waypointIndex int) (Plan, error) {
+	if waypointIndex < 0 {
+		return nil, errors.New("could not access plan with negative waypoint index")
 	}
-	if waypointIndex < 0 || waypointIndex > len(plan.traj) {
-		return nil, fmt.Errorf("could not access trajectory index %d, must be between 0 and %d", waypointIndex, len(plan.traj))
+	if waypointIndex > len(plan.Trajectory()) {
+		return nil, fmt.Errorf("could not access trajectory index %d, must be less than %d", waypointIndex, len(plan.Trajectory()))
 	}
-	return &rrtPlan{
-		path:  plan.Path()[waypointIndex:],
-		traj:  plan.Trajectory()[waypointIndex:],
-		nodes: plan.nodes[waypointIndex:],
-	}, nil
+	if waypointIndex > len(plan.Path()) {
+		return nil, fmt.Errorf("could not access path index %d, must be less than %d", waypointIndex, len(plan.Path()))
+	}
+	simplePlan := NewSimplePlan(plan.Path()[waypointIndex:], plan.Trajectory()[waypointIndex:])
+	if rrt, ok := plan.(*rrtPlan); ok {
+		return &rrtPlan{SimplePlan: simplePlan, nodes: rrt.nodes[waypointIndex:]}, nil
+	}
+	return simplePlan, nil
 }
 
 // OffsetPlan returns a new Plan that is equivalent to the given Plan if its Path was offset by the given Pose.
-func OffsetPlan(p Plan, offset spatialmath.Pose) (Plan, error) {
-	plan, ok := p.(*rrtPlan)
-	if !ok {
-		return nil, errBadPlanImpl
-	}
+func OffsetPlan(plan Plan, offset spatialmath.Pose) Plan {
 	newPath := make([]PathStep, 0, len(plan.Path()))
 	for _, step := range plan.Path() {
 		newStep := make(PathStep, len(step))
@@ -51,39 +49,11 @@ func OffsetPlan(p Plan, offset spatialmath.Pose) (Plan, error) {
 		}
 		newPath = append(newPath, newStep)
 	}
-	return &rrtPlan{
-		path:  newPath,
-		traj:  plan.traj,
-		nodes: plan.nodes,
-	}, nil
-}
-
-// NewGeoPlan returns a Plan containing GPS coordinates smuggled into the Pose struct. Each GPS point is created using:
-// A Point with X as the longitude and Y as the latitude
-// An orientation using the heading as the theta in an OrientationVector with Z=1.
-func NewGeoPlan(p Plan, geoOrigin *spatialmath.GeoPose) (Plan, error) {
-	plan, ok := p.(*rrtPlan)
-	if !ok {
-		return nil, errBadPlanImpl
+	simplePlan := NewSimplePlan(newPath, plan.Trajectory())
+	if rrt, ok := plan.(*rrtPlan); ok {
+		return &rrtPlan{SimplePlan: simplePlan, nodes: rrt.nodes}
 	}
-	newPath := make([]PathStep, 0, len(plan.Path()))
-	for _, step := range plan.Path() {
-		newStep := make(PathStep)
-		for frame, pif := range step {
-			pose := pif.Pose()
-			geoPose := spatialmath.PoseToGeoPose(geoOrigin, pose)
-			heading := math.Mod(math.Abs(geoPose.Heading()-360), 360)
-			o := &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: heading}
-			smuggledGeoPose := spatialmath.NewPose(r3.Vector{X: geoPose.Location().Lng(), Y: geoPose.Location().Lat()}, o)
-			newStep[frame] = referenceframe.NewPoseInFrame(pif.Parent(), smuggledGeoPose)
-		}
-		newPath = append(newPath, newStep)
-	}
-	return &rrtPlan{
-		traj:  plan.traj,
-		path:  newPath,
-		nodes: plan.nodes,
-	}, nil
+	return simplePlan
 }
 
 // Trajectory is a slice of maps describing a series of Inputs for a robot to travel to in the course of following a Plan.
@@ -223,4 +193,51 @@ func PathStepFromProto(ps *pb.PlanStep) (PathStep, error) {
 		step[k] = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromProtobuf(v.Pose))
 	}
 	return step, nil
+}
+
+// NewGeoPath returns a Path containing GPS coordinates smuggled into the Pose struct. Each GPS point is created using:
+// A Point with X as the longitude and Y as the latitude
+// An orientation using the heading as the theta in an OrientationVector with Z=1.
+func NewGeoPath(path Path, geoOrigin *spatialmath.GeoPose) Path {
+	newPath := make([]PathStep, 0, len(path))
+	for _, step := range path {
+		newStep := make(PathStep)
+		for frame, pif := range step {
+			pose := pif.Pose()
+			geoPose := spatialmath.PoseToGeoPose(geoOrigin, pose)
+			heading := math.Mod(math.Abs(geoPose.Heading()-360), 360)
+			o := &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: heading}
+			smuggledGeoPose := spatialmath.NewPose(r3.Vector{X: geoPose.Location().Lng(), Y: geoPose.Location().Lat()}, o)
+			newStep[frame] = referenceframe.NewPoseInFrame(pif.Parent(), smuggledGeoPose)
+		}
+		newPath = append(newPath, newStep)
+	}
+	return newPath
+}
+
+// SimplePlan is a struct containing a Path and a Trajectory, together these comprise a Plan
+type SimplePlan struct {
+	path Path
+	traj Trajectory
+}
+
+// NewSimplePlan instantiates a new Plan from a Path and Trajectory
+func NewSimplePlan(path Path, traj Trajectory) *SimplePlan {
+	if path == nil {
+		path = Path{}
+	}
+	if traj == nil {
+		traj = Trajectory{}
+	}
+	return &SimplePlan{path: path, traj: traj}
+}
+
+// Path returns the Path associated with the Plan
+func (plan *SimplePlan) Path() Path {
+	return plan.path
+}
+
+// Trajectory returns the Trajectory associated with the Plan
+func (plan *SimplePlan) Trajectory() Trajectory {
+	return plan.traj
 }

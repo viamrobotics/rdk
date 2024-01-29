@@ -656,16 +656,13 @@ func TestPaths(t *testing.T) {
 				{
 					Plan: motion.PlanWithMetadata{
 						ExecutionID: executionID,
-						Plan: &inject.Plan{
-							PathFunc: func() motionplan.Path {
-								return []motionplan.PathStep{{
-									s.base.Name().ShortName(): referenceframe.NewPoseInFrame(
-										referenceframe.World,
-										spatialmath.NewPose(r3.Vector{X: expectedLng, Y: expectedLat}, nil),
-									),
-								}}
-							},
-						},
+						Plan: motionplan.NewSimplePlan(
+							[]motionplan.PathStep{{s.base.Name().ShortName(): referenceframe.NewPoseInFrame(
+								referenceframe.World,
+								spatialmath.NewPose(r3.Vector{X: expectedLng, Y: expectedLat}, nil),
+							)}},
+							nil,
+						),
 					},
 					StatusHistory: []motion.PlanStatus{
 						{State: motion.PlanStateInProgress},

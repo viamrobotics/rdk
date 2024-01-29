@@ -95,7 +95,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.OffsetPlan(plan, mr.poseOrigin)
+	return motionplan.OffsetPlan(plan, mr.poseOrigin), nil
 }
 
 // execute attempts to follow a given Plan starting from the index percribed by waypointIndex.

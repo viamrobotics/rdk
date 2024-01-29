@@ -127,6 +127,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	var plan *rrtPlan
 	if seedPlan != nil {
 		var ok bool
+		// TODO: make this work with any implementation of Plan
 		if plan, ok = seedPlan.(*rrtPlan); !ok {
 			return nil, errBadPlanImpl
 		}
