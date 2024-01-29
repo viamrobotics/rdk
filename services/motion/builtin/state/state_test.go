@@ -797,19 +797,18 @@ func TestState(t *testing.T) {
 			}
 		}
 
-		// TODO: Come back here
-		// planHistory := func(req motion.PlanHistoryReq, waitTillLen int) func() (pwsRes, bool) {
-		// 	return func() (pwsRes, bool) {
-		// 		st := pwsRes{}
-		// 		pws, err := s.PlanHistory(req)
-		// 		if err == nil && len(pws) == waitTillLen {
-		// 			st.pws = pws
-		// 			st.err = err
-		// 			return st, true
-		// 		}
-		// 		return st, false
-		// 	}
-		// }
+		planHistory := func(req motion.PlanHistoryReq, waitTillLen int) func() (pwsRes, bool) {
+			return func() (pwsRes, bool) {
+				st := pwsRes{}
+				pws, err := s.PlanHistory(req)
+				if err == nil && len(pws) == waitTillLen {
+					st.pws = pws
+					st.err = err
+					return st, true
+				}
+				return st, false
+			}
+		}
 
 		cancelCtx, cancelFn := context.WithTimeout(ctx, pollTillDuration)
 		defer cancelFn()
@@ -831,6 +830,27 @@ func TestState(t *testing.T) {
 		test.That(t, resPS.ps[1].Status.Reason, test.ShouldBeNil)
 		test.That(t, resPS.ps[1].Status.Timestamp.After(preExecution), test.ShouldBeTrue)
 
+		// by default planHistory returns the most recent plan
+		ph1, succ := pollUntil(cancelCtx, planHistory(motion.PlanHistoryReq{ComponentName: req.ComponentName}, 1))
+		test.That(t, succ, test.ShouldBeTrue)
+		test.That(t, ph1.err, test.ShouldBeNil)
+		test.That(t, len(ph1.pws), test.ShouldEqual, 1)
+		test.That(t, ph1.pws[0].Plan.ID, test.ShouldResemble, resPS.ps[0].PlanID)
+		test.That(t, ph1.pws[0].Plan.ExecutionID, test.ShouldResemble, executionID2)
+		test.That(t, len(ph1.pws[0].StatusHistory), test.ShouldEqual, 1)
+		test.That(t, ph1.pws[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateInProgress)
+
+		// it is possible to retrieve the stopped exectuion as it is still before the TTL
+		ph2, succ := pollUntil(cancelCtx, planHistory(motion.PlanHistoryReq{ComponentName: req.ComponentName, ExecutionID: executionID1}, 1))
+		test.That(t, succ, test.ShouldBeTrue)
+		test.That(t, ph2.err, test.ShouldBeNil)
+		test.That(t, len(ph2.pws), test.ShouldEqual, 1)
+		test.That(t, ph2.pws[0].Plan.ID, test.ShouldResemble, resPS.ps[1].PlanID)
+		test.That(t, ph2.pws[0].Plan.ExecutionID, test.ShouldResemble, executionID1)
+		test.That(t, len(ph2.pws[0].StatusHistory), test.ShouldEqual, 2)
+		test.That(t, ph2.pws[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateStopped)
+		test.That(t, ph2.pws[0].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
+
 		time.Sleep(sleepTTLDuration)
 
 		resPS2, succ2 := pollUntil(cancelCtx, listPlanStatuses(1))
@@ -844,6 +864,18 @@ func TestState(t *testing.T) {
 		test.That(t, resPS2.ps[0].Status.State, test.ShouldEqual, motion.PlanStateInProgress)
 		test.That(t, resPS2.ps[0].Status.Reason, test.ShouldBeNil)
 		test.That(t, resPS2.ps[0].Status.Timestamp.After(preExecution), test.ShouldBeTrue)
+
+		// should resemble ph1 as the most recent plan is still in progress & hasn't changed state
+		ph3, succ := pollUntil(cancelCtx, planHistory(motion.PlanHistoryReq{ComponentName: req.ComponentName}, 1))
+		test.That(t, succ, test.ShouldBeTrue)
+		test.That(t, ph1.err, test.ShouldBeNil)
+		test.That(t, ph3, test.ShouldResemble, ph1)
+
+		// the most first execution has been forgotten
+		ph4, succ := pollUntil(cancelCtx, planHistory(motion.PlanHistoryReq{ComponentName: req.ComponentName, ExecutionID: executionID1}, 1))
+		test.That(t, succ, test.ShouldBeTrue)
+		test.That(t, ph4.err, test.ShouldBeNil)
+		test.That(t, len(ph2.pws), test.ShouldEqual, 0)
 
 		// should fail as the in progress execution is still running
 		executionID3, err := state.StartExecution(ctx, s, req.ComponentName, req, executionWaitingForCtxCancelledPlanConstructor)
