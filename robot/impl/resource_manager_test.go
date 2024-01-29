@@ -1301,17 +1301,19 @@ func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
 		tlsConfig: remoteTLSConfig,
 	}, logger)
 
-	_, err = manager.processRemote(context.Background(), remote)
+	gNode := resource.NewUninitializedNode()
+	gNode.InitializeLogger(logger, "remote", logger.GetLevel())
+	_, err = manager.processRemote(context.Background(), remote, gNode)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
 
 	remote.Auth.Entity = "wrong"
-	_, err = manager.processRemote(context.Background(), remote)
+	_, err = manager.processRemote(context.Background(), remote, gNode)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
 
 	remote.Auth.Entity = options.FQDN
-	_, err = manager.processRemote(context.Background(), remote)
+	_, err = manager.processRemote(context.Background(), remote, gNode)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
 }

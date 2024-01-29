@@ -180,7 +180,9 @@ func (bs *basicStream) Stop() {
 		bs.audioEncoder.Close()
 	}
 	if bs.videoEncoder != nil {
-		bs.videoEncoder.Close() //nolint:gosec,errcheck
+		if err := bs.videoEncoder.Close(); err != nil {
+			bs.logger.Error(err)
+		}
 	}
 
 	// reset
