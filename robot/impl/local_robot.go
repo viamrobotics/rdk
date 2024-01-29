@@ -987,6 +987,11 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 	return discoveries, nil
 }
 
+// moduleManagerDiscoveryResult is returned from a DiscoveryQuery to rdk:builtin:module-manager.
+type moduleManagerDiscoveryResult struct {
+	ResourceHandles map[string]modulepb.HandlerMap `json:"resource_handles"`
+}
+
 // discoverRobotInternals is used to discover parts of the robot that are not in the resource graph
 // It accepts a query and should return the Discovery Results object along with an ok value.
 func (r *localRobot) discoverRobotInternals(query resource.DiscoveryQuery) (interface{}, bool) {
@@ -997,8 +1002,8 @@ func (r *localRobot) discoverRobotInternals(query resource.DiscoveryQuery) (inte
 		for moduleName, handleMap := range r.manager.moduleManager.Handles() {
 			handles[moduleName] = *handleMap.ToProto()
 		}
-		return map[string]interface{}{
-			"resource_handles": handles,
+		return moduleManagerDiscoveryResult{
+			ResourceHandles: handles,
 		}, true
 	default:
 		return nil, false

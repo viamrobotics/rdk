@@ -1,4 +1,4 @@
-package robotimpl_test
+package robotimpl
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	robotimpl "go.viam.com/rdk/robot/impl"
 	rtestutils "go.viam.com/rdk/testutils"
 )
 
@@ -23,7 +22,7 @@ func setupNewLocalRobot(t *testing.T) robot.LocalRobot {
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	r, err := robotimpl.New(context.Background(), cfg, logger)
+	r, err := New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	return r
 }
@@ -151,8 +150,8 @@ func TestDiscovery(t *testing.T) {
 		discoveries, err := r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{modManagerQ})
 		test.That(t, err, test.ShouldBeNil)
 		expectedHandlerMap := map[string]modulepb.HandlerMap{}
-		expectedDiscovery := map[string]interface{}{
-			"resource_handles": expectedHandlerMap,
+		expectedDiscovery := moduleManagerDiscoveryResult{
+			ResourceHandles: expectedHandlerMap,
 		}
 		test.That(t, discoveries, test.ShouldResemble, []resource.Discovery{{Query: modManagerQ, Results: expectedDiscovery}})
 
@@ -179,10 +178,9 @@ func TestDiscovery(t *testing.T) {
 		discoveries, err = r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{modManagerQ})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, discoveries, test.ShouldHaveLength, 1)
-		modManagerDiscovery, ok := discoveries[0].Results.(map[string]interface{})
+		modManagerDiscovery, ok := discoveries[0].Results.(moduleManagerDiscoveryResult)
 		test.That(t, ok, test.ShouldBeTrue)
-		resourceHandles := modManagerDiscovery["resource_handles"].(map[string]modulepb.HandlerMap)
-		test.That(t, ok, test.ShouldBeTrue)
+		resourceHandles := modManagerDiscovery.ResourceHandles
 		test.That(t, resourceHandles, test.ShouldHaveLength, 2)
 		//nolint:govet // we copy an internal lock -- it is okay
 		simpleHandles, ok := resourceHandles["simple"]
