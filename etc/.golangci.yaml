@@ -1,6 +1,7 @@
 service:
   golangci-lint-version: 1.51.x
 run:
+  go: 1.20
   deadline: 900s
   modules-download-mode: readonly
   skip-dirs-use-default: false
@@ -17,36 +18,42 @@ linters:
     - contextcheck
     - cyclop
     - deadcode
+    - depguard
     - exhaustivestruct
     - exhaustruct
     - forcetypeassert
     - funlen
-    - gocognit
-    - godox
-    - goerr113
     - gochecknoglobals
     - gochecknoinits
+    - gocognit
+    - goconst
     - gocyclo
+    - godox
+    - goerr113
     - gofmt
     - goimports
     - golint
     - gomnd
     - ifshort
     - importas
+    - inamedparam
     - interfacebloat
     - interfacer
     - ireturn
     - maintidx
-    - maligned
     - makezero
+    - maligned
     - musttag
+    - nakedret
     - nestif
     - nlreturn
-    - nosnakecase
     - nonamedreturns
+    - nosnakecase
     - nosprintfhostport
     - paralleltest
+    - perfsprint
     - prealloc
+    - protogetter
     - scopelint
     - structcheck
     - tagliatelle
@@ -54,6 +61,7 @@ linters:
     - thelper # false positives
     - varcheck
     - varnamelen
+    - wastedassign
     - wrapcheck
     - wsl
 linters-settings:
@@ -75,6 +83,10 @@ linters-settings:
       - composites
   lll:
     line-length: 140
+  revive:
+    rules:
+      - name: unused-parameter
+        disabled: true
 issues:
   exclude-rules:
     - path: _test\.go$

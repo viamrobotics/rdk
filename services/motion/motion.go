@@ -221,9 +221,7 @@ type ObstacleDetectorName struct {
 	CameraName        resource.Name
 }
 
-// MotionConfiguration specifies how to configure a call
-//
-//nolint:revive
+// MotionConfiguration specifies how to configure a call.
 type MotionConfiguration struct {
 	ObstacleDetectors     []ObstacleDetectorName
 	PositionPollingFreqHz float64

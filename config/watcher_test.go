@@ -130,7 +130,7 @@ func TestNewWatcherFile(t *testing.T) {
 		defer func() {
 			test.That(t, f.Close(), test.ShouldBeNil)
 		}()
-		_, err = f.Write([]byte("blahblah"))
+		_, err = f.WriteString("blahblah")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, f.Sync(), test.ShouldBeNil)
 	}()

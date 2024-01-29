@@ -556,6 +556,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 	// associated configs can be put on resources in remotes as well, so check remote configs
 	for _, c := range cfg.Remotes {
+		//nolint:gosec
 		if err := convertAndAssociateResourceConfigs(nil, &c.Name, c.AssociatedResourceConfigs); err != nil {
 			return nil, errors.Wrapf(err, "error processing associated service configs for remote %q", c.Name)
 		}

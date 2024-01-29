@@ -49,7 +49,7 @@ func TestGizmo(t *testing.T) {
 
 	tmpConf, err := os.CreateTemp(t.TempDir(), "*.json")
 	test.That(t, err, test.ShouldBeNil)
-	_, err = tmpConf.Write([]byte(fmt.Sprintf(`{"network":{"bind_address":"%s"},"remotes":[{"address":"%s","name":"robot1"}]}`, addr2, addr1)))
+	_, err = tmpConf.WriteString(fmt.Sprintf(`{"network":{"bind_address":"%s"},"remotes":[{"address":"%s","name":"robot1"}]}`, addr2, addr1))
 	test.That(t, err, test.ShouldBeNil)
 	err = tmpConf.Sync()
 	test.That(t, err, test.ShouldBeNil)
