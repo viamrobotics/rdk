@@ -122,22 +122,19 @@ func (g *GPSData) updateGSV(gsv nmea.GSV) error {
 // updateRMC updates the GPSData object with the information from the provided
 // RMC (Recommended Minimum Navigation Information) data.
 func (g *GPSData) updateRMC(rmc nmea.RMC) error {
-	if rmc.Validity == "A" {
-		g.valid = true
-	} else if rmc.Validity == "V" {
+	if rmc.Validity != "A" {
 		g.valid = false
-		err := errInvalidFix(rmc.Type, rmc.Validity, "A")
-		return err
+		return errInvalidFix(rmc.Type, rmc.Validity, "A")
 	}
-	if g.valid {
-		g.Speed = rmc.Speed * knotsToMPerSec
-		g.Location = geo.NewPoint(rmc.Latitude, rmc.Longitude)
 
-		if g.validCompassHeading {
-			g.CompassHeading = calculateTrueHeading(rmc.Course, rmc.Variation, g.isEast)
-		} else {
-			g.CompassHeading = math.NaN()
-		}
+	g.valid = true
+	g.Speed = rmc.Speed * knotsToMPerSec
+	g.Location = geo.NewPoint(rmc.Latitude, rmc.Longitude)
+
+	if g.validCompassHeading {
+		g.CompassHeading = calculateTrueHeading(rmc.Course, rmc.Variation, g.isEast)
+	} else {
+		g.CompassHeading = math.NaN()
 	}
 	return nil
 }
