@@ -918,7 +918,7 @@ func TestState(t *testing.T) {
 		//// Previous plan is moved to higher index
 		// test.That(t, resPWS.pws[1].Plan, test.ShouldResemble, pws4[0].Plan)
 		//// Current plan is a new plan
-		//test.That(t, resPWS.pws[0].Plan.ID, test.ShouldNotResemble, pws4[0].Plan.ID)
+		// test.That(t, resPWS.pws[0].Plan.ID, test.ShouldNotResemble, pws4[0].Plan.ID)
 		//// From the same execution (definition of a replan)
 		//test.That(t, resPWS.pws[0].Plan.ExecutionID, test.ShouldResemble, pws4[0].Plan.ExecutionID)
 		//// new current plan has an in progress status & was created after triggering replanning
@@ -971,7 +971,7 @@ func TestState(t *testing.T) {
 		// })
 		////
 		// test.That(t, succ, test.ShouldBeTrue)
-		//test.That(t, resPWS2.err, test.ShouldBeNil)
+		// test.That(t, resPWS2.err, test.ShouldBeNil)
 		//test.That(t, len(resPWS2.pws), test.ShouldEqual, 2)
 		//// last plan is unchanged
 		//test.That(t, resPWS2.pws[1], test.ShouldResemble, resPWS.pws[1])
@@ -991,7 +991,7 @@ func TestState(t *testing.T) {
 		// test.That(t, err, test.ShouldBeNil)
 		// postStopPWS1, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase})
 		// test.That(t, err, test.ShouldBeNil)
-		//test.That(t, resPWS2.pws, test.ShouldResemble, postStopPWS1)
+		// test.That(t, resPWS2.pws, test.ShouldResemble, postStopPWS1)
 
 		//// Failed after replanning
 		// preExecution3 := time.Now()
@@ -1030,7 +1030,7 @@ func TestState(t *testing.T) {
 		//			return state.ExecuteResponse{}, nil
 		//		},
 		//	}, nil
-		//})
+		// })
 		//test.That(t, err, test.ShouldBeNil)
 		//test.That(t, executionID2, test.ShouldNotResemble, executionID1)
 
@@ -1051,7 +1051,7 @@ func TestState(t *testing.T) {
 		// test.That(t, len(resPWS3.pws), test.ShouldEqual, 2)
 
 		// test.That(t, resPWS3.pws[0].Plan.ID, test.ShouldNotEqual, resPWS2.pws[1].Plan.ID)
-		//test.That(t, len(resPWS3.pws[1].StatusHistory), test.ShouldEqual, 2)
+
 		//test.That(t, resPWS3.pws[1].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateFailed)
 		//test.That(t, *resPWS3.pws[1].StatusHistory[0].Reason, test.ShouldResemble, replanReason)
 		//test.That(t, resPWS3.pws[1].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
@@ -1072,7 +1072,7 @@ func TestState(t *testing.T) {
 		// test.That(t, err, test.ShouldBeNil)
 		// postStopPWS2, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase})
 		// test.That(t, err, test.ShouldBeNil)
-		//test.That(t, resPWS3.pws, test.ShouldResemble, postStopPWS2)
+		// test.That(t, resPWS3.pws, test.ShouldResemble, postStopPWS2)
 
 		//// Failed at the end of execution
 		// preExecution4 := time.Now()
@@ -1091,7 +1091,7 @@ func TestState(t *testing.T) {
 		//			return state.ExecuteResponse{}, executionFailReason
 		//		},
 		//	}, nil
-		//})
+		// })
 		//test.That(t, err, test.ShouldBeNil)
 
 		// resPWS4, succ := pollUntil(cancelCtx, func() (pwsRes, bool,
@@ -1111,7 +1111,7 @@ func TestState(t *testing.T) {
 		// test.That(t, len(resPWS4.pws), test.ShouldEqual, 2)
 
 		// test.That(t, resPWS4.pws[0].Plan.ID, test.ShouldNotEqual, resPWS3.pws[1].Plan.ID)
-		//test.That(t, len(resPWS4.pws[1].StatusHistory), test.ShouldEqual, 2)
+
 		//test.That(t, resPWS4.pws[1].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateFailed)
 		//test.That(t, *resPWS4.pws[1].StatusHistory[0].Reason, test.ShouldResemble, replanReason)
 		//test.That(t, resPWS4.pws[1].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
@@ -1144,13 +1144,11 @@ func TestState(t *testing.T) {
 		// test.That(t, err, test.ShouldBeNil)
 		// test.That(t, len(ps7), test.ShouldEqual, 7)
 		// test.That(t, ps7[0].ComponentName, test.ShouldResemble, myBase)
-		//test.That(t, ps7[0].ExecutionID, test.ShouldResemble, executionID4)
+		// test.That(t, ps7[0].ExecutionID, test.ShouldResemble, executionID4)
 		//test.That(t, ps7[0].PlanID, test.ShouldResemble, resPWS4.pws[0].Plan.ID)
 		//test.That(t, ps7[0].Status, test.ShouldResemble, resPWS4.pws[0].StatusHistory[0])
 
 		// test.That(t, ps7[1].ExecutionID, test.ShouldResemble, executionID4)
-
-
 
 		// test.That(t, ps7[2].ComponentName, test.ShouldResemble, myBase)
 
