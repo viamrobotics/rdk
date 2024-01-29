@@ -106,22 +106,24 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 			default:
 			}
 
-			if !g.isClosed {
-				line, err := r.ReadString('\n')
-				if err != nil {
-					g.logger.CErrorf(ctx, "can't read gps serial %s", err)
-					g.err.Set(err)
-					return
-				}
-				// Update our struct's gps data in-place
-				g.mu.Lock()
-				err = g.data.ParseAndUpdate(line)
-				g.mu.Unlock()
-				if err != nil {
-					g.logger.CWarnf(ctx, "can't parse nmea sentence: %#v", err)
-					g.logger.Debug("Check: GPS requires clear sky view." +
-						"Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
-				}
+			if g.isClosed { // There's no coming back from this. We're done.
+				return
+			}
+
+			line, err := r.ReadString('\n')
+			if err != nil {
+				g.logger.CErrorf(ctx, "can't read gps serial %s", err)
+				g.err.Set(err)
+				return
+			}
+			// Update our struct's gps data in-place
+			g.mu.Lock()
+			err = g.data.ParseAndUpdate(line)
+			g.mu.Unlock()
+			if err != nil {
+				g.logger.CWarnf(ctx, "can't parse nmea sentence: %#v", err)
+				g.logger.Debug("Check: GPS requires clear sky view." +
+					"Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
 			}
 		}
 	})
