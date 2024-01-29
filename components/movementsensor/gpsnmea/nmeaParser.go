@@ -107,13 +107,11 @@ func (g *GPSData) updateData(s nmea.Sentence) error {
 		return fmt.Errorf("unrecognized sentence type: %T", sentence)
 	}
 
-	return fmt.Errorf("could not cast sentence to expected type: %T", sentence)
+	return fmt.Errorf("could not cast sentence to expected type: %v", s)
 }
 
 // updateGSV updates g.SatsInView with the information from the provided
 // GSV (GPS Satellites in View) data.
-//
-//nolint:all
 func (g *GPSData) updateGSV(gsv nmea.GSV) error {
 	// GSV provides the number of satellites in view
 
@@ -196,8 +194,6 @@ func (g *GPSData) updateGGA(gga nmea.GGA) error {
 
 // updateGLL updates g.Location with the location information from the provided
 // GLL (Geographic Position - Latitude/Longitude) data.
-//
-//nolint:all
 func (g *GPSData) updateGLL(gll nmea.GLL) error {
 	now := toPoint(gll)
 	g.Location = now
@@ -206,8 +202,6 @@ func (g *GPSData) updateGLL(gll nmea.GLL) error {
 
 // updateVTG updates g.Speed with the ground speed information from the provided
 // VTG (Velocity Made Good) data.
-//
-//nolint:all
 func (g *GPSData) updateVTG(vtg nmea.VTG) error {
 	// VTG provides ground speed
 	g.Speed = vtg.GroundSpeedKPH * kphToMPerSec
@@ -236,8 +230,6 @@ func (g *GPSData) updateGNS(gns nmea.GNS) error {
 }
 
 // updateHDT updaates g.CompassHeading with the ground speed information from the provided
-//
-//nolint:all
 func (g *GPSData) updateHDT(hdt nmea.HDT) error {
 	// HDT provides compass heading
 	g.CompassHeading = hdt.Heading
