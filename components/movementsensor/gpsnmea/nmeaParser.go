@@ -40,10 +40,12 @@ func errInvalidFix(sentenceType, badFix, goodFix string) error {
 // ParseAndUpdate will attempt to parse a line to an NMEA sentence, and if valid, will try to update the given struct
 // with the values for that line. Nothing will be updated if there is not a valid gps fix.
 func (g *GPSData) ParseAndUpdate(line string) error {
-	// add parsing to filter out corrupted data
+	// Each line should start with a dollar sign and a capital G. If we start reading in the middle
+	// of a sentence, though, we'll get unparseable readings. Strip out everything from before the
+	// dollar sign, to avoid this confusion.
 	ind := strings.Index(line, "$G")
 	if ind == -1 {
-		line = ""
+		line = "" // This line does not contain the start of a message!?
 	} else {
 		line = line[ind:]
 	}
