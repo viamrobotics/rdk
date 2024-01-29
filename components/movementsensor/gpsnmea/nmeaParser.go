@@ -146,7 +146,6 @@ func (g *GPSData) updateGSA(gsa nmea.GSA) error {
 	case "2":
 		// 2d fix, valid lat/lon but invalid Alt
 		g.valid = true
-		g.VDOP = -1
 	case "3":
 		// 3d fix
 		g.valid = true
