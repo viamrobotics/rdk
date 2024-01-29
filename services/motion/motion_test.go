@@ -1268,6 +1268,26 @@ func TestMoveOnMapReq(t *testing.T) {
 		Extra:               &structpb.Struct{},
 	}
 
+	t.Run("String()", func(t *testing.T) {
+		s := "motion.MoveOnMapReq{ComponentName: rdk:component:base/mybase, " +
+			"SlamName: rdk:service:slam/mySlam, Destination: o_z:1,  MotionCfg: " +
+			"&motion.MotionConfiguration{ObstacleDetectors:[]motion.ObstacleDetectorName{" +
+			"motion.ObstacleDetectorName{VisionServiceName:resource.Name{API:resource.API{" +
+			"Type:resource.APIType{Namespace:\"rdk\", Name:\"service\"}, SubtypeName:\"vision\"}" +
+			", Remote:\"\", Name:\"vision service 1\"}, CameraName:resource.Name{" +
+			"API:resource.API{Type:resource.APIType{Namespace:\"rdk\", Name:\"component\"}, " +
+			"SubtypeName:\"camera\"}, Remote:\"\", Name:\"camera 1\"}}, " +
+			"motion.ObstacleDetectorName{VisionServiceName:resource.Name{" +
+			"API:resource.API{Type:resource.APIType{Namespace:\"rdk\", Name:\"service\"}, " +
+			"SubtypeName:\"vision\"}, Remote:\"\", Name:\"vision service 2\"}, " +
+			"CameraName:resource.Name{API:resource.API{Type:resource.APIType{" +
+			"Namespace:\"rdk\", Name:\"component\"}, SubtypeName:\"camera\"}, " +
+			"Remote:\"\", Name:\"camera 2\"}}}, PositionPollingFreqHz:4, " +
+			"ObstaclePollingFreqHz:5, PlanDeviationMM:3, LinearMPerSec:1, AngularDegsPerSec:2}, " +
+			"Extra: map[]}"
+		test.That(t, validMoveOnMapReq.String(), test.ShouldResemble, s)
+	})
+
 	//nolint:dupl
 	t.Run("toProtoNew", func(t *testing.T) {
 		type testCase struct {
