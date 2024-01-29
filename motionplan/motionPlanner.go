@@ -468,11 +468,20 @@ func CheckPlan(
 	lookAheadDistanceMM float64,
 	logger logging.Logger,
 ) error {
+	// ensure that we can actually perform the check
+	if len(plan.Path()) < 1 {
+		return errors.New("plan must have at least one element")
+	}
+
+	// construct solverFrame
+	// Note that this requires all frames which move as part of the plan, to have an
+	// entry in the very first plan waypoint
 	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, currentInputs)
 	if err != nil {
 		return err
 	}
 
+	// construct planager
 	sfPlanner, err := newPlanManager(sf, fs, logger, defaultRandomSeed)
 	if err != nil {
 		return err

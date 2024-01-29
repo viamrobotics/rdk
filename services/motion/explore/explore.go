@@ -365,7 +365,8 @@ func (ms *explore) checkForObstacles(
 			// TODO: Generalize this fix to work for maps with non-transient obstacles. This current implementation
 			// relies on the plan being two steps: a start position and a goal position.
 			// JIRA Ticket: https://viam.atlassian.net/browse/RSDK-5964
-			plan.Trajectory()[0][kb.Name().ShortName()] = currentInputs
+			planTraj := plan.Trajectory()
+			planTraj[0][kb.Name().ShortName()] = currentInputs
 			ms.logger.Debugf("Current transient worldState: ", worldState.String())
 
 			// Check plan for transient obstacles
@@ -395,6 +396,7 @@ func (ms *explore) checkForObstacles(
 func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBase, plan motionplan.Plan) {
 	steps, err := plan.Trajectory().GetFrameInputs(kb.Name().Name)
 	if err != nil {
+		ms.logger.Debugf("error in executePlan: %s", err)
 		return
 	}
 	for _, inputs := range steps {
