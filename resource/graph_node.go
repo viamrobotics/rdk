@@ -111,10 +111,17 @@ func (w *GraphNode) Resource() (Resource, error) {
 	return w.current, nil
 }
 
-// SetLogger associates a logger object with this resource node. This is expected to be the logger
-// passed into the `Constructor` when registering component resources.
-func (w *GraphNode) SetLogger(logger logging.Logger) {
+// InitializeLogger initializes the logger object associated with this resource node.
+func (w *GraphNode) InitializeLogger(parent logging.Logger, subname string, level logging.Level) {
+	logger := parent.Sublogger(subname)
+	logger.SetLevel(level)
 	w.logger = logger
+}
+
+// Logger returns the logger object associated with this resource node. This is expected to be the logger
+// passed into the `Constructor` when registering resources.
+func (w *GraphNode) Logger() logging.Logger {
+	return w.logger
 }
 
 // SetLogLevel changes the log level of the logger (if available). Processing configs is the main

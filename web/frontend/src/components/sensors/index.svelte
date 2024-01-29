@@ -1,74 +1,79 @@
 <script lang="ts">
-  import { sensorsApi, commonApi, type ServiceError } from '@viamrobotics/sdk';
-  import { notify } from '@viamrobotics/prime';
-  import { resourceNameToString } from '@/lib/resource';
-  import { rcLogConditionally } from '@/lib/log';
-  import Collapse from '@/lib/components/collapse.svelte';
-  import { useRobotClient } from '@/hooks/robot-client';
+import { sensorsApi, commonApi, type ServiceError } from '@viamrobotics/sdk';
+import { notify } from '@viamrobotics/prime';
+import { resourceNameToString } from '@/lib/resource';
+import { rcLogConditionally } from '@/lib/log';
+import Collapse from '@/lib/components/collapse.svelte';
+import { useRobotClient } from '@/hooks/robot-client';
 
-  interface SensorName {
-    name: string;
-    namespace: string;
-    type: string;
-    subtype: string;
-  }
+interface SensorName {
+  name: string;
+  namespace: string;
+  type: string;
+  subtype: string;
+}
 
-  export let name: string;
-  export let sensorNames: SensorName[];
+export let name: string;
+export let sensorNames: SensorName[];
 
-  const { robotClient } = useRobotClient();
+const { robotClient } = useRobotClient();
 
-  interface Reading {
-    _type: string;
-    lat: number;
-    lng: number;
-  }
+interface Reading {
+  _type: string;
+  lat: number;
+  lng: number;
+}
 
-  const sensorReadings: Record<string, Record<string, Reading>> = {};
+const sensorReadings: Record<string, Record<string, Reading>> = {};
 
-  const getReadings = (inputNames: SensorName[]) => {
-    const req = new sensorsApi.GetReadingsRequest();
-    const names = inputNames.map(({ name: inputName, namespace, type, subtype }) => {
+const getReadings = (inputNames: SensorName[]) => {
+  const req = new sensorsApi.GetReadingsRequest();
+  const names = inputNames.map(
+    ({ name: inputName, namespace, type, subtype }) => {
       const resourceName = new commonApi.ResourceName();
       resourceName.setNamespace(namespace);
       resourceName.setType(type);
       resourceName.setSubtype(subtype);
       resourceName.setName(inputName);
       return resourceName;
-    });
-    req.setName(name);
-    req.setSensorNamesList(names);
+    }
+  );
+  req.setName(name);
+  req.setSensorNamesList(names);
 
-    rcLogConditionally(req);
-    $robotClient.sensorsService.getReadings(
-      req,
-      (
-        error: ServiceError | null,
-        response: sensorsApi.GetReadingsResponse | null
-      ) => {
-        if (error) {
-          notify.danger(error.message);
-          return;
-        }
-
-        for (const item of response!.getReadingsList()) {
-          const readings = item.getReadingsMap();
-          const rr: Record<string, Reading> = {};
-
-          for (const [key, value] of readings.entries()) {
-            rr[key] = value.toJavaScript() as Reading;
-          }
-
-          sensorReadings[resourceNameToString(item.getName()!.toObject())] = rr;
-        }
+  rcLogConditionally(req);
+  $robotClient.sensorsService.getReadings(
+    req,
+    (
+      error: ServiceError | null,
+      response: sensorsApi.GetReadingsResponse | null
+    ) => {
+      if (error) {
+        notify.danger(error.message);
+        return;
       }
-    );
-  };
 
-  const getData = (readings: Record<string, Record<string, Reading>>, sensorName: SensorName) => {
-    const data = readings[resourceNameToString(sensorName)];
-    return data ? Object.entries(data) : [];
-  };
+      for (const item of response!.getReadingsList()) {
+        const readings = item.getReadingsMap();
+        const rr: Record<string, Reading> = {};
+
+        for (const [key, value] of readings.entries()) {
+          rr[key] = value.toJavaScript() as Reading;
+        }
+
+        sensorReadings[resourceNameToString(item.getName()!.toObject())] = rr;
+      }
+    }
+  );
+};
+
+const getData = (
+  readings: Record<string, Record<string, Reading>>,
+  sensorName: SensorName
+) => {
+  const data = readings[resourceNameToString(sensorName)];
+  return data ? Object.entries(data) : [];
+};
 </script>
 
 <Collapse title="Sensors">
@@ -104,10 +109,10 @@
                     {JSON.stringify(sensorValue)}
                     <!-- eslint-disable-next-line no-underscore-dangle -->
                     {#if sensorValue._type === 'geopoint'}
-                    <a
-                      href={`https://www.google.com/maps/search/${sensorValue.lat},${sensorValue.lng}`}
-                      >google maps</a
-                    >
+                      <a
+                        href={`https://www.google.com/maps/search/${sensorValue.lat},${sensorValue.lng}`}
+                        >google maps</a
+                      >
                     {/if}
                   </td>
                 </tr>

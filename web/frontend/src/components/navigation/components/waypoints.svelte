@@ -1,5 +1,4 @@
-<script lang='ts'>
-
+<script lang="ts">
 import { type MapMouseEvent } from 'maplibre-gl';
 import type { ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
