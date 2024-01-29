@@ -67,50 +67,47 @@ func (g *GPSData) ParseAndUpdate(line string) error {
 	return nil
 }
 
-// given an NMEA sentense, updateData updates it. An error is returned if any of
+// Given an NMEA sentence, updateData updates it. An error is returned if any of
 // the function calls fails.
 func (g *GPSData) updateData(s nmea.Sentence) error {
-	var errs error
-
 	switch sentence := s.(type) {
 	case nmea.GSV:
 		if gsv, ok := s.(nmea.GSV); ok {
-			errs = g.updateGSV(gsv)
+			return g.updateGSV(gsv)
 		}
 	case nmea.RMC:
 		if rmc, ok := s.(nmea.RMC); ok {
-			errs = g.updateRMC(rmc)
+			return g.updateRMC(rmc)
 		}
 	case nmea.GSA:
 		if gsa, ok := s.(nmea.GSA); ok {
-			errs = g.updateGSA(gsa)
+			return g.updateGSA(gsa)
 		}
 	case nmea.GGA:
 		if gga, ok := s.(nmea.GGA); ok {
-			errs = g.updateGGA(gga)
+			return g.updateGGA(gga)
 		}
 	case nmea.GLL:
 		if gll, ok := s.(nmea.GLL); ok {
-			errs = g.updateGLL(gll)
+			return g.updateGLL(gll)
 		}
 	case nmea.VTG:
 		if vtg, ok := s.(nmea.VTG); ok {
-			errs = g.updateVTG(vtg)
+			return g.updateVTG(vtg)
 		}
 	case nmea.GNS:
 		if gns, ok := s.(nmea.GNS); ok {
-			errs = g.updateGNS(gns)
+			return g.updateGNS(gns)
 		}
 	case nmea.HDT:
 		if hdt, ok := s.(nmea.HDT); ok {
-			errs = g.updateHDT(hdt)
+			return g.updateHDT(hdt)
 		}
 	default:
-		// Handle the case when the sentence type is not recognized
-		errs = fmt.Errorf("unrecognized sentence type: %T", sentence)
+		return fmt.Errorf("unrecognized sentence type: %T", sentence)
 	}
 
-	return errs
+	return fmt.Errorf("could not cast sentence to expected type: %T", sentence)
 }
 
 // updateGSV updates g.SatsInView with the information from the provided
