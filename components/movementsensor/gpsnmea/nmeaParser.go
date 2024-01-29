@@ -54,6 +54,9 @@ func (g *GPSData) ParseAndUpdate(line string) error {
 	if err != nil {
 		return err
 	}
+
+	// The nmea.RMC message does not support parsing compass heading in its messages. So, we check
+	// on that separately, before updating the data we parsed with the third-party package.
 	if s.DataType() == nmea.TypeRMC {
 		g.parseRMC(line)
 	}
@@ -255,7 +258,7 @@ func calculateTrueHeading(heading, magneticDeclination float64, isEast bool) flo
 // parseRMC sets g.isEast bool value by parsing the RMC message for compass heading
 // and sets g.validCompassHeading bool since RMC message sends empty strings if
 // there is no movement.
-// go-nmea library does not provide this feature.
+// NOTE: The go-nmea library does not provide this feature, which is why we're doing it ourselves.
 func (g *GPSData) parseRMC(message string) {
 	data := strings.Split(message, ",")
 	if len(data) < 10 {
