@@ -196,7 +196,7 @@ func TestDiscovery(t *testing.T) {
 		//nolint:govet // we copy an internal lock -- it is okay
 		complexHandles, ok := resourceHandles["complex"]
 		test.That(t, ok, test.ShouldBeTrue)
-		// this module is changed semi-frequently so I opted for a simpler test
+		// this module is changed semi-frequently so a simpler test is better here
 		test.That(t, len(complexHandles.Handlers), test.ShouldBeGreaterThan, 1)
 	})
 }
