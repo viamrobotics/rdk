@@ -12,7 +12,7 @@ import (
 
 func makeStreamConfig() gostream.StreamConfig {
 	var streamConfig gostream.StreamConfig
-	if avcodec.EncoderIsAvailable("h264_v4l2m2m") {
+	if avcodec.EncoderIsAvailable(h264.V4l2m2m) {
 		streamConfig.VideoEncoderFactory = h264.NewEncoderFactory()
 	} else {
 		streamConfig.VideoEncoderFactory = x264.NewEncoderFactory()
