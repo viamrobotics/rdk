@@ -43,7 +43,6 @@ type SerialNMEAMovementSensor struct {
 
 	dev                io.ReadWriteCloser
 	path               string
-	baudRate           uint
 	correctionBaudRate uint
 	correctionPath     string
 }
@@ -87,7 +86,6 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 		cancelFunc:         cancelFunc,
 		logger:             logger,
 		path:               serialPath,
-		baudRate:           uint(baudRate),
 		disableNmea:        disableNmea,
 		err:                movementsensor.NewLastError(1, 1),
 		lastPosition:       movementsensor.NewLastPosition(),
