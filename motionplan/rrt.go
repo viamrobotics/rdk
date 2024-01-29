@@ -281,16 +281,5 @@ func newRRTPlan(solution []node, sf *solverFrame, relative bool) (*rrtPlan, erro
 			return nil, err
 		}
 	}
-	return &rrtPlan{
-		SimplePlan: NewSimplePlan(path, traj),
-		nodes:      solution,
-	}, nil
-}
-
-func (plan *rrtPlan) Path() Path {
-	return plan.path
-}
-
-func (plan *rrtPlan) Trajectory() Trajectory {
-	return plan.traj
+	return &rrtPlan{SimplePlan: NewSimplePlan(path, traj), nodes: solution}, nil
 }

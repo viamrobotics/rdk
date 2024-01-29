@@ -483,7 +483,6 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	mr.seedPlan = seedPlan
 	mr.replanCostFactor = valExtra.replanCostFactor
 	mr.requestType = requestTypeMoveOnGlobe
-	mr.poseOrigin = spatialmath.NewZeroPose()
 	mr.geoPoseOrigin = *spatialmath.NewGeoPose(origin, heading)
 	return mr, nil
 }
@@ -577,11 +576,6 @@ func (ms *builtIn) newMoveOnMapRequest(
 	if err != nil {
 		return nil, err
 	}
-	startPose, err := mr.kinematicBase.CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
-	}
-	mr.poseOrigin = startPose.Pose()
 	mr.requestType = requestTypeMoveOnMap
 	return mr, nil
 }
@@ -685,6 +679,7 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 			WorldState:         worldState,
 			Options:            valExtra.extra,
 		},
+		poseOrigin:        startPose.Pose(),
 		kinematicBase:     kb,
 		replanCostFactor:  valExtra.replanCostFactor,
 		obstacleDetectors: obstacleDetectors,

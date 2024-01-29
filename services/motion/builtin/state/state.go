@@ -27,8 +27,7 @@ type PlannerExecutor interface {
 // ExecuteResponse is the response from Execute.
 type ExecuteResponse struct {
 	// If true, the Execute function didn't reach the goal & the caller should replan
-	Replan bool
-	// Set if Replan is true, describes why replanning was triggered
+	Replan bool	// Set if Replan is true, describes why replanning was triggered
 	ReplanReason string
 }
 
