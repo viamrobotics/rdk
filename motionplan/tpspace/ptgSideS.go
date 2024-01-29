@@ -53,24 +53,21 @@ func (ptg *ptgSideS) Velocities(alpha, dist float64) (float64, float64, error) {
 	flip := math.Copysign(1., alpha) // left or right
 
 	if dist < arcLength {
-		// l-
-		v = 1.0
-		w = 1.0 * flip
+		w = 1.0
 	} else if dist < arcLength+arcLength*ptg.countersteer {
-		v = 1.0
-		w = 1.0 * -1 * flip
+		w = 1.0 * -1
 	}
 
-	return v, w, nil
+	return v, w * flip, nil
 }
 
 func (ptg *ptgSideS) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	alpha := inputs[0].Value
 	dist := inputs[1].Value
 
-	flip := math.Copysign(1., alpha)                    // left or right
-	direction := math.Copysign(1., dist)                // forwards or backwards
-	arcLength := math.Abs(alpha) * 0.5 * ptg.turnRadius //
+	flip := math.Copysign(1., alpha)     // left or right
+	direction := math.Copysign(1., dist) // forwards or backwards
+	arcLength := math.Abs(alpha) * 0.5 * ptg.turnRadius
 
 	revPose, err := ptg.circle.Transform([]referenceframe.Input{{flip * math.Pi}, {direction * math.Min(dist, arcLength)}})
 	if err != nil {

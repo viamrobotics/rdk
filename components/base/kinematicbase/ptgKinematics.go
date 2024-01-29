@@ -184,7 +184,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		defer cancelFn()
 		return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
 	}
-	arcSteps := ptgk.trajectoryToArcsteps(selectedTraj)
+	arcSteps := ptgk.trajectoryToArcSteps(selectedTraj)
 
 	for _, step := range arcSteps {
 		ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
@@ -278,7 +278,7 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenc
 	return spatialmath.PoseBetween(nominalPose, actualPIF), nil
 }
 
-func (ptgk *ptgBaseKinematics) trajectoryToArcsteps(traj []*tpspace.TrajNode) []arcStep {
+func (ptgk *ptgBaseKinematics) trajectoryToArcSteps(traj []*tpspace.TrajNode) []arcStep {
 	finalSteps := []arcStep{}
 	timeStep := 0.
 	curDist := 0.

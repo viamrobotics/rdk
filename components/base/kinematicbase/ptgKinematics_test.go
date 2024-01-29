@@ -67,7 +67,7 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 			stepDistResolution,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		arcSteps := ptgBase.trajectoryToArcsteps(selectedTraj)
+		arcSteps := ptgBase.trajectoryToArcSteps(selectedTraj)
 
 		if i == 0 || i == len(plan)-1 {
 			// First and last should be all-zero stop commands

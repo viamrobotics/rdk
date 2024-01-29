@@ -37,16 +37,16 @@ func (ptg *ptgCCS) Velocities(alpha, dist float64) (float64, float64, error) {
 	w := 0.
 
 	if dist < u*ptg.turnRadius {
-		// l-
+		// backwards arc
 		v = -1.
 		w = 1.
 	} else if dist < (u+math.Pi/2)*ptg.turnRadius {
-		// l+ pi/2
+		// forwards arc
 		v = 1.
 		w = 1.
 	}
 
-	// Turn in the opposite direction??
+	// Turn in the opposite direction
 	if alpha < 0 {
 		w *= -1
 	}

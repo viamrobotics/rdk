@@ -26,7 +26,9 @@ type ptgIK struct {
 
 	gridSim PTGSolver
 
-	mu          sync.RWMutex
+	mu sync.RWMutex
+	// trajCache speeds up queries by saving previously computed trajectories and not re-computing them from scratch.
+	// The first key is the resolution of the trajectory, the second is the alpha value.
 	trajCache   map[float64]map[float64][]*TrajNode
 	defaultSeed []referenceframe.Input
 }

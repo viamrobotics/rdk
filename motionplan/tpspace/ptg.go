@@ -23,7 +23,8 @@ type PTGSolver interface {
 	ik.InverseKinematics
 	PTG
 
-	// Returns the set of trajectory nodes along the given trajectory, out to the requested distance
+	// Returns the set of trajectory nodes along the given trajectory, out to the requested distance.
+	// This will return `TrajNode`s starting at dist=0, and every `resolution` dist increments thereafter, and finally at `dist` exactly.
 	Trajectory(alpha, dist, resolution float64) ([]*TrajNode, error)
 }
 
@@ -70,7 +71,7 @@ func wrapTo2Pi(theta float64) float64 {
 	return theta - 2*math.Pi*math.Floor(theta/(2*math.Pi))
 }
 
-// ComputePTG will compute all nodes of simPTG at the requested alpha, out to the requested distance, at the specified diffT resolution.
+// ComputePTG will compute all nodes of simPTG at the requested alpha, out to the requested distance, at the specified resolution.
 func ComputePTG(simPTG PTG, alpha, dist, resolution float64) ([]*TrajNode, error) {
 	if dist < 0 {
 		return computeInvertedPTG(simPTG, alpha, dist, resolution)
@@ -79,9 +80,7 @@ func ComputePTG(simPTG PTG, alpha, dist, resolution float64) ([]*TrajNode, error
 		resolution = defaultResolution
 	}
 
-	// Initialize trajectory with an all-zero node
 	alphaTraj := []*TrajNode{}
-
 	var err error
 	var v, w float64
 	distTravelled := 0.

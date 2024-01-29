@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	defaultAlphaCnt             uint    = 91
-	defaultSimulationResolution float64 = 50.
+	defaultAlphaCnt             uint    = 91  // When precomputing arcs, use this many different, equally-spaced alpha values
+	defaultSimulationResolution float64 = 50. // When precomputing arcs, precompute nodes at this resolution
 )
 
 // ptgGridSim will take a PTG, and simulate out a number of trajectories through some requested time/distance for speed of lookup
