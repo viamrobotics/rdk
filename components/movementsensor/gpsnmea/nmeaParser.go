@@ -176,15 +176,15 @@ func (g *GPSData) updateGGA(gga nmea.GGA) error {
 
 	if gga.FixQuality == "0" {
 		g.valid = false
-		err = errInvalidFix(gga.Type, gga.FixQuality, "1 to 6")
-	} else {
-		g.valid = true
-		g.Location = geo.NewPoint(gga.Latitude, gga.Longitude)
-		g.SatsInUse = int(gga.NumSatellites)
-		g.HDOP = gga.HDOP
-		g.Alt = gga.Altitude
+		return errInvalidFix(gga.Type, gga.FixQuality, "1 to 6")
 	}
-	return err
+
+	g.valid = true
+	g.Location = geo.NewPoint(gga.Latitude, gga.Longitude)
+	g.SatsInUse = int(gga.NumSatellites)
+	g.HDOP = gga.HDOP
+	g.Alt = gga.Altitude
+	return nil
 }
 
 // updateGLL updates g.Location with the location information from the provided
