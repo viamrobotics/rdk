@@ -143,11 +143,6 @@ func (g *GPSData) updateRMC(rmc nmea.RMC) error {
 // GSA (GPS DOP and Active Satellites) data.
 func (g *GPSData) updateGSA(gsa nmea.GSA) error {
 	switch gsa.FixType {
-	case "1":
-		// No fix
-		g.valid = false
-		err := errInvalidFix(gsa.Type, gsa.FixType, "1 or 2")
-		return err
 	case "2":
 		// 2d fix, valid lat/lon but invalid Alt
 		g.valid = true
@@ -155,6 +150,10 @@ func (g *GPSData) updateGSA(gsa nmea.GSA) error {
 	case "3":
 		// 3d fix
 		g.valid = true
+	default:
+		// No fix
+		g.valid = false
+		return errInvalidFix(gsa.Type, gsa.FixType, "2 or 3")
 	}
 
 	if g.valid {
