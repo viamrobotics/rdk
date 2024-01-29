@@ -133,7 +133,7 @@ func (lp *LastPosition) IsZeroPosition(p *geo.Point) bool {
 }
 
 // IsPositionNaN checks if a geo.Point in math.NaN().
-func (lp *LastPosition) IsPositionNaN(p *geo.Point) bool {
+func IsPositionNaN(p *geo.Point) bool {
 	return math.IsNaN(p.Lng()) && math.IsNaN(p.Lat())
 }
 

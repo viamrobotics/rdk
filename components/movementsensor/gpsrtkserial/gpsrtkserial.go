@@ -573,7 +573,7 @@ func (g *rtkSerial) Position(ctx context.Context, extra map[string]interface{}) 
 	position, alt, err := g.nmeamovementsensor.Position(ctx, extra)
 	if err != nil {
 		// Use the last known valid position if current position is (0,0)/ NaN.
-		if position != nil && (g.lastposition.IsZeroPosition(position) || g.lastposition.IsPositionNaN(position)) {
+		if position != nil && (g.lastposition.IsZeroPosition(position) || movementsensor.IsPositionNaN(position)) {
 			lastPosition := g.lastposition.GetLastPosition()
 			if lastPosition != nil {
 				return lastPosition, alt, nil
@@ -582,7 +582,7 @@ func (g *rtkSerial) Position(ctx context.Context, extra map[string]interface{}) 
 		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), err
 	}
 
-	if g.lastposition.IsPositionNaN(position) {
+	if movementsensor.IsPositionNaN(position) {
 		position = g.lastposition.GetLastPosition()
 	}
 	return position, alt, nil
