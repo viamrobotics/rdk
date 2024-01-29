@@ -206,21 +206,23 @@ func (g *GPSData) updateVTG(vtg nmea.VTG) error {
 // updateGNS updates the GPSData object with the information from the provided
 // GNS (Global Navigation Satellite System) data.
 func (g *GPSData) updateGNS(gns nmea.GNS) error {
+	// For each satellite we've heard from, make sure the mode is valid. If any of them are not
+	// valid, this entire message should not be trusted.
 	for _, mode := range gns.Mode {
-		if mode == "N" {
+		if mode == "N" { // No satellite fix
 			g.valid = false
-			err := errInvalidFix(gns.Type, mode, " A, D, P, R, F, E, M or S")
-			return err
+			return errInvalidFix(gns.Type, mode, "A, D, P, R, F, E, M or S")
 		}
 	}
 
-	if g.valid {
-		g.Location = geo.NewPoint(gns.Latitude, gns.Longitude)
-		g.SatsInUse = int(gns.SVs)
-		g.HDOP = gns.HDOP
-		g.Alt = gns.Altitude
+	if !g.valid { // This value gets set elsewhere, such as in a GGA message.
+		return nil // Don't parse this message; we're not set up yet.
 	}
 
+	g.Location = geo.NewPoint(gns.Latitude, gns.Longitude)
+	g.SatsInUse = int(gns.SVs)
+	g.HDOP = gns.HDOP
+	g.Alt = gns.Altitude
 	return nil
 }
 
