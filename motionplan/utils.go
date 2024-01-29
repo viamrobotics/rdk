@@ -84,7 +84,7 @@ func fixOvIncrement(goal, seed spatialmath.Pose) spatialmath.Pose {
 
 type resultPromise struct {
 	steps  []node
-	future chan *rrtPlanReturn
+	future chan *rrtSolution
 }
 
 func (r *resultPromise) result() ([]node, error) {

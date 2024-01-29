@@ -34,13 +34,12 @@ type rrtParallelPlanner interface {
 type rrtParallelPlannerShared struct {
 	maps            *rrtMaps
 	endpointPreview chan node
-	solutionChan    chan *rrtPlanReturn
+	solutionChan    chan *rrtSolution
 }
 
 type rrtMap map[node]node
 
-// TODO would like to rename this to solution since now plans are more of a defined thing.
-type rrtPlanReturn struct {
+type rrtSolution struct {
 	steps []node
 	err   error
 	maps  *rrtMaps
@@ -72,8 +71,8 @@ func (maps *rrtMaps) fillPosOnlyGoal(goal spatialmath.Pose, posSeeds, dof int) e
 
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK solutions to pre-populate the goal
 // map, and will check if any of those goals are able to be directly interpolated to.
-func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referenceframe.Input) *rrtPlanReturn {
-	rrt := &rrtPlanReturn{
+func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referenceframe.Input) *rrtSolution {
+	rrt := &rrtSolution{
 		maps: &rrtMaps{
 			startMap: map[node]node{},
 			goalMap:  map[node]node{},
@@ -114,9 +113,9 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 	return rrt
 }
 
-func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
+func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtSolution {
 	if len(nodePairs) == 0 {
-		return &rrtPlanReturn{err: errPlannerFailed, maps: maps}
+		return &rrtSolution{err: errPlannerFailed, maps: maps}
 	}
 	minIdx := 0
 	minDist := nodePairs[0].sumCosts()
@@ -126,7 +125,7 @@ func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
 			minIdx = i
 		}
 	}
-	return &rrtPlanReturn{steps: extractPath(maps.startMap, maps.goalMap, nodePairs[minIdx], true), maps: maps}
+	return &rrtSolution{steps: extractPath(maps.startMap, maps.goalMap, nodePairs[minIdx], true), maps: maps}
 }
 
 // fixedStepInterpolation returns inputs at qstep distance along the path from start to target

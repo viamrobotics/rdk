@@ -92,7 +92,7 @@ func newCBiRRTMotionPlanner(
 
 func (mp *cBiRRTMotionPlanner) plan(ctx context.Context, goal spatialmath.Pose, seed []referenceframe.Input) ([]node, error) {
 	mp.planOpts.SetGoal(goal)
-	solutionChan := make(chan *rrtPlanReturn, 1)
+	solutionChan := make(chan *rrtSolution, 1)
 	utils.PanicCapturingGo(func() {
 		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{nil, nil, solutionChan})
 	})
@@ -114,7 +114,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 
 	// setup planner options
 	if mp.planOpts == nil {
-		rrt.solutionChan <- &rrtPlanReturn{err: errNoPlannerOptions}
+		rrt.solutionChan <- &rrtSolution{err: errNoPlannerOptions}
 		return
 	}
 	// initialize maps
@@ -145,7 +145,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 
 	seedPos, err := mp.frame.Transform(seed)
 	if err != nil {
-		rrt.solutionChan <- &rrtPlanReturn{err: err}
+		rrt.solutionChan <- &rrtSolution{err: err}
 		return
 	}
 
@@ -160,7 +160,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		select {
 		case <-ctx.Done():
 			mp.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", i)
-			rrt.solutionChan <- &rrtPlanReturn{err: fmt.Errorf("cbirrt timeout %w", ctx.Err()), maps: rrt.maps}
+			rrt.solutionChan <- &rrtSolution{err: fmt.Errorf("cbirrt timeout %w", ctx.Err()), maps: rrt.maps}
 			return
 		default:
 		}
@@ -204,7 +204,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 
 		map1reached, map2reached, err := tryExtend(target)
 		if err != nil {
-			rrt.solutionChan <- &rrtPlanReturn{err: err, maps: rrt.maps}
+			rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 			return
 		}
 
@@ -215,7 +215,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			target = newConfigurationNode(referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5))
 			map1reached, map2reached, err = tryExtend(target)
 			if err != nil {
-				rrt.solutionChan <- &rrtPlanReturn{err: err, maps: rrt.maps}
+				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 				return
 			}
 			reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
@@ -226,19 +226,19 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			mp.logger.CDebugf(ctx, "CBiRRT found solution after %d iterations", i)
 			cancel()
 			path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{map1reached, map2reached}, true)
-			rrt.solutionChan <- &rrtPlanReturn{steps: path, maps: rrt.maps}
+			rrt.solutionChan <- &rrtSolution{steps: path, maps: rrt.maps}
 			return
 		}
 
 		// sample near map 1 and switch which map is which to keep adding to them even
 		target, err = mp.sample(map1reached, i)
 		if err != nil {
-			rrt.solutionChan <- &rrtPlanReturn{err: err, maps: rrt.maps}
+			rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 			return
 		}
 		map1, map2 = map2, map1
 	}
-	rrt.solutionChan <- &rrtPlanReturn{err: errPlannerFailed, maps: rrt.maps}
+	rrt.solutionChan <- &rrtSolution{err: errPlannerFailed, maps: rrt.maps}
 }
 
 // constrainedExtend will try to extend the map towards the target while meeting constraints along the way. It will

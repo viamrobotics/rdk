@@ -280,7 +280,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 		// This will set that up, and if we get a result on `endpointPreview`, then the next iteration will be started, and the steps
 		// for this solve will be rectified at the end.
 		endpointPreview := make(chan node, 1)
-		solutionChan := make(chan *rrtPlanReturn, 1)
+		solutionChan := make(chan *rrtSolution, 1)
 		pm.activeBackgroundWorkers.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer pm.activeBackgroundWorkers.Done()
@@ -325,7 +325,7 @@ func (pm *planManager) planParallelRRTMotion(
 	seed []referenceframe.Input,
 	pathPlanner rrtParallelPlanner,
 	endpointPreview chan node,
-	solutionChan chan *rrtPlanReturn,
+	solutionChan chan *rrtSolution,
 	maps *rrtMaps,
 ) {
 	var rrtBackground sync.WaitGroup
@@ -371,7 +371,7 @@ func (pm *planManager) planParallelRRTMotion(
 	plannerctx, cancel := context.WithTimeout(ctx, time.Duration(pathPlanner.opt().Timeout*float64(time.Second)))
 	defer cancel()
 
-	plannerChan := make(chan *rrtPlanReturn, 1)
+	plannerChan := make(chan *rrtSolution, 1)
 
 	// start the planner
 	rrtBackground.Add(1)
@@ -385,7 +385,7 @@ func (pm *planManager) planParallelRRTMotion(
 	case <-ctx.Done():
 		// Error will be caught by monitoring loop
 		rrtBackground.Wait()
-		solutionChan <- &rrtPlanReturn{err: ctx.Err()}
+		solutionChan <- &rrtSolution{err: ctx.Err()}
 		return
 	default:
 	}
@@ -467,7 +467,7 @@ func (pm *planManager) planParallelRRTMotion(
 				altCost := pm.frame.nodesToTrajectory(alternate).EvaluateCost(pm.opt().ScoreFunc)
 				if altCost < score {
 					pm.logger.CDebugf(ctx, "replacing path with score %f with better score %f", score, altCost)
-					finalSteps = &rrtPlanReturn{steps: alternate}
+					finalSteps = &rrtSolution{steps: alternate}
 				} else {
 					pm.logger.CDebugf(ctx, "fallback path with score %f worse than original score %f; using original", altCost, score)
 				}
@@ -479,7 +479,7 @@ func (pm *planManager) planParallelRRTMotion(
 
 	case <-ctx.Done():
 		rrtBackground.Wait()
-		solutionChan <- &rrtPlanReturn{err: ctx.Err()}
+		solutionChan <- &rrtSolution{err: ctx.Err()}
 		return
 	}
 }
@@ -644,7 +644,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 }
 
 // check whether the solution is within some amount of the optimal.
-func (pm *planManager) goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, float64) {
+func (pm *planManager) goodPlan(pr *rrtSolution, opt *plannerOptions) (bool, float64) {
 	solutionCost := math.Inf(1)
 	if pr.steps != nil {
 		if pr.maps.optNode.Cost() <= 0 {
