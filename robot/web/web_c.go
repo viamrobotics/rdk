@@ -363,7 +363,7 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 		return
 	}
 	layout := r.URL.Query().Get("layout")
-	if layout == "none" {
+	if layout == "text" {
 		//nolint
 		w.Write([]byte(dot))
 		return
