@@ -75,8 +75,7 @@ export const formatObstacles = (list: GeoObstacle[]): Obstacle[] => {
       geometries: obstacle.geometriesList.map((geometry) => {
         const { center } = geometry;
         const pose = new ViamObject3D();
-        const th = THREE.MathUtils.degToRad(center?.theta ?? 0);
-        pose.orientationVector.set(center?.oX, center?.oY, center?.oZ, th);
+        pose.orientationVector.set(center?.oX, center?.oY, center?.oZ, center?.theta ?? 0);
 
         if (geometry.box) {
           const { dimsMm } = geometry.box;
