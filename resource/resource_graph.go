@@ -125,32 +125,79 @@ func (g *Graph) ExportDot() (string, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	sb := strings.Builder{}
+	nodesSortedByName := nodesSortedByName(g.nodes)
 
-	_, err := sb.WriteString("digraph {\n\tgraph [ratio=\"compress\" size=\"15,15\"]\n")
-	if err != nil {
-		return "", err
+	writer := &blockWriter{}
+	writer.NewBlock("digraph")
+	writer.WriteStrings([]string{
+		"rankdir=LR;",
+		"bgcolor=azure;",
+		"node [style=filled,color=bisque];",
+	})
+
+	writer.NewBlock("subgraph cluster_internal")
+	writer.WriteStrings([]string{
+		"style=filled;",
+		"color=lightblue;",
+		"label=Internal",
+	})
+
+	for _, nameNode := range nodesSortedByName {
+		name, node := nameNode.Name, nameNode.Node
+		if isInternalService(name) && name.Remote == "" {
+			exportNode(writer, name, node)
+		}
 	}
+	writer.EndBlock() // internal nodes
 
-	for node := range g.nodes {
-		line := fmt.Sprintf("\t%s;\n", node.Name)
-		if _, err := sb.WriteString(line); err != nil {
-			return "", err
+	for _, nameNode := range nodesSortedByName {
+		name, node := nameNode.Name, nameNode.Node
+		if !isInternalService(name) && name.Remote == "" {
+			exportNode(writer, name, node)
 		}
 	}
 
-	for node, children := range g.children {
-		for child := range children {
-			line := fmt.Sprintf("\t%s -> %s;\n", child.Name, node.Name)
-			if _, err := sb.WriteString(line); err != nil {
-				return "", err
+	remoteNames := getRemotes(g.nodes)
+
+	for idx, remote := range remoteNames {
+		writer.NewBlockf("subgraph cluster_remote_%d", idx)
+		writer.WriteStrings([]string{
+			"color=lightblue;",
+			"style=filled;",
+			fmt.Sprintf("label=%q", remote),
+		})
+
+		writer.NewBlockf("subgraph cluster_remote_%d_internal", idx)
+		writer.WriteStrings([]string{
+			"style=solid;",
+			"color=black;",
+			fmt.Sprintf("label=\"%v Internal\"", remote),
+		})
+
+		for _, nameNode := range nodesSortedByName {
+			name, node := nameNode.Name, nameNode.Node
+			if isInternalService(name) && name.Remote == remote {
+				exportNode(writer, name, node)
 			}
 		}
+		writer.EndBlock() // remote internal nodes
+
+		for _, nameNode := range nodesSortedByName {
+			name, node := nameNode.Name, nameNode.Node
+			if !isInternalService(name) && name.Remote == remote {
+				exportNode(writer, name, node)
+			}
+		}
+		writer.EndBlock() // remote user-configured nodes
 	}
-	if _, err := sb.WriteString("}\n"); err != nil {
-		return "", err
+
+	edges := edgesSortedByName(g.children)
+	for _, edge := range edges {
+		exportEdge(writer, edge.source, edge.dest)
 	}
-	return sb.String(), nil
+	writer.EndBlock() // digraph
+
+	return writer.String(), nil
 }
 
 func (g *Graph) clone() *Graph {
