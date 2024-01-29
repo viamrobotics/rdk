@@ -108,7 +108,7 @@ func (traj Trajectory) EvaluateCost(distFunc ik.SegmentMetric) float64 {
 // Path is a slice of PathSteps describing a series of Poses for a robot to travel to in the course of following a Plan.
 type Path []PathStep
 
-func newRelativePath(solution []node, sf *solverFrame) (Path, error) {
+func newPath(solution []node, sf *solverFrame) (Path, error) {
 	path := make(Path, 0, len(solution))
 	for _, step := range solution {
 		inputMap := sf.sliceToMap(step.Q())
@@ -129,7 +129,7 @@ func newRelativePath(solution []node, sf *solverFrame) (Path, error) {
 	return path, nil
 }
 
-func newAbsolutePathFromRelative(path Path) (Path, error) {
+func newPathFromRelativePath(path Path) (Path, error) {
 	if len(path) < 2 {
 		return nil, errors.New("need to have at least 2 elements in path")
 	}

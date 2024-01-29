@@ -271,12 +271,12 @@ func newRRTPlan(solution []node, sf *solverFrame, relative bool) (*rrtPlan, erro
 		return nil, errors.New("cannot construct a Plan using fewer than two nodes")
 	}
 	traj := sf.nodesToTrajectory(solution)
-	path, err := newRelativePath(solution, sf)
+	path, err := newPath(solution, sf)
 	if err != nil {
 		return nil, err
 	}
 	if relative {
-		path, err = newAbsolutePathFromRelative(path)
+		path, err = newPathFromRelativePath(path)
 		if err != nil {
 			return nil, err
 		}

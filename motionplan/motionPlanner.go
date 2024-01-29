@@ -492,12 +492,8 @@ func CheckPlan(
 	// The solver frame will have had its PTGs filled in the newPlanManager() call, if applicable.
 	relative := len(sf.PTGSolvers()) > 0
 
-	offsetPlan, err := OffsetPlan(plan, errorState)
-	if err != nil {
-		return err
-	}
-
 	// create constraints
+	offsetPlan := OffsetPlan(plan, errorState)
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
 		currentPosition, // starting pose
 		offsetPlan.Path()[len(offsetPlan.Path())-1][checkFrame.Name()].Pose(), // goalPose
