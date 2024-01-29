@@ -48,20 +48,18 @@ func (g *GPSData) ParseAndUpdate(line string) error {
 		line = line[ind:]
 	}
 
-	var errs error
 	s, err := nmea.Parse(line)
 	if err != nil {
-		return multierr.Combine(errs, err)
+		return err
 	}
 	if s.DataType() == nmea.TypeRMC {
 		g.parseRMC(line)
 	}
-	errs = g.updateData(s)
+	err = g.updateData(s)
 
 	if g.Location == nil {
 		g.Location = geo.NewPoint(math.NaN(), math.NaN())
-		errs = multierr.Combine(errs, errors.New("no Location parsed for nmea gps, using default value of lat: NaN, long: NaN"))
-		return errs
+		return multierr.Combine(err, errors.New("no Location parsed for nmea gps, using default value of lat: NaN, long: NaN"))
 	}
 
 	return nil
