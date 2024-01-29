@@ -260,41 +260,43 @@ func (mr *moveRequest) getTransientDetections(
 	relativeGeoms := []spatialmath.Geometry{}
 
 	for i, detection := range detections {
+		geometry := detection.Geometry
 		label := camName.Name + "_transientObstacle_" + strconv.Itoa(i)
-		if detection.Geometry.Label() != "" {
-			label += "_" + detection.Geometry.Label()
+		if geometry.Label() != "" {
+			label += "_" + geometry.Label()
 		}
-		detection.Geometry.SetLabel(label)
+		geometry.SetLabel(label)
 		mr.logger.CDebugf(ctx, "detection %d observed from the camera frame coordinate system: %s - %s",
-			i, camName.ShortName(), detection.Geometry.String(),
+			i, camName.ShortName(), geometry.String(),
 		)
 
 		// transform the geometry to be relative to the base frame which is +Y forwards
-		relativeGeom := detection.Geometry.Transform(cameraToBase.Pose())
+		relativeGeom := geometry.Transform(cameraToBase.Pose())
 		mr.logger.CDebugf(ctx, "detection %d observed from the camera in the base frame coordinate system has pose: %v",
 			i, spatialmath.PoseToProtobuf(relativeGeom.Pose()),
 		)
 		relativeGeoms = append(relativeGeoms, relativeGeom)
 
 		// transform the geometry into the world frame coordinate system
+		absoluteGeom := geometry.Transform(cameraToBase.Pose())
 		// TODO: Determine if there should be a case for requestTypeMoveOnGlobe
 		if mr.requestType == requestTypeMoveOnMap {
 			baseTheta := currentPosition.Pose().Orientation().OrientationVectorDegrees().Theta
-			relativeGeom = relativeGeom.Transform(
+			absoluteGeom = absoluteGeom.Transform(
 				spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: baseTheta}),
 			)
 		}
 		mr.logger.CDebugf(ctx, "detection %d observed from the camera in the world frame coordinate system has pose: %v",
-			i, spatialmath.PoseToProtobuf(relativeGeom.Pose()),
+			i, spatialmath.PoseToProtobuf(absoluteGeom.Pose()),
 		)
 
 		// transform the geometry into it's absolute coordinates, i.e. into the world frame
 		desiredPose := spatialmath.NewPose(
-			relativeGeom.Pose().Point().Add(currentPosition.Pose().Point()),
-			relativeGeom.Pose().Orientation(),
+			absoluteGeom.Pose().Point().Add(currentPosition.Pose().Point()),
+			absoluteGeom.Pose().Orientation(),
 		)
-		transformBy := spatialmath.PoseBetweenInverse(relativeGeom.Pose(), desiredPose)
-		absoluteGeom := relativeGeom.Transform(transformBy)
+		transformBy := spatialmath.PoseBetweenInverse(absoluteGeom.Pose(), desiredPose)
+		absoluteGeom = absoluteGeom.Transform(transformBy)
 		mr.logger.CDebugf(ctx, "detection %d observed from world frame has pose: %v",
 			i, spatialmath.PoseToProtobuf(absoluteGeom.Pose()),
 		)
@@ -327,6 +329,13 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			currentPosition, err := mr.kinematicBase.CurrentPosition(ctx)
 			if err != nil {
 				return state.ExecuteResponse{}, err
+			}
+			// make sure the currentPosition is in the world frame
+			if currentPosition.Parent() != referenceframe.World {
+				currentPosition, err = mr.fsService.TransformPose(ctx, currentPosition, referenceframe.World, nil)
+				if err != nil {
+					return state.ExecuteResponse{}, err
+				}
 			}
 
 			// Note: detections are initially observed from the camera frame but must be transformed to be in

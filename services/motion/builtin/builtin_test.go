@@ -22,6 +22,7 @@ import (
 	armFake "go.viam.com/rdk/components/arm/fake"
 	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/components/base"
+	baseFake "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
@@ -2185,6 +2186,162 @@ func TestMoveCallInputs(t *testing.T) {
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
 	})
+}
+
+func TestGetTransientDetections(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// create injected/fake components and services
+	fakeBase, err := baseFake.NewBase(
+		ctx, nil,
+		resource.Config{
+			Name: "test-base", API: base.API,
+			Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
+		},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	injectedVis := inject.NewVisionService("test-vision")
+	injectedCam := inject.NewCamera("test-camera")
+	injectedSlam := createInjectedSlam(
+		"test-slam",
+		"slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd",
+		spatialmath.NewZeroPose(),
+	)
+
+	// set the dependencies
+	deps := resource.Dependencies{
+		fakeBase.Name():     fakeBase,
+		injectedVis.Name():  injectedVis,
+		injectedCam.Name():  injectedCam,
+		injectedSlam.Name(): injectedSlam,
+	}
+
+	// create service
+	ms, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: &Config{}}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() { ms.Close(ctx) })
+
+	// create links for framesystem
+	baseLink := createBaseLink(t)
+	cameraGeom, err := spatialmath.NewBox(
+		spatialmath.NewZeroPose(),
+		r3.Vector{1, 1, 1}, "camera",
+	)
+	test.That(t, err, test.ShouldBeNil)
+	cameraLink := referenceframe.NewLinkInFrame(
+		baseLink.Name(),
+		spatialmath.NewPose(r3.Vector{0, 0, 0}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
+		"test-camera",
+		cameraGeom,
+	)
+
+	// construct the framesystem
+	fsParts := []*referenceframe.FrameSystemPart{
+		{FrameConfig: baseLink},
+		{FrameConfig: cameraLink},
+	}
+	fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// set the framesystem service for the motion service
+	ms.(*builtIn).fsService = fsSvc
+
+	// construct move request
+	moveReq := motion.MoveOnMapReq{
+		ComponentName: fakeBase.Name(),
+		Destination:   spatialmath.NewPoseFromPoint(r3.Vector{10, 0, 0}),
+		SlamName:      injectedSlam.Name(),
+		MotionCfg: &motion.MotionConfiguration{
+			PlanDeviationMM: 1,
+		},
+	}
+
+	planExecutor, err := ms.(*builtIn).newMoveOnMapRequest(ctx, moveReq, nil, 0)
+	test.That(t, err, test.ShouldBeNil)
+
+	mr, ok := planExecutor.(*moveRequest)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// define injected method on vision service
+	injectedVis.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+		boxGeom, err := spatialmath.NewBox(
+			spatialmath.NewPose(r3.Vector{4, 8, 10}, &spatialmath.OrientationVectorDegrees{OZ: 1}),
+			r3.Vector{2, 3, 5},
+			"test-box",
+		)
+		test.That(t, err, test.ShouldBeNil)
+		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-box", boxGeom.ToProtobuf())
+		test.That(t, err, test.ShouldBeNil)
+		return []*viz.Object{detection}, nil
+	}
+
+	type testCase struct {
+		name             string
+		baseTheta        float64
+		relativeGeomPose spatialmath.Pose
+		absoluteGeomPose spatialmath.Pose
+	}
+	testCases := []testCase{
+		{
+			name:             "SLAM theta: 0, base theta: -90 == 270",
+			baseTheta:        -90,
+			relativeGeomPose: spatialmath.NewPose(r3.Vector{4, 10, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
+			absoluteGeomPose: spatialmath.NewPose(r3.Vector{10, -4, -8}, &spatialmath.OrientationVectorDegrees{OX: 1, Theta: -90}),
+		},
+		{
+			name:             "SLAM theta: 90, base theta: 0",
+			baseTheta:        0,
+			relativeGeomPose: spatialmath.NewPose(r3.Vector{4, 10, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
+			absoluteGeomPose: spatialmath.NewPose(r3.Vector{4, 10, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
+		},
+		{
+			name:             "SLAM theta: 180, base theta: 90",
+			baseTheta:        90,
+			relativeGeomPose: spatialmath.NewPose(r3.Vector{4, 10, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
+			absoluteGeomPose: spatialmath.NewPose(r3.Vector{-10, 4, -8}, &spatialmath.OrientationVectorDegrees{OX: -1, Theta: -90}),
+		},
+		{
+			name:             "SLAM theta: 270, base theta: 180",
+			baseTheta:        180,
+			relativeGeomPose: spatialmath.NewPose(r3.Vector{4, 10, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
+			absoluteGeomPose: spatialmath.NewPose(r3.Vector{-4, -10, -8}, &spatialmath.OrientationVectorDegrees{OY: -1, Theta: -90}),
+		},
+	}
+
+	testFn := func(t *testing.T, tc testCase) {
+		t.Helper()
+		currentPif := referenceframe.NewPoseInFrame(
+			referenceframe.World,
+			spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: tc.baseTheta}),
+		)
+		absolute, relative, err := mr.getTransientDetections(ctx, injectedVis, injectedCam.Name(), currentPif)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, len(relative), test.ShouldEqual, 1)
+		test.That(t, len(absolute), test.ShouldEqual, 1)
+
+		test.That(t, relative[0].Parent(), test.ShouldEqual, referenceframe.World)
+		test.That(t, absolute[0].Parent(), test.ShouldEqual, referenceframe.World)
+
+		test.That(t, len(relative[0].Geometries()), test.ShouldEqual, 1)
+		test.That(t, len(absolute[0].Geometries()), test.ShouldEqual, 1)
+
+		test.That(t, spatialmath.PoseAlmostEqual(relative[0].Geometries()[0].Pose(), tc.relativeGeomPose), test.ShouldBeTrue)
+		test.That(t, spatialmath.PoseAlmostEqual(absolute[0].Geometries()[0].Pose(), tc.absoluteGeomPose), test.ShouldBeTrue)
+	}
+
+	for _, tc := range testCases {
+		c := tc // needed to workaround loop variable not being captured by func literals
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			testFn(t, c)
+		})
+	}
 }
 
 func TestStopPlan(t *testing.T) {
