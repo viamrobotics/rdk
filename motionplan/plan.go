@@ -138,7 +138,8 @@ func newPathFromRelativePath(path Path) (Path, error) {
 	for i, step := range path[1:] {
 		newStep := make(PathStep, len(step))
 		for frame, pose := range step {
-			newStep[frame] = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(newPath[i][frame].Pose(), pose.Pose()))
+			lastPose := newPath[i][frame].Pose()
+			newStep[frame] = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(lastPose, pose.Pose()))
 		}
 		newPath = append(newPath, newStep)
 	}
