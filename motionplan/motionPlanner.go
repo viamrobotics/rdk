@@ -493,7 +493,7 @@ func CheckPlan(
 	// The solver frame will have had its PTGs filled in the newPlanManager() call, if applicable.
 	relative := len(sf.PTGSolvers()) > 0
 
-	// create the offset plan, prepending the current position and input to the plan
+	// offset the plan using the errorState
 	offsetPlan := OffsetPlan(plan, errorState)
 	poses, err := offsetPlan.Path().GetFramePoses(checkFrame.Name())
 	if err != nil {
@@ -527,9 +527,7 @@ func CheckPlan(
 		// If we are working with a PTG plan we redefine the startConfiguration in terms of the endConfiguration.
 		// This allows us the properly interpolate along the same arc family and sub-arc within that family.
 		if relative {
-			currInputSlice = []frame.Input{
-				{Value: nextInputSlice[0].Value}, {Value: nextInputSlice[1].Value}, {Value: 0},
-			}
+			currInputSlice = []frame.Input{{Value: nextInputSlice[0].Value}, {Value: nextInputSlice[1].Value}, {Value: 0}}
 		}
 		return &ik.Segment{
 			StartPosition:      currPose,
@@ -559,6 +557,8 @@ func CheckPlan(
 	}
 
 	// go through segments and check that we satisfy constraints
+	// TODO(RSDK-5007): If we can make interpolate a method on Frame the need to write this out will be lessened and we should be
+	// able to call CheckStateConstraintsAcrossSegment directly.
 	var totalTravelDistanceMM float64
 	for _, segment := range segments {
 		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
