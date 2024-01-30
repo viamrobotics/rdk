@@ -17,7 +17,6 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
-	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -514,7 +513,7 @@ func CheckPlan(
 
 	createSegment := func(
 		currPose, nextPose spatialmath.Pose,
-		currInput, nextInput map[string][]referenceframe.Input,
+		currInput, nextInput map[string][]frame.Input,
 	) (*ik.Segment, error) {
 		currInputSlice, err := sf.mapToSlice(currInput)
 		if err != nil {

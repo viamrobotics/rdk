@@ -215,13 +215,13 @@ func NewGeoPath(path Path, geoOrigin *spatialmath.GeoPose) Path {
 	return newPath
 }
 
-// SimplePlan is a struct containing a Path and a Trajectory, together these comprise a Plan
+// SimplePlan is a struct containing a Path and a Trajectory, together these comprise a Plan.
 type SimplePlan struct {
 	path Path
 	traj Trajectory
 }
 
-// NewSimplePlan instantiates a new Plan from a Path and Trajectory
+// NewSimplePlan instantiates a new Plan from a Path and Trajectory.
 func NewSimplePlan(path Path, traj Trajectory) *SimplePlan {
 	if path == nil {
 		path = Path{}
@@ -232,12 +232,12 @@ func NewSimplePlan(path Path, traj Trajectory) *SimplePlan {
 	return &SimplePlan{path: path, traj: traj}
 }
 
-// Path returns the Path associated with the Plan
+// Path returns the Path associated with the Plan.
 func (plan *SimplePlan) Path() Path {
 	return plan.path
 }
 
-// Trajectory returns the Trajectory associated with the Plan
+// Trajectory returns the Trajectory associated with the Plan.
 func (plan *SimplePlan) Trajectory() Trajectory {
 	return plan.traj
 }
