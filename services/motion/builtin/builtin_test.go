@@ -1277,9 +1277,12 @@ func TestMoveOnGlobe(t *testing.T) {
 			ComponentName:      fakeBase.Name(),
 			MovementSensorName: injectedMovementSensor.Name(),
 			Heading:            90,
-			Destination:        geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-2),
+			Destination:        geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-4),
 			MotionCfg:          &motion.MotionConfiguration{},
-			Extra:              extra,
+			Extra: map[string]interface{}{
+				"motion_profile": "position_only",
+				"smooth_iter":    5.,
+			},
 		}
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
