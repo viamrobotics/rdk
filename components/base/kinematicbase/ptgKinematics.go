@@ -215,6 +215,12 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 			defer cancelFn()
 			return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
 		}
+		
+		// Now we are moving. We need to do several things:
+		// - move until we think we have finished the arc, then move on
+		// - update our CurrentInputs tracking where we are through the arc
+		// - Check where we are relative to where we think we are, and tweak velocities accordingly
+		
 		utils.PanicCapturingGo(func() {
 			// We need to update currentInputs as we move through the arc.
 			for timeElapsed := 0.; timeElapsed <= step.timestepSeconds; timeElapsed += inputUpdateStep {
