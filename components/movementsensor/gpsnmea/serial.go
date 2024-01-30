@@ -171,7 +171,7 @@ func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context, extra map[strin
 	return &acc, g.err.Get()
 }
 
-// LinearVelocity linear velocity.
+// LinearVelocity returns the sensor's linear velocity.
 func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -187,26 +187,26 @@ func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map
 	return r3.Vector{X: xVelocity, Y: yVelocity, Z: 0}, g.err.Get()
 }
 
-// LinearAcceleration linear acceleration.
+// LinearAcceleration returns the sensor's linear acceleration.
 func (g *SerialNMEAMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }
 
-// AngularVelocity angularvelocity.
+// AngularVelocity returns the sensor's angular velocity.
 func (g *SerialNMEAMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }
 
-// Orientation orientation.
+// Orientation returns the sensor's orientation.
 func (g *SerialNMEAMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	return spatialmath.NewOrientationVector(), movementsensor.ErrMethodUnimplementedOrientation
 }
 
-// CompassHeading 0->360.
+// CompassHeading returns the heading, from the range 0->360.
 func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	lastHeading := g.lastCompassHeading.GetLastCompassHeading()
 
@@ -261,7 +261,7 @@ func (g *SerialNMEAMovementSensor) Readings(ctx context.Context, extra map[strin
 	return readings, nil
 }
 
-// Properties what do I do!
+// Properties returns what movement sensor capabilities we have.
 func (g *SerialNMEAMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
