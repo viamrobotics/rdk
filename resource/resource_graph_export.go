@@ -9,6 +9,8 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+// blockWriter wraps a bytes.Buffer and adds some structured methods (`NewBlock`/`EndBlock`) for
+// keeping indentation state.
 type blockWriter struct {
 	indent int
 	buf    bytes.Buffer
