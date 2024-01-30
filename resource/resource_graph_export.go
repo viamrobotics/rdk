@@ -96,6 +96,7 @@ func nodesSortedByName(nodes graphNodes) []nameNode {
 	return ret
 }
 
+//nolint:godot
 /**
  * E.g:
  *	    MotorName
