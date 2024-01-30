@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
@@ -24,8 +25,10 @@ func TestAlignExtrinsics(t *testing.T) {
 	c := conf.FindComponent("extrinsics_cam")
 	test.That(t, c, test.ShouldNotBeNil)
 
-	extConf, ok := c.ConvertedAttributes.(*extrinsicsConfig)
-	test.That(t, ok, test.ShouldBeTrue)
+	intrinsicExtrinsic, err := getIntrinsicExtrinsic(c.Attributes)
+	test.That(t, err, test.ShouldBeNil)
+	extConf, err := resource.NativeConfig[*extrinsicsConfig](*c)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, extConf, test.ShouldNotBeNil)
 	img, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs_color.png"))
 	test.That(t, err, test.ShouldBeNil)
@@ -40,7 +43,7 @@ func TestAlignExtrinsics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// create the alignment camera
-	is, err := newColorDepthExtrinsics(context.Background(), colorVideoSrc, depthVideoSrc, extConf, logger)
+	is, err := newColorDepthExtrinsics(context.Background(), colorVideoSrc, depthVideoSrc, extConf, intrinsicExtrinsic, logger)
 	test.That(t, err, test.ShouldBeNil)
 	// get images and point clouds
 	alignedPointCloud, err := is.NextPointCloud(context.Background())
@@ -56,19 +59,19 @@ func TestAlignExtrinsics(t *testing.T) {
 	test.That(t, depthVideoSrc.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, is.Close(context.Background()), test.ShouldBeNil)
 
+	// expect error with nil intrinsics extrinsics
+	_, err = newColorDepthExtrinsics(context.Background(), colorVideoSrc, depthVideoSrc, extConf, nil, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *transform.DepthColorIntrinsicsExtrinsics")
+
 	// set necessary fields to nil, expect errors
 	extConf.CameraParameters = nil
-	_, err = newColorDepthExtrinsics(context.Background(), colorVideoSrc, depthVideoSrc, extConf, logger)
+	_, err = newColorDepthExtrinsics(context.Background(), colorVideoSrc, depthVideoSrc, extConf, intrinsicExtrinsic, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeError, transform.ErrNoIntrinsics)
 
 	extConf.CameraParameters = &transform.PinholeCameraIntrinsics{Width: -1, Height: -1}
-	_, err = newColorDepthExtrinsics(context.Background(), colorVideoSrc, depthVideoSrc, extConf, logger)
+	_, err = newColorDepthExtrinsics(context.Background(), colorVideoSrc, depthVideoSrc, extConf, intrinsicExtrinsic, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "Got illegal dimensions")
-
-	extConf.IntrinsicExtrinsic = nil
-	_, err = newColorDepthExtrinsics(context.Background(), colorVideoSrc, depthVideoSrc, extConf, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *transform.DepthColorIntrinsicsExtrinsics")
 }

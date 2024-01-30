@@ -4,6 +4,7 @@ package web
 
 import (
 	"context"
+	"net/http"
 	"sync"
 
 	"go.viam.com/rdk/logging"
@@ -69,3 +70,6 @@ func (svc *webService) initStreamServer(ctx context.Context, options *weboptions
 
 // stub for missing gostream
 type options struct{}
+
+// stub for missing graphviz
+func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *http.Request) {}

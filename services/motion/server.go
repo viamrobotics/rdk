@@ -10,7 +10,6 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/spatialmath"
 )
 
 // serviceServer implements the MotionService from motion.proto.
@@ -50,16 +49,22 @@ func (server *serviceServer) MoveOnMap(ctx context.Context, req *pb.MoveOnMapReq
 	if err != nil {
 		return nil, err
 	}
-	success, err := svc.MoveOnMap(
-		ctx,
-		protoutils.ResourceNameFromProto(req.GetComponentName()),
-		spatialmath.NewPoseFromProtobuf(req.GetDestination()),
-		protoutils.ResourceNameFromProto(req.GetSlamServiceName()),
-		req.Extra.AsMap(),
-	)
-	return &pb.MoveOnMapResponse{Success: success}, err
+	r, err := moveOnMapRequestFromProto(req)
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := svc.MoveOnMap(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.MoveOnMapResponse{ExecutionId: id.String()}, nil
 }
 
+// RSDK-6444
+//
+//nolint:staticcheck
 func (server *serviceServer) MoveOnMapNew(ctx context.Context, req *pb.MoveOnMapNewRequest) (*pb.MoveOnMapNewResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
@@ -75,6 +80,8 @@ func (server *serviceServer) MoveOnMapNew(ctx context.Context, req *pb.MoveOnMap
 		return nil, err
 	}
 
+	// RSDK-6444
+	//nolint:staticcheck
 	return &pb.MoveOnMapNewResponse{ExecutionId: id.String()}, nil
 }
 
