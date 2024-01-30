@@ -528,7 +528,7 @@ func (g *rtkI2C) Position(ctx context.Context, extra map[string]interface{}) (*g
 	position, alt, err := g.nmeamovementsensor.Position(ctx, extra)
 	if err != nil {
 		// Use the last known valid position if current position is (0,0)/ NaN.
-		if position != nil && (g.lastposition.IsZeroPosition(position) || movementsensor.IsPositionNaN(position)) {
+		if position != nil && (movementsensor.IsZeroPosition(position) || movementsensor.IsPositionNaN(position)) {
 			lastPosition := g.lastposition.GetLastPosition()
 			if lastPosition != nil {
 				return lastPosition, alt, nil

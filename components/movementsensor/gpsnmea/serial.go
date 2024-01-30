@@ -149,7 +149,7 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 	}
 
 	// if current position is (0,0) we will return the last non zero position
-	if g.lastPosition.IsZeroPosition(currentPosition) && !g.lastPosition.IsZeroPosition(lastPosition) {
+	if movementsensor.IsZeroPosition(currentPosition) && !movementsensor.IsZeroPosition(lastPosition) {
 		return lastPosition, g.data.Alt, g.err.Get()
 	}
 
@@ -159,7 +159,7 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 	}
 
 	// updating the last known valid position if the current position is non-zero
-	if !g.lastPosition.IsZeroPosition(currentPosition) && !movementsensor.IsPositionNaN(currentPosition) {
+	if !movementsensor.IsZeroPosition(currentPosition) && !movementsensor.IsPositionNaN(currentPosition) {
 		g.lastPosition.SetLastPosition(currentPosition)
 	}
 

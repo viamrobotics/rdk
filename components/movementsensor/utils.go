@@ -128,7 +128,7 @@ func (lp *LastPosition) ArePointsEqual(p1, p2 *geo.Point) bool {
 }
 
 // IsZeroPosition checks if a geo.Point represents the zero position (0, 0).
-func (lp *LastPosition) IsZeroPosition(p *geo.Point) bool {
+func IsZeroPosition(p *geo.Point) bool {
 	return p.Lng() == 0 && p.Lat() == 0
 }
 

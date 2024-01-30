@@ -88,8 +88,8 @@ func TestPositionLogic(t *testing.T) {
 	test.That(t, lp.ArePointsEqual(testPos2, testPos2), test.ShouldBeTrue)
 	test.That(t, lp.ArePointsEqual(testPos2, testPos1), test.ShouldBeFalse)
 
-	test.That(t, lp.IsZeroPosition(zeroPos), test.ShouldBeTrue)
-	test.That(t, lp.IsZeroPosition(testPos2), test.ShouldBeFalse)
+	test.That(t, IsZeroPosition(zeroPos), test.ShouldBeTrue)
+	test.That(t, IsZeroPosition(testPos2), test.ShouldBeFalse)
 
 	test.That(t, IsPositionNaN(nanPos), test.ShouldBeTrue)
 	test.That(t, IsPositionNaN(testPos1), test.ShouldBeFalse)
