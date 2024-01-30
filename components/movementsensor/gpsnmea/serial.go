@@ -154,7 +154,7 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 	}
 
 	// updating lastPosition if it is different from the current position
-	if !g.lastPosition.ArePointsEqual(currentPosition, lastPosition) {
+	if !movementsensor.ArePointsEqual(currentPosition, lastPosition) {
 		g.lastPosition.SetLastPosition(currentPosition)
 	}
 

@@ -120,7 +120,7 @@ func (lp *LastPosition) SetLastPosition(position *geo.Point) {
 }
 
 // ArePointsEqual checks if two geo.Point instances are equal.
-func (lp *LastPosition) ArePointsEqual(p1, p2 *geo.Point) bool {
+func ArePointsEqual(p1, p2 *geo.Point) bool {
 	if p1 == nil || p2 == nil {
 		return p1 == p2
 	}
