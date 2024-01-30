@@ -249,7 +249,7 @@ func createMoveOnMapEnvironment(
 		referenceframe.NewPoseInFrame(referenceframe.World, origin),
 		kinematicsOptions,
 		spatialmath.NewZeroPose(),
-		50,
+		10,
 	)
 	test.That(t, err, test.ShouldBeNil)
 

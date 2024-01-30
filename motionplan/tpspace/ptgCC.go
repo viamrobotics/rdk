@@ -11,20 +11,17 @@ import (
 // at radius, resulting in a path that looks like a "3"
 // Alpha determines how far to reverse before moving forwards.
 type ptgCC struct {
-	maxMMPS float64 // millimeters per second velocity to target
-	maxRPS  float64 // radians per second of rotation when driving at maxMMPS and turning at max turning radius
-
-	circle *ptgC
+	turnRadius float64
+	circle     *ptgC
 }
 
 // NewCCPTG creates a new PTG of type ptgCC.
-func NewCCPTG(maxMMPS, maxRPS float64) PTG {
-	circle := NewCirclePTG(maxMMPS, maxRPS).(*ptgC)
+func NewCCPTG(turnRadius float64) PTG {
+	circle := NewCirclePTG(turnRadius).(*ptgC)
 
 	return &ptgCC{
-		maxMMPS: maxMMPS,
-		maxRPS:  maxRPS,
-		circle:  circle,
+		turnRadius: turnRadius,
+		circle:     circle,
 	}
 }
 
@@ -32,22 +29,18 @@ func NewCCPTG(maxMMPS, maxRPS float64) PTG {
 // Note that this will NOT work as-is for 0-radius turning. Robots capable of turning in place will need to be special-cased
 // because they will have zero linear velocity through their turns, not max.
 func (ptg *ptgCC) Velocities(alpha, dist float64) (float64, float64, error) {
-	k := math.Copysign(1.0, dist)
-	r := ptg.maxMMPS / ptg.maxRPS
-
+	if dist == 0 {
+		return 0, 0, nil
+	}
 	u := math.Abs(alpha) * 0.5
 
-	v := 0.
-	w := 0.
+	v := 1.0
+	w := 1.0
 
-	if dist < u*r {
-		// l-
-		v = -ptg.maxMMPS
-		w = ptg.maxRPS
-	} else {
-		// l+
-		v = ptg.maxMMPS
-		w = ptg.maxRPS
+	if dist < u*ptg.turnRadius {
+		// This is the reverse part of the trajectory
+		v = -1.0
+		w = 1.0
 	}
 
 	// Turn in the opposite direction
@@ -55,17 +48,13 @@ func (ptg *ptgCC) Velocities(alpha, dist float64) (float64, float64, error) {
 		w *= -1
 	}
 
-	v *= k
-	w *= k
-
 	return v, w, nil
 }
 
 func (ptg *ptgCC) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	alpha := inputs[0].Value
 	dist := inputs[1].Value
-	r := ptg.maxMMPS / ptg.maxRPS
-	reverseDistance := math.Abs(alpha) * 0.5 * r
+	reverseDistance := math.Abs(alpha) * 0.5 * ptg.turnRadius
 	flip := math.Copysign(1., alpha)     // left or right
 	direction := math.Copysign(1., dist) // forwards or backwards
 
