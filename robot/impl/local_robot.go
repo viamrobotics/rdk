@@ -987,7 +987,7 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 	return discoveries, nil
 }
 
-// moduleManagerDiscoveryResult is returned from a DiscoveryQuery to rdk:builtin:module-manager.
+// moduleManagerDiscoveryResult is returned from a DiscoveryQuery to rdk-internal:builtin:module-manager.
 type moduleManagerDiscoveryResult struct {
 	ResourceHandles map[string]modulepb.HandlerMap `json:"resource_handles"`
 }
@@ -997,7 +997,9 @@ type moduleManagerDiscoveryResult struct {
 func (r *localRobot) discoverRobotInternals(query resource.DiscoveryQuery) (interface{}, bool) {
 	switch {
 	// these strings are hardcoded because their existence would be misleading anywhere outside of this function
-	case query.API.String() == "rdk:builtin:module-manager" && query.Model.String() == "rdk:builtin:module-manager":
+	case query.API.String() == "rdk-internal:service:module-manager" &&
+		query.Model.String() == "rdk-internal:builtin:module-manager":
+
 		handles := map[string]modulepb.HandlerMap{}
 		for moduleName, handleMap := range r.manager.moduleManager.Handles() {
 			handles[moduleName] = *handleMap.ToProto()

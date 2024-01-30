@@ -39,8 +39,8 @@ var (
 	noDiscoverModel = resource.DefaultModelFamily.WithModel("nodiscoverModel")
 	noDiscoverQ     = resource.DiscoveryQuery{failAPI, noDiscoverModel}
 
-	modManagerAPI   = resource.APINamespace("rdk").WithType("builtin").WithSubtype("module-manager")
-	modManagerModel = resource.ModelNamespaceRDK.WithFamily("builtin").WithModel("module-manager")
+	modManagerAPI   = resource.NewAPI("rdk-internal", "service", "module-manager")
+	modManagerModel = resource.NewModel("rdk-internal", "builtin", "module-manager")
 	modManagerQ     = resource.NewDiscoveryQuery(modManagerAPI, modManagerModel)
 
 	missingQ = resource.NewDiscoveryQuery(failAPI, resource.DefaultModelFamily.WithModel("missing"))
