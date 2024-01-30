@@ -1242,9 +1242,10 @@ func TestMoveOnMapReq(t *testing.T) {
 
 	validMoveOnMapReq := MoveOnMapReq{
 		ComponentName: myBase,
-		Destination:   spatialmath.NewZeroPose(),
+		Destination:   spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0}),
 		SlamName:      mySlam,
 		MotionCfg:     motionCfg,
+		Obstacles:     []spatialmath.Geometry{},
 		Extra:         map[string]interface{}{},
 	}
 
@@ -1252,7 +1253,7 @@ func TestMoveOnMapReq(t *testing.T) {
 	//nolint:staticcheck
 	validPbMoveOnMapNewRequest := &pb.MoveOnMapNewRequest{
 		Name:                "bloop",
-		Destination:         spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
+		Destination:         spatialmath.PoseToProtobuf(spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0})),
 		ComponentName:       rprotoutils.ResourceNameToProto(myBase),
 		SlamServiceName:     rprotoutils.ResourceNameToProto(mySlam),
 		MotionConfiguration: motionCfg.toProto(),
@@ -1261,7 +1262,7 @@ func TestMoveOnMapReq(t *testing.T) {
 
 	validPbMoveOnMapRequest := &pb.MoveOnMapRequest{
 		Name:                "bloop",
-		Destination:         spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
+		Destination:         spatialmath.PoseToProtobuf(spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0})),
 		ComponentName:       rprotoutils.ResourceNameToProto(myBase),
 		SlamServiceName:     rprotoutils.ResourceNameToProto(mySlam),
 		MotionConfiguration: motionCfg.toProto(),
@@ -1270,21 +1271,21 @@ func TestMoveOnMapReq(t *testing.T) {
 
 	t.Run("String()", func(t *testing.T) {
 		s := "motion.MoveOnMapReq{ComponentName: rdk:component:base/mybase, " +
-			"SlamName: rdk:service:slam/mySlam, Destination: o_z:1,  MotionCfg: " +
-			"&motion.MotionConfiguration{ObstacleDetectors:[]motion.ObstacleDetectorName{" +
+			"SlamName: rdk:service:slam/mySlam, Destination: x:2700  o_z:1,  " +
+			"MotionCfg: &motion.MotionConfiguration{" +
+			"ObstacleDetectors:[]motion.ObstacleDetectorName{" +
 			"motion.ObstacleDetectorName{VisionServiceName:resource.Name{API:resource.API{" +
-			"Type:resource.APIType{Namespace:\"rdk\", Name:\"service\"}, SubtypeName:\"vision\"}" +
-			", Remote:\"\", Name:\"vision service 1\"}, CameraName:resource.Name{" +
-			"API:resource.API{Type:resource.APIType{Namespace:\"rdk\", Name:\"component\"}, " +
+			"Type:resource.APIType{Namespace:\"rdk\", Name:\"service\"}, " +
+			"SubtypeName:\"vision\"}, Remote:\"\", Name:\"vision service 1\"}, " +
+			"CameraName:resource.Name{API:resource.API{Type:resource.APIType{Namespace:\"rdk\", Name:\"component\"}, " +
 			"SubtypeName:\"camera\"}, Remote:\"\", Name:\"camera 1\"}}, " +
-			"motion.ObstacleDetectorName{VisionServiceName:resource.Name{" +
-			"API:resource.API{Type:resource.APIType{Namespace:\"rdk\", Name:\"service\"}, " +
-			"SubtypeName:\"vision\"}, Remote:\"\", Name:\"vision service 2\"}, " +
-			"CameraName:resource.Name{API:resource.API{Type:resource.APIType{" +
-			"Namespace:\"rdk\", Name:\"component\"}, SubtypeName:\"camera\"}, " +
-			"Remote:\"\", Name:\"camera 2\"}}}, PositionPollingFreqHz:4, " +
-			"ObstaclePollingFreqHz:5, PlanDeviationMM:3, LinearMPerSec:1, AngularDegsPerSec:2}, " +
-			"Extra: map[]}"
+			"motion.ObstacleDetectorName{VisionServiceName:resource.Name{API:resource.API{Type:resource.APIType{" +
+			"Namespace:\"rdk\", Name:\"service\"}, SubtypeName:\"vision\"}, " +
+			"Remote:\"\", Name:\"vision service 2\"}, " +
+			"CameraName:resource.Name{API:resource.API{Type:resource.APIType{Namespace:\"rdk\", Name:\"component\"}, " +
+			"SubtypeName:\"camera\"}, Remote:\"\", Name:\"camera 2\"}}}, " +
+			"PositionPollingFreqHz:4, ObstaclePollingFreqHz:5, PlanDeviationMM:3, " +
+			"LinearMPerSec:1, AngularDegsPerSec:2}, Obstacles: [], Extra: map[]}"
 		test.That(t, validMoveOnMapReq.String(), test.ShouldResemble, s)
 	})
 
@@ -1460,8 +1461,14 @@ func TestMoveOnMapReq(t *testing.T) {
 			{
 				description: "success",
 				input:       validPbMoveOnMapNewRequest,
-				result:      validMoveOnMapReq,
-				err:         nil,
+				result: MoveOnMapReq{
+					ComponentName: myBase,
+					Destination:   spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0}),
+					SlamName:      mySlam,
+					MotionCfg:     motionCfg,
+					Extra:         map[string]interface{}{},
+				},
+				err: nil,
 			},
 			{
 				description: "success - allow nil motionCfg",
@@ -1561,13 +1568,13 @@ func TestMoveOnMapReq(t *testing.T) {
 				// RSDK-6444
 
 				input: &pb.MoveOnMapRequest{
-					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
+					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0})),
 					ComponentName:   rprotoutils.ResourceNameToProto(myBase),
 					SlamServiceName: rprotoutils.ResourceNameToProto(mySlam),
 				},
 				result: MoveOnMapReq{
 					ComponentName: myBase,
-					Destination:   spatialmath.NewZeroPose(),
+					Destination:   spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0}),
 					SlamName:      mySlam,
 					MotionCfg: &MotionConfiguration{
 						ObstacleDetectors:     []ObstacleDetectorName{},
@@ -1577,7 +1584,8 @@ func TestMoveOnMapReq(t *testing.T) {
 						LinearMPerSec:         0,
 						AngularDegsPerSec:     0,
 					},
-					Extra: map[string]interface{}{},
+					Obstacles: []spatialmath.Geometry{},
+					Extra:     map[string]interface{}{},
 				},
 				err: nil,
 			},
