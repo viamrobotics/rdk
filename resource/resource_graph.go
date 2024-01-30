@@ -1,7 +1,6 @@
 package resource
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -117,87 +116,6 @@ func (g *Graph) Clone() *Graph {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.clone()
-}
-
-// ExportDot exports the resource graph as a DOT representation for visualization.
-// DOT reference: https://graphviz.org/doc/info/lang.html
-func (g *Graph) ExportDot() (string, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	nodesSortedByName := nodesSortedByName(g.nodes)
-
-	writer := &blockWriter{}
-	writer.NewBlock("digraph")
-	writer.WriteStrings([]string{
-		"rankdir=LR;",
-		"bgcolor=azure;",
-		"node [style=filled,color=bisque];",
-	})
-
-	writer.NewBlock("subgraph cluster_internal")
-	writer.WriteStrings([]string{
-		"style=filled;",
-		"color=lightblue;",
-		"label=Internal",
-	})
-
-	for _, nameNode := range nodesSortedByName {
-		name, node := nameNode.Name, nameNode.Node
-		if isInternalService(name) && name.Remote == "" {
-			exportNode(writer, name, node)
-		}
-	}
-	writer.EndBlock() // internal nodes
-
-	for _, nameNode := range nodesSortedByName {
-		name, node := nameNode.Name, nameNode.Node
-		if !isInternalService(name) && name.Remote == "" {
-			exportNode(writer, name, node)
-		}
-	}
-
-	remoteNames := getRemotes(g.nodes)
-
-	for idx, remote := range remoteNames {
-		writer.NewBlockf("subgraph cluster_remote_%d", idx)
-		writer.WriteStrings([]string{
-			"color=lightblue;",
-			"style=filled;",
-			fmt.Sprintf("label=%q", remote),
-		})
-
-		writer.NewBlockf("subgraph cluster_remote_%d_internal", idx)
-		writer.WriteStrings([]string{
-			"style=solid;",
-			"color=black;",
-			fmt.Sprintf("label=\"%v Internal\"", remote),
-		})
-
-		for _, nameNode := range nodesSortedByName {
-			name, node := nameNode.Name, nameNode.Node
-			if isInternalService(name) && name.Remote == remote {
-				exportNode(writer, name, node)
-			}
-		}
-		writer.EndBlock() // remote internal nodes
-
-		for _, nameNode := range nodesSortedByName {
-			name, node := nameNode.Name, nameNode.Node
-			if !isInternalService(name) && name.Remote == remote {
-				exportNode(writer, name, node)
-			}
-		}
-		writer.EndBlock() // remote user-configured nodes
-	}
-
-	edges := edgesSortedByName(g.children)
-	for _, edge := range edges {
-		exportEdge(writer, edge.source, edge.dest)
-	}
-	writer.EndBlock() // digraph
-
-	return writer.String(), nil
 }
 
 func (g *Graph) clone() *Graph {
