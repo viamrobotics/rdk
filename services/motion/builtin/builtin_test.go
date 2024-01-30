@@ -257,7 +257,10 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 		ComponentName: base.Named("test-base"),
 		Destination:   goalInSLAMFrame,
 		SlamName:      slam.Named("test_slam"),
-		Extra:         extra,
+		MotionCfg: &motion.MotionConfiguration{
+			PlanDeviationMM: 1,
+		},
+		Extra: extra,
 	}
 
 	timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*45)
@@ -291,7 +294,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 	extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 
 	// RSDK-6444
-	//nolint:dupl
+	
 	t.Run("ensure success of movement around obstacle", func(t *testing.T) {
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
@@ -300,7 +303,10 @@ func TestMoveOnMapPlans(t *testing.T) {
 			ComponentName: base.Named("test-base"),
 			Destination:   goalInSLAMFrame,
 			SlamName:      slam.Named("test_slam"),
-			Extra:         extra,
+			MotionCfg: &motion.MotionConfiguration{
+				PlanDeviationMM: 1,
+			},
+			Extra: extra,
 		}
 
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
@@ -334,7 +340,10 @@ func TestMoveOnMapPlans(t *testing.T) {
 			ComponentName: base.Named("test-base"),
 			Destination:   easyGoalInSLAMFrame,
 			SlamName:      slam.Named("test_slam"),
-			Extra:         extra,
+			MotionCfg: &motion.MotionConfiguration{
+				PlanDeviationMM: 1,
+			},
+			Extra: extra,
 		}
 
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
@@ -369,7 +378,10 @@ func TestMoveOnMapPlans(t *testing.T) {
 				ComponentName: base.Named("test-base"),
 				Destination:   easyGoalInSLAMFrame,
 				SlamName:      slam.Named("test_slam"),
-				Extra:         extra,
+				MotionCfg: &motion.MotionConfiguration{
+					PlanDeviationMM: 1,
+				},
+				Extra: extra,
 			},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -378,7 +390,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 	})
 
 	// RSDK-6444
-	//nolint:dupl
+	
 	t.Run("check that position-only mode executes", func(t *testing.T) {
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
@@ -387,7 +399,10 @@ func TestMoveOnMapPlans(t *testing.T) {
 			ComponentName: base.Named("test-base"),
 			Destination:   goalInSLAMFrame,
 			SlamName:      slam.Named("test_slam"),
-			Extra:         extraPosOnly,
+			MotionCfg: &motion.MotionConfiguration{
+				PlanDeviationMM: 1,
+			},
+			Extra: extraPosOnly,
 		}
 
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
@@ -433,7 +448,10 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 		ComponentName: base.Named("test-base"),
 		Destination:   goal1SLAMFrame,
 		SlamName:      slam.Named("test_slam"),
-		Extra:         map[string]interface{}{"smooth_iter": 5},
+		MotionCfg: &motion.MotionConfiguration{
+			PlanDeviationMM: 1,
+		},
+		Extra: map[string]interface{}{"smooth_iter": 5},
 	}
 
 	timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
@@ -463,7 +481,10 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 		ComponentName: base.Named("test-base"),
 		Destination:   goal2SLAMFrame,
 		SlamName:      slam.Named("test_slam"),
-		Extra:         map[string]interface{}{"smooth_iter": 5},
+		MotionCfg: &motion.MotionConfiguration{
+			PlanDeviationMM: 1,
+		},
+		Extra: map[string]interface{}{"smooth_iter": 5},
 	}
 	timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
 	defer timeoutFn()
@@ -550,7 +571,10 @@ func TestMoveOnMapTimeout(t *testing.T) {
 			ComponentName: base.Named("test-base"),
 			Destination:   easyGoal,
 			SlamName:      slam.Named("test_slam"),
-			Extra:         extra,
+			MotionCfg: &motion.MotionConfiguration{
+				PlanDeviationMM: 1,
+			},
+			Extra: extra,
 		},
 	)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -1040,7 +1064,10 @@ func TestStoppableMoveFunctions(t *testing.T) {
 				ComponentName: injectBase.Name(),
 				Destination:   goal,
 				SlamName:      injectSlam.Name(),
-				Extra:         extra,
+				MotionCfg: &motion.MotionConfiguration{
+					PlanDeviationMM: 0.2,
+				},
+				Extra: extra,
 			}
 
 			executionID, err := ms.MoveOnMap(ctx, req)
@@ -1442,7 +1469,7 @@ func TestMoveOnMapNew(t *testing.T) {
 		extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 
 		// RSDK-6444
-		//nolint:dupl
+		
 		t.Run("ensure success of movement around obstacle", func(t *testing.T) {
 			kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 			defer ms.Close(ctx)
@@ -1515,7 +1542,7 @@ func TestMoveOnMapNew(t *testing.T) {
 		})
 
 		// RSDK-6444
-		//nolint:dupl
+		
 		t.Run("check that position-only mode executes", func(t *testing.T) {
 			kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 			defer ms.Close(ctx)
