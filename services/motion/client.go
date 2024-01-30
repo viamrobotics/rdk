@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/spatialmath"
 )
 
 // client implements MotionServiceClient.
@@ -73,28 +72,23 @@ func (c *client) Move(
 	return resp.Success, nil
 }
 
-func (c *client) MoveOnMap(
-	ctx context.Context,
-	componentName resource.Name,
-	destination spatialmath.Pose,
-	slamName resource.Name,
-	extra map[string]interface{},
-) (bool, error) {
-	ext, err := vprotoutils.StructToStructPb(extra)
+func (c *client) MoveOnMap(ctx context.Context, req MoveOnMapReq) (ExecutionID, error) {
+	protoReq, err := req.toProto(c.name)
 	if err != nil {
-		return false, err
+		return uuid.Nil, err
 	}
-	resp, err := c.client.MoveOnMap(ctx, &pb.MoveOnMapRequest{
-		Name:            c.name,
-		ComponentName:   protoutils.ResourceNameToProto(componentName),
-		Destination:     spatialmath.PoseToProtobuf(destination),
-		SlamServiceName: protoutils.ResourceNameToProto(slamName),
-		Extra:           ext,
-	})
+
+	resp, err := c.client.MoveOnMap(ctx, protoReq)
 	if err != nil {
-		return false, err
+		return uuid.Nil, err
 	}
-	return resp.Success, nil
+
+	executionID, err := uuid.Parse(resp.ExecutionId)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return executionID, nil
 }
 
 func (c *client) MoveOnMapNew(ctx context.Context, req MoveOnMapReq) (ExecutionID, error) {
@@ -103,6 +97,8 @@ func (c *client) MoveOnMapNew(ctx context.Context, req MoveOnMapReq) (ExecutionI
 		return uuid.Nil, err
 	}
 
+	// RSDK-6444
+	//nolint:staticcheck
 	resp, err := c.client.MoveOnMapNew(ctx, protoReq)
 	if err != nil {
 		return uuid.Nil, err
