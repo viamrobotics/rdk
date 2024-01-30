@@ -52,9 +52,9 @@ func (ptg *ptgDiffDrive) Transform(inputs []referenceframe.Input) (spatialmath.P
 	if alpha < -1*math.Pi {
 		alpha = -1 * math.Pi
 	}
-	turnAngle := math.Copysign(math.Min(dist, math.Abs(alpha)), alpha)
+	turnAngle := math.Copysign(math.Min(dist, math.Abs(rdkutils.RadToDeg(alpha))), alpha)
 
-	pose := spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVector{OZ: 1, Theta: turnAngle})
+	pose := spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: turnAngle})
 
 	if dist <= math.Abs(rdkutils.RadToDeg(alpha)) {
 		return pose, nil
