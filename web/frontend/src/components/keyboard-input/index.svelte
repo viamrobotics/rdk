@@ -1,108 +1,108 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
-  import type { Keys } from './types';
+import { onDestroy } from 'svelte';
+import type { Keys } from './types';
 
-  import {
-    mdiArrowUp as w,
-    mdiRestore as a,
-    mdiReload as d,
-    mdiArrowDown as s,
-  } from '@mdi/js';
-  import Icon from '../icon/index.svelte';
+import {
+  mdiArrowUp as w,
+  mdiRestore as a,
+  mdiReload as d,
+  mdiArrowDown as s,
+} from '@mdi/js';
+import Icon from '../icon/index.svelte';
 
-  export let isActive: boolean;
-  export let onKeyDown: (key: Keys) => void;
-  export let onKeyUp: (key: Keys) => void;
-  export let onUpdateKeyboardState: (isActive: boolean) => void;
+export let isActive: boolean;
+export let onKeyDown: (key: Keys) => void;
+export let onKeyUp: (key: Keys) => void;
+export let onUpdateKeyboardState: (isActive: boolean) => void;
 
-  const keyIcons = { w, a, s, d };
+const keyIcons = { w, a, s, d };
 
-  const pressedKeys = {
-    w: false,
-    a: false,
-    s: false,
-    d: false,
-  };
+const pressedKeys = {
+  w: false,
+  a: false,
+  s: false,
+  d: false,
+};
 
-  const keysLayout = [['a'], ['w', 's'], ['d']] as const;
+const keysLayout = [['a'], ['w', 's'], ['d']] as const;
 
-  const normalizeKey = (key: string): Keys | null => {
-    return (
-      (
-        {
-          w: 'w',
-          a: 'a',
-          s: 's',
-          d: 'd',
-          arrowup: 'w',
-          arrowleft: 'a',
-          arrowdown: 's',
-          arrowright: 'd',
-        } as Record<string, Keys>
-      )[key.toLowerCase()] ?? null
-    );
-  };
+const normalizeKey = (key: string): Keys | null => {
+  return (
+    (
+      {
+        w: 'w',
+        a: 'a',
+        s: 's',
+        d: 'd',
+        arrowup: 'w',
+        arrowleft: 'a',
+        arrowdown: 's',
+        arrowright: 'd',
+      } as Record<string, Keys>
+    )[key.toLowerCase()] ?? null
+  );
+};
 
-  const dispatchKeyDown = (key: Keys) => {
-    pressedKeys[key] = true;
-    onKeyDown(key);
-  };
+const dispatchKeyDown = (key: Keys) => {
+  pressedKeys[key] = true;
+  onKeyDown(key);
+};
 
-  const dispatchKeyUp = (key: Keys) => {
-    pressedKeys[key] = false;
-    onKeyUp(key);
-  };
+const dispatchKeyUp = (key: Keys) => {
+  pressedKeys[key] = false;
+  onKeyUp(key);
+};
 
-  const handleKeyDown = (event: KeyboardEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
+const handleKeyDown = (event: KeyboardEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
 
-    const key = normalizeKey(event.key);
+  const key = normalizeKey(event.key);
 
-    if (key === null || pressedKeys[key]) {
-      return;
-    }
-
-    dispatchKeyDown(key);
-  };
-
-  const handleKeyUp = (event: KeyboardEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const key = normalizeKey(event.key);
-    if (key !== null) {
-      dispatchKeyUp(key);
-    }
-  };
-
-  const toggleKeyboard = (nowActive: boolean) => {
-    if (nowActive) {
-      window.addEventListener('keydown', handleKeyDown, false);
-      window.addEventListener('keyup', handleKeyUp, false);
-    } else {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    }
-
-    onUpdateKeyboardState(nowActive);
-  };
-
-  const handlePointerDown = (key: Keys) => {
-    dispatchKeyDown(key);
-  };
-
-  const handlePointerUp = (key: Keys) => {
-    dispatchKeyUp(key);
-  };
-
-  $: if (!isActive) {
-    toggleKeyboard(false);
+  if (key === null || pressedKeys[key]) {
+    return;
   }
 
-  onDestroy(() => {
-    toggleKeyboard(false);
-  });
+  dispatchKeyDown(key);
+};
+
+const handleKeyUp = (event: KeyboardEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+
+  const key = normalizeKey(event.key);
+  if (key !== null) {
+    dispatchKeyUp(key);
+  }
+};
+
+const toggleKeyboard = (nowActive: boolean) => {
+  if (nowActive) {
+    window.addEventListener('keydown', handleKeyDown, false);
+    window.addEventListener('keyup', handleKeyUp, false);
+  } else {
+    window.removeEventListener('keydown', handleKeyDown);
+    window.removeEventListener('keyup', handleKeyUp);
+  }
+
+  onUpdateKeyboardState(nowActive);
+};
+
+const handlePointerDown = (key: Keys) => {
+  dispatchKeyDown(key);
+};
+
+const handlePointerUp = (key: Keys) => {
+  dispatchKeyUp(key);
+};
+
+$: if (!isActive) {
+  toggleKeyboard(false);
+}
+
+onDestroy(() => {
+  toggleKeyboard(false);
+});
 </script>
 
 <div>

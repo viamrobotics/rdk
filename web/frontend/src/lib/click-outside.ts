@@ -14,10 +14,10 @@ export const clickOutside = (element: HTMLElement, cb: () => void) => {
   document.body.addEventListener('click', onClick);
 
   return {
-    update (updatedCb: () => void) {
+    update(updatedCb: () => void) {
       callback = updatedCb;
     },
-    destroy () {
+    destroy() {
       document.body.removeEventListener('click', onClick);
     },
   };

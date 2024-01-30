@@ -32,11 +32,10 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	ackermanFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		"ackframe",
 		logger,
-		300.,
-		0,
 		testTurnRad,
 		0,
 		geometries,
+		false,
 		false,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -68,11 +67,10 @@ func TestPtgWithObstacle(t *testing.T) {
 	ackermanFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		"ackframe",
 		logger,
-		300.,
-		0,
 		testTurnRad,
 		0,
 		geometries,
+		false,
 		false,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -151,11 +149,10 @@ func TestTPsmoothing(t *testing.T) {
 	ackermanFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		"ackframe",
 		logger,
-		300.,
-		0,
 		testTurnRad,
 		0,
 		geometries,
+		false,
 		false,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -219,11 +216,10 @@ func TestPtgCheckPlan(t *testing.T) {
 	ackermanFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		"ackframe",
 		logger,
-		300.,
-		0,
 		testTurnRad,
 		0,
 		geometries,
+		false,
 		false,
 	)
 	test.That(t, err, test.ShouldBeNil)

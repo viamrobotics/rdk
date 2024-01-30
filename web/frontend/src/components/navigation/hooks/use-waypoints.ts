@@ -50,9 +50,8 @@ export const useWaypoints = (name: string) => {
   useConnect(() => {
     void updateWaypoints();
     const clearUpdateWaypointInterval = setAsyncInterval(updateWaypoints, 1000);
-    return () => clearUpdateWaypointInterval();  
-  })
-
+    return () => clearUpdateWaypointInterval();
+  });
 
   return { waypoints, error, addWaypoint, deleteWaypoint };
 };

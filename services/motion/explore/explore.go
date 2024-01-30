@@ -154,14 +154,8 @@ type explore struct {
 	frameSystem   referenceframe.FrameSystem
 }
 
-func (ms *explore) MoveOnMap(
-	ctx context.Context,
-	componentName resource.Name,
-	destination spatialmath.Pose,
-	slamName resource.Name,
-	extra map[string]interface{},
-) (bool, error) {
-	return false, errUnimplemented
+func (ms *explore) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
+	return uuid.Nil, errUnimplemented
 }
 
 func (ms *explore) MoveOnMapNew(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {

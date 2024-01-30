@@ -125,7 +125,7 @@ func (m *EncodedMotor) createControlLoopConfig(p, i, d float64) control.Config {
 					"kP":             p,
 					"limit_lo":       -255.0,
 					"limit_up":       255.0,
-					"tune_method":    "ziegerNichlsPI",
+					"tune_method":    "ziegerNicholsPI",
 					"tune_ssr_value": 2.0,
 					"tune_step_pct":  0.35,
 				},

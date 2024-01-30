@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 type fakeDiffDriveKinematics struct {
@@ -150,20 +151,31 @@ func WrapWithFakePTGKinematics(
 		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than or equal to zero")
 	}
 
+	angVelocityDegsPerSecond, err := correctAngularVelocityWithTurnRadius(
+		logger,
+		baseTurningRadiusMeters,
+		baseMillimetersPerSecond,
+		options.AngularVelocityDegsPerSec,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	geometries, err := b.Geometries(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
+	nonzeroBaseTurningRadiusMeters := (baseMillimetersPerSecond / rdkutils.DegToRad(angVelocityDegsPerSecond)) / 1000.
+
 	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		b.Name().ShortName(),
 		logger,
-		baseMillimetersPerSecond,
-		options.AngularVelocityDegsPerSec,
-		baseTurningRadiusMeters,
+		nonzeroBaseTurningRadiusMeters,
 		0, // If zero, will use default on the receiver end.
 		geometries,
 		options.NoSkidSteer,
+		baseTurningRadiusMeters == 0,
 	)
 	if err != nil {
 		return nil, err

@@ -7,15 +7,17 @@ export const getProperties = async (robotClient: Client, name: string) => {
 
   rcLogConditionally(request);
 
-  const response = await new Promise<encoderApi.GetPropertiesResponse | null>((resolve, reject) => {
-    robotClient.encoderService.getProperties(request, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
+  const response = await new Promise<encoderApi.GetPropertiesResponse | null>(
+    (resolve, reject) => {
+      robotClient.encoderService.getProperties(request, (error, res) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(res);
+        }
+      });
+    }
+  );
 
   return response?.toObject();
 };
@@ -26,15 +28,17 @@ export const getPosition = async (robotClient: Client, name: string) => {
 
   rcLogConditionally(request);
 
-  const response = await new Promise<encoderApi.GetPositionResponse | null>((resolve, reject) => {
-    robotClient.encoderService.getPosition(request, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
+  const response = await new Promise<encoderApi.GetPositionResponse | null>(
+    (resolve, reject) => {
+      robotClient.encoderService.getPosition(request, (error, res) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(res);
+        }
+      });
+    }
+  );
 
   return response?.toObject().value;
 };
@@ -46,15 +50,17 @@ export const getPositionDegrees = async (robotClient: Client, name: string) => {
 
   rcLogConditionally(request);
 
-  const response = await new Promise<encoderApi.GetPositionResponse | null>((resolve, reject) => {
-    robotClient.encoderService.getPosition(request, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
+  const response = await new Promise<encoderApi.GetPositionResponse | null>(
+    (resolve, reject) => {
+      robotClient.encoderService.getPosition(request, (error, res) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(res);
+        }
+      });
+    }
+  );
 
   return response?.toObject().value;
 };
@@ -65,15 +71,17 @@ export const reset = async (robotClient: Client, name: string) => {
 
   rcLogConditionally(request);
 
-  const response = await new Promise<encoderApi.ResetPositionResponse | null>((resolve, reject) => {
-    robotClient.encoderService.resetPosition(request, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
+  const response = await new Promise<encoderApi.ResetPositionResponse | null>(
+    (resolve, reject) => {
+      robotClient.encoderService.resetPosition(request, (error, res) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(res);
+        }
+      });
+    }
+  );
 
   return response?.toObject();
 };

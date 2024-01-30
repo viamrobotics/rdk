@@ -28,46 +28,33 @@ func init() {
 			Constructor: func(ctx context.Context, deps resource.Dependencies,
 				conf resource.Config, logger logging.Logger,
 			) (camera.Camera, error) {
-				newConf, err := resource.NativeConfig[*extrinsicsConfig](conf)
+				intrinsicExtrinsic, err := getIntrinsicExtrinsic(conf.Attributes)
 				if err != nil {
 					return nil, err
 				}
-				colorName := newConf.Color
+
+				extConf, err := resource.NativeConfig[*extrinsicsConfig](conf)
+				if err != nil {
+					return nil, err
+				}
+
+				colorName := extConf.Color
 				color, err := camera.FromDependencies(deps, colorName)
 				if err != nil {
 					return nil, fmt.Errorf("no color camera (%s): %w", colorName, err)
 				}
 
-				depthName := newConf.Depth
+				depthName := extConf.Depth
 				depth, err := camera.FromDependencies(deps, depthName)
 				if err != nil {
 					return nil, fmt.Errorf("no depth camera (%s): %w", depthName, err)
 				}
-				src, err := newColorDepthExtrinsics(ctx, color, depth, newConf, logger)
+
+				src, err := newColorDepthExtrinsics(ctx, color, depth, extConf, intrinsicExtrinsic, logger)
 				if err != nil {
 					return nil, err
 				}
 				return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
-			},
-			AttributeMapConverter: func(attributes rdkutils.AttributeMap) (*extrinsicsConfig, error) {
-				if !attributes.Has("camera_system") {
-					return nil, errors.New("missing camera_system")
-				}
-
-				b, err := json.Marshal(attributes["camera_system"])
-				if err != nil {
-					return nil, err
-				}
-				matrices, err := transform.NewDepthColorIntrinsicsExtrinsicsFromBytes(b)
-				if err != nil {
-					return nil, err
-				}
-				if err := matrices.CheckValid(); err != nil {
-					return nil, err
-				}
-				attributes["camera_system"] = matrices
-
-				return resource.TransformAttributeMap[*extrinsicsConfig](attributes)
 			},
 		})
 }
@@ -81,6 +68,26 @@ type extrinsicsConfig struct {
 	Depth                string                             `json:"depth_camera_name"`
 	Debug                bool                               `json:"debug,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
+}
+
+func getIntrinsicExtrinsic(attributes rdkutils.AttributeMap) (*transform.DepthColorIntrinsicsExtrinsics, error) {
+	if !attributes.Has("camera_system") {
+		return nil, errors.New("missing camera_system")
+	}
+
+	b, err := json.Marshal(attributes["camera_system"])
+	if err != nil {
+		return nil, err
+	}
+	matrices, err := transform.NewDepthColorIntrinsicsExtrinsicsFromBytes(b)
+	if err != nil {
+		return nil, err
+	}
+	if err := matrices.CheckValid(); err != nil {
+		return nil, err
+	}
+
+	return matrices, nil
 }
 
 func (cfg *extrinsicsConfig) Validate(path string) ([]string, error) {
@@ -110,9 +117,17 @@ type colorDepthExtrinsics struct {
 }
 
 // newColorDepthExtrinsics creates a gostream.VideoSource that aligned color and depth channels.
-func newColorDepthExtrinsics(ctx context.Context, color, depth camera.VideoSource, conf *extrinsicsConfig, logger logging.Logger,
+func newColorDepthExtrinsics(
+	ctx context.Context,
+	color, depth camera.VideoSource,
+	conf *extrinsicsConfig,
+	intrinsicExtrinsic *transform.DepthColorIntrinsicsExtrinsics,
+	logger logging.Logger,
 ) (camera.VideoSource, error) {
-	alignment, err := rdkutils.AssertType[*transform.DepthColorIntrinsicsExtrinsics](conf.IntrinsicExtrinsic)
+	if intrinsicExtrinsic == nil {
+		return nil, errors.New("expected *transform.DepthColorIntrinsicsExtrinsics to not be nil, yet it was")
+	}
+	alignment, err := rdkutils.AssertType[transform.DepthColorIntrinsicsExtrinsics](*intrinsicExtrinsic)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +148,7 @@ func newColorDepthExtrinsics(ctx context.Context, color, depth camera.VideoSourc
 		colorName: conf.Color,
 		depth:     gostream.NewEmbeddedVideoStream(depth),
 		depthName: conf.Depth,
-		aligner:   alignment,
+		aligner:   &alignment,
 		projector: conf.CameraParameters,
 		imageType: imgType,
 		height:    conf.CameraParameters.Height,

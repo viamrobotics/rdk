@@ -82,6 +82,16 @@ type MoveOnMapReq struct {
 	Extra         map[string]interface{}
 }
 
+func (r MoveOnMapReq) String() string {
+	return fmt.Sprintf(
+		"motion.MoveOnMapReq{ComponentName: %s, SlamName: %s, Destination: %v,  MotionCfg: %#v, Extra: %s}",
+		r.ComponentName,
+		r.SlamName,
+		spatialmath.PoseToProtobuf(r.Destination),
+		r.MotionCfg,
+		r.Extra)
+}
+
 // StopPlanReq describes the request to StopPlan().
 type StopPlanReq struct {
 	// ComponentName of the plan which should be stopped
@@ -181,11 +191,8 @@ type Service interface {
 	) (bool, error)
 	MoveOnMap(
 		ctx context.Context,
-		componentName resource.Name,
-		destination spatialmath.Pose,
-		slamName resource.Name,
-		extra map[string]interface{},
-	) (bool, error)
+		req MoveOnMapReq,
+	) (ExecutionID, error)
 	MoveOnMapNew(
 		ctx context.Context,
 		req MoveOnMapReq,

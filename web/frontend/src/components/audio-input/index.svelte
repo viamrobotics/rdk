@@ -1,5 +1,4 @@
-<script lang='ts'>
-
+<script lang="ts">
 import { StreamClient, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import Collapse from '@/lib/components/collapse.svelte';
@@ -40,31 +39,37 @@ useConnect(() => {
 
   return () => {
     connected = false;
-  }
+  };
 });
-
 
 onMount(() => {
   streamClient.on('track', handleTrack);
-  return () => streamClient.off('track', handleTrack)
+  return () => streamClient.off('track', handleTrack);
 });
 
 $: if (connected && expanded && !added) {
   streamClient.add(name).catch((error) => displayError(error as ServiceError));
   added = true;
 } else if (added) {
-  streamClient.remove(name).catch((error) => displayError(error as ServiceError));
+  streamClient
+    .remove(name)
+    .catch((error) => displayError(error as ServiceError));
   added = false;
 }
-
 </script>
 
-<Collapse title={name} on:toggle={handleToggle}>
-  <v-breadcrumbs slot="title" crumbs="audio_input" />
+<Collapse
+  title={name}
+  on:toggle={handleToggle}
+>
+  <v-breadcrumbs
+    slot="title"
+    crumbs="audio_input"
+  />
   <div class="h-auto border border-t-0 border-medium p-2">
     <audio
       bind:this={audio}
-      class='py-2'
+      class="py-2"
       controls
       volume={1}
     />

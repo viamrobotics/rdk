@@ -1,5 +1,4 @@
 <script lang="ts">
-
 import { gantryApi } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
@@ -8,9 +7,9 @@ import { useRobotClient } from '@/hooks/robot-client';
 
 export let name: string;
 export let status: {
-  is_moving: boolean
-  lengths_mm: number[]
-  positions_mm: number[]
+  is_moving: boolean;
+  lengths_mm: number[];
+  positions_mm: number[];
 } = {
   is_moving: false,
   lengths_mm: [],
@@ -19,10 +18,10 @@ export let status: {
 
 interface GantryStatus {
   pieces: {
-    axis: number,
-    pos: number,
-    length: number,
-  }[]
+    axis: number;
+    pos: number;
+    length: number;
+  }[];
 }
 
 const { robotClient } = useRobotClient();
@@ -106,13 +105,12 @@ const stop = () => {
   rcLogConditionally(req);
   $robotClient.gantryService.stop(req, displayError);
 };
-
 </script>
 
 <Collapse title={name}>
   <v-breadcrumbs
-  slot="title"
-  crumbs="gantry"
+    slot="title"
+    crumbs="gantry"
   />
 
   <div
@@ -126,110 +124,106 @@ const stop = () => {
       on:click|stopPropagation={stop}
     />
   </div>
-    <div class="overflow-auto border border-t-0 border-medium p-4">
-      <table class="border border-t-0 border-medium p-4">
-        <thead>
-          <tr>
-            <th class="border border-medium p-2">
-              axis
-            </th>
-            <th
-              class="border border-medium p-2"
-              colspan="2"
-            >
-              position
-            </th>
-            <th class="border border-medium p-2">
-              length
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {#if modifyAll}
-            {#each modifyAllStatus.pieces as piece, i (piece.axis)}
-              <tr>
-                <th class="border border-medium p-2">
-                  {parts[i]?.axis ?? 0}
-                </th>
-                <td class="border border-medium p-2">
-                  <input
-                    type='number'
-                    bind:value={piece.pos}
-                    class="
-                      w-full py-1.5 px-2 leading-tight text-xs h-[30px] border outline-none appearance-none
-                      pl-2.5 bg-white border-light hover:border-medium focus:border-gray-9
+  <div class="overflow-auto border border-t-0 border-medium p-4">
+    <table class="border border-t-0 border-medium p-4">
+      <thead>
+        <tr>
+          <th class="border border-medium p-2"> axis </th>
+          <th
+            class="border border-medium p-2"
+            colspan="2"
+          >
+            position
+          </th>
+          <th class="border border-medium p-2"> length </th>
+        </tr>
+      </thead>
+      <tbody>
+        {#if modifyAll}
+          {#each modifyAllStatus.pieces as piece, i (piece.axis)}
+            <tr>
+              <th class="border border-medium p-2">
+                {parts[i]?.axis ?? 0}
+              </th>
+              <td class="border border-medium p-2">
+                <input
+                  type="number"
+                  bind:value={piece.pos}
+                  class="
+                      h-[30px] w-full appearance-none border border-light bg-white px-2 py-1.5 pl-2.5
+                      text-xs leading-tight outline-none hover:border-medium focus:border-gray-9
                     "
-                  />
-                </td>
-                <td class="border border-medium p-2">
-                  { parts[i]?.pos.toFixed(2) ?? 0}
-                </td>
-                <td class="border border-medium p-2">
-                  { parts[i]?.length ?? 0 }
-                </td>
-              </tr>
-            {/each}
-          {:else}
-            {#each parts as part (part.axis)}
-              <tr>
-                <th class="border border-medium p-2">
-                  {part.axis}
-                </th>
-                <td class="flex gap-2 p-2">
-                  <v-button
-                    label="--"
-                    on:click={() => increment(part.axis, -10)}
-                  />
-                  <v-button
-                    label="-"
-                    on:click={() => increment(part.axis, -1)}
-                  />
-                  <v-button
-                    label="+"
-                    on:click={() => increment(part.axis, 1)}
-                  />
-                  <v-button
-                    label="++"
-                    on:click={() => increment(part.axis, 10)}
-                  />
-                </td>
-                <td class="border border-medium p-2">
-                  { part.pos.toFixed(2) }
-                </td>
-                <td class="border border-medium p-2">
-                  { part.length }
-                </td>
-              </tr>
-            {/each}
-          {/if}
-        </tbody>
-      </table>
+                />
+              </td>
+              <td class="border border-medium p-2">
+                {parts[i]?.pos.toFixed(2) ?? 0}
+              </td>
+              <td class="border border-medium p-2">
+                {parts[i]?.length ?? 0}
+              </td>
+            </tr>
+          {/each}
+        {:else}
+          {#each parts as part (part.axis)}
+            <tr>
+              <th class="border border-medium p-2">
+                {part.axis}
+              </th>
+              <td class="flex gap-2 p-2">
+                <v-button
+                  label="--"
+                  on:click={() => increment(part.axis, -10)}
+                />
+                <v-button
+                  label="-"
+                  on:click={() => increment(part.axis, -1)}
+                />
+                <v-button
+                  label="+"
+                  on:click={() => increment(part.axis, 1)}
+                />
+                <v-button
+                  label="++"
+                  on:click={() => increment(part.axis, 10)}
+                />
+              </td>
+              <td class="border border-medium p-2">
+                {part.pos.toFixed(2)}
+              </td>
+              <td class="border border-medium p-2">
+                {part.length}
+              </td>
+            </tr>
+          {/each}
+        {/if}
+      </tbody>
+    </table>
+    {#if modifyAll}
+      <v-button
+        icon="play-circle-filled"
+        label="Go"
+        class="mt-2 text-right"
+        on:click={gantryModifyAllDoMoveToPosition}
+      />
+    {/if}
+    <div class="mt-6 flex gap-2">
       {#if modifyAll}
         <v-button
-          icon='play-circle-filled'
-          label="Go"
-          class='mt-2 text-right'
-          on:click={gantryModifyAllDoMoveToPosition}
+          label="Cancel"
+          on:click={() => {
+            modifyAll = false;
+          }}
+        />
+      {:else}
+        <v-button
+          label="Modify all"
+          on:click={gantryModifyAll}
+        />
+        <v-button
+          label="Home"
+          on:click={gantryHome}
         />
       {/if}
-      <div class='mt-6 flex gap-2'>
-        {#if modifyAll}
-          <v-button
-            label="Cancel"
-            on:click={() => {
-              modifyAll = false;
-            }}
-          />
-        {:else}
-          <v-button
-            label="Modify all"
-            on:click={gantryModifyAll}
-          />
-          <v-button
-            label="Home"
-            on:click={gantryHome}
-          />
-        {/if}
-      </div>
     </div>
-  </Collapse>
+  </div>
+</Collapse>

@@ -1,6 +1,9 @@
 <script lang="ts">
-
-import { movementSensorApi as movementsensorApi, type ServiceError, type commonApi } from '@viamrobotics/sdk';
+import {
+  movementSensorApi as movementsensorApi,
+  type ServiceError,
+  type commonApi,
+} from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import Collapse from '@/lib/components/collapse.svelte';
 import { setAsyncInterval } from '@/lib/schedule';
@@ -12,8 +15,11 @@ import {
   getLinearVelocity,
   getCompassHeading,
   getPosition,
+  getAccuracy,
 } from '@/api/movement-sensor';
 import { useRobotClient, useConnect } from '@/hooks/robot-client';
+import { Icon } from '@viamrobotics/prime-core';
+import { Tooltip } from '@viamrobotics/prime-core';
 
 export let name: string;
 
@@ -27,6 +33,7 @@ let compassHeading: number | undefined;
 let coordinate: commonApi.GeoPoint.AsObject | undefined;
 let altitudeM: number | undefined;
 let properties: movementsensorApi.GetPropertiesResponse.AsObject | undefined;
+let accuracy: movementsensorApi.GetAccuracyResponse.AsObject | undefined;
 
 let expanded = false;
 
@@ -35,7 +42,13 @@ const refresh = async () => {
     return;
   }
 
-  properties = await getProperties($robotClient, name);
+  const result = await Promise.all([
+    getProperties($robotClient, name),
+    getAccuracy($robotClient, name),
+  ]);
+
+  properties = result[0];
+  accuracy = result[1];
 
   if (!properties) {
     return;
@@ -43,12 +56,24 @@ const refresh = async () => {
 
   try {
     const results = await Promise.all([
-      properties.orientationSupported ? getOrientation($robotClient, name) : undefined,
-      properties.angularVelocitySupported ? getAngularVelocity($robotClient, name) : undefined,
-      properties.linearAccelerationSupported ? getLinearAcceleration($robotClient, name) : undefined,
-      properties.linearVelocitySupported ? getLinearVelocity($robotClient, name) : undefined,
-      properties.compassHeadingSupported ? getCompassHeading($robotClient, name) : undefined,
-      properties.positionSupported ? getPosition($robotClient, name) : undefined,
+      properties.orientationSupported
+        ? getOrientation($robotClient, name)
+        : undefined,
+      properties.angularVelocitySupported
+        ? getAngularVelocity($robotClient, name)
+        : undefined,
+      properties.linearAccelerationSupported
+        ? getLinearAcceleration($robotClient, name)
+        : undefined,
+      properties.linearVelocitySupported
+        ? getLinearVelocity($robotClient, name)
+        : undefined,
+      properties.compassHeadingSupported
+        ? getCompassHeading($robotClient, name)
+        : undefined,
+      properties.positionSupported
+        ? getPosition($robotClient, name)
+        : undefined,
     ] as const);
 
     orientation = results[0];
@@ -70,42 +95,80 @@ const handleToggle = (event: CustomEvent<{ open: boolean }>) => {
 useConnect(() => {
   refresh();
   const clearInterval = setAsyncInterval(refresh, 500);
-  return () => clearInterval?.();
+  return () => clearInterval();
 });
-
 </script>
 
-<Collapse title={name} on:toggle={handleToggle}>
-  <v-breadcrumbs slot="title" crumbs="movement_sensor" />
-  <div class="flex flex-wrap gap-4 text-sm border border-t-0 border-medium p-4">
+<Collapse
+  title={name}
+  on:toggle={handleToggle}
+>
+  <v-breadcrumbs
+    slot="title"
+    crumbs="movement_sensor"
+  />
+  <div class="flex flex-wrap gap-4 border border-t-0 border-medium p-4 text-sm">
     {#if properties?.positionSupported}
       <div class="overflow-auto">
         <h3 class="mb-1">Position</h3>
         <table class="w-full border border-t-0 border-medium p-4">
           <tr>
-            <th class="border border-medium p-2">
-              Latitude
-            </th>
+            <th class="border border-medium p-2"> Latitude </th>
             <td class="border border-medium p-2">
               {coordinate?.latitude.toFixed(6)}
             </td>
           </tr>
           <tr>
-            <th class="border border-medium p-2">
-              Longitude
-            </th>
+            <th class="border border-medium p-2"> Longitude </th>
             <td class="border border-medium p-2">
               {coordinate?.longitude.toFixed(6)}
             </td>
           </tr>
           <tr>
-            <th class="border border-medium p-2">
-              Altitude (m)
-            </th>
+            <th class="border border-medium p-2"> Altitude (m) </th>
             <td class="border border-medium p-2">
               {altitudeM?.toFixed(2)}
             </td>
           </tr>
+          {#if accuracy?.positionNmeaGgaFix}
+            <tr>
+              <th class="border border-medium p-2"> NMEA Fix Quality </th>
+              <td class="border border-medium p-2">
+                {accuracy.positionNmeaGgaFix}
+                {#if accuracy.positionNmeaGgaFix === 1 || accuracy.positionNmeaGgaFix === 2}
+                  <Tooltip let:tooltipID>
+                    <p aria-describedby={tooltipID}>
+                      <Icon name="information" />
+                    </p>
+                    <p slot="description">expect 1m-5m accuracy</p>
+                  </Tooltip>
+                {/if}
+                {#if accuracy.positionNmeaGgaFix === 4 || accuracy.positionNmeaGgaFix === 5}
+                  <Tooltip let:tooltipID>
+                    <p aria-describedby={tooltipID}>
+                      <Icon name="information" />
+                    </p>
+                    <p slot="description">expect 2cm-50cm accuracy</p>
+                  </Tooltip>
+                {/if}
+              </td>
+            </tr>
+          {/if}
+
+          {#if accuracy?.positionHdop && accuracy.positionVdop}
+            <tr>
+              <th class="border border-medium p-2"> HDOP </th>
+              <td class="border border-medium p-2">
+                {accuracy.positionHdop.toFixed(2)}
+              </td>
+            </tr>
+            <tr>
+              <th class="border border-medium p-2"> VDOP </th>
+              <td class="border border-medium p-2">
+                {accuracy.positionVdop.toFixed(2)}
+              </td>
+            </tr>
+          {/if}
         </table>
         <a
           class="text-[#045681] underline"
@@ -118,38 +181,28 @@ useConnect(() => {
 
     {#if properties?.orientationSupported}
       <div class="overflow-auto">
-        <h3 class="mb-1">
-          Orientation (degrees)
-        </h3>
+        <h3 class="mb-1">Orientation (degrees)</h3>
         <table class="w-full border border-t-0 border-medium p-4">
           <tr>
-            <th class="border border-medium p-2">
-              OX
-            </th>
+            <th class="border border-medium p-2"> OX </th>
             <td class="border border-medium p-2">
               {orientation?.oX.toFixed(2)}
             </td>
           </tr>
           <tr>
-            <th class="border border-medium p-2">
-              OY
-            </th>
+            <th class="border border-medium p-2"> OY </th>
             <td class="border border-medium p-2">
               {orientation?.oY.toFixed(2)}
             </td>
           </tr>
           <tr>
-            <th class="border border-medium p-2">
-              OZ
-            </th>
+            <th class="border border-medium p-2"> OZ </th>
             <td class="border border-medium p-2">
               {orientation?.oZ.toFixed(2)}
             </td>
           </tr>
           <tr>
-            <th class="border border-medium p-2">
-              Theta
-            </th>
+            <th class="border border-medium p-2"> Theta </th>
             <td class="border border-medium p-2">
               {orientation?.theta.toFixed(2)}
             </td>
@@ -160,30 +213,22 @@ useConnect(() => {
 
     {#if properties?.angularVelocitySupported}
       <div class="overflow-auto">
-        <h3 class="mb-1">
-          Angular velocity (degrees/second)
-        </h3>
+        <h3 class="mb-1">Angular velocity (degrees/second)</h3>
         <table class="w-full border border-t-0 border-medium p-4">
           <tr>
-            <th class="border border-medium p-2">
-              X
-            </th>
+            <th class="border border-medium p-2"> X </th>
             <td class="border border-medium p-2">
               {angularVelocity?.x.toFixed(2)}
             </td>
           </tr>
           <tr>
-            <th class="border border-medium p-2">
-              Y
-            </th>
+            <th class="border border-medium p-2"> Y </th>
             <td class="border border-medium p-2">
               {angularVelocity?.y.toFixed(2)}
             </td>
           </tr>
           <tr>
-            <th class="border border-medium p-2">
-              Z
-            </th>
+            <th class="border border-medium p-2"> Z </th>
             <td class="border border-medium p-2">
               {angularVelocity?.z.toFixed(2)}
             </td>
@@ -194,30 +239,22 @@ useConnect(() => {
 
     {#if properties?.linearVelocitySupported}
       <div class="overflow-auto">
-        <h3 class="mb-1">
-          Linear velocity (m/s)
-        </h3>
+        <h3 class="mb-1">Linear velocity (m/s)</h3>
         <table class="w-full border border-t-0 border-medium p-4">
           <tr>
-            <th class="border border-medium p-2">
-              X
-            </th>
+            <th class="border border-medium p-2"> X </th>
             <td class="border border-medium p-2">
               {linearVelocity?.x.toFixed(2)}
             </td>
           </tr>
           <tr>
-            <th class="border border-medium p-2">
-              Y
-            </th>
+            <th class="border border-medium p-2"> Y </th>
             <td class="border border-medium p-2">
               {linearVelocity?.y.toFixed(2)}
             </td>
           </tr>
           <tr>
-            <th class="border border-medium p-2">
-              Z
-            </th>
+            <th class="border border-medium p-2"> Z </th>
             <td class="border border-medium p-2">
               {linearVelocity?.z.toFixed(2)}
             </td>
@@ -228,30 +265,22 @@ useConnect(() => {
 
     {#if properties?.linearAccelerationSupported}
       <div class="overflow-auto">
-        <h3 class="mb-1">
-          Linear acceleration (m/second^2)
-        </h3>
+        <h3 class="mb-1">Linear acceleration (m/second^2)</h3>
         <table class="w-full border border-t-0 border-medium p-4">
           <tr>
-            <th class="border border-medium p-2">
-              X
-            </th>
+            <th class="border border-medium p-2"> X </th>
             <td class="border border-medium p-2">
               {linearAcceleration?.x.toFixed(2)}
             </td>
           </tr>
           <tr>
-            <th class="border border-medium p-2">
-              Y
-            </th>
+            <th class="border border-medium p-2"> Y </th>
             <td class="border border-medium p-2">
               {linearAcceleration?.y.toFixed(2)}
             </td>
           </tr>
           <tr>
-            <th class="border border-medium p-2">
-              Z
-            </th>
+            <th class="border border-medium p-2"> Z </th>
             <td class="border border-medium p-2">
               {linearAcceleration?.z.toFixed(2)}
             </td>
@@ -262,18 +291,41 @@ useConnect(() => {
 
     {#if properties?.compassHeadingSupported}
       <div class="overflow-auto">
-        <h3 class="mb-1">
-          Compass heading
-        </h3>
+        <h3 class="mb-1">Compass heading</h3>
         <table class="w-full border border-t-0 border-medium p-4">
           <tr>
-            <th class="border border-medium p-2">
-              Compass
-            </th>
+            <th class="border border-medium p-2"> Compass </th>
             <td class="border border-medium p-2">
               {compassHeading?.toFixed(2)}
             </td>
           </tr>
+          {#if accuracy?.compassDegreesError}
+            <tr>
+              <th class="border border-medium p-2"> Compass Degrees Error </th>
+              <td class="border border-medium p-2">
+                {accuracy.compassDegreesError.toFixed(2)}
+              </td>
+            </tr>
+          {/if}
+        </table>
+      </div>
+    {/if}
+
+    {#if (accuracy?.accuracyMap.length ?? 0) > 0}
+      <div class="overflow-auto">
+        <h3 class="mb-1">Accuracy Map</h3>
+        <table class="w-full border border-t-0 border-medium p-4">
+          {#each accuracy?.accuracyMap ?? [] as pair (pair[0])}
+            <tr>
+              <td class="border border-medium p-2">
+                {pair[0]}
+              </td>
+
+              <td class="border border-medium p-2">
+                {pair[1]}
+              </td>
+            </tr>
+          {/each}
         </table>
       </div>
     {/if}

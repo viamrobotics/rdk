@@ -239,46 +239,23 @@ func (ms *builtIn) Move(
 	return true, nil
 }
 
-// MoveOnMap will move the given component to the given destination on the slam map generated from a slam service specified by slamName.
-// Bases are the only component that supports this.
-func (ms *builtIn) MoveOnMap(
-	ctx context.Context,
-	componentName resource.Name,
-	destination spatialmath.Pose,
-	slamName resource.Name,
-	extra map[string]interface{},
-) (bool, error) {
+func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
+	if err := ctx.Err(); err != nil {
+		return uuid.Nil, err
+	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
+	ms.logger.CDebugf(ctx, "MoveOnMap called with %s", req)
+
+	// TODO: Deprecated: remove once no motion apis use the opid system
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-	// make call to motionplan
-	mr, err := ms.newMoveOnMapRequest(ctx, motion.MoveOnMapReq{
-		ComponentName: componentName,
-		Destination:   destination,
-		SlamName:      slamName,
-		Extra:         extra,
-	}, nil, defaultMaxReplans)
+
+	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, ms.newMoveOnMapRequest)
 	if err != nil {
-		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
+		return uuid.Nil, err
 	}
 
-	plan, err := mr.Plan(ctx)
-	if err != nil {
-		return false, err
-	}
-	resp, err := mr.Execute(ctx, plan)
-	// Error
-	if err != nil {
-		return false, err
-	}
-
-	// Didn't reach goal
-	if resp.Replan {
-		ms.logger.CWarnf(ctx, "didn't reach the goal. Reason: %s\n", resp.ReplanReason)
-		return false, nil
-	}
-	// Reached goal
-	return true, nil
+	return id, nil
 }
 
 func (ms *builtIn) MoveOnMapNew(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
