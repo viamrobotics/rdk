@@ -133,25 +133,19 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 //
 //nolint:dupl // This is a duplicate of code in pmtkI2C.go, but on a different struct.
 func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-	lastPosition := g.lastPosition.GetLastPosition()
-
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
+	lastPosition := g.lastPosition.GetLastPosition()
 	currentPosition := g.data.Location
 
 	if currentPosition == nil {
 		return lastPosition, 0, errNilLocation
 	}
 
-	// if current position is (0,0) we will return the last non zero position
+	// if current position is (0,0) we will return the last non-zero position
 	if movementsensor.IsZeroPosition(currentPosition) && !movementsensor.IsZeroPosition(lastPosition) {
 		return lastPosition, g.data.Alt, g.err.Get()
-	}
-
-	// updating lastPosition if it is different from the current position
-	if !movementsensor.ArePointsEqual(currentPosition, lastPosition) {
-		g.lastPosition.SetLastPosition(currentPosition)
 	}
 
 	// updating the last known valid position if the current position is non-zero
