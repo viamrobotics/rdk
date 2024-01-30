@@ -86,8 +86,8 @@ func scaledSolveMetric(metric StateMetric) StateMetric {
 		dist := metric(state)
 		magnitude := math.Log10(dist)
 		if magnitude > log10magScale {
-			for i := log10magScale; i < math.Log10(dist); i+=1. {
-				dist = math.Pow10(int(i)) + (dist - math.Pow10(int(i)))/10
+			for i := log10magScale; i < math.Log10(dist); i += 1. {
+				dist = math.Pow10(int(i)) + (dist-math.Pow10(int(i)))/10
 			}
 		}
 		return dist

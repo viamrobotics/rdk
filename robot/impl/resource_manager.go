@@ -88,6 +88,12 @@ func fromRemoteNameToRemoteNodeName(name string) resource.Name {
 	return resource.NewName(client.RemoteAPI, name)
 }
 
+// ExportDot exports the resource graph as a DOT representation for visualization.
+// DOT reference: https://graphviz.org/doc/info/lang.html
+func (manager *resourceManager) ExportDot() (string, error) {
+	return manager.resources.ExportDot()
+}
+
 func (manager *resourceManager) startModuleManager(
 	ctx context.Context,
 	parentAddr string,
@@ -508,13 +514,18 @@ func (manager *resourceManager) completeConfig(
 				)
 				continue
 			}
+			if gNode.IsUninitialized() {
+				gNode.InitializeLogger(
+					manager.logger, fromRemoteNameToRemoteNodeName(remConf.Name).String(), manager.logger.GetLevel(),
+				)
+			}
 			// this is done in config validation but partial start rules require us to check again
 			if _, err := remConf.Validate(""); err != nil {
 				gNode.LogAndSetLastError(
 					fmt.Errorf("remote config validation error: %w", err), "remote", remConf.Name)
 				continue
 			}
-			rr, err := manager.processRemote(ctx, *remConf)
+			rr, err := manager.processRemote(ctx, *remConf, gNode)
 			if err != nil {
 				gNode.LogAndSetLastError(
 					fmt.Errorf("error connecting to remote: %w", err), "remote", remConf.Name)
@@ -573,14 +584,18 @@ func (manager *resourceManager) completeConfig(
 			if !(resName.API.IsComponent() || resName.API.IsService()) {
 				return
 			}
+
 			var verb string
+			conf := gNode.Config()
 			if gNode.IsUninitialized() {
 				verb = "configuring"
+				gNode.InitializeLogger(
+					manager.logger, resName.String(), conf.LogConfiguration.Level,
+				)
 			} else {
 				verb = "reconfiguring"
 			}
 			manager.logger.CDebugw(ctx, fmt.Sprintf("now %s resource", verb), "resource", resName)
-			conf := gNode.Config()
 
 			// this is done in config validation but partial start rules require us to check again
 			if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
@@ -722,10 +737,11 @@ func cleanAppImageEnv() error {
 func (manager *resourceManager) processRemote(
 	ctx context.Context,
 	config config.Remote,
+	gNode *resource.GraphNode,
 ) (*client.RobotClient, error) {
 	dialOpts := remoteDialOptions(config, manager.opts)
 	manager.logger.CDebugw(ctx, "connecting now to remote", "remote", config.Name)
-	robotClient, err := dialRobotClient(ctx, config, manager.logger, dialOpts...)
+	robotClient, err := dialRobotClient(ctx, config, gNode.Logger(), dialOpts...)
 	if err != nil {
 		if errors.Is(err, rpc.ErrInsecureWithCredentials) {
 			if manager.opts.fromCommand {

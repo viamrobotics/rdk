@@ -67,6 +67,13 @@ type localRobot struct {
 	frameSvc framesystem.Service
 }
 
+// ExportResourcesAsDot exports the resource graph as a DOT representation for
+// visualization.
+// DOT reference: https://graphviz.org/doc/info/lang.html
+func (r *localRobot) ExportResourcesAsDot() (string, error) {
+	return r.manager.ExportDot()
+}
+
 // RemoteByName returns a remote robot by name. If it does not exist
 // nil is returned.
 func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
@@ -643,17 +650,14 @@ func (r *localRobot) newResource(
 		}
 	}
 
-	resLogger := r.logger.Sublogger(conf.ResourceName().String())
-	resLogger.SetLevel(conf.LogConfiguration.Level)
-	gNode.SetLogger(resLogger)
 	if resInfo.Constructor != nil {
-		return resInfo.Constructor(ctx, deps, conf, resLogger)
+		return resInfo.Constructor(ctx, deps, conf, gNode.Logger())
 	}
 	if resInfo.DeprecatedRobotConstructor == nil {
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
 	r.logger.CWarnw(ctx, "using deprecated robot constructor", "api", resName.API, "model", conf.Model)
-	return resInfo.DeprecatedRobotConstructor(ctx, r, conf, resLogger)
+	return resInfo.DeprecatedRobotConstructor(ctx, r, conf, gNode.Logger())
 }
 
 func (r *localRobot) updateWeakDependents(ctx context.Context) {
