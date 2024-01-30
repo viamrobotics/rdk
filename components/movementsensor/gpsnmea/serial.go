@@ -40,10 +40,8 @@ type SerialNMEAMovementSensor struct {
 	lastCompassHeading movementsensor.LastCompassHeading
 	isClosed           bool
 
-	dev                io.ReadWriteCloser
-	path               string
-	correctionBaudRate uint
-	correctionPath     string
+	dev  io.ReadWriteCloser
+	path string
 }
 
 // NewSerialGPSNMEA gps that communicates over serial.
