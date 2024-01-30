@@ -1411,7 +1411,6 @@ func TestMoveOnMapReq(t *testing.T) {
 		}
 	})
 
-	
 	t.Run("moveOnMapNewRequestFromProto", func(t *testing.T) {
 		type testCase struct {
 			description string
@@ -1510,7 +1509,6 @@ func TestMoveOnMapReq(t *testing.T) {
 		}
 	})
 
-	
 	t.Run("moveOnMapRequestFromProto", func(t *testing.T) {
 		type testCase struct {
 			description string
