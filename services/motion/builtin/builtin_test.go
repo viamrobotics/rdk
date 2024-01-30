@@ -1279,6 +1279,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 	})
+
 	t.Run("is able to reach a nearby geo point when the motion configuration nil", func(t *testing.T) {
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
@@ -1750,6 +1751,9 @@ func TestMoveOnMapNew(t *testing.T) {
 	})
 
 	t.Run("Changes to executions show up in PlanHistory", func(t *testing.T) {
+		// NOTE: octagon.pcd's bounding circle has a radius less than 1.3 meters. This means that when using this .pcd
+		// all goals will be less than 2.6 meters away. For this reason we must specify our own PlanDeviationMM value
+		// within the MotionConfiguration.
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
 		easyGoalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
