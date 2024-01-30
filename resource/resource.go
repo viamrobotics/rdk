@@ -164,7 +164,7 @@ func (t TriviallyReconfigurable) Reconfigure(ctx context.Context, deps Dependenc
 
 // TriviallyCloseable is to be embedded by any resource that does not care about
 // handling Closes. When is used, it is assumed that the resource does not need
-// to return errors when furture non-Close methods are called.
+// to return errors when future non-Close methods are called.
 type TriviallyCloseable struct{}
 
 // Close always returns no error.

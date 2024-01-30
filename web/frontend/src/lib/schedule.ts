@@ -1,4 +1,7 @@
-export const setAsyncInterval = (callback: () => Promise<void>, interval: number) => {
+export const setAsyncInterval = (
+  callback: () => Promise<void>,
+  interval: number
+) => {
   let cancelled = false;
   let timeoutId = -1;
 

@@ -1,5 +1,4 @@
 <script lang="ts">
-
 import RemoteControlCards from './components/remote-control-cards.svelte';
 
 const {
@@ -9,7 +8,6 @@ const {
   webrtcEnabled,
   webrtcSignalingAddress,
 } = window;
-
 </script>
 
 <RemoteControlCards

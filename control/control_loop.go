@@ -195,7 +195,10 @@ func (l *Loop) SetConfigAt(ctx context.Context, name string, config BlockConfig)
 	if !ok {
 		return errors.Errorf("cannot return Config for nonexistent %s", name)
 	}
-	return blk.blk.UpdateConfig(ctx, config)
+	if err := blk.blk.UpdateConfig(ctx, config); err != nil {
+		return err
+	}
+	return nil
 }
 
 // BlockList returns the list of blocks in a control loop error when the list is empty.

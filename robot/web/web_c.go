@@ -3,12 +3,16 @@
 package web
 
 import (
+	"bytes"
 	"context"
+	"image/jpeg"
 	"math"
+	"net/http"
 	"runtime"
 	"sync"
 	"time"
 
+	"github.com/goccy/go-graphviz"
 	"github.com/pkg/errors"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
@@ -347,4 +351,52 @@ func (svc *webService) initStreamServer(ctx context.Context, options *weboptions
 		options.WebRTC = true
 	}
 	return nil
+}
+
+func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *http.Request) {
+	localRobot, isLocal := svc.r.(robot.LocalRobot)
+	if !isLocal {
+		return
+	}
+	dot, err := localRobot.ExportResourcesAsDot()
+	if err != nil {
+		return
+	}
+	layout := r.URL.Query().Get("layout")
+	if layout == "text" {
+		//nolint
+		w.Write([]byte(dot))
+		return
+	}
+
+	gv := graphviz.New()
+	defer func() {
+		closeErr := gv.Close()
+		if closeErr != nil {
+			svc.r.Logger().Warn("failed to close graph visualizer")
+		}
+	}()
+
+	graph, err := graphviz.ParseBytes([]byte(dot))
+	if err != nil {
+		return
+	}
+	if layout != "" {
+		gv.SetLayout(graphviz.Layout(layout))
+	}
+	img, err := gv.RenderImage(graph)
+	if err != nil {
+		//nolint
+		w.Write([]byte(err.Error()))
+		return
+	}
+	buf := new(bytes.Buffer)
+	err = jpeg.Encode(buf, img, nil)
+	if err != nil {
+		return
+	}
+	_, err = w.Write(buf.Bytes())
+	if err != nil {
+		return
+	}
 }

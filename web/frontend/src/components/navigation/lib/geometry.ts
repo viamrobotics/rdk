@@ -1,4 +1,9 @@
-import type { Geometry, BoxGeometry, CapsuleGeometry, SphereGeometry } from '@viamrobotics/prime-blocks';
+import type {
+  Geometry,
+  BoxGeometry,
+  CapsuleGeometry,
+  SphereGeometry,
+} from '@viamrobotics/prime-blocks';
 import type { Shapes } from './types';
 import { ViamObject3D } from '@viamrobotics/three';
 
