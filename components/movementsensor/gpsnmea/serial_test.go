@@ -64,7 +64,6 @@ func TestNewSerialMovementSensor(t *testing.T) {
 		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
 			ConnectionType: "serial",
-			DisableNMEA:    false,
 			SerialConfig: &SerialConfig{
 				SerialPath:     path,
 				SerialBaudRate: 0,
