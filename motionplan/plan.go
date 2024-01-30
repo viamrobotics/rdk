@@ -34,7 +34,7 @@ func RemainingPlan(plan Plan, waypointIndex int) (Plan, error) {
 	}
 	simplePlan := NewSimplePlan(plan.Path()[waypointIndex:], plan.Trajectory()[waypointIndex:])
 	if rrt, ok := plan.(*rrtPlan); ok {
-		return &rrtPlan{SimplePlan: simplePlan, nodes: rrt.nodes[waypointIndex:]}, nil
+		return &rrtPlan{SimplePlan: *simplePlan, nodes: rrt.nodes[waypointIndex:]}, nil
 	}
 	return simplePlan, nil
 }
@@ -51,7 +51,7 @@ func OffsetPlan(plan Plan, offset spatialmath.Pose) Plan {
 	}
 	simplePlan := NewSimplePlan(newPath, plan.Trajectory())
 	if rrt, ok := plan.(*rrtPlan); ok {
-		return &rrtPlan{SimplePlan: simplePlan, nodes: rrt.nodes}
+		return &rrtPlan{SimplePlan: *simplePlan, nodes: rrt.nodes}
 	}
 	return simplePlan
 }

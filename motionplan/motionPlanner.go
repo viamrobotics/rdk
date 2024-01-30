@@ -573,7 +573,7 @@ func CheckPlan(
 			// Check if look ahead distance has been reached
 			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
 			if currentTravelDistanceMM > lookAheadDistanceMM {
-				return err
+				return nil
 			}
 			// If we are working with a PTG plan the returned value for poseInPath will only
 			// tell us how far along the arc we have traveled. Since this is only the relative position,

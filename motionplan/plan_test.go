@@ -143,7 +143,8 @@ func TestNewGeoPlan(t *testing.T) {
 	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
 	test.That(t, err, test.ShouldBeNil)
 	baseName := "myBase"
-	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(baseName, logger, 200, 60, 0, 2, []spatialmath.Geometry{sphere}, false)
+	geoms := []spatialmath.Geometry{sphere}
+	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(baseName, logger, 200./60., 2, geoms, false, true)
 	test.That(t, err, test.ShouldBeNil)
 	baseFS := referenceframe.NewEmptyFrameSystem("baseFS")
 	err = baseFS.AddFrame(kinematicFrame, baseFS.World())
