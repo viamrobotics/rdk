@@ -1271,21 +1271,21 @@ func TestMoveOnMapReq(t *testing.T) {
 
 	t.Run("String()", func(t *testing.T) {
 		s := "motion.MoveOnMapReq{ComponentName: rdk:component:base/mybase, " +
-			"SlamName: rdk:service:slam/mySlam, Destination: x:2700  o_z:1,  " +
-			"MotionCfg: &motion.MotionConfiguration{" +
-			"ObstacleDetectors:[]motion.ObstacleDetectorName{" +
+			"SlamName: rdk:service:slam/mySlam, Destination: x:2700  o_z:1,  MotionCfg: " +
+			"&motion.MotionConfiguration{ObstacleDetectors:[]motion.ObstacleDetectorName{" +
 			"motion.ObstacleDetectorName{VisionServiceName:resource.Name{API:resource.API{" +
-			"Type:resource.APIType{Namespace:\"rdk\", Name:\"service\"}, " +
-			"SubtypeName:\"vision\"}, Remote:\"\", Name:\"vision service 1\"}, " +
-			"CameraName:resource.Name{API:resource.API{Type:resource.APIType{Namespace:\"rdk\", Name:\"component\"}, " +
+			"Type:resource.APIType{Namespace:\"rdk\", Name:\"service\"}, SubtypeName:\"vision\"}" +
+			", Remote:\"\", Name:\"vision service 1\"}, CameraName:resource.Name{" +
+			"API:resource.API{Type:resource.APIType{Namespace:\"rdk\", Name:\"component\"}, " +
 			"SubtypeName:\"camera\"}, Remote:\"\", Name:\"camera 1\"}}, " +
-			"motion.ObstacleDetectorName{VisionServiceName:resource.Name{API:resource.API{Type:resource.APIType{" +
-			"Namespace:\"rdk\", Name:\"service\"}, SubtypeName:\"vision\"}, " +
-			"Remote:\"\", Name:\"vision service 2\"}, " +
-			"CameraName:resource.Name{API:resource.API{Type:resource.APIType{Namespace:\"rdk\", Name:\"component\"}, " +
-			"SubtypeName:\"camera\"}, Remote:\"\", Name:\"camera 2\"}}}, " +
-			"PositionPollingFreqHz:4, ObstaclePollingFreqHz:5, PlanDeviationMM:3, " +
-			"LinearMPerSec:1, AngularDegsPerSec:2}, Obstacles: [], Extra: map[]}"
+			"motion.ObstacleDetectorName{VisionServiceName:resource.Name{" +
+			"API:resource.API{Type:resource.APIType{Namespace:\"rdk\", Name:\"service\"}, " +
+			"SubtypeName:\"vision\"}, Remote:\"\", Name:\"vision service 2\"}, " +
+			"CameraName:resource.Name{API:resource.API{Type:resource.APIType{" +
+			"Namespace:\"rdk\", Name:\"component\"}, SubtypeName:\"camera\"}, " +
+			"Remote:\"\", Name:\"camera 2\"}}}, PositionPollingFreqHz:4, " +
+			"ObstaclePollingFreqHz:5, PlanDeviationMM:3, LinearMPerSec:1, AngularDegsPerSec:2}, " +
+			"Obstacles: [], Extra: map[]}"
 		test.That(t, validMoveOnMapReq.String(), test.ShouldResemble, s)
 	})
 
