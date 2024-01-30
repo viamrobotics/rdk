@@ -79,6 +79,7 @@ type MoveOnMapReq struct {
 	Destination   spatialmath.Pose
 	SlamName      resource.Name
 	MotionCfg     *MotionConfiguration
+	Obstacles     []spatialmath.Geometry
 	Extra         map[string]interface{}
 }
 

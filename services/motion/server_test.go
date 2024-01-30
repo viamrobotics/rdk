@@ -428,6 +428,55 @@ func TestServerMoveOnMapNew(t *testing.T) {
 	})
 }
 
+func TestServerMoveOnMap(t *testing.T) {
+	injectMS := &inject.MotionService{}
+	resources := map[resource.Name]motion.Service{
+		testMotionServiceName: injectMS,
+	}
+	server, err := newServer(resources)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("test with nil obstacles", func(t *testing.T) {
+		moveOnMapReq := &pb.MoveOnMapRequest{
+			Name:            testMotionServiceName.ShortName(),
+			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
+			Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
+			SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
+			Obstacles:       nil,
+		}
+
+		firstExecutionID := uuid.New()
+		injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
+			return firstExecutionID, nil
+		}
+
+		resp, err := server.MoveOnMap(context.Background(), moveOnMapReq)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.ExecutionId, test.ShouldEqual, firstExecutionID.String())
+	})
+
+	t.Run("test with none-nil obstacles", func(t *testing.T) {
+		moveOnMapReq := &pb.MoveOnMapRequest{
+			Name:            testMotionServiceName.ShortName(),
+			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
+			Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
+			SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
+			Obstacles:       spatialmath.NewGeometriesToProto([]spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")}),
+		}
+
+		firstExecutionID := uuid.New()
+		injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
+			test.That(t, len(req.Obstacles), test.ShouldEqual, 1)
+			test.That(t, req.Obstacles[0].AlmostEqual(spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")), test.ShouldBeTrue)
+			return firstExecutionID, nil
+		}
+
+		resp, err := server.MoveOnMap(context.Background(), moveOnMapReq)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.ExecutionId, test.ShouldEqual, firstExecutionID.String())
+	})
+}
+
 func TestServerStopPlan(t *testing.T) {
 	injectMS := &inject.MotionService{}
 	resources := map[resource.Name]motion.Service{

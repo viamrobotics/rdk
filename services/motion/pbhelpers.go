@@ -340,11 +340,20 @@ func moveOnMapRequestFromProto(req *pb.MoveOnMapRequest) (MoveOnMapReq, error) {
 	if protoSlamServiceName == nil {
 		return MoveOnMapReq{}, errors.New("received nil *commonpb.ResourceName for SlamService name")
 	}
+	geoms := []spatialmath.Geometry{}
+	if len(req.GetObstacles()) > 0 {
+		convertedGeom, err := spatialmath.NewGeometriesFromProto(req.GetObstacles())
+		if err != nil {
+			return MoveOnMapReq{}, errors.New("cannot convert obstacles into geometries")
+		}
+		geoms = convertedGeom
+	}
 	return MoveOnMapReq{
 		ComponentName: rprotoutils.ResourceNameFromProto(protoComponentName),
 		Destination:   spatialmath.NewPoseFromProtobuf(req.GetDestination()),
 		SlamName:      rprotoutils.ResourceNameFromProto(protoSlamServiceName),
 		MotionCfg:     configurationFromProto(req.MotionConfiguration),
+		Obstacles:     geoms,
 		Extra:         req.Extra.AsMap(),
 	}, nil
 }
@@ -386,12 +395,16 @@ func (r MoveOnMapReq) toProto(name string) (*pb.MoveOnMapRequest, error) {
 	if r.Destination == nil {
 		return nil, errors.New("must provide a destination")
 	}
-
+	commonpbGeoms := []*commonpb.Geometry{}
+	if len(r.Obstacles) > 0 {
+		commonpbGeoms = spatialmath.NewGeometriesToProto(r.Obstacles)
+	}
 	req := &pb.MoveOnMapRequest{
 		Name:            name,
 		ComponentName:   rprotoutils.ResourceNameToProto(r.ComponentName),
 		Destination:     spatialmath.PoseToProtobuf(r.Destination),
 		SlamServiceName: rprotoutils.ResourceNameToProto(r.SlamName),
+		Obstacles:       commonpbGeoms,
 		Extra:           ext,
 	}
 
