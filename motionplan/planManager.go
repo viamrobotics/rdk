@@ -558,6 +558,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			// use default, already set
 		}
 	}
+	opt.relativeInputs = false
 	if pm.useTPspace {
 		// overwrite default with TP space
 		opt.PlannerConstructor = newTPSpaceMotionPlanner
