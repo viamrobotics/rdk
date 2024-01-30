@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/encoder"
@@ -378,6 +379,9 @@ func (m *EncodedMotor) DirectionMoving() int64 {
 func (m *EncodedMotor) directionMovingInLock() float64 {
 	move, err := m.real.IsMoving(context.Background())
 	if move {
+		if sign(m.state.lastPowerPct) != sign(m.state.direction) {
+			time.Sleep(10 * time.Microsecond)
+		}
 		return sign(m.state.lastPowerPct)
 	}
 	if err != nil {
@@ -398,7 +402,7 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 // setPower assumes the state lock is held.
 func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal bool) error {
 	dir := sign(powerPct)
-	if math.Abs(powerPct) < 0.1 {
+	if math.Abs(powerPct) < 0.1 && m.loop == nil {
 		m.state.lastPowerPct = 0.1 * dir
 	} else {
 		m.state.lastPowerPct = powerPct
@@ -429,12 +433,20 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	}
 
 	if m.loop != nil {
+		m.stateMu.Lock()
+		goal := m.state.goalPos
+		m.stateMu.Unlock()
+
 		positionReached := func(ctx context.Context) (bool, error) {
-			m.stateMu.Lock()
-			goal := m.state.goalPos
-			m.stateMu.Unlock()
-			pos, err := m.position(ctx, extra)
-			return rdkutils.Float64AlmostEqual(pos, goal, 5.0), err
+			var errs error
+			pos, posErr := m.position(ctx, extra)
+			errs = multierr.Combine(errs, posErr)
+			if rdkutils.Float64AlmostEqual(pos, goal, 5.0) {
+				stopErr := m.Stop(ctx, extra)
+				errs = multierr.Combine(errs, stopErr)
+				return true, errs
+			}
+			return false, errs
 		}
 		return m.opMgr.WaitForSuccess(
 			ctx,
