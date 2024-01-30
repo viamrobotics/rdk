@@ -257,10 +257,7 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 		ComponentName: base.Named("test-base"),
 		Destination:   goalInSLAMFrame,
 		SlamName:      slam.Named("test_slam"),
-		MotionCfg: &motion.MotionConfiguration{
-			PlanDeviationMM: 1,
-		},
-		Extra: extra,
+		Extra:         extra,
 	}
 
 	timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*45)
@@ -295,6 +292,9 @@ func TestMoveOnMapPlans(t *testing.T) {
 
 	// RSDK-6444
 
+	// NOTE: octagon.pcd's bounding circle has a radius less than 1.3 meters. This means that when using this .pcd
+	// all goals will be less than 2.6 meters away. For this reason we must specify our own PlanDeviationMM value
+	// within the MotionConfiguration.
 	t.Run("ensure success of movement around obstacle", func(t *testing.T) {
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
@@ -441,6 +441,9 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	goal2SLAMFrame := spatialmath.NewPose(r3.Vector{X: 277, Y: 593}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 150})
 	goal2BaseFrame := spatialmath.Compose(goal2SLAMFrame, motion.SLAMOrientationAdjustment)
 
+	// NOTE: octagon.pcd's bounding circle has a radius less than 1.3 meters. This means that when using this .pcd
+	// all goals will be less than 2.6 meters away. For this reason we must specify our own PlanDeviationMM value
+	// within the MotionConfiguration.
 	kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 	defer ms.Close(ctx)
 
@@ -539,6 +542,9 @@ func TestMoveOnMapTimeout(t *testing.T) {
 		test.That(t, myRobot.Close(context.Background()), test.ShouldBeNil)
 	}()
 
+	// NOTE: octagon.pcd's bounding circle has a radius less than 1.3 meters. This means that when using this .pcd
+	// all goals will be less than 2.6 meters away. For this reason we must specify our own PlanDeviationMM value
+	// within the MotionConfiguration.
 	injectSlam := createInjectedSlam("test_slam", "pointcloud/octagonspace.pcd", nil)
 
 	realBase, err := base.FromRobot(myRobot, "test-base")
@@ -1035,6 +1041,9 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			slamName := "test-slam"
 
 			// Create an injected SLAM
+			// NOTE: octagon.pcd's bounding circle has a radius less than 1.3 meters. This means that when using this .pcd
+			// all goals will be less than 2.6 meters away. For this reason we must specify our own PlanDeviationMM value
+			// within the MotionConfiguration.
 			injectSlam := createInjectedSlam(slamName, "pointcloud/octagonspace.pcd", nil)
 
 			// Create a motion service
@@ -1485,6 +1494,9 @@ func TestMoveOnMapNew(t *testing.T) {
 		// RSDK-6444
 
 		t.Run("ensure success of movement around obstacle", func(t *testing.T) {
+			// NOTE: octagon.pcd's bounding circle has a radius less than 1.3 meters. This means that when using this .pcd
+			// all goals will be less than 2.6 meters away. For this reason we must specify our own PlanDeviationMM value
+			// within the MotionConfiguration.
 			kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 			defer ms.Close(ctx)
 
