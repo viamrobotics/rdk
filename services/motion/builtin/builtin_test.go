@@ -1145,8 +1145,8 @@ func TestMoveOnGlobe(t *testing.T) {
 	ctx := context.Background()
 	// Near antarctica 🐧
 	gpsPoint := geo.NewPoint(-70, 40)
-	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
-	expectedDst := r3.Vector{X: 380, Y: 0, Z: 0} // Relative pose to the starting point of the base; facing north, Y = forwards
+	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+0.00007)
+	expectedDst := r3.Vector{X: 2662.16, Y: 0, Z: 0} // Relative pose to the starting point of the base; facing north, Y = forwards
 	epsilonMM := 15.
 	// create motion config
 	extra := map[string]interface{}{
@@ -1163,9 +1163,6 @@ func TestMoveOnGlobe(t *testing.T) {
 			ComponentName:      fakeBase.Name(),
 			MovementSensorName: injectedMovementSensor.Name(),
 			Destination:        dst,
-			MotionCfg: &motion.MotionConfiguration{
-				PlanDeviationMM: 1,
-			},
 		}
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
@@ -1207,10 +1204,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			ComponentName:      fakeBase.Name(),
 			MovementSensorName: injectedMovementSensor.Name(),
 			Destination:        dst,
-			MotionCfg: &motion.MotionConfiguration{
-				PlanDeviationMM: 1,
-			},
-			Extra: extra,
+			Extra:              extra,
 		}
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
@@ -1225,10 +1219,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			MovementSensorName: injectedMovementSensor.Name(),
 			Heading:            math.NaN(),
 			Destination:        dst,
-			MotionCfg: &motion.MotionConfiguration{
-				PlanDeviationMM: 1,
-			},
-			Extra: extra,
+			Extra:              extra,
 		}
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
@@ -1243,10 +1234,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			MovementSensorName: injectedMovementSensor.Name(),
 			Heading:            10000000,
 			Destination:        dst,
-			MotionCfg: &motion.MotionConfiguration{
-				PlanDeviationMM: 1,
-			},
-			Extra: extra,
+			Extra:              extra,
 		}
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
@@ -1261,10 +1249,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			MovementSensorName: injectedMovementSensor.Name(),
 			Heading:            -10000000,
 			Destination:        dst,
-			MotionCfg: &motion.MotionConfiguration{
-				PlanDeviationMM: 1,
-			},
-			Extra: extra,
+			Extra:              extra,
 		}
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
@@ -1277,12 +1262,23 @@ func TestMoveOnGlobe(t *testing.T) {
 			ComponentName:      fakeBase.Name(),
 			MovementSensorName: injectedMovementSensor.Name(),
 			Heading:            90,
-			Destination:        geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-4),
+			Destination:        dst,
 			MotionCfg:          &motion.MotionConfiguration{},
-			Extra: map[string]interface{}{
-				"motion_profile": "position_only",
-				"smooth_iter":    5.,
-			},
+			Extra:              extra,
+		}
+		executionID, err := ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
+	})
+	t.Run("is able to reach a nearby geo point when the motion configuration nil", func(t *testing.T) {
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Heading:            90,
+			Destination:        dst,
+			Extra:              extra,
 		}
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
