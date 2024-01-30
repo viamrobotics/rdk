@@ -294,7 +294,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 	extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 
 	// RSDK-6444
-	
+
 	t.Run("ensure success of movement around obstacle", func(t *testing.T) {
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
@@ -390,7 +390,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 	})
 
 	// RSDK-6444
-	
+
 	t.Run("check that position-only mode executes", func(t *testing.T) {
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
@@ -1270,6 +1270,21 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 	})
+	t.Run("is able to reach a nearby geo point when the motion configuration is empty", func(t *testing.T) {
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer ms.Close(ctx)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Heading:            90,
+			Destination:        geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-2),
+			MotionCfg:          &motion.MotionConfiguration{},
+			Extra:              extra,
+		}
+		executionID, err := ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
+	})
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
@@ -1469,7 +1484,7 @@ func TestMoveOnMapNew(t *testing.T) {
 		extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 
 		// RSDK-6444
-		
+
 		t.Run("ensure success of movement around obstacle", func(t *testing.T) {
 			kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 			defer ms.Close(ctx)
@@ -1542,7 +1557,7 @@ func TestMoveOnMapNew(t *testing.T) {
 		})
 
 		// RSDK-6444
-		
+
 		t.Run("check that position-only mode executes", func(t *testing.T) {
 			kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 			defer ms.Close(ctx)
