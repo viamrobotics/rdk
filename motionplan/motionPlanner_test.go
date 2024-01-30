@@ -781,10 +781,11 @@ func TestReplan(t *testing.T) {
 	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		"itsabase",
 		logger,
-		200, 60, 0,
+		200./60.,
 		2,
 		[]spatialmath.Geometry{sphere},
 		false,
+		true,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -832,10 +833,11 @@ func TestPtgPosOnlyBidirectional(t *testing.T) {
 	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		"itsabase",
 		logger,
-		200, 60, 0,
+		200./60.,
 		2,
 		[]spatialmath.Geometry{sphere},
 		false,
+		true,
 	)
 	test.That(t, err, test.ShouldBeNil)
 

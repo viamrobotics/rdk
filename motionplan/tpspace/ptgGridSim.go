@@ -9,9 +9,8 @@ import (
 )
 
 const (
-	defaultMaxTime       = 15.
-	defaultDiffT         = 0.01
-	defaultAlphaCnt uint = 91
+	defaultAlphaCnt             uint    = 91  // When precomputing arcs, use this many different, equally-spaced alpha values
+	defaultSimulationResolution float64 = 50. // When precomputing arcs, precompute nodes at this resolution
 )
 
 // ptgGridSim will take a PTG, and simulate out a number of trajectories through some requested time/distance for speed of lookup
@@ -20,8 +19,6 @@ type ptgGridSim struct {
 	PTG
 	refDist  float64
 	alphaCnt uint
-
-	diffT float64 // discretize trajectory simulation to this time granularity
 
 	precomputeTraj [][]*TrajNode
 
@@ -39,7 +36,6 @@ func NewPTGGridSim(simPTG PTG, arcs uint, simDist float64, endsOnly bool) (PTGSo
 	ptg := &ptgGridSim{
 		refDist:  simDist,
 		alphaCnt: arcs,
-		diffT:    defaultDiffT,
 		endsOnly: endsOnly,
 	}
 	ptg.PTG = simPTG
@@ -112,8 +108,8 @@ func (ptg *ptgGridSim) MaxDistance() float64 {
 	return ptg.refDist
 }
 
-func (ptg *ptgGridSim) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
-	return ComputePTG(ptg, alpha, dist, defaultDiffT)
+func (ptg *ptgGridSim) Trajectory(alpha, dist, resolution float64) ([]*TrajNode, error) {
+	return ComputePTG(ptg, alpha, dist, resolution)
 }
 
 // DoF returns the DoF of the associated referenceframe.
@@ -130,8 +126,7 @@ func (ptg *ptgGridSim) simulateTrajectories() ([][]*TrajNode, error) {
 
 	for k := uint(0); k < ptg.alphaCnt; k++ {
 		alpha := index2alpha(k, ptg.alphaCnt)
-
-		alphaTraj, err := ComputePTG(ptg, alpha, ptg.refDist, ptg.diffT)
+		alphaTraj, err := ComputePTG(ptg, alpha, ptg.refDist, defaultSimulationResolution)
 		if err != nil {
 			return nil, err
 		}
