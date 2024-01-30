@@ -8,7 +8,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/spatialmath"
 )
 
 // MotionService represents a fake instance of an motion
@@ -26,11 +25,8 @@ type MotionService struct {
 	) (bool, error)
 	MoveOnMapFunc func(
 		ctx context.Context,
-		componentName resource.Name,
-		destination spatialmath.Pose,
-		slamName resource.Name,
-		extra map[string]interface{},
-	) (bool, error)
+		req motion.MoveOnMapReq,
+	) (motion.ExecutionID, error)
 	MoveOnMapNewFunc func(
 		ctx context.Context,
 		req motion.MoveOnMapReq,
@@ -91,15 +87,12 @@ func (mgs *MotionService) Move(
 // MoveOnMap calls the injected MoveOnMap or the real variant.
 func (mgs *MotionService) MoveOnMap(
 	ctx context.Context,
-	componentName resource.Name,
-	destination spatialmath.Pose,
-	slamName resource.Name,
-	extra map[string]interface{},
-) (bool, error) {
+	req motion.MoveOnMapReq,
+) (motion.ExecutionID, error) {
 	if mgs.MoveOnMapFunc == nil {
-		return mgs.Service.MoveOnMap(ctx, componentName, destination, slamName, extra)
+		return mgs.Service.MoveOnMap(ctx, req)
 	}
-	return mgs.MoveOnMapFunc(ctx, componentName, destination, slamName, extra)
+	return mgs.MoveOnMapFunc(ctx, req)
 }
 
 // MoveOnMapNew calls the injected MoveOnMap or the real variant.
