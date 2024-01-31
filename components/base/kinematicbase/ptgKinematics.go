@@ -34,7 +34,7 @@ const (
 )
 
 const (
-	inputUpdateStep    = 0.1 // seconds
+	inputUpdateStep    = 0.2 // seconds
 	stepDistResolution = 1.  // Before post-processing trajectory will have velocities every this many mm (or degs if spinning in place)
 )
 
@@ -163,9 +163,15 @@ func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referencefr
 	return ptgk.currentInput, nil
 }
 
-func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) (err error) {
+func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
 	if len(inputs) != 3 {
 		return errors.New("inputs to ptg kinematic base must be length 3")
+	}
+	
+	tryStop := func(errToWrap error) error {
+		stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancelFn()
+		return multierr.Combine(errToWrap, ptgk.Base.Stop(stopCtx, nil))
 	}
 
 	defer func() {
@@ -184,9 +190,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		stepDistResolution,
 	)
 	if err != nil {
-		stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
-		defer cancelFn()
-		return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
+		return tryStop(err)
 	}
 	arcSteps := ptgk.trajectoryToArcSteps(selectedTraj)
 
@@ -204,6 +208,15 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 			timestep,
 		)
 
+		var startPose *referenceframe.PoseInFrame
+		if ptgk.Localizer != nil {
+			startPose, err = ptgk.Localizer.CurrentPosition(ctx)
+			if err != nil {
+				return tryStop(err)
+			}
+		}
+
+		
 		err := ptgk.Base.SetVelocity(
 			ctx,
 			step.linVelMMps,
@@ -211,40 +224,70 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 			nil,
 		)
 		if err != nil {
-			stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
-			defer cancelFn()
-			return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
+			return tryStop(err)
 		}
+		moveStartTime := time.Now()
 		
-		// Now we are moving. We need to do several things:
-		// - move until we think we have finished the arc, then move on
+		// Now we are moving. We need to do several things simultaneously:
+		// - move until we think we have finished the arc, then move on to the next step
 		// - update our CurrentInputs tracking where we are through the arc
 		// - Check where we are relative to where we think we are, and tweak velocities accordingly
-		
-		utils.PanicCapturingGo(func() {
-			// We need to update currentInputs as we move through the arc.
-			for timeElapsed := 0.; timeElapsed <= step.timestepSeconds; timeElapsed += inputUpdateStep {
-				distIncVel := step.linVelMMps.Y
-				if distIncVel == 0 {
-					distIncVel = step.angVelDegps.Z
+		for timeElapsed := inputUpdateStep; timeElapsed <= step.timestepSeconds; timeElapsed += inputUpdateStep {
+			// Account for 1) timeElapsed being inputUpdateStep ahead of actual elapsed time, and the fact that the loop takes nonzero time
+			// to run especially when using the localizer.
+			actualTimeElapsed := time.Since(moveStartTime)
+			remainingTimeStep := time.Duration(1000*1000*timeElapsed)*time.Microsecond - actualTimeElapsed
+			
+			if remainingTimeStep > 0 {
+				utils.SelectContextOrWait(ctx, remainingTimeStep)
+				if ctx.Err() != nil {
+					return tryStop(ctx.Err())
 				}
-				ptgk.inputLock.Lock()
-				ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {math.Abs(distIncVel) * timeElapsed}}
-				ptgk.inputLock.Unlock()
-				utils.SelectContextOrWait(ctx, time.Duration(inputUpdateStep*1000*1000)*time.Microsecond)
 			}
-		})
-
-		if !utils.SelectContextOrWait(ctx, timestep) {
-			ptgk.logger.CDebug(ctx, ctx.Err().Error())
-			// context cancelled
-			break
+			distIncVel := step.linVelMMps.Y
+			if distIncVel == 0 {
+				distIncVel = step.angVelDegps.Z
+			}
+			ptgk.inputLock.Lock()
+			ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {math.Abs(distIncVel) * timeElapsed}}
+			ptgk.inputLock.Unlock()
+			
+			if ptgk.Localizer != nil {
+				currPose, err := ptgk.Localizer.CurrentPosition(ctx)
+				if err != nil {
+					return tryStop(err)
+				}
+				currRelPose := spatialmath.PoseBetween(startPose.Pose(), currPose.Pose())
+				expectedPose, err := selectedPTG.Transform([]referenceframe.Input{ptgk.currentInput[1], ptgk.currentInput[2]})
+				if err != nil {
+					return tryStop(err)
+				}
+				poseDiffPt := spatialmath.PoseBetween(currRelPose, expectedPose).Point()
+				adjLinVel := step.linVelMMps
+				adjAngVel := step.angVelDegps
+				
+				// If we are ahead, we want to slow down. If we are behind, we want to speed up
+				if math.Abs(poseDiffPt.Y) > 100 {
+					adjLinVel.Y += -1 * math.Copysign(100., poseDiffPt.Y)
+				}
+				// If we are to the right, we want to rotate left, and vice versa.
+				if math.Abs(poseDiffPt.X) > 100 {
+					adjAngVel.Z += math.Copysign(10., poseDiffPt.X)
+				}
+				err = ptgk.Base.SetVelocity(
+					ctx,
+					adjLinVel,
+					adjAngVel,
+					nil,
+				)
+				if err != nil {
+					return tryStop(err)
+				}
+			}
 		}
 	}
 
-	stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancelFn()
-	return ptgk.Base.Stop(stopCtx, nil)
+	return tryStop(nil)
 }
 
 func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenceframe.Input, currentNode int) (spatialmath.Pose, error) {
