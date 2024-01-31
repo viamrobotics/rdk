@@ -11,3 +11,4 @@ self-hosted-runner:
     - buildjet-8vcpu-ubuntu-2204-arm
     - buildjet-16vcpu-ubuntu-2204-arm
     - buildjet-32vcpu-ubuntu-2204-arm
+    - buildjet-pinned-location_de_arm

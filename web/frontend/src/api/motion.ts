@@ -37,6 +37,11 @@ export const moveOnMap = async (
   slamResourceName.setName(name);
   request.setSlamServiceName(slamResourceName);
 
+  // set the motion configuration
+  const motionCfg = new motionApi.MotionConfiguration();
+  motionCfg.setPlanDeviationM(0.5);
+  request.setMotionConfiguration(motionCfg);
+
   // set component name
   request.setComponentName(namedBase(componentName));
 

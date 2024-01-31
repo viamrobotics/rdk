@@ -35,7 +35,6 @@ type SerialNMEAMovementSensor struct {
 	data                    GPSData
 	activeBackgroundWorkers sync.WaitGroup
 
-	disableNmea        bool
 	err                movementsensor.LastError
 	lastPosition       movementsensor.LastPosition
 	lastCompassHeading movementsensor.LastCompassHeading
@@ -43,7 +42,6 @@ type SerialNMEAMovementSensor struct {
 
 	dev                io.ReadWriteCloser
 	path               string
-	baudRate           uint
 	correctionBaudRate uint
 	correctionPath     string
 }
@@ -61,10 +59,6 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 		logger.CInfo(ctx, "SerialNMEAMovementSensor: serial_baud_rate using default 38400")
 	}
 
-	disableNmea := conf.DisableNMEA
-	if disableNmea {
-		logger.CInfo(ctx, "SerialNMEAMovementSensor: NMEA reading disabled")
-	}
 	options := serial.OpenOptions{
 		PortName:        serialPath,
 		BaudRate:        uint(baudRate),
@@ -87,8 +81,6 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 		cancelFunc:         cancelFunc,
 		logger:             logger,
 		path:               serialPath,
-		baudRate:           uint(baudRate),
-		disableNmea:        disableNmea,
 		err:                movementsensor.NewLastError(1, 1),
 		lastPosition:       movementsensor.NewLastPosition(),
 		lastCompassHeading: movementsensor.NewLastCompassHeading(),
@@ -114,7 +106,7 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 			default:
 			}
 
-			if !g.disableNmea && !g.isClosed {
+			if !g.isClosed {
 				line, err := r.ReadString('\n')
 				if err != nil {
 					g.logger.CErrorf(ctx, "can't read gps serial %s", err)
@@ -157,17 +149,17 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 	}
 
 	// if current position is (0,0) we will return the last non zero position
-	if g.lastPosition.IsZeroPosition(currentPosition) && !g.lastPosition.IsZeroPosition(lastPosition) {
+	if movementsensor.IsZeroPosition(currentPosition) && !movementsensor.IsZeroPosition(lastPosition) {
 		return lastPosition, g.data.Alt, g.err.Get()
 	}
 
 	// updating lastPosition if it is different from the current position
-	if !g.lastPosition.ArePointsEqual(currentPosition, lastPosition) {
+	if !movementsensor.ArePointsEqual(currentPosition, lastPosition) {
 		g.lastPosition.SetLastPosition(currentPosition)
 	}
 
 	// updating the last known valid position if the current position is non-zero
-	if !g.lastPosition.IsZeroPosition(currentPosition) && !g.lastPosition.IsPositionNaN(currentPosition) {
+	if !movementsensor.IsZeroPosition(currentPosition) && !movementsensor.IsPositionNaN(currentPosition) {
 		g.lastPosition.SetLastPosition(currentPosition)
 	}
 

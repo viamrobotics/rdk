@@ -213,7 +213,7 @@ func (m *cloudManager) validateAndGetChangedPackages(packages []config.PackageCo
 			newPackage := p
 			changed = append(changed, newPackage)
 		} else {
-			m.logger.Debug("Package %s:%s already managed, skipping", p.Package, p.Version)
+			m.logger.Debugf("Package %s:%s already managed, skipping", p.Package, p.Version)
 		}
 	}
 	return changed
@@ -276,7 +276,7 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 			}
 			_, expectedToExist := expectedPackageDirectories[packageDirName]
 			if !expectedToExist {
-				m.logger.Debug("Removing old package", packageDirName)
+				m.logger.Debugf("Removing old package %s", packageDirName)
 				allErrors = multierr.Append(allErrors, os.RemoveAll(packageDirName))
 			}
 		}
