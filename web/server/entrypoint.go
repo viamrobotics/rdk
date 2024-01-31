@@ -48,7 +48,7 @@ type Arguments struct {
 	UntrustedEnv               bool   `flag:"untrusted-env,usage=disable processes and shell from running in a untrusted environment"`
 	OutputTelemetry            bool   `flag:"output-telemetry,usage=print out telemetry data (metrics and spans)"`
 	DisableMulticastDNS        bool   `flag:"disable-mdns,usage=disable server discovery through multicast DNS"`
-	DumpResourceRegistrations  bool   `flag:"dump-resources,usage=print all resource registrations and attribute schemas to stdout"`
+	DumpResourcesPath          string `flag:"dump-resources,usage=dump all resource registrations as json to the provided file path"`
 }
 
 type robotServer struct {
@@ -69,8 +69,8 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		return err
 	}
 
-	if argsParsed.DumpResourceRegistrations {
-		return dumpResourceRegistrations()
+	if argsParsed.DumpResourcesPath != "" {
+		return dumpResourceRegistrations(argsParsed.DumpResourcesPath)
 	}
 
 	// Replace logger with logger based on flags.
@@ -438,12 +438,14 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 }
 
 // dumpResourceRegistrations prints all builtin resource registrations as a json array
-// to stdout. If you edit this function, ensure that etc/system_manifest/main.go is
+// to the provided file. If you edit this function, ensure that etc/system_manifest/main.go is
 // updated correspondingly.
-func dumpResourceRegistrations() error {
+func dumpResourceRegistrations(outputPath string) error {
 	type resourceRegistration struct {
-		API             string             `json:"api"`
-		Model           string             `json:"model"`
+		API   string `json:"api"`
+		Model string `json:"model"`
+		// AttributeSchema is a serialization of the Go resource "Config" structures that components and services Reconfigure with.
+		// Notably this includes the JSON tags that are used to parse these resource configs from the robot's JSON config.
 		AttributeSchema *jsonschema.Schema `json:"attribute_schema,omitempty"`
 	}
 
@@ -470,13 +472,13 @@ func dumpResourceRegistrations() error {
 		return a.Model < b.Model
 	})
 
-	// marshall and print the registrations to stdout
-	jsonResult, err := json.Marshal(resources)
+	// marshall and print the registrations to the provided file
+	jsonResult, err := json.MarshalIndent(resources, "", "\t")
 	if err != nil {
 		return errors.Wrap(err, "unable to marshall resources")
 	}
 
-	if _, err := os.Stdout.Write(jsonResult); err != nil {
+	if err := os.WriteFile(outputPath, jsonResult, 0o600); err != nil {
 		return errors.Wrap(err, "unable to write resulting object to stdout")
 	}
 	return nil

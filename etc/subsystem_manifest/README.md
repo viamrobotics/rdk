@@ -6,11 +6,13 @@ It accepts the following cli arguments:
 
 --binary-path -> used to calculate the sha256 and get resource registrations
 
---object-path -> path in gcs where the binary will end up
+--upload-path -> path in gcs where the binary will end up
 
 --version -> ex: v0.13.0
 
 --arch -> result of uname -m (translated from x86_64 -> linux/amd64)
+
+--output-path -> path to write the output manifest to. Ex: packaging/static/manifest/viam-server-v0.14.0-x86_64.json
 
 Sample manifest:
 

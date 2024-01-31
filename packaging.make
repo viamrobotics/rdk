@@ -50,7 +50,7 @@ static-release: server-static-compressed
 	mkdir -p etc/packaging/static/manifest/
 	go run etc/subsystem_manifest/main.go \
 		--binary-path etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-${UNAME_M} \
-		--object-path "packages.viam.com/apps/viam-server-${BUILD_CHANNEL}-${UNAME_M}" \
+		--upload-path "packages.viam.com/apps/viam-server-${BUILD_CHANNEL}-${UNAME_M}" \
 		--version ${BUILD_CHANNEL} \
 		--arch ${UNAME_M} \
-		> etc/packaging/static/manifest/viam-server-${BUILD_CHANNEL}-${UNAME_M}.json
+		--output-path etc/packaging/static/manifest/viam-server-${BUILD_CHANNEL}-${UNAME_M}.json

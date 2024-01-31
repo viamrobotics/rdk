@@ -2,9 +2,11 @@
 package server_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"testing"
@@ -76,26 +78,20 @@ func TestEntrypoint(t *testing.T) {
 		test.That(t, len(resourceNames.Resources), test.ShouldEqual, numResources)
 	})
 	t.Run("dump resource registrations", func(t *testing.T) {
-		logger := logging.NewTestLogger(t)
-		output := new(bytes.Buffer)
-		serverConfig := pexec.ProcessConfig{
-			Name:      serverPath,
-			Args:      []string{"--dump-resources"},
-			OneShot:   true,
-			Log:       false,
-			LogWriter: output,
-		}
-		proc := pexec.NewManagedProcess(serverConfig, logger.AsZap())
-		err := proc.Start(context.Background())
+		tempDir := t.TempDir()
+		outputFile := filepath.Join(tempDir, "resources.json")
+		command := exec.Command(serverPath, "--dump-resources", outputFile)
+		err := command.Run()
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(output.Bytes()), test.ShouldBeGreaterThan, 0)
 		type registration struct {
 			Model  string             `json:"model"`
 			API    string             `json:"API"`
 			Schema *jsonschema.Schema `json:"attribute_schema"`
 		}
+		outputBytes, err := os.ReadFile(outputFile)
+		test.That(t, err, test.ShouldBeNil)
 		registrations := []registration{}
-		err = json.Unmarshal(output.Bytes(), &registrations)
+		err = json.Unmarshal(outputBytes, &registrations)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(registrations), test.ShouldBeGreaterThan, 0) // to protect against misreading resource registrations
 		test.That(t, registrations, test.ShouldHaveLength, len(resource.RegisteredResources()))
