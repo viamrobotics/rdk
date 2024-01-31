@@ -288,19 +288,23 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 		}()
 		if err == nil {
 			g.logger.Debug("Connected to stream")
-			break
+
+			g.ntripMu.Lock()
+			defer g.ntripMu.Unlock()
+
+			g.ntripClient.Stream = rc
+			return g.err.Get()
 		}
 	}
+	// If we get here, we had errors on every connection attempt.
 
-	if err != nil {
-		// if the error is related to ICY, we log it as warning.
-		if strings.Contains(err.Error(), "ICY") {
-			g.logger.Warnf("Detected old HTTP protocol: %s", err)
-			g.err.Set(err)
-		} else {
-			g.logger.Errorf("Can't connect to NTRIP stream: %s", err)
-			return err
-		}
+	// if the error is related to ICY, we log it as warning.
+	if strings.Contains(err.Error(), "ICY") {
+		g.logger.Warnf("Detected old HTTP protocol: %s", err)
+		g.err.Set(err)
+	} else {
+		g.logger.Errorf("Can't connect to NTRIP stream: %s", err)
+		return err
 	}
 
 	g.mu.Lock()
