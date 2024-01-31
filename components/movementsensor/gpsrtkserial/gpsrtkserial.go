@@ -128,7 +128,6 @@ type rtkSerial struct {
 	mu                 sync.Mutex // Mutex for general synchronization during reconfigure.
 	ntripMu            sync.Mutex // Mutex for NTRIP-related operations.
 	ntripconfigMu      sync.Mutex // Mutex for NTRIP configuration.
-	urlMutex           sync.Mutex // Mutex for URL-related operations.
 	ntripClient        *rtk.NtripInfo
 	isConnectedToNtrip bool
 	isClosed           bool
@@ -398,9 +397,6 @@ func (g *rtkSerial) connectAndParseSourceTable() error {
 	if err := g.cancelCtx.Err(); err != nil {
 		return g.err.Get()
 	}
-
-	g.urlMutex.Lock()
-	defer g.urlMutex.Unlock()
 
 	err := g.connect(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
