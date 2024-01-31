@@ -263,7 +263,7 @@ func (g *rtkSerial) connect(casterAddr, user, pwd string, maxAttempts int) error
 	return g.err.Get()
 }
 
-// getStream attempts to connect to ntrip streak until successful connection or timeout.
+// getStream attempts to connect to ntrip stream. We give up after maxAttempts unsuccessful tries.
 func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 	success := false
 	attempts := 0
