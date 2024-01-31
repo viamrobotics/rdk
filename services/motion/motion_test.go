@@ -1271,7 +1271,7 @@ func TestMoveOnMapReq(t *testing.T) {
 
 	t.Run("String()", func(t *testing.T) {
 		s := "motion.MoveOnMapReq{ComponentName: rdk:component:base/mybase, " +
-			"SlamName: rdk:service:slam/mySlam, Destination: x:2700  o_z:1,  MotionCfg: " +
+			"SlamName: rdk:service:slam/mySlam, Destination: x:2700  o_z:1, MotionCfg: " +
 			"&motion.MotionConfiguration{ObstacleDetectors:[]motion.ObstacleDetectorName{" +
 			"motion.ObstacleDetectorName{VisionServiceName:resource.Name{API:resource.API{" +
 			"Type:resource.APIType{Namespace:\"rdk\", Name:\"service\"}, SubtypeName:\"vision\"}" +
