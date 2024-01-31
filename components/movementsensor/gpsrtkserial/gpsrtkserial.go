@@ -223,11 +223,6 @@ func newRTKSerial(
 }
 
 func (g *rtkSerial) start() error {
-	if err := g.nmeamovementsensor.Start(g.cancelCtx); err != nil {
-		g.lastposition.GetLastPosition()
-		return err
-	}
-
 	if !g.isClosed {
 		err := g.connectToNTRIP()
 		if err != nil {
