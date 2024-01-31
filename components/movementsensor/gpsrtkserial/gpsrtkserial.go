@@ -265,14 +265,13 @@ func (g *rtkSerial) connect(casterAddr, user, pwd string, maxAttempts int) error
 
 // getStream attempts to connect to ntrip stream. We give up after maxAttempts unsuccessful tries.
 func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
-	attempts := 0
 
 	var rc io.ReadCloser
 	var err error
 
 	g.logger.Debug("Getting NTRIP stream")
 
-	for attempts < maxAttempts {
+	for attempts := 0; attempts < maxAttempts; attempts++ {
 		if g.isClosed {
 			return g.err.Get()
 		}
@@ -292,7 +291,6 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 			g.logger.Debug("Connected to stream")
 			break
 		}
-		attempts++
 	}
 
 	if err != nil {
