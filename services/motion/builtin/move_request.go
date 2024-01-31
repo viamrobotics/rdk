@@ -350,8 +350,7 @@ func newValidatedMotionCfg(motionCfg *motion.MotionConfiguration, reqType reques
 		linearMPerSec:         defaultLinearMPerSec,
 		obstaclePollingFreqHz: defaultObstaclePollingHz,
 		positionPollingFreqHz: defaultPositionPollingHz,
-		// planDeviationMM:       defaultPlanDeviationM * 1e3,
-		obstacleDetectors: []motion.ObstacleDetectorName{},
+		obstacleDetectors:     []motion.ObstacleDetectorName{},
 	}
 
 	switch reqType {
