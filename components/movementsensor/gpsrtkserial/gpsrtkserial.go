@@ -125,7 +125,6 @@ type rtkSerial struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 
-	mu                 sync.Mutex // Mutex for general synchronization during reconfigure.
 	ntripMu            sync.Mutex // Mutex for NTRIP-related operations.
 	ntripClient        *rtk.NtripInfo
 	isConnectedToNtrip bool
@@ -148,8 +147,8 @@ type rtkSerial struct {
 
 // Reconfigure reconfigures attributes.
 func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.ntripMu.Lock()
+	defer g.ntripMu.Unlock()
 
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
