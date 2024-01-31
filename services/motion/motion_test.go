@@ -1243,7 +1243,7 @@ func TestMoveOnMapReq(t *testing.T) {
 
 	validMoveOnMapReq := MoveOnMapReq{
 		ComponentName: myBase,
-		Destination:   spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0}),
+		Destination:   spatialmath.NewZeroPose(),
 		SlamName:      mySlam,
 		MotionCfg:     motionCfg,
 		Obstacles:     []spatialmath.Geometry{},
@@ -1254,7 +1254,7 @@ func TestMoveOnMapReq(t *testing.T) {
 	//nolint:staticcheck
 	validPbMoveOnMapNewRequest := &pb.MoveOnMapNewRequest{
 		Name:                "bloop",
-		Destination:         spatialmath.PoseToProtobuf(spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0})),
+		Destination:         spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
 		ComponentName:       rprotoutils.ResourceNameToProto(myBase),
 		SlamServiceName:     rprotoutils.ResourceNameToProto(mySlam),
 		MotionConfiguration: motionCfg.toProto(),
@@ -1263,7 +1263,7 @@ func TestMoveOnMapReq(t *testing.T) {
 
 	validPbMoveOnMapRequest := &pb.MoveOnMapRequest{
 		Name:                "bloop",
-		Destination:         spatialmath.PoseToProtobuf(spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0})),
+		Destination:         spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
 		ComponentName:       rprotoutils.ResourceNameToProto(myBase),
 		SlamServiceName:     rprotoutils.ResourceNameToProto(mySlam),
 		MotionConfiguration: motionCfg.toProto(),
@@ -1474,7 +1474,7 @@ func TestMoveOnMapReq(t *testing.T) {
 				input:       validPbMoveOnMapNewRequest,
 				result: MoveOnMapReq{
 					ComponentName: myBase,
-					Destination:   spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0}),
+					Destination:   spatialmath.NewZeroPose(),
 					SlamName:      mySlam,
 					MotionCfg:     motionCfg,
 					Extra:         map[string]interface{}{},
