@@ -380,6 +380,7 @@ func (m *EncodedMotor) directionMovingInLock() float64 {
 	move, err := m.real.IsMoving(context.Background())
 	if move {
 		if sign(m.state.lastPowerPct) != sign(m.state.direction) {
+			// short sleep when changing directions to minimize lost ticks in single encoder
 			time.Sleep(10 * time.Microsecond)
 		}
 		return sign(m.state.lastPowerPct)
