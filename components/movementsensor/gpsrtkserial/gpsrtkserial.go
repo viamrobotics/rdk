@@ -298,14 +298,15 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 	}
 	// If we get here, we had errors on every connection attempt.
 
-	// if the error is related to ICY, we log it as warning.
-	if strings.Contains(err.Error(), "ICY") {
-		g.logger.Warnf("Detected old HTTP protocol: %s", err)
-		g.err.Set(err)
-	} else {
+	// Errors about the old ICY protocol are not "real" errors, but all others are.
+	if !strings.Contains(err.Error(), "ICY") {
 		g.logger.Errorf("Can't connect to NTRIP stream: %s", err)
 		return err
 	}
+
+	// The error was related to the old ICY protocol. Try storing the ReadCloser anyway.
+	g.logger.Warnf("Detected old HTTP protocol: %s", err)
+	g.err.Set(err)
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
