@@ -191,15 +191,11 @@ func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map
 
 // LinearAcceleration returns the sensor's linear acceleration.
 func (g *SerialNMEAMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }
 
 // AngularVelocity returns the sensor's angular velocity.
 func (g *SerialNMEAMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
 	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }
 
@@ -210,11 +206,10 @@ func (g *SerialNMEAMovementSensor) Orientation(ctx context.Context, extra map[st
 
 // CompassHeading returns the heading, from the range 0->360.
 func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	lastHeading := g.lastCompassHeading.GetLastCompassHeading()
-
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
+	lastHeading := g.lastCompassHeading.GetLastCompassHeading()
 	currentHeading := g.data.CompassHeading
 
 	if !math.IsNaN(lastHeading) && math.IsNaN(currentHeading) {
