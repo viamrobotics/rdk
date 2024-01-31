@@ -77,33 +77,15 @@ type Config struct {
 
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
-	err := cfg.validateNtrip(path)
-	if err != nil {
-		return nil, err
+	if cfg.SerialPath == "" {
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 
-	err = cfg.validateSerialPath(path)
-	if err != nil {
-		return nil, err
+	if cfg.NtripURL == "" {
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "ntrip_url")
 	}
 
 	return nil, nil
-}
-
-// validateSerialPath ensures all parts of the config are valid.
-func (cfg *Config) validateSerialPath(path string) error {
-	if cfg.SerialPath == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "serial_path")
-	}
-	return nil
-}
-
-// validateNtrip ensures all parts of the config are valid.
-func (cfg *Config) validateNtrip(path string) error {
-	if cfg.NtripURL == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "ntrip_url")
-	}
-	return nil
 }
 
 func init() {
