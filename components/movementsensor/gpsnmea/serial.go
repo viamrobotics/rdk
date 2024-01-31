@@ -129,8 +129,6 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 }
 
 // Position returns the position and altitide of the sensor, or an error.
-//
-//nolint:dupl // This is a duplicate of code in pmtkI2C.go, but on a different struct.
 func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
