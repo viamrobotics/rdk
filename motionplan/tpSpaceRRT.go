@@ -38,7 +38,7 @@ const (
 	// Don't add new RRT tree nodes if there is an existing node within this distance. This is the distance determined by the DistanceFunc,
 	// so is the sum of the square of the distance in mm, and the orientation distance accounting for scale adjustment.
 	// Note that since the orientation adjustment is very large, this must be as well.
-	defaultIdenticalNodeDistance = 4000.
+	defaultIdenticalNodeDistance = 2000.
 
 	// When extending the RRT tree towards some point, do not extend more than this many times in a single RRT invocation.
 	defaultMaxReseeds = 20
@@ -75,7 +75,7 @@ const (
 // Using the standard SquaredNormMetric, we run into issues where far apart distances will underflow gradient calculations.
 // This metric, used only for gradient descent, computes the gradient using centimeters rather than millimeters allowing for smaller
 // values that do not underflow.
-var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
+var defaultGoalMetricConstructor = ik.NewPosWeightSquaredNormMetric
 
 // Used to flip goal nodes so they can solve forwards.
 var flipPose = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
