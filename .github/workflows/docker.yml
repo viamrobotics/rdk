@@ -10,8 +10,8 @@ on:
   workflow_dispatch:
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
-# and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
-# Don't forget to tag back to @main before merge.
+# and tag your working branch instead of @test-manifest-action-trunk in any viamrobotics/rdk "uses" below.
+# Don't forget to tag back to @test-manifest-action-trunk before merge.
 
 jobs:
   docker-cache:
@@ -76,7 +76,7 @@ jobs:
 
   test:
     needs: docker-cache
-    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    uses: viamrobotics/rdk/.github/workflows/test.yml@test-manifest-action-trunk
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}

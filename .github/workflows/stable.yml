@@ -9,19 +9,19 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+'
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
-# and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
-# Don't forget to tag back to @main before merge.
+# and tag your working branch instead of @test-manifest-action-trunk in any viamrobotics/rdk "uses" below.
+# Don't forget to tag back to @test-manifest-action-trunk before merge.
 
 jobs:
   test:
-    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    uses: viamrobotics/rdk/.github/workflows/test.yml@test-manifest-action-trunk
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
 
   appimage:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@test-manifest-action-trunk
     with:
       release_type: 'stable'
     secrets:
@@ -29,7 +29,7 @@ jobs:
 
   staticbuild:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
+    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@test-manifest-action-trunk
     with:
       release_type: 'stable'
     secrets:
@@ -37,7 +37,7 @@ jobs:
 
   droid:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/droid.yml@main
+    uses: viamrobotics/rdk/.github/workflows/droid.yml@test-manifest-action-trunk
     with:
       release_type: 'stable'
     secrets:
@@ -45,14 +45,14 @@ jobs:
 
   cli:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/cli.yml@main
+    uses: viamrobotics/rdk/.github/workflows/cli.yml@test-manifest-action-trunk
     with:
       release_type: 'stable'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   npm_publish:
-    uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@main
+    uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@test-manifest-action-trunk
     needs: test
     secrets:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

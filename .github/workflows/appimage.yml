@@ -149,7 +149,7 @@ jobs:
       run: pip install appimage-builder git+https://github.com/AppImageCrafters/appimage-builder.git@42d32f11496de43a9f6a9ada7882a11296e357ca
     - name: build
       env:
-        BUILD_CHANNEL: ${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
+        BUILD_CHANNEL: ${{ github.ref_name == 'test-manifest-action-trunk' && 'latest' || github.ref_name }}
         UNAME_M: armv7l
         DPKG_ARCH: armhf
         APPIMAGE_ARCH: armhf
@@ -199,8 +199,8 @@ jobs:
           sudo apt-get install -y libfuse2
         fi
         channel="${{ github.ref_name }}"
-        # we call our main branch releases "latest"
-        if [ "$channel" = "main" ]; then
+        # we call our test-manifest-action-trunk branch releases "latest"
+        if [ "$channel" = "test-manifest-action-trunk" ]; then
           channel="latest"
         fi
         export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
@@ -226,7 +226,7 @@ jobs:
     needs: [appimage_test, appimage-32bit]
     runs-on: ubuntu-latest
     env:
-      channel: ${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
+      channel: ${{ github.ref_name == 'test-manifest-action-trunk' && 'latest' || github.ref_name }}
 
     steps:
     - name: Authorize GCP

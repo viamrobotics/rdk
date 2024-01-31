@@ -14,7 +14,7 @@ jobs:
       BASELINE: ${{ github.event.pull_request.base.label }}
       MODIFIED: ${{ github.event.pull_request.head.label }}
     steps:
-    - name: Check out main branch code
+    - name: Check out test-manifest-action-trunk branch code
       if: github.event_name != 'pull_request_target'
       uses: actions/checkout@v3
 
@@ -33,7 +33,7 @@ jobs:
     - name: Change ownership to testbot
       run: chown -R testbot:testbot .
 
-    - name: Run motion quality tests on main branch
+    - name: Run motion quality tests on test-manifest-action-trunk branch
       shell: bash
       env: 
         URL: ${{ github.event.pull_request.base.repo.html_url }}

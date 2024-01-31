@@ -146,8 +146,8 @@ jobs:
     - name: Test Static Binary
       run: |
         channel="${{ github.ref_name }}"
-        # we call our main branch releases "latest"
-        if [ "$channel" = "main" ]; then
+        # we call our test-manifest-action-trunk branch releases "latest"
+        if [ "$channel" = "test-manifest-action-trunk" ]; then
           channel="latest"
         fi
 
@@ -194,8 +194,8 @@ jobs:
     - name: Output Summary
       run: |
         channel="${{ github.ref_name }}"
-        # we call our main branch releases "latest"
-        if [ "$channel" == "main" ]; then
+        # we call our test-manifest-action-trunk branch releases "latest"
+        if [ "$channel" == "test-manifest-action-trunk" ]; then
           channel="latest"
         fi
         echo "### Built Static Binaries for ${channel}" >> $GITHUB_STEP_SUMMARY

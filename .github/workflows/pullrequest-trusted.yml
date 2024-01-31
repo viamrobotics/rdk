@@ -6,17 +6,17 @@ concurrency:
 
 on:
   pull_request_target:
-    branches: [ main ]
+    branches: [ test-manifest-action-trunk ]
     types: [ labeled ]
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
-# and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
-# Don't forget to tag back to @main before merge.
+# and tag your working branch instead of @test-manifest-action-trunk in any viamrobotics/rdk "uses" below.
+# Don't forget to tag back to @test-manifest-action-trunk before merge.
 
 jobs:
   test:
     if: (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage')
-    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    uses: viamrobotics/rdk/.github/workflows/test.yml@test-manifest-action-trunk
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
@@ -28,7 +28,7 @@ jobs:
       always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
       !contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests') &&
       contains(github.event.pull_request.labels.*.name, 'appimage') && needs.test.result == 'success'
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@test-manifest-action-trunk
     with:
       release_type: 'pr'
     secrets:
@@ -38,7 +38,7 @@ jobs:
     if: |
        always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
        contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@test-manifest-action-trunk
     with:
       release_type: 'pr'
     secrets:
@@ -51,7 +51,7 @@ jobs:
       always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
       !contains(github.event.pull_request.labels.*.name, 'static-ignore-tests') &&
       contains(github.event.pull_request.labels.*.name, 'static-build') && needs.test.result == 'success'
-    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
+    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@test-manifest-action-trunk
     with:
       release_type: 'pr'
     secrets:
@@ -61,7 +61,7 @@ jobs:
     if: |
        always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
        contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
-    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
+    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@test-manifest-action-trunk
     with:
       release_type: 'pr'
     secrets:
@@ -69,14 +69,14 @@ jobs:
 
   droid:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/droid.yml@main
+    uses: viamrobotics/rdk/.github/workflows/droid.yml@test-manifest-action-trunk
     with:
       release_type: 'pr'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   macos:
-    uses: viamrobotics/rdk/.github/workflows/macos.yml@main
+    uses: viamrobotics/rdk/.github/workflows/macos.yml@test-manifest-action-trunk
 
   license_finder:
-    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main
+    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@test-manifest-action-trunk

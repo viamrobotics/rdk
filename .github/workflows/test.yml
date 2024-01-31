@@ -38,7 +38,7 @@ jobs:
       with:
         ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
 
-    - name: Set main env vars
+    - name: Set test-manifest-action-trunk env vars
       if: github.event_name != 'pull_request_target'
       run: |
         echo "GITHUB_X_HEAD_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
@@ -108,7 +108,7 @@ jobs:
         ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
         fetch-depth: ${{ github.event_name == 'pull_request_target' && '0' || '1' }} # 0 aka full history, so we can analyze history for coverage
 
-    - name: Set main env vars
+    - name: Set test-manifest-action-trunk env vars
       if: github.event_name != 'pull_request_target'
       run: |
         echo "GITHUB_X_HEAD_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
