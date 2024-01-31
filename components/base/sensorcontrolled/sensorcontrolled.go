@@ -199,6 +199,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		} else {
 			cancelCtx, cancelFunc := context.WithCancel(context.Background())
 			if err := sb.autoTuneAll(cancelCtx, cancelFunc, linear, angular); err != nil {
+				sb.mu.Lock()
 				return err
 			}
 		}

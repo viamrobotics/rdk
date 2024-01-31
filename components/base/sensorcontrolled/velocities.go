@@ -89,18 +89,15 @@ func (sb *sensorBase) autoTuneAll(ctx context.Context, cancelFunc context.Cancel
 		fakeConf := basePIDConfig{Type: typeAngVel, P: 0.5, I: 0.5, D: 0.0}
 		sb.logger.Info("tuning linear PID")
 		if err := sb.autoTuningProcess(ctx, linear, fakeConf); err != nil {
-			sb.mu.Lock()
 			errs = multierr.Combine(errs, err)
 		}
 		if err := sb.Stop(ctx, nil); err != nil {
-			sb.mu.Lock()
 			errs = multierr.Combine(errs, err)
 		}
 		// to tune angular PID values, linear PI values must be non-zero
 		fakeConf.Type = typeLinVel
 		sb.logger.Info("tuning angular PID")
 		if err := sb.autoTuningProcess(ctx, fakeConf, angular); err != nil {
-			sb.mu.Lock()
 			errs = multierr.Combine(errs, err)
 		}
 	})
