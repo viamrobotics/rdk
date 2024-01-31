@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/adrianmo/go-nmea"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
@@ -125,12 +124,4 @@ func TestCloseSerial(t *testing.T) {
 
 	err := g.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
-}
-
-func TestToPoint(t *testing.T) {
-	a := nmea.GLL{Longitude: loc.Lng(), Latitude: loc.Lat()}
-
-	point := toPoint(a)
-	test.That(t, point.Lng(), test.ShouldEqual, loc.Lng())
-	test.That(t, point.Lat(), test.ShouldEqual, loc.Lat())
 }

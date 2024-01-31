@@ -9,7 +9,6 @@ import (
 	"math"
 	"sync"
 
-	"github.com/adrianmo/go-nmea"
 	"github.com/golang/geo/r3"
 	"github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
@@ -284,9 +283,4 @@ func (g *SerialNMEAMovementSensor) Close(ctx context.Context) error {
 		g.logger.CDebug(ctx, "SerialNMEAMovementSensor Closed")
 	}
 	return nil
-}
-
-// toPoint converts a nmea.GLL to a geo.Point.
-func toPoint(a nmea.GLL) *geo.Point {
-	return geo.NewPoint(a.Latitude, a.Longitude)
 }
