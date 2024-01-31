@@ -204,23 +204,6 @@ type EncodedMotorState struct {
 
 // rpmMonitorStart starts the RPM monitor.
 func (m *EncodedMotor) rpmMonitorStart() {
-	if m.loop != nil {
-		if err := m.Stop(m.cancelCtx, nil); err != nil {
-			m.logger.Error(err)
-		}
-	}
-	// create new control loop if control config exists
-	if m.cfg.ControlParameters != nil {
-		cLoop, err := control.NewLoop(m.logger, m.controlLoopConfig, m)
-		if err != nil {
-			m.logger.Error(err)
-		}
-		if err = cLoop.Start(); err != nil {
-			m.logger.Error(err)
-		}
-		m.loop = cLoop
-		return
-	}
 	m.startedRPMMonitorMu.Lock()
 	startedRPMMonitor := m.startedRPMMonitor
 	m.startedRPMMonitorMu.Unlock()
@@ -324,8 +307,8 @@ func (m *EncodedMotor) makeAdjustments(pos, lastPos float64, now, lastTime int64
 	dir := m.directionMovingInLock()
 
 	if (dir == 1 && m.state.currentRPM > m.state.goalRPM) || (dir == -1 && m.state.currentRPM < m.state.goalRPM) {
-		powerPct := m.state.lastPowerPct - (m.rampRate * m.directionMovingInLock())
-		if sign(powerPct) != m.directionMovingInLock() {
+		powerPct := m.state.lastPowerPct - (m.rampRate * dir)
+		if sign(powerPct) != dir {
 			powerPct = m.state.lastPowerPct
 		}
 		if rpmDebug {
@@ -336,8 +319,8 @@ func (m *EncodedMotor) makeAdjustments(pos, lastPos float64, now, lastTime int64
 		}
 	}
 	if (dir == 1 && m.state.currentRPM <= m.state.goalRPM) || (dir == -1 && m.state.currentRPM >= m.state.goalRPM) {
-		powerPct := m.state.lastPowerPct + (m.rampRate * m.directionMovingInLock())
-		if sign(powerPct) != m.directionMovingInLock() {
+		powerPct := m.state.lastPowerPct + (m.rampRate * dir)
+		if sign(powerPct) != dir {
 			powerPct = m.state.lastPowerPct
 		}
 		if rpmDebug {
@@ -379,7 +362,8 @@ func (m *EncodedMotor) DirectionMoving() int64 {
 func (m *EncodedMotor) directionMovingInLock() float64 {
 	move, err := m.real.IsMoving(context.Background())
 	if move {
-		if sign(m.state.lastPowerPct) != sign(m.state.direction) {
+		_, isSingle := m.encoder.(*single.Encoder)
+		if sign(m.state.lastPowerPct) != sign(m.state.direction) && isSingle {
 			// short sleep when changing directions to minimize lost ticks in single encoder
 			time.Sleep(10 * time.Microsecond)
 		}
@@ -460,7 +444,24 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 }
 
 func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float64) error {
-	m.rpmMonitorStart()
+	if m.loop != nil {
+		if err := m.Stop(m.cancelCtx, nil); err != nil {
+			m.logger.Error(err)
+		}
+	}
+	// create new control loop if control config exists
+	if m.cfg.ControlParameters != nil {
+		cLoop, err := control.NewLoop(m.logger, m.controlLoopConfig, m)
+		if err != nil {
+			m.logger.Error(err)
+		}
+		if err = cLoop.Start(); err != nil {
+			m.logger.Error(err)
+		}
+		m.loop = cLoop
+	} else {
+		m.rpmMonitorStart()
+	}
 	m.state.direction = sign(rpm * revolutions)
 
 	switch speed := math.Abs(rpm); {
@@ -487,11 +488,6 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 		m.state.goalRPM = rpm
 		m.state.goalPos = math.Inf(int(rpm))
 
-		// if we are already moving, let rpmMonitor deal with setPower
-		if math.Abs(oldRpm) > 0.001 && m.state.direction == m.directionMovingInLock() {
-			return nil
-		}
-
 		if m.loop != nil {
 			velVal := math.Abs(rpm * m.ticksPerRotation / 60)
 			// when rev = 0, only velocity is controlled
@@ -500,6 +496,10 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 				return err
 			}
 		} else {
+			// if we are already moving, let rpmMonitor deal with setPower
+			if math.Abs(oldRpm) > 0.001 && m.state.direction == m.directionMovingInLock() {
+				return nil
+			}
 			// if moving from stop, start at 10% power
 			if err := m.setPower(ctx, m.state.direction*0.1, true); err != nil {
 				return err
