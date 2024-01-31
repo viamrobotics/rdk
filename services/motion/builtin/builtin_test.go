@@ -291,10 +291,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 	extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 
 	// RSDK-6444
-
-	// NOTE: octagon.pcd's bounding circle has a radius less than 1.3 meters. This means that when using this .pcd
-	// all goals will be less than 2.6 meters away. For this reason we must specify our own PlanDeviationMM value
-	// within the MotionConfiguration.
+	//nolint:dupl
 	t.Run("ensure success of movement around obstacle", func(t *testing.T) {
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
@@ -384,7 +381,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 	})
 
 	// RSDK-6444
-
+	//nolint:dupl
 	t.Run("check that position-only mode executes", func(t *testing.T) {
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
@@ -570,7 +567,6 @@ func TestMoveOnMapTimeout(t *testing.T) {
 }
 
 func TestPositionalReplanning(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	ctx := context.Background()
 
@@ -652,7 +648,6 @@ func TestPositionalReplanning(t *testing.T) {
 }
 
 func TestObstacleReplanning(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	ctx := context.Background()
 
@@ -1477,7 +1472,7 @@ func TestMoveOnMapNew(t *testing.T) {
 		extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 
 		// RSDK-6444
-
+		//nolint:dupl
 		t.Run("ensure success of movement around obstacle", func(t *testing.T) {
 			// NOTE: octagon.pcd's bounding circle has a radius less than 1.3 meters. This means that when using this .pcd
 			// all goals will be less than 2.6 meters away. For this reason we must specify our own PlanDeviationMM value
@@ -1550,7 +1545,7 @@ func TestMoveOnMapNew(t *testing.T) {
 		})
 
 		// RSDK-6444
-
+		//nolint:dupl
 		t.Run("check that position-only mode executes", func(t *testing.T) {
 			kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 			defer ms.Close(ctx)
