@@ -291,8 +291,8 @@ func (g *rtkSerial) connect(casterAddr, user, pwd string, maxAttempts int) error
 
 	g.logger.Info("Connected to NTRIP caster")
 	g.mu.Lock()
+	defer g.mu.Unlock()
 	g.ntripClient.Client = c
-	g.mu.Unlock()
 	return g.err.Get()
 }
 
@@ -578,12 +578,11 @@ func (g *rtkSerial) Position(ctx context.Context, extra map[string]interface{}) 
 // LinearVelocity passthrough.
 func (g *rtkSerial) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.Lock()
+	defer g.mu.Unlock()
 	lastError := g.err.Get()
 	if lastError != nil {
-		defer g.mu.Unlock()
 		return r3.Vector{}, lastError
 	}
-	g.mu.Unlock()
 
 	return g.nmeamovementsensor.LinearVelocity(ctx, extra)
 }
@@ -600,12 +599,12 @@ func (g *rtkSerial) LinearAcceleration(ctx context.Context, extra map[string]int
 // AngularVelocity passthrough.
 func (g *rtkSerial) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	lastError := g.err.Get()
 	if lastError != nil {
-		defer g.mu.Unlock()
 		return spatialmath.AngularVelocity{}, lastError
 	}
-	g.mu.Unlock()
 
 	return g.nmeamovementsensor.AngularVelocity(ctx, extra)
 }
@@ -613,54 +612,57 @@ func (g *rtkSerial) AngularVelocity(ctx context.Context, extra map[string]interf
 // CompassHeading passthrough.
 func (g *rtkSerial) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	lastError := g.err.Get()
 	if lastError != nil {
-		defer g.mu.Unlock()
 		return 0, lastError
 	}
-	g.mu.Unlock()
 	return g.nmeamovementsensor.CompassHeading(ctx, extra)
 }
 
 // Orientation passthrough.
 func (g *rtkSerial) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	lastError := g.err.Get()
 	if lastError != nil {
-		defer g.mu.Unlock()
 		return spatialmath.NewZeroOrientation(), lastError
 	}
-	g.mu.Unlock()
 	return g.nmeamovementsensor.Orientation(ctx, extra)
 }
 
 // readFix passthrough.
 func (g *rtkSerial) readFix(ctx context.Context) (int, error) {
 	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	lastError := g.err.Get()
 	if lastError != nil {
-		defer g.mu.Unlock()
 		return 0, lastError
 	}
-	g.mu.Unlock()
 	return g.nmeamovementsensor.ReadFix(ctx)
 }
 
 // readSatsInView returns the number of satellites in view.
 func (g *rtkSerial) readSatsInView(ctx context.Context) (int, error) {
 	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	lastError := g.err.Get()
 	if lastError != nil {
-		defer g.mu.Unlock()
 		return 0, lastError
 	}
 
-	g.mu.Unlock()
 	return g.nmeamovementsensor.ReadSatsInView(ctx)
 }
 
 // Properties passthrough.
 func (g *rtkSerial) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	lastError := g.err.Get()
 	if lastError != nil {
 		return &movementsensor.Properties{}, lastError
@@ -672,6 +674,9 @@ func (g *rtkSerial) Properties(ctx context.Context, extra map[string]interface{}
 // Accuracy passthrough.
 func (g *rtkSerial) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
 ) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	lastError := g.err.Get()
 	if lastError != nil {
 		return nil, lastError
