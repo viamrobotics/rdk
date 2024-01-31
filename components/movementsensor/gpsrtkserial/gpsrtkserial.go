@@ -124,8 +124,8 @@ type rtkSerial struct {
 	cancelFunc func()
 
 	activeBackgroundWorkers sync.WaitGroup
+	mu                      sync.Mutex
 
-	mu            sync.Mutex // Mutex for NTRIP-related operations.
 	ntripClient        *rtk.NtripInfo
 	isConnectedToNtrip bool
 	isClosed           bool
