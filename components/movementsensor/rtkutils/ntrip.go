@@ -6,13 +6,35 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"strconv"
 	"strings"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
 
 	"go.viam.com/rdk/logging"
+)
+
+const (
+	mp            = 1
+	id            = 2
+	format        = 3
+	formatDetails = 4
+	carrierField  = 5
+	navsystem     = 6
+	network       = 7
+	country       = 8
+	latitude      = 9
+	longitude     = 10
+	nmeaBit       = 11
+	solution      = 12
+	generator     = 13
+	compression   = 14
+	auth          = 15
+	feeBit        = 16
+	bitRateField  = 17
+	misc          = 18
+	floatbitsize  = 32
+	streamSize    = 200
 )
 
 // NtripInfo contains the information necessary to connect to a mountpoint.
@@ -45,11 +67,11 @@ type Sourcetable struct {
 type Stream struct {
 	MP             string   // Datastream mountpoint
 	Identifier     string   // Source identifier (most time nearest city)
-	Format         string   // Data format (https://software.rtcm-ntrip.org/wiki/STR#DataFormats)
+	Format         string   // Data format of generic type (https://software.rtcm-ntrip.org/wiki/STR#DataFormats)
 	FormatDetails  string   // Specifics of data format (https://software.rtcm-ntrip.org/wiki/STR#DataFormats)
-	Carrier        int      // Phase information (https://software.rtcm-ntrip.org/wiki/STR#Carrier)
-	NavSystem      []string // Navigation System (https://software.rtcm-ntrip.org/wiki/STR#NavigationSystem)
-	Network        string   // Network name (https://software.rtcm-ntrip.org/wiki/NET)
+	Carrier        int      // Phase information about GNSS correction (https://software.rtcm-ntrip.org/wiki/STR#Carrier)
+	NavSystem      []string // Multiple navigation system (https://software.rtcm-ntrip.org/wiki/STR#NavigationSystem)
+	Network        string   // Network record in sourcetable (https://software.rtcm-ntrip.org/wiki/NET)
 	Country        string   // ISO 3166 country code (https://en.wikipedia.org/wiki/ISO_3166-1)
 	Latitude       float32  // Position, Latitude in degree
 	Longitude      float32  // Position, Longitude in degree
@@ -94,19 +116,19 @@ func NewNtripInfo(cfg *NtripConfig, logger logging.Logger) (*NtripInfo, error) {
 }
 
 // ParseSourcetable gets the sourcetable and parses it.
-func (n *NtripInfo) ParseSourcetable() (*Sourcetable, error) {
+func (n *NtripInfo) ParseSourcetable(logger logging.Logger) (*Sourcetable, error) {
 	reader, err := n.Client.GetSourcetable()
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
 		if err := reader.Close(); err != nil {
-			log.Println("Error closing reader:", err)
+			logger.Errorf("Error closing reader:", err)
 		}
 	}()
 
 	st := &Sourcetable{}
-	st.Streams = make([]Stream, 0, 200)
+	st.Streams = make([]Stream, 0, streamSize)
 	scanner := bufio.NewScanner(reader)
 	ln := ""
 
@@ -123,9 +145,11 @@ Loop:
 		case "NET":
 			continue
 		case "STR":
-			if str, err := ParseStream(ln); err == nil {
-				st.Streams = append(st.Streams, str)
+			str, err := parseStream(ln)
+			if err != nil {
+				return nil, fmt.Errorf("error while parsing stream: %w", err)
 			}
+			st.Streams = append(st.Streams, str)
 		case "ENDSOURCETABLE":
 			break Loop
 		default:
@@ -141,58 +165,59 @@ Loop:
 }
 
 // ParseStream parses a line from the sourcetable.
-func ParseStream(line string) (Stream, error) {
+func parseStream(line string) (Stream, error) {
 	fields := strings.Split(line, ";")
 
+	// standard stream contains 19 fields.
 	if len(fields) < 19 {
 		return Stream{}, fmt.Errorf("missing fields at stream line: %s", line)
 	}
 
-	carrier, err := strconv.Atoi(fields[5])
+	carrier, err := strconv.Atoi(fields[carrierField])
 	if err != nil {
-		return Stream{}, fmt.Errorf("parsing the streams carrier in line: %s", line)
+		return Stream{}, fmt.Errorf("cannot parse the streams carrier in line: %s", line)
 	}
 
-	satSystems := strings.Split(fields[6], "+")
+	satSystems := strings.Split(fields[navsystem], "+")
 
-	lat, err := strconv.ParseFloat(fields[9], 32)
+	lat, err := strconv.ParseFloat(fields[latitude], floatbitsize)
 	if err != nil {
-		return Stream{}, fmt.Errorf("parsing the streams latitude in line: %s", line)
+		return Stream{}, fmt.Errorf("cannot parse the streams latitude in line: %s", line)
 	}
-	lon, err := strconv.ParseFloat(fields[10], 32)
+	lon, err := strconv.ParseFloat(fields[longitude], floatbitsize)
 	if err != nil {
-		return Stream{}, fmt.Errorf("parsing the streams longitude in line: %s", line)
-	}
-
-	nmea, err := strconv.ParseBool(fields[11])
-	if err != nil {
-		return Stream{}, fmt.Errorf("parsing the streams nmea in line: %s", line)
+		return Stream{}, fmt.Errorf("cannot parse the streams longitude in line: %s", line)
 	}
 
-	sol, err := strconv.Atoi(fields[12])
+	nmea, err := strconv.ParseBool(fields[nmeaBit])
 	if err != nil {
-		return Stream{}, fmt.Errorf("parsing the streams solution in line: %s", line)
+		return Stream{}, fmt.Errorf("cannot parse the streams nmea in line: %s", line)
+	}
+
+	sol, err := strconv.Atoi(fields[solution])
+	if err != nil {
+		return Stream{}, fmt.Errorf("cannot parse the streams solution in line: %s", line)
 	}
 
 	fee := false
-	if fields[4] == "Y" {
+	if fields[feeBit] == "Y" {
 		fee = true
 	}
 
-	bitrate, err := strconv.Atoi(fields[17])
+	bitrate, err := strconv.Atoi(fields[bitRateField])
 	if err != nil {
 		bitrate = 0
 	}
 
 	return Stream{
-		MP: fields[1], Identifier: fields[2], Format: fields[3], FormatDetails: fields[4],
-		Carrier: carrier, NavSystem: satSystems, Network: fields[7], Country: fields[8],
-		Latitude: float32(lat), Longitude: float32(lon), Nmea: nmea, Solution: sol, Generator: fields[13],
-		Compression: fields[14], Authentication: fields[15], Fee: fee, BitRate: bitrate, Misc: fields[18],
+		MP: fields[mp], Identifier: fields[id], Format: fields[format], FormatDetails: fields[formatDetails],
+		Carrier: carrier, NavSystem: satSystems, Network: fields[network], Country: fields[country],
+		Latitude: float32(lat), Longitude: float32(lon), Nmea: nmea, Solution: sol, Generator: fields[generator],
+		Compression: fields[compression], Authentication: fields[auth], Fee: fee, BitRate: bitrate, Misc: fields[misc],
 	}, nil
 }
 
-// HasStream checks if the sourcetable contains the given mountpoint it's stream.
+// HasStream checks if the sourcetable contains the given mountpoint in it's stream.
 func (st *Sourcetable) HasStream(mountpoint string) (Stream, bool) {
 	for _, str := range st.Streams {
 		if str.MP == mountpoint {
