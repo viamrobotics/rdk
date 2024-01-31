@@ -174,7 +174,6 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	g.logger.Debug("done reconfiguring")
-
 	return nil
 }
 
