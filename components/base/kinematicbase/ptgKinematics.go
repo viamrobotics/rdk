@@ -226,6 +226,8 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		if err != nil {
 			return tryStop(err)
 		}
+		lastLinVel := step.linVelMMps
+		lastAngVel := step.angVelDegps
 		moveStartTime := time.Now()
 		
 		// Now we are moving. We need to do several things simultaneously:
@@ -265,7 +267,6 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 				poseDiffPt := spatialmath.PoseBetween(currRelPose, expectedPose).Point()
 				adjLinVel := step.linVelMMps
 				adjAngVel := step.angVelDegps
-				
 				// If we are ahead, we want to slow down. If we are behind, we want to speed up
 				if math.Abs(poseDiffPt.Y) > 100 {
 					adjLinVel.Y += -1 * math.Copysign(100., poseDiffPt.Y)
@@ -274,14 +275,18 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 				if math.Abs(poseDiffPt.X) > 100 {
 					adjAngVel.Z += math.Copysign(10., poseDiffPt.X)
 				}
-				err = ptgk.Base.SetVelocity(
-					ctx,
-					adjLinVel,
-					adjAngVel,
-					nil,
-				)
-				if err != nil {
-					return tryStop(err)
+				if !lastLinVel.ApproxEqual(adjLinVel) || !lastAngVel.ApproxEqual(adjAngVel) {
+					err = ptgk.Base.SetVelocity(
+						ctx,
+						adjLinVel,
+						adjAngVel,
+						nil,
+					)
+					if err != nil {
+						return tryStop(err)
+					}
+					lastLinVel = adjLinVel
+					lastAngVel = adjAngVel
 				}
 			}
 		}
