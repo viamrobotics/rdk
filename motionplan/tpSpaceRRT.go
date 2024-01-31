@@ -38,7 +38,7 @@ const (
 	// Don't add new RRT tree nodes if there is an existing node within this distance. This is the distance determined by the DistanceFunc,
 	// so is the sum of the square of the distance in mm, and the orientation distance accounting for scale adjustment.
 	// Note that since the orientation adjustment is very large, this must be as well.
-	defaultIdenticalNodeDistance = 2000.
+	defaultIdenticalNodeDistance = 4000.
 
 	// When extending the RRT tree towards some point, do not extend more than this many times in a single RRT invocation.
 	defaultMaxReseeds = 20
@@ -46,7 +46,7 @@ const (
 	// Make an attempt to solve the tree every this many iterations
 	// For a unidirectional solve, this means attempting to reach the goal rather than a random point
 	// For a bidirectional solve, this means trying to connect the two trees directly.
-	defaultAttemptSolveEvery = 15
+	defaultAttemptSolveEvery = 20
 
 	// When attempting a solve per the above, make no more than this many tries. Preserves performance with large trees.
 	defaultMaxConnectAttempts = 20
