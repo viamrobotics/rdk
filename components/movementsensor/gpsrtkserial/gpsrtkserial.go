@@ -164,14 +164,12 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	if g.ntripClient == nil {
-		g.ntripClient = tempNtripClient
-	} else {
+	if g.ntripClient != nil { // Copy over the old state
 		tempNtripClient.Client = g.ntripClient.Client
 		tempNtripClient.Stream = g.ntripClient.Stream
-
-		g.ntripClient = tempNtripClient
 	}
+
+	g.ntripClient = tempNtripClient
 
 	g.logger.Debug("done reconfiguring")
 	return nil
