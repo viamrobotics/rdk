@@ -1283,7 +1283,6 @@ func TestMoveOnMapReq(t *testing.T) {
 		test.That(t, validMoveOnMapReq.String(), test.ShouldEqual, s)
 	})
 
-	
 	t.Run("toProtoNew", func(t *testing.T) {
 		type testCase struct {
 			description string
@@ -1344,7 +1343,6 @@ func TestMoveOnMapReq(t *testing.T) {
 		}
 	})
 
-	
 	t.Run("toProto", func(t *testing.T) {
 		type testCase struct {
 			description string
