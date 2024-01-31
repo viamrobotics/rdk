@@ -319,9 +319,14 @@ func NewState(r Request) (*State, error) {
 		return nil, errors.New("TTLCheckInterval can't be unset")
 	}
 
-	if r.TTL < r.TTLCheckInterval {
-		return nil, errors.New("TTL can't be lower than the TTL check interval")
+	if r.Logger == nil {
+		return nil, errors.New("Logger can't be nil")
 	}
+
+	if r.TTL < r.TTLCheckInterval {
+		return nil, errors.New("TTL can't be lower than the TTLCheckInterval")
+	}
+
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	s := State{
 		cancelCtx:                 cancelCtx,
@@ -382,6 +387,7 @@ func (s *State) purgeOlderThanTTL() error {
 	defer s.mu.Unlock()
 
 	purgeCutoff := time.Now().Add(-s.ttl)
+
 	for resource, componentState := range s.componentStateByComponent {
 		keepIndex, err := findKeepIndex(componentState, purgeCutoff)
 		if err != nil {
@@ -390,6 +396,7 @@ func (s *State) purgeOlderThanTTL() error {
 		// If there are no executions to keep, then delete the resource.
 		if keepIndex == -1 {
 			delete(s.componentStateByComponent, resource)
+			continue
 		}
 
 		executionIdsToKeep := componentState.executionIDHistory[:keepIndex+1]

@@ -172,6 +172,34 @@ func TestState(t *testing.T) {
 	emptyReq := motion.MoveOnGlobeReq{ComponentName: myBase}
 	ctx := context.Background()
 
+	t.Run("returns error if TTL is not set", func(t *testing.T) {
+		t.Parallel()
+		s, err := state.NewState(state.Request{})
+		test.That(t, err, test.ShouldBeError, errors.New("TTL can't be unset"))
+		test.That(t, s, test.ShouldBeNil)
+	})
+
+	t.Run("returns error if TTLCheckInterval is not set", func(t *testing.T) {
+		t.Parallel()
+		s, err := state.NewState(state.Request{TTL: 2})
+		test.That(t, err, test.ShouldBeError, errors.New("TTLCheckInterval can't be unset"))
+		test.That(t, s, test.ShouldBeNil)
+	})
+
+	t.Run("returns error if Logger is nil", func(t *testing.T) {
+		t.Parallel()
+		s, err := state.NewState(state.Request{TTL: 2, TTLCheckInterval: 1})
+		test.That(t, err, test.ShouldBeError, errors.New("Logger can't be nil"))
+		test.That(t, s, test.ShouldBeNil)
+	})
+
+	t.Run("returns error if TTL < TTLCheckInterval", func(t *testing.T) {
+		t.Parallel()
+		s, err := state.NewState(state.Request{TTL: 1, TTLCheckInterval: 2, Logger: logger})
+		test.That(t, err, test.ShouldBeError, errors.New("TTL can't be lower than the TTLCheckInterval"))
+		test.That(t, s, test.ShouldBeNil)
+	})
+
 	t.Run("creating & stopping a state with no intermediary calls", func(t *testing.T) {
 		t.Parallel()
 		s, err := state.NewState(req)
@@ -735,19 +763,22 @@ func TestState(t *testing.T) {
 		test.That(t, ps8, test.ShouldBeEmpty)
 	})
 
+	// NOTE: This test is slow b/c it is testing TTL behavior (which is inherently time based)
+	// the TTL is inteinionally configured to be a very high number to decrease the risk of flakeyness on
+	// low powered or over utilized hardware.
 	t.Run("ttl", func(t *testing.T) {
 		t.Parallel()
-		pollTillDuration := time.Millisecond * 500
 		sReq := state.Request{
-			TTL:              time.Millisecond * 100,
+			TTL:              time.Millisecond * 250,
 			TTLCheckInterval: time.Millisecond * 10,
 			Logger:           logger,
 		}
 		sleepCheckDuration := sReq.TTLCheckInterval * 2
-		sleepTTLDuration := sReq.TTLCheckInterval * 2
+		sleepTTLDuration := sReq.TTL * 2
 		s, err := state.NewState(sReq)
 		test.That(t, err, test.ShouldBeNil)
 		defer s.Stop()
+		time.Sleep(sleepCheckDuration)
 
 		// no plan statuses as no executions have been created
 		ps, err := s.ListPlanStatuses(motion.ListPlanStatusesReq{})
@@ -762,7 +793,7 @@ func TestState(t *testing.T) {
 		executionID1, err := state.StartExecution(ctx, s, req.ComponentName, req, executionWaitingForCtxCancelledPlanConstructor)
 		test.That(t, err, test.ShouldBeNil)
 
-		// stop execution, to show that it still shows up within the ttl
+		// stop execution, to show that it still shows up within the TTL & is deleted after it
 		err = s.StopExecutionByResource(myBase)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -773,121 +804,72 @@ func TestState(t *testing.T) {
 		// wait till check interval past
 		time.Sleep(sleepCheckDuration)
 
-		listPlanStatuses := func(waitTillLen int) func() (struct {
-			ps  []motion.PlanStatusWithID
-			err error
-		}, bool,
-		) {
-			return func() (struct {
-				ps  []motion.PlanStatusWithID
-				err error
-			}, bool,
-			) {
-				st := struct {
-					ps  []motion.PlanStatusWithID
-					err error
-				}{}
-				ps, err := s.ListPlanStatuses(motion.ListPlanStatusesReq{})
-				if err == nil && len(ps) == waitTillLen {
-					st.ps = ps
-					st.err = err
-					return st, true
-				}
-				return st, false
-			}
-		}
+		ps1, err := s.ListPlanStatuses(motion.ListPlanStatusesReq{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(ps1), test.ShouldEqual, 2)
 
-		planHistory := func(req motion.PlanHistoryReq, waitTillLen int) func() (pwsRes, bool) {
-			return func() (pwsRes, bool) {
-				st := pwsRes{}
-				pws, err := s.PlanHistory(req)
-				if err == nil && len(pws) == waitTillLen {
-					st.pws = pws
-					st.err = err
-					return st, true
-				}
-				return st, false
-			}
-		}
-
-		cancelCtx, cancelFn := context.WithTimeout(ctx, pollTillDuration)
-		defer cancelFn()
-		resPS, succ := pollUntil(cancelCtx, listPlanStatuses(2))
-		test.That(t, succ, test.ShouldBeTrue)
-		test.That(t, resPS.err, test.ShouldBeNil)
-		test.That(t, len(resPS.ps), test.ShouldEqual, 2)
 		// both executions are still around
-		test.That(t, resPS.ps[0].ExecutionID, test.ShouldResemble, executionID2)
-		test.That(t, resPS.ps[0].ComponentName, test.ShouldResemble, req.ComponentName)
-		test.That(t, resPS.ps[0].PlanID, test.ShouldNotEqual, uuid.Nil)
-		test.That(t, resPS.ps[0].Status.State, test.ShouldEqual, motion.PlanStateInProgress)
-		test.That(t, resPS.ps[0].Status.Reason, test.ShouldBeNil)
-		test.That(t, resPS.ps[0].Status.Timestamp.After(preExecution), test.ShouldBeTrue)
-		test.That(t, resPS.ps[1].ExecutionID, test.ShouldResemble, executionID1)
-		test.That(t, resPS.ps[1].ComponentName, test.ShouldResemble, req.ComponentName)
-		test.That(t, resPS.ps[1].PlanID, test.ShouldNotEqual, uuid.Nil)
-		test.That(t, resPS.ps[1].Status.State, test.ShouldEqual, motion.PlanStateStopped)
-		test.That(t, resPS.ps[1].Status.Reason, test.ShouldBeNil)
-		test.That(t, resPS.ps[1].Status.Timestamp.After(preExecution), test.ShouldBeTrue)
+		test.That(t, ps1[0].ExecutionID, test.ShouldResemble, executionID2)
+		test.That(t, ps1[0].ComponentName, test.ShouldResemble, req.ComponentName)
+		test.That(t, ps1[0].PlanID, test.ShouldNotEqual, uuid.Nil)
+		test.That(t, ps1[0].Status.State, test.ShouldEqual, motion.PlanStateInProgress)
+		test.That(t, ps1[0].Status.Reason, test.ShouldBeNil)
+		test.That(t, ps1[0].Status.Timestamp.After(preExecution), test.ShouldBeTrue)
+		test.That(t, ps1[1].ExecutionID, test.ShouldResemble, executionID1)
+		test.That(t, ps1[1].ComponentName, test.ShouldResemble, req.ComponentName)
+		test.That(t, ps1[1].PlanID, test.ShouldNotEqual, uuid.Nil)
+		test.That(t, ps1[1].Status.State, test.ShouldEqual, motion.PlanStateStopped)
+		test.That(t, ps1[1].Status.Reason, test.ShouldBeNil)
+		test.That(t, ps1[1].Status.Timestamp.After(preExecution), test.ShouldBeTrue)
 
 		// by default planHistory returns the most recent plan
-		ph1, succ := pollUntil(cancelCtx, planHistory(motion.PlanHistoryReq{ComponentName: req.ComponentName}, 1))
-		test.That(t, succ, test.ShouldBeTrue)
-		test.That(t, ph1.err, test.ShouldBeNil)
-		test.That(t, len(ph1.pws), test.ShouldEqual, 1)
-		test.That(t, ph1.pws[0].Plan.ID, test.ShouldResemble, resPS.ps[0].PlanID)
-		test.That(t, ph1.pws[0].Plan.ExecutionID, test.ShouldResemble, executionID2)
-		test.That(t, len(ph1.pws[0].StatusHistory), test.ShouldEqual, 1)
-		test.That(t, ph1.pws[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateInProgress)
+		ph1, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: req.ComponentName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(ph1), test.ShouldEqual, 1)
+		test.That(t, ph1[0].Plan.ID, test.ShouldResemble, ps1[0].PlanID)
+		test.That(t, ph1[0].Plan.ExecutionID, test.ShouldResemble, executionID2)
+		test.That(t, len(ph1[0].StatusHistory), test.ShouldEqual, 1)
+		test.That(t, ph1[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateInProgress)
 
-		// it is possible to retrieve the stopped exectuion as it is still before the TTL
-		ph2, succ := pollUntil(cancelCtx, planHistory(motion.PlanHistoryReq{ComponentName: req.ComponentName, ExecutionID: executionID1}, 1))
-		test.That(t, succ, test.ShouldBeTrue)
-		test.That(t, ph2.err, test.ShouldBeNil)
-		test.That(t, len(ph2.pws), test.ShouldEqual, 1)
-		test.That(t, ph2.pws[0].Plan.ID, test.ShouldResemble, resPS.ps[1].PlanID)
-		test.That(t, ph2.pws[0].Plan.ExecutionID, test.ShouldResemble, executionID1)
-		test.That(t, len(ph2.pws[0].StatusHistory), test.ShouldEqual, 2)
-		test.That(t, ph2.pws[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateStopped)
-		test.That(t, ph2.pws[0].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
+		// it is possible to retrieve the stopped execution as it is still before the TTL
+		ph2, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: req.ComponentName, ExecutionID: executionID1})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(ph2), test.ShouldEqual, 1)
+		test.That(t, ph2[0].Plan.ID, test.ShouldResemble, ps1[1].PlanID)
+		test.That(t, ph2[0].Plan.ExecutionID, test.ShouldResemble, executionID1)
+		test.That(t, len(ph2[0].StatusHistory), test.ShouldEqual, 2)
+		test.That(t, ph2[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateStopped)
+		test.That(t, ph2[0].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
 
 		time.Sleep(sleepTTLDuration)
 
-		resPS2, succ2 := pollUntil(cancelCtx, listPlanStatuses(1))
+		ps3, err := s.ListPlanStatuses(motion.ListPlanStatusesReq{})
 		// after the TTL; only the execution in a non terminal state is still around
-		test.That(t, succ2, test.ShouldBeTrue)
-		test.That(t, resPS2.err, test.ShouldBeNil)
-		test.That(t, len(resPS2.ps), test.ShouldEqual, 1)
-		test.That(t, resPS2.ps[0].ExecutionID, test.ShouldResemble, executionID2)
-		test.That(t, resPS2.ps[0].ComponentName, test.ShouldResemble, req.ComponentName)
-		test.That(t, resPS2.ps[0].PlanID, test.ShouldNotEqual, uuid.Nil)
-		test.That(t, resPS2.ps[0].Status.State, test.ShouldEqual, motion.PlanStateInProgress)
-		test.That(t, resPS2.ps[0].Status.Reason, test.ShouldBeNil)
-		test.That(t, resPS2.ps[0].Status.Timestamp.After(preExecution), test.ShouldBeTrue)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(ps3), test.ShouldEqual, 1)
+		test.That(t, ps3[0].ExecutionID, test.ShouldResemble, executionID2)
+		test.That(t, ps3[0].ComponentName, test.ShouldResemble, req.ComponentName)
+		test.That(t, ps3[0].PlanID, test.ShouldNotEqual, uuid.Nil)
+		test.That(t, ps3[0].Status.State, test.ShouldEqual, motion.PlanStateInProgress)
+		test.That(t, ps3[0].Status.Reason, test.ShouldBeNil)
+		test.That(t, ps3[0].Status.Timestamp.After(preExecution), test.ShouldBeTrue)
 
 		// should resemble ph1 as the most recent plan is still in progress & hasn't changed state
-		ph3, succ := pollUntil(cancelCtx, planHistory(motion.PlanHistoryReq{ComponentName: req.ComponentName}, 1))
-		test.That(t, succ, test.ShouldBeTrue)
-		test.That(t, ph1.err, test.ShouldBeNil)
+		ph3, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: req.ComponentName})
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ph3, test.ShouldResemble, ph1)
 
-		// the most first execution has been forgotten
-		ph4, succ := pollUntil(cancelCtx, planHistory(motion.PlanHistoryReq{ComponentName: req.ComponentName, ExecutionID: executionID1}, 1))
-		test.That(t, succ, test.ShouldBeTrue)
-		test.That(t, ph4.err, test.ShouldBeNil)
-		test.That(t, len(ph2.pws), test.ShouldEqual, 0)
-
-		// should fail as the in progress execution is still running
-		executionID3, err := state.StartExecution(ctx, s, req.ComponentName, req, executionWaitingForCtxCancelledPlanConstructor)
-		test.That(t, err, test.ShouldBeError, fmt.Errorf("there is already an active executionID: %s", executionID2))
-		test.That(t, executionID3, test.ShouldResemble, uuid.Nil)
+		// the first execution (stopped) has been forgotten
+		ph4, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: req.ComponentName, ExecutionID: executionID1})
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(req.ComponentName))
+		test.That(t, len(ph4), test.ShouldEqual, 0)
 
 		req2 := motion.MoveOnGlobeReq{ComponentName: base.Named("mybase2")}
 		executionID4, err := state.StartExecution(ctx, s, req2.ComponentName, req2, executionWaitingForCtxCancelledPlanConstructor)
 		test.That(t, err, test.ShouldBeNil)
 
 		req3 := motion.MoveOnGlobeReq{ComponentName: base.Named("mybase3")}
-		executionID5, err := state.StartExecution(ctx, s, req3.ComponentName, req3, executionWaitingForCtxCancelledPlanConstructor)
+		_, err = state.StartExecution(ctx, s, req3.ComponentName, req3, executionWaitingForCtxCancelledPlanConstructor)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = s.StopExecutionByResource(req3.ComponentName)
@@ -895,314 +877,145 @@ func TestState(t *testing.T) {
 
 		time.Sleep(sleepTTLDuration)
 
-		resPS3, succ3 := pollUntil(cancelCtx, listPlanStatuses(3))
-		test.That(t, succ3, test.ShouldBeTrue)
-		test.That(t, resPS3.err, test.ShouldBeNil)
-		test.That(t, len(resPS3.ps), test.ShouldEqual, 3)
-		test.That(t, resPS3.ps[0].ExecutionID.String(), test.ShouldResemble, executionID2.String())
-		test.That(t, resPS3.ps[0].ComponentName, test.ShouldResemble, req.ComponentName)
-		test.That(t, resPS3.ps[0].PlanID, test.ShouldNotEqual, uuid.Nil)
-		test.That(t, resPS3.ps[0].Status.State, test.ShouldEqual, motion.PlanStateInProgress)
-		test.That(t, resPS3.ps[0].Status.Reason, test.ShouldBeNil)
+		ps4, err := s.ListPlanStatuses(motion.ListPlanStatusesReq{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(ps4), test.ShouldEqual, 2)
+		test.That(t, ps4[0].ExecutionID.String(), test.ShouldResemble, executionID2.String())
+		test.That(t, ps4[0].ComponentName, test.ShouldResemble, req.ComponentName)
+		test.That(t, ps4[0].PlanID, test.ShouldNotEqual, uuid.Nil)
+		test.That(t, ps4[0].Status.State, test.ShouldEqual, motion.PlanStateInProgress)
+		test.That(t, ps4[0].Status.Reason, test.ShouldBeNil)
 
-		test.That(t, resPS3.ps[1].ExecutionID.String(), test.ShouldResemble, executionID4.String())
-		test.That(t, resPS3.ps[1].ComponentName, test.ShouldResemble, req2.ComponentName)
-		test.That(t, resPS3.ps[1].PlanID, test.ShouldNotEqual, uuid.Nil)
-		test.That(t, resPS3.ps[1].Status.State, test.ShouldEqual, motion.PlanStateInProgress)
-		test.That(t, resPS3.ps[1].Status.Reason, test.ShouldBeNil)
+		test.That(t, ps4[1].ExecutionID.String(), test.ShouldResemble, executionID4.String())
+		test.That(t, ps4[1].ComponentName, test.ShouldResemble, req2.ComponentName)
+		test.That(t, ps4[1].PlanID, test.ShouldNotEqual, uuid.Nil)
+		test.That(t, ps4[1].Status.State, test.ShouldEqual, motion.PlanStateInProgress)
+		test.That(t, ps4[1].Status.Reason, test.ShouldBeNil)
 
-		test.That(t, resPS3.ps[2].ExecutionID.String(), test.ShouldResemble, executionID5.String())
-		test.That(t, resPS3.ps[2].ComponentName, test.ShouldResemble, req3.ComponentName)
-		test.That(t, resPS3.ps[2].PlanID, test.ShouldNotEqual, uuid.Nil)
-		test.That(t, resPS3.ps[2].Status.State, test.ShouldEqual, motion.PlanStateStopped)
-		test.That(t, resPS3.ps[2].Status.Reason, test.ShouldBeNil)
+		err = s.StopExecutionByResource(req.ComponentName)
+		test.That(t, err, test.ShouldBeNil)
 
-		// ctxReplanning, triggerReplanning := context.WithCancel(context.Background())
-		// ctxExecutionSuccess, triggerExecutionSuccess := context.WithCancel(context.Background())
-		// executionID6, err := state.StartExecution(ctx, s, req.ComponentName, req, func(
-		// 	ctx context.Context,
-		// 	req motion.MoveOnGlobeReq,
-		// 	seedPlan motionplan.Plan,
-		// 	replanCount int,
-		// ) (state.PlannerExecutor, error) {
-		// 	return &testPlannerExecutor{
-		// 		executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
-		// 			if replanCount == 0 {
-		// 				// wait for replanning
-		// 				<-ctxReplanning.Done()
-		// 				return state.ExecuteResponse{Replan: true, ReplanReason: replanReason}, nil
-		// 			}
-		// 			<-ctxExecutionSuccess.Done()
-		// 			return state.ExecuteResponse{}, nil
-		// 		},
-		// 	}, nil
-		// })
-		// test.That(t, err, test.ShouldBeNil)
+		err = s.StopExecutionByResource(req2.ComponentName)
+		test.That(t, err, test.ShouldBeNil)
 
-		// triggerReplanning()
+		time.Sleep(sleepTTLDuration)
 
-		// poll until there are 2 plans in the history
-		// resPWS, succ := pollUntil(cancelCtx, planHistory(motion.PlanHistoryReq{ComponentName: myBase}, 2))
+		ps5, err := s.ListPlanStatuses(motion.ListPlanStatusesReq{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(ps5), test.ShouldEqual, 0)
 
-		// test.That(t, succ, test.ShouldBeTrue)
-		// test.That(t, resPWS.err, test.ShouldBeNil)
-		// test.That(t, len(resPWS.pws), test.ShouldEqual, 2)
-		//// Previous plan is moved to higher index
-		// test.That(t, resPWS.pws[1].Plan, test.ShouldResemble, pws4[0].Plan)
-		//// Current plan is a new plan
-		// test.That(t, resPWS.pws[0].Plan.ID, test.ShouldNotResemble, pws4[0].Plan.ID)
-		//// From the same execution (definition of a replan)
-		//test.That(t, resPWS.pws[0].Plan.ExecutionID, test.ShouldResemble, pws4[0].Plan.ExecutionID)
-		//// new current plan has an in progress status & was created after triggering replanning
-		//test.That(t, len(resPWS.pws[0].StatusHistory), test.ShouldEqual, 1)
-		//test.That(t, resPWS.pws[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateInProgress)
-		//test.That(t, resPWS.pws[0].StatusHistory[0].Reason, test.ShouldEqual, nil)
-		//test.That(t, resPWS.pws[0].StatusHistory[0].Timestamp.After(execution2Replan1), test.ShouldBeTrue)
-		//// previous plan was moved to failed state due to replanning after replanning was triggered
-		//test.That(t, len(resPWS.pws[1].StatusHistory), test.ShouldEqual, 2)
-		//// oldest satus of previous plan is unchanged, just at a higher index
-		//test.That(t, resPWS.pws[1].StatusHistory[1], test.ShouldResemble, pws4[0].StatusHistory[0])
-		//// last status of the previous plan is failed due to replanning & occurred after replanning was triggered
-		//test.That(t, resPWS.pws[1].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateFailed)
-		//test.That(t, resPWS.pws[1].StatusHistory[0].Reason, test.ShouldNotBeNil)
-		//test.That(t, *resPWS.pws[1].StatusHistory[0].Reason, test.ShouldResemble, replanReason)
-		//test.That(t, resPWS.pws[1].StatusHistory[0].Timestamp.After(execution2Replan1), test.ShouldBeTrue)
-		//test.That(t, planStatusTimestampsInOrder(resPWS.pws[0].StatusHistory), test.ShouldBeTrue)
-		//test.That(t, planStatusTimestampsInOrder(resPWS.pws[1].StatusHistory), test.ShouldBeTrue)
+		ctxReplanning, triggerReplanning := context.WithCancel(context.Background())
+		ctxExecutionSuccess, triggerExecutionSuccess := context.WithCancel(context.Background())
+		executionID6, err := state.StartExecution(ctx, s, req.ComponentName, req, func(
+			ctx context.Context,
+			req motion.MoveOnGlobeReq,
+			seedPlan motionplan.Plan,
+			replanCount int,
+		) (state.PlannerExecutor, error) {
+			return &testPlannerExecutor{
+				executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
+					if replanCount == 0 {
+						// wait for replanning
+						<-ctxReplanning.Done()
+						return state.ExecuteResponse{Replan: true, ReplanReason: replanReason}, nil
+					}
+					<-ctxExecutionSuccess.Done()
+					return state.ExecuteResponse{}, nil
+				},
+			}, nil
+		})
+		test.That(t, err, test.ShouldBeNil)
 
-		//// only the last plan is returned if LastPlanOnly is true
-		// pws6, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase, LastPlanOnly: true})
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, len(pws6), test.ShouldEqual, 1)
-		// test.That(t, pws6[0], test.ShouldResemble, resPWS.pws[0])
+		// Test replanning
+		triggerReplanning()
+		time.Sleep(sleepTTLDuration)
 
-		//// only the last plan is returned if LastPlanOnly is true
-		//// and the execution id is provided which matches the last execution for the component
-		// pws7, err := s.PlanHistory(motion.PlanHistoryReq{
-		//	ComponentName: myBase,
-		//	LastPlanOnly:  true,
-		//	ExecutionID:   pws6[0].Plan.ExecutionID,
-		// })
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, pws7, test.ShouldResemble, pws6)
+		ph5, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: req.ComponentName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(ph5), test.ShouldEqual, 2)
+		test.That(t, ph5[0].Plan.ExecutionID, test.ShouldEqual, executionID6)
+		test.That(t, ph5[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateInProgress)
+		test.That(t, ph5[1].Plan.ExecutionID, test.ShouldEqual, executionID6)
+		test.That(t, ph5[1].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateFailed)
+		test.That(t, ph5[1].StatusHistory[0].Reason, test.ShouldNotBeNil)
+		test.That(t, *ph5[1].StatusHistory[0].Reason, test.ShouldEqual, "replan triggered due to location drift")
 
-		//// Succeeded status
-		// preSuccessMsg := time.Now()
-		// triggerExecutionSuccess()
+		triggerExecutionSuccess()
+		time.Sleep(sleepTTLDuration)
 
-		// resPWS2, succ := pollUntil(cancelCtx, func() (pwsRes, bool,
-		// ) {
-		//	st := pwsRes{}
-		//	pws, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase})
-		//	if err == nil && len(pws[0].StatusHistory) == 2 {
-		//		st.pws = pws
-		//		st.err = err
-		//		return st, true
-		//	}
-		//	return st, false
-		// })
-		////
-		// test.That(t, succ, test.ShouldBeTrue)
-		// test.That(t, resPWS2.err, test.ShouldBeNil)
-		//test.That(t, len(resPWS2.pws), test.ShouldEqual, 2)
-		//// last plan is unchanged
-		//test.That(t, resPWS2.pws[1], test.ShouldResemble, resPWS.pws[1])
-		//// current plan is the same as it was before
-		//test.That(t, resPWS2.pws[0].Plan, test.ShouldResemble, pws6[0].Plan)
-		//// current plan now has a new status
-		//test.That(t, len(resPWS2.pws[0].StatusHistory), test.ShouldEqual, 2)
-		//test.That(t, resPWS2.pws[0].StatusHistory[1], test.ShouldResemble, pws6[0].StatusHistory[0])
-		//// new status is succeeded
-		//test.That(t, resPWS2.pws[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateSucceeded)
-		//test.That(t, resPWS2.pws[0].StatusHistory[0].Reason, test.ShouldBeNil)
-		//test.That(t, resPWS2.pws[0].StatusHistory[0].Timestamp.After(preSuccessMsg), test.ShouldBeTrue)
-		//test.That(t, planStatusTimestampsInOrder(resPWS2.pws[0].StatusHistory), test.ShouldBeTrue)
+		_, err = s.PlanHistory(motion.PlanHistoryReq{ComponentName: req.ComponentName})
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(req.ComponentName))
 
-		//// maintains success state after calling stop
-		// err = s.StopExecutionByResource(myBase)
-		// test.That(t, err, test.ShouldBeNil)
-		// postStopPWS1, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase})
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, resPWS2.pws, test.ShouldResemble, postStopPWS1)
+		ps6, err := s.ListPlanStatuses(motion.ListPlanStatusesReq{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(ps6), test.ShouldEqual, 0)
 
-		//// Failed after replanning
-		// preExecution3 := time.Now()
-		// replanFailReason := errors.New("replanning failed")
-		// executionID3, err := state.StartExecution(ctx, s, req.ComponentName, req, func(
-		//	ctx context.Context,
-		//	req motion.MoveOnGlobeReq,
-		//	seedPlan motionplan.Plan,
-		//	replanCount int,
-		// ) (state.PlannerExecutor, error) {
-		//	return &testPlannerExecutor{
-		//		planFunc: func(ctx context.Context) (state.PlanResponse, error) {
-		//			// first plan succeeds
-		//			if replanCount == 0 {
-		//				pbc := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
-		//				return state.PlanResponse{PosesByComponent: []motionplan.PlanStep{pbc}}, nil
-		//			}
-		//			// first replan succeeds
-		//			if replanCount == 1 {
-		//				pbc1 := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
-		//				pbc2 := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
-		//				return state.PlanResponse{PosesByComponent: []motionplan.PlanStep{pbc1, pbc2}}, nil
-		//			}
-		//			// second replan fails
-		//			return state.PlanResponse{}, replanFailReason
-		//		},
-		//		executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
-		//			if replanCount == 0 {
-		//				return state.ExecuteResponse{Replan: true, ReplanReason: replanReason}, nil
-		//			}
-		//			if replanCount == 1 {
-		//				return state.ExecuteResponse{Replan: true, ReplanReason: replanReason}, nil
-		//			}
-		//			t.Log("shouldn't execute as first replanning fails")
-		//			t.FailNow()
-		//			return state.ExecuteResponse{}, nil
-		//		},
-		//	}, nil
-		// })
-		//test.That(t, err, test.ShouldBeNil)
-		//test.That(t, executionID2, test.ShouldNotResemble, executionID1)
+		// Failed after replanning
+		replanFailReason := errors.New("replanning failed")
+		executionID7, err := state.StartExecution(ctx, s, req.ComponentName, req, func(
+			ctx context.Context,
+			req motion.MoveOnGlobeReq,
+			seedPlan motionplan.Plan,
+			replanCount int,
+		) (state.PlannerExecutor, error) {
+			return &testPlannerExecutor{
+				planFunc: func(ctx context.Context) (state.PlanResponse, error) {
+					// first replan succeeds
+					if replanCount == 0 {
+						pbc1 := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
+						pbc2 := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
+						return state.PlanResponse{PosesByComponent: []motionplan.PlanStep{pbc1, pbc2}}, nil
+					}
 
-		// resPWS3, succ := pollUntil(cancelCtx, func() (pwsRes, bool,
-		// ) {
-		//	st := pwsRes{}
-		//	pws, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase})
-		//	if err == nil && len(pws) == 2 && len(pws[0].StatusHistory) == 2 {
-		//		st.pws = pws
-		//		st.err = err
-		//		return st, true
-		//	}
-		//	return st, false
-		// })
+					if replanCount == 1 {
+						pbc1 := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
+						pbc2 := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
+						return state.PlanResponse{PosesByComponent: []motionplan.PlanStep{pbc1, pbc2}}, nil
+					}
 
-		// test.That(t, resPWS3.err, test.ShouldBeNil)
+					// second replan fails
+					return state.PlanResponse{}, replanFailReason
+				},
+				executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
+					if replanCount == 0 {
+						return state.ExecuteResponse{Replan: true, ReplanReason: replanReason}, nil
+					}
+					if replanCount == 1 {
+						return state.ExecuteResponse{Replan: true, ReplanReason: replanReason}, nil
+					}
+					t.Log("shouldn't execute as first replanning fails")
+					t.FailNow()
+					return state.ExecuteResponse{}, nil
+				},
+			}, nil
+		})
+		test.That(t, err, test.ShouldBeNil)
+		time.Sleep(sleepCheckDuration)
+		ph6, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: req.ComponentName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(ph6), test.ShouldEqual, 2)
+		test.That(t, ph6[0].Plan.ExecutionID, test.ShouldResemble, executionID7)
+		test.That(t, ph6[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateFailed)
+		test.That(t, ph6[0].StatusHistory[0].Reason, test.ShouldNotBeNil)
+		test.That(t, *ph6[0].StatusHistory[0].Reason, test.ShouldResemble, replanFailReason.Error())
+		test.That(t, ph6[1].Plan.ExecutionID, test.ShouldResemble, executionID7)
+		test.That(t, ph6[1].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateFailed)
+		test.That(t, ph6[1].StatusHistory[0].Reason, test.ShouldNotBeNil)
+		test.That(t, *ph6[1].StatusHistory[0].Reason, test.ShouldResemble, replanReason)
 
-		// test.That(t, len(resPWS3.pws), test.ShouldEqual, 2)
+		ps7, err := s.ListPlanStatuses(motion.ListPlanStatusesReq{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(ps7), test.ShouldEqual, 2)
+		test.That(t, ps7[0].PlanID, test.ShouldEqual, ph6[0].Plan.ID)
+		test.That(t, ps7[1].PlanID, test.ShouldEqual, ph6[1].Plan.ID)
 
-		// test.That(t, resPWS3.pws[0].Plan.ID, test.ShouldNotEqual, resPWS2.pws[1].Plan.ID)
+		time.Sleep(sleepTTLDuration)
+		_, err = s.PlanHistory(motion.PlanHistoryReq{ComponentName: req.ComponentName})
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(req.ComponentName))
 
-		//test.That(t, resPWS3.pws[1].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateFailed)
-		//test.That(t, *resPWS3.pws[1].StatusHistory[0].Reason, test.ShouldResemble, replanReason)
-		//test.That(t, resPWS3.pws[1].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
-		//test.That(t, resPWS3.pws[1].StatusHistory[1].Reason, test.ShouldBeNil)
-		//test.That(t, resPWS3.pws[1].StatusHistory[1].Timestamp.After(preExecution3), test.ShouldBeTrue)
-		//test.That(t, len(resPWS3.pws[0].StatusHistory), test.ShouldEqual, 2)
-		//test.That(t, resPWS3.pws[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateFailed)
-		//test.That(t, *resPWS3.pws[0].StatusHistory[0].Reason, test.ShouldResemble, replanFailReason.Error())
-		//test.That(t, resPWS3.pws[0].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
-		//test.That(t, resPWS3.pws[0].StatusHistory[1].Reason, test.ShouldBeNil)
-		//test.That(t, len(resPWS3.pws[0].Plan.Steps), test.ShouldEqual, 2)
-		//test.That(t, len(resPWS3.pws[1].Plan.Steps), test.ShouldEqual, 1)
-		//test.That(t, planStatusTimestampsInOrder(resPWS3.pws[0].StatusHistory), test.ShouldBeTrue)
-		//test.That(t, planStatusTimestampsInOrder(resPWS3.pws[1].StatusHistory), test.ShouldBeTrue)
-
-		//// maintains failed state after calling stop
-		// err = s.StopExecutionByResource(myBase)
-		// test.That(t, err, test.ShouldBeNil)
-		// postStopPWS2, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase})
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, resPWS3.pws, test.ShouldResemble, postStopPWS2)
-
-		//// Failed at the end of execution
-		// preExecution4 := time.Now()
-		// executionFailReason := errors.New("execution failed")
-		// executionID4, err := state.StartExecution(ctx, s, req.ComponentName, req, func(
-		//	ctx context.Context,
-		//	req motion.MoveOnGlobeReq,
-		//	seedPlan motionplan.Plan,
-		//	replanCount int,
-		// ) (state.PlannerExecutor, error) {
-		//	return &testPlannerExecutor{
-		//		executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
-		//			if replanCount == 0 {
-		//				return state.ExecuteResponse{Replan: true, ReplanReason: replanReason}, nil
-		//			}
-		//			return state.ExecuteResponse{}, executionFailReason
-		//		},
-		//	}, nil
-		// })
-		//test.That(t, err, test.ShouldBeNil)
-
-		// resPWS4, succ := pollUntil(cancelCtx, func() (pwsRes, bool,
-		// ) {
-		//	st := pwsRes{}
-		//	pws, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase})
-		//	if err == nil && len(pws) == 2 && len(pws[0].StatusHistory) == 2 {
-		//		st.pws = pws
-		//		st.err = err
-		//		return st, true
-		//	}
-		//	return st, false
-		// })
-
-		// test.That(t, resPWS4.err, test.ShouldBeNil)
-
-		// test.That(t, len(resPWS4.pws), test.ShouldEqual, 2)
-
-		// test.That(t, resPWS4.pws[0].Plan.ID, test.ShouldNotEqual, resPWS3.pws[1].Plan.ID)
-
-		//test.That(t, resPWS4.pws[1].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateFailed)
-		//test.That(t, *resPWS4.pws[1].StatusHistory[0].Reason, test.ShouldResemble, replanReason)
-		//test.That(t, resPWS4.pws[1].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
-		//test.That(t, resPWS4.pws[1].StatusHistory[1].Reason, test.ShouldBeNil)
-		//test.That(t, resPWS4.pws[1].StatusHistory[1].Timestamp.After(preExecution4), test.ShouldBeTrue)
-		//test.That(t, len(resPWS4.pws[0].StatusHistory), test.ShouldEqual, 2)
-		//test.That(t, resPWS4.pws[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateFailed)
-		//test.That(t, *resPWS4.pws[0].StatusHistory[0].Reason, test.ShouldResemble, executionFailReason.Error())
-		//test.That(t, resPWS4.pws[0].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
-		//test.That(t, resPWS4.pws[0].StatusHistory[1].Reason, test.ShouldBeNil)
-
-		//// providing an executionID lets you look up the plans from a prior execution
-		// pws12, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase, ExecutionID: executionID3})
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, pws12, test.ShouldResemble, resPWS3.pws)
-
-		//// providing an executionID with lastPlanOnly gives you the last plan of that execution
-		// pws13, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase, ExecutionID: executionID3, LastPlanOnly: true})
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, len(pws13), test.ShouldEqual, 1)
-		// test.That(t, pws13[0], test.ShouldResemble, resPWS3.pws[0])
-
-		//// providing an executionID which is not known to the state returns an error
-		// pws14, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase, ExecutionID: uuid.New()})
-		// test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(myBase))
-		// test.That(t, len(pws14), test.ShouldEqual, 0)
-
-		//// Returns the last status of all plans that have executed
-		// ps7, err := s.ListPlanStatuses(motion.ListPlanStatusesReq{})
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, len(ps7), test.ShouldEqual, 7)
-		// test.That(t, ps7[0].ComponentName, test.ShouldResemble, myBase)
-		// test.That(t, ps7[0].ExecutionID, test.ShouldResemble, executionID4)
-		//test.That(t, ps7[0].PlanID, test.ShouldResemble, resPWS4.pws[0].Plan.ID)
-		//test.That(t, ps7[0].Status, test.ShouldResemble, resPWS4.pws[0].StatusHistory[0])
-
-		// test.That(t, ps7[1].ExecutionID, test.ShouldResemble, executionID4)
-
-		// test.That(t, ps7[2].ComponentName, test.ShouldResemble, myBase)
-
-		// test.That(t, ps7[2].Status, test.ShouldResemble, resPWS3.pws[0].StatusHistory[0])
-
-		// test.That(t, ps7[3].ComponentName, test.ShouldResemble, myBase)
-
-		// test.That(t, ps7[3].Status, test.ShouldResemble, resPWS3.pws[1].StatusHistory[0])
-
-		// test.That(t, ps7[4].ComponentName, test.ShouldResemble, myBase)
-
-		// test.That(t, ps7[4].Status, test.ShouldResemble, resPWS2.pws[0].StatusHistory[0])
-
-		// test.That(t, ps7[5].ComponentName, test.ShouldResemble, myBase)
-
-		// test.That(t, ps7[5].Status, test.ShouldResemble, resPWS2.pws[1].StatusHistory[0])
-
-		// test.That(t, ps7[6].ComponentName, test.ShouldResemble, myBase)
-
-		// test.That(t, ps7[6].Status, test.ShouldResemble, pws2[0].StatusHistory[0])
-
-		// ps8, err := s.ListPlanStatuses(motion.ListPlanStatusesReq{OnlyActivePlans: true})
+		ps8, err := s.ListPlanStatuses(motion.ListPlanStatusesReq{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(ps8), test.ShouldEqual, 0)
 	})
 }
 
