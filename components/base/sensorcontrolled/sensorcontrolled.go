@@ -175,13 +175,18 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		// assign linear and angular PID correctly based on the given type
 		var linear, angular basePIDConfig
 		for _, c := range newConf.ControlParameters {
-			if c.Type == typeLinVel {
+			switch c.Type {
+			case typeLinVel:
 				linear = c
-			} else if c.Type == typeAngVel {
+			case typeAngVel:
 				angular = c
+			default:
+				sb.logger.Warn("control_parameters type must be 'linear_velocity' or 'angular_velocity'")
 			}
 		}
 
+		// unlock the mutex before setting up the control loop so that the motors
+		// are not locked, and can run if any auto-tuning is necessary
 		sb.mu.Unlock()
 		// check if both linear and angular need to be tuned, and if so start by tuning linear
 		if !(linear.P == 0.0 && linear.I == 0.0 && linear.D == 0.0 &&
@@ -192,25 +197,12 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 				return err
 			}
 		} else {
-			// to tune linear PID values, angular PI values must be non-zero
-			fakeConf := basePIDConfig{Type: typeAngVel, P: 0.5, I: 0.5, D: 0.0}
-			sb.logger.Info("tuning linear PID")
-			if err := sb.autoTuningProcess(ctx, linear, fakeConf); err != nil {
-				sb.mu.Lock()
-				return err
-			}
-			if err := sb.Stop(ctx, nil); err != nil {
-				sb.mu.Lock()
-				return err
-			}
-			// to tune angular PID values, linear PI values must be non-zero
-			fakeConf.Type = typeLinVel
-			sb.logger.Info("tuning angular PID")
-			if err := sb.autoTuningProcess(ctx, fakeConf, angular); err != nil {
-				sb.mu.Lock()
+			cancelCtx, cancelFunc := context.WithCancel(context.Background())
+			if err := sb.autoTuneAll(cancelCtx, cancelFunc, linear, angular); err != nil {
 				return err
 			}
 		}
+		// relock the mutex after setting up the control loop since there is still a  defer unlock
 		sb.mu.Lock()
 	}
 
