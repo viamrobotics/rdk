@@ -197,7 +197,6 @@ func newRTKSerial(
 		lastcompassheading: movementsensor.NewLastCompassHeading(),
 	}
 
-	// reconfigure
 	if err := g.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
