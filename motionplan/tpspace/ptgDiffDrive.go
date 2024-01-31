@@ -28,7 +28,7 @@ func (ptg *ptgDiffDrive) Velocities(alpha, dist float64) (float64, float64, erro
 	if dist == 0 {
 		return 0, 0, nil
 	}
-	if dist <= math.Abs(alpha)*angleAdjust {
+	if dist <= math.Abs(rdkutils.RadToDeg(alpha))*angleAdjust {
 		return 0, math.Copysign(1.0, alpha), nil
 	}
 	return 1.0, 0, nil
