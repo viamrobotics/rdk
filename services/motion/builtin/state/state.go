@@ -393,8 +393,6 @@ func StartExecution[R any](
 		return uuid.Nil, err
 	}
 
-	// If the background goroutine hasn't been booted yet, boot it now
-
 	return e.id, nil
 }
 
