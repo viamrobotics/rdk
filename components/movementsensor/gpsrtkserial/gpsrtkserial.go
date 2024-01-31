@@ -234,13 +234,11 @@ func (g *rtkSerial) start() error {
 
 // connect attempts to connect to ntrip client until successful connection or timeout.
 func (g *rtkSerial) connect(casterAddr, user, pwd string, maxAttempts int) error {
-	attempts := 0
-
 	var c *ntrip.Client
 	var err error
 
 	g.logger.Debug("Connecting to NTRIP caster")
-	for attempts < maxAttempts {
+	for attempts := 0; attempts < maxAttempts; attempts++ {
 		select {
 		case <-g.cancelCtx.Done():
 			return g.cancelCtx.Err()
@@ -251,8 +249,6 @@ func (g *rtkSerial) connect(casterAddr, user, pwd string, maxAttempts int) error
 		if err == nil {
 			break
 		}
-
-		attempts++
 	}
 
 	if err != nil {
