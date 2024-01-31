@@ -267,6 +267,94 @@ func TestClient(t *testing.T) {
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
+	t.Run("MoveOnMap", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+
+		test.That(t, err, test.ShouldBeNil)
+
+		client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		t.Run("returns error without calling client since destination is nil", func(t *testing.T) {
+			injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
+				t.Log("should not be called")
+				t.FailNow()
+				return uuid.Nil, errors.New("should not be reached")
+			}
+
+			req := motion.MoveOnMapReq{
+				ComponentName: baseName,
+				SlamName:      slamName,
+			}
+
+			// nil destination is can't be converted to proto
+			executionID, err := client.MoveOnMap(ctx, req)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err, test.ShouldBeError, errors.New("must provide a destination"))
+			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+		})
+
+		t.Run("returns error if client returns error", func(t *testing.T) {
+			errExpected := errors.New("some client error")
+			injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
+				return uuid.Nil, errExpected
+			}
+
+			req := motion.MoveOnMapReq{
+				ComponentName: baseName,
+				Destination:   spatialmath.NewZeroPose(),
+				SlamName:      slamName,
+				MotionCfg:     &motion.MotionConfiguration{},
+			}
+
+			executionID, err := client.MoveOnMap(ctx, req)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
+			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+		})
+
+		t.Run("otherwise returns success with an executionID", func(t *testing.T) {
+			expectedExecutionID := uuid.New()
+			injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
+				return expectedExecutionID, nil
+			}
+
+			req := motion.MoveOnMapReq{
+				ComponentName: baseName,
+				Destination:   spatialmath.NewZeroPose(),
+				SlamName:      slamName,
+				MotionCfg:     &motion.MotionConfiguration{},
+			}
+
+			executionID, err := client.MoveOnMap(ctx, req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, executionID, test.ShouldEqual, expectedExecutionID)
+		})
+
+		t.Run("return success with non-nil obstacles", func(t *testing.T) {
+			expectedExecutionID := uuid.New()
+			injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
+				test.That(t, len(req.Obstacles), test.ShouldEqual, 1)
+				test.That(t, req.Obstacles[0].AlmostEqual(spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")), test.ShouldBeTrue)
+				return expectedExecutionID, nil
+			}
+
+			req := motion.MoveOnMapReq{
+				ComponentName: baseName,
+				Destination:   spatialmath.NewZeroPose(),
+				SlamName:      slamName,
+				MotionCfg:     &motion.MotionConfiguration{},
+				Obstacles:     []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")},
+			}
+
+			executionID, err := client.MoveOnMap(ctx, req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, executionID, test.ShouldEqual, expectedExecutionID)
+		})
+
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
 
 	t.Run("MoveOnGlobe", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
