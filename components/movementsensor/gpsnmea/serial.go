@@ -171,7 +171,9 @@ func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context, extra map[strin
 	return &acc, g.err.Get()
 }
 
-// LinearVelocity returns the sensor's linear velocity.
+// LinearVelocity returns the sensor's linear velocity. It requires having a compass heading, so we
+// know which direction our speed is in. We assume all of this speed is horizontal, and not in
+// gaining/losing altitude.
 func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
