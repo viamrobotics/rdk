@@ -28,7 +28,6 @@ const (
 	constrainedTries  = 30
 	nloptStepsPerIter = 4001
 	defaultJump       = 1e-8
-	log10magScale     = 3.
 )
 
 // NloptIK TODO.
