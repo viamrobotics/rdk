@@ -265,6 +265,9 @@ func (g *rtkSerial) connect(casterAddr, user, pwd string, maxAttempts int) error
 
 // getStream attempts to connect to ntrip stream. We give up after maxAttempts unsuccessful tries.
 func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	var rc io.ReadCloser
 	var err error
 
@@ -282,15 +285,10 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 		}
 
 		rc, err = func() (io.ReadCloser, error) {
-			g.mu.Lock()
-			defer g.mu.Unlock()
 			return g.ntripClient.Client.GetStream(mountPoint)
 		}()
 		if err == nil {
 			g.logger.Debug("Connected to stream")
-
-			g.ntripMu.Lock()
-			defer g.ntripMu.Unlock()
 
 			g.ntripClient.Stream = rc
 			return g.err.Get()
@@ -306,10 +304,6 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 
 	// The error was related to the old ICY protocol. Try storing the ReadCloser anyway.
 	g.logger.Warnf("Detected old HTTP protocol: %s", err)
-
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
 	g.ntripClient.Stream = rc
 	return err
 }
