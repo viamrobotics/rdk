@@ -343,15 +343,26 @@ func validateNotNegNorNaN(f float64, name string) error {
 	return validateNotNeg(f, name)
 }
 
-func newValidatedMotionCfg(motionCfg *motion.MotionConfiguration) (*validatedMotionConfiguration, error) {
+func newValidatedMotionCfg(motionCfg *motion.MotionConfiguration, reqType requestType) (*validatedMotionConfiguration, error) {
 	empty := &validatedMotionConfiguration{}
 	vmc := &validatedMotionConfiguration{
 		angularDegsPerSec:     defaultAngularDegsPerSec,
 		linearMPerSec:         defaultLinearMPerSec,
 		obstaclePollingFreqHz: defaultObstaclePollingHz,
 		positionPollingFreqHz: defaultPositionPollingHz,
-		planDeviationMM:       defaultPlanDeviationM * 1e3,
-		obstacleDetectors:     []motion.ObstacleDetectorName{},
+		// planDeviationMM:       defaultPlanDeviationM * 1e3,
+		obstacleDetectors: []motion.ObstacleDetectorName{},
+	}
+
+	switch reqType {
+	case requestTypeMoveOnGlobe:
+		vmc.planDeviationMM = defaultGlobePlanDeviationM * 1e3
+	case requestTypeMoveOnMap:
+		vmc.planDeviationMM = defaultSlamPlanDeviationM * 1e3
+	case requestTypeUnspecified:
+		fallthrough
+	default:
+		return empty, fmt.Errorf("invalid moveRequest.requestType: %d", reqType)
 	}
 
 	if motionCfg == nil {
@@ -422,7 +433,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		}
 	}
 
-	motionCfg, err := newValidatedMotionCfg(req.MotionCfg)
+	motionCfg, err := newValidatedMotionCfg(req.MotionCfg, requestTypeMoveOnGlobe)
 	if err != nil {
 		return nil, err
 	}
@@ -542,7 +553,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 		}
 	}
 
-	motionCfg, err := newValidatedMotionCfg(req.MotionCfg)
+	motionCfg, err := newValidatedMotionCfg(req.MotionCfg, requestTypeMoveOnMap)
 	if err != nil {
 		return nil, err
 	}
@@ -632,9 +643,6 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	worldObstacles []spatialmath.Geometry,
 	valExtra validatedExtra,
 ) (*moveRequest, error) {
-	if spatialmath.PoseAlmostEqualEps(goalPoseInWorld, spatialmath.NewZeroPose(), motionCfg.planDeviationMM) {
-		return nil, errors.Errorf("no need to move, already within planDeviationMM: %f", motionCfg.planDeviationMM)
-	}
 	// replace original base frame with one that knows how to move itself and allow planning for
 	kinematicFrame := kb.Kinematics()
 	if err := fs.ReplaceFrame(kinematicFrame); err != nil {
@@ -658,6 +666,9 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	startPoseInv := spatialmath.PoseInverse(startPose.Pose())
 
 	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld))
+	if spatialmath.PoseAlmostCoincidentEps(goal.Pose(), spatialmath.NewZeroPose(), motionCfg.planDeviationMM) {
+		return nil, errors.Errorf("no need to move, already within planDeviationMM: %f", motionCfg.planDeviationMM)
+	}
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
 	geoms := make([]spatialmath.Geometry, 0, len(worldObstacles))

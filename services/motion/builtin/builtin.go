@@ -42,15 +42,16 @@ func init() {
 }
 
 const (
-	builtinOpLabel                   = "motion-service"
-	maxTravelDistanceMM              = 5e6 // this is equivalent to 5km
-	lookAheadDistanceMM      float64 = 5e6
-	defaultSmoothIter                = 30
-	defaultAngularDegsPerSec         = 20.
-	defaultLinearMPerSec             = 0.3
-	defaultObstaclePollingHz         = 1.
-	defaultPlanDeviationM            = 2.6
-	defaultPositionPollingHz         = 1.
+	builtinOpLabel                     = "motion-service"
+	maxTravelDistanceMM                = 5e6 // this is equivalent to 5km
+	lookAheadDistanceMM        float64 = 5e6
+	defaultSmoothIter                  = 30
+	defaultAngularDegsPerSec           = 20.
+	defaultLinearMPerSec               = 0.3
+	defaultObstaclePollingHz           = 1.
+	defaultSlamPlanDeviationM          = 1.
+	defaultGlobePlanDeviationM         = 2.6
+	defaultPositionPollingHz           = 1.
 )
 
 // inputEnabledActuator is an actuator that interacts with the frame system.
