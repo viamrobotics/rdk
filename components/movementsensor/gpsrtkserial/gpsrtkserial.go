@@ -306,13 +306,12 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 
 	// The error was related to the old ICY protocol. Try storing the ReadCloser anyway.
 	g.logger.Warnf("Detected old HTTP protocol: %s", err)
-	g.err.Set(err)
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
 	g.ntripClient.Stream = rc
-	return g.err.Get()
+	return err
 }
 
 // openPort opens the serial port for writing.
