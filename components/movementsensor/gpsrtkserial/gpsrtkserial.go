@@ -272,7 +272,11 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 
 	g.logger.Debug("Getting NTRIP stream")
 
-	for attempts < maxAttempts && !g.isClosed {
+	for attempts < maxAttempts {
+		if g.isClosed {
+			return g.err.Get()
+		}
+
 		select {
 		case <-g.cancelCtx.Done():
 			return errors.New("Canceled")
