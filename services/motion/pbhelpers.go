@@ -1,11 +1,11 @@
 package motion
 
 import (
-	"errors"
 	"math"
 
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
@@ -340,11 +340,20 @@ func moveOnMapRequestFromProto(req *pb.MoveOnMapRequest) (MoveOnMapReq, error) {
 	if protoSlamServiceName == nil {
 		return MoveOnMapReq{}, errors.New("received nil *commonpb.ResourceName for SlamService name")
 	}
+	geoms := []spatialmath.Geometry{}
+	if obs := req.GetObstacles(); len(obs) > 0 {
+		convertedGeom, err := spatialmath.NewGeometriesFromProto(obs)
+		if err != nil {
+			return MoveOnMapReq{}, errors.Wrap(err, "cannot convert obstacles into geometries")
+		}
+		geoms = convertedGeom
+	}
 	return MoveOnMapReq{
 		ComponentName: rprotoutils.ResourceNameFromProto(protoComponentName),
 		Destination:   spatialmath.NewPoseFromProtobuf(req.GetDestination()),
 		SlamName:      rprotoutils.ResourceNameFromProto(protoSlamServiceName),
 		MotionCfg:     configurationFromProto(req.MotionConfiguration),
+		Obstacles:     geoms,
 		Extra:         req.Extra.AsMap(),
 	}, nil
 }
@@ -386,12 +395,12 @@ func (r MoveOnMapReq) toProto(name string) (*pb.MoveOnMapRequest, error) {
 	if r.Destination == nil {
 		return nil, errors.New("must provide a destination")
 	}
-
 	req := &pb.MoveOnMapRequest{
 		Name:            name,
 		ComponentName:   rprotoutils.ResourceNameToProto(r.ComponentName),
 		Destination:     spatialmath.PoseToProtobuf(r.Destination),
 		SlamServiceName: rprotoutils.ResourceNameToProto(r.SlamName),
+		Obstacles:       spatialmath.NewGeometriesToProto(r.Obstacles),
 		Extra:           ext,
 	}
 
