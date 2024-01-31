@@ -555,24 +555,6 @@ func TestServerMoveOnMap(t *testing.T) {
 		test.That(t, moveOnMapResponse.ExecutionId, test.ShouldEqual, firstExecutionID.String())
 	})
 
-	t.Run("nil obstacles passes", func(t *testing.T) {
-		moveOnMapReq := &pb.MoveOnMapRequest{
-			Name:            testMotionServiceName.ShortName(),
-			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
-			Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
-			SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
-		}
-
-		firstExecutionID := uuid.New()
-		injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
-			return firstExecutionID, nil
-		}
-
-		moveOnMapResponse, err := server.MoveOnMap(context.Background(), moveOnMapReq)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, moveOnMapResponse.ExecutionId, test.ShouldEqual, firstExecutionID.String())
-	})
-
 	t.Run("non-nil obstacles passes", func(t *testing.T) {
 		moveOnMapReq := &pb.MoveOnMapRequest{
 			Name:            testMotionServiceName.ShortName(),
@@ -594,7 +576,7 @@ func TestServerMoveOnMap(t *testing.T) {
 		test.That(t, moveOnMapResponse.ExecutionId, test.ShouldEqual, firstExecutionID.String())
 	})
 
-	t.Run("fails accordingly", func(t *testing.T) {
+	t.Run("fails with inconvertible geometry", func(t *testing.T) {
 		moveOnMapReq := &pb.MoveOnMapRequest{
 			Name:            testMotionServiceName.ShortName(),
 			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
