@@ -66,6 +66,26 @@ func (m *EncodedMotor) updateControlBlock(ctx context.Context, setPoint, maxVel 
 	}
 	return nil
 }
+func (m *EncodedMotor) setupControlLoop() {
+	options := control.Options{
+		PositionControlUsingTrapz: true,
+	}
+
+	if m.cfg.ControlParameters[0].P == 0.0 &&
+		m.cfg.ControlParameters[0].I == 0.0 &&
+		m.cfg.ControlParameters[0].D == 0.0 {
+		options.NeedsAutoTuning = true
+	}
+
+	pl, err := control.SetupPIDControlLoop(m.cfg.ControlParameters, m.Name().ShortName(), options, m, m.logger)
+	if err != nil {
+		m.logger.Error(err)
+	}
+
+	m.loop = pl.ControlLoop
+
+	// tune here ?
+}
 
 func (m *EncodedMotor) storeBlockOfType(ctx context.Context, bType, bName string) error {
 	blocks := m.loop.ConfigsAtType(ctx, bType)

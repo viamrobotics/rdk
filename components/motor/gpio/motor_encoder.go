@@ -102,22 +102,17 @@ func newEncodedMotor(
 	em.encoder = realEncoder
 
 	// setup control loop
-	if motorConfig.ControlParameters != nil {
+	if len(motorConfig.ControlParameters) != 0 {
 		// create control loop config with PID values from config
 		em.controlLoopConfig = em.createControlLoopConfig(
-			motorConfig.ControlParameters.P,
-			motorConfig.ControlParameters.I,
-			motorConfig.ControlParameters.D,
+			motorConfig.ControlParameters[0].P,
+			motorConfig.ControlParameters[0].I,
+			motorConfig.ControlParameters[0].D,
 		)
 
-		cLoop, err := control.NewLoop(em.logger, em.controlLoopConfig, em)
-		if err != nil {
-			em.logger.Error(err)
-		}
-		if err = cLoop.Start(); err != nil {
-			em.logger.Error(err)
-		}
-		em.loop = cLoop
+		options := control.Options{}
+
+		control.SetupPIDControlLoop(motorConfig.ControlParameters, em.Name().ShortName(), options, em, logger)
 
 		// validate control loop config
 		if err = em.validateControlConfig(cancelCtx); err != nil {
