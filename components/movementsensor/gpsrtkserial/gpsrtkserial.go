@@ -223,14 +223,12 @@ func newRTKSerial(
 }
 
 func (g *rtkSerial) start() error {
-	if !g.isClosed {
-		err := g.connectToNTRIP()
-		if err != nil {
-			return err
-		}
-		g.activeBackgroundWorkers.Add(1)
-		utils.PanicCapturingGo(g.receiveAndWriteSerial)
+	err := g.connectToNTRIP()
+	if err != nil {
+		return err
 	}
+	g.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(g.receiveAndWriteSerial)
 	return g.err.Get()
 }
 
