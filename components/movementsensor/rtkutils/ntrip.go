@@ -15,6 +15,10 @@ import (
 )
 
 const (
+	// id numbers of the different fields returned in the standard
+	// Stream response from the ntrip client, numbered 1-18.
+	// Information on each field is explained int the comments
+	// of the Stream struct.
 	mp            = 1
 	id            = 2
 	format        = 3
@@ -135,7 +139,9 @@ func (n *NtripInfo) ParseSourcetable(logger logging.Logger) (*Sourcetable, error
 Loop:
 	for scanner.Scan() {
 		ln := scanner.Text()
-		if strings.HasPrefix(ln, "#") || strings.HasPrefix(ln, "*") { // comment
+
+		// Check if the line is a comment.
+		if strings.HasPrefix(ln, "#") || strings.HasPrefix(ln, "*") {
 			continue
 		}
 		fields := strings.Split(ln, ";")
@@ -168,7 +174,8 @@ Loop:
 func parseStream(line string) (Stream, error) {
 	fields := strings.Split(line, ";")
 
-	// standard stream contains 19 fields.
+	// Standard stream contains 19 fields.
+	// They are enumerated by their constants at the top of the file
 	if len(fields) < 19 {
 		return Stream{}, fmt.Errorf("missing fields at stream line: %s", line)
 	}
