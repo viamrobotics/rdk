@@ -127,7 +127,6 @@ type rtkSerial struct {
 
 	mu                 sync.Mutex // Mutex for general synchronization during reconfigure.
 	ntripMu            sync.Mutex // Mutex for NTRIP-related operations.
-	ntripconfigMu      sync.Mutex // Mutex for NTRIP configuration.
 	ntripClient        *rtk.NtripInfo
 	isConnectedToNtrip bool
 	isClosed           bool
@@ -170,7 +169,6 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		g.logger.CInfo(ctx, "serial_baud_rate using default baud rate 38400")
 	}
 
-	g.ntripconfigMu.Lock()
 	ntripConfig := &rtk.NtripConfig{
 		NtripURL:             newConf.NtripURL,
 		NtripUser:            newConf.NtripUser,
@@ -193,8 +191,6 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 		g.ntripClient = tempNtripClient
 	}
-
-	g.ntripconfigMu.Unlock()
 
 	g.logger.Debug("done reconfiguring")
 
