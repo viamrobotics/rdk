@@ -89,6 +89,7 @@ func newEncodedMotor(
 		logger:            logger,
 		opMgr:             operation.NewSingleOperationManager(),
 		startedRPMMonitor: false,
+		loop:              nil,
 	}
 
 	props, err := realEncoder.Properties(context.Background(), nil)
@@ -103,21 +104,14 @@ func newEncodedMotor(
 
 	// setup control loop
 	if len(motorConfig.ControlParameters) != 0 {
-		// create control loop config with PID values from config
-		em.controlLoopConfig = em.createControlLoopConfig(
-			motorConfig.ControlParameters[0].P,
-			motorConfig.ControlParameters[0].I,
-			motorConfig.ControlParameters[0].D,
-		)
-
-		options := control.Options{}
-
-		control.SetupPIDControlLoop(motorConfig.ControlParameters, em.Name().ShortName(), options, em, logger)
-
-		// validate control loop config
-		if err = em.validateControlConfig(cancelCtx); err != nil {
+		if err := em.setupControlLoop(); err != nil {
 			return nil, err
 		}
+
+		// // validate control loop config
+		// if err = em.validateControlConfig(cancelCtx); err != nil {
+		// 	return nil, err
+		// }
 	} else {
 		// TODO DOCS-1524: link to docs that explain control parameters
 		em.logger.Warn(
@@ -195,7 +189,7 @@ func (m *EncodedMotor) rpmMonitorStart() {
 		}
 	}
 	// create new control loop if control config exists
-	if m.cfg.ControlParameters != nil {
+	if len(m.cfg.ControlParameters) != 0 {
 		cLoop, err := control.NewLoop(m.logger, m.controlLoopConfig, m)
 		if err != nil {
 			m.logger.Error(err)

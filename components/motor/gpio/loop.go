@@ -38,7 +38,7 @@ func (m *EncodedMotor) State(ctx context.Context) ([]float64, error) {
 func (m *EncodedMotor) updateControlBlock(ctx context.Context, setPoint, maxVel float64) error {
 	// Update the Trapezoidal Velocity Profile block with the given maxVel for velocity control
 	velConf := control.BlockConfig{
-		Name: m.blockNames[blockNameTrapezoidal],
+		Name: "trapz",
 		Type: "trapezoidalVelocityProfile",
 		Attribute: rdkutils.AttributeMap{
 			"max_vel":    maxVel,
@@ -46,29 +46,30 @@ func (m *EncodedMotor) updateControlBlock(ctx context.Context, setPoint, maxVel 
 			"pos_window": 0.0,
 			"kpp_gain":   0.45,
 		},
-		DependsOn: []string{m.blockNames[blockNameConstant], m.blockNames[blockNameEndpoint]},
+		DependsOn: []string{"set_point", "endpoint"},
 	}
-	if err := m.loop.SetConfigAt(ctx, m.blockNames[blockNameTrapezoidal], velConf); err != nil {
+	if err := m.loop.SetConfigAt(ctx, "trapz", velConf); err != nil {
 		return err
 	}
 
 	// Update the Constant block with the given setPoint for position control
 	posConf := control.BlockConfig{
-		Name: m.blockNames[blockNameConstant],
+		Name: "set_point",
 		Type: "constant",
 		Attribute: rdkutils.AttributeMap{
 			"constant_val": setPoint,
 		},
 		DependsOn: []string{},
 	}
-	if err := m.loop.SetConfigAt(ctx, m.blockNames[blockNameConstant], posConf); err != nil {
+	if err := m.loop.SetConfigAt(ctx, "set_point", posConf); err != nil {
 		return err
 	}
 	return nil
 }
-func (m *EncodedMotor) setupControlLoop() {
+func (m *EncodedMotor) setupControlLoop() error {
 	options := control.Options{
 		PositionControlUsingTrapz: true,
+		LoopFrequency:             100.0,
 	}
 
 	if m.cfg.ControlParameters[0].P == 0.0 &&
@@ -77,14 +78,15 @@ func (m *EncodedMotor) setupControlLoop() {
 		options.NeedsAutoTuning = true
 	}
 
-	pl, err := control.SetupPIDControlLoop(m.cfg.ControlParameters, m.Name().ShortName(), options, m, m.logger)
+	pl, err := control.SetupPIDControlConfig(m.cfg.ControlParameters, m.Name().ShortName(), options, m, m.logger)
 	if err != nil {
-		m.logger.Error(err)
+		return err
 	}
 
+	m.controlLoopConfig = pl.ControlConf
 	m.loop = pl.ControlLoop
 
-	// tune here ?
+	return nil
 }
 
 func (m *EncodedMotor) storeBlockOfType(ctx context.Context, bType, bName string) error {
