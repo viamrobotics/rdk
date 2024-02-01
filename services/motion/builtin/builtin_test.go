@@ -1753,7 +1753,25 @@ func TestMoveOnMapNew(t *testing.T) {
 		test.That(t, ph3, test.ShouldResemble, ph2)
 	})
 
-	t.Run("returns error when within plan deviaton m of goal", func(t *testing.T) {
+	t.Run("returns error when within plan dev m of goal with position_only", func(t *testing.T) {
+		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+		defer ms.Close(ctx)
+
+		req := motion.MoveOnMapReq{
+			ComponentName: base.Named("test-base"),
+			Destination:   spatialmath.NewZeroPose(),
+			SlamName:      slam.Named("test_slam"),
+			MotionCfg:     &motion.MotionConfiguration{},
+			Extra:         map[string]interface{}{"motion_profile": "position_only"},
+		}
+
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		defer timeoutFn()
+		executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
+		test.That(t, err, test.ShouldBeError, errors.New("no need to move, already within planDeviationMM"))
+		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+	})
+	t.Run("pass when within plan dev m of goal without position_only due to theta difference in goal", func(t *testing.T) {
 		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
 
@@ -1767,8 +1785,8 @@ func TestMoveOnMapNew(t *testing.T) {
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 		defer timeoutFn()
 		executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("no need to move, already within planDeviationMM"))
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, executionID, test.ShouldNotBeEmpty)
 	})
 }
 
