@@ -35,6 +35,8 @@ const (
 	baseStopTimeout         = time.Second * 5
 )
 
+var errGoalWithinPlanDeviation = errors.New("no need to move, already within planDeviationMM")
+
 // validatedMotionConfiguration is a copy of the motion.MotionConfiguration type
 // which has been validated to conform to the expectations of the builtin
 // motion servicl.
@@ -663,10 +665,21 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		return nil, err
 	}
 	startPoseInv := spatialmath.PoseInverse(startPose.Pose())
-
 	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld))
-	if spatialmath.PoseAlmostCoincidentEps(goal.Pose(), spatialmath.NewZeroPose(), motionCfg.planDeviationMM) {
-		return nil, errors.Errorf("no need to move, already within planDeviationMM: %f", motionCfg.planDeviationMM)
+
+	// Here we determine if we already are at the goal
+	// If our motion profile is position_only then, we only check against our current & desired position
+	// Conversely if our motion profile is anything else, then we also need to check again our
+	// current & desired orientation
+	if valExtra.motionProfile != motionplan.PositionOnlyMotionProfile {
+		if spatialmath.PoseAlmostCoincidentEps(goal.Pose(), spatialmath.NewZeroPose(), motionCfg.planDeviationMM) {
+			return nil, errGoalWithinPlanDeviation
+		}
+	} else {
+		if spatialmath.OrientationAlmostEqual(goal.Pose().Orientation(), spatialmath.NewZeroPose().Orientation()) &&
+			spatialmath.PoseAlmostCoincidentEps(goal.Pose(), spatialmath.NewZeroPose(), motionCfg.planDeviationMM) {
+			return nil, errGoalWithinPlanDeviation
+		}
 	}
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point

@@ -1766,7 +1766,7 @@ func TestMoveOnMapNew(t *testing.T) {
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 		defer timeoutFn()
 		executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("no need to move, already within planDeviationMM: 1000.000000"))
+		test.That(t, err, test.ShouldBeError, errors.New("no need to move, already within planDeviationMM"))
 		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 	})
 }
@@ -2356,20 +2356,6 @@ func TestNewValidatedMotionCfg(t *testing.T) {
 			linearMPerSec:         defaultLinearMPerSec,
 			obstaclePollingFreqHz: defaultObstaclePollingHz,
 			positionPollingFreqHz: defaultPositionPollingHz,
-			planDeviationMM:       defaultGlobePlanDeviationM * 1e3,
-			obstacleDetectors:     []motion.ObstacleDetectorName{},
-		})
-	})
-
-	t.Run("returns expected defaults when given nil cfg for requestTypeMoveOnMap", func(t *testing.T) {
-		vmc, err := newValidatedMotionCfg(nil, requestTypeMoveOnMap)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, vmc, test.ShouldResemble, &validatedMotionConfiguration{
-			angularDegsPerSec:     defaultAngularDegsPerSec,
-			linearMPerSec:         defaultLinearMPerSec,
-			obstaclePollingFreqHz: defaultObstaclePollingHz,
-			positionPollingFreqHz: defaultPositionPollingHz,
-			planDeviationMM:       defaultSlamPlanDeviationM * 1e3,
 			obstacleDetectors:     []motion.ObstacleDetectorName{},
 		})
 	})
@@ -2382,7 +2368,6 @@ func TestNewValidatedMotionCfg(t *testing.T) {
 			linearMPerSec:         defaultLinearMPerSec,
 			obstaclePollingFreqHz: defaultObstaclePollingHz,
 			positionPollingFreqHz: defaultPositionPollingHz,
-			planDeviationMM:       defaultSlamPlanDeviationM * 1e3,
 			obstacleDetectors:     []motion.ObstacleDetectorName{},
 		})
 	})
