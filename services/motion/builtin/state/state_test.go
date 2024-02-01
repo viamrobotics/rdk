@@ -44,6 +44,10 @@ func (tpe *testPlannerExecutor) Execute(ctx context.Context, plan motionplan.Pla
 	return state.ExecuteResponse{}, nil
 }
 
+func (tpe *testPlannerExecutor) AnchorGeoPose() *spatialmath.GeoPose {
+	return nil
+}
+
 func TestState(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	myBase := base.Named("mybase")
