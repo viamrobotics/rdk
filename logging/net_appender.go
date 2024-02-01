@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	apppb "go.viam.com/api/app/v1"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -63,7 +64,7 @@ type NetAppender struct {
 	remoteWriter *remoteLogWriterGRPC
 
 	toLogMutex   sync.Mutex
-	toLog        []*apppb.LogEntry
+	toLog        []*commonpb.LogEntry
 	maxQueueSize int
 
 	cancelCtx               context.Context
@@ -107,7 +108,7 @@ type wrappedEntryCaller struct {
 }
 
 func (nl *NetAppender) Write(e zapcore.Entry, f []zapcore.Field) error {
-	log := &apppb.LogEntry{
+	log := &commonpb.LogEntry{
 		Host:       nl.hostname,
 		Level:      e.Level.String(),
 		Time:       timestamppb.New(e.Time),
@@ -154,7 +155,7 @@ func (nl *NetAppender) Write(e zapcore.Entry, f []zapcore.Field) error {
 	return nil
 }
 
-func (nl *NetAppender) addToQueue(logEntry *apppb.LogEntry) {
+func (nl *NetAppender) addToQueue(logEntry *commonpb.LogEntry) {
 	nl.toLogMutex.Lock()
 	defer nl.toLogMutex.Unlock()
 
@@ -165,7 +166,7 @@ func (nl *NetAppender) addToQueue(logEntry *apppb.LogEntry) {
 	nl.toLog = append(nl.toLog, logEntry)
 }
 
-func (nl *NetAppender) addBatchToQueue(batch []*apppb.LogEntry) {
+func (nl *NetAppender) addBatchToQueue(batch []*commonpb.LogEntry) {
 	if len(batch) == 0 {
 		return
 	}
@@ -259,7 +260,7 @@ type remoteLogWriterGRPC struct {
 	clientMutex sync.Mutex
 }
 
-func (w *remoteLogWriterGRPC) write(logs []*apppb.LogEntry) error {
+func (w *remoteLogWriterGRPC) write(logs []*commonpb.LogEntry) error {
 	// we specifically don't use a parented cancellable context here so we can make sure we finish writing but
 	// we will only give it up to 5 seconds to do so in case we are trying to shutdown.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
