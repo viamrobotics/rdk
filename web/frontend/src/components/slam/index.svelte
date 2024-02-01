@@ -146,22 +146,40 @@ const refreshPaths = async () => {
   try {
     refreshErrorMessagePaths = undefined;
     const base = bases[0]!;
-    const res = await motionClient.getPlan(base, true);
+    const listPlanStatusesResponse = await motionClient.listPlanStatuses();
+    const baseHasPlan = listPlanStatusesResponse.planStatusesWithIdsList
+      .map((plan) => plan.componentName)
+      .find(
+        (planComponentName) =>
+          planComponentName?.namespace === base.namespace &&
+          planComponentName.subtype === base.subtype &&
+          planComponentName.type === base.type &&
+          planComponentName.name === base.name
+      );
+
+    if (!baseHasPlan) {
+      motionPath = undefined;
+      executionID = undefined;
+      return;
+    }
+
+    const getPlanResponse = await motionClient.getPlan(base, true);
     if (
-      res.currentPlanWithStatus?.status?.state ===
+      getPlanResponse.currentPlanWithStatus?.status?.state ===
       motionApi.PlanState.PLAN_STATE_IN_PROGRESS
     ) {
-      executionID = res.currentPlanWithStatus.plan?.executionId;
       const pathsInMeters: number[] = [];
       for (const {
         stepMap: [stepMap],
-      } of res.currentPlanWithStatus.plan?.stepsList ?? []) {
+      } of getPlanResponse.currentPlanWithStatus.plan?.stepsList ?? []) {
         const { pose: stepPose } = stepMap?.[1] ?? {};
         if (stepPose) {
           pathsInMeters.push(stepPose.x / 1000, stepPose.y / 1000);
         }
       }
+
       motionPath = new Float32Array(pathsInMeters);
+      executionID = getPlanResponse.currentPlanWithStatus.plan?.executionId;
       return;
     }
     motionPath = undefined;
