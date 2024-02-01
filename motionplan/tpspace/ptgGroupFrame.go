@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -26,11 +25,12 @@ const (
 // If refDist is not explicitly set, default to pi radians times this adjustment value.
 const (
 	defaultRefDistLong        = 100000. // 100 meters
+	defaultRefDistShortMin    = 500.    // 500 mm
 	defaultRefDistHalfCircles = 0.9
 	defaultTrajCount          = 2
 )
 
-type ptgFactory func(float64, float64) PTG
+type ptgFactory func(float64) PTG
 
 // These PTGs do not end in a straight line, and thus are restricted to a shorter maximum length.
 var defaultShortPtgs = []ptgFactory{
@@ -52,8 +52,6 @@ type ptgGroupFrame struct {
 	limits             []referenceframe.Limit
 	geometries         []spatialmath.Geometry
 	solvers            []PTGSolver
-	velocityMMps       float64
-	angVelocityRadps   float64
 	turnRadMillimeters float64
 	trajCount          int
 	logger             logging.Logger
@@ -64,19 +62,17 @@ type ptgGroupFrame struct {
 func NewPTGFrameFromKinematicOptions(
 	name string,
 	logger logging.Logger,
-	velocityMMps, angVelocityDegps, turnRadMeters float64,
+	turnRadMeters float64,
 	trajCount int,
 	geoms []spatialmath.Geometry,
 	diffDriveOnly bool,
+	canRotateInPlace bool,
 ) (referenceframe.Frame, error) {
-	if velocityMMps <= 0 {
-		return nil, fmt.Errorf("cannot create ptg frame, movement velocity %f must be >0", velocityMMps)
-	}
-	if turnRadMeters < 0 {
+	if turnRadMeters <= 0 {
 		return nil, fmt.Errorf("cannot create ptg frame, turning radius %f must be >0", turnRadMeters)
 	}
-	if diffDriveOnly && turnRadMeters != 0 {
-		return nil, errors.New("if diffDriveOnly is used, turning radius must be zero")
+	if diffDriveOnly && !canRotateInPlace {
+		return nil, errors.New("if diffDriveOnly is used, canRotateInPlace must be true")
 	}
 
 	if trajCount <= 0 {
@@ -85,41 +81,15 @@ func NewPTGFrameFromKinematicOptions(
 
 	turnRadMillimeters := turnRadMeters * 1000
 
-	angVelocityRadps := rdkutils.DegToRad(angVelocityDegps)
-	if angVelocityRadps == 0 {
-		if turnRadMeters == 0 {
-			return nil, errors.New("cannot create ptg frame, turning radius and angular velocity cannot both be zero")
-		}
-		angVelocityRadps = velocityMMps / turnRadMillimeters
-	} else if turnRadMeters > 0 {
-		// Compute smallest allowable turning radius permitted by the given speeds. Use the greater of the two.
-		calcTurnRadius := (velocityMMps / angVelocityRadps)
-		if calcTurnRadius > turnRadMillimeters {
-			// This is a debug message because the user will never notice the difference; the trajectories executed by the base will be a
-			// subset of the ones that would have been had this conditional not been hit.
-			logger.Debugf(
-				"given turning radius was %f but a linear velocity of %f "+
-					"meters per sec and angular velocity of %f degs per sec only allow a turning radius of %f, using that instead",
-				turnRadMeters, velocityMMps/1000., angVelocityDegps, calcTurnRadius,
-			)
-		} else if calcTurnRadius < turnRadMillimeters {
-			// If max allowed angular velocity would turn tighter than given turn radius, shrink the max used angular velocity
-			// to match the requested tightest turn radius.
-			angVelocityRadps = velocityMMps / turnRadMillimeters
-			// This is a warning message because the user will observe the base turning at a different speed than the one requested.
-			logger.Warnf(
-				"given turning radius was %f but a linear velocity of %f "+
-					"meters per sec and angular velocity of %f degs per sec would turn at a radius of %f. Decreasing angular velocity to %f.",
-				turnRadMeters, velocityMMps/1000., angVelocityDegps, calcTurnRadius, rdkutils.RadToDeg(angVelocityRadps),
-			)
-		}
-	}
 	refDistLong := defaultRefDistLong
-	refDistShort := math.Min(velocityMMps/angVelocityRadps*math.Pi*defaultRefDistHalfCircles, refDistLong*0.1)
+	refDistShort := math.Max(
+		math.Min(turnRadMillimeters*math.Pi*defaultRefDistHalfCircles, refDistLong*0.1),
+		defaultRefDistShortMin,
+	)
 
 	longPtgsToUse := []ptgFactory{}
 	shortPtgsToUse := []ptgFactory{}
-	if turnRadMeters == 0 {
+	if canRotateInPlace {
 		longPtgsToUse = append(longPtgsToUse, defaultDiffPTG)
 	}
 	if !diffDriveOnly {
@@ -129,12 +99,12 @@ func NewPTGFrameFromKinematicOptions(
 
 	pf := &ptgGroupFrame{name: name}
 
-	longPtgs := initializePTGs(velocityMMps, angVelocityRadps, longPtgsToUse)
+	longPtgs := initializePTGs(turnRadMillimeters, longPtgsToUse)
 	longSolvers, err := initializeSolvers(logger, refDistLong, refDistShort, trajCount, longPtgs)
 	if err != nil {
 		return nil, err
 	}
-	shortPtgs := initializePTGs(velocityMMps, angVelocityRadps, shortPtgsToUse)
+	shortPtgs := initializePTGs(turnRadMillimeters, shortPtgsToUse)
 	shortSolvers, err := initializeSolvers(logger, refDistShort, refDistShort, trajCount, shortPtgs)
 	if err != nil {
 		return nil, err
@@ -143,8 +113,6 @@ func NewPTGFrameFromKinematicOptions(
 	longSolvers = append(longSolvers, shortSolvers...)
 	pf.solvers = longSolvers
 	pf.geometries = geoms
-	pf.velocityMMps = velocityMMps
-	pf.angVelocityRadps = angVelocityRadps
 	pf.turnRadMillimeters = turnRadMillimeters
 	pf.trajCount = trajCount
 	pf.logger = logger
@@ -178,15 +146,13 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 	}
 
 	ptgIdx := int(math.Round(inputs[ptgIndex].Value))
-	alpha := inputs[trajectoryAlphaWithinPTG].Value
-	dist := inputs[distanceAlongTrajectoryIndex].Value
 
-	traj, err := pf.solvers[ptgIdx].Trajectory(alpha, dist)
+	pose, err := pf.solvers[ptgIdx].Transform([]referenceframe.Input{inputs[trajectoryAlphaWithinPTG], inputs[distanceAlongTrajectoryIndex]})
 	if err != nil {
 		return nil, err
 	}
 
-	return traj[len(traj)-1].Pose, nil
+	return pose, nil
 }
 
 func (pf *ptgGroupFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {
@@ -225,10 +191,10 @@ func (pf *ptgGroupFrame) PTGSolvers() []PTGSolver {
 	return pf.solvers
 }
 
-func initializePTGs(maxMps, maxRPS float64, constructors []ptgFactory) []PTG {
+func initializePTGs(turnRadius float64, constructors []ptgFactory) []PTG {
 	ptgs := []PTG{}
 	for _, ptg := range constructors {
-		ptgs = append(ptgs, ptg(maxMps, maxRPS))
+		ptgs = append(ptgs, ptg(turnRadius))
 	}
 	return ptgs
 }

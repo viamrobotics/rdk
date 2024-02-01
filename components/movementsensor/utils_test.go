@@ -83,16 +83,14 @@ func TestLastPosition(t *testing.T) {
 }
 
 func TestPositionLogic(t *testing.T) {
-	lp := NewLastPosition()
+	test.That(t, ArePointsEqual(testPos2, testPos2), test.ShouldBeTrue)
+	test.That(t, ArePointsEqual(testPos2, testPos1), test.ShouldBeFalse)
 
-	test.That(t, lp.ArePointsEqual(testPos2, testPos2), test.ShouldBeTrue)
-	test.That(t, lp.ArePointsEqual(testPos2, testPos1), test.ShouldBeFalse)
+	test.That(t, IsZeroPosition(zeroPos), test.ShouldBeTrue)
+	test.That(t, IsZeroPosition(testPos2), test.ShouldBeFalse)
 
-	test.That(t, lp.IsZeroPosition(zeroPos), test.ShouldBeTrue)
-	test.That(t, lp.IsZeroPosition(testPos2), test.ShouldBeFalse)
-
-	test.That(t, lp.IsPositionNaN(nanPos), test.ShouldBeTrue)
-	test.That(t, lp.IsPositionNaN(testPos1), test.ShouldBeFalse)
+	test.That(t, IsPositionNaN(nanPos), test.ShouldBeTrue)
+	test.That(t, IsPositionNaN(testPos1), test.ShouldBeFalse)
 }
 
 func TestPMTKFunctions(t *testing.T) {

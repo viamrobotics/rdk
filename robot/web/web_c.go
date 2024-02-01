@@ -5,10 +5,12 @@ package web
 import (
 	"context"
 	"math"
+	"net/http"
 	"runtime"
 	"sync"
 	"time"
 
+	"github.com/goccy/go-graphviz"
 	"github.com/pkg/errors"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
@@ -347,4 +349,40 @@ func (svc *webService) initStreamServer(ctx context.Context, options *weboptions
 		options.WebRTC = true
 	}
 	return nil
+}
+
+func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *http.Request) {
+	localRobot, isLocal := svc.r.(robot.LocalRobot)
+	if !isLocal {
+		return
+	}
+	dot, err := localRobot.ExportResourcesAsDot()
+	if err != nil {
+		return
+	}
+	layout := r.URL.Query().Get("layout")
+	if layout == "text" {
+		//nolint
+		w.Write([]byte(dot))
+		return
+	}
+
+	gv := graphviz.New()
+	defer func() {
+		closeErr := gv.Close()
+		if closeErr != nil {
+			svc.r.Logger().Warn("failed to close graph visualizer")
+		}
+	}()
+
+	graph, err := graphviz.ParseBytes([]byte(dot))
+	if err != nil {
+		return
+	}
+	if layout != "" {
+		gv.SetLayout(graphviz.Layout(layout))
+	}
+	if err = gv.Render(graph, graphviz.SVG, w); err != nil {
+		return
+	}
 }

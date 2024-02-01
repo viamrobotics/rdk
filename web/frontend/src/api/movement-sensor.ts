@@ -169,3 +169,25 @@ export const getPosition = async (robotClient: Client, name: string) => {
 
   return response?.toObject();
 };
+
+export const getAccuracy = async (robotClient: Client, name: string) => {
+  const req = new movementSensorApi.GetAccuracyRequest();
+  req.setName(name);
+
+  rcLogConditionally(req);
+
+  const response =
+    await new Promise<movementSensorApi.GetAccuracyResponse | null>(
+      (resolve, reject) => {
+        robotClient.movementSensorService.getAccuracy(req, (error, res) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve(res);
+          }
+        });
+      }
+    );
+
+  return response?.toObject();
+};
