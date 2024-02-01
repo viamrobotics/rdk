@@ -134,7 +134,6 @@ func (n *NtripInfo) ParseSourcetable(logger logging.Logger) (*Sourcetable, error
 	st := &Sourcetable{}
 	st.Streams = make([]Stream, 0, streamSize)
 	scanner := bufio.NewScanner(reader)
-	ln := ""
 
 Loop:
 	for scanner.Scan() {
@@ -161,10 +160,6 @@ Loop:
 		default:
 			return nil, fmt.Errorf("%s: illegal sourcetable line: '%s'", n.URL, ln)
 		}
-	}
-
-	if ln != "ENDSOURCETABLE" {
-		return nil, fmt.Errorf("invalid sourcetable: missing string \"ENDSOURCETABLE\" in %s", ln)
 	}
 
 	return st, nil
