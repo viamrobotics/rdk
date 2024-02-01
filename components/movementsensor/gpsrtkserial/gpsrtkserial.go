@@ -49,7 +49,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
-	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
+	"go.viam.com/rdk/components/movementsensor/gpsnmea"
 	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -77,33 +77,15 @@ type Config struct {
 
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
-	err := cfg.validateNtrip(path)
-	if err != nil {
-		return nil, err
+	if cfg.SerialPath == "" {
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 
-	err = cfg.validateSerialPath(path)
-	if err != nil {
-		return nil, err
+	if cfg.NtripURL == "" {
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "ntrip_url")
 	}
 
 	return nil, nil
-}
-
-// validateSerialPath ensures all parts of the config are valid.
-func (cfg *Config) validateSerialPath(path string) error {
-	if cfg.SerialPath == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "serial_path")
-	}
-	return nil
-}
-
-// validateNtrip ensures all parts of the config are valid.
-func (cfg *Config) validateNtrip(path string) error {
-	if cfg.NtripURL == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "ntrip_url")
-	}
-	return nil
 }
 
 func init() {
@@ -182,17 +164,14 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	if g.ntripClient == nil {
-		g.ntripClient = tempNtripClient
-	} else {
+	if g.ntripClient != nil { // Copy over the old state
 		tempNtripClient.Client = g.ntripClient.Client
 		tempNtripClient.Stream = g.ntripClient.Stream
-
-		g.ntripClient = tempNtripClient
 	}
 
-	g.logger.Debug("done reconfiguring")
+	g.ntripClient = tempNtripClient
 
+	g.logger.Debug("done reconfiguring")
 	return nil
 }
 
@@ -218,7 +197,6 @@ func newRTKSerial(
 		lastcompassheading: movementsensor.NewLastCompassHeading(),
 	}
 
-	// reconfigure
 	if err := g.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
@@ -245,31 +223,22 @@ func newRTKSerial(
 }
 
 func (g *rtkSerial) start() error {
-	if err := g.nmeamovementsensor.Start(g.cancelCtx); err != nil {
-		g.lastposition.GetLastPosition()
+	err := g.connectToNTRIP()
+	if err != nil {
 		return err
 	}
-
-	if !g.isClosed {
-		err := g.connectToNTRIP()
-		if err != nil {
-			return err
-		}
-		g.activeBackgroundWorkers.Add(1)
-		utils.PanicCapturingGo(g.receiveAndWriteSerial)
-	}
+	g.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(g.receiveAndWriteSerial)
 	return g.err.Get()
 }
 
 // connect attempts to connect to ntrip client until successful connection or timeout.
 func (g *rtkSerial) connect(casterAddr, user, pwd string, maxAttempts int) error {
-	attempts := 0
-
 	var c *ntrip.Client
 	var err error
 
 	g.logger.Debug("Connecting to NTRIP caster")
-	for attempts < maxAttempts {
+	for attempts := 0; attempts < maxAttempts; attempts++ {
 		select {
 		case <-g.cancelCtx.Done():
 			return g.cancelCtx.Err()
@@ -280,8 +249,6 @@ func (g *rtkSerial) connect(casterAddr, user, pwd string, maxAttempts int) error
 		if err == nil {
 			break
 		}
-
-		attempts++
 	}
 
 	if err != nil {
@@ -296,17 +263,21 @@ func (g *rtkSerial) connect(casterAddr, user, pwd string, maxAttempts int) error
 	return g.err.Get()
 }
 
-// getStream attempts to connect to ntrip streak until successful connection or timeout.
+// getStream attempts to connect to ntrip stream. We give up after maxAttempts unsuccessful tries.
 func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
-	success := false
-	attempts := 0
+	g.mu.Lock()
+	defer g.mu.Unlock()
 
 	var rc io.ReadCloser
 	var err error
 
 	g.logger.Debug("Getting NTRIP stream")
 
-	for !success && attempts < maxAttempts && !g.isClosed {
+	for attempts := 0; attempts < maxAttempts; attempts++ {
+		if g.isClosed {
+			return g.err.Get()
+		}
+
 		select {
 		case <-g.cancelCtx.Done():
 			return errors.New("Canceled")
@@ -314,36 +285,27 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 		}
 
 		rc, err = func() (io.ReadCloser, error) {
-			g.mu.Lock()
-			defer g.mu.Unlock()
 			return g.ntripClient.Client.GetStream(mountPoint)
 		}()
 		if err == nil {
-			success = true
-		}
-		attempts++
-	}
+			g.logger.Debug("Connected to stream")
 
-	if err != nil {
-		// if the error is related to ICY, we log it as warning.
-		if strings.Contains(err.Error(), "ICY") {
-			g.logger.Warnf("Detected old HTTP protocol: %s", err)
-			g.err.Set(err)
-		} else {
-			g.logger.Errorf("Can't connect to NTRIP stream: %s", err)
-			return err
+			g.ntripClient.Stream = rc
+			return g.err.Get()
 		}
 	}
+	// If we get here, we had errors on every connection attempt.
 
-	if success {
-		g.logger.Debug("Connected to stream")
+	// Errors about the old ICY protocol are not "real" errors, but all others are.
+	if !strings.Contains(err.Error(), "ICY") {
+		g.logger.Errorf("Can't connect to NTRIP stream: %s", err)
+		return err
 	}
 
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
+	// The error was related to the old ICY protocol. Try storing the ReadCloser anyway.
+	g.logger.Warnf("Detected old HTTP protocol: %s", err)
 	g.ntripClient.Stream = rc
-	return g.err.Get()
+	return err
 }
 
 // openPort opens the serial port for writing.
