@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 
 	"github.com/d2r2/go-i2c"
 	i2clog "github.com/d2r2/go-logger"
@@ -169,6 +170,7 @@ type ina struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
+	mu         sync.Mutex
 	logger     logging.Logger
 	model      string
 	bus        int
@@ -230,6 +232,8 @@ func (d *ina) calibrate() error {
 }
 
 func (d *ina) Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	handle, err := i2c.NewI2C(d.addr, d.bus)
 	if err != nil {
 		d.logger.CErrorf(ctx, "can't open ina i2c: %s", err)
@@ -258,6 +262,8 @@ func (d *ina) Voltage(ctx context.Context, extra map[string]interface{}) (float6
 }
 
 func (d *ina) Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	handle, err := i2c.NewI2C(d.addr, d.bus)
 	if err != nil {
 		d.logger.CErrorf(ctx, "can't open ina i2c: %s", err)
@@ -283,6 +289,8 @@ func (d *ina) Current(ctx context.Context, extra map[string]interface{}) (float6
 }
 
 func (d *ina) Power(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	handle, err := i2c.NewI2C(d.addr, d.bus)
 	if err != nil {
 		d.logger.CErrorf(ctx, "can't open ina i2c handle: %s", err)
