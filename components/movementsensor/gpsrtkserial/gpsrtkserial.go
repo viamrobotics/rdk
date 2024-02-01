@@ -427,11 +427,7 @@ func (g *rtkSerial) connectAndParseSourceTable() error {
 
 	g.logger.Debug("gettting source table")
 
-	srcReader, err := g.ntripClient.Client.GetSourcetable()
-	g.logger.Debugf("getSourceTable sends: %v\n", srcReader)
-	g.logger.Debugf("error from getsourcetable: %v\n", err)
-
-	srcTable, err := g.ntripClient.Client.ParseSourcetable()
+	srcTable, err := g.ntripClient.ParseSourcetable(g.logger)
 	if err != nil {
 		g.logger.Errorf("failed to get source table: %v", err)
 		return err
