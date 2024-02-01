@@ -209,8 +209,6 @@ func (d *ina) setCalibrationScale(modelName string) error {
 }
 
 func (d *ina) calibrate() error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
 	handle, err := i2c.NewI2C(d.addr, d.bus)
 	if err != nil {
 		d.logger.Errorf("can't open ina i2c: %s", err)
