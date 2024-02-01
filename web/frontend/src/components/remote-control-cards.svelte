@@ -109,6 +109,7 @@ const getStatus = (
     {#each filterSubtype($services, 'slam') as { name } (name)}
       <Slam
         {name}
+        motionResourceNames={filterSubtype($services, 'motion')}
         overrides={overrides?.slam}
       />
     {/each}
