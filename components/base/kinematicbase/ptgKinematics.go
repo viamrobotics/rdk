@@ -57,6 +57,9 @@ type arcStep struct {
 	linVelMMps      r3.Vector
 	angVelDegps     r3.Vector
 	timestepSeconds float64
+	// A single trajectory may be broken into multiple arcSteps, so we need to be able to track the total distance elapsed through
+	// the trajectory
+	startDist float64
 }
 
 // wrapWithPTGKinematics takes a Base component and adds a PTG kinematic model so that it can be controlled.
@@ -196,7 +199,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 
 	for _, step := range arcSteps {
 		ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
-		ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {0}}
+		ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {step.startDist}}
 		ptgk.inputLock.Unlock()
 
 		timestep := time.Duration(step.timestepSeconds*1000*1000) * time.Microsecond
@@ -215,9 +218,12 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 				return tryStop(err)
 			}
 		}
+		startTrajPose, err := selectedPTG.Transform([]referenceframe.Input{inputs[1], {step.startDist}})
+		if err != nil {
+			return tryStop(err)
+		}
 
-		
-		err := ptgk.Base.SetVelocity(
+		err = ptgk.Base.SetVelocity(
 			ctx,
 			step.linVelMMps,
 			step.angVelDegps,
@@ -251,7 +257,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 				distIncVel = step.angVelDegps.Z
 			}
 			ptgk.inputLock.Lock()
-			ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {math.Abs(distIncVel) * timeElapsed}}
+			ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {step.startDist + math.Abs(distIncVel) * timeElapsed}}
 			ptgk.inputLock.Unlock()
 			
 			if ptgk.Localizer != nil {
@@ -260,10 +266,11 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 					return tryStop(err)
 				}
 				currRelPose := spatialmath.PoseBetween(startPose.Pose(), currPose.Pose())
-				expectedPose, err := selectedPTG.Transform([]referenceframe.Input{ptgk.currentInput[1], ptgk.currentInput[2]})
+				expectedPoseRaw, err := selectedPTG.Transform([]referenceframe.Input{ptgk.currentInput[1], ptgk.currentInput[2]})
 				if err != nil {
 					return tryStop(err)
 				}
+				expectedPose := spatialmath.PoseBetween(startTrajPose, expectedPoseRaw)
 				poseDiff := spatialmath.PoseBetween(currRelPose, expectedPose)
 				poseDiffPt := poseDiff.Point()
 				poseDiffAngle := poseDiff.Orientation().OrientationVectorDegrees().Theta
@@ -356,6 +363,7 @@ func (ptgk *ptgBaseKinematics) trajectoryToArcSteps(traj []*tpspace.TrajNode) []
 	nextStep := arcStep{
 		linVelMMps:      lastLinVel,
 		angVelDegps:     lastAngVel,
+		startDist: curDist,
 		timestepSeconds: 0,
 	}
 	for _, trajPt := range traj {
@@ -368,6 +376,7 @@ func (ptgk *ptgBaseKinematics) trajectoryToArcSteps(traj []*tpspace.TrajNode) []
 			nextStep = arcStep{
 				linVelMMps:      nextLinVel,
 				angVelDegps:     nextAngVel,
+				startDist: curDist,
 				timestepSeconds: 0,
 			}
 			timeStep = 0.
