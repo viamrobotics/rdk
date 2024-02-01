@@ -103,10 +103,14 @@ func NewSquaredNormMetric(goal spatial.Pose) StateMetric {
 // TODO: RSDK-6053 this should probably be done more flexibly.
 func NewPosWeightSquaredNormMetric(goal spatial.Pose) StateMetric {
 	weightedSqNormDist := func(query *State) float64 {
-		delta := spatial.PoseDelta(goal, query.Position)
 		// Increase weight for orientation since it's a small number
+		orientDelta := spatial.QuatToR3AA(spatial.OrientationBetween(
+			goal.Orientation(),
+			query.Position.Orientation(),
+		).Quaternion()).Mul(orientationDistanceScaling).Norm2()
 		// Also, we multiply delta.Point() by 0.1, effectively measuring in cm rather than mm.
-		return delta.Point().Mul(0.1).Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationDistanceScaling).Norm2()
+		ptDelta := goal.Point().Mul(0.1).Sub(query.Position.Point().Mul(0.1)).Norm2()
+		return ptDelta + orientDelta
 	}
 	return weightedSqNormDist
 }
