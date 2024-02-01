@@ -559,7 +559,7 @@ func CheckPlan(
 	// TODO(RSDK-5007): If we can make interpolate a method on Frame the need to write this out will be lessened and we should be
 	// able to call CheckStateConstraintsAcrossSegment directly.
 	var totalTravelDistanceMM float64
-	for _, segment := range segments {
+	for i, segment := range segments {
 		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
 		if err != nil {
 			return err
@@ -575,18 +575,24 @@ func CheckPlan(
 			if currentTravelDistanceMM > lookAheadDistanceMM {
 				return nil
 			}
-			// If we are working with a PTG plan the returned value for poseInPath will only
-			// tell us how far along the arc we have traveled. Since this is only the relative position,
-			// i.e. relative to where the robot started executing the arc,
-			// we must compose poseInPath with currentPose to get the absolute position.
-			// In both cases we ultimately compose with errorState.
-			if relative {
-				rectifyBy := spatialmath.Compose(segment.StartPosition, errorState)
-				poseInPath = spatialmath.Compose(rectifyBy, poseInPath)
-			} else {
-				poseInPath = spatialmath.Compose(poseInPath, errorState)
+
+			// The first segment in the list does not need to account for the error state because it is the segment connecting the current
+			// position to the offsetPath (which has the error state already accounted for)
+			if i > 0 {
+				// If we are working with a PTG plan the returned value for poseInPath will only
+				// tell us how far along the arc we have traveled. Since this is only the relative position,
+				// i.e. relative to where the robot started executing the arc,
+				// we must compose poseInPath with currentPose to get the absolute position.
+				// In both cases we ultimately compose with errorState.
+				if relative {
+					rectifyBy := spatialmath.Compose(segment.StartPosition, errorState)
+					poseInPath = spatialmath.Compose(rectifyBy, poseInPath)
+				} else {
+					poseInPath = spatialmath.Compose(poseInPath, errorState)
+				}
 			}
 
+			fmt.Println(spatialmath.PoseToProtobuf(poseInPath))
 			modifiedState := &ik.State{Frame: sf, Position: poseInPath}
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
