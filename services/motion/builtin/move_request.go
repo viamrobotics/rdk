@@ -665,6 +665,7 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		return nil, err
 	}
 	startPoseInv := spatialmath.PoseInverse(startPose.Pose())
+
 	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld))
 
 	// Here we determine if we already are at the goal
