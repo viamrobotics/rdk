@@ -29,7 +29,7 @@ import (
 
 var (
 	stateTTL              = time.Hour * 24
-	stateTTLCheckInterval = time.Second
+	stateTTLCheckInterval = time.Minute
 )
 
 func init() {
@@ -141,11 +141,7 @@ func (ms *builtIn) Reconfigure(
 		ms.state.Stop()
 	}
 
-	state, err := state.NewState(state.Request{
-		TTL:              stateTTL,
-		TTLCheckInterval: stateTTLCheckInterval,
-		Logger:           ms.logger,
-	})
+	state, err := state.NewState(stateTTL, stateTTLCheckInterval, ms.logger)
 	if err != nil {
 		return err
 	}

@@ -51,11 +51,6 @@ func TestState(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	myBase := base.Named("mybase")
 	t.Parallel()
-	req := state.Request{
-		TTL:              ttl,
-		TTLCheckInterval: ttlCheckInterval,
-		Logger:           logger,
-	}
 
 	executionWaitingForCtxCancelledPlanConstructor := func(
 		ctx context.Context,
@@ -174,42 +169,42 @@ func TestState(t *testing.T) {
 
 	t.Run("returns error if TTL is not set", func(t *testing.T) {
 		t.Parallel()
-		s, err := state.NewState(state.Request{})
+		s, err := state.NewState(0, 0, logger)
 		test.That(t, err, test.ShouldBeError, errors.New("TTL can't be unset"))
 		test.That(t, s, test.ShouldBeNil)
 	})
 
 	t.Run("returns error if TTLCheckInterval is not set", func(t *testing.T) {
 		t.Parallel()
-		s, err := state.NewState(state.Request{TTL: 2})
+		s, err := state.NewState(2, 0, logger)
 		test.That(t, err, test.ShouldBeError, errors.New("TTLCheckInterval can't be unset"))
 		test.That(t, s, test.ShouldBeNil)
 	})
 
 	t.Run("returns error if Logger is nil", func(t *testing.T) {
 		t.Parallel()
-		s, err := state.NewState(state.Request{TTL: 2, TTLCheckInterval: 1})
+		s, err := state.NewState(2, 1, nil)
 		test.That(t, err, test.ShouldBeError, errors.New("Logger can't be nil"))
 		test.That(t, s, test.ShouldBeNil)
 	})
 
 	t.Run("returns error if TTL < TTLCheckInterval", func(t *testing.T) {
 		t.Parallel()
-		s, err := state.NewState(state.Request{TTL: 1, TTLCheckInterval: 2, Logger: logger})
+		s, err := state.NewState(1, 2, logger)
 		test.That(t, err, test.ShouldBeError, errors.New("TTL can't be lower than the TTLCheckInterval"))
 		test.That(t, s, test.ShouldBeNil)
 	})
 
 	t.Run("creating & stopping a state with no intermediary calls", func(t *testing.T) {
 		t.Parallel()
-		s, err := state.NewState(req)
+		s, err := state.NewState(ttl, ttlCheckInterval, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer s.Stop()
 	})
 
 	t.Run("starting a new execution & stopping the state", func(t *testing.T) {
 		t.Parallel()
-		s, err := state.NewState(req)
+		s, err := state.NewState(ttl, ttlCheckInterval, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer s.Stop()
 		_, err = state.StartExecution(ctx, s, emptyReq.ComponentName, emptyReq, successPlanConstructor)
@@ -218,7 +213,7 @@ func TestState(t *testing.T) {
 
 	t.Run("starting & stopping an execution & stopping the state", func(t *testing.T) {
 		t.Parallel()
-		s, err := state.NewState(req)
+		s, err := state.NewState(ttl, ttlCheckInterval, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer s.Stop()
 
@@ -261,7 +256,7 @@ func TestState(t *testing.T) {
 
 	t.Run("stopping an execution is idempotnet", func(t *testing.T) {
 		t.Parallel()
-		s, err := state.NewState(req)
+		s, err := state.NewState(ttl, ttlCheckInterval, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer s.Stop()
 		req := motion.MoveOnGlobeReq{ComponentName: myBase}
@@ -276,7 +271,7 @@ func TestState(t *testing.T) {
 
 	t.Run("stopping the state is idempotnet", func(t *testing.T) {
 		t.Parallel()
-		s, err := state.NewState(req)
+		s, err := state.NewState(ttl, ttlCheckInterval, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer s.Stop()
 		req := motion.MoveOnGlobeReq{ComponentName: myBase}
@@ -289,7 +284,7 @@ func TestState(t *testing.T) {
 
 	t.Run("stopping an execution after stopping the state", func(t *testing.T) {
 		t.Parallel()
-		s, err := state.NewState(req)
+		s, err := state.NewState(ttl, ttlCheckInterval, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer s.Stop()
 		req := motion.MoveOnGlobeReq{ComponentName: myBase}
@@ -304,7 +299,7 @@ func TestState(t *testing.T) {
 
 	t.Run("querying for an unknown resource returns an unknown resource error", func(t *testing.T) {
 		t.Parallel()
-		s, err := state.NewState(req)
+		s, err := state.NewState(ttl, ttlCheckInterval, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer s.Stop()
 		req := motion.MoveOnGlobeReq{ComponentName: myBase}
@@ -317,7 +312,7 @@ func TestState(t *testing.T) {
 
 	t.Run("end to end test", func(t *testing.T) {
 		t.Parallel()
-		s, err := state.NewState(req)
+		s, err := state.NewState(ttl, ttlCheckInterval, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer s.Stop()
 
@@ -768,14 +763,11 @@ func TestState(t *testing.T) {
 	// low powered or over utilized hardware.
 	t.Run("ttl", func(t *testing.T) {
 		t.Parallel()
-		sReq := state.Request{
-			TTL:              time.Millisecond * 250,
-			TTLCheckInterval: time.Millisecond * 10,
-			Logger:           logger,
-		}
-		sleepCheckDuration := sReq.TTLCheckInterval * 2
-		sleepTTLDuration := sReq.TTL * 2
-		s, err := state.NewState(sReq)
+		ttl := time.Millisecond * 250
+		ttlCheckInterval := time.Millisecond * 10
+		sleepTTLDuration := ttl * 2
+		sleepCheckDuration := ttlCheckInterval * 2
+		s, err := state.NewState(ttl, ttlCheckInterval, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer s.Stop()
 		time.Sleep(sleepCheckDuration)

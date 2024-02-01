@@ -302,28 +302,28 @@ type State struct {
 	componentStateByComponent map[resource.Name]componentState
 }
 
-// Request describes a request to NewState.
-type Request struct {
-	TTL              time.Duration
-	TTLCheckInterval time.Duration
-	Logger           logging.Logger
-}
-
 // NewState creates a new state.
-func NewState(r Request) (*State, error) {
-	if r.TTL == 0 {
+// Takes a [TTL](https://en.wikipedia.org/wiki/Time_to_live)
+// and an interval to delete any State data that is older than
+// the TTL.
+func NewState(
+	ttl time.Duration,
+	ttlCheckInterval time.Duration,
+	logger logging.Logger,
+) (*State, error) {
+	if ttl == 0 {
 		return nil, errors.New("TTL can't be unset")
 	}
 
-	if r.TTLCheckInterval == 0 {
+	if ttlCheckInterval == 0 {
 		return nil, errors.New("TTLCheckInterval can't be unset")
 	}
 
-	if r.Logger == nil {
+	if logger == nil {
 		return nil, errors.New("Logger can't be nil")
 	}
 
-	if r.TTL < r.TTLCheckInterval {
+	if ttl < ttlCheckInterval {
 		return nil, errors.New("TTL can't be lower than the TTLCheckInterval")
 	}
 
@@ -333,12 +333,12 @@ func NewState(r Request) (*State, error) {
 		cancelFunc:                cancelFunc,
 		waitGroup:                 &sync.WaitGroup{},
 		componentStateByComponent: make(map[resource.Name]componentState),
-		ttl:                       r.TTL,
-		logger:                    r.Logger,
+		ttl:                       ttl,
+		logger:                    logger,
 	}
 	s.waitGroup.Add(1)
 	utils.ManagedGo(func() {
-		ticker := time.NewTicker(r.TTLCheckInterval)
+		ticker := time.NewTicker(ttlCheckInterval)
 		defer ticker.Stop()
 		for {
 			if cancelCtx.Err() != nil {
