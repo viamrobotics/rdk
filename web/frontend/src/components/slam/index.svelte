@@ -74,7 +74,7 @@ $: unitScale = labelUnits === 'm' ? 1 : 1000;
 // get all resources which are bases
 $: bases = filterSubtype($components, 'base');
 $: slamResourceName = filterSubtype($services, 'slam').find(
-  (s) => s.name === name
+  (service) => service.name === name
 )!;
 
 // allowMove is only true if we have a base, there exists a destination and there is no in-flight MoveOnMap req
