@@ -167,7 +167,7 @@ type EncodedMotor struct {
 	opMgr     *operation.SingleOperationManager
 
 	controlLoopConfig control.Config
-	blockNames        map[string]string
+	blockNames        map[string][]string
 	loop              *control.Loop
 }
 
