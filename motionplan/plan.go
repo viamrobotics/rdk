@@ -196,12 +196,12 @@ func PathStepFromProto(ps *pb.PlanStep) (PathStep, error) {
 	return step, nil
 }
 
-// NewGeoPath returns a Path containing GPS coordinates smuggled into the Pose struct. Each GPS point is created using:
+// NewGeoPlan returns a Plan containing a Path with GPS coordinates smuggled into the Pose struct. Each GPS point is created using:
 // A Point with X as the longitude and Y as the latitude
 // An orientation using the heading as the theta in an OrientationVector with Z=1.
-func NewGeoPath(path Path, geoOrigin *spatialmath.GeoPose) Path {
-	newPath := make([]PathStep, 0, len(path))
-	for _, step := range path {
+func NewGeoPlan(plan Plan, geoOrigin *spatialmath.GeoPose) Plan {
+	newPath := make([]PathStep, 0, len(plan.Path()))
+	for _, step := range plan.Path() {
 		newStep := make(PathStep)
 		for frame, pif := range step {
 			pose := pif.Pose()
@@ -213,7 +213,7 @@ func NewGeoPath(path Path, geoOrigin *spatialmath.GeoPose) Path {
 		}
 		newPath = append(newPath, newStep)
 	}
-	return newPath
+	return NewSimplePlan(newPath, plan.Trajectory())
 }
 
 // SimplePlan is a struct containing a Path and a Trajectory, together these comprise a Plan.

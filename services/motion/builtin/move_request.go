@@ -58,7 +58,7 @@ const (
 type moveRequest struct {
 	requestType requestType
 	// geoPoseOrigin is only set if requestType == requestTypeMoveOnGlobe
-	geoPoseOrigin     spatialmath.GeoPose
+	geoPoseOrigin     *spatialmath.GeoPose
 	poseOrigin        spatialmath.Pose
 	logger            logging.Logger
 	config            *validatedMotionConfiguration
@@ -96,6 +96,19 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 		return nil, err
 	}
 	return motionplan.OffsetPlan(plan, mr.poseOrigin), nil
+}
+
+func (mr *moveRequest) Execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
+	defer mr.executeBackgroundWorkers.Wait()
+	cancelCtx, cancelFn := context.WithCancel(ctx)
+	defer cancelFn()
+
+	mr.start(cancelCtx, plan)
+	return mr.listen(cancelCtx)
+}
+
+func (mr *moveRequest) AnchorGeoPose() *spatialmath.GeoPose {
+	return mr.geoPoseOrigin
 }
 
 // execute attempts to follow a given Plan starting from the index percribed by waypointIndex.
@@ -482,7 +495,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	mr.seedPlan = seedPlan
 	mr.replanCostFactor = valExtra.replanCostFactor
 	mr.requestType = requestTypeMoveOnGlobe
-	mr.geoPoseOrigin = *spatialmath.NewGeoPose(origin, heading)
+	mr.geoPoseOrigin = spatialmath.NewGeoPose(origin, heading)
 	return mr, nil
 }
 
@@ -747,15 +760,6 @@ func (mr *moveRequest) listen(ctx context.Context) (state.ExecuteResponse, error
 		mr.logger.CDebugf(ctx, "obstacle response: %s", resp)
 		return resp.executeResponse, resp.err
 	}
-}
-
-func (mr *moveRequest) Execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
-	defer mr.executeBackgroundWorkers.Wait()
-	cancelCtx, cancelFn := context.WithCancel(ctx)
-	defer cancelFn()
-
-	mr.start(cancelCtx, plan)
-	return mr.listen(cancelCtx)
 }
 
 func (mr *moveRequest) stop() error {

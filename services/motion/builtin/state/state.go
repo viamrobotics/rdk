@@ -16,12 +16,14 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // PlannerExecutor implements Plan and Execute.
 type PlannerExecutor interface {
 	Plan(ctx context.Context) (motionplan.Plan, error)
 	Execute(context.Context, motionplan.Plan) (ExecuteResponse, error)
+	AnchorGeoPose() *spatialmath.GeoPose
 }
 
 // ExecuteResponse is the response from Execute.
@@ -124,6 +126,7 @@ func (e *execution[R]) newPlanWithExecutor(ctx context.Context, seedPlan motionp
 			ID:            uuid.New(),
 			ExecutionID:   e.id,
 			ComponentName: e.componentName,
+			AnchorGeoPose: pe.AnchorGeoPose(),
 		},
 		executor: pe,
 	}, nil
@@ -387,16 +390,12 @@ func (s *State) PlanHistory(req motion.PlanHistoryReq) ([]motion.PlanWithStatus,
 	// last plan only
 	if req.LastPlanOnly {
 		if ex := cs.lastExecution(); executionID == uuid.Nil || executionID == ex.id {
-			history := make([]motion.PlanWithStatus, 1)
-			copy(history, ex.history)
-			return history, nil
+			return renderableHistory(ex.history[:1]), nil
 		}
 
 		// if executionID is provided & doesn't match the last execution for the component
 		if ex, exists := cs.executionsByID[executionID]; exists {
-			history := make([]motion.PlanWithStatus, 1)
-			copy(history, ex.history)
-			return history, nil
+			return renderableHistory(ex.history[:1]), nil
 		}
 		return nil, resource.NewNotFoundError(req.ComponentName)
 	}
@@ -404,17 +403,23 @@ func (s *State) PlanHistory(req motion.PlanHistoryReq) ([]motion.PlanWithStatus,
 	// specific execution id when lastPlanOnly is NOT enabled
 	if executionID != uuid.Nil {
 		if ex, exists := cs.executionsByID[executionID]; exists {
-			history := make([]motion.PlanWithStatus, len(ex.history))
-			copy(history, ex.history)
-			return history, nil
+			return renderableHistory(ex.history), nil
 		}
 		return nil, resource.NewNotFoundError(req.ComponentName)
 	}
 
 	ex := cs.lastExecution()
-	history := make([]motion.PlanWithStatus, len(cs.lastExecution().history))
-	copy(history, ex.history)
-	return history, nil
+	return renderableHistory(ex.history), nil
+}
+
+// visualHistory returns the history struct that has had its plans Offset by
+func renderableHistory(history []motion.PlanWithStatus) []motion.PlanWithStatus {
+	newHistory := make([]motion.PlanWithStatus, len(history))
+	copy(newHistory, history)
+	for i := range newHistory {
+		newHistory[i].Plan = newHistory[i].Plan.Renderable()
+	}
+	return newHistory
 }
 
 // ListPlanStatuses returns the status of plans created by MoveOnGlobe requests

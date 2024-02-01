@@ -116,6 +116,8 @@ type PlanWithMetadata struct {
 	ExecutionID ExecutionID
 	// The motionplan itself
 	motionplan.Plan
+	// The GPS point to anchor visualized plans at
+	AnchorGeoPose *spatialmath.GeoPose
 }
 
 // PlanState denotes the state a Plan is in.
@@ -314,6 +316,18 @@ func (p PlanWithMetadata) ToProto() *pb.Plan {
 		ComponentName: rprotoutils.ResourceNameToProto(p.ComponentName),
 		ExecutionId:   p.ExecutionID.String(),
 		Steps:         steps,
+	}
+}
+
+func (ps PlanWithMetadata) Renderable() PlanWithMetadata {
+	if ps.AnchorGeoPose == nil {
+		return ps
+	}
+	return PlanWithMetadata{
+		ID:            ps.ID,
+		ComponentName: ps.ComponentName,
+		ExecutionID:   ps.ExecutionID,
+		Plan:          motionplan.NewGeoPlan(ps.Plan, ps.AnchorGeoPose),
 	}
 }
 
