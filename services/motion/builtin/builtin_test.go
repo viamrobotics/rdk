@@ -1232,6 +1232,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 	})
+
 	t.Run("is able to reach a nearby geo point when the motion configuration is empty", func(t *testing.T) {
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
@@ -2356,6 +2357,7 @@ func TestNewValidatedMotionCfg(t *testing.T) {
 			linearMPerSec:         defaultLinearMPerSec,
 			obstaclePollingFreqHz: defaultObstaclePollingHz,
 			positionPollingFreqHz: defaultPositionPollingHz,
+			planDeviationMM:       defaultGlobePlanDeviationM * 1e3,
 			obstacleDetectors:     []motion.ObstacleDetectorName{},
 		})
 	})
@@ -2368,6 +2370,7 @@ func TestNewValidatedMotionCfg(t *testing.T) {
 			linearMPerSec:         defaultLinearMPerSec,
 			obstaclePollingFreqHz: defaultObstaclePollingHz,
 			positionPollingFreqHz: defaultPositionPollingHz,
+			planDeviationMM:       defaultSlamPlanDeviationM * 1e3,
 			obstacleDetectors:     []motion.ObstacleDetectorName{},
 		})
 	})
