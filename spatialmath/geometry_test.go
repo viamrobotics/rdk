@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 )
@@ -799,4 +800,25 @@ func TestCapsuleVsPointEncompassed(t *testing.T) {
 		},
 	}
 	testGeometryEncompassed(t, cases)
+}
+
+func TestNewGeometryFromProto(t *testing.T) {
+	malformedGeom := commonpb.Geometry{}
+	viamGeom, err := NewGeometryFromProto(&malformedGeom)
+	test.That(t, viamGeom, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeError, errors.New("cannot have nil pose for geometry"))
+
+	properGeom := commonpb.Geometry{
+		Center: &commonpb.Pose{OZ: 1},
+		GeometryType: &commonpb.Geometry_Sphere{
+			Sphere: &commonpb.Sphere{
+				RadiusMm: 1,
+			},
+		},
+	}
+	viamGeom, err = NewGeometryFromProto(&properGeom)
+	test.That(t, err, test.ShouldBeNil)
+	sphereGeom, err := NewSphere(NewZeroPose(), 1, "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, viamGeom, test.ShouldResemble, sphereGeom)
 }
