@@ -600,6 +600,9 @@ func (ms *builtIn) newMoveOnMapRequest(
 		return nil, err
 	}
 
+	// expect stuff needs to prob be done on the obs so that they are in the right frame..
+	worldObstacles := append(req.Obstacles, octree)
+
 	mr, err := ms.relativeMoveRequestFromAbsolute(
 		ctx,
 		motionCfg,
@@ -607,7 +610,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 		kb,
 		goalPoseAdj,
 		fs,
-		[]spatialmath.Geometry{octree},
+		worldObstacles,
 		valExtra,
 	)
 	if err != nil {
