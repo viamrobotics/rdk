@@ -1069,9 +1069,6 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			slamName := "test-slam"
 
 			// Create an injected SLAM
-			// NOTE: octagon.pcd’s bounding circle has a radius less than 1.3 meters. This means that when using this .pcd
-			// all goals will be less than 2.6 meters away. For this reason we must specify our own PlanDeviationMM value
-			// within the MotionConfiguration.
 			injectSlam := createInjectedSlam(slamName, "pointcloud/octagonspace.pcd", nil)
 
 			// Create a motion service
@@ -1382,6 +1379,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			Destination:        dst,
 			MovementSensorName: injectedMovementSensor.Name(),
 			Obstacles:          []*spatialmath.GeoObstacle{geoObstacle},
+			MotionCfg:          &motion.MotionConfiguration{},
 			Extra:              extra,
 		}
 		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, req, nil, 0)
