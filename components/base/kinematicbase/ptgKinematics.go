@@ -267,12 +267,16 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 				poseDiff := spatialmath.PoseBetween(currRelPose, expectedPose)
 				poseDiffPt := poseDiff.Point()
 				poseDiffAngle := poseDiff.Orientation().OrientationVectorDegrees().Theta
+				fmt.Println("curr pose", spatialmath.PoseToProtobuf(currPose.Pose()))
+				fmt.Println("curr rel pose", spatialmath.PoseToProtobuf(currRelPose))
+				fmt.Println("exp pose", spatialmath.PoseToProtobuf(expectedPose))
+				fmt.Println("diff pose", spatialmath.PoseToProtobuf(poseDiff))
 				adjLinVel := step.linVelMMps
 				adjAngVel := step.angVelDegps
 				
 				if math.Abs(poseDiffPt.Y) > 100 {
-					// If we are ahead, we want to slow down. If we are behind, we want to speed up
-					adjLinVel.Y = lastLinVel.Y + math.Copysign(100., poseDiffPt.Y)
+					// Positive Y means we are behind where we want to be and should speed up. Speed up 5% at a time
+					adjLinVel.Y = lastLinVel.Y * (1. + math.Copysign(0.05, poseDiffPt.Y))
 				}
 				if math.Abs(poseDiffPt.X) > 100 {
 					// If we are to the right, we want to rotate left, and vice versa.
