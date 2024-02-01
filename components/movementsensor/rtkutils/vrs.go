@@ -10,8 +10,6 @@ import (
 	"net"
 	"strings"
 
-	"github.com/de-bkg/gognss/pkg/ntrip"
-
 	"go.viam.com/rdk/logging"
 )
 
@@ -96,7 +94,7 @@ func ContainsGGAMessage(data []byte) bool {
 
 // FindLineWithMountPoint parses the given source-table returns the NMEA field associated with
 // the given mountpoint.
-func FindLineWithMountPoint(sourceTable *ntrip.Sourcetable, mountPoint string) (bool, error) {
+func FindLineWithMountPoint(sourceTable *Sourcetable, mountPoint string) (bool, error) {
 	stream, isFound := sourceTable.HasStream(mountPoint)
 
 	if !isFound {

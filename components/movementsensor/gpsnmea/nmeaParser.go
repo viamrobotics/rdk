@@ -193,7 +193,7 @@ func (g *GPSData) updateGGA(gga nmea.GGA) error {
 // updateGLL updates g.Location with the location information from the provided
 // GLL (Geographic Position - Latitude/Longitude) data.
 func (g *GPSData) updateGLL(gll nmea.GLL) error {
-	now := toPoint(gll)
+	now := geo.NewPoint(gll.Latitude, gll.Longitude)
 	g.Location = now
 	return nil
 }
