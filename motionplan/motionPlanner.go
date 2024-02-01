@@ -591,8 +591,6 @@ func CheckPlan(
 					poseInPath = spatialmath.Compose(poseInPath, errorState)
 				}
 			}
-
-			fmt.Println(spatialmath.PoseToProtobuf(poseInPath))
 			modifiedState := &ik.State{Frame: sf, Position: poseInPath}
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
