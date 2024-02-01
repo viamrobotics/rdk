@@ -672,7 +672,7 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	// If our motion profile is position_only then, we only check against our current & desired position
 	// Conversely if our motion profile is anything else, then we also need to check again our
 	// current & desired orientation
-	if valExtra.motionProfile != motionplan.PositionOnlyMotionProfile {
+	if valExtra.motionProfile == motionplan.PositionOnlyMotionProfile {
 		if spatialmath.PoseAlmostCoincidentEps(goal.Pose(), spatialmath.NewZeroPose(), motionCfg.planDeviationMM) {
 			return nil, errGoalWithinPlanDeviation
 		}
