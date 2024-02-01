@@ -5,7 +5,6 @@ package state
 import (
 	"context"
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -487,8 +487,8 @@ func (s *State) ListPlanStatuses(req motion.ListPlanStatusesReq) ([]motion.PlanS
 
 	statuses := []motion.PlanStatusWithID{}
 	componentNames := maps.Keys(s.componentStateByComponent)
-	sort.Slice(componentNames, func(a, b int) bool {
-		return componentNames[a].String() < componentNames[b].String()
+	slices.SortFunc(componentNames, func(a, b resource.Name) bool {
+		return a.String() < b.String()
 	})
 
 	if req.OnlyActivePlans {
