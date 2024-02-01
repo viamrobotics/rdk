@@ -1,6 +1,7 @@
 package motion
 
 import (
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -1074,6 +1075,7 @@ func TestMoveOnMapReq(t *testing.T) {
 		Destination:   spatialmath.NewZeroPose(),
 		SlamName:      mySlam,
 		MotionCfg:     motionCfg,
+		Obstacles:     []spatialmath.Geometry{},
 		Extra:         map[string]interface{}{},
 	}
 
@@ -1098,26 +1100,18 @@ func TestMoveOnMapReq(t *testing.T) {
 	}
 
 	t.Run("String()", func(t *testing.T) {
-		s := "motion.MoveOnMapReq{ComponentName: rdk:component:base/mybase, " +
-			"SlamName: rdk:service:slam/mySlam, Destination: o_z:1,  MotionCfg: " +
-			"&motion.MotionConfiguration{ObstacleDetectors:[]motion.ObstacleDetectorName{" +
-			"motion.ObstacleDetectorName{VisionServiceName:resource.Name{API:resource.API{" +
-			"Type:resource.APIType{Namespace:\"rdk\", Name:\"service\"}, SubtypeName:\"vision\"}" +
-			", Remote:\"\", Name:\"vision service 1\"}, CameraName:resource.Name{" +
-			"API:resource.API{Type:resource.APIType{Namespace:\"rdk\", Name:\"component\"}, " +
-			"SubtypeName:\"camera\"}, Remote:\"\", Name:\"camera 1\"}}, " +
-			"motion.ObstacleDetectorName{VisionServiceName:resource.Name{" +
-			"API:resource.API{Type:resource.APIType{Namespace:\"rdk\", Name:\"service\"}, " +
-			"SubtypeName:\"vision\"}, Remote:\"\", Name:\"vision service 2\"}, " +
-			"CameraName:resource.Name{API:resource.API{Type:resource.APIType{" +
-			"Namespace:\"rdk\", Name:\"component\"}, SubtypeName:\"camera\"}, " +
-			"Remote:\"\", Name:\"camera 2\"}}}, PositionPollingFreqHz:4, " +
-			"ObstaclePollingFreqHz:5, PlanDeviationMM:3, LinearMPerSec:1, AngularDegsPerSec:2}, " +
-			"Extra: map[]}"
-		test.That(t, validMoveOnMapReq.String(), test.ShouldResemble, s)
+		s := fmt.Sprintf(
+			"motion.MoveOnMapReq{ComponentName: %s, SlamName: %s, Destination: %+v, "+
+				"MotionCfg: %#v, Obstacles: %s, Extra: %s}",
+			validMoveOnMapReq.ComponentName,
+			validMoveOnMapReq.SlamName,
+			spatialmath.PoseToProtobuf(validMoveOnMapReq.Destination),
+			validMoveOnMapReq.MotionCfg,
+			validMoveOnMapReq.Obstacles,
+			validMoveOnMapReq.Extra)
+		test.That(t, validMoveOnMapReq.String(), test.ShouldEqual, s)
 	})
 
-	//nolint:dupl
 	t.Run("toProtoNew", func(t *testing.T) {
 		type testCase struct {
 			description string
@@ -1178,7 +1172,6 @@ func TestMoveOnMapReq(t *testing.T) {
 		}
 	})
 
-	//nolint:dupl
 	t.Run("toProto", func(t *testing.T) {
 		type testCase struct {
 			description string
@@ -1224,6 +1217,26 @@ func TestMoveOnMapReq(t *testing.T) {
 				},
 				err: nil,
 			},
+			{
+				description: "allows non-nil obstacles",
+				input: MoveOnMapReq{
+					ComponentName: myBase,
+					Destination:   spatialmath.NewZeroPose(),
+					SlamName:      mySlam,
+					Obstacles:     []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")},
+				},
+				name: "bloop",
+
+				result: &pb.MoveOnMapRequest{
+					Name:            "bloop",
+					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
+					ComponentName:   rprotoutils.ResourceNameToProto(myBase),
+					SlamServiceName: rprotoutils.ResourceNameToProto(mySlam),
+					Obstacles:       spatialmath.NewGeometriesToProto([]spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")}),
+					Extra:           &structpb.Struct{},
+				},
+				err: nil,
+			},
 		}
 
 		for _, tc := range testCases {
@@ -1239,7 +1252,6 @@ func TestMoveOnMapReq(t *testing.T) {
 		}
 	})
 
-	//nolint:dupl
 	t.Run("moveOnMapNewRequestFromProto", func(t *testing.T) {
 		type testCase struct {
 			description string
@@ -1289,8 +1301,14 @@ func TestMoveOnMapReq(t *testing.T) {
 			{
 				description: "success",
 				input:       validPbMoveOnMapNewRequest,
-				result:      validMoveOnMapReq,
-				err:         nil,
+				result: MoveOnMapReq{
+					ComponentName: myBase,
+					Destination:   spatialmath.NewZeroPose(),
+					SlamName:      mySlam,
+					MotionCfg:     motionCfg,
+					Extra:         map[string]interface{}{},
+				},
+				err: nil,
 			},
 			{
 				description: "success - allow nil motionCfg",
@@ -1332,7 +1350,6 @@ func TestMoveOnMapReq(t *testing.T) {
 		}
 	})
 
-	//nolint:dupl
 	t.Run("moveOnMapRequestFromProto", func(t *testing.T) {
 		type testCase struct {
 			description string
@@ -1390,13 +1407,13 @@ func TestMoveOnMapReq(t *testing.T) {
 				// RSDK-6444
 
 				input: &pb.MoveOnMapRequest{
-					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
+					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0})),
 					ComponentName:   rprotoutils.ResourceNameToProto(myBase),
 					SlamServiceName: rprotoutils.ResourceNameToProto(mySlam),
 				},
 				result: MoveOnMapReq{
 					ComponentName: myBase,
-					Destination:   spatialmath.NewZeroPose(),
+					Destination:   spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0}),
 					SlamName:      mySlam,
 					MotionCfg: &MotionConfiguration{
 						ObstacleDetectors:     []ObstacleDetectorName{},
@@ -1406,9 +1423,46 @@ func TestMoveOnMapReq(t *testing.T) {
 						LinearMPerSec:         0,
 						AngularDegsPerSec:     0,
 					},
-					Extra: map[string]interface{}{},
+					Obstacles: []spatialmath.Geometry{},
+					Extra:     map[string]interface{}{},
 				},
 				err: nil,
+			},
+			{
+				description: "success - allow non-nil obstacles",
+				input: &pb.MoveOnMapRequest{
+					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0})),
+					ComponentName:   rprotoutils.ResourceNameToProto(myBase),
+					SlamServiceName: rprotoutils.ResourceNameToProto(mySlam),
+					Obstacles:       spatialmath.NewGeometriesToProto([]spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")}),
+				},
+				result: MoveOnMapReq{
+					ComponentName: myBase,
+					Destination:   spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0}),
+					SlamName:      mySlam,
+					MotionCfg: &MotionConfiguration{
+						ObstacleDetectors:     []ObstacleDetectorName{},
+						PositionPollingFreqHz: 0,
+						ObstaclePollingFreqHz: 0,
+						PlanDeviationMM:       0,
+						LinearMPerSec:         0,
+						AngularDegsPerSec:     0,
+					},
+					Obstacles: []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")},
+					Extra:     map[string]interface{}{},
+				},
+				err: nil,
+			},
+			{
+				description: "fail - inconvertible geometry",
+				input: &pb.MoveOnMapRequest{
+					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0})),
+					ComponentName:   rprotoutils.ResourceNameToProto(myBase),
+					SlamServiceName: rprotoutils.ResourceNameToProto(mySlam),
+					Obstacles:       []*commonpb.Geometry{{GeometryType: nil}},
+				},
+				result: MoveOnMapReq{},
+				err:    errors.New("cannot convert obstacles into geometries: cannot have nil pose for geometry"),
 			},
 		}
 
