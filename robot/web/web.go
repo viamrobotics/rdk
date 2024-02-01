@@ -284,7 +284,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	var lis net.Listener
 	var addr string
 	if err := module.MakeSelfOwnedFilesFunc(func() error {
-		dir, err := os.MkdirTemp("", "viam-module-*")
+		dir, err := rutils.PlatformMkdirTemp("", "viam-module-*")
 		if err != nil {
 			return errors.WithMessage(err, "module startup failed")
 		}

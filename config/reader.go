@@ -75,7 +75,7 @@ var (
 
 func init() {
 	//nolint:errcheck
-	home, _ := os.UserHomeDir()
+	home := rutils.PlatformHomeDir()
 	ViamDotDir = filepath.Join(home, ".viam")
 	viamPackagesDir = filepath.Join(ViamDotDir, "packages")
 }
