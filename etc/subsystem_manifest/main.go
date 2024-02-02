@@ -61,9 +61,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to calculate binary sha: %v", err)
 	}
-	metadata, err := getViamServerMetadata(*binaryPath)
-	if err != nil {
-		log.Fatalf("failed to get viam-server metadata: %v", err)
+	var metadata *viamServerMetadata
+	if *subsystem == viamServer {
+		metadata, err = getViamServerMetadata(*binaryPath)
+		if err != nil {
+			log.Fatalf("failed to get viam-server metadata: %v", err)
+		}
 	}
 	platform, err := osArchToViamPlatform(*arch)
 	if err != nil {
