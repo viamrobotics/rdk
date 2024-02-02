@@ -268,3 +268,26 @@ func createMoveOnMapEnvironment(
 	test.That(t, err, test.ShouldBeNil)
 	return kb, ms
 }
+
+func TestCorrectStartPose(t *testing.T) {
+	// -45
+	askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, OZ: 1}
+	corrected, err := correctStartPose(spatialmath.NewPose(r3.Vector{X: 1320, Y: 0}, askewOrient))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, corrected.Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, -45.)
+	// 45
+	askewOrient = &spatialmath.OrientationVectorDegrees{OX: -1, OY: 1, OZ: 1}
+	corrected, err = correctStartPose(spatialmath.NewPose(r3.Vector{X: 1320, Y: 0}, askewOrient))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, corrected.Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 45.)
+	// -135
+	askewOrient = &spatialmath.OrientationVectorDegrees{OX: 1, OY: -1, OZ: 1}
+	corrected, err = correctStartPose(spatialmath.NewPose(r3.Vector{X: 1320, Y: 0}, askewOrient))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, corrected.Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, -135.)
+	// 135
+	askewOrient = &spatialmath.OrientationVectorDegrees{OX: -1, OY: -1, OZ: 1}
+	corrected, err = correctStartPose(spatialmath.NewPose(r3.Vector{X: 1320, Y: 0}, askewOrient))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, corrected.Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 135.)
+}

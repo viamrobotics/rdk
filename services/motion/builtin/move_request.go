@@ -520,6 +520,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	mr.seedPlan = seedPlan
 	mr.replanCostFactor = valExtra.replanCostFactor
 	mr.requestType = requestTypeMoveOnGlobe
+	mr.poseOrigin = nil // Needs to be unset
 	mr.geoPoseOrigin = *spatialmath.NewGeoPose(origin, heading)
 	return mr, nil
 }
@@ -613,11 +614,6 @@ func (ms *builtIn) newMoveOnMapRequest(
 	if err != nil {
 		return nil, err
 	}
-	startPose, err := mr.kinematicBase.CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
-	}
-	mr.poseOrigin = startPose.Pose()
 	mr.requestType = requestTypeMoveOnMap
 	return mr, nil
 }
@@ -648,13 +644,17 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		return nil, err
 	}
 
-	startPose, err := kb.CurrentPosition(ctx)
+	startPoseRaw, err := kb.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	startPoseInv := spatialmath.PoseInverse(startPose.Pose())
+	startPose, err := correctStartPose(startPoseRaw.Pose())
+	if err != nil {
+		return nil, err
+	}
+	startPoseInv := spatialmath.PoseInverse(startPose)
 
-	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld))
+	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose, goalPoseInWorld))
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
 	geoms := make([]spatialmath.Geometry, 0, len(worldObstacles))
@@ -725,6 +725,7 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		replanCostFactor:  valExtra.replanCostFactor,
 		obstacleDetectors: obstacleDetectors,
 		fsService:         ms.fsService,
+		poseOrigin:        startPose,
 
 		executeBackgroundWorkers: &backgroundWorkers,
 
@@ -836,4 +837,26 @@ func toGeoPosePlanSteps(posesByComponent []motionplan.PlanStep, geoPoses []spati
 		steps = append(steps, map[resource.Name]spatialmath.Pose{resourceName: poseContainingGeoPose})
 	}
 	return steps, nil
+}
+
+// This function will check the orientation of the startPose of a 2d move request, and ensure that it is normal to the XY plane. If it is
+// not, it will be altered such that it is (accounting for e.g. an ourdoor rover with one wheel on a rock). If the orientation is such that
+// the robot is pointed directly up or down (or is upside-down), an error is returned.
+func correctStartPose(startPose spatialmath.Pose) (spatialmath.Pose, error) {
+	orient := startPose.Orientation().OrientationVectorRadians() // OV is easy to check if we are in plane
+	if orient.OZ < 0 {
+		return nil, errors.New("rover appears to be upside down, please correct")
+	}
+	if orient.OX == 0 && orient.OY == 0 {
+		return startPose, nil
+	}
+
+	adjPt := spatialmath.NewPoseFromPoint(r3.Vector{0, 1, 0})
+	newAdjPt := spatialmath.Compose(spatialmath.NewPoseFromOrientation(orient), adjPt).Point()
+	if 1-math.Abs(newAdjPt.Z) < 0.0001 {
+		return nil, errors.New("rover appears pointing either straight up or down, check your movement sensor")
+	}
+	theta := -math.Atan2(newAdjPt.Y, -newAdjPt.X)
+
+	return spatialmath.NewPose(startPose.Point(), &spatialmath.OrientationVector{OZ: 1, Theta: theta}), nil
 }
