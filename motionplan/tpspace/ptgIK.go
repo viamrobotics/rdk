@@ -15,9 +15,8 @@ import (
 )
 
 const (
-	defaultResolutionSeconds = 0.01 // seconds. Return trajectories updating velocities at this resolution.
-
-	defaultZeroDist = 1e-3 // Sometimes nlopt will minimize trajectories to zero. Ensure min traj dist is at least this
+	defaultZeroDist  = 1e-3 // Sometimes nlopt will minimize trajectories to zero. Ensure min total traj dist is at least this
+	defaultMinPTGlen = 10.
 )
 
 type ptgIK struct {
@@ -28,8 +27,10 @@ type ptgIK struct {
 
 	gridSim PTGSolver
 
-	mu          sync.RWMutex
-	trajCache   map[float64][]*TrajNode
+	mu sync.RWMutex
+	// trajCache speeds up queries by saving previously computed trajectories and not re-computing them from scratch.
+	// The first key is the resolution of the trajectory, the second is the alpha value.
+	trajCache   map[float64]map[float64][]*TrajNode
 	defaultSeed []referenceframe.Input
 }
 
@@ -37,7 +38,7 @@ type ptgIK struct {
 // interface, allowing inverse kinematics queries to be run against it.
 func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float64, randSeed, trajCount int) (PTGSolver, error) {
 	if refDistLong <= 0 {
-		return nil, errors.New("refDistLong must be greater than zero")
+		return nil, errors.New("refDistLong must be greater than zero to create a ptgIK")
 	}
 
 	limits := []referenceframe.Limit{}
@@ -66,7 +67,7 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float
 		refDist:         refDistLong,
 		ptgFrame:        ptgFrame,
 		fastGradDescent: nlopt,
-		trajCache:       map[float64][]*TrajNode{},
+		trajCache:       map[float64]map[float64][]*TrajNode{},
 	}
 	ptg.defaultSeed = PTGIKSeed(ptg)
 
@@ -126,10 +127,13 @@ func (ptg *ptgIK) MaxDistance() float64 {
 	return ptg.refDist
 }
 
-func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
-	traj := []*TrajNode{}
+func (ptg *ptgIK) Trajectory(alpha, dist, resolution float64) ([]*TrajNode, error) {
+	var precomp, traj []*TrajNode
 	ptg.mu.RLock()
-	precomp := ptg.trajCache[alpha]
+	thisRes := ptg.trajCache[resolution]
+	if thisRes != nil {
+		precomp = thisRes[alpha]
+	}
 	ptg.mu.RUnlock()
 	if precomp != nil && precomp[len(precomp)-1].Dist >= dist && dist > 0 {
 		exact := false
@@ -144,11 +148,7 @@ func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
 			}
 		}
 		if !exact {
-			time := 0.
-			if len(traj) > 0 {
-				time = traj[len(traj)-1].Time
-			}
-			lastNode, err := computePTGNode(ptg, alpha, dist, time)
+			lastNode, err := computePTGNode(ptg, alpha, dist)
 			if err != nil {
 				return nil, err
 			}
@@ -156,14 +156,17 @@ func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
 		}
 	} else {
 		var err error
-		traj, err = ComputePTG(ptg, alpha, dist, defaultResolutionSeconds)
+		traj, err = ComputePTG(ptg, alpha, dist, resolution)
 		if err != nil {
 			return nil, err
 		}
 		if dist > 0 {
 			ptg.mu.Lock()
 			// Caching here provides a ~33% speedup to a solve call
-			ptg.trajCache[alpha] = traj
+			if ptg.trajCache[resolution] == nil {
+				ptg.trajCache[resolution] = map[float64][]*TrajNode{}
+			}
+			ptg.trajCache[resolution][alpha] = traj
 			ptg.mu.Unlock()
 		}
 	}

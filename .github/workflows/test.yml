@@ -14,7 +14,8 @@ env:
 
 jobs:
   test_go:
-    name: Go Unit Tests
+    # note: we have automations that match on platform_name. be careful changing this.
+    name: ${{ matrix.platform_name }} Go Unit Tests
     strategy:
       fail-fast: false
       matrix:
@@ -63,6 +64,8 @@ jobs:
         GEN_DIFF=$(git status -s)
 
         if [ -n "$GEN_DIFF" ]; then
+            echo '"make build lint" resulted in the following untracked changes:' 1>&2
+            git diff
             echo '"make build lint" resulted in changes not in git' 1>&2
             git status
             exit 1

@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/adrianmo/go-nmea"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
@@ -64,7 +63,6 @@ func TestNewSerialMovementSensor(t *testing.T) {
 		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
 			ConnectionType: "serial",
-			DisableNMEA:    false,
 			SerialConfig: &SerialConfig{
 				SerialPath:     path,
 				SerialBaudRate: 0,
@@ -100,13 +98,6 @@ func TestReadingsSerial(t *testing.T) {
 		FixQuality: fix,
 	}
 
-	path := "somepath"
-	g.correctionPath = path
-	g.correctionBaudRate = 9600
-	correctionPath, correctionBaudRate := g.GetCorrectionInfo()
-	test.That(t, correctionPath, test.ShouldEqual, path)
-	test.That(t, correctionBaudRate, test.ShouldEqual, 9600)
-
 	loc1, alt1, err := g.Position(ctx, make(map[string]interface{}))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, loc1, test.ShouldEqual, loc)
@@ -133,12 +124,4 @@ func TestCloseSerial(t *testing.T) {
 
 	err := g.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
-}
-
-func TestToPoint(t *testing.T) {
-	a := nmea.GLL{Longitude: loc.Lng(), Latitude: loc.Lat()}
-
-	point := toPoint(a)
-	test.That(t, point.Lng(), test.ShouldEqual, loc.Lng())
-	test.That(t, point.Lat(), test.ShouldEqual, loc.Lat())
 }

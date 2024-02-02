@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
@@ -26,6 +27,11 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+var (
+	stateTTL              = time.Hour * 24
+	stateTTLCheckInterval = time.Minute
+)
+
 func init() {
 	resource.RegisterDefaultService(
 		motion.API,
@@ -42,15 +48,16 @@ func init() {
 }
 
 const (
-	builtinOpLabel                   = "motion-service"
-	maxTravelDistanceMM              = 5e6 // this is equivalent to 5km
-	lookAheadDistanceMM      float64 = 5e6
-	defaultSmoothIter                = 30
-	defaultAngularDegsPerSec         = 20.
-	defaultLinearMPerSec             = 0.3
-	defaultObstaclePollingHz         = 1.
-	defaultPlanDeviationM            = 2.6
-	defaultPositionPollingHz         = 1.
+	builtinOpLabel                     = "motion-service"
+	maxTravelDistanceMM                = 5e6 // this is equivalent to 5km
+	lookAheadDistanceMM        float64 = 5e6
+	defaultSmoothIter                  = 30
+	defaultAngularDegsPerSec           = 20.
+	defaultLinearMPerSec               = 0.3
+	defaultObstaclePollingHz           = 1.
+	defaultSlamPlanDeviationM          = 1.
+	defaultGlobePlanDeviationM         = 2.6
+	defaultPositionPollingHz           = 1.
 )
 
 // inputEnabledActuator is an actuator that interacts with the frame system.
@@ -134,7 +141,12 @@ func (ms *builtIn) Reconfigure(
 	if ms.state != nil {
 		ms.state.Stop()
 	}
-	ms.state = state.NewState(context.Background(), ms.logger)
+
+	state, err := state.NewState(stateTTL, stateTTLCheckInterval, ms.logger)
+	if err != nil {
+		return err
+	}
+	ms.state = state
 	return nil
 }
 
@@ -240,46 +252,23 @@ func (ms *builtIn) Move(
 	return true, nil
 }
 
-// MoveOnMap will move the given component to the given destination on the slam map generated from a slam service specified by slamName.
-// Bases are the only component that supports this.
-func (ms *builtIn) MoveOnMap(
-	ctx context.Context,
-	componentName resource.Name,
-	destination spatialmath.Pose,
-	slamName resource.Name,
-	extra map[string]interface{},
-) (bool, error) {
+func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
+	if err := ctx.Err(); err != nil {
+		return uuid.Nil, err
+	}
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
+	ms.logger.CDebugf(ctx, "MoveOnMap called with %s", req)
+
+	// TODO: Deprecated: remove once no motion apis use the opid system
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-	// make call to motionplan
-	mr, err := ms.newMoveOnMapRequest(ctx, motion.MoveOnMapReq{
-		ComponentName: componentName,
-		Destination:   destination,
-		SlamName:      slamName,
-		Extra:         extra,
-	}, nil, defaultMaxReplans)
+
+	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, ms.newMoveOnMapRequest)
 	if err != nil {
-		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
+		return uuid.Nil, err
 	}
 
-	planResp, err := mr.Plan(ctx)
-	if err != nil {
-		return false, err
-	}
-	resp, err := mr.Execute(ctx, planResp.Waypoints)
-	// Error
-	if err != nil {
-		return false, err
-	}
-
-	// Didn't reach goal
-	if resp.Replan {
-		ms.logger.CWarnf(ctx, "didn't reach the goal. Reason: %s\n", resp.ReplanReason)
-		return false, nil
-	}
-	// Reached goal
-	return true, nil
+	return id, nil
 }
 
 func (ms *builtIn) MoveOnMapNew(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {

@@ -33,7 +33,6 @@ func connectionTypeError(connType, serialConn, i2cConn string) error {
 // Config is used for converting NMEA Movement Sensor attibutes.
 type Config struct {
 	ConnectionType string `json:"connection_type"`
-	DisableNMEA    bool   `json:"disable_nmea,omitempty"`
 
 	*SerialConfig `json:"serial_attributes,omitempty"`
 	*I2CConfig    `json:"i2c_attributes,omitempty"`

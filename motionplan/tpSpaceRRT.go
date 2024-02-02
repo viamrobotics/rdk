@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	defaultAutoBB = 0.8 // Automatic bounding box on driveable area as a multiple of start-goal distance
+	// Automatic bounding box on driveable area as a multiple of start-goal distance.
+	defaultAutoBB = 1.0
 	// Note: while fully holonomic planners can use the limits of the frame as implicit boundaries, with non-holonomic motion
 	// this is not the case, and the total workspace available to the planned frame is not directly related to the motion available
 	// from a single set of inputs.
@@ -37,7 +38,7 @@ const (
 	// Don't add new RRT tree nodes if there is an existing node within this distance. This is the distance determined by the DistanceFunc,
 	// so is the sum of the square of the distance in mm, and the orientation distance accounting for scale adjustment.
 	// Note that since the orientation adjustment is very large, this must be as well.
-	defaultIdenticalNodeDistance = 2000.
+	defaultIdenticalNodeDistance = 4000.
 
 	// When extending the RRT tree towards some point, do not extend more than this many times in a single RRT invocation.
 	defaultMaxReseeds = 20
@@ -45,7 +46,7 @@ const (
 	// Make an attempt to solve the tree every this many iterations
 	// For a unidirectional solve, this means attempting to reach the goal rather than a random point
 	// For a bidirectional solve, this means trying to connect the two trees directly.
-	defaultAttemptSolveEvery = 15
+	defaultAttemptSolveEvery = 20
 
 	// When attempting a solve per the above, make no more than this many tries. Preserves performance with large trees.
 	defaultMaxConnectAttempts = 20
@@ -265,7 +266,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			allPtgs := mp.tpFrame.PTGSolvers()
 			lastPose := spatialmath.NewZeroPose()
 			for _, mynode := range correctedPath {
-				trajPts, err := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+				trajPts, err := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value, mp.planOpts.Resolution)
 				if err != nil {
 					// Unimportant; this is just for debug visualization
 					break
@@ -300,13 +301,15 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	var randPosNode node = midptNode
 
 	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
+		if pathdebug {
+			mp.logger.Debugf("$RRTGOAL,%f,%f", randPosNode.Pose().Point().X, randPosNode.Pose().Point().Y)
+		}
 		mp.logger.CDebugf(ctx, "TP Space RRT iteration %d", iter)
 		if ctx.Err() != nil {
 			mp.logger.CDebugf(ctx, "TP Space RRT timed out after %d iterations", iter)
 			rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
 			return
 		}
-
 		utils.PanicCapturingGo(func() {
 			m1chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.startMap, false)
 		})
@@ -494,7 +497,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		subNode := newConfigurationNode(solution.Configuration[i : i+2])
 
 		// Check collisions along this traj and get the longest distance viable
-		trajK, err := curPtg.Trajectory(subNode.Q()[0].Value, subNode.Q()[1].Value)
+		trajK, err := curPtg.Trajectory(subNode.Q()[0].Value, subNode.Q()[1].Value, mp.planOpts.Resolution)
 		if err != nil {
 			return nil, err
 		}
@@ -549,36 +552,29 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 
 // Check our constraints (mainly collision) and return a valid node to add, or nil if no nodes along the traj are valid.
 func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, arcStartPose spatialmath.Pose) node {
-	sinceLastCollideCheck := 0.
-	lastDist := 0.
 	passed := []node{}
 	// Check each point along the trajectory to confirm constraints are met
-	// TODO: RSDK-5007 will allow this to use a Segment and be better integrated into our existing frameworks.
 	for i := 0; i < len(trajK); i++ {
 		trajPt := trajK[i]
 
-		sinceLastCollideCheck += math.Abs(trajPt.Dist - lastDist)
 		trajState := &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose), Frame: mp.frame}
-		if sinceLastCollideCheck > mp.planOpts.Resolution || i == 0 || i == len(trajK)-1 {
-			// In addition to checking every `Resolution`, we also check both endpoints.
-			ok, _ := mp.planOpts.CheckStateConstraints(trajState)
-			if !ok {
-				okDist := trajPt.Dist * defaultCollisionWalkbackPct
-				if okDist > defaultMinTrajectoryLength {
-					// Check that okDist is larger than the minimum distance to move to add a partial trajectory.
-					for i := len(passed) - 1; i > 0; i-- {
-						if passed[i].Cost() < defaultMinTrajectoryLength {
-							break
-						}
-						// Return the most recent node whose dist is less than okDist and larger than defaultMinTrajectoryLength
-						if passed[i].Cost() < okDist {
-							return passed[i]
-						}
+		// In addition to checking every `Resolution`, we also check both endpoints.
+		ok, _ := mp.planOpts.CheckStateConstraints(trajState)
+		if !ok {
+			okDist := trajPt.Dist * defaultCollisionWalkbackPct
+			if okDist > defaultMinTrajectoryLength {
+				// Check that okDist is larger than the minimum distance to move to add a partial trajectory.
+				for i := len(passed) - 1; i > 0; i-- {
+					if passed[i].Cost() < defaultMinTrajectoryLength {
+						break
+					}
+					// Return the most recent node whose dist is less than okDist and larger than defaultMinTrajectoryLength
+					if passed[i].Cost() < okDist {
+						return passed[i]
 					}
 				}
-				return nil
 			}
-			sinceLastCollideCheck = 0.
+			return nil
 		}
 
 		okNode := &basicNode{
@@ -587,7 +583,6 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, arcStart
 			pose: trajPt.Pose,
 		}
 		passed = append(passed, okNode)
-		lastDist = trajPt.Dist
 	}
 	return &basicNode{
 		q:    []referenceframe.Input{{trajK[(len(trajK) - 1)].Alpha}, {trajK[(len(trajK) - 1)].Dist}},
@@ -666,18 +661,22 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 		}
 		reseedCandidate = newReseedCandidate
 		endNode := reseedCandidate.newNodes[len(reseedCandidate.newNodes)-1]
-		dist := mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: endNode.Pose(), EndPosition: goalNode.Pose()})
-		if dist < mp.planOpts.GoalThreshold || lastIteration {
+		distTravelledByCandidate := 0.
+		for _, newNode := range reseedCandidate.newNodes {
+			distTravelledByCandidate += newNode.Q()[2].Value
+		}
+		distToGoal := endNode.Pose().Point().Distance(goalNode.Pose().Point())
+		if distToGoal < mp.planOpts.GoalThreshold || lastIteration {
 			// Reached the goal position, or otherwise failed to fully extend to the end of a trajectory
 			return &nodeAndError{endNode, nil}
 		}
 		if i == 0 {
 			// TP-space distance is NOT the same thing as cartesian distance, but they track sufficiently well that this is valid to do.
-			maxReseeds = int(math.Min(float64(defaultMaxReseeds), math.Ceil(math.Sqrt(dist)/endNode.Q()[2].Value)+2))
+			maxReseeds = int(math.Min(float64(defaultMaxReseeds), math.Ceil(distToGoal/(distTravelledByCandidate/4))+2))
 		}
 		// If our most recent traj was not a full-length extension, try to extend one more time and then return our best node.
 		// This helps prevent the planner from doing a 15-point turn to adjust orientation, which is very difficult to accurately execute.
-		if math.Sqrt(dist) < endNode.Q()[2].Value/2 {
+		if distToGoal < distTravelledByCandidate/4 {
 			lastIteration = true
 		}
 
@@ -727,7 +726,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 		randAlpha := newNode.Q()[1].Value
 		randDist := newNode.Q()[2].Value
 
-		trajK, err := mp.tpFrame.PTGSolvers()[ptgNum].Trajectory(randAlpha, randDist)
+		trajK, err := mp.tpFrame.PTGSolvers()[ptgNum].Trajectory(randAlpha, randDist, mp.planOpts.Resolution)
 		if err != nil {
 			return nil, err
 		}
@@ -898,7 +897,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		allPtgs := mp.tpFrame.PTGSolvers()
 		lastPose := spatialmath.NewZeroPose()
 		for _, mynode := range path {
-			trajPts, err := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+			trajPts, err := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value, mp.planOpts.Resolution)
 			if err != nil {
 				// Unimportant; this is just for debug visualization
 				break
@@ -939,7 +938,11 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 			adj := float64(adjNum) / float64(defaultSmoothChunkCount)
 			fullQ := pathNode.Q()
 			newQ := []referenceframe.Input{fullQ[0], fullQ[1], {fullQ[2].Value * adj}}
-			trajK, err := smoother.tpFrame.PTGSolvers()[int(math.Round(newQ[0].Value))].Trajectory(newQ[1].Value, newQ[2].Value)
+			trajK, err := smoother.tpFrame.PTGSolvers()[int(math.Round(newQ[0].Value))].Trajectory(
+				newQ[1].Value,
+				newQ[2].Value,
+				mp.planOpts.Resolution,
+			)
 			if err != nil {
 				continue
 			}

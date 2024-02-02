@@ -68,8 +68,11 @@ func wrapWithDifferentialDriveKinematics(
 		boundingSphere, err = spatialmath.BoundingSphere(geometry)
 	}
 	if boundingSphere == nil || err != nil {
-		logger.CWarn(ctx, "base %s not configured with a geometry, will be considered a point mass for collision detection purposes.")
-		boundingSphere = spatialmath.NewPoint(r3.Vector{}, b.Name().Name)
+		logger.CWarn(ctx, "base %s not configured with a geometry, will be considered a 300mm sphere for collision detection purposes.")
+		boundingSphere, err = spatialmath.NewSphere(spatialmath.NewZeroPose(), 150., b.Name().Name)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	ddk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, boundingSphere)

@@ -8,6 +8,7 @@ import "C"
 import (
 	"context"
 	"image"
+	"time"
 	"unsafe"
 
 	"github.com/edaniels/golog"
@@ -25,6 +26,10 @@ const (
 	pixelFormat = avcodec.AvPixFmtYuv420p
 	// V4l2m2m Is a V4L2 memory-to-memory H.264 hardware encoder.
 	V4l2m2m = "h264_v4l2m2m"
+	// macroBlock is the encoder boundary block size in bytes.
+	macroBlock = 64
+	// warmupTime is the time to wait for the encoder to warm up in milliseconds.
+	warmupTime = 1000 // 1 second
 )
 
 type encoder struct {
@@ -66,9 +71,14 @@ func NewEncoder(width, height, keyFrameInterval int, logger golog.Logger) (codec
 	}
 
 	if h.frame = avutil.FrameAlloc(); h.frame == nil {
-		h.Close() //nolint:errcheck
+		if err := h.Close(); err != nil {
+			return nil, errors.Wrap(err, "cannot close codec")
+		}
 		return nil, errors.New("cannot alloc frame")
 	}
+
+	// give the encoder some time to warm up
+	time.Sleep(warmupTime * time.Millisecond)
 
 	return h, nil
 }
@@ -96,7 +106,7 @@ func (h *encoder) Encode(ctx context.Context, img image.Image) ([]byte, error) {
 		return nil, errors.Wrap(err, "cannot read image")
 	}
 
-	h.frame.SetFrameFromImg(yuvImg.(*image.YCbCr))
+	h.frame.SetFrameFromImgMacroAlign(yuvImg.(*image.YCbCr), macroBlock)
 	h.frame.SetFramePTS(h.pts)
 	h.pts++
 

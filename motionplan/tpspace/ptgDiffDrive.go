@@ -8,21 +8,18 @@ import (
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
+
+const angleAdjust = 0.99 // ajdust alpha radian conversion by this much to prevent paired 180-degree flips
 
 // ptgDiffDrive defines a PTG family composed of a rotation in place, whose magnitude is determined by alpha, followed by moving straight.
 // This is essentially the same as the CS PTG, but with a turning radius of zero.
-type ptgDiffDrive struct {
-	maxMMPS float64 // millimeters per second velocity to target
-	maxRPS  float64 // radians per second of rotation when driving at maxMMPS and turning at max turning radius
-}
+type ptgDiffDrive struct{}
 
 // NewDiffDrivePTG creates a new PTG of type ptgDiffDrive.
-func NewDiffDrivePTG(maxMMPS, maxRPS float64) PTG {
-	return &ptgDiffDrive{
-		maxMMPS: maxMMPS,
-		maxRPS:  maxRPS,
-	}
+func NewDiffDrivePTG(turnRadius float64) PTG {
+	return &ptgDiffDrive{}
 }
 
 // For this particular driver, turns alpha into a linear + angular velocity. Linear is just max * fwd/back.
@@ -31,11 +28,10 @@ func (ptg *ptgDiffDrive) Velocities(alpha, dist float64) (float64, float64, erro
 	if dist == 0 {
 		return 0, 0, nil
 	}
-	k := math.Copysign(1.0, dist)
-	if dist <= math.Abs(alpha) {
-		return 0, math.Copysign(ptg.maxRPS, alpha), nil
+	if dist <= math.Abs(rdkutils.RadToDeg(alpha))*angleAdjust {
+		return 0, math.Copysign(1.0, alpha), nil
 	}
-	return ptg.maxMMPS * k, 0, nil
+	return 1.0, 0, nil
 }
 
 // Transform will return the pose for the given inputs. The first input is [-pi, pi]. This corresponds to the direction and amount of
@@ -58,14 +54,14 @@ func (ptg *ptgDiffDrive) Transform(inputs []referenceframe.Input) (spatialmath.P
 	if alpha < -1*math.Pi {
 		alpha = -1 * math.Pi
 	}
-	turnAngle := math.Copysign(math.Min(dist, math.Abs(alpha)), alpha)
+	turnAngle := math.Copysign(math.Min(dist, math.Abs(rdkutils.RadToDeg(alpha))), alpha) * angleAdjust
 
-	pose := spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVector{OZ: 1, Theta: turnAngle})
+	pose := spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: turnAngle})
 
-	if dist <= math.Abs(alpha) {
+	if dist <= math.Abs(rdkutils.RadToDeg(alpha)) {
 		return pose, nil
 	}
 
-	pt := r3.Vector{0, dist - math.Abs(alpha), 0} // Straight line, +Y is "forwards"
+	pt := r3.Vector{0, dist - math.Abs(rdkutils.RadToDeg(alpha)), 0} // Straight line, +Y is "forwards"
 	return spatialmath.Compose(pose, spatialmath.NewPoseFromPoint(pt)), nil
 }

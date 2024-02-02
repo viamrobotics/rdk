@@ -51,10 +51,8 @@ func (config *AnalogReaderConfig) Validate(path string) error {
 
 // DigitalInterruptConfig describes the configuration of digital interrupt for a board.
 type DigitalInterruptConfig struct {
-	Name    string `json:"name"`
-	Pin     string `json:"pin"`
-	Type    string `json:"type,omitempty"` // e.g. basic, servo
-	Formula string `json:"formula,omitempty"`
+	Name string `json:"name"`
+	Pin  string `json:"pin"`
 }
 
 // Validate ensures all parts of the config are valid.

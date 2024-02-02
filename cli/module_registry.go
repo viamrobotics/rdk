@@ -98,9 +98,26 @@ func CreateModuleAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	// Check to make sure the user doesn't accidentally overwrite a module manifest
+
+	shouldWriteNewEmptyManifest := true
+
+	// If a meta.json exists in the current directory, we have a slightly different creation flow
+	// in order to minimize user frustration. We will continue the creation if the args passed to create
+	// match the values in the meta.json
 	if _, err := os.Stat(defaultManifestFilename); err == nil {
-		return errors.New("another module's meta.json already exists in the current directory. Delete it and try again")
+		modManifest, err := loadManifest(defaultManifestFilename)
+		if err != nil {
+			return errors.New("another meta.json already exists in the current directory. Delete it and try again")
+		}
+		manifestModuleID, err := parseModuleID(modManifest.ModuleID)
+		if err != nil ||
+			manifestModuleID.name != moduleNameArg ||
+			(manifestModuleID.prefix != org.GetId() && manifestModuleID.prefix != org.GetPublicNamespace()) {
+			return errors.Errorf("a different module's meta.json already exists in the current directory. "+
+				"Either delete that meta.json, or edit its module_id (%q) to match the args passed to this command",
+				modManifest.ModuleID)
+		}
+		shouldWriteNewEmptyManifest = false
 	}
 
 	response, err := client.createModule(moduleNameArg, org.GetId())
@@ -117,20 +134,22 @@ func CreateModuleAction(c *cli.Context) error {
 	if response.GetUrl() != "" {
 		printf(c.App.Writer, "You can view it here: %s", response.GetUrl())
 	}
-	emptyManifest := moduleManifest{
-		ModuleID:   returnedModuleID.String(),
-		Visibility: moduleVisibilityPrivate,
-		// This is done so that the json has an empty example
-		Models: []ModuleComponent{
-			{},
-		},
-		// TODO(RSDK-5608) don't auto populate until we are ready to release the build subcommand
-		// Build: defaultBuildInfo,
+
+	if shouldWriteNewEmptyManifest {
+		emptyManifest := moduleManifest{
+			ModuleID:   returnedModuleID.String(),
+			Visibility: moduleVisibilityPrivate,
+			// This is done so that the json has an empty example
+			Models: []ModuleComponent{
+				{},
+			},
+		}
+		if err := writeManifest(defaultManifestFilename, emptyManifest); err != nil {
+			return err
+		}
+
+		printf(c.App.Writer, "Configuration for the module has been written to meta.json")
 	}
-	if err := writeManifest(defaultManifestFilename, emptyManifest); err != nil {
-		return err
-	}
-	printf(c.App.Writer, "Configuration for the module has been written to meta.json")
 	return nil
 }
 
@@ -425,9 +444,15 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 		// if path == entrypoint, we have found the right file
 		if filepath.Clean(path) == filepath.Clean(entrypoint) {
 			info := header.FileInfo()
+			if info.IsDir() {
+				return errors.Errorf(
+					"the module archive contains a directory at the entrypoint %q instead of an executable file",
+					entrypoint)
+			}
+
 			if info.Mode().Perm()&0o100 == 0 {
 				return errors.Errorf(
-					"the archive contained a file at the entrypoint %q, but that file is not marked as executable",
+					"the module archive contains a file at the entrypoint %q, but that file is not marked as executable",
 					entrypoint)
 			}
 			// executable file at entrypoint. validation succeeded.
