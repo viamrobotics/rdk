@@ -3,17 +3,25 @@ package server_test
 
 import (
 	"context"
+	"encoding/json"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"testing"
 
+	"github.com/invopop/jsonschema"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
+	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
+	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	"go.viam.com/rdk/utils"
@@ -23,48 +31,74 @@ import (
 // expected builtin resources.
 const numResources = 20
 
-func TestNumResources(t *testing.T) {
+func TestEntrypoint(t *testing.T) {
 	if runtime.GOARCH == "arm" {
 		t.Skip("skipping on 32-bit ARM, subprocess build warnings cause failure")
 	}
-	logger := logging.NewTestLogger(t)
-	cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
-	cfg, err := config.Read(context.Background(), cfgFilename, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	p, err := goutils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-
-	port := strconv.Itoa(p)
-	cfg.Network.BindAddress = ":" + port
-	cfgFilename, err = robottestutils.MakeTempConfig(t, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-
 	serverPath, err := testutils.BuildTempModule(t, "web/cmd/server/")
 	test.That(t, err, test.ShouldBeNil)
 
-	server := pexec.NewManagedProcess(pexec.ProcessConfig{
-		Name: serverPath,
-		Args: []string{"-config", cfgFilename},
-		CWD:  utils.ResolveFile("./"),
-		Log:  true,
-	}, logger.AsZap())
+	t.Run("number of resources", func(t *testing.T) {
+		logger := logging.NewTestLogger(t)
+		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
+		cfg, err := config.Read(context.Background(), cfgFilename, logger)
+		test.That(t, err, test.ShouldBeNil)
 
-	err = server.Start(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, server.Stop(), test.ShouldBeNil)
-	}()
+		p, err := goutils.TryReserveRandomPort()
+		test.That(t, err, test.ShouldBeNil)
 
-	conn, err := robottestutils.Connect(port)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, conn.Close(), test.ShouldBeNil)
-	}()
-	rc := robotpb.NewRobotServiceClient(conn)
+		port := strconv.Itoa(p)
+		cfg.Network.BindAddress = ":" + port
+		cfgFilename, err = robottestutils.MakeTempConfig(t, cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
 
-	resourceNames, err := rc.ResourceNames(context.Background(), &robotpb.ResourceNamesRequest{})
-	test.That(t, err, test.ShouldBeNil)
+		server := pexec.NewManagedProcess(pexec.ProcessConfig{
+			Name: serverPath,
+			Args: []string{"-config", cfgFilename},
+			CWD:  utils.ResolveFile("./"),
+			Log:  true,
+		}, logger.AsZap())
 
-	test.That(t, len(resourceNames.Resources), test.ShouldEqual, numResources)
+		err = server.Start(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, server.Stop(), test.ShouldBeNil)
+		}()
+
+		conn, err := robottestutils.Connect(port)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, conn.Close(), test.ShouldBeNil)
+		}()
+		rc := robotpb.NewRobotServiceClient(conn)
+
+		resourceNames, err := rc.ResourceNames(context.Background(), &robotpb.ResourceNamesRequest{})
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, len(resourceNames.Resources), test.ShouldEqual, numResources)
+	})
+	t.Run("dump resource registrations", func(t *testing.T) {
+		tempDir := t.TempDir()
+		outputFile := filepath.Join(tempDir, "resources.json")
+		command := exec.Command(serverPath, "--dump-resources", outputFile)
+		err := command.Run()
+		test.That(t, err, test.ShouldBeNil)
+		type registration struct {
+			Model  string             `json:"model"`
+			API    string             `json:"API"`
+			Schema *jsonschema.Schema `json:"attribute_schema"`
+		}
+		outputBytes, err := os.ReadFile(outputFile)
+		test.That(t, err, test.ShouldBeNil)
+		registrations := []registration{}
+		err = json.Unmarshal(outputBytes, &registrations)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(registrations), test.ShouldBeGreaterThan, 0) // to protect against misreading resource registrations
+		test.That(t, registrations, test.ShouldHaveLength, len(resource.RegisteredResources()))
+		for _, reg := range registrations {
+			test.That(t, reg.API, test.ShouldNotBeEmpty)
+			test.That(t, reg.Model, test.ShouldNotBeEmpty)
+			test.That(t, reg.Schema, test.ShouldNotBeNil)
+		}
+	})
 }
