@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
-	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/control"
@@ -17,40 +16,53 @@ import (
 // is limited to 8 bits, or the range 0-255.
 const rPiGain = 0.00392157
 
-// setupControlLoops uses the embedded config in this file to initialize a control
+// startControlLoop uses the control config to initialize a control
 // loop using the controls package and store in on the sensor controlled base struct
 // the sensor base in the controllable interface that implements State and GetState
 // called by the endpoint logic of the control thread and the controlLoopConfig
 // is included at the end of this file.
-// func (sb *sensorBase) setupControlLoops() error {
-// 	// create control loop
-// 	loop, err := control.NewLoop(sb.logger, sb.controlLoopConfig, sb)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	if err := loop.Start(); err != nil {
-// 		return err
-// 	}
-// 	sb.loop = loop
+func (sb *sensorBase) startControlLoop() error {
+	// create control loop
+	loop, err := control.NewLoop(sb.logger, sb.controlLoopConfig, sb)
+	if err != nil {
+		return err
+	}
+	if err := loop.Start(); err != nil {
+		return err
+	}
+	sb.loop = loop
 
-// 	return nil
-// }
+	return nil
+}
 
-func (sb *sensorBase) setupControlLoop() error {
+func (sb *sensorBase) setupControlLoop(linear, angular control.PIDConfig) error {
 	options := control.Options{
 		SensorFeedbackVelocityControl: true,
+		LoopFrequency:                 20,
+		ControllableType:              "base_name",
 	}
 
-	if sb.conf.ControlParameters[0].P == 0.0 &&
-		sb.conf.ControlParameters[0].I == 0.0 &&
-		sb.conf.ControlParameters[0].D == 0.0 &&
-		sb.conf.ControlParameters[1].P == 0.0 &&
-		sb.conf.ControlParameters[1].I == 0.0 &&
-		sb.conf.ControlParameters[1].D == 0.0 {
+	if linear.P == 0.0 &&
+		linear.I == 0.0 &&
+		linear.D == 0.0 &&
+		angular.P == 0.0 &&
+		angular.I == 0.0 &&
+		angular.D == 0.0 {
 		options.NeedsAutoTuning = true
 	}
 
-	// MJ: RESUME HERE FRI
+	var pidVals = []control.PIDConfig{linear, angular}
+
+	pl, err := control.SetupPIDControlConfig(pidVals, sb.Name().ShortName(), options, sb, sb.logger)
+	if err != nil {
+		return err
+	}
+
+	sb.controlLoopConfig = pl.ControlConf
+	sb.loop = pl.ControlLoop
+	sb.blockNames = pl.BlockNames
+
+	return nil
 }
 
 func (sb *sensorBase) updateControlConfig(
@@ -58,77 +70,30 @@ func (sb *sensorBase) updateControlConfig(
 ) error {
 	// set linear setpoint config
 	linConf := control.BlockConfig{
-		Name: "linear_setpoint",
+		Name: sb.blockNames["constant"][0],
 		Type: "constant",
 		Attribute: rdkutils.AttributeMap{
 			"constant_val": linearValue,
 		},
 		DependsOn: []string{},
 	}
-	if err := sb.loop.SetConfigAt(ctx, "linear_setpoint", linConf); err != nil {
+	if err := sb.loop.SetConfigAt(ctx, sb.blockNames["constant"][0], linConf); err != nil {
 		return err
 	}
 
 	// set angular setpoint config
 	angConf := control.BlockConfig{
-		Name: "angular_setpoint",
+		Name: sb.blockNames["constant"][1],
 		Type: "constant",
 		Attribute: rdkutils.AttributeMap{
 			"constant_val": angularValue,
 		},
 		DependsOn: []string{},
 	}
-	if err := sb.loop.SetConfigAt(ctx, "angular_setpoint", angConf); err != nil {
+	if err := sb.loop.SetConfigAt(ctx, sb.blockNames["constant"][1], angConf); err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func (sb *sensorBase) autoTuneAll(ctx context.Context, cancelFunc context.CancelFunc, linear, angular basePIDConfig) error {
-	var errs error
-	sb.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer utils.UncheckedErrorFunc(func() error {
-			sb.mu.Lock()
-			defer sb.mu.Unlock()
-			cancelFunc()
-			return sb.controlledBase.Stop(ctx, nil)
-		})
-		defer sb.activeBackgroundWorkers.Done()
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		// to tune linear PID values, angular PI values must be non-zero
-		fakeConf := basePIDConfig{Type: typeAngVel, P: 0.5, I: 0.5, D: 0.0}
-		sb.logger.Info("tuning linear PID")
-		if err := sb.autoTuningProcess(ctx, linear, fakeConf); err != nil {
-			errs = multierr.Combine(errs, err)
-		}
-		if err := sb.Stop(ctx, nil); err != nil {
-			errs = multierr.Combine(errs, err)
-		}
-		// to tune angular PID values, linear PI values must be non-zero
-		fakeConf.Type = typeLinVel
-		sb.logger.Info("tuning angular PID")
-		if err := sb.autoTuningProcess(ctx, fakeConf, angular); err != nil {
-			errs = multierr.Combine(errs, err)
-		}
-	})
-	return errs
-}
-
-func (sb *sensorBase) autoTuningProcess(ctx context.Context, linear, angular basePIDConfig) error {
-	sb.controlLoopConfig = sb.createControlLoopConfig(linear, angular)
-	if err := sb.setupControlLoops(); err != nil {
-		return err
-	}
-	if err := sb.loop.MonitorTuning(ctx); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -157,7 +122,9 @@ func (sb *sensorBase) SetVelocity(
 				sb.logger.Error(err)
 			}
 		}
-		if err := sb.setupControlLoops(); err != nil {
+
+		// start loop
+		if err := sb.startControlLoop(); err != nil {
 			return err
 		}
 
@@ -269,100 +236,4 @@ func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
 		return []float64{}, err
 	}
 	return []float64{linvel.Y, angvel.Z}, nil
-}
-
-// createControlLoopConfig creates a control loop config that is embedded in this file so a user
-// does not have to configure the loop from within the attributes of the config file.
-// it sets up a loop that takes a constant -> sum -> PID -> gain -> Endpoint -> feedback to sum
-// structure. The gain is 0.0039 (1/255) to account for the PID range, the PID values are experimental
-// this structure can change as hardware experiments with the viam base require.
-func (sb *sensorBase) createControlLoopConfig(linear, angular basePIDConfig) control.Config {
-	conf := control.Config{
-		Blocks: []control.BlockConfig{
-			{
-				Name: "endpoint",
-				Type: "endpoint",
-				Attribute: rdkutils.AttributeMap{
-					"base_name": sb.Name().ShortName(),
-				},
-				DependsOn: []string{"linear_gain", "angular_gain"},
-			},
-			{
-				Name: "linear_PID",
-				Type: "PID",
-				Attribute: rdkutils.AttributeMap{
-					"kD":             linear.D,
-					"kI":             linear.I,
-					"kP":             linear.P,
-					"int_sat_lim_lo": -255.0,
-					"int_sat_lim_up": 255.0,
-					"limit_lo":       -255.0,
-					"limit_up":       255.0,
-					"tune_method":    "ziegerNicholsPI",
-					"tune_ssr_value": 2.0,
-					"tune_step_pct":  0.35,
-				},
-				DependsOn: []string{"sum"},
-			},
-			{
-				Name: "angular_PID",
-				Type: "PID",
-				Attribute: rdkutils.AttributeMap{
-					"kD":             angular.D,
-					"kI":             angular.I,
-					"kP":             angular.P,
-					"int_sat_lim_lo": -255.0,
-					"int_sat_lim_up": 255.0,
-					"limit_lo":       -255.0,
-					"limit_up":       255.0,
-					"tune_method":    "ziegerNicholsPI",
-					"tune_ssr_value": 2.0,
-					"tune_step_pct":  0.35,
-				},
-				DependsOn: []string{"sum"},
-			},
-			{
-				Name: "sum",
-				Type: "sum",
-				Attribute: rdkutils.AttributeMap{
-					"sum_string": "++-",
-				},
-				DependsOn: []string{"linear_setpoint", "angular_setpoint", "endpoint"},
-			},
-			{
-				Name: "linear_gain",
-				Type: "gain",
-				Attribute: rdkutils.AttributeMap{
-					"gain": rPiGain,
-				},
-				DependsOn: []string{"linear_PID"},
-			},
-			{
-				Name: "angular_gain",
-				Type: "gain",
-				Attribute: rdkutils.AttributeMap{
-					"gain": rPiGain,
-				},
-				DependsOn: []string{"angular_PID"},
-			},
-			{
-				Name: "linear_setpoint",
-				Type: "constant",
-				Attribute: rdkutils.AttributeMap{
-					"constant_val": 0.0,
-				},
-				DependsOn: []string{},
-			},
-			{
-				Name: "angular_setpoint",
-				Type: "constant",
-				Attribute: rdkutils.AttributeMap{
-					"constant_val": 0.0,
-				},
-				DependsOn: []string{},
-			},
-		},
-		Frequency: 20,
-	}
-	return conf
 }

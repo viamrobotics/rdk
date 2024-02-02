@@ -81,3 +81,17 @@ func (m *EncodedMotor) setupControlLoop() error {
 
 	return nil
 }
+
+func (m *EncodedMotor) startControlLoop() error {
+	// create control loop
+	loop, err := control.NewLoop(m.logger, m.controlLoopConfig, m)
+	if err != nil {
+		return err
+	}
+	if err := loop.Start(); err != nil {
+		return err
+	}
+	m.loop = loop
+
+	return nil
+}

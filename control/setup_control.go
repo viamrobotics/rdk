@@ -23,12 +23,14 @@ const rPiGain = 0.00392157
 
 var (
 	// default derivative type is "backward1st1"
-	derivativeType = "backward1st1"
-	loopFrequency  = 50.0
-	sumIndex       = 1
-	typeLinVel     = "linear_velocity"
-	typeAngVel     = "angular_velocity"
-	ogger          = logging.NewLogger("logger")
+	derivativeType   = "backward1st1"
+	loopFrequency    = 50.0
+	sumIndex         = 1
+	linearPIDIndex   = 2
+	angularPIDIndex  = -1
+	typeLinVel       = "linear_velocity"
+	typeAngVel       = "angular_velocity"
+	controllableType = "motor_name"
 )
 
 type PIDLoop struct {
@@ -37,7 +39,6 @@ type PIDLoop struct {
 	ControlLoop             *Loop
 	Options                 Options
 	Controllable            Controllable
-	PidVals                 []PIDConfig
 	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
 }
@@ -71,12 +72,14 @@ type Options struct {
 
 	// LoopFrequency
 	LoopFrequency float64
+
+	// ControllableType
+	ControllableType string
 }
 
 func SetupPIDControlConfig(pidVals []PIDConfig, componentName string, Options Options, c Controllable, logger logging.Logger) (*PIDLoop, error) {
 	pidLoop := &PIDLoop{
 		Controllable: c,
-		PidVals:      pidVals,
 		logger:       logger,
 		Options:      Options,
 		ControlConf:  Config{},
@@ -87,7 +90,7 @@ func SetupPIDControlConfig(pidVals []PIDConfig, componentName string, Options Op
 	if Options.UseCustomConfig {
 		pidLoop.ControlConf = Options.CompleteCustomConfig
 		for i, b := range Options.CompleteCustomConfig.Blocks {
-			if b.Type == "sum" {
+			if b.Type == blockSum {
 				sumIndex = i
 			}
 		}
@@ -139,7 +142,8 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 		}
 		if p.Options.SensorFeedbackVelocityControl {
 			// to tune linear PID values, angular PI values must be non-zero
-			fakeConf := PIDConfig{Type: typeAngVel, P: 0.5, I: 0.5, D: 0.0}
+			p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"] = 0.5
+			p.ControlConf.Blocks[angularPIDIndex].Attribute["kI"] = 0.5
 			p.logger.Info("tuning linear PID")
 			if err := p.StartControlLoop(); err != nil {
 				errs = multierr.Combine(errs, err)
@@ -153,7 +157,10 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			p.ControlLoop = nil
 
 			// to tune angular PID values, linear PI values must be non-zero
-			fakeConf.Type = typeLinVel
+			p.ControlConf.Blocks[linearPIDIndex].Attribute["kP"] = 0.5
+			p.ControlConf.Blocks[linearPIDIndex].Attribute["kI"] = 0.5
+			p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"] = 0.0
+			p.ControlConf.Blocks[angularPIDIndex].Attribute["kI"] = 0.0
 			p.logger.Info("tuning angular PID")
 			if err := p.StartControlLoop(); err != nil {
 				errs = multierr.Combine(errs, err)
@@ -166,6 +173,11 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			p.ControlLoop.Stop()
 			p.ControlLoop = nil
 		}
+		if p.Options.UseCustomConfig {
+			if err := p.StartControlLoop(); err != nil {
+				errs = multierr.Combine(errs, err)
+			}
+		}
 
 	})
 	return errs
@@ -173,7 +185,10 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 
 func (p *PIDLoop) createControlLoopConfig(pidVals []PIDConfig, componentName string) {
 	// create basic control config
-	p.basicControlConfig(componentName, pidVals[0])
+	if p.Options.ControllableType != "" {
+		controllableType = p.Options.ControllableType
+	}
+	p.basicControlConfig(componentName, pidVals[0], controllableType)
 
 	// add position control
 	if p.Options.PositionControlUsingTrapz {
@@ -182,11 +197,7 @@ func (p *PIDLoop) createControlLoopConfig(pidVals []PIDConfig, componentName str
 
 	// add sensor feedback velocity control
 	if p.Options.SensorFeedbackVelocityControl {
-		for i, c := range pidVals {
-			if c.Type == "angular_velocity" {
-				p.addSensorFeedbackVelocityControl(pidVals[i])
-			}
-		}
+		p.addSensorFeedbackVelocityControl(pidVals[1])
 	}
 
 	p.BlockNames = make(map[string][]string, len(p.ControlConf.Blocks))
@@ -198,7 +209,7 @@ func (p *PIDLoop) createControlLoopConfig(pidVals []PIDConfig, componentName str
 
 // create most basic PID control loop containing
 // constant -> sum -> PID -> gain -> endpoint -> sum
-func (p *PIDLoop) basicControlConfig(endpointName string, pidVals PIDConfig) {
+func (p *PIDLoop) basicControlConfig(endpointName string, pidVals PIDConfig, controllableType string) {
 	if p.Options.LoopFrequency != 0 {
 		loopFrequency = p.Options.LoopFrequency
 	}
@@ -206,14 +217,14 @@ func (p *PIDLoop) basicControlConfig(endpointName string, pidVals PIDConfig) {
 		Blocks: []BlockConfig{
 			{
 				Name: "set_point",
-				Type: "constant",
+				Type: blockConstant,
 				Attribute: rdkutils.AttributeMap{
 					"constant_val": 0.0,
 				},
 			},
 			{
 				Name: "sum",
-				Type: "sum",
+				Type: blockSum,
 				Attribute: rdkutils.AttributeMap{
 					"sum_string": "+-",
 				},
@@ -221,7 +232,7 @@ func (p *PIDLoop) basicControlConfig(endpointName string, pidVals PIDConfig) {
 			},
 			{
 				Name: "PID",
-				Type: "PID",
+				Type: blockPID,
 				Attribute: rdkutils.AttributeMap{
 					"int_sat_lim_lo": -255.0,
 					"int_sat_lim_up": 255.0,
@@ -238,7 +249,7 @@ func (p *PIDLoop) basicControlConfig(endpointName string, pidVals PIDConfig) {
 			},
 			{
 				Name: "gain",
-				Type: "gain",
+				Type: blockGain,
 				Attribute: rdkutils.AttributeMap{
 					"gain": rPiGain,
 				},
@@ -246,9 +257,9 @@ func (p *PIDLoop) basicControlConfig(endpointName string, pidVals PIDConfig) {
 			},
 			{
 				Name: "endpoint",
-				Type: "endpoint",
+				Type: blockEndpoint,
 				Attribute: rdkutils.AttributeMap{
-					"motor_name": endpointName,
+					controllableType: endpointName,
 				},
 				DependsOn: []string{"gain"},
 			},
@@ -261,7 +272,7 @@ func (p *PIDLoop) addPositionControl() {
 	// add trapezoidalVelocityProfile block between the constant and sum blocks
 	trapzBlock := BlockConfig{
 		Name: "trapz",
-		Type: "trapezoidalVelocityProfile",
+		Type: blockTrapezoidalVelocityProfile,
 		Attribute: rdkutils.AttributeMap{
 			"kpp_gain":   0.45,
 			"max_acc":    30000.0,
@@ -278,7 +289,7 @@ func (p *PIDLoop) addPositionControl() {
 	}
 	derivBlock := BlockConfig{
 		Name: "derivative",
-		Type: "derivative",
+		Type: blockDerivative,
 		Attribute: rdkutils.AttributeMap{
 			"derive_type": derivativeType,
 		},
@@ -295,16 +306,18 @@ func (p *PIDLoop) addPositionControl() {
 
 func (p *PIDLoop) addSensorFeedbackVelocityControl(angularPIDVals PIDConfig) {
 	// change current block names to include "linear" excluding sum and endpoint
-	for _, b := range p.ControlConf.Blocks {
+	for i, b := range p.ControlConf.Blocks {
 		if b.Type != blockSum && b.Type != blockEndpoint {
 			newName := "linear_" + b.Name
-			b.Name = newName
+			p.ControlConf.Blocks[i].Name = newName
+		} else if b.Type == blockSum {
+			b.Attribute["sum_string"] = "++-"
 		}
 		// change dependsOn to match new name that includes "linear"
-		for i, s := range b.DependsOn {
+		for j, s := range b.DependsOn {
 			if s != "sum" && s != "endpoint" {
 				newName := "linear_" + s
-				b.DependsOn[i] = newName
+				b.DependsOn[j] = newName
 			}
 		}
 	}
@@ -313,7 +326,7 @@ func (p *PIDLoop) addSensorFeedbackVelocityControl(angularPIDVals PIDConfig) {
 	// angular constant
 	angularSetpoint := BlockConfig{
 		Name: "angular_set_point",
-		Type: "constant",
+		Type: blockConstant,
 		Attribute: rdkutils.AttributeMap{
 			"constant_val": 0.0,
 		},
@@ -324,7 +337,7 @@ func (p *PIDLoop) addSensorFeedbackVelocityControl(angularPIDVals PIDConfig) {
 	// angular PID
 	angularPID := BlockConfig{
 		Name: "angular_PID",
-		Type: "PID",
+		Type: blockPID,
 		Attribute: rdkutils.AttributeMap{
 			"kD":             angularPIDVals.D,
 			"kI":             angularPIDVals.I,
@@ -340,11 +353,12 @@ func (p *PIDLoop) addSensorFeedbackVelocityControl(angularPIDVals PIDConfig) {
 		DependsOn: []string{"sum"},
 	}
 	p.ControlConf.Blocks = append(p.ControlConf.Blocks, angularPID)
+	angularPIDIndex = len(p.ControlConf.Blocks) - 1
 
 	// angular gain
 	angularGain := BlockConfig{
 		Name: "angular_gain",
-		Type: "gain",
+		Type: blockGain,
 		Attribute: rdkutils.AttributeMap{
 			"gain": rPiGain,
 		},
