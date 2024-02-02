@@ -25,6 +25,7 @@ import (
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
 	packagepb "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
@@ -754,7 +755,7 @@ func (c *viamClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb
 	return nil, errors.Errorf("no machine part found for %q", partStr)
 }
 
-func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool) ([]*apppb.LogEntry, error) {
+func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool) ([]*commonpb.LogEntry, error) {
 	part, err := c.robotPart(orgStr, locStr, robotStr, partStr)
 	if err != nil {
 		return nil, err
@@ -787,7 +788,7 @@ func (c *viamClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.Robot
 	return resp.Parts, nil
 }
 
-func (c *viamClient) printRobotPartLogsInner(logs []*apppb.LogEntry, indent string) {
+func (c *viamClient) printRobotPartLogsInner(logs []*commonpb.LogEntry, indent string) {
 	for _, log := range logs {
 		printf(
 			c.c.App.Writer,

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	apppb "go.viam.com/api/app/v1"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 )
@@ -20,13 +21,13 @@ func TestNetLoggerQueueOperations(t *testing.T) {
 			maxQueueSize: queueSize,
 		}
 
-		nl.addBatchToQueue(make([]*apppb.LogEntry, queueSize-1))
+		nl.addBatchToQueue(make([]*commonpb.LogEntry, queueSize-1))
 		test.That(t, nl.queueSize(), test.ShouldEqual, queueSize-1)
 
-		nl.addBatchToQueue(make([]*apppb.LogEntry, 2))
+		nl.addBatchToQueue(make([]*commonpb.LogEntry, 2))
 		test.That(t, nl.queueSize(), test.ShouldEqual, queueSize)
 
-		nl.addBatchToQueue(make([]*apppb.LogEntry, queueSize+1))
+		nl.addBatchToQueue(make([]*commonpb.LogEntry, queueSize+1))
 		test.That(t, nl.queueSize(), test.ShouldEqual, queueSize)
 	})
 
@@ -36,13 +37,13 @@ func TestNetLoggerQueueOperations(t *testing.T) {
 			maxQueueSize: queueSize,
 		}
 
-		nl.addToQueue(&apppb.LogEntry{})
+		nl.addToQueue(&commonpb.LogEntry{})
 		test.That(t, nl.queueSize(), test.ShouldEqual, 1)
 
-		nl.addToQueue(&apppb.LogEntry{})
+		nl.addToQueue(&commonpb.LogEntry{})
 		test.That(t, nl.queueSize(), test.ShouldEqual, queueSize)
 
-		nl.addToQueue(&apppb.LogEntry{})
+		nl.addToQueue(&commonpb.LogEntry{})
 		test.That(t, nl.queueSize(), test.ShouldEqual, queueSize)
 	})
 }
@@ -53,8 +54,8 @@ type mockRobotService struct {
 
 	logsMu              sync.Mutex
 	logFailForSizeCount int
-	logs                []*apppb.LogEntry
-	logBatches          [][]*apppb.LogEntry
+	logs                []*commonpb.LogEntry
+	logBatches          [][]*commonpb.LogEntry
 }
 
 func (ms *mockRobotService) Log(ctx context.Context, req *apppb.LogRequest) (*apppb.LogResponse, error) {
