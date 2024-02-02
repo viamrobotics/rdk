@@ -570,7 +570,7 @@ func TestMoveOnMapAskewIMU(t *testing.T) {
 
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 		defer timeoutFn()
-		_, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
+		_, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldEqual, "base appears to be upside down, check your movement sensor")
 	})
