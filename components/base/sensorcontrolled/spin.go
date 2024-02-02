@@ -47,10 +47,25 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	}
 
 	// IsMoving returns true when moving, which is not a success condition for our control loop
+	baseMoving := func(ctx context.Context) (bool, error) {
+		moving, err := sb.IsMoving(ctx)
+		return moving, err
+	}
+
+	// IsMoving returns true when moving, which is not a success condition for our control loop
 	baseStopped := func(ctx context.Context) (bool, error) {
 		moving, err := sb.IsMoving(ctx)
 		return !moving, err
 	}
+
+	if err := sb.opMgr.WaitForSuccess(
+		ctx,
+		yawPollTime,
+		baseMoving,
+	); err != nil {
+		return err
+	}
+
 	return sb.opMgr.WaitForSuccess(
 		ctx,
 		yawPollTime,
