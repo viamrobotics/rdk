@@ -507,7 +507,7 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 
 func TestMoveOnMapAskewIMU(t *testing.T) {
 	ctx := context.Background()
-	askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, OZ: 1, Theta: 0}
+	askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, OZ: 1, Theta: 55}
 	// goal x-position of 1.32m is scaled to be in mm
 	goal1SLAMFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 55})
 	goal1BaseFrame := spatialmath.Compose(goal1SLAMFrame, motion.SLAMOrientationAdjustment)

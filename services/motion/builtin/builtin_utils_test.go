@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -290,4 +291,9 @@ func TestCorrectStartPose(t *testing.T) {
 	corrected, err = correctStartPose(spatialmath.NewPose(r3.Vector{X: 1320, Y: 0}, askewOrient))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, corrected.Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 135.)
+	// -30
+	askewOrient = &spatialmath.OrientationVectorDegrees{OX: 1, OY: math.Sqrt(3), OZ: 1}
+	corrected, err = correctStartPose(spatialmath.NewPose(r3.Vector{X: 1320, Y: 0}, askewOrient))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, corrected.Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, -30.)
 }
