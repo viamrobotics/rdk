@@ -36,7 +36,7 @@ type substemManifest struct {
 	Subsystem  string              `json:"subsystem"`
 	Version    string              `json:"version"`
 	Platform   string              `json:"platform"`
-	ObjectPath string              `json:"upload-path"`
+	UploadPath string              `json:"upload-path"`
 	Sha256     string              `json:"sha256"`
 	Metadata   *viamServerMetadata `json:"metadata,omitempty"`
 }
@@ -74,7 +74,7 @@ func main() {
 		Subsystem:  *subsystem,
 		Version:    strings.TrimPrefix(*version, "v"),
 		Platform:   platform,
-		ObjectPath: *uploadPath,
+		UploadPath: *uploadPath,
 		Sha256:     binarySha,
 		Metadata:   metadata,
 	}
