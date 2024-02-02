@@ -36,6 +36,8 @@ const (
 	baseStopTimeout         = time.Second * 5
 )
 
+var errGoalWithinPlanDeviation = errors.New("no need to move, already within planDeviationMM")
+
 // validatedMotionConfiguration is a copy of the motion.MotionConfiguration type
 // which has been validated to conform to the expectations of the builtin
 // motion servicl.
@@ -465,15 +467,25 @@ func validateNotNegNorNaN(f float64, name string) error {
 	return validateNotNeg(f, name)
 }
 
-func newValidatedMotionCfg(motionCfg *motion.MotionConfiguration) (*validatedMotionConfiguration, error) {
+func newValidatedMotionCfg(motionCfg *motion.MotionConfiguration, reqType requestType) (*validatedMotionConfiguration, error) {
 	empty := &validatedMotionConfiguration{}
 	vmc := &validatedMotionConfiguration{
 		angularDegsPerSec:     defaultAngularDegsPerSec,
 		linearMPerSec:         defaultLinearMPerSec,
 		obstaclePollingFreqHz: defaultObstaclePollingHz,
 		positionPollingFreqHz: defaultPositionPollingHz,
-		planDeviationMM:       defaultPlanDeviationM * 1e3,
 		obstacleDetectors:     []motion.ObstacleDetectorName{},
+	}
+
+	switch reqType {
+	case requestTypeMoveOnGlobe:
+		vmc.planDeviationMM = defaultGlobePlanDeviationM * 1e3
+	case requestTypeMoveOnMap:
+		vmc.planDeviationMM = defaultSlamPlanDeviationM * 1e3
+	case requestTypeUnspecified:
+		fallthrough
+	default:
+		return empty, fmt.Errorf("invalid moveRequest.requestType: %d", reqType)
 	}
 
 	if motionCfg == nil {
@@ -544,7 +556,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		}
 	}
 
-	motionCfg, err := newValidatedMotionCfg(req.MotionCfg)
+	motionCfg, err := newValidatedMotionCfg(req.MotionCfg, requestTypeMoveOnGlobe)
 	if err != nil {
 		return nil, err
 	}
@@ -664,7 +676,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 		}
 	}
 
-	motionCfg, err := newValidatedMotionCfg(req.MotionCfg)
+	motionCfg, err := newValidatedMotionCfg(req.MotionCfg, requestTypeMoveOnMap)
 	if err != nil {
 		return nil, err
 	}
@@ -777,6 +789,21 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	startPoseInv := spatialmath.PoseInverse(startPose.Pose())
 
 	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld))
+
+	// Here we determine if we already are at the goal
+	// If our motion profile is position_only then, we only check against our current & desired position
+	// Conversely if our motion profile is anything else, then we also need to check again our
+	// current & desired orientation
+	if valExtra.motionProfile == motionplan.PositionOnlyMotionProfile {
+		if spatialmath.PoseAlmostCoincidentEps(goal.Pose(), spatialmath.NewZeroPose(), motionCfg.planDeviationMM) {
+			return nil, errGoalWithinPlanDeviation
+		}
+	} else {
+		if spatialmath.OrientationAlmostEqual(goal.Pose().Orientation(), spatialmath.NewZeroPose().Orientation()) &&
+			spatialmath.PoseAlmostCoincidentEps(goal.Pose(), spatialmath.NewZeroPose(), motionCfg.planDeviationMM) {
+			return nil, errGoalWithinPlanDeviation
+		}
+	}
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
 	geoms := make([]spatialmath.Geometry, 0, len(worldObstacles))
