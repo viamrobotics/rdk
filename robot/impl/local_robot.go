@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/app/packages/v1"
+	modulepb "go.viam.com/api/module/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -65,6 +66,13 @@ type localRobot struct {
 	// internal services that are in the graph but we also hold onto
 	webSvc   web.Service
 	frameSvc framesystem.Service
+}
+
+// ExportResourcesAsDot exports the resource graph as a DOT representation for
+// visualization.
+// DOT reference: https://graphviz.org/doc/info/lang.html
+func (r *localRobot) ExportResourcesAsDot() (string, error) {
+	return r.manager.ExportDot()
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
@@ -643,17 +651,14 @@ func (r *localRobot) newResource(
 		}
 	}
 
-	resLogger := r.logger.Sublogger(conf.ResourceName().String())
-	resLogger.SetLevel(conf.LogConfiguration.Level)
-	gNode.SetLogger(resLogger)
 	if resInfo.Constructor != nil {
-		return resInfo.Constructor(ctx, deps, conf, resLogger)
+		return resInfo.Constructor(ctx, deps, conf, gNode.Logger())
 	}
 	if resInfo.DeprecatedRobotConstructor == nil {
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
 	r.logger.CWarnw(ctx, "using deprecated robot constructor", "api", resName.API, "model", conf.Model)
-	return resInfo.DeprecatedRobotConstructor(ctx, r, conf, resLogger)
+	return resInfo.DeprecatedRobotConstructor(ctx, r, conf, gNode.Logger())
 }
 
 func (r *localRobot) updateWeakDependents(ctx context.Context) {
@@ -968,6 +973,10 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 
 	discoveries := make([]resource.Discovery, 0, len(deduped))
 	for q := range deduped {
+		if internalDiscovery, isInternal := r.discoverRobotInternals(q); isInternal {
+			discoveries = append(discoveries, resource.Discovery{Query: q, Results: internalDiscovery})
+			continue
+		}
 		reg, ok := resource.LookupRegistration(q.API, q.Model)
 		if !ok || reg.Discover == nil {
 			r.logger.CWarnw(ctx, "no discovery function registered", "api", q.API, "model", q.Model)
@@ -983,6 +992,31 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 		}
 	}
 	return discoveries, nil
+}
+
+// moduleManagerDiscoveryResult is returned from a DiscoveryQuery to rdk-internal:builtin:module-manager.
+type moduleManagerDiscoveryResult struct {
+	ResourceHandles map[string]modulepb.HandlerMap `json:"resource_handles"`
+}
+
+// discoverRobotInternals is used to discover parts of the robot that are not in the resource graph
+// It accepts a query and should return the Discovery Results object along with an ok value.
+func (r *localRobot) discoverRobotInternals(query resource.DiscoveryQuery) (interface{}, bool) {
+	switch {
+	// these strings are hardcoded because their existence would be misleading anywhere outside of this function
+	case query.API.String() == "rdk-internal:service:module-manager" &&
+		query.Model.String() == "rdk-internal:builtin:module-manager":
+
+		handles := map[string]modulepb.HandlerMap{}
+		for moduleName, handleMap := range r.manager.moduleManager.Handles() {
+			handles[moduleName] = *handleMap.ToProto()
+		}
+		return moduleManagerDiscoveryResult{
+			ResourceHandles: handles,
+		}, true
+	default:
+		return nil, false
+	}
 }
 
 func dialRobotClient(

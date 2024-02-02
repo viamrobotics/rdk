@@ -15,8 +15,11 @@ import {
   getLinearVelocity,
   getCompassHeading,
   getPosition,
+  getAccuracy,
 } from '@/api/movement-sensor';
 import { useRobotClient, useConnect } from '@/hooks/robot-client';
+import { Icon } from '@viamrobotics/prime-core';
+import { Tooltip } from '@viamrobotics/prime-core';
 
 export let name: string;
 
@@ -30,6 +33,7 @@ let compassHeading: number | undefined;
 let coordinate: commonApi.GeoPoint.AsObject | undefined;
 let altitudeM: number | undefined;
 let properties: movementsensorApi.GetPropertiesResponse.AsObject | undefined;
+let accuracy: movementsensorApi.GetAccuracyResponse.AsObject | undefined;
 
 let expanded = false;
 
@@ -38,7 +42,13 @@ const refresh = async () => {
     return;
   }
 
-  properties = await getProperties($robotClient, name);
+  const result = await Promise.all([
+    getProperties($robotClient, name),
+    getAccuracy($robotClient, name),
+  ]);
+
+  properties = result[0];
+  accuracy = result[1];
 
   if (!properties) {
     return;
@@ -120,6 +130,45 @@ useConnect(() => {
               {altitudeM?.toFixed(2)}
             </td>
           </tr>
+          {#if accuracy?.positionNmeaGgaFix}
+            <tr>
+              <th class="border border-medium p-2"> NMEA Fix Quality </th>
+              <td class="border border-medium p-2">
+                {accuracy.positionNmeaGgaFix}
+                {#if accuracy.positionNmeaGgaFix === 1 || accuracy.positionNmeaGgaFix === 2}
+                  <Tooltip let:tooltipID>
+                    <p aria-describedby={tooltipID}>
+                      <Icon name="information" />
+                    </p>
+                    <p slot="description">expect 1m-5m accuracy</p>
+                  </Tooltip>
+                {/if}
+                {#if accuracy.positionNmeaGgaFix === 4 || accuracy.positionNmeaGgaFix === 5}
+                  <Tooltip let:tooltipID>
+                    <p aria-describedby={tooltipID}>
+                      <Icon name="information" />
+                    </p>
+                    <p slot="description">expect 2cm-50cm accuracy</p>
+                  </Tooltip>
+                {/if}
+              </td>
+            </tr>
+          {/if}
+
+          {#if accuracy?.positionHdop && accuracy.positionVdop}
+            <tr>
+              <th class="border border-medium p-2"> HDOP </th>
+              <td class="border border-medium p-2">
+                {accuracy.positionHdop.toFixed(2)}
+              </td>
+            </tr>
+            <tr>
+              <th class="border border-medium p-2"> VDOP </th>
+              <td class="border border-medium p-2">
+                {accuracy.positionVdop.toFixed(2)}
+              </td>
+            </tr>
+          {/if}
         </table>
         <a
           class="text-[#045681] underline"
@@ -250,6 +299,33 @@ useConnect(() => {
               {compassHeading?.toFixed(2)}
             </td>
           </tr>
+          {#if accuracy?.compassDegreesError}
+            <tr>
+              <th class="border border-medium p-2"> Compass Degrees Error </th>
+              <td class="border border-medium p-2">
+                {accuracy.compassDegreesError.toFixed(2)}
+              </td>
+            </tr>
+          {/if}
+        </table>
+      </div>
+    {/if}
+
+    {#if (accuracy?.accuracyMap.length ?? 0) > 0}
+      <div class="overflow-auto">
+        <h3 class="mb-1">Accuracy Map</h3>
+        <table class="w-full border border-t-0 border-medium p-4">
+          {#each accuracy?.accuracyMap ?? [] as pair (pair[0])}
+            <tr>
+              <td class="border border-medium p-2">
+                {pair[0]}
+              </td>
+
+              <td class="border border-medium p-2">
+                {pair[1]}
+              </td>
+            </tr>
+          {/each}
         </table>
       </div>
     {/if}

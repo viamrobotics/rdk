@@ -2,6 +2,7 @@ package spatialmath
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/golang/geo/r3"
@@ -141,6 +142,9 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 
 // NewGeometryFromProto instantiates a new Geometry from a protobuf Geometry message.
 func NewGeometryFromProto(geometry *commonpb.Geometry) (Geometry, error) {
+	if geometry.Center == nil {
+		return nil, errors.New("cannot have nil pose for geometry")
+	}
 	pose := NewPoseFromProtobuf(geometry.Center)
 	if box := geometry.GetBox().GetDimsMm(); box != nil {
 		return NewBox(pose, r3.Vector{X: box.X, Y: box.Y, Z: box.Z}, geometry.Label)
