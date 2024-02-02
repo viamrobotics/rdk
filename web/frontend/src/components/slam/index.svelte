@@ -146,7 +146,7 @@ const refreshPaths = async () => {
   try {
     refreshErrorMessagePaths = undefined;
     const base = bases[0]!;
-    const listPlanStatusesResponse = await motionClient.listPlanStatuses();
+    const listPlanStatusesResponse = await motionClient.listPlanStatuses(true);
     const baseHasPlan = listPlanStatusesResponse.planStatusesWithIdsList
       .map((plan) => plan.componentName)
       .find(
