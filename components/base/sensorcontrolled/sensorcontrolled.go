@@ -254,21 +254,7 @@ func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) er
 }
 
 func (sb *sensorBase) IsMoving(ctx context.Context) (bool, error) {
-	if sb.velocities == nil {
-		return sb.controlledBase.IsMoving(ctx)
-	}
-	lin, err := sb.velocities.LinearVelocity(ctx, nil)
-	if err != nil {
-		return false, err
-	}
-	ang, err := sb.velocities.AngularVelocity(ctx, nil)
-	if err != nil {
-		return false, err
-	}
-	if lin.Y == 0.0 && ang.Z == 0.0 {
-		return false, nil
-	}
-	return true, nil
+	return sb.controlledBase.IsMoving(ctx)
 }
 
 func (sb *sensorBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {

@@ -483,11 +483,14 @@ func (wb *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) e
 
 func (wb *wheeledBase) IsMoving(ctx context.Context) (bool, error) {
 	for _, m := range wb.allMotors {
-		isMoving, _, err := m.IsPowered(ctx, nil)
+		isPowered, pwrPct, err := m.IsPowered(ctx, nil)
 		if err != nil {
 			return false, err
 		}
-		if isMoving {
+		if isPowered {
+			if math.Abs(pwrPct) < 0.01 {
+				return false, err
+			}
 			return true, err
 		}
 	}
