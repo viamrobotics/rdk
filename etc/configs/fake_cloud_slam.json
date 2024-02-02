@@ -1,0 +1,56 @@
+{
+    "network": {
+        "fqdn": "something-unique",
+        "bind_address": ":8081"
+    },
+    "components": [
+        {
+            "name": "camera1",
+            "type": "camera",
+            "model": "fake",
+            "attributes": {
+                "width": 100,
+                "height": 10
+            },
+            "service_configs": [
+                {
+                  "attributes": {
+                    "capture_methods": [
+                      {
+                        "capture_frequency_hz": 0.0001,
+                        "method": "NextPointCloud",
+                        "additional_params": {}
+                      }
+                    ]
+                  },
+                  "type": "data_manager"
+                }
+            ]
+        }
+    ],
+    "services": [
+        {
+            "name": "slam1",
+            "type": "slam",
+            "model": "fake",
+            "attributes": {
+                "camera": {
+                    "name": "camera1",
+                    "data_frequency_hz": "0.0001"
+                },
+                "use_cloud_slam": true
+            }
+        }  ,
+        {
+            "name": "data",
+            "type": "data_manager",
+            "namespace": "rdk",
+            "attributes": {
+              "sync_interval_mins": 0.1,
+              "capture_dir": "",
+              "tags": [],
+              "additional_sync_paths": []
+            }
+          }  
+    ]
+}
