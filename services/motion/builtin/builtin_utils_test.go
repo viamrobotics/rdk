@@ -271,29 +271,66 @@ func createMoveOnMapEnvironment(
 }
 
 func TestCorrectStartPose(t *testing.T) {
-	// -45
-	askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, OZ: 1}
-	corrected, err := correctStartPose(spatialmath.NewPose(r3.Vector{X: 1320, Y: 0}, askewOrient))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, corrected.Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, -45.)
-	// 45
-	askewOrient = &spatialmath.OrientationVectorDegrees{OX: -1, OY: 1, OZ: 1}
-	corrected, err = correctStartPose(spatialmath.NewPose(r3.Vector{X: 1320, Y: 0}, askewOrient))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, corrected.Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 45.)
-	// -135
-	askewOrient = &spatialmath.OrientationVectorDegrees{OX: 1, OY: -1, OZ: 1}
-	corrected, err = correctStartPose(spatialmath.NewPose(r3.Vector{X: 1320, Y: 0}, askewOrient))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, corrected.Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, -135.)
-	// 135
-	askewOrient = &spatialmath.OrientationVectorDegrees{OX: -1, OY: -1, OZ: 1}
-	corrected, err = correctStartPose(spatialmath.NewPose(r3.Vector{X: 1320, Y: 0}, askewOrient))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, corrected.Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 135.)
-	// -30
-	askewOrient = &spatialmath.OrientationVectorDegrees{OX: 1, OY: math.Sqrt(3), OZ: 1}
-	corrected, err = correctStartPose(spatialmath.NewPose(r3.Vector{X: 1320, Y: 0}, askewOrient))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, corrected.Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, -30.)
+	t.Parallel()
+	t.Run("Test angle from +Y to +X, +Y quadrant", func(t *testing.T) {
+		t.Parallel()
+		// -45
+		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, OZ: 1}
+		corrected, err := correctStartPose(spatialmath.NewPose(r3.Vector{X: 1320, Y: 0}, askewOrient))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, corrected.Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, -45.)
+	})
+	t.Run("Test angle from +Y to -X, +Y quadrant", func(t *testing.T) {
+		t.Parallel()
+		// 45
+		askewOrient := &spatialmath.OrientationVectorDegrees{OX: -1, OY: 1, OZ: 1}
+		corrected, err := correctStartPose(spatialmath.NewPose(r3.Vector{X: 1320, Y: 0}, askewOrient))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, corrected.Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 45.)
+	})
+	t.Run("Test angle from +Y to +X, -Y quadrant", func(t *testing.T) {
+		t.Parallel()
+		// -135
+		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: -1, OZ: 1}
+		corrected, err := correctStartPose(spatialmath.NewPose(r3.Vector{X: 1320, Y: 0}, askewOrient))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, corrected.Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, -135.)
+	})
+	t.Run("Test angle from +Y to -X, -Y quadrant", func(t *testing.T) {
+		t.Parallel()
+		// 135
+		askewOrient := &spatialmath.OrientationVectorDegrees{OX: -1, OY: -1, OZ: 1}
+		corrected, err := correctStartPose(spatialmath.NewPose(r3.Vector{X: 1320, Y: 0}, askewOrient))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, corrected.Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 135.)
+	})
+	t.Run("Test non-multiple-of-45 angle from +Y to +X, +Y quadrant", func(t *testing.T) {
+		t.Parallel()
+		// -30
+		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: math.Sqrt(3), OZ: 1}
+		corrected, err := correctStartPose(spatialmath.NewPose(r3.Vector{X: 1320, Y: 0}, askewOrient))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, corrected.Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, -30.)
+	})
+	t.Run("Test upside-down error", func(t *testing.T) {
+		t.Parallel()
+		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, OZ: -1}
+		_, err := correctStartPose(spatialmath.NewPose(r3.Vector{X: 1320, Y: 0}, askewOrient))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldEqual, "base appears to be upside down, check your movement sensor")
+	})
+	t.Run("Test pointing-straight-up error", func(t *testing.T) {
+		t.Parallel()
+		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 0, OY: 1, OZ: 0, Theta: 90}
+		_, err := correctStartPose(spatialmath.NewPose(r3.Vector{X: 1320, Y: 0}, askewOrient))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldEqual, "base appears to be pointing straight up, check your movement sensor")
+	})
+	t.Run("Test pointing-straight-down error", func(t *testing.T) {
+		t.Parallel()
+		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 0, OY: 1, OZ: 0, Theta: -90}
+		_, err := correctStartPose(spatialmath.NewPose(r3.Vector{X: 1320, Y: 0}, askewOrient))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldEqual, "base appears to be pointing straight down, check your movement sensor")
+	})
 }

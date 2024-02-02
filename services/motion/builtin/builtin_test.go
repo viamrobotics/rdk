@@ -506,47 +506,74 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 }
 
 func TestMoveOnMapAskewIMU(t *testing.T) {
-	ctx := context.Background()
-	askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, OZ: 1, Theta: 55}
-	// goal x-position of 1.32m is scaled to be in mm
-	goal1SLAMFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 55})
-	goal1BaseFrame := spatialmath.Compose(goal1SLAMFrame, motion.SLAMOrientationAdjustment)
+	t.Parallel()
+	t.Run("Askew but valid base should be able to plan", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, OZ: 1, Theta: 55}
+		// goal x-position of 1.32m is scaled to be in mm
+		goal1SLAMFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 55})
+		goal1BaseFrame := spatialmath.Compose(goal1SLAMFrame, motion.SLAMOrientationAdjustment)
 
-	kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, spatialmath.NewPoseFromOrientation(askewOrient))
-	defer ms.Close(ctx)
+		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, spatialmath.NewPoseFromOrientation(askewOrient))
+		defer ms.Close(ctx)
 
-	req := motion.MoveOnMapReq{
-		ComponentName: base.Named("test-base"),
-		Destination:   goal1SLAMFrame,
-		SlamName:      slam.Named("test_slam"),
-		Extra:         map[string]interface{}{"smooth_iter": 5},
-	}
+		req := motion.MoveOnMapReq{
+			ComponentName: base.Named("test-base"),
+			Destination:   goal1SLAMFrame,
+			SlamName:      slam.Named("test_slam"),
+			Extra:         map[string]interface{}{"smooth_iter": 5},
+		}
 
-	timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
-	defer timeoutFn()
-	executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		defer timeoutFn()
+		executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-	timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
-	defer timeoutFn()
-	err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
-		ComponentName: req.ComponentName,
-		ExecutionID:   executionID,
-		LastPlanOnly:  true,
+		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
+		defer timeoutFn()
+		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
+			ComponentName: req.ComponentName,
+			ExecutionID:   executionID,
+			LastPlanOnly:  true,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		endPIF, err := kb.CurrentPosition(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		// We need to transform the endPos by the corrected orientation in order to properly place it, otherwise it will go off in +Z somewhere.
+		// In a real robot this will be taken care of by gravity.
+		correctedPose, err := correctStartPose(spatialmath.NewPoseFromOrientation(askewOrient))
+		test.That(t, err, test.ShouldBeNil)
+		endPos := spatialmath.Compose(correctedPose, spatialmath.PoseBetween(spatialmath.NewPoseFromOrientation(askewOrient), endPIF.Pose()))
+
+		test.That(t, spatialmath.PoseAlmostEqualEps(endPos, goal1BaseFrame, 10), test.ShouldBeTrue)
 	})
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("Upside down base should fail to plan", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, OZ: -1, Theta: 55}
+		// goal x-position of 1.32m is scaled to be in mm
+		goal1SLAMFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 55})
 
-	endPIF, err := kb.CurrentPosition(ctx)
-	test.That(t, err, test.ShouldBeNil)
+		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, spatialmath.NewPoseFromOrientation(askewOrient))
+		defer ms.Close(ctx)
 
-	// We need to transform the endPos by the corrected orientation in order to properly place it, otherwise it will go off in +Z somewhere.
-	// In a real robot this will be taken care of by gravity.
-	correctedPose, err := correctStartPose(spatialmath.NewPoseFromOrientation(askewOrient))
-	test.That(t, err, test.ShouldBeNil)
-	endPos := spatialmath.Compose(correctedPose, spatialmath.PoseBetween(spatialmath.NewPoseFromOrientation(askewOrient), endPIF.Pose()))
+		req := motion.MoveOnMapReq{
+			ComponentName: base.Named("test-base"),
+			Destination:   goal1SLAMFrame,
+			SlamName:      slam.Named("test_slam"),
+			Extra:         map[string]interface{}{"smooth_iter": 5},
+		}
 
-	test.That(t, spatialmath.PoseAlmostEqualEps(endPos, goal1BaseFrame, 10), test.ShouldBeTrue)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		defer timeoutFn()
+		_, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldEqual, "base appears to be upside down, check your movement sensor")
+	})
 }
 
 func TestMoveOnMapTimeout(t *testing.T) {

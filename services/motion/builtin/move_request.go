@@ -33,6 +33,7 @@ const (
 	defaultReplanCostFactor = 1.0
 	defaultMaxReplans       = -1 // Values below zero will replan infinitely
 	baseStopTimeout         = time.Second * 5
+	poleEpsilon             = 0.0001 // If the base is this close to vertical, we cannot plan.
 )
 
 // validatedMotionConfiguration is a copy of the motion.MotionConfiguration type
@@ -513,14 +514,13 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		fs,
 		geomsRaw,
 		valExtra,
+		requestTypeMoveOnGlobe,
 	)
 	if err != nil {
 		return nil, err
 	}
 	mr.seedPlan = seedPlan
 	mr.replanCostFactor = valExtra.replanCostFactor
-	mr.requestType = requestTypeMoveOnGlobe
-	mr.poseOrigin = nil // Needs to be unset
 	mr.geoPoseOrigin = *spatialmath.NewGeoPose(origin, heading)
 	return mr, nil
 }
@@ -610,11 +610,11 @@ func (ms *builtIn) newMoveOnMapRequest(
 		fs,
 		[]spatialmath.Geometry{octree},
 		valExtra,
+		requestTypeMoveOnMap,
 	)
 	if err != nil {
 		return nil, err
 	}
-	mr.requestType = requestTypeMoveOnMap
 	return mr, nil
 }
 
@@ -627,6 +627,7 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	fs referenceframe.FrameSystem,
 	worldObstacles []spatialmath.Geometry,
 	valExtra validatedExtra,
+	reqType requestType,
 ) (*moveRequest, error) {
 	// replace original base frame with one that knows how to move itself and allow planning for
 	kinematicFrame := kb.Kinematics()
@@ -725,13 +726,16 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		replanCostFactor:  valExtra.replanCostFactor,
 		obstacleDetectors: obstacleDetectors,
 		fsService:         ms.fsService,
-		poseOrigin:        startPose,
 
 		executeBackgroundWorkers: &backgroundWorkers,
 
 		responseChan: make(chan moveResponse, 1),
 
 		waypointIndex: &waypointIndex,
+		requestType:   reqType,
+	}
+	if reqType == requestTypeMoveOnMap {
+		mr.poseOrigin = startPose
 	}
 
 	// TODO: Change deviatedFromPlan to just query positionPollingFreq on the struct & the same for the obstaclesIntersectPlan
@@ -840,12 +844,12 @@ func toGeoPosePlanSteps(posesByComponent []motionplan.PlanStep, geoPoses []spati
 }
 
 // This function will check the orientation of the startPose of a 2d move request, and ensure that it is normal to the XY plane. If it is
-// not, it will be altered such that it is (accounting for e.g. an ourdoor rover with one wheel on a rock). If the orientation is such that
+// not, it will be altered such that it is (accounting for e.g. an ourdoor base with one wheel on a rock). If the orientation is such that
 // the robot is pointed directly up or down (or is upside-down), an error is returned.
 func correctStartPose(startPose spatialmath.Pose) (spatialmath.Pose, error) {
 	orient := startPose.Orientation().OrientationVectorRadians() // OV is easy to check if we are in plane
 	if orient.OZ < 0 {
-		return nil, errors.New("rover appears to be upside down, please correct")
+		return nil, errors.New("base appears to be upside down, check your movement sensor")
 	}
 	if orient.OX == 0 && orient.OY == 0 {
 		return startPose, nil
@@ -853,8 +857,11 @@ func correctStartPose(startPose spatialmath.Pose) (spatialmath.Pose, error) {
 
 	adjPt := spatialmath.NewPoseFromPoint(r3.Vector{0, 1, 0})
 	newAdjPt := spatialmath.Compose(spatialmath.NewPoseFromOrientation(orient), adjPt).Point()
-	if 1-math.Abs(newAdjPt.Z) < 0.0001 {
-		return nil, errors.New("rover appears pointing either straight up or down, check your movement sensor")
+	if 1-math.Abs(newAdjPt.Z) < poleEpsilon {
+		if newAdjPt.Z > 0 {
+			return nil, errors.New("base appears to be pointing straight up, check your movement sensor")
+		}
+		return nil, errors.New("base appears to be pointing straight down, check your movement sensor")
 	}
 	theta := -math.Atan2(newAdjPt.Y, -newAdjPt.X)
 
