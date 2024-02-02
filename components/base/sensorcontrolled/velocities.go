@@ -22,18 +22,35 @@ const rPiGain = 0.00392157
 // the sensor base in the controllable interface that implements State and GetState
 // called by the endpoint logic of the control thread and the controlLoopConfig
 // is included at the end of this file.
-func (sb *sensorBase) setupControlLoops() error {
-	// create control loop
-	loop, err := control.NewLoop(sb.logger, sb.controlLoopConfig, sb)
-	if err != nil {
-		return err
-	}
-	if err := loop.Start(); err != nil {
-		return err
-	}
-	sb.loop = loop
+// func (sb *sensorBase) setupControlLoops() error {
+// 	// create control loop
+// 	loop, err := control.NewLoop(sb.logger, sb.controlLoopConfig, sb)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if err := loop.Start(); err != nil {
+// 		return err
+// 	}
+// 	sb.loop = loop
 
-	return nil
+// 	return nil
+// }
+
+func (sb *sensorBase) setupControlLoop() error {
+	options := control.Options{
+		SensorFeedbackVelocityControl: true,
+	}
+
+	if sb.conf.ControlParameters[0].P == 0.0 &&
+		sb.conf.ControlParameters[0].I == 0.0 &&
+		sb.conf.ControlParameters[0].D == 0.0 &&
+		sb.conf.ControlParameters[1].P == 0.0 &&
+		sb.conf.ControlParameters[1].I == 0.0 &&
+		sb.conf.ControlParameters[1].D == 0.0 {
+		options.NeedsAutoTuning = true
+	}
+
+	// MJ: RESUME HERE FRI
 }
 
 func (sb *sensorBase) updateControlConfig(
