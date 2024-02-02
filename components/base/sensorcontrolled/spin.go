@@ -46,7 +46,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 		return err
 	}
 
-	// IsMoving returns true when moving, which is not a success condition for our control loop
+	// IsMoving returns true when moving, to determine if the spin call has started
 	baseMoving := func(ctx context.Context) (bool, error) {
 		moving, err := sb.IsMoving(ctx)
 		return moving, err
