@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
@@ -24,6 +25,11 @@ import (
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
+)
+
+var (
+	stateTTL              = time.Hour * 24
+	stateTTLCheckInterval = time.Minute
 )
 
 func init() {
@@ -134,7 +140,12 @@ func (ms *builtIn) Reconfigure(
 	if ms.state != nil {
 		ms.state.Stop()
 	}
-	ms.state = state.NewState(context.Background(), ms.logger)
+
+	state, err := state.NewState(stateTTL, stateTTLCheckInterval, ms.logger)
+	if err != nil {
+		return err
+	}
+	ms.state = state
 	return nil
 }
 
