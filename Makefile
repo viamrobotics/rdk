@@ -128,7 +128,7 @@ server-android:
 
 droid-rdk.aar:
 	# creates an android library that can be imported by native code
-	gomobile bind -v -target android -androidapi 29 -tags no_cgo -o $@ ./web/cmd/droid
+	gomobile bind -v -target android -androidapi 28 -tags no_cgo -o $@ ./web/cmd/droid
 
 clean-all:
 	git clean -fxd

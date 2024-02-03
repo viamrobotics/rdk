@@ -19,6 +19,6 @@ import (
 var logger = logging.NewDebugLogger("robot_server")
 
 func MainEntry(configPath, writeablePath string) {
-	os.Args = append(os.Args, "-config", configPath, "-debug")
+	os.Args = append(os.Args, "-config", configPath)
 	utils.ContextualMain(server.RunServer, logger)
 }
