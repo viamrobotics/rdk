@@ -5,10 +5,13 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -97,6 +100,66 @@ func (c *Config) validateUniqueResource(logger logging.Logger, seenResources map
 	return nil
 }
 
+// todo: don't hardcode package, get from config.
+const androidFilesDir = "/data/user/0/com.viam.rdk.fgservice/cache"
+const androidDownloadsDir = "/sdcard/Download"
+
+// sourceNewer takes two paths, returns true if source is newer than dest or dest is missing.
+func sourceNewer(sourcePath, destPath string) (bool, error) {
+	sourceStat, err := os.Stat(sourcePath)
+	if err != nil {
+		return false, err
+	}
+	destStat, err := os.Stat(destPath)
+	if os.IsNotExist(err) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return sourceStat.ModTime().After(destStat.ModTime()), nil
+}
+
+// droidModuleHack copies executable from tmp dir to app's filesDir.
+// This is a hack for non-root android devices: we can't `adb push` to
+// app's filesDir, and the app can't execute from tmp.
+// Note: this is an expensive IO operation that is happening in Ensure().
+// Find a better spot for it.
+// Note: this hack *depends* on RDK APK's target sdk being <= 28.
+// Note: this currently fails when the dest path is running, needs redesign, is POC.
+func droidModuleHack(conf *Module, logger logging.Logger) error {
+	if runtime.GOOS != "android" || path.Dir(conf.ExePath) != androidDownloadsDir {
+		return nil
+	}
+	sourcePath := conf.ExePath
+	destPath := path.Join(androidFilesDir, path.Base(sourcePath))
+	if newer, err := sourceNewer(sourcePath, destPath); err != nil {
+		return err
+	} else if !newer {
+		// note: ideally we'd do a checksum but comparison is faster, and this isn't a production flow.
+		// Also the destination is locked.
+		logger.Debug("skipping copy, source is not newer")
+	} else {
+		logger.Warnw("copying module from android sdcard to app cache", "source", sourcePath, "dest", destPath)
+		source, err := os.Open(sourcePath)
+		if err != nil {
+			return err
+		}
+		defer source.Close()
+		dest, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND|os.O_TRUNC, 0700)
+		if err != nil {
+			return err
+		}
+		defer dest.Close()
+		_, err = io.Copy(dest, source)
+		if err != nil {
+			return err
+		}
+	}
+	conf.ExePath = destPath
+	return nil
+}
+
 // Ensure ensures all parts of the config are valid, which may include updating it. Only returns an error
 // if c.DisablePartialStart is true (default: false).
 func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
@@ -127,6 +190,9 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 			logger.Errorw("module config error; starting robot without module", "name", c.Modules[idx].Name, "error", err)
 		}
 		if err := c.validateUniqueResource(logger, seenResources, c.Modules[idx].Name); err != nil {
+			return err
+		}
+		if err := droidModuleHack(&c.Modules[idx], logger); err != nil {
 			return err
 		}
 	}
