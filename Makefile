@@ -136,7 +136,7 @@ FFMPEG_ROOT ?= etc/FFmpeg
 $(FFMPEG_ROOT):
 	cd etc && git clone https://github.com/FFmpeg/FFmpeg.git --depth 1 --branch release/6.1
 
-# For ARM64 builds, use the image ghcr.io/viamrobotics/antique:arm64 for backward compatibility
+# Use the image ghcr.io/viamrobotics/antique:(arm64/amd64) for backward compatibility
 FFMPEG_PREFIX ?= $(shell realpath .)/gostream/ffmpeg/$(shell uname -s)-$(shell uname -m)
 # See compilation guide here https://trac.ffmpeg.org/wiki/CompilationGuide
 FFMPEG_OPTS = \
@@ -145,6 +145,7 @@ FFMPEG_OPTS = \
 	--disable-doc \
 	--disable-everything \
 	--disable-autodetect \
+	--disable-x86asm \
 	--enable-libx264 \
 	--enable-decoder=h264 \
 	--enable-decoder=mjpeg \
