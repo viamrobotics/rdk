@@ -120,6 +120,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			cancelFunc()
 			if p.ControlLoop != nil {
 				p.ControlLoop.Stop()
+				p.ControlLoop = nil
 			}
 			return nil
 		})
@@ -136,9 +137,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 				errs = multierr.Combine(errs, err)
 			}
 
-			if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
-				errs = multierr.Combine(errs, err)
-			}
+			p.ControlLoop.MonitorTuning(ctx)
 		}
 		if p.Options.SensorFeedbackVelocityControl {
 			// to tune linear PID values, angular PI values must be non-zero
@@ -149,9 +148,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 				errs = multierr.Combine(errs, err)
 			}
 
-			if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
-				errs = multierr.Combine(errs, err)
-			}
+			p.ControlLoop.MonitorTuning(ctx)
 
 			p.ControlLoop.Stop()
 			p.ControlLoop = nil
@@ -166,12 +163,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 				errs = multierr.Combine(errs, err)
 			}
 
-			if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
-				errs = multierr.Combine(errs, err)
-			}
-
-			p.ControlLoop.Stop()
-			p.ControlLoop = nil
+			p.ControlLoop.MonitorTuning(ctx)
 		}
 		if p.Options.UseCustomConfig {
 			if err := p.StartControlLoop(); err != nil {
