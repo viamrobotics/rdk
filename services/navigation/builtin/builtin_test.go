@@ -833,12 +833,17 @@ func TestStartWaypoint(t *testing.T) {
 		defer wg.Wait()
 		// MoveOnGlobe will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
 		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+			s.Lock()
+			defer s.Unlock()
 			if err := ctx.Err(); err != nil {
 				return uuid.Nil, err
 			}
-			executionID := executionIDs[(counter.Inc())]
-			s.Lock()
-			defer s.Unlock()
+			count := counter.Inc()
+			if count > 1 {
+				t.Error("MoveOnGlobe should not be called more than twice")
+				t.FailNow()
+			}
+			executionID := executionIDs[count]
 			if s.mogrs == nil {
 				s.mogrs = []motion.MoveOnGlobeReq{}
 			}
@@ -871,22 +876,25 @@ func TestStartWaypoint(t *testing.T) {
 		}
 
 		s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
+			s.RLock()
+			defer s.RUnlock()
 			if err := ctx.Err(); err != nil {
 				return nil, err
 			}
-			s.RLock()
-			defer s.RUnlock()
 			history := make([]motion.PlanWithStatus, len(s.pws))
 			copy(history, s.pws)
+			if len(history) == 0 {
+				return nil, errors.New("no plan")
+			}
 			return history, nil
 		}
 
 		s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
+			s.Lock()
+			defer s.Unlock()
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			s.Lock()
-			defer s.Unlock()
 			if s.sprs == nil {
 				s.sprs = []motion.StopPlanReq{}
 			}
@@ -935,6 +943,8 @@ func TestStartWaypoint(t *testing.T) {
 			wps, err := s.ns.Waypoints(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			if len(wps) == 0 {
+				// wait until success has completed
+				wg.Wait()
 				s.RLock()
 				// wait until StopPlan has been called twice
 				if len(s.sprs) == 2 {
