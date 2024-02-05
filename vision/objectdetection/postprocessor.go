@@ -51,7 +51,7 @@ func NewLabelFilter(labels map[string]interface{}) Postprocessor {
 	}
 }
 
-// NewLabelRenamer renames the labels in the input map from the key to the value
+// NewLabelRenamer renames the labels in the input map from the key to the value.
 func NewLabelRenamer(labels map[string]string) Postprocessor {
 	return func(in []Detection) []Detection {
 		if len(labels) < 1 {
