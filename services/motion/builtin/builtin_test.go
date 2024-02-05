@@ -944,6 +944,9 @@ func TestStoppableMoveFunctions(t *testing.T) {
 		injectBase.SetVelocityFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 			return failToReachGoalError
 		}
+		injectBase.CurrentInputsFunc = func(ctx context.Context) ([]referenceframe.Input, error) {
+			return referenceframe.FloatsToInputs([]float64{0, 0, 0}), nil
+		}
 
 		// Create a base link
 		baseLink := createBaseLink(t)
@@ -964,10 +967,26 @@ func TestStoppableMoveFunctions(t *testing.T) {
 				nil,
 			)
 
+			// Since our current position is in the frame of the movement sensor we will need to transform the
+			// position to be in the world frame.
+			// To do so, we will use the frame system service (fs), created at run time along, with the fs
+			// the motion service (ms) creates.
+			// It is important to note that the two frame systems house different information.
+			// The fs created by the ms has a base frame corresponding to a kinematic base, hence it expects three
+			// degrees of freedom. For this reason, we create a model frame for the base link, such that querying
+			// the fs constructed at run time gives us current inputs we would expect.
+
+			model, err := referenceframe.New2DMobileModelFrame(
+				baseName,
+				[]referenceframe.Limit{{-1e5, 1e5}, {-1e5, 1e5}, {-math.Pi * 2, math.Pi * 2}},
+				geometry,
+			)
+			test.That(t, err, test.ShouldBeNil)
+
 			// Create a motion service
 			fsParts := []*referenceframe.FrameSystemPart{
 				{FrameConfig: movementSensorLink},
-				{FrameConfig: baseLink},
+				{FrameConfig: baseLink, ModelFrame: model},
 			}
 			deps := resource.Dependencies{
 				injectBase.Name():           injectBase,

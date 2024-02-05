@@ -2,10 +2,12 @@ package inject
 
 import (
 	"context"
+	"errors"
 
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -13,17 +15,19 @@ import (
 // Base is an injected base.
 type Base struct {
 	base.Base
-	name             resource.Name
-	DoFunc           func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	MoveStraightFunc func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error
-	SpinFunc         func(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error
-	StopFunc         func(ctx context.Context, extra map[string]interface{}) error
-	IsMovingFunc     func(context.Context) (bool, error)
-	CloseFunc        func(ctx context.Context) error
-	SetPowerFunc     func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
-	SetVelocityFunc  func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
-	PropertiesFunc   func(ctx context.Context, extra map[string]interface{}) (base.Properties, error)
-	GeometriesFunc   func(ctx context.Context) ([]spatialmath.Geometry, error)
+	name              resource.Name
+	DoFunc            func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	MoveStraightFunc  func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error
+	SpinFunc          func(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error
+	StopFunc          func(ctx context.Context, extra map[string]interface{}) error
+	IsMovingFunc      func(context.Context) (bool, error)
+	CloseFunc         func(ctx context.Context) error
+	SetPowerFunc      func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
+	SetVelocityFunc   func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
+	PropertiesFunc    func(ctx context.Context, extra map[string]interface{}) (base.Properties, error)
+	GeometriesFunc    func(ctx context.Context) ([]spatialmath.Geometry, error)
+	CurrentInputsFunc func(ctx context.Context) ([]referenceframe.Input, error)
+	GoToInputsFunc    func(ctx context.Context, goal []referenceframe.Input) error
 }
 
 // NewBase returns a new injected base.
@@ -117,4 +121,20 @@ func (b *Base) Geometries(ctx context.Context, extra map[string]interface{}) ([]
 		return b.Base.Geometries(ctx, extra)
 	}
 	return b.GeometriesFunc(ctx)
+}
+
+// CurrentInputs returns the base's current inputs.
+func (b *Base) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	if b.CurrentInputsFunc == nil {
+		return nil, errors.New("base.Base intrinsically does not support CurrentInputs")
+	}
+	return b.CurrentInputsFunc(ctx)
+}
+
+// GoToInputs moves the base to the provided inputs.
+func (b *Base) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	if b.GoToInputsFunc == nil {
+		return errors.New("base.Base intrinsically does not support GoToInputs")
+	}
+	return b.GoToInputsFunc(ctx, goal)
 }
