@@ -24,8 +24,9 @@ var replanReason = "replan triggered due to location drift"
 
 // testPlannerExecutor is a mock PlannerExecutor implementation.
 type testPlannerExecutor struct {
-	planFunc    func(context.Context) (motionplan.Plan, error)
-	executeFunc func(context.Context, motionplan.Plan) (state.ExecuteResponse, error)
+	planFunc          func(context.Context) (motionplan.Plan, error)
+	executeFunc       func(context.Context, motionplan.Plan) (state.ExecuteResponse, error)
+	anchorGeoPoseFunc func() *spatialmath.GeoPose
 }
 
 // by default Plan successfully returns an empty plan.
@@ -45,6 +46,9 @@ func (tpe *testPlannerExecutor) Execute(ctx context.Context, plan motionplan.Pla
 }
 
 func (tpe *testPlannerExecutor) AnchorGeoPose() *spatialmath.GeoPose {
+	if tpe.anchorGeoPoseFunc != nil {
+		return tpe.anchorGeoPoseFunc()
+	}
 	return nil
 }
 

@@ -409,7 +409,9 @@ func (s *State) PlanHistory(req motion.PlanHistoryReq) ([]motion.PlanWithStatus,
 	}
 
 	ex := cs.lastExecution()
-	return renderableHistory(ex.history), nil
+	r := renderableHistory(ex.history)
+	s.logger.Debug(r)
+	return r, nil
 }
 
 // visualHistory returns the history struct that has had its plans Offset by
