@@ -103,12 +103,8 @@ func SetupPIDControlConfig(pidVals []PIDConfig, componentName string, Options Op
 		if err := pidLoop.TunePIDLoop(cancelCtx, cancelFunc); err != nil {
 			return nil, err
 		}
-	} else {
-		if err := pidLoop.StartControlLoop(); err != nil {
-			return nil, err
-		}
 	}
-	// start control loop?
+
 	return pidLoop, nil
 }
 
