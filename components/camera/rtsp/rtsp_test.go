@@ -3,8 +3,6 @@ package rtsp
 import (
 	"testing"
 
-	"testing"
-
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/rimage/transform"
