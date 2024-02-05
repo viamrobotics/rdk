@@ -232,39 +232,43 @@ func createDataByMovementSensorMethod(method method, index int) *structpb.Struct
 	var data structpb.Struct
 	switch method {
 	case position:
+		var coords structpb.Struct
+		coords.Fields = map[string]*structpb.Value{
+			"latitude":  structpb.NewNumberValue(positionPointData[index].Lat()),
+			"longitude": structpb.NewNumberValue(positionPointData[index].Lng()),
+		}
 		data.Fields = map[string]*structpb.Value{
-			"Latitude":  structpb.NewNumberValue(positionPointData[index].Lat()),
-			"Longitude": structpb.NewNumberValue(positionPointData[index].Lng()),
-			"Altitude":  structpb.NewNumberValue(positionAltitudeData[index]),
+			"coordinate": structpb.NewStructValue(&coords),
+			"altitude_m": structpb.NewNumberValue(positionAltitudeData[index]),
 		}
 	case linearVelocity:
 		data.Fields = map[string]*structpb.Value{
-			"X": structpb.NewNumberValue(linearVelocityData[index].X),
-			"Y": structpb.NewNumberValue(linearVelocityData[index].Y),
-			"Z": structpb.NewNumberValue(linearVelocityData[index].Z),
+			"x": structpb.NewNumberValue(linearVelocityData[index].X),
+			"y": structpb.NewNumberValue(linearVelocityData[index].Y),
+			"z": structpb.NewNumberValue(linearVelocityData[index].Z),
 		}
 	case angularVelocity:
 		data.Fields = map[string]*structpb.Value{
-			"X": structpb.NewNumberValue(angularVelocityData[index].X),
-			"Y": structpb.NewNumberValue(angularVelocityData[index].Y),
-			"Z": structpb.NewNumberValue(angularVelocityData[index].Z),
+			"x": structpb.NewNumberValue(angularVelocityData[index].X),
+			"y": structpb.NewNumberValue(angularVelocityData[index].Y),
+			"z": structpb.NewNumberValue(angularVelocityData[index].Z),
 		}
 	case linearAcceleration:
 		data.Fields = map[string]*structpb.Value{
-			"X": structpb.NewNumberValue(linearAccelerationData[index].X),
-			"Y": structpb.NewNumberValue(linearAccelerationData[index].Y),
-			"Z": structpb.NewNumberValue(linearAccelerationData[index].Z),
+			"x": structpb.NewNumberValue(linearAccelerationData[index].X),
+			"y": structpb.NewNumberValue(linearAccelerationData[index].Y),
+			"z": structpb.NewNumberValue(linearAccelerationData[index].Z),
 		}
 	case compassHeading:
 		data.Fields = map[string]*structpb.Value{
-			"Compass": structpb.NewNumberValue(compassHeadingData[index]),
+			"value": structpb.NewNumberValue(compassHeadingData[index]),
 		}
 	case orientation:
 		data.Fields = map[string]*structpb.Value{
-			"OX":    structpb.NewNumberValue(orientationData[index].OX),
-			"OY":    structpb.NewNumberValue(orientationData[index].OY),
-			"OZ":    structpb.NewNumberValue(orientationData[index].OZ),
-			"Theta": structpb.NewNumberValue(orientationData[index].Theta),
+			"o_x":   structpb.NewNumberValue(orientationData[index].OX),
+			"o_y":   structpb.NewNumberValue(orientationData[index].OY),
+			"o_z":   structpb.NewNumberValue(orientationData[index].OZ),
+			"theta": structpb.NewNumberValue(orientationData[index].Theta),
 		}
 	}
 	return &data
