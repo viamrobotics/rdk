@@ -51,6 +51,25 @@ func NewLabelFilter(labels map[string]interface{}) Postprocessor {
 	}
 }
 
+// NewLabelRenamer renames the labels in the input map from the key to the value
+func NewLabelRenamer(labels map[string]string) Postprocessor {
+	return func(in []Detection) []Detection {
+		if len(labels) < 1 {
+			return in
+		}
+
+		for oldL, newL := range labels {
+			for i, d := range in {
+				if strings.HasPrefix(strings.ToLower(d.Label()), strings.ToLower(oldL)) {
+					in[i] = NewDetection(*d.BoundingBox(), d.Score(), newL)
+				}
+			}
+		}
+
+		return in
+	}
+}
+
 // SortByArea returns a function that sorts the list of detections by area (largest first).
 func SortByArea() Postprocessor {
 	return func(in []Detection) []Detection {
