@@ -229,6 +229,10 @@ func (sb *sensorBase) isPolling() bool {
 func (sb *sensorBase) MoveStraight(
 	ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{},
 ) error {
+	if sb.loop != nil {
+		sb.loop.Stop()
+		sb.loop = nil
+	}
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
 	sb.setPolling(false)
@@ -249,6 +253,7 @@ func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) er
 	sb.setPolling(false)
 	if sb.loop != nil {
 		sb.loop.Stop()
+		sb.loop = nil
 	}
 	return sb.controlledBase.Stop(ctx, extra)
 }
