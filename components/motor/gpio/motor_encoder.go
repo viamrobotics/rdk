@@ -631,7 +631,6 @@ func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) e
 		m.loop.Stop()
 		m.loop = nil
 	}
-
 	return m.real.Stop(ctx, nil)
 }
 
