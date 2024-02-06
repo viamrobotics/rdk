@@ -407,19 +407,19 @@ func (s *Server) SendSessionHeartbeat(ctx context.Context, req *pb.SendSessionHe
 	return &pb.SendSessionHeartbeatResponse{}, nil
 }
 
-// ModuleLog receives logs from a module to be logged by this parent robot.
-func (s *Server) ModuleLog(ctx context.Context, req *pb.ModuleLogRequest) (*pb.ModuleLogResponse, error) {
+// Log receives logs to be logged by this robot.
+func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, error) {
 	if req.Logs == nil {
-		return nil, errors.New("ModuleLogRequest received with no associated logs")
+		return nil, errors.New("LogRequest received with no associated logs")
 	}
 	if len(req.Logs) > 1 {
-		return nil, errors.New("ModuleLogRequest received with multiple logs; batching not yet supported")
+		return nil, errors.New("LogRequest received with multiple logs; batching not yet supported")
 	}
 	log := req.Logs[0]
 
-	// Use a sublogger of robot logger with module's logger name. Set a level of
-	// DEBUG to allow modules to log at DEBUG level even when RDK is not on DEBUG
-	// level. Disable caller to mimic caller passed in from module.
+	// Use a sublogger of robot logger with correct logger name. Set a level of
+	// DEBUG to allow gRPC logs at DEBUG level even when RDK is not on DEBUG
+	// level. Disable caller to mimic caller passed in from gRPC request.
 	logger := s.r.Logger().Sublogger(log.LoggerName)
 	logger.SetLevel(logging.DEBUG)
 	l := logger.WithOptions(zap.WithCaller(false))
@@ -427,7 +427,7 @@ func (s *Server) ModuleLog(ctx context.Context, req *pb.ModuleLogRequest) (*pb.M
 	level, err := logging.LevelFromString(log.Level)
 	switch {
 	case err != nil:
-		l.Warn("Module logger named %q sent a log with an invalid level %q", log.LoggerName, log.Level)
+		l.Warn("logger named %q sent a log over gRPC with an invalid level %q", log.LoggerName, log.Level)
 	case level == logging.DEBUG:
 		l.Debug(log.Message)
 	case level == logging.INFO:
@@ -439,5 +439,5 @@ func (s *Server) ModuleLog(ctx context.Context, req *pb.ModuleLogRequest) (*pb.M
 	default:
 	}
 
-	return &pb.ModuleLogResponse{}, nil
+	return &pb.LogResponse{}, nil
 }

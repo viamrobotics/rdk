@@ -953,7 +953,7 @@ func (rc *RobotClient) ModuleLog(ctx context.Context, log zapcore.Entry, fields 
 	}
 	message = fmt.Sprintf("%v}", message) // close }
 
-	logRequest := &pb.ModuleLogRequest{
+	logRequest := &pb.LogRequest{
 		// no batching for now (one LogEntry at a time).
 		Logs: []*commonpb.LogEntry{{
 			// leave out Host; Host is not meaningful for module logging
@@ -967,6 +967,6 @@ func (rc *RobotClient) ModuleLog(ctx context.Context, log zapcore.Entry, fields 
 		}},
 	}
 
-	_, err := rc.client.ModuleLog(ctx, logRequest)
+	_, err := rc.client.Log(ctx, logRequest)
 	return err
 }
