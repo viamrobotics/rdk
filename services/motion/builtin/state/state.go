@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"cmp"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
@@ -487,8 +488,8 @@ func (s *State) ListPlanStatuses(req motion.ListPlanStatusesReq) ([]motion.PlanS
 
 	statuses := []motion.PlanStatusWithID{}
 	componentNames := maps.Keys(s.componentStateByComponent)
-	slices.SortFunc(componentNames, func(a, b resource.Name) bool {
-		return a.String() < b.String()
+	slices.SortFunc(componentNames, func(a, b resource.Name) int {
+		return cmp.Compare(a.String(), b.String())
 	})
 
 	if req.OnlyActivePlans {

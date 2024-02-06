@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"cmp"
 	"golang.org/x/exp/slices"
 )
 
@@ -91,8 +92,8 @@ func nodesSortedByName(nodes graphNodes) []nameNode {
 	for name, node := range nodes {
 		ret = append(ret, nameNode{name, node})
 	}
-	slices.SortFunc(ret, func(left, right nameNode) bool {
-		return left.Name.String() < right.Name.String()
+	slices.SortFunc(ret, func(left, right nameNode) int {
+		return cmp.Compare(left.Name.String(), right.Name.String())
 	})
 
 	return ret
@@ -162,12 +163,12 @@ func edgesSortedByName(deps resourceDependencies) []edge {
 		}
 	}
 
-	slices.SortFunc(ret, func(left, right edge) bool {
+	slices.SortFunc(ret, func(left, right edge) int {
 		if left.source == right.source {
-			return left.dest.String() < right.dest.String()
+			return cmp.Compare(left.dest.String(), right.dest.String())
 		}
 
-		return left.source.String() < right.source.String()
+		return cmp.Compare(left.source.String(), right.source.String())
 	})
 
 	return ret
