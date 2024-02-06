@@ -4,6 +4,7 @@ package rtkutils
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"strconv"
@@ -217,6 +218,35 @@ func parseStream(line string) (Stream, error) {
 		Latitude: float32(lat), Longitude: float32(lon), Nmea: nmea, Solution: sol, Generator: fields[generator],
 		Compression: fields[compression], Authentication: fields[auth], Fee: fee, BitRate: bitrate, Misc: fields[misc],
 	}, nil
+}
+
+// Connect attempts to initialize a new ntrip client.
+func (n *NtripInfo) Connect(ctx context.Context, logger logging.Logger) error {
+	var c *ntrip.Client
+	var err error
+
+	logger.Debug("Connecting to NTRIP caster")
+	for attempts := 0; attempts < n.MaxConnectAttempts; attempts++ {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		c, err = ntrip.NewClient(n.URL, ntrip.Options{Username: n.Username, Password: n.Password})
+		if err == nil {
+			break
+		}
+	}
+
+	if err != nil {
+		logger.Errorf("Can't connect to NTRIP caster: %s", err)
+		return err
+	}
+
+	logger.Info("Connected to NTRIP caster")
+	n.Client = c
+	return nil
 }
 
 // HasStream checks if the sourcetable contains the given mountpoint in it's stream.
