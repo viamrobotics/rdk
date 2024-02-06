@@ -13,8 +13,9 @@ func TestConnect(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	cancelCtx, _ := context.WithCancel(context.Background())
 
-	ntripInfo := &NtripInfo{}
+	ntripInfo := &NtripInfo{MaxConnectAttempts: 1}
 	err := ntripInfo.Connect(cancelCtx, logger)
+	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `address must start with http://`)
 
 	config := NtripConfig{
