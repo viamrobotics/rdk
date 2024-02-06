@@ -18,9 +18,8 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 	svc.logger.CDebug(ctx, "startExploreMode called")
 
 	svc.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer svc.activeBackgroundWorkers.Done()
 
+	utils.ManagedGo(func() {
 		// Send motionCfg parameters through extra until motionCfg can be added to Move()
 		extra := map[string]interface{}{"motionCfg": *svc.motionCfg}
 
@@ -43,5 +42,5 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 				svc.logger.CDebugf(ctx, "error occurred when moving to point %v: %v", destination, err)
 			}
 		}
-	})
+	}, svc.activeBackgroundWorkers.Done)
 }
