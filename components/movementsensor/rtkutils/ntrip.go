@@ -112,8 +112,9 @@ func NewNtripInfo(cfg *NtripConfig, logger logging.Logger) (*NtripInfo, error) {
 		logger.Info("ntrip_mountpoint set to empty")
 	}
 	n.MaxConnectAttempts = cfg.NtripConnectAttempts
-	if n.MaxConnectAttempts == 10 {
+	if n.MaxConnectAttempts == 0 {
 		logger.Info("ntrip_connect_attempts using default 10")
+		n.MaxConnectAttempts = 10
 	}
 
 	logger.Debug("Returning n")
