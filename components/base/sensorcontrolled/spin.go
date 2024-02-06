@@ -218,7 +218,6 @@ func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64, in
 	return targetYaw, dir, fullTurns
 }
 
-// this function does not wrap around 360 degrees currently.
 func angleBetween(current, lowerBound, upperBound float64) bool {
 	return current >= lowerBound && current <= upperBound
 }
