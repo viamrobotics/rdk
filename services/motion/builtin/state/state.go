@@ -10,15 +10,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
-	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/utils"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 )
 
 // Waypoints represent the waypoints of the plan.

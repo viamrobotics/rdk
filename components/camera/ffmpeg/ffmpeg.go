@@ -14,13 +14,12 @@ import (
 	ffmpeg "github.com/u2takey/ffmpeg-go"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
-	viamutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
+	viamutils "go.viam.com/utils"
 )
 
 // Config is the attribute struct for ffmpeg cameras.

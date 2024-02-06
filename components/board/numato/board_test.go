@@ -5,11 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/test"
 )
 
 func TestMask(t *testing.T) {

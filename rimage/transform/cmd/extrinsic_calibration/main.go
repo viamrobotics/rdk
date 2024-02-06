@@ -13,12 +13,11 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
-	"gonum.org/v1/gonum/optimize"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/utils"
+	"gonum.org/v1/gonum/optimize"
 )
 
 func main() {

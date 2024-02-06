@@ -13,8 +13,6 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/arm"
 	armFake "go.viam.com/rdk/components/arm/fake"
 	ur "go.viam.com/rdk/components/arm/universalrobots"
@@ -36,6 +34,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	viz "go.viam.com/rdk/vision"
+	"go.viam.com/test"
 )
 
 func TestMoveResponseString(t *testing.T) {

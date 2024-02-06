@@ -6,12 +6,11 @@ import (
 	"testing"
 
 	geo "github.com/kellydunn/golang-geo"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/movementsensor/fake"
 	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/test"
 )
 
 func TestValidateRTK(t *testing.T) {

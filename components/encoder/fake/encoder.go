@@ -7,11 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils"
 )
 
 var fakeModel = resource.DefaultModelFamily.WithModel("fake")

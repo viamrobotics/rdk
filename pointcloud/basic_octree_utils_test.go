@@ -6,9 +6,8 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/test"
 )
 
 // Test creation of empty leaf node, filled leaf node and internal node.

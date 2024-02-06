@@ -4,11 +4,10 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
-	"go.viam.com/test"
-
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
 )
 
 func TestCollisionsEqual(t *testing.T) {

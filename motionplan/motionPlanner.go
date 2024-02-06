@@ -13,12 +13,11 @@ import (
 
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/utils"
 )
 
 const defaultRandomSeed = 0

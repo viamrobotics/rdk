@@ -9,10 +9,9 @@ import (
 	"net"
 
 	"github.com/pion/webrtc/v3"
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/utils/rpc"
 )
 
 // Options are used for configuring the web server.

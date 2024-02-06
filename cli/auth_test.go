@@ -9,10 +9,9 @@ import (
 	"testing"
 
 	apppb "go.viam.com/api/app/v1"
+	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
-
-	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestLoginAction(t *testing.T) {

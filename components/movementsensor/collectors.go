@@ -6,11 +6,10 @@ import (
 
 	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/movementsensor/v1"
-	"google.golang.org/protobuf/types/known/anypb"
-
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/spatialmath"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type method int64

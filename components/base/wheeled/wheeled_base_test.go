@@ -8,9 +8,6 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
-	"go.viam.com/test"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
@@ -18,6 +15,8 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"go.viam.com/utils"
 )
 
 func createFakeMotor() motor.Motor {

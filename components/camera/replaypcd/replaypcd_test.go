@@ -7,13 +7,12 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	"go.viam.com/test"
-	"google.golang.org/grpc"
-
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils/contextutils"
+	"go.viam.com/test"
+	"google.golang.org/grpc"
 )
 
 const (

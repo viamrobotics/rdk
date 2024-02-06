@@ -9,13 +9,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
-
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func TestPCD(t *testing.T) {

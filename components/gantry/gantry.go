@@ -4,7 +4,6 @@ import (
 	"context"
 
 	pb "go.viam.com/api/component/gantry/v1"
-
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"

@@ -12,10 +12,6 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	goutils "go.viam.com/utils"
-	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmanager"
@@ -27,6 +23,9 @@ import (
 	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/services/shell"
 	rutils "go.viam.com/rdk/utils"
+	goutils "go.viam.com/utils"
+	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 )
 
 func init() {

@@ -4,9 +4,8 @@ import (
 	"testing"
 
 	"github.com/jedib0t/go-pretty/v6/table"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/test"
 )
 
 func TestWorldStateConstruction(t *testing.T) {

@@ -4,10 +4,9 @@ import (
 	"math"
 	"testing"
 
+	"go.viam.com/rdk/utils"
 	"go.viam.com/test"
 	"gonum.org/v1/gonum/num/quat"
-
-	"go.viam.com/rdk/utils"
 )
 
 // represent a 45 degree rotation around the x axis in all the representations.

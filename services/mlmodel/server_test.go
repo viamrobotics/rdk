@@ -6,13 +6,12 @@ import (
 
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/mlmodel/v1"
-	"go.viam.com/test"
-	"gorgonia.org/tensor"
-
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"gorgonia.org/tensor"
 )
 
 func newServer(resources map[resource.Name]mlmodel.Service) (pb.MLModelServiceServer, error) {

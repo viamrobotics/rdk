@@ -5,12 +5,11 @@ import (
 	"testing"
 
 	geo "github.com/kellydunn/golang-geo"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/test"
 )
 
 var (

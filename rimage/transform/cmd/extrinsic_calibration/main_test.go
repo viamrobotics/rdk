@@ -9,13 +9,12 @@ import (
 
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
-	"go.viam.com/test"
-	"gonum.org/v1/gonum/optimize"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	"gonum.org/v1/gonum/optimize"
 )
 
 type mockPose struct{}

@@ -11,7 +11,6 @@ import (
 	"regexp"
 
 	"github.com/pion/mediadevices"
-
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"

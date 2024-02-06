@@ -6,11 +6,10 @@ import (
 
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/base/v1"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
 )
 
 var (

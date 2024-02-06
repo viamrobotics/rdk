@@ -6,13 +6,12 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
 )
 
 func ptr[T any](v T) *T {

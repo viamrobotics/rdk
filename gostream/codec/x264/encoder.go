@@ -9,7 +9,6 @@ import (
 	"github.com/pion/mediadevices/pkg/codec"
 	"github.com/pion/mediadevices/pkg/codec/x264"
 	"github.com/pion/mediadevices/pkg/prop"
-
 	ourcodec "go.viam.com/rdk/gostream/codec"
 )
 

@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/golang/geo/r3"
-
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )

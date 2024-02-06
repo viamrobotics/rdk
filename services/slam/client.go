@@ -6,13 +6,12 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/slam/v1"
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam/grpchelper"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/utils/rpc"
 )
 
 // client implements SLAMServiceClient.

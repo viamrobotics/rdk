@@ -7,10 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
-
-	"go.viam.com/rdk/logging"
 )
 
 type testReader struct {

@@ -11,10 +11,9 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/arm/v1"
+	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-
-	spatial "go.viam.com/rdk/spatialmath"
 )
 
 func TestStaticFrame(t *testing.T) {

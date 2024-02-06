@@ -11,11 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
-
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
@@ -29,6 +24,10 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/utils/contextutils"
+	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 func TestClient(t *testing.T) {

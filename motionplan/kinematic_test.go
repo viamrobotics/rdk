@@ -7,13 +7,12 @@ import (
 
 	"github.com/golang/geo/r3"
 	pb "go.viam.com/api/component/arm/v1"
-	"go.viam.com/test"
-	"gonum.org/v1/gonum/num/quat"
-
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/referenceframe/urdf"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	"gonum.org/v1/gonum/num/quat"
 )
 
 func BenchmarkFK(b *testing.B) {

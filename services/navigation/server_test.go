@@ -10,14 +10,13 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/navigation/v1"
-	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
-
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
 )
 
 func createWaypoints() ([]navigation.Waypoint, []*pb.Waypoint) {

@@ -7,7 +7,6 @@ import (
 	"github.com/aybabtme/uniplot/histogram"
 	"github.com/muesli/clusters"
 	"github.com/muesli/kmeans"
-
 	"go.viam.com/rdk/utils"
 )
 

@@ -4,7 +4,6 @@ import (
 	"math"
 
 	pb "go.viam.com/api/service/motion/v1"
-
 	"go.viam.com/rdk/protoutils"
 )
 

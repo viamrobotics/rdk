@@ -7,7 +7,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest"
 	"go.uber.org/zap/zaptest/observer"
-
 	"go.viam.com/rdk/logging"
 )
 

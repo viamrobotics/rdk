@@ -9,14 +9,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 	pb "go.viam.com/api/robot/v1"
-	"go.viam.com/test"
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
 )
 
 var (

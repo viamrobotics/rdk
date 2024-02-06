@@ -11,10 +11,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"go.uber.org/multierr"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/utils"
 	"gotest.tools/gotestsum/testjson"
-
-	"go.viam.com/rdk/logging"
 )
 
 var logger = logging.NewDebugLogger("analyzetests")

@@ -9,11 +9,10 @@ import (
 	"github.com/disintegration/imaging"
 	"github.com/golang/geo/r2"
 	"github.com/pkg/errors"
+	"go.viam.com/rdk/utils"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/stat"
-
-	"go.viam.com/rdk/utils"
 )
 
 // AverageColorAndStats returns avg color and avg distances to avg color.

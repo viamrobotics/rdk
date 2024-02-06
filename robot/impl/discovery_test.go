@@ -6,13 +6,12 @@ import (
 
 	"github.com/pkg/errors"
 	modulepb "go.viam.com/api/module/v1"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	rtestutils "go.viam.com/rdk/testutils"
+	"go.viam.com/test"
 )
 
 func setupNewLocalRobot(t *testing.T) robot.LocalRobot {

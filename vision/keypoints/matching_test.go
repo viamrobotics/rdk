@@ -6,11 +6,10 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func TestRangeInt(t *testing.T) {

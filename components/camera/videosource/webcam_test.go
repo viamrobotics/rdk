@@ -6,10 +6,9 @@ import (
 
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/prop"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/test"
 )
 
 // fakeDriver is a driver has a label and media properties.

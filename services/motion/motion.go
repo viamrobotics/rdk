@@ -10,14 +10,13 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
-
 	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func init() {

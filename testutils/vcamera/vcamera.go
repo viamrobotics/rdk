@@ -55,9 +55,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/logging"
+	"go.viam.com/utils"
 )
 
 // Resolution stores the Width and Height in pixels for a camera resolution.

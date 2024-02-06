@@ -5,9 +5,8 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
-	"go.viam.com/test"
-
 	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/test"
 )
 
 func TestSqNormMetric(t *testing.T) {

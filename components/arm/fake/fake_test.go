@@ -5,11 +5,10 @@ import (
 	"testing"
 
 	pb "go.viam.com/api/component/arm/v1"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/test"
 )
 
 func TestReconfigure(t *testing.T) {

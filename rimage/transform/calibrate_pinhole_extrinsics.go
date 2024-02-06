@@ -9,13 +9,12 @@ import (
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	"gonum.org/v1/gonum/diff/fd"
-	"gonum.org/v1/gonum/mat"
-	"gonum.org/v1/gonum/optimize"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
+	"gonum.org/v1/gonum/diff/fd"
+	"gonum.org/v1/gonum/mat"
+	"gonum.org/v1/gonum/optimize"
 )
 
 // ExtrinsicCalibrationConfig stores all the necessary parameters to do an extrinsic calibration.

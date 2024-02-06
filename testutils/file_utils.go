@@ -9,7 +9,6 @@ import (
 
 	"go.uber.org/multierr"
 	v1 "go.viam.com/api/app/datasync/v1"
-
 	"go.viam.com/rdk/utils"
 )
 

@@ -7,10 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	uts "go.viam.com/utils"
-
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
+	uts "go.viam.com/utils"
 )
 
 // SamplingType stores 0 if a sampling of image points for BRIEF is uniform, 1 if gaussian.

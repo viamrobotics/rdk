@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
-
 	"go.viam.com/rdk/logging"
 )
 

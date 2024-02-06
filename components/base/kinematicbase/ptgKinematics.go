@@ -14,8 +14,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
-	utils "go.viam.com/utils"
-
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/tpspace"
@@ -23,6 +21,7 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
+	utils "go.viam.com/utils"
 )
 
 var zeroInput = make([]referenceframe.Input, 3)

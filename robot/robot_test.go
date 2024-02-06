@@ -3,9 +3,6 @@ package robot_test
 import (
 	"testing"
 
-	"go.viam.com/test"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/generic"
@@ -14,6 +11,8 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"go.viam.com/utils"
 )
 
 var (

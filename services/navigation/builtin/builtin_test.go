@@ -12,9 +12,6 @@ import (
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"go.uber.org/atomic"
-	"go.viam.com/test"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/components/base"
 	baseFake "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/camera"
@@ -37,6 +34,8 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	viz "go.viam.com/rdk/vision"
+	"go.viam.com/test"
+	"go.viam.com/utils"
 )
 
 type startWaypointState struct {

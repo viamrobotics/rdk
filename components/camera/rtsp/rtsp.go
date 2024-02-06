@@ -17,13 +17,12 @@ import (
 	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	goutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
+	goutils "go.viam.com/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("rtsp")

@@ -5,9 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/logging"
+	"go.viam.com/test"
 )
 
 type fakeComponent struct {

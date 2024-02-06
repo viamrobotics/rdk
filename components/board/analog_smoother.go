@@ -7,10 +7,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	goutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
+	goutils "go.viam.com/utils"
 )
 
 var errStopReading = errors.New("stop reading")

@@ -6,14 +6,13 @@ import (
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/gripper/fake"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
 )
 
 const (

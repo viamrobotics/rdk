@@ -15,12 +15,6 @@ import (
 
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
-	"go.viam.com/test"
-	"go.viam.com/utils"
-	"go.viam.com/utils/artifact"
-	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/timestamppb"
-
 	"go.viam.com/rdk/components/camera"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
@@ -30,6 +24,11 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"go.viam.com/utils"
+	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (

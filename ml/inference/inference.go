@@ -3,7 +3,6 @@ package inference
 
 import (
 	"github.com/pkg/errors"
-
 	"go.viam.com/rdk/ml"
 )
 

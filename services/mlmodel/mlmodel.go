@@ -8,12 +8,11 @@ import (
 
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/mlmodel/v1"
-	vprotoutils "go.viam.com/utils/protoutils"
-	"gorgonia.org/tensor"
-
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	vprotoutils "go.viam.com/utils/protoutils"
+	"gorgonia.org/tensor"
 )
 
 func init() {

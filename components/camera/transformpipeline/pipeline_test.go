@@ -5,9 +5,6 @@ import (
 	"testing"
 
 	"github.com/pion/mediadevices/pkg/prop"
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
-
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/gostream"
@@ -17,6 +14,8 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func TestTransformPipelineColor(t *testing.T) {

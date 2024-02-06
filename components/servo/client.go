@@ -5,12 +5,11 @@ import (
 	"context"
 
 	pb "go.viam.com/api/component/servo/v1"
-	"go.viam.com/utils/protoutils"
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils/protoutils"
+	"go.viam.com/utils/rpc"
 )
 
 // client implements ServoServiceClient.

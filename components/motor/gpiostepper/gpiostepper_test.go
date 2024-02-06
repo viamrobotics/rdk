@@ -7,12 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/testutils"
-
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 )
 
 func TestConfigs(t *testing.T) {

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"go.opencensus.io/trace"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"

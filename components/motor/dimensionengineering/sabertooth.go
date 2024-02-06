@@ -12,7 +12,6 @@ import (
 
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
-
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"

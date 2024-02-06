@@ -6,10 +6,9 @@ import (
 	"time"
 
 	pb "go.viam.com/api/component/inputcontroller/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
-
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func init() {

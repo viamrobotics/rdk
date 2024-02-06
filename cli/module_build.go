@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -11,12 +12,10 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	buildpb "go.viam.com/api/app/build/v1"
-	"go.viam.com/utils/pexec"
-	"golang.org/x/exp/maps"
-	"slices"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/utils/pexec"
+	"golang.org/x/exp/maps"
 )
 
 type jobStatus string

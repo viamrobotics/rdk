@@ -6,9 +6,6 @@ import (
 	"net"
 	"testing"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/rpc"
-
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -17,6 +14,8 @@ import (
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/vision/objectdetection"
+	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
 )
 
 var visName1 = vision.Named("vision1")

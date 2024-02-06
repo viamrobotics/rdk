@@ -8,9 +8,8 @@ import (
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	pb "go.viam.com/api/component/camera/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
-
 	"go.viam.com/rdk/services/datamanager/datacapture"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // MaxUnaryFileSize is the max number of bytes to send using the unary DataCaptureUpload, as opposed to the

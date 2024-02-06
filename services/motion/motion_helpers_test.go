@@ -6,11 +6,10 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.viam.com/test"
-
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
 )
 
 func TestPollHistoryUntilSuccessOrError(t *testing.T) {

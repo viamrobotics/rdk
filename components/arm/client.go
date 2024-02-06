@@ -10,15 +10,14 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
-	"go.viam.com/utils/protoutils"
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/utils/protoutils"
+	"go.viam.com/utils/rpc"
 )
 
 var errArmClientModelNotValid = errors.New("unable to retrieve a valid arm model from arm client")

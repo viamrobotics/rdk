@@ -10,15 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"go.viam.com/test"
-	echopb "go.viam.com/utils/proto/rpc/examples/echoresource/v1"
-	"go.viam.com/utils/rpc"
-	"go.viam.com/utils/testutils"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -27,6 +18,14 @@ import (
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
+	"go.viam.com/test"
+	echopb "go.viam.com/utils/proto/rpc/examples/echoresource/v1"
+	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/testutils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 /*

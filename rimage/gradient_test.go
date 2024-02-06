@@ -8,10 +8,9 @@ import (
 	"os"
 	"testing"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
-
-	"go.viam.com/rdk/logging"
 )
 
 func writePicture(img image.Image, p string) error {

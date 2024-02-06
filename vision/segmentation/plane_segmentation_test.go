@@ -10,13 +10,12 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
-
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func TestPlaneConfig(t *testing.T) {

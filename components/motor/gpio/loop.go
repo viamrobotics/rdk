@@ -5,7 +5,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-
 	"go.viam.com/rdk/control"
 	rdkutils "go.viam.com/rdk/utils"
 )

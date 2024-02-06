@@ -4,11 +4,10 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
-	"go.viam.com/test"
-
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/vision"
+	"go.viam.com/test"
 )
 
 func createPointClouds(t *testing.T) *Segments {

@@ -11,10 +11,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
-	"go.viam.com/utils/rpc"
-
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
@@ -25,6 +21,9 @@ import (
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/vision"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/rpc"
 )
 
 const (

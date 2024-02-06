@@ -10,12 +10,11 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/mcp3008helper"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/test"
 )
 
 func TestGenericLinux(t *testing.T) {

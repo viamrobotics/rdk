@@ -7,9 +7,8 @@ import (
 
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
-	"gonum.org/v1/gonum/mat"
-
 	"go.viam.com/rdk/spatialmath"
+	"gonum.org/v1/gonum/mat"
 )
 
 // CamPose stores the 3x4 pose matrix as well as the 3D Rotation and Translation matrices.

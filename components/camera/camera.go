@@ -14,8 +14,6 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
-	viamutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -25,6 +23,7 @@ import (
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
+	viamutils "go.viam.com/utils"
 )
 
 func init() {

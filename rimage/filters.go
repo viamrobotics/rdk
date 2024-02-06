@@ -5,9 +5,8 @@ import (
 	"image"
 	"math"
 
-	"gonum.org/v1/gonum/mat"
-
 	"go.viam.com/rdk/utils"
+	"gonum.org/v1/gonum/mat"
 )
 
 // Helper function for convolving depth maps with kernels. When used with i, dx := range makeRangeArray(n)

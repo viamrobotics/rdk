@@ -7,14 +7,13 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/testutils"
-
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 )
 
 func TestConvertBytesToAngle(t *testing.T) {

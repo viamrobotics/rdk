@@ -11,8 +11,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/encoder/single"
 	"go.viam.com/rdk/components/motor"
@@ -21,6 +19,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/utils"
 )
 
 var rpmDebug = false

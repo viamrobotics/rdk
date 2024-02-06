@@ -6,9 +6,8 @@ import (
 	"image/png"
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
 )
 
 func TestLazyEncodedImage(t *testing.T) {

@@ -8,12 +8,11 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
-	vprotoutils "go.viam.com/utils/protoutils"
-
 	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	vprotoutils "go.viam.com/utils/protoutils"
 )
 
 // planWithStatusFromProto converts a *pb.PlanWithStatus to a PlanWithStatus.

@@ -2,7 +2,6 @@ package referenceframe
 
 import (
 	"github.com/golang/geo/r3"
-
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )

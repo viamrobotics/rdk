@@ -5,9 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
-
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/config"
@@ -15,6 +12,8 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func TestAlignHomography(t *testing.T) {

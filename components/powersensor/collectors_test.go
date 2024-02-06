@@ -7,14 +7,13 @@ import (
 
 	clk "github.com/benbjohnson/clock"
 	pb "go.viam.com/api/component/powersensor/v1"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/powersensor"
 	"go.viam.com/rdk/data"
 	du "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
 )
 
 const (

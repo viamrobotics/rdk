@@ -4,7 +4,6 @@ import (
 	"context"
 
 	servicepb "go.viam.com/api/service/motion/v1"
-
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"

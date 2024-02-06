@@ -6,12 +6,11 @@ import (
 
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/mlmodel/v1"
-	"go.viam.com/utils/rpc"
-	"gorgonia.org/tensor"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils/rpc"
+	"gorgonia.org/tensor"
 )
 
 // client implements MLModelServiceClient.

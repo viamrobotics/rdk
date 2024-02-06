@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/golang/geo/r3"
-
 	"go.viam.com/rdk/components/base"
 	baseFake "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/camera"

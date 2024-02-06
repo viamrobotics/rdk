@@ -4,9 +4,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"google.golang.org/grpc"
-
 	"go.viam.com/rdk/resource"
+	"google.golang.org/grpc"
 )
 
 // A Manager holds sessions for a particular robot and manages their lifetime.

@@ -10,13 +10,12 @@ import (
 
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
-	"gorgonia.org/tensor"
-
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
+	"gorgonia.org/tensor"
 )
 
 func attemptToBuildDetector(mlm mlmodel.Service, nameMap *sync.Map) (objectdetection.Detector, error) {

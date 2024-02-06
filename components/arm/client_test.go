@@ -8,9 +8,6 @@ import (
 	"github.com/golang/geo/r3"
 	componentpb "go.viam.com/api/component/arm/v1"
 	robotpb "go.viam.com/api/robot/v1"
-	"go.viam.com/test"
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/components/arm"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -21,6 +18,8 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
 )
 
 func TestClient(t *testing.T) {

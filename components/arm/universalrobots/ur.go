@@ -20,8 +20,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
-	goutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -30,6 +28,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
+	goutils "go.viam.com/utils"
 )
 
 // Model is the name of the UR5e model of an arm component.

@@ -6,12 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/test"
 )
 
 func TestFromReaderValidate(t *testing.T) {

@@ -29,7 +29,6 @@ import (
 
 	"github.com/CPRT/roboclaw"
 	"github.com/pkg/errors"
-
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"

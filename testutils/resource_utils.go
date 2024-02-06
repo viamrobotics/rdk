@@ -4,9 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/resource"
+	"go.viam.com/test"
 )
 
 // NewUnimplementedResource returns a resource that has all methods

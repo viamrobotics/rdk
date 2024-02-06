@@ -9,11 +9,10 @@ import (
 	"time"
 
 	v1 "go.viam.com/api/app/build/v1"
+	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"go.viam.com/rdk/testutils/inject"
 )
 
 func createTestManifest(t *testing.T, path string) {

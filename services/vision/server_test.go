@@ -7,10 +7,6 @@ import (
 
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/vision/v1"
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
-	"go.viam.com/utils/protoutils"
-
 	_ "go.viam.com/rdk/components/camera/register"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -18,6 +14,9 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/protoutils"
 )
 
 func newServer(m map[resource.Name]vision.Service) (pb.VisionServiceServer, error) {

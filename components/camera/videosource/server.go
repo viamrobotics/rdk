@@ -15,8 +15,6 @@ import (
 	_ "github.com/lmittmann/ppm"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	viamutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
@@ -24,6 +22,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
+	viamutils "go.viam.com/utils"
 )
 
 var (

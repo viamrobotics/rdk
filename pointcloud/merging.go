@@ -12,10 +12,9 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/lucasb-eyer/go-colorful"
 	"go.opencensus.io/trace"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/utils"
 )
 
 // CloudAndOffsetFunc is a function that returns a PointCloud with a pose that represents an offset to be applied to every point.

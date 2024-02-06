@@ -4,15 +4,14 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
-
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/segmentation"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func TestColorObjects(t *testing.T) {

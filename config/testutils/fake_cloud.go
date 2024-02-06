@@ -9,13 +9,12 @@ import (
 	"sync"
 
 	pb "go.viam.com/api/app/v1"
+	"go.viam.com/rdk/logging"
+	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"go.viam.com/rdk/logging"
-	rutils "go.viam.com/rdk/utils"
 )
 
 // FakeCredentialPayLoad the hardcoded payload for all devices.

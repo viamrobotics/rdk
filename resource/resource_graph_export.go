@@ -2,12 +2,11 @@ package resource
 
 import (
 	"bytes"
+	"cmp"
 	"errors"
 	"fmt"
-	"strings"
-
-	"cmp"
 	"slices"
+	"strings"
 )
 
 // blockWriter wraps a bytes.Buffer and adds some structured methods (`NewBlock`/`EndBlock`) for

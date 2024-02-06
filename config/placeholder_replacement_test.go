@@ -6,11 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
 )
 
 func TestPlaceholderReplacement(t *testing.T) {

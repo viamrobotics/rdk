@@ -7,10 +7,9 @@ import (
 	"os"
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
 )
 
 var intel515ParamsPath = utils.ResolveFile("rimage/transform/data/intel515_parameters.json")

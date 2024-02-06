@@ -12,9 +12,6 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
-	"go.viam.com/test"
-	vprotoutils "go.viam.com/utils/protoutils"
-
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
@@ -29,6 +26,8 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	vprotoutils "go.viam.com/utils/protoutils"
 )
 
 func newServer(resources map[resource.Name]motion.Service) (pb.MotionServiceServer, error) {

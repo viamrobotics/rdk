@@ -15,11 +15,10 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pion/webrtc/v3"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/gostream/codec"
 	"go.viam.com/rdk/rimage"
 	utils2 "go.viam.com/rdk/utils"
+	"go.viam.com/utils"
 )
 
 // A Stream is sink that accepts any image frames for the purpose

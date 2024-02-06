@@ -7,13 +7,12 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 	genericpb "go.viam.com/api/component/generic/v1"
-	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
-
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
 )
 
 var errDoFailed = errors.New("do failed")

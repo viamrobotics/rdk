@@ -9,11 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/test"
-	goutils "go.viam.com/utils"
-	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/testutils"
-
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	_ "go.viam.com/rdk/examples/customresources/models/mygizmo"
@@ -21,6 +16,10 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	goutils "go.viam.com/utils"
+	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/testutils"
 )
 
 func TestGizmo(t *testing.T) {

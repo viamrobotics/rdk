@@ -7,14 +7,13 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.viam.com/test"
-	"go.viam.com/utils/testutils"
-
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 )
 
 const maxRPM = 100

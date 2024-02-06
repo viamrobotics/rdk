@@ -6,11 +6,10 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 	genericpb "go.viam.com/api/component/generic/v1"
-	"go.viam.com/utils/protoutils"
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils/protoutils"
+	"go.viam.com/utils/rpc"
 )
 
 // client implements GenericServiceClient.

@@ -8,9 +8,6 @@ import (
 
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
-	"go.viam.com/test"
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/gostream"
 	viamgrpc "go.viam.com/rdk/grpc"
@@ -18,6 +15,8 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
 )
 
 var (

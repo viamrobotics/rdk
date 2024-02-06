@@ -11,15 +11,14 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	pb "go.viam.com/api/app/v1"
-	"go.viam.com/test"
-	"go.viam.com/utils/pexec"
-
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/config/testutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	"go.viam.com/utils/pexec"
 )
 
 func TestNewWatcherNoop(t *testing.T) {

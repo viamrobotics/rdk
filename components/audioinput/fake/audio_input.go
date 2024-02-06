@@ -13,12 +13,11 @@ import (
 
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils"
 )
 
 func init() {

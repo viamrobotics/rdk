@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	servicepb "go.viam.com/api/service/vision/v1"
-
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"

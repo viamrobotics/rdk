@@ -5,12 +5,11 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
 )
 
 func TestUninitializedLifecycle(t *testing.T) {

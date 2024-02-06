@@ -11,9 +11,8 @@ import (
 	"github.com/mkch/gpio"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/utils"
 )
 
 type digitalInterrupt struct {

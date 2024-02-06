@@ -5,12 +5,11 @@ import (
 	"sync"
 
 	"github.com/golang/geo/r3"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/utils"
 	"gonum.org/v1/gonum/diff/fd"
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/optimize"
-
-	"go.viam.com/rdk/spatialmath"
 )
 
 // IcpMergeResultInfo is a struct to hold the results of registering a pointcloud.

@@ -6,13 +6,12 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils"
 )
 
 var myModel = resource.NewModel("acme", "demo", "multiversionmodule")

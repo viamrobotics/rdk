@@ -9,10 +9,9 @@ import (
 	"testing"
 
 	libjpeg "github.com/viam-labs/go-libjpeg/jpeg"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
-
-	"go.viam.com/rdk/utils"
 )
 
 func TestPngEncodings(t *testing.T) {

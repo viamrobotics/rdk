@@ -2,7 +2,6 @@ package gostream
 
 import (
 	"github.com/edaniels/golog"
-
 	"go.viam.com/rdk/gostream/codec"
 )
 

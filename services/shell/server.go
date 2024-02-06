@@ -8,10 +8,9 @@ import (
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/shell/v1"
-	goutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	goutils "go.viam.com/utils"
 )
 
 // serviceServer implements the contract from shell.proto.

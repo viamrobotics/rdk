@@ -7,9 +7,8 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/test"
 )
 
 // TestComparePointCloudsFromPCDs is a helper function for checking GetPointCloudMapFull response along with associated pcd validity checks.

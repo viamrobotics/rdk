@@ -6,11 +6,10 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/test"
 )
 
 func setupDefaultInput(t *testing.T) *InputController {

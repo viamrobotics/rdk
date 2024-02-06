@@ -5,7 +5,6 @@ import (
 	"context"
 
 	servicepb "go.viam.com/api/service/shell/v1"
-
 	"go.viam.com/rdk/resource"
 )
 

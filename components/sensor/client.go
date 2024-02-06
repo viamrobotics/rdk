@@ -6,12 +6,11 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/sensor/v1"
-	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/structpb"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // client implements SensorServiceClient.

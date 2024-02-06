@@ -9,12 +9,11 @@ import (
 
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
-	"gorgonia.org/tensor"
-
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/vision/classification"
+	"gorgonia.org/tensor"
 )
 
 func attemptToBuildClassifier(mlm mlmodel.Service, nameMap *sync.Map) (classification.Classifier, error) {

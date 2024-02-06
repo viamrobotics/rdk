@@ -6,9 +6,6 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
-
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/pointcloud"
@@ -16,6 +13,8 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 const (

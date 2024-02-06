@@ -4,8 +4,6 @@ package main
 import (
 	"context"
 
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/gostream/codec/x264"
@@ -13,6 +11,7 @@ import (
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
+	"go.viam.com/utils"
 )
 
 var logger = logging.NewDebugLogger("simpleserver")

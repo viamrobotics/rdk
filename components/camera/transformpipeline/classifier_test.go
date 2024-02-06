@@ -7,9 +7,6 @@ import (
 	"os"
 	"testing"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
-
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -22,6 +19,8 @@ import (
 	"go.viam.com/rdk/services/vision"
 	_ "go.viam.com/rdk/services/vision/register"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func buildRobotWithClassifier(logger logging.Logger) (robot.Robot, error) {

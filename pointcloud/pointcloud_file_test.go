@@ -9,10 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
-
-	"go.viam.com/rdk/logging"
 )
 
 func BenchmarkNewFromFile(b *testing.B) {

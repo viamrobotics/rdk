@@ -9,12 +9,11 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	viamutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
+	viamutils "go.viam.com/utils"
 )
 
 // getMIMETypeFromData uses context to determine a MIME type requested by a parent

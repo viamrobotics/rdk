@@ -17,11 +17,10 @@ import (
 	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	goutils "go.viam.com/utils"
-	hopus "gopkg.in/hraban/opus.v2"
-
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/gostream/codec/opus"
+	goutils "go.viam.com/utils"
+	hopus "gopkg.in/hraban/opus.v2"
 )
 
 func main() {

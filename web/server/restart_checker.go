@@ -6,11 +6,10 @@ import (
 	"time"
 
 	apppb "go.viam.com/api/app/v1"
-	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 )
 
 const (

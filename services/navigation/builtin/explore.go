@@ -6,10 +6,9 @@ import (
 	"math/rand"
 
 	"github.com/golang/geo/r3"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/utils"
 )
 
 const defaultDistanceMM = 50 * 1000

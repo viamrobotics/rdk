@@ -5,8 +5,6 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
@@ -14,6 +12,7 @@ import (
 	"go.viam.com/rdk/services/sensors/builtin"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
 )
 
 func TestNew(t *testing.T) {

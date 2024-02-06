@@ -21,6 +21,7 @@ linters:
     - exhaustruct
     - forcetypeassert
     - funlen
+    - gci
     - gocognit
     - godox
     - goerr113
@@ -59,13 +60,8 @@ linters:
 linters-settings:
   errcheck:
     check-blank: true
-  gci:
-    sections:
-      - standard
-      - default
-      - prefix(go.viam.com/rdk)
   gofumpt:
-    lang-version: "1.19"
+    lang-version: "1.21"
     extra-rules: true
   govet:
     enable-all: true

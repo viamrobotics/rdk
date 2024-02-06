@@ -4,12 +4,11 @@ package summationapi
 import (
 	"context"
 
-	"go.viam.com/utils/rpc"
-
 	pb "go.viam.com/rdk/examples/customresources/apis/proto/api/service/summation/v1"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/utils/rpc"
 )
 
 // API is the full API definition.

@@ -5,10 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils/contextutils"
+	"go.viam.com/utils/rpc"
 )
 
 // defaultDialTimeout is the default timeout for dialing a robot.

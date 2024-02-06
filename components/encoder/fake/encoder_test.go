@@ -4,12 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/testutils"
-
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 )
 
 func TestEncoder(t *testing.T) {

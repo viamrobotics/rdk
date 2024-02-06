@@ -6,8 +6,6 @@ import (
 	"image/color"
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -18,6 +16,7 @@ import (
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	segment "go.viam.com/rdk/vision/segmentation"
+	"go.viam.com/test"
 )
 
 func TestTransformSegmenterProps(t *testing.T) {

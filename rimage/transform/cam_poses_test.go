@@ -4,9 +4,8 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/logging"
+	"go.viam.com/test"
 )
 
 func TestGetCorrectCameraPose(t *testing.T) {

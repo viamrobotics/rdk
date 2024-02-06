@@ -16,11 +16,6 @@ import (
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"go.viam.com/utils"
-	"go.viam.com/utils/perf"
-	"go.viam.com/utils/rpc"
-	"golang.org/x/exp/slices"
-
 	vlogging "go.viam.com/rdk/components/camera/videosource/logging"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -29,6 +24,10 @@ import (
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/utils"
+	"go.viam.com/utils/perf"
+	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/slices"
 )
 
 var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")

@@ -7,8 +7,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/gripper"
 	_ "go.viam.com/rdk/components/register"
@@ -21,6 +19,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/test"
 )
 
 func TestEmptyConfigFrameService(t *testing.T) {

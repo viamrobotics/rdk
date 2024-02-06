@@ -10,13 +10,12 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
-	"go.viam.com/utils/protoutils"
-	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/durationpb"
-
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils/protoutils"
+	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 // errUnimplemented is used for any unimplemented methods that should

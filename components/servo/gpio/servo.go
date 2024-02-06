@@ -8,13 +8,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	viamutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	viamutils "go.viam.com/utils"
 )
 
 const (

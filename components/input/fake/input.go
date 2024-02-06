@@ -8,11 +8,10 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("fake")

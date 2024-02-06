@@ -18,14 +18,13 @@ import (
 	"time"
 
 	pb "go.viam.com/api/app/packages/v1"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/logging"
 )
 
 var errPackageMissng = errors.New("package missing")

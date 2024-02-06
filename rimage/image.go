@@ -11,9 +11,8 @@ import (
 	"image/color"
 	"math"
 
-	"gonum.org/v1/gonum/mat"
-
 	"go.viam.com/rdk/utils"
+	"gonum.org/v1/gonum/mat"
 )
 
 // Image is like image.Image but it uses our Color type with a few more

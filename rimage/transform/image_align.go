@@ -8,7 +8,6 @@ import (
 	"math"
 
 	"github.com/pkg/errors"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 )

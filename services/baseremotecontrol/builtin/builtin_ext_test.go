@@ -9,8 +9,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/input"
@@ -20,6 +18,7 @@ import (
 	"go.viam.com/rdk/services/baseremotecontrol/builtin"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
 )
 
 func TestSafetyMonitoring(t *testing.T) {

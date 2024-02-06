@@ -9,9 +9,6 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	pb "go.viam.com/api/component/arm/v1"
-	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
-
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
 	ur "go.viam.com/rdk/components/arm/universalrobots"
@@ -21,6 +18,8 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
 )
 
 const (

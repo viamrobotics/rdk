@@ -8,12 +8,11 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	rdkutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	rdkutils "go.viam.com/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("ultrasonic")

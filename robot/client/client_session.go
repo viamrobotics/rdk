@@ -7,14 +7,13 @@ import (
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	pb "go.viam.com/api/robot/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/session"
 	"go.viam.com/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/session"
 )
 
 type ctxKey byte

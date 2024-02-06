@@ -9,11 +9,10 @@ import (
 	_ "github.com/pion/mediadevices/pkg/driver/camera"
 	_ "github.com/pion/mediadevices/pkg/driver/screen"
 	"go.uber.org/multierr"
-	goutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/gostream/codec/vpx"
 	"go.viam.com/rdk/gostream/codec/x264"
+	goutils "go.viam.com/utils"
 )
 
 func main() {

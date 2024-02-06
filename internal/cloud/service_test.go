@@ -6,17 +6,16 @@ import (
 	"fmt"
 	"testing"
 
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/test"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/internal/cloud"
-	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/utils"
 )
 
 func TestNotCloudManaged(t *testing.T) {

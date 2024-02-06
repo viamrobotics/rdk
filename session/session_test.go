@@ -8,10 +8,9 @@ import (
 
 	"github.com/google/uuid"
 	v1 "go.viam.com/api/robot/v1"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/test"
 	"google.golang.org/grpc/peer"
-
-	"go.viam.com/rdk/resource"
 )
 
 func TestNew(t *testing.T) {

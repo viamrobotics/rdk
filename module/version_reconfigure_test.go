@@ -3,8 +3,6 @@ package module_test
 import (
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/encoder"
 	fakeencoder "go.viam.com/rdk/components/encoder/fake"
 	"go.viam.com/rdk/components/generic"
@@ -15,6 +13,7 @@ import (
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
 )
 
 func TestValidationFailureDuringReconfiguration(t *testing.T) {

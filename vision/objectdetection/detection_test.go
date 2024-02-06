@@ -6,9 +6,8 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/test"
 )
 
 func TestBuildFunc(t *testing.T) {

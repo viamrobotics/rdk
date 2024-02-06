@@ -12,9 +12,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	goutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/logging"
+	goutils "go.viam.com/utils"
 )
 
 // There are times when we need to set the period to some value, any value. It must be a positive

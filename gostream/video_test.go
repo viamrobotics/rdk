@@ -7,9 +7,8 @@ import (
 
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/prop"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/gostream"
+	"go.viam.com/test"
 )
 
 func TestReaderClose(t *testing.T) {

@@ -9,8 +9,6 @@ import (
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
-	"google.golang.org/genproto/googleapis/api/httpbody"
-
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
@@ -18,6 +16,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
+	"google.golang.org/genproto/googleapis/api/httpbody"
 )
 
 // serviceServer implements the CameraService from camera.proto.

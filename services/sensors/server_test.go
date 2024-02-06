@@ -8,16 +8,15 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/sensors/v1"
-	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
-	"google.golang.org/protobuf/types/known/structpb"
-
 	"go.viam.com/rdk/components/movementsensor"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func newServer(sMap map[resource.Name]sensors.Service) (pb.SensorsServiceServer, error) {

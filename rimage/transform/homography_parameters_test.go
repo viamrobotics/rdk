@@ -5,11 +5,10 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r2"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/test"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
-
-	"go.viam.com/rdk/utils"
 )
 
 func TestEstimateHomographyFrom8Points(t *testing.T) {

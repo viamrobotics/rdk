@@ -9,13 +9,12 @@ import (
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
 )
 
 func TestIKTolerances(t *testing.T) {

@@ -7,7 +7,6 @@ import (
 
 	"github.com/fogleman/gg"
 	"github.com/pkg/errors"
-
 	"go.viam.com/rdk/rimage"
 )
 

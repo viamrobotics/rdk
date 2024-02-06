@@ -11,11 +11,10 @@ import (
 	"sync"
 
 	"github.com/creack/pty"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
+	"go.viam.com/utils"
 )
 
 func init() {

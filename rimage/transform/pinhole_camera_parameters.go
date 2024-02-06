@@ -14,11 +14,10 @@ import (
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
-	"gonum.org/v1/gonum/mat"
-
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/utils"
+	"gonum.org/v1/gonum/mat"
 )
 
 // ErrNoIntrinsics is when a camera does not have intrinsics parameters or other parameters.

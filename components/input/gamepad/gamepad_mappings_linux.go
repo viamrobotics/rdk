@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/viamrobotics/evdev"
-
 	"go.viam.com/rdk/components/input"
 )
 

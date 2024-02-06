@@ -7,14 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/testutils"
-
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 )
 
 type setupResult struct {

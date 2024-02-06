@@ -3,7 +3,6 @@ package generic
 
 import (
 	pb "go.viam.com/api/service/generic/v1"
-
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )

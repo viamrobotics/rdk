@@ -11,12 +11,11 @@ import (
 	"path/filepath"
 
 	"go.uber.org/multierr"
-	"periph.io/x/host/v3"
-
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"periph.io/x/host/v3"
 )
 
 const modelName = "customlinux"

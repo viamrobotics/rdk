@@ -9,10 +9,9 @@ import (
 	"testing"
 
 	"github.com/lucasb-eyer/go-colorful"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
-
-	"go.viam.com/rdk/logging"
 )
 
 func _checkAllDifferent(t *testing.T, colors []Color) {

@@ -14,13 +14,12 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	v1 "go.viam.com/api/app/datasync/v1"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 	goutils "go.viam.com/utils"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-
-	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 var (

@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/edaniels/golog"
-
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/gostream/codec"
 )

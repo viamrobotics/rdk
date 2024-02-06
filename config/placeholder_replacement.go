@@ -8,7 +8,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-
 	"go.viam.com/rdk/utils"
 )
 

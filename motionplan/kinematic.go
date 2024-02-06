@@ -6,11 +6,10 @@ import (
 
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/arm/v1"
-	"gonum.org/v1/gonum/floats"
-	"gonum.org/v1/gonum/num/quat"
-
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	"gonum.org/v1/gonum/floats"
+	"gonum.org/v1/gonum/num/quat"
 )
 
 // ComputePosition takes a model and a protobuf JointPositions in degrees and returns the cartesian position of the

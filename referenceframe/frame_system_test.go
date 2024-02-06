@@ -9,11 +9,10 @@ import (
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	robotpb "go.viam.com/api/robot/v1"
-	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
-
 	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
 )
 
 func TestFrameModelPart(t *testing.T) {

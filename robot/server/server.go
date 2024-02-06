@@ -14,6 +14,13 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
+	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/session"
 	"go.viam.com/utils"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -22,14 +29,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/session"
 )
 
 // Server implements the contract from robot.proto that ultimately satisfies

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/goburrow/modbus"
-
 	"go.viam.com/rdk/components/powersensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"

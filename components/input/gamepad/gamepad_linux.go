@@ -15,11 +15,10 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/evdev"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils"
 )
 
 const defaultMapping = "Microsoft X-Box 360 pad"

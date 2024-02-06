@@ -4,14 +4,13 @@ package main
 import (
 	"context"
 
-	goutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	goutils "go.viam.com/utils"
 )
 
 var logger = logging.NewDebugLogger("mysensor")

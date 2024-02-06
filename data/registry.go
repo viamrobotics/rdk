@@ -6,11 +6,10 @@ import (
 	"github.com/benbjohnson/clock"
 	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
-	"google.golang.org/protobuf/types/known/anypb"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager/datacapture"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // CollectorConstructor contains a function for constructing an instance of a Collector.

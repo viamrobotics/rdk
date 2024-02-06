@@ -3,10 +3,9 @@ package ti
 
 import (
 	"github.com/pkg/errors"
-	"periph.io/x/host/v3"
-
 	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/logging"
+	"periph.io/x/host/v3"
 )
 
 const modelName = "ti"

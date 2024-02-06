@@ -7,16 +7,13 @@ import (
 	"math"
 	"net/http"
 	"runtime"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/goccy/go-graphviz"
 	"github.com/pkg/errors"
 	streampb "go.viam.com/api/stream/v1"
-	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
-	"slices"
-
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
@@ -26,6 +23,8 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	webstream "go.viam.com/rdk/robot/web/stream"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 )
 
 // StreamServer manages streams and displays.

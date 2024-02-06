@@ -5,7 +5,6 @@ import (
 	"context"
 
 	pb "go.viam.com/api/component/powersensor/v1"
-
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"

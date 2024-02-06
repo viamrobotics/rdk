@@ -5,7 +5,6 @@ import (
 	"math"
 
 	commonpb "go.viam.com/api/common/v1"
-
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/spatialmath"
 )

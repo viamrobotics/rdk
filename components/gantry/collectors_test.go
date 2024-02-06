@@ -7,13 +7,12 @@ import (
 
 	clk "github.com/benbjohnson/clock"
 	pb "go.viam.com/api/component/gantry/v1"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
 )
 
 const (

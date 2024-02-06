@@ -5,11 +5,10 @@ import (
 	"errors"
 
 	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"go.viam.com/rdk/resource"
 )
 
 // UnimplementedError is returned any time a gRPC method is unimplemented.

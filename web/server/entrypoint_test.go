@@ -13,10 +13,6 @@ import (
 
 	"github.com/invopop/jsonschema"
 	robotpb "go.viam.com/api/robot/v1"
-	"go.viam.com/test"
-	goutils "go.viam.com/utils"
-	"go.viam.com/utils/pexec"
-
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -25,6 +21,9 @@ import (
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	goutils "go.viam.com/utils"
+	"go.viam.com/utils/pexec"
 )
 
 // numResources is the # of resources in /etc/configs/fake.json + the 2

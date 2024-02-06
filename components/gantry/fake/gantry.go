@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/golang/geo/r3"
-
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"

@@ -10,12 +10,6 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/component/camera/v1"
-	goutils "go.viam.com/utils"
-	goprotoutils "go.viam.com/utils/protoutils"
-	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/structpb"
-
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -25,6 +19,11 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
+	goutils "go.viam.com/utils"
+	goprotoutils "go.viam.com/utils/protoutils"
+	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // client implements CameraServiceClient.

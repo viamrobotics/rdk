@@ -10,9 +10,6 @@ import (
 	"time"
 
 	"go.uber.org/zap/zaptest/observer"
-	"go.viam.com/test"
-	"go.viam.com/utils/testutils"
-
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
@@ -23,6 +20,8 @@ import (
 	"go.viam.com/rdk/resource"
 	rtestutils "go.viam.com/rdk/testutils"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 )
 
 func TestModManagerFunctions(t *testing.T) {

@@ -9,20 +9,19 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils/jwks"
-	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/rpc"
-	"slices"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/utils/jwks"
+	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 )
 
 // A Config describes the configuration of a robot.

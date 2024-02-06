@@ -10,12 +10,11 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
-
-	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/utils"
 )
 
 type (

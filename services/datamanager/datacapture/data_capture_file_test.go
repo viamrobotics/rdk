@@ -4,12 +4,11 @@ import (
 	"testing"
 
 	v1 "go.viam.com/api/app/datasync/v1"
-	"go.viam.com/test"
-	"google.golang.org/protobuf/types/known/structpb"
-
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestBuildCaptureMetadata(t *testing.T) {

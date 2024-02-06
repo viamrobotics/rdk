@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	pb "go.viam.com/api/service/motion/v1"
-
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"

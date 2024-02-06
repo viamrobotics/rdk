@@ -5,13 +5,12 @@ import (
 	"context"
 
 	pb "go.viam.com/api/component/gantry/v1"
-	"go.viam.com/utils/protoutils"
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils/protoutils"
+	"go.viam.com/utils/rpc"
 )
 
 // client implements GantryServiceClient.

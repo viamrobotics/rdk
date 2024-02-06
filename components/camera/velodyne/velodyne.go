@@ -12,14 +12,13 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.einride.tech/vlp16"
-	gutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
+	gutils "go.viam.com/utils"
 )
 
 type channelConfig struct {

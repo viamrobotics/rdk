@@ -12,17 +12,16 @@ import (
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/slam/v1"
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
-	"go.viam.com/utils/protoutils"
-	"google.golang.org/grpc"
-
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/protoutils"
+	"google.golang.org/grpc"
 )
 
 const (

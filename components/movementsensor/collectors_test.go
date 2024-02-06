@@ -10,8 +10,6 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/movementsensor/v1"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/data"
 	du "go.viam.com/rdk/data/testutils"
@@ -19,6 +17,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
 )
 
 const (

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/golang/geo/r3"
-
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"

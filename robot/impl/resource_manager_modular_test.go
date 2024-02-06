@@ -7,9 +7,6 @@ import (
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
-	"go.viam.com/test"
-	"go.viam.com/utils/testutils"
-
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
@@ -23,6 +20,8 @@ import (
 	motionBuiltin "go.viam.com/rdk/services/motion/builtin"
 	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 )
 
 func TestModularResources(t *testing.T) {

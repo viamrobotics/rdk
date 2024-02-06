@@ -4,10 +4,9 @@ import (
 	"context"
 
 	pb "go.viam.com/api/service/slam/v1"
-	"google.golang.org/protobuf/types/known/anypb"
-
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/spatialmath"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type method int64

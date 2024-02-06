@@ -11,11 +11,10 @@ import (
 
 	tflite "github.com/mattn/go-tflite"
 	"github.com/pkg/errors"
-	"gorgonia.org/tensor"
-
 	"go.viam.com/rdk/ml"
 	tfliteSchema "go.viam.com/rdk/ml/inference/tflite"
 	metadata "go.viam.com/rdk/ml/inference/tflite_metadata"
+	"gorgonia.org/tensor"
 )
 
 const tfLiteMetadataName string = "TFLITE_METADATA"

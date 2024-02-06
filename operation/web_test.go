@@ -5,10 +5,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
 	"google.golang.org/grpc/metadata"
-
-	"go.viam.com/rdk/logging"
 )
 
 func TestCreateFromIncomingContextWithoutOpid(t *testing.T) {

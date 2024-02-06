@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"testing"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/testutils"
-
 	"go.viam.com/rdk/components/encoder/fake"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 )
 
 func TestMotorInit(t *testing.T) {

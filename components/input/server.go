@@ -7,10 +7,9 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/inputcontroller/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
-
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // serviceServer implements the InputControllerService from proto.

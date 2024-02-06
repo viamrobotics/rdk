@@ -4,9 +4,8 @@ import (
 	"testing"
 
 	"github.com/fogleman/gg"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/logging"
+	"go.viam.com/test"
 )
 
 func TestGenerateSamplePairs(t *testing.T) {

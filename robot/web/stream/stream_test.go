@@ -11,11 +11,10 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pion/webrtc/v3"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	webstream "go.viam.com/rdk/robot/web/stream"
+	"go.viam.com/test"
 )
 
 var errImageRetrieval = errors.New("image retrieval failed")

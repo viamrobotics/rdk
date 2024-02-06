@@ -22,15 +22,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
 	pb "go.viam.com/api/robot/v1"
-	"go.viam.com/test"
-	"go.viam.com/utils"
-	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/rpc"
-	"go.viam.com/utils/testutils"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/audioinput"
@@ -71,6 +62,14 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	"go.viam.com/utils"
+	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/testutils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var fakeModel = resource.DefaultModelFamily.WithModel("fake")

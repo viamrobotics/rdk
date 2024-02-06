@@ -18,11 +18,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zaptest/observer"
-	"go.viam.com/test"
-	"go.viam.com/utils"
-	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/testutils"
-
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/audioinput"
@@ -50,6 +45,10 @@ import (
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	"go.viam.com/utils"
+	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/testutils"
 )
 
 var (

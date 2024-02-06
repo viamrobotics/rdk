@@ -18,10 +18,9 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/utils"
 )
 
 var (

@@ -8,10 +8,9 @@ import (
 	"path/filepath"
 
 	"github.com/golang/geo/r3"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
-
-	"go.viam.com/rdk/spatialmath"
 )
 
 const chunkSizeBytes = 1 * 1024 * 1024

@@ -6,10 +6,9 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
-
-	"go.viam.com/rdk/rimage"
 )
 
 func TestColorDetector(t *testing.T) {

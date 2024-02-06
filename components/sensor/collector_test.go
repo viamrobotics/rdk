@@ -6,14 +6,13 @@ import (
 	"time"
 
 	clk "github.com/benbjohnson/clock"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/data"
 	du "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
 )
 
 const (

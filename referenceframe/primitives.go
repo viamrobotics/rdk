@@ -6,9 +6,8 @@ import (
 	"math"
 
 	pb "go.viam.com/api/component/arm/v1"
-	"gonum.org/v1/gonum/floats"
-
 	"go.viam.com/rdk/utils"
+	"gonum.org/v1/gonum/floats"
 )
 
 // Input wraps the input to a mutable frame, e.g. a joint angle or a gantry position. Revolute inputs should be in

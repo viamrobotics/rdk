@@ -3,8 +3,6 @@ package resource_test
 import (
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
@@ -12,6 +10,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/testutils"
+	"go.viam.com/test"
 )
 
 var (

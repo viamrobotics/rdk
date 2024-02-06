@@ -15,8 +15,6 @@ import (
 	"github.com/montanaflynn/stats"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	"golang.org/x/exp/constraints"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
@@ -24,6 +22,7 @@ import (
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
+	"golang.org/x/exp/constraints"
 )
 
 var model = resource.DefaultModelFamily.WithModel("mlmodel")

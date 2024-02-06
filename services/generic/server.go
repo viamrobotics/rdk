@@ -6,9 +6,8 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 	genericpb "go.viam.com/api/service/generic/v1"
-	"go.viam.com/utils/protoutils"
-
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils/protoutils"
 )
 
 // serviceServer implements the resource.Generic service.

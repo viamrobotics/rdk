@@ -6,13 +6,12 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils/protoutils"
-	"go.viam.com/utils/rpc"
-
 	pb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/utils/protoutils"
+	"go.viam.com/utils/rpc"
 )
 
 // API is the full API definition.

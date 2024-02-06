@@ -27,11 +27,10 @@ import (
 
 	"github.com/d2r2/go-i2c"
 	i2clog "github.com/d2r2/go-logger"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/components/powersensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils"
 )
 
 const (

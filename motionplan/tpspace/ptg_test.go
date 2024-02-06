@@ -4,10 +4,9 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/test"
 )
 
 func TestAlphaIdx(t *testing.T) {

@@ -8,11 +8,10 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/service/motion/v1"
-	"go.viam.com/test"
-
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
 )
 
 func TestExploreMode(t *testing.T) {

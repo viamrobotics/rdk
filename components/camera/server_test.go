@@ -11,9 +11,6 @@ import (
 	"time"
 
 	pb "go.viam.com/api/component/camera/v1"
-	"go.viam.com/test"
-	goprotoutils "go.viam.com/utils/protoutils"
-
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
@@ -23,6 +20,8 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	goprotoutils "go.viam.com/utils/protoutils"
 )
 
 var (

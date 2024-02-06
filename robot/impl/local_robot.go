@@ -15,10 +15,6 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/app/packages/v1"
 	modulepb "go.viam.com/api/module/v1"
-	goutils "go.viam.com/utils"
-	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
@@ -34,6 +30,9 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/utils"
+	goutils "go.viam.com/utils"
+	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 )
 
 var _ = robot.LocalRobot(&localRobot{})

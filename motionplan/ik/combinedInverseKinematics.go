@@ -7,10 +7,9 @@ import (
 	"sync"
 
 	"go.uber.org/multierr"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/utils"
 )
 
 // CombinedIK defines the fields necessary to run a combined solver.

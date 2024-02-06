@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/motor"
 	fm "go.viam.com/rdk/components/motor/fake"
@@ -15,6 +13,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/test"
 )
 
 func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {

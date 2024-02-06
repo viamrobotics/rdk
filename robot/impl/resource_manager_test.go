@@ -19,13 +19,6 @@ import (
 	camerapb "go.viam.com/api/component/camera/v1"
 	gripperpb "go.viam.com/api/component/gripper/v1"
 	motionpb "go.viam.com/api/service/motion/v1"
-	"go.viam.com/test"
-	"go.viam.com/utils"
-	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/rpc"
-	"go.viam.com/utils/testutils"
-	"google.golang.org/protobuf/testing/protocmp"
-
 	"go.viam.com/rdk/components/arm"
 	fakearm "go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/base"
@@ -64,6 +57,12 @@ import (
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
+	"go.viam.com/test"
+	"go.viam.com/utils"
+	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/testutils"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func setupInjectRobot(logger logging.Logger) *inject.Robot {

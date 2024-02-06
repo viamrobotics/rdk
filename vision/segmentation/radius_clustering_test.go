@@ -4,15 +4,14 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
-
 	"go.viam.com/rdk/logging"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/segmentation"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func TestRadiusClusteringValidate(t *testing.T) {

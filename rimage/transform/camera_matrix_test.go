@@ -6,11 +6,10 @@ import (
 	"os"
 	"testing"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
-
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func TestPC1(t *testing.T) {

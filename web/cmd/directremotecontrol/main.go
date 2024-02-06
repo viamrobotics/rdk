@@ -38,13 +38,12 @@ import (
 
 	"github.com/Masterminds/sprig"
 	"github.com/NYTimes/gziphandler"
-	"go.viam.com/utils"
-	"goji.io"
-	"goji.io/pat"
-
 	"go.viam.com/rdk/logging"
 	robotweb "go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/web"
+	"go.viam.com/utils"
+	"goji.io"
+	"goji.io/pat"
 )
 
 // Arguments for the command.

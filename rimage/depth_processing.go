@@ -6,7 +6,6 @@ import (
 	"math"
 
 	"github.com/golang/geo/r2"
-
 	"go.viam.com/rdk/utils"
 )
 

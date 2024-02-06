@@ -3,9 +3,8 @@ package data
 import (
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/resource"
+	"go.viam.com/test"
 )
 
 var dummyCollectorConstructor = func(i interface{}, params CollectorParams) (Collector, error) {

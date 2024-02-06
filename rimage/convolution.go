@@ -5,9 +5,8 @@ import (
 	"image/color"
 	"math"
 
-	"gonum.org/v1/gonum/mat"
-
 	"go.viam.com/rdk/utils"
+	"gonum.org/v1/gonum/mat"
 )
 
 // GetSobelX returns the Kernel corresponding to the Sobel kernel in the x direction.

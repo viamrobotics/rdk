@@ -18,9 +18,8 @@ import (
 	"github.com/xfmoulet/qoi"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
-	"go.viam.com/utils"
-
 	ut "go.viam.com/rdk/utils"
+	"go.viam.com/utils"
 )
 
 // RGBABitmapMagicNumber represents the magic number for our custom header

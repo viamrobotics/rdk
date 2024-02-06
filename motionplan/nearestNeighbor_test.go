@@ -6,9 +6,8 @@ import (
 	"runtime"
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/test"
 )
 
 var nCPU = int(math.Max(1.0, float64(runtime.NumCPU()/4)))

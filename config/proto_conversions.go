@@ -9,16 +9,15 @@ import (
 	"github.com/pkg/errors"
 	packagespb "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
-	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/protoutils"
-	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/durationpb"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/protoutils"
+	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 // FromProto converts the RobotConfig to the internal rdk equivalent.

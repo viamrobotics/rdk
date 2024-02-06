@@ -7,11 +7,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/session"
+	"go.viam.com/utils"
 )
 
 // NewSessionManager creates a new manager for holding sessions.

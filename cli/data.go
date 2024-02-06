@@ -19,10 +19,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	datapb "go.viam.com/api/app/data/v1"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 const (

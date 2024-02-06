@@ -12,8 +12,6 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
-	goutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
@@ -21,6 +19,7 @@ import (
 	"go.viam.com/rdk/ros"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/segmentation"
+	goutils "go.viam.com/utils"
 )
 
 var logger = logging.NewDebugLogger("rosbag_parser")

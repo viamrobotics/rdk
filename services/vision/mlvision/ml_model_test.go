@@ -7,15 +7,14 @@ import (
 	"sync"
 	"testing"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/mlmodel/tflitecpu"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/vision/classification"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func BenchmarkAddMLVisionModel(b *testing.B) {

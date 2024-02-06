@@ -7,10 +7,9 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/test"
 )
 
 func makeThreeCloudsWithOffsets(t *testing.T) []CloudAndOffsetFunc {

@@ -7,12 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
 )
 
 const (

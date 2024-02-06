@@ -6,12 +6,11 @@ import (
 	"testing"
 
 	geo "github.com/kellydunn/golang-geo"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
 )
 
 func createInjectedCompassMovementSensor(name string, gpsPoint *geo.Point) *inject.MovementSensor {

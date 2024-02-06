@@ -9,10 +9,9 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
-	"go.viam.com/utils/protoutils"
-
 	"go.viam.com/rdk/logging"
 	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/utils/protoutils"
 )
 
 // World is the string "world", but made into an exported constant.

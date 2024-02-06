@@ -5,9 +5,8 @@ import (
 	"math"
 
 	"github.com/go-gl/mathgl/mgl64"
-	"gonum.org/v1/gonum/num/quat"
-
 	"go.viam.com/rdk/utils"
+	"gonum.org/v1/gonum/num/quat"
 )
 
 // orientationVectorPoleRadius is how close OZ must be to +/-1 in order to use pole math for computing theta.

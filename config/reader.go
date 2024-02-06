@@ -14,14 +14,13 @@ import (
 	"github.com/a8m/envsubst"
 	"github.com/pkg/errors"
 	apppb "go.viam.com/api/app/v1"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
+	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/sys/cpu"
-
-	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/resource"
-	rutils "go.viam.com/rdk/utils"
 )
 
 // RDK versioning variables which are replaced by LD flags.

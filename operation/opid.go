@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/session"
 )

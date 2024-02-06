@@ -10,7 +10,6 @@ import (
 	"github.com/pion/mediadevices/pkg/codec"
 	"github.com/pion/mediadevices/pkg/codec/vpx"
 	"github.com/pion/mediadevices/pkg/prop"
-
 	ourcodec "go.viam.com/rdk/gostream/codec"
 )
 

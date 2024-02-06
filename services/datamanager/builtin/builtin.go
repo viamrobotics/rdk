@@ -13,9 +13,6 @@ import (
 	clk "github.com/benbjohnson/clock"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
-	goutils "go.viam.com/utils"
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/internal/cloud"
@@ -27,6 +24,8 @@ import (
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/utils"
+	goutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 )
 
 func init() {

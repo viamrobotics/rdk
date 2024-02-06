@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"

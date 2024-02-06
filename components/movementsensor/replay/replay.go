@@ -3,6 +3,7 @@ package replay
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -11,6 +12,12 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
+	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils/contextutils"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
@@ -18,14 +25,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"slices"
-
-	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/internal/cloud"
-	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils/contextutils"
 )
 
 const (

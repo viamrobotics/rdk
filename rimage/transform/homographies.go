@@ -6,12 +6,11 @@ import (
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/utils"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/stat"
-
-	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/utils"
 )
 
 // ComputeNormalizationMatFromSliceVecs computes the normalization matrix from a slice of vectors

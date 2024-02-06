@@ -7,9 +7,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/logging"
+	"go.viam.com/test"
 )
 
 func TestStoreToCache(t *testing.T) {

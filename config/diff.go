@@ -7,9 +7,8 @@ import (
 	"sort"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
-	"go.viam.com/utils/pexec"
-
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils/pexec"
 )
 
 // A Diff is the difference between two configs, left and right

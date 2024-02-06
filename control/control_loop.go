@@ -7,9 +7,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/logging"
+	"go.viam.com/utils"
 )
 
 // controlBlockInternal Holds internal variables to control the flow of data between blocks.

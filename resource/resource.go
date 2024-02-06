@@ -24,7 +24,6 @@ import (
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
-
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )

@@ -5,13 +5,12 @@ import (
 	"context"
 	"errors"
 
-	goutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/config"
 	_ "go.viam.com/rdk/examples/customresources/models/mygizmo"
 	"go.viam.com/rdk/logging"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
+	goutils "go.viam.com/utils"
 )
 
 var logger = logging.NewDebugLogger("gizmoserver")

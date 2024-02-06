@@ -15,8 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
-	goutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/camera"
@@ -30,6 +28,7 @@ import (
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
+	goutils "go.viam.com/utils"
 )
 
 var (

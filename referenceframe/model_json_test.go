@@ -3,9 +3,8 @@ package referenceframe
 import (
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
 )
 
 // Tests that yml files are properly parsed and correctly loaded into the model

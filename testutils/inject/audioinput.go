@@ -7,7 +7,6 @@ import (
 
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
-
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"

@@ -6,7 +6,6 @@ import (
 
 	"github.com/docker/go-units"
 	"github.com/pkg/errors"
-
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 )

@@ -7,13 +7,12 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/sensor/v1"
-	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
-	"google.golang.org/protobuf/types/known/structpb"
-
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 var errReadingsFailed = errors.New("can't get readings")

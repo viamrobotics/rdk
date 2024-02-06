@@ -5,13 +5,12 @@ import (
 
 	"github.com/google/uuid"
 	pb "go.viam.com/api/service/motion/v1"
-	vprotoutils "go.viam.com/utils/protoutils"
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	vprotoutils "go.viam.com/utils/protoutils"
+	"go.viam.com/utils/rpc"
 )
 
 // client implements MotionServiceClient.

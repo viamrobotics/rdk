@@ -11,9 +11,8 @@ import (
 
 	"github.com/mkch/gpio"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/logging"
+	"go.viam.com/utils"
 )
 
 const noPin = 0xFFFFFFFF // noPin is the uint32 version of -1. A pin with this offset has no GPIO

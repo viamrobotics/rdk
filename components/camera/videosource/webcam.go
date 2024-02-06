@@ -20,8 +20,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
-	goutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/components/camera"
 	jetsoncamera "go.viam.com/rdk/components/camera/platforms/jetson"
 	debugLogger "go.viam.com/rdk/components/camera/videosource/logging"
@@ -30,6 +28,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
+	goutils "go.viam.com/utils"
 )
 
 // ModelWebcam is the name of the webcam component.

@@ -17,13 +17,12 @@ import (
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioinput/v1"
+	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/utils"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"gopkg.in/src-d/go-billy.v4/memfs"
-
-	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/resource"
 )
 
 // HostEndian indicates the byte ordering this host natively uses.

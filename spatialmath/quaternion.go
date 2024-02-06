@@ -6,9 +6,8 @@ import (
 
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/golang/geo/r3"
-	"gonum.org/v1/gonum/num/quat"
-
 	"go.viam.com/rdk/utils"
+	"gonum.org/v1/gonum/num/quat"
 )
 
 // Quaternion is an orientation in quaternion representation.

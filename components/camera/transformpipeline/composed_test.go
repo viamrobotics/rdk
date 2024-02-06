@@ -6,8 +6,6 @@ import (
 	"image/color"
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -16,6 +14,7 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
 )
 
 type streamTest struct{}

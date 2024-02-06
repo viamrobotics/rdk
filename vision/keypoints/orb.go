@@ -7,9 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils"
 )
 
 // ORBConfig contains the parameters / configs needed to compute ORB features.

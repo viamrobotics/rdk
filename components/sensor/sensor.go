@@ -3,7 +3,6 @@ package sensor
 
 import (
 	pb "go.viam.com/api/component/sensor/v1"
-
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"

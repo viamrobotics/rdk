@@ -5,9 +5,8 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	"gonum.org/v1/gonum/stat"
-
 	"go.viam.com/rdk/spatialmath"
+	"gonum.org/v1/gonum/stat"
 )
 
 // BoundingBoxFromPointCloud returns a Geometry object that encompasses all the points in the given point cloud.

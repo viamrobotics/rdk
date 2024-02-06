@@ -9,10 +9,9 @@ import (
 	"math"
 	"time"
 
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/utils"
 )
 
 // StreamVideoSource starts a stream from a video source with a throttled error handler.

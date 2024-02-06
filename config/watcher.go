@@ -8,9 +8,8 @@ import (
 
 	"github.com/bep/debounce"
 	"github.com/fsnotify/fsnotify"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/logging"
+	"go.viam.com/utils"
 )
 
 // A Watcher is responsible for watching for changes

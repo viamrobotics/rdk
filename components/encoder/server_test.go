@@ -6,12 +6,11 @@ import (
 	"testing"
 
 	pb "go.viam.com/api/component/encoder/v1"
-	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
-
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
 )
 
 var (

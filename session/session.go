@@ -8,9 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	pb "go.viam.com/api/robot/v1"
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils/rpc"
 )
 
 // A Session allows a client to express that it is actively connected and

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"go.uber.org/multierr"
-
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"

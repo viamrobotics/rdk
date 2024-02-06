@@ -9,14 +9,13 @@ import (
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
+	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/session"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
-
-	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/session"
 )
 
 func (m *SessionManager) safetyMonitoredTypeAndMethod(method string) (*resource.RPCAPI, *desc.MethodDescriptor, bool) {

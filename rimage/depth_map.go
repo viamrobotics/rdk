@@ -10,9 +10,8 @@ import (
 	"strconv"
 
 	"github.com/pkg/errors"
-	"gonum.org/v1/gonum/mat"
-
 	"go.viam.com/rdk/utils"
+	"gonum.org/v1/gonum/mat"
 )
 
 // Depth is the depth in mm.

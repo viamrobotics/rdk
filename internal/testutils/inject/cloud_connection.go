@@ -4,9 +4,8 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils/rpc"
 )
 
 // CloudConnectionService is an implementation of the cloud.ConnectionService interface used for testing.

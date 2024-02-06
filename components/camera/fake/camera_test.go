@@ -4,10 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/test"
 )
 
 //nolint:dupl

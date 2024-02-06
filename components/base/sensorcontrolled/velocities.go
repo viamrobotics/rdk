@@ -6,10 +6,9 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/control"
 	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/utils"
 )
 
 // TODO: RSDK-5355 useControlLoop bool should be removed after testing.

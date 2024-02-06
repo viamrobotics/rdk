@@ -13,12 +13,11 @@ import (
 	"github.com/aler9/gortsplib/v2/pkg/format"
 	"github.com/aler9/gortsplib/v2/pkg/headers"
 	"github.com/aler9/gortsplib/v2/pkg/media"
-	"go.viam.com/test"
-	viamutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/test"
+	viamutils "go.viam.com/utils"
 )
 
 func TestRTSPCamera(t *testing.T) {

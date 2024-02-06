@@ -8,12 +8,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"go.viam.com/test"
-	"google.golang.org/grpc"
-
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/testutils"
+	"go.viam.com/test"
+	"google.golang.org/grpc"
 )
 
 func TestToFromContext(t *testing.T) {

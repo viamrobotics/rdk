@@ -6,14 +6,13 @@ import (
 	"testing"
 
 	pb "go.viam.com/api/component/posetracker/v1"
-	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
-
 	"go.viam.com/rdk/components/posetracker"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
 )
 
 var errPoseFailed = errors.New("failure to get poses")

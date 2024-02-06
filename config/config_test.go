@@ -16,11 +16,6 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/pkg/errors"
-	"go.viam.com/test"
-	"go.viam.com/utils/jwks"
-	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
@@ -35,6 +30,10 @@ import (
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	"go.viam.com/utils/jwks"
+	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 )
 
 func TestConfigRobot(t *testing.T) {

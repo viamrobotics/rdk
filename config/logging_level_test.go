@@ -4,9 +4,8 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/logging"
+	"go.viam.com/test"
 )
 
 func TestConfigDebugFlag(t *testing.T) {

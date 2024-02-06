@@ -6,12 +6,11 @@ import (
 	"sync"
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/dmc4000"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/test"
 )
 
 // check is essentially test.That with tb.Error instead of tb.Fatal (Fatal exits and leaves the go routines stuck waiting).

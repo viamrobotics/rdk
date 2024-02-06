@@ -9,12 +9,11 @@ import (
 	"time"
 
 	"github.com/bep/debounce"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("gpio")

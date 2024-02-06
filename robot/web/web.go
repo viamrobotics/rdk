@@ -27,14 +27,6 @@ import (
 	"github.com/rs/cors"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/robot/v1"
-	"go.viam.com/utils"
-	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
-	"go.viam.com/utils/rpc"
-	echoserver "go.viam.com/utils/rpc/examples/echo/server"
-	"goji.io"
-	"goji.io/pat"
-	googlegrpc "google.golang.org/grpc"
-
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -45,6 +37,13 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/web"
+	"go.viam.com/utils"
+	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
+	"go.viam.com/utils/rpc"
+	echoserver "go.viam.com/utils/rpc/examples/echo/server"
+	"goji.io"
+	"goji.io/pat"
+	googlegrpc "google.golang.org/grpc"
 )
 
 // SubtypeName is a constant that identifies the internal web resource subtype string.

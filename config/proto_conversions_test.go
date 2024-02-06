@@ -13,17 +13,16 @@ import (
 	"github.com/lestrrat-go/jwx/jwk"
 	packagespb "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
-	"go.viam.com/test"
-	"go.viam.com/utils/jwks"
-	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/structpb"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	"go.viam.com/utils/jwks"
+	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 var testComponent = resource.Config{

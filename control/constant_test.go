@@ -5,10 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
 )
 
 func TestConstantConfig(t *testing.T) {

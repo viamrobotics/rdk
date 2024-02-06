@@ -5,14 +5,13 @@ import (
 	"image"
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
 )
 
 var (

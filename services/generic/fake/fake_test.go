@@ -4,10 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/generic"
+	"go.viam.com/test"
 )
 
 func TestDoCommand(t *testing.T) {

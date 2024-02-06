@@ -5,10 +5,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/session"
+	"go.viam.com/test"
 )
 
 func TestBasic(t *testing.T) {

@@ -6,7 +6,6 @@ import (
 	"image"
 
 	"github.com/fogleman/gg"
-
 	"go.viam.com/rdk/utils"
 )
 

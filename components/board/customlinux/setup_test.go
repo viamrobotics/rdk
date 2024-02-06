@@ -6,11 +6,10 @@ package customlinux
 import (
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/test"
 )
 
 func TestConfigParse(t *testing.T) {

@@ -8,14 +8,13 @@ import (
 
 	"github.com/golang/geo/r3"
 	pb "go.viam.com/api/common/v1"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
 )
 
 var (

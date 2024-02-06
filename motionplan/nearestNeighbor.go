@@ -7,9 +7,8 @@ import (
 	"math"
 	"sort"
 
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/utils"
 )
 
 const defaultNeighborsBeforeParallelization = 1000

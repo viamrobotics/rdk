@@ -9,15 +9,14 @@ import (
 	clk "github.com/benbjohnson/clock"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	pb "go.viam.com/api/component/board/v1"
-	"go.viam.com/test"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
-
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 const (

@@ -7,11 +7,10 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r2"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 	"gonum.org/v1/gonum/mat"
-
-	"go.viam.com/rdk/logging"
 )
 
 type poseGroundTruth struct {

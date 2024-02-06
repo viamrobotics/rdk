@@ -8,11 +8,10 @@ import (
 	"context"
 	"sync"
 
+	"go.viam.com/rdk/logging"
 	"periph.io/x/conn/v3/i2c"
 	"periph.io/x/conn/v3/i2c/i2creg"
 	"periph.io/x/host/v3"
-
-	"go.viam.com/rdk/logging"
 )
 
 func init() {

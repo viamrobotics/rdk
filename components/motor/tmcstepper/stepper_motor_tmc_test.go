@@ -8,13 +8,12 @@ import (
 	"fmt"
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
 )
 
 type fakeSpiHandle struct {

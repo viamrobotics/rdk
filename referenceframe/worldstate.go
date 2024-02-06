@@ -5,7 +5,6 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	commonpb "go.viam.com/api/common/v1"
-
 	"go.viam.com/rdk/spatialmath"
 )
 

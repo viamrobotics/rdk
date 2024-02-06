@@ -5,7 +5,6 @@ package transform
 import (
 	"github.com/golang/geo/r2"
 	"github.com/pkg/errors"
-
 	"go.viam.com/rdk/rimage"
 )
 

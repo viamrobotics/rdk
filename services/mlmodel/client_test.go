@@ -5,16 +5,15 @@ import (
 	"net"
 	"testing"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/rpc"
-	"gorgonia.org/tensor"
-
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
+	"gorgonia.org/tensor"
 )
 
 const (

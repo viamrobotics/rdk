@@ -7,10 +7,9 @@ import (
 
 	"github.com/lucasb-eyer/go-colorful"
 	"github.com/pkg/errors"
-	"gonum.org/v1/gonum/floats"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
+	"gonum.org/v1/gonum/floats"
 )
 
 // Color is a more featured color type than color.Color. Prefer to use

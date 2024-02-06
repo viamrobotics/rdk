@@ -13,19 +13,18 @@ import (
 
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/golang/geo/r3"
-	"go.viam.com/test"
-	goutils "go.viam.com/utils"
-	"go.viam.com/utils/artifact"
-	"go.viam.com/utils/testutils"
-	"gonum.org/v1/gonum/mat"
-	"gonum.org/v1/gonum/num/quat"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	goutils "go.viam.com/utils"
+	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/testutils"
+	"gonum.org/v1/gonum/mat"
+	"gonum.org/v1/gonum/num/quat"
 )
 
 func testUR5eForwardKinematics(t *testing.T, jointRadians []float64, correct r3.Vector) {

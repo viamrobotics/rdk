@@ -10,12 +10,11 @@ import (
 	"math/rand"
 	"time"
 
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/utils"
 )
 
 const (

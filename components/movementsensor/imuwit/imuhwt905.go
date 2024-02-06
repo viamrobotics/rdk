@@ -17,11 +17,10 @@ import (
 	"time"
 
 	slib "github.com/jacobsa/go-serial/serial"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils"
 )
 
 var model905 = resource.DefaultModelFamily.WithModel("imu-wit-hwt905")

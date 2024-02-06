@@ -9,7 +9,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	pb "go.viam.com/api/service/motion/v1"
-
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"

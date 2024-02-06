@@ -10,11 +10,10 @@ import (
 	_ "github.com/pion/mediadevices/pkg/driver/microphone"
 	_ "github.com/pion/mediadevices/pkg/driver/screen"
 	"go.uber.org/multierr"
-	goutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/gostream/codec/opus"
 	"go.viam.com/rdk/gostream/codec/vpx"
+	goutils "go.viam.com/utils"
 )
 
 func main() {

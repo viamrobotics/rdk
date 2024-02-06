@@ -8,9 +8,8 @@ import (
 	"testing"
 
 	"github.com/pion/mediadevices/pkg/prop"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/test"
 )
 
 type imageSource struct {

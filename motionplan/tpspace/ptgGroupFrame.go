@@ -9,11 +9,10 @@ import (
 
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/utils"
 )
 
 const (

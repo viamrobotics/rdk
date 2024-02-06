@@ -15,12 +15,6 @@ import (
 	"github.com/pkg/errors"
 	echopb "go.viam.com/api/component/testecho/v1"
 	robotpb "go.viam.com/api/robot/v1"
-	"go.viam.com/test"
-	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
-
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
 	_ "go.viam.com/rdk/components/register"
@@ -34,6 +28,11 @@ import (
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/robottestutils"
+	"go.viam.com/test"
+	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 var someBaseName1 = base.Named("base1")

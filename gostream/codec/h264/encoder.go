@@ -14,7 +14,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pion/mediadevices/pkg/io/video"
 	"github.com/pkg/errors"
-
 	"go.viam.com/rdk/gostream/codec"
 	"go.viam.com/rdk/gostream/ffmpeg/avcodec"
 	"go.viam.com/rdk/gostream/ffmpeg/avutil"

@@ -6,10 +6,6 @@ import (
 	"fmt"
 	"testing"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
@@ -18,6 +14,9 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
+	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 )
 
 var (

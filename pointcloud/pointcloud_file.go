@@ -17,11 +17,10 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"go.viam.com/utils"
-	"gonum.org/v1/gonum/num/quat"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/utils"
+	"gonum.org/v1/gonum/num/quat"
 )
 
 // PCDType is the format of a pcd file.

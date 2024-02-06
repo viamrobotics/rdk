@@ -23,11 +23,10 @@ import (
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
 	packagepb "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/term"
-
-	"go.viam.com/rdk/logging"
 )
 
 type authFlow struct {

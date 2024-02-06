@@ -6,12 +6,11 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	commonpb "go.viam.com/api/common/v1"
-	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
-
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
 )
 
 const (

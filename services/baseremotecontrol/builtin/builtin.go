@@ -10,14 +10,13 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	vutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/baseremotecontrol"
 	"go.viam.com/rdk/session"
+	vutils "go.viam.com/utils"
 )
 
 // Constants for the system including the max speed and angle (TBD: allow to be set as config vars)

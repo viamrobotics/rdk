@@ -8,9 +8,8 @@ import (
 
 	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
-	"google.golang.org/protobuf/types/known/anypb"
-
 	"go.viam.com/rdk/data"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type method int64

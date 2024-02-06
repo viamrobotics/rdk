@@ -10,12 +10,11 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.uber.org/multierr"
-	"golang.org/x/exp/maps"
-
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	"golang.org/x/exp/maps"
 )
 
 const errStrAccuracy = "_accuracy_err"

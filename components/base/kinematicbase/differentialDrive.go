@@ -13,14 +13,13 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
-	utils "go.viam.com/utils"
-
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
+	utils "go.viam.com/utils"
 )
 
 // The pause time when not using a localizer before moving on to next move step.

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	pb "go.viam.com/api/service/mlmodel/v1"
-
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 )

@@ -7,7 +7,6 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/slam"

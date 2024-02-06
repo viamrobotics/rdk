@@ -14,13 +14,12 @@ import (
 
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
-	"go.viam.com/utils/usb"
-
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils"
+	"go.viam.com/utils/usb"
 )
 
 // Timeout for Home().

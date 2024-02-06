@@ -3,9 +3,8 @@ package protoutils
 import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-	"google.golang.org/protobuf/types/known/structpb"
-
 	"go.viam.com/rdk/spatialmath"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 const (

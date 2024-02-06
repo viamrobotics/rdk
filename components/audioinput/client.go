@@ -10,13 +10,12 @@ import (
 	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/audioinput/v1"
-	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 )
 
 // client is an audio input client.

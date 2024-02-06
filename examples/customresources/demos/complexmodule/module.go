@@ -4,8 +4,6 @@ package main
 import (
 	"context"
 
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
@@ -16,6 +14,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/services/navigation"
+	"go.viam.com/utils"
 )
 
 func main() {

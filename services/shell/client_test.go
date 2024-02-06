@@ -5,15 +5,14 @@ import (
 	"net"
 	"testing"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/rpc"
-
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
 )
 
 var testSvcName1 = shell.Named("shell1")

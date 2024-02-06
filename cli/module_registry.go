@@ -19,13 +19,12 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	apppb "go.viam.com/api/app/v1"
-	vutils "go.viam.com/utils"
-
 	modconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmanager"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/utils"
+	vutils "go.viam.com/utils"
 )
 
 // moduleUploadChunkSize sets the number of bytes included in each chunk of the upload stream.

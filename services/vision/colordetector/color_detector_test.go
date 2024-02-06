@@ -4,13 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
-
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/vision/objectdetection"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func TestColorDetector(t *testing.T) {

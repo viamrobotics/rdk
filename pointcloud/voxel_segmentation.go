@@ -5,7 +5,6 @@ import (
 	"sort"
 
 	"github.com/golang/geo/r3"
-
 	"go.viam.com/rdk/utils"
 )
 
