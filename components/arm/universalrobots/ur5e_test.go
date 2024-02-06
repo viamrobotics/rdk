@@ -179,7 +179,6 @@ func computeUR5ePosition(t *testing.T, jointRadians []float64) spatialmath.Pose 
 		OX: o.At(0, 3) - res.At(0, 3),
 		OY: o.At(1, 3) - res.At(1, 3),
 		OZ: o.At(2, 3) - res.At(2, 3),
-		// Theta: utils.RadToDeg(math.Acos(o.At(0,0))), // TODO(erh): fix this
 	}
 	ov.Normalize()
 
@@ -327,10 +326,10 @@ func TestArmReconnection(t *testing.T) {
 		},
 	}
 
-	arm, err := URArmConnect(parentCtx, cfg, logger)
+	arm, err := urArmConnect(parentCtx, cfg, logger)
 
 	test.That(t, err, test.ShouldBeNil)
-	ua, ok := arm.(*URArm)
+	ua, ok := arm.(*urArm)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -423,7 +422,7 @@ func TestReconfigure(t *testing.T) {
 	conf, err := resource.NativeConfig[*Config](cfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	ur5e := &URArm{
+	ur5e := &urArm{
 		speedRadPerSec:     conf.SpeedDegsPerSec,
 		urHostedKinematics: conf.ArmHostedKinematics,
 		host:               conf.Host,
