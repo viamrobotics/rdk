@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"cmp"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
@@ -20,6 +19,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // Waypoints represent the waypoints of the plan.
@@ -489,7 +489,7 @@ func (s *State) ListPlanStatuses(req motion.ListPlanStatusesReq) ([]motion.PlanS
 	statuses := []motion.PlanStatusWithID{}
 	componentNames := maps.Keys(s.componentStateByComponent)
 	slices.SortFunc(componentNames, func(a, b resource.Name) int {
-		return cmp.Compare(a.String(), b.String())
+		return rutils.Compare(a.String(), b.String())
 	})
 
 	if req.OnlyActivePlans {

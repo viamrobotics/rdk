@@ -13,7 +13,6 @@ import (
 	"runtime/pprof"
 	"time"
 
-	"cmp"
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -468,9 +467,9 @@ func dumpResourceRegistrations(outputPath string) error {
 	// sort the list alphabetically by API+Model
 	slices.SortFunc(resources, func(a, b resourceRegistration) int {
 		if a.API != b.API {
-			return cmp.Compare(a.API, b.API)
+			return rutils.Compare(a.API, b.API)
 		}
-		return cmp.Compare(a.Model, b.Model)
+		return rutils.Compare(a.Model, b.Model)
 	})
 
 	// marshall and print the registrations to the provided file
