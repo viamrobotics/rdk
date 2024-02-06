@@ -33,7 +33,6 @@ const (
 	defaultReplanCostFactor = 1.0
 	defaultMaxReplans       = -1 // Values below zero will replan infinitely
 	baseStopTimeout         = time.Second * 5
-	poleEpsilon             = 0.0001 // If the base is this close to vertical, we cannot plan.
 )
 
 var errGoalWithinPlanDeviation = errors.New("no need to move, already within planDeviationMM")
@@ -477,7 +476,8 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		// here we make the assumption the movement sensor is coincident with the base
 		movementSensorToBase = baseOrigin
 	}
-	localizer := motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose())
+	// Create a localizer from the movement sensor, and collapse reported orientations to 2d
+	localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose()))
 
 	// create a KinematicBase from the componentName
 	baseComponent, ok := ms.components[req.ComponentName]
@@ -595,7 +595,9 @@ func (ms *builtIn) newMoveOnMapRequest(
 		return nil, err
 	}
 
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewSLAMLocalizer(slamSvc), limits, kinematicsOptions)
+	// Create a localizer from the movement sensor, and collapse reported orientations to 2d
+	localizer := motion.TwoDLocalizer(motion.NewSLAMLocalizer(slamSvc))
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -657,14 +659,11 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		return nil, err
 	}
 
-	startPoseRaw, err := kb.CurrentPosition(ctx)
+	startPoseIF, err := kb.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	startPose, err := correctStartPose(startPoseRaw.Pose())
-	if err != nil {
-		return nil, err
-	}
+	startPose := startPoseIF.Pose()
 	startPoseInv := spatialmath.PoseInverse(startPose)
 
 	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose, goalPoseInWorld))
@@ -868,29 +867,4 @@ func toGeoPosePlanSteps(posesByComponent []motionplan.PlanStep, geoPoses []spati
 		steps = append(steps, map[resource.Name]spatialmath.Pose{resourceName: poseContainingGeoPose})
 	}
 	return steps, nil
-}
-
-// This function will check the orientation of the startPose of a 2d move request, and ensure that it is normal to the XY plane. If it is
-// not, it will be altered such that it is (accounting for e.g. an ourdoor base with one wheel on a rock). If the orientation is such that
-// the robot is pointed directly up or down (or is upside-down), an error is returned.
-func correctStartPose(startPose spatialmath.Pose) (spatialmath.Pose, error) {
-	orient := startPose.Orientation().OrientationVectorRadians() // OV is easy to check if we are in plane
-	if orient.OZ < 0 {
-		return nil, errors.New("base appears to be upside down, check your movement sensor")
-	}
-	if orient.OX == 0 && orient.OY == 0 {
-		return startPose, nil
-	}
-
-	adjPt := spatialmath.NewPoseFromPoint(r3.Vector{0, 1, 0})
-	newAdjPt := spatialmath.Compose(spatialmath.NewPoseFromOrientation(orient), adjPt).Point()
-	if 1-math.Abs(newAdjPt.Z) < poleEpsilon {
-		if newAdjPt.Z > 0 {
-			return nil, errors.New("base appears to be pointing straight up, check your movement sensor")
-		}
-		return nil, errors.New("base appears to be pointing straight down, check your movement sensor")
-	}
-	theta := -math.Atan2(newAdjPt.Y, -newAdjPt.X)
-
-	return spatialmath.NewPose(startPose.Point(), &spatialmath.OrientationVector{OZ: 1, Theta: theta}), nil
 }

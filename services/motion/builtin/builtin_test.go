@@ -508,12 +508,13 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	test.That(t, spatialmath.PoseAlmostEqualEps(goalPose2, spatialmath.PoseBetween(goal1BaseFrame, goal2BaseFrame), 10), test.ShouldBeTrue)
 }
 
-func TestMoveOnMapAskewIMU(t *testing.T) {
+func TestMoveOnMapAskewIMUTestMoveOnMapAskewIMU(t *testing.T) {
 	t.Parallel()
 	t.Run("Askew but valid base should be able to plan", func(t *testing.T) {
 		t.Parallel()
 		ctx := context.Background()
-		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, OZ: 1, Theta: 55}
+		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, OZ: 1, Theta: 35}
+		askewOrientCorrected := &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -22.988}
 		// goal x-position of 1.32m is scaled to be in mm
 		goal1SLAMFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 55})
 		goal1BaseFrame := spatialmath.Compose(goal1SLAMFrame, motion.SLAMOrientationAdjustment)
@@ -548,8 +549,7 @@ func TestMoveOnMapAskewIMU(t *testing.T) {
 
 		// We need to transform the endPos by the corrected orientation in order to properly place it, otherwise it will go off in +Z somewhere.
 		// In a real robot this will be taken care of by gravity.
-		correctedPose, err := correctStartPose(spatialmath.NewPoseFromOrientation(askewOrient))
-		test.That(t, err, test.ShouldBeNil)
+		correctedPose := spatialmath.NewPoseFromOrientation(askewOrientCorrected)
 		endPos := spatialmath.Compose(correctedPose, spatialmath.PoseBetween(spatialmath.NewPoseFromOrientation(askewOrient), endPIF.Pose()))
 
 		test.That(t, spatialmath.PoseAlmostEqualEps(endPos, goal1BaseFrame, 10), test.ShouldBeTrue)
