@@ -256,8 +256,7 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan motionplan.P
 	}
 	actualPIF := spatialmath.PoseBetween(ptgk.origin, actualPIFRaw.Pose())
 
-	// Determine the nominal pose, that is, the pose where the robot ought be if it had followed the plan perfectly up until this point.
-	// TODO: double check this math
+	// Determine the nominal pose, the last waypoint the robot should have reached if it executed the plan perfectly.
 	poses, err := path.GetFramePoses(ptgk.Name().ShortName())
 	if err != nil {
 		return nil, err

@@ -340,7 +340,7 @@ func TestPtgCheckPlan(t *testing.T) {
 
 		startPose := spatialmath.NewPose(vector, ov)
 
-		remainingPlan, err := newRRTPlan(nodes[2:len(nodes)-1], sf, true)
+		remainingPlan, err := RemainingPlan(plan, 2)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = CheckPlan(ackermanFrame, remainingPlan, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
@@ -362,7 +362,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 1000, 0})
 		startPose = errorState
 
-		remainingPlan, err := newRRTPlan(nodes[2:len(nodes)-1], sf, true)
+		remainingPlan, err := RemainingPlan(plan, 2)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = CheckPlan(ackermanFrame, remainingPlan, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
