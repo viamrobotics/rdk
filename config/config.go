@@ -13,12 +13,11 @@ import (
 	"sync"
 	"time"
 
-	"slices"
-
 	"github.com/pkg/errors"
 	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
+	"slices"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"

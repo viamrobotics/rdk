@@ -6,9 +6,8 @@ import (
 	"encoding/json"
 	"reflect"
 
-	"slices"
-
 	servicepb "go.viam.com/api/service/datamanager/v1"
+	"slices"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"

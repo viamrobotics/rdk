@@ -7,11 +7,10 @@ import (
 	"math"
 	"sync"
 
-	"maps"
-
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/maps"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"

@@ -7,11 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"slices"
-
 	pb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"slices"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"

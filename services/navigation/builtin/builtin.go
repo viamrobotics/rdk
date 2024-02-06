@@ -11,13 +11,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"slices"
-
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/utils"
+	"slices"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"

@@ -7,19 +7,18 @@ import (
 	"sync"
 	"time"
 
-	"maps"
-	"slices"
-
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/maps"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"slices"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/internal/cloud"

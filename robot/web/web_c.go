@@ -10,13 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"slices"
-
 	"github.com/goccy/go-graphviz"
 	"github.com/pkg/errors"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"slices"
 
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
