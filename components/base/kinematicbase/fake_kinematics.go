@@ -116,6 +116,7 @@ func (fk *fakeDiffDriveKinematics) CurrentPosition(ctx context.Context) (*refere
 
 type fakePTGKinematics struct {
 	*fake.Base
+	localizer   motion.Localizer
 	frame       referenceframe.Frame
 	options     Options
 	sensorNoise spatialmath.Pose
@@ -192,6 +193,8 @@ func WrapWithFakePTGKinematics(
 		logger:      logger,
 		sleepTime:   sleepTime,
 	}
+	initLocalizer := &fakePTGKinematicsLocalizer{fk}
+	fk.localizer = motion.TwoDLocalizer(initLocalizer)
 
 	fk.options = options
 	return fk, nil
@@ -223,8 +226,16 @@ func (fk *fakePTGKinematics) ErrorState(ctx context.Context, plan motionplan.Pla
 }
 
 func (fk *fakePTGKinematics) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
-	fk.lock.RLock()
-	defer fk.lock.RUnlock()
-	origin := fk.origin
-	return referenceframe.NewPoseInFrame(origin.Parent(), spatialmath.Compose(origin.Pose(), fk.sensorNoise)), nil
+	return fk.localizer.CurrentPosition(ctx)
+}
+
+type fakePTGKinematicsLocalizer struct {
+	fk *fakePTGKinematics
+}
+
+func (fkl *fakePTGKinematicsLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
+	fkl.fk.lock.RLock()
+	defer fkl.fk.lock.RUnlock()
+	origin := fkl.fk.origin
+	return referenceframe.NewPoseInFrame(origin.Parent(), spatialmath.Compose(origin.Pose(), fkl.fk.sensorNoise)), nil
 }

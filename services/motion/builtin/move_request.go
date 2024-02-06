@@ -451,7 +451,8 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		// here we make the assumption the movement sensor is coincident with the base
 		movementSensorToBase = baseOrigin
 	}
-	localizer := motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose())
+	// Create a localizer from the movement sensor, and collapse reported orientations to 2d
+	localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose()))
 
 	// create a KinematicBase from the componentName
 	baseComponent, ok := ms.components[req.ComponentName]
@@ -569,7 +570,9 @@ func (ms *builtIn) newMoveOnMapRequest(
 		return nil, err
 	}
 
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewSLAMLocalizer(slamSvc), limits, kinematicsOptions)
+	// Create a localizer from the movement sensor, and collapse reported orientations to 2d
+	localizer := motion.TwoDLocalizer(motion.NewSLAMLocalizer(slamSvc))
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -630,13 +633,14 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		return nil, err
 	}
 
-	startPose, err := kb.CurrentPosition(ctx)
+	startPoseIF, err := kb.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	startPoseInv := spatialmath.PoseInverse(startPose.Pose())
+	startPose := startPoseIF.Pose()
+	startPoseInv := spatialmath.PoseInverse(startPose)
 
-	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld))
+	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose, goalPoseInWorld))
 
 	// Here we determine if we already are at the goal
 	// If our motion profile is position_only then, we only check against our current & desired position
@@ -718,7 +722,7 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 			WorldState:         worldState,
 			Options:            valExtra.extra,
 		},
-		poseOrigin:        startPose.Pose(),
+		poseOrigin:        startPose,
 		kinematicBase:     kb,
 		replanCostFactor:  valExtra.replanCostFactor,
 		obstacleDetectors: obstacleDetectors,
