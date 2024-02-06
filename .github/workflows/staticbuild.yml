@@ -98,6 +98,17 @@ jobs:
         parent: false
         gzip: false
 
+    - name: Upload Manifest (Testing)
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      uses: google-github-actions/upload-cloud-storage@v0.10.4
+      with:
+        headers: "cache-control: no-cache"
+        path: 'etc/packaging/static/manifest/'
+        destination: 'packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ steps.build_date.outputs.date }}/${{ github.sha }}/'
+        glob: 'viam-server-*'
+        parent: false
+        gzip: false
+
   output_summary:
     name: Output Summary
     runs-on: ubuntu-latest
@@ -175,6 +186,10 @@ jobs:
     - name: Publish Static Binary
       run: |
         gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ needs.static_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"
+
+    - name: Publish Subsystem Metadata
+      run: |
+        gsutil mv "gs://packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ needs.static_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-subsystems/"
 
     - name: Output Summary
       run: |
