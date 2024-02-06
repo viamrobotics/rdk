@@ -461,7 +461,7 @@ func (s *State) PlanHistory(req motion.PlanHistoryReq) ([]motion.PlanWithStatus,
 	return r, nil
 }
 
-// visualHistory returns the history struct that has had its plans Offset by
+// visualHistory returns the history struct that has had its plans Offset by.
 func renderableHistory(history []motion.PlanWithStatus) []motion.PlanWithStatus {
 	newHistory := make([]motion.PlanWithStatus, len(history))
 	copy(newHistory, history)

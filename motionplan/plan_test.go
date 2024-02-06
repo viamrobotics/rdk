@@ -167,41 +167,25 @@ func TestNewGeoPlan(t *testing.T) {
 
 	type testCase struct {
 		name        string
-		origin      *spatialmath.GeoPose
+		origin      *geo.Point
 		expectedGPs []spatialmath.GeoPose
 	}
 
 	tcs := []testCase{
 		{
-			name:   "null island origin & north heading",
-			origin: spatialmath.NewGeoPose(geo.NewPoint(0, 0), 0),
+			name:   "null island origin",
+			origin: geo.NewPoint(0, 0),
 			expectedGPs: []spatialmath.GeoPose{
 				*spatialmath.NewGeoPose(geo.NewPoint(0, 0), 0),
 				*spatialmath.NewGeoPose(geo.NewPoint(7.059656988760095e-05, 1.498635280806064e-05), 8.101305308745282),
 			},
 		},
 		{
-			name:   "null island origin & east heading",
-			origin: spatialmath.NewGeoPose(geo.NewPoint(0, 0), 90),
+			name:   "NE USA origin",
+			origin: geo.NewPoint(40, -74),
 			expectedGPs: []spatialmath.GeoPose{
-				*spatialmath.NewGeoPose(geo.NewPoint(0, 0), 90.),
-				*spatialmath.NewGeoPose(geo.NewPoint(-1.498635280674151e-05, 7.059656989571761e-05), 98.10130530874528),
-			},
-		},
-		{
-			name:   "central park origin & west heading",
-			origin: spatialmath.NewGeoPose(geo.NewPoint(40.770190, -73.977192), 270),
-			expectedGPs: []spatialmath.GeoPose{
-				*spatialmath.NewGeoPose(geo.NewPoint(40.77019, -73.97719199999997), 270),
-				*spatialmath.NewGeoPose(geo.NewPoint(40.77020498631531, -73.97728521712797), 278.1013053087453),
-			},
-		},
-		{
-			name:   "central park origin & south heading",
-			origin: spatialmath.NewGeoPose(geo.NewPoint(40.770190, -73.977192), 180),
-			expectedGPs: []spatialmath.GeoPose{
-				*spatialmath.NewGeoPose(geo.NewPoint(40.77019, -73.97719199999997), 180),
-				*spatialmath.NewGeoPose(geo.NewPoint(40.770119403428424, -73.97721178825562), 188.10130530874528),
+				*spatialmath.NewGeoPose(geo.NewPoint(40, -74), 0),
+				*spatialmath.NewGeoPose(geo.NewPoint(40+7.059656988760095e-05, -74+1.498635280806064e-05), 278.1013053087453),
 			},
 		},
 	}

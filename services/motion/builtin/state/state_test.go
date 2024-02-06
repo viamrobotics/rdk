@@ -915,7 +915,7 @@ func TestState(t *testing.T) {
 			replanCount int,
 		) (state.PlannerExecutor, error) {
 			return &testPlannerExecutor{
-				executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
+				executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 					if replanCount == 0 {
 						// wait for replanning
 						<-ctxReplanning.Done()
@@ -952,6 +952,10 @@ func TestState(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(ps6), test.ShouldEqual, 0)
 
+		pbc := motionplan.PathStep{
+			req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+		}
+
 		// Failed after replanning
 		replanFailReason := errors.New("replanning failed")
 		executionID7, err := state.StartExecution(ctx, s, req.ComponentName, req, func(
@@ -961,24 +965,16 @@ func TestState(t *testing.T) {
 			replanCount int,
 		) (state.PlannerExecutor, error) {
 			return &testPlannerExecutor{
-				planFunc: func(ctx context.Context) (state.PlanResponse, error) {
+				planFunc: func(ctx context.Context) (motionplan.Plan, error) {
 					// first replan succeeds
-					if replanCount == 0 {
-						pbc1 := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
-						pbc2 := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
-						return state.PlanResponse{PosesByComponent: []motionplan.PlanStep{pbc1, pbc2}}, nil
-					}
-
-					if replanCount == 1 {
-						pbc1 := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
-						pbc2 := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
-						return state.PlanResponse{PosesByComponent: []motionplan.PlanStep{pbc1, pbc2}}, nil
+					if replanCount == 0 || replanCount == 1 {
+						return motionplan.NewSimplePlan([]motionplan.PathStep{pbc, pbc}, nil), nil
 					}
 
 					// second replan fails
-					return state.PlanResponse{}, replanFailReason
+					return motionplan.NewSimplePlan([]motionplan.PathStep{}, nil), replanFailReason
 				},
-				executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
+				executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 					if replanCount == 0 {
 						return state.ExecuteResponse{Replan: true, ReplanReason: replanReason}, nil
 					}

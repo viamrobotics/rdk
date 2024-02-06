@@ -322,15 +322,17 @@ func (p PlanWithMetadata) ToProto() *pb.Plan {
 	}
 }
 
-func (ps PlanWithMetadata) Renderable() PlanWithMetadata {
-	if ps.AnchorGeoPose == nil {
-		return ps
+// Renderable returns a copy of the struct substituting its Plan for a GeoPlan consisting of smuggled global coordinates
+// This will only be done if the AnchorGeoPose field is non-nil, otherwise the original struct will be returned.
+func (p PlanWithMetadata) Renderable() PlanWithMetadata {
+	if p.AnchorGeoPose == nil {
+		return p
 	}
 	return PlanWithMetadata{
-		ID:            ps.ID,
-		ComponentName: ps.ComponentName,
-		ExecutionID:   ps.ExecutionID,
-		Plan:          motionplan.NewGeoPlan(ps.Plan, ps.AnchorGeoPose.Location()),
+		ID:            p.ID,
+		ComponentName: p.ComponentName,
+		ExecutionID:   p.ExecutionID,
+		Plan:          motionplan.NewGeoPlan(p.Plan, p.AnchorGeoPose.Location()),
 	}
 }
 
