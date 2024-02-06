@@ -45,8 +45,8 @@ const (
 // NtripInfo contains the information necessary to connect to a mountpoint.
 type NtripInfo struct {
 	URL                string
-	Username           string
-	Password           string
+	username           string
+	password           string
 	MountPoint         string
 	Client             *ntrip.Client
 	Stream             io.ReadCloser
@@ -99,12 +99,12 @@ func NewNtripInfo(cfg *NtripConfig, logger logging.Logger) (*NtripInfo, error) {
 	if n.URL == "" {
 		return nil, fmt.Errorf("NTRIP expected non-empty string for %q", cfg.NtripURL)
 	}
-	n.Username = cfg.NtripUser
-	if n.Username == "" {
+	n.username = cfg.NtripUser
+	if n.username == "" {
 		logger.Info("ntrip_username set to empty")
 	}
-	n.Password = cfg.NtripPass
-	if n.Password == "" {
+	n.password = cfg.NtripPass
+	if n.password == "" {
 		logger.Info("ntrip_password set to empty")
 	}
 	n.MountPoint = cfg.NtripMountpoint
@@ -234,7 +234,7 @@ func (n *NtripInfo) Connect(ctx context.Context, logger logging.Logger) error {
 		default:
 		}
 
-		c, err = ntrip.NewClient(n.URL, ntrip.Options{Username: n.Username, Password: n.Password})
+		c, err = ntrip.NewClient(n.URL, ntrip.Options{Username: n.username, Password: n.password})
 		if err == nil {
 			break
 		}
