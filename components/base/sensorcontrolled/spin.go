@@ -46,10 +46,10 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 		return err
 	}
 
-	// IsMoving returns true when moving, which is not a success condition for our control loop
+	// isPolling returns true when a Spin call is in progress, which is not a success condition for our control loop
 	baseStopped := func(ctx context.Context) (bool, error) {
-		moving, err := sb.IsMoving(ctx)
-		return !moving, err
+		polling := sb.isPolling()
+		return !polling, nil
 	}
 	return sb.opMgr.WaitForSuccess(
 		ctx,
@@ -234,19 +234,23 @@ func hasOverShot(angle, start, target, dir float64) bool {
 		// for cases with a quadrant switch from 1 <-> 4
 		// check if the current angle is in the regions before the
 		// target and after the start
-		over := angleBetween(angle, target, 0) || angleBetween(angle, 360, start)
-		return over
+		return angle < target
 	case dir == -1 && target > start:
 		// the overshoot range is the inside range between the start and target
-		return angleBetween(angle, target, start)
+		if angle < (start+10) && angle >= 0 {
+			return false
+		}
+		return angle < target
 	case dir == 1 && start > target: // counterclockwise
 		// for cases with a quadrant switch from 1 <-> 4
 		// check if the current angle is not in the regions after the
 		// target and before the start
-		over := !angleBetween(angle, 0, target) && !angleBetween(angle, start, 360)
-		return over
+		if angle > (start-10) && angle <= 360 {
+			return false
+		}
+		return angle > target
 	default:
 		// the overshoot range is the range of angles outside the start and target ranges
-		return !angleBetween(angle, start, target)
+		return angle > target
 	}
 }
