@@ -330,7 +330,7 @@ func (ps PlanWithMetadata) Renderable() PlanWithMetadata {
 		ID:            ps.ID,
 		ComponentName: ps.ComponentName,
 		ExecutionID:   ps.ExecutionID,
-		Plan:          motionplan.NewGeoPlan(ps.Plan, ps.AnchorGeoPose),
+		Plan:          motionplan.NewGeoPlan(ps.Plan, ps.AnchorGeoPose.Location()),
 	}
 }
 

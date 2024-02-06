@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/golang/geo/r3"
+	geo "github.com/kellydunn/golang-geo"
 	pb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/motionplan/ik"
@@ -199,13 +200,13 @@ func PathStepFromProto(ps *pb.PlanStep) (PathStep, error) {
 // NewGeoPlan returns a Plan containing a Path with GPS coordinates smuggled into the Pose struct. Each GPS point is created using:
 // A Point with X as the longitude and Y as the latitude
 // An orientation using the heading as the theta in an OrientationVector with Z=1.
-func NewGeoPlan(plan Plan, geoOrigin *spatialmath.GeoPose) Plan {
+func NewGeoPlan(plan Plan, pt *geo.Point) Plan {
 	newPath := make([]PathStep, 0, len(plan.Path()))
 	for _, step := range plan.Path() {
 		newStep := make(PathStep)
 		for frame, pif := range step {
 			pose := pif.Pose()
-			geoPose := spatialmath.PoseToGeoPose(geoOrigin, pose)
+			geoPose := spatialmath.PoseToGeoPose(spatialmath.NewGeoPose(pt, 0), pose)
 			heading := math.Mod(math.Abs(geoPose.Heading()-360), 360)
 			o := &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: heading}
 			smuggledGeoPose := spatialmath.NewPose(r3.Vector{X: geoPose.Location().Lng(), Y: geoPose.Location().Lat()}, o)
