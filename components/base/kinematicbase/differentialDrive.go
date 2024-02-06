@@ -130,115 +130,125 @@ func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]re
 	return []referenceframe.Input{{Value: pt.X}, {Value: pt.Y}, {Value: theta}}, nil
 }
 
-func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired []referenceframe.Input) (err error) {
-	// create capsule which defines the valid region for a base to be when driving to desired waypoint
-	// deviationThreshold defines max distance base can be from path without error being thrown
-	current, inputsErr := ddk.CurrentInputs(ctx)
-	if inputsErr != nil {
-		return inputsErr
-	}
-	validRegion, capsuleErr := ddk.newValidRegionCapsule(current, desired)
-	if capsuleErr != nil {
-		return capsuleErr
-	}
-	movementErr := make(chan error, 1)
-	defer close(movementErr)
+func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desiredSteps ...[]referenceframe.Input) (err error) {
+	for _, desired := range desiredSteps {
+		// create capsule which defines the valid region for a base to be when driving to desired waypoint
+		// deviationThreshold defines max distance base can be from path without error being thrown
+		current, inputsErr := ddk.CurrentInputs(ctx)
+		if inputsErr != nil {
+			return inputsErr
+		}
+		validRegion, capsuleErr := ddk.newValidRegionCapsule(current, desired)
+		if capsuleErr != nil {
+			return capsuleErr
+		}
+		movementErr := make(chan error, 1)
+		defer close(movementErr)
 
-	cancelContext, cancel := context.WithCancel(ctx)
-	defer cancel()
+		cancelContext, cancel := context.WithCancel(ctx)
+		defer cancel()
 
-	if ddk.Localizer == nil {
-		defer func() {
-			ddk.mutex.Lock()
-			defer ddk.mutex.Unlock()
-			ddk.noLocalizerCacheInputs = originInputs
-		}()
-	}
+		if ddk.Localizer == nil {
+			defer func() {
+				ddk.mutex.Lock()
+				defer ddk.mutex.Unlock()
+				ddk.noLocalizerCacheInputs = originInputs
+			}()
+		}
 
-	utils.PanicCapturingGo(func() {
-		// this loop polls the error state and issues a corresponding command to move the base to the objective
-		// when the base is within the positional threshold of the goal, exit the loop
-		for err := cancelContext.Err(); err == nil; err = cancelContext.Err() {
-			utils.SelectContextOrWait(ctx, 10*time.Millisecond)
-			col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
-			if err != nil {
-				movementErr <- err
-				return
-			}
-			if !col {
-				movementErr <- errors.New("base has deviated too far from path")
-				return
-			}
-
-			// get to the x, y location first - note that from the base's perspective +y is forward
-			desiredHeading := math.Atan2(desired[1].Value-current[1].Value, desired[0].Value-current[0].Value)
-			commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{desired[0], desired[1], {Value: desiredHeading}})
-			if err != nil {
-				movementErr <- err
-				return
-			}
-
-			if !commanded {
-				// no command to move to the x, y location was issued, correct the heading and then exit
-				// 2DOF model indicates position-only mode so heading doesn't need to be corrected, exit function
-				if len(ddk.planningFrame.DoF()) == 2 {
+		utils.PanicCapturingGo(func() {
+			// this loop polls the error state and issues a corresponding command to move the base to the objective
+			// when the base is within the positional threshold of the goal, exit the loop
+			for err := cancelContext.Err(); err == nil; err = cancelContext.Err() {
+				utils.SelectContextOrWait(ctx, 10*time.Millisecond)
+				col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
+				if err != nil {
 					movementErr <- err
 					return
 				}
-				if commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{current[0], current[1], desired[2]}); err == nil {
-					if !commanded {
-						movementErr <- nil
+				if !col {
+					movementErr <- errors.New("base has deviated too far from path")
+					return
+				}
+
+				// get to the x, y location first - note that from the base's perspective +y is forward
+				desiredHeading := math.Atan2(desired[1].Value-current[1].Value, desired[0].Value-current[0].Value)
+				commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{desired[0], desired[1], {Value: desiredHeading}})
+				if err != nil {
+					movementErr <- err
+					return
+				}
+
+				if !commanded {
+					// no command to move to the x, y location was issued, correct the heading and then exit
+					// 2DOF model indicates position-only mode so heading doesn't need to be corrected, exit function
+					if len(ddk.planningFrame.DoF()) == 2 {
+						movementErr <- err
 						return
 					}
-				} else {
+					if commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{current[0], current[1], desired[2]}); err == nil {
+						if !commanded {
+							movementErr <- nil
+							return
+						}
+					} else {
+						movementErr <- err
+						return
+					}
+				}
+				current, err = ddk.CurrentInputs(cancelContext)
+				if err != nil {
 					movementErr <- err
 					return
 				}
+				ddk.logger.CInfof(ctx, "current inputs: %v", current)
 			}
-			current, err = ddk.CurrentInputs(cancelContext)
-			if err != nil {
-				movementErr <- err
-				return
-			}
-			ddk.logger.CInfof(ctx, "current inputs: %v", current)
-		}
-		movementErr <- err
-	})
-
-	// watching for movement timeout
-	lastUpdate := time.Now()
-	var prevInputs []referenceframe.Input
-
-	for {
-		utils.SelectContextOrWait(ctx, 100*time.Millisecond)
-		select {
-		case err := <-movementErr:
-			return err
-		default:
-		}
-
-		currentInputs, err := ddk.CurrentInputs(ctx)
-		if err != nil {
-			cancel()
-			<-movementErr
-			return err
-		}
-		if prevInputs == nil {
-			prevInputs = currentInputs
-		}
-		positionChange := ik.L2InputMetric(&ik.Segment{
-			StartConfiguration: prevInputs,
-			EndConfiguration:   currentInputs,
+			movementErr <- err
 		})
-		if positionChange > ddk.options.MinimumMovementThresholdMM {
-			lastUpdate = time.Now()
-			prevInputs = currentInputs
-		} else if time.Since(lastUpdate) > ddk.options.Timeout {
-			cancel()
-			<-movementErr
-			return errMovementTimeout
+
+		// watching for movement timeout
+		lastUpdate := time.Now()
+		var prevInputs []referenceframe.Input
+
+		done := false
+		for {
+			utils.SelectContextOrWait(ctx, 100*time.Millisecond)
+			select {
+			case err := <-movementErr:
+				if err != nil {
+					return err
+				}
+				done = true
+			default:
+			}
+			if done {
+				break
+			}
+
+			currentInputs, err := ddk.CurrentInputs(ctx)
+			if err != nil {
+				cancel()
+				<-movementErr
+				return err
+			}
+			if prevInputs == nil {
+				prevInputs = currentInputs
+			}
+			positionChange := ik.L2InputMetric(&ik.Segment{
+				StartConfiguration: prevInputs,
+				EndConfiguration:   currentInputs,
+			})
+			if positionChange > ddk.options.MinimumMovementThresholdMM {
+				lastUpdate = time.Now()
+				prevInputs = currentInputs
+			} else if time.Since(lastUpdate) > ddk.options.Timeout {
+				cancel()
+				<-movementErr
+				return errMovementTimeout
+			}
 		}
 	}
+	return nil
 }
 
 // issueCommand issues a relevant command to move the base to the given desired inputs and returns the boolean describing

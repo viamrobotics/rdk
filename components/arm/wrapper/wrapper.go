@@ -176,13 +176,19 @@ func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 }
 
 // GoToInputs moves the arm to the specified goal inputs.
-func (wrapper *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	// check that joint positions are not out of bounds
-	positionDegs := wrapper.model.ProtobufFromInput(goal)
-	if err := arm.CheckDesiredJointPositions(ctx, wrapper, positionDegs); err != nil {
-		return err
+func (wrapper *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	for _, goal := range inputSteps {
+		// check that joint positions are not out of bounds
+		positionDegs := wrapper.model.ProtobufFromInput(goal)
+		if err := arm.CheckDesiredJointPositions(ctx, wrapper, positionDegs); err != nil {
+			return err
+		}
+		err := wrapper.MoveToJointPositions(ctx, positionDegs, nil)
+		if err != nil {
+			return err
+		}
 	}
-	return wrapper.MoveToJointPositions(ctx, positionDegs, nil)
+	return nil
 }
 
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their

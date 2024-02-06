@@ -389,12 +389,18 @@ func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 	return e.model.InputFromProtobuf(res), nil
 }
 
-func (e *eva) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	positionDegs := e.model.ProtobufFromInput(goal)
-	if err := arm.CheckDesiredJointPositions(ctx, e, positionDegs); err != nil {
-		return err
+func (e *eva) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	for _, goal := range inputSteps {
+		positionDegs := e.model.ProtobufFromInput(goal)
+		if err := arm.CheckDesiredJointPositions(ctx, e, positionDegs); err != nil {
+			return err
+		}
+		err := e.MoveToJointPositions(ctx, positionDegs, nil)
+		if err != nil {
+			return err
+		}
 	}
-	return e.MoveToJointPositions(ctx, positionDegs, nil)
+	return nil
 }
 
 func (e *eva) Close(ctx context.Context) error {

@@ -500,13 +500,19 @@ func (ua *urArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 }
 
 // GoToInputs moves the UR arm to the Inputs specified.
-func (ua *urArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	// check that joint positions are not out of bounds
-	positionDegs := ua.model.ProtobufFromInput(goal)
-	if err := arm.CheckDesiredJointPositions(ctx, ua, positionDegs); err != nil {
-		return err
+func (ua *urArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	for _, goal := range inputSteps {
+		// check that joint positions are not out of bounds
+		positionDegs := ua.model.ProtobufFromInput(goal)
+		if err := arm.CheckDesiredJointPositions(ctx, ua, positionDegs); err != nil {
+			return err
+		}
+		err := ua.MoveToJointPositions(ctx, positionDegs, nil)
+		if err != nil {
+			return err
+		}
 	}
-	return ua.MoveToJointPositions(ctx, positionDegs, nil)
+	return nil
 }
 
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their

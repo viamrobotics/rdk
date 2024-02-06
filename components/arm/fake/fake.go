@@ -185,14 +185,20 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 }
 
 // GoToInputs TODO.
-func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	a.mu.RLock()
-	positionDegs := a.model.ProtobufFromInput(goal)
-	a.mu.RUnlock()
-	if err := arm.CheckDesiredJointPositions(ctx, a, positionDegs); err != nil {
-		return err
+func (a *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	for _, goal := range inputSteps {
+		a.mu.RLock()
+		positionDegs := a.model.ProtobufFromInput(goal)
+		a.mu.RUnlock()
+		if err := arm.CheckDesiredJointPositions(ctx, a, positionDegs); err != nil {
+			return err
+		}
+		err := a.MoveToJointPositions(ctx, positionDegs, nil)
+		if err != nil {
+			return err
+		}
 	}
-	return a.MoveToJointPositions(ctx, positionDegs, nil)
+	return nil
 }
 
 // Close does nothing.
