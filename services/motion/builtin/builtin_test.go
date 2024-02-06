@@ -1521,7 +1521,6 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 	})
 
 	t.Run("fail due to obstacles enclosing goals", func(t *testing.T) {
-
 		// define static obstacles
 		obstacleTop, err := spatialmath.NewBox(
 			spatialmath.NewPoseFromPoint(r3.Vector{0.64603e3, 0.77151e3, 0}),
