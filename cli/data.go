@@ -738,3 +738,109 @@ func (c *viamClient) dataGetDatabaseConnection(orgID string) error {
 	printf(c.c.App.Writer, "MongoDB Atlas Data Federation instance hostname: %s", res.GetHostname())
 	return nil
 }
+
+// DataAddTagsToDataByIDs is the corresponding action for 'data tags add ids'.
+func DataAddTagsToDataByIDs(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.dataAddTagsToDataByIDs(c.StringSlice(dataFlagTags), c.String(dataFlagOrgID),
+		c.String(dataFlagLocationID), c.StringSlice(dataFlagFileIDs)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// dataAddTagsToDataByIDs adds tags to the data, with the specified org ID, location ID, and file IDs.
+func (c *viamClient) dataAddTagsToDataByIDs(tags []string, orgID, locationID string, fileIDs []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	binaryData := make([]*datapb.BinaryID, 0, len(fileIDs))
+	for _, fileID := range fileIDs {
+		binaryData = append(binaryData, &datapb.BinaryID{
+			OrganizationId: orgID,
+			LocationId:     locationID,
+			FileId:         fileID,
+		})
+	}
+	_, err := c.dataClient.AddTagsToBinaryDataByIDs(context.Background(),
+		&datapb.AddTagsToBinaryDataByIDsRequest{Tags: tags, BinaryIds: binaryData})
+	if err != nil {
+		return errors.Wrapf(err, "received error from server")
+	}
+	printf(c.c.App.Writer, "Added tags %v to data", tags)
+	return nil
+}
+
+// DataAddTagsToDataByFilter is the corresponding action for 'data tags add filter'.
+func DataAddTagsToDataByFilter(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	filter, err := createDataFilter(c)
+	if err != nil {
+		return err
+	}
+	if err := client.dataAddTagsToDataByFilter(filter, c.StringSlice(dataFlagTags)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// dataAddTagsToDataByFilter adds data, with the specified filter to the dataset corresponding to the dataset ID.
+func (c *viamClient) dataAddTagsToDataByFilter(filter *datapb.Filter, tags []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	parallelActions := uint(100)
+
+	return c.performActionOnBinaryDataFromFilter(
+		func(id *datapb.BinaryID) error {
+			_, err := c.dataClient.AddTagsToBinaryDataByIDs(c.c.Context,
+				&datapb.AddTagsToBinaryDataByIDsRequest{Tags: tags, BinaryIds: []*datapb.BinaryID{id}})
+			return err
+		},
+		filter, parallelActions,
+		func(i int32) {
+			printf(c.c.App.Writer, "Added tags %v to data", tags)
+		})
+}
+
+// DataRemoveTagsFromDataByIDs is the corresponding action for 'data tags remove'.
+func DataRemoveTagsFromDataByIDs(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.dataRemoveTagsFromData(c.StringSlice(dataFlagTags), c.String(dataFlagOrgID),
+		c.String(dataFlagLocationID), c.StringSlice(dataFlagFileIDs)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// dataRemoveTagsFromData removes tags from data, with the specified org ID, location ID,
+// and file IDs.
+func (c *viamClient) dataRemoveTagsFromData(tags []string, orgID, locationID string, fileIDs []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	binaryData := make([]*datapb.BinaryID, 0, len(fileIDs))
+	for _, fileID := range fileIDs {
+		binaryData = append(binaryData, &datapb.BinaryID{
+			OrganizationId: orgID,
+			LocationId:     locationID,
+			FileId:         fileID,
+		})
+	}
+	_, err := c.dataClient.RemoveTagsFromBinaryDataByIDs(context.Background(),
+		&datapb.RemoveTagsFromBinaryDataByIDsRequest{Tags: tags, BinaryIds: binaryData})
+	if err != nil {
+		return errors.Wrapf(err, "received error from server")
+	}
+	printf(c.c.App.Writer, "Removed tags %v from data", tags)
+	return nil
+}

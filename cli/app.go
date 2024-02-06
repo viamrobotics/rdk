@@ -456,6 +456,156 @@ var app = &cli.App{
 					},
 				},
 				{
+					Name:      "tag",
+					Usage:     "add or remove tags from binary data",
+					UsageText: createUsageText("viam data tag", nil, true),
+					Subcommands: []*cli.Command{
+						{
+							Name:  "add",
+							Usage: "adds tags to binary data either by IDs or filter",
+							Subcommands: []*cli.Command{
+								{
+									Name:  "ids",
+									Usage: "adds tagsbinary data with file IDs in a single org and location",
+									UsageText: createUsageText("viam data tag add ids", []string{
+										datasetFlagDatasetID, dataFlagOrgID,
+										dataFlagLocationID, dataFlagFileIDs,
+									}, false),
+									Flags: []cli.Flag{
+										&cli.StringSliceFlag{
+											Name:     dataFlagTags,
+											Usage:    "tags that will be added to data",
+											Required: true,
+										},
+										&cli.StringFlag{
+											Name:     dataFlagOrgID,
+											Usage:    "org ID to which data belongs",
+											Required: true,
+										},
+										&cli.StringFlag{
+											Name:     dataFlagLocationID,
+											Usage:    "location ID to which data belongs",
+											Required: true,
+										},
+										&cli.StringSliceFlag{
+											Name:     dataFlagFileIDs,
+											Usage:    "file IDs of data belonging to specified org and location",
+											Required: true,
+										},
+									},
+									Action: DataAddTagsToDataByIDs,
+								},
+
+								{
+									Name:      "filter",
+									UsageText: createUsageText("viam data tags add filter", []string{datasetFlagDatasetID}, true),
+									Flags: []cli.Flag{
+										&cli.StringSliceFlag{
+											Name:     dataFlagTags,
+											Usage:    "tags that will be added to data",
+											Required: true,
+										},
+										&cli.StringSliceFlag{
+											Name:  dataFlagOrgIDs,
+											Usage: "orgs filter",
+										},
+										&cli.StringSliceFlag{
+											Name:  dataFlagLocationIDs,
+											Usage: "locations filter",
+										},
+										&AliasStringFlag{
+											cli.StringFlag{
+												Name:    dataFlagMachineID,
+												Aliases: []string{dataFlagAliasRobotID},
+												Usage:   "machine id filter",
+											},
+										},
+										&cli.StringFlag{
+											Name:  dataFlagPartID,
+											Usage: "part id filter",
+										},
+										&AliasStringFlag{
+											cli.StringFlag{
+												Name:    dataFlagMachineName,
+												Aliases: []string{dataFlagAliasRobotName},
+												Usage:   "machine name filter",
+											},
+										},
+										&cli.StringFlag{
+											Name:  dataFlagPartName,
+											Usage: "part name filter",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagComponentType,
+											Usage: "component type filter",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagComponentName,
+											Usage: "component name filter",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagMethod,
+											Usage: "method filter",
+										},
+										&cli.StringSliceFlag{
+											Name:  dataFlagMimeTypes,
+											Usage: "mime types filter",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagStart,
+											Usage: "ISO-8601 timestamp indicating the start of the interval filter",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagEnd,
+											Usage: "ISO-8601 timestamp indicating the end of the interval filter",
+										},
+										&cli.StringSliceFlag{
+											Name: dataFlagTags,
+											Usage: "tags filter. " +
+												"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
+										},
+										&cli.StringSliceFlag{
+											Name: dataFlagBboxLabels,
+											Usage: "bbox labels filter. " +
+												"accepts string labels corresponding to bounding boxes within images",
+										},
+									},
+									Action: DataAddTagsToDataByFilter,
+								},
+							},
+						},
+						{
+							Name:  "remove",
+							Usage: "removes tags from binary data with file IDs in a single org and location",
+							UsageText: createUsageText("viam data tags remove",
+								[]string{datasetFlagDatasetID, dataFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     datasetFlagDatasetID,
+									Usage:    "dataset ID from which data will be removed",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     dataFlagOrgID,
+									Usage:    "org ID to which data belongs",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     dataFlagLocationID,
+									Usage:    "location ID to which data belongs",
+									Required: true,
+								},
+								&cli.StringSliceFlag{
+									Name:     dataFlagFileIDs,
+									Usage:    "file IDs of data belonging to specified org and location",
+									Required: true,
+								},
+							},
+							Action: DataRemoveTagsFromDataByIDs,
+						},
+					},
+				},
+				{
 					Name:      "dataset",
 					Usage:     "add or remove data from datasets",
 					UsageText: createUsageText("viam data dataset", nil, true),
@@ -605,6 +755,7 @@ var app = &cli.App{
 						},
 					},
 				},
+
 			},
 		},
 		{
