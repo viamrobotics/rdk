@@ -58,8 +58,8 @@ type NtripConfig struct {
 	NtripURL             string `json:"ntrip_url"`
 	NtripConnectAttempts int    `json:"ntrip_connect_attempts,omitempty"`
 	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
-	NtripPass            string `json:"ntrip_password,omitempty"`
 	NtripUser            string `json:"ntrip_username,omitempty"`
+	NtripPass            string `json:"ntrip_password,omitempty"`
 }
 
 // Sourcetable struct contains the stream.

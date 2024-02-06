@@ -28,8 +28,8 @@ func TestConnectSucceeds(t *testing.T) {
 		NtripURL: "http://fakeurl",
 		NtripConnectAttempts: 10,
 		NtripMountpoint: "",
-		NtripPass: "pwd",
 		NtripUser: "user",
+		NtripPass: "pwd",
 	}
 
 	ntripInfo, err := NewNtripInfo(&config, logger)
