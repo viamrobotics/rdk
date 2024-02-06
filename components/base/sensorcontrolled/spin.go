@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/components/camera/videosource/logging"
 	"go.viam.com/rdk/components/movementsensor"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -18,8 +17,6 @@ const (
 	increment = 0.01 // angle fraction multiplier to check
 	oneTurn   = 360.0
 )
-
-var logger logging.Logger
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
 func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
@@ -151,9 +148,6 @@ func (sb *sensorBase) stopSpinWithSensor(
 							"stopping base with errAngle:%.2f, overshot? %t",
 							math.Abs(targetYaw-currYaw), overShot)
 					}
-
-					sb.logger.Errorf("currYaw %.2f, startYaw %.2f, targetYaw %.2f",
-						currYaw, startYaw, targetYaw)
 
 					if err := sb.Stop(ctx, nil); err != nil {
 						return
