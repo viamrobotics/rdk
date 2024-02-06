@@ -11,8 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"maps"
+
 	"go.viam.com/utils"
-	"golang.org/x/exp/maps"
 )
 
 // getArchiveFilePaths traverses the provided rootpaths recursively,

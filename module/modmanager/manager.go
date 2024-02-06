@@ -12,6 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"slices"
+
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -19,7 +21,6 @@ import (
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
-	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"

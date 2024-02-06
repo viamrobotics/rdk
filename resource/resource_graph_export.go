@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"golang.org/x/exp/slices"
+	"slices"
 )
 
 // blockWriter wraps a bytes.Buffer and adds some structured methods (`NewBlock`/`EndBlock`) for
