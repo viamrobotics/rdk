@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"golang.org/x/exp/slices"
+
+	"go.viam.com/rdk/utils"
 )
 
 // blockWriter wraps a bytes.Buffer and adds some structured methods (`NewBlock`/`EndBlock`) for
@@ -91,8 +93,8 @@ func nodesSortedByName(nodes graphNodes) []nameNode {
 	for name, node := range nodes {
 		ret = append(ret, nameNode{name, node})
 	}
-	slices.SortFunc(ret, func(left, right nameNode) bool {
-		return left.Name.String() < right.Name.String()
+	slices.SortFunc(ret, func(left, right nameNode) int {
+		return utils.Compare(left.Name.String(), right.Name.String())
 	})
 
 	return ret
@@ -162,12 +164,12 @@ func edgesSortedByName(deps resourceDependencies) []edge {
 		}
 	}
 
-	slices.SortFunc(ret, func(left, right edge) bool {
+	slices.SortFunc(ret, func(left, right edge) int {
 		if left.source == right.source {
-			return left.dest.String() < right.dest.String()
+			return utils.Compare(left.dest.String(), right.dest.String())
 		}
 
-		return left.source.String() < right.source.String()
+		return utils.Compare(left.source.String(), right.source.String())
 	})
 
 	return ret
