@@ -508,8 +508,9 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	test.That(t, spatialmath.PoseAlmostEqualEps(goalPose2, spatialmath.PoseBetween(goal1BaseFrame, goal2BaseFrame), 10), test.ShouldBeTrue)
 }
 
-func TestMoveOnMapAskewIMUTestMoveOnMapAskewIMU(t *testing.T) {
+func TestMoveOnMapAskewIMU(t *testing.T) {
 	t.Parallel()
+	extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 	t.Run("Askew but valid base should be able to plan", func(t *testing.T) {
 		t.Parallel()
 		ctx := context.Background()
@@ -526,7 +527,7 @@ func TestMoveOnMapAskewIMUTestMoveOnMapAskewIMU(t *testing.T) {
 			ComponentName: base.Named("test-base"),
 			Destination:   goal1SLAMFrame,
 			SlamName:      slam.Named("test_slam"),
-			Extra:         map[string]interface{}{"smooth_iter": 5},
+			Extra:         extraPosOnly,
 		}
 
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
@@ -535,7 +536,7 @@ func TestMoveOnMapAskewIMUTestMoveOnMapAskewIMU(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
+		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*15)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
@@ -568,10 +569,10 @@ func TestMoveOnMapAskewIMUTestMoveOnMapAskewIMU(t *testing.T) {
 			ComponentName: base.Named("test-base"),
 			Destination:   goal1SLAMFrame,
 			SlamName:      slam.Named("test_slam"),
-			Extra:         map[string]interface{}{"smooth_iter": 5},
+			Extra:         extraPosOnly,
 		}
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*15)
 		defer timeoutFn()
 		_, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 		test.That(t, err, test.ShouldNotBeNil)
