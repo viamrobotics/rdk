@@ -119,11 +119,8 @@ func (sb *sensorBase) SetVelocity(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
 	sb.opMgr.CancelRunning(ctx)
-	// check if a sensor context has been started
-	if sb.sensorLoopDone != nil {
-		sb.sensorLoopDone()
-	}
-
+	// stop any previous base movement
+	sb.Stop(ctx, nil)
 	// set the spin loop to false, so we do not skip the call to SetState in the control loop
 	sb.setPolling(false)
 

@@ -639,8 +639,9 @@ func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) e
 func (m *EncodedMotor) Close(ctx context.Context) error {
 	if m.loop != nil {
 		m.loop.Stop()
+		m.loop = nil
 	}
 	m.cancel()
 	m.activeBackgroundWorkers.Wait()
-	return nil
+	return m.real.Stop(ctx, nil)
 }
