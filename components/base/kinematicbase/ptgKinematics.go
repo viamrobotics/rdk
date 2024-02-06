@@ -285,13 +285,13 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 					// Positive Y means we are behind where we want to be and should speed up. Speed up 5% at a time
 					adjLinVel.Y = lastLinVel.Y * (1. + math.Copysign(0.05, poseDiffPt.Y))
 				}
-				if math.Abs(poseDiffPt.X) > 100 {
-					// If we are to the right, we want to rotate left, and vice versa.
-					adjAngVel.Z += math.Copysign(10., poseDiffPt.X)
-				} else if math.Abs(poseDiffAngle) > 10 {
-					// If we are at the correct X position but angled, adjust so we do not go off course
-					adjAngVel.Z += -1 * math.Copysign(10., poseDiffAngle)
-				}
+				//~ if math.Abs(poseDiffPt.X) > 100 {
+					//~ // If we are to the right, we want to rotate left, and vice versa.
+					//~ adjAngVel.Z += math.Copysign(10., poseDiffPt.X)
+				//~ } else if math.Abs(poseDiffAngle) > 10 {
+					//~ // If we are at the correct X position but angled, adjust so we do not go off course
+					//~ adjAngVel.Z += -1 * math.Copysign(10., poseDiffAngle)
+				//~ }
 				if !lastLinVel.ApproxEqual(adjLinVel) || !lastAngVel.ApproxEqual(adjAngVel) {
 					err = ptgk.Base.SetVelocity(
 						ctx,
