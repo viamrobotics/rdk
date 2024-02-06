@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/components/camera/videosource/logging"
 	"go.viam.com/rdk/components/movementsensor"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -17,6 +18,8 @@ const (
 	increment = 0.01 // angle fraction multiplier to check
 	oneTurn   = 360.0
 )
+
+var logger logging.Logger
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
 func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
@@ -149,6 +152,9 @@ func (sb *sensorBase) stopSpinWithSensor(
 							math.Abs(targetYaw-currYaw), overShot)
 					}
 
+					sb.logger.Errorf("currYaw %.2f, startYaw %.2f, targetYaw %.2f",
+						currYaw, startYaw, targetYaw)
+
 					if err := sb.Stop(ctx, nil); err != nil {
 						return
 					}
@@ -218,27 +224,35 @@ func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64, in
 	return targetYaw, dir, fullTurns
 }
 
-func angleBetween(current, lowerBound, upperBound float64) bool {
-	return current >= lowerBound && current <= upperBound
+// this function does not wrap around 360 degrees currently.
+func angleBetween(current, bound1, bound2 float64) bool {
+	if bound2 > bound1 {
+		inBewtween := current >= bound1 && current < bound2
+		return inBewtween
+	}
+	inBewteen := current > bound2 && current <= bound1
+	return inBewteen
 }
 
 func hasOverShot(angle, start, target, dir float64) bool {
 	switch {
 	case dir == -1 && start > target: // clockwise
-		// the overshoot range is the inside range between the start and target
-		return angle < target
-	case dir == -1 && target > start:
 		// for cases with a quadrant switch from 1 <-> 4
 		// check if the current angle is in the regions before the
 		// target and after the start
-		return !angleBetween(angle, 0, start+10) && !angleBetween(angle, target, 360)
+		over := angleBetween(angle, target, 0) || angleBetween(angle, 360, start+10)
+		return over
+	case dir == -1 && target > start:
+		// the overshoot range is the inside range between the start and target
+		return angleBetween(angle, target, start+10)
 	case dir == 1 && start > target: // counterclockwise
 		// for cases with a quadrant switch from 1 <-> 4
 		// check if the current angle is not in the regions after the
 		// target and before the start
-		return !angleBetween(angle, start-10, 360) && !angleBetween(angle, 0, target)
+		over := !angleBetween(angle, 0, target) && !angleBetween(angle, start-10, 360)
+		return over
 	default:
 		// the overshoot range is the range of angles outside the start and target ranges
-		return angle > target
+		return !angleBetween(angle, start-10, target)
 	}
 }
