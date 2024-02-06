@@ -1400,6 +1400,95 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 }
 
+func TestMoveOnMapStaticObs(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	extra := map[string]interface{}{
+		"motion_profile": "position_only",
+		"timeout":        25.,
+		"smooth_iter":    10.,
+	}
+
+	// Create an injected Base
+	baseName := "test-base"
+
+	geometry, err := (&spatialmath.GeometryConfig{R: 30}).ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+
+	injectBase := inject.NewBase(baseName)
+	injectBase.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
+		return []spatialmath.Geometry{geometry}, nil
+	}
+	injectBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+		return base.Properties{TurningRadiusMeters: 0, WidthMeters: 0.6}, nil
+	}
+
+	// Create a base link
+	baseLink := createBaseLink(t)
+
+	slamName := "test-slam"
+
+	// Create an injected SLAM
+	injectSlam := createInjectedSlam(slamName, "pointcloud/octagonspace.pcd", nil)
+	injectSlam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+		return spatialmath.NewPose(
+			r3.Vector{X: 0.58772e3, Y: -0.80826e3, Z: 0},
+			&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90},
+		), "", nil
+	}
+
+	// Create a motion service
+	deps := resource.Dependencies{injectBase.Name(): injectBase, injectSlam.Name(): injectSlam}
+	fsParts := []*referenceframe.FrameSystemPart{{FrameConfig: baseLink}}
+
+	ms, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: &Config{}}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer ms.Close(context.Background())
+
+	fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
+	test.That(t, err, test.ShouldBeNil)
+	ms.(*builtIn).fsService = fsSvc
+
+	// define static obstacle
+	obstacleLeft, err := spatialmath.NewBox(
+		spatialmath.NewPose(r3.Vector{0.22981e3, -0.38875e3, 0},
+			&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 45}),
+		r3.Vector{900, 10, 10},
+		"obstacleLeft",
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// this is the case where we want to use check plan to show that new obs causes collision
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.6556e3, Y: 0.64152e3})
+	req := motion.MoveOnMapReq{
+		ComponentName: injectBase.Name(),
+		Destination:   goal,
+		SlamName:      injectSlam.Name(),
+		Obstacles:     []spatialmath.Geometry{obstacleLeft},
+		MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 0.2},
+		Extra:         extra,
+	}
+
+	planExecutor, err := ms.(*builtIn).newMoveOnMapRequest(ctx, req, nil, 0)
+	test.That(t, err, test.ShouldBeNil)
+
+	mr, ok := planExecutor.(*moveRequest)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	planResp, err := mr.Plan(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(planResp.Waypoints), test.ShouldBeGreaterThan, 2)
+
+	for _, step := range planResp.PosesByComponent {
+		for _, p := range step {
+			fmt.Println("p", spatialmath.PoseToProtobuf(p))
+		}
+	}
+
+	// this is the case where we want to show that the plan fails
+	// bc obs obstruct the goal
+}
+
 func TestMoveOnMapNew(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
