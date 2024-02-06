@@ -120,7 +120,9 @@ func (sb *sensorBase) SetVelocity(
 ) error {
 	sb.opMgr.CancelRunning(ctx)
 	// stop any previous base movement
-	sb.Stop(ctx, nil)
+	if err := sb.Stop(ctx, nil); err != nil {
+		return err
+	}
 	// set the spin loop to false, so we do not skip the call to SetState in the control loop
 	sb.setPolling(false)
 

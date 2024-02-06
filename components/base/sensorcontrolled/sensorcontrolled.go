@@ -121,7 +121,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		return err
 	}
 
-	sb.stopLoop(ctx)
+	sb.stopLoop()
 
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
@@ -227,7 +227,7 @@ func (sb *sensorBase) isPolling() bool {
 func (sb *sensorBase) MoveStraight(
 	ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{},
 ) error {
-	sb.stopLoop(ctx)
+	sb.stopLoop()
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
 	sb.setPolling(false)
@@ -248,11 +248,11 @@ func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) er
 	if sb.sensorLoopDone != nil {
 		sb.sensorLoopDone()
 	}
-	sb.stopLoop(ctx)
+	sb.stopLoop()
 	return sb.controlledBase.Stop(ctx, extra)
 }
 
-func (sb *sensorBase) stopLoop(ctx context.Context) {
+func (sb *sensorBase) stopLoop() {
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
 	if sb.loop != nil {
