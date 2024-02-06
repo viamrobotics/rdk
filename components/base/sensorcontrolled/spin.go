@@ -219,36 +219,25 @@ func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64, in
 }
 
 // this function does not wrap around 360 degrees currently.
-func angleBetween(current, bound1, bound2 float64) bool {
-	if bound2 > bound1 {
-		inBewtween := current >= bound1 && current < bound2
-		return inBewtween
-	}
-	inBewteen := current > bound2 && current <= bound1
-	return inBewteen
+func angleBetween(current, lowerBound, upperBound float64) bool {
+	return current >= lowerBound && current <= upperBound
 }
 
 func hasOverShot(angle, start, target, dir float64) bool {
 	switch {
 	case dir == -1 && start > target: // clockwise
+		// the overshoot range is the inside range between the start and target
+		return angle < target
+	case dir == -1 && target > start:
 		// for cases with a quadrant switch from 1 <-> 4
 		// check if the current angle is in the regions before the
 		// target and after the start
-		return angle < target
-	case dir == -1 && target > start:
-		// the overshoot range is the inside range between the start and target
-		if angle < (start+10) && angle >= 0 {
-			return false
-		}
-		return angle < target
+		return !angleBetween(angle, 0, start+10) && !angleBetween(angle, target, 360)
 	case dir == 1 && start > target: // counterclockwise
 		// for cases with a quadrant switch from 1 <-> 4
 		// check if the current angle is not in the regions after the
 		// target and before the start
-		if angle > (start-10) && angle <= 360 {
-			return false
-		}
-		return angle > target
+		return !angleBetween(angle, start-10, 360) && !angleBetween(angle, 0, target)
 	default:
 		// the overshoot range is the range of angles outside the start and target ranges
 		return angle > target
