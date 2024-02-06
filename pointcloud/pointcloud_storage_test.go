@@ -152,7 +152,7 @@ func benchPointCloudStorage(b *testing.B, ms storage) {
 
 	pcMax := 10_000.
 	for i := 0; i < b.N; i++ {
-		rand.Seed(0)
+		rand.Seed(0) //nolint:staticcheck
 		pointList := make([]PointAndData, 0, 10_000)
 		for j := 0; j < cap(pointList); j++ {
 			pointList = append(pointList, PointAndData{

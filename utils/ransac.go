@@ -16,7 +16,7 @@ func SelectNIndicesWithoutReplacement(nSamples, nMax int) ([]int, error) {
 		a[i] = i
 	}
 
-	rand.Seed(time.Now().UnixNano())
+	rand.Seed(time.Now().UnixNano()) //nolint:staticcheck
 	rand.Shuffle(len(a), func(i, j int) { a[i], a[j] = a[j], a[i] })
 	return a[:nSamples], nil
 }
