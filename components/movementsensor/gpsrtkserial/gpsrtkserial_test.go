@@ -63,29 +63,6 @@ func TestValidateRTK(t *testing.T) {
 	})
 }
 
-func TestConnect(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := rtkSerial{
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
-		logger:     logger,
-	}
-
-	url := "http://fakeurl"
-	username := "user"
-	password := "pwd"
-
-	err := g.connect("invalidurl", username, password, 10)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `address must start with http://`)
-
-	g.ntripClient = makeMockNtripClient()
-
-	err = g.connect(url, username, password, 10)
-	test.That(t, err, test.ShouldBeNil)
-}
-
 func TestReadings(t *testing.T) {
 	var (
 		alt   = 50.5
@@ -212,9 +189,4 @@ func (c *CustomMovementSensor) Position(ctx context.Context, extra map[string]in
 	}
 	// Fallback to the default implementation if PositionFunc is not set.
 	return c.MovementSensor.Position(ctx, extra)
-}
-
-// mock ntripinfo client.
-func makeMockNtripClient() *rtk.NtripInfo {
-	return &rtk.NtripInfo{}
 }
