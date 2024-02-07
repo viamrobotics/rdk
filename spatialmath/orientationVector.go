@@ -10,6 +10,12 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// orientationVectorPoleRadius is how close OZ must be to +/-1 in order to use pole math for computing theta.
+// An orientation vector with OZ=+/-1 is effectively a gimbal-locked euler angle. As such, when pointed at OZ=+/-1, Theta values are
+// computed differently than otherwise, and are discontinuous. The determining factor for which method of computing theta is used is
+// 1 - abs(OZ) > OrientationVectorPoleRadius.
+const orientationVectorPoleRadius = 0.0001
+
 // OrientationVector containing ox, oy, oz, theta represents an orientation vector
 // Structured similarly to an angle axis, an orientation vector works differently. Rather than representing an orientation
 // with an arbitrary axis and a rotation around it from an origin, an orientation vector represents orientation
