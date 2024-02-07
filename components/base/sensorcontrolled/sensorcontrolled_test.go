@@ -395,13 +395,28 @@ func TestSensorBase(t *testing.T) {
 }
 
 func sBaseTestConfig(msNames []string) resource.Config {
+	controlParams := make([]basePIDConfig, 2)
+	controlParams[0] = basePIDConfig{
+		Type: typeLinVel,
+		P:    0.5,
+		I:    0.5,
+		D:    0.0,
+	}
+	controlParams[1] = basePIDConfig{
+		Type: typeAngVel,
+		P:    0.5,
+		I:    0.5,
+		D:    0.0,
+	}
+
 	return resource.Config{
 		Name:  "test",
 		API:   base.API,
 		Model: resource.Model{Name: "controlled_base"},
 		ConvertedAttributes: &Config{
-			MovementSensor: msNames,
-			Base:           "test_base",
+			MovementSensor:    msNames,
+			Base:              "test_base",
+			ControlParameters: controlParams,
 		},
 	}
 }
@@ -505,9 +520,6 @@ func TestReconfig(t *testing.T) {
 }
 
 func TestSensorBaseWithVelocitiesSensor(t *testing.T) {
-	if useControlLoop == false {
-		t.Skip()
-	}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	deps, cfg := msDependencies(t, []string{"setvel1"})

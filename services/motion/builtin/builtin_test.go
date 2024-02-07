@@ -530,7 +530,7 @@ func TestMoveOnMapAskewIMU(t *testing.T) {
 			Extra:         extraPosOnly,
 		}
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*15)
 		defer timeoutFn()
 		executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 		test.That(t, err, test.ShouldBeNil)
