@@ -612,7 +612,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 		return nil, err
 	}
 
-	worldObstacles := append(req.Obstacles, octree)
+	req.Obstacles = append(req.Obstacles, octree)
 
 	mr, err := ms.relativeMoveRequestFromAbsolute(
 		ctx,
@@ -621,7 +621,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 		kb,
 		goalPoseAdj,
 		fs,
-		worldObstacles,
+		req.Obstacles,
 		valExtra,
 	)
 	if err != nil {
