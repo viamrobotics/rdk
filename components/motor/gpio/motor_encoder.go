@@ -124,15 +124,6 @@ func newEncodedMotor(
 		if err = em.validateControlConfig(cancelCtx); err != nil {
 			return nil, err
 		}
-
-		// SetTuning to true if all PID values are 0
-		if motorConfig.ControlParameters.P == 0.0 &&
-			motorConfig.ControlParameters.I == 0.0 &&
-			motorConfig.ControlParameters.D == 0.0 {
-			em.loop.SetTuning(context.Background(), true)
-		} else {
-			em.loop.SetTuning(context.Background(), false)
-		}
 	} else {
 		// TODO DOCS-1524: link to docs that explain control parameters
 		em.logger.Warn(
@@ -640,7 +631,6 @@ func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) e
 		m.loop.Stop()
 		m.loop = nil
 	}
-
 	return m.real.Stop(ctx, nil)
 }
 
@@ -648,8 +638,9 @@ func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) e
 func (m *EncodedMotor) Close(ctx context.Context) error {
 	if m.loop != nil {
 		m.loop.Stop()
+		m.loop = nil
 	}
 	m.cancel()
 	m.activeBackgroundWorkers.Wait()
-	return nil
+	return m.real.Stop(ctx, nil)
 }
