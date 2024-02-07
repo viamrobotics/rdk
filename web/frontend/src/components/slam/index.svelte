@@ -351,12 +351,13 @@ const clearRefresh = () => {
   clear2dRefresh?.();
 };
 
-const handleEndMapping = () => {
+const handleEndMapping = async () => {
   hasActiveSession = false;
   mappingSessionEnded = true;
   clearRefresh();
   clearInterval(durationInterval);
-  overrides?.endMappingSession(sessionId);
+  await overrides?.endMappingSession(sessionId);
+  notify.success("Mapping session complete", "You can find the newly generated map in the location's SLAM library.")
 };
 
 const formatDisplayTime = (time: number): string => {
