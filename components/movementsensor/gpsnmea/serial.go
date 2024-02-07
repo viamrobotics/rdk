@@ -40,7 +40,6 @@ type SerialNMEAMovementSensor struct {
 	isClosed           bool
 
 	dev  io.ReadWriteCloser
-	path string
 }
 
 // NewSerialGPSNMEA gps that communicates over serial.
@@ -77,7 +76,6 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 		cancelCtx:          cancelCtx,
 		cancelFunc:         cancelFunc,
 		logger:             logger,
-		path:               serialPath,
 		err:                movementsensor.NewLastError(1, 1),
 		lastPosition:       movementsensor.NewLastPosition(),
 		lastCompassHeading: movementsensor.NewLastCompassHeading(),
