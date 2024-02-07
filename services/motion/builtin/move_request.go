@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -96,17 +95,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): inputs}
 
 	// get existing elements of the worldstate
-	existingGifs, err := mr.getExistingGeometries(
-		func(g spatialmath.Geometry) spatialmath.Geometry {
-			return g
-		},
-	)
-	if err != nil {
-		return state.PlanResponse{}, err
-	}
-
-	// get current position which we will use to inform positioning of new transient detections
-	currentPosition, err := mr.getCurrentPosition(ctx)
+	existingGifs, err := mr.getExistingGeometries(func(g spatialmath.Geometry) spatialmath.Geometry { return g })
 	if err != nil {
 		return state.PlanResponse{}, err
 	}
@@ -115,23 +104,26 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 	gifs := []*referenceframe.GeometriesInFrame{}
 	for visSrvc, cameraNames := range mr.obstacleDetectors {
 		for _, camName := range cameraNames {
-			_, relativeGIFs, err := mr.getTransientDetections(ctx, visSrvc, camName, currentPosition)
+			relativeGIFs, err := mr.getTransientDetections(ctx, visSrvc, camName,
+				func(g spatialmath.Geometry) spatialmath.Geometry { return g },
+			)
 			if err != nil {
 				return state.PlanResponse{}, err
 			}
-			gifs = append(gifs, relativeGIFs...)
+			gifs = append(gifs, relativeGIFs)
 		}
 	}
 	gifs = append(gifs, existingGifs)
 
 	// update worldstate to include transient detections
-	mr.planRequest.WorldState, err = referenceframe.NewWorldState(gifs, nil)
+	planRequestCopy := mr.planRequest
+	planRequestCopy.WorldState, err = referenceframe.NewWorldState(gifs, nil)
 	if err != nil {
 		return state.PlanResponse{}, err
 	}
 
 	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
-	plan, err := motionplan.Replan(ctx, mr.planRequest, nil, 0)
+	plan, err := motionplan.Replan(ctx, planRequestCopy, nil, 0)
 	if err != nil {
 		return state.PlanResponse{}, err
 	}
@@ -143,7 +135,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 
 	switch mr.requestType {
 	case requestTypeMoveOnMap:
-		planSteps, err := motionplan.PlanToPlanSteps(plan, mr.kinematicBase.Name(), *mr.planRequest, mr.poseOrigin)
+		planSteps, err := motionplan.PlanToPlanSteps(plan, mr.kinematicBase.Name(), *planRequestCopy, mr.poseOrigin)
 		if err != nil {
 			return state.PlanResponse{}, err
 		}
@@ -155,7 +147,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 		}, nil
 	case requestTypeMoveOnGlobe:
 		// safe to use mr.poseOrigin since it is nil for requestTypeMoveOnGlobe
-		planSteps, err := motionplan.PlanToPlanSteps(plan, mr.kinematicBase.Name(), *mr.planRequest, mr.poseOrigin)
+		planSteps, err := motionplan.PlanToPlanSteps(plan, mr.kinematicBase.Name(), *planRequestCopy, mr.poseOrigin)
 		if err != nil {
 			return state.PlanResponse{}, err
 		}
@@ -225,16 +217,15 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints state.Way
 	return state.ExecuteResponse{}, nil
 }
 
-// getTransientDetections returns a list of geometries in their relative position (with respect to the base)
-// and another list of geometries in their absolute positions (with respect to the world) as observed by camName.
-// Relative position geometries are used for constructing a plan, since the base plans in its own frame.
-// Absolute position geometries are used for checking a plan for collisions.
+// getTransientDetections returns a list of geometries as observed by the provided vision service and camera.
+// Depending on the caller, the geometries returned are either in their relative position
+// with respect to the base or in their absolute position with respect to the world.
 func (mr *moveRequest) getTransientDetections(
 	ctx context.Context,
 	visSrvc vision.Service,
 	camName resource.Name,
-	currentPosition *referenceframe.PoseInFrame,
-) ([]*referenceframe.GeometriesInFrame, []*referenceframe.GeometriesInFrame, error) {
+	f func(g spatialmath.Geometry) spatialmath.Geometry,
+) (*referenceframe.GeometriesInFrame, error) {
 	mr.logger.CDebugf(ctx,
 		"proceeding to get detections from vision service: %s with camera: %s",
 		visSrvc.Name().ShortName(),
@@ -244,7 +235,7 @@ func (mr *moveRequest) getTransientDetections(
 	// get detections from vision service
 	detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	mr.logger.CDebugf(ctx, "got %d detections", len(detections))
 
@@ -261,13 +252,11 @@ func (mr *moveRequest) getTransientDetections(
 	}
 	mr.logger.CDebugf(ctx, "cameraToBase transform: %v", spatialmath.PoseToProtobuf(cameraToBase.Pose()))
 
-	// detections in the world frame used for CheckPlan
-	absoluteGeoms := []spatialmath.Geometry{}
-	// detection in the base frame used for Replan
-	relativeGeoms := []spatialmath.Geometry{}
-
+	// transformed detections
+	transformedGeoms := []spatialmath.Geometry{}
 	for i, detection := range detections {
 		geometry := detection.Geometry
+		// update the label of the geometry so we know it is transient
 		label := camName.ShortName() + "_transientObstacle_" + strconv.Itoa(i)
 		if geometry.Label() != "" {
 			label += "_" + geometry.Label()
@@ -277,46 +266,26 @@ func (mr *moveRequest) getTransientDetections(
 			i, camName.ShortName(), geometry.String(),
 		)
 
-		// transform the geometry to be relative to the base frame which is +Y forwards
+		// transform the transform the geometry to be relative to the base frame which is +Y forwards
 		relativeGeom := geometry.Transform(cameraToBase.Pose())
-		mr.logger.CDebugf(ctx, "detection %d observed from the camera in the base frame coordinate system has pose: %v",
+		mr.logger.CDebugf(ctx, "detection %d observed from the camera's position in the base frame coordinate system has pose: %v",
 			i, spatialmath.PoseToProtobuf(relativeGeom.Pose()),
 		)
-		relativeGeoms = append(relativeGeoms, relativeGeom)
 
-		// transform the geometry into the world frame coordinate system
-		absoluteGeom := geometry.Transform(cameraToBase.Pose())
-		// TODO: Determine if there should be a case for requestTypeMoveOnGlobe
-		if mr.requestType == requestTypeMoveOnMap {
-			baseTheta := currentPosition.Pose().Orientation().OrientationVectorDegrees().Theta
-			absoluteGeom = absoluteGeom.Transform(
-				spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: baseTheta}),
-			)
-		}
-		mr.logger.CDebugf(ctx, "detection %d observed from the camera in the world frame coordinate system has pose: %v",
-			i, spatialmath.PoseToProtobuf(absoluteGeom.Pose()),
+		// apply any other transformation on the geometry defined a priori by the caller
+		transformedGeom := f(relativeGeom)
+		mr.logger.CDebugf(ctx, "transformed detection %d has pose: %v",
+			i, spatialmath.PoseToProtobuf(transformedGeom.Pose()),
 		)
-
-		// transform the geometry into it's absolute coordinates, i.e. into the world frame
-		desiredPose := spatialmath.NewPose(
-			absoluteGeom.Pose().Point().Add(currentPosition.Pose().Point()),
-			absoluteGeom.Pose().Orientation(),
-		)
-		transformBy := spatialmath.PoseBetweenInverse(absoluteGeom.Pose(), desiredPose)
-		absoluteGeom = absoluteGeom.Transform(transformBy)
-		mr.logger.CDebugf(ctx, "detection %d observed from world frame has pose: %v",
-			i, spatialmath.PoseToProtobuf(absoluteGeom.Pose()),
-		)
-
-		absoluteGeoms = append(absoluteGeoms, absoluteGeom)
+		transformedGeoms = append(transformedGeoms, transformedGeom)
 	}
 
-	absoluteGIFs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, absoluteGeoms)}
-	relativeGIFs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, relativeGeoms)}
-
-	return absoluteGIFs, relativeGIFs, nil
+	return referenceframe.NewGeometriesInFrame(referenceframe.World, transformedGeoms), nil
 }
 
+// obstaclesIntersectPlan takes a list of waypoints and an index of a waypoint on that Plan and reports an error indicating
+// whether or not any obstacle detectors report geometries in positions which would cause a collision with the executor
+// following the Plan.
 func (mr *moveRequest) obstaclesIntersectPlan(
 	ctx context.Context,
 	waypoints state.Waypoints,
@@ -332,8 +301,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 
 	// existing geometries are in their relative position, i.e. with respect to the base's frame
 	// here we transform them into their absolute positions. i.e. with respect to the world frame
-	// Note: we remove any existing transient obstacle geometries as they will be re-detected
-	absExistingGifs, err := mr.getExistingGeometries(
+	existingGifs, err := mr.getExistingGeometries(
 		func(g spatialmath.Geometry) spatialmath.Geometry {
 			return g.Transform(mr.poseOrigin)
 		},
@@ -342,7 +310,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 		return state.ExecuteResponse{}, err
 	}
 
-	// get the current position of the base which we will use to transform the detection into world coordinates
+	// get the current position of the base which we will use to transform the detections into world coordinates
 	currentPosition, err := mr.getCurrentPosition(ctx)
 	if err != nil {
 		return state.ExecuteResponse{}, err
@@ -352,15 +320,16 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 		for _, camName := range cameraNames {
 			// Note: detections are initially observed from the camera frame but must be transformed to be in
 			// world frame. We cannot use the inputs of the base to transform the detections since they are relative.
-			absoluteGIFs, _, err := mr.getTransientDetections(ctx, visSrvc, camName, currentPosition)
+			f := func(g spatialmath.Geometry) spatialmath.Geometry {
+				return g.Transform(currentPosition.Pose())
+			}
+			gifs, err := mr.getTransientDetections(ctx, visSrvc, camName, f)
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
 
-			// append the existing elements of the worldstate in their absolute positions
-			absoluteGIFs = append(absoluteGIFs, absExistingGifs)
-
-			worldState, err := referenceframe.NewWorldState(absoluteGIFs, nil)
+			// construct new worldstate
+			worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{existingGifs, gifs}, nil)
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
@@ -968,7 +937,6 @@ func toGeoPosePlanSteps(posesByComponent []motionplan.PlanStep, geoPoses []spati
 
 // getCurrentPosition returns a kinematic bases current position with respect to the world frame.
 func (mr *moveRequest) getCurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
-	// get the current position of the base which we will use to transform the detection into world coordinates
 	currentPosition, err := mr.kinematicBase.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
@@ -981,7 +949,7 @@ func (mr *moveRequest) getCurrentPosition(ctx context.Context) (*referenceframe.
 			return nil, err
 		}
 
-		// transform using the plan request frame system
+		// transform using the planRequest's framesystem
 		tf, err := mr.planRequest.FrameSystem.Transform(currentInputs, currentPosition, referenceframe.World)
 		if err != nil {
 			return nil, err
@@ -997,8 +965,8 @@ func (mr *moveRequest) getCurrentPosition(ctx context.Context) (*referenceframe.
 }
 
 // getExistingGeometries returns elements of the worlstate which are not transient.
-// Depending on the caller, the geometries returned are in their relative position to the base or
-// in their absolute position with respect to the world.
+// Depending on the caller, the geometries returned are either in their relative position
+// with respect to the base or in their absolute position with respect to the world.
 func (mr *moveRequest) getExistingGeometries(
 	f func(g spatialmath.Geometry) spatialmath.Geometry,
 ) (*referenceframe.GeometriesInFrame, error) {
@@ -1009,16 +977,8 @@ func (mr *moveRequest) getExistingGeometries(
 	if err != nil {
 		return nil, err
 	}
-
-	// existing geometries are in their relative position, i.e. with respect to the base's frame
-	// here we transform them into their absolute positions. i.e. with respect to the world frame
-	// Note: we remove any existing transient obstacle geometries as they will be re-detected
 	existingGeoms := []spatialmath.Geometry{}
 	for _, g := range existingGifs.Geometries() {
-		if strings.Contains(g.Label(), "_transientObstacle_") {
-			mr.logger.Warnf("removing %s from the worldState", g.String())
-			continue
-		}
 		existingGeoms = append(existingGeoms, f(g))
 	}
 	return referenceframe.NewGeometriesInFrame(referenceframe.World, existingGeoms), nil

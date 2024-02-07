@@ -2432,58 +2432,61 @@ func TestGetTransientDetections(t *testing.T) {
 	}
 
 	type testCase struct {
-		name             string
-		baseTheta        float64
-		relativeGeomPose spatialmath.Pose
-		absoluteGeomPose spatialmath.Pose
+		name          string
+		f             func(g spatialmath.Geometry) spatialmath.Geometry
+		detectionPose spatialmath.Pose
 	}
 	testCases := []testCase{
 		{
-			name:             "SLAM theta: 0, base theta: -90 == 270",
-			baseTheta:        -90,
-			relativeGeomPose: spatialmath.NewPose(r3.Vector{4, 10, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
-			absoluteGeomPose: spatialmath.NewPose(r3.Vector{10, -4, -8}, &spatialmath.OrientationVectorDegrees{OX: 1, Theta: -90}),
+			name:          "relative - SLAM/base theta does not matter",
+			f:             func(g spatialmath.Geometry) spatialmath.Geometry { return g },
+			detectionPose: spatialmath.NewPose(r3.Vector{4, 10, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
 		},
 		{
-			name:             "SLAM theta: 90, base theta: 0",
-			baseTheta:        0,
-			relativeGeomPose: spatialmath.NewPose(r3.Vector{4, 10, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
-			absoluteGeomPose: spatialmath.NewPose(r3.Vector{4, 10, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
+			name: "absolute - SLAM theta: 0, base theta: -90 == 270",
+			f: func(g spatialmath.Geometry) spatialmath.Geometry {
+				return g.Transform(
+					spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90}),
+				)
+			},
+			detectionPose: spatialmath.NewPose(r3.Vector{6, -14, -8}, &spatialmath.OrientationVectorDegrees{OX: 1, Theta: -90}),
 		},
 		{
-			name:             "SLAM theta: 180, base theta: 90",
-			baseTheta:        90,
-			relativeGeomPose: spatialmath.NewPose(r3.Vector{4, 10, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
-			absoluteGeomPose: spatialmath.NewPose(r3.Vector{-10, 4, -8}, &spatialmath.OrientationVectorDegrees{OX: -1, Theta: -90}),
+			name: "absolute - SLAM theta: 90, base theta: 0",
+			f: func(g spatialmath.Geometry) spatialmath.Geometry {
+				return g.Transform(
+					spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0}),
+				)
+			},
+			detectionPose: spatialmath.NewPose(r3.Vector{0, 0, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
 		},
 		{
-			name:             "SLAM theta: 270, base theta: 180",
-			baseTheta:        180,
-			relativeGeomPose: spatialmath.NewPose(r3.Vector{4, 10, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
-			absoluteGeomPose: spatialmath.NewPose(r3.Vector{-4, -10, -8}, &spatialmath.OrientationVectorDegrees{OY: -1, Theta: -90}),
+			name: "absolute - SLAM theta: 180, base theta: 90",
+			f: func(g spatialmath.Geometry) spatialmath.Geometry {
+				return g.Transform(
+					spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90}),
+				)
+			},
+			detectionPose: spatialmath.NewPose(r3.Vector{-14, -6, -8}, &spatialmath.OrientationVectorDegrees{OX: -1, Theta: -90}),
+		},
+		{
+			name: "absolute - SLAM theta: 270, base theta: 180",
+			f: func(g spatialmath.Geometry) spatialmath.Geometry {
+				return g.Transform(
+					spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180}),
+				)
+			},
+			detectionPose: spatialmath.NewPose(r3.Vector{-8, -20, -8}, &spatialmath.OrientationVectorDegrees{OY: -1, Theta: -90}),
 		},
 	}
 
 	testFn := func(t *testing.T, tc testCase) {
 		t.Helper()
-		currentPif := referenceframe.NewPoseInFrame(
-			referenceframe.World,
-			spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: tc.baseTheta}),
-		)
-		absolute, relative, err := mr.getTransientDetections(ctx, injectedVis, injectedCam.Name(), currentPif)
+		transformedGeoms, err := mr.getTransientDetections(ctx, injectedVis, injectedCam.Name(), tc.f)
 		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, len(relative), test.ShouldEqual, 1)
-		test.That(t, len(absolute), test.ShouldEqual, 1)
-
-		test.That(t, relative[0].Parent(), test.ShouldEqual, referenceframe.World)
-		test.That(t, absolute[0].Parent(), test.ShouldEqual, referenceframe.World)
-
-		test.That(t, len(relative[0].Geometries()), test.ShouldEqual, 1)
-		test.That(t, len(absolute[0].Geometries()), test.ShouldEqual, 1)
-
-		test.That(t, spatialmath.PoseAlmostEqual(relative[0].Geometries()[0].Pose(), tc.relativeGeomPose), test.ShouldBeTrue)
-		test.That(t, spatialmath.PoseAlmostEqual(absolute[0].Geometries()[0].Pose(), tc.absoluteGeomPose), test.ShouldBeTrue)
+		test.That(t, transformedGeoms.Parent(), test.ShouldEqual, referenceframe.World)
+		test.That(t, len(transformedGeoms.Geometries()), test.ShouldEqual, 1)
+		test.That(t, spatialmath.PoseAlmostEqual(transformedGeoms.Geometries()[0].Pose(), tc.detectionPose), test.ShouldBeTrue)
 	}
 
 	for _, tc := range testCases {
