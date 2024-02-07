@@ -91,11 +91,21 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer g.activeBackgroundWorkers.Done()
+
+		lines := g.dev.Lines()
 		for {
+			// First, check if we're supposed to shut down.
 			select {
 			case <-g.cancelCtx.Done():
 				return
-			case line := <-g.dev.Lines():
+			default:
+			}
+
+			// Next, wait until either we're supposed to shut down or we have new data to process.
+			select {
+			case <-g.cancelCtx.Done():
+				return
+			case line := <-lines:
 				// Update our struct's gps data in-place
 				g.mu.Lock()
 				err := g.data.ParseAndUpdate(line)
