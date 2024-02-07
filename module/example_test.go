@@ -6,9 +6,6 @@ import (
 	"sync/atomic"
 
 	"github.com/pkg/errors"
-	pb "go.viam.com/api/module/v1"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/logging"
@@ -55,34 +52,9 @@ func Example() {
 	// signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	// <-sigChan
 
-	// For this example, we'll instead make a quick connection and check things.
-	checkReady()
-
 	// The deferred myMod.Close() will now run as the function returns.
 
-	// Output: Ready: true, API: rdk:component:generic, Model: acme:demo:mycounter
-}
-
-func checkReady() {
-	conn, err := grpc.Dial(
-		"unix://"+socketPath,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		logger.Error(err)
-	}
-	client := pb.NewModuleServiceClient(conn)
-
-	resp, err := client.Ready(ctx, &pb.ReadyRequest{})
-	if err != nil {
-		logger.Error(err)
-	}
-
-	api := resp.Handlermap.GetHandlers()[0].Subtype.Subtype
-
-	fmt.Printf("Ready: %t, ", resp.Ready)
-	fmt.Printf("API: %s:%s:%s, ", api.Namespace, api.Type, api.Subtype)
-	fmt.Printf("Model: %s\n", resp.Handlermap.GetHandlers()[0].GetModels()[0])
+	// Output:
 }
 
 // newCounter is used to create a new instance of our specific model. It is called for each component in the robot's config with this model.
