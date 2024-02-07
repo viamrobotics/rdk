@@ -642,5 +642,5 @@ func (m *EncodedMotor) Close(ctx context.Context) error {
 	}
 	m.cancel()
 	m.activeBackgroundWorkers.Wait()
-	return m.real.Stop(ctx, nil)
+	return nil
 }
