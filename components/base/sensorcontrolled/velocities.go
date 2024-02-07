@@ -120,6 +120,8 @@ func (sb *sensorBase) SetVelocity(
 ) error {
 	sb.opMgr.CancelRunning(ctx)
 	// stop any previous base movement
+	// if multiple SetVelocity calls (such as from motion) causes issues, this can be replaced
+	// with a helper function to cancel the threads without calling Stop on the underlying base
 	if err := sb.Stop(ctx, nil); err != nil {
 		return err
 	}
