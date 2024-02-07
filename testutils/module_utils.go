@@ -38,6 +38,8 @@ func MakeRobotForModuleLogging(t *testing.T, parentAddr string) rpc.Server {
 		robotpb.RegisterRobotServiceHandlerFromEndpoint,
 	), test.ShouldBeNil)
 
-	go rpcServer.Serve(listener)
+	go func() {
+		test.That(t, rpcServer.Serve(listener), test.ShouldBeNil)
+	}()
 	return rpcServer
 }
