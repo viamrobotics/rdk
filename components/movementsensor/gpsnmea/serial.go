@@ -2,10 +2,8 @@
 package gpsnmea
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"math"
 	"sync"
 
@@ -39,7 +37,7 @@ type SerialNMEAMovementSensor struct {
 	lastCompassHeading movementsensor.LastCompassHeading
 	isClosed           bool
 
-	dev  io.ReadWriteCloser
+	dev DataReader
 }
 
 // NewSerialGPSNMEA gps that communicates over serial.
@@ -63,7 +61,7 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 		MinimumReadSize: 4,
 	}
 
-	dev, err := serial.Open(options)
+	dev, err := NewSerialDataReader(options, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -93,32 +91,24 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer g.activeBackgroundWorkers.Done()
-		r := bufio.NewReader(g.dev)
 		for {
 			select {
 			case <-g.cancelCtx.Done():
 				return
-			default:
+			case line := <-g.dev.Lines():
+				// Update our struct's gps data in-place
+				g.mu.Lock()
+				err := g.data.ParseAndUpdate(line)
+				g.mu.Unlock()
+				if err != nil {
+					g.logger.CWarnf(ctx, "can't parse nmea sentence: %#v", err)
+					g.logger.Debug("Check: GPS requires clear sky view." +
+						"Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
+				}
 			}
 
 			if g.isClosed { // There's no coming back from this. We're done.
 				return
-			}
-
-			line, err := r.ReadString('\n')
-			if err != nil {
-				g.logger.CErrorf(ctx, "can't read gps serial %s", err)
-				g.err.Set(err)
-				return
-			}
-			// Update our struct's gps data in-place
-			g.mu.Lock()
-			err = g.data.ParseAndUpdate(line)
-			g.mu.Unlock()
-			if err != nil {
-				g.logger.CWarnf(ctx, "can't parse nmea sentence: %#v", err)
-				g.logger.Debug("Check: GPS requires clear sky view." +
-					"Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
 			}
 		}
 	})
