@@ -3,7 +3,9 @@
 package web
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"math"
 	"net/http"
 	"runtime"
@@ -367,6 +369,7 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 
 	const revParam = "rev"
 	revision := r.URL.Query().Get(revParam)
+	svc.logger.Infow(">>> loading graph revision", "q", revision, "url", r.URL.String())
 	var (
 		snapshotIndex int
 		err           error
@@ -375,20 +378,18 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 		snapshotIndex = snapshotCount - 1
 	} else {
 		snapshotIndex, err = strconv.Atoi(revision)
-		snapshotIndex--
 	}
 
-	svc.logger.Infow(">>> loading graph revision", "#", snapshotIndex)
+	svc.logger.Infow(">>> loading graph revision", "q", revision, "#", snapshotIndex, "error", err)
 	if err != nil || snapshotIndex < 0 || snapshotIndex >= snapshotCount {
 		svc.logger.Infow(">>> invalid revision")
 
 		url := *r.URL
 		q := r.URL.Query()
-		q.Del(revParam)
-		q.Add(revParam, strconv.Itoa(snapshotCount-1))
+		q.Set(revParam, strconv.Itoa(snapshotCount-1))
 		url.RawQuery = q.Encode()
 
-		http.Redirect(w, r, url.String(), 301)
+		http.Redirect(w, r, url.String(), http.StatusSeeOther)
 		return
 	}
 
@@ -415,7 +416,61 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 	if layout != "" {
 		gv.SetLayout(graphviz.Layout(layout))
 	}
-	if err = gv.Render(graph, graphviz.SVG, w); err != nil {
+
+	w.Write([]byte(`<html><div>`))
+	func() {
+		url := *r.URL
+		q := r.URL.Query()
+		q.Set(revParam, "0")
+		url.RawQuery = q.Encode()
+		html := fmt.Sprintf(`<a href=%q>First</a>`, url.String())
+		w.Write([]byte(html))
+	}()
+	w.Write([]byte(`|`))
+	func() {
+		url := *r.URL
+		q := r.URL.Query()
+		q.Set(revParam, strconv.Itoa(snapshotIndex-1))
+		url.RawQuery = q.Encode()
+		html := fmt.Sprintf(`<a href=%q>Prev</a>`, url.String())
+		w.Write([]byte(html))
+	}()
+	w.Write([]byte(fmt.Sprintf(`| %d / %d |`, snapshotIndex+1, snapshotCount)))
+	func() {
+		url := *r.URL
+		q := r.URL.Query()
+		q.Set(revParam, strconv.Itoa(snapshotIndex+1))
+		url.RawQuery = q.Encode()
+		html := fmt.Sprintf(`<a href=%q>Next</a>`, url.String())
+		w.Write([]byte(html))
+	}()
+	w.Write([]byte(`|`))
+	func() {
+		url := *r.URL
+		q := r.URL.Query()
+		q.Set(revParam, strconv.Itoa(snapshotCount-1))
+		url.RawQuery = q.Encode()
+		html := fmt.Sprintf(`<a href=%q>Latest</a>`, url.String())
+		w.Write([]byte(html))
+	}()
+	w.Write([]byte(`</div>`))
+
+	fxml := filterXML{w: w}
+	if err = gv.Render(graph, graphviz.SVG, fxml); err != nil {
 		return
 	}
+	w.Write([]byte(`</html>`))
+}
+
+// custom writer to skip first 5 lines of xml
+type filterXML struct {
+	w http.ResponseWriter
+}
+
+func (fxml filterXML) Write(bs []byte) (int, error) {
+	lines := bytes.Split(bs, []byte("\n"))
+	// HACK: these lines are XML Document Type Definition strings
+	lines = lines[6:]
+	bs = bytes.Join(lines, []byte("\n"))
+	return fxml.w.Write(bs)
 }

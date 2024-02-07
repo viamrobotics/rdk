@@ -42,17 +42,9 @@
             }
         },
         {
-            "name": "camera1",
+            "name": "camerajam",
             "type": "camera",
             "model": "fake"
-        },
-        {
-            "name": "encoder1",
-            "type": "encoder",
-            "model": "fake",
-            "attributes": {
-                "update_rate_msec": 200
-            }
         },
         {
             "name": "gantry1",
