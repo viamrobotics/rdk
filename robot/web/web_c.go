@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"runtime"
+	"strconv"
 	"sync"
 	"time"
 
@@ -356,10 +357,42 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 	if !isLocal {
 		return
 	}
-	dot, err := localRobot.ExportResourcesAsDot()
-	if err != nil {
+	snapshots := localRobot.ExportResourcesAsDot()
+	snapshotCount := len(snapshots)
+	if snapshotCount == 0 {
+		svc.logger.Infow(">>> no snapshots yet")
 		return
 	}
+	svc.logger.Infow(">>> snapshots available", "count", snapshotCount)
+
+	const revParam = "rev"
+	revision := r.URL.Query().Get(revParam)
+	var (
+		snapshotIndex int
+		err           error
+	)
+	if revision == "" {
+		snapshotIndex = snapshotCount - 1
+	} else {
+		snapshotIndex, err = strconv.Atoi(revision)
+		snapshotIndex--
+	}
+
+	svc.logger.Infow(">>> loading graph revision", "#", snapshotIndex)
+	if err != nil || snapshotIndex < 0 || snapshotIndex >= snapshotCount {
+		svc.logger.Infow(">>> invalid revision")
+
+		url := *r.URL
+		q := r.URL.Query()
+		q.Del(revParam)
+		q.Add(revParam, strconv.Itoa(snapshotCount-1))
+		url.RawQuery = q.Encode()
+
+		http.Redirect(w, r, url.String(), 301)
+		return
+	}
+
+	dot := snapshots[snapshotIndex]
 	layout := r.URL.Query().Get("layout")
 	if layout == "text" {
 		//nolint
