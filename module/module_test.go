@@ -188,7 +188,7 @@ func TestModuleFunctions(t *testing.T) {
 
 	m.SetReady(false)
 
-	resp, err := client.Ready(ctx, &pb.ReadyRequest{})
+	resp, err := client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddr})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Ready, test.ShouldBeFalse)
 

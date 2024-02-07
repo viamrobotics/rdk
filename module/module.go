@@ -253,6 +253,11 @@ func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (res
 }
 
 func (m *Module) connectParent(ctx context.Context) error {
+	// If parent connection has already been made, do not make another one.
+	if m.parent != nil {
+		return nil
+	}
+
 	if err := CheckSocketOwner(m.parentAddr); err != nil {
 		return err
 	}
@@ -284,7 +289,7 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 	defer m.mu.Unlock()
 	m.parentAddr = req.GetParentAddress()
 	if err := m.connectParent(ctx); err != nil {
-		// return error back to parent if we cannot make a connection from module
+		// Return error back to parent if we cannot make a connection from module
 		// -> parent. Something is wrong in that case and the module should not be
 		// operational.
 		return nil, err
