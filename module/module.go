@@ -283,17 +283,16 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.parentAddr = req.GetParentAddress()
-	if err := m.connectParent(ctx); err == nil {
-		// If logger is a moduleLogger, start gRPC logging.
-		if moduleLogger, ok := m.logger.(*moduleLogger); ok {
-			moduleLogger.startLoggingViaGRPC(m)
-		}
-	} else {
-		// NOTE(benjirewis): Connecting back to parent may error in some test cases
-		// where there is no parent. In any case, inability to establish this
-		// connection should not cause the module to fail in its initialization.
-		// Only Warn the error and respond to the ReadyRequest.
-		m.logger.CWarnw(ctx, "could not connect module to parent for gRPC logging", "error", err)
+	if err := m.connectParent(ctx); err != nil {
+		// return error back to parent if we cannot make a connection from module
+		// -> parent. Something is wrong in that case and the module should not be
+		// operational.
+		return nil, err
+	}
+
+	// If logger is a moduleLogger, start gRPC logging.
+	if moduleLogger, ok := m.logger.(*moduleLogger); ok {
+		moduleLogger.startLoggingViaGRPC(m)
 	}
 
 	return &pb.ReadyResponse{
