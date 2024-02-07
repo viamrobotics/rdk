@@ -1406,7 +1406,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	extra := map[string]interface{}{
 		"motion_profile": "position_only",
-		"timeout":        15.,
+		"timeout":        5.,
 		"smooth_iter":    10.,
 	}
 
@@ -1460,8 +1460,13 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 	}
 
 	t.Run("one obstacle", func(t *testing.T) {
-		// this is the case where we want to use check plan to show that a new obstacle causes collision
-		// define static obstacle
+		// WTS: static obstacles are obeyed at plan time.
+
+		// We place an obstacle on the left side of the robot to force our motion planner to return a path
+		// which veers to the right. We then place an obstacle to the right of the robot and project the
+		// robot's position across the path. By showing that we have a collision on the path with an
+		// obstacle on the right we prove that our path does not collide with the original obstacle
+		// placed on the left.
 		obstacleLeft, err := spatialmath.NewBox(
 			spatialmath.NewPose(r3.Vector{0.22981e3, -0.38875e3, 0},
 				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 45}),
