@@ -19,7 +19,7 @@ func ConnectToVirtualBase(ntripInfo *NtripInfo,
 	logger logging.Logger,
 ) *bufio.ReadWriter {
 	mp := "/" + ntripInfo.MountPoint
-	credentials := ntripInfo.Username + ":" + ntripInfo.Password
+	credentials := ntripInfo.username + ":" + ntripInfo.password
 	credentialsBase64 := base64.StdEncoding.EncodeToString([]byte(credentials))
 
 	// Process the server URL
