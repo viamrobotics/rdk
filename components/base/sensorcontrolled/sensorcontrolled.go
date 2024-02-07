@@ -253,8 +253,6 @@ func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) er
 }
 
 func (sb *sensorBase) stopLoop() {
-	sb.mu.Lock()
-	defer sb.mu.Unlock()
 	if sb.loop != nil {
 		sb.loop.Stop()
 		sb.loop = nil
