@@ -1,4 +1,4 @@
-// Package gpsnmea implements an NMEA serial gps.
+// Package gpsnmea implements an NMEA gps.
 package gpsnmea
 
 import (
@@ -26,8 +26,8 @@ type DataReader interface {
 	Close() error
 }
 
-// SerialNMEAMovementSensor allows the use of any MovementSensor chip that communicates over serial.
-type SerialNMEAMovementSensor struct {
+// NMEAMovementSensor allows the use of any MovementSensor chip via a DataReader.
+type NMEAMovementSensor struct {
 	resource.Named
 	resource.AlwaysRebuild
 	mu                      sync.RWMutex
@@ -46,7 +46,7 @@ type SerialNMEAMovementSensor struct {
 }
 
 // Start begins reading nmea messages from module and updates gps data.
-func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
+func (g *NMEAMovementSensor) Start(ctx context.Context) error {
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer g.activeBackgroundWorkers.Done()
@@ -86,7 +86,7 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 }
 
 // Position returns the position and altitide of the sensor, or an error.
-func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (g *NMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
@@ -111,7 +111,7 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 }
 
 // Accuracy returns the accuracy map, hDOP, vDOP, Fixquality and compass heading error.
-func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
+func (g *NMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
 ) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -128,7 +128,7 @@ func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context, extra map[strin
 // LinearVelocity returns the sensor's linear velocity. It requires having a compass heading, so we
 // know which direction our speed is in. We assume all of this speed is horizontal, and not in
 // gaining/losing altitude.
-func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (g *NMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
@@ -144,22 +144,22 @@ func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map
 }
 
 // LinearAcceleration returns the sensor's linear acceleration.
-func (g *SerialNMEAMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (g *NMEAMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }
 
 // AngularVelocity returns the sensor's angular velocity.
-func (g *SerialNMEAMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (g *NMEAMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }
 
 // Orientation returns the sensor's orientation.
-func (g *SerialNMEAMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+func (g *NMEAMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	return spatialmath.NewOrientationVector(), movementsensor.ErrMethodUnimplementedOrientation
 }
 
 // CompassHeading returns the heading, from the range 0->360.
-func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (g *NMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
@@ -178,21 +178,21 @@ func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context, extra map
 }
 
 // ReadFix returns Fix quality of MovementSensor measurements.
-func (g *SerialNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
+func (g *NMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.FixQuality, nil
 }
 
 // ReadSatsInView returns the number of satellites in view.
-func (g *SerialNMEAMovementSensor) ReadSatsInView(ctx context.Context) (int, error) {
+func (g *NMEAMovementSensor) ReadSatsInView(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.SatsInView, nil
 }
 
 // Readings will use return all of the MovementSensor Readings.
-func (g *SerialNMEAMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (g *NMEAMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	readings, err := movementsensor.DefaultAPIReadings(ctx, g, extra)
 	if err != nil {
 		return nil, err
@@ -213,7 +213,7 @@ func (g *SerialNMEAMovementSensor) Readings(ctx context.Context, extra map[strin
 }
 
 // Properties returns what movement sensor capabilities we have.
-func (g *SerialNMEAMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+func (g *NMEAMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
 		PositionSupported:       true,
@@ -221,9 +221,9 @@ func (g *SerialNMEAMovementSensor) Properties(ctx context.Context, extra map[str
 	}, nil
 }
 
-// Close shuts down the SerialNMEAMovementSensor.
-func (g *SerialNMEAMovementSensor) Close(ctx context.Context) error {
-	g.logger.CDebug(ctx, "Closing SerialNMEAMovementSensor")
+// Close shuts down the NMEAMovementSensor.
+func (g *NMEAMovementSensor) Close(ctx context.Context) error {
+	g.logger.CDebug(ctx, "Closing NMEAMovementSensor")
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
 
@@ -235,7 +235,7 @@ func (g *SerialNMEAMovementSensor) Close(ctx context.Context) error {
 			return err
 		}
 		g.dev = nil
-		g.logger.CDebug(ctx, "SerialNMEAMovementSensor Closed")
+		g.logger.CDebug(ctx, "NMEAMovementSensor Closed")
 	}
 	return nil
 }

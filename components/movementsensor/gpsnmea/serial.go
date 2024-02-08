@@ -44,7 +44,7 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
-	g := &SerialNMEAMovementSensor{
+	g := &NMEAMovementSensor{
 		Named:              name.AsNamed(),
 		dev:                dev,
 		cancelCtx:          cancelCtx,
