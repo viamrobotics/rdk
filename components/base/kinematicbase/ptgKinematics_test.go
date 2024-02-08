@@ -4,6 +4,7 @@ package kinematicbase
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -17,7 +18,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-func TestPTGKinematics(t *testing.T) {
+func TestPTGKinematicsNoGeom(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	name, err := resource.NewFromString("is:a:fakebase")
@@ -56,6 +57,28 @@ func TestPTGKinematics(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
+	for i, inputMap := range plan {
+		inputs := inputMap[""]
+		selectedPTG := ptgBase.ptgs[int(math.Round(inputs[ptgIndex].Value))]
+
+		selectedTraj, err := selectedPTG.Trajectory(
+			inputs[trajectoryIndexWithinPTG].Value,
+			inputs[distanceAlongTrajectoryIndex].Value,
+			stepDistResolution,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		arcSteps := ptgBase.trajectoryToArcSteps(selectedTraj)
+
+		if i == 0 || i == len(plan)-1 {
+			// First and last should be all-zero stop commands
+			test.That(t, len(arcSteps), test.ShouldEqual, 1)
+			test.That(t, arcSteps[0].timestepSeconds, test.ShouldEqual, 0)
+			test.That(t, arcSteps[0].linVelMMps, test.ShouldResemble, r3.Vector{})
+			test.That(t, arcSteps[0].angVelDegps, test.ShouldResemble, r3.Vector{})
+		} else {
+			test.That(t, len(arcSteps), test.ShouldBeGreaterThanOrEqualTo, 1)
+		}
+	}
 }
 
 func TestPTGKinematicsWithGeom(t *testing.T) {

@@ -1,5 +1,4 @@
 <script lang="ts">
-
 import { gripperApi } from '@viamrobotics/sdk';
 import { displayError } from '../../lib/error';
 import { rcLogConditionally } from '../../lib/log';
@@ -33,7 +32,6 @@ const grab = () => {
   rcLogConditionally(request);
   $robotClient.gripperService.grab(request, displayError);
 };
-
 </script>
 
 <Collapse title={name}>

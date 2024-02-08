@@ -1,1 +1,1 @@
-declare module 'jshashes'
+declare module 'jshashes';

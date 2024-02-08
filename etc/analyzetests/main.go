@@ -37,7 +37,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	client, err := mongo.NewClient(options.Client().ApplyURI(mongoURI))
 	if err != nil {

@@ -42,7 +42,15 @@ appimage-deploy:
 static-release: server-static-compressed
 	rm -rf etc/packaging/static/deploy/
 	mkdir -p etc/packaging/static/deploy/
-	cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-`uname -m`
+	cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-${UNAME_M}
 	if [ "${RELEASE_TYPE}" = "stable" ]; then \
-		cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-stable-`uname -m`; \
+		cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-stable-${UNAME_M}; \
 	fi
+	rm -rf etc/packaging/static/manifest/
+	mkdir -p etc/packaging/static/manifest/
+	go run etc/subsystem_manifest/main.go \
+		--binary-path etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-${UNAME_M} \
+		--upload-path "packages.viam.com/apps/viam-server/viam-server-${BUILD_CHANNEL}-${UNAME_M}" \
+		--version ${BUILD_CHANNEL} \
+		--arch ${UNAME_M} \
+		--output-path etc/packaging/static/manifest/viam-server-${BUILD_CHANNEL}-${UNAME_M}.json

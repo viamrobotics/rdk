@@ -26,11 +26,7 @@ func TestValidateRTK(t *testing.T) {
 			SerialPath:           path,
 			SerialBaudRate:       115200,
 		}
-		err := cfg.validateNtrip(path)
-		test.That(t, err, test.ShouldBeNil)
-		err = cfg.validateSerialPath(path)
-		test.That(t, err, test.ShouldBeNil)
-		_, err = cfg.Validate(path)
+		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
