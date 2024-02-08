@@ -27,7 +27,7 @@ func TestParseURDFFile(t *testing.T) {
 	test.That(t, len(u.DoF()), test.ShouldEqual, 6)
 	modelGeo, err := model.Geometries(make([]referenceframe.Input, len(model.DoF())))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(modelGeo.Geometries()), test.ShouldEqual, 5)
+	test.That(t, len(modelGeo.Geometries()), test.ShouldEqual, 6)
 
 	// Test naming of a URDF to something other than the robot's name element
 	u, err = ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5_minimal.urdf"), "foo")
@@ -36,7 +36,7 @@ func TestParseURDFFile(t *testing.T) {
 }
 
 func TestURDFTransforms(t *testing.T) {
-	u, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5_minimal.urdf"), "")
+	u, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5_viam.urdf"), "")
 	test.That(t, err, test.ShouldBeNil)
 	simple, ok := u.(*referenceframe.SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)

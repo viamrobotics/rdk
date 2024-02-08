@@ -112,17 +112,4 @@
       </geometry>
     </collision>    
   </link>
-
-  <joint name="ee_fixed_joint" type="revolute">
-    <parent link="wrist_3_link"/>
-    <child link="ee_link"/>
-    <origin rpy="0.0 0.0 1.570796325" xyz="0.0 0.0823 0.0"/>
-    <axis xyz="0 1 0"/>
-    <limit effort="0.0" lower="0" upper="0" velocity="0"/>
-  </joint>
-
-
-  <link name="ee_link" />
-  
-  <link name="ee_link" />
 </robot>
