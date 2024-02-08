@@ -21,6 +21,58 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// I2cDataReader implements the DataReader interface by communicating with a device over an I2C bus.
+type I2cDataReader struct {
+	data chan string
+
+	cancelCtx               context.Context
+	cancelFunc              func()
+	activeBackgroundWorkers sync.WaitGroup
+	logger                  logging.Logger
+
+	bus   buses.I2C
+	addr  byte
+	baud int
+}
+
+// NewI2cDataReader constructs a new DataReader that gets its NMEA messages over an I2C bus.
+func NewI2cDataReader(
+	bus buses.I2C, addr byte, baud int, logger logging.Logger
+) (DataReader, error) {
+	data := make(chan string)
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+
+	reader := I2cDataReader{
+		data: data,
+		cancelCtx: cancelCtx,
+		cancelFunc: cancelFunc,
+		logger: logger,
+		bus: bus,
+		addr: addr,
+		baud: baud,
+	}
+	reader.start()
+
+	return &reader, nil
+}
+
+func (dr *I2cDataReader) start() {
+	// TODO
+}
+
+// Messages returns the channel of complete NMEA sentences we have read off of the device. It's part
+// of the DataReader interface.
+func (dr *I2cDataReader) Messages() chan string {
+    return dr.data
+}
+
+// Close is part of the DataReader interface. It shuts everything down.
+func (dr *I2cDataReader) Close() error {
+	dr.cancelFunc()
+	dr.activeBackgroundWorkers.Wait()
+	return nil
+}
+
 // PmtkI2CNMEAMovementSensor allows the use of any MovementSensor chip that communicates over I2C using the PMTK protocol.
 type PmtkI2CNMEAMovementSensor struct {
 	resource.Named
