@@ -176,6 +176,12 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 				// LF is merely ignored.
 				if b == 0x0D {
 					if strBuf != "" {
+						// sometimes we miss "$" on the first message of the buffer. Here we are adding the missing
+						// "$" to a valid nmea string.
+						if strBuf[0] == 0x47 {
+							strBuf = "$" + strBuf
+						}
+
 						g.mu.Lock()
 						err = g.data.ParseAndUpdate(strBuf)
 						g.mu.Unlock()
@@ -186,7 +192,7 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 						}
 					}
 					strBuf = ""
-				} else if b != 0x0A && b != 0xFF { // adds only valid bytes
+				} else if b != 0x0A && b < 0x7F { // adds only valid bytes
 					strBuf += string(b)
 				}
 			}
