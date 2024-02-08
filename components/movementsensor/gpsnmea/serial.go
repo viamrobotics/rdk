@@ -16,7 +16,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// NewSerialGPSNMEA gps that communicates over serial.
+// NewSerialGPSNMEA creates a component that communicates over a serial port.
 func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (NmeaMovementSensor, error) {
 	serialPath := conf.SerialConfig.SerialPath
 	if serialPath == "" {
@@ -62,8 +62,8 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 	return g, err
 }
 
-// SerialDataReader implements the DataReader interface by interacting with the device over a
-// serial port.
+// SerialDataReader implements the DataReader interface (defined in component.go) by interacting
+// with the device over a serial port.
 type SerialDataReader struct {
 	dev                     io.ReadWriteCloser
 	data                    chan string
