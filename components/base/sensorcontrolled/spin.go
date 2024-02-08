@@ -172,8 +172,17 @@ func (sb *sensorBase) stopSpinWithSensor(
 func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg, errorBound float64) (atTarget, overShot, minTravel bool) {
 	atTarget = math.Abs(targetYaw-currYaw) < errorBound
 	overShot = hasOverShot(currYaw, startYaw, targetYaw, dir)
+	// when the individual motors of a base have a control loop set up, they move slightly in the wrong direction before
+	// spinning in the right direction. when this happens, hasOverShot thinks the goal has already been passed, so there
+	// needs to be a small window (boundCheckOverShot) that forces overShot to be false until the motors have started
+	// moving past startYaw in the correct direction
 	if dir == 1 {
 		offset := 0.0
+		// if subtracting boundCheckOverShot from startYaw results in a negative, we need to un-wrap currentYaw around
+		// 360 so that the comparison between the two is of the correct scale.
+		// For example, if startYaw is 5, starYaw-boundCheckOverShot is -5. if currYaw were also at -5, it would be
+		// reported as 355, so we must subract 360 to make currentYaw actually be -5 in order for the comparison to
+		// yield the expected result
 		if startYaw-boundCheckOverShot < 0 {
 			offset = -360.0
 		}
@@ -182,6 +191,8 @@ func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg, errorBound float6
 		}
 	} else {
 		offset := 0.0
+		// if adding boundCheckOverShot to startYaw results in a value over 360, we need to un-wrap currentYaw around
+		// 360 so that the comparison between the two is of the correct scale
 		if startYaw+boundCheckOverShot > 0 {
 			offset = 360.0
 		}
@@ -190,7 +201,7 @@ func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg, errorBound float6
 		}
 	}
 	travelIncrement := math.Abs(angleDeg * increment)
-	// // check the case where we're asking for a 360 degree turn, this results in a zero travelIncrement
+	// check the case where we're asking for a 360 degree turn, this results in a zero travelIncrement
 	if math.Abs(angleDeg) < 360 {
 		minTravel = math.Abs(currYaw-startYaw) > travelIncrement
 	} else {
