@@ -118,7 +118,8 @@ const refresh2d = async () => {
         pointcloud = undefined;
 
         const props = await slamClient.getProperties();
-        reloadMap = props.mappingMode !== slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY;
+        reloadMap =
+          props.mappingMode !== slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY;
       }
 
       /*
