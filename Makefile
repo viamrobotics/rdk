@@ -126,10 +126,6 @@ server-android:
 		-o bin/viam-server-$(BUILD_CHANNEL)-android-aarch64 \
 		./web/cmd/server
 
-droid-rdk.aar:
-	# creates an android library that can be imported by native code
-	gomobile bind -v -target android -androidapi 28 -tags no_cgo -o $@ ./web/cmd/droid
-
 clean-all:
 	git clean -fxd
 

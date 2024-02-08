@@ -2,7 +2,6 @@ package utils
 
 import (
 	"os"
-	"runtime"
 	"time"
 
 	"go.viam.com/rdk/logging"
@@ -51,25 +50,4 @@ func timeoutHelper(defaultTimeout time.Duration, timeoutEnvVar string, logger lo
 		return timeout
 	}
 	return defaultTimeout
-}
-
-// PlatformHomeDir wraps UserHomeDir except on android, where it infers the app data directory.
-func PlatformHomeDir() string {
-	if runtime.GOOS == "android" {
-		// note: this is hardcoded because golang inits before android code can Os.setenv(HOME). Fix.
-		return "/data/user/0/com.viam.rdk.fgservice/files"
-	}
-	path, err := os.UserHomeDir()
-	if err != nil {
-		println("warning: PlatformHomeDir error", err.Error())
-	}
-	return path
-}
-
-// PlatformMkdirTemp wraps MkdirTemp except on android where it finds a writable + executable place.
-func PlatformMkdirTemp(dir, pattern string) (string, error) {
-	if runtime.GOOS == "android" && dir == "" {
-		return os.MkdirTemp("/data/user/0/com.viam.rdk.fgservice/files", pattern)
-	}
-	return os.MkdirTemp(dir, pattern)
 }
