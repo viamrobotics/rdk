@@ -178,7 +178,7 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 					if strBuf != "" {
 						// sometimes we miss "$" on the first message of the buffer. Here we are adding the missing
 						// "$" to a valid nmea string.
-						if strBuf[0] == 0x47 {
+						if strBuf[0] == 0x47 { // 0x47 is the ASCII value
 							strBuf = "$" + strBuf
 						}
 
