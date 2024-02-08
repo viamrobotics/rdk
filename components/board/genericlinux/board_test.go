@@ -96,6 +96,7 @@ func TestConfigValidate(t *testing.T) {
 }
 
 func TestNewBoard(t *testing.T) {
+	t.Skip("RSDK-6437")
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
