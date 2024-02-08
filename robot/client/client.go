@@ -945,7 +945,7 @@ func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[
 // ModuleLog sends a log entry to the server. To be used by Golang modules wanting to log over gRPC and not
 // by normal Golang SDK clients.
 func (rc *RobotClient) ModuleLog(ctx context.Context, log zapcore.Entry, fields []zapcore.Field) error {
-	timeStr := log.Time.Format(logging.TimeFormatStr)
+	timeStr := log.Time.Format(logging.DefaultTimeFormatStr)
 	// TODO(RSDK-6280): Preserve the type of all `fields`.
 	message := fmt.Sprintf("%v\t%v\t{%q: %q", log.Caller.TrimmedPath(), log.Message, moduleTSLogKey, timeStr)
 	for _, field := range fields {
