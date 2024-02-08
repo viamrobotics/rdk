@@ -498,11 +498,14 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	opt.extra = planningOpts
 
 	collisionBuffer := defaultCollisionBufferMM
-	collisionBufferRaw, ok := planningOpts["collision_buffer"]
+	collisionBufferRaw, ok := planningOpts["collision_buffer_mm"]
 	if ok {
 		collisionBuffer, ok = collisionBufferRaw.(float64)
 		if !ok {
-			return nil, errors.New("could not interpret collision_buffer field as float64")
+			return nil, errors.New("could not interpret collision_buffer_mm field as float64")
+		}
+		if collisionBuffer < 0 {
+			return nil, errors.New("collision_buffer_mm can't be negative")
 		}
 	}
 
