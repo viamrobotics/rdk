@@ -19,6 +19,13 @@ import (
 
 var errNilLocation = errors.New("nil gps location, check nmea message parsing")
 
+// DataReader represents a way to get data from a GPS NMEA device. We can read data from it using
+// the channel in Messages, and we can close the device when we're done.
+type DataReader interface {
+	Messages() chan string
+	Close() error
+}
+
 // SerialNMEAMovementSensor allows the use of any MovementSensor chip that communicates over serial.
 type SerialNMEAMovementSensor struct {
 	resource.Named
