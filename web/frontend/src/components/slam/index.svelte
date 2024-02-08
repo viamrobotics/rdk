@@ -102,28 +102,29 @@ const refresh2d = async () => {
         await overrides.getMappingSessionPCD(sessionId);
       nextPose = poseData;
       pointcloud = map;
-
     } else {
-      // Check if reconfiguration has happened
-      // If it has, reset the point cloud, update the reconfigured time and check what mode the new 
-      // SLAM session is in to know whether or not to update the map.
+      /*
+       * Check if reconfiguration has happened
+       * If it has, reset the point cloud, update the reconfigured time and check what mode the new
+       * SLAM session is in to know whether or not to update the map.
+       */
       const statuses = await $robotClient.getStatus();
-      const lastReconfiguredStatus = (statuses ?? []).find(status => status.hasLastReconfigured());
-      const newLastReconfigured = lastReconfiguredStatus?.getLastReconfigured() 
+      const lastReconfiguredStatus = (statuses ?? []).find((status) =>
+        status.hasLastReconfigured()
+      );
+      const newLastReconfigured = lastReconfiguredStatus?.getLastReconfigured();
       if (newLastReconfigured !== lastReconfigured || reloadMap === undefined) {
         lastReconfigured = newLastReconfigured;
         pointcloud = undefined;
-        
+
         const props = await slamClient.getProperties();
-        if (props.mappingMode === slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY) {
-          reloadMap = false;
-        } else {
-          reloadMap = true;
-        }
+        reloadMap = props.mappingMode !== slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY;
       }
-      
-      // Update the map and pose if the SLAM session is in mapping/updating mode or the pointcloud 
-      // has yet to be defined else only update the pose 
+
+      /*
+       * Update the map and pose if the SLAM session is in mapping/updating mode or the pointcloud
+       * has yet to be defined else only update the pose
+       */
       if (reloadMap || pointcloud !== undefined) {
         let response;
         [pointcloud, response] = await Promise.all([
