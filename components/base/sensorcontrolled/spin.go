@@ -172,6 +172,23 @@ func (sb *sensorBase) stopSpinWithSensor(
 func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg, errorBound float64) (atTarget, overShot, minTravel bool) {
 	atTarget = math.Abs(targetYaw-currYaw) < errorBound
 	overShot = hasOverShot(currYaw, startYaw, targetYaw, dir)
+	if dir == 1 {
+		offset := 0.0
+		if startYaw-boundCheckOverShot < 0 {
+			offset = -360.0
+		}
+		if currYaw < startYaw && currYaw+offset > startYaw-boundCheckOverShot {
+			overShot = false
+		}
+	} else {
+		offset := 0.0
+		if startYaw+boundCheckOverShot > 0 {
+			offset = 360.0
+		}
+		if currYaw > startYaw && currYaw+offset < startYaw+boundCheckOverShot {
+			overShot = false
+		}
+	}
 	travelIncrement := math.Abs(angleDeg * increment)
 	// // check the case where we're asking for a 360 degree turn, this results in a zero travelIncrement
 	if math.Abs(angleDeg) < 360 {
@@ -236,19 +253,19 @@ func hasOverShot(angle, start, target, dir float64) bool {
 		// for cases with a quadrant switch from 1 <-> 4
 		// check if the current angle is in the regions before the
 		// target and after the start
-		over := angleBetween(angle, target, 0) || angleBetween(angle, 360, start+10)
+		over := angleBetween(angle, target, 0) || angleBetween(angle, 360, start)
 		return over
 	case dir == -1 && target > start:
 		// the overshoot range is the inside range between the start and target
-		return angleBetween(angle, target, start+10)
+		return angleBetween(angle, target, start)
 	case dir == 1 && start > target: // counterclockwise
 		// for cases with a quadrant switch from 1 <-> 4
 		// check if the current angle is not in the regions after the
 		// target and before the start
-		over := !angleBetween(angle, 0, target) && !angleBetween(angle, start-10, 360)
+		over := !angleBetween(angle, 0, target) && !angleBetween(angle, start, 360)
 		return over
 	default:
 		// the overshoot range is the range of angles outside the start and target ranges
-		return !angleBetween(angle, start-10, target)
+		return !angleBetween(angle, start, target)
 	}
 }

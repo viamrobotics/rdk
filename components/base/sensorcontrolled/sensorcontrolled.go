@@ -23,6 +23,7 @@ const (
 	velocitiesPollTime = 5 * time.Millisecond
 	boundCheckTurn     = 2.0
 	boundCheckTarget   = 5.0
+	boundCheckOverShot = 20.0
 	sensorDebug        = false
 	typeLinVel         = "linear_velocity"
 	typeAngVel         = "angular_velocity"
