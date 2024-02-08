@@ -10,7 +10,7 @@ export const moveOnMap = async (
   x: number,
   y: number
 ): Promise<string | undefined> => {
-  const request = new motionApi.MoveOnMapNewRequest();
+  const request = new motionApi.MoveOnMapRequest();
   /*
    * here we set the name of the motion service the user is using
    */
@@ -57,9 +57,9 @@ export const moveOnMap = async (
     })
   );
 
-  const response = await new Promise<motionApi.MoveOnMapNewResponse | null>(
+  const response = await new Promise<motionApi.MoveOnMapResponse | null>(
     (resolve, reject) => {
-      robotClient.motionService.moveOnMapNew(request, (error, res) => {
+      robotClient.motionService.moveOnMap(request, (error, res) => {
         if (error) {
           reject(error);
         } else {
