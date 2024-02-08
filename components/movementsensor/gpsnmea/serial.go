@@ -92,7 +92,7 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 	utils.PanicCapturingGo(func() {
 		defer g.activeBackgroundWorkers.Done()
 
-		lines := g.dev.Lines()
+		messages := g.dev.Messages()
 		for {
 			// First, check if we're supposed to shut down.
 			select {
@@ -105,10 +105,10 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 			select {
 			case <-g.cancelCtx.Done():
 				return
-			case line := <-lines:
+			case message := <-messages:
 				// Update our struct's gps data in-place
 				g.mu.Lock()
-				err := g.data.ParseAndUpdate(line)
+				err := g.data.ParseAndUpdate(message)
 				g.mu.Unlock()
 				if err != nil {
 					g.logger.CWarnf(ctx, "can't parse nmea sentence: %#v", err)

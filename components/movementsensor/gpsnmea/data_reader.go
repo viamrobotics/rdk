@@ -13,9 +13,9 @@ import (
 )
 
 // DataReader represents a way to get data from a GPS NMEA device. We can read data from it using
-// the channel in Lines, and we can close the device when we're done.
+// the channel in Messages, and we can close the device when we're done.
 type DataReader interface {
-	Lines() chan string
+	Messages() chan string
 	Close() error
 }
 
@@ -76,9 +76,9 @@ func (dr *SerialDataReader) start() {
 	})
 }
 
-// Lines returns the channel of complete NMEA sentences we have read off of the device. It's part
+// Messages returns the channel of complete NMEA sentences we have read off of the device. It's part
 // of the DataReader interface.
-func (dr *SerialDataReader) Lines() chan string {
+func (dr *SerialDataReader) Messages() chan string {
 	return dr.data
 }
 
