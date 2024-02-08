@@ -4,4 +4,5 @@ package register
 import (
 	// for cameras.
 	_ "go.viam.com/rdk/components/camera/fake"
+	_ "go.viam.com/rdk/components/camera/transformpipeline"
 )
