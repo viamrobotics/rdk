@@ -275,11 +275,6 @@ func (g *rtkI2C) start() error {
 	// TODO(RDK-1639): Test out what happens if we call this line and then the ReceiveAndWrite*
 	// correction data goes wrong. Could anything worse than uncorrected data occur?
 
-	if err := g.nmeamovementsensor.Start(g.cancelCtx); err != nil {
-		g.lastposition.GetLastPosition()
-		return err
-	}
-
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() { g.receiveAndWriteI2C(g.cancelCtx) })
 
