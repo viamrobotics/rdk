@@ -41,7 +41,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/de-bkg/gognss/pkg/ntrip"
 	"github.com/go-gnss/rtcm/rtcm3"
 	"github.com/golang/geo/r3"
 	slib "github.com/jacobsa/go-serial/serial"
@@ -232,37 +231,6 @@ func (g *rtkSerial) start() error {
 	return g.err.Get()
 }
 
-// connect attempts to connect to ntrip client until successful connection or timeout.
-func (g *rtkSerial) connect(casterAddr, user, pwd string, maxAttempts int) error {
-	var c *ntrip.Client
-	var err error
-
-	g.logger.Debug("Connecting to NTRIP caster")
-	for attempts := 0; attempts < maxAttempts; attempts++ {
-		select {
-		case <-g.cancelCtx.Done():
-			return g.cancelCtx.Err()
-		default:
-		}
-
-		c, err = ntrip.NewClient(casterAddr, ntrip.Options{Username: user, Password: pwd})
-		if err == nil {
-			break
-		}
-	}
-
-	if err != nil {
-		g.logger.Errorf("Can't connect to NTRIP caster: %s", err)
-		return err
-	}
-
-	g.logger.Info("Connected to NTRIP caster")
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	g.ntripClient.Client = c
-	return g.err.Get()
-}
-
 // getStream attempts to connect to ntrip stream. We give up after maxAttempts unsuccessful tries.
 func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 	g.mu.Lock()
@@ -355,7 +323,7 @@ func (g *rtkSerial) connectAndParseSourceTable() error {
 		return g.err.Get()
 	}
 
-	err := g.connect(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MaxConnectAttempts)
+	err := g.ntripClient.Connect(g.cancelCtx, g.logger)
 	if err != nil {
 		g.err.Set(err)
 		return g.err.Get()
