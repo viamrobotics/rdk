@@ -22,11 +22,12 @@ import (
 )
 
 var (
-	testBaseName         = resource.NewName(base.API, "test_base")
-	testCameraName1      = resource.NewName(camera.API, "test_camera1")
-	testCameraName2      = resource.NewName(camera.API, "test_camera2")
-	testFrameServiceName = resource.NewName(framesystem.API, "test_fs")
-	defaultMotionCfg     = motion.MotionConfiguration{
+	testBaseName             = resource.NewName(base.API, "test_base")
+	testCameraName1          = resource.NewName(camera.API, "test_camera1")
+	testCameraName2          = resource.NewName(camera.API, "test_camera2")
+	testFrameServiceName     = resource.NewName(framesystem.API, "test_fs")
+	defaultCollisionBufferMM = 1e-8
+	defaultMotionCfg         = motion.MotionConfiguration{
 		AngularDegsPerSec:     0.25,
 		LinearMPerSec:         0.1,
 		ObstaclePollingFreqHz: 2,
@@ -229,7 +230,7 @@ func TestExploreCheckForObstacles(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 
 				for _, obs := range tt.obstacle {
-					collisionDetected, err := geometriesContainsPoint(obstacles.Geometries(), obs.position)
+					collisionDetected, err := geometriesContainsPoint(obstacles.Geometries(), obs.position, defaultCollisionBufferMM)
 					test.That(t, err, test.ShouldBeNil)
 					test.That(t, collisionDetected, test.ShouldBeTrue)
 				}

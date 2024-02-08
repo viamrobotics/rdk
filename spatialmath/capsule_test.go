@@ -19,6 +19,7 @@ func TestCapsuleConstruction(t *testing.T) {
 }
 
 func TestBoxCapsuleCollision(t *testing.T) {
+	collisionBuffer := 1e-8
 	pt := r3.Vector{-178.95551585002903, 15.388321162835881, -10.110465843295357}
 	ov := &OrientationVectorDegrees{OX: -0.43716334939336904, OY: -0.3861114135400337, OZ: -0.812284545144919, Theta: -180}
 	pose := NewPose(pt, ov)
@@ -29,11 +30,11 @@ func TestBoxCapsuleCollision(t *testing.T) {
 	box1, err := NewBox(NewPoseFromPoint(box1Pt), r3.Vector{X: 900, Y: 2000, Z: 100}, "")
 	test.That(t, err, test.ShouldBeNil)
 
-	col, err := c.CollidesWith(box1)
+	col, err := c.CollidesWith(box1, collisionBuffer)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, col, test.ShouldBeTrue)
 
-	dist, err := c.DistanceFrom(box1)
+	dist, err := c.DistanceFrom(box1, collisionBuffer)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, dist, test.ShouldAlmostEqual, -29.69, 1e-3)
 }

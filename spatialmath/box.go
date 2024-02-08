@@ -145,31 +145,31 @@ func (b *box) ToProtobuf() *commonpb.Geometry {
 }
 
 // CollidesWith checks if the given box collides with the given geometry and returns true if it does.
-func (b *box) CollidesWith(g Geometry) (bool, error) {
+func (b *box) CollidesWith(g Geometry, collisionBuffer float64) (bool, error) {
 	if other, ok := g.(*box); ok {
-		return boxVsBoxCollision(b, other), nil
+		return boxVsBoxCollision(b, other, collisionBuffer), nil
 	}
 	if other, ok := g.(*sphere); ok {
-		return sphereVsBoxCollision(other, b), nil
+		return sphereVsBoxCollision(other, b, collisionBuffer), nil
 	}
 	if other, ok := g.(*capsule); ok {
-		return capsuleVsBoxCollision(other, b), nil
+		return capsuleVsBoxCollision(other, b, collisionBuffer), nil
 	}
 	if other, ok := g.(*point); ok {
-		return pointVsBoxCollision(other.position, b), nil
+		return pointVsBoxCollision(other.position, b, collisionBuffer), nil
 	}
 	return true, newCollisionTypeUnsupportedError(b, g)
 }
 
-func (b *box) DistanceFrom(g Geometry) (float64, error) {
+func (b *box) DistanceFrom(g Geometry, collisionBuffer float64) (float64, error) {
 	if other, ok := g.(*box); ok {
-		return boxVsBoxDistance(b, other), nil
+		return boxVsBoxDistance(b, other, collisionBuffer), nil
 	}
 	if other, ok := g.(*sphere); ok {
 		return sphereVsBoxDistance(other, b), nil
 	}
 	if other, ok := g.(*capsule); ok {
-		return capsuleVsBoxDistance(other, b), nil
+		return capsuleVsBoxDistance(other, b, collisionBuffer), nil
 	}
 	if other, ok := g.(*point); ok {
 		return pointVsBoxDistance(other.position, b), nil
@@ -177,15 +177,15 @@ func (b *box) DistanceFrom(g Geometry) (float64, error) {
 	return math.Inf(-1), newCollisionTypeUnsupportedError(b, g)
 }
 
-func (b *box) EncompassedBy(g Geometry) (bool, error) {
+func (b *box) EncompassedBy(g Geometry, collisionBuffer float64) (bool, error) {
 	if other, ok := g.(*box); ok {
-		return boxInBox(b, other), nil
+		return boxInBox(b, other, collisionBuffer), nil
 	}
 	if other, ok := g.(*sphere); ok {
-		return boxInSphere(b, other), nil
+		return boxInSphere(b, other, collisionBuffer), nil
 	}
 	if other, ok := g.(*capsule); ok {
-		return boxInCapsule(b, other), nil
+		return boxInCapsule(b, other, collisionBuffer), nil
 	}
 	if _, ok := g.(*point); ok {
 		return false, nil
@@ -265,11 +265,11 @@ func (b *box) rotationMatrix() *RotationMatrix {
 // boxVsBoxCollision takes two boxes as arguments and returns a bool describing if they are in collision,
 // true == collision / false == no collision.
 // Since the separating axis test can exit early if no collision is found, it is efficient to avoid calling boxVsBoxDistance.
-func boxVsBoxCollision(a, b *box) bool {
+func boxVsBoxCollision(a, b *box, collisionBuffer float64) bool {
 	centerDist := b.pose.Point().Sub(a.pose.Point())
 
 	// check if there is a distance between bounding spheres to potentially exit early
-	if centerDist.Norm()-(a.boundingSphereR+b.boundingSphereR) > CollisionBuffer {
+	if centerDist.Norm()-(a.boundingSphereR+b.boundingSphereR) > collisionBuffer {
 		return false
 	}
 
@@ -277,10 +277,10 @@ func boxVsBoxCollision(a, b *box) bool {
 	rmB := b.rotationMatrix()
 
 	for i := 0; i < 3; i++ {
-		if separatingAxisTest(centerDist, rmA.Row(i), a.halfSize, b.halfSize, rmA, rmB) > CollisionBuffer {
+		if separatingAxisTest(centerDist, rmA.Row(i), a.halfSize, b.halfSize, rmA, rmB) > collisionBuffer {
 			return false
 		}
-		if separatingAxisTest(centerDist, rmB.Row(i), a.halfSize, b.halfSize, rmA, rmB) > CollisionBuffer {
+		if separatingAxisTest(centerDist, rmB.Row(i), a.halfSize, b.halfSize, rmA, rmB) > collisionBuffer {
 			return false
 		}
 		for j := 0; j < 3; j++ {
@@ -288,7 +288,7 @@ func boxVsBoxCollision(a, b *box) bool {
 
 			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
 			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
-				if separatingAxisTest(centerDist, crossProductPlane, a.halfSize, b.halfSize, rmA, rmB) > CollisionBuffer {
+				if separatingAxisTest(centerDist, crossProductPlane, a.halfSize, b.halfSize, rmA, rmB) > collisionBuffer {
 					return false
 				}
 			}
@@ -307,11 +307,11 @@ func boxVsBoxCollision(a, b *box) bool {
 // references:  https://comp.graphics.algorithms.narkive.com/jRAgjIUh/obb-obb-distance-calculation
 //
 //	https://dyn4j.org/2010/01/sat/#sat-nointer
-func boxVsBoxDistance(a, b *box) float64 {
+func boxVsBoxDistance(a, b *box, collisionBuffer float64) float64 {
 	centerDist := b.pose.Point().Sub(a.pose.Point())
 
 	// check if there is a distance between bounding spheres to potentially exit early
-	if boundingSphereDist := centerDist.Norm() - a.boundingSphereR - b.boundingSphereR; boundingSphereDist > CollisionBuffer {
+	if boundingSphereDist := centerDist.Norm() - a.boundingSphereR - b.boundingSphereR; boundingSphereDist > collisionBuffer {
 		return boundingSphereDist
 	}
 
@@ -350,9 +350,9 @@ func boxVsBoxDistance(a, b *box) float64 {
 }
 
 // boxInBox returns a bool describing if the inner box is completely encompassed by the outer box.
-func boxInBox(inner, outer *box) bool {
+func boxInBox(inner, outer *box, collisionBuffer float64) bool {
 	for _, vertex := range inner.vertices() {
-		if !pointVsBoxCollision(vertex, outer) {
+		if !pointVsBoxCollision(vertex, outer, collisionBuffer) {
 			return false
 		}
 	}
@@ -360,9 +360,9 @@ func boxInBox(inner, outer *box) bool {
 }
 
 // boxInSphere returns a bool describing if the given box is completely encompassed by the given sphere.
-func boxInSphere(b *box, s *sphere) bool {
+func boxInSphere(b *box, s *sphere, collisionBuffer float64) bool {
 	for _, vertex := range b.vertices() {
-		if sphereVsPointDistance(s, vertex) > CollisionBuffer {
+		if sphereVsPointDistance(s, vertex) > collisionBuffer {
 			return false
 		}
 	}
@@ -370,9 +370,9 @@ func boxInSphere(b *box, s *sphere) bool {
 }
 
 // boxInCapsule returns a bool describing if the given box is completely encompassed by the given capsule.
-func boxInCapsule(b *box, c *capsule) bool {
+func boxInCapsule(b *box, c *capsule, collisionBuffer float64) bool {
 	for _, vertex := range b.vertices() {
-		if capsuleVsPointDistance(c, vertex) > CollisionBuffer {
+		if capsuleVsPointDistance(c, vertex) > collisionBuffer {
 			return false
 		}
 	}

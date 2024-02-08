@@ -15,12 +15,12 @@ type Geometry interface {
 	AlmostEqual(Geometry) bool
 	Transform(Pose) Geometry
 	ToProtobuf() *commonpb.Geometry
-	CollidesWith(Geometry) (bool, error)
+	CollidesWith(Geometry, float64) (bool, error)
 	// If DistanceFrom is negative, it represents the penetration depth of the two geometries, which are in collision.
 	// Penetration depth magnitude is defined as the minimum translation which would result in the geometries not colliding.
 	// For certain entity pairs (box-box) this may be a conservative estimate of separation distance rather than exact.
-	DistanceFrom(Geometry) (float64, error)
-	EncompassedBy(Geometry) (bool, error)
+	DistanceFrom(Geometry, float64) (float64, error)
+	EncompassedBy(Geometry, float64) (bool, error)
 	SetLabel(string) // SetLabel sets the name of the geometry
 	Label() string   // Label is the name of the geometry
 	String() string  // String is a string representation of the geometry data structure
@@ -33,12 +33,12 @@ type GeometryType string
 
 // The set of allowed representations for orientation.
 const (
-	UnknownType     = GeometryType("")
-	BoxType         = GeometryType("box")
-	SphereType      = GeometryType("sphere")
-	CapsuleType     = GeometryType("capsule")
-	PointType       = GeometryType("point")
-	CollisionBuffer = 1e-8 // objects must be separated by this many mm to not be in collision
+	UnknownType = GeometryType("")
+	BoxType     = GeometryType("box")
+	SphereType  = GeometryType("sphere")
+	CapsuleType = GeometryType("capsule")
+	PointType   = GeometryType("point")
+	// CollisionBuffer = 1e-8 // objects must be separated by this many mm to not be in collision.
 
 	// Point density corresponding to how many points per square mm.
 	defaultPointDensity = .5
