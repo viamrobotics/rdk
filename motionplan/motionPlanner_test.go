@@ -769,6 +769,80 @@ func TestMovementWithGripper(t *testing.T) {
 	test.That(t, solution, test.ShouldNotBeNil)
 }
 
+func TestReplanValidations(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
+		"itsabase",
+		logger,
+		200./60.,
+		2,
+		nil,
+		false,
+		true,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1000, Y: 8000, Z: 0})
+
+	baseFS := frame.NewEmptyFrameSystem("baseFS")
+	err = baseFS.AddFrame(kinematicFrame, baseFS.World())
+	test.That(t, err, test.ShouldBeNil)
+	type testCase struct {
+		extra map[string]interface{}
+		msg   string
+		err   error
+	}
+
+	testCases := []testCase{
+		{
+			msg:   "fails validations when collision_buffer_mm is not a float",
+			extra: map[string]interface{}{"collision_buffer_mm": "not a float"},
+			err:   errors.New("could not interpret collision_buffer_mm field as float64"),
+		},
+		{
+			msg:   "fails validations when collision_buffer_mm is negative",
+			extra: map[string]interface{}{"collision_buffer_mm": -1.},
+			err:   errors.New("collision_buffer_mm can't be negative"),
+		},
+		{
+			msg:   "passes validations when collision_buffer_mm is a small positive float",
+			extra: map[string]interface{}{"collision_buffer_mm": 1e-5},
+		},
+		{
+			msg:   "passes validations when collision_buffer_mm is a positive float",
+			extra: map[string]interface{}{"collision_buffer_mm": 200.},
+		},
+		{
+			msg:   "passes validations when extra is empty",
+			extra: map[string]interface{}{},
+		},
+		{
+			msg:   "passes validations when extra is nil",
+			extra: map[string]interface{}{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.msg, func(t *testing.T) {
+			_, err := Replan(ctx, &PlanRequest{
+				Logger:             logger,
+				Goal:               frame.NewPoseInFrame(frame.World, goal),
+				Frame:              kinematicFrame,
+				FrameSystem:        baseFS,
+				StartConfiguration: frame.StartPositions(baseFS),
+				Options:            tc.extra,
+			}, nil, 0)
+			if tc.err != nil {
+				test.That(t, err, test.ShouldBeError, tc.err)
+			} else {
+				test.That(t, err, test.ShouldBeNil)
+			}
+		})
+	}
+}
+
 func TestReplan(t *testing.T) {
 	// TODO(RSDK-5634): this should be unskipped when this bug is fixed
 	t.Skip()
