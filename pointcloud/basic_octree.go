@@ -204,7 +204,7 @@ func (octree *BasicOctree) CollidesWithGeometry(
 	geom spatialmath.Geometry,
 	confidenceThreshold int,
 	buffer,
-	collisionBuffer float64,
+	collisionBufferMM float64,
 ) (bool, error) {
 	if octree.MaxVal() < confidenceThreshold {
 		return false, nil
@@ -221,7 +221,7 @@ func (octree *BasicOctree) CollidesWithGeometry(
 		}
 
 		// Check whether our geom collides with the area represented by the octree. If false, we can skip
-		collide, err := geom.CollidesWith(ocbox, collisionBuffer)
+		collide, err := geom.CollidesWith(ocbox, collisionBufferMM)
 		if err != nil {
 			return false, err
 		}
@@ -229,7 +229,7 @@ func (octree *BasicOctree) CollidesWithGeometry(
 			return false, nil
 		}
 		for _, child := range octree.node.children {
-			collide, err = child.CollidesWithGeometry(geom, confidenceThreshold, buffer, collisionBuffer)
+			collide, err = child.CollidesWithGeometry(geom, confidenceThreshold, buffer, collisionBufferMM)
 			if err != nil {
 				return false, err
 			}
@@ -246,7 +246,7 @@ func (octree *BasicOctree) CollidesWithGeometry(
 			return false, err
 		}
 
-		ptCollide, err := geom.CollidesWith(ptGeom, collisionBuffer)
+		ptCollide, err := geom.CollidesWith(ptGeom, collisionBufferMM)
 		if err != nil {
 			return false, err
 		}
@@ -256,14 +256,14 @@ func (octree *BasicOctree) CollidesWithGeometry(
 }
 
 // CollidesWith checks if the given octree collides with the given geometry and returns true if it does.
-func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBuffer float64) (bool, error) {
-	return octree.CollidesWithGeometry(geom, confidenceThreshold, buffer, collisionBuffer)
+func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBufferMM float64) (bool, error) {
+	return octree.CollidesWithGeometry(geom, confidenceThreshold, buffer, collisionBufferMM)
 }
 
 // DistanceFrom returns the distance from the given octree to the given geometry.
 // TODO (RSDK-3743): Implement BasicOctree Geometry functions.
-func (octree *BasicOctree) DistanceFrom(geom spatialmath.Geometry, collisionBuffer float64) (float64, error) {
-	collides, err := octree.CollidesWith(geom, collisionBuffer)
+func (octree *BasicOctree) DistanceFrom(geom spatialmath.Geometry, collisionBufferMM float64) (float64, error) {
+	collides, err := octree.CollidesWith(geom, collisionBufferMM)
 	if err != nil {
 		return math.Inf(1), err
 	}
@@ -275,7 +275,7 @@ func (octree *BasicOctree) DistanceFrom(geom spatialmath.Geometry, collisionBuff
 
 // EncompassedBy returns true if the given octree is within the given geometry.
 // TODO (RSDK-3743): Implement BasicOctree Geometry functions.
-func (octree *BasicOctree) EncompassedBy(geom spatialmath.Geometry, collisionBuffer float64) (bool, error) {
+func (octree *BasicOctree) EncompassedBy(geom spatialmath.Geometry, collisionBufferMM float64) (bool, error) {
 	return false, errors.New("not implemented")
 }
 

@@ -236,7 +236,7 @@ func createAllCollisionConstraints(
 	worldState *referenceframe.WorldState,
 	inputs map[string][]referenceframe.Input,
 	pbConstraint []*pb.CollisionSpecification,
-	collisionBuffer float64,
+	collisionBufferMM float64,
 ) (map[string]StateConstraint, error) {
 	constraintMap := map[string]StateConstraint{}
 
@@ -288,12 +288,12 @@ func createAllCollisionConstraints(
 		for _, geom := range static {
 			if octree, ok := geom.(*pointcloud.BasicOctree); ok {
 				if zeroCG == nil {
-					zeroCG, err = setupZeroCG(moving, static, allowedCollisions, collisionBuffer)
+					zeroCG, err = setupZeroCG(moving, static, allowedCollisions, collisionBufferMM)
 					if err != nil {
 						return nil, err
 					}
 				}
-				for _, collision := range zeroCG.collisions(collisionBuffer) {
+				for _, collision := range zeroCG.collisions(collisionBufferMM) {
 					if collision.name1 == octree.Label() {
 						return nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name2)
 					} else if collision.name2 == octree.Label() {
@@ -304,7 +304,7 @@ func createAllCollisionConstraints(
 		}
 
 		// create constraint to keep moving geometries from hitting world state obstacles
-		obstacleConstraint, err := NewCollisionConstraint(moving, static, allowedCollisions, false, collisionBuffer)
+		obstacleConstraint, err := NewCollisionConstraint(moving, static, allowedCollisions, false, collisionBufferMM)
 		if err != nil {
 			return nil, err
 		}
@@ -313,7 +313,12 @@ func createAllCollisionConstraints(
 
 	if len(staticGeometries) > 0 {
 		// create constraint to keep moving geometries from hitting other geometries on robot that are not moving
-		robotConstraint, err := NewCollisionConstraint(movingGeometries.Geometries(), staticGeometries, allowedCollisions, false, collisionBuffer)
+		robotConstraint, err := NewCollisionConstraint(
+			movingGeometries.Geometries(),
+			staticGeometries,
+			allowedCollisions,
+			false,
+			collisionBufferMM)
 		if err != nil {
 			return nil, err
 		}
@@ -322,7 +327,7 @@ func createAllCollisionConstraints(
 
 	// create constraint to keep moving geometries from hitting themselves
 	if len(movingGeometries.Geometries()) > 1 {
-		selfCollisionConstraint, err := NewCollisionConstraint(movingGeometries.Geometries(), nil, allowedCollisions, false, collisionBuffer)
+		selfCollisionConstraint, err := NewCollisionConstraint(movingGeometries.Geometries(), nil, allowedCollisions, false, collisionBufferMM)
 		if err != nil {
 			return nil, err
 		}
@@ -333,10 +338,10 @@ func createAllCollisionConstraints(
 
 func setupZeroCG(moving, static []spatial.Geometry,
 	collisionSpecifications []*Collision,
-	collisionBuffer float64,
+	collisionBufferMM float64,
 ) (*collisionGraph, error) {
 	// create the reference collisionGraph
-	zeroCG, err := newCollisionGraph(moving, static, nil, true, collisionBuffer)
+	zeroCG, err := newCollisionGraph(moving, static, nil, true, collisionBufferMM)
 	if err != nil {
 		return nil, err
 	}
@@ -354,9 +359,9 @@ func NewCollisionConstraint(
 	moving, static []spatial.Geometry,
 	collisionSpecifications []*Collision,
 	reportDistances bool,
-	collisionBuffer float64,
+	collisionBufferMM float64,
 ) (StateConstraint, error) {
-	zeroCG, err := setupZeroCG(moving, static, collisionSpecifications, collisionBuffer)
+	zeroCG, err := setupZeroCG(moving, static, collisionSpecifications, collisionBufferMM)
 	if err != nil {
 		return nil, err
 	}
@@ -386,12 +391,12 @@ func NewCollisionConstraint(
 			return false
 		}
 
-		cg, err := newCollisionGraph(internalGeoms, static, zeroCG, reportDistances, collisionBuffer)
+		cg, err := newCollisionGraph(internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
 		if err != nil {
 			return false
 		}
 
-		return len(cg.collisions(collisionBuffer)) == 0
+		return len(cg.collisions(collisionBufferMM)) == 0
 	}
 	return constraint, nil
 }
@@ -513,7 +518,7 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 // NewOctreeCollisionConstraint takes an octree and will return a constraint that checks whether any of the geometries in the solver frame
 // intersect with points in the octree. Threshold sets the confidence level required for a point to be considered, and buffer is the
 // distance to a point that is considered a collision in mm.
-func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int, buffer, collisionBuffer float64) StateConstraint {
+func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int, buffer, collisionBufferMM float64) StateConstraint {
 	constraint := func(state *ik.State) bool {
 		geometries, err := state.Frame.Geometries(state.Configuration)
 		if err != nil && geometries == nil {
@@ -521,7 +526,7 @@ func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int,
 		}
 
 		for _, geom := range geometries.Geometries() {
-			collides, err := octree.CollidesWithGeometry(geom, threshold, buffer, collisionBuffer)
+			collides, err := octree.CollidesWithGeometry(geom, threshold, buffer, collisionBufferMM)
 			if err != nil || collides {
 				return false
 			}

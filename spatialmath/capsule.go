@@ -146,20 +146,20 @@ func (c *capsule) ToProtobuf() *commonpb.Geometry {
 }
 
 // CollidesWith checks if the given capsule collides with the given geometry and returns true if it does.
-func (c *capsule) CollidesWith(g Geometry, collisionBuffer float64) (bool, error) {
+func (c *capsule) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
 	if other, ok := g.(*box); ok {
-		return capsuleVsBoxCollision(c, other, collisionBuffer), nil
+		return capsuleVsBoxCollision(c, other, collisionBufferMM), nil
 	}
-	dist, err := c.DistanceFrom(g, collisionBuffer)
+	dist, err := c.DistanceFrom(g, collisionBufferMM)
 	if err != nil {
 		return true, err
 	}
-	return dist <= collisionBuffer, nil
+	return dist <= collisionBufferMM, nil
 }
 
-func (c *capsule) DistanceFrom(g Geometry, collisionBuffer float64) (float64, error) {
+func (c *capsule) DistanceFrom(g Geometry, collisionBufferMM float64) (float64, error) {
 	if other, ok := g.(*box); ok {
-		return capsuleVsBoxDistance(c, other, collisionBuffer), nil
+		return capsuleVsBoxDistance(c, other, collisionBufferMM), nil
 	}
 	if other, ok := g.(*capsule); ok {
 		return capsuleVsCapsuleDistance(c, other), nil
@@ -173,7 +173,7 @@ func (c *capsule) DistanceFrom(g Geometry, collisionBuffer float64) (float64, er
 	return math.Inf(-1), newCollisionTypeUnsupportedError(c, g)
 }
 
-func (c *capsule) EncompassedBy(g Geometry, collisionBuffer float64) (bool, error) {
+func (c *capsule) EncompassedBy(g Geometry, collisionBufferMM float64) (bool, error) {
 	if other, ok := g.(*capsule); ok {
 		return capsuleInCapsule(c, other), nil
 	}
@@ -243,16 +243,16 @@ func capsuleVsCapsuleDistance(c, other *capsule) float64 {
 	return SegmentDistanceToSegment(c.segA, c.segB, other.segA, other.segB) - (c.radius + other.radius)
 }
 
-func capsuleVsBoxDistance(c *capsule, other *box, collisionBuffer float64) float64 {
+func capsuleVsBoxDistance(c *capsule, other *box, collisionBufferMM float64) float64 {
 	// Large amounts of capsule collision code were adopted from `brax`
 	// https://github.com/google/brax/blob/7eaa16b4bf446b117b538dbe9c9401f97cf4afa2/brax/physics/colliders.py
 	// https://github.com/google/brax/blob/7eaa16b4bf446b117b538dbe9c9401f97cf4afa2/brax/physics/geometry.py
 	// Brax converts boxes to meshes composed of 12 triangles and does collision detection on those.
 	// SAT is faster and easier if we are *NOT* GPU-accelerated. But triangle method is guaranteed accurate at distances.
-	dist := capsuleBoxSeparatingAxisDistance(c, other, collisionBuffer)
+	dist := capsuleBoxSeparatingAxisDistance(c, other, collisionBufferMM)
 	// Separating axis theorum provides accurate penetration depth but is not accurate for separation
 	// if we are not in collision, convert box to mesh and determine triangle-capsule separation distance
-	if dist > collisionBuffer {
+	if dist > collisionBufferMM {
 		return capsuleVsMeshDistance(c, other.toMesh())
 	}
 	return dist
@@ -294,11 +294,11 @@ func capsuleInSphere(c *capsule, s *sphere) bool {
 }
 
 // capsuleVsBoxCollision returns immediately as soon as any result is found indicating that the two objects are not in collision.
-func capsuleVsBoxCollision(c *capsule, b *box, collisionBuffer float64) bool {
+func capsuleVsBoxCollision(c *capsule, b *box, collisionBufferMM float64) bool {
 	centerDist := b.pose.Point().Sub(c.center)
 
 	// check if there is a distance between bounding spheres to potentially exit early
-	if centerDist.Norm()-((c.length/2)+b.boundingSphereR) > collisionBuffer {
+	if centerDist.Norm()-((c.length/2)+b.boundingSphereR) > collisionBufferMM {
 		return false
 	}
 	rmA := c.rotationMatrix()
@@ -307,7 +307,7 @@ func capsuleVsBoxCollision(c *capsule, b *box, collisionBuffer float64) bool {
 	// Capsule is modeled as a 0x0xN box, where N = (length/2)-radius.
 	// This allows us to check separating axes on a reduced set of projections.
 
-	cutoff := collisionBuffer + c.radius
+	cutoff := collisionBufferMM + c.radius
 
 	for i := 0; i < 3; i++ {
 		if separatingAxisTest1D(&centerDist, &c.capVec, rmA.Row(i), b.halfSize, rmB) > cutoff {
@@ -330,11 +330,11 @@ func capsuleVsBoxCollision(c *capsule, b *box, collisionBuffer float64) bool {
 	return true
 }
 
-func capsuleBoxSeparatingAxisDistance(c *capsule, b *box, collisionBuffer float64) float64 {
+func capsuleBoxSeparatingAxisDistance(c *capsule, b *box, collisionBufferMM float64) float64 {
 	centerDist := b.pose.Point().Sub(c.center)
 
 	// check if there is a distance between bounding spheres to potentially exit early
-	if boundingSphereDist := centerDist.Norm() - ((c.length / 2) + b.boundingSphereR); boundingSphereDist > collisionBuffer {
+	if boundingSphereDist := centerDist.Norm() - ((c.length / 2) + b.boundingSphereR); boundingSphereDist > collisionBufferMM {
 		return boundingSphereDist
 	}
 	rmA := c.rotationMatrix()
