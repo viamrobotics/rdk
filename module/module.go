@@ -253,7 +253,11 @@ func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (res
 }
 
 func (m *Module) connectParent(ctx context.Context) error {
-	// If parent connection has already been made, do not make another one.
+	// If parent connection has already been made, do not make another one. Some
+	// tests send two ReadyRequests sequentially, and if an rdk were to retry
+	// sending a ReadyRequest to a module for any reason, we could feasibly make
+	// a second connection back to the parent and leak the first, so disallow the
+	// setting of parent more than once.
 	if m.parent != nil {
 		return nil
 	}
