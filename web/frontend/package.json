@@ -57,7 +57,7 @@
     "@viamrobotics/prettier-config": "^0.3.4",
     "@viamrobotics/prime": "0.5.9",
     "@viamrobotics/prime-blocks": "^0.0.27",
-    "@viamrobotics/prime-core": "^0.0.69",
+    "@viamrobotics/prime-core": "^0.0.87",
     "@viamrobotics/rpc": "0.2.3",
     "@viamrobotics/sdk": "0.10.0-rc.0",
     "@viamrobotics/three": "^0.0.3",

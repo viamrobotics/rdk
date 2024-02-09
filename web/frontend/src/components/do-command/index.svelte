@@ -59,15 +59,15 @@ const handleDoCommand = async (
   }
 };
 
-const handleSelectComponent = (event: CustomEvent<string>) => {
-  selectedComponent = resources.find(({ name }) => name === event.detail);
+const handleSelectComponent = (value: string) => {
+  selectedComponent = resources.find(({ name }) => name === value);
 };
 
 const handleEditorInput = (event: CustomEvent<{ value: string }>) => {
   input = event.detail.value;
 };
 
-const namesToPrettySelect = (): string[] => {
+$: namesToPrettySelect = (): string[] => {
   const simple = new Map<string, number>();
 
   for (const resource of resources) {
@@ -95,7 +95,8 @@ const namesToPrettySelect = (): string[] => {
         options={namesToPrettySelect()}
         placeholder="Select a component"
         disabled={executing}
-        on:input={handleSelectComponent}
+        exclusive
+        onChange={handleSelectComponent}
       />
     </Label>
     <div class="flex h-full w-full flex-row flex-wrap gap-2">
