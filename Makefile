@@ -126,9 +126,12 @@ server-android:
 		-o bin/viam-server-$(BUILD_CHANNEL)-android-aarch64 \
 		./web/cmd/server
 
+# change this to android/arm64 if you're testing locally and want faster builds
+APK_ARCH ?= android/arm64,android/386
+
 droid-rdk.aar:
 	# creates an android library that can be imported by native code
-	gomobile bind -v -target android -androidapi 28 -tags no_cgo -o $@ ./web/cmd/droid
+	gomobile bind -v -target $(APK_ARCH) -androidapi 28 -tags no_cgo -o $@ ./web/cmd/droid
 
 clean-all:
 	git clean -fxd
