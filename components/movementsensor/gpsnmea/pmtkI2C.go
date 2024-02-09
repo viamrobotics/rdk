@@ -360,28 +360,6 @@ func (g *PmtkI2CNMEAMovementSensor) ReadSatsInView(ctx context.Context) (int, er
 	return g.data.SatsInView, g.err.Get()
 }
 
-// Readings will use return all of the MovementSensor Readings.
-func (g *PmtkI2CNMEAMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := movementsensor.DefaultAPIReadings(ctx, g, extra)
-	if err != nil {
-		return nil, err
-	}
-
-	fix, err := g.ReadFix(ctx)
-	if err != nil {
-		return nil, err
-	}
-	satsInView, err := g.ReadSatsInView(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	readings["fix"] = fix
-	readings["satellites_in_view"] = satsInView
-
-	return readings, nil
-}
-
 // Close shuts down the SerialNMEAMOVEMENTSENSOR.
 func (g *PmtkI2CNMEAMovementSensor) Close(ctx context.Context) error {
 	g.cancelFunc()

@@ -216,7 +216,9 @@ func (g *NMEAMovementSensor) ReadSatsInView(ctx context.Context) (int, error) {
 }
 
 // Readings will use return all of the MovementSensor Readings.
-func (g *NMEAMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (g *NMEAMovementSensor) Readings(
+	ctx context.Context, extra map[string]interface{},
+) (map[string]interface{}, error) {
 	readings, err := movementsensor.DefaultAPIReadings(ctx, g, extra)
 	if err != nil {
 		return nil, err
