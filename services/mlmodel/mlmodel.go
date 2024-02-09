@@ -42,7 +42,7 @@ func TensorsToProto(ts ml.Tensors) (*servicepb.FlatTensors, error) {
 	for name, t := range ts {
 		tp, err := tensorToProto(t)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert tensor to proto message")
+			return nil, errors.Wrapf(err, "failed to convert tensor %q to proto message", name)
 		}
 		pbts.Tensors[name] = tp
 	}
