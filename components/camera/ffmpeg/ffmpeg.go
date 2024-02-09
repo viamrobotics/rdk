@@ -102,6 +102,11 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 
 	ffCam.activeBackgroundWorkers.Add(1)
 	viamutils.ManagedGo(func() {
+		select {
+		case <-cancelableCtx.Done():
+			return
+		default:
+		}
 		stream := ffmpeg.Input(conf.VideoPath, conf.InputKWArgs)
 		for _, filter := range conf.Filters {
 			stream = stream.Filter(filter.Name, filter.Args, filter.KWArgs)
