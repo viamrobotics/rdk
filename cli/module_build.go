@@ -123,7 +123,7 @@ func (c *viamClient) moduleBuildLocalAction(cCtx *cli.Context) error {
 // "build":"buildmymodule.sh"
 // "build":"make build"
 //
-// however, running bash -c "buildmymodule.sh" doesn't work so we
+// running bash -c "buildmymodule.sh" doesn't work so we
 // have to ensure we don't pass the -c arg to bash if it is a local script.
 func buildStepStringToBashArgs(step string) []string {
 	if _, err := os.Stat(step); err == nil {
