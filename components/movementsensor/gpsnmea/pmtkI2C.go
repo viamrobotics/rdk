@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"sync"
 
 	"go.viam.com/utils"
@@ -229,26 +228,6 @@ func MakePmtkI2cGpsNmea(
 	}
 
 	return NewNmeaMovementSensor(ctx, name, dev, logger)
-}
-
-// CompassHeading returns the compass heading in degree (0->360).
-func (g *PmtkI2CNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	lastHeading := g.lastCompassHeading.GetLastCompassHeading()
-
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	currentHeading := g.data.CompassHeading
-
-	if !math.IsNaN(lastHeading) && math.IsNaN(currentHeading) {
-		return lastHeading, nil
-	}
-
-	if !math.IsNaN(currentHeading) && currentHeading != lastHeading {
-		g.lastCompassHeading.SetLastCompassHeading(currentHeading)
-	}
-
-	return currentHeading, nil
 }
 
 // Properties what can I do!

@@ -194,7 +194,9 @@ func (g *NMEAMovementSensor) Orientation(
 }
 
 // CompassHeading returns the heading, from the range 0->360.
-func (g *NMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (g *NMEAMovementSensor) CompassHeading(
+	ctx context.Context, extra map[string]interface{},
+) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
