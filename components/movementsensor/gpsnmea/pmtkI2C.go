@@ -37,7 +37,7 @@ type I2cDataReader struct {
 
 // NewI2cDataReader constructs a new DataReader that gets its NMEA messages over an I2C bus.
 func NewI2cDataReader(
-	bus buses.I2C, addr byte, baud int, logger logging.Logger
+	bus buses.I2C, addr byte, baud int, logger logging.Logger,
 ) (DataReader, error) {
 	data := make(chan string)
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
@@ -91,8 +91,61 @@ func (dr *I2cDataReader) initialize() error {
 	return nil
 }
 
+// start spins up a background coroutine to read data from the I2C bus and put it into the channel
+// of complete messages.
 func (dr *I2cDataReader) start() {
-	// TODO
+	dr.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer dr.activeBackgroundWorkers.Done()
+
+		strBuf := ""
+		for {
+			select {
+			case <-dr.cancelCtx.Done():
+				return
+			default:
+			}
+
+			// Opening an i2c handle blocks the whole bus, so we open/close each loop so other
+			// things also have a chance to use it
+			handle, err := dr.bus.OpenHandle(dr.addr)
+			if err != nil {
+				dr.logger.CErrorf(dr.cancelCtx, "can't open gps i2c handle, aborting: %s", err)
+				return
+			}
+			buffer, err := handle.Read(dr.cancelCtx, 1024)
+			if err != nil {
+				dr.logger.CErrorf(dr.cancelCtx, "failed to read handle, retrying: %s", err)
+				continue
+			}
+			err = handle.Close()
+			if err != nil {
+				dr.logger.CErrorf(dr.cancelCtx, "failed to close handle, aborting: %s", err)
+				return
+			}
+
+			for _, b := range buffer {
+				// PMTK uses CRLF line endings to terminate sentences, but just LF to blank data.
+				// Since CR should never appear except at the end of our sentence, we use that to
+				// determine sentence end. LF is merely ignored.
+				if b == 0x0D { // 0x0D is the ASCII value for a carriage return
+					if strBuf != "" {
+						// Sometimes we miss "$" on the first message of the buffer. If the first
+						// character we read is a "G", it's likely that this has occurred, and we
+						// should add a "$" at the beginning.
+						if strBuf[0] == 0x47 { // 0x47 is the ASCII value for "G"
+							strBuf = "$" + strBuf
+						}
+
+						dr.data<-strBuf
+						strBuf = ""
+					}
+				} else if b != 0x0A && b < 0x7F { // only append valid (printable) bytes
+					strBuf += string(b)
+				}
+			}
+		}
+	})
 }
 
 // Messages returns the channel of complete NMEA sentences we have read off of the device. It's part
