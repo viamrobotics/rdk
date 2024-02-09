@@ -42,6 +42,7 @@ const (
 	moduleFlagVersion         = "version"
 	moduleFlagPlatform        = "platform"
 	moduleFlagForce           = "force"
+	moduleFlagBinary          = "binary"
 
 	moduleBuildFlagPath     = "module"
 	moduleBuildFlagRef      = "ref"
@@ -77,13 +78,13 @@ const (
 
 // createUsageText is a helper for formatting the flags, if otherOptions is set to true
 // then [other options] is appended to the end of the text.
-func createUsageText(command string, flags []string, otherOptions bool) string {
-	formattedFlags := make([]string, len(flags)+1)
-	for i, flag := range flags {
+func createUsageText(command string, requiredFlags []string, otherOptions bool) string {
+	formattedFlags := make([]string, len(requiredFlags)+1)
+	for i, flag := range requiredFlags {
 		formattedFlags[i] = fmt.Sprintf("--%s=<%s>", flag, flag)
 	}
 	if otherOptions {
-		formattedFlags[len(flags)] = "[other options]"
+		formattedFlags[len(requiredFlags)] = "[other options]"
 	}
 	return fmt.Sprintf("%s %s", command, strings.Join(formattedFlags, " "))
 }
@@ -396,7 +397,7 @@ var app = &cli.App{
 						{
 							Name:      "tabular",
 							Usage:     "delete tabular data from Viam cloud",
-							UsageText: createUsageText("viam data delete tabular", nil, true),
+							UsageText: createUsageText("viam data delete tabular", []string{dataFlagOrgID, dataFlagDeleteTabularDataOlderThanDays}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     dataFlagOrgID,
@@ -822,7 +823,7 @@ var app = &cli.App{
 				{
 					Name:      "status",
 					Usage:     "display machine status",
-					UsageText: "viam machines status <machine> [other options]",
+					UsageText: createUsageText("viam machines status", []string{machineFlag}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        organizationFlag,
@@ -846,7 +847,7 @@ var app = &cli.App{
 					Name:      "logs",
 					Aliases:   []string{"log"},
 					Usage:     "display machine logs",
-					UsageText: "viam machines logs <machine> [other options]",
+					UsageText: createUsageText("viam machines logs", []string{machineFlag}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        organizationFlag,
@@ -878,7 +879,7 @@ var app = &cli.App{
 						{
 							Name:      "status",
 							Usage:     "display part status",
-							UsageText: "viam machines part status <machine> <part> [other options]",
+							UsageText: createUsageText("viam machines part status", []string{machineFlag, partFlag}, true),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:        organizationFlag,
@@ -906,7 +907,7 @@ var app = &cli.App{
 							Name:      "logs",
 							Aliases:   []string{"log"},
 							Usage:     "display part logs",
-							UsageText: "viam machines part logs <machine> <part> [other options]",
+							UsageText: createUsageText("viam machines part logs", []string{machineFlag, partFlag}, true),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:        organizationFlag,
@@ -942,7 +943,7 @@ var app = &cli.App{
 						{
 							Name:      "run",
 							Usage:     "run a command on a machine part",
-							UsageText: "viam machines part run <organization> <location> <machine> <part> [other options] <service.method>",
+							UsageText: createUsageText("viam machines part run", []string{organizationFlag, locationFlag, machineFlag, partFlag, "[other options]", "<service.method>"}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     organizationFlag,
@@ -978,7 +979,7 @@ var app = &cli.App{
 							Name:        "shell",
 							Usage:       "start a shell on a machine part",
 							Description: `In order to use the shell command, the machine must have a valid shell type service.`,
-							UsageText:   "viam machines part shell <organization> <location> <machine> <part>",
+							UsageText:   createUsageText("viam machines part shell", []string{organizationFlag, locationFlag, machineFlag, partFlag}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     organizationFlag,
@@ -1023,7 +1024,7 @@ you won't have to pass a namespace or org-id in future commands. Otherwise there
 and you will have to provide the org-id to future cli commands. You cannot make your module public until you claim an org-id.
 
 After creation, use 'viam module update' to push your new module to app.viam.com.`,
-					UsageText: "viam module create <name> [other options]",
+					UsageText: createUsageText("viam module create", []string{moduleFlagName}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     moduleFlagName,
@@ -1042,8 +1043,9 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Action: CreateModuleAction,
 				},
 				{
-					Name:  "update",
-					Usage: "update a module's metadata on app.viam.com",
+					Name:      "update",
+					Usage:     "update a module's metadata on app.viam.com",
+					UsageText: createUsageText("viam module update", []string{moduleFlagPath}, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:      moduleFlagPath,
@@ -1055,8 +1057,9 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Action: UpdateModuleAction,
 				},
 				{
-					Name:  "update-models",
-					Usage: "update a module's metadata file based on models it provides",
+					Name:      "update-models",
+					Usage:     "update a module's metadata file based on models it provides",
+					UsageText: createUsageText("viam module update-models", []string{moduleFlagPath, moduleFlagBinary}, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:      moduleFlagPath,
@@ -1065,7 +1068,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							TakesFile: true,
 						},
 						&cli.StringFlag{
-							Name:     "binary",
+							Name:     moduleFlagBinary,
 							Usage:    "binary for the module to run (has to work on this os/processor)",
 							Required: true,
 						},
@@ -1088,7 +1091,7 @@ Example uploading a custom tarball of your module:
 tar -czf packaged-module.tar.gz ./src requirements.txt run.sh
 viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.tar.gz
                       `,
-					UsageText: "viam module upload <version> <platform> [other options] <packaged-module.tar.gz>",
+					UsageText: createUsageText("viam module upload", []string{moduleFlagVersion, moduleFlagPlatform}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:      moduleFlagPath,
