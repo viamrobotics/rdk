@@ -69,10 +69,14 @@ func (dr *I2cDataReader) initialize() error {
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
 
-	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences
+	// Set the baud rate
+	// TODO: does this actually do anything in the current context? The baud rate should be
+	// governed by the clock line on the I2C bus, not on the device.
 	baudcmd := fmt.Sprintf("PMTK251,%d", dr.baud)
 	cmd251 := addChk([]byte(baudcmd))
+	// Output GLL, RMC, VTG, GGA, GSA, and GSV sentences, and nothing else, every position fix
 	cmd314 := addChk([]byte("PMTK314,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0"))
+	// Ask for updates every 1000 ms (every second)
 	cmd220 := addChk([]byte("PMTK220,1000"))
 
 	err = handle.Write(dr.cancelCtx, cmd251)
