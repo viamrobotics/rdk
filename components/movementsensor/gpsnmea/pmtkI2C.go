@@ -233,20 +233,6 @@ func MakePmtkI2cGpsNmea(
 	return NewNmeaMovementSensor(ctx, name, dev, logger)
 }
 
-// LinearVelocity returns the current speed of the MovementSensor.
-func (g *PmtkI2CNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	if math.IsNaN(g.data.CompassHeading) {
-		return r3.Vector{}, g.err.Get()
-	}
-
-	headingInRadians := g.data.CompassHeading * (math.Pi / 180)
-	xVelocity := g.data.Speed * math.Sin(headingInRadians)
-	yVelocity := g.data.Speed * math.Cos(headingInRadians)
-	return r3.Vector{X: xVelocity, Y: yVelocity, Z: 0}, g.err.Get()
-}
-
 // LinearAcceleration returns the current linear acceleration of the MovementSensor.
 func (g *PmtkI2CNMEAMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()

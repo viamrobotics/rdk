@@ -155,7 +155,9 @@ func (g *NMEAMovementSensor) Accuracy(
 // LinearVelocity returns the sensor's linear velocity. It requires having a compass heading, so we
 // know which direction our speed is in. We assume all of this speed is horizontal, and not in
 // gaining/losing altitude.
-func (g *NMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (g *NMEAMovementSensor) LinearVelocity(
+	ctx context.Context, extra map[string]interface{},
+) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
