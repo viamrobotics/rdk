@@ -137,8 +137,9 @@ func (g *NMEAMovementSensor) Position(
 }
 
 // Accuracy returns the accuracy map, hDOP, vDOP, Fixquality and compass heading error.
-func (g *NMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
-) {
+func (g *NMEAMovementSensor) Accuracy(
+	ctx context.Context, extra map[string]interface{},
+) (*movementsensor.Accuracy, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	acc := movementsensor.Accuracy{

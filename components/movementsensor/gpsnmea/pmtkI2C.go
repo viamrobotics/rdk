@@ -233,20 +233,6 @@ func MakePmtkI2cGpsNmea(
 	return NewNmeaMovementSensor(ctx, name, dev, logger)
 }
 
-// Accuracy returns the accuracy, hDOP and vDOP.
-func (g *PmtkI2CNMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	acc := movementsensor.Accuracy{
-		AccuracyMap:        map[string]float32{"hDOP": float32(g.data.HDOP), "vDOP": float32(g.data.VDOP)},
-		Hdop:               float32(g.data.HDOP),
-		Vdop:               float32(g.data.VDOP),
-		NmeaFix:            int32(g.data.FixQuality),
-		CompassDegreeError: float32(math.NaN()),
-	}
-	return &acc, g.err.Get()
-}
-
 // LinearVelocity returns the current speed of the MovementSensor.
 func (g *PmtkI2CNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
