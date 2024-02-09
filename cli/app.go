@@ -135,7 +135,7 @@ var app = &cli.App{
 				{
 					Name:      "api-key",
 					Usage:     "authenticate with an api key",
-					UsageText: createUsageText("auth api-key", []string{loginFlagKeyID, loginFlagKey}, false),
+					UsageText: createUsageText("login api-key", []string{loginFlagKeyID, loginFlagKey}, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     loginFlagKeyID,
