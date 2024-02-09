@@ -47,7 +47,9 @@ func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map
 		return nil, errors.Errorf("invalid length of shape array (expected 4, got %d)", shapeLen)
 	}
 
+	channelsFirst := false // if channelFirst is true, then shape is (1, 3, height, width)
 	if shape := md.Inputs[0].Shape; getIndex(shape, 3) == 1 {
+		channelsFirst = true
 		inHeight, inWidth = shape[2], shape[3]
 	} else {
 		inHeight, inWidth = shape[1], shape[2]
@@ -87,6 +89,16 @@ func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map
 			)
 		default:
 			return nil, errors.Errorf("invalid input type of %s. try uint8 or float32", inType)
+		}
+		if channelsFirst {
+			err := inMap[inputName].T(0, 3, 1, 2)
+			if err != nil {
+				return nil, errors.New("could not transponse tensor of input image")
+			}
+			err = inMap[inputName].Transpose()
+			if err != nil {
+				return nil, errors.New("could not transponse tensor of input image")
+			}
 		}
 		outMap, err := mlm.Infer(ctx, inMap)
 		if err != nil {

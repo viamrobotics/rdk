@@ -69,6 +69,12 @@ func tensorToProto(t *tensor.Dense) (*servicepb.FlatTensor, error) {
 				Data: dataSlice,
 			},
 		}
+	case uint8:
+		ftpb.Tensor = &servicepb.FlatTensor_Uint8Tensor{
+			Uint8Tensor: &servicepb.FlatTensorDataUInt8{
+				Data: []uint8{dataSlice},
+			},
+		}
 	case []int16:
 		ftpb.Tensor = &servicepb.FlatTensor_Int16Tensor{
 			Int16Tensor: &servicepb.FlatTensorDataInt16{
@@ -121,6 +127,12 @@ func tensorToProto(t *tensor.Dense) (*servicepb.FlatTensor, error) {
 				Data: dataSlice,
 			},
 		}
+	case float32:
+		ftpb.Tensor = &servicepb.FlatTensor_FloatTensor{
+			FloatTensor: &servicepb.FlatTensorDataFloat{
+				Data: []float32{dataSlice},
+			},
+		}
 	case []float64:
 		ftpb.Tensor = &servicepb.FlatTensor_DoubleTensor{
 			DoubleTensor: &servicepb.FlatTensorDataDouble{
@@ -128,7 +140,7 @@ func tensorToProto(t *tensor.Dense) (*servicepb.FlatTensor, error) {
 			},
 		}
 	default:
-		return nil, errors.Errorf("cannot turn underlying tensor data of type %T into proto message", dataSlice)
+		return nil, errors.Errorf("cannot turn underlying tensor data of type %T into proto message and data is %v", data, dataSlice)
 	}
 	return ftpb, nil
 }
