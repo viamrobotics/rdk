@@ -17,13 +17,12 @@ import (
 	"go.opencensus.io/trace"
 	"golang.org/x/exp/constraints"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/vision"
-	"go.viam.com/rdk/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("mlmodel")
@@ -40,24 +39,25 @@ const (
 
 func init() {
 	resource.RegisterService(vision.API, model, resource.Registration[vision.Service, *MLModelConfig]{
-		DeprecatedRobotConstructor: func(
-			ctx context.Context, r any, c resource.Config, logger logging.Logger,
+		Constructor: func(
+			ctx context.Context, deps resource.Dependencies, c resource.Config, logger logging.Logger,
 		) (vision.Service, error) {
 			attrs, err := resource.NativeConfig[*MLModelConfig](c)
 			if err != nil {
 				return nil, err
 			}
-			actualR, err := utils.AssertType[robot.Robot](r)
-			if err != nil {
-				return nil, err
-			}
-			return registerMLModelVisionService(ctx, c.ResourceName(), attrs, actualR, logger)
+			return registerMLModelVisionService(ctx, c.ResourceName(), attrs, deps, logger)
+		},
+		WeakDependencies: []resource.Matcher{
+			resource.SubtypeMatcher{Subtype: camera.SubtypeName},
+			resource.SubtypeMatcher{Subtype: mlmodel.SubtypeName},
 		},
 	})
 }
 
 // MLModelConfig specifies the parameters needed to turn an ML model into a vision Model.
 type MLModelConfig struct {
+	resource.TriviallyReconfigurable
 	ModelName string `json:"mlmodel_name"`
 }
 
@@ -73,13 +73,19 @@ func registerMLModelVisionService(
 	ctx context.Context,
 	name resource.Name,
 	params *MLModelConfig,
-	r robot.Robot,
+	deps resource.Dependencies,
 	logger logging.Logger,
 ) (vision.Service, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::registerMLModelVisionService")
 	defer span.End()
 
-	mlm, err := mlmodel.FromRobot(r, params.ModelName)
+	fmt.Println("Printing ML MODEL DEPS")
+	for _, d := range deps {
+		fmt.Println(d)
+		fmt.Println()
+	}
+
+	mlm, err := mlmodel.FromDependencies(deps, params.ModelName)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +160,7 @@ func registerMLModelVisionService(
 	}
 
 	// Don't return a close function, because you don't want to close the underlying ML service
-	return vision.NewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc)
+	return vision.NewService(name, deps, nil, classifierFunc, detectorFunc, segmenter3DFunc)
 }
 
 // getLabelsFromMetadata returns a slice of strings--the intended labels.

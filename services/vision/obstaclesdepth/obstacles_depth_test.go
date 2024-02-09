@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/testutils/inject"
 )
 
 // testReader creates and serves a fake depth image for testing.
@@ -68,10 +67,9 @@ func TestObstacleDepth(t *testing.T) {
 	}
 
 	ctx := context.Background()
+	deps := make(resource.Dependencies)
 	testLogger := logging.NewLogger("test")
-	r := &inject.Robot{ResourceNamesFunc: func() []resource.Name {
-		return []resource.Name{camera.Named("testCam"), camera.Named("noIntrinsicsCam")}
-	}}
+
 	// camera with intrinsics
 	fr := fullReader{}
 	syst := transform.PinholeCameraModel{&someIntrinsics, nil}
@@ -85,19 +83,13 @@ func TestObstacleDepth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myCamSrcNoIntrinsics, test.ShouldNotBeNil)
 	noIntrinsicsCam := camera.FromVideoSource(resource.Name{Name: "noIntrinsicsCam"}, myCamSrcNoIntrinsics, testLogger)
-	// set up the fake robot
-	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
-		switch n.Name {
-		case "testCam":
-			return myIntrinsicsCam, nil
-		case "noIntrinsicsCam":
-			return noIntrinsicsCam, nil
-		default:
-			return nil, resource.NewNotFoundError(n)
-		}
-	}
+
+	// set up cams as dependencies
+	deps[camera.Named("testCam")] = myIntrinsicsCam
+	deps[camera.Named("noIntrinsicsCam")] = noIntrinsicsCam
 	name := vision.Named("test")
-	srv, err := registerObstaclesDepth(ctx, name, &noIntrinsicsCfg, r, testLogger)
+
+	srv, err := registerObstaclesDepth(ctx, name, &noIntrinsicsCfg, deps, testLogger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, srv.Name(), test.ShouldResemble, name)
 
@@ -124,7 +116,7 @@ func TestObstacleDepth(t *testing.T) {
 	})
 	t.Run("intrinsics version", func(t *testing.T) {
 		// Now with intrinsics (and pointclouds)!
-		srv2, err := registerObstaclesDepth(ctx, name, &withIntrinsicsCfg, r, testLogger)
+		srv2, err := registerObstaclesDepth(ctx, name, &withIntrinsicsCfg, deps, testLogger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, srv2, test.ShouldNotBeNil)
 		obs, err := srv2.GetObjectPointClouds(ctx, "testCam", nil)
@@ -157,23 +149,14 @@ func BenchmarkObstacleDepthIntrinsics(b *testing.B) {
 
 	ctx := context.Background()
 	testLogger := logging.NewLogger("test")
-	r := &inject.Robot{ResourceNamesFunc: func() []resource.Name {
-		return []resource.Name{camera.Named("testCam")}
-	}}
 	tr := fullReader{}
 	syst := transform.PinholeCameraModel{&someIntrinsics, nil}
 	myCamSrc, _ := camera.NewVideoSourceFromReader(ctx, tr, &syst, camera.DepthStream)
 	myCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrc, testLogger)
-	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
-		switch n.Name {
-		case "testCam":
-			return myCam, nil
-		default:
-			return nil, resource.NewNotFoundError(n)
-		}
-	}
+	deps := make(resource.Dependencies)
+	deps[camera.Named("testCam")] = myCam
 	name := vision.Named("test")
-	srv, _ := registerObstaclesDepth(ctx, name, &withIntrinsicsCfg, r, testLogger)
+	srv, _ := registerObstaclesDepth(ctx, name, &withIntrinsicsCfg, deps, testLogger)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -183,25 +166,16 @@ func BenchmarkObstacleDepthIntrinsics(b *testing.B) {
 
 func BenchmarkObstacleDepthNoIntrinsics(b *testing.B) {
 	noIntrinsicsCfg := ObsDepthConfig{}
-
 	ctx := context.Background()
 	testLogger := logging.NewLogger("test")
-	r := &inject.Robot{ResourceNamesFunc: func() []resource.Name {
-		return []resource.Name{camera.Named("testCam")}
-	}}
 	tr := fullReader{}
 	myCamSrc, _ := camera.NewVideoSourceFromReader(ctx, tr, nil, camera.DepthStream)
 	myCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrc, testLogger)
-	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
-		switch n.Name {
-		case "testCam":
-			return myCam, nil
-		default:
-			return nil, resource.NewNotFoundError(n)
-		}
-	}
+	deps := make(resource.Dependencies)
+	deps[camera.Named("testCam")] = myCam
+
 	name := vision.Named("test")
-	srv, _ := registerObstaclesDepth(ctx, name, &noIntrinsicsCfg, r, testLogger)
+	srv, _ := registerObstaclesDepth(ctx, name, &noIntrinsicsCfg, deps, testLogger)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

@@ -12,6 +12,7 @@ import (
 // ColorDetectorConfig specifies the fields necessary for creating a color detector.
 type ColorDetectorConfig struct {
 	resource.TriviallyValidateConfig
+	resource.TriviallyReconfigurable
 	SegmentSize       int     `json:"segment_size_px"`
 	HueTolerance      float64 `json:"hue_tolerance_pct"`
 	SaturationCutoff  float64 `json:"saturation_cutoff_pct,omitempty"`

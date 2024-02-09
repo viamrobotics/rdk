@@ -30,6 +30,7 @@ const (
 // connected components based clustering algo.
 type ErCCLConfig struct {
 	resource.TriviallyValidateConfig
+	resource.TriviallyReconfigurable
 	MinPtsInPlane        int       `json:"min_points_in_plane"`
 	MinPtsInSegment      int       `json:"min_points_in_segment"`
 	MaxDistFromPlane     float64   `json:"max_dist_from_plane_mm"`

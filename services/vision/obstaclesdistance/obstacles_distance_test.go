@@ -31,25 +31,16 @@ func TestObstacleDist(t *testing.T) {
 		NumQueries: 10,
 	}
 	ctx := context.Background()
-	r := &inject.Robot{}
-	cam := &inject.Camera{}
+	cam := inject.NewCamera("fakeCamera")
 
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
 		return nil, errors.New("no pointcloud")
 	}
-	r.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{camera.Named("fakeCamera")}
-	}
-	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
-		switch n.Name {
-		case "fakeCamera":
-			return cam, nil
-		default:
-			return nil, resource.NewNotFoundError(n)
-		}
-	}
+	deps := make(resource.Dependencies)
+	deps[camera.Named("fakeCamera")] = cam
+
 	name := vision.Named("test_odd")
-	srv, err := registerObstacleDistanceDetector(ctx, name, &inp, r)
+	srv, err := registerObstacleDistanceDetector(ctx, name, &inp, deps)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, srv.Name(), test.ShouldResemble, name)
 	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
@@ -119,6 +110,6 @@ func TestObstacleDist(t *testing.T) {
 	test.That(t, isPoint, test.ShouldBeTrue)
 
 	// with error - nil parameters
-	_, err = registerObstacleDistanceDetector(ctx, name, nil, r)
+	_, err = registerObstacleDistanceDetector(ctx, name, nil, deps)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
 }
