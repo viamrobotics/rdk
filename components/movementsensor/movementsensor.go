@@ -157,7 +157,8 @@ func DefaultAPIReadings(ctx context.Context, g MovementSensor, extra map[string]
 }
 
 // UnimplementedAccuracies returns accuracy values that will not show up on movement sensor's RC card
-// or be useable for a caller of the GetAccuracies method. 
+// or be useable for a caller of the GetAccuracies method. The RC card currently continuosly polls accuracies,
+// so a nil error must be rturned from the GetAccuracies call.
 // It contains NaN definitiions for accuracies returned in floats, an invalid integer value for the NMEAFix of a gps
 // and an empty map of other accuracies.
 func UnimplementedAccuracies() (*Accuracy, error) {
