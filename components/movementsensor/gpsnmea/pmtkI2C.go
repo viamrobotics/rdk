@@ -239,20 +239,6 @@ func (g *PmtkI2CNMEAMovementSensor) Properties(ctx context.Context, extra map[st
 	}, nil
 }
 
-// ReadFix returns quality.
-func (g *PmtkI2CNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.data.FixQuality, g.err.Get()
-}
-
-// ReadSatsInView return number of satellites in view.
-func (g *PmtkI2CNMEAMovementSensor) ReadSatsInView(ctx context.Context) (int, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.data.SatsInView, g.err.Get()
-}
-
 // Close shuts down the SerialNMEAMOVEMENTSENSOR.
 func (g *PmtkI2CNMEAMovementSensor) Close(ctx context.Context) error {
 	g.cancelFunc()
