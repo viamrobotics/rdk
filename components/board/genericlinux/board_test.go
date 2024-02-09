@@ -128,6 +128,7 @@ func TestNewBoard(t *testing.T) {
 	b, err := NewBoard(ctx, config, ConstPinDefs(testBoardMappings), logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, b, test.ShouldNotBeNil)
+	defer b.Close(ctx)
 
 	ans := b.AnalogReaderNames()
 	test.That(t, ans, test.ShouldResemble, []string{"an1"})
