@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/spatialmath"
 )
 
 // I2cDataReader implements the DataReader interface by communicating with a device over an I2C bus.
@@ -250,13 +249,6 @@ func (g *PmtkI2CNMEAMovementSensor) CompassHeading(ctx context.Context, extra ma
 	}
 
 	return currentHeading, nil
-}
-
-// Orientation not supporter.
-func (g *PmtkI2CNMEAMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return nil, movementsensor.ErrMethodUnimplementedOrientation
 }
 
 // Properties what can I do!
