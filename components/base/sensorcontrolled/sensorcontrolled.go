@@ -187,8 +187,8 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		// are not locked, and can run if any auto-tuning is necessary
 		sb.mu.Unlock()
 		// check if both linear and angular need to be tuned, and if so start by tuning linear
-		if linear.P != 0.0 && linear.I != 0.0 && linear.D != 0.0 &&
-			angular.P != 0.0 && angular.I != 0.0 && angular.D != 0.0 {
+		if (linear.P != 0.0 || linear.I != 0.0 || linear.D != 0.0) &&
+			(angular.P != 0.0 || angular.I != 0.0 || angular.D != 0.0) {
 			sb.controlLoopConfig = sb.createControlLoopConfig(linear, angular)
 		} else if linear.P == 0.0 && linear.I == 0.0 && linear.D == 0.0 &&
 			angular.P == 0.0 && angular.I == 0.0 && angular.D == 0.0 {
