@@ -30,8 +30,8 @@ type I2cDataReader struct {
 	activeBackgroundWorkers sync.WaitGroup
 	logger                  logging.Logger
 
-	bus   buses.I2C
-	addr  byte
+	bus  buses.I2C
+	addr byte
 	baud int
 }
 
@@ -43,13 +43,13 @@ func NewI2cDataReader(
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	reader := I2cDataReader{
-		data: data,
-		cancelCtx: cancelCtx,
+		data:       data,
+		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
-		logger: logger,
-		bus: bus,
-		addr: addr,
-		baud: baud,
+		logger:     logger,
+		bus:        bus,
+		addr:       addr,
+		baud:       baud,
 	}
 
 	if err := reader.initialize(); err != nil {
@@ -67,7 +67,7 @@ func (dr *I2cDataReader) initialize() error {
 		dr.logger.CErrorf(dr.cancelCtx, "can't open gps i2c %s", err)
 		return err
 	}
-	defer handle.Close()
+	defer utils.UncheckedErrorFunc(handle.Close)
 
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences
 	baudcmd := fmt.Sprintf("PMTK251,%d", dr.baud)
@@ -137,7 +137,7 @@ func (dr *I2cDataReader) start() {
 							strBuf = "$" + strBuf
 						}
 
-						dr.data<-strBuf
+						dr.data <- strBuf
 						strBuf = ""
 					}
 				} else if b != 0x0A && b < 0x7F { // only append valid (printable) bytes
@@ -151,7 +151,7 @@ func (dr *I2cDataReader) start() {
 // Messages returns the channel of complete NMEA sentences we have read off of the device. It's part
 // of the DataReader interface.
 func (dr *I2cDataReader) Messages() chan string {
-    return dr.data
+	return dr.data
 }
 
 // Close is part of the DataReader interface. It shuts everything down.

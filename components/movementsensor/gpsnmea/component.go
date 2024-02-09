@@ -9,6 +9,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
@@ -45,7 +46,7 @@ type NMEAMovementSensor struct {
 	dev DataReader
 }
 
-// NewNmeaMovementSensor creates a new movement sensor
+// NewNmeaMovementSensor creates a new movement sensor.
 func NewNmeaMovementSensor(
 	ctx context.Context, name resource.Name, dev DataReader, logger logging.Logger,
 ) (NmeaMovementSensor, error) {
@@ -63,8 +64,7 @@ func NewNmeaMovementSensor(
 	}
 
 	if err := g.Start(ctx); err != nil {
-		g.Close(ctx)
-		return nil, err
+		return nil, multierr.Combine(err, g.Close(ctx))
 	}
 	return g, nil
 }
