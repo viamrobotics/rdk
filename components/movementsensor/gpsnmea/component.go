@@ -41,7 +41,6 @@ type NMEAMovementSensor struct {
 	err                movementsensor.LastError
 	lastPosition       movementsensor.LastPosition
 	lastCompassHeading movementsensor.LastCompassHeading
-	isClosed           bool
 
 	dev DataReader
 }
@@ -98,10 +97,6 @@ func (g *NMEAMovementSensor) Start(ctx context.Context) error {
 					g.logger.Debug("Check: GPS requires clear sky view." +
 						"Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
 				}
-			}
-
-			if g.isClosed { // There's no coming back from this. We're done.
-				return
 			}
 		}
 	})
@@ -270,7 +265,6 @@ func (g *NMEAMovementSensor) Close(ctx context.Context) error {
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	g.isClosed = true
 	if g.dev != nil {
 		if err := g.dev.Close(); err != nil {
 			return err
