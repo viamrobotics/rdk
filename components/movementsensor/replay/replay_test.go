@@ -764,7 +764,7 @@ func TestUnimplementedFunctionAccuracy(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	acc, err := replay.Accuracy(ctx, map[string]interface{}{})
-	test.That(t, err, test.ShouldResemble, nil)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, acc, test.ShouldNotBeNil)
 
 	err = replay.Close(ctx)

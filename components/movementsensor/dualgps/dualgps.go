@@ -264,7 +264,7 @@ func (dg *dualGPS) Orientation(ctx context.Context, extra map[string]interface{}
 }
 
 func (dg *dualGPS) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
-	// RSDK-6389: for this driver, find the highest value VDOP and HDOP to show the worst accuracy in position
+	// TODO: RSDK-6389: for this driver, find the highest value VDOP and HDOP to show the worst accuracy in position
 	// check the fix and return the compass error using a calculation based on the fix and variation
 	// of the two positions.
 	// return the NMEA Fix that appears from either gps in this order: (worst) 0, 1, 2, 5, 4 (best), or -1 if
