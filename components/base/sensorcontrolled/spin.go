@@ -21,7 +21,7 @@ const (
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
 func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	sb.stopLoop()
-	if math.Abs(angleDeg) > 360.0 {
+	if math.Abs(angleDeg) >= 360.0 {
 		sb.setPolling(false)
 		sb.logger.CWarn(ctx, "feedback for spin calls over 360 not supported yet, spinning without sensor")
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, nil)
