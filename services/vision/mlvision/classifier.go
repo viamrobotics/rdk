@@ -76,7 +76,7 @@ func attemptToBuildClassifier(mlm mlmodel.Service, inNameMap, outNameMap *sync.M
 				tensor.WithBacking(rimage.ImageToFloatBuffer(resized)),
 			)
 		default:
-			return nil, errors.New("invalid input type. try uint8 or float32")
+			return nil, errors.Errorf("invalid input type of %s. try uint8 or float32", inType)
 		}
 		outMap, err := mlm.Infer(ctx, inMap)
 		if err != nil {
