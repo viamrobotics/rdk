@@ -139,6 +139,14 @@ func (dr *I2cDataReader) start() {
 
 						dr.data <- strBuf
 						strBuf = ""
+
+						// Check if we're supposed to shut down again. Perhaps we waited a long
+						// time to put data into the channel.
+						select {
+						case <-dr.cancelCtx.Done():
+							return
+						default:
+						}
 					}
 				} else if b != 0x0A && b < 0x7F { // only append valid (printable) bytes
 					strBuf += string(b)
