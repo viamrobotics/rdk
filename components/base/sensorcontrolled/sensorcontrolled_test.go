@@ -530,8 +530,8 @@ func TestSensorBaseWithVelocitiesSensor(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel1")
-	test.That(t, sb.loop, test.ShouldNotBeNil)
 
 	test.That(t, sb.SetVelocity(ctx, r3.Vector{X: 0, Y: 100, Z: 0}, r3.Vector{X: 0, Y: 100, Z: 0}, nil), test.ShouldBeNil)
+	test.That(t, sb.loop, test.ShouldNotBeNil)
 	test.That(t, sb.Stop(ctx, nil), test.ShouldBeNil)
 }

@@ -21,7 +21,7 @@ const (
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
 func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	sb.stopLoop()
-	if int(angleDeg) >= 360 {
+	if math.Abs(angleDeg) > 330.0 {
 		sb.setPolling(false)
 		sb.logger.CWarn(ctx, "feedback for spin calls over 360 not supported yet, spinning without sensor")
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, nil)
@@ -34,16 +34,22 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	}
 
 	sb.setPolling(true)
+
+	// starts a goroutine from within wheeled base's runAll function to run motors in the background
+	if err := sb.startRunningMotors(ctx, angleDeg, degsPerSec); err != nil {
+		return err
+	}
+
+	if angleDeg > 0 {
+		time.Sleep(1000 * time.Millisecond)
+		sb.logger.Error("done sleeping")
+	}
+
 	// start a sensor context for the sensor loop based on the longstanding base
 	// creator context
 	var sensorCtx context.Context
 	sensorCtx, sb.sensorLoopDone = context.WithCancel(context.Background())
 	if err := sb.stopSpinWithSensor(sensorCtx, angleDeg, degsPerSec); err != nil {
-		return err
-	}
-
-	// starts a goroutine from within wheeled base's runAll function to run motors in the background
-	if err := sb.startRunningMotors(ctx, angleDeg, degsPerSec); err != nil {
 		return err
 	}
 
@@ -53,11 +59,16 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 		return !polling, nil
 	}
 
-	return sb.opMgr.WaitForSuccess(
+	if err := sb.opMgr.WaitForSuccess(
 		ctx,
 		yawPollTime,
 		baseStopped,
-	)
+	); err != nil {
+		if !errors.Is(err, context.Canceled) {
+			return err
+		}
+	}
+	return nil
 }
 
 func (sb *sensorBase) startRunningMotors(ctx context.Context, angleDeg, degsPerSec float64) error {
@@ -172,34 +183,6 @@ func (sb *sensorBase) stopSpinWithSensor(
 func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg, errorBound float64) (atTarget, overShot, minTravel bool) {
 	atTarget = math.Abs(targetYaw-currYaw) < errorBound
 	overShot = hasOverShot(currYaw, startYaw, targetYaw, dir)
-	// when the individual motors of a base have a control loop set up, they move slightly in the wrong direction before
-	// spinning in the right direction. when this happens, hasOverShot thinks the goal has already been passed, so there
-	// needs to be a small window (boundCheckOverShot) that forces overShot to be false until the motors have started
-	// moving past startYaw in the correct direction
-	if dir == 1 {
-		offset := 0.0
-		// if subtracting boundCheckOverShot from startYaw results in a negative, we need to un-wrap currentYaw around
-		// 360 so that the comparison between the two is of the correct scale.
-		// For example, if startYaw is 5, starYaw-boundCheckOverShot is -5. if currYaw were also at -5, it would be
-		// reported as 355, so we must subract 360 to make currentYaw actually be -5 in order for the comparison to
-		// yield the expected result
-		if startYaw-boundCheckOverShot < 0 {
-			offset = -360.0
-		}
-		if currYaw < startYaw && currYaw+offset > startYaw-boundCheckOverShot {
-			overShot = false
-		}
-	} else {
-		offset := 0.0
-		// if adding boundCheckOverShot to startYaw results in a value over 360, we need to un-wrap currentYaw around
-		// 360 so that the comparison between the two is of the correct scale
-		if startYaw+boundCheckOverShot > 0 {
-			offset = 360.0
-		}
-		if currYaw > startYaw && currYaw+offset < startYaw+boundCheckOverShot {
-			overShot = false
-		}
-	}
 	travelIncrement := math.Abs(angleDeg * increment)
 	// check the case where we're asking for a 360 degree turn, this results in a zero travelIncrement
 	if math.Abs(angleDeg) < 360 {
