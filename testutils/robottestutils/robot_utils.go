@@ -92,8 +92,9 @@ func MakeTempConfig(t *testing.T, cfg *config.Config, logger logging.Logger) (st
 // serving web" message. For added accuracy, it also checks that the port a test is expecting to
 // start a server on matches the one in the log message.
 //
-// WaitForServing will return true if the server has started succesfully in the allotted time, and
+// WaitForServing will return true if the server has started successfully in the allotted time, and
 // false otherwise.
+//nolint
 func WaitForServing(observer *observer.ObservedLogs, port int) bool {
 	// Message:"\n\\_ 2024-02-07T20:47:03.576Z\tINFO\trobot_server\tweb/web.go:598\tserving\t{\"url\":\"http://127.0.0.1:20000\"}"
 	successRegex := regexp.MustCompile(fmt.Sprintf("\tserving\t.*:%d\"", port))
