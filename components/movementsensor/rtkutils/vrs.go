@@ -10,8 +10,6 @@ import (
 	"net"
 	"strings"
 
-	"github.com/de-bkg/gognss/pkg/ntrip"
-
 	"go.viam.com/rdk/logging"
 )
 
@@ -21,7 +19,7 @@ func ConnectToVirtualBase(ntripInfo *NtripInfo,
 	logger logging.Logger,
 ) *bufio.ReadWriter {
 	mp := "/" + ntripInfo.MountPoint
-	credentials := ntripInfo.Username + ":" + ntripInfo.Password
+	credentials := ntripInfo.username + ":" + ntripInfo.password
 	credentialsBase64 := base64.StdEncoding.EncodeToString([]byte(credentials))
 
 	// Process the server URL
@@ -96,7 +94,7 @@ func ContainsGGAMessage(data []byte) bool {
 
 // FindLineWithMountPoint parses the given source-table returns the NMEA field associated with
 // the given mountpoint.
-func FindLineWithMountPoint(sourceTable *ntrip.Sourcetable, mountPoint string) (bool, error) {
+func FindLineWithMountPoint(sourceTable *Sourcetable, mountPoint string) (bool, error) {
 	stream, isFound := sourceTable.HasStream(mountPoint)
 
 	if !isFound {

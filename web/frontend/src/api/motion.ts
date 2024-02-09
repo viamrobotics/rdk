@@ -1,17 +1,23 @@
 import { type Client, commonApi, motionApi } from '@viamrobotics/sdk';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { getPosition } from './slam';
-import type { ResourceName } from '@viamrobotics/sdk/dist/gen/common/v1/common_pb';
+type ResourceName = commonApi.ResourceName.AsObject;
 
-export const moveOnMap = async (robotClient: Client, name: string, componentName: string, x: number, y: number): Promise<string | undefined> =>  {
-  const request = new motionApi.MoveOnMapNewRequest();
+export const moveOnMap = async (
+  robotClient: Client,
+  slamServiceName: ResourceName,
+  componentName: ResourceName,
+  x: number,
+  y: number
+): Promise<string | undefined> => {
+  const request = new motionApi.MoveOnMapRequest();
   /*
    * here we set the name of the motion service the user is using
    */
   request.setName('builtin');
 
   // set pose in frame
-  const lastPose = await getPosition(robotClient, name);
+  const lastPose = await getPosition(robotClient, slamServiceName.name);
 
   const destination = new commonApi.Pose();
   destination.setX(x * 1000);
@@ -25,14 +31,24 @@ export const moveOnMap = async (robotClient: Client, name: string, componentName
 
   // set SLAM resource name
   const slamResourceName = new commonApi.ResourceName();
-  slamResourceName.setNamespace('rdk');
-  slamResourceName.setType('service');
-  slamResourceName.setSubtype('slam');
-  slamResourceName.setName(name);
+  slamResourceName.setNamespace(slamServiceName.namespace);
+  slamResourceName.setType(slamServiceName.type);
+  slamResourceName.setSubtype(slamServiceName.subtype);
+  slamResourceName.setName(slamServiceName.name);
   request.setSlamServiceName(slamResourceName);
 
+  // set the motion configuration
+  const motionCfg = new motionApi.MotionConfiguration();
+  motionCfg.setPlanDeviationM(0.5);
+  request.setMotionConfiguration(motionCfg);
+
   // set component name
-  request.setComponentName(namedBase(componentName));
+  const baseResourceName = new commonApi.ResourceName();
+  baseResourceName.setNamespace(componentName.namespace);
+  baseResourceName.setType(componentName.type);
+  baseResourceName.setSubtype(componentName.subtype);
+  baseResourceName.setName(componentName.name);
+  request.setComponentName(baseResourceName);
 
   // set extra as position-only constraint
   request.setExtra(
@@ -41,41 +57,17 @@ export const moveOnMap = async (robotClient: Client, name: string, componentName
     })
   );
 
-  const response = await new Promise<motionApi.MoveOnMapNewResponse | null>((resolve, reject) => {
-    robotClient.motionService.moveOnMapNew(request, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
+  const response = await new Promise<motionApi.MoveOnMapResponse | null>(
+    (resolve, reject) => {
+      robotClient.motionService.moveOnMap(request, (error, res) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(res);
+        }
+      });
+    }
+  );
 
-  return response?.getExecutionId()
+  return response?.getExecutionId();
 };
-
-const namedBase = (componentName: string): ResourceName => {
-  const baseResourceName = new commonApi.ResourceName();
-  baseResourceName.setNamespace('rdk');
-  baseResourceName.setType('component');
-  baseResourceName.setSubtype('base');
-  baseResourceName.setName(componentName);
-  return baseResourceName
-}
-
-export const stopMoveOnMap = async (robotClient: Client, componentName: string) => {
-  const request = new motionApi.StopPlanRequest();
-  // TODO: This needs to be the actual name of the motion service
-  request.setName('builtin');
-  request.setComponentName(namedBase(componentName));
-
-  await new Promise<motionApi.StopPlanResponse | null>((resolve, reject) => {
-    robotClient.motionService.stopPlan(request, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
-}

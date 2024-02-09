@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 type fakeDiffDriveKinematics struct {
@@ -118,6 +119,7 @@ func (fk *fakeDiffDriveKinematics) CurrentPosition(ctx context.Context) (*refere
 
 type fakePTGKinematics struct {
 	*fake.Base
+	localizer   motion.Localizer
 	frame       referenceframe.Frame
 	options     Options
 	sensorNoise spatialmath.Pose
@@ -153,20 +155,31 @@ func WrapWithFakePTGKinematics(
 		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than or equal to zero")
 	}
 
+	angVelocityDegsPerSecond, err := correctAngularVelocityWithTurnRadius(
+		logger,
+		baseTurningRadiusMeters,
+		baseMillimetersPerSecond,
+		options.AngularVelocityDegsPerSec,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	geometries, err := b.Geometries(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
+	nonzeroBaseTurningRadiusMeters := (baseMillimetersPerSecond / rdkutils.DegToRad(angVelocityDegsPerSecond)) / 1000.
+
 	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		b.Name().ShortName(),
 		logger,
-		baseMillimetersPerSecond,
-		options.AngularVelocityDegsPerSec,
-		baseTurningRadiusMeters,
+		nonzeroBaseTurningRadiusMeters,
 		0, // If zero, will use default on the receiver end.
 		geometries,
 		options.NoSkidSteer,
+		baseTurningRadiusMeters == 0,
 	)
 	if err != nil {
 		return nil, err
@@ -183,6 +196,8 @@ func WrapWithFakePTGKinematics(
 		logger:      logger,
 		sleepTime:   sleepTime,
 	}
+	initLocalizer := &fakePTGKinematicsLocalizer{fk}
+	fk.localizer = motion.TwoDLocalizer(initLocalizer)
 
 	fk.options = options
 	return fk, nil
@@ -218,8 +233,16 @@ func (fk *fakePTGKinematics) ErrorState(
 }
 
 func (fk *fakePTGKinematics) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
-	fk.lock.RLock()
-	defer fk.lock.RUnlock()
-	origin := fk.origin
-	return referenceframe.NewPoseInFrame(origin.Parent(), spatialmath.Compose(origin.Pose(), fk.sensorNoise)), nil
+	return fk.localizer.CurrentPosition(ctx)
+}
+
+type fakePTGKinematicsLocalizer struct {
+	fk *fakePTGKinematics
+}
+
+func (fkl *fakePTGKinematicsLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
+	fkl.fk.lock.RLock()
+	defer fkl.fk.lock.RUnlock()
+	origin := fkl.fk.origin
+	return referenceframe.NewPoseInFrame(origin.Parent(), spatialmath.Compose(origin.Pose(), fkl.fk.sensorNoise)), nil
 }

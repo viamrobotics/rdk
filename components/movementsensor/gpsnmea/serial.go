@@ -2,14 +2,11 @@
 package gpsnmea
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"math"
 	"sync"
 
-	"github.com/adrianmo/go-nmea"
 	"github.com/golang/geo/r3"
 	"github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
@@ -35,17 +32,12 @@ type SerialNMEAMovementSensor struct {
 	data                    GPSData
 	activeBackgroundWorkers sync.WaitGroup
 
-	disableNmea        bool
 	err                movementsensor.LastError
 	lastPosition       movementsensor.LastPosition
 	lastCompassHeading movementsensor.LastCompassHeading
 	isClosed           bool
 
-	dev                io.ReadWriteCloser
-	path               string
-	baudRate           uint
-	correctionBaudRate uint
-	correctionPath     string
+	dev DataReader
 }
 
 // NewSerialGPSNMEA gps that communicates over serial.
@@ -61,10 +53,6 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 		logger.CInfo(ctx, "SerialNMEAMovementSensor: serial_baud_rate using default 38400")
 	}
 
-	disableNmea := conf.DisableNMEA
-	if disableNmea {
-		logger.CInfo(ctx, "SerialNMEAMovementSensor: NMEA reading disabled")
-	}
 	options := serial.OpenOptions{
 		PortName:        serialPath,
 		BaudRate:        uint(baudRate),
@@ -73,7 +61,7 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 		MinimumReadSize: 4,
 	}
 
-	dev, err := serial.Open(options)
+	dev, err := NewSerialDataReader(options, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -86,9 +74,6 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 		cancelCtx:          cancelCtx,
 		cancelFunc:         cancelFunc,
 		logger:             logger,
-		path:               serialPath,
-		baudRate:           uint(baudRate),
-		disableNmea:        disableNmea,
 		err:                movementsensor.NewLastError(1, 1),
 		lastPosition:       movementsensor.NewLastPosition(),
 		lastCompassHeading: movementsensor.NewLastCompassHeading(),
@@ -106,24 +91,24 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer g.activeBackgroundWorkers.Done()
-		r := bufio.NewReader(g.dev)
+
+		messages := g.dev.Messages()
 		for {
+			// First, check if we're supposed to shut down.
 			select {
 			case <-g.cancelCtx.Done():
 				return
 			default:
 			}
 
-			if !g.disableNmea && !g.isClosed {
-				line, err := r.ReadString('\n')
-				if err != nil {
-					g.logger.CErrorf(ctx, "can't read gps serial %s", err)
-					g.err.Set(err)
-					return
-				}
+			// Next, wait until either we're supposed to shut down or we have new data to process.
+			select {
+			case <-g.cancelCtx.Done():
+				return
+			case message := <-messages:
 				// Update our struct's gps data in-place
 				g.mu.Lock()
-				err = g.data.ParseAndUpdate(line)
+				err := g.data.ParseAndUpdate(message)
 				g.mu.Unlock()
 				if err != nil {
 					g.logger.CWarnf(ctx, "can't parse nmea sentence: %#v", err)
@@ -131,43 +116,35 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 						"Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
 				}
 			}
+
+			if g.isClosed { // There's no coming back from this. We're done.
+				return
+			}
 		}
 	})
 
 	return g.err.Get()
 }
 
-// GetCorrectionInfo returns the serial path that takes in rtcm corrections and baudrate for reading.
-func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
-	return g.correctionPath, g.correctionBaudRate
-}
-
-//nolint
-// Position position, altitide.
+// Position returns the position and altitide of the sensor, or an error.
 func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-	lastPosition := g.lastPosition.GetLastPosition()
-
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
+	lastPosition := g.lastPosition.GetLastPosition()
 	currentPosition := g.data.Location
 
 	if currentPosition == nil {
 		return lastPosition, 0, errNilLocation
 	}
 
-	// if current position is (0,0) we will return the last non zero position
-	if g.lastPosition.IsZeroPosition(currentPosition) && !g.lastPosition.IsZeroPosition(lastPosition) {
+	// if current position is (0,0) we will return the last non-zero position
+	if movementsensor.IsZeroPosition(currentPosition) && !movementsensor.IsZeroPosition(lastPosition) {
 		return lastPosition, g.data.Alt, g.err.Get()
 	}
 
-	// updating lastPosition if it is different from the current position
-	if !g.lastPosition.ArePointsEqual(currentPosition, lastPosition) {
-		g.lastPosition.SetLastPosition(currentPosition)
-	}
-
 	// updating the last known valid position if the current position is non-zero
-	if !g.lastPosition.IsZeroPosition(currentPosition) && !g.lastPosition.IsPositionNaN(currentPosition) {
+	if !movementsensor.IsZeroPosition(currentPosition) && !movementsensor.IsPositionNaN(currentPosition) {
 		g.lastPosition.SetLastPosition(currentPosition)
 	}
 
@@ -189,7 +166,9 @@ func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context, extra map[strin
 	return &acc, g.err.Get()
 }
 
-// LinearVelocity linear velocity.
+// LinearVelocity returns the sensor's linear velocity. It requires having a compass heading, so we
+// know which direction our speed is in. We assume all of this speed is horizontal, and not in
+// gaining/losing altitude.
 func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -205,32 +184,27 @@ func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map
 	return r3.Vector{X: xVelocity, Y: yVelocity, Z: 0}, g.err.Get()
 }
 
-// LinearAcceleration linear acceleration.
+// LinearAcceleration returns the sensor's linear acceleration.
 func (g *SerialNMEAMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }
 
-// AngularVelocity angularvelocity.
+// AngularVelocity returns the sensor's angular velocity.
 func (g *SerialNMEAMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
 	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }
 
-// Orientation orientation.
+// Orientation returns the sensor's orientation.
 func (g *SerialNMEAMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	return spatialmath.NewOrientationVector(), movementsensor.ErrMethodUnimplementedOrientation
 }
 
-// CompassHeading 0->360.
+// CompassHeading returns the heading, from the range 0->360.
 func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	lastHeading := g.lastCompassHeading.GetLastCompassHeading()
-
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
+	lastHeading := g.lastCompassHeading.GetLastCompassHeading()
 	currentHeading := g.data.CompassHeading
 
 	if !math.IsNaN(lastHeading) && math.IsNaN(currentHeading) {
@@ -279,7 +253,7 @@ func (g *SerialNMEAMovementSensor) Readings(ctx context.Context, extra map[strin
 	return readings, nil
 }
 
-// Properties what do I do!
+// Properties returns what movement sensor capabilities we have.
 func (g *SerialNMEAMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
@@ -305,9 +279,4 @@ func (g *SerialNMEAMovementSensor) Close(ctx context.Context) error {
 		g.logger.CDebug(ctx, "SerialNMEAMovementSensor Closed")
 	}
 	return nil
-}
-
-// toPoint converts a nmea.GLL to a geo.Point.
-func toPoint(a nmea.GLL) *geo.Point {
-	return geo.NewPoint(a.Latitude, a.Longitude)
 }

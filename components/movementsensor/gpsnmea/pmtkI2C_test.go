@@ -76,7 +76,6 @@ func TestNewI2CMovementSensor(t *testing.T) {
 		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
 			ConnectionType: "I2C",
-			DisableNMEA:    false,
 			I2CConfig:      &I2CConfig{I2CBus: testBusName},
 		},
 	}

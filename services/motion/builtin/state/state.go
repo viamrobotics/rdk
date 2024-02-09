@@ -11,12 +11,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // Waypoints represent the waypoints of the plan.
@@ -294,22 +297,67 @@ type State struct {
 	cancelCtx  context.Context
 	cancelFunc context.CancelFunc
 	logger     logging.Logger
+	ttl        time.Duration
 	// mu protects the componentStateByComponent
 	mu                        sync.RWMutex
 	componentStateByComponent map[resource.Name]componentState
 }
 
 // NewState creates a new state.
-func NewState(ctx context.Context, logger logging.Logger) *State {
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+// Takes a [TTL](https://en.wikipedia.org/wiki/Time_to_live)
+// and an interval to delete any State data that is older than
+// the TTL.
+func NewState(
+	ttl time.Duration,
+	ttlCheckInterval time.Duration,
+	logger logging.Logger,
+) (*State, error) {
+	if ttl == 0 {
+		return nil, errors.New("TTL can't be unset")
+	}
+
+	if ttlCheckInterval == 0 {
+		return nil, errors.New("TTLCheckInterval can't be unset")
+	}
+
+	if logger == nil {
+		return nil, errors.New("Logger can't be nil")
+	}
+
+	if ttl < ttlCheckInterval {
+		return nil, errors.New("TTL can't be lower than the TTLCheckInterval")
+	}
+
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	s := State{
 		cancelCtx:                 cancelCtx,
 		cancelFunc:                cancelFunc,
 		waitGroup:                 &sync.WaitGroup{},
 		componentStateByComponent: make(map[resource.Name]componentState),
+		ttl:                       ttl,
 		logger:                    logger,
 	}
-	return &s
+	s.waitGroup.Add(1)
+	utils.ManagedGo(func() {
+		ticker := time.NewTicker(ttlCheckInterval)
+		defer ticker.Stop()
+		for {
+			if cancelCtx.Err() != nil {
+				return
+			}
+
+			select {
+			case <-cancelCtx.Done():
+				return
+			case <-ticker.C:
+				err := s.purgeOlderThanTTL()
+				if err != nil {
+					s.logger.Error(err.Error())
+				}
+			}
+		}
+	}, s.waitGroup.Done)
+	return &s, nil
 }
 
 // StartExecution creates a new execution from a state.
@@ -439,8 +487,13 @@ func (s *State) ListPlanStatuses(req motion.ListPlanStatusesReq) ([]motion.PlanS
 	defer s.mu.RUnlock()
 
 	statuses := []motion.PlanStatusWithID{}
+	componentNames := maps.Keys(s.componentStateByComponent)
+	slices.SortFunc(componentNames, func(a, b resource.Name) int {
+		return rutils.Compare(a.String(), b.String())
+	})
+
 	if req.OnlyActivePlans {
-		for name := range s.componentStateByComponent {
+		for _, name := range componentNames {
 			if e, err := s.activeExecution(name); err == nil {
 				statuses = append(statuses, motion.PlanStatusWithID{
 					ExecutionID:   e.id,
@@ -453,7 +506,11 @@ func (s *State) ListPlanStatuses(req motion.ListPlanStatusesReq) ([]motion.PlanS
 		return statuses, nil
 	}
 
-	for _, cs := range s.componentStateByComponent {
+	for _, name := range componentNames {
+		cs, ok := s.componentStateByComponent[name]
+		if !ok {
+			return nil, errors.New("state is corrupted")
+		}
 		for _, executionID := range cs.executionIDHistory {
 			e, exists := cs.executionsByID[executionID]
 			if !exists {
@@ -570,4 +627,56 @@ func (s *State) activeExecution(name resource.Name) (stateExecution, error) {
 		return es, nil
 	}
 	return stateExecution{}, resource.NewNotFoundError(name)
+}
+
+func (s *State) purgeOlderThanTTL() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	purgeCutoff := time.Now().Add(-s.ttl)
+
+	for resource, componentState := range s.componentStateByComponent {
+		keepIndex, err := findKeepIndex(componentState, purgeCutoff)
+		if err != nil {
+			return err
+		}
+		// If there are no executions to keep, then delete the resource.
+		if keepIndex == -1 {
+			delete(s.componentStateByComponent, resource)
+			continue
+		}
+
+		executionIdsToKeep := componentState.executionIDHistory[:keepIndex+1]
+		executionIdsToDelete := componentState.executionIDHistory[keepIndex+1:]
+
+		for _, executionID := range executionIdsToDelete {
+			delete(componentState.executionsByID, executionID)
+		}
+		componentState.executionIDHistory = executionIdsToKeep
+		s.componentStateByComponent[resource] = componentState
+	}
+	return nil
+}
+
+// findKeepIndex returns the index of the executionHistory slice which should be kept
+// after purging i.e. are after the purgeCutoff
+// returns -1 if none of the executions are after the cutoff i.e. if all need to be purged.
+func findKeepIndex(componentState componentState, purgeCutoff time.Time) (int, error) {
+	// iterate in reverse order (i.e. from oldest execution to newest execution)
+	for executionIndex := len(componentState.executionIDHistory) - 1; executionIndex >= 0; executionIndex-- {
+		executionID := componentState.executionIDHistory[executionIndex]
+		execution, ok := componentState.executionsByID[executionID]
+		if !ok {
+			msg := "executionID %s exists at index %d of executionIDHistory but is not present in executionsByID"
+			return 0, fmt.Errorf(msg, executionID, executionIndex)
+		}
+
+		mostRecentStatus := execution.history[0].StatusHistory[0]
+		_, terminated := motion.TerminalStateSet[mostRecentStatus.State]
+		withinTTL := mostRecentStatus.Timestamp.After(purgeCutoff)
+		if withinTTL || !terminated {
+			return executionIndex, nil
+		}
+	}
+	return -1, nil
 }

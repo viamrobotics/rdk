@@ -291,6 +291,8 @@ func TestServerMoveOnMapNew(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("returns error without calling MoveOnMapNew if req.Name doesn't map to a resource", func(t *testing.T) {
+		// RSDK-6444
+		//nolint:staticcheck
 		moveOnMapNewRequest := &pb.MoveOnMapNewRequest{
 			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
 			Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
@@ -302,6 +304,8 @@ func TestServerMoveOnMapNew(t *testing.T) {
 			return uuid.Nil, errors.New("should not be called")
 		}
 
+		// RSDK-6444
+		//nolint:staticcheck
 		moveOnMapNewRespose, err := server.MoveOnMapNew(context.Background(), moveOnMapNewRequest)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/\" not found"))
@@ -309,6 +313,8 @@ func TestServerMoveOnMapNew(t *testing.T) {
 	})
 
 	t.Run("returns error if destination is nil without calling MoveOnMapNew", func(t *testing.T) {
+		// RSDK-6444
+		//nolint:staticcheck
 		moveOnMapNewRequest := &pb.MoveOnMapNewRequest{
 			Name:            testMotionServiceName.ShortName(),
 			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
@@ -321,12 +327,16 @@ func TestServerMoveOnMapNew(t *testing.T) {
 			return uuid.Nil, errors.New("should not be called")
 		}
 
+		// RSDK-6444
+		//nolint:staticcheck
 		moveOnMapNewRespose, err := server.MoveOnMapNew(context.Background(), moveOnMapNewRequest)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeError, errors.New("received nil *commonpb.Pose for destination"))
 		test.That(t, moveOnMapNewRespose, test.ShouldBeNil)
 	})
 
+	// RSDK-6444
+	//nolint:staticcheck
 	validMoveOnMapNewRequest := &pb.MoveOnMapNewRequest{
 		Name:            testMotionServiceName.ShortName(),
 		ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
@@ -340,6 +350,8 @@ func TestServerMoveOnMapNew(t *testing.T) {
 		injectMS.MoveOnMapNewFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
 			return uuid.Nil, notYetImplementedErr
 		}
+		// RSDK-6444
+		//nolint:staticcheck
 		moveOnMapNewRespose, err := server.MoveOnMapNew(context.Background(), validMoveOnMapNewRequest)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeError, notYetImplementedErr)
@@ -367,6 +379,8 @@ func TestServerMoveOnMapNew(t *testing.T) {
 			},
 		}
 
+		// RSDK-6444
+		//nolint:staticcheck
 		moveOnMapNewRequest := &pb.MoveOnMapNewRequest{
 			Name: testMotionServiceName.ShortName(),
 
@@ -406,9 +420,181 @@ func TestServerMoveOnMapNew(t *testing.T) {
 			return firstExecutionID, nil
 		}
 
+		// RSDK-6444
+		//nolint:staticcheck
 		moveOnMapNewRespose, err := server.MoveOnMapNew(context.Background(), moveOnMapNewRequest)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, moveOnMapNewRespose.ExecutionId, test.ShouldEqual, firstExecutionID.String())
+	})
+}
+
+func TestServerMoveOnMap(t *testing.T) {
+	injectMS := &inject.MotionService{}
+	resources := map[resource.Name]motion.Service{
+		testMotionServiceName: injectMS,
+	}
+	server, err := newServer(resources)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("returns error without calling MoveOnMap if req.Name doesn't map to a resource", func(t *testing.T) {
+		moveOnMapRequest := &pb.MoveOnMapRequest{
+			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
+			Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
+			SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
+		}
+		injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
+			t.Log("should not be called")
+			t.FailNow()
+			return uuid.Nil, errors.New("should not be called")
+		}
+
+		moveOnMapResponse, err := server.MoveOnMap(context.Background(), moveOnMapRequest)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/\" not found"))
+		test.That(t, moveOnMapResponse, test.ShouldBeNil)
+	})
+
+	t.Run("returns error if destination is nil without calling MoveOnMap", func(t *testing.T) {
+		moveOnMapRequest := &pb.MoveOnMapRequest{
+			Name:            testMotionServiceName.ShortName(),
+			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
+			Destination:     nil,
+			SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
+		}
+		injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
+			t.Log("should not be called")
+			t.FailNow()
+			return uuid.Nil, errors.New("should not be called")
+		}
+		moveOnMapResponse, err := server.MoveOnMap(context.Background(), moveOnMapRequest)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, errors.New("received nil *commonpb.Pose for destination"))
+		test.That(t, moveOnMapResponse, test.ShouldBeNil)
+	})
+
+	validMoveOnMapRequest := &pb.MoveOnMapRequest{
+		Name:            testMotionServiceName.ShortName(),
+		ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
+		Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
+		SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
+	}
+
+	t.Run("returns error when MoveOnMap returns an error", func(t *testing.T) {
+		notYetImplementedErr := errors.New("Not yet implemented")
+
+		injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
+			return uuid.Nil, notYetImplementedErr
+		}
+		moveOnMapResponse, err := server.MoveOnMap(context.Background(), validMoveOnMapRequest)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, notYetImplementedErr)
+		test.That(t, moveOnMapResponse, test.ShouldBeNil)
+	})
+
+	t.Run("returns success when MoveOnMap returns success", func(t *testing.T) {
+		expectedComponentName := base.Named("test-base")
+		expectedSlamName := slam.Named("test-slam")
+		expectedDestination := spatialmath.PoseToProtobuf(spatialmath.NewZeroPose())
+
+		angularDegsPerSec := 1.
+		linearMPerSec := 2.
+		planDeviationM := 3.
+		obstaclePollingFrequencyHz := 4.
+		positionPollingFrequencyHz := 5.
+		obstacleDetectorsPB := []*pb.ObstacleDetector{
+			{
+				VisionService: protoutils.ResourceNameToProto(vision.Named("vision service 1")),
+				Camera:        protoutils.ResourceNameToProto(camera.Named("camera 1")),
+			},
+			{
+				VisionService: protoutils.ResourceNameToProto(vision.Named("vision service 2")),
+				Camera:        protoutils.ResourceNameToProto(camera.Named("camera 2")),
+			},
+		}
+
+		moveOnMapRequest := &pb.MoveOnMapRequest{
+			Name: testMotionServiceName.ShortName(),
+
+			ComponentName:   protoutils.ResourceNameToProto(expectedComponentName),
+			Destination:     expectedDestination,
+			SlamServiceName: protoutils.ResourceNameToProto(expectedSlamName),
+
+			MotionConfiguration: &pb.MotionConfiguration{
+				AngularDegsPerSec:          &angularDegsPerSec,
+				LinearMPerSec:              &linearMPerSec,
+				PlanDeviationM:             &planDeviationM,
+				ObstaclePollingFrequencyHz: &obstaclePollingFrequencyHz,
+				PositionPollingFrequencyHz: &positionPollingFrequencyHz,
+				ObstacleDetectors:          obstacleDetectorsPB,
+			},
+		}
+
+		firstExecutionID := uuid.New()
+		injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
+			test.That(t, req.ComponentName, test.ShouldResemble, expectedComponentName)
+			test.That(t, req.Destination, test.ShouldNotBeNil)
+			test.That(t,
+				spatialmath.PoseAlmostEqualEps(req.Destination, spatialmath.NewPoseFromProtobuf(expectedDestination), 1e-5),
+				test.ShouldBeTrue,
+			)
+			test.That(t, req.SlamName, test.ShouldResemble, expectedSlamName)
+			test.That(t, req.MotionCfg.AngularDegsPerSec, test.ShouldAlmostEqual, angularDegsPerSec)
+			test.That(t, req.MotionCfg.LinearMPerSec, test.ShouldAlmostEqual, linearMPerSec)
+			test.That(t, req.MotionCfg.PlanDeviationMM, test.ShouldAlmostEqual, planDeviationM*1000)
+			test.That(t, req.MotionCfg.ObstaclePollingFreqHz, test.ShouldAlmostEqual, obstaclePollingFrequencyHz)
+			test.That(t, req.MotionCfg.PositionPollingFreqHz, test.ShouldAlmostEqual, positionPollingFrequencyHz)
+			test.That(t, len(req.MotionCfg.ObstacleDetectors), test.ShouldAlmostEqual, 2)
+			test.That(t, req.MotionCfg.ObstacleDetectors[0].VisionServiceName, test.ShouldResemble, vision.Named("vision service 1"))
+			test.That(t, req.MotionCfg.ObstacleDetectors[0].CameraName, test.ShouldResemble, camera.Named("camera 1"))
+			test.That(t, req.MotionCfg.ObstacleDetectors[1].VisionServiceName, test.ShouldResemble, vision.Named("vision service 2"))
+			test.That(t, req.MotionCfg.ObstacleDetectors[1].CameraName, test.ShouldResemble, camera.Named("camera 2"))
+			return firstExecutionID, nil
+		}
+		moveOnMapResponse, err := server.MoveOnMap(context.Background(), moveOnMapRequest)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moveOnMapResponse.ExecutionId, test.ShouldEqual, firstExecutionID.String())
+	})
+
+	t.Run("non-nil obstacles passes", func(t *testing.T) {
+		moveOnMapReq := &pb.MoveOnMapRequest{
+			Name:            testMotionServiceName.ShortName(),
+			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
+			Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
+			SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
+			Obstacles:       spatialmath.NewGeometriesToProto([]spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")}),
+		}
+
+		firstExecutionID := uuid.New()
+		injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
+			test.That(t, len(req.Obstacles), test.ShouldEqual, 1)
+			test.That(t, req.Obstacles[0].AlmostEqual(spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")), test.ShouldBeTrue)
+			return firstExecutionID, nil
+		}
+
+		moveOnMapResponse, err := server.MoveOnMap(context.Background(), moveOnMapReq)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moveOnMapResponse.ExecutionId, test.ShouldEqual, firstExecutionID.String())
+	})
+
+	t.Run("fails with inconvertible geometry", func(t *testing.T) {
+		moveOnMapReq := &pb.MoveOnMapRequest{
+			Name:            testMotionServiceName.ShortName(),
+			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
+			Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
+			SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
+			Obstacles:       []*commonpb.Geometry{{GeometryType: nil}},
+		}
+
+		injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
+			t.Log("should not be called")
+			t.FailNow()
+			return uuid.Nil, errors.New("should not be called")
+		}
+
+		moveOnMapResponse, err := server.MoveOnMap(context.Background(), moveOnMapReq)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, errors.New("cannot convert obstacles into geometries: cannot have nil pose for geometry"))
+		test.That(t, moveOnMapResponse, test.ShouldBeNil)
 	})
 }
 

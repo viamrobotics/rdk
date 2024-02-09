@@ -6,19 +6,16 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/control"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// TODO: RSDK-5355 useControlLoop bool should be removed after testing.
-const (
-	useControlLoop = false
-	// rPiGain is 1/255 because the PWM signal on a pi (and most other boards)
-	// is limited to 8 bits, or the range 0-255.
-	rPiGain = 0.00392157
-)
+// rPiGain is 1/255 because the PWM signal on a pi (and most other boards)
+// is limited to 8 bits, or the range 0-255.
+const rPiGain = 0.00392157
 
 // setupControlLoops uses the embedded config in this file to initialize a control
 // loop using the controls package and store in on the sensor controlled base struct
@@ -71,15 +68,63 @@ func (sb *sensorBase) updateControlConfig(
 	return nil
 }
 
+func (sb *sensorBase) autoTuneAll(ctx context.Context, cancelFunc context.CancelFunc, linear, angular basePIDConfig) error {
+	var errs error
+	sb.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer utils.UncheckedErrorFunc(func() error {
+			sb.mu.Lock()
+			defer sb.mu.Unlock()
+			cancelFunc()
+			return sb.controlledBase.Stop(ctx, nil)
+		})
+		defer sb.activeBackgroundWorkers.Done()
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		// to tune linear PID values, angular PI values must be non-zero
+		fakeConf := basePIDConfig{Type: typeAngVel, P: 0.5, I: 0.5, D: 0.0}
+		sb.logger.Info("tuning linear PID")
+		if err := sb.autoTuningProcess(ctx, linear, fakeConf); err != nil {
+			errs = multierr.Combine(errs, err)
+		}
+		if err := sb.Stop(ctx, nil); err != nil {
+			errs = multierr.Combine(errs, err)
+		}
+		// to tune angular PID values, linear PI values must be non-zero
+		fakeConf.Type = typeLinVel
+		sb.logger.Info("tuning angular PID")
+		if err := sb.autoTuningProcess(ctx, fakeConf, angular); err != nil {
+			errs = multierr.Combine(errs, err)
+		}
+	})
+	return errs
+}
+
+func (sb *sensorBase) autoTuningProcess(ctx context.Context, linear, angular basePIDConfig) error {
+	sb.controlLoopConfig = sb.createControlLoopConfig(linear, angular)
+	if err := sb.setupControlLoops(); err != nil {
+		return err
+	}
+	if err := sb.loop.MonitorTuning(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (sb *sensorBase) SetVelocity(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
 	sb.opMgr.CancelRunning(ctx)
-	// check if a sensor context has been started
-	if sb.sensorLoopDone != nil {
-		sb.sensorLoopDone()
+	// stop any previous base movement
+	// if multiple SetVelocity calls (such as from motion) causes issues, this can be replaced
+	// with a helper function to cancel the threads without calling Stop on the underlying base
+	if err := sb.Stop(ctx, nil); err != nil {
+		return err
 	}
-
 	// set the spin loop to false, so we do not skip the call to SetState in the control loop
 	sb.setPolling(false)
 
@@ -89,7 +134,7 @@ func (sb *sensorBase) SetVelocity(
 	var sensorCtx context.Context
 	sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
 
-	if useControlLoop {
+	if len(sb.conf.ControlParameters) != 0 {
 		// stop and restart loop
 		if sb.loop != nil {
 			if err := sb.Stop(ctx, nil); err != nil {
@@ -215,8 +260,8 @@ func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
 // it sets up a loop that takes a constant -> sum -> PID -> gain -> Endpoint -> feedback to sum
 // structure. The gain is 0.0039 (1/255) to account for the PID range, the PID values are experimental
 // this structure can change as hardware experiments with the viam base require.
-func (sb *sensorBase) createControlLoopConfig() control.Config {
-	return control.Config{
+func (sb *sensorBase) createControlLoopConfig(linear, angular basePIDConfig) control.Config {
+	conf := control.Config{
 		Blocks: []control.BlockConfig{
 			{
 				Name: "endpoint",
@@ -230,9 +275,9 @@ func (sb *sensorBase) createControlLoopConfig() control.Config {
 				Name: "linear_PID",
 				Type: "PID",
 				Attribute: rdkutils.AttributeMap{
-					"kD":             0.0,
-					"kI":             520.763911,
-					"kP":             291.489819,
+					"kD":             linear.D,
+					"kI":             linear.I,
+					"kP":             linear.P,
 					"int_sat_lim_lo": -255.0,
 					"int_sat_lim_up": 255.0,
 					"limit_lo":       -255.0,
@@ -247,9 +292,9 @@ func (sb *sensorBase) createControlLoopConfig() control.Config {
 				Name: "angular_PID",
 				Type: "PID",
 				Attribute: rdkutils.AttributeMap{
-					"kD":             0.0,
-					"kI":             0.904513,
-					"kP":             0.677894,
+					"kD":             angular.D,
+					"kI":             angular.I,
+					"kP":             angular.P,
 					"int_sat_lim_lo": -255.0,
 					"int_sat_lim_up": 255.0,
 					"limit_lo":       -255.0,
@@ -301,6 +346,7 @@ func (sb *sensorBase) createControlLoopConfig() control.Config {
 				DependsOn: []string{},
 			},
 		},
-		Frequency: 100,
+		Frequency: 20,
 	}
+	return conf
 }

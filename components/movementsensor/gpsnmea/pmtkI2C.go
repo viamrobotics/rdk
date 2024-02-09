@@ -32,7 +32,6 @@ type PmtkI2CNMEAMovementSensor struct {
 	data                    GPSData
 	activeBackgroundWorkers sync.WaitGroup
 
-	disableNmea        bool
 	err                movementsensor.LastError
 	lastPosition       movementsensor.LastPosition
 	lastCompassHeading movementsensor.LastCompassHeading
@@ -82,22 +81,17 @@ func MakePmtkI2cGpsNmea(
 		conf.I2CConfig.I2CBaudRate = 38400
 		logger.CWarn(ctx, "using default baudrate : 38400")
 	}
-	disableNmea := conf.DisableNMEA
-	if disableNmea {
-		logger.CInfo(ctx, "SerialNMEAMovementSensor: NMEA reading disabled")
-	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	g := &PmtkI2CNMEAMovementSensor{
-		Named:       name.AsNamed(),
-		bus:         i2cBus,
-		addr:        byte(addr),
-		wbaud:       conf.I2CConfig.I2CBaudRate,
-		cancelCtx:   cancelCtx,
-		cancelFunc:  cancelFunc,
-		logger:      logger,
-		disableNmea: disableNmea,
+		Named:      name.AsNamed(),
+		bus:        i2cBus,
+		addr:       byte(addr),
+		wbaud:      conf.I2CConfig.I2CBaudRate,
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
 		// Overloaded boards can have flaky I2C busses. Only report errors if at least 5 of the
 		// last 10 attempts have failed.
 		err:                movementsensor.NewLastError(10, 5),
@@ -155,47 +149,51 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 			default:
 			}
 
-			if !g.disableNmea {
-				// Opening an i2c handle blocks the whole bus, so we open/close each loop so other things also have a chance to use it
-				handle, err := g.bus.OpenHandle(g.addr)
-				// Record the error value no matter what. If it's nil, this will help suppress
-				// ephemeral errors later.
-				g.err.Set(err)
-				if err != nil {
-					g.logger.CErrorf(ctx, "can't open gps i2c handle: %s", err)
-					return
-				}
-				buffer, err := handle.Read(ctx, 1024)
-				g.err.Set(err)
-				hErr := handle.Close()
-				g.err.Set(hErr)
-				if hErr != nil {
-					g.logger.CErrorf(ctx, "failed to close handle: %s", hErr)
-					return
-				}
-				if err != nil {
-					g.logger.CError(ctx, err)
-					continue
-				}
-				for _, b := range buffer {
-					// PMTK uses CRLF line endings to terminate sentences, but just LF to blank data.
-					// Since CR should never appear except at the end of our sentence, we use that to determine sentence end.
-					// LF is merely ignored.
-					if b == 0x0D {
-						if strBuf != "" {
-							g.mu.Lock()
-							err = g.data.ParseAndUpdate(strBuf)
-							g.mu.Unlock()
-							if err != nil {
-								g.logger.CDebugf(ctx, "can't parse nmea sentence: %s, %v", strBuf, err)
-								g.logger.Debug("Check: GPS requires clear sky view." +
-									" Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
-							}
+			// Opening an i2c handle blocks the whole bus, so we open/close each loop so other things also have a chance to use it
+			handle, err := g.bus.OpenHandle(g.addr)
+			// Record the error value no matter what. If it's nil, this will help suppress
+			// ephemeral errors later.
+			g.err.Set(err)
+			if err != nil {
+				g.logger.CErrorf(ctx, "can't open gps i2c handle: %s", err)
+				return
+			}
+			buffer, err := handle.Read(ctx, 1024)
+			g.err.Set(err)
+			hErr := handle.Close()
+			g.err.Set(hErr)
+			if hErr != nil {
+				g.logger.CErrorf(ctx, "failed to close handle: %s", hErr)
+				return
+			}
+			if err != nil {
+				g.logger.CError(ctx, err)
+				continue
+			}
+			for _, b := range buffer {
+				// PMTK uses CRLF line endings to terminate sentences, but just LF to blank data.
+				// Since CR should never appear except at the end of our sentence, we use that to determine sentence end.
+				// LF is merely ignored.
+				if b == 0x0D {
+					if strBuf != "" {
+						// sometimes we miss "$" on the first message of the buffer. Here we are adding the missing
+						// "$" to a valid nmea string.
+						if strBuf[0] == 0x47 { // 0x47 is the ASCII value
+							strBuf = "$" + strBuf
 						}
-						strBuf = ""
-					} else if b != 0x0A && b != 0xFF { // adds only valid bytes
-						strBuf += string(b)
+
+						g.mu.Lock()
+						err = g.data.ParseAndUpdate(strBuf)
+						g.mu.Unlock()
+						if err != nil {
+							g.logger.CDebugf(ctx, "can't parse nmea sentence: %s, %v", strBuf, err)
+							g.logger.Debug("Check: GPS requires clear sky view." +
+								" Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
+						}
 					}
+					strBuf = ""
+				} else if b != 0x0A && b < 0x7F { // adds only valid bytes
+					strBuf += string(b)
 				}
 			}
 		}
@@ -210,8 +208,6 @@ func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (buses.I2C, byte) {
 }
 
 // Position returns the current geographic location of the MovementSensor.
-//
-//nolint:all
 func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	lastPosition := g.lastPosition.GetLastPosition()
 
@@ -225,17 +221,17 @@ func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[stri
 	}
 
 	// if current position is (0,0) we will return the last non zero position
-	if g.lastPosition.IsZeroPosition(currentPosition) && !g.lastPosition.IsZeroPosition(lastPosition) {
+	if movementsensor.IsZeroPosition(currentPosition) && !movementsensor.IsZeroPosition(lastPosition) {
 		return lastPosition, g.data.Alt, g.err.Get()
 	}
 
 	// updating lastPosition if it is different from the current position
-	if !g.lastPosition.ArePointsEqual(currentPosition, lastPosition) {
+	if !movementsensor.ArePointsEqual(currentPosition, lastPosition) {
 		g.lastPosition.SetLastPosition(currentPosition)
 	}
 
 	// updating the last known valid position if the current position is non-zero
-	if !g.lastPosition.IsZeroPosition(currentPosition) && !g.lastPosition.IsPositionNaN(currentPosition) {
+	if !movementsensor.IsZeroPosition(currentPosition) && !movementsensor.IsPositionNaN(currentPosition) {
 		g.lastPosition.SetLastPosition(currentPosition)
 	}
 

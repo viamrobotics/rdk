@@ -120,7 +120,7 @@ func (lp *LastPosition) SetLastPosition(position *geo.Point) {
 }
 
 // ArePointsEqual checks if two geo.Point instances are equal.
-func (lp *LastPosition) ArePointsEqual(p1, p2 *geo.Point) bool {
+func ArePointsEqual(p1, p2 *geo.Point) bool {
 	if p1 == nil || p2 == nil {
 		return p1 == p2
 	}
@@ -128,12 +128,12 @@ func (lp *LastPosition) ArePointsEqual(p1, p2 *geo.Point) bool {
 }
 
 // IsZeroPosition checks if a geo.Point represents the zero position (0, 0).
-func (lp *LastPosition) IsZeroPosition(p *geo.Point) bool {
+func IsZeroPosition(p *geo.Point) bool {
 	return p.Lng() == 0 && p.Lat() == 0
 }
 
 // IsPositionNaN checks if a geo.Point in math.NaN().
-func (lp *LastPosition) IsPositionNaN(p *geo.Point) bool {
+func IsPositionNaN(p *geo.Point) bool {
 	return math.IsNaN(p.Lng()) && math.IsNaN(p.Lat())
 }
 

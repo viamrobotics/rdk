@@ -42,7 +42,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/de-bkg/gognss/pkg/ntrip"
 	"github.com/go-gnss/rtcm/rtcm3"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
@@ -276,33 +275,10 @@ func (g *rtkI2C) start() error {
 	// TODO(RDK-1639): Test out what happens if we call this line and then the ReceiveAndWrite*
 	// correction data goes wrong. Could anything worse than uncorrected data occur?
 
-	if err := g.nmeamovementsensor.Start(g.cancelCtx); err != nil {
-		g.lastposition.GetLastPosition()
-		return err
-	}
-
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() { g.receiveAndWriteI2C(g.cancelCtx) })
 
 	return g.err.Get()
-}
-
-// connect attempts to connect to ntrip client until successful connection or timeout.
-func (g *rtkI2C) connect(casterAddr, user, pwd string, maxAttempts int) error {
-	g.logger.Info("starting connect")
-	for attempts := 0; attempts < maxAttempts; attempts++ {
-		ntripclient, err := ntrip.NewClient(casterAddr, ntrip.Options{Username: user, Password: pwd})
-		if err == nil {
-			g.logger.Debug("Connected to NTRIP caster")
-			g.ntripMu.Lock()
-			g.ntripClient.Client = ntripclient
-			g.ntripMu.Unlock()
-			return g.err.Get()
-		}
-	}
-
-	errMsg := fmt.Sprintf("Can't connect to NTRIP caster after %d attempts", maxAttempts)
-	return errors.New(errMsg)
 }
 
 // getStream attempts to connect to ntrip stream until successful connection or timeout.
@@ -357,7 +333,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	if err := g.cancelCtx.Err(); err != nil {
 		return
 	}
-	err := g.connect(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MaxConnectAttempts)
+	err := g.ntripClient.Connect(g.cancelCtx, g.logger)
 	if err != nil {
 		g.err.Set(err)
 		return
@@ -528,7 +504,7 @@ func (g *rtkI2C) Position(ctx context.Context, extra map[string]interface{}) (*g
 	position, alt, err := g.nmeamovementsensor.Position(ctx, extra)
 	if err != nil {
 		// Use the last known valid position if current position is (0,0)/ NaN.
-		if position != nil && (g.lastposition.IsZeroPosition(position) || g.lastposition.IsPositionNaN(position)) {
+		if position != nil && (movementsensor.IsZeroPosition(position) || movementsensor.IsPositionNaN(position)) {
 			lastPosition := g.lastposition.GetLastPosition()
 			if lastPosition != nil {
 				return lastPosition, alt, nil
@@ -537,7 +513,7 @@ func (g *rtkI2C) Position(ctx context.Context, extra map[string]interface{}) (*g
 		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), err
 	}
 
-	if g.lastposition.IsPositionNaN(position) {
+	if movementsensor.IsPositionNaN(position) {
 		position = g.lastposition.GetLastPosition()
 	}
 

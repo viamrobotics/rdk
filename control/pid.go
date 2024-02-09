@@ -11,11 +11,12 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-func newPID(config BlockConfig, logger logging.Logger) (Block, error) {
+func (l *Loop) newPID(config BlockConfig, logger logging.Logger) (Block, error) {
 	p := &basicPID{cfg: config, logger: logger}
 	if err := p.reset(); err != nil {
 		return nil, err
 	}
+	l.pidBlocks = append(l.pidBlocks, p)
 	return p, nil
 }
 
@@ -39,6 +40,10 @@ type basicPID struct {
 	logger   logging.Logger
 }
 
+func (p *basicPID) GetTuning() bool {
+	return p.tuning
+}
+
 // Output returns the discrete step of the PID controller, dt is the delta time between two subsequent call,
 // setPoint is the desired value, measured is the measured value.
 // Returns false when the output is invalid (the integral is saturating) in this case continue to use the last valid value.
@@ -51,7 +56,7 @@ func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 			p.kD = p.tuner.kD
 			p.kI = p.tuner.kI
 			p.kP = p.tuner.kP
-			p.logger.CInfof(ctx, "Calculated gains are Kp %1.6f, Ki: %1.6f, Kd: %1.6f", p.kP, p.kI, p.kD)
+			p.logger.CInfof(ctx, "Calculated gains are p: %1.6f, i: %1.6f, d: %1.6f", p.kP, p.kI, p.kD)
 			p.tuning = false
 		}
 		p.y[0].SetSignalValueAt(0, out)

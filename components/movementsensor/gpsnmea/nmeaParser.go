@@ -40,83 +40,81 @@ func errInvalidFix(sentenceType, badFix, goodFix string) error {
 // ParseAndUpdate will attempt to parse a line to an NMEA sentence, and if valid, will try to update the given struct
 // with the values for that line. Nothing will be updated if there is not a valid gps fix.
 func (g *GPSData) ParseAndUpdate(line string) error {
-	// add parsing to filter out corrupted data
+	// Each line should start with a dollar sign and a capital G. If we start reading in the middle
+	// of a sentence, though, we'll get unparseable readings. Strip out everything from before the
+	// dollar sign, to avoid this confusion.
 	ind := strings.Index(line, "$G")
 	if ind == -1 {
-		line = ""
+		line = "" // This line does not contain the start of a message!?
 	} else {
 		line = line[ind:]
 	}
 
-	var errs error
 	s, err := nmea.Parse(line)
 	if err != nil {
-		return multierr.Combine(errs, err)
+		return err
 	}
+
+	// The nmea.RMC message does not support parsing compass heading in its messages. So, we check
+	// on that separately, before updating the data we parsed with the third-party package.
 	if s.DataType() == nmea.TypeRMC {
 		g.parseRMC(line)
 	}
-	errs = g.updateData(s)
+	err = g.updateData(s)
 
 	if g.Location == nil {
 		g.Location = geo.NewPoint(math.NaN(), math.NaN())
-		errs = multierr.Combine(errs, errors.New("no Location parsed for nmea gps, using default value of lat: NaN, long: NaN"))
-		return errs
+		return multierr.Combine(err, errors.New("no Location parsed for nmea gps, using default value of lat: NaN, long: NaN"))
 	}
 
 	return nil
 }
 
-// given an NMEA sentense, updateData updates it. An error is returned if any of
+// Given an NMEA sentence, updateData updates it. An error is returned if any of
 // the function calls fails.
 func (g *GPSData) updateData(s nmea.Sentence) error {
-	var errs error
-
 	switch sentence := s.(type) {
 	case nmea.GSV:
 		if gsv, ok := s.(nmea.GSV); ok {
-			errs = g.updateGSV(gsv)
+			return g.updateGSV(gsv)
 		}
 	case nmea.RMC:
 		if rmc, ok := s.(nmea.RMC); ok {
-			errs = g.updateRMC(rmc)
+			return g.updateRMC(rmc)
 		}
 	case nmea.GSA:
 		if gsa, ok := s.(nmea.GSA); ok {
-			errs = g.updateGSA(gsa)
+			return g.updateGSA(gsa)
 		}
 	case nmea.GGA:
 		if gga, ok := s.(nmea.GGA); ok {
-			errs = g.updateGGA(gga)
+			return g.updateGGA(gga)
 		}
 	case nmea.GLL:
 		if gll, ok := s.(nmea.GLL); ok {
-			errs = g.updateGLL(gll)
+			return g.updateGLL(gll)
 		}
 	case nmea.VTG:
 		if vtg, ok := s.(nmea.VTG); ok {
-			errs = g.updateVTG(vtg)
+			return g.updateVTG(vtg)
 		}
 	case nmea.GNS:
 		if gns, ok := s.(nmea.GNS); ok {
-			errs = g.updateGNS(gns)
+			return g.updateGNS(gns)
 		}
 	case nmea.HDT:
 		if hdt, ok := s.(nmea.HDT); ok {
-			errs = g.updateHDT(hdt)
+			return g.updateHDT(hdt)
 		}
 	default:
-		// Handle the case when the sentence type is not recognized
-		errs = fmt.Errorf("unrecognized sentence type: %T", sentence)
+		return fmt.Errorf("unrecognized sentence type: %T", sentence)
 	}
 
-	return errs
+	return fmt.Errorf("could not cast sentence to expected type: %v", s)
 }
 
 // updateGSV updates g.SatsInView with the information from the provided
 // GSV (GPS Satellites in View) data.
-//
-//nolint:all
 func (g *GPSData) updateGSV(gsv nmea.GSV) error {
 	// GSV provides the number of satellites in view
 
@@ -127,22 +125,19 @@ func (g *GPSData) updateGSV(gsv nmea.GSV) error {
 // updateRMC updates the GPSData object with the information from the provided
 // RMC (Recommended Minimum Navigation Information) data.
 func (g *GPSData) updateRMC(rmc nmea.RMC) error {
-	if rmc.Validity == "A" {
-		g.valid = true
-	} else if rmc.Validity == "V" {
+	if rmc.Validity != "A" {
 		g.valid = false
-		err := errInvalidFix(rmc.Type, rmc.Validity, "A")
-		return err
+		return errInvalidFix(rmc.Type, rmc.Validity, "A")
 	}
-	if g.valid {
-		g.Speed = rmc.Speed * knotsToMPerSec
-		g.Location = geo.NewPoint(rmc.Latitude, rmc.Longitude)
 
-		if g.validCompassHeading {
-			g.CompassHeading = calculateTrueHeading(rmc.Course, rmc.Variation, g.isEast)
-		} else {
-			g.CompassHeading = math.NaN()
-		}
+	g.valid = true
+	g.Speed = rmc.Speed * knotsToMPerSec
+	g.Location = geo.NewPoint(rmc.Latitude, rmc.Longitude)
+
+	if g.validCompassHeading {
+		g.CompassHeading = calculateTrueHeading(rmc.Course, rmc.Variation, g.isEast)
+	} else {
+		g.CompassHeading = math.NaN()
 	}
 	return nil
 }
@@ -151,18 +146,16 @@ func (g *GPSData) updateRMC(rmc nmea.RMC) error {
 // GSA (GPS DOP and Active Satellites) data.
 func (g *GPSData) updateGSA(gsa nmea.GSA) error {
 	switch gsa.FixType {
-	case "1":
-		// No fix
-		g.valid = false
-		err := errInvalidFix(gsa.Type, gsa.FixType, "1 or 2")
-		return err
 	case "2":
 		// 2d fix, valid lat/lon but invalid Alt
 		g.valid = true
-		g.VDOP = -1
 	case "3":
 		// 3d fix
 		g.valid = true
+	default:
+		// No fix
+		g.valid = false
+		return errInvalidFix(gsa.Type, gsa.FixType, "2 or 3")
 	}
 
 	if g.valid {
@@ -186,31 +179,27 @@ func (g *GPSData) updateGGA(gga nmea.GGA) error {
 
 	if gga.FixQuality == "0" {
 		g.valid = false
-		err = errInvalidFix(gga.Type, gga.FixQuality, "1 to 6")
-	} else {
-		g.valid = true
-		g.Location = geo.NewPoint(gga.Latitude, gga.Longitude)
-		g.SatsInUse = int(gga.NumSatellites)
-		g.HDOP = gga.HDOP
-		g.Alt = gga.Altitude
+		return errInvalidFix(gga.Type, gga.FixQuality, "1 to 6")
 	}
-	return err
+
+	g.valid = true
+	g.Location = geo.NewPoint(gga.Latitude, gga.Longitude)
+	g.SatsInUse = int(gga.NumSatellites)
+	g.HDOP = gga.HDOP
+	g.Alt = gga.Altitude
+	return nil
 }
 
 // updateGLL updates g.Location with the location information from the provided
 // GLL (Geographic Position - Latitude/Longitude) data.
-//
-//nolint:all
 func (g *GPSData) updateGLL(gll nmea.GLL) error {
-	now := toPoint(gll)
+	now := geo.NewPoint(gll.Latitude, gll.Longitude)
 	g.Location = now
 	return nil
 }
 
 // updateVTG updates g.Speed with the ground speed information from the provided
 // VTG (Velocity Made Good) data.
-//
-//nolint:all
 func (g *GPSData) updateVTG(vtg nmea.VTG) error {
 	// VTG provides ground speed
 	g.Speed = vtg.GroundSpeedKPH * kphToMPerSec
@@ -220,27 +209,27 @@ func (g *GPSData) updateVTG(vtg nmea.VTG) error {
 // updateGNS updates the GPSData object with the information from the provided
 // GNS (Global Navigation Satellite System) data.
 func (g *GPSData) updateGNS(gns nmea.GNS) error {
+	// For each satellite we've heard from, make sure the mode is valid. If any of them are not
+	// valid, this entire message should not be trusted.
 	for _, mode := range gns.Mode {
-		if mode == "N" {
+		if mode == "N" { // No satellite fix
 			g.valid = false
-			err := errInvalidFix(gns.Type, mode, " A, D, P, R, F, E, M or S")
-			return err
+			return errInvalidFix(gns.Type, mode, "A, D, P, R, F, E, M or S")
 		}
 	}
 
-	if g.valid {
-		g.Location = geo.NewPoint(gns.Latitude, gns.Longitude)
-		g.SatsInUse = int(gns.SVs)
-		g.HDOP = gns.HDOP
-		g.Alt = gns.Altitude
+	if !g.valid { // This value gets set elsewhere, such as in a GGA message.
+		return nil // Don't parse this message; we're not set up yet.
 	}
 
+	g.Location = geo.NewPoint(gns.Latitude, gns.Longitude)
+	g.SatsInUse = int(gns.SVs)
+	g.HDOP = gns.HDOP
+	g.Alt = gns.Altitude
 	return nil
 }
 
-// updateHDT updaates g.CompassHeading with the ground speed information from the provided
-//
-//nolint:all
+// updateHDT updates g.CompassHeading with the ground speed information from the provided.
 func (g *GPSData) updateHDT(hdt nmea.HDT) error {
 	// HDT provides compass heading
 	g.CompassHeading = hdt.Heading
@@ -269,7 +258,7 @@ func calculateTrueHeading(heading, magneticDeclination float64, isEast bool) flo
 // parseRMC sets g.isEast bool value by parsing the RMC message for compass heading
 // and sets g.validCompassHeading bool since RMC message sends empty strings if
 // there is no movement.
-// go-nmea library does not provide this feature.
+// NOTE: The go-nmea library does not provide this feature, which is why we're doing it ourselves.
 func (g *GPSData) parseRMC(message string) {
 	data := strings.Split(message, ",")
 	if len(data) < 10 {
