@@ -1,46 +1,22 @@
-// Package gpsnmea implements an NMEA serial gps.
+// Package gpsnmea implements an NMEA gps.
 package gpsnmea
 
 import (
+	"bufio"
 	"context"
 	"fmt"
-	"math"
+	"io"
 	"sync"
 
-	"github.com/golang/geo/r3"
 	"github.com/jacobsa/go-serial/serial"
-	geo "github.com/kellydunn/golang-geo"
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/spatialmath"
 )
 
-var errNilLocation = errors.New("nil gps location, check nmea message parsing")
-
-// SerialNMEAMovementSensor allows the use of any MovementSensor chip that communicates over serial.
-type SerialNMEAMovementSensor struct {
-	resource.Named
-	resource.AlwaysRebuild
-	mu                      sync.RWMutex
-	cancelCtx               context.Context
-	cancelFunc              func()
-	logger                  logging.Logger
-	data                    GPSData
-	activeBackgroundWorkers sync.WaitGroup
-
-	err                movementsensor.LastError
-	lastPosition       movementsensor.LastPosition
-	lastCompassHeading movementsensor.LastCompassHeading
-	isClosed           bool
-
-	dev DataReader
-}
-
-// NewSerialGPSNMEA gps that communicates over serial.
+// NewSerialGPSNMEA creates a component that communicates over a serial port.
 func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (NmeaMovementSensor, error) {
 	serialPath := conf.SerialConfig.SerialPath
 	if serialPath == "" {
@@ -68,7 +44,7 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
-	g := &SerialNMEAMovementSensor{
+	g := &NMEAMovementSensor{
 		Named:              name.AsNamed(),
 		dev:                dev,
 		cancelCtx:          cancelCtx,
@@ -86,197 +62,79 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 	return g, err
 }
 
-// Start begins reading nmea messages from module and updates gps data.
-func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
-	g.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer g.activeBackgroundWorkers.Done()
+// SerialDataReader implements the DataReader interface (defined in component.go) by interacting
+// with the device over a serial port.
+type SerialDataReader struct {
+	dev                     io.ReadWriteCloser
+	data                    chan string
+	cancelCtx               context.Context
+	cancelFunc              func()
+	activeBackgroundWorkers sync.WaitGroup
+	logger                  logging.Logger
+}
 
-		messages := g.dev.Messages()
+// NewSerialDataReader constructs a new DataReader that gets its NMEA messages over a serial port.
+func NewSerialDataReader(options serial.OpenOptions, logger logging.Logger) (DataReader, error) {
+	dev, err := serial.Open(options)
+	if err != nil {
+		return nil, err
+	}
+
+	data := make(chan string)
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+
+	reader := SerialDataReader{
+		dev:        dev,
+		data:       data,
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+	}
+	reader.start()
+
+	return &reader, nil
+}
+
+func (dr *SerialDataReader) start() {
+	dr.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer dr.activeBackgroundWorkers.Done()
+		defer close(dr.data)
+
+		r := bufio.NewReader(dr.dev)
 		for {
-			// First, check if we're supposed to shut down.
 			select {
-			case <-g.cancelCtx.Done():
+			case <-dr.cancelCtx.Done():
 				return
 			default:
 			}
 
-			// Next, wait until either we're supposed to shut down or we have new data to process.
-			select {
-			case <-g.cancelCtx.Done():
-				return
-			case message := <-messages:
-				// Update our struct's gps data in-place
-				g.mu.Lock()
-				err := g.data.ParseAndUpdate(message)
-				g.mu.Unlock()
-				if err != nil {
-					g.logger.CWarnf(ctx, "can't parse nmea sentence: %#v", err)
-					g.logger.Debug("Check: GPS requires clear sky view." +
-						"Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
-				}
+			line, err := r.ReadString('\n')
+			if err != nil {
+				dr.logger.CErrorf(dr.cancelCtx, "can't read gps serial %s", err)
+				continue // The line has bogus data; don't put it in the channel.
 			}
-
-			if g.isClosed { // There's no coming back from this. We're done.
-				return
-			}
+			dr.data <- line
 		}
 	})
-
-	return g.err.Get()
 }
 
-// Position returns the position and altitide of the sensor, or an error.
-func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	lastPosition := g.lastPosition.GetLastPosition()
-	currentPosition := g.data.Location
-
-	if currentPosition == nil {
-		return lastPosition, 0, errNilLocation
-	}
-
-	// if current position is (0,0) we will return the last non-zero position
-	if movementsensor.IsZeroPosition(currentPosition) && !movementsensor.IsZeroPosition(lastPosition) {
-		return lastPosition, g.data.Alt, g.err.Get()
-	}
-
-	// updating the last known valid position if the current position is non-zero
-	if !movementsensor.IsZeroPosition(currentPosition) && !movementsensor.IsPositionNaN(currentPosition) {
-		g.lastPosition.SetLastPosition(currentPosition)
-	}
-
-	return currentPosition, g.data.Alt, g.err.Get()
+// Messages returns the channel of complete NMEA sentences we have read off of the device. It's part
+// of the DataReader interface.
+func (dr *SerialDataReader) Messages() chan string {
+	return dr.data
 }
 
-// Accuracy returns the accuracy map, hDOP, vDOP, Fixquality and compass heading error.
-func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
-) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	acc := movementsensor.Accuracy{
-		AccuracyMap:        map[string]float32{"hDOP": float32(g.data.HDOP), "vDOP": float32(g.data.VDOP)},
-		Hdop:               float32(g.data.HDOP),
-		Vdop:               float32(g.data.VDOP),
-		NmeaFix:            int32(g.data.FixQuality),
-		CompassDegreeError: float32(math.NaN()),
-	}
-	return &acc, g.err.Get()
-}
-
-// LinearVelocity returns the sensor's linear velocity. It requires having a compass heading, so we
-// know which direction our speed is in. We assume all of this speed is horizontal, and not in
-// gaining/losing altitude.
-func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	if math.IsNaN(g.data.CompassHeading) {
-		return r3.Vector{}, g.err.Get()
-	}
-
-	headingInRadians := g.data.CompassHeading * (math.Pi / 180)
-	xVelocity := g.data.Speed * math.Sin(headingInRadians)
-	yVelocity := g.data.Speed * math.Cos(headingInRadians)
-
-	return r3.Vector{X: xVelocity, Y: yVelocity, Z: 0}, g.err.Get()
-}
-
-// LinearAcceleration returns the sensor's linear acceleration.
-func (g *SerialNMEAMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
-}
-
-// AngularVelocity returns the sensor's angular velocity.
-func (g *SerialNMEAMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
-	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
-}
-
-// Orientation returns the sensor's orientation.
-func (g *SerialNMEAMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-	return spatialmath.NewOrientationVector(), movementsensor.ErrMethodUnimplementedOrientation
-}
-
-// CompassHeading returns the heading, from the range 0->360.
-func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	lastHeading := g.lastCompassHeading.GetLastCompassHeading()
-	currentHeading := g.data.CompassHeading
-
-	if !math.IsNaN(lastHeading) && math.IsNaN(currentHeading) {
-		return lastHeading, nil
-	}
-
-	if !math.IsNaN(currentHeading) && currentHeading != lastHeading {
-		g.lastCompassHeading.SetLastCompassHeading(currentHeading)
-	}
-
-	return currentHeading, nil
-}
-
-// ReadFix returns Fix quality of MovementSensor measurements.
-func (g *SerialNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.data.FixQuality, nil
-}
-
-// ReadSatsInView returns the number of satellites in view.
-func (g *SerialNMEAMovementSensor) ReadSatsInView(ctx context.Context) (int, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.data.SatsInView, nil
-}
-
-// Readings will use return all of the MovementSensor Readings.
-func (g *SerialNMEAMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := movementsensor.DefaultAPIReadings(ctx, g, extra)
-	if err != nil {
-		return nil, err
-	}
-
-	fix, err := g.ReadFix(ctx)
-	if err != nil {
-		return nil, err
-	}
-	satsInView, err := g.ReadSatsInView(ctx)
-	if err != nil {
-		return nil, err
-	}
-	readings["fix"] = fix
-	readings["satellites_in_view"] = satsInView
-
-	return readings, nil
-}
-
-// Properties returns what movement sensor capabilities we have.
-func (g *SerialNMEAMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
-	return &movementsensor.Properties{
-		LinearVelocitySupported: true,
-		PositionSupported:       true,
-		CompassHeadingSupported: true,
-	}, nil
-}
-
-// Close shuts down the SerialNMEAMovementSensor.
-func (g *SerialNMEAMovementSensor) Close(ctx context.Context) error {
-	g.logger.CDebug(ctx, "Closing SerialNMEAMovementSensor")
-	g.cancelFunc()
-	g.activeBackgroundWorkers.Wait()
-
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	g.isClosed = true
-	if g.dev != nil {
-		if err := g.dev.Close(); err != nil {
-			return err
-		}
-		g.dev = nil
-		g.logger.CDebug(ctx, "SerialNMEAMovementSensor Closed")
-	}
-	return nil
+// Close is part of the DataReader interface. It shuts everything down, including our connection to
+// the serial port.
+func (dr *SerialDataReader) Close() error {
+	dr.cancelFunc()
+	// If the background coroutine is trying to put a new line of data into the channel, it won't
+	// notice that we've canceled it until something tries taking the line out of the channel. So,
+	// let's try to read that out so the coroutine isn't stuck. If the background coroutine shut
+	// itself down already, the channel will be closed and reading something out of it will just
+	// return the empty string.
+	<-dr.data
+	dr.activeBackgroundWorkers.Wait()
+	return dr.dev.Close()
 }
