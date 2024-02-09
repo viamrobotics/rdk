@@ -172,6 +172,9 @@ func getLabelsFromMetadata(md mlmodel.MLMetadata) []string {
 	}
 
 	if labelPath, ok := md.Outputs[0].Extra["labels"].(string); ok {
+		if labelPath == "" { // no label file specified
+			return nil
+		}
 		var labels []string
 		f, err := os.Open(filepath.Clean(labelPath))
 		if err != nil {
