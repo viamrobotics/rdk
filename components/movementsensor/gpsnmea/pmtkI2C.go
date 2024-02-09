@@ -232,16 +232,6 @@ func MakePmtkI2cGpsNmea(
 	return NewNmeaMovementSensor(ctx, name, dev, logger)
 }
 
-// AngularVelocity not supported.
-func (g *PmtkI2CNMEAMovementSensor) AngularVelocity(
-	ctx context.Context,
-	extra map[string]interface{},
-) (spatialmath.AngularVelocity, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
-}
-
 // CompassHeading returns the compass heading in degree (0->360).
 func (g *PmtkI2CNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	lastHeading := g.lastCompassHeading.GetLastCompassHeading()

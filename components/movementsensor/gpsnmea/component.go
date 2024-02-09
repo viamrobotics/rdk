@@ -180,7 +180,9 @@ func (g *NMEAMovementSensor) LinearAcceleration(
 }
 
 // AngularVelocity returns the sensor's angular velocity.
-func (g *NMEAMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (g *NMEAMovementSensor) AngularVelocity(
+	ctx context.Context, extra map[string]interface{},
+) (spatialmath.AngularVelocity, error) {
 	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }
 
