@@ -45,6 +45,30 @@ type NMEAMovementSensor struct {
 	dev DataReader
 }
 
+// NewNmeaMovementSensor creates a new movement sensor
+func NewNmeaMovementSensor(
+	ctx context.Context, name resource.Name, dev DataReader, logger logging.Logger,
+) (NmeaMovementSensor, error) {
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+
+	g := &NMEAMovementSensor{
+		Named:              name.AsNamed(),
+		dev:                dev,
+		cancelCtx:          cancelCtx,
+		cancelFunc:         cancelFunc,
+		logger:             logger,
+		err:                movementsensor.NewLastError(1, 1),
+		lastPosition:       movementsensor.NewLastPosition(),
+		lastCompassHeading: movementsensor.NewLastCompassHeading(),
+	}
+
+	if err := g.Start(ctx); err != nil {
+		g.Close(ctx)
+		return nil, err
+	}
+	return g, nil
+}
+
 // Start begins reading nmea messages from module and updates gps data.
 func (g *NMEAMovementSensor) Start(ctx context.Context) error {
 	g.activeBackgroundWorkers.Add(1)

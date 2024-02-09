@@ -222,28 +222,12 @@ func MakePmtkI2cGpsNmea(
 		logger.CWarn(ctx, "using default baudrate : 38400")
 	}
 
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-
 	dev, err := NewI2cDataReader(i2cBus, byte(addr), conf.I2CConfig.I2CBaudRate, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	g := &NMEAMovementSensor{
-		Named:      name.AsNamed(),
-		dev:        dev,
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
-		logger:     logger,
-		err:                movementsensor.NewLastError(1, 1),
-		lastPosition:       movementsensor.NewLastPosition(),
-		lastCompassHeading: movementsensor.NewLastCompassHeading(),
-	}
-
-	if err := g.Start(ctx); err != nil {
-		return nil, err
-	}
-	return g, nil
+	return NewNmeaMovementSensor(ctx, name, dev, logger)
 }
 
 // Start begins reading nmea messages from module and updates gps data.
