@@ -147,7 +147,7 @@ func init() {
 		movementsensor.API,
 		model,
 		resource.Registration[movementsensor.MovementSensor, *Config]{
-			Constructor: NewAdxl345,
+			Constructor: newAdxl345,
 		})
 }
 
@@ -176,8 +176,8 @@ type adxl345 struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// NewAdxl345 is a constructor to create a new object representing an ADXL345 accelerometer.
-func NewAdxl345(
+// newAdxl345 is a constructor to create a new object representing an ADXL345 accelerometer.
+func newAdxl345(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,

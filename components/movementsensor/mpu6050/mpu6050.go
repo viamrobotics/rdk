@@ -66,7 +66,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 func init() {
 	resource.RegisterComponent(movementsensor.API, model, resource.Registration[movementsensor.MovementSensor, *Config]{
-		Constructor: NewMpu6050,
+		Constructor: newMpu6050,
 	})
 }
 
@@ -101,8 +101,8 @@ func unexpectedDeviceError(address, defaultAddress byte) error {
 		address, defaultAddress)
 }
 
-// NewMpu6050 constructs a new Mpu6050 object.
-func NewMpu6050(
+// newMpu6050 constructs a new Mpu6050 object.
+func newMpu6050(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
