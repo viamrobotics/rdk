@@ -943,8 +943,10 @@ var app = &cli.App{
 						{
 							Name:  "run",
 							Usage: "run a command on a machine part",
-							UsageText: createUsageText("viam machines part run", []string{organizationFlag,
-								locationFlag, machineFlag, partFlag, "[other options]", "<service.method>"}, false),
+							UsageText: createUsageText("viam machines part run", []string{
+								organizationFlag,
+								locationFlag, machineFlag, partFlag, "[other options]", "<service.method>",
+							}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     organizationFlag,
