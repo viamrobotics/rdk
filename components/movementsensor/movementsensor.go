@@ -3,6 +3,7 @@ package movementsensor
 
 import (
 	"context"
+	"math"
 	"strings"
 
 	"github.com/golang/geo/r3"
@@ -153,4 +154,14 @@ func DefaultAPIReadings(ctx context.Context, g MovementSensor, extra map[string]
 	}
 
 	return readings, nil
+}
+
+func UnimplementedAccuracies() (*Accuracy, error) {
+	return &Accuracy{
+		AccuracyMap:        map[string]float32{},
+		Hdop:               float32(math.NaN()),
+		Vdop:               float32(math.NaN()),
+		NmeaFix:            int32(-1),
+		CompassDegreeError: float32(math.NaN()),
+	}, nil
 }
