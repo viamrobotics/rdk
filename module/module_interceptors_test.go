@@ -29,6 +29,8 @@ import (
 )
 
 func TestOpID(t *testing.T) {
+	ctx := context.Background()
+
 	if runtime.GOARCH == "arm" {
 		t.Skip("skipping on 32-bit ARM -- subprocess build warnings cause failure")
 	}

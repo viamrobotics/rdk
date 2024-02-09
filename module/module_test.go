@@ -484,6 +484,8 @@ func TestAttributeConversion(t *testing.T) {
 	}
 
 	t.Run("non-reconfigurable creation", func(t *testing.T) {
+		ctx := context.Background()
+
 		th, teardown := setupTest(t)
 		defer teardown()
 
@@ -518,6 +520,8 @@ func TestAttributeConversion(t *testing.T) {
 	})
 
 	t.Run("non-reconfigurable recreation", func(t *testing.T) {
+		ctx := context.Background()
+
 		th, teardown := setupTest(t)
 		defer teardown()
 
@@ -573,6 +577,8 @@ func TestAttributeConversion(t *testing.T) {
 	})
 
 	t.Run("reconfigurable creation", func(t *testing.T) {
+		ctx := context.Background()
+
 		th, teardown := setupTest(t)
 		defer teardown()
 
@@ -609,6 +615,8 @@ func TestAttributeConversion(t *testing.T) {
 
 	// also check that associated resource configs are processed correctly
 	t.Run("reconfigurable reconfiguration", func(t *testing.T) {
+		ctx := context.Background()
+
 		th, teardown := setupTest(t)
 		defer teardown()
 
