@@ -90,6 +90,23 @@ func (dr *I2cDataReader) initialize() error {
 	return nil
 }
 
+func (dr *I2cDataReader) readData() ([]byte, error) {
+	handle, err := dr.bus.OpenHandle(dr.addr)
+	if err != nil {
+		dr.logger.CErrorf(dr.cancelCtx, "can't open gps i2c %s", err)
+		return nil, err
+	}
+	defer utils.UncheckedErrorFunc(handle.Close)
+
+	buffer, err := handle.Read(dr.cancelCtx, 1024)
+	if err != nil {
+		dr.logger.CErrorf(dr.cancelCtx, "failed to read handle %s", err)
+		return nil, err
+	}
+
+	return buffer, nil
+}
+
 // start spins up a background coroutine to read data from the I2C bus and put it into the channel
 // of complete messages.
 func (dr *I2cDataReader) start() {
@@ -106,22 +123,10 @@ func (dr *I2cDataReader) start() {
 			default:
 			}
 
-			// Opening an i2c handle blocks the whole bus, so we open/close each loop so other
-			// things also have a chance to use it
-			handle, err := dr.bus.OpenHandle(dr.addr)
+			buffer, err := dr.readData()
 			if err != nil {
-				dr.logger.CErrorf(dr.cancelCtx, "can't open gps i2c handle, aborting: %s", err)
-				return
-			}
-			buffer, err := handle.Read(dr.cancelCtx, 1024)
-			if err != nil {
-				dr.logger.CErrorf(dr.cancelCtx, "failed to read handle, retrying: %s", err)
+				dr.logger.CErrorf(dr.cancelCtx, "failed to read data, retrying: %s", err)
 				continue
-			}
-			err = handle.Close()
-			if err != nil {
-				dr.logger.CErrorf(dr.cancelCtx, "failed to close handle, aborting: %s", err)
-				return
 			}
 
 			for _, b := range buffer {
