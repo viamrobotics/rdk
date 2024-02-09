@@ -51,9 +51,44 @@ func NewI2cDataReader(
 		addr: addr,
 		baud: baud,
 	}
-	reader.start()
 
+	if err := reader.initialize(); err != nil {
+		return nil, err
+	}
+
+	reader.start()
 	return &reader, nil
+}
+
+// initialize sends commands to the device to put it into a state where we can read data from it.
+func (dr *I2cDataReader) initialize() error {
+	handle, err := dr.bus.OpenHandle(dr.addr)
+	if err != nil {
+		dr.logger.CErrorf(dr.cancelCtx, "can't open gps i2c %s", err)
+		return err
+	}
+	defer handle.Close()
+
+	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences
+	baudcmd := fmt.Sprintf("PMTK251,%d", dr.baud)
+	cmd251 := addChk([]byte(baudcmd))
+	cmd314 := addChk([]byte("PMTK314,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0"))
+	cmd220 := addChk([]byte("PMTK220,1000"))
+
+	err = handle.Write(dr.cancelCtx, cmd251)
+	if err != nil {
+		dr.logger.CDebug(dr.cancelCtx, "Failed to set baud rate")
+		return err
+	}
+	err = handle.Write(dr.cancelCtx, cmd314)
+	if err != nil {
+		return err
+	}
+	err = handle.Write(dr.cancelCtx, cmd220)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (dr *I2cDataReader) start() {
