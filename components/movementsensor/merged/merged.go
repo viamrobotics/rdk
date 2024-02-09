@@ -295,6 +295,10 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (*m
 		}
 	}
 
+	hdop := float32(math.NaN())
+	vdop := float32(math.NaN())
+	nmeaFix := int32(-1)
+
 	if m.pos != nil {
 		posAcc, err := m.pos.Accuracy(ctx, extra)
 		if err != nil {
@@ -309,8 +313,12 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (*m
 		if posAcc != nil {
 			maps.Copy(accMap, mapWithSensorName(m.pos.Name().ShortName(), posAcc.AccuracyMap))
 		}
+		hdop = posAcc.Hdop
+		vdop = posAcc.Vdop
+		nmeaFix = posAcc.NmeaFix
 	}
 
+	compassDegreeError := float32(math.NaN())
 	if m.compass != nil {
 		compassAcc, err := m.compass.Accuracy(ctx, extra)
 		if err != nil {
@@ -325,6 +333,7 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (*m
 		if compassAcc != nil {
 			maps.Copy(accMap, mapWithSensorName(m.compass.Name().ShortName(), compassAcc.AccuracyMap))
 		}
+		compassDegreeError = compassAcc.CompassDegreeError
 	}
 
 	if m.linVel != nil {
@@ -377,10 +386,10 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (*m
 
 	acc := movementsensor.Accuracy{
 		AccuracyMap:        accMap,
-		Hdop:               float32(math.NaN()),
-		Vdop:               float32(math.NaN()),
-		NmeaFix:            -1,
-		CompassDegreeError: float32(math.NaN()),
+		Hdop:               hdop,
+		Vdop:               vdop,
+		NmeaFix:            nmeaFix,
+		CompassDegreeError: compassDegreeError,
 	}
 
 	return &acc, errs
