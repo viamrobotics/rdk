@@ -204,9 +204,9 @@ func (imu *wit) Accuracy(ctx context.Context, extra map[string]interface{}) (*mo
 ) {
 	// RSDK-6389 return the compass heading from the datasheet of the witIMU if the pitch angle is less than 45 degrees
 	// and the roll angle is near zero
-	// mag projects at angles over this threshold cannot be determined because of the larger contribution of other 
+	// mag projects at angles over this threshold cannot be determined because of the larger contribution of other
 	// orientations to the true compass heading
-	// return NaN for compass accuracy otherwise. 
+	// return NaN for compass accuracy otherwise.
 	return movementsensor.UnimplementedAccuracies()
 }
 
