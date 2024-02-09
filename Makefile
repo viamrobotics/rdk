@@ -127,7 +127,7 @@ server-android:
 		./web/cmd/server
 
 # change this to android/arm64 if you're testing locally and want faster builds
-APK_ARCH ?= android/arm64,android/386
+APK_ARCH ?= android/arm64,android/amd64
 
 droid-rdk.aar:
 	# creates an android library that can be imported by native code

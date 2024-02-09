@@ -191,7 +191,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 			return err
 		}
 		if err := droidModuleHack(&c.Modules[idx], logger); err != nil {
-			return err
+			logger.Errorw("droidModuleHack failed", "err", err.Error())
 		}
 	}
 
