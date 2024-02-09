@@ -567,7 +567,8 @@ func (adxl *adxl345) Position(ctx context.Context, extra map[string]interface{})
 }
 
 func (adxl *adxl345) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
-	return nil, movementsensor.ErrMethodUnimplementedAccuracy
+	// this driver is unable to provide positional or compass heading data
+	return movementsensor.UnimplementedAccuracies()
 }
 
 func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
