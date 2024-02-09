@@ -173,7 +173,9 @@ func (g *NMEAMovementSensor) LinearVelocity(
 }
 
 // LinearAcceleration returns the sensor's linear acceleration.
-func (g *NMEAMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (g *NMEAMovementSensor) LinearAcceleration(
+	ctx context.Context, extra map[string]interface{},
+) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }
 

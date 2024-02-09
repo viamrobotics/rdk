@@ -10,7 +10,6 @@ import (
 	"math"
 	"sync"
 
-	"github.com/golang/geo/r3"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
@@ -231,13 +230,6 @@ func MakePmtkI2cGpsNmea(
 	}
 
 	return NewNmeaMovementSensor(ctx, name, dev, logger)
-}
-
-// LinearAcceleration returns the current linear acceleration of the MovementSensor.
-func (g *PmtkI2CNMEAMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }
 
 // AngularVelocity not supported.
