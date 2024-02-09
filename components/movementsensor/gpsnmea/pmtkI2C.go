@@ -230,15 +230,6 @@ func MakePmtkI2cGpsNmea(
 	return NewNmeaMovementSensor(ctx, name, dev, logger)
 }
 
-// Properties what can I do!
-func (g *PmtkI2CNMEAMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
-	return &movementsensor.Properties{
-		LinearVelocitySupported: true,
-		PositionSupported:       true,
-		CompassHeadingSupported: true,
-	}, nil
-}
-
 // Close shuts down the SerialNMEAMOVEMENTSENSOR.
 func (g *PmtkI2CNMEAMovementSensor) Close(ctx context.Context) error {
 	g.cancelFunc()

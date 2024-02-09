@@ -252,7 +252,9 @@ func (g *NMEAMovementSensor) Readings(
 }
 
 // Properties returns what movement sensor capabilities we have.
-func (g *NMEAMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+func (g *NMEAMovementSensor) Properties(
+	ctx context.Context, extra map[string]interface{},
+) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
 		PositionSupported:       true,
