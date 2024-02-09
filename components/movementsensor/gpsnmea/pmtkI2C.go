@@ -11,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/golang/geo/r3"
-	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
@@ -232,37 +231,6 @@ func MakePmtkI2cGpsNmea(
 	}
 
 	return NewNmeaMovementSensor(ctx, name, dev, logger)
-}
-
-// Position returns the current geographic location of the MovementSensor.
-func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-	lastPosition := g.lastPosition.GetLastPosition()
-
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	currentPosition := g.data.Location
-
-	if currentPosition == nil {
-		return lastPosition, 0, errNilLocation
-	}
-
-	// if current position is (0,0) we will return the last non zero position
-	if movementsensor.IsZeroPosition(currentPosition) && !movementsensor.IsZeroPosition(lastPosition) {
-		return lastPosition, g.data.Alt, g.err.Get()
-	}
-
-	// updating lastPosition if it is different from the current position
-	if !movementsensor.ArePointsEqual(currentPosition, lastPosition) {
-		g.lastPosition.SetLastPosition(currentPosition)
-	}
-
-	// updating the last known valid position if the current position is non-zero
-	if !movementsensor.IsZeroPosition(currentPosition) && !movementsensor.IsPositionNaN(currentPosition) {
-		g.lastPosition.SetLastPosition(currentPosition)
-	}
-
-	return currentPosition, g.data.Alt, g.err.Get()
 }
 
 // Accuracy returns the accuracy, hDOP and vDOP.

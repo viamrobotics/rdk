@@ -110,7 +110,9 @@ func (g *NMEAMovementSensor) Start(ctx context.Context) error {
 }
 
 // Position returns the position and altitide of the sensor, or an error.
-func (g *NMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (g *NMEAMovementSensor) Position(
+	ctx context.Context, extra map[string]interface{},
+) (*geo.Point, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
