@@ -224,17 +224,18 @@ func MakePmtkI2cGpsNmea(
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
-	g := &PmtkI2CNMEAMovementSensor{
+	dev, err := NewI2cDataReader(i2cBus, byte(addr), conf.I2CConfig.I2CBaudRate, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	g := &NMEAMovementSensor{
 		Named:      name.AsNamed(),
-		bus:        i2cBus,
-		addr:       byte(addr),
-		wbaud:      conf.I2CConfig.I2CBaudRate,
+		dev:        dev,
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		// Overloaded boards can have flaky I2C busses. Only report errors if at least 5 of the
-		// last 10 attempts have failed.
-		err:                movementsensor.NewLastError(10, 5),
+		err:                movementsensor.NewLastError(1, 1),
 		lastPosition:       movementsensor.NewLastPosition(),
 		lastCompassHeading: movementsensor.NewLastCompassHeading(),
 	}
@@ -242,7 +243,7 @@ func MakePmtkI2cGpsNmea(
 	if err := g.Start(ctx); err != nil {
 		return nil, err
 	}
-	return g, g.err.Get()
+	return g, nil
 }
 
 // Start begins reading nmea messages from module and updates gps data.
