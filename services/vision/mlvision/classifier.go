@@ -87,7 +87,7 @@ func attemptToBuildClassifier(mlm mlmodel.Service, inNameMap, outNameMap *sync.M
 			}
 			err = inMap[inputName].Transpose()
 			if err != nil {
-				return nil, errors.New("could not transponse tensor of input image")
+				return nil, errors.New("could not transponse the data of the tensor of input image")
 			}
 		}
 		outMap, err := mlm.Infer(ctx, inMap)
