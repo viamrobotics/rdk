@@ -140,7 +140,7 @@ func tensorToProto(t *tensor.Dense) (*servicepb.FlatTensor, error) {
 			},
 		}
 	default:
-		return nil, errors.Errorf("cannot turn underlying tensor data of type %T into proto message and data is %v", data, dataSlice)
+		return nil, errors.Errorf("cannot turn underlying tensor data of type %T into proto message", data)
 	}
 	return ftpb, nil
 }
