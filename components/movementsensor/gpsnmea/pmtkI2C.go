@@ -12,7 +12,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
-	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
@@ -159,26 +158,6 @@ func (dr *I2cDataReader) Close() error {
 	dr.cancelFunc()
 	dr.activeBackgroundWorkers.Wait()
 	return nil
-}
-
-// PmtkI2CNMEAMovementSensor allows the use of any MovementSensor chip that communicates over I2C using the PMTK protocol.
-type PmtkI2CNMEAMovementSensor struct {
-	resource.Named
-	resource.AlwaysRebuild
-	mu                      sync.RWMutex
-	cancelCtx               context.Context
-	cancelFunc              func()
-	logger                  logging.Logger
-	data                    GPSData
-	activeBackgroundWorkers sync.WaitGroup
-
-	err                movementsensor.LastError
-	lastPosition       movementsensor.LastPosition
-	lastCompassHeading movementsensor.LastCompassHeading
-
-	bus   buses.I2C
-	addr  byte
-	wbaud int
 }
 
 // NewPmtkI2CGPSNMEA implements a gps that communicates over i2c.
