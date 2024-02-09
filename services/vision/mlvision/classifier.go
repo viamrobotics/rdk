@@ -17,7 +17,11 @@ import (
 	"go.viam.com/rdk/vision/classification"
 )
 
-func attemptToBuildClassifier(mlm mlmodel.Service, nameMap *sync.Map) (classification.Classifier, error) {
+const (
+	classifierProbabilityName = "probability"
+)
+
+func attemptToBuildClassifier(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map) (classification.Classifier, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
 		return nil, errors.New("could not get any metadata")
@@ -53,15 +57,21 @@ func attemptToBuildClassifier(mlm mlmodel.Service, nameMap *sync.Map) (classific
 		if (origW != resizeW) || (origH != resizeH) {
 			resized = resize.Resize(uint(resizeW), uint(resizeH), img, resize.Bilinear)
 		}
+		inputName := "image"
+		if mapName, ok := inNameMap.Load(inputName); ok {
+			if name, ok := mapName.(string); ok {
+				inputName = name
+			}
+		}
 		inMap := ml.Tensors{}
 		switch inType {
 		case UInt8:
-			inMap["image"] = tensor.New(
+			inMap[inputName] = tensor.New(
 				tensor.WithShape(1, resized.Bounds().Dy(), resized.Bounds().Dx(), 3),
 				tensor.WithBacking(rimage.ImageToUInt8Buffer(resized)),
 			)
 		case Float32:
-			inMap["image"] = tensor.New(
+			inMap[inputName] = tensor.New(
 				tensor.WithShape(1, resized.Bounds().Dy(), resized.Bounds().Dx(), 3),
 				tensor.WithBacking(rimage.ImageToFloatBuffer(resized)),
 			)
@@ -75,19 +85,19 @@ func attemptToBuildClassifier(mlm mlmodel.Service, nameMap *sync.Map) (classific
 
 		// check if output tensor name that classifier is looking for is already present
 		// in the nameMap. If not, find the probability name, and cache it in the nameMap
-		pName, ok := nameMap.Load("probability")
+		pName, ok := outNameMap.Load(classifierProbabilityName)
 		if !ok {
-			_, ok := outMap["probability"]
+			_, ok := outMap[classifierProbabilityName]
 			if !ok {
 				if len(outMap) == 1 {
 					for name := range outMap { //  only 1 element in map, assume its probabilities
-						nameMap.Store("probability", name)
+						outNameMap.Store(classifierProbabilityName, name)
 						pName = name
 					}
 				}
 			} else {
-				nameMap.Store("probability", "probability")
-				pName = "probability"
+				outNameMap.Store(classifierProbabilityName, classifierProbabilityName)
+				pName = classifierProbabilityName
 			}
 		}
 		probabilityName, ok := pName.(string)
