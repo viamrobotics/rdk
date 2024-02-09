@@ -67,7 +67,8 @@ const handleEditorInput = (event: CustomEvent<{ value: string }>) => {
   input = event.detail.value;
 };
 
-$: namesToPrettySelect = (): string[] => {
+let options: string[] = [];
+$: {
   const simple = new Map<string, number>();
 
   for (const resource of resources) {
@@ -77,13 +78,13 @@ $: namesToPrettySelect = (): string[] => {
     simple.set(resource.name, simple.get(resource.name)! + 1);
   }
 
-  return resources.map((resource) => {
+  options = resources.map((resource) => {
     if (simple.get(resource.name) === 1) {
       return resource.name;
     }
     return resourceNameToString(resource);
   });
-};
+}
 </script>
 
 <Collapse title="DoCommand()">
@@ -92,7 +93,7 @@ $: namesToPrettySelect = (): string[] => {
       Selected component
       <SearchableSelect
         slot="input"
-        options={namesToPrettySelect()}
+        {options}
         placeholder="Select a component"
         disabled={executing}
         exclusive
