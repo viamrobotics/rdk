@@ -96,6 +96,7 @@ func (dr *I2cDataReader) start() {
 	dr.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer dr.activeBackgroundWorkers.Done()
+		defer close(dr.data)
 
 		strBuf := ""
 		for {
@@ -156,6 +157,12 @@ func (dr *I2cDataReader) Messages() chan string {
 // Close is part of the DataReader interface. It shuts everything down.
 func (dr *I2cDataReader) Close() error {
 	dr.cancelFunc()
+	// If the background coroutine is trying to put a new line of data into the channel, it won't
+	// notice that we've canceled it until something tries taking the line out of the channel. So,
+	// let's try to read that out so the coroutine isn't stuck. If the background coroutine shut
+	// itself down already, the channel will be closed and reading something out of it will just
+	// return the empty string.
+	<-dr.data
 	dr.activeBackgroundWorkers.Wait()
 	return nil
 }
