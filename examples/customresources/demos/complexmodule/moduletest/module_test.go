@@ -46,7 +46,6 @@ func TestComplexModule(t *testing.T) {
 		// Modify the example config to run directly, without compiling the module first.
 		cfgFilename, portLocal, err := modifyCfg(t, utils.ResolveFile("examples/customresources/demos/complexmodule/module.json"), logger)
 		port = portLocal
-		logger.Infow("Port discovery.", "TryNum", portTryNum, "Port", port)
 		test.That(t, err, test.ShouldBeNil)
 
 		serverPath, err := testutils.BuildTempModule(t, "web/cmd/server/")
