@@ -230,14 +230,6 @@ func MakePmtkI2cGpsNmea(
 	return NewNmeaMovementSensor(ctx, name, dev, logger)
 }
 
-// Close shuts down the SerialNMEAMOVEMENTSENSOR.
-func (g *PmtkI2CNMEAMovementSensor) Close(ctx context.Context) error {
-	g.cancelFunc()
-	g.activeBackgroundWorkers.Wait()
-
-	return g.err.Get()
-}
-
 // PMTK checksums commands by XORing together each byte.
 func addChk(data []byte) []byte {
 	chk := checksum(data)
