@@ -83,10 +83,10 @@ func (f *MovementSensor) DoCommand(ctx context.Context, cmd map[string]interface
 func (f *MovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
 	acc := movementsensor.Accuracy{
 		AccuracyMap:        map[string]float32{},
-		Hdop:               1,
-		Vdop:               2,
+		Hdop:               0,
+		Vdop:               0,
 		NmeaFix:            4,
-		CompassDegreeError: 0.1,
+		CompassDegreeError: 0,
 	}
 
 	return &acc, nil
