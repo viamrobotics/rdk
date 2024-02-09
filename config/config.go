@@ -100,8 +100,6 @@ func (c *Config) validateUniqueResource(logger logging.Logger, seenResources map
 	return nil
 }
 
-// todo: don't hardcode package, get from config.
-const androidFilesDir = "/data/user/0/com.viam.rdk.fgservice/cache"
 const androidDownloadsDir = "/sdcard/Download"
 
 // sourceNewer takes two paths, returns true if source is newer than dest or dest is missing.
@@ -132,7 +130,7 @@ func droidModuleHack(conf *Module, logger logging.Logger) error {
 		return nil
 	}
 	sourcePath := conf.ExePath
-	destPath := path.Join(androidFilesDir, path.Base(sourcePath))
+	destPath := path.Join(rutils.AndroidFilesDir, path.Base(sourcePath))
 	if newer, err := sourceNewer(sourcePath, destPath); err != nil {
 		return err
 	} else if !newer {
