@@ -4,11 +4,14 @@ package robottestutils
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"os"
+	"regexp"
 	"testing"
 	"time"
 
+	"go.uber.org/zap/zaptest/observer"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
@@ -48,13 +51,13 @@ func NewRobotClient(tb testing.TB, logger logging.Logger, addr string, dur time.
 }
 
 // Connect creates a new grpc.ClientConn server running on localhost:port.
-func Connect(port string) (*grpc.ClientConn, error) {
+func Connect(port int) (*grpc.ClientConn, error) {
 	ctxTimeout, cancelFunc := context.WithTimeout(context.Background(), time.Minute)
 	defer cancelFunc()
 
 	var conn *grpc.ClientConn
 	conn, err := grpc.DialContext(ctxTimeout,
-		"dns:///localhost:"+port,
+		fmt.Sprintf("dns:///localhost:%d", port),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
 	)
@@ -83,4 +86,40 @@ func MakeTempConfig(t *testing.T, cfg *config.Config, logger logging.Logger) (st
 		return "", err
 	}
 	return file.Name(), file.Close()
+}
+
+// WaitForServing will scan the logs in the `observer` input until seeing a "serving" or "error
+// serving web" message. For added accuracy, it also checks that the port a test is expecting to
+// start a server on matches the one in the log message.
+//
+// WaitForServing will return true if the server has started successfully in the allotted time, and
+// false otherwise.
+//nolint
+func WaitForServing(observer *observer.ObservedLogs, port int) bool {
+	// Message:"\n\\_ 2024-02-07T20:47:03.576Z\tINFO\trobot_server\tweb/web.go:598\tserving\t{\"url\":\"http://127.0.0.1:20000\"}"
+	successRegex := regexp.MustCompile(fmt.Sprintf("\tserving\t.*:%d\"", port))
+	// Message:"\n\\_ 2024-02-02T14:43:02.862Z\tERROR\trobot_server\tserver/entrypoint.go:177\terror serving web\t{\"error\":\"listen tcp 127.0.0.1:8090: bind: address already in use\"}"
+	failRegex := regexp.MustCompile(fmt.Sprintf("\terror serving web\t.*:%d:", port))
+	lastSeenLogIdx := 0
+	for tryNum := 0; tryNum < 60; tryNum++ {
+		// `ObservedLogs.All` does not "consume" the logs it is holding internally (whereas
+		// `ObservedLogs.TakeAll` does). Some tests assert on logs that happen prior to serving on
+		// an address. We could scan all the logs on each pass. But instead we introduce the
+		// optimization of only scanning logs that were new since the last scan with
+		// `lastSeenLogIdx`.
+		newLogs := observer.All()[lastSeenLogIdx:]
+		lastSeenLogIdx += len(newLogs)
+		for _, log := range newLogs {
+			switch {
+			case successRegex.MatchString(log.Message):
+				return true
+			case failRegex.MatchString(log.Message):
+				return false
+			default:
+			}
+		}
+		time.Sleep(time.Second)
+	}
+
+	return false
 }
