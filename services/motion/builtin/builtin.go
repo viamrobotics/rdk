@@ -178,7 +178,7 @@ func (ms *builtIn) Move(
 	destination *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
 	constraints *servicepb.Constraints,
-	extra map[string]interface{},
+	extra map[string]any,
 ) (bool, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
@@ -294,16 +294,16 @@ type validatedExtra struct {
 	maxReplans       int
 	replanCostFactor float64
 	motionProfile    string
-	extra            map[string]interface{}
+	extra            map[string]any
 }
 
-func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
+func newValidatedExtra(extra map[string]any) (validatedExtra, error) {
 	maxReplans := -1
 	replanCostFactor := defaultReplanCostFactor
 	motionProfile := ""
 	v := validatedExtra{}
 	if extra == nil {
-		v.extra = map[string]interface{}{"smooth_iter": defaultSmoothIter}
+		v.extra = map[string]any{"smooth_iter": defaultSmoothIter}
 		return v, nil
 	}
 	if replansRaw, ok := extra["max_replans"]; ok {
@@ -360,7 +360,7 @@ func (ms *builtIn) GetPose(
 	componentName resource.Name,
 	destinationFrame string,
 	supplementalTransforms []*referenceframe.LinkInFrame,
-	extra map[string]interface{},
+	extra map[string]any,
 ) (*referenceframe.PoseInFrame, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()

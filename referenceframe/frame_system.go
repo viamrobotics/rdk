@@ -534,7 +534,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	var modelJSON map[string]interface{}
+	var modelJSON map[string]any
 	if part.ModelFrame != nil {
 		bytes, err := part.ModelFrame.MarshalJSON()
 		if err != nil {

@@ -18,7 +18,7 @@ import (
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Board]{
-		Status: func(ctx context.Context, b Board) (interface{}, error) {
+		Status: func(ctx context.Context, b Board) (any, error) {
 			return b.Status(ctx, nil)
 		},
 		RPCServiceServerConstructor: NewRPCServiceServer,
@@ -70,7 +70,7 @@ type Board interface {
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
 	// this.
-	Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error)
+	Status(ctx context.Context, extra map[string]any) (*commonpb.BoardStatus, error)
 
 	// SetPowerMode sets the board to the given power mode. If
 	// provided, the board will exit the given power mode after
@@ -78,13 +78,13 @@ type Board interface {
 	SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error
 
 	// WriteAnalog writes an analog value to a pin on the board.
-	WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error
+	WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]any) error
 }
 
 // An AnalogReader represents an analog pin reader that resides on a board.
 type AnalogReader interface {
 	// Read reads off the current value.
-	Read(ctx context.Context, extra map[string]interface{}) (int, error)
+	Read(ctx context.Context, extra map[string]any) (int, error)
 	Close(ctx context.Context) error
 }
 

@@ -19,19 +19,19 @@ import (
 
 func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 	fakesingleaxis := inject.NewGantry("fake")
-	fakesingleaxis.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	fakesingleaxis.PositionFunc = func(ctx context.Context, extra map[string]any) ([]float64, error) {
 		return positions, nil
 	}
-	fakesingleaxis.MoveToPositionFunc = func(ctx context.Context, pos, speed []float64, extra map[string]interface{}) error {
+	fakesingleaxis.MoveToPositionFunc = func(ctx context.Context, pos, speed []float64, extra map[string]any) error {
 		return nil
 	}
-	fakesingleaxis.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	fakesingleaxis.LengthsFunc = func(ctx context.Context, extra map[string]any) ([]float64, error) {
 		return []float64{length}, nil
 	}
-	fakesingleaxis.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	fakesingleaxis.StopFunc = func(ctx context.Context, extra map[string]any) error {
 		return nil
 	}
-	fakesingleaxis.HomeFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	fakesingleaxis.HomeFunc = func(ctx context.Context, extra map[string]any) (bool, error) {
 		return true, nil
 	}
 	fakesingleaxis.CloseFunc = func(ctx context.Context) error {
@@ -45,15 +45,15 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 
 func createFakeDeps() resource.Dependencies {
 	fakeGantry1 := inject.NewGantry("1")
-	fakeGantry1.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	fakeGantry1.LengthsFunc = func(ctx context.Context, extra map[string]any) ([]float64, error) {
 		return []float64{1}, nil
 	}
 	fakeGantry2 := inject.NewGantry("2")
-	fakeGantry2.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	fakeGantry2.LengthsFunc = func(ctx context.Context, extra map[string]any) ([]float64, error) {
 		return []float64{1}, nil
 	}
 	fakeGantry3 := inject.NewGantry("3")
-	fakeGantry3.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	fakeGantry3.LengthsFunc = func(ctx context.Context, extra map[string]any) ([]float64, error) {
 		return []float64{1}, nil
 	}
 	fakeMotor := &fm.Motor{
@@ -323,10 +323,10 @@ func TestModelFrame(t *testing.T) {
 func createComplexDeps() resource.Dependencies {
 	position1 := []float64{6, 5}
 	mAx1 := inject.NewGantry("1")
-	mAx1.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	mAx1.PositionFunc = func(ctx context.Context, extra map[string]any) ([]float64, error) {
 		return position1, nil
 	}
-	mAx1.MoveToPositionFunc = func(ctx context.Context, pos, speeds []float64, extra map[string]interface{}) error {
+	mAx1.MoveToPositionFunc = func(ctx context.Context, pos, speeds []float64, extra map[string]any) error {
 		if move, _ := extra["move"].(bool); move {
 			position1[0] += pos[0]
 			position1[1] += pos[1]
@@ -334,19 +334,19 @@ func createComplexDeps() resource.Dependencies {
 
 		return nil
 	}
-	mAx1.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	mAx1.LengthsFunc = func(ctx context.Context, extra map[string]any) ([]float64, error) {
 		return []float64{100, 101}, nil
 	}
-	mAx1.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	mAx1.StopFunc = func(ctx context.Context, extra map[string]any) error {
 		return nil
 	}
 
 	position2 := []float64{9, 8, 7}
 	mAx2 := inject.NewGantry("2")
-	mAx2.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	mAx2.PositionFunc = func(ctx context.Context, extra map[string]any) ([]float64, error) {
 		return position2, nil
 	}
-	mAx2.MoveToPositionFunc = func(ctx context.Context, pos, speeds []float64, extra map[string]interface{}) error {
+	mAx2.MoveToPositionFunc = func(ctx context.Context, pos, speeds []float64, extra map[string]any) error {
 		if move, _ := extra["move"].(bool); move {
 			position2[0] += pos[0]
 			position2[1] += pos[1]
@@ -354,10 +354,10 @@ func createComplexDeps() resource.Dependencies {
 		}
 		return nil
 	}
-	mAx2.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	mAx2.LengthsFunc = func(ctx context.Context, extra map[string]any) ([]float64, error) {
 		return []float64{102, 103, 104}, nil
 	}
-	mAx2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	mAx2.StopFunc = func(ctx context.Context, extra map[string]any) error {
 		return nil
 	}
 
@@ -405,7 +405,7 @@ func TestComplexMultiAxis(t *testing.T) {
 	t.Run(
 		"test that multiaxis moves and each subaxes moves correctly",
 		func(t *testing.T) {
-			extra := map[string]interface{}{"move": true}
+			extra := map[string]any{"move": true}
 			err = g.MoveToPosition(ctx, []float64{1, 2, 3, 4, 5}, []float64{100, 200, 300, 200, 100}, extra)
 			test.That(t, err, test.ShouldBeNil)
 

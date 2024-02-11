@@ -107,7 +107,7 @@ func (pin *gpioPin) closeGpioFd() error {
 
 // This helps implement the board.GPIOPin interface for gpioPin.
 func (pin *gpioPin) Set(ctx context.Context, isHigh bool,
-	extra map[string]interface{},
+	extra map[string]any,
 ) (err error) {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
@@ -143,7 +143,7 @@ func (pin *gpioPin) setInternal(isHigh bool) (err error) {
 
 // This helps implement the board.GPIOPin interface for gpioPin.
 func (pin *gpioPin) Get(
-	ctx context.Context, extra map[string]interface{},
+	ctx context.Context, extra map[string]any,
 ) (result bool, err error) {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
@@ -292,7 +292,7 @@ func (pin *gpioPin) softwarePwmLoop() {
 }
 
 // This helps implement the board.GPIOPin interface for gpioPin.
-func (pin *gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (pin *gpioPin) PWM(ctx context.Context, extra map[string]any) (float64, error) {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
@@ -300,7 +300,7 @@ func (pin *gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (floa
 }
 
 // This helps implement the board.GPIOPin interface for gpioPin.
-func (pin *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+func (pin *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]any) error {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
@@ -309,7 +309,7 @@ func (pin *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[
 }
 
 // This helps implement the board.GPIOPin interface for gpioPin.
-func (pin *gpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
+func (pin *gpioPin) PWMFreq(ctx context.Context, extra map[string]any) (uint, error) {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
@@ -317,7 +317,7 @@ func (pin *gpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (
 }
 
 // This helps implement the board.GPIOPin interface for gpioPin.
-func (pin *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+func (pin *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]any) error {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 

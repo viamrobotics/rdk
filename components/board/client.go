@@ -106,7 +106,7 @@ func (c *client) DigitalInterruptNames() []string {
 
 // Status uses the cached status or a newly fetched board status to return the state
 // of the board.
-func (c *client) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
+func (c *client) Status(ctx context.Context, extra map[string]any) (*commonpb.BoardStatus, error) {
 	if status := c.getCachedStatus(); status != nil {
 		return status, nil
 	}
@@ -173,12 +173,12 @@ func (c *client) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *
 	return err
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.info.name, cmd)
 }
 
 // WriteAnalog writes the analog value to the specified pin.
-func (c *client) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+func (c *client) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -201,7 +201,7 @@ type analogReaderClient struct {
 	analogReaderName string
 }
 
-func (arc *analogReaderClient) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (arc *analogReaderClient) Read(ctx context.Context, extra map[string]any) (int, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return 0, err
@@ -225,7 +225,7 @@ type digitalInterruptClient struct {
 	digitalInterruptName string
 }
 
-func (dic *digitalInterruptClient) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
+func (dic *digitalInterruptClient) Value(ctx context.Context, extra map[string]any) (int64, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return 0, err
@@ -261,7 +261,7 @@ type gpioPinClient struct {
 	pinName   string
 }
 
-func (gpc *gpioPinClient) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
+func (gpc *gpioPinClient) Set(ctx context.Context, high bool, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -275,7 +275,7 @@ func (gpc *gpioPinClient) Set(ctx context.Context, high bool, extra map[string]i
 	return err
 }
 
-func (gpc *gpioPinClient) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (gpc *gpioPinClient) Get(ctx context.Context, extra map[string]any) (bool, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return false, err
@@ -291,7 +291,7 @@ func (gpc *gpioPinClient) Get(ctx context.Context, extra map[string]interface{})
 	return resp.High, nil
 }
 
-func (gpc *gpioPinClient) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (gpc *gpioPinClient) PWM(ctx context.Context, extra map[string]any) (float64, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return math.NaN(), err
@@ -307,7 +307,7 @@ func (gpc *gpioPinClient) PWM(ctx context.Context, extra map[string]interface{})
 	return resp.DutyCyclePct, nil
 }
 
-func (gpc *gpioPinClient) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+func (gpc *gpioPinClient) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -321,7 +321,7 @@ func (gpc *gpioPinClient) SetPWM(ctx context.Context, dutyCyclePct float64, extr
 	return err
 }
 
-func (gpc *gpioPinClient) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
+func (gpc *gpioPinClient) PWMFreq(ctx context.Context, extra map[string]any) (uint, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return 0, err
@@ -337,7 +337,7 @@ func (gpc *gpioPinClient) PWMFreq(ctx context.Context, extra map[string]interfac
 	return uint(resp.FrequencyHz), nil
 }
 
-func (gpc *gpioPinClient) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+func (gpc *gpioPinClient) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err

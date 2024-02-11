@@ -991,7 +991,7 @@ func (c *viamClient) startRobotPartShell(
 		return errors.New("could not get shell service from machine part")
 	}
 
-	input, output, err := shellSvc.Shell(c.c.Context, map[string]interface{}{})
+	input, output, err := shellSvc.Shell(c.c.Context, map[string]any{})
 	if err != nil {
 		return err
 	}

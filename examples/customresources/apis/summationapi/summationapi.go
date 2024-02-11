@@ -55,7 +55,7 @@ type serviceServer struct {
 }
 
 // NewRPCServiceServer returns a new RPC server for the summation API.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Summation]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceCollection[Summation]) any {
 	return &serviceServer{coll: coll}
 }
 

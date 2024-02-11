@@ -135,7 +135,7 @@ func main() {
 	}
 
 	logger.Info("generic echo")
-	testCmd := map[string]interface{}{"foo": "bar"}
+	testCmd := map[string]any{"foo": "bar"}
 	ret, err := mybase.DoCommand(context.Background(), testCmd)
 	if err != nil {
 		logger.Fatal(err)

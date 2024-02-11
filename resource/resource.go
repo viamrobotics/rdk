@@ -55,7 +55,7 @@ type Resource interface {
 	Reconfigure(ctx context.Context, deps Dependencies, conf Config) error
 
 	// DoCommand sends/receives arbitrary data
-	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error)
 
 	// Close must safely shut down the resource and prevent further use.
 	// Close must be idempotent.
@@ -131,7 +131,7 @@ func ContainsReservedCharacter(val string) error {
 // of all readings that it is sensing.
 type Sensor interface {
 	// Readings return data specific to the type of sensor and can be of any type.
-	Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
+	Readings(ctx context.Context, extra map[string]any) (map[string]any, error)
 }
 
 // Actuator is any resource that can move.
@@ -140,14 +140,14 @@ type Actuator interface {
 	IsMoving(context.Context) (bool, error)
 
 	// Stop stops all movement for the resource
-	Stop(context.Context, map[string]interface{}) error
+	Stop(context.Context, map[string]any) error
 }
 
 // Shaped is any resource that can have geometries.
 type Shaped interface {
 	// Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
 	// current location relative to the frame of the resource.
-	Geometries(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error)
+	Geometries(context.Context, map[string]any) ([]spatialmath.Geometry, error)
 }
 
 // ErrDoUnimplemented is returned if the DoCommand methods is not implemented.
@@ -200,7 +200,7 @@ func (a AlwaysRebuild) Reconfigure(ctx context.Context, deps Dependencies, conf 
 // Named is to be embedded by any resource that just needs to return a name.
 type Named interface {
 	Name() Name
-	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error)
 }
 
 type selfNamed struct {
@@ -213,7 +213,7 @@ func (s selfNamed) Name() Name {
 }
 
 // DoCommand always returns unimplemented but can be implemented by the embedder.
-func (s selfNamed) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (s selfNamed) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return nil, ErrDoUnimplemented
 }
 

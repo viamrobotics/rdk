@@ -21,7 +21,7 @@ func init() {
 // A Service handles shells for a local robot.
 type Service interface {
 	resource.Resource
-	Shell(ctx context.Context, extra map[string]interface{}) (input chan<- string, output <-chan Output, retErr error)
+	Shell(ctx context.Context, extra map[string]any) (input chan<- string, output <-chan Output, retErr error)
 }
 
 // Output reflects an instance of shell output on either stdout or stderr.

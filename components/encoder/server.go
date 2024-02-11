@@ -17,7 +17,7 @@ type serviceServer struct {
 }
 
 // NewRPCServiceServer constructs an Encoder gRPC service serviceServer.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Encoder]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceCollection[Encoder]) any {
 	return &serviceServer{coll: coll}
 }
 

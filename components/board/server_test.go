@@ -46,7 +46,7 @@ func TestServerStatus(t *testing.T) {
 		},
 	}
 
-	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	expectedExtra := map[string]any{"foo": "bar", "baz": []any{1., 2., 3.}}
 	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -54,7 +54,7 @@ func TestServerStatus(t *testing.T) {
 		injectResult *commonpb.BoardStatus
 		injectErr    error
 		req          *request
-		expCapArgs   []interface{}
+		expCapArgs   []any
 		expResp      *response
 		expRespErr   string
 	}{
@@ -62,7 +62,7 @@ func TestServerStatus(t *testing.T) {
 			injectResult: status,
 			injectErr:    nil,
 			req:          &request{Name: missingBoardName},
-			expCapArgs:   []interface{}(nil),
+			expCapArgs:   []any(nil),
 			expResp:      nil,
 			expRespErr:   errNotFound.Error(),
 		},
@@ -70,7 +70,7 @@ func TestServerStatus(t *testing.T) {
 			injectResult: status,
 			injectErr:    errFoo,
 			req:          &request{Name: testBoardName},
-			expCapArgs:   []interface{}{ctx},
+			expCapArgs:   []any{ctx},
 			expResp:      nil,
 			expRespErr:   errFoo.Error(),
 		},
@@ -78,7 +78,7 @@ func TestServerStatus(t *testing.T) {
 			injectResult: status,
 			injectErr:    nil,
 			req:          &request{Name: testBoardName, Extra: pbExpectedExtra},
-			expCapArgs:   []interface{}{ctx},
+			expCapArgs:   []any{ctx},
 			expResp:      &response{Status: status},
 			expRespErr:   "",
 		},
@@ -89,9 +89,9 @@ func TestServerStatus(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
 
-			var actualExtra map[string]interface{}
+			var actualExtra map[string]any
 
-			injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
+			injectBoard.StatusFunc = func(ctx context.Context, extra map[string]any) (*commonpb.BoardStatus, error) {
 				actualExtra = extra
 				return tc.injectResult, tc.injectErr
 			}
@@ -114,32 +114,32 @@ func TestServerSetGPIO(t *testing.T) {
 	type request = pb.SetGPIORequest
 	ctx := context.Background()
 
-	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	expectedExtra := map[string]any{"foo": "bar", "baz": []any{1., 2., 3.}}
 	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
 	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
 		injectErr  error
 		req        *request
-		expCapArgs []interface{}
+		expCapArgs []any
 		expRespErr string
 	}{
 		{
 			injectErr:  nil,
 			req:        &request{Name: missingBoardName},
-			expCapArgs: []interface{}(nil),
+			expCapArgs: []any(nil),
 			expRespErr: errNotFound.Error(),
 		},
 		{
 			injectErr:  errFoo,
 			req:        &request{Name: testBoardName, Pin: "one", High: true},
-			expCapArgs: []interface{}{ctx, true},
+			expCapArgs: []any{ctx, true},
 			expRespErr: errFoo.Error(),
 		},
 		{
 			injectErr:  nil,
 			req:        &request{Name: testBoardName, Pin: "one", High: true, Extra: pbExpectedExtra},
-			expCapArgs: []interface{}{ctx, true},
+			expCapArgs: []any{ctx, true},
 			expRespErr: "",
 		},
 	}
@@ -149,14 +149,14 @@ func TestServerSetGPIO(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
-			var actualExtra map[string]interface{}
+			var actualExtra map[string]any
 
 			injectGPIOPin := &inject.GPIOPin{}
 			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
 				return injectGPIOPin, nil
 			}
 
-			injectGPIOPin.SetFunc = func(ctx context.Context, high bool, extra map[string]interface{}) error {
+			injectGPIOPin.SetFunc = func(ctx context.Context, high bool, extra map[string]any) error {
 				actualExtra = extra
 				return tc.injectErr
 			}
@@ -179,7 +179,7 @@ func TestServerGetGPIO(t *testing.T) {
 	type response = pb.GetGPIOResponse
 	ctx := context.Background()
 
-	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	expectedExtra := map[string]any{"foo": "bar", "baz": []any{1., 2., 3.}}
 	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -187,7 +187,7 @@ func TestServerGetGPIO(t *testing.T) {
 		injectResult bool
 		injectErr    error
 		req          *request
-		expCapArgs   []interface{}
+		expCapArgs   []any
 		expResp      *response
 		expRespErr   string
 	}{
@@ -195,7 +195,7 @@ func TestServerGetGPIO(t *testing.T) {
 			injectResult: false,
 			injectErr:    nil,
 			req:          &request{Name: missingBoardName},
-			expCapArgs:   []interface{}(nil),
+			expCapArgs:   []any(nil),
 			expResp:      nil,
 			expRespErr:   errNotFound.Error(),
 		},
@@ -203,7 +203,7 @@ func TestServerGetGPIO(t *testing.T) {
 			injectResult: false,
 			injectErr:    errFoo,
 			req:          &request{Name: testBoardName, Pin: "one"},
-			expCapArgs:   []interface{}{ctx},
+			expCapArgs:   []any{ctx},
 			expResp:      nil,
 			expRespErr:   errFoo.Error(),
 		},
@@ -211,7 +211,7 @@ func TestServerGetGPIO(t *testing.T) {
 			injectResult: true,
 			injectErr:    nil,
 			req:          &request{Name: testBoardName, Pin: "one", Extra: pbExpectedExtra},
-			expCapArgs:   []interface{}{ctx},
+			expCapArgs:   []any{ctx},
 			expResp:      &response{High: true},
 			expRespErr:   "",
 		},
@@ -222,14 +222,14 @@ func TestServerGetGPIO(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
-			var actualExtra map[string]interface{}
+			var actualExtra map[string]any
 
 			injectGPIOPin := &inject.GPIOPin{}
 			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
 				return injectGPIOPin, nil
 			}
 
-			injectGPIOPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+			injectGPIOPin.GetFunc = func(ctx context.Context, extra map[string]any) (bool, error) {
 				actualExtra = extra
 				return tc.injectResult, tc.injectErr
 			}
@@ -254,7 +254,7 @@ func TestServerPWM(t *testing.T) {
 	type response = pb.PWMResponse
 	ctx := context.Background()
 
-	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	expectedExtra := map[string]any{"foo": "bar", "baz": []any{1., 2., 3.}}
 	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -262,7 +262,7 @@ func TestServerPWM(t *testing.T) {
 		injectResult float64
 		injectErr    error
 		req          *request
-		expCapArgs   []interface{}
+		expCapArgs   []any
 		expResp      *response
 		expRespErr   string
 	}{
@@ -270,7 +270,7 @@ func TestServerPWM(t *testing.T) {
 			injectResult: 0,
 			injectErr:    nil,
 			req:          &request{Name: missingBoardName},
-			expCapArgs:   []interface{}(nil),
+			expCapArgs:   []any(nil),
 			expResp:      nil,
 			expRespErr:   errNotFound.Error(),
 		},
@@ -278,7 +278,7 @@ func TestServerPWM(t *testing.T) {
 			injectResult: 0,
 			injectErr:    errFoo,
 			req:          &request{Name: testBoardName, Pin: "one"},
-			expCapArgs:   []interface{}{ctx},
+			expCapArgs:   []any{ctx},
 			expResp:      nil,
 			expRespErr:   errFoo.Error(),
 		},
@@ -286,7 +286,7 @@ func TestServerPWM(t *testing.T) {
 			injectResult: 0.1,
 			injectErr:    nil,
 			req:          &request{Name: testBoardName, Pin: "one", Extra: pbExpectedExtra},
-			expCapArgs:   []interface{}{ctx},
+			expCapArgs:   []any{ctx},
 			expResp:      &response{DutyCyclePct: 0.1},
 			expRespErr:   "",
 		},
@@ -296,14 +296,14 @@ func TestServerPWM(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
-			var actualExtra map[string]interface{}
+			var actualExtra map[string]any
 
 			injectGPIOPin := &inject.GPIOPin{}
 			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
 				return injectGPIOPin, nil
 			}
 
-			injectGPIOPin.PWMFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+			injectGPIOPin.PWMFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 				actualExtra = extra
 				return tc.injectResult, tc.injectErr
 			}
@@ -326,32 +326,32 @@ func TestServerSetPWM(t *testing.T) {
 	type request = pb.SetPWMRequest
 	ctx := context.Background()
 
-	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	expectedExtra := map[string]any{"foo": "bar", "baz": []any{1., 2., 3.}}
 	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
 	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
 		injectErr  error
 		req        *request
-		expCapArgs []interface{}
+		expCapArgs []any
 		expRespErr string
 	}{
 		{
 			injectErr:  nil,
 			req:        &request{Name: missingBoardName},
-			expCapArgs: []interface{}(nil),
+			expCapArgs: []any(nil),
 			expRespErr: errNotFound.Error(),
 		},
 		{
 			injectErr:  errFoo,
 			req:        &request{Name: testBoardName, Pin: "one", DutyCyclePct: 0.03},
-			expCapArgs: []interface{}{ctx, 0.03},
+			expCapArgs: []any{ctx, 0.03},
 			expRespErr: errFoo.Error(),
 		},
 		{
 			injectErr:  nil,
 			req:        &request{Name: testBoardName, Pin: "one", DutyCyclePct: 0.03, Extra: pbExpectedExtra},
-			expCapArgs: []interface{}{ctx, 0.03},
+			expCapArgs: []any{ctx, 0.03},
 			expRespErr: "",
 		},
 	}
@@ -361,14 +361,14 @@ func TestServerSetPWM(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
-			var actualExtra map[string]interface{}
+			var actualExtra map[string]any
 
 			injectGPIOPin := &inject.GPIOPin{}
 			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
 				return injectGPIOPin, nil
 			}
 
-			injectGPIOPin.SetPWMFunc = func(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+			injectGPIOPin.SetPWMFunc = func(ctx context.Context, dutyCyclePct float64, extra map[string]any) error {
 				actualExtra = extra
 				return tc.injectErr
 			}
@@ -392,7 +392,7 @@ func TestServerPWMFrequency(t *testing.T) {
 	type response = pb.PWMFrequencyResponse
 	ctx := context.Background()
 
-	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	expectedExtra := map[string]any{"foo": "bar", "baz": []any{1., 2., 3.}}
 	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -400,7 +400,7 @@ func TestServerPWMFrequency(t *testing.T) {
 		injectResult uint
 		injectErr    error
 		req          *request
-		expCapArgs   []interface{}
+		expCapArgs   []any
 		expResp      *response
 		expRespErr   string
 	}{
@@ -408,7 +408,7 @@ func TestServerPWMFrequency(t *testing.T) {
 			injectResult: 0,
 			injectErr:    nil,
 			req:          &request{Name: missingBoardName},
-			expCapArgs:   []interface{}(nil),
+			expCapArgs:   []any(nil),
 			expResp:      nil,
 			expRespErr:   errNotFound.Error(),
 		},
@@ -416,7 +416,7 @@ func TestServerPWMFrequency(t *testing.T) {
 			injectResult: 0,
 			injectErr:    errFoo,
 			req:          &request{Name: testBoardName, Pin: "one"},
-			expCapArgs:   []interface{}{ctx},
+			expCapArgs:   []any{ctx},
 			expResp:      nil,
 			expRespErr:   errFoo.Error(),
 		},
@@ -424,7 +424,7 @@ func TestServerPWMFrequency(t *testing.T) {
 			injectResult: 1,
 			injectErr:    nil,
 			req:          &request{Name: testBoardName, Pin: "one", Extra: pbExpectedExtra},
-			expCapArgs:   []interface{}{ctx},
+			expCapArgs:   []any{ctx},
 			expResp:      &response{FrequencyHz: 1},
 			expRespErr:   "",
 		},
@@ -434,14 +434,14 @@ func TestServerPWMFrequency(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
-			var actualExtra map[string]interface{}
+			var actualExtra map[string]any
 
 			injectGPIOPin := &inject.GPIOPin{}
 			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
 				return injectGPIOPin, nil
 			}
 
-			injectGPIOPin.PWMFreqFunc = func(ctx context.Context, extra map[string]interface{}) (uint, error) {
+			injectGPIOPin.PWMFreqFunc = func(ctx context.Context, extra map[string]any) (uint, error) {
 				actualExtra = extra
 				return tc.injectResult, tc.injectErr
 			}
@@ -464,32 +464,32 @@ func TestServerSetPWMFrequency(t *testing.T) {
 	type request = pb.SetPWMFrequencyRequest
 	ctx := context.Background()
 
-	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	expectedExtra := map[string]any{"foo": "bar", "baz": []any{1., 2., 3.}}
 	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
 	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
 		injectErr  error
 		req        *request
-		expCapArgs []interface{}
+		expCapArgs []any
 		expRespErr string
 	}{
 		{
 			injectErr:  nil,
 			req:        &request{Name: missingBoardName},
-			expCapArgs: []interface{}(nil),
+			expCapArgs: []any(nil),
 			expRespErr: errNotFound.Error(),
 		},
 		{
 			injectErr:  errFoo,
 			req:        &request{Name: testBoardName, Pin: "one", FrequencyHz: 123123},
-			expCapArgs: []interface{}{ctx, uint(123123)},
+			expCapArgs: []any{ctx, uint(123123)},
 			expRespErr: errFoo.Error(),
 		},
 		{
 			injectErr:  nil,
 			req:        &request{Name: testBoardName, Pin: "one", FrequencyHz: 123123, Extra: pbExpectedExtra},
-			expCapArgs: []interface{}{ctx, uint(123123)},
+			expCapArgs: []any{ctx, uint(123123)},
 			expRespErr: "",
 		},
 	}
@@ -499,14 +499,14 @@ func TestServerSetPWMFrequency(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
-			var actualExtra map[string]interface{}
+			var actualExtra map[string]any
 
 			injectGPIOPin := &inject.GPIOPin{}
 			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
 				return injectGPIOPin, nil
 			}
 
-			injectGPIOPin.SetPWMFreqFunc = func(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+			injectGPIOPin.SetPWMFreqFunc = func(ctx context.Context, freqHz uint, extra map[string]any) error {
 				actualExtra = extra
 				return tc.injectErr
 			}
@@ -530,7 +530,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 	type response = pb.ReadAnalogReaderResponse
 	ctx := context.Background()
 
-	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	expectedExtra := map[string]any{"foo": "bar", "baz": []any{1., 2., 3.}}
 	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -540,8 +540,8 @@ func TestServerReadAnalogReader(t *testing.T) {
 		injectResult           int
 		injectErr              error
 		req                    *request
-		expCapAnalogReaderArgs []interface{}
-		expCapArgs             []interface{}
+		expCapAnalogReaderArgs []any
+		expCapArgs             []any
 		expResp                *response
 		expRespErr             string
 	}{
@@ -551,8 +551,8 @@ func TestServerReadAnalogReader(t *testing.T) {
 			injectResult:           0,
 			injectErr:              nil,
 			req:                    &request{BoardName: missingBoardName},
-			expCapAnalogReaderArgs: []interface{}(nil),
-			expCapArgs:             []interface{}(nil),
+			expCapAnalogReaderArgs: []any(nil),
+			expCapArgs:             []any(nil),
 			expResp:                nil,
 			expRespErr:             errNotFound.Error(),
 		},
@@ -562,8 +562,8 @@ func TestServerReadAnalogReader(t *testing.T) {
 			injectResult:           0,
 			injectErr:              nil,
 			req:                    &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
-			expCapAnalogReaderArgs: []interface{}{"analog1"},
-			expCapArgs:             []interface{}(nil),
+			expCapAnalogReaderArgs: []any{"analog1"},
+			expCapArgs:             []any(nil),
 			expResp:                nil,
 			expRespErr:             "unknown analog reader: analog1",
 		},
@@ -573,8 +573,8 @@ func TestServerReadAnalogReader(t *testing.T) {
 			injectResult:           0,
 			injectErr:              errFoo,
 			req:                    &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
-			expCapAnalogReaderArgs: []interface{}{"analog1"},
-			expCapArgs:             []interface{}{ctx},
+			expCapAnalogReaderArgs: []any{"analog1"},
+			expCapArgs:             []any{ctx},
 			expResp:                nil,
 			expRespErr:             errFoo.Error(),
 		},
@@ -584,8 +584,8 @@ func TestServerReadAnalogReader(t *testing.T) {
 			injectResult:           8,
 			injectErr:              nil,
 			req:                    &request{BoardName: testBoardName, AnalogReaderName: "analog1", Extra: pbExpectedExtra},
-			expCapAnalogReaderArgs: []interface{}{"analog1"},
-			expCapArgs:             []interface{}{ctx},
+			expCapAnalogReaderArgs: []any{"analog1"},
+			expCapArgs:             []any{ctx},
 			expResp:                &response{Value: 8},
 			expRespErr:             "",
 		},
@@ -595,14 +595,14 @@ func TestServerReadAnalogReader(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
-			var actualExtra map[string]interface{}
+			var actualExtra map[string]any
 
 			injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 				return tc.injectAnalogReader, tc.injectAnalogReaderOk
 			}
 
 			if tc.injectAnalogReader != nil {
-				tc.injectAnalogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+				tc.injectAnalogReader.ReadFunc = func(ctx context.Context, extra map[string]any) (int, error) {
 					actualExtra = extra
 					return tc.injectResult, tc.injectErr
 				}
@@ -628,7 +628,7 @@ func TestServerWriteAnalog(t *testing.T) {
 	type response = pb.WriteAnalogResponse
 	ctx := context.Background()
 
-	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	expectedExtra := map[string]any{"foo": "bar", "baz": []any{1., 2., 3.}}
 	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -636,7 +636,7 @@ func TestServerWriteAnalog(t *testing.T) {
 		name           string
 		injectErr      error
 		req            *request
-		expCaptureArgs []interface{}
+		expCaptureArgs []any
 		expResp        *response
 		expRespErr     string
 	}{
@@ -668,9 +668,9 @@ func TestServerWriteAnalog(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
-			var actualExtra map[string]interface{}
+			var actualExtra map[string]any
 
-			injectBoard.WriteAnalogFunc = func(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+			injectBoard.WriteAnalogFunc = func(ctx context.Context, pin string, value int32, extra map[string]any) error {
 				actualExtra = extra
 				return tc.injectErr
 			}
@@ -693,7 +693,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 	type response = pb.GetDigitalInterruptValueResponse
 	ctx := context.Background()
 
-	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	expectedExtra := map[string]any{"foo": "bar", "baz": []any{1., 2., 3.}}
 	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -703,8 +703,8 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 		injectResult               int64
 		injectErr                  error
 		req                        *request
-		expCapDigitalInterruptArgs []interface{}
-		expCapArgs                 []interface{}
+		expCapDigitalInterruptArgs []any
+		expCapArgs                 []any
 		expResp                    *response
 		expRespErr                 string
 	}{
@@ -714,8 +714,8 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			injectResult:               0,
 			injectErr:                  nil,
 			req:                        &request{BoardName: missingBoardName},
-			expCapDigitalInterruptArgs: []interface{}(nil),
-			expCapArgs:                 []interface{}(nil),
+			expCapDigitalInterruptArgs: []any(nil),
+			expCapArgs:                 []any(nil),
 			expResp:                    nil,
 			expRespErr:                 errNotFound.Error(),
 		},
@@ -725,8 +725,8 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			injectResult:               0,
 			injectErr:                  nil,
 			req:                        &request{BoardName: testBoardName, DigitalInterruptName: "digital1"},
-			expCapDigitalInterruptArgs: []interface{}{"digital1"},
-			expCapArgs:                 []interface{}(nil),
+			expCapDigitalInterruptArgs: []any{"digital1"},
+			expCapArgs:                 []any(nil),
 			expResp:                    nil,
 			expRespErr:                 "unknown digital interrupt: digital1",
 		},
@@ -736,8 +736,8 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			injectResult:               0,
 			injectErr:                  errFoo,
 			req:                        &request{BoardName: testBoardName, DigitalInterruptName: "digital1"},
-			expCapDigitalInterruptArgs: []interface{}{"digital1"},
-			expCapArgs:                 []interface{}{ctx},
+			expCapDigitalInterruptArgs: []any{"digital1"},
+			expCapArgs:                 []any{ctx},
 			expResp:                    nil,
 			expRespErr:                 errFoo.Error(),
 		},
@@ -747,8 +747,8 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			injectResult:               42,
 			injectErr:                  nil,
 			req:                        &request{BoardName: testBoardName, DigitalInterruptName: "digital1", Extra: pbExpectedExtra},
-			expCapDigitalInterruptArgs: []interface{}{"digital1"},
-			expCapArgs:                 []interface{}{ctx},
+			expCapDigitalInterruptArgs: []any{"digital1"},
+			expCapArgs:                 []any{ctx},
 			expResp:                    &response{Value: 42},
 			expRespErr:                 "",
 		},
@@ -758,14 +758,14 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
-			var actualExtra map[string]interface{}
+			var actualExtra map[string]any
 
 			injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
 				return tc.injectDigitalInterrupt, tc.injectDigitalInterruptOk
 			}
 
 			if tc.injectDigitalInterrupt != nil {
-				tc.injectDigitalInterrupt.ValueFunc = func(ctx context.Context, extra map[string]interface{}) (int64, error) {
+				tc.injectDigitalInterrupt.ValueFunc = func(ctx context.Context, extra map[string]any) (int64, error) {
 					actualExtra = extra
 					return tc.injectResult, tc.injectErr
 				}

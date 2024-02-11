@@ -174,7 +174,7 @@ func (ms *explore) GetPose(
 	componentName resource.Name,
 	destinationFrame string,
 	supplementalTransforms []*referenceframe.LinkInFrame,
-	extra map[string]interface{},
+	extra map[string]any,
 ) (*referenceframe.PoseInFrame, error) {
 	return nil, errUnimplemented
 }
@@ -221,7 +221,7 @@ func (ms *explore) Move(
 	destination *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
 	constraints *servicepb.Constraints,
-	extra map[string]interface{},
+	extra map[string]any,
 ) (bool, error) {
 	ms.resourceMutex.Lock()
 	defer ms.resourceMutex.Unlock()
@@ -553,7 +553,7 @@ func (ms *explore) createMotionPlan(
 	ctx context.Context,
 	kb kinematicbase.KinematicBase,
 	destination *referenceframe.PoseInFrame,
-	extra map[string]interface{},
+	extra map[string]any,
 ) (motionplan.Plan, error) {
 	if destination.Pose().Point().Norm() >= defaultMoveLimitMM {
 		return nil, errors.Errorf("destination %v is above the defined limit of %v", destination.Pose().Point().String(), defaultMoveLimitMM)
@@ -605,7 +605,7 @@ func (ms *explore) createMotionPlan(
 }
 
 // parseMotionConfig extracts the MotionConfiguration from extra's.
-func parseMotionConfig(extra map[string]interface{}) (motion.MotionConfiguration, error) {
+func parseMotionConfig(extra map[string]any) (motion.MotionConfiguration, error) {
 	motionCfgInterface, ok := extra["motionCfg"]
 	if !ok {
 		return motion.MotionConfiguration{}, errors.New("no motionCfg provided")

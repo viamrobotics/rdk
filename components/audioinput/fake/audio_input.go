@@ -138,16 +138,16 @@ func (i *audioInput) MediaProperties(_ context.Context) (prop.Audio, error) {
 }
 
 // DoCommand allows setting of tone.
-func (i *audioInput) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (i *audioInput) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	newTone, ok := cmd["set_tone_hz"].(float64)
 	if !ok {
-		return map[string]interface{}{}, nil
+		return map[string]any{}, nil
 	}
 	oldTone := i.toneHz
 	i.toneHz = newTone
-	return map[string]interface{}{"prev_tone_hz": oldTone}, nil
+	return map[string]any{"prev_tone_hz": oldTone}, nil
 }
 
 // Close stops the generator routine.

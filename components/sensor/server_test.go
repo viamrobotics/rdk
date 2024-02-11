@@ -36,15 +36,15 @@ func TestServer(t *testing.T) {
 	sensorServer, injectSensor, injectSensor2, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	rs := map[string]interface{}{"a": 1.1, "b": 2.2}
+	rs := map[string]any{"a": 1.1, "b": 2.2}
 
-	var extraCap map[string]interface{}
-	injectSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+	var extraCap map[string]any
+	injectSensor.ReadingsFunc = func(ctx context.Context, extra map[string]any) (map[string]any, error) {
 		extraCap = extra
 		return rs, nil
 	}
 
-	injectSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+	injectSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]any) (map[string]any, error) {
 		return nil, errReadingsFailed
 	}
 
@@ -55,13 +55,13 @@ func TestServer(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			expected[k] = vv
 		}
-		extra, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
+		extra, err := protoutils.StructToStructPb(map[string]any{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
 
 		resp, err := sensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: testSensorName, Extra: extra})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Readings, test.ShouldResemble, expected)
-		test.That(t, extraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+		test.That(t, extraCap, test.ShouldResemble, map[string]any{"foo": "bar"})
 
 		_, err = sensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: failSensorName})
 		test.That(t, err, test.ShouldNotBeNil)

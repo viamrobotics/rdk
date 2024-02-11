@@ -81,22 +81,22 @@ type navSvc struct {
 	waypoints   []navigation.Waypoint
 }
 
-func (svc *navSvc) Mode(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
+func (svc *navSvc) Mode(ctx context.Context, extra map[string]any) (navigation.Mode, error) {
 	return 0, nil
 }
 
-func (svc *navSvc) SetMode(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error {
+func (svc *navSvc) SetMode(ctx context.Context, mode navigation.Mode, extra map[string]any) error {
 	return nil
 }
 
-func (svc *navSvc) Location(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
+func (svc *navSvc) Location(ctx context.Context, extra map[string]any) (*spatialmath.GeoPose, error) {
 	svc.waypointsMu.RLock()
 	defer svc.waypointsMu.RUnlock()
 	geoPose := spatialmath.NewGeoPose(svc.loc, 0)
 	return geoPose, nil
 }
 
-func (svc *navSvc) Waypoints(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
+func (svc *navSvc) Waypoints(ctx context.Context, extra map[string]any) ([]navigation.Waypoint, error) {
 	svc.waypointsMu.RLock()
 	defer svc.waypointsMu.RUnlock()
 	wpsCopy := make([]navigation.Waypoint, len(svc.waypoints))
@@ -104,14 +104,14 @@ func (svc *navSvc) Waypoints(ctx context.Context, extra map[string]interface{}) 
 	return wpsCopy, nil
 }
 
-func (svc *navSvc) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
+func (svc *navSvc) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]any) error {
 	svc.waypointsMu.Lock()
 	defer svc.waypointsMu.Unlock()
 	svc.waypoints = append(svc.waypoints, navigation.Waypoint{Lat: point.Lat(), Long: point.Lng()})
 	return nil
 }
 
-func (svc *navSvc) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
+func (svc *navSvc) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]any) error {
 	svc.waypointsMu.Lock()
 	defer svc.waypointsMu.Unlock()
 	newWps := make([]navigation.Waypoint, 0, len(svc.waypoints)-1)
@@ -125,11 +125,11 @@ func (svc *navSvc) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, ex
 	return nil
 }
 
-func (svc *navSvc) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+func (svc *navSvc) Obstacles(ctx context.Context, extra map[string]any) ([]*spatialmath.GeoObstacle, error) {
 	return []*spatialmath.GeoObstacle{}, errUnimplemented
 }
 
-func (svc *navSvc) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+func (svc *navSvc) Paths(ctx context.Context, extra map[string]any) ([]*navigation.Path, error) {
 	return []*navigation.Path{}, errUnimplemented
 }
 

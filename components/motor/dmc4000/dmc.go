@@ -444,7 +444,7 @@ func (m *Motor) posToSteps(pos float64) int32 {
 
 // SetPower instructs the motor to go in a specific direction at a percentage
 // of power between -1 and 1. Scaled to MaxRPM.
-func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]any) error {
 	powerPct = math.Min(powerPct, 1.0)
 	powerPct = math.Max(powerPct, -1.0)
 
@@ -500,7 +500,7 @@ func (m *Motor) stopJog() error {
 // revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 // can be assigned negative values to move in a backwards direction. Note: if both are
 // negative the motor will spin in the forward direction.
-func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]any) error {
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
 		m.c.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
@@ -537,7 +537,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 // at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target/position.
-func (m *Motor) GoTo(ctx context.Context, rpm, position float64, extra map[string]interface{}) error {
+func (m *Motor) GoTo(ctx context.Context, rpm, position float64, extra map[string]any) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -556,7 +556,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, position float64, extra map[strin
 }
 
 // ResetZeroPosition defines the current position to be zero (+/- offset).
-func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]any) error {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 	_, err := m.c.sendCmd(fmt.Sprintf("DP%s=%d", m.Axis, int(-1*offset*float64(m.TicksPerRotation))))
@@ -567,14 +567,14 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 }
 
 // Position reports the position in revolutions.
-func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (m *Motor) Position(ctx context.Context, extra map[string]any) (float64, error) {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 	return m.doPosition()
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
-func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (m *Motor) Stop(ctx context.Context, extra map[string]any) error {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 
@@ -606,7 +606,7 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 }
 
 // IsPowered returns whether or not the motor is currently moving.
-func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+func (m *Motor) IsPowered(ctx context.Context, extra map[string]any) (bool, float64, error) {
 	on, err := m.IsMoving(ctx)
 	if err != nil {
 		return on, m.powerPct, errors.Wrap(err, "error in IsPowered")
@@ -783,7 +783,7 @@ func (m *Motor) doPosition() (float64, error) {
 }
 
 // DoCommand executes additional commands beyond the Motor{} interface.
-func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (m *Motor) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	name, ok := cmd["command"]
 	if !ok {
 		return nil, errors.New("missing 'command' value")
@@ -809,7 +809,7 @@ func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[
 		m.c.mu.Lock()
 		defer m.c.mu.Unlock()
 		retVal, err := m.c.sendCmd(raw.(string))
-		ret := map[string]interface{}{"return": retVal}
+		ret := map[string]any{"return": retVal}
 		return ret, err
 	default:
 		return nil, fmt.Errorf("no such command: %s", name)
@@ -817,6 +817,6 @@ func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[
 }
 
 // Properties returns the additional properties supported by this motor.
-func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+func (m *Motor) Properties(ctx context.Context, extra map[string]any) (motor.Properties, error) {
 	return motor.Properties{PositionReporting: true}, nil
 }

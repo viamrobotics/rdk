@@ -7,7 +7,7 @@ import (
 
 // AssertType attempts to assert that the given interface argument is
 // the given type parameter.
-func AssertType[T any](from interface{}) (T, error) {
+func AssertType[T any](from any) (T, error) {
 	var zero T
 	asserted, ok := from.(T)
 	if !ok {

@@ -503,7 +503,7 @@ func TestManagerAdd(t *testing.T) {
 		grabPose *referenceframe.PoseInFrame,
 		worldState *referenceframe.WorldState,
 		constraints *motionpb.Constraints,
-		extra map[string]interface{},
+		extra map[string]any,
 	) (bool, error) {
 		return false, nil
 	}
@@ -517,7 +517,7 @@ func TestManagerAdd(t *testing.T) {
 	injectVisionService.GetObjectPointCloudsFunc = func(
 		ctx context.Context,
 		cameraName string,
-		extra map[string]interface{},
+		extra map[string]any,
 	) ([]*viz.Object, error) {
 		return []*viz.Object{viz.NewEmptyObject()}, nil
 	}
@@ -1842,7 +1842,7 @@ func (rr *dummyRobot) Close(ctx context.Context) error {
 	return rr.robot.Close(ctx)
 }
 
-func (rr *dummyRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
+func (rr *dummyRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]any) error {
 	return rr.robot.StopAll(ctx, extra)
 }
 

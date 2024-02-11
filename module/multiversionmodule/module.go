@@ -111,6 +111,6 @@ func (c *component) Reconfigure(ctx context.Context, deps resource.Dependencies,
 }
 
 // DoCommand does nothing for now.
-func (c *component) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
-	return map[string]interface{}{}, nil
+func (c *component) DoCommand(ctx context.Context, req map[string]any) (map[string]any, error) {
+	return map[string]any{}, nil
 }

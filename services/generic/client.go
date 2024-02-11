@@ -40,7 +40,7 @@ func NewClientFromConn(
 	}, nil
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	command, err := protoutils.StructToStructPb(cmd)
 	if err != nil {
 		return nil, err

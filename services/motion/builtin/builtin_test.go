@@ -152,7 +152,7 @@ func TestMove(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("pieceArm", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50}))
-		_, err = ms.Move(ctx, arm.Named("pieceArm"), grabPose, nil, nil, map[string]interface{}{})
+		_, err = ms.Move(ctx, arm.Named("pieceArm"), grabPose, nil, nil, map[string]any{})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -160,7 +160,7 @@ func TestMove(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50}))
-		_, err = ms.Move(ctx, gripper.Named("pieceGripper"), grabPose, nil, nil, map[string]interface{}{})
+		_, err = ms.Move(ctx, gripper.Named("pieceGripper"), grabPose, nil, nil, map[string]any{})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -239,7 +239,7 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 		t.Skip("skipping on 32-bit ARM, large maps use too much memory")
 	}
 	ctx := context.Background()
-	extra := map[string]interface{}{"smooth_iter": 0, "motion_profile": "position_only"}
+	extra := map[string]any{"smooth_iter": 0, "motion_profile": "position_only"}
 	// goal position is scaled to be in mm
 	goalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: -32.508 * 1000, Y: -2.092 * 1000})
 	goalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, goalInBaseFrame)
@@ -286,8 +286,8 @@ func TestMoveOnMapPlans(t *testing.T) {
 	// Orientation theta should be at least 3 degrees away from an integer multiple of 22.5 to ensure the position-only test functions.
 	goalInBaseFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 33})
 	goalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, goalInBaseFrame)
-	extra := map[string]interface{}{"smooth_iter": 0}
-	extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
+	extra := map[string]any{"smooth_iter": 0}
+	extraPosOnly := map[string]any{"smooth_iter": 5, "motion_profile": "position_only"}
 
 	// RSDK-6444
 	//nolint:dupl
@@ -435,7 +435,7 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 		ComponentName: base.Named("test-base"),
 		Destination:   goal1SLAMFrame,
 		SlamName:      slam.Named("test_slam"),
-		Extra:         map[string]interface{}{"smooth_iter": 5},
+		Extra:         map[string]any{"smooth_iter": 5},
 	}
 
 	timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
@@ -465,7 +465,7 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 		ComponentName: base.Named("test-base"),
 		Destination:   goal2SLAMFrame,
 		SlamName:      slam.Named("test_slam"),
-		Extra:         map[string]interface{}{"smooth_iter": 5},
+		Extra:         map[string]any{"smooth_iter": 5},
 	}
 	timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
 	defer timeoutFn()
@@ -511,7 +511,7 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 
 func TestMoveOnMapAskewIMU(t *testing.T) {
 	t.Parallel()
-	extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
+	extraPosOnly := map[string]any{"smooth_iter": 5, "motion_profile": "position_only"}
 	t.Run("Askew but valid base should be able to plan", func(t *testing.T) {
 		t.Parallel()
 		ctx := context.Background()
@@ -616,7 +616,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 
 	easyGoal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1001, Y: 1001})
 	// create motion config
-	extra := make(map[string]interface{})
+	extra := make(map[string]any)
 	extra["timeout"] = 0.01
 	executionID, err := ms.MoveOnMap(
 		context.Background(),
@@ -645,7 +645,7 @@ func TestPositionalReplanning(t *testing.T) {
 		noise           r3.Vector
 		expectedSuccess bool
 		expectedErr     string
-		extra           map[string]interface{}
+		extra           map[string]any
 	}
 
 	testCases := []testCase{
@@ -653,7 +653,7 @@ func TestPositionalReplanning(t *testing.T) {
 			name:            "check we dont replan with a good sensor",
 			noise:           r3.Vector{Y: epsilonMM - 0.1},
 			expectedSuccess: true,
-			extra:           map[string]interface{}{"smooth_iter": 5},
+			extra:           map[string]any{"smooth_iter": 5},
 		},
 		// TODO(RSDK-5634): this should be uncommented when this bug is fixed
 		// {
@@ -662,14 +662,14 @@ func TestPositionalReplanning(t *testing.T) {
 		// 	noise:           r3.Vector{Y: epsilonMM + 0.1},
 		// 	expectedErr:     "unable to create a new plan within replanCostFactor from the original",
 		// 	expectedSuccess: false,
-		// 	extra:           map[string]interface{}{"replan_cost_factor": 0.01, "smooth_iter": 5},
+		// 	extra:           map[string]any{"replan_cost_factor": 0.01, "smooth_iter": 5},
 		// },
 		{
 			name:            "check we replan with a noisy sensor",
 			noise:           r3.Vector{Y: epsilonMM + 0.1},
 			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 4),
 			expectedSuccess: false,
-			extra:           map[string]interface{}{"replan_cost_factor": 10.0, "max_replans": 4, "smooth_iter": 5},
+			extra:           map[string]any{"replan_cost_factor": 10.0, "max_replans": 4, "smooth_iter": 5},
 		},
 	}
 
@@ -722,7 +722,7 @@ func TestObstacleReplanning(t *testing.T) {
 
 	type testCase struct {
 		name            string
-		getPCfunc       func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
+		getPCfunc       func(ctx context.Context, cameraName string, extra map[string]any) ([]*viz.Object, error)
 		expectedSuccess bool
 		expectedErr     string
 	}
@@ -735,12 +735,12 @@ func TestObstacleReplanning(t *testing.T) {
 		PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, ObstacleDetectors: obstacleDetectorSlice,
 	}
 
-	extra := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
+	extra := map[string]any{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
 
 	testCases := []testCase{
 		{
 			name: "ensure no replan from discovered obstacles",
-			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]any) ([]*viz.Object, error) {
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: -1000, Y: -1000, Z: 0})
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 10, Y: 10, Z: 10}, "test-case-2")
 				test.That(t, err, test.ShouldBeNil)
@@ -754,7 +754,7 @@ func TestObstacleReplanning(t *testing.T) {
 		},
 		{
 			name: "ensure replan due to obstacle collision",
-			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]any) ([]*viz.Object, error) {
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 1100, Y: 0, Z: 0})
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 100, Y: 100, Z: 10}, "test-case-1")
 				test.That(t, err, test.ShouldBeNil)
@@ -832,35 +832,35 @@ func TestGetPose(t *testing.T) {
 	ms, teardown := setupMotionServiceFromConfig(t, "../data/arm_gantry.json")
 	defer teardown()
 
-	pose, err := ms.GetPose(context.Background(), arm.Named("gantry1"), "", nil, map[string]interface{}{})
+	pose, err := ms.GetPose(context.Background(), arm.Named("gantry1"), "", nil, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.Parent(), test.ShouldEqual, referenceframe.World)
 	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 1.2)
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 0)
 
-	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "", nil, map[string]interface{}{})
+	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "", nil, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.Parent(), test.ShouldEqual, referenceframe.World)
 	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 501.2)
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 300)
 
-	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "gantry1", nil, map[string]interface{}{})
+	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "gantry1", nil, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.Parent(), test.ShouldEqual, "gantry1")
 	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 500)
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 300)
 
-	pose, err = ms.GetPose(context.Background(), arm.Named("gantry1"), "gantry1", nil, map[string]interface{}{})
+	pose, err = ms.GetPose(context.Background(), arm.Named("gantry1"), "gantry1", nil, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.Parent(), test.ShouldEqual, "gantry1")
 	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 0)
 
-	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "arm1", nil, map[string]interface{}{})
+	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "arm1", nil, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.Parent(), test.ShouldEqual, "arm1")
 	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 0)
@@ -873,7 +873,7 @@ func TestGetPose(t *testing.T) {
 		referenceframe.NewLinkInFrame("testFrame", testPose, "testFrame2", nil),
 	}
 
-	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame2", transforms, map[string]interface{}{})
+	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame2", transforms, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, -501.2)
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
@@ -886,7 +886,7 @@ func TestGetPose(t *testing.T) {
 	transforms = []*referenceframe.LinkInFrame{
 		referenceframe.NewLinkInFrame("noParent", testPose, "testFrame", nil),
 	}
-	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame", transforms, map[string]interface{}{})
+	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame", transforms, map[string]any{})
 	test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameMissingError("testFrame", "noParent"))
 	test.That(t, pose, test.ShouldBeNil)
 }
@@ -902,7 +902,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 		test.That(t, success, test.ShouldBeFalse)
 		test.That(t, calledStopFunc, test.ShouldBeTrue)
 	}
-	extra := map[string]interface{}{"smooth_iter": 5}
+	extra := map[string]any{"smooth_iter": 5}
 
 	t.Run("successfully stop arms", func(t *testing.T) {
 		armName := "test-arm"
@@ -931,7 +931,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 		injectArm := &inject.Arm{
 			Arm: fakeArm,
 		}
-		injectArm.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		injectArm.StopFunc = func(ctx context.Context, extra map[string]any) error {
 			calledStopFunc = true
 			return nil
 		}
@@ -942,7 +942,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			model, _ := ur.MakeModelFrame("ur5e")
 			return model
 		}
-		injectArm.MoveToPositionFunc = func(ctx context.Context, to spatialmath.Pose, extra map[string]interface{}) error {
+		injectArm.MoveToPositionFunc = func(ctx context.Context, to spatialmath.Pose, extra map[string]any) error {
 			return failToReachGoalError
 		}
 
@@ -991,23 +991,23 @@ func TestStoppableMoveFunctions(t *testing.T) {
 		injectBase.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
 			return []spatialmath.Geometry{geometry}, nil
 		}
-		injectBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+		injectBase.PropertiesFunc = func(ctx context.Context, extra map[string]any) (base.Properties, error) {
 			return base.Properties{
 				TurningRadiusMeters: 0,
 				WidthMeters:         600 * 0.001,
 			}, nil
 		}
-		injectBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		injectBase.StopFunc = func(ctx context.Context, extra map[string]any) error {
 			calledStopFunc = true
 			return nil
 		}
-		injectBase.SpinFunc = func(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+		injectBase.SpinFunc = func(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]any) error {
 			return failToReachGoalError
 		}
-		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
+		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]any) error {
 			return failToReachGoalError
 		}
-		injectBase.SetVelocityFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+		injectBase.SetVelocityFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 			return failToReachGoalError
 		}
 
@@ -1199,7 +1199,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	expectedDst := r3.Vector{X: 2662.16, Y: 0, Z: 0} // Relative pose to the starting point of the base; facing north, Y = forwards
 	epsilonMM := 15.
 	// create motion config
-	extra := map[string]interface{}{
+	extra := map[string]any{
 		"motion_profile": "position_only",
 		"timeout":        5.,
 		"smooth_iter":    5.,
@@ -1476,7 +1476,7 @@ func TestMoveOnGlobe(t *testing.T) {
 func TestMoveOnMapStaticObs(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-	extra := map[string]interface{}{
+	extra := map[string]any{
 		"motion_profile": "position_only",
 		"timeout":        5.,
 		"smooth_iter":    10.,
@@ -1493,7 +1493,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 	injectBase.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
 		return []spatialmath.Geometry{geometry}, nil
 	}
-	injectBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+	injectBase.PropertiesFunc = func(ctx context.Context, extra map[string]any) (base.Properties, error) {
 		return base.Properties{TurningRadiusMeters: 0, WidthMeters: 0.6}, nil
 	}
 
@@ -1650,7 +1650,7 @@ func TestMoveOnMapNew(t *testing.T) {
 		if runtime.GOARCH == "arm" {
 			t.Skip("skipping on 32-bit ARM, large maps use too much memory")
 		}
-		extra := map[string]interface{}{"smooth_iter": 0, "motion_profile": "position_only"}
+		extra := map[string]any{"smooth_iter": 0, "motion_profile": "position_only"}
 		// goal position is scaled to be in mm
 		goalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: -32.508 * 1000, Y: -2.092 * 1000})
 		goalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, goalInBaseFrame)
@@ -1696,8 +1696,8 @@ func TestMoveOnMapNew(t *testing.T) {
 		// Orientation theta should be at least 3 degrees away from an integer multiple of 22.5 to ensure the position-only test functions.
 		goalInBaseFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 33})
 		goalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, goalInBaseFrame)
-		extra := map[string]interface{}{"smooth_iter": 0}
-		extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
+		extra := map[string]any{"smooth_iter": 0}
+		extraPosOnly := map[string]any{"smooth_iter": 5, "motion_profile": "position_only"}
 
 		// RSDK-6444
 		//nolint:dupl
@@ -1823,7 +1823,7 @@ func TestMoveOnMapNew(t *testing.T) {
 			ComponentName: base.Named("test-base"),
 			Destination:   goal1SLAMFrame,
 			SlamName:      slam.Named("test_slam"),
-			Extra:         map[string]interface{}{"smooth_iter": 5},
+			Extra:         map[string]any{"smooth_iter": 5},
 		}
 
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
@@ -1853,7 +1853,7 @@ func TestMoveOnMapNew(t *testing.T) {
 			ComponentName: base.Named("test-base"),
 			Destination:   goal2SLAMFrame,
 			SlamName:      slam.Named("test_slam"),
-			Extra:         map[string]interface{}{"smooth_iter": 5},
+			Extra:         map[string]any{"smooth_iter": 5},
 		}
 		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
 		defer timeoutFn()
@@ -1932,7 +1932,7 @@ func TestMoveOnMapNew(t *testing.T) {
 			ComponentName: base.Named("test-base"),
 			Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 1001, Y: 1001}),
 			SlamName:      slam.Named("test_slam"),
-			Extra:         map[string]interface{}{"timeout": 0.01},
+			Extra:         map[string]any{"timeout": 0.01},
 		}
 
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
@@ -1955,7 +1955,7 @@ func TestMoveOnMapNew(t *testing.T) {
 				PlanDeviationMM: 1,
 			},
 			SlamName: slam.Named("test_slam"),
-			Extra:    map[string]interface{}{"smooth_iter": 0},
+			Extra:    map[string]any{"smooth_iter": 0},
 		}
 
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
@@ -2002,7 +2002,7 @@ func TestMoveOnMapNew(t *testing.T) {
 			Destination:   spatialmath.NewZeroPose(),
 			SlamName:      slam.Named("test_slam"),
 			MotionCfg:     &motion.MotionConfiguration{},
-			Extra:         map[string]interface{}{"motion_profile": "position_only"},
+			Extra:         map[string]any{"motion_profile": "position_only"},
 		}
 
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
@@ -2276,7 +2276,7 @@ func TestMoveCallInputs(t *testing.T) {
 		gpsPoint := geo.NewPoint(-70, 40)
 		dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
 		// create motion config
-		extra := map[string]interface{}{
+		extra := map[string]any{
 			"motion_profile": "position_only",
 			"timeout":        5.,
 			"smooth_iter":    5.,

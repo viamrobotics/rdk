@@ -368,7 +368,7 @@ func (m *EncodedMotor) directionMovingInLock() float64 {
 
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
 // Negative power implies a backward directional rotational.
-func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]any) error {
 	m.opMgr.CancelRunning(ctx)
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
@@ -397,7 +397,7 @@ func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal 
 // negative the motor will spin in the forward direction.
 // If revolutions is 0, this will run the motor at rpm indefinitely
 // If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
-func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]any) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 	if err := m.goForInternal(ctx, rpm, revolutions); err != nil {
@@ -531,7 +531,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 // at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target/position
 // This will block until the position has been reached.
-func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, extra map[string]interface{}) error {
+func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, extra map[string]any) error {
 	pos, err := m.position(ctx, extra)
 	if err != nil {
 		return err
@@ -548,7 +548,7 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 }
 
 // ResetZeroPosition sets the current position (+/- offset) to be the new zero (home) position.
-func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]any) error {
 	if err := m.Stop(ctx, extra); err != nil {
 		return err
 	}
@@ -563,7 +563,7 @@ func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, ex
 }
 
 // report position in ticks.
-func (m *EncodedMotor) position(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (m *EncodedMotor) position(ctx context.Context, extra map[string]any) (float64, error) {
 	ticks, _, err := m.encoder.Position(ctx, encoder.PositionTypeTicks, extra)
 	if err != nil {
 		return 0, err
@@ -577,7 +577,7 @@ func (m *EncodedMotor) position(ctx context.Context, extra map[string]interface{
 // Position reports the position of the motor based on its encoder. If it's not supported, the returned
 // data is undefined. The unit returned is the number of revolutions which is intended to be fed
 // back into calls of GoFor.
-func (m *EncodedMotor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (m *EncodedMotor) Position(ctx context.Context, extra map[string]any) (float64, error) {
 	ticks, err := m.position(ctx, extra)
 	if err != nil {
 		return 0, err
@@ -587,7 +587,7 @@ func (m *EncodedMotor) Position(ctx context.Context, extra map[string]interface{
 }
 
 // Properties returns whether or not the motor supports certain optional properties.
-func (m *EncodedMotor) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+func (m *EncodedMotor) Properties(ctx context.Context, extra map[string]any) (motor.Properties, error) {
 	return motor.Properties{
 		PositionReporting: true,
 	}, nil
@@ -595,7 +595,7 @@ func (m *EncodedMotor) Properties(ctx context.Context, extra map[string]interfac
 
 // IsPowered returns whether or not the motor is currently on, and the percent power (between 0
 // and 1, if the motor is off then the percent power will be 0).
-func (m *EncodedMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+func (m *EncodedMotor) IsPowered(ctx context.Context, extra map[string]any) (bool, float64, error) {
 	return m.real.IsPowered(ctx, extra)
 }
 
@@ -619,7 +619,7 @@ func (m *EncodedMotor) GetMotorState(ctx context.Context) EncodedMotorState {
 }
 
 // Stop stops rpmMonitor and stops the real motor.
-func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]any) error {
 	m.stateMu.Lock()
 	m.state.goalRPM = 0
 	m.state.regulated = false

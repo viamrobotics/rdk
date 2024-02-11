@@ -176,15 +176,15 @@ type mock struct {
 	stopCount int
 }
 
-func (m *mock) stop(ctx context.Context, extra map[string]interface{}) error {
+func (m *mock) stop(ctx context.Context, extra map[string]any) error {
 	m.stopCount++
 	return nil
 }
 
-func (m *mock) stopFail(ctx context.Context, extra map[string]interface{}) error {
+func (m *mock) stopFail(ctx context.Context, extra map[string]any) error {
 	return errors.New("Stop failed")
 }
 
-func (m *mock) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+func (m *mock) IsPowered(ctx context.Context, extra map[string]any) (bool, float64, error) {
 	return true, 1, nil
 }

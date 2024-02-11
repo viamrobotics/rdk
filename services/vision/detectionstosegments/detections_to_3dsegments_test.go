@@ -79,12 +79,12 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 	test.That(t, seg.Name(), test.ShouldResemble, name3)
 
 	// fails on not finding camera
-	_, err = seg.GetObjectPointClouds(context.Background(), "no_camera", map[string]interface{}{})
+	_, err = seg.GetObjectPointClouds(context.Background(), "no_camera", map[string]any{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	// fails since camera cannot return images
-	_, err = seg.GetObjectPointClouds(context.Background(), "fakeCamera", map[string]interface{}{})
+	_, err = seg.GetObjectPointClouds(context.Background(), "fakeCamera", map[string]any{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no images")
 
@@ -117,7 +117,7 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		return cloud, nil
 	}
-	objects, err := seg.GetObjectPointClouds(context.Background(), "fakeCamera", map[string]interface{}{})
+	objects, err := seg.GetObjectPointClouds(context.Background(), "fakeCamera", map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(objects), test.ShouldEqual, 1)
 	test.That(t, objects[0].Size(), test.ShouldEqual, 2)

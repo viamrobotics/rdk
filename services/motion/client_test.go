@@ -97,7 +97,7 @@ func TestClient(t *testing.T) {
 			destination *referenceframe.PoseInFrame,
 			worldState *referenceframe.WorldState,
 			constraints *servicepb.Constraints,
-			extra map[string]interface{},
+			extra map[string]any,
 		) (bool, error) {
 			return success, nil
 		}
@@ -106,7 +106,7 @@ func TestClient(t *testing.T) {
 			componentName resource.Name,
 			destinationFrame string,
 			supplementalTransforms []*referenceframe.LinkInFrame,
-			extra map[string]interface{},
+			extra map[string]any,
 		) (*referenceframe.PoseInFrame, error) {
 			for _, tf := range supplementalTransforms {
 				receivedTransforms[tf.Name()] = tf
@@ -134,7 +134,7 @@ func TestClient(t *testing.T) {
 		for _, tf := range transforms {
 			tfMap[tf.Name()] = tf
 		}
-		poseResult, err := client.GetPose(context.Background(), arm.Named("arm1"), "foo", transforms, map[string]interface{}{})
+		poseResult, err := client.GetPose(context.Background(), arm.Named("arm1"), "foo", transforms, map[string]any{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, poseResult.Parent(), test.ShouldEqual, "fooarm1")
 		test.That(t, poseResult.Pose().Point().X, test.ShouldEqual, 1)
@@ -173,7 +173,7 @@ func TestClient(t *testing.T) {
 			grabPose *referenceframe.PoseInFrame,
 			worldState *referenceframe.WorldState,
 			constraints *servicepb.Constraints,
-			extra map[string]interface{},
+			extra map[string]any,
 		) (bool, error) {
 			return false, passedErr
 		}
@@ -183,7 +183,7 @@ func TestClient(t *testing.T) {
 			componentName resource.Name,
 			destinationFrame string,
 			supplementalTransform []*referenceframe.LinkInFrame,
-			extra map[string]interface{},
+			extra map[string]any,
 		) (*referenceframe.PoseInFrame, error) {
 			return nil, passedErr
 		}
@@ -194,7 +194,7 @@ func TestClient(t *testing.T) {
 		test.That(t, resp, test.ShouldEqual, false)
 
 		// GetPose
-		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo", nil, map[string]interface{}{})
+		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo", nil, map[string]any{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)

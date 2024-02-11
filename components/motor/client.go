@@ -40,7 +40,7 @@ func NewClientFromConn(
 	}, nil
 }
 
-func (c *client) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+func (c *client) SetPower(ctx context.Context, powerPct float64, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -54,7 +54,7 @@ func (c *client) SetPower(ctx context.Context, powerPct float64, extra map[strin
 	return err
 }
 
-func (c *client) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+func (c *client) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -69,7 +69,7 @@ func (c *client) GoFor(ctx context.Context, rpm, revolutions float64, extra map[
 	return err
 }
 
-func (c *client) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
+func (c *client) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -84,7 +84,7 @@ func (c *client) GoTo(ctx context.Context, rpm, positionRevolutions float64, ext
 	return err
 }
 
-func (c *client) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+func (c *client) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -98,7 +98,7 @@ func (c *client) ResetZeroPosition(ctx context.Context, offset float64, extra ma
 	return err
 }
 
-func (c *client) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (c *client) Position(ctx context.Context, extra map[string]any) (float64, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return 0, err
@@ -111,7 +111,7 @@ func (c *client) Position(ctx context.Context, extra map[string]interface{}) (fl
 	return resp.GetPosition(), nil
 }
 
-func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (Properties, error) {
+func (c *client) Properties(ctx context.Context, extra map[string]any) (Properties, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return Properties{}, err
@@ -124,7 +124,7 @@ func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (
 	return ProtoFeaturesToProperties(resp), nil
 }
 
-func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (c *client) Stop(ctx context.Context, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -134,7 +134,7 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return err
 }
 
-func (c *client) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+func (c *client) IsPowered(ctx context.Context, extra map[string]any) (bool, float64, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return false, 0.0, err
@@ -147,7 +147,7 @@ func (c *client) IsPowered(ctx context.Context, extra map[string]interface{}) (b
 	return resp.GetIsOn(), resp.GetPowerPct(), nil
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 

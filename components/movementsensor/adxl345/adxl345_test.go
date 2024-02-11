@@ -57,7 +57,7 @@ func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies,
 func sendInterrupt(ctx context.Context, adxl movementsensor.MovementSensor, t *testing.T, interrupt board.DigitalInterrupt, key string) {
 	interrupt.Tick(ctx, true, nowNanosTest())
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		readings, err := adxl.Readings(ctx, map[string]interface{}{})
+		readings, err := adxl.Readings(ctx, map[string]any{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, readings[key], test.ShouldNotBeZeroValue)
 	})
@@ -204,7 +204,7 @@ func TestInterrupts(t *testing.T) {
 		adxl, err := makeAdxl345(ctx, deps, cfg, logger, i2c)
 		test.That(t, err, test.ShouldBeNil)
 
-		readings, err := adxl.Readings(ctx, map[string]interface{}{})
+		readings, err := adxl.Readings(ctx, map[string]any{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readings["freefall_count"], test.ShouldEqual, 0)
 		test.That(t, readings["single_tap_count"], test.ShouldEqual, 0)
@@ -216,7 +216,7 @@ func TestInterrupts(t *testing.T) {
 
 		sendInterrupt(ctx, adxl, t, interrupt, "freefall_count")
 
-		readings, err := adxl.Readings(ctx, map[string]interface{}{})
+		readings, err := adxl.Readings(ctx, map[string]any{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readings["freefall_count"], test.ShouldEqual, 1)
 		test.That(t, readings["single_tap_count"], test.ShouldEqual, 1)
@@ -239,7 +239,7 @@ func TestInterrupts(t *testing.T) {
 
 		sendInterrupt(ctx, adxl, t, interrupt, "single_tap_count")
 
-		readings, err := adxl.Readings(ctx, map[string]interface{}{})
+		readings, err := adxl.Readings(ctx, map[string]any{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readings["freefall_count"], test.ShouldEqual, 0)
 		test.That(t, readings["single_tap_count"], test.ShouldEqual, 1)
@@ -262,7 +262,7 @@ func TestInterrupts(t *testing.T) {
 
 		sendInterrupt(ctx, adxl, t, interrupt, "freefall_count")
 
-		readings, err := adxl.Readings(ctx, map[string]interface{}{})
+		readings, err := adxl.Readings(ctx, map[string]any{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readings["freefall_count"], test.ShouldEqual, 1)
 		test.That(t, readings["single_tap_count"], test.ShouldEqual, 0)

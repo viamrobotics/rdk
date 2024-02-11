@@ -244,7 +244,7 @@ func WrapVideoSourceWithProjector(
 type videoSource struct {
 	videoSource  gostream.VideoSource
 	videoStream  gostream.VideoStream
-	actualSource interface{}
+	actualSource any
 	system       *transform.PinholeCameraModel
 	imageType    ImageType
 }
@@ -304,7 +304,7 @@ func (vs *videoSource) Projector(ctx context.Context) (transform.Projector, erro
 	return vs.system.PinholeCameraIntrinsics, nil
 }
 
-func (vs *videoSource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (vs *videoSource) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	if res, ok := vs.videoSource.(resource.Resource); ok {
 		return res.DoCommand(ctx, cmd)
 	}

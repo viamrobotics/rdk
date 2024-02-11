@@ -33,8 +33,8 @@ type FrameSystemService struct {
 	) (referenceframe.FrameSystem, error)
 	DoCommandFunc func(
 		ctx context.Context,
-		cmd map[string]interface{},
-	) (map[string]interface{}, error)
+		cmd map[string]any,
+	) (map[string]any, error)
 	CloseFunc func(ctx context.Context) error
 }
 
@@ -100,8 +100,8 @@ func (fs *FrameSystemService) FrameSystem(
 
 // DoCommand calls the injected DoCommand or the real variant.
 func (fs *FrameSystemService) DoCommand(ctx context.Context,
-	cmd map[string]interface{},
-) (map[string]interface{}, error) {
+	cmd map[string]any,
+) (map[string]any, error) {
 	if fs.DoCommandFunc == nil {
 		return fs.Service.DoCommand(ctx, cmd)
 	}

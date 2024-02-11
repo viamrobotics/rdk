@@ -38,7 +38,7 @@ type PlanHistoryReq struct {
 	// Optional, when not uuid.Nil it specifies the ExecutionID of the plans that should be returned.
 	// Can be used to query plans from executions before the most recent one.
 	ExecutionID ExecutionID
-	Extra       map[string]interface{}
+	Extra       map[string]any
 }
 
 // MoveOnGlobeReq describes the request to the MoveOnGlobe interface method.
@@ -56,7 +56,7 @@ type MoveOnGlobeReq struct {
 	Obstacles []*spatialmath.GeoObstacle
 	// Optional motion configuration
 	MotionCfg *MotionConfiguration
-	Extra     map[string]interface{}
+	Extra     map[string]any
 }
 
 func (r MoveOnGlobeReq) String() string {
@@ -80,7 +80,7 @@ type MoveOnMapReq struct {
 	SlamName      resource.Name
 	MotionCfg     *MotionConfiguration
 	Obstacles     []spatialmath.Geometry
-	Extra         map[string]interface{}
+	Extra         map[string]any
 }
 
 func (r MoveOnMapReq) String() string {
@@ -99,14 +99,14 @@ func (r MoveOnMapReq) String() string {
 type StopPlanReq struct {
 	// ComponentName of the plan which should be stopped
 	ComponentName resource.Name
-	Extra         map[string]interface{}
+	Extra         map[string]any
 }
 
 // ListPlanStatusesReq describes the request to ListPlanStatuses().
 type ListPlanStatusesReq struct {
 	// If true then only active plans will be returned.
 	OnlyActivePlans bool
-	Extra           map[string]interface{}
+	Extra           map[string]any
 }
 
 // Plan represents a motion plan.
@@ -190,7 +190,7 @@ type Service interface {
 		destination *referenceframe.PoseInFrame,
 		worldState *referenceframe.WorldState,
 		constraints *pb.Constraints,
-		extra map[string]interface{},
+		extra map[string]any,
 	) (bool, error)
 	MoveOnMap(
 		ctx context.Context,
@@ -209,7 +209,7 @@ type Service interface {
 		componentName resource.Name,
 		destinationFrame string,
 		supplementalTransforms []*referenceframe.LinkInFrame,
-		extra map[string]interface{},
+		extra map[string]any,
 	) (*referenceframe.PoseInFrame, error)
 	StopPlan(
 		ctx context.Context,

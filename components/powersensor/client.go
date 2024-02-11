@@ -41,7 +41,7 @@ func NewClientFromConn(
 }
 
 // Voltage returns the voltage reading in volts and a bool returning true if the voltage is AC.
-func (c *client) Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+func (c *client) Voltage(ctx context.Context, extra map[string]any) (float64, bool, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return 0, false, err
@@ -59,7 +59,7 @@ func (c *client) Voltage(ctx context.Context, extra map[string]interface{}) (flo
 }
 
 // Current returns the current reading in amperes and a bool returning true if the current is AC.
-func (c *client) Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+func (c *client) Current(ctx context.Context, extra map[string]any) (float64, bool, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return 0, false, err
@@ -77,7 +77,7 @@ func (c *client) Current(ctx context.Context, extra map[string]interface{}) (flo
 }
 
 // Power returns the power reading in watts.
-func (c *client) Power(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (c *client) Power(ctx context.Context, extra map[string]any) (float64, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return 0, err
@@ -92,7 +92,7 @@ func (c *client) Power(ctx context.Context, extra map[string]interface{}) (float
 	return resp.Watts, nil
 }
 
-func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return nil, err
@@ -108,6 +108,6 @@ func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	return protoutils.ReadingProtoToGo(resp.Readings)
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

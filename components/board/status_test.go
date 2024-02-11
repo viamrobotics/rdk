@@ -20,9 +20,9 @@ func TestStatusValid(t *testing.T) {
 		t,
 		newStruct.AsMap(),
 		test.ShouldResemble,
-		map[string]interface{}{
-			"analogs":            map[string]interface{}{"analog1": map[string]interface{}{}},
-			"digital_interrupts": map[string]interface{}{"encoder": map[string]interface{}{}},
+		map[string]any{
+			"analogs":            map[string]any{"analog1": map[string]any{}},
+			"digital_interrupts": map[string]any{"encoder": map[string]any{}},
 		},
 	)
 

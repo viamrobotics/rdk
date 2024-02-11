@@ -10,23 +10,23 @@ import (
 type GPIOPin struct {
 	board.GPIOPin
 
-	SetFunc        func(ctx context.Context, high bool, extra map[string]interface{}) error
-	setCap         []interface{}
-	GetFunc        func(ctx context.Context, extra map[string]interface{}) (bool, error)
-	getCap         []interface{}
-	PWMFunc        func(ctx context.Context, extra map[string]interface{}) (float64, error)
-	pwmCap         []interface{}
-	SetPWMFunc     func(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error
-	setPWMCap      []interface{}
-	PWMFreqFunc    func(ctx context.Context, extra map[string]interface{}) (uint, error)
-	pwmFreqCap     []interface{}
-	SetPWMFreqFunc func(ctx context.Context, freqHz uint, extra map[string]interface{}) error
-	setPWMFreqCap  []interface{}
+	SetFunc        func(ctx context.Context, high bool, extra map[string]any) error
+	setCap         []any
+	GetFunc        func(ctx context.Context, extra map[string]any) (bool, error)
+	getCap         []any
+	PWMFunc        func(ctx context.Context, extra map[string]any) (float64, error)
+	pwmCap         []any
+	SetPWMFunc     func(ctx context.Context, dutyCyclePct float64, extra map[string]any) error
+	setPWMCap      []any
+	PWMFreqFunc    func(ctx context.Context, extra map[string]any) (uint, error)
+	pwmFreqCap     []any
+	SetPWMFreqFunc func(ctx context.Context, freqHz uint, extra map[string]any) error
+	setPWMFreqCap  []any
 }
 
 // Set calls the injected Set or the real version.
-func (gp *GPIOPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
-	gp.setCap = []interface{}{ctx, high}
+func (gp *GPIOPin) Set(ctx context.Context, high bool, extra map[string]any) error {
+	gp.setCap = []any{ctx, high}
 	if gp.SetFunc == nil {
 		return gp.GPIOPin.Set(ctx, high, extra)
 	}
@@ -34,8 +34,8 @@ func (gp *GPIOPin) Set(ctx context.Context, high bool, extra map[string]interfac
 }
 
 // Get calls the injected Get or the real version.
-func (gp *GPIOPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
-	gp.getCap = []interface{}{ctx}
+func (gp *GPIOPin) Get(ctx context.Context, extra map[string]any) (bool, error) {
+	gp.getCap = []any{ctx}
 	if gp.GetFunc == nil {
 		return gp.GPIOPin.Get(ctx, extra)
 	}
@@ -43,8 +43,8 @@ func (gp *GPIOPin) Get(ctx context.Context, extra map[string]interface{}) (bool,
 }
 
 // PWM calls the injected PWM or the real version.
-func (gp *GPIOPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	gp.pwmCap = []interface{}{ctx}
+func (gp *GPIOPin) PWM(ctx context.Context, extra map[string]any) (float64, error) {
+	gp.pwmCap = []any{ctx}
 	if gp.PWMFunc == nil {
 		return gp.GPIOPin.PWM(ctx, extra)
 	}
@@ -52,8 +52,8 @@ func (gp *GPIOPin) PWM(ctx context.Context, extra map[string]interface{}) (float
 }
 
 // SetPWM calls the injected SetPWM or the real version.
-func (gp *GPIOPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
-	gp.setPWMCap = []interface{}{ctx, dutyCyclePct}
+func (gp *GPIOPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]any) error {
+	gp.setPWMCap = []any{ctx, dutyCyclePct}
 	if gp.SetPWMFunc == nil {
 		return gp.GPIOPin.SetPWM(ctx, dutyCyclePct, extra)
 	}
@@ -61,8 +61,8 @@ func (gp *GPIOPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[s
 }
 
 // PWMFreq calls the injected PWMFreq or the real version.
-func (gp *GPIOPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
-	gp.pwmFreqCap = []interface{}{ctx}
+func (gp *GPIOPin) PWMFreq(ctx context.Context, extra map[string]any) (uint, error) {
+	gp.pwmFreqCap = []any{ctx}
 	if gp.PWMFreqFunc == nil {
 		return gp.GPIOPin.PWMFreq(ctx, extra)
 	}
@@ -70,8 +70,8 @@ func (gp *GPIOPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (u
 }
 
 // SetPWMFreq calls the injected SetPWMFreq or the real version.
-func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
-	gp.setPWMFreqCap = []interface{}{ctx, freqHz}
+func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]any) error {
+	gp.setPWMFreqCap = []any{ctx, freqHz}
 	if gp.SetPWMFreqFunc == nil {
 		return gp.GPIOPin.SetPWMFreq(ctx, freqHz, extra)
 	}
@@ -79,7 +79,7 @@ func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string
 }
 
 // SetCap returns the last parameters received by Set, and then clears them.
-func (gp *GPIOPin) SetCap() []interface{} {
+func (gp *GPIOPin) SetCap() []any {
 	if gp == nil {
 		return nil
 	}
@@ -88,7 +88,7 @@ func (gp *GPIOPin) SetCap() []interface{} {
 }
 
 // GetCap returns the last parameters received by Get, and then clears them.
-func (gp *GPIOPin) GetCap() []interface{} {
+func (gp *GPIOPin) GetCap() []any {
 	if gp == nil {
 		return nil
 	}
@@ -97,7 +97,7 @@ func (gp *GPIOPin) GetCap() []interface{} {
 }
 
 // PWMCap returns the last parameters received by PWM, and then clears them.
-func (gp *GPIOPin) PWMCap() []interface{} {
+func (gp *GPIOPin) PWMCap() []any {
 	if gp == nil {
 		return nil
 	}
@@ -106,7 +106,7 @@ func (gp *GPIOPin) PWMCap() []interface{} {
 }
 
 // SetPWMCap returns the last parameters received by SetPWM, and then clears them.
-func (gp *GPIOPin) SetPWMCap() []interface{} {
+func (gp *GPIOPin) SetPWMCap() []any {
 	if gp == nil {
 		return nil
 	}
@@ -115,7 +115,7 @@ func (gp *GPIOPin) SetPWMCap() []interface{} {
 }
 
 // PWMFreqCap returns the last parameters received by PWMFreq, and then clears them.
-func (gp *GPIOPin) PWMFreqCap() []interface{} {
+func (gp *GPIOPin) PWMFreqCap() []any {
 	if gp == nil {
 		return nil
 	}
@@ -124,7 +124,7 @@ func (gp *GPIOPin) PWMFreqCap() []interface{} {
 }
 
 // SetPWMFreqCap returns the last parameters received by SetPWMFreq, and then clears them.
-func (gp *GPIOPin) SetPWMFreqCap() []interface{} {
+func (gp *GPIOPin) SetPWMFreqCap() []any {
 	if gp == nil {
 		return nil
 	}

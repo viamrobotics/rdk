@@ -170,7 +170,7 @@ func decodeAndPlayTrack(ctx context.Context, track *webrtc.TrackRemote) {
 			const maxOpusFrameSizeMs = 60
 			maxFrameSize := float32(channels) * maxOpusFrameSizeMs * float32(sampleRate) / 1000
 			dataPool := sync.Pool{
-				New: func() interface{} {
+				New: func() any {
 					newData := make([]float32, int(maxFrameSize))
 					return &newData
 				},

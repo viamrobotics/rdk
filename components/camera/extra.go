@@ -4,7 +4,7 @@ import "context"
 
 // Extra is the type of value stored in the Contexts.
 type (
-	Extra map[string]interface{}
+	Extra map[string]any
 	key   int
 )
 

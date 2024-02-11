@@ -439,7 +439,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 		Frame:              fs.Frame("xArmVgripper"),
 		StartConfiguration: positions,
 		FrameSystem:        fs,
-		Options:            map[string]interface{}{"smooth_iter": 5},
+		Options:            map[string]any{"smooth_iter": 5},
 	})
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose, err := fs.Transform(
@@ -462,7 +462,7 @@ func TestMultiArmSolve(t *testing.T) {
 		Frame:              fs.Frame("xArmVgripper"),
 		StartConfiguration: positions,
 		FrameSystem:        fs,
-		Options:            map[string]interface{}{"max_ik_solutions": 10, "timeout": 150.0, "smooth_iter": 5},
+		Options:            map[string]any{"max_ik_solutions": 10, "timeout": 150.0, "smooth_iter": 5},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
@@ -494,7 +494,7 @@ func TestReachOverArm(t *testing.T) {
 	fs.AddFrame(xarm, offset)
 
 	// plan to a location, it should interpolate to get there
-	opts := map[string]interface{}{"timeout": 150.0}
+	opts := map[string]any{"timeout": 150.0}
 	plan, err := PlanMotion(context.Background(), &PlanRequest{
 		Logger:             logger,
 		Goal:               goal,
@@ -513,7 +513,7 @@ func TestReachOverArm(t *testing.T) {
 	fs.AddFrame(ur5, fs.World())
 
 	// the plan should no longer be able to interpolate, but it should still be able to get there
-	opts = map[string]interface{}{"timeout": 150.0, "smooth_iter": 5}
+	opts = map[string]any{"timeout": 150.0, "smooth_iter": 5}
 	plan, err = PlanMotion(context.Background(), &PlanRequest{
 		Logger:             logger,
 		Goal:               goal,
@@ -608,7 +608,7 @@ func TestSolverFrameGeometries(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		map[string]interface{}{"smooth_iter": 5},
+		map[string]any{"smooth_iter": 5},
 	)
 	test.That(t, err, test.ShouldBeNil)
 	gf, _ := sf.Geometries(position[len(position)-1])
@@ -718,7 +718,7 @@ func TestMovementWithGripper(t *testing.T) {
 	zeroPosition := sf.sliceToMap(make([]frame.Input, len(sf.DoF())))
 
 	// linearly plan with the gripper
-	motionConfig := make(map[string]interface{})
+	motionConfig := make(map[string]any)
 	motionConfig["motion_profile"] = LinearMotionProfile
 	sfPlanner, err := newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
@@ -843,7 +843,7 @@ func TestPtgPosOnlyBidirectional(t *testing.T) {
 
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{1000, -8000, 0})
 
-	extra := map[string]interface{}{"motion_profile": "position_only", "position_seeds": 2, "smooth_iter": 5}
+	extra := map[string]any{"motion_profile": "position_only", "position_seeds": 2, "smooth_iter": 5}
 
 	baseFS := frame.NewEmptyFrameSystem("baseFS")
 	err = baseFS.AddFrame(kinematicFrame, baseFS.World())

@@ -17,21 +17,21 @@ type Logger interface {
 	AddAppender(appender Appender)
 	AsZap() *zap.SugaredLogger
 
-	CDebug(ctx context.Context, args ...interface{})
-	CDebugf(ctx context.Context, template string, args ...interface{})
-	CDebugw(ctx context.Context, msg string, keysAndValues ...interface{})
+	CDebug(ctx context.Context, args ...any)
+	CDebugf(ctx context.Context, template string, args ...any)
+	CDebugw(ctx context.Context, msg string, keysAndValues ...any)
 
-	CInfo(ctx context.Context, args ...interface{})
-	CInfof(ctx context.Context, template string, args ...interface{})
-	CInfow(ctx context.Context, msg string, keysAndValues ...interface{})
+	CInfo(ctx context.Context, args ...any)
+	CInfof(ctx context.Context, template string, args ...any)
+	CInfow(ctx context.Context, msg string, keysAndValues ...any)
 
-	CWarn(ctx context.Context, args ...interface{})
-	CWarnf(ctx context.Context, template string, args ...interface{})
-	CWarnw(ctx context.Context, msg string, keysAndValues ...interface{})
+	CWarn(ctx context.Context, args ...any)
+	CWarnf(ctx context.Context, template string, args ...any)
+	CWarnw(ctx context.Context, msg string, keysAndValues ...any)
 
-	CError(ctx context.Context, args ...interface{})
-	CErrorf(ctx context.Context, template string, args ...interface{})
-	CErrorw(ctx context.Context, msg string, keysAndValues ...interface{})
+	CError(ctx context.Context, args ...any)
+	CErrorf(ctx context.Context, template string, args ...any)
+	CErrorw(ctx context.Context, msg string, keysAndValues ...any)
 }
 
 // ZapCompatibleLogger is a backwards compatibility layer for existing usages of the RDK as a
@@ -42,28 +42,28 @@ type ZapCompatibleLogger interface {
 	Level() zapcore.Level
 	Named(name string) *zap.SugaredLogger
 	Sync() error
-	With(args ...interface{}) *zap.SugaredLogger
+	With(args ...any) *zap.SugaredLogger
 	WithOptions(opts ...zap.Option) *zap.SugaredLogger
 
-	Debug(args ...interface{})
-	Debugf(template string, args ...interface{})
-	Debugw(msg string, keysAndValues ...interface{})
+	Debug(args ...any)
+	Debugf(template string, args ...any)
+	Debugw(msg string, keysAndValues ...any)
 
-	Info(args ...interface{})
-	Infof(template string, args ...interface{})
-	Infow(msg string, keysAndValues ...interface{})
+	Info(args ...any)
+	Infof(template string, args ...any)
+	Infow(msg string, keysAndValues ...any)
 
-	Warn(args ...interface{})
-	Warnf(template string, args ...interface{})
-	Warnw(msg string, keysAndValues ...interface{})
+	Warn(args ...any)
+	Warnf(template string, args ...any)
+	Warnw(msg string, keysAndValues ...any)
 
-	Error(args ...interface{})
-	Errorf(template string, args ...interface{})
-	Errorw(msg string, keysAndValues ...interface{})
+	Error(args ...any)
+	Errorf(template string, args ...any)
+	Errorw(msg string, keysAndValues ...any)
 
-	Fatal(args ...interface{})
-	Fatalf(template string, args ...interface{})
-	Fatalw(msg string, keysAndValues ...interface{})
+	Fatal(args ...any)
+	Fatalf(template string, args ...any)
+	Fatalw(msg string, keysAndValues ...any)
 }
 
 // FromZapCompatible upconverts a ZapCompatibleLogger to a logging.Logger. If the argument already
@@ -116,50 +116,50 @@ func (logger zLogger) Sublogger(name string) Logger {
 	return &zLogger{logger.AsZap().Named(name)}
 }
 
-func (logger zLogger) CDebug(ctx context.Context, args ...interface{}) {
+func (logger zLogger) CDebug(ctx context.Context, args ...any) {
 	logger.Debug(args...)
 }
 
-func (logger zLogger) CDebugf(ctx context.Context, template string, args ...interface{}) {
+func (logger zLogger) CDebugf(ctx context.Context, template string, args ...any) {
 	logger.Debugf(template, args...)
 }
 
-func (logger zLogger) CDebugw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+func (logger zLogger) CDebugw(ctx context.Context, msg string, keysAndValues ...any) {
 	logger.Debugw(msg, keysAndValues...)
 }
 
-func (logger zLogger) CInfo(ctx context.Context, args ...interface{}) {
+func (logger zLogger) CInfo(ctx context.Context, args ...any) {
 	logger.Info(args...)
 }
 
-func (logger zLogger) CInfof(ctx context.Context, template string, args ...interface{}) {
+func (logger zLogger) CInfof(ctx context.Context, template string, args ...any) {
 	logger.Infof(template, args...)
 }
 
-func (logger zLogger) CInfow(ctx context.Context, msg string, keysAndValues ...interface{}) {
+func (logger zLogger) CInfow(ctx context.Context, msg string, keysAndValues ...any) {
 	logger.Infow(msg, keysAndValues...)
 }
 
-func (logger zLogger) CWarn(ctx context.Context, args ...interface{}) {
+func (logger zLogger) CWarn(ctx context.Context, args ...any) {
 	logger.Warn(args...)
 }
 
-func (logger zLogger) CWarnf(ctx context.Context, template string, args ...interface{}) {
+func (logger zLogger) CWarnf(ctx context.Context, template string, args ...any) {
 	logger.Warnf(template, args...)
 }
 
-func (logger zLogger) CWarnw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+func (logger zLogger) CWarnw(ctx context.Context, msg string, keysAndValues ...any) {
 	logger.Warnw(msg, keysAndValues...)
 }
 
-func (logger zLogger) CError(ctx context.Context, args ...interface{}) {
+func (logger zLogger) CError(ctx context.Context, args ...any) {
 	logger.Error(args...)
 }
 
-func (logger zLogger) CErrorf(ctx context.Context, template string, args ...interface{}) {
+func (logger zLogger) CErrorf(ctx context.Context, template string, args ...any) {
 	logger.Errorf(template, args...)
 }
 
-func (logger zLogger) CErrorw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+func (logger zLogger) CErrorw(ctx context.Context, msg string, keysAndValues ...any) {
 	logger.Errorw(msg, keysAndValues...)
 }

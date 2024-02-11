@@ -12,9 +12,9 @@ import (
 type DataManagerService struct {
 	datamanager.Service
 	name          resource.Name
-	SyncFunc      func(ctx context.Context, extra map[string]interface{}) error
+	SyncFunc      func(ctx context.Context, extra map[string]any) error
 	DoCommandFunc func(ctx context.Context,
-		cmd map[string]interface{}) (map[string]interface{}, error)
+		cmd map[string]any) (map[string]any, error)
 	CloseFunc func(ctx context.Context) error
 }
 
@@ -29,7 +29,7 @@ func (svc *DataManagerService) Name() resource.Name {
 }
 
 // Sync calls the injected Sync or the real variant.
-func (svc *DataManagerService) Sync(ctx context.Context, extra map[string]interface{}) error {
+func (svc *DataManagerService) Sync(ctx context.Context, extra map[string]any) error {
 	if svc.SyncFunc == nil {
 		return svc.Service.Sync(ctx, extra)
 	}
@@ -38,8 +38,8 @@ func (svc *DataManagerService) Sync(ctx context.Context, extra map[string]interf
 
 // DoCommand calls the injected DoCommand or the real variant.
 func (svc *DataManagerService) DoCommand(ctx context.Context,
-	cmd map[string]interface{},
-) (map[string]interface{}, error) {
+	cmd map[string]any,
+) (map[string]any, error) {
 	if svc.DoCommandFunc == nil {
 		return svc.Service.DoCommand(ctx, cmd)
 	}

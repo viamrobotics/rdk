@@ -225,7 +225,7 @@ func (m *Ezopmp) writeRegWithCheck(ctx context.Context, command []byte) error {
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
 // Negative power implies a backward directional rotational
 // for this pump, it goes between 0.5ml to 105ml/min.
-func (m *Ezopmp) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+func (m *Ezopmp) SetPower(ctx context.Context, powerPct float64, extra map[string]any) error {
 	m.opMgr.CancelRunning(ctx)
 
 	powerPct = math.Min(powerPct, m.maxPowerPct)
@@ -251,7 +251,7 @@ func (m *Ezopmp) SetPower(ctx context.Context, powerPct float64, extra map[strin
 
 // GoFor sets a constant flow rate
 // mLPerMin = rpm, mins = revolutions.
-func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[string]interface{}) error {
+func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[string]any) error {
 	switch speed := math.Abs(mLPerMin); {
 	case speed < 0.1:
 		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
@@ -275,7 +275,7 @@ func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[st
 
 // GoTo uses the Dose Over Time Command in the EZO-PMP datasheet
 // mLPerMin = rpm, mins = revolutions.
-func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin, mins float64, extra map[string]interface{}) error {
+func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin, mins float64, extra map[string]any) error {
 	switch speed := math.Abs(mLPerMin); {
 	case speed < 0.5:
 		return errors.New("cannot move this slowly")
@@ -292,13 +292,13 @@ func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin, mins float64, extra map[str
 }
 
 // ResetZeroPosition clears the amount of volume that has been dispensed.
-func (m *Ezopmp) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+func (m *Ezopmp) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]any) error {
 	m.logger.CWarnf(ctx, "cannot reset position of motor (%v) because position refers to the total volume dispensed", m.Name().ShortName())
 	return motor.NewResetZeroPositionUnsupportedError(m.Name().ShortName())
 }
 
 // Position will return the total volume dispensed.
-func (m *Ezopmp) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (m *Ezopmp) Position(ctx context.Context, extra map[string]any) (float64, error) {
 	command := []byte(totVolDispensed)
 	writeErr := m.writeReg(ctx, command)
 	if writeErr != nil {
@@ -314,14 +314,14 @@ func (m *Ezopmp) Position(ctx context.Context, extra map[string]interface{}) (fl
 }
 
 // Properties returns the status of optional properties on the motor.
-func (m *Ezopmp) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+func (m *Ezopmp) Properties(ctx context.Context, extra map[string]any) (motor.Properties, error) {
 	return motor.Properties{
 		PositionReporting: true,
 	}, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
-func (m *Ezopmp) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (m *Ezopmp) Stop(ctx context.Context, extra map[string]any) error {
 	m.opMgr.CancelRunning(ctx)
 	command := []byte(stop)
 	return m.writeRegWithCheck(ctx, command)
@@ -334,7 +334,7 @@ func (m *Ezopmp) IsMoving(ctx context.Context) (bool, error) {
 }
 
 // IsPowered returns whether or not the motor is currently on, and how much power it's getting.
-func (m *Ezopmp) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+func (m *Ezopmp) IsPowered(ctx context.Context, extra map[string]any) (bool, float64, error) {
 	command := []byte(dispenseStatus)
 	writeErr := m.writeReg(ctx, command)
 	if writeErr != nil {

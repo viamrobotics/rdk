@@ -17,7 +17,7 @@ import (
 type AudioInput struct {
 	audioinput.AudioInput
 	name       resource.Name
-	DoFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	DoFunc     func(ctx context.Context, cmd map[string]any) (map[string]any, error)
 	StreamFunc func(
 		ctx context.Context,
 		errHandlers ...gostream.ErrorHandler,
@@ -70,7 +70,7 @@ func (ai *AudioInput) Close(ctx context.Context) error {
 }
 
 // DoCommand calls the injected DoCommand or the real version.
-func (ai *AudioInput) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (ai *AudioInput) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	if ai.DoFunc == nil {
 		return ai.AudioInput.DoCommand(ctx, cmd)
 	}

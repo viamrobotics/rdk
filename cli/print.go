@@ -22,12 +22,12 @@ const asciiViam = `
 `
 
 // printf prints a message with no prefix.
-func printf(w io.Writer, format string, a ...interface{}) {
+func printf(w io.Writer, format string, a ...any) {
 	fmt.Fprintf(w, format+"\n", a...)
 }
 
 // infof prints a message prefixed with a bold cyan "Info: ".
-func infof(w io.Writer, format string, a ...interface{}) {
+func infof(w io.Writer, format string, a ...any) {
 	// NOTE(benjirewis): for some reason, both errcheck and gosec complain about
 	// Fprint's "unchecked error" here. Fatally log any errors write errors here
 	// and below.
@@ -44,7 +44,7 @@ func infof(w io.Writer, format string, a ...interface{}) {
 // future. unparam will complain until it does.
 //
 //nolint:unparam
-func warningf(w io.Writer, format string, a ...interface{}) {
+func warningf(w io.Writer, format string, a ...any) {
 	if _, err := color.New(color.Bold, color.FgYellow).Fprint(w, "Warning: "); err != nil {
 		log.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func warningf(w io.Writer, format string, a ...interface{}) {
 
 // Errorf prints a message prefixed with a bold red "Error: " prefix and exits with 1.
 // It also capitalizes the first letter of the message.
-func Errorf(w io.Writer, format string, a ...interface{}) {
+func Errorf(w io.Writer, format string, a ...any) {
 	if _, err := color.New(color.Bold, color.FgRed).Fprint(w, "Error: "); err != nil {
 		log.Fatal(err)
 	}

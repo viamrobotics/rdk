@@ -21,7 +21,7 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 
 	utils.ManagedGo(func() {
 		// Send motionCfg parameters through extra until motionCfg can be added to Move()
-		extra := map[string]interface{}{"motionCfg": *svc.motionCfg}
+		extra := map[string]any{"motionCfg": *svc.motionCfg}
 
 		for {
 			if ctx.Err() != nil {

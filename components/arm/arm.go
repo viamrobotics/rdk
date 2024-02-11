@@ -72,18 +72,18 @@ type Arm interface {
 	referenceframe.InputEnabled
 
 	// EndPosition returns the current position of the arm.
-	EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
+	EndPosition(ctx context.Context, extra map[string]any) (spatialmath.Pose, error)
 
 	// MoveToPosition moves the arm to the given absolute position.
 	// This will block until done or a new operation cancels this one
-	MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra map[string]interface{}) error
+	MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra map[string]any) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
 	// This will block until done or a new operation cancels this one
-	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions, extra map[string]interface{}) error
+	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions, extra map[string]any) error
 
 	// JointPositions returns the current joint positions of the arm.
-	JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
+	JointPositions(ctx context.Context, extra map[string]any) (*pb.JointPositions, error)
 }
 
 // FromDependencies is a helper for getting the named arm from a collection of

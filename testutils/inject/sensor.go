@@ -11,8 +11,8 @@ import (
 type Sensor struct {
 	sensor.Sensor
 	name         resource.Name
-	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	ReadingsFunc func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
+	DoFunc       func(ctx context.Context, cmd map[string]any) (map[string]any, error)
+	ReadingsFunc func(ctx context.Context, extra map[string]any) (map[string]any, error)
 }
 
 // NewSensor returns a new injected sensor.
@@ -26,7 +26,7 @@ func (s *Sensor) Name() resource.Name {
 }
 
 // Readings calls the injected Readings or the real version.
-func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (s *Sensor) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	if s.ReadingsFunc == nil {
 		return s.Sensor.Readings(ctx, extra)
 	}
@@ -34,7 +34,7 @@ func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (ma
 }
 
 // DoCommand calls the injected DoCommand or the real version.
-func (s *Sensor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (s *Sensor) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	if s.DoFunc == nil {
 		return s.Sensor.DoCommand(ctx, cmd)
 	}

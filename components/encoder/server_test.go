@@ -50,7 +50,7 @@ func TestServerGetPosition(t *testing.T) {
 	failingEncoder.PositionFunc = func(
 		ctx context.Context,
 		positionType encoder.PositionType,
-		extra map[string]interface{},
+		extra map[string]any,
 	) (float64, encoder.PositionType, error) {
 		return 0, encoder.PositionTypeUnspecified, errPositionUnavailable
 	}
@@ -64,7 +64,7 @@ func TestServerGetPosition(t *testing.T) {
 	workingEncoder.PositionFunc = func(
 		ctx context.Context,
 		positionType encoder.PositionType,
-		extra map[string]interface{},
+		extra map[string]any,
 	) (float64, encoder.PositionType, error) {
 		return 42.0, encoder.PositionTypeUnspecified, nil
 	}
@@ -83,7 +83,7 @@ func TestServerResetPosition(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingEncoder.ResetPositionFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	failingEncoder.ResetPositionFunc = func(ctx context.Context, extra map[string]any) error {
 		return errSetToZeroFailed
 	}
 	req = pb.ResetPositionRequest{Name: failEncoderName}
@@ -92,7 +92,7 @@ func TestServerResetPosition(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeError, errSetToZeroFailed)
 
-	workingEncoder.ResetPositionFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	workingEncoder.ResetPositionFunc = func(ctx context.Context, extra map[string]any) error {
 		return nil
 	}
 	req = pb.ResetPositionRequest{Name: testEncoderName}
@@ -110,7 +110,7 @@ func TestServerGetProperties(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
+	failingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]any) (encoder.Properties, error) {
 		return encoder.Properties{}, errPropertiesNotFound
 	}
 	req = pb.GetPropertiesRequest{Name: failEncoderName}
@@ -119,7 +119,7 @@ func TestServerGetProperties(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeError, errPropertiesNotFound)
 
-	workingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
+	workingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]any) (encoder.Properties, error) {
 		return encoder.Properties{
 			TicksCountSupported:   true,
 			AngleDegreesSupported: false,
@@ -134,13 +134,13 @@ func TestServerGetProperties(t *testing.T) {
 func TestServerExtraParams(t *testing.T) {
 	encoderServer, workingEncoder, _, _ := newServer()
 
-	var actualExtra map[string]interface{}
-	workingEncoder.ResetPositionFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	var actualExtra map[string]any
+	workingEncoder.ResetPositionFunc = func(ctx context.Context, extra map[string]any) error {
 		actualExtra = extra
 		return nil
 	}
 
-	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	expectedExtra := map[string]any{"foo": "bar", "baz": []any{1., 2., 3.}}
 
 	ext, err := protoutils.StructToStructPb(expectedExtra)
 	test.That(t, err, test.ShouldBeNil)

@@ -2276,13 +2276,13 @@ func TestSensorsServiceReconfigure(t *testing.T) {
 		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
-		foundSensors, err := svc.Sensors(context.Background(), map[string]interface{}{})
+		foundSensors, err := svc.Sensors(context.Background(), map[string]any{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, foundSensors, test.ShouldBeEmpty)
 
 		robot.Reconfigure(context.Background(), cfg)
 
-		foundSensors, err = svc.Sensors(context.Background(), map[string]interface{}{})
+		foundSensors, err = svc.Sensors(context.Background(), map[string]any{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rdktestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rdktestutils.NewResourceNameSet(sensorNames...))
 	})
@@ -2297,13 +2297,13 @@ func TestSensorsServiceReconfigure(t *testing.T) {
 		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
-		foundSensors, err := svc.Sensors(context.Background(), map[string]interface{}{})
+		foundSensors, err := svc.Sensors(context.Background(), map[string]any{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rdktestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rdktestutils.NewResourceNameSet(sensorNames...))
 
 		robot.Reconfigure(context.Background(), emptyCfg)
 
-		foundSensors, err = svc.Sensors(context.Background(), map[string]interface{}{})
+		foundSensors, err = svc.Sensors(context.Background(), map[string]any{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, foundSensors, test.ShouldBeEmpty)
 	})
@@ -2318,13 +2318,13 @@ func TestSensorsServiceReconfigure(t *testing.T) {
 		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
-		foundSensors, err := svc.Sensors(context.Background(), map[string]interface{}{})
+		foundSensors, err := svc.Sensors(context.Background(), map[string]any{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rdktestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rdktestutils.NewResourceNameSet(sensorNames...))
 
 		robot.Reconfigure(context.Background(), cfg)
 
-		foundSensors, err = svc.Sensors(context.Background(), map[string]interface{}{})
+		foundSensors, err = svc.Sensors(context.Background(), map[string]any{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rdktestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rdktestutils.NewResourceNameSet(sensorNames...))
 	})
@@ -2664,9 +2664,9 @@ func TestStatusServiceUpdate(t *testing.T) {
 		movementsensor.Named("movement_sensor1"),
 		movementsensor.Named("movement_sensor2"),
 	}
-	expected := map[resource.Name]interface{}{
-		movementsensor.Named("movement_sensor1"): map[string]interface{}{},
-		movementsensor.Named("movement_sensor2"): map[string]interface{}{},
+	expected := map[resource.Name]any{
+		movementsensor.Named("movement_sensor1"): map[string]any{},
+		movementsensor.Named("movement_sensor2"): map[string]any{},
 	}
 
 	t.Run("empty to not empty", func(t *testing.T) {

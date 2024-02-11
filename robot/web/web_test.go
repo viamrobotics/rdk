@@ -759,7 +759,7 @@ func TestWebReconfigure(t *testing.T) {
 	// add arm to robot and then update
 	injectArm := &inject.Arm{}
 	newPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 3, Z: 6})
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 		return newPos, nil
 	}
 	rs := map[resource.Name]resource.Resource{arm.Named(arm1String): injectArm}
@@ -825,7 +825,7 @@ func TestWebReconfigure(t *testing.T) {
 	arm2 := "arm2"
 	injectArm2 := &inject.Arm{}
 	pos2 := spatialmath.NewPoseFromPoint(r3.Vector{X: 2, Y: 3, Z: 4})
-	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 		return pos2, nil
 	}
 	rs[arm.Named(arm2)] = injectArm2
@@ -1000,7 +1000,7 @@ func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 	t.Helper()
 
 	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 		return pos, nil
 	}
 	injectRobot := &inject.Robot{}
@@ -1139,7 +1139,7 @@ func TestRawClientOperation(t *testing.T) {
 	// Need an unfiltered streaming call to test interceptors
 	echoAPI := resource.NewAPI("rdk", "component", "echo")
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} { return &echoServer{} },
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) any { return &echoServer{} },
 		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
 	})
@@ -1373,7 +1373,7 @@ func signJWKBasedExternalAccessToken(
 	entity, aud, iss, keyID string,
 ) (string, error) {
 	token := &jwt.Token{
-		Header: map[string]interface{}{
+		Header: map[string]any{
 			"typ": "JWT",
 			"alg": jwt.SigningMethodRS256.Alg(),
 			"kid": keyID,

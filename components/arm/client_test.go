@@ -33,32 +33,32 @@ func TestClient(t *testing.T) {
 	var (
 		capArmPos      spatialmath.Pose
 		capArmJointPos *componentpb.JointPositions
-		extraOptions   map[string]interface{}
+		extraOptions   map[string]any
 	)
 
 	pos1 := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
 	jointPos1 := &componentpb.JointPositions{Values: []float64{1.0, 2.0, 3.0}}
 	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 		extraOptions = extra
 		return pos1, nil
 	}
-	injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*componentpb.JointPositions, error) {
+	injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]any) (*componentpb.JointPositions, error) {
 		extraOptions = extra
 		return jointPos1, nil
 	}
-	injectArm.MoveToPositionFunc = func(ctx context.Context, ap spatialmath.Pose, extra map[string]interface{}) error {
+	injectArm.MoveToPositionFunc = func(ctx context.Context, ap spatialmath.Pose, extra map[string]any) error {
 		capArmPos = ap
 		extraOptions = extra
 		return nil
 	}
 
-	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.JointPositions, extra map[string]interface{}) error {
+	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.JointPositions, extra map[string]any) error {
 		capArmJointPos = jp
 		extraOptions = extra
 		return nil
 	}
-	injectArm.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	injectArm.StopFunc = func(ctx context.Context, extra map[string]any) error {
 		extraOptions = extra
 		return errStopUnimplemented
 	}
@@ -72,22 +72,22 @@ func TestClient(t *testing.T) {
 	pos2 := spatialmath.NewPoseFromPoint(r3.Vector{X: 4, Y: 5, Z: 6})
 	jointPos2 := &componentpb.JointPositions{Values: []float64{4.0, 5.0, 6.0}}
 	injectArm2 := &inject.Arm{}
-	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 		return pos2, nil
 	}
-	injectArm2.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*componentpb.JointPositions, error) {
+	injectArm2.JointPositionsFunc = func(ctx context.Context, extra map[string]any) (*componentpb.JointPositions, error) {
 		return jointPos2, nil
 	}
-	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap spatialmath.Pose, extra map[string]interface{}) error {
+	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap spatialmath.Pose, extra map[string]any) error {
 		capArmPos = ap
 		return nil
 	}
 
-	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.JointPositions, extra map[string]interface{}) error {
+	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.JointPositions, extra map[string]any) error {
 		capArmJointPos = jp
 		return nil
 	}
-	injectArm2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	injectArm2.StopFunc = func(ctx context.Context, extra map[string]any) error {
 		return nil
 	}
 	injectArm2.ModelFrameFunc = func() referenceframe.Model {
@@ -146,31 +146,31 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
-		pos, err := arm1Client.EndPosition(context.Background(), map[string]interface{}{"foo": "EndPosition"})
+		pos, err := arm1Client.EndPosition(context.Background(), map[string]any{"foo": "EndPosition"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatialmath.PoseAlmostEqual(pos, pos1), test.ShouldBeTrue)
-		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "EndPosition"})
+		test.That(t, extraOptions, test.ShouldResemble, map[string]any{"foo": "EndPosition"})
 
-		jointPos, err := arm1Client.JointPositions(context.Background(), map[string]interface{}{"foo": "JointPositions"})
+		jointPos, err := arm1Client.JointPositions(context.Background(), map[string]any{"foo": "JointPositions"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, jointPos.String(), test.ShouldResemble, jointPos1.String())
-		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "JointPositions"})
+		test.That(t, extraOptions, test.ShouldResemble, map[string]any{"foo": "JointPositions"})
 
-		err = arm1Client.MoveToPosition(context.Background(), pos2, map[string]interface{}{"foo": "MoveToPosition"})
+		err = arm1Client.MoveToPosition(context.Background(), pos2, map[string]any{"foo": "MoveToPosition"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatialmath.PoseAlmostEqual(capArmPos, pos2), test.ShouldBeTrue)
 
-		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "MoveToPosition"})
+		test.That(t, extraOptions, test.ShouldResemble, map[string]any{"foo": "MoveToPosition"})
 
-		err = arm1Client.MoveToJointPositions(context.Background(), jointPos2, map[string]interface{}{"foo": "MoveToJointPositions"})
+		err = arm1Client.MoveToJointPositions(context.Background(), jointPos2, map[string]any{"foo": "MoveToJointPositions"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos2.String())
-		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "MoveToJointPositions"})
+		test.That(t, extraOptions, test.ShouldResemble, map[string]any{"foo": "MoveToJointPositions"})
 
-		err = arm1Client.Stop(context.Background(), map[string]interface{}{"foo": "Stop"})
+		err = arm1Client.Stop(context.Background(), map[string]any{"foo": "Stop"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errStopUnimplemented.Error())
-		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "Stop"})
+		test.That(t, extraOptions, test.ShouldResemble, map[string]any{"foo": "Stop"})
 
 		test.That(t, arm1Client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)

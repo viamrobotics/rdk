@@ -277,7 +277,7 @@ func createDataByMovementSensorMethod(method method, index int) *structpb.Struct
 func testReplayMovementSensorMethodData(ctx context.Context, t *testing.T, replay movementsensor.MovementSensor, method method,
 	index int,
 ) {
-	var extra map[string]interface{}
+	var extra map[string]any
 	switch method {
 	case position:
 		point, altitude, err := replay.Position(ctx, extra)
@@ -311,7 +311,7 @@ func testReplayMovementSensorMethodData(ctx context.Context, t *testing.T, repla
 func testReplayMovementSensorMethodError(ctx context.Context, t *testing.T, replay movementsensor.MovementSensor, method method,
 	expectedErr error,
 ) {
-	var extra map[string]interface{}
+	var extra map[string]any
 	switch method {
 	case position:
 		point, altitude, err := replay.Position(ctx, extra)

@@ -247,39 +247,39 @@ func newVectorNav(
 	return v, nil
 }
 
-func (vn *vectornav) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (vn *vectornav) AngularVelocity(ctx context.Context, extra map[string]any) (spatialmath.AngularVelocity, error) {
 	vn.mu.Lock()
 	defer vn.mu.Unlock()
 	return vn.angularVelocity, nil
 }
 
-func (vn *vectornav) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (vn *vectornav) LinearAcceleration(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	vn.mu.Lock()
 	defer vn.mu.Unlock()
 	return vn.acceleration, nil
 }
 
-func (vn *vectornav) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+func (vn *vectornav) Orientation(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 	vn.mu.Lock()
 	defer vn.mu.Unlock()
 	return &vn.orientation, nil
 }
 
-func (vn *vectornav) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (vn *vectornav) CompassHeading(ctx context.Context, extra map[string]any) (float64, error) {
 	vn.mu.Lock()
 	defer vn.mu.Unlock()
 	return vn.orientation.Yaw, nil
 }
 
-func (vn *vectornav) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (vn *vectornav) LinearVelocity(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 }
 
-func (vn *vectornav) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (vn *vectornav) Position(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 	return nil, 0, movementsensor.ErrMethodUnimplementedPosition
 }
 
-func (vn *vectornav) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
+func (vn *vectornav) Accuracy(ctx context.Context, extra map[string]any) (*movementsensor.Accuracy, error) {
 	// TODO:  RSDK-6389 check the vectornav's datasheet to determine what is best to return from the vector nav.
 	// can be done in a seprate ticket from the one mentioned in this comment.
 	return movementsensor.UnimplementedAccuracies()
@@ -291,7 +291,7 @@ func (vn *vectornav) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
 	return vn.magnetometer, nil
 }
 
-func (vn *vectornav) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+func (vn *vectornav) Properties(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		AngularVelocitySupported:    true,
 		OrientationSupported:        true,
@@ -299,7 +299,7 @@ func (vn *vectornav) Properties(ctx context.Context, extra map[string]interface{
 	}, nil
 }
 
-func (vn *vectornav) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (vn *vectornav) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	return movementsensor.DefaultAPIReadings(ctx, vn, extra)
 }
 

@@ -29,31 +29,31 @@ func TestClient(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	var actualExtra map[string]interface{}
+	var actualExtra map[string]any
 
 	workingServo := &inject.Servo{}
 	failingServo := &inject.Servo{}
 
-	workingServo.MoveFunc = func(ctx context.Context, angle uint32, extra map[string]interface{}) error {
+	workingServo.MoveFunc = func(ctx context.Context, angle uint32, extra map[string]any) error {
 		actualExtra = extra
 		return nil
 	}
-	workingServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+	workingServo.PositionFunc = func(ctx context.Context, extra map[string]any) (uint32, error) {
 		actualExtra = extra
 		return 20, nil
 	}
-	workingServo.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	workingServo.StopFunc = func(ctx context.Context, extra map[string]any) error {
 		actualExtra = extra
 		return nil
 	}
 
-	failingServo.MoveFunc = func(ctx context.Context, angle uint32, extra map[string]interface{}) error {
+	failingServo.MoveFunc = func(ctx context.Context, angle uint32, extra map[string]any) error {
 		return errMoveFailed
 	}
-	failingServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+	failingServo.PositionFunc = func(ctx context.Context, extra map[string]any) (uint32, error) {
 		return 0, errPositionUnreadable
 	}
-	failingServo.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	failingServo.StopFunc = func(ctx context.Context, extra map[string]any) error {
 		return errStopFailed
 	}
 
@@ -93,17 +93,17 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
-		err = workingServoClient.Move(context.Background(), 20, map[string]interface{}{"foo": "Move"})
+		err = workingServoClient.Move(context.Background(), 20, map[string]any{"foo": "Move"})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, actualExtra, test.ShouldResemble, map[string]interface{}{"foo": "Move"})
+		test.That(t, actualExtra, test.ShouldResemble, map[string]any{"foo": "Move"})
 
-		currentDeg, err := workingServoClient.Position(context.Background(), map[string]interface{}{"foo": "Position"})
+		currentDeg, err := workingServoClient.Position(context.Background(), map[string]any{"foo": "Position"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, currentDeg, test.ShouldEqual, 20)
-		test.That(t, actualExtra, test.ShouldResemble, map[string]interface{}{"foo": "Position"})
+		test.That(t, actualExtra, test.ShouldResemble, map[string]any{"foo": "Position"})
 
-		test.That(t, workingServoClient.Stop(context.Background(), map[string]interface{}{"foo": "Stop"}), test.ShouldBeNil)
-		test.That(t, actualExtra, test.ShouldResemble, map[string]interface{}{"foo": "Stop"})
+		test.That(t, workingServoClient.Stop(context.Background(), map[string]any{"foo": "Stop"}), test.ShouldBeNil)
+		test.That(t, actualExtra, test.ShouldResemble, map[string]any{"foo": "Stop"})
 
 		test.That(t, workingServoClient.Close(context.Background()), test.ShouldBeNil)
 

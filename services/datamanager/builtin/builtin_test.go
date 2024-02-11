@@ -38,13 +38,13 @@ func getInjectedRobot() *inject.Robot {
 	}
 
 	injectedArm := &inject.Arm{}
-	injectedArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+	injectedArm.EndPositionFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 		return spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3}), nil
 	}
 	rs[arm.Named("arm1")] = injectedArm
 
 	injectedRemoteArm := &inject.Arm{}
-	injectedRemoteArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+	injectedRemoteArm.EndPositionFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 		return spatialmath.NewZeroPose(), nil
 	}
 	rs[arm.Named("remote1:remoteArm")] = injectedRemoteArm

@@ -45,7 +45,7 @@ var (
 
 	missingQ = resource.NewDiscoveryQuery(failAPI, resource.DefaultModelFamily.WithModel("missing"))
 
-	workingDiscovery = map[string]interface{}{"position": "up"}
+	workingDiscovery = map[string]any{"position": "up"}
 	errFailed        = errors.New("can't get discovery")
 )
 
@@ -56,7 +56,7 @@ func init() {
 		) (resource.Resource, error) {
 			return nil, errors.New("no")
 		},
-		Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) {
+		Discover: func(ctx context.Context, logger logging.Logger) (any, error) {
 			return workingDiscovery, nil
 		},
 	})
@@ -67,7 +67,7 @@ func init() {
 		) (resource.Resource, error) {
 			return nil, errors.New("no")
 		},
-		Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) {
+		Discover: func(ctx context.Context, logger logging.Logger) (any, error) {
 			return nil, errFailed
 		},
 	})

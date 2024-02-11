@@ -46,7 +46,7 @@ func NewClientFromConn(
 func (c *client) Position(
 	ctx context.Context,
 	positionType PositionType,
-	extra map[string]interface{},
+	extra map[string]any,
 ) (float64, PositionType, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
@@ -64,7 +64,7 @@ func (c *client) Position(
 
 // ResetPosition sets the current position of
 // the encoder to be its new zero position.
-func (c *client) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
+func (c *client) ResetPosition(ctx context.Context, extra map[string]any) error {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return err
@@ -75,7 +75,7 @@ func (c *client) ResetPosition(ctx context.Context, extra map[string]interface{}
 }
 
 // Properties returns a list of all the position types that are supported by a given encoder.
-func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (Properties, error) {
+func (c *client) Properties(ctx context.Context, extra map[string]any) (Properties, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return Properties{}, err
@@ -88,6 +88,6 @@ func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (
 	return ProtoFeaturesToProperties(resp), nil
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

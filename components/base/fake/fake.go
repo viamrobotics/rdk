@@ -58,27 +58,27 @@ func NewBase(_ context.Context, _ resource.Dependencies, conf resource.Config, l
 }
 
 // MoveStraight does nothing.
-func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
+func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]any) error {
 	return nil
 }
 
 // Spin does nothing.
-func (b *Base) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+func (b *Base) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]any) error {
 	return nil
 }
 
 // SetPower does nothing.
-func (b *Base) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+func (b *Base) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 	return nil
 }
 
 // SetVelocity does nothing.
-func (b *Base) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+func (b *Base) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 	return nil
 }
 
 // Stop does nothing.
-func (b *Base) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (b *Base) Stop(ctx context.Context, extra map[string]any) error {
 	return nil
 }
 
@@ -94,7 +94,7 @@ func (b *Base) Close(ctx context.Context) error {
 }
 
 // Properties returns the base's properties.
-func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+func (b *Base) Properties(ctx context.Context, extra map[string]any) (base.Properties, error) {
 	return base.Properties{
 		TurningRadiusMeters:      b.TurningRadius,
 		WidthMeters:              b.WidthMeters,
@@ -103,6 +103,6 @@ func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (ba
 }
 
 // Geometries returns the geometries associated with the fake base.
-func (b *Base) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+func (b *Base) Geometries(ctx context.Context, extra map[string]any) ([]spatialmath.Geometry, error) {
 	return b.Geometry, nil
 }

@@ -148,7 +148,7 @@ func TestComplexModule(t *testing.T) {
 		mybase := res.(base.Base)
 
 		// Test generic echo
-		testCmd := map[string]interface{}{"foo": "bar"}
+		testCmd := map[string]any{"foo": "bar"}
 		ret, err := mybase.DoCommand(context.Background(), testCmd)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ret, test.ShouldResemble, testCmd)

@@ -204,7 +204,7 @@ type bme280 struct {
 }
 
 // Readings returns a list containing single item (current temperature).
-func (s *bme280) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (s *bme280) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	handle, err := s.bus.OpenHandle(s.addr)
 	if err != nil {
 		s.logger.CErrorf(ctx, "can't open bme280 i2c %s", err)
@@ -226,7 +226,7 @@ func (s *bme280) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	temp := s.readTemperatureCelsius(buffer)
 	humid := s.readHumidity(buffer)
 	dewPt := s.calculateDewPoint(temp, humid)
-	return map[string]interface{}{
+	return map[string]any{
 		"temperature_celsius":    temp,
 		"dew_point_celsius":      dewPt,
 		"temperature_fahrenheit": temp*1.8 + 32,

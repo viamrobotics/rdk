@@ -114,7 +114,7 @@ func (c *counter) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 
 // DoCommand is the only method of this component. It looks up the "real" command from the map it's passed.
 // Because of this, any arbitrary commands can be received, and any data returned.
-func (c *counter) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
+func (c *counter) DoCommand(ctx context.Context, req map[string]any) (map[string]any, error) {
 	// We look for a map key called "command"
 	cmd, ok := req["command"]
 	if !ok {
@@ -123,7 +123,7 @@ func (c *counter) DoCommand(ctx context.Context, req map[string]interface{}) (ma
 
 	// If it's "get" we return the current total.
 	if cmd == "get" {
-		return map[string]interface{}{"total": atomic.LoadInt64(&c.total)}, nil
+		return map[string]any{"total": atomic.LoadInt64(&c.total)}, nil
 	}
 
 	// If it's "add" we atomically add a second key "value" to the total.
@@ -138,7 +138,7 @@ func (c *counter) DoCommand(ctx context.Context, req map[string]interface{}) (ma
 		}
 		atomic.AddInt64(&c.total, int64(val))
 		// We return the new total after the addition.
-		return map[string]interface{}{"total": atomic.LoadInt64(&c.total)}, nil
+		return map[string]any{"total": atomic.LoadInt64(&c.total)}, nil
 	}
 	// The command must've been something else.
 	return nil, fmt.Errorf("unknown command string %s", cmd)

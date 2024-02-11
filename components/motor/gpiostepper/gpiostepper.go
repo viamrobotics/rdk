@@ -206,7 +206,7 @@ type gpioStepper struct {
 }
 
 // SetPower sets the percentage of power the motor should employ between 0-1.
-func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[string]any) error {
 	if math.Abs(powerPct) <= .0001 {
 		m.stop()
 		return nil
@@ -315,7 +315,7 @@ func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 // revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 // can be assigned negative values to move in a backwards direction. Note: if both are negative
 // the motor will spin in the forward direction.
-func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]any) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -382,7 +382,7 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 // at a specific RPM. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target.
-func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
+func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]any) error {
 	curPos, err := m.Position(ctx, extra)
 	if err != nil {
 		return errors.Wrapf(err, "error in GoTo from motor (%s)", m.Name().Name)
@@ -401,7 +401,7 @@ func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64
 }
 
 // Set the current position (+/- offset) to be the new zero (home) position.
-func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]any) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.stepPosition = int64(-1 * offset * float64(m.stepsPerRotation))
@@ -412,14 +412,14 @@ func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64, ext
 // Position reports the position of the motor based on its encoder. If it's not supported, the returned
 // data is undefined. The unit returned is the number of revolutions which is intended to be fed
 // back into calls of GoFor.
-func (m *gpioStepper) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (m *gpioStepper) Position(ctx context.Context, extra map[string]any) (float64, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return float64(m.stepPosition) / float64(m.stepsPerRotation), nil
 }
 
 // Properties returns the status of whether the motor supports certain optional properties.
-func (m *gpioStepper) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+func (m *gpioStepper) Properties(ctx context.Context, extra map[string]any) (motor.Properties, error) {
 	return motor.Properties{
 		PositionReporting: true,
 	}, nil
@@ -433,7 +433,7 @@ func (m *gpioStepper) IsMoving(ctx context.Context) (bool, error) {
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
-func (m *gpioStepper) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (m *gpioStepper) Stop(ctx context.Context, extra map[string]any) error {
 	m.stop()
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -449,7 +449,7 @@ func (m *gpioStepper) stop() {
 // IsPowered returns whether or not the motor is currently on. It also returns the percent power
 // that the motor has, but stepper motors only have this set to 0% or 100%, so it's a little
 // redundant.
-func (m *gpioStepper) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+func (m *gpioStepper) IsPowered(ctx context.Context, extra map[string]any) (bool, float64, error) {
 	on, err := m.IsMoving(ctx)
 	if err != nil {
 		return on, 0.0, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.Name().Name)

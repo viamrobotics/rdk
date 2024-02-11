@@ -62,7 +62,7 @@ func init() {
 // extrinsicsConfig is the attribute struct for aligning.
 type extrinsicsConfig struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
-	IntrinsicExtrinsic   interface{}                        `json:"camera_system"`
+	IntrinsicExtrinsic   any                                `json:"camera_system"`
 	ImageType            string                             `json:"output_image_type"`
 	Color                string                             `json:"color_camera_name"`
 	Depth                string                             `json:"depth_camera_name"`

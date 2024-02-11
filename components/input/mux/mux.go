@@ -127,7 +127,7 @@ func (m *mux) Close(ctx context.Context) error {
 }
 
 // Controls lists the unique input.Controls for the combined sources.
-func (m *mux) Controls(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
+func (m *mux) Controls(ctx context.Context, extra map[string]any) ([]input.Control, error) {
 	controlMap := make(map[input.Control]bool)
 	var ok bool
 	var errs error
@@ -154,7 +154,7 @@ func (m *mux) Controls(ctx context.Context, extra map[string]interface{}) ([]inp
 }
 
 // Events returns the last input.Event (the current state).
-func (m *mux) Events(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
+func (m *mux) Events(ctx context.Context, extra map[string]any) (map[input.Control]input.Event, error) {
 	eventsOut := make(map[input.Control]input.Event)
 	var ok bool
 	var errs error
@@ -184,7 +184,7 @@ func (m *mux) RegisterControlCallback(
 	control input.Control,
 	triggers []input.EventType,
 	ctrlFunc input.ControlFunction,
-	extra map[string]interface{},
+	extra map[string]any,
 ) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

@@ -80,7 +80,7 @@ func (b *myBase) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 }
 
 // DoCommand simply echos whatever was sent.
-func (b *myBase) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (b *myBase) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return cmd, nil
 }
 
@@ -115,22 +115,22 @@ type myBase struct {
 }
 
 // MoveStraight does nothing.
-func (b *myBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
+func (b *myBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]any) error {
 	return errUnimplemented
 }
 
 // Spin does nothing.
-func (b *myBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+func (b *myBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]any) error {
 	return errUnimplemented
 }
 
 // SetVelocity does nothing.
-func (b *myBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+func (b *myBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 	return errUnimplemented
 }
 
 // SetPower computes relative power between the wheels and sets power for both motors.
-func (b *myBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+func (b *myBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 	b.logger.CDebugf(ctx, "SetPower Linear: %.2f Angular: %.2f", linear.Y, angular.Z)
 	if math.Abs(linear.Y) < 0.01 && math.Abs(angular.Z) < 0.01 {
 		return b.Stop(ctx, extra)
@@ -142,7 +142,7 @@ func (b *myBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra 
 }
 
 // Stop halts motion.
-func (b *myBase) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (b *myBase) Stop(ctx context.Context, extra map[string]any) error {
 	b.logger.CDebug(ctx, "Stop")
 	err1 := b.left.Stop(ctx, extra)
 	err2 := b.right.Stop(ctx, extra)
@@ -164,7 +164,7 @@ func (b *myBase) IsMoving(ctx context.Context) (bool, error) {
 }
 
 // Properties returns details about the physics of the base.
-func (b *myBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+func (b *myBase) Properties(ctx context.Context, extra map[string]any) (base.Properties, error) {
 	return base.Properties{
 		TurningRadiusMeters: myBaseTurningRadiusM,
 		WidthMeters:         myBaseWidthMm * 0.001, // converting millimeters to meters
@@ -172,7 +172,7 @@ func (b *myBase) Properties(ctx context.Context, extra map[string]interface{}) (
 }
 
 // Geometries returns physical dimensions.
-func (b *myBase) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+func (b *myBase) Geometries(ctx context.Context, extra map[string]any) ([]spatialmath.Geometry, error) {
 	return b.geometries, nil
 }
 

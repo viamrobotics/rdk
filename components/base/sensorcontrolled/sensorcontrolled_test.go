@@ -92,7 +92,7 @@ func TestSpinWithMSMath(t *testing.T) {
 
 	for _, yaw := range yaws {
 		ms := &inject.MovementSensor{
-			OrientationFunc: func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+			OrientationFunc: func(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 				return &spatialmath.EulerAngles{Yaw: yaw}, nil
 			},
 		}
@@ -256,11 +256,11 @@ func TestHasOverShot(t *testing.T) {
 
 func TestSpinWithMovementSensor(t *testing.T) {
 	ms := inject.NewMovementSensor("spinny")
-	ms.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+	ms.OrientationFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 		return spatialmath.NewZeroOrientation(), nil
 	}
 	wb := inject.NewBase("fakey-basey")
-	wb.SetVelocityFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+	wb.SetVelocityFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 		return nil
 	}
 
@@ -304,11 +304,11 @@ func createDependencies(t *testing.T) resource.Dependencies {
 	counter := 0
 
 	deps[movementsensor.Named("ms")] = &inject.MovementSensor{
-		PropertiesFuncExtraCap: map[string]interface{}{},
-		PropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+		PropertiesFuncExtraCap: map[string]any{},
+		PropertiesFunc: func(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 			return &movementsensor.Properties{OrientationSupported: true}, nil
 		},
-		OrientationFunc: func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+		OrientationFunc: func(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 			counter++
 			return &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: utils.RadToDeg(float64(counter))}, nil
 		},
@@ -322,13 +322,13 @@ func createDependencies(t *testing.T) resource.Dependencies {
 func addBaseDependency(deps resource.Dependencies) resource.Dependencies {
 	deps[base.Named(("test_base"))] = &inject.Base{
 		DoFunc: testutils.EchoFunc,
-		MoveStraightFunc: func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
+		MoveStraightFunc: func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]any) error {
 			return nil
 		},
-		SpinFunc: func(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+		SpinFunc: func(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]any) error {
 			return nil
 		},
-		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
+		StopFunc: func(ctx context.Context, extra map[string]any) error {
 			return nil
 		},
 		IsMovingFunc: func(context.Context) (bool, error) {
@@ -337,13 +337,13 @@ func addBaseDependency(deps resource.Dependencies) resource.Dependencies {
 		CloseFunc: func(ctx context.Context) error {
 			return nil
 		},
-		SetPowerFunc: func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+		SetPowerFunc: func(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 			return nil
 		},
-		SetVelocityFunc: func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+		SetVelocityFunc: func(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 			return nil
 		},
-		PropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+		PropertiesFunc: func(ctx context.Context, extra map[string]any) (base.Properties, error) {
 			return base.Properties{
 				TurningRadiusMeters: 0.1,
 				WidthMeters:         0.1,
@@ -433,7 +433,7 @@ func msDependencies(t *testing.T, msNames []string,
 		ms := inject.NewMovementSensor(msName)
 		switch {
 		case strings.Contains(msName, "orientation"):
-			ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+			ms.PropertiesFunc = func(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 				return &movementsensor.Properties{
 					OrientationSupported: true,
 				}, nil
@@ -441,7 +441,7 @@ func msDependencies(t *testing.T, msNames []string,
 			deps[movementsensor.Named(msName)] = ms
 
 		case strings.Contains(msName, "setvel"):
-			ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+			ms.PropertiesFunc = func(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 				return &movementsensor.Properties{
 					AngularVelocitySupported: true,
 					LinearVelocitySupported:  true,
@@ -450,7 +450,7 @@ func msDependencies(t *testing.T, msNames []string,
 			deps[movementsensor.Named(msName)] = ms
 
 		case strings.Contains(msName, "Bad"):
-			ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+			ms.PropertiesFunc = func(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 				return &movementsensor.Properties{
 					OrientationSupported:     true,
 					AngularVelocitySupported: true,

@@ -197,7 +197,7 @@ func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 		td := getTensorInfo(outputT)
 		td.DataType = strings.ToLower(m.model.Info.OutputTensorTypes[i]) // grab from model info, not metadata
 		if i == 0 && m.conf.LabelPath != "" {
-			td.Extra = map[string]interface{}{"labels": m.conf.LabelPath}
+			td.Extra = map[string]any{"labels": m.conf.LabelPath}
 		}
 		outputList = append(outputList, td)
 	}
@@ -220,7 +220,7 @@ func getTensorInfo(inputT *tflite_metadata.TensorMetadataT) mlmodel.TensorInfo {
 	// Add bounding box info to Extra
 	if strings.Contains(inputT.Name, "location") && inputT.Content.ContentProperties.Value != nil {
 		if order, ok := inputT.Content.ContentProperties.Value.(*tflite_metadata.BoundingBoxPropertiesT); ok {
-			td.Extra = map[string]interface{}{
+			td.Extra = map[string]any{
 				"boxOrder": order.Index,
 			}
 		}
@@ -270,7 +270,7 @@ func (m *Model) blindFillMetadata() mlmodel.MLMetadata {
 		var td mlmodel.TensorInfo
 		td.DataType = strings.ToLower(m.model.Info.OutputTensorTypes[i])
 		if i == 0 && m.conf.LabelPath != "" {
-			td.Extra = map[string]interface{}{"labels": m.conf.LabelPath}
+			td.Extra = map[string]any{"labels": m.conf.LabelPath}
 		}
 		outputList = append(outputList, td)
 	}

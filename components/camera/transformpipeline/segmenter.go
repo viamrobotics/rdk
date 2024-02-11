@@ -82,7 +82,7 @@ func (ss *segmenterSource) NextPointCloud(ctx context.Context) (pointcloud.Point
 	}
 
 	// apply service
-	clouds, err := srv.GetObjectPointClouds(ctx, ss.cameraName, map[string]interface{}{})
+	clouds, err := srv.GetObjectPointClouds(ctx, ss.cameraName, map[string]any{})
 	if err != nil {
 		return nil, fmt.Errorf("could not get point clouds: %w", err)
 	}

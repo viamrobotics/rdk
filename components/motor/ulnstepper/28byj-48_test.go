@@ -337,7 +337,7 @@ type mockGPIOPin struct {
 	pinStates []bool
 }
 
-func (m *mockGPIOPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
+func (m *mockGPIOPin) Set(ctx context.Context, high bool, extra map[string]any) error {
 	m.pinStates = append(m.pinStates, high)
 	return nil
 }

@@ -290,7 +290,7 @@ func (e *Encoder) Start(ctx context.Context) {
 func (e *Encoder) Position(
 	ctx context.Context,
 	positionType encoder.PositionType,
-	extra map[string]interface{},
+	extra map[string]any,
 ) (float64, encoder.PositionType, error) {
 	if positionType == encoder.PositionTypeDegrees {
 		return math.NaN(), encoder.PositionTypeUnspecified, encoder.NewPositionTypeUnsupportedError(positionType)
@@ -301,14 +301,14 @@ func (e *Encoder) Position(
 
 // ResetPosition sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position.
-func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
+func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]any) error {
 	atomic.StoreInt64(&e.position, 0)
 	atomic.StoreInt64(&e.pRaw, atomic.LoadInt64(&e.pRaw)&0x1)
 	return nil
 }
 
 // Properties returns a list of all the position types that are supported by a given encoder.
-func (e *Encoder) Properties(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
+func (e *Encoder) Properties(ctx context.Context, extra map[string]any) (encoder.Properties, error) {
 	return encoder.Properties{
 		TicksCountSupported:   true,
 		AngleDegreesSupported: false,

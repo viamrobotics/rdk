@@ -29,7 +29,7 @@ func TestStatusValid(t *testing.T) {
 		t,
 		newStruct.AsMap(),
 		test.ShouldResemble,
-		map[string]interface{}{"is_powered": true, "position": 7.7, "is_moving": true},
+		map[string]any{"is_powered": true, "position": 7.7, "is_moving": true},
 	)
 
 	convMap := &pb.Status{}
@@ -42,7 +42,7 @@ func TestStatusValid(t *testing.T) {
 	status = &pb.Status{Position: 7.7}
 	newStruct, err = protoutils.StructToStructPb(status)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, newStruct.AsMap(), test.ShouldResemble, map[string]interface{}{"position": 7.7})
+	test.That(t, newStruct.AsMap(), test.ShouldResemble, map[string]any{"position": 7.7})
 
 	convMap = &pb.Status{}
 	decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -56,13 +56,13 @@ func TestCreateStatus(t *testing.T) {
 	status := &pb.Status{IsPowered: true, Position: 7.7, IsMoving: true}
 
 	injectMotor := &inject.Motor{}
-	injectMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+	injectMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]any) (bool, float64, error) {
 		return status.IsPowered, 1.0, nil
 	}
-	injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+	injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]any) (motor.Properties, error) {
 		return motor.Properties{PositionReporting: true}, nil
 	}
-	injectMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	injectMotor.PositionFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		return status.Position, nil
 	}
 	injectMotor.IsMovingFunc = func(context.Context) (bool, error) {
@@ -95,7 +95,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on Position", func(t *testing.T) {
 		errFail := errors.New("can't get position")
-		injectMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		injectMotor.PositionFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 			return 0, errFail
 		}
 		_, err := motor.CreateStatus(context.Background(), injectMotor)
@@ -103,7 +103,7 @@ func TestCreateStatus(t *testing.T) {
 	})
 
 	t.Run("position not supported", func(t *testing.T) {
-		injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+		injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]any) (motor.Properties, error) {
 			return motor.Properties{PositionReporting: false}, nil
 		}
 
@@ -114,7 +114,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on Properties", func(t *testing.T) {
 		errFail := errors.New("can't get properties")
-		injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+		injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]any) (motor.Properties, error) {
 			return motor.Properties{}, errFail
 		}
 		_, err := motor.CreateStatus(context.Background(), injectMotor)
@@ -123,7 +123,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on IsPowered", func(t *testing.T) {
 		errFail := errors.New("can't get is powered")
-		injectMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+		injectMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]any) (bool, float64, error) {
 			return false, 0.0, errFail
 		}
 		_, err := motor.CreateStatus(context.Background(), injectMotor)

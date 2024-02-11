@@ -410,13 +410,13 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	return nil
 }
 
-func (svc *builtIn) Mode(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
+func (svc *builtIn) Mode(ctx context.Context, extra map[string]any) (navigation.Mode, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.mode, nil
 }
 
-func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error {
+func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map[string]any) error {
 	svc.actionMu.Lock()
 	defer svc.actionMu.Unlock()
 
@@ -457,7 +457,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	return nil
 }
 
-func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
+func (svc *builtIn) Location(ctx context.Context, extra map[string]any) (*spatialmath.GeoPose, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 
@@ -476,7 +476,7 @@ func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) 
 	return geoPose, err
 }
 
-func (svc *builtIn) Waypoints(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
+func (svc *builtIn) Waypoints(ctx context.Context, extra map[string]any) ([]navigation.Waypoint, error) {
 	wps, err := svc.store.Waypoints(ctx)
 	if err != nil {
 		return nil, err
@@ -486,13 +486,13 @@ func (svc *builtIn) Waypoints(ctx context.Context, extra map[string]interface{})
 	return wpsCopy, nil
 }
 
-func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
+func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]any) error {
 	svc.logger.CInfof(ctx, "AddWaypoint called with %#v", *point)
 	_, err := svc.store.AddWaypoint(ctx, point)
 	return err
 }
 
-func (svc *builtIn) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
+func (svc *builtIn) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]any) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	svc.logger.CInfof(ctx, "RemoveWaypoint called with waypointID: %s", id)
@@ -531,7 +531,7 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	return svc.store.Close(ctx)
 }
 
-func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, extra map[string]interface{}) error {
+func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, extra map[string]any) error {
 	req := motion.MoveOnGlobeReq{
 		ComponentName:      svc.base.Name(),
 		Destination:        wp.ToPoint(),
@@ -585,9 +585,9 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 	return svc.waypointReached(cancelCtx)
 }
 
-func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]interface{}) {
+func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]any) {
 	if extra == nil {
-		extra = map[string]interface{}{}
+		extra = map[string]any{}
 	}
 
 	extra["motion_profile"] = "position_only"
@@ -638,7 +638,7 @@ func (svc *builtIn) waypointIsDeleted() bool {
 	return svc.waypointInProgress == nil
 }
 
-func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]any) ([]*spatialmath.GeoObstacle, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 
@@ -799,7 +799,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 	return geoObstacles, nil
 }
 
-func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+func (svc *builtIn) Paths(ctx context.Context, extra map[string]any) ([]*navigation.Path, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 

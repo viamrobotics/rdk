@@ -259,7 +259,7 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, len(statuses), test.ShouldEqual, expectedStatusLength)
 
 	for idx := 0; idx < expectedStatusLength; idx++ {
-		test.That(t, statuses[idx].Status, test.ShouldResemble, map[string]interface{}{})
+		test.That(t, statuses[idx].Status, test.ShouldResemble, map[string]any{})
 		// Assert that last reconfigured values are within last hour (remote
 		// recently configured all three resources).
 		lr := statuses[idx].LastReconfigured
@@ -509,8 +509,8 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(statuses), test.ShouldEqual, 2)
-			test.That(t, statuses[0].Status, test.ShouldResemble, map[string]interface{}{})
-			test.That(t, statuses[1].Status, test.ShouldResemble, map[string]interface{}{})
+			test.That(t, statuses[0].Status, test.ShouldResemble, map[string]any{})
+			test.That(t, statuses[1].Status, test.ShouldResemble, map[string]any{})
 
 			statuses, err = r2.Status(
 				context.Background(), []resource.Name{arm.Named("bar:pieceArm"), arm.Named("foo:pieceArm")},
@@ -703,7 +703,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	statuses, err := r2.Status(context.Background(), []resource.Name{movementsensor.Named("foo:movement_sensor1")})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 1)
-	test.That(t, statuses[0].Status, test.ShouldResemble, map[string]interface{}{})
+	test.That(t, statuses[0].Status, test.ShouldResemble, map[string]any{})
 
 	statuses, err = r2.Status(context.Background(), []resource.Name{arm.Named("foo:pieceArm")})
 	test.That(t, err, test.ShouldBeNil)
@@ -727,7 +727,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 type dummyArm struct {
 	arm.Arm
 	stopCount int
-	extra     map[string]interface{}
+	extra     map[string]any
 	channel   chan struct{}
 }
 
@@ -738,26 +738,26 @@ func (da *dummyArm) Name() resource.Name {
 func (da *dummyArm) MoveToPosition(
 	ctx context.Context,
 	pose spatialmath.Pose,
-	extra map[string]interface{},
+	extra map[string]any,
 ) error {
 	return nil
 }
 
-func (da *dummyArm) MoveToJointPositions(ctx context.Context, positionDegs *armpb.JointPositions, extra map[string]interface{}) error {
+func (da *dummyArm) MoveToJointPositions(ctx context.Context, positionDegs *armpb.JointPositions, extra map[string]any) error {
 	return nil
 }
 
-func (da *dummyArm) JointPositions(ctx context.Context, extra map[string]interface{}) (*armpb.JointPositions, error) {
+func (da *dummyArm) JointPositions(ctx context.Context, extra map[string]any) (*armpb.JointPositions, error) {
 	return nil, errors.New("fake error")
 }
 
-func (da *dummyArm) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (da *dummyArm) Stop(ctx context.Context, extra map[string]any) error {
 	da.stopCount++
 	da.extra = extra
 	return nil
 }
 
-func (da *dummyArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (da *dummyArm) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	close(da.channel)
 	<-ctx.Done()
 	return nil, ctx.Err()
@@ -824,14 +824,14 @@ func TestStopAll(t *testing.T) {
 	test.That(t, dummyArm1.extra, test.ShouldBeNil)
 	test.That(t, dummyArm2.extra, test.ShouldBeNil)
 
-	err = r.StopAll(ctx, map[resource.Name]map[string]interface{}{arm.Named("arm2"): {"foo": "bar"}})
+	err = r.StopAll(ctx, map[resource.Name]map[string]any{arm.Named("arm2"): {"foo": "bar"}})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, dummyArm1.stopCount, test.ShouldEqual, 1)
 	test.That(t, dummyArm2.stopCount, test.ShouldEqual, 1)
 
 	test.That(t, dummyArm1.extra, test.ShouldBeNil)
-	test.That(t, dummyArm2.extra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+	test.That(t, dummyArm2.extra, test.ShouldResemble, map[string]any{"foo": "bar"})
 
 	// Test OPID cancellation
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
@@ -854,7 +854,7 @@ func TestStopAll(t *testing.T) {
 			}
 		}
 	}()
-	_, err = arm1.DoCommand(ctx, map[string]interface{}{})
+	_, err = arm1.DoCommand(ctx, map[string]any{})
 	s, isGRPCErr := status.FromError(err)
 	test.That(t, isGRPCErr, test.ShouldBeTrue)
 	test.That(t, s.Code(), test.ShouldEqual, codes.Canceled)
@@ -996,17 +996,17 @@ func TestSensorsService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	sensorNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
-	foundSensors, err := svc.Sensors(context.Background(), map[string]interface{}{})
+	foundSensors, err := svc.Sensors(context.Background(), map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rtestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rtestutils.NewResourceNameSet(sensorNames...))
 
-	readings, err := svc.Readings(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")}, map[string]interface{}{})
+	readings, err := svc.Readings(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")}, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(readings), test.ShouldEqual, 1)
 	test.That(t, readings[0].Name, test.ShouldResemble, movementsensor.Named("movement_sensor1"))
 	test.That(t, len(readings[0].Readings), test.ShouldBeGreaterThan, 3)
 
-	readings, err = svc.Readings(context.Background(), sensorNames, map[string]interface{}{})
+	readings, err = svc.Readings(context.Background(), sensorNames, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(readings), test.ShouldEqual, 2)
 
@@ -1026,9 +1026,9 @@ func TestStatusService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	armStatus, err := arm.CreateStatus(context.Background(), rArm)
 	test.That(t, err, test.ShouldBeNil)
-	expected := map[resource.Name]interface{}{
+	expected := map[resource.Name]any{
 		arm.Named("pieceArm"):                    armStatus,
-		movementsensor.Named("movement_sensor1"): map[string]interface{}{},
+		movementsensor.Named("movement_sensor1"): map[string]any{},
 	}
 
 	statuses, err := r.Status(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")})
@@ -1060,20 +1060,20 @@ func TestStatus(t *testing.T) {
 	failAPI := resource.APINamespace("acme").WithComponentType("fail")
 	fail1 := resource.NewName(failAPI, "fail1")
 
-	workingStatus := map[string]interface{}{"position": "up"}
+	workingStatus := map[string]any{"position": "up"}
 	errFailed := errors.New("can't get status")
 
 	resource.RegisterAPI(
 		workingAPI,
 		resource.APIRegistration[resource.Resource]{
-			Status: func(ctx context.Context, res resource.Resource) (interface{}, error) { return workingStatus, nil },
+			Status: func(ctx context.Context, res resource.Resource) (any, error) { return workingStatus, nil },
 		},
 	)
 
 	resource.RegisterAPI(
 		failAPI,
 		resource.APIRegistration[resource.Resource]{
-			Status: func(ctx context.Context, res resource.Resource) (interface{}, error) { return nil, errFailed },
+			Status: func(ctx context.Context, res resource.Resource) (any, error) { return nil, errFailed },
 		},
 	)
 	defer func() {
@@ -1081,7 +1081,7 @@ func TestStatus(t *testing.T) {
 		resource.DeregisterAPI(failAPI)
 	}()
 
-	expectedRobotStatus := robot.Status{Name: button1, Status: map[string]interface{}{}}
+	expectedRobotStatus := robot.Status{Name: button1, Status: map[string]any{}}
 	logger := logging.NewTestLogger(t)
 	resourceNames := []resource.Name{working1, button1, fail1}
 	resourceMap := map[resource.Name]resource.Resource{
@@ -1130,9 +1130,9 @@ func TestStatus(t *testing.T) {
 	})
 
 	t.Run("many status", func(t *testing.T) {
-		expected := map[resource.Name]interface{}{
+		expected := map[resource.Name]any{
 			working1: workingStatus,
-			button1:  map[string]interface{}{},
+			button1:  map[string]any{},
 		}
 		r, err := robotimpl.RobotFromResources(context.Background(), resourceMap, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -1172,9 +1172,9 @@ func TestStatus(t *testing.T) {
 			working1: rtestutils.NewUnimplementedResource(working1),
 			button1:  rtestutils.NewUnimplementedResource(button1),
 		}
-		expected := map[resource.Name]interface{}{
+		expected := map[resource.Name]any{
 			working1: workingStatus,
-			button1:  map[string]interface{}{},
+			button1:  map[string]any{},
 		}
 		r, err := robotimpl.RobotFromResources(context.Background(), workingResourceMap, logger)
 		defer func() {
@@ -2177,7 +2177,7 @@ func TestReconnectRemote(t *testing.T) {
 	test.That(t, a, test.ShouldNotBeNil)
 	anArm, ok := a.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
+	_, err = anArm.EndPosition(context.Background(), map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 
 	// close/disconnect the robot
@@ -2189,7 +2189,7 @@ func TestReconnectRemote(t *testing.T) {
 		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 3)
 	})
 	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 3)
-	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
+	_, err = anArm.EndPosition(context.Background(), map[string]any{})
 	test.That(t, err, test.ShouldBeError)
 
 	// reconnect the first robot
@@ -2215,7 +2215,7 @@ func TestReconnectRemote(t *testing.T) {
 
 	_, err = robotClient.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
+	_, err = anArm.EndPosition(context.Background(), map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -2290,7 +2290,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	test.That(t, a, test.ShouldNotBeNil)
 	anArm, ok := a.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
+	_, err = anArm.EndPosition(context.Background(), map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 
 	// close/disconnect the robot
@@ -2302,7 +2302,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 3)
 	})
 	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 3)
-	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
+	_, err = anArm.EndPosition(context.Background(), map[string]any{})
 	test.That(t, err, test.ShouldBeError)
 
 	// reconnect the first robot
@@ -2336,7 +2336,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 7)
 	})
 	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 7)
-	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
+	_, err = anArm.EndPosition(context.Background(), map[string]any{})
 	test.That(t, err, test.ShouldBeError)
 
 	// check that base is now instantiated
@@ -2348,7 +2348,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	aBase, ok := b.(base.Base)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	err = aBase.Stop(ctx, map[string]interface{}{})
+	err = aBase.Stop(ctx, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(robotClient.ResourceNames()), test.ShouldEqual, 7)
@@ -2759,7 +2759,7 @@ func TestOrphanedResources(t *testing.T) {
 		// helper 'h' a couple seconds after third restart attempt.
 		err = os.Rename(testPath, testPath+".disabled")
 		test.That(t, err, test.ShouldBeNil)
-		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"error reading from server")
@@ -2803,7 +2803,7 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		err = os.Rename(tmpPath, testPath)
 		test.That(t, err, test.ShouldBeNil)
-		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"error reading from server")
@@ -2845,8 +2845,8 @@ type doodad struct {
 
 // doThroughGizmo calls the underlying gizmo's DoCommand.
 func (d *doodad) doThroughGizmo(ctx context.Context,
-	cmd map[string]interface{},
-) (map[string]interface{}, error) {
+	cmd map[string]any,
+) (map[string]any, error) {
 	return d.gizmo.DoCommand(ctx, cmd)
 }
 
@@ -3020,7 +3020,7 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 	// Assert that doodad 'd' can make gRPC calls through underlying 'g'.
 	doodadD, ok := d.(*doodad)
 	test.That(t, ok, test.ShouldBeTrue)
-	cmd := map[string]interface{}{"foo": "bar"}
+	cmd := map[string]any{"foo": "bar"}
 	resp, err := doodadD.doThroughGizmo(ctx, cmd)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)

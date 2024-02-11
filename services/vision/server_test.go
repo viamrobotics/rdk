@@ -49,7 +49,7 @@ func TestVisionServerFailures(t *testing.T) {
 	// correct server with error returned
 	injectVS := &inject.VisionService{}
 	passedErr := errors.New("fake error")
-	injectVS.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error) {
+	injectVS.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]any) ([]objectdetection.Detection, error) {
 		return nil, passedErr
 	}
 	m = map[resource.Name]vision.Service{
@@ -75,7 +75,7 @@ func TestServerGetDetections(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	imgBytes, err := rimage.EncodeImage(context.Background(), img, utils.MimeTypeJPEG)
 	test.That(t, err, test.ShouldBeNil)
-	extra := map[string]interface{}{"foo": "GetDetections"}
+	extra := map[string]any{"foo": "GetDetections"}
 	ext, err := protoutils.StructToStructPb(extra)
 	detectRequest := &pb.GetDetectionsRequest{
 		Name:     testVisionServiceName,
@@ -85,7 +85,7 @@ func TestServerGetDetections(t *testing.T) {
 		MimeType: utils.MimeTypeJPEG,
 		Extra:    ext,
 	}
-	injectVS.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error) {
+	injectVS.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]any) ([]objectdetection.Detection, error) {
 		det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
 		return []objectdetection.Detection{det1}, nil
 	}

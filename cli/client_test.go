@@ -112,7 +112,7 @@ func TestListOrganizationsAction(t *testing.T) {
 }
 
 func TestTabularDataByFilterAction(t *testing.T) {
-	pbStruct, err := protoutils.StructToStructPb(map[string]interface{}{"bool": true, "string": "true", "float": float64(1)})
+	pbStruct, err := protoutils.StructToStructPb(map[string]any{"bool": true, "string": "true", "float": float64(1)})
 	test.That(t, err, test.ShouldBeNil)
 
 	// calls to `TabularDataByFilter` will repeat so long as data continue to be returned,

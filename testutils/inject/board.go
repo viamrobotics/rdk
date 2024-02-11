@@ -15,20 +15,20 @@ import (
 type Board struct {
 	board.Board
 	name                       resource.Name
-	DoFunc                     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	DoFunc                     func(ctx context.Context, cmd map[string]any) (map[string]any, error)
 	AnalogReaderByNameFunc     func(name string) (board.AnalogReader, bool)
-	analogReaderByNameCap      []interface{}
+	analogReaderByNameCap      []any
 	DigitalInterruptByNameFunc func(name string) (board.DigitalInterrupt, bool)
-	digitalInterruptByNameCap  []interface{}
+	digitalInterruptByNameCap  []any
 	GPIOPinByNameFunc          func(name string) (board.GPIOPin, error)
-	gpioPinByNameCap           []interface{}
+	gpioPinByNameCap           []any
 	AnalogReaderNamesFunc      func() []string
 	DigitalInterruptNamesFunc  func() []string
 	CloseFunc                  func(ctx context.Context) error
-	StatusFunc                 func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error)
-	statusCap                  []interface{}
+	StatusFunc                 func(ctx context.Context, extra map[string]any) (*commonpb.BoardStatus, error)
+	statusCap                  []any
 	SetPowerModeFunc           func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error
-	WriteAnalogFunc            func(ctx context.Context, pin string, value int32, extra map[string]interface{}) error
+	WriteAnalogFunc            func(ctx context.Context, pin string, value int32, extra map[string]any) error
 }
 
 // NewBoard returns a new injected board.
@@ -43,7 +43,7 @@ func (b *Board) Name() resource.Name {
 
 // AnalogReaderByName calls the injected AnalogReaderByName or the real version.
 func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
-	b.analogReaderByNameCap = []interface{}{name}
+	b.analogReaderByNameCap = []any{name}
 	if b.AnalogReaderByNameFunc == nil {
 		return b.Board.AnalogReaderByName(name)
 	}
@@ -51,7 +51,7 @@ func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 }
 
 // AnalogReaderByNameCap returns the last parameters received by AnalogReaderByName, and then clears them.
-func (b *Board) AnalogReaderByNameCap() []interface{} {
+func (b *Board) AnalogReaderByNameCap() []any {
 	if b == nil {
 		return nil
 	}
@@ -61,7 +61,7 @@ func (b *Board) AnalogReaderByNameCap() []interface{} {
 
 // DigitalInterruptByName calls the injected DigitalInterruptByName or the real version.
 func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
-	b.digitalInterruptByNameCap = []interface{}{name}
+	b.digitalInterruptByNameCap = []any{name}
 	if b.DigitalInterruptByNameFunc == nil {
 		return b.Board.DigitalInterruptByName(name)
 	}
@@ -69,7 +69,7 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, boo
 }
 
 // DigitalInterruptByNameCap returns the last parameters received by DigitalInterruptByName, and then clears them.
-func (b *Board) DigitalInterruptByNameCap() []interface{} {
+func (b *Board) DigitalInterruptByNameCap() []any {
 	if b == nil {
 		return nil
 	}
@@ -79,7 +79,7 @@ func (b *Board) DigitalInterruptByNameCap() []interface{} {
 
 // GPIOPinByName calls the injected GPIOPinByName or the real version.
 func (b *Board) GPIOPinByName(name string) (board.GPIOPin, error) {
-	b.gpioPinByNameCap = []interface{}{name}
+	b.gpioPinByNameCap = []any{name}
 	if b.GPIOPinByNameFunc == nil {
 		return b.Board.GPIOPinByName(name)
 	}
@@ -87,7 +87,7 @@ func (b *Board) GPIOPinByName(name string) (board.GPIOPin, error) {
 }
 
 // GPIOPinByNameCap returns the last parameters received by GPIOPinByName, and then clears them.
-func (b *Board) GPIOPinByNameCap() []interface{} {
+func (b *Board) GPIOPinByNameCap() []any {
 	if b == nil {
 		return nil
 	}
@@ -123,8 +123,8 @@ func (b *Board) Close(ctx context.Context) error {
 }
 
 // Status calls the injected Status or the real version.
-func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	b.statusCap = []interface{}{ctx}
+func (b *Board) Status(ctx context.Context, extra map[string]any) (*commonpb.BoardStatus, error) {
+	b.statusCap = []any{ctx}
 	if b.StatusFunc == nil {
 		return b.Board.Status(ctx, extra)
 	}
@@ -132,7 +132,7 @@ func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*comm
 }
 
 // StatusCap returns the last parameters received by Status, and then clears them.
-func (b *Board) StatusCap() []interface{} {
+func (b *Board) StatusCap() []any {
 	if b == nil {
 		return nil
 	}
@@ -141,7 +141,7 @@ func (b *Board) StatusCap() []interface{} {
 }
 
 // DoCommand calls the injected DoCommand or the real version.
-func (b *Board) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (b *Board) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	if b.DoFunc == nil {
 		return b.Board.DoCommand(ctx, cmd)
 	}
@@ -159,7 +159,7 @@ func (b *Board) SetPowerMode(ctx context.Context, mode boardpb.PowerMode, durati
 }
 
 // WriteAnalog calls the injected WriteAnalog or the real version.
-func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]any) error {
 	if b.WriteAnalogFunc == nil {
 		return b.Board.WriteAnalog(ctx, pin, value, extra)
 	}

@@ -21,7 +21,7 @@ type testReader struct {
 	stop bool
 }
 
-func (t *testReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (t *testReader) Read(ctx context.Context, extra map[string]any) (int, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.stop || t.n >= t.lim {

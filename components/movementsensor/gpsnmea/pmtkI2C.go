@@ -208,7 +208,7 @@ func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (buses.I2C, byte) {
 }
 
 // Position returns the current geographic location of the MovementSensor.
-func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 	lastPosition := g.lastPosition.GetLastPosition()
 
 	g.mu.RLock()
@@ -239,7 +239,7 @@ func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[stri
 }
 
 // Accuracy returns the accuracy, hDOP and vDOP.
-func (g *PmtkI2CNMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
+func (g *PmtkI2CNMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]any) (*movementsensor.Accuracy, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	acc := movementsensor.Accuracy{
@@ -253,7 +253,7 @@ func (g *PmtkI2CNMEAMovementSensor) Accuracy(ctx context.Context, extra map[stri
 }
 
 // LinearVelocity returns the current speed of the MovementSensor.
-func (g *PmtkI2CNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (g *PmtkI2CNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	if math.IsNaN(g.data.CompassHeading) {
@@ -267,7 +267,7 @@ func (g *PmtkI2CNMEAMovementSensor) LinearVelocity(ctx context.Context, extra ma
 }
 
 // LinearAcceleration returns the current linear acceleration of the MovementSensor.
-func (g *PmtkI2CNMEAMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (g *PmtkI2CNMEAMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
@@ -276,7 +276,7 @@ func (g *PmtkI2CNMEAMovementSensor) LinearAcceleration(ctx context.Context, extr
 // AngularVelocity not supported.
 func (g *PmtkI2CNMEAMovementSensor) AngularVelocity(
 	ctx context.Context,
-	extra map[string]interface{},
+	extra map[string]any,
 ) (spatialmath.AngularVelocity, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -284,7 +284,7 @@ func (g *PmtkI2CNMEAMovementSensor) AngularVelocity(
 }
 
 // CompassHeading returns the compass heading in degree (0->360).
-func (g *PmtkI2CNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (g *PmtkI2CNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]any) (float64, error) {
 	lastHeading := g.lastCompassHeading.GetLastCompassHeading()
 
 	g.mu.RLock()
@@ -304,14 +304,14 @@ func (g *PmtkI2CNMEAMovementSensor) CompassHeading(ctx context.Context, extra ma
 }
 
 // Orientation not supporter.
-func (g *PmtkI2CNMEAMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+func (g *PmtkI2CNMEAMovementSensor) Orientation(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return nil, movementsensor.ErrMethodUnimplementedOrientation
 }
 
 // Properties what can I do!
-func (g *PmtkI2CNMEAMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+func (g *PmtkI2CNMEAMovementSensor) Properties(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
 		PositionSupported:       true,
@@ -334,7 +334,7 @@ func (g *PmtkI2CNMEAMovementSensor) ReadSatsInView(ctx context.Context) (int, er
 }
 
 // Readings will use return all of the MovementSensor Readings.
-func (g *PmtkI2CNMEAMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (g *PmtkI2CNMEAMovementSensor) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	readings, err := movementsensor.DefaultAPIReadings(ctx, g, extra)
 	if err != nil {
 		return nil, err

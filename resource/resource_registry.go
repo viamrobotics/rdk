@@ -47,7 +47,7 @@ type (
 	// (or it should be possible to decompose it into string keys) and values comprised of primitives, list of primitives,
 	// maps with string keys (or at least can be decomposed into one), or lists of the aforementioned type of maps.
 	// Results with other types of data are not guaranteed.
-	CreateStatus[ResourceT Resource] func(ctx context.Context, res ResourceT) (interface{}, error)
+	CreateStatus[ResourceT Resource] func(ctx context.Context, res ResourceT) (any, error)
 
 	// A CreateRPCClient will create the client for the resource.
 	CreateRPCClient[ResourceT Resource] func(
@@ -63,7 +63,7 @@ type (
 
 	// LinkAssocationConfig allows one resource to associate a specific association config
 	// to its own config. This is generally done by a specific resource (e.g. data capture of many components).
-	LinkAssocationConfig[ConfigT any] func(conf ConfigT, resAssociation interface{}) error
+	LinkAssocationConfig[ConfigT any] func(conf ConfigT, resAssociation any) error
 )
 
 // A DependencyNotReadyError is used whenever we reference a dependency that has not been
@@ -153,7 +153,7 @@ func (r Registration[ResourceT, ConfigT]) ConfigReflectType() reflect.Type {
 // APIRegistration stores api-specific functions and clients.
 type APIRegistration[ResourceT Resource] struct {
 	Status                      CreateStatus[ResourceT]
-	RPCServiceServerConstructor func(apiColl APIResourceCollection[ResourceT]) interface{}
+	RPCServiceServerConstructor func(apiColl APIResourceCollection[ResourceT]) any
 	RPCServiceHandler           rpc.RegisterServiceHandlerFromEndpointFunc
 	RPCServiceDesc              *grpc.ServiceDesc
 	ReflectRPCServiceDesc       *desc.ServiceDescriptor
@@ -165,7 +165,7 @@ type APIRegistration[ResourceT Resource] struct {
 
 	MakeEmptyCollection func() APIResourceCollection[Resource]
 
-	typedVersion interface{} // the registry guarantees the type safety here
+	typedVersion any // the registry guarantees the type safety here
 }
 
 // RegisterRPCService registers this api into the given RPC server.
@@ -331,7 +331,7 @@ func makeGenericResourceRegistration[ResourceT Resource, ConfigT ConfigValidator
 		}
 	}
 	if typed.AssociatedConfigLinker != nil {
-		reg.AssociatedConfigLinker = func(conf ConfigValidator, resAssociation interface{}) error {
+		reg.AssociatedConfigLinker = func(conf ConfigValidator, resAssociation any) error {
 			typedConf, err := utils.AssertType[ConfigT](conf)
 			if err != nil {
 				return err
@@ -499,7 +499,7 @@ func makeGenericAPIRegistration[ResourceT Resource](
 		},
 	}
 	if typed.Status != nil {
-		reg.Status = func(ctx context.Context, res Resource) (interface{}, error) {
+		reg.Status = func(ctx context.Context, res Resource) (any, error) {
 			typedRes, err := AsType[ResourceT](res)
 			if err != nil {
 				return nil, err
@@ -510,7 +510,7 @@ func makeGenericAPIRegistration[ResourceT Resource](
 	if typed.RPCServiceServerConstructor != nil {
 		reg.RPCServiceServerConstructor = func(
 			coll APIResourceCollection[Resource],
-		) interface{} {
+		) any {
 			// it will always be this type since we are the only ones who can make
 			// a generic resource api registration.
 			genericColl, err := utils.AssertType[genericSubypeCollection[ResourceT]](coll)

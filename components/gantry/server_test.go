@@ -47,48 +47,48 @@ func TestServer(t *testing.T) {
 	pos1 := []float64{1.0, 2.0, 3.0}
 	speed1 := []float64{100.0, 200.0, 300.0}
 	len1 := []float64{2.0, 3.0, 4.0}
-	extra1 := map[string]interface{}{}
-	injectGantry.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	extra1 := map[string]any{}
+	injectGantry.PositionFunc = func(ctx context.Context, extra map[string]any) ([]float64, error) {
 		extra1 = extra
 		return pos1, nil
 	}
-	injectGantry.HomeFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	injectGantry.HomeFunc = func(ctx context.Context, extra map[string]any) (bool, error) {
 		extra1 = extra
 		return true, nil
 	}
-	injectGantry.MoveToPositionFunc = func(ctx context.Context, pos, speed []float64, extra map[string]interface{}) error {
+	injectGantry.MoveToPositionFunc = func(ctx context.Context, pos, speed []float64, extra map[string]any) error {
 		gantryPos = pos
 		gantrySpeed = speed
 		extra1 = extra
 		return nil
 	}
-	injectGantry.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	injectGantry.LengthsFunc = func(ctx context.Context, extra map[string]any) ([]float64, error) {
 		extra1 = extra
 		return len1, nil
 	}
-	injectGantry.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	injectGantry.StopFunc = func(ctx context.Context, extra map[string]any) error {
 		extra1 = extra
 		return nil
 	}
 
 	pos2 := []float64{4.0, 5.0, 6.0}
 	speed2 := []float64{100.0, 80.0, 120.0}
-	injectGantry2.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	injectGantry2.PositionFunc = func(ctx context.Context, extra map[string]any) ([]float64, error) {
 		return nil, errPositionFailed
 	}
-	injectGantry2.HomeFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	injectGantry2.HomeFunc = func(ctx context.Context, extra map[string]any) (bool, error) {
 		extra1 = extra
 		return false, errHomingFailed
 	}
-	injectGantry2.MoveToPositionFunc = func(ctx context.Context, pos, speed []float64, extra map[string]interface{}) error {
+	injectGantry2.MoveToPositionFunc = func(ctx context.Context, pos, speed []float64, extra map[string]any) error {
 		gantryPos = pos
 		gantrySpeed = speed
 		return errMoveToPositionFailed
 	}
-	injectGantry2.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	injectGantry2.LengthsFunc = func(ctx context.Context, extra map[string]any) ([]float64, error) {
 		return nil, errLengthsFailed
 	}
-	injectGantry2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	injectGantry2.StopFunc = func(ctx context.Context, extra map[string]any) error {
 		return errStopFailed
 	}
 
@@ -98,12 +98,12 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryNotFound.Error())
 
-		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "123", "bar": 234})
+		ext, err := protoutils.StructToStructPb(map[string]any{"foo": "123", "bar": 234})
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := gantryServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: testGantryName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.PositionsMm, test.ShouldResemble, pos1)
-		test.That(t, extra1, test.ShouldResemble, map[string]interface{}{"foo": "123", "bar": 234.})
+		test.That(t, extra1, test.ShouldResemble, map[string]any{"foo": "123", "bar": 234.})
 
 		_, err = gantryServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: failGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -118,7 +118,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryNotFound.Error())
 
-		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "234", "bar": 345})
+		ext, err := protoutils.StructToStructPb(map[string]any{"foo": "234", "bar": 345})
 		test.That(t, err, test.ShouldBeNil)
 		_, err = gantryServer.MoveToPosition(
 			context.Background(),
@@ -127,7 +127,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gantryPos, test.ShouldResemble, pos2)
 		test.That(t, gantrySpeed, test.ShouldResemble, speed2)
-		test.That(t, extra1, test.ShouldResemble, map[string]interface{}{"foo": "234", "bar": 345.})
+		test.That(t, extra1, test.ShouldResemble, map[string]any{"foo": "234", "bar": 345.})
 
 		_, err = gantryServer.MoveToPosition(
 			context.Background(),
@@ -145,12 +145,12 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryNotFound.Error())
 
-		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": 123, "bar": "234"})
+		ext, err := protoutils.StructToStructPb(map[string]any{"foo": 123, "bar": "234"})
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := gantryServer.GetLengths(context.Background(), &pb.GetLengthsRequest{Name: testGantryName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.LengthsMm, test.ShouldResemble, len1)
-		test.That(t, extra1, test.ShouldResemble, map[string]interface{}{"foo": 123., "bar": "234"})
+		test.That(t, extra1, test.ShouldResemble, map[string]any{"foo": 123., "bar": "234"})
 
 		_, err = gantryServer.GetLengths(context.Background(), &pb.GetLengthsRequest{Name: failGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -162,12 +162,12 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryNotFound.Error())
 
-		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": 123, "bar": "234"})
+		ext, err := protoutils.StructToStructPb(map[string]any{"foo": 123, "bar": "234"})
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := gantryServer.Home(context.Background(), &pb.HomeRequest{Name: testGantryName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Homed, test.ShouldBeTrue)
-		test.That(t, extra1, test.ShouldResemble, map[string]interface{}{"foo": 123., "bar": "234"})
+		test.That(t, extra1, test.ShouldResemble, map[string]any{"foo": 123., "bar": "234"})
 
 		resp, err = gantryServer.Home(context.Background(), &pb.HomeRequest{Name: failGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -180,11 +180,11 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryNotFound.Error())
 
-		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": 234, "bar": "123"})
+		ext, err := protoutils.StructToStructPb(map[string]any{"foo": 234, "bar": "123"})
 		test.That(t, err, test.ShouldBeNil)
 		_, err = gantryServer.Stop(context.Background(), &pb.StopRequest{Name: testGantryName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, extra1, test.ShouldResemble, map[string]interface{}{"foo": 234., "bar": "123"})
+		test.That(t, extra1, test.ShouldResemble, map[string]any{"foo": 234., "bar": "123"})
 
 		_, err = gantryServer.Stop(context.Background(), &pb.StopRequest{Name: failGantryName})
 		test.That(t, err, test.ShouldNotBeNil)

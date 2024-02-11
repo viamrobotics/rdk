@@ -208,7 +208,7 @@ func (b *Board) DigitalInterruptNames() []string {
 }
 
 // Status returns the current status of the board.
-func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
+func (b *Board) Status(ctx context.Context, extra map[string]any) (*commonpb.BoardStatus, error) {
 	return board.CreateStatus(ctx, b, extra)
 }
 
@@ -220,7 +220,7 @@ func (b *Board) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *t
 }
 
 // WriteAnalog writes the value to the given pin, which can be read back by adding it to AnalogReaders.
-func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]any) error {
 	alg := &AnalogReader{pin: pin, Value: int(value)}
 	b.AnalogReaders[pin] = alg
 	return nil
@@ -262,7 +262,7 @@ func (a *AnalogReader) reset(pin string) {
 	a.Mu.Unlock()
 }
 
-func (a *AnalogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (a *AnalogReader) Read(ctx context.Context, extra map[string]any) (int, error) {
 	a.Mu.RLock()
 	defer a.Mu.RUnlock()
 	return a.Value, nil
@@ -291,7 +291,7 @@ type GPIOPin struct {
 }
 
 // Set sets the pin to either low or high.
-func (gp *GPIOPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
+func (gp *GPIOPin) Set(ctx context.Context, high bool, extra map[string]any) error {
 	gp.mu.Lock()
 	defer gp.mu.Unlock()
 
@@ -302,7 +302,7 @@ func (gp *GPIOPin) Set(ctx context.Context, high bool, extra map[string]interfac
 }
 
 // Get gets the high/low state of the pin.
-func (gp *GPIOPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (gp *GPIOPin) Get(ctx context.Context, extra map[string]any) (bool, error) {
 	gp.mu.Lock()
 	defer gp.mu.Unlock()
 
@@ -310,7 +310,7 @@ func (gp *GPIOPin) Get(ctx context.Context, extra map[string]interface{}) (bool,
 }
 
 // PWM gets the pin's given duty cycle.
-func (gp *GPIOPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (gp *GPIOPin) PWM(ctx context.Context, extra map[string]any) (float64, error) {
 	gp.mu.Lock()
 	defer gp.mu.Unlock()
 
@@ -318,7 +318,7 @@ func (gp *GPIOPin) PWM(ctx context.Context, extra map[string]interface{}) (float
 }
 
 // SetPWM sets the pin to the given duty cycle.
-func (gp *GPIOPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+func (gp *GPIOPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]any) error {
 	gp.mu.Lock()
 	defer gp.mu.Unlock()
 
@@ -327,7 +327,7 @@ func (gp *GPIOPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[s
 }
 
 // PWMFreq gets the PWM frequency of the pin.
-func (gp *GPIOPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
+func (gp *GPIOPin) PWMFreq(ctx context.Context, extra map[string]any) (uint, error) {
 	gp.mu.Lock()
 	defer gp.mu.Unlock()
 
@@ -335,7 +335,7 @@ func (gp *GPIOPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (u
 }
 
 // SetPWMFreq sets the given pin to the given PWM frequency.
-func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]any) error {
 	gp.mu.Lock()
 	defer gp.mu.Unlock()
 
@@ -391,7 +391,7 @@ func (s *DigitalInterruptWrapper) reset(conf board.DigitalInterruptConfig) error
 
 // Value returns the current value of the interrupt which is
 // based on the type of interrupt.
-func (s *DigitalInterruptWrapper) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
+func (s *DigitalInterruptWrapper) Value(ctx context.Context, extra map[string]any) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.di.Value(ctx, extra)

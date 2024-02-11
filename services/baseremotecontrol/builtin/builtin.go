@@ -210,7 +210,7 @@ func (svc *builtIn) registerCallbacks(ctx context.Context, state *throttleState)
 		// Connect and Disconnect events should both stop the base completely.
 		svc.mu.RLock()
 		defer svc.mu.RUnlock()
-		err := svc.base.Stop(ctx, map[string]interface{}{})
+		err := svc.base.Stop(ctx, map[string]any{})
 		if err != nil {
 			svc.logger.CError(ctx, err)
 		}
@@ -231,14 +231,14 @@ func (svc *builtIn) registerCallbacks(ctx context.Context, state *throttleState)
 					control,
 					[]input.EventType{input.ButtonChange},
 					remoteCtl,
-					map[string]interface{}{},
+					map[string]any{},
 				)
 			} else {
 				err = svc.inputController.RegisterControlCallback(ctx,
 					control,
 					[]input.EventType{input.PositionChangeAbs},
 					remoteCtl,
-					map[string]interface{}{},
+					map[string]any{},
 				)
 			}
 			if err != nil {
@@ -248,7 +248,7 @@ func (svc *builtIn) registerCallbacks(ctx context.Context, state *throttleState)
 				control,
 				[]input.EventType{input.Connect, input.Disconnect},
 				connect,
-				map[string]interface{}{},
+				map[string]any{},
 			)
 			if err != nil {
 				return err

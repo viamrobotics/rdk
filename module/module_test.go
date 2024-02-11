@@ -275,7 +275,7 @@ func TestModuleFunctions(t *testing.T) {
 		test.That(t, ret, test.ShouldBeTrue)
 
 		// Test generic echo
-		testCmd := map[string]interface{}{"foo": "bar"}
+		testCmd := map[string]any{"foo": "bar"}
 		retCmd, err := gClient.DoCommand(context.Background(), testCmd)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, retCmd, test.ShouldResemble, testCmd)
@@ -298,7 +298,7 @@ func TestModuleFunctions(t *testing.T) {
 		test.That(t, ret, test.ShouldBeFalse)
 
 		// Test generic echo
-		testCmd := map[string]interface{}{"foo": "bar"}
+		testCmd := map[string]any{"foo": "bar"}
 		retCmd, err := gClient.DoCommand(context.Background(), testCmd)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, retCmd, test.ShouldResemble, testCmd)
@@ -313,7 +313,7 @@ func TestModuleFunctions(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		// Test generic echo
-		testCmd := map[string]interface{}{"foo": "bar"}
+		testCmd := map[string]any{"foo": "bar"}
 		retCmd, err := gClient.DoCommand(context.Background(), testCmd)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 		test.That(t, retCmd, test.ShouldBeNil)
@@ -621,7 +621,7 @@ func TestAttributeConversion(t *testing.T) {
 
 		// TODO(RSDK-6022): use datamanager.DataCaptureConfigs once resource.Name can be properly marshalled/unmarshalled
 		dummySvcCfg := rutils.AttributeMap{
-			"capture_methods": []interface{}{map[string]interface{}{"name": "rdk:service:shell/mymock2", "method": "Something"}},
+			"capture_methods": []any{map[string]any{"name": "rdk:service:shell/mymock2", "method": "Something"}},
 		}
 		mockServiceCfg, err := protoutils.StructToStructPb(dummySvcCfg)
 		test.That(t, err, test.ShouldBeNil)
@@ -655,7 +655,7 @@ func TestAttributeConversion(t *testing.T) {
 		th.mockReconfigConf.Attributes = mockAttrs
 
 		dummySvcCfg2 := rutils.AttributeMap{
-			"capture_methods": []interface{}{map[string]interface{}{"name": "rdk:service:shell/mymock2", "method": "Something2"}},
+			"capture_methods": []any{map[string]any{"name": "rdk:service:shell/mymock2", "method": "Something2"}},
 		}
 		mockServiceCfg, err = protoutils.StructToStructPb(dummySvcCfg2)
 		test.That(t, err, test.ShouldBeNil)

@@ -38,7 +38,7 @@ type StructWithAnonymousStruct struct {
 
 // A custom `test.That` assertion function that takes the log line as a third argument for
 // outputting a better message and a fourth for outputting the log line being tested.
-func EqualsWithLogLine(actual interface{}, otherArgs ...interface{}) string {
+func EqualsWithLogLine(actual any, otherArgs ...any) string {
 	if len(otherArgs) != 3 {
 		panic("EqualsWithMessage requires 4 inputs: actual, expected, message, log line.")
 	}

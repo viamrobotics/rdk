@@ -29,7 +29,7 @@ func TestCreateStatus(t *testing.T) {
 		},
 	}
 	injectInputController := &inject.InputController{}
-	injectInputController.EventsFunc = func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
+	injectInputController.EventsFunc = func(ctx context.Context, extra map[string]any) (map[input.Control]input.Event, error) {
 		eventsOut := make(map[input.Control]input.Event)
 		eventsOut[input.AbsoluteX] = event
 		return eventsOut, nil
@@ -43,7 +43,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on Events", func(t *testing.T) {
 		errFail := errors.New("can't get events")
-		injectInputController.EventsFunc = func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
+		injectInputController.EventsFunc = func(ctx context.Context, extra map[string]any) (map[input.Control]input.Event, error) {
 			return nil, errFail
 		}
 		_, err := input.CreateStatus(context.Background(), injectInputController)

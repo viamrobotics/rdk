@@ -55,16 +55,16 @@ func init() {
 
 type evaData struct {
 	// map[estop:false]
-	Global map[string]interface{}
+	Global map[string]any
 
 	// map[d0:false d1:false d2:false d3:false ee_a0:0.034 ee_a1:0.035 ee_d0:false ee_d1:false]
-	GlobalInputs map[string]interface{} `json:"global.inputs"`
+	GlobalInputs map[string]any `json:"global.inputs"`
 
 	// map[d0:false d1:false d2:false d3:false ee_d0:false ee_d1:false]
-	GlobalOutputs map[string]interface{} `json:"global.outputs"`
+	GlobalOutputs map[string]any `json:"global.outputs"`
 
 	// scheduler : map[enabled:false]
-	Scheduler map[string]interface{}
+	Scheduler map[string]any
 
 	// [0.0008628905634395778 0 0.0002876301878131926 0 -0.00038350690738298 0.0005752603756263852]
 	ServosPosition []float64 `json:"servos.telemetry.position"`
@@ -76,7 +76,7 @@ type evaData struct {
 	ServosVelocity []float64 `json:"servos.telemetry.velocity"`
 
 	// map[loop_count:1 loop_target:1 run_mode:not_running state:ready toolpath_hash:4d8 toolpath_name:Uploaded]
-	Control map[string]interface{}
+	Control map[string]any
 }
 
 type eva struct {
@@ -129,7 +129,7 @@ func NewEva(ctx context.Context, conf resource.Config, logger logging.Logger) (a
 	return e, nil
 }
 
-func (e *eva) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (e *eva) JointPositions(ctx context.Context, extra map[string]any) (*pb.JointPositions, error) {
 	data, err := e.DataSnapshot(ctx)
 	if err != nil {
 		return &pb.JointPositions{}, err
@@ -138,7 +138,7 @@ func (e *eva) JointPositions(ctx context.Context, extra map[string]interface{}) 
 }
 
 // EndPosition computes and returns the current cartesian position.
-func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+func (e *eva) EndPosition(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 	joints, err := e.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
@@ -147,13 +147,13 @@ func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (e *eva) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
+func (e *eva) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]any) error {
 	ctx, done := e.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, e.logger, e, pos)
 }
 
-func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions, extra map[string]interface{}) error {
+func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions, extra map[string]any) error {
 	// check that joint positions are not out of bounds
 	if err := arm.CheckDesiredJointPositions(ctx, e, newPositions); err != nil {
 		return err
@@ -188,7 +188,7 @@ func (e *eva) doMoveJoints(ctx context.Context, joints []float64) error {
 	return e.apiControlGoTo(ctx, joints)
 }
 
-func (e *eva) apiRequest(ctx context.Context, method, path string, payload interface{}, auth bool, out interface{}) error {
+func (e *eva) apiRequest(ctx context.Context, method, path string, payload any, auth bool, out any) error {
 	return e.apiRequestRetry(ctx, method, path, payload, auth, out, true)
 }
 
@@ -196,9 +196,9 @@ func (e *eva) apiRequestRetry(
 	ctx context.Context,
 	method string,
 	path string,
-	payload interface{},
+	payload any,
 	auth bool,
-	out interface{},
+	out any,
 	retry bool,
 ) error {
 	fullPath := fmt.Sprintf("http://%s/api/%s/%s", e.host, e.version, path)
@@ -317,7 +317,7 @@ func (e *eva) stop(ctx context.Context) error {
 	return nil
 }
 
-func (e *eva) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (e *eva) Stop(ctx context.Context, extra map[string]any) error {
 	return e.stop(ctx)
 }
 
@@ -336,7 +336,7 @@ func (e *eva) DataSnapshot(ctx context.Context) (evaData, error) {
 }
 
 func (e *eva) apiControlGoTo(ctx context.Context, joints []float64) error {
-	body := map[string]interface{}{"joints": joints, "mode": "teach"} // TODO(erh): change to automatic
+	body := map[string]any{"joints": joints, "mode": "teach"} // TODO(erh): change to automatic
 	err := e.apiRequest(ctx, "POST", "controls/go_to", &body, true, nil)
 	if err != nil {
 		return err
@@ -408,7 +408,7 @@ func MakeModelFrame(name string) (referenceframe.Model, error) {
 
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
 // current location relative to the frame of the resource.
-func (e *eva) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+func (e *eva) Geometries(ctx context.Context, extra map[string]any) ([]spatialmath.Geometry, error) {
 	inputs, err := e.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err

@@ -38,17 +38,17 @@ func TestServoMove(t *testing.T) {
 	servoServer, workingServo, failingServo, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	var actualExtra map[string]interface{}
+	var actualExtra map[string]any
 
-	workingServo.MoveFunc = func(ctx context.Context, angle uint32, extra map[string]interface{}) error {
+	workingServo.MoveFunc = func(ctx context.Context, angle uint32, extra map[string]any) error {
 		actualExtra = extra
 		return nil
 	}
-	failingServo.MoveFunc = func(ctx context.Context, angle uint32, extra map[string]interface{}) error {
+	failingServo.MoveFunc = func(ctx context.Context, angle uint32, extra map[string]any) error {
 		return errMoveFailed
 	}
 
-	extra := map[string]interface{}{"foo": "Move"}
+	extra := map[string]any{"foo": "Move"}
 	ext, err := protoutils.StructToStructPb(extra)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -73,17 +73,17 @@ func TestServoMove(t *testing.T) {
 func TestServoGetPosition(t *testing.T) {
 	servoServer, workingServo, failingServo, _ := newServer()
 
-	var actualExtra map[string]interface{}
+	var actualExtra map[string]any
 
-	workingServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+	workingServo.PositionFunc = func(ctx context.Context, extra map[string]any) (uint32, error) {
 		actualExtra = extra
 		return 20, nil
 	}
-	failingServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+	failingServo.PositionFunc = func(ctx context.Context, extra map[string]any) (uint32, error) {
 		return 0, errPositionUnreadable
 	}
 
-	extra := map[string]interface{}{"foo": "Move"}
+	extra := map[string]any{"foo": "Move"}
 	ext, err := protoutils.StructToStructPb(extra)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -108,17 +108,17 @@ func TestServoGetPosition(t *testing.T) {
 func TestServoStop(t *testing.T) {
 	servoServer, workingServo, failingServo, _ := newServer()
 
-	var actualExtra map[string]interface{}
+	var actualExtra map[string]any
 
-	workingServo.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	workingServo.StopFunc = func(ctx context.Context, extra map[string]any) error {
 		actualExtra = extra
 		return nil
 	}
-	failingServo.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	failingServo.StopFunc = func(ctx context.Context, extra map[string]any) error {
 		return errStopFailed
 	}
 
-	extra := map[string]interface{}{"foo": "Move"}
+	extra := map[string]any{"foo": "Move"}
 	ext, err := protoutils.StructToStructPb(extra)
 	test.That(t, err, test.ShouldBeNil)
 

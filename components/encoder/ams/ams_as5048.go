@@ -189,7 +189,7 @@ func (enc *Encoder) Reconfigure(
 }
 
 func (enc *Encoder) startPositionLoop(ctx context.Context) error {
-	if err := enc.ResetPosition(ctx, map[string]interface{}{}); err != nil {
+	if err := enc.ResetPosition(ctx, map[string]any{}); err != nil {
 		return err
 	}
 	enc.activeBackgroundWorkers.Add(1)
@@ -268,7 +268,7 @@ func (enc *Encoder) updatePosition(ctx context.Context) error {
 // motor to 1. Any other value will result in completely incorrect
 // position measurements by the motor.
 func (enc *Encoder) Position(
-	ctx context.Context, positionType encoder.PositionType, extra map[string]interface{},
+	ctx context.Context, positionType encoder.PositionType, extra map[string]any,
 ) (float64, encoder.PositionType, error) {
 	enc.mu.RLock()
 	defer enc.mu.RUnlock()
@@ -284,7 +284,7 @@ func (enc *Encoder) Position(
 // ResetPosition sets the current position measured by the encoder to be
 // considered its new zero position.
 func (enc *Encoder) ResetPosition(
-	ctx context.Context, extra map[string]interface{},
+	ctx context.Context, extra map[string]any,
 ) error {
 	enc.mu.Lock()
 	defer enc.mu.Unlock()
@@ -330,7 +330,7 @@ func (enc *Encoder) ResetPosition(
 }
 
 // Properties returns a list of all the position types that are supported by a given encoder.
-func (enc *Encoder) Properties(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
+func (enc *Encoder) Properties(ctx context.Context, extra map[string]any) (encoder.Properties, error) {
 	return encoder.Properties{
 		TicksCountSupported:   true,
 		AngleDegreesSupported: true,

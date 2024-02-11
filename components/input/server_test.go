@@ -66,12 +66,12 @@ func TestServer(t *testing.T) {
 	inputControllerServer, injectInputController, injectInputController2, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	var extraOptions map[string]interface{}
-	injectInputController.ControlsFunc = func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
+	var extraOptions map[string]any
+	injectInputController.ControlsFunc = func(ctx context.Context, extra map[string]any) ([]input.Control, error) {
 		extraOptions = extra
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
-	injectInputController.EventsFunc = func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
+	injectInputController.EventsFunc = func(ctx context.Context, extra map[string]any) (map[input.Control]input.Event, error) {
 		extraOptions = extra
 		eventsOut := make(map[input.Control]input.Event)
 		eventsOut[input.AbsoluteX] = input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
@@ -83,7 +83,7 @@ func TestServer(t *testing.T) {
 		control input.Control,
 		triggers []input.EventType,
 		ctrlFunc input.ControlFunction,
-		extra map[string]interface{},
+		extra map[string]any,
 	) error {
 		extraOptions = extra
 		outEvent := input.Event{Time: time.Now(), Event: triggers[0], Control: input.ButtonStart, Value: 0.0}
@@ -91,10 +91,10 @@ func TestServer(t *testing.T) {
 		return nil
 	}
 
-	injectInputController2.ControlsFunc = func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
+	injectInputController2.ControlsFunc = func(ctx context.Context, extra map[string]any) ([]input.Control, error) {
 		return nil, errControlsFailed
 	}
-	injectInputController2.EventsFunc = func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
+	injectInputController2.EventsFunc = func(ctx context.Context, extra map[string]any) (map[input.Control]input.Event, error) {
 		return nil, errEventsFailed
 	}
 	injectInputController2.RegisterControlCallbackFunc = func(
@@ -102,7 +102,7 @@ func TestServer(t *testing.T) {
 		control input.Control,
 		triggers []input.EventType,
 		ctrlFunc input.ControlFunction,
-		extra map[string]interface{},
+		extra map[string]any,
 	) error {
 		return errRegisterFailed
 	}
@@ -115,7 +115,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errNotFound.Error())
 
-		extra := map[string]interface{}{"foo": "Controls"}
+		extra := map[string]any{"foo": "Controls"}
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := inputControllerServer.GetControls(
@@ -142,7 +142,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errNotFound.Error())
 
-		extra := map[string]interface{}{"foo": "Events"}
+		extra := map[string]any{"foo": "Events"}
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 		startTime := time.Now()
@@ -197,7 +197,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errNotFound.Error())
 
-		extra := map[string]interface{}{"foo": "StreamEvents"}
+		extra := map[string]any{"foo": "StreamEvents"}
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 		eventReqList := &pb.StreamEventsRequest{
@@ -228,10 +228,10 @@ func TestServer(t *testing.T) {
 			input.ButtonStart,
 			[]input.EventType{input.ButtonRelease},
 			relayFunc,
-			map[string]interface{}{},
+			map[string]any{},
 		)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
+		test.That(t, extraOptions, test.ShouldResemble, map[string]any{})
 
 		s.fail = true
 
@@ -275,7 +275,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errNotFound.Error())
 
-		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event, extra map[string]interface{}) error {
+		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event, extra map[string]any) error {
 			return errors.New("can't inject event")
 		}
 
@@ -303,12 +303,12 @@ func TestServer(t *testing.T) {
 
 		var injectedEvent input.Event
 
-		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event, extra map[string]interface{}) error {
+		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event, extra map[string]any) error {
 			extraOptions = extra
 			injectedEvent = event
 			return nil
 		}
-		extra := map[string]interface{}{"foo": "TriggerEvent"}
+		extra := map[string]any{"foo": "TriggerEvent"}
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = inputControllerServer.TriggerEvent(

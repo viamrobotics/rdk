@@ -25,7 +25,7 @@ type TypedName struct {
 }
 
 // JSONTags returns a slice of strings of the variable names in the JSON tags of a struct.
-func JSONTags(s interface{}) []TypedName {
+func JSONTags(s any) []TypedName {
 	tags := []TypedName{}
 	val := reflect.ValueOf(s)
 	for i := 0; i < val.Type().NumField(); i++ {

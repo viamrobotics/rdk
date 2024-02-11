@@ -83,18 +83,18 @@ type Properties struct {
 // A Service controls the navigation for a robot.
 type Service interface {
 	resource.Resource
-	Mode(ctx context.Context, extra map[string]interface{}) (Mode, error)
-	SetMode(ctx context.Context, mode Mode, extra map[string]interface{}) error
-	Location(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error)
+	Mode(ctx context.Context, extra map[string]any) (Mode, error)
+	SetMode(ctx context.Context, mode Mode, extra map[string]any) error
+	Location(ctx context.Context, extra map[string]any) (*spatialmath.GeoPose, error)
 
 	// Waypoint
-	Waypoints(ctx context.Context, extra map[string]interface{}) ([]Waypoint, error)
-	AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error
-	RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error
+	Waypoints(ctx context.Context, extra map[string]any) ([]Waypoint, error)
+	AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]any) error
+	RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]any) error
 
-	Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error)
+	Obstacles(ctx context.Context, extra map[string]any) ([]*spatialmath.GeoObstacle, error)
 
-	Paths(ctx context.Context, extra map[string]interface{}) ([]*Path, error)
+	Paths(ctx context.Context, extra map[string]any) ([]*Path, error)
 
 	Properties(ctx context.Context) (Properties, error)
 }

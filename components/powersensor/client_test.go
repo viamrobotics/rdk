@@ -33,27 +33,27 @@ func TestClient(t *testing.T) {
 	workingPowerSensor := &inject.PowerSensor{}
 	failingPowerSensor := &inject.PowerSensor{}
 
-	workingPowerSensor.VoltageFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+	workingPowerSensor.VoltageFunc = func(ctx context.Context, extra map[string]any) (float64, bool, error) {
 		return testVolts, testIsAC, nil
 	}
 
-	workingPowerSensor.CurrentFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+	workingPowerSensor.CurrentFunc = func(ctx context.Context, extra map[string]any) (float64, bool, error) {
 		return testAmps, testIsAC, nil
 	}
 
-	workingPowerSensor.PowerFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	workingPowerSensor.PowerFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		return testWatts, nil
 	}
 
-	failingPowerSensor.VoltageFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+	failingPowerSensor.VoltageFunc = func(ctx context.Context, extra map[string]any) (float64, bool, error) {
 		return 0, false, errVoltageFailed
 	}
 
-	failingPowerSensor.CurrentFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+	failingPowerSensor.CurrentFunc = func(ctx context.Context, extra map[string]any) (float64, bool, error) {
 		return 0, false, errCurrentFailed
 	}
 
-	failingPowerSensor.PowerFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	failingPowerSensor.PowerFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		return 0, errPowerFailed
 	}
 
@@ -93,17 +93,17 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
-		volts, isAC, err := client.Voltage(context.Background(), make(map[string]interface{}))
+		volts, isAC, err := client.Voltage(context.Background(), make(map[string]any))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, volts, test.ShouldEqual, testVolts)
 		test.That(t, isAC, test.ShouldEqual, testIsAC)
 
-		amps, isAC, err := client.Current(context.Background(), make(map[string]interface{}))
+		amps, isAC, err := client.Current(context.Background(), make(map[string]any))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, amps, test.ShouldEqual, testAmps)
 		test.That(t, isAC, test.ShouldEqual, testIsAC)
 
-		watts, err := client.Power(context.Background(), make(map[string]interface{}))
+		watts, err := client.Power(context.Background(), make(map[string]any))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, watts, test.ShouldEqual, testWatts)
 
@@ -117,19 +117,19 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client tests with failing power sensor", func(t *testing.T) {
-		volts, isAC, err := client.Voltage(context.Background(), make(map[string]interface{}))
+		volts, isAC, err := client.Voltage(context.Background(), make(map[string]any))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errVoltageFailed.Error())
 		test.That(t, volts, test.ShouldEqual, 0)
 		test.That(t, isAC, test.ShouldEqual, false)
 
-		amps, isAC, err := client.Current(context.Background(), make(map[string]interface{}))
+		amps, isAC, err := client.Current(context.Background(), make(map[string]any))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errCurrentFailed.Error())
 		test.That(t, amps, test.ShouldEqual, 0)
 		test.That(t, isAC, test.ShouldEqual, false)
 
-		watts, err := client.Power(context.Background(), make(map[string]interface{}))
+		watts, err := client.Power(context.Background(), make(map[string]any))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errPowerFailed.Error())
 		test.That(t, watts, test.ShouldEqual, 0)

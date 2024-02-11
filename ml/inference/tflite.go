@@ -96,7 +96,7 @@ func createTFLiteInterpreterOptions(numThreads int) (*tflite.InterpreterOptions,
 
 	options.SetNumThread(numThreads)
 
-	options.SetErrorReporter(func(msg string, userData interface{}) {
+	options.SetErrorReporter(func(msg string, userData any) {
 		log.Println(msg)
 	}, nil)
 

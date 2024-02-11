@@ -44,7 +44,7 @@ func NewClientFromConn(
 	}, nil
 }
 
-func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
+func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -61,7 +61,7 @@ func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec floa
 	return nil
 }
 
-func (c *client) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+func (c *client) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -78,7 +78,7 @@ func (c *client) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra m
 	return nil
 }
 
-func (c *client) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+func (c *client) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -95,7 +95,7 @@ func (c *client) SetPower(ctx context.Context, linear, angular r3.Vector, extra 
 	return nil
 }
 
-func (c *client) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+func (c *client) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -112,7 +112,7 @@ func (c *client) SetVelocity(ctx context.Context, linear, angular r3.Vector, ext
 	return nil
 }
 
-func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (c *client) Stop(ctx context.Context, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -124,7 +124,7 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return nil
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
@@ -136,7 +136,7 @@ func (c *client) IsMoving(ctx context.Context) (bool, error) {
 	return resp.IsMoving, nil
 }
 
-func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (Properties, error) {
+func (c *client) Properties(ctx context.Context, extra map[string]any) (Properties, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return Properties{}, err
@@ -150,7 +150,7 @@ func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (
 	return ProtoFeaturesToProperties(resp), nil
 }
 
-func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+func (c *client) Geometries(ctx context.Context, extra map[string]any) ([]spatialmath.Geometry, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err

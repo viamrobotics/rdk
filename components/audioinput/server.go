@@ -50,7 +50,7 @@ type serviceServer struct {
 
 // NewRPCServiceServer constructs an audio input gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[AudioInput]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceCollection[AudioInput]) any {
 	return &serviceServer{coll: coll}
 }
 

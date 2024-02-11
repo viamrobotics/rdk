@@ -14,7 +14,7 @@ type MLModel interface {
 	Infer(inputTensors ml.Tensors) (ml.Tensors, error)
 
 	// Metadata gets the entire model metadata structure from file
-	Metadata() (interface{}, error)
+	Metadata() (any, error)
 
 	// Close closes the model and interpreter that allows inferences to be made, opens up space in memory.
 	// All models must be closed when done using

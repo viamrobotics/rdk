@@ -11,11 +11,11 @@ import (
 type PowerSensor struct {
 	powersensor.PowerSensor
 	name         resource.Name
-	VoltageFunc  func(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
-	CurrentFunc  func(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
-	PowerFunc    func(ctx context.Context, extra map[string]interface{}) (float64, error)
-	ReadingsFunc func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
-	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	VoltageFunc  func(ctx context.Context, extra map[string]any) (float64, bool, error)
+	CurrentFunc  func(ctx context.Context, extra map[string]any) (float64, bool, error)
+	PowerFunc    func(ctx context.Context, extra map[string]any) (float64, error)
+	ReadingsFunc func(ctx context.Context, extra map[string]any) (map[string]any, error)
+	DoFunc       func(ctx context.Context, cmd map[string]any) (map[string]any, error)
 }
 
 // NewPowerSensor returns a new injected movement sensor.
@@ -29,7 +29,7 @@ func (i *PowerSensor) Name() resource.Name {
 }
 
 // DoCommand calls the injected DoCommand or the real version.
-func (i *PowerSensor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (i *PowerSensor) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	if i.DoFunc == nil {
 		return i.PowerSensor.DoCommand(ctx, cmd)
 	}
@@ -37,7 +37,7 @@ func (i *PowerSensor) DoCommand(ctx context.Context, cmd map[string]interface{})
 }
 
 // Voltage func or passthrough.
-func (i *PowerSensor) Voltage(ctx context.Context, cmd map[string]interface{}) (float64, bool, error) {
+func (i *PowerSensor) Voltage(ctx context.Context, cmd map[string]any) (float64, bool, error) {
 	if i.VoltageFunc == nil {
 		return i.PowerSensor.Voltage(ctx, cmd)
 	}
@@ -45,7 +45,7 @@ func (i *PowerSensor) Voltage(ctx context.Context, cmd map[string]interface{}) (
 }
 
 // Current func or passthrough.
-func (i *PowerSensor) Current(ctx context.Context, cmd map[string]interface{}) (float64, bool, error) {
+func (i *PowerSensor) Current(ctx context.Context, cmd map[string]any) (float64, bool, error) {
 	if i.CurrentFunc == nil {
 		return i.PowerSensor.Current(ctx, cmd)
 	}
@@ -53,7 +53,7 @@ func (i *PowerSensor) Current(ctx context.Context, cmd map[string]interface{}) (
 }
 
 // Power func or passthrough.
-func (i *PowerSensor) Power(ctx context.Context, cmd map[string]interface{}) (float64, error) {
+func (i *PowerSensor) Power(ctx context.Context, cmd map[string]any) (float64, error) {
 	if i.PowerFunc == nil {
 		return i.PowerSensor.Power(ctx, cmd)
 	}
@@ -61,7 +61,7 @@ func (i *PowerSensor) Power(ctx context.Context, cmd map[string]interface{}) (fl
 }
 
 // Readings func or passthrough.
-func (i *PowerSensor) Readings(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (i *PowerSensor) Readings(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	if i.ReadingsFunc == nil {
 		return i.PowerSensor.Readings(ctx, cmd)
 	}

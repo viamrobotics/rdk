@@ -45,8 +45,8 @@ func TestGetPoses(t *testing.T) {
 	ptServer, workingPT, failingPT, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	var extraOptions map[string]interface{}
-	workingPT.PosesFunc = func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (
+	var extraOptions map[string]any
+	workingPT.PosesFunc = func(ctx context.Context, bodyNames []string, extra map[string]any) (
 		posetracker.BodyToPoseInFrame, error,
 	) {
 		extraOptions = extra
@@ -56,7 +56,7 @@ func TestGetPoses(t *testing.T) {
 		}, nil
 	}
 
-	failingPT.PosesFunc = func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (
+	failingPT.PosesFunc = func(ctx context.Context, bodyNames []string, extra map[string]any) (
 		posetracker.BodyToPoseInFrame, error,
 	) {
 		return nil, errPoseFailed
@@ -71,7 +71,7 @@ func TestGetPoses(t *testing.T) {
 		test.That(t, resp, test.ShouldBeNil)
 	})
 
-	ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "GetPosesRequest"})
+	ext, err := protoutils.StructToStructPb(map[string]any{"foo": "GetPosesRequest"})
 	test.That(t, err, test.ShouldBeNil)
 	req := pb.GetPosesRequest{
 		Name: workingPTName, BodyNames: []string{bodyName}, Extra: ext,
@@ -81,10 +81,10 @@ func TestGetPoses(t *testing.T) {
 	}
 	resp1, err := ptServer.GetPoses(context.Background(), &req)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "GetPosesRequest"})
+	test.That(t, extraOptions, test.ShouldResemble, map[string]any{"foo": "GetPosesRequest"})
 	resp2, err := ptServer.GetPoses(context.Background(), &req2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
+	test.That(t, extraOptions, test.ShouldResemble, map[string]any{})
 
 	workingTestCases := []struct {
 		testStr string

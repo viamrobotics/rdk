@@ -16,7 +16,7 @@ import (
 type Camera struct {
 	camera.Camera
 	name       resource.Name
-	DoFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	DoFunc     func(ctx context.Context, cmd map[string]any) (map[string]any, error)
 	ImagesFunc func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error)
 	StreamFunc func(
 		ctx context.Context,
@@ -96,7 +96,7 @@ func (c *Camera) Close(ctx context.Context) error {
 }
 
 // DoCommand calls the injected DoCommand or the real version.
-func (c *Camera) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *Camera) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	if c.DoFunc == nil {
 		return c.Camera.DoCommand(ctx, cmd)
 	}

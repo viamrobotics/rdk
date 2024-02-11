@@ -128,7 +128,7 @@ func (s *Sensor) namedError(err error) error {
 }
 
 // Readings returns the calculated distance.
-func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (s *Sensor) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -182,7 +182,7 @@ func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	// and the speed of sound (343 m/s)
 	secondsElapsed := float64(timeA-timeB) / math.Pow10(9)
 	distMeters := secondsElapsed * 343.0 / 2.0
-	return map[string]interface{}{"distance": distMeters}, nil
+	return map[string]any{"distance": distMeters}, nil
 }
 
 // Close remove interrupt callback of ultrasonic sensor.

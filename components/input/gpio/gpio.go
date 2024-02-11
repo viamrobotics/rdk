@@ -149,7 +149,7 @@ type Controller struct {
 }
 
 // Controls lists the inputs.
-func (c *Controller) Controls(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
+func (c *Controller) Controls(ctx context.Context, extra map[string]any) ([]input.Control, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	out := append([]input.Control(nil), c.controls...)
@@ -157,7 +157,7 @@ func (c *Controller) Controls(ctx context.Context, extra map[string]interface{})
 }
 
 // Events returns the last input.Event (the current state) of each control.
-func (c *Controller) Events(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
+func (c *Controller) Events(ctx context.Context, extra map[string]any) (map[input.Control]input.Event, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	out := make(map[input.Control]input.Event)
@@ -173,7 +173,7 @@ func (c *Controller) RegisterControlCallback(
 	control input.Control,
 	triggers []input.EventType,
 	ctrlFunc input.ControlFunction,
-	extra map[string]interface{},
+	extra map[string]any,
 ) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()

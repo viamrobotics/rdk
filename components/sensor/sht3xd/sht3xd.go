@@ -110,7 +110,7 @@ type sht3xd struct {
 }
 
 // Readings returns a list containing two items (current temperature and humidity).
-func (s *sht3xd) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (s *sht3xd) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	tryRead := func() ([]byte, error) {
 		handle, err := s.bus.OpenHandle(s.addr)
 		if err != nil {
@@ -148,7 +148,7 @@ func (s *sht3xd) Readings(ctx context.Context, extra map[string]interface{}) (ma
 
 	temp := 175.0*float64(tempRaw)/65535.0 - 45.0
 	humid := 100.0 * float64(humidRaw) / 65535.0
-	return map[string]interface{}{
+	return map[string]any{
 		"temperature_celsius":   temp,
 		"relative_humidity_pct": humid, // TODO(RSDK-1903)
 	}, nil

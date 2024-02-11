@@ -25,7 +25,7 @@ func newServer(resourceMap map[resource.Name]datamanager.Service) (pb.DataManage
 }
 
 func TestServerSync(t *testing.T) {
-	var extraOptions map[string]interface{}
+	var extraOptions map[string]any
 
 	tests := map[string]struct {
 		resourceMap   map[resource.Name]datamanager.Service
@@ -38,7 +38,7 @@ func TestServerSync(t *testing.T) {
 		"returns error": {
 			resourceMap: map[resource.Name]datamanager.Service{
 				datamanager.Named(testDataManagerServiceName): &inject.DataManagerService{
-					SyncFunc: func(ctx context.Context, extra map[string]interface{}) error {
+					SyncFunc: func(ctx context.Context, extra map[string]any) error {
 						return errors.New("fake sync error")
 					},
 				},
@@ -48,7 +48,7 @@ func TestServerSync(t *testing.T) {
 		"returns response": {
 			resourceMap: map[resource.Name]datamanager.Service{
 				datamanager.Named(testDataManagerServiceName): &inject.DataManagerService{
-					SyncFunc: func(ctx context.Context, extra map[string]interface{}) error {
+					SyncFunc: func(ctx context.Context, extra map[string]any) error {
 						extraOptions = extra
 						return nil
 					},
@@ -57,7 +57,7 @@ func TestServerSync(t *testing.T) {
 			expectedError: nil,
 		},
 	}
-	extra := map[string]interface{}{"foo": "Sync"}
+	extra := map[string]any{"foo": "Sync"}
 	ext, err := protoutils.StructToStructPb(extra)
 	test.That(t, err, test.ShouldBeNil)
 

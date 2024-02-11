@@ -34,13 +34,13 @@ func TestNewFakeDiffDriveKinematics(t *testing.T) {
 	b, err := fakebase.NewBase(ctx, resource.Dependencies{}, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
 	ms := inject.NewMovementSensor("test")
-	ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	ms.PositionFunc = func(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 		return geo.NewPoint(0, 0), 0, nil
 	}
-	ms.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	ms.CompassHeadingFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		return 0, nil
 	}
-	ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+	ms.PropertiesFunc = func(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 		return &movementsensor.Properties{CompassHeadingSupported: true}, nil
 	}
 	localizer := motion.NewMovementSensorLocalizer(ms, geo.NewPoint(0, 0), spatialmath.NewZeroPose())
@@ -77,13 +77,13 @@ func TestNewFakePTGKinematics(t *testing.T) {
 	b, err := fakebase.NewBase(ctx, resource.Dependencies{}, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
 	ms := inject.NewMovementSensor("test")
-	ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	ms.PositionFunc = func(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 		return geo.NewPoint(0, 0), 0, nil
 	}
-	ms.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	ms.CompassHeadingFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		return 0, nil
 	}
-	ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+	ms.PropertiesFunc = func(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 		return &movementsensor.Properties{CompassHeadingSupported: true}, nil
 	}
 

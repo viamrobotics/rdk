@@ -133,7 +133,7 @@ func TestModManagerFunctions(t *testing.T) {
 	counter, err := mgr.AddResource(ctx, cfgCounter1, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	ret, err := counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
+	ret, err := counter.DoCommand(ctx, map[string]any{"command": "get"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret["total"], test.ShouldEqual, 0)
 
@@ -155,14 +155,14 @@ func TestModManagerFunctions(t *testing.T) {
 
 	t.Log("test ReconfigureResource")
 	// Reconfigure should replace the proxied object, resetting the counter
-	ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "add", "value": 73})
+	ret, err = counter.DoCommand(ctx, map[string]any{"command": "add", "value": 73})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret["total"], test.ShouldEqual, 73)
 
 	err = mgr.ReconfigureResource(ctx, cfgCounter1, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
+	ret, err = counter.DoCommand(ctx, map[string]any{"command": "get"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret["total"], test.ShouldEqual, 0)
 
@@ -176,7 +176,7 @@ func TestModManagerFunctions(t *testing.T) {
 	err = mgr.RemoveResource(ctx, rNameCounter1)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	_, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
+	_, err = counter.DoCommand(ctx, map[string]any{"command": "get"})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
@@ -185,7 +185,7 @@ func TestModManagerFunctions(t *testing.T) {
 	_, err = mgr.AddResource(ctx, cfgCounter1, nil)
 	test.That(t, err, test.ShouldBeNil)
 	// Add 24 to counter and ensure 'total' gets reset after reconfiguration.
-	ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "add", "value": 24})
+	ret, err = counter.DoCommand(ctx, map[string]any{"command": "add", "value": 24})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret["total"], test.ShouldEqual, 24)
 
@@ -200,7 +200,7 @@ func TestModManagerFunctions(t *testing.T) {
 	// counter1 should still be provided by reconfigured module.
 	ok = mgr.IsModularResource(rNameCounter1)
 	test.That(t, ok, test.ShouldBeTrue)
-	ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
+	ret, err = counter.DoCommand(ctx, map[string]any{"command": "get"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret["total"], test.ShouldEqual, 0)
 
@@ -218,7 +218,7 @@ func TestModManagerFunctions(t *testing.T) {
 
 	ok = mgr.IsModularResource(rNameCounter1)
 	test.That(t, ok, test.ShouldBeFalse)
-	_, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
+	_, err = counter.DoCommand(ctx, map[string]any{"command": "get"})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "the client connection is closing")
 
@@ -303,7 +303,7 @@ func TestModManagerValidation(t *testing.T) {
 		Name:  "mybase1",
 		API:   base.API,
 		Model: myBaseModel,
-		Attributes: map[string]interface{}{
+		Attributes: map[string]any{
 			"motorL": "motor1",
 			"motorR": "motor2",
 		},
@@ -408,7 +408,7 @@ func TestModuleReloading(t *testing.T) {
 		ok := mgr.IsModularResource(rNameMyHelper)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		resp, err := h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		resp, err := h.DoCommand(ctx, map[string]any{"command": "echo"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldNotBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, "echo")
@@ -416,7 +416,7 @@ func TestModuleReloading(t *testing.T) {
 		// Run 'kill_module' command through helper resource to cause module to exit
 		// with error. Assert that after module is restarted, helper is modularly
 		// managed again and remains functional.
-		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"error reading from server")
@@ -429,7 +429,7 @@ func TestModuleReloading(t *testing.T) {
 
 		ok = mgr.IsModularResource(rNameMyHelper)
 		test.That(t, ok, test.ShouldBeTrue)
-		resp, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		resp, err = h.DoCommand(ctx, map[string]any{"command": "echo"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldNotBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, "echo")
@@ -482,7 +482,7 @@ func TestModuleReloading(t *testing.T) {
 		ok := mgr.IsModularResource(rNameMyHelper)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		resp, err := h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		resp, err := h.DoCommand(ctx, map[string]any{"command": "echo"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldNotBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, "echo")
@@ -496,7 +496,7 @@ func TestModuleReloading(t *testing.T) {
 		// Run 'kill_module' command through helper resource to cause module to
 		// exit with error. Assert that after three restart errors occur, helper is
 		// not modularly managed and commands return error.
-		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"error reading from server")
@@ -509,7 +509,7 @@ func TestModuleReloading(t *testing.T) {
 
 		ok = mgr.IsModularResource(rNameMyHelper)
 		test.That(t, ok, test.ShouldBeFalse)
-		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		_, err = h.DoCommand(ctx, map[string]any{"command": "echo"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"connection is closing")
@@ -752,7 +752,7 @@ func TestModuleMisc(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		// Create a file in the modules data directory and then verify that it was written
-		resp, err := h.DoCommand(ctx, map[string]interface{}{
+		resp, err := h.DoCommand(ctx, map[string]any{
 			"command":  "write_data_file",
 			"filename": "data.txt",
 			"contents": "hello, world!",
@@ -806,7 +806,7 @@ func TestModuleMisc(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		// Create a file in the modules data directory and then verify that it was written
-		resp, err := h.DoCommand(ctx, map[string]interface{}{
+		resp, err := h.DoCommand(ctx, map[string]any{
 			"command": "get_working_directory",
 		})
 		test.That(t, err, test.ShouldBeNil)
@@ -837,7 +837,7 @@ func TestModuleMisc(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		// Create a file in the modules data directory and then verify that it was written
-		resp, err := h.DoCommand(ctx, map[string]interface{}{
+		resp, err := h.DoCommand(ctx, map[string]any{
 			"command": "get_working_directory",
 		})
 		test.That(t, err, test.ShouldBeNil)

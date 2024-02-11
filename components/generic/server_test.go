@@ -38,18 +38,18 @@ func TestGenericDo(t *testing.T) {
 
 	workingGeneric.DoFunc = func(
 		ctx context.Context,
-		cmd map[string]interface{},
+		cmd map[string]any,
 	) (
-		map[string]interface{},
+		map[string]any,
 		error,
 	) {
 		return cmd, nil
 	}
 	failingGeneric.DoFunc = func(
 		ctx context.Context,
-		cmd map[string]interface{},
+		cmd map[string]any,
 	) (
-		map[string]interface{},
+		map[string]any,
 		error,
 	) {
 		return nil, errDoFailed

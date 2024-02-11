@@ -358,7 +358,7 @@ func TestMotorEncoder1(t *testing.T) {
 		ctx, cancel := context.WithCancel(ctx)
 		wg.Add(1)
 		go func() {
-			motorDep.GoFor(ctx, 100, 100, map[string]interface{}{})
+			motorDep.GoFor(ctx, 100, 100, map[string]any{})
 			wg.Done()
 		}()
 		cancel()

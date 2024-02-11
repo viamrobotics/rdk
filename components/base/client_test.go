@@ -20,31 +20,31 @@ import (
 
 func setupWorkingBase(
 	workingBase *inject.Base,
-	argsReceived map[string][]interface{},
+	argsReceived map[string][]any,
 	expectedFeatures base.Properties,
 	geometries []spatialmath.Geometry,
 ) {
 	workingBase.MoveStraightFunc = func(
 		_ context.Context, distanceMm int,
 		mmPerSec float64,
-		extra map[string]interface{},
+		extra map[string]any,
 	) error {
-		argsReceived["MoveStraight"] = []interface{}{distanceMm, mmPerSec, extra}
+		argsReceived["MoveStraight"] = []any{distanceMm, mmPerSec, extra}
 		return nil
 	}
 
 	workingBase.SpinFunc = func(
-		_ context.Context, angleDeg, degsPerSec float64, extra map[string]interface{},
+		_ context.Context, angleDeg, degsPerSec float64, extra map[string]any,
 	) error {
-		argsReceived["Spin"] = []interface{}{angleDeg, degsPerSec, extra}
+		argsReceived["Spin"] = []any{angleDeg, degsPerSec, extra}
 		return nil
 	}
 
-	workingBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	workingBase.StopFunc = func(ctx context.Context, extra map[string]any) error {
 		return nil
 	}
 
-	workingBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+	workingBase.PropertiesFunc = func(ctx context.Context, extra map[string]any) (base.Properties, error) {
 		return expectedFeatures, nil
 	}
 
@@ -57,22 +57,22 @@ func setupBrokenBase(brokenBase *inject.Base) {
 	brokenBase.MoveStraightFunc = func(
 		ctx context.Context,
 		distanceMm int, mmPerSec float64,
-		extra map[string]interface{},
+		extra map[string]any,
 	) error {
 		return errMoveStraight
 	}
 	brokenBase.SpinFunc = func(
 		ctx context.Context,
 		angleDeg, degsPerSec float64,
-		extra map[string]interface{},
+		extra map[string]any,
 	) error {
 		return errSpinFailed
 	}
-	brokenBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	brokenBase.StopFunc = func(ctx context.Context, extra map[string]any) error {
 		return errStopFailed
 	}
 
-	brokenBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+	brokenBase.PropertiesFunc = func(ctx context.Context, extra map[string]any) (base.Properties, error) {
 		return base.Properties{}, errPropertiesFailed
 	}
 }
@@ -84,7 +84,7 @@ func TestClient(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	argsReceived := map[string][]interface{}{}
+	argsReceived := map[string][]any{}
 
 	workingBase := &inject.Base{}
 	expectedFeatures := base.Properties{
@@ -132,7 +132,7 @@ func TestClient(t *testing.T) {
 	}()
 
 	t.Run("working base client", func(t *testing.T) {
-		expectedExtra := map[string]interface{}{"foo": "bar"}
+		expectedExtra := map[string]any{"foo": "bar"}
 
 		t.Run("working MoveStraight", func(t *testing.T) {
 			distance := 42
@@ -141,10 +141,10 @@ func TestClient(t *testing.T) {
 				context.Background(),
 				distance,
 				mmPerSec,
-				map[string]interface{}{"foo": "bar"},
+				map[string]any{"foo": "bar"},
 			)
 			test.That(t, err, test.ShouldBeNil)
-			expectedArgs := []interface{}{distance, mmPerSec, expectedExtra}
+			expectedArgs := []any{distance, mmPerSec, expectedExtra}
 			test.That(t, argsReceived["MoveStraight"], test.ShouldResemble, expectedArgs)
 		})
 
@@ -162,9 +162,9 @@ func TestClient(t *testing.T) {
 				context.Background(),
 				angleDeg,
 				degsPerSec,
-				map[string]interface{}{"foo": "bar"})
+				map[string]any{"foo": "bar"})
 			test.That(t, err, test.ShouldBeNil)
-			expectedArgs := []interface{}{angleDeg, degsPerSec, expectedExtra}
+			expectedArgs := []any{angleDeg, degsPerSec, expectedExtra}
 			test.That(t, argsReceived["Spin"], test.ShouldResemble, expectedArgs)
 		})
 
@@ -199,7 +199,7 @@ func TestClient(t *testing.T) {
 
 		err = client.Spin(context.Background(), angleDeg, degsPerSec, nil)
 		test.That(t, err, test.ShouldBeNil)
-		expectedArgs := []interface{}{angleDeg, degsPerSec, map[string]interface{}{}}
+		expectedArgs := []any{angleDeg, degsPerSec, map[string]any{}}
 		test.That(t, argsReceived["Spin"], test.ShouldResemble, expectedArgs)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)

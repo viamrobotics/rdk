@@ -44,9 +44,9 @@ func TestStatusValid(t *testing.T) {
 		t,
 		newStruct.AsMap(),
 		test.ShouldResemble,
-		map[string]interface{}{
-			"end_position":    map[string]interface{}{"o_z": 1.0, "x": 1.0, "y": 2.0, "z": 3.0},
-			"joint_positions": map[string]interface{}{"values": []interface{}{1.1, 2.2, 3.3}},
+		map[string]any{
+			"end_position":    map[string]any{"o_z": 1.0, "x": 1.0, "y": 2.0, "z": 3.0},
+			"joint_positions": map[string]any{"values": []any{1.1, 2.2, 3.3}},
 			"is_moving":       true,
 		},
 	)
@@ -73,7 +73,7 @@ func TestCreateStatus(t *testing.T) {
 	injectArm := &inject.Arm{}
 
 	//nolint:unparam
-	successfulJointPositionsFunc := func(context.Context, map[string]interface{}) (*pb.JointPositions, error) {
+	successfulJointPositionsFunc := func(context.Context, map[string]any) (*pb.JointPositions, error) {
 		return successfulStatus.JointPositions, nil
 	}
 
@@ -125,7 +125,7 @@ func TestCreateStatus(t *testing.T) {
 		moving := statusMap["is_moving"].(bool)
 		test.That(t, moving, test.ShouldEqual, expectedStatus.IsMoving)
 
-		jPosFace := statusMap["joint_positions"].(map[string]interface{})["values"].([]interface{})
+		jPosFace := statusMap["joint_positions"].(map[string]any)["values"].([]any)
 		actualJointPositions := []float64{
 			jPosFace[0].(float64), jPosFace[1].(float64), jPosFace[2].(float64),
 			jPosFace[3].(float64), jPosFace[4].(float64), jPosFace[5].(float64),
@@ -161,7 +161,7 @@ func TestCreateStatus(t *testing.T) {
 		injectArm.ModelFrameFunc = successfulModelFrameFunc
 
 		errFail := errors.New("can't get joint positions")
-		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]any) (*pb.JointPositions, error) {
 			return nil, errFail
 		}
 
@@ -174,7 +174,7 @@ func TestCreateStatus(t *testing.T) {
 		injectArm.IsMovingFunc = successfulIsMovingFunc
 		injectArm.ModelFrameFunc = successfulModelFrameFunc
 
-		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]any) (*pb.JointPositions, error) {
 			return nil, nil //nolint:nilnil
 		}
 
@@ -231,7 +231,7 @@ func TestOOBArm(t *testing.T) {
 	}
 
 	jPositions := pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 720}}
-	injectedArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+	injectedArm.JointPositionsFunc = func(ctx context.Context, extra map[string]any) (*pb.JointPositions, error) {
 		return &jPositions, nil
 	}
 

@@ -331,7 +331,7 @@ func (ua *urArm) getState() (robotState, error) {
 }
 
 // JointPositions gets the current joint positions of the UR arm.
-func (ua *urArm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (ua *urArm) JointPositions(ctx context.Context, extra map[string]any) (*pb.JointPositions, error) {
 	radians := []float64{}
 	state, err := ua.getState()
 	if err != nil {
@@ -344,7 +344,7 @@ func (ua *urArm) JointPositions(ctx context.Context, extra map[string]interface{
 }
 
 // EndPosition computes and returns the current cartesian position.
-func (ua *urArm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+func (ua *urArm) EndPosition(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 	joints, err := ua.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
@@ -355,7 +355,7 @@ func (ua *urArm) EndPosition(ctx context.Context, extra map[string]interface{}) 
 // MoveToPosition moves the arm to the specified cartesian position.
 // If the UR arm was configured with "arm_hosted_kinematics = 'true'" or extra["arm_hosted_kinematics"] = true is specified at runtime
 // this command will use the kinematics hosted by the Universal Robots arm.
-func (ua *urArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
+func (ua *urArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]any) error {
 	if !ua.inRemoteMode {
 		return errors.New("UR5 is in local mode; use the polyscope to switch it to remote control mode")
 	}
@@ -375,7 +375,7 @@ func (ua *urArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra
 }
 
 // MoveToJointPositions moves the UR arm to the specified joint positions.
-func (ua *urArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
+func (ua *urArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]any) error {
 	// check that joint positions are not out of bounds
 	if err := arm.CheckDesiredJointPositions(ctx, ua, joints); err != nil {
 		return err
@@ -384,7 +384,7 @@ func (ua *urArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosit
 }
 
 // Stop stops the arm with some deceleration.
-func (ua *urArm) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (ua *urArm) Stop(ctx context.Context, extra map[string]any) error {
 	if !ua.inRemoteMode {
 		return errors.New("UR5 is in local mode; use the polyscope to switch it to remote control mode")
 	}
@@ -511,7 +511,7 @@ func (ua *urArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
 // current location relative to the frame of the resource.
-func (ua *urArm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+func (ua *urArm) Geometries(ctx context.Context, extra map[string]any) ([]spatialmath.Geometry, error) {
 	// TODO (pl): RSDK-3316 abstract this to general arm function
 	inputs, err := ua.CurrentInputs(ctx)
 	if err != nil {

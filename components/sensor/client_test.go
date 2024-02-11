@@ -30,17 +30,17 @@ func TestClient(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	rs := map[string]interface{}{"a": 1.1, "b": 2.2}
+	rs := map[string]any{"a": 1.1, "b": 2.2}
 
-	var extraCap map[string]interface{}
+	var extraCap map[string]any
 	injectSensor := &inject.Sensor{}
-	injectSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+	injectSensor.ReadingsFunc = func(ctx context.Context, extra map[string]any) (map[string]any, error) {
 		extraCap = extra
 		return rs, nil
 	}
 
 	injectSensor2 := &inject.Sensor{}
-	injectSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+	injectSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]any) (map[string]any, error) {
 		return nil, errReadingsFailed
 	}
 
@@ -81,16 +81,16 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
-		rs1, err := sensor1Client.Readings(context.Background(), make(map[string]interface{}))
+		rs1, err := sensor1Client.Readings(context.Background(), make(map[string]any))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
-		test.That(t, extraCap, test.ShouldResemble, make(map[string]interface{}))
+		test.That(t, extraCap, test.ShouldResemble, make(map[string]any))
 
 		// With extra params
-		rs1, err = sensor1Client.Readings(context.Background(), map[string]interface{}{"foo": "bar"})
+		rs1, err = sensor1Client.Readings(context.Background(), map[string]any{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
-		test.That(t, extraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+		test.That(t, extraCap, test.ShouldResemble, map[string]any{"foo": "bar"})
 
 		test.That(t, sensor1Client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
@@ -102,7 +102,7 @@ func TestClient(t *testing.T) {
 		client2, err := resourceAPI.RPCClient(context.Background(), conn, "", sensor.Named(failSensorName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = client2.Readings(context.Background(), make(map[string]interface{}))
+		_, err = client2.Readings(context.Background(), make(map[string]any))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errReadingsFailed.Error())
 

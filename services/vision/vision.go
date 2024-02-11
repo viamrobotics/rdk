@@ -31,23 +31,23 @@ func init() {
 // A Service that implements various computer vision algorithms like detection and segmentation.
 type Service interface {
 	resource.Resource
-	DetectionsFromCamera(ctx context.Context, cameraName string, extra map[string]interface{}) ([]objectdetection.Detection, error)
-	Detections(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error)
+	DetectionsFromCamera(ctx context.Context, cameraName string, extra map[string]any) ([]objectdetection.Detection, error)
+	Detections(ctx context.Context, img image.Image, extra map[string]any) ([]objectdetection.Detection, error)
 	// classifier methods
 	ClassificationsFromCamera(
 		ctx context.Context,
 		cameraName string,
 		n int,
-		extra map[string]interface{},
+		extra map[string]any,
 	) (classification.Classifications, error)
 	Classifications(
 		ctx context.Context,
 		img image.Image,
 		n int,
-		extra map[string]interface{},
+		extra map[string]any,
 	) (classification.Classifications, error)
 	// segmenter methods
-	GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
+	GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]any) ([]*viz.Object, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -109,7 +109,7 @@ func NewService(
 func (vm *vizModel) Detections(
 	ctx context.Context,
 	img image.Image,
-	extra map[string]interface{},
+	extra map[string]any,
 ) ([]objectdetection.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::Detections::"+vm.Named.Name().String())
 	defer span.End()
@@ -123,7 +123,7 @@ func (vm *vizModel) Detections(
 func (vm *vizModel) DetectionsFromCamera(
 	ctx context.Context,
 	cameraName string,
-	extra map[string]interface{},
+	extra map[string]any,
 ) ([]objectdetection.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::DetectionsFromCamera::"+vm.Named.Name().String())
 	defer span.End()
@@ -147,7 +147,7 @@ func (vm *vizModel) Classifications(
 	ctx context.Context,
 	img image.Image,
 	n int,
-	extra map[string]interface{},
+	extra map[string]any,
 ) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::Classifications::"+vm.Named.Name().String())
 	defer span.End()
@@ -166,7 +166,7 @@ func (vm *vizModel) ClassificationsFromCamera(
 	ctx context.Context,
 	cameraName string,
 	n int,
-	extra map[string]interface{},
+	extra map[string]any,
 ) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::ClassificationsFromCamera::"+vm.Named.Name().String())
 	defer span.End()
@@ -190,7 +190,7 @@ func (vm *vizModel) ClassificationsFromCamera(
 }
 
 // GetObjectPointClouds returns all the found objects in a 3D image if the model implements Segmenter3D.
-func (vm *vizModel) GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+func (vm *vizModel) GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]any) ([]*viz.Object, error) {
 	if vm.segmenter3DFunc == nil {
 		return nil, errors.Errorf("vision model %q does not implement a 3D segmenter", vm.Named.Name().String())
 	}

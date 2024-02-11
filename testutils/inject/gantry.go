@@ -12,12 +12,12 @@ import (
 type Gantry struct {
 	gantry.Gantry
 	name               resource.Name
-	DoFunc             func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	PositionFunc       func(ctx context.Context, extra map[string]interface{}) ([]float64, error)
-	MoveToPositionFunc func(ctx context.Context, pos, speed []float64, extra map[string]interface{}) error
-	LengthsFunc        func(ctx context.Context, extra map[string]interface{}) ([]float64, error)
-	StopFunc           func(ctx context.Context, extra map[string]interface{}) error
-	HomeFunc           func(ctx context.Context, extra map[string]interface{}) (bool, error)
+	DoFunc             func(ctx context.Context, cmd map[string]any) (map[string]any, error)
+	PositionFunc       func(ctx context.Context, extra map[string]any) ([]float64, error)
+	MoveToPositionFunc func(ctx context.Context, pos, speed []float64, extra map[string]any) error
+	LengthsFunc        func(ctx context.Context, extra map[string]any) ([]float64, error)
+	StopFunc           func(ctx context.Context, extra map[string]any) error
+	HomeFunc           func(ctx context.Context, extra map[string]any) (bool, error)
 	IsMovingFunc       func(context.Context) (bool, error)
 	CloseFunc          func(ctx context.Context) error
 	ModelFrameFunc     func() referenceframe.Model
@@ -34,7 +34,7 @@ func (g *Gantry) Name() resource.Name {
 }
 
 // Position calls the injected Position or the real version.
-func (g *Gantry) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+func (g *Gantry) Position(ctx context.Context, extra map[string]any) ([]float64, error) {
 	if g.PositionFunc == nil {
 		return g.Gantry.Position(ctx, extra)
 	}
@@ -42,7 +42,7 @@ func (g *Gantry) Position(ctx context.Context, extra map[string]interface{}) ([]
 }
 
 // MoveToPosition calls the injected MoveToPosition or the real version.
-func (g *Gantry) MoveToPosition(ctx context.Context, positions, speeds []float64, extra map[string]interface{}) error {
+func (g *Gantry) MoveToPosition(ctx context.Context, positions, speeds []float64, extra map[string]any) error {
 	if g.MoveToPositionFunc == nil {
 		return g.Gantry.MoveToPosition(ctx, positions, speeds, extra)
 	}
@@ -50,7 +50,7 @@ func (g *Gantry) MoveToPosition(ctx context.Context, positions, speeds []float64
 }
 
 // Lengths calls the injected Lengths or the real version.
-func (g *Gantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+func (g *Gantry) Lengths(ctx context.Context, extra map[string]any) ([]float64, error) {
 	if g.LengthsFunc == nil {
 		return g.Gantry.Lengths(ctx, extra)
 	}
@@ -58,7 +58,7 @@ func (g *Gantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]f
 }
 
 // Stop calls the injected Stop or the real version.
-func (g *Gantry) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (g *Gantry) Stop(ctx context.Context, extra map[string]any) error {
 	if g.StopFunc == nil {
 		return g.Gantry.Stop(ctx, extra)
 	}
@@ -66,7 +66,7 @@ func (g *Gantry) Stop(ctx context.Context, extra map[string]interface{}) error {
 }
 
 // Home calls the injected Home or the real version.
-func (g *Gantry) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (g *Gantry) Home(ctx context.Context, extra map[string]any) (bool, error) {
 	if g.HomeFunc == nil {
 		return g.Gantry.Home(ctx, extra)
 	}
@@ -101,7 +101,7 @@ func (g *Gantry) Close(ctx context.Context) error {
 }
 
 // DoCommand calls the injected DoCommand or the real version.
-func (g *Gantry) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (g *Gantry) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	if g.DoFunc == nil {
 		return g.Gantry.DoCommand(ctx, cmd)
 	}

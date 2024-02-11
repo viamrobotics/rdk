@@ -97,7 +97,7 @@ type fakeEncoder struct {
 func (e *fakeEncoder) Position(
 	ctx context.Context,
 	positionType encoder.PositionType,
-	extra map[string]interface{},
+	extra map[string]any,
 ) (float64, encoder.PositionType, error) {
 	if positionType == encoder.PositionTypeDegrees {
 		return math.NaN(), encoder.PositionTypeUnspecified, encoder.NewPositionTypeUnsupportedError(positionType)
@@ -134,7 +134,7 @@ func (e *fakeEncoder) start(cancelCtx context.Context) {
 
 // ResetPosition sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position.
-func (e *fakeEncoder) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
+func (e *fakeEncoder) ResetPosition(ctx context.Context, extra map[string]any) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.position = int64(0)
@@ -142,7 +142,7 @@ func (e *fakeEncoder) ResetPosition(ctx context.Context, extra map[string]interf
 }
 
 // Properties returns a list of all the position types that are supported by a given encoder.
-func (e *fakeEncoder) Properties(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
+func (e *fakeEncoder) Properties(ctx context.Context, extra map[string]any) (encoder.Properties, error) {
 	return encoder.Properties{
 		TicksCountSupported:   true,
 		AngleDegreesSupported: false,

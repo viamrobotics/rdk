@@ -11,10 +11,10 @@ import (
 type SensorsService struct {
 	sensors.Service
 	name          resource.Name
-	SensorsFunc   func(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error)
-	ReadingsFunc  func(ctx context.Context, resources []resource.Name, extra map[string]interface{}) ([]sensors.Readings, error)
+	SensorsFunc   func(ctx context.Context, extra map[string]any) ([]resource.Name, error)
+	ReadingsFunc  func(ctx context.Context, resources []resource.Name, extra map[string]any) ([]sensors.Readings, error)
 	DoCommandFunc func(ctx context.Context,
-		cmd map[string]interface{}) (map[string]interface{}, error)
+		cmd map[string]any) (map[string]any, error)
 }
 
 // NewSensorsService returns a new injected sensors service.
@@ -28,7 +28,7 @@ func (s *SensorsService) Name() resource.Name {
 }
 
 // Sensors call the injected Sensors or the real one.
-func (s *SensorsService) Sensors(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error) {
+func (s *SensorsService) Sensors(ctx context.Context, extra map[string]any) ([]resource.Name, error) {
 	if s.SensorsFunc == nil {
 		return s.Service.Sensors(ctx, extra)
 	}
@@ -36,7 +36,7 @@ func (s *SensorsService) Sensors(ctx context.Context, extra map[string]interface
 }
 
 // Readings call the injected Readings or the real one.
-func (s *SensorsService) Readings(ctx context.Context, names []resource.Name, extra map[string]interface{}) ([]sensors.Readings, error) {
+func (s *SensorsService) Readings(ctx context.Context, names []resource.Name, extra map[string]any) ([]sensors.Readings, error) {
 	if s.ReadingsFunc == nil {
 		return s.Service.Readings(ctx, names, extra)
 	}
@@ -45,8 +45,8 @@ func (s *SensorsService) Readings(ctx context.Context, names []resource.Name, ex
 
 // DoCommand calls the injected DoCommand or the real variant.
 func (s *SensorsService) DoCommand(ctx context.Context,
-	cmd map[string]interface{},
-) (map[string]interface{}, error) {
+	cmd map[string]any,
+) (map[string]any, error) {
 	if s.DoCommandFunc == nil {
 		return s.Service.DoCommand(ctx, cmd)
 	}

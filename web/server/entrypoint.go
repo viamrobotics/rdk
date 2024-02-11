@@ -81,7 +81,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 	// Always log the version, return early if the '-version' flag was provided
 	// fmt.Println would be better but fails linting. Good enough.
-	var versionFields []interface{}
+	var versionFields []any
 	if config.Version != "" {
 		versionFields = append(versionFields, "version", config.Version)
 	}

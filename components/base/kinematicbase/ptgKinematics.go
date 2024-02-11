@@ -355,6 +355,6 @@ func correctAngularVelocityWithTurnRadius(logger logging.Logger, turnRadMeters, 
 	return rdkutils.RadToDeg(angVelocityRadps), nil
 }
 
-func (ptgk *ptgBaseKinematics) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+func (ptgk *ptgBaseKinematics) Geometries(ctx context.Context, extra map[string]any) ([]spatialmath.Geometry, error) {
 	return ptgk.geometries, nil
 }

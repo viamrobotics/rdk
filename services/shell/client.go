@@ -45,7 +45,7 @@ func NewClientFromConn(
 	return c, nil
 }
 
-func (c *client) Shell(ctx context.Context, extra map[string]interface{}) (chan<- string, <-chan Output, error) {
+func (c *client) Shell(ctx context.Context, extra map[string]any) (chan<- string, <-chan Output, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, nil, err
@@ -126,6 +126,6 @@ func (c *client) Shell(ctx context.Context, extra map[string]interface{}) (chan<
 	return input, output, nil
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

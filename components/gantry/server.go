@@ -20,7 +20,7 @@ type serviceServer struct {
 
 // NewRPCServiceServer constructs an gantry gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Gantry]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceCollection[Gantry]) any {
 	return &serviceServer{coll: coll}
 }
 

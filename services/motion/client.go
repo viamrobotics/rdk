@@ -48,7 +48,7 @@ func (c *client) Move(
 	destination *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
 	constraints *pb.Constraints,
-	extra map[string]interface{},
+	extra map[string]any,
 ) (bool, error) {
 	ext, err := vprotoutils.StructToStructPb(extra)
 	if err != nil {
@@ -139,7 +139,7 @@ func (c *client) GetPose(
 	componentName resource.Name,
 	destinationFrame string,
 	supplementalTransforms []*referenceframe.LinkInFrame,
-	extra map[string]interface{},
+	extra map[string]any,
 ) (*referenceframe.PoseInFrame, error) {
 	ext, err := vprotoutils.StructToStructPb(extra)
 	if err != nil {
@@ -227,6 +227,6 @@ func (c *client) PlanHistory(
 	return append([]PlanWithStatus{pws}, statusHistory...), nil
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

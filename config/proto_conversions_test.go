@@ -755,7 +755,7 @@ func keysetToInterface(t *testing.T, keyset jwks.KeySet) *structpb.Struct {
 	jwksAsJSON, err := json.Marshal(keyset)
 	test.That(t, err, test.ShouldBeNil)
 
-	jwksAsInterface := map[string]interface{}{}
+	jwksAsInterface := map[string]any{}
 	err = json.Unmarshal(jwksAsJSON, &jwksAsInterface)
 	test.That(t, err, test.ShouldBeNil)
 

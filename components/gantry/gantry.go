@@ -48,17 +48,17 @@ type Gantry interface {
 	referenceframe.InputEnabled
 
 	// Position returns the position in meters
-	Position(ctx context.Context, extra map[string]interface{}) ([]float64, error)
+	Position(ctx context.Context, extra map[string]any) ([]float64, error)
 
 	// MoveToPosition is in meters
 	// This will block until done or a new operation cancels this one
-	MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec []float64, extra map[string]interface{}) error
+	MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec []float64, extra map[string]any) error
 
 	// Lengths is the length of gantries in meters
-	Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error)
+	Lengths(ctx context.Context, extra map[string]any) ([]float64, error)
 
 	// Home runs the homing sequence of the gantry and returns true once completed
-	Home(ctx context.Context, extra map[string]interface{}) (bool, error)
+	Home(ctx context.Context, extra map[string]any) (bool, error)
 }
 
 // FromDependencies is a helper for getting the named gantry from a collection of

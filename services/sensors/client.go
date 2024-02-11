@@ -44,7 +44,7 @@ func NewClientFromConn(
 	return c, nil
 }
 
-func (c *client) Sensors(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error) {
+func (c *client) Sensors(ctx context.Context, extra map[string]any) ([]resource.Name, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -60,7 +60,7 @@ func (c *client) Sensors(ctx context.Context, extra map[string]interface{}) ([]r
 	return sensorNames, nil
 }
 
-func (c *client) Readings(ctx context.Context, sensorNames []resource.Name, extra map[string]interface{}) ([]Readings, error) {
+func (c *client) Readings(ctx context.Context, sensorNames []resource.Name, extra map[string]any) ([]Readings, error) {
 	names := make([]*commonpb.ResourceName, 0, len(sensorNames))
 	for _, name := range sensorNames {
 		names = append(names, rprotoutils.ResourceNameToProto(name))
@@ -89,6 +89,6 @@ func (c *client) Readings(ctx context.Context, sensorNames []resource.Name, extr
 	return readings, nil
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

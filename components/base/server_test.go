@@ -46,7 +46,7 @@ func TestServer(t *testing.T) {
 		workingBase.MoveStraightFunc = func(
 			ctx context.Context, distanceMm int,
 			mmPerSec float64,
-			extra map[string]interface{},
+			extra map[string]any,
 		) error {
 			return nil
 		}
@@ -63,7 +63,7 @@ func TestServer(t *testing.T) {
 		brokenBase.MoveStraightFunc = func(
 			ctx context.Context, distanceMm int,
 			mmPerSec float64,
-			extra map[string]interface{},
+			extra map[string]any,
 		) error {
 			return errMoveStraight
 		}
@@ -94,7 +94,7 @@ func TestServer(t *testing.T) {
 		workingBase.SpinFunc = func(
 			ctx context.Context,
 			angleDeg, degsPerSec float64,
-			extra map[string]interface{},
+			extra map[string]any,
 		) error {
 			return nil
 		}
@@ -111,7 +111,7 @@ func TestServer(t *testing.T) {
 		brokenBase.SpinFunc = func(
 			ctx context.Context,
 			angleDeg, degsPerSec float64,
-			extra map[string]interface{},
+			extra map[string]any,
 		) error {
 			return errSpinFailed
 		}
@@ -139,7 +139,7 @@ func TestServer(t *testing.T) {
 		turnRadius := 0.1
 		width := 0.2
 		// on a successful get properties
-		workingBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+		workingBase.PropertiesFunc = func(ctx context.Context, extra map[string]any) (base.Properties, error) {
 			return base.Properties{
 				TurningRadiusMeters: turnRadius,
 				WidthMeters:         width,
@@ -151,7 +151,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// on a failing get properties
-		brokenBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+		brokenBase.PropertiesFunc = func(ctx context.Context, extra map[string]any) (base.Properties, error) {
 			return base.Properties{}, errPropertiesFailed
 		}
 		req = &pb.GetPropertiesRequest{Name: failBaseName}
@@ -168,7 +168,7 @@ func TestServer(t *testing.T) {
 
 	t.Run("Stop", func(t *testing.T) {
 		// on successful stop
-		workingBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		workingBase.StopFunc = func(ctx context.Context, extra map[string]any) error {
 			return nil
 		}
 		req := &pb.StopRequest{Name: testBaseName}
@@ -177,7 +177,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldResemble, &pb.StopResponse{})
 
 		// on failing stop
-		brokenBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		brokenBase.StopFunc = func(ctx context.Context, extra map[string]any) error {
 			return errStopFailed
 		}
 		req = &pb.StopRequest{Name: failBaseName}

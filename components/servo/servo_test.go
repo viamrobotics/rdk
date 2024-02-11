@@ -17,7 +17,7 @@ func TestCreateStatus(t *testing.T) {
 	status := &pb.Status{PositionDeg: uint32(8), IsMoving: true}
 
 	injectServo := &inject.Servo{}
-	injectServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+	injectServo.PositionFunc = func(ctx context.Context, extra map[string]any) (uint32, error) {
 		return status.PositionDeg, nil
 	}
 	injectServo.IsMovingFunc = func(context.Context) (bool, error) {
@@ -50,7 +50,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on Position", func(t *testing.T) {
 		errFail := errors.New("can't get position")
-		injectServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+		injectServo.PositionFunc = func(ctx context.Context, extra map[string]any) (uint32, error) {
 			return 0, errFail
 		}
 		_, err := servo.CreateStatus(context.Background(), injectServo)

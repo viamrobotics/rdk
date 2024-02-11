@@ -23,12 +23,12 @@ type unimplResource struct {
 
 var (
 	// EchoFunc is a helper to echo out the say command passsed in a Do.
-	EchoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	EchoFunc = func(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 		return cmd, nil
 	}
 
 	// TestCommand is a dummy command to send for a DoCommand.
-	TestCommand = map[string]interface{}{"command": "test", "data": 500}
+	TestCommand = map[string]any{"command": "test", "data": 500}
 )
 
 // NewResourceNameSet returns a flattened set of name strings from

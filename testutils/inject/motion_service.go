@@ -21,7 +21,7 @@ type MotionService struct {
 		grabPose *referenceframe.PoseInFrame,
 		worldState *referenceframe.WorldState,
 		constraints *servicepb.Constraints,
-		extra map[string]interface{},
+		extra map[string]any,
 	) (bool, error)
 	MoveOnMapFunc func(
 		ctx context.Context,
@@ -40,7 +40,7 @@ type MotionService struct {
 		componentName resource.Name,
 		destinationFrame string,
 		supplementalTransforms []*referenceframe.LinkInFrame,
-		extra map[string]interface{},
+		extra map[string]any,
 	) (*referenceframe.PoseInFrame, error)
 	StopPlanFunc func(
 		ctx context.Context,
@@ -55,7 +55,7 @@ type MotionService struct {
 		req motion.PlanHistoryReq,
 	) ([]motion.PlanWithStatus, error)
 	DoCommandFunc func(ctx context.Context,
-		cmd map[string]interface{}) (map[string]interface{}, error)
+		cmd map[string]any) (map[string]any, error)
 	CloseFunc func(ctx context.Context) error
 }
 
@@ -76,7 +76,7 @@ func (mgs *MotionService) Move(
 	destination *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
 	constraints *servicepb.Constraints,
-	extra map[string]interface{},
+	extra map[string]any,
 ) (bool, error) {
 	if mgs.MoveFunc == nil {
 		return mgs.Service.Move(ctx, componentName, destination, worldState, constraints, extra)
@@ -120,7 +120,7 @@ func (mgs *MotionService) GetPose(
 	componentName resource.Name,
 	destinationFrame string,
 	supplementalTransforms []*referenceframe.LinkInFrame,
-	extra map[string]interface{},
+	extra map[string]any,
 ) (*referenceframe.PoseInFrame, error) {
 	if mgs.GetPoseFunc == nil {
 		return mgs.Service.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
@@ -163,8 +163,8 @@ func (mgs *MotionService) PlanHistory(
 
 // DoCommand calls the injected DoCommand or the real variant.
 func (mgs *MotionService) DoCommand(ctx context.Context,
-	cmd map[string]interface{},
-) (map[string]interface{}, error) {
+	cmd map[string]any,
+) (map[string]any, error) {
 	if mgs.DoCommandFunc == nil {
 		return mgs.Service.DoCommand(ctx, cmd)
 	}

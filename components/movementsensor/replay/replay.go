@@ -198,7 +198,7 @@ func newReplayMovementSensor(ctx context.Context, deps resource.Dependencies, co
 }
 
 // Position returns the next position from the cache, in the form of a geo.Point and altitude.
-func (replay *replayMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (replay *replayMovementSensor) Position(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {
@@ -222,7 +222,7 @@ func (replay *replayMovementSensor) Position(ctx context.Context, extra map[stri
 }
 
 // LinearVelocity returns the next linear velocity from the cache in the form of an r3.Vector.
-func (replay *replayMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (replay *replayMovementSensor) LinearVelocity(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {
@@ -242,7 +242,7 @@ func (replay *replayMovementSensor) LinearVelocity(ctx context.Context, extra ma
 }
 
 // AngularVelocity returns the next angular velocity from the cache in the form of a spatialmath.AngularVelocity (r3.Vector).
-func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (
+func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra map[string]any) (
 	spatialmath.AngularVelocity, error,
 ) {
 	replay.mu.Lock()
@@ -268,7 +268,7 @@ func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra m
 }
 
 // LinearAcceleration returns the next linear acceleration from the cache in the form of an r3.Vector.
-func (replay *replayMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (replay *replayMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {
@@ -288,7 +288,7 @@ func (replay *replayMovementSensor) LinearAcceleration(ctx context.Context, extr
 }
 
 // CompassHeading returns the next compass heading from the cache as a float64.
-func (replay *replayMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (replay *replayMovementSensor) CompassHeading(ctx context.Context, extra map[string]any) (float64, error) {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {
@@ -308,7 +308,7 @@ func (replay *replayMovementSensor) CompassHeading(ctx context.Context, extra ma
 }
 
 // Orientation returns the next orientation from the cache as a spatialmath.Orientation created from a spatialmath.OrientationVector.
-func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {
@@ -333,14 +333,14 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 }
 
 // Properties returns the available properties for the given replay movement sensor.
-func (replay *replayMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+func (replay *replayMovementSensor) Properties(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	return &replay.properties, nil
 }
 
 // Accuracy is currently not defined for replay movement sensors.
-func (replay *replayMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
+func (replay *replayMovementSensor) Accuracy(ctx context.Context, extra map[string]any) (*movementsensor.Accuracy, error,
 ) {
 	return movementsensor.UnimplementedAccuracies()
 }
@@ -356,7 +356,7 @@ func (replay *replayMovementSensor) Close(ctx context.Context) error {
 }
 
 // Readings returns all available data from the next entry stored in the cache.
-func (replay *replayMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (replay *replayMovementSensor) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	return movementsensor.DefaultAPIReadings(ctx, replay, extra)
 }
 

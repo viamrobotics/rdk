@@ -96,7 +96,7 @@ func TestServer(t *testing.T) {
 			test.That(t, len(resp.Discovery), test.ShouldEqual, 1)
 
 			observed := resp.Discovery[0].Results.AsMap()
-			expected := map[string]interface{}{}
+			expected := map[string]any{}
 			expectedQ := &pb.DiscoveryQuery{Subtype: "rdk:component:arm", Model: "rdk:builtin:some-arm"}
 			test.That(t, resp.Discovery[0].Query, test.ShouldResemble, expectedQ)
 			test.That(t, observed, test.ShouldResemble, expected)
@@ -111,7 +111,7 @@ func TestServer(t *testing.T) {
 			test.That(t, len(resp.Discovery), test.ShouldEqual, 1)
 
 			observed := resp.Discovery[0].Results.AsMap()
-			expected := map[string]interface{}{}
+			expected := map[string]any{}
 			expectedQ := &pb.DiscoveryQuery{Subtype: "arm", Model: "some-arm"}
 			test.That(t, resp.Discovery[0].Query, test.ShouldResemble, expectedQ)
 			test.That(t, observed, test.ShouldResemble, expected)
@@ -445,8 +445,8 @@ func TestServerGetStatus(t *testing.T) {
 			Status:           struct{}{},
 		}
 		readings := []robot.Status{aStatus}
-		expected := map[resource.Name]interface{}{
-			aStatus.Name: map[string]interface{}{},
+		expected := map[resource.Name]any{
+			aStatus.Name: map[string]any{},
 		}
 		expectedLR := map[resource.Name]time.Time{
 			aStatus.Name: lastReconfigured,
@@ -468,7 +468,7 @@ func TestServerGetStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp.Status), test.ShouldEqual, 1)
 
-		observed := map[resource.Name]interface{}{
+		observed := map[resource.Name]any{
 			protoutils.ResourceNameFromProto(resp.Status[0].Name): resp.Status[0].Status.AsMap(),
 		}
 		observedLR := map[resource.Name]time.Time{
@@ -485,7 +485,7 @@ func TestServerGetStatus(t *testing.T) {
 		gStatus := robot.Status{
 			Name:             movementsensor.Named("gps"),
 			LastReconfigured: lastReconfigured,
-			Status:           map[string]interface{}{"efg": []string{"hello"}},
+			Status:           map[string]any{"efg": []string{"hello"}},
 		}
 		aStatus := robot.Status{
 			Name:             arm.Named("arm"),
@@ -493,9 +493,9 @@ func TestServerGetStatus(t *testing.T) {
 			Status:           struct{}{},
 		}
 		statuses := []robot.Status{gStatus, aStatus}
-		expected := map[resource.Name]interface{}{
-			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
-			aStatus.Name: map[string]interface{}{},
+		expected := map[resource.Name]any{
+			gStatus.Name: map[string]any{"efg": []any{"hello"}},
+			aStatus.Name: map[string]any{},
 		}
 		expectedLRs := map[resource.Name]time.Time{
 			gStatus.Name: lastReconfigured,
@@ -521,7 +521,7 @@ func TestServerGetStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp.Status), test.ShouldEqual, 2)
 
-		observed := map[resource.Name]interface{}{
+		observed := map[resource.Name]any{
 			protoutils.ResourceNameFromProto(resp.Status[0].Name): resp.Status[0].Status.AsMap(),
 			protoutils.ResourceNameFromProto(resp.Status[1].Name): resp.Status[1].Status.AsMap(),
 		}
@@ -623,7 +623,7 @@ func TestServerGetStatus(t *testing.T) {
 			streamErr = server.StreamStatus(&pb.StreamStatusRequest{Every: durationpb.New(dur)}, streamServer)
 			close(done)
 		}()
-		expectedStatus, err := vprotoutils.StructToStructPb(map[string]interface{}{})
+		expectedStatus, err := vprotoutils.StructToStructPb(map[string]any{})
 		test.That(t, err, test.ShouldBeNil)
 		var messages []*pb.StreamStatusResponse
 		messages = append(messages, <-messageCh)

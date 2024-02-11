@@ -42,7 +42,7 @@ func init() {
 // Service defines what a Data Manager Service should expose to the users.
 type Service interface {
 	resource.Resource
-	Sync(ctx context.Context, extra map[string]interface{}) error
+	Sync(ctx context.Context, extra map[string]any) error
 }
 
 // SubtypeName is the name of the type of service.
@@ -107,8 +107,8 @@ var ShouldSyncKey = "should_sync"
 
 // CreateShouldSyncReading is a helper for creating the expected reading for a modular sensor
 // that passes a bool to the datamanager to indicate whether or not we want to sync.
-func CreateShouldSyncReading(toSync bool) map[string]interface{} {
-	readings := map[string]interface{}{}
+func CreateShouldSyncReading(toSync bool) map[string]any {
+	readings := map[string]any{}
 	readings[ShouldSyncKey] = toSync
 	return readings
 }

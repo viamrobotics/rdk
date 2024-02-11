@@ -27,13 +27,13 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newPositionCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	slam, err := assertSLAM(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (any, error) {
 		pose, componentRef, err := slam.Position(ctx)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
@@ -43,13 +43,13 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 	return data.NewCollector(cFunc, params)
 }
 
-func newPointCloudMapCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newPointCloudMapCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	slam, err := assertSLAM(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (any, error) {
 		f, err := slam.PointCloudMap(ctx)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, pointCloudMap.String(), err)
@@ -65,7 +65,7 @@ func newPointCloudMapCollector(resource interface{}, params data.CollectorParams
 	return data.NewCollector(cFunc, params)
 }
 
-func assertSLAM(resource interface{}) (Service, error) {
+func assertSLAM(resource any) (Service, error) {
 	slamService, ok := resource.(Service)
 	if !ok {
 		return nil, data.InvalidInterfaceErr(API)

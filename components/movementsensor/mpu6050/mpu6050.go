@@ -288,17 +288,17 @@ func toLinearAcceleration(data []byte) r3.Vector {
 	}
 }
 
-func (mpu *mpu6050) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (mpu *mpu6050) AngularVelocity(ctx context.Context, extra map[string]any) (spatialmath.AngularVelocity, error) {
 	mpu.mu.Lock()
 	defer mpu.mu.Unlock()
 	return mpu.angularVelocity, mpu.err.Get()
 }
 
-func (mpu *mpu6050) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (mpu *mpu6050) LinearVelocity(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 }
 
-func (mpu *mpu6050) LinearAcceleration(ctx context.Context, exta map[string]interface{}) (r3.Vector, error) {
+func (mpu *mpu6050) LinearAcceleration(ctx context.Context, exta map[string]any) (r3.Vector, error) {
 	mpu.mu.Lock()
 	defer mpu.mu.Unlock()
 
@@ -309,27 +309,27 @@ func (mpu *mpu6050) LinearAcceleration(ctx context.Context, exta map[string]inte
 	return mpu.linearAcceleration, nil
 }
 
-func (mpu *mpu6050) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+func (mpu *mpu6050) Orientation(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 	return spatialmath.NewOrientationVector(), movementsensor.ErrMethodUnimplementedOrientation
 }
 
-func (mpu *mpu6050) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (mpu *mpu6050) CompassHeading(ctx context.Context, extra map[string]any) (float64, error) {
 	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
 
-func (mpu *mpu6050) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (mpu *mpu6050) Position(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 	return geo.NewPoint(0, 0), 0, movementsensor.ErrMethodUnimplementedPosition
 }
 
-func (mpu *mpu6050) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
+func (mpu *mpu6050) Accuracy(ctx context.Context, extra map[string]any) (*movementsensor.Accuracy, error) {
 	return movementsensor.UnimplementedAccuracies()
 }
 
-func (mpu *mpu6050) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (mpu *mpu6050) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	mpu.mu.Lock()
 	defer mpu.mu.Unlock()
 
-	readings := make(map[string]interface{})
+	readings := make(map[string]any)
 	readings["linear_acceleration"] = mpu.linearAcceleration
 	readings["temperature_celsius"] = mpu.temperature
 	readings["angular_velocity"] = mpu.angularVelocity
@@ -337,7 +337,7 @@ func (mpu *mpu6050) Readings(ctx context.Context, extra map[string]interface{}) 
 	return readings, mpu.err.Get()
 }
 
-func (mpu *mpu6050) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+func (mpu *mpu6050) Properties(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		AngularVelocitySupported:    true,
 		LinearAccelerationSupported: true,

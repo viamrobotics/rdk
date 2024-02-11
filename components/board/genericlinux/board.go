@@ -351,7 +351,7 @@ func newWrappedAnalogReader(ctx context.Context, chipSelect string, reader *boar
 	return &wrapped
 }
 
-func (a *wrappedAnalogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (a *wrappedAnalogReader) Read(ctx context.Context, extra map[string]any) (int, error) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	if a.reader == nil {
@@ -472,7 +472,7 @@ func (b *Board) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 }
 
 // Status returns the current status of the board.
-func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
+func (b *Board) Status(ctx context.Context, extra map[string]any) (*commonpb.BoardStatus, error) {
 	return board.CreateStatus(ctx, b, extra)
 }
 
@@ -488,7 +488,7 @@ func (b *Board) SetPowerMode(
 }
 
 // WriteAnalog writes the value to the given pin.
-func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]any) error {
 	return nil
 }
 

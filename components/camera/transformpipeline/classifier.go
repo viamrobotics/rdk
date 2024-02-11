@@ -55,7 +55,7 @@ func newClassificationsTransform(
 	if props.DistortionParams != nil {
 		cameraModel.Distortion = props.DistortionParams
 	}
-	validLabels := make(map[string]interface{})
+	validLabels := make(map[string]any)
 	for _, l := range conf.ValidLabels {
 		validLabels[strings.ToLower(l)] = struct{}{}
 	}
@@ -96,7 +96,7 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get next source image")
 	}
-	classifications, err := srv.Classifications(ctx, img, int(cs.maxClassifications), map[string]interface{}{})
+	classifications, err := srv.Classifications(ctx, img, int(cs.maxClassifications), map[string]any{})
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get classifications")
 	}

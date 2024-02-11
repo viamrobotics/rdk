@@ -116,7 +116,7 @@ func (sb *sensorBase) autoTuningProcess(ctx context.Context, linear, angular bas
 }
 
 func (sb *sensorBase) SetVelocity(
-	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
+	ctx context.Context, linear, angular r3.Vector, extra map[string]any,
 ) error {
 	sb.opMgr.CancelRunning(ctx)
 	// stop any previous base movement
@@ -166,7 +166,7 @@ func (sb *sensorBase) SetVelocity(
 // AngularVelocity API calls of the movementsensor attached to the sensor base
 // and logs them for toruble shooting.
 // This function can eventually be removed.
-func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interface{}) {
+func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]any) {
 	sb.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		ticker := time.NewTicker(velocitiesPollTime)

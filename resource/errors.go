@@ -75,7 +75,7 @@ func DependencyNotFoundError(name Name) error {
 }
 
 // DependencyTypeError is used when a resource doesn't implement the expected interface.
-func DependencyTypeError[T Resource](name Name, actual interface{}) error {
+func DependencyTypeError[T Resource](name Name, actual any) error {
 	// This error represents a coding error. Include a stack trace for diagnostics.
 	return errors.Errorf("dependency %q should be an implementation of %s but it was a %T", name, utils.TypeStr[T](), actual)
 }

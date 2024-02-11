@@ -89,7 +89,7 @@ func TestOpID(t *testing.T) {
 			syncChan := make(chan string)
 			// in the background, run a operation that sleeps for one second, and capture it's header
 			go func() {
-				cmd, err := structpb.NewStruct(map[string]interface{}{"command": "sleep"})
+				cmd, err := structpb.NewStruct(map[string]any{"command": "sleep"})
 				test.That(t, err, test.ShouldBeNil)
 
 				var hdr metadata.MD
@@ -118,13 +118,13 @@ func TestOpID(t *testing.T) {
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
 				tb.Helper()
 				// as soon as we see the op in the parent, check the operations in the module
-				cmd, err := structpb.NewStruct(map[string]interface{}{"command": "get_ops"})
+				cmd, err := structpb.NewStruct(map[string]any{"command": "get_ops"})
 				test.That(tb, err, test.ShouldBeNil)
 				resp, err := gc.DoCommand(ctx, &commonpb.DoCommandRequest{Name: "helper1", Command: cmd})
 				test.That(tb, err, test.ShouldBeNil)
 				ret, ok := resp.GetResult().AsMap()["ops"]
 				test.That(tb, ok, test.ShouldBeTrue)
-				retList, ok := ret.([]interface{})
+				retList, ok := ret.([]any)
 				test.That(tb, ok, test.ShouldBeTrue)
 				test.That(tb, len(retList), test.ShouldBeGreaterThan, 1)
 				for _, v := range retList {

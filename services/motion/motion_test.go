@@ -1153,7 +1153,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					MovementSensorName: movementsensor.Named("my-movementsensor"),
 					Obstacles:          []*spatialmath.GeoObstacle{},
 					MotionCfg:          &defaultMotionCfg,
-					Extra:              map[string]interface{}{},
+					Extra:              map[string]any{},
 				},
 			},
 			{
@@ -1187,7 +1187,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 						PositionPollingFreqHz: positionPollingFreqHz,
 						ObstaclePollingFreqHz: obstaclePollingFreqHz,
 					},
-					Extra: map[string]interface{}{},
+					Extra: map[string]any{},
 				},
 			},
 		}
@@ -1247,7 +1247,7 @@ func TestMoveOnMapReq(t *testing.T) {
 		SlamName:      mySlam,
 		MotionCfg:     motionCfg,
 		Obstacles:     []spatialmath.Geometry{},
-		Extra:         map[string]interface{}{},
+		Extra:         map[string]any{},
 	}
 
 	// RSDK-6444
@@ -1477,7 +1477,7 @@ func TestMoveOnMapReq(t *testing.T) {
 					Destination:   spatialmath.NewZeroPose(),
 					SlamName:      mySlam,
 					MotionCfg:     motionCfg,
-					Extra:         map[string]interface{}{},
+					Extra:         map[string]any{},
 				},
 				err: nil,
 			},
@@ -1502,7 +1502,7 @@ func TestMoveOnMapReq(t *testing.T) {
 						LinearMPerSec:         0,
 						AngularDegsPerSec:     0,
 					},
-					Extra: map[string]interface{}{},
+					Extra: map[string]any{},
 				},
 				err: nil,
 			},
@@ -1595,7 +1595,7 @@ func TestMoveOnMapReq(t *testing.T) {
 						AngularDegsPerSec:     0,
 					},
 					Obstacles: []spatialmath.Geometry{},
-					Extra:     map[string]interface{}{},
+					Extra:     map[string]any{},
 				},
 				err: nil,
 			},
@@ -1620,7 +1620,7 @@ func TestMoveOnMapReq(t *testing.T) {
 						AngularDegsPerSec:     0,
 					},
 					Obstacles: []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")},
-					Extra:     map[string]interface{}{},
+					Extra:     map[string]any{},
 				},
 				err: nil,
 			},
@@ -1732,7 +1732,7 @@ func TestPlanHistoryReq(t *testing.T) {
 				input: &pb.GetPlanRequest{
 					ComponentName: rprotoutils.ResourceNameToProto(resource.Name{}),
 				},
-				result: PlanHistoryReq{Extra: map[string]interface{}{}},
+				result: PlanHistoryReq{Extra: map[string]any{}},
 			},
 			{
 				description: "full struct returns a full struct",
@@ -1747,7 +1747,7 @@ func TestPlanHistoryReq(t *testing.T) {
 					ComponentName: mybase,
 					ExecutionID:   executionID,
 					LastPlanOnly:  true,
-					Extra:         map[string]interface{}{},
+					Extra:         map[string]any{},
 				},
 			},
 		}

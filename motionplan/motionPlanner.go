@@ -50,7 +50,7 @@ type PlanRequest struct {
 	StartConfiguration map[string][]frame.Input
 	WorldState         *frame.WorldState
 	ConstraintSpecs    *pb.Constraints
-	Options            map[string]interface{}
+	Options            map[string]any
 }
 
 // validatePlanRequest ensures PlanRequests are not malformed.
@@ -110,7 +110,7 @@ func PlanFrameMotion(ctx context.Context,
 	f frame.Frame,
 	seed []frame.Input,
 	constraintSpec *pb.Constraints,
-	planningOpts map[string]interface{},
+	planningOpts map[string]any,
 ) ([][]frame.Input, error) {
 	// ephemerally create a framesystem containing just the frame for the solve
 	fs := frame.NewEmptyFrameSystem("")

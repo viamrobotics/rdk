@@ -56,7 +56,7 @@ func newDetectionsTransform(
 		cameraModel.Distortion = props.DistortionParams
 	}
 	confFilter := objectdetection.NewScoreFilter(conf.ConfidenceThreshold)
-	validLabels := make(map[string]interface{})
+	validLabels := make(map[string]any)
 	for _, l := range conf.ValidLabels {
 		validLabels[strings.ToLower(l)] = struct{}{}
 	}
@@ -89,7 +89,7 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get next source image: %w", err)
 	}
-	dets, err := srv.Detections(ctx, img, map[string]interface{}{})
+	dets, err := srv.Detections(ctx, img, map[string]any{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get detections: %w", err)
 	}

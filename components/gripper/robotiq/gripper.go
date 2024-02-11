@@ -214,7 +214,7 @@ func (g *robotiqGripper) SetPos(ctx context.Context, pos string) (bool, error) {
 }
 
 // Open TODO.
-func (g *robotiqGripper) Open(ctx context.Context, extra map[string]interface{}) error {
+func (g *robotiqGripper) Open(ctx context.Context, extra map[string]any) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -232,7 +232,7 @@ func (g *robotiqGripper) Close(ctx context.Context) error {
 }
 
 // Grab returns true iff grabbed something.
-func (g *robotiqGripper) Grab(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (g *robotiqGripper) Grab(ctx context.Context, extra map[string]any) (bool, error) {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -255,7 +255,7 @@ func (g *robotiqGripper) Grab(ctx context.Context, extra map[string]interface{})
 
 // Calibrate TODO.
 func (g *robotiqGripper) Calibrate(ctx context.Context) error {
-	err := g.Open(ctx, map[string]interface{}{})
+	err := g.Open(ctx, map[string]any{})
 	if err != nil {
 		return err
 	}
@@ -282,7 +282,7 @@ func (g *robotiqGripper) Calibrate(ctx context.Context) error {
 }
 
 // Stop is unimplemented for robotiqGripper.
-func (g *robotiqGripper) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (g *robotiqGripper) Stop(ctx context.Context, extra map[string]any) error {
 	// RSDK-388: Implement Stop
 	err := g.Set("GTO", "0")
 	if err != nil {
@@ -302,6 +302,6 @@ func (g *robotiqGripper) ModelFrame() referenceframe.Model {
 }
 
 // Geometries returns the geometries associated with robotiqGripper.
-func (g *robotiqGripper) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+func (g *robotiqGripper) Geometries(ctx context.Context, extra map[string]any) ([]spatialmath.Geometry, error) {
 	return g.geometries, nil
 }

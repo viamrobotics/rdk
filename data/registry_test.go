@@ -8,7 +8,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var dummyCollectorConstructor = func(i interface{}, params CollectorParams) (Collector, error) {
+var dummyCollectorConstructor = func(i any, params CollectorParams) (Collector, error) {
 	return &collector{}, nil
 }
 
@@ -22,7 +22,7 @@ func TestRegister(t *testing.T) {
 		API:        resource.APINamespaceRDK.WithComponentType("type"),
 		MethodName: "method",
 	}
-	dummyCollectorConstructor = func(i interface{}, params CollectorParams) (Collector, error) {
+	dummyCollectorConstructor = func(i any, params CollectorParams) (Collector, error) {
 		return &collector{}, nil
 	}
 

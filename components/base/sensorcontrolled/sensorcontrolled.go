@@ -229,7 +229,7 @@ func (sb *sensorBase) isPolling() bool {
 }
 
 func (sb *sensorBase) MoveStraight(
-	ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{},
+	ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]any,
 ) error {
 	sb.stopLoop()
 	ctx, done := sb.opMgr.New(ctx)
@@ -240,14 +240,14 @@ func (sb *sensorBase) MoveStraight(
 }
 
 func (sb *sensorBase) SetPower(
-	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
+	ctx context.Context, linear, angular r3.Vector, extra map[string]any,
 ) error {
 	sb.opMgr.CancelRunning(ctx)
 	sb.setPolling(false)
 	return sb.controlledBase.SetPower(ctx, linear, angular, extra)
 }
 
-func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (sb *sensorBase) Stop(ctx context.Context, extra map[string]any) error {
 	sb.opMgr.CancelRunning(ctx)
 	if sb.sensorLoopDone != nil {
 		sb.sensorLoopDone()
@@ -267,11 +267,11 @@ func (sb *sensorBase) IsMoving(ctx context.Context) (bool, error) {
 	return sb.controlledBase.IsMoving(ctx)
 }
 
-func (sb *sensorBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+func (sb *sensorBase) Properties(ctx context.Context, extra map[string]any) (base.Properties, error) {
 	return sb.controlledBase.Properties(ctx, extra)
 }
 
-func (sb *sensorBase) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+func (sb *sensorBase) Geometries(ctx context.Context, extra map[string]any) ([]spatialmath.Geometry, error) {
 	return sb.controlledBase.Geometries(ctx, extra)
 }
 

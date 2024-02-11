@@ -20,7 +20,7 @@ type TrainingImage struct {
 	ID       primitive.ObjectID `bson:"_id" json:"id,omitempty"`
 	Data     []byte
 	Labels   []string
-	MetaData map[string]interface{}
+	MetaData map[string]any
 }
 
 // ImageTrainingStore TODO.
@@ -69,7 +69,7 @@ func (its *ImageTrainingStore) StoreImageFromDisk(ctx context.Context, fn string
 	if err != nil {
 		return primitive.ObjectID{}, err
 	}
-	md := map[string]interface{}{"filename": fn}
+	md := map[string]any{"filename": fn}
 	return its.StoreImage(ctx, img, md, labels)
 }
 
@@ -77,7 +77,7 @@ func (its *ImageTrainingStore) StoreImageFromDisk(ctx context.Context, fn string
 func (its *ImageTrainingStore) StoreImage(
 	ctx context.Context,
 	img image.Image,
-	metaData map[string]interface{},
+	metaData map[string]any,
 	labels []string,
 ) (primitive.ObjectID, error) {
 	ti := TrainingImage{}

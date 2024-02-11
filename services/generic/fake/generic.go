@@ -36,6 +36,6 @@ type Generic struct {
 }
 
 // DoCommand echos input back to the caller.
-func (fg *Generic) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (fg *Generic) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return cmd, nil
 }

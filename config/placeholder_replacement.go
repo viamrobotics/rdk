@@ -69,7 +69,7 @@ func (c *Config) ReplacePlaceholders() error {
 }
 
 func walkTypedAttributes[T any](visitor *placeholderReplacementVisitor, attributes T) (T, error) {
-	var asIfc interface{} = attributes
+	var asIfc any = attributes
 	if walker, ok := asIfc.(utils.Walker); ok {
 		newAttrs, err := walker.Walk(visitor)
 		if err != nil {
@@ -113,7 +113,7 @@ func newPlaceholderReplacementVisitor(cfg *Config) *placeholderReplacementVisito
 // placeholder causes otherwise valid placeholders to appear invalid to the user (there is also no guaranteed order that an
 // attribute map is traversed, so if there is a single invalid placeholder, the set of other placeholders that fail to be resolved would
 // be non-deterministic).
-func (v *placeholderReplacementVisitor) Visit(data interface{}) (interface{}, error) {
+func (v *placeholderReplacementVisitor) Visit(data any) (any, error) {
 	t := reflect.TypeOf(data)
 
 	var s string

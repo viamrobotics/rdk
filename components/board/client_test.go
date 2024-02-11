@@ -63,7 +63,7 @@ func TestWorkingClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	injectBoard := &inject.Board{}
 
-	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
+	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]any) (*commonpb.BoardStatus, error) {
 		return nil, viamgrpc.UnimplementedError
 	}
 
@@ -73,8 +73,8 @@ func TestWorkingClient(t *testing.T) {
 	testWorkingClient := func(t *testing.T, client board.Board) {
 		t.Helper()
 
-		expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
-		var actualExtra map[string]interface{}
+		expectedExtra := map[string]any{"foo": "bar", "baz": []any{1., 2., 3.}}
+		var actualExtra map[string]any
 
 		// DoCommand
 		injectBoard.DoFunc = testutils.EchoFunc
@@ -85,14 +85,14 @@ func TestWorkingClient(t *testing.T) {
 
 		// Status
 		injectStatus := &commonpb.BoardStatus{}
-		injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
+		injectBoard.StatusFunc = func(ctx context.Context, extra map[string]any) (*commonpb.BoardStatus, error) {
 			actualExtra = extra
 			return injectStatus, nil
 		}
 		respStatus, err := client.Status(context.Background(), expectedExtra)
 		test.That(t, respStatus, test.ShouldResemble, injectStatus)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
+		test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []any{})
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
 
@@ -102,7 +102,7 @@ func TestWorkingClient(t *testing.T) {
 		}
 
 		// Set
-		injectGPIOPin.SetFunc = func(ctx context.Context, high bool, extra map[string]interface{}) error {
+		injectGPIOPin.SetFunc = func(ctx context.Context, high bool, extra map[string]any) error {
 			actualExtra = extra
 			return nil
 		}
@@ -110,41 +110,41 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		err = onePin.Set(context.Background(), true, expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectGPIOPin.SetCap()[1:], test.ShouldResemble, []interface{}{true})
+		test.That(t, injectGPIOPin.SetCap()[1:], test.ShouldResemble, []any{true})
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
 
 		// Get
-		injectGPIOPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+		injectGPIOPin.GetFunc = func(ctx context.Context, extra map[string]any) (bool, error) {
 			actualExtra = extra
 			return true, nil
 		}
 		isHigh, err := onePin.Get(context.Background(), expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isHigh, test.ShouldBeTrue)
-		test.That(t, injectGPIOPin.GetCap()[1:], test.ShouldResemble, []interface{}{})
+		test.That(t, injectGPIOPin.GetCap()[1:], test.ShouldResemble, []any{})
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
 
 		// SetPWM
-		injectGPIOPin.SetPWMFunc = func(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+		injectGPIOPin.SetPWMFunc = func(ctx context.Context, dutyCyclePct float64, extra map[string]any) error {
 			actualExtra = extra
 			return nil
 		}
 		err = onePin.SetPWM(context.Background(), 0.03, expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectGPIOPin.SetPWMCap()[1:], test.ShouldResemble, []interface{}{0.03})
+		test.That(t, injectGPIOPin.SetPWMCap()[1:], test.ShouldResemble, []any{0.03})
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
 
 		// SetPWMFreq
-		injectGPIOPin.SetPWMFreqFunc = func(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+		injectGPIOPin.SetPWMFreqFunc = func(ctx context.Context, freqHz uint, extra map[string]any) error {
 			actualExtra = extra
 			return nil
 		}
 		err = onePin.SetPWMFreq(context.Background(), 11233, expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectGPIOPin.SetPWMFreqCap()[1:], test.ShouldResemble, []interface{}{uint(11233)})
+		test.That(t, injectGPIOPin.SetPWMFreqCap()[1:], test.ShouldResemble, []any{uint(11233)})
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
 
@@ -155,10 +155,10 @@ func TestWorkingClient(t *testing.T) {
 		}
 		analog1, ok := injectBoard.AnalogReaderByName("analog1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, injectBoard.AnalogReaderByNameCap(), test.ShouldResemble, []interface{}{"analog1"})
+		test.That(t, injectBoard.AnalogReaderByNameCap(), test.ShouldResemble, []any{"analog1"})
 
 		// Analog Reader:Read
-		injectAnalogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+		injectAnalogReader.ReadFunc = func(ctx context.Context, extra map[string]any) (int, error) {
 			actualExtra = extra
 			return 6, nil
 		}
@@ -169,7 +169,7 @@ func TestWorkingClient(t *testing.T) {
 		actualExtra = nil
 
 		// write analog
-		injectBoard.WriteAnalogFunc = func(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+		injectBoard.WriteAnalogFunc = func(ctx context.Context, pin string, value int32, extra map[string]any) error {
 			actualExtra = extra
 			return nil
 		}
@@ -185,10 +185,10 @@ func TestWorkingClient(t *testing.T) {
 		}
 		digital1, ok := injectBoard.DigitalInterruptByName("digital1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, injectBoard.DigitalInterruptByNameCap(), test.ShouldResemble, []interface{}{"digital1"})
+		test.That(t, injectBoard.DigitalInterruptByNameCap(), test.ShouldResemble, []any{"digital1"})
 
 		// Digital Interrupt:Value
-		injectDigitalInterrupt.ValueFunc = func(ctx context.Context, extra map[string]interface{}) (int64, error) {
+		injectDigitalInterrupt.ValueFunc = func(ctx context.Context, extra map[string]any) (int64, error) {
 			actualExtra = extra
 			return 287, nil
 		}
@@ -234,7 +234,7 @@ func TestClientWithStatus(t *testing.T) {
 	}
 
 	injectBoard := &inject.Board{}
-	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
+	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]any) (*commonpb.BoardStatus, error) {
 		return injectStatus, nil
 	}
 
@@ -246,7 +246,7 @@ func TestClientWithStatus(t *testing.T) {
 	client, err := board.NewClientFromConn(context.Background(), conn, "", board.Named(testBoardName), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
+	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []any{})
 
 	respAnalogReaders := client.AnalogReaderNames()
 	test.That(t, respAnalogReaders, test.ShouldResemble, []string{"analog1"})
@@ -284,7 +284,7 @@ func TestClientWithoutStatus(t *testing.T) {
 	rClient, err := resourceAPI.RPCClient(context.Background(), conn, "", board.Named(testBoardName), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
+	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []any{})
 
 	test.That(t, rClient.AnalogReaderNames(), test.ShouldResemble, []string{})
 	test.That(t, rClient.DigitalInterruptNames(), test.ShouldResemble, []string{})

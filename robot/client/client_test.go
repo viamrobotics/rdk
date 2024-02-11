@@ -139,12 +139,12 @@ func TestStatusClient(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
 
 	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 		return pose1, nil
 	}
 
 	injectBoard := &inject.Board{}
-	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
+	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]any) (*commonpb.BoardStatus, error) {
 		return nil, errors.New("no status")
 	}
 
@@ -165,29 +165,29 @@ func TestStatusClient(t *testing.T) {
 	}
 
 	injectInputDev := &inject.InputController{}
-	injectInputDev.ControlsFunc = func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
+	injectInputDev.ControlsFunc = func(ctx context.Context, extra map[string]any) ([]input.Control, error) {
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
 
 	injectGripper := &inject.Gripper{}
 	var gripperOpenCalled bool
-	injectGripper.OpenFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	injectGripper.OpenFunc = func(ctx context.Context, extra map[string]any) error {
 		gripperOpenCalled = true
 		return nil
 	}
 	var gripperGrabCalled bool
-	injectGripper.GrabFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	injectGripper.GrabFunc = func(ctx context.Context, extra map[string]any) (bool, error) {
 		gripperGrabCalled = true
 		return true, nil
 	}
 
 	injectServo := &inject.Servo{}
 	var capServoAngle uint32
-	injectServo.MoveFunc = func(ctx context.Context, angle uint32, extra map[string]interface{}) error {
+	injectServo.MoveFunc = func(ctx context.Context, angle uint32, extra map[string]any) error {
 		capServoAngle = angle
 		return nil
 	}
-	injectServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+	injectServo.PositionFunc = func(ctx context.Context, extra map[string]any) (uint32, error) {
 		return 5, nil
 	}
 
@@ -339,10 +339,10 @@ func TestStatusClient(t *testing.T) {
 
 	gripper1, err := gripper.FromRobot(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
-	err = gripper1.Open(context.Background(), map[string]interface{}{})
+	err = gripper1.Open(context.Background(), map[string]any{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
-	_, err = gripper1.Grab(context.Background(), map[string]interface{}{})
+	_, err = gripper1.Grab(context.Background(), map[string]any{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
@@ -357,7 +357,7 @@ func TestStatusClient(t *testing.T) {
 
 	sensorDevice, err := sensor.FromRobot(client, "sensor1")
 	test.That(t, err, test.ShouldBeNil)
-	_, err = sensorDevice.Readings(context.Background(), make(map[string]interface{}))
+	_, err = sensorDevice.Readings(context.Background(), make(map[string]any))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
@@ -423,14 +423,14 @@ func TestStatusClient(t *testing.T) {
 
 	gripper1, err = gripper.FromRobot(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
-	err = gripper1.Open(context.Background(), map[string]interface{}{})
+	err = gripper1.Open(context.Background(), map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gripperOpenCalled, test.ShouldBeTrue)
 	test.That(t, gripperGrabCalled, test.ShouldBeFalse)
 
 	inputDev, err := input.FromRobot(client, "inputController1")
 	test.That(t, err, test.ShouldBeNil)
-	controlList, err := inputDev.Controls(context.Background(), map[string]interface{}{})
+	controlList, err := inputDev.Controls(context.Background(), map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
 
@@ -713,17 +713,17 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 	justOneUnaryStatusCall := grpc.ChainUnaryInterceptor(
 		func(
 			ctx context.Context,
-			req interface{},
+			req any,
 			info *grpc.UnaryServerInfo,
 			handler grpc.UnaryHandler,
-		) (interface{}, error) {
+		) (any, error) {
 			if strings.HasSuffix(info.FullMethod, "RobotService/GetStatus") {
 				if unaryStatusCallReceived {
 					return nil, status.Error(codes.Unknown, io.ErrClosedPipe.Error())
 				}
 				unaryStatusCallReceived = true
 			}
-			var resp interface{}
+			var resp any
 			return resp, nil
 		},
 	)
@@ -787,7 +787,7 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 	var streamStatusCallReceived bool
 	interceptStreamStatusCall := grpc.ChainStreamInterceptor(
 		func(
-			srv interface{},
+			srv any,
 			ss grpc.ServerStream,
 			info *grpc.StreamServerInfo,
 			handler grpc.StreamHandler,
@@ -903,7 +903,7 @@ func TestClientReconnect(t *testing.T) {
 	}
 
 	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 		return pose1, nil
 	}
 
@@ -931,7 +931,7 @@ func TestClientReconnect(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	a, err := client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = a.(arm.Arm).EndPosition(context.Background(), map[string]interface{}{})
+	_, err = a.(arm.Arm).EndPosition(context.Background(), map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, atomic.LoadInt64(&called), test.ShouldEqual, 1)
@@ -959,7 +959,7 @@ func TestClientReconnect(t *testing.T) {
 	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 2)
 	_, err = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = a.(arm.Arm).EndPosition(context.Background(), map[string]interface{}{})
+	_, err = a.(arm.Arm).EndPosition(context.Background(), map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, atomic.LoadInt64(&called), test.ShouldEqual, 1)
@@ -1142,7 +1142,7 @@ func TestClientDiscovery(t *testing.T) {
 	injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []resource.DiscoveryQuery) ([]resource.Discovery, error) {
 		return []resource.Discovery{{
 			Query:   q,
-			Results: map[string]interface{}{"abc": []float64{1.2, 2.3, 3.4}},
+			Results: map[string]any{"abc": []float64{1.2, 2.3, 3.4}},
 		}}, nil
 	}
 
@@ -1162,7 +1162,7 @@ func TestClientDiscovery(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(resp), test.ShouldEqual, 1)
 	test.That(t, resp[0].Query, test.ShouldResemble, q)
-	test.That(t, resp[0].Results, test.ShouldResemble, map[string]interface{}{"abc": []interface{}{1.2, 2.3, 3.4}})
+	test.That(t, resp[0].Results, test.ShouldResemble, map[string]any{"abc": []any{1.2, 2.3, 3.4}})
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -1370,7 +1370,7 @@ func TestClientStatus(t *testing.T) {
 		gStatus := robot.Status{
 			Name:             movementsensor.Named("gps"),
 			LastReconfigured: gLastReconfigured,
-			Status:           map[string]interface{}{"efg": []string{"hello"}},
+			Status:           map[string]any{"efg": []string{"hello"}},
 		}
 		aLastReconfigured, err := time.Parse("2006-01-02 15:04:05", "2011-11-11 00:00:00")
 		test.That(t, err, test.ShouldBeNil)
@@ -1390,9 +1390,9 @@ func TestClientStatus(t *testing.T) {
 			}
 			return statuses, nil
 		}
-		expected := map[resource.Name]interface{}{
-			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
-			aStatus.Name: map[string]interface{}{},
+		expected := map[resource.Name]any{
+			gStatus.Name: map[string]any{"efg": []any{"hello"}},
+			aStatus.Name: map[string]any{},
 		}
 		expectedLRs := map[resource.Name]time.Time{
 			gStatus.Name: gLastReconfigured,
@@ -1415,7 +1415,7 @@ func TestClientStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 2)
 
-		observed := map[resource.Name]interface{}{
+		observed := map[resource.Name]any{
 			resp[0].Name: resp[0].Status,
 			resp[1].Name: resp[1].Status,
 		}
@@ -1577,7 +1577,7 @@ func TestClientStopAll(t *testing.T) {
 	injectRobot1 := &inject.Robot{
 		ResourceNamesFunc:   resourcesFunc,
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
-		StopAllFunc: func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
+		StopAllFunc: func(ctx context.Context, extra map[resource.Name]map[string]any) error {
 			stopAllCalled = true
 			return nil
 		},
@@ -1616,7 +1616,7 @@ func TestRemoteClientMatch(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 
 	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 		return pose1, nil
 	}
 
@@ -1661,7 +1661,7 @@ func TestRemoteClientDuplicate(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 
 	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 		return pose1, nil
 	}
 
@@ -1709,7 +1709,7 @@ func TestClientOperationIntercept(t *testing.T) {
 	defer gServer.Stop()
 
 	ctx := context.Background()
-	var fakeArgs interface{}
+	var fakeArgs any
 	fakeManager := operation.NewManager(logger)
 	ctx, done := fakeManager.Create(ctx, "fake", fakeArgs)
 	defer done()

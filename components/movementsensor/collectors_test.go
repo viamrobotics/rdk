@@ -125,29 +125,29 @@ func TestMovementSensorCollectors(t *testing.T) {
 
 func newMovementSensor() movementsensor.MovementSensor {
 	m := &inject.MovementSensor{}
-	m.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	m.LinearVelocityFunc = func(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 		return vec, nil
 	}
-	m.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	m.PositionFunc = func(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 		return geo.NewPoint(1.0, 2.0), 3.0, nil
 	}
-	m.AngularVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+	m.AngularVelocityFunc = func(ctx context.Context, extra map[string]any) (spatialmath.AngularVelocity, error) {
 		return spatialmath.AngularVelocity{
 			X: 1.0,
 			Y: 2.0,
 			Z: 3.0,
 		}, nil
 	}
-	m.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	m.CompassHeadingFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		return 1.0, nil
 	}
-	m.LinearAccelerationFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+	m.LinearAccelerationFunc = func(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 		return vec, nil
 	}
-	m.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+	m.OrientationFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 		return spatialmath.NewZeroOrientation(), nil
 	}
-	m.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+	m.ReadingsFunc = func(ctx context.Context, extra map[string]any) (map[string]any, error) {
 		return readingMap, nil
 	}
 	return m

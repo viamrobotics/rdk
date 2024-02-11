@@ -31,7 +31,7 @@ import (
 var sleepCaptureCutoff = 2 * time.Millisecond
 
 // CaptureFunc allows the creation of simple Capturers with anonymous functions.
-type CaptureFunc func(ctx context.Context, params map[string]*anypb.Any) (interface{}, error)
+type CaptureFunc func(ctx context.Context, params map[string]*anypb.Any) (any, error)
 
 // FromDMContextKey is used to check whether the context is from data management.
 // Deprecated: use a camera.Extra with camera.NewContext instead.
@@ -41,7 +41,7 @@ type FromDMContextKey struct{}
 const FromDMString = "fromDataManagement"
 
 // FromDMExtraMap is a map with 'fromDataManagement' set to true.
-var FromDMExtraMap = map[string]interface{}{FromDMString: true}
+var FromDMExtraMap = map[string]any{FromDMString: true}
 
 // ErrNoCaptureToStore is returned when a modular filter resource filters the capture coming from the base resource.
 var ErrNoCaptureToStore = status.Error(codes.FailedPrecondition, "no capture from filter module")
@@ -330,7 +330,7 @@ func FailedToReadErr(component, method string, err error) error {
 // GetExtraFromContext sets the extra struct with "fromDataManagement": true if the flag is true in the context.
 // Deprecated: Use camera.FromContext instead.
 func GetExtraFromContext(ctx context.Context) (*structpb.Struct, error) {
-	extra := make(map[string]interface{})
+	extra := make(map[string]any)
 	if ctx.Value(FromDMContextKey{}) == true {
 		extra[FromDMString] = true
 	}

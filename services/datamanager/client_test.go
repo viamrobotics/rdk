@@ -26,7 +26,7 @@ func TestClient(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	var extraOptions map[string]interface{}
+	var extraOptions map[string]any
 
 	injectDS := &inject.DataManagerService{}
 	svcName := datamanager.Named(testDataManagerServiceName)
@@ -60,11 +60,11 @@ func TestClient(t *testing.T) {
 		client, err := datamanager.NewClientFromConn(context.Background(), conn, "", svcName, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		injectDS.SyncFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		injectDS.SyncFunc = func(ctx context.Context, extra map[string]any) error {
 			extraOptions = extra
 			return nil
 		}
-		extra := map[string]interface{}{"foo": "Sync"}
+		extra := map[string]any{"foo": "Sync"}
 		err = client.Sync(context.Background(), extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
@@ -88,11 +88,11 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		passedErr := errors.New("fake sync error")
-		injectDS.SyncFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		injectDS.SyncFunc = func(ctx context.Context, extra map[string]any) error {
 			return passedErr
 		}
 
-		err = client2.Sync(context.Background(), map[string]interface{}{})
+		err = client2.Sync(context.Background(), map[string]any{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)

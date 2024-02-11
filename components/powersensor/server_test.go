@@ -54,7 +54,7 @@ func TestServerGetVoltage(t *testing.T) {
 	isAC := false
 
 	// successful
-	testPowerSensor.VoltageFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+	testPowerSensor.VoltageFunc = func(ctx context.Context, extra map[string]any) (float64, bool, error) {
 		return volts, isAC, nil
 	}
 	req := &pb.GetVoltageRequest{Name: workingPowerSensorName}
@@ -64,7 +64,7 @@ func TestServerGetVoltage(t *testing.T) {
 	test.That(t, resp.IsAc, test.ShouldEqual, isAC)
 
 	// fails on bad power sensor
-	failingPowerSensor.VoltageFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+	failingPowerSensor.VoltageFunc = func(ctx context.Context, extra map[string]any) (float64, bool, error) {
 		return 0, false, errVoltageFailed
 	}
 	req = &pb.GetVoltageRequest{Name: failingPowerSensorName}
@@ -88,7 +88,7 @@ func TestServerGetCurrent(t *testing.T) {
 	isAC := false
 
 	// successful
-	testPowerSensor.CurrentFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+	testPowerSensor.CurrentFunc = func(ctx context.Context, extra map[string]any) (float64, bool, error) {
 		return amps, isAC, nil
 	}
 	req := &pb.GetCurrentRequest{Name: workingPowerSensorName}
@@ -98,7 +98,7 @@ func TestServerGetCurrent(t *testing.T) {
 	test.That(t, resp.IsAc, test.ShouldEqual, isAC)
 
 	// fails on bad power sensor
-	failingPowerSensor.CurrentFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+	failingPowerSensor.CurrentFunc = func(ctx context.Context, extra map[string]any) (float64, bool, error) {
 		return 0, false, errCurrentFailed
 	}
 	req = &pb.GetCurrentRequest{Name: failingPowerSensorName}
@@ -120,7 +120,7 @@ func TestServerGetPower(t *testing.T) {
 	watts := 4.8
 
 	// successful
-	testPowerSensor.PowerFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	testPowerSensor.PowerFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		return watts, nil
 	}
 	req := &pb.GetPowerRequest{Name: workingPowerSensorName}
@@ -129,7 +129,7 @@ func TestServerGetPower(t *testing.T) {
 	test.That(t, resp.Watts, test.ShouldEqual, watts)
 
 	// fails on bad power sensor
-	failingPowerSensor.PowerFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	failingPowerSensor.PowerFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		return 0, errPowerFailed
 	}
 	req = &pb.GetPowerRequest{Name: failingPowerSensorName}
@@ -149,15 +149,15 @@ func TestServerGetReadings(t *testing.T) {
 	powerSensorServer, testPowerSensor, failingPowerSensor, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	rs := map[string]interface{}{"a": 1.1, "b": 2.2}
+	rs := map[string]any{"a": 1.1, "b": 2.2}
 
-	var extraCap map[string]interface{}
-	testPowerSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+	var extraCap map[string]any
+	testPowerSensor.ReadingsFunc = func(ctx context.Context, extra map[string]any) (map[string]any, error) {
 		extraCap = extra
 		return rs, nil
 	}
 
-	failingPowerSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+	failingPowerSensor.ReadingsFunc = func(ctx context.Context, extra map[string]any) (map[string]any, error) {
 		return nil, errReadingsFailed
 	}
 
@@ -167,13 +167,13 @@ func TestServerGetReadings(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		expected[k] = vv
 	}
-	extra, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
+	extra, err := protoutils.StructToStructPb(map[string]any{"foo": "bar"})
 	test.That(t, err, test.ShouldBeNil)
 
 	resp, err := powerSensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: workingPowerSensorName, Extra: extra})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Readings, test.ShouldResemble, expected)
-	test.That(t, extraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+	test.That(t, extraCap, test.ShouldResemble, map[string]any{"foo": "bar"})
 
 	_, err = powerSensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: failingPowerSensorName})
 	test.That(t, err, test.ShouldNotBeNil)

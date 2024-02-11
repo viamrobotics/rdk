@@ -33,21 +33,21 @@ func TestClient(t *testing.T) {
 	workingEncoder := &inject.Encoder{}
 	failingEncoder := &inject.Encoder{}
 
-	var actualExtra map[string]interface{}
+	var actualExtra map[string]any
 
-	workingEncoder.ResetPositionFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	workingEncoder.ResetPositionFunc = func(ctx context.Context, extra map[string]any) error {
 		actualExtra = extra
 		return nil
 	}
 	workingEncoder.PositionFunc = func(
 		ctx context.Context,
 		positionType encoder.PositionType,
-		extra map[string]interface{},
+		extra map[string]any,
 	) (float64, encoder.PositionType, error) {
 		actualExtra = extra
 		return 42.0, encoder.PositionTypeUnspecified, nil
 	}
-	workingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
+	workingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]any) (encoder.Properties, error) {
 		actualExtra = extra
 		return encoder.Properties{
 			TicksCountSupported:   true,
@@ -55,17 +55,17 @@ func TestClient(t *testing.T) {
 		}, nil
 	}
 
-	failingEncoder.ResetPositionFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	failingEncoder.ResetPositionFunc = func(ctx context.Context, extra map[string]any) error {
 		return errSetToZeroFailed
 	}
 	failingEncoder.PositionFunc = func(
 		ctx context.Context,
 		positionType encoder.PositionType,
-		extra map[string]interface{},
+		extra map[string]any,
 	) (float64, encoder.PositionType, error) {
 		return 0, encoder.PositionTypeUnspecified, errPositionUnavailable
 	}
-	failingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
+	failingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]any) (encoder.Properties, error) {
 		return encoder.Properties{}, errGetPropertiesFailed
 	}
 
@@ -111,12 +111,12 @@ func TestClient(t *testing.T) {
 		pos, positionType, err := workingEncoderClient.Position(
 			context.Background(),
 			encoder.PositionTypeUnspecified,
-			map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
+			map[string]any{"foo": "bar", "baz": []any{1., 2., 3.}})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 42.0)
 		test.That(t, positionType, test.ShouldEqual, pb.PositionType_POSITION_TYPE_UNSPECIFIED)
 
-		test.That(t, actualExtra, test.ShouldResemble, map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
+		test.That(t, actualExtra, test.ShouldResemble, map[string]any{"foo": "bar", "baz": []any{1., 2., 3.}})
 
 		test.That(t, workingEncoderClient.Close(context.Background()), test.ShouldBeNil)
 

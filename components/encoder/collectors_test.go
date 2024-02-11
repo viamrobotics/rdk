@@ -56,7 +56,7 @@ func newEncoder() encoder.Encoder {
 	e := &inject.Encoder{}
 	e.PositionFunc = func(ctx context.Context,
 		positionType encoder.PositionType,
-		extra map[string]interface{},
+		extra map[string]any,
 	) (float64, encoder.PositionType, error) {
 		return 1.0, encoder.PositionTypeTicks, nil
 	}

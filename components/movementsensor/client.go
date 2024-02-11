@@ -43,7 +43,7 @@ func NewClientFromConn(
 	}, nil
 }
 
-func (c *client) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (c *client) Position(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return nil, 0, err
@@ -60,7 +60,7 @@ func (c *client) Position(ctx context.Context, extra map[string]interface{}) (*g
 		nil
 }
 
-func (c *client) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (c *client) LinearVelocity(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return r3.Vector{}, err
@@ -75,7 +75,7 @@ func (c *client) LinearVelocity(ctx context.Context, extra map[string]interface{
 	return protoutils.ConvertVectorProtoToR3(resp.LinearVelocity), nil
 }
 
-func (c *client) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (c *client) AngularVelocity(ctx context.Context, extra map[string]any) (spatialmath.AngularVelocity, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return spatialmath.AngularVelocity{}, err
@@ -90,7 +90,7 @@ func (c *client) AngularVelocity(ctx context.Context, extra map[string]interface
 	return spatialmath.AngularVelocity(protoutils.ConvertVectorProtoToR3(resp.AngularVelocity)), nil
 }
 
-func (c *client) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (c *client) LinearAcceleration(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return r3.Vector{}, err
@@ -105,7 +105,7 @@ func (c *client) LinearAcceleration(ctx context.Context, extra map[string]interf
 	return protoutils.ConvertVectorProtoToR3(resp.LinearAcceleration), nil
 }
 
-func (c *client) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (c *client) CompassHeading(ctx context.Context, extra map[string]any) (float64, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return 0, err
@@ -120,7 +120,7 @@ func (c *client) CompassHeading(ctx context.Context, extra map[string]interface{
 	return resp.Value, nil
 }
 
-func (c *client) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+func (c *client) Orientation(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return spatialmath.NewZeroOrientation(), err
@@ -135,7 +135,7 @@ func (c *client) Orientation(ctx context.Context, extra map[string]interface{}) 
 	return protoutils.ConvertProtoToOrientation(resp.Orientation), nil
 }
 
-func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return nil, err
@@ -151,7 +151,7 @@ func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	return protoutils.ReadingProtoToGo(resp.Readings)
 }
 
-func (c *client) Accuracy(ctx context.Context, extra map[string]interface{}) (*Accuracy, error,
+func (c *client) Accuracy(ctx context.Context, extra map[string]any) (*Accuracy, error,
 ) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
@@ -167,7 +167,7 @@ func (c *client) Accuracy(ctx context.Context, extra map[string]interface{}) (*A
 	return protoFeaturesToAccuracy(resp), nil
 }
 
-func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (*Properties, error) {
+func (c *client) Properties(ctx context.Context, extra map[string]any) (*Properties, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return nil, err
@@ -182,6 +182,6 @@ func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (
 	return ProtoFeaturesToProperties(resp), nil
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

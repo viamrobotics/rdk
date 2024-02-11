@@ -99,14 +99,14 @@ func (app *robotWebApp) Init() error {
 
 // AppTemplateData is used to render the remote control page.
 type AppTemplateData struct {
-	WebRTCEnabled          bool                   `json:"webrtc_enabled"`
-	WebRTCSignalingAddress string                 `json:"webrtc_signaling_address"`
-	Env                    string                 `json:"env"`
-	Host                   string                 `json:"host"`
-	StaticHost             string                 `json:"static_host"`
-	SupportedAuthTypes     []string               `json:"supported_auth_types"`
-	AuthEntity             string                 `json:"auth_entity"`
-	BakedAuth              map[string]interface{} `json:"baked_auth"`
+	WebRTCEnabled          bool           `json:"webrtc_enabled"`
+	WebRTCSignalingAddress string         `json:"webrtc_signaling_address"`
+	Env                    string         `json:"env"`
+	Host                   string         `json:"host"`
+	StaticHost             string         `json:"static_host"`
+	SupportedAuthTypes     []string       `json:"supported_auth_types"`
+	AuthEntity             string         `json:"auth_entity"`
+	BakedAuth              map[string]any `json:"baked_auth"`
 }
 
 // ServeHTTP serves the UI.
@@ -142,7 +142,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if app.options.Managed && hasManagedAuthHandlers(app.options.Auth.Handlers) {
-		data.BakedAuth = map[string]interface{}{
+		data.BakedAuth = map[string]any{
 			"authEntity": app.options.BakedAuthEntity,
 			"creds":      app.options.BakedAuthCreds,
 		}
@@ -588,7 +588,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		svc.addr = fmt.Sprintf("0.0.0.0:%d", listenerTCPAddr.Port)
 	}
 	listenerURL := fmt.Sprintf("%s://%s", scheme, svc.addr)
-	var urlFields []interface{}
+	var urlFields []any
 	if options.LocalFQDN == "" {
 		urlFields = append(urlFields, "url", listenerURL)
 	} else {
@@ -644,10 +644,10 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 		rpcOpts = append(rpcOpts, rpc.WithDebug())
 		unaryInterceptors = append(unaryInterceptors, func(
 			ctx context.Context,
-			req interface{},
+			req any,
 			info *googlegrpc.UnaryServerInfo,
 			handler googlegrpc.UnaryHandler,
-		) (interface{}, error) {
+		) (any, error) {
 			ctx, span := trace.StartSpan(ctx, fmt.Sprintf("%v", req))
 			defer span.End()
 
@@ -923,7 +923,7 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 	return mux, nil
 }
 
-func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.ServerStream) error {
+func (svc *webService) foreignServiceHandler(srv any, stream googlegrpc.ServerStream) error {
 	method, ok := googlegrpc.MethodFromServerStream(stream)
 	if !ok {
 		return grpc.UnimplementedError
@@ -1092,9 +1092,9 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 
 // ensureTimeoutUnaryInterceptor sets a default timeout on the context if one is
 // not already set. To be called as the first unary server interceptor.
-func ensureTimeoutUnaryInterceptor(ctx context.Context, req interface{},
+func ensureTimeoutUnaryInterceptor(ctx context.Context, req any,
 	info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
-) (interface{}, error) {
+) (any, error) {
 	if _, deadlineSet := ctx.Deadline(); !deadlineSet {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, defaultMethodTimeout)

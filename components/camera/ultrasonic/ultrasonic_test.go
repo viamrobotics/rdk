@@ -37,7 +37,7 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 		return injectDigi, true
 	}
 	pin := &inject.GPIOPin{}
-	pin.SetFunc = func(ctx context.Context, high bool, extra map[string]interface{}) error {
+	pin.SetFunc = func(ctx context.Context, high bool, extra map[string]any) error {
 		return nil
 	}
 	actualBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
@@ -63,8 +63,8 @@ func TestUnderlyingSensor(t *testing.T) {
 	ctx := context.Background()
 
 	fakeUS := inject.NewSensor("mySensor")
-	fakeUS.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-		return map[string]interface{}{"distance": 3.2}, nil
+	fakeUS.ReadingsFunc = func(ctx context.Context, extra map[string]any) (map[string]any, error) {
+		return map[string]any{"distance": 3.2}, nil
 	}
 	logger := logging.NewTestLogger(t)
 	cam, err := cameraFromSensor(ctx, name, fakeUS, logger)

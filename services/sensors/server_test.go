@@ -45,7 +45,7 @@ func TestServerGetSensors(t *testing.T) {
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 		passedErr := errors.New("can't get sensors")
-		injectSensors.SensorsFunc = func(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error) {
+		injectSensors.SensorsFunc = func(ctx context.Context, extra map[string]any) ([]resource.Name, error) {
 			return nil, passedErr
 		}
 		_, err = server.GetSensors(context.Background(), &pb.GetSensorsRequest{Name: testSvcName1.ShortName()})
@@ -60,13 +60,13 @@ func TestServerGetSensors(t *testing.T) {
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 
-		var extraOptions map[string]interface{}
+		var extraOptions map[string]any
 		names := []resource.Name{movementsensor.Named("gps"), movementsensor.Named("imu")}
-		injectSensors.SensorsFunc = func(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error) {
+		injectSensors.SensorsFunc = func(ctx context.Context, extra map[string]any) ([]resource.Name, error) {
 			extraOptions = extra
 			return names, nil
 		}
-		extra := map[string]interface{}{"foo": "Sensors"}
+		extra := map[string]any{"foo": "Sensors"}
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -100,7 +100,7 @@ func TestServerGetReadings(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		passedErr := errors.New("can't get readings")
 		injectSensors.ReadingsFunc = func(
-			ctx context.Context, sensors []resource.Name, extra map[string]interface{},
+			ctx context.Context, sensors []resource.Name, extra map[string]any,
 		) ([]sensors.Readings, error) {
 			return nil, passedErr
 		}
@@ -119,21 +119,21 @@ func TestServerGetReadings(t *testing.T) {
 		}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
-		iReading := sensors.Readings{Name: movementsensor.Named("imu"), Readings: map[string]interface{}{"a": 1.2, "b": 2.3, "c": 3.4}}
-		gReading := sensors.Readings{Name: movementsensor.Named("gps"), Readings: map[string]interface{}{"a": 4.5, "b": 5.6, "c": 6.7}}
+		iReading := sensors.Readings{Name: movementsensor.Named("imu"), Readings: map[string]any{"a": 1.2, "b": 2.3, "c": 3.4}}
+		gReading := sensors.Readings{Name: movementsensor.Named("gps"), Readings: map[string]any{"a": 4.5, "b": 5.6, "c": 6.7}}
 		readings := []sensors.Readings{iReading, gReading}
-		expected := map[resource.Name]interface{}{
+		expected := map[resource.Name]any{
 			iReading.Name: iReading.Readings,
 			gReading.Name: gReading.Readings,
 		}
-		var extraOptions map[string]interface{}
+		var extraOptions map[string]any
 		injectSensors.ReadingsFunc = func(
-			ctx context.Context, sensors []resource.Name, extra map[string]interface{},
+			ctx context.Context, sensors []resource.Name, extra map[string]any,
 		) ([]sensors.Readings, error) {
 			extraOptions = extra
 			return readings, nil
 		}
-		extra := map[string]interface{}{"foo": "Readings"}
+		extra := map[string]any{"foo": "Readings"}
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -147,15 +147,15 @@ func TestServerGetReadings(t *testing.T) {
 		test.That(t, len(resp.Readings), test.ShouldEqual, 2)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
-		conv := func(rs map[string]*structpb.Value) map[string]interface{} {
-			r := map[string]interface{}{}
+		conv := func(rs map[string]*structpb.Value) map[string]any {
+			r := map[string]any{}
 			for k, value := range rs {
 				r[k] = value.AsInterface()
 			}
 			return r
 		}
 
-		observed := map[resource.Name]interface{}{
+		observed := map[resource.Name]any{
 			rprotoutils.ResourceNameFromProto(resp.Readings[0].Name): conv(resp.Readings[0].Readings),
 			rprotoutils.ResourceNameFromProto(resp.Readings[1].Name): conv(resp.Readings[1].Readings),
 		}

@@ -466,7 +466,7 @@ func TestServer(t *testing.T) {
 		}
 
 		// one kvp created with data.FromDMContextKey
-		ext, err = goprotoutils.StructToStructPb(map[string]interface{}{data.FromDMString: true})
+		ext, err = goprotoutils.StructToStructPb(map[string]any{data.FromDMString: true})
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
@@ -488,7 +488,7 @@ func TestServer(t *testing.T) {
 
 		// use values from data and camera
 		ext, err = goprotoutils.StructToStructPb(
-			map[string]interface{}{
+			map[string]any{
 				data.FromDMString: true,
 				"hello":           "world",
 			},

@@ -177,7 +177,7 @@ func getHeading(firstPoint, secondPoint *geo.Point, yawOffset float64,
 	return bearing, heading, standardBearing
 }
 
-func (dg *dualGPS) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (dg *dualGPS) CompassHeading(ctx context.Context, extra map[string]any) (float64, error) {
 	dg.mu.Lock()
 	defer dg.mu.Unlock()
 
@@ -195,7 +195,7 @@ func (dg *dualGPS) CompassHeading(ctx context.Context, extra map[string]interfac
 	return heading, nil
 }
 
-func (dg *dualGPS) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+func (dg *dualGPS) Properties(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		CompassHeadingSupported:     true,
 		PositionSupported:           true,
@@ -206,11 +206,11 @@ func (dg *dualGPS) Properties(ctx context.Context, extra map[string]interface{})
 	}, nil
 }
 
-func (dg *dualGPS) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (dg *dualGPS) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	return movementsensor.DefaultAPIReadings(ctx, dg, extra)
 }
 
-func (dg *dualGPS) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (dg *dualGPS) Position(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 	dg.mu.Lock()
 	defer dg.mu.Unlock()
 
@@ -247,23 +247,23 @@ func (dg *dualGPS) Position(ctx context.Context, extra map[string]interface{}) (
 }
 
 // Unimplemented functions.
-func (dg *dualGPS) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (dg *dualGPS) LinearAcceleration(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }
 
-func (dg *dualGPS) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (dg *dualGPS) LinearVelocity(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 }
 
-func (dg *dualGPS) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (dg *dualGPS) AngularVelocity(ctx context.Context, extra map[string]any) (spatialmath.AngularVelocity, error) {
 	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }
 
-func (dg *dualGPS) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+func (dg *dualGPS) Orientation(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 	return spatialmath.NewZeroOrientation(), movementsensor.ErrMethodUnimplementedOrientation
 }
 
-func (dg *dualGPS) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
+func (dg *dualGPS) Accuracy(ctx context.Context, extra map[string]any) (*movementsensor.Accuracy, error) {
 	// TODO: RSDK-6389: for this driver, find the highest value VDOP and HDOP to show the worst accuracy in position
 	// check the fix and return the compass error using a calculation based on the fix and variation
 	// of the two positions.
@@ -272,8 +272,8 @@ func (dg *dualGPS) Accuracy(ctx context.Context, extra map[string]interface{}) (
 	return movementsensor.UnimplementedAccuracies()
 }
 
-func (dg *dualGPS) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return map[string]interface{}{}, resource.ErrDoUnimplemented
+func (dg *dualGPS) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
+	return map[string]any{}, resource.ErrDoUnimplemented
 }
 
 func (dg *dualGPS) Close(ctx context.Context) error {

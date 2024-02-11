@@ -29,14 +29,14 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	srv := &inject.VisionService{}
-	srv.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error) {
+	srv.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]any) ([]objectdetection.Detection, error) {
 		det1 := objectdetection.NewDetection(image.Rect(5, 10, 15, 20), 0.5, "yes")
 		return []objectdetection.Detection{det1}, nil
 	}
 	srv.DetectionsFromCameraFunc = func(
 		ctx context.Context,
 		camName string,
-		extra map[string]interface{},
+		extra map[string]any,
 	) ([]objectdetection.Detection, error) {
 		det1 := objectdetection.NewDetection(image.Rect(0, 0, 10, 20), 0.8, "camera")
 		return []objectdetection.Detection{det1}, nil

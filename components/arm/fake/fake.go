@@ -127,7 +127,7 @@ func (a *Arm) ModelFrame() referenceframe.Model {
 }
 
 // EndPosition returns the set position.
-func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+func (a *Arm) EndPosition(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 	joints, err := a.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
@@ -138,12 +138,12 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 }
 
 // MoveToPosition sets the position.
-func (a *Arm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
+func (a *Arm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]any) error {
 	return arm.Move(ctx, a.logger, a, pos)
 }
 
 // MoveToJointPositions sets the joints.
-func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
+func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]any) error {
 	if err := arm.CheckDesiredJointPositions(ctx, a, joints); err != nil {
 		return err
 	}
@@ -160,13 +160,13 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosition
 }
 
 // JointPositions returns joints.
-func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (a *Arm) JointPositions(ctx context.Context, extra map[string]any) (*pb.JointPositions, error) {
 	retJoint := &pb.JointPositions{Values: a.joints.Values}
 	return retJoint, nil
 }
 
 // Stop doesn't do anything for a fake arm.
-func (a *Arm) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (a *Arm) Stop(ctx context.Context, extra map[string]any) error {
 	return nil
 }
 
@@ -205,7 +205,7 @@ func (a *Arm) Close(ctx context.Context) error {
 
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
 // current location relative to the frame of the resource.
-func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+func (a *Arm) Geometries(ctx context.Context, extra map[string]any) ([]spatialmath.Geometry, error) {
 	inputs, err := a.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err

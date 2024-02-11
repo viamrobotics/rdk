@@ -110,7 +110,7 @@ func ConvertStringMapToAnyPBMap(params map[string]string) (map[string]*anypb.Any
 
 // MessageToProtoV1 converts a message to a protov1.Message. It is
 // assumed it is either a proto.Message or a protov1.Message.
-func MessageToProtoV1(msg interface{}) protov1.Message {
+func MessageToProtoV1(msg any) protov1.Message {
 	switch v := msg.(type) {
 	case proto.Message:
 		return protov1.MessageV1(v)
@@ -129,8 +129,8 @@ type ClientDoCommander interface {
 
 // DoFromResourceClient is a helper to allow DoCommand() calls from any client.
 func DoFromResourceClient(ctx context.Context, svc ClientDoCommander, name string,
-	cmd map[string]interface{},
-) (map[string]interface{}, error) {
+	cmd map[string]any,
+) (map[string]any, error) {
 	command, err := protoutils.StructToStructPb(cmd)
 	if err != nil {
 		return nil, err

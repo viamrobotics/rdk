@@ -28,5 +28,5 @@ func TestNewUnexpectedTypeError(t *testing.T) {
 
 type (
 	someStruct struct{}
-	someIfc    interface{}
+	someIfc    any
 )

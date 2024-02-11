@@ -94,7 +94,7 @@ func (imp *impl) Sync() error {
 	return multierr.Combine(errs...)
 }
 
-func (imp *impl) With(args ...interface{}) *zap.SugaredLogger {
+func (imp *impl) With(args ...any) *zap.SugaredLogger {
 	return imp.AsZap().With(args...)
 }
 
@@ -163,7 +163,7 @@ func (imp *impl) log(entry *LogEntry) {
 }
 
 // Constructs the log message by forwarding to `fmt.Sprint`. `traceKey` may be the empty string.
-func (imp *impl) format(logLevel Level, traceKey string, args ...interface{}) *LogEntry {
+func (imp *impl) format(logLevel Level, traceKey string, args ...any) *LogEntry {
 	logEntry := imp.NewLogEntry()
 	logEntry.Level = logLevel.AsZap()
 	logEntry.Message = fmt.Sprint(args...)
@@ -175,7 +175,7 @@ func (imp *impl) format(logLevel Level, traceKey string, args ...interface{}) *L
 }
 
 // Constructs the log message by forwarding to `fmt.Sprintf`. `traceKey` may be the empty string.
-func (imp *impl) formatf(logLevel Level, traceKey, template string, args ...interface{}) *LogEntry {
+func (imp *impl) formatf(logLevel Level, traceKey, template string, args ...any) *LogEntry {
 	logEntry := imp.NewLogEntry()
 	logEntry.Level = logLevel.AsZap()
 	logEntry.Message = fmt.Sprintf(template, args...)
@@ -190,7 +190,7 @@ func (imp *impl) formatf(logLevel Level, traceKey, template string, args ...inte
 // counterpart is the value. The keys are expected to be strings. The values are json
 // serialized. Only public fields are included in the serialization. `traceKey` may be the empty
 // string.
-func (imp *impl) formatw(logLevel Level, traceKey, msg string, keysAndValues ...interface{}) *LogEntry {
+func (imp *impl) formatw(logLevel Level, traceKey, msg string, keysAndValues ...any) *LogEntry {
 	logEntry := imp.NewLogEntry()
 	logEntry.Level = logLevel.AsZap()
 	logEntry.Message = msg
@@ -221,14 +221,14 @@ func (imp *impl) formatw(logLevel Level, traceKey, msg string, keysAndValues ...
 	return logEntry
 }
 
-func (imp *impl) Debug(args ...interface{}) {
+func (imp *impl) Debug(args ...any) {
 	imp.testHelper()
 	if imp.shouldLog(DEBUG) {
 		imp.log(imp.format(DEBUG, emptyTraceKey, args...))
 	}
 }
 
-func (imp *impl) CDebug(ctx context.Context, args ...interface{}) {
+func (imp *impl) CDebug(ctx context.Context, args ...any) {
 	imp.testHelper()
 	dbgName := GetName(ctx)
 
@@ -238,14 +238,14 @@ func (imp *impl) CDebug(ctx context.Context, args ...interface{}) {
 	}
 }
 
-func (imp *impl) Debugf(template string, args ...interface{}) {
+func (imp *impl) Debugf(template string, args ...any) {
 	imp.testHelper()
 	if imp.shouldLog(DEBUG) {
 		imp.log(imp.formatf(DEBUG, emptyTraceKey, template, args...))
 	}
 }
 
-func (imp *impl) CDebugf(ctx context.Context, template string, args ...interface{}) {
+func (imp *impl) CDebugf(ctx context.Context, template string, args ...any) {
 	imp.testHelper()
 	dbgName := GetName(ctx)
 
@@ -255,14 +255,14 @@ func (imp *impl) CDebugf(ctx context.Context, template string, args ...interface
 	}
 }
 
-func (imp *impl) Debugw(msg string, keysAndValues ...interface{}) {
+func (imp *impl) Debugw(msg string, keysAndValues ...any) {
 	imp.testHelper()
 	if imp.shouldLog(DEBUG) {
 		imp.log(imp.formatw(DEBUG, emptyTraceKey, msg, keysAndValues...))
 	}
 }
 
-func (imp *impl) CDebugw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+func (imp *impl) CDebugw(ctx context.Context, msg string, keysAndValues ...any) {
 	imp.testHelper()
 	dbgName := GetName(ctx)
 
@@ -272,14 +272,14 @@ func (imp *impl) CDebugw(ctx context.Context, msg string, keysAndValues ...inter
 	}
 }
 
-func (imp *impl) Info(args ...interface{}) {
+func (imp *impl) Info(args ...any) {
 	imp.testHelper()
 	if imp.shouldLog(INFO) {
 		imp.log(imp.format(INFO, emptyTraceKey, args...))
 	}
 }
 
-func (imp *impl) CInfo(ctx context.Context, args ...interface{}) {
+func (imp *impl) CInfo(ctx context.Context, args ...any) {
 	imp.testHelper()
 	dbgName := GetName(ctx)
 
@@ -289,14 +289,14 @@ func (imp *impl) CInfo(ctx context.Context, args ...interface{}) {
 	}
 }
 
-func (imp *impl) Infof(template string, args ...interface{}) {
+func (imp *impl) Infof(template string, args ...any) {
 	imp.testHelper()
 	if imp.shouldLog(INFO) {
 		imp.log(imp.formatf(INFO, emptyTraceKey, template, args...))
 	}
 }
 
-func (imp *impl) CInfof(ctx context.Context, template string, args ...interface{}) {
+func (imp *impl) CInfof(ctx context.Context, template string, args ...any) {
 	imp.testHelper()
 	dbgName := GetName(ctx)
 
@@ -306,14 +306,14 @@ func (imp *impl) CInfof(ctx context.Context, template string, args ...interface{
 	}
 }
 
-func (imp *impl) Infow(msg string, keysAndValues ...interface{}) {
+func (imp *impl) Infow(msg string, keysAndValues ...any) {
 	imp.testHelper()
 	if imp.shouldLog(INFO) {
 		imp.log(imp.formatw(INFO, emptyTraceKey, msg, keysAndValues...))
 	}
 }
 
-func (imp *impl) CInfow(ctx context.Context, msg string, keysAndValues ...interface{}) {
+func (imp *impl) CInfow(ctx context.Context, msg string, keysAndValues ...any) {
 	imp.testHelper()
 	dbgName := GetName(ctx)
 
@@ -323,14 +323,14 @@ func (imp *impl) CInfow(ctx context.Context, msg string, keysAndValues ...interf
 	}
 }
 
-func (imp *impl) Warn(args ...interface{}) {
+func (imp *impl) Warn(args ...any) {
 	imp.testHelper()
 	if imp.shouldLog(WARN) {
 		imp.log(imp.format(WARN, emptyTraceKey, args...))
 	}
 }
 
-func (imp *impl) CWarn(ctx context.Context, args ...interface{}) {
+func (imp *impl) CWarn(ctx context.Context, args ...any) {
 	imp.testHelper()
 	dbgName := GetName(ctx)
 
@@ -340,14 +340,14 @@ func (imp *impl) CWarn(ctx context.Context, args ...interface{}) {
 	}
 }
 
-func (imp *impl) Warnf(template string, args ...interface{}) {
+func (imp *impl) Warnf(template string, args ...any) {
 	imp.testHelper()
 	if imp.shouldLog(WARN) {
 		imp.log(imp.formatf(WARN, emptyTraceKey, template, args...))
 	}
 }
 
-func (imp *impl) CWarnf(ctx context.Context, template string, args ...interface{}) {
+func (imp *impl) CWarnf(ctx context.Context, template string, args ...any) {
 	imp.testHelper()
 	dbgName := GetName(ctx)
 
@@ -357,14 +357,14 @@ func (imp *impl) CWarnf(ctx context.Context, template string, args ...interface{
 	}
 }
 
-func (imp *impl) Warnw(msg string, keysAndValues ...interface{}) {
+func (imp *impl) Warnw(msg string, keysAndValues ...any) {
 	imp.testHelper()
 	if imp.shouldLog(WARN) {
 		imp.log(imp.formatw(WARN, emptyTraceKey, msg, keysAndValues...))
 	}
 }
 
-func (imp *impl) CWarnw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+func (imp *impl) CWarnw(ctx context.Context, msg string, keysAndValues ...any) {
 	imp.testHelper()
 	dbgName := GetName(ctx)
 
@@ -374,14 +374,14 @@ func (imp *impl) CWarnw(ctx context.Context, msg string, keysAndValues ...interf
 	}
 }
 
-func (imp *impl) Error(args ...interface{}) {
+func (imp *impl) Error(args ...any) {
 	imp.testHelper()
 	if imp.shouldLog(ERROR) {
 		imp.log(imp.format(ERROR, emptyTraceKey, args...))
 	}
 }
 
-func (imp *impl) CError(ctx context.Context, args ...interface{}) {
+func (imp *impl) CError(ctx context.Context, args ...any) {
 	imp.testHelper()
 	dbgName := GetName(ctx)
 
@@ -391,14 +391,14 @@ func (imp *impl) CError(ctx context.Context, args ...interface{}) {
 	}
 }
 
-func (imp *impl) Errorf(template string, args ...interface{}) {
+func (imp *impl) Errorf(template string, args ...any) {
 	imp.testHelper()
 	if imp.shouldLog(ERROR) {
 		imp.log(imp.formatf(ERROR, emptyTraceKey, template, args...))
 	}
 }
 
-func (imp *impl) CErrorf(ctx context.Context, template string, args ...interface{}) {
+func (imp *impl) CErrorf(ctx context.Context, template string, args ...any) {
 	imp.testHelper()
 	dbgName := GetName(ctx)
 
@@ -408,14 +408,14 @@ func (imp *impl) CErrorf(ctx context.Context, template string, args ...interface
 	}
 }
 
-func (imp *impl) Errorw(msg string, keysAndValues ...interface{}) {
+func (imp *impl) Errorw(msg string, keysAndValues ...any) {
 	imp.testHelper()
 	if imp.shouldLog(ERROR) {
 		imp.log(imp.formatw(ERROR, emptyTraceKey, msg, keysAndValues...))
 	}
 }
 
-func (imp *impl) CErrorw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+func (imp *impl) CErrorw(ctx context.Context, msg string, keysAndValues ...any) {
 	imp.testHelper()
 	dbgName := GetName(ctx)
 
@@ -426,19 +426,19 @@ func (imp *impl) CErrorw(ctx context.Context, msg string, keysAndValues ...inter
 }
 
 // These Fatal* methods log as errors then exit the process.
-func (imp *impl) Fatal(args ...interface{}) {
+func (imp *impl) Fatal(args ...any) {
 	imp.testHelper()
 	imp.log(imp.format(ERROR, emptyTraceKey, args...))
 	os.Exit(1)
 }
 
-func (imp *impl) Fatalf(template string, args ...interface{}) {
+func (imp *impl) Fatalf(template string, args ...any) {
 	imp.testHelper()
 	imp.log(imp.formatf(ERROR, emptyTraceKey, template, args...))
 	os.Exit(1)
 }
 
-func (imp *impl) Fatalw(msg string, keysAndValues ...interface{}) {
+func (imp *impl) Fatalw(msg string, keysAndValues ...any) {
 	imp.testHelper()
 	imp.log(imp.formatw(ERROR, emptyTraceKey, msg, keysAndValues...))
 	os.Exit(1)

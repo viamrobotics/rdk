@@ -105,7 +105,7 @@ func (wrapper *Arm) ModelFrame() referenceframe.Model {
 }
 
 // EndPosition returns the set position.
-func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 	wrapper.mu.RLock()
 	defer wrapper.mu.RUnlock()
 
@@ -117,14 +117,14 @@ func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{
 }
 
 // MoveToPosition sets the position.
-func (wrapper *Arm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
+func (wrapper *Arm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]any) error {
 	ctx, done := wrapper.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, wrapper.logger, wrapper, pos)
 }
 
 // MoveToJointPositions sets the joints.
-func (wrapper *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
+func (wrapper *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]any) error {
 	// check that joint positions are not out of bounds
 	if err := arm.CheckDesiredJointPositions(ctx, wrapper, joints); err != nil {
 		return err
@@ -138,7 +138,7 @@ func (wrapper *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPo
 }
 
 // JointPositions returns the set joints.
-func (wrapper *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (wrapper *Arm) JointPositions(ctx context.Context, extra map[string]any) (*pb.JointPositions, error) {
 	wrapper.mu.RLock()
 	defer wrapper.mu.RUnlock()
 
@@ -150,7 +150,7 @@ func (wrapper *Arm) JointPositions(ctx context.Context, extra map[string]interfa
 }
 
 // Stop stops the actual arm.
-func (wrapper *Arm) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (wrapper *Arm) Stop(ctx context.Context, extra map[string]any) error {
 	ctx, done := wrapper.opMgr.New(ctx)
 	defer done()
 
@@ -187,7 +187,7 @@ func (wrapper *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
 // current location relative to the frame of the resource.
-func (wrapper *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+func (wrapper *Arm) Geometries(ctx context.Context, extra map[string]any) ([]spatialmath.Geometry, error) {
 	inputs, err := wrapper.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err

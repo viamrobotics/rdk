@@ -21,7 +21,7 @@ type serviceServer struct {
 
 // NewRPCServiceServer constructs an input controller gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Controller]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceCollection[Controller]) any {
 	return &serviceServer{coll: coll}
 }
 

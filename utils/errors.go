@@ -16,7 +16,7 @@ func NewRemoteResourceClashError(name string) error {
 }
 
 // NewUnexpectedTypeError is used when there is a type mismatch.
-func NewUnexpectedTypeError[ExpectedT any](actual interface{}) error {
+func NewUnexpectedTypeError[ExpectedT any](actual any) error {
 	return errors.Errorf("expected %s but got %T", TypeStr[ExpectedT](), actual)
 }
 

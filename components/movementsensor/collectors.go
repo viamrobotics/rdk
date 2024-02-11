@@ -45,7 +45,7 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-func assertMovementSensor(resource interface{}) (MovementSensor, error) {
+func assertMovementSensor(resource any) (MovementSensor, error) {
 	ms, ok := resource.(MovementSensor)
 	if !ok {
 		return nil, data.InvalidInterfaceErr(API)
@@ -55,13 +55,13 @@ func assertMovementSensor(resource interface{}) (MovementSensor, error) {
 
 // newLinearVelocityCollector returns a collector to register a linear velocity method. If one is already registered
 // with the same MethodMetadata it will panic.
-func newLinearVelocityCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newLinearVelocityCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (any, error) {
 		vec, err := ms.LinearVelocity(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -84,13 +84,13 @@ func newLinearVelocityCollector(resource interface{}, params data.CollectorParam
 
 // newPositionCollector returns a collector to register a position method. If one is already registered
 // with the same MethodMetadata it will panic.
-func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newPositionCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (any, error) {
 		pos, altitude, err := ms.Position(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -118,13 +118,13 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 
 // newAngularVelocityCollector returns a collector to register an angular velocity method. If one is already registered
 // with the same MethodMetadata it will panic.
-func newAngularVelocityCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newAngularVelocityCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (any, error) {
 		vel, err := ms.AngularVelocity(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -147,13 +147,13 @@ func newAngularVelocityCollector(resource interface{}, params data.CollectorPara
 
 // newCompassHeadingCollector returns a collector to register a compass heading method. If one is already registered
 // with the same MethodMetadata it will panic.
-func newCompassHeadingCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newCompassHeadingCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (any, error) {
 		heading, err := ms.CompassHeading(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -172,13 +172,13 @@ func newCompassHeadingCollector(resource interface{}, params data.CollectorParam
 
 // newLinearAccelerationCollector returns a collector to register a linear acceleration method. If one is already registered
 // with the same MethodMetadata it will panic.
-func newLinearAccelerationCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newLinearAccelerationCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (any, error) {
 		accel, err := ms.LinearAcceleration(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -201,13 +201,13 @@ func newLinearAccelerationCollector(resource interface{}, params data.CollectorP
 
 // newOrientationCollector returns a collector to register an orientation method. If one is already registered
 // with the same MethodMetadata it will panic.
-func newOrientationCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newOrientationCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (any, error) {
 		orient, err := ms.Orientation(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -235,13 +235,13 @@ func newOrientationCollector(resource interface{}, params data.CollectorParams) 
 
 // newReadingsCollector returns a collector to register a readings method. If one is already registered
 // with the same MethodMetadata it will panic.
-func newReadingsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newReadingsCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (any, error) {
 		values, err := ms.Readings(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
