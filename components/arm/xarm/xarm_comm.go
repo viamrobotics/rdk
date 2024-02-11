@@ -351,7 +351,7 @@ func (x *xArm) Close(ctx context.Context) error {
 }
 
 // MoveToJointPositions moves the arm to the requested joint positions.
-func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions, extra map[string]interface{}) error {
+func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions, extra map[string]any) error {
 	ctx, done := x.opMgr.New(ctx)
 	defer done()
 	if !x.started {
@@ -419,7 +419,7 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointP
 }
 
 // EndPosition computes and returns the current cartesian position.
-func (x *xArm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+func (x *xArm) EndPosition(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 	joints, err := x.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
@@ -428,7 +428,7 @@ func (x *xArm) EndPosition(ctx context.Context, extra map[string]interface{}) (s
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (x *xArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
+func (x *xArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]any) error {
 	ctx, done := x.opMgr.New(ctx)
 	defer done()
 	if !x.started {
@@ -447,7 +447,7 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra m
 }
 
 // JointPositions returns the current positions of all joints.
-func (x *xArm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (x *xArm) JointPositions(ctx context.Context, extra map[string]any) (*pb.JointPositions, error) {
 	c := x.newCmd(regMap["JointPos"])
 
 	jData, err := x.send(ctx, c, true)
@@ -464,7 +464,7 @@ func (x *xArm) JointPositions(ctx context.Context, extra map[string]interface{})
 }
 
 // Stop stops the xArm but also reinitializes the arm so it can take commands again.
-func (x *xArm) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (x *xArm) Stop(ctx context.Context, extra map[string]any) error {
 	ctx, done := x.opMgr.New(ctx)
 	defer done()
 	x.started = false

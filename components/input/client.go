@@ -60,7 +60,7 @@ func NewClientFromConn(
 	}, nil
 }
 
-func (c *client) Controls(ctx context.Context, extra map[string]interface{}) ([]Control, error) {
+func (c *client) Controls(ctx context.Context, extra map[string]any) ([]Control, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -79,7 +79,7 @@ func (c *client) Controls(ctx context.Context, extra map[string]interface{}) ([]
 	return controls, nil
 }
 
-func (c *client) Events(ctx context.Context, extra map[string]interface{}) (map[Control]Event, error) {
+func (c *client) Events(ctx context.Context, extra map[string]any) (map[Control]Event, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func (c *client) Events(ctx context.Context, extra map[string]interface{}) (map[
 }
 
 // TriggerEvent allows directly sending an Event (such as a button press) from external code.
-func (c *client) TriggerEvent(ctx context.Context, event Event, extra map[string]interface{}) error {
+func (c *client) TriggerEvent(ctx context.Context, event Event, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -131,7 +131,7 @@ func (c *client) RegisterControlCallback(
 	control Control,
 	triggers []EventType,
 	ctrlFunc ControlFunction,
-	extra map[string]interface{},
+	extra map[string]any,
 ) error {
 	c.mu.Lock()
 	if c.callbacks == nil {
@@ -367,6 +367,6 @@ func (c *client) Close(ctx context.Context) error {
 	return nil
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

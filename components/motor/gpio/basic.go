@@ -133,19 +133,19 @@ type Motor struct {
 }
 
 // Position always returns 0.
-func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (m *Motor) Position(ctx context.Context, extra map[string]any) (float64, error) {
 	return 0, nil
 }
 
 // Properties returns the status of whether the motor supports certain optional properties.
-func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+func (m *Motor) Properties(ctx context.Context, extra map[string]any) (motor.Properties, error) {
 	return motor.Properties{
 		PositionReporting: false,
 	}, nil
 }
 
 // turnOff turns down the motor entirely by setting all the pins accordingly.
-func (m *Motor) turnOff(ctx context.Context, extra map[string]interface{}) error {
+func (m *Motor) turnOff(ctx context.Context, extra map[string]any) error {
 	var errs error
 	m.powerPct = 0.0
 	m.on = false
@@ -173,7 +173,7 @@ func (m *Motor) turnOff(ctx context.Context, extra map[string]interface{}) error
 
 // setPWM sets the associated pins (as discovered) and sets PWM to the given power percentage.
 // Anything calling setPWM MUST lock the motor's mutex prior.
-func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]any) error {
 	var errs error
 	powerPct = math.Min(powerPct, m.maxPowerPct)
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
@@ -224,7 +224,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 
 // SetPower instructs the motor to operate at an rpm, where the sign of the rpm
 // indicates direction.
-func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]any) error {
 	m.opMgr.CancelRunning(ctx)
 	if math.Abs(powerPct) <= 0.01 {
 		return m.Stop(ctx, extra)
@@ -289,7 +289,7 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
 // GoFor moves an inputted number of revolutions at the given rpm, no encoder is present
 // for this so power is determined via a linear relationship with the maxRPM and the distance
 // traveled is a time based estimation based on desired RPM.
-func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]any) error {
 	if m.maxRPM == 0 {
 		return errors.New("not supported, define max_rpm attribute != 0")
 	}
@@ -320,14 +320,14 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 }
 
 // IsPowered returns if the motor is currently on or off.
-func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+func (m *Motor) IsPowered(ctx context.Context, extra map[string]any) (bool, float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.on, m.powerPct, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down, by setting the appropriate pins to low states.
-func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (m *Motor) Stop(ctx context.Context, extra map[string]any) error {
 	m.opMgr.CancelRunning(ctx)
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -342,11 +342,11 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 }
 
 // GoTo is not supported.
-func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
+func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]any) error {
 	return motor.NewGoToUnsupportedError(m.Name().ShortName())
 }
 
 // ResetZeroPosition is not supported.
-func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]any) error {
 	return motor.NewResetZeroPositionUnsupportedError(m.Name().ShortName())
 }

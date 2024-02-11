@@ -12,16 +12,16 @@ var sampleAttributeMap = AttributeMap{
 	"ok_boolean_true":    true,
 	"bad_boolean_false":  0,
 	"bad_boolean_true":   "true",
-	"good_int_slice":     []interface{}{1, 2, 3},
+	"good_int_slice":     []any{1, 2, 3},
 	"bad_int_slice":      "this is not an int slice",
-	"bad_int_slice_2":    []interface{}{1, 2, "3"},
-	"good_string_slice":  []interface{}{"1", "2", "3"},
+	"bad_int_slice_2":    []any{1, 2, "3"},
+	"good_string_slice":  []any{"1", "2", "3"},
 	"bad_string_slice":   123,
-	"bad_string_slice_2": []interface{}{"1", "2", 3},
-	"good_float64_slice": []interface{}{1.1, 2.2, 3.3},
-	"bad_float64_slice":  []interface{}{int(1), "2", 3.3},
-	"good_boolean_slice": []interface{}{true, true, false},
-	"bad_boolean_slice":  []interface{}{"true", "F", false},
+	"bad_string_slice_2": []any{"1", "2", 3},
+	"good_float64_slice": []any{1.1, 2.2, 3.3},
+	"bad_float64_slice":  []any{int(1), "2", 3.3},
+	"good_boolean_slice": []any{true, true, false},
+	"bad_boolean_slice":  []any{"true", "F", false},
 }
 
 func TestAttributeMap(t *testing.T) {
@@ -147,17 +147,17 @@ func TestAttributeMapWalk(t *testing.T) {
 	expectedAttrs := AttributeMap{
 		"one":       float64(1),
 		"file_path": "/this/is/a/path",
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"StringValue":    "/some/path",
 			"StringPtrValue": "some string val",
-			"StringArray":    []interface{}{"one", "two", "three"},
+			"StringArray":    []any{"one", "two", "three"},
 			"BoolValue":      true,
-			"ByteArray":      []interface{}{byte('h'), byte('e'), byte('l'), byte('l'), byte('o')},
-			"Data":           map[string]interface{}{"Other": "this is a string"},
-			"DataPtr":        map[string]interface{}{"Other": "/some/other/path"},
-			"DataMapStr": map[string]interface{}{
-				"other1": map[string]interface{}{"Other": "/its/another/path"},
-				"other2": map[string]interface{}{"Other": "hello2"},
+			"ByteArray":      []any{byte('h'), byte('e'), byte('l'), byte('l'), byte('o')},
+			"Data":           map[string]any{"Other": "this is a string"},
+			"DataPtr":        map[string]any{"Other": "/some/other/path"},
+			"DataMapStr": map[string]any{
+				"other1": map[string]any{"Other": "/its/another/path"},
+				"other2": map[string]any{"Other": "hello2"},
 			},
 		},
 	}
@@ -168,7 +168,7 @@ func TestAttributeMapWalk(t *testing.T) {
 // to. This makes testing easier since we can compare values with values.
 type indirectVisitor struct{}
 
-func (v *indirectVisitor) Visit(data interface{}) (interface{}, error) {
+func (v *indirectVisitor) Visit(data any) (any, error) {
 	val := reflect.ValueOf(data)
 	val = reflect.Indirect(val)
 	return val.Interface(), nil

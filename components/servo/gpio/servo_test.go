@@ -104,34 +104,34 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 	scale1, scale2 := 255, 4095
 
 	pin0 := &inject.GPIOPin{}
-	pin0.PWMFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	pin0.PWMFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		pct := float64(innerTick1) / float64(scale1)
 		return pct, nil
 	}
-	pin0.PWMFreqFunc = func(ctx context.Context, extra map[string]interface{}) (uint, error) {
+	pin0.PWMFreqFunc = func(ctx context.Context, extra map[string]any) (uint, error) {
 		return 50, nil
 	}
-	pin0.SetPWMFunc = func(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+	pin0.SetPWMFunc = func(ctx context.Context, dutyCyclePct float64, extra map[string]any) error {
 		innerTick1 = utils.ScaleByPct(scale1, dutyCyclePct)
 		return nil
 	}
-	pin0.SetPWMFreqFunc = func(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+	pin0.SetPWMFreqFunc = func(ctx context.Context, freqHz uint, extra map[string]any) error {
 		return nil
 	}
 
 	pin1 := &inject.GPIOPin{}
-	pin1.PWMFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	pin1.PWMFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		pct := float64(innerTick2) / float64(scale2)
 		return pct, nil
 	}
-	pin1.PWMFreqFunc = func(ctx context.Context, extra map[string]interface{}) (uint, error) {
+	pin1.PWMFreqFunc = func(ctx context.Context, extra map[string]any) (uint, error) {
 		return 50, nil
 	}
-	pin1.SetPWMFunc = func(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+	pin1.SetPWMFunc = func(ctx context.Context, dutyCyclePct float64, extra map[string]any) error {
 		innerTick2 = utils.ScaleByPct(scale2, dutyCyclePct)
 		return nil
 	}
-	pin1.SetPWMFreqFunc = func(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+	pin1.SetPWMFreqFunc = func(ctx context.Context, freqHz uint, extra map[string]any) error {
 		return nil
 	}
 

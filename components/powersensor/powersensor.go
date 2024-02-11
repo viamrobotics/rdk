@@ -51,9 +51,9 @@ func Named(name string) resource.Name {
 type PowerSensor interface {
 	resource.Sensor
 	resource.Resource
-	Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
-	Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
-	Power(ctx context.Context, extra map[string]interface{}) (float64, error)
+	Voltage(ctx context.Context, extra map[string]any) (float64, bool, error)
+	Current(ctx context.Context, extra map[string]any) (float64, bool, error)
+	Power(ctx context.Context, extra map[string]any) (float64, error)
 }
 
 // FromDependencies is a helper for getting the named PowerSensor from a collection of

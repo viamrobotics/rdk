@@ -82,7 +82,7 @@ type Config struct {
 func (cfg Config) String() string {
 	t := table.NewWriter()
 	t.AppendHeader(table.Row{"#", "Name", "Parent", "Translation", "Orientation", "Geometry"})
-	t.AppendRow([]interface{}{"0", referenceframe.World, "", "", "", ""})
+	t.AppendRow([]any{"0", referenceframe.World, "", "", "", ""})
 	for i, part := range cfg.Parts {
 		pose := part.FrameConfig.Pose()
 		tra := pose.Point()
@@ -91,7 +91,7 @@ func (cfg Config) String() string {
 		if gc := part.FrameConfig.Geometry(); gc != nil {
 			geomString = gc.String()
 		}
-		t.AppendRow([]interface{}{
+		t.AppendRow([]any{
 			fmt.Sprintf("%d", i+1),
 			part.FrameConfig.Name(),
 			part.FrameConfig.Parent(),

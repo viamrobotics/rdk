@@ -11,7 +11,7 @@ import (
 )
 
 func TestRoundtrip(t *testing.T) {
-	m1 := map[string]interface{}{
+	m1 := map[string]any{
 		"d":   5.4,
 		"av":  spatialmath.AngularVelocity{1, 2, 3},
 		"vv":  r3.Vector{1, 2, 3},

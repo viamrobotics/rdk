@@ -69,14 +69,14 @@ func TestDiffConfigs(t *testing.T) {
 
 				API: board.API,
 				Attributes: utils.AttributeMap{
-					"analogs": []interface{}{
-						map[string]interface{}{
+					"analogs": []any{
+						map[string]any{
 							"name": "analog1",
 							"pin":  "0",
 						},
 					},
-					"digital_interrupts": []interface{}{
-						map[string]interface{}{
+					"digital_interrupts": []any{
+						map[string]any{
 							"name": "encoder",
 							"pin":  "14",
 						},
@@ -156,14 +156,14 @@ func TestDiffConfigs(t *testing.T) {
 
 				API: board.API,
 				Attributes: utils.AttributeMap{
-					"analogs": []interface{}{
-						map[string]interface{}{
+					"analogs": []any{
+						map[string]any{
 							"name": "analog1",
 							"pin":  "1",
 						},
 					},
-					"digital_interrupts": []interface{}{
-						map[string]interface{}{
+					"digital_interrupts": []any{
+						map[string]any{
 							"name": "encoder",
 							"pin":  "15",
 						},
@@ -285,8 +285,8 @@ func TestDiffConfigs(t *testing.T) {
 							API:   board.API,
 							Model: fakeModel,
 							Attributes: utils.AttributeMap{
-								"digital_interrupts": []interface{}{
-									map[string]interface{}{
+								"digital_interrupts": []any{
+									map[string]any{
 										"name": "encoder2",
 										"pin":  "16",
 									},
@@ -333,8 +333,8 @@ func TestDiffConfigs(t *testing.T) {
 							API:   board.API,
 							Model: fakeModel,
 							Attributes: utils.AttributeMap{
-								"analogs": []interface{}{
-									map[string]interface{}{
+								"analogs": []any{
+									map[string]any{
 										"name": "analog1",
 										"pin":  "1",
 									},

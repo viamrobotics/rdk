@@ -62,7 +62,7 @@ type reconfigurableClientConn struct {
 func (c *reconfigurableClientConn) Invoke(
 	ctx context.Context,
 	method string,
-	args, reply interface{},
+	args, reply any,
 	opts ...googlegrpc.CallOption,
 ) error {
 	c.connMu.RLock()
@@ -181,7 +181,7 @@ func (rc *RobotClient) notConnectedToRemoteError() error {
 func (rc *RobotClient) handleUnaryDisconnect(
 	ctx context.Context,
 	method string,
-	req, reply interface{},
+	req, reply any,
 	cc *googlegrpc.ClientConn,
 	invoker googlegrpc.UnaryInvoker,
 	opts ...googlegrpc.CallOption,
@@ -209,7 +209,7 @@ type handleDisconnectClientStream struct {
 	*RobotClient
 }
 
-func (cs *handleDisconnectClientStream) RecvMsg(m interface{}) error {
+func (cs *handleDisconnectClientStream) RecvMsg(m any) error {
 	if err := cs.RobotClient.checkConnected(); err != nil {
 		return status.Error(codes.Unavailable, err.Error())
 	}
@@ -918,7 +918,7 @@ func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name
 }
 
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
-func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
+func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[string]any) error {
 	e := []*pb.StopExtraParameters{}
 	for name, params := range extra {
 		param, err := protoutils.StructToStructPb(params)

@@ -60,7 +60,7 @@ func (as *AnalogSmoother) Close(ctx context.Context) error {
 }
 
 // Read returns the smoothed out reading.
-func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]any) (int, error) {
 	if as.data == nil { // We're using raw data, and not averaging
 		return as.lastData, nil
 	}

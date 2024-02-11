@@ -39,15 +39,15 @@ func TestServer(t *testing.T) {
 	gpsServer, injectMovementSensor, injectMovementSensor2, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	rs := map[string]interface{}{"a": 1.1, "b": 2.2}
+	rs := map[string]any{"a": 1.1, "b": 2.2}
 
-	var extraCap map[string]interface{}
-	injectMovementSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+	var extraCap map[string]any
+	injectMovementSensor.ReadingsFunc = func(ctx context.Context, extra map[string]any) (map[string]any, error) {
 		extraCap = extra
 		return rs, nil
 	}
 
-	injectMovementSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+	injectMovementSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]any) (map[string]any, error) {
 		return nil, errReadingsFailed
 	}
 
@@ -58,13 +58,13 @@ func TestServer(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			expected[k] = vv
 		}
-		extra, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
+		extra, err := protoutils.StructToStructPb(map[string]any{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
 
 		resp, err := gpsServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: testMovementSensorName, Extra: extra})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Readings, test.ShouldResemble, expected)
-		test.That(t, extraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+		test.That(t, extraCap, test.ShouldResemble, map[string]any{"foo": "bar"})
 
 		_, err = gpsServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: failMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -78,20 +78,20 @@ func TestServer(t *testing.T) {
 	t.Run("GetPosition", func(t *testing.T) {
 		loc := geo.NewPoint(90, 1)
 		alt := 50.5
-		injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 			return loc, alt, nil
 		}
-		injectMovementSensor2.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		injectMovementSensor2.PositionFunc = func(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 			return nil, 0, errLocation
 		}
 
-		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
+		ext, err := protoutils.StructToStructPb(map[string]any{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := gpsServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: testMovementSensorName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Coordinate, test.ShouldResemble, &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()})
 		test.That(t, resp.AltitudeM, test.ShouldEqual, alt)
-		test.That(t, injectMovementSensor.PositionFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+		test.That(t, injectMovementSensor.PositionFuncExtraCap, test.ShouldResemble, map[string]any{"foo": "bar"})
 
 		_, err = gpsServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: failMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -104,20 +104,20 @@ func TestServer(t *testing.T) {
 
 	t.Run("GetLinearVelocity", func(t *testing.T) {
 		speed := 5.4
-		injectMovementSensor.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+		injectMovementSensor.LinearVelocityFunc = func(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 			return r3.Vector{0, speed, 0}, nil
 		}
 
-		injectMovementSensor2.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+		injectMovementSensor2.LinearVelocityFunc = func(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 			return r3.Vector{}, errLinearVelocity
 		}
 
-		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
+		ext, err := protoutils.StructToStructPb(map[string]any{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := gpsServer.GetLinearVelocity(context.Background(), &pb.GetLinearVelocityRequest{Name: testMovementSensorName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.LinearVelocity.Y, test.ShouldResemble, speed)
-		test.That(t, injectMovementSensor.LinearVelocityFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+		test.That(t, injectMovementSensor.LinearVelocityFuncExtraCap, test.ShouldResemble, map[string]any{"foo": "bar"})
 
 		_, err = gpsServer.GetLinearVelocity(context.Background(), &pb.GetLinearVelocityRequest{Name: failMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -130,19 +130,19 @@ func TestServer(t *testing.T) {
 
 	t.Run("GetAngularVelocity", func(t *testing.T) {
 		angZ := 1.1
-		injectMovementSensor.AngularVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+		injectMovementSensor.AngularVelocityFunc = func(ctx context.Context, extra map[string]any) (spatialmath.AngularVelocity, error) {
 			return spatialmath.AngularVelocity{0, 0, angZ}, nil
 		}
-		injectMovementSensor2.AngularVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+		injectMovementSensor2.AngularVelocityFunc = func(ctx context.Context, extra map[string]any) (spatialmath.AngularVelocity, error) {
 			return spatialmath.AngularVelocity{}, errAngularVelocity
 		}
 
-		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
+		ext, err := protoutils.StructToStructPb(map[string]any{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := gpsServer.GetAngularVelocity(context.Background(), &pb.GetAngularVelocityRequest{Name: testMovementSensorName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.AngularVelocity.Z, test.ShouldResemble, angZ)
-		test.That(t, injectMovementSensor.AngularVelocityFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+		test.That(t, injectMovementSensor.AngularVelocityFuncExtraCap, test.ShouldResemble, map[string]any{"foo": "bar"})
 
 		_, err = gpsServer.GetAngularVelocity(context.Background(), &pb.GetAngularVelocityRequest{Name: failMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -156,19 +156,19 @@ func TestServer(t *testing.T) {
 	t.Run("GetOrientation", func(t *testing.T) {
 		ori := spatialmath.NewEulerAngles()
 		ori.Roll = 1.1
-		injectMovementSensor.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+		injectMovementSensor.OrientationFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 			return ori, nil
 		}
-		injectMovementSensor2.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+		injectMovementSensor2.OrientationFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 			return nil, errOrientation
 		}
 
-		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
+		ext, err := protoutils.StructToStructPb(map[string]any{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := gpsServer.GetOrientation(context.Background(), &pb.GetOrientationRequest{Name: testMovementSensorName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Orientation.OZ, test.ShouldResemble, ori.OrientationVectorDegrees().OZ)
-		test.That(t, injectMovementSensor.OrientationFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+		test.That(t, injectMovementSensor.OrientationFuncExtraCap, test.ShouldResemble, map[string]any{"foo": "bar"})
 
 		_, err = gpsServer.GetOrientation(context.Background(), &pb.GetOrientationRequest{Name: failMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -181,17 +181,17 @@ func TestServer(t *testing.T) {
 
 	t.Run("GetCompassHeading", func(t *testing.T) {
 		heading := 202.
-		injectMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) { return heading, nil }
-		injectMovementSensor2.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		injectMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]any) (float64, error) { return heading, nil }
+		injectMovementSensor2.CompassHeadingFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 			return 0.0, errCompassHeading
 		}
 
-		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
+		ext, err := protoutils.StructToStructPb(map[string]any{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := gpsServer.GetCompassHeading(context.Background(), &pb.GetCompassHeadingRequest{Name: testMovementSensorName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Value, test.ShouldResemble, heading)
-		test.That(t, injectMovementSensor.CompassHeadingFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+		test.That(t, injectMovementSensor.CompassHeadingFuncExtraCap, test.ShouldResemble, map[string]any{"foo": "bar"})
 
 		_, err = gpsServer.GetCompassHeading(context.Background(), &pb.GetCompassHeadingRequest{Name: failMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -204,19 +204,19 @@ func TestServer(t *testing.T) {
 
 	t.Run("GetProperties", func(t *testing.T) {
 		props := &movementsensor.Properties{LinearVelocitySupported: true}
-		injectMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+		injectMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 			return props, nil
 		}
-		injectMovementSensor2.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+		injectMovementSensor2.PropertiesFunc = func(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 			return nil, errProperties
 		}
 
-		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
+		ext, err := protoutils.StructToStructPb(map[string]any{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := gpsServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: testMovementSensorName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.LinearVelocitySupported, test.ShouldResemble, props.LinearVelocitySupported)
-		test.That(t, injectMovementSensor.PropertiesFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+		test.That(t, injectMovementSensor.PropertiesFuncExtraCap, test.ShouldResemble, map[string]any{"foo": "bar"})
 
 		_, err = gpsServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: failMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -229,19 +229,19 @@ func TestServer(t *testing.T) {
 
 	t.Run("GetAccuracy", func(t *testing.T) {
 		acc := &movementsensor.Accuracy{AccuracyMap: map[string]float32{"x": 1.1}}
-		injectMovementSensor.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
+		injectMovementSensor.AccuracyFunc = func(ctx context.Context, extra map[string]any) (*movementsensor.Accuracy, error) {
 			return acc, nil
 		}
-		injectMovementSensor2.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
+		injectMovementSensor2.AccuracyFunc = func(ctx context.Context, extra map[string]any) (*movementsensor.Accuracy, error) {
 			return nil, errAccuracy
 		}
 
-		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
+		ext, err := protoutils.StructToStructPb(map[string]any{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := gpsServer.GetAccuracy(context.Background(), &pb.GetAccuracyRequest{Name: testMovementSensorName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Accuracy, test.ShouldResemble, acc.AccuracyMap)
-		test.That(t, injectMovementSensor.AccuracyFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+		test.That(t, injectMovementSensor.AccuracyFuncExtraCap, test.ShouldResemble, map[string]any{"foo": "bar"})
 
 		_, err = gpsServer.GetAccuracy(context.Background(), &pb.GetAccuracyRequest{Name: failMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)

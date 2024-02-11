@@ -192,7 +192,7 @@ func (m *merged) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 	return nil
 }
 
-func (m *merged) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (m *merged) Position(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -203,7 +203,7 @@ func (m *merged) Position(ctx context.Context, extra map[string]interface{}) (*g
 	return m.pos.Position(ctx, extra)
 }
 
-func (m *merged) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+func (m *merged) Orientation(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -219,7 +219,7 @@ func (m *merged) Orientation(ctx context.Context, extra map[string]interface{}) 
 	return m.ori.Orientation(ctx, extra)
 }
 
-func (m *merged) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (m *merged) CompassHeading(ctx context.Context, extra map[string]any) (float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -230,7 +230,7 @@ func (m *merged) CompassHeading(ctx context.Context, extra map[string]interface{
 	return m.compass.CompassHeading(ctx, extra)
 }
 
-func (m *merged) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (m *merged) LinearVelocity(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -241,7 +241,7 @@ func (m *merged) LinearVelocity(ctx context.Context, extra map[string]interface{
 	return m.linVel.LinearVelocity(ctx, extra)
 }
 
-func (m *merged) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (m *merged) AngularVelocity(ctx context.Context, extra map[string]any) (spatialmath.AngularVelocity, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -252,7 +252,7 @@ func (m *merged) AngularVelocity(ctx context.Context, extra map[string]interface
 	return m.angVel.AngularVelocity(ctx, extra)
 }
 
-func (m *merged) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (m *merged) LinearAcceleration(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -271,7 +271,7 @@ func mapWithSensorName(name string, accMap map[string]float32) map[string]float3
 	return result
 }
 
-func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
+func (m *merged) Accuracy(ctx context.Context, extra map[string]any) (*movementsensor.Accuracy, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -395,7 +395,7 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (*m
 	return &acc, errs
 }
 
-func (m *merged) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+func (m *merged) Properties(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -409,7 +409,7 @@ func (m *merged) Properties(ctx context.Context, extra map[string]interface{}) (
 	}, nil
 }
 
-func (m *merged) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (m *merged) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	// we're already in lock in this driver
 	// don't lock the mutex again for the Readings call
 	return movementsensor.DefaultAPIReadings(ctx, m, extra)

@@ -35,7 +35,7 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-func assertPowerSensor(resource interface{}) (PowerSensor, error) {
+func assertPowerSensor(resource any) (PowerSensor, error) {
 	ps, ok := resource.(PowerSensor)
 	if !ok {
 		return nil, data.InvalidInterfaceErr(API)
@@ -45,13 +45,13 @@ func assertPowerSensor(resource interface{}) (PowerSensor, error) {
 
 // newVoltageCollector returns a collector to register a voltage method. If one is already registered
 // with the same MethodMetadata it will panic.
-func newVoltageCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newVoltageCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	ps, err := assertPowerSensor(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (any, error) {
 		volts, isAc, err := ps.Voltage(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -71,13 +71,13 @@ func newVoltageCollector(resource interface{}, params data.CollectorParams) (dat
 
 // newCurrentCollector returns a collector to register a current method. If one is already registered
 // with the same MethodMetadata it will panic.
-func newCurrentCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newCurrentCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	ps, err := assertPowerSensor(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (any, error) {
 		curr, isAc, err := ps.Current(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -97,13 +97,13 @@ func newCurrentCollector(resource interface{}, params data.CollectorParams) (dat
 
 // newPowerCollector returns a collector to register a power method. If one is already registered
 // with the same MethodMetadata it will panic.
-func newPowerCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newPowerCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	ps, err := assertPowerSensor(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (any, error) {
 		pwr, err := ps.Power(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -122,13 +122,13 @@ func newPowerCollector(resource interface{}, params data.CollectorParams) (data.
 
 // newReadingsCollector returns a collector to register a readings method. If one is already registered
 // with the same MethodMetadata it will panic.
-func newReadingsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newReadingsCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	ps, err := assertPowerSensor(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (any, error) {
 		values, err := ps.Readings(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore

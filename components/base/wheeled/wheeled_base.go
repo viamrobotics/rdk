@@ -233,7 +233,7 @@ func createWheeledBase(
 }
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
-func (wb *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+func (wb *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]any) error {
 	ctx, done := wb.opMgr.New(ctx)
 	defer done()
 	wb.logger.CDebugf(ctx, "received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
@@ -254,7 +254,7 @@ func (wb *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, e
 }
 
 // MoveStraight commands a base to drive forward or backwards  at a linear speed and for a specific distance.
-func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
+func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]any) error {
 	wb.logger.CDebugf(ctx, "received a MoveStraight with distanceMM:%d, mmPerSec:%.2f", distanceMm, mmPerSec)
 
 	// Stop the motors if the speed or distance are 0
@@ -348,7 +348,7 @@ func (wb *wheeledBase) differentialDrive(forward, left float64) (float64, float6
 }
 
 // SetVelocity commands the base to move at the input linear and angular velocities.
-func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 	wb.logger.CDebugf(ctx,
 		"received a SetVelocity with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f(mmPerSec),"+
 			" angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
@@ -373,7 +373,7 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 }
 
 // SetPower commands the base motors to run at powers corresponding to input linear and angular powers.
-func (wb *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+func (wb *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 	wb.opMgr.CancelRunning(ctx)
 
 	wb.logger.CDebugf(ctx,
@@ -457,7 +457,7 @@ func (wb *wheeledBase) straightDistanceToMotorInputs(distanceMm int, mmPerSec fl
 }
 
 // Stop commands the base to stop moving.
-func (wb *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (wb *wheeledBase) Stop(ctx context.Context, extra map[string]any) error {
 	stopFuncs := func() []rdkutils.SimpleFunc {
 		ret := []rdkutils.SimpleFunc{}
 
@@ -499,7 +499,7 @@ func (wb *wheeledBase) Close(ctx context.Context) error {
 	return wb.Stop(ctx, nil)
 }
 
-func (wb *wheeledBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+func (wb *wheeledBase) Properties(ctx context.Context, extra map[string]any) (base.Properties, error) {
 	return base.Properties{
 		TurningRadiusMeters:      0.0,
 		WidthMeters:              float64(wb.widthMm) * 0.001,              // convert to meters from mm
@@ -507,6 +507,6 @@ func (wb *wheeledBase) Properties(ctx context.Context, extra map[string]interfac
 	}, nil
 }
 
-func (wb *wheeledBase) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+func (wb *wheeledBase) Geometries(ctx context.Context, extra map[string]any) ([]spatialmath.Geometry, error) {
 	return wb.geometries, nil
 }

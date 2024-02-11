@@ -106,55 +106,55 @@ func TestReadings(t *testing.T) {
 		MovementSensor: &fake.MovementSensor{},
 	}
 
-	mockSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	mockSensor.PositionFunc = func(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 		return loc, alt, nil
 	}
 
 	g.nmeamovementsensor = mockSensor
 
 	// Normal position
-	loc1, alt1, err := g.Position(ctx, make(map[string]interface{}))
+	loc1, alt1, err := g.Position(ctx, make(map[string]any))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, loc1, test.ShouldResemble, loc)
 	test.That(t, alt1, test.ShouldEqual, alt)
 
-	speed1, err := g.LinearVelocity(ctx, make(map[string]interface{}))
+	speed1, err := g.LinearVelocity(ctx, make(map[string]any))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, speed1.Y, test.ShouldEqual, speed)
 	test.That(t, speed1.X, test.ShouldEqual, 0)
 	test.That(t, speed1.Z, test.ShouldEqual, 0)
 
 	// Zero position with latitude 0 and longitude 0.
-	mockSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	mockSensor.PositionFunc = func(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 		return geo.NewPoint(0, 0), 0, nil
 	}
 
-	loc2, alt2, err := g.Position(ctx, make(map[string]interface{}))
+	loc2, alt2, err := g.Position(ctx, make(map[string]any))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, loc2, test.ShouldResemble, geo.NewPoint(0, 0))
 	test.That(t, alt2, test.ShouldEqual, 0)
 
-	speed2, err := g.LinearVelocity(ctx, make(map[string]interface{}))
+	speed2, err := g.LinearVelocity(ctx, make(map[string]any))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, speed2.Y, test.ShouldEqual, speed)
 	test.That(t, speed2.X, test.ShouldEqual, 0)
 	test.That(t, speed2.Z, test.ShouldEqual, 0)
 
 	// Position with NaN values.
-	mockSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	mockSensor.PositionFunc = func(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), nil
 	}
 
 	g.lastposition.SetLastPosition(loc1)
 
-	loc3, alt3, err := g.Position(ctx, make(map[string]interface{}))
+	loc3, alt3, err := g.Position(ctx, make(map[string]any))
 	test.That(t, err, test.ShouldBeNil)
 
 	// last known valid position should be returned when current position is NaN()
 	test.That(t, loc3, test.ShouldResemble, loc1)
 	test.That(t, math.IsNaN(alt3), test.ShouldBeTrue)
 
-	speed3, err := g.LinearVelocity(ctx, make(map[string]interface{}))
+	speed3, err := g.LinearVelocity(ctx, make(map[string]any))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, speed3.Y, test.ShouldEqual, speed)
 }
@@ -204,10 +204,10 @@ func TestCloseRTK(t *testing.T) {
 
 type CustomMovementSensor struct {
 	*fake.MovementSensor
-	PositionFunc func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)
+	PositionFunc func(ctx context.Context, extra map[string]any) (*geo.Point, float64, error)
 }
 
-func (c *CustomMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (c *CustomMovementSensor) Position(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 	if c.PositionFunc != nil {
 		return c.PositionFunc(ctx, extra)
 	}

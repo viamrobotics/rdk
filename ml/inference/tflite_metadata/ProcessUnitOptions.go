@@ -49,7 +49,7 @@ func (v ProcessUnitOptions) String() string {
 
 type ProcessUnitOptionsT struct {
 	Type  ProcessUnitOptions
-	Value interface{}
+	Value any
 }
 
 func (t *ProcessUnitOptionsT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {

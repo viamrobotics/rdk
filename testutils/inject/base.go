@@ -14,15 +14,15 @@ import (
 type Base struct {
 	base.Base
 	name             resource.Name
-	DoFunc           func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	MoveStraightFunc func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error
-	SpinFunc         func(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error
-	StopFunc         func(ctx context.Context, extra map[string]interface{}) error
+	DoFunc           func(ctx context.Context, cmd map[string]any) (map[string]any, error)
+	MoveStraightFunc func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]any) error
+	SpinFunc         func(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]any) error
+	StopFunc         func(ctx context.Context, extra map[string]any) error
 	IsMovingFunc     func(context.Context) (bool, error)
 	CloseFunc        func(ctx context.Context) error
-	SetPowerFunc     func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
-	SetVelocityFunc  func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
-	PropertiesFunc   func(ctx context.Context, extra map[string]interface{}) (base.Properties, error)
+	SetPowerFunc     func(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error
+	SetVelocityFunc  func(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error
+	PropertiesFunc   func(ctx context.Context, extra map[string]any) (base.Properties, error)
 	GeometriesFunc   func(ctx context.Context) ([]spatialmath.Geometry, error)
 }
 
@@ -37,7 +37,7 @@ func (b *Base) Name() resource.Name {
 }
 
 // MoveStraight calls the injected MoveStraight or the real version.
-func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
+func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]any) error {
 	if b.MoveStraightFunc == nil {
 		return b.Base.MoveStraight(ctx, distanceMm, mmPerSec, extra)
 	}
@@ -45,7 +45,7 @@ func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float6
 }
 
 // Spin calls the injected Spin or the real version.
-func (b *Base) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+func (b *Base) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]any) error {
 	if b.SpinFunc == nil {
 		return b.Base.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
@@ -53,7 +53,7 @@ func (b *Base) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map
 }
 
 // Stop calls the injected Stop or the real version.
-func (b *Base) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (b *Base) Stop(ctx context.Context, extra map[string]any) error {
 	if b.StopFunc == nil {
 		return b.Base.Stop(ctx, extra)
 	}
@@ -80,7 +80,7 @@ func (b *Base) Close(ctx context.Context) error {
 }
 
 // DoCommand calls the injected DoCommand or the real version.
-func (b *Base) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (b *Base) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	if b.DoFunc == nil {
 		return b.Base.DoCommand(ctx, cmd)
 	}
@@ -88,7 +88,7 @@ func (b *Base) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 }
 
 // SetPower calls the injected SetPower or the real version.
-func (b *Base) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+func (b *Base) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 	if b.SetPowerFunc == nil {
 		return b.Base.SetPower(ctx, linear, angular, extra)
 	}
@@ -96,7 +96,7 @@ func (b *Base) SetPower(ctx context.Context, linear, angular r3.Vector, extra ma
 }
 
 // SetVelocity calls the injected SetVelocity or the real version.
-func (b *Base) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+func (b *Base) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 	if b.SetVelocityFunc == nil {
 		return b.Base.SetVelocity(ctx, linear, angular, extra)
 	}
@@ -104,7 +104,7 @@ func (b *Base) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra
 }
 
 // Properties returns the base's properties.
-func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+func (b *Base) Properties(ctx context.Context, extra map[string]any) (base.Properties, error) {
 	if b.PropertiesFunc == nil {
 		return b.Base.Properties(ctx, extra)
 	}
@@ -112,7 +112,7 @@ func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (ba
 }
 
 // Geometries returns the base's geometries.
-func (b *Base) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+func (b *Base) Geometries(ctx context.Context, extra map[string]any) ([]spatialmath.Geometry, error) {
 	if b.GeometriesFunc == nil {
 		return b.Base.Geometries(ctx, extra)
 	}

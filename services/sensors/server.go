@@ -21,7 +21,7 @@ type serviceServer struct {
 
 // NewRPCServiceServer constructs a sensors gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) any {
 	return &serviceServer{coll: coll}
 }
 

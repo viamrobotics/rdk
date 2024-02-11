@@ -29,7 +29,7 @@ func TestStatusValid(t *testing.T) {
 		t,
 		newStruct.AsMap(),
 		test.ShouldResemble,
-		map[string]interface{}{
+		map[string]any{
 			"is_moving": true,
 		},
 	)

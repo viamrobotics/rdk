@@ -37,10 +37,10 @@ type Servo interface {
 
 	// Move moves the servo to the given angle (0-180 degrees)
 	// This will block until done or a new operation cancels this one
-	Move(ctx context.Context, angleDeg uint32, extra map[string]interface{}) error
+	Move(ctx context.Context, angleDeg uint32, extra map[string]any) error
 
 	// Position returns the current set angle (degrees) of the servo.
-	Position(ctx context.Context, extra map[string]interface{}) (uint32, error)
+	Position(ctx context.Context, extra map[string]any) (uint32, error)
 }
 
 // Named is a helper for getting the named Servo's typed resource name.

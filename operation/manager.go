@@ -118,17 +118,17 @@ func (sm *SingleOperationManager) NewTimedWaitOp(ctx context.Context, dur time.D
 // powered, the power percent (between 0 and 1, or between -1 and 1 for motors that support
 // negative power), and any error that occurred while obtaining these.
 type IsPoweredInterface interface {
-	IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error)
+	IsPowered(ctx context.Context, extra map[string]any) (bool, float64, error)
 }
 
 // WaitTillNotPowered waits until IsPowered returns false.
 func (sm *SingleOperationManager) WaitTillNotPowered(ctx context.Context, pollTime time.Duration, powered IsPoweredInterface,
-	stop func(context.Context, map[string]interface{}) error,
+	stop func(context.Context, map[string]any) error,
 ) (err error) {
 	// Defers a function that will stop and clean up if the context errors
 	defer func(ctx context.Context) {
 		if errors.Is(ctx.Err(), context.Canceled) {
-			err = multierr.Combine(ctx.Err(), stop(ctx, map[string]interface{}{}))
+			err = multierr.Combine(ctx.Err(), stop(ctx, map[string]any{}))
 		} else {
 			err = ctx.Err()
 		}

@@ -45,7 +45,7 @@ func NewClientFromConn(
 	return c, nil
 }
 
-func (c *client) Mode(ctx context.Context, extra map[string]interface{}) (Mode, error) {
+func (c *client) Mode(ctx context.Context, extra map[string]any) (Mode, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return 0, err
@@ -69,7 +69,7 @@ func (c *client) Mode(ctx context.Context, extra map[string]interface{}) (Mode, 
 	}
 }
 
-func (c *client) SetMode(ctx context.Context, mode Mode, extra map[string]interface{}) error {
+func (c *client) SetMode(ctx context.Context, mode Mode, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -92,7 +92,7 @@ func (c *client) SetMode(ctx context.Context, mode Mode, extra map[string]interf
 	return nil
 }
 
-func (c *client) Location(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
+func (c *client) Location(ctx context.Context, extra map[string]any) (*spatialmath.GeoPose, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ func (c *client) Location(ctx context.Context, extra map[string]interface{}) (*s
 	return geoPose, nil
 }
 
-func (c *client) Waypoints(ctx context.Context, extra map[string]interface{}) ([]Waypoint, error) {
+func (c *client) Waypoints(ctx context.Context, extra map[string]any) ([]Waypoint, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -134,7 +134,7 @@ func (c *client) Waypoints(ctx context.Context, extra map[string]interface{}) ([
 	return result, nil
 }
 
-func (c *client) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
+func (c *client) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -155,7 +155,7 @@ func (c *client) AddWaypoint(ctx context.Context, point *geo.Point, extra map[st
 	return nil
 }
 
-func (c *client) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
+func (c *client) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -168,7 +168,7 @@ func (c *client) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extr
 	return nil
 }
 
-func (c *client) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+func (c *client) Obstacles(ctx context.Context, extra map[string]any) ([]*spatialmath.GeoObstacle, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -190,7 +190,7 @@ func (c *client) Obstacles(ctx context.Context, extra map[string]interface{}) ([
 	return geos, nil
 }
 
-func (c *client) Paths(ctx context.Context, extra map[string]interface{}) ([]*Path, error) {
+func (c *client) Paths(ctx context.Context, extra map[string]any) ([]*Path, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -220,6 +220,6 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 	return prop, nil
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

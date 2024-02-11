@@ -172,7 +172,7 @@ func (rc *RobotClient) useSessionInRequest(ctx context.Context, method string) b
 func (rc *RobotClient) sessionUnaryClientInterceptor(
 	ctx context.Context,
 	method string,
-	req, reply interface{},
+	req, reply any,
 	cc *grpc.ClientConn,
 	invoker grpc.UnaryInvoker,
 	opts ...grpc.CallOption,
@@ -223,12 +223,12 @@ type firstMessageClientStreamWrapper struct {
 	safetyMonitorFromHeaders func(hdr metadata.MD)
 
 	mu        sync.RWMutex
-	sendMsgs  []interface{}
+	sendMsgs  []any
 	closeSend bool
 	firstRecv bool
 }
 
-func (w *firstMessageClientStreamWrapper) SendMsg(m interface{}) error {
+func (w *firstMessageClientStreamWrapper) SendMsg(m any) error {
 	w.mu.Lock()
 	if !w.firstRecv {
 		w.sendMsgs = append(w.sendMsgs, m)
@@ -244,7 +244,7 @@ func (w *firstMessageClientStreamWrapper) CloseSend() error {
 	return w.ClientStream.CloseSend()
 }
 
-func (w *firstMessageClientStreamWrapper) RecvMsg(m interface{}) error {
+func (w *firstMessageClientStreamWrapper) RecvMsg(m any) error {
 	w.mu.Lock()
 	if w.firstRecv {
 		w.mu.Unlock()

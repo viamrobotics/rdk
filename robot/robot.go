@@ -84,7 +84,7 @@ type Robot interface {
 	Close(ctx context.Context) error
 
 	// StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement
-	StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
+	StopAll(ctx context.Context, extra map[resource.Name]map[string]any) error
 }
 
 // A LocalRobot is a Robot that can have its parts modified.
@@ -133,7 +133,7 @@ type RemoteRobot interface {
 type Status struct {
 	Name             resource.Name
 	LastReconfigured time.Time
-	Status           interface{}
+	Status           any
 }
 
 // AllResourcesByName returns an array of all resources that have this short name.
@@ -200,7 +200,7 @@ func ResourceFromProtoMessage(
 	robot Robot,
 	msg *dynamic.Message,
 	api resource.API,
-) (interface{}, resource.Name, error) {
+) (any, resource.Name, error) {
 	// we assume a convention that there will be a field called name that will be the resource
 	// name and a string.
 	if !msg.HasFieldName("name") {

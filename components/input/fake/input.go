@@ -112,7 +112,7 @@ func (c *InputController) Reconfigure(ctx context.Context, deps resource.Depende
 }
 
 // Controls lists the inputs of the gamepad.
-func (c *InputController) Controls(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
+func (c *InputController) Controls(ctx context.Context, extra map[string]any) ([]input.Control, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if len(c.controls) == 0 {
@@ -130,7 +130,7 @@ func (c *InputController) eventVal() float64 {
 }
 
 // Events returns the a specified or random input.Event (the current state) for AbsoluteX.
-func (c *InputController) Events(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
+func (c *InputController) Events(ctx context.Context, extra map[string]any) (map[input.Control]input.Event, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	eventsOut := make(map[input.Control]input.Event)
@@ -146,7 +146,7 @@ func (c *InputController) RegisterControlCallback(
 	control input.Control,
 	triggers []input.EventType,
 	ctrlFunc input.ControlFunction,
-	extra map[string]interface{},
+	extra map[string]any,
 ) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -194,7 +194,7 @@ func (c *InputController) startCallbackLoop() {
 }
 
 // TriggerEvent allows directly sending an Event (such as a button press) from external code.
-func (c *InputController) TriggerEvent(ctx context.Context, event input.Event, extra map[string]interface{}) error {
+func (c *InputController) TriggerEvent(ctx context.Context, event input.Event, extra map[string]any) error {
 	return errors.New("unsupported")
 }
 

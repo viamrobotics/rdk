@@ -9,13 +9,13 @@ import (
 // AnalogReader is an injected analog reader.
 type AnalogReader struct {
 	board.AnalogReader
-	ReadFunc func(ctx context.Context, extra map[string]interface{}) (int, error)
-	readCap  []interface{}
+	ReadFunc func(ctx context.Context, extra map[string]any) (int, error)
+	readCap  []any
 }
 
 // Read calls the injected Read or the real version.
-func (a *AnalogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
-	a.readCap = []interface{}{ctx}
+func (a *AnalogReader) Read(ctx context.Context, extra map[string]any) (int, error) {
+	a.readCap = []any{ctx}
 	if a.ReadFunc == nil {
 		return a.AnalogReader.Read(ctx, extra)
 	}
@@ -23,7 +23,7 @@ func (a *AnalogReader) Read(ctx context.Context, extra map[string]interface{}) (
 }
 
 // ReadCap returns the last parameters received by Read, and then clears them.
-func (a *AnalogReader) ReadCap() []interface{} {
+func (a *AnalogReader) ReadCap() []any {
 	if a == nil {
 		return nil
 	}

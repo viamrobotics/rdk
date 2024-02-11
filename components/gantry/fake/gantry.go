@@ -59,30 +59,30 @@ type Gantry struct {
 }
 
 // Position returns the position in meters.
-func (g *Gantry) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+func (g *Gantry) Position(ctx context.Context, extra map[string]any) ([]float64, error) {
 	return g.positionsMm, nil
 }
 
 // Lengths returns the position in meters.
-func (g *Gantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+func (g *Gantry) Lengths(ctx context.Context, extra map[string]any) ([]float64, error) {
 	return g.lengths, nil
 }
 
 // Home runs the homing sequence of the gantry and returns true once completed.
-func (g *Gantry) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (g *Gantry) Home(ctx context.Context, extra map[string]any) (bool, error) {
 	g.logger.CInfo(ctx, "homing")
 	return true, nil
 }
 
 // MoveToPosition is in meters.
-func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec []float64, extra map[string]interface{}) error {
+func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec []float64, extra map[string]any) error {
 	g.positionsMm = positionsMm
 	g.speedsMmPerSec = speedsMmPerSec
 	return nil
 }
 
 // Stop doesn't do anything for a fake gantry.
-func (g *Gantry) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (g *Gantry) Stop(ctx context.Context, extra map[string]any) error {
 	return nil
 }
 

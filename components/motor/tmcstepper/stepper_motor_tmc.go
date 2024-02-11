@@ -388,7 +388,7 @@ func (m *Motor) GetSG(ctx context.Context) (int32, error) {
 }
 
 // Position gives the current motor position.
-func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (m *Motor) Position(ctx context.Context, extra map[string]any) (float64, error) {
 	rawPos, err := m.readReg(ctx, xActual)
 	if err != nil {
 		return 0, errors.Wrapf(err, "error in Position from motor (%s)", m.motorName)
@@ -397,7 +397,7 @@ func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (flo
 }
 
 // Properties returns the status of optional properties on the motor.
-func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+func (m *Motor) Properties(ctx context.Context, extra map[string]any) (motor.Properties, error) {
 	return motor.Properties{
 		PositionReporting: true,
 	}, nil
@@ -405,7 +405,7 @@ func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (m
 
 // SetPower sets the motor at a particular rpm based on the percent of
 // maxRPM supplied by powerPct (between -1 and 1).
-func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]any) error {
 	m.opMgr.CancelRunning(ctx)
 	m.powerPct = powerPct
 	return m.doJog(ctx, powerPct*m.maxRPM)
@@ -441,7 +441,7 @@ func (m *Motor) doJog(ctx context.Context, rpm float64) error {
 // GoFor turns in the given direction the given number of times at the given speed.
 // Both the RPM and the revolutions can be assigned negative values to move in a backwards direction.
 // Note: if both are negative the motor will spin in the forward direction.
-func (m *Motor) GoFor(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
+func (m *Motor) GoFor(ctx context.Context, rpm, rotations float64, extra map[string]any) error {
 	if math.Abs(rpm) < 0.1 {
 		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
 		return motor.NewZeroRPMError()
@@ -486,7 +486,7 @@ func (m *Motor) rpmsToA(acc float64) int32 {
 // GoTo moves to the specified position in terms of (provided in revolutions from home/zero),
 // at a specific speed. Regardless of the directionality of the RPM this function will move the
 // motor towards the specified target.
-func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
+func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]any) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -517,7 +517,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extr
 }
 
 // IsPowered returns true if the motor is currently moving.
-func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+func (m *Motor) IsPowered(ctx context.Context, extra map[string]any) (bool, float64, error) {
 	on, err := m.IsMoving(ctx)
 	if err != nil {
 		return on, m.powerPct, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.motorName)
@@ -554,7 +554,7 @@ func (m *Motor) Enable(ctx context.Context, turnOn bool) error {
 }
 
 // Stop stops the motor.
-func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (m *Motor) Stop(ctx context.Context, extra map[string]any) error {
 	m.opMgr.CancelRunning(ctx)
 	return m.doJog(ctx, 0)
 }
@@ -663,7 +663,7 @@ func (m *Motor) goTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 
 // ResetZeroPosition sets the current position of the motor specified by the request
 // (adjusted by a given offset) to be its new zero position.
-func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]any) error {
 	on, _, err := m.IsPowered(ctx, extra)
 	if err != nil {
 		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.motorName)
@@ -686,7 +686,7 @@ const (
 )
 
 // DoCommand executes additional commands beyond the Motor{} interface.
-func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (m *Motor) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	name, ok := cmd["command"]
 	if !ok {
 		return nil, errors.Errorf("missing %s value", Command)

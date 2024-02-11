@@ -16,7 +16,7 @@ type serviceServer struct {
 }
 
 // NewRPCServiceServer constructs a PowerSesnsor gRPC service serviceServer.
-func NewRPCServiceServer(coll resource.APIResourceCollection[PowerSensor]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceCollection[PowerSensor]) any {
 	return &serviceServer{coll: coll}
 }
 

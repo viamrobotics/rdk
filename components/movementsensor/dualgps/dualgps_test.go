@@ -26,10 +26,10 @@ const (
 
 func makeNewFakeGPS(name string, point *geo.Point, alt float64, err error) *inject.MovementSensor {
 	ms := inject.NewMovementSensor(name)
-	ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	ms.PositionFunc = func(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 		return point, alt, err
 	}
-	ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+	ms.PropertiesFunc = func(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 		return &movementsensor.Properties{PositionSupported: true}, nil
 	}
 	return ms

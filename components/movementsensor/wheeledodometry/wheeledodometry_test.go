@@ -39,14 +39,14 @@ var position = positions{
 	rightPos: 0.0,
 }
 
-var relativePos = map[string]interface{}{returnRelative: true}
+var relativePos = map[string]any{returnRelative: true}
 
 func createFakeMotor(dir bool) motor.Motor {
 	return &inject.Motor{
-		PropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+		PropertiesFunc: func(ctx context.Context, extra map[string]any) (motor.Properties, error) {
 			return motor.Properties{PositionReporting: true}, nil
 		},
-		PositionFunc: func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		PositionFunc: func(ctx context.Context, extra map[string]any) (float64, error) {
 			position.mu.Lock()
 			defer position.mu.Unlock()
 			if dir {
@@ -65,14 +65,14 @@ func createFakeMotor(dir bool) motor.Motor {
 			}
 			return false, nil
 		},
-		ResetZeroPositionFunc: func(ctx context.Context, offset float64, extra map[string]interface{}) error {
+		ResetZeroPositionFunc: func(ctx context.Context, offset float64, extra map[string]any) error {
 			position.mu.Lock()
 			defer position.mu.Unlock()
 			position.leftPos = 0
 			position.rightPos = 0
 			return nil
 		},
-		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
+		StopFunc: func(ctx context.Context, extra map[string]any) error {
 			return nil
 		},
 	}
@@ -80,7 +80,7 @@ func createFakeMotor(dir bool) motor.Motor {
 
 func createFakeBase(circ, width, rad float64) base.Base {
 	return &inject.Base{
-		PropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+		PropertiesFunc: func(ctx context.Context, extra map[string]any) (base.Properties, error) {
 			return base.Properties{WheelCircumferenceMeters: circ, WidthMeters: width, TurningRadiusMeters: rad}, nil
 		},
 	}

@@ -17,8 +17,8 @@ import (
 // check is essentially test.That with tb.Error instead of tb.Fatal (Fatal exits and leaves the go routines stuck waiting).
 func check(
 	resChan chan string,
-	actual interface{},
-	assert func(actual interface{}, expected ...interface{}) string, expected ...interface{},
+	actual any,
+	assert func(actual any, expected ...any) string, expected ...any,
 ) {
 	if result := assert(actual, expected...); result != "" {
 		resChan <- result
@@ -663,7 +663,7 @@ func TestDMC4000Motor(t *testing.T) {
 			[]string{"testTX"},
 			[]string{" testRX\r\n:"},
 		)
-		resp, err := motorDep.DoCommand(ctx, map[string]interface{}{"command": "raw", "raw_input": "testTX"})
+		resp, err := motorDep.DoCommand(ctx, map[string]any{"command": "raw", "raw_input": "testTX"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["return"], test.ShouldEqual, "testRX")
 		waitTx(t, resChan)
@@ -705,7 +705,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		resp, err := motorDep.DoCommand(ctx, map[string]interface{}{"command": "home"})
+		resp, err := motorDep.DoCommand(ctx, map[string]any{"command": "home"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldBeNil)
 		waitTx(t, resChan)

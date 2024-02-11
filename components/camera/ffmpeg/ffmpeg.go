@@ -30,16 +30,16 @@ type Config struct {
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Debug                bool                               `json:"debug,omitempty"`
 	VideoPath            string                             `json:"video_path"`
-	InputKWArgs          map[string]interface{}             `json:"input_kw_args,omitempty"`
+	InputKWArgs          map[string]any                     `json:"input_kw_args,omitempty"`
 	Filters              []FilterConfig                     `json:"filters,omitempty"`
-	OutputKWArgs         map[string]interface{}             `json:"output_kw_args,omitempty"`
+	OutputKWArgs         map[string]any                     `json:"output_kw_args,omitempty"`
 }
 
 // FilterConfig is a struct to used to configure ffmpeg filters.
 type FilterConfig struct {
-	Name   string                 `json:"name"`
-	Args   []string               `json:"args"`
-	KWArgs map[string]interface{} `json:"kw_args"`
+	Name   string         `json:"name"`
+	Args   []string       `json:"args"`
+	KWArgs map[string]any `json:"kw_args"`
 }
 
 var model = resource.DefaultModelFamily.WithModel("ffmpeg")
@@ -79,7 +79,7 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 		return nil, err
 	}
 	// parse attributes into ffmpeg keyword maps
-	outArgs := make(map[string]interface{}, len(conf.OutputKWArgs))
+	outArgs := make(map[string]any, len(conf.OutputKWArgs))
 	for key, value := range conf.OutputKWArgs {
 		outArgs[key] = value
 	}

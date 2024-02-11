@@ -55,7 +55,7 @@ const dtNameMetadataKey = "dtName"
 func UnaryClientInterceptor(
 	ctx context.Context,
 	method string,
-	req, reply interface{},
+	req, reply any,
 	cc *grpc.ClientConn,
 	invoker grpc.UnaryInvoker,
 	opts ...grpc.CallOption,
@@ -71,10 +71,10 @@ func UnaryClientInterceptor(
 // attaches any information to a debug context.
 func UnaryServerInterceptor(
 	ctx context.Context,
-	req interface{},
+	req any,
 	info *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
-) (interface{}, error) {
+) (any, error) {
 	meta, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return handler(ctx, req)

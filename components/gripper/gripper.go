@@ -42,12 +42,12 @@ type Gripper interface {
 
 	// Open opens the gripper.
 	// This will block until done or a new operation cancels this one
-	Open(ctx context.Context, extra map[string]interface{}) error
+	Open(ctx context.Context, extra map[string]any) error
 
 	// Grab makes the gripper grab.
 	// returns true if we grabbed something.
 	// This will block until done or a new operation cancels this one
-	Grab(ctx context.Context, extra map[string]interface{}) (bool, error)
+	Grab(ctx context.Context, extra map[string]any) (bool, error)
 }
 
 // FromRobot is a helper for getting the named Gripper from the given Robot.

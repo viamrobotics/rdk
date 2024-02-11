@@ -8,7 +8,7 @@ import (
 
 // An AttributeMap is a convenience wrapper for pulling out
 // typed information from a map.
-type AttributeMap map[string]interface{}
+type AttributeMap map[string]any
 
 // Has returns whether or not the given name is in the map.
 func (am AttributeMap) Has(name string) bool {
@@ -27,7 +27,7 @@ func (am AttributeMap) IntSlice(name string) []int {
 		return []int{}
 	}
 
-	if slice, ok := x.([]interface{}); ok {
+	if slice, ok := x.([]any); ok {
 		ints := make([]int, 0, len(slice))
 		for _, v := range slice {
 			if i, ok := v.(int); ok {
@@ -55,7 +55,7 @@ func (am AttributeMap) Float64Slice(name string) []float64 {
 		return []float64{}
 	}
 
-	if slice, ok := x.([]interface{}); ok {
+	if slice, ok := x.([]any); ok {
 		float64s := make([]float64, 0, len(slice))
 		for _, v := range slice {
 			if i, ok := v.(float64); ok {
@@ -81,7 +81,7 @@ func (am AttributeMap) StringSlice(name string) []string {
 		return []string{}
 	}
 
-	if slice, ok := x.([]interface{}); ok {
+	if slice, ok := x.([]any); ok {
 		strings := make([]string, 0, len(slice))
 		for _, v := range slice {
 			if s, ok := v.(string); ok {
@@ -187,7 +187,7 @@ func (am AttributeMap) BoolSlice(name string, def bool) []bool {
 		return []bool{}
 	}
 
-	if slice, ok := x.([]interface{}); ok {
+	if slice, ok := x.([]any); ok {
 		bools := make([]bool, 0, len(slice))
 		for _, v := range slice {
 			if b, ok := v.(bool); ok {
@@ -203,7 +203,7 @@ func (am AttributeMap) BoolSlice(name string, def bool) []bool {
 }
 
 // Walk implements the Walker interface.
-func (am AttributeMap) Walk(visitor Visitor) (interface{}, error) {
+func (am AttributeMap) Walk(visitor Visitor) (any, error) {
 	w := attrWalker{visitor: visitor}
 	m, err := w.walkMap(am)
 	if err != nil {
@@ -217,14 +217,14 @@ type attrWalker struct {
 	visitor Visitor
 }
 
-func (w *attrWalker) walkMap(data interface{}) (map[string]interface{}, error) {
+func (w *attrWalker) walkMap(data any) (map[string]any, error) {
 	s := reflect.ValueOf(data)
 	if s.Kind() != reflect.Map {
 		return nil, errors.Errorf("data of type %T is not a map", data)
 	}
 
 	iter := reflect.ValueOf(data).MapRange()
-	result := map[string]interface{}{}
+	result := map[string]any{}
 	var err error
 	for iter.Next() {
 		k := iter.Key()
@@ -240,7 +240,7 @@ func (w *attrWalker) walkMap(data interface{}) (map[string]interface{}, error) {
 	return result, nil
 }
 
-func (w *attrWalker) walkInterface(data interface{}) (interface{}, error) {
+func (w *attrWalker) walkInterface(data any) (any, error) {
 	if data == nil {
 		return data, nil
 	}
@@ -250,7 +250,7 @@ func (w *attrWalker) walkInterface(data interface{}) (interface{}, error) {
 		t = t.Elem()
 	}
 
-	var newData interface{}
+	var newData any
 	var err error
 	switch t.Kind() {
 	case reflect.Struct:
@@ -287,13 +287,13 @@ func (w *attrWalker) walkInterface(data interface{}) (interface{}, error) {
 	return newData, nil
 }
 
-func (w *attrWalker) walkSlice(data interface{}) ([]interface{}, error) {
+func (w *attrWalker) walkSlice(data any) ([]any, error) {
 	s := reflect.ValueOf(data)
 	if s.Kind() != reflect.Slice {
 		return nil, errors.Errorf("data of type %T is not a slice", data)
 	}
 
-	newList := make([]interface{}, 0, s.Len())
+	newList := make([]any, 0, s.Len())
 	for i := 0; i < s.Len(); i++ {
 		value := s.Index(i).Interface()
 		data, err := w.walkInterface(value)
@@ -305,7 +305,7 @@ func (w *attrWalker) walkSlice(data interface{}) ([]interface{}, error) {
 	return newList, nil
 }
 
-func (w *attrWalker) walkStruct(data interface{}) (interface{}, error) {
+func (w *attrWalker) walkStruct(data any) (any, error) {
 	t := reflect.TypeOf(data)
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -313,7 +313,7 @@ func (w *attrWalker) walkStruct(data interface{}) (interface{}, error) {
 	if t.Kind() != reflect.Struct {
 		return nil, errors.Errorf("data of type %T is not a struct", data)
 	}
-	res := map[string]interface{}{}
+	res := map[string]any{}
 	value := reflect.ValueOf(data)
 	if value.Kind() == reflect.Ptr && value.IsNil() {
 		return res, nil

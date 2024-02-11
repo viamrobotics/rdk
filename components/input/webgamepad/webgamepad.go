@@ -79,13 +79,13 @@ func (w *webGamepad) makeCallbacks(ctx context.Context, eventOut input.Event) {
 }
 
 // Controls lists the inputs of the gamepad.
-func (w *webGamepad) Controls(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
+func (w *webGamepad) Controls(ctx context.Context, extra map[string]any) ([]input.Control, error) {
 	out := append([]input.Control(nil), w.controls...)
 	return out, nil
 }
 
 // Events returns the last input.Event (the current state).
-func (w *webGamepad) Events(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
+func (w *webGamepad) Events(ctx context.Context, extra map[string]any) (map[input.Control]input.Event, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	out := make(map[input.Control]input.Event)
@@ -101,7 +101,7 @@ func (w *webGamepad) RegisterControlCallback(
 	control input.Control,
 	triggers []input.EventType,
 	ctrlFunc input.ControlFunction,
-	extra map[string]interface{},
+	extra map[string]any,
 ) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -121,7 +121,7 @@ func (w *webGamepad) RegisterControlCallback(
 }
 
 // TriggerEvent allows directly sending an Event (such as a button press) from external code.
-func (w *webGamepad) TriggerEvent(ctx context.Context, event input.Event, extra map[string]interface{}) error {
+func (w *webGamepad) TriggerEvent(ctx context.Context, event input.Event, extra map[string]any) error {
 	w.makeCallbacks(ctx, event)
 	return nil
 }

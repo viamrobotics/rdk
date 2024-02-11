@@ -208,7 +208,7 @@ func (c *client) MediaProperties(ctx context.Context) (prop.Audio, error) {
 	}, nil
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 

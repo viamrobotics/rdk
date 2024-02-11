@@ -513,7 +513,7 @@ func TestDynamicModuleLogging(t *testing.T) {
 	// 2023-12-06T15:55:32.590-0500	INFO	process.helperModule_/tmp/TestDynamicModuleLogging3790223620/001/testmodule.StdOut	pexec/managed_process.go:244
 	// \_ 2023-12-06T15:55:32.590-0500	INFO	TestModule.rdk:component:generic/helper	testmodule/main.go:147	special rare log line
 	logLine := "special rare log line"
-	testCmd := map[string]interface{}{"command": "log", "msg": logLine, "level": "info"}
+	testCmd := map[string]any{"command": "log", "msg": logLine, "level": "info"}
 	_, err = client.DoCommand(ctx, testCmd)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -525,7 +525,7 @@ func TestDynamicModuleLogging(t *testing.T) {
 
 	// The module is currently configured to log at info. If the module tries to log at debug,
 	// nothing new should be observed.
-	testCmd = map[string]interface{}{"command": "log", "msg": logLine, "level": "debug"}
+	testCmd = map[string]any{"command": "log", "msg": logLine, "level": "debug"}
 	_, err = client.DoCommand(ctx, testCmd)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -538,7 +538,7 @@ func TestDynamicModuleLogging(t *testing.T) {
 
 	// Trying to log again at DEBUG should see our log line pattern show up a second time. Now with
 	// DEBUG in the output string.
-	testCmd = map[string]interface{}{"command": "log", "msg": logLine, "level": "debug"}
+	testCmd = map[string]any{"command": "log", "msg": logLine, "level": "debug"}
 	_, err = client.DoCommand(ctx, testCmd)
 	test.That(t, err, test.ShouldBeNil)
 

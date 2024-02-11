@@ -27,7 +27,7 @@ func TestClient(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	var extraOptions map[string]interface{}
+	var extraOptions map[string]any
 
 	injectSensors := &inject.SensorsService{}
 	ssMap := map[resource.Name]sensors.Service{
@@ -60,33 +60,33 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		names := []resource.Name{movementsensor.Named("gps"), movementsensor.Named("imu")}
-		injectSensors.SensorsFunc = func(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error) {
+		injectSensors.SensorsFunc = func(ctx context.Context, extra map[string]any) ([]resource.Name, error) {
 			extraOptions = extra
 			return names, nil
 		}
-		extra := map[string]interface{}{"foo": "Sensors"}
+		extra := map[string]any{"foo": "Sensors"}
 		sensorNames, err := client.Sensors(context.Background(), extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sensorNames, test.ShouldResemble, names)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
-		gReading := sensors.Readings{Name: movementsensor.Named("gps"), Readings: map[string]interface{}{"a": 4.5, "b": 5.6, "c": 6.7}}
+		gReading := sensors.Readings{Name: movementsensor.Named("gps"), Readings: map[string]any{"a": 4.5, "b": 5.6, "c": 6.7}}
 		readings := []sensors.Readings{gReading}
-		expected := map[resource.Name]interface{}{
+		expected := map[resource.Name]any{
 			gReading.Name: gReading.Readings,
 		}
 
 		injectSensors.ReadingsFunc = func(
-			ctx context.Context, sensors []resource.Name, extra map[string]interface{},
+			ctx context.Context, sensors []resource.Name, extra map[string]any,
 		) ([]sensors.Readings, error) {
 			extraOptions = extra
 			return readings, nil
 		}
-		extra = map[string]interface{}{"foo": "Readings"}
+		extra = map[string]any{"foo": "Readings"}
 		readings, err = client.Readings(context.Background(), []resource.Name{}, extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(readings), test.ShouldEqual, 1)
-		observed := map[resource.Name]interface{}{
+		observed := map[resource.Name]any{
 			readings[0].Name: readings[0].Readings,
 		}
 		test.That(t, observed, test.ShouldResemble, expected)
@@ -111,20 +111,20 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		passedErr := errors.New("can't get sensors")
-		injectSensors.SensorsFunc = func(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error) {
+		injectSensors.SensorsFunc = func(ctx context.Context, extra map[string]any) ([]resource.Name, error) {
 			return nil, passedErr
 		}
 
-		_, err = client2.Sensors(context.Background(), map[string]interface{}{})
+		_, err = client2.Sensors(context.Background(), map[string]any{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 
 		passedErr = errors.New("can't get readings")
 		injectSensors.ReadingsFunc = func(
-			ctx context.Context, sensors []resource.Name, extra map[string]interface{},
+			ctx context.Context, sensors []resource.Name, extra map[string]any,
 		) ([]sensors.Readings, error) {
 			return nil, passedErr
 		}
-		_, err = client2.Readings(context.Background(), []resource.Name{}, map[string]interface{}{})
+		_, err = client2.Readings(context.Background(), []resource.Name{}, map[string]any{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)

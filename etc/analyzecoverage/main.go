@@ -162,7 +162,7 @@ func mainWithArgs(ctx context.Context, _ []string, logger logging.Logger) error 
 		return nil
 	}
 
-	resultsIfc := make([]interface{}, 0, len(covResults))
+	resultsIfc := make([]any, 0, len(covResults))
 	for _, res := range covResults {
 		resultsIfc = append(resultsIfc, res)
 	}

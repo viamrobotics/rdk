@@ -35,7 +35,7 @@ func init() {
 		resource.DefaultServiceModel,
 		resource.Registration[datamanager.Service, *Config]{
 			Constructor: NewBuiltIn,
-			AssociatedConfigLinker: func(conf *Config, resAssociation interface{}) error {
+			AssociatedConfigLinker: func(conf *Config, resAssociation any) error {
 				capConf, err := utils.AssertType[*datamanager.DataCaptureConfigs](resAssociation)
 				if err != nil {
 					return err
@@ -370,7 +370,7 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 // Sync performs a non-scheduled sync of the data in the capture directory.
 // If automated sync is also enabled, calling Sync will upload the files,
 // regardless of whether or not is the scheduled time.
-func (svc *builtIn) Sync(ctx context.Context, _ map[string]interface{}) error {
+func (svc *builtIn) Sync(ctx context.Context, _ map[string]any) error {
 	svc.lock.Lock()
 	if svc.syncer == nil {
 		err := svc.initSyncer(ctx)

@@ -25,13 +25,13 @@ func (m method) String() string {
 
 // newPositionCollector returns a collector to register a position method. If one is already registered
 // with the same MethodMetadata it will panic.
-func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newPositionCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	servo, err := assertServo(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (any, error) {
 		pos, err := servo.Position(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -48,7 +48,7 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 	return data.NewCollector(cFunc, params)
 }
 
-func assertServo(resource interface{}) (Servo, error) {
+func assertServo(resource any) (Servo, error) {
 	servo, ok := resource.(Servo)
 	if !ok {
 		return nil, data.InvalidInterfaceErr(API)

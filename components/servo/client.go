@@ -40,7 +40,7 @@ func NewClientFromConn(
 	}, nil
 }
 
-func (c *client) Move(ctx context.Context, angleDeg uint32, extra map[string]interface{}) error {
+func (c *client) Move(ctx context.Context, angleDeg uint32, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -52,7 +52,7 @@ func (c *client) Move(ctx context.Context, angleDeg uint32, extra map[string]int
 	return nil
 }
 
-func (c *client) Position(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+func (c *client) Position(ctx context.Context, extra map[string]any) (uint32, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return 0, err
@@ -65,7 +65,7 @@ func (c *client) Position(ctx context.Context, extra map[string]interface{}) (ui
 	return resp.PositionDeg, nil
 }
 
-func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (c *client) Stop(ctx context.Context, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -74,7 +74,7 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return err
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 

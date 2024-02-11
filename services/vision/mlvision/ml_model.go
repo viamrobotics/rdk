@@ -271,7 +271,7 @@ func convertNumberSlice[T1, T2 number](t1 []T1) []T2 {
 	return t2
 }
 
-func convertToFloat64Slice(slice interface{}) ([]float64, error) {
+func convertToFloat64Slice(slice any) ([]float64, error) {
 	switch v := slice.(type) {
 	case []float64:
 		return v, nil

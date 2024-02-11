@@ -11,15 +11,15 @@ import (
 type InputController struct {
 	input.Controller
 	name                        resource.Name
-	DoFunc                      func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	ControlsFunc                func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error)
-	EventsFunc                  func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error)
+	DoFunc                      func(ctx context.Context, cmd map[string]any) (map[string]any, error)
+	ControlsFunc                func(ctx context.Context, extra map[string]any) ([]input.Control, error)
+	EventsFunc                  func(ctx context.Context, extra map[string]any) (map[input.Control]input.Event, error)
 	RegisterControlCallbackFunc func(
 		ctx context.Context,
 		control input.Control,
 		triggers []input.EventType,
 		ctrlFunc input.ControlFunction,
-		extra map[string]interface{},
+		extra map[string]any,
 	) error
 }
 
@@ -34,7 +34,7 @@ func (s *InputController) Name() resource.Name {
 }
 
 // Controls calls the injected function or the real version.
-func (s *InputController) Controls(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
+func (s *InputController) Controls(ctx context.Context, extra map[string]any) ([]input.Control, error) {
 	if s.ControlsFunc == nil {
 		return s.Controller.Controls(ctx, extra)
 	}
@@ -42,7 +42,7 @@ func (s *InputController) Controls(ctx context.Context, extra map[string]interfa
 }
 
 // Events calls the injected function or the real version.
-func (s *InputController) Events(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
+func (s *InputController) Events(ctx context.Context, extra map[string]any) (map[input.Control]input.Event, error) {
 	if s.EventsFunc == nil {
 		return s.Controller.Events(ctx, extra)
 	}
@@ -55,7 +55,7 @@ func (s *InputController) RegisterControlCallback(
 	control input.Control,
 	triggers []input.EventType,
 	ctrlFunc input.ControlFunction,
-	extra map[string]interface{},
+	extra map[string]any,
 ) error {
 	if s.RegisterControlCallbackFunc == nil {
 		return s.RegisterControlCallback(ctx, control, triggers, ctrlFunc, extra)
@@ -64,7 +64,7 @@ func (s *InputController) RegisterControlCallback(
 }
 
 // DoCommand calls the injected DoCommand or the real version.
-func (s *InputController) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (s *InputController) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	if s.DoFunc == nil {
 		return s.Controller.DoCommand(ctx, cmd)
 	}
@@ -76,11 +76,11 @@ type TriggerableInputController struct {
 	InputController
 	input.Triggerable
 
-	TriggerEventFunc func(ctx context.Context, event input.Event, extra map[string]interface{}) error
+	TriggerEventFunc func(ctx context.Context, event input.Event, extra map[string]any) error
 }
 
 // TriggerEvent calls the injected function or the real version.
-func (s *TriggerableInputController) TriggerEvent(ctx context.Context, event input.Event, extra map[string]interface{}) error {
+func (s *TriggerableInputController) TriggerEvent(ctx context.Context, event input.Event, extra map[string]any) error {
 	if s.TriggerEventFunc == nil {
 		return s.TriggerEvent(ctx, event, extra)
 	}

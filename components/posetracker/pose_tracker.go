@@ -41,7 +41,7 @@ type BodyToPoseInFrame map[string]*referenceframe.PoseInFrame
 // given in the context of the PoseTracker's frame of reference.
 type PoseTracker interface {
 	sensor.Sensor
-	Poses(ctx context.Context, bodyNames []string, extra map[string]interface{}) (BodyToPoseInFrame, error)
+	Poses(ctx context.Context, bodyNames []string, extra map[string]any) (BodyToPoseInFrame, error)
 }
 
 // FromRobot is a helper for getting the named force matrix sensor from the given Robot.
@@ -50,12 +50,12 @@ func FromRobot(r robot.Robot, name string) (PoseTracker, error) {
 }
 
 // Readings is a helper for getting all readings from a PoseTracker.
-func Readings(ctx context.Context, poseTracker PoseTracker) (map[string]interface{}, error) {
-	poseLookup, err := poseTracker.Poses(ctx, []string{}, map[string]interface{}{})
+func Readings(ctx context.Context, poseTracker PoseTracker) (map[string]any, error) {
+	poseLookup, err := poseTracker.Poses(ctx, []string{}, map[string]any{})
 	if err != nil {
 		return nil, err
 	}
-	result := map[string]interface{}{}
+	result := map[string]any{}
 	for bodyName, poseInFrame := range poseLookup {
 		result[bodyName] = poseInFrame
 	}

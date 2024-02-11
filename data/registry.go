@@ -14,7 +14,7 @@ import (
 )
 
 // CollectorConstructor contains a function for constructing an instance of a Collector.
-type CollectorConstructor func(resource interface{}, params CollectorParams) (Collector, error)
+type CollectorConstructor func(resource any, params CollectorParams) (Collector, error)
 
 // CollectorParams contain the parameters needed to construct a Collector.
 type CollectorParams struct {

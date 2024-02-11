@@ -52,7 +52,7 @@ func TestServerSetPower(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingMotor.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+	failingMotor.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]any) error {
 		return errSetPowerFailed
 	}
 	req = pb.SetPowerRequest{Name: failMotorName, PowerPct: 0.5}
@@ -60,7 +60,7 @@ func TestServerSetPower(t *testing.T) {
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+	workingMotor.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]any) error {
 		return nil
 	}
 	req = pb.SetPowerRequest{Name: testMotorName, PowerPct: 0.5}
@@ -79,7 +79,7 @@ func TestServerGoFor(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingMotor.GoForFunc = func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
+	failingMotor.GoForFunc = func(ctx context.Context, rpm, rotations float64, extra map[string]any) error {
 		return errGoForFailed
 	}
 	req = pb.GoForRequest{Name: failMotorName, Rpm: 42.0, Revolutions: 42.1}
@@ -87,7 +87,7 @@ func TestServerGoFor(t *testing.T) {
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.GoForFunc = func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
+	workingMotor.GoForFunc = func(ctx context.Context, rpm, rotations float64, extra map[string]any) error {
 		return nil
 	}
 	req = pb.GoForRequest{Name: testMotorName, Rpm: 42.0, Revolutions: 42.1}
@@ -106,7 +106,7 @@ func TestServerPosition(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 
-	failingMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	failingMotor.PositionFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		return 0, errPositionUnavailable
 	}
 	req = pb.GetPositionRequest{Name: failMotorName}
@@ -114,7 +114,7 @@ func TestServerPosition(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	workingMotor.PositionFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		return 42.0, nil
 	}
 	req = pb.GetPositionRequest{Name: testMotorName}
@@ -132,7 +132,7 @@ func TestServerGetProperties(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+	failingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]any) (motor.Properties, error) {
 		return motor.Properties{}, errGetPropertiesFailed
 	}
 	req = pb.GetPropertiesRequest{Name: failMotorName}
@@ -140,7 +140,7 @@ func TestServerGetProperties(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+	workingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]any) (motor.Properties, error) {
 		return motor.Properties{
 			PositionReporting: true,
 		}, nil
@@ -160,7 +160,7 @@ func TestServerStop(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingMotor.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	failingMotor.StopFunc = func(ctx context.Context, extra map[string]any) error {
 		return errStopFailed
 	}
 	req = pb.StopRequest{Name: failMotorName}
@@ -168,7 +168,7 @@ func TestServerStop(t *testing.T) {
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	workingMotor.StopFunc = func(ctx context.Context, extra map[string]any) error {
 		return nil
 	}
 	req = pb.StopRequest{Name: testMotorName}
@@ -186,7 +186,7 @@ func TestServerIsOn(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+	failingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]any) (bool, float64, error) {
 		return false, 0.0, errIsPoweredFailed
 	}
 	req = pb.IsPoweredRequest{Name: failMotorName}
@@ -194,7 +194,7 @@ func TestServerIsOn(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+	workingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]any) (bool, float64, error) {
 		return true, 1.0, nil
 	}
 	req = pb.IsPoweredRequest{Name: testMotorName}
@@ -214,7 +214,7 @@ func TestServerGoTo(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingMotor.GoToFunc = func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error {
+	failingMotor.GoToFunc = func(ctx context.Context, rpm, position float64, extra map[string]any) error {
 		return errGoToFailed
 	}
 	req = pb.GoToRequest{Name: failMotorName, Rpm: 20.0, PositionRevolutions: 2.5}
@@ -222,7 +222,7 @@ func TestServerGoTo(t *testing.T) {
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.GoToFunc = func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error {
+	workingMotor.GoToFunc = func(ctx context.Context, rpm, position float64, extra map[string]any) error {
 		return nil
 	}
 	req = pb.GoToRequest{Name: testMotorName, Rpm: 20.0, PositionRevolutions: 2.5}
@@ -241,7 +241,7 @@ func TestServerResetZeroPosition(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]interface{}) error {
+	failingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]any) error {
 		return errResetZeroFailed
 	}
 	req = pb.ResetZeroPositionRequest{Name: failMotorName, Offset: 1.1}
@@ -249,7 +249,7 @@ func TestServerResetZeroPosition(t *testing.T) {
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]interface{}) error {
+	workingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]any) error {
 		return nil
 	}
 	req = pb.ResetZeroPositionRequest{Name: testMotorName, Offset: 1.1}
@@ -261,13 +261,13 @@ func TestServerResetZeroPosition(t *testing.T) {
 func TestServerExtraParams(t *testing.T) {
 	motorServer, workingMotor, _, _ := newServer()
 
-	var actualExtra map[string]interface{}
-	workingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]interface{}) error {
+	var actualExtra map[string]any
+	workingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]any) error {
 		actualExtra = extra
 		return nil
 	}
 
-	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	expectedExtra := map[string]any{"foo": "bar", "baz": []any{1., 2., 3.}}
 
 	ext, err := protoutils.StructToStructPb(expectedExtra)
 	test.That(t, err, test.ShouldBeNil)

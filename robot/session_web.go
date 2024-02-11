@@ -35,7 +35,7 @@ func (m *SessionManager) safetyMonitoredTypeAndMethod(method string) (*resource.
 	return subType, methodDesc, true
 }
 
-func (m *SessionManager) safetyMonitoredResourceFromUnary(req interface{}, method string) resource.Name {
+func (m *SessionManager) safetyMonitoredResourceFromUnary(req any, method string) resource.Name {
 	subType, _, ok := m.safetyMonitoredTypeAndMethod(method)
 	if !ok {
 		return resource.Name{}
@@ -66,7 +66,7 @@ type firstMessageServerStreamWrapper struct {
 	firstMsg *dynamic.Message
 }
 
-func (w *firstMessageServerStreamWrapper) RecvMsg(m interface{}) error {
+func (w *firstMessageServerStreamWrapper) RecvMsg(m any) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.firstMsg != nil {
@@ -135,10 +135,10 @@ func (m *SessionManager) ServerInterceptors() session.ServerInterceptors {
 // passing it to the unary response handler.
 func (m *SessionManager) UnaryServerInterceptor(
 	ctx context.Context,
-	req interface{},
+	req any,
 	info *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
-) (interface{}, error) {
+) (any, error) {
 	if exemptFromSession[info.FullMethod] {
 		return handler(ctx, req)
 	}
@@ -153,7 +153,7 @@ func (m *SessionManager) UnaryServerInterceptor(
 // StreamServerInterceptor associates the current session (if present) in the current context before
 // passing it to the stream response handler.
 func (m *SessionManager) StreamServerInterceptor(
-	srv interface{},
+	srv any,
 	ss grpc.ServerStream,
 	info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler,

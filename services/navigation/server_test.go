@@ -67,15 +67,15 @@ func TestServer(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	navServer := navigation.NewRPCServiceServer(injectAPISvc).(pb.NavigationServiceServer)
 
-	var extraOptions map[string]interface{}
+	var extraOptions map[string]any
 	t.Run("working mode function", func(t *testing.T) {
 		// manual mode
-		injectSvc.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
+		injectSvc.ModeFunc = func(ctx context.Context, extra map[string]any) (navigation.Mode, error) {
 			extraOptions = extra
 			return navigation.ModeManual, nil
 		}
 
-		extra := map[string]interface{}{"foo": "Mode"}
+		extra := map[string]any{"foo": "Mode"}
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -86,7 +86,7 @@ func TestServer(t *testing.T) {
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		// waypoint mode
-		injectSvc.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
+		injectSvc.ModeFunc = func(ctx context.Context, extra map[string]any) (navigation.Mode, error) {
 			return navigation.ModeWaypoint, nil
 		}
 		req = &pb.GetModeRequest{Name: testSvcName1.ShortName()}
@@ -95,7 +95,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Mode, test.ShouldEqual, pb.Mode_MODE_WAYPOINT)
 
 		// return unspecified mode when returned mode unrecognized
-		injectSvc.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
+		injectSvc.ModeFunc = func(ctx context.Context, extra map[string]any) (navigation.Mode, error) {
 			return navigation.Mode(math.MaxUint8), nil
 		}
 		req = &pb.GetModeRequest{Name: testSvcName1.ShortName()}
@@ -105,7 +105,7 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("failing mode function", func(t *testing.T) {
-		injectSvc.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
+		injectSvc.ModeFunc = func(ctx context.Context, extra map[string]any) (navigation.Mode, error) {
 			return 0, errors.New("mode failed")
 		}
 		req := &pb.GetModeRequest{Name: testSvcName1.ShortName()}
@@ -116,12 +116,12 @@ func TestServer(t *testing.T) {
 
 	t.Run("working set mode function", func(t *testing.T) {
 		var currentMode navigation.Mode
-		injectSvc.SetModeFunc = func(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error {
+		injectSvc.SetModeFunc = func(ctx context.Context, mode navigation.Mode, extra map[string]any) error {
 			extraOptions = extra
 			currentMode = mode
 			return nil
 		}
-		extra := map[string]interface{}{"foo": "SetMode"}
+		extra := map[string]any{"foo": "SetMode"}
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -170,7 +170,7 @@ func TestServer(t *testing.T) {
 
 	t.Run("failing set mode function", func(t *testing.T) {
 		// internal set mode failure
-		injectSvc.SetModeFunc = func(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error {
+		injectSvc.SetModeFunc = func(ctx context.Context, mode navigation.Mode, extra map[string]any) error {
 			return errors.New("failed to set mode")
 		}
 		req := &pb.SetModeRequest{
@@ -182,7 +182,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldBeNil)
 
 		// unspecified mode passed
-		injectSvc.SetModeFunc = func(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error {
+		injectSvc.SetModeFunc = func(ctx context.Context, mode navigation.Mode, extra map[string]any) error {
 			return nil
 		}
 		req = &pb.SetModeRequest{
@@ -198,11 +198,11 @@ func TestServer(t *testing.T) {
 		loc := geo.NewPoint(90, 1)
 		expectedCompassHeading := 90.
 		expectedGeoPose := spatialmath.NewGeoPose(loc, expectedCompassHeading)
-		injectSvc.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
+		injectSvc.LocationFunc = func(ctx context.Context, extra map[string]any) (*spatialmath.GeoPose, error) {
 			extraOptions = extra
 			return expectedGeoPose, nil
 		}
-		extra := map[string]interface{}{"foo": "Location"}
+		extra := map[string]any{"foo": "Location"}
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -217,7 +217,7 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("failing location function", func(t *testing.T) {
-		injectSvc.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
+		injectSvc.LocationFunc = func(ctx context.Context, extra map[string]any) (*spatialmath.GeoPose, error) {
 			return nil, errors.New("location retrieval failed")
 		}
 		req := &pb.GetLocationRequest{Name: testSvcName1.ShortName()}
@@ -228,11 +228,11 @@ func TestServer(t *testing.T) {
 
 	t.Run("working waypoints function", func(t *testing.T) {
 		waypoints, expectedResp := createWaypoints()
-		injectSvc.WaypointsFunc = func(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
+		injectSvc.WaypointsFunc = func(ctx context.Context, extra map[string]any) ([]navigation.Waypoint, error) {
 			extraOptions = extra
 			return waypoints, nil
 		}
-		extra := map[string]interface{}{"foo": "Waypoints"}
+		extra := map[string]any{"foo": "Waypoints"}
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -244,7 +244,7 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("failing waypoints function", func(t *testing.T) {
-		injectSvc.WaypointsFunc = func(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
+		injectSvc.WaypointsFunc = func(ctx context.Context, extra map[string]any) ([]navigation.Waypoint, error) {
 			return nil, errors.New("waypoints retrieval failed")
 		}
 		req := &pb.GetWaypointsRequest{Name: testSvcName1.ShortName()}
@@ -255,12 +255,12 @@ func TestServer(t *testing.T) {
 
 	t.Run("working add waypoint", func(t *testing.T) {
 		var receivedPoint geo.Point
-		injectSvc.AddWaypointFunc = func(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
+		injectSvc.AddWaypointFunc = func(ctx context.Context, point *geo.Point, extra map[string]any) error {
 			extraOptions = extra
 			receivedPoint = *point
 			return nil
 		}
-		extra := map[string]interface{}{"foo": "AddWaypoint"}
+		extra := map[string]any{"foo": "AddWaypoint"}
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -284,7 +284,7 @@ func TestServer(t *testing.T) {
 
 	t.Run("failing add waypoint", func(t *testing.T) {
 		addWaypointCalled := false
-		injectSvc.AddWaypointFunc = func(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
+		injectSvc.AddWaypointFunc = func(ctx context.Context, point *geo.Point, extra map[string]any) error {
 			addWaypointCalled = true
 			return errors.New("failed to add waypoint")
 		}
@@ -303,12 +303,12 @@ func TestServer(t *testing.T) {
 
 	t.Run("working remove waypoint", func(t *testing.T) {
 		var receivedID primitive.ObjectID
-		injectSvc.RemoveWaypointFunc = func(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
+		injectSvc.RemoveWaypointFunc = func(ctx context.Context, id primitive.ObjectID, extra map[string]any) error {
 			extraOptions = extra
 			receivedID = id
 			return nil
 		}
-		extra := map[string]interface{}{"foo": "Sync"}
+		extra := map[string]any{"foo": "Sync"}
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -327,7 +327,7 @@ func TestServer(t *testing.T) {
 
 	t.Run("failing remove waypoint", func(t *testing.T) {
 		// fail on bad hex
-		injectSvc.RemoveWaypointFunc = func(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
+		injectSvc.RemoveWaypointFunc = func(ctx context.Context, id primitive.ObjectID, extra map[string]any) error {
 			return nil
 		}
 		req := &pb.RemoveWaypointRequest{
@@ -339,7 +339,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldBeNil)
 
 		// fail on failing function
-		injectSvc.RemoveWaypointFunc = func(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
+		injectSvc.RemoveWaypointFunc = func(ctx context.Context, id primitive.ObjectID, extra map[string]any) error {
 			return errors.New("failed to remove waypoint")
 		}
 		req = &pb.RemoveWaypointRequest{
@@ -355,7 +355,7 @@ func TestServer(t *testing.T) {
 		path, err := navigation.NewPath(primitive.NewObjectID(), []*geo.Point{geo.NewPoint(0, 0)})
 		test.That(t, err, test.ShouldBeNil)
 		expectedOutput := []*navigation.Path{path}
-		injectSvc.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+		injectSvc.PathsFunc = func(ctx context.Context, extra map[string]any) ([]*navigation.Path, error) {
 			return expectedOutput, nil
 		}
 		req := &pb.GetPathsRequest{Name: testSvcName1.ShortName()}
@@ -367,7 +367,7 @@ func TestServer(t *testing.T) {
 	})
 	t.Run("failing Paths", func(t *testing.T) {
 		expectedErr := errors.New("unimplemented")
-		injectSvc.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+		injectSvc.PathsFunc = func(ctx context.Context, extra map[string]any) ([]*navigation.Path, error) {
 			return nil, expectedErr
 		}
 		req := &pb.GetPathsRequest{Name: testSvcName1.ShortName()}
@@ -416,7 +416,7 @@ func TestServer(t *testing.T) {
 		injectAPISvc, err = resource.NewAPIResourceCollection(navigation.API, resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 		navServer = navigation.NewRPCServiceServer(injectAPISvc).(pb.NavigationServiceServer)
-		injectSvc.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
+		injectSvc.ModeFunc = func(ctx context.Context, extra map[string]any) (navigation.Mode, error) {
 			return navigation.ModeManual, nil
 		}
 		req := &pb.GetModeRequest{Name: testSvcName1.ShortName()}

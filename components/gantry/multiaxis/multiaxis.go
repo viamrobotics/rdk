@@ -95,7 +95,7 @@ func newMultiAxis(
 }
 
 // Home runs the homing sequence of the gantry and returns true once completed.
-func (g *multiAxis) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (g *multiAxis) Home(ctx context.Context, extra map[string]any) (bool, error) {
 	for _, subAx := range g.subAxes {
 		homed, err := subAx.Home(ctx, nil)
 		if err != nil {
@@ -109,7 +109,7 @@ func (g *multiAxis) Home(ctx context.Context, extra map[string]interface{}) (boo
 }
 
 // MoveToPosition moves along an axis using inputs in millimeters.
-func (g *multiAxis) MoveToPosition(ctx context.Context, positions, speeds []float64, extra map[string]interface{}) error {
+func (g *multiAxis) MoveToPosition(ctx context.Context, positions, speeds []float64, extra map[string]any) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -174,7 +174,7 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 }
 
 // Position returns the position in millimeters.
-func (g *multiAxis) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+func (g *multiAxis) Position(ctx context.Context, extra map[string]any) ([]float64, error) {
 	positions := []float64{}
 	for _, subAx := range g.subAxes {
 		pos, err := subAx.Position(ctx, extra)
@@ -187,7 +187,7 @@ func (g *multiAxis) Position(ctx context.Context, extra map[string]interface{}) 
 }
 
 // Lengths returns the physical lengths of all axes of a multi-axis Gantry.
-func (g *multiAxis) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+func (g *multiAxis) Lengths(ctx context.Context, extra map[string]any) ([]float64, error) {
 	lengths := []float64{}
 	for _, subAx := range g.subAxes {
 		lng, err := subAx.Lengths(ctx, extra)
@@ -200,7 +200,7 @@ func (g *multiAxis) Lengths(ctx context.Context, extra map[string]interface{}) (
 }
 
 // Stop stops the subaxes of the gantry simultaneously.
-func (g *multiAxis) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (g *multiAxis) Stop(ctx context.Context, extra map[string]any) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 	for _, subAx := range g.subAxes {

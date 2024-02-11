@@ -34,7 +34,7 @@ func TestSafetyMonitoring(t *testing.T) {
 	injectBase := inject.NewBase(myBaseName.ShortName())
 
 	setPowerFirst := make(chan struct{})
-	injectBase.SetPowerFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+	injectBase.SetPowerFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 		close(setPowerFirst)
 		return nil
 	}
@@ -51,7 +51,7 @@ func TestSafetyMonitoring(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	type triggerer interface {
-		TriggerEvent(ctx context.Context, event input.Event, extra map[string]interface{}) error
+		TriggerEvent(ctx context.Context, event input.Event, extra map[string]any) error
 	}
 	test.That(t, gamepad.(triggerer).TriggerEvent(ctx, input.Event{
 		Event:   input.PositionChangeAbs,
@@ -63,7 +63,7 @@ func TestSafetyMonitoring(t *testing.T) {
 
 	safetyFirst := make(chan struct{})
 	setPowerSecond := make(chan struct{})
-	injectBase.SetPowerFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+	injectBase.SetPowerFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 		<-safetyFirst
 		close(setPowerSecond)
 		return nil
@@ -115,7 +115,7 @@ func TestConnectStopsBase(t *testing.T) {
 	t.Run("connect", func(t *testing.T) {
 		// Use an injected Stop function and a channel to ensure stop is called on connect.
 		stop := make(chan struct{})
-		injectBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		injectBase.StopFunc = func(ctx context.Context, extra map[string]any) error {
 			close(stop)
 			return nil
 		}
@@ -132,7 +132,7 @@ func TestConnectStopsBase(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		type triggerer interface {
-			TriggerEvent(ctx context.Context, event input.Event, extra map[string]interface{}) error
+			TriggerEvent(ctx context.Context, event input.Event, extra map[string]any) error
 		}
 		test.That(t, gamepad.(triggerer).TriggerEvent(ctx, input.Event{
 			Event:   input.Connect,
@@ -147,7 +147,7 @@ func TestConnectStopsBase(t *testing.T) {
 	t.Run("disconnect", func(t *testing.T) {
 		// Use an injected Stop function and a channel to ensure stop is called on disconnect.
 		stop := make(chan struct{})
-		injectBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		injectBase.StopFunc = func(ctx context.Context, extra map[string]any) error {
 			close(stop)
 			return nil
 		}
@@ -164,7 +164,7 @@ func TestConnectStopsBase(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		type triggerer interface {
-			TriggerEvent(ctx context.Context, event input.Event, extra map[string]interface{}) error
+			TriggerEvent(ctx context.Context, event input.Event, extra map[string]any) error
 		}
 		test.That(t, gamepad.(triggerer).TriggerEvent(ctx, input.Event{
 			Event:   input.Disconnect,
@@ -188,7 +188,7 @@ func TestReconfigure(t *testing.T) {
 	injectBase := inject.NewBase(myBaseName.ShortName())
 
 	setPowerVal := make(chan r3.Vector)
-	injectBase.SetPowerFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+	injectBase.SetPowerFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 		setPowerVal <- angular
 		return nil
 	}
@@ -205,7 +205,7 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	type triggerer interface {
-		TriggerEvent(ctx context.Context, event input.Event, extra map[string]interface{}) error
+		TriggerEvent(ctx context.Context, event input.Event, extra map[string]any) error
 	}
 
 	test.That(t, gamepad.(triggerer).TriggerEvent(ctx, input.Event{
@@ -280,7 +280,7 @@ func TestReconfigure(t *testing.T) {
 	injectBase2 := inject.NewBase(myBaseName2.ShortName())
 
 	setPowerVal2 := make(chan r3.Vector)
-	injectBase2.SetPowerFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+	injectBase2.SetPowerFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 		setPowerVal2 <- angular
 		return nil
 	}

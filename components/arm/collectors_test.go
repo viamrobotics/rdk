@@ -90,10 +90,10 @@ func TestCollectors(t *testing.T) {
 
 func newArm() arm.Arm {
 	a := &inject.Arm{}
-	a.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+	a.EndPositionFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 		return spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3}), nil
 	}
-	a.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+	a.JointPositionsFunc = func(ctx context.Context, extra map[string]any) (*pb.JointPositions, error) {
 		return &pb.JointPositions{
 			Values: floatList,
 		}, nil

@@ -72,14 +72,14 @@ func setupMovementSensor(
 	errAcc, oriPropsErr bool,
 ) movementsensor.MovementSensor {
 	ms := inject.NewMovementSensor(name)
-	ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{},
+	ms.PropertiesFunc = func(ctx context.Context, extra map[string]any,
 	) (*movementsensor.Properties, error) {
 		if oriPropsErr && strings.Contains(name, "goodOri") {
 			return &prop, errProps
 		}
 		return &prop, nil
 	}
-	ms.AccuracyFunc = func(ctx context.Context, exta map[string]interface{}) (*movementsensor.Accuracy, error,
+	ms.AccuracyFunc = func(ctx context.Context, exta map[string]any) (*movementsensor.Accuracy, error,
 	) {
 		if errAcc {
 			return nil, errAccuracy
@@ -96,27 +96,27 @@ func setupMovementSensor(
 
 	switch {
 	case strings.Contains(name, "Ori"):
-		ms.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+		ms.OrientationFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 			return testori, nil
 		}
 	case strings.Contains(name, "Pos"):
-		ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		ms.PositionFunc = func(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 			return testgeopoint, testalt, nil
 		}
 	case strings.Contains(name, "Compass"):
-		ms.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		ms.CompassHeadingFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 			return testcompass, nil
 		}
 	case strings.Contains(name, "AngVel"):
-		ms.AngularVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+		ms.AngularVelocityFunc = func(ctx context.Context, extra map[string]any) (spatialmath.AngularVelocity, error) {
 			return testangvel, nil
 		}
 	case strings.Contains(name, "LinVel"):
-		ms.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+		ms.LinearVelocityFunc = func(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 			return testlinvel, nil
 		}
 	case strings.Contains(name, "LinAcc"):
-		ms.LinearAccelerationFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+		ms.LinearAccelerationFunc = func(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 			return testlinacc, nil
 		}
 	}
@@ -256,7 +256,7 @@ func TestCreation(t *testing.T) {
 
 	readings, err := ms.Readings(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings, test.ShouldResemble, map[string]interface{}{
+	test.That(t, readings, test.ShouldResemble, map[string]any{
 		"linear_velocity":  linvel,
 		"angular_velocity": angvel,
 	})
@@ -334,7 +334,7 @@ func TestCreation(t *testing.T) {
 
 	readings, err = ms.Readings(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings, test.ShouldResemble, map[string]interface{}{
+	test.That(t, readings, test.ShouldResemble, map[string]any{
 		"orientation":         ori,
 		"position":            pos,
 		"altitude":            alt,

@@ -43,7 +43,7 @@ func TestBaseRemoteControl(t *testing.T) {
 		control input.Control,
 		triggers []input.EventType,
 		ctrlFunc input.ControlFunction,
-		extra map[string]interface{},
+		extra map[string]any,
 	) error {
 		return nil
 	}

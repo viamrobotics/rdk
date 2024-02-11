@@ -474,7 +474,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 }
 
 // Position returns the current geographic location of the MOVEMENTSENSOR.
-func (g *rtkSerial) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (g *rtkSerial) Position(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 	g.mu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
@@ -506,7 +506,7 @@ func (g *rtkSerial) Position(ctx context.Context, extra map[string]interface{}) 
 }
 
 // LinearVelocity passthrough.
-func (g *rtkSerial) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (g *rtkSerial) LinearVelocity(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	lastError := g.err.Get()
@@ -518,7 +518,7 @@ func (g *rtkSerial) LinearVelocity(ctx context.Context, extra map[string]interfa
 }
 
 // LinearAcceleration passthrough.
-func (g *rtkSerial) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (g *rtkSerial) LinearAcceleration(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	lastError := g.err.Get()
 	if lastError != nil {
 		return r3.Vector{}, lastError
@@ -527,7 +527,7 @@ func (g *rtkSerial) LinearAcceleration(ctx context.Context, extra map[string]int
 }
 
 // AngularVelocity passthrough.
-func (g *rtkSerial) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (g *rtkSerial) AngularVelocity(ctx context.Context, extra map[string]any) (spatialmath.AngularVelocity, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -540,7 +540,7 @@ func (g *rtkSerial) AngularVelocity(ctx context.Context, extra map[string]interf
 }
 
 // CompassHeading passthrough.
-func (g *rtkSerial) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (g *rtkSerial) CompassHeading(ctx context.Context, extra map[string]any) (float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -552,7 +552,7 @@ func (g *rtkSerial) CompassHeading(ctx context.Context, extra map[string]interfa
 }
 
 // Orientation passthrough.
-func (g *rtkSerial) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+func (g *rtkSerial) Orientation(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -589,7 +589,7 @@ func (g *rtkSerial) readSatsInView(ctx context.Context) (int, error) {
 }
 
 // Properties passthrough.
-func (g *rtkSerial) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+func (g *rtkSerial) Properties(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -602,7 +602,7 @@ func (g *rtkSerial) Properties(ctx context.Context, extra map[string]interface{}
 }
 
 // Accuracy passthrough.
-func (g *rtkSerial) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
+func (g *rtkSerial) Accuracy(ctx context.Context, extra map[string]any) (*movementsensor.Accuracy, error,
 ) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -616,7 +616,7 @@ func (g *rtkSerial) Accuracy(ctx context.Context, extra map[string]interface{}) 
 }
 
 // Readings will use the default MovementSensor Readings if not provided.
-func (g *rtkSerial) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (g *rtkSerial) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	readings, err := movementsensor.DefaultAPIReadings(ctx, g, extra)
 	if err != nil {
 		return nil, err

@@ -119,6 +119,6 @@ func (g *myActualGizmo) DoTwo(ctx context.Context, arg1 bool) (string, error) {
 	return fmt.Sprintf("arg1=%t", arg1), nil
 }
 
-func (g *myActualGizmo) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (g *myActualGizmo) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return cmd, nil
 }

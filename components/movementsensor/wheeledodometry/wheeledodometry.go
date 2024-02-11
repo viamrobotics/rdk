@@ -228,36 +228,36 @@ func newWheeledOdometry(
 	return o, nil
 }
 
-func (o *odometry) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (o *odometry) AngularVelocity(ctx context.Context, extra map[string]any) (spatialmath.AngularVelocity, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	return o.angularVelocity, nil
 }
 
-func (o *odometry) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (o *odometry) LinearAcceleration(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }
 
-func (o *odometry) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+func (o *odometry) Orientation(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	ov := &spatialmath.OrientationVector{Theta: o.orientation.Yaw, OX: 0, OY: 0, OZ: 1}
 	return ov, nil
 }
 
-func (o *odometry) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (o *odometry) CompassHeading(ctx context.Context, extra map[string]any) (float64, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
 
-func (o *odometry) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (o *odometry) LinearVelocity(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	return o.linearVelocity, nil
 }
 
-func (o *odometry) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (o *odometry) Position(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
@@ -270,7 +270,7 @@ func (o *odometry) Position(ctx context.Context, extra map[string]interface{}) (
 	return o.coord, o.position.Z, nil
 }
 
-func (o *odometry) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (o *odometry) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	readings, err := movementsensor.DefaultAPIReadings(ctx, o, extra)
 	if err != nil {
 		return nil, err
@@ -286,12 +286,12 @@ func (o *odometry) Readings(ctx context.Context, extra map[string]interface{}) (
 	return readings, nil
 }
 
-func (o *odometry) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
+func (o *odometry) Accuracy(ctx context.Context, extra map[string]any) (*movementsensor.Accuracy, error,
 ) {
 	return movementsensor.UnimplementedAccuracies()
 }
 
-func (o *odometry) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+func (o *odometry) Properties(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		LinearVelocitySupported:  true,
 		AngularVelocitySupported: true,

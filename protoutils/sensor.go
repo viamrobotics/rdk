@@ -19,31 +19,31 @@ const (
 	typeAxisAngle                = "r4aa"
 )
 
-func goToProto(v interface{}) (*structpb.Value, error) {
+func goToProto(v any) (*structpb.Value, error) {
 	switch x := v.(type) {
 	case spatialmath.AngularVelocity:
-		v = map[string]interface{}{
+		v = map[string]any{
 			"x":     x.X,
 			"y":     x.Y,
 			"z":     x.Z,
 			"_type": typeAngularVelocity,
 		}
 	case r3.Vector:
-		v = map[string]interface{}{
+		v = map[string]any{
 			"x":     x.X,
 			"y":     x.Y,
 			"z":     x.Z,
 			"_type": typeVector3,
 		}
 	case *spatialmath.EulerAngles:
-		v = map[string]interface{}{
+		v = map[string]any{
 			"roll":  x.Roll,
 			"pitch": x.Pitch,
 			"yaw":   x.Yaw,
 			"_type": typeEuler,
 		}
 	case *spatialmath.Quaternion:
-		v = map[string]interface{}{
+		v = map[string]any{
 			"r":     x.Real,
 			"i":     x.Imag,
 			"j":     x.Jmag,
@@ -51,7 +51,7 @@ func goToProto(v interface{}) (*structpb.Value, error) {
 			"_type": typeQuat,
 		}
 	case *spatialmath.OrientationVector:
-		v = map[string]interface{}{
+		v = map[string]any{
 			"theta": x.Theta,
 			"ox":    x.OX,
 			"oy":    x.OY,
@@ -59,7 +59,7 @@ func goToProto(v interface{}) (*structpb.Value, error) {
 			"_type": typeOrientationVector,
 		}
 	case *spatialmath.OrientationVectorDegrees:
-		v = map[string]interface{}{
+		v = map[string]any{
 			"theta": x.Theta,
 			"ox":    x.OX,
 			"oy":    x.OY,
@@ -67,7 +67,7 @@ func goToProto(v interface{}) (*structpb.Value, error) {
 			"_type": typeOrientationVectorDegrees,
 		}
 	case *spatialmath.R4AA:
-		v = map[string]interface{}{
+		v = map[string]any{
 			"theta": x.Theta,
 			"rx":    x.RX,
 			"ry":    x.RY,
@@ -76,7 +76,7 @@ func goToProto(v interface{}) (*structpb.Value, error) {
 		}
 	case spatialmath.Orientation:
 		deg := x.OrientationVectorDegrees()
-		v = map[string]interface{}{
+		v = map[string]any{
 			"theta": deg.Theta,
 			"ox":    deg.OX,
 			"oy":    deg.OY,
@@ -84,7 +84,7 @@ func goToProto(v interface{}) (*structpb.Value, error) {
 			"_type": typeOrientationVectorDegrees,
 		}
 	case *geo.Point:
-		v = map[string]interface{}{
+		v = map[string]any{
 			"lat":   x.Lat(),
 			"lng":   x.Lng(),
 			"_type": typeGeopoint,
@@ -95,7 +95,7 @@ func goToProto(v interface{}) (*structpb.Value, error) {
 }
 
 // ReadingGoToProto converts go readings to proto readings.
-func ReadingGoToProto(readings map[string]interface{}) (map[string]*structpb.Value, error) {
+func ReadingGoToProto(readings map[string]any) (map[string]*structpb.Value, error) {
 	m := map[string]*structpb.Value{}
 
 	for k, v := range readings {
@@ -110,17 +110,17 @@ func ReadingGoToProto(readings map[string]interface{}) (map[string]*structpb.Val
 }
 
 // ReadingProtoToGo converts proto readings to go readings.
-func ReadingProtoToGo(readings map[string]*structpb.Value) (map[string]interface{}, error) {
-	m := map[string]interface{}{}
+func ReadingProtoToGo(readings map[string]*structpb.Value) (map[string]any, error) {
+	m := map[string]any{}
 	for k, v := range readings {
 		m[k] = cleanSensorType(v.AsInterface())
 	}
 	return m, nil
 }
 
-func cleanSensorType(v interface{}) interface{} {
+func cleanSensorType(v any) any {
 	switch x := v.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		switch x["_type"] {
 		case typeAngularVelocity:
 			return spatialmath.AngularVelocity{

@@ -62,13 +62,13 @@ type Encoder interface {
 	resource.Resource
 
 	// Position returns the current position in terms of ticks or degrees, and whether it is a relative or absolute position.
-	Position(ctx context.Context, positionType PositionType, extra map[string]interface{}) (float64, PositionType, error)
+	Position(ctx context.Context, positionType PositionType, extra map[string]any) (float64, PositionType, error)
 
 	// ResetPosition sets the current position of the motor to be its new zero position.
-	ResetPosition(ctx context.Context, extra map[string]interface{}) error
+	ResetPosition(ctx context.Context, extra map[string]any) error
 
 	// Properties returns a list of all the position types that are supported by a given encoder
-	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
+	Properties(ctx context.Context, extra map[string]any) (Properties, error)
 }
 
 // Named is a helper for getting the named Encoder's typed resource name.

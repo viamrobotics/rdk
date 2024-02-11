@@ -127,7 +127,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		return nil
 	}
 
-	resultsIfc := make([]interface{}, 0, len(results))
+	resultsIfc := make([]any, 0, len(results))
 	for _, res := range results {
 		resultsIfc = append(resultsIfc, res)
 	}

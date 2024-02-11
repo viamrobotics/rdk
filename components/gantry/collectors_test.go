@@ -77,10 +77,10 @@ func TestGantryCollectors(t *testing.T) {
 
 func newGantry() gantry.Gantry {
 	g := &inject.Gantry{}
-	g.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	g.PositionFunc = func(ctx context.Context, extra map[string]any) ([]float64, error) {
 		return floatList, nil
 	}
-	g.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	g.LengthsFunc = func(ctx context.Context, extra map[string]any) ([]float64, error) {
 		return floatList, nil
 	}
 	return g

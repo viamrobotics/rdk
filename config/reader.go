@@ -492,7 +492,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 				continue
 			}
 
-			var convertedAttrs interface{} = associatedConf.Attributes
+			var convertedAttrs any = associatedConf.Attributes
 			if conv.AttributeMapConverter != nil {
 				converted, err := conv.AttributeMapConverter(associatedConf.Attributes)
 				if err != nil {

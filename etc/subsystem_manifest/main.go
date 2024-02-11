@@ -111,7 +111,7 @@ func getViamServerMetadata(path string) (*viamServerMetadata, error) {
 	if err != nil {
 		return nil, err
 	}
-	// We could pass the file through as an interface{} instead of unmarshalling
+	// We could pass the file through as an any instead of unmarshalling
 	// and re-marshalling, but this reduces the odds of drift between viam-server and this script
 	dumpedResourceRegistrations := []dumpedResourceRegistration{}
 	if err := json.Unmarshal(resourcesBytes, &dumpedResourceRegistrations); err != nil {

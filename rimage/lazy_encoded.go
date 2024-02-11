@@ -14,11 +14,11 @@ type LazyEncodedImage struct {
 	mimeType string
 
 	decodeOnce   sync.Once
-	decodeErr    interface{}
+	decodeErr    any
 	decodedImage image.Image
 
 	decodeConfigOnce sync.Once
-	decodeConfigErr  interface{}
+	decodeConfigErr  any
 	bounds           *image.Rectangle
 	colorModel       color.Model
 }

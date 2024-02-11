@@ -16,20 +16,20 @@ type VisionService struct {
 	vision.Service
 	name                     resource.Name
 	DetectionsFromCameraFunc func(
-		ctx context.Context, cameraName string, extra map[string]interface{},
+		ctx context.Context, cameraName string, extra map[string]any,
 	) ([]objectdetection.Detection, error)
 	DetectionsFunc func(
-		ctx context.Context, img image.Image, extra map[string]interface{},
+		ctx context.Context, img image.Image, extra map[string]any,
 	) ([]objectdetection.Detection, error)
 	// classification functions
 	ClassificationsFromCameraFunc func(ctx context.Context, cameraName string,
-		n int, extra map[string]interface{}) (classification.Classifications, error)
+		n int, extra map[string]any) (classification.Classifications, error)
 	ClassificationsFunc func(ctx context.Context, img image.Image,
-		n int, extra map[string]interface{}) (classification.Classifications, error)
+		n int, extra map[string]any) (classification.Classifications, error)
 	// segmentation functions
-	GetObjectPointCloudsFunc func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
+	GetObjectPointCloudsFunc func(ctx context.Context, cameraName string, extra map[string]any) ([]*viz.Object, error)
 	DoCommandFunc            func(ctx context.Context,
-		cmd map[string]interface{}) (map[string]interface{}, error)
+		cmd map[string]any) (map[string]any, error)
 	CloseFunc func(ctx context.Context) error
 }
 
@@ -44,7 +44,7 @@ func (vs *VisionService) Name() resource.Name {
 }
 
 // DetectionsFromCamera calls the injected DetectionsFromCamera or the real variant.
-func (vs *VisionService) DetectionsFromCamera(ctx context.Context, cameraName string, extra map[string]interface{},
+func (vs *VisionService) DetectionsFromCamera(ctx context.Context, cameraName string, extra map[string]any,
 ) ([]objectdetection.Detection, error) {
 	if vs.DetectionsFunc == nil {
 		return vs.Service.DetectionsFromCamera(ctx, cameraName, extra)
@@ -53,7 +53,7 @@ func (vs *VisionService) DetectionsFromCamera(ctx context.Context, cameraName st
 }
 
 // Detections calls the injected Detect or the real variant.
-func (vs *VisionService) Detections(ctx context.Context, img image.Image, extra map[string]interface{},
+func (vs *VisionService) Detections(ctx context.Context, img image.Image, extra map[string]any,
 ) ([]objectdetection.Detection, error) {
 	if vs.DetectionsFunc == nil {
 		return vs.Service.Detections(ctx, img, extra)
@@ -63,7 +63,7 @@ func (vs *VisionService) Detections(ctx context.Context, img image.Image, extra 
 
 // ClassificationsFromCamera calls the injected Classifer or the real variant.
 func (vs *VisionService) ClassificationsFromCamera(ctx context.Context,
-	cameraName string, n int, extra map[string]interface{},
+	cameraName string, n int, extra map[string]any,
 ) (classification.Classifications, error) {
 	if vs.ClassificationsFromCameraFunc == nil {
 		return vs.Service.ClassificationsFromCamera(ctx, cameraName, n, extra)
@@ -73,7 +73,7 @@ func (vs *VisionService) ClassificationsFromCamera(ctx context.Context,
 
 // Classifications calls the injected Classifier or the real variant.
 func (vs *VisionService) Classifications(ctx context.Context, img image.Image,
-	n int, extra map[string]interface{},
+	n int, extra map[string]any,
 ) (classification.Classifications, error) {
 	if vs.ClassificationsFunc == nil {
 		return vs.Service.Classifications(ctx, img, n, extra)
@@ -84,7 +84,7 @@ func (vs *VisionService) Classifications(ctx context.Context, img image.Image,
 // GetObjectPointClouds calls the injected GetObjectPointClouds or the real variant.
 func (vs *VisionService) GetObjectPointClouds(
 	ctx context.Context,
-	cameraName string, extra map[string]interface{},
+	cameraName string, extra map[string]any,
 ) ([]*viz.Object, error) {
 	if vs.GetObjectPointCloudsFunc == nil {
 		return vs.Service.GetObjectPointClouds(ctx, cameraName, extra)
@@ -94,8 +94,8 @@ func (vs *VisionService) GetObjectPointClouds(
 
 // DoCommand calls the injected DoCommand or the real variant.
 func (vs *VisionService) DoCommand(ctx context.Context,
-	cmd map[string]interface{},
-) (map[string]interface{}, error) {
+	cmd map[string]any,
+) (map[string]any, error) {
 	if vs.DoCommandFunc == nil {
 		return vs.Service.DoCommand(ctx, cmd)
 	}

@@ -62,13 +62,13 @@ func getPointCloudMap(path string) (func() ([]byte, error), error) {
 
 func createInjectedMovementSensor(name string, gpsPoint *geo.Point) *inject.MovementSensor {
 	injectedMovementSensor := inject.NewMovementSensor(name)
-	injectedMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	injectedMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 		return gpsPoint, 0, nil
 	}
-	injectedMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	injectedMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		return 0, nil
 	}
-	injectedMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+	injectedMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 		return &movementsensor.Properties{CompassHeadingSupported: true}, nil
 	}
 
@@ -163,7 +163,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 
 	// create injected MovementSensor
 	dynamicMovementSensor := inject.NewMovementSensor("test-gps")
-	dynamicMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	dynamicMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 		poseInFrame, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		heading := poseInFrame.Pose().Orientation().OrientationVectorDegrees().Theta
@@ -171,10 +171,10 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 		pt := origin.PointAtDistanceAndBearing(distance*1e-6, heading)
 		return pt, 0, nil
 	}
-	dynamicMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	dynamicMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		return 0, nil
 	}
-	dynamicMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+	dynamicMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 		return &movementsensor.Properties{CompassHeadingSupported: true}, nil
 	}
 

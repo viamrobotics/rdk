@@ -51,7 +51,7 @@ func TestSensorCollector(t *testing.T) {
 
 func newSensor() sensor.Sensor {
 	s := &inject.Sensor{}
-	s.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+	s.ReadingsFunc = func(ctx context.Context, extra map[string]any) (map[string]any, error) {
 		return readingMap, nil
 	}
 	return s

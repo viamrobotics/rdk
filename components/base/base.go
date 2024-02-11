@@ -42,23 +42,23 @@ type Base interface {
 	// MoveStraight moves the robot straight a given distance at a given speed.
 	// If a distance or speed of zero is given, the base will stop.
 	// This method blocks until completed or cancelled
-	MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error
+	MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]any) error
 
 	// Spin spins the robot by a given angle in degrees at a given speed.
 	// If a speed of 0 the base will stop.
 	// Given a positive speed and a positive angle, the base turns to the left (for built-in RDK drivers)
 	// This method blocks until completed or cancelled
-	Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error
+	Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]any) error
 
 	// For linear power, positive Y moves forwards for built-in RDK drivers
 	// For angular power, positive Z turns to the left for built-in RDK drivers
-	SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
+	SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error
 
 	// linear is in mmPerSec (positive Y moves forwards for built-in RDK drivers)
 	// angular is in degsPerSec (positive Z turns to the left for built-in RDK drivers)
-	SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
+	SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error
 
-	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
+	Properties(ctx context.Context, extra map[string]any) (Properties, error)
 }
 
 // FromDependencies is a helper for getting the named base from a collection of

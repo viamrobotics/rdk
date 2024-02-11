@@ -44,43 +44,43 @@ type MovementSensor struct {
 }
 
 // Position gets the position of a fake movementsensor.
-func (f *MovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (f *MovementSensor) Position(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 	p := geo.NewPoint(40.7, -73.98)
 	return p, 50.5, nil
 }
 
 // LinearVelocity gets the linear velocity of a fake movementsensor.
-func (f *MovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (f *MovementSensor) LinearVelocity(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	return r3.Vector{Y: 5.4}, nil
 }
 
 // LinearAcceleration gets the linear acceleration of a fake movementsensor.
-func (f *MovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (f *MovementSensor) LinearAcceleration(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	return r3.Vector{X: 2.2, Y: 4.5, Z: 2}, nil
 }
 
 // AngularVelocity gets the angular velocity of a fake movementsensor.
-func (f *MovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (f *MovementSensor) AngularVelocity(ctx context.Context, extra map[string]any) (spatialmath.AngularVelocity, error) {
 	return spatialmath.AngularVelocity{Z: 1}, nil
 }
 
 // CompassHeading gets the compass headings of a fake movementsensor.
-func (f *MovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (f *MovementSensor) CompassHeading(ctx context.Context, extra map[string]any) (float64, error) {
 	return 25, nil
 }
 
 // Orientation gets the orientation of a fake movementsensor.
-func (f *MovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+func (f *MovementSensor) Orientation(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 	return spatialmath.NewZeroOrientation(), nil
 }
 
 // DoCommand uses a map string to run custom functionality of a fake movementsensor.
-func (f *MovementSensor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return map[string]interface{}{}, nil
+func (f *MovementSensor) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
+	return map[string]any{}, nil
 }
 
 // Accuracy gets the accuracy of a fake movementsensor.
-func (f *MovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
+func (f *MovementSensor) Accuracy(ctx context.Context, extra map[string]any) (*movementsensor.Accuracy, error) {
 	acc := movementsensor.Accuracy{
 		AccuracyMap:        map[string]float32{},
 		Hdop:               0,
@@ -93,12 +93,12 @@ func (f *MovementSensor) Accuracy(ctx context.Context, extra map[string]interfac
 }
 
 // Readings gets the readings of a fake movementsensor.
-func (f *MovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (f *MovementSensor) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	return movementsensor.DefaultAPIReadings(ctx, f, extra)
 }
 
 // Properties returns the properties of a fake movementsensor.
-func (f *MovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+func (f *MovementSensor) Properties(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		LinearVelocitySupported:     true,
 		AngularVelocitySupported:    true,

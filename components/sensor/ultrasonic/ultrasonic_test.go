@@ -34,7 +34,7 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 		return injectDigi, true
 	}
 	pin := &inject.GPIOPin{}
-	pin.SetFunc = func(ctx context.Context, high bool, extra map[string]interface{}) error {
+	pin.SetFunc = func(ctx context.Context, high bool, extra map[string]any) error {
 		return nil
 	}
 	actualBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {

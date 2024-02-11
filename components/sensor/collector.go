@@ -26,13 +26,13 @@ func (m method) String() string {
 
 // newReadingsCollector returns a collector to register a sensor reading method. If one is already registered
 // with the same MethodMetadata it will panic.
-func newReadingsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newReadingsCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	sensorResource, err := assertSensor(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (any, error) {
 		values, err := sensorResource.Readings(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -53,7 +53,7 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 	return data.NewCollector(cFunc, params)
 }
 
-func assertSensor(resource interface{}) (Sensor, error) {
+func assertSensor(resource any) (Sensor, error) {
 	sensorResource, ok := resource.(Sensor)
 	if !ok {
 		return nil, data.InvalidInterfaceErr(API)

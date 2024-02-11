@@ -82,7 +82,7 @@ func TestWriteViam(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	opt := map[string]interface{}{"motion_profile": motionplan.LinearMotionProfile}
+	opt := map[string]any{"motion_profile": motionplan.LinearMotionProfile}
 	goToGoal := func(seedMap map[string][]frame.Input, goal spatial.Pose) map[string][]frame.Input {
 		plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
 			Logger:             logger,

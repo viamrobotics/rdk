@@ -534,15 +534,15 @@ func toLinearAcceleration(data []byte) r3.Vector {
 	}
 }
 
-func (adxl *adxl345) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (adxl *adxl345) AngularVelocity(ctx context.Context, extra map[string]any) (spatialmath.AngularVelocity, error) {
 	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }
 
-func (adxl *adxl345) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (adxl *adxl345) LinearVelocity(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 }
 
-func (adxl *adxl345) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (adxl *adxl345) LinearAcceleration(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
 	lastError := adxl.err.Get()
@@ -554,24 +554,24 @@ func (adxl *adxl345) LinearAcceleration(ctx context.Context, extra map[string]in
 	return adxl.linearAcceleration, nil
 }
 
-func (adxl *adxl345) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+func (adxl *adxl345) Orientation(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 	return spatialmath.NewOrientationVector(), movementsensor.ErrMethodUnimplementedOrientation
 }
 
-func (adxl *adxl345) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (adxl *adxl345) CompassHeading(ctx context.Context, extra map[string]any) (float64, error) {
 	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
 
-func (adxl *adxl345) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (adxl *adxl345) Position(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 	return geo.NewPoint(0, 0), 0, movementsensor.ErrMethodUnimplementedPosition
 }
 
-func (adxl *adxl345) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
+func (adxl *adxl345) Accuracy(ctx context.Context, extra map[string]any) (*movementsensor.Accuracy, error) {
 	// this driver is unable to provide positional or compass heading data
 	return movementsensor.UnimplementedAccuracies()
 }
 
-func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (adxl *adxl345) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	readings, err := movementsensor.DefaultAPIReadings(ctx, adxl, extra)
 	if err != nil {
 		return nil, err
@@ -586,7 +586,7 @@ func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{})
 	return readings, adxl.err.Get()
 }
 
-func (adxl *adxl345) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+func (adxl *adxl345) Properties(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		LinearAccelerationSupported: true,
 	}, nil

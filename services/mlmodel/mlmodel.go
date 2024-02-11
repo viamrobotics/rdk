@@ -27,7 +27,7 @@ func init() {
 
 // Service defines the ML Model interface, which takes a map of inputs, runs it through
 // an inference engine, and creates a map of outputs. Metadata is necessary in order to build
-// the struct that will decode that map[string]interface{} correctly.
+// the struct that will decode that map[string]any correctly.
 type Service interface {
 	resource.Resource
 	Infer(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error)
@@ -199,7 +199,7 @@ type TensorInfo struct {
 	DataType        string // e.g. uint8, float32, int
 	Shape           []int  // number of dimensions in the array
 	AssociatedFiles []File
-	Extra           map[string]interface{}
+	Extra           map[string]any
 }
 
 // toProto turns the TensorInfo struct into a protobuf message.

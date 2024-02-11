@@ -42,8 +42,8 @@ const (
 
 // StoreConfig describes how to configure data storage.
 type StoreConfig struct {
-	Type   storeType              `json:"type"`
-	Config map[string]interface{} `json:"config"`
+	Type   storeType      `json:"type"`
+	Config map[string]any `json:"config"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -206,7 +206,7 @@ var (
 )
 
 // NewMongoDBNavigationStore creates a new navigation store using MongoDB.
-func NewMongoDBNavigationStore(ctx context.Context, config map[string]interface{}) (*MongoDBNavigationStore, error) {
+func NewMongoDBNavigationStore(ctx context.Context, config map[string]any) (*MongoDBNavigationStore, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 

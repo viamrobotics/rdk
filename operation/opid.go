@@ -28,7 +28,7 @@ type Operation struct {
 	ID        uuid.UUID
 	SessionID uuid.UUID
 	Method    string
-	Arguments interface{}
+	Arguments any
 	Started   time.Time
 
 	myManager *Manager
@@ -120,11 +120,11 @@ func (m *Manager) FindString(id string) *Operation {
 }
 
 // Create puts an operation on this context.
-func (m *Manager) Create(ctx context.Context, method string, args interface{}) (context.Context, func()) {
+func (m *Manager) Create(ctx context.Context, method string, args any) (context.Context, func()) {
 	return m.createWithID(ctx, uuid.New(), method, args)
 }
 
-func (m *Manager) createWithID(ctx context.Context, id uuid.UUID, method string, args interface{}) (context.Context, func()) {
+func (m *Manager) createWithID(ctx context.Context, id uuid.UUID, method string, args any) (context.Context, func()) {
 	if ctx.Value(opidKey) != nil {
 		panic("operations cannot be nested")
 	}

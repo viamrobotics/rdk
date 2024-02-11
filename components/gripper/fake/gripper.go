@@ -68,17 +68,17 @@ func (g *Gripper) ModelFrame() referenceframe.Model {
 }
 
 // Open does nothing.
-func (g *Gripper) Open(ctx context.Context, extra map[string]interface{}) error {
+func (g *Gripper) Open(ctx context.Context, extra map[string]any) error {
 	return nil
 }
 
 // Grab does nothing.
-func (g *Gripper) Grab(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (g *Gripper) Grab(ctx context.Context, extra map[string]any) (bool, error) {
 	return false, nil
 }
 
 // Stop doesn't do anything for a fake gripper.
-func (g *Gripper) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (g *Gripper) Stop(ctx context.Context, extra map[string]any) error {
 	return nil
 }
 
@@ -88,7 +88,7 @@ func (g *Gripper) IsMoving(ctx context.Context) (bool, error) {
 }
 
 // Geometries returns the geometries associated with the fake base.
-func (g *Gripper) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+func (g *Gripper) Geometries(ctx context.Context, extra map[string]any) ([]spatialmath.Geometry, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.geometries, nil

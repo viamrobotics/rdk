@@ -193,7 +193,7 @@ func (s *FakeCloudServer) robotSecretAuthenticate(ctx context.Context, entity, p
 	return map[string]string{}, nil
 }
 
-func (s *FakeCloudServer) robotSecretEntityDataLoad(ctx context.Context, claims rpc.Claims) (interface{}, error) {
+func (s *FakeCloudServer) robotSecretEntityDataLoad(ctx context.Context, claims rpc.Claims) (any, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

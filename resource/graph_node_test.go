@@ -177,7 +177,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, ourRes.closeCap, test.ShouldBeEmpty)
 	test.That(t, ourRes2.closeCap, test.ShouldBeEmpty)
 	test.That(t, ourRes3.closeCap, test.ShouldHaveLength, 1)
-	test.That(t, ourRes3.closeCap, test.ShouldResemble, []interface{}{"hi"})
+	test.That(t, ourRes3.closeCap, test.ShouldResemble, []any{"hi"})
 
 	test.That(t, node.IsUninitialized(), test.ShouldBeTrue)
 	_, err = node.Resource()
@@ -202,7 +202,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, ourRes2.closeCap, test.ShouldBeEmpty)
 	test.That(t, ourRes3.closeCap, test.ShouldHaveLength, 1)
 	test.That(t, ourRes4.closeCap, test.ShouldHaveLength, 1)
-	test.That(t, ourRes4.closeCap, test.ShouldResemble, []interface{}{"bye"})
+	test.That(t, ourRes4.closeCap, test.ShouldResemble, []any{"bye"})
 
 	test.That(t, node.IsUninitialized(), test.ShouldBeTrue)
 	_, err = node.Resource()
@@ -212,7 +212,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 
 type someResource struct {
 	resource.Resource
-	closeCap  []interface{}
+	closeCap  []any
 	shoudlErr bool
 }
 

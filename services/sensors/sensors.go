@@ -23,14 +23,14 @@ func init() {
 // A Readings ties both the sensor name and its reading together.
 type Readings struct {
 	Name     resource.Name
-	Readings map[string]interface{}
+	Readings map[string]any
 }
 
 // A Service centralizes all sensors into one place.
 type Service interface {
 	resource.Resource
-	Sensors(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error)
-	Readings(ctx context.Context, sensorNames []resource.Name, extra map[string]interface{}) ([]Readings, error)
+	Sensors(ctx context.Context, extra map[string]any) ([]resource.Name, error)
+	Readings(ctx context.Context, sensorNames []resource.Name, extra map[string]any) ([]Readings, error)
 }
 
 // SubtypeName is the name of the type of service.

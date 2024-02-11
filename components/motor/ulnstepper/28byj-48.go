@@ -246,7 +246,7 @@ func (m *uln28byj) setPins(ctx context.Context, pins [4]bool) error {
 // revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 // can be assigned negative values to move in a backwards direction. Note: if both are negative
 // the motor will spin in the forward direction.
-func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]any) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -295,7 +295,7 @@ func (m *uln28byj) goMath(ctx context.Context, rpm, revolutions float64) (int64,
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 // at a specific RPM. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target.
-func (m *uln28byj) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
+func (m *uln28byj) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]any) error {
 	curPos, err := m.Position(ctx, extra)
 	if err != nil {
 		return errors.Wrapf(err, "error in GoTo from motor (%s)", m.motorName)
@@ -312,7 +312,7 @@ func (m *uln28byj) GoTo(ctx context.Context, rpm, positionRevolutions float64, e
 }
 
 // Set the current position (+/- offset) to be the new zero (home) position.
-func (m *uln28byj) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+func (m *uln28byj) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]any) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.stepPosition = int64(-1 * offset * float64(m.ticksPerRotation))
@@ -321,20 +321,20 @@ func (m *uln28byj) ResetZeroPosition(ctx context.Context, offset float64, extra 
 }
 
 // SetPower is invalid for this motor.
-func (m *uln28byj) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+func (m *uln28byj) SetPower(ctx context.Context, powerPct float64, extra map[string]any) error {
 	return errors.Errorf("raw power not supported in stepper motor (%s)", m.motorName)
 }
 
 // Position reports the current step position of the motor. If it's not supported, the returned
 // data is undefined.
-func (m *uln28byj) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (m *uln28byj) Position(ctx context.Context, extra map[string]any) (float64, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return float64(m.stepPosition) / float64(m.ticksPerRotation), nil
 }
 
 // Properties returns the status of whether the motor supports certain optional properties.
-func (m *uln28byj) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+func (m *uln28byj) Properties(ctx context.Context, extra map[string]any) (motor.Properties, error) {
 	return motor.Properties{
 		PositionReporting: true,
 	}, nil
@@ -348,7 +348,7 @@ func (m *uln28byj) IsMoving(ctx context.Context) (bool, error) {
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
-func (m *uln28byj) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (m *uln28byj) Stop(ctx context.Context, extra map[string]any) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.targetStepPosition = m.stepPosition
@@ -358,7 +358,7 @@ func (m *uln28byj) Stop(ctx context.Context, extra map[string]interface{}) error
 // IsPowered returns whether or not the motor is currently on. It also returns the percent power
 // that the motor has, but stepper motors only have this set to 0% or 100%, so it's a little
 // redundant.
-func (m *uln28byj) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+func (m *uln28byj) IsPowered(ctx context.Context, extra map[string]any) (bool, float64, error) {
 	on, err := m.IsMoving(ctx)
 	if err != nil {
 		return on, 0.0, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.motorName)

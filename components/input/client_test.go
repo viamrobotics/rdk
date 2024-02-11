@@ -24,14 +24,14 @@ func TestClient(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	var extraOptions map[string]interface{}
+	var extraOptions map[string]any
 
 	injectInputController := &inject.TriggerableInputController{}
-	injectInputController.ControlsFunc = func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
+	injectInputController.ControlsFunc = func(ctx context.Context, extra map[string]any) ([]input.Control, error) {
 		extraOptions = extra
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
-	injectInputController.EventsFunc = func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
+	injectInputController.EventsFunc = func(ctx context.Context, extra map[string]any) (map[input.Control]input.Event, error) {
 		extraOptions = extra
 		eventsOut := make(map[input.Control]input.Event)
 		eventsOut[input.AbsoluteX] = input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
@@ -44,7 +44,7 @@ func TestClient(t *testing.T) {
 		control input.Control,
 		triggers []input.EventType,
 		ctrlFunc input.ControlFunction,
-		extra map[string]interface{},
+		extra map[string]any,
 	) error {
 		extraOptions = extra
 		if ctrlFunc != nil {
@@ -60,10 +60,10 @@ func TestClient(t *testing.T) {
 	}
 
 	injectInputController2 := &inject.InputController{}
-	injectInputController2.ControlsFunc = func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
+	injectInputController2.ControlsFunc = func(ctx context.Context, extra map[string]any) ([]input.Control, error) {
 		return nil, errControlsFailed
 	}
-	injectInputController2.EventsFunc = func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
+	injectInputController2.EventsFunc = func(ctx context.Context, extra map[string]any) (map[input.Control]input.Event, error) {
 		return nil, errEventsFailed
 	}
 
@@ -103,13 +103,13 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
-		extra := map[string]interface{}{"foo": "Controls"}
+		extra := map[string]any{"foo": "Controls"}
 		controlList, err := inputController1Client.Controls(context.Background(), extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
-		extra = map[string]interface{}{"foo": "Events"}
+		extra = map[string]any{"foo": "Events"}
 		startTime := time.Now()
 		outState, err := inputController1Client.Events(context.Background(), extra)
 		test.That(t, err, test.ShouldBeNil)
@@ -126,7 +126,7 @@ func TestClient(t *testing.T) {
 		test.That(t, outState[input.AbsoluteX].Time.Before(time.Now()), test.ShouldBeTrue)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
-		extra = map[string]interface{}{"foo": "RegisterControlCallback"}
+		extra = map[string]any{"foo": "RegisterControlCallback"}
 		ctrlFuncIn := func(ctx context.Context, event input.Event) { evStream <- event }
 		err = inputController1Client.RegisterControlCallback(
 			context.Background(),
@@ -149,7 +149,7 @@ func TestClient(t *testing.T) {
 			input.AbsoluteX,
 			[]input.EventType{input.PositionChangeAbs},
 			ctrlFuncIn,
-			map[string]interface{}{},
+			map[string]any{},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		ev1 := <-evStream
@@ -175,14 +175,14 @@ func TestClient(t *testing.T) {
 		test.That(t, posEv.Value, test.ShouldEqual, 0.75)
 		test.That(t, posEv.Time.After(startTime), test.ShouldBeTrue)
 		test.That(t, posEv.Time.Before(time.Now()), test.ShouldBeTrue)
-		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
+		test.That(t, extraOptions, test.ShouldResemble, map[string]any{})
 
 		err = inputController1Client.RegisterControlCallback(
 			context.Background(),
 			input.AbsoluteX,
 			[]input.EventType{input.PositionChangeAbs},
 			nil,
-			map[string]interface{}{},
+			map[string]any{},
 		)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -205,7 +205,7 @@ func TestClient(t *testing.T) {
 		test.That(t, btnEv.Time.After(startTime), test.ShouldBeTrue)
 		test.That(t, btnEv.Time.Before(time.Now()), test.ShouldBeTrue)
 
-		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event, extra map[string]interface{}) error {
+		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event, extra map[string]any) error {
 			return errTriggerEvent
 		}
 		event1 := input.Event{
@@ -216,13 +216,13 @@ func TestClient(t *testing.T) {
 		}
 		injectable, ok := inputController1Client.(input.Triggerable)
 		test.That(t, ok, test.ShouldBeTrue)
-		err = injectable.TriggerEvent(context.Background(), event1, map[string]interface{}{})
+		err = injectable.TriggerEvent(context.Background(), event1, map[string]any{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errTriggerEvent.Error())
 
 		var injectedEvent input.Event
-		extra = map[string]interface{}{"foo": "TriggerEvent"}
-		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event, extra map[string]interface{}) error {
+		extra = map[string]any{"foo": "TriggerEvent"}
+		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event, extra map[string]any) error {
 			injectedEvent = event
 			extraOptions = extra
 			return nil
@@ -243,11 +243,11 @@ func TestClient(t *testing.T) {
 		client2, err := resourceAPI.RPCClient(context.Background(), conn, "", input.Named(failInputControllerName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = client2.Controls(context.Background(), map[string]interface{}{})
+		_, err = client2.Controls(context.Background(), map[string]any{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errControlsFailed.Error())
 
-		_, err = client2.Events(context.Background(), map[string]interface{}{})
+		_, err = client2.Events(context.Background(), map[string]any{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errEventsFailed.Error())
 
@@ -259,7 +259,7 @@ func TestClient(t *testing.T) {
 		}
 		injectable, ok := client2.(input.Triggerable)
 		test.That(t, ok, test.ShouldBeTrue)
-		err = injectable.TriggerEvent(context.Background(), event1, map[string]interface{}{})
+		err = injectable.TriggerEvent(context.Background(), event1, map[string]any{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not of type Triggerable")
 

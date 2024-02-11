@@ -129,7 +129,7 @@ func TestPlanToPlanStepsAndGeoPoses(t *testing.T) {
 		Frame:              kinematicFrame,
 		FrameSystem:        baseFS,
 		StartConfiguration: frame.StartPositions(baseFS),
-		Options:            map[string]interface{}{"smooth_iter": 0},
+		Options:            map[string]any{"smooth_iter": 0},
 	}
 	plan := Plan{
 		map[string][]frame.Input{

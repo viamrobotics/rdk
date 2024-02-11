@@ -11,7 +11,7 @@ import (
 type GenericComponent struct {
 	resource.Resource
 	name   resource.Name
-	DoFunc func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	DoFunc func(ctx context.Context, cmd map[string]any) (map[string]any, error)
 }
 
 // NewGenericComponent returns a new injected generic component.
@@ -25,7 +25,7 @@ func (g *GenericComponent) Name() resource.Name {
 }
 
 // DoCommand calls the injected DoCommand or the real version.
-func (g *GenericComponent) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (g *GenericComponent) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	if g.DoFunc == nil {
 		return g.Resource.DoCommand(ctx, cmd)
 	}

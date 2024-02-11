@@ -20,7 +20,7 @@ import (
 
 var (
 	model    = resource.DefaultModelFamily.WithModel("renogy")
-	readings map[string]interface{}
+	readings map[string]any
 )
 
 const (
@@ -134,7 +134,7 @@ func (r *Renogy) getHandler() *modbus.RTUClientHandler {
 }
 
 // Voltage returns the voltage of the battery and a boolean IsAc.
-func (r *Renogy) Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+func (r *Renogy) Voltage(ctx context.Context, extra map[string]any) (float64, bool, error) {
 	// Read the battery voltage.
 	volts, err := r.readRegister(r.client, battVoltReg, 1)
 	if err != nil {
@@ -145,7 +145,7 @@ func (r *Renogy) Voltage(ctx context.Context, extra map[string]interface{}) (flo
 
 // Current returns the load's current and boolean isAC.
 // If the controller does not have a load input, will return zero.
-func (r *Renogy) Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+func (r *Renogy) Current(ctx context.Context, extra map[string]any) (float64, bool, error) {
 	// read the load current.
 	loadCurrent, err := r.readRegister(r.client, loadAmpReg, 2)
 	if err != nil {
@@ -156,7 +156,7 @@ func (r *Renogy) Current(ctx context.Context, extra map[string]interface{}) (flo
 }
 
 // Power returns the power of the load. If the controller does not have a load input, will return zero.
-func (r *Renogy) Power(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (r *Renogy) Power(ctx context.Context, extra map[string]any) (float64, error) {
 	// reads the load wattage.
 	loadPower, err := r.readRegister(r.client, loadWattReg, 1)
 	if err != nil {
@@ -167,8 +167,8 @@ func (r *Renogy) Power(ctx context.Context, extra map[string]interface{}) (float
 }
 
 // Readings returns a list of all readings from the sensor.
-func (r *Renogy) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings = make(map[string]interface{})
+func (r *Renogy) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
+	readings = make(map[string]any)
 
 	// add all readings.
 	r.addReading(solarVoltReg, 1, "SolarVolt")

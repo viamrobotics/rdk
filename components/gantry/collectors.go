@@ -29,13 +29,13 @@ func (m method) String() string {
 
 // newPositionCollector returns a collector to register a position method. If one is already registered
 // with the same MethodMetadata it will panic.
-func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newPositionCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	gantry, err := assertGantry(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (any, error) {
 		v, err := gantry.Position(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -54,13 +54,13 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 
 // newLengthsCollector returns a collector to register a lengths method. If one is already registered
 // with the same MethodMetadata it will panic.
-func newLengthsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newLengthsCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	gantry, err := assertGantry(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (any, error) {
 		v, err := gantry.Lengths(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -85,7 +85,7 @@ func scaleMetersToMm(meters []float64) []float64 {
 	return ret
 }
 
-func assertGantry(resource interface{}) (Gantry, error) {
+func assertGantry(resource any) (Gantry, error) {
 	gantry, ok := resource.(Gantry)
 	if !ok {
 		return nil, data.InvalidInterfaceErr(API)

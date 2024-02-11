@@ -159,12 +159,12 @@ func (pca *PCA9685) SetPowerMode(ctx context.Context, mode pb.PowerMode, duratio
 }
 
 // WriteAnalog writes the value to the given pin.
-func (pca *PCA9685) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+func (pca *PCA9685) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]any) error {
 	return grpc.UnimplementedError
 }
 
 // Status returns the board status which is always empty.
-func (pca *PCA9685) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
+func (pca *PCA9685) Status(ctx context.Context, extra map[string]any) (*commonpb.BoardStatus, error) {
 	return &commonpb.BoardStatus{}, nil
 }
 
@@ -278,7 +278,7 @@ type gpioPin struct {
 	startAddr byte
 }
 
-func (gp *gpioPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (gp *gpioPin) Get(ctx context.Context, extra map[string]any) (bool, error) {
 	dutyCycle, err := gp.PWM(ctx, extra)
 	if err != nil {
 		return false, err
@@ -286,7 +286,7 @@ func (gp *gpioPin) Get(ctx context.Context, extra map[string]interface{}) (bool,
 	return dutyCycle != 0, nil
 }
 
-func (gp *gpioPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
+func (gp *gpioPin) Set(ctx context.Context, high bool, extra map[string]any) error {
 	var dutyCyclePct float64
 	if high {
 		dutyCyclePct = 1
@@ -295,7 +295,7 @@ func (gp *gpioPin) Set(ctx context.Context, high bool, extra map[string]interfac
 	return gp.SetPWM(ctx, dutyCyclePct, extra)
 }
 
-func (gp *gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (gp *gpioPin) PWM(ctx context.Context, extra map[string]any) (float64, error) {
 	gp.pca.mu.RLock()
 	defer gp.pca.mu.RUnlock()
 
@@ -338,7 +338,7 @@ func (gp *gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float
 	return float64(offVal<<4) / 0xffff, nil
 }
 
-func (gp *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+func (gp *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]any) error {
 	gp.pca.mu.RLock()
 	defer gp.pca.mu.RUnlock()
 
@@ -396,7 +396,7 @@ func (gp *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[s
 	return nil
 }
 
-func (gp *gpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
+func (gp *gpioPin) PWMFreq(ctx context.Context, extra map[string]any) (uint, error) {
 	gp.pca.mu.RLock()
 	defer gp.pca.mu.RUnlock()
 
@@ -407,7 +407,7 @@ func (gp *gpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (u
 	return uint(freqHz), nil
 }
 
-func (gp *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+func (gp *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]any) error {
 	gp.pca.mu.RLock()
 	defer gp.pca.mu.RUnlock()
 

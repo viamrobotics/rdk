@@ -58,7 +58,7 @@ func NewClientFromConn(
 	return c, nil
 }
 
-func (c *client) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+func (c *client) EndPosition(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -73,7 +73,7 @@ func (c *client) EndPosition(ctx context.Context, extra map[string]interface{}) 
 	return spatialmath.NewPoseFromProtobuf(resp.Pose), nil
 }
 
-func (c *client) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra map[string]interface{}) error {
+func (c *client) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -86,7 +86,7 @@ func (c *client) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extr
 	return err
 }
 
-func (c *client) MoveToJointPositions(ctx context.Context, positions *pb.JointPositions, extra map[string]interface{}) error {
+func (c *client) MoveToJointPositions(ctx context.Context, positions *pb.JointPositions, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -99,7 +99,7 @@ func (c *client) MoveToJointPositions(ctx context.Context, positions *pb.JointPo
 	return err
 }
 
-func (c *client) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (c *client) JointPositions(ctx context.Context, extra map[string]any) (*pb.JointPositions, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -114,7 +114,7 @@ func (c *client) JointPositions(ctx context.Context, extra map[string]interface{
 	return resp.Positions, nil
 }
 
-func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (c *client) Stop(ctx context.Context, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -148,7 +148,7 @@ func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 	return c.MoveToJointPositions(ctx, c.model.ProtobufFromInput(goal), nil)
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
@@ -160,7 +160,7 @@ func (c *client) IsMoving(ctx context.Context) (bool, error) {
 	return resp.IsMoving, nil
 }
 
-func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+func (c *client) Geometries(ctx context.Context, extra map[string]any) ([]spatialmath.Geometry, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -175,7 +175,7 @@ func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) (
 	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
 }
 
-func (c *client) updateKinematics(ctx context.Context, extra map[string]interface{}) (referenceframe.Model, error) {
+func (c *client) updateKinematics(ctx context.Context, extra map[string]any) (referenceframe.Model, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err

@@ -41,7 +41,7 @@ func NewClientFromConn(
 }
 
 func (c *client) Poses(
-	ctx context.Context, bodyNames []string, extra map[string]interface{},
+	ctx context.Context, bodyNames []string, extra map[string]any,
 ) (BodyToPoseInFrame, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
@@ -63,10 +63,10 @@ func (c *client) Poses(
 	return result, nil
 }
 
-func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	return Readings(ctx, c)
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

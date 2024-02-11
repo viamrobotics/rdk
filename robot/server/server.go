@@ -91,7 +91,7 @@ func (s *Server) GetOperations(ctx context.Context, req *pb.GetOperationsRequest
 	return res, nil
 }
 
-func convertInterfaceToStruct(i interface{}) (*structpb.Struct, error) {
+func convertInterfaceToStruct(i any) (*structpb.Struct, error) {
 	if i == nil {
 		return &structpb.Struct{}, nil
 	}
@@ -339,7 +339,7 @@ func (s *Server) StreamStatus(req *pb.StreamStatusRequest, streamServer pb.Robot
 
 // StopAll will stop all current and outstanding operations for the robot and stops all actuators and movement.
 func (s *Server) StopAll(ctx context.Context, req *pb.StopAllRequest) (*pb.StopAllResponse, error) {
-	extra := map[resource.Name]map[string]interface{}{}
+	extra := map[resource.Name]map[string]any{}
 	for _, e := range req.Extra {
 		extra[protoutils.ResourceNameFromProto(e.Name)] = e.Params.AsMap()
 	}

@@ -26,67 +26,67 @@ func TestClient(t *testing.T) {
 	workingMotor := &inject.Motor{}
 	failingMotor := &inject.Motor{}
 
-	var actualExtra map[string]interface{}
+	var actualExtra map[string]any
 	var actualPowerPct float64
 
-	workingMotor.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+	workingMotor.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]any) error {
 		actualExtra = extra
 		actualPowerPct = powerPct
 		return nil
 	}
-	workingMotor.GoForFunc = func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
+	workingMotor.GoForFunc = func(ctx context.Context, rpm, rotations float64, extra map[string]any) error {
 		actualExtra = extra
 		return nil
 	}
-	workingMotor.GoToFunc = func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error {
+	workingMotor.GoToFunc = func(ctx context.Context, rpm, position float64, extra map[string]any) error {
 		actualExtra = extra
 		return nil
 	}
-	workingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]interface{}) error {
+	workingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]any) error {
 		actualExtra = extra
 		return nil
 	}
-	workingMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	workingMotor.PositionFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		actualExtra = extra
 		return 42.0, nil
 	}
-	workingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+	workingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]any) (motor.Properties, error) {
 		actualExtra = extra
 		return motor.Properties{
 			PositionReporting: true,
 		}, nil
 	}
-	workingMotor.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	workingMotor.StopFunc = func(ctx context.Context, extra map[string]any) error {
 		actualExtra = extra
 		return nil
 	}
-	workingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+	workingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]any) (bool, float64, error) {
 		actualExtra = extra
 		return true, actualPowerPct, nil
 	}
 
-	failingMotor.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+	failingMotor.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]any) error {
 		return errSetPowerFailed
 	}
-	failingMotor.GoForFunc = func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
+	failingMotor.GoForFunc = func(ctx context.Context, rpm, rotations float64, extra map[string]any) error {
 		return errGoForFailed
 	}
-	failingMotor.GoToFunc = func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error {
+	failingMotor.GoToFunc = func(ctx context.Context, rpm, position float64, extra map[string]any) error {
 		return errGoToFailed
 	}
-	failingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]interface{}) error {
+	failingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]any) error {
 		return errResetZeroFailed
 	}
-	failingMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	failingMotor.PositionFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		return 0, errPositionUnavailable
 	}
-	failingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+	failingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]any) (motor.Properties, error) {
 		return motor.Properties{}, errPropertiesNotFound
 	}
-	failingMotor.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	failingMotor.StopFunc = func(ctx context.Context, extra map[string]any) error {
 		return errStopFailed
 	}
-	failingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+	failingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]any) (bool, float64, error) {
 		return false, 0.0, errIsPoweredFailed
 	}
 
@@ -151,11 +151,11 @@ func TestClient(t *testing.T) {
 
 		isOn, powerPct, err := workingMotorClient.IsPowered(
 			context.Background(),
-			map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
+			map[string]any{"foo": "bar", "baz": []any{1., 2., 3.}})
 		test.That(t, isOn, test.ShouldBeTrue)
 		test.That(t, powerPct, test.ShouldEqual, 42.0)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, actualExtra, test.ShouldResemble, map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
+		test.That(t, actualExtra, test.ShouldResemble, map[string]any{"foo": "bar", "baz": []any{1., 2., 3.}})
 
 		test.That(t, workingMotorClient.Close(context.Background()), test.ShouldBeNil)
 

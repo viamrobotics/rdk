@@ -34,9 +34,9 @@ func TestStatusValid(t *testing.T) {
 		t,
 		newStruct.AsMap(),
 		test.ShouldResemble,
-		map[string]interface{}{
-			"lengths_mm":   []interface{}{4.4, 5.5, 6.6},
-			"positions_mm": []interface{}{1.1, 2.2, 3.3},
+		map[string]any{
+			"lengths_mm":   []any{4.4, 5.5, 6.6},
+			"positions_mm": []any{1.1, 2.2, 3.3},
 			"is_moving":    true,
 		},
 	)
@@ -57,10 +57,10 @@ func TestCreateStatus(t *testing.T) {
 	}
 
 	injectGantry := &inject.Gantry{}
-	injectGantry.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	injectGantry.PositionFunc = func(ctx context.Context, extra map[string]any) ([]float64, error) {
 		return status.PositionsMm, nil
 	}
-	injectGantry.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	injectGantry.LengthsFunc = func(ctx context.Context, extra map[string]any) ([]float64, error) {
 		return status.LengthsMm, nil
 	}
 	injectGantry.IsMovingFunc = func(context.Context) (bool, error) {
@@ -97,7 +97,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on Lengths", func(t *testing.T) {
 		errFail := errors.New("can't get lengths")
-		injectGantry.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+		injectGantry.LengthsFunc = func(ctx context.Context, extra map[string]any) ([]float64, error) {
 			return nil, errFail
 		}
 		_, err := gantry.CreateStatus(context.Background(), injectGantry)
@@ -106,7 +106,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on Positions", func(t *testing.T) {
 		errFail := errors.New("can't get positions")
-		injectGantry.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+		injectGantry.PositionFunc = func(ctx context.Context, extra map[string]any) ([]float64, error) {
 			return nil, errFail
 		}
 		_, err := gantry.CreateStatus(context.Background(), injectGantry)

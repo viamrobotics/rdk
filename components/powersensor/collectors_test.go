@@ -92,16 +92,16 @@ func TestPowerSensorCollectors(t *testing.T) {
 
 func newPowerSensor() powersensor.PowerSensor {
 	p := &inject.PowerSensor{}
-	p.VoltageFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+	p.VoltageFunc = func(ctx context.Context, extra map[string]any) (float64, bool, error) {
 		return 1.0, false, nil
 	}
-	p.CurrentFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+	p.CurrentFunc = func(ctx context.Context, extra map[string]any) (float64, bool, error) {
 		return 1.0, false, nil
 	}
-	p.PowerFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	p.PowerFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		return 1.0, nil
 	}
-	p.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+	p.ReadingsFunc = func(ctx context.Context, extra map[string]any) (map[string]any, error) {
 		return readingMap, nil
 	}
 	return p

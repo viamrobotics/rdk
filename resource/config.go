@@ -65,7 +65,7 @@ type configData struct {
 
 // UnmarshalJSON unmarshals JSON into the config.
 func (conf *Config) UnmarshalJSON(data []byte) error {
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func NewEmptyConfig(name Name, model Model) Config {
 type AssociatedResourceConfig struct {
 	API                 API
 	Attributes          utils.AttributeMap
-	ConvertedAttributes interface{}
+	ConvertedAttributes any
 	RemoteName          string
 }
 
@@ -315,7 +315,7 @@ type ConfigValidator interface {
 func TransformAttributeMap[T any](attributes utils.AttributeMap) (T, error) {
 	var out T
 
-	var forResult interface{}
+	var forResult any
 
 	toT := reflect.TypeOf(out)
 	if toT == nil {

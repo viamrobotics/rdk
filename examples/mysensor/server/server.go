@@ -45,8 +45,8 @@ type mySensor struct {
 }
 
 // Readings always returns "hello world".
-func (s *mySensor) Readings(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
-	return map[string]interface{}{"hello": "world"}, nil
+func (s *mySensor) Readings(ctx context.Context, _ map[string]any) (map[string]any, error) {
+	return map[string]any{"hello": "world"}, nil
 }
 
 func main() {

@@ -22,7 +22,7 @@ import (
 
 func createFakeMotor() motor.Motor {
 	return &inject.Motor{
-		StopFunc: func(ctx context.Context, extra map[string]interface{}) error { return errors.New("stop error") },
+		StopFunc: func(ctx context.Context, extra map[string]any) error { return errors.New("stop error") },
 	}
 }
 

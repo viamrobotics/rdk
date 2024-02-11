@@ -12,7 +12,7 @@ type ShellService struct {
 	shell.Service
 	name          resource.Name
 	DoCommandFunc func(ctx context.Context,
-		cmd map[string]interface{}) (map[string]interface{}, error)
+		cmd map[string]any) (map[string]any, error)
 	ReconfigureFunc func(ctx context.Context, deps resource.Dependencies, conf resource.Config) error
 	CloseFunc       func(ctx context.Context) error
 }
@@ -29,8 +29,8 @@ func (s *ShellService) Name() resource.Name {
 
 // DoCommand calls the injected DoCommand or the real variant.
 func (s *ShellService) DoCommand(ctx context.Context,
-	cmd map[string]interface{},
-) (map[string]interface{}, error) {
+	cmd map[string]any,
+) (map[string]any, error) {
 	if s.DoCommandFunc == nil {
 		return s.Service.DoCommand(ctx, cmd)
 	}

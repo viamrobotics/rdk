@@ -18,7 +18,7 @@ type serviceServer struct {
 }
 
 // NewRPCServiceServer constructs an generic gRPC service serviceServer.
-func NewRPCServiceServer(coll resource.APIResourceCollection[resource.Resource]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceCollection[resource.Resource]) any {
 	return &serviceServer{coll: coll}
 }
 

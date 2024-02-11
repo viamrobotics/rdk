@@ -35,10 +35,10 @@ func (r *structReading) toProto() *structpb.Struct {
 }
 
 var (
-	structCapturer = CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	structCapturer = CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (any, error) {
 		return dummyStructReading, nil
 	})
-	binaryCapturer = CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	binaryCapturer = CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (any, error) {
 		return dummyBytesReading, nil
 	})
 	dummyStructReading      = structReading{}
@@ -252,7 +252,7 @@ func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
 	tmpDir := t.TempDir()
 	target := datacapture.NewBuffer(tmpDir, &v1.DataCaptureMetadata{})
 	captured := make(chan struct{})
-	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (any, error) {
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("arbitrary wrapping message: %w", ctx.Err())

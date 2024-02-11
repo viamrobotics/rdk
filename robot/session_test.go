@@ -42,7 +42,7 @@ var echoAPI = resource.APINamespaceRDK.WithComponentType("echo")
 
 func init() {
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} {
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) any {
 			return &echoServer{coll: apiResColl}
 		},
 		RPCServiceHandler: echopb.RegisterTestEchoServiceHandlerFromEndpoint,
@@ -809,38 +809,38 @@ type dummyMotor struct {
 	stopCh chan struct{}
 }
 
-func (dm *dummyMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+func (dm *dummyMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]any) error {
 	return nil
 }
 
-func (dm *dummyMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+func (dm *dummyMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]any) error {
 	return nil
 }
 
-func (dm *dummyMotor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
+func (dm *dummyMotor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]any) error {
 	return nil
 }
 
-func (dm *dummyMotor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (dm *dummyMotor) Position(ctx context.Context, extra map[string]any) (float64, error) {
 	return 2, nil
 }
 
-func (dm *dummyMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (dm *dummyMotor) Stop(ctx context.Context, extra map[string]any) error {
 	dm.mu.Lock()
 	defer dm.mu.Unlock()
 	close(dm.stopCh)
 	return nil
 }
 
-func (dm *dummyMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+func (dm *dummyMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]any) error {
 	return nil
 }
 
-func (dm *dummyMotor) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+func (dm *dummyMotor) Properties(ctx context.Context, extra map[string]any) (motor.Properties, error) {
 	return motor.Properties{}, nil
 }
 
-func (dm *dummyMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+func (dm *dummyMotor) IsPowered(ctx context.Context, extra map[string]any) (bool, float64, error) {
 	return false, 0, nil
 }
 
@@ -856,26 +856,26 @@ type dummyBase struct {
 	stopCh chan struct{}
 }
 
-func (db *dummyBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+func (db *dummyBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 	return nil
 }
 
-func (db *dummyBase) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (db *dummyBase) Stop(ctx context.Context, extra map[string]any) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	close(db.stopCh)
 	return nil
 }
 
-func (db *dummyBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
+func (db *dummyBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]any) error {
 	return nil
 }
 
-func (db *dummyBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+func (db *dummyBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]any) error {
 	return nil
 }
 
-func (db *dummyBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+func (db *dummyBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]any) error {
 	return nil
 }
 
@@ -883,11 +883,11 @@ func (db *dummyBase) IsMoving(context.Context) (bool, error) {
 	return false, nil
 }
 
-func (db *dummyBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+func (db *dummyBase) Properties(ctx context.Context, extra map[string]any) (base.Properties, error) {
 	return base.Properties{}, nil
 }
 
-func (db *dummyBase) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+func (db *dummyBase) Geometries(ctx context.Context, extra map[string]any) ([]spatialmath.Geometry, error) {
 	return []spatialmath.Geometry{}, nil
 }
 
@@ -915,7 +915,7 @@ type dummyClient struct {
 	client echopb.TestEchoServiceClient
 }
 
-func (c *dummyClient) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (c *dummyClient) Stop(ctx context.Context, extra map[string]any) error {
 	_, err := c.client.Stop(ctx, &echopb.StopRequest{Name: c.name})
 	return err
 }
@@ -937,7 +937,7 @@ func (e *dummyEcho) EchoMultiple(ctx context.Context) error {
 	return nil
 }
 
-func (e *dummyEcho) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (e *dummyEcho) Stop(ctx context.Context, extra map[string]any) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	close(e.stopCh)

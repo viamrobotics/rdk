@@ -15,12 +15,12 @@ import (
 type Arm struct {
 	arm.Arm
 	name                     resource.Name
-	DoFunc                   func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	EndPositionFunc          func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
-	MoveToPositionFunc       func(ctx context.Context, to spatialmath.Pose, extra map[string]interface{}) error
-	MoveToJointPositionsFunc func(ctx context.Context, pos *pb.JointPositions, extra map[string]interface{}) error
-	JointPositionsFunc       func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
-	StopFunc                 func(ctx context.Context, extra map[string]interface{}) error
+	DoFunc                   func(ctx context.Context, cmd map[string]any) (map[string]any, error)
+	EndPositionFunc          func(ctx context.Context, extra map[string]any) (spatialmath.Pose, error)
+	MoveToPositionFunc       func(ctx context.Context, to spatialmath.Pose, extra map[string]any) error
+	MoveToJointPositionsFunc func(ctx context.Context, pos *pb.JointPositions, extra map[string]any) error
+	JointPositionsFunc       func(ctx context.Context, extra map[string]any) (*pb.JointPositions, error)
+	StopFunc                 func(ctx context.Context, extra map[string]any) error
 	IsMovingFunc             func(context.Context) (bool, error)
 	CloseFunc                func(ctx context.Context) error
 	ModelFrameFunc           func() referenceframe.Model
@@ -39,7 +39,7 @@ func (a *Arm) Name() resource.Name {
 }
 
 // EndPosition calls the injected EndPosition or the real version.
-func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+func (a *Arm) EndPosition(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 	if a.EndPositionFunc == nil {
 		return a.Arm.EndPosition(ctx, extra)
 	}
@@ -47,7 +47,7 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 }
 
 // MoveToPosition calls the injected MoveToPosition or the real version.
-func (a *Arm) MoveToPosition(ctx context.Context, to spatialmath.Pose, extra map[string]interface{}) error {
+func (a *Arm) MoveToPosition(ctx context.Context, to spatialmath.Pose, extra map[string]any) error {
 	if a.MoveToPositionFunc == nil {
 		return a.Arm.MoveToPosition(ctx, to, extra)
 	}
@@ -55,7 +55,7 @@ func (a *Arm) MoveToPosition(ctx context.Context, to spatialmath.Pose, extra map
 }
 
 // MoveToJointPositions calls the injected MoveToJointPositions or the real version.
-func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, extra map[string]interface{}) error {
+func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, extra map[string]any) error {
 	if a.MoveToJointPositionsFunc == nil {
 		return a.Arm.MoveToJointPositions(ctx, jp, extra)
 	}
@@ -63,7 +63,7 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, e
 }
 
 // JointPositions calls the injected JointPositions or the real version.
-func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (a *Arm) JointPositions(ctx context.Context, extra map[string]any) (*pb.JointPositions, error) {
 	if a.JointPositionsFunc == nil {
 		return a.Arm.JointPositions(ctx, extra)
 	}
@@ -71,7 +71,7 @@ func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) 
 }
 
 // Stop calls the injected Stop or the real version.
-func (a *Arm) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (a *Arm) Stop(ctx context.Context, extra map[string]any) error {
 	if a.StopFunc == nil {
 		return a.Arm.Stop(ctx, extra)
 	}
@@ -98,7 +98,7 @@ func (a *Arm) Close(ctx context.Context) error {
 }
 
 // DoCommand calls the injected DoCommand or the real version.
-func (a *Arm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (a *Arm) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	if a.DoFunc == nil {
 		return a.Arm.DoCommand(ctx, cmd)
 	}

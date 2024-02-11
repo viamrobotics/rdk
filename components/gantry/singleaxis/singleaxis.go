@@ -231,7 +231,7 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 }
 
 // Home runs the homing sequence of the gantry, starts checkHit in the background, and returns true once completed.
-func (g *singleAxis) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (g *singleAxis) Home(ctx context.Context, extra map[string]any) (bool, error) {
 	if g.cancelFunc != nil {
 		g.cancelFunc()
 		g.activeBackgroundWorkers.Wait()
@@ -494,7 +494,7 @@ func (g *singleAxis) limitHit(ctx context.Context, limitPin int) (bool, error) {
 }
 
 // Position returns the position in millimeters.
-func (g *singleAxis) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+func (g *singleAxis) Position(ctx context.Context, extra map[string]any) ([]float64, error) {
 	pos, err := g.motor.Position(ctx, extra)
 	if err != nil {
 		return []float64{}, err
@@ -506,14 +506,14 @@ func (g *singleAxis) Position(ctx context.Context, extra map[string]interface{})
 }
 
 // Lengths returns the physical lengths of an axis of a Gantry.
-func (g *singleAxis) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+func (g *singleAxis) Lengths(ctx context.Context, extra map[string]any) ([]float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return []float64{g.lengthMm}, nil
 }
 
 // MoveToPosition moves along an axis using inputs in millimeters.
-func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []float64, extra map[string]interface{}) error {
+func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []float64, extra map[string]any) error {
 	if g.positionRange == 0 {
 		return errors.Errorf("cannot move to position until gantry '%v' is homed", g.Named.Name().ShortName())
 	}
@@ -568,7 +568,7 @@ func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []flo
 }
 
 // Stop stops the motor of the gantry.
-func (g *singleAxis) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (g *singleAxis) Stop(ctx context.Context, extra map[string]any) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 	return g.motor.Stop(ctx, extra)

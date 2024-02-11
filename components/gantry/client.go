@@ -41,7 +41,7 @@ func NewClientFromConn(
 	}, nil
 }
 
-func (c *client) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+func (c *client) Position(ctx context.Context, extra map[string]any) ([]float64, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func (c *client) Position(ctx context.Context, extra map[string]interface{}) ([]
 	return resp.PositionsMm, nil
 }
 
-func (c *client) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+func (c *client) Lengths(ctx context.Context, extra map[string]any) ([]float64, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -71,7 +71,7 @@ func (c *client) Lengths(ctx context.Context, extra map[string]interface{}) ([]f
 	return lengths.LengthsMm, nil
 }
 
-func (c *client) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (c *client) Home(ctx context.Context, extra map[string]any) (bool, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return false, err
@@ -86,7 +86,7 @@ func (c *client) Home(ctx context.Context, extra map[string]interface{}) (bool, 
 	return homed.Homed, nil
 }
 
-func (c *client) MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec []float64, extra map[string]interface{}) error {
+func (c *client) MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec []float64, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -100,7 +100,7 @@ func (c *client) MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec
 	return err
 }
 
-func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (c *client) Stop(ctx context.Context, extra map[string]any) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -127,7 +127,7 @@ func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), speeds, nil)
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 

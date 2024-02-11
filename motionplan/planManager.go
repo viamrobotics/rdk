@@ -62,7 +62,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	worldState *referenceframe.WorldState,
 	constraintSpec *pb.Constraints,
 	seedPlan Plan,
-	motionConfig map[string]interface{},
+	motionConfig map[string]any,
 ) ([][]referenceframe.Input, error) {
 	seed, err := pm.frame.mapToSlice(seedMap)
 	if err != nil {
@@ -480,13 +480,13 @@ func (pm *planManager) planParallelRRTMotion(
 	}
 }
 
-// This is where the map[string]interface{} passed in via `extra` is used to decide how planning happens.
+// This is where the map[string]any passed in via `extra` is used to decide how planning happens.
 func (pm *planManager) plannerSetupFromMoveRequest(
 	from, to spatialmath.Pose,
 	seedMap map[string][]referenceframe.Input,
 	worldState *referenceframe.WorldState,
 	constraints *pb.Constraints,
-	planningOpts map[string]interface{},
+	planningOpts map[string]any,
 ) (*plannerOptions, error) {
 	planAlg := ""
 
@@ -517,7 +517,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		planAlg = "cbirrt"
 	}
 
-	// error handling around extracting motion_profile information from map[string]interface{}
+	// error handling around extracting motion_profile information from map[string]any
 	var motionProfile string
 	profile, ok := planningOpts["motion_profile"]
 	if ok {
@@ -709,8 +709,8 @@ func (pm *planManager) planToRRTGoalMap(plan Plan, goal spatialmath.Pose) (*rrtM
 }
 
 // Copy any atomic values.
-func deepAtomicCopyMap(opt map[string]interface{}) map[string]interface{} {
-	optCopy := map[string]interface{}{}
+func deepAtomicCopyMap(opt map[string]any) map[string]any {
+	optCopy := map[string]any{}
 	for k, v := range opt {
 		optCopy[k] = v
 	}

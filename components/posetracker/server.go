@@ -18,7 +18,7 @@ type serviceServer struct {
 
 // NewRPCServiceServer constructs a pose tracker gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[PoseTracker]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceCollection[PoseTracker]) any {
 	return &serviceServer{coll: coll}
 }
 

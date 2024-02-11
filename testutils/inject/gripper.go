@@ -11,10 +11,10 @@ import (
 type Gripper struct {
 	gripper.Gripper
 	name         resource.Name
-	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	OpenFunc     func(ctx context.Context, extra map[string]interface{}) error
-	GrabFunc     func(ctx context.Context, extra map[string]interface{}) (bool, error)
-	StopFunc     func(ctx context.Context, extra map[string]interface{}) error
+	DoFunc       func(ctx context.Context, cmd map[string]any) (map[string]any, error)
+	OpenFunc     func(ctx context.Context, extra map[string]any) error
+	GrabFunc     func(ctx context.Context, extra map[string]any) (bool, error)
+	StopFunc     func(ctx context.Context, extra map[string]any) error
 	IsMovingFunc func(context.Context) (bool, error)
 	CloseFunc    func(ctx context.Context) error
 }
@@ -30,7 +30,7 @@ func (g *Gripper) Name() resource.Name {
 }
 
 // Open calls the injected Open or the real version.
-func (g *Gripper) Open(ctx context.Context, extra map[string]interface{}) error {
+func (g *Gripper) Open(ctx context.Context, extra map[string]any) error {
 	if g.OpenFunc == nil {
 		return g.Gripper.Open(ctx, extra)
 	}
@@ -38,7 +38,7 @@ func (g *Gripper) Open(ctx context.Context, extra map[string]interface{}) error 
 }
 
 // Grab calls the injected Grab or the real version.
-func (g *Gripper) Grab(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (g *Gripper) Grab(ctx context.Context, extra map[string]any) (bool, error) {
 	if g.GrabFunc == nil {
 		return g.Gripper.Grab(ctx, extra)
 	}
@@ -46,7 +46,7 @@ func (g *Gripper) Grab(ctx context.Context, extra map[string]interface{}) (bool,
 }
 
 // Stop calls the injected Stop or the real version.
-func (g *Gripper) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (g *Gripper) Stop(ctx context.Context, extra map[string]any) error {
 	if g.StopFunc == nil {
 		return g.Gripper.Stop(ctx, extra)
 	}
@@ -73,7 +73,7 @@ func (g *Gripper) Close(ctx context.Context) error {
 }
 
 // DoCommand calls the injected DoCommand or the real version.
-func (g *Gripper) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (g *Gripper) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	if g.DoFunc == nil {
 		return g.Gripper.DoCommand(ctx, cmd)
 	}

@@ -59,17 +59,17 @@ func TestString(t *testing.T) {
 
 	testTable := table.NewWriter()
 	testTable.AppendHeader(table.Row{"Name", "Geometry Type", "Parent"})
-	testTable.AppendRow([]interface{}{
+	testTable.AppendRow([]any{
 		"foo",
 		foo.String(),
 		"world",
 	})
-	testTable.AppendRow([]interface{}{
+	testTable.AppendRow([]any{
 		"bar",
 		bar.String(),
 		"world",
 	})
-	testTable.AppendRow([]interface{}{
+	testTable.AppendRow([]any{
 		"testgeo",
 		testgeo.String(),
 		"camera",

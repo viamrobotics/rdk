@@ -158,7 +158,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 }
 
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
-func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
+func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]any) error {
 	// Stop all operations
 	for _, op := range r.OperationManager().All() {
 		op.Cancel()
@@ -321,7 +321,7 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 
 			// If resource API registration had an associated CreateStatus method,
 			// call that method, otherwise return an empty status.
-			var status interface{} = map[string]interface{}{}
+			var status any = map[string]any{}
 			if apiReg, ok := resource.LookupGenericAPIRegistration(name.API); ok &&
 				apiReg.Status != nil {
 				status, err = apiReg.Status(ctx, res)
@@ -1001,7 +1001,7 @@ type moduleManagerDiscoveryResult struct {
 
 // discoverRobotInternals is used to discover parts of the robot that are not in the resource graph
 // It accepts a query and should return the Discovery Results object along with an ok value.
-func (r *localRobot) discoverRobotInternals(query resource.DiscoveryQuery) (interface{}, bool) {
+func (r *localRobot) discoverRobotInternals(query resource.DiscoveryQuery) (any, bool) {
 	switch {
 	// these strings are hardcoded because their existence would be misleading anywhere outside of this function
 	case query.API.String() == "rdk-internal:service:module-manager" &&

@@ -29,7 +29,7 @@ func (sm SubtypeMatcher) IsMatch(r Resource) bool {
 
 // InterfaceMatcher matches resources that fulfill the given interface.
 type InterfaceMatcher struct {
-	Interface interface{}
+	Interface any
 }
 
 // IsMatch returns true if the given resource fulfills the InterfaceMatcher's Interface.

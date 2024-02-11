@@ -13,7 +13,7 @@ import (
 // updating processes in the data manager service. These functions are not exported to the user. This resolves
 // a circular import caused by the inject package.
 type DMService interface {
-	Sync(ctx context.Context, extra map[string]interface{}) error
+	Sync(ctx context.Context, extra map[string]any) error
 	Reconfigure(
 		ctx context.Context,
 		deps resource.Dependencies,

@@ -100,7 +100,7 @@ func TestTransformSegmenterFunctionality(t *testing.T) {
 	}
 
 	vizServ.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string,
-		extra map[string]interface{},
+		extra map[string]any,
 	) ([]*vision.Object, error) {
 		segments := make([]pc.PointCloud, 3)
 		segments[0] = pc.New()

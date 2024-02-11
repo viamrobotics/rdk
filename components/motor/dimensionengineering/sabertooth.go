@@ -270,7 +270,7 @@ func NewMotor(ctx context.Context, c *Config, name resource.Name, logger logging
 }
 
 // IsPowered returns if the motor is currently on or off.
-func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+func (m *Motor) IsPowered(ctx context.Context, extra map[string]any) (bool, float64, error) {
 	return m.isOn, m.currentPowerPct, nil
 }
 
@@ -336,7 +336,7 @@ func (c *controller) sendCmd(cmd *command) error {
 
 // SetPower instructs the motor to go in a specific direction at a percentage
 // of power between -1 and 1.
-func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]any) error {
 	if math.Abs(powerPct) < m.minPowerPct {
 		return m.Stop(ctx, extra)
 	}
@@ -392,7 +392,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 // GoFor moves an inputted number of revolutions at the given rpm, no encoder is present
 // for this so power is determined via a linear relationship with the maxRPM and the distance
 // traveled is a time based estimation based on desired RPM.
-func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]any) error {
 	if m.maxRPM == 0 {
 		return motor.NewZeroRPMError()
 	}
@@ -416,23 +416,23 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 // at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target/position.
-func (m *Motor) GoTo(ctx context.Context, rpm, position float64, extra map[string]interface{}) error {
+func (m *Motor) GoTo(ctx context.Context, rpm, position float64, extra map[string]any) error {
 	return motor.NewGoToUnsupportedError(fmt.Sprintf("Channel %d on Sabertooth %d", m.Channel, m.c.address))
 }
 
 // ResetZeroPosition defines the current position to be zero (+/- offset).
-func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]any) error {
 	return motor.NewResetZeroPositionUnsupportedError(fmt.Sprintf("Channel %d on Sabertooth %d",
 		m.Channel, m.c.address))
 }
 
 // Position reports the position in revolutions.
-func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (m *Motor) Position(ctx context.Context, extra map[string]any) (float64, error) {
 	return 0, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
-func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (m *Motor) Stop(ctx context.Context, extra map[string]any) error {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 
@@ -456,7 +456,7 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 }
 
 // DoCommand executes additional commands beyond the Motor{} interface.
-func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (m *Motor) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	name, ok := cmd["command"]
 	if !ok {
 		return nil, errors.New("missing 'command' value")
@@ -465,7 +465,7 @@ func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[
 }
 
 // Properties returns the additional properties supported by this motor.
-func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+func (m *Motor) Properties(ctx context.Context, extra map[string]any) (motor.Properties, error) {
 	return motor.Properties{PositionReporting: false}, nil
 }
 

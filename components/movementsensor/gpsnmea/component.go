@@ -86,7 +86,7 @@ func (g *NMEAMovementSensor) Start(ctx context.Context) error {
 }
 
 // Position returns the position and altitide of the sensor, or an error.
-func (g *NMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (g *NMEAMovementSensor) Position(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
@@ -111,7 +111,7 @@ func (g *NMEAMovementSensor) Position(ctx context.Context, extra map[string]inte
 }
 
 // Accuracy returns the accuracy map, hDOP, vDOP, Fixquality and compass heading error.
-func (g *NMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
+func (g *NMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]any) (*movementsensor.Accuracy, error,
 ) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -128,7 +128,7 @@ func (g *NMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]inte
 // LinearVelocity returns the sensor's linear velocity. It requires having a compass heading, so we
 // know which direction our speed is in. We assume all of this speed is horizontal, and not in
 // gaining/losing altitude.
-func (g *NMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (g *NMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
@@ -144,22 +144,22 @@ func (g *NMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[strin
 }
 
 // LinearAcceleration returns the sensor's linear acceleration.
-func (g *NMEAMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (g *NMEAMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]any) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }
 
 // AngularVelocity returns the sensor's angular velocity.
-func (g *NMEAMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (g *NMEAMovementSensor) AngularVelocity(ctx context.Context, extra map[string]any) (spatialmath.AngularVelocity, error) {
 	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }
 
 // Orientation returns the sensor's orientation.
-func (g *NMEAMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+func (g *NMEAMovementSensor) Orientation(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 	return spatialmath.NewOrientationVector(), movementsensor.ErrMethodUnimplementedOrientation
 }
 
 // CompassHeading returns the heading, from the range 0->360.
-func (g *NMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (g *NMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]any) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
@@ -192,7 +192,7 @@ func (g *NMEAMovementSensor) ReadSatsInView(ctx context.Context) (int, error) {
 }
 
 // Readings will use return all of the MovementSensor Readings.
-func (g *NMEAMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (g *NMEAMovementSensor) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	readings, err := movementsensor.DefaultAPIReadings(ctx, g, extra)
 	if err != nil {
 		return nil, err
@@ -213,7 +213,7 @@ func (g *NMEAMovementSensor) Readings(ctx context.Context, extra map[string]inte
 }
 
 // Properties returns what movement sensor capabilities we have.
-func (g *NMEAMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+func (g *NMEAMovementSensor) Properties(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
 		PositionSupported:       true,

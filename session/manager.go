@@ -25,12 +25,12 @@ type Manager interface {
 type ServerInterceptors struct {
 	UnaryServerInterceptor func(
 		ctx context.Context,
-		req interface{},
+		req any,
 		info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler,
-	) (interface{}, error)
+	) (any, error)
 	StreamServerInterceptor func(
-		srv interface{},
+		srv any,
 		ss grpc.ServerStream,
 		info *grpc.StreamServerInfo,
 		handler grpc.StreamHandler,

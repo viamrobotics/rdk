@@ -96,14 +96,14 @@ func TestCollectors(t *testing.T) {
 func newBoard() board.Board {
 	b := &inject.Board{}
 	analogReader := &inject.AnalogReader{}
-	analogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+	analogReader.ReadFunc = func(ctx context.Context, extra map[string]any) (int, error) {
 		return 1, nil
 	}
 	b.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 		return analogReader, true
 	}
 	gpioPin := &inject.GPIOPin{}
-	gpioPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	gpioPin.GetFunc = func(ctx context.Context, extra map[string]any) (bool, error) {
 		return true, nil
 	}
 	b.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
@@ -112,7 +112,7 @@ func newBoard() board.Board {
 	return b
 }
 
-func convertInterfaceToAny(v interface{}) *anypb.Any {
+func convertInterfaceToAny(v any) *anypb.Any {
 	anyValue := &anypb.Any{}
 
 	bytes, err := json.Marshal(v)

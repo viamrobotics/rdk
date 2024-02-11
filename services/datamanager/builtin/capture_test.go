@@ -235,7 +235,7 @@ func TestSwitchResource(t *testing.T) {
 	for resource := range resources {
 		if resource.Name == "arm1" {
 			newResource := inject.NewArm(resource.Name)
-			newResource.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+			newResource.EndPositionFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 				// Return a different value from the initial arm1 resource.
 				return spatialmath.NewPoseFromPoint(r3.Vector{X: 888, Y: 888, Z: 888}), nil
 			}

@@ -80,7 +80,7 @@ func (s *Server) Stop() error {
 func (s *Server) RegisterServiceServer(
 	ctx context.Context,
 	svcDesc *grpc.ServiceDesc,
-	svcServer interface{},
+	svcServer any,
 	svcHandlers ...rpc.RegisterServiceHandlerFromEndpointFunc,
 ) error {
 	s.server.RegisterService(svcDesc, svcServer)

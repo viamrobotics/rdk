@@ -238,7 +238,7 @@ func (d *ina) calibrate() error {
 	return nil
 }
 
-func (d *ina) Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+func (d *ina) Voltage(ctx context.Context, extra map[string]any) (float64, bool, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	handle, err := i2c.NewI2C(d.addr, d.bus)
@@ -268,7 +268,7 @@ func (d *ina) Voltage(ctx context.Context, extra map[string]interface{}) (float6
 	return voltage, isAC, nil
 }
 
-func (d *ina) Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+func (d *ina) Current(ctx context.Context, extra map[string]any) (float64, bool, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	handle, err := i2c.NewI2C(d.addr, d.bus)
@@ -295,7 +295,7 @@ func (d *ina) Current(ctx context.Context, extra map[string]interface{}) (float6
 	return current, isAC, nil
 }
 
-func (d *ina) Power(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (d *ina) Power(ctx context.Context, extra map[string]any) (float64, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	handle, err := i2c.NewI2C(d.addr, d.bus)
@@ -321,7 +321,7 @@ func (d *ina) Power(ctx context.Context, extra map[string]interface{}) (float64,
 }
 
 // Readings returns a map with voltage, current, power and isAC.
-func (d *ina) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (d *ina) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	volts, isAC, err := d.Voltage(ctx, nil)
 	if err != nil {
 		d.logger.CErrorf(ctx, "failed to get voltage reading: %s", err.Error())
@@ -336,7 +336,7 @@ func (d *ina) Readings(ctx context.Context, extra map[string]interface{}) (map[s
 	if err != nil {
 		d.logger.CErrorf(ctx, "failed to get power reading: %s", err.Error())
 	}
-	return map[string]interface{}{
+	return map[string]any{
 		"volts": volts,
 		"amps":  amps,
 		"is_ac": isAC,

@@ -16,13 +16,13 @@ import (
 
 func createInjectedCompassMovementSensor(name string, gpsPoint *geo.Point) *inject.MovementSensor {
 	injectedMovementSensor := inject.NewMovementSensor(name)
-	injectedMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	injectedMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 		return gpsPoint, 0, nil
 	}
-	injectedMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	injectedMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		return 0, nil
 	}
-	injectedMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+	injectedMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 		return &movementsensor.Properties{CompassHeadingSupported: true}, nil
 	}
 
@@ -31,13 +31,13 @@ func createInjectedCompassMovementSensor(name string, gpsPoint *geo.Point) *inje
 
 func createInjectedOrientationMovementSensor(orient spatialmath.Orientation) *inject.MovementSensor {
 	injectedMovementSensor := inject.NewMovementSensor("")
-	injectedMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	injectedMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 		return geo.NewPoint(0, 0), 0, nil
 	}
-	injectedMovementSensor.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+	injectedMovementSensor.OrientationFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
 		return orient, nil
 	}
-	injectedMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+	injectedMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 		return &movementsensor.Properties{OrientationSupported: true}, nil
 	}
 
@@ -66,7 +66,7 @@ func TestLocalizerOrientation(t *testing.T) {
 	)
 
 	// Update compass heading to point northwest
-	movementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	movementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		return 315, nil
 	}
 
@@ -80,7 +80,7 @@ func TestLocalizerOrientation(t *testing.T) {
 	)
 
 	// Update compass heading to point east
-	movementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	movementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		return 90, nil
 	}
 	pif, err = localizer.CurrentPosition(ctx)

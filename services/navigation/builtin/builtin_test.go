@@ -954,7 +954,7 @@ func TestStartWaypoint(t *testing.T) {
 					test.That(t, math.IsNaN(s.mogrs[0].Heading), test.ShouldBeTrue)
 					test.That(t, s.mogrs[0].MovementSensorName, test.ShouldResemble, s.movementSensor.Name())
 
-					test.That(t, s.mogrs[0].Extra, test.ShouldResemble, map[string]interface{}{
+					test.That(t, s.mogrs[0].Extra, test.ShouldResemble, map[string]any{
 						"motion_profile": "position_only",
 					})
 					test.That(t, s.mogrs[0].MotionCfg, test.ShouldResemble, expectedMotionCfg)
@@ -965,7 +965,7 @@ func TestStartWaypoint(t *testing.T) {
 					test.That(t, s.mogrs[1].ComponentName, test.ShouldResemble, s.base.Name())
 					test.That(t, math.IsNaN(s.mogrs[1].Heading), test.ShouldBeTrue)
 					test.That(t, s.mogrs[1].MovementSensorName, test.ShouldResemble, s.movementSensor.Name())
-					test.That(t, s.mogrs[1].Extra, test.ShouldResemble, map[string]interface{}{
+					test.That(t, s.mogrs[1].Extra, test.ShouldResemble, map[string]any{
 						"motion_profile": "position_only",
 					})
 					test.That(t, s.mogrs[1].MotionCfg, test.ShouldResemble, expectedMotionCfg)
@@ -1060,7 +1060,7 @@ func TestStartWaypoint(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// SetMode with empty map
-		err = s.ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{})
+		err = s.ns.SetMode(ctx, navigation.ModeWaypoint, map[string]any{})
 		test.That(t, err, test.ShouldBeNil)
 		<-mogCalled
 
@@ -1068,7 +1068,7 @@ func TestStartWaypoint(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// SetMode with motion_profile set
-		err = s.ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"some_other": "config_param"})
+		err = s.ns.SetMode(ctx, navigation.ModeWaypoint, map[string]any{"some_other": "config_param"})
 		test.That(t, err, test.ShouldBeNil)
 		<-mogCalled
 
@@ -1083,13 +1083,13 @@ func TestStartWaypoint(t *testing.T) {
 			s.RLock()
 			if len(s.mogrs) == 3 {
 				// MoveOnGlobe was called twice, once for each waypoint
-				test.That(t, s.mogrs[0].Extra, test.ShouldResemble, map[string]interface{}{
+				test.That(t, s.mogrs[0].Extra, test.ShouldResemble, map[string]any{
 					"motion_profile": "position_only",
 				})
-				test.That(t, s.mogrs[1].Extra, test.ShouldResemble, map[string]interface{}{
+				test.That(t, s.mogrs[1].Extra, test.ShouldResemble, map[string]any{
 					"motion_profile": "position_only",
 				})
-				test.That(t, s.mogrs[2].Extra, test.ShouldResemble, map[string]interface{}{
+				test.That(t, s.mogrs[2].Extra, test.ShouldResemble, map[string]any{
 					"motion_profile": "position_only",
 					"some_other":     "config_param",
 				})
@@ -1776,21 +1776,21 @@ func TestGetObstacles(t *testing.T) {
 	ns.(*builtIn).fsService = fsSvc
 
 	// set injectMovementSensor functions
-	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]any) (*geo.Point, float64, error) {
 		return geo.NewPoint(1, 1), 0, nil
 	}
-	injectMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+	injectMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]any) (*movementsensor.Properties, error) {
 		return &movementsensor.Properties{
 			CompassHeadingSupported: true,
 		}, nil
 	}
-	injectMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	injectMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		// this is a left-handed value
 		return 315, nil
 	}
 
 	// set injectedVis functions
-	injectedVis.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+	injectedVis.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]any) ([]*viz.Object, error) {
 		boxGeom, err := spatialmath.NewBox(
 			spatialmath.NewPose(r3.Vector{-10, 0, 11}, &spatialmath.OrientationVectorDegrees{OZ: -1, OX: 1}),
 			r3.Vector{5, 5, 1},

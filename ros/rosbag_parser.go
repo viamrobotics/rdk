@@ -66,7 +66,7 @@ func WriteTopicsJSON(rb *rosbag.RosBag, startTime, endTime int64, topicsFilter [
 }
 
 // AllMessagesForTopic returns all messages for a specific topic in the ros bag.
-func AllMessagesForTopic(rb *rosbag.RosBag, topic string) ([]map[string]interface{}, error) {
+func AllMessagesForTopic(rb *rosbag.RosBag, topic string) ([]map[string]any, error) {
 	if err := rb.ParseTopicsToJSON(
 		"",
 		func(int64) bool { return true },
@@ -81,7 +81,7 @@ func AllMessagesForTopic(rb *rosbag.RosBag, topic string) ([]map[string]interfac
 		return nil, errors.Errorf("no messages for topic %s", topic)
 	}
 
-	all := []map[string]interface{}{}
+	all := []map[string]any{}
 
 	for {
 		data, err := msgs.ReadBytes('\n')
@@ -91,7 +91,7 @@ func AllMessagesForTopic(rb *rosbag.RosBag, topic string) ([]map[string]interfac
 			}
 			return nil, err
 		}
-		message := map[string]interface{}{}
+		message := map[string]any{}
 		err = json.Unmarshal(data, &message)
 		if err != nil {
 			return nil, err

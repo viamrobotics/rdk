@@ -107,12 +107,12 @@ type gpioInterruptWrapperPin struct {
 }
 
 func (gp gpioInterruptWrapperPin) Set(
-	ctx context.Context, isHigh bool, extra map[string]interface{},
+	ctx context.Context, isHigh bool, extra map[string]any,
 ) error {
 	return errors.New("cannot set value of a digital interrupt pin")
 }
 
-func (gp gpioInterruptWrapperPin) Get(ctx context.Context, extra map[string]interface{}) (result bool, err error) {
+func (gp gpioInterruptWrapperPin) Get(ctx context.Context, extra map[string]any) (result bool, err error) {
 	value, err := gp.interrupt.line.Value()
 	if err != nil {
 		return false, err
@@ -122,24 +122,24 @@ func (gp gpioInterruptWrapperPin) Get(ctx context.Context, extra map[string]inte
 	return (value != 0), nil
 }
 
-func (gp gpioInterruptWrapperPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (gp gpioInterruptWrapperPin) PWM(ctx context.Context, extra map[string]any) (float64, error) {
 	return 0, errors.New("cannot get PWM of a digital interrupt pin")
 }
 
 func (gp gpioInterruptWrapperPin) SetPWM(
-	ctx context.Context, dutyCyclePct float64, extra map[string]interface{},
+	ctx context.Context, dutyCyclePct float64, extra map[string]any,
 ) error {
 	return errors.New("cannot set PWM of a digital interrupt pin")
 }
 
 func (gp gpioInterruptWrapperPin) PWMFreq(
-	ctx context.Context, extra map[string]interface{},
+	ctx context.Context, extra map[string]any,
 ) (uint, error) {
 	return 0, errors.New("cannot get PWM freq of a digital interrupt pin")
 }
 
 func (gp gpioInterruptWrapperPin) SetPWMFreq(
-	ctx context.Context, freqHz uint, extra map[string]interface{},
+	ctx context.Context, freqHz uint, extra map[string]any,
 ) error {
 	return errors.New("cannot set PWM freq of a digital interrupt pin")
 }

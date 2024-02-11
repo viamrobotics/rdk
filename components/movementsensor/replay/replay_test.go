@@ -522,7 +522,7 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, replay, test.ShouldNotBeNil)
 
-			actualProperties, err := replay.Properties(ctx, map[string]interface{}{})
+			actualProperties, err := replay.Properties(ctx, map[string]any{})
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualProperties, test.ShouldResemble, tt.expectedProperties)
 
@@ -763,7 +763,7 @@ func TestUnimplementedFunctionAccuracy(t *testing.T) {
 	replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	acc, err := replay.Accuracy(ctx, map[string]interface{}{})
+	acc, err := replay.Accuracy(ctx, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, acc, test.ShouldNotBeNil)
 
@@ -790,7 +790,7 @@ func TestReplayMovementSensorReadings(t *testing.T) {
 
 	// For loop depends on the data length of orientation as it has the fewest points of data
 	for i := 0; i < allMethodsMaxDataLength[orientation]; i++ {
-		readings, err := replay.Readings(ctx, map[string]interface{}{})
+		readings, err := replay.Readings(ctx, map[string]any{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readings["position"], test.ShouldResemble, positionPointData[i])
 		test.That(t, readings["altitude"], test.ShouldResemble, positionAltitudeData[i])
@@ -801,7 +801,7 @@ func TestReplayMovementSensorReadings(t *testing.T) {
 		test.That(t, readings["orientation"], test.ShouldResemble, orientationData[i])
 	}
 
-	readings, err := replay.Readings(ctx, map[string]interface{}{})
+	readings, err := replay.Readings(ctx, map[string]any{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 	test.That(t, readings, test.ShouldBeNil)

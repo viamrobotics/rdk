@@ -29,13 +29,13 @@ func (m method) String() string {
 
 // newPositionCollector returns a collector to register a position method. If one is already registered
 // with the same MethodMetadata it will panic.
-func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newPositionCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	motor, err := assertMotor(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (any, error) {
 		v, err := motor.Position(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -54,13 +54,13 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 
 // newIsPoweredCollector returns a collector to register an is powered method. If one is already registered
 // with the same MethodMetadata it will panic.
-func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newIsPoweredCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	motor, err := assertMotor(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (any, error) {
 		v, powerPct, err := motor.IsPowered(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -78,7 +78,7 @@ func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (d
 	return data.NewCollector(cFunc, params)
 }
 
-func assertMotor(resource interface{}) (Motor, error) {
+func assertMotor(resource any) (Motor, error) {
 	motor, ok := resource.(Motor)
 	if !ok {
 		return nil, data.InvalidInterfaceErr(API)

@@ -44,7 +44,7 @@ func ContextWithMetadata(ctx context.Context) (context.Context, map[string][]str
 func ContextWithMetadataUnaryClientInterceptor(
 	ctx context.Context,
 	method string,
-	req, reply interface{},
+	req, reply any,
 	cc *grpc.ClientConn,
 	invoker grpc.UnaryInvoker,
 	opts ...grpc.CallOption,

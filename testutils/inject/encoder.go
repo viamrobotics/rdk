@@ -11,13 +11,13 @@ import (
 type Encoder struct {
 	encoder.Encoder
 	name              resource.Name
-	DoFunc            func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	ResetPositionFunc func(ctx context.Context, extra map[string]interface{}) error
+	DoFunc            func(ctx context.Context, cmd map[string]any) (map[string]any, error)
+	ResetPositionFunc func(ctx context.Context, extra map[string]any) error
 	PositionFunc      func(ctx context.Context,
 		positionType encoder.PositionType,
-		extra map[string]interface{},
+		extra map[string]any,
 	) (float64, encoder.PositionType, error)
-	PropertiesFunc func(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error)
+	PropertiesFunc func(ctx context.Context, extra map[string]any) (encoder.Properties, error)
 }
 
 // NewEncoder returns a new injected Encoder.
@@ -31,7 +31,7 @@ func (e *Encoder) Name() resource.Name {
 }
 
 // ResetPosition calls the injected Zero or the real version.
-func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
+func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]any) error {
 	if e.ResetPositionFunc == nil {
 		return e.Encoder.ResetPosition(ctx, extra)
 	}
@@ -42,7 +42,7 @@ func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{
 func (e *Encoder) Position(
 	ctx context.Context,
 	positionType encoder.PositionType,
-	extra map[string]interface{},
+	extra map[string]any,
 ) (float64, encoder.PositionType, error) {
 	if e.PositionFunc == nil {
 		return e.Encoder.Position(ctx, positionType, extra)
@@ -51,7 +51,7 @@ func (e *Encoder) Position(
 }
 
 // Properties calls the injected Properties or the real version.
-func (e *Encoder) Properties(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
+func (e *Encoder) Properties(ctx context.Context, extra map[string]any) (encoder.Properties, error) {
 	if e.PropertiesFunc == nil {
 		return e.Encoder.Properties(ctx, extra)
 	}
@@ -59,7 +59,7 @@ func (e *Encoder) Properties(ctx context.Context, extra map[string]interface{}) 
 }
 
 // DoCommand calls the injected DoCommand or the real version.
-func (e *Encoder) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (e *Encoder) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	if e.DoFunc == nil {
 		return e.Encoder.DoCommand(ctx, cmd)
 	}

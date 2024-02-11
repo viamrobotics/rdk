@@ -63,7 +63,7 @@ type serviceServer struct {
 }
 
 // NewRPCServiceServer returns a new RPC server for the gizmo API.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Gizmo]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceCollection[Gizmo]) any {
 	return &serviceServer{coll: coll}
 }
 
@@ -318,7 +318,7 @@ func (c *client) DoTwo(ctx context.Context, arg1 bool) (string, error) {
 	return resp.Ret1, nil
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	command, err := protoutils.StructToStructPb(cmd)
 	if err != nil {
 		return nil, err

@@ -15,7 +15,7 @@ type (
 	}
 
 	// DiscoveryFunc is a function that discovers component configurations.
-	DiscoveryFunc func(ctx context.Context, logger logging.Logger) (interface{}, error)
+	DiscoveryFunc func(ctx context.Context, logger logging.Logger) (any, error)
 
 	// Discovery holds a Query and a corresponding discovered component configuration. A
 	// discovered component configuration can be comprised of primitives, a list of
@@ -24,7 +24,7 @@ type (
 	// guaranteed.
 	Discovery struct {
 		Query   DiscoveryQuery
-		Results interface{}
+		Results any
 	}
 
 	// DiscoverError indicates that a Discover function has returned an error.

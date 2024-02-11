@@ -38,12 +38,12 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	failingServer := grpc.NewServer()
 
-	var extraOptions map[string]interface{}
+	var extraOptions map[string]any
 	workingNavigationService := &inject.NavigationService{}
 	failingNavigationService := &inject.NavigationService{}
 
 	modeTested := false
-	workingNavigationService.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
+	workingNavigationService.ModeFunc = func(ctx context.Context, extra map[string]any) (navigation.Mode, error) {
 		extraOptions = extra
 		if !modeTested {
 			modeTested = true
@@ -52,7 +52,7 @@ func TestClient(t *testing.T) {
 		return navigation.ModeWaypoint, nil
 	}
 	var receivedMode navigation.Mode
-	workingNavigationService.SetModeFunc = func(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error {
+	workingNavigationService.SetModeFunc = func(ctx context.Context, mode navigation.Mode, extra map[string]any) error {
 		extraOptions = extra
 		receivedMode = mode
 		return nil
@@ -60,7 +60,7 @@ func TestClient(t *testing.T) {
 	expectedLoc := geo.NewPoint(80, 1)
 	expectedCompassHeading := 90.
 	expectedGeoPose := spatialmath.NewGeoPose(expectedLoc, expectedCompassHeading)
-	workingNavigationService.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
+	workingNavigationService.LocationFunc = func(ctx context.Context, extra map[string]any) (*spatialmath.GeoPose, error) {
 		extraOptions = extra
 
 		return expectedGeoPose, nil
@@ -73,25 +73,25 @@ func TestClient(t *testing.T) {
 			Long:  20,
 		},
 	}
-	workingNavigationService.WaypointsFunc = func(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
+	workingNavigationService.WaypointsFunc = func(ctx context.Context, extra map[string]any) ([]navigation.Waypoint, error) {
 		extraOptions = extra
 		return waypoints, nil
 	}
 	var receivedPoint *geo.Point
-	workingNavigationService.AddWaypointFunc = func(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
+	workingNavigationService.AddWaypointFunc = func(ctx context.Context, point *geo.Point, extra map[string]any) error {
 		extraOptions = extra
 		receivedPoint = point
 		return nil
 	}
 	var receivedID primitive.ObjectID
-	workingNavigationService.RemoveWaypointFunc = func(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
+	workingNavigationService.RemoveWaypointFunc = func(ctx context.Context, id primitive.ObjectID, extra map[string]any) error {
 		extraOptions = extra
 		receivedID = id
 		return nil
 	}
 
 	var receivedPaths []*navigation.Path
-	workingNavigationService.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+	workingNavigationService.PathsFunc = func(ctx context.Context, extra map[string]any) ([]*navigation.Path, error) {
 		path, err := navigation.NewPath(primitive.NewObjectID(), []*geo.Point{geo.NewPoint(0, 0)})
 		test.That(t, err, test.ShouldBeNil)
 		receivedPaths = []*navigation.Path{path}
@@ -103,31 +103,31 @@ func TestClient(t *testing.T) {
 		return receivedProp, nil
 	}
 
-	failingNavigationService.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
+	failingNavigationService.ModeFunc = func(ctx context.Context, extra map[string]any) (navigation.Mode, error) {
 		return navigation.ModeManual, errors.New("failure to retrieve mode")
 	}
 	var receivedFailingMode navigation.Mode
-	failingNavigationService.SetModeFunc = func(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error {
+	failingNavigationService.SetModeFunc = func(ctx context.Context, mode navigation.Mode, extra map[string]any) error {
 		receivedFailingMode = mode
 		return errors.New("failure to set mode")
 	}
-	failingNavigationService.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
+	failingNavigationService.LocationFunc = func(ctx context.Context, extra map[string]any) (*spatialmath.GeoPose, error) {
 		return nil, errors.New("failure to retrieve location")
 	}
-	failingNavigationService.WaypointsFunc = func(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
+	failingNavigationService.WaypointsFunc = func(ctx context.Context, extra map[string]any) ([]navigation.Waypoint, error) {
 		return nil, errors.New("failure to retrieve waypoints")
 	}
 	var receivedFailingPoint *geo.Point
-	failingNavigationService.AddWaypointFunc = func(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
+	failingNavigationService.AddWaypointFunc = func(ctx context.Context, point *geo.Point, extra map[string]any) error {
 		receivedFailingPoint = point
 		return errors.New("failure to add waypoint")
 	}
 	var receivedFailingID primitive.ObjectID
-	failingNavigationService.RemoveWaypointFunc = func(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
+	failingNavigationService.RemoveWaypointFunc = func(ctx context.Context, id primitive.ObjectID, extra map[string]any) error {
 		receivedFailingID = id
 		return errors.New("failure to remove waypoint")
 	}
-	failingNavigationService.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+	failingNavigationService.PathsFunc = func(ctx context.Context, extra map[string]any) ([]*navigation.Path, error) {
 		return nil, errors.New("unimplemented")
 	}
 
@@ -168,18 +168,18 @@ func TestClient(t *testing.T) {
 
 	t.Run("client tests for working navigation service", func(t *testing.T) {
 		// test mode
-		extra := map[string]interface{}{"foo": "Mode"}
+		extra := map[string]any{"foo": "Mode"}
 		mode, err := workingNavClient.Mode(context.Background(), extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mode, test.ShouldEqual, navigation.ModeManual)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
-		mode, err = workingNavClient.Mode(context.Background(), map[string]interface{}{})
+		mode, err = workingNavClient.Mode(context.Background(), map[string]any{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mode, test.ShouldEqual, navigation.ModeWaypoint)
-		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
+		test.That(t, extraOptions, test.ShouldResemble, map[string]any{})
 
 		// test set mode
-		extra = map[string]interface{}{"foo": "SetMode"}
+		extra = map[string]any{"foo": "SetMode"}
 		err = workingNavClient.SetMode(context.Background(), navigation.ModeManual, extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, receivedMode, test.ShouldEqual, navigation.ModeManual)
@@ -201,7 +201,7 @@ func TestClient(t *testing.T) {
 
 		// test add waypoint
 		point := geo.NewPoint(90, 1)
-		extra = map[string]interface{}{"foo": "AddWaypoint"}
+		extra = map[string]any{"foo": "AddWaypoint"}
 		err = workingNavClient.AddWaypoint(context.Background(), point, extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, receivedPoint, test.ShouldResemble, point)
@@ -235,7 +235,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// test location
-		extra := map[string]interface{}{"foo": "Location"}
+		extra := map[string]any{"foo": "Location"}
 		geoPose, err := workingDialedClient.Location(context.Background(), extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, geoPose, test.ShouldResemble, expectedGeoPose)
@@ -243,7 +243,7 @@ func TestClient(t *testing.T) {
 
 		// test remove waypoint
 		wptID := primitive.NewObjectID()
-		extra = map[string]interface{}{"foo": "RemoveWaypoint"}
+		extra = map[string]any{"foo": "RemoveWaypoint"}
 		err = workingDialedClient.RemoveWaypoint(context.Background(), wptID, extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, wptID, test.ShouldEqual, receivedID)
@@ -258,7 +258,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// test waypoints
-		extra := map[string]interface{}{"foo": "Waypoints"}
+		extra := map[string]any{"foo": "Waypoints"}
 		receivedWpts, err := dialedClient.Waypoints(context.Background(), extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, receivedWpts, test.ShouldResemble, waypoints)
@@ -276,19 +276,19 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// test mode
-		_, err = failingNavClient.Mode(context.Background(), map[string]interface{}{})
+		_, err = failingNavClient.Mode(context.Background(), map[string]any{})
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// test set mode
-		err = failingNavClient.SetMode(context.Background(), navigation.ModeWaypoint, map[string]interface{}{})
+		err = failingNavClient.SetMode(context.Background(), navigation.ModeWaypoint, map[string]any{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, receivedFailingMode, test.ShouldEqual, navigation.ModeWaypoint)
-		err = failingNavClient.SetMode(context.Background(), navigation.Mode(math.MaxUint8), map[string]interface{}{})
+		err = failingNavClient.SetMode(context.Background(), navigation.Mode(math.MaxUint8), map[string]any{})
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// test add waypoint
 		point := geo.NewPoint(90, 1)
-		err = failingNavClient.AddWaypoint(context.Background(), point, map[string]interface{}{})
+		err = failingNavClient.AddWaypoint(context.Background(), point, map[string]any{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, receivedFailingPoint, test.ShouldResemble, point)
 
@@ -312,17 +312,17 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// test waypoints
-		_, err = dialedClient.Waypoints(context.Background(), map[string]interface{}{})
+		_, err = dialedClient.Waypoints(context.Background(), map[string]any{})
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// test location
-		geoPose, err := dialedClient.Location(context.Background(), map[string]interface{}{})
+		geoPose, err := dialedClient.Location(context.Background(), map[string]any{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, geoPose, test.ShouldBeNil)
 
 		// test remove waypoint
 		wptID := primitive.NewObjectID()
-		err = dialedClient.RemoveWaypoint(context.Background(), wptID, map[string]interface{}{})
+		err = dialedClient.RemoveWaypoint(context.Background(), wptID, map[string]any{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, wptID, test.ShouldEqual, receivedFailingID)
 		test.That(t, conn.Close(), test.ShouldBeNil)

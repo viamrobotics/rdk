@@ -95,7 +95,7 @@ func (pCtx *ProcessorContext) currentImgConfigFile() string {
 }
 
 // CurrentImgConfig TODO.
-func (pCtx *ProcessorContext) CurrentImgConfig(out interface{}) error {
+func (pCtx *ProcessorContext) CurrentImgConfig(out any) error {
 	fn := pCtx.currentImgConfigFile()
 
 	//nolint:gosec

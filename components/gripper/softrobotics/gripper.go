@@ -141,7 +141,7 @@ func newGripper(b board.Board, conf resource.Config, logger logging.Logger) (gri
 }
 
 // Stop TODO.
-func (g *softGripper) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (g *softGripper) Stop(ctx context.Context, extra map[string]any) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 	return multierr.Combine(
@@ -152,7 +152,7 @@ func (g *softGripper) Stop(ctx context.Context, extra map[string]interface{}) er
 }
 
 // Open TODO.
-func (g *softGripper) Open(ctx context.Context, extra map[string]interface{}) error {
+func (g *softGripper) Open(ctx context.Context, extra map[string]any) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -187,7 +187,7 @@ func (g *softGripper) Open(ctx context.Context, extra map[string]interface{}) er
 }
 
 // Grab TODO.
-func (g *softGripper) Grab(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (g *softGripper) Grab(ctx context.Context, extra map[string]any) (bool, error) {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -232,6 +232,6 @@ func (g *softGripper) ModelFrame() referenceframe.Model {
 }
 
 // Geometries returns the geometries associated with the softGripper.
-func (g *softGripper) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+func (g *softGripper) Geometries(ctx context.Context, extra map[string]any) ([]spatialmath.Geometry, error) {
 	return g.geometries, nil
 }

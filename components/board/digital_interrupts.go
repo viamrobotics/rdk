@@ -28,7 +28,7 @@ type Tick struct {
 type DigitalInterrupt interface {
 	// Value returns the current value of the interrupt which is
 	// based on the type of interrupt.
-	Value(ctx context.Context, extra map[string]interface{}) (int64, error)
+	Value(ctx context.Context, extra map[string]any) (int64, error)
 
 	// Tick is to be called either manually if the interrupt is a proxy to some real
 	// hardware interrupt or for tests.
@@ -76,7 +76,7 @@ type BasicDigitalInterrupt struct {
 }
 
 // Value returns the amount of ticks that have occurred.
-func (i *BasicDigitalInterrupt) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
+func (i *BasicDigitalInterrupt) Value(ctx context.Context, extra map[string]any) (int64, error) {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	count := atomic.LoadInt64(&i.count)

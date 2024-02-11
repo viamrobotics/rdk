@@ -21,7 +21,7 @@ type serviceServer struct {
 
 // NewRPCServiceServer constructs an gripper gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Gripper]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceCollection[Gripper]) any {
 	return &serviceServer{coll: coll}
 }
 

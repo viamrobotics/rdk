@@ -39,10 +39,10 @@ type Controller interface {
 	resource.Resource
 
 	// Controls returns a list of Controls provided by the Controller
-	Controls(ctx context.Context, extra map[string]interface{}) ([]Control, error)
+	Controls(ctx context.Context, extra map[string]any) ([]Control, error)
 
 	// Events returns most recent Event for each input (which should be the current state)
-	Events(ctx context.Context, extra map[string]interface{}) (map[Control]Event, error)
+	Events(ctx context.Context, extra map[string]any) (map[Control]Event, error)
 
 	// RegisterCallback registers a callback that will fire on given EventTypes for a given Control.
 	// The callback is called on the same goroutine as the firer and if any long operation is to occur,
@@ -52,7 +52,7 @@ type Controller interface {
 		control Control,
 		triggers []EventType,
 		ctrlFunc ControlFunction,
-		extra map[string]interface{},
+		extra map[string]any,
 	) error
 }
 
@@ -133,7 +133,7 @@ type Event struct {
 // Triggerable is used by the WebGamepad interface to inject events.
 type Triggerable interface {
 	// TriggerEvent allows directly sending an Event (such as a button press) from external code
-	TriggerEvent(ctx context.Context, event Event, extra map[string]interface{}) error
+	TriggerEvent(ctx context.Context, event Event, extra map[string]any) error
 }
 
 // FromDependencies is a helper for getting the named input controller from a collection of
@@ -154,7 +154,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // CreateStatus creates a status from the input controller.
 func CreateStatus(ctx context.Context, c Controller) (*pb.Status, error) {
-	eventsIn, err := c.Events(ctx, map[string]interface{}{})
+	eventsIn, err := c.Events(ctx, map[string]any{})
 	if err != nil {
 		return nil, err
 	}

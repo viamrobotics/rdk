@@ -87,7 +87,7 @@ func createFakeCamera(ctx context.Context, logger logging.Logger, name string) (
 func createMockVisionService(visionSvcNum string, obstacles []obstacleMetadata) vSvc.Service {
 	mockVisionService := &inject.VisionService{}
 
-	mockVisionService.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{},
+	mockVisionService.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]any,
 	) ([]*vision.Object, error) {
 		var vObjects []*vision.Object
 		for _, obs := range obstacles {

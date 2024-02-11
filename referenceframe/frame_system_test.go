@@ -19,7 +19,7 @@ import (
 func TestFrameModelPart(t *testing.T) {
 	jsonData, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame.json"))
 	test.That(t, err, test.ShouldBeNil)
-	var modelJSONMap map[string]interface{}
+	var modelJSONMap map[string]any
 	json.Unmarshal(jsonData, &modelJSONMap)
 	model, err := UnmarshalModelJSON(jsonData, "")
 	test.That(t, err, test.ShouldBeNil)

@@ -76,10 +76,10 @@ func TestMotorCollectors(t *testing.T) {
 
 func newMotor() motor.Motor {
 	m := &inject.Motor{}
-	m.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+	m.IsPoweredFunc = func(ctx context.Context, extra map[string]any) (bool, float64, error) {
 		return false, .5, nil
 	}
-	m.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	m.PositionFunc = func(ctx context.Context, extra map[string]any) (float64, error) {
 		return 1.0, nil
 	}
 	return m

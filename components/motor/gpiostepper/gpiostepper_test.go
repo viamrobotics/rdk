@@ -372,7 +372,7 @@ func TestRunning(t *testing.T) {
 		ctx, cancel := context.WithCancel(ctx)
 		wg.Add(1)
 		go func() {
-			m.GoFor(ctx, 100, 100, map[string]interface{}{})
+			m.GoFor(ctx, 100, 100, map[string]any{})
 			wg.Done()
 		}()
 
@@ -419,7 +419,7 @@ func TestRunning(t *testing.T) {
 		ctx, cancel := context.WithCancel(ctx)
 		wg.Add(1)
 		go func() {
-			m.GoFor(ctx, 100, 100, map[string]interface{}{})
+			m.GoFor(ctx, 100, 100, map[string]any{})
 			wg.Done()
 		}()
 

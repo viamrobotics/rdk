@@ -15,21 +15,21 @@ import (
 type NavigationService struct {
 	navigation.Service
 	name        resource.Name
-	ModeFunc    func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error)
-	SetModeFunc func(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error
+	ModeFunc    func(ctx context.Context, extra map[string]any) (navigation.Mode, error)
+	SetModeFunc func(ctx context.Context, mode navigation.Mode, extra map[string]any) error
 
-	LocationFunc func(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error)
+	LocationFunc func(ctx context.Context, extra map[string]any) (*spatialmath.GeoPose, error)
 
-	WaypointsFunc      func(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error)
-	AddWaypointFunc    func(ctx context.Context, point *geo.Point, extra map[string]interface{}) error
-	RemoveWaypointFunc func(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error
+	WaypointsFunc      func(ctx context.Context, extra map[string]any) ([]navigation.Waypoint, error)
+	AddWaypointFunc    func(ctx context.Context, point *geo.Point, extra map[string]any) error
+	RemoveWaypointFunc func(ctx context.Context, id primitive.ObjectID, extra map[string]any) error
 
-	ObstaclesFunc func(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error)
-	PathsFunc     func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error)
+	ObstaclesFunc func(ctx context.Context, extra map[string]any) ([]*spatialmath.GeoObstacle, error)
+	PathsFunc     func(ctx context.Context, extra map[string]any) ([]*navigation.Path, error)
 
 	PropertiesFunc func(ctx context.Context) (navigation.Properties, error)
 
-	DoCommandFunc func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	DoCommandFunc func(ctx context.Context, cmd map[string]any) (map[string]any, error)
 	CloseFunc     func(ctx context.Context) error
 }
 
@@ -44,7 +44,7 @@ func (ns *NavigationService) Name() resource.Name {
 }
 
 // Mode calls the injected ModeFunc or the real version.
-func (ns *NavigationService) Mode(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
+func (ns *NavigationService) Mode(ctx context.Context, extra map[string]any) (navigation.Mode, error) {
 	if ns.ModeFunc == nil {
 		return ns.Service.Mode(ctx, extra)
 	}
@@ -52,7 +52,7 @@ func (ns *NavigationService) Mode(ctx context.Context, extra map[string]interfac
 }
 
 // SetMode calls the injected SetModeFunc or the real version.
-func (ns *NavigationService) SetMode(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error {
+func (ns *NavigationService) SetMode(ctx context.Context, mode navigation.Mode, extra map[string]any) error {
 	if ns.SetModeFunc == nil {
 		return ns.Service.SetMode(ctx, mode, extra)
 	}
@@ -60,7 +60,7 @@ func (ns *NavigationService) SetMode(ctx context.Context, mode navigation.Mode, 
 }
 
 // Location calls the injected LocationFunc or the real version.
-func (ns *NavigationService) Location(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
+func (ns *NavigationService) Location(ctx context.Context, extra map[string]any) (*spatialmath.GeoPose, error) {
 	if ns.LocationFunc == nil {
 		return ns.Service.Location(ctx, extra)
 	}
@@ -68,7 +68,7 @@ func (ns *NavigationService) Location(ctx context.Context, extra map[string]inte
 }
 
 // Waypoints calls the injected WaypointsFunc or the real version.
-func (ns *NavigationService) Waypoints(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
+func (ns *NavigationService) Waypoints(ctx context.Context, extra map[string]any) ([]navigation.Waypoint, error) {
 	if ns.WaypointsFunc == nil {
 		return ns.Service.Waypoints(ctx, extra)
 	}
@@ -76,7 +76,7 @@ func (ns *NavigationService) Waypoints(ctx context.Context, extra map[string]int
 }
 
 // AddWaypoint calls the injected AddWaypointFunc or the real version.
-func (ns *NavigationService) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
+func (ns *NavigationService) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]any) error {
 	if ns.AddWaypointFunc == nil {
 		return ns.Service.AddWaypoint(ctx, point, extra)
 	}
@@ -84,7 +84,7 @@ func (ns *NavigationService) AddWaypoint(ctx context.Context, point *geo.Point, 
 }
 
 // RemoveWaypoint calls the injected RemoveWaypointFunc or the real version.
-func (ns *NavigationService) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
+func (ns *NavigationService) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]any) error {
 	if ns.RemoveWaypointFunc == nil {
 		return ns.Service.RemoveWaypoint(ctx, id, extra)
 	}
@@ -92,7 +92,7 @@ func (ns *NavigationService) RemoveWaypoint(ctx context.Context, id primitive.Ob
 }
 
 // Obstacles calls the injected Obstacles or the real version.
-func (ns *NavigationService) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+func (ns *NavigationService) Obstacles(ctx context.Context, extra map[string]any) ([]*spatialmath.GeoObstacle, error) {
 	if ns.ObstaclesFunc == nil {
 		return ns.Service.Obstacles(ctx, extra)
 	}
@@ -100,7 +100,7 @@ func (ns *NavigationService) Obstacles(ctx context.Context, extra map[string]int
 }
 
 // Paths calls the injected Paths or the real version.
-func (ns *NavigationService) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+func (ns *NavigationService) Paths(ctx context.Context, extra map[string]any) ([]*navigation.Path, error) {
 	if ns.PathsFunc == nil {
 		return ns.Service.Paths(ctx, extra)
 	}
@@ -117,8 +117,8 @@ func (ns *NavigationService) Properties(ctx context.Context) (navigation.Propert
 
 // DoCommand calls the injected DoCommand or the real variant.
 func (ns *NavigationService) DoCommand(ctx context.Context,
-	cmd map[string]interface{},
-) (map[string]interface{}, error) {
+	cmd map[string]any,
+) (map[string]any, error) {
 	if ns.DoCommandFunc == nil {
 		return ns.Service.DoCommand(ctx, cmd)
 	}

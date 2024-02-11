@@ -325,7 +325,7 @@ func (s *servoGPIO) findPWMResolution(ctx context.Context) error {
 
 // Move moves the servo to the given angle (0-180 degrees)
 // This will block until done or a new operation cancels this one.
-func (s *servoGPIO) Move(ctx context.Context, ang uint32, extra map[string]interface{}) error {
+func (s *servoGPIO) Move(ctx context.Context, ang uint32, extra map[string]any) error {
 	ctx, done := s.opMgr.New(ctx)
 	defer done()
 
@@ -353,7 +353,7 @@ func (s *servoGPIO) Move(ctx context.Context, ang uint32, extra map[string]inter
 }
 
 // Position returns the current set angle (degrees) of the servo.
-func (s *servoGPIO) Position(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+func (s *servoGPIO) Position(ctx context.Context, extra map[string]any) (uint32, error) {
 	pct, err := s.pin.PWM(ctx, nil)
 	if err != nil {
 		return 0, errors.Wrap(err, "couldn't get servo pin duty cycle")
@@ -373,7 +373,7 @@ func (s *servoGPIO) Position(ctx context.Context, extra map[string]interface{}) 
 }
 
 // Stop stops the servo. It is assumed the servo stops immediately.
-func (s *servoGPIO) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (s *servoGPIO) Stop(ctx context.Context, extra map[string]any) error {
 	ctx, done := s.opMgr.New(ctx)
 	defer done()
 	// Turning the pin all the way off (i.e., setting the duty cycle to 0%) will cut power to the

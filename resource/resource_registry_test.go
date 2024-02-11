@@ -75,12 +75,12 @@ func TestComponentRegistry(t *testing.T) {
 }
 
 func TestResourceAPIRegistry(t *testing.T) {
-	statf := func(context.Context, arm.Arm) (interface{}, error) {
+	statf := func(context.Context, arm.Arm) (any, error) {
 		return nil, errors.New("one")
 	}
 	var capColl resource.APIResourceCollection[arm.Arm]
 
-	sf := func(apiResColl resource.APIResourceCollection[arm.Arm]) interface{} {
+	sf := func(apiResColl resource.APIResourceCollection[arm.Arm]) any {
 		capColl = apiResColl
 		return 5
 	}
@@ -197,10 +197,10 @@ func (st *someType) UpdateResourceNames(updater func(old resource.Name) resource
 }
 
 func TestResourceAPIRegistryWithAssociation(t *testing.T) {
-	statf := func(context.Context, arm.Arm) (interface{}, error) {
+	statf := func(context.Context, arm.Arm) (any, error) {
 		return nil, errors.New("one")
 	}
-	sf := func(apiResColl resource.APIResourceCollection[arm.Arm]) interface{} {
+	sf := func(apiResColl resource.APIResourceCollection[arm.Arm]) any {
 		return nil
 	}
 
@@ -224,7 +224,7 @@ func TestResourceAPIRegistryWithAssociation(t *testing.T) {
 }
 
 func TestDiscoveryFunctions(t *testing.T) {
-	df := func(ctx context.Context, logger logging.Logger) (interface{}, error) {
+	df := func(ctx context.Context, logger logging.Logger) (any, error) {
 		return []resource.Discovery{}, nil
 	}
 	validAPIQuery := resource.NewDiscoveryQuery(acme.API, resource.Model{Name: "some model"})

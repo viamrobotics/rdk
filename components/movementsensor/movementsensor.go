@@ -68,14 +68,14 @@ func Named(name string) resource.Name {
 type MovementSensor interface {
 	resource.Sensor
 	resource.Resource
-	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)                // (lat, long), altitude (m)
-	LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)                    // m / sec
-	AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) // deg / sec
-	LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)
-	CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) // [0->360)
-	Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error)
-	Properties(ctx context.Context, extra map[string]interface{}) (*Properties, error)
-	Accuracy(ctx context.Context, extra map[string]interface{}) (*Accuracy, error)
+	Position(ctx context.Context, extra map[string]any) (*geo.Point, float64, error)                // (lat, long), altitude (m)
+	LinearVelocity(ctx context.Context, extra map[string]any) (r3.Vector, error)                    // m / sec
+	AngularVelocity(ctx context.Context, extra map[string]any) (spatialmath.AngularVelocity, error) // deg / sec
+	LinearAcceleration(ctx context.Context, extra map[string]any) (r3.Vector, error)
+	CompassHeading(ctx context.Context, extra map[string]any) (float64, error) // [0->360)
+	Orientation(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error)
+	Properties(ctx context.Context, extra map[string]any) (*Properties, error)
+	Accuracy(ctx context.Context, extra map[string]any) (*Accuracy, error)
 }
 
 // FromDependencies is a helper for getting the named movementsensor from a collection of
@@ -95,8 +95,8 @@ func NamesFromRobot(r robot.Robot) []string {
 }
 
 // DefaultAPIReadings is a helper for getting all readings from a MovementSensor.
-func DefaultAPIReadings(ctx context.Context, g MovementSensor, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings := map[string]interface{}{}
+func DefaultAPIReadings(ctx context.Context, g MovementSensor, extra map[string]any) (map[string]any, error) {
+	readings := map[string]any{}
 
 	pos, altitude, err := g.Position(ctx, extra)
 	if err != nil {

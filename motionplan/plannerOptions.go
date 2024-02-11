@@ -118,7 +118,7 @@ type plannerOptions struct {
 	goalArcScore          ik.SegmentMetric
 	pathMetric            ik.StateMetric // Distance function which converges on the valid manifold of intermediate path states
 
-	extra map[string]interface{}
+	extra map[string]any
 
 	// For the below values, if left uninitialized, default values will be used. To disable, set < 0
 	// Max number of ik solutions to consider

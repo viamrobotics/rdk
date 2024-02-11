@@ -19,7 +19,7 @@ const (
 )
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
-func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]any) error {
 	sb.stopLoop()
 	if math.Abs(angleDeg) >= 360.0 {
 		sb.setPolling(false)

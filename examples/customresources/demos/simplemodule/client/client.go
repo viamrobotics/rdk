@@ -43,7 +43,7 @@ func main() {
 	// Only on restart of the server will they get reset.
 	for name, c := range []resource.Resource{counter1, counter2} {
 		// Get the starting value of the given counter.
-		ret, err := counter1.DoCommand(context.Background(), map[string]interface{}{"command": "get"})
+		ret, err := counter1.DoCommand(context.Background(), map[string]any{"command": "get"})
 		if err != nil {
 			logger.Fatal(err)
 		}
@@ -52,7 +52,7 @@ func main() {
 		for n := 0; n < 20; n++ {
 			//nolint:gosec
 			val := rand.Intn(100)
-			ret, err := c.DoCommand(context.Background(), map[string]interface{}{"command": "add", "value": val})
+			ret, err := c.DoCommand(context.Background(), map[string]any{"command": "add", "value": val})
 			if err != nil {
 				logger.Fatal(err)
 			}

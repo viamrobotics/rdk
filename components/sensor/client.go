@@ -41,7 +41,7 @@ func NewClientFromConn(
 	}, nil
 }
 
-func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return nil, err
@@ -57,6 +57,6 @@ func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	return protoutils.ReadingProtoToGo(resp.Readings)
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

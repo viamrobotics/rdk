@@ -217,7 +217,7 @@ type roboclawMotor struct {
 	powerPct float64
 }
 
-func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]any) error {
 	m.opMgr.CancelRunning(ctx)
 
 	if powerPct > 1 {
@@ -252,7 +252,7 @@ func goForMath(rpm, revolutions float64) (float64, time.Duration) {
 	return powerPct, waitDur
 }
 
-func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]any) error {
 	speed := math.Abs(rpm)
 	if speed < 0.1 {
 		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
@@ -302,7 +302,7 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
-func (m *roboclawMotor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
+func (m *roboclawMotor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]any) error {
 	if m.conf.TicksPerRotation == 0 {
 		return errors.New("roboclaw needs an encoder connected to use GoTo")
 	}
@@ -313,7 +313,7 @@ func (m *roboclawMotor) GoTo(ctx context.Context, rpm, positionRevolutions float
 	return m.GoFor(ctx, rpm, positionRevolutions-pos, extra)
 }
 
-func (m *roboclawMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+func (m *roboclawMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]any) error {
 	newTicks := int32(-1 * offset * float64(m.conf.TicksPerRotation))
 	switch m.conf.Channel {
 	case 1:
@@ -325,7 +325,7 @@ func (m *roboclawMotor) ResetZeroPosition(ctx context.Context, offset float64, e
 	}
 }
 
-func (m *roboclawMotor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (m *roboclawMotor) Position(ctx context.Context, extra map[string]any) (float64, error) {
 	var ticks uint32
 	var err error
 
@@ -343,13 +343,13 @@ func (m *roboclawMotor) Position(ctx context.Context, extra map[string]interface
 	return float64(ticks) / float64(m.conf.TicksPerRotation), nil
 }
 
-func (m *roboclawMotor) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+func (m *roboclawMotor) Properties(ctx context.Context, extra map[string]any) (motor.Properties, error) {
 	return motor.Properties{
 		PositionReporting: true,
 	}, nil
 }
 
-func (m *roboclawMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (m *roboclawMotor) Stop(ctx context.Context, extra map[string]any) error {
 	return m.SetPower(ctx, 0, extra)
 }
 
@@ -358,7 +358,7 @@ func (m *roboclawMotor) IsMoving(ctx context.Context) (bool, error) {
 	return on, err
 }
 
-func (m *roboclawMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+func (m *roboclawMotor) IsPowered(ctx context.Context, extra map[string]any) (bool, float64, error) {
 	pow1, pow2, err := m.conn.ReadPWMs(m.addr)
 	if err != nil {
 		return false, 0.0, err

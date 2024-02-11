@@ -43,7 +43,7 @@ func (v ContentProperties) String() string {
 
 type ContentPropertiesT struct {
 	Type  ContentProperties
-	Value interface{}
+	Value any
 }
 
 func (t *ContentPropertiesT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {

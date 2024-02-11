@@ -83,7 +83,7 @@ type helper struct {
 // DoCommand is the only method of this component. It looks up the "real" command from the map it's passed.
 //
 
-func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
+func (h *helper) DoCommand(ctx context.Context, req map[string]any) (map[string]any, error) {
 	cmd, ok := req["command"]
 	if !ok {
 		return nil, errors.New("missing 'command' string")
@@ -101,7 +101,7 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 		for _, op := range ops {
 			opsOut = append(opsOut, op.ID.String())
 		}
-		return map[string]interface{}{"ops": opsOut}, nil
+		return map[string]any{"ops": opsOut}, nil
 	case "echo":
 		// For testing module liveliness
 		return req, nil
@@ -123,16 +123,16 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 		dataFilePath := filepath.Join(os.Getenv("VIAM_MODULE_DATA"), filename)
 		err := os.WriteFile(dataFilePath, []byte(contents), 0o600)
 		if err != nil {
-			return map[string]interface{}{}, err
+			return map[string]any{}, err
 		}
-		return map[string]interface{}{"fullpath": dataFilePath}, nil
+		return map[string]any{"fullpath": dataFilePath}, nil
 	case "get_working_directory":
 		// For testing that modules are started with the correct working directory
 		workingDir, err := os.Getwd()
 		if err != nil {
-			return map[string]interface{}{}, err
+			return map[string]any{}, err
 		}
-		return map[string]interface{}{"path": workingDir}, nil
+		return map[string]any{"path": workingDir}, nil
 	case "log":
 		level, err := logging.LevelFromString(req["level"].(string))
 		if err != nil {
@@ -174,47 +174,47 @@ type testMotor struct {
 var _ motor.Motor = &testMotor{}
 
 // SetPower trivially implements motor.Motor.
-func (tm *testMotor) SetPower(_ context.Context, _ float64, _ map[string]interface{}) error {
+func (tm *testMotor) SetPower(_ context.Context, _ float64, _ map[string]any) error {
 	return nil
 }
 
 // GoFor trivially implements motor.Motor.
-func (tm *testMotor) GoFor(_ context.Context, _, _ float64, _ map[string]interface{}) error {
+func (tm *testMotor) GoFor(_ context.Context, _, _ float64, _ map[string]any) error {
 	return nil
 }
 
 // GoTo trivially implements motor.Motor.
-func (tm *testMotor) GoTo(_ context.Context, _, _ float64, _ map[string]interface{}) error {
+func (tm *testMotor) GoTo(_ context.Context, _, _ float64, _ map[string]any) error {
 	return nil
 }
 
 // ResetZeroPosition trivially implements motor.Motor.
-func (tm *testMotor) ResetZeroPosition(_ context.Context, _ float64, _ map[string]interface{}) error {
+func (tm *testMotor) ResetZeroPosition(_ context.Context, _ float64, _ map[string]any) error {
 	return nil
 }
 
 // Position trivially implements motor.Motor.
-func (tm *testMotor) Position(_ context.Context, _ map[string]interface{}) (float64, error) {
+func (tm *testMotor) Position(_ context.Context, _ map[string]any) (float64, error) {
 	return 0.0, nil
 }
 
 // Properties trivially implements motor.Motor.
-func (tm *testMotor) Properties(_ context.Context, _ map[string]interface{}) (motor.Properties, error) {
+func (tm *testMotor) Properties(_ context.Context, _ map[string]any) (motor.Properties, error) {
 	return motor.Properties{}, nil
 }
 
 // Stop trivially implements motor.Motor.
-func (tm *testMotor) Stop(_ context.Context, _ map[string]interface{}) error {
+func (tm *testMotor) Stop(_ context.Context, _ map[string]any) error {
 	return nil
 }
 
 // IsPowered trivally implements motor.Motor.
-func (tm *testMotor) IsPowered(_ context.Context, _ map[string]interface{}) (bool, float64, error) {
+func (tm *testMotor) IsPowered(_ context.Context, _ map[string]any) (bool, float64, error) {
 	return false, 0.0, nil
 }
 
 // DoCommand trivially implements motor.Motor.
-func (tm *testMotor) DoCommand(_ context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
+func (tm *testMotor) DoCommand(_ context.Context, _ map[string]any) (map[string]any, error) {
 	//nolint:nilnil
 	return nil, nil
 }

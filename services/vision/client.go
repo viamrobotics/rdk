@@ -56,7 +56,7 @@ func NewClientFromConn(
 func (c *client) DetectionsFromCamera(
 	ctx context.Context,
 	cameraName string,
-	extra map[string]interface{},
+	extra map[string]any,
 ) ([]objdet.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::DetectionsFromCamera")
 	defer span.End()
@@ -84,7 +84,7 @@ func (c *client) DetectionsFromCamera(
 	return detections, nil
 }
 
-func (c *client) Detections(ctx context.Context, img image.Image, extra map[string]interface{},
+func (c *client) Detections(ctx context.Context, img image.Image, extra map[string]any,
 ) ([]objdet.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::Detections")
 	defer span.End()
@@ -127,7 +127,7 @@ func (c *client) ClassificationsFromCamera(
 	ctx context.Context,
 	cameraName string,
 	n int,
-	extra map[string]interface{},
+	extra map[string]any,
 ) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::ClassificationsFromCamera")
 	defer span.End()
@@ -153,7 +153,7 @@ func (c *client) ClassificationsFromCamera(
 }
 
 func (c *client) Classifications(ctx context.Context, img image.Image,
-	n int, extra map[string]interface{},
+	n int, extra map[string]any,
 ) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::Classifications")
 	defer span.End()
@@ -192,7 +192,7 @@ func (c *client) Classifications(ctx context.Context, img image.Image,
 func (c *client) GetObjectPointClouds(
 	ctx context.Context,
 	cameraName string,
-	extra map[string]interface{},
+	extra map[string]any,
 ) ([]*vision.Object, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
@@ -242,7 +242,7 @@ func protoToObjects(pco []*commonpb.PointCloudObject) ([]*vision.Object, error) 
 	return objects, nil
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::DoCommand")
 	defer span.End()
 

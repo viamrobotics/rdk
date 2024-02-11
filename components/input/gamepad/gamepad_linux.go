@@ -371,7 +371,7 @@ func (g *gamepad) Close(ctx context.Context) error {
 }
 
 // Controls lists the inputs of the gamepad.
-func (g *gamepad) Controls(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
+func (g *gamepad) Controls(ctx context.Context, extra map[string]any) ([]input.Control, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	if g.dev == nil && len(g.controls) == 0 {
@@ -382,7 +382,7 @@ func (g *gamepad) Controls(ctx context.Context, extra map[string]interface{}) ([
 }
 
 // Events returns the last input.Event (the current state).
-func (g *gamepad) Events(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
+func (g *gamepad) Events(ctx context.Context, extra map[string]any) (map[input.Control]input.Event, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	out := make(map[input.Control]input.Event)
@@ -398,7 +398,7 @@ func (g *gamepad) RegisterControlCallback(
 	control input.Control,
 	triggers []input.EventType,
 	ctrlFunc input.ControlFunction,
-	extra map[string]interface{},
+	extra map[string]any,
 ) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()

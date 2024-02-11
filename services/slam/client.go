@@ -108,7 +108,7 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 	return prop, err
 }
 
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::client::DoCommand")
 	defer span.End()
 

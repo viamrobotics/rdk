@@ -17,7 +17,7 @@ const opidMetadataKey = "opid"
 func UnaryClientInterceptor(
 	ctx context.Context,
 	method string,
-	req, reply interface{},
+	req, reply any,
 	cc *grpc.ClientConn,
 	invoker grpc.UnaryInvoker,
 	opts ...grpc.CallOption,
@@ -49,10 +49,10 @@ func StreamClientInterceptor(
 // ID, the new operation will have the same ID.
 func (m *Manager) UnaryServerInterceptor(
 	ctx context.Context,
-	req interface{},
+	req any,
 	info *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
-) (interface{}, error) {
+) (any, error) {
 	ctx, done := m.CreateFromIncomingContext(ctx, info.FullMethod)
 	defer done()
 	if op := Get(ctx); op != nil && op.ID.String() != "" {
@@ -65,7 +65,7 @@ func (m *Manager) UnaryServerInterceptor(
 // it to the stream response handler. If the incoming RPC metadata contains an operation
 // ID, the new operation will have the same ID.
 func (m *Manager) StreamServerInterceptor(
-	srv interface{},
+	srv any,
 	ss grpc.ServerStream,
 	info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler,

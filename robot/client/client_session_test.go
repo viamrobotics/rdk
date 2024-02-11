@@ -46,7 +46,7 @@ var echoAPI = resource.APINamespaceRDK.WithComponentType("echo")
 
 func init() {
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} {
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) any {
 			return &echoServer{coll: apiResColl}
 		},
 		RPCServiceHandler: echopb.RegisterEchoResourceServiceHandlerFromEndpoint,
@@ -667,10 +667,10 @@ func (mgr *sessionManager) sessionFromMetadata(ctx context.Context) (context.Con
 
 func (mgr *sessionManager) UnaryServerInterceptor(
 	ctx context.Context,
-	req interface{},
+	req any,
 	info *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
-) (interface{}, error) {
+) (any, error) {
 	ctx, err := mgr.sessionFromMetadata(ctx)
 	if err != nil {
 		return nil, err
@@ -681,7 +681,7 @@ func (mgr *sessionManager) UnaryServerInterceptor(
 // StreamServerInterceptor associates the current session (if present) in the current context before
 // passing it to the stream response handler.
 func (mgr *sessionManager) StreamServerInterceptor(
-	srv interface{},
+	srv any,
 	ss grpc.ServerStream,
 	info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler,

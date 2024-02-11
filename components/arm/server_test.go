@@ -50,26 +50,26 @@ func TestServer(t *testing.T) {
 	var (
 		capArmPos      spatialmath.Pose
 		capArmJointPos *pb.JointPositions
-		extraOptions   map[string]interface{}
+		extraOptions   map[string]any
 	)
 
 	pose1 := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
 	positionDegs1 := &pb.JointPositions{Values: []float64{1.0, 2.0, 3.0}}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 		extraOptions = extra
 		return pose1, nil
 	}
-	injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+	injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]any) (*pb.JointPositions, error) {
 		extraOptions = extra
 		return positionDegs1, nil
 	}
-	injectArm.MoveToPositionFunc = func(ctx context.Context, ap spatialmath.Pose, extra map[string]interface{}) error {
+	injectArm.MoveToPositionFunc = func(ctx context.Context, ap spatialmath.Pose, extra map[string]any) error {
 		capArmPos = ap
 		extraOptions = extra
 		return nil
 	}
 
-	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions, extra map[string]interface{}) error {
+	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions, extra map[string]any) error {
 		capArmJointPos = jp
 		extraOptions = extra
 		return nil
@@ -81,32 +81,32 @@ func TestServer(t *testing.T) {
 		}
 		return model
 	}
-	injectArm.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	injectArm.StopFunc = func(ctx context.Context, extra map[string]any) error {
 		extraOptions = extra
 		return nil
 	}
 
 	pose2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
 	positionDegs2 := &pb.JointPositions{Values: []float64{4.0, 5.0, 6.0}}
-	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
 		return nil, errGetPoseFailed
 	}
-	injectArm2.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+	injectArm2.JointPositionsFunc = func(ctx context.Context, extra map[string]any) (*pb.JointPositions, error) {
 		return nil, errGetJointsFailed
 	}
-	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap spatialmath.Pose, extra map[string]interface{}) error {
+	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap spatialmath.Pose, extra map[string]any) error {
 		capArmPos = ap
 		return errMoveToPositionFailed
 	}
 
-	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions, extra map[string]interface{}) error {
+	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions, extra map[string]any) error {
 		capArmJointPos = jp
 		return errMoveToJointPositionFailed
 	}
 	injectArm2.ModelFrameFunc = func() referenceframe.Model {
 		return nil
 	}
-	injectArm2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	injectArm2.StopFunc = func(ctx context.Context, extra map[string]any) error {
 		return errStopUnimplemented
 	}
 
@@ -115,13 +115,13 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errArmUnimplemented.Error())
 
-		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "EndPosition"})
+		ext, err := protoutils.StructToStructPb(map[string]any{"foo": "EndPosition"})
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := armServer.GetEndPosition(context.Background(), &pb.GetEndPositionRequest{Name: testArmName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Pose.String(), test.ShouldResemble, spatialmath.PoseToProtobuf(pose1).String())
 
-		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "EndPosition"})
+		test.That(t, extraOptions, test.ShouldResemble, map[string]any{"foo": "EndPosition"})
 
 		_, err = armServer.GetEndPosition(context.Background(), &pb.GetEndPositionRequest{Name: failArmName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -133,12 +133,12 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errArmUnimplemented.Error())
 
-		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "MoveToPosition"})
+		ext, err := protoutils.StructToStructPb(map[string]any{"foo": "MoveToPosition"})
 		test.That(t, err, test.ShouldBeNil)
 		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: testArmName, To: pose2, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatialmath.PoseAlmostCoincident(capArmPos, spatialmath.NewPoseFromProtobuf(pose2)), test.ShouldBeTrue)
-		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "MoveToPosition"})
+		test.That(t, extraOptions, test.ShouldResemble, map[string]any{"foo": "MoveToPosition"})
 
 		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{
 			Name: failArmName,
@@ -154,12 +154,12 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errArmUnimplemented.Error())
 
-		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "JointPositions"})
+		ext, err := protoutils.StructToStructPb(map[string]any{"foo": "JointPositions"})
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := armServer.GetJointPositions(context.Background(), &pb.GetJointPositionsRequest{Name: testArmName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Positions.String(), test.ShouldResemble, positionDegs1.String())
-		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "JointPositions"})
+		test.That(t, extraOptions, test.ShouldResemble, map[string]any{"foo": "JointPositions"})
 
 		_, err = armServer.GetJointPositions(context.Background(), &pb.GetJointPositionsRequest{Name: failArmName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -174,7 +174,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errArmUnimplemented.Error())
 
-		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "MoveToJointPositions"})
+		ext, err := protoutils.StructToStructPb(map[string]any{"foo": "MoveToJointPositions"})
 		test.That(t, err, test.ShouldBeNil)
 		_, err = armServer.MoveToJointPositions(
 			context.Background(),
@@ -182,7 +182,7 @@ func TestServer(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmJointPos.String(), test.ShouldResemble, positionDegs2.String())
-		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "MoveToJointPositions"})
+		test.That(t, extraOptions, test.ShouldResemble, map[string]any{"foo": "MoveToJointPositions"})
 
 		_, err = armServer.MoveToJointPositions(
 			context.Background(),
@@ -212,11 +212,11 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errArmUnimplemented.Error())
 
-		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "Stop"})
+		ext, err := protoutils.StructToStructPb(map[string]any{"foo": "Stop"})
 		test.That(t, err, test.ShouldBeNil)
 		_, err = armServer.Stop(context.Background(), &pb.StopRequest{Name: testArmName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "Stop"})
+		test.That(t, extraOptions, test.ShouldResemble, map[string]any{"foo": "Stop"})
 
 		_, err = armServer.Stop(context.Background(), &pb.StopRequest{Name: failArmName})
 		test.That(t, err, test.ShouldNotBeNil)

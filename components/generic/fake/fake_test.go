@@ -15,7 +15,7 @@ func TestDoCommand(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	gen := newGeneric(generic.Named("foo"), logger)
-	cmd := map[string]interface{}{"bar": "baz"}
+	cmd := map[string]any{"bar": "baz"}
 	resp, err := gen.DoCommand(ctx, cmd)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldResemble, cmd)

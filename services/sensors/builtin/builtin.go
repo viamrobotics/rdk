@@ -48,7 +48,7 @@ type builtIn struct {
 }
 
 // Sensors returns all sensors in the robot.
-func (s *builtIn) Sensors(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error) {
+func (s *builtIn) Sensors(ctx context.Context, extra map[string]any) ([]resource.Name, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -60,7 +60,7 @@ func (s *builtIn) Sensors(ctx context.Context, extra map[string]interface{}) ([]
 }
 
 // Readings returns the readings of the resources specified.
-func (s *builtIn) Readings(ctx context.Context, sensorNames []resource.Name, extra map[string]interface{}) ([]sensors.Readings, error) {
+func (s *builtIn) Readings(ctx context.Context, sensorNames []resource.Name, extra map[string]any) ([]sensors.Readings, error) {
 	s.mu.RLock()
 	// make a copy of sensors and then unlock
 	sensorsMap := make(map[resource.Name]sensor.Sensor, len(s.sensors))

@@ -41,27 +41,27 @@ type PowerSensor struct {
 }
 
 // DoCommand uses a map string to run custom functionality of a fake powersensor.
-func (f *PowerSensor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return map[string]interface{}{}, nil
+func (f *PowerSensor) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
+	return map[string]any{}, nil
 }
 
 // Voltage gets the voltage and isAC of a fake powersensor.
-func (f *PowerSensor) Voltage(ctx context.Context, cmd map[string]interface{}) (float64, bool, error) {
+func (f *PowerSensor) Voltage(ctx context.Context, cmd map[string]any) (float64, bool, error) {
 	return 1.5, true, nil
 }
 
 // Current gets the current and isAC of a fake powersensor.
-func (f *PowerSensor) Current(ctx context.Context, cmd map[string]interface{}) (float64, bool, error) {
+func (f *PowerSensor) Current(ctx context.Context, cmd map[string]any) (float64, bool, error) {
 	return 2.2, true, nil
 }
 
 // Power gets the power of a fake powersensor.
-func (f *PowerSensor) Power(ctx context.Context, cmd map[string]interface{}) (float64, error) {
+func (f *PowerSensor) Power(ctx context.Context, cmd map[string]any) (float64, error) {
 	return 9.8, nil
 }
 
 // Readings gets the readings of a fake powersensor.
-func (f *PowerSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (f *PowerSensor) Readings(ctx context.Context, extra map[string]any) (map[string]any, error) {
 	volts, isAC, err := f.Voltage(ctx, nil)
 	if err != nil {
 		f.logger.CErrorf(ctx, "failed to get voltage reading: %s", err.Error())
@@ -76,7 +76,7 @@ func (f *PowerSensor) Readings(ctx context.Context, extra map[string]interface{}
 	if err != nil {
 		f.logger.CErrorf(ctx, "failed to get power reading: %s", err.Error())
 	}
-	return map[string]interface{}{
+	return map[string]any{
 		"volts": volts,
 		"amps":  amps,
 		"is_ac": isAC,

@@ -38,7 +38,7 @@ type emptyConfig struct{}
 // transformRegistration holds pertinent information regarding the available transforms.
 type transformRegistration struct {
 	name        string
-	retType     interface{}
+	retType     any
 	description string
 }
 
