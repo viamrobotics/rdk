@@ -361,7 +361,7 @@ func (a *wrappedAnalogReader) Read(ctx context.Context, extra map[string]interfa
 }
 
 func (a *wrappedAnalogReader) Close(ctx context.Context) error {
-	return nil
+	return a.reader.Close(ctx)
 }
 
 func (a *wrappedAnalogReader) reset(ctx context.Context, chipSelect string, reader *board.AnalogSmoother) {
@@ -505,6 +505,9 @@ func (b *Board) Close(ctx context.Context) error {
 	}
 	for _, interrupt := range b.interrupts {
 		err = multierr.Combine(err, interrupt.Close())
+	}
+	for _, reader := range b.analogReaders {
+		err = multierr.Combine(err, reader.Close(ctx))
 	}
 	return err
 }

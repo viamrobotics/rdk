@@ -4,6 +4,7 @@ package client
 import (
 	"context"
 	"flag"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -16,6 +17,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
@@ -933,5 +935,37 @@ func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[
 		e = append(e, p)
 	}
 	_, err := rc.client.StopAll(ctx, &pb.StopAllRequest{Extra: e})
+	return err
+}
+
+// Log sends a log entry to the server. To be used by Golang modules wanting to
+// log over gRPC and not by normal Golang SDK clients.
+func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zapcore.Field) error {
+	// TODO(RSDK-6280): Preserve the type of all `fields`.
+	message := fmt.Sprintf("%v\t%v", log.Caller.TrimmedPath(), log.Message)
+	for i, field := range fields {
+		if i == 0 {
+			message = fmt.Sprintf("%v\t{%q: %q", message, field.Key, field.String)
+		} else {
+			message = fmt.Sprintf("%v, %q: %q", message, field.Key, field.String)
+		}
+	}
+	message = fmt.Sprintf("%v}", message) // close }
+
+	logRequest := &pb.LogRequest{
+		// no batching for now (one LogEntry at a time).
+		Logs: []*commonpb.LogEntry{{
+			// leave out Host; Host is not currently meaningful
+			Level: log.Level.String(),
+			// leave out Time; Time is already in Message field below
+			LoggerName: log.LoggerName,
+			Message:    message,
+			// leave out Caller; Caller is already in Message field above
+			Stack: log.Stack,
+			// leave out Fields; Fields are already in Message field above
+		}},
+	}
+
+	_, err := rc.client.Log(ctx, logRequest)
 	return err
 }

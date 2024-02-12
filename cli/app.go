@@ -73,10 +73,6 @@ const (
 	dataFlagOrgID                          = "org-id"
 	dataFlagDeleteTabularDataOlderThanDays = "delete-older-than-days"
 	dataFlagDatabasePassword               = "password"
-
-	boardFlagName    = "name"
-	boardFlagPath    = "path"
-	boardFlagVersion = "version"
 )
 
 // createUsageText is a helper for formatting the flags, if otherOptions is set to true
@@ -1246,80 +1242,6 @@ Example:
 			Name:   "version",
 			Usage:  "print version info for this program",
 			Action: VersionAction,
-		},
-		{
-			Name:            "board",
-			Usage:           "manage your board definition files",
-			HideHelpCommand: true,
-			Subcommands: []*cli.Command{
-				{
-					Name:  "upload",
-					Usage: "upload a board definition file",
-					Description: `Upload a json board definition file for linux boards.
-Example:
-viam board upload --name=orin --organization="my org" --version=1.0.0 file.json`,
-					UsageText: "viam board upload <name> <organization> <version> [other options] <file.json>",
-					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:     boardFlagName,
-							Usage:    "name of your board definition file (cannot be changed once set)",
-							Required: true,
-						},
-						&cli.StringFlag{
-							Name:     organizationFlag,
-							Usage:    "organization that will host the board definitions file. This can be the org's ID or name",
-							Required: true,
-						},
-						&cli.StringFlag{
-							Name:     boardFlagVersion,
-							Usage:    "version of the file to upload (semver2.0) ex: \"0.1.0\"",
-							Required: true,
-						},
-					},
-					Action: UploadBoardDefsAction,
-				},
-				{
-					Name:  "download",
-					Usage: "download a board definitions package",
-					Description: `download a json board definitions file for generic linux boards.
-Example:
-viam board download --name=test --organization="my org" --version=1.0.0`,
-					UsageText: "viam board download <name> <organization> <version> [other options]",
-					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:     boardFlagName,
-							Usage:    "name of the board definitions file to download",
-							Required: true,
-						},
-						&cli.StringFlag{
-							Name:     organizationFlag,
-							Usage:    "organization that hosts the board definitions file",
-							Required: true,
-						},
-						&cli.StringFlag{
-							Name:  boardFlagVersion,
-							Usage: "version of the file to download. defaults to latest if not set.",
-						},
-					},
-					Action: DownloadBoardDefsAction,
-				},
-				{
-					Name:  "list",
-					Usage: "list all board defintions packages",
-					Description: `list the board defintions packages available from an organization.
-Example:
-viam board list --organization="my org"`,
-					UsageText: "viam board list <organization>[other options]",
-					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:     organizationFlag,
-							Usage:    "organization that hosts the board definitions files",
-							Required: true,
-						},
-					},
-					Action: ListBoardDefsAction,
-				},
-			},
 		},
 	},
 }

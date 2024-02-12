@@ -158,10 +158,6 @@ func (ms *explore) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (moti
 	return uuid.Nil, errUnimplemented
 }
 
-func (ms *explore) MoveOnMapNew(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
-	return uuid.Nil, errUnimplemented
-}
-
 func (ms *explore) MoveOnGlobe(
 	ctx context.Context,
 	req motion.MoveOnGlobeReq,

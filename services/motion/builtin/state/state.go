@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
+	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -481,8 +482,8 @@ func (s *State) ListPlanStatuses(req motion.ListPlanStatusesReq) ([]motion.PlanS
 
 	statuses := []motion.PlanStatusWithID{}
 	componentNames := maps.Keys(s.componentStateByComponent)
-	slices.SortFunc(componentNames, func(a, b resource.Name) bool {
-		return a.String() < b.String()
+	slices.SortFunc(componentNames, func(a, b resource.Name) int {
+		return rutils.Compare(a.String(), b.String())
 	})
 
 	if req.OnlyActivePlans {

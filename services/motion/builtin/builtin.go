@@ -270,25 +270,6 @@ func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (moti
 	return id, nil
 }
 
-func (ms *builtIn) MoveOnMapNew(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
-	if err := ctx.Err(); err != nil {
-		return uuid.Nil, err
-	}
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	ms.logger.CDebugf(ctx, "MoveOnMapNew called with %s", req)
-
-	// TODO: Deprecated: remove once no motion apis use the opid system
-	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-
-	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, ms.newMoveOnMapRequest)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	return id, nil
-}
-
 type validatedExtra struct {
 	maxReplans       int
 	replanCostFactor float64

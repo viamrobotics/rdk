@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
@@ -23,6 +24,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -403,4 +405,39 @@ func (s *Server) SendSessionHeartbeat(ctx context.Context, req *pb.SendSessionHe
 		return nil, err
 	}
 	return &pb.SendSessionHeartbeatResponse{}, nil
+}
+
+// Log receives logs to be logged by this robot.
+func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, error) {
+	if req.Logs == nil {
+		return nil, errors.New("LogRequest received with no associated logs")
+	}
+	if len(req.Logs) > 1 {
+		return nil, errors.New("LogRequest received with multiple logs; batching not yet supported")
+	}
+	log := req.Logs[0]
+
+	// Use a sublogger of robot logger with correct logger name. Set a level of
+	// DEBUG to allow gRPC logs at DEBUG level even when RDK is not on DEBUG
+	// level. Disable caller to mimic caller passed in from gRPC request.
+	logger := s.r.Logger().Sublogger(log.LoggerName)
+	logger.SetLevel(logging.DEBUG)
+	l := logger.WithOptions(zap.WithCaller(false))
+
+	level, err := logging.LevelFromString(log.Level)
+	switch {
+	case err != nil:
+		l.Warn("logger named %q sent a log over gRPC with an invalid level %q", log.LoggerName, log.Level)
+	case level == logging.DEBUG:
+		l.Debug(log.Message)
+	case level == logging.INFO:
+		l.Info(log.Message)
+	case level == logging.WARN:
+		l.Warn(log.Message)
+	case level == logging.ERROR:
+		l.Error(log.Message)
+	default:
+	}
+
+	return &pb.LogResponse{}, nil
 }

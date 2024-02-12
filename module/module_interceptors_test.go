@@ -2,9 +2,9 @@ package module_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"runtime"
-	"strconv"
 	"testing"
 
 	"github.com/google/uuid"
@@ -29,31 +29,48 @@ import (
 )
 
 func TestOpID(t *testing.T) {
+	ctx := context.Background()
+
 	if runtime.GOARCH == "arm" {
 		t.Skip("skipping on 32-bit ARM -- subprocess build warnings cause failure")
 	}
-	logger := logging.NewTestLogger(t)
-	cfgFilename, port, err := makeConfig(t, logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, os.Remove(cfgFilename), test.ShouldBeNil)
-	}()
+	logger, logObserver := logging.NewObservedTestLogger(t)
 
-	serverPath, err := rtestutils.BuildTempModule(t, "web/cmd/server/")
-	test.That(t, err, test.ShouldBeNil)
+	var port int
+	var success bool
+	for portTryNum := 0; portTryNum < 10; portTryNum++ {
+		cfgFilename, p, err := makeConfig(t, logger)
+		port = p
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, os.Remove(cfgFilename), test.ShouldBeNil)
+		}()
 
-	server := pexec.NewManagedProcess(pexec.ProcessConfig{
-		Name: serverPath,
-		Args: []string{"-config", cfgFilename},
-		CWD:  utils.ResolveFile("./"),
-		Log:  true,
-	}, logger.AsZap())
+		serverPath, err := rtestutils.BuildTempModule(t, "web/cmd/server/")
+		test.That(t, err, test.ShouldBeNil)
 
-	err = server.Start(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, server.Stop(), test.ShouldBeNil)
-	}()
+		server := pexec.NewManagedProcess(pexec.ProcessConfig{
+			Name: serverPath,
+			Args: []string{"-config", cfgFilename},
+			CWD:  utils.ResolveFile("./"),
+			Log:  true,
+		}, logger.AsZap())
+
+		err = server.Start(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+
+		if success = robottestutils.WaitForServing(logObserver, port); success {
+			defer func() {
+				test.That(t, server.Stop(), test.ShouldBeNil)
+			}()
+			break
+		} else {
+			logger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
+			server.Stop()
+			continue
+		}
+	}
+	test.That(t, success, test.ShouldBeTrue)
 
 	conn, err := robottestutils.Connect(port)
 	test.That(t, err, test.ShouldBeNil)
@@ -136,25 +153,28 @@ func TestOpID(t *testing.T) {
 	}
 }
 
-func makeConfig(t *testing.T, logger logging.Logger) (string, string, error) {
+func makeConfig(t *testing.T, logger logging.Logger) (string, int, error) {
 	// Precompile module to avoid timeout issues when building takes too long.
 	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
 	if err != nil {
-		return "", "", err
+		return "", 0, err
 	}
 
-	p, err := goutils.TryReserveRandomPort()
+	port, err := goutils.TryReserveRandomPort()
 	if err != nil {
-		return "", "", err
+		return "", 0, err
 	}
-	port := strconv.Itoa(p)
 
 	cfg := config.Config{
 		Modules: []config.Module{{
 			Name:    "TestModule",
 			ExePath: modPath,
 		}},
-		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{BindAddress: "localhost:" + port}},
+		Network: config.NetworkConfig{
+			NetworkConfigData: config.NetworkConfigData{
+				BindAddress: fmt.Sprintf("localhost:%d", port),
+			},
+		},
 		Components: []resource.Config{{
 			API:   generic.API,
 			Model: resource.NewModel("rdk", "test", "helper"),
