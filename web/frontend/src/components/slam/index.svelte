@@ -302,12 +302,15 @@ const handleMoveClick = async () => {
     const destinationMM = lastPose.pose!;
     destinationMM.x = destination!.x * 1000;
     destinationMM.y = destination!.y * 1000;
-
+    const base = bases[0]!;
     await motionClient.moveOnMap(
       destinationMM,
-      bases[0]!,
+      base,
       slamResourceName,
-      { planDeviationM: 0.5 },
+      // obstacleDetectorsList is specified to work around this bug: RSDK-6632
+      // when that ticket is resolved we should delete the empty obstacleDetectorsList
+      // parameter
+      { planDeviationM: 0.5, obstacleDetectorsList: [] },
       { motion_profile: 'position_only' }
     );
     await refreshPaths();
