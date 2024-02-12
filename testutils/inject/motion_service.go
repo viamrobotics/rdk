@@ -27,10 +27,6 @@ type MotionService struct {
 		ctx context.Context,
 		req motion.MoveOnMapReq,
 	) (motion.ExecutionID, error)
-	MoveOnMapNewFunc func(
-		ctx context.Context,
-		req motion.MoveOnMapReq,
-	) (motion.ExecutionID, error)
 	MoveOnGlobeFunc func(
 		ctx context.Context,
 		req motion.MoveOnGlobeReq,
@@ -93,17 +89,6 @@ func (mgs *MotionService) MoveOnMap(
 		return mgs.Service.MoveOnMap(ctx, req)
 	}
 	return mgs.MoveOnMapFunc(ctx, req)
-}
-
-// MoveOnMapNew calls the injected MoveOnMap or the real variant.
-func (mgs *MotionService) MoveOnMapNew(
-	ctx context.Context,
-	req motion.MoveOnMapReq,
-) (motion.ExecutionID, error) {
-	if mgs.MoveOnMapNewFunc == nil {
-		return mgs.Service.MoveOnMapNew(ctx, req)
-	}
-	return mgs.MoveOnMapNewFunc(ctx, req)
 }
 
 // MoveOnGlobe calls the injected MoveOnGlobe or the real variant.

@@ -91,27 +91,6 @@ func (c *client) MoveOnMap(ctx context.Context, req MoveOnMapReq) (ExecutionID, 
 	return executionID, nil
 }
 
-func (c *client) MoveOnMapNew(ctx context.Context, req MoveOnMapReq) (ExecutionID, error) {
-	protoReq, err := req.toProtoNew(c.name)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	// RSDK-6444
-	//nolint:staticcheck
-	resp, err := c.client.MoveOnMapNew(ctx, protoReq)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	executionID, err := uuid.Parse(resp.ExecutionId)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	return executionID, nil
-}
-
 func (c *client) MoveOnGlobe(
 	ctx context.Context,
 	req MoveOnGlobeReq,
