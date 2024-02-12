@@ -37,6 +37,8 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/encoder"
+	fakeencoder "go.viam.com/rdk/components/encoder/fake"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/motor"
@@ -3236,5 +3238,111 @@ func TestImplicitDepsAcrossModules(t *testing.T) {
 	_, err = r.ResourceByName(motor.Named("m1"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.ResourceByName(motor.Named("m2"))
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestResourceByNameAcrossRemotes(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Setup a robot1 -> robot2 -> robot3 -> robot4 remote chain. Ensure that if
+	// robot4 has an encoder "e", all robots in the chain can retrieve it by
+	// short name "e". Also ensure that a motor "m" on robot1 can depend on "e"
+	// on robot4.
+
+	addr2 := "localhost:8081"
+	addr3 := "localhost:8082"
+	addr4 := "localhost:8083"
+	cfg1 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot2",
+				Address: addr2,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:                "m",
+				Model:               resource.DefaultModelFamily.WithModel("fake"),
+				API:                 motor.API,
+				ConvertedAttributes: &fakemotor.Config{},
+				DependsOn:           []string{"e"},
+			},
+		},
+	}
+	cfg2 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot3",
+				Address: addr3,
+			},
+		},
+	}
+	cfg3 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot4",
+				Address: addr4,
+			},
+		},
+	}
+	cfg4 := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:                "e",
+				Model:               resource.DefaultModelFamily.WithModel("fake"),
+				API:                 encoder.API,
+				ConvertedAttributes: &fakeencoder.Config{},
+			},
+		},
+	}
+
+	startWeb := func(r robot.LocalRobot, bindAddress string) error {
+		options := weboptions.New()
+		options.Network.BindAddress = bindAddress
+		test.That(t, r.StartWeb(ctx, options), test.ShouldBeNil)
+		return nil
+	}
+
+	// Start robots in reverse order for remote chain.
+	robot4, err := robotimpl.New(ctx, cfg4, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, robot4.Close(ctx), test.ShouldBeNil)
+	}()
+	test.That(t, startWeb(robot4, addr4), test.ShouldBeNil)
+
+	robot3, err := robotimpl.New(ctx, cfg3, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, robot3.Close(ctx), test.ShouldBeNil)
+	}()
+	test.That(t, startWeb(robot3, addr3), test.ShouldBeNil)
+
+	robot2, err := robotimpl.New(ctx, cfg2, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, robot2.Close(ctx), test.ShouldBeNil)
+	}()
+	test.That(t, startWeb(robot2, addr2), test.ShouldBeNil)
+
+	robot1, err := robotimpl.New(ctx, cfg1, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, robot1.Close(ctx), test.ShouldBeNil)
+	}()
+
+	_, err = robot4.ResourceByName(encoder.Named("e"))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = robot3.ResourceByName(encoder.Named("e"))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = robot2.ResourceByName(encoder.Named("e"))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = robot1.ResourceByName(encoder.Named("e"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = robot1.ResourceByName(motor.Named("m"))
 	test.That(t, err, test.ShouldBeNil)
 }
