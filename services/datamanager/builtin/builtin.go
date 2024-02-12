@@ -230,7 +230,9 @@ type resourceMethodMetadata struct {
 }
 
 func (r resourceMethodMetadata) String() string {
-	return fmt.Sprintf("[API: %s, Resource Name: %s, Method Name: %s, Method Params: %s]", r.MethodMetadata.API, r.ResourceName, r.MethodMetadata.MethodName, r.MethodParams)
+	return fmt.Sprintf(
+		"[API: %s, Resource Name: %s, Method Name: %s, Method Params: %s]",
+		r.MethodMetadata.API, r.ResourceName, r.MethodMetadata.MethodName, r.MethodParams)
 }
 
 // Get time.Duration from hz.
@@ -472,7 +474,6 @@ func (svc *builtIn) Reconfigure(
 			svc.componentMethodFrequencyHz[componentMethodMetadata] = resConf.CaptureFrequencyHz
 
 			if !resConf.Disabled && resConf.CaptureFrequencyHz > 0 {
-
 				// We only use service-level tags.
 				resConf.Tags = svcConfig.Tags
 
@@ -625,7 +626,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-// nolint
+//nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
