@@ -141,7 +141,7 @@ type builtIn struct {
 	syncSensor           selectiveSyncer
 	selectiveSyncEnabled bool
 
-	statusChangedMap map[string]string
+	statusChangedMap map[string]interface{}
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -164,7 +164,7 @@ func NewBuiltIn(
 		fileLastModifiedMillis: defaultFileLastModifiedMillis,
 		syncerConstructor:      datasync.NewManager,
 		selectiveSyncEnabled:   false,
-		statusChangedMap:       make(map[string]string),
+		statusChangedMap:       make(map[string]interface{}),
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
@@ -441,10 +441,23 @@ func (svc *builtIn) Reconfigure(
 			captureFrequencyKey := fmt.Sprintf("%s-capture-frequency", resConf.Name.String())
 			_, ok := svc.statusChangedMap[captureFrequencyKey]
 
+			// only log if it's not set AND has not been logged before or if it's been reset
+			// otherwise we'll be logging way too much
 			if !ok && resConf.CaptureFrequencyHz == 0 {
 				svc.logger.Infof("capture frequency for component %s is not set and will not sync", resConf.Name)
-				svc.statusChangedMap[captureFrequencyKey] = "0"
+			} else if ok && resConf.CaptureFrequencyHz != svc.statusChangedMap[captureFrequencyKey] {
+				syncVal := ""
+				if resConf.CaptureFrequencyHz == 0 {
+					syncVal = "will not"
+				} else {
+					syncVal = "will"
+				}
+				svc.logger.Infof("capture frequency has been set to %f/s and %s sync", resConf.CaptureFrequencyHz, syncVal)
 			}
+
+			// we need this map to keep track of if state has changed in the configs
+			// without it, we will be logging the same message over and over for no reason
+			svc.statusChangedMap[captureFrequencyKey] = resConf.CaptureFrequencyHz
 
 			if !resConf.Disabled && resConf.CaptureFrequencyHz > 0 {
 				// Create component/method metadata to check if the collector exists.
