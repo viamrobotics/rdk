@@ -196,10 +196,6 @@ type Service interface {
 		ctx context.Context,
 		req MoveOnMapReq,
 	) (ExecutionID, error)
-	MoveOnMapNew(
-		ctx context.Context,
-		req MoveOnMapReq,
-	) (ExecutionID, error)
 	MoveOnGlobe(
 		ctx context.Context,
 		req MoveOnGlobeReq,
