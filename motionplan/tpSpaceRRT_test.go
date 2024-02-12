@@ -348,22 +348,19 @@ func TestPtgCheckPlan(t *testing.T) {
 	})
 	t.Run("verify partial plan with non-nil errorState and obstacle", func(t *testing.T) {
 		// create obstacle which is behind where the robot already is, but is on the path it has already traveled
-		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
-			r3.Vector{10, 10, 1}, "obstacle",
-		)
+		box, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 1}, "obstacle")
 		test.That(t, err, test.ShouldBeNil)
-		geoms := []spatialmath.Geometry{obstacle}
-		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{box})}
 
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 1000, 0})
-		startPose = errorState
-
 		remainingPlan, err := RemainingPlan(plan, 2)
 		test.That(t, err, test.ShouldBeNil)
+
+		pathPose := remainingPlan.Path()[0][ackermanFrame.Name()].Pose()
+		startPose := spatialmath.NewPose(r3.Vector{0, 1000, 0}, pathPose.Orientation())
+		errorState := spatialmath.PoseDelta(pathPose, startPose)
 
 		err = CheckPlan(ackermanFrame, remainingPlan, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldBeNil)

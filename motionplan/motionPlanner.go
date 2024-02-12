@@ -538,15 +538,7 @@ func CheckPlan(
 	}
 
 	// create a list of segments to iterate through
-	// the first segment we need to check is the one between the current position and the first one in the plan
-	segments := make([]*ik.Segment, 0, len(poses)+1)
-	segment, err := createSegment(currentPose, poses[0], currentInputs, offsetPlan.Trajectory()[0])
-	if err != nil {
-		return err
-	}
-	segments = append(segments, segment)
-
-	// add the rest of the segments in the offset
+	segments := make([]*ik.Segment, 0, len(poses))
 	for i := 0; i < len(offsetPlan.Path())-1; i++ {
 		segment, err := createSegment(poses[i], poses[i+1], offsetPlan.Trajectory()[i], offsetPlan.Trajectory()[i+1])
 		if err != nil {
@@ -559,11 +551,12 @@ func CheckPlan(
 	// TODO(RSDK-5007): If we can make interpolate a method on Frame the need to write this out will be lessened and we should be
 	// able to call CheckStateConstraintsAcrossSegment directly.
 	var totalTravelDistanceMM float64
-	for i, segment := range segments {
+	for _, segment := range segments {
 		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
 		if err != nil {
 			return err
 		}
+		fmt.Println(segment.StartPosition.Point(), segment.EndPosition.Point())
 		for _, interpConfig := range interpolatedConfigurations {
 			poseInPath, err := sf.Transform(interpConfig)
 			if err != nil {
@@ -576,28 +569,13 @@ func CheckPlan(
 				return nil
 			}
 
-			// The first segment in the list does not need to account for the error state because it is the segment connecting the current
-			// position to the offsetPath (which has the error state already accounted for)
-			if i > 0 {
-				// If we are working with a PTG plan the returned value for poseInPath will only
-				// tell us how far along the arc we have traveled. Since this is only the relative position,
-				// i.e. relative to where the robot started executing the arc,
-				// we must compose poseInPath with currentPose to get the absolute position.
-				// In both cases we ultimately compose with errorState.
-				if relative {
-					rectifyBy := spatialmath.Compose(segment.StartPosition, errorState)
-					poseInPath = spatialmath.Compose(rectifyBy, poseInPath)
-				} else {
-					poseInPath = spatialmath.Compose(poseInPath, errorState)
-				}
-			}
-			modifiedState := &ik.State{Frame: sf, Position: poseInPath}
-
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
-			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedState); !isValid {
-				return fmt.Errorf("found collision between positions %v and %v",
+			interpolatedState := &ik.State{Frame: sf, Position: spatialmath.Compose(segment.StartPosition, poseInPath)}
+			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {
+				return fmt.Errorf("found error between positions %v and %v: %s",
 					segment.StartPosition.Point(),
 					segment.EndPosition.Point(),
+					err,
 				)
 			}
 		}
