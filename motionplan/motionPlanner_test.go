@@ -21,8 +21,6 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const testLookAheadDistanceMM = 1000 * 1000.
-
 var (
 	home7 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
 	home6 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
@@ -1055,14 +1053,11 @@ func TestArmGantryCheckPlan(t *testing.T) {
 	errorState := spatialmath.NewZeroPose()
 
 	t.Run("check plan with no obstacles", func(t *testing.T) {
-		err := CheckPlan(f, plan, nil, fs, startPose, plan.Trajectory()[0], errorState, testLookAheadDistanceMM, logger)
+		err := CheckPlan(f, plan, nil, fs, startPose, plan.Trajectory()[0], errorState, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("check plan with obstacle", func(t *testing.T) {
-		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{400, 0, 112}),
-			r3.Vector{10, 10, 1}, "obstacle",
-		)
+		obstacle, err := spatialmath.NewBox(goal, r3.Vector{10, 10, 1}, "obstacle")
 		test.That(t, err, test.ShouldBeNil)
 
 		geoms := []spatialmath.Geometry{obstacle}
@@ -1071,7 +1066,7 @@ func TestArmGantryCheckPlan(t *testing.T) {
 		worldState, err := frame.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(f, plan, worldState, fs, startPose, plan.Trajectory()[0], errorState, testLookAheadDistanceMM, logger)
+		err = CheckPlan(f, plan, worldState, fs, startPose, plan.Trajectory()[0], errorState, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }

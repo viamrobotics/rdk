@@ -556,7 +556,6 @@ func CheckPlan(
 		if err != nil {
 			return err
 		}
-		fmt.Println(segment.StartPosition.Point(), segment.EndPosition.Point())
 		for _, interpConfig := range interpolatedConfigurations {
 			poseInPath, err := sf.Transform(interpConfig)
 			if err != nil {
@@ -570,7 +569,12 @@ func CheckPlan(
 			}
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
-			interpolatedState := &ik.State{Frame: sf, Position: spatialmath.Compose(segment.StartPosition, poseInPath)}
+			interpolatedState := &ik.State{Frame: sf}
+			if relative {
+				interpolatedState.Position = spatialmath.Compose(segment.StartPosition, poseInPath)
+			} else {
+				interpolatedState.Configuration = interpConfig
+			}
 			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {
 				return fmt.Errorf("found error between positions %v and %v: %s",
 					segment.StartPosition.Point(),

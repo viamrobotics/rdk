@@ -1232,9 +1232,9 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		// construct plan
-		planResp, err := mr.Plan(ctx)
+		plan, err := mr.Plan(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(planResp.Waypoints), test.ShouldBeGreaterThan, 2)
+		test.That(t, len(plan.Path()), test.ShouldBeGreaterThan, 2)
 
 		// place obstacle in opposte position and show that the generate path
 		// collides with obstacleRight
@@ -1258,14 +1258,14 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 
 		err = motionplan.CheckPlan(
 			mr.planRequest.Frame,
-			planResp.Motionplan,
+			plan,
 			wrldSt,
 			mr.planRequest.FrameSystem,
 			spatialmath.NewPose(
 				r3.Vector{X: 0.58772e3, Y: -0.80826e3, Z: 0},
 				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0},
 			),
-			referenceframe.FloatsToInputs([]float64{0, 0, 0}),
+			referenceframe.StartPositions(mr.planRequest.FrameSystem),
 			spatialmath.NewZeroPose(),
 			lookAheadDistanceMM,
 			logger,
@@ -1312,9 +1312,8 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		// construct plan
-		planResp, err := mr.Plan(ctx)
+		_, err = mr.Plan(ctx)
 		test.That(t, err, test.ShouldBeError, errors.New("context deadline exceeded"))
-		test.That(t, planResp, test.ShouldResemble, state.PlanResponse{})
 	})
 }
 
