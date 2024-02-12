@@ -19,6 +19,7 @@ import (
 
 const (
 	classifierProbabilityName = "probability"
+	classifierInputName       = "image"
 )
 
 func attemptToBuildClassifier(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map) (classification.Classifier, error) {
@@ -59,7 +60,7 @@ func attemptToBuildClassifier(mlm mlmodel.Service, inNameMap, outNameMap *sync.M
 		if (origW != resizeW) || (origH != resizeH) {
 			resized = resize.Resize(uint(resizeW), uint(resizeH), img, resize.Bilinear)
 		}
-		inputName := "image"
+		inputName := classifierInputName
 		if mapName, ok := inNameMap.Load(inputName); ok {
 			if name, ok := mapName.(string); ok {
 				inputName = name

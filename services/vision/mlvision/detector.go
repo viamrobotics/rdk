@@ -23,6 +23,7 @@ const (
 	detectorLocationName = "location"
 	detectorCategoryName = "category"
 	detectorScoreName    = "score"
+	detectorInputName    = "image"
 )
 
 func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map) (objectdetection.Detector, error) {
@@ -69,7 +70,7 @@ func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map
 		if (origW != resizeW) || (origH != resizeH) {
 			resized = resize.Resize(uint(resizeW), uint(resizeH), img, resize.Bilinear)
 		}
-		inputName := "image"
+		inputName := detectorInputName
 		if mapName, ok := inNameMap.Load(inputName); ok {
 			if name, ok := mapName.(string); ok {
 				inputName = name
