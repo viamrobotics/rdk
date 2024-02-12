@@ -140,6 +140,8 @@ type builtIn struct {
 
 	syncSensor           selectiveSyncer
 	selectiveSyncEnabled bool
+
+	statusChangedMap map[string]string
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -162,11 +164,13 @@ func NewBuiltIn(
 		fileLastModifiedMillis: defaultFileLastModifiedMillis,
 		syncerConstructor:      datasync.NewManager,
 		selectiveSyncEnabled:   false,
+		statusChangedMap:       make(map[string]string),
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
+
 	return svc, nil
 }
 
@@ -433,6 +437,15 @@ func (svc *builtIn) Reconfigure(
 				// do not have the resource right now
 				continue
 			}
+
+			captureFrequencyKey := fmt.Sprintf("%s-capture-frequency", resConf.Name.String())
+			_, ok := svc.statusChangedMap[captureFrequencyKey]
+
+			if !ok && resConf.CaptureFrequencyHz == 0 {
+				svc.logger.Infof("capture frequency for component %s is not set and will not sync", resConf.Name)
+				svc.statusChangedMap[captureFrequencyKey] = "0"
+			}
+
 			if !resConf.Disabled && resConf.CaptureFrequencyHz > 0 {
 				// Create component/method metadata to check if the collector exists.
 				methodMetadata := data.MethodMetadata{
