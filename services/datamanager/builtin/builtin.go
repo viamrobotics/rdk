@@ -444,7 +444,7 @@ func (svc *builtIn) Reconfigure(
 				continue
 			}
 
-			// Create component/method metadata to check if the collector exists.
+			// Create component/method metadata
 			methodMetadata := data.MethodMetadata{
 				API:        resConf.Name.API,
 				MethodName: resConf.Method,
@@ -457,14 +457,12 @@ func (svc *builtIn) Reconfigure(
 			}
 			_, ok := svc.componentMethodFrequencyHz[componentMethodMetadata]
 
-			// only log if it's new or if it's been reset
+			// Only log capture frequency if the component frequency is new or the frequency has changed
 			// otherwise we'll be logging way too much
 			if !ok || (ok && resConf.CaptureFrequencyHz != svc.componentMethodFrequencyHz[componentMethodMetadata]) {
-				syncVal := ""
+				syncVal := "will"
 				if resConf.CaptureFrequencyHz == 0 {
-					syncVal = "will not"
-				} else {
-					syncVal = "will"
+					syncVal += " not"
 				}
 				svc.logger.Infof("capture frequency for %s is set to %.2fHz and %s sync", componentMethodMetadata, resConf.CaptureFrequencyHz, syncVal)
 			}
@@ -626,7 +624,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
