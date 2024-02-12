@@ -230,7 +230,7 @@ type resourceMethodMetadata struct {
 }
 
 func (r resourceMethodMetadata) String() string {
-	return fmt.Sprintf("Resource Name: %s, Method Params: %s, Method Metadata: [%v]", r.ResourceName, r.MethodParams, r.MethodMetadata)
+	return fmt.Sprintf("[API: %s, Resource Name: %s, Method Name: %s, Method Params: %s]", r.MethodMetadata.API, r.ResourceName, r.MethodMetadata.MethodName, r.MethodParams)
 }
 
 // Get time.Duration from hz.
@@ -464,7 +464,7 @@ func (svc *builtIn) Reconfigure(
 				} else {
 					syncVal = "will"
 				}
-				svc.logger.Infof("capture frequency for %s is set to %f/s and %s sync", componentMethodMetadata, resConf.CaptureFrequencyHz, syncVal)
+				svc.logger.Infof("capture frequency for %s is set to %.2fHz and %s sync", componentMethodMetadata, resConf.CaptureFrequencyHz, syncVal)
 			}
 
 			// we need this map to keep track of if state has changed in the configs
@@ -625,7 +625,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
