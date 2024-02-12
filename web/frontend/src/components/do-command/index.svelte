@@ -59,15 +59,16 @@ const handleDoCommand = async (
   }
 };
 
-const handleSelectComponent = (event: CustomEvent<string>) => {
-  selectedComponent = resources.find(({ name }) => name === event.detail);
+const handleSelectComponent = (value: string) => {
+  selectedComponent = resources.find(({ name }) => name === value);
 };
 
 const handleEditorInput = (event: CustomEvent<{ value: string }>) => {
   input = event.detail.value;
 };
 
-const namesToPrettySelect = (): string[] => {
+let options: string[] = [];
+$: {
   const simple = new Map<string, number>();
 
   for (const resource of resources) {
@@ -77,13 +78,13 @@ const namesToPrettySelect = (): string[] => {
     simple.set(resource.name, simple.get(resource.name)! + 1);
   }
 
-  return resources.map((resource) => {
+  options = resources.map((resource) => {
     if (simple.get(resource.name) === 1) {
       return resource.name;
     }
     return resourceNameToString(resource);
   });
-};
+}
 </script>
 
 <Collapse title="DoCommand()">
@@ -92,10 +93,11 @@ const namesToPrettySelect = (): string[] => {
       Selected component
       <SearchableSelect
         slot="input"
-        options={namesToPrettySelect()}
+        {options}
         placeholder="Select a component"
         disabled={executing}
-        on:input={handleSelectComponent}
+        exclusive
+        onChange={handleSelectComponent}
       />
     </Label>
     <div class="flex h-full w-full flex-row flex-wrap gap-2">

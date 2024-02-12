@@ -193,17 +193,6 @@ func NewModuleFromArgs(ctx context.Context, logger logging.Logger) (*Module, err
 	return NewModule(ctx, os.Args[1], logger)
 }
 
-// NewLoggerFromArgs can be used to create a logging.Logger at "DebugLevel" if
-// "--log-level=debug" is the third argument in os.Args and at "InfoLevel"
-// otherwise. See config.Module.LogLevel documentation for more info on how
-// to start modules with a "log-level" commandline argument.
-func NewLoggerFromArgs(moduleName string) logging.Logger {
-	if len(os.Args) >= 3 && os.Args[2] == "--log-level=debug" {
-		return logging.NewDebugLogger(moduleName)
-	}
-	return logging.NewLogger(moduleName)
-}
-
 // Start starts the module service and grpc server.
 func (m *Module) Start(ctx context.Context) error {
 	m.mu.Lock()
@@ -255,10 +244,6 @@ func (m *Module) Close(ctx context.Context) {
 
 // GetParentResource returns a resource from the parent robot by name.
 func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (resource.Resource, error) {
-	if err := m.connectParent(ctx); err != nil {
-		return nil, err
-	}
-
 	// Refresh parent to ensure it has the most up-to-date resources before calling
 	// ResourceByName.
 	if err := m.parent.Refresh(ctx); err != nil {
@@ -268,19 +253,30 @@ func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (res
 }
 
 func (m *Module) connectParent(ctx context.Context) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.parent == nil {
-		if err := CheckSocketOwner(m.parentAddr); err != nil {
-			return err
-		}
-		// TODO(PRODUCT-343): add session support to modules
-		rc, err := client.New(ctx, "unix://"+m.parentAddr, m.logger, client.WithDisableSessions())
-		if err != nil {
-			return err
-		}
-		m.parent = rc
+	// If parent connection has already been made, do not make another one. Some
+	// tests send two ReadyRequests sequentially, and if an rdk were to retry
+	// sending a ReadyRequest to a module for any reason, we could feasibly make
+	// a second connection back to the parent and leak the first, so disallow the
+	// setting of parent more than once.
+	if m.parent != nil {
+		return nil
 	}
+
+	if err := CheckSocketOwner(m.parentAddr); err != nil {
+		return err
+	}
+
+	// moduleLoggers may be creating the client connection below, so use a
+	// different logger here to avoid a deadlock where the client connection
+	// tries to recursively connect to the parent.
+	clientLogger := logging.NewDebugLogger("module-connection")
+	// TODO(PRODUCT-343): add session support to modules
+	rc, err := client.New(ctx, "unix://"+m.parentAddr, clientLogger, client.WithDisableSessions())
+	if err != nil {
+		return err
+	}
+
+	m.parent = rc
 	return nil
 }
 
@@ -296,6 +292,17 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.parentAddr = req.GetParentAddress()
+	if err := m.connectParent(ctx); err != nil {
+		// Return error back to parent if we cannot make a connection from module
+		// -> parent. Something is wrong in that case and the module should not be
+		// operational.
+		return nil, err
+	}
+
+	// If logger is a moduleLogger, start gRPC logging.
+	if moduleLogger, ok := m.logger.(*moduleLogger); ok {
+		moduleLogger.startLoggingViaGRPC(m)
+	}
 
 	return &pb.ReadyResponse{
 		Ready:      m.ready,
