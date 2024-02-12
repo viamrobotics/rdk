@@ -406,7 +406,7 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 	}()
 
 	// unzip archive.
-	err = m.unpackFile(ctx, p.LocalDownloadPath(m.packagesDir), tmpDataPath)
+	err = unpackFile(ctx, p.LocalDownloadPath(m.packagesDir), tmpDataPath)
 	if err != nil {
 		utils.UncheckedError(m.cleanup(p))
 		return err
@@ -481,7 +481,7 @@ func (m *cloudManager) downloadFileFromGCSURL(
 	return checksum, contentType, nil
 }
 
-func (m *cloudManager) unpackFile(ctx context.Context, fromFile, toDir string) error {
+func unpackFile(ctx context.Context, fromFile, toDir string) error {
 	if err := os.MkdirAll(toDir, 0o700); err != nil {
 		return err
 	}
