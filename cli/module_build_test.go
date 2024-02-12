@@ -32,7 +32,7 @@ func createTestManifest(t *testing.T, path string) {
     }
   ],
   "build": {
-    "setup": "",
+    "setup": "./setup.sh",
     "build": "make build",
     "path": "module",
     "arch": ["linux/amd64"]
@@ -154,4 +154,42 @@ func TestModuleGetPlatformsForModule(t *testing.T) {
 	platforms, err := ac.getPlatformsForModuleBuild("xyz123")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, platforms, test.ShouldResemble, []string{"linux/amd64", "linux/arm64"})
+}
+
+func TestLocalBuild(t *testing.T) {
+	testDir := t.TempDir()
+	err := os.Chdir(testDir)
+	test.That(t, err, test.ShouldBeNil)
+	manifest := filepath.Join(testDir, "meta.json")
+
+	// write manifest and setup.sh
+	// the manifest contains a:
+	// "setup": "./setup.sh"
+	// and a "build": "make build"
+	createTestManifest(t, manifest)
+	err = os.WriteFile(
+		filepath.Join(testDir, "setup.sh"),
+		[]byte("echo setup step msg"),
+		0o700,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = os.WriteFile(
+		filepath.Join(testDir, "Makefile"),
+		[]byte("make build:\n\techo build step msg"),
+		0o700,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// run the build local action
+	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+		&map[string]string{moduleBuildFlagPath: manifest, moduleBuildFlagVersion: "1.2.3"}, "token")
+
+	err = ac.moduleBuildLocalAction(cCtx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, errOut.messages, test.ShouldHaveLength, 0)
+
+	outMsg := strings.Join(out.messages, "")
+	test.That(t, outMsg, test.ShouldContainSubstring, "setup step msg")
+	test.That(t, outMsg, test.ShouldContainSubstring, "build step msg")
 }
