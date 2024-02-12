@@ -1,6 +1,7 @@
 package module_test
 
 import (
+	"context"
 	"testing"
 
 	"go.viam.com/test"
@@ -18,6 +19,7 @@ import (
 )
 
 func TestValidationFailureDuringReconfiguration(t *testing.T) {
+	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 
 	cfg := &config.Config{
@@ -89,6 +91,7 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 }
 
 func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
+	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 
 	cfg := &config.Config{
