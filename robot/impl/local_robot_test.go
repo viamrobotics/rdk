@@ -3337,11 +3337,17 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 
 	_, err = robot3.ResourceByName(encoder.Named("e"))
 	test.That(t, err, test.ShouldBeNil)
+	_, err = robot3.ResourceByName(encoder.Named("robot4:e"))
+	test.That(t, err, test.ShouldBeNil)
 
 	_, err = robot2.ResourceByName(encoder.Named("e"))
 	test.That(t, err, test.ShouldBeNil)
+	_, err = robot2.ResourceByName(encoder.Named("robot3:robot4:e"))
+	test.That(t, err, test.ShouldBeNil)
 
 	_, err = robot1.ResourceByName(encoder.Named("e"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = robot1.ResourceByName(encoder.Named("robot2:robot3:robot4:e"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robot1.ResourceByName(motor.Named("m"))
 	test.That(t, err, test.ShouldBeNil)
