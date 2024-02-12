@@ -15,7 +15,6 @@ import {
 import { SlamMap2D } from '@viamrobotics/prime-blocks';
 import { copyToClipboard } from '@/lib/copy-to-clipboard';
 import { filterSubtype } from '@/lib/resource';
-import { moveOnMap } from '@/api/motion';
 import { notify } from '@viamrobotics/prime';
 import { setAsyncInterval } from '@/lib/schedule';
 import { components, services } from '@/stores/resources';
@@ -298,13 +297,18 @@ const toggleAxes = () => {
 
 const handleMoveClick = async () => {
   try {
-    const base = bases[0]!;
-    await moveOnMap(
-      $robotClient,
+    // set pose in frame
+    const lastPose = await slamClient.getPosition();
+    const destinationMM = lastPose.pose!;
+    destinationMM.x = destination!.x * 1000;
+    destinationMM.y = destination!.y * 1000;
+
+    await motionClient.moveOnMap(
+      destinationMM,
+      bases[0]!,
       slamResourceName,
-      base,
-      destination!.x,
-      destination!.y
+      { planDeviationM: 0.5 },
+      { motion_profile: 'position_only' }
     );
     await refreshPaths();
   } catch (error) {
