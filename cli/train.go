@@ -123,7 +123,7 @@ func DataListTrainingJobs(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	jobs, err := client.dataListTrainingJobs(c.String(dataFlagOrgID), c.String(trainFlagJobStatus))
+	jobs, err := client.dataListTrainingJobs(c.String(generalFlagOrgID), c.String(trainFlagJobStatus))
 	if err != nil {
 		return err
 	}
