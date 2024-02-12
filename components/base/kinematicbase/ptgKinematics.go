@@ -163,78 +163,86 @@ func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referencefr
 	return ptgk.currentInput, nil
 }
 
-func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) (err error) {
-	for _, inputs := range inputSteps {
-		if len(inputs) != 3 {
-			return errors.New("inputs to ptg kinematic base must be length 3")
-		}
+func (ptgk *ptgBaseKinematics) goToInputs(ctx context.Context, inputs []referenceframe.Input) error {
+	if len(inputs) != 3 {
+		return errors.New("inputs to ptg kinematic base must be length 3")
+	}
 
-		defer func() {
-			ptgk.inputLock.Lock()
-			ptgk.currentInput = zeroInput
-			ptgk.inputLock.Unlock()
-		}()
+	defer func() {
+		ptgk.inputLock.Lock()
+		ptgk.currentInput = zeroInput
+		ptgk.inputLock.Unlock()
+	}()
 
-		ptgk.logger.CDebugf(ctx, "GoToInputs going to %v", inputs)
+	ptgk.logger.CDebugf(ctx, "GoToInputs going to %v", inputs)
 
-		selectedPTG := ptgk.ptgs[int(math.Round(inputs[ptgIndex].Value))]
+	selectedPTG := ptgk.ptgs[int(math.Round(inputs[ptgIndex].Value))]
 
-		selectedTraj, err := selectedPTG.Trajectory(
-			inputs[trajectoryIndexWithinPTG].Value,
-			inputs[distanceAlongTrajectoryIndex].Value,
-			stepDistResolution,
+	selectedTraj, err := selectedPTG.Trajectory(
+		inputs[trajectoryIndexWithinPTG].Value,
+		inputs[distanceAlongTrajectoryIndex].Value,
+		stepDistResolution,
+	)
+	if err != nil {
+		stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancelFn()
+		return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
+	}
+	arcSteps := ptgk.trajectoryToArcSteps(selectedTraj)
+
+	for _, step := range arcSteps {
+		ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
+		ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {0}}
+		ptgk.inputLock.Unlock()
+
+		timestep := time.Duration(step.timestepSeconds*1000*1000) * time.Microsecond
+
+		ptgk.logger.CDebugf(ctx,
+			"setting velocity to linear %v angular %v and running velocity step for %s",
+			step.linVelMMps,
+			step.angVelDegps,
+			timestep,
+		)
+
+		err := ptgk.Base.SetVelocity(
+			ctx,
+			step.linVelMMps,
+			step.angVelDegps,
+			nil,
 		)
 		if err != nil {
 			stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
 			defer cancelFn()
 			return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
 		}
-		arcSteps := ptgk.trajectoryToArcSteps(selectedTraj)
-
-		for _, step := range arcSteps {
-			ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
-			ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {0}}
-			ptgk.inputLock.Unlock()
-
-			timestep := time.Duration(step.timestepSeconds*1000*1000) * time.Microsecond
-
-			ptgk.logger.CDebugf(ctx,
-				"setting velocity to linear %v angular %v and running velocity step for %s",
-				step.linVelMMps,
-				step.angVelDegps,
-				timestep,
-			)
-
-			err := ptgk.Base.SetVelocity(
-				ctx,
-				step.linVelMMps,
-				step.angVelDegps,
-				nil,
-			)
-			if err != nil {
-				stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
-				defer cancelFn()
-				return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
-			}
-			utils.PanicCapturingGo(func() {
-				// We need to update currentInputs as we move through the arc.
-				for timeElapsed := 0.; timeElapsed <= step.timestepSeconds; timeElapsed += inputUpdateStep {
-					distIncVel := step.linVelMMps.Y
-					if distIncVel == 0 {
-						distIncVel = step.angVelDegps.Z
-					}
-					ptgk.inputLock.Lock()
-					ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {math.Abs(distIncVel) * timeElapsed}}
-					ptgk.inputLock.Unlock()
-					utils.SelectContextOrWait(ctx, time.Duration(inputUpdateStep*1000*1000)*time.Microsecond)
+		utils.PanicCapturingGo(func() {
+			// We need to update currentInputs as we move through the arc.
+			for timeElapsed := 0.; timeElapsed <= step.timestepSeconds; timeElapsed += inputUpdateStep {
+				distIncVel := step.linVelMMps.Y
+				if distIncVel == 0 {
+					distIncVel = step.angVelDegps.Z
 				}
-			})
-
-			if !utils.SelectContextOrWait(ctx, timestep) {
-				ptgk.logger.CDebug(ctx, ctx.Err().Error())
-				// context cancelled
-				break
+				ptgk.inputLock.Lock()
+				ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {math.Abs(distIncVel) * timeElapsed}}
+				ptgk.inputLock.Unlock()
+				utils.SelectContextOrWait(ctx, time.Duration(inputUpdateStep*1000*1000)*time.Microsecond)
 			}
+		})
+
+		if !utils.SelectContextOrWait(ctx, timestep) {
+			ptgk.logger.CDebug(ctx, ctx.Err().Error())
+			// context cancelled
+			break
+		}
+	}
+	return nil
+}
+
+func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	for _, inputs := range inputSteps {
+		err := ptgk.goToInputs(ctx, inputs)
+		if err != nil {
+			return err
 		}
 	}
 
