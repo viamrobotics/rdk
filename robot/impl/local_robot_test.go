@@ -3262,11 +3262,12 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 		},
 		Components: []resource.Config{
 			{
-				Name:                "m",
+				Name:                "m1",
 				Model:               resource.DefaultModelFamily.WithModel("fake"),
 				API:                 motor.API,
 				ConvertedAttributes: &fakemotor.Config{},
-				DependsOn:           []string{"e"},
+				// ensure DependsOn works with short name (explicit remotes)
+				DependsOn: []string{"robot2:robot3:robot4:e"},
 			},
 		},
 	}
@@ -3275,6 +3276,16 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 			{
 				Name:    "robot3",
 				Address: addr3,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:                "m2",
+				Model:               resource.DefaultModelFamily.WithModel("fake"),
+				API:                 motor.API,
+				ConvertedAttributes: &fakemotor.Config{},
+				// ensure DependsOn works with simple name (implicit remotes)
+				DependsOn: []string{"e"},
 			},
 		},
 	}
@@ -3332,6 +3343,10 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 		test.That(t, robot1.Close(ctx), test.ShouldBeNil)
 	}()
 
+	// Ensure that "e" can be retrieved by short and simple names from all
+	// robots. Also ensure "m1" and "m2" can be retrived from robot1 and robot2
+	// (they built properly).
+
 	_, err = robot4.ResourceByName(encoder.Named("e"))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -3344,11 +3359,13 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robot2.ResourceByName(encoder.Named("robot3:robot4:e"))
 	test.That(t, err, test.ShouldBeNil)
+	_, err = robot2.ResourceByName(motor.Named("m2"))
+	test.That(t, err, test.ShouldBeNil)
 
 	_, err = robot1.ResourceByName(encoder.Named("e"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robot1.ResourceByName(encoder.Named("robot2:robot3:robot4:e"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = robot1.ResourceByName(motor.Named("m"))
+	_, err = robot1.ResourceByName(motor.Named("m1"))
 	test.That(t, err, test.ShouldBeNil)
 }
