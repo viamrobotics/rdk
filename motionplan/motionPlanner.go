@@ -571,6 +571,7 @@ func CheckPlan(
 			if err != nil {
 				return err
 			}
+			// fmt.Println("poseInPath1: ", spatialmath.PoseToProtobuf(poseInPath))
 
 			// Check if look ahead distance has been reached
 			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
@@ -590,6 +591,7 @@ func CheckPlan(
 			}
 
 			modifiedState := &ik.State{Frame: sf, Position: poseInPath}
+			fmt.Println("poseInPath2: ", spatialmath.PoseToProtobuf(poseInPath))
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a
 			// collision is detected.

@@ -2675,56 +2675,18 @@ func TestGetTransientDetections(t *testing.T) {
 
 	type testCase struct {
 		name          string
-		f             func(g spatialmath.Geometry) spatialmath.Geometry
 		detectionPose spatialmath.Pose
 	}
 	testCases := []testCase{
 		{
 			name:          "relative - SLAM/base theta does not matter",
-			f:             func(g spatialmath.Geometry) spatialmath.Geometry { return g },
 			detectionPose: spatialmath.NewPose(r3.Vector{4, 10, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
-		},
-		{
-			name: "absolute - SLAM theta: 0, base theta: -90 == 270",
-			f: func(g spatialmath.Geometry) spatialmath.Geometry {
-				return g.Transform(
-					spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90}),
-				)
-			},
-			detectionPose: spatialmath.NewPose(r3.Vector{6, -14, -8}, &spatialmath.OrientationVectorDegrees{OX: 1, Theta: -90}),
-		},
-		{
-			name: "absolute - SLAM theta: 90, base theta: 0",
-			f: func(g spatialmath.Geometry) spatialmath.Geometry {
-				return g.Transform(
-					spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0}),
-				)
-			},
-			detectionPose: spatialmath.NewPose(r3.Vector{0, 0, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
-		},
-		{
-			name: "absolute - SLAM theta: 180, base theta: 90",
-			f: func(g spatialmath.Geometry) spatialmath.Geometry {
-				return g.Transform(
-					spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90}),
-				)
-			},
-			detectionPose: spatialmath.NewPose(r3.Vector{-14, -6, -8}, &spatialmath.OrientationVectorDegrees{OX: -1, Theta: -90}),
-		},
-		{
-			name: "absolute - SLAM theta: 270, base theta: 180",
-			f: func(g spatialmath.Geometry) spatialmath.Geometry {
-				return g.Transform(
-					spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180}),
-				)
-			},
-			detectionPose: spatialmath.NewPose(r3.Vector{-8, -20, -8}, &spatialmath.OrientationVectorDegrees{OY: -1, Theta: -90}),
 		},
 	}
 
 	testFn := func(t *testing.T, tc testCase) {
 		t.Helper()
-		transformedGeoms, err := mr.getTransientDetections(ctx, injectedVis, injectedCam.Name(), tc.f)
+		transformedGeoms, err := mr.getTransientDetections(ctx, injectedVis, injectedCam.Name())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, transformedGeoms.Parent(), test.ShouldEqual, referenceframe.World)
 		test.That(t, len(transformedGeoms.Geometries()), test.ShouldEqual, 1)

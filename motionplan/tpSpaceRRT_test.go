@@ -4,6 +4,7 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -251,9 +252,16 @@ func TestPtgCheckPlan(t *testing.T) {
 		steps = append(steps, stepMap)
 	}
 
-	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
-	errorState := startPose
+	// startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
+	startPose := spatialmath.NewPose(
+		r3.Vector{0, 0, 0},
+		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90},
+	)
+	errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
 	inputs := referenceframe.FloatsToInputs([]float64{0, 0, 0})
+	fmt.Println(planAsInputs)
+	out, _ := ackermanFrame.Transform(planAsInputs[1])
+	fmt.Println("out: ", spatialmath.PoseToProtobuf(out))
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
 		err := CheckPlan(ackermanFrame, steps, nil, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
