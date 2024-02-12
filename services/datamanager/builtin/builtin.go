@@ -141,7 +141,7 @@ type builtIn struct {
 	syncSensor           selectiveSyncer
 	selectiveSyncEnabled bool
 
-	statusChangedMap map[resourceMethodMetadata]interface{}
+	componentMethodFrequencyHz map[resourceMethodMetadata]float32
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -154,17 +154,17 @@ func NewBuiltIn(
 	logger logging.Logger,
 ) (datamanager.Service, error) {
 	svc := &builtIn{
-		Named:                  conf.ResourceName().AsNamed(),
-		logger:                 logger,
-		captureDir:             viamCaptureDotDir,
-		collectors:             make(map[resourceMethodMetadata]*collectorAndConfig),
-		syncIntervalMins:       0,
-		additionalSyncPaths:    []string{},
-		tags:                   []string{},
-		fileLastModifiedMillis: defaultFileLastModifiedMillis,
-		syncerConstructor:      datasync.NewManager,
-		selectiveSyncEnabled:   false,
-		statusChangedMap:       make(map[resourceMethodMetadata]interface{}),
+		Named:                      conf.ResourceName().AsNamed(),
+		logger:                     logger,
+		captureDir:                 viamCaptureDotDir,
+		collectors:                 make(map[resourceMethodMetadata]*collectorAndConfig),
+		syncIntervalMins:           0,
+		additionalSyncPaths:        []string{},
+		tags:                       []string{},
+		fileLastModifiedMillis:     defaultFileLastModifiedMillis,
+		syncerConstructor:          datasync.NewManager,
+		selectiveSyncEnabled:       false,
+		componentMethodFrequencyHz: make(map[resourceMethodMetadata]float32),
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
@@ -453,11 +453,11 @@ func (svc *builtIn) Reconfigure(
 				MethodMetadata: methodMetadata,
 				MethodParams:   fmt.Sprintf("%v", resConf.AdditionalParams),
 			}
-			_, ok := svc.statusChangedMap[componentMethodMetadata]
+			_, ok := svc.componentMethodFrequencyHz[componentMethodMetadata]
 
 			// only log if it's new or if it's been reset
 			// otherwise we'll be logging way too much
-			if !ok || (ok && resConf.CaptureFrequencyHz != svc.statusChangedMap[componentMethodMetadata]) {
+			if !ok || (ok && resConf.CaptureFrequencyHz != svc.componentMethodFrequencyHz[componentMethodMetadata]) {
 				syncVal := ""
 				if resConf.CaptureFrequencyHz == 0 {
 					syncVal = "will not"
@@ -469,7 +469,7 @@ func (svc *builtIn) Reconfigure(
 
 			// we need this map to keep track of if state has changed in the configs
 			// without it, we will be logging the same message over and over for no reason
-			svc.statusChangedMap[componentMethodMetadata] = resConf.CaptureFrequencyHz
+			svc.componentMethodFrequencyHz[componentMethodMetadata] = resConf.CaptureFrequencyHz
 
 			if !resConf.Disabled && resConf.CaptureFrequencyHz > 0 {
 
