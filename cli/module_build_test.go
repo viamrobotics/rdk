@@ -32,7 +32,7 @@ func createTestManifest(t *testing.T, path string) {
     }
   ],
   "build": {
-    "setup": "setup.sh",
+    "setup": "./setup.sh",
     "build": "echo build step msg",
     "path": "module",
     "arch": ["linux/amd64"]
@@ -164,7 +164,7 @@ func TestLocalBuild(t *testing.T) {
 
 	// write manifest and setup.sh
 	// the manifest contains a:
-	// "setup": "setup.sh"
+	// "setup": "./setup.sh"
 	// and a "build": "echo build step msg"
 	createTestManifest(t, manifest)
 	err = os.WriteFile(

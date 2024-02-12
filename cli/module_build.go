@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"io"
-	"os"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -103,34 +102,20 @@ func (c *viamClient) moduleBuildLocalAction(cCtx *cli.Context) error {
 	logger := logging.NewLogger("x")
 	if manifest.Build.Setup != "" {
 		infof(cCtx.App.Writer, "Starting setup step: %q", manifest.Build.Setup)
-		processConfig.Args = buildStepStringToBashArgs(manifest.Build.Setup)
+		processConfig.Args = []string{"-c", manifest.Build.Setup}
 		proc := pexec.NewManagedProcess(processConfig, logger.AsZap())
 		if err = proc.Start(cCtx.Context); err != nil {
 			return err
 		}
 	}
 	infof(cCtx.App.Writer, "Starting build step: %q", manifest.Build.Build)
-	processConfig.Args = buildStepStringToBashArgs(manifest.Build.Build)
+	processConfig.Args = []string{"-c", manifest.Build.Build}
 	proc := pexec.NewManagedProcess(processConfig, logger.AsZap())
 	if err = proc.Start(cCtx.Context); err != nil {
 		return err
 	}
 	infof(cCtx.App.Writer, "Completed build")
 	return nil
-}
-
-// buildStepStringToBashArgs is used because we support both:
-// "build":"buildmymodule.sh"
-// "build":"make build"
-//
-// running bash -c "buildmymodule.sh" doesn't work so we
-// have to ensure we don't pass the -c arg to bash if it is a local script.
-func buildStepStringToBashArgs(step string) []string {
-	if _, err := os.Stat(step); err == nil {
-		// if the file exists, just run the script directly
-		return []string{step}
-	}
-	return []string{"-c", step}
 }
 
 // ModuleBuildListAction lists the module's build jobs.

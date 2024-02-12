@@ -1149,7 +1149,7 @@ Example:
 {
   "module_id": ...,
   "build": {
-    "setup": "setup.sh",                    // optional - command to install your build dependencies
+    "setup": "./setup.sh",                  // optional - command to install your build dependencies
     "build": "make module.tar.gz",          // command that will build your module
     "path" : "module.tar.gz",               // optional - path to your built module
                                             // (passed to the 'viam module upload' command)
