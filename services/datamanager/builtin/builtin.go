@@ -141,7 +141,7 @@ type builtIn struct {
 	syncSensor           selectiveSyncer
 	selectiveSyncEnabled bool
 
-	statusChangedMap map[string]interface{}
+	statusChangedMap map[resourceMethodMetadata]interface{}
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -164,7 +164,7 @@ func NewBuiltIn(
 		fileLastModifiedMillis: defaultFileLastModifiedMillis,
 		syncerConstructor:      datasync.NewManager,
 		selectiveSyncEnabled:   false,
-		statusChangedMap:       make(map[string]interface{}),
+		statusChangedMap:       make(map[resourceMethodMetadata]interface{}),
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
@@ -227,6 +227,10 @@ type resourceMethodMetadata struct {
 	ResourceName   string
 	MethodParams   string
 	MethodMetadata data.MethodMetadata
+}
+
+func (r resourceMethodMetadata) String() string {
+	return fmt.Sprintf("Resource Name: %s, Method Params: %s, Method Metadata: [%v]", r.ResourceName, r.MethodParams, r.MethodMetadata)
 }
 
 // Get time.Duration from hz.
@@ -438,39 +442,36 @@ func (svc *builtIn) Reconfigure(
 				continue
 			}
 
-			captureFrequencyKey := fmt.Sprintf("%s-capture-frequency", resConf.Name.String())
-			_, ok := svc.statusChangedMap[captureFrequencyKey]
+			// Create component/method metadata to check if the collector exists.
+			methodMetadata := data.MethodMetadata{
+				API:        resConf.Name.API,
+				MethodName: resConf.Method,
+			}
 
-			// only log if it's not set AND has not been logged before or if it's been reset
+			componentMethodMetadata := resourceMethodMetadata{
+				ResourceName:   resConf.Name.ShortName(),
+				MethodMetadata: methodMetadata,
+				MethodParams:   fmt.Sprintf("%v", resConf.AdditionalParams),
+			}
+			_, ok := svc.statusChangedMap[componentMethodMetadata]
+
+			// only log if it's new or if it's been reset
 			// otherwise we'll be logging way too much
-			if !ok && resConf.CaptureFrequencyHz == 0 {
-				svc.logger.Infof("capture frequency for component %s is not set and will not sync", resConf.Name)
-			} else if ok && resConf.CaptureFrequencyHz != svc.statusChangedMap[captureFrequencyKey] {
+			if !ok || (ok && resConf.CaptureFrequencyHz != svc.statusChangedMap[componentMethodMetadata]) {
 				syncVal := ""
 				if resConf.CaptureFrequencyHz == 0 {
 					syncVal = "will not"
 				} else {
 					syncVal = "will"
 				}
-				svc.logger.Infof("capture frequency has been set to %f/s and %s sync", resConf.CaptureFrequencyHz, syncVal)
+				svc.logger.Infof("capture frequency for %s is set to %f/s and %s sync", componentMethodMetadata, resConf.CaptureFrequencyHz, syncVal)
 			}
 
 			// we need this map to keep track of if state has changed in the configs
 			// without it, we will be logging the same message over and over for no reason
-			svc.statusChangedMap[captureFrequencyKey] = resConf.CaptureFrequencyHz
+			svc.statusChangedMap[componentMethodMetadata] = resConf.CaptureFrequencyHz
 
 			if !resConf.Disabled && resConf.CaptureFrequencyHz > 0 {
-				// Create component/method metadata to check if the collector exists.
-				methodMetadata := data.MethodMetadata{
-					API:        resConf.Name.API,
-					MethodName: resConf.Method,
-				}
-
-				componentMethodMetadata := resourceMethodMetadata{
-					ResourceName:   resConf.Name.ShortName(),
-					MethodMetadata: methodMetadata,
-					MethodParams:   fmt.Sprintf("%v", resConf.AdditionalParams),
-				}
 
 				// We only use service-level tags.
 				resConf.Tags = svcConfig.Tags
