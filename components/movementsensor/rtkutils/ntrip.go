@@ -223,6 +223,8 @@ func parseStream(line string) (Stream, error) {
 
 // Connect attempts to initialize a new ntrip client.
 func (n *NtripInfo) Connect(ctx context.Context, logger logging.Logger) error {
+	// If we're unable to connect after multiple attempts, we return the last error. Declare the
+	// error variable out here so its lifetime is more than just the for loop.
 	var c *ntrip.Client
 	var err error
 
