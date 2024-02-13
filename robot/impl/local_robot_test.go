@@ -3308,11 +3308,10 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 		},
 	}
 
-	startWeb := func(r robot.LocalRobot, bindAddress string) error {
+	startWeb := func(r robot.LocalRobot, bindAddress string) {
 		options := weboptions.New()
 		options.Network.BindAddress = bindAddress
 		test.That(t, r.StartWeb(ctx, options), test.ShouldBeNil)
-		return nil
 	}
 
 	// Start robots in reverse order for remote chain.
@@ -3321,21 +3320,21 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 	defer func() {
 		test.That(t, robot4.Close(ctx), test.ShouldBeNil)
 	}()
-	test.That(t, startWeb(robot4, addr4), test.ShouldBeNil)
+	startWeb(robot4, addr4)
 
 	robot3, err := robotimpl.New(ctx, cfg3, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, robot3.Close(ctx), test.ShouldBeNil)
 	}()
-	test.That(t, startWeb(robot3, addr3), test.ShouldBeNil)
+	startWeb(robot3, addr3)
 
 	robot2, err := robotimpl.New(ctx, cfg2, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, robot2.Close(ctx), test.ShouldBeNil)
 	}()
-	test.That(t, startWeb(robot2, addr2), test.ShouldBeNil)
+	startWeb(robot2, addr2)
 
 	robot1, err := robotimpl.New(ctx, cfg1, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -3344,7 +3343,7 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 	}()
 
 	// Ensure that "e" can be retrieved by short and simple names from all
-	// robots. Also ensure "m1" and "m2" can be retrived from robot1 and robot2
+	// robots. Also ensure "m1" and "m2" can be retrieved from robot1 and robot2
 	// (they built properly).
 
 	_, err = robot4.ResourceByName(encoder.Named("e"))
