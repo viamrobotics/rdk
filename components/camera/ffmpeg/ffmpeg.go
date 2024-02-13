@@ -102,6 +102,11 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 
 	ffCam.activeBackgroundWorkers.Add(1)
 	viamutils.ManagedGo(func() {
+		select {
+		case <-cancelableCtx.Done():
+			return
+		default:
+		}
 		stream := ffmpeg.Input(conf.VideoPath, conf.InputKWArgs)
 		for _, filter := range conf.Filters {
 			stream = stream.Filter(filter.Name, filter.Args, filter.KWArgs)
@@ -115,6 +120,10 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 				return
 			}
 			if cmd.ProcessState.ExitCode() != 0 {
+				// A bad ffmpeg resource configuration can cause the ffmpeg program to exit
+				// with a non-zero code. This goroutine will infinitely loop until the user
+				// fixes the configuration. A change in configuration Closes this object,
+				// canceling the cancelableCtx.
 				panic(err)
 			}
 		}
