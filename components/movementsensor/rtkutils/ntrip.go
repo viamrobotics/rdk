@@ -235,19 +235,15 @@ func (n *NtripInfo) Connect(ctx context.Context, logger logging.Logger) error {
 		}
 
 		c, err = ntrip.NewClient(n.URL, ntrip.Options{Username: n.username, Password: n.password})
-		if err == nil {
-			break
+		if err == nil { // Success!
+			logger.Info("Connected to NTRIP caster")
+			n.Client = c
+			return nil
 		}
 	}
 
-	if err != nil {
-		logger.Errorf("Can't connect to NTRIP caster: %s", err)
-		return err
-	}
-
-	logger.Info("Connected to NTRIP caster")
-	n.Client = c
-	return nil
+	logger.Errorf("Can't connect to NTRIP caster: %s", err)
+	return err
 }
 
 // HasStream checks if the sourcetable contains the given mountpoint in it's stream.
