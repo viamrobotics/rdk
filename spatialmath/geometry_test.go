@@ -109,7 +109,7 @@ func testGeometryCollision(t *testing.T, cases []geometryComparisonTestCase) {
 				test.That(t, collides, fn)
 			})
 			t.Run(fmt.Sprintf("%s %T %T distance", c.testname, c.geometries[i], c.geometries[(i+1)%2]), func(t *testing.T) {
-				distance, err := c.geometries[i].DistanceFrom(c.geometries[(i+1)%2], collisionBufferMM)
+				distance, err := c.geometries[i].DistanceFrom(c.geometries[(i+1)%2])
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, distance, test.ShouldAlmostEqual, c.expected, 1e-3)
 			})
@@ -429,14 +429,13 @@ func TestPointVsSphereCollision(t *testing.T) {
 
 func testGeometryEncompassed(t *testing.T, cases []geometryComparisonTestCase) {
 	t.Helper()
-	collisionBufferMM := 1e-8
 	for _, c := range cases {
 		t.Run(c.testname, func(t *testing.T) {
 			fn := test.ShouldBeTrue
 			if c.expected > 0.0 {
 				fn = test.ShouldBeFalse
 			}
-			collides, err := c.geometries[0].EncompassedBy(c.geometries[1], collisionBufferMM)
+			collides, err := c.geometries[0].EncompassedBy(c.geometries[1])
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, collides, fn)
 		})

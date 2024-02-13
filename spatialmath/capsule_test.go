@@ -34,7 +34,7 @@ func TestBoxCapsuleCollision(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, col, test.ShouldBeTrue)
 
-	dist, err := c.DistanceFrom(box1, collisionBufferMM)
+	dist, err := c.DistanceFrom(box1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, dist, test.ShouldAlmostEqual, -29.69, 1e-3)
 }

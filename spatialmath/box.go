@@ -161,15 +161,15 @@ func (b *box) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) 
 	return true, newCollisionTypeUnsupportedError(b, g)
 }
 
-func (b *box) DistanceFrom(g Geometry, collisionBufferMM float64) (float64, error) {
+func (b *box) DistanceFrom(g Geometry) (float64, error) {
 	if other, ok := g.(*box); ok {
-		return boxVsBoxDistance(b, other, collisionBufferMM), nil
+		return boxVsBoxDistance(b, other), nil
 	}
 	if other, ok := g.(*sphere); ok {
 		return sphereVsBoxDistance(other, b), nil
 	}
 	if other, ok := g.(*capsule); ok {
-		return capsuleVsBoxDistance(other, b, collisionBufferMM), nil
+		return capsuleVsBoxDistance(other, b), nil
 	}
 	if other, ok := g.(*point); ok {
 		return pointVsBoxDistance(other.position, b), nil
@@ -177,15 +177,15 @@ func (b *box) DistanceFrom(g Geometry, collisionBufferMM float64) (float64, erro
 	return math.Inf(-1), newCollisionTypeUnsupportedError(b, g)
 }
 
-func (b *box) EncompassedBy(g Geometry, collisionBufferMM float64) (bool, error) {
+func (b *box) EncompassedBy(g Geometry) (bool, error) {
 	if other, ok := g.(*box); ok {
-		return boxInBox(b, other, collisionBufferMM), nil
+		return boxInBox(b, other), nil
 	}
 	if other, ok := g.(*sphere); ok {
-		return boxInSphere(b, other, collisionBufferMM), nil
+		return boxInSphere(b, other), nil
 	}
 	if other, ok := g.(*capsule); ok {
-		return boxInCapsule(b, other, collisionBufferMM), nil
+		return boxInCapsule(b, other), nil
 	}
 	if _, ok := g.(*point); ok {
 		return false, nil
@@ -307,11 +307,11 @@ func boxVsBoxCollision(a, b *box, collisionBufferMM float64) bool {
 // references:  https://comp.graphics.algorithms.narkive.com/jRAgjIUh/obb-obb-distance-calculation
 //
 //	https://dyn4j.org/2010/01/sat/#sat-nointer
-func boxVsBoxDistance(a, b *box, collisionBufferMM float64) float64 {
+func boxVsBoxDistance(a, b *box) float64 {
 	centerDist := b.pose.Point().Sub(a.pose.Point())
 
 	// check if there is a distance between bounding spheres to potentially exit early
-	if boundingSphereDist := centerDist.Norm() - a.boundingSphereR - b.boundingSphereR; boundingSphereDist > collisionBufferMM {
+	if boundingSphereDist := centerDist.Norm() - a.boundingSphereR - b.boundingSphereR; boundingSphereDist > defaultCollisionBuffer {
 		return boundingSphereDist
 	}
 
@@ -350,9 +350,9 @@ func boxVsBoxDistance(a, b *box, collisionBufferMM float64) float64 {
 }
 
 // boxInBox returns a bool describing if the inner box is completely encompassed by the outer box.
-func boxInBox(inner, outer *box, collisionBufferMM float64) bool {
+func boxInBox(inner, outer *box) bool {
 	for _, vertex := range inner.vertices() {
-		if !pointVsBoxCollision(vertex, outer, collisionBufferMM) {
+		if !pointVsBoxCollision(vertex, outer, defaultCollisionBuffer) {
 			return false
 		}
 	}
@@ -360,9 +360,9 @@ func boxInBox(inner, outer *box, collisionBufferMM float64) bool {
 }
 
 // boxInSphere returns a bool describing if the given box is completely encompassed by the given sphere.
-func boxInSphere(b *box, s *sphere, collisionBufferMM float64) bool {
+func boxInSphere(b *box, s *sphere) bool {
 	for _, vertex := range b.vertices() {
-		if sphereVsPointDistance(s, vertex) > collisionBufferMM {
+		if sphereVsPointDistance(s, vertex) > defaultCollisionBuffer {
 			return false
 		}
 	}
@@ -370,9 +370,9 @@ func boxInSphere(b *box, s *sphere, collisionBufferMM float64) bool {
 }
 
 // boxInCapsule returns a bool describing if the given box is completely encompassed by the given capsule.
-func boxInCapsule(b *box, c *capsule, collisionBufferMM float64) bool {
+func boxInCapsule(b *box, c *capsule) bool {
 	for _, vertex := range b.vertices() {
-		if capsuleVsPointDistance(c, vertex) > collisionBufferMM {
+		if capsuleVsPointDistance(c, vertex) > defaultCollisionBuffer {
 			return false
 		}
 	}

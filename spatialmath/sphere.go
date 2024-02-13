@@ -106,7 +106,7 @@ func (s *sphere) CollidesWith(g Geometry, collisionBufferMM float64) (bool, erro
 	return true, newCollisionTypeUnsupportedError(s, g)
 }
 
-func (s *sphere) DistanceFrom(g Geometry, collisionBufferMM float64) (float64, error) {
+func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
 	if other, ok := g.(*box); ok {
 		return sphereVsBoxDistance(s, other), nil
 	}
@@ -122,7 +122,7 @@ func (s *sphere) DistanceFrom(g Geometry, collisionBufferMM float64) (float64, e
 	return math.Inf(-1), newCollisionTypeUnsupportedError(s, g)
 }
 
-func (s *sphere) EncompassedBy(g Geometry, collisionBufferMM float64) (bool, error) {
+func (s *sphere) EncompassedBy(g Geometry) (bool, error) {
 	if other, ok := g.(*sphere); ok {
 		return sphereInSphere(s, other), nil
 	}
