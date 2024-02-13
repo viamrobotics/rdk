@@ -252,7 +252,7 @@ func capsuleVsBoxDistance(c *capsule, other *box) float64 {
 	dist := capsuleBoxSeparatingAxisDistance(c, other)
 	// Separating axis theorum provides accurate penetration depth but is not accurate for separation
 	// if we are not in collision, convert box to mesh and determine triangle-capsule separation distance
-	if dist > defaultCollisionBuffer {
+	if dist > defaultCollisionBufferMM {
 		return capsuleVsMeshDistance(c, other.toMesh())
 	}
 	return dist
@@ -334,7 +334,7 @@ func capsuleBoxSeparatingAxisDistance(c *capsule, b *box) float64 {
 	centerDist := b.pose.Point().Sub(c.center)
 
 	// check if there is a distance between bounding spheres to potentially exit early
-	if boundingSphereDist := centerDist.Norm() - ((c.length / 2) + b.boundingSphereR); boundingSphereDist > defaultCollisionBuffer {
+	if boundingSphereDist := centerDist.Norm() - ((c.length / 2) + b.boundingSphereR); boundingSphereDist > defaultCollisionBufferMM {
 		return boundingSphereDist
 	}
 	rmA := c.rotationMatrix()

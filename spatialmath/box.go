@@ -311,7 +311,7 @@ func boxVsBoxDistance(a, b *box) float64 {
 	centerDist := b.pose.Point().Sub(a.pose.Point())
 
 	// check if there is a distance between bounding spheres to potentially exit early
-	if boundingSphereDist := centerDist.Norm() - a.boundingSphereR - b.boundingSphereR; boundingSphereDist > defaultCollisionBuffer {
+	if boundingSphereDist := centerDist.Norm() - a.boundingSphereR - b.boundingSphereR; boundingSphereDist > defaultCollisionBufferMM {
 		return boundingSphereDist
 	}
 
@@ -352,7 +352,7 @@ func boxVsBoxDistance(a, b *box) float64 {
 // boxInBox returns a bool describing if the inner box is completely encompassed by the outer box.
 func boxInBox(inner, outer *box) bool {
 	for _, vertex := range inner.vertices() {
-		if !pointVsBoxCollision(vertex, outer, defaultCollisionBuffer) {
+		if !pointVsBoxCollision(vertex, outer, defaultCollisionBufferMM) {
 			return false
 		}
 	}
@@ -362,7 +362,7 @@ func boxInBox(inner, outer *box) bool {
 // boxInSphere returns a bool describing if the given box is completely encompassed by the given sphere.
 func boxInSphere(b *box, s *sphere) bool {
 	for _, vertex := range b.vertices() {
-		if sphereVsPointDistance(s, vertex) > defaultCollisionBuffer {
+		if sphereVsPointDistance(s, vertex) > defaultCollisionBufferMM {
 			return false
 		}
 	}
@@ -372,7 +372,7 @@ func boxInSphere(b *box, s *sphere) bool {
 // boxInCapsule returns a bool describing if the given box is completely encompassed by the given capsule.
 func boxInCapsule(b *box, c *capsule) bool {
 	for _, vertex := range b.vertices() {
-		if capsuleVsPointDistance(c, vertex) > defaultCollisionBuffer {
+		if capsuleVsPointDistance(c, vertex) > defaultCollisionBufferMM {
 			return false
 		}
 	}

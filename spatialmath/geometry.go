@@ -40,7 +40,7 @@ const (
 	PointType   = GeometryType("point")
 
 	// objects must be separated by this many mm to not be in collision.
-	defaultCollisionBuffer = 1e-8
+	defaultCollisionBufferMM = 1e-8
 
 	// Point density corresponding to how many points per square mm.
 	defaultPointDensity = .5

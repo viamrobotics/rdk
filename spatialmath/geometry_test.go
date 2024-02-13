@@ -96,15 +96,14 @@ type geometryComparisonTestCase struct {
 
 func testGeometryCollision(t *testing.T, cases []geometryComparisonTestCase) {
 	t.Helper()
-	collisionBufferMM := 1e-8
 	for _, c := range cases {
 		for i := 0; i < 2; i++ {
 			t.Run(fmt.Sprintf("%s %T %T collision", c.testname, c.geometries[i], c.geometries[(i+1)%2]), func(t *testing.T) {
 				fn := test.ShouldBeFalse
-				if c.expected <= collisionBufferMM {
+				if c.expected <= defaultCollisionBufferMM {
 					fn = test.ShouldBeTrue
 				}
-				collides, err := c.geometries[i].CollidesWith(c.geometries[(i+1)%2], collisionBufferMM)
+				collides, err := c.geometries[i].CollidesWith(c.geometries[(i+1)%2], defaultCollisionBufferMM)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, collides, fn)
 			})
