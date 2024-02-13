@@ -169,6 +169,12 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 	plan motionplan.Plan,
 	waypointIndex int,
 ) (state.ExecuteResponse, error) {
+	// check no obstacles intersect the portion of the plan which has yet to be executed
+	remainingPlan, err := motionplan.RemainingPlan(plan, waypointIndex)
+	if err != nil {
+		return state.ExecuteResponse{}, err
+	}
+
 	for visSrvc, cameraNames := range mr.obstacleDetectors {
 		for _, camName := range cameraNames {
 			mr.logger.Debugf(
@@ -251,11 +257,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				return state.ExecuteResponse{}, err
 			}
 
-			// check no obstacles intersect the portion of the plan which has yet to be executed
-			remainingPlan, err := motionplan.RemainingPlan(plan, waypointIndex)
-			if err != nil {
-				return state.ExecuteResponse{}, err
-			}
 			if err := motionplan.CheckPlan(
 				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
 				remainingPlan,
