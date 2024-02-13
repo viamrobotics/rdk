@@ -122,9 +122,15 @@ func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 	return referenceframe.FloatsToInputs(res), nil
 }
 
-func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	speeds := []float64{}
-	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), speeds, nil)
+func (c *client) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	for _, goal := range inputSteps {
+		speeds := []float64{}
+		err := c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), speeds, nil)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

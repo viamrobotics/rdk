@@ -25,7 +25,7 @@ type Arm struct {
 	CloseFunc                func(ctx context.Context) error
 	ModelFrameFunc           func() referenceframe.Model
 	CurrentInputsFunc        func(ctx context.Context) ([]referenceframe.Input, error)
-	GoToInputsFunc           func(ctx context.Context, goal []referenceframe.Input) error
+	GoToInputsFunc           func(ctx context.Context, inputSteps ...[]referenceframe.Input) error
 }
 
 // NewArm returns a new injected arm.
@@ -126,9 +126,9 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 }
 
 // GoToInputs calls the injected GoToInputs or the real version.
-func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+func (a *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
 	if a.GoToInputsFunc == nil {
-		return a.Arm.GoToInputs(ctx, goal)
+		return a.Arm.GoToInputs(ctx, inputSteps...)
 	}
-	return a.GoToInputsFunc(ctx, goal)
+	return a.GoToInputsFunc(ctx, inputSteps...)
 }

@@ -4,6 +4,7 @@ package rtkutils
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"strconv"
@@ -44,8 +45,8 @@ const (
 // NtripInfo contains the information necessary to connect to a mountpoint.
 type NtripInfo struct {
 	URL                string
-	Username           string
-	Password           string
+	username           string
+	password           string
 	MountPoint         string
 	Client             *ntrip.Client
 	Stream             io.ReadCloser
@@ -57,8 +58,8 @@ type NtripConfig struct {
 	NtripURL             string `json:"ntrip_url"`
 	NtripConnectAttempts int    `json:"ntrip_connect_attempts,omitempty"`
 	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
-	NtripPass            string `json:"ntrip_password,omitempty"`
 	NtripUser            string `json:"ntrip_username,omitempty"`
+	NtripPass            string `json:"ntrip_password,omitempty"`
 }
 
 // Sourcetable struct contains the stream.
@@ -98,12 +99,12 @@ func NewNtripInfo(cfg *NtripConfig, logger logging.Logger) (*NtripInfo, error) {
 	if n.URL == "" {
 		return nil, fmt.Errorf("NTRIP expected non-empty string for %q", cfg.NtripURL)
 	}
-	n.Username = cfg.NtripUser
-	if n.Username == "" {
+	n.username = cfg.NtripUser
+	if n.username == "" {
 		logger.Info("ntrip_username set to empty")
 	}
-	n.Password = cfg.NtripPass
-	if n.Password == "" {
+	n.password = cfg.NtripPass
+	if n.password == "" {
 		logger.Info("ntrip_password set to empty")
 	}
 	n.MountPoint = cfg.NtripMountpoint
@@ -111,8 +112,9 @@ func NewNtripInfo(cfg *NtripConfig, logger logging.Logger) (*NtripInfo, error) {
 		logger.Info("ntrip_mountpoint set to empty")
 	}
 	n.MaxConnectAttempts = cfg.NtripConnectAttempts
-	if n.MaxConnectAttempts == 10 {
+	if n.MaxConnectAttempts == 0 {
 		logger.Info("ntrip_connect_attempts using default 10")
+		n.MaxConnectAttempts = 10
 	}
 
 	logger.Debug("Returning n")
@@ -217,6 +219,35 @@ func parseStream(line string) (Stream, error) {
 		Latitude: float32(lat), Longitude: float32(lon), Nmea: nmea, Solution: sol, Generator: fields[generator],
 		Compression: fields[compression], Authentication: fields[auth], Fee: fee, BitRate: bitrate, Misc: fields[misc],
 	}, nil
+}
+
+// Connect attempts to initialize a new ntrip client.
+func (n *NtripInfo) Connect(ctx context.Context, logger logging.Logger) error {
+	var c *ntrip.Client
+	var err error
+
+	logger.Debug("Connecting to NTRIP caster")
+	for attempts := 0; attempts < n.MaxConnectAttempts; attempts++ {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		c, err = ntrip.NewClient(n.URL, ntrip.Options{Username: n.username, Password: n.password})
+		if err == nil {
+			break
+		}
+	}
+
+	if err != nil {
+		logger.Errorf("Can't connect to NTRIP caster: %s", err)
+		return err
+	}
+
+	logger.Info("Connected to NTRIP caster")
+	n.Client = c
+	return nil
 }
 
 // HasStream checks if the sourcetable contains the given mountpoint in it's stream.

@@ -11,11 +11,12 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-func newPID(config BlockConfig, logger logging.Logger) (Block, error) {
+func (l *Loop) newPID(config BlockConfig, logger logging.Logger) (Block, error) {
 	p := &basicPID{cfg: config, logger: logger}
 	if err := p.reset(); err != nil {
 		return nil, err
 	}
+	l.pidBlocks = append(l.pidBlocks, p)
 	return p, nil
 }
 
@@ -37,6 +38,10 @@ type basicPID struct {
 	tuner    pidTuner
 	tuning   bool
 	logger   logging.Logger
+}
+
+func (p *basicPID) GetTuning() bool {
+	return p.tuning
 }
 
 // Output returns the discrete step of the PID controller, dt is the delta time between two subsequent call,
