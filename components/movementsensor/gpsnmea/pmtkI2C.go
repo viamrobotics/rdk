@@ -12,13 +12,13 @@ import (
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // PmtkI2CNMEAMovementSensor allows the use of any MovementSensor chip that communicates over I2C using the PMTK protocol.
@@ -26,11 +26,9 @@ type PmtkI2CNMEAMovementSensor struct {
 	resource.Named
 	resource.AlwaysRebuild
 	mu                      sync.RWMutex
-	cancelCtx               context.Context
-	cancelFunc              func()
 	logger                  logging.Logger
 	data                    GPSData
-	activeBackgroundWorkers sync.WaitGroup
+	workers                 utils.StoppableWorkers
 
 	err                movementsensor.LastError
 	lastPosition       movementsensor.LastPosition
@@ -82,15 +80,11 @@ func MakePmtkI2cGpsNmea(
 		logger.CWarn(ctx, "using default baudrate : 38400")
 	}
 
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-
 	g := &PmtkI2CNMEAMovementSensor{
 		Named:      name.AsNamed(),
 		bus:        i2cBus,
 		addr:       byte(addr),
 		wbaud:      conf.I2CConfig.I2CBaudRate,
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
 		logger:     logger,
 		// Overloaded boards can have flaky I2C busses. Only report errors if at least 5 of the
 		// last 10 attempts have failed.
@@ -138,13 +132,11 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 		return err
 	}
 
-	g.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer g.activeBackgroundWorkers.Done()
+	g.workers = utils.NewStoppableWorkers(func(cancelCtx context.Context) {
 		strBuf := ""
 		for {
 			select {
-			case <-g.cancelCtx.Done():
+			case <-cancelCtx.Done():
 				return
 			default:
 			}
@@ -357,8 +349,7 @@ func (g *PmtkI2CNMEAMovementSensor) Readings(ctx context.Context, extra map[stri
 
 // Close shuts down the SerialNMEAMOVEMENTSENSOR.
 func (g *PmtkI2CNMEAMovementSensor) Close(ctx context.Context) error {
-	g.cancelFunc()
-	g.activeBackgroundWorkers.Wait()
+	g.workers.Stop()
 
 	return g.err.Get()
 }
