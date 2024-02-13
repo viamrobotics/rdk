@@ -523,7 +523,7 @@ func TestObstacleReplanningSlam(t *testing.T) {
 				i++
 				return []*viz.Object{}, nil
 			}
-			obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 500, Y: 0, Z: 0})
+			obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 500})
 			box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 50, Y: 100, Z: 10}, "test-case-1")
 			test.That(t, err, test.ShouldBeNil)
 

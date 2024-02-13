@@ -277,6 +277,7 @@ func createMoveOnMapEnvironment(
 	cameraLink := referenceframe.NewLinkInFrame(
 		baseLink.Name(),
 		// we recreate an intel real sense orientation placed along the +Y axis of the base's coordinate frame.
+		// i.e. the camera is pointed along the axis the base moves forwa
 		spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
 		"test-camera",
 		cameraGeom,

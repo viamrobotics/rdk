@@ -190,10 +190,12 @@ func WrapWithFakePTGKinematics(
 		sensorNoise = spatialmath.NewZeroPose()
 	}
 
-	newPiF := referenceframe.NewPoseInFrame(origin.Parent(),
+	newPiF := referenceframe.NewPoseInFrame(
+		origin.Parent(),
 		spatialmath.Compose(
 			origin.Pose(), motion.SLAMOrientationAdjustment,
-		))
+		),
+	)
 	newPiF.SetName(origin.Name())
 	fk := &fakePTGKinematics{
 		Base:  b,
@@ -228,13 +230,6 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referencef
 	fk.lock.Lock()
 	fmt.Println("fk.origin.Pose(): ", spatialmath.PoseToProtobuf(fk.origin.Pose()))
 	fmt.Println("newPose: ", spatialmath.PoseToProtobuf(newPose))
-
-	// newMid := spatialmath.Compose(newPose,
-	// 	// spatialmath.PoseInverse(motion.SLAMOrientationAdjustment),
-	// 	motion.SLAMOrientationAdjustment,
-	// )
-	// fmt.Println("newMid: ", spatialmath.PoseToProtobuf(newMid))
-
 	new := spatialmath.Compose(fk.origin.Pose(), newPose)
 	fmt.Println("new: ", spatialmath.PoseToProtobuf(new))
 	fmt.Println(" ")
@@ -266,8 +261,5 @@ func (fkl *fakePTGKinematicsLocalizer) CurrentPosition(ctx context.Context) (*re
 	fkl.fk.lock.RLock()
 	defer fkl.fk.lock.RUnlock()
 	origin := fkl.fk.origin
-	fmt.Println("spatialmath.Compose(origin.Pose(), fkl.fk.sensorNoise): ", spatialmath.PoseToProtobuf(
-		spatialmath.Compose(origin.Pose(), fkl.fk.sensorNoise),
-	))
 	return referenceframe.NewPoseInFrame(origin.Parent(), spatialmath.Compose(origin.Pose(), fkl.fk.sensorNoise)), nil
 }

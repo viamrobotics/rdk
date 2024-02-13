@@ -571,7 +571,7 @@ func CheckPlan(
 			if err != nil {
 				return err
 			}
-			// fmt.Println("poseInPath1: ", spatialmath.PoseToProtobuf(poseInPath))
+			fmt.Println("poseInPath1: ", spatialmath.PoseToProtobuf(poseInPath))
 
 			// Check if look ahead distance has been reached
 			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
