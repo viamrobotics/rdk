@@ -27,13 +27,15 @@ func RemainingPlan(plan Plan, waypointIndex int) (Plan, error) {
 	if waypointIndex < 0 {
 		return nil, errors.New("could not access plan with negative waypoint index")
 	}
-	if waypointIndex > len(plan.Trajectory()) {
+	traj := plan.Trajectory()
+	if traj != nil && waypointIndex > len(traj) {
 		return nil, fmt.Errorf("could not access trajectory index %d, must be less than %d", waypointIndex, len(plan.Trajectory()))
 	}
-	if waypointIndex > len(plan.Path()) {
+	path := plan.Path()
+	if path != nil && waypointIndex > len(path) {
 		return nil, fmt.Errorf("could not access path index %d, must be less than %d", waypointIndex, len(plan.Path()))
 	}
-	simplePlan := NewSimplePlan(plan.Path()[waypointIndex:], plan.Trajectory()[waypointIndex:])
+	simplePlan := NewSimplePlan(path[waypointIndex:], traj[waypointIndex:])
 	if rrt, ok := plan.(*rrtPlan); ok {
 		return &rrtPlan{SimplePlan: *simplePlan, nodes: rrt.nodes[waypointIndex:]}, nil
 	}
@@ -41,9 +43,14 @@ func RemainingPlan(plan Plan, waypointIndex int) (Plan, error) {
 }
 
 // OffsetPlan returns a new Plan that is equivalent to the given Plan if its Path was offset by the given Pose.
+// Does not modify Trajectory.
 func OffsetPlan(plan Plan, offset spatialmath.Pose) Plan {
-	newPath := make([]PathStep, 0, len(plan.Path()))
-	for _, step := range plan.Path() {
+	path := plan.Path()
+	if path == nil {
+		return NewSimplePlan(nil, plan.Trajectory())
+	}
+	newPath := make([]PathStep, 0, len(path))
+	for _, step := range path {
 		newStep := make(PathStep, len(step))
 		for frame, pose := range step {
 			newStep[frame] = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(offset, pose.Pose()))
