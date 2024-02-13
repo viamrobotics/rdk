@@ -17,6 +17,8 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	pocutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -43,18 +45,14 @@ func NewNetAppender(config *CloudConfig) (*NetAppender, error) {
 		cfg: config,
 	}
 
-	cancelCtx, cancel := context.WithCancel(context.Background())
 	nl := &NetAppender{
 		hostname:         hostname,
-		cancelCtx:        cancelCtx,
-		cancel:           cancel,
 		remoteWriter:     logWriter,
 		maxQueueSize:     defaultMaxQueueSize,
 		loggerWithoutNet: NewLogger("netlogger"),
 	}
 
-	nl.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(nl.backgroundWorker, nl.activeBackgroundWorkers.Done)
+	nl.workers = pocutils.NewStoppableWorkers(nl.backgroundWorker)
 	return nl, nil
 }
 
@@ -67,9 +65,7 @@ type NetAppender struct {
 	toLog        []*commonpb.LogEntry
 	maxQueueSize int
 
-	cancelCtx               context.Context
-	cancel                  func()
-	activeBackgroundWorkers sync.WaitGroup
+	workers pocutils.StoppableWorkers
 
 	// the netLogger causing a recursive loop.
 	loggerWithoutNet Logger
@@ -94,8 +90,7 @@ func (nl *NetAppender) Close() {
 
 		time.Sleep(10 * time.Millisecond)
 	}
-	nl.cancel()
-	nl.activeBackgroundWorkers.Wait()
+	nl.workers.Stop()
 	nl.remoteWriter.close()
 }
 
@@ -186,13 +181,13 @@ func (nl *NetAppender) addBatchToQueue(batch []*commonpb.LogEntry) {
 	nl.toLog = append(nl.toLog, batch...)
 }
 
-func (nl *NetAppender) backgroundWorker() {
+func (nl *NetAppender) backgroundWorker(cancelCtx context.Context) {
 	normalInterval := 100 * time.Millisecond
 	abnormalInterval := 5 * time.Second
 	interval := normalInterval
 	for {
 		cancelled := false
-		if !utils.SelectContextOrWait(nl.cancelCtx, interval) {
+		if !utils.SelectContextOrWait(cancelCtx, interval) {
 			cancelled = true
 		}
 		err := nl.Sync()
