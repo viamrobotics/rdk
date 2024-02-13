@@ -3247,8 +3247,9 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 
 	// Setup a robot1 -> robot2 -> robot3 -> robot4 remote chain. Ensure that if
 	// robot4 has an encoder "e", all robots in the chain can retrieve it by
-	// short name "e". Also ensure that a motor "m" on robot1 can depend on "e"
-	// on robot4.
+	// simple name "e" or short name "[remote-prefix]:e". Also ensure that a
+	// motor "m1" on robot1 can depend on "robot2:robot3:robot4:e" and a motor
+	// "m2" on robot2 can depend on "e".
 
 	addr2 := "localhost:8081"
 	addr3 := "localhost:8082"
