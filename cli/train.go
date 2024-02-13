@@ -18,6 +18,8 @@ const (
 	trainFlagModelVersion = "model-version"
 	trainFlagModelType    = "model-type"
 	trainFlagModelLabels  = "model-labels"
+
+	trainingStatusPrefix = "TRAINING_STATUS_"
 )
 
 // DataSubmitTrainingJob is the corresponding action for 'data train submit'.
@@ -142,7 +144,7 @@ func (c *viamClient) dataListTrainingJobs(orgID, status string) ([]*mltrainingpb
 	if status == "" {
 		status = "unspecified"
 	}
-	statusEnum, ok := mltrainingpb.TrainingStatus_value["TRAINING_STATUS_"+strings.ToUpper(status)]
+	statusEnum, ok := mltrainingpb.TrainingStatus_value[trainingStatusPrefix+strings.ToUpper(status)]
 	if !ok {
 		return nil, errors.Errorf("%s must be a valid TrainingStatus, got %s. See `viam train list --help` for supported options",
 			trainFlagJobStatus, status)
@@ -156,4 +158,18 @@ func (c *viamClient) dataListTrainingJobs(orgID, status string) ([]*mltrainingpb
 		return nil, err
 	}
 	return resp.Jobs, nil
+}
+
+// allTrainingStatusValues returns the accepted values for the trainFlagJobStatus flag.
+func allTrainingStatusValues() string {
+	var formattedStatuses []string
+	for status := range mltrainingpb.TrainingStatus_value {
+		formattedStatus := strings.ToLower(strings.TrimPrefix(status, trainingStatusPrefix))
+		formattedStatuses = append(formattedStatuses, formattedStatus)
+	}
+	var allStatuses string
+	if len(formattedStatuses) > 0 {
+		allStatuses = "[" + strings.Join(formattedStatuses, ", ") + "]"
+	}
+	return allStatuses
 }

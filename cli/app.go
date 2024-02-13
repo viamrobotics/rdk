@@ -763,9 +763,8 @@ var app = &cli.App{
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name: trainFlagJobStatus,
-							Usage: "training status to filter for. can be one of " +
-								"[unspecified, pending, in_progress, completed, failed, canceled, canceling]",
+							Name:     trainFlagJobStatus,
+							Usage:    "training status to filter for. can be one of " + allTrainingStatusValues(),
 							Required: true,
 						},
 					},
