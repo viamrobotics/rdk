@@ -19,6 +19,9 @@ const (
 	aliasRobotFlag   = "robot"
 	partFlag         = "part"
 
+  // quiet any warnings
+  quietFlag        = "quiet"
+
 	logsFlagErrors = "errors"
 	logsFlagTail   = "tail"
 
@@ -109,6 +112,11 @@ var app = &cli.App{
 			Aliases: []string{"vvv"},
 			Usage:   "enable debug logging",
 		},
+		&cli.BoolFlag{
+			Name:    quietFlag,
+			Aliases: []string{"q"},
+			Usage:   "suppress warnings; ie version warning, etc",
+		},
 	},
 	Commands: []*cli.Command{
 		{
@@ -123,7 +131,8 @@ var app = &cli.App{
 					Usage: "prevent opening the default browser during login",
 				},
 			},
-			Action: LoginAction,
+      Action: LoginAction,
+      Before: CheckVersionUpdate,
 			Subcommands: []*cli.Command{
 				{
 					Name:   "print-access-token",
@@ -154,8 +163,13 @@ var app = &cli.App{
 			Name:   "logout",
 			Usage:  "logout from current session",
 			Action: LogoutAction,
-		},
-		{
+    },
+    {
+      Name:   "check-update",
+      Usage:  "checks if there is a newer stable version available",
+      Action: CheckVersionUpdate,
+    },
+    {
 			Name:   "whoami",
 			Usage:  "get currently logged-in user",
 			Action: WhoAmIAction,

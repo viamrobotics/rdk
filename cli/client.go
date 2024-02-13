@@ -7,17 +7,20 @@ import (
 	"io"
 	"net"
 	"net/url"
+  "net/http"
 	"os"
 	"os/exec"
 	"runtime/debug"
 	"strings"
 	"time"
+  "encoding/json"
 
 	"github.com/fullstorydev/grpcurl"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+  "github.com/hashicorp/go-version"
 	"go.uber.org/zap"
 	buildpb "go.viam.com/api/app/build/v1"
 	datapb "go.viam.com/api/app/data/v1"
@@ -38,6 +41,10 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/shell"
+)
+
+const (
+  releaseUrl = "https://api.github.com/repos/viamrobot/releases/latest"
 )
 
 // viamClient wraps a cli.Context and provides all the CLI command functionality
@@ -380,40 +387,105 @@ func RobotsPartShellAction(c *cli.Context) error {
 	)
 }
 
+type VersionCheckResponse struct {
+  Name string         `json:name`
+  TagName string      `json:tag_name`
+  TarballUrl string   `json:tarball_url`
+}
+
+// VersionAction is the corresponding Action for 'version'.
+func CheckVersionUpdate(c *cli.Context) error {
+  if c.Bool(quietFlag) {
+    return nil
+  }
+
+  dateCompiledRaw := rconfig.DateCompiled
+  dateCompiled, err := time.Parse("2006-01-02", dateCompiledRaw)
+  if err != nil {
+	  printf(c.App.Writer, "Failed to parse dateCompiled")
+    return nil
+  }
+
+  if time.Since(dateCompiled) < time.Hour * 24 * 7 {
+    return nil
+  }
+
+  // compare to current version
+	appVersion := rconfig.Version
+
+	if appVersion == "" {
+	  printf(c.App.Writer, "Development version is more than one week old.")
+    return nil
+	}
+
+  v1, err := version.NewVersion(appVersion)
+  if err != nil {
+	  printf(c.App.Writer, "Failed to parse current semver")
+    return nil
+  }
+
+  // get latest release version
+  r, err := http.Get(releaseUrl)
+  if err != nil {
+	  printf(c.App.Writer, "Failed to get latest release info")
+    return nil
+  }
+  defer r.Body.Close()
+  resp := VersionCheckResponse{}
+  decoder := json.NewDecoder(r.Body)
+  err = decoder.Decode(&resp)
+  if err != nil {
+	  printf(c.App.Writer, "Failed to parse response")
+  }
+
+  v2, err := version.NewVersion("1.5+metadata")
+  if err != nil {
+	  printf(c.App.Writer, "Failed to parse latest semver")
+    return nil
+  }
+
+  if v1.LessThan(v2) {
+	  printf(c.App.Writer, "Your CLI Version is out of date.")
+  }
+
+  return nil
+}
+
 // VersionAction is the corresponding Action for 'version'.
 func VersionAction(c *cli.Context) error {
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
 		return errors.New("error reading build info")
-	}
-	if c.Bool(debugFlag) {
-		printf(c.App.Writer, "%s", info.String())
-	}
-	settings := make(map[string]string, len(info.Settings))
-	for _, setting := range info.Settings {
-		settings[setting.Key] = setting.Value
-	}
-	version := "?"
-	if rev, ok := settings["vcs.revision"]; ok {
-		version = rev[:8]
-		if settings["vcs.modified"] == "true" {
-			version += "+"
-		}
-	}
-	deps := make(map[string]*debug.Module, len(info.Deps))
-	for _, dep := range info.Deps {
-		deps[dep.Path] = dep
-	}
-	apiVersion := "?"
-	if dep, ok := deps["go.viam.com/api"]; ok {
-		apiVersion = dep.Version
-	}
-	appVersion := rconfig.Version
-	if appVersion == "" {
-		appVersion = "(dev)"
-	}
-	printf(c.App.Writer, "Version %s Git=%s API=%s", appVersion, version, apiVersion)
-	return nil
+  }
+  if c.Bool(debugFlag) {
+    printf(c.App.Writer, "%s", info.String())
+  }
+  settings := make(map[string]string, len(info.Settings))
+  for _, setting := range info.Settings {
+    settings[setting.Key] = setting.Value
+  }
+  version := "?"
+  if rev, ok := settings["vcs.revision"]; ok {
+    version = rev[:8]
+    if settings["vcs.modified"] == "true" {
+      version += "+"
+    }
+  }
+  deps := make(map[string]*debug.Module, len(info.Deps))
+  for _, dep := range info.Deps {
+    deps[dep.Path] = dep
+  }
+  apiVersion := "?"
+  if dep, ok := deps["go.viam.com/api"]; ok {
+    apiVersion = dep.Version
+  }
+
+  appVersion := rconfig.Version
+  if appVersion == "" {
+    appVersion = "(dev)"
+  }
+  printf(c.App.Writer, "Version %s Git=%s API=%s", appVersion, version, apiVersion)
+  return nil
 }
 
 var defaultBaseURL = "https://app.viam.com:443"
