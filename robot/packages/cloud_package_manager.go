@@ -545,7 +545,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 			// but whose files names start with a new directory prefix
 			// Ex: tar -czf package.tar.gz ./bin/module.exe
 			parent := filepath.Dir(path)
-			if err := os.MkdirAll(parent, 0o700|info.Mode()); err != nil {
+			if err := os.MkdirAll(parent, 0o700); err != nil {
 				return errors.Wrapf(err, "failed to create directory %q", parent)
 			}
 			//nolint:gosec // path sanitized with safeJoin
