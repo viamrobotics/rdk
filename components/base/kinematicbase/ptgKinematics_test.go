@@ -21,7 +21,7 @@ import (
 func TestPTGKinematicsNoGeom(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	name, err := resource.NewFromString("is:a:fakebase")
+	name, err := resource.NewFromString("is:a:fakebase/b")
 	test.That(t, err, test.ShouldBeNil)
 
 	b := &fake.Base{
@@ -84,7 +84,7 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 func TestPTGKinematicsWithGeom(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	name, err := resource.NewFromString("is:a:fakebase")
+	name, err := resource.NewFromString("is:a:fakebase/b")
 	test.That(t, err, test.ShouldBeNil)
 
 	baseGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{1, 1, 1}, "")
