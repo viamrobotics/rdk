@@ -34,6 +34,7 @@ import (
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	pocutils "go.viam.com/rdk/utils"
 )
 
 var singleModel = resource.DefaultModelFamily.WithModel("single")
@@ -68,9 +69,7 @@ type Encoder struct {
 	positionType encoder.PositionType
 	logger       logging.Logger
 
-	cancelCtx               context.Context
-	cancelFunc              func()
-	activeBackgroundWorkers sync.WaitGroup
+	workers pocutils.StoppableWorkers
 }
 
 // Pin describes the configuration of Pins for a Single encoder.
@@ -114,12 +113,9 @@ func NewSingleEncoder(
 	conf resource.Config,
 	logger logging.Logger,
 ) (encoder.Encoder, error) {
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	e := &Encoder{
 		Named:        conf.ResourceName().AsNamed(),
 		logger:       logger,
-		cancelCtx:    cancelCtx,
-		cancelFunc:   cancelFunc,
 		position:     0,
 		positionType: encoder.PositionTypeTicks,
 	}
@@ -162,9 +158,6 @@ func (e *Encoder) Reconfigure(
 		return nil
 	}
 	utils.UncheckedError(e.Close(ctx))
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	e.cancelCtx = cancelCtx
-	e.cancelFunc = cancelFunc
 
 	e.mu.Lock()
 	e.I = di
@@ -183,18 +176,16 @@ func (e *Encoder) Reconfigure(
 func (e *Encoder) Start(ctx context.Context) {
 	encoderChannel := make(chan board.Tick)
 	e.I.AddCallback(encoderChannel)
-	e.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
-		defer e.I.RemoveCallback(encoderChannel)
+	e.workers = pocutils.NewStoppableWorkers(func(cancelCtx context.Context) {
 		for {
 			select {
-			case <-e.cancelCtx.Done():
+			case <-cancelCtx.Done():
 				return
 			default:
 			}
 
 			select {
-			case <-e.cancelCtx.Done():
+			case <-cancelCtx.Done():
 				return
 			case <-encoderChannel:
 			}
@@ -211,7 +202,7 @@ func (e *Encoder) Start(ctx context.Context) {
 				e.logger.CDebug(ctx, "received tick for encoder that isn't connected to a motor; ignoring")
 			}
 		}
-	}, e.activeBackgroundWorkers.Done)
+	})
 }
 
 // Position returns the current position in terms of ticks or
@@ -245,7 +236,6 @@ func (e *Encoder) Properties(ctx context.Context, extra map[string]interface{}) 
 
 // Close shuts down the Encoder.
 func (e *Encoder) Close(ctx context.Context) error {
-	e.cancelFunc()
-	e.activeBackgroundWorkers.Wait()
+	e.workers.Stop()
 	return nil
 }
