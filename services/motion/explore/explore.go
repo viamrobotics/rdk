@@ -372,7 +372,7 @@ func (ms *explore) checkForObstacles(
 				ms.logger,
 			)
 			if err != nil {
-				if strings.Contains(err.Error(), "found collision between positions") {
+				if strings.Contains(err.Error(), "found error between positions") {
 					ms.logger.CDebug(ctx, "collision found in given range")
 					ms.obstacleResponseChan <- moveResponse{success: true}
 					return

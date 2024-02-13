@@ -460,8 +460,8 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []node
 }
 
 // getFrameSteps will return a slice of positive values representing the largest amount a particular DOF of a frame should
-// move in any given step. The argument by is a float describing the percentage of the total movement.
-func getFrameSteps(f referenceframe.Frame, by float64) []float64 {
+// move in any given step. The second argument is a float describing the percentage of the total movement.
+func getFrameSteps(f referenceframe.Frame, percentTotalMovement float64) []float64 {
 	dof := f.DoF()
 	pos := make([]float64, len(dof))
 	for i, lim := range dof {
@@ -476,7 +476,7 @@ func getFrameSteps(f referenceframe.Frame, by float64) []float64 {
 		}
 
 		jRange := math.Abs(u - l)
-		pos[i] = jRange * by
+		pos[i] = jRange * percentTotalMovement
 	}
 	return pos
 }
