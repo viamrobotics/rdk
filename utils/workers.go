@@ -46,4 +46,7 @@ func (sw *StoppableWorkers) StopWithTrigger(trigger func()) {
 	sw.activeBackgroundWorkers.Wait()
 }
 
-
+// Context gets the context the workers are checking on. Using this function is expected to be rare.
+func (sw *StoppableWorkers) Context() context.Context {
+	return sw.cancelCtx
+}
