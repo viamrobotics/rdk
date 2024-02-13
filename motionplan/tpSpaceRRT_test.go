@@ -252,16 +252,13 @@ func TestPtgCheckPlan(t *testing.T) {
 		steps = append(steps, stepMap)
 	}
 
-	// startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
 	startPose := spatialmath.NewPose(
 		r3.Vector{0, 0, 0},
-		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90},
+		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90},
 	)
 	errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
 	inputs := referenceframe.FloatsToInputs([]float64{0, 0, 0})
 	fmt.Println(planAsInputs)
-	out, _ := ackermanFrame.Transform(planAsInputs[1])
-	fmt.Println("out: ", spatialmath.PoseToProtobuf(out))
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
 		err := CheckPlan(ackermanFrame, steps, nil, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
@@ -269,7 +266,7 @@ func TestPtgCheckPlan(t *testing.T) {
 	})
 
 	t.Run("obstacles blocking path", func(t *testing.T) {
-		obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2000, 0, 0}), r3.Vector{20, 2000, 1}, "")
+		obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{0, 2000, 0}), r3.Vector{2000, 20, 1}, "")
 		test.That(t, err, test.ShouldBeNil)
 
 		geoms := []spatialmath.Geometry{obstacle}
@@ -305,7 +302,7 @@ func TestPtgCheckPlan(t *testing.T) {
 
 	t.Run("obstacles NOT in world frame - no collision - integration test", func(t *testing.T) {
 		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{25000, -40, 0}),
+			spatialmath.NewPoseFromPoint(r3.Vector{-40, 25000, 0}),
 			r3.Vector{10, 10, 1}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -320,8 +317,8 @@ func TestPtgCheckPlan(t *testing.T) {
 	})
 	t.Run("obstacles NOT in world frame cause collision - integration test", func(t *testing.T) {
 		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{2500, 20, 0}),
-			r3.Vector{10, 2000, 1}, "obstacle",
+			spatialmath.NewPoseFromPoint(r3.Vector{20, 2500, 0}),
+			r3.Vector{2000, 10, 1}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
 		geoms := []spatialmath.Geometry{obstacle}
@@ -333,11 +330,15 @@ func TestPtgCheckPlan(t *testing.T) {
 		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
+
+	// TODO(NF): FIGURE OUT WHAT TO DO WITH THESE TESTS
 	t.Run("checking from partial-plan, ensure success with obstacles - integration test", func(t *testing.T) {
 		// create obstacle behind where we are
 		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{0, 20, 0}),
-			r3.Vector{10, 200, 1}, "obstacle",
+			// spatialmath.NewPoseFromPoint(r3.Vector{0, 20, 0}),
+			// r3.Vector{10, 200, 1}, "obstacle",
+			spatialmath.NewPoseFromPoint(r3.Vector{20, 0, 0}),
+			r3.Vector{200, 10, 1}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
 		geoms := []spatialmath.Geometry{obstacle}
@@ -348,8 +349,10 @@ func TestPtgCheckPlan(t *testing.T) {
 
 		ov := spatialmath.NewOrientationVector().Degrees()
 		ov.OZ = 1.0000000000000004
-		ov.Theta = -101.42430306111874
-		vector := r3.Vector{669.0803080526971, 234.2834571597409, 0}
+		// ov.Theta = -101.42430306111874
+		ov.Theta = -11.42430306111874
+		// vector := r3.Vector{669.0803080526971, 234.2834571597409, 0}
+		vector := r3.Vector{234.2834571597409, 669.0803080526971, 0}
 
 		startPose := spatialmath.NewPose(vector, ov)
 

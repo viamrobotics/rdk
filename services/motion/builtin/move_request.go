@@ -127,6 +127,13 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 	if err != nil {
 		return state.PlanResponse{}, err
 	}
+	for _, step := range plan {
+		for _, v := range step {
+			if len(v) > 0 {
+				fmt.Println("test-base has inputs: ", v)
+			}
+		}
+	}
 
 	waypoints, err := plan.GetFrameSteps(mr.kinematicBase.Kinematics().Name())
 	if err != nil {
@@ -138,6 +145,12 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 		planSteps, err := motionplan.PlanToPlanSteps(plan, mr.kinematicBase.Name(), *planRequestCopy, mr.poseOrigin)
 		if err != nil {
 			return state.PlanResponse{}, err
+		}
+		for _, step := range planSteps {
+			for k, v := range step {
+				fmt.Println(k.Name + " has pose: " + spatialmath.PoseToProtobuf(v).String())
+			}
+
 		}
 
 		return state.PlanResponse{
@@ -238,6 +251,11 @@ func (mr *moveRequest) getTransientDetections(
 	}
 	mr.logger.CDebugf(ctx, "got %d detections", len(detections))
 
+	// if len(detections) == 0 {
+	// 	mr.logger.CDebug(ctx, "got no detections, returning early")
+	// 	return referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{}), nil
+	// }
+
 	// determine transform of camera to base
 	cameraOrigin := referenceframe.NewPoseInFrame(camName.ShortName(), spatialmath.NewZeroPose())
 	cameraToBase, err := mr.fsService.TransformPose(ctx, cameraOrigin, mr.kinematicBase.Name().ShortName(), nil)
@@ -299,11 +317,13 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 		return state.ExecuteResponse{}, err
 	}
 
-	// get the current position of the base which we will use to transform the detections into world coordinates
+	// get the current position of the base
 	currentPosition, err := mr.getCurrentPosition(ctx)
 	if err != nil {
 		return state.ExecuteResponse{}, err
 	}
+	fmt.Println("currentPosition.Pose: ", spatialmath.PoseToProtobuf(currentPosition.Pose()))
+
 	// ^^^ does this function need to change?
 	// since this is reporting in the world frame..
 	// for slam i know that the theta is going to be proper for the base
@@ -313,7 +333,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 
 	for visSrvc, cameraNames := range mr.obstacleDetectors {
 		for _, camName := range cameraNames {
-			// Note: detections are initially observed from the camera frame but must be transformed to be in
+			// Note: detections are initially observed from the camera frame and are transformed into
 			// the base frame
 			gifs, err := mr.getTransientDetections(ctx, visSrvc, camName)
 			if err != nil {
@@ -349,6 +369,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				worldState,                    // detected obstacles by this instance of camera + service
 				mr.planRequest.FrameSystem,
 				currentPosition.Pose(), // currentPosition of robot accounts for errorState
+				// spatialmath.Compose(currentPosition.Pose(), motion.SLAMOrientationAdjustment),
 				currentInputs,
 				errorState, // deviation of robot from plan
 				lookAheadDistanceMM,
@@ -728,7 +749,9 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		return nil, err
 	}
 	startPose := startPoseIF.Pose()
+	fmt.Println("startPose: ", spatialmath.PoseToProtobuf(startPose))
 	startPoseInv := spatialmath.PoseInverse(startPose)
+	fmt.Println("startPoseInv: ", spatialmath.PoseToProtobuf(startPoseInv))
 
 	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose, goalPoseInWorld))
 

@@ -48,8 +48,10 @@ const (
 )
 
 func fakePointCloudMap(ctx context.Context, datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
-	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDir, slamSvc.getCount())))
-	slamSvc.logger.CDebug(ctx, "Reading "+path)
+	// path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDir, slamSvc.getCount())))
+	// slamSvc.logger.CDebug(ctx, "Reading "+path)
+	path := "/Users/nick/Desktop/rdk-fork/.artifact/data/pointcloud/cardboardOcto.pcd"
+
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err

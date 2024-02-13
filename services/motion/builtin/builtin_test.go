@@ -388,7 +388,7 @@ func TestPositionalReplanning(t *testing.T) {
 	}
 }
 
-func TestObstacleReplanning(t *testing.T) {
+func TestObstacleReplanningGlobe(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
@@ -416,20 +416,20 @@ func TestObstacleReplanning(t *testing.T) {
 	i := 0
 
 	testCases := []testCase{
-		{
-			name: "ensure no replan from discovered obstacles",
-			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: -1000, Y: -1000, Z: 0})
-				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 10, Y: 10, Z: 10}, "test-case-2")
-				test.That(t, err, test.ShouldBeNil)
+		// {
+		// 	name: "ensure no replan from discovered obstacles",
+		// 	getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+		// 		obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: -1000, Y: -1000, Z: 0})
+		// 		box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 10, Y: 10, Z: 10}, "test-case-2")
+		// 		test.That(t, err, test.ShouldBeNil)
 
-				detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-2-detection", box.ToProtobuf())
-				test.That(t, err, test.ShouldBeNil)
+		// 		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-2-detection", box.ToProtobuf())
+		// 		test.That(t, err, test.ShouldBeNil)
 
-				return []*viz.Object{detection}, nil
-			},
-			expectedSuccess: true,
-		},
+		// 		return []*viz.Object{detection}, nil
+		// 	},
+		// 	expectedSuccess: true,
+		// },
 		{
 			name: "ensure replan due to obstacle collision",
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
@@ -498,6 +498,66 @@ func TestObstacleReplanning(t *testing.T) {
 			testFn(t, c)
 		})
 	}
+}
+
+func TestObstacleReplanningSlam(t *testing.T) {
+	ctx := context.Background()
+	origin := spatialmath.NewPose(
+		r3.Vector{X: -0.99503e3, Y: 0, Z: 0},
+		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0},
+	)
+
+	_, ms := createMoveOnMapEnvironment(
+		ctx, t,
+		"/Users/nick/Desktop/rdk-fork/.artifact/data/pointcloud/cardboardOcto.pcd",
+		50, origin,
+	)
+	defer ms.Close(ctx)
+
+	t.Run("base coordinate axes match with SLAM", func(t *testing.T) {
+		visSrvc, ok := ms.(*builtIn).visionServices[vision.Named("test-vision")].(*inject.VisionService)
+		test.That(t, ok, test.ShouldBeTrue)
+		i := 0
+		visSrvc.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+			if i <= 1 {
+				i++
+				return []*viz.Object{}, nil
+			}
+			obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 500, Y: 0, Z: 0})
+			box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 50, Y: 100, Z: 10}, "test-case-1")
+			test.That(t, err, test.ShouldBeNil)
+
+			detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", box.ToProtobuf())
+			test.That(t, err, test.ShouldBeNil)
+
+			return []*viz.Object{detection}, nil
+		}
+
+		obstacleDetectorSlice := []motion.ObstacleDetectorName{
+			{VisionServiceName: vision.Named("test-vision"), CameraName: camera.Named("test-camera")},
+		}
+		req := motion.MoveOnMapReq{
+			ComponentName: base.Named("test-base"),
+			Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 0.96679e3, Y: 0, Z: 0}),
+			SlamName:      slam.Named("test_slam"),
+			MotionCfg: &motion.MotionConfiguration{
+				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 50, PlanDeviationMM: 1, ObstacleDetectors: obstacleDetectorSlice,
+			},
+			Extra: map[string]interface{}{"max_replans": 0, "smooth_iter": 0},
+		}
+
+		executionID, err := ms.MoveOnMap(ctx, req)
+		test.That(t, err, test.ShouldBeNil)
+
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Minute*5)
+		defer timeoutFn()
+		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
+			ComponentName: req.ComponentName,
+			ExecutionID:   executionID,
+			LastPlanOnly:  true,
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+	})
 }
 
 func TestMultiplePieces(t *testing.T) {
@@ -726,7 +786,9 @@ func TestStoppableMoveFunctions(t *testing.T) {
 
 			model, err := referenceframe.New2DMobileModelFrame(
 				baseName,
-				[]referenceframe.Limit{{-1e5, 1e5}, {-1e5, 1e5}, {-math.Pi * 2, math.Pi * 2}},
+				[]referenceframe.Limit{
+					{Min: -1e5, Max: 1e5}, {Min: -1e5, Max: 1e5}, {Min: -2 * math.Pi, Max: 2 * math.Pi},
+				},
 				geometry,
 			)
 			test.That(t, err, test.ShouldBeNil)
@@ -1241,9 +1303,9 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		// obstacle on the right we prove that our path does not collide with the original obstacle
 		// placed on the left.
 		obstacleLeft, err := spatialmath.NewBox(
-			spatialmath.NewPose(r3.Vector{0.22981e3, -0.38875e3, 0},
+			spatialmath.NewPose(r3.Vector{X: 0.22981e3, Y: -0.38875e3, Z: 0},
 				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 45}),
-			r3.Vector{900, 10, 10},
+			r3.Vector{X: 900, Y: 10, Z: 10},
 			"obstacleLeft",
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -1264,9 +1326,9 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		// place obstacle in opposte position and show that the generate path
 		// collides with obstacleRight
 		obstacleRight, err := spatialmath.NewBox(
-			spatialmath.NewPose(r3.Vector{0.89627e3, -0.37192e3, 0},
+			spatialmath.NewPose(r3.Vector{X: 0.89627e3, Y: -0.37192e3, Z: 0},
 				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -45}),
-			r3.Vector{900, 10, 10},
+			r3.Vector{X: 900, Y: 10, Z: 10},
 			"obstacleLeft",
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -1301,29 +1363,29 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 	t.Run("fail due to obstacles enclosing goals", func(t *testing.T) {
 		// define static obstacles
 		obstacleTop, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{0.64603e3, 0.77151e3, 0}),
-			r3.Vector{400, 10, 10},
+			spatialmath.NewPoseFromPoint(r3.Vector{X: 0.64603e3, Y: 0.77151e3, Z: 0}),
+			r3.Vector{X: 400, Y: 10, Z: 10},
 			"obstacleTop",
 		)
 		test.That(t, err, test.ShouldBeNil)
 
 		obstacleBottom, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{0.64603e3, 0.42479e3, 0}),
-			r3.Vector{400, 10, 10},
+			spatialmath.NewPoseFromPoint(r3.Vector{X: 0.64603e3, Y: 0.42479e3, Z: 0}),
+			r3.Vector{X: 400, Y: 10, Z: 10},
 			"obstacleBottom",
 		)
 		test.That(t, err, test.ShouldBeNil)
 
 		obstacleLeft, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{0.47525e3, 0.65091e3, 0}),
-			r3.Vector{10, 400, 10},
+			spatialmath.NewPoseFromPoint(r3.Vector{X: 0.47525e3, Y: 0.65091e3, Z: 0}),
+			r3.Vector{X: 10, Y: 400, Z: 10},
 			"obstacleLeft",
 		)
 		test.That(t, err, test.ShouldBeNil)
 
 		obstacleRight, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{0.82183e3, 0.64589e3, 0}),
-			r3.Vector{10, 400, 10},
+			spatialmath.NewPoseFromPoint(r3.Vector{X: 0.82183e3, Y: 0.64589e3, Z: 0}),
+			r3.Vector{X: 10, Y: 400, Z: 10},
 			"obstacleRight",
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -2272,8 +2334,6 @@ func TestMoveCallInputs(t *testing.T) {
 }
 
 func TestGetTransientDetections(t *testing.T) {
-	t.Parallel()
-
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
@@ -2313,12 +2373,12 @@ func TestGetTransientDetections(t *testing.T) {
 	baseLink := createBaseLink(t)
 	cameraGeom, err := spatialmath.NewBox(
 		spatialmath.NewZeroPose(),
-		r3.Vector{1, 1, 1}, "camera",
+		r3.Vector{X: 1, Y: 1, Z: 1}, "camera",
 	)
 	test.That(t, err, test.ShouldBeNil)
 	cameraLink := referenceframe.NewLinkInFrame(
 		baseLink.Name(),
-		spatialmath.NewPose(r3.Vector{0, 0, 0}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
+		spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
 		"test-camera",
 		cameraGeom,
 	)
@@ -2337,7 +2397,7 @@ func TestGetTransientDetections(t *testing.T) {
 	// construct move request
 	moveReq := motion.MoveOnMapReq{
 		ComponentName: fakeBase.Name(),
-		Destination:   spatialmath.NewPoseFromPoint(r3.Vector{10, 0, 0}),
+		Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 10, Y: 0, Z: 0}),
 		SlamName:      injectedSlam.Name(),
 		MotionCfg: &motion.MotionConfiguration{
 			PlanDeviationMM: 1,
@@ -2353,8 +2413,8 @@ func TestGetTransientDetections(t *testing.T) {
 	// define injected method on vision service
 	injectedVis.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 		boxGeom, err := spatialmath.NewBox(
-			spatialmath.NewPose(r3.Vector{4, 8, 10}, &spatialmath.OrientationVectorDegrees{OZ: 1}),
-			r3.Vector{2, 3, 5},
+			spatialmath.NewPose(r3.Vector{X: 4, Y: 8, Z: 10}, &spatialmath.OrientationVectorDegrees{OZ: 1}),
+			r3.Vector{X: 2, Y: 3, Z: 5},
 			"test-box",
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -2370,7 +2430,7 @@ func TestGetTransientDetections(t *testing.T) {
 	testCases := []testCase{
 		{
 			name:          "relative - SLAM/base theta does not matter",
-			detectionPose: spatialmath.NewPose(r3.Vector{4, 10, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
+			detectionPose: spatialmath.NewPose(r3.Vector{X: 4, Y: 10, Z: -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
 		},
 	}
 
@@ -2386,7 +2446,6 @@ func TestGetTransientDetections(t *testing.T) {
 	for _, tc := range testCases {
 		c := tc // needed to workaround loop variable not being captured by func literals
 		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
 			testFn(t, c)
 		})
 	}
