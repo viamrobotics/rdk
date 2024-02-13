@@ -155,7 +155,8 @@ func (e *eva) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra ma
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions, extra map[string]interface{}) error {
 	// check that joint positions are not out of bounds
-	if err := arm.CheckDesiredJointPositions(ctx, e, newPositions); err != nil {
+	inputs := e.ModelFrame().InputFromProtobuf(newPositions)
+	if err := arm.CheckDesiredJointPositions(ctx, e, inputs); err != nil {
 		return err
 	}
 	ctx, done := e.opMgr.New(ctx)
@@ -391,11 +392,10 @@ func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 
 func (e *eva) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
 	for _, goal := range inputSteps {
-		positionDegs := e.model.ProtobufFromInput(goal)
-		if err := arm.CheckDesiredJointPositions(ctx, e, positionDegs); err != nil {
+		if err := arm.CheckDesiredJointPositions(ctx, e, goal); err != nil {
 			return err
 		}
-		err := e.MoveToJointPositions(ctx, positionDegs, nil)
+		err := e.MoveToJointPositions(ctx, e.model.ProtobufFromInput(goal), nil)
 		if err != nil {
 			return err
 		}
