@@ -675,20 +675,20 @@ func TestServerGetPlan(t *testing.T) {
 		planID2 := uuid.New()
 
 		base1 := base.Named("base1")
-		steps := []motionplan.PlanStep{{base1: spatialmath.NewZeroPose()}}
+		steps := []motionplan.PathStep{{base1.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose())}}
 
-		plan1 := motion.Plan{
+		plan1 := motion.PlanWithMetadata{
 			ID:            planID1,
 			ComponentName: base1,
 			ExecutionID:   executionID,
-			Steps:         steps,
+			Plan:          motionplan.NewSimplePlan(steps, nil),
 		}
 
-		plan2 := motion.Plan{
+		plan2 := motion.PlanWithMetadata{
 			ID:            planID2,
 			ComponentName: base1,
 			ExecutionID:   executionID,
-			Steps:         steps,
+			Plan:          motionplan.NewSimplePlan(steps, nil),
 		}
 
 		time1A := time.Now()

@@ -16,27 +16,23 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
-// Waypoints represent the waypoints of the plan.
-type Waypoints [][]referenceframe.Input
-
-// PlanResponse is the response from Plan.
-type PlanResponse struct {
-	Waypoints        Waypoints
-	Motionplan       motionplan.Plan
-	PosesByComponent []motionplan.PlanStep
+// PlannerExecutor implements Plan and Execute.
+type PlannerExecutor interface {
+	Plan(ctx context.Context) (motionplan.Plan, error)
+	Execute(context.Context, motionplan.Plan) (ExecuteResponse, error)
+	AnchorGeoPose() *spatialmath.GeoPose
 }
 
 // ExecuteResponse is the response from Execute.
 type ExecuteResponse struct {
 	// If true, the Execute function didn't reach the goal & the caller should replan
-	Replan bool
-	// Set if Replan is true, describes why replanning was triggered
+	Replan       bool // Set if Replan is true, describes why replanning was triggered
 	ReplanReason string
 }
 
@@ -56,19 +52,13 @@ type PlannerExecutorConstructor[R any] func(
 	replanCount int,
 ) (PlannerExecutor, error)
 
-// PlannerExecutor implements Plan and Execute.
-type PlannerExecutor interface {
-	Plan(ctx context.Context) (PlanResponse, error)
-	Execute(context.Context, Waypoints) (ExecuteResponse, error)
-}
-
 type componentState struct {
 	executionIDHistory []motion.ExecutionID
 	executionsByID     map[motion.ExecutionID]stateExecution
 }
 
 type planMsg struct {
-	plan       motion.Plan
+	plan       motion.PlanWithMetadata
 	planStatus motion.PlanStatus
 }
 
@@ -119,10 +109,8 @@ type execution[R any] struct {
 }
 
 type planWithExecutor struct {
-	plan            motion.Plan
-	plannerExecutor PlannerExecutor
-	waypoints       Waypoints
-	motionplan      motionplan.Plan
+	plan     motion.PlanWithMetadata
+	executor PlannerExecutor
 }
 
 // NewPlan creates a new motion.Plan from an execution & returns an error if one was not able to be created.
@@ -131,18 +119,20 @@ func (e *execution[R]) newPlanWithExecutor(ctx context.Context, seedPlan motionp
 	if err != nil {
 		return planWithExecutor{}, err
 	}
-	resp, err := pe.Plan(ctx)
+	plan, err := pe.Plan(ctx)
 	if err != nil {
 		return planWithExecutor{}, err
 	}
-
-	plan := motion.Plan{
-		ID:            uuid.New(),
-		ExecutionID:   e.id,
-		ComponentName: e.componentName,
-		Steps:         resp.PosesByComponent,
-	}
-	return planWithExecutor{plan: plan, plannerExecutor: pe, waypoints: resp.Waypoints, motionplan: resp.Motionplan}, nil
+	return planWithExecutor{
+		plan: motion.PlanWithMetadata{
+			Plan:          plan,
+			ID:            uuid.New(),
+			ExecutionID:   e.id,
+			ComponentName: e.componentName,
+			AnchorGeoPose: pe.AnchorGeoPose(),
+		},
+		executor: pe,
+	}, nil
 }
 
 // Start starts an execution with a given plan.
@@ -176,7 +166,7 @@ func (e *execution[R]) start(ctx context.Context) error {
 		// 3. the execution failed
 		// 4. replanning failed
 		for {
-			resp, err := lastPWE.plannerExecutor.Execute(e.cancelCtx, lastPWE.waypoints)
+			resp, err := lastPWE.executor.Execute(e.cancelCtx, lastPWE.plan.Plan)
 
 			switch {
 			// stoped
@@ -197,7 +187,7 @@ func (e *execution[R]) start(ctx context.Context) error {
 			// replan
 			default:
 				replanCount++
-				newPWE, err := e.newPlanWithExecutor(e.cancelCtx, lastPWE.motionplan, replanCount)
+				newPWE, err := e.newPlanWithExecutor(e.cancelCtx, lastPWE.plan.Plan, replanCount)
 				// replan failed
 				if err != nil {
 					msg := "failed to replan for execution %s and component: %s, " +
@@ -227,7 +217,7 @@ func (e *execution[R]) toStateExecution() stateExecution {
 	}
 }
 
-func (e *execution[R]) notifyStateNewExecution(execution stateExecution, plan motion.Plan, time time.Time) {
+func (e *execution[R]) notifyStateNewExecution(execution stateExecution, plan motion.PlanWithMetadata, time time.Time) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	// NOTE: We hold the lock for both updateStateNewExecution & updateStateNewPlan to ensure no readers
@@ -239,7 +229,7 @@ func (e *execution[R]) notifyStateNewExecution(execution stateExecution, plan mo
 	})
 }
 
-func (e *execution[R]) notifyStateReplan(lastPlan motion.Plan, reason string, newPlan motion.Plan, time time.Time) {
+func (e *execution[R]) notifyStateReplan(lastPlan motion.PlanWithMetadata, reason string, newPlan motion.PlanWithMetadata, time time.Time) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	// NOTE: We hold the lock for both updateStateNewExecution & updateStateNewPlan to ensure no readers
@@ -257,7 +247,7 @@ func (e *execution[R]) notifyStateReplan(lastPlan motion.Plan, reason string, ne
 	})
 }
 
-func (e *execution[R]) notifyStatePlanFailed(plan motion.Plan, reason string, time time.Time) {
+func (e *execution[R]) notifyStatePlanFailed(plan motion.PlanWithMetadata, reason string, time time.Time) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	e.state.updateStateStatusUpdate(stateUpdateMsg{
@@ -268,7 +258,7 @@ func (e *execution[R]) notifyStatePlanFailed(plan motion.Plan, reason string, ti
 	})
 }
 
-func (e *execution[R]) notifyStatePlanSucceeded(plan motion.Plan, time time.Time) {
+func (e *execution[R]) notifyStatePlanSucceeded(plan motion.PlanWithMetadata, time time.Time) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	e.state.updateStateStatusUpdate(stateUpdateMsg{
@@ -279,7 +269,7 @@ func (e *execution[R]) notifyStatePlanSucceeded(plan motion.Plan, time time.Time
 	})
 }
 
-func (e *execution[R]) notifyStatePlanStopped(plan motion.Plan, time time.Time) {
+func (e *execution[R]) notifyStatePlanStopped(plan motion.PlanWithMetadata, time time.Time) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	e.state.updateStateStatusUpdate(stateUpdateMsg{
@@ -448,16 +438,12 @@ func (s *State) PlanHistory(req motion.PlanHistoryReq) ([]motion.PlanWithStatus,
 	// last plan only
 	if req.LastPlanOnly {
 		if ex := cs.lastExecution(); executionID == uuid.Nil || executionID == ex.id {
-			history := make([]motion.PlanWithStatus, 1)
-			copy(history, ex.history)
-			return history, nil
+			return renderableHistory(ex.history[:1]), nil
 		}
 
 		// if executionID is provided & doesn't match the last execution for the component
 		if ex, exists := cs.executionsByID[executionID]; exists {
-			history := make([]motion.PlanWithStatus, 1)
-			copy(history, ex.history)
-			return history, nil
+			return renderableHistory(ex.history[:1]), nil
 		}
 		return nil, resource.NewNotFoundError(req.ComponentName)
 	}
@@ -465,17 +451,25 @@ func (s *State) PlanHistory(req motion.PlanHistoryReq) ([]motion.PlanWithStatus,
 	// specific execution id when lastPlanOnly is NOT enabled
 	if executionID != uuid.Nil {
 		if ex, exists := cs.executionsByID[executionID]; exists {
-			history := make([]motion.PlanWithStatus, len(ex.history))
-			copy(history, ex.history)
-			return history, nil
+			return renderableHistory(ex.history), nil
 		}
 		return nil, resource.NewNotFoundError(req.ComponentName)
 	}
 
 	ex := cs.lastExecution()
-	history := make([]motion.PlanWithStatus, len(cs.lastExecution().history))
-	copy(history, ex.history)
-	return history, nil
+	r := renderableHistory(ex.history)
+	s.logger.Debug(r)
+	return r, nil
+}
+
+// visualHistory returns the history struct that has had its plans Offset by.
+func renderableHistory(history []motion.PlanWithStatus) []motion.PlanWithStatus {
+	newHistory := make([]motion.PlanWithStatus, len(history))
+	copy(newHistory, history)
+	for i := range newHistory {
+		newHistory[i].Plan = newHistory[i].Plan.Renderable()
+	}
+	return newHistory
 }
 
 // ListPlanStatuses returns the status of plans created by MoveOnGlobe requests

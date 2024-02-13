@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
@@ -99,11 +100,7 @@ func (fk *fakeDiffDriveKinematics) GoToInputs(ctx context.Context, inputs []refe
 	return nil
 }
 
-func (fk *fakeDiffDriveKinematics) ErrorState(
-	ctx context.Context,
-	plan [][]referenceframe.Input,
-	currentNode int,
-) (spatialmath.Pose, error) {
+func (fk *fakeDiffDriveKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, currentNode int) (spatialmath.Pose, error) {
 	return fk.sensorNoise, nil
 }
 
@@ -240,11 +237,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referencef
 	return nil
 }
 
-func (fk *fakePTGKinematics) ErrorState(
-	ctx context.Context,
-	plan [][]referenceframe.Input,
-	currentNode int,
-) (spatialmath.Pose, error) {
+func (fk *fakePTGKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, currentNode int) (spatialmath.Pose, error) {
 	return fk.sensorNoise, nil
 }
 

@@ -12,7 +12,6 @@ import (
 
 	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -94,26 +93,26 @@ func planStatusWithIDFromProto(ps *pb.PlanStatusWithID) (PlanStatusWithID, error
 }
 
 // planFromProto converts a *pb.Plan to a Plan.
-func planFromProto(p *pb.Plan) (Plan, error) {
+func planFromProto(p *pb.Plan) (PlanWithMetadata, error) {
 	if p == nil {
-		return Plan{}, errors.New("received nil *pb.Plan")
+		return PlanWithMetadata{}, errors.New("received nil *pb.Plan")
 	}
 
 	id, err := uuid.Parse(p.Id)
 	if err != nil {
-		return Plan{}, err
+		return PlanWithMetadata{}, err
 	}
 
 	executionID, err := uuid.Parse(p.ExecutionId)
 	if err != nil {
-		return Plan{}, err
+		return PlanWithMetadata{}, err
 	}
 
 	if p.ComponentName == nil {
-		return Plan{}, errors.New("received nil *pb.ResourceName")
+		return PlanWithMetadata{}, errors.New("received nil *pb.ResourceName")
 	}
 
-	plan := Plan{
+	plan := PlanWithMetadata{
 		ID:            id,
 		ComponentName: rprotoutils.ResourceNameFromProto(p.ComponentName),
 		ExecutionID:   executionID,
@@ -123,35 +122,16 @@ func planFromProto(p *pb.Plan) (Plan, error) {
 		return plan, nil
 	}
 
-	steps := []motionplan.PlanStep{}
+	steps := motionplan.Path{}
 	for _, s := range p.Steps {
-		step, err := planStepFromProto(s)
+		step, err := motionplan.PathStepFromProto(s)
 		if err != nil {
-			return Plan{}, err
+			return PlanWithMetadata{}, err
 		}
 		steps = append(steps, step)
 	}
-
-	plan.Steps = steps
-
+	plan.Plan = motionplan.NewSimplePlan(steps, nil)
 	return plan, nil
-}
-
-// planStepFromProto converts a *pb.PlanStep to a PlanStep.
-func planStepFromProto(s *pb.PlanStep) (motionplan.PlanStep, error) {
-	if s == nil {
-		return motionplan.PlanStep{}, errors.New("received nil *pb.PlanStep")
-	}
-
-	step := make(motionplan.PlanStep)
-	for k, v := range s.Step {
-		name, err := resource.NewFromString(k)
-		if err != nil {
-			return motionplan.PlanStep{}, err
-		}
-		step[name] = spatialmath.NewPoseFromProtobuf(v.Pose)
-	}
-	return step, nil
 }
 
 // planStateFromProto converts a pb.PlanState to a PlanState.

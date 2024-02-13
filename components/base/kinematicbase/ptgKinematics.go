@@ -18,6 +18,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
@@ -241,9 +242,11 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 	return ptgk.Base.Stop(stopCtx, nil)
 }
 
-func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenceframe.Input, currentNode int) (spatialmath.Pose, error) {
-	if currentNode < 0 || currentNode >= len(plan) {
-		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be >= 0 and less than plan length %d", currentNode, len(plan))
+func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, waypointIndex int) (spatialmath.Pose, error) {
+	path := plan.Path()
+	planLength := len(path)
+	if waypointIndex < 0 || waypointIndex >= planLength {
+		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be >= 0 and less than plan length %d", waypointIndex, planLength)
 	}
 
 	// Get pose-in-frame of the base via its localizer. The offset between the localizer and its base should already be accounted for.
@@ -253,20 +256,12 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenc
 	}
 	actualPIF := spatialmath.PoseBetween(ptgk.origin, actualPIFRaw.Pose())
 
-	var nominalPose spatialmath.Pose
-
-	// Determine the nominal pose, that is, the pose where the robot ought be if it had followed the plan perfectly up until this point.
-	// This is done differently depending on what sort of frame we are working with.
-	// TODO: The `rectifyTPspacePath` in motionplan does basically this. Deduplicate.
-	runningPose := spatialmath.NewZeroPose()
-	for i := 0; i < currentNode; i++ {
-		wp := plan[i]
-		wpPose, err := ptgk.frame.Transform(wp)
-		if err != nil {
-			return nil, err
-		}
-		runningPose = spatialmath.Compose(runningPose, wpPose)
+	// Determine the nominal pose, the last waypoint the robot should have reached if it executed the plan perfectly.
+	poses, err := path.GetFramePoses(ptgk.Name().ShortName())
+	if err != nil {
+		return nil, err
 	}
+	nominalPose := poses[waypointIndex-1]
 
 	// Determine how far through the current trajectory we are
 	currentInputs, err := ptgk.CurrentInputs(ctx)
@@ -277,7 +272,7 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenc
 	if err != nil {
 		return nil, err
 	}
-	nominalPose = spatialmath.Compose(runningPose, currPose)
+	nominalPose = spatialmath.Compose(nominalPose, currPose)
 
 	return spatialmath.PoseBetween(nominalPose, actualPIF), nil
 }
