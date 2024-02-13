@@ -406,7 +406,7 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 	}()
 
 	// unzip archive.
-	err = m.unpackFile(ctx, p.LocalDownloadPath(m.packagesDir), tmpDataPath)
+	err = unpackFile(ctx, p.LocalDownloadPath(m.packagesDir), tmpDataPath)
 	if err != nil {
 		utils.UncheckedError(m.cleanup(p))
 		return err
@@ -481,7 +481,7 @@ func (m *cloudManager) downloadFileFromGCSURL(
 	return checksum, contentType, nil
 }
 
-func (m *cloudManager) unpackFile(ctx context.Context, fromFile, toDir string) error {
+func unpackFile(ctx context.Context, fromFile, toDir string) error {
 	if err := os.MkdirAll(toDir, 0o700); err != nil {
 		return err
 	}
@@ -545,7 +545,7 @@ func (m *cloudManager) unpackFile(ctx context.Context, fromFile, toDir string) e
 			// but whose files names start with a new directory prefix
 			// Ex: tar -czf package.tar.gz ./bin/module.exe
 			parent := filepath.Dir(path)
-			if err := os.MkdirAll(parent, info.Mode()); err != nil {
+			if err := os.MkdirAll(parent, 0o700); err != nil {
 				return errors.Wrapf(err, "failed to create directory %q", parent)
 			}
 			//nolint:gosec // path sanitized with safeJoin
