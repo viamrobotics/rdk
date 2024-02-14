@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
+	"golang.org/x/exp/slices"
 )
 
 const (
@@ -167,9 +168,7 @@ func allTrainingStatusValues() string {
 		formattedStatus := strings.ToLower(strings.TrimPrefix(status, trainingStatusPrefix))
 		formattedStatuses = append(formattedStatuses, formattedStatus)
 	}
-	var allStatuses string
-	if len(formattedStatuses) > 0 {
-		allStatuses = "[" + strings.Join(formattedStatuses, ", ") + "]"
-	}
-	return allStatuses
+
+	slices.Sort(formattedStatuses)
+	return "[" + strings.Join(formattedStatuses, ", ") + "]"
 }
