@@ -8,6 +8,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/components/movementsensor/rtkutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
@@ -86,7 +87,7 @@ func TestReadingsSerial(t *testing.T) {
 		cancelFunc: cancelFunc,
 		logger:     logger,
 	}
-	g.data = GPSData{
+	g.data = rtkutils.GPSData{
 		Location:   loc,
 		Alt:        alt,
 		Speed:      speed,
