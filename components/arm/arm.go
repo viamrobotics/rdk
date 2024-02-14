@@ -174,7 +174,7 @@ func GoToWaypoints(ctx context.Context, a Arm, waypoints [][]referenceframe.Inpu
 
 // CheckDesiredJointPositions validates that the desired joint positions either bring the joint back
 // in bounds or do not move the joint more out of bounds.
-func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredJoints *pb.JointPositions) error {
+func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredInputs []referenceframe.Input) error {
 	currentJointPos, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return err
@@ -182,8 +182,7 @@ func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredJoints *pb.Jo
 	model := a.ModelFrame()
 	checkPositions := model.InputFromProtobuf(currentJointPos)
 	limits := model.DoF()
-	inputs := model.InputFromProtobuf(desiredJoints)
-	for i, val := range inputs {
+	for i, val := range desiredInputs {
 		max := limits[i].Max
 		min := limits[i].Min
 		currPosition := checkPositions[i]

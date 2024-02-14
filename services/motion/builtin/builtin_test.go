@@ -611,7 +611,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			calledStopFunc = true
 			return nil
 		}
-		injectArm.GoToInputsFunc = func(ctx context.Context, goal []referenceframe.Input) error {
+		injectArm.GoToInputsFunc = func(ctx context.Context, goal ...[]referenceframe.Input) error {
 			return failToReachGoalError
 		}
 		injectArm.ModelFrameFunc = func() referenceframe.Model {

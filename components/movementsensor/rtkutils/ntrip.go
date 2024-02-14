@@ -221,7 +221,8 @@ func parseStream(line string) (Stream, error) {
 	}, nil
 }
 
-// Connect attempts to initialize a new ntrip client.
+// Connect attempts to initialize a new ntrip client. If we're unable to connect after multiple
+// attempts, we return the last error.
 func (n *NtripInfo) Connect(ctx context.Context, logger logging.Logger) error {
 	var c *ntrip.Client
 	var err error
@@ -235,19 +236,15 @@ func (n *NtripInfo) Connect(ctx context.Context, logger logging.Logger) error {
 		}
 
 		c, err = ntrip.NewClient(n.URL, ntrip.Options{Username: n.username, Password: n.password})
-		if err == nil {
-			break
+		if err == nil { // Success!
+			logger.Info("Connected to NTRIP caster")
+			n.Client = c
+			return nil
 		}
 	}
 
-	if err != nil {
-		logger.Errorf("Can't connect to NTRIP caster: %s", err)
-		return err
-	}
-
-	logger.Info("Connected to NTRIP caster")
-	n.Client = c
-	return nil
+	logger.Errorf("Can't connect to NTRIP caster: %s", err)
+	return err
 }
 
 // HasStream checks if the sourcetable contains the given mountpoint in it's stream.

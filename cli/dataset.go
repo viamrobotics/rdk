@@ -22,7 +22,7 @@ func DatasetCreateAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := client.createDataset(c.String(dataFlagOrgID), c.String(datasetFlagName)); err != nil {
+	if err := client.createDataset(c.String(generalFlagOrgID), c.String(datasetFlagName)); err != nil {
 		return err
 	}
 	return nil
@@ -75,7 +75,7 @@ func DatasetListAction(c *cli.Context) error {
 		return err
 	}
 	datasetIDs := c.StringSlice(datasetFlagDatasetIDs)
-	orgID := c.String(dataFlagOrgID)
+	orgID := c.String(generalFlagOrgID)
 
 	if orgID != "" && datasetIDs != nil {
 		return errors.New("must specify either dataset IDs or organization ID, got both")

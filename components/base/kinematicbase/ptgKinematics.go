@@ -164,7 +164,20 @@ func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referencefr
 	return ptgk.currentInput, nil
 }
 
-func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) (err error) {
+func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	for _, inputs := range inputSteps {
+		err := ptgk.goToInputs(ctx, inputs)
+		if err != nil {
+			return err
+		}
+	}
+
+	stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancelFn()
+	return ptgk.Base.Stop(stopCtx, nil)
+}
+
+func (ptgk *ptgBaseKinematics) goToInputs(ctx context.Context, inputs []referenceframe.Input) error {
 	if len(inputs) != 3 {
 		return errors.New("inputs to ptg kinematic base must be length 3")
 	}
@@ -236,10 +249,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 			break
 		}
 	}
-
-	stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancelFn()
-	return ptgk.Base.Stop(stopCtx, nil)
+	return nil
 }
 
 func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, currentNode int) (spatialmath.Pose, error) {
