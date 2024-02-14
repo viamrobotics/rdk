@@ -377,7 +377,8 @@ func (ua *urArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra
 // MoveToJointPositions moves the UR arm to the specified joint positions.
 func (ua *urArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
 	// check that joint positions are not out of bounds
-	if err := arm.CheckDesiredJointPositions(ctx, ua, joints); err != nil {
+	inputs := ua.ModelFrame().InputFromProtobuf(joints)
+	if err := arm.CheckDesiredJointPositions(ctx, ua, inputs); err != nil {
 		return err
 	}
 	return ua.moveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(joints))
@@ -500,13 +501,18 @@ func (ua *urArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 }
 
 // GoToInputs moves the UR arm to the Inputs specified.
-func (ua *urArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	// check that joint positions are not out of bounds
-	positionDegs := ua.model.ProtobufFromInput(goal)
-	if err := arm.CheckDesiredJointPositions(ctx, ua, positionDegs); err != nil {
-		return err
+func (ua *urArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	for _, goal := range inputSteps {
+		// check that joint positions are not out of bounds
+		if err := arm.CheckDesiredJointPositions(ctx, ua, goal); err != nil {
+			return err
+		}
+		err := ua.MoveToJointPositions(ctx, ua.model.ProtobufFromInput(goal), nil)
+		if err != nil {
+			return err
+		}
 	}
-	return ua.MoveToJointPositions(ctx, positionDegs, nil)
+	return nil
 }
 
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their

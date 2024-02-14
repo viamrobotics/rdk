@@ -84,17 +84,19 @@ func (fk *fakeDiffDriveKinematics) CurrentInputs(ctx context.Context) ([]referen
 	return fk.inputs, nil
 }
 
-func (fk *fakeDiffDriveKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
-	_, err := fk.planningFrame.Transform(inputs)
-	if err != nil {
-		return err
-	}
-	fk.lock.Lock()
-	fk.inputs = inputs
-	fk.lock.Unlock()
+func (fk *fakeDiffDriveKinematics) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	for _, inputs := range inputSteps {
+		_, err := fk.planningFrame.Transform(inputs)
+		if err != nil {
+			return err
+		}
+		fk.lock.Lock()
+		fk.inputs = inputs
+		fk.lock.Unlock()
 
-	// Sleep for a short amount to time to simulate a base taking some amount of time to reach the inputs
-	time.Sleep(150 * time.Millisecond)
+		// Sleep for a short amount to time to simulate a base taking some amount of time to reach the inputs
+		time.Sleep(150 * time.Millisecond)
+	}
 	return nil
 }
 
@@ -211,16 +213,18 @@ func (fk *fakePTGKinematics) CurrentInputs(ctx context.Context) ([]referencefram
 	return make([]referenceframe.Input, 3), nil
 }
 
-func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
-	newPose, err := fk.frame.Transform(inputs)
-	if err != nil {
-		return err
-	}
+func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	for _, inputs := range inputSteps {
+		newPose, err := fk.frame.Transform(inputs)
+		if err != nil {
+			return err
+		}
 
-	fk.lock.Lock()
-	fk.origin = referenceframe.NewPoseInFrame(fk.origin.Parent(), spatialmath.Compose(fk.origin.Pose(), newPose))
-	fk.lock.Unlock()
-	time.Sleep(time.Duration(fk.sleepTime) * time.Millisecond)
+		fk.lock.Lock()
+		fk.origin = referenceframe.NewPoseInFrame(fk.origin.Parent(), spatialmath.Compose(fk.origin.Pose(), newPose))
+		fk.lock.Unlock()
+		time.Sleep(time.Duration(fk.sleepTime) * time.Millisecond)
+	}
 	return nil
 }
 

@@ -161,16 +161,20 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions, speeds []floa
 }
 
 // GoToInputs moves the gantry to a goal position in the Gantry frame.
-func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	if len(g.subAxes) == 0 {
-		return errors.New("no subaxes found for inputs")
-	}
-	ctx, done := g.opMgr.New(ctx)
-	defer done()
+func (g *multiAxis) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	for _, goal := range inputSteps {
+		if len(g.subAxes) == 0 {
+			return errors.New("no subaxes found for inputs")
+		}
 
-	// MoveToPosition will use the default gantry speed when an empty float is passed in
-	speeds := []float64{}
-	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), speeds, nil)
+		// MoveToPosition will use the default gantry speed when an empty float is passed in
+		speeds := []float64{}
+		err := g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), speeds, nil)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Position returns the position in millimeters.
