@@ -263,7 +263,7 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan motionplan.P
 
 	// Determine the nominal pose, that is, the pose where the robot ought be if it had followed the plan perfectly up until this point.
 	// This is done differently depending on what sort of frame we are working with.
-	// TODO: The `rectifyTPspacePath` in motionplan does basically this. Deduplicate.
+	// TODO: We should be able to use the Path that exists in the plan rather than doing this duplicate work here
 	runningPose := spatialmath.NewZeroPose()
 	for i := 0; i < currentNode; i++ {
 		wpPose, err := ptgk.frame.Transform(waypoints[i])
