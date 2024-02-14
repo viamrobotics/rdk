@@ -1975,7 +1975,7 @@ func TestMoveCallInputs(t *testing.T) {
 
 				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 				defer timeoutFn()
-				executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
+				executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 				test.That(t, err, test.ShouldBeError, errors.New("could not interpret collision_buffer_mm field as float64"))
 				test.That(t, executionID, test.ShouldNotBeEmpty)
 			})
@@ -1994,7 +1994,7 @@ func TestMoveCallInputs(t *testing.T) {
 
 				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 				defer timeoutFn()
-				executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
+				executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 				test.That(t, err, test.ShouldBeError, errors.New("collision_buffer_mm can't be negative"))
 				test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 			})
@@ -2013,7 +2013,7 @@ func TestMoveCallInputs(t *testing.T) {
 
 				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 				defer timeoutFn()
-				executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
+				executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 				test.That(t, err, test.ShouldBeError, errors.New("starting collision between SLAM map and unnamedCollisionGeometry_0, cannot move"))
 				test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 			})
@@ -2032,7 +2032,7 @@ func TestMoveCallInputs(t *testing.T) {
 
 				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 				defer timeoutFn()
-				executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
+				executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 			})
@@ -2051,7 +2051,7 @@ func TestMoveCallInputs(t *testing.T) {
 
 				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 				defer timeoutFn()
-				executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
+				executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 			})
@@ -2070,7 +2070,7 @@ func TestMoveCallInputs(t *testing.T) {
 
 				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 				defer timeoutFn()
-				executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
+				executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 			})
@@ -2088,7 +2088,7 @@ func TestMoveCallInputs(t *testing.T) {
 
 				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 				defer timeoutFn()
-				executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
+				executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 			})
