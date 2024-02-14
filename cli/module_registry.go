@@ -88,7 +88,7 @@ const (
 func CreateModuleAction(c *cli.Context) error {
 	moduleNameArg := c.String(moduleFlagName)
 	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
-	orgIDArg := c.String(moduleFlagOrgID)
+	orgIDArg := c.String(generalFlagOrgID)
 
 	client, err := newViamClient(c)
 	if err != nil {
@@ -201,7 +201,7 @@ func UpdateModuleAction(c *cli.Context) error {
 func UploadModuleAction(c *cli.Context) error {
 	manifestPath := c.String(moduleFlagPath)
 	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
-	orgIDArg := c.String(moduleFlagOrgID)
+	orgIDArg := c.String(generalFlagOrgID)
 	nameArg := c.String(moduleFlagName)
 	versionArg := c.String(moduleFlagVersion)
 	platformArg := c.String(moduleFlagPlatform)
