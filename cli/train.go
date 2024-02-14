@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
+	"golang.org/x/exp/slices"
 )
 
 const (
@@ -18,6 +19,8 @@ const (
 	trainFlagModelVersion = "model-version"
 	trainFlagModelType    = "model-type"
 	trainFlagModelLabels  = "model-labels"
+
+	trainingStatusPrefix = "TRAINING_STATUS_"
 )
 
 // DataSubmitTrainingJob is the corresponding action for 'data train submit'.
@@ -123,7 +126,7 @@ func DataListTrainingJobs(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	jobs, err := client.dataListTrainingJobs(c.String(dataFlagOrgID), c.String(trainFlagJobStatus))
+	jobs, err := client.dataListTrainingJobs(c.String(generalFlagOrgID), c.String(trainFlagJobStatus))
 	if err != nil {
 		return err
 	}
@@ -142,7 +145,7 @@ func (c *viamClient) dataListTrainingJobs(orgID, status string) ([]*mltrainingpb
 	if status == "" {
 		status = "unspecified"
 	}
-	statusEnum, ok := mltrainingpb.TrainingStatus_value["TRAINING_STATUS_"+strings.ToUpper(status)]
+	statusEnum, ok := mltrainingpb.TrainingStatus_value[trainingStatusPrefix+strings.ToUpper(status)]
 	if !ok {
 		return nil, errors.Errorf("%s must be a valid TrainingStatus, got %s. See `viam train list --help` for supported options",
 			trainFlagJobStatus, status)
@@ -156,4 +159,16 @@ func (c *viamClient) dataListTrainingJobs(orgID, status string) ([]*mltrainingpb
 		return nil, err
 	}
 	return resp.Jobs, nil
+}
+
+// allTrainingStatusValues returns the accepted values for the trainFlagJobStatus flag.
+func allTrainingStatusValues() string {
+	var formattedStatuses []string
+	for status := range mltrainingpb.TrainingStatus_value {
+		formattedStatus := strings.ToLower(strings.TrimPrefix(status, trainingStatusPrefix))
+		formattedStatuses = append(formattedStatuses, formattedStatus)
+	}
+
+	slices.Sort(formattedStatuses)
+	return "[" + strings.Join(formattedStatuses, ", ") + "]"
 }
