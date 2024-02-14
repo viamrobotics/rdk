@@ -125,6 +125,7 @@ func sourceNewer(sourcePath, destPath string) (bool, error) {
 // Find a better spot for it.
 // Note: this hack *depends* on RDK APK's target sdk being <= 28.
 // Note: this currently fails when the dest path is running, needs redesign, is POC.
+// todo: put this in module.dataDir so they don't all have the same home directory
 func droidModuleHack(conf *Module, logger logging.Logger) error {
 	if runtime.GOOS != "android" || path.Dir(conf.ExePath) != androidDownloadsDir {
 		return nil
