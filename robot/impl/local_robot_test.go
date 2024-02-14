@@ -37,6 +37,8 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/encoder"
+	fakeencoder "go.viam.com/rdk/components/encoder/fake"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/motor"
@@ -3236,5 +3238,148 @@ func TestImplicitDepsAcrossModules(t *testing.T) {
 	_, err = r.ResourceByName(motor.Named("m1"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.ResourceByName(motor.Named("m2"))
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestResourceByNameAcrossRemotes(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Setup a robot1 -> robot2 -> robot3 -> robot4 remote chain. Ensure that if
+	// robot4 has an encoder "e", all robots in the chain can retrieve it by
+	// simple name "e" or short name "[remote-prefix]:e". Also ensure that a
+	// motor "m1" on robot1 can depend on "robot2:robot3:robot4:e" and a motor
+	// "m2" on robot2 can depend on "e".
+
+	startWeb := func(r robot.LocalRobot) string {
+		var boundAddress string
+		for i := 0; i < 10; i++ {
+			port, err := utils.TryReserveRandomPort()
+			test.That(t, err, test.ShouldBeNil)
+
+			options := weboptions.New()
+			boundAddress = fmt.Sprintf("localhost:%v", port)
+			options.Network.BindAddress = boundAddress
+			if err := r.StartWeb(ctx, options); err != nil {
+				r.StopWeb()
+				if strings.Contains(err.Error(), "address already in use") {
+					logger.Infow("port in use; restarting on new port", "port", port, "err", err)
+					continue
+				}
+				t.Fatalf("StartWeb error: %v", err)
+			}
+			break
+		}
+		return boundAddress
+	}
+
+	cfg4 := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:                "e",
+				Model:               resource.DefaultModelFamily.WithModel("fake"),
+				API:                 encoder.API,
+				ConvertedAttributes: &fakeencoder.Config{},
+			},
+		},
+	}
+	robot4, err := robotimpl.New(ctx, cfg4, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, robot4.Close(ctx), test.ShouldBeNil)
+	}()
+	addr4 := startWeb(robot4)
+	test.That(t, addr4, test.ShouldNotBeBlank)
+
+	cfg3 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot4",
+				Address: addr4,
+			},
+		},
+	}
+	robot3, err := robotimpl.New(ctx, cfg3, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, robot3.Close(ctx), test.ShouldBeNil)
+	}()
+	addr3 := startWeb(robot3)
+	test.That(t, addr3, test.ShouldNotBeBlank)
+
+	cfg2 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot3",
+				Address: addr3,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:                "m2",
+				Model:               resource.DefaultModelFamily.WithModel("fake"),
+				API:                 motor.API,
+				ConvertedAttributes: &fakemotor.Config{},
+				// ensure DependsOn works with simple name (implicit remotes)
+				DependsOn: []string{"e"},
+			},
+		},
+	}
+	robot2, err := robotimpl.New(ctx, cfg2, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, robot2.Close(ctx), test.ShouldBeNil)
+	}()
+	addr2 := startWeb(robot2)
+	test.That(t, addr2, test.ShouldNotBeBlank)
+
+	cfg1 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot2",
+				Address: addr2,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:                "m1",
+				Model:               resource.DefaultModelFamily.WithModel("fake"),
+				API:                 motor.API,
+				ConvertedAttributes: &fakemotor.Config{},
+				// ensure DependsOn works with short name (explicit remotes)
+				DependsOn: []string{"robot2:robot3:robot4:e"},
+			},
+		},
+	}
+	robot1, err := robotimpl.New(ctx, cfg1, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, robot1.Close(ctx), test.ShouldBeNil)
+	}()
+
+	// Ensure that "e" can be retrieved by short and simple names from all
+	// robots. Also ensure "m1" and "m2" can be retrieved from robot1 and robot2
+	// (they built properly).
+
+	_, err = robot4.ResourceByName(encoder.Named("e"))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = robot3.ResourceByName(encoder.Named("e"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = robot3.ResourceByName(encoder.Named("robot4:e"))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = robot2.ResourceByName(encoder.Named("e"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = robot2.ResourceByName(encoder.Named("robot3:robot4:e"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = robot2.ResourceByName(motor.Named("m2"))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = robot1.ResourceByName(encoder.Named("e"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = robot1.ResourceByName(encoder.Named("robot2:robot3:robot4:e"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = robot1.ResourceByName(motor.Named("m1"))
 	test.That(t, err, test.ShouldBeNil)
 }

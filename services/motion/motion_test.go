@@ -797,7 +797,7 @@ func TestPlanStep(t *testing.T) {
 					},
 				},
 				result: motionplan.PlanStep{},
-				err:    errors.New("string \"invalid component name\" is not a valid resource name"),
+				err:    errors.New("string \"invalid component name\" is not a fully qualified resource name"),
 			},
 			{
 				description: "an empty *pb.PlanStep returns an empty PlanStep{}",
