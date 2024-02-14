@@ -108,14 +108,15 @@ const refresh2d = async () => {
        * If it has, reset the point cloud, update the reconfigured time and check what mode the new
        * SLAM session is in to know whether or not to update the map.
        */
-      const statuses = await $robotClient.getStatus();
+      const statuses = await $robotClient.getStatus([slamResourceName]);
       const lastReconfiguredStatus = (statuses ?? []).find((status) =>
         status.hasLastReconfigured()
       );
       const newLastReconfigured = lastReconfiguredStatus?.getLastReconfigured();
-      if (newLastReconfigured !== lastReconfigured || reloadMap === undefined) {
+ 
+      // assuming reconfigures do not happen at the nanosecond scale
+      if (newLastReconfigured?.getSeconds() !== lastReconfigured?.getSeconds() || reloadMap === undefined) {
         lastReconfigured = newLastReconfigured;
-        pointcloud = undefined;
 
         const props = await slamClient.getProperties();
         reloadMap =
