@@ -32,7 +32,8 @@ type PlannerExecutor interface {
 // ExecuteResponse is the response from Execute.
 type ExecuteResponse struct {
 	// If true, the Execute function didn't reach the goal & the caller should replan
-	Replan       bool // Set if Replan is true, describes why replanning was triggered
+	Replan bool
+	// Set if Replan is true, describes why replanning was triggered
 	ReplanReason string
 }
 
@@ -456,10 +457,7 @@ func (s *State) PlanHistory(req motion.PlanHistoryReq) ([]motion.PlanWithStatus,
 		return nil, resource.NewNotFoundError(req.ComponentName)
 	}
 
-	ex := cs.lastExecution()
-	r := renderableHistory(ex.history)
-	s.logger.Debug(r)
-	return r, nil
+	return renderableHistory(cs.lastExecution().history), nil
 }
 
 // visualHistory returns the history struct that has had its plans Offset by.

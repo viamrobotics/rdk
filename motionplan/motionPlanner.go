@@ -568,13 +568,18 @@ func CheckPlan(
 				return nil
 			}
 
-			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
+			// If we are working with a PTG plan the returned value for poseInPath will only
+			// tell us how far along the arc we have traveled. Since this is only the relative position,
+			//  i.e. relative to where the robot started executing the arc,
+			// we must compose poseInPath with segment.StartPosition to get the absolute position.
 			interpolatedState := &ik.State{Frame: sf}
 			if relative {
 				interpolatedState.Position = spatialmath.Compose(segment.StartPosition, poseInPath)
 			} else {
 				interpolatedState.Configuration = interpConfig
 			}
+
+			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
 			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {
 				return fmt.Errorf("found error between positions %v and %v: %s",
 					segment.StartPosition.Point(),
