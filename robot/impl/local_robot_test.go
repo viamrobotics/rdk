@@ -3251,27 +3251,62 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 	// motor "m1" on robot1 can depend on "robot2:robot3:robot4:e" and a motor
 	// "m2" on robot2 can depend on "e".
 
-	addr2 := "localhost:8081"
-	addr3 := "localhost:8082"
-	addr4 := "localhost:8083"
-	cfg1 := &config.Config{
-		Remotes: []config.Remote{
-			{
-				Name:    "robot2",
-				Address: addr2,
-			},
-		},
+	startWeb := func(r robot.LocalRobot) string {
+		var boundAddress string
+		for i := 0; i < 10; i++ {
+			port, err := utils.TryReserveRandomPort()
+			test.That(t, err, test.ShouldBeNil)
+
+			options := weboptions.New()
+			boundAddress = fmt.Sprintf("localhost:%v", port)
+			options.Network.BindAddress = boundAddress
+			if err := r.StartWeb(ctx, options); err != nil {
+				r.StopWeb()
+				if strings.Contains(err.Error(), "address already in use") {
+					logger.Infow("port in use; restarting on new port", "port", port, "err", err)
+					continue
+				}
+				t.Fatalf("StartWeb error: %v", err)
+			}
+			break
+		}
+		return boundAddress
+	}
+
+	cfg4 := &config.Config{
 		Components: []resource.Config{
 			{
-				Name:                "m1",
+				Name:                "e",
 				Model:               resource.DefaultModelFamily.WithModel("fake"),
-				API:                 motor.API,
-				ConvertedAttributes: &fakemotor.Config{},
-				// ensure DependsOn works with short name (explicit remotes)
-				DependsOn: []string{"robot2:robot3:robot4:e"},
+				API:                 encoder.API,
+				ConvertedAttributes: &fakeencoder.Config{},
 			},
 		},
 	}
+	robot4, err := robotimpl.New(ctx, cfg4, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, robot4.Close(ctx), test.ShouldBeNil)
+	}()
+	addr4 := startWeb(robot4)
+	test.That(t, addr4, test.ShouldNotBeBlank)
+
+	cfg3 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot4",
+				Address: addr4,
+			},
+		},
+	}
+	robot3, err := robotimpl.New(ctx, cfg3, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, robot3.Close(ctx), test.ShouldBeNil)
+	}()
+	addr3 := startWeb(robot3)
+	test.That(t, addr3, test.ShouldNotBeBlank)
+
 	cfg2 := &config.Config{
 		Remotes: []config.Remote{
 			{
@@ -3290,53 +3325,32 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 			},
 		},
 	}
-	cfg3 := &config.Config{
-		Remotes: []config.Remote{
-			{
-				Name:    "robot4",
-				Address: addr4,
-			},
-		},
-	}
-	cfg4 := &config.Config{
-		Components: []resource.Config{
-			{
-				Name:                "e",
-				Model:               resource.DefaultModelFamily.WithModel("fake"),
-				API:                 encoder.API,
-				ConvertedAttributes: &fakeencoder.Config{},
-			},
-		},
-	}
-
-	startWeb := func(r robot.LocalRobot, bindAddress string) {
-		options := weboptions.New()
-		options.Network.BindAddress = bindAddress
-		test.That(t, r.StartWeb(ctx, options), test.ShouldBeNil)
-	}
-
-	// Start robots in reverse order for remote chain.
-	robot4, err := robotimpl.New(ctx, cfg4, logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, robot4.Close(ctx), test.ShouldBeNil)
-	}()
-	startWeb(robot4, addr4)
-
-	robot3, err := robotimpl.New(ctx, cfg3, logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, robot3.Close(ctx), test.ShouldBeNil)
-	}()
-	startWeb(robot3, addr3)
-
 	robot2, err := robotimpl.New(ctx, cfg2, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, robot2.Close(ctx), test.ShouldBeNil)
 	}()
-	startWeb(robot2, addr2)
+	addr2 := startWeb(robot2)
+	test.That(t, addr2, test.ShouldNotBeBlank)
 
+	cfg1 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot2",
+				Address: addr2,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:                "m1",
+				Model:               resource.DefaultModelFamily.WithModel("fake"),
+				API:                 motor.API,
+				ConvertedAttributes: &fakemotor.Config{},
+				// ensure DependsOn works with short name (explicit remotes)
+				DependsOn: []string{"robot2:robot3:robot4:e"},
+			},
+		},
+	}
 	robot1, err := robotimpl.New(ctx, cfg1, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
