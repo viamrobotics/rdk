@@ -441,3 +441,13 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 
 	return &pb.LogResponse{}, nil
 }
+
+// GetCloudMetadata returns app-related information about the machine.
+func (s *Server) GetCloudMetadata(ctx context.Context, req *pb.GetCloudMetadataRequest) (*pb.GetCloudMetadataResponse, error) {
+	// TODO: get cached config
+	return &pb.GetCloudMetadataResponse{
+		RobotPartId:  "the-robot-part",
+		LocationId:   "the-location",
+		PrimaryOrgId: "the-primary-org",
+	}, nil
+}
