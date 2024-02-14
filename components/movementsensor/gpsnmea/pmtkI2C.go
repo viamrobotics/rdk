@@ -16,8 +16,9 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// I2cDataReader implements the DataReader interface by communicating with a device over an I2C bus.
-type I2cDataReader struct {
+// PmtkI2cDataReader implements the DataReader interface for a PMTK device by communicating with it
+// over an I2C bus.
+type PmtkI2cDataReader struct {
 	data chan string
 
 	cancelCtx               context.Context
@@ -37,7 +38,7 @@ func NewI2cDataReader(
 	data := make(chan string)
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
-	reader := I2cDataReader{
+	reader := PmtkI2cDataReader{
 		data:       data,
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
@@ -56,7 +57,7 @@ func NewI2cDataReader(
 }
 
 // initialize sends commands to the device to put it into a state where we can read data from it.
-func (dr *I2cDataReader) initialize() error {
+func (dr *PmtkI2cDataReader) initialize() error {
 	handle, err := dr.bus.OpenHandle(dr.addr)
 	if err != nil {
 		dr.logger.CErrorf(dr.cancelCtx, "can't open gps i2c %s", err)
@@ -90,7 +91,7 @@ func (dr *I2cDataReader) initialize() error {
 	return nil
 }
 
-func (dr *I2cDataReader) readData() ([]byte, error) {
+func (dr *PmtkI2cDataReader) readData() ([]byte, error) {
 	handle, err := dr.bus.OpenHandle(dr.addr)
 	if err != nil {
 		dr.logger.CErrorf(dr.cancelCtx, "can't open gps i2c %s", err)
@@ -109,7 +110,7 @@ func (dr *I2cDataReader) readData() ([]byte, error) {
 
 // start spins up a background coroutine to read data from the I2C bus and put it into the channel
 // of complete messages.
-func (dr *I2cDataReader) start() {
+func (dr *PmtkI2cDataReader) start() {
 	dr.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer dr.activeBackgroundWorkers.Done()
@@ -163,12 +164,12 @@ func (dr *I2cDataReader) start() {
 
 // Messages returns the channel of complete NMEA sentences we have read off of the device. It's part
 // of the DataReader interface.
-func (dr *I2cDataReader) Messages() chan string {
+func (dr *PmtkI2cDataReader) Messages() chan string {
 	return dr.data
 }
 
 // Close is part of the DataReader interface. It shuts everything down.
-func (dr *I2cDataReader) Close() error {
+func (dr *PmtkI2cDataReader) Close() error {
 	dr.cancelFunc()
 	// If the background coroutine is trying to put a new line of data into the channel, it won't
 	// notice that we've canceled it until something tries taking the line out of the channel. So,
