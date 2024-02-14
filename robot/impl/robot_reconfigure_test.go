@@ -3626,7 +3626,7 @@ func TestResourceConstructTimeout(t *testing.T) {
 		},
 	}
 	t.Run("new", func(t *testing.T) {
-		timeout = 50 * time.Duration(time.Millisecond)
+		timeout = 50 * time.Millisecond
 		test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, timeout.String()),
 			test.ShouldBeNil)
 		defer func() {
@@ -3643,7 +3643,7 @@ func TestResourceConstructTimeout(t *testing.T) {
 		r, err := New(context.Background(), cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		timeout = time.Duration(200 * time.Millisecond)
+		timeout = 200 * time.Millisecond
 		test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, timeout.String()),
 			test.ShouldBeNil)
 		defer func() {
@@ -3677,7 +3677,7 @@ func TestResourceConstructTimeout(t *testing.T) {
 	})
 }
 
-// tests that on context cancellation, the resource re/configuration loop never gets inside the resource constructor
+// tests that on context cancellation, the resource re/configuration loop never gets inside the resource constructor.
 func TestResourceConstructCtxCancel(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
