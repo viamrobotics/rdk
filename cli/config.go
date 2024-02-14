@@ -51,8 +51,9 @@ func storeConfigToCache(cfg *config) error {
 }
 
 type config struct {
-	BaseURL string     `json:"base_url"`
-	Auth    authMethod `json:"auth"`
+	BaseURL         string     `json:"base_url"`
+	Auth            authMethod `json:"auth"`
+	LastUpdateCheck string     `json:"last_update_check"`
 }
 
 func (conf *config) tryUnmarshallWithToken(configBytes []byte) error {

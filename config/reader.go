@@ -26,9 +26,9 @@ import (
 
 // RDK versioning variables which are replaced by LD flags.
 var (
-	Version       = ""
-	GitRevision   = ""
-	DateCompiled  = ""
+	Version      = ""
+	GitRevision  = ""
+	DateCompiled = ""
 )
 
 func getAgentInfo() (*apppb.AgentInfo, error) {
