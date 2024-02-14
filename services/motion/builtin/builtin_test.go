@@ -1701,6 +1701,7 @@ func TestMoveOnMap(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, errors.New("no need to move, already within planDeviationMM"))
 		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 	})
+
 	t.Run("pass when within plan dev m of goal without position_only due to theta difference in goal", func(t *testing.T) {
 		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer ms.Close(ctx)
@@ -1958,13 +1959,147 @@ func TestMoveCallInputs(t *testing.T) {
 			test.That(t, err, test.ShouldBeError, errors.New("LinearMPerSec may not be NaN"))
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
+
+		t.Run("collision_buffer_mm validtations", func(t *testing.T) {
+			t.Run("fail when collision_buffer_mm is not a float", func(t *testing.T) {
+				_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+				defer ms.Close(ctx)
+
+				req := motion.MoveOnMapReq{
+					ComponentName: base.Named("test-base"),
+					Destination:   spatialmath.NewZeroPose(),
+					SlamName:      slam.Named("test_slam"),
+					MotionCfg:     &motion.MotionConfiguration{},
+					Extra:         map[string]interface{}{"collision_buffer_mm": "not a float"},
+				}
+
+				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+				defer timeoutFn()
+				executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
+				test.That(t, err, test.ShouldBeError, errors.New("could not interpret collision_buffer_mm field as float64"))
+				test.That(t, executionID, test.ShouldNotBeEmpty)
+			})
+
+			t.Run("fail when collision_buffer_mm is negative", func(t *testing.T) {
+				_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+				defer ms.Close(ctx)
+
+				req := motion.MoveOnMapReq{
+					ComponentName: base.Named("test-base"),
+					Destination:   spatialmath.NewZeroPose(),
+					SlamName:      slam.Named("test_slam"),
+					MotionCfg:     &motion.MotionConfiguration{},
+					Extra:         map[string]interface{}{"collision_buffer_mm": -1.},
+				}
+
+				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+				defer timeoutFn()
+				executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
+				test.That(t, err, test.ShouldBeError, errors.New("collision_buffer_mm can't be negative"))
+				test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+			})
+
+			t.Run("fail when collisions are predicted within the collision buffer", func(t *testing.T) {
+				_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+				defer ms.Close(ctx)
+
+				req := motion.MoveOnMapReq{
+					ComponentName: base.Named("test-base"),
+					Destination:   spatialmath.NewZeroPose(),
+					SlamName:      slam.Named("test_slam"),
+					MotionCfg:     &motion.MotionConfiguration{},
+					Extra:         map[string]interface{}{"collision_buffer_mm": 200.},
+				}
+
+				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+				defer timeoutFn()
+				executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
+				test.That(t, err, test.ShouldBeError, errors.New("starting collision between SLAM map and unnamedCollisionGeometry_0, cannot move"))
+				test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+			})
+
+			t.Run("pass when collision_buffer_mm is a small positive float", func(t *testing.T) {
+				_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+				defer ms.Close(ctx)
+
+				req := motion.MoveOnMapReq{
+					ComponentName: base.Named("test-base"),
+					Destination:   spatialmath.NewZeroPose(),
+					SlamName:      slam.Named("test_slam"),
+					MotionCfg:     &motion.MotionConfiguration{},
+					Extra:         map[string]interface{}{"collision_buffer_mm": 1e-5},
+				}
+
+				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+				defer timeoutFn()
+				executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
+			})
+
+			t.Run("pass when collision_buffer_mm is a positive float", func(t *testing.T) {
+				_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+				defer ms.Close(ctx)
+
+				req := motion.MoveOnMapReq{
+					ComponentName: base.Named("test-base"),
+					Destination:   spatialmath.NewZeroPose(),
+					SlamName:      slam.Named("test_slam"),
+					MotionCfg:     &motion.MotionConfiguration{},
+					Extra:         map[string]interface{}{"collision_buffer_mm": 0.1},
+				}
+
+				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+				defer timeoutFn()
+				executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
+			})
+
+			t.Run("pass when extra is empty", func(t *testing.T) {
+				_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+				defer ms.Close(ctx)
+
+				req := motion.MoveOnMapReq{
+					ComponentName: base.Named("test-base"),
+					Destination:   spatialmath.NewZeroPose(),
+					SlamName:      slam.Named("test_slam"),
+					MotionCfg:     &motion.MotionConfiguration{},
+					Extra:         map[string]interface{}{},
+				}
+
+				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+				defer timeoutFn()
+				executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
+			})
+
+			t.Run("passes validations when extra is nil", func(t *testing.T) {
+				_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+				defer ms.Close(ctx)
+
+				req := motion.MoveOnMapReq{
+					ComponentName: base.Named("test-base"),
+					Destination:   spatialmath.NewZeroPose(),
+					SlamName:      slam.Named("test_slam"),
+					MotionCfg:     &motion.MotionConfiguration{},
+				}
+
+				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+				defer timeoutFn()
+				executionID, err := ms.(*builtIn).MoveOnMapNew(timeoutCtx, req)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
+			})
+		})
 	})
 
 	t.Run("MoveOnGlobe", func(t *testing.T) {
 		t.Parallel()
 		// Near antarctica 🐧
 		gpsPoint := geo.NewPoint(-70, 40)
-		dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
+		dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-4)
 		// create motion config
 		extra := map[string]interface{}{
 			"motion_profile": "position_only",
@@ -2241,6 +2376,103 @@ func TestMoveCallInputs(t *testing.T) {
 			executionID, err := ms.MoveOnGlobe(ctx, req)
 			test.That(t, err, test.ShouldBeError, errors.New("LinearMPerSec may not be NaN"))
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+		})
+
+		t.Run("collision_buffer_mm validtations", func(t *testing.T) {
+			t.Run("fail when collision_buffer_mm is not a float", func(t *testing.T) {
+				injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+				defer ms.Close(ctx)
+				req := motion.MoveOnGlobeReq{
+					ComponentName:      fakeBase.Name(),
+					MovementSensorName: injectedMovementSensor.Name(),
+					Heading:            90,
+					Destination:        dst,
+					MotionCfg:          &motion.MotionConfiguration{},
+					Extra:              map[string]interface{}{"collision_buffer_mm": "not a float"},
+				}
+				executionID, err := ms.MoveOnGlobe(ctx, req)
+				test.That(t, err, test.ShouldBeError, errors.New("could not interpret collision_buffer_mm field as float64"))
+				test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+			})
+
+			t.Run("fail when collision_buffer_mm is negative", func(t *testing.T) {
+				injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+				defer ms.Close(ctx)
+				req := motion.MoveOnGlobeReq{
+					ComponentName:      fakeBase.Name(),
+					MovementSensorName: injectedMovementSensor.Name(),
+					Heading:            90,
+					Destination:        dst,
+					MotionCfg:          &motion.MotionConfiguration{},
+					Extra:              map[string]interface{}{"collision_buffer_mm": -1.},
+				}
+				executionID, err := ms.MoveOnGlobe(ctx, req)
+				test.That(t, err, test.ShouldBeError, errors.New("collision_buffer_mm can't be negative"))
+				test.That(t, executionID, test.ShouldResemble, uuid.Nil)
+			})
+
+			t.Run("pass when collision_buffer_mm is a small positive float", func(t *testing.T) {
+				injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+				defer ms.Close(ctx)
+				req := motion.MoveOnGlobeReq{
+					ComponentName:      fakeBase.Name(),
+					MovementSensorName: injectedMovementSensor.Name(),
+					Heading:            90,
+					Destination:        dst,
+					MotionCfg:          &motion.MotionConfiguration{},
+					Extra:              map[string]interface{}{"collision_buffer_mm": 1e-5},
+				}
+				executionID, err := ms.MoveOnGlobe(ctx, req)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
+			})
+
+			t.Run("pass when collision_buffer_mm is a positive float", func(t *testing.T) {
+				injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+				defer ms.Close(ctx)
+				req := motion.MoveOnGlobeReq{
+					ComponentName:      fakeBase.Name(),
+					MovementSensorName: injectedMovementSensor.Name(),
+					Heading:            90,
+					Destination:        dst,
+					MotionCfg:          &motion.MotionConfiguration{},
+					Extra:              map[string]interface{}{"collision_buffer_mm": 10.},
+				}
+				executionID, err := ms.MoveOnGlobe(ctx, req)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
+			})
+
+			t.Run("pass when extra is empty", func(t *testing.T) {
+				injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+				defer ms.Close(ctx)
+				req := motion.MoveOnGlobeReq{
+					ComponentName:      fakeBase.Name(),
+					MovementSensorName: injectedMovementSensor.Name(),
+					Heading:            90,
+					Destination:        dst,
+					MotionCfg:          &motion.MotionConfiguration{},
+					Extra:              map[string]interface{}{},
+				}
+				executionID, err := ms.MoveOnGlobe(ctx, req)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
+			})
+
+			t.Run("passes validations when extra is nil", func(t *testing.T) {
+				injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+				defer ms.Close(ctx)
+				req := motion.MoveOnGlobeReq{
+					ComponentName:      fakeBase.Name(),
+					MovementSensorName: injectedMovementSensor.Name(),
+					Heading:            90,
+					Destination:        dst,
+					MotionCfg:          &motion.MotionConfiguration{},
+				}
+				executionID, err := ms.MoveOnGlobe(ctx, req)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
+			})
 		})
 	})
 }
