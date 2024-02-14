@@ -18,6 +18,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
@@ -251,9 +252,14 @@ func (ptgk *ptgBaseKinematics) goToInputs(ctx context.Context, inputs []referenc
 	return nil
 }
 
-func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenceframe.Input, currentNode int) (spatialmath.Pose, error) {
-	if currentNode < 0 || currentNode >= len(plan) {
-		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be >= 0 and less than plan length %d", currentNode, len(plan))
+func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, currentNode int) (spatialmath.Pose, error) {
+	traj := plan.Trajectory()
+	if currentNode < 0 || traj != nil || currentNode >= len(traj) {
+		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be >= 0 and less than plan length %d", currentNode, len(traj))
+	}
+	waypoints, err := plan.Trajectory().GetFrameInputs(ptgk.Name().Name)
+	if err != nil {
+		return nil, err
 	}
 
 	// Get pose-in-frame of the base via its localizer. The offset between the localizer and its base should already be accounted for.
@@ -267,11 +273,10 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenc
 
 	// Determine the nominal pose, that is, the pose where the robot ought be if it had followed the plan perfectly up until this point.
 	// This is done differently depending on what sort of frame we are working with.
-	// TODO: The `rectifyTPspacePath` in motionplan does basically this. Deduplicate.
+	// TODO: We should be able to use the Path that exists in the plan rather than doing this duplicate work here
 	runningPose := spatialmath.NewZeroPose()
 	for i := 0; i < currentNode; i++ {
-		wp := plan[i]
-		wpPose, err := ptgk.frame.Transform(wp)
+		wpPose, err := ptgk.frame.Transform(waypoints[i])
 		if err != nil {
 			return nil, err
 		}

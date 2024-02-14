@@ -430,8 +430,8 @@ func TestObstacleReplanning(t *testing.T) {
 		{
 			name: "ensure replan due to obstacle collision",
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 1100, Y: 0, Z: 0})
-				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 100, Y: 100, Z: 10}, "test-case-1")
+				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 0, Z: 0})
+				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, "test-case-1")
 				test.That(t, err, test.ShouldBeNil)
 
 				detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", box.ToProtobuf())
@@ -480,6 +480,7 @@ func TestObstacleReplanning(t *testing.T) {
 		if tc.expectedSuccess {
 			test.That(t, err, test.ShouldBeNil)
 		} else {
+			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldEqual, tc.expectedErr)
 		}
 	}
@@ -900,7 +901,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionID)
 		test.That(t, len(ph[0].StatusHistory), test.ShouldEqual, 1)
 		test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateInProgress)
-		test.That(t, len(ph[0].Plan.Steps), test.ShouldNotEqual, 0)
+		test.That(t, len(ph[0].Plan.Path()), test.ShouldNotEqual, 0)
 
 		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
 		test.That(t, err, test.ShouldBeNil)
@@ -912,7 +913,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, len(ph2[0].StatusHistory), test.ShouldEqual, 2)
 		test.That(t, ph2[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateStopped)
 		test.That(t, ph2[0].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
-		test.That(t, len(ph2[0].Plan.Steps), test.ShouldNotEqual, 0)
+		test.That(t, len(ph2[0].Plan.Path()), test.ShouldNotEqual, 0)
 
 		// Proves that calling StopPlan after the plan has reached a terminal state is idempotent
 		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
@@ -1035,7 +1036,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 		planResp, err := mr.Plan(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(planResp.Waypoints), test.ShouldBeGreaterThan, 2)
+		test.That(t, len(planResp.Path()), test.ShouldBeGreaterThan, 2)
 
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
@@ -1076,7 +1077,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		planResp, err := mr.Plan(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(planResp.Waypoints), test.ShouldBeGreaterThan, 2)
+		test.That(t, len(planResp.Path()), test.ShouldBeGreaterThan, 2)
 
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
@@ -1133,7 +1134,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		planResp, err := moveRequest.Plan(ctx)
 		test.That(t, err, test.ShouldBeError)
-		test.That(t, len(planResp.Motionplan), test.ShouldEqual, 0)
+		test.That(t, planResp, test.ShouldBeNil)
 	})
 
 	t.Run("check offset constructed correctly", func(t *testing.T) {
@@ -1231,9 +1232,9 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		// construct plan
-		planResp, err := mr.Plan(ctx)
+		plan, err := mr.Plan(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(planResp.Waypoints), test.ShouldBeGreaterThan, 2)
+		test.That(t, len(plan.Path()), test.ShouldBeGreaterThan, 2)
 
 		// place obstacle in opposte position and show that the generate path
 		// collides with obstacleRight
@@ -1257,14 +1258,14 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 
 		err = motionplan.CheckPlan(
 			mr.planRequest.Frame,
-			planResp.Motionplan,
+			plan,
 			wrldSt,
 			mr.planRequest.FrameSystem,
 			spatialmath.NewPose(
 				r3.Vector{X: 0.58772e3, Y: -0.80826e3, Z: 0},
 				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0},
 			),
-			referenceframe.FloatsToInputs([]float64{0, 0, 0}),
+			referenceframe.StartPositions(mr.planRequest.FrameSystem),
 			spatialmath.NewZeroPose(),
 			lookAheadDistanceMM,
 			logger,
@@ -1311,9 +1312,8 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		// construct plan
-		planResp, err := mr.Plan(ctx)
+		_, err = mr.Plan(ctx)
 		test.That(t, err, test.ShouldBeError, errors.New("context deadline exceeded"))
-		test.That(t, planResp, test.ShouldResemble, state.PlanResponse{})
 	})
 }
 
@@ -1571,10 +1571,10 @@ func TestMoveOnMap(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		goalPose1 := plans[0].Plan.Steps[0][base.Named("test-base")]
+		goalPose1 := plans[0].Plan.Path()[0]["test-base"].Pose()
 		goalPose2 := spatialmath.PoseBetween(
-			plans[0].Plan.Steps[0][base.Named("test-base")],
-			plans[0].Plan.Steps[len(plans[0].Plan.Steps)-1][base.Named("test-base")],
+			plans[0].Plan.Path()[0]["test-base"].Pose(),
+			plans[0].Plan.Path()[len(plans[0].Plan.Path())-1]["test-base"].Pose(),
 		)
 
 		// We don't actually surface the internal motion planning goal; we report to the user in terms of what the user provided us.
@@ -1661,7 +1661,7 @@ func TestMoveOnMap(t *testing.T) {
 		test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionID)
 		test.That(t, len(ph[0].StatusHistory), test.ShouldEqual, 1)
 		test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateInProgress)
-		test.That(t, len(ph[0].Plan.Steps), test.ShouldNotEqual, 0)
+		test.That(t, len(ph[0].Plan.Path()), test.ShouldNotEqual, 0)
 
 		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: kb.Name()})
 		test.That(t, err, test.ShouldBeNil)
@@ -1673,7 +1673,7 @@ func TestMoveOnMap(t *testing.T) {
 		test.That(t, len(ph2[0].StatusHistory), test.ShouldEqual, 2)
 		test.That(t, ph2[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateStopped)
 		test.That(t, ph2[0].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
-		test.That(t, len(ph2[0].Plan.Steps), test.ShouldNotEqual, 0)
+		test.That(t, len(ph2[0].Plan.Path()), test.ShouldNotEqual, 0)
 
 		// Proves that calling StopPlan after the plan has reached a terminal state is idempotent
 		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: kb.Name()})

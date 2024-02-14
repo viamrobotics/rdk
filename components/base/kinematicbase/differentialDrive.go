@@ -17,6 +17,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
@@ -69,7 +70,7 @@ func wrapWithDifferentialDriveKinematics(
 	}
 	if boundingSphere == nil || err != nil {
 		logger.CWarn(ctx, "base %s not configured with a geometry, will be considered a 300mm sphere for collision detection purposes.")
-		boundingSphere, err = spatialmath.NewSphere(spatialmath.NewZeroPose(), 150., b.Name().Name)
+		boundingSphere, err = spatialmath.NewSphere(spatialmath.NewZeroPose(), 150., b.Name().ShortName())
 		if err != nil {
 			return nil, err
 		}
@@ -347,13 +348,13 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired 
 	return capsule, nil
 }
 
-func (ddk *differentialDriveKinematics) ErrorState(
-	ctx context.Context,
-	plan [][]referenceframe.Input,
-	currentNode int,
-) (spatialmath.Pose, error) {
-	if currentNode <= 0 || currentNode >= len(plan) {
-		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be > 0 and less than plan length %d", currentNode, len(plan))
+func (ddk *differentialDriveKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, currentNode int) (spatialmath.Pose, error) {
+	waypoints, err := plan.Trajectory().GetFrameInputs(ddk.Name().ShortName())
+	if err != nil {
+		return nil, err
+	}
+	if currentNode <= 0 || currentNode >= len(waypoints) {
+		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be > 0 and less than plan length %d", currentNode, len(waypoints))
 	}
 
 	// Get pose-in-frame of the base via its localizer. The offset between the localizer and its base should already be accounted for.
@@ -366,14 +367,14 @@ func (ddk *differentialDriveKinematics) ErrorState(
 
 	// Determine the nominal pose, that is, the pose where the robot ought be if it had followed the plan perfectly up until this point.
 	// This is done differently depending on what sort of frame we are working with.
-	if len(plan) < 2 {
+	if len(waypoints) < 2 {
 		return nil, errors.New("diff drive motion plan must have at least two waypoints")
 	}
-	nominalPose, err = ddk.planningFrame.Transform(plan[currentNode])
+	nominalPose, err = ddk.planningFrame.Transform(waypoints[currentNode])
 	if err != nil {
 		return nil, err
 	}
-	pastPose, err := ddk.planningFrame.Transform(plan[currentNode-1])
+	pastPose, err := ddk.planningFrame.Transform(waypoints[currentNode-1])
 	if err != nil {
 		return nil, err
 	}

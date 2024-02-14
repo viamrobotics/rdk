@@ -64,7 +64,7 @@ func TestURDFTransforms(t *testing.T) {
 	test.That(t, firstJov.OZ, test.ShouldAlmostEqual, firstJovExpect.OZ)
 }
 
-func TestWorlStateConversion(t *testing.T) {
+func TestWorldStateConversion(t *testing.T) {
 	foo, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "foo")
 	test.That(t, err, test.ShouldBeNil)
 	bar, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{X: 1, Y: 2, Z: 3}, "bar")

@@ -34,27 +34,15 @@ type rrtParallelPlanner interface {
 type rrtParallelPlannerShared struct {
 	maps            *rrtMaps
 	endpointPreview chan node
-	solutionChan    chan *rrtPlanReturn
+	solutionChan    chan *rrtSolution
 }
 
 type rrtMap map[node]node
 
-type rrtPlanReturn struct {
-	steps   []node
-	planerr error
-	maps    *rrtMaps
-}
-
-func nodesToInputs(nodes []node) [][]referenceframe.Input {
-	inputs := make([][]referenceframe.Input, 0, len(nodes))
-	for _, step := range nodes {
-		inputs = append(inputs, step.Q())
-	}
-	return inputs
-}
-
-func (plan *rrtPlanReturn) err() error {
-	return plan.planerr
+type rrtSolution struct {
+	steps []node
+	err   error
+	maps  *rrtMaps
 }
 
 type rrtMaps struct {
@@ -83,8 +71,8 @@ func (maps *rrtMaps) fillPosOnlyGoal(goal spatialmath.Pose, posSeeds, dof int) e
 
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK solutions to pre-populate the goal
 // map, and will check if any of those goals are able to be directly interpolated to.
-func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referenceframe.Input) *rrtPlanReturn {
-	rrt := &rrtPlanReturn{
+func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referenceframe.Input) *rrtSolution {
+	rrt := &rrtSolution{
 		maps: &rrtMaps{
 			startMap: map[node]node{},
 			goalMap:  map[node]node{},
@@ -96,7 +84,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 	// get many potential end goals from IK solver
 	solutions, err := mp.getSolutions(ctx, seed)
 	if err != nil {
-		rrt.planerr = err
+		rrt.err = err
 		return rrt
 	}
 
@@ -125,9 +113,9 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 	return rrt
 }
 
-func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
+func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtSolution {
 	if len(nodePairs) == 0 {
-		return &rrtPlanReturn{planerr: errPlannerFailed, maps: maps}
+		return &rrtSolution{err: errPlannerFailed, maps: maps}
 	}
 	minIdx := 0
 	minDist := nodePairs[0].sumCosts()
@@ -137,7 +125,7 @@ func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
 			minIdx = i
 		}
 	}
-	return &rrtPlanReturn{steps: extractPath(maps.startMap, maps.goalMap, nodePairs[minIdx], true), maps: maps}
+	return &rrtSolution{steps: extractPath(maps.startMap, maps.goalMap, nodePairs[minIdx], true), maps: maps}
 }
 
 // fixedStepInterpolation returns inputs at qstep distance along the path from start to target
@@ -270,16 +258,28 @@ func sumCosts(path []node) float64 {
 	return cost
 }
 
-func transformNodes(path []node, transformBy spatialmath.Pose) []node {
-	transformedNodes := []node{}
-	for _, n := range path {
-		newNode := &basicNode{
-			q:      n.Q(),
-			cost:   n.Cost(),
-			pose:   spatialmath.Compose(n.Pose(), transformBy),
-			corner: n.Corner(),
-		}
-		transformedNodes = append(transformedNodes, newNode)
+type rrtPlan struct {
+	SimplePlan
+
+	// nodes corresponding to inputs can be cached with the Plan for easy conversion back into a form usable by RRT
+	// depending on how the trajectory is constructed these may be nil and should be computed before usage
+	nodes []node
+}
+
+func newRRTPlan(solution []node, sf *solverFrame, relative bool) (*rrtPlan, error) {
+	if len(solution) < 2 {
+		return nil, errors.New("cannot construct a Plan using fewer than two nodes")
 	}
-	return transformedNodes
+	traj := sf.nodesToTrajectory(solution)
+	path, err := newPath(solution, sf)
+	if err != nil {
+		return nil, err
+	}
+	if relative {
+		path, err = newPathFromRelativePath(path)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &rrtPlan{SimplePlan: *NewSimplePlan(path, traj), nodes: solution}, nil
 }
