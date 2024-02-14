@@ -709,20 +709,20 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 			switch resName {
 			case web.InternalServiceName:
 				if err := res.Reconfigure(ctxWithTimeout, allResources, resource.Config{}); err != nil {
-					r.Logger().CErrorw(ctx, "failed to reconfigure internal service", "service", resName, "error", err)
+					r.Logger().CErrorw(ctx, "failed to reconfigure internal service during weak dependencies update", "service", resName, "error", err)
 				}
 			case framesystem.InternalServiceName:
 				fsCfg, err := r.FrameSystemConfig(ctxWithTimeout)
 				if err != nil {
-					r.Logger().CErrorw(ctx, "failed to reconfigure internal service", "service", resName, "error", err)
+					r.Logger().CErrorw(ctx, "failed to reconfigure internal service during weak dependencies update", "service", resName, "error", err)
 					break
 				}
 				if err := res.Reconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
-					r.Logger().CErrorw(ctx, "failed to reconfigure internal service", "service", resName, "error", err)
+					r.Logger().CErrorw(ctx, "failed to reconfigure internal service during weak dependencies update", "service", resName, "error", err)
 				}
 			case packages.InternalServiceName, cloud.InternalServiceName:
 			default:
-				r.logger.CWarnw(ctx, "do not know how to reconfigure internal service", "service", resName)
+				r.logger.CWarnw(ctx, "do not know how to reconfigure internal service during weak dependencies update", "service", resName)
 			}
 		})
 
@@ -730,7 +730,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				r.logger.CWarn(ctx, utils.NewBuildTimeoutError(resName.String()))
+				r.logger.CWarn(ctx, utils.NewWeakDependenciesUpdateTimeoutError(resName.String()))
 			}
 		case <-ctx.Done():
 			return
@@ -765,11 +765,11 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		r.Logger().CDebugw(ctx, "handling weak update for resource", "resource", resName)
 		deps, err := r.getDependencies(ctx, resName, resNode)
 		if err != nil {
-			r.Logger().CErrorw(ctx, "failed to get dependencies during weak update; skipping", "resource", resName, "error", err)
+			r.Logger().CErrorw(ctx, "failed to get dependencies during weak dependencies update; skipping", "resource", resName, "error", err)
 			return
 		}
 		if err := res.Reconfigure(ctx, deps, conf); err != nil {
-			r.Logger().CErrorw(ctx, "failed to reconfigure resource with weak dependencies", "resource", resName, "error", err)
+			r.Logger().CErrorw(ctx, "failed to reconfigure resource during weak dependencies update", "resource", resName, "error", err)
 		}
 	}
 
@@ -796,7 +796,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				r.logger.CWarn(ctx, utils.NewBuildTimeoutError(conf.ResourceName().String()))
+				r.logger.CWarn(ctx, utils.NewWeakDependenciesUpdateTimeoutError(conf.ResourceName().String()))
 			}
 		case <-ctx.Done():
 			return
