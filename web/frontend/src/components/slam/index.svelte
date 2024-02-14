@@ -113,9 +113,12 @@ const refresh2d = async () => {
         status.hasLastReconfigured()
       );
       const newLastReconfigured = lastReconfiguredStatus?.getLastReconfigured();
- 
+
       // assuming reconfigures do not happen at the nanosecond scale
-      if (newLastReconfigured?.getSeconds() !== lastReconfigured?.getSeconds() || reloadMap === undefined) {
+      if (
+        newLastReconfigured?.getSeconds() !== lastReconfigured?.getSeconds() ||
+        reloadMap === undefined
+      ) {
         lastReconfigured = newLastReconfigured;
 
         const props = await slamClient.getProperties();
