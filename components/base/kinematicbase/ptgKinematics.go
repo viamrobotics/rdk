@@ -254,7 +254,7 @@ func (ptgk *ptgBaseKinematics) goToInputs(ctx context.Context, inputs []referenc
 
 func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, currentNode int) (spatialmath.Pose, error) {
 	traj := plan.Trajectory()
-	if currentNode < 0 || traj != nil || currentNode >= len(traj) {
+	if currentNode < 0 || traj == nil || currentNode >= len(traj) {
 		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be >= 0 and less than plan length %d", currentNode, len(traj))
 	}
 	waypoints, err := plan.Trajectory().GetFrameInputs(ptgk.Name().Name)
