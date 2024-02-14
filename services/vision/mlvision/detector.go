@@ -26,7 +26,7 @@ const (
 	detectorInputName    = "image"
 )
 
-func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map) (objectdetection.Detector, error) {
+func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map, paramBoxOrder []int) (objectdetection.Detector, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
 		return nil, errors.New("could not get any metadata")
@@ -39,9 +39,14 @@ func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map
 	}
 	inType := md.Inputs[0].DataType
 	labels := getLabelsFromMetadata(md)
-	boxOrder, err := getBoxOrderFromMetadata(md)
-	if err != nil || len(boxOrder) < 4 {
-		boxOrder = []int{1, 0, 3, 2}
+	boxOrder := make([]int, 0, 4)
+	if len(paramBoxOrder) == 4 {
+		boxOrder = paramBoxOrder
+	} else {
+		boxOrder, err = getBoxOrderFromMetadata(md)
+		if err != nil || len(boxOrder) < 4 {
+			boxOrder = []int{1, 0, 3, 2}
+		}
 	}
 
 	if shapeLen := len(md.Inputs[0].Shape); shapeLen < 4 {
@@ -191,7 +196,7 @@ func extractCategoriesFromScores(scores []float64, nCategories int) ([]float64, 
 	}
 	// ensure even division of data into categories
 	if len(scores)%nCategories != 0 {
-		return nil, nil, errors.Errorf("nCategories %s does not divide evenly into score tensor of length %v", nCategories, len(scores))
+		return nil, nil, errors.Errorf("nCategories %v does not divide evenly into score tensor of length %v", nCategories, len(scores))
 	}
 	nEntries := len(scores) / nCategories
 	newCategories := make([]float64, 0, nEntries)

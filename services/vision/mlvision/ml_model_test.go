@@ -100,7 +100,7 @@ func TestAddingIncorrectModelTypeToModel(t *testing.T) {
 	err = checkIfClassifierWorks(ctx, classifier)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	detector, err := attemptToBuildDetector(mlm, inNameMap, outNameMap)
+	detector, err := attemptToBuildDetector(mlm, inNameMap, outNameMap, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, detector, test.ShouldNotBeNil)
 
@@ -124,7 +124,7 @@ func TestAddingIncorrectModelTypeToModel(t *testing.T) {
 	mlm, err = getTestMlModel(modelLocClassifier)
 	test.That(t, err, test.ShouldBeNil)
 
-	detector, err = attemptToBuildDetector(mlm, inNameMap, outNameMap)
+	detector, err = attemptToBuildDetector(mlm, inNameMap, outNameMap, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, detector, test.ShouldNotBeNil)
 
@@ -167,7 +167,7 @@ func TestNewMLDetector(t *testing.T) {
 
 	inNameMap := &sync.Map{}
 	outNameMap := &sync.Map{}
-	gotDetector, err := attemptToBuildDetector(out, inNameMap, outNameMap)
+	gotDetector, err := attemptToBuildDetector(out, inNameMap, outNameMap, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotDetector, test.ShouldNotBeNil)
 
@@ -193,7 +193,7 @@ func TestNewMLDetector(t *testing.T) {
 	test.That(t, outNL, test.ShouldNotBeNil)
 	inNameMap = &sync.Map{}
 	outNameMap = &sync.Map{}
-	gotDetectorNL, err := attemptToBuildDetector(outNL, inNameMap, outNameMap)
+	gotDetectorNL, err := attemptToBuildDetector(outNL, inNameMap, outNameMap, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotDetectorNL, test.ShouldNotBeNil)
 	gotDetectionsNL, err := gotDetectorNL(ctx, pic)
@@ -308,7 +308,7 @@ func TestMoreMLDetectors(t *testing.T) {
 
 	inNameMap := &sync.Map{}
 	outNameMap := &sync.Map{}
-	gotDetector, err := attemptToBuildDetector(outModel, inNameMap, outNameMap)
+	gotDetector, err := attemptToBuildDetector(outModel, inNameMap, outNameMap, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotDetector, test.ShouldNotBeNil)
 
@@ -340,7 +340,7 @@ func TestMoreMLClassifiers(t *testing.T) {
 
 	inNameMap := &sync.Map{}
 	outNameMap := &sync.Map{}
-	gotClassifier, err := attemptToBuildClassifier(outModel, inNameMap, outNameMap)
+	gotClassifier, err := attemptToBuildClassifier(outModel, inNameMap, outNameMap, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotClassifier, test.ShouldNotBeNil)
 
