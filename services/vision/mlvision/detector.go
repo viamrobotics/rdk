@@ -131,8 +131,12 @@ func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map
 		// sometimes categories are stuffed into the score output. separate them out.
 		if !hasCategoryTensor {
 			shape := outMap[scoreName].Shape()
-			if len(shape) == 3 && shape[2] != 1 { // cartegories are stored in 3rd dimension
-				scores, categories, err = extractCategoriesFromScores(scores, shape[2])
+			if len(shape) == 3 { // cartegories are stored in 3rd dimension
+				nCategories := shape[2]              // nCategories usually in 3rd dim, but sometimes in 2nd
+				if 4*nCategories == len(locations) { // it's actually in 2nd dim
+					nCategories = shape[1]
+				}
+				scores, categories, err = extractCategoriesFromScores(scores, nCategories)
 				if err != nil {
 					return nil, errors.Wrap(err, "could not extract categories from score tensor")
 				}
