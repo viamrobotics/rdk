@@ -144,12 +144,12 @@ func (a *Arm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra ma
 
 // MoveToJointPositions sets the joints.
 func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
-	if err := arm.CheckDesiredJointPositions(ctx, a, joints); err != nil {
+	inputs := a.model.InputFromProtobuf(joints)
+	if err := arm.CheckDesiredJointPositions(ctx, a, inputs); err != nil {
 		return err
 	}
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	inputs := a.model.InputFromProtobuf(joints)
 	pos, err := a.model.Transform(inputs)
 	if err != nil {
 		return err
@@ -185,14 +185,20 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 }
 
 // GoToInputs TODO.
-func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	a.mu.RLock()
-	positionDegs := a.model.ProtobufFromInput(goal)
-	a.mu.RUnlock()
-	if err := arm.CheckDesiredJointPositions(ctx, a, positionDegs); err != nil {
-		return err
+func (a *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	for _, goal := range inputSteps {
+		a.mu.RLock()
+		positionDegs := a.model.ProtobufFromInput(goal)
+		a.mu.RUnlock()
+		if err := arm.CheckDesiredJointPositions(ctx, a, goal); err != nil {
+			return err
+		}
+		err := a.MoveToJointPositions(ctx, positionDegs, nil)
+		if err != nil {
+			return err
+		}
 	}
-	return a.MoveToJointPositions(ctx, positionDegs, nil)
+	return nil
 }
 
 // Close does nothing.

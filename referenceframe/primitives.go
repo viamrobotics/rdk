@@ -61,7 +61,7 @@ func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 // Input units are always in meters or radians.
 type InputEnabled interface {
 	CurrentInputs(ctx context.Context) ([]Input, error)
-	GoToInputs(ctx context.Context, goal []Input) error
+	GoToInputs(context.Context, ...[]Input) error
 }
 
 // InterpolateInputs will return a set of inputs that are the specified percent between the two given sets of

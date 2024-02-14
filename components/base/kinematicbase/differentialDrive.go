@@ -130,9 +130,20 @@ func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]re
 	return []referenceframe.Input{{Value: pt.X}, {Value: pt.Y}, {Value: theta}}, nil
 }
 
-func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired []referenceframe.Input) (err error) {
+func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desiredSteps ...[]referenceframe.Input) error {
+	for _, desired := range desiredSteps {
+		err := ddk.goToInputs(ctx, desired)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ddk *differentialDriveKinematics) goToInputs(ctx context.Context, desired []referenceframe.Input) error {
 	// create capsule which defines the valid region for a base to be when driving to desired waypoint
 	// deviationThreshold defines max distance base can be from path without error being thrown
+	var err error
 	current, inputsErr := ddk.CurrentInputs(ctx)
 	if inputsErr != nil {
 		return inputsErr
