@@ -25,7 +25,10 @@ import (
 )
 
 // The pause time when not using a localizer before moving on to next move step.
-const defaultNoLocalizerDelay = 250 * time.Millisecond
+const (
+	defaultNoLocalizerDelay  = 250 * time.Millisecond
+	defaultCollisionBufferMM = 1e-8
+)
 
 var (
 	// errMovementTimeout is used for when a movement call times out after no movement for some time.
@@ -172,7 +175,8 @@ func (ddk *differentialDriveKinematics) goToInputs(ctx context.Context, desired 
 		// when the base is within the positional threshold of the goal, exit the loop
 		for err := cancelContext.Err(); err == nil; err = cancelContext.Err() {
 			utils.SelectContextOrWait(ctx, 10*time.Millisecond)
-			col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
+			point := spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, "")
+			col, err := validRegion.CollidesWith(point, defaultCollisionBufferMM)
 			if err != nil {
 				movementErr <- err
 				return

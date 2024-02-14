@@ -14,6 +14,8 @@ import (
 
 // default values for planning options.
 const (
+	defaultCollisionBufferMM = 1e-8
+
 	// max linear deviation from straight-line between start and goal, in mm.
 	defaultLinearDeviation = 0.1
 
