@@ -355,6 +355,8 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
 	baudcmd := fmt.Sprintf("PMTK251,%d", g.wbaud)
 	cmd251 := movementsensor.PMTKAddChk([]byte(baudcmd))
+	// TODO: the comment says we get 6 types of messages, but this next line only requests 5. Make
+	// them consistent.
 	cmd314 := movementsensor.PMTKAddChk([]byte("PMTK314,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0"))
 	cmd220 := movementsensor.PMTKAddChk([]byte("PMTK220,1000"))
 

@@ -11,7 +11,6 @@ import (
 	"github.com/jacobsa/go-serial/serial"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
@@ -42,24 +41,7 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 		return nil, err
 	}
 
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-
-	g := &NMEAMovementSensor{
-		Named:              name.AsNamed(),
-		dev:                dev,
-		cancelCtx:          cancelCtx,
-		cancelFunc:         cancelFunc,
-		logger:             logger,
-		err:                movementsensor.NewLastError(1, 1),
-		lastPosition:       movementsensor.NewLastPosition(),
-		lastCompassHeading: movementsensor.NewLastCompassHeading(),
-	}
-
-	if err := g.Start(ctx); err != nil {
-		g.logger.CErrorf(ctx, "Did not create nmea gps with err %#v", err.Error())
-	}
-
-	return g, err
+	return NewNmeaMovementSensor(ctx, name, dev, logger)
 }
 
 // SerialDataReader implements the DataReader interface (defined in component.go) by interacting
