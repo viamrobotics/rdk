@@ -22,11 +22,12 @@ import (
 )
 
 var (
-	testBaseName         = resource.NewName(base.API, "test_base")
-	testCameraName1      = resource.NewName(camera.API, "test_camera1")
-	testCameraName2      = resource.NewName(camera.API, "test_camera2")
-	testFrameServiceName = resource.NewName(framesystem.API, "test_fs")
-	defaultMotionCfg     = motion.MotionConfiguration{
+	testBaseName             = resource.NewName(base.API, "test_base")
+	testCameraName1          = resource.NewName(camera.API, "test_camera1")
+	testCameraName2          = resource.NewName(camera.API, "test_camera2")
+	testFrameServiceName     = resource.NewName(framesystem.API, "test_fs")
+	defaultCollisionBufferMM = 1e-8
+	defaultMotionCfg         = motion.MotionConfiguration{
 		AngularDegsPerSec:     0.25,
 		LinearMPerSec:         0.1,
 		ObstaclePollingFreqHz: 2,
@@ -83,15 +84,9 @@ func TestExplorePlanMove(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
 			dest := referenceframe.NewPoseInFrame(testBaseName.Name, tt.destination)
-
-			planInputs, err := msStruct.createMotionPlan(
-				ctx,
-				kb,
-				dest,
-				nil,
-			)
+			plan, err := msStruct.createMotionPlan(ctx, kb, dest, nil)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, len(planInputs), test.ShouldEqual, tt.expectedMotionPlanLength)
+			test.That(t, len(plan.Path()), test.ShouldEqual, tt.expectedMotionPlanLength)
 		})
 	}
 }
@@ -208,7 +203,7 @@ func TestExploreCheckForObstacles(t *testing.T) {
 			)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
-			test.That(t, len(plan), test.ShouldBeGreaterThan, 0)
+			test.That(t, len(plan.Path()), test.ShouldBeGreaterThan, 0)
 
 			// Create a vision service using provided obstacles and place it in an obstacle DetectorPair object
 			visionService := createMockVisionService("", tt.obstacle)
@@ -229,7 +224,7 @@ func TestExploreCheckForObstacles(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 
 				for _, obs := range tt.obstacle {
-					collisionDetected, err := geometriesContainsPoint(obstacles.Geometries(), obs.position)
+					collisionDetected, err := geometriesContainsPoint(obstacles.Geometries(), obs.position, defaultCollisionBufferMM)
 					test.That(t, err, test.ShouldBeNil)
 					test.That(t, collisionDetected, test.ShouldBeTrue)
 				}
@@ -357,7 +352,7 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 			)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
-			test.That(t, len(plan), test.ShouldBeGreaterThan, 0)
+			test.That(t, len(plan.Path()), test.ShouldBeGreaterThan, 0)
 
 			// Create a vision service using provided obstacles and place it in an obstacle DetectorPair object
 			var obstacleDetectors []obstacleDetectorObject

@@ -21,9 +21,7 @@ import (
 func TestPTGKinematicsNoGeom(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	name, err := resource.NewFromString("is:a:fakebase")
-	test.That(t, err, test.ShouldBeNil)
-
+	name := resource.Name{API: resource.NewAPI("is", "a", "fakebase")}
 	b := &fake.Base{
 		Named:         name.AsNamed(),
 		Geometry:      []spatialmath.Geometry{},
@@ -57,7 +55,7 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
-	for i, inputMap := range plan {
+	for i, inputMap := range plan.Trajectory() {
 		inputs := inputMap[""]
 		selectedPTG := ptgBase.ptgs[int(math.Round(inputs[ptgIndex].Value))]
 
@@ -69,7 +67,7 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		arcSteps := ptgBase.trajectoryToArcSteps(selectedTraj)
 
-		if i == 0 || i == len(plan)-1 {
+		if i == 0 || i == len(plan.Trajectory())-1 {
 			// First and last should be all-zero stop commands
 			test.That(t, len(arcSteps), test.ShouldEqual, 1)
 			test.That(t, arcSteps[0].timestepSeconds, test.ShouldEqual, 0)
@@ -84,8 +82,7 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 func TestPTGKinematicsWithGeom(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	name, err := resource.NewFromString("is:a:fakebase")
-	test.That(t, err, test.ShouldBeNil)
+	name := resource.Name{API: resource.NewAPI("is", "a", "fakebase")}
 
 	baseGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{1, 1, 1}, "")
 	test.That(t, err, test.ShouldBeNil)

@@ -216,7 +216,7 @@ func (ms *builtIn) Move(
 	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	steps, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
+	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
 		Logger:             ms.logger,
 		Goal:               goalPose,
 		Frame:              movingFrame,
@@ -231,8 +231,7 @@ func (ms *builtIn) Move(
 	}
 
 	// move all the components
-	for _, step := range steps {
-		// TODO(erh): what order? parallel?
+	for _, step := range plan.Trajectory() {
 		for name, inputs := range step {
 			if len(inputs) == 0 {
 				continue
