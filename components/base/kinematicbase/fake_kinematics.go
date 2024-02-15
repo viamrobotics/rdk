@@ -241,12 +241,12 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 		fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {Value: 0}}
 		fk.inputLock.Unlock()
 
-		newPose, err := fk.frame.Transform(inputs)
+		finalPose, err := fk.frame.Transform(inputs)
 		if err != nil {
 			return err
 		}
 
-		steps := motionplan.PathStepCount(spatialmath.NewZeroPose(), newPose, 2)
+		steps := motionplan.PathStepCount(spatialmath.NewZeroPose(), finalPose, 2)
 		startCfg := referenceframe.FloatsToInputs([]float64{inputs[0].Value, inputs[1].Value, 0})
 		var interpolatedConfigurations [][]referenceframe.Input
 		for i := 0; i <= steps; i++ {
@@ -262,19 +262,19 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 			if err != nil {
 				return err
 			}
+			newPose := spatialmath.Compose(startingPose.Pose(), relativePose)
 
 			fk.positionlock.Lock()
-			new := spatialmath.Compose(startingPose.Pose(), relativePose)
-			fk.origin = referenceframe.NewPoseInFrame(fk.origin.Parent(), new)
+			fk.origin = referenceframe.NewPoseInFrame(fk.origin.Parent(), newPose)
 			fk.positionlock.Unlock()
 
 			fk.inputLock.Lock()
 			fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], inter[2]}
 			fk.inputLock.Unlock()
+
 			time.Sleep(time.Duration(fk.sleepTime) * time.Microsecond)
 		}
 	}
-
 	return nil
 }
 
