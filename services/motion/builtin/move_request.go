@@ -873,8 +873,6 @@ func (mr *moveRequest) stop() error {
 
 // getCurrentPosition returns a kinematic bases current position with respect to the world frame.
 func (mr *moveRequest) getCurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
-	// if slam then we do not need to rotate
-	// if move on GLOBE, then i think we will need to do that
 	currentPosition, err := mr.kinematicBase.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
