@@ -2645,7 +2645,6 @@ func TestGetTransientDetections(t *testing.T) {
 
 	expectedPose := spatialmath.NewPose(r3.Vector{X: 4, Y: 10, Z: -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90})
 	test.That(t, spatialmath.PoseAlmostEqual(transformedGeoms.Geometries()[0].Pose(), expectedPose), test.ShouldBeTrue)
-
 }
 
 func TestStopPlan(t *testing.T) {
