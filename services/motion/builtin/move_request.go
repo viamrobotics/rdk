@@ -99,6 +99,9 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	if err != nil {
 		return nil, err
 	}
+	for _, g := range existingGifs.Geometries() {
+		fmt.Println("g.name000: ", g.Label())
+	}
 
 	// get transient detections
 	gifs := []*referenceframe.GeometriesInFrame{}
@@ -114,14 +117,14 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	gifs = append(gifs, existingGifs)
 
 	// update worldstate to include transient detections
-	planRequestCopy := mr.planRequest
+	planRequestCopy := *mr.planRequest
 	planRequestCopy.WorldState, err = referenceframe.NewWorldState(gifs, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
-	plan, err := motionplan.Replan(ctx, planRequestCopy, nil, 0)
+	plan, err := motionplan.Replan(ctx, &planRequestCopy, nil, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -276,6 +279,9 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 	if err != nil {
 		return state.ExecuteResponse{}, err
 	}
+	for _, g := range existingGifs.Geometries() {
+		fmt.Println("g.name111: ", g.Label())
+	}
 
 	// get the current position of the base
 	currentPosition, err := mr.getCurrentPosition(ctx)
@@ -290,6 +296,9 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			gifs, err := mr.getTransientDetections(ctx, visSrvc, camName)
 			if err != nil {
 				return state.ExecuteResponse{}, err
+			}
+			for _, g := range gifs.Geometries() {
+				fmt.Println("g.name222: ", g.Label())
 			}
 			if len(gifs.Geometries()) == 0 {
 				mr.logger.CDebug(ctx, "will not check if obstacles intersect path since nothing was detected")
