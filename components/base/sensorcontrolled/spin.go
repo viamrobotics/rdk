@@ -21,7 +21,7 @@ const (
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
 func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	sb.stopLoop()
-	if int(angleDeg) >= 360 {
+	if math.Abs(angleDeg) >= 360.0 {
 		sb.setPolling(false)
 		sb.logger.CWarn(ctx, "feedback for spin calls over 360 not supported yet, spinning without sensor")
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, nil)
@@ -34,6 +34,18 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	}
 
 	sb.setPolling(true)
+
+	// starts a goroutine from within wheeled base's runAll function to run motors in the background
+	if err := sb.startRunningMotors(ctx, angleDeg, degsPerSec); err != nil {
+		return err
+	}
+
+	// this will be removed when spin is migrated to using a control loop
+	if angleDeg > 0 {
+		time.Sleep(1000 * time.Millisecond)
+		sb.logger.Error("done sleeping")
+	}
+
 	// start a sensor context for the sensor loop based on the longstanding base
 	// creator context
 	var sensorCtx context.Context
@@ -42,22 +54,22 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 		return err
 	}
 
-	// starts a goroutine from within wheeled base's runAll function to run motors in the background
-	if err := sb.startRunningMotors(ctx, angleDeg, degsPerSec); err != nil {
-		return err
-	}
-
-	// IsMoving returns true when moving, which is not a success condition for our control loop
+	// isPolling returns true when a Spin call is in progress, which is not a success condition for our control loop
 	baseStopped := func(ctx context.Context) (bool, error) {
-		moving, err := sb.IsMoving(ctx)
-		return !moving, err
+		polling := sb.isPolling()
+		return !polling, nil
 	}
 
-	return sb.opMgr.WaitForSuccess(
+	if err := sb.opMgr.WaitForSuccess(
 		ctx,
 		yawPollTime,
 		baseStopped,
-	)
+	); err != nil {
+		if !errors.Is(err, context.Canceled) {
+			return err
+		}
+	}
+	return nil
 }
 
 func (sb *sensorBase) startRunningMotors(ctx context.Context, angleDeg, degsPerSec float64) error {
@@ -173,7 +185,7 @@ func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg, errorBound float6
 	atTarget = math.Abs(targetYaw-currYaw) < errorBound
 	overShot = hasOverShot(currYaw, startYaw, targetYaw, dir)
 	travelIncrement := math.Abs(angleDeg * increment)
-	// // check the case where we're asking for a 360 degree turn, this results in a zero travelIncrement
+	// check the case where we're asking for a 360 degree turn, this results in a zero travelIncrement
 	if math.Abs(angleDeg) < 360 {
 		minTravel = math.Abs(currYaw-startYaw) > travelIncrement
 	} else {

@@ -342,7 +342,7 @@ func (replay *replayMovementSensor) Properties(ctx context.Context, extra map[st
 // Accuracy is currently not defined for replay movement sensors.
 func (replay *replayMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
 ) {
-	return nil, movementsensor.ErrMethodUnimplementedAccuracy
+	return movementsensor.UnimplementedAccuracies()
 }
 
 // Close stops the replay movement sensor, closes its channels and its connections to the cloud.

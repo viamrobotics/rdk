@@ -100,10 +100,10 @@ func testGeometryCollision(t *testing.T, cases []geometryComparisonTestCase) {
 		for i := 0; i < 2; i++ {
 			t.Run(fmt.Sprintf("%s %T %T collision", c.testname, c.geometries[i], c.geometries[(i+1)%2]), func(t *testing.T) {
 				fn := test.ShouldBeFalse
-				if c.expected <= CollisionBuffer {
+				if c.expected <= defaultCollisionBufferMM {
 					fn = test.ShouldBeTrue
 				}
-				collides, err := c.geometries[i].CollidesWith(c.geometries[(i+1)%2])
+				collides, err := c.geometries[i].CollidesWith(c.geometries[(i+1)%2], defaultCollisionBufferMM)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, collides, fn)
 			})

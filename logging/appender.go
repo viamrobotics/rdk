@@ -9,6 +9,9 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// DefaultTimeFormatStr is the default time format string for log appenders.
+const DefaultTimeFormatStr = "2006-01-02T15:04:05.000Z0700"
+
 // Appender is an output for log entries. This is a subset of the `zapcore.Core` interface.
 type Appender interface {
 	// Write submits a structured log entry to the appender for logging.
@@ -22,8 +25,6 @@ type Appender interface {
 type ConsoleAppender struct {
 	io.Writer
 }
-
-const timeFormatStr = "2006-01-02T15:04:05.000Z0700"
 
 // NewStdoutAppender creates a new appender that prints to stdout.
 func NewStdoutAppender() ConsoleAppender {
@@ -41,7 +42,7 @@ func (appender ConsoleAppender) Write(entry zapcore.Entry, fields []zapcore.Fiel
 	toPrint := make([]string, 0, maxLength)
 	// We use UTC such that logs from different `viam-server`s can have their logs compared without
 	// needing them to be configured in the same timezone.
-	toPrint = append(toPrint, entry.Time.UTC().Format(timeFormatStr))
+	toPrint = append(toPrint, entry.Time.UTC().Format(DefaultTimeFormatStr))
 	toPrint = append(toPrint, strings.ToUpper(entry.Level.String()))
 	toPrint = append(toPrint, entry.LoggerName)
 	if entry.Caller.Defined {

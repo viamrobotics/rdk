@@ -164,7 +164,7 @@ func createCameraLink(camName, baseFrame string) (*referenceframe.LinkInFrame, e
 }
 
 // geometriesContainsPoint is a helper function to test if a point is in a given geometry.
-func geometriesContainsPoint(geometries []spatialmath.Geometry, point r3.Vector) (bool, error) {
+func geometriesContainsPoint(geometries []spatialmath.Geometry, point r3.Vector, collisionBufferMM float64) (bool, error) {
 	var collisionDetected bool
 	for _, geo := range geometries {
 		pointGeoCfg := spatialmath.GeometryConfig{
@@ -175,7 +175,7 @@ func geometriesContainsPoint(geometries []spatialmath.Geometry, point r3.Vector)
 		if err != nil {
 			return false, err
 		}
-		collides, err := geo.CollidesWith(pointGeo)
+		collides, err := geo.CollidesWith(pointGeo, collisionBufferMM)
 		if err != nil {
 			return false, err
 		}

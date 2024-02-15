@@ -293,7 +293,7 @@ func (c *viamClient) organizationsAPIKeyCreateAction(cCtx *cli.Context) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
-	orgID := cCtx.String(apiKeyCreateFlagOrgID)
+	orgID := cCtx.String(generalFlagOrgID)
 	keyName := cCtx.String(apiKeyCreateFlagName)
 	if keyName == "" {
 		keyName = c.generateDefaultKeyName()
@@ -348,8 +348,8 @@ func (c *viamClient) locationAPIKeyCreateAction(cCtx *cli.Context) error {
 		return err
 	}
 
-	locationID := cCtx.String(apiKeyFlagLocationID)
-	orgID := cCtx.String(apiKeyCreateFlagOrgID)
+	locationID := cCtx.String(generalFlagLocationID)
+	orgID := cCtx.String(generalFlagOrgID)
 	keyName := cCtx.String(apiKeyCreateFlagName)
 
 	if locationID == "" {
@@ -407,9 +407,9 @@ func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context) error {
 		return err
 	}
 
-	robotID := cCtx.String(apiKeyFlagMachineID)
+	robotID := cCtx.String(generalFlagMachineID)
 	keyName := cCtx.String(apiKeyCreateFlagName)
-	orgID := cCtx.String(dataFlagOrgID)
+	orgID := cCtx.String(generalFlagOrgID)
 
 	if robotID == "" {
 		return errors.New("cannot create an api-key for a machine without an ID")

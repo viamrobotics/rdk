@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
@@ -42,6 +43,37 @@ func TestPlanWithStatus(t *testing.T) {
 	timestamp := time.Now().UTC()
 	timestampb := timestamppb.New(timestamp)
 	reason := "some reason"
+
+	plan := PlanWithMetadata{
+		ID:            planID,
+		ExecutionID:   executionID,
+		ComponentName: baseName,
+		Plan: motionplan.NewSimplePlan(
+			[]motionplan.PathStep{
+				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
+				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
+			},
+			nil,
+		),
+	}
+
+	protoPlan := &pb.Plan{
+		Id:            planID.String(),
+		ExecutionId:   executionID.String(),
+		ComponentName: rprotoutils.ResourceNameToProto(baseName),
+		Steps: []*pb.PlanStep{
+			{
+				Step: map[string]*pb.ComponentState{
+					baseName.ShortName(): {Pose: spatialmath.PoseToProtobuf(poseA)},
+				},
+			},
+			{
+				Step: map[string]*pb.ComponentState{
+					baseName.ShortName(): {Pose: spatialmath.PoseToProtobuf(poseB)},
+				},
+			},
+		},
+	}
 
 	t.Run("planWithStatusFromProto", func(t *testing.T) {
 		type testCase struct {
@@ -66,14 +98,14 @@ func TestPlanWithStatus(t *testing.T) {
 			},
 			{
 				description: "empty status returns an error",
-				input:       &pb.PlanWithStatus{Plan: Plan{}.ToProto()},
+				input:       &pb.PlanWithStatus{Plan: PlanWithMetadata{}.ToProto()},
 				result:      PlanWithStatus{},
 				err:         errors.New("received nil *pb.PlanStatus"),
 			},
 			{
 				description: "nil pointers in the status history returns an error",
 				input: &pb.PlanWithStatus{
-					Plan:          Plan{}.ToProto(),
+					Plan:          PlanWithMetadata{}.ToProto(),
 					Status:        PlanStatus{}.ToProto(),
 					StatusHistory: []*pb.PlanStatus{nil},
 				},
@@ -83,34 +115,18 @@ func TestPlanWithStatus(t *testing.T) {
 			{
 				description: "empty *pb.PlanWithStatus status returns an empty PlanWithStatus",
 				input: &pb.PlanWithStatus{
-					Plan:   Plan{}.ToProto(),
+					Plan:   PlanWithMetadata{}.ToProto(),
 					Status: PlanStatus{}.ToProto(),
 				},
 				result: PlanWithStatus{
-					Plan:          Plan{},
+					Plan:          PlanWithMetadata{},
 					StatusHistory: []PlanStatus{{}},
 				},
 			},
 			{
 				description: "full *pb.PlanWithStatus status returns a full PlanWithStatus",
 				input: &pb.PlanWithStatus{
-					Plan: &pb.Plan{
-						Id:            planID.String(),
-						ExecutionId:   executionID.String(),
-						ComponentName: rprotoutils.ResourceNameToProto(baseName),
-						Steps: []*pb.PlanStep{
-							{
-								Step: map[string]*pb.ComponentState{
-									baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseA)},
-								},
-							},
-							{
-								Step: map[string]*pb.ComponentState{
-									baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseB)},
-								},
-							},
-						},
-					},
+					Plan: protoPlan,
 					Status: &pb.PlanStatus{
 						State:     pb.PlanState_PLAN_STATE_FAILED,
 						Timestamp: timestampb,
@@ -124,15 +140,7 @@ func TestPlanWithStatus(t *testing.T) {
 					},
 				},
 				result: PlanWithStatus{
-					Plan: Plan{
-						ID:            planID,
-						ExecutionID:   executionID,
-						ComponentName: baseName,
-						Steps: []motionplan.PlanStep{
-							map[resource.Name]spatialmath.Pose{baseName: poseA},
-							map[resource.Name]spatialmath.Pose{baseName: poseB},
-						},
-					},
+					Plan: plan,
 					StatusHistory: []PlanStatus{
 						{State: PlanStateFailed, Timestamp: timestamp, Reason: &reason},
 						{State: PlanStateInProgress, Timestamp: timestamp},
@@ -164,42 +172,18 @@ func TestPlanWithStatus(t *testing.T) {
 			{
 				description: "an empty PlanWithStatus returns an empty *pb.PlanWithStatus",
 				input:       PlanWithStatus{},
-				result:      &pb.PlanWithStatus{Plan: Plan{}.ToProto()},
+				result:      &pb.PlanWithStatus{Plan: PlanWithMetadata{}.ToProto()},
 			},
 			{
 				description: "full PlanWithStatus without status history returns a full *pb.PlanWithStatus",
 				input: PlanWithStatus{
-					Plan: Plan{
-						ID:            planID,
-						ExecutionID:   executionID,
-						ComponentName: baseName,
-						Steps: []motionplan.PlanStep{
-							map[resource.Name]spatialmath.Pose{baseName: poseA},
-							map[resource.Name]spatialmath.Pose{baseName: poseB},
-						},
-					},
+					Plan: plan,
 					StatusHistory: []PlanStatus{
 						{State: PlanStateInProgress, Timestamp: timestamp},
 					},
 				},
 				result: &pb.PlanWithStatus{
-					Plan: &pb.Plan{
-						Id:            planID.String(),
-						ExecutionId:   executionID.String(),
-						ComponentName: rprotoutils.ResourceNameToProto(baseName),
-						Steps: []*pb.PlanStep{
-							{
-								Step: map[string]*pb.ComponentState{
-									baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseA)},
-								},
-							},
-							{
-								Step: map[string]*pb.ComponentState{
-									baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseB)},
-								},
-							},
-						},
-					},
+					Plan: protoPlan,
 					Status: &pb.PlanStatus{
 						State:     pb.PlanState_PLAN_STATE_IN_PROGRESS,
 						Timestamp: timestampb,
@@ -209,38 +193,14 @@ func TestPlanWithStatus(t *testing.T) {
 			{
 				description: "full PlanWithStatus with status history returns a full *pb.PlanWithStatus",
 				input: PlanWithStatus{
-					Plan: Plan{
-						ID:            planID,
-						ExecutionID:   executionID,
-						ComponentName: baseName,
-						Steps: []motionplan.PlanStep{
-							map[resource.Name]spatialmath.Pose{baseName: poseA},
-							map[resource.Name]spatialmath.Pose{baseName: poseB},
-						},
-					},
+					Plan: plan,
 					StatusHistory: []PlanStatus{
 						{State: PlanStateFailed, Timestamp: timestamp, Reason: &reason},
 						{State: PlanStateInProgress, Timestamp: timestamp},
 					},
 				},
 				result: &pb.PlanWithStatus{
-					Plan: &pb.Plan{
-						Id:            planID.String(),
-						ExecutionId:   executionID.String(),
-						ComponentName: rprotoutils.ResourceNameToProto(baseName),
-						Steps: []*pb.PlanStep{
-							{
-								Step: map[string]*pb.ComponentState{
-									baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseA)},
-								},
-							},
-							{
-								Step: map[string]*pb.ComponentState{
-									baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseB)},
-								},
-							},
-						},
-					},
+					Plan: protoPlan,
 					Status: &pb.PlanStatus{
 						State:     pb.PlanState_PLAN_STATE_FAILED,
 						Timestamp: timestampb,
@@ -596,44 +556,74 @@ func TestPlanStatus(t *testing.T) {
 }
 
 func TestPlan(t *testing.T) {
+	planID := uuid.New()
+	executionID := uuid.New()
+
+	baseName := base.Named("my-base1")
+	poseA := spatialmath.NewZeroPose()
+	poseB := spatialmath.NewPose(r3.Vector{X: 100}, spatialmath.NewOrientationVector())
+
+	protoAB := &pb.Plan{
+		Id:            planID.String(),
+		ExecutionId:   executionID.String(),
+		ComponentName: rprotoutils.ResourceNameToProto(baseName),
+		Steps: []*pb.PlanStep{
+			{
+				Step: map[string]*pb.ComponentState{
+					baseName.ShortName(): {Pose: spatialmath.PoseToProtobuf(poseA)},
+				},
+			},
+			{
+				Step: map[string]*pb.ComponentState{
+					baseName.ShortName(): {Pose: spatialmath.PoseToProtobuf(poseB)},
+				},
+			},
+		},
+	}
+	planAB := PlanWithMetadata{
+		ID:            planID,
+		ExecutionID:   executionID,
+		ComponentName: baseName,
+		Plan: motionplan.NewSimplePlan(
+			[]motionplan.PathStep{
+				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
+				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
+			},
+			nil,
+		),
+	}
+
 	t.Run("planFromProto", func(t *testing.T) {
 		type testCase struct {
 			description string
 			input       *pb.Plan
-			result      Plan
+			result      PlanWithMetadata
 			err         error
 		}
-
-		planID := uuid.New()
-		executionID := uuid.New()
-
-		baseName := base.Named("my-base1")
-		poseA := spatialmath.NewZeroPose()
-		poseB := spatialmath.NewPose(r3.Vector{X: 100}, spatialmath.NewOrientationVector())
 
 		testCases := []testCase{
 			{
 				description: "nil pointer returns error",
 				input:       nil,
-				result:      Plan{},
+				result:      PlanWithMetadata{},
 				err:         errors.New("received nil *pb.Plan"),
 			},
 			{
 				description: "empty PlanID in *pb.Plan{} returns an error",
 				input:       &pb.Plan{},
-				result:      Plan{},
+				result:      PlanWithMetadata{},
 				err:         errors.New("invalid UUID length: 0"),
 			},
 			{
 				description: "empty ExecutionID in *pb.Plan{} returns an error",
 				input:       &pb.Plan{Id: planID.String()},
-				result:      Plan{},
+				result:      PlanWithMetadata{},
 				err:         errors.New("invalid UUID length: 0"),
 			},
 			{
 				description: "empty ComponentName in *pb.Plan{} returns an error",
 				input:       &pb.Plan{Id: planID.String(), ExecutionId: executionID.String()},
-				result:      Plan{},
+				result:      PlanWithMetadata{},
 				err:         errors.New("received nil *pb.ResourceName"),
 			},
 			{
@@ -644,7 +634,7 @@ func TestPlan(t *testing.T) {
 					ComponentName: rprotoutils.ResourceNameToProto(resource.Name{}),
 					Steps:         []*pb.PlanStep{nil},
 				},
-				result: Plan{},
+				result: PlanWithMetadata{},
 				err:    errors.New("received nil *pb.PlanStep"),
 			},
 			{
@@ -654,7 +644,7 @@ func TestPlan(t *testing.T) {
 					ExecutionId:   executionID.String(),
 					ComponentName: rprotoutils.ResourceNameToProto(resource.Name{}),
 				},
-				result: Plan{
+				result: PlanWithMetadata{
 					ID:            planID,
 					ExecutionID:   executionID,
 					ComponentName: resource.Name{},
@@ -662,32 +652,8 @@ func TestPlan(t *testing.T) {
 			},
 			{
 				description: "success case for full steps",
-				input: &pb.Plan{
-					Id:            planID.String(),
-					ExecutionId:   executionID.String(),
-					ComponentName: rprotoutils.ResourceNameToProto(baseName),
-					Steps: []*pb.PlanStep{
-						{
-							Step: map[string]*pb.ComponentState{
-								baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseA)},
-							},
-						},
-						{
-							Step: map[string]*pb.ComponentState{
-								baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseB)},
-							},
-						},
-					},
-				},
-				result: Plan{
-					ID:            planID,
-					ExecutionID:   executionID,
-					ComponentName: baseName,
-					Steps: []motionplan.PlanStep{
-						map[resource.Name]spatialmath.Pose{baseName: poseA},
-						map[resource.Name]spatialmath.Pose{baseName: poseB},
-					},
-				},
+				input:       protoAB,
+				result:      planAB,
 			},
 		}
 		for _, tc := range testCases {
@@ -706,21 +672,14 @@ func TestPlan(t *testing.T) {
 	t.Run("ToProto()", func(t *testing.T) {
 		type testCase struct {
 			description string
-			input       Plan
+			input       PlanWithMetadata
 			result      *pb.Plan
 		}
-
-		planID := uuid.New()
-		executionID := uuid.New()
-
-		baseName := base.Named("my-base1")
-		poseA := spatialmath.NewZeroPose()
-		poseB := spatialmath.NewPose(r3.Vector{X: 100}, spatialmath.NewOrientationVector())
 
 		testCases := []testCase{
 			{
 				description: "an empty Plan returns an empty *pb.Plan",
-				input:       Plan{},
+				input:       PlanWithMetadata{},
 				result: &pb.Plan{
 					Id:            uuid.Nil.String(),
 					ComponentName: rprotoutils.ResourceNameToProto(resource.Name{}),
@@ -729,138 +688,8 @@ func TestPlan(t *testing.T) {
 			},
 			{
 				description: "full Plan returns full *pb.Plan",
-				input: Plan{
-					ID:            planID,
-					ExecutionID:   executionID,
-					ComponentName: baseName,
-					Steps: []motionplan.PlanStep{
-						map[resource.Name]spatialmath.Pose{baseName: poseA},
-						map[resource.Name]spatialmath.Pose{baseName: poseB},
-					},
-				},
-				result: &pb.Plan{
-					Id:            planID.String(),
-					ExecutionId:   executionID.String(),
-					ComponentName: rprotoutils.ResourceNameToProto(baseName),
-					Steps: []*pb.PlanStep{
-						{
-							Step: map[string]*pb.ComponentState{
-								baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseA)},
-							},
-						},
-						{
-							Step: map[string]*pb.ComponentState{
-								baseName.String(): {Pose: spatialmath.PoseToProtobuf(poseB)},
-							},
-						},
-					},
-				},
-			},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.description, func(t *testing.T) {
-				res := tc.input.ToProto()
-				test.That(t, res, test.ShouldResemble, tc.result)
-			})
-		}
-	})
-}
-
-func TestPlanStep(t *testing.T) {
-	baseNameA := base.Named("my-base1")
-	baseNameB := base.Named("my-base2")
-	poseA := spatialmath.NewZeroPose()
-	poseB := spatialmath.NewPose(r3.Vector{X: 100}, spatialmath.NewOrientationVector())
-
-	t.Run("planStepFromProto", func(t *testing.T) {
-		type testCase struct {
-			description string
-			input       *pb.PlanStep
-			result      motionplan.PlanStep
-			err         error
-		}
-
-		testCases := []testCase{
-			{
-				description: "nil pointer returns an error",
-				input:       nil,
-				result:      motionplan.PlanStep{},
-				err:         errors.New("received nil *pb.PlanStep"),
-			},
-			{
-				description: "returns an error if any of the step resource names are invalid",
-				input: &pb.PlanStep{
-					Step: map[string]*pb.ComponentState{
-						baseNameA.String():       {Pose: spatialmath.PoseToProtobuf(poseA)},
-						"invalid component name": {Pose: spatialmath.PoseToProtobuf(poseB)},
-					},
-				},
-				result: motionplan.PlanStep{},
-				err:    errors.New("string \"invalid component name\" is not a valid resource name"),
-			},
-			{
-				description: "an empty *pb.PlanStep returns an empty PlanStep{}",
-				input:       &pb.PlanStep{},
-				result:      motionplan.PlanStep{},
-			},
-			{
-				description: "a full *pb.PlanStep returns an full PlanStep{}",
-				input: &pb.PlanStep{
-					Step: map[string]*pb.ComponentState{
-						baseNameA.String(): {Pose: spatialmath.PoseToProtobuf(poseA)},
-						baseNameB.String(): {Pose: spatialmath.PoseToProtobuf(poseB)},
-					},
-				},
-				result: map[resource.Name]spatialmath.Pose{
-					baseNameA: poseA,
-					baseNameB: poseB,
-				},
-			},
-		}
-		for _, tc := range testCases {
-			t.Run(tc.description, func(t *testing.T) {
-				res, err := planStepFromProto(tc.input)
-				if tc.err != nil {
-					test.That(t, err, test.ShouldBeError, tc.err)
-				} else {
-					test.That(t, err, test.ShouldBeNil)
-				}
-				test.That(t, res, test.ShouldResemble, tc.result)
-			})
-		}
-	})
-
-	t.Run("ToProto()", func(t *testing.T) {
-		type testCase struct {
-			description string
-			input       motionplan.PlanStep
-			result      *pb.PlanStep
-		}
-
-		testCases := []testCase{
-			{
-				description: "an nil PlanStep returns an empty *pb.PlanStep",
-				input:       nil,
-				result:      &pb.PlanStep{},
-			},
-			{
-				description: "an empty PlanStep returns an empty *pb.PlanStep",
-				input:       motionplan.PlanStep{},
-				result:      &pb.PlanStep{},
-			},
-			{
-				description: "a full PlanStep{} returns an full *pb.PlanStep",
-				input: map[resource.Name]spatialmath.Pose{
-					baseNameA: poseA,
-					baseNameB: poseB,
-				},
-				result: &pb.PlanStep{
-					Step: map[string]*pb.ComponentState{
-						baseNameA.String(): {Pose: spatialmath.PoseToProtobuf(poseA)},
-						baseNameB.String(): {Pose: spatialmath.PoseToProtobuf(poseB)},
-					},
-				},
+				input:       planAB,
+				result:      protoAB,
 			},
 		}
 
@@ -1250,17 +1079,6 @@ func TestMoveOnMapReq(t *testing.T) {
 		Extra:         map[string]interface{}{},
 	}
 
-	// RSDK-6444
-	//nolint:staticcheck
-	validPbMoveOnMapNewRequest := &pb.MoveOnMapNewRequest{
-		Name:                "bloop",
-		Destination:         spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
-		ComponentName:       rprotoutils.ResourceNameToProto(myBase),
-		SlamServiceName:     rprotoutils.ResourceNameToProto(mySlam),
-		MotionConfiguration: motionCfg.toProto(),
-		Extra:               &structpb.Struct{},
-	}
-
 	validPbMoveOnMapRequest := &pb.MoveOnMapRequest{
 		Name:                "bloop",
 		Destination:         spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
@@ -1283,75 +1101,13 @@ func TestMoveOnMapReq(t *testing.T) {
 		test.That(t, validMoveOnMapReq.String(), test.ShouldEqual, s)
 	})
 
-	t.Run("toProtoNew", func(t *testing.T) {
-		type testCase struct {
-			description string
-			input       MoveOnMapReq
-			name        string
-			// RSDK-6444
-			//nolint:staticcheck
-			result *pb.MoveOnMapNewRequest
-			err    error
-		}
-
-		testCases := []testCase{
-			{
-				description: "empty struct fails due to nil destination",
-				input:       MoveOnMapReq{},
-				name:        "bloop",
-				result:      nil,
-				err:         errors.New("must provide a destination"),
-			},
-			{
-				description: "success",
-				input:       validMoveOnMapReq,
-				name:        "bloop",
-				result:      validPbMoveOnMapNewRequest,
-				err:         nil,
-			},
-			{
-				description: "allows nil motion cfg",
-				input: MoveOnMapReq{
-					ComponentName: myBase,
-					Destination:   spatialmath.NewZeroPose(),
-					SlamName:      mySlam,
-				},
-				name: "bloop",
-				// RSDK-6444
-				//nolint:staticcheck
-				result: &pb.MoveOnMapNewRequest{
-					Name:            "bloop",
-					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
-					ComponentName:   rprotoutils.ResourceNameToProto(myBase),
-					SlamServiceName: rprotoutils.ResourceNameToProto(mySlam),
-					Extra:           &structpb.Struct{},
-				},
-				err: nil,
-			},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.description, func(t *testing.T) {
-				res, err := tc.input.toProtoNew(tc.name)
-				if tc.err != nil {
-					test.That(t, err, test.ShouldBeError, tc.err)
-				} else {
-					test.That(t, err, test.ShouldBeNil)
-				}
-				test.That(t, res, test.ShouldResemble, tc.result)
-			})
-		}
-	})
-
 	t.Run("toProto", func(t *testing.T) {
 		type testCase struct {
 			description string
 			input       MoveOnMapReq
 			name        string
-			// RSDK-6444
-
-			result *pb.MoveOnMapRequest
-			err    error
+			result      *pb.MoveOnMapRequest
+			err         error
 		}
 
 		testCases := []testCase{
@@ -1377,7 +1133,6 @@ func TestMoveOnMapReq(t *testing.T) {
 					SlamName:      mySlam,
 				},
 				name: "bloop",
-				// RSDK-6444
 
 				result: &pb.MoveOnMapRequest{
 					Name:            "bloop",
@@ -1423,108 +1178,9 @@ func TestMoveOnMapReq(t *testing.T) {
 		}
 	})
 
-	t.Run("moveOnMapNewRequestFromProto", func(t *testing.T) {
-		type testCase struct {
-			description string
-			// RSDK-6444
-			//nolint:staticcheck
-			input  *pb.MoveOnMapNewRequest
-			result MoveOnMapReq
-			err    error
-		}
-
-		testCases := []testCase{
-			{
-				description: "nil request fails",
-				input:       nil,
-				result:      MoveOnMapReq{},
-				err:         errors.New("received nil *pb.MoveOnMapNewRequest"),
-			},
-			{
-				description: "nil destination causes failure",
-				// RSDK-6444
-				//nolint:staticcheck
-				input:  &pb.MoveOnMapNewRequest{},
-				result: MoveOnMapReq{},
-				err:    errors.New("received nil *commonpb.Pose for destination"),
-			},
-			{
-				description: "nil componentName causes failure",
-				// RSDK-6444
-				//nolint:staticcheck
-				input: &pb.MoveOnMapNewRequest{
-					Destination: spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
-				},
-				result: MoveOnMapReq{},
-				err:    errors.New("received nil *commonpb.ResourceName for component name"),
-			},
-			{
-				description: "nil SlamName causes failure",
-				// RSDK-6444
-				//nolint:staticcheck
-				input: &pb.MoveOnMapNewRequest{
-					Destination:   spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
-					ComponentName: rprotoutils.ResourceNameToProto(myBase),
-				},
-				result: MoveOnMapReq{},
-				err:    errors.New("received nil *commonpb.ResourceName for SlamService name"),
-			},
-			{
-				description: "success",
-				input:       validPbMoveOnMapNewRequest,
-				result: MoveOnMapReq{
-					ComponentName: myBase,
-					Destination:   spatialmath.NewZeroPose(),
-					SlamName:      mySlam,
-					MotionCfg:     motionCfg,
-					Extra:         map[string]interface{}{},
-				},
-				err: nil,
-			},
-			{
-				description: "success - allow nil motionCfg",
-				// RSDK-6444
-				//nolint:staticcheck
-				input: &pb.MoveOnMapNewRequest{
-					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
-					ComponentName:   rprotoutils.ResourceNameToProto(myBase),
-					SlamServiceName: rprotoutils.ResourceNameToProto(mySlam),
-				},
-				result: MoveOnMapReq{
-					ComponentName: myBase,
-					Destination:   spatialmath.NewZeroPose(),
-					SlamName:      mySlam,
-					MotionCfg: &MotionConfiguration{
-						ObstacleDetectors:     []ObstacleDetectorName{},
-						PositionPollingFreqHz: 0,
-						ObstaclePollingFreqHz: 0,
-						PlanDeviationMM:       0,
-						LinearMPerSec:         0,
-						AngularDegsPerSec:     0,
-					},
-					Extra: map[string]interface{}{},
-				},
-				err: nil,
-			},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.description, func(t *testing.T) {
-				res, err := moveOnMapNewRequestFromProto(tc.input)
-				if tc.err != nil {
-					test.That(t, err, test.ShouldBeError, tc.err)
-				} else {
-					test.That(t, err, test.ShouldBeNil)
-				}
-				test.That(t, res, test.ShouldResemble, tc.result)
-			})
-		}
-	})
-
 	t.Run("moveOnMapRequestFromProto", func(t *testing.T) {
 		type testCase struct {
 			description string
-			// RSDK-6444
 
 			input  *pb.MoveOnMapRequest
 			result MoveOnMapReq
@@ -1540,7 +1196,6 @@ func TestMoveOnMapReq(t *testing.T) {
 			},
 			{
 				description: "nil destination causes failure",
-				// RSDK-6444
 
 				input:  &pb.MoveOnMapRequest{},
 				result: MoveOnMapReq{},
@@ -1548,7 +1203,6 @@ func TestMoveOnMapReq(t *testing.T) {
 			},
 			{
 				description: "nil componentName causes failure",
-				// RSDK-6444
 
 				input: &pb.MoveOnMapRequest{
 					Destination: spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
@@ -1558,7 +1212,6 @@ func TestMoveOnMapReq(t *testing.T) {
 			},
 			{
 				description: "nil SlamName causes failure",
-				// RSDK-6444
 
 				input: &pb.MoveOnMapRequest{
 					Destination:   spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
@@ -1575,7 +1228,6 @@ func TestMoveOnMapReq(t *testing.T) {
 			},
 			{
 				description: "success - allow nil motionCfg",
-				// RSDK-6444
 
 				input: &pb.MoveOnMapRequest{
 					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0})),

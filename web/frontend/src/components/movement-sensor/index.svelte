@@ -42,19 +42,13 @@ const refresh = async () => {
     return;
   }
 
-  const result = await Promise.all([
-    getProperties($robotClient, name),
-    getAccuracy($robotClient, name),
-  ]);
-
-  properties = result[0];
-  accuracy = result[1];
-
-  if (!properties) {
-    return;
-  }
-
   try {
+    properties = await getProperties($robotClient, name);
+
+    if (!properties) {
+      return;
+    }
+
     const results = await Promise.all([
       properties.orientationSupported
         ? getOrientation($robotClient, name)
@@ -85,6 +79,24 @@ const refresh = async () => {
     altitudeM = results[5]?.altitudeM;
   } catch (error) {
     displayError(error as ServiceError);
+  }
+
+  /*
+   * GetAccuracy is not implemented in older versions of
+   * RDK. This results in a "not implemented" or "nil
+   * pointer" error on each polling call, which we don't
+   * want to spam the frontend with.
+   *
+   * TODO(RSDK-6637): Guard with accuracySupported
+   *                    and displayError for actual errors.
+   */
+  try {
+    accuracy = await getAccuracy($robotClient, name);
+  } catch (error: unknown) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `Unhandled GetAccuracy error: ${(error as ServiceError).message}`
+    );
   }
 };
 

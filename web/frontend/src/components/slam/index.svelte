@@ -25,6 +25,7 @@ import { useRobotClient, useConnect } from '@/hooks/robot-client';
 import type { SLAMOverrides } from '@/types/overrides';
 import { rcLogConditionally } from '@/lib/log';
 import { grpc } from '@improbable-eng/grpc-web';
+import type { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 type ResourceName = commonApi.ResourceName.AsObject;
 
 export let name: string;
@@ -66,6 +67,8 @@ let newMapName = '';
 let mapNameError = '';
 let motionPath: Float32Array | undefined;
 let mappingSessionStarted = false;
+let reloadMap: boolean | undefined;
+let lastReconfigured: Timestamp | undefined;
 
 $: pointcloudLoaded = Boolean(pointcloud?.length) && pose !== undefined;
 $: moveClicked = Boolean(executionID);
@@ -99,26 +102,39 @@ const refresh2d = async () => {
         await overrides.getMappingSessionPCD(sessionId);
       nextPose = poseData;
       pointcloud = map;
+    } else {
+      /*
+       * Check if reconfiguration has happened
+       * If it has, reset the point cloud, update the reconfigured time and check what mode the new
+       * SLAM session is in to know whether or not to update the map.
+       */
+      const statuses = await $robotClient.getStatus();
+      const lastReconfiguredStatus = (statuses ?? []).find((status) =>
+        status.hasLastReconfigured()
+      );
+      const newLastReconfigured = lastReconfiguredStatus?.getLastReconfigured();
+      if (newLastReconfigured !== lastReconfigured || reloadMap === undefined) {
+        lastReconfigured = newLastReconfigured;
+        pointcloud = undefined;
+
+        const props = await slamClient.getProperties();
+        reloadMap =
+          props.mappingMode !== slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY;
+      }
 
       /*
-       * The map timestamp is compared to the last timestamp
-       * to see if a change has been made to the point cloud map.
-       * A new call to getPointCloudMap is made if an update has occurred.
+       * Update the map and pose if the SLAM session is in mapping/updating mode or the pointcloud
+       * has yet to be defined else only update the pose
        */
-    } else {
-      const props = await slamClient.getProperties();
-      if (
-        props.mappingMode === slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY &&
-        pointcloud !== undefined
-      ) {
-        const response = await slamClient.getPosition();
-        nextPose = response.pose;
-      } else {
+      if (reloadMap || pointcloud === undefined) {
         let response;
         [pointcloud, response] = await Promise.all([
           slamClient.getPointCloudMap(),
           slamClient.getPosition(),
         ]);
+        nextPose = response.pose;
+      } else {
+        const response = await slamClient.getPosition();
         nextPose = response.pose;
       }
     }

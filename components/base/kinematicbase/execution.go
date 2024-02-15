@@ -6,7 +6,7 @@ package kinematicbase
 
 import (
 	"context"
-	"fmt"
+	//~ "fmt"
 	"math"
 	"time"
 
@@ -59,14 +59,13 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 				timestep,
 			)
 
-			var startPose *referenceframe.PoseInFrame
 			if ptgk.Localizer != nil {
-				startPose, err = ptgk.Localizer.CurrentPosition(ctx)
+				//~ startPose, err = ptgk.Localizer.CurrentPosition(ctx)
 				if err != nil {
 					return tryStop(err)
 				}
 			}
-			startTrajPose, err := selectedPTG.Transform([]referenceframe.Input{inputs[1], {step.startDist}})
+			//~ startTrajPose, err := selectedPTG.Transform([]referenceframe.Input{inputs[1], {step.startDist}})
 			if err != nil {
 				return tryStop(err)
 			}
@@ -80,8 +79,8 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 			if err != nil {
 				return tryStop(err)
 			}
-			lastLinVel := step.linVelMMps
-			lastAngVel := step.angVelDegps
+			//~ lastLinVel := step.linVelMMps
+			//~ lastAngVel := step.angVelDegps
 			moveStartTime := time.Now()
 			
 			// Now we are moving. We need to do several things simultaneously:
@@ -118,48 +117,44 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 	return tryStop(nil)
 }
 
-func (ptgk *ptgBaseKinematics) pathCorrection(ctx context.Context) 
-					currPose, err := ptgk.Localizer.CurrentPosition(ctx)
-					if err != nil {
-						return tryStop(err)
-					}
-					currRelPose := spatialmath.PoseBetween(startPose.Pose(), currPose.Pose())
-					expectedPoseRaw, err := selectedPTG.Transform([]referenceframe.Input{ptgk.currentInput[1], ptgk.currentInput[2]})
-					if err != nil {
-						return tryStop(err)
-					}
-					expectedPose := spatialmath.PoseBetween(startTrajPose, expectedPoseRaw)
-					poseDiff := spatialmath.PoseBetween(currRelPose, expectedPose)
-					poseDiffPt := poseDiff.Point()
-					poseDiffAngle := poseDiff.Orientation().OrientationVectorDegrees().Theta
-					fmt.Println("curr pose", spatialmath.PoseToProtobuf(currPose.Pose()))
-					fmt.Println("curr rel pose", spatialmath.PoseToProtobuf(currRelPose))
-					fmt.Println("exp pose", spatialmath.PoseToProtobuf(expectedPose))
-					fmt.Println("diff pose", spatialmath.PoseToProtobuf(poseDiff))
-					adjLinVel := step.linVelMMps
-					adjAngVel := step.angVelDegps
-					
-					if math.Abs(poseDiffPt.Y) > 100 {
-						// Positive Y means we are behind where we want to be and should speed up. Speed up 5% at a time
-						adjLinVel.Y = lastLinVel.Y * (1. + math.Copysign(0.05, poseDiffPt.Y))
-					}
-					//~ if math.Abs(poseDiffPt.X) > 100 {
-						//~ // If we are to the right, we want to rotate left, and vice versa.
-						//~ adjAngVel.Z += math.Copysign(10., poseDiffPt.X)
-					//~ } else if math.Abs(poseDiffAngle) > 10 {
-						//~ // If we are at the correct X position but angled, adjust so we do not go off course
-						//~ adjAngVel.Z += -1 * math.Copysign(10., poseDiffAngle)
-					//~ }
-					if !lastLinVel.ApproxEqual(adjLinVel) || !lastAngVel.ApproxEqual(adjAngVel) {
-						err = ptgk.Base.SetVelocity(
-							ctx,
-							adjLinVel,
-							adjAngVel,
-							nil,
-						)
-						if err != nil {
-							return tryStop(err)
-						}
-						lastLinVel = adjLinVel
-						lastAngVel = adjAngVel
-					}
+func (ptgk *ptgBaseKinematics) pathCorrection(ctx context.Context, startPose spatialmath.Pose) error {
+	//~ currPose, err := ptgk.Localizer.CurrentPosition(ctx)
+	//~ if err != nil {
+		//~ return err
+	//~ }
+	//~ currRelPose := spatialmath.PoseBetween(startPose.Pose(), currPose.Pose())
+	//~ expectedPoseRaw, err := selectedPTG.Transform([]referenceframe.Input{ptgk.currentInput[1], ptgk.currentInput[2]})
+	//~ if err != nil {
+		//~ return tryStop(err)
+	//~ }
+	//~ expectedPose := spatialmath.PoseBetween(startTrajPose, expectedPoseRaw)
+	//~ poseDiff := spatialmath.PoseBetween(currRelPose, expectedPose)
+	//~ poseDiffPt := poseDiff.Point()
+	//~ poseDiffAngle := poseDiff.Orientation().OrientationVectorDegrees().Theta
+	//~ fmt.Println("curr pose", spatialmath.PoseToProtobuf(currPose.Pose()))
+	//~ fmt.Println("curr rel pose", spatialmath.PoseToProtobuf(currRelPose))
+	//~ fmt.Println("exp pose", spatialmath.PoseToProtobuf(expectedPose))
+	//~ fmt.Println("diff pose", spatialmath.PoseToProtobuf(poseDiff))
+	//~ adjLinVel := step.linVelMMps
+	//~ adjAngVel := step.angVelDegps
+	
+	//~ if math.Abs(poseDiffPt.Y) > 100 {
+		//~ // Positive Y means we are behind where we want to be and should speed up. Speed up 5% at a time
+		//~ adjLinVel.Y = lastLinVel.Y * (1. + math.Copysign(0.05, poseDiffPt.Y))
+	//~ }
+
+	//~ if !lastLinVel.ApproxEqual(adjLinVel) || !lastAngVel.ApproxEqual(adjAngVel) {
+		//~ err = ptgk.Base.SetVelocity(
+			//~ ctx,
+			//~ adjLinVel,
+			//~ adjAngVel,
+			//~ nil,
+		//~ )
+		//~ if err != nil {
+			//~ return tryStop(err)
+		//~ }
+		//~ lastLinVel = adjLinVel
+		//~ lastAngVel = adjAngVel
+	//~ }
+	return nil
+}

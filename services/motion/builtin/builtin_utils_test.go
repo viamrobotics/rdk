@@ -190,7 +190,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 	injectedCamera := inject.NewCamera("injectedCamera")
 	cameraLink := referenceframe.NewLinkInFrame(
 		baseLink.Name(),
-		spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 0, Z: 0}),
+		spatialmath.NewPose(r3.Vector{X: 1}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90}),
 		"injectedCamera",
 		cameraGeom,
 	)

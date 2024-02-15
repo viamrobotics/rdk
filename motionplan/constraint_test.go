@@ -218,7 +218,7 @@ func TestCollisionConstraints(t *testing.T) {
 	sf, err := newSolverFrame(fs, model.Name(), frame.World, frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
 	handler := &ConstraintHandler{}
-	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil)
+	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, defaultCollisionBufferMM)
 	test.That(t, err, test.ShouldBeNil)
 	for name, constraint := range collisionConstraints {
 		handler.AddStateConstraint(name, constraint)
@@ -255,7 +255,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	sf, err := newSolverFrame(fs, model.Name(), frame.World, frame.StartPositions(fs))
 	test.That(b, err, test.ShouldBeNil)
 	handler := &ConstraintHandler{}
-	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil)
+	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, defaultCollisionBufferMM)
 	test.That(b, err, test.ShouldBeNil)
 	for name, constraint := range collisionConstraints {
 		handler.AddStateConstraint(name, constraint)

@@ -288,7 +288,7 @@ func (o *odometry) Readings(ctx context.Context, extra map[string]interface{}) (
 
 func (o *odometry) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
 ) {
-	return nil, movementsensor.ErrMethodUnimplementedAccuracy
+	return movementsensor.UnimplementedAccuracies()
 }
 
 func (o *odometry) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {

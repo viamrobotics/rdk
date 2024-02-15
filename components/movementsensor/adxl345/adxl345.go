@@ -147,7 +147,7 @@ func init() {
 		movementsensor.API,
 		model,
 		resource.Registration[movementsensor.MovementSensor, *Config]{
-			Constructor: NewAdxl345,
+			Constructor: newAdxl345,
 		})
 }
 
@@ -176,8 +176,8 @@ type adxl345 struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// NewAdxl345 is a constructor to create a new object representing an ADXL345 accelerometer.
-func NewAdxl345(
+// newAdxl345 is a constructor to create a new object representing an ADXL345 accelerometer.
+func newAdxl345(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
@@ -567,7 +567,8 @@ func (adxl *adxl345) Position(ctx context.Context, extra map[string]interface{})
 }
 
 func (adxl *adxl345) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
-	return nil, movementsensor.ErrMethodUnimplementedAccuracy
+	// this driver is unable to provide positional or compass heading data
+	return movementsensor.UnimplementedAccuracies()
 }
 
 func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {

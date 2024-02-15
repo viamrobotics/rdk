@@ -29,7 +29,7 @@ func TestBoxCapsuleCollision(t *testing.T) {
 	box1, err := NewBox(NewPoseFromPoint(box1Pt), r3.Vector{X: 900, Y: 2000, Z: 100}, "")
 	test.That(t, err, test.ShouldBeNil)
 
-	col, err := c.CollidesWith(box1)
+	col, err := c.CollidesWith(box1, defaultCollisionBufferMM)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, col, test.ShouldBeTrue)
 

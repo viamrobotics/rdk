@@ -81,7 +81,7 @@ func TestReadingsSerial(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := &SerialNMEAMovementSensor{
+	g := &NMEAMovementSensor{
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
@@ -116,7 +116,7 @@ func TestCloseSerial(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := &SerialNMEAMovementSensor{
+	g := &NMEAMovementSensor{
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,

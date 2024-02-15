@@ -58,7 +58,9 @@ func init() {
 
 // MLModelConfig specifies the parameters needed to turn an ML model into a vision Model.
 type MLModelConfig struct {
-	ModelName string `json:"mlmodel_name"`
+	ModelName        string            `json:"mlmodel_name"`
+	RemapInputNames  map[string]string `json:"remap_input_names"`
+	RemapOutputNames map[string]string `json:"remap_output_names"`
 }
 
 // Validate will add the ModelName as an implicit dependency to the robot.
@@ -84,12 +86,18 @@ func registerMLModelVisionService(
 		return nil, err
 	}
 
-	// the nameMap that associates the tensor names as they are found in the model, to
-	// what the vision service expects. This might not be necessary any more once we
-	// get the vision service to have rename maps in its configs.
-	nameMap := &sync.Map{}
+	// the Maps that associates the tensor names as they are found in the model, to
+	// what the vision service expects.
+	inNameMap := &sync.Map{}
+	for oldName, newName := range params.RemapInputNames {
+		inNameMap.Store(newName, oldName)
+	}
+	outNameMap := &sync.Map{}
+	for oldName, newName := range params.RemapOutputNames {
+		outNameMap.Store(newName, oldName)
+	}
 	var errList []error
-	classifierFunc, err := attemptToBuildClassifier(mlm, nameMap)
+	classifierFunc, err := attemptToBuildClassifier(mlm, inNameMap, outNameMap)
 	if err != nil {
 		logger.CDebugw(ctx, "unable to use ml model as a classifier, will attempt to evaluate as"+
 			"detector and segmenter", "model", params.ModelName, "error", err)
@@ -105,7 +113,7 @@ func registerMLModelVisionService(
 		}
 	}
 
-	detectorFunc, err := attemptToBuildDetector(mlm, nameMap)
+	detectorFunc, err := attemptToBuildDetector(mlm, inNameMap, outNameMap)
 	if err != nil {
 		logger.CDebugw(ctx, "unable to use ml model as a detector, will attempt to evaluate as 3D segmenter",
 			"model", params.ModelName, "error", err)
@@ -121,7 +129,7 @@ func registerMLModelVisionService(
 		}
 	}
 
-	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm, nameMap)
+	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm, inNameMap, outNameMap)
 	errList = append(errList, err)
 	if err != nil {
 		logger.CDebugw(ctx, "unable to use ml model as 3D segmenter", "model", params.ModelName, "error", err)
@@ -164,6 +172,9 @@ func getLabelsFromMetadata(md mlmodel.MLMetadata) []string {
 	}
 
 	if labelPath, ok := md.Outputs[0].Extra["labels"].(string); ok {
+		if labelPath == "" { // no label file specified
+			return nil
+		}
 		var labels []string
 		f, err := os.Open(filepath.Clean(labelPath))
 		if err != nil {

@@ -140,6 +140,8 @@ type builtIn struct {
 
 	syncSensor           selectiveSyncer
 	selectiveSyncEnabled bool
+
+	componentMethodFrequencyHz map[resourceMethodMetadata]float32
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -152,21 +154,23 @@ func NewBuiltIn(
 	logger logging.Logger,
 ) (datamanager.Service, error) {
 	svc := &builtIn{
-		Named:                  conf.ResourceName().AsNamed(),
-		logger:                 logger,
-		captureDir:             viamCaptureDotDir,
-		collectors:             make(map[resourceMethodMetadata]*collectorAndConfig),
-		syncIntervalMins:       0,
-		additionalSyncPaths:    []string{},
-		tags:                   []string{},
-		fileLastModifiedMillis: defaultFileLastModifiedMillis,
-		syncerConstructor:      datasync.NewManager,
-		selectiveSyncEnabled:   false,
+		Named:                      conf.ResourceName().AsNamed(),
+		logger:                     logger,
+		captureDir:                 viamCaptureDotDir,
+		collectors:                 make(map[resourceMethodMetadata]*collectorAndConfig),
+		syncIntervalMins:           0,
+		additionalSyncPaths:        []string{},
+		tags:                       []string{},
+		fileLastModifiedMillis:     defaultFileLastModifiedMillis,
+		syncerConstructor:          datasync.NewManager,
+		selectiveSyncEnabled:       false,
+		componentMethodFrequencyHz: make(map[resourceMethodMetadata]float32),
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
+
 	return svc, nil
 }
 
@@ -223,6 +227,12 @@ type resourceMethodMetadata struct {
 	ResourceName   string
 	MethodParams   string
 	MethodMetadata data.MethodMetadata
+}
+
+func (r resourceMethodMetadata) String() string {
+	return fmt.Sprintf(
+		"[API: %s, Resource Name: %s, Method Name: %s, Method Params: %s]",
+		r.MethodMetadata.API, r.ResourceName, r.MethodMetadata.MethodName, r.MethodParams)
 }
 
 // Get time.Duration from hz.
@@ -433,19 +443,35 @@ func (svc *builtIn) Reconfigure(
 				// do not have the resource right now
 				continue
 			}
+
+			// Create component/method metadata
+			methodMetadata := data.MethodMetadata{
+				API:        resConf.Name.API,
+				MethodName: resConf.Method,
+			}
+
+			componentMethodMetadata := resourceMethodMetadata{
+				ResourceName:   resConf.Name.ShortName(),
+				MethodMetadata: methodMetadata,
+				MethodParams:   fmt.Sprintf("%v", resConf.AdditionalParams),
+			}
+			_, ok := svc.componentMethodFrequencyHz[componentMethodMetadata]
+
+			// Only log capture frequency if the component frequency is new or the frequency has changed
+			// otherwise we'll be logging way too much
+			if !ok || (ok && resConf.CaptureFrequencyHz != svc.componentMethodFrequencyHz[componentMethodMetadata]) {
+				syncVal := "will"
+				if resConf.CaptureFrequencyHz == 0 {
+					syncVal += " not"
+				}
+				svc.logger.Infof("capture frequency for %s is set to %.2fHz and %s sync", componentMethodMetadata, resConf.CaptureFrequencyHz, syncVal)
+			}
+
+			// we need this map to keep track of if state has changed in the configs
+			// without it, we will be logging the same message over and over for no reason
+			svc.componentMethodFrequencyHz[componentMethodMetadata] = resConf.CaptureFrequencyHz
+
 			if !resConf.Disabled && resConf.CaptureFrequencyHz > 0 {
-				// Create component/method metadata to check if the collector exists.
-				methodMetadata := data.MethodMetadata{
-					API:        resConf.Name.API,
-					MethodName: resConf.Method,
-				}
-
-				componentMethodMetadata := resourceMethodMetadata{
-					ResourceName:   resConf.Name.ShortName(),
-					MethodMetadata: methodMetadata,
-					MethodParams:   fmt.Sprintf("%v", resConf.AdditionalParams),
-				}
-
 				// We only use service-level tags.
 				resConf.Tags = svcConfig.Tags
 

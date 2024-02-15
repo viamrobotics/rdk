@@ -47,6 +47,10 @@ func TestModManagerFunctions(t *testing.T) {
 
 	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
 	test.That(t, err, test.ShouldBeNil)
+	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
+	defer func() {
+		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
+	}()
 
 	t.Log("test Helpers")
 	viamHomeTemp := t.TempDir()
@@ -322,6 +326,10 @@ func TestModManagerValidation(t *testing.T) {
 
 	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
 	test.That(t, err, test.ShouldBeNil)
+	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
+	defer func() {
+		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
+	}()
 
 	t.Log("adding complex module")
 	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
@@ -376,6 +384,10 @@ func TestModuleReloading(t *testing.T) {
 
 	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
 	test.That(t, err, test.ShouldBeNil)
+	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
+	defer func() {
+		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
+	}()
 
 	modCfg := config.Module{Name: "test-module"}
 
@@ -620,6 +632,10 @@ func TestDebugModule(t *testing.T) {
 
 	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
 	test.That(t, err, test.ShouldBeNil)
+	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
+	defer func() {
+		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
+	}()
 
 	testCases := []struct {
 		name                   string
@@ -708,6 +724,10 @@ func TestModuleMisc(t *testing.T) {
 
 	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
 	test.That(t, err, test.ShouldBeNil)
+	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
+	defer func() {
+		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
+	}()
 
 	// Build the testmodule
 	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")

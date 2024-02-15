@@ -1,6 +1,8 @@
 package packages
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"errors"
 	"os"
@@ -413,4 +415,31 @@ func TestSafeLink(t *testing.T) {
 	validate("sub/../dir", "sub/../dir", nil)
 	validate("sub/../../dir", "", errors.New("unsafe path join"))
 	validate("/root", "", errors.New("unsafe path link"))
+}
+
+func TestMissingDirEntry(t *testing.T) {
+	file, err := os.CreateTemp("", "missing-dir-entry")
+	test.That(t, err, test.ShouldBeNil)
+	head := tar.Header{
+		Name: "subdir/file.md",
+		Size: 1,
+		Mode: 0o600,
+		Uid:  1000,
+		Gid:  1000,
+	}
+	gzipWriter := gzip.NewWriter(file)
+	writer := tar.NewWriter(gzipWriter)
+	writer.WriteHeader(&head)
+	writer.Write([]byte("x"))
+	writer.Close()
+	gzipWriter.Close()
+	file.Close()
+	defer os.Remove(file.Name())
+	dest, err := os.MkdirTemp("", "missing-dir-entry")
+	defer os.RemoveAll(dest)
+	test.That(t, err, test.ShouldBeNil)
+	// The inner MkdirAll in unpackFile will fail with 'permission denied' if we
+	// create the subdirectory with the wrong permissions.
+	err = unpackFile(context.Background(), file.Name(), dest)
+	test.That(t, err, test.ShouldBeNil)
 }

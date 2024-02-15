@@ -158,10 +158,6 @@ func (ms *explore) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (moti
 	return uuid.Nil, errUnimplemented
 }
 
-func (ms *explore) MoveOnMapNew(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
-	return uuid.Nil, errUnimplemented
-}
-
 func (ms *explore) MoveOnGlobe(
 	ctx context.Context,
 	req motion.MoveOnGlobeReq,
@@ -313,9 +309,8 @@ func (ms *explore) checkForObstacles(
 	obstaclePollingFrequencyHz float64,
 ) {
 	ms.logger.Debug("Current Plan")
-	for i, p := range plan {
-		ms.logger.Debugf("plan[%v]: %v", i, p)
-	}
+	ms.logger.Debug(plan)
+
 	// Constantly check for obstacles in path at desired obstacle polling frequency
 	ticker := time.NewTicker(time.Duration(int(1000/obstaclePollingFrequencyHz)) * time.Millisecond)
 	defer ticker.Stop()
@@ -360,7 +355,8 @@ func (ms *explore) checkForObstacles(
 			// TODO: Generalize this fix to work for maps with non-transient obstacles. This current implementation
 			// relies on the plan being two steps: a start position and a goal position.
 			// JIRA Ticket: https://viam.atlassian.net/browse/RSDK-5964
-			plan[0][kb.Name().ShortName()] = currentInputs
+			planTraj := plan.Trajectory()
+			planTraj[0][kb.Name().ShortName()] = currentInputs
 			ms.logger.Debugf("Current transient worldState: ", worldState.String())
 
 			// Check plan for transient obstacles
@@ -370,13 +366,13 @@ func (ms *explore) checkForObstacles(
 				worldState,
 				ms.frameSystem,
 				currentPose,
-				currentInputs,
+				plan.Trajectory()[0],
 				spatialmath.NewZeroPose(),
 				lookAheadDistanceMM,
 				ms.logger,
 			)
 			if err != nil {
-				if strings.Contains(err.Error(), "found collision between positions") {
+				if strings.Contains(err.Error(), "found error between positions") {
 					ms.logger.CDebug(ctx, "collision found in given range")
 					ms.obstacleResponseChan <- moveResponse{success: true}
 					return
@@ -388,14 +384,18 @@ func (ms *explore) checkForObstacles(
 
 // executePlan will carry out the desired motionplan plan.
 func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBase, plan motionplan.Plan) {
-	// Iterate through motionplan plan
-	for _, p := range plan {
+	steps, err := plan.Trajectory().GetFrameInputs(kb.Name().Name)
+	if err != nil {
+		ms.logger.Debugf("error in executePlan: %s", err)
+		return
+	}
+	for _, inputs := range steps {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 			if inputEnabledKb, ok := kb.(inputEnabledActuator); ok {
-				if err := inputEnabledKb.GoToInputs(ctx, p[kb.Name().Name]); err != nil {
+				if err := inputEnabledKb.GoToInputs(ctx, inputs); err != nil {
 					// If there is an error on GoToInputs, stop the component if possible before returning the error
 					if stopErr := kb.Stop(ctx, nil); stopErr != nil {
 						ms.executionResponseChan <- moveResponse{err: err}
