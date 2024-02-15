@@ -10,6 +10,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/base"
 	baseFake "go.viam.com/rdk/components/base/fake"
@@ -76,12 +77,12 @@ func createInjectedMovementSensor(name string, gpsPoint *geo.Point) *inject.Move
 
 func createInjectedSlam(name, pcdPath string, origin spatialmath.Pose) *inject.SLAMService {
 	injectSlam := inject.NewSLAMService(name)
-	// injectSlam.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
-	// 	return getPointCloudMap(filepath.Clean(artifact.MustPath(pcdPath)))
-	// }
 	injectSlam.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
-		return getPointCloudMap(filepath.Clean(pcdPath))
+		return getPointCloudMap(filepath.Clean(artifact.MustPath(pcdPath)))
 	}
+	// injectSlam.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+	// 	return getPointCloudMap(filepath.Clean(pcdPath))
+	// }
 	injectSlam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
 		if origin != nil {
 			return origin, "", nil

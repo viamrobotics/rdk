@@ -263,7 +263,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 	plan motionplan.Plan,
 	waypointIndex int,
 ) (state.ExecuteResponse, error) {
-	fmt.Println("AM I EVER CALLED")
 	// check no obstacles intersect the portion of the plan which has yet to be executed
 	remainingPlan, err := motionplan.RemainingPlan(plan, waypointIndex)
 	if err != nil {

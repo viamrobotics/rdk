@@ -265,7 +265,7 @@ func TestMoveOnMapAskewIMUTestMoveOnMapAskewIMU(t *testing.T) {
 
 		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*15)
 		defer timeoutFn()
-		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*55, motion.PlanHistoryReq{
+		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
 			ExecutionID:   executionID,
 			LastPlanOnly:  true,
@@ -279,8 +279,6 @@ func TestMoveOnMapAskewIMUTestMoveOnMapAskewIMU(t *testing.T) {
 		// In a real robot this will be taken care of by gravity.
 		correctedPose := spatialmath.NewPoseFromOrientation(askewOrientCorrected)
 		endPos := spatialmath.Compose(correctedPose, spatialmath.PoseBetween(spatialmath.NewPoseFromOrientation(askewOrient), endPIF.Pose()))
-		fmt.Println("endPos: ", spatialmath.PoseToProtobuf(endPos))
-		fmt.Println("goal1BaseFrame: ", spatialmath.PoseToProtobuf(goal1BaseFrame))
 
 		test.That(t, spatialmath.PoseAlmostEqualEps(endPos, goal1BaseFrame, 10), test.ShouldBeTrue)
 	})
@@ -503,7 +501,7 @@ func TestObstacleReplanningSlam(t *testing.T) {
 	ctx := context.Background()
 	origin := spatialmath.NewPose(
 		r3.Vector{X: -0.99503e3, Y: 0, Z: 0},
-		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0},
+		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90},
 	)
 
 	_, ms := createMoveOnMapEnvironment(
