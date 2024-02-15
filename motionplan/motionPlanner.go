@@ -614,7 +614,6 @@ func CheckPlan(
 			interpolatedState := &ik.State{Frame: sf}
 			if relative {
 				interpolatedState.Position = spatialmath.Compose(segment.StartPosition, poseInPath)
-				fmt.Println("interpolatedState.Position: ", spatialmath.PoseToProtobuf(interpolatedState.Position))
 			} else {
 				interpolatedState.Configuration = interpConfig
 			}

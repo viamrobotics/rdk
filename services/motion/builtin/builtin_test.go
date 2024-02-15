@@ -549,7 +549,7 @@ func TestObstacleReplanningSlam(t *testing.T) {
 	executionID, err := ms.MoveOnMap(ctx, req)
 	test.That(t, err, test.ShouldBeNil)
 
-	timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Minute*5)
+	timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 	defer timeoutFn()
 	err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Second*5, motion.PlanHistoryReq{
 		ComponentName: req.ComponentName,
@@ -751,9 +751,6 @@ func TestStoppableMoveFunctions(t *testing.T) {
 		injectBase.SetVelocityFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 			return failToReachGoalError
 		}
-		injectBase.CurrentInputsFunc = func(ctx context.Context) ([]referenceframe.Input, error) {
-			return referenceframe.FloatsToInputs([]float64{0, 0, 0}), nil
-		}
 
 		// Create a base link
 		baseLink := createBaseLink(t)
@@ -774,28 +771,10 @@ func TestStoppableMoveFunctions(t *testing.T) {
 				nil,
 			)
 
-			// Since our current position is in the frame of the movement sensor we will need to transform the
-			// position to be in the world frame.
-			// To do so, we will use the frame system service (fs), created at run time along, with the fs
-			// the motion service (ms) creates.
-			// It is important to note that the two frame systems house different information.
-			// The fs created by the ms has a base frame corresponding to a kinematic base, hence it expects three
-			// degrees of freedom. For this reason, we create a model frame for the base link, such that querying
-			// the fs constructed at run time gives us current inputs we would expect.
-
-			model, err := referenceframe.New2DMobileModelFrame(
-				baseName,
-				[]referenceframe.Limit{
-					{Min: -1e5, Max: 1e5}, {Min: -1e5, Max: 1e5}, {Min: -2 * math.Pi, Max: 2 * math.Pi},
-				},
-				geometry,
-			)
-			test.That(t, err, test.ShouldBeNil)
-
 			// Create a motion service
 			fsParts := []*referenceframe.FrameSystemPart{
 				{FrameConfig: movementSensorLink},
-				{FrameConfig: baseLink, ModelFrame: model},
+				{FrameConfig: baseLink},
 			}
 			deps := resource.Dependencies{
 				injectBase.Name():           injectBase,
@@ -1116,7 +1095,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 		mr, ok := planExecutor.(*moveRequest)
 		test.That(t, ok, test.ShouldBeTrue)
-		fmt.Println("mr.planRequest.Goal.Pose().Point(): ", mr.planRequest.Goal.Pose().Point())
+
 		test.That(t, mr.planRequest.Goal.Pose().Point().X, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
 		test.That(t, mr.planRequest.Goal.Pose().Point().Y, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
 
@@ -1128,7 +1107,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*10)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
@@ -1169,7 +1148,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*10)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
@@ -1325,7 +1304,6 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		// place obstacle in opposte position and show that the generate path
 		// collides with obstacleRight
 		obstacleRight, err := spatialmath.NewBox(
-			// spatialmath.NewPose(r3.Vector{X: 0.89627e3, Y: -0.37192e3, Z: 0},
 			spatialmath.NewPose(r3.Vector{X: 308.55, Y: 1180.18, Z: 0},
 				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -45}),
 			r3.Vector{X: 900, Y: 10, Z: 10},
