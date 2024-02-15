@@ -271,7 +271,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 			fk.inputLock.Lock()
 			fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], inter[2]}
 			fk.inputLock.Unlock()
-			time.Sleep(time.Duration(fk.sleepTime) * time.Millisecond)
+			time.Sleep(time.Duration(fk.sleepTime) * time.Microsecond)
 		}
 	}
 
