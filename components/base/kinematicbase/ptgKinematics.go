@@ -164,7 +164,20 @@ func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referencefr
 	return ptgk.currentInput, nil
 }
 
-func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) (err error) {
+func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	for _, inputs := range inputSteps {
+		err := ptgk.goToInputs(ctx, inputs)
+		if err != nil {
+			return err
+		}
+	}
+
+	stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancelFn()
+	return ptgk.Base.Stop(stopCtx, nil)
+}
+
+func (ptgk *ptgBaseKinematics) goToInputs(ctx context.Context, inputs []referenceframe.Input) error {
 	if len(inputs) != 3 {
 		return errors.New("inputs to ptg kinematic base must be length 3")
 	}
@@ -236,17 +249,17 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 			break
 		}
 	}
-
-	stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancelFn()
-	return ptgk.Base.Stop(stopCtx, nil)
+	return nil
 }
 
-func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, waypointIndex int) (spatialmath.Pose, error) {
-	path := plan.Path()
-	planLength := len(path)
-	if waypointIndex < 0 || waypointIndex >= planLength {
-		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be >= 0 and less than plan length %d", waypointIndex, planLength)
+func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, currentNode int) (spatialmath.Pose, error) {
+	traj := plan.Trajectory()
+	if currentNode < 0 || traj == nil || currentNode >= len(traj) {
+		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be >= 0 and less than plan length %d", currentNode, len(traj))
+	}
+	waypoints, err := plan.Trajectory().GetFrameInputs(ptgk.Name().Name)
+	if err != nil {
+		return nil, err
 	}
 
 	// Get pose-in-frame of the base via its localizer. The offset between the localizer and its base should already be accounted for.
@@ -256,12 +269,19 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan motionplan.P
 	}
 	actualPIF := spatialmath.PoseBetween(ptgk.origin, actualPIFRaw.Pose())
 
-	// Determine the nominal pose, the last waypoint the robot should have reached if it executed the plan perfectly.
-	poses, err := path.GetFramePoses(ptgk.Name().ShortName())
-	if err != nil {
-		return nil, err
+	var nominalPose spatialmath.Pose
+
+	// Determine the nominal pose, that is, the pose where the robot ought be if it had followed the plan perfectly up until this point.
+	// This is done differently depending on what sort of frame we are working with.
+	// TODO: We should be able to use the Path that exists in the plan rather than doing this duplicate work here
+	runningPose := spatialmath.NewZeroPose()
+	for i := 0; i < currentNode; i++ {
+		wpPose, err := ptgk.frame.Transform(waypoints[i])
+		if err != nil {
+			return nil, err
+		}
+		runningPose = spatialmath.Compose(runningPose, wpPose)
 	}
-	nominalPose := poses[waypointIndex-1]
 
 	// Determine how far through the current trajectory we are
 	currentInputs, err := ptgk.CurrentInputs(ctx)

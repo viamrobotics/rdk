@@ -145,18 +145,18 @@ func (b *box) ToProtobuf() *commonpb.Geometry {
 }
 
 // CollidesWith checks if the given box collides with the given geometry and returns true if it does.
-func (b *box) CollidesWith(g Geometry) (bool, error) {
+func (b *box) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
 	if other, ok := g.(*box); ok {
-		return boxVsBoxCollision(b, other), nil
+		return boxVsBoxCollision(b, other, collisionBufferMM), nil
 	}
 	if other, ok := g.(*sphere); ok {
-		return sphereVsBoxCollision(other, b), nil
+		return sphereVsBoxCollision(other, b, collisionBufferMM), nil
 	}
 	if other, ok := g.(*capsule); ok {
-		return capsuleVsBoxCollision(other, b), nil
+		return capsuleVsBoxCollision(other, b, collisionBufferMM), nil
 	}
 	if other, ok := g.(*point); ok {
-		return pointVsBoxCollision(other.position, b), nil
+		return pointVsBoxCollision(other.position, b, collisionBufferMM), nil
 	}
 	return true, newCollisionTypeUnsupportedError(b, g)
 }
@@ -265,11 +265,11 @@ func (b *box) rotationMatrix() *RotationMatrix {
 // boxVsBoxCollision takes two boxes as arguments and returns a bool describing if they are in collision,
 // true == collision / false == no collision.
 // Since the separating axis test can exit early if no collision is found, it is efficient to avoid calling boxVsBoxDistance.
-func boxVsBoxCollision(a, b *box) bool {
+func boxVsBoxCollision(a, b *box, collisionBufferMM float64) bool {
 	centerDist := b.pose.Point().Sub(a.pose.Point())
 
 	// check if there is a distance between bounding spheres to potentially exit early
-	if centerDist.Norm()-(a.boundingSphereR+b.boundingSphereR) > CollisionBuffer {
+	if centerDist.Norm()-(a.boundingSphereR+b.boundingSphereR) > collisionBufferMM {
 		return false
 	}
 
@@ -277,10 +277,10 @@ func boxVsBoxCollision(a, b *box) bool {
 	rmB := b.rotationMatrix()
 
 	for i := 0; i < 3; i++ {
-		if separatingAxisTest(centerDist, rmA.Row(i), a.halfSize, b.halfSize, rmA, rmB) > CollisionBuffer {
+		if separatingAxisTest(centerDist, rmA.Row(i), a.halfSize, b.halfSize, rmA, rmB) > collisionBufferMM {
 			return false
 		}
-		if separatingAxisTest(centerDist, rmB.Row(i), a.halfSize, b.halfSize, rmA, rmB) > CollisionBuffer {
+		if separatingAxisTest(centerDist, rmB.Row(i), a.halfSize, b.halfSize, rmA, rmB) > collisionBufferMM {
 			return false
 		}
 		for j := 0; j < 3; j++ {
@@ -288,7 +288,7 @@ func boxVsBoxCollision(a, b *box) bool {
 
 			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
 			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
-				if separatingAxisTest(centerDist, crossProductPlane, a.halfSize, b.halfSize, rmA, rmB) > CollisionBuffer {
+				if separatingAxisTest(centerDist, crossProductPlane, a.halfSize, b.halfSize, rmA, rmB) > collisionBufferMM {
 					return false
 				}
 			}
@@ -311,7 +311,7 @@ func boxVsBoxDistance(a, b *box) float64 {
 	centerDist := b.pose.Point().Sub(a.pose.Point())
 
 	// check if there is a distance between bounding spheres to potentially exit early
-	if boundingSphereDist := centerDist.Norm() - a.boundingSphereR - b.boundingSphereR; boundingSphereDist > CollisionBuffer {
+	if boundingSphereDist := centerDist.Norm() - a.boundingSphereR - b.boundingSphereR; boundingSphereDist > defaultCollisionBufferMM {
 		return boundingSphereDist
 	}
 
@@ -352,7 +352,7 @@ func boxVsBoxDistance(a, b *box) float64 {
 // boxInBox returns a bool describing if the inner box is completely encompassed by the outer box.
 func boxInBox(inner, outer *box) bool {
 	for _, vertex := range inner.vertices() {
-		if !pointVsBoxCollision(vertex, outer) {
+		if !pointVsBoxCollision(vertex, outer, defaultCollisionBufferMM) {
 			return false
 		}
 	}
@@ -362,7 +362,7 @@ func boxInBox(inner, outer *box) bool {
 // boxInSphere returns a bool describing if the given box is completely encompassed by the given sphere.
 func boxInSphere(b *box, s *sphere) bool {
 	for _, vertex := range b.vertices() {
-		if sphereVsPointDistance(s, vertex) > CollisionBuffer {
+		if sphereVsPointDistance(s, vertex) > defaultCollisionBufferMM {
 			return false
 		}
 	}
@@ -372,7 +372,7 @@ func boxInSphere(b *box, s *sphere) bool {
 // boxInCapsule returns a bool describing if the given box is completely encompassed by the given capsule.
 func boxInCapsule(b *box, c *capsule) bool {
 	for _, vertex := range b.vertices() {
-		if capsuleVsPointDistance(c, vertex) > CollisionBuffer {
+		if capsuleVsPointDistance(c, vertex) > defaultCollisionBufferMM {
 			return false
 		}
 	}

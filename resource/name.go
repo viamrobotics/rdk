@@ -51,7 +51,7 @@ func newRemoteName(remoteName string, api API, name string) Name {
 // NewFromString creates a new Name based on a fully qualified resource name string passed in.
 func NewFromString(resourceName string) (Name, error) {
 	if !resRegexValidator.MatchString(resourceName) {
-		return Name{}, errors.Errorf("string %q is not a valid resource name", resourceName)
+		return Name{}, errors.Errorf("string %q is not a fully qualified resource name", resourceName)
 	}
 	matches := resRegexValidator.FindStringSubmatch(resourceName)
 	rAPIParts := strings.Split(matches[1], ":")

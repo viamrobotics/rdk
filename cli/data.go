@@ -93,7 +93,7 @@ func DataDeleteTabularAction(c *cli.Context) error {
 		return err
 	}
 
-	if err := client.deleteTabularData(c.String(dataFlagOrgID), c.Int(dataFlagDeleteTabularDataOlderThanDays)); err != nil {
+	if err := client.deleteTabularData(c.String(generalFlagOrgID), c.Int(dataFlagDeleteTabularDataOlderThanDays)); err != nil {
 		return err
 	}
 	return nil
@@ -108,8 +108,8 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	if c.StringSlice(dataFlagLocationIDs) != nil {
 		filter.LocationIds = c.StringSlice(dataFlagLocationIDs)
 	}
-	if c.String(dataFlagMachineID) != "" {
-		filter.RobotId = c.String(dataFlagMachineID)
+	if c.String(generalFlagMachineID) != "" {
+		filter.RobotId = c.String(generalFlagMachineID)
 	}
 	if c.String(dataFlagPartID) != "" {
 		filter.PartId = c.String(dataFlagPartID)
@@ -585,7 +585,7 @@ func DataAddToDatasetByIDs(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := client.dataAddToDatasetByIDs(c.String(datasetFlagDatasetID), c.String(dataFlagOrgID),
+	if err := client.dataAddToDatasetByIDs(c.String(datasetFlagDatasetID), c.String(generalFlagOrgID),
 		c.String(dataFlagLocationID), c.StringSlice(dataFlagFileIDs)); err != nil {
 		return err
 	}
@@ -655,7 +655,7 @@ func DataRemoveFromDataset(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := client.dataRemoveFromDataset(c.String(datasetFlagDatasetID), c.String(dataFlagOrgID),
+	if err := client.dataRemoveFromDataset(c.String(datasetFlagDatasetID), c.String(generalFlagOrgID),
 		c.String(dataFlagLocationID), c.StringSlice(dataFlagFileIDs)); err != nil {
 		return err
 	}
@@ -691,7 +691,7 @@ func DataConfigureDatabaseUser(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := client.dataConfigureDatabaseUser(c.String(dataFlagOrgID), c.String(dataFlagDatabasePassword)); err != nil {
+	if err := client.dataConfigureDatabaseUser(c.String(generalFlagOrgID), c.String(dataFlagDatabasePassword)); err != nil {
 		return err
 	}
 	return nil
@@ -719,7 +719,7 @@ func DataGetDatabaseConnection(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := client.dataGetDatabaseConnection(c.String(dataFlagOrgID)); err != nil {
+	if err := client.dataGetDatabaseConnection(c.String(generalFlagOrgID)); err != nil {
 		return err
 	}
 	return nil

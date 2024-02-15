@@ -126,7 +126,7 @@ const refresh2d = async () => {
        * Update the map and pose if the SLAM session is in mapping/updating mode or the pointcloud
        * has yet to be defined else only update the pose
        */
-      if (reloadMap || pointcloud !== undefined) {
+      if (reloadMap || pointcloud === undefined) {
         let response;
         [pointcloud, response] = await Promise.all([
           slamClient.getPointCloudMap(),

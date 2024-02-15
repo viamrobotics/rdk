@@ -188,13 +188,18 @@ func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error
 	return x.model.InputFromProtobuf(res), nil
 }
 
-func (x *xArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	// check that joint positions are not out of bounds
-	positionDegs := x.model.ProtobufFromInput(goal)
-	if err := arm.CheckDesiredJointPositions(ctx, x, positionDegs); err != nil {
-		return err
+func (x *xArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	for _, goal := range inputSteps {
+		// check that joint positions are not out of bounds
+		if err := arm.CheckDesiredJointPositions(ctx, x, goal); err != nil {
+			return err
+		}
+		err := x.MoveToJointPositions(ctx, x.model.ProtobufFromInput(goal), nil)
+		if err != nil {
+			return err
+		}
 	}
-	return x.MoveToJointPositions(ctx, positionDegs, nil)
+	return nil
 }
 
 func (x *xArm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {

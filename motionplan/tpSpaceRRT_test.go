@@ -108,7 +108,14 @@ func TestPtgWithObstacle(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	sf, err := newSolverFrame(fs, ackermanFrame.Name(), referenceframe.World, nil)
 	test.That(t, err, test.ShouldBeNil)
-	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, referenceframe.StartPositions(fs), nil)
+	collisionConstraints, err := createAllCollisionConstraints(
+		sf,
+		fs,
+		worldState,
+		referenceframe.StartPositions(fs),
+		nil,
+		defaultCollisionBufferMM,
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	for name, constraint := range collisionConstraints {

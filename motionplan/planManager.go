@@ -496,6 +496,18 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	opt := newBasicPlannerOptions(pm.frame)
 	opt.extra = planningOpts
 
+	collisionBufferMM := defaultCollisionBufferMM
+	collisionBufferMMRaw, ok := planningOpts["collision_buffer_mm"]
+	if ok {
+		collisionBufferMM, ok = collisionBufferMMRaw.(float64)
+		if !ok {
+			return nil, errors.New("could not interpret collision_buffer_mm field as float64")
+		}
+		if collisionBufferMM < 0 {
+			return nil, errors.New("collision_buffer_mm can't be negative")
+		}
+	}
+
 	// add collision constraints
 	collisionConstraints, err := createAllCollisionConstraints(
 		pm.frame,
@@ -503,6 +515,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		worldState,
 		seedMap,
 		constraints.GetCollisionSpecification(),
+		collisionBufferMM,
 	)
 	if err != nil {
 		return nil, err

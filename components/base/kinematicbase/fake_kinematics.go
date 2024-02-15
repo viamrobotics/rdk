@@ -85,17 +85,19 @@ func (fk *fakeDiffDriveKinematics) CurrentInputs(ctx context.Context) ([]referen
 	return fk.inputs, nil
 }
 
-func (fk *fakeDiffDriveKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
-	_, err := fk.planningFrame.Transform(inputs)
-	if err != nil {
-		return err
-	}
-	fk.lock.Lock()
-	fk.inputs = inputs
-	fk.lock.Unlock()
+func (fk *fakeDiffDriveKinematics) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	for _, inputs := range inputSteps {
+		_, err := fk.planningFrame.Transform(inputs)
+		if err != nil {
+			return err
+		}
+		fk.lock.Lock()
+		fk.inputs = inputs
+		fk.lock.Unlock()
 
-	// Sleep for a short amount to time to simulate a base taking some amount of time to reach the inputs
-	time.Sleep(150 * time.Millisecond)
+		// Sleep for a short amount to time to simulate a base taking some amount of time to reach the inputs
+		time.Sleep(150 * time.Millisecond)
+	}
 	return nil
 }
 

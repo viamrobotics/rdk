@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -257,32 +258,30 @@ func TestOOBArm(t *testing.T) {
 	})
 
 	t.Run("MoveToJointPositions fails if more OOB", func(t *testing.T) {
-		vals := &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 800}}
+		vals := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 800})
 		err := arm.CheckDesiredJointPositions(context.Background(), injectedArm, vals)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(
 			t,
 			err.Error(),
 			test.ShouldEqual,
-			"joint 5 needs to be within range [-6.283185307179586, 12.566370614359172] and cannot be moved to 13.962634015954636",
+			"joint 5 needs to be within range [-6.283185307179586, 12.566370614359172] and cannot be moved to 800",
 		)
 	})
 
 	t.Run("GoToInputs fails if more OOB", func(t *testing.T) {
 		goal := []referenceframe.Input{{Value: 11}, {Value: 10}, {Value: 10}, {Value: 11}, {Value: 10}, {Value: 10}}
-		model := injectedArm.Arm.ModelFrame()
-		positionDegs := model.ProtobufFromInput(goal)
-		err := arm.CheckDesiredJointPositions(context.Background(), injectedArm, positionDegs)
+		err := arm.CheckDesiredJointPositions(context.Background(), injectedArm, goal)
 		test.That(
 			t,
 			err.Error(),
 			test.ShouldEqual,
-			"joint 0 needs to be within range [-6.283185307179586, 6.283185307179586] and cannot be moved to 11.000000000000002",
+			"joint 0 needs to be within range [-6.283185307179586, 6.283185307179586] and cannot be moved to 11",
 		)
 	})
 
 	t.Run("MoveToJointPositions works if more in bounds", func(t *testing.T) {
-		vals := &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 400}}
+		vals := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, utils.DegToRad(400)})
 		err := arm.CheckDesiredJointPositions(context.Background(), injectedArm, vals)
 		test.That(t, err, test.ShouldBeNil)
 	})
