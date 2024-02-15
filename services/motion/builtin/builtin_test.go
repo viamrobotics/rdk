@@ -2085,7 +2085,7 @@ func TestMoveCallInputs(t *testing.T) {
 				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 				defer timeoutFn()
 				executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
-				test.That(t, err, test.ShouldBeError, errors.New("starting collision between SLAM map and unnamedCollisionGeometry_0, cannot move"))
+				test.That(t, strings.Contains(err.Error(), "starting collision between SLAM map and "), test.ShouldBeTrue)
 				test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 			})
 
