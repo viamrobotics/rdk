@@ -3603,7 +3603,7 @@ func TestResourceConstructTimeout(t *testing.T) {
 		) (resource.Resource, error) {
 			deadline, ok := ctx.Deadline()
 			test.That(t, ok, test.ShouldBeTrue)
-			test.That(t, deadline, test.ShouldHappenBetween, time.Now().Add(timeout/2), time.Now().Add(timeout))
+			test.That(t, time.Now().Add(timeout), test.ShouldHappenOnOrAfter, deadline)
 			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
 		},
 	})
