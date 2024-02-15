@@ -39,7 +39,7 @@ func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map
 	}
 	inType := md.Inputs[0].DataType
 	labels := getLabelsFromMetadata(md)
-	boxOrder := make([]int, 0, 4)
+	var boxOrder []int
 	if len(paramBoxOrder) == 4 {
 		boxOrder = paramBoxOrder
 	} else {
@@ -150,7 +150,12 @@ func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map
 
 		// Now reshape outMap into Detections
 		if len(categories) != len(scores) || 4*len(scores) != len(locations) {
-			return nil, errors.Errorf("output tensor sizes did not match each other as expected. length of scores: %v, length of categories: %v", len(scores), len(categories))
+			return nil, errors.Errorf(
+				"output tensor sizes did not match each other as expected. score: %v, category: %v, location: %v",
+				len(scores),
+				len(categories),
+				len(locations),
+			)
 		}
 		detections := make([]objectdetection.Detection, 0, len(scores))
 		detectionBoxesAreProportional := false
@@ -229,7 +234,7 @@ func argMaxAndMax(slice []float64) (int, float64, error) {
 
 // findDetectionTensors finds the tensors that are necessary for object detection
 // the returned tensor order is location, category, score. It caches results.
-// category is optional, and will return "" if not present
+// category is optional, and will return "" if not present.
 func findDetectionTensorNames(outMap ml.Tensors, nameMap *sync.Map) (string, string, string, error) {
 	// first try the nameMap
 	loc, okLoc := nameMap.Load(detectorLocationName)
@@ -259,7 +264,7 @@ func findDetectionTensorNames(outMap ml.Tensors, nameMap *sync.Map) (string, str
 		if !ok {
 			return "", "", "", errors.Errorf("name map was not storing string, but a type %T", score)
 		}
-		if len(outMap[scoreString].Shape()) == 3 { // the categories are in the score
+		if len(outMap[scoreString].Shape()) == 3 || len(outMap) == 2 { // the categories are in the score
 			return locString, "", scoreString, nil
 		}
 	}

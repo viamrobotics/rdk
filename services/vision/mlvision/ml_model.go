@@ -99,13 +99,21 @@ func registerMLModelVisionService(
 	}
 	if len(params.BoxOrder) != 0 {
 		if len(params.BoxOrder) != 4 {
-			return nil, errors.Errorf("attribute xmin_ymin_xmax_ymax_order for model %q must have only 4 entries in the list. Got %v", params.ModelName, params.BoxOrder)
+			return nil, errors.Errorf(
+				"attribute xmin_ymin_xmax_ymax_order for model %q must have only 4 entries in the list. Got %v",
+				params.ModelName,
+				params.BoxOrder,
+			)
 		}
 		checkOrder := map[int]bool{0: false, 1: false, 2: false, 3: false}
 		for _, entry := range params.BoxOrder {
 			val, ok := checkOrder[entry]
 			if !ok || val { // if val is true, it means value was repeated
-				return nil, errors.Errorf("attribute xmin_ymin_xmax_ymax_order for model %q can only have entries 0, 1, 2 and 3, and only one instance of each. Got %v", params.ModelName, params.BoxOrder)
+				return nil, errors.Errorf(
+					"attribute xmin_ymin_xmax_ymax_order for model %q can only have entries 0, 1, 2 and 3, and only one instance of each. Got %v",
+					params.ModelName,
+					params.BoxOrder,
+				)
 			}
 			checkOrder[entry] = true
 		}

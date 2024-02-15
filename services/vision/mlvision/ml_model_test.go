@@ -340,7 +340,7 @@ func TestMoreMLClassifiers(t *testing.T) {
 
 	inNameMap := &sync.Map{}
 	outNameMap := &sync.Map{}
-	gotClassifier, err := attemptToBuildClassifier(outModel, inNameMap, outNameMap, false)
+	gotClassifier, err := attemptToBuildClassifier(outModel, inNameMap, outNameMap)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotClassifier, test.ShouldNotBeNil)
 
