@@ -191,14 +191,6 @@ func WrapWithFakePTGKinematics(
 		sensorNoise = spatialmath.NewZeroPose()
 	}
 
-	// newPiF := referenceframe.NewPoseInFrame(
-	// 	origin.Parent(),
-	// 	spatialmath.Compose(
-	// 		origin.Pose(), motion.SLAMOrientationAdjustment,
-	// 	),
-	// )
-	// newPiF.SetName(origin.Name())
-
 	ptgProv, ok := frame.(tpspace.PTGProvider)
 	if !ok {
 		return nil, errors.New("unable to cast ptgk frame to a PTG Provider")
@@ -206,9 +198,8 @@ func WrapWithFakePTGKinematics(
 	ptgs := ptgProv.PTGSolvers()
 
 	fk := &fakePTGKinematics{
-		Base:  b,
-		frame: frame,
-		// origin: newPiF,
+		Base:         b,
+		frame:        frame,
 		origin:       origin,
 		ptgs:         ptgs,
 		currentInput: zeroInput,
