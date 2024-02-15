@@ -9,6 +9,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
@@ -40,9 +41,31 @@ type NMEAMovementSensor struct {
 	err                movementsensor.LastError
 	lastPosition       movementsensor.LastPosition
 	lastCompassHeading movementsensor.LastCompassHeading
-	isClosed           bool
 
 	dev DataReader
+}
+
+// NewNmeaMovementSensor creates a new movement sensor.
+func NewNmeaMovementSensor(
+	ctx context.Context, name resource.Name, dev DataReader, logger logging.Logger,
+) (NmeaMovementSensor, error) {
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+
+	g := &NMEAMovementSensor{
+		Named:              name.AsNamed(),
+		dev:                dev,
+		cancelCtx:          cancelCtx,
+		cancelFunc:         cancelFunc,
+		logger:             logger,
+		err:                movementsensor.NewLastError(1, 1),
+		lastPosition:       movementsensor.NewLastPosition(),
+		lastCompassHeading: movementsensor.NewLastCompassHeading(),
+	}
+
+	if err := g.Start(ctx); err != nil {
+		return nil, multierr.Combine(err, g.Close(ctx))
+	}
+	return g, nil
 }
 
 // Start begins reading nmea messages from module and updates gps data.
@@ -75,10 +98,6 @@ func (g *NMEAMovementSensor) Start(ctx context.Context) error {
 						"Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
 				}
 			}
-
-			if g.isClosed { // There's no coming back from this. We're done.
-				return
-			}
 		}
 	})
 
@@ -86,7 +105,9 @@ func (g *NMEAMovementSensor) Start(ctx context.Context) error {
 }
 
 // Position returns the position and altitide of the sensor, or an error.
-func (g *NMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (g *NMEAMovementSensor) Position(
+	ctx context.Context, extra map[string]interface{},
+) (*geo.Point, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
@@ -111,8 +132,9 @@ func (g *NMEAMovementSensor) Position(ctx context.Context, extra map[string]inte
 }
 
 // Accuracy returns the accuracy map, hDOP, vDOP, Fixquality and compass heading error.
-func (g *NMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
-) {
+func (g *NMEAMovementSensor) Accuracy(
+	ctx context.Context, extra map[string]interface{},
+) (*movementsensor.Accuracy, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	acc := movementsensor.Accuracy{
@@ -128,7 +150,9 @@ func (g *NMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]inte
 // LinearVelocity returns the sensor's linear velocity. It requires having a compass heading, so we
 // know which direction our speed is in. We assume all of this speed is horizontal, and not in
 // gaining/losing altitude.
-func (g *NMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (g *NMEAMovementSensor) LinearVelocity(
+	ctx context.Context, extra map[string]interface{},
+) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
@@ -144,22 +168,30 @@ func (g *NMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[strin
 }
 
 // LinearAcceleration returns the sensor's linear acceleration.
-func (g *NMEAMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (g *NMEAMovementSensor) LinearAcceleration(
+	ctx context.Context, extra map[string]interface{},
+) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }
 
 // AngularVelocity returns the sensor's angular velocity.
-func (g *NMEAMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (g *NMEAMovementSensor) AngularVelocity(
+	ctx context.Context, extra map[string]interface{},
+) (spatialmath.AngularVelocity, error) {
 	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }
 
 // Orientation returns the sensor's orientation.
-func (g *NMEAMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-	return spatialmath.NewOrientationVector(), movementsensor.ErrMethodUnimplementedOrientation
+func (g *NMEAMovementSensor) Orientation(
+	ctx context.Context, extra map[string]interface{},
+) (spatialmath.Orientation, error) {
+	return nil, movementsensor.ErrMethodUnimplementedOrientation
 }
 
 // CompassHeading returns the heading, from the range 0->360.
-func (g *NMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (g *NMEAMovementSensor) CompassHeading(
+	ctx context.Context, extra map[string]interface{},
+) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
@@ -192,7 +224,9 @@ func (g *NMEAMovementSensor) ReadSatsInView(ctx context.Context) (int, error) {
 }
 
 // Readings will use return all of the MovementSensor Readings.
-func (g *NMEAMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (g *NMEAMovementSensor) Readings(
+	ctx context.Context, extra map[string]interface{},
+) (map[string]interface{}, error) {
 	readings, err := movementsensor.DefaultAPIReadings(ctx, g, extra)
 	if err != nil {
 		return nil, err
@@ -213,7 +247,9 @@ func (g *NMEAMovementSensor) Readings(ctx context.Context, extra map[string]inte
 }
 
 // Properties returns what movement sensor capabilities we have.
-func (g *NMEAMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+func (g *NMEAMovementSensor) Properties(
+	ctx context.Context, extra map[string]interface{},
+) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
 		PositionSupported:       true,
@@ -229,7 +265,6 @@ func (g *NMEAMovementSensor) Close(ctx context.Context) error {
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	g.isClosed = true
 	if g.dev != nil {
 		if err := g.dev.Close(); err != nil {
 			return err
