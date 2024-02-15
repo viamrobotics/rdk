@@ -2637,32 +2637,14 @@ func TestGetTransientDetections(t *testing.T) {
 		return []*viz.Object{detection}, nil
 	}
 
-	type testCase struct {
-		name          string
-		detectionPose spatialmath.Pose
-	}
-	testCases := []testCase{
-		{
-			name:          "relative - SLAM/base theta does not matter",
-			detectionPose: spatialmath.NewPose(r3.Vector{X: 4, Y: 10, Z: -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
-		},
-	}
+	transformedGeoms, err := mr.getTransientDetections(ctx, injectedVis, injectedCam.Name())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformedGeoms.Parent(), test.ShouldEqual, referenceframe.World)
+	test.That(t, len(transformedGeoms.Geometries()), test.ShouldEqual, 1)
 
-	testFn := func(t *testing.T, tc testCase) {
-		t.Helper()
-		transformedGeoms, err := mr.getTransientDetections(ctx, injectedVis, injectedCam.Name())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, transformedGeoms.Parent(), test.ShouldEqual, referenceframe.World)
-		test.That(t, len(transformedGeoms.Geometries()), test.ShouldEqual, 1)
-		test.That(t, spatialmath.PoseAlmostEqual(transformedGeoms.Geometries()[0].Pose(), tc.detectionPose), test.ShouldBeTrue)
-	}
+	expectedPose := spatialmath.NewPose(r3.Vector{X: 4, Y: 10, Z: -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90})
+	test.That(t, spatialmath.PoseAlmostEqual(transformedGeoms.Geometries()[0].Pose(), expectedPose), test.ShouldBeTrue)
 
-	for _, tc := range testCases {
-		c := tc // needed to workaround loop variable not being captured by func literals
-		t.Run(c.name, func(t *testing.T) {
-			testFn(t, c)
-		})
-	}
 }
 
 func TestStopPlan(t *testing.T) {
