@@ -118,9 +118,7 @@ func (y *yForwards2dLocalizer) CurrentPosition(ctx context.Context) (*referencef
 	if err != nil {
 		return nil, err
 	}
-	// newPiF := referenceframe.NewPoseInFrame(currPos.Parent(), newPose)
-	pose := spatialmath.Compose(newPose, SLAMOrientationAdjustment)
-	newPiF := referenceframe.NewPoseInFrame(currPos.Parent(), pose)
+	newPiF := referenceframe.NewPoseInFrame(currPos.Parent(), newPose)
 	newPiF.SetName(currPos.Name())
 	return newPiF, nil
 }
