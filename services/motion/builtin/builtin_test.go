@@ -414,11 +414,16 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 	extra := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
 
 	i := 0
+	j := 0
 
 	testCases := []testCase{
 		{
 			name: "ensure no replan from discovered obstacles",
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+				if j == 0 {
+					j++
+					return []*viz.Object{}, nil
+				}
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: -1000, Y: -1000, Z: 0})
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 10, Y: 10, Z: 10}, "test-case-2")
 				test.That(t, err, test.ShouldBeNil)

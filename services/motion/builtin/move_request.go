@@ -99,9 +99,6 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, g := range existingGifs.Geometries() {
-		fmt.Println("g.name000: ", g.Label())
-	}
 
 	// get transient detections
 	gifs := []*referenceframe.GeometriesInFrame{}
@@ -279,9 +276,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 	if err != nil {
 		return state.ExecuteResponse{}, err
 	}
-	for _, g := range existingGifs.Geometries() {
-		fmt.Println("g.name111: ", g.Label())
-	}
 
 	// get the current position of the base
 	currentPosition, err := mr.getCurrentPosition(ctx)
@@ -296,9 +290,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			gifs, err := mr.getTransientDetections(ctx, visSrvc, camName)
 			if err != nil {
 				return state.ExecuteResponse{}, err
-			}
-			for _, g := range gifs.Geometries() {
-				fmt.Println("g.name222: ", g.Label())
 			}
 			if len(gifs.Geometries()) == 0 {
 				mr.logger.CDebug(ctx, "will not check if obstacles intersect path since nothing was detected")
