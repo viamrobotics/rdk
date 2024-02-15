@@ -265,7 +265,7 @@ func TestMoveOnMapAskewIMUTestMoveOnMapAskewIMU(t *testing.T) {
 
 		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*15)
 		defer timeoutFn()
-		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
+		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*55, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
 			ExecutionID:   executionID,
 			LastPlanOnly:  true,
@@ -279,6 +279,8 @@ func TestMoveOnMapAskewIMUTestMoveOnMapAskewIMU(t *testing.T) {
 		// In a real robot this will be taken care of by gravity.
 		correctedPose := spatialmath.NewPoseFromOrientation(askewOrientCorrected)
 		endPos := spatialmath.Compose(correctedPose, spatialmath.PoseBetween(spatialmath.NewPoseFromOrientation(askewOrient), endPIF.Pose()))
+		fmt.Println("endPos: ", spatialmath.PoseToProtobuf(endPos))
+		fmt.Println("goal1BaseFrame: ", spatialmath.PoseToProtobuf(goal1BaseFrame))
 
 		test.That(t, spatialmath.PoseAlmostEqualEps(endPos, goal1BaseFrame, 10), test.ShouldBeTrue)
 	})
@@ -413,7 +415,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 
 	extra := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
 
-	i := 0
+	// i := 0
 
 	testCases := []testCase{
 		// {
@@ -516,7 +518,7 @@ func TestObstacleReplanningSlam(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		i := 0
 		visSrvc.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-			if i <= 1 {
+			if i == 0 {
 				i++
 				return []*viz.Object{}, nil
 			}
@@ -538,7 +540,7 @@ func TestObstacleReplanningSlam(t *testing.T) {
 			Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 0.96679e3, Y: 0, Z: 0}),
 			SlamName:      slam.Named("test_slam"),
 			MotionCfg: &motion.MotionConfiguration{
-				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 50, PlanDeviationMM: 1, ObstacleDetectors: obstacleDetectorSlice,
+				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 2, PlanDeviationMM: 1, ObstacleDetectors: obstacleDetectorSlice,
 			},
 			Extra: map[string]interface{}{"max_replans": 0, "smooth_iter": 0},
 		}
@@ -548,7 +550,7 @@ func TestObstacleReplanningSlam(t *testing.T) {
 
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Minute*5)
 		defer timeoutFn()
-		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
+		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Second*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
 			ExecutionID:   executionID,
 			LastPlanOnly:  true,
@@ -1114,7 +1116,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 		mr, ok := planExecutor.(*moveRequest)
 		test.That(t, ok, test.ShouldBeTrue)
-
+		fmt.Println("mr.planRequest.Goal.Pose().Point(): ", mr.planRequest.Goal.Pose().Point())
 		test.That(t, mr.planRequest.Goal.Pose().Point().X, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
 		test.That(t, mr.planRequest.Goal.Pose().Point().Y, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
 

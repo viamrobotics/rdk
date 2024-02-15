@@ -2,7 +2,6 @@ package motion
 
 import (
 	"context"
-	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -39,7 +38,6 @@ func NewSLAMLocalizer(slam slam.Service) Localizer {
 
 // CurrentPosition returns slam's current position.
 func (s *slamLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
-	fmt.Println("I AM HERE2")
 	pose, _, err := s.Position(ctx)
 	if err != nil {
 		return nil, err
@@ -116,14 +114,13 @@ func (y *yForwards2dLocalizer) CurrentPosition(ctx context.Context) (*referencef
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("I AM HERE3")
 	newPose, err := projectOrientationTo2dRotation(currPos.Pose())
 	if err != nil {
 		return nil, err
 	}
-	newPiF := referenceframe.NewPoseInFrame(currPos.Parent(), newPose)
-	// pose := spatialmath.Compose(newPose, SLAMOrientationAdjustment)
-	// newPiF := referenceframe.NewPoseInFrame(currPos.Parent(), pose)
+	// newPiF := referenceframe.NewPoseInFrame(currPos.Parent(), newPose)
+	pose := spatialmath.Compose(newPose, SLAMOrientationAdjustment)
+	newPiF := referenceframe.NewPoseInFrame(currPos.Parent(), pose)
 	newPiF.SetName(currPos.Name())
 	return newPiF, nil
 }

@@ -494,14 +494,19 @@ func CheckPlan(
 
 	// offset the plan using the errorState
 	offsetPlan := OffsetPlan(plan, errorState)
-	poses, err := offsetPlan.Path().GetFramePoses(checkFrame.Name())
+
+	// put the plan into relative coordinates
+	relativeOffSetPlan := OffsetPlan(offsetPlan, spatialmath.PoseInverse(currentPose))
+
+	// get plan poses for checkFrame
+	poses, err := relativeOffSetPlan.Path().GetFramePoses(checkFrame.Name())
 	if err != nil {
 		return err
 	}
 
 	// setup the planOpts
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
-		currentPose,
+		spatialmath.NewZeroPose(),
 		poses[len(poses)-1],
 		currentInputs,
 		worldState,
@@ -511,6 +516,41 @@ func CheckPlan(
 		return err
 	}
 
+	// create a list of segments to iterate through
+	var segments []*ik.Segment
+	if relative {
+		segments = make([]*ik.Segment, 0, len(poses)+1)
+
+		// get the inputs we were partway through executing
+		checkFrameGoalInputs, ok := plan.Trajectory()[0][checkFrame.Name()]
+		if !ok {
+			return errors.New("could not get inputs for checkFrame")
+		}
+
+		// get checkFrame's currentInputs
+		checkFrameCurrentInputs, ok := currentInputs[checkFrame.Name()]
+		if !ok {
+			return errors.New("could not get inputs for checkFrame")
+		}
+
+		// calculate pose with respect to checkFrame's coordinate system
+		relativeCurrentPosition, err := checkFrame.Transform(checkFrameCurrentInputs)
+		if err != nil {
+			return err
+		}
+
+		// pre-pend to segments so we can connect to the input we have not finished actuating yet
+		segments = append(segments, &ik.Segment{
+			StartPosition:      spatialmath.PoseInverse(relativeCurrentPosition),
+			EndPosition:        poses[0],
+			StartConfiguration: checkFrameCurrentInputs,
+			EndConfiguration:   checkFrameGoalInputs,
+		})
+	} else {
+		segments = make([]*ik.Segment, 0, len(poses))
+	}
+
+	// function to ease further segment creation
 	createSegment := func(
 		currPose, nextPose spatialmath.Pose,
 		currInput, nextInput map[string][]frame.Input,
@@ -537,10 +577,9 @@ func CheckPlan(
 		}, nil
 	}
 
-	// create a list of segments to iterate through
-	segments := make([]*ik.Segment, 0, len(poses))
-	for i := 0; i < len(offsetPlan.Path())-1; i++ {
-		segment, err := createSegment(poses[i], poses[i+1], offsetPlan.Trajectory()[i], offsetPlan.Trajectory()[i+1])
+	// iterate through remaining plan and append remaining segments to check
+	for i := 0; i < len(relativeOffSetPlan.Path())-1; i++ {
+		segment, err := createSegment(poses[i], poses[i+1], relativeOffSetPlan.Trajectory()[i], relativeOffSetPlan.Trajectory()[i+1])
 		if err != nil {
 			return err
 		}
@@ -561,7 +600,6 @@ func CheckPlan(
 			if err != nil {
 				return err
 			}
-			fmt.Println("poseInPath1: ", spatialmath.PoseToProtobuf(poseInPath))
 
 			// Check if look ahead distance has been reached
 			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
@@ -573,6 +611,7 @@ func CheckPlan(
 			interpolatedState := &ik.State{Frame: sf}
 			if relative {
 				interpolatedState.Position = spatialmath.Compose(segment.StartPosition, poseInPath)
+				fmt.Println("interpolatedState.Position: ", spatialmath.PoseToProtobuf(interpolatedState.Position))
 			} else {
 				interpolatedState.Configuration = interpConfig
 			}
