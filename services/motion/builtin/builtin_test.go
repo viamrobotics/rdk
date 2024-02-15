@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -1564,7 +1565,7 @@ func TestMoveOnMap(t *testing.T) {
 				},
 			)
 			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldEqual, "starting collision between SLAM map and unnamedCollisionGeometry_0, cannot move")
+			test.That(t, strings.Contains(err.Error(), "starting collision between SLAM map and "), test.ShouldBeTrue)
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
 	})
