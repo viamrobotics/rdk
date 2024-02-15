@@ -234,52 +234,54 @@ func (fk *fakePTGKinematics) CurrentInputs(ctx context.Context) ([]referencefram
 	return fk.currentInput, nil
 }
 
-func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
+func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
 	defer func() {
 		fk.inputLock.Lock()
 		fk.currentInput = zeroInput
 		fk.inputLock.Unlock()
 	}()
 
-	fk.positionlock.RLock()
-	startingPose := fk.origin
-	fk.positionlock.RUnlock()
+	for _, inputs := range inputSteps {
+		fk.positionlock.RLock()
+		startingPose := fk.origin
+		fk.positionlock.RUnlock()
 
-	fk.inputLock.Lock()
-	fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {Value: 0}}
-	fk.inputLock.Unlock()
+		fk.inputLock.Lock()
+		fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {Value: 0}}
+		fk.inputLock.Unlock()
 
-	newPose, err := fk.frame.Transform(inputs)
-	if err != nil {
-		return err
-	}
-
-	steps := motionplan.PathStepCount(spatialmath.NewZeroPose(), newPose, 2)
-	startCfg := referenceframe.FloatsToInputs([]float64{inputs[0].Value, inputs[1].Value, 0})
-	var interpolatedConfigurations [][]referenceframe.Input
-	for i := 0; i <= steps; i++ {
-		interp := float64(i) / float64(steps)
-		interpConfig := referenceframe.InterpolateInputs(startCfg, inputs, interp)
-		interpolatedConfigurations = append(interpolatedConfigurations, interpConfig)
-	}
-	for _, inter := range interpolatedConfigurations {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		relativePose, err := fk.frame.Transform(inter)
+		newPose, err := fk.frame.Transform(inputs)
 		if err != nil {
 			return err
 		}
 
-		fk.positionlock.Lock()
-		new := spatialmath.Compose(startingPose.Pose(), relativePose)
-		fk.origin = referenceframe.NewPoseInFrame(fk.origin.Parent(), new)
-		fk.positionlock.Unlock()
+		steps := motionplan.PathStepCount(spatialmath.NewZeroPose(), newPose, 2)
+		startCfg := referenceframe.FloatsToInputs([]float64{inputs[0].Value, inputs[1].Value, 0})
+		var interpolatedConfigurations [][]referenceframe.Input
+		for i := 0; i <= steps; i++ {
+			interp := float64(i) / float64(steps)
+			interpConfig := referenceframe.InterpolateInputs(startCfg, inputs, interp)
+			interpolatedConfigurations = append(interpolatedConfigurations, interpConfig)
+		}
+		for _, inter := range interpolatedConfigurations {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			relativePose, err := fk.frame.Transform(inter)
+			if err != nil {
+				return err
+			}
 
-		fk.inputLock.Lock()
-		fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], inter[2]}
-		fk.inputLock.Unlock()
-		time.Sleep(time.Duration(fk.sleepTime) * time.Microsecond * 100)
+			fk.positionlock.Lock()
+			new := spatialmath.Compose(startingPose.Pose(), relativePose)
+			fk.origin = referenceframe.NewPoseInFrame(fk.origin.Parent(), new)
+			fk.positionlock.Unlock()
+
+			fk.inputLock.Lock()
+			fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], inter[2]}
+			fk.inputLock.Unlock()
+			time.Sleep(time.Duration(fk.sleepTime) * time.Millisecond)
+		}
 	}
 
 	return nil
