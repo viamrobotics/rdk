@@ -278,6 +278,46 @@ func TestNewMLClassifier(t *testing.T) {
 	test.That(t, topNL[1].Score(), test.ShouldBeLessThan, 0.01)
 }
 
+func TestMLDetectorWithNoCategory(t *testing.T) {
+	// Test that a detector would give an expected output on the person
+	// This detector only has two output tensors, Identity (location) and Identity_1 (score)
+	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/person.jpg"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pic, test.ShouldNotBeNil)
+
+	name := mlmodel.Named("yolo_person")
+	ctx := context.Background()
+	modelLoc := artifact.MustPath("vision/tflite/yolov4-tiny-416_person.tflite")
+	cfg := tflitecpu.TFLiteConfig{
+		ModelPath: modelLoc,
+	}
+
+	// Test that a detector would give the expected output on the dog image
+	outModel, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, name)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, outModel, test.ShouldNotBeNil)
+	check, err := outModel.Metadata(ctx)
+	test.That(t, check, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	// Even without metadata we should find
+	test.That(t, check.Inputs[0].Shape, test.ShouldResemble, []int{1, 416, 416, 3})
+	test.That(t, check.Inputs[0].DataType, test.ShouldResemble, "float32")
+	test.That(t, len(check.Outputs), test.ShouldEqual, 2) // only two output tensors
+
+	inNameMap := &sync.Map{}
+	outNameMap := &sync.Map{}
+	outNameMap.Store("location", "Identity")
+	outNameMap.Store("score", "Identity_1")
+	gotDetector, err := attemptToBuildDetector(outModel, inNameMap, outNameMap, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotDetector, test.ShouldNotBeNil)
+
+	gotDetections, err := gotDetector(ctx, pic)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotDetections[2297].Score(), test.ShouldBeGreaterThan, 0.7)
+	test.That(t, gotDetections[2297].Label(), test.ShouldResemble, "0")
+}
+
 func TestMoreMLDetectors(t *testing.T) {
 	// Test that a detector would give an expected output on the dog image
 	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
