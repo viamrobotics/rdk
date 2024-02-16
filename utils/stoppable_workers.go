@@ -18,9 +18,10 @@ type StoppableWorkers struct {
 }
 
 // NewStoppableWorkers runs the functions in separate goroutines. They can be stopped later.
-func NewStoppableWorkers(funcs... func(context.Context)) StoppableWorkers {
+func NewStoppableWorkers(funcs ...func(context.Context)) *StoppableWorkers {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	workers := StoppableWorkers{cancelCtx: cancelCtx, cancelFunc: cancelFunc}
+	// We return the StoppableWorkers by reference to avoid making a copy of the sync.WaitGroup.
+	workers := &StoppableWorkers{cancelCtx: cancelCtx, cancelFunc: cancelFunc}
 	workers.activeBackgroundWorkers.Add(len(funcs))
 	for _, f := range funcs {
 		// In Go 1.21 and earlier, variables created in a loop were reused from one iteration to
