@@ -12,7 +12,7 @@ import (
 // package) without introducing a circular import dependency.
 
 // StoppableWorkers is a collection of goroutines that can be stopped at a later time.
-type StoppableWorkers *stoppableWorkersImpl
+type StoppableWorkers = *stoppableWorkersImpl
 
 // NewStoppableWorkers runs the functions in separate goroutines. They can be stopped later.
 func NewStoppableWorkers(funcs ...func(context.Context)) StoppableWorkers {
