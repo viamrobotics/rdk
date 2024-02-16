@@ -394,6 +394,32 @@ type checkUpdateResponse struct {
 	TarballURL string `json:"tarball_url"`
 }
 
+func checkLatestRelease() (checkUpdateResponse, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	resp := checkUpdateResponse{}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rdkReleaseURL, nil)
+	if err != nil {
+		return resp, err
+	}
+
+	client := http.DefaultClient
+	res, err := client.Do(req)
+	if err != nil {
+		return resp, err
+	}
+
+	err = json.NewDecoder(res.Body).Decode(&resp)
+	if err != nil {
+		return resp, err
+	}
+
+	defer utils.UncheckedError(res.Body.Close())
+	return resp, err
+}
+
 // CheckUpdateAction is the corresponding Action for 'check-update'.
 func CheckUpdateAction(c *cli.Context) error {
 	if c.Bool(quietFlag) {
@@ -403,8 +429,12 @@ func CheckUpdateAction(c *cli.Context) error {
 	dateCompiledRaw := rconfig.DateCompiled
 	dateCompiled, err := time.Parse("2006-01-02", dateCompiledRaw)
 	if err != nil {
-		// user installed from go install or source
-		utils.UncheckedError(err)
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse compilation date: %w", err)
+		return nil
+	}
+
+	// install is less than six weeks old
+	if time.Since(dateCompiled) < time.Hour*24*7*6 {
 		return nil
 	}
 
@@ -419,15 +449,10 @@ func CheckUpdateAction(c *cli.Context) error {
 
 	if conf.LastUpdateCheck == "" {
 		conf.LastUpdateCheck = time.Now().Format("2006-01-02")
-		err := storeConfigToCache(conf)
-		if err != nil {
-			utils.UncheckedError(err)
-		}
 	} else {
 		lastCheck, err := time.Parse("2006-01-02", conf.LastUpdateCheck)
 		if err != nil {
-			// corrupted date
-			utils.UncheckedError(err)
+			warningf(c.App.ErrWriter, "CLI Update Check: failed to parse date of last check: %w", err)
 			return nil
 		}
 		if time.Since(lastCheck) < time.Hour*24*7 {
@@ -435,16 +460,21 @@ func CheckUpdateAction(c *cli.Context) error {
 		}
 	}
 
-	// compare to current version
-	appVersion := rconfig.Version
-
-	// skip check if on stable and install is older than two week
-	if appVersion != "" && time.Since(dateCompiled) < time.Hour*24*7*2 {
+	latestRelease, err := checkLatestRelease()
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", err)
 		return nil
 	}
 
-	// skip check if on dev/latest and install is less than six weeks old
-	if appVersion == "" && time.Since(dateCompiled) < time.Hour*24*7*6 {
+	latestVersion, err := semver.NewVersion(latestRelease.TagName)
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse latest version: %w", err)
+		return nil
+	}
+
+	appVersion := rconfig.Version
+	if appVersion == "(dev)" {
+		warningf(c.App.ErrWriter, "Your CLI is more than 6 weeks old. Consider updating to version: %s", latestVersion.Original())
 		return nil
 	}
 
@@ -454,39 +484,13 @@ func CheckUpdateAction(c *cli.Context) error {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rdkReleaseURL, nil)
-	if err != nil {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to create request: %w", err)
-		return nil
-	}
-
-	client := http.DefaultClient
-	res, err := client.Do(req)
-	if err != nil {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", err)
-		return nil
-	}
-
-	resp := checkUpdateResponse{}
-	err = json.NewDecoder(res.Body).Decode(&resp)
-	if err != nil {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to decode response: %w", err)
-		return nil
-	}
-
-	defer utils.UncheckedError(res.Body.Close())
-
-	latestVersion, err := semver.NewVersion(resp.TagName)
-	if err != nil {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse latest version: %w", err)
-		return nil
-	}
-
 	if localVersion.LessThan(latestVersion) {
-		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is out of date. Consider updating to version %s", resp.TagName)
+		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is out of date. Consider updating to version %s", latestVersion.Original())
+	}
+
+	err = storeConfigToCache(conf)
+	if err != nil {
+		utils.UncheckedError(err)
 	}
 
 	return nil
@@ -522,9 +526,6 @@ func VersionAction(c *cli.Context) error {
 	}
 
 	appVersion := rconfig.Version
-	if appVersion == "" {
-		appVersion = "(dev)"
-	}
 	printf(c.App.Writer, "Version %s Git=%s API=%s", appVersion, version, apiVersion)
 	return nil
 }
