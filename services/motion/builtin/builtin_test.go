@@ -20,7 +20,6 @@ import (
 	armFake "go.viam.com/rdk/components/arm/fake"
 	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/components/base"
-	baseFake "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
@@ -2550,70 +2549,19 @@ func TestMoveCallInputs(t *testing.T) {
 
 func TestGetTransientDetections(t *testing.T) {
 	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
 
-	// create injected/fake components and services
-	fakeBase, err := baseFake.NewBase(
-		ctx, nil,
-		resource.Config{
-			Name: "test-base", API: base.API,
-			Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
-		},
-		logger,
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	injectedVis := inject.NewVisionService("test-vision")
-	injectedCam := inject.NewCamera("test-camera")
-	injectedSlam := createInjectedSlam(
-		"test-slam",
+	_, ms := createMoveOnMapEnvironment(
+		ctx, t,
 		"slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd",
-		spatialmath.NewZeroPose(),
+		100, spatialmath.NewZeroPose(),
 	)
-
-	// set the dependencies
-	deps := resource.Dependencies{
-		fakeBase.Name():     fakeBase,
-		injectedVis.Name():  injectedVis,
-		injectedCam.Name():  injectedCam,
-		injectedSlam.Name(): injectedSlam,
-	}
-
-	// create service
-	ms, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: &Config{}}, logger)
-	test.That(t, err, test.ShouldBeNil)
-	t.Cleanup(func() { ms.Close(ctx) })
-
-	// create links for framesystem
-	baseLink := createBaseLink(t)
-	cameraGeom, err := spatialmath.NewBox(
-		spatialmath.NewZeroPose(),
-		r3.Vector{X: 1, Y: 1, Z: 1}, "camera",
-	)
-	test.That(t, err, test.ShouldBeNil)
-	cameraLink := referenceframe.NewLinkInFrame(
-		baseLink.Name(),
-		spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
-		"test-camera",
-		cameraGeom,
-	)
-
-	// construct the framesystem
-	fsParts := []*referenceframe.FrameSystemPart{
-		{FrameConfig: baseLink},
-		{FrameConfig: cameraLink},
-	}
-	fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	// set the framesystem service for the motion service
-	ms.(*builtIn).fsService = fsSvc
+	defer ms.Close(ctx)
 
 	// construct move request
 	moveReq := motion.MoveOnMapReq{
-		ComponentName: fakeBase.Name(),
+		ComponentName: base.Named("test-base"),
 		Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 10, Y: 0, Z: 0}),
-		SlamName:      injectedSlam.Name(),
+		SlamName:      slam.Named("test_slam"),
 		MotionCfg: &motion.MotionConfiguration{
 			PlanDeviationMM: 1,
 		},
@@ -2623,6 +2571,9 @@ func TestGetTransientDetections(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	mr, ok := planExecutor.(*moveRequest)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	injectedVis, ok := ms.(*builtIn).visionServices[vision.Named("test-vision")].(*inject.VisionService)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// define injected method on vision service
@@ -2638,7 +2589,7 @@ func TestGetTransientDetections(t *testing.T) {
 		return []*viz.Object{detection}, nil
 	}
 
-	transformedGeoms, err := mr.getTransientDetections(ctx, injectedVis, injectedCam.Name())
+	transformedGeoms, err := mr.getTransientDetections(ctx, injectedVis, camera.Named("test-camera"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformedGeoms.Parent(), test.ShouldEqual, referenceframe.World)
 	test.That(t, len(transformedGeoms.Geometries()), test.ShouldEqual, 1)
