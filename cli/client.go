@@ -455,7 +455,7 @@ func CheckUpdateAction(c *cli.Context) error {
 			warningf(c.App.ErrWriter, "CLI Update Check: failed to parse date of last check: %w", err)
 			return nil
 		}
-		if time.Since(lastCheck) < time.Hour*24*7 {
+		if time.Since(lastCheck) < time.Hour*24*3 {
 			return nil
 		}
 	}
