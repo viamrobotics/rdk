@@ -11,18 +11,21 @@ import (
 // here. Until then, we cannot use this in any package imported by utils (e.g., the logging
 // package) without introducing a circular import dependency.
 
-// StoppableWorkers is a collection of goroutines that can be stopped at a later time.
-type StoppableWorkers struct {
+// StoppableWorkersImpl is a collection of goroutines that can be stopped at a later time.
+type StoppableWorkersImpl struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 }
 
+// We want to be able to return a StoppableWorkers when we create it, but we can't make a copy of
+// any struct that contains a sync.WaitGroup. So, make the one people will use be a pointer.
+type StoppableWorkers *StoppableWorkersImpl
+
 // NewStoppableWorkers runs the functions in separate goroutines. They can be stopped later.
-func NewStoppableWorkers(funcs ...func(context.Context)) *StoppableWorkers {
+func NewStoppableWorkers(funcs ...func(context.Context)) StoppableWorkers {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	// We return the StoppableWorkers by reference to avoid making a copy of the sync.WaitGroup.
-	workers := &StoppableWorkers{cancelCtx: cancelCtx, cancelFunc: cancelFunc}
+	workers := &StoppableWorkersImpl{cancelCtx: cancelCtx, cancelFunc: cancelFunc}
 	workers.activeBackgroundWorkers.Add(len(funcs))
 	for _, f := range funcs {
 		// In Go 1.21 and earlier, variables created in a loop were reused from one iteration to
@@ -39,13 +42,13 @@ func NewStoppableWorkers(funcs ...func(context.Context)) *StoppableWorkers {
 }
 
 // Stop shuts down all the goroutines we started up.
-func (sw *StoppableWorkers) Stop() {
+func (sw *StoppableWorkersImpl) Stop() {
 	sw.cancelFunc()
 	sw.activeBackgroundWorkers.Wait()
 }
 
 // Context gets the context the workers are checking on. Using this function is expected to be
 // rare: usually you shouldn't need to interact with the context directly.
-func (sw *StoppableWorkers) Context() context.Context {
+func (sw *StoppableWorkersImpl) Context() context.Context {
 	return sw.cancelCtx
 }
