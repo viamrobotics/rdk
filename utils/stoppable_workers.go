@@ -11,22 +11,13 @@ import (
 // here. Until then, we cannot use this in any package imported by utils (e.g., the logging
 // package) without introducing a circular import dependency.
 
-// StoppableWorkersImpl is the underlying type for StoppableWorkers, below. We need to pass this
-// struct by reference because the WaitGroup cannot be copied, so the main type is a pointer, and
-// this is just the type it points to.
-type StoppableWorkersImpl struct {
-	cancelCtx               context.Context
-	cancelFunc              func()
-	activeBackgroundWorkers sync.WaitGroup
-}
-
 // StoppableWorkers is a collection of goroutines that can be stopped at a later time.
-type StoppableWorkers *StoppableWorkersImpl
+type StoppableWorkers *stoppableWorkersImpl
 
 // NewStoppableWorkers runs the functions in separate goroutines. They can be stopped later.
 func NewStoppableWorkers(funcs ...func(context.Context)) StoppableWorkers {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	workers := &StoppableWorkersImpl{cancelCtx: cancelCtx, cancelFunc: cancelFunc}
+	workers := &stoppableWorkersImpl{cancelCtx: cancelCtx, cancelFunc: cancelFunc}
 	workers.activeBackgroundWorkers.Add(len(funcs))
 	for _, f := range funcs {
 		// In Go 1.21 and earlier, variables created in a loop were reused from one iteration to
@@ -42,14 +33,23 @@ func NewStoppableWorkers(funcs ...func(context.Context)) StoppableWorkers {
 	return workers
 }
 
+// stoppableWorkersImpl is the underlying type for StoppableWorkers, above. We need to pass this
+// struct by reference because the WaitGroup cannot be copied, so the main type is a pointer, and
+// this is just the type it points to.
+type stoppableWorkersImpl struct {
+	cancelCtx               context.Context
+	cancelFunc              func()
+	activeBackgroundWorkers sync.WaitGroup
+}
+
 // Stop shuts down all the goroutines we started up.
-func (sw *StoppableWorkersImpl) Stop() {
+func (sw *stoppableWorkersImpl) Stop() {
 	sw.cancelFunc()
 	sw.activeBackgroundWorkers.Wait()
 }
 
 // Context gets the context the workers are checking on. Using this function is expected to be
 // rare: usually you shouldn't need to interact with the context directly.
-func (sw *StoppableWorkersImpl) Context() context.Context {
+func (sw *stoppableWorkersImpl) Context() context.Context {
 	return sw.cancelCtx
 }
