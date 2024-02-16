@@ -293,8 +293,8 @@ func TestReadInterrupts(t *testing.T) {
 			interruptsEnabled: byte(1<<6 + 1<<2),
 		}
 		sensor.readInterrupts(sensor.cancelContext)
-		test.That(t, sensor.interruptsFound[SingleTap], test.ShouldEqual, 1)
-		test.That(t, sensor.interruptsFound[FreeFall], test.ShouldEqual, 1)
+		test.That(t, sensor.interruptsFound[singleTap], test.ShouldEqual, 1)
+		test.That(t, sensor.interruptsFound[freeFall], test.ShouldEqual, 1)
 	})
 
 	t.Run("increments freefall count only when freefall has gone off", func(t *testing.T) {
@@ -311,8 +311,8 @@ func TestReadInterrupts(t *testing.T) {
 			interruptsEnabled: byte(1<<6 + 1<<2),
 		}
 		sensor.readInterrupts(sensor.cancelContext)
-		test.That(t, sensor.interruptsFound[SingleTap], test.ShouldEqual, 0)
-		test.That(t, sensor.interruptsFound[FreeFall], test.ShouldEqual, 1)
+		test.That(t, sensor.interruptsFound[singleTap], test.ShouldEqual, 0)
+		test.That(t, sensor.interruptsFound[freeFall], test.ShouldEqual, 1)
 	})
 
 	t.Run("increments tap count only when only tap has gone off", func(t *testing.T) {
@@ -329,8 +329,8 @@ func TestReadInterrupts(t *testing.T) {
 			interruptsEnabled: byte(1<<6 + 1<<2),
 		}
 		sensor.readInterrupts(sensor.cancelContext)
-		test.That(t, sensor.interruptsFound[SingleTap], test.ShouldEqual, 1)
-		test.That(t, sensor.interruptsFound[FreeFall], test.ShouldEqual, 0)
+		test.That(t, sensor.interruptsFound[singleTap], test.ShouldEqual, 1)
+		test.That(t, sensor.interruptsFound[freeFall], test.ShouldEqual, 0)
 	})
 
 	t.Run("does not increment counts when neither interrupt has gone off", func(t *testing.T) {
@@ -347,8 +347,8 @@ func TestReadInterrupts(t *testing.T) {
 			interruptsEnabled: byte(1<<6 + 1<<2),
 		}
 		sensor.readInterrupts(sensor.cancelContext)
-		test.That(t, sensor.interruptsFound[SingleTap], test.ShouldEqual, 0)
-		test.That(t, sensor.interruptsFound[FreeFall], test.ShouldEqual, 0)
+		test.That(t, sensor.interruptsFound[singleTap], test.ShouldEqual, 0)
+		test.That(t, sensor.interruptsFound[freeFall], test.ShouldEqual, 0)
 	})
 }
 
