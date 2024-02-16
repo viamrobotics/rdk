@@ -419,10 +419,10 @@ func CheckUpdateAction(c *cli.Context) error {
 
 	if conf.LastUpdateCheck == "" {
 		conf.LastUpdateCheck = time.Now().Format("2006-01-02")
-	  err := storeConfigToCache(conf)
-    if err != nil { 
+		err := storeConfigToCache(conf)
+		if err != nil {
 			utils.UncheckedError(err)
-    }
+		}
 	} else {
 		lastCheck, err := time.Parse("2006-01-02", conf.LastUpdateCheck)
 		if err != nil {
