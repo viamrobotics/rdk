@@ -11,15 +11,16 @@ import (
 // here. Until then, we cannot use this in any package imported by utils (e.g., the logging
 // package) without introducing a circular import dependency.
 
-// StoppableWorkersImpl is a collection of goroutines that can be stopped at a later time.
+// StoppableWorkersImpl is the underlying type for StoppableWorkers, below. We need to pass this
+// struct by reference because the WaitGroup cannot be copied, so the main type is a pointer, and
+// this is just the type it points to.
 type StoppableWorkersImpl struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// We want to be able to return a StoppableWorkers when we create it, but we can't make a copy of
-// any struct that contains a sync.WaitGroup. So, make the one people will use be a pointer.
+// StoppableWorkers is a collection of goroutines that can be stopped at a later time.
 type StoppableWorkers *StoppableWorkersImpl
 
 // NewStoppableWorkers runs the functions in separate goroutines. They can be stopped later.
