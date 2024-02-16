@@ -48,8 +48,8 @@ func (sw *StoppableWorkersImpl) Stop() {
 	sw.activeBackgroundWorkers.Wait()
 }
 
-// Context gets the context the workers are checking on. Using this function is expected to be
-// rare: usually you shouldn't need to interact with the context directly.
+// Context gets the Context the workers are checking on. Using this function is expected to be
+// rare: usually you shouldn't need to interact with the Context directly.
 func (sw *StoppableWorkersImpl) Context() context.Context {
 	return sw.cancelCtx
 }
