@@ -76,7 +76,7 @@ type FreeFallConfig struct {
 }
 
 // validateTapConfigs validates the tap piece of the config.
-func (tapCfg *TapConfig) validateTapConfigs(path string) error {
+func (tapCfg *TapConfig) validateTapConfigs() error {
 	if tapCfg.AccelerometerPin != 1 && tapCfg.AccelerometerPin != 2 {
 		return errors.New("Accelerometer pin on the ADXL345 must be 1 or 2")
 	}
@@ -94,7 +94,7 @@ func (tapCfg *TapConfig) validateTapConfigs(path string) error {
 }
 
 // validateFreeFallConfigs validates the freefall piece of the config.
-func (freefallCfg *FreeFallConfig) validateFreeFallConfigs(path string) error {
+func (freefallCfg *FreeFallConfig) validateFreeFallConfigs() error {
 	if freefallCfg.AccelerometerPin != 1 && freefallCfg.AccelerometerPin != 2 {
 		return errors.New("Accelerometer pin on the ADXL345 must be 1 or 2")
 	}
@@ -130,12 +130,12 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 	if cfg.SingleTap != nil {
-		if err := cfg.SingleTap.validateTapConfigs(path); err != nil {
+		if err := cfg.SingleTap.validateTapConfigs(); err != nil {
 			return nil, err
 		}
 	}
 	if cfg.FreeFall != nil {
-		if err := cfg.FreeFall.validateFreeFallConfigs(path); err != nil {
+		if err := cfg.FreeFall.validateFreeFallConfigs(); err != nil {
 			return nil, err
 		}
 	}
