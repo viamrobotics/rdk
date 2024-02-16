@@ -16,12 +16,12 @@ var errStopReading = errors.New("stop reading")
 
 // An AnalogSmoother smooths the readings out from an underlying reader.
 type AnalogSmoother struct {
-	Raw                     AnalogReader
-	AverageOverMillis       int
-	SamplesPerSecond        int
-	data                    *utils.RollingAverage
-	lastData                int
-	lastError               atomic.Pointer[errValue]
+	Raw               AnalogReader
+	AverageOverMillis int
+	SamplesPerSecond  int
+	data              *utils.RollingAverage
+	lastData          int
+	lastError         atomic.Pointer[errValue]
 
 	logger  logging.Logger
 	workers utils.StoppableWorkers
