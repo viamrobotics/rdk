@@ -460,8 +460,8 @@ func CheckUpdateAction(c *cli.Context) error {
 
 	// The latest version info is cached to limit api calls to once every three days
 	if time.Since(lastCheck) < time.Hour*24*3 && conf.LatestVersion != "" {
-    warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than 6 weeks old. "+
-      "Consider updating to version: %s", conf.LatestVersion)
+		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than 6 weeks old. "+
+			"Consider updating to version: %s", conf.LatestVersion)
 		return nil
 	}
 
@@ -483,10 +483,10 @@ func CheckUpdateAction(c *cli.Context) error {
 	if appVersion == "(dev)" {
 		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than 6 weeks old. "+
 			"Consider updating to version: %s", latestVersion.Original())
-    err = storeConfigToCache(conf)
-    if err != nil {
-      utils.UncheckedError(err)
-    }
+		err = storeConfigToCache(conf)
+		if err != nil {
+			utils.UncheckedError(err)
+		}
 		return nil
 	}
 
