@@ -54,6 +54,7 @@ type config struct {
 	BaseURL         string     `json:"base_url"`
 	Auth            authMethod `json:"auth"`
 	LastUpdateCheck string     `json:"last_update_check"`
+	LatestVersion   string     `json:"latest_version"`
 }
 
 func (conf *config) tryUnmarshallWithToken(configBytes []byte) error {

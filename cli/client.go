@@ -447,17 +447,22 @@ func CheckUpdateAction(c *cli.Context) error {
 		conf = &config{}
 	}
 
+	var lastCheck time.Time
 	if conf.LastUpdateCheck == "" {
 		conf.LastUpdateCheck = time.Now().Format("2006-01-02")
 	} else {
-		lastCheck, err := time.Parse("2006-01-02", conf.LastUpdateCheck)
+		lastCheck, err = time.Parse("2006-01-02", conf.LastUpdateCheck)
 		if err != nil {
 			warningf(c.App.ErrWriter, "CLI Update Check: failed to parse date of last check: %w", err)
 			return nil
 		}
-		if time.Since(lastCheck) < time.Hour*24*3 {
-			return nil
-		}
+	}
+
+	// The latest version info is cached to limit api calls to once every three days
+	if time.Since(lastCheck) < time.Hour*24*3 && conf.LatestVersion != "" {
+    warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than 6 weeks old. "+
+      "Consider updating to version: %s", conf.LatestVersion)
+		return nil
 	}
 
 	latestRelease, err := checkLatestRelease()
@@ -472,9 +477,16 @@ func CheckUpdateAction(c *cli.Context) error {
 		return nil
 	}
 
+	conf.LatestVersion = latestVersion.String()
+
 	appVersion := rconfig.Version
 	if appVersion == "(dev)" {
-		warningf(c.App.ErrWriter, "Your CLI is more than 6 weeks old. Consider updating to version: %s", latestVersion.Original())
+		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than 6 weeks old. "+
+			"Consider updating to version: %s", latestVersion.Original())
+    err = storeConfigToCache(conf)
+    if err != nil {
+      utils.UncheckedError(err)
+    }
 		return nil
 	}
 
