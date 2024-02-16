@@ -7,8 +7,9 @@ import (
 	goutils "go.viam.com/utils"
 )
 
-// TODO: Move this to goutils instead of here. Until then, we cannot use this in any package
-// imported by utils (e.g., the logging package) without introducing a circular import dependency.
+// TODO: When this class is widely used and feature complete, move this to goutils instead of here.
+// Until then, we cannot use this in any package imported by utils (e.g., the logging package)
+// without introducing a circular import dependency.
 
 // StoppableWorkers is a collection of goroutines that can be stopped at a later time.
 type StoppableWorkers struct {
