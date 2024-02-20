@@ -507,67 +507,8 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 }
 
 func TestObstacleReplanningSlam(t *testing.T) {
-	ctx := context.Background()
-	origin := spatialmath.NewPose(
-		r3.Vector{X: -0.99503e3, Y: 0, Z: 0},
-		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90},
-	)
-
-	_, ms := createMoveOnMapEnvironment(
-		ctx, t,
-		"pointcloud/cardboardOcto.pcd",
-		50, origin,
-	)
-	defer ms.Close(ctx)
-
-	visSrvc, ok := ms.(*builtIn).visionServices[vision.Named("test-vision")].(*inject.VisionService)
-	test.That(t, ok, test.ShouldBeTrue)
-	i := 0
-	visSrvc.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-		if i == 0 {
-			i++
-			return []*viz.Object{}, nil
-		}
-		obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 500})
-		box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 50, Y: 100, Z: 10}, "test-case-1")
-		test.That(t, err, test.ShouldBeNil)
-
-		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", box.ToProtobuf())
-		test.That(t, err, test.ShouldBeNil)
-
-		return []*viz.Object{detection}, nil
-	}
-
-	obstacleDetectorSlice := []motion.ObstacleDetectorName{
-		{VisionServiceName: vision.Named("test-vision"), CameraName: camera.Named("test-camera")},
-	}
-	req := motion.MoveOnMapReq{
-		ComponentName: base.Named("test-base"),
-		Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 0.96679e3, Y: 0, Z: 0}),
-		SlamName:      slam.Named("test_slam"),
-		MotionCfg: &motion.MotionConfiguration{
-			PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: 1, ObstacleDetectors: obstacleDetectorSlice,
-		},
-		Extra: map[string]interface{}{"max_replans": 0, "smooth_iter": 0},
-	}
-
-	executionID, err := ms.MoveOnMap(ctx, req)
-	test.That(t, err, test.ShouldBeNil)
-
-	timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*15)
-	defer timeoutFn()
-	err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond, motion.PlanHistoryReq{
-		ComponentName: req.ComponentName,
-		ExecutionID:   executionID,
-		LastPlanOnly:  true,
-	})
-	test.That(t, err, test.ShouldNotBeNil)
-}
-
-func TestProveObstacleReplanningSlam(t *testing.T) {
 	cameraToBase := spatialmath.NewPose(r3.Vector{0, 0, 0}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90})
 	cameraToBaseInv := spatialmath.PoseInverse(cameraToBase)
-	fmt.Println(spatialmath.PoseToProtobuf(cameraToBaseInv))
 
 	ctx := context.Background()
 	origin := spatialmath.NewPose(
@@ -598,11 +539,8 @@ func TestProveObstacleReplanningSlam(t *testing.T) {
 		}
 		currentPif, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		fmt.Println("currentPif.Pose: ", spatialmath.PoseToProtobuf(currentPif.Pose()))
 
 		relativeBox := boxWrld.Transform(spatialmath.PoseInverse(currentPif.Pose())).Transform(cameraToBaseInv)
-		fmt.Println("relativeBox.Pose: ", spatialmath.PoseToProtobuf(relativeBox.Pose()))
-
 		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", relativeBox.ToProtobuf())
 		test.That(t, err, test.ShouldBeNil)
 
@@ -620,7 +558,7 @@ func TestProveObstacleReplanningSlam(t *testing.T) {
 			PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: 1, ObstacleDetectors: obstacleDetectorSlice,
 		},
 		Extra: map[string]interface{}{
-			// "max_replans": 2,
+			"max_replans": 2,
 			"smooth_iter": 0,
 		},
 	}
@@ -635,9 +573,7 @@ func TestProveObstacleReplanningSlam(t *testing.T) {
 		ExecutionID:   executionID,
 		LastPlanOnly:  true,
 	})
-	fmt.Println("err:", err)
-	// test.That(t, err, test.ShouldNotBeNil)
-	// test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestMultiplePieces(t *testing.T) {
@@ -1385,10 +1321,10 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		// place obstacle in opposte position and show that the generate path
 		// collides with obstacleRight
 		obstacleRight, err := spatialmath.NewBox(
-			spatialmath.NewPose(r3.Vector{X: 308.55, Y: 1180.18, Z: 0},
+			spatialmath.NewPose(r3.Vector{0.89627e3, -0.37192e3, 0},
 				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -45}),
-			r3.Vector{X: 900, Y: 10, Z: 10},
-			"obstacleLeft",
+			r3.Vector{900, 10, 10},
+			"obstacleRight",
 		)
 		test.That(t, err, test.ShouldBeNil)
 
