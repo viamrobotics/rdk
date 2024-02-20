@@ -355,8 +355,7 @@ func TestPtgCheckPlan(t *testing.T) {
 	})
 	t.Run("verify partial plan with non-nil errorState and obstacle", func(t *testing.T) {
 		// create obstacle which is behind where the robot already is, but is on the path it has already traveled
-		box, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{-100, 0, 0}), r3.Vector{10, 10, 1}, "obstacle")
+		box, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 1}, "obstacle")
 		test.That(t, err, test.ShouldBeNil)
 		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{box})}
 
