@@ -388,7 +388,7 @@ func RobotsPartShellAction(c *cli.Context) error {
 }
 
 // checkUpdateResponse holds the values used to hold release information.
-type checkUpdateResponse struct {
+type getLatestReleaseResponse struct {
 	Name       string `json:"name"`
 	TagName    string `json:"tag_name"`
 	TarballURL string `json:"tarball_url"`
@@ -398,7 +398,7 @@ func getLatestReleaseVersion() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	resp := checkUpdateResponse{}
+	resp := getLatestReleaseResponse{}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rdkReleaseURL, nil)
 	if err != nil {
