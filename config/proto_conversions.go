@@ -690,6 +690,8 @@ func CloudConfigFromProto(proto *pb.CloudConfig) (*Cloud, error) {
 		//nolint:staticcheck
 		LocationSecret:    proto.GetLocationSecret(),
 		LocationSecrets:   locationSecrets,
+		LocationId:        proto.GetLocationId(),
+		PrimaryOrgId:      proto.GetPrimaryOrgId(),
 		ManagedBy:         proto.GetManagedBy(),
 		FQDN:              proto.GetFqdn(),
 		LocalFQDN:         proto.GetLocalFqdn(),
