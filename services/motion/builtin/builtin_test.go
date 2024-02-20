@@ -2624,6 +2624,7 @@ func TestMoveCallInputs(t *testing.T) {
 }
 
 func TestGetTransientDetections(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 
 	_, ms := createMoveOnMapEnvironment(
@@ -2640,6 +2641,9 @@ func TestGetTransientDetections(t *testing.T) {
 		SlamName:      slam.Named("test_slam"),
 		MotionCfg: &motion.MotionConfiguration{
 			PlanDeviationMM: 1,
+			ObstacleDetectors: []motion.ObstacleDetectorName{
+				{VisionServiceName: vision.Named("test-vision"), CameraName: camera.Named("test-camera")},
+			},
 		},
 	}
 
@@ -2655,8 +2659,8 @@ func TestGetTransientDetections(t *testing.T) {
 	// define injected method on vision service
 	injectedVis.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 		boxGeom, err := spatialmath.NewBox(
-			spatialmath.NewPose(r3.Vector{X: 4, Y: 8, Z: 10}, &spatialmath.OrientationVectorDegrees{OZ: 1}),
-			r3.Vector{X: 2, Y: 3, Z: 5},
+			spatialmath.NewPose(r3.Vector{4, 8, 10}, &spatialmath.OrientationVectorDegrees{OZ: 1}),
+			r3.Vector{2, 3, 5},
 			"test-box",
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -2665,13 +2669,71 @@ func TestGetTransientDetections(t *testing.T) {
 		return []*viz.Object{detection}, nil
 	}
 
-	transformedGeoms, err := mr.getTransientDetections(ctx, injectedVis, camera.Named("test-camera"))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformedGeoms.Parent(), test.ShouldEqual, referenceframe.World)
-	test.That(t, len(transformedGeoms.Geometries()), test.ShouldEqual, 1)
+	type testCase struct {
+		name          string
+		f             func(g spatialmath.Geometry) spatialmath.Geometry
+		detectionPose spatialmath.Pose
+	}
+	testCases := []testCase{
+		{
+			name:          "relative - SLAM/base theta does not matter",
+			f:             func(g spatialmath.Geometry) spatialmath.Geometry { return g },
+			detectionPose: spatialmath.NewPose(r3.Vector{4, 10, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
+		},
+		{
+			name: "absolute - SLAM theta: 0, base theta: -90 == 270",
+			f: func(g spatialmath.Geometry) spatialmath.Geometry {
+				return g.Transform(
+					spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90}),
+				)
+			},
+			detectionPose: spatialmath.NewPose(r3.Vector{6, -14, -8}, &spatialmath.OrientationVectorDegrees{OX: 1, Theta: -90}),
+		},
+		{
+			name: "absolute - SLAM theta: 90, base theta: 0",
+			f: func(g spatialmath.Geometry) spatialmath.Geometry {
+				return g.Transform(
+					spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0}),
+				)
+			},
+			detectionPose: spatialmath.NewPose(r3.Vector{0, 0, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
+		},
+		{
+			name: "absolute - SLAM theta: 180, base theta: 90",
+			f: func(g spatialmath.Geometry) spatialmath.Geometry {
+				return g.Transform(
+					spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90}),
+				)
+			},
+			detectionPose: spatialmath.NewPose(r3.Vector{-14, -6, -8}, &spatialmath.OrientationVectorDegrees{OX: -1, Theta: -90}),
+		},
+		{
+			name: "absolute - SLAM theta: 270, base theta: 180",
+			f: func(g spatialmath.Geometry) spatialmath.Geometry {
+				return g.Transform(
+					spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180}),
+				)
+			},
+			detectionPose: spatialmath.NewPose(r3.Vector{-8, -20, -8}, &spatialmath.OrientationVectorDegrees{OY: -1, Theta: -90}),
+		},
+	}
 
-	expectedPose := spatialmath.NewPose(r3.Vector{X: 4, Y: 10, Z: -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90})
-	test.That(t, spatialmath.PoseAlmostEqual(transformedGeoms.Geometries()[0].Pose(), expectedPose), test.ShouldBeTrue)
+	testFn := func(t *testing.T, tc testCase) {
+		t.Helper()
+		transformedGeoms, err := mr.getTransientDetections(ctx, injectedVis, camera.Named("test-camera"), tc.f)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, transformedGeoms.Parent(), test.ShouldEqual, referenceframe.World)
+		test.That(t, len(transformedGeoms.Geometries()), test.ShouldEqual, 1)
+		test.That(t, spatialmath.PoseAlmostEqual(transformedGeoms.Geometries()[0].Pose(), tc.detectionPose), test.ShouldBeTrue)
+	}
+
+	for _, tc := range testCases {
+		c := tc // needed to workaround loop variable not being captured by func literals
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			testFn(t, c)
+		})
+	}
 }
 
 func TestStopPlan(t *testing.T) {
