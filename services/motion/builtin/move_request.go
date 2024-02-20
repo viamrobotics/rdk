@@ -235,10 +235,10 @@ func (mr *moveRequest) getTransientDetections(
 		}
 		geometry.SetLabel(label)
 
-		// transform the transform the geometry to be relative to the base frame which is +Y forwards
+		// transform the geometry to be relative to the base frame which is +Y forwards
 		relativeGeom := geometry.Transform(cameraToBase)
 
-		// apply any other transformation on the geometry defined a priori by the caller
+		// apply any transformation on the geometry defined a priori by the caller
 		transformedGeom := f(relativeGeom)
 		transformedGeoms = append(transformedGeoms, transformedGeom)
 	}
