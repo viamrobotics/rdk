@@ -394,7 +394,7 @@ type checkUpdateResponse struct {
 	TarballURL string `json:"tarball_url"`
 }
 
-func checkLatestRelease() (checkUpdateResponse, error) {
+func getLatestReleaseVersion() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -402,22 +402,22 @@ func checkLatestRelease() (checkUpdateResponse, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rdkReleaseURL, nil)
 	if err != nil {
-		return resp, err
+		return "", err
 	}
 
 	client := http.DefaultClient
 	res, err := client.Do(req)
 	if err != nil {
-		return resp, err
+		return "", err
 	}
 
 	err = json.NewDecoder(res.Body).Decode(&resp)
 	if err != nil {
-		return resp, err
+		return "", err
 	}
 
 	defer utils.UncheckedError(res.Body.Close())
-	return resp, err
+	return resp.TagName, err
 }
 
 // CheckUpdateAction is the corresponding Action for 'check-update'.
@@ -471,13 +471,13 @@ func CheckUpdateAction(c *cli.Context) error {
 		return nil
 	}
 
-	latestRelease, err := checkLatestRelease()
+	latestRelease, err := getLatestReleaseVersion()
 	if err != nil {
 		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", err)
 		return nil
 	}
 
-	latestVersion, err := semver.NewVersion(latestRelease.TagName)
+	latestVersion, err := semver.NewVersion(latestRelease)
 	if err != nil {
 		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse latest version: %w", err)
 		return nil
