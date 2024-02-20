@@ -26,7 +26,7 @@ const (
 	detectorInputName    = "image"
 )
 
-func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map) (objectdetection.Detector, error) {
+func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map, paramBoxOrder []int) (objectdetection.Detector, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
 		return nil, errors.New("could not get any metadata")
@@ -39,9 +39,14 @@ func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map
 	}
 	inType := md.Inputs[0].DataType
 	labels := getLabelsFromMetadata(md)
-	boxOrder, err := getBoxOrderFromMetadata(md)
-	if err != nil || len(boxOrder) < 4 {
-		boxOrder = []int{1, 0, 3, 2}
+	var boxOrder []int
+	if len(paramBoxOrder) == 4 {
+		boxOrder = paramBoxOrder
+	} else {
+		boxOrder, err = getBoxOrderFromMetadata(md)
+		if err != nil || len(boxOrder) < 4 {
+			boxOrder = []int{1, 0, 3, 2}
+		}
 	}
 
 	if shapeLen := len(md.Inputs[0].Shape); shapeLen < 4 {
@@ -115,18 +120,42 @@ func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map
 		if err != nil {
 			return nil, err
 		}
-		categories, err := convertToFloat64Slice(outMap[categoryName].Data())
-		if err != nil {
-			return nil, err
-		}
 		scores, err := convertToFloat64Slice(outMap[scoreName].Data())
 		if err != nil {
 			return nil, err
 		}
+		hasCategoryTensor := false
+		categories := make([]float64, len(scores)) // default 0 category if no category output
+		if categoryName != "" {
+			hasCategoryTensor = true
+			categories, err = convertToFloat64Slice(outMap[categoryName].Data())
+			if err != nil {
+				return nil, err
+			}
+		}
+		// sometimes categories are stuffed into the score output. separate them out.
+		if !hasCategoryTensor {
+			shape := outMap[scoreName].Shape()
+			if len(shape) == 3 { // cartegories are stored in 3rd dimension
+				nCategories := shape[2]              // nCategories usually in 3rd dim, but sometimes in 2nd
+				if 4*nCategories == len(locations) { // it's actually in 2nd dim
+					nCategories = shape[1]
+				}
+				scores, categories, err = extractCategoriesFromScores(scores, nCategories)
+				if err != nil {
+					return nil, errors.Wrap(err, "could not extract categories from score tensor")
+				}
+			}
+		}
 
 		// Now reshape outMap into Detections
 		if len(categories) != len(scores) || 4*len(scores) != len(locations) {
-			return nil, errors.New("output tensor sizes did not match each other as expected")
+			return nil, errors.Errorf(
+				"output tensor sizes did not match each other as expected. score: %v, category: %v, location: %v",
+				len(scores),
+				len(categories),
+				len(locations),
+			)
 		}
 		detections := make([]objectdetection.Detection, 0, len(scores))
 		detectionBoxesAreProportional := false
@@ -165,13 +194,52 @@ func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map
 	}, nil
 }
 
+func extractCategoriesFromScores(scores []float64, nCategories int) ([]float64, []float64, error) {
+	if nCategories == 1 { // trivially every category has the same label
+		categories := make([]float64, len(scores))
+		return scores, categories, nil
+	}
+	// ensure even division of data into categories
+	if len(scores)%nCategories != 0 {
+		return nil, nil, errors.Errorf("nCategories %v does not divide evenly into score tensor of length %v", nCategories, len(scores))
+	}
+	nEntries := len(scores) / nCategories
+	newCategories := make([]float64, 0, nEntries)
+	newScores := make([]float64, 0, nEntries)
+	for i := 0; i < nEntries; i++ {
+		argMax, floatMax, err := argMaxAndMax(scores[nCategories*i : nCategories*i+nCategories])
+		if err != nil {
+			return nil, nil, err
+		}
+		newCategories = append(newCategories, float64(argMax))
+		newScores = append(newScores, floatMax)
+	}
+	return newScores, newCategories, nil
+}
+
+func argMaxAndMax(slice []float64) (int, float64, error) {
+	if len(slice) == 0 {
+		return 0, 0.0, errors.New("slice cannot be nil or empty")
+	}
+	argMax := 0
+	floatMax := -math.MaxFloat64
+	for i, v := range slice {
+		if v > floatMax {
+			floatMax = v
+			argMax = i
+		}
+	}
+	return argMax, floatMax, nil
+}
+
 // findDetectionTensors finds the tensors that are necessary for object detection
 // the returned tensor order is location, category, score. It caches results.
+// category is optional, and will return "" if not present.
 func findDetectionTensorNames(outMap ml.Tensors, nameMap *sync.Map) (string, string, string, error) {
 	// first try the nameMap
 	loc, okLoc := nameMap.Load(detectorLocationName)
-	cat, okCat := nameMap.Load(detectorCategoryName)
 	score, okScores := nameMap.Load(detectorScoreName)
+	cat, okCat := nameMap.Load(detectorCategoryName)
 	if okLoc && okCat && okScores { // names are known
 		locString, ok := loc.(string)
 		if !ok {
@@ -187,7 +255,21 @@ func findDetectionTensorNames(outMap ml.Tensors, nameMap *sync.Map) (string, str
 		}
 		return locString, catString, scoreString, nil
 	}
+	if okLoc && okScores { // names are known, just no categories
+		locString, ok := loc.(string)
+		if !ok {
+			return "", "", "", errors.Errorf("name map was not storing string, but a type %T", loc)
+		}
+		scoreString, ok := score.(string)
+		if !ok {
+			return "", "", "", errors.Errorf("name map was not storing string, but a type %T", score)
+		}
+		if len(outMap[scoreString].Shape()) == 3 || len(outMap) == 2 { // the categories are in the score
+			return locString, "", scoreString, nil
+		}
+	}
 	// next, if nameMap is not set, just see if the outMap has expected names
+	// if the outMap only has two outputs, it might just be locations and scores.
 	_, okLoc = outMap[detectorLocationName]
 	_, okCat = outMap[detectorCategoryName]
 	_, okScores = outMap[detectorScoreName]
