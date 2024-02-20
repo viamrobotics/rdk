@@ -109,16 +109,18 @@ type ListPlanStatusesReq struct {
 	Extra           map[string]interface{}
 }
 
-// Plan represents a motion plan.
-type Plan struct {
+// PlanWithMetadata represents a motion plan with additional metadata used by the motion service.
+type PlanWithMetadata struct {
 	// Unique ID of the plan
 	ID PlanID
 	// Name of the component the plan is planning for
 	ComponentName resource.Name
 	// Unique ID of the execution
 	ExecutionID ExecutionID
-	// Steps that describe the plan
-	Steps []motionplan.PlanStep
+	// The motionplan itself
+	motionplan.Plan
+	// The GPS point to anchor visualized plans at
+	AnchorGeoPose *spatialmath.GeoPose
 }
 
 // PlanState denotes the state a Plan is in.
@@ -177,7 +179,7 @@ type PlanStatus struct {
 // PlanWithStatus contains a plan, its current status, and all state changes that came prior
 // sorted by ascending timestamp.
 type PlanWithStatus struct {
-	Plan          Plan
+	Plan          PlanWithMetadata
 	StatusHistory []PlanStatus
 }
 
@@ -193,10 +195,6 @@ type Service interface {
 		extra map[string]interface{},
 	) (bool, error)
 	MoveOnMap(
-		ctx context.Context,
-		req MoveOnMapReq,
-	) (ExecutionID, error)
-	MoveOnMapNew(
 		ctx context.Context,
 		req MoveOnMapReq,
 	) (ExecutionID, error)
@@ -304,10 +302,12 @@ func (ps PlanStatus) ToProto() *pb.PlanStatus {
 }
 
 // ToProto converts a Plan to a *pb.Plan.
-func (p Plan) ToProto() *pb.Plan {
+func (p PlanWithMetadata) ToProto() *pb.Plan {
 	steps := []*pb.PlanStep{}
-	for _, s := range p.Steps {
-		steps = append(steps, s.ToProto())
+	if p.Plan != nil {
+		for _, s := range p.Path() {
+			steps = append(steps, s.ToProto())
+		}
 	}
 
 	return &pb.Plan{
@@ -315,6 +315,20 @@ func (p Plan) ToProto() *pb.Plan {
 		ComponentName: rprotoutils.ResourceNameToProto(p.ComponentName),
 		ExecutionId:   p.ExecutionID.String(),
 		Steps:         steps,
+	}
+}
+
+// Renderable returns a copy of the struct substituting its Plan for a GeoPlan consisting of smuggled global coordinates
+// This will only be done if the AnchorGeoPose field is non-nil, otherwise the original struct will be returned.
+func (p PlanWithMetadata) Renderable() PlanWithMetadata {
+	if p.AnchorGeoPose == nil {
+		return p
+	}
+	return PlanWithMetadata{
+		ID:            p.ID,
+		ComponentName: p.ComponentName,
+		ExecutionID:   p.ExecutionID,
+		Plan:          motionplan.NewGeoPlan(p.Plan, p.AnchorGeoPose.Location()),
 	}
 }
 

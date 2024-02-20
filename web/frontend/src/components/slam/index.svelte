@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { onMount } from 'svelte';
 import {
+  commonApi,
   slamApi,
   motionApi,
   SlamClient,
@@ -14,24 +15,31 @@ import {
 import { SlamMap2D } from '@viamrobotics/prime-blocks';
 import { copyToClipboard } from '@/lib/copy-to-clipboard';
 import { filterSubtype } from '@/lib/resource';
-import { moveOnMap, stopMoveOnMap } from '@/api/motion';
+import { moveOnMap } from '@/api/motion';
 import { notify } from '@viamrobotics/prime';
 import { setAsyncInterval } from '@/lib/schedule';
-import { components } from '@/stores/resources';
+import { components, services } from '@/stores/resources';
 import Collapse from '@/lib/components/collapse.svelte';
 import Dropzone from '@/lib/components/dropzone.svelte';
 import { useRobotClient, useConnect } from '@/hooks/robot-client';
 import type { SLAMOverrides } from '@/types/overrides';
 import { rcLogConditionally } from '@/lib/log';
 import { grpc } from '@improbable-eng/grpc-web';
+import type { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
+type ResourceName = commonApi.ResourceName.AsObject;
 
 export let name: string;
+export let motionResourceNames: ResourceName[];
 export let overrides: SLAMOverrides | undefined;
 
 const { robotClient } = useRobotClient();
-const motionClient = new MotionClient($robotClient, 'builtin', {
-  requestLogger: rcLogConditionally,
-});
+const motionClient = new MotionClient(
+  $robotClient,
+  motionResourceNames[0]!.name,
+  {
+    requestLogger: rcLogConditionally,
+  }
+);
 const slamClient = new SlamClient($robotClient, name, {
   requestLogger: rcLogConditionally,
 });
@@ -59,6 +67,8 @@ let newMapName = '';
 let mapNameError = '';
 let motionPath: Float32Array | undefined;
 let mappingSessionStarted = false;
+let reloadMap: boolean | undefined;
+let lastReconfigured: Timestamp | undefined;
 
 $: pointcloudLoaded = Boolean(pointcloud?.length) && pose !== undefined;
 $: moveClicked = Boolean(executionID);
@@ -66,6 +76,9 @@ $: unitScale = labelUnits === 'm' ? 1 : 1000;
 
 // get all resources which are bases
 $: bases = filterSubtype($components, 'base');
+$: slamResourceName = filterSubtype($services, 'slam').find(
+  (service) => service.name === name
+)!;
 
 // allowMove is only true if we have a base, there exists a destination and there is no in-flight MoveOnMap req
 $: allowMove = bases.length === 1 && destination && !moveClicked;
@@ -89,26 +102,43 @@ const refresh2d = async () => {
         await overrides.getMappingSessionPCD(sessionId);
       nextPose = poseData;
       pointcloud = map;
+    } else {
+      /*
+       * Check if reconfiguration has happened
+       * If it has, reset the point cloud, update the reconfigured time and check what mode the new
+       * SLAM session is in to know whether or not to update the map.
+       */
+      const statuses = await $robotClient.getStatus([slamResourceName]);
+      const lastReconfiguredStatus = (statuses ?? []).find((status) =>
+        status.hasLastReconfigured()
+      );
+      const newLastReconfigured = lastReconfiguredStatus?.getLastReconfigured();
+
+      // assuming reconfigures do not happen at the nanosecond scale
+      if (
+        newLastReconfigured?.getSeconds() !== lastReconfigured?.getSeconds() ||
+        reloadMap === undefined
+      ) {
+        lastReconfigured = newLastReconfigured;
+
+        const props = await slamClient.getProperties();
+        reloadMap =
+          props.mappingMode !== slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY;
+      }
 
       /*
-       * The map timestamp is compared to the last timestamp
-       * to see if a change has been made to the point cloud map.
-       * A new call to getPointCloudMap is made if an update has occurred.
+       * Update the map and pose if the SLAM session is in mapping/updating mode or the pointcloud
+       * has yet to be defined else only update the pose
        */
-    } else {
-      const props = await slamClient.getProperties();
-      if (
-        props.mappingMode === slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY &&
-        pointcloud !== undefined
-      ) {
-        const response = await slamClient.getPosition();
-        nextPose = response.pose;
-      } else {
+      if (reloadMap || pointcloud === undefined) {
         let response;
         [pointcloud, response] = await Promise.all([
           slamClient.getPointCloudMap(),
           slamClient.getPosition(),
         ]);
+        nextPose = response.pose;
+      } else {
+        const response = await slamClient.getPosition();
         nextPose = response.pose;
       }
     }
@@ -135,30 +165,41 @@ const refresh2d = async () => {
 const refreshPaths = async () => {
   try {
     refreshErrorMessagePaths = undefined;
-    const res = await motionClient.getPlan(
-      {
-        namespace: 'rdk',
-        type: 'component',
-        subtype: 'base',
-        name: bases[0]!.name,
-      },
-      true
-    );
+    const base = bases[0]!;
+    const listPlanStatusesResponse = await motionClient.listPlanStatuses(true);
+    const baseHasPlan = listPlanStatusesResponse.planStatusesWithIdsList
+      .map((plan) => plan.componentName)
+      .find(
+        (planComponentName) =>
+          planComponentName?.namespace === base.namespace &&
+          planComponentName.subtype === base.subtype &&
+          planComponentName.type === base.type &&
+          planComponentName.name === base.name
+      );
+
+    if (!baseHasPlan) {
+      motionPath = undefined;
+      executionID = undefined;
+      return;
+    }
+
+    const getPlanResponse = await motionClient.getPlan(base, true);
     if (
-      res.currentPlanWithStatus?.status?.state ===
+      getPlanResponse.currentPlanWithStatus?.status?.state ===
       motionApi.PlanState.PLAN_STATE_IN_PROGRESS
     ) {
-      executionID = res.currentPlanWithStatus.plan?.executionId;
       const pathsInMeters: number[] = [];
       for (const {
         stepMap: [stepMap],
-      } of res.currentPlanWithStatus.plan?.stepsList ?? []) {
+      } of getPlanResponse.currentPlanWithStatus.plan?.stepsList ?? []) {
         const { pose: stepPose } = stepMap?.[1] ?? {};
         if (stepPose) {
           pathsInMeters.push(stepPose.x / 1000, stepPose.y / 1000);
         }
       }
+
       motionPath = new Float32Array(pathsInMeters);
+      executionID = getPlanResponse.currentPlanWithStatus.plan?.executionId;
       return;
     }
     motionPath = undefined;
@@ -257,10 +298,11 @@ const toggleAxes = () => {
 
 const handleMoveClick = async () => {
   try {
+    const base = bases[0]!;
     await moveOnMap(
       $robotClient,
-      name,
-      bases[0]!.name,
+      slamResourceName,
+      base,
       destination!.x,
       destination!.y
     );
@@ -272,7 +314,8 @@ const handleMoveClick = async () => {
 
 const handleStopMoveClick = async () => {
   try {
-    await stopMoveOnMap($robotClient, bases[0]!.name);
+    const base = bases[0]!;
+    await motionClient.stopPlan(base);
     await refreshPaths();
   } catch (error) {
     notify.danger((error as ServiceError).message);

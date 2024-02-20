@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/services/motion/builtin/state"
 )
 
@@ -17,7 +17,7 @@ type replanResponse struct {
 }
 
 // replanFn is an alias for a function that will be polled by a replanner.
-type replanFn func(context.Context, state.Waypoints, int) (state.ExecuteResponse, error)
+type replanFn func(context.Context, motionplan.Plan, int) (state.ExecuteResponse, error)
 
 func (rr replanResponse) String() string {
 	return fmt.Sprintf("builtin.replanResponse{executeResponse: %#v, err: %v}", rr.executeResponse, rr.err)
@@ -32,7 +32,7 @@ type replanner struct {
 	needReplan replanFn
 }
 
-// newReplanner is a constructor.
+// newReplanner is a constructor for a replanner.
 func newReplanner(period time.Duration, fnToPoll replanFn) *replanner {
 	return &replanner{
 		period:       period,
@@ -43,7 +43,7 @@ func newReplanner(period time.Duration, fnToPoll replanFn) *replanner {
 
 // startPolling executes the replanner's configured function at its configured period
 // The caller of this function should read from the replanner's responseChan to know when a replan is requested.
-func (r *replanner) startPolling(ctx context.Context, plan [][]referenceframe.Input, waypointIndex *atomic.Int32) {
+func (r *replanner) startPolling(ctx context.Context, plan motionplan.Plan, waypointIndex *atomic.Int32) {
 	ticker := time.NewTicker(r.period)
 	defer ticker.Stop()
 

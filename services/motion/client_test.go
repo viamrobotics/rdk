@@ -63,8 +63,7 @@ func TestClient(t *testing.T) {
 		test.That(t, rpcServer.Stop(), test.ShouldBeNil)
 	}()
 
-	zeroPose := spatialmath.NewZeroPose()
-	zeroPoseInFrame := referenceframe.NewPoseInFrame("", zeroPose)
+	zeroPoseInFrame := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose())
 	globeDest := geo.NewPoint(0.0, 0.0)
 	gripperName := gripper.Named("fake")
 	baseName := base.Named("test-base")
@@ -200,73 +199,6 @@ func TestClient(t *testing.T) {
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
-	t.Run("MoveOnMapNew", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
-
-		test.That(t, err, test.ShouldBeNil)
-
-		client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		t.Run("returns error without calling client since destination is nil", func(t *testing.T) {
-			injectMS.MoveOnMapNewFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
-				t.Log("should not be called")
-				t.FailNow()
-				return uuid.Nil, errors.New("should not be reached")
-			}
-
-			req := motion.MoveOnMapReq{
-				ComponentName: baseName,
-				SlamName:      slamName,
-			}
-
-			// nil destination is can't be converted to proto
-			executionID, err := client.MoveOnMapNew(ctx, req)
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err, test.ShouldBeError, errors.New("must provide a destination"))
-			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-		})
-
-		t.Run("returns error if client returns error", func(t *testing.T) {
-			errExpected := errors.New("some client error")
-			injectMS.MoveOnMapNewFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
-				return uuid.Nil, errExpected
-			}
-
-			req := motion.MoveOnMapReq{
-				ComponentName: baseName,
-				Destination:   spatialmath.NewZeroPose(),
-				SlamName:      slamName,
-				MotionCfg:     &motion.MotionConfiguration{},
-			}
-
-			executionID, err := client.MoveOnMapNew(ctx, req)
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
-			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-		})
-
-		t.Run("otherwise returns success with an executionID", func(t *testing.T) {
-			expectedExecutionID := uuid.New()
-			injectMS.MoveOnMapNewFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
-				return expectedExecutionID, nil
-			}
-
-			req := motion.MoveOnMapReq{
-				ComponentName: baseName,
-				Destination:   spatialmath.NewZeroPose(),
-				SlamName:      slamName,
-				MotionCfg:     &motion.MotionConfiguration{},
-			}
-
-			executionID, err := client.MoveOnMapNew(ctx, req)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, executionID, test.ShouldEqual, expectedExecutionID)
-		})
-
-		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
-		test.That(t, conn.Close(), test.ShouldBeNil)
-	})
 	t.Run("MoveOnMap", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 
@@ -569,9 +501,7 @@ func TestClient(t *testing.T) {
 		})
 
 		t.Run("otherwise returns a slice of PlanWithStatus", func(t *testing.T) {
-			steps := []motionplan.PlanStep{
-				{base.Named("mybase"): zeroPose},
-			}
+			steps := []motionplan.PathStep{{"mybase": zeroPoseInFrame}}
 			reason := "some reason"
 			id := uuid.New()
 			executionID := uuid.New()
@@ -579,11 +509,11 @@ func TestClient(t *testing.T) {
 			timeA := time.Now().UTC()
 			timeB := time.Now().UTC()
 
-			plan := motion.Plan{
+			plan := motion.PlanWithMetadata{
 				ID:            id,
 				ComponentName: base.Named("mybase"),
 				ExecutionID:   executionID,
-				Steps:         steps,
+				Plan:          motionplan.NewSimplePlan(steps, nil),
 			}
 			statusHistory := []motion.PlanStatus{
 				{motion.PlanStateFailed, timeB, &reason},
@@ -597,11 +527,11 @@ func TestClient(t *testing.T) {
 			req := motion.PlanHistoryReq{ComponentName: base.Named("mybase")}
 			resp, err := client.PlanHistory(ctx, req)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, resp, test.ShouldResemble, expectedResp)
+			planHistoriesEqual(t, resp, expectedResp)
 		})
 
 		t.Run("supports returning a slice of PlanWithStatus with more than one plan", func(t *testing.T) {
-			steps := []motionplan.PlanStep{{base.Named("mybase"): zeroPose}}
+			steps := []motionplan.PathStep{{"mybase": zeroPoseInFrame}}
 			reason := "some reason"
 
 			idA := uuid.New()
@@ -613,11 +543,11 @@ func TestClient(t *testing.T) {
 			timeAA := time.Now().UTC()
 			timeAB := time.Now().UTC()
 
-			planA := motion.Plan{
+			planA := motion.PlanWithMetadata{
 				ID:            idA,
 				ComponentName: base.Named("mybase"),
 				ExecutionID:   executionID,
-				Steps:         steps,
+				Plan:          motionplan.NewSimplePlan(steps, nil),
 			}
 			statusHistoryA := []motion.PlanStatus{
 				{motion.PlanStateFailed, timeAB, &reason},
@@ -627,11 +557,11 @@ func TestClient(t *testing.T) {
 			idB := uuid.New()
 			test.That(t, err, test.ShouldBeNil)
 			timeBA := time.Now().UTC()
-			planB := motion.Plan{
+			planB := motion.PlanWithMetadata{
 				ID:            idB,
 				ComponentName: base.Named("mybase"),
 				ExecutionID:   executionID,
-				Steps:         steps,
+				Plan:          motionplan.NewSimplePlan(steps, nil),
 			}
 
 			statusHistoryB := []motion.PlanStatus{
@@ -650,10 +580,22 @@ func TestClient(t *testing.T) {
 			req := motion.PlanHistoryReq{ComponentName: base.Named("mybase")}
 			resp, err := client.PlanHistory(ctx, req)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, resp, test.ShouldResemble, expectedResp)
+			planHistoriesEqual(t, resp, expectedResp)
 		})
 
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
+}
+
+func planHistoriesEqual(t *testing.T, resp, expectedResp []motion.PlanWithStatus) {
+	t.Helper()
+	test.That(t, len(resp), test.ShouldEqual, len(expectedResp))
+	for i := 0; i < len(resp); i++ {
+		test.That(t, resp[i].Plan.ID, test.ShouldResemble, expectedResp[i].Plan.ID)
+		test.That(t, resp[i].Plan.Path(), test.ShouldResemble, expectedResp[i].Plan.Path())
+		test.That(t, resp[i].StatusHistory, test.ShouldResemble, expectedResp[i].StatusHistory)
+		test.That(t, resp[i].Plan.ExecutionID, test.ShouldResemble, expectedResp[i].Plan.ExecutionID)
+		test.That(t, resp[i].Plan.ComponentName, test.ShouldResemble, expectedResp[i].Plan.ComponentName)
+	}
 }

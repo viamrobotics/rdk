@@ -25,23 +25,25 @@ const (
 	runFlagData   = "data"
 	runFlagStream = "stream"
 
-	apiKeyCreateFlagOrgID  = "org-id"
-	apiKeyCreateFlagName   = "name"
-	apiKeyFlagMachineID    = "machine-id"
-	apiKeyFlagAliasRobotID = "robot-id"
-	apiKeyFlagLocationID   = "location-id"
-
 	loginFlagDisableBrowser = "disable-browser-open"
 	loginFlagKeyID          = "key-id"
 	loginFlagKey            = "key"
 
+	// Flags shared by api-key, module and data subcommands.
+	generalFlagOrgID        = "org-id"
+	generalFlagLocationID   = "location-id"
+	generalFlagMachineID    = "machine-id"
+	generalFlagAliasRobotID = "robot-id"
+
+	apiKeyCreateFlagName = "name"
+
 	moduleFlagName            = "name"
 	moduleFlagPublicNamespace = "public-namespace"
-	moduleFlagOrgID           = "org-id"
 	moduleFlagPath            = "module"
 	moduleFlagVersion         = "version"
 	moduleFlagPlatform        = "platform"
 	moduleFlagForce           = "force"
+	moduleFlagBinary          = "binary"
 
 	moduleBuildFlagPath     = "module"
 	moduleBuildFlagRef      = "ref"
@@ -55,8 +57,6 @@ const (
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
 	dataFlagLocationIDs                    = "location-ids"
-	dataFlagMachineID                      = "machine-id"
-	dataFlagAliasRobotID                   = "robot-id"
 	dataFlagPartID                         = "part-id"
 	dataFlagMachineName                    = "machine-name"
 	dataFlagAliasRobotName                 = "robot-name"
@@ -70,26 +70,23 @@ const (
 	dataFlagParallelDownloads              = "parallel"
 	dataFlagTags                           = "tags"
 	dataFlagBboxLabels                     = "bbox-labels"
-	dataFlagOrgID                          = "org-id"
 	dataFlagDeleteTabularDataOlderThanDays = "delete-older-than-days"
 	dataFlagDatabasePassword               = "password"
-
-	boardFlagName    = "name"
-	boardFlagPath    = "path"
-	boardFlagVersion = "version"
 )
 
-// createUsageText is a helper for formatting the flags, if otherOptions is set to true
-// then [other options] is appended to the end of the text.
-func createUsageText(command string, flags []string, otherOptions bool) string {
-	formattedFlags := make([]string, len(flags)+1)
-	for i, flag := range flags {
-		formattedFlags[i] = fmt.Sprintf("--%s=<%s>", flag, flag)
+// createUsageText is a helper for formatting UsageTexts. The created UsageText
+// contains "viam", the command, requiredFlags, [other options] if otherOptions
+// is true, and all passed-in arguments in that order.
+func createUsageText(command string, requiredFlags []string, otherOptions bool, arguments ...string) string {
+	formatted := []string{"viam", command}
+	for _, flag := range requiredFlags {
+		formatted = append(formatted, fmt.Sprintf("--%s=<%s>", flag, flag))
 	}
 	if otherOptions {
-		formattedFlags[len(flags)] = "[other options]"
+		formatted = append(formatted, "[other options]")
 	}
-	return fmt.Sprintf("%s %s", command, strings.Join(formattedFlags, " "))
+	formatted = append(formatted, arguments...)
+	return strings.Join(formatted, " ")
 }
 
 var app = &cli.App{
@@ -134,8 +131,9 @@ var app = &cli.App{
 					Action: PrintAccessTokenAction,
 				},
 				{
-					Name:  "api-key",
-					Usage: "authenticate with an api key",
+					Name:      "api-key",
+					Usage:     "authenticate with an api key",
+					UsageText: createUsageText("login api-key", []string{loginFlagKeyID, loginFlagKey}, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     loginFlagKeyID,
@@ -174,15 +172,16 @@ var app = &cli.App{
 					Action: ListOrganizationsAction,
 				},
 				{
-					Name:  "api-key",
-					Usage: "work with an organization's api keys",
+					Name:      "api-key",
+					Usage:     "work with an organization's api keys",
+					UsageText: createUsageText("organizations api-key", []string{generalFlagOrgID}, true),
 					Subcommands: []*cli.Command{
 						{
 							Name:  "create",
 							Usage: "create an api key for your organization",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     apiKeyCreateFlagOrgID,
+									Name:     generalFlagOrgID,
 									Required: true,
 									Usage:    "the org to create an api key for",
 								},
@@ -214,11 +213,12 @@ var app = &cli.App{
 					Usage: "work with an api-key for your location",
 					Subcommands: []*cli.Command{
 						{
-							Name:  "create",
-							Usage: "create an api key for your location",
+							Name:      "create",
+							Usage:     "create an api key for your location",
+							UsageText: createUsageText("api-key create", []string{generalFlagOrgID}, true),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     apiKeyFlagLocationID,
+									Name:     generalFlagLocationID,
 									Required: true,
 									Usage:    "the location to create an api-key for",
 								},
@@ -227,7 +227,7 @@ var app = &cli.App{
 									Usage: "the name of the key (defaults to your login info with the current time)",
 								},
 								&cli.StringFlag{
-									Name: apiKeyCreateFlagOrgID,
+									Name: generalFlagOrgID,
 									Usage: "the org-id to attach the key to" +
 										"If not provided, will attempt to attach itself to the org of the location if only one org is attached to the location",
 								},
@@ -246,7 +246,7 @@ var app = &cli.App{
 				{
 					Name:      "export",
 					Usage:     "download data from Viam cloud",
-					UsageText: createUsageText("viam data export", []string{dataFlagDestination, dataFlagDataType}, true),
+					UsageText: createUsageText("data export", []string{dataFlagDestination, dataFlagDataType}, true),
 					Flags: []cli.Flag{
 						&cli.PathFlag{
 							Name:     dataFlagDestination,
@@ -268,8 +268,8 @@ var app = &cli.App{
 						},
 						&AliasStringFlag{
 							cli.StringFlag{
-								Name:    dataFlagMachineID,
-								Aliases: []string{dataFlagAliasRobotID},
+								Name:    generalFlagMachineID,
+								Aliases: []string{generalFlagAliasRobotID},
 								Usage:   "machine id filter",
 							},
 						},
@@ -338,7 +338,7 @@ var app = &cli.App{
 						{
 							Name:      "binary",
 							Usage:     "delete binary data from Viam cloud",
-							UsageText: createUsageText("viam data delete binary", nil, true),
+							UsageText: createUsageText("data delete binary", nil, true),
 							Flags: []cli.Flag{
 								&cli.StringSliceFlag{
 									Name:  dataFlagOrgIDs,
@@ -350,8 +350,8 @@ var app = &cli.App{
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
-										Name:    dataFlagMachineID,
-										Aliases: []string{dataFlagAliasRobotID},
+										Name:    generalFlagMachineID,
+										Aliases: []string{generalFlagAliasRobotID},
 										Usage:   "machine id filter",
 									},
 								},
@@ -400,10 +400,10 @@ var app = &cli.App{
 						{
 							Name:      "tabular",
 							Usage:     "delete tabular data from Viam cloud",
-							UsageText: createUsageText("viam data delete tabular", nil, true),
+							UsageText: createUsageText("data delete tabular", []string{generalFlagOrgID, dataFlagDeleteTabularDataOlderThanDays}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     dataFlagOrgID,
+									Name:     generalFlagOrgID,
 									Usage:    "org",
 									Required: true,
 								},
@@ -420,15 +420,15 @@ var app = &cli.App{
 				{
 					Name:      "database",
 					Usage:     "interact with a MongoDB Atlas Data Federation instance",
-					UsageText: "viam data database [other options]",
+					UsageText: createUsageText("data database", nil, true),
 					Subcommands: []*cli.Command{
 						{
 							Name:      "configure",
 							Usage:     "configures a database user for the Viam org's MongoDB Atlas Data Federation instance",
-							UsageText: createUsageText("viam data database configure", []string{dataFlagOrgID, dataFlagDatabasePassword}, false),
+							UsageText: createUsageText("data database configure", []string{generalFlagOrgID, dataFlagDatabasePassword}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     dataFlagOrgID,
+									Name:     generalFlagOrgID,
 									Usage:    "org ID for the database user being configured",
 									Required: true,
 								},
@@ -443,10 +443,10 @@ var app = &cli.App{
 						{
 							Name:      "hostname",
 							Usage:     "gets the hostname to access a MongoDB Atlas Data Federation Instance",
-							UsageText: createUsageText("viam data database hostname", []string{dataFlagOrgID}, false),
+							UsageText: createUsageText("data database hostname", []string{generalFlagOrgID}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     dataFlagOrgID,
+									Name:     generalFlagOrgID,
 									Usage:    "org ID for the database user",
 									Required: true,
 								},
@@ -458,7 +458,7 @@ var app = &cli.App{
 				{
 					Name:      "dataset",
 					Usage:     "add or remove data from datasets",
-					UsageText: createUsageText("viam data dataset", nil, true),
+					UsageText: createUsageText("data dataset", nil, true),
 					Subcommands: []*cli.Command{
 						{
 							Name:  "add",
@@ -467,8 +467,8 @@ var app = &cli.App{
 								{
 									Name:  "ids",
 									Usage: "adds binary data with file IDs in a single org and location to dataset",
-									UsageText: createUsageText("viam data dataset add ids", []string{
-										datasetFlagDatasetID, dataFlagOrgID,
+									UsageText: createUsageText("data dataset add ids", []string{
+										datasetFlagDatasetID, generalFlagOrgID,
 										dataFlagLocationID, dataFlagFileIDs,
 									}, false),
 									Flags: []cli.Flag{
@@ -478,7 +478,7 @@ var app = &cli.App{
 											Required: true,
 										},
 										&cli.StringFlag{
-											Name:     dataFlagOrgID,
+											Name:     generalFlagOrgID,
 											Usage:    "org ID to which data belongs",
 											Required: true,
 										},
@@ -498,7 +498,7 @@ var app = &cli.App{
 
 								{
 									Name:      "filter",
-									UsageText: createUsageText("viam data dataset add filter", []string{datasetFlagDatasetID}, true),
+									UsageText: createUsageText("data dataset add filter", []string{datasetFlagDatasetID}, true),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
 											Name:     datasetFlagDatasetID,
@@ -515,8 +515,8 @@ var app = &cli.App{
 										},
 										&AliasStringFlag{
 											cli.StringFlag{
-												Name:    dataFlagMachineID,
-												Aliases: []string{dataFlagAliasRobotID},
+												Name:    generalFlagMachineID,
+												Aliases: []string{generalFlagAliasRobotID},
 												Usage:   "machine id filter",
 											},
 										},
@@ -577,8 +577,8 @@ var app = &cli.App{
 						{
 							Name:  "remove",
 							Usage: "removes binary data with file IDs in a single org and location from dataset",
-							UsageText: createUsageText("viam data dataset remove",
-								[]string{datasetFlagDatasetID, dataFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false),
+							UsageText: createUsageText("data dataset remove",
+								[]string{datasetFlagDatasetID, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     datasetFlagDatasetID,
@@ -586,7 +586,7 @@ var app = &cli.App{
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:     dataFlagOrgID,
+									Name:     generalFlagOrgID,
 									Usage:    "org ID to which data belongs",
 									Required: true,
 								},
@@ -615,10 +615,10 @@ var app = &cli.App{
 				{
 					Name:      "create",
 					Usage:     "create a new dataset",
-					UsageText: createUsageText("viam dataset create", []string{dataFlagOrgID, datasetFlagName}, false),
+					UsageText: createUsageText("dataset create", []string{generalFlagOrgID, datasetFlagName}, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     dataFlagOrgID,
+							Name:     generalFlagOrgID,
 							Required: true,
 							Usage:    "org ID for which dataset will be created",
 						},
@@ -633,7 +633,7 @@ var app = &cli.App{
 				{
 					Name:  "rename",
 					Usage: "rename an existing dataset",
-					UsageText: createUsageText("viam dataset rename",
+					UsageText: createUsageText("dataset rename",
 						[]string{datasetFlagDatasetID, datasetFlagName}, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
@@ -653,14 +653,14 @@ var app = &cli.App{
 					Name:  "list",
 					Usage: "list dataset information from specified IDs or for an org ID",
 					UsageText: fmt.Sprintf("viam dataset list [--%s=<%s> | --%s=<%s>]",
-						datasetFlagDatasetIDs, datasetFlagDatasetIDs, dataFlagOrgID, dataFlagOrgID),
+						datasetFlagDatasetIDs, datasetFlagDatasetIDs, generalFlagOrgID, generalFlagOrgID),
 					Flags: []cli.Flag{
 						&cli.StringSliceFlag{
 							Name:  datasetFlagDatasetIDs,
 							Usage: "dataset IDs of datasets to be listed",
 						},
 						&cli.StringFlag{
-							Name:  dataFlagOrgID,
+							Name:  generalFlagOrgID,
 							Usage: "org ID for which datasets will be listed",
 						},
 					},
@@ -669,7 +669,7 @@ var app = &cli.App{
 				{
 					Name:      "delete",
 					Usage:     "delete a dataset",
-					UsageText: createUsageText("viam dataset delete", []string{datasetFlagDatasetID}, false),
+					UsageText: createUsageText("dataset delete", []string{datasetFlagDatasetID}, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     datasetFlagDatasetID,
@@ -689,7 +689,7 @@ var app = &cli.App{
 				{
 					Name:  "submit",
 					Usage: "submits training job on data in Viam cloud",
-					UsageText: createUsageText("viam train submit",
+					UsageText: createUsageText("train submit",
 						[]string{datasetFlagDatasetID, trainFlagModelOrgID, trainFlagModelName, trainFlagModelType, trainFlagModelLabels}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
@@ -729,7 +729,7 @@ var app = &cli.App{
 				{
 					Name:      "get",
 					Usage:     "gets training job from Viam cloud based on training job ID",
-					UsageText: createUsageText("viam train get", []string{trainFlagJobID}, false),
+					UsageText: createUsageText("train get", []string{trainFlagJobID}, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     trainFlagJobID,
@@ -742,7 +742,7 @@ var app = &cli.App{
 				{
 					Name:      "cancel",
 					Usage:     "cancels training job in Viam cloud based on training job ID",
-					UsageText: createUsageText("viam train cancel", []string{trainFlagJobID}, false),
+					UsageText: createUsageText("train cancel", []string{trainFlagJobID}, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     trainFlagJobID,
@@ -755,17 +755,17 @@ var app = &cli.App{
 				{
 					Name:      "list",
 					Usage:     "list training jobs in Viam cloud based on organization ID",
-					UsageText: createUsageText("viam train list", []string{dataFlagOrgID, trainFlagJobStatus}, false),
+					UsageText: createUsageText("train list", []string{generalFlagOrgID, trainFlagJobStatus}, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     dataFlagOrgID,
+							Name:     generalFlagOrgID,
 							Usage:    "org ID",
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name: trainFlagJobStatus,
-							Usage: "training status to filter for. can be one of " +
-								"[unspecified, pending, in_progress, completed, failed, canceled, canceling]",
+							Name:     trainFlagJobStatus,
+							Usage:    "training status to filter for. can be one of " + allTrainingStatusValues(),
+							Required: true,
 						},
 					},
 					Action: DataListTrainingJobs,
@@ -798,13 +798,14 @@ var app = &cli.App{
 					Usage: "work with a machine's api keys",
 					Subcommands: []*cli.Command{
 						{
-							Name:  "create",
-							Usage: "create an api-key for your machine",
+							Name:      "create",
+							Usage:     "create an api-key for your machine",
+							UsageText: createUsageText("machines api-key create", []string{generalFlagMachineID}, true),
 							Flags: []cli.Flag{
 								&AliasStringFlag{
 									cli.StringFlag{
-										Name:     apiKeyFlagMachineID,
-										Aliases:  []string{apiKeyFlagAliasRobotID},
+										Name:     generalFlagMachineID,
+										Aliases:  []string{generalFlagAliasRobotID},
 										Required: true,
 										Usage:    "the machine to create an api-key for",
 									},
@@ -814,7 +815,7 @@ var app = &cli.App{
 									Usage: "the name of the key (defaults to your login info with the current time)",
 								},
 								&cli.StringFlag{
-									Name: apiKeyCreateFlagOrgID,
+									Name: generalFlagOrgID,
 									Usage: "the org-id to attach this api-key to. If not provided," +
 										"we will attempt to use the org attached to the machine if only one exists",
 								},
@@ -826,7 +827,7 @@ var app = &cli.App{
 				{
 					Name:      "status",
 					Usage:     "display machine status",
-					UsageText: "viam machines status <machine> [other options]",
+					UsageText: createUsageText("machines status", []string{machineFlag}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        organizationFlag,
@@ -850,7 +851,7 @@ var app = &cli.App{
 					Name:      "logs",
 					Aliases:   []string{"log"},
 					Usage:     "display machine logs",
-					UsageText: "viam machines logs <machine> [other options]",
+					UsageText: createUsageText("machines logs", []string{machineFlag}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        organizationFlag,
@@ -882,7 +883,7 @@ var app = &cli.App{
 						{
 							Name:      "status",
 							Usage:     "display part status",
-							UsageText: "viam machines part status <machine> <part> [other options]",
+							UsageText: createUsageText("machines part status", []string{machineFlag, partFlag}, true),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:        organizationFlag,
@@ -910,7 +911,7 @@ var app = &cli.App{
 							Name:      "logs",
 							Aliases:   []string{"log"},
 							Usage:     "display part logs",
-							UsageText: "viam machines part logs <machine> <part> [other options]",
+							UsageText: createUsageText("machines part logs", []string{machineFlag, partFlag}, true),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:        organizationFlag,
@@ -944,9 +945,11 @@ var app = &cli.App{
 							Action: RobotsPartLogsAction,
 						},
 						{
-							Name:      "run",
-							Usage:     "run a command on a machine part",
-							UsageText: "viam machines part run <organization> <location> <machine> <part> [other options] <service.method>",
+							Name:  "run",
+							Usage: "run a command on a machine part",
+							UsageText: createUsageText("machines part run", []string{
+								organizationFlag, locationFlag, machineFlag, partFlag,
+							}, true, "<service.method>"),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     organizationFlag,
@@ -982,7 +985,7 @@ var app = &cli.App{
 							Name:        "shell",
 							Usage:       "start a shell on a machine part",
 							Description: `In order to use the shell command, the machine must have a valid shell type service.`,
-							UsageText:   "viam machines part shell <organization> <location> <machine> <part>",
+							UsageText:   createUsageText("machines part shell", []string{organizationFlag, locationFlag, machineFlag, partFlag}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     organizationFlag,
@@ -1027,7 +1030,7 @@ you won't have to pass a namespace or org-id in future commands. Otherwise there
 and you will have to provide the org-id to future cli commands. You cannot make your module public until you claim an org-id.
 
 After creation, use 'viam module update' to push your new module to app.viam.com.`,
-					UsageText: "viam module create <name> [other options]",
+					UsageText: createUsageText("module create", []string{moduleFlagName}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     moduleFlagName,
@@ -1039,7 +1042,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Usage: "the public namespace where the module will reside (alternative way of specifying the org id)",
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagOrgID,
+							Name:  generalFlagOrgID,
 							Usage: "id of the organization that will host the module",
 						},
 					},
@@ -1059,8 +1062,9 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Action: UpdateModuleAction,
 				},
 				{
-					Name:  "update-models",
-					Usage: "update a module's metadata file based on models it provides",
+					Name:      "update-models",
+					Usage:     "update a module's metadata file based on models it provides",
+					UsageText: createUsageText("module update-models", []string{moduleFlagBinary}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:      moduleFlagPath,
@@ -1069,7 +1073,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							TakesFile: true,
 						},
 						&cli.StringFlag{
-							Name:     "binary",
+							Name:     moduleFlagBinary,
 							Usage:    "binary for the module to run (has to work on this os/processor)",
 							Required: true,
 						},
@@ -1092,7 +1096,7 @@ Example uploading a custom tarball of your module:
 tar -czf packaged-module.tar.gz ./src requirements.txt run.sh
 viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.tar.gz
                       `,
-					UsageText: "viam module upload <version> <platform> [other options] <packaged-module.tar.gz>",
+					UsageText: createUsageText("module upload", []string{moduleFlagVersion, moduleFlagPlatform}, true, "<packaged-module.tag.gz>"),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:      moduleFlagPath,
@@ -1105,7 +1109,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 							Usage: "the public namespace where the module resides (alternative way of specifying the org id)",
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagOrgID,
+							Name:  generalFlagOrgID,
 							Usage: "id of the organization that hosts the module",
 						},
 						&cli.StringFlag{
@@ -1149,7 +1153,7 @@ Example:
 {
   "module_id": ...,
   "build": {
-    "setup": "setup.sh",                    // optional - command to install your build dependencies
+    "setup": "./setup.sh",                  // optional - command to install your build dependencies
     "build": "make module.tar.gz",          // command that will build your module
     "path" : "module.tar.gz",               // optional - path to your built module
                                             // (passed to the 'viam module upload' command)
@@ -1172,8 +1176,9 @@ Example:
 							Action: ModuleBuildLocalAction,
 						},
 						{
-							Name:  "start",
-							Usage: "start a remote build",
+							Name:      "start",
+							Usage:     "start a remote build",
+							UsageText: createUsageText("module build start", []string{moduleBuildFlagVersion}, true),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:      moduleBuildFlagPath,
@@ -1218,9 +1223,10 @@ Example:
 							Action: ModuleBuildListAction,
 						},
 						{
-							Name:    "logs",
-							Aliases: []string{"log"},
-							Usage:   "get the logs from one of your cloud builds",
+							Name:      "logs",
+							Aliases:   []string{"log"},
+							Usage:     "get the logs from one of your cloud builds",
+							UsageText: createUsageText("module build logs", []string{moduleBuildFlagBuildID}, true),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     moduleBuildFlagBuildID,
@@ -1246,80 +1252,6 @@ Example:
 			Name:   "version",
 			Usage:  "print version info for this program",
 			Action: VersionAction,
-		},
-		{
-			Name:            "board",
-			Usage:           "manage your board definition files",
-			HideHelpCommand: true,
-			Subcommands: []*cli.Command{
-				{
-					Name:  "upload",
-					Usage: "upload a board definition file",
-					Description: `Upload a json board definition file for linux boards.
-Example:
-viam board upload --name=orin --organization="my org" --version=1.0.0 file.json`,
-					UsageText: "viam board upload <name> <organization> <version> [other options] <file.json>",
-					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:     boardFlagName,
-							Usage:    "name of your board definition file (cannot be changed once set)",
-							Required: true,
-						},
-						&cli.StringFlag{
-							Name:     organizationFlag,
-							Usage:    "organization that will host the board definitions file. This can be the org's ID or name",
-							Required: true,
-						},
-						&cli.StringFlag{
-							Name:     boardFlagVersion,
-							Usage:    "version of the file to upload (semver2.0) ex: \"0.1.0\"",
-							Required: true,
-						},
-					},
-					Action: UploadBoardDefsAction,
-				},
-				{
-					Name:  "download",
-					Usage: "download a board definitions package",
-					Description: `download a json board definitions file for generic linux boards.
-Example:
-viam board download --name=test --organization="my org" --version=1.0.0`,
-					UsageText: "viam board download <name> <organization> <version> [other options]",
-					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:     boardFlagName,
-							Usage:    "name of the board definitions file to download",
-							Required: true,
-						},
-						&cli.StringFlag{
-							Name:     organizationFlag,
-							Usage:    "organization that hosts the board definitions file",
-							Required: true,
-						},
-						&cli.StringFlag{
-							Name:  boardFlagVersion,
-							Usage: "version of the file to download. defaults to latest if not set.",
-						},
-					},
-					Action: DownloadBoardDefsAction,
-				},
-				{
-					Name:  "list",
-					Usage: "list all board defintions packages",
-					Description: `list the board defintions packages available from an organization.
-Example:
-viam board list --organization="my org"`,
-					UsageText: "viam board list <organization>[other options]",
-					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:     organizationFlag,
-							Usage:    "organization that hosts the board definitions files",
-							Required: true,
-						},
-					},
-					Action: ListBoardDefsAction,
-				},
-			},
 		},
 	},
 }

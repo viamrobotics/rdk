@@ -869,4 +869,10 @@ func TestGoToInputs(t *testing.T) {
 	inputs = []referenceframe.Input{{Value: 1.0}}
 	err = fakegantry.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
+
+	err = fakegantry.GoToInputs(ctx, inputs, inputs)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = fakegantry.GoToInputs(ctx)
+	test.That(t, err, test.ShouldBeNil)
 }

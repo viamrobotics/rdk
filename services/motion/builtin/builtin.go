@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
@@ -26,6 +27,11 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+var (
+	stateTTL              = time.Hour * 24
+	stateTTLCheckInterval = time.Minute
+)
+
 func init() {
 	resource.RegisterDefaultService(
 		motion.API,
@@ -42,15 +48,16 @@ func init() {
 }
 
 const (
-	builtinOpLabel                   = "motion-service"
-	maxTravelDistanceMM              = 5e6 // this is equivalent to 5km
-	lookAheadDistanceMM      float64 = 5e6
-	defaultSmoothIter                = 30
-	defaultAngularDegsPerSec         = 20.
-	defaultLinearMPerSec             = 0.3
-	defaultObstaclePollingHz         = 1.
-	defaultPlanDeviationM            = 2.6
-	defaultPositionPollingHz         = 1.
+	builtinOpLabel                     = "motion-service"
+	maxTravelDistanceMM                = 5e6 // this is equivalent to 5km
+	lookAheadDistanceMM        float64 = 5e6
+	defaultSmoothIter                  = 30
+	defaultAngularDegsPerSec           = 20.
+	defaultLinearMPerSec               = 0.3
+	defaultObstaclePollingHz           = 1.
+	defaultSlamPlanDeviationM          = 1.
+	defaultGlobePlanDeviationM         = 2.6
+	defaultPositionPollingHz           = 1.
 )
 
 // inputEnabledActuator is an actuator that interacts with the frame system.
@@ -134,7 +141,12 @@ func (ms *builtIn) Reconfigure(
 	if ms.state != nil {
 		ms.state.Stop()
 	}
-	ms.state = state.NewState(context.Background(), ms.logger)
+
+	state, err := state.NewState(stateTTL, stateTTLCheckInterval, ms.logger)
+	if err != nil {
+		return err
+	}
+	ms.state = state
 	return nil
 }
 
@@ -204,7 +216,7 @@ func (ms *builtIn) Move(
 	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	steps, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
+	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
 		Logger:             ms.logger,
 		Goal:               goalPose,
 		Frame:              movingFrame,
@@ -219,8 +231,7 @@ func (ms *builtIn) Move(
 	}
 
 	// move all the components
-	for _, step := range steps {
-		// TODO(erh): what order? parallel?
+	for _, step := range plan.Trajectory() {
 		for name, inputs := range step {
 			if len(inputs) == 0 {
 				continue
@@ -247,25 +258,6 @@ func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (moti
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	ms.logger.CDebugf(ctx, "MoveOnMap called with %s", req)
-
-	// TODO: Deprecated: remove once no motion apis use the opid system
-	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-
-	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, ms.newMoveOnMapRequest)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	return id, nil
-}
-
-func (ms *builtIn) MoveOnMapNew(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
-	if err := ctx.Err(); err != nil {
-		return uuid.Nil, err
-	}
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	ms.logger.CDebugf(ctx, "MoveOnMapNew called with %s", req)
 
 	// TODO: Deprecated: remove once no motion apis use the opid system
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)

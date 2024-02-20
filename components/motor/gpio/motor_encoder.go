@@ -108,11 +108,6 @@ func newEncodedMotor(
 		if err := em.setupControlLoop(); err != nil {
 			return nil, err
 		}
-
-		// // validate control loop config
-		// if err = em.validateControlConfig(cancelCtx); err != nil {
-		// 	return nil, err
-		// }
 	} else {
 		// TODO DOCS-1524: link to docs that explain control parameters
 		em.logger.Warn(
@@ -615,7 +610,6 @@ func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) e
 		m.loop.Stop()
 		m.loop = nil
 	}
-
 	return m.real.Stop(ctx, nil)
 }
 
@@ -623,6 +617,7 @@ func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) e
 func (m *EncodedMotor) Close(ctx context.Context) error {
 	if m.loop != nil {
 		m.loop.Stop()
+		m.loop = nil
 	}
 	m.cancel()
 	m.activeBackgroundWorkers.Wait()

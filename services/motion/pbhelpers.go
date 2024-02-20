@@ -12,7 +12,6 @@ import (
 
 	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -94,26 +93,26 @@ func planStatusWithIDFromProto(ps *pb.PlanStatusWithID) (PlanStatusWithID, error
 }
 
 // planFromProto converts a *pb.Plan to a Plan.
-func planFromProto(p *pb.Plan) (Plan, error) {
+func planFromProto(p *pb.Plan) (PlanWithMetadata, error) {
 	if p == nil {
-		return Plan{}, errors.New("received nil *pb.Plan")
+		return PlanWithMetadata{}, errors.New("received nil *pb.Plan")
 	}
 
 	id, err := uuid.Parse(p.Id)
 	if err != nil {
-		return Plan{}, err
+		return PlanWithMetadata{}, err
 	}
 
 	executionID, err := uuid.Parse(p.ExecutionId)
 	if err != nil {
-		return Plan{}, err
+		return PlanWithMetadata{}, err
 	}
 
 	if p.ComponentName == nil {
-		return Plan{}, errors.New("received nil *pb.ResourceName")
+		return PlanWithMetadata{}, errors.New("received nil *pb.ResourceName")
 	}
 
-	plan := Plan{
+	plan := PlanWithMetadata{
 		ID:            id,
 		ComponentName: rprotoutils.ResourceNameFromProto(p.ComponentName),
 		ExecutionID:   executionID,
@@ -123,35 +122,16 @@ func planFromProto(p *pb.Plan) (Plan, error) {
 		return plan, nil
 	}
 
-	steps := []motionplan.PlanStep{}
+	steps := motionplan.Path{}
 	for _, s := range p.Steps {
-		step, err := planStepFromProto(s)
+		step, err := motionplan.PathStepFromProto(s)
 		if err != nil {
-			return Plan{}, err
+			return PlanWithMetadata{}, err
 		}
 		steps = append(steps, step)
 	}
-
-	plan.Steps = steps
-
+	plan.Plan = motionplan.NewSimplePlan(steps, nil)
 	return plan, nil
-}
-
-// planStepFromProto converts a *pb.PlanStep to a PlanStep.
-func planStepFromProto(s *pb.PlanStep) (motionplan.PlanStep, error) {
-	if s == nil {
-		return motionplan.PlanStep{}, errors.New("received nil *pb.PlanStep")
-	}
-
-	step := make(motionplan.PlanStep)
-	for k, v := range s.Step {
-		name, err := resource.NewFromString(k)
-		if err != nil {
-			return motionplan.PlanStep{}, err
-		}
-		step[name] = spatialmath.NewPoseFromProtobuf(v.Pose)
-	}
-	return step, nil
 }
 
 // planStateFromProto converts a pb.PlanState to a PlanState.
@@ -298,33 +278,6 @@ func getPlanRequestFromProto(req *pb.GetPlanRequest) (PlanHistoryReq, error) {
 	}, nil
 }
 
-// RSDK-6444
-//
-//nolint:staticcheck
-func moveOnMapNewRequestFromProto(req *pb.MoveOnMapNewRequest) (MoveOnMapReq, error) {
-	if req == nil {
-		return MoveOnMapReq{}, errors.New("received nil *pb.MoveOnMapNewRequest")
-	}
-	if req.GetDestination() == nil {
-		return MoveOnMapReq{}, errors.New("received nil *commonpb.Pose for destination")
-	}
-	protoComponentName := req.GetComponentName()
-	if protoComponentName == nil {
-		return MoveOnMapReq{}, errors.New("received nil *commonpb.ResourceName for component name")
-	}
-	protoSlamServiceName := req.GetSlamServiceName()
-	if protoSlamServiceName == nil {
-		return MoveOnMapReq{}, errors.New("received nil *commonpb.ResourceName for SlamService name")
-	}
-	return MoveOnMapReq{
-		ComponentName: rprotoutils.ResourceNameFromProto(protoComponentName),
-		Destination:   spatialmath.NewPoseFromProtobuf(req.GetDestination()),
-		SlamName:      rprotoutils.ResourceNameFromProto(protoSlamServiceName),
-		MotionCfg:     configurationFromProto(req.MotionConfiguration),
-		Extra:         req.Extra.AsMap(),
-	}, nil
-}
-
 func moveOnMapRequestFromProto(req *pb.MoveOnMapRequest) (MoveOnMapReq, error) {
 	if req == nil {
 		return MoveOnMapReq{}, errors.New("received nil *pb.MoveOnMapRequest")
@@ -356,35 +309,6 @@ func moveOnMapRequestFromProto(req *pb.MoveOnMapRequest) (MoveOnMapReq, error) {
 		Obstacles:     geoms,
 		Extra:         req.Extra.AsMap(),
 	}, nil
-}
-
-// RSDK-6444
-//
-//nolint:staticcheck
-func (r MoveOnMapReq) toProtoNew(name string) (*pb.MoveOnMapNewRequest, error) {
-	ext, err := vprotoutils.StructToStructPb(r.Extra)
-	if err != nil {
-		return nil, err
-	}
-	if r.Destination == nil {
-		return nil, errors.New("must provide a destination")
-	}
-
-	// RSDK-6444
-	//nolint:staticcheck
-	req := &pb.MoveOnMapNewRequest{
-		Name:            name,
-		ComponentName:   rprotoutils.ResourceNameToProto(r.ComponentName),
-		Destination:     spatialmath.PoseToProtobuf(r.Destination),
-		SlamServiceName: rprotoutils.ResourceNameToProto(r.SlamName),
-		Extra:           ext,
-	}
-
-	if r.MotionCfg != nil {
-		req.MotionConfiguration = r.MotionCfg.toProto()
-	}
-
-	return req, nil
 }
 
 func (r MoveOnMapReq) toProto(name string) (*pb.MoveOnMapRequest, error) {

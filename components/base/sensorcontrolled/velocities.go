@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/control"
@@ -97,15 +98,63 @@ func (sb *sensorBase) updateControlConfig(
 	return nil
 }
 
+func (sb *sensorBase) autoTuneAll(ctx context.Context, cancelFunc context.CancelFunc, linear, angular basePIDConfig) error {
+	var errs error
+	sb.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer utils.UncheckedErrorFunc(func() error {
+			sb.mu.Lock()
+			defer sb.mu.Unlock()
+			cancelFunc()
+			return sb.controlledBase.Stop(ctx, nil)
+		})
+		defer sb.activeBackgroundWorkers.Done()
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		// to tune linear PID values, angular PI values must be non-zero
+		fakeConf := basePIDConfig{Type: typeAngVel, P: 0.5, I: 0.5, D: 0.0}
+		sb.logger.Info("tuning linear PID")
+		if err := sb.autoTuningProcess(ctx, linear, fakeConf); err != nil {
+			errs = multierr.Combine(errs, err)
+		}
+		if err := sb.Stop(ctx, nil); err != nil {
+			errs = multierr.Combine(errs, err)
+		}
+		// to tune angular PID values, linear PI values must be non-zero
+		fakeConf.Type = typeLinVel
+		sb.logger.Info("tuning angular PID")
+		if err := sb.autoTuningProcess(ctx, fakeConf, angular); err != nil {
+			errs = multierr.Combine(errs, err)
+		}
+	})
+	return errs
+}
+
+func (sb *sensorBase) autoTuningProcess(ctx context.Context, linear, angular basePIDConfig) error {
+	sb.controlLoopConfig = sb.createControlLoopConfig(linear, angular)
+	if err := sb.setupControlLoops(); err != nil {
+		return err
+	}
+	if err := sb.loop.MonitorTuning(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (sb *sensorBase) SetVelocity(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
 	sb.opMgr.CancelRunning(ctx)
-	// check if a sensor context has been started
-	if sb.sensorLoopDone != nil {
-		sb.sensorLoopDone()
+	// stop any previous base movement
+	// if multiple SetVelocity calls (such as from motion) causes issues, this can be replaced
+	// with a helper function to cancel the threads without calling Stop on the underlying base
+	if err := sb.Stop(ctx, nil); err != nil {
+		return err
 	}
-
 	// set the spin loop to false, so we do not skip the call to SetState in the control loop
 	sb.setPolling(false)
 

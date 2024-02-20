@@ -1,6 +1,7 @@
 package data
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -46,6 +47,10 @@ func (p CollectorParams) Validate() error {
 type MethodMetadata struct {
 	API        resource.API
 	MethodName string
+}
+
+func (m MethodMetadata) String() string {
+	return fmt.Sprintf("Api: %v, Method Name: %s", m.API, m.MethodName)
 }
 
 var collectorRegistry = map[MethodMetadata]CollectorConstructor{}

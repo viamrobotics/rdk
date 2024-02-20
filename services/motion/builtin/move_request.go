@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
@@ -34,6 +33,8 @@ const (
 	defaultMaxReplans       = -1 // Values below zero will replan infinitely
 	baseStopTimeout         = time.Second * 5
 )
+
+var errGoalWithinPlanDeviation = errors.New("no need to move, already within planDeviationMM")
 
 // validatedMotionConfiguration is a copy of the motion.MotionConfiguration type
 // which has been validated to conform to the expectations of the builtin
@@ -59,8 +60,7 @@ const (
 type moveRequest struct {
 	requestType requestType
 	// geoPoseOrigin is only set if requestType == requestTypeMoveOnGlobe
-	geoPoseOrigin spatialmath.GeoPose
-	// poseOrigin is only set if requestType == requestTypeMoveOnMap
+	geoPoseOrigin     *spatialmath.GeoPose
 	poseOrigin        spatialmath.Pose
 	logger            logging.Logger
 	config            *validatedMotionConfiguration
@@ -81,10 +81,10 @@ type moveRequest struct {
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
-func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
+func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	inputs, err := mr.kinematicBase.CurrentInputs(ctx)
 	if err != nil {
-		return state.PlanResponse{}, err
+		return nil, err
 	}
 	// TODO: this is really hacky and we should figure out a better place to store this information
 	if len(mr.kinematicBase.Kinematics().DoF()) == 2 {
@@ -95,55 +95,32 @@ func (mr *moveRequest) Plan(ctx context.Context) (state.PlanResponse, error) {
 	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
 	plan, err := motionplan.Replan(ctx, mr.planRequest, nil, 0)
 	if err != nil {
-		return state.PlanResponse{}, err
+		return nil, err
 	}
+	return motionplan.OffsetPlan(plan, mr.poseOrigin), nil
+}
 
-	waypoints, err := plan.GetFrameSteps(mr.kinematicBase.Kinematics().Name())
-	if err != nil {
-		return state.PlanResponse{}, err
-	}
+func (mr *moveRequest) Execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
+	defer mr.executeBackgroundWorkers.Wait()
+	cancelCtx, cancelFn := context.WithCancel(ctx)
+	defer cancelFn()
 
-	switch mr.requestType {
-	case requestTypeMoveOnMap:
-		planSteps, err := motionplan.PlanToPlanSteps(plan, mr.kinematicBase.Name(), *mr.planRequest, mr.poseOrigin)
-		if err != nil {
-			return state.PlanResponse{}, err
-		}
+	mr.start(cancelCtx, plan)
+	return mr.listen(cancelCtx)
+}
 
-		return state.PlanResponse{
-			Waypoints:        waypoints,
-			Motionplan:       plan,
-			PosesByComponent: planSteps,
-		}, nil
-	case requestTypeMoveOnGlobe:
-		// safe to use mr.poseOrigin since it is nil for requestTypeMoveOnGlobe
-		planSteps, err := motionplan.PlanToPlanSteps(plan, mr.kinematicBase.Name(), *mr.planRequest, mr.poseOrigin)
-		if err != nil {
-			return state.PlanResponse{}, err
-		}
-		geoPoses := motionplan.PlanStepsToGeoPoses(planSteps, mr.kinematicBase.Name(), mr.geoPoseOrigin)
-
-		// NOTE: Here we are smuggling GeoPoses into Poses by component
-		planSteps, err = toGeoPosePlanSteps(planSteps, geoPoses)
-		if err != nil {
-			return state.PlanResponse{}, err
-		}
-
-		return state.PlanResponse{
-			Waypoints:        waypoints,
-			Motionplan:       plan,
-			PosesByComponent: planSteps,
-		}, nil
-	case requestTypeUnspecified:
-		fallthrough
-	default:
-		return state.PlanResponse{}, fmt.Errorf("invalid moveRequest.requestType: %d", mr.requestType)
-	}
+func (mr *moveRequest) AnchorGeoPose() *spatialmath.GeoPose {
+	return mr.geoPoseOrigin
 }
 
 // execute attempts to follow a given Plan starting from the index percribed by waypointIndex.
 // Note that waypointIndex is an atomic int that is incremented in this function after each waypoint has been successfully reached.
-func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, waypointIndex *atomic.Int32) (state.ExecuteResponse, error) {
+func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan, waypointIndex *atomic.Int32) (state.ExecuteResponse, error) {
+	waypoints, err := plan.Trajectory().GetFrameInputs(mr.kinematicBase.Name().ShortName())
+	if err != nil {
+		return state.ExecuteResponse{}, err
+	}
+
 	// Iterate through the list of waypoints and issue a command to move to each
 	for i := int(waypointIndex.Load()); i < len(waypoints); i++ {
 		select {
@@ -169,13 +146,13 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints state.Waypoints, w
 		}
 	}
 	// the plan has been fully executed so check to see if where we are at is close enough to the goal.
-	return mr.deviatedFromPlan(ctx, waypoints, len(waypoints)-1)
+	return mr.deviatedFromPlan(ctx, plan, len(waypoints)-1)
 }
 
-// deviatedFromPlan takes a list of waypoints and an index of a waypoint on that Plan and returns whether or not it is still
+// deviatedFromPlan takes a plan and an index of a waypoint on that Plan and returns whether or not it is still
 // following the plan as described by the PlanDeviation specified for the moveRequest.
-func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints state.Waypoints, waypointIndex int) (state.ExecuteResponse, error) {
-	errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, waypointIndex)
+func (mr *moveRequest) deviatedFromPlan(ctx context.Context, plan motionplan.Plan, waypointIndex int) (state.ExecuteResponse, error) {
+	errorState, err := mr.kinematicBase.ErrorState(ctx, plan, waypointIndex)
 	if err != nil {
 		return state.ExecuteResponse{}, err
 	}
@@ -189,15 +166,13 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints state.Way
 
 func (mr *moveRequest) obstaclesIntersectPlan(
 	ctx context.Context,
-	waypoints state.Waypoints,
+	plan motionplan.Plan,
 	waypointIndex int,
 ) (state.ExecuteResponse, error) {
-	var plan motionplan.Plan
-	// We only care to check against waypoints we have not reached yet.
-	for _, inputs := range waypoints[waypointIndex:] {
-		input := make(map[string][]referenceframe.Input)
-		input[mr.kinematicBase.Name().Name] = inputs
-		plan = append(plan, input)
+	// check no obstacles intersect the portion of the plan which has yet to be executed
+	remainingPlan, err := motionplan.RemainingPlan(plan, waypointIndex)
+	if err != nil {
+		return state.ExecuteResponse{}, err
 	}
 
 	for visSrvc, cameraNames := range mr.obstacleDetectors {
@@ -229,7 +204,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			if err != nil {
 				// here we make the assumption the base is coincident with the camera
 				mr.logger.Debugf(
-					"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
+					"assuming base named: %s is coincident with the camera named: %s due to err: %v",
 					mr.kinematicBase.Name().ShortName(), camName.ShortName(), err.Error(),
 				)
 				baseToCamera = cameraOrigin
@@ -268,24 +243,27 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				return state.ExecuteResponse{}, err
 			}
 
+			// build representation of frame system's inputs
 			currentInputs, err := mr.kinematicBase.CurrentInputs(ctx)
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
+			inputMap := referenceframe.StartPositions(mr.planRequest.FrameSystem)
+			inputMap[mr.kinematicBase.Name().ShortName()] = currentInputs
 
 			// get the pose difference between where the robot is versus where it ought to be.
-			errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, waypointIndex)
+			errorState, err := mr.kinematicBase.ErrorState(ctx, plan, waypointIndex)
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
 
 			if err := motionplan.CheckPlan(
 				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
-				plan,                          // remainder of plan we wish to check against
-				worldState,                    // detected obstacles by this instance of camera + service
+				remainingPlan,
+				worldState, // detected obstacles by this instance of camera + service
 				mr.planRequest.FrameSystem,
 				currentPosition.Pose(), // currentPosition of robot accounts for errorState
-				currentInputs,
+				inputMap,
 				errorState, // deviation of robot from plan
 				lookAheadDistanceMM,
 				mr.planRequest.Logger,
@@ -343,15 +321,25 @@ func validateNotNegNorNaN(f float64, name string) error {
 	return validateNotNeg(f, name)
 }
 
-func newValidatedMotionCfg(motionCfg *motion.MotionConfiguration) (*validatedMotionConfiguration, error) {
+func newValidatedMotionCfg(motionCfg *motion.MotionConfiguration, reqType requestType) (*validatedMotionConfiguration, error) {
 	empty := &validatedMotionConfiguration{}
 	vmc := &validatedMotionConfiguration{
 		angularDegsPerSec:     defaultAngularDegsPerSec,
 		linearMPerSec:         defaultLinearMPerSec,
 		obstaclePollingFreqHz: defaultObstaclePollingHz,
 		positionPollingFreqHz: defaultPositionPollingHz,
-		planDeviationMM:       defaultPlanDeviationM * 1e3,
 		obstacleDetectors:     []motion.ObstacleDetectorName{},
+	}
+
+	switch reqType {
+	case requestTypeMoveOnGlobe:
+		vmc.planDeviationMM = defaultGlobePlanDeviationM * 1e3
+	case requestTypeMoveOnMap:
+		vmc.planDeviationMM = defaultSlamPlanDeviationM * 1e3
+	case requestTypeUnspecified:
+		fallthrough
+	default:
+		return empty, fmt.Errorf("invalid moveRequest.requestType: %d", reqType)
 	}
 
 	if motionCfg == nil {
@@ -422,7 +410,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		}
 	}
 
-	motionCfg, err := newValidatedMotionCfg(req.MotionCfg)
+	motionCfg, err := newValidatedMotionCfg(req.MotionCfg, requestTypeMoveOnGlobe)
 	if err != nil {
 		return nil, err
 	}
@@ -464,7 +452,8 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		// here we make the assumption the movement sensor is coincident with the base
 		movementSensorToBase = baseOrigin
 	}
-	localizer := motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose())
+	// Create a localizer from the movement sensor, and collapse reported orientations to 2d
+	localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose()))
 
 	// create a KinematicBase from the componentName
 	baseComponent, ok := ms.components[req.ComponentName]
@@ -520,7 +509,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	mr.seedPlan = seedPlan
 	mr.replanCostFactor = valExtra.replanCostFactor
 	mr.requestType = requestTypeMoveOnGlobe
-	mr.geoPoseOrigin = *spatialmath.NewGeoPose(origin, heading)
+	mr.geoPoseOrigin = spatialmath.NewGeoPose(origin, heading)
 	return mr, nil
 }
 
@@ -542,7 +531,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 		}
 	}
 
-	motionCfg, err := newValidatedMotionCfg(req.MotionCfg)
+	motionCfg, err := newValidatedMotionCfg(req.MotionCfg, requestTypeMoveOnMap)
 	if err != nil {
 		return nil, err
 	}
@@ -582,7 +571,9 @@ func (ms *builtIn) newMoveOnMapRequest(
 		return nil, err
 	}
 
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewSLAMLocalizer(slamSvc), limits, kinematicsOptions)
+	// Create a localizer from the movement sensor, and collapse reported orientations to 2d
+	localizer := motion.TwoDLocalizer(motion.NewSLAMLocalizer(slamSvc))
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -600,6 +591,8 @@ func (ms *builtIn) newMoveOnMapRequest(
 		return nil, err
 	}
 
+	req.Obstacles = append(req.Obstacles, octree)
+
 	mr, err := ms.relativeMoveRequestFromAbsolute(
 		ctx,
 		motionCfg,
@@ -607,17 +600,12 @@ func (ms *builtIn) newMoveOnMapRequest(
 		kb,
 		goalPoseAdj,
 		fs,
-		[]spatialmath.Geometry{octree},
+		req.Obstacles,
 		valExtra,
 	)
 	if err != nil {
 		return nil, err
 	}
-	startPose, err := mr.kinematicBase.CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
-	}
-	mr.poseOrigin = startPose.Pose()
 	mr.requestType = requestTypeMoveOnMap
 	return mr, nil
 }
@@ -648,13 +636,29 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		return nil, err
 	}
 
-	startPose, err := kb.CurrentPosition(ctx)
+	startPoseIF, err := kb.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	startPoseInv := spatialmath.PoseInverse(startPose.Pose())
+	startPose := startPoseIF.Pose()
+	startPoseInv := spatialmath.PoseInverse(startPose)
 
-	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld))
+	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose, goalPoseInWorld))
+
+	// Here we determine if we already are at the goal
+	// If our motion profile is position_only then, we only check against our current & desired position
+	// Conversely if our motion profile is anything else, then we also need to check again our
+	// current & desired orientation
+	if valExtra.motionProfile == motionplan.PositionOnlyMotionProfile {
+		if spatialmath.PoseAlmostCoincidentEps(goal.Pose(), spatialmath.NewZeroPose(), motionCfg.planDeviationMM) {
+			return nil, errGoalWithinPlanDeviation
+		}
+	} else {
+		if spatialmath.OrientationAlmostEqual(goal.Pose().Orientation(), spatialmath.NewZeroPose().Orientation()) &&
+			spatialmath.PoseAlmostCoincidentEps(goal.Pose(), spatialmath.NewZeroPose(), motionCfg.planDeviationMM) {
+			return nil, errGoalWithinPlanDeviation
+		}
+	}
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
 	geoms := make([]spatialmath.Geometry, 0, len(worldObstacles))
@@ -721,6 +725,7 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 			WorldState:         worldState,
 			Options:            valExtra.extra,
 		},
+		poseOrigin:        startPose,
 		kinematicBase:     kb,
 		replanCostFactor:  valExtra.replanCostFactor,
 		obstacleDetectors: obstacleDetectors,
@@ -748,24 +753,24 @@ func (mr moveResponse) String() string {
 	return fmt.Sprintf("builtin.moveResponse{executeResponse: %#v, err: %v}", mr.executeResponse, mr.err)
 }
 
-func (mr *moveRequest) start(ctx context.Context, waypoints [][]referenceframe.Input) {
+func (mr *moveRequest) start(ctx context.Context, plan motionplan.Plan) {
 	if ctx.Err() != nil {
 		return
 	}
 	mr.executeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		mr.position.startPolling(ctx, waypoints, mr.waypointIndex)
+		mr.position.startPolling(ctx, plan, mr.waypointIndex)
 	}, mr.executeBackgroundWorkers.Done)
 
 	mr.executeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		mr.obstacle.startPolling(ctx, waypoints, mr.waypointIndex)
+		mr.obstacle.startPolling(ctx, plan, mr.waypointIndex)
 	}, mr.executeBackgroundWorkers.Done)
 
 	// spawn function to execute the plan on the robot
 	mr.executeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		executeResp, err := mr.execute(ctx, waypoints, mr.waypointIndex)
+		executeResp, err := mr.execute(ctx, plan, mr.waypointIndex)
 		resp := moveResponse{executeResponse: executeResp, err: err}
 		mr.responseChan <- resp
 	}, mr.executeBackgroundWorkers.Done)
@@ -791,15 +796,6 @@ func (mr *moveRequest) listen(ctx context.Context) (state.ExecuteResponse, error
 	}
 }
 
-func (mr *moveRequest) Execute(ctx context.Context, waypoints state.Waypoints) (state.ExecuteResponse, error) {
-	defer mr.executeBackgroundWorkers.Wait()
-	cancelCtx, cancelFn := context.WithCancel(ctx)
-	defer cancelFn()
-
-	mr.start(cancelCtx, waypoints)
-	return mr.listen(cancelCtx)
-}
-
 func (mr *moveRequest) stop() error {
 	stopCtx, cancelFn := context.WithTimeout(context.Background(), baseStopTimeout)
 	defer cancelFn()
@@ -808,32 +804,4 @@ func (mr *moveRequest) stop() error {
 		return stopErr
 	}
 	return nil
-}
-
-func toGeoPosePlanSteps(posesByComponent []motionplan.PlanStep, geoPoses []spatialmath.GeoPose) ([]motionplan.PlanStep, error) {
-	if len(geoPoses) != len(posesByComponent) {
-		msg := "GeoPoses (len: %d) & PosesByComponent (len: %d) must have the same length"
-		return nil, fmt.Errorf(msg, len(geoPoses), len(posesByComponent))
-	}
-	steps := make([]motionplan.PlanStep, 0, len(posesByComponent))
-	for i, ps := range posesByComponent {
-		if len(ps) == 0 {
-			continue
-		}
-
-		if l := len(ps); l > 1 {
-			return nil, fmt.Errorf("only single component or fewer plan steps supported, received plan step with %d componenents", l)
-		}
-
-		var resourceName resource.Name
-		for k := range ps {
-			resourceName = k
-		}
-		geoPose := geoPoses[i]
-		heading := math.Mod(math.Abs(geoPose.Heading()-360), 360)
-		o := &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: heading}
-		poseContainingGeoPose := spatialmath.NewPose(r3.Vector{X: geoPose.Location().Lng(), Y: geoPose.Location().Lat()}, o)
-		steps = append(steps, map[resource.Name]spatialmath.Pose{resourceName: poseContainingGeoPose})
-	}
-	return steps, nil
 }

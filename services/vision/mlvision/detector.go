@@ -19,7 +19,14 @@ import (
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
-func attemptToBuildDetector(mlm mlmodel.Service, nameMap *sync.Map) (objectdetection.Detector, error) {
+const (
+	detectorLocationName = "location"
+	detectorCategoryName = "category"
+	detectorScoreName    = "score"
+	detectorInputName    = "image"
+)
+
+func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map, paramBoxOrder []int) (objectdetection.Detector, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
 		return nil, errors.New("could not get any metadata")
@@ -32,16 +39,23 @@ func attemptToBuildDetector(mlm mlmodel.Service, nameMap *sync.Map) (objectdetec
 	}
 	inType := md.Inputs[0].DataType
 	labels := getLabelsFromMetadata(md)
-	boxOrder, err := getBoxOrderFromMetadata(md)
-	if err != nil || len(boxOrder) < 4 {
-		boxOrder = []int{1, 0, 3, 2}
+	var boxOrder []int
+	if len(paramBoxOrder) == 4 {
+		boxOrder = paramBoxOrder
+	} else {
+		boxOrder, err = getBoxOrderFromMetadata(md)
+		if err != nil || len(boxOrder) < 4 {
+			boxOrder = []int{1, 0, 3, 2}
+		}
 	}
 
 	if shapeLen := len(md.Inputs[0].Shape); shapeLen < 4 {
 		return nil, errors.Errorf("invalid length of shape array (expected 4, got %d)", shapeLen)
 	}
 
+	channelsFirst := false // if channelFirst is true, then shape is (1, 3, height, width)
 	if shape := md.Inputs[0].Shape; getIndex(shape, 3) == 1 {
+		channelsFirst = true
 		inHeight, inWidth = shape[2], shape[3]
 	} else {
 		inHeight, inWidth = shape[1], shape[2]
@@ -61,28 +75,44 @@ func attemptToBuildDetector(mlm mlmodel.Service, nameMap *sync.Map) (objectdetec
 		if (origW != resizeW) || (origH != resizeH) {
 			resized = resize.Resize(uint(resizeW), uint(resizeH), img, resize.Bilinear)
 		}
+		inputName := detectorInputName
+		if mapName, ok := inNameMap.Load(inputName); ok {
+			if name, ok := mapName.(string); ok {
+				inputName = name
+			}
+		}
 		inMap := ml.Tensors{}
 		switch inType {
 		case UInt8:
-			inMap["image"] = tensor.New(
+			inMap[inputName] = tensor.New(
 				tensor.WithShape(1, resized.Bounds().Dy(), resized.Bounds().Dx(), 3),
 				tensor.WithBacking(rimage.ImageToUInt8Buffer(resized)),
 			)
 		case Float32:
-			inMap["image"] = tensor.New(
+			inMap[inputName] = tensor.New(
 				tensor.WithShape(1, resized.Bounds().Dy(), resized.Bounds().Dx(), 3),
 				tensor.WithBacking(rimage.ImageToFloatBuffer(resized)),
 			)
 		default:
-			return nil, errors.New("invalid input type. try uint8 or float32")
+			return nil, errors.Errorf("invalid input type of %s. try uint8 or float32", inType)
+		}
+		if channelsFirst {
+			err := inMap[inputName].T(0, 3, 1, 2)
+			if err != nil {
+				return nil, errors.New("could not transponse tensor of input image")
+			}
+			err = inMap[inputName].Transpose()
+			if err != nil {
+				return nil, errors.New("could not transponse the data of the tensor of input image")
+			}
 		}
 		outMap, err := mlm.Infer(ctx, inMap)
 		if err != nil {
 			return nil, err
 		}
 
-		// use the nameMap to find the tensor names, or guess and cache the names
-		locationName, categoryName, scoreName, err := findDetectionTensorNames(outMap, nameMap)
+		// use the outNameMap to find the tensor names, or guess and cache the names
+		locationName, categoryName, scoreName, err := findDetectionTensorNames(outMap, outNameMap)
 		if err != nil {
 			return nil, err
 		}
@@ -90,18 +120,42 @@ func attemptToBuildDetector(mlm mlmodel.Service, nameMap *sync.Map) (objectdetec
 		if err != nil {
 			return nil, err
 		}
-		categories, err := convertToFloat64Slice(outMap[categoryName].Data())
-		if err != nil {
-			return nil, err
-		}
 		scores, err := convertToFloat64Slice(outMap[scoreName].Data())
 		if err != nil {
 			return nil, err
 		}
+		hasCategoryTensor := false
+		categories := make([]float64, len(scores)) // default 0 category if no category output
+		if categoryName != "" {
+			hasCategoryTensor = true
+			categories, err = convertToFloat64Slice(outMap[categoryName].Data())
+			if err != nil {
+				return nil, err
+			}
+		}
+		// sometimes categories are stuffed into the score output. separate them out.
+		if !hasCategoryTensor {
+			shape := outMap[scoreName].Shape()
+			if len(shape) == 3 { // cartegories are stored in 3rd dimension
+				nCategories := shape[2]              // nCategories usually in 3rd dim, but sometimes in 2nd
+				if 4*nCategories == len(locations) { // it's actually in 2nd dim
+					nCategories = shape[1]
+				}
+				scores, categories, err = extractCategoriesFromScores(scores, nCategories)
+				if err != nil {
+					return nil, errors.Wrap(err, "could not extract categories from score tensor")
+				}
+			}
+		}
 
 		// Now reshape outMap into Detections
 		if len(categories) != len(scores) || 4*len(scores) != len(locations) {
-			return nil, errors.New("output tensor sizes did not match each other as expected")
+			return nil, errors.Errorf(
+				"output tensor sizes did not match each other as expected. score: %v, category: %v, location: %v",
+				len(scores),
+				len(categories),
+				len(locations),
+			)
 		}
 		detections := make([]objectdetection.Detection, 0, len(scores))
 		detectionBoxesAreProportional := false
@@ -140,13 +194,52 @@ func attemptToBuildDetector(mlm mlmodel.Service, nameMap *sync.Map) (objectdetec
 	}, nil
 }
 
+func extractCategoriesFromScores(scores []float64, nCategories int) ([]float64, []float64, error) {
+	if nCategories == 1 { // trivially every category has the same label
+		categories := make([]float64, len(scores))
+		return scores, categories, nil
+	}
+	// ensure even division of data into categories
+	if len(scores)%nCategories != 0 {
+		return nil, nil, errors.Errorf("nCategories %v does not divide evenly into score tensor of length %v", nCategories, len(scores))
+	}
+	nEntries := len(scores) / nCategories
+	newCategories := make([]float64, 0, nEntries)
+	newScores := make([]float64, 0, nEntries)
+	for i := 0; i < nEntries; i++ {
+		argMax, floatMax, err := argMaxAndMax(scores[nCategories*i : nCategories*i+nCategories])
+		if err != nil {
+			return nil, nil, err
+		}
+		newCategories = append(newCategories, float64(argMax))
+		newScores = append(newScores, floatMax)
+	}
+	return newScores, newCategories, nil
+}
+
+func argMaxAndMax(slice []float64) (int, float64, error) {
+	if len(slice) == 0 {
+		return 0, 0.0, errors.New("slice cannot be nil or empty")
+	}
+	argMax := 0
+	floatMax := -math.MaxFloat64
+	for i, v := range slice {
+		if v > floatMax {
+			floatMax = v
+			argMax = i
+		}
+	}
+	return argMax, floatMax, nil
+}
+
 // findDetectionTensors finds the tensors that are necessary for object detection
 // the returned tensor order is location, category, score. It caches results.
+// category is optional, and will return "" if not present.
 func findDetectionTensorNames(outMap ml.Tensors, nameMap *sync.Map) (string, string, string, error) {
 	// first try the nameMap
-	loc, okLoc := nameMap.Load("location")
-	cat, okCat := nameMap.Load("category")
-	score, okScores := nameMap.Load("score")
+	loc, okLoc := nameMap.Load(detectorLocationName)
+	score, okScores := nameMap.Load(detectorScoreName)
+	cat, okCat := nameMap.Load(detectorCategoryName)
 	if okLoc && okCat && okScores { // names are known
 		locString, ok := loc.(string)
 		if !ok {
@@ -162,24 +255,38 @@ func findDetectionTensorNames(outMap ml.Tensors, nameMap *sync.Map) (string, str
 		}
 		return locString, catString, scoreString, nil
 	}
+	if okLoc && okScores { // names are known, just no categories
+		locString, ok := loc.(string)
+		if !ok {
+			return "", "", "", errors.Errorf("name map was not storing string, but a type %T", loc)
+		}
+		scoreString, ok := score.(string)
+		if !ok {
+			return "", "", "", errors.Errorf("name map was not storing string, but a type %T", score)
+		}
+		if len(outMap[scoreString].Shape()) == 3 || len(outMap) == 2 { // the categories are in the score
+			return locString, "", scoreString, nil
+		}
+	}
 	// next, if nameMap is not set, just see if the outMap has expected names
-	_, okLoc = outMap["location"]
-	_, okCat = outMap["category"]
-	_, okScores = outMap["score"]
+	// if the outMap only has two outputs, it might just be locations and scores.
+	_, okLoc = outMap[detectorLocationName]
+	_, okCat = outMap[detectorCategoryName]
+	_, okScores = outMap[detectorScoreName]
 	if okLoc && okCat && okScores { // names are as expected
-		nameMap.Store("location", "location")
-		nameMap.Store("category", "category")
-		nameMap.Store("score", "score")
-		return "location", "category", "score", nil
+		nameMap.Store(detectorLocationName, detectorLocationName)
+		nameMap.Store(detectorCategoryName, detectorCategoryName)
+		nameMap.Store(detectorScoreName, detectorScoreName)
+		return detectorLocationName, detectorCategoryName, detectorScoreName, nil
 	}
 	// last, do a hack-y thing to try to guess the tensor names for the detection output tensors
 	locationName, categoryName, scoreName, err := guessDetectionTensorNames(outMap)
 	if err != nil {
 		return "", "", "", err
 	}
-	nameMap.Store("location", locationName)
-	nameMap.Store("category", categoryName)
-	nameMap.Store("score", scoreName)
+	nameMap.Store(detectorLocationName, locationName)
+	nameMap.Store(detectorCategoryName, categoryName)
+	nameMap.Store(detectorScoreName, scoreName)
 	return locationName, categoryName, scoreName, nil
 }
 
@@ -190,20 +297,20 @@ func guessDetectionTensorNames(outMap ml.Tensors) (string, string, string, error
 	foundTensor := map[string]bool{}
 	mappedNames := map[string]string{}
 	outNames := tensorNames(outMap)
-	_, okLoc := outMap["location"]
+	_, okLoc := outMap[detectorLocationName]
 	if okLoc {
-		foundTensor["location"] = true
-		mappedNames["location"] = "location"
+		foundTensor[detectorLocationName] = true
+		mappedNames[detectorLocationName] = detectorLocationName
 	}
-	_, okCat := outMap["category"]
+	_, okCat := outMap[detectorCategoryName]
 	if okCat {
-		foundTensor["category"] = true
-		mappedNames["category"] = "category"
+		foundTensor[detectorCategoryName] = true
+		mappedNames[detectorCategoryName] = detectorCategoryName
 	}
-	_, okScores := outMap["score"]
+	_, okScores := outMap[detectorScoreName]
 	if okScores {
-		foundTensor["score"] = true
-		mappedNames["score"] = "score"
+		foundTensor[detectorScoreName] = true
+		mappedNames[detectorScoreName] = detectorScoreName
 	}
 	// first find how many detections there were
 	// this will be used to find the other tensors
@@ -233,12 +340,12 @@ func guessDetectionTensorNames(outMap ml.Tensors) (string, string, string, error
 				continue
 			}
 			if t.Dims() == 3 {
-				mappedNames["location"] = name
+				mappedNames[detectorLocationName] = name
 				foundTensor[name] = true
 				break
 			}
 		}
-		if _, ok := mappedNames["location"]; !ok {
+		if _, ok := mappedNames[detectorLocationName]; !ok {
 			return "", "", "", errors.Errorf("could not find an output tensor named 'location' among [%s]", strings.Join(outNames, ", "))
 		}
 	}
@@ -253,7 +360,7 @@ func guessDetectionTensorNames(outMap ml.Tensors) (string, string, string, error
 			if t.Dims() == 2 {
 				if dt == tensor.Int || dt == tensor.Int32 || dt == tensor.Int64 ||
 					dt == tensor.Uint32 || dt == tensor.Uint64 || dt == tensor.Int8 || dt == tensor.Uint8 {
-					mappedNames["category"] = name
+					mappedNames[detectorCategoryName] = name
 					foundTensor[name] = true
 					break
 				}
@@ -280,13 +387,13 @@ func guessDetectionTensorNames(outMap ml.Tensors) (string, string, string, error
 					return "", "", "", err
 				}
 				if math.Mod(val[0], 1) == 0 {
-					mappedNames["category"] = name
+					mappedNames[detectorCategoryName] = name
 					foundTensor[name] = true
 					break
 				}
 			}
 		}
-		if _, ok := mappedNames["category"]; !ok {
+		if _, ok := mappedNames[detectorCategoryName]; !ok {
 			return "", "", "", errors.Errorf("could not find an output tensor named 'category' among [%s]", strings.Join(outNames, ", "))
 		}
 	}
@@ -298,16 +405,16 @@ func guessDetectionTensorNames(outMap ml.Tensors) (string, string, string, error
 			}
 			dt := t.Dtype()
 			if t.Dims() == 2 && (dt == tensor.Float32 || dt == tensor.Float64) {
-				mappedNames["score"] = name
+				mappedNames[detectorScoreName] = name
 				foundTensor[name] = true
 				break
 			}
 		}
-		if _, ok := mappedNames["score"]; !ok {
+		if _, ok := mappedNames[detectorScoreName]; !ok {
 			return "", "", "", errors.Errorf("could not find an output tensor named 'score' among [%s]", strings.Join(outNames, ", "))
 		}
 	}
-	return mappedNames["location"], mappedNames["category"], mappedNames["score"], nil
+	return mappedNames[detectorLocationName], mappedNames[detectorCategoryName], mappedNames[detectorScoreName], nil
 }
 
 // In the case that the model provided is not a detector, attemptToBuildDetector will return a

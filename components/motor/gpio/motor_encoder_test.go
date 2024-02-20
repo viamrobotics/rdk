@@ -700,7 +700,8 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 	t.Run("wrap motor with single encoder", func(t *testing.T) {
 		b := MakeSingleBoard(t)
 		fakeMotor := &fakemotor.Motor{
-			OpMgr: operation.NewSingleOperationManager(),
+			OpMgr:  operation.NewSingleOperationManager(),
+			Logger: logging.NewLogger("fakeMotor"),
 		}
 		b.Digitals["a"], _ = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{})
 
@@ -741,7 +742,8 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 	t.Run("wrap motor with hall encoder", func(t *testing.T) {
 		b := MakeIncrementalBoard(t)
 		fakeMotor := &fakemotor.Motor{
-			OpMgr: operation.NewSingleOperationManager(),
+			OpMgr:  operation.NewSingleOperationManager(),
+			Logger: logging.NewLogger("fakeMotor"),
 		}
 		b.Digitals["a"], _ = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{})
 		b.Digitals["b"], _ = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{})

@@ -14,6 +14,8 @@ import (
 
 // default values for planning options.
 const (
+	defaultCollisionBufferMM = 1e-8
+
 	// max linear deviation from straight-line between start and goal, in mm.
 	defaultLinearDeviation = 0.1
 
@@ -175,6 +177,10 @@ type plannerOptions struct {
 	PlannerConstructor plannerConstructor
 
 	Fallback *plannerOptions
+
+	// relativeInputs is a flag that is set by the planning algorithm describing if the solutions it generates are
+	// relative as in each step in the solution builds off a previous one, as opposed to being asolute with respect to some reference frame.
+	relativeInputs bool
 }
 
 // SetMetric sets the distance metric for the solver.
