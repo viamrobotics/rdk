@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
-	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/control"
@@ -43,13 +42,17 @@ func (sb *sensorBase) setupControlLoop(linear, angular control.PIDConfig) error 
 		ControllableType:              "base_name",
 	}
 
-	if linear.P == 0.0 &&
-		linear.I == 0.0 &&
-		linear.D == 0.0 &&
-		angular.P == 0.0 &&
-		angular.I == 0.0 &&
-		angular.D == 0.0 {
+	switch {
+	// check if both linear and angular need to be tuned, and if so start by tuning linear
+	case (linear.P != 0.0 || linear.I != 0.0 || linear.D != 0.0) &&
+		(angular.P != 0.0 || angular.I != 0.0 || angular.D != 0.0):
+		// probably redundant
+		options.NeedsAutoTuning = false
+	case linear.P == 0.0 && linear.I == 0.0 && linear.D == 0.0 &&
+		angular.P == 0.0 && angular.I == 0.0 && angular.D == 0.0:
 		options.NeedsAutoTuning = true
+	default:
+		options.NeedsSingleAutoTuning = true
 	}
 
 	var pidVals = []control.PIDConfig{linear, angular}
@@ -95,53 +98,6 @@ func (sb *sensorBase) updateControlConfig(
 		return err
 	}
 
-	return nil
-}
-
-func (sb *sensorBase) autoTuneAll(ctx context.Context, cancelFunc context.CancelFunc, linear, angular basePIDConfig) error {
-	var errs error
-	sb.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer utils.UncheckedErrorFunc(func() error {
-			sb.mu.Lock()
-			defer sb.mu.Unlock()
-			cancelFunc()
-			return sb.controlledBase.Stop(ctx, nil)
-		})
-		defer sb.activeBackgroundWorkers.Done()
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		// to tune linear PID values, angular PI values must be non-zero
-		fakeConf := basePIDConfig{Type: typeAngVel, P: 0.5, I: 0.5, D: 0.0}
-		sb.logger.Info("tuning linear PID")
-		if err := sb.autoTuningProcess(ctx, linear, fakeConf); err != nil {
-			errs = multierr.Combine(errs, err)
-		}
-		if err := sb.Stop(ctx, nil); err != nil {
-			errs = multierr.Combine(errs, err)
-		}
-		// to tune angular PID values, linear PI values must be non-zero
-		fakeConf.Type = typeLinVel
-		sb.logger.Info("tuning angular PID")
-		if err := sb.autoTuningProcess(ctx, fakeConf, angular); err != nil {
-			errs = multierr.Combine(errs, err)
-		}
-	})
-	return errs
-}
-
-func (sb *sensorBase) autoTuningProcess(ctx context.Context, linear, angular basePIDConfig) error {
-	sb.controlLoopConfig = sb.createControlLoopConfig(linear, angular)
-	if err := sb.setupControlLoops(); err != nil {
-		return err
-	}
-	if err := sb.loop.MonitorTuning(ctx); err != nil {
-		return err
-	}
 	return nil
 }
 

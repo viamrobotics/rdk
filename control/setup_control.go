@@ -75,6 +75,9 @@ type Options struct {
 
 	// ControllableType
 	ControllableType string
+
+	// NeedsSingleAutoTuning
+	NeedsSingleAutoTuning bool
 }
 
 func SetupPIDControlConfig(pidVals []PIDConfig, componentName string, Options Options, c Controllable, logger logging.Logger) (*PIDLoop, error) {
@@ -103,6 +106,10 @@ func SetupPIDControlConfig(pidVals []PIDConfig, componentName string, Options Op
 		if err := pidLoop.TunePIDLoop(cancelCtx, cancelFunc); err != nil {
 			return nil, err
 		}
+	}
+
+	if Options.NeedsSingleAutoTuning {
+		pidLoop.StartControlLoop()
 	}
 
 	return pidLoop, nil
