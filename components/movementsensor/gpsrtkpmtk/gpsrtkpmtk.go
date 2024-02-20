@@ -350,11 +350,13 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		g.err.Set(err)
 		return
 	}
-	// TODO: defer closing the handle here, so it doesn't lock up on error
+	defer utils.UncheckedErrorFunc(handle.Close)
 
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
 	baudcmd := fmt.Sprintf("PMTK251,%d", g.wbaud)
 	cmd251 := movementsensor.PMTKAddChk([]byte(baudcmd))
+	// TODO: the comment says we get 6 types of messages, but this next line only requests 5. Make
+	// them consistent.
 	cmd314 := movementsensor.PMTKAddChk([]byte("PMTK314,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0"))
 	cmd220 := movementsensor.PMTKAddChk([]byte("PMTK220,1000"))
 
@@ -420,14 +422,6 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		default:
 		}
 
-		// establish I2C connection
-		handle, err := g.bus.OpenHandle(g.addr)
-		if err != nil {
-			g.logger.CErrorf(ctx, "can't open gps i2c %s", err)
-			g.err.Set(err)
-			return
-		}
-
 		msg, err := scanner.NextMessage()
 		if err != nil {
 			g.ntripMu.Lock()
@@ -467,13 +461,6 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 				g.ntripMu.Unlock()
 				continue
 			}
-		}
-		// close I2C
-		err = handle.Close()
-		if err != nil {
-			g.logger.CDebug(ctx, "failed to close handle: %s", err)
-			g.err.Set(err)
-			return
 		}
 	}
 }

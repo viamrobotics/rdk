@@ -37,7 +37,7 @@ const (
 
 var (
 	reservedChars     = [...]string{":", "+"} // colons are delimiters for remote names, plus signs are used for WebRTC track names.
-	resRegexValidator = regexp.MustCompile(`^([\w-]+:[\w-]+:(?:[\w-]+))\/?([\w-]+:(?:[\w-]+:)*)?(.+)?$`)
+	resRegexValidator = regexp.MustCompile(`^([\w-]+:[\w-]+:(?:[\w-]+))\/([\w-]+:(?:[\w-]+:)*)?(.+)?$`)
 )
 
 // A Resource is the fundamental building block of a robot; it is either a component or a service

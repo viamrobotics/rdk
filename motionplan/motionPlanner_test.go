@@ -21,8 +21,6 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const testLookAheadDistanceMM = 1000 * 1000.
-
 var (
 	home7 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
 	home6 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
@@ -155,7 +153,7 @@ func TestPlanningWithGripper(t *testing.T) {
 		FrameSystem:        fs,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(solutionMap), test.ShouldBeGreaterThanOrEqualTo, 2)
+	test.That(t, len(solutionMap.Trajectory()), test.ShouldBeGreaterThanOrEqualTo, 2)
 }
 
 // simple2DMapConfig returns a planConfig with the following map
@@ -216,7 +214,7 @@ func simple2DMap() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil)
+	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, defaultCollisionBufferMM)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +253,7 @@ func simpleXArmMotion() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	collisionConstraints, err := createAllCollisionConstraints(sf, fs, nil, frame.StartPositions(fs), nil)
+	collisionConstraints, err := createAllCollisionConstraints(sf, fs, nil, frame.StartPositions(fs), nil, defaultCollisionBufferMM)
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +289,7 @@ func simpleUR5eMotion() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	collisionConstraints, err := createAllCollisionConstraints(sf, fs, nil, frame.StartPositions(fs), nil)
+	collisionConstraints, err := createAllCollisionConstraints(sf, fs, nil, frame.StartPositions(fs), nil, defaultCollisionBufferMM)
 	if err != nil {
 		return nil, err
 	}
@@ -317,16 +315,15 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := plannerFunc(cfg.RobotFrame, rand.New(rand.NewSource(int64(seed))), logger, cfg.Options)
 	test.That(t, err, test.ShouldBeNil)
-	pathNodes, err := mp.plan(context.Background(), cfg.Goal, cfg.Start)
+	nodes, err := mp.plan(context.Background(), cfg.Goal, cfg.Start)
 	test.That(t, err, test.ShouldBeNil)
-	path := nodesToInputs(pathNodes)
 
 	// test that path doesn't violate constraints
-	test.That(t, len(path), test.ShouldBeGreaterThanOrEqualTo, 2)
-	for j := 0; j < len(path)-1; j++ {
+	test.That(t, len(nodes), test.ShouldBeGreaterThanOrEqualTo, 2)
+	for j := 0; j < len(nodes)-1; j++ {
 		ok, _ := cfg.Options.ConstraintHandler.CheckSegmentAndStateValidity(&ik.Segment{
-			StartConfiguration: path[j],
-			EndConfiguration:   path[j+1],
+			StartConfiguration: nodes[j].Q(),
+			EndConfiguration:   nodes[j+1].Q(),
 			Frame:              cfg.RobotFrame,
 		}, cfg.Options.Resolution)
 		test.That(t, ok, test.ShouldBeTrue)
@@ -443,7 +440,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose, err := fs.Transform(
-		plan[len(plan)-1],
+		plan.Trajectory()[len(plan.Trajectory())-1],
 		frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()),
 		frame.World,
 	)
@@ -467,10 +464,14 @@ func TestMultiArmSolve(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Both frames should wind up at the goal relative to one another
-	solvedPose, err := fs.Transform(plan[len(plan)-1], frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()), "urCamera")
+	solvedPose, err := fs.Transform(
+		plan.Trajectory()[len(plan.Trajectory())-1],
+		frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()),
+		"urCamera",
+	)
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose2, err := fs.Transform(
-		plan[len(plan)-1],
+		plan.Trajectory()[len(plan.Trajectory())-1],
 		frame.NewPoseInFrame("urCamera", spatialmath.NewZeroPose()),
 		"xArmVgripper",
 	)
@@ -505,7 +506,7 @@ func TestReachOverArm(t *testing.T) {
 	})
 
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(plan), test.ShouldEqual, 2)
+	test.That(t, len(plan.Trajectory()), test.ShouldEqual, 2)
 
 	// now add a UR arm in its way
 	ur5, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
@@ -523,7 +524,7 @@ func TestReachOverArm(t *testing.T) {
 		Options:            opts,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
+	test.That(t, len(plan.Trajectory()), test.ShouldBeGreaterThan, 2)
 }
 
 func TestPlanMapMotion(t *testing.T) {
@@ -574,7 +575,7 @@ func TestPlanMapMotion(t *testing.T) {
 		if err != nil {
 			return nil, err
 		}
-		return plan.GetFrameSteps(f.Name())
+		return plan.Trajectory().GetFrameInputs(f.Name())
 	}
 
 	plan, err := PlanMapMotion(ctx, logger, dst, model, make([]frame.Input, 3), worldState)
@@ -601,7 +602,7 @@ func TestSolverFrameGeometries(t *testing.T) {
 
 	sfPlanner, err := newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
-	position, err := sfPlanner.PlanSingleWaypoint(
+	plan, err := sfPlanner.PlanSingleWaypoint(
 		context.Background(),
 		sf.sliceToMap(make([]frame.Input, len(sf.DoF()))),
 		spatialmath.NewPoseFromPoint(r3.Vector{300, 300, 100}),
@@ -611,7 +612,10 @@ func TestSolverFrameGeometries(t *testing.T) {
 		map[string]interface{}{"smooth_iter": 5},
 	)
 	test.That(t, err, test.ShouldBeNil)
-	gf, _ := sf.Geometries(position[len(position)-1])
+	inputs, err := sf.mapToSlice(plan.Trajectory()[len(plan.Trajectory())-1])
+	test.That(t, err, test.ShouldBeNil)
+	gf, err := sf.Geometries(inputs)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gf, test.ShouldNotBeNil)
 
 	geoms := gf.Geometries()
@@ -769,6 +773,80 @@ func TestMovementWithGripper(t *testing.T) {
 	test.That(t, solution, test.ShouldNotBeNil)
 }
 
+func TestReplanValidations(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
+		"itsabase",
+		logger,
+		200./60.,
+		2,
+		nil,
+		false,
+		true,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1000, Y: 8000, Z: 0})
+
+	baseFS := frame.NewEmptyFrameSystem("baseFS")
+	err = baseFS.AddFrame(kinematicFrame, baseFS.World())
+	test.That(t, err, test.ShouldBeNil)
+	type testCase struct {
+		extra map[string]interface{}
+		msg   string
+		err   error
+	}
+
+	testCases := []testCase{
+		{
+			msg:   "fails validations when collision_buffer_mm is not a float",
+			extra: map[string]interface{}{"collision_buffer_mm": "not a float"},
+			err:   errors.New("could not interpret collision_buffer_mm field as float64"),
+		},
+		{
+			msg:   "fails validations when collision_buffer_mm is negative",
+			extra: map[string]interface{}{"collision_buffer_mm": -1.},
+			err:   errors.New("collision_buffer_mm can't be negative"),
+		},
+		{
+			msg:   "passes validations when collision_buffer_mm is a small positive float",
+			extra: map[string]interface{}{"collision_buffer_mm": 1e-5},
+		},
+		{
+			msg:   "passes validations when collision_buffer_mm is a positive float",
+			extra: map[string]interface{}{"collision_buffer_mm": 200.},
+		},
+		{
+			msg:   "passes validations when extra is empty",
+			extra: map[string]interface{}{},
+		},
+		{
+			msg:   "passes validations when extra is nil",
+			extra: map[string]interface{}{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.msg, func(t *testing.T) {
+			_, err := Replan(ctx, &PlanRequest{
+				Logger:             logger,
+				Goal:               frame.NewPoseInFrame(frame.World, goal),
+				Frame:              kinematicFrame,
+				FrameSystem:        baseFS,
+				StartConfiguration: frame.StartPositions(baseFS),
+				Options:            tc.extra,
+			}, nil, 0)
+			if tc.err != nil {
+				test.That(t, err, test.ShouldBeError, tc.err)
+			} else {
+				test.That(t, err, test.ShouldBeNil)
+			}
+		})
+	}
+}
+
 func TestReplan(t *testing.T) {
 	// TODO(RSDK-5634): this should be unskipped when this bug is fixed
 	t.Skip()
@@ -815,7 +893,7 @@ func TestReplan(t *testing.T) {
 	// This should easily pass
 	newPlan1, err := Replan(ctx, planRequest, firstplan, 1.0)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(newPlan1), test.ShouldBeGreaterThan, 2)
+	test.That(t, len(newPlan1.Trajectory()), test.ShouldBeGreaterThan, 2)
 
 	// But if we drop the replan factor to a very low number, it should now fail
 	newPlan2, err := Replan(ctx, planRequest, firstplan, 0.1)
@@ -1033,10 +1111,11 @@ func TestArmGantryCheckPlan(t *testing.T) {
 
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 407, Y: 0, Z: 112})
 
+	f := fs.Frame("xArm6")
 	planReq := PlanRequest{
 		Logger:             logger,
 		Goal:               frame.NewPoseInFrame(frame.World, goal),
-		Frame:              fs.Frame("xArm6"),
+		Frame:              f,
 		FrameSystem:        fs,
 		StartConfiguration: frame.StartPositions(fs),
 	}
@@ -1044,19 +1123,15 @@ func TestArmGantryCheckPlan(t *testing.T) {
 	plan, err := PlanMotion(context.Background(), &planReq)
 	test.That(t, err, test.ShouldBeNil)
 
-	startPose := spatialmath.NewZeroPose()
+	startPose := plan.Path()[0][f.Name()].Pose()
 	errorState := spatialmath.NewZeroPose()
-	inputs := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
 
 	t.Run("check plan with no obstacles", func(t *testing.T) {
-		err := CheckPlan(fs.Frame("xArm6"), plan, nil, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
+		err := CheckPlan(f, plan, nil, fs, startPose, plan.Trajectory()[0], errorState, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("check plan with obstacle", func(t *testing.T) {
-		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{400, 0, 112}),
-			r3.Vector{10, 10, 1}, "obstacle",
-		)
+		obstacle, err := spatialmath.NewBox(goal, r3.Vector{10, 10, 1}, "obstacle")
 		test.That(t, err, test.ShouldBeNil)
 
 		geoms := []spatialmath.Geometry{obstacle}
@@ -1065,7 +1140,7 @@ func TestArmGantryCheckPlan(t *testing.T) {
 		worldState, err := frame.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(fs.Frame("xArm6"), plan, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
+		err = CheckPlan(f, plan, worldState, fs, startPose, plan.Trajectory()[0], errorState, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }

@@ -141,11 +141,17 @@ func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 	return c.model.InputFromProtobuf(resp), nil
 }
 
-func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+func (c *client) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
 	if c.model == nil {
 		return errArmClientModelNotValid
 	}
-	return c.MoveToJointPositions(ctx, c.model.ProtobufFromInput(goal), nil)
+	for _, goal := range inputSteps {
+		err := c.MoveToJointPositions(ctx, c.model.ProtobufFromInput(goal), nil)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

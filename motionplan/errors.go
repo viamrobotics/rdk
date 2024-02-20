@@ -23,6 +23,8 @@ var (
 	errInvalidConstraint = errors.New("invalid constraint input")
 
 	errHighReplanCost = errors.New("unable to create a new plan within replanCostFactor from the original")
+
+	errBadPlanImpl = errors.New("rrtPlan is the only supported implementation of Plan by this function")
 )
 
 func genIKConstraintErr(failures map[string]int, constraintFailCnt int) error {

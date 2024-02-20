@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/state"
@@ -27,24 +28,32 @@ var (
 
 // testPlannerExecutor is a mock PlannerExecutor implementation.
 type testPlannerExecutor struct {
-	planFunc    func(context.Context) (state.PlanResponse, error)
-	executeFunc func(context.Context, state.Waypoints) (state.ExecuteResponse, error)
+	planFunc          func(context.Context) (motionplan.Plan, error)
+	executeFunc       func(context.Context, motionplan.Plan) (state.ExecuteResponse, error)
+	anchorGeoPoseFunc func() *spatialmath.GeoPose
 }
 
 // by default Plan successfully returns an empty plan.
-func (tpe *testPlannerExecutor) Plan(ctx context.Context) (state.PlanResponse, error) {
+func (tpe *testPlannerExecutor) Plan(ctx context.Context) (motionplan.Plan, error) {
 	if tpe.planFunc != nil {
 		return tpe.planFunc(ctx)
 	}
-	return state.PlanResponse{}, nil
+	return nil, nil
 }
 
 // by default Execute returns a success response.
-func (tpe *testPlannerExecutor) Execute(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
+func (tpe *testPlannerExecutor) Execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 	if tpe.executeFunc != nil {
-		return tpe.executeFunc(ctx, wp)
+		return tpe.executeFunc(ctx, plan)
 	}
 	return state.ExecuteResponse{}, nil
+}
+
+func (tpe *testPlannerExecutor) AnchorGeoPose() *spatialmath.GeoPose {
+	if tpe.anchorGeoPoseFunc != nil {
+		return tpe.anchorGeoPoseFunc()
+	}
+	return nil
 }
 
 func TestState(t *testing.T) {
@@ -55,11 +64,11 @@ func TestState(t *testing.T) {
 	executionWaitingForCtxCancelledPlanConstructor := func(
 		ctx context.Context,
 		req motion.MoveOnGlobeReq,
-		seedPlan motionplan.Plan,
+		seedplan motionplan.Plan,
 		replanCount int,
 	) (state.PlannerExecutor, error) {
 		return &testPlannerExecutor{
-			executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
+			executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 				<-ctx.Done()
 				return state.ExecuteResponse{}, ctx.Err()
 			},
@@ -69,11 +78,11 @@ func TestState(t *testing.T) {
 	successPlanConstructor := func(
 		ctx context.Context,
 		req motion.MoveOnGlobeReq,
-		seedPlan motionplan.Plan,
+		seedplan motionplan.Plan,
 		replanCount int,
 	) (state.PlannerExecutor, error) {
 		return &testPlannerExecutor{
-			executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
+			executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 				if err := ctx.Err(); err != nil {
 					return state.ExecuteResponse{}, err
 				}
@@ -85,10 +94,10 @@ func TestState(t *testing.T) {
 	replanPlanConstructor := func(
 		ctx context.Context,
 		req motion.MoveOnGlobeReq,
-		seedPlan motionplan.Plan,
+		seedplan motionplan.Plan,
 		replanCount int,
 	) (state.PlannerExecutor, error) {
-		return &testPlannerExecutor{executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
+		return &testPlannerExecutor{executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 			if err := ctx.Err(); err != nil {
 				return state.ExecuteResponse{}, err
 			}
@@ -102,7 +111,7 @@ func TestState(t *testing.T) {
 		_ motionplan.Plan,
 		_ int,
 	) (state.PlannerExecutor, error) {
-		return &testPlannerExecutor{executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
+		return &testPlannerExecutor{executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 			if err := ctx.Err(); err != nil {
 				return state.ExecuteResponse{}, err
 			}
@@ -118,10 +127,10 @@ func TestState(t *testing.T) {
 		_ int,
 	) (state.PlannerExecutor, error) {
 		return &testPlannerExecutor{
-			planFunc: func(context.Context) (state.PlanResponse, error) {
-				return state.PlanResponse{}, errors.New("planning failed")
+			planFunc: func(context.Context) (motionplan.Plan, error) {
+				return nil, errors.New("planning failed")
 			},
-			executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
+			executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 				t.Log("should not be called as planning failed")
 				t.FailNow()
 
@@ -142,10 +151,10 @@ func TestState(t *testing.T) {
 		// first replan fails during planning
 		if replanCount == 1 {
 			return &testPlannerExecutor{
-				planFunc: func(ctx context.Context) (state.PlanResponse, error) {
-					return state.PlanResponse{}, errors.New("planning failed")
+				planFunc: func(ctx context.Context) (motionplan.Plan, error) {
+					return nil, errors.New("planning failed")
 				},
-				executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
+				executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 					if err := ctx.Err(); err != nil {
 						return state.ExecuteResponse{}, err
 					}
@@ -155,7 +164,7 @@ func TestState(t *testing.T) {
 		}
 		// first plan generates a plan but execution triggers a replan
 		return &testPlannerExecutor{
-			executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
+			executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 				if err := ctx.Err(); err != nil {
 					return state.ExecuteResponse{}, err
 				}
@@ -436,11 +445,11 @@ func TestState(t *testing.T) {
 		executionID2, err := state.StartExecution(ctx, s, req.ComponentName, req, func(
 			ctx context.Context,
 			req motion.MoveOnGlobeReq,
-			seedPlan motionplan.Plan,
+			seedplan motionplan.Plan,
 			replanCount int,
 		) (state.PlannerExecutor, error) {
 			return &testPlannerExecutor{
-				executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
+				executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 					if replanCount == 0 {
 						// wait for replanning
 						<-ctxReplanning.Done()
@@ -471,8 +480,7 @@ func TestState(t *testing.T) {
 		triggerReplanning()
 
 		// poll until there are 2 plans in the history
-		resPWS, succ := pollUntil(cancelCtx, func() (pwsRes, bool,
-		) {
+		resPWS, succ := pollUntil(cancelCtx, func() (pwsRes, bool) {
 			st := pwsRes{}
 			pws, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase})
 			if err == nil && len(pws) == 2 {
@@ -570,26 +578,29 @@ func TestState(t *testing.T) {
 		executionID3, err := state.StartExecution(ctx, s, req.ComponentName, req, func(
 			ctx context.Context,
 			req motion.MoveOnGlobeReq,
-			seedPlan motionplan.Plan,
+			seedplan motionplan.Plan,
 			replanCount int,
 		) (state.PlannerExecutor, error) {
 			return &testPlannerExecutor{
-				planFunc: func(ctx context.Context) (state.PlanResponse, error) {
+				planFunc: func(ctx context.Context) (motionplan.Plan, error) {
 					// first plan succeeds
 					if replanCount == 0 {
-						pbc := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
-						return state.PlanResponse{PosesByComponent: []motionplan.PlanStep{pbc}}, nil
+						pbc := motionplan.PathStep{
+							req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+						}
+						return motionplan.NewSimplePlan([]motionplan.PathStep{pbc}, nil), nil
 					}
 					// first replan succeeds
 					if replanCount == 1 {
-						pbc1 := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
-						pbc2 := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
-						return state.PlanResponse{PosesByComponent: []motionplan.PlanStep{pbc1, pbc2}}, nil
+						pbc := motionplan.PathStep{
+							req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+						}
+						return motionplan.NewSimplePlan([]motionplan.PathStep{pbc, pbc}, nil), nil
 					}
 					// second replan fails
-					return state.PlanResponse{}, replanFailReason
+					return nil, replanFailReason
 				},
-				executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
+				executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 					if replanCount == 0 {
 						return state.ExecuteResponse{Replan: true, ReplanReason: replanReason}, nil
 					}
@@ -605,8 +616,7 @@ func TestState(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID2, test.ShouldNotResemble, executionID1)
 
-		resPWS3, succ := pollUntil(cancelCtx, func() (pwsRes, bool,
-		) {
+		resPWS3, succ := pollUntil(cancelCtx, func() (pwsRes, bool) {
 			st := pwsRes{}
 			pws, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase})
 			if err == nil && len(pws) == 2 && len(pws[0].StatusHistory) == 2 {
@@ -635,8 +645,8 @@ func TestState(t *testing.T) {
 		test.That(t, *resPWS3.pws[0].StatusHistory[0].Reason, test.ShouldResemble, replanFailReason.Error())
 		test.That(t, resPWS3.pws[0].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
 		test.That(t, resPWS3.pws[0].StatusHistory[1].Reason, test.ShouldBeNil)
-		test.That(t, len(resPWS3.pws[0].Plan.Steps), test.ShouldEqual, 2)
-		test.That(t, len(resPWS3.pws[1].Plan.Steps), test.ShouldEqual, 1)
+		test.That(t, len(resPWS3.pws[0].Plan.Path()), test.ShouldEqual, 2)
+		test.That(t, len(resPWS3.pws[1].Plan.Path()), test.ShouldEqual, 1)
 		test.That(t, planStatusTimestampsInOrder(resPWS3.pws[0].StatusHistory), test.ShouldBeTrue)
 		test.That(t, planStatusTimestampsInOrder(resPWS3.pws[1].StatusHistory), test.ShouldBeTrue)
 
@@ -653,11 +663,11 @@ func TestState(t *testing.T) {
 		executionID4, err := state.StartExecution(ctx, s, req.ComponentName, req, func(
 			ctx context.Context,
 			req motion.MoveOnGlobeReq,
-			seedPlan motionplan.Plan,
+			seedplan motionplan.Plan,
 			replanCount int,
 		) (state.PlannerExecutor, error) {
 			return &testPlannerExecutor{
-				executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
+				executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 					if replanCount == 0 {
 						return state.ExecuteResponse{Replan: true, ReplanReason: replanReason}, nil
 					}
@@ -905,7 +915,7 @@ func TestState(t *testing.T) {
 			replanCount int,
 		) (state.PlannerExecutor, error) {
 			return &testPlannerExecutor{
-				executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
+				executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 					if replanCount == 0 {
 						// wait for replanning
 						<-ctxReplanning.Done()
@@ -942,6 +952,10 @@ func TestState(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(ps6), test.ShouldEqual, 0)
 
+		pbc := motionplan.PathStep{
+			req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+		}
+
 		// Failed after replanning
 		replanFailReason := errors.New("replanning failed")
 		executionID7, err := state.StartExecution(ctx, s, req.ComponentName, req, func(
@@ -951,24 +965,16 @@ func TestState(t *testing.T) {
 			replanCount int,
 		) (state.PlannerExecutor, error) {
 			return &testPlannerExecutor{
-				planFunc: func(ctx context.Context) (state.PlanResponse, error) {
+				planFunc: func(ctx context.Context) (motionplan.Plan, error) {
 					// first replan succeeds
-					if replanCount == 0 {
-						pbc1 := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
-						pbc2 := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
-						return state.PlanResponse{PosesByComponent: []motionplan.PlanStep{pbc1, pbc2}}, nil
-					}
-
-					if replanCount == 1 {
-						pbc1 := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
-						pbc2 := map[resource.Name]spatialmath.Pose{req.ComponentName: spatialmath.NewZeroPose()}
-						return state.PlanResponse{PosesByComponent: []motionplan.PlanStep{pbc1, pbc2}}, nil
+					if replanCount == 0 || replanCount == 1 {
+						return motionplan.NewSimplePlan([]motionplan.PathStep{pbc, pbc}, nil), nil
 					}
 
 					// second replan fails
-					return state.PlanResponse{}, replanFailReason
+					return motionplan.NewSimplePlan([]motionplan.PathStep{}, nil), replanFailReason
 				},
-				executeFunc: func(ctx context.Context, wp state.Waypoints) (state.ExecuteResponse, error) {
+				executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 					if replanCount == 0 {
 						return state.ExecuteResponse{Replan: true, ReplanReason: replanReason}, nil
 					}

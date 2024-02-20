@@ -63,7 +63,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	constraintSpec *pb.Constraints,
 	seedPlan Plan,
 	motionConfig map[string]interface{},
-) ([][]referenceframe.Input, error) {
+) (Plan, error) {
 	seed, err := pm.frame.mapToSlice(seedMap)
 	if err != nil {
 		return nil, err
@@ -186,7 +186,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 		}
 	}
 
-	resultSlices, err := pm.planAtomicWaypoints(ctx, goals, seed, planners, seedPlan)
+	plan, err := pm.planAtomicWaypoints(ctx, goals, seed, planners, seedPlan)
 	pm.activeBackgroundWorkers.Wait()
 	if err != nil {
 		if len(goals) > 1 {
@@ -194,7 +194,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 		}
 		return nil, err
 	}
-	return resultSlices, nil
+	return plan, nil
 }
 
 // planAtomicWaypoints will plan a single motion, which may be composed of one or more waypoints. Waypoints are here used to begin planning
@@ -206,7 +206,7 @@ func (pm *planManager) planAtomicWaypoints(
 	seed []referenceframe.Input,
 	planners []motionPlanner,
 	seedPlan Plan,
-) ([][]referenceframe.Input, error) {
+) (Plan, error) {
 	var err error
 	// A resultPromise can be queried in the future and will eventually yield either a set of planner waypoints, or an error.
 	// Each atomic waypoint produces one result promise, all of which are resolved at the end, allowing multiple to be solved in parallel.
@@ -248,9 +248,8 @@ func (pm *planManager) planAtomicWaypoints(
 		resultPromises = append(resultPromises, future)
 	}
 
-	resultSlices := [][]referenceframe.Input{}
-
 	// All goals have been submitted for solving. Reconstruct in order
+	resultSlices := []node{}
 	for _, future := range resultPromises {
 		steps, err := future.result()
 		if err != nil {
@@ -259,7 +258,7 @@ func (pm *planManager) planAtomicWaypoints(
 		resultSlices = append(resultSlices, steps...)
 	}
 
-	return resultSlices, nil
+	return newRRTPlan(resultSlices, pm.frame, pm.planner.opt().relativeInputs)
 }
 
 // planSingleAtomicWaypoint attempts to plan a single waypoint. It may optionally be pre-seeded with rrt maps; these will be passed to the
@@ -276,7 +275,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 		// This will set that up, and if we get a result on `endpointPreview`, then the next iteration will be started, and the steps
 		// for this solve will be rectified at the end.
 		endpointPreview := make(chan node, 1)
-		solutionChan := make(chan *rrtPlanReturn, 1)
+		solutionChan := make(chan *rrtSolution, 1)
 		pm.activeBackgroundWorkers.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer pm.activeBackgroundWorkers.Done()
@@ -289,26 +288,26 @@ func (pm *planManager) planSingleAtomicWaypoint(
 		case nextSeed := <-endpointPreview:
 			return nextSeed.Q(), &resultPromise{future: solutionChan}, nil
 		case planReturn := <-solutionChan:
-			if planReturn.planerr != nil {
-				return nil, nil, planReturn.planerr
+			if planReturn.err != nil {
+				return nil, nil, planReturn.err
 			}
-			steps := nodesToInputs(planReturn.steps)
-			return steps[len(steps)-1], &resultPromise{steps: steps}, nil
+			seed := planReturn.steps[len(planReturn.steps)-1].Q()
+			return seed, &resultPromise{steps: planReturn.steps}, nil
 		}
 	} else {
 		// This ctx is used exclusively for the running of the new planner and timing it out. It may be different from the main `ctx`
 		// timeout due to planner fallbacks.
 		plannerctx, cancel := context.WithTimeout(ctx, time.Duration(pathPlanner.opt().Timeout*float64(time.Second)))
 		defer cancel()
-		steps, err := pathPlanner.plan(plannerctx, goal, seed)
+		nodes, err := pathPlanner.plan(plannerctx, goal, seed)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		smoothedPath := nodesToInputs(pathPlanner.smoothPath(ctx, steps))
+		smoothedPath := pathPlanner.smoothPath(ctx, nodes)
 
 		// Update seed for the next waypoint to be the final configuration of this waypoint
-		seed = smoothedPath[len(smoothedPath)-1]
+		seed = smoothedPath[len(smoothedPath)-1].Q()
 		return seed, &resultPromise{steps: smoothedPath}, nil
 	}
 }
@@ -321,7 +320,7 @@ func (pm *planManager) planParallelRRTMotion(
 	seed []referenceframe.Input,
 	pathPlanner rrtParallelPlanner,
 	endpointPreview chan node,
-	solutionChan chan *rrtPlanReturn,
+	solutionChan chan *rrtSolution,
 	maps *rrtMaps,
 ) {
 	var rrtBackground sync.WaitGroup
@@ -330,7 +329,7 @@ func (pm *planManager) planParallelRRTMotion(
 	if !pm.useTPspace {
 		if maps == nil {
 			planSeed := initRRTSolutions(ctx, pathPlanner, seed)
-			if planSeed.planerr != nil || planSeed.steps != nil {
+			if planSeed.err != nil || planSeed.steps != nil {
 				solutionChan <- planSeed
 				return
 			}
@@ -367,7 +366,7 @@ func (pm *planManager) planParallelRRTMotion(
 	plannerctx, cancel := context.WithTimeout(ctx, time.Duration(pathPlanner.opt().Timeout*float64(time.Second)))
 	defer cancel()
 
-	plannerChan := make(chan *rrtPlanReturn, 1)
+	plannerChan := make(chan *rrtSolution, 1)
 
 	// start the planner
 	rrtBackground.Add(1)
@@ -381,7 +380,7 @@ func (pm *planManager) planParallelRRTMotion(
 	case <-ctx.Done():
 		// Error will be caught by monitoring loop
 		rrtBackground.Wait()
-		solutionChan <- &rrtPlanReturn{planerr: ctx.Err()}
+		solutionChan <- &rrtSolution{err: ctx.Err()}
 		return
 	default:
 	}
@@ -409,7 +408,7 @@ func (pm *planManager) planParallelRRTMotion(
 
 		// If there was no error, check path quality. If sufficiently good, move on.
 		// If there *was* an error, then either the fallback will not error and will replace it, or the error will be returned
-		if finalSteps.err() == nil {
+		if finalSteps.err == nil {
 			if fallbackPlanner != nil {
 				if ok, score := pm.goodPlan(finalSteps, pm.opt()); ok {
 					pm.logger.CDebugf(ctx, "got path with score %f, close enough to optimal %f", score, maps.optNode.Cost())
@@ -451,7 +450,7 @@ func (pm *planManager) planParallelRRTMotion(
 		finalSteps.steps = <-smoothChan
 		score := math.Inf(1)
 		if finalSteps.steps != nil {
-			score = pm.frame.inputsToPlan(nodesToInputs(finalSteps.steps)).Evaluate(pm.opt().ScoreFunc)
+			score = pm.frame.nodesToTrajectory(finalSteps.steps).EvaluateCost(pm.opt().ScoreFunc)
 		}
 
 		// If we ran a fallback, retrieve the result and compare to the smoothed path
@@ -460,10 +459,10 @@ func (pm *planManager) planParallelRRTMotion(
 			if err == nil {
 				// If the fallback successfully found a path, check if it is better than our smoothed previous path.
 				// The fallback should emerge pre-smoothed, so that should be a non-issue
-				altCost := pm.frame.inputsToPlan(alternate).Evaluate(pm.opt().ScoreFunc)
+				altCost := pm.frame.nodesToTrajectory(alternate).EvaluateCost(pm.opt().ScoreFunc)
 				if altCost < score {
 					pm.logger.CDebugf(ctx, "replacing path with score %f with better score %f", score, altCost)
-					finalSteps = &rrtPlanReturn{steps: stepsToNodes(alternate)}
+					finalSteps = &rrtSolution{steps: alternate}
 				} else {
 					pm.logger.CDebugf(ctx, "fallback path with score %f worse than original score %f; using original", altCost, score)
 				}
@@ -475,7 +474,7 @@ func (pm *planManager) planParallelRRTMotion(
 
 	case <-ctx.Done():
 		rrtBackground.Wait()
-		solutionChan <- &rrtPlanReturn{planerr: ctx.Err()}
+		solutionChan <- &rrtSolution{err: ctx.Err()}
 		return
 	}
 }
@@ -497,6 +496,18 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	opt := newBasicPlannerOptions(pm.frame)
 	opt.extra = planningOpts
 
+	collisionBufferMM := defaultCollisionBufferMM
+	collisionBufferMMRaw, ok := planningOpts["collision_buffer_mm"]
+	if ok {
+		collisionBufferMM, ok = collisionBufferMMRaw.(float64)
+		if !ok {
+			return nil, errors.New("could not interpret collision_buffer_mm field as float64")
+		}
+		if collisionBufferMM < 0 {
+			return nil, errors.New("collision_buffer_mm can't be negative")
+		}
+	}
+
 	// add collision constraints
 	collisionConstraints, err := createAllCollisionConstraints(
 		pm.frame,
@@ -504,6 +515,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		worldState,
 		seedMap,
 		constraints.GetCollisionSpecification(),
+		collisionBufferMM,
 	)
 	if err != nil {
 		return nil, err
@@ -569,6 +581,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		opt.ScoreFunc = tpspace.PTGSegmentMetric
 
 		planAlg = "tpspace"
+		opt.relativeInputs = true
 	}
 
 	switch motionProfile {
@@ -639,13 +652,13 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 }
 
 // check whether the solution is within some amount of the optimal.
-func (pm *planManager) goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, float64) {
+func (pm *planManager) goodPlan(pr *rrtSolution, opt *plannerOptions) (bool, float64) {
 	solutionCost := math.Inf(1)
 	if pr.steps != nil {
 		if pr.maps.optNode.Cost() <= 0 {
 			return true, solutionCost
 		}
-		solutionCost = pm.frame.inputsToPlan(nodesToInputs(pr.steps)).Evaluate(opt.ScoreFunc)
+		solutionCost = pm.frame.nodesToTrajectory(pr.steps).EvaluateCost(opt.ScoreFunc)
 		if solutionCost < pr.maps.optNode.Cost()*defaultOptimalityMultiple {
 			return true, solutionCost
 		}
@@ -655,15 +668,13 @@ func (pm *planManager) goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, f
 }
 
 func (pm *planManager) planToRRTGoalMap(plan Plan, goal spatialmath.Pose) (*rrtMaps, error) {
-	planNodes := make([]node, 0, len(plan))
-	// Build a list of nodes from the plan
-	for _, planStep := range plan {
-		conf, err := pm.frame.mapToSlice(planStep)
-		if err != nil {
-			return nil, err
-		}
-		planNodes = append(planNodes, newConfigurationNode(conf))
+	// TODO: make this work with any implementation of Plan
+	var rrt *rrtPlan
+	var ok bool
+	if rrt, ok = plan.(*rrtPlan); !ok {
+		return nil, errBadPlanImpl
 	}
+	planNodes := rrt.nodes
 
 	if pm.useTPspace {
 		// Fill in positions from the old origin to where the goal was during the last run

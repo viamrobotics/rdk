@@ -206,14 +206,14 @@ func TestNewValidRegionCapsule(t *testing.T) {
 	c, err := ddk.newValidRegionCapsule(starting, desired)
 	test.That(t, err, test.ShouldBeNil)
 
-	col, err := c.CollidesWith(spatialmath.NewPoint(r3.Vector{X: -176, Y: 576, Z: 0}, ""))
+	col, err := c.CollidesWith(spatialmath.NewPoint(r3.Vector{X: -176, Y: 576, Z: 0}, ""), defaultCollisionBufferMM)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, col, test.ShouldBeTrue)
 
 	col, err = c.CollidesWith(spatialmath.NewPoint(
 		r3.Vector{X: -defaultPlanDeviationThresholdMM, Y: -defaultPlanDeviationThresholdMM, Z: 0},
 		"",
-	))
+	), defaultCollisionBufferMM)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, col, test.ShouldBeFalse)
 }
