@@ -64,13 +64,20 @@ func (m *EncodedMotor) setupControlLoop() error {
 		LoopFrequency:             100.0,
 	}
 
-	if m.cfg.ControlParameters[0].P == 0.0 &&
-		m.cfg.ControlParameters[0].I == 0.0 &&
-		m.cfg.ControlParameters[0].D == 0.0 {
+	convertedControlParams := []control.PIDConfig{{
+		Type: "",
+		P:    m.cfg.ControlParameters.P,
+		I:    m.cfg.ControlParameters.I,
+		D:    m.cfg.ControlParameters.D,
+	}}
+
+	if convertedControlParams[0].P == 0.0 &&
+		convertedControlParams[0].I == 0.0 &&
+		convertedControlParams[0].D == 0.0 {
 		options.NeedsAutoTuning = true
 	}
 
-	pl, err := control.SetupPIDControlConfig(m.cfg.ControlParameters, m.Name().ShortName(), options, m, m.logger)
+	pl, err := control.SetupPIDControlConfig(convertedControlParams, m.Name().ShortName(), options, m, m.logger)
 	if err != nil {
 		return err
 	}

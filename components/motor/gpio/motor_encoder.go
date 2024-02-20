@@ -104,7 +104,7 @@ func newEncodedMotor(
 	em.encoder = realEncoder
 
 	// setup control loop
-	if len(motorConfig.ControlParameters) != 0 {
+	if motorConfig.ControlParameters != nil {
 		if err := em.setupControlLoop(); err != nil {
 			return nil, err
 		}
