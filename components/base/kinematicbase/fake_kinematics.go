@@ -219,7 +219,6 @@ func (fk *fakePTGKinematics) Kinematics() referenceframe.Frame {
 }
 
 func (fk *fakePTGKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	// A PTG frame is always at its own origin, so current inputs are always all zero/not meaningful
 	fk.inputLock.RLock()
 	defer fk.inputLock.RUnlock()
 	return fk.currentInput, nil

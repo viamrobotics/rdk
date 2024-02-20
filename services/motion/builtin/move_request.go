@@ -329,7 +329,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				lookAheadDistanceMM,
 				mr.planRequest.Logger,
 			); err != nil {
-				fmt.Println("THERE IS A COLLISION - HUZZAH")
 				mr.planRequest.Logger.CInfo(ctx, err.Error())
 				return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
 			}
@@ -919,9 +918,14 @@ func (mr *moveRequest) getCurrentPosition(ctx context.Context) (*referenceframe.
 // Depending on the caller, the geometries returned are either in their relative position
 // with respect to the base or in their absolute position with respect to the world.
 func (mr *moveRequest) getExistingGeometries(
-	f func(g spatialmath.Geometry) spatialmath.Geometry,
+	f func(g spatialmath.Geometry) spatialmath.Geometry, // f applies a transform on g defined a priori by the user
 ) (*referenceframe.GeometriesInFrame, error) {
-	// get the already defined geometries of worldstate
+	// If the camera is mounted on something InputEnabled that isn't the base,
+	// then that input needs to be known in order to properly calculate the pose of the obstacle.
+	// Furthermore, if that InputEnabled thing has moved since this moveRequest was initialized
+	// (due to some other non-motion call for example), then we can't just get current inputs; we need the original
+	// input to place that thing in its original position.
+	// Thus the cached CurrentInputs from the start are used.
 	existingGifs, err := mr.planRequest.WorldState.ObstaclesInWorldFrame(
 		mr.planRequest.FrameSystem, mr.planRequest.StartConfiguration,
 	)

@@ -2568,7 +2568,7 @@ func TestGetTransientDetections(t *testing.T) {
 		"slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd",
 		100, spatialmath.NewZeroPose(),
 	)
-	defer ms.Close(ctx)
+	t.Cleanup(func() { ms.Close(ctx) })
 
 	// construct move request
 	moveReq := motion.MoveOnMapReq{
