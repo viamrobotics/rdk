@@ -36,6 +36,7 @@ func (sb *sensorBase) startControlLoop() error {
 }
 
 func (sb *sensorBase) setupControlLoop(linear, angular control.PIDConfig) error {
+	// set the necessary options for a sensorcontrolled base
 	options := control.Options{
 		SensorFeedbackVelocityControl: true,
 		LoopFrequency:                 20,
@@ -43,20 +44,24 @@ func (sb *sensorBase) setupControlLoop(linear, angular control.PIDConfig) error 
 	}
 
 	switch {
-	// check if both linear and angular need to be tuned, and if so start by tuning linear
+	// check if neither linear or angular need to be tuned
 	case (linear.P != 0.0 || linear.I != 0.0 || linear.D != 0.0) &&
 		(angular.P != 0.0 || angular.I != 0.0 || angular.D != 0.0):
 		// probably redundant
 		options.NeedsAutoTuning = false
+	// check if both linear and angular need to be tuned
 	case linear.P == 0.0 && linear.I == 0.0 && linear.D == 0.0 &&
 		angular.P == 0.0 && angular.I == 0.0 && angular.D == 0.0:
 		options.NeedsAutoTuning = true
+	// if linear or angular need to be tuned but not both
 	default:
 		options.NeedsSingleAutoTuning = true
 	}
 
+	// combine linear and angular back into one control.PIDConfig, with linear first
 	var pidVals = []control.PIDConfig{linear, angular}
 
+	// fully set up the control config based on the provided options
 	pl, err := control.SetupPIDControlConfig(pidVals, sb.Name().ShortName(), options, sb, sb.logger)
 	if err != nil {
 		return err

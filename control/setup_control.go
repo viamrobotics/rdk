@@ -101,6 +101,7 @@ func SetupPIDControlConfig(pidVals []PIDConfig, componentName string, Options Op
 		pidLoop.createControlLoopConfig(pidVals, componentName)
 	}
 
+	// auto tune the control loop if needed
 	if Options.NeedsAutoTuning {
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 		if err := pidLoop.TunePIDLoop(cancelCtx, cancelFunc); err != nil {
@@ -195,8 +196,8 @@ func (p *PIDLoop) createControlLoopConfig(pidVals []PIDConfig, componentName str
 		p.addSensorFeedbackVelocityControl(pidVals[1])
 	}
 
-	p.BlockNames = make(map[string][]string, len(p.ControlConf.Blocks))
 	// assign block names
+	p.BlockNames = make(map[string][]string, len(p.ControlConf.Blocks))
 	for _, b := range p.ControlConf.Blocks {
 		p.BlockNames[string(b.Type)] = append(p.BlockNames[string(b.Type)], b.Name)
 	}

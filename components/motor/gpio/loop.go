@@ -59,11 +59,13 @@ func (m *EncodedMotor) updateControlBlock(ctx context.Context, setPoint, maxVel 
 }
 
 func (m *EncodedMotor) setupControlLoop() error {
+	// set the necessary options for an encoded motor
 	options := control.Options{
 		PositionControlUsingTrapz: true,
 		LoopFrequency:             100.0,
 	}
 
+	// convert the motor config ControlParameters to the control.PIDConfig structure for use in setup_control.go
 	convertedControlParams := []control.PIDConfig{{
 		Type: "",
 		P:    m.cfg.ControlParameters.P,
@@ -71,6 +73,8 @@ func (m *EncodedMotor) setupControlLoop() error {
 		D:    m.cfg.ControlParameters.D,
 	}}
 
+	// auto tune motor if all ControlParameters are 0
+	// since there's only one set of PID values for a motor, they will always be at convertedControlParams[0]
 	if convertedControlParams[0].P == 0.0 &&
 		convertedControlParams[0].I == 0.0 &&
 		convertedControlParams[0].D == 0.0 {
