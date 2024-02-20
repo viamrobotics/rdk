@@ -427,6 +427,12 @@ func CheckUpdateAction(c *cli.Context) error {
 	}
 
 	dateCompiledRaw := rconfig.DateCompiled
+
+	// `go build` will not set the compilation flags needed for this check
+	if dateCompiledRaw == "" {
+		return nil
+	}
+
 	dateCompiled, err := time.Parse("2006-01-02", dateCompiledRaw)
 	if err != nil {
 		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse compilation date: %w", err)

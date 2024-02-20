@@ -19,7 +19,7 @@ const (
 	aliasRobotFlag   = "robot"
 	partFlag         = "part"
 
-	// quiet any warnings.
+	// TODO: RSDK-6683
 	quietFlag = "quiet"
 
 	logsFlagErrors = "errors"
