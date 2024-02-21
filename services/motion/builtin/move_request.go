@@ -93,7 +93,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): inputs}
 
 	// get existing elements of the worldstate
-	existingGifs, err := mr.getExistingGeometries(func(g spatialmath.Geometry) spatialmath.Geometry { return g })
+	existingGifs, err := mr.getExistingGeometries(spatialmath.NewZeroPose())
 	if err != nil {
 		return nil, err
 	}
@@ -102,9 +102,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	gifs := []*referenceframe.GeometriesInFrame{}
 	for visSrvc, cameraNames := range mr.obstacleDetectors {
 		for _, camName := range cameraNames {
-			relativeGIFs, err := mr.getTransientDetections(ctx, visSrvc, camName,
-				func(g spatialmath.Geometry) spatialmath.Geometry { return g },
-			)
+			relativeGIFs, err := mr.getTransientDetections(ctx, visSrvc, camName, spatialmath.NewZeroPose())
 			if err != nil {
 				return nil, err
 			}
@@ -199,7 +197,7 @@ func (mr *moveRequest) getTransientDetections(
 	ctx context.Context,
 	visSrvc vision.Service,
 	camName resource.Name,
-	f func(g spatialmath.Geometry) spatialmath.Geometry,
+	transformBy spatialmath.Pose,
 ) (*referenceframe.GeometriesInFrame, error) {
 	mr.logger.CDebugf(ctx,
 		"proceeding to get detections from vision service: %s with camera: %s",
@@ -237,7 +235,7 @@ func (mr *moveRequest) getTransientDetections(
 		relativeGeom := geometry.Transform(cameraToBase.Pose())
 
 		// apply any transformation on the geometry defined a priori by the caller
-		transformedGeom := f(relativeGeom)
+		transformedGeom := relativeGeom.Transform(transformBy)
 		transformedGeoms = append(transformedGeoms, transformedGeom)
 	}
 	return referenceframe.NewGeometriesInFrame(referenceframe.World, transformedGeoms), nil
@@ -259,11 +257,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 
 	// existing geometries are in their relative position, i.e. with respect to the base's frame
 	// here we transform them into their absolute positions. i.e. with respect to the world frame
-	existingGifs, err := mr.getExistingGeometries(
-		func(g spatialmath.Geometry) spatialmath.Geometry {
-			return g.Transform(mr.poseOrigin)
-		},
-	)
+	existingGifs, err := mr.getExistingGeometries(mr.poseOrigin)
 	if err != nil {
 		return state.ExecuteResponse{}, err
 	}
@@ -278,10 +272,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 		for _, camName := range cameraNames {
 			// Note: detections are initially observed from the camera frame but must be transformed to be in
 			// world frame. We cannot use the inputs of the base to transform the detections since they are relative.
-			f := func(g spatialmath.Geometry) spatialmath.Geometry {
-				return g.Transform(currentPosition.Pose())
-			}
-			gifs, err := mr.getTransientDetections(ctx, visSrvc, camName, f)
+			gifs, err := mr.getTransientDetections(ctx, visSrvc, camName, currentPosition.Pose())
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
@@ -310,10 +301,11 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				return state.ExecuteResponse{}, err
 			}
 
-			mr.logger.CDebugf(ctx, "CheckPlan inputs: \n currentPosition: %v\n currentInputs: %v\n errorState: %v",
+			mr.logger.CDebugf(ctx, "CheckPlan inputs: \n currentPosition: %v\n currentInputs: %v\n errorState: %v\n worldstate: %s",
 				spatialmath.PoseToProtobuf(currentPosition.Pose()),
 				currentInputs,
 				spatialmath.PoseToProtobuf(errorState),
+				worldState.String(),
 			)
 
 			if err := motionplan.CheckPlan(
@@ -869,15 +861,13 @@ func (mr *moveRequest) stop() error {
 // getExistingGeometries returns elements of the worlstate which are not transient.
 // Depending on the caller, the geometries returned are either in their relative position
 // with respect to the base or in their absolute position with respect to the world.
-func (mr *moveRequest) getExistingGeometries(
-	f func(g spatialmath.Geometry) spatialmath.Geometry, // f applies a transform on g defined a priori by the user
-) (*referenceframe.GeometriesInFrame, error) {
+func (mr *moveRequest) getExistingGeometries(transformBy spatialmath.Pose) (*referenceframe.GeometriesInFrame, error) {
 	// If the camera is mounted on something InputEnabled that isn't the base,
 	// then that input needs to be known in order to properly calculate the pose of the obstacle.
 	// Furthermore, if that InputEnabled thing has moved since this moveRequest was initialized
 	// (due to some other non-motion call for example), then we can't just get current inputs; we need the original
 	// input to place that thing in its original position.
-	// Thus the cached CurrentInputs from the start are used.
+	// Hence the cached CurrentInputs from the start are used.
 	existingGifs, err := mr.planRequest.WorldState.ObstaclesInWorldFrame(
 		mr.planRequest.FrameSystem, mr.planRequest.StartConfiguration,
 	)
@@ -886,7 +876,7 @@ func (mr *moveRequest) getExistingGeometries(
 	}
 	existingGeoms := []spatialmath.Geometry{}
 	for _, g := range existingGifs.Geometries() {
-		existingGeoms = append(existingGeoms, f(g))
+		existingGeoms = append(existingGeoms, g.Transform(transformBy))
 	}
 	return referenceframe.NewGeometriesInFrame(referenceframe.World, existingGeoms), nil
 }

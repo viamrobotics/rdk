@@ -517,8 +517,8 @@ func TestObstacleReplanningSlam(t *testing.T) {
 	)
 
 	boxWrld, err := spatialmath.NewBox(
-		spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 250, Z: 0}),
-		r3.Vector{X: 50, Y: 1400, Z: 20}, "lol",
+		spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0}),
+		r3.Vector{X: 50, Y: 50, Z: 50}, "box-obstacle",
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -552,7 +552,7 @@ func TestObstacleReplanningSlam(t *testing.T) {
 	}
 	req := motion.MoveOnMapReq{
 		ComponentName: base.Named("test-base"),
-		Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 0.96679e3, Y: 0, Z: 0}),
+		Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 0.94e3, Y: 0, Z: 0}),
 		SlamName:      slam.Named("test_slam"),
 		MotionCfg: &motion.MotionConfiguration{
 			PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: 1, ObstacleDetectors: obstacleDetectorSlice,
@@ -574,6 +574,18 @@ func TestObstacleReplanningSlam(t *testing.T) {
 		LastPlanOnly:  true,
 	})
 	test.That(t, err, test.ShouldBeNil)
+
+	plansWithStatus, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{
+		ComponentName: base.Named("test-base"),
+		LastPlanOnly:  false,
+		ExecutionID:   executionID,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	for _, planStatus := range plansWithStatus {
+		for _, history := range planStatus.StatusHistory {
+			fmt.Println(history.Reason)
+		}
+	}
 }
 
 func TestMultiplePieces(t *testing.T) {
@@ -2607,49 +2619,33 @@ func TestGetTransientDetections(t *testing.T) {
 
 	type testCase struct {
 		name          string
-		f             func(g spatialmath.Geometry) spatialmath.Geometry
+		f             spatialmath.Pose
 		detectionPose spatialmath.Pose
 	}
 	testCases := []testCase{
 		{
 			name:          "relative - SLAM/base theta does not matter",
-			f:             func(g spatialmath.Geometry) spatialmath.Geometry { return g },
+			f:             spatialmath.NewZeroPose(),
 			detectionPose: spatialmath.NewPose(r3.Vector{4, 10, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
 		},
 		{
-			name: "absolute - SLAM theta: 0, base theta: -90 == 270",
-			f: func(g spatialmath.Geometry) spatialmath.Geometry {
-				return g.Transform(
-					spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90}),
-				)
-			},
+			name:          "absolute - SLAM theta: 0, base theta: -90 == 270",
+			f:             spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90}),
 			detectionPose: spatialmath.NewPose(r3.Vector{6, -14, -8}, &spatialmath.OrientationVectorDegrees{OX: 1, Theta: -90}),
 		},
 		{
-			name: "absolute - SLAM theta: 90, base theta: 0",
-			f: func(g spatialmath.Geometry) spatialmath.Geometry {
-				return g.Transform(
-					spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0}),
-				)
-			},
+			name:          "absolute - SLAM theta: 90, base theta: 0",
+			f:             spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0}),
 			detectionPose: spatialmath.NewPose(r3.Vector{0, 0, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
 		},
 		{
-			name: "absolute - SLAM theta: 180, base theta: 90",
-			f: func(g spatialmath.Geometry) spatialmath.Geometry {
-				return g.Transform(
-					spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90}),
-				)
-			},
+			name:          "absolute - SLAM theta: 180, base theta: 90",
+			f:             spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90}),
 			detectionPose: spatialmath.NewPose(r3.Vector{-14, -6, -8}, &spatialmath.OrientationVectorDegrees{OX: -1, Theta: -90}),
 		},
 		{
-			name: "absolute - SLAM theta: 270, base theta: 180",
-			f: func(g spatialmath.Geometry) spatialmath.Geometry {
-				return g.Transform(
-					spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180}),
-				)
-			},
+			name:          "absolute - SLAM theta: 270, base theta: 180",
+			f:             spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180}),
 			detectionPose: spatialmath.NewPose(r3.Vector{-8, -20, -8}, &spatialmath.OrientationVectorDegrees{OY: -1, Theta: -90}),
 		},
 	}
