@@ -288,12 +288,12 @@ func (o *odometry) Position(ctx context.Context, extra map[string]interface{}) (
 	setPosY, okY := extra[setPosY].(float64)
 
 	if !okX || !okY {
-		o.logger.Error("could not parse new position from extra parameters")
+		// o.logger.Error("could not parse new position from extra parameters")
 	} else {
-
+		o.coord = geo.NewPoint(setPosX, setPosY)
+		o.position.X += setPosX * 111139.
+		o.position.Y += setPosY * 111139.
 	}
-
-	o.coord = geo.NewPoint(setPosX, setPosY)
 
 	return o.coord, o.position.Z, nil
 }
