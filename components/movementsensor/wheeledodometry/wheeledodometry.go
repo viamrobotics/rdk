@@ -28,6 +28,9 @@ const (
 	oneTurn                  = 2 * math.Pi
 	mToKm                    = 1e-3
 	returnRelative           = "return_relative_pos_m"
+	setPosX                  = "SetPosX"
+	setPosY                  = "SetPosY"
+	useOri                   = "useOri"
 )
 
 // Config is the config for a wheeledodometry MovementSensor.
@@ -60,6 +63,8 @@ type odometry struct {
 	position        r3.Vector
 	orientation     spatialmath.EulerAngles
 	coord           *geo.Point
+
+	useOri bool
 
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
@@ -248,6 +253,12 @@ func (o *odometry) Orientation(ctx context.Context, extra map[string]interface{}
 func (o *odometry) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
+
+	useOri, ok := extra["use_orientation"].(bool)
+	if ok {
+		o.useOri = useOri
+	}
+
 	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
 
@@ -264,6 +275,12 @@ func (o *odometry) Position(ctx context.Context, extra map[string]interface{}) (
 	if relative, ok := extra[returnRelative]; ok {
 		if relative.(bool) {
 			return geo.NewPoint(o.position.Y, o.position.X), o.position.Z, nil
+		}
+	}
+
+	if setPosX, ok := extra[setPosX]; ok {
+		if setPos.(float64) {
+			o.coord += setPosX
 		}
 	}
 
