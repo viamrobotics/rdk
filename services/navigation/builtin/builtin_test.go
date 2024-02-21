@@ -3,7 +3,6 @@ package builtin
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"sync"
 	"testing"
@@ -25,6 +24,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
@@ -36,6 +36,7 @@ import (
 	_ "go.viam.com/rdk/services/vision/colordetector"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	viz "go.viam.com/rdk/vision"
 )
 
 type startWaypointState struct {
@@ -1676,7 +1677,7 @@ func TestValidateGeometry(t *testing.T) {
 	})
 }
 
-func TestSanity(t *testing.T) {
+func TestGetObstacles(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
@@ -1761,7 +1762,7 @@ func TestSanity(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	cameraLink := referenceframe.NewLinkInFrame(
 		baseLink.Name(),
-		spatialmath.NewPose(r3.Vector{3, 3, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0}),
+		spatialmath.NewPose(r3.Vector{6, -3, 0}, &spatialmath.OrientationVectorDegrees{OX: 1, Theta: -90}),
 		"test_camera",
 		cameraGeom,
 	)
@@ -1778,9 +1779,53 @@ func TestSanity(t *testing.T) {
 	// set the framesystem service for the navigation service
 	ns.(*builtIn).fsService = fsSvc
 
-	baseOrigin := referenceframe.NewPoseInFrame(fakeBase.Name().ShortName(), spatialmath.NewZeroPose())
-	cameraToBase, _ := fsSvc.TransformPose(ctx, baseOrigin, injectedCam.Name().ShortName(), nil)
-	fmt.Println(spatialmath.PoseToProtobuf(cameraToBase.Pose()))
+	// set injectMovementSensor functions
+	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		return geo.NewPoint(1, 1), 0, nil
+	}
+	injectMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+		return &movementsensor.Properties{
+			CompassHeadingSupported: true,
+		}, nil
+	}
+	injectMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		// this is a left-handed value
+		return 315, nil
+	}
+
+	// set injectedVis functions
+	injectedVis.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+		boxGeom, err := spatialmath.NewBox(
+			spatialmath.NewPose(r3.Vector{-10, 0, 11}, &spatialmath.OrientationVectorDegrees{OZ: -1, OX: 1}),
+			r3.Vector{5, 5, 1},
+			"test-box",
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-box", boxGeom.ToProtobuf())
+		test.That(t, err, test.ShouldBeNil)
+		return []*viz.Object{detection}, nil
+	}
+
+	manipulatedBoxGeom, err := spatialmath.NewBox(
+		spatialmath.NewPose(
+			r3.Vector{0, 0, 0},
+			&spatialmath.OrientationVectorDegrees{OZ: -1, OX: 1},
+		),
+		r3.Vector{5, 5, 1},
+		"transient_0_test_camera_test-box",
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	dets, err := ns.Obstacles(ctx, nil)
+
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(dets), test.ShouldEqual, 2)
+	test.That(t, dets[0], test.ShouldResemble, sphereGob)
+	test.That(t, dets[1].Location(), test.ShouldResemble, geo.NewPoint(0.9999998600983906, 1.0000001399229705))
+	test.That(t, len(dets[1].Geometries()), test.ShouldEqual, 1)
+	test.That(t, dets[1].Geometries()[0].AlmostEqual(manipulatedBoxGeom), test.ShouldBeTrue)
+	test.That(t, dets[1].Geometries()[0].Label(), test.ShouldEqual, manipulatedBoxGeom.Label())
 }
 
 func TestProperties(t *testing.T) {
