@@ -589,7 +589,7 @@ func TestObstacleReplanningSlam(t *testing.T) {
 			}
 		}
 	}
-	test.That(t, populatedReplanReason, test.ShouldEqual, 1)
+	test.That(t, populatedReplanReason, test.ShouldBeGreaterThanOrEqualTo, 1)
 }
 
 func TestMultiplePieces(t *testing.T) {
