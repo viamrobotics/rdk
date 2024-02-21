@@ -746,12 +746,11 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		}
 
 		// add camera to vision service map
-		cameraName := obstacleDetectorNamePair.CameraName
 		camList, ok := obstacleDetectors[visionSvc]
 		if !ok {
-			obstacleDetectors[visionSvc] = []resource.Name{cameraName}
+			obstacleDetectors[visionSvc] = []resource.Name{obstacleDetectorNamePair.CameraName}
 		} else {
-			camList = append(camList, cameraName)
+			camList = append(camList, obstacleDetectorNamePair.CameraName)
 			obstacleDetectors[visionSvc] = camList
 		}
 	}
