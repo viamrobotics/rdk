@@ -491,7 +491,7 @@ func CheckUpdateAction(c *cli.Context) error {
 	}
 
 	appVersion := rconfig.Version
-	if appVersion == "(dev)" {
+	if appVersion == "" {
 		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than 6 weeks old. "+
 			"Consider updating to version: %s", latestVersion.Original())
 		return nil
@@ -540,6 +540,9 @@ func VersionAction(c *cli.Context) error {
 	}
 
 	appVersion := rconfig.Version
+	if appVersion == "" {
+		appVersion = "(dev)"
+	}
 	printf(c.App.Writer, "Version %s Git=%s API=%s", appVersion, version, apiVersion)
 	return nil
 }
