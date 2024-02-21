@@ -23,14 +23,14 @@ func (viz *Visualizer) SaveSnapshot(g *Graph) error {
 	if err != nil {
 		return err
 	}
-	lastSnapshot := viz.snapshots.Back()
+	lastSnapshot := viz.snapshots.Front()
 	if lastSnapshot != nil && snapshot == lastSnapshot.Value.(string) {
 		// Nothing changed since the last snapshot
 		return nil
 	}
-	viz.snapshots.PushBack(snapshot)
+	viz.snapshots.PushFront(snapshot)
 	if viz.snapshots.Len() > snapshotLimit {
-		viz.snapshots.Remove(viz.snapshots.Front())
+		viz.snapshots.Remove(viz.snapshots.Back())
 	}
 	return nil
 }
@@ -49,6 +49,7 @@ func (viz *Visualizer) GetSnapshot(n int) (string, int, error) {
 	snapshot := viz.snapshots.Front()
 	for n > 0 && snapshot.Next() != nil {
 		snapshot = snapshot.Next()
+		n--
 	}
 	return snapshot.Value.(string), count, nil
 }
