@@ -30,7 +30,7 @@ const (
 	returnRelative           = "return_relative_pos_m"
 	setPosX                  = "SetPosX"
 	setPosY                  = "SetPosY"
-	useOri                   = "useOri"
+	useOri                   = "use_orientation"
 )
 
 // Config is the config for a wheeledodometry MovementSensor.
@@ -254,7 +254,7 @@ func (o *odometry) CompassHeading(ctx context.Context, extra map[string]interfac
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	useOri, ok := extra["use_orientation"].(bool)
+	useOri, ok := extra[useOri].(bool)
 	if ok {
 		o.logger.Info("using orientation as compass heading: true")
 		o.useOri = useOri
@@ -283,13 +283,17 @@ func (o *odometry) Position(ctx context.Context, extra map[string]interface{}) (
 		}
 	}
 
-	if setPosX, ok := extra[setPosX]; ok {
-		o.position.X += setPosX.(float64)
+	setPosX, okX := extra[setPosX].(float64)
+
+	setPosY, okY := extra[setPosY].(float64)
+
+	if !okX || !okY {
+		o.logger.Error("could not parse new position from extra parameters")
+	} else {
+
 	}
 
-	if setPosY, ok := extra[setPosX]; ok {
-		o.position.Y += setPosY.(float64)
-	}
+	o.coord = geo.NewPoint(setPosX, setPosY)
 
 	return o.coord, o.position.Z, nil
 }
