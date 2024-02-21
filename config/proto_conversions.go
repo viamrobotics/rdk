@@ -674,6 +674,8 @@ func CloudConfigToProto(cloud *Cloud) (*pb.CloudConfig, error) {
 		LocalFqdn:         cloud.LocalFQDN,
 		SignalingAddress:  cloud.SignalingAddress,
 		SignalingInsecure: cloud.SignalingInsecure,
+		PrimaryOrgId:      cloud.PrimaryOrgID,
+		LocationId:        cloud.LocationID,
 	}, nil
 }
 
