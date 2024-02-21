@@ -259,6 +259,10 @@ func (o *odometry) CompassHeading(ctx context.Context, extra map[string]interfac
 		o.useOri = useOri
 	}
 
+	if o.useOri {
+		return o.orientation.Yaw, nil
+	}
+
 	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
 
@@ -279,9 +283,11 @@ func (o *odometry) Position(ctx context.Context, extra map[string]interface{}) (
 	}
 
 	if setPosX, ok := extra[setPosX]; ok {
-		if setPos.(float64) {
-			o.coord += setPosX
-		}
+		o.position.X += setPosX.(float64)
+	}
+
+	if setPosY, ok := extra[setPosX]; ok {
+		o.position.Y += setPosY.(float64)
 	}
 
 	return o.coord, o.position.Z, nil
