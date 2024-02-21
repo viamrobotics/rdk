@@ -20,9 +20,10 @@ import (
 
 // detectorConfig is the attribute struct for detectors (their name as found in the vision service).
 type detectorConfig struct {
-	DetectorName        string   `json:"detector_name"`
-	ConfidenceThreshold float64  `json:"confidence_threshold"`
-	ValidLabels         []string `json:"valid_labels"`
+	DetectorName        string            `json:"detector_name"`
+	ConfidenceThreshold float64           `json:"confidence_threshold"`
+	ValidLabels         []string          `json:"valid_labels"`
+	LabelRenamer        map[string]string `json:"label_renamer,omitempty"`
 }
 
 // detectorSource takes an image from the camera, and overlays the detections from the detector.
@@ -31,6 +32,7 @@ type detectorSource struct {
 	detectorName string
 	labelFilter  objectdetection.Postprocessor // must build from ValidLabels
 	confFilter   objectdetection.Postprocessor
+	labelRenamer objectdetection.Postprocessor
 	r            robot.Robot
 }
 
@@ -61,11 +63,14 @@ func newDetectionsTransform(
 		validLabels[strings.ToLower(l)] = struct{}{}
 	}
 	labelFilter := objectdetection.NewLabelFilter(validLabels)
+	labelRenamer := objectdetection.NewLabelRenamer(conf.LabelRenamer)
+
 	detector := &detectorSource{
 		gostream.NewEmbeddedVideoStream(source),
 		conf.DetectorName,
 		labelFilter,
 		confFilter,
+		labelRenamer,
 		r,
 	}
 	src, err := camera.NewVideoSourceFromReader(ctx, detector, &cameraModel, camera.ColorStream)
@@ -96,6 +101,7 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 	// overlay detections of the source image
 	dets = ds.confFilter(dets)
 	dets = ds.labelFilter(dets)
+	dets = ds.labelRenamer(dets)
 
 	res, err := objectdetection.Overlay(img, dets)
 	if err != nil {
