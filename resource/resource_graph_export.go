@@ -11,6 +11,23 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+type Visualizer struct {
+	snapshots []string
+}
+
+func (viz *Visualizer) SaveSnapshot(g *Graph) error {
+	snapshot, err := g.ExportDot()
+	if err != nil {
+		return err
+	}
+	viz.snapshots = append(viz.snapshots, snapshot)
+	return nil
+}
+
+func (viz *Visualizer) Count() int { return len(viz.snapshots) }
+
+func (viz *Visualizer) GetSnapshots() []string { return viz.snapshots }
+
 // blockWriter wraps a bytes.Buffer and adds some structured methods (`NewBlock`/`EndBlock`) for
 // keeping indentation state.
 type blockWriter struct {

@@ -49,8 +49,7 @@ type resourceManager struct {
 	opts           resourceManagerOptions
 	logger         logging.Logger
 	configLock     sync.Mutex
-	// tracks snapshots of resource graph
-	snapshots []string
+	viz            resource.Visualizer
 }
 
 type resourceManagerOptions struct {
@@ -93,7 +92,7 @@ func fromRemoteNameToRemoteNodeName(name string) resource.Name {
 // ExportDot exports the resource graph as a DOT representation for visualization.
 // DOT reference: https://graphviz.org/doc/info/lang.html
 func (manager *resourceManager) ExportDot() []string {
-	return manager.snapshots
+	return manager.viz.GetSnapshots()
 }
 
 func (manager *resourceManager) startModuleManager(
@@ -492,12 +491,8 @@ func (manager *resourceManager) completeConfig(
 	manager.configLock.Lock()
 	defer manager.configLock.Unlock()
 	defer func() {
-		snapshot, err := manager.resources.ExportDot()
-		if err != nil {
-			manager.logger.Warnw("failed to export graph snapshot", "error", err)
-		} else {
-			manager.snapshots = append(manager.snapshots, snapshot)
-			manager.logger.Infof(">>> saved snapshot", "count", len(manager.snapshots))
+		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
+			manager.logger.Warnw("failed to save graph snapshot", "error", err)
 		}
 	}()
 
