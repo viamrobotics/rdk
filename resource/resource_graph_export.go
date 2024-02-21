@@ -2,6 +2,7 @@ package resource
 
 import (
 	"bytes"
+	"container/list"
 	"errors"
 	"fmt"
 	"strings"
@@ -11,8 +12,10 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+const snapshotLimit = 5 // 500
+
 type Visualizer struct {
-	snapshots []string
+	snapshots list.List
 }
 
 func (viz *Visualizer) SaveSnapshot(g *Graph) error {
@@ -20,13 +23,22 @@ func (viz *Visualizer) SaveSnapshot(g *Graph) error {
 	if err != nil {
 		return err
 	}
-	viz.snapshots = append(viz.snapshots, snapshot)
+	// TODO only add if different
+	viz.snapshots.PushBack(snapshot)
+	if viz.snapshots.Len() > snapshotLimit {
+		viz.snapshots.Remove(viz.snapshots.Front())
+	}
 	return nil
 }
 
-func (viz *Visualizer) Count() int { return len(viz.snapshots) }
+func (viz *Visualizer) Count() int { return viz.snapshots.Len() }
 
-func (viz *Visualizer) GetSnapshots() []string { return viz.snapshots }
+func (viz *Visualizer) GetSnapshots() (result []string) {
+	for e := viz.snapshots.Front(); e != nil; e = e.Next() {
+		result = append(result, e.Value.(string))
+	}
+	return
+}
 
 // blockWriter wraps a bytes.Buffer and adds some structured methods (`NewBlock`/`EndBlock`) for
 // keeping indentation state.
