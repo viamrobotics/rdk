@@ -256,6 +256,7 @@ func (o *odometry) CompassHeading(ctx context.Context, extra map[string]interfac
 
 	useOri, ok := extra["use_orientation"].(bool)
 	if ok {
+		o.logger.Info("using orientation as compass heading: true")
 		o.useOri = useOri
 	}
 
@@ -320,6 +321,7 @@ func (o *odometry) Properties(ctx context.Context, extra map[string]interface{})
 		AngularVelocitySupported: true,
 		OrientationSupported:     true,
 		PositionSupported:        true,
+		CompassHeadingSupported:  o.useOri,
 	}, nil
 }
 
