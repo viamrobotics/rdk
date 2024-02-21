@@ -23,7 +23,11 @@ func (viz *Visualizer) SaveSnapshot(g *Graph) error {
 	if err != nil {
 		return err
 	}
-	// TODO only add if different
+	lastSnapshot := viz.snapshots.Back()
+	if lastSnapshot != nil && snapshot == lastSnapshot.Value.(string) {
+		// Nothing changed since the last snapshot
+		return nil
+	}
 	viz.snapshots.PushBack(snapshot)
 	if viz.snapshots.Len() > snapshotLimit {
 		viz.snapshots.Remove(viz.snapshots.Front())
