@@ -207,16 +207,10 @@ func (mr *moveRequest) getTransientDetections(
 		visSrvc.Name().ShortName(),
 		camName.ShortName(),
 	)
-	// any obstacles specified by the worldstate of the moveRequest will also re-detected here.
-	// get detections from vision service
+
 	detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
 	if err != nil {
 		return nil, err
-	}
-
-	if len(detections) == 0 {
-		mr.logger.CDebug(ctx, "no detections, returning early")
-		return referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{}), nil
 	}
 
 	cameraToBase, ok := mr.cameraToBaseCache[camName]
@@ -271,7 +265,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 	}
 
 	// get the current position of the base
-	currentPosition, err := mr.getCurrentPosition(ctx)
+	currentPosition, err := mr.kinematicBase.CurrentPosition(ctx)
 	if err != nil {
 		return state.ExecuteResponse{}, err
 	}
@@ -883,35 +877,6 @@ func (mr *moveRequest) stop() error {
 		return stopErr
 	}
 	return nil
-}
-
-// getCurrentPosition returns a kinematic bases current position with respect to the world frame.
-func (mr *moveRequest) getCurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
-	currentPosition, err := mr.kinematicBase.CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
-	}
-	// make sure the currentPosition is in the world frame
-	if currentPosition.Parent() != referenceframe.World {
-		// get the current inputs from the frame system service
-		currentInputs, _, err := mr.fsService.CurrentInputs(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		// transform using the planRequest's framesystem
-		tf, err := mr.planRequest.FrameSystem.Transform(currentInputs, currentPosition, referenceframe.World)
-		if err != nil {
-			return nil, err
-		}
-
-		// assert back to PoseInFrame
-		var ok bool
-		if currentPosition, ok = tf.(*referenceframe.PoseInFrame); !ok {
-			return nil, errors.New("cannot assert transformable as PoseInFrame")
-		}
-	}
-	return currentPosition, nil
 }
 
 // getExistingGeometries returns elements of the worlstate which are not transient.

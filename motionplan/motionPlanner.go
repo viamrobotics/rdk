@@ -519,15 +519,15 @@ func CheckPlan(
 		segments = make([]*ik.Segment, 0, len(poses)+1)
 
 		// get the inputs we were partway through executing
-		checkFrameGoalInputs, ok := plan.Trajectory()[0][checkFrame.Name()]
-		if !ok {
-			return errors.New("could not get inputs for checkFrame")
+		checkFrameGoalInputs, err := sf.mapToSlice(plan.Trajectory()[0])
+		if err != nil {
+			return err
 		}
 
 		// get checkFrame's currentInputs
-		checkFrameCurrentInputs, ok := currentInputs[checkFrame.Name()]
-		if !ok {
-			return errors.New("could not get inputs for checkFrame")
+		checkFrameCurrentInputs, err := sf.mapToSlice(currentInputs)
+		if err != nil {
+			return err
 		}
 
 		// get pose of robot along the current trajectory it is executing
