@@ -580,6 +580,7 @@ func TestObstacleReplanningSlam(t *testing.T) {
 		LastPlanOnly:  false,
 		ExecutionID:   executionID,
 	})
+	test.That(t, err, test.ShouldBeNil)
 	populatedReplanReason := 0
 	for _, planStatus := range plansWithStatus {
 		for _, history := range planStatus.StatusHistory {
