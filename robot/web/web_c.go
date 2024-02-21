@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -359,41 +360,43 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 	if !isLocal {
 		return
 	}
-	snapshots := localRobot.ExportResourcesAsDot()
-	snapshotCount := len(snapshots)
-	if snapshotCount == 0 {
-		svc.logger.Infow(">>> no snapshots yet")
-		return
-	}
-	svc.logger.Infow(">>> snapshots available", "count", snapshotCount)
-
-	const revParam = "rev"
-	revision := r.URL.Query().Get(revParam)
-	svc.logger.Infow(">>> loading graph revision", "q", revision, "url", r.URL.String())
-	var (
-		snapshotIndex int
-		err           error
-	)
-	if revision == "" {
-		snapshotIndex = snapshotCount - 1
-	} else {
-		snapshotIndex, err = strconv.Atoi(revision)
-	}
-
-	svc.logger.Infow(">>> loading graph revision", "q", revision, "#", snapshotIndex, "error", err)
-	if err != nil || snapshotIndex < 0 || snapshotIndex >= snapshotCount {
-		svc.logger.Infow(">>> invalid revision")
-
+	const lookupParam = "back"
+	redirectToLatestSnapshot := func() {
 		url := *r.URL
 		q := r.URL.Query()
-		q.Set(revParam, strconv.Itoa(snapshotCount-1))
+		q.Del(lookupParam)
 		url.RawQuery = q.Encode()
 
 		http.Redirect(w, r, url.String(), http.StatusSeeOther)
 		return
 	}
 
-	dot := snapshots[snapshotIndex]
+	lookupRawValue := strings.TrimSpace(r.URL.Query().Get(lookupParam))
+	var (
+		lookup int
+		err    error
+	)
+	switch {
+	case lookupRawValue == "":
+		lookup = 0
+	case lookupRawValue == "0":
+		redirectToLatestSnapshot()
+		return
+	default:
+		lookup, err = strconv.Atoi(lookupRawValue)
+		if err != nil || lookup < 0 {
+			redirectToLatestSnapshot()
+			return
+		}
+	}
+	dot, snapshotCount, err := localRobot.ExportResourcesAsDot(lookup)
+	if snapshotCount == 0 {
+		return
+	}
+	if lookup >= snapshotCount {
+		redirectToLatestSnapshot()
+		return
+	}
 	layout := r.URL.Query().Get("layout")
 	if layout == "text" {
 		//nolint
@@ -417,42 +420,28 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 		gv.SetLayout(graphviz.Layout(layout))
 	}
 
+	navButton := func(n int, label string) {
+		url := *r.URL
+		q := r.URL.Query()
+		q.Set(lookupParam, strconv.Itoa(n))
+		url.RawQuery = q.Encode()
+		var html string
+		if n < 0 || n >= snapshotCount || n == lookup {
+			html = fmt.Sprintf(`<a>%s</a>`, label)
+		} else {
+			html = fmt.Sprintf(`<a href=%q>%s</a>`, url.String(), label)
+		}
+		w.Write([]byte(html))
+	}
+
 	w.Write([]byte(`<html><div>`))
-	func() {
-		url := *r.URL
-		q := r.URL.Query()
-		q.Set(revParam, "0")
-		url.RawQuery = q.Encode()
-		html := fmt.Sprintf(`<a href=%q>First</a>`, url.String())
-		w.Write([]byte(html))
-	}()
+	navButton(snapshotCount-1, "Earliest")
 	w.Write([]byte(`|`))
-	func() {
-		url := *r.URL
-		q := r.URL.Query()
-		q.Set(revParam, strconv.Itoa(snapshotIndex-1))
-		url.RawQuery = q.Encode()
-		html := fmt.Sprintf(`<a href=%q>Prev</a>`, url.String())
-		w.Write([]byte(html))
-	}()
-	w.Write([]byte(fmt.Sprintf(`| %d / %d |`, snapshotIndex+1, snapshotCount)))
-	func() {
-		url := *r.URL
-		q := r.URL.Query()
-		q.Set(revParam, strconv.Itoa(snapshotIndex+1))
-		url.RawQuery = q.Encode()
-		html := fmt.Sprintf(`<a href=%q>Next</a>`, url.String())
-		w.Write([]byte(html))
-	}()
+	navButton(lookup+1, "Prev")
+	w.Write([]byte(fmt.Sprintf(`| %d / %d |`, snapshotCount-lookup, snapshotCount)))
+	navButton(lookup-1, "Next")
 	w.Write([]byte(`|`))
-	func() {
-		url := *r.URL
-		q := r.URL.Query()
-		q.Set(revParam, strconv.Itoa(snapshotCount-1))
-		url.RawQuery = q.Encode()
-		html := fmt.Sprintf(`<a href=%q>Latest</a>`, url.String())
-		w.Write([]byte(html))
-	}()
+	navButton(0, "Latest")
 	w.Write([]byte(`</div>`))
 
 	fxml := filterXML{w: w}

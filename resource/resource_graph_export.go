@@ -12,7 +12,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const snapshotLimit = 5 // 500
+const snapshotLimit = 500
 
 type Visualizer struct {
 	snapshots list.List
@@ -37,11 +37,20 @@ func (viz *Visualizer) SaveSnapshot(g *Graph) error {
 
 func (viz *Visualizer) Count() int { return viz.snapshots.Len() }
 
-func (viz *Visualizer) GetSnapshots() (result []string) {
-	for e := viz.snapshots.Front(); e != nil; e = e.Next() {
-		result = append(result, e.Value.(string))
+func (viz *Visualizer) GetSnapshot(n int) (string, int, error) {
+	count := viz.snapshots.Len()
+	if count == 0 {
+		return "", count, errors.New("no snapshots")
 	}
-	return
+	if n < 0 {
+		// if requested snapshot index is negative, return the latest one
+		n = 0
+	}
+	snapshot := viz.snapshots.Front()
+	for n > 0 && snapshot.Next() != nil {
+		snapshot = snapshot.Next()
+	}
+	return snapshot.Value.(string), count, nil
 }
 
 // blockWriter wraps a bytes.Buffer and adds some structured methods (`NewBlock`/`EndBlock`) for
