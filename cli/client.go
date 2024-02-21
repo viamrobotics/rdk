@@ -540,6 +540,9 @@ func VersionAction(c *cli.Context) error {
 	}
 
 	appVersion := rconfig.Version
+	if appVersion == "" {
+		appVersion = "(dev)"
+	}
 	printf(c.App.Writer, "Version %s Git=%s API=%s", appVersion, version, apiVersion)
 	return nil
 }
