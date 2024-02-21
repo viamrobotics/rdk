@@ -435,13 +435,13 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 	}
 
 	w.Write([]byte(`<html><div>`))
-	navButton(snapshotCount-1, "Earliest")
-	w.Write([]byte(`|`))
-	navButton(lookup+1, "Prev")
-	w.Write([]byte(fmt.Sprintf(`| %d / %d |`, snapshotCount-lookup, snapshotCount)))
-	navButton(lookup-1, "Next")
-	w.Write([]byte(`|`))
 	navButton(0, "Latest")
+	w.Write([]byte(`|`))
+	navButton(lookup-1, "Later")
+	w.Write([]byte(fmt.Sprintf(`| %d / %d |`, lookup+1, snapshotCount)))
+	navButton(lookup+1, "Earlier")
+	w.Write([]byte(`|`))
+	navButton(snapshotCount-1, "Earliest")
 	w.Write([]byte(`</div>`))
 
 	fxml := filterXML{w: w}
