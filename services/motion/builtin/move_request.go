@@ -68,7 +68,6 @@ type moveRequest struct {
 	seedPlan          motionplan.Plan
 	kinematicBase     kinematicbase.KinematicBase
 	obstacleDetectors map[vision.Service][]resource.Name
-	cameraToBaseCache map[resource.Name]spatialmath.Pose
 	replanCostFactor  float64
 	fsService         framesystem.Service
 
@@ -213,9 +212,14 @@ func (mr *moveRequest) getTransientDetections(
 		return nil, err
 	}
 
-	cameraToBase, ok := mr.cameraToBaseCache[camName]
-	if !ok {
-		return nil, errors.Errorf("cameraToBaseCache missing transform for %s", camName.ShortName())
+	cameraOrigin := referenceframe.NewPoseInFrame(camName.ShortName(), spatialmath.NewZeroPose())
+	cameraToBase, err := mr.fsService.TransformPose(ctx, cameraOrigin, mr.kinematicBase.Name().ShortName(), nil)
+	if err != nil {
+		mr.logger.CDebugf(ctx,
+			"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
+			mr.kinematicBase.Name().ShortName(), camName.ShortName(), err.Error(),
+		)
+		cameraToBase = cameraOrigin
 	}
 
 	// transformed detections
@@ -230,7 +234,7 @@ func (mr *moveRequest) getTransientDetections(
 		geometry.SetLabel(label)
 
 		// transform the geometry to be relative to the base frame which is +Y forwards
-		relativeGeom := geometry.Transform(cameraToBase)
+		relativeGeom := geometry.Transform(cameraToBase.Pose())
 
 		// apply any transformation on the geometry defined a priori by the caller
 		transformedGeom := f(relativeGeom)
@@ -728,7 +732,6 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	}
 
 	obstacleDetectors := make(map[vision.Service][]resource.Name)
-	cameraToBaseCache := make(map[resource.Name]spatialmath.Pose)
 	for _, obstacleDetectorNamePair := range motionCfg.obstacleDetectors {
 		// get vision service
 		visionServiceName := obstacleDetectorNamePair.VisionServiceName
@@ -745,21 +748,6 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		} else {
 			camList = append(camList, cameraName)
 			obstacleDetectors[visionSvc] = camList
-		}
-
-		// add to camera to base transform cache
-		if _, ok := cameraToBaseCache[cameraName]; !ok {
-			cameraOrigin := referenceframe.NewPoseInFrame(cameraName.ShortName(), spatialmath.NewZeroPose())
-			cameraToBase, err := ms.fsService.TransformPose(ctx, cameraOrigin, kb.Name().ShortName(), nil)
-			if err != nil {
-				ms.logger.CDebugf(ctx,
-					"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
-					kb.Name().ShortName(), cameraName.ShortName(), err.Error(),
-				)
-				cameraToBase = cameraOrigin
-			}
-			ms.logger.CDebugf(ctx, "cameraToBase transform: %v", spatialmath.PoseToProtobuf(cameraToBase.Pose()))
-			cameraToBaseCache[cameraName] = cameraToBase.Pose()
 		}
 	}
 
@@ -801,7 +789,6 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		kinematicBase:     kb,
 		replanCostFactor:  valExtra.replanCostFactor,
 		obstacleDetectors: obstacleDetectors,
-		cameraToBaseCache: cameraToBaseCache,
 		fsService:         ms.fsService,
 
 		executeBackgroundWorkers: &backgroundWorkers,
