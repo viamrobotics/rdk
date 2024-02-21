@@ -552,7 +552,7 @@ func TestObstacleReplanningSlam(t *testing.T) {
 	}
 	req := motion.MoveOnMapReq{
 		ComponentName: base.Named("test-base"),
-		Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 0.94e3, Y: 0, Z: 0}),
+		Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 0.92e3, Y: 0, Z: 0}),
 		SlamName:      slam.Named("test_slam"),
 		MotionCfg: &motion.MotionConfiguration{
 			PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: 1, ObstacleDetectors: obstacleDetectorSlice,
@@ -580,12 +580,15 @@ func TestObstacleReplanningSlam(t *testing.T) {
 		LastPlanOnly:  false,
 		ExecutionID:   executionID,
 	})
-	test.That(t, err, test.ShouldBeNil)
+	populatedReplanReason := 0
 	for _, planStatus := range plansWithStatus {
 		for _, history := range planStatus.StatusHistory {
-			fmt.Println(history.Reason)
+			if history.Reason != nil {
+				populatedReplanReason++
+			}
 		}
 	}
+	test.That(t, populatedReplanReason, test.ShouldEqual, 1)
 }
 
 func TestMultiplePieces(t *testing.T) {
