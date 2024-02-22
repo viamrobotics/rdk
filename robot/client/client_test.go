@@ -1843,7 +1843,7 @@ func TestGetCloudMetadata(t *testing.T) {
 		PrimaryOrgID: "the-primary-org",
 	}
 	injectRobot := &inject.Robot{
-		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{arm.Named("myArm")} },
+		ResourceNamesFunc:   func() []resource.Name { return nil },
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
 		GetCloudMetadataFunc: func(ctx context.Context) (cloud.Metadata, error) {
 			return injectCloudMD, nil
