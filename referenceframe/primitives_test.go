@@ -32,8 +32,8 @@ func TestInterpolateValues(t *testing.T) {
 	jpHalf := FloatsToInputs([]float64{4, -2})
 	jpQuarter := FloatsToInputs([]float64{2, 1})
 
-	interp1 := InterpolateInputs(jp1, jp2, 0.5)
-	interp2 := InterpolateInputs(jp1, jp2, 0.25)
+	interp1 := interpolateAllInputs(jp1, jp2, 0.5)
+	interp2 := interpolateAllInputs(jp1, jp2, 0.25)
 	test.That(t, interp1, test.ShouldResemble, jpHalf)
 	test.That(t, interp2, test.ShouldResemble, jpQuarter)
 }
