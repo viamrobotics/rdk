@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
