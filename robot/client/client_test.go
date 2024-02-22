@@ -1864,7 +1864,7 @@ func TestGetCloudMetadata(t *testing.T) {
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	md, err := injectRobot.GetCloudMetadata(context.Background())
+	md, err := client.GetCloudMetadata(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, md, test.ShouldResemble, injectCloudMD)
 }
