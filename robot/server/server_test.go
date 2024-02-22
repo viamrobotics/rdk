@@ -25,7 +25,7 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
@@ -78,31 +78,18 @@ func TestServer(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		server := server.New(injectRobot)
 		req := pb.GetCloudMetadataRequest{}
-		t.Run("no config", func(t *testing.T) {
-			injectRobot.ConfigFunc = func() *config.Config { return nil }
-			_, err := server.GetCloudMetadata(context.Background(), &req)
-			test.That(t, err, test.ShouldBeError, errors.New("no config available"))
-		})
-		t.Run("no cloud data", func(t *testing.T) {
-			injectRobot.ConfigFunc = func() *config.Config { return &config.Config{} }
-			_, err := server.GetCloudMetadata(context.Background(), &req)
-			test.That(t, err, test.ShouldBeError, errors.New("cloud metadata not available"))
-		})
-		t.Run("with cloud data", func(t *testing.T) {
-			injectRobot.ConfigFunc = func() *config.Config {
-				cloud := config.Cloud{
-					ID:           "the-robot-part",
-					LocationID:   "the-location",
-					PrimaryOrgID: "the-primary-org",
-				}
-				return &config.Config{Cloud: &cloud}
-			}
-			resp, err := server.GetCloudMetadata(context.Background(), &req)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, resp.GetRobotPartId(), test.ShouldEqual, "the-robot-part")
-			test.That(t, resp.GetLocationId(), test.ShouldEqual, "the-location")
-			test.That(t, resp.GetPrimaryOrgId(), test.ShouldEqual, "the-primary-org")
-		})
+		injectRobot.GetCloudMetadataFunc = func(ctx context.Context) (cloud.Metadata, error) {
+			return cloud.Metadata{
+				RobotPartID:  "the-robot-part",
+				PrimaryOrgID: "the-primary-org",
+				LocationID:   "the-location",
+			}, nil
+		}
+		resp, err := server.GetCloudMetadata(context.Background(), &req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.GetRobotPartId(), test.ShouldEqual, "the-robot-part")
+		test.That(t, resp.GetLocationId(), test.ShouldEqual, "the-location")
+		test.That(t, resp.GetPrimaryOrgId(), test.ShouldEqual, "the-primary-org")
 	})
 
 	t.Run("Discovery", func(t *testing.T) {
