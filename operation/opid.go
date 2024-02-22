@@ -138,8 +138,9 @@ func (m *Manager) createWithID(ctx context.Context, id uuid.UUID, method string,
 	o := m.Find(id)
 	if o != nil {
 		// Given the exceedingly low chance of a randomly generated UUID colliding, unless it was purposeful, the only way
-		// opids will collide is if an operation goes to a module and then back to a dependency as a child operation. In those cases,
-		// we would want to keep track of the original operation, not the incoming one.
+		// opids will collide is if an operation goes to a module and then back to a dependency as a child operation
+		// (e.g. SetPower on a modular base calling into SetPower on a builtin motor). In those cases, we would want to
+		// keep track of the original operation, not the incoming one.
 		// The parent operation is attached to the context before returning so that the behavior mimicks what happens for operations
 		// that stay within the robot.
 		m.logger.CDebugw(
