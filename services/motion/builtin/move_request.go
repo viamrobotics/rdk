@@ -255,6 +255,26 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 		return state.ExecuteResponse{}, err
 	}
 
+	// if the camera is mounted on something InputEnabled that isn't the base, then that
+	// input needs to be known in order to properly calculate the pose of the obstacle
+	// furthermore, if that InputEnabled thing has moved since this moveRequest was initialized
+	// (due to some other non-motion call for example), then we can't just get current inputs
+	// we need the original input to place that thing in its original position
+	// hence, cached CurrentInputs from the start are used i.e. mr.planRequest.StartConfiguration
+	existingGifs, err := mr.planRequest.WorldState.ObstaclesInWorldFrame(
+		mr.planRequest.FrameSystem, mr.planRequest.StartConfiguration,
+	)
+	if err != nil {
+		return state.ExecuteResponse{}, err
+	}
+	// existingGifs are in their relative position, i.e. with respect to the base frame
+	// here we transform them into their absolute positions. i.e. with respect to the world frame
+	existingGeoms := []spatialmath.Geometry{}
+	for _, g := range existingGifs.Geometries() {
+		existingGeoms = append(existingGeoms, g.Transform(mr.poseOrigin))
+	}
+	absoluteExistingGifs := referenceframe.NewGeometriesInFrame(referenceframe.World, existingGeoms)
+
 	// get the current position of the base
 	currentPosition, err := mr.kinematicBase.CurrentPosition(ctx)
 	if err != nil {
@@ -275,7 +295,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			}
 
 			// construct new worldstate
-			worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gifs}, nil)
+			worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{absoluteExistingGifs, gifs}, nil)
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
