@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
@@ -46,6 +47,13 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	if err != nil {
 		return err
 	}
+
+	// TODO(benji): remove this example logging.
+	time.Sleep(time.Second) // sleep to ensure module -> parent connection occurs.
+	type myStruct struct {
+		String string
+	}
+	logger.Infow("info log", "string", "stringValue", "int", 2, "float", 1.23, "bool", false, "struct", &myStruct{"string"}, "time", time.Now())
 
 	// This will block (leaving the module running) until the context is cancelled.
 	// The utils.ContextualMain catches OS signals and will cancel our context for us when one is sent for shutdown/termination.

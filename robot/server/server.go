@@ -6,6 +6,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"strings"
 	"sync"
 	"time"
@@ -417,25 +418,38 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 	}
 	log := req.Logs[0]
 
+	var fields []zap.Field
+	for _, fieldP := range log.Fields {
+		fieldPJSON, err := fieldP.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		var zf zap.Field
+		if err = json.Unmarshal(fieldPJSON, &zf); err != nil {
+			return nil, err
+		}
+		fields = append(fields, zf)
+	}
+
 	// Use a sublogger of robot logger with correct logger name. Set a level of
 	// DEBUG to allow gRPC logs at DEBUG level even when RDK is not on DEBUG
 	// level. Disable caller to mimic caller passed in from gRPC request.
 	logger := s.robot.Logger().Sublogger(log.LoggerName)
 	logger.SetLevel(logging.DEBUG)
-	l := logger.WithOptions(zap.WithCaller(false))
+	l := logger.WithOptions(zap.WithCaller(false)).Desugar()
 
 	level, err := logging.LevelFromString(log.Level)
 	switch {
 	case err != nil:
-		l.Warn("logger named %q sent a log over gRPC with an invalid level %q", log.LoggerName, log.Level)
+		l.Sugar().Warn("logger named %q sent a log over gRPC with an invalid level %q", log.LoggerName, log.Level)
 	case level == logging.DEBUG:
-		l.Debug(log.Message)
+		l.Debug(log.Message, fields...)
 	case level == logging.INFO:
-		l.Info(log.Message)
+		l.Info(log.Message, fields...)
 	case level == logging.WARN:
-		l.Warn(log.Message)
+		l.Warn(log.Message, fields...)
 	case level == logging.ERROR:
-		l.Error(log.Message)
+		l.Error(log.Message, fields...)
 	default:
 	}
 
