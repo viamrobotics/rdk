@@ -444,21 +444,13 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 
 // GetCloudMetadata returns app-related information about the robot.
 func (s *Server) GetCloudMetadata(ctx context.Context, _ *pb.GetCloudMetadataRequest) (*pb.GetCloudMetadataResponse, error) {
-	r, ok := s.robot.(robot.LocalRobot)
-	if !ok {
-		return nil, errors.New("not a local robot")
-	}
-	cfg := r.Config()
-	if cfg == nil {
-		return nil, errors.New("no config available")
-	}
-	cloud := cfg.Cloud
-	if cloud == nil {
-		return nil, errors.New("cloud metadata not available")
+	md, err := s.robot.GetCloudMetadata(ctx)
+	if err != nil {
+		return nil, err
 	}
 	return &pb.GetCloudMetadataResponse{
-		RobotPartId:  cloud.ID,
-		LocationId:   cloud.LocationID,
-		PrimaryOrgId: cloud.PrimaryOrgID,
+		RobotPartId:  md.RobotPartID,
+		LocationId:   md.LocationID,
+		PrimaryOrgId: md.PrimaryOrgID,
 	}, nil
 }

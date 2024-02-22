@@ -1839,6 +1839,10 @@ func (rr *dummyRobot) Logger() logging.Logger {
 	return rr.robot.Logger()
 }
 
+func (rr *dummyRobot) GetCloudMetadata(ctx context.Context) (cloud.Metadata, error) {
+	return rr.robot.GetCloudMetadata(ctx)
+}
+
 func (rr *dummyRobot) Close(ctx context.Context) error {
 	return rr.robot.Close(ctx)
 }
