@@ -42,6 +42,7 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
@@ -1828,4 +1829,42 @@ func TestLoggingInterceptor(t *testing.T) {
 	// with `oliver`.
 	_, err = client.Status(logging.EnableDebugModeWithKey(context.Background(), "oliver"), []resource.Name{{}})
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestGetCloudMetadata(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+
+	injectCloudMD := cloud.Metadata{
+		RobotPartID:  "the-robot-part",
+		LocationID:   "the-location",
+		PrimaryOrgID: "the-primary-org",
+	}
+	injectRobot := &inject.Robot{
+		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{arm.Named("myArm")} },
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+		GetCloudMetadataFunc: func(ctx context.Context) (cloud.Metadata, error) {
+			return injectCloudMD, nil
+		},
+	}
+	// TODO(RSDK-882): will update this so that this is not necessary
+	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
+		return &framesystem.Config{}, nil
+	}
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	md, err := injectRobot.GetCloudMetadata(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, md, test.ShouldResemble, injectCloudMD)
 }

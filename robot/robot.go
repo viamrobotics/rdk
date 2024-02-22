@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/pexec"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -109,6 +110,9 @@ type LocalRobot interface {
 
 	// ModuleAddress returns the address (path) of the unix socket modules use to contact the parent.
 	ModuleAddress() (string, error)
+
+	// GetCloudMetadata returns app-related information about the robot.
+	GetCloudMetadata(ctx context.Context) (cloud.Metadata, error)
 
 	// ExportResourcesAsDot exports the resource graph as a DOT representation for
 	// visualization.
