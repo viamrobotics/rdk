@@ -971,6 +971,7 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zapc
 	return err
 }
 
+// GetCloudMetadata returns app-related information about the robot.
 func (rc *RobotClient) GetCloudMetadata(ctx context.Context) (cloud.Metadata, error) {
 	cloudMD := cloud.Metadata{}
 	req := &pb.GetCloudMetadataRequest{}
