@@ -22,7 +22,6 @@ var (
 	totalSats  = 2
 	hAcc       = 0.7
 	vAcc       = 0.8
-	valid      = true
 	fix        = 1
 )
 
@@ -95,7 +94,6 @@ func TestReadingsSerial(t *testing.T) {
 		HDOP:       hAcc,
 		SatsInView: totalSats,
 		SatsInUse:  activeSats,
-		valid:      valid,
 		FixQuality: fix,
 	}
 
