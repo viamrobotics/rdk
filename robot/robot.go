@@ -81,6 +81,9 @@ type Robot interface {
 	// Status takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
 	Status(ctx context.Context, resourceNames []resource.Name) ([]Status, error)
 
+	// GetCloudMetadata returns app-related information about the robot.
+	GetCloudMetadata(ctx context.Context) (cloud.Metadata, error)
+
 	// Close attempts to cleanly close down all constituent parts of the robot.
 	Close(ctx context.Context) error
 
@@ -110,9 +113,6 @@ type LocalRobot interface {
 
 	// ModuleAddress returns the address (path) of the unix socket modules use to contact the parent.
 	ModuleAddress() (string, error)
-
-	// GetCloudMetadata returns app-related information about the robot.
-	GetCloudMetadata(ctx context.Context) (cloud.Metadata, error)
 
 	// ExportResourcesAsDot exports the resource graph as a DOT representation for
 	// visualization.
