@@ -14,16 +14,19 @@ import (
 
 const snapshotLimit = 500
 
+// Visualizer stores a history resource graph DOT snapshots.
 type Visualizer struct {
 	snapshots list.List
 }
 
+// SnapshotInfo contains a DOT snapshot string along with metadata.
 type SnapshotInfo struct {
 	Dot   string
 	Index int
 	Count int
 }
 
+// SaveSnapshot takes a DOT snapshot of a resource graph.
 func (viz *Visualizer) SaveSnapshot(g *Graph) error {
 	snapshot, err := g.ExportDot()
 	if err != nil {
@@ -41,8 +44,11 @@ func (viz *Visualizer) SaveSnapshot(g *Graph) error {
 	return nil
 }
 
+// Count returns the number of snapshots currents stored.
 func (viz *Visualizer) Count() int { return viz.snapshots.Len() }
 
+// GetSnapshot returns a DOT snapshot at a given index, where index 0 is the latest
+// snapshot.
 func (viz *Visualizer) GetSnapshot(index int) (SnapshotInfo, error) {
 	result := SnapshotInfo{Index: index, Count: viz.snapshots.Len()}
 

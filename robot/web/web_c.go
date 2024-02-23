@@ -360,7 +360,7 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 	if !isLocal {
 		return
 	}
-	const lookupParam = "back"
+	const lookupParam = "history"
 	redirectToLatestSnapshot := func() {
 		url := *r.URL
 		q := r.URL.Query()
@@ -368,7 +368,6 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 		url.RawQuery = q.Encode()
 
 		http.Redirect(w, r, url.String(), http.StatusSeeOther)
-		return
 	}
 
 	lookupRawValue := strings.TrimSpace(r.URL.Query().Get(lookupParam))
@@ -399,10 +398,14 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 		return
 	}
 
+	write := func(s string) {
+		//nolint:errcheck
+		_, _ = w.Write([]byte(s))
+	}
+
 	layout := r.URL.Query().Get("layout")
 	if layout == "text" {
-		//nolint
-		w.Write([]byte(snapshot.Dot))
+		write(snapshot.Dot)
 		return
 	}
 
@@ -433,28 +436,28 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 		} else {
 			html = fmt.Sprintf(`<a href=%q>%s</a>`, url.String(), label)
 		}
-		w.Write([]byte(html))
+		write(html)
 	}
 
-	w.Write([]byte(`<html><div>`))
+	write(`<html><div>`)
 	navButton(0, "Latest")
-	w.Write([]byte(`|`))
+	write(`|`)
 	navButton(snapshot.Index-1, "Later")
 	// Index counts from 0, but we want to show pages starting from 1
-	w.Write([]byte(fmt.Sprintf(`| %d / %d |`, snapshot.Index+1, snapshot.Count)))
+	write(fmt.Sprintf(`| %d / %d |`, snapshot.Index+1, snapshot.Count))
 	navButton(snapshot.Index+1, "Earlier")
-	w.Write([]byte(`|`))
+	write(`|`)
 	navButton(snapshot.Count-1, "Earliest")
-	w.Write([]byte(`</div>`))
+	write(`</div>`)
 
 	fxml := filterXML{w: w}
 	if err = gv.Render(graph, graphviz.SVG, fxml); err != nil {
 		return
 	}
-	w.Write([]byte(`</html>`))
+	write(`</html>`)
 }
 
-// custom writer to skip first 5 lines of xml
+// custom writer to skip first 5 lines of xml.
 type filterXML struct {
 	w http.ResponseWriter
 }
