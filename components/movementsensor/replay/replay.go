@@ -68,6 +68,9 @@ var (
 	// errSessionClosed represents that the session has ended.
 	errSessionClosed = errors.New("session closed")
 
+	// errBadData represents that the replay sensor data does not match the expected format.
+	errBadData = errors.New("data does not match expected format")
+
 	// ererMessageNoDataAvailable indicates that no data was available for the given filter.
 	errMessageNoDataAvailable = "no data available for given filter"
 
@@ -214,11 +217,18 @@ func (replay *replayMovementSensor) Position(ctx context.Context, extra map[stri
 		return nil, 0, err
 	}
 
-	coordStruct := data.GetFields()["coordinate"].GetStructValue()
+	coordStruct, ok := data.GetFields()["coordinate"]
+	if !ok {
+		return nil, 0, errBadData
+	}
+	altitude, ok := data.GetFields()["altitude_m"]
+	if !ok {
+		return nil, 0, errBadData
+	}
 	return geo.NewPoint(
-			coordStruct.GetFields()["latitude"].GetNumberValue(),
-			coordStruct.GetFields()["longitude"].GetNumberValue()),
-		data.GetFields()["altitude_m"].GetNumberValue(), nil
+			coordStruct.GetStructValue().GetFields()["latitude"].GetNumberValue(),
+			coordStruct.GetStructValue().GetFields()["longitude"].GetNumberValue()),
+		altitude.GetNumberValue(), nil
 }
 
 // LinearVelocity returns the next linear velocity from the cache in the form of an r3.Vector.
@@ -237,9 +247,12 @@ func (replay *replayMovementSensor) LinearVelocity(ctx context.Context, extra ma
 	if err != nil {
 		return r3.Vector{}, err
 	}
-	data := dataStruct.GetFields()["linear_velocity"].GetStructValue()
+	data, ok := dataStruct.GetFields()["linear_velocity"]
+	if !ok {
+		return r3.Vector{}, errBadData
+	}
 
-	return structToVector(data), nil
+	return structToVector(data.GetStructValue()), nil
 }
 
 // AngularVelocity returns the next angular velocity from the cache in the form of a spatialmath.AngularVelocity (r3.Vector).
@@ -260,12 +273,15 @@ func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra m
 	if err != nil {
 		return spatialmath.AngularVelocity{}, err
 	}
-	data := dataStruct.GetFields()["angular_velocity"].GetStructValue()
+	data, ok := dataStruct.GetFields()["angular_velocity"]
+	if !ok {
+		return spatialmath.AngularVelocity{}, errBadData
+	}
 
 	return spatialmath.AngularVelocity{
-		X: data.GetFields()["x"].GetNumberValue(),
-		Y: data.GetFields()["y"].GetNumberValue(),
-		Z: data.GetFields()["z"].GetNumberValue(),
+		X: data.GetStructValue().GetFields()["x"].GetNumberValue(),
+		Y: data.GetStructValue().GetFields()["y"].GetNumberValue(),
+		Z: data.GetStructValue().GetFields()["z"].GetNumberValue(),
 	}, nil
 }
 
@@ -285,9 +301,12 @@ func (replay *replayMovementSensor) LinearAcceleration(ctx context.Context, extr
 	if err != nil {
 		return r3.Vector{}, err
 	}
-	data := dataStruct.GetFields()["linear_acceleration"].GetStructValue()
+	data, ok := dataStruct.GetFields()["linear_acceleration"]
+	if !ok {
+		return r3.Vector{}, errBadData
+	}
 
-	return structToVector(data), nil
+	return structToVector(data.GetStructValue()), nil
 }
 
 // CompassHeading returns the next compass heading from the cache as a float64.
@@ -306,8 +325,12 @@ func (replay *replayMovementSensor) CompassHeading(ctx context.Context, extra ma
 	if err != nil {
 		return 0., err
 	}
+	value, ok := data.GetFields()["value"]
+	if !ok {
+		return 0, errBadData
+	}
 
-	return data.GetFields()["value"].GetNumberValue(), nil
+	return value.GetNumberValue(), nil
 }
 
 // Orientation returns the next orientation from the cache as a spatialmath.Orientation created from a spatialmath.OrientationVector.
@@ -326,13 +349,16 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 	if err != nil {
 		return nil, err
 	}
-	data := dataStruct.GetFields()["orientation"].GetStructValue()
+	data, ok := dataStruct.GetFields()["orientation"]
+	if !ok {
+		return nil, errBadData
+	}
 
 	return &spatialmath.OrientationVectorDegrees{
-		OX:    data.GetFields()["o_x"].GetNumberValue(),
-		OY:    data.GetFields()["o_y"].GetNumberValue(),
-		OZ:    data.GetFields()["o_z"].GetNumberValue(),
-		Theta: data.GetFields()["theta"].GetNumberValue(),
+		OX:    data.GetStructValue().GetFields()["o_x"].GetNumberValue(),
+		OY:    data.GetStructValue().GetFields()["o_y"].GetNumberValue(),
+		OZ:    data.GetStructValue().GetFields()["o_z"].GetNumberValue(),
+		Theta: data.GetStructValue().GetFields()["theta"].GetNumberValue(),
 	}, nil
 }
 
@@ -477,7 +503,6 @@ func (replay *replayMovementSensor) updateCache(ctx context.Context, method meth
 		return ErrEndOfDataset
 	}
 	replay.lastData[method] = resp.GetLast()
-	replay.logger.Info("some data: ", resp.Data[0].Data)
 	// Add data to associated cache
 	for _, dataResponse := range resp.Data {
 		entry := &cacheEntry{
