@@ -121,6 +121,7 @@ func (sb *sensorBase) SetVelocity(
 	sb.opMgr.CancelRunning(ctx)
 
 	// set the spin loop to false, so we do not skip the call to SetState in the control loop
+	// this will also stop any active Spin calls
 	sb.setPolling(false)
 
 	if len(sb.conf.ControlParameters) != 0 {
@@ -129,6 +130,7 @@ func (sb *sensorBase) SetVelocity(
 		timeOut := 10 * time.Second
 		var sensorCtx context.Context
 		sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
+		// if the control loop has not been started or stopped, re-enable it
 		if sb.loop == nil {
 			if err := sb.setupControlLoops(); err != nil {
 				return err
