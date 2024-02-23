@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -422,8 +423,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 
 				remoteConfig.AllowInsecureCreds = true
 
-				//nolint:ineffassign,staticcheck
-				r2, shutdown := initTestRobot(t, context.Background(), remoteConfig, logger)
+				_, shutdown := initTestRobot(t, context.Background(), remoteConfig, logger)
 				shutdown()
 
 				ctx2 := context.Background()
