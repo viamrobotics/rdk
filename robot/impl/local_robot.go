@@ -71,7 +71,7 @@ type localRobot struct {
 // ExportResourcesAsDot exports the resource graph as a DOT representation for
 // visualization.
 // DOT reference: https://graphviz.org/doc/info/lang.html
-func (r *localRobot) ExportResourcesAsDot(n int) (string, int, error) {
+func (r *localRobot) ExportResourcesAsDot(n int) (resource.SnapshotInfo, error) {
 	return r.manager.ExportDot(n)
 }
 

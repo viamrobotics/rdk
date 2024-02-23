@@ -384,23 +384,25 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 		return
 	default:
 		lookup, err = strconv.Atoi(lookupRawValue)
-		if err != nil || lookup < 0 {
+		if err != nil {
 			redirectToLatestSnapshot()
 			return
 		}
 	}
-	dot, snapshotCount, err := localRobot.ExportResourcesAsDot(lookup)
-	if snapshotCount == 0 {
+
+	snapshot, err := localRobot.ExportResourcesAsDot(lookup)
+	if snapshot.Count == 0 {
 		return
 	}
-	if lookup >= snapshotCount {
+	if err != nil {
 		redirectToLatestSnapshot()
 		return
 	}
+
 	layout := r.URL.Query().Get("layout")
 	if layout == "text" {
 		//nolint
-		w.Write([]byte(dot))
+		w.Write([]byte(snapshot.Dot))
 		return
 	}
 
@@ -412,7 +414,7 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 		}
 	}()
 
-	graph, err := graphviz.ParseBytes([]byte(dot))
+	graph, err := graphviz.ParseBytes([]byte(snapshot.Dot))
 	if err != nil {
 		return
 	}
@@ -420,13 +422,13 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 		gv.SetLayout(graphviz.Layout(layout))
 	}
 
-	navButton := func(n int, label string) {
+	navButton := func(index int, label string) {
 		url := *r.URL
 		q := r.URL.Query()
-		q.Set(lookupParam, strconv.Itoa(n))
+		q.Set(lookupParam, strconv.Itoa(index))
 		url.RawQuery = q.Encode()
 		var html string
-		if n < 0 || n >= snapshotCount || n == lookup {
+		if index < 0 || index >= snapshot.Count || index == lookup {
 			html = fmt.Sprintf(`<a>%s</a>`, label)
 		} else {
 			html = fmt.Sprintf(`<a href=%q>%s</a>`, url.String(), label)
@@ -437,11 +439,12 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 	w.Write([]byte(`<html><div>`))
 	navButton(0, "Latest")
 	w.Write([]byte(`|`))
-	navButton(lookup-1, "Later")
-	w.Write([]byte(fmt.Sprintf(`| %d / %d |`, lookup+1, snapshotCount)))
-	navButton(lookup+1, "Earlier")
+	navButton(snapshot.Index-1, "Later")
+	// Index counts from 0, but we want to show pages starting from 1
+	w.Write([]byte(fmt.Sprintf(`| %d / %d |`, snapshot.Index+1, snapshot.Count)))
+	navButton(snapshot.Index+1, "Earlier")
 	w.Write([]byte(`|`))
-	navButton(snapshotCount-1, "Earliest")
+	navButton(snapshot.Count-1, "Earliest")
 	w.Write([]byte(`</div>`))
 
 	fxml := filterXML{w: w}

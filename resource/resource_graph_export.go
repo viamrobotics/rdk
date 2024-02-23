@@ -18,13 +18,19 @@ type Visualizer struct {
 	snapshots list.List
 }
 
+type SnapshotInfo struct {
+	Dot   string
+	Index int
+	Count int
+}
+
 func (viz *Visualizer) SaveSnapshot(g *Graph) error {
 	snapshot, err := g.ExportDot()
 	if err != nil {
 		return err
 	}
-	lastSnapshot := viz.snapshots.Front()
-	if lastSnapshot != nil && snapshot == lastSnapshot.Value.(string) {
+	latestSnapshot := viz.snapshots.Front()
+	if latestSnapshot != nil && snapshot == latestSnapshot.Value.(string) {
 		// Nothing changed since the last snapshot
 		return nil
 	}
@@ -37,21 +43,22 @@ func (viz *Visualizer) SaveSnapshot(g *Graph) error {
 
 func (viz *Visualizer) Count() int { return viz.snapshots.Len() }
 
-func (viz *Visualizer) GetSnapshot(n int) (string, int, error) {
-	count := viz.snapshots.Len()
-	if count == 0 {
-		return "", count, errors.New("no snapshots")
+func (viz *Visualizer) GetSnapshot(index int) (SnapshotInfo, error) {
+	result := SnapshotInfo{Index: index, Count: viz.snapshots.Len()}
+
+	if result.Count == 0 {
+		return result, errors.New("no snapshots")
 	}
-	if n < 0 {
-		// if requested snapshot index is negative, return the latest one
-		n = 0
+	if index < 0 || index >= result.Count {
+		return result, errors.New("out of range")
 	}
 	snapshot := viz.snapshots.Front()
-	for n > 0 && snapshot.Next() != nil {
+	for index > 0 && snapshot.Next() != nil {
 		snapshot = snapshot.Next()
-		n--
+		index--
 	}
-	return snapshot.Value.(string), count, nil
+	result.Dot = snapshot.Value.(string)
+	return result, nil
 }
 
 // blockWriter wraps a bytes.Buffer and adds some structured methods (`NewBlock`/`EndBlock`) for
