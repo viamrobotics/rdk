@@ -1071,8 +1071,15 @@ func (p *PackageConfig) LocalDownloadPath(packagesDir string) string {
 }
 
 // LocalDataParentDirectory returns the folder that will contain the all packages of this type.
-// Ex: /home/user/.viam/packages/.data/ml_model.
+// Ex: /home/user/.viam/packages/data/ml_model.
 func (p *PackageConfig) LocalDataParentDirectory(packagesDir string) string {
+	return filepath.Join(packagesDir, "data", string(p.Type))
+}
+
+// LocalLegacyDataParentDirectory returns the old private directory.
+// This can be cleaned up after a few RDK releases (APP-4066)
+// Ex: /home/user/.viam/packages/.data/ml_model.
+func (p *PackageConfig) LocalLegacyDataParentDirectory(packagesDir string) string {
 	return filepath.Join(packagesDir, ".data", string(p.Type))
 }
 
