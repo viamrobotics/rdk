@@ -118,14 +118,17 @@ func (fk *fakeDiffDriveKinematics) CurrentPosition(ctx context.Context) (*refere
 
 type fakePTGKinematics struct {
 	*fake.Base
-	localizer   motion.Localizer
-	frame       referenceframe.Frame
-	options     Options
-	sensorNoise spatialmath.Pose
-	origin      *referenceframe.PoseInFrame
-	lock        sync.RWMutex
-	logger      logging.Logger
-	sleepTime   int
+	localizer    motion.Localizer
+	frame        referenceframe.Frame
+	options      Options
+	sensorNoise  spatialmath.Pose
+	ptgs         []tpspace.PTGSolver
+	currentInput []referenceframe.Input
+	origin       *referenceframe.PoseInFrame
+	positionlock sync.RWMutex
+	inputLock    sync.RWMutex
+	logger       logging.Logger
+	sleepTime    int
 }
 
 // WrapWithFakePTGKinematics creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled
@@ -187,13 +190,22 @@ func WrapWithFakePTGKinematics(
 	if sensorNoise == nil {
 		sensorNoise = spatialmath.NewZeroPose()
 	}
+
+	ptgProv, ok := frame.(tpspace.PTGProvider)
+	if !ok {
+		return nil, errors.New("unable to cast ptgk frame to a PTG Provider")
+	}
+	ptgs := ptgProv.PTGSolvers()
+
 	fk := &fakePTGKinematics{
-		Base:        b,
-		frame:       frame,
-		origin:      origin,
-		sensorNoise: sensorNoise,
-		logger:      logger,
-		sleepTime:   sleepTime,
+		Base:         b,
+		frame:        frame,
+		origin:       origin,
+		ptgs:         ptgs,
+		currentInput: zeroInput,
+		sensorNoise:  sensorNoise,
+		logger:       logger,
+		sleepTime:    sleepTime,
 	}
 	initLocalizer := &fakePTGKinematicsLocalizer{fk}
 	fk.localizer = motion.TwoDLocalizer(initLocalizer)
@@ -207,20 +219,60 @@ func (fk *fakePTGKinematics) Kinematics() referenceframe.Frame {
 }
 
 func (fk *fakePTGKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	return make([]referenceframe.Input, 3), nil
+	fk.inputLock.RLock()
+	defer fk.inputLock.RUnlock()
+	return fk.currentInput, nil
 }
 
 func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	defer func() {
+		fk.inputLock.Lock()
+		fk.currentInput = zeroInput
+		fk.inputLock.Unlock()
+	}()
+
 	for _, inputs := range inputSteps {
-		newPose, err := fk.frame.Transform(inputs)
+		fk.positionlock.RLock()
+		startingPose := fk.origin
+		fk.positionlock.RUnlock()
+
+		fk.inputLock.Lock()
+		fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {Value: 0}}
+		fk.inputLock.Unlock()
+
+		finalPose, err := fk.frame.Transform(inputs)
 		if err != nil {
 			return err
 		}
 
-		fk.lock.Lock()
-		fk.origin = referenceframe.NewPoseInFrame(fk.origin.Parent(), spatialmath.Compose(fk.origin.Pose(), newPose))
-		fk.lock.Unlock()
-		time.Sleep(time.Duration(fk.sleepTime) * time.Millisecond)
+		steps := motionplan.PathStepCount(spatialmath.NewZeroPose(), finalPose, 2)
+		startCfg := referenceframe.FloatsToInputs([]float64{inputs[0].Value, inputs[1].Value, 0})
+		var interpolatedConfigurations [][]referenceframe.Input
+		for i := 0; i <= steps; i++ {
+			interp := float64(i) / float64(steps)
+			interpConfig := referenceframe.InterpolateInputs(startCfg, inputs, interp)
+			interpolatedConfigurations = append(interpolatedConfigurations, interpConfig)
+		}
+		for _, inter := range interpolatedConfigurations {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			relativePose, err := fk.frame.Transform(inter)
+			if err != nil {
+				return err
+			}
+			newPose := spatialmath.Compose(startingPose.Pose(), relativePose)
+
+			fk.positionlock.Lock()
+			fk.origin = referenceframe.NewPoseInFrame(fk.origin.Parent(), newPose)
+			fk.positionlock.Unlock()
+
+			fk.inputLock.Lock()
+			fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], inter[2]}
+			fk.inputLock.Unlock()
+
+			time.Sleep(time.Duration(fk.sleepTime) * time.Microsecond * 10)
+		}
 	}
 	return nil
 }
@@ -238,8 +290,8 @@ type fakePTGKinematicsLocalizer struct {
 }
 
 func (fkl *fakePTGKinematicsLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
-	fkl.fk.lock.RLock()
-	defer fkl.fk.lock.RUnlock()
+	fkl.fk.positionlock.RLock()
+	defer fkl.fk.positionlock.RUnlock()
 	origin := fkl.fk.origin
 	return referenceframe.NewPoseInFrame(origin.Parent(), spatialmath.Compose(origin.Pose(), fkl.fk.sensorNoise)), nil
 }
