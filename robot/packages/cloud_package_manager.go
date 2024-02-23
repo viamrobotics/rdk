@@ -73,7 +73,7 @@ func NewCloudManager(
 	packagesDir string,
 	logger logging.Logger,
 ) (ManagerSyncer, error) {
-	packagesDataDir := filepath.Join(packagesDir, ".data")
+	packagesDataDir := filepath.Join(packagesDir, "data")
 
 	if err := os.MkdirAll(packagesDir, 0o700); err != nil {
 		return nil, err
