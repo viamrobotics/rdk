@@ -233,10 +233,11 @@ func (replay *replayMovementSensor) LinearVelocity(ctx context.Context, extra ma
 		return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 	}
 
-	data, err := replay.getDataFromCache(ctx, linearVelocity)
+	dataStruct, err := replay.getDataFromCache(ctx, linearVelocity)
 	if err != nil {
 		return r3.Vector{}, err
 	}
+	data := dataStruct.GetFields()["linear_velocity"].GetStructValue()
 
 	return structToVector(data), nil
 }
@@ -255,10 +256,11 @@ func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra m
 		return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 	}
 
-	data, err := replay.getDataFromCache(ctx, angularVelocity)
+	dataStruct, err := replay.getDataFromCache(ctx, angularVelocity)
 	if err != nil {
 		return spatialmath.AngularVelocity{}, err
 	}
+	data := dataStruct.GetFields()["angular_velocity"].GetStructValue()
 
 	return spatialmath.AngularVelocity{
 		X: data.GetFields()["x"].GetNumberValue(),
@@ -279,10 +281,11 @@ func (replay *replayMovementSensor) LinearAcceleration(ctx context.Context, extr
 		return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 	}
 
-	data, err := replay.getDataFromCache(ctx, linearAcceleration)
+	dataStruct, err := replay.getDataFromCache(ctx, linearAcceleration)
 	if err != nil {
 		return r3.Vector{}, err
 	}
+	data := dataStruct.GetFields()["linear_acceleration"].GetStructValue()
 
 	return structToVector(data), nil
 }
@@ -319,12 +322,13 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 		return nil, movementsensor.ErrMethodUnimplementedOrientation
 	}
 
-	data, err := replay.getDataFromCache(ctx, orientation)
+	dataStruct, err := replay.getDataFromCache(ctx, orientation)
 	if err != nil {
 		return nil, err
 	}
+	data := dataStruct.GetFields()["orientation"].GetStructValue()
 
-	return &spatialmath.OrientationVector{
+	return &spatialmath.OrientationVectorDegrees{
 		OX:    data.GetFields()["o_x"].GetNumberValue(),
 		OY:    data.GetFields()["o_y"].GetNumberValue(),
 		OZ:    data.GetFields()["o_z"].GetNumberValue(),
@@ -473,7 +477,7 @@ func (replay *replayMovementSensor) updateCache(ctx context.Context, method meth
 		return ErrEndOfDataset
 	}
 	replay.lastData[method] = resp.GetLast()
-
+	replay.logger.Info("some data: ", resp.Data[0].Data)
 	// Add data to associated cache
 	for _, dataResponse := range resp.Data {
 		entry := &cacheEntry{
