@@ -114,3 +114,10 @@ func (cm *cloudManagedService) Close(ctx context.Context) error {
 // ErrNotCloudManaged is returned if a connection is requested but the robot is not
 // yet cloud managed.
 var ErrNotCloudManaged = errors.New("this robot is not cloud managed")
+
+// Metadata contains app-related information about the robot.
+type Metadata struct {
+	RobotPartID  string
+	PrimaryOrgID string
+	LocationID   string
+}

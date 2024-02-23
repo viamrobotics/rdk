@@ -230,6 +230,8 @@ func TestNewWatcherCloud(t *testing.T) {
 			LocalFQDN:       "yee",
 			RefreshInterval: time.Second,
 			LocationSecrets: []config.LocationSecret{{ID: "1", Secret: "secret"}},
+			PrimaryOrgID:    "the-primary-org",
+			LocationID:      "the-location",
 		}
 	}
 

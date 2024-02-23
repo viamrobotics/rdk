@@ -30,6 +30,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -968,4 +969,18 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zapc
 
 	_, err := rc.client.Log(ctx, logRequest)
 	return err
+}
+
+// GetCloudMetadata returns app-related information about the robot.
+func (rc *RobotClient) GetCloudMetadata(ctx context.Context) (cloud.Metadata, error) {
+	cloudMD := cloud.Metadata{}
+	req := &pb.GetCloudMetadataRequest{}
+	resp, err := rc.client.GetCloudMetadata(ctx, req)
+	if err != nil {
+		return cloudMD, err
+	}
+	cloudMD.RobotPartID = resp.RobotPartId
+	cloudMD.PrimaryOrgID = resp.PrimaryOrgId
+	cloudMD.LocationID = resp.LocationId
+	return cloudMD, nil
 }

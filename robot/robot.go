@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -79,6 +80,9 @@ type Robot interface {
 
 	// Status takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
 	Status(ctx context.Context, resourceNames []resource.Name) ([]Status, error)
+
+	// GetCloudMetadata returns app-related information about the robot.
+	GetCloudMetadata(ctx context.Context) (cloud.Metadata, error)
 
 	// Close attempts to cleanly close down all constituent parts of the robot.
 	Close(ctx context.Context) error
