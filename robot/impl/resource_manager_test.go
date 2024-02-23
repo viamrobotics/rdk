@@ -45,6 +45,7 @@ import (
 	fakeservo "go.viam.com/rdk/components/servo/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
@@ -1836,6 +1837,10 @@ func (rr *dummyRobot) PackageManager() packages.Manager {
 
 func (rr *dummyRobot) Logger() logging.Logger {
 	return rr.robot.Logger()
+}
+
+func (rr *dummyRobot) GetCloudMetadata(ctx context.Context) (cloud.Metadata, error) {
+	return rr.robot.GetCloudMetadata(ctx)
 }
 
 func (rr *dummyRobot) Close(ctx context.Context) error {

@@ -29,6 +29,8 @@ func TestStoreToCache(t *testing.T) {
 		TLSCertificate:   "cert",
 		TLSPrivateKey:    "key",
 		AppAddress:       "https://app.viam.dev:443",
+		LocationID:       "the-location",
+		PrimaryOrgID:     "the-primary-org",
 	}
 	cfg.Cloud = cloud
 
@@ -88,6 +90,8 @@ func TestShouldCheckForCert(t *testing.T) {
 		LocalFQDN:        "localFqdn",
 		TLSCertificate:   "cert",
 		TLSPrivateKey:    "key",
+		LocationID:       "the-location",
+		PrimaryOrgID:     "the-primary-org",
 		LocationSecrets: []LocationSecret{
 			{ID: "id1", Secret: "secret1"},
 			{ID: "id2", Secret: "secret2"},

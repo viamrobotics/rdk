@@ -49,6 +49,7 @@ import (
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	rgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -3382,4 +3383,40 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robot1.ResourceByName(motor.Named("m1"))
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestCloudMetadata(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	t.Run("no cloud data", func(t *testing.T) {
+		cfg := &config.Config{}
+		robot, err := robotimpl.New(ctx, cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, robot.Close(ctx), test.ShouldBeNil)
+		}()
+		_, err = robot.GetCloudMetadata(ctx)
+		test.That(t, err, test.ShouldBeError, errors.New("cloud metadata not available"))
+	})
+	t.Run("with cloud data", func(t *testing.T) {
+		cfg := &config.Config{
+			Cloud: &config.Cloud{
+				ID:           "the-robot-part",
+				LocationID:   "the-location",
+				PrimaryOrgID: "the-primary-org",
+			},
+		}
+		robot, err := robotimpl.New(ctx, cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, robot.Close(ctx), test.ShouldBeNil)
+		}()
+		md, err := robot.GetCloudMetadata(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, md, test.ShouldResemble, cloud.Metadata{
+			RobotPartID:  "the-robot-part",
+			PrimaryOrgID: "the-primary-org",
+			LocationID:   "the-location",
+		})
+	})
 }
