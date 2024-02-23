@@ -297,7 +297,7 @@ func createDataByMovementSensorMethod(method method, index int) *structpb.Struct
 }
 
 // createBadDataByMovementSensorMethod will create the mocked structpb.Struct containing the next data returned by calls in tabular data.
-// The data returned will be formatted incorrectly to ensure the movement sensor errors
+// The data returned will be formatted incorrectly to ensure the movement sensor errors.
 func createBadDataByMovementSensorMethod(method method, index int) *structpb.Struct {
 	var data structpb.Struct
 	switch method {
