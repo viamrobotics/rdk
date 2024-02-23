@@ -3258,7 +3258,7 @@ func TestCloudMetadata(t *testing.T) {
 	})
 }
 
-//nolint:revive
+//revive:disable-next-line:context-as-argument
 func initTestRobot(t *testing.T, ctx context.Context, cfg *config.Config, logger logging.Logger) (robot.LocalRobot, func()) {
 	t.Helper()
 
