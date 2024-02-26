@@ -1076,7 +1076,7 @@ func (p *PackageConfig) LocalDataParentDirectory(packagesDir string) string {
 	return filepath.Join(packagesDir, "data", string(p.Type))
 }
 
-// LocalLegacyDataParentDirectory returns the old private directory.
+// LocalLegacyDataRootDirectory returns the old private directory.
 // This can be cleaned up after a few RDK releases (APP-4066)
 // Ex: /home/user/.viam/packages/.data/.
 func (p *PackageConfig) LocalLegacyDataRootDirectory(packagesDir string) string {
