@@ -87,7 +87,6 @@ func TestModManagerFunctions(t *testing.T) {
 	_, ok = resource.LookupRegistration(generic.API, myCounterModel)
 	test.That(t, ok, test.ShouldBeFalse)
 
-	test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 	test.That(t, mod.process.Stop(), test.ShouldBeNil)
 
 	modEnv := mod.getFullEnvironment(viamHomeTemp)
@@ -115,6 +114,9 @@ func TestModManagerFunctions(t *testing.T) {
 	// check that we're still able to use the old client
 	_, err = oldClient.Ready(ctx, &v1.ReadyRequest{ParentAddress: parentAddr})
 	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, mod.process.Stop(), test.ShouldBeNil)
+	test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 
 	t.Log("test AddModule")
 	mgr = NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
