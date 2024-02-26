@@ -8,10 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"sync"
-
-	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
@@ -31,33 +28,20 @@ const (
 	distanceAlongTrajectoryIndex
 )
 
-const (
-	inputUpdateStep    = 0.2 // seconds
-	stepDistResolution = 1.  // Before post-processing trajectory will have velocities every this many mm (or degs if spinning in place)
-)
-
 type ptgBaseKinematics struct {
 	base.Base
 	motion.Localizer
 	logger logging.Logger
 	frame  referenceframe.Frame
 	ptgs   []tpspace.PTGSolver
+	courseCorrectionSolver tpspace.PTGSolver
 
 	linVelocityMMPerSecond   float64
 	angVelocityDegsPerSecond float64
 	inputLock                sync.RWMutex
-	currentInput             []referenceframe.Input
+	currentInputs             []referenceframe.Input
 	origin                   spatialmath.Pose
 	geometries               []spatialmath.Geometry
-}
-
-type arcStep struct {
-	linVelMMps      r3.Vector
-	angVelDegps     r3.Vector
-	timestepSeconds float64
-	// A single trajectory may be broken into multiple arcSteps, so we need to be able to track the total distance elapsed through
-	// the trajectory
-	startDist float64
 }
 
 // wrapWithPTGKinematics takes a Base component and adds a PTG kinematic model so that it can be controlled.
@@ -131,12 +115,19 @@ func wrapWithPTGKinematics(
 	}
 	ptgs := ptgProv.PTGSolvers()
 	origin := spatialmath.NewZeroPose()
+	var courseCorrectionSolver tpspace.PTGSolver
 	if localizer != nil {
 		originPIF, err := localizer.CurrentPosition(ctx)
 		if err != nil {
 			return nil, err
 		}
 		origin = originPIF.Pose()
+		
+		cPTG := tpspace.NewCirclePTG(nonzeroBaseTurningRadiusMeters * 1000)
+		courseCorrectionSolver, err = tpspace.NewPTGIK(cPTG, logger, linVelocityMMPerSecond, linVelocityMMPerSecond, 42, 2)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &ptgBaseKinematics{
@@ -145,9 +136,10 @@ func wrapWithPTGKinematics(
 		logger:                   logger,
 		frame:                    frame,
 		ptgs:                     ptgs,
+		courseCorrectionSolver:         courseCorrectionSolver,
 		linVelocityMMPerSecond:   linVelocityMMPerSecond,
 		angVelocityDegsPerSecond: angVelocityDegsPerSecond,
-		currentInput:             zeroInput,
+		currentInputs:             zeroInput,
 		origin:                   origin,
 		geometries:               geometries,
 	}, nil
@@ -161,7 +153,7 @@ func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referencefr
 	// A PTG frame is always at its own origin, so current inputs are always all zero/not meaningful
 	ptgk.inputLock.RLock()
 	defer ptgk.inputLock.RUnlock()
-	return ptgk.currentInput, nil
+	return ptgk.currentInputs, nil
 }
 
 func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, currentNode int) (spatialmath.Pose, error) {
@@ -207,47 +199,6 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan motionplan.P
 	nominalPose = spatialmath.Compose(runningPose, currPose)
 
 	return spatialmath.PoseBetween(nominalPose, actualPIF), nil
-}
-
-func (ptgk *ptgBaseKinematics) trajectoryToArcSteps(traj []*tpspace.TrajNode) []arcStep {
-	finalSteps := []arcStep{}
-	timeStep := 0.
-	curDist := 0.
-	// Trajectory distance is either length in mm, or if linear distance is not increasing, number of degrees to rotate in place.
-	lastLinVel := r3.Vector{0, traj[0].LinVel * ptgk.linVelocityMMPerSecond, 0}
-	lastAngVel := r3.Vector{0, 0, traj[0].AngVel * ptgk.angVelocityDegsPerSecond}
-	nextStep := arcStep{
-		linVelMMps:      lastLinVel,
-		angVelDegps:     lastAngVel,
-		startDist: curDist,
-		timestepSeconds: 0,
-	}
-	for _, trajPt := range traj {
-		nextLinVel := r3.Vector{0, trajPt.LinVel * ptgk.linVelocityMMPerSecond, 0}
-		nextAngVel := r3.Vector{0, 0, trajPt.AngVel * ptgk.angVelocityDegsPerSecond}
-		if nextStep.linVelMMps.Sub(nextLinVel).Norm2() > 1e-6 || nextStep.angVelDegps.Sub(nextAngVel).Norm2() > 1e-6 {
-			// Changed velocity, make a new step
-			nextStep.timestepSeconds = timeStep
-			finalSteps = append(finalSteps, nextStep)
-			nextStep = arcStep{
-				linVelMMps:      nextLinVel,
-				angVelDegps:     nextAngVel,
-				startDist: curDist,
-				timestepSeconds: 0,
-			}
-			timeStep = 0.
-		}
-		distIncrement := trajPt.Dist - curDist
-		curDist += distIncrement
-		if nextStep.linVelMMps.Y != 0 {
-			timeStep += distIncrement / (math.Abs(nextStep.linVelMMps.Y))
-		} else if nextStep.angVelDegps.Z != 0 {
-			timeStep += distIncrement / (math.Abs(nextStep.angVelDegps.Z))
-		}
-	}
-	nextStep.timestepSeconds = timeStep
-	finalSteps = append(finalSteps, nextStep)
-	return finalSteps
 }
 
 func correctAngularVelocityWithTurnRadius(logger logging.Logger, turnRadMeters, velocityMMps, angVelocityDegps float64) (float64, error) {

@@ -10,17 +10,53 @@ import (
 	"math"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 	utils "go.viam.com/utils"
 
+	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
 
+const (
+	inputUpdateStepSeconds    = 0.2 // Update CurrentInputs (and check deviation) every this many seconds.
+	lookaheadTimeSeconds = 1.
+	stepDistResolution = 1.  // Before post-processing trajectory will have velocities every this many mm (or degs if spinning in place)
+	
+	// Used to determine minimum linear deviation allowed before correction attempt. Determined by multiplying max linear speed by 
+	// inputUpdateStepSeconds, and will correct if deviation is larger than this percent of that amount.
+	minDeviationToCorrectPct = 30.
+)
+
+type arcStep struct {
+	linVelMMps      r3.Vector
+	angVelDegps     r3.Vector
+	durationSeconds float64
+
+	// A single trajectory may be broken into multiple arcSteps, so we need to be able to track the total distance elapsed through
+	// the trajectory
+	startDist float64
+	ptgIdx float64
+	
+	// Pose at dist=0 for the PTG these traj nodes are derived from, such that Compose(trajStartPose, TrajNode.Pose) is the expected
+	// pose at that node.
+	trajStartPose spatialmath.Pose
+	subTraj []*tpspace.TrajNode
+}
+
+type courseCorrectionGoal struct {
+	Goal spatialmath.Pose
+	Solution []referenceframe.Input
+	stepIdx int
+	trajIdx int
+}
+
 func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
 	defer func() {
 		ptgk.inputLock.Lock()
-		ptgk.currentInput = zeroInput
+		ptgk.currentInputs = zeroInput
 		ptgk.inputLock.Unlock()
 	}()
 	
@@ -29,10 +65,136 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 		defer cancelFn()
 		return multierr.Combine(errToWrap, ptgk.Base.Stop(stopCtx, nil))
 	}
+	
+	startPose := spatialmath.NewZeroPose() // This is the location of the base at call time
+	if ptgk.Localizer != nil {
+		startPoseInFrame, err := ptgk.Localizer.CurrentPosition(ctx)
+		if err != nil {
+			return tryStop(err)
+		}
+		startPose = startPoseInFrame.Pose()
+	}
+	
+	// Pre-process all steps into a series of velocities
+	arcSteps, err := ptgk.arcStepsFromInputs(inputSteps, startPose)
+	if err != nil {
+		return tryStop(err)
+	}
+
+	for i, step := range arcSteps {
+		alpha := step.subTraj[0].Alpha
+		if step.ptgIdx >= 0 {
+			// Only update inputs if we are not in a corrective arc
+			ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
+			ptgk.currentInputs = []referenceframe.Input{{step.ptgIdx}, {alpha}, {step.startDist}}
+			ptgk.inputLock.Unlock()
+		}
+
+		timestep := time.Duration(step.durationSeconds*1000*1000) * time.Microsecond
+
+		ptgk.logger.CDebugf(ctx,
+			"setting velocity to linear %v angular %v and running velocity step for %s",
+			step.linVelMMps,
+			step.angVelDegps,
+			timestep,
+		)
+
+		err := ptgk.Base.SetVelocity(
+			ctx,
+			step.linVelMMps,
+			step.angVelDegps,
+			nil,
+		)
+		if err != nil {
+			return tryStop(err)
+		}
+		arcStartTime := time.Now()
+		
+		// Now we are moving. We need to do several things simultaneously:
+		// - move until we think we have finished the arc, then move on to the next step
+		// - update our CurrentInputs tracking where we are through the arc
+		// - Check where we are relative to where we think we are, and tweak velocities accordingly
+		for timeElapsed := inputUpdateStepSeconds; timeElapsed <= step.durationSeconds; timeElapsed += inputUpdateStepSeconds {
+			// Account for 1) timeElapsed being inputUpdateStepSeconds ahead of actual elapsed time, and the fact that the loop takes nonzero time
+			// to run especially when using the localizer.
+			actualTimeElapsed := time.Since(arcStartTime)
+			remainingTimeStep := time.Duration(1000*1000*timeElapsed)*time.Microsecond - actualTimeElapsed
+			
+			if remainingTimeStep > 0 {
+				utils.SelectContextOrWait(ctx, remainingTimeStep)
+				if ctx.Err() != nil {
+					return tryStop(ctx.Err())
+				}
+			}
+			distIncVel := step.linVelMMps.Y
+			if distIncVel == 0 {
+				distIncVel = step.angVelDegps.Z
+			}
+			currentInputs := []referenceframe.Input{{step.ptgIdx}, {alpha}, {step.startDist + math.Abs(distIncVel) * timeElapsed}}
+			if step.ptgIdx >= 0 {
+				// Only update inputs if we are not in a corrective arc
+				ptgk.inputLock.Lock()
+				ptgk.currentInputs = currentInputs
+				ptgk.inputLock.Unlock()
+			}
+			
+			// If we have a localizer, we are able to attempt to correct to stay on the path.
+			if ptgk.Localizer != nil {
+				actualPose, err := ptgk.Localizer.CurrentPosition(ctx)
+				if err != nil {
+					return err
+				}
+				expectedPoseRel, err := ptgk.frame.Transform(currentInputs)
+				if err != nil {
+					return err
+				}
+				
+				// This is where we expected to be on the trajectory
+				expectedPose := spatialmath.Compose(step.trajStartPose, expectedPoseRel)
+				
+				// This is where actually are on the trajectory
+				poseDiff := spatialmath.PoseBetween(actualPose.Pose(), expectedPose)
+				
+				allowableDiff := ptgk.linVelocityMMPerSecond * inputUpdateStepSeconds * (minDeviationToCorrectPct/100)
+				if poseDiff.Point().Norm() > allowableDiff {
+					// Accumulate list of points along the path to try to connect to
+					goalsToAttempt := int(lookaheadTimeSeconds / inputUpdateStepSeconds) + 1
+					goals := nPosesPastDist(i, goalsToAttempt, currentInputs[distanceAlongTrajectoryIndex].Value, actualPose.Pose(), arcSteps)
+
+					// Attempt to solve from `actualPose` to each of those points
+					solution, err := ptgk.courseCorrect(ctx, goals)
+					if err != nil {
+						ptgk.logger.Debug(err)
+					}
+					if solution.Solution != nil {
+						
+						// We've got a course correction solution. Swap out the relevant arcsteps.
+						correctiveTraj, err := ptgk.courseCorrectionSolver.Trajectory(solution.Solution[0].Value, solution.Solution[1].Value, stepDistResolution)
+						if err != nil {
+							ptgk.logger.Debug(err)
+							continue
+						}
+						correctiveArcSteps := ptgk.trajectoryToArcSteps(correctiveTraj, actualPose.Pose(), -1)
+						arcSteps[i].startDist += (currentInputs[2].Value - arcSteps[i].startDist)
+						arcSteps[i].durationSeconds -= timeElapsed
+						newArcSteps := arcSteps[:i]
+						newArcSteps = append(newArcSteps, correctiveArcSteps...)
+						newArcSteps = append(newArcSteps, arcSteps[i:]...)
+						
+						// Break our timing loop to go to the next step
+						break
+					}
+				}
+			}
+		}
+	}
+	return tryStop(nil)
+}
+
+func (ptgk *ptgBaseKinematics) arcStepsFromInputs(inputSteps [][]referenceframe.Input, startPose spatialmath.Pose) ([]arcStep, error) {
+	var arcSteps []arcStep
+	runningPose := startPose
 	for _, inputs := range inputSteps {
-
-		ptgk.logger.CDebugf(ctx, "GoToInputs going to %v", inputs)
-
 		selectedPTG := ptgk.ptgs[int(math.Round(inputs[ptgIndex].Value))]
 
 		selectedTraj, err := selectedPTG.Trajectory(
@@ -41,120 +203,107 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 			stepDistResolution,
 		)
 		if err != nil {
-			return tryStop(err)
+			return nil, err
 		}
-		arcSteps := ptgk.trajectoryToArcSteps(selectedTraj)
+		trajArcSteps := ptgk.trajectoryToArcSteps(selectedTraj, runningPose, inputs[ptgIndex].Value)
+		for _, step := range trajArcSteps {
+			step.ptgIdx = inputs[ptgIndex].Value
+		}
+		
+		arcSteps = append(arcSteps, trajArcSteps...)
+		runningPose = spatialmath.Compose(runningPose, selectedTraj[len(selectedTraj)-1].Pose)
+	}
+	return arcSteps, nil
+}
 
-		for _, step := range arcSteps {
-			ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
-			ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {step.startDist}}
-			ptgk.inputLock.Unlock()
-
-			timestep := time.Duration(step.timestepSeconds*1000*1000) * time.Microsecond
-
-			ptgk.logger.CDebugf(ctx,
-				"setting velocity to linear %v angular %v and running velocity step for %s",
-				step.linVelMMps,
-				step.angVelDegps,
-				timestep,
-			)
-
-			if ptgk.Localizer != nil {
-				//~ startPose, err = ptgk.Localizer.CurrentPosition(ctx)
-				if err != nil {
-					return tryStop(err)
-				}
+func (ptgk *ptgBaseKinematics) trajectoryToArcSteps(traj []*tpspace.TrajNode, startPose spatialmath.Pose, ptgIdx float64) []arcStep {
+	finalSteps := []arcStep{}
+	timeStep := 0.
+	curDist := 0.
+	// Trajectory distance is either length in mm, or if linear distance is not increasing, number of degrees to rotate in place.
+	lastLinVel := r3.Vector{0, traj[0].LinVel * ptgk.linVelocityMMPerSecond, 0}
+	lastAngVel := r3.Vector{0, 0, traj[0].AngVel * ptgk.angVelocityDegsPerSecond}
+	nextStep := arcStep{
+		linVelMMps:      lastLinVel,
+		angVelDegps:     lastAngVel,
+		startDist: curDist,
+		durationSeconds: 0,
+		ptgIdx: ptgIdx,
+		trajStartPose: startPose,
+	}
+	for _, trajPt := range traj {
+		nextStep.subTraj = append(nextStep.subTraj, trajPt)
+		nextLinVel := r3.Vector{0, trajPt.LinVel * ptgk.linVelocityMMPerSecond, 0}
+		nextAngVel := r3.Vector{0, 0, trajPt.AngVel * ptgk.angVelocityDegsPerSecond}
+		if nextStep.linVelMMps.Sub(nextLinVel).Norm2() > 1e-6 || nextStep.angVelDegps.Sub(nextAngVel).Norm2() > 1e-6 {
+			// Changed velocity, make a new step
+			nextStep.durationSeconds = timeStep
+			finalSteps = append(finalSteps, nextStep)
+			nextStep = arcStep{
+				linVelMMps:      nextLinVel,
+				angVelDegps:     nextAngVel,
+				startDist: curDist,
+				durationSeconds: 0,
+				ptgIdx: ptgIdx,
+				trajStartPose: startPose,
 			}
-			//~ startTrajPose, err := selectedPTG.Transform([]referenceframe.Input{inputs[1], {step.startDist}})
-			if err != nil {
-				return tryStop(err)
-			}
+			timeStep = 0.
+		}
+		distIncrement := trajPt.Dist - curDist
+		curDist += distIncrement
+		if nextStep.linVelMMps.Y != 0 {
+			timeStep += distIncrement / (math.Abs(nextStep.linVelMMps.Y))
+		} else if nextStep.angVelDegps.Z != 0 {
+			timeStep += distIncrement / (math.Abs(nextStep.angVelDegps.Z))
+		}
+	}
+	nextStep.durationSeconds = timeStep
+	finalSteps = append(finalSteps, nextStep)
+	return finalSteps
+}
 
-			err = ptgk.Base.SetVelocity(
-				ctx,
-				step.linVelMMps,
-				step.angVelDegps,
-				nil,
-			)
-			if err != nil {
-				return tryStop(err)
-			}
-			//~ lastLinVel := step.linVelMMps
-			//~ lastAngVel := step.angVelDegps
-			moveStartTime := time.Now()
-			
-			// Now we are moving. We need to do several things simultaneously:
-			// - move until we think we have finished the arc, then move on to the next step
-			// - update our CurrentInputs tracking where we are through the arc
-			// - Check where we are relative to where we think we are, and tweak velocities accordingly
-			for timeElapsed := inputUpdateStep; timeElapsed <= step.timestepSeconds; timeElapsed += inputUpdateStep {
-				// Account for 1) timeElapsed being inputUpdateStep ahead of actual elapsed time, and the fact that the loop takes nonzero time
-				// to run especially when using the localizer.
-				actualTimeElapsed := time.Since(moveStartTime)
-				remainingTimeStep := time.Duration(1000*1000*timeElapsed)*time.Microsecond - actualTimeElapsed
-				
-				if remainingTimeStep > 0 {
-					utils.SelectContextOrWait(ctx, remainingTimeStep)
-					if ctx.Err() != nil {
-						return tryStop(ctx.Err())
-					}
+func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []courseCorrectionGoal) (courseCorrectionGoal, error)  {
+	for _, goal := range goals {
+		solveMetric := ik.NewPosWeightSquaredNormMetric(goal.Goal)
+		solutionChan := make(chan *ik.Solution)
+		err := ptgk.courseCorrectionSolver.Solve(
+			ctx,
+			solutionChan,
+			nil,
+			solveMetric,
+			0,
+		)
+		if err != nil {
+			return courseCorrectionGoal{}, err
+		}
+		solution := <-solutionChan
+		if solution.Exact {
+			goal.Solution = solution.Configuration
+			return goal, nil
+		}
+	}
+	ptgk.logger.Debug("unable to course correct")
+	return courseCorrectionGoal{}, nil
+}
+func nPosesPastDist(currStep, nGoals int, currDist float64, currPose spatialmath.Pose, steps []arcStep) []courseCorrectionGoal {
+	goals := []courseCorrectionGoal{}
+	
+	for i := currStep; i < len(steps); i++ {
+		pastDist := false
+		for j, trajNode := range steps[i].subTraj {
+			if pastDist {
+				goalPose := spatialmath.PoseBetween(currPose, spatialmath.Compose(steps[i].trajStartPose, trajNode.Pose))
+				goals = append(goals, courseCorrectionGoal{Goal: goalPose, stepIdx: i, trajIdx: j})
+				if len(goals) == nGoals {
+					return goals
 				}
-				distIncVel := step.linVelMMps.Y
-				if distIncVel == 0 {
-					distIncVel = step.angVelDegps.Z
-				}
-				ptgk.inputLock.Lock()
-				ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {step.startDist + math.Abs(distIncVel) * timeElapsed}}
-				ptgk.inputLock.Unlock()
-				
-				if ptgk.Localizer != nil {
-					
+			} else {
+				if trajNode.Dist >= currDist {
+					pastDist = true
+					currDist = 0
 				}
 			}
 		}
 	}
-
-	return tryStop(nil)
-}
-
-func (ptgk *ptgBaseKinematics) pathCorrection(ctx context.Context, startPose spatialmath.Pose) error {
-	//~ currPose, err := ptgk.Localizer.CurrentPosition(ctx)
-	//~ if err != nil {
-		//~ return err
-	//~ }
-	//~ currRelPose := spatialmath.PoseBetween(startPose.Pose(), currPose.Pose())
-	//~ expectedPoseRaw, err := selectedPTG.Transform([]referenceframe.Input{ptgk.currentInput[1], ptgk.currentInput[2]})
-	//~ if err != nil {
-		//~ return tryStop(err)
-	//~ }
-	//~ expectedPose := spatialmath.PoseBetween(startTrajPose, expectedPoseRaw)
-	//~ poseDiff := spatialmath.PoseBetween(currRelPose, expectedPose)
-	//~ poseDiffPt := poseDiff.Point()
-	//~ poseDiffAngle := poseDiff.Orientation().OrientationVectorDegrees().Theta
-	//~ fmt.Println("curr pose", spatialmath.PoseToProtobuf(currPose.Pose()))
-	//~ fmt.Println("curr rel pose", spatialmath.PoseToProtobuf(currRelPose))
-	//~ fmt.Println("exp pose", spatialmath.PoseToProtobuf(expectedPose))
-	//~ fmt.Println("diff pose", spatialmath.PoseToProtobuf(poseDiff))
-	//~ adjLinVel := step.linVelMMps
-	//~ adjAngVel := step.angVelDegps
-	
-	//~ if math.Abs(poseDiffPt.Y) > 100 {
-		//~ // Positive Y means we are behind where we want to be and should speed up. Speed up 5% at a time
-		//~ adjLinVel.Y = lastLinVel.Y * (1. + math.Copysign(0.05, poseDiffPt.Y))
-	//~ }
-
-	//~ if !lastLinVel.ApproxEqual(adjLinVel) || !lastAngVel.ApproxEqual(adjAngVel) {
-		//~ err = ptgk.Base.SetVelocity(
-			//~ ctx,
-			//~ adjLinVel,
-			//~ adjAngVel,
-			//~ nil,
-		//~ )
-		//~ if err != nil {
-			//~ return tryStop(err)
-		//~ }
-		//~ lastLinVel = adjLinVel
-		//~ lastAngVel = adjAngVel
-	//~ }
-	return nil
+	return goals
 }
