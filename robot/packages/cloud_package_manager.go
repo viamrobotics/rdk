@@ -295,7 +295,7 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 	return allErrors
 }
 
-// symlink packages/package-name to packages/.data/ml_model/orgid-package-name-ver for backwards compatablility
+// symlink packages/package-name to packages/data/ml_model/orgid-package-name-ver for backwards compatablility
 // TODO(RSDK-4386) Preserved for backwards compatibility. Could be removed or extended to other types in the future.
 func (m *cloudManager) mLModelSymlinkCreation(p config.PackageConfig) error {
 	symlinkPath, err := safeJoin(m.packagesDir, p.Name)
@@ -366,8 +366,9 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 
 	// Delete legacy directory, silently fail if the cleanup fails
 	// This can be cleaned up after a few RDK releases (APP-4066)
-	//nolint:errcheck
-	_ = os.RemoveAll(p.LocalLegacyDataParentDirectory(m.packagesDir))
+	if err := os.RemoveAll(p.LocalLegacyDataRootDirectory(m.packagesDir)); err != nil {
+		utils.UncheckedError(err)
+	}
 
 	// Force redownload of package archive.
 	if err := m.cleanup(p); err != nil {
