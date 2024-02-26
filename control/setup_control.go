@@ -11,13 +11,6 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-/*
-SetupControlLoop
-tunePID
-GetState ?
-SetState ?
-*/
-
 // rPiGain is 1/255 because the PWM signal on a pi (and most other boards)
 // is limited to 8 bits, or the range 0-255.
 const rPiGain = 0.00392157
