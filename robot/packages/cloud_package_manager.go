@@ -369,6 +369,9 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 	if err := os.RemoveAll(p.LocalLegacyDataRootDirectory(m.packagesDir)); err != nil {
 		utils.UncheckedError(err)
 	}
+	if err := os.Remove(p.LocalLegacyDataRootDirectory(m.packagesDir)); err != nil {
+		utils.UncheckedError(err)
+	}
 
 	// Force redownload of package archive.
 	if err := m.cleanup(p); err != nil {
