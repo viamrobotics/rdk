@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go.uber.org/zap/zaptest/observer"
+	v1 "go.viam.com/api/module/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
@@ -100,6 +101,20 @@ func TestModManagerFunctions(t *testing.T) {
 	modEnv = mod.getFullEnvironment(viamHomeTemp)
 	_, ok = modEnv["VIAM_MODULE_ID"]
 	test.That(t, ok, test.ShouldBeFalse)
+
+	// Make a copy of addr and client to test that connections are properly remade
+	oldAddr := mod.addr
+	oldClient := mod.client
+
+	mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp)
+	err = mod.dial()
+	test.That(t, err, test.ShouldBeNil)
+
+	// make sure mod.addr has changed
+	test.That(t, mod.addr, test.ShouldNotEqual, oldAddr)
+	// check that we're still able to use the old client
+	_, err = oldClient.Ready(ctx, &v1.ReadyRequest{ParentAddress: parentAddr})
+	test.That(t, err, test.ShouldBeNil)
 
 	t.Log("test AddModule")
 	mgr = NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
