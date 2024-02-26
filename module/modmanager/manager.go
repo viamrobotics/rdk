@@ -250,6 +250,8 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 		return handledResourceNames, err
 	}
 
+	mgr.logger.Debugw("successfully reconfigured and reconnected to module", "module", mod.cfg.Name, "module address", mod.addr)
+
 	// add old module process' resources to new module; warn if new module cannot
 	// handle old resource and consider that resource orphaned.
 	var orphanedResourceNames []resource.Name
@@ -744,7 +746,6 @@ func (m *module) dial() error {
 	if err != nil {
 		return errors.WithMessage(err, "module startup failed")
 	}
-
 	m.conn.ReplaceConn(conn)
 	m.client = pb.NewModuleServiceClient(&m.conn)
 	return nil

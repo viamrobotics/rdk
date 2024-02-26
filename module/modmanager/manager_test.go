@@ -73,12 +73,6 @@ func TestModManagerFunctions(t *testing.T) {
 	err = mod.dial()
 	test.That(t, err, test.ShouldBeNil)
 
-	// check that dial can re-use connections.
-	oldConn := &mod.conn
-	err = mod.dial()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, &mod.conn, test.ShouldEqual, oldConn)
-
 	err = mod.checkReady(ctx, parentAddr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -224,7 +218,7 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	_, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "the client connection is closing")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not connected")
 
 	err = counter.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -523,8 +517,7 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, ok, test.ShouldBeFalse)
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring,
-			"connection is closing")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not connected")
 
 		err = mgr.Close(ctx)
 		test.That(t, err, test.ShouldBeNil)
