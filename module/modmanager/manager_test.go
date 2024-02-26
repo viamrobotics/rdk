@@ -74,10 +74,10 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// check that dial can re-use connections.
-	oldConn := mod.conn
+	oldConn := &mod.conn
 	err = mod.dial()
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mod.conn, test.ShouldEqual, oldConn)
+	test.That(t, &mod.conn, test.ShouldEqual, oldConn)
 
 	err = mod.checkReady(ctx, parentAddr, logger)
 	test.That(t, err, test.ShouldBeNil)
