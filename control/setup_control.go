@@ -53,31 +53,37 @@ type PIDConfig struct {
 
 // Options contains values used for a control loop.
 type Options struct {
-	// PositionControlUsingTrapz
+	// PositionControlUsingTrapz adds a trapezoidalVelocityProfile block to the
+	// control config to allow for position control of a component
 	PositionControlUsingTrapz bool
 
-	// SensorFeedbackVelocityControl
-	SensorFeedbackVelocityControl bool
+	// SensorFeedback2DVelocityControl adds linear and angluar blocks to a control
+	// config in order to use the sensorcontrolled base component for velocity control
+	SensorFeedback2DVelocityControl bool
 
-	// DerivativeType
+	// DerivativeType is the type of derivative to be used for the derivative block of a control config
 	DerivativeType string
 
-	// UseCustomeConfig
+	// UseCustomeConfig is if the necessary config is not created by this setup file
 	UseCustomConfig bool
 
-	// CompleteCustomConfig
+	// CompleteCustomConfig is the custom control config to be used instead of the config
+	// created by this setup file
 	CompleteCustomConfig Config
 
-	// NeedsAutoTuning
+	// NeedsAutoTuning is true when all PID values of a PID block are 0 and
+	// the control loop needs to be auto-tuned
 	NeedsAutoTuning bool
 
-	// LoopFrequency
+	// LoopFrequency is the frequency at which the control loop should run
 	LoopFrequency float64
 
-	// ControllableType
+	// ControllableType is the type of component the control loop will be set up for,
+	// currently a base or motor
 	ControllableType string
 
-	// NeedsSingleAutoTuning
+	// NeedsSingleAutoTuning is true when, in the case of multiple PID blocks, only one of
+	// them needs to be auto-tuned
 	NeedsSingleAutoTuning bool
 }
 
@@ -155,10 +161,10 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 				errs = multierr.Combine(errs, err)
 			}
 		}
-		if p.Options.SensorFeedbackVelocityControl {
+		if p.Options.SensorFeedback2DVelocityControl {
 			// to tune linear PID values, angular PI values must be non-zero
-			p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"] = 0.5
-			p.ControlConf.Blocks[angularPIDIndex].Attribute["kI"] = 0.5
+			p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"] = 0.0001
+			p.ControlConf.Blocks[angularPIDIndex].Attribute["kI"] = 0.0001
 			p.logger.Info("tuning linear PID")
 			if err := p.StartControlLoop(); err != nil {
 				errs = multierr.Combine(errs, err)
@@ -172,8 +178,8 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			p.ControlLoop = nil
 
 			// to tune angular PID values, linear PI values must be non-zero
-			p.ControlConf.Blocks[linearPIDIndex].Attribute["kP"] = 0.5
-			p.ControlConf.Blocks[linearPIDIndex].Attribute["kI"] = 0.5
+			p.ControlConf.Blocks[linearPIDIndex].Attribute["kP"] = 0.0001
+			p.ControlConf.Blocks[linearPIDIndex].Attribute["kI"] = 0.0001
 			p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"] = 0.0
 			p.ControlConf.Blocks[angularPIDIndex].Attribute["kI"] = 0.0
 			p.logger.Info("tuning angular PID")
@@ -207,7 +213,7 @@ func (p *PIDLoop) createControlLoopConfig(pidVals []PIDConfig, componentName str
 	}
 
 	// add sensor feedback velocity control
-	if p.Options.SensorFeedbackVelocityControl {
+	if p.Options.SensorFeedback2DVelocityControl {
 		p.addSensorFeedbackVelocityControl(pidVals[1])
 	}
 
