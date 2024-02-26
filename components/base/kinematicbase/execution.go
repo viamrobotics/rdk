@@ -6,7 +6,6 @@ package kinematicbase
 
 import (
 	"context"
-	//~ "fmt"
 	"math"
 	"time"
 
@@ -109,7 +108,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 			return tryStop(err)
 		}
 		arcStartTime := time.Now()
-		
+		ptgk.logger.Debug(step)
 		// Now we are moving. We need to do several things simultaneously:
 		// - move until we think we have finished the arc, then move on to the next step
 		// - update our CurrentInputs tracking where we are through the arc
@@ -156,6 +155,8 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 				poseDiff := spatialmath.PoseBetween(actualPose.Pose(), expectedPose)
 				
 				allowableDiff := ptgk.linVelocityMMPerSecond * inputUpdateStepSeconds * (minDeviationToCorrectPct/100)
+				ptgk.logger.Debug("allowable diff", allowableDiff)
+				ptgk.logger.Debug("diff now", poseDiff.Point().Norm())
 				if poseDiff.Point().Norm() > allowableDiff {
 					// Accumulate list of points along the path to try to connect to
 					goalsToAttempt := int(lookaheadTimeSeconds / inputUpdateStepSeconds) + 1
