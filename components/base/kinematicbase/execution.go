@@ -155,9 +155,10 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 				poseDiff := spatialmath.PoseBetween(actualPose.Pose(), expectedPose)
 				
 				allowableDiff := ptgk.linVelocityMMPerSecond * inputUpdateStepSeconds * (minDeviationToCorrectPct/100)
-				ptgk.logger.Debug("allowable diff", allowableDiff)
-				ptgk.logger.Debug("diff now", poseDiff.Point().Norm())
+				ptgk.logger.Debug("allowable diff ", allowableDiff)
+				ptgk.logger.Debug("diff now ", poseDiff.Point().Norm())
 				if poseDiff.Point().Norm() > allowableDiff {
+					ptgk.logger.Debug("correcting")
 					// Accumulate list of points along the path to try to connect to
 					goalsToAttempt := int(lookaheadTimeSeconds / inputUpdateStepSeconds) + 1
 					goals := nPosesPastDist(i, goalsToAttempt, currentInputs[distanceAlongTrajectoryIndex].Value, actualPose.Pose(), arcSteps)
@@ -168,6 +169,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 						ptgk.logger.Debug(err)
 					}
 					if solution.Solution != nil {
+						ptgk.logger.Debug("got new solution")
 						
 						// We've got a course correction solution. Swap out the relevant arcsteps.
 						correctiveTraj, err := ptgk.courseCorrectionSolver.Trajectory(solution.Solution[0].Value, solution.Solution[1].Value, stepDistResolution)
@@ -176,15 +178,22 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 							continue
 						}
 						correctiveArcSteps := ptgk.trajectoryToArcSteps(correctiveTraj, actualPose.Pose(), -1)
-						arcSteps[i].startDist += (currentInputs[2].Value - arcSteps[i].startDist)
-						arcSteps[i].durationSeconds -= timeElapsed
+						
+						// Update the connection point
+						connectionPoint := arcSteps[solution.stepIdx]
+						connectionPoint.startDist += connectionPoint.subTraj[solution.trajIdx].Dist
+						connectionPoint.subTraj = connectionPoint.subTraj[solution.trajIdx:]
+						connectionPoint.durationSeconds -= (stepDistResolution * float64(solution.trajIdx))
+						
 						newArcSteps := arcSteps[:i]
 						newArcSteps = append(newArcSteps, correctiveArcSteps...)
-						newArcSteps = append(newArcSteps, arcSteps[i:]...)
-						
+						newArcSteps = append(newArcSteps, connectionPoint)
+						newArcSteps = append(newArcSteps, arcSteps[solution.stepIdx+1:]...)
+						arcSteps = newArcSteps
 						// Break our timing loop to go to the next step
 						break
 					}
+					ptgk.logger.Debug("no new solution")
 				}
 			}
 		}
