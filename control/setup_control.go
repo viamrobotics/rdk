@@ -155,45 +155,56 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			}
 		}
 		if p.Options.SensorFeedback2DVelocityControl {
- // check if linear needs to be tuned
- if p.ControlConf.Blocks[linearPIDIndex].Attribute["kP"] == 0.0 && p.ControlConf.Blocks[linearPIDIndex].Attribute["kPI"] = 0.0{
- // preserve angular values and set them to be non-zero
- kPA := p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"]
- kIA := p.ControlConf.Blocks[angularPIDIndex].Attribute["kI"]
-			// to tune linear PID values, angular PI values must be non-zero
-			p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"] = 0.0001
-			p.ControlConf.Blocks[angularPIDIndex].Attribute["kI"] = 0.0001
-			p.logger.Info("tuning linear PID")
-			if err := p.StartControlLoop(); err != nil {
-				errs = multierr.Combine(errs, err)
+			// check if linear needs to be tuned
+			if p.ControlConf.Blocks[linearPIDIndex].Attribute["kP"] == 0.0 &&
+				p.ControlConf.Blocks[linearPIDIndex].Attribute["kPI"] == 0.0 {
+				// preserve angular values and set them to be non-zero
+				kPA := p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"]
+				kIA := p.ControlConf.Blocks[angularPIDIndex].Attribute["kI"]
+				// to tune linear PID values, angular PI values must be non-zero
+				p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"] = 0.0001
+				p.ControlConf.Blocks[angularPIDIndex].Attribute["kI"] = 0.0001
+				p.logger.Info("tuning linear PID")
+				if err := p.StartControlLoop(); err != nil {
+					errs = multierr.Combine(errs, err)
+				}
+
+				if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
+					errs = multierr.Combine(errs, err)
+				}
+
+				p.ControlLoop.Stop()
+				p.ControlLoop = nil
+
+				// reset angular values
+				p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"] = kPA
+				p.ControlConf.Blocks[angularPIDIndex].Attribute["kI"] = kIA
 			}
 
-			if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
-				errs = multierr.Combine(errs, err)
-			}
+			// check if angular needs to be tuned
+			if p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"] == 0.0 &&
+				p.ControlConf.Blocks[angularPIDIndex].Attribute["kPI"] == 0.0 {
+				// preserve angular values and set them to be non-zero
+				kPL := p.ControlConf.Blocks[linearPIDIndex].Attribute["kP"]
+				kIL := p.ControlConf.Blocks[linearPIDIndex].Attribute["kI"]
+				// to tune linear PID values, angular PI values must be non-zero
+				p.ControlConf.Blocks[linearPIDIndex].Attribute["kP"] = 0.0001
+				p.ControlConf.Blocks[linearPIDIndex].Attribute["kI"] = 0.0001
+				p.logger.Info("tuning angular PID")
+				if err := p.StartControlLoop(); err != nil {
+					errs = multierr.Combine(errs, err)
+				}
 
-			p.ControlLoop.Stop()
-			p.ControlLoop = nil
-			
-			// reset angular values
-			p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"] = kPA
- p.ControlConf.Blocks[angularPIDIndex].Attribute["kI"] = kIA
-}
+				if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
+					errs = multierr.Combine(errs, err)
+				}
 
-// do the same process for linear
+				p.ControlLoop.Stop()
+				p.ControlLoop = nil
 
-			// to tune angular PID values, linear PI values must be non-zero
-			p.ControlConf.Blocks[linearPIDIndex].Attribute["kP"] = 0.0001
-			p.ControlConf.Blocks[linearPIDIndex].Attribute["kI"] = 0.0001
-			p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"] = 0.0
-			p.ControlConf.Blocks[angularPIDIndex].Attribute["kI"] = 0.0
-			p.logger.Info("tuning angular PID")
-			if err := p.StartControlLoop(); err != nil {
-				errs = multierr.Combine(errs, err)
-			}
-
-			if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
-				errs = multierr.Combine(errs, err)
+				// reset angular values
+				p.ControlConf.Blocks[linearPIDIndex].Attribute["kP"] = kPL
+				p.ControlConf.Blocks[linearPIDIndex].Attribute["kI"] = kIL
 			}
 		}
 		if p.Options.UseCustomConfig {
