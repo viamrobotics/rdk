@@ -143,6 +143,12 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			return
 		default:
 		}
+		if p.Options.UseCustomConfig {
+			if err := p.StartControlLoop(); err != nil {
+				p.logger.Error(err)
+			}
+			return
+		}
 		// switch sum to depend on the setpoint if position control
 		if p.Options.PositionControlUsingTrapz {
 			p.ControlConf.Blocks[sumIndex].DependsOn[0] = p.BlockNames["constant"][0]
@@ -171,11 +177,6 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 				if err := p.tuneSinglePID(ctx, linearPIDIndex); err != nil {
 					errs = multierr.Combine(errs, err)
 				}
-			}
-		}
-		if p.Options.UseCustomConfig {
-			if err := p.StartControlLoop(); err != nil {
-				errs = multierr.Combine(errs, err)
 			}
 		}
 	})
