@@ -155,6 +155,11 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			}
 		}
 		if p.Options.SensorFeedback2DVelocityControl {
+ // check if linear needs to be tuned
+ if p.ControlConf.Blocks[linearPIDIndex].Attribute["kP"] == 0.0 && p.ControlConf.Blocks[linearPIDIndex].Attribute["kPI"] = 0.0{
+ // preserve angular values and set them to be non-zero
+ kPA := p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"]
+ kIA := p.ControlConf.Blocks[angularPIDIndex].Attribute["kI"]
 			// to tune linear PID values, angular PI values must be non-zero
 			p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"] = 0.0001
 			p.ControlConf.Blocks[angularPIDIndex].Attribute["kI"] = 0.0001
@@ -169,6 +174,13 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 
 			p.ControlLoop.Stop()
 			p.ControlLoop = nil
+			
+			// reset angular values
+			p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"] = kPA
+ p.ControlConf.Blocks[angularPIDIndex].Attribute["kI"] = kIA
+}
+
+// do the same process for linear
 
 			// to tune angular PID values, linear PI values must be non-zero
 			p.ControlConf.Blocks[linearPIDIndex].Attribute["kP"] = 0.0001
