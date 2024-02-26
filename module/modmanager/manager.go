@@ -241,7 +241,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 		return handledResourceNames, err
 	}
 
-	if err := mgr.add(ctx, conf, mod.conn); err != nil {
+	if err := mgr.add(ctx, conf, nil); err != nil {
 		// If re-addition fails, assume all handled resources are orphaned.
 		return handledResourceNames, err
 	}
@@ -254,6 +254,8 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 			mgr.logger.Warnf("error while re-adding resource %s to module %s: %v",
 				name, conf.Name, err)
 			orphanedResourceNames = append(orphanedResourceNames, name)
+		} else {
+			mgr.logger.Debugw("successfully re-added resource from module after module reconfiguration", "module", mod.cfg.Name, "resource", name)
 		}
 	}
 	return orphanedResourceNames, nil
@@ -296,6 +298,8 @@ func (mgr *Manager) remove(mod *module, reconfigure bool) error {
 		_, err := mod.client.RemoveResource(context.Background(), &pb.RemoveResourceRequest{Name: res.String()})
 		if err != nil {
 			mgr.logger.Errorw("error removing resource", "module", mod.cfg.Name, "resource", res.Name, "error", err)
+		} else {
+			mgr.logger.Debugw("successfully removed resource from module", "module", mod.cfg.Name, "resource", res.Name)
 		}
 	}
 
@@ -303,12 +307,9 @@ func (mgr *Manager) remove(mod *module, reconfigure bool) error {
 		return errors.WithMessage(err, "error while stopping module "+mod.cfg.Name)
 	}
 
-	// Do not close connection if module is being reconfigured.
-	if !reconfigure {
-		if mod.conn != nil {
-			if err := mod.conn.Close(); err != nil {
-				return errors.WithMessage(err, "error while closing connection from module "+mod.cfg.Name)
-			}
+	if mod.conn != nil {
+		if err := mod.conn.Close(); err != nil {
+			return errors.WithMessage(err, "error while closing connection from module "+mod.cfg.Name)
 		}
 	}
 
@@ -320,6 +321,8 @@ func (mgr *Manager) remove(mod *module, reconfigure bool) error {
 		}
 	}
 	delete(mgr.modules, mod.cfg.Name)
+
+	mgr.logger.Debugw("module successfully closed", "module", mod.cfg.Name)
 	return nil
 }
 
