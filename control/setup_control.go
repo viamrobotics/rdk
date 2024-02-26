@@ -5,9 +5,10 @@ import (
 	"sync"
 
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/logging"
 	rdkutils "go.viam.com/rdk/utils"
-	"go.viam.com/utils"
 )
 
 /*
@@ -22,17 +23,16 @@ SetState ?
 const rPiGain = 0.00392157
 
 var (
-	// default derivative type is "backward1st1"
+	// default derivative type is "backward1st1".
 	derivativeType   = "backward1st1"
 	loopFrequency    = 50.0
 	sumIndex         = 1
 	linearPIDIndex   = 2
 	angularPIDIndex  = -1
-	typeLinVel       = "linear_velocity"
-	typeAngVel       = "angular_velocity"
 	controllableType = "motor_name"
 )
 
+// PIDLoop is used for setting up a PID control loop.
 type PIDLoop struct {
 	BlockNames              map[string][]string
 	ControlConf             Config
@@ -43,6 +43,7 @@ type PIDLoop struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
+// PIDConfig is values needed to configure a PID control loop.
 type PIDConfig struct {
 	Type string  `json:"type,omitempty"`
 	P    float64 `json:"p"`
@@ -80,19 +81,26 @@ type Options struct {
 	NeedsSingleAutoTuning bool
 }
 
-func SetupPIDControlConfig(pidVals []PIDConfig, componentName string, Options Options, c Controllable, logger logging.Logger) (*PIDLoop, error) {
+// SetupPIDControlConfig creates a control config.
+func SetupPIDControlConfig(
+	pidVals []PIDConfig,
+	componentName string,
+	options Options,
+	c Controllable,
+	logger logging.Logger,
+) (*PIDLoop, error) {
 	pidLoop := &PIDLoop{
 		Controllable: c,
 		logger:       logger,
-		Options:      Options,
+		Options:      options,
 		ControlConf:  Config{},
 		ControlLoop:  nil,
 	}
 
-	// set controlConf as either an optional custom config, or as the defualt control config
-	if Options.UseCustomConfig {
-		pidLoop.ControlConf = Options.CompleteCustomConfig
-		for i, b := range Options.CompleteCustomConfig.Blocks {
+	// set controlConf as either an optional custom config, or as the default control config
+	if options.UseCustomConfig {
+		pidLoop.ControlConf = options.CompleteCustomConfig
+		for i, b := range options.CompleteCustomConfig.Blocks {
 			if b.Type == blockSum {
 				sumIndex = i
 			}
@@ -102,32 +110,34 @@ func SetupPIDControlConfig(pidVals []PIDConfig, componentName string, Options Op
 	}
 
 	// auto tune the control loop if needed
-	if Options.NeedsAutoTuning {
+	if options.NeedsAutoTuning {
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 		if err := pidLoop.TunePIDLoop(cancelCtx, cancelFunc); err != nil {
 			return nil, err
 		}
 	}
 
-	if Options.NeedsSingleAutoTuning {
-		pidLoop.StartControlLoop()
+	if options.NeedsSingleAutoTuning {
+		if err := pidLoop.StartControlLoop(); err != nil {
+			return nil, err
+		}
 	}
 
 	return pidLoop, nil
 }
 
+// TunePIDLoop runs the auto-tuning process for a PID control loop.
 func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc) error {
 	var errs error
 	p.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer utils.UncheckedErrorFunc(func() error {
+		defer func() {
 			cancelFunc()
 			if p.ControlLoop != nil {
 				p.ControlLoop.Stop()
 				p.ControlLoop = nil
 			}
-			return nil
-		})
+		}()
 		defer p.activeBackgroundWorkers.Done()
 		select {
 		case <-ctx.Done():
@@ -141,7 +151,9 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 				errs = multierr.Combine(errs, err)
 			}
 
-			p.ControlLoop.MonitorTuning(ctx)
+			if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
+				errs = multierr.Combine(errs, err)
+			}
 		}
 		if p.Options.SensorFeedbackVelocityControl {
 			// to tune linear PID values, angular PI values must be non-zero
@@ -152,7 +164,9 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 				errs = multierr.Combine(errs, err)
 			}
 
-			p.ControlLoop.MonitorTuning(ctx)
+			if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
+				errs = multierr.Combine(errs, err)
+			}
 
 			p.ControlLoop.Stop()
 			p.ControlLoop = nil
@@ -167,14 +181,15 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 				errs = multierr.Combine(errs, err)
 			}
 
-			p.ControlLoop.MonitorTuning(ctx)
+			if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
+				errs = multierr.Combine(errs, err)
+			}
 		}
 		if p.Options.UseCustomConfig {
 			if err := p.StartControlLoop(); err != nil {
 				errs = multierr.Combine(errs, err)
 			}
 		}
-
 	})
 	return errs
 }
@@ -204,7 +219,7 @@ func (p *PIDLoop) createControlLoopConfig(pidVals []PIDConfig, componentName str
 }
 
 // create most basic PID control loop containing
-// constant -> sum -> PID -> gain -> endpoint -> sum
+// constant -> sum -> PID -> gain -> endpoint -> sum.
 func (p *PIDLoop) basicControlConfig(endpointName string, pidVals PIDConfig, controllableType string) {
 	if p.Options.LoopFrequency != 0 {
 		loopFrequency = p.Options.LoopFrequency
@@ -311,7 +326,7 @@ func (p *PIDLoop) addSensorFeedbackVelocityControl(angularPIDVals PIDConfig) {
 		}
 		// change dependsOn to match new name that includes "linear"
 		for j, s := range b.DependsOn {
-			if s != "sum" && s != "endpoint" {
+			if s != string(blockSum) && s != string(blockEndpoint) {
 				newName := "linear_" + s
 				b.DependsOn[j] = newName
 			}
@@ -369,6 +384,7 @@ func (p *PIDLoop) addSensorFeedbackVelocityControl(angularPIDVals PIDConfig) {
 	p.ControlConf.Blocks[4].DependsOn = []string{"linear_gain", "angular_gain"}
 }
 
+// StartControlLoop starts a PID control loop.
 func (p *PIDLoop) StartControlLoop() error {
 	loop, err := NewLoop(p.logger, p.ControlConf, p.Controllable)
 	if err != nil {
