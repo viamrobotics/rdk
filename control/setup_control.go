@@ -74,10 +74,6 @@ type Options struct {
 	// ControllableType is the type of component the control loop will be set up for,
 	// currently a base or motor
 	ControllableType string
-
-	// NeedsSingleAutoTuning is true when, in the case of multiple PID blocks, only one of
-	// them needs to be auto-tuned
-	NeedsSingleAutoTuning bool
 }
 
 // SetupPIDControlConfig creates a control config.
@@ -112,12 +108,6 @@ func SetupPIDControlConfig(
 	if options.NeedsAutoTuning {
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 		if err := pidLoop.TunePIDLoop(cancelCtx, cancelFunc); err != nil {
-			return nil, err
-		}
-	}
-
-	if options.NeedsSingleAutoTuning {
-		if err := pidLoop.StartControlLoop(); err != nil {
 			return nil, err
 		}
 	}
