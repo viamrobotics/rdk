@@ -1000,8 +1000,8 @@ type PackageConfig struct {
 	Package string `json:"package"`
 	// Version of the package ID hosted by a remote PackageService. If not specified "latest" is assumed.
 	Version string `json:"version,omitempty"`
-	// Types of the Package. If not specified it is assumed to be ml_model.
-	Type PackageType `json:"type,omitempty"`
+	// Types of the Package.
+	Type PackageType `json:"type"`
 
 	Status *AppValidationStatus `json:"status,omitempty"`
 
