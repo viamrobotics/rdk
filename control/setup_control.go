@@ -50,7 +50,7 @@ type Options struct {
 	// control config to allow for position control of a component
 	PositionControlUsingTrapz bool
 
-	// SensorFeedback2DVelocityControl adds linear and angluar blocks to a control
+	// SensorFeedback2DVelocityControl adds linear and angular blocks to a control
 	// config in order to use the sensorcontrolled base component for velocity control
 	SensorFeedback2DVelocityControl bool
 
@@ -158,53 +158,19 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			// check if linear needs to be tuned
 			if p.ControlConf.Blocks[linearPIDIndex].Attribute["kP"] == 0.0 &&
 				p.ControlConf.Blocks[linearPIDIndex].Attribute["kPI"] == 0.0 {
-				// preserve angular values and set them to be non-zero
-				kPA := p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"]
-				kIA := p.ControlConf.Blocks[angularPIDIndex].Attribute["kI"]
-				// to tune linear PID values, angular PI values must be non-zero
-				p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"] = 0.0001
-				p.ControlConf.Blocks[angularPIDIndex].Attribute["kI"] = 0.0001
 				p.logger.Info("tuning linear PID")
-				if err := p.StartControlLoop(); err != nil {
+				if err := p.tuneSinglePID(ctx, angularPIDIndex); err != nil {
 					errs = multierr.Combine(errs, err)
 				}
-
-				if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
-					errs = multierr.Combine(errs, err)
-				}
-
-				p.ControlLoop.Stop()
-				p.ControlLoop = nil
-
-				// reset angular values
-				p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"] = kPA
-				p.ControlConf.Blocks[angularPIDIndex].Attribute["kI"] = kIA
 			}
 
 			// check if angular needs to be tuned
 			if p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"] == 0.0 &&
 				p.ControlConf.Blocks[angularPIDIndex].Attribute["kPI"] == 0.0 {
-				// preserve angular values and set them to be non-zero
-				kPL := p.ControlConf.Blocks[linearPIDIndex].Attribute["kP"]
-				kIL := p.ControlConf.Blocks[linearPIDIndex].Attribute["kI"]
-				// to tune linear PID values, angular PI values must be non-zero
-				p.ControlConf.Blocks[linearPIDIndex].Attribute["kP"] = 0.0001
-				p.ControlConf.Blocks[linearPIDIndex].Attribute["kI"] = 0.0001
 				p.logger.Info("tuning angular PID")
-				if err := p.StartControlLoop(); err != nil {
+				if err := p.tuneSinglePID(ctx, linearPIDIndex); err != nil {
 					errs = multierr.Combine(errs, err)
 				}
-
-				if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
-					errs = multierr.Combine(errs, err)
-				}
-
-				p.ControlLoop.Stop()
-				p.ControlLoop = nil
-
-				// reset angular values
-				p.ControlConf.Blocks[linearPIDIndex].Attribute["kP"] = kPL
-				p.ControlConf.Blocks[linearPIDIndex].Attribute["kI"] = kIL
 			}
 		}
 		if p.Options.UseCustomConfig {
@@ -216,11 +182,41 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 	return errs
 }
 
+func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex int) error {
+	// preserve old values and set them to be non-zero
+	pOld := p.ControlConf.Blocks[blockIndex].Attribute["kP"]
+	iOld := p.ControlConf.Blocks[blockIndex].Attribute["kI"]
+	// to tune one set of PID values, the other PI values must be non-zero
+	p.ControlConf.Blocks[blockIndex].Attribute["kP"] = 0.0001
+	p.ControlConf.Blocks[blockIndex].Attribute["kI"] = 0.0001
+	if err := p.StartControlLoop(); err != nil {
+		return err
+	}
+
+	if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
+		return err
+	}
+
+	p.ControlLoop.Stop()
+	p.ControlLoop = nil
+
+	// reset PI values
+	p.ControlConf.Blocks[blockIndex].Attribute["kP"] = pOld
+	p.ControlConf.Blocks[blockIndex].Attribute["kI"] = iOld
+
+	return nil
+}
+
 func (p *PIDLoop) createControlLoopConfig(pidVals []PIDConfig, componentName string) {
 	// create basic control config
 	if p.Options.ControllableType != "" {
 		controllableType = p.Options.ControllableType
 	}
+	if p.Options.PositionControlUsingTrapz && p.Options.SensorFeedback2DVelocityControl {
+		p.logger.Warn(
+			"PositionControlUsingTrapz and SensorFeedback2DVelocityControl are not yet supported in the same control loop")
+	}
+
 	p.basicControlConfig(componentName, pidVals[0], controllableType)
 
 	// add position control
