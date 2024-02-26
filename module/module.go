@@ -104,7 +104,7 @@ func (h HandlerMap) ToProto() *pb.HandlerMap {
 }
 
 // NewHandlerMapFromProto converts protobuf to HandlerMap.
-func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn *grpc.ClientConn) (HandlerMap, error) {
+func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn rpc.ClientConn) (HandlerMap, error) {
 	hMap := make(HandlerMap)
 	refClient := grpcreflect.NewClientV1Alpha(ctx, reflectpb.NewServerReflectionClient(conn))
 	defer refClient.Reset()
