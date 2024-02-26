@@ -98,6 +98,68 @@ var finalResources = []resource.Name{
 
 var pose1 = spatialmath.NewZeroPose()
 
+type mockRobotService struct {
+	pb.UnimplementedRobotServiceServer
+}
+
+func (ms *mockRobotService) ResourceNames(ctx context.Context, _ *pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error) {
+	board := board.Named("micro-rdk")
+	rNames := []*commonpb.ResourceName{
+		{
+			Namespace: string(board.API.Type.Namespace),
+			Type:      board.API.Type.Name,
+			Subtype:   board.API.SubtypeName,
+			Name:      board.Name,
+		},
+	}
+
+	return &pb.ResourceNamesResponse{Resources: rNames}, nil
+}
+
+func TestUnimplementedRPCSubtypes(t *testing.T) {
+	// create new robot service, the remote-side grpc server
+	logger := logging.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+
+	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+
+	robotService := &mockRobotService{}
+	test.That(t, rpcServer.RegisterServiceServer(
+		context.Background(),
+		&pb.RobotService_ServiceDesc,
+		robotService,
+		pb.RegisterRobotServiceHandlerFromEndpoint,
+	), test.ShouldBeNil)
+
+	go rpcServer.Serve(listener)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
+	defer cancel()
+
+	client, err := New(
+		ctx,
+		listener.Addr().String(),
+		logger,
+	)
+
+	test.That(t, err, test.ShouldBeNil)
+
+	defer func() {
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	test.That(t, client.Connected(), test.ShouldBeTrue)
+
+	// call
+	err = client.Refresh(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, client.subtypesUnimplemented, test.ShouldBeTrue)
+
+	rpcServer.Stop()
+}
+
 func TestStatusClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
