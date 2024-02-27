@@ -297,8 +297,9 @@ func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []course
 		default:
 		}
 		ptgk.logger.Debug("done")
+		ptgk.logger.Debug(solution)
 		
-		if solution.Exact {
+		if solution.Score < 1. {
 			ptgk.logger.Debug("got solution")
 			goal.Solution = solution.Configuration
 			return goal, nil
