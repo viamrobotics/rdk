@@ -34,6 +34,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	rconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -920,15 +921,24 @@ func (c *viamClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.Robot
 }
 
 func (c *viamClient) printRobotPartLogsInner(logs []*commonpb.LogEntry, indent string) {
-	for _, log := range logs {
+	// Iterate over logs in reverse because they are returned in
+	// order of latest to oldest but we should print from oldest -> newest
+	for i := len(logs) - 1; i >= 0; i-- {
+		log := logs[i]
+		fields, err := parseLogEntryFields(log.Fields)
+		if err != nil {
+			warningf(c.c.App.ErrWriter, "%v", err)
+		}
+		fieldsString := logEntryFieldsToString(fields)
 		printf(
 			c.c.App.Writer,
-			"%s%s\t%s\t%s\t%s",
+			"%s%s\t%s\t%s\t%s%s",
 			indent,
 			log.Time.AsTime().Format("2006-01-02T15:04:05.000Z0700"),
 			log.Level,
 			log.LoggerName,
 			log.Message,
+			fieldsString,
 		)
 	}
 }
@@ -1196,4 +1206,34 @@ func (c *viamClient) startRobotPartShell(
 
 	outputLoop()
 	return nil
+}
+
+// logEntryField is unmarshalled from the commonpb.LogEntry.Fields array.
+type logEntryField struct {
+	Key    string `json:"Key"`
+	String string `json:"String"`
+}
+
+func parseLogEntryFields(fields []*structpb.Struct) ([]logEntryField, error) {
+	parsedFields := make([]logEntryField, 0, len(fields))
+	for _, fieldRaw := range fields {
+		bytes, err := json.Marshal(fieldRaw)
+		if err != nil {
+			return nil, err
+		}
+		field := logEntryField{}
+		if err := json.Unmarshal(bytes, &field); err != nil {
+			return nil, err
+		}
+		parsedFields = append(parsedFields, field)
+	}
+	return parsedFields, nil
+}
+
+func logEntryFieldsToString(fields []logEntryField) string {
+	fieldsString := ""
+	for _, field := range fields {
+		fieldsString += fmt.Sprintf("\t%s\t%s", field.Key, field.String)
+	}
+	return fieldsString
 }
