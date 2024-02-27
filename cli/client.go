@@ -1214,18 +1214,14 @@ type logEntryField struct {
 	String string `json:"String"`
 }
 
-func parseLogEntryFields(fields []*structpb.Struct) ([]logEntryField, error) {
-	parsedFields := make([]logEntryField, 0, len(fields))
-	for _, fieldRaw := range fields {
-		bytes, err := json.Marshal(fieldRaw)
-		if err != nil {
-			return nil, err
-		}
-		field := logEntryField{}
-		if err := json.Unmarshal(bytes, &field); err != nil {
-			return nil, err
-		}
-		parsedFields = append(parsedFields, field)
+func parseLogEntryFields(fieldsRaw []*structpb.Struct) ([]logEntryField, error) {
+	parsedFields := make([]logEntryField, 0, len(fieldsRaw))
+	bytes, err := json.Marshal(fieldsRaw)
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(bytes, &parsedFields); err != nil {
+		return nil, err
 	}
 	return parsedFields, nil
 }
@@ -1233,7 +1229,7 @@ func parseLogEntryFields(fields []*structpb.Struct) ([]logEntryField, error) {
 func logEntryFieldsToString(fields []logEntryField) string {
 	fieldsString := ""
 	for _, field := range fields {
-		fieldsString += fmt.Sprintf("\t%s\t%s", field.Key, field.String)
+		fieldsString += fmt.Sprintf("\t%s %s", field.Key, field.String)
 	}
 	return fieldsString
 }
