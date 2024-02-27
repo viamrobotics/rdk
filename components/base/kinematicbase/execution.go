@@ -203,13 +203,20 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 						// Start with the already-executed steps.
 						// We need to include the i-th step because we're about to increment i and want to start with the correction, then
 						// continue with the connection point.
-						newArcSteps := arcSteps[:i+1] 
+						ptgk.logger.Debug("before arcstep len")
+						ptgk.logger.Debug(len(arcSteps))
+						var newArcSteps []arcStep
+						newArcSteps = append(newArcSteps, arcSteps[:i+1]...)
 						newArcSteps = append(newArcSteps, correctiveArcSteps...)
 						newArcSteps = append(newArcSteps, connectionPoint)
+						ptgk.logger.Debug("solution.stepIdx")
+						ptgk.logger.Debug(solution.stepIdx)
 						if solution.stepIdx < len(arcSteps)-1 {
 							newArcSteps = append(newArcSteps, arcSteps[solution.stepIdx+1:]...)
 						}
 						arcSteps = newArcSteps
+						ptgk.logger.Debug("after arcstep len")
+						ptgk.logger.Debug(len(arcSteps))
 						// Break our timing loop to go to the next step
 						break
 					}
