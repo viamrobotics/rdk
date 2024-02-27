@@ -22,7 +22,10 @@ const (
 	classifierInputName       = "image"
 )
 
-func attemptToBuildClassifier(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map, params *MLModelConfig) (classification.Classifier, error) {
+func attemptToBuildClassifier(mlm mlmodel.Service,
+	inNameMap, outNameMap *sync.Map,
+	params *MLModelConfig,
+) (classification.Classifier, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
 		return nil, errors.New("could not get any metadata")

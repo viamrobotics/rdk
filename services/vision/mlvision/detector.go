@@ -26,7 +26,10 @@ const (
 	detectorInputName    = "image"
 )
 
-func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map, params *MLModelConfig) (objectdetection.Detector, error) {
+func attemptToBuildDetector(mlm mlmodel.Service,
+	inNameMap, outNameMap *sync.Map,
+	params *MLModelConfig,
+) (objectdetection.Detector, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
 		return nil, errors.New("could not get any metadata")

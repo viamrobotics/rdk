@@ -458,7 +458,7 @@ func ImageToFloatBuffer(img image.Image, changeToBGR bool, meanValue, stdDev []f
 }
 
 // rgbaTo8Bit converts the uint32s from RGBA() to uint8s.
-func rgbaTo8Bit(r, g, b, a uint32) (rr, gg, bb, aa uint8) {
+func rgbaTo8Bit(r, g, b, a uint32) (rr, gg, bb, aa uint8) { //nolint:unparam
 	r >>= 8
 	rr = uint8(r)
 	g >>= 8
