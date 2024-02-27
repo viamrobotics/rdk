@@ -194,7 +194,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 						// Use distances to calculate the % completion of the arc, used to update the time remaining.
 						// We can't use step.durationSeconds because we might connect to a different arc than we're currently in.
 						pctTrajRemaining := (connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist -
-							(connectionPoint.subTraj[solution.trajIdx].Dist + connectionPoint.startDist)) /
+							connectionPoint.subTraj[solution.trajIdx].Dist) /
 							(connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist - connectionPoint.startDist)
 						connectionPoint.startDist += connectionPoint.subTraj[solution.trajIdx].Dist
 						connectionPoint.durationSeconds *= pctTrajRemaining
