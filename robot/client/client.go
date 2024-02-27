@@ -587,8 +587,17 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 
 	var resTypes []resource.RPCAPI
 
+	// resource has previously returned an unimplemented response, preempt future calls
 	if rc.rpcSubtypesUnimplemented {
-		return nil, nil, nil
+		// return results from ResourceNames call
+		resources := make([]resource.Name, 0, len(resp.Resources))
+
+		for _, name := range resp.Resources {
+			newName := rprotoutils.ResourceNameFromProto(name)
+			resources = append(resources, newName)
+		}
+
+		return resources, resTypes, nil
 	}
 
 	typesResp, err := rc.client.ResourceRPCSubtypes(ctx, &pb.ResourceRPCSubtypesRequest{})
@@ -620,7 +629,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 		if s, ok := status.FromError(err); !(ok && (s.Code() == codes.Unimplemented)) {
 			return nil, nil, err
 		}
-		// preempt further calls to ResourceRPCSubtypes
+		// prevent future calls to ResourceRPCSubtypes
 		rc.rpcSubtypesUnimplemented = true
 	}
 
