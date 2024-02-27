@@ -782,6 +782,7 @@ func (m *module) startProcess(
 ) error {
 	var err error
 	// append a random alpha string to the module name while creating a socket address to avoid conflicts
+	// with old versions of the module.
 	if m.addr, err = modlib.CreateSocketAddress(
 		filepath.Dir(parentAddr), fmt.Sprintf("%s-%s", m.cfg.Name, utils.RandomAlphaString(5))); err != nil {
 		return err
