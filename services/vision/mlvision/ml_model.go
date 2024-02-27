@@ -62,12 +62,30 @@ type MLModelConfig struct {
 	RemapInputNames  map[string]string `json:"remap_input_names"`
 	RemapOutputNames map[string]string `json:"remap_output_names"`
 	BoxOrder         []int             `json:"xmin_ymin_xmax_ymax_order"`
+	MeanValue        []float32         `json:"input_image_mean_value"`
+	StdDev           []float32         `json:"input_image_std_dev"`
+	isBGR            bool              `json:"input_image_bgr"`
 }
 
 // Validate will add the ModelName as an implicit dependency to the robot.
 func (conf *MLModelConfig) Validate(path string) ([]string, error) {
 	if conf.ModelName == "" {
 		return nil, errors.New("mlmodel_name cannot be empty")
+	}
+	if len(conf.MeanValue) != 0 {
+		if len(conf.MeanValue) < 3 {
+			return nil, errors.New("input_image_mean_value attribute must have at least 3 values")
+		}
+	}
+	if len(conf.StdDev) != 0 {
+		if len(conf.StdDev) < 3 {
+			return nil, errors.New("input_image_std_dev attribute must have at least 3 values")
+		}
+	}
+	for _, v := range conf.StdDev {
+		if v == 0.0 {
+			return nil, errors.New("input_image_std_dev is not allowed to have 0 values, will cause division by 0")
+		}
 	}
 	return []string{conf.ModelName}, nil
 }
@@ -119,7 +137,7 @@ func registerMLModelVisionService(
 		}
 	}
 	var errList []error
-	classifierFunc, err := attemptToBuildClassifier(mlm, inNameMap, outNameMap)
+	classifierFunc, err := attemptToBuildClassifier(mlm, inNameMap, outNameMap, params)
 	if err != nil {
 		logger.CDebugw(ctx, "unable to use ml model as a classifier, will attempt to evaluate as"+
 			"detector and segmenter", "model", params.ModelName, "error", err)
@@ -135,7 +153,7 @@ func registerMLModelVisionService(
 		}
 	}
 
-	detectorFunc, err := attemptToBuildDetector(mlm, inNameMap, outNameMap, params.BoxOrder)
+	detectorFunc, err := attemptToBuildDetector(mlm, inNameMap, outNameMap, params)
 	if err != nil {
 		logger.CDebugw(ctx, "unable to use ml model as a detector, will attempt to evaluate as 3D segmenter",
 			"model", params.ModelName, "error", err)
