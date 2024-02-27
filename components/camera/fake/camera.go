@@ -19,10 +19,7 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 )
 
-var (
-	model = resource.DefaultModelFamily.WithModel("fake")
-	
-)
+var model = resource.DefaultModelFamily.WithModel("fake")
 
 const (
 	initialWidth  = 1280
@@ -78,7 +75,7 @@ type Config struct {
 // Validate checks that the config attributes are valid for a fake camera.
 func (conf *Config) Validate(path string) ([]string, error) {
 	if conf.Height > 10000 || conf.Width > 10000 {
-		return nil, errors.New("maximum supported pixel height or width for fake cameras is 4000 pixels")
+		return nil, errors.New("maximum supported pixel height or width for fake cameras is 10000 pixels")
 	}
 
 	if conf.Height < 0 || conf.Width < 0 {

@@ -100,7 +100,6 @@ func cameraTest(
 }
 
 func TestCameraValidationAndCreation(t *testing.T) {
-
 	attrCfg := &Config{Width: 200000, Height: 10}
 	cfg := resource.Config{
 		Name:                "test1",
@@ -141,4 +140,3 @@ func TestCameraValidationAndCreation(t *testing.T) {
 
 	test.That(t, camera.Close(context.Background()), test.ShouldBeNil)
 }
-
