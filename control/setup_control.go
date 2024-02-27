@@ -45,7 +45,7 @@ type PIDConfig struct {
 	D    float64 `json:"d"`
 }
 
-// NeedsAutoTuning checks if the PIDConfig values require auto tuning
+// NeedsAutoTuning checks if the PIDConfig values require auto tuning.
 func (conf *PIDConfig) NeedsAutoTuning() bool {
 	return (conf.P == 0.0 && conf.I == 0.0 && conf.D == 0.0)
 }
