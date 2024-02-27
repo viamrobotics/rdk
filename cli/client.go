@@ -1227,8 +1227,9 @@ func logEntryFieldsToString(fields []zap.Field) string {
 	for _, field := range fields {
 		fieldValue := ""
 		// TODO use zap encoder to encode
-		// it is a bit hard to do that though because our marshalling loses information
-		// this code is modeled after zapcore.Field.AddTo
+		// it is a bit hard to do that though because sending the data over the wire
+		// loses type info which causes the zap encoders to panic.
+		// This code is modeled after zapcore.Field.AddTo
 		//nolint:exhaustive
 		switch field.Type {
 		case zapcore.StringType, zapcore.ErrorType:
