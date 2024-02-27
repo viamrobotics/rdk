@@ -160,7 +160,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 				
 				allowableDiff := ptgk.linVelocityMMPerSecond * inputUpdateStepSeconds * (minDeviationToCorrectPct/100)
 				ptgk.logger.Debug("allowable diff ", allowableDiff, "diff now ", poseDiff.Point().Norm())
-				if poseDiff.Point().Norm() > allowableDiff {
+				if poseDiff.Point().Norm() > allowableDiff || poseDiff.Orientation().AxisAngles().Theta > 0.25 {
 					// Accumulate list of points along the path to try to connect to
 					goalsToAttempt := int(lookaheadTimeSeconds / inputUpdateStepSeconds) + 1
 					goals := ptgk.nPosesPastDist(i, goalsToAttempt, currentInputs[distanceAlongTrajectoryIndex].Value, actualPose.Pose(), arcSteps)
