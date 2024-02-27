@@ -86,12 +86,12 @@ func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map
 		case UInt8:
 			inMap[inputName] = tensor.New(
 				tensor.WithShape(1, resized.Bounds().Dy(), resized.Bounds().Dx(), 3),
-				tensor.WithBacking(rimage.ImageToUInt8Buffer(resized, params.isBGR)),
+				tensor.WithBacking(rimage.ImageToUInt8Buffer(resized, params.IsBGR)),
 			)
 		case Float32:
 			inMap[inputName] = tensor.New(
 				tensor.WithShape(1, resized.Bounds().Dy(), resized.Bounds().Dx(), 3),
-				tensor.WithBacking(rimage.ImageToFloatBuffer(resized, params.isBGR, params.MeanValue, params.StdDev)),
+				tensor.WithBacking(rimage.ImageToFloatBuffer(resized, params.IsBGR, params.MeanValue, params.StdDev)),
 			)
 		default:
 			return nil, errors.Errorf("invalid input type of %s. try uint8 or float32", inType)

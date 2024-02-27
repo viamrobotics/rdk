@@ -64,7 +64,7 @@ type MLModelConfig struct {
 	BoxOrder         []int             `json:"xmin_ymin_xmax_ymax_order"`
 	MeanValue        []float32         `json:"input_image_mean_value"`
 	StdDev           []float32         `json:"input_image_std_dev"`
-	isBGR            bool              `json:"input_image_bgr"`
+	IsBGR            bool              `json:"input_image_bgr"`
 }
 
 // Validate will add the ModelName as an implicit dependency to the robot.
