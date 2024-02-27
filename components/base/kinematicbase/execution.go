@@ -286,14 +286,19 @@ func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []course
 			0,
 		)
 		if err != nil {
+			ptgk.logger.Debug("non nil err")
 			return courseCorrectionGoal{}, err
 		}
 		var solution *ik.Solution
+		ptgk.logger.Debug("selecting solution")
 		select {
 		case solution = <-solutionChan:
 		default:
 		}
+		ptgk.logger.Debug("done")
+		
 		if solution.Exact {
+			ptgk.logger.Debug("got solution")
 			goal.Solution = solution.Configuration
 			return goal, nil
 		}
