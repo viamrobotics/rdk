@@ -17,6 +17,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
@@ -898,7 +899,7 @@ func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[
 
 // Log sends a log entry to the server. To be used by Golang modules wanting to
 // log over gRPC and not by normal Golang SDK clients.
-func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zapcore.Field) error {
+func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.Field) error {
 	message := fmt.Sprintf("%v\t%v", log.Caller.TrimmedPath(), log.Message)
 
 	fieldsP := make([]*structpb.Struct, 0, len(fields))
