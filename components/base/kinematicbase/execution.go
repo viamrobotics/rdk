@@ -189,19 +189,24 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 						
 						// Update the connection point
 						connectionPoint := arcSteps[solution.stepIdx]
-						pctTrajRemaining := (connectionPoint.subTraj[len(connectionPoint.subTraj)].Dist -
+						
+						// Use distances to calculate the % completion of the arc, used to update the time remaining.
+						// We can't use step.durationSeconds because we might connect to a different arc than we're currently in.
+						pctTrajRemaining := (connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist -
 							(connectionPoint.subTraj[solution.trajIdx].Dist + connectionPoint.startDist)) /
-							(connectionPoint.subTraj[len(connectionPoint.subTraj)].Dist - connectionPoint.startDist)
+							(connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist - connectionPoint.startDist)
 						connectionPoint.startDist += connectionPoint.subTraj[solution.trajIdx].Dist
 						connectionPoint.durationSeconds *= pctTrajRemaining
 						
 						connectionPoint.subTraj = connectionPoint.subTraj[solution.trajIdx:]
 						
 						// Start with the already-executed 
-						newArcSteps := arcSteps[:i]
+						newArcSteps := arcSteps[:i+1] // We need to include the i-th 
 						newArcSteps = append(newArcSteps, correctiveArcSteps...)
 						newArcSteps = append(newArcSteps, connectionPoint)
-						newArcSteps = append(newArcSteps, arcSteps[solution.stepIdx+1:]...)
+						if solution.stepIdx < len(arcSteps)-1 {
+							newArcSteps = append(newArcSteps, arcSteps[solution.stepIdx+1:]...)
+						}
 						arcSteps = newArcSteps
 						// Break our timing loop to go to the next step
 						break
