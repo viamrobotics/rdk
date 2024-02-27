@@ -92,6 +92,9 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 
 		timestep := time.Duration(step.durationSeconds*1000*1000) * time.Microsecond
 
+		ptgk.logger.Debugf("step, i %d", i)
+		ptgk.logger.Debug(step.linVelMMps, step.angVelDegps, step.durationSeconds, step.startDist, step.ptgIdx)
+
 		ptgk.logger.CDebugf(ctx,
 			"setting velocity to linear %v angular %v and running velocity step for %s",
 			step.linVelMMps,
@@ -109,8 +112,6 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 			return tryStop(err)
 		}
 		arcStartTime := time.Now()
-		ptgk.logger.Debugf("step, i %d", i)
-		ptgk.logger.Debug(step.linVelMMps, step.angVelDegps, step.durationSeconds, step.startDist, step.ptgIdx)
 		// Now we are moving. We need to do several things simultaneously:
 		// - move until we think we have finished the arc, then move on to the next step
 		// - update our CurrentInputs tracking where we are through the arc
@@ -158,8 +159,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 				poseDiff := spatialmath.PoseBetween(actualPose.Pose(), expectedPose)
 				
 				allowableDiff := ptgk.linVelocityMMPerSecond * inputUpdateStepSeconds * (minDeviationToCorrectPct/100)
-				ptgk.logger.Debug("allowable diff ", allowableDiff)
-				ptgk.logger.Debug("diff now ", poseDiff.Point().Norm())
+				ptgk.logger.Debug("allowable diff ", allowableDiff, "diff now ", poseDiff.Point().Norm())
 				if poseDiff.Point().Norm() > allowableDiff {
 					// Accumulate list of points along the path to try to connect to
 					goalsToAttempt := int(lookaheadTimeSeconds / inputUpdateStepSeconds) + 1
@@ -203,20 +203,14 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 						// Start with the already-executed steps.
 						// We need to include the i-th step because we're about to increment i and want to start with the correction, then
 						// continue with the connection point.
-						ptgk.logger.Debug("before arcstep len")
-						ptgk.logger.Debug(len(arcSteps))
 						var newArcSteps []arcStep
 						newArcSteps = append(newArcSteps, arcSteps[:i+1]...)
 						newArcSteps = append(newArcSteps, correctiveArcSteps...)
 						newArcSteps = append(newArcSteps, connectionPoint)
-						ptgk.logger.Debug("solution.stepIdx")
-						ptgk.logger.Debug(solution.stepIdx)
 						if solution.stepIdx < len(arcSteps)-1 {
 							newArcSteps = append(newArcSteps, arcSteps[solution.stepIdx+1:]...)
 						}
 						arcSteps = newArcSteps
-						ptgk.logger.Debug("after arcstep len")
-						ptgk.logger.Debug(len(arcSteps))
 						// Break our timing loop to go to the next step
 						break
 					}
@@ -302,10 +296,9 @@ func (ptgk *ptgBaseKinematics) trajectoryToArcSteps(traj []*tpspace.TrajNode, st
  
 func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []courseCorrectionGoal) (courseCorrectionGoal, error)  {
 	for _, goal := range goals {
-		solveMetric := ik.NewPosWeightSquaredNormMetric(goal.Goal)
+		solveMetric := ik.NewSquaredNormMetric(goal.Goal)
 		solutionChan := make(chan *ik.Solution, 1)
-		ptgk.logger.Debug("attempting goal")
-		ptgk.logger.Debug(spatialmath.PoseToProtobuf(goal.Goal))
+		ptgk.logger.Debug("attempting goal", spatialmath.PoseToProtobuf(goal.Goal))
 		err := ptgk.courseCorrectionSolver.Solve(
 			ctx,
 			solutionChan,
@@ -321,7 +314,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []course
 		case solution = <-solutionChan:
 		default:
 		}
-		ptgk.logger.Debug(solution)
+		ptgk.logger.Debug("solution", solution)
 		
 		if solution.Score < 1. {
 			goal.Solution = solution.Configuration
