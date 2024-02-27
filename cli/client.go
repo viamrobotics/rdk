@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -22,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	buildpb "go.viam.com/api/app/build/v1"
 	datapb "go.viam.com/api/app/data/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
@@ -1208,14 +1210,8 @@ func (c *viamClient) startRobotPartShell(
 	return nil
 }
 
-// logEntryField is unmarshalled from the commonpb.LogEntry.Fields array.
-type logEntryField struct {
-	Key    string `json:"Key"`
-	String string `json:"String"`
-}
-
-func parseLogEntryFields(fieldsRaw []*structpb.Struct) ([]logEntryField, error) {
-	parsedFields := make([]logEntryField, 0, len(fieldsRaw))
+func parseLogEntryFields(fieldsRaw []*structpb.Struct) ([]zap.Field, error) {
+	parsedFields := make([]zap.Field, 0, len(fieldsRaw))
 	bytes, err := json.Marshal(fieldsRaw)
 	if err != nil {
 		return nil, err
@@ -1226,10 +1222,31 @@ func parseLogEntryFields(fieldsRaw []*structpb.Struct) ([]logEntryField, error) 
 	return parsedFields, nil
 }
 
-func logEntryFieldsToString(fields []logEntryField) string {
+func logEntryFieldsToString(fields []zap.Field) string {
 	fieldsString := ""
 	for _, field := range fields {
-		fieldsString += fmt.Sprintf("\t%s %s", field.Key, field.String)
+		fieldValue := ""
+		// TODO use zap encoder to encode
+		// it is a bit hard to do that though because our marshalling loses information
+		// this code is modeled after zapcore.Field.AddTo
+		//nolint:exhaustive
+		switch field.Type {
+		case zapcore.StringType, zapcore.ErrorType:
+			fieldValue = field.String
+		case zapcore.BoolType:
+			fieldValue = fmt.Sprint(field.Integer == 1)
+		case zapcore.DurationType:
+			fieldValue = time.Duration(field.Integer).String()
+		case zapcore.Int64Type, zapcore.Int32Type, zapcore.Int16Type, zapcore.Int8Type:
+			fieldValue = fmt.Sprint(field.Integer)
+		case zapcore.Float64Type:
+			fieldValue = fmt.Sprint(math.Float64frombits(uint64(field.Integer)))
+		case zapcore.Float32Type:
+			fieldValue = fmt.Sprint(math.Float32frombits(uint32(field.Integer)))
+		default:
+			fieldValue = fmt.Sprint(field.Interface)
+		}
+		fieldsString += fmt.Sprintf("\t%s %s", field.Key, fieldValue)
 	}
 	return fieldsString
 }
