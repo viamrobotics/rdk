@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
@@ -428,6 +429,20 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 		if err = json.Unmarshal(fieldPJSON, &zf); err != nil {
 			return nil, err
 		}
+
+		// Custom deserialization for time types.
+		if zf.Type == zapcore.TimeType {
+			// Unix nanos contained in `zf.Integer`; location in `zf.String`. Format
+			// with `DefaultTimeFormatStr` and set `zf.Type` to `StringType`.
+			timeVal := time.Unix(0, zf.Integer)
+			loc, err := time.LoadLocation(zf.String)
+			if err != nil {
+				return nil, errors.Wrapf(err, "time.Time field received with invalid location")
+			}
+			zf.String = timeVal.In(loc).Format(logging.DefaultTimeFormatStr)
+			zf.Type = zapcore.StringType
+		}
+
 		fields = append(fields, zf)
 	}
 

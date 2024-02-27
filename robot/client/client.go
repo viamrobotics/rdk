@@ -903,10 +903,11 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zapc
 
 	fieldsP := make([]*structpb.Struct, 0, len(fields))
 	for _, field := range fields {
-		// If field is some non-string-encoded, non-integer-encoded type
-		// (field.Interface != nil), force it into a string with `%+v`. We do not
-		// have a great way of ensuring all types are maintained across the wire.
-		if field.String == "" && field.Interface != nil {
+		// If field is some non-time, non-string-encoded, non-integer-encoded type,
+		// force it into a string with `%+v`. We do not have a great way of
+		// ensuring all types are maintained across the wire. Time types will be
+		// handled server-side.
+		if field.Type != zapcore.TimeType && field.String == "" && field.Interface != nil {
 			field.String = fmt.Sprintf("%+v", field.Interface)
 			field.Type = zapcore.StringType
 		}
