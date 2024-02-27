@@ -159,7 +159,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 				poseDiff := spatialmath.PoseBetween(actualPose.Pose(), expectedPose)
 				
 				allowableDiff := ptgk.linVelocityMMPerSecond * inputUpdateStepSeconds * (minDeviationToCorrectPct/100)
-				ptgk.logger.Debug("allowable diff ", allowableDiff, "diff now ", poseDiff.Point().Norm())
+				ptgk.logger.Debug("allowable diff ", allowableDiff, " diff now ", poseDiff.Point().Norm())
 				if poseDiff.Point().Norm() > allowableDiff || poseDiff.Orientation().AxisAngles().Theta > 0.25 {
 					ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
 					ptgk.logger.Debug("SLAM says at ", spatialmath.PoseToProtobuf(actualPose.Pose()))
@@ -167,6 +167,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 					goalsToAttempt := int(lookaheadTimeSeconds / inputUpdateStepSeconds) + 1
 					goals := ptgk.nPosesPastDist(i, goalsToAttempt, currentInputs[distanceAlongTrajectoryIndex].Value, actualPose.Pose(), arcSteps)
 
+					ptgk.logger.Debug("wanted to attempt ", goalsToAttempt, " goals, got ", len(goals))
 					// Attempt to solve from `actualPose` to each of those points
 					solution, err := ptgk.courseCorrect(ctx, goals)
 					if err != nil {
