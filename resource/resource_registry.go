@@ -63,7 +63,7 @@ type (
 
 	// LinkAssocationConfig allows one resource to associate a specific association config
 	// to its own config. This is generally done by a specific resource (e.g. data capture of many components).
-	LinkAssocationConfig[ConfigT any] func(conf ConfigT, resAssociation interface{}) error
+	LinkAssocationConfig func(conf *Config, resAssociation interface{}) error
 )
 
 // A DependencyNotReadyError is used whenever we reference a dependency that has not been
@@ -125,7 +125,7 @@ type Registration[ResourceT Resource, ConfigT any] struct {
 
 	// An AssocationConfigLinker describes how to associate a
 	// resource association config to a specific resource model (e.g. builtin data capture).
-	AssociatedConfigLinker LinkAssocationConfig[ConfigT]
+	AssociatedConfigLinker LinkAssocationConfig
 
 	// TODO(RSDK-418): remove this legacy constructor once all resources that use it no longer need to receive the entire robot.
 	DeprecatedRobotConstructor DeprecatedCreateWithRobot[ResourceT]
@@ -331,12 +331,8 @@ func makeGenericResourceRegistration[ResourceT Resource, ConfigT ConfigValidator
 		}
 	}
 	if typed.AssociatedConfigLinker != nil {
-		reg.AssociatedConfigLinker = func(conf ConfigValidator, resAssociation interface{}) error {
-			typedConf, err := utils.AssertType[ConfigT](conf)
-			if err != nil {
-				return err
-			}
-			return typed.AssociatedConfigLinker(typedConf, resAssociation)
+		reg.AssociatedConfigLinker = func(conf *Config, resAssociation interface{}) error {
+			return typed.AssociatedConfigLinker(conf, resAssociation)
 		}
 	}
 

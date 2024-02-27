@@ -23,13 +23,13 @@ func init() {
 			RPCClient:                   NewClientFromConn,
 			MaxInstance:                 resource.DefaultMaxInstance,
 		},
-		resource.AssociatedConfigRegistration[*DataCaptureConfigs]{
-			AttributeMapConverter: func(attributes utils.AttributeMap) (*DataCaptureConfigs, error) {
+		resource.AssociatedConfigRegistration[*AssociatedConfig]{
+			AttributeMapConverter: func(attributes utils.AttributeMap) (*AssociatedConfig, error) {
 				md, err := json.Marshal(attributes)
 				if err != nil {
 					return nil, err
 				}
-				var conf DataCaptureConfigs
+				var conf AssociatedConfig
 				if err := json.Unmarshal(md, &conf); err != nil {
 					return nil, err
 				}
@@ -62,14 +62,14 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 }
 
 // DataCaptureConfigs specify a list of methods to capture on resources.
-type DataCaptureConfigs struct {
+type AssociatedConfig struct {
 	CaptureMethods []DataCaptureConfig `json:"capture_methods"`
 }
 
 // UpdateResourceNames allows the caller to modify the resource names of data capture in place.
-func (dcs *DataCaptureConfigs) UpdateResourceNames(updater func(old resource.Name) resource.Name) {
-	for idx := range dcs.CaptureMethods {
-		dcs.CaptureMethods[idx].Name = updater(dcs.CaptureMethods[idx].Name)
+func (ac *AssociatedConfig) UpdateResourceNames(updater func(old resource.Name) resource.Name) {
+	for idx := range ac.CaptureMethods {
+		ac.CaptureMethods[idx].Name = updater(ac.CaptureMethods[idx].Name)
 	}
 }
 

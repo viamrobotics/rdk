@@ -526,7 +526,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 				// link the converted attributes for the current resource config (convertedAttrs) to the config that accepts
 				// associated configs.
-				if err := reg.AssociatedConfigLinker(assocConf.ConvertedAttributes, convertedAttrs); err != nil {
+				if err := reg.AssociatedConfigLinker(assocConf, convertedAttrs); err != nil {
 					return errors.Wrapf(err, "error associating resource association config to resource %q", assocConf.Model)
 				}
 			}

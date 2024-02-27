@@ -24,6 +24,7 @@ type Config struct {
 	LogConfiguration          LogConfig
 	AssociatedResourceConfigs []AssociatedResourceConfig
 	Attributes                utils.AttributeMap
+	AssociatedAttributes      any
 
 	ConvertedAttributes ConfigValidator
 	ImplicitDependsOn   []string
@@ -181,18 +182,13 @@ func (conf Config) Equals(other Config) bool {
 	conf.ImplicitDependsOn = nil
 	conf.cachedImplicitDeps = nil
 	conf.cachedErr = nil
+	conf.ConvertedAttributes = nil
+
 	other.alreadyValidated = false
 	other.ImplicitDependsOn = nil
 	other.cachedImplicitDeps = nil
 	other.cachedErr = nil
-
-	// TODO(RSDK-5523): Once builtin datamanagers' AssociatedConfigLinkers no
-	// longer rely on appensions to the service's ConvertedAttributes field,
-	// continue ignoring ConvertedAttributes for equality for all resources.
-	if conf.API != APINamespaceRDK.WithServiceType("data_manager") {
-		conf.ConvertedAttributes = nil
-		other.ConvertedAttributes = nil
-	}
+	other.ConvertedAttributes = nil
 
 	//nolint:govet
 	return reflect.DeepEqual(conf, other)

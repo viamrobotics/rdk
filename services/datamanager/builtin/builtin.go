@@ -35,16 +35,17 @@ func init() {
 		resource.DefaultServiceModel,
 		resource.Registration[datamanager.Service, *Config]{
 			Constructor: NewBuiltIn,
-			AssociatedConfigLinker: func(conf *Config, resAssociation interface{}) error {
-				capConf, err := utils.AssertType[*datamanager.DataCaptureConfigs](resAssociation)
+			AssociatedConfigLinker: func(conf *resource.Config, resAssociation interface{}) error {
+				capConf, err := utils.AssertType[*datamanager.AssociatedConfig](resAssociation)
 				if err != nil {
 					return err
 				}
+				captureMethodCopies := make([]*datamanager.DataCaptureConfig, len(capConf.CaptureMethods))
 				for _, method := range capConf.CaptureMethods {
 					methodCopy := method
-					conf.ResourceConfigs = append(conf.ResourceConfigs, &methodCopy)
+					captureMethodCopies = append(captureMethodCopies, &methodCopy)
 				}
-
+				conf.AssociatedAttributes = captureMethodCopies
 				return nil
 			},
 			WeakDependencies: []resource.Matcher{
@@ -624,7 +625,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
