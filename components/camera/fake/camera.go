@@ -19,7 +19,10 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 )
 
-var model = resource.DefaultModelFamily.WithModel("fake")
+var (
+	model = resource.DefaultModelFamily.WithModel("fake")
+	
+)
 
 const (
 	initialWidth  = 1280
