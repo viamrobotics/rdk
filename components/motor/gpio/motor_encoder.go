@@ -104,24 +104,7 @@ func newEncodedMotor(
 
 	// setup control loop
 	if motorConfig.ControlParameters != nil {
-		// create control loop config with PID values from config
-		em.controlLoopConfig = em.createControlLoopConfig(
-			motorConfig.ControlParameters.P,
-			motorConfig.ControlParameters.I,
-			motorConfig.ControlParameters.D,
-		)
-
-		cLoop, err := control.NewLoop(em.logger, em.controlLoopConfig, em)
-		if err != nil {
-			em.logger.Error(err)
-		}
-		if err = cLoop.Start(); err != nil {
-			em.logger.Error(err)
-		}
-		em.loop = cLoop
-
-		// validate control loop config
-		if err = em.validateControlConfig(cancelCtx); err != nil {
+		if err := em.startControlLoop(); err != nil {
 			return nil, err
 		}
 	} else {
@@ -178,7 +161,7 @@ type EncodedMotor struct {
 	opMgr     *operation.SingleOperationManager
 
 	controlLoopConfig control.Config
-	blockNames        map[string]string
+	blockNames        map[string][]string
 	loop              *control.Loop
 }
 
@@ -448,14 +431,9 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	}
 	// create new control loop if control config exists
 	if m.cfg.ControlParameters != nil {
-		cLoop, err := control.NewLoop(m.logger, m.controlLoopConfig, m)
-		if err != nil {
-			m.logger.Error(err)
+		if err := m.setupControlLoop(); err != nil {
+			return err
 		}
-		if err = cLoop.Start(); err != nil {
-			m.logger.Error(err)
-		}
-		m.loop = cLoop
 	} else {
 		m.rpmMonitorStart()
 	}
