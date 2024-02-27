@@ -161,13 +161,11 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 				ptgk.logger.Debug("allowable diff ", allowableDiff)
 				ptgk.logger.Debug("diff now ", poseDiff.Point().Norm())
 				if poseDiff.Point().Norm() > allowableDiff {
-					ptgk.logger.Debug("correcting")
 					// Accumulate list of points along the path to try to connect to
 					goalsToAttempt := int(lookaheadTimeSeconds / inputUpdateStepSeconds) + 1
 					goals := ptgk.nPosesPastDist(i, goalsToAttempt, currentInputs[distanceAlongTrajectoryIndex].Value, actualPose.Pose(), arcSteps)
 
 					// Attempt to solve from `actualPose` to each of those points
-					ptgk.logger.Debug("calling course correct")
 					solution, err := ptgk.courseCorrect(ctx, goals)
 					if err != nil {
 						ptgk.logger.Debug(err)
@@ -308,25 +306,20 @@ func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []course
 			0,
 		)
 		if err != nil {
-			ptgk.logger.Debug("non nil err")
 			return courseCorrectionGoal{}, err
 		}
 		var solution *ik.Solution
-		ptgk.logger.Debug("selecting solution")
 		select {
 		case solution = <-solutionChan:
 		default:
 		}
-		ptgk.logger.Debug("done")
 		ptgk.logger.Debug(solution)
 		
 		if solution.Score < 1. {
-			ptgk.logger.Debug("got solution")
 			goal.Solution = solution.Configuration
 			return goal, nil
 		}
 	}
-	ptgk.logger.Debug("unable to course correct")
 	return courseCorrectionGoal{}, nil
 }
 

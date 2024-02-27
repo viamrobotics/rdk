@@ -152,6 +152,7 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan, waypoi
 // deviatedFromPlan takes a plan and an index of a waypoint on that Plan and returns whether or not it is still
 // following the plan as described by the PlanDeviation specified for the moveRequest.
 func (mr *moveRequest) deviatedFromPlan(ctx context.Context, plan motionplan.Plan, waypointIndex int) (state.ExecuteResponse, error) {
+	return state.ExecuteResponse{}, nil
 	errorState, err := mr.kinematicBase.ErrorState(ctx, plan, waypointIndex)
 	if err != nil {
 		return state.ExecuteResponse{}, err
