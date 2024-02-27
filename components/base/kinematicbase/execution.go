@@ -161,7 +161,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 					ptgk.logger.Debug("correcting")
 					// Accumulate list of points along the path to try to connect to
 					goalsToAttempt := int(lookaheadTimeSeconds / inputUpdateStepSeconds) + 1
-					goals := nPosesPastDist(i, goalsToAttempt, currentInputs[distanceAlongTrajectoryIndex].Value, actualPose.Pose(), arcSteps)
+					goals := ptgk.nPosesPastDist(i, goalsToAttempt, currentInputs[distanceAlongTrajectoryIndex].Value, actualPose.Pose(), arcSteps)
 
 					// Attempt to solve from `actualPose` to each of those points
 					ptgk.logger.Debug("calling course correct")
@@ -172,20 +172,32 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 					if solution.Solution != nil {
 						ptgk.logger.Debug("got new solution")
 						
-						// We've got a course correction solution. Swap out the relevant arcsteps.
-						correctiveTraj, err := ptgk.courseCorrectionSolver.Trajectory(solution.Solution[0].Value, solution.Solution[1].Value, stepDistResolution)
-						if err != nil {
-							ptgk.logger.Debug(err)
-							continue
+						correctiveArcSteps := []arcStep{}
+						for i := 0; i < len(solution.Solution); i += 2 {
+							// We've got a course correction solution. Swap out the relevant arcsteps.
+							correctiveTraj, err := ptgk.courseCorrectionSolver.Trajectory(
+								solution.Solution[i].Value,
+								solution.Solution[i+1].Value,
+								stepDistResolution,
+							)
+							if err != nil {
+								ptgk.logger.Debug(err)
+								continue
+							}
+							correctiveArcSteps = append(correctiveArcSteps, ptgk.trajectoryToArcSteps(correctiveTraj, actualPose.Pose(), -1)...)
 						}
-						correctiveArcSteps := ptgk.trajectoryToArcSteps(correctiveTraj, actualPose.Pose(), -1)
 						
 						// Update the connection point
 						connectionPoint := arcSteps[solution.stepIdx]
+						pctTrajRemaining := (connectionPoint.subTraj[len(connectionPoint.subTraj)].Dist -
+							(connectionPoint.subTraj[solution.trajIdx].Dist + connectionPoint.startDist)) /
+							(connectionPoint.subTraj[len(connectionPoint.subTraj)].Dist - connectionPoint.startDist)
 						connectionPoint.startDist += connectionPoint.subTraj[solution.trajIdx].Dist
-						connectionPoint.subTraj = connectionPoint.subTraj[solution.trajIdx:]
-						connectionPoint.durationSeconds -= (stepDistResolution * float64(solution.trajIdx))
+						connectionPoint.durationSeconds *= pctTrajRemaining
 						
+						connectionPoint.subTraj = connectionPoint.subTraj[solution.trajIdx:]
+						
+						// Start with the already-executed 
 						newArcSteps := arcSteps[:i]
 						newArcSteps = append(newArcSteps, correctiveArcSteps...)
 						newArcSteps = append(newArcSteps, connectionPoint)
@@ -308,12 +320,15 @@ func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []course
 	ptgk.logger.Debug("unable to course correct")
 	return courseCorrectionGoal{}, nil
 }
-func nPosesPastDist(currStep, nGoals int, currDist float64, currPose spatialmath.Pose, steps []arcStep) []courseCorrectionGoal {
+
+// This function will select `nGoals` poses in the future from the current position, rectifying them to be relatice to `currPose`.
+// It will create `courseCorrectionGoal` structs for each. The goals will be approximately evenly spaced.
+func (ptgk *ptgBaseKinematics) nPosesPastDist(currStep, nGoals int, currDist float64, currPose spatialmath.Pose, steps []arcStep) []courseCorrectionGoal {
 	goals := []courseCorrectionGoal{}
-	
 	for i := currStep; i < len(steps); i++ {
 		pastDist := false
-		for j, trajNode := range steps[i].subTraj {
+		for j := 0; j < len(steps[i].subTraj); j += int((ptgk.linVelocityMMPerSecond * inputUpdateStepSeconds) / stepDistResolution) {
+			trajNode := steps[i].subTraj[j]
 			if pastDist {
 				goalPose := spatialmath.PoseBetween(currPose, spatialmath.Compose(steps[i].trajStartPose, trajNode.Pose))
 				goals = append(goals, courseCorrectionGoal{Goal: goalPose, stepIdx: i, trajIdx: j})
