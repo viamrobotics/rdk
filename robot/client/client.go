@@ -76,7 +76,7 @@ type RobotClient struct {
 	client          pb.RobotServiceClient
 	refClient       *grpcreflect.Client
 	connected       atomic.Bool
-	subtypesUnimplemented bool
+	rpcSubtypesUnimplemented bool
 
 	activeBackgroundWorkers sync.WaitGroup
 	backgroundCtx           context.Context
@@ -215,20 +215,19 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	heartbeatCtx, heartbeatCtxCancel := context.WithCancel(context.Background())
 
 	rc := &RobotClient{
-		Named:                 resource.NewName(RemoteAPI, rOpts.remoteName).AsNamed(),
-		remoteName:            rOpts.remoteName,
-		address:               address,
-		backgroundCtx:         backgroundCtx,
-		backgroundCtxCancel:   backgroundCtxCancel,
-		logger:                logger,
-		dialOptions:           rOpts.dialOptions,
-		notifyParent:          nil,
-		resourceClients:       make(map[resource.Name]resource.Resource),
-		remoteNameMap:         make(map[resource.Name]resource.Name),
-		sessionsDisabled:      rOpts.disableSessions,
-		heartbeatCtx:          heartbeatCtx,
-		heartbeatCtxCancel:    heartbeatCtxCancel,
-		subtypesUnimplemented: false,
+		Named:               resource.NewName(RemoteAPI, rOpts.remoteName).AsNamed(),
+		remoteName:          rOpts.remoteName,
+		address:             address,
+		backgroundCtx:       backgroundCtx,
+		backgroundCtxCancel: backgroundCtxCancel,
+		logger:              logger,
+		dialOptions:         rOpts.dialOptions,
+		notifyParent:        nil,
+		resourceClients:     make(map[resource.Name]resource.Resource),
+		remoteNameMap:       make(map[resource.Name]resource.Name),
+		sessionsDisabled:    rOpts.disableSessions,
+		heartbeatCtx:        heartbeatCtx,
+		heartbeatCtxCancel:  heartbeatCtxCancel,
 	}
 
 	// interceptors are applied in order from first to last
@@ -587,6 +586,11 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 	}
 
 	var resTypes []resource.RPCAPI
+
+	if rc.rpcSubtypesUnimplemented {
+		return nil, nil, nil
+	}
+
 	typesResp, err := rc.client.ResourceRPCSubtypes(ctx, &pb.ResourceRPCSubtypesRequest{})
 	if err == nil {
 		reflSource := grpcurl.DescriptorSourceFromServer(ctx, rc.refClient)
@@ -616,7 +620,8 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 		if s, ok := status.FromError(err); !(ok && (s.Code() == codes.Unimplemented)) {
 			return nil, nil, err
 		}
-		rc.subtypesUnimplemented = true
+		// preempt further calls to ResourceRPCSubtypes
+		rc.rpcSubtypesUnimplemented = true
 	}
 
 	resources := make([]resource.Name, 0, len(resp.Resources))
@@ -639,15 +644,10 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 
 func (rc *RobotClient) updateResources(ctx context.Context) error {
 	// call metadata service.
-	var names []resource.Name
-	var rpcAPIs []resource.RPCAPI
-	var err error
 
-	if !rc.subtypesUnimplemented {
-		names, rpcAPIs, err = rc.resources(ctx)
-		if err != nil && status.Code(err) != codes.Unimplemented {
-			return err
-		}
+	names, rpcAPIs, err := rc.resources(ctx)
+	if err != nil && status.Code(err) != codes.Unimplemented {
+		return err
 	}
 
 	rc.resourceNames = make([]resource.Name, 0, len(names))

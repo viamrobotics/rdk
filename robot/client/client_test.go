@@ -98,11 +98,12 @@ var finalResources = []resource.Name{
 
 var pose1 = spatialmath.NewZeroPose()
 
-type mockRobotService struct {
+type mockRPCSubtypesUnimplemented struct {
 	pb.UnimplementedRobotServiceServer
 }
 
-func (ms *mockRobotService) ResourceNames(ctx context.Context, _ *pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error) {
+func (ms *mockRPCSubtypesUnimplemented) ResourceNames(
+	ctx context.Context, _ *pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error) {
 	board := board.Named("micro-rdk")
 	rNames := []*commonpb.ResourceName{
 		{
@@ -112,52 +113,100 @@ func (ms *mockRobotService) ResourceNames(ctx context.Context, _ *pb.ResourceNam
 			Name:      board.Name,
 		},
 	}
-
 	return &pb.ResourceNamesResponse{Resources: rNames}, nil
 }
 
+type mockRPCSubtypesImplemented struct {
+	mockRPCSubtypesUnimplemented
+}
+
+func (ms *mockRPCSubtypesImplemented) ResourceRPCSubtypes(
+	ctx context.Context, _ *pb.ResourceRPCSubtypesRequest,
+) (*pb.ResourceRPCSubtypesResponse, error) {
+	return &pb.ResourceRPCSubtypesResponse{}, nil
+}
+
 func TestUnimplementedRPCSubtypes(t *testing.T) {
-	// create new robot service, the remote-side grpc server
-	logger := logging.NewTestLogger(t)
-	listener, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-
-	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
-	test.That(t, err, test.ShouldBeNil)
-
-	robotService := &mockRobotService{}
-	test.That(t, rpcServer.RegisterServiceServer(
-		context.Background(),
-		&pb.RobotService_ServiceDesc,
-		robotService,
-		pb.RegisterRobotServiceHandlerFromEndpoint,
-	), test.ShouldBeNil)
-
-	go rpcServer.Serve(listener)
-
+	var client1 *RobotClient // test implemented
+	var client2 *RobotClient // test unimplemented
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
 	defer cancel()
 
-	client, err := New(
-		ctx,
-		listener.Addr().String(),
-		logger,
-	)
-
+	var port1 int
+	var port2 int
+	var err error
+	logger := logging.NewTestLogger(t)
+	for i := 0; i < 10; i++ {
+		port1, err = utils.TryReserveRandomPort()
+		if err != nil {
+			break
+		}
+	}
+	test.That(t, err, test.ShouldBeNil)
+	for i := 0; i < 10; i++ {
+		port2, err = utils.TryReserveRandomPort()
+		if err != nil {
+			break
+		}
+	}
 	test.That(t, err, test.ShouldBeNil)
 
-	defer func() {
-		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	listener1, err := net.Listen("tcp", fmt.Sprint("localhost:", port1))
+	test.That(t, err, test.ShouldBeNil)
+	listener2, err := net.Listen("tcp", fmt.Sprint("localhost:", port2))
+	test.That(t, err, test.ShouldBeNil)
+
+	rpcServer1, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+	defer rpcServer1.Stop()
+
+	rpcServer2, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+	defer rpcServer2.Stop()
+
+	err = rpcServer1.RegisterServiceServer(
+		ctx,
+		&pb.RobotService_ServiceDesc,
+		&mockRPCSubtypesImplemented{},
+		pb.RegisterRobotServiceHandlerFromEndpoint,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = rpcServer2.RegisterServiceServer(
+		ctx,
+		&pb.RobotService_ServiceDesc,
+		&mockRPCSubtypesUnimplemented{},
+		pb.RegisterRobotServiceHandlerFromEndpoint,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	go func() {
+		test.That(t, rpcServer1.Serve(listener1), test.ShouldBeNil)
 	}()
 
-	test.That(t, client.Connected(), test.ShouldBeTrue)
+	go func() {
+		test.That(t, rpcServer2.Serve(listener2), test.ShouldBeNil)
+	}()
 
-	// call
-	err = client.Refresh(ctx)
+	client1, err = New(
+		ctx,
+		listener1.Addr().String(),
+		logger,
+	)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, client.subtypesUnimplemented, test.ShouldBeTrue)
+	defer client1.Close(ctx)
+	test.That(t, client1.Connected(), test.ShouldBeTrue)
+	test.That(t, client1.rpcSubtypesUnimplemented, test.ShouldBeFalse)
 
-	rpcServer.Stop()
+	client2, err = New(
+		ctx,
+		listener2.Addr().String(),
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	defer client2.Close(ctx)
+	test.That(t, client2.Connected(), test.ShouldBeTrue)
+	test.That(t, client2.rpcSubtypesUnimplemented, test.ShouldBeTrue)
 }
 
 func TestStatusClient(t *testing.T) {
