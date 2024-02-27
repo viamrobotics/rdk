@@ -278,6 +278,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []course
 		solveMetric := ik.NewPosWeightSquaredNormMetric(goal.Goal)
 		solutionChan := make(chan *ik.Solution, 1)
 		ptgk.logger.Debug("attempting goal")
+		ptgk.logger.Debug(spatialmath.PoseToProtobuf(goal.Goal))
 		err := ptgk.courseCorrectionSolver.Solve(
 			ctx,
 			solutionChan,
