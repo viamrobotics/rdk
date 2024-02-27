@@ -276,7 +276,7 @@ func (ptgk *ptgBaseKinematics) trajectoryToArcSteps(traj []*tpspace.TrajNode, st
 func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []courseCorrectionGoal) (courseCorrectionGoal, error)  {
 	for _, goal := range goals {
 		solveMetric := ik.NewPosWeightSquaredNormMetric(goal.Goal)
-		solutionChan := make(chan *ik.Solution)
+		solutionChan := make(chan *ik.Solution, 1)
 		ptgk.logger.Debug("attempting goal")
 		err := ptgk.courseCorrectionSolver.Solve(
 			ctx,
