@@ -272,7 +272,7 @@ func (ptgk *ptgBaseKinematics) trajectoryToArcSteps(traj []*tpspace.TrajNode, st
 	finalSteps = append(finalSteps, nextStep)
 	return finalSteps
 }
-
+ 
 func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []courseCorrectionGoal) (courseCorrectionGoal, error)  {
 	for _, goal := range goals {
 		solveMetric := ik.NewPosWeightSquaredNormMetric(goal.Goal)
