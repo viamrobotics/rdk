@@ -140,7 +140,8 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 			}
 			
 			// If we have a localizer, we are able to attempt to correct to stay on the path.
-			if ptgk.Localizer != nil {
+			// For now we do not try to correct while in a correction.
+			if ptgk.Localizer != nil && step.ptgIdx >= 0 {
 				actualPose, err := ptgk.Localizer.CurrentPosition(ctx)
 				if err != nil {
 					return err
