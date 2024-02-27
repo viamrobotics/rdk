@@ -164,6 +164,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 					goals := nPosesPastDist(i, goalsToAttempt, currentInputs[distanceAlongTrajectoryIndex].Value, actualPose.Pose(), arcSteps)
 
 					// Attempt to solve from `actualPose` to each of those points
+					ptgk.logger.Debug("calling course correct")
 					solution, err := ptgk.courseCorrect(ctx, goals)
 					if err != nil {
 						ptgk.logger.Debug(err)
@@ -276,6 +277,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []course
 	for _, goal := range goals {
 		solveMetric := ik.NewPosWeightSquaredNormMetric(goal.Goal)
 		solutionChan := make(chan *ik.Solution)
+		ptgk.logger.Debug("attempting goal")
 		err := ptgk.courseCorrectionSolver.Solve(
 			ctx,
 			solutionChan,
@@ -286,7 +288,11 @@ func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []course
 		if err != nil {
 			return courseCorrectionGoal{}, err
 		}
-		solution := <-solutionChan
+		var solution *ik.Solution
+		select {
+		case solution = <-solutionChan:
+		default:
+		}
 		if solution.Exact {
 			goal.Solution = solution.Configuration
 			return goal, nil
