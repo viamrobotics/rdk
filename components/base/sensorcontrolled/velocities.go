@@ -45,7 +45,7 @@ func (sb *sensorBase) setupControlLoop(linear, angular control.PIDConfig) error 
 	}
 
 	// combine linear and angular back into one control.PIDConfig, with linear first
-	var pidVals = []control.PIDConfig{linear, angular}
+	pidVals := []control.PIDConfig{linear, angular}
 
 	// fully set up the control config based on the provided options
 	pl, err := control.SetupPIDControlConfig(pidVals, sb.Name().ShortName(), options, sb, sb.logger)
