@@ -26,7 +26,7 @@ const (
 	
 	// Used to determine minimum linear deviation allowed before correction attempt. Determined by multiplying max linear speed by 
 	// inputUpdateStepSeconds, and will correct if deviation is larger than this percent of that amount.
-	minDeviationToCorrectPct = 30.
+	minDeviationToCorrectPct = 50.
 )
 
 type arcStep struct {
@@ -80,7 +80,8 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 		return tryStop(err)
 	}
 
-	for i, step := range arcSteps {
+	for i := 0; i < len(arcSteps); i++ {
+		step := arcSteps[i]
 		alpha := step.subTraj[0].Alpha
 		if step.ptgIdx >= 0 {
 			// Only update inputs if we are not in a corrective arc
@@ -108,6 +109,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 			return tryStop(err)
 		}
 		arcStartTime := time.Now()
+		ptgk.logger.Debugf("step, i %d", i)
 		ptgk.logger.Debug(step)
 		// Now we are moving. We need to do several things simultaneously:
 		// - move until we think we have finished the arc, then move on to the next step
@@ -197,11 +199,12 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 							(connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist - connectionPoint.startDist)
 						connectionPoint.startDist += connectionPoint.subTraj[solution.trajIdx].Dist
 						connectionPoint.durationSeconds *= pctTrajRemaining
-						
 						connectionPoint.subTraj = connectionPoint.subTraj[solution.trajIdx:]
 						
-						// Start with the already-executed 
-						newArcSteps := arcSteps[:i+1] // We need to include the i-th 
+						// Start with the already-executed steps.
+						// We need to include the i-th step because we're about to increment i and want to start with the correction, then
+						// continue with the connection point.
+						newArcSteps := arcSteps[:i+1] 
 						newArcSteps = append(newArcSteps, correctiveArcSteps...)
 						newArcSteps = append(newArcSteps, connectionPoint)
 						if solution.stepIdx < len(arcSteps)-1 {
