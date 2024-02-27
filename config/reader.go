@@ -85,29 +85,27 @@ func getCloudCacheFilePath(id string) string {
 	return filepath.Join(ViamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
 }
 
-type partialTLSCloudConfig struct {
-	Cloud *partialTLSConfig `json:"cloud"`
+type cachedTLSConfig struct {
+	Certificate string `json:"tls_certificate"`
+	PrivateKey  string `json:"tls_private_key"`
 }
 
-type partialTLSConfig struct {
-	TLSCertificate string `json:"tls_certificate"`
-	TLSPrivateKey  string `json:"tls_private_key"`
-}
-
-func readTLSFromCache(id string) (*partialTLSConfig, error) {
+func readTLSFromCache(id string) (*cachedTLSConfig, error) {
 	r, err := os.Open(getCloudCacheFilePath(id))
 	if err != nil {
 		return nil, err
 	}
 	defer utils.UncheckedErrorFunc(r.Close)
 
-	unprocessedConfig := &partialTLSCloudConfig{}
-	if err := json.NewDecoder(r).Decode(unprocessedConfig); err != nil {
+	tlsConfig := struct {
+		TLS *cachedTLSConfig `json:"cloud"`
+	}{}
+	if err := json.NewDecoder(r).Decode(&tlsConfig); err != nil {
 		// clear the cache if we cannot parse the file.
 		clearCache(id)
 		return nil, errors.Wrap(err, "cannot parse the cached config as json")
 	}
-	return unprocessedConfig.Cloud, nil
+	return tlsConfig.TLS, nil
 }
 
 func readFromCache(id string) (*Config, error) {
@@ -258,10 +256,10 @@ func readFromCloud(
 		// get cached certificate data
 		// read cached config from fs.
 		// process the config with fromReader() use processed config as cachedConfig to update the cert data.
-		cachedTLSConfig, err := readTLSFromCache(cloudCfg.ID)
+		cachedTLS, err := readTLSFromCache(cloudCfg.ID)
 		if err == nil {
-			tlsCertificate = cachedTLSConfig.TLSCertificate
-			tlsPrivateKey = cachedTLSConfig.TLSPrivateKey
+			tlsCertificate = cachedTLS.Certificate
+			tlsPrivateKey = cachedTLS.PrivateKey
 		} else if !os.IsNotExist(err) {
 			return nil, err
 		}
