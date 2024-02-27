@@ -92,6 +92,7 @@ func SetupPIDControlConfig(
 ) (*PIDLoop, error) {
 	pidLoop := &PIDLoop{
 		Controllable: c,
+		PIDVals:      pidVals,
 		logger:       logger,
 		Options:      options,
 		ControlConf:  Config{},
