@@ -45,8 +45,10 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.DefaultModelFamily.WithModel("imu-wit")
-var compassAccuracy = 0.5
+var (
+	model           = resource.DefaultModelFamily.WithModel("imu-wit")
+	compassAccuracy = 0.5
+)
 
 var baudRateList = []uint{115200, 9600, 0}
 
