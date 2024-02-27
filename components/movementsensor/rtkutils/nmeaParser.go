@@ -1,4 +1,4 @@
-package gpsnmea
+package rtkutils
 
 import (
 	"fmt"

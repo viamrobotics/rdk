@@ -30,7 +30,7 @@ const (
 
 var (
 	// Model is the name of the sensor_controlled model of a base component.
-	Model           = resource.DefaultModelFamily.WithModel("sensor-controlled")
+	model           = resource.DefaultModelFamily.WithModel("sensor-controlled")
 	errNoGoodSensor = errors.New("no appropriate sensor for orientation or velocity feedback")
 )
 
@@ -91,7 +91,7 @@ type sensorBase struct {
 func init() {
 	resource.RegisterComponent(
 		base.API,
-		Model,
+		model,
 		resource.Registration[base.Base, *Config]{Constructor: createSensorBase})
 }
 

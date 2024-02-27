@@ -657,7 +657,6 @@ func (r *localRobot) newResource(
 	if resInfo.DeprecatedRobotConstructor == nil {
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
-	r.logger.CWarnw(ctx, "using deprecated robot constructor", "api", resName.API, "model", conf.Model)
 	return resInfo.DeprecatedRobotConstructor(ctx, r, conf, gNode.Logger())
 }
 
@@ -1175,4 +1174,21 @@ func (r *localRobot) checkMaxInstance(api resource.API, max int) error {
 		}
 	}
 	return nil
+}
+
+// GetCloudMetadata returns app-related information about the robot.
+func (r *localRobot) GetCloudMetadata(ctx context.Context) (cloud.Metadata, error) {
+	md := cloud.Metadata{}
+	cfg := r.Config()
+	if cfg == nil {
+		return md, errors.New("no config available")
+	}
+	cloud := cfg.Cloud
+	if cloud == nil {
+		return md, errors.New("cloud metadata not available")
+	}
+	md.RobotPartID = cloud.ID
+	md.PrimaryOrgID = cloud.PrimaryOrgID
+	md.LocationID = cloud.LocationID
+	return md, nil
 }

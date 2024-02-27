@@ -3,9 +3,11 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -13,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -38,6 +41,10 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/shell"
+)
+
+const (
+	rdkReleaseURL = "https://api.github.com/repos/viamrobotics/rdk/releases/latest"
 )
 
 // viamClient wraps a cli.Context and provides all the CLI command functionality
@@ -380,6 +387,129 @@ func RobotsPartShellAction(c *cli.Context) error {
 	)
 }
 
+// checkUpdateResponse holds the values used to hold release information.
+type getLatestReleaseResponse struct {
+	Name       string `json:"name"`
+	TagName    string `json:"tag_name"`
+	TarballURL string `json:"tarball_url"`
+}
+
+func getLatestReleaseVersion() (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	resp := getLatestReleaseResponse{}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rdkReleaseURL, nil)
+	if err != nil {
+		return "", err
+	}
+
+	client := http.DefaultClient
+	res, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	err = json.NewDecoder(res.Body).Decode(&resp)
+	if err != nil {
+		return "", err
+	}
+
+	defer utils.UncheckedError(res.Body.Close())
+	return resp.TagName, err
+}
+
+// CheckUpdateAction is the corresponding Action for 'check-update'.
+func CheckUpdateAction(c *cli.Context) error {
+	if c.Bool(quietFlag) {
+		return nil
+	}
+
+	dateCompiledRaw := rconfig.DateCompiled
+
+	// `go build` will not set the compilation flags needed for this check
+	if dateCompiledRaw == "" {
+		return nil
+	}
+
+	dateCompiled, err := time.Parse("2006-01-02", dateCompiledRaw)
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse compilation date: %w", err)
+		return nil
+	}
+
+	// install is less than six weeks old
+	if time.Since(dateCompiled) < time.Hour*24*7*6 {
+		return nil
+	}
+
+	conf, err := configFromCache()
+	if err != nil {
+		if !os.IsNotExist(err) {
+			utils.UncheckedError(err)
+			return nil
+		}
+		conf = &config{}
+	}
+
+	var lastCheck time.Time
+	if conf.LastUpdateCheck == "" {
+		conf.LastUpdateCheck = time.Now().Format("2006-01-02")
+	} else {
+		lastCheck, err = time.Parse("2006-01-02", conf.LastUpdateCheck)
+		if err != nil {
+			warningf(c.App.ErrWriter, "CLI Update Check: failed to parse date of last check: %w", err)
+			return nil
+		}
+	}
+
+	// The latest version info is cached to limit api calls to once every three days
+	if time.Since(lastCheck) < time.Hour*24*3 && conf.LatestVersion != "" {
+		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than 6 weeks old. "+
+			"Consider updating to version: %s", conf.LatestVersion)
+		return nil
+	}
+
+	latestRelease, err := getLatestReleaseVersion()
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", err)
+		return nil
+	}
+
+	latestVersion, err := semver.NewVersion(latestRelease)
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse latest version: %w", err)
+		return nil
+	}
+
+	conf.LatestVersion = latestVersion.String()
+
+	err = storeConfigToCache(conf)
+	if err != nil {
+		utils.UncheckedError(err)
+	}
+
+	appVersion := rconfig.Version
+	if appVersion == "" {
+		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than 6 weeks old. "+
+			"Consider updating to version: %s", latestVersion.Original())
+		return nil
+	}
+
+	localVersion, err := semver.NewVersion(appVersion)
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse compiled version: %w", err)
+		return nil
+	}
+
+	if localVersion.LessThan(latestVersion) {
+		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is out of date. Consider updating to version %s", latestVersion.Original())
+	}
+
+	return nil
+}
+
 // VersionAction is the corresponding Action for 'version'.
 func VersionAction(c *cli.Context) error {
 	info, ok := debug.ReadBuildInfo()
@@ -408,6 +538,7 @@ func VersionAction(c *cli.Context) error {
 	if dep, ok := deps["go.viam.com/api"]; ok {
 		apiVersion = dep.Version
 	}
+
 	appVersion := rconfig.Version
 	if appVersion == "" {
 		appVersion = "(dev)"

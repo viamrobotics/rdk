@@ -25,6 +25,7 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
@@ -71,6 +72,24 @@ func TestServer(t *testing.T) {
 		resourceResp, err = server.ResourceNames(context.Background(), &pb.ResourceNamesRequest{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resourceResp.Resources, test.ShouldResemble, serverOneResourceResponse)
+	})
+
+	t.Run("GetCloudMetadata", func(t *testing.T) {
+		injectRobot := &inject.Robot{}
+		server := server.New(injectRobot)
+		req := pb.GetCloudMetadataRequest{}
+		injectRobot.GetCloudMetadataFunc = func(ctx context.Context) (cloud.Metadata, error) {
+			return cloud.Metadata{
+				RobotPartID:  "the-robot-part",
+				PrimaryOrgID: "the-primary-org",
+				LocationID:   "the-location",
+			}, nil
+		}
+		resp, err := server.GetCloudMetadata(context.Background(), &req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.GetRobotPartId(), test.ShouldEqual, "the-robot-part")
+		test.That(t, resp.GetLocationId(), test.ShouldEqual, "the-location")
+		test.That(t, resp.GetPrimaryOrgId(), test.ShouldEqual, "the-primary-org")
 	})
 
 	t.Run("Discovery", func(t *testing.T) {

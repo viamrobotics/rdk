@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -47,6 +48,7 @@ type Robot struct {
 	TransformPointCloudFunc func(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
 	StatusFunc              func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
 	ModuleAddressFunc       func() (string, error)
+	GetCloudMetadataFunc    func(ctx context.Context) (cloud.Metadata, error)
 
 	ops        *operation.Manager
 	SessMgr    session.Manager
@@ -280,6 +282,16 @@ func (r *Robot) ModuleAddress() (string, error) {
 		return r.LocalRobot.ModuleAddress()
 	}
 	return r.ModuleAddressFunc()
+}
+
+// GetCloudMetadata calls the injected GetCloudMetadata or the real one.
+func (r *Robot) GetCloudMetadata(ctx context.Context) (cloud.Metadata, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.GetCloudMetadataFunc == nil {
+		return r.GetCloudMetadata(ctx)
+	}
+	return r.GetCloudMetadataFunc(ctx)
 }
 
 type noopSessionManager struct{}
