@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/components/movementsensor/rtkutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -35,7 +36,7 @@ type NMEAMovementSensor struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	logger                  logging.Logger
-	data                    GPSData
+	data                    rtkutils.GPSData
 	activeBackgroundWorkers sync.WaitGroup
 
 	err                movementsensor.LastError

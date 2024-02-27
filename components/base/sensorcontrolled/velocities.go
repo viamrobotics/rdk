@@ -119,30 +119,22 @@ func (sb *sensorBase) SetVelocity(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
 	sb.opMgr.CancelRunning(ctx)
-	// stop any previous base movement
-	// if multiple SetVelocity calls (such as from motion) causes issues, this can be replaced
-	// with a helper function to cancel the threads without calling Stop on the underlying base
-	if err := sb.Stop(ctx, nil); err != nil {
-		return err
-	}
+
 	// set the spin loop to false, so we do not skip the call to SetState in the control loop
+	// this will also stop any active Spin calls
 	sb.setPolling(false)
 
-	// start a sensor context for the sensor loop based on the longstanding base
-	// creator context, and add a timeout for the context
-	timeOut := 10 * time.Second
-	var sensorCtx context.Context
-	sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
-
 	if len(sb.conf.ControlParameters) != 0 {
-		// stop and restart loop
-		if sb.loop != nil {
-			if err := sb.Stop(ctx, nil); err != nil {
-				sb.logger.Error(err)
+		// start a sensor context for the sensor loop based on the longstanding base
+		// creator context, and add a timeout for the context
+		timeOut := 10 * time.Second
+		var sensorCtx context.Context
+		sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
+		// if the control loop has not been started or stopped, re-enable it
+		if sb.loop == nil {
+			if err := sb.setupControlLoops(); err != nil {
+				return err
 			}
-		}
-		if err := sb.setupControlLoops(); err != nil {
-			return err
 		}
 
 		// convert linear.Y mmPerSec to mPerSec, angular.Z is degPerSec

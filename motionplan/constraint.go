@@ -254,7 +254,7 @@ func createAllCollisionConstraints(
 		}
 	}
 
-	// find all geoemetries that are not moving but are in the frame system
+	// find all geometries that are not moving but are in the frame system
 	staticGeometries := make([]spatial.Geometry, 0)
 	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(fs, inputs)
 	if err != nil {

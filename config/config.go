@@ -555,6 +555,8 @@ type Cloud struct {
 	Secret            string
 	LocationSecret    string // Deprecated: Use LocationSecrets
 	LocationSecrets   []LocationSecret
+	LocationID        string
+	PrimaryOrgID      string
 	ManagedBy         string
 	FQDN              string
 	LocalFQDN         string
@@ -579,6 +581,8 @@ type cloudData struct {
 
 	LocationSecret    string           `json:"location_secret"`
 	LocationSecrets   []LocationSecret `json:"location_secrets"`
+	LocationID        string           `json:"location_id"`
+	PrimaryOrgID      string           `json:"primary_org_id"`
 	ManagedBy         string           `json:"managed_by"`
 	FQDN              string           `json:"fqdn"`
 	LocalFQDN         string           `json:"local_fqdn"`
@@ -604,6 +608,8 @@ func (config *Cloud) UnmarshalJSON(data []byte) error {
 		Secret:            temp.Secret,
 		LocationSecret:    temp.LocationSecret,
 		LocationSecrets:   temp.LocationSecrets,
+		LocationID:        temp.LocationID,
+		PrimaryOrgID:      temp.PrimaryOrgID,
 		ManagedBy:         temp.ManagedBy,
 		FQDN:              temp.FQDN,
 		LocalFQDN:         temp.LocalFQDN,
@@ -632,6 +638,8 @@ func (config Cloud) MarshalJSON() ([]byte, error) {
 		Secret:            config.Secret,
 		LocationSecret:    config.LocationSecret,
 		LocationSecrets:   config.LocationSecrets,
+		LocationID:        config.LocationID,
+		PrimaryOrgID:      config.PrimaryOrgID,
 		ManagedBy:         config.ManagedBy,
 		FQDN:              config.FQDN,
 		LocalFQDN:         config.LocalFQDN,
@@ -660,6 +668,12 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 		}
 		if config.LocalFQDN == "" {
 			return resource.NewConfigValidationFieldRequiredError(path, "local_fqdn")
+		}
+		if config.PrimaryOrgID == "" {
+			return resource.NewConfigValidationFieldRequiredError(path, "primary_org_id")
+		}
+		if config.LocationID == "" {
+			return resource.NewConfigValidationFieldRequiredError(path, "location_id")
 		}
 	} else if config.Secret == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "secret")
@@ -1051,8 +1065,8 @@ type PackageConfig struct {
 	Package string `json:"package"`
 	// Version of the package ID hosted by a remote PackageService. If not specified "latest" is assumed.
 	Version string `json:"version,omitempty"`
-	// Types of the Package. If not specified it is assumed to be ml_model.
-	Type PackageType `json:"type,omitempty"`
+	// Types of the Package.
+	Type PackageType `json:"type"`
 
 	Status *AppValidationStatus `json:"status,omitempty"`
 

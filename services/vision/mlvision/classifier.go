@@ -22,7 +22,10 @@ const (
 	classifierInputName       = "image"
 )
 
-func attemptToBuildClassifier(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map) (classification.Classifier, error) {
+func attemptToBuildClassifier(mlm mlmodel.Service,
+	inNameMap, outNameMap *sync.Map,
+	params *MLModelConfig,
+) (classification.Classifier, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
 		return nil, errors.New("could not get any metadata")
@@ -71,12 +74,12 @@ func attemptToBuildClassifier(mlm mlmodel.Service, inNameMap, outNameMap *sync.M
 		case UInt8:
 			inMap[inputName] = tensor.New(
 				tensor.WithShape(1, resized.Bounds().Dy(), resized.Bounds().Dx(), 3),
-				tensor.WithBacking(rimage.ImageToUInt8Buffer(resized)),
+				tensor.WithBacking(rimage.ImageToUInt8Buffer(resized, params.IsBGR)),
 			)
 		case Float32:
 			inMap[inputName] = tensor.New(
 				tensor.WithShape(1, resized.Bounds().Dy(), resized.Bounds().Dx(), 3),
-				tensor.WithBacking(rimage.ImageToFloatBuffer(resized)),
+				tensor.WithBacking(rimage.ImageToFloatBuffer(resized, params.IsBGR, params.MeanValue, params.StdDev)),
 			)
 		default:
 			return nil, errors.Errorf("invalid input type of %s. try uint8 or float32", inType)

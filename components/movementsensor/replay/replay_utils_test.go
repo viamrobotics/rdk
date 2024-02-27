@@ -38,6 +38,7 @@ var errTestCloudConnection = errors.New("cloud connection error")
 // can be overwritten to allow developers to trigger desired behaviors during testing.
 type mockDataServiceServer struct {
 	datapb.UnimplementedDataServiceServer
+	useBadDataMessages bool
 }
 
 // TabularDataByFilter is a mocked version of the Data Service function of a similar name. It returns a response with
@@ -59,9 +60,13 @@ func (mDServer *mockDataServiceServer) TabularDataByFilter(ctx context.Context, 
 			}
 			continue
 		}
-
+		var data *structpb.Struct
 		// Call desired function
-		data := createDataByMovementSensorMethod(method(filter.Method), dataIndex)
+		if mDServer.useBadDataMessages {
+			data = createBadDataByMovementSensorMethod(method(filter.Method), dataIndex)
+		} else {
+			data = createDataByMovementSensorMethod(method(filter.Method), dataIndex)
+		}
 
 		timeReq, timeRec, err := timestampsFromIndex(dataIndex)
 		if err != nil {
@@ -162,7 +167,7 @@ func checkDataEndCondition(i, endIntervalIndex, availableDataNum int) (int, erro
 
 // createMockCloudDependencies creates a mockDataServiceServer and rpc client connection to it which is then
 // stored in a mockCloudConnectionService.
-func createMockCloudDependencies(ctx context.Context, t *testing.T, logger logging.Logger, validCloudConnection bool,
+func createMockCloudDependencies(ctx context.Context, t *testing.T, logger logging.Logger, validCloudConnection, useBadDataMessages bool,
 ) (resource.Dependencies, func() error) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
@@ -172,7 +177,7 @@ func createMockCloudDependencies(ctx context.Context, t *testing.T, logger loggi
 	test.That(t, rpcServer.RegisterServiceServer(
 		ctx,
 		&datapb.DataService_ServiceDesc,
-		&mockDataServiceServer{},
+		&mockDataServiceServer{useBadDataMessages: useBadDataMessages},
 		datapb.RegisterDataServiceHandlerFromEndpoint,
 	), test.ShouldBeNil)
 
@@ -199,11 +204,12 @@ func createMockCloudDependencies(ctx context.Context, t *testing.T, logger loggi
 
 // createNewReplayMovementSensor will create a new replay movement sensor based on the provided config with either
 // a valid or invalid data client.
-func createNewReplayMovementSensor(ctx context.Context, t *testing.T, replayMovementSensorCfg *Config, validCloudConnection bool,
+func createNewReplayMovementSensor(ctx context.Context, t *testing.T, replayMovementSensorCfg *Config,
+	validCloudConnection, useBadDataMessages bool,
 ) (movementsensor.MovementSensor, resource.Dependencies, func() error, error) {
 	logger := logging.NewTestLogger(t)
 
-	resources, closeRPCFunc := createMockCloudDependencies(ctx, t, logger, validCloudConnection)
+	resources, closeRPCFunc := createMockCloudDependencies(ctx, t, logger, validCloudConnection, useBadDataMessages)
 
 	cfg := resource.Config{ConvertedAttributes: replayMovementSensorCfg}
 	replay, err := newReplayMovementSensor(ctx, resources, cfg, logger)
@@ -242,6 +248,70 @@ func createDataByMovementSensorMethod(method method, index int) *structpb.Struct
 			"altitude_m": structpb.NewNumberValue(positionAltitudeData[index]),
 		}
 	case linearVelocity:
+		var linVel structpb.Struct
+		linVel.Fields = map[string]*structpb.Value{
+			"x": structpb.NewNumberValue(linearVelocityData[index].X),
+			"y": structpb.NewNumberValue(linearVelocityData[index].Y),
+			"z": structpb.NewNumberValue(linearVelocityData[index].Z),
+		}
+		data.Fields = map[string]*structpb.Value{
+			"linear_velocity": structpb.NewStructValue(&linVel),
+		}
+	case angularVelocity:
+		var angVel structpb.Struct
+		angVel.Fields = map[string]*structpb.Value{
+			"x": structpb.NewNumberValue(angularVelocityData[index].X),
+			"y": structpb.NewNumberValue(angularVelocityData[index].Y),
+			"z": structpb.NewNumberValue(angularVelocityData[index].Z),
+		}
+		data.Fields = map[string]*structpb.Value{
+			"angular_velocity": structpb.NewStructValue(&angVel),
+		}
+	case linearAcceleration:
+		var linAcc structpb.Struct
+		linAcc.Fields = map[string]*structpb.Value{
+			"x": structpb.NewNumberValue(linearAccelerationData[index].X),
+			"y": structpb.NewNumberValue(linearAccelerationData[index].Y),
+			"z": structpb.NewNumberValue(linearAccelerationData[index].Z),
+		}
+		data.Fields = map[string]*structpb.Value{
+			"linear_acceleration": structpb.NewStructValue(&linAcc),
+		}
+	case compassHeading:
+		data.Fields = map[string]*structpb.Value{
+			"value": structpb.NewNumberValue(compassHeadingData[index]),
+		}
+	case orientation:
+		var orient structpb.Struct
+		orient.Fields = map[string]*structpb.Value{
+			"o_x":   structpb.NewNumberValue(orientationData[index].OX),
+			"o_y":   structpb.NewNumberValue(orientationData[index].OY),
+			"o_z":   structpb.NewNumberValue(orientationData[index].OZ),
+			"theta": structpb.NewNumberValue(orientationData[index].Theta),
+		}
+		data.Fields = map[string]*structpb.Value{
+			"orientation": structpb.NewStructValue(&orient),
+		}
+	}
+	return &data
+}
+
+// createBadDataByMovementSensorMethod will create the mocked structpb.Struct containing the next data returned by calls in tabular data.
+// The data returned will be formatted incorrectly to ensure the movement sensor errors.
+func createBadDataByMovementSensorMethod(method method, index int) *structpb.Struct {
+	var data structpb.Struct
+	switch method {
+	case position:
+		var coords structpb.Struct
+		coords.Fields = map[string]*structpb.Value{
+			"latitude":  structpb.NewNumberValue(positionPointData[index].Lat()),
+			"longitude": structpb.NewNumberValue(positionPointData[index].Lng()),
+		}
+		data.Fields = map[string]*structpb.Value{
+			"badcoordinate": structpb.NewStructValue(&coords),
+			"badaltitude_m": structpb.NewNumberValue(positionAltitudeData[index]),
+		}
+	case linearVelocity:
 		data.Fields = map[string]*structpb.Value{
 			"x": structpb.NewNumberValue(linearVelocityData[index].X),
 			"y": structpb.NewNumberValue(linearVelocityData[index].Y),
@@ -261,7 +331,7 @@ func createDataByMovementSensorMethod(method method, index int) *structpb.Struct
 		}
 	case compassHeading:
 		data.Fields = map[string]*structpb.Value{
-			"value": structpb.NewNumberValue(compassHeadingData[index]),
+			"badvalue": structpb.NewNumberValue(compassHeadingData[index]),
 		}
 	case orientation:
 		data.Fields = map[string]*structpb.Value{

@@ -26,7 +26,10 @@ const (
 	detectorInputName    = "image"
 )
 
-func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map, paramBoxOrder []int) (objectdetection.Detector, error) {
+func attemptToBuildDetector(mlm mlmodel.Service,
+	inNameMap, outNameMap *sync.Map,
+	params *MLModelConfig,
+) (objectdetection.Detector, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
 		return nil, errors.New("could not get any metadata")
@@ -40,8 +43,8 @@ func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map
 	inType := md.Inputs[0].DataType
 	labels := getLabelsFromMetadata(md)
 	var boxOrder []int
-	if len(paramBoxOrder) == 4 {
-		boxOrder = paramBoxOrder
+	if len(params.BoxOrder) == 4 {
+		boxOrder = params.BoxOrder
 	} else {
 		boxOrder, err = getBoxOrderFromMetadata(md)
 		if err != nil || len(boxOrder) < 4 {
@@ -86,12 +89,12 @@ func attemptToBuildDetector(mlm mlmodel.Service, inNameMap, outNameMap *sync.Map
 		case UInt8:
 			inMap[inputName] = tensor.New(
 				tensor.WithShape(1, resized.Bounds().Dy(), resized.Bounds().Dx(), 3),
-				tensor.WithBacking(rimage.ImageToUInt8Buffer(resized)),
+				tensor.WithBacking(rimage.ImageToUInt8Buffer(resized, params.IsBGR)),
 			)
 		case Float32:
 			inMap[inputName] = tensor.New(
 				tensor.WithShape(1, resized.Bounds().Dy(), resized.Bounds().Dx(), 3),
-				tensor.WithBacking(rimage.ImageToFloatBuffer(resized)),
+				tensor.WithBacking(rimage.ImageToFloatBuffer(resized, params.IsBGR, params.MeanValue, params.StdDev)),
 			)
 		default:
 			return nil, errors.Errorf("invalid input type of %s. try uint8 or float32", inType)

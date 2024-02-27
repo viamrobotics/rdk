@@ -220,6 +220,14 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "local_fqdn")
 	invalidCloud.Cloud.LocalFQDN = "yeeself"
+	err = invalidCloud.Ensure(true, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "primary_org_id")
+	invalidCloud.Cloud.PrimaryOrgID = "the-primary-org"
+	err = invalidCloud.Ensure(true, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "location_id")
+	invalidCloud.Cloud.LocationID = "the-location"
 	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldBeNil)
 
 	invalidRemotes := config.Config{
@@ -477,6 +485,14 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "local_fqdn")
 	invalidCloud.Cloud.LocalFQDN = "yeeself"
+	err = invalidCloud.Ensure(true, logger)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "primary_org_id")
+	invalidCloud.Cloud.PrimaryOrgID = "the-primary-org"
+	err = invalidCloud.Ensure(true, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "location_id")
+	invalidCloud.Cloud.LocationID = "the-location"
+
 	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldBeNil)
 
 	invalidRemotes := config.Config{
