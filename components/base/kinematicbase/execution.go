@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	inputUpdateStepSeconds    = 0.2 // Update CurrentInputs (and check deviation) every this many seconds.
-	lookaheadTimeSeconds = 1.
+	inputUpdateStepSeconds    = 0.5 // Update CurrentInputs (and check deviation) every this many seconds.
+	lookaheadTimeSeconds = 2.
 	stepDistResolution = 1.  // Before post-processing trajectory will have velocities every this many mm (or degs if spinning in place)
 	
 	// Used to determine minimum linear deviation allowed before correction attempt. Determined by multiplying max linear speed by 

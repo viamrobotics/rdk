@@ -124,7 +124,7 @@ func wrapWithPTGKinematics(
 		origin = originPIF.Pose()
 		
 		cPTG := tpspace.NewCirclePTG(nonzeroBaseTurningRadiusMeters * 1000)
-		courseCorrectionSolver, err = tpspace.NewPTGIK(cPTG, logger, linVelocityMMPerSecond, linVelocityMMPerSecond, 42, 2)
+		courseCorrectionSolver, err = tpspace.NewPTGIK(cPTG, logger, linVelocityMMPerSecond*2, linVelocityMMPerSecond*2, 42, 2)
 		if err != nil {
 			return nil, err
 		}
