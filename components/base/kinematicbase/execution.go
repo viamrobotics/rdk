@@ -110,7 +110,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 		}
 		arcStartTime := time.Now()
 		ptgk.logger.Debugf("step, i %d", i)
-		ptgk.logger.Debug(step)
+		ptgk.logger.Debug(step.linVelMMps, step.angVelDegps, step.durationSeconds, step.startDist, step.ptgIdx)
 		// Now we are moving. We need to do several things simultaneously:
 		// - move until we think we have finished the arc, then move on to the next step
 		// - update our CurrentInputs tracking where we are through the arc
