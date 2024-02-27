@@ -62,9 +62,12 @@ type MLModelConfig struct {
 	RemapInputNames  map[string]string `json:"remap_input_names"`
 	RemapOutputNames map[string]string `json:"remap_output_names"`
 	BoxOrder         []int             `json:"xmin_ymin_xmax_ymax_order"`
-	MeanValue        []float32         `json:"input_image_mean_value"`
-	StdDev           []float32         `json:"input_image_std_dev"`
-	IsBGR            bool              `json:"input_image_bgr"`
+	// optional parameter used to normalize the input image if the ML Model expects it
+	MeanValue []float32 `json:"input_image_mean_value"`
+	// optional parameter used to normalize the input image if the ML Model expects it
+	StdDev []float32 `json:"input_image_std_dev"`
+	// optional parameter used to change the input image to BGR format if the ML Model expects it
+	IsBGR bool `json:"input_image_bgr"`
 }
 
 // Validate will add the ModelName as an implicit dependency to the robot.
@@ -74,12 +77,12 @@ func (conf *MLModelConfig) Validate(path string) ([]string, error) {
 	}
 	if len(conf.MeanValue) != 0 {
 		if len(conf.MeanValue) < 3 {
-			return nil, errors.New("input_image_mean_value attribute must have at least 3 values")
+			return nil, errors.New("input_image_mean_value attribute must have at least 3 values, one for each color channel")
 		}
 	}
 	if len(conf.StdDev) != 0 {
 		if len(conf.StdDev) < 3 {
-			return nil, errors.New("input_image_std_dev attribute must have at least 3 values")
+			return nil, errors.New("input_image_std_dev attribute must have at least 3 values, one for each color channel")
 		}
 	}
 	for _, v := range conf.StdDev {
