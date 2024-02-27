@@ -75,11 +75,11 @@ type Config struct {
 // Validate checks that the config attributes are valid for a fake camera.
 func (conf *Config) Validate(path string) ([]string, error) {
 	if conf.Height > 10000 || conf.Width > 10000 {
-		return nil, errors.Errorf("maximum supported pixel height or width for fake cameras is 4000 pixels")
+		return nil, errors.New("maximum supported pixel height or width for fake cameras is 4000 pixels")
 	}
 
 	if conf.Height < 0 || conf.Width < 0 {
-		return nil, errors.Errorf("cannot use negative pixel height and width for fake cameras")
+		return nil, errors.New("cannot use negative pixel height and width for fake cameras")
 	}
 
 	if conf.Height%2 != 0 {
