@@ -238,6 +238,7 @@ func (ptgk *ptgBaseKinematics) arcStepsFromInputs(inputSteps [][]referenceframe.
 		trajArcSteps := ptgk.trajectoryToArcSteps(selectedTraj, runningPose, inputs[ptgIndex].Value)
 		for _, step := range trajArcSteps {
 			step.ptgIdx = inputs[ptgIndex].Value
+			ptgk.logger.Debug(step)
 		}
 		
 		arcSteps = append(arcSteps, trajArcSteps...)
