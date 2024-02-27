@@ -161,6 +161,8 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 				allowableDiff := ptgk.linVelocityMMPerSecond * inputUpdateStepSeconds * (minDeviationToCorrectPct/100)
 				ptgk.logger.Debug("allowable diff ", allowableDiff, "diff now ", poseDiff.Point().Norm())
 				if poseDiff.Point().Norm() > allowableDiff || poseDiff.Orientation().AxisAngles().Theta > 0.25 {
+					ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
+					ptgk.logger.Debug("SLAM says at ", spatialmath.PoseToProtobuf(actualPose.Pose()))
 					// Accumulate list of points along the path to try to connect to
 					goalsToAttempt := int(lookaheadTimeSeconds / inputUpdateStepSeconds) + 1
 					goals := ptgk.nPosesPastDist(i, goalsToAttempt, currentInputs[distanceAlongTrajectoryIndex].Value, actualPose.Pose(), arcSteps)
@@ -298,7 +300,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []course
 	for _, goal := range goals {
 		solveMetric := ik.NewSquaredNormMetric(goal.Goal)
 		solutionChan := make(chan *ik.Solution, 1)
-		ptgk.logger.Debug("attempting goal", spatialmath.PoseToProtobuf(goal.Goal))
+		ptgk.logger.Debug("attempting goal ", spatialmath.PoseToProtobuf(goal.Goal))
 		err := ptgk.courseCorrectionSolver.Solve(
 			ctx,
 			solutionChan,
@@ -314,7 +316,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []course
 		case solution = <-solutionChan:
 		default:
 		}
-		ptgk.logger.Debug("solution", solution)
+		ptgk.logger.Debug("solution ", solution)
 		
 		if solution.Score < 1. {
 			goal.Solution = solution.Configuration
