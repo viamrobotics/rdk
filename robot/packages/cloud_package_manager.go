@@ -249,7 +249,7 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// A packageTypeDir is a directory that contains all of the packages for the specified type. ex: .data/ml_model
+	// A packageTypeDir is a directory that contains all of the packages for the specified type. ex: data/ml_model
 	for _, packageTypeDir := range topLevelFiles {
 		packageTypeDirName, err := safeJoin(m.packagesDataDir, packageTypeDir.Name())
 		if err != nil {
@@ -257,7 +257,7 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 			continue
 		}
 
-		// There should be no non-dir files in the packages/.data dir. Delete any that exist
+		// There should be no non-dir files in the packages/data dir. Delete any that exist
 		if packageTypeDir.Type()&os.ModeDir != os.ModeDir {
 			allErrors = multierr.Append(allErrors, os.Remove(packageTypeDirName))
 			continue
@@ -295,7 +295,7 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 	return allErrors
 }
 
-// symlink packages/package-name to packages/data/ml_model/orgid-package-name-ver for backwards compatablility
+// symlink packages/package-name to packages/data/ml_model/orgid-package-name-ver for backwards compatibility
 // TODO(RSDK-4386) Preserved for backwards compatibility. Could be removed or extended to other types in the future.
 func (m *cloudManager) mLModelSymlinkCreation(p config.PackageConfig) error {
 	symlinkPath, err := safeJoin(m.packagesDir, p.Name)
@@ -367,9 +367,6 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 	// Delete legacy directory, silently fail if the cleanup fails
 	// This can be cleaned up after a few RDK releases (APP-4066)
 	if err := os.RemoveAll(p.LocalLegacyDataRootDirectory(m.packagesDir)); err != nil {
-		utils.UncheckedError(err)
-	}
-	if err := os.Remove(p.LocalLegacyDataRootDirectory(m.packagesDir)); err != nil {
 		utils.UncheckedError(err)
 	}
 
