@@ -12,10 +12,6 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// rPiGain is 1/255 because the PWM signal on a pi (and most other boards)
-// is limited to 8 bits, or the range 0-255.
-const rPiGain = 0.00392157
-
 // startControlLoop uses the control config to initialize a control
 // loop using the controls package and store in on the sensor controlled base struct
 // the sensor base in the controllable interface that implements State and GetState
@@ -44,9 +40,8 @@ func (sb *sensorBase) setupControlLoop(linear, angular control.PIDConfig) error 
 	}
 
 	// check if either linear or angular need to be tuned
-	if (linear.P == 0.0 && linear.I == 0.0 && linear.D == 0.0) ||
-		(angular.P == 0.0 && angular.I == 0.0 && angular.D == 0.0) {
-		options.NeedsAutoTuning = false
+	if linear.NeedsAutoTuning() || angular.NeedsAutoTuning() {
+		options.NeedsAutoTuning = true
 	}
 
 	// combine linear and angular back into one control.PIDConfig, with linear first
@@ -69,31 +64,30 @@ func (sb *sensorBase) updateControlConfig(
 	ctx context.Context, linearValue, angularValue float64,
 ) error {
 	// set linear setpoint config
-	linConf := control.BlockConfig{
-		Name: sb.blockNames["constant"][0],
-		Type: "constant",
-		Attribute: rdkutils.AttributeMap{
-			"constant_val": linearValue,
-		},
-		DependsOn: []string{},
-	}
-	if err := sb.loop.SetConfigAt(ctx, sb.blockNames["constant"][0], linConf); err != nil {
+	if err := sb.updateConstantBlock(ctx, sb.blockNames["constant"][0], linearValue); err != nil {
 		return err
 	}
 
 	// set angular setpoint config
-	angConf := control.BlockConfig{
-		Name: sb.blockNames["constant"][1],
-		Type: "constant",
-		Attribute: rdkutils.AttributeMap{
-			"constant_val": angularValue,
-		},
-		DependsOn: []string{},
-	}
-	if err := sb.loop.SetConfigAt(ctx, sb.blockNames["constant"][1], angConf); err != nil {
+	if err := sb.updateConstantBlock(ctx, sb.blockNames["constant"][1], angularValue); err != nil {
 		return err
 	}
 
+	return nil
+}
+
+func (sb *sensorBase) updateConstantBlock(ctx context.Context, name string, constVal float64) error {
+	conf := control.BlockConfig{
+		Name: name,
+		Type: "constant",
+		Attribute: rdkutils.AttributeMap{
+			"constant_val": constVal,
+		},
+		DependsOn: []string{},
+	}
+	if err := sb.loop.SetConfigAt(ctx, name, conf); err != nil {
+		return err
+	}
 	return nil
 }
 
