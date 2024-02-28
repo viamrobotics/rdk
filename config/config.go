@@ -621,10 +621,10 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 
 func (config *Cloud) ValidateTLS(path string) error {
 	if config.TLSCertificate == "" {
-		resource.NewConfigValidationFieldRequiredError(path, "tls_certificate")
+		return resource.NewConfigValidationFieldRequiredError(path, "tls_certificate")
 	}
 	if config.TLSPrivateKey == "" {
-		resource.NewConfigValidationFieldRequiredError(path, "tls_private_key")
+		return resource.NewConfigValidationFieldRequiredError(path, "tls_private_key")
 	}
 	return nil
 }
