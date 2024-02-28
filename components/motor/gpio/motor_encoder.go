@@ -90,6 +90,7 @@ func newEncodedMotor(
 		logger:            logger,
 		opMgr:             operation.NewSingleOperationManager(),
 		startedRPMMonitor: false,
+		loop:              nil,
 	}
 
 	props, err := realEncoder.Properties(context.Background(), nil)
@@ -104,7 +105,7 @@ func newEncodedMotor(
 
 	// setup control loop
 	if motorConfig.ControlParameters != nil {
-		if err := em.startControlLoop(); err != nil {
+		if err := em.setupControlLoop(); err != nil {
 			return nil, err
 		}
 	} else {
@@ -431,7 +432,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	}
 	// create new control loop if control config exists
 	if m.cfg.ControlParameters != nil {
-		if err := m.setupControlLoop(); err != nil {
+		if err := m.startControlLoop(); err != nil {
 			return err
 		}
 	} else {

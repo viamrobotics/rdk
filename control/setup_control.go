@@ -230,7 +230,7 @@ func (p *PIDLoop) createControlLoopConfig(pidVals []PIDConfig, componentName str
 // create most basic PID control loop containing
 // constant -> sum -> PID -> gain -> endpoint -> sum.
 func (p *PIDLoop) basicControlConfig(endpointName string, pidVals PIDConfig, controllableType string) {
-	if p.Options.LoopFrequency != 0 {
+	if p.Options.LoopFrequency != 0.0 {
 		loopFrequency = p.Options.LoopFrequency
 	}
 	p.ControlConf = Config{

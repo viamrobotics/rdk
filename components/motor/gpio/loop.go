@@ -3,15 +3,9 @@ package gpio
 import (
 	"context"
 
-	"github.com/pkg/errors"
-
 	"go.viam.com/rdk/control"
 	rdkutils "go.viam.com/rdk/utils"
 )
-
-func errMissingBlock(blockType string) error {
-	return errors.Errorf("one block of type %s is required", blockType)
-}
 
 // SetState sets the state of the motor for the built-in control loop.
 func (m *EncodedMotor) SetState(ctx context.Context, state []*control.Signal) error {
