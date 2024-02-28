@@ -9,7 +9,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/control"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // startControlLoop uses the control config to initialize a control
@@ -18,7 +17,6 @@ import (
 // called by the endpoint logic of the control thread and the controlLoopConfig
 // is included at the end of this file.
 func (sb *sensorBase) startControlLoop() error {
-	// create control loop
 	loop, err := control.NewLoop(sb.logger, sb.controlLoopConfig, sb)
 	if err != nil {
 		return err
@@ -64,30 +62,17 @@ func (sb *sensorBase) updateControlConfig(
 	ctx context.Context, linearValue, angularValue float64,
 ) error {
 	// set linear setpoint config
-	if err := sb.updateConstantBlock(ctx, sb.blockNames["constant"][0], linearValue); err != nil {
+	linConf := control.CreateConstantBlock(ctx, sb.blockNames[control.BlockNameConstant][0], linearValue)
+	if err := sb.loop.SetConfigAt(ctx, sb.blockNames[control.BlockNameConstant][0], linConf); err != nil {
 		return err
 	}
 
 	// set angular setpoint config
-	if err := sb.updateConstantBlock(ctx, sb.blockNames["constant"][1], angularValue); err != nil {
+	angConf := control.CreateConstantBlock(ctx, sb.blockNames[control.BlockNameConstant][1], angularValue)
+	if err := sb.loop.SetConfigAt(ctx, sb.blockNames[control.BlockNameConstant][1], angConf); err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func (sb *sensorBase) updateConstantBlock(ctx context.Context, name string, constVal float64) error {
-	conf := control.BlockConfig{
-		Name: name,
-		Type: "constant",
-		Attribute: rdkutils.AttributeMap{
-			"constant_val": constVal,
-		},
-		DependsOn: []string{},
-	}
-	if err := sb.loop.SetConfigAt(ctx, name, conf); err != nil {
-		return err
-	}
 	return nil
 }
 

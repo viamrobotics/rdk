@@ -77,8 +77,8 @@ func MakeIncrementalBoard(t *testing.T) *fakeboard.Board {
 
 func TestCreateMotorWithControls(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	controlParams := motorPIDConfig{P: 0.2, I: 0.2, D: 0.0}
-	cfg := Config{TicksPerRotation: 100, MaxRPM: 100, ControlParameters: &controlParams}
+	controlParams := &motorPIDConfig{P: 0.2, I: 0.2, D: 0.0}
+	cfg := Config{TicksPerRotation: 100, MaxRPM: 100, ControlParameters: controlParams}
 	fakeMotor := &fakemotor.Motor{
 		MaxRPM:           100,
 		Logger:           logger,
