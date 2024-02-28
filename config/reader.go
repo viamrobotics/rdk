@@ -226,29 +226,17 @@ func readFromCloud(
 		return nil, errors.New("expected config to have cloud section")
 	}
 
-	// empty if not cached, since its a separate request, which we check next
-	tlsCertificate := cfg.Cloud.TLSCertificate
-	tlsPrivateKey := cfg.Cloud.TLSPrivateKey
+	tls := tlsConfig{
+		// both fields are empty if not cached, since its a separate request, which we
+		// check next
+		certificate: cfg.Cloud.TLSCertificate,
+		privateKey:  cfg.Cloud.TLSPrivateKey,
+	}
 	if !cached {
 		// Try to get TLS information from the cached config (if it exists) even if we
 		// got a new config from the cloud.
-		unprocessedCachedConfig, err := readFromCache(cloudCfg.ID)
-		switch {
-		case os.IsNotExist(err):
-			logger.Warn("No cached config, using cloud TLS config.")
-		case err != nil:
+		if err := tls.readFromCache(cloudCfg.ID, logger); err != nil {
 			return nil, err
-		case unprocessedCachedConfig.Cloud == nil:
-			logger.Warn("Cached config is not a cloud config, using cloud TLS config.")
-		default:
-			if err := unprocessedCachedConfig.Cloud.ValidateTLS("cloud"); err != nil {
-				logger.Warn("Detected failure to process the cached config when retrieving TLS config, clearing cache.")
-				clearCache(cloudCfg.ID)
-				return nil, err
-			}
-
-			tlsCertificate = unprocessedCachedConfig.Cloud.TLSCertificate
-			tlsPrivateKey = unprocessedCachedConfig.Cloud.TLSPrivateKey
 		}
 	}
 
@@ -256,7 +244,7 @@ func readFromCloud(
 		checkForNewCert = true
 	}
 
-	if checkForNewCert || tlsCertificate == "" || tlsPrivateKey == "" {
+	if checkForNewCert || tls.certificate == "" || tls.privateKey == "" {
 		logger.Debug("reading tlsCertificate from the cloud")
 		// Use the SignalingInsecure from the Cloud config returned from the app not the initial config.
 
@@ -265,13 +253,13 @@ func readFromCloud(
 			if !errors.Is(err, context.DeadlineExceeded) {
 				return nil, err
 			}
-			if tlsCertificate == "" || tlsPrivateKey == "" {
+			if tls.certificate == "" || tls.privateKey == "" {
 				return nil, errors.Wrap(err, "error getting certificate data from cloud; try again later")
 			}
 			logger.Warnw("failed to refresh certificate data; using cached for now", "error", err)
 		} else {
-			tlsCertificate = certData.TLSCertificate
-			tlsPrivateKey = certData.TLSPrivateKey
+			tls.certificate = certData.TLSCertificate
+			tls.privateKey = certData.TLSPrivateKey
 		}
 	}
 
@@ -292,20 +280,47 @@ func readFromCloud(
 		to.Cloud.ManagedBy = managedBy
 		to.Cloud.LocationSecret = locationSecret
 		to.Cloud.LocationSecrets = locationSecrets
-		to.Cloud.TLSCertificate = tlsCertificate
-		to.Cloud.TLSPrivateKey = tlsPrivateKey
+		to.Cloud.TLSCertificate = tls.certificate
+		to.Cloud.TLSPrivateKey = tls.privateKey
 	}
 
 	mergeCloudConfig(cfg)
 	// TODO(RSDK-1960): add more tests around config caching
-	unprocessedConfig.Cloud.TLSCertificate = tlsCertificate
-	unprocessedConfig.Cloud.TLSPrivateKey = tlsPrivateKey
+	unprocessedConfig.Cloud.TLSCertificate = tls.certificate
+	unprocessedConfig.Cloud.TLSPrivateKey = tls.privateKey
 
 	if err := storeToCache(cloudCfg.ID, unprocessedConfig); err != nil {
 		logger.Errorw("failed to cache config", "error", err)
 	}
 
 	return cfg, nil
+}
+
+type tlsConfig struct {
+	certificate string
+	privateKey  string
+}
+
+func (tls *tlsConfig) readFromCache(id string, logger logging.Logger) error {
+	cachedCfg, err := readFromCache(id)
+	switch {
+	case os.IsNotExist(err):
+		logger.Warn("No cached config, using cloud TLS config.")
+	case err != nil:
+		return err
+	case cachedCfg.Cloud == nil:
+		logger.Warn("Cached config is not a cloud config, using cloud TLS config.")
+	default:
+		if err := cachedCfg.Cloud.ValidateTLS("cloud"); err != nil {
+			logger.Warn("Detected failure to process the cached config when retrieving TLS config, clearing cache.")
+			clearCache(id)
+			return err
+		}
+
+		tls.certificate = cachedCfg.Cloud.TLSCertificate
+		tls.privateKey = cachedCfg.Cloud.TLSPrivateKey
+	}
+	return nil
 }
 
 // Read reads a config from the given file.
