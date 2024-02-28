@@ -234,19 +234,22 @@ func readFromCloud(
 		// read cached config from fs.
 		// process the config with fromReader() use processed config as cachedConfig to update the cert data.
 		unprocessedCachedConfig, err := readFromCache(cloudCfg.ID)
-		if err == nil && unprocessedCachedConfig.Cloud != nil {
-			cachedTLS := unprocessedCachedConfig.Cloud
-			if err := cachedTLS.ValidateTLS("cloud"); err != nil {
-				// clear cache
+		switch {
+		case os.IsNotExist(err):
+			logger.Warn("No cached config, using cloud TLS config.")
+		case err != nil:
+			return nil, err
+		case unprocessedCachedConfig.Cloud == nil:
+			logger.Warn("Cached config is not a cloud config, using cloud TLS config.")
+		default:
+			if err := unprocessedCachedConfig.Cloud.ValidateTLS("cloud"); err != nil {
 				logger.Warn("Detected failure to process the cached config when retrieving TLS config, clearing cache.")
 				clearCache(cloudCfg.ID)
 				return nil, err
 			}
 
-			tlsCertificate = cachedTLS.TLSCertificate
-			tlsPrivateKey = cachedTLS.TLSPrivateKey
-		} else if !os.IsNotExist(err) {
-			return nil, err
+			tlsCertificate = unprocessedCachedConfig.Cloud.TLSCertificate
+			tlsPrivateKey = unprocessedCachedConfig.Cloud.TLSPrivateKey
 		}
 	}
 
