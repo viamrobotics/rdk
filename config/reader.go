@@ -85,29 +85,6 @@ func getCloudCacheFilePath(id string) string {
 	return filepath.Join(ViamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
 }
 
-type cachedTLSConfig struct {
-	Certificate string `json:"tls_certificate"`
-	PrivateKey  string `json:"tls_private_key"`
-}
-
-func readTLSFromCache(id string) (*cachedTLSConfig, error) {
-	r, err := os.Open(getCloudCacheFilePath(id))
-	if err != nil {
-		return nil, err
-	}
-	defer utils.UncheckedErrorFunc(r.Close)
-
-	tlsConfig := struct {
-		TLS *cachedTLSConfig `json:"cloud"`
-	}{}
-	if err := json.NewDecoder(r).Decode(&tlsConfig); err != nil {
-		// clear the cache if we cannot parse the file.
-		clearCache(id)
-		return nil, errors.Wrap(err, "cannot parse the cached config as json")
-	}
-	return tlsConfig.TLS, nil
-}
-
 func readFromCache(id string) (*Config, error) {
 	r, err := os.Open(getCloudCacheFilePath(id))
 	if err != nil {
@@ -256,10 +233,18 @@ func readFromCloud(
 		// get cached certificate data
 		// read cached config from fs.
 		// process the config with fromReader() use processed config as cachedConfig to update the cert data.
-		cachedTLS, err := readTLSFromCache(cloudCfg.ID)
-		if err == nil {
-			tlsCertificate = cachedTLS.Certificate
-			tlsPrivateKey = cachedTLS.PrivateKey
+		unprocessedCachedConfig, err := readFromCache(cloudCfg.ID)
+		if err == nil && unprocessedCachedConfig.Cloud != nil {
+			cachedTLS := unprocessedCachedConfig.Cloud
+			if err := cachedTLS.ValidateTLS("cloud"); err != nil {
+				// clear cache
+				logger.Warn("Detected failure to process the cached config when retrieving TLS config, clearing cache.")
+				clearCache(cloudCfg.ID)
+				return nil, err
+			}
+
+			tlsCertificate = cachedTLS.TLSCertificate
+			tlsPrivateKey = cachedTLS.TLSPrivateKey
 		} else if !os.IsNotExist(err) {
 			return nil, err
 		}
@@ -614,16 +599,15 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 // getFromCloudGRPC actually does the fetching of the robot config from the gRPC endpoint.
 func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logger) (*Config, bool, error) {
 	shouldCheckCacheOnFailure := true
+
 	conn, err := CreateNewGRPCClient(ctx, cloudCfg, logger)
 	if err != nil {
-		logger.Warnw("err connecting", "error", err)
 		return nil, shouldCheckCacheOnFailure, err
 	}
 	defer utils.UncheckedErrorFunc(conn.Close)
 
 	agentInfo, err := getAgentInfo()
 	if err != nil {
-		logger.Warnw("err agent", "error", err)
 		return nil, shouldCheckCacheOnFailure, err
 	}
 
@@ -631,13 +615,11 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logge
 	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID, AgentInfo: agentInfo})
 	if err != nil {
 		// Check cache?
-		logger.Warnw("err config call", "error", err)
 		return nil, shouldCheckCacheOnFailure, err
 	}
 	cfg, err := FromProto(res.Config, logger)
 	if err != nil {
 		// Check cache?
-		logger.Warnw("err proto conv", "error", err)
 		return nil, shouldCheckCacheOnFailure, err
 	}
 
