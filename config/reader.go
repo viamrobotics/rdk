@@ -230,9 +230,8 @@ func readFromCloud(
 	tlsCertificate := cfg.Cloud.TLSCertificate
 	tlsPrivateKey := cfg.Cloud.TLSPrivateKey
 	if !cached {
-		// get cached certificate data
-		// read cached config from fs.
-		// process the config with fromReader() use processed config as cachedConfig to update the cert data.
+		// Try to get TLS information from the cached config (if it exists) even if we
+		// got a new config from the cloud.
 		unprocessedCachedConfig, err := readFromCache(cloudCfg.ID)
 		switch {
 		case os.IsNotExist(err):
