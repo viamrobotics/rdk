@@ -619,6 +619,7 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 	return nil
 }
 
+// ValidateTLS ensures TLS fields are valid.
 func (config *Cloud) ValidateTLS(path string) error {
 	if config.TLSCertificate == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "tls_certificate")
