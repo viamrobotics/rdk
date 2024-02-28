@@ -619,6 +619,17 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 	return nil
 }
 
+// ValidateTLS ensures TLS fields are valid.
+func (config *Cloud) ValidateTLS(path string) error {
+	if config.TLSCertificate == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "tls_certificate")
+	}
+	if config.TLSPrivateKey == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "tls_private_key")
+	}
+	return nil
+}
+
 // LocationSecret describes a location secret that can be used to authenticate to the rdk.
 type LocationSecret struct {
 	ID string `json:"id"`
