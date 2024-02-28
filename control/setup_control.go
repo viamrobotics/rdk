@@ -11,16 +11,15 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+// BlockNameEndpoint, BlockNameConstant, and BlockNameTrapezoidal
+// represent the strings needed to update a control loop block.
 const (
+	BlockNameEndpoint    = "endpoint"
+	BlockNameConstant    = "constant"
+	BlockNameTrapezoidal = "trapz"
 	// rPiGain is 1/255 because the PWM signal on a pi (and most other boards)
 	// is limited to 8 bits, or the range 0-255.
 	rPiGain = 0.00392157
-	//BlockNameEndpoint represents the string "endpoint" for use in updating control blocks
-	BlockNameEndpoint = "endpoint"
-	//BlockNameConstant represents the string "constant" for use in updating control blocks
-	BlockNameConstant = "constant"
-	//BlockNameTrapezoidal represents the string "trapz" for use in updating control blocks
-	BlockNameTrapezoidal = "trapz"
 )
 
 var (
