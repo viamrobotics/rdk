@@ -36,17 +36,19 @@ func FieldKeyAndValueFromProto(field *structpb.Struct) (string, any, error) {
 	case zapcore.DurationType:
 		fieldValue = time.Duration(zf.Integer)
 	case zapcore.Float64Type:
-		// Converting floats to proto sometimes introduces small amounts of loss
-		// (e.g. an extra .0000000000073). Use a hacky combination of math, fmt,
-		// and strconv to use only up to 5 decimal places.
+		// Zap encodes floats with very large int64s. Proto conversions have some
+		// loss with very large int64s.
+		// See https://pkg.go.dev/google.golang.org/protobuf@v1.32.0/types/known/structpb#NewValue.
+		//
+		// Use a hacky combination of math, fmt, and strconv to use only up to 10 decimal places.
 		fieldValue, err = strconv.ParseFloat(
-			fmt.Sprintf("%.5f", math.Float64frombits(uint64(zf.Integer))), 64)
+			fmt.Sprintf("%.10f", math.Float64frombits(uint64(zf.Integer))), 64)
 		if err != nil {
 			return "", nil, err
 		}
 	case zapcore.Float32Type:
 		fieldValue, err = strconv.ParseFloat(
-			fmt.Sprintf("%.5f", math.Float32frombits(uint32(zf.Integer))), 32)
+			fmt.Sprintf("%.10f", math.Float32frombits(uint32(zf.Integer))), 32)
 		if err != nil {
 			return "", nil, err
 		}
