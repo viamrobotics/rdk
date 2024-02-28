@@ -11,9 +11,14 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// rPiGain is 1/255 because the PWM signal on a pi (and most other boards)
-// is limited to 8 bits, or the range 0-255.
-const rPiGain = 0.00392157
+const (
+	// rPiGain is 1/255 because the PWM signal on a pi (and most other boards)
+	// is limited to 8 bits, or the range 0-255.
+	rPiGain              = 0.00392157
+	BlockNameEndpoint    = "endpoint"
+	BlockNameConstant    = "constant"
+	BlockNameTrapezoidal = "trapz"
+)
 
 var (
 	// default derivative type is "backward1st1".
@@ -148,7 +153,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 		}
 		// switch sum to depend on the setpoint if position control
 		if p.Options.PositionControlUsingTrapz {
-			p.ControlConf.Blocks[sumIndex].DependsOn[0] = p.BlockNames["constant"][0]
+			p.ControlConf.Blocks[sumIndex].DependsOn[0] = p.BlockNames[BlockNameConstant][0]
 			if err := p.StartControlLoop(); err != nil {
 				errs = multierr.Combine(errs, err)
 			}
@@ -410,4 +415,31 @@ func (p *PIDLoop) StartControlLoop() error {
 	p.ControlLoop = loop
 
 	return nil
+}
+
+// CreateConstantBlock returns a new constant block based on the parameters
+func CreateConstantBlock(ctx context.Context, name string, constVal float64) BlockConfig {
+	return BlockConfig{
+		Name: name,
+		Type: blockConstant,
+		Attribute: rdkutils.AttributeMap{
+			"constant_val": constVal,
+		},
+		DependsOn: []string{},
+	}
+}
+
+// CreateTrapzBlock returns a new trapezoidalVelocityProfile block based on the parameters
+func CreateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsOn []string) BlockConfig {
+	return BlockConfig{
+		Name: name,
+		Type: blockTrapezoidalVelocityProfile,
+		Attribute: rdkutils.AttributeMap{
+			"max_vel":    maxVel,
+			"max_acc":    30000.0,
+			"pos_window": 0.0,
+			"kpp_gain":   0.45,
+		},
+		DependsOn: dependsOn,
+	}
 }
