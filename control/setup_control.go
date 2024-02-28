@@ -16,7 +16,7 @@ import (
 const (
 	BlockNameEndpoint    = "endpoint"
 	BlockNameConstant    = "constant"
-	BlockNameTrapezoidal = "trapz"
+	BlockNameTrapezoidal = "trapezoidalVelocityProfile"
 	// rPiGain is 1/255 because the PWM signal on a pi (and most other boards)
 	// is limited to 8 bits, or the range 0-255.
 	rPiGain = 0.00392157
