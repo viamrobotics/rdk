@@ -14,9 +14,12 @@ import (
 const (
 	// rPiGain is 1/255 because the PWM signal on a pi (and most other boards)
 	// is limited to 8 bits, or the range 0-255.
-	rPiGain              = 0.00392157
-	BlockNameEndpoint    = "endpoint"
-	BlockNameConstant    = "constant"
+	rPiGain = 0.00392157
+	//BlockNameEndpoint represents the string "endpoint" for use in updating control blocks
+	BlockNameEndpoint = "endpoint"
+	//BlockNameConstant represents the string "constant" for use in updating control blocks
+	BlockNameConstant = "constant"
+	//BlockNameTrapezoidal represents the string "trapz" for use in updating control blocks
 	BlockNameTrapezoidal = "trapz"
 )
 
@@ -417,7 +420,7 @@ func (p *PIDLoop) StartControlLoop() error {
 	return nil
 }
 
-// CreateConstantBlock returns a new constant block based on the parameters
+// CreateConstantBlock returns a new constant block based on the parameters.
 func CreateConstantBlock(ctx context.Context, name string, constVal float64) BlockConfig {
 	return BlockConfig{
 		Name: name,
@@ -429,7 +432,7 @@ func CreateConstantBlock(ctx context.Context, name string, constVal float64) Blo
 	}
 }
 
-// CreateTrapzBlock returns a new trapezoidalVelocityProfile block based on the parameters
+// CreateTrapzBlock returns a new trapezoidalVelocityProfile block based on the parameters.
 func CreateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsOn []string) BlockConfig {
 	return BlockConfig{
 		Name: name,
