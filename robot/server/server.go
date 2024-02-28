@@ -6,7 +6,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"strings"
 	"sync"
 	"time"
@@ -14,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
@@ -35,6 +33,10 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/session"
 )
+
+// logTSKey is the key used in conjunction with the timestamp of logs received
+// by the RDK.
+const logTSKey = "log_ts"
 
 // Server implements the contract from robot.proto that ultimately satisfies
 // a robot.Robot as a gRPC server.
@@ -419,52 +421,38 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 	}
 	log := req.Logs[0]
 
-	var fields []zap.Field
+	fields := make([]any, 0, len(log.Fields)*2)
 	for _, fieldP := range log.Fields {
-		fieldPJSON, err := fieldP.MarshalJSON()
+		key, val, err := logging.FieldKeyAndValueFromProto(fieldP)
 		if err != nil {
-			return nil, err
+			return nil, nil
 		}
-		var zf zap.Field
-		if err = json.Unmarshal(fieldPJSON, &zf); err != nil {
-			return nil, err
-		}
-
-		// Custom deserialization for time types.
-		if zf.Type == zapcore.TimeType {
-			// Unix nanos contained in `zf.Integer`; location in `zf.String`. Format
-			// with `DefaultTimeFormatStr` and set `zf.Type` to `StringType`.
-			timeVal := time.Unix(0, zf.Integer)
-			loc, err := time.LoadLocation(zf.String)
-			if err != nil {
-				return nil, errors.Wrapf(err, "time.Time field received with invalid location")
-			}
-			zf.String = timeVal.In(loc).Format(logging.DefaultTimeFormatStr)
-			zf.Type = zapcore.StringType
-		}
-
-		fields = append(fields, zf)
+		fields = append(fields, key, val)
 	}
+
+	// Insert field of `{"log_ts": log.Time}` to encode the timestamp of this
+	// log.
+	fields = append(fields, logTSKey, log.Time.AsTime())
 
 	// Use a sublogger of robot logger with correct logger name. Set a level of
 	// DEBUG to allow gRPC logs at DEBUG level even when RDK is not on DEBUG
 	// level. Disable caller to mimic caller passed in from gRPC request.
 	logger := s.robot.Logger().Sublogger(log.LoggerName)
 	logger.SetLevel(logging.DEBUG)
-	l := logger.WithOptions(zap.WithCaller(false)).Desugar()
+	l := logger.WithOptions(zap.WithCaller(false))
 
 	level, err := logging.LevelFromString(log.Level)
 	switch {
 	case err != nil:
-		l.Sugar().Warn("logger named %q sent a log over gRPC with an invalid level %q", log.LoggerName, log.Level)
+		l.Warn("logger named %q sent a log over gRPC with an invalid level %q", log.LoggerName, log.Level)
 	case level == logging.DEBUG:
-		l.Debug(log.Message, fields...)
+		l.Debugw(log.Message, fields...)
 	case level == logging.INFO:
-		l.Info(log.Message, fields...)
+		l.Infow(log.Message, fields...)
 	case level == logging.WARN:
-		l.Warn(log.Message, fields...)
+		l.Warnw(log.Message, fields...)
 	case level == logging.ERROR:
-		l.Error(log.Message, fields...)
+		l.Errorw(log.Message, fields...)
 	default:
 	}
 

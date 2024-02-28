@@ -30,6 +30,7 @@ import (
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
@@ -904,15 +905,6 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.
 
 	fieldsP := make([]*structpb.Struct, 0, len(fields))
 	for _, field := range fields {
-		// If field is some non-time, non-string-encoded, non-integer-encoded type,
-		// force it into a string with `%+v`. We do not have a great way of
-		// ensuring all types are maintained across the wire. Time types will be
-		// handled server-side.
-		if field.Type != zapcore.TimeType && field.String == "" && field.Interface != nil {
-			field.String = fmt.Sprintf("%+v", field.Interface)
-			field.Type = zapcore.StringType
-		}
-
 		fieldP, err := protoutils.StructToStructPb(field)
 		if err != nil {
 			return err
@@ -921,14 +913,17 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.
 	}
 
 	logRequest := &pb.LogRequest{
-		// no batching for now (one LogEntry at a time).
+		// No batching for now (one LogEntry at a time).
 		Logs: []*commonpb.LogEntry{{
-			// leave out Host; Host is not currently meaningful
-			Level: log.Level.String(),
-			// leave out Time; Time is already in Message field below
+			// Leave out Host; Host is not currently meaningful.
+			Level:      log.Level.String(),
+			Time:       timestamppb.New(time.Now()),
 			LoggerName: log.LoggerName,
 			Message:    message,
-			// leave out Caller; Caller is already in Message field above
+			// Leave out Caller; Caller is already in Message field above. We put
+			// the Caller in Message as other languages may also do this in the
+			// future. We do not want other languages to have to force their caller
+			// information into a struct that looks like zapcore.EntryCaller.
 			Stack:  log.Stack,
 			Fields: fieldsP,
 		}},
