@@ -57,58 +57,6 @@ var (
 	defaultResourcesTimeout = 5 * time.Second
 )
 
-type reconfigurableClientConn struct {
-	connMu sync.RWMutex
-	conn   rpc.ClientConn
-}
-
-func (c *reconfigurableClientConn) Invoke(
-	ctx context.Context,
-	method string,
-	args, reply interface{},
-	opts ...googlegrpc.CallOption,
-) error {
-	c.connMu.RLock()
-	conn := c.conn
-	c.connMu.RUnlock()
-	if conn == nil {
-		return errors.New("not connected")
-	}
-	return conn.Invoke(ctx, method, args, reply, opts...)
-}
-
-func (c *reconfigurableClientConn) NewStream(
-	ctx context.Context,
-	desc *googlegrpc.StreamDesc,
-	method string,
-	opts ...googlegrpc.CallOption,
-) (googlegrpc.ClientStream, error) {
-	c.connMu.RLock()
-	conn := c.conn
-	c.connMu.RUnlock()
-	if conn == nil {
-		return nil, errors.New("not connected")
-	}
-	return conn.NewStream(ctx, desc, method, opts...)
-}
-
-func (c *reconfigurableClientConn) replaceConn(conn rpc.ClientConn) {
-	c.connMu.Lock()
-	c.conn = conn
-	c.connMu.Unlock()
-}
-
-func (c *reconfigurableClientConn) Close() error {
-	c.connMu.Lock()
-	defer c.connMu.Unlock()
-	if c.conn == nil {
-		return nil
-	}
-	conn := c.conn
-	c.conn = nil
-	return conn.Close()
-}
-
 // RobotClient satisfies the robot.Robot interface through a gRPC based
 // client conforming to the robot.proto contract.
 type RobotClient struct {
@@ -124,7 +72,7 @@ type RobotClient struct {
 	remoteNameMap   map[resource.Name]resource.Name
 	changeChan      chan bool
 	notifyParent    func()
-	conn            reconfigurableClientConn
+	conn            grpc.ReconfigurableClientConn
 	client          pb.RobotServiceClient
 	refClient       *grpcreflect.Client
 	connected       atomic.Bool
@@ -401,7 +349,7 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 
 	refClient := grpcreflect.NewClientV1Alpha(rc.backgroundCtx, reflectpb.NewServerReflectionClient(conn))
 
-	rc.conn.replaceConn(conn)
+	rc.conn.ReplaceConn(conn)
 	rc.client = client
 	rc.refClient = refClient
 	rc.connected.Store(true)
