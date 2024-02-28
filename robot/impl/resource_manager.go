@@ -91,8 +91,8 @@ func fromRemoteNameToRemoteNodeName(name string) resource.Name {
 
 // ExportDot exports the resource graph as a DOT representation for visualization.
 // DOT reference: https://graphviz.org/doc/info/lang.html
-func (manager *resourceManager) ExportDot(n int) (resource.SnapshotInfo, error) {
-	return manager.viz.GetSnapshot(n)
+func (manager *resourceManager) ExportDot(index int) (resource.SnapshotInfo, error) {
+	return manager.viz.GetSnapshot(index)
 }
 
 func (manager *resourceManager) startModuleManager(
