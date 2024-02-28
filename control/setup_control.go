@@ -28,6 +28,7 @@ var (
 // PIDLoop is used for setting up a PID control loop.
 type PIDLoop struct {
 	BlockNames              map[string][]string
+	PIDVals                 []PIDConfig
 	ControlConf             Config
 	ControlLoop             *Loop
 	Options                 Options
@@ -42,6 +43,11 @@ type PIDConfig struct {
 	P    float64 `json:"p"`
 	I    float64 `json:"i"`
 	D    float64 `json:"d"`
+}
+
+// NeedsAutoTuning checks if the PIDConfig values require auto tuning.
+func (conf *PIDConfig) NeedsAutoTuning() bool {
+	return (conf.P == 0.0 && conf.I == 0.0 && conf.D == 0.0)
 }
 
 // Options contains values used for a control loop.
@@ -86,6 +92,7 @@ func SetupPIDControlConfig(
 ) (*PIDLoop, error) {
 	pidLoop := &PIDLoop{
 		Controllable: c,
+		PIDVals:      pidVals,
 		logger:       logger,
 		Options:      options,
 		ControlConf:  Config{},
@@ -152,8 +159,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 		}
 		if p.Options.SensorFeedback2DVelocityControl {
 			// check if linear needs to be tuned
-			if p.ControlConf.Blocks[linearPIDIndex].Attribute["kP"] == 0.0 &&
-				p.ControlConf.Blocks[linearPIDIndex].Attribute["kPI"] == 0.0 {
+			if p.PIDVals[0].NeedsAutoTuning() {
 				p.logger.Info("tuning linear PID")
 				if err := p.tuneSinglePID(ctx, angularPIDIndex); err != nil {
 					errs = multierr.Combine(errs, err)
@@ -161,8 +167,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			}
 
 			// check if angular needs to be tuned
-			if p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"] == 0.0 &&
-				p.ControlConf.Blocks[angularPIDIndex].Attribute["kPI"] == 0.0 {
+			if p.PIDVals[1].NeedsAutoTuning() {
 				p.logger.Info("tuning angular PID")
 				if err := p.tuneSinglePID(ctx, linearPIDIndex); err != nil {
 					errs = multierr.Combine(errs, err)

@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/control"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -395,14 +396,14 @@ func TestSensorBase(t *testing.T) {
 }
 
 func sBaseTestConfig(msNames []string) resource.Config {
-	controlParams := make([]basePIDConfig, 2)
-	controlParams[0] = basePIDConfig{
+	controlParams := make([]control.PIDConfig, 2)
+	controlParams[0] = control.PIDConfig{
 		Type: typeLinVel,
 		P:    0.5,
 		I:    0.5,
 		D:    0.0,
 	}
-	controlParams[1] = basePIDConfig{
+	controlParams[1] = control.PIDConfig{
 		Type: typeAngVel,
 		P:    0.5,
 		I:    0.5,
