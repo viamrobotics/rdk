@@ -15,7 +15,8 @@ type ReconfigurableClientConn struct {
 	conn   rpc.ClientConn
 }
 
-// Invoke invokes using the underlying client connection.
+// Invoke invokes using the underlying client connection. In the case of c.conn being closed in the middle of
+// an Invoke call, it is expected that c.conn can handle that and return a well-formed error.
 func (c *ReconfigurableClientConn) Invoke(
 	ctx context.Context,
 	method string,
@@ -31,7 +32,8 @@ func (c *ReconfigurableClientConn) Invoke(
 	return conn.Invoke(ctx, method, args, reply, opts...)
 }
 
-// NewStream creates a new stream using the underlying client connection.
+// NewStream creates a new stream using the underlying client connection. In the case of c.conn being closed in the middle of
+// a NewStream call, it is expected that c.conn can handle that and return a well-formed error.
 func (c *ReconfigurableClientConn) NewStream(
 	ctx context.Context,
 	desc *googlegrpc.StreamDesc,
@@ -47,7 +49,8 @@ func (c *ReconfigurableClientConn) NewStream(
 	return conn.NewStream(ctx, desc, method, opts...)
 }
 
-// ReplaceConn replaces the underlying client connection with the connection passed in.
+// ReplaceConn replaces the underlying client connection with the connection passed in. This does not close the
+// old connection, the caller is expected to close it if needed.
 func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
 	c.connMu.Lock()
 	c.conn = conn
