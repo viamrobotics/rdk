@@ -260,8 +260,7 @@ func UploadModuleAction(c *cli.Context) error {
 
 		_, err = client.updateModule(moduleID, manifest)
 		if err != nil {
-			printf(c.App.Writer, "Module update failed. Please correct the following issues in your meta.json:")
-			return err
+			return errors.Wrap(err, "Module update failed. Please correct the following issues in your meta.json")
 		}
 	}
 
