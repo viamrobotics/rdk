@@ -38,7 +38,7 @@ jobs:
     if: |
        always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
        contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml
     with:
       release_type: 'pr'
     secrets:
@@ -61,7 +61,7 @@ jobs:
     if: |
        always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
        contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
-    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
+    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml
     with:
       release_type: 'pr'
     secrets:
