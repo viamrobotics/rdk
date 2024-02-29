@@ -65,7 +65,7 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 		return nil
 	}
 	defer utils.UncheckedErrorFunc(conn.Close)
-	svc := cloudRobotService{apppb.NewRobotServiceClient(conn)}
+	svc := remoteReader{apppb.NewRobotServiceClient(conn)}
 
 	var prevCfg *Config
 	utils.ManagedGo(func() {

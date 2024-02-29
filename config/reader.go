@@ -126,11 +126,11 @@ func clearCache(id string) {
 	})
 }
 
-type cloudRobotService struct {
+type remoteReader struct {
 	client apppb.RobotServiceClient
 }
 
-func (svc *cloudRobotService) readCertificateDataFromCloudGRPC(
+func (svc *remoteReader) readCertificateDataFromCloudGRPC(
 	ctx context.Context,
 	signalingInsecure bool,
 	cloudConfigFromDisk *Cloud,
@@ -189,7 +189,7 @@ func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
 
 // readFromCloud fetches a robot config from the cloud based
 // on the given config.
-func (svc *cloudRobotService) readFromCloud(
+func (svc *remoteReader) readFromCloud(
 	ctx context.Context,
 	originalCfg,
 	prevCfg *Config,
@@ -345,15 +345,15 @@ func ReadLocalConfig(
 	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, nil)
 }
 
-type cloudRobotServiceFactory func(ctx context.Context, cloud *Cloud, logger logging.Logger) (cloudRobotService, func() error, error)
+type remoteReaderFactory func(ctx context.Context, cloud *Cloud, logger logging.Logger) (remoteReader, func() error, error)
 
-func createCloudRobotService(ctx context.Context, cloud *Cloud, logger logging.Logger) (cloudRobotService, func() error, error) {
+func newRemoteReader(ctx context.Context, cloud *Cloud, logger logging.Logger) (remoteReader, func() error, error) {
 	conn, err := CreateNewGRPCClient(ctx, cloud, logger)
 	if err != nil {
-		return cloudRobotService{}, func() error { return nil }, err
+		return remoteReader{}, func() error { return nil }, err
 	}
 
-	svc := cloudRobotService{apppb.NewRobotServiceClient(conn)}
+	svc := remoteReader{apppb.NewRobotServiceClient(conn)}
 	closeFunc := func() error {
 		return conn.Close()
 	}
@@ -368,7 +368,7 @@ func FromReader(
 	r io.Reader,
 	logger logging.Logger,
 ) (*Config, error) {
-	return fromReader(ctx, originalPath, r, logger, createCloudRobotService)
+	return fromReader(ctx, originalPath, r, logger, newRemoteReader)
 }
 
 // fromReader reads a config from the given reader and specifies
@@ -378,7 +378,7 @@ func fromReader(
 	originalPath string,
 	r io.Reader,
 	logger logging.Logger,
-	makeCloudRobotService cloudRobotServiceFactory,
+	rrFactory remoteReaderFactory,
 ) (*Config, error) {
 	// First read and process config from disk
 	unprocessedConfig := Config{
@@ -393,8 +393,8 @@ func fromReader(
 		return nil, errors.Wrapf(err, "failed to process Config")
 	}
 
-	if makeCloudRobotService != nil && cfgFromDisk.Cloud != nil {
-		svc, closeFunc, err := makeCloudRobotService(ctx, cfgFromDisk.Cloud, logger)
+	if rrFactory != nil && cfgFromDisk.Cloud != nil {
+		svc, closeFunc, err := rrFactory(ctx, cfgFromDisk.Cloud, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -601,7 +601,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 // getFromCloudOrCache returns the config from the gRPC endpoint. If failures during cloud lookup fallback to the
 // local cache if the error indicates it should.
-func (svc *cloudRobotService) getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger logging.Logger) (*Config, bool, error) {
+func (svc *remoteReader) getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger logging.Logger) (*Config, bool, error) {
 	var cached bool
 	cfg, errorShouldCheckCache, err := svc.getFromCloudGRPC(ctx, cloudCfg, logger)
 	if err != nil {
@@ -628,7 +628,7 @@ func (svc *cloudRobotService) getFromCloudOrCache(ctx context.Context, cloudCfg 
 }
 
 // getFromCloudGRPC actually does the fetching of the robot config from the gRPC endpoint.
-func (svc *cloudRobotService) getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logger) (*Config, bool, error) {
+func (svc *remoteReader) getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logger) (*Config, bool, error) {
 	shouldCheckCacheOnFailure := true
 
 	agentInfo, err := getAgentInfo()

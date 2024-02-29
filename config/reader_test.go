@@ -52,8 +52,8 @@ func (c *InjectRobotServiceClient) NeedsRestart(ctx context.Context, in *apppb.N
 	return nil, errors.New("failed to get needs restart")
 }
 
-func createInjectRobotService(ctx context.Context, cloud *Cloud, logger logging.Logger) (cloudRobotService, func() error, error) {
-	svc := cloudRobotService{&InjectRobotServiceClient{}}
+func createInjectRobotService(ctx context.Context, cloud *Cloud, logger logging.Logger) (remoteReader, func() error, error) {
+	svc := remoteReader{&InjectRobotServiceClient{}}
 	return svc, func() error { return nil }, nil
 }
 
@@ -106,7 +106,7 @@ func TestStoreToCache(t *testing.T) {
 	err = storeToCache(cfg.Cloud.ID, cfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	svc := cloudRobotService{client: &InjectRobotServiceClient{}}
+	svc := remoteReader{client: &InjectRobotServiceClient{}}
 
 	// read config from cloud, confirm consistency
 	cloudCfg, err := svc.readFromCloud(ctx, cfg, nil, true, false, logger)
