@@ -4,18 +4,24 @@ package kinematicbase
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"testing"
 
 	"github.com/golang/geo/r3"
+	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/base/fake"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestPTGKinematicsNoGeom(t *testing.T) {
@@ -42,6 +48,29 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	f := kb.Kinematics()
+
+	defaultBaseGeom, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 150., b.Name().Name)
+	test.That(t, err, test.ShouldBeNil)
+	t.Run("Kinematics", func(t *testing.T) {
+		frame, err := tpspace.NewPTGFrameFromKinematicOptions(b.Name().ShortName(), logger, 0.3, 0, nil, false, false)
+		test.That(t, frame, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, f.Name(), test.ShouldEqual, "")
+		test.That(t, f.DoF(), test.ShouldResemble, frame.DoF())
+
+		gifs, err := f.Geometries(referenceframe.FloatsToInputs([]float64{0, 0, 0}))
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, gifs.Geometries(), test.ShouldResemble, []spatialmath.Geometry{defaultBaseGeom})
+	})
+	t.Run("Geometries", func(t *testing.T) {
+		geoms, err := kb.Geometries(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(geoms), test.ShouldEqual, 1)
+		test.That(t, geoms[0], test.ShouldResemble, defaultBaseGeom)
+	})
+
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(f, fs.World())
 	inputMap := referenceframe.StartPositions(fs)
@@ -98,7 +127,19 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 
 	kbOpt := NewKinematicBaseOptions()
 	kbOpt.AngularVelocityDegsPerSec = 0
-	kb, err := WrapWithKinematics(ctx, b, logger, nil, nil, kbOpt)
+
+	ms := inject.NewMovementSensor("movement_sensor")
+	ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		return geo.NewPoint(0, 0), 0, nil
+	}
+	ms.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		return 0, nil
+	}
+	ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+		return &movementsensor.Properties{CompassHeadingSupported: true}, nil
+	}
+	localizer := motion.NewMovementSensorLocalizer(ms, geo.NewPoint(0, 0), spatialmath.NewZeroPose())
+	kb, err := WrapWithKinematics(ctx, b, logger, localizer, nil, kbOpt)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, kb, test.ShouldNotBeNil)
 	ptgBase, ok := kb.(*ptgBaseKinematics)
@@ -133,4 +174,58 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
+
+	t.Run("Kinematics", func(t *testing.T) {
+		kinematics := kb.Kinematics()
+		f, err := tpspace.NewPTGFrameFromKinematicOptions(
+			b.Name().ShortName(),
+			logger,
+			0.3,
+			0, // If zero, will use default trajectory count on the receiver end.
+			[]spatialmath.Geometry{baseGeom},
+			false,
+			false,
+		)
+		test.That(t, f, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, kinematics.Name(), test.ShouldEqual, "")
+		test.That(t, kinematics.DoF(), test.ShouldResemble, f.DoF())
+
+		gifs, err := kinematics.Geometries(referenceframe.FloatsToInputs([]float64{0, 0, 0}))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gifs.Geometries(), test.ShouldResemble, []spatialmath.Geometry{baseGeom})
+	})
+
+	t.Run("GoToInputs", func(t *testing.T) {
+		waypoints, err := plan.Trajectory().GetFrameInputs(kb.Name().ShortName())
+		test.That(t, err, test.ShouldBeNil)
+		kb.GoToInputs(ctx, waypoints[1])
+	})
+
+	t.Run("CurrentInputs", func(t *testing.T) {
+		currentInputs, err := kb.CurrentInputs(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(currentInputs), test.ShouldEqual, 3)
+		fmt.Println("currentInputs: ", currentInputs)
+	})
+
+	t.Run("ErrorState", func(t *testing.T) {
+		errorState, err := kb.ErrorState(ctx, plan, 1)
+		test.That(t, err, test.ShouldBeNil)
+		fmt.Println("errorState: ", spatialmath.PoseToProtobuf(errorState))
+	})
+
+	t.Run("Geometries", func(t *testing.T) {
+		geoms, err := kb.Geometries(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(geoms), test.ShouldEqual, 1)
+		test.That(t, geoms[0], test.ShouldResemble, baseGeom)
+	})
+
+	t.Run("CurrentPosition", func(t *testing.T) {
+		currentPosition, err := kb.CurrentPosition(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		fmt.Println("currentPosition: ", spatialmath.PoseToProtobuf(currentPosition.Pose()))
+	})
 }
