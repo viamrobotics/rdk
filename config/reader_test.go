@@ -2,18 +2,17 @@ package config
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"errors"
-
 	"github.com/google/uuid"
+	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 
-	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/rdk/logging"
 )
 

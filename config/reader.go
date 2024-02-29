@@ -134,7 +134,6 @@ func (svc *cloudRobotService) readCertificateDataFromCloudGRPC(
 	ctx context.Context,
 	signalingInsecure bool,
 	cloudConfigFromDisk *Cloud,
-	logger logging.Logger,
 ) (tlsConfig, error) {
 	res, err := svc.client.Certificate(ctx, &apppb.CertificateRequest{Id: cloudConfigFromDisk.ID})
 	if err != nil {
@@ -245,7 +244,7 @@ func (svc *cloudRobotService) readFromCloud(
 		logger.Debug("reading tlsCertificate from the cloud")
 		// Use the SignalingInsecure from the Cloud config returned from the app not the initial config.
 
-		certData, err := svc.readCertificateDataFromCloudGRPC(ctx, cfg.Cloud.SignalingInsecure, cloudCfg, logger)
+		certData, err := svc.readCertificateDataFromCloudGRPC(ctx, cfg.Cloud.SignalingInsecure, cloudCfg)
 		if err != nil {
 			if !errors.Is(err, context.DeadlineExceeded) {
 				return nil, err
