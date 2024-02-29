@@ -178,7 +178,6 @@ jobs:
 
   appimage_test:
     name: AppImage Test
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:

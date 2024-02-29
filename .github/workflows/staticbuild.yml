@@ -125,7 +125,6 @@ jobs:
 
   static_test:
     name: Static Test
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
