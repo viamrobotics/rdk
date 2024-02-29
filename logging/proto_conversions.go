@@ -2,7 +2,7 @@ package logging
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"math"
 	"strconv"
 	"time"
@@ -36,23 +36,19 @@ func FieldKeyAndValueFromProto(field *structpb.Struct) (string, any, error) {
 	case zapcore.DurationType:
 		fieldValue = time.Duration(zf.Integer)
 	case zapcore.Float64Type:
-		// Zap encodes floats with very large int64s. Proto conversions have some
-		// loss with very large int64s.
-		// See https://pkg.go.dev/google.golang.org/protobuf@v1.32.0/types/known/structpb#NewValue.
-		//
-		// Use a hacky combination of math, fmt, and strconv to use only up to 10 decimal places.
-		fieldValue, err = strconv.ParseFloat(
-			fmt.Sprintf("%.10f", math.Float64frombits(uint64(zf.Integer))), 64)
+		// See robot/client/client.go: we encode float64s as strings to avoid loss
+		// in proto conversion.
+		if zf.String == "" {
+			return "", nil, errors.New("must encode float64s in the String field")
+		}
+		fieldValue, err = strconv.ParseFloat(zf.String, 64)
 		if err != nil {
 			return "", nil, err
 		}
 	case zapcore.Float32Type:
-		fieldValue, err = strconv.ParseFloat(
-			fmt.Sprintf("%.10f", math.Float32frombits(uint32(zf.Integer))), 32)
-		if err != nil {
-			return "", nil, err
-		}
-	case zapcore.Int64Type, zapcore.Int32Type, zapcore.Int16Type, zapcore.Int8Type:
+		fieldValue = math.Float32frombits(uint32(zf.Integer))
+	case zapcore.Int64Type, zapcore.Int32Type, zapcore.Int16Type, zapcore.Int8Type,
+		zapcore.Uint64Type, zapcore.Uint32Type, zapcore.Uint16Type, zapcore.Uint8Type:
 		fieldValue = zf.Integer
 	case zapcore.StringType, zapcore.ErrorType:
 		fieldValue = zf.String

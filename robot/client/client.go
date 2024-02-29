@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -905,6 +906,16 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.
 
 	fieldsP := make([]*structpb.Struct, 0, len(fields))
 	for _, field := range fields {
+		// Zap encodes float64s with very large int64s. Proto conversions have some
+		// loss with very large int64s. float32s are also encoded with int64s, but
+		// the int64 encodings are not large enough to cause loss in conversion.
+		// See https://pkg.go.dev/google.golang.org/protobuf@v1.32.0/types/known/structpb#NewValue.
+		//
+		// Use a hacky combination of fmt and math to store float64s as strings.
+		if field.Type == zapcore.Float64Type {
+			field.String = fmt.Sprintf("%f", math.Float64frombits(uint64(field.Integer)))
+		}
+
 		fieldP, err := protoutils.StructToStructPb(field)
 		if err != nil {
 			return err
