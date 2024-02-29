@@ -999,22 +999,18 @@ var app = &cli.App{
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     organizationFlag,
-									Required: true,
 								},
 								&cli.StringFlag{
 									Name:     locationFlag,
-									Required: true,
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:     machineFlag,
 										Aliases:  []string{aliasRobotFlag},
-										Required: true,
 									},
 								},
 								&cli.StringFlag{
 									Name:     partFlag,
-									Required: true,
 								},
 							},
 							Action: RobotsPartShellAction,

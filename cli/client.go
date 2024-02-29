@@ -883,7 +883,25 @@ func (c *viamClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb
 			return part, nil
 		}
 	}
-	return nil, errors.Errorf("no machine part found for %q", partStr)
+
+	if robotStr != "" {
+		resp, err := c.client.GetRobotParts(c.c.Context, &apppb.GetRobotPartsRequest{
+			RobotId: robotStr,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, part := range resp.Parts {
+			if part.Id == partStr || part.Name == partStr {
+				return part, nil
+			}
+		}
+		if partStr == "" && len(resp.Parts) == 1 {
+			return resp.Parts[0], nil
+		}
+	}
+	
+	return nil, errors.Errorf("no machine part found for machine: %q part: %q", robotStr, partStr)
 }
 
 func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool) ([]*commonpb.LogEntry, error) {
