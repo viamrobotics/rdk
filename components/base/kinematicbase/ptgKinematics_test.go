@@ -4,7 +4,6 @@ package kinematicbase
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"testing"
 
@@ -52,7 +51,9 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 	defaultBaseGeom, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 150., b.Name().Name)
 	test.That(t, err, test.ShouldBeNil)
 	t.Run("Kinematics", func(t *testing.T) {
-		frame, err := tpspace.NewPTGFrameFromKinematicOptions(b.Name().ShortName(), logger, 0.3, 0, nil, false, false)
+		frame, err := tpspace.NewPTGFrameFromKinematicOptions(
+			b.Name().ShortName(), logger, 0.3, 0, nil, NewKinematicBaseOptions().NoSkidSteer, b.TurningRadius == 0,
+		)
 		test.That(t, frame, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -183,8 +184,8 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 			0.3,
 			0, // If zero, will use default trajectory count on the receiver end.
 			[]spatialmath.Geometry{baseGeom},
-			false,
-			false,
+			kbOpt.NoSkidSteer,
+			b.TurningRadius == 0,
 		)
 		test.That(t, f, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeNil)
@@ -207,13 +208,12 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		currentInputs, err := kb.CurrentInputs(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(currentInputs), test.ShouldEqual, 3)
-		fmt.Println("currentInputs: ", currentInputs)
 	})
 
 	t.Run("ErrorState", func(t *testing.T) {
 		errorState, err := kb.ErrorState(ctx, plan, 1)
 		test.That(t, err, test.ShouldBeNil)
-		fmt.Println("errorState: ", spatialmath.PoseToProtobuf(errorState))
+		test.That(t, errorState, test.ShouldNotBeNil)
 	})
 
 	t.Run("Geometries", func(t *testing.T) {
@@ -226,6 +226,6 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	t.Run("CurrentPosition", func(t *testing.T) {
 		currentPosition, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		fmt.Println("currentPosition: ", spatialmath.PoseToProtobuf(currentPosition.Pose()))
+		test.That(t, currentPosition, test.ShouldNotBeNil)
 	})
 }
