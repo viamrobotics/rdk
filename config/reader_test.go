@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -45,6 +46,8 @@ func initTestRobotServiceClient(t *testing.T) pb.RobotServiceClient {
 }
 
 func TestFromReader(t *testing.T) {
+	const robotPartID = "forCachingTest"
+
 	rsc := initTestRobotServiceClient(t)
 	newRemoteReader := func(ctx context.Context, cloud *Cloud, logger logging.Logger) (remoteReader, func() error, error) {
 		rr := remoteReader{rsc}
@@ -53,15 +56,18 @@ func TestFromReader(t *testing.T) {
 
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	cfgText := `{"cloud":{"id":"forCachingTest","secret":"ghi"}}`
-	gotCfg, err := fromReader(ctx, "", strings.NewReader(cfgText), logger, newRemoteReader)
+	cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"secret":"ghi"}}`, robotPartID)
 
+	_, err := readFromCache(robotPartID)
+	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+	gotCfg, err := fromReader(ctx, "", strings.NewReader(cfgText), logger, newRemoteReader)
 	test.That(t, err, test.ShouldBeNil)
+	defer clearCache(robotPartID)
 
 	expectedCloud := &Cloud{
 		ManagedBy:        "acme",
 		SignalingAddress: "abc",
-		ID:               "forCachingTest",
+		ID:               robotPartID,
 		Secret:           "ghi",
 		FQDN:             "fqdn",
 		LocalFQDN:        "localFqdn",
@@ -71,19 +77,30 @@ func TestFromReader(t *testing.T) {
 		LocationSecrets:  []LocationSecret{},
 	}
 	test.That(t, gotCfg.Cloud, test.ShouldResemble, expectedCloud)
+
+	expectedCloud.LocationID = "the-location"
+	expectedCloud.PrimaryOrgID = "the-primary-org"
+	cachedCfg, err := readFromCache(robotPartID)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cachedCfg.Cloud, test.ShouldResemble, expectedCloud)
 }
 
 func TestStoreToCache(t *testing.T) {
+	const robotPartID = "forCachingTest"
+
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger)
 
+	_, err := readFromCache(robotPartID)
+	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger)
 	test.That(t, err, test.ShouldBeNil)
+	defer clearCache(robotPartID)
 
 	cloud := &Cloud{
 		ManagedBy:        "acme",
 		SignalingAddress: "abc",
-		ID:               "forCachingTest",
+		ID:               robotPartID,
 		Secret:           "ghi",
 		FQDN:             "fqdn",
 		LocalFQDN:        "localFqdn",
