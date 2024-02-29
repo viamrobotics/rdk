@@ -646,7 +646,7 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 	// call metadata service.
 
 	names, rpcAPIs, err := rc.resources(ctx)
-	if err != nil {
+	if err != nil && status.Code(err) != codes.Unimplemented {
 		return err
 	}
 
