@@ -126,33 +126,6 @@ func clearCache(id string) {
 	})
 }
 
-type tlsConfig struct {
-	certificate string
-	privateKey  string
-}
-
-func (tls *tlsConfig) readFromCache(id string, logger logging.Logger) error {
-	cachedCfg, err := readFromCache(id)
-	switch {
-	case os.IsNotExist(err):
-		logger.Warn("No cached config, using cloud TLS config.")
-	case err != nil:
-		return err
-	case cachedCfg.Cloud == nil:
-		logger.Warn("Cached config is not a cloud config, using cloud TLS config.")
-	default:
-		if err := cachedCfg.Cloud.ValidateTLS("cloud"); err != nil {
-			logger.Warn("Detected failure to process the cached config when retrieving TLS config, clearing cache.")
-			clearCache(id)
-			return err
-		}
-
-		tls.certificate = cachedCfg.Cloud.TLSCertificate
-		tls.privateKey = cachedCfg.Cloud.TLSPrivateKey
-	}
-	return nil
-}
-
 type cloudRobotService struct {
 	client apppb.RobotServiceClient
 }
@@ -317,6 +290,33 @@ func (svc *cloudRobotService) readFromCloud(
 	}
 
 	return cfg, nil
+}
+
+type tlsConfig struct {
+	certificate string
+	privateKey  string
+}
+
+func (tls *tlsConfig) readFromCache(id string, logger logging.Logger) error {
+	cachedCfg, err := readFromCache(id)
+	switch {
+	case os.IsNotExist(err):
+		logger.Warn("No cached config, using cloud TLS config.")
+	case err != nil:
+		return err
+	case cachedCfg.Cloud == nil:
+		logger.Warn("Cached config is not a cloud config, using cloud TLS config.")
+	default:
+		if err := cachedCfg.Cloud.ValidateTLS("cloud"); err != nil {
+			logger.Warn("Detected failure to process the cached config when retrieving TLS config, clearing cache.")
+			clearCache(id)
+			return err
+		}
+
+		tls.certificate = cachedCfg.Cloud.TLSCertificate
+		tls.privateKey = cachedCfg.Cloud.TLSPrivateKey
+	}
+	return nil
 }
 
 // Read reads a config from the given file.
