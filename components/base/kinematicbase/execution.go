@@ -344,7 +344,6 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(currStep, nGoals int, c
 	goals := []courseCorrectionGoal{}
 	
 	stepsPerGoal := int((ptgk.nonzeroBaseTurningRadiusMeters * lookaheadDistMult * 1000) / stepDistResolution)
-	stepsRemainingThisGoal := stepsPerGoal
 	startingTrajPt := 0
 	for j := 0; j < len(steps[currStep].subTraj); j++ {
 		if steps[currStep].subTraj[j].Dist >= currDist {
@@ -352,6 +351,19 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(currStep, nGoals int, c
 			break
 		}
 	}
+	
+	totalTrajSteps := 0
+	for i := currStep; i < len(steps); i++ {
+		totalTrajSteps += len(steps[i].subTraj)
+	}
+	totalTrajSteps -= startingTrajPt
+	// If we have fewer steps left than needed to fill our goal list, shrink the spacing of goals
+	if stepsPerGoal * nGoals > totalTrajSteps {
+		stepsPerGoal = totalTrajSteps / nGoals // int division is what we want here
+	}
+	
+	
+	stepsRemainingThisGoal := stepsPerGoal
 	for i := currStep; i < len(steps); i++ {
 		for len(steps[i].subTraj) - startingTrajPt > stepsRemainingThisGoal {
 			

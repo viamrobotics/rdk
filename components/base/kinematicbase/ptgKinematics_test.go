@@ -172,7 +172,8 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	
 	// Mock up being off course and try to correct
 	skewPose := spatialmath.NewPose(r3.Vector{100, 30, 0}, &spatialmath.OrientationVectorDegrees{OZ:1, Theta: -40})
-	currArc := 1
+	//~ currArc := 1
+	currArc := len(arcSteps) - 2
 	currDist := 1.
 	
 	goals := ptgBase.makeCourseCorrectionGoals(
