@@ -884,6 +884,7 @@ func (c *viamClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb
 		}
 	}
 
+	// if we can't find the part via org/location, see if this is an id, and try to find it directly that way
 	if robotStr != "" {
 		resp, err := c.client.GetRobotParts(c.c.Context, &apppb.GetRobotPartsRequest{
 			RobotId: robotStr,
