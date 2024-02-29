@@ -210,38 +210,6 @@ func (pin *gpioPin) startSoftwarePWM() error {
 	return nil
 }
 
-// accurateSleep is intended to be a replacement for utils.SelectContextOrWait which wakes up
-// closer to when it's supposed to. We return whether the context is still valid (not yet
-// cancelled).
-func accurateSleep(ctx context.Context, duration time.Duration) bool {
-	// If we use utils.SelectContextOrWait(), we will wake up sometime after when we're supposed
-	// to, which can be hundreds of microseconds later (because the process scheduler in the OS only
-	// schedules things every millisecond or two). For use cases like a web server responding to a
-	// query, that's fine. but when outputting a PWM signal, hundreds of microseconds can be a big
-	// deal. To avoid this, we sleep for less time than we're supposed to, and then busy-wait until
-	// the right time. Inspiration for this approach was taken from
-	// https://blog.bearcats.nl/accurate-sleep-function/
-	// On a raspberry pi 4, naively calling utils.SelectContextOrWait tended to have an error of
-	// about 140-300 microseconds, while this version had an error of 0.3-0.6 microseconds.
-	startTime := time.Now()
-	maxBusyWaitTime := 1500 * time.Microsecond
-	if duration > maxBusyWaitTime {
-		shorterDuration := duration - maxBusyWaitTime
-		if !utils.SelectContextOrWait(ctx, shorterDuration) {
-			return false
-		}
-	}
-
-	for time.Since(startTime) < duration {
-		select {
-		case <-ctx.Done():
-			return false
-		default: // Busy-wait some more
-		}
-	}
-	return true
-}
-
 // We turn the pin either on or off, and then wait until it's time to turn it off or on again (or
 // until we're supposed to shut down). We return whether we should continue the software PWM cycle.
 func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
@@ -277,7 +245,7 @@ func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
 		dutyCycle = 1 - dutyCycle
 	}
 	duration := time.Duration(float64(time.Second) * dutyCycle / float64(freqHz))
-	return accurateSleep(pin.cancelCtx, duration)
+	return utils.SelectContextOrWait(pin.cancelCtx, duration)
 }
 
 func (pin *gpioPin) softwarePwmLoop() {
