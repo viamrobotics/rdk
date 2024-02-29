@@ -8,6 +8,7 @@ import (
 
 	"github.com/bep/debounce"
 	"github.com/fsnotify/fsnotify"
+	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
@@ -66,7 +67,15 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 			if time.Now().After(nextCheckForNewCert) {
 				checkForNewCert = true
 			}
-			newConfig, err := readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, logger)
+
+			conn, err := CreateNewGRPCClient(ctx, config.Cloud, logger)
+			if err != nil {
+				continue
+			}
+			defer utils.UncheckedErrorFunc(conn.Close)
+
+			svc := cloudRobotService{apppb.NewRobotServiceClient(conn)}
+			newConfig, err := svc.readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, logger)
 			if err != nil {
 				logger.Errorw("error reading cloud config", "error", err)
 				continue

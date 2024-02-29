@@ -5,12 +5,81 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
+
+	"errors"
 
 	"github.com/google/uuid"
 	"go.viam.com/test"
+	"google.golang.org/grpc"
 
+	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/rdk/logging"
 )
+
+type InjectRobotServiceClient struct{}
+
+func (c *InjectRobotServiceClient) Config(ctx context.Context, in *apppb.ConfigRequest, opts ...grpc.CallOption) (*apppb.ConfigResponse, error) {
+	resp := &apppb.ConfigResponse{
+		Config: &apppb.RobotConfig{
+			Cloud: &apppb.CloudConfig{
+				ManagedBy:        "acme",
+				SignalingAddress: "abc",
+				Id:               "forCachingTest",
+				Secret:           "ghi",
+				Fqdn:             "fqdn",
+				LocalFqdn:        "localFqdn",
+				LocationId:       "the-location",
+				PrimaryOrgId:     "the-primary-org",
+			},
+		},
+	}
+	return resp, nil
+}
+
+func (c *InjectRobotServiceClient) Certificate(ctx context.Context, in *apppb.CertificateRequest, opts ...grpc.CallOption) (*apppb.CertificateResponse, error) {
+	resp := &apppb.CertificateResponse{
+		TlsCertificate: "cert",
+		TlsPrivateKey:  "key",
+	}
+	return resp, nil
+}
+
+func (c *InjectRobotServiceClient) Log(ctx context.Context, in *apppb.LogRequest, opts ...grpc.CallOption) (*apppb.LogResponse, error) {
+	return nil, errors.New("failed to get log")
+}
+
+func (c *InjectRobotServiceClient) NeedsRestart(ctx context.Context, in *apppb.NeedsRestartRequest, opts ...grpc.CallOption) (*apppb.NeedsRestartResponse, error) {
+	return nil, errors.New("failed to get needs restart")
+}
+
+func createInjectRobotService(ctx context.Context, cloud *Cloud, logger logging.Logger) (cloudRobotService, func() error, error) {
+	svc := cloudRobotService{&InjectRobotServiceClient{}}
+	return svc, func() error { return nil }, nil
+}
+
+func TestFromReader(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	cfgText := `{"cloud":{"id":"forCachingTest","secret":"ghi"}}`
+	gotCfg, err := fromReader(ctx, "", strings.NewReader(cfgText), logger, createInjectRobotService)
+
+	test.That(t, err, test.ShouldBeNil)
+
+	expectedCloud := &Cloud{
+		ManagedBy:        "acme",
+		SignalingAddress: "abc",
+		ID:               "forCachingTest",
+		Secret:           "ghi",
+		FQDN:             "fqdn",
+		LocalFQDN:        "localFqdn",
+		TLSCertificate:   "cert",
+		TLSPrivateKey:    "key",
+		RefreshInterval:  time.Duration(10000000000),
+		LocationSecrets:  []LocationSecret{},
+	}
+	test.That(t, gotCfg.Cloud, test.ShouldResemble, expectedCloud)
+}
 
 func TestStoreToCache(t *testing.T) {
 	logger := logging.NewTestLogger(t)
@@ -38,8 +107,10 @@ func TestStoreToCache(t *testing.T) {
 	err = storeToCache(cfg.Cloud.ID, cfg)
 	test.That(t, err, test.ShouldBeNil)
 
+	svc := cloudRobotService{client: &InjectRobotServiceClient{}}
+
 	// read config from cloud, confirm consistency
-	cloudCfg, err := readFromCloud(ctx, cfg, nil, true, false, logger)
+	cloudCfg, err := svc.readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloudCfg, test.ShouldResemble, cfg)
 
@@ -48,7 +119,7 @@ func TestStoreToCache(t *testing.T) {
 	cfg.Remotes = append(cfg.Remotes, newRemote)
 
 	// read config from cloud again, confirm that the cached config differs from cfg
-	cloudCfg2, err := readFromCloud(ctx, cfg, nil, true, false, logger)
+	cloudCfg2, err := svc.readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloudCfg2, test.ShouldNotResemble, cfg)
 
@@ -59,7 +130,7 @@ func TestStoreToCache(t *testing.T) {
 	test.That(t, cfg.Ensure(true, logger), test.ShouldBeNil)
 
 	// read updated cloud config, confirm that it now matches our updated cfg
-	cloudCfg3, err := readFromCloud(ctx, cfg, nil, true, false, logger)
+	cloudCfg3, err := svc.readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloudCfg3, test.ShouldResemble, cfg)
 }
