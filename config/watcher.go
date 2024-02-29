@@ -57,6 +57,16 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 
 	ticker := time.NewTicker(config.Cloud.RefreshInterval)
 
+	// TODO: the watcher should also restablish this connection.
+	conn, err := CreateNewGRPCClient(ctx, config.Cloud, logger)
+	if err != nil {
+		cancel()
+		logger.Warn("failed to connect to app - cannot watch for config updates")
+		return nil
+	}
+	defer utils.UncheckedErrorFunc(conn.Close)
+	svc := cloudRobotService{apppb.NewRobotServiceClient(conn)}
+
 	var prevCfg *Config
 	utils.ManagedGo(func() {
 		for {
@@ -68,13 +78,6 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 				checkForNewCert = true
 			}
 
-			conn, err := CreateNewGRPCClient(ctx, config.Cloud, logger)
-			if err != nil {
-				continue
-			}
-			defer utils.UncheckedErrorFunc(conn.Close)
-
-			svc := cloudRobotService{apppb.NewRobotServiceClient(conn)}
 			newConfig, err := svc.readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, logger)
 			if err != nil {
 				logger.Errorw("error reading cloud config", "error", err)
