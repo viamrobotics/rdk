@@ -38,6 +38,7 @@ type ptgBaseKinematics struct {
 
 	linVelocityMMPerSecond   float64
 	angVelocityDegsPerSecond float64
+	nonzeroBaseTurningRadiusMeters float64
 	inputLock                sync.RWMutex
 	currentInputs             []referenceframe.Input
 	origin                   spatialmath.Pose
@@ -124,7 +125,7 @@ func wrapWithPTGKinematics(
 		origin = originPIF.Pose()
 		
 		cPTG := tpspace.NewCirclePTG(nonzeroBaseTurningRadiusMeters * 1000)
-		courseCorrectionSolver, err = tpspace.NewPTGIK(cPTG, logger, linVelocityMMPerSecond*2, linVelocityMMPerSecond*2, 42, 2)
+		courseCorrectionSolver, err = tpspace.NewPTGIK(cPTG, logger, nonzeroBaseTurningRadiusMeters*2000, nonzeroBaseTurningRadiusMeters*2000, 42, 2)
 		if err != nil {
 			return nil, err
 		}
@@ -139,6 +140,7 @@ func wrapWithPTGKinematics(
 		courseCorrectionSolver:         courseCorrectionSolver,
 		linVelocityMMPerSecond:   linVelocityMMPerSecond,
 		angVelocityDegsPerSecond: angVelocityDegsPerSecond,
+		nonzeroBaseTurningRadiusMeters: nonzeroBaseTurningRadiusMeters,
 		currentInputs:             zeroInput,
 		origin:                   origin,
 		geometries:               geometries,

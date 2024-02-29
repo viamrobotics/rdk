@@ -20,8 +20,9 @@ import (
 )
 
 const (
-	inputUpdateStepSeconds    = 0.5 // Update CurrentInputs (and check deviation) every this many seconds.
-	lookaheadTimeSeconds = 2.
+	inputUpdateStepSeconds float64   = 0.35 // Update CurrentInputs (and check deviation) every this many seconds.
+	lookaheadDistMult = 2. // Look ahead distance for path correction will be this times the turning radius
+	goalsToAttempt = 10
 	stepDistResolution = 1.  // Before post-processing trajectory will have velocities every this many mm (or degs if spinning in place)
 	
 	// Used to determine minimum linear deviation allowed before correction attempt. Determined by multiplying max linear speed by 
@@ -93,7 +94,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 		timestep := time.Duration(step.durationSeconds*1000*1000) * time.Microsecond
 
 		ptgk.logger.Debugf("step, i %d", i)
-		ptgk.logger.Debug(step.linVelMMps, step.angVelDegps, step.durationSeconds, step.startDist, step.ptgIdx)
+		ptgk.logger.Debug(step.linVelMMps, step.angVelDegps, step.durationSeconds, step.startDist, step.ptgIdx, spatialmath.PoseToProtobuf(step.trajStartPose))
 
 		ptgk.logger.CDebugf(ctx,
 			"setting velocity to linear %v angular %v and running velocity step for %s",
@@ -164,8 +165,13 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 					ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
 					ptgk.logger.Debug("SLAM says at ", spatialmath.PoseToProtobuf(actualPose.Pose()))
 					// Accumulate list of points along the path to try to connect to
-					goalsToAttempt := int(lookaheadTimeSeconds / inputUpdateStepSeconds) + 1
-					goals := ptgk.nPosesPastDist(i, goalsToAttempt, currentInputs[distanceAlongTrajectoryIndex].Value, actualPose.Pose(), arcSteps)
+					goals := ptgk.makeCourseCorrectionGoals(
+						i,
+						goalsToAttempt,
+						currentInputs[distanceAlongTrajectoryIndex].Value,
+						actualPose.Pose(),
+						arcSteps,
+					)
 
 					ptgk.logger.Debug("wanted to attempt ", goalsToAttempt, " goals, got ", len(goals))
 					// Attempt to solve from `actualPose` to each of those points
@@ -302,10 +308,16 @@ func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []course
 		solveMetric := ik.NewSquaredNormMetric(goal.Goal)
 		solutionChan := make(chan *ik.Solution, 1)
 		ptgk.logger.Debug("attempting goal ", spatialmath.PoseToProtobuf(goal.Goal))
+		seed := []referenceframe.Input{{math.Pi/2}, {ptgk.linVelocityMMPerSecond/2}, {math.Pi/2}, {ptgk.linVelocityMMPerSecond/2}}
+		if goal.Goal.Point().X > 0 {
+			seed[0].Value *= -1
+		} else {
+			seed[2].Value *= -1
+		}
 		err := ptgk.courseCorrectionSolver.Solve(
 			ctx,
 			solutionChan,
-			nil,
+			seed,
 			solveMetric,
 			0,
 		)
@@ -318,8 +330,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []course
 		default:
 		}
 		ptgk.logger.Debug("solution ", solution)
-		
-		if solution.Score < 1. {
+		if solution.Score < 100. {
 			goal.Solution = solution.Configuration
 			return goal, nil
 		}
@@ -329,25 +340,34 @@ func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []course
 
 // This function will select `nGoals` poses in the future from the current position, rectifying them to be relatice to `currPose`.
 // It will create `courseCorrectionGoal` structs for each. The goals will be approximately evenly spaced.
-func (ptgk *ptgBaseKinematics) nPosesPastDist(currStep, nGoals int, currDist float64, currPose spatialmath.Pose, steps []arcStep) []courseCorrectionGoal {
+func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(currStep, nGoals int, currDist float64, currPose spatialmath.Pose, steps []arcStep) []courseCorrectionGoal {
 	goals := []courseCorrectionGoal{}
-	for i := currStep; i < len(steps); i++ {
-		pastDist := false
-		for j := 0; j < len(steps[i].subTraj); j += int((ptgk.linVelocityMMPerSecond * inputUpdateStepSeconds) / stepDistResolution) {
-			trajNode := steps[i].subTraj[j]
-			if pastDist {
-				goalPose := spatialmath.PoseBetween(currPose, spatialmath.Compose(steps[i].trajStartPose, trajNode.Pose))
-				goals = append(goals, courseCorrectionGoal{Goal: goalPose, stepIdx: i, trajIdx: j})
-				if len(goals) == nGoals {
-					return goals
-				}
-			} else {
-				if trajNode.Dist >= currDist {
-					pastDist = true
-					currDist = 0
-				}
-			}
+	
+	stepsPerGoal := int((ptgk.nonzeroBaseTurningRadiusMeters * lookaheadDistMult * 1000) / stepDistResolution)
+	stepsRemainingThisGoal := stepsPerGoal
+	startingTrajPt := 0
+	for j := 0; j < len(steps[currStep].subTraj); j++ {
+		if steps[currStep].subTraj[j].Dist >= currDist {
+			startingTrajPt = j
+			break
 		}
+	}
+	for i := currStep; i < len(steps); i++ {
+		for len(steps[i].subTraj) - startingTrajPt > stepsRemainingThisGoal {
+			
+			goalTrajPtIdx := startingTrajPt + stepsRemainingThisGoal
+			
+			goalPose := spatialmath.PoseBetween(currPose, spatialmath.Compose(steps[i].trajStartPose, steps[i].subTraj[goalTrajPtIdx].Pose))
+			goals = append(goals, courseCorrectionGoal{Goal: goalPose, stepIdx: i, trajIdx: goalTrajPtIdx})
+			if len(goals) == nGoals {
+				return goals
+			}
+			
+			startingTrajPt = goalTrajPtIdx
+			stepsRemainingThisGoal = stepsPerGoal
+		}
+		stepsRemainingThisGoal -= len(steps[i].subTraj) - startingTrajPt
+		startingTrajPt = 0
 	}
 	return goals
 }
