@@ -900,7 +900,7 @@ func (c *viamClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb
 			return resp.Parts[0], nil
 		}
 	}
-	
+
 	return nil, errors.Errorf("no machine part found for machine: %q part: %q", robotStr, partStr)
 }
 
