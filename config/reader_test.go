@@ -2,66 +2,59 @@ package config
 
 import (
 	"context"
-	"errors"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	apppb "go.viam.com/api/app/v1"
+	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/testutils/injectpb"
 )
 
-type InjectRobotServiceClient struct{}
+func initTestRobotServiceClient(t *testing.T) pb.RobotServiceClient {
+	t.Helper()
 
-func (c *InjectRobotServiceClient) Config(ctx context.Context, in *apppb.ConfigRequest, opts ...grpc.CallOption) (*apppb.ConfigResponse, error) {
-	resp := &apppb.ConfigResponse{
-		Config: &apppb.RobotConfig{
-			Cloud: &apppb.CloudConfig{
-				ManagedBy:        "acme",
-				SignalingAddress: "abc",
-				Id:               "forCachingTest",
-				Secret:           "ghi",
-				Fqdn:             "fqdn",
-				LocalFqdn:        "localFqdn",
-				LocationId:       "the-location",
-				PrimaryOrgId:     "the-primary-org",
-			},
-		},
+	rsc := &injectpb.RobotServiceClient{}
+	rsc.ConfigFunc = func(ctx context.Context, in *pb.ConfigRequest, opts ...grpc.CallOption) (*pb.ConfigResponse, error) {
+		injectCloud := &pb.CloudConfig{
+			ManagedBy:        "acme",
+			SignalingAddress: "abc",
+			Id:               "forCachingTest",
+			Secret:           "ghi",
+			Fqdn:             "fqdn",
+			LocalFqdn:        "localFqdn",
+			LocationId:       "the-location",
+			PrimaryOrgId:     "the-primary-org",
+		}
+		resp := &pb.ConfigResponse{Config: &pb.RobotConfig{Cloud: injectCloud}}
+		return resp, nil
 	}
-	return resp, nil
-}
-
-func (c *InjectRobotServiceClient) Certificate(ctx context.Context, in *apppb.CertificateRequest, opts ...grpc.CallOption) (*apppb.CertificateResponse, error) {
-	resp := &apppb.CertificateResponse{
-		TlsCertificate: "cert",
-		TlsPrivateKey:  "key",
+	rsc.CertificateFunc = func(ctx context.Context, in *pb.CertificateRequest, opts ...grpc.CallOption) (*pb.CertificateResponse, error) {
+		resp := &pb.CertificateResponse{
+			TlsCertificate: "cert",
+			TlsPrivateKey:  "key",
+		}
+		return resp, nil
 	}
-	return resp, nil
-}
-
-func (c *InjectRobotServiceClient) Log(ctx context.Context, in *apppb.LogRequest, opts ...grpc.CallOption) (*apppb.LogResponse, error) {
-	return nil, errors.New("failed to get log")
-}
-
-func (c *InjectRobotServiceClient) NeedsRestart(ctx context.Context, in *apppb.NeedsRestartRequest, opts ...grpc.CallOption) (*apppb.NeedsRestartResponse, error) {
-	return nil, errors.New("failed to get needs restart")
-}
-
-func createInjectRobotService(ctx context.Context, cloud *Cloud, logger logging.Logger) (remoteReader, func() error, error) {
-	svc := remoteReader{&InjectRobotServiceClient{}}
-	return svc, func() error { return nil }, nil
+	return rsc
 }
 
 func TestFromReader(t *testing.T) {
+	rsc := initTestRobotServiceClient(t)
+	newRemoteReader := func(ctx context.Context, cloud *Cloud, logger logging.Logger) (remoteReader, func() error, error) {
+		rr := remoteReader{rsc}
+		return rr, func() error { return nil }, nil
+	}
+
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cfgText := `{"cloud":{"id":"forCachingTest","secret":"ghi"}}`
-	gotCfg, err := fromReader(ctx, "", strings.NewReader(cfgText), logger, createInjectRobotService)
+	gotCfg, err := fromReader(ctx, "", strings.NewReader(cfgText), logger, newRemoteReader)
 
 	test.That(t, err, test.ShouldBeNil)
 
@@ -106,10 +99,10 @@ func TestStoreToCache(t *testing.T) {
 	err = storeToCache(cfg.Cloud.ID, cfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	svc := remoteReader{client: &InjectRobotServiceClient{}}
+	rr := remoteReader{initTestRobotServiceClient(t)}
 
 	// read config from cloud, confirm consistency
-	cloudCfg, err := svc.readFromCloud(ctx, cfg, nil, true, false, logger)
+	cloudCfg, err := rr.readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloudCfg, test.ShouldResemble, cfg)
 
@@ -118,7 +111,7 @@ func TestStoreToCache(t *testing.T) {
 	cfg.Remotes = append(cfg.Remotes, newRemote)
 
 	// read config from cloud again, confirm that the cached config differs from cfg
-	cloudCfg2, err := svc.readFromCloud(ctx, cfg, nil, true, false, logger)
+	cloudCfg2, err := rr.readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloudCfg2, test.ShouldNotResemble, cfg)
 
@@ -129,7 +122,7 @@ func TestStoreToCache(t *testing.T) {
 	test.That(t, cfg.Ensure(true, logger), test.ShouldBeNil)
 
 	// read updated cloud config, confirm that it now matches our updated cfg
-	cloudCfg3, err := svc.readFromCloud(ctx, cfg, nil, true, false, logger)
+	cloudCfg3, err := rr.readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloudCfg3, test.ShouldResemble, cfg)
 }
