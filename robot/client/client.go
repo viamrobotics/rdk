@@ -65,17 +65,17 @@ type RobotClient struct {
 	address     string
 	dialOptions []rpc.DialOption
 
-	mu              sync.RWMutex
-	resourceNames   []resource.Name
-	resourceRPCAPIs []resource.RPCAPI
-	resourceClients map[resource.Name]resource.Resource
-	remoteNameMap   map[resource.Name]resource.Name
-	changeChan      chan bool
-	notifyParent    func()
-	conn            grpc.ReconfigurableClientConn
-	client          pb.RobotServiceClient
-	refClient       *grpcreflect.Client
-	connected       atomic.Bool
+	mu                       sync.RWMutex
+	resourceNames            []resource.Name
+	resourceRPCAPIs          []resource.RPCAPI
+	resourceClients          map[resource.Name]resource.Resource
+	remoteNameMap            map[resource.Name]resource.Name
+	changeChan               chan bool
+	notifyParent             func()
+	conn                     grpc.ReconfigurableClientConn
+	client                   pb.RobotServiceClient
+	refClient                *grpcreflect.Client
+	connected                atomic.Bool
 	rpcSubtypesUnimplemented bool
 
 	activeBackgroundWorkers sync.WaitGroup
