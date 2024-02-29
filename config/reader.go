@@ -601,7 +601,12 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 // getFromCloudOrCache returns the config from the gRPC endpoint. If failures during cloud lookup fallback to the
 // local cache if the error indicates it should.
-func (rr *remoteReader) getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger logging.Logger) (*Config, bool, error) {
+func (rr *remoteReader) getFromCloudOrCache(
+	ctx context.Context,
+	cloudCfg *Cloud,
+	shouldReadFromCache bool,
+	logger logging.Logger,
+) (*Config, bool, error) {
 	var cached bool
 	cfg, errorShouldCheckCache, err := rr.getFromCloudGRPC(ctx, cloudCfg, logger)
 	if err != nil {
