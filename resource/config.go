@@ -24,10 +24,10 @@ type Config struct {
 	LogConfiguration          LogConfig
 	AssociatedResourceConfigs []AssociatedResourceConfig
 	Attributes                utils.AttributeMap
-	AssociatedAttributes      any
 
-	ConvertedAttributes ConfigValidator
-	ImplicitDependsOn   []string
+	AssociatedAttributes map[Name]AssociatedConfig
+	ConvertedAttributes  ConfigValidator
+	ImplicitDependsOn    []string
 
 	alreadyValidated   bool
 	cachedImplicitDeps []string
@@ -176,6 +176,13 @@ func (assoc AssociatedResourceConfig) MarshalJSON() ([]byte, error) {
 // Equals checks if the two configs are deeply equal to each other. Validation
 // related fields and implicit dependencies will be ignored.
 func (conf Config) Equals(other Config) bool {
+	for association, assocCfg := range conf.AssociatedAttributes {
+		otherAssocCfg, ok := other.AssociatedAttributes[association]
+		if !ok || !assocCfg.Equals(otherAssocCfg) {
+			return false
+		}
+	}
+
 	// These `Config` objects are copies. Changing the members here for equality checking does not
 	// impact the original versions.
 	conf.alreadyValidated = false
@@ -183,12 +190,14 @@ func (conf Config) Equals(other Config) bool {
 	conf.cachedImplicitDeps = nil
 	conf.cachedErr = nil
 	conf.ConvertedAttributes = nil
+	conf.AssociatedAttributes = nil
 
 	other.alreadyValidated = false
 	other.ImplicitDependsOn = nil
 	other.cachedImplicitDeps = nil
 	other.cachedErr = nil
 	other.ConvertedAttributes = nil
+	other.AssociatedAttributes = nil
 
 	//nolint:govet
 	return reflect.DeepEqual(conf, other)

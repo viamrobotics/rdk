@@ -100,7 +100,7 @@ func TestResourceAPIRegistry(t *testing.T) {
 			Status:                      statf,
 			RPCServiceServerConstructor: sf,
 			RPCServiceDesc:              &pb.RobotService_ServiceDesc,
-		}, resource.AssociatedConfigRegistration[resource.AssociatedNameUpdater]{})
+		}, resource.AssociatedConfigRegistration[resource.AssociatedConfig]{})
 	}, test.ShouldPanic)
 	resource.RegisterAPI(acme.API, resource.APIRegistration[arm.Arm]{
 		Status:                      statf,
@@ -178,7 +178,7 @@ func TestResourceAPIRegistry(t *testing.T) {
 			RPCServiceServerConstructor: sf,
 			RPCClient:                   rcf,
 			RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
-		}, resource.AssociatedConfigRegistration[resource.AssociatedNameUpdater]{})
+		}, resource.AssociatedConfigRegistration[resource.AssociatedConfig]{})
 	}, test.ShouldPanic)
 
 	resource.DeregisterAPI(api3)

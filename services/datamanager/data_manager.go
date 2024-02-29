@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"slices"
 
 	servicepb "go.viam.com/api/service/datamanager/v1"
-	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
@@ -24,17 +24,7 @@ func init() {
 			MaxInstance:                 resource.DefaultMaxInstance,
 		},
 		resource.AssociatedConfigRegistration[*AssociatedConfig]{
-			AttributeMapConverter: func(attributes utils.AttributeMap) (*AssociatedConfig, error) {
-				md, err := json.Marshal(attributes)
-				if err != nil {
-					return nil, err
-				}
-				var conf AssociatedConfig
-				if err := json.Unmarshal(md, &conf); err != nil {
-					return nil, err
-				}
-				return &conf, nil
-			},
+			AttributeMapConverter: newAssociatedConfig,
 		},
 	)
 }
@@ -63,7 +53,36 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 
 // DataCaptureConfigs specify a list of methods to capture on resources.
 type AssociatedConfig struct {
-	CaptureMethods []DataCaptureConfig `json:"capture_methods"`
+	CaptureMethods []*DataCaptureConfig `json:"capture_methods"`
+}
+
+func newAssociatedConfig(attributes utils.AttributeMap) (*AssociatedConfig, error) {
+	md, err := json.Marshal(attributes)
+	if err != nil {
+		return nil, err
+	}
+	var conf AssociatedConfig
+	if err := json.Unmarshal(md, &conf); err != nil {
+		return nil, err
+	}
+	return &conf, nil
+}
+
+// Equals describes if an AssociatedConfig is equal to another
+func (ac *AssociatedConfig) Equals(other resource.AssociatedConfig) bool {
+	ac2, err := utils.AssertType[*AssociatedConfig](other)
+	if err != nil {
+		return false
+	}
+	if len(ac.CaptureMethods) != len(ac2.CaptureMethods) {
+		return false
+	}
+	for i := 0; i < len(ac.CaptureMethods); i++ {
+		if !ac.CaptureMethods[i].Equals(ac2.CaptureMethods[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // UpdateResourceNames allows the caller to modify the resource names of data capture in place.
@@ -75,7 +94,7 @@ func (ac *AssociatedConfig) UpdateResourceNames(updater func(old resource.Name) 
 
 // DataCaptureConfig is used to initialize a collector for a component or remote.
 type DataCaptureConfig struct {
-	Resource           resource.Resource `json:"-"`
+	Resource           resource.Resource
 	Name               resource.Name     `json:"name"`
 	Method             string            `json:"method"`
 	CaptureFrequencyHz float32           `json:"capture_frequency_hz"`
@@ -89,8 +108,7 @@ type DataCaptureConfig struct {
 
 // Equals checks if one capture config is equal to another.
 func (c *DataCaptureConfig) Equals(other *DataCaptureConfig) bool {
-	return c.Resource == other.Resource &&
-		c.Name.String() == other.Name.String() &&
+	return c.Name.String() == other.Name.String() &&
 		c.Method == other.Method &&
 		c.CaptureFrequencyHz == other.CaptureFrequencyHz &&
 		c.CaptureQueueSize == other.CaptureQueueSize &&
