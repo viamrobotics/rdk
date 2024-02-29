@@ -192,6 +192,14 @@ type someType struct {
 	capName resource.Name
 }
 
+func (st *someType) Equals(other resource.AssociatedConfig) bool {
+	st2, err := utils.AssertType[*someType](other)
+	if err != nil {
+		return false
+	}
+	return st.Field1 == st2.Field1 && st.capName == st2.capName
+}
+
 func (st *someType) UpdateResourceNames(updater func(old resource.Name) resource.Name) {
 	st.capName = updater(arm.Named("foo"))
 }

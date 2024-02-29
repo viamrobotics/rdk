@@ -422,9 +422,6 @@ func (svc *builtIn) Reconfigure(
 		if err != nil {
 			return err
 		}
-		for _, i := range associatedConf.CaptureMethods {
-			svc.logger.Info(i)
-		}
 		allCaptureMethods = append(allCaptureMethods, associatedConf.CaptureMethods...)
 	}
 
