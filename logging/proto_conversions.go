@@ -3,14 +3,31 @@ package logging
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"strconv"
 	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/structpb"
 )
+
+// FieldToProto converts a zap.Field to a *structpb.Struct.
+func FieldToProto(field zap.Field) (*structpb.Struct, error) {
+	// Zap encodes float64s with very large int64s. Proto conversions have some
+	// loss with very large int64s. float32s are also encoded with int64s, but
+	// the int64 encodings are not large enough to cause loss in conversion.
+	// See https://pkg.go.dev/google.golang.org/protobuf@v1.32.0/types/known/structpb#NewValue.
+	//
+	// Use a hacky combination of fmt and math to store float64s as strings.
+	if field.Type == zapcore.Float64Type {
+		field.String = fmt.Sprintf("%f", math.Float64frombits(uint64(field.Integer)))
+	}
+
+	return protoutils.StructToStructPb(field)
+}
 
 // FieldKeyAndValueFromProto examines a *structpb.Struct and returns its key
 // string and native golang value.
@@ -36,8 +53,8 @@ func FieldKeyAndValueFromProto(field *structpb.Struct) (string, any, error) {
 	case zapcore.DurationType:
 		fieldValue = time.Duration(zf.Integer)
 	case zapcore.Float64Type:
-		// See robot/client/client.go: we encode float64s as strings to avoid loss
-		// in proto conversion.
+		// See FieldToProto above: we encode float64s as strings to avoid loss in
+		// proto conversion.
 		if zf.String == "" {
 			return "", nil, errors.New("must encode float64s in the String field")
 		}
@@ -47,9 +64,10 @@ func FieldKeyAndValueFromProto(field *structpb.Struct) (string, any, error) {
 		}
 	case zapcore.Float32Type:
 		fieldValue = math.Float32frombits(uint32(zf.Integer))
-	case zapcore.Int64Type, zapcore.Int32Type, zapcore.Int16Type, zapcore.Int8Type,
-		zapcore.Uint64Type, zapcore.Uint32Type, zapcore.Uint16Type, zapcore.Uint8Type:
+	case zapcore.Int64Type, zapcore.Int32Type, zapcore.Int16Type, zapcore.Int8Type:
 		fieldValue = zf.Integer
+	case zapcore.Uint64Type, zapcore.Uint32Type, zapcore.Uint16Type, zapcore.Uint8Type:
+		fieldValue = uint64(zf.Integer)
 	case zapcore.StringType, zapcore.ErrorType:
 		fieldValue = zf.String
 	case zapcore.TimeType:
