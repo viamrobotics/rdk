@@ -445,10 +445,11 @@ func (manager *resourceManager) removeMarkedAndClose(
 ) error {
 	defer func() {
 		manager.configLock.Lock()
+		defer manager.configLock.Unlock()
 		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
 			manager.logger.Warnw("failed to save graph snapshot", "error", err)
 		}
-		manager.configLock.Unlock()
+
 	}()
 
 	var allErrs error
