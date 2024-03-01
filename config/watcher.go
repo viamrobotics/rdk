@@ -65,7 +65,7 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 		return nil
 	}
 	defer utils.UncheckedErrorFunc(conn.Close)
-	svc := remoteReader{apppb.NewRobotServiceClient(conn)}
+	rr := remoteReader{apppb.NewRobotServiceClient(conn)}
 
 	var prevCfg *Config
 	utils.ManagedGo(func() {
@@ -78,7 +78,7 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 				checkForNewCert = true
 			}
 
-			newConfig, err := svc.readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, logger)
+			newConfig, err := rr.readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, logger)
 			if err != nil {
 				logger.Errorw("error reading cloud config", "error", err)
 				continue
