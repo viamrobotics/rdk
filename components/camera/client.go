@@ -7,6 +7,7 @@ import (
 	"image"
 	"sync"
 
+	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/component/camera/v1"
@@ -187,6 +188,10 @@ func (c *client) Stream(
 	})
 
 	return stream, nil
+}
+
+func (c *client) RTPH264PacketStream(ctx context.Context) ([]*rtp.Packet, error) {
+	return nil, errors.New("RTPH264PacketStream unimplemented by client")
 }
 
 func (c *client) Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error) {

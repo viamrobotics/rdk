@@ -10,10 +10,12 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
+
 	// register screen drivers.
 	_ "github.com/pion/mediadevices/pkg/driver/microphone"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
+	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
 	"go.viam.com/utils"
 
@@ -38,6 +40,8 @@ type Stream interface {
 	StreamingReady() (<-chan struct{}, context.Context)
 
 	InputVideoFrames(props prop.Video) (chan<- MediaReleasePair[image.Image], error)
+	// InputVideoPackets(props prop.Video) (chan<- MediaReleasePair[[]*rtp.Packet], error)
+	WriteRTP(pkt *rtp.Packet) error
 
 	InputAudioChunks(props prop.Audio) (chan<- MediaReleasePair[wave.Audio], error)
 
@@ -78,13 +82,13 @@ func NewStream(config StreamConfig) (Stream, error) {
 	}
 
 	var trackLocal *trackLocalStaticSample
-	if config.VideoEncoderFactory != nil {
-		trackLocal = newVideoTrackLocalStaticSample(
-			webrtc.RTPCodecCapability{MimeType: config.VideoEncoderFactory.MIMEType()},
-			"video",
-			name,
-		)
-	}
+	// if config.VideoEncoderFactory != nil {
+	trackLocal = newVideoTrackLocalStaticSample(
+		webrtc.RTPCodecCapability{MimeType: "video/h264"},
+		"video",
+		name,
+	)
+	// }
 
 	var audioTrackLocal *trackLocalStaticSample
 	if config.AudioEncoderFactory != nil {
@@ -103,6 +107,7 @@ func NewStream(config StreamConfig) (Stream, error) {
 
 		videoTrackLocal: trackLocal,
 		inputImageChan:  make(chan MediaReleasePair[image.Image]),
+		inputPacketChan: make(chan MediaReleasePair[[]*rtp.Packet]),
 		outputVideoChan: make(chan []byte),
 
 		audioTrackLocal: audioTrackLocal,
@@ -126,7 +131,9 @@ type basicStream struct {
 
 	videoTrackLocal *trackLocalStaticSample
 	inputImageChan  chan MediaReleasePair[image.Image]
+	inputPacketChan chan MediaReleasePair[[]*rtp.Packet]
 	outputVideoChan chan []byte
+	outputPktChan   chan []*rtp.Packet
 	videoEncoder    codec.VideoEncoder
 
 	audioTrackLocal *trackLocalStaticSample
@@ -160,9 +167,37 @@ func (bs *basicStream) Start() {
 	close(bs.streamingReadyCh)
 	bs.activeBackgroundWorkers.Add(4)
 	utils.ManagedGo(bs.processInputFrames, bs.activeBackgroundWorkers.Done)
+	// utils.ManagedGo(bs.processInputPackets, bs.activeBackgroundWorkers.Done)
 	utils.ManagedGo(bs.processOutputFrames, bs.activeBackgroundWorkers.Done)
+	// bs.logger.Fatal("NICK!!! Start started!!!")
+	// TODO: NICK Add this
+	// utils.ManagedGo(bs.processOutputPackets, bs.activeBackgroundWorkers.Done)
 	utils.ManagedGo(bs.processInputAudioChunks, bs.activeBackgroundWorkers.Done)
 	utils.ManagedGo(bs.processOutputAudioChunks, bs.activeBackgroundWorkers.Done)
+}
+
+// func (bs *basicStream) processOutputPackets() {
+// 	pktsSent := 0
+// 	for outputPkts := range bs.outputPktChan {
+// 		if bs.shutdownCtx.Err() != nil {
+// 			return
+// 		}
+
+// 		now := time.Now()
+// 		for _, pkt := range outputPkts {
+// 			if err := bs.videoTrackLocal.rtpTrack.WriteRTP(pkt); err != nil {
+// 				bs.logger.Errorw("error writing RTP packet", "error", err)
+// 			}
+// 			pktsSent++
+// 		}
+// 		if Debug {
+// 			bs.logger.Debugw("wrote RTP packets", "packets_sent", pktsSent, "write_time", time.Since(now))
+// 		}
+// 	}
+// }
+
+func (bs *basicStream) WriteRTP(pkt *rtp.Packet) error {
+	return bs.videoTrackLocal.rtpTrack.WriteRTP(pkt)
 }
 
 func (bs *basicStream) Stop() {
@@ -187,6 +222,7 @@ func (bs *basicStream) Stop() {
 
 	// reset
 	bs.outputVideoChan = make(chan []byte)
+	bs.outputPktChan = make(chan []*rtp.Packet)
 	bs.outputAudioChan = make(chan []byte)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	bs.shutdownCtx = ctx
@@ -205,6 +241,13 @@ func (bs *basicStream) InputVideoFrames(props prop.Video) (chan<- MediaReleasePa
 		return nil, errors.New("no video in stream")
 	}
 	return bs.inputImageChan, nil
+}
+
+func (bs *basicStream) InputVideoPackets(props prop.Video) (chan<- MediaReleasePair[[]*rtp.Packet], error) {
+	if bs.config.VideoEncoderFactory == nil {
+		return nil, errors.New("no video packets in stream")
+	}
+	return bs.inputPacketChan, nil
 }
 
 func (bs *basicStream) InputAudioChunks(props prop.Audio) (chan<- MediaReleasePair[wave.Audio], error) {
@@ -228,6 +271,36 @@ func (bs *basicStream) VideoTrackLocal() (webrtc.TrackLocal, bool) {
 func (bs *basicStream) AudioTrackLocal() (webrtc.TrackLocal, bool) {
 	return bs.audioTrackLocal, bs.audioTrackLocal != nil
 }
+
+// func (bs *basicStream) processInputPackets() {
+// 	defer close(bs.outputPktChan)
+// 	for {
+// 		if bs.shutdownCtx.Err() != nil {
+// 			return
+// 		}
+
+// 		var framePair MediaReleasePair[[]*rtp.Packet]
+// 		select {
+// 		case framePair = <-bs.inputPacketChan:
+// 		case <-bs.shutdownCtx.Done():
+// 			return
+// 		}
+// 		if framePair.Media == nil {
+// 			continue
+// 		}
+// 		func() {
+// 			if framePair.Release != nil {
+// 				defer framePair.Release()
+// 			}
+
+// 			select {
+// 			case <-bs.shutdownCtx.Done():
+// 				return
+// 			case bs.outputPktChan <- framePair.Media:
+// 			}
+// 		}()
+// 	}
+// }
 
 func (bs *basicStream) processInputFrames() {
 	frameLimiterDur := time.Second / time.Duration(bs.config.TargetFrameRate)

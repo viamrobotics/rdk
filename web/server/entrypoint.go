@@ -218,7 +218,7 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 
-	hungShutdownDeadline := 90 * time.Second
+	hungShutdownDeadline := 2 * time.Second
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcherAfterContext(
 		ctx, hungShutdownDeadline, "server is taking a while to shutdown", s.logger.AsZap())
 

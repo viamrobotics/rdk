@@ -7,6 +7,7 @@ import (
 
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
+	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 )
@@ -22,7 +23,8 @@ type (
 
 	// A HotSwappableVideoSource allows for continuous streaming of video of
 	// swappable underlying video sources.
-	HotSwappableVideoSource = HotSwappableMediaSource[image.Image, prop.Video]
+	HotSwappableVideoSource  = HotSwappableMediaSource[image.Image, prop.Video]
+	HotSwappablePacketSource = HotSwappableMediaSource[[]*rtp.Packet, struct{}]
 
 	// A HotSwappableAudioSource allows for continuous streaming of audio of
 	// swappable underlying audio sources.
@@ -46,6 +48,10 @@ func NewHotSwappableMediaSource[T, U any](src MediaSource[T]) HotSwappableMediaS
 // NewHotSwappableVideoSource returns a hot swappable video source.
 func NewHotSwappableVideoSource(src VideoSource) HotSwappableVideoSource {
 	return NewHotSwappableMediaSource[image.Image, prop.Video](src)
+}
+
+func NewHotSwappablePacketSource(src RTPH264Source) HotSwappablePacketSource {
+	return NewHotSwappableMediaSource[[]*rtp.Packet, struct{}](src)
 }
 
 // NewHotSwappableAudioSource returns a hot swappable audio source.

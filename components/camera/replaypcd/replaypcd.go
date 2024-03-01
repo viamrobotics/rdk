@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
@@ -164,6 +165,10 @@ func newPCDCamera(
 	}
 
 	return cam, nil
+}
+
+func (replay *pcdCamera) RTPH264PacketStream(ctx context.Context) ([]*rtp.Packet, error) {
+	return nil, errors.New("RTPH264PacketStream unimplemented")
 }
 
 // NextPointCloud returns the next point cloud retrieved from cloud storage based on the applied filter.

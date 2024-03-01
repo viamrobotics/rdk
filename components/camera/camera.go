@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pion/mediadevices/pkg/prop"
+	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
@@ -63,6 +64,7 @@ type Properties struct {
 	// SupportsPCD indicates that the Camera supports a valid
 	// implementation of NextPointCloud
 	SupportsPCD      bool
+	SupportsH264RTP  bool
 	ImageType        ImageType
 	IntrinsicParams  *transform.PinholeCameraIntrinsics
 	DistortionParams transform.Distorter
@@ -91,6 +93,9 @@ type VideoSource interface {
 	// Stream returns a stream that makes a best effort to return consecutive images
 	// that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
 	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
+
+	// HACK
+	RTPH264PacketStream(ctx context.Context) ([]*rtp.Packet, error)
 
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
 	// a part of a sequence. In the future, there could be streaming of point clouds.
@@ -179,6 +184,81 @@ func NewVideoSourceFromReader(
 	}, nil
 }
 
+func NewVideoSourceAndPacketSourceFromReader(
+	ctx context.Context,
+	reader gostream.VideoReader,
+	syst *transform.PinholeCameraModel,
+	imageType ImageType,
+	rtpH264PacketStream func(ctx context.Context) ([]*rtp.Packet, error),
+) (VideoSource, error) {
+	if reader == nil {
+		return nil, errors.New("cannot have a nil reader")
+	}
+	vs := gostream.NewVideoSource(reader, prop.Video{})
+	actualSystem := syst
+	if actualSystem == nil {
+		srcCam, ok := reader.(VideoSource)
+		if ok {
+			props, err := srcCam.Properties(ctx)
+			if err != nil {
+				return nil, NewPropertiesError("source camera")
+			}
+
+			var cameraModel transform.PinholeCameraModel
+			cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
+
+			if props.DistortionParams != nil {
+				cameraModel.Distortion = props.DistortionParams
+			}
+			actualSystem = &cameraModel
+		}
+	}
+	return &videoSource{
+		rtpH264PacketStream: rtpH264PacketStream,
+		system:              actualSystem,
+		videoSource:         vs,
+		videoStream:         gostream.NewEmbeddedVideoStream(vs),
+		actualSource:        reader,
+		imageType:           imageType,
+	}, nil
+}
+
+// func NewVideoSourceFromRTPH264Reader(
+// 	ctx context.Context,
+// 	reader gostream.RTPH264Reader,
+// 	syst *transform.PinholeCameraModel, imageType ImageType,
+// ) (VideoSource, error) {
+// 	if reader == nil {
+// 		return nil, errors.New("cannot have a nil reader")
+// 	}
+// 	vs := gostream.NewRTPH264Source(reader, prop.Video{})
+// 	actualSystem := syst
+// 	if actualSystem == nil {
+// 		srcCam, ok := reader.(VideoSource)
+// 		if ok {
+// 			props, err := srcCam.Properties(ctx)
+// 			if err != nil {
+// 				return nil, NewPropertiesError("source camera")
+// 			}
+
+// 			var cameraModel transform.PinholeCameraModel
+// 			cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
+
+// 			if props.DistortionParams != nil {
+// 				cameraModel.Distortion = props.DistortionParams
+// 			}
+// 			actualSystem = &cameraModel
+// 		}
+// 	}
+// 	return &videoSource{
+// 		system:       actualSystem,
+// 		videoSource:  vs,
+// 		videoStream:  gostream.NewEmbeddedVideoStream(vs),
+// 		actualSource: reader,
+// 		imageType:    imageType,
+// 	}, nil
+// }
+
 // NewPinholeModelWithBrownConradyDistortion creates a transform.PinholeCameraModel from
 // a *transform.PinholeCameraIntrinsics and a *transform.BrownConrady.
 // If *transform.BrownConrady is `nil`, transform.PinholeCameraModel.Distortion
@@ -242,15 +322,23 @@ func WrapVideoSourceWithProjector(
 
 // videoSource implements a Camera with a gostream.VideoSource.
 type videoSource struct {
-	videoSource  gostream.VideoSource
-	videoStream  gostream.VideoStream
-	actualSource interface{}
-	system       *transform.PinholeCameraModel
-	imageType    ImageType
+	rtpH264PacketStream func(ctx context.Context) ([]*rtp.Packet, error)
+	videoSource         gostream.VideoSource
+	videoStream         gostream.VideoStream
+	actualSource        interface{}
+	system              *transform.PinholeCameraModel
+	imageType           ImageType
 }
 
 func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 	return vs.videoSource.Stream(ctx, errHandlers...)
+}
+
+func (vs *videoSource) RTPH264PacketStream(ctx context.Context) ([]*rtp.Packet, error) {
+	if vs.rtpH264PacketStream == nil {
+		return nil, errors.New("RTPH264PacketStream unimplemented")
+	}
+	return vs.rtpH264PacketStream(ctx)
 }
 
 // Images is for getting simultaneous images from different sensors
