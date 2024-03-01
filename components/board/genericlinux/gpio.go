@@ -233,11 +233,10 @@ func accurateSleep(ctx context.Context, duration time.Duration) bool {
 	}
 
 	for time.Since(startTime) < duration {
-		select {
-		case <-ctx.Done():
+		if err := ctx.Err(); err != nil {
 			return false
-		default: // Busy-wait some more
 		}
+		// Otherwise, busy-wait some more
 	}
 	return true
 }
