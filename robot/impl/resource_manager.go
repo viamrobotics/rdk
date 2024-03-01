@@ -489,11 +489,11 @@ func (manager *resourceManager) completeConfig(
 	robot *localRobot,
 ) {
 	manager.configLock.Lock()
-	defer manager.configLock.Unlock()
 	defer func() {
 		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
 			manager.logger.Warnw("failed to save graph snapshot", "error", err)
 		}
+		manager.configLock.Unlock()
 	}()
 
 	// first handle remotes since they may reveal unresolved dependencies
