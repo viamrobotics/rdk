@@ -206,7 +206,8 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	t.Run("GoToInputs", func(t *testing.T) {
 		waypoints, err := plan.Trajectory().GetFrameInputs(kb.Name().ShortName())
 		test.That(t, err, test.ShouldBeNil)
-		kb.GoToInputs(ctx, waypoints[1])
+		err = kb.GoToInputs(ctx, waypoints[1])
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("CurrentInputs", func(t *testing.T) {
