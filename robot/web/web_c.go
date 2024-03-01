@@ -405,7 +405,7 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 
 	layout := r.URL.Query().Get("layout")
 	if layout == "text" {
-		write(snapshot.Dot)
+		write(snapshot.Snapshot.Dot)
 		return
 	}
 
@@ -417,7 +417,7 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 		}
 	}()
 
-	graph, err := graphviz.ParseBytes([]byte(snapshot.Dot))
+	graph, err := graphviz.ParseBytes([]byte(snapshot.Snapshot.Dot))
 	if err != nil {
 		return
 	}
@@ -439,6 +439,7 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 		write(html)
 	}
 
+	// Navigation buttons
 	write(`<html><div>`)
 	navButton(0, "Latest")
 	write(`|`)
@@ -449,6 +450,9 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 	write(`|`)
 	navButton(snapshot.Count-1, "Earliest")
 	write(`</div>`)
+
+	// Snapshot capture timestamp
+	write(fmt.Sprintf("<p>%s</p>", snapshot.Snapshot.CreatedAt.Format(time.UnixDate)))
 
 	// HACK: We create a custom writer that removes the first 6 lines of XML written by
 	// `gv.Render` - we exclude these lines of XML since they prevent us from adding HTML

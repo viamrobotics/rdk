@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"golang.org/x/exp/slices"
 
@@ -19,21 +20,32 @@ type Visualizer struct {
 	snapshots list.List
 }
 
-// SnapshotInfo contains a DOT snapshot string along with metadata.
-type SnapshotInfo struct {
-	Dot   string
-	Index int
-	Count int
+// Snapshot contains a DOT snapshot string along with capture metadata.
+type Snapshot struct {
+	Dot       string
+	CreatedAt time.Time
+}
+
+// GetSnapshotInfo contains a Snapshot string along with metadata about the snapshot
+// collection.
+type GetSnapshotInfo struct {
+	Snapshot Snapshot
+	Index    int
+	Count    int
 }
 
 // SaveSnapshot takes a DOT snapshot of a resource graph.
 func (viz *Visualizer) SaveSnapshot(g *Graph) error {
-	snapshot, err := g.ExportDot()
+	dot, err := g.ExportDot()
 	if err != nil {
 		return err
 	}
+	snapshot := Snapshot{
+		Dot:       dot,
+		CreatedAt: time.Now(),
+	}
 	latestSnapshot := viz.snapshots.Front()
-	if latestSnapshot != nil && snapshot == latestSnapshot.Value.(string) {
+	if latestSnapshot != nil && dot == latestSnapshot.Value.(Snapshot).Dot {
 		// Nothing changed since the last snapshot
 		return nil
 	}
@@ -49,8 +61,8 @@ func (viz *Visualizer) Count() int { return viz.snapshots.Len() }
 
 // GetSnapshot returns a DOT snapshot at a given index, where index 0 is the latest
 // snapshot.
-func (viz *Visualizer) GetSnapshot(index int) (SnapshotInfo, error) {
-	result := SnapshotInfo{Index: index, Count: viz.snapshots.Len()}
+func (viz *Visualizer) GetSnapshot(index int) (GetSnapshotInfo, error) {
+	result := GetSnapshotInfo{Index: index, Count: viz.snapshots.Len()}
 
 	if result.Count == 0 {
 		return result, errors.New("no snapshots")
@@ -63,7 +75,7 @@ func (viz *Visualizer) GetSnapshot(index int) (SnapshotInfo, error) {
 		snapshot = snapshot.Next()
 		index--
 	}
-	result.Dot = snapshot.Value.(string)
+	result.Snapshot = snapshot.Value.(Snapshot)
 	return result, nil
 }
 
