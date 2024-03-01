@@ -17,7 +17,7 @@ var ValidNameRegex = regexp.MustCompile(`^[a-zA-Z0-9]([-\w]){0,59}$`)
 func ErrInvalidName(name string) error {
 	if len(name) > 60 {
 		// this is broken out to improve readability of the error msg
-		return errors.Errorf("name %q must be less than 60 characters", name)
+		return errors.Errorf("name %q must be 60 characters or fewer", name)
 	}
 	return errors.Errorf("name %q must start with a letter or number and must only contain letters, numbers, dashes, and underscores", name)
 }

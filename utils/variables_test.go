@@ -58,5 +58,5 @@ func TestValidNameErrorMsg(t *testing.T) {
 	name := "!"
 	test.That(t, ErrInvalidName(name).Error(), test.ShouldContainSubstring, "must start with a letter or number")
 	name = strings.Repeat("a", 61)
-	test.That(t, ErrInvalidName(name).Error(), test.ShouldContainSubstring, "must be less than 60 characters")
+	test.That(t, ErrInvalidName(name).Error(), test.ShouldContainSubstring, "must be 60 characters or fewer")
 }
