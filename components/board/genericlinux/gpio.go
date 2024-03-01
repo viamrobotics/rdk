@@ -36,6 +36,9 @@ type gpioPin struct {
 	mu        sync.Mutex
 	cancelCtx context.Context
 	logger    logging.Logger
+
+	swPWMContext context.Context
+	swPWMCancel  func()
 }
 
 func (pin *gpioPin) wrapError(err error) error {
@@ -112,7 +115,13 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool,
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
+	// Shut down any software PWM loop that might be running.
 	pin.swPwmRunning = false
+	if pin.swPWMCancel != nil {
+		pin.swPWMCancel()
+		pin.swPWMCancel = nil
+	}
+
 	return pin.setInternal(isHigh)
 }
 
@@ -170,6 +179,10 @@ func (pin *gpioPin) Get(
 func (pin *gpioPin) startSoftwarePWM() error {
 	if pin.pwmDutyCyclePct == 0 || pin.pwmFreqHz == 0 {
 		// We don't have both parameters set up. Stop any PWM loop we might have started previously.
+		if pin.swPWMCancel != nil {
+			pin.swPWMCancel()
+			pin.swPWMCancel = nil
+		}
 		pin.swPwmRunning = false
 		if pin.hwPwm != nil {
 			return pin.hwPwm.Close()
@@ -185,7 +198,12 @@ func (pin *gpioPin) startSoftwarePWM() error {
 			if err := pin.closeGpioFd(); err != nil {
 				return err
 			}
-			pin.swPwmRunning = false // Shut down any software PWM loop that might be running.
+			// Shut down any software PWM loop that might be running.
+			if pin.swPWMCancel != nil {
+				pin.swPWMCancel()
+				pin.swPWMCancel = nil
+			}
+			pin.swPwmRunning = false
 			return pin.hwPwm.SetPwm(pin.pwmFreqHz, pin.pwmDutyCyclePct)
 		}
 		// Although this pin has hardware PWM support, many PWM chips cannot output signals at
@@ -277,7 +295,9 @@ func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
 		dutyCycle = 1 - dutyCycle
 	}
 	duration := time.Duration(float64(time.Second) * dutyCycle / float64(freqHz))
-	return accurateSleep(pin.cancelCtx, duration)
+	pin.swPWMContext, pin.swPWMCancel = context.WithCancel(pin.cancelCtx)
+
+	return accurateSleep(pin.swContext, duration)
 }
 
 func (pin *gpioPin) softwarePwmLoop() {
