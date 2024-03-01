@@ -462,7 +462,7 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 	// TODO(RSDK-6797): Parse the html text returned by `gv.Render` using an HTML parser
 	// (https://pkg.go.dev/golang.org/x/net/html or equivalent) and remove the nodes that
 	// prevent us from adding additional HTML.
-	fxml := filterXML{w: w}
+	fxml := &filterXML{w: w}
 	if err = gv.Render(graph, graphviz.SVG, fxml); err != nil {
 		return
 	}
@@ -474,7 +474,7 @@ type filterXML struct {
 	w      http.ResponseWriter
 }
 
-func (fxml filterXML) Write(bs []byte) (int, error) {
+func (fxml *filterXML) Write(bs []byte) (int, error) {
 	if fxml.called {
 		return 0, errors.New("cannot write more than once")
 	}
@@ -483,7 +483,7 @@ func (fxml filterXML) Write(bs []byte) (int, error) {
 	lines = lines[6:]
 	bs = bytes.Join(lines, []byte("\n"))
 	n, err := fxml.w.Write(bs)
-	if err != nil {
+	if err == nil {
 		fxml.called = true
 	}
 	return n, err
