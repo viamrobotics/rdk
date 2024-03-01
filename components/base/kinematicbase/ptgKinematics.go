@@ -245,6 +245,7 @@ func (ptgk *ptgBaseKinematics) goToInputs(ctx context.Context, inputs []referenc
 			}
 			wg.Done()
 		})
+
 		if !utils.SelectContextOrWait(ctx, timestep) {
 			ptgk.logger.CDebug(ctx, ctx.Err().Error())
 			// context cancelled
