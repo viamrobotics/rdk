@@ -708,7 +708,7 @@ func TestRemoteValidate(t *testing.T) {
 			t,
 			err.Error(),
 			test.ShouldContainSubstring,
-			"must start with a letter and must only contain letters, numbers, dashes, and underscores",
+			"must start with a letter or number and must only contain letters, numbers, dashes, and underscores",
 		)
 	})
 }
