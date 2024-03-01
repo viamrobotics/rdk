@@ -917,7 +917,7 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.
 		Logs: []*commonpb.LogEntry{{
 			// Leave out Host; Host is not currently meaningful.
 			Level:      log.Level.String(),
-			Time:       timestamppb.New(time.Now()),
+			Time:       timestamppb.New(log.Time),
 			LoggerName: log.LoggerName,
 			Message:    message,
 			// Leave out Caller; Caller is already in Message field above. We put
