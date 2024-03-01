@@ -45,6 +45,9 @@ func (viz *Visualizer) SaveSnapshot(g *Graph) error {
 		CreatedAt: time.Now(),
 	}
 	latestSnapshot := viz.snapshots.Front()
+
+	// We rely on `ExportDot` to generate the exact same string given the same input
+	// resource graph.
 	if latestSnapshot != nil && dot == latestSnapshot.Value.(Snapshot).Dot {
 		// Nothing changed since the last snapshot
 		return nil
@@ -248,7 +251,8 @@ func exportEdge(bw *blockWriter, left, right Name) {
 }
 
 // ExportDot exports the resource graph as a DOT representation for visualization.
-// DOT reference: https://graphviz.org/doc/info/lang.html
+// DOT reference: https://graphviz.org/doc/info/lang.html.
+// This function will output the exact same string given the same input resource graph.
 func (g *Graph) ExportDot() (string, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
