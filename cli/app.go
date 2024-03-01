@@ -998,23 +998,19 @@ var app = &cli.App{
 							UsageText:   createUsageText("machines part shell", []string{organizationFlag, locationFlag, machineFlag, partFlag}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     organizationFlag,
-									Required: true,
+									Name: organizationFlag,
 								},
 								&cli.StringFlag{
-									Name:     locationFlag,
-									Required: true,
+									Name: locationFlag,
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
-										Name:     machineFlag,
-										Aliases:  []string{aliasRobotFlag},
-										Required: true,
+										Name:    machineFlag,
+										Aliases: []string{aliasRobotFlag},
 									},
 								},
 								&cli.StringFlag{
-									Name:     partFlag,
-									Required: true,
+									Name: partFlag,
 								},
 							},
 							Action: RobotsPartShellAction,

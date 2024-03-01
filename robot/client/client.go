@@ -57,58 +57,6 @@ var (
 	defaultResourcesTimeout = 5 * time.Second
 )
 
-type reconfigurableClientConn struct {
-	connMu sync.RWMutex
-	conn   rpc.ClientConn
-}
-
-func (c *reconfigurableClientConn) Invoke(
-	ctx context.Context,
-	method string,
-	args, reply interface{},
-	opts ...googlegrpc.CallOption,
-) error {
-	c.connMu.RLock()
-	conn := c.conn
-	c.connMu.RUnlock()
-	if conn == nil {
-		return errors.New("not connected")
-	}
-	return conn.Invoke(ctx, method, args, reply, opts...)
-}
-
-func (c *reconfigurableClientConn) NewStream(
-	ctx context.Context,
-	desc *googlegrpc.StreamDesc,
-	method string,
-	opts ...googlegrpc.CallOption,
-) (googlegrpc.ClientStream, error) {
-	c.connMu.RLock()
-	conn := c.conn
-	c.connMu.RUnlock()
-	if conn == nil {
-		return nil, errors.New("not connected")
-	}
-	return conn.NewStream(ctx, desc, method, opts...)
-}
-
-func (c *reconfigurableClientConn) replaceConn(conn rpc.ClientConn) {
-	c.connMu.Lock()
-	c.conn = conn
-	c.connMu.Unlock()
-}
-
-func (c *reconfigurableClientConn) Close() error {
-	c.connMu.Lock()
-	defer c.connMu.Unlock()
-	if c.conn == nil {
-		return nil
-	}
-	conn := c.conn
-	c.conn = nil
-	return conn.Close()
-}
-
 // RobotClient satisfies the robot.Robot interface through a gRPC based
 // client conforming to the robot.proto contract.
 type RobotClient struct {
@@ -117,17 +65,18 @@ type RobotClient struct {
 	address     string
 	dialOptions []rpc.DialOption
 
-	mu              sync.RWMutex
-	resourceNames   []resource.Name
-	resourceRPCAPIs []resource.RPCAPI
-	resourceClients map[resource.Name]resource.Resource
-	remoteNameMap   map[resource.Name]resource.Name
-	changeChan      chan bool
-	notifyParent    func()
-	conn            reconfigurableClientConn
-	client          pb.RobotServiceClient
-	refClient       *grpcreflect.Client
-	connected       atomic.Bool
+	mu                       sync.RWMutex
+	resourceNames            []resource.Name
+	resourceRPCAPIs          []resource.RPCAPI
+	resourceClients          map[resource.Name]resource.Resource
+	remoteNameMap            map[resource.Name]resource.Name
+	changeChan               chan bool
+	notifyParent             func()
+	conn                     grpc.ReconfigurableClientConn
+	client                   pb.RobotServiceClient
+	refClient                *grpcreflect.Client
+	connected                atomic.Bool
+	rpcSubtypesUnimplemented bool
 
 	activeBackgroundWorkers sync.WaitGroup
 	backgroundCtx           context.Context
@@ -401,7 +350,7 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 
 	refClient := grpcreflect.NewClientV1Alpha(rc.backgroundCtx, reflectpb.NewServerReflectionClient(conn))
 
-	rc.conn.replaceConn(conn)
+	rc.conn.ReplaceConn(conn)
 	rc.client = client
 	rc.refClient = refClient
 	rc.connected.Store(true)
@@ -630,12 +579,25 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 		ctx, cancel = contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultResourcesTimeout)
 		defer cancel()
 	}
+
 	resp, err := rc.client.ResourceNames(ctx, &pb.ResourceNamesRequest{})
 	if err != nil {
 		return nil, nil, err
 	}
 
 	var resTypes []resource.RPCAPI
+
+	resources := make([]resource.Name, 0, len(resp.Resources))
+	for _, name := range resp.Resources {
+		newName := rprotoutils.ResourceNameFromProto(name)
+		resources = append(resources, newName)
+	}
+
+	// resource has previously returned an unimplemented response, skip rpc call
+	if rc.rpcSubtypesUnimplemented {
+		return resources, resTypes, nil
+	}
+
 	typesResp, err := rc.client.ResourceRPCSubtypes(ctx, &pb.ResourceRPCSubtypesRequest{})
 	if err == nil {
 		reflSource := grpcurl.DescriptorSourceFromServer(ctx, rc.refClient)
@@ -665,13 +627,8 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 		if s, ok := status.FromError(err); !(ok && (s.Code() == codes.Unimplemented)) {
 			return nil, nil, err
 		}
-	}
-
-	resources := make([]resource.Name, 0, len(resp.Resources))
-
-	for _, name := range resp.Resources {
-		newName := rprotoutils.ResourceNameFromProto(name)
-		resources = append(resources, newName)
+		// prevent future calls to ResourceRPCSubtypes
+		rc.rpcSubtypesUnimplemented = true
 	}
 
 	return resources, resTypes, nil
@@ -687,16 +644,15 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 
 func (rc *RobotClient) updateResources(ctx context.Context) error {
 	// call metadata service.
+
 	names, rpcAPIs, err := rc.resources(ctx)
-	// only return if it is not unimplemented - means a bigger error came up
 	if err != nil && status.Code(err) != codes.Unimplemented {
 		return err
 	}
-	if err == nil {
-		rc.resourceNames = make([]resource.Name, 0, len(names))
-		rc.resourceNames = append(rc.resourceNames, names...)
-		rc.resourceRPCAPIs = rpcAPIs
-	}
+
+	rc.resourceNames = make([]resource.Name, 0, len(names))
+	rc.resourceNames = append(rc.resourceNames, names...)
+	rc.resourceRPCAPIs = rpcAPIs
 
 	rc.updateRemoteNameMap()
 

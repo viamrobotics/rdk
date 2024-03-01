@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -97,6 +98,186 @@ var finalResources = []resource.Name{
 }
 
 var pose1 = spatialmath.NewZeroPose()
+
+type mockRPCSubtypesUnimplemented struct {
+	pb.UnimplementedRobotServiceServer
+	ResourceNamesFunc func(*pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error)
+}
+
+func (ms *mockRPCSubtypesUnimplemented) ResourceNames(
+	ctx context.Context, req *pb.ResourceNamesRequest,
+) (*pb.ResourceNamesResponse, error) {
+	return ms.ResourceNamesFunc(req)
+}
+
+type mockRPCSubtypesImplemented struct {
+	mockRPCSubtypesUnimplemented
+	ResourceNamesFunc func(*pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error)
+}
+
+func (ms *mockRPCSubtypesImplemented) ResourceRPCSubtypes(
+	ctx context.Context, _ *pb.ResourceRPCSubtypesRequest,
+) (*pb.ResourceRPCSubtypesResponse, error) {
+	return &pb.ResourceRPCSubtypesResponse{}, nil
+}
+
+func (ms *mockRPCSubtypesImplemented) ResourceNames(
+	ctx context.Context, req *pb.ResourceNamesRequest,
+) (*pb.ResourceNamesResponse, error) {
+	return ms.ResourceNamesFunc(req)
+}
+
+var resourceFunc1 = func(*pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error) {
+	board1 := board.Named("board1")
+	rNames := []*commonpb.ResourceName{
+		{
+			Namespace: string(board1.API.Type.Namespace),
+			Type:      board1.API.Type.Name,
+			Subtype:   board1.API.SubtypeName,
+			Name:      board1.Name,
+		},
+	}
+	return &pb.ResourceNamesResponse{Resources: rNames}, nil
+}
+
+var resourceFunc2 = func(*pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error) {
+	board1 := board.Named("board1")
+	board2 := board.Named("board2")
+	rNames := []*commonpb.ResourceName{
+		{
+			Namespace: string(board1.API.Type.Namespace),
+			Type:      board1.API.Type.Name,
+			Subtype:   board1.API.SubtypeName,
+			Name:      board1.Name,
+		},
+		{
+			Namespace: string(board2.API.Type.Namespace),
+			Type:      board2.API.Type.Name,
+			Subtype:   board2.API.SubtypeName,
+			Name:      board2.Name,
+		},
+	}
+	return &pb.ResourceNamesResponse{Resources: rNames}, nil
+}
+
+func makeRPCServer(logger golog.Logger, option rpc.ServerOption) (rpc.Server, net.Listener, error) {
+	err := errors.New("failed to make rpc server")
+	var addr string
+	var listener net.Listener
+	var server rpc.Server
+
+	for i := 0; i < 10; i++ {
+		port, err := utils.TryReserveRandomPort()
+		if err != nil {
+			continue
+		}
+
+		addr = fmt.Sprint("localhost:", port)
+		listener, err = net.Listen("tcp", addr)
+		if err != nil {
+			continue
+		}
+
+		server, err = rpc.NewServer(logger, option)
+		if err != nil {
+			continue
+		}
+		return server, listener, nil
+	}
+	return nil, nil, err
+}
+
+func TestUnimplementedRPCSubtypes(t *testing.T) {
+	var client1 *RobotClient // test implemented
+	var client2 *RobotClient // test unimplemented
+	ctx1, cancel := context.WithTimeout(context.Background(), time.Second*1)
+	defer cancel()
+	ctx2, cancel := context.WithTimeout(context.Background(), time.Second*1)
+	defer cancel()
+	logger1 := logging.NewTestLogger(t)
+	logger2 := logging.NewTestLogger(t)
+
+	rpcServer1, listener1, err := makeRPCServer(logger1.AsZap(), rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+
+	rpcServer2, listener2, err := makeRPCServer(logger2.AsZap(), rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+
+	defer func() {
+		test.That(t, rpcServer2.Stop(), test.ShouldBeNil)
+	}()
+	defer func() {
+		test.That(t, rpcServer1.Stop(), test.ShouldBeNil)
+	}()
+
+	implementedService := mockRPCSubtypesImplemented{
+		ResourceNamesFunc: resourceFunc1,
+	}
+
+	unimplementedService := mockRPCSubtypesUnimplemented{
+		ResourceNamesFunc: resourceFunc1,
+	}
+
+	err = rpcServer1.RegisterServiceServer(
+		ctx1,
+		&pb.RobotService_ServiceDesc,
+		&implementedService,
+		pb.RegisterRobotServiceHandlerFromEndpoint,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = rpcServer2.RegisterServiceServer(
+		ctx2,
+		&pb.RobotService_ServiceDesc,
+		&unimplementedService,
+		pb.RegisterRobotServiceHandlerFromEndpoint)
+	test.That(t, err, test.ShouldBeNil)
+
+	go func() {
+		test.That(t, rpcServer1.Serve(listener1), test.ShouldBeNil)
+	}()
+	go func() {
+		test.That(t, rpcServer2.Serve(listener2), test.ShouldBeNil)
+	}()
+
+	client1, err = New(
+		ctx1,
+		listener1.Addr().String(),
+		logger1,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client1.Close(ctx1), test.ShouldBeNil)
+	}()
+	test.That(t, client1.Connected(), test.ShouldBeTrue)
+	test.That(t, client1.rpcSubtypesUnimplemented, test.ShouldBeFalse)
+
+	client2, err = New(
+		ctx2,
+		listener2.Addr().String(),
+		logger2,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client2.Close(ctx2), test.ShouldBeNil)
+	}()
+	test.That(t, client2.Connected(), test.ShouldBeTrue)
+	test.That(t, client2.rpcSubtypesUnimplemented, test.ShouldBeTrue)
+
+	// verify that the unimplemented check does not affect calls to ResourceNames
+	test.That(t, len(client2.ResourceNames()), test.ShouldEqual, 1)
+	_, err = client2.ResourceByName(board.Named("board1"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// still unimplemented, but with two resources
+	unimplementedService.ResourceNamesFunc = resourceFunc2
+	err = client2.Refresh(ctx2)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, len(client2.ResourceNames()), test.ShouldEqual, 2)
+	_, err = client2.ResourceByName(board.Named("board2"))
+	test.That(t, err, test.ShouldBeNil)
+}
 
 func TestStatusClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
