@@ -450,6 +450,14 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 	navButton(snapshot.Count-1, "Earliest")
 	write(`</div>`)
 
+	// HACK: We create a custom writer that removes the first 6 lines of XML written by
+	// `gv.Render` - we exclude these lines of XML since they prevent us from adding HTML
+	// elements to the rendered HTML. We depend on `gv.Render` calling fxml.Write exactly
+	// one time.
+	//
+	// TODO(RSDK-6797): Parse the html text returned by `gv.Render` using an HTML parser
+	// (https://pkg.go.dev/golang.org/x/net/html or equivalent) and remove the nodes that
+	// prevent us from adding additional HTML.
 	fxml := filterXML{w: w}
 	if err = gv.Render(graph, graphviz.SVG, fxml); err != nil {
 		return
@@ -457,15 +465,22 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 	write(`</html>`)
 }
 
-// custom writer to skip first 5 lines of xml.
 type filterXML struct {
-	w http.ResponseWriter
+	called bool
+	w      http.ResponseWriter
 }
 
 func (fxml filterXML) Write(bs []byte) (int, error) {
+	if fxml.called {
+		return 0, errors.New("cannot write more than once")
+	}
 	lines := bytes.Split(bs, []byte("\n"))
 	// HACK: these lines are XML Document Type Definition strings
 	lines = lines[6:]
 	bs = bytes.Join(lines, []byte("\n"))
-	return fxml.w.Write(bs)
+	n, err := fxml.w.Write(bs)
+	if err != nil {
+		fxml.called = true
+	}
+	return n, err
 }
