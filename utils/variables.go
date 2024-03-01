@@ -8,18 +8,64 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ValidNameRegex is the pattern that matches to a valid name.
-// The name must begin with a letter or number i.e. [a-zA-Z0-9],
-// and can only contain up to 60, letters, numbers, dashes, and underscores i.e. [-\w]*.
-var ValidNameRegex = regexp.MustCompile(`^[a-zA-Z0-9]([-\w]){0,59}$`)
+var (
+	// validResourcenameRegex is the pattern that matches to a valid name.
+	// The name must begin with a letter or number i.e. [a-zA-Z0-9],
+	// and contains only letters, numbers, dashes, and underscores i.e. [-\w]*.
+	//
+	// Note:
+	// This regex cannot be changed to allow for:
+	// - colons: used as delimiters for remote names
+	// - plus signs: used for WebRTC track names.
+	validResourceNameRegex       = regexp.MustCompile(`^[a-zA-Z0-9][-\w]*$`)
+	validResourceNameExplanation = "must start with a letter or number and must only contain letters, numbers, dashes, and underscores"
 
-// ErrInvalidName returns a human-readable error for when ValidNameRegex doesn't match.
-func ErrInvalidName(name string) error {
+	// the module name is used to create the socket path, so ensure that this only
+	// accepts valid socket paths.
+	validModuleNameRegex       = regexp.MustCompile(`^[a-zA-Z0-9][-\w]*$`)
+	validModuleNameExplanation = validResourceNameExplanation
+
+	validPackageNameRegex       = validModuleNameRegex
+	validPackageNameExplanation = validResourceNameExplanation
+)
+
+// ValidateResourceName validates that the resource follows our naming requirements.
+func ValidateResourceName(name string) error {
 	if len(name) > 60 {
-		// this is broken out to improve readability of the error msg
 		return errors.Errorf("name %q must be 60 characters or fewer", name)
 	}
-	return errors.Errorf("name %q must start with a letter or number and must only contain letters, numbers, dashes, and underscores", name)
+	if !validResourceNameRegex.MatchString(name) {
+		return errors.Errorf("name %q %s", name, validResourceNameExplanation)
+	}
+	return nil
+}
+
+// ValidateModuleName validates that the module follows our naming requirements.
+func ValidateModuleName(name string) error {
+	if len(name) > 200 {
+		return errors.Errorf("module name %q must be 200 characters or fewer", name)
+	}
+	if !validModuleNameRegex.MatchString(name) {
+		return errors.Errorf("module name %q %s", name, validModuleNameExplanation)
+	}
+	return nil
+}
+
+// ValidatePackageName validates that the package follows our naming requirements.
+func ValidatePackageName(name string) error {
+	if len(name) > 200 {
+		return errors.Errorf("package name %q must be 200 characters or fewer", name)
+	}
+	if !validPackageNameRegex.MatchString(name) {
+		return errors.Errorf("package name %q %s", name, validPackageNameExplanation)
+	}
+	return nil
+}
+
+// ValidateRemoteName validates that the remote follows our naming requirements.
+func ValidateRemoteName(name string) error {
+	// same as resource name validation for now
+	return ValidateResourceName(name)
 }
 
 // A TypedName stores both the name and type of the variable.
