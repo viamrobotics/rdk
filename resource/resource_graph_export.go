@@ -73,10 +73,12 @@ func (viz *Visualizer) GetSnapshot(index int) (GetSnapshotInfo, error) {
 	if index < 0 || index >= result.Count {
 		return result, errors.New("out of range")
 	}
+
 	snapshot := viz.snapshots.Front()
-	for index > 0 && snapshot.Next() != nil {
-		snapshot = snapshot.Next()
-		index--
+	for i := 0; i < index; i++ {
+		if snapshot = snapshot.Next(); snapshot == nil {
+			return result, errors.New("out of range")
+		}
 	}
 	result.Snapshot = snapshot.Value.(Snapshot)
 	return result, nil
