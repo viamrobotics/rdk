@@ -130,8 +130,9 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	kbOpt.AngularVelocityDegsPerSec = 0
 
 	ms := inject.NewMovementSensor("movement_sensor")
+	gpOrigin := geo.NewPoint(0, 0)
 	ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		return geo.NewPoint(0, 0), 0, nil
+		return gpOrigin, 0, nil
 	}
 	ms.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 		return 0, nil
@@ -139,10 +140,11 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 		return &movementsensor.Properties{CompassHeadingSupported: true}, nil
 	}
-	localizer := motion.NewMovementSensorLocalizer(ms, geo.NewPoint(0, 0), spatialmath.NewZeroPose())
+	localizer := motion.NewMovementSensorLocalizer(ms, gpOrigin, spatialmath.NewZeroPose())
 	kb, err := WrapWithKinematics(ctx, b, logger, localizer, nil, kbOpt)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, kb, test.ShouldNotBeNil)
+
 	ptgBase, ok := kb.(*ptgBaseKinematics)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, ptgBase, test.ShouldNotBeNil)
@@ -176,16 +178,19 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
 
+	ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		inputs, err := plan.Trajectory().GetFrameInputs(kb.Name().ShortName())
+		test.That(t, err, test.ShouldBeNil)
+		newPose, err := kb.Kinematics().Transform(inputs[1])
+		test.That(t, err, test.ShouldBeNil)
+		newGeoPose := spatialmath.PoseToGeoPose(spatialmath.NewGeoPose(gpOrigin, 0), newPose)
+		return newGeoPose.Location(), 0, nil
+	}
+
 	t.Run("Kinematics", func(t *testing.T) {
 		kinematics := kb.Kinematics()
 		f, err := tpspace.NewPTGFrameFromKinematicOptions(
-			b.Name().ShortName(),
-			logger,
-			0.3,
-			0, // If zero, will use default trajectory count on the receiver end.
-			[]spatialmath.Geometry{baseGeom},
-			kbOpt.NoSkidSteer,
-			b.TurningRadius == 0,
+			b.Name().ShortName(), logger, 0.3, 0, []spatialmath.Geometry{baseGeom}, kbOpt.NoSkidSteer, b.TurningRadius == 0,
 		)
 		test.That(t, f, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeNil)
@@ -211,9 +216,22 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	})
 
 	t.Run("ErrorState", func(t *testing.T) {
-		errorState, err := kb.ErrorState(ctx, plan, 1)
+		errorState, err := kb.ErrorState(ctx, plan, 2)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, errorState, test.ShouldNotBeNil)
+		expectedErrorState := spatialmath.NewPose(
+			r3.Vector{X: .15660482358555055e-5, Y: -3.206523988765566e-6, Z: 0},
+			&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 116.03064454195976},
+		)
+		test.That(t, spatialmath.PoseAlmostCoincident(errorState, expectedErrorState), test.ShouldBeTrue)
+	})
+
+	t.Run("CurrentPosition", func(t *testing.T) {
+		currentPosition, err := kb.CurrentPosition(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, currentPosition, test.ShouldNotBeNil)
+		expectedPosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 1402.5928379997056, Y: -188.66162360997163, Z: 0})
+		test.That(t, spatialmath.PoseAlmostCoincident(currentPosition.Pose(), expectedPosition), test.ShouldBeTrue)
 	})
 
 	t.Run("Geometries", func(t *testing.T) {
@@ -221,11 +239,5 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(geoms), test.ShouldEqual, 1)
 		test.That(t, geoms[0], test.ShouldResemble, baseGeom)
-	})
-
-	t.Run("CurrentPosition", func(t *testing.T) {
-		currentPosition, err := kb.CurrentPosition(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, currentPosition, test.ShouldNotBeNil)
 	})
 }
