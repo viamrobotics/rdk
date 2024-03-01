@@ -12,7 +12,7 @@ import (
 func TestFieldConversion(t *testing.T) {
 	t.Parallel()
 
-	testTime, err := time.Parse(DefaultTimeFormatStr, "2024-03-01T11:39:40.897-0500")
+	testTime, err := time.Parse(DefaultTimeFormatStr, "2024-03-01T11:39:40.897Z")
 	test.That(t, err, test.ShouldBeNil)
 
 	type s struct {
@@ -97,7 +97,7 @@ func TestFieldConversion(t *testing.T) {
 				Interface: time.Local,
 				Integer:   testTime.UnixNano(),
 			},
-			// Ensure that UTC is used instead of the EST from original time.
+			// Ensure that UTC is used instead of the Local location from original time.
 			expectedVal: testTime.In(time.UTC),
 		},
 		{

@@ -71,7 +71,7 @@ func FieldKeyAndValueFromProto(field *structpb.Struct) (string, any, error) {
 	case zapcore.StringType, zapcore.ErrorType:
 		fieldValue = zf.String
 	case zapcore.TimeType:
-		// Ignore *time.Location stored in zf.Interface; we'll use the UTC default.
+		// Ignore *time.Location stored in zf.Interface; we'll force UTC.
 		fieldValue = time.Unix(0, zf.Integer).In(time.UTC)
 	default:
 		fieldValue = zf.Interface
