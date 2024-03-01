@@ -425,7 +425,7 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 	for _, fieldP := range log.Fields {
 		key, val, err := logging.FieldKeyAndValueFromProto(fieldP)
 		if err != nil {
-			return nil, nil
+			return nil, err
 		}
 		fields = append(fields, key, val)
 	}
