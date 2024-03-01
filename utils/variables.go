@@ -9,13 +9,17 @@ import (
 )
 
 // ValidNameRegex is the pattern that matches to a valid name.
-// The name must begin with a letter i.e. [a-zA-Z],
-// and the body can only contain 0 or more numbers, letters, dashes and underscores i.e. [-\w]*.
-var ValidNameRegex = regexp.MustCompile(`^[a-zA-Z][-\w]*$`)
+// The name must begin with a letter or number i.e. [a-zA-Z0-9],
+// and can only contain up to 60, letters, numbers, dashes, and underscores i.e. [-\w]*.
+var ValidNameRegex = regexp.MustCompile(`^[a-zA-Z0-9]([-\w]){0,59}$`)
 
 // ErrInvalidName returns a human-readable error for when ValidNameRegex doesn't match.
 func ErrInvalidName(name string) error {
-	return errors.Errorf("name %q must start with a letter and must only contain letters, numbers, dashes, and underscores", name)
+	if len(name) > 60 {
+		// this is broken out to improve readability of the error msg
+		return errors.Errorf("name %q must be less than 60 characters", name)
+	}
+	return errors.Errorf("name %q must start with a letter or number and must only contain letters, numbers, dashes, and underscores", name)
 }
 
 // A TypedName stores both the name and type of the variable.
