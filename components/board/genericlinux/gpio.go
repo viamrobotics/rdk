@@ -116,11 +116,11 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool,
 	defer pin.mu.Unlock()
 
 	// Shut down any software PWM loop that might be running.
-	pin.swPwmRunning = false
 	if pin.swPWMCancel != nil {
 		pin.swPWMCancel()
 		pin.swPWMCancel = nil
 	}
+	pin.swPwmRunning = false
 
 	return pin.setInternal(isHigh)
 }
@@ -297,7 +297,7 @@ func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
 	duration := time.Duration(float64(time.Second) * dutyCycle / float64(freqHz))
 	pin.swPWMContext, pin.swPWMCancel = context.WithCancel(pin.cancelCtx)
 
-	return accurateSleep(pin.swContext, duration)
+	return accurateSleep(pin.swPWMContext, duration)
 }
 
 func (pin *gpioPin) softwarePwmLoop() {
