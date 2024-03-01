@@ -214,6 +214,8 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		currentInputs, err := kb.CurrentInputs(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(currentInputs), test.ShouldEqual, 3)
+		expectedInputs := referenceframe.FloatsToInputs([]float64{0, 0, 0})
+		test.That(t, currentInputs, test.ShouldEqual, expectedInputs)
 	})
 
 	t.Run("ErrorState", func(t *testing.T) {
