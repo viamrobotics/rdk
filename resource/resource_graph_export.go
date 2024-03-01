@@ -76,6 +76,7 @@ func (viz *Visualizer) GetSnapshot(index int) (GetSnapshotInfo, error) {
 
 	snapshot := viz.snapshots.Front()
 	for i := 0; i < index; i++ {
+		// Guards against race with deletion of snapshots.
 		if snapshot = snapshot.Next(); snapshot == nil {
 			return result, errors.New("out of range")
 		}
