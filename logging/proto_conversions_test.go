@@ -97,7 +97,8 @@ func TestFieldConversion(t *testing.T) {
 				Interface: time.Local,
 				Integer:   testTime.UnixNano(),
 			},
-			expectedVal: testTime,
+			// Ensure that UTC is used instead of the EST from original time.
+			expectedVal: testTime.In(time.UTC),
 		},
 		{
 			field: zap.Field{
