@@ -18,6 +18,11 @@ import (
 
 var logger = logging.NewDebugLogger("robot_server")
 
+// android harness uses this to stop the thread
+func DroidStopHook() {
+	server.ForceRestart = true
+}
+
 func MainEntry(configPath, writeablePath string) {
 	os.Args = append(os.Args, "-config", configPath)
 	utils.ContextualMain(server.RunServer, logger)

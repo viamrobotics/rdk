@@ -35,7 +35,13 @@ func (c *needsRestartCheckerGRPC) close() {
 	}
 }
 
+// ForceRestart lets random other parts of the app request an exit.
+var ForceRestart bool = false
+
 func (c *needsRestartCheckerGRPC) needsRestart(ctx context.Context) (bool, time.Duration, error) {
+	if ForceRestart {
+		return true, minNeedsRestartCheckInterval, nil
+	}
 	service := apppb.NewRobotServiceClient(c.client)
 	res, err := service.NeedsRestart(ctx, &apppb.NeedsRestartRequest{Id: c.cfg.ID})
 	if err != nil {
