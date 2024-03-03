@@ -94,7 +94,6 @@ func (ac *AssociatedConfig) UpdateResourceNames(updater func(old resource.Name) 
 
 // DataCaptureConfig is used to initialize a collector for a component or remote.
 type DataCaptureConfig struct {
-	Resource           resource.Resource
 	Name               resource.Name     `json:"name"`
 	Method             string            `json:"method"`
 	CaptureFrequencyHz float32           `json:"capture_frequency_hz"`
