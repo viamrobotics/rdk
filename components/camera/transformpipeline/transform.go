@@ -8,7 +8,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
-	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
@@ -130,7 +130,7 @@ func (Transformation) JSONSchema() *jsonschema.Schema {
 // buildTransform uses the Transformation config to build the desired transform ImageSource.
 func buildTransform(
 	ctx context.Context,
-	r robot.Robot,
+	deps resource.Dependencies,
 	source gostream.VideoSource,
 	stream camera.ImageType,
 	tr Transformation,
@@ -152,11 +152,11 @@ func buildTransform(
 	case transformTypeUndistort:
 		return newUndistortTransform(ctx, source, stream, tr.Attributes)
 	case transformTypeDetections:
-		return newDetectionsTransform(ctx, source, r, tr.Attributes)
+		return newDetectionsTransform(ctx, source, deps, tr.Attributes)
 	case transformTypeClassifications:
-		return newClassificationsTransform(ctx, source, r, tr.Attributes)
+		return newClassificationsTransform(ctx, source, deps, tr.Attributes)
 	case transformTypeSegmentations:
-		return newSegmentationsTransform(ctx, source, r, tr.Attributes, sourceString)
+		return newSegmentationsTransform(ctx, source, deps, tr.Attributes, sourceString)
 	case transformTypeDepthEdges:
 		return newDepthEdgesTransform(ctx, source, tr.Attributes)
 	case transformTypeDepthPreprocess:

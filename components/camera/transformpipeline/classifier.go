@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/classification"
@@ -33,12 +32,12 @@ type classifierSource struct {
 	maxClassifications uint32
 	labelFilter        classification.Postprocessor
 	confFilter         classification.Postprocessor
-	r                  robot.Robot
+	deps               resource.Dependencies
 }
 
 func newClassificationsTransform(
 	ctx context.Context,
-	source gostream.VideoSource, r robot.Robot, am utils.AttributeMap,
+	source gostream.VideoSource, deps resource.Dependencies, am utils.AttributeMap,
 ) (gostream.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*classifierConfig](am)
 	if err != nil {
@@ -71,7 +70,7 @@ func newClassificationsTransform(
 		maxClassifications,
 		labelFilter,
 		confFilter,
-		r,
+		deps,
 	}
 	src, err := camera.NewVideoSourceFromReader(ctx, classifier, &cameraModel, camera.ColorStream)
 	if err != nil {
@@ -87,7 +86,7 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::classifier::Read")
 	defer span.End()
 
-	srv, err := vision.FromRobot(cs.r, cs.classifierName)
+	srv, err := vision.FromDependencies(cs.deps, cs.classifierName)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "source_classifier can't find vision service")
 	}
