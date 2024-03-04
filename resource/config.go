@@ -190,6 +190,7 @@ func (conf Config) Equals(other Config) bool {
 	conf.cachedImplicitDeps = nil
 	conf.cachedErr = nil
 	conf.ConvertedAttributes = nil
+	conf.AssociatedResourceConfigs = nil
 	conf.AssociatedAttributes = nil
 
 	other.alreadyValidated = false
@@ -197,6 +198,7 @@ func (conf Config) Equals(other Config) bool {
 	other.cachedImplicitDeps = nil
 	other.cachedErr = nil
 	other.ConvertedAttributes = nil
+	other.AssociatedResourceConfigs = nil
 	other.AssociatedAttributes = nil
 
 	//nolint:govet
