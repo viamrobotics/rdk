@@ -77,7 +77,7 @@ type RtspCamera struct {
 	// gostream.RTPH264Reader
 	gostream.VideoReader
 	u                       *base.URL
-	unitChan                chan (formatprocessor.Unit)
+	pktsChan                chan ([]*rtp.Packet)
 	unitEncoder             *unitEncoder
 	client                  *gortsplib.Client
 	cancelCtx               context.Context
@@ -157,7 +157,15 @@ func (ue *unitEncoder) Encode(u formatprocessor.Unit) ([]*rtp.Packet, error) {
 	ue.lastPTS = tunit.PTS
 	ue.mu.Unlock()
 
-	return ue.encoder.Encode(tunit.AU)
+	pkts, err := ue.encoder.Encode(tunit.AU)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, pkt := range pkts {
+		pkt.Timestamp += tunit.RTPPackets[0].Timestamp
+	}
+	return pkts, err
 }
 
 // reconnectClient reconnects the RTSP client to the streaming server by closing the old one and starting a new one.
@@ -225,8 +233,19 @@ func (rc *RtspCamera) reconnectClient() (err error) {
 			log.Println(err.Error())
 			return
 		}
+
+		pkts, err := rc.unitEncoder.Encode(u)
+		if err != nil {
+			log.Println(err.Error())
+		}
+
+		if len(pkts) == 0 {
+			return
+		}
+		rc.logger.Infof("OnPacketRTP: writing pkts, len(rc.pktsChan): %d", len(rc.pktsChan))
+
 		// TODO: Change to use a ring buffer
-		rc.unitChan <- u
+		rc.pktsChan <- pkts
 	})
 	_, err = rc.client.Play(nil)
 	if err != nil {
@@ -246,7 +265,7 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger
 	rtspCam := &RtspCamera{
 		u:        u,
 		logger:   logger,
-		unitChan: make(chan formatprocessor.Unit, 512),
+		pktsChan: make(chan []*rtp.Packet, 512),
 	}
 	err = rtspCam.reconnectClient()
 	if err != nil {
@@ -272,11 +291,7 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger
 			return nil, cancelCtx.Err()
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case u := <-rtspCam.unitChan:
-			pkts, err := rtspCam.unitEncoder.Encode(u)
-			if err != nil {
-				return nil, err
-			}
+		case pkts := <-rtspCam.pktsChan:
 			return pkts, nil
 		}
 	}

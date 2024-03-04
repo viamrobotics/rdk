@@ -107,9 +107,8 @@ func NewStream(config StreamConfig) (Stream, error) {
 
 		videoTrackLocal:       trackLocal,
 		inputImageChan:        make(chan MediaReleasePair[image.Image]),
-		inputVideoPacketChan:  make(chan MediaReleasePair[[]*rtp.Packet]),
+		outputVideoPacketChan: make(chan MediaReleasePair[[]*rtp.Packet]),
 		outputVideoChan:       make(chan []byte),
-		outputVideoPacketChan: make(chan []*rtp.Packet),
 
 		audioTrackLocal: audioTrackLocal,
 		inputAudioChan:  make(chan MediaReleasePair[wave.Audio]),
@@ -132,9 +131,8 @@ type basicStream struct {
 
 	videoTrackLocal       *trackLocalStaticSample
 	inputImageChan        chan MediaReleasePair[image.Image]
-	inputVideoPacketChan  chan MediaReleasePair[[]*rtp.Packet]
+	outputVideoPacketChan chan MediaReleasePair[[]*rtp.Packet]
 	outputVideoChan       chan []byte
-	outputVideoPacketChan chan []*rtp.Packet
 	videoEncoder          codec.VideoEncoder
 
 	audioTrackLocal *trackLocalStaticSample
@@ -166,22 +164,16 @@ func (bs *basicStream) Start() {
 	}
 	bs.started = true
 	close(bs.streamingReadyCh)
-	bs.activeBackgroundWorkers.Add(6)
+	bs.activeBackgroundWorkers.Add(5)
 	utils.ManagedGo(bs.processInputFrames, bs.activeBackgroundWorkers.Done)
-	utils.ManagedGo(bs.processInputPackets, bs.activeBackgroundWorkers.Done)
 	utils.ManagedGo(bs.processOutputFrames, bs.activeBackgroundWorkers.Done)
 	utils.ManagedGo(bs.processInputAudioChunks, bs.activeBackgroundWorkers.Done)
 	utils.ManagedGo(bs.processOutputAudioChunks, bs.activeBackgroundWorkers.Done)
 	utils.ManagedGo(bs.processOutputPackets, bs.activeBackgroundWorkers.Done)
 }
 
-const writePkt = true
-
 func (bs *basicStream) WriteRTP(pkt *rtp.Packet) error {
-	if writePkt {
-		return bs.videoTrackLocal.rtpTrack.WriteRTP(pkt)
-	}
-	return nil
+	return bs.videoTrackLocal.rtpTrack.WriteRTP(pkt)
 }
 
 func (bs *basicStream) Stop() {
@@ -206,7 +198,7 @@ func (bs *basicStream) Stop() {
 
 	// reset
 	bs.outputVideoChan = make(chan []byte)
-	bs.outputVideoPacketChan = make(chan []*rtp.Packet)
+	bs.outputVideoPacketChan = make(chan MediaReleasePair[[]*rtp.Packet])
 	bs.outputAudioChan = make(chan []byte)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	bs.shutdownCtx = ctx
@@ -231,7 +223,7 @@ func (bs *basicStream) InputVideoPackets(props prop.Video) (chan<- MediaReleaseP
 	if bs.config.VideoEncoderFactory == nil {
 		return nil, errors.New("no video packets in stream")
 	}
-	return bs.inputVideoPacketChan, nil
+	return bs.outputVideoPacketChan, nil
 }
 
 func (bs *basicStream) InputAudioChunks(props prop.Audio) (chan<- MediaReleasePair[wave.Audio], error) {
@@ -256,45 +248,17 @@ func (bs *basicStream) AudioTrackLocal() (webrtc.TrackLocal, bool) {
 	return bs.audioTrackLocal, bs.audioTrackLocal != nil
 }
 
-func (bs *basicStream) processInputPackets() {
-	defer close(bs.outputVideoPacketChan)
-	for {
-		if bs.shutdownCtx.Err() != nil {
-			return
-		}
-
-		var packetsMRP MediaReleasePair[[]*rtp.Packet]
-		select {
-		case packetsMRP = <-bs.inputVideoPacketChan:
-			bs.logger.Info("processInputPackets: got %d inputVideoPacketChan packets", len(packetsMRP.Media))
-		case <-bs.shutdownCtx.Done():
-			return
-		}
-
-		if len(packetsMRP.Media) == 0 {
-			continue
-		}
-
-		if packetsMRP.Release != nil {
-			packetsMRP.Release()
-		}
-
-		select {
-		case <-bs.shutdownCtx.Done():
-			return
-		case bs.outputVideoPacketChan <- packetsMRP.Media:
-		}
-	}
-}
-
 func (bs *basicStream) processOutputPackets() {
 	for packets := range bs.outputVideoPacketChan {
-		bs.logger.Info("processOutputPackets: got %d packets", len(packets))
+		if packets.Release != nil {
+			packets.Release()
+		}
+		bs.logger.Infof("processOutputPackets: got %d packets", len(packets.Media))
 		if bs.shutdownCtx.Err() != nil {
 			return
 		}
 
-		for _, pkt := range packets {
+		for _, pkt := range packets.Media {
 			if err := bs.WriteRTP(pkt); err != nil {
 				bs.logger.Errorw("error writing packet", "error", err)
 			}
