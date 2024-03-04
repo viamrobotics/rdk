@@ -328,7 +328,7 @@ func (t *formatProcessorH264) ProcessRTPPacket(
 		}
 
 		if err != nil {
-			log.Println("DBG: err: ", err.Error())
+			// log.Println("DBG: err: ", err.Error())
 			if errors.Is(err, rtph264.ErrNonStartingPacketAndNoPrevious) ||
 				errors.Is(err, rtph264.ErrMorePacketsNeeded) {
 				return u, nil

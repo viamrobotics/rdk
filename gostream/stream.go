@@ -10,6 +10,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
+
 	// register screen drivers.
 	_ "github.com/pion/mediadevices/pkg/driver/microphone"
 	"github.com/pion/mediadevices/pkg/prop"
@@ -167,8 +168,13 @@ func (bs *basicStream) Start() {
 	utils.ManagedGo(bs.processOutputAudioChunks, bs.activeBackgroundWorkers.Done)
 }
 
+const writePkt = false
+
 func (bs *basicStream) WriteRTP(pkt *rtp.Packet) error {
-	return bs.videoTrackLocal.rtpTrack.WriteRTP(pkt)
+	if writePkt {
+		return bs.videoTrackLocal.rtpTrack.WriteRTP(pkt)
+	}
+	return nil
 }
 
 func (bs *basicStream) Stop() {

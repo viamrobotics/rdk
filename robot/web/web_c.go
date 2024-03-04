@@ -15,6 +15,7 @@ import (
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
@@ -24,6 +25,7 @@ import (
 	"go.viam.com/rdk/robot"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	webstream "go.viam.com/rdk/robot/web/stream"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // StreamServer manages streams and displays.
@@ -123,6 +125,7 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		}
 
 		svc.startVideoStream(ctx, source, stream)
+
 	}
 
 	for name, source := range svc.audioSources {
@@ -253,9 +256,8 @@ func (svc *webService) propertiesFromStream(ctx context.Context, stream gostream
 	return cam.Properties(ctx)
 }
 
-func (svc *webService) startVideoStream(
+func (svc *webService) packetStream(
 	ctx context.Context,
-	source gostream.VideoSource,
 	stream gostream.Stream,
 ) {
 	res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
@@ -273,28 +275,47 @@ func (svc *webService) startVideoStream(
 	utils.ManagedGo(func() {
 		defer close(waitCh)
 		for streamVideoCtx.Err() == nil {
-			// svc.logger.Warn("DBG BEFORE cam.RTPH264PacketStream")
 			pkts, err := cam.RTPH264PacketStream(streamVideoCtx)
-			// svc.logger.Warn("DBG AFTER cam.RTPH264PacketStream")
 			if err != nil {
 				svc.logger.Fatal(err)
 			}
 			if len(pkts) == 0 {
 				continue
 			}
+			svc.logger.Warnf("DBG writing %d RTP packets to video stream %s", len(pkts), stream.Name())
+
+			for _, pkt := range pkts {
+				if err := stream.WriteRTP(pkt); err != nil {
+					svc.logger.Fatal(err)
+				}
+			}
 		}
-		svc.logger.Warnf("DBG startVideoStream terminating due to %s", streamVideoCtx.Err())
+		svc.logger.Warnf("DBG packetStream terminating due to %s", streamVideoCtx.Err())
 	}, svc.webWorkers.Done)
 	<-waitCh
-	// svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
-	// 	streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
-	// 	// Use H264 for cameras that support it; but do not override upstream values.
-	// 	if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
-	// 		streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
-	// 	}
+}
 
-	// 	return webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
-	// })
+const packetStream = false
+
+func (svc *webService) startVideoStream(
+	ctx context.Context,
+	source gostream.VideoSource,
+	stream gostream.Stream,
+) {
+	if packetStream {
+		svc.packetStream(ctx, stream)
+		return
+	}
+
+	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
+		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
+		// Use H264 for cameras that support it; but do not override upstream values.
+		if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
+			streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
+		}
+
+		return webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
+	})
 }
 
 func (svc *webService) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
