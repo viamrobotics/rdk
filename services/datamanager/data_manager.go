@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
-	"slices"
 
 	servicepb "go.viam.com/api/service/datamanager/v1"
+	"slices"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
@@ -90,6 +90,25 @@ func (ac *AssociatedConfig) UpdateResourceNames(updater func(old resource.Name) 
 	for idx := range ac.CaptureMethods {
 		ac.CaptureMethods[idx].Name = updater(ac.CaptureMethods[idx].Name)
 	}
+}
+
+// Link associates an AssociatedConfig to a specific resource model (e.g. builtin data capture).
+func (ac *AssociatedConfig) Link(conf *resource.Config) {
+	if len(ac.CaptureMethods) == 0 {
+		return
+	}
+
+	// infer name from first index in CaptureMethods
+	name := ac.CaptureMethods[0].Name
+	captureMethodCopies := make([]*DataCaptureConfig, 0, len(ac.CaptureMethods))
+	for _, method := range ac.CaptureMethods {
+		methodCopy := method
+		captureMethodCopies = append(captureMethodCopies, methodCopy)
+	}
+	if conf.AssociatedAttributes == nil {
+		conf.AssociatedAttributes = make(map[resource.Name]resource.AssociatedConfig)
+	}
+	conf.AssociatedAttributes[name] = &AssociatedConfig{CaptureMethods: captureMethodCopies}
 }
 
 // DataCaptureConfig is used to initialize a collector for a component or remote.

@@ -63,7 +63,7 @@ type (
 
 	// LinkAssocationConfig allows one resource to associate a specific association config
 	// to its own config. This is generally done by a specific resource (e.g. data capture of many components).
-	LinkAssocationConfig func(conf *Config, resAssociation any) error
+	LinkAssocationConfig func(conf *Config, resAssociation AssociatedConfig) error
 )
 
 // A DependencyNotReadyError is used whenever we reference a dependency that has not been

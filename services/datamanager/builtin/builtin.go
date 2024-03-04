@@ -35,25 +35,12 @@ func init() {
 		resource.DefaultServiceModel,
 		resource.Registration[datamanager.Service, *Config]{
 			Constructor: NewBuiltIn,
-			AssociatedConfigLinker: func(conf *resource.Config, resAssociation any) error {
+			AssociatedConfigLinker: func(conf *resource.Config, resAssociation resource.AssociatedConfig) error {
 				capConf, err := utils.AssertType[*datamanager.AssociatedConfig](resAssociation)
 				if err != nil {
 					return err
 				}
-				if len(capConf.CaptureMethods) == 0 {
-					return nil
-				}
-				// infer name from first index in CaptureMethods
-				name := capConf.CaptureMethods[0].Name
-				captureMethodCopies := make([]*datamanager.DataCaptureConfig, 0, len(capConf.CaptureMethods))
-				for _, method := range capConf.CaptureMethods {
-					methodCopy := method
-					captureMethodCopies = append(captureMethodCopies, methodCopy)
-				}
-				if conf.AssociatedAttributes == nil {
-					conf.AssociatedAttributes = make(map[resource.Name]resource.AssociatedConfig)
-				}
-				conf.AssociatedAttributes[name] = &datamanager.AssociatedConfig{CaptureMethods: captureMethodCopies}
+				capConf.Link(conf)
 				return nil
 			},
 			WeakDependencies: []resource.Matcher{
