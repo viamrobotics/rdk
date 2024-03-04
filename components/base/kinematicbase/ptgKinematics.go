@@ -207,6 +207,8 @@ func (ptgk *ptgBaseKinematics) goToInputs(ctx context.Context, inputs []referenc
 
 	for _, step := range arcSteps {
 		if ctx.Err() != nil {
+			ptgk.logger.CDebug(ctx, ctx.Err().Error())
+			// context cancelled
 			break
 		}
 		ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
@@ -255,7 +257,6 @@ func (ptgk *ptgBaseKinematics) goToInputs(ctx context.Context, inputs []referenc
 			// context cancelled
 			break
 		}
-
 	}
 	return nil
 }
