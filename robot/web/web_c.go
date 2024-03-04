@@ -273,17 +273,14 @@ func (svc *webService) startVideoStream(
 	utils.ManagedGo(func() {
 		defer close(waitCh)
 		for streamVideoCtx.Err() == nil {
-			svc.logger.Warn("DBG BEFORE cam.RTPH264PacketStream")
+			// svc.logger.Warn("DBG BEFORE cam.RTPH264PacketStream")
 			pkts, err := cam.RTPH264PacketStream(streamVideoCtx)
-			svc.logger.Warn("DBG AFTER cam.RTPH264PacketStream")
+			// svc.logger.Warn("DBG AFTER cam.RTPH264PacketStream")
 			if err != nil {
 				svc.logger.Fatal(err)
 			}
-			svc.logger.Infof("DBG writing %d packets", len(pkts))
-			for _, pkt := range pkts {
-				if err := stream.WriteRTP(pkt); err != nil {
-					svc.logger.Fatal(err)
-				}
+			if len(pkts) == 0 {
+				continue
 			}
 		}
 		svc.logger.Warnf("DBG startVideoStream terminating due to %s", streamVideoCtx.Err())

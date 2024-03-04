@@ -135,7 +135,6 @@ func newH264(
 			return nil, err
 		}
 	}
-	// log.Printf("NICK: newH264: %#v", t)
 
 	return t, nil
 }
@@ -170,7 +169,6 @@ func (t *formatProcessorH264) updateTrackParametersFromRTPPacket(payload []byte)
 }
 
 func (t *formatProcessorH264) updateTrackParametersFromAU(au [][]byte) {
-	// log.Printf("NICK: updateTrackParametersFromAU: %p, len(au): %d", au, len(au))
 	sps := t.format.SPS
 	pps := t.format.PPS
 	update := false
@@ -199,7 +197,6 @@ func (t *formatProcessorH264) updateTrackParametersFromAU(au [][]byte) {
 }
 
 func (t *formatProcessorH264) remuxAccessUnit(au [][]byte) [][]byte {
-	// log.Printf("NICK: remuxAccessUnit: %p, len(au): %d", au, len(au))
 	isKeyFrame := false
 	n := 0
 
@@ -258,18 +255,15 @@ func (t *formatProcessorH264) remuxAccessUnit(au [][]byte) [][]byte {
 }
 
 func (t *formatProcessorH264) ProcessUnit(uu unit.Unit) error {
-	// log.Printf("NICK: ProcessUnit: %p, %#v", uu, uu)
 	u := uu.(*unit.H264)
-	// log.Printf("NICK: BEFORE ProcessUnit: %p, len(u.AU): %d, %#v", u, len(u.AU), u)
 
 	t.updateTrackParametersFromAU(u.AU)
 	u.AU = t.remuxAccessUnit(u.AU)
-	// log.Printf("NICK: post remuxAccessUnit: %p, %#v", uu, uu)
 
 	if u.AU != nil {
 		pkts, err := t.encoder.Encode(u.AU)
 		if err != nil {
-			log.Printf("NICK: Encoder Err: %s", err.Error())
+			log.Printf("DBG: Encoder Err: %s", err.Error())
 			return err
 		}
 		u.RTPPackets = pkts
@@ -279,7 +273,6 @@ func (t *formatProcessorH264) ProcessUnit(uu unit.Unit) error {
 			pkt.Timestamp += ts
 		}
 	}
-	// log.Printf("NICK: AFTER ProcessUnit: %p, len(u.AU): %d, %#v", u, len(u.AU), u)
 
 	return nil
 }
@@ -290,7 +283,6 @@ func (t *formatProcessorH264) ProcessRTPPacket(
 	pts time.Duration,
 	hasNonRTSPReaders bool,
 ) (Unit, error) {
-	// log.Printf("NICK: ProcessRTPPacket called with %s", pkt)
 	u := &unit.H264{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
@@ -301,36 +293,30 @@ func (t *formatProcessorH264) ProcessRTPPacket(
 
 	t.updateTrackParametersFromRTPPacket(pkt.Payload)
 
-	// if t.encoder == nil {
-	// 	log.Printf("NICK: ProcessRTPPacket t.encoder == nil")
-	// 	// remove padding
-	// 	pkt.Header.Padding = false
-	// 	pkt.PaddingSize = 0
+	if t.encoder == nil {
+		// remove padding
+		pkt.Header.Padding = false
+		pkt.PaddingSize = 0
 
-	// 	// RTP packets exceed maximum size: start re-encoding them
-	// 	if pkt.MarshalSize() > t.udpMaxPayloadSize {
-	// 		// log.Printf("NICK: ProcessRTPPacket pkt.MarshalSize(): %d > t.udpMaxPayloadSize: %d",
-	// 		// pkt.MarshalSize(), t.udpMaxPayloadSize)
-	// 		v1 := pkt.SSRC
-	// 		v2 := pkt.SequenceNumber
-	// 		err := t.createEncoder(&v1, &v2)
-	// 		if err != nil {
-	// 			log.Printf("NICK: ProcessRTPPacket createEncoder, Err: %s", err.Error())
-	// 			return nil, err
-	// 		}
-	// 	}
-	// }
+		// RTP packets exceed maximum size: start re-encoding them
+		if pkt.MarshalSize() > t.udpMaxPayloadSize {
+			v1 := pkt.SSRC
+			v2 := pkt.SequenceNumber
+			err := t.createEncoder(&v1, &v2)
+			if err != nil {
+				log.Printf("DBG: ProcessRTPPacket createEncoder, Err: %s", err.Error())
+				return nil, err
+			}
+		}
+	}
 
 	// decode from RTP
 	if hasNonRTSPReaders || t.decoder != nil || t.encoder != nil {
-		// log.Printf("NICK: ProcessRTPPacket hasNonRTSPReaders: %t || t.decoder != nil: %t || t.encoder != nil: %t",
-		// 	hasNonRTSPReaders, t.decoder != nil, t.encoder != nil)
 		if t.decoder == nil {
-			log.Println("NICK: ProcessRTPPacket t.decoder == nil")
 			var err error
 			t.decoder, err = t.format.CreateDecoder()
 			if err != nil {
-				log.Printf("NICK: ProcessRTPPacket CreateDecoder Err: %s", err.Error())
+				log.Printf("DBG: ProcessRTPPacket CreateDecoder Err: %s", err.Error())
 				return nil, err
 			}
 		}
@@ -338,12 +324,11 @@ func (t *formatProcessorH264) ProcessRTPPacket(
 		au, err := t.decoder.Decode(pkt)
 
 		if t.encoder != nil {
-			log.Printf("NICK: ProcessRTPPacket t.encoder != nil, u.RTPPackets len before %d", len(u.RTPPackets))
 			u.RTPPackets = nil
 		}
 
 		if err != nil {
-			log.Println("NICK: err: ", err.Error())
+			log.Println("DBG: err: ", err.Error())
 			if errors.Is(err, rtph264.ErrNonStartingPacketAndNoPrevious) ||
 				errors.Is(err, rtph264.ErrMorePacketsNeeded) {
 				return u, nil
@@ -356,7 +341,6 @@ func (t *formatProcessorH264) ProcessRTPPacket(
 
 	// route packet as is
 	if t.encoder == nil {
-		log.Println("NICK: ProcessRTPPacket t.encoder == nil EXIT")
 		return u, nil
 	}
 
@@ -364,7 +348,7 @@ func (t *formatProcessorH264) ProcessRTPPacket(
 	if len(u.AU) != 0 {
 		pkts, err := t.encoder.Encode(u.AU)
 		if err != nil {
-			log.Printf("NICK: ProcessRTPPacket: Encode Err: %s", err.Error())
+			log.Printf("DBG: ProcessRTPPacket: Encode Err: %s", err.Error())
 			return nil, err
 		}
 		u.RTPPackets = pkts
