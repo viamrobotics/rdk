@@ -19,17 +19,17 @@ const (
 	BlockNameTrapezoidal = "trapezoidalVelocityProfile"
 	// rPiGain is 1/255 because the PWM signal on a pi (and most other boards)
 	// is limited to 8 bits, or the range 0-255.
-	rPiGain = 0.00392157
+	rPiGain                 = 0.00392157
+	defaultControllableType = "motor_name"
 )
 
 var (
 	// default derivative type is "backward1st1".
-	derivativeType   = "backward1st1"
-	loopFrequency    = 50.0
-	sumIndex         = 1
-	linearPIDIndex   = 2
-	angularPIDIndex  = -1
-	controllableType = "motor_name"
+	derivativeType  = "backward1st1"
+	loopFrequency   = 50.0
+	sumIndex        = 1
+	linearPIDIndex  = 2
+	angularPIDIndex = -1
 )
 
 // PIDLoop is used for setting up a PID control loop.
@@ -155,6 +155,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 		}
 		// switch sum to depend on the setpoint if position control
 		if p.Options.PositionControlUsingTrapz {
+			p.logger.Info("tuning trapz")
 			p.ControlConf.Blocks[sumIndex].DependsOn[0] = p.BlockNames[BlockNameConstant][0]
 			if err := p.StartControlLoop(); err != nil {
 				errs = multierr.Combine(errs, err)
@@ -163,6 +164,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
 				errs = multierr.Combine(errs, err)
 			}
+			p.logger.Info("done tuning trapz")
 		}
 		if p.Options.SensorFeedback2DVelocityControl {
 			// check if linear needs to be tuned
@@ -212,6 +214,7 @@ func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex int) error {
 
 func (p *PIDLoop) createControlLoopConfig(pidVals []PIDConfig, componentName string) {
 	// create basic control config
+	controllableType := defaultControllableType
 	if p.Options.ControllableType != "" {
 		controllableType = p.Options.ControllableType
 	}
@@ -273,8 +276,8 @@ func (p *PIDLoop) basicControlConfig(endpointName string, pidVals PIDConfig, con
 					"kP":             pidVals.P,
 					"limit_lo":       -255.0,
 					"limit_up":       255.0,
-					"tune_method":    "ziegerNicholsPI",
-					"tune_ssr_value": 2.0,
+					"tune_method":    "ziegerNicholsPID",
+					"tune_ssr_value": 1.0,
 					"tune_step_pct":  0.35,
 				},
 				DependsOn: []string{"sum"},
@@ -378,8 +381,8 @@ func (p *PIDLoop) addSensorFeedbackVelocityControl(angularPIDVals PIDConfig) {
 			"int_sat_lim_up": 255.0,
 			"limit_lo":       -255.0,
 			"limit_up":       255.0,
-			"tune_method":    "ziegerNicholsPI",
-			"tune_ssr_value": 2.0,
+			"tune_method":    "ziegerNicholsPID",
+			"tune_ssr_value": 1.0,
 			"tune_step_pct":  0.35,
 		},
 		DependsOn: []string{"sum"},

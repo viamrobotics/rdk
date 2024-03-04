@@ -14,12 +14,227 @@ import (
 )
 
 const (
-	increment = 0.01 // angle fraction multiplier to check
-	oneTurn   = 360.0
+	increment   = 0.01 // angle fraction multiplier to check
+	oneTurn     = 360.0
+	slowDownAng = 15. // angle from goal for spin to begin breaking
 )
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
 func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+	sb.logger.Info("yo new spin")
+	// make sure the control loop is enabled
+	if sb.loop == nil {
+		sb.logger.Info("yo new vel")
+		if err := sb.startControlLoop(); err != nil {
+			return err
+		}
+		// sb.stopLoop()
+	}
+	sb.setPolling(true)
+	// startYaw, err := getCurrentYaw(sb.orientation)
+	// if err != nil {
+	// 	return err
+	// }
+	sb.logger.Info("angleDeg: ", angleDeg)
+	sb.logger.Info("degsPerSec: ", degsPerSec)
+
+	orientation, err := sb.orientation.Orientation(ctx, nil)
+	if err != nil {
+		return err
+	}
+	initYaw := rdkutils.RadToDeg(orientation.EulerAngles().Yaw)
+
+	ticker := time.NewTicker(time.Duration(1000./sb.controlLoopConfig.Frequency) * time.Millisecond)
+	defer ticker.Stop()
+
+	// timeout duration is a multiplier times the expected time to perform a movement
+	spinTimeEst := time.Duration(int(time.Second) * int(math.Abs(angleDeg/degsPerSec)))
+	startTime := time.Now()
+	timeOut := 5 * spinTimeEst
+	if timeOut < 10*time.Second {
+		timeOut = 10 * time.Second
+	}
+	angErr := 0.
+	prevAngle := 0.
+	prevMovedAng := 0.
+	for {
+		sb.logger.Info("!isPolling: ", !sb.isPolling())
+		// check if we want to poll the sensor at all
+		// other API calls set this to false so that this for loop stops
+		if !sb.isPolling() {
+			ticker.Stop()
+		}
+
+		if err := ctx.Err(); err != nil {
+			ticker.Stop()
+			return err
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			orientation, err := sb.orientation.Orientation(ctx, nil)
+			if err != nil {
+				return err
+			}
+
+			currYaw := rdkutils.RadToDeg(orientation.EulerAngles().Yaw)
+			angErr, prevAngle, prevMovedAng = getAngError(initYaw, currYaw, prevAngle, prevMovedAng, angleDeg)
+			sb.logger.Info("currYaw: ", currYaw)
+			sb.logger.Info("angErr: ", angErr)
+			sb.logger.Info("prevAngle: ", prevAngle)
+			sb.logger.Info("prevMovedAng: ", prevMovedAng)
+			if math.Abs(angErr) < boundCheckTarget {
+				return sb.Stop(ctx, nil)
+			}
+			angVel := calcAngVel(angErr, degsPerSec)
+			sb.logger.Info("angVel: ", angVel)
+
+			if err := sb.updateControlConfig(ctx, 0, angVel); err != nil {
+				return err
+			}
+
+			if time.Since(startTime) > timeOut {
+				sb.logger.CWarn(ctx, "exceeded time for Spin call, stopping base")
+				if err := sb.Stop(ctx, nil); err != nil {
+					return nil
+				}
+				return nil
+			}
+		}
+	}
+}
+
+func calcAngVel(angErr, degsPerSec float64) float64 {
+	angVel := angErr * degsPerSec / slowDownAng
+	if angVel > degsPerSec {
+		return degsPerSec
+	}
+	if angVel < -degsPerSec {
+		return -degsPerSec
+	}
+	return angVel
+}
+
+func getAngError(initAngle, currYaw, prevAngle, prevMovedAng, desiredAngle float64) (float64, float64, float64) {
+	// use initial angle to get the current angle the spin has moved
+	wrappedAng := getWrappedAngle360((currYaw - initAngle))
+	angMoved := getMovedAng(prevAngle, wrappedAng, prevMovedAng)
+
+	// compute the error
+	errAng := (desiredAngle - angMoved)
+
+	return errAng, wrappedAng, angMoved
+}
+
+// bounds an angle from 0-360
+func getWrappedAngle360(angle float64) float64 {
+	return angle - (math.Floor((angle+180.)/(2*180.)))*2*180. // [-180;180):
+}
+
+func getMovedAng(prevAngle, currAngle, angMoved float64) float64 {
+	// the angle changed from 0 to 359. this means we are spinning in the negative direction
+	if prevAngle-currAngle < -300 {
+		return angMoved + currAngle - prevAngle - 360
+	}
+	// the angle changed from 359 to 0
+	if prevAngle-currAngle > 300 {
+		return angMoved + currAngle - prevAngle + 360
+	}
+	// add the change in angle to the position
+	return angMoved + currAngle - prevAngle
+}
+
+// // Spin commands a base to turn about its center at a angular speed and for a specific angle.
+// func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+// 	sb.logger.Info("yo new spin")
+// 	// make sure the control loop is enabled
+// 	if sb.loop != nil {
+// 		// sb.logger.Info("yo new vel")
+// 		// if err := sb.startControlLoop(); err != nil {
+// 		// 	return err
+// 		// }
+// 		sb.stopLoop()
+// 	}
+// 	time.Sleep(5 * time.Second)
+// 	pid := []control.PIDConfig{{Type: "", P: 0.1, I: 0.5, D: 0.001}}
+// 	options := control.Options{PositionControlUsingTrapz: true, NeedsAutoTuning: pid[0].NeedsAutoTuning(), LoopFrequency: 20, ControllableType: "motor_name"}
+// 	sc := spinController{pid: pid, sb: sb, opts: options}
+
+// 	lp, err := control.SetupPIDControlConfig(sc.pid, "spin-controller", sc.opts, &sc, sb.logger)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	sc.controlLoopConfig = lp.ControlConf
+// 	sc.lp = lp.ControlLoop
+// 	sc.blockNames = lp.BlockNames
+
+// 	if err := sc.startControlLoop(); err != nil {
+// 		return err
+// 	}
+// 	defer sc.lp.Stop()
+// 	dependsOn := []string{sc.blockNames[control.BlockNameConstant][0], sc.blockNames[control.BlockNameEndpoint][0]}
+// 	velConf := control.CreateTrapzBlock(ctx, sc.blockNames[control.BlockNameTrapezoidal][0], degsPerSec, dependsOn)
+// 	sb.logger.Info("yo velocity block name: ", velConf.Name)
+// 	sb.logger.Info("yo loop: ", sc.lp)
+// 	sb.logger.Info("yo block name: ", sc.blockNames[control.BlockNameTrapezoidal][0])
+
+// 	if err := sc.lp.SetConfigAt(ctx, sc.blockNames[control.BlockNameTrapezoidal][0], velConf); err != nil {
+// 		return err
+// 	}
+
+// 	// // Update the Constant block with the given setPoint for position control
+// 	posConf := control.CreateConstantBlock(ctx, sc.blockNames[control.BlockNameConstant][0], angleDeg)
+// 	if err := sc.lp.SetConfigAt(ctx, sc.blockNames[control.BlockNameConstant][0], posConf); err != nil {
+// 		return err
+// 	}
+
+// 	time.Sleep(5 * time.Second)
+// 	sb.logger.Info("spin done sleeping")
+
+// 	return nil
+// }
+
+// type spinController struct {
+// 	pid               []control.PIDConfig
+// 	sb                *sensorBase
+// 	opts              control.Options
+// 	controlLoopConfig control.Config
+// 	blockNames        map[string][]string
+// 	lp                *control.Loop
+// }
+
+// func (sc *spinController) startControlLoop() error {
+// 	loop, err := control.NewLoop(sc.sb.logger, sc.controlLoopConfig, sc)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if err := loop.Start(); err != nil {
+// 		return err
+// 	}
+// 	sc.lp = loop
+
+// 	return nil
+// }
+
+// func (sc *spinController) SetState(ctx context.Context, state []*control.Signal) error {
+// 	sc.sb.logger.Info("yo set state: ", state[0].GetSignalValueAt(0))
+// 	return sc.sb.SetPower(ctx, r3.Vector{}, r3.Vector{Z: state[0].GetSignalValueAt(0)}, nil)
+// }
+
+// func (sc *spinController) State(ctx context.Context) ([]float64, error) {
+// 	startYaw, err := getCurrentYaw(sc.sb.orientation)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	sc.sb.logger.Info("yo state: ", startYaw)
+// 	return []float64{startYaw}, nil
+// }
+
+// oldSpin commands a base to turn about its center at a angular speed and for a specific angle.
+func (sb *sensorBase) oldSpin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	sb.stopLoop()
 	if math.Abs(angleDeg) >= 360.0 {
 		sb.setPolling(false)

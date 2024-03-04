@@ -173,13 +173,13 @@ func sign(x float64) float64 { // A quick helper function
 func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) error {
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
-	if sb.isPolling() {
-		// if the spin loop is polling, don't call set velocity, immediately return
-		// this allows us to keep the control loop running without stopping it until
-		// the resource Close has been called
-		sb.logger.CInfo(ctx, "skipping set state call")
-		return nil
-	}
+	// if sb.isPolling() {
+	// 	// if the spin loop is polling, don't call set velocity, immediately return
+	// 	// this allows us to keep the control loop running without stopping it until
+	// 	// the resource Close has been called
+	// 	sb.logger.CInfo(ctx, "skipping set state call")
+	// 	return nil
+	// }
 
 	sb.logger.CDebug(ctx, "setting state")
 	linvel := state[0].GetSignalValueAt(0)
@@ -187,7 +187,7 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 	// (cw/ccw) doesn't switch when the base is moving backwards
 	angvel := (state[1].GetSignalValueAt(0) * sign(linvel))
 
-	return sb.SetPower(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
+	return sb.controlledBase.SetPower(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
 }
 
 // State is called in endpoint.go of the controls package by the control loop
