@@ -49,7 +49,7 @@ type TFLiteConfig struct {
 	LabelPath  string `json:"label_path"`
 }
 
-// Validate will check if the config is valid
+// Validate will check if the config is valid.
 func (conf *TFLiteConfig) Validate(path string) ([]string, error) {
 	if conf.ModelPath == "" {
 		return nil, errors.New("model_path attribute cannot be empty")
