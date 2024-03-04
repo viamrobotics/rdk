@@ -299,18 +299,35 @@ const handleMoveClick = async () => {
   try {
     // set pose in frame
     const lastPose = await slamClient.getPosition();
-    const destinationMM = lastPose.pose!;
-    destinationMM.x = destination!.x * 1000;
-    destinationMM.y = destination!.y * 1000;
+    if (bases[0] == undefined) {
+      notify.danger("unable to create MoveOnMap request due to no bases existing on the robot");
+      return
+    }
     const base = bases[0]!;
+
+    if (lastPose.pose == undefined) {
+      notify.danger("unable to create MoveOnMap request due to slam.GetPosition() method returning a null pose");
+      return
+    }
+    const destinationMM = lastPose.pose!;
+
+    if (lastPose.pose.x == undefined) {
+      notify.danger("unable to create MoveOnMap request due to slam.GetPosition() method returning a pose with null x attribute");
+      return
+    }
+    destinationMM.x = destination!.x * 1000;
+
+    if (lastPose.pose.y == undefined) {
+      notify.danger("unable to create MoveOnMap request due to slam.GetPosition() method returning a pose with null y attribute");
+      return
+    }
+    destinationMM.y = destination!.y * 1000;
+
     await motionClient.moveOnMap(
       destinationMM,
       base,
       slamResourceName,
-      // obstacleDetectorsList is specified to work around this bug: RSDK-6632
-      // when that ticket is resolved we should delete the empty obstacleDetectorsList
-      // parameter
-      { planDeviationM: 0.5, obstacleDetectorsList: [] },
+      { planDeviationM: 0.5 },
       { motion_profile: 'position_only' }
     );
     await refreshPaths();
