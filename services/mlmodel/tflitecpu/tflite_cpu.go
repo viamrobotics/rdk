@@ -1,7 +1,13 @@
-//go:build !no_tflite && !no_cgo
+//go:build !no_tflite
 
 // Package tflitecpu runs tflite model files on the host's CPU, as an implementation the ML model service.
 package tflitecpu
+
+/*
+#cgo android,arm64 LDFLAGS: -L${SRCDIR}/android/jni/arm64-v8a
+#cgo android,amd64 LDFLAGS: -L${SRCDIR}/android/jni/x86_64
+*/
+import "C"
 
 import (
 	"context"
