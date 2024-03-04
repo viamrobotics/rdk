@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 if [[ -z "${ANDROID_NDK}" ]]; then
-    echo "Must provide NDK_ROOT in environment" 1>&2
+    echo "Must provide ANDROID_NDK in environment" 1>&2
     exit 1
 fi
 
