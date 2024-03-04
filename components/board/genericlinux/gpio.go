@@ -37,8 +37,8 @@ type gpioPin struct {
 	cancelCtx context.Context
 	logger    logging.Logger
 
-	swPWMContext context.Context
-	swPWMCancel  func()
+	swPwmContext context.Context
+	swPwmCancel  func()
 }
 
 func (pin *gpioPin) wrapError(err error) error {
@@ -116,9 +116,9 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool,
 	defer pin.mu.Unlock()
 
 	// Shut down any software PWM loop that might be running.
-	if pin.swPWMCancel != nil {
-		pin.swPWMCancel()
-		pin.swPWMCancel = nil
+	if pin.swPwmCancel != nil {
+		pin.swPwmCancel()
+		pin.swPwmCancel = nil
 	}
 	pin.swPwmRunning = false
 
@@ -179,9 +179,9 @@ func (pin *gpioPin) Get(
 func (pin *gpioPin) startSoftwarePWM() error {
 	if pin.pwmDutyCyclePct == 0 || pin.pwmFreqHz == 0 {
 		// We don't have both parameters set up. Stop any PWM loop we might have started previously.
-		if pin.swPWMCancel != nil {
-			pin.swPWMCancel()
-			pin.swPWMCancel = nil
+		if pin.swPwmCancel != nil {
+			pin.swPwmCancel()
+			pin.swPwmCancel = nil
 		}
 		pin.swPwmRunning = false
 		if pin.hwPwm != nil {
@@ -199,9 +199,9 @@ func (pin *gpioPin) startSoftwarePWM() error {
 				return err
 			}
 			// Shut down any software PWM loop that might be running.
-			if pin.swPWMCancel != nil {
-				pin.swPWMCancel()
-				pin.swPWMCancel = nil
+			if pin.swPwmCancel != nil {
+				pin.swPwmCancel()
+				pin.swPwmCancel = nil
 			}
 			pin.swPwmRunning = false
 			return pin.hwPwm.SetPwm(pin.pwmFreqHz, pin.pwmDutyCyclePct)
@@ -224,7 +224,11 @@ func (pin *gpioPin) startSoftwarePWM() error {
 
 	pin.swPwmRunning = true
 	pin.boardWorkers.Add(1)
-	utils.ManagedGo(pin.softwarePwmLoop, pin.boardWorkers.Done)
+	ctx, cancel := context.WithCancel(pin.cancelCtx)
+	pin.swPwmCancel = cancel
+	pin.swPwmContext = ctx
+
+	utils.ManagedGo(func() { pin.softwarePwmLoop(ctx) }, pin.boardWorkers.Done)
 	return nil
 }
 
@@ -294,13 +298,15 @@ func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
 		dutyCycle = 1 - dutyCycle
 	}
 	duration := time.Duration(float64(time.Second) * dutyCycle / float64(freqHz))
-	pin.swPWMContext, pin.swPWMCancel = context.WithCancel(pin.cancelCtx)
 
-	return accurateSleep(pin.swPWMContext, duration)
+	return accurateSleep(pin.swPwmContext, duration)
 }
 
-func (pin *gpioPin) softwarePwmLoop() {
+func (pin *gpioPin) softwarePwmLoop(ctx context.Context) {
 	for {
+		if err := ctx.Err(); err != nil {
+			return
+		}
 		if !pin.halfPwmCycle(true) {
 			return
 		}
