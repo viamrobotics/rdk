@@ -236,7 +236,6 @@ func (ptgk *ptgBaseKinematics) goToInputs(ctx context.Context, inputs []referenc
 			return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
 		}
 		wg.Add(1)
-		defer wg.Wait()
 		utils.PanicCapturingGo(func() {
 			// We need to update currentInputs as we move through the arc.
 			for timeElapsed := 0.; timeElapsed <= step.timestepSeconds; timeElapsed += inputUpdateStep {
@@ -257,6 +256,7 @@ func (ptgk *ptgBaseKinematics) goToInputs(ctx context.Context, inputs []referenc
 			// context cancelled
 			break
 		}
+		wg.Wait()
 	}
 	return nil
 }
