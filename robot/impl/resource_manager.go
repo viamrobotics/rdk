@@ -920,17 +920,23 @@ func (manager *resourceManager) updateResources(
 	var allErrs error
 
 	// modules are not added into the resource tree as they belong to the module manager
+	var wg sync.WaitGroup
 	for _, mod := range conf.Added.Modules {
 		// this is done in config validation but partial start rules require us to check again
 		if err := mod.Validate(""); err != nil {
 			manager.logger.CErrorw(ctx, "module config validation error; skipping", "module", mod.Name, "error", err)
 			continue
 		}
-		if err := manager.moduleManager.Add(ctx, mod); err != nil {
-			manager.logger.CErrorw(ctx, "error adding module", "module", mod.Name, "error", err)
-			continue
-		}
+		wg.Add(1)
+		go func(mod config.Module) {
+			defer wg.Done()
+			if err := manager.moduleManager.Add(ctx, mod); err != nil {
+				manager.logger.CErrorw(ctx, "error adding module", "module", mod.Name, "error", err)
+			}
+			manager.logger.Info(">>> added module:", mod)
+		}(mod)
 	}
+	wg.Wait()
 
 	for _, mod := range conf.Modified.Modules {
 		// this is done in config validation but partial start rules require us to check again

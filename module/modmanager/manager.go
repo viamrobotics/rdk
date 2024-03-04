@@ -97,6 +97,7 @@ type addedResource struct {
 // Manager is the root structure for the module system.
 type Manager struct {
 	mu           sync.RWMutex
+	perModMu     sync.Map
 	logger       logging.Logger
 	modules      map[string]*module
 	parentAddr   string
@@ -143,14 +144,22 @@ func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 	return res
 }
 
+func (mgr *Manager) loadModMutex(conf config.Module) *sync.Mutex {
+	value, _ := mgr.perModMu.LoadOrStore(conf.Name, &sync.Mutex{})
+	mu := value.(*sync.Mutex)
+	return mu
+}
+
 // Add adds and starts a new resource module.
 func (mgr *Manager) Add(ctx context.Context, conf config.Module) error {
-	mgr.mu.Lock()
-	defer mgr.mu.Unlock()
+	mu := mgr.loadModMutex(conf)
+	mu.Lock()
+	defer mu.Unlock()
 	return mgr.add(ctx, conf)
 }
 
 func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
+	mgr.logger.Info(">>> cfg->name", conf.Name)
 	if mgr.untrustedEnv {
 		return errModularResourcesDisabled
 	}
@@ -184,6 +193,9 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 }
 
 func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
+	mgr.logger.Info(">>> startModule ------------------------")
+	defer mgr.logger.Info(">>> startModule fin ************************")
+
 	// add calls startProcess, which can also be called by the OUE handler in the attemptRestart
 	// call. Both of these involve owning a lock, so in unhappy cases of malformed modules
 	// this can lead to a deadlock. To prevent this, we set inStartup here to indicate to
