@@ -19,6 +19,9 @@ const (
 	aliasRobotFlag   = "robot"
 	partFlag         = "part"
 
+	// TODO: RSDK-6683.
+	quietFlag = "quiet"
+
 	logsFlagErrors = "errors"
 	logsFlagTail   = "tail"
 
@@ -109,6 +112,12 @@ var app = &cli.App{
 			Aliases: []string{"vvv"},
 			Usage:   "enable debug logging",
 		},
+		&cli.BoolFlag{
+			Name:    quietFlag,
+			Value:   false,
+			Aliases: []string{"q"},
+			Usage:   "suppress warnings",
+		},
 	},
 	Commands: []*cli.Command{
 		{
@@ -124,6 +133,7 @@ var app = &cli.App{
 				},
 			},
 			Action: LoginAction,
+			After:  CheckUpdateAction,
 			Subcommands: []*cli.Command{
 				{
 					Name:   "print-access-token",
@@ -988,23 +998,19 @@ var app = &cli.App{
 							UsageText:   createUsageText("machines part shell", []string{organizationFlag, locationFlag, machineFlag, partFlag}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     organizationFlag,
-									Required: true,
+									Name: organizationFlag,
 								},
 								&cli.StringFlag{
-									Name:     locationFlag,
-									Required: true,
+									Name: locationFlag,
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
-										Name:     machineFlag,
-										Aliases:  []string{aliasRobotFlag},
-										Required: true,
+										Name:    machineFlag,
+										Aliases: []string{aliasRobotFlag},
 									},
 								},
 								&cli.StringFlag{
-									Name:     partFlag,
-									Required: true,
+									Name: partFlag,
 								},
 							},
 							Action: RobotsPartShellAction,

@@ -217,16 +217,16 @@ func newOrientationCollector(resource interface{}, params data.CollectorParams) 
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, orientation.String(), err)
 		}
-		var axisAng *spatialmath.R4AA
+		var orientVector *spatialmath.OrientationVectorDegrees
 		if orient != nil {
-			axisAng = orient.AxisAngles()
+			orientVector = orient.OrientationVectorDegrees()
 		}
 		return pb.GetOrientationResponse{
 			Orientation: &v1.Orientation{
-				OX:    axisAng.RX,
-				OY:    axisAng.RY,
-				OZ:    axisAng.RZ,
-				Theta: axisAng.Theta,
+				OX:    orientVector.OX,
+				OY:    orientVector.OY,
+				OZ:    orientVector.OZ,
+				Theta: orientVector.Theta,
 			},
 		}, nil
 	})

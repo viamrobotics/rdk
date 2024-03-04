@@ -269,7 +269,7 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 	// check all known packages exist and are linked to the correct package dir.
 	for _, p := range input {
 		logicalPath := filepath.Join(dir, p.Name)
-		dataPath := filepath.Join(dir, ".data", string(p.Type), p.SanitizedName())
+		dataPath := filepath.Join(dir, "data", string(p.Type), p.SanitizedName())
 
 		info, err := os.Stat(logicalPath)
 		test.That(t, err, test.ShouldBeNil)
@@ -288,8 +288,8 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 		test.That(t, info.IsDir(), test.ShouldBeTrue)
 	}
 
-	// find any dangling files in the package dir or .data sub dir
-	// packageDir will contain either symlinks to the packages or the .data directory.
+	// find any dangling files in the package dir or data sub dir
+	// packageDir will contain either symlinks to the packages or the data directory.
 	files, err := os.ReadDir(dir)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -301,15 +301,15 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 			continue
 		}
 
-		// skip over any directories including the .data
-		if f.IsDir() && f.Name() == ".data" {
+		// skip over any directories including the data
+		if f.IsDir() && f.Name() == "data" {
 			continue
 		}
 
 		t.Fatalf("found unknown file in package dir %s", f.Name())
 	}
 
-	typeFolders, err := os.ReadDir(filepath.Join(dir, ".data"))
+	typeFolders, err := os.ReadDir(filepath.Join(dir, "data"))
 	test.That(t, err, test.ShouldBeNil)
 
 	for _, typeFile := range typeFolders {
@@ -317,7 +317,7 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 		if !ok {
 			t.Errorf("found unknown file in package data dir %s", typeFile.Name())
 		}
-		foundFiles, err := os.ReadDir(filepath.Join(dir, ".data", typeFile.Name()))
+		foundFiles, err := os.ReadDir(filepath.Join(dir, "data", typeFile.Name()))
 		test.That(t, err, test.ShouldBeNil)
 		for _, packageFile := range foundFiles {
 			if !slices.Contains(expectedPackages, packageFile.Name()) {

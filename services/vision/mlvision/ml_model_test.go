@@ -93,14 +93,15 @@ func TestAddingIncorrectModelTypeToModel(t *testing.T) {
 
 	inNameMap := &sync.Map{}
 	outNameMap := &sync.Map{}
-	classifier, err := attemptToBuildClassifier(mlm, inNameMap, outNameMap)
+	conf := &MLModelConfig{}
+	classifier, err := attemptToBuildClassifier(mlm, inNameMap, outNameMap, conf)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, classifier, test.ShouldNotBeNil)
 
 	err = checkIfClassifierWorks(ctx, classifier)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	detector, err := attemptToBuildDetector(mlm, inNameMap, outNameMap)
+	detector, err := attemptToBuildDetector(mlm, inNameMap, outNameMap, conf)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, detector, test.ShouldNotBeNil)
 
@@ -114,7 +115,7 @@ func TestAddingIncorrectModelTypeToModel(t *testing.T) {
 
 	inNameMap = &sync.Map{}
 	outNameMap = &sync.Map{}
-	classifier, err = attemptToBuildClassifier(mlm, inNameMap, outNameMap)
+	classifier, err = attemptToBuildClassifier(mlm, inNameMap, outNameMap, conf)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, classifier, test.ShouldNotBeNil)
 
@@ -124,7 +125,7 @@ func TestAddingIncorrectModelTypeToModel(t *testing.T) {
 	mlm, err = getTestMlModel(modelLocClassifier)
 	test.That(t, err, test.ShouldBeNil)
 
-	detector, err = attemptToBuildDetector(mlm, inNameMap, outNameMap)
+	detector, err = attemptToBuildDetector(mlm, inNameMap, outNameMap, conf)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, detector, test.ShouldNotBeNil)
 
@@ -167,7 +168,8 @@ func TestNewMLDetector(t *testing.T) {
 
 	inNameMap := &sync.Map{}
 	outNameMap := &sync.Map{}
-	gotDetector, err := attemptToBuildDetector(out, inNameMap, outNameMap)
+	conf := &MLModelConfig{}
+	gotDetector, err := attemptToBuildDetector(out, inNameMap, outNameMap, conf)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotDetector, test.ShouldNotBeNil)
 
@@ -193,7 +195,8 @@ func TestNewMLDetector(t *testing.T) {
 	test.That(t, outNL, test.ShouldNotBeNil)
 	inNameMap = &sync.Map{}
 	outNameMap = &sync.Map{}
-	gotDetectorNL, err := attemptToBuildDetector(outNL, inNameMap, outNameMap)
+	conf = &MLModelConfig{}
+	gotDetectorNL, err := attemptToBuildDetector(outNL, inNameMap, outNameMap, conf)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotDetectorNL, test.ShouldNotBeNil)
 	gotDetectionsNL, err := gotDetectorNL(ctx, pic)
@@ -244,7 +247,8 @@ func TestNewMLClassifier(t *testing.T) {
 
 	inNameMap := &sync.Map{}
 	outNameMap := &sync.Map{}
-	gotClassifier, err := attemptToBuildClassifier(out, inNameMap, outNameMap)
+	conf := &MLModelConfig{}
+	gotClassifier, err := attemptToBuildClassifier(out, inNameMap, outNameMap, conf)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotClassifier, test.ShouldNotBeNil)
 
@@ -264,7 +268,8 @@ func TestNewMLClassifier(t *testing.T) {
 	test.That(t, outNL, test.ShouldNotBeNil)
 	inNameMap = &sync.Map{}
 	outNameMap = &sync.Map{}
-	gotClassifierNL, err := attemptToBuildClassifier(outNL, inNameMap, outNameMap)
+	conf = &MLModelConfig{}
+	gotClassifierNL, err := attemptToBuildClassifier(outNL, inNameMap, outNameMap, conf)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotClassifierNL, test.ShouldNotBeNil)
 	gotClassificationsNL, err := gotClassifierNL(ctx, pic)
@@ -276,6 +281,47 @@ func TestNewMLClassifier(t *testing.T) {
 	test.That(t, topNL[0].Label(), test.ShouldContainSubstring, "291")
 	test.That(t, topNL[0].Score(), test.ShouldBeGreaterThan, 0.99)
 	test.That(t, topNL[1].Score(), test.ShouldBeLessThan, 0.01)
+}
+
+func TestMLDetectorWithNoCategory(t *testing.T) {
+	// Test that a detector would give an expected output on the person
+	// This detector only has two output tensors, Identity (location) and Identity_1 (score)
+	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/person.jpg"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pic, test.ShouldNotBeNil)
+
+	name := mlmodel.Named("yolo_person")
+	ctx := context.Background()
+	modelLoc := artifact.MustPath("vision/tflite/yolov4-tiny-416_person.tflite")
+	cfg := tflitecpu.TFLiteConfig{
+		ModelPath: modelLoc,
+	}
+
+	// Test that a detector would give the expected output on the dog image
+	outModel, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, name)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, outModel, test.ShouldNotBeNil)
+	check, err := outModel.Metadata(ctx)
+	test.That(t, check, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	// Even without metadata we should find
+	test.That(t, check.Inputs[0].Shape, test.ShouldResemble, []int{1, 416, 416, 3})
+	test.That(t, check.Inputs[0].DataType, test.ShouldResemble, "float32")
+	test.That(t, len(check.Outputs), test.ShouldEqual, 2) // only two output tensors
+
+	inNameMap := &sync.Map{}
+	outNameMap := &sync.Map{}
+	outNameMap.Store("location", "Identity")
+	outNameMap.Store("score", "Identity_1")
+	conf := &MLModelConfig{}
+	gotDetector, err := attemptToBuildDetector(outModel, inNameMap, outNameMap, conf)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotDetector, test.ShouldNotBeNil)
+
+	gotDetections, err := gotDetector(ctx, pic)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotDetections[2297].Score(), test.ShouldBeGreaterThan, 0.7)
+	test.That(t, gotDetections[2297].Label(), test.ShouldResemble, "0")
 }
 
 func TestMoreMLDetectors(t *testing.T) {
@@ -308,7 +354,8 @@ func TestMoreMLDetectors(t *testing.T) {
 
 	inNameMap := &sync.Map{}
 	outNameMap := &sync.Map{}
-	gotDetector, err := attemptToBuildDetector(outModel, inNameMap, outNameMap)
+	conf := &MLModelConfig{}
+	gotDetector, err := attemptToBuildDetector(outModel, inNameMap, outNameMap, conf)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotDetector, test.ShouldNotBeNil)
 
@@ -340,7 +387,8 @@ func TestMoreMLClassifiers(t *testing.T) {
 
 	inNameMap := &sync.Map{}
 	outNameMap := &sync.Map{}
-	gotClassifier, err := attemptToBuildClassifier(outModel, inNameMap, outNameMap)
+	conf := &MLModelConfig{}
+	gotClassifier, err := attemptToBuildClassifier(outModel, inNameMap, outNameMap, conf)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotClassifier, test.ShouldNotBeNil)
 
@@ -369,7 +417,8 @@ func TestMoreMLClassifiers(t *testing.T) {
 
 	inNameMap = &sync.Map{}
 	outNameMap = &sync.Map{}
-	gotClassifier, err = attemptToBuildClassifier(outModel, inNameMap, outNameMap)
+	conf = &MLModelConfig{}
+	gotClassifier, err = attemptToBuildClassifier(outModel, inNameMap, outNameMap, conf)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotClassifier, test.ShouldNotBeNil)
 	gotClassifications, err = gotClassifier(ctx, pic)
@@ -444,7 +493,8 @@ func TestOneClassifierOnManyCameras(t *testing.T) {
 	test.That(t, out, test.ShouldNotBeNil)
 	inNameMap := &sync.Map{}
 	outNameMap := &sync.Map{}
-	outClassifier, err := attemptToBuildClassifier(out, inNameMap, outNameMap)
+	conf := &MLModelConfig{}
+	outClassifier, err := attemptToBuildClassifier(out, inNameMap, outNameMap, conf)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outClassifier, test.ShouldNotBeNil)
 	valuePanda, valueLion := classifyTwoImages(picPanda, picLion, outClassifier)
@@ -464,12 +514,14 @@ func TestMultipleClassifiersOneModel(t *testing.T) {
 
 	inNameMap := &sync.Map{}
 	outNameMap := &sync.Map{}
-	Classifier1, err := attemptToBuildClassifier(out, inNameMap, outNameMap)
+	conf := &MLModelConfig{}
+	Classifier1, err := attemptToBuildClassifier(out, inNameMap, outNameMap, conf)
 	test.That(t, err, test.ShouldBeNil)
 
 	inNameMap = &sync.Map{}
 	outNameMap = &sync.Map{}
-	Classifier2, err := attemptToBuildClassifier(out, inNameMap, outNameMap)
+	conf = &MLModelConfig{}
+	Classifier2, err := attemptToBuildClassifier(out, inNameMap, outNameMap, conf)
 	test.That(t, err, test.ShouldBeNil)
 
 	picPanda, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/redpanda.jpeg"))

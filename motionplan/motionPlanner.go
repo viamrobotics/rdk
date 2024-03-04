@@ -494,6 +494,8 @@ func CheckPlan(
 
 	// offset the plan using the errorState
 	offsetPlan := OffsetPlan(plan, errorState)
+
+	// get plan poses for checkFrame
 	poses, err := offsetPlan.Path().GetFramePoses(checkFrame.Name())
 	if err != nil {
 		return err
@@ -511,6 +513,47 @@ func CheckPlan(
 		return err
 	}
 
+	// create a list of segments to iterate through
+	var segments []*ik.Segment
+	if relative {
+		segments = make([]*ik.Segment, 0, len(poses)+1)
+
+		// get the inputs we were partway through executing
+		checkFrameGoalInputs, err := sf.mapToSlice(plan.Trajectory()[0])
+		if err != nil {
+			return err
+		}
+
+		// get checkFrame's currentInputs
+		checkFrameCurrentInputs, err := sf.mapToSlice(currentInputs)
+		if err != nil {
+			return err
+		}
+
+		// get pose of robot along the current trajectory it is executing
+		lastPose, err := sf.Transform(checkFrameCurrentInputs)
+		if err != nil {
+			return err
+		}
+
+		// where ought the robot be on the plan
+		pathPosition := spatialmath.PoseBetweenInverse(errorState, currentPose)
+
+		// absolute pose of the previous node we've passed
+		formerRunningPose := spatialmath.PoseBetweenInverse(lastPose, pathPosition)
+
+		// pre-pend to segments so we can connect to the input we have not finished actuating yet
+		segments = append(segments, &ik.Segment{
+			StartPosition:      formerRunningPose,
+			EndPosition:        poses[0],
+			StartConfiguration: checkFrameCurrentInputs,
+			EndConfiguration:   checkFrameGoalInputs,
+		})
+	} else {
+		segments = make([]*ik.Segment, 0, len(poses))
+	}
+
+	// function to ease further segment creation
 	createSegment := func(
 		currPose, nextPose spatialmath.Pose,
 		currInput, nextInput map[string][]frame.Input,
@@ -537,8 +580,7 @@ func CheckPlan(
 		}, nil
 	}
 
-	// create a list of segments to iterate through
-	segments := make([]*ik.Segment, 0, len(poses))
+	// iterate through remaining plan and append remaining segments to check
 	for i := 0; i < len(offsetPlan.Path())-1; i++ {
 		segment, err := createSegment(poses[i], poses[i+1], offsetPlan.Trajectory()[i], offsetPlan.Trajectory()[i+1])
 		if err != nil {

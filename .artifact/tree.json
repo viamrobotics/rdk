@@ -3728,6 +3728,10 @@
       "hash": "dfebe03896ca235803cce73cbaf9c367",
       "size": 364720
     },
+    "cardboardOcto.pcd": {
+      "hash": "29828dfee86c2a6c17a21b66454df302",
+      "size": 20552
+    },
     "collision_pointcloud_0.pcd": {
       "hash": "879abb9a60152756bcd7cc87cb17252f",
       "size": 3037564
@@ -52285,6 +52289,10 @@
         "hash": "3118459d58736a16b8e022e569de260c",
         "size": 21967062
       },
+      "person.jpg": {
+        "hash": "92397b49c891f2bdcd0ea44941ed9033",
+        "size": 35262
+      },
       "redpanda.jpeg": {
         "hash": "0394b41317317b30a6bc01fa7a18617b",
         "size": 654771
@@ -52292,6 +52300,10 @@
       "ssdmobilenet.tflite": {
         "hash": "4c421353bf0a105c5ffba593ffee4099",
         "size": 27523960
+      },
+      "yolov4-tiny-416_person.tflite": {
+        "hash": "e0ff04ba988900cae64020c7bcc5b93a",
+        "size": 23549400
       }
     },
     "white1.png": {
