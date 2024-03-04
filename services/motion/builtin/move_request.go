@@ -157,7 +157,7 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan, waypoi
 	}
 
 	// ~ // Iterate through the list of waypoints and issue a command to move to each
-	//~ for i := int(waypointIndex.Load()); i < len(waypoints); i++ {
+	// ~ for i := int(waypointIndex.Load()); i < len(waypoints); i++ {
 	//~ select {
 	//~ case <-ctx.Done():
 	//~ mr.logger.CDebugf(ctx, "calling kinematicBase.Stop due to %s\n", ctx.Err())

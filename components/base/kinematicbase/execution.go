@@ -343,7 +343,12 @@ func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []course
 func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(currStep, nGoals int, currDist float64, currPose spatialmath.Pose, steps []arcStep) []courseCorrectionGoal {
 	goals := []courseCorrectionGoal{}
 
-	stepsPerGoal := int((ptgk.nonzeroBaseTurningRadiusMeters * lookaheadDistMult * 1000) / stepDistResolution)
+	stepsPerGoal := int((ptgk.nonzeroBaseTurningRadiusMeters*lookaheadDistMult*1000)/stepDistResolution) / nGoals
+
+	if stepsPerGoal < 1 {
+		return []courseCorrectionGoal{}
+	}
+
 	startingTrajPt := 0
 	for j := 0; j < len(steps[currStep].subTraj); j++ {
 		if steps[currStep].subTraj[j].Dist >= currDist {
@@ -365,7 +370,6 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(currStep, nGoals int, c
 	stepsRemainingThisGoal := stepsPerGoal
 	for i := currStep; i < len(steps); i++ {
 		for len(steps[i].subTraj)-startingTrajPt > stepsRemainingThisGoal {
-
 			goalTrajPtIdx := startingTrajPt + stepsRemainingThisGoal
 
 			goalPose := spatialmath.PoseBetween(currPose, spatialmath.Compose(steps[i].trajStartPose, steps[i].subTraj[goalTrajPtIdx].Pose))
