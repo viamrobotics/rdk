@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
-	"slices"
 
 	servicepb "go.viam.com/api/service/datamanager/v1"
+	"slices"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
@@ -51,7 +51,7 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 	return resource.FromDependencies[Service](deps, Named(name))
 }
 
-// AssociatedConfig specify a list of methods to capture on resources and implements the resource.AssociatedConfig interface
+// AssociatedConfig specify a list of methods to capture on resources and implements the resource.AssociatedConfig interface.
 type AssociatedConfig struct {
 	CaptureMethods []*DataCaptureConfig `json:"capture_methods"`
 }
@@ -68,7 +68,7 @@ func newAssociatedConfig(attributes utils.AttributeMap) (*AssociatedConfig, erro
 	return &conf, nil
 }
 
-// Equals describes if an DataCaptureConfigs is equal to a given AssociatedConfig
+// Equals describes if an DataCaptureConfigs is equal to a given AssociatedConfig.
 func (ac *AssociatedConfig) Equals(other resource.AssociatedConfig) bool {
 	ac2, err := utils.AssertType[*AssociatedConfig](other)
 	if err != nil {
