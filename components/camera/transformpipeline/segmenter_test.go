@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/logging"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
-	vizservices "go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -21,7 +20,6 @@ import (
 )
 
 func TestTransformSegmenterProps(t *testing.T) {
-	r := &inject.Robot{}
 	cam := &inject.Camera{}
 	vizServ := &inject.VisionService{}
 	logger := logging.NewTestLogger(t)
@@ -35,17 +33,9 @@ func TestTransformSegmenterProps(t *testing.T) {
 		return camera.Properties{}, nil
 	}
 
-	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
-		switch n.Name {
-		case "fakeCamera":
-			return cam, nil
-		case "fakeVizService":
-			return vizServ, nil
-		default:
-			return nil, resource.NewNotFoundError(n)
-		}
-	}
-
+	fakeCameraName := resource.Name{Name: "fakeCamera", API: camera.API}
+	fakeVizServName := resource.Name{Name: "fakeVizService", API: vizServ.Name().API}
+	deps := resource.Dependencies{fakeCameraName: cam, fakeVizServName: vizServ}
 	transformConf := &transformConfig{
 		Source: "fakeCamera",
 		Pipeline: []Transformation{
@@ -63,7 +53,7 @@ func TestTransformSegmenterProps(t *testing.T) {
 	_, err = conf.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = newTransformPipeline(context.Background(), cam, transformConf, r, logger)
+	_, err = newTransformPipeline(context.Background(), cam, transformConf, deps, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	transformConf = &transformConfig{
@@ -85,7 +75,6 @@ func TestTransformSegmenterFunctionality(t *testing.T) {
 	// TODO(RSDK-1200): remove skip when complete
 	t.Skip("remove skip once RSDK-1200 improvement is complete")
 
-	r := &inject.Robot{}
 	cam := &inject.Camera{}
 	vizServ := &inject.VisionService{}
 	logger := logging.NewTestLogger(t)
@@ -126,20 +115,9 @@ func TestTransformSegmenterFunctionality(t *testing.T) {
 		return objects.Objects, nil
 	}
 
-	r.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{camera.Named("fakeCamera"), vizservices.Named("fakeVizService")}
-	}
-	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
-		switch n.Name {
-		case "fakeCamera":
-			return cam, nil
-		case "fakeVizService":
-			return vizServ, nil
-		default:
-			return nil, resource.NewNotFoundError(n)
-		}
-	}
-
+	fakeCameraName := resource.Name{Name: "fakeCamera", API: camera.API}
+	fakeVizServName := resource.Name{Name: "fakeVizService", API: vizServ.Name().API}
+	deps := resource.Dependencies{fakeCameraName: cam, fakeVizServName: vizServ}
 	transformConf := &transformConfig{
 		Source: "fakeCamera",
 		Pipeline: []Transformation{
@@ -151,7 +129,7 @@ func TestTransformSegmenterFunctionality(t *testing.T) {
 		},
 	}
 
-	pipeline, err := newTransformPipeline(context.Background(), cam, transformConf, r, logger)
+	pipeline, err := newTransformPipeline(context.Background(), cam, transformConf, deps, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	pc, err := pipeline.NextPointCloud(context.Background())
