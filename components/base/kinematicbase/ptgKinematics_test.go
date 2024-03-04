@@ -4,9 +4,9 @@ package kinematicbase
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"testing"
-	"fmt"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
@@ -136,9 +136,9 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
-	
+
 	allInputs := [][]referenceframe.Input{}
-	
+
 	// Spot check each individual trajectory
 	runningPose := spatialmath.NewZeroPose()
 	for i, inputMap := range plan.Trajectory() {
@@ -165,17 +165,17 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		}
 		runningPose = spatialmath.Compose(runningPose, arcSteps[len(arcSteps)-1].subTraj[len(arcSteps[len(arcSteps)-1].subTraj)-1].Pose)
 	}
-	
+
 	// Now check the full set of arcs
 	arcSteps, err := ptgBase.arcStepsFromInputs(allInputs, spatialmath.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	// Mock up being off course and try to correct
-	skewPose := spatialmath.NewPose(r3.Vector{100, 30, 0}, &spatialmath.OrientationVectorDegrees{OZ:1, Theta: -40})
-	//~ currArc := 1
+	skewPose := spatialmath.NewPose(r3.Vector{100, 30, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -40})
+	// ~ currArc := 1
 	currArc := len(arcSteps) - 2
 	currDist := 1.
-	
+
 	goals := ptgBase.makeCourseCorrectionGoals(
 		currArc,
 		goalsToAttempt,
@@ -186,5 +186,5 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	fmt.Println(goalsToAttempt)
 	fmt.Println(len(goals))
 	fmt.Println(goals)
-	
+
 }

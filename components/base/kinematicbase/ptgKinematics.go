@@ -31,18 +31,18 @@ const (
 type ptgBaseKinematics struct {
 	base.Base
 	motion.Localizer
-	logger logging.Logger
-	frame  referenceframe.Frame
-	ptgs   []tpspace.PTGSolver
+	logger                 logging.Logger
+	frame                  referenceframe.Frame
+	ptgs                   []tpspace.PTGSolver
 	courseCorrectionSolver tpspace.PTGSolver
 
-	linVelocityMMPerSecond   float64
-	angVelocityDegsPerSecond float64
+	linVelocityMMPerSecond         float64
+	angVelocityDegsPerSecond       float64
 	nonzeroBaseTurningRadiusMeters float64
-	inputLock                sync.RWMutex
-	currentInputs             []referenceframe.Input
-	origin                   spatialmath.Pose
-	geometries               []spatialmath.Geometry
+	inputLock                      sync.RWMutex
+	currentInputs                  []referenceframe.Input
+	origin                         spatialmath.Pose
+	geometries                     []spatialmath.Geometry
 }
 
 // wrapWithPTGKinematics takes a Base component and adds a PTG kinematic model so that it can be controlled.
@@ -123,7 +123,7 @@ func wrapWithPTGKinematics(
 			return nil, err
 		}
 		origin = originPIF.Pose()
-		
+
 		cPTG := tpspace.NewCirclePTG(nonzeroBaseTurningRadiusMeters * 1000)
 		courseCorrectionSolver, err = tpspace.NewPTGIK(cPTG, logger, nonzeroBaseTurningRadiusMeters*2000, nonzeroBaseTurningRadiusMeters*2000, 42, 2)
 		if err != nil {
@@ -132,18 +132,18 @@ func wrapWithPTGKinematics(
 	}
 
 	return &ptgBaseKinematics{
-		Base:                     b,
-		Localizer:                localizer,
-		logger:                   logger,
-		frame:                    frame,
-		ptgs:                     ptgs,
+		Base:                           b,
+		Localizer:                      localizer,
+		logger:                         logger,
+		frame:                          frame,
+		ptgs:                           ptgs,
 		courseCorrectionSolver:         courseCorrectionSolver,
-		linVelocityMMPerSecond:   linVelocityMMPerSecond,
-		angVelocityDegsPerSecond: angVelocityDegsPerSecond,
+		linVelocityMMPerSecond:         linVelocityMMPerSecond,
+		angVelocityDegsPerSecond:       angVelocityDegsPerSecond,
 		nonzeroBaseTurningRadiusMeters: nonzeroBaseTurningRadiusMeters,
-		currentInputs:             zeroInput,
-		origin:                   origin,
-		geometries:               geometries,
+		currentInputs:                  zeroInput,
+		origin:                         origin,
+		geometries:                     geometries,
 	}, nil
 }
 
