@@ -228,6 +228,8 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	}
 
 	mod.registerResources(mgr, mgr.logger)
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
 	mgr.modules[mod.cfg.Name] = mod
 	success = true
 	return nil
