@@ -1150,9 +1150,9 @@ func (c *viamClient) startRobotPartShell(
 		// NOTE(benjirewis): Linux systems seem to need both "raw" (no processing) and "-echo"
 		// (no echoing back inputted characters) in order to allow the input and output loops
 		// below to completely control the terminal.
-		args := []string{"raw", "-echo"}
+		args := []string{"raw", "-echo", "-echoctl"}
 		if !isRaw {
-			args = []string{"-raw", "echo"}
+			args = []string{"-raw", "echo", "echoctl"}
 		}
 
 		rawMode := exec.Command("stty", args...)
