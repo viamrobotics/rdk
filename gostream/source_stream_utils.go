@@ -14,12 +14,6 @@ func StreamVideoSource(ctx context.Context, vs VideoSource, stream Stream) error
 	}, stream.InputVideoFrames)
 }
 
-// func StreamPacketSource(ctx context.Context, vs RTPH264Source, stream Stream) error {
-// 	return streamMediaSource(ctx, vs, stream, func(ctx context.Context, frameErr error) {
-// 		golog.Global().Debugw("error getting frame", "error", frameErr)
-// 	}, stream.InputVideoPackets)
-// }
-
 // StreamAudioSource streams the given video source to the stream forever until context signals cancellation.
 func StreamAudioSource(ctx context.Context, as AudioSource, stream Stream) error {
 	return streamMediaSource(ctx, as, stream, func(ctx context.Context, frameErr error) {
@@ -34,14 +28,6 @@ func StreamVideoSourceWithErrorHandler(
 ) error {
 	return streamMediaSource(ctx, vs, stream, errHandler, stream.InputVideoFrames)
 }
-
-// StreamVideoSourceWithErrorHandler streams the given video source to the stream forever
-// until context signals cancellation, frame errors are sent via the error handler.
-// func StreamPacketSourceWithErrorHandler(
-// 	ctx context.Context, vs RTPH264Source, stream Stream, errHandler ErrorHandler,
-// ) error {
-// 	return streamMediaSource(ctx, vs, stream, errHandler, stream.InputVideoPackets)
-// }
 
 // StreamAudioSourceWithErrorHandler streams the given audio source to the stream forever
 // until context signals cancellation, audio errors are sent via the error handler.

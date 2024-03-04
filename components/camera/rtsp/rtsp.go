@@ -299,7 +299,6 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger
 		}
 	})
 
-	// rtspCam.RTPH264Reader = rtpH264reader
 	rtspCam.VideoReader = reader
 	rtspCam.cancelCtx = cancelCtx
 	rtspCam.cancelFunc = cancel

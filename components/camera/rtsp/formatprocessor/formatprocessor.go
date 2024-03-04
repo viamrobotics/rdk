@@ -284,7 +284,7 @@ func (t *formatProcessorH264) ProcessUnit(uu unit.Unit) error {
 	return nil
 }
 
-func (t *formatProcessorH264) ProcessRTPPacket( 
+func (t *formatProcessorH264) ProcessRTPPacket(
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts time.Duration,

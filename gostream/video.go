@@ -6,7 +6,6 @@ import (
 
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/prop"
-	"github.com/pion/rtp"
 )
 
 type (
@@ -24,11 +23,6 @@ type (
 	// An VideoStream streams video forever until closed.
 	VideoStream = MediaStream[image.Image]
 
-	RTPH264Reader     = MediaReader[[]*rtp.Packet]
-	RTPH264ReaderFunc = MediaReaderFunc[[]*rtp.Packet]
-	RTPH264Source     = MediaSource[[]*rtp.Packet]
-	RTPH264Stream     = MediaStream[[]*rtp.Packet]
-
 	// VideoPropertyProvider providers information about a video source.
 	VideoPropertyProvider = MediaPropertyProvider[prop.Video]
 )
@@ -37,10 +31,6 @@ type (
 func NewVideoSource(r VideoReader, p prop.Video) VideoSource {
 	return newMediaSource(nil, r, p)
 }
-
-// func NewRTPH264Source(r RTPH264Reader, p prop.Video) VideoSource {
-// 	return newMediaSource(nil, r, p)
-// }
 
 // NewVideoSourceForDriver instantiates a new video source and references the given driver.
 func NewVideoSourceForDriver(d driver.Driver, r VideoReader, p prop.Video) VideoSource {

@@ -223,42 +223,6 @@ func NewVideoSourceAndPacketSourceFromReader(
 	}, nil
 }
 
-// func NewVideoSourceFromRTPH264Reader(
-// 	ctx context.Context,
-// 	reader gostream.RTPH264Reader,
-// 	syst *transform.PinholeCameraModel, imageType ImageType,
-// ) (VideoSource, error) {
-// 	if reader == nil {
-// 		return nil, errors.New("cannot have a nil reader")
-// 	}
-// 	vs := gostream.NewRTPH264Source(reader, prop.Video{})
-// 	actualSystem := syst
-// 	if actualSystem == nil {
-// 		srcCam, ok := reader.(VideoSource)
-// 		if ok {
-// 			props, err := srcCam.Properties(ctx)
-// 			if err != nil {
-// 				return nil, NewPropertiesError("source camera")
-// 			}
-
-// 			var cameraModel transform.PinholeCameraModel
-// 			cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
-
-// 			if props.DistortionParams != nil {
-// 				cameraModel.Distortion = props.DistortionParams
-// 			}
-// 			actualSystem = &cameraModel
-// 		}
-// 	}
-// 	return &videoSource{
-// 		system:       actualSystem,
-// 		videoSource:  vs,
-// 		videoStream:  gostream.NewEmbeddedVideoStream(vs),
-// 		actualSource: reader,
-// 		imageType:    imageType,
-// 	}, nil
-// }
-
 // NewPinholeModelWithBrownConradyDistortion creates a transform.PinholeCameraModel from
 // a *transform.PinholeCameraIntrinsics and a *transform.BrownConrady.
 // If *transform.BrownConrady is `nil`, transform.PinholeCameraModel.Distortion

@@ -10,6 +10,7 @@ import (
 
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
+	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
 	"go.viam.com/test"
 
@@ -66,6 +67,10 @@ func (mS *mockStream) Name() string {
 }
 
 func (mS *mockStream) Start() {
+}
+
+func (mS *mockStream) WriteRTP(pkt *rtp.Packet) error {
+	return nil
 }
 
 func (mS *mockStream) Stop() {
