@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/spatialmath"
 )
 
 var errNilLocation = errors.New("nil gps location, check nmea message parsing")
@@ -104,4 +105,11 @@ func (g *CachedGpsData) LinearAcceleration(
 	ctx context.Context, extra map[string]interface{},
 ) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
+}
+
+// AngularVelocity returns the sensor's angular velocity.
+func (g *CachedGpsData) AngularVelocity(
+	ctx context.Context, extra map[string]interface{},
+) (spatialmath.AngularVelocity, error) {
+	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }

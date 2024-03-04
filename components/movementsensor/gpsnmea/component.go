@@ -140,7 +140,7 @@ func (g *NMEAMovementSensor) LinearAcceleration(
 func (g *NMEAMovementSensor) AngularVelocity(
 	ctx context.Context, extra map[string]interface{},
 ) (spatialmath.AngularVelocity, error) {
-	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
+	return g.cachedData.AngularVelocity(ctx, extra)
 }
 
 // Orientation returns the sensor's orientation.
