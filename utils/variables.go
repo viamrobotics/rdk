@@ -19,14 +19,6 @@ var (
 	// - plus signs: used for WebRTC track names.
 	validResourceNameRegex       = regexp.MustCompile(`^[a-zA-Z0-9][-\w]*$`)
 	validResourceNameExplanation = "must start with a letter or number and must only contain letters, numbers, dashes, and underscores"
-
-	// the module name is used to create the socket path, so ensure that this only
-	// accepts valid socket paths.
-	validModuleNameRegex       = regexp.MustCompile(`^[a-zA-Z0-9][-\w]*$`)
-	validModuleNameExplanation = validResourceNameExplanation
-
-	validPackageNameRegex       = validModuleNameRegex
-	validPackageNameExplanation = validResourceNameExplanation
 )
 
 // ValidateResourceName validates that the resource follows our naming requirements.
@@ -41,12 +33,14 @@ func ValidateResourceName(name string) error {
 }
 
 // ValidateModuleName validates that the module follows our naming requirements.
+// the module name is used to create the socket path, so if you modify this, ensure that this only
+// accepts valid socket paths.
 func ValidateModuleName(name string) error {
 	if len(name) > 200 {
 		return errors.Errorf("module name %q must be 200 characters or fewer", name)
 	}
-	if !validModuleNameRegex.MatchString(name) {
-		return errors.Errorf("module name %q %s", name, validModuleNameExplanation)
+	if !validResourceNameRegex.MatchString(name) {
+		return errors.Errorf("module name %q %s", name, validResourceNameExplanation)
 	}
 	return nil
 }
@@ -56,8 +50,8 @@ func ValidatePackageName(name string) error {
 	if len(name) > 200 {
 		return errors.Errorf("package name %q must be 200 characters or fewer", name)
 	}
-	if !validPackageNameRegex.MatchString(name) {
-		return errors.Errorf("package name %q %s", name, validPackageNameExplanation)
+	if !validResourceNameRegex.MatchString(name) {
+		return errors.Errorf("package name %q %s", name, validResourceNameExplanation)
 	}
 	return nil
 }
