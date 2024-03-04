@@ -144,15 +144,15 @@ func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 	return res
 }
 
-func (mgr *Manager) loadModMutex(conf config.Module) *sync.Mutex {
-	value, _ := mgr.perModMu.LoadOrStore(conf.Name, &sync.Mutex{})
+func (mgr *Manager) loadModMutex(modName string) *sync.Mutex {
+	value, _ := mgr.perModMu.LoadOrStore(modName, &sync.Mutex{})
 	mu := value.(*sync.Mutex)
 	return mu
 }
 
 // Add adds and starts a new resource module.
 func (mgr *Manager) Add(ctx context.Context, conf config.Module) error {
-	mu := mgr.loadModMutex(conf)
+	mu := mgr.loadModMutex(conf.Name)
 	mu.Lock()
 	defer mu.Unlock()
 	return mgr.add(ctx, conf)
