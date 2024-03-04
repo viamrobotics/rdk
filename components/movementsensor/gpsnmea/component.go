@@ -163,9 +163,7 @@ func (g *NMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 
 // ReadSatsInView returns the number of satellites in view.
 func (g *NMEAMovementSensor) ReadSatsInView(ctx context.Context) (int, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.data.SatsInView, nil
+	return g.cachedData.ReadSatsInView(ctx)
 }
 
 // Readings will use return all of the MovementSensor Readings.

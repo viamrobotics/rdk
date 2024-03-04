@@ -148,3 +148,10 @@ func (g *CachedGpsData) ReadFix(ctx context.Context) (int, error) {
 	defer g.mu.RUnlock()
 	return g.uncachedData.FixQuality, nil
 }
+
+// ReadSatsInView returns the number of satellites in view.
+func (g *CachedGpsData) ReadSatsInView(ctx context.Context) (int, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.uncachedData.SatsInView, nil
+}
