@@ -280,9 +280,11 @@ func (conf *Config) validate(path, defaultAPIType string) ([]string, error) {
 	if conf.Name == "" {
 		return nil, NewConfigValidationFieldRequiredError(path, "name")
 	}
-	if !utils.ValidNameRegex.MatchString(conf.Name) {
-		return nil, utils.ErrInvalidName(conf.Name)
+
+	if err := utils.ValidateResourceName(conf.Name); err != nil {
+		return nil, err
 	}
+
 	if err := ContainsReservedCharacter(conf.Name); err != nil {
 		return nil, err
 	}
