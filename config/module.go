@@ -3,14 +3,12 @@ package config
 import (
 	"os"
 	"reflect"
-	"regexp"
 
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils"
 )
-
-var moduleNameRegEx = regexp.MustCompile(`^[\w-]+$`)
 
 const reservedModuleName = "parent"
 
@@ -77,9 +75,8 @@ func (m *Module) validate(path string) error {
 		}
 	}
 
-	// the module name is used to create the socket path
-	if !moduleNameRegEx.MatchString(m.Name) {
-		return errors.Errorf("module %s name must contain only letters, numbers, underscores and hyphens", path)
+	if err := utils.ValidateModuleName(m.Name); err != nil {
+		return resource.NewConfigValidationError(path, err)
 	}
 
 	if m.Name == reservedModuleName {

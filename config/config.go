@@ -458,8 +458,8 @@ func (conf *Remote) validate(path string) error {
 	if conf.Name == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "name")
 	}
-	if !rutils.ValidNameRegex.MatchString(conf.Name) {
-		return resource.NewConfigValidationError(path, rutils.ErrInvalidName(conf.Name))
+	if err := rutils.ValidateRemoteName(conf.Name); err != nil {
+		return resource.NewConfigValidationError(path, err)
 	}
 	if conf.Address == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "address")
@@ -1051,8 +1051,8 @@ func (p *PackageConfig) validate(path string) error {
 			p.Type, SupportedPackageTypes))
 	}
 
-	if !rutils.ValidNameRegex.MatchString(p.Name) {
-		return resource.NewConfigValidationError(path, rutils.ErrInvalidName(p.Name))
+	if err := rutils.ValidatePackageName(p.Name); err != nil {
+		return resource.NewConfigValidationError(path, err)
 	}
 
 	return nil
