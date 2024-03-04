@@ -147,7 +147,7 @@ func (g *NMEAMovementSensor) AngularVelocity(
 func (g *NMEAMovementSensor) Orientation(
 	ctx context.Context, extra map[string]interface{},
 ) (spatialmath.Orientation, error) {
-	return nil, movementsensor.ErrMethodUnimplementedOrientation
+	return g.cachedData.Orientation(ctx, extra)
 }
 
 // CompassHeading returns the heading, from the range 0->360.

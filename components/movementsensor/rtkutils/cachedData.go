@@ -113,3 +113,10 @@ func (g *CachedGpsData) AngularVelocity(
 ) (spatialmath.AngularVelocity, error) {
 	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }
+
+// Orientation returns the sensor's orientation.
+func (g *CachedGpsData) Orientation(
+	ctx context.Context, extra map[string]interface{},
+) (spatialmath.Orientation, error) {
+	return nil, movementsensor.ErrMethodUnimplementedOrientation
+}
