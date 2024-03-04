@@ -36,8 +36,7 @@ type gpioPin struct {
 	cancelCtx context.Context
 	logger    logging.Logger
 
-	swPwmContext context.Context
-	swPwmCancel  func()
+	swPwmCancel func()
 }
 
 func (pin *gpioPin) wrapError(err error) error {
@@ -220,7 +219,6 @@ func (pin *gpioPin) startSoftwarePWM() error {
 
 	ctx, cancel := context.WithCancel(pin.cancelCtx)
 	pin.swPwmCancel = cancel
-	pin.swPwmContext = ctx
 	pin.boardWorkers.Add(1)
 	utils.ManagedGo(func() { pin.softwarePwmLoop(ctx) }, pin.boardWorkers.Done)
 	return nil
@@ -259,7 +257,7 @@ func accurateSleep(ctx context.Context, duration time.Duration) bool {
 
 // We turn the pin either on or off, and then wait until it's time to turn it off or on again (or
 // until we're supposed to shut down). We return whether we should continue the software PWM cycle.
-func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
+func (pin *gpioPin) halfPwmCycle(ctx context.Context, shouldBeOn bool) bool {
 	// Make local copies of these, then release the mutex
 	var dutyCycle float64
 	var freqHz uint
@@ -293,7 +291,7 @@ func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
 	}
 	duration := time.Duration(float64(time.Second) * dutyCycle / float64(freqHz))
 
-	return accurateSleep(pin.swPwmContext, duration)
+	return accurateSleep(ctx, duration)
 }
 
 func (pin *gpioPin) softwarePwmLoop(ctx context.Context) {
@@ -301,10 +299,10 @@ func (pin *gpioPin) softwarePwmLoop(ctx context.Context) {
 		if err := ctx.Err(); err != nil {
 			return
 		}
-		if !pin.halfPwmCycle(true) {
+		if !pin.halfPwmCycle(ctx, true) {
 			return
 		}
-		if !pin.halfPwmCycle(false) {
+		if !pin.halfPwmCycle(ctx, false) {
 			return
 		}
 	}
