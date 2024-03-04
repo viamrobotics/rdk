@@ -160,9 +160,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 				errs = multierr.Combine(errs, err)
 			}
 
-			if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
-				errs = multierr.Combine(errs, err)
-			}
+			p.ControlLoop.MonitorTuning(ctx)
 		}
 		if p.Options.SensorFeedback2DVelocityControl {
 			// check if linear needs to be tuned
@@ -196,9 +194,7 @@ func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex int) error {
 		return err
 	}
 
-	if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
-		return err
-	}
+	p.ControlLoop.MonitorTuning(ctx)
 
 	p.ControlLoop.Stop()
 	p.ControlLoop = nil

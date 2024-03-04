@@ -304,7 +304,7 @@ func (l *Loop) GetConfig(ctx context.Context) Config {
 }
 
 // MonitorTuning waits for tuning to start, and then returns once it's done.
-func (l *Loop) MonitorTuning(ctx context.Context) error {
+func (l *Loop) MonitorTuning(ctx context.Context) {
 	// wait until tuning has started
 	for {
 		tuning := l.GetTuning(ctx)
@@ -319,8 +319,6 @@ func (l *Loop) MonitorTuning(ctx context.Context) error {
 			break
 		}
 	}
-
-	return nil
 }
 
 // GetTuning returns the current tuning value.
