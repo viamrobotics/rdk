@@ -432,11 +432,7 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 	for _, fieldP := range log.Fields {
 		key, val, err := logging.FieldKeyAndValueFromProto(fieldP)
 		if err != nil {
-			// Only warn the error and skip the field: old logs may have malformed
-			// fields.
-			l.Warn("logger named %q sent a log over gRPC with a malformed field %+v",
-				log.LoggerName, fieldP)
-			continue
+			return nil, err
 		}
 		fields = append(fields, key, val)
 	}

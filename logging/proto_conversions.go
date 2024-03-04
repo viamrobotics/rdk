@@ -2,7 +2,6 @@ package logging
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -54,10 +53,13 @@ func FieldKeyAndValueFromProto(field *structpb.Struct) (string, any, error) {
 		fieldValue = time.Duration(zf.Integer)
 	case zapcore.Float64Type:
 		// See FieldToProto above: we encode float64s as strings to avoid loss in
-		// proto conversion.
+		// proto conversion. Old logs from the app DB may still have float64s in
+		// the Integer field: return that field casted to float64 in such cases.
 		if zf.String == "" {
-			return "", nil, errors.New("must encode float64s in the String field")
+			fieldValue = math.Float64frombits(uint64(zf.Integer))
+			break
 		}
+
 		fieldValue, err = strconv.ParseFloat(zf.String, 64)
 		if err != nil {
 			return "", nil, err
