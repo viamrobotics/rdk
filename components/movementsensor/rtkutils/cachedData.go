@@ -5,6 +5,7 @@ import (
 	"math"
 	"sync"
 
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 
@@ -76,4 +77,24 @@ func (g *CachedGpsData) Accuracy(
 		CompassDegreeError: float32(math.NaN()),
 	}
 	return &acc, g.err.Get()
+}
+
+// LinearVelocity returns the sensor's linear velocity. It requires having a compass heading, so we
+// know which direction our speed is in. We assume all of this speed is horizontal, and not in
+// gaining/losing altitude.
+func (g *CachedGpsData) LinearVelocity(
+	ctx context.Context, extra map[string]interface{},
+) (r3.Vector, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	if math.IsNaN(g.uncachedData.CompassHeading) {
+		return r3.Vector{}, g.err.Get()
+	}
+
+	headingInRadians := g.uncachedData.CompassHeading * (math.Pi / 180)
+	xVelocity := g.uncachedData.Speed * math.Sin(headingInRadians)
+	yVelocity := g.uncachedData.Speed * math.Cos(headingInRadians)
+
+	return r3.Vector{X: xVelocity, Y: yVelocity, Z: 0}, g.err.Get()
 }
