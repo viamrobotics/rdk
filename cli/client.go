@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -23,7 +22,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	buildpb "go.viam.com/api/app/build/v1"
 	datapb "go.viam.com/api/app/data/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
@@ -946,14 +944,14 @@ func (c *viamClient) printRobotPartLogsInner(logs []*commonpb.LogEntry, indent s
 	// order of latest to oldest but we should print from oldest -> newest
 	for i := len(logs) - 1; i >= 0; i-- {
 		log := logs[i]
-		fields, err := parseLogEntryFields(log.Fields)
+		fieldsString, err := logEntryFieldsToString(log.Fields)
 		if err != nil {
 			warningf(c.c.App.ErrWriter, "%v", err)
+			fieldsString = ""
 		}
-		fieldsString := logEntryFieldsToString(fields)
 		printf(
 			c.c.App.Writer,
-			"%s%s\t%s\t%s\t%s%s",
+			"%s%s\t%s\t%s\t%s\t%s",
 			indent,
 			log.Time.AsTime().Format("2006-01-02T15:04:05.000Z0700"),
 			log.Level,
@@ -1229,44 +1227,29 @@ func (c *viamClient) startRobotPartShell(
 	return nil
 }
 
-func parseLogEntryFields(fieldsRaw []*structpb.Struct) ([]zap.Field, error) {
-	parsedFields := make([]zap.Field, 0, len(fieldsRaw))
-	bytes, err := json.Marshal(fieldsRaw)
-	if err != nil {
-		return nil, err
+func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {
+	// if there are no fields, don't return anything, otherwise we add lots of {}'s
+	// to the logs
+	if len(fields) == 0 {
+		return "", nil
 	}
-	if err := json.Unmarshal(bytes, &parsedFields); err != nil {
-		return nil, err
-	}
-	return parsedFields, nil
-}
-
-func logEntryFieldsToString(fields []zap.Field) string {
-	fieldsString := ""
-	for _, field := range fields {
-		fieldValue := ""
-		// TODO use zap encoder to encode
-		// it is a bit hard to do that though because sending the data over the wire
-		// loses type info which causes the zap encoders to panic.
-		// This code is modeled after zapcore.Field.AddTo
-		//nolint:exhaustive
-		switch field.Type {
-		case zapcore.StringType, zapcore.ErrorType:
-			fieldValue = field.String
-		case zapcore.BoolType:
-			fieldValue = fmt.Sprint(field.Integer == 1)
-		case zapcore.DurationType:
-			fieldValue = time.Duration(field.Integer).String()
-		case zapcore.Int64Type, zapcore.Int32Type, zapcore.Int16Type, zapcore.Int8Type:
-			fieldValue = fmt.Sprint(field.Integer)
-		case zapcore.Float64Type:
-			fieldValue = fmt.Sprint(math.Float64frombits(uint64(field.Integer)))
-		case zapcore.Float32Type:
-			fieldValue = fmt.Sprint(math.Float32frombits(uint32(field.Integer)))
-		default:
-			fieldValue = fmt.Sprint(field.Interface)
+	// we have to manually format these fields as json because
+	// marshalling a go object will not preserve the order of the fields
+	message := "{"
+	for i, field := range fields {
+		key, value, err := logging.FieldKeyAndValueFromProto(field)
+		if err != nil {
+			return "", err
 		}
-		fieldsString += fmt.Sprintf("\t%s %s", field.Key, fieldValue)
+		if i > 0 {
+			// split fields with space after first entry
+			message += ", "
+		}
+		if _, isStr := value.(string); isStr {
+			message += fmt.Sprintf("%q: %q", key, value)
+		} else {
+			message += fmt.Sprintf("%q: %v", key, value)
+		}
 	}
-	return fieldsString
+	return message + "}", nil
 }
