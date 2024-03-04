@@ -6,6 +6,7 @@ import (
 
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/prop"
+	"github.com/pion/rtp"
 )
 
 type (
@@ -14,11 +15,13 @@ type (
 
 	// An VideoReaderFunc is a helper to turn a function into an VideoReader.
 	VideoReaderFunc = MediaReaderFunc[image.Image]
+	VideoPacketFunc = MediaReaderFunc[[]*rtp.Packet]
 
 	// A VideoSource is responsible for producing images when requested. A source
 	// should produce the image as quickly as possible and introduce no rate limiting
 	// of its own as that is handled internally.
-	VideoSource = MediaSource[image.Image]
+	VideoSource       = MediaSource[image.Image]
+	VideoPacketSource = MediaSource[[]*rtp.Packet]
 
 	// An VideoStream streams video forever until closed.
 	VideoStream = MediaStream[image.Image]

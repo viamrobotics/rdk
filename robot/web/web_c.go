@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/goccy/go-graphviz"
+	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
@@ -295,15 +296,62 @@ func (svc *webService) packetStream(
 	<-waitCh
 }
 
-const packetStream = false
+type packetSource struct {
+	packetStream packetStream
+}
+
+func (pSource *packetSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.MediaStream[[]*rtp.Packet], error) {
+	return &pSource.packetStream, nil
+}
+
+func (pSource *packetSource) Close(ctx context.Context) error {
+	return nil
+}
+
+type packetStream struct {
+	cam camera.Camera
+}
+
+func (pStream *packetStream) Next(ctx context.Context) ([]*rtp.Packet, func(), error) {
+	data, err := pStream.cam.RTPH264PacketStream(ctx)
+	return data, func() {}, err
+}
+
+func (pStream *packetStream) Close(ctx context.Context) error {
+	return nil
+}
+
+func newPacketSource(cam camera.Camera) gostream.MediaSource[[]*rtp.Packet] {
+	return &packetSource{
+		packetStream: packetStream{cam: cam},
+	}
+}
+
+const packetStreamEnabled = true
 
 func (svc *webService) startVideoStream(
 	ctx context.Context,
 	source gostream.VideoSource,
 	stream gostream.Stream,
 ) {
-	if packetStream {
-		svc.packetStream(ctx, stream)
+	if packetStreamEnabled {
+		res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
+		if err != nil {
+			svc.logger.Fatal(err)
+		}
+		cam, ok := res.(camera.Camera)
+		if !ok {
+			svc.logger.Fatal("expected a camera")
+		}
+		svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
+			streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
+			// Use H264 for cameras that support it; but do not override upstream values.
+			if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
+				streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
+			}
+
+			return webstream.StreamVideoPacketSource(streamVideoCtx, newPacketSource(cam), stream, opts, svc.logger)
+		})
 		return
 	}
 
