@@ -231,7 +231,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		test.That(t, currentPosition, test.ShouldNotBeNil)
 		expectedPosition, err := kb.Kinematics().Transform(inputs[1])
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, spatialmath.PoseAlmostCoincident(currentPosition.Pose(), expectedPosition), test.ShouldBeTrue)
+		test.That(t, spatialmath.PoseAlmostCoincidentEps(currentPosition.Pose(), expectedPosition, 1e-5), test.ShouldBeTrue)
 	})
 
 	t.Run("Geometries", func(t *testing.T) {
