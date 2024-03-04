@@ -117,16 +117,7 @@ func (g *NMEAMovementSensor) Position(
 func (g *NMEAMovementSensor) Accuracy(
 	ctx context.Context, extra map[string]interface{},
 ) (*movementsensor.Accuracy, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	acc := movementsensor.Accuracy{
-		AccuracyMap:        map[string]float32{"hDOP": float32(g.data.HDOP), "vDOP": float32(g.data.VDOP)},
-		Hdop:               float32(g.data.HDOP),
-		Vdop:               float32(g.data.VDOP),
-		NmeaFix:            int32(g.data.FixQuality),
-		CompassDegreeError: float32(math.NaN()),
-	}
-	return &acc, g.err.Get()
+	return g.cachedData.Accuracy(ctx, extra)
 }
 
 // LinearVelocity returns the sensor's linear velocity. It requires having a compass heading, so we

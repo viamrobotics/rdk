@@ -2,6 +2,7 @@ package rtkutils
 
 import (
 	"context"
+	"math"
 	"sync"
 
 	geo "github.com/kellydunn/golang-geo"
@@ -56,4 +57,23 @@ func (g *CachedGpsData) Position(
 	}
 
 	return currentPosition, g.uncachedData.Alt, g.err.Get()
+}
+
+// Accuracy returns the accuracy map, hDOP, vDOP, Fixquality and compass heading error.
+func (g *CachedGpsData) Accuracy(
+	ctx context.Context, extra map[string]interface{},
+) (*movementsensor.Accuracy, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	acc := movementsensor.Accuracy{
+		AccuracyMap: map[string]float32{
+			"hDOP": float32(g.uncachedData.HDOP),
+			"vDOP": float32(g.uncachedData.VDOP),
+		},
+		Hdop:               float32(g.uncachedData.HDOP),
+		Vdop:               float32(g.uncachedData.VDOP),
+		NmeaFix:            int32(g.uncachedData.FixQuality),
+		CompassDegreeError: float32(math.NaN()),
+	}
+	return &acc, g.err.Get()
 }
