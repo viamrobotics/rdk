@@ -192,7 +192,6 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 }
 
 func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
-
 	// add calls startProcess, which can also be called by the OUE handler in the attemptRestart
 	// call. Both of these involve owning a lock, so in unhappy cases of malformed modules
 	// this can lead to a deadlock. To prevent this, we set inStartup here to indicate to
