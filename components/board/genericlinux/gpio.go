@@ -28,7 +28,6 @@ type gpioPin struct {
 	// These values are mutable. Lock the mutex when interacting with them.
 	line            *gpio.Line
 	isInput         bool
-	swPwmRunning    bool
 	hwPwm           *pwmDevice // Defined in hw_pwm.go, will be nil for pins that don't support it.
 	pwmFreqHz       uint
 	pwmDutyCyclePct float64
@@ -120,7 +119,6 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool,
 		pin.swPwmCancel()
 		pin.swPwmCancel = nil
 	}
-	pin.swPwmRunning = false
 
 	return pin.setInternal(isHigh)
 }
@@ -183,7 +181,6 @@ func (pin *gpioPin) startSoftwarePWM() error {
 			pin.swPwmCancel()
 			pin.swPwmCancel = nil
 		}
-		pin.swPwmRunning = false
 		if pin.hwPwm != nil {
 			return pin.hwPwm.Close()
 		}
@@ -203,7 +200,6 @@ func (pin *gpioPin) startSoftwarePWM() error {
 				pin.swPwmCancel()
 				pin.swPwmCancel = nil
 			}
-			pin.swPwmRunning = false
 			return pin.hwPwm.SetPwm(pin.pwmFreqHz, pin.pwmDutyCyclePct)
 		}
 		// Although this pin has hardware PWM support, many PWM chips cannot output signals at
@@ -217,17 +213,15 @@ func (pin *gpioPin) startSoftwarePWM() error {
 	// If we get here, we need a software loop to drive the PWM signal, either because this pin
 	// doesn't have hardware support or because we want to drive it at such a low frequency that
 	// the hardware chip can't do it.
-	if pin.swPwmRunning {
+	if pin.swPwmCancel != nil {
 		// We already have a software PWM loop running. It will pick up the changes on its own.
 		return nil
 	}
 
-	pin.swPwmRunning = true
-	pin.boardWorkers.Add(1)
 	ctx, cancel := context.WithCancel(pin.cancelCtx)
 	pin.swPwmCancel = cancel
 	pin.swPwmContext = ctx
-
+	pin.boardWorkers.Add(1)
 	utils.ManagedGo(func() { pin.softwarePwmLoop(ctx) }, pin.boardWorkers.Done)
 	return nil
 }
@@ -276,7 +270,7 @@ func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
 		pin.mu.Lock()
 		defer pin.mu.Unlock()
 		// Before we modify the pin, check if we should stop running
-		if !pin.swPwmRunning {
+		if pin.swPwmCancel == nil {
 			return false
 		}
 
