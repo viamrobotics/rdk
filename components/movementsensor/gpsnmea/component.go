@@ -158,9 +158,7 @@ func (g *NMEAMovementSensor) CompassHeading(
 
 // ReadFix returns Fix quality of MovementSensor measurements.
 func (g *NMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.data.FixQuality, nil
+	return g.cachedData.ReadFix(ctx)
 }
 
 // ReadSatsInView returns the number of satellites in view.

@@ -141,3 +141,10 @@ func (g *CachedGpsData) CompassHeading(
 
 	return currentHeading, nil
 }
+
+// ReadFix returns Fix quality of MovementSensor measurements.
+func (g *CachedGpsData) ReadFix(ctx context.Context) (int, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.uncachedData.FixQuality, nil
+}
