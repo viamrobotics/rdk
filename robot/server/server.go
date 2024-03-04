@@ -421,11 +421,22 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 	}
 	log := req.Logs[0]
 
+	// Use a sublogger of robot logger with correct logger name. Set a level of
+	// DEBUG to allow gRPC logs at DEBUG level even when RDK is not on DEBUG
+	// level. Disable caller to mimic caller passed in from gRPC request.
+	logger := s.robot.Logger().Sublogger(log.LoggerName)
+	logger.SetLevel(logging.DEBUG)
+	l := logger.WithOptions(zap.WithCaller(false))
+
 	fields := make([]any, 0, len(log.Fields)*2)
 	for _, fieldP := range log.Fields {
 		key, val, err := logging.FieldKeyAndValueFromProto(fieldP)
 		if err != nil {
-			return nil, err
+			// Only warn the error and skip the field: old logs may have malformed
+			// fields.
+			l.Warn("logger named %q sent a log over gRPC with a malformed field %+v",
+				log.LoggerName, fieldP)
+			continue
 		}
 		fields = append(fields, key, val)
 	}
@@ -433,13 +444,6 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 	// Insert field of `{"log_ts": log.Time}` to encode the timestamp of this
 	// log.
 	fields = append(fields, logTSKey, log.Time.AsTime())
-
-	// Use a sublogger of robot logger with correct logger name. Set a level of
-	// DEBUG to allow gRPC logs at DEBUG level even when RDK is not on DEBUG
-	// level. Disable caller to mimic caller passed in from gRPC request.
-	logger := s.robot.Logger().Sublogger(log.LoggerName)
-	logger.SetLevel(logging.DEBUG)
-	l := logger.WithOptions(zap.WithCaller(false))
 
 	level, err := logging.LevelFromString(log.Level)
 	switch {

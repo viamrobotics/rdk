@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -51,11 +52,27 @@ func TestFieldConversion(t *testing.T) {
 		},
 		{
 			field: zap.Field{
+				Key:     "big float64",
+				Type:    zapcore.Float64Type,
+				Integer: int64(math.Float64bits(math.MaxFloat64)),
+			},
+			expectedVal: math.MaxFloat64,
+		},
+		{
+			field: zap.Field{
 				Key:     "float32",
 				Type:    zapcore.Float32Type,
 				Integer: 1068037571,
 			},
 			expectedVal: float32(1.32),
+		},
+		{
+			field: zap.Field{
+				Key:     "big float32",
+				Type:    zapcore.Float32Type,
+				Integer: int64(math.Float32bits(math.MaxFloat32)),
+			},
+			expectedVal: float32(math.MaxFloat32),
 		},
 		{
 			field: zap.Field{
