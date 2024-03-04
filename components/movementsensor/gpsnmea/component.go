@@ -3,7 +3,6 @@ package gpsnmea
 
 import (
 	"context"
-	"math"
 	"sync"
 
 	"github.com/golang/geo/r3"
@@ -154,21 +153,7 @@ func (g *NMEAMovementSensor) Orientation(
 func (g *NMEAMovementSensor) CompassHeading(
 	ctx context.Context, extra map[string]interface{},
 ) (float64, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	lastHeading := g.lastCompassHeading.GetLastCompassHeading()
-	currentHeading := g.data.CompassHeading
-
-	if !math.IsNaN(lastHeading) && math.IsNaN(currentHeading) {
-		return lastHeading, nil
-	}
-
-	if !math.IsNaN(currentHeading) && currentHeading != lastHeading {
-		g.lastCompassHeading.SetLastCompassHeading(currentHeading)
-	}
-
-	return currentHeading, nil
+	return g.cachedData.CompassHeading(ctx, extra)
 }
 
 // ReadFix returns Fix quality of MovementSensor measurements.

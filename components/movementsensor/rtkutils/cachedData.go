@@ -120,3 +120,24 @@ func (g *CachedGpsData) Orientation(
 ) (spatialmath.Orientation, error) {
 	return nil, movementsensor.ErrMethodUnimplementedOrientation
 }
+
+// CompassHeading returns the heading, from the range 0->360.
+func (g *CachedGpsData) CompassHeading(
+	ctx context.Context, extra map[string]interface{},
+) (float64, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	lastHeading := g.lastCompassHeading.GetLastCompassHeading()
+	currentHeading := g.uncachedData.CompassHeading
+
+	if !math.IsNaN(lastHeading) && math.IsNaN(currentHeading) {
+		return lastHeading, nil
+	}
+
+	if !math.IsNaN(currentHeading) && currentHeading != lastHeading {
+		g.lastCompassHeading.SetLastCompassHeading(currentHeading)
+	}
+
+	return currentHeading, nil
+}
