@@ -10,12 +10,6 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-const (
-	// moduleTSLogKey is the key used in conjunction with the timestamp of module logs sent back to
-	// the RDK.
-	moduleTSLogKey = "module_log_ts"
-)
-
 type moduleAppender struct {
 	stdoutAppender *logging.ConsoleAppender
 
@@ -44,11 +38,6 @@ func (ma *moduleAppender) Write(log zapcore.Entry, fields []zapcore.Field) error
 	// down or otherwise unreachable.
 	moduleLogCtx, moduleLogCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer moduleLogCancel()
-
-	// Insert field of `{"module_log_ts": "2006-01-02T15:04:05.000Z0700"}` to
-	// encode the time the module wrote this log.
-	timeStr := log.Time.Format(logging.DefaultTimeFormatStr)
-	fields = append(fields, zapcore.Field{Key: moduleTSLogKey, String: timeStr})
 	return ma.module.parent.Log(moduleLogCtx, log, fields)
 }
 

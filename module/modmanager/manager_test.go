@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go.uber.org/zap/zaptest/observer"
+	v1 "go.viam.com/api/module/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
@@ -73,12 +74,6 @@ func TestModManagerFunctions(t *testing.T) {
 	err = mod.dial()
 	test.That(t, err, test.ShouldBeNil)
 
-	// check that dial can re-use connections.
-	oldConn := mod.conn
-	err = mod.dial()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mod.conn, test.ShouldEqual, oldConn)
-
 	err = mod.checkReady(ctx, parentAddr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -92,7 +87,6 @@ func TestModManagerFunctions(t *testing.T) {
 	_, ok = resource.LookupRegistration(generic.API, myCounterModel)
 	test.That(t, ok, test.ShouldBeFalse)
 
-	test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 	test.That(t, mod.process.Stop(), test.ShouldBeNil)
 
 	modEnv := mod.getFullEnvironment(viamHomeTemp)
@@ -106,6 +100,23 @@ func TestModManagerFunctions(t *testing.T) {
 	modEnv = mod.getFullEnvironment(viamHomeTemp)
 	_, ok = modEnv["VIAM_MODULE_ID"]
 	test.That(t, ok, test.ShouldBeFalse)
+
+	// Make a copy of addr and client to test that connections are properly remade
+	oldAddr := mod.addr
+	oldClient := mod.client
+
+	mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp)
+	err = mod.dial()
+	test.That(t, err, test.ShouldBeNil)
+
+	// make sure mod.addr has changed
+	test.That(t, mod.addr, test.ShouldNotEqual, oldAddr)
+	// check that we're still able to use the old client
+	_, err = oldClient.Ready(ctx, &v1.ReadyRequest{ParentAddress: parentAddr})
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, mod.process.Stop(), test.ShouldBeNil)
+	test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 
 	t.Log("test AddModule")
 	mgr = NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
@@ -224,7 +235,7 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	_, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "the client connection is closing")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not connected")
 
 	err = counter.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -523,8 +534,7 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, ok, test.ShouldBeFalse)
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring,
-			"connection is closing")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not connected")
 
 		err = mgr.Close(ctx)
 		test.That(t, err, test.ShouldBeNil)

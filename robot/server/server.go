@@ -34,6 +34,10 @@ import (
 	"go.viam.com/rdk/session"
 )
 
+// logTSKey is the key used in conjunction with the timestamp of logs received
+// by the RDK.
+const logTSKey = "log_ts"
+
 // Server implements the contract from robot.proto that ultimately satisfies
 // a robot.Robot as a gRPC server.
 type Server struct {
@@ -424,18 +428,31 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 	logger.SetLevel(logging.DEBUG)
 	l := logger.WithOptions(zap.WithCaller(false))
 
+	fields := make([]any, 0, len(log.Fields)*2)
+	for _, fieldP := range log.Fields {
+		key, val, err := logging.FieldKeyAndValueFromProto(fieldP)
+		if err != nil {
+			return nil, err
+		}
+		fields = append(fields, key, val)
+	}
+
+	// Insert field of `{"log_ts": log.Time}` to encode the timestamp of this
+	// log.
+	fields = append(fields, logTSKey, log.Time.AsTime())
+
 	level, err := logging.LevelFromString(log.Level)
 	switch {
 	case err != nil:
 		l.Warn("logger named %q sent a log over gRPC with an invalid level %q", log.LoggerName, log.Level)
 	case level == logging.DEBUG:
-		l.Debug(log.Message)
+		l.Debugw(log.Message, fields...)
 	case level == logging.INFO:
-		l.Info(log.Message)
+		l.Infow(log.Message, fields...)
 	case level == logging.WARN:
-		l.Warn(log.Message)
+		l.Warnw(log.Message, fields...)
 	case level == logging.ERROR:
-		l.Error(log.Message)
+		l.Errorw(log.Message, fields...)
 	default:
 	}
 

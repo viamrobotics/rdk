@@ -521,8 +521,8 @@ func TestDynamicModuleLogging(t *testing.T) {
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, observer.FilterMessageSnippet(infoLogLine).Len(), test.ShouldEqual, 1)
-		test.That(tb, observer.FilterMessageSnippet(infoLogLine).FilterMessageSnippet("module_log_ts").Len(), test.ShouldEqual, 1)
-		test.That(tb, observer.FilterMessageSnippet(infoLogLine).FilterMessageSnippet("foo").Len(), test.ShouldEqual, 1)
+		test.That(tb, observer.FilterMessageSnippet(infoLogLine).FilterFieldKey("log_ts").Len(), test.ShouldEqual, 1)
+		test.That(tb, observer.FilterMessageSnippet(infoLogLine).FilterFieldKey("foo").Len(), test.ShouldEqual, 1)
 	})
 
 	// The module is currently configured to log at info. If the module tries to log at debug,

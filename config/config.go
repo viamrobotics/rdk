@@ -619,6 +619,17 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 	return nil
 }
 
+// ValidateTLS ensures TLS fields are valid.
+func (config *Cloud) ValidateTLS(path string) error {
+	if config.TLSCertificate == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "tls_certificate")
+	}
+	if config.TLSPrivateKey == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "tls_private_key")
+	}
+	return nil
+}
+
 // LocationSecret describes a location secret that can be used to authenticate to the rdk.
 type LocationSecret struct {
 	ID string `json:"id"`
@@ -1060,7 +1071,7 @@ func (p PackageConfig) Equals(other PackageConfig) bool {
 }
 
 // LocalDataDirectory returns the folder where the package should be extracted.
-// Ex: /home/user/.viam/packages/.data/ml_model/orgid_ballClassifier_0.1.2.
+// Ex: /home/user/.viam/packages/data/ml_model/orgid_ballClassifier_0.1.2.
 func (p *PackageConfig) LocalDataDirectory(packagesDir string) string {
 	return filepath.Join(p.LocalDataParentDirectory(packagesDir), p.SanitizedName())
 }
@@ -1071,9 +1082,16 @@ func (p *PackageConfig) LocalDownloadPath(packagesDir string) string {
 }
 
 // LocalDataParentDirectory returns the folder that will contain the all packages of this type.
-// Ex: /home/user/.viam/packages/.data/ml_model.
+// Ex: /home/user/.viam/packages/data/ml_model.
 func (p *PackageConfig) LocalDataParentDirectory(packagesDir string) string {
-	return filepath.Join(packagesDir, ".data", string(p.Type))
+	return filepath.Join(packagesDir, "data", string(p.Type))
+}
+
+// LocalLegacyDataRootDirectory returns the old private directory.
+// This can be cleaned up after a few RDK releases (APP-4066)
+// Ex: /home/user/.viam/packages/.data/.
+func (p *PackageConfig) LocalLegacyDataRootDirectory(packagesDir string) string {
+	return filepath.Join(packagesDir, ".data")
 }
 
 // SanitizedName returns the package name for the symlink/filepath of the package on the system.

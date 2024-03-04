@@ -1813,11 +1813,11 @@ func TestConfigPackages(t *testing.T) {
 
 	path1, err := r.PackageManager().PackagePath("some-name-1")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, path1, test.ShouldEqual, path.Join(packageDir, ".data", "ml_model", "package-1-v1"))
+	test.That(t, path1, test.ShouldEqual, path.Join(packageDir, "data", "ml_model", "package-1-v1"))
 
 	path2, err := r.PackageManager().PackagePath("some-name-2")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, path2, test.ShouldEqual, path.Join(packageDir, ".data", "ml_model", "package-2-v2"))
+	test.That(t, path2, test.ShouldEqual, path.Join(packageDir, "data", "ml_model", "package-2-v2"))
 }
 
 // removeDefaultServices removes default services and returns the removed

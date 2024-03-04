@@ -34,19 +34,11 @@ var (
 	errNoGoodSensor = errors.New("no appropriate sensor for orientation or velocity feedback")
 )
 
-// basePIDConfig contains the PID value and type that are accesible from control component configs.
-type basePIDConfig struct {
-	Type string  `json:"type"`
-	P    float64 `json:"p"`
-	I    float64 `json:"i"`
-	D    float64 `json:"d"`
-}
-
 // Config configures a sensor controlled base.
 type Config struct {
-	MovementSensor    []string        `json:"movement_sensor"`
-	Base              string          `json:"base"`
-	ControlParameters []basePIDConfig `json:"control_parameters,omitempty"`
+	MovementSensor    []string            `json:"movement_sensor"`
+	Base              string              `json:"base"`
+	ControlParameters []control.PIDConfig `json:"control_parameters,omitempty"`
 }
 
 // Validate validates all parts of the sensor controlled base config.
@@ -85,6 +77,7 @@ type sensorBase struct {
 	velocities  movementsensor.MovementSensor
 
 	controlLoopConfig control.Config
+	blockNames        map[string][]string
 	loop              *control.Loop
 }
 
@@ -171,7 +164,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 
 	if sb.velocities != nil && len(newConf.ControlParameters) != 0 {
 		// assign linear and angular PID correctly based on the given type
-		var linear, angular basePIDConfig
+		var linear, angular control.PIDConfig
 		for _, c := range newConf.ControlParameters {
 			switch c.Type {
 			case typeLinVel:
@@ -186,24 +179,9 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		// unlock the mutex before setting up the control loop so that the motors
 		// are not locked, and can run if any auto-tuning is necessary
 		sb.mu.Unlock()
-		switch {
-		// check if both linear and angular need to be tuned, and if so start by tuning linear
-		case (linear.P != 0.0 || linear.I != 0.0 || linear.D != 0.0) &&
-			(angular.P != 0.0 || angular.I != 0.0 || angular.D != 0.0):
-			sb.controlLoopConfig = sb.createControlLoopConfig(linear, angular)
-		case linear.P == 0.0 && linear.I == 0.0 && linear.D == 0.0 &&
-			angular.P == 0.0 && angular.I == 0.0 && angular.D == 0.0:
-			cancelCtx, cancelFunc := context.WithCancel(context.Background())
-			if err := sb.autoTuneAll(cancelCtx, cancelFunc, linear, angular); err != nil {
-				sb.mu.Lock()
-				return err
-			}
-		default:
-			sb.controlLoopConfig = sb.createControlLoopConfig(linear, angular)
-			if err := sb.setupControlLoops(); err != nil {
-				sb.mu.Lock()
-				return err
-			}
+		if err := sb.setupControlLoop(linear, angular); err != nil {
+			sb.mu.Lock()
+			return err
 		}
 		// relock the mutex after setting up the control loop since there is still a  defer unlock
 		sb.mu.Lock()
