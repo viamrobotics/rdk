@@ -222,11 +222,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		errorState, err := kb.ErrorState(ctx, plan, 2)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, errorState, test.ShouldNotBeNil)
-		expectedErrorState := spatialmath.NewPose(
-			r3.Vector{X: .15660482358555055e-5, Y: -3.206523988765566e-6, Z: 0},
-			&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 116.03064454195976},
-		)
-		test.That(t, spatialmath.PoseAlmostCoincident(errorState, expectedErrorState), test.ShouldBeTrue)
+		test.That(t, spatialmath.PoseAlmostCoincidentEps(errorState, spatialmath.NewZeroPose(), 1e-5), test.ShouldBeTrue)
 	})
 
 	t.Run("CurrentPosition", func(t *testing.T) {
