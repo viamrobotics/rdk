@@ -178,9 +178,9 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
 
+	inputs, err := plan.Trajectory().GetFrameInputs(kb.Name().ShortName())
+	test.That(t, err, test.ShouldBeNil)
 	ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		inputs, err := plan.Trajectory().GetFrameInputs(kb.Name().ShortName())
-		test.That(t, err, test.ShouldBeNil)
 		newPose, err := kb.Kinematics().Transform(inputs[1])
 		test.That(t, err, test.ShouldBeNil)
 		newGeoPose := spatialmath.PoseToGeoPose(spatialmath.NewGeoPose(gpOrigin, 0), newPose)
@@ -229,7 +229,8 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		currentPosition, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, currentPosition, test.ShouldNotBeNil)
-		expectedPosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 1402.5928379997056, Y: -188.66162360997163, Z: 0})
+		expectedPosition, err := kb.Kinematics().Transform(inputs[1])
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatialmath.PoseAlmostCoincident(currentPosition.Pose(), expectedPosition), test.ShouldBeTrue)
 	})
 
