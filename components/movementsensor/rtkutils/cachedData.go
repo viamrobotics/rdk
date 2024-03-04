@@ -98,3 +98,10 @@ func (g *CachedGpsData) LinearVelocity(
 
 	return r3.Vector{X: xVelocity, Y: yVelocity, Z: 0}, g.err.Get()
 }
+
+// LinearAcceleration returns the sensor's linear acceleration.
+func (g *CachedGpsData) LinearAcceleration(
+	ctx context.Context, extra map[string]interface{},
+) (r3.Vector, error) {
+	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
+}
