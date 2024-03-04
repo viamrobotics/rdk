@@ -36,7 +36,7 @@ type NMEAMovementSensor struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	logger                  logging.Logger
-	data                    rtkutils.GPSData // TODO: remove this
+	data                    rtkutils.GPSData       // TODO: remove this
 	cachedData              rtkutils.CachedGpsData // TODO: use this everywhere
 	activeBackgroundWorkers sync.WaitGroup
 
@@ -110,27 +110,7 @@ func (g *NMEAMovementSensor) Start(ctx context.Context) error {
 func (g *NMEAMovementSensor) Position(
 	ctx context.Context, extra map[string]interface{},
 ) (*geo.Point, float64, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	lastPosition := g.lastPosition.GetLastPosition()
-	currentPosition := g.data.Location
-
-	if currentPosition == nil {
-		return lastPosition, 0, errNilLocation
-	}
-
-	// if current position is (0,0) we will return the last non-zero position
-	if movementsensor.IsZeroPosition(currentPosition) && !movementsensor.IsZeroPosition(lastPosition) {
-		return lastPosition, g.data.Alt, g.err.Get()
-	}
-
-	// updating the last known valid position if the current position is non-zero
-	if !movementsensor.IsZeroPosition(currentPosition) && !movementsensor.IsPositionNaN(currentPosition) {
-		g.lastPosition.SetLastPosition(currentPosition)
-	}
-
-	return currentPosition, g.data.Alt, g.err.Get()
+	return g.cachedData.Position(ctx, extra)
 }
 
 // Accuracy returns the accuracy map, hDOP, vDOP, Fixquality and compass heading error.
