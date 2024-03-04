@@ -5,10 +5,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
-	"os"
 	"sync/atomic"
-	"time"
 
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
@@ -26,15 +23,6 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
-	if waitValue, ok := os.LookupEnv("VIAM_MODULE_START_WAIT"); ok {
-		wait, err := time.ParseDuration(waitValue)
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Printf("waiting %s to start...", waitValue)
-		time.Sleep(wait)
-	}
-
 	// Instantiate the module itself
 	myMod, err := module.NewModuleFromArgs(ctx, logger)
 	if err != nil {
