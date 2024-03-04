@@ -279,6 +279,47 @@ func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 }
 
+func TestLogErrorsOnlyOnce(t *testing.T) {
+	// Set up a collector.
+	logger, logs := logging.NewObservedTestLogger(t)
+	tmpDir := t.TempDir()
+	md := v1.DataCaptureMetadata{}
+	buf := datacapture.NewBuffer(tmpDir, &md)
+	wrote := make(chan struct{})
+	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+		return nil, fmt.Errorf("I am an error")
+	})
+	target := &signalingBuffer{
+		bw:    buf,
+		wrote: wrote,
+	}
+	mockClock := clock.NewMock()
+	interval := time.Millisecond * 5
+
+	params := CollectorParams{
+		ComponentName: "testComponent",
+		Interval:      interval,
+		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
+		Target:        target,
+		QueueSize:     queueSize,
+		BufferSize:    bufferSize,
+		Logger:        logger,
+		Clock:         mockClock,
+	}
+	c, _ := NewCollector(errorCapturer, params)
+
+	// Start collecting, and validate it is writing.
+	c.Collect()
+	mockClock.Add(interval * 5)
+
+	close(wrote)
+	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 1)
+	mockClock.Add(4 * time.Second)
+	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 2)
+	// Close and validate no additional writes occur even after an additional interval.
+	c.Close()
+}
+
 func validateReadings(t *testing.T, act []*v1.SensorData, n int) {
 	t.Helper()
 	for i := 0; i < n; i++ {
@@ -291,7 +332,7 @@ func validateReadings(t *testing.T, act []*v1.SensorData, n int) {
 	}
 }
 
-//nolint
+// nolint
 func getAllFiles(dir string) []os.FileInfo {
 	var files []os.FileInfo
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

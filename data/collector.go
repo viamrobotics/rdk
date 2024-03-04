@@ -46,6 +46,9 @@ var FromDMExtraMap = map[string]interface{}{FromDMString: true}
 // ErrNoCaptureToStore is returned when a modular filter resource filters the capture coming from the base resource.
 var ErrNoCaptureToStore = status.Error(codes.FailedPrecondition, "no capture from filter module")
 
+// If an error is ongoing, the frequency (in seconds) with which to suppress identical error logs.
+var IdenticalErrorLogFrequency = 2
+
 // Collector collects data to some target.
 type Collector interface {
 	Close()
@@ -54,20 +57,21 @@ type Collector interface {
 }
 
 type collector struct {
-	clock          clock.Clock
-	captureResults chan *v1.SensorData
-	captureErrors  chan error
-	interval       time.Duration
-	params         map[string]*anypb.Any
-	lock           sync.Mutex
-	logger         logging.Logger
-	captureWorkers sync.WaitGroup
-	logRoutine     sync.WaitGroup
-	cancelCtx      context.Context
-	cancel         context.CancelFunc
-	captureFunc    CaptureFunc
-	closed         bool
-	target         datacapture.BufferedWriter
+	clock            clock.Clock
+	captureResults   chan *v1.SensorData
+	captureErrors    chan error
+	interval         time.Duration
+	params           map[string]*anypb.Any
+	lock             sync.Mutex
+	logger           logging.Logger
+	captureWorkers   sync.WaitGroup
+	logRoutine       sync.WaitGroup
+	cancelCtx        context.Context
+	cancel           context.CancelFunc
+	captureFunc      CaptureFunc
+	closed           bool
+	target           datacapture.BufferedWriter
+	lastLoggedErrors map[string]int64
 }
 
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
@@ -183,7 +187,6 @@ func (c *collector) tickerBasedCapture(started chan struct{}) {
 			close(c.captureResults)
 			return
 		}
-
 		select {
 		case <-c.cancelCtx.Done():
 			captureWorkers.Wait()
@@ -280,17 +283,18 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 		c = params.Clock
 	}
 	return &collector{
-		captureResults: make(chan *v1.SensorData, params.QueueSize),
-		captureErrors:  make(chan error, params.QueueSize),
-		interval:       params.Interval,
-		params:         params.MethodParams,
-		logger:         params.Logger,
-		cancelCtx:      cancelCtx,
-		cancel:         cancelFunc,
-		captureFunc:    captureFunc,
-		target:         params.Target,
-		clock:          c,
-		closed:         false,
+		captureResults:   make(chan *v1.SensorData, params.QueueSize),
+		captureErrors:    make(chan error, params.QueueSize),
+		interval:         params.Interval,
+		params:           params.MethodParams,
+		logger:           params.Logger,
+		cancelCtx:        cancelCtx,
+		cancel:           cancelFunc,
+		captureFunc:      captureFunc,
+		target:           params.Target,
+		clock:            c,
+		closed:           false,
+		lastLoggedErrors: make(map[string]int64, 0),
 	}, nil
 }
 
@@ -305,6 +309,7 @@ func (c *collector) writeCaptureResults() error {
 
 func (c *collector) logCaptureErrs() {
 	for err := range c.captureErrors {
+		now := c.clock.Now().Unix()
 		if c.closed {
 			// Don't log context cancellation errors if the collector has already been closed. This means the collector
 			// cancelled the context, and the context cancellation error is expected.
@@ -312,7 +317,11 @@ func (c *collector) logCaptureErrs() {
 				continue
 			}
 		}
-		c.logger.Error(err)
+		// Only log a specific error message if we haven't logged it in the past 2 seconds.
+		if lastLogged, ok := c.lastLoggedErrors[err.Error()]; (ok && int(now-lastLogged) > IdenticalErrorLogFrequency) || !ok {
+			c.logger.Error((err))
+			c.lastLoggedErrors[err.Error()] = now
+		}
 	}
 }
 
