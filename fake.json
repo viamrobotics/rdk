@@ -1,0 +1,30 @@
+{
+    "network": {
+        "fqdn": "something-unique",
+        "bind_address": ":8080"
+    },
+    "modules": [
+        {
+            "name": "SimpleModule",
+            "executable_path": "./examples/customresources/demos/simplemodule/simplemodule"
+        },
+        {
+            "name": "SimpleModule2",
+            "executable_path": "./examples/customresources/demos/simplemodule2/simplemodule"
+        }
+    ],
+    "components": [
+        {
+            "namespace": "rdk",
+            "type": "generic",
+            "name": "counter1",
+            "model": "acme:demo:mycounter"
+        },
+        {
+            "namespace": "rdk",
+            "type": "generic",
+            "name": "counter2",
+            "model": "acme:demo:mycounter2"
+        }
+    ]
+}

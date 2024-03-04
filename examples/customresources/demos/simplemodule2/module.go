@@ -19,7 +19,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var myModel = resource.NewModel("acme", "demo", "mycounter")
+var myModel = resource.NewModel("acme", "demo", "mycounter2")
 
 func main() {
 	utils.ContextualMain(mainWithArgs, module.NewLoggerFromArgs("simple-module"))
