@@ -268,7 +268,7 @@ func (pin *gpioPin) halfPwmCycle(ctx context.Context, shouldBeOn bool) bool {
 		pin.mu.Lock()
 		defer pin.mu.Unlock()
 		// Before we modify the pin, check if we should stop running
-		if pin.swPwmCancel == nil {
+		if ctx.Err() != nil {
 			return false
 		}
 
@@ -296,9 +296,6 @@ func (pin *gpioPin) halfPwmCycle(ctx context.Context, shouldBeOn bool) bool {
 
 func (pin *gpioPin) softwarePwmLoop(ctx context.Context) {
 	for {
-		if err := ctx.Err(); err != nil {
-			return
-		}
 		if !pin.halfPwmCycle(ctx, true) {
 			return
 		}
