@@ -933,7 +933,6 @@ func (manager *resourceManager) updateResources(
 			if err := manager.moduleManager.Add(ctx, mod); err != nil {
 				manager.logger.CErrorw(ctx, "error adding module", "module", mod.Name, "error", err)
 			}
-			manager.logger.Info(">>> added module:", mod)
 		}(mod)
 	}
 	wg.Wait()

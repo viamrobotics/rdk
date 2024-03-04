@@ -159,7 +159,6 @@ func (mgr *Manager) Add(ctx context.Context, conf config.Module) error {
 }
 
 func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
-	mgr.logger.Info(">>> cfg->name", conf.Name)
 	if mgr.untrustedEnv {
 		return errModularResourcesDisabled
 	}
@@ -193,8 +192,6 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 }
 
 func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
-	mgr.logger.Info(">>> startModule ------------------------")
-	defer mgr.logger.Info(">>> startModule fin ************************")
 
 	// add calls startProcess, which can also be called by the OUE handler in the attemptRestart
 	// call. Both of these involve owning a lock, so in unhappy cases of malformed modules
