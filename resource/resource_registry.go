@@ -335,9 +335,7 @@ func makeGenericResourceRegistration[ResourceT Resource, ConfigT ConfigValidator
 		}
 	}
 	if typed.AssociatedConfigLinker != nil {
-		reg.AssociatedConfigLinker = func(conf *Config, resAssociation any) error {
-			return typed.AssociatedConfigLinker(conf, resAssociation)
-		}
+		reg.AssociatedConfigLinker = typed.AssociatedConfigLinker
 	}
 
 	return reg
