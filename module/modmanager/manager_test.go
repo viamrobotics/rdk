@@ -441,8 +441,7 @@ func TestModuleReloading(t *testing.T) {
 		// managed again and remains functional.
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring,
-			"error reading from server")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -473,16 +472,16 @@ func TestModuleReloading(t *testing.T) {
 	t.Run("unsuccessful restart", func(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
 
-		// Precompile module to avoid timeout issues when building takes too long.
-		modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-		test.That(t, err, test.ShouldBeNil)
-		modCfg.ExePath = modPath
-
 		// lower global timeout early to avoid race with actual restart code
 		defer func(origVal time.Duration) {
 			oueRestartInterval = origVal
 		}(oueRestartInterval)
 		oueRestartInterval = 10 * time.Millisecond
+
+		// Precompile module to avoid timeout issues when building takes too long.
+		modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
+		test.That(t, err, test.ShouldBeNil)
+		modCfg.ExePath = modPath
 
 		// This test neither uses a resource manager nor asserts anything about
 		// the existence of resources in the graph. Use a dummy
@@ -521,8 +520,7 @@ func TestModuleReloading(t *testing.T) {
 		// not modularly managed and commands return error.
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring,
-			"error reading from server")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
