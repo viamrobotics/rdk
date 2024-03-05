@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
@@ -287,7 +288,7 @@ func TestLogErrorsOnlyOnce(t *testing.T) {
 	buf := datacapture.NewBuffer(tmpDir, &md)
 	wrote := make(chan struct{})
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		return nil, fmt.Errorf("I am an error")
+		return nil, errors.New("I am an error")
 	})
 	target := &signalingBuffer{
 		bw:    buf,
@@ -334,7 +335,7 @@ func validateReadings(t *testing.T, act []*v1.SensorData, n int) {
 	}
 }
 
-// nolint
+//nolint
 func getAllFiles(dir string) []os.FileInfo {
 	var files []os.FileInfo
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
