@@ -193,11 +193,7 @@ func (g *NMEAMovementSensor) Readings(
 func (g *NMEAMovementSensor) Properties(
 	ctx context.Context, extra map[string]interface{},
 ) (*movementsensor.Properties, error) {
-	return &movementsensor.Properties{
-		LinearVelocitySupported: true,
-		PositionSupported:       true,
-		CompassHeadingSupported: true,
-	}, nil
+	return g.cachedData.Properties(ctx, extra)
 }
 
 // Close shuts down the NMEAMovementSensor.

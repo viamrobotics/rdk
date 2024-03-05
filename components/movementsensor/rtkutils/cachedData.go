@@ -155,3 +155,14 @@ func (g *CachedGpsData) ReadSatsInView(ctx context.Context) (int, error) {
 	defer g.mu.RUnlock()
 	return g.uncachedData.SatsInView, nil
 }
+
+// Properties returns what movement sensor capabilities we have.
+func (g *CachedGpsData) Properties(
+	ctx context.Context, extra map[string]interface{},
+) (*movementsensor.Properties, error) {
+	return &movementsensor.Properties{
+		LinearVelocitySupported: true,
+		PositionSupported:       true,
+		CompassHeadingSupported: true,
+	}, nil
+}
