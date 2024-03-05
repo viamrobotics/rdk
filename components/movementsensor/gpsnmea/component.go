@@ -7,7 +7,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
@@ -17,8 +16,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
-
-var errNilLocation = errors.New("nil gps location, check nmea message parsing")
 
 // DataReader represents a way to get data from a GPS NMEA device. We can read data from it using
 // the channel in Messages, and we can close the device when we're done.
