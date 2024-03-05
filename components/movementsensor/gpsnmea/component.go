@@ -39,10 +39,6 @@ type NMEAMovementSensor struct {
 	cachedData              rtkutils.CachedGpsData // TODO: use this everywhere
 	activeBackgroundWorkers sync.WaitGroup
 
-	err                movementsensor.LastError
-	lastPosition       movementsensor.LastPosition
-	lastCompassHeading movementsensor.LastCompassHeading
-
 	dev DataReader
 }
 
@@ -53,15 +49,13 @@ func NewNmeaMovementSensor(
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	g := &NMEAMovementSensor{
-		Named:              name.AsNamed(),
-		dev:                dev,
-		cancelCtx:          cancelCtx,
-		cancelFunc:         cancelFunc,
-		logger:             logger,
-		err:                movementsensor.NewLastError(1, 1),
-		lastPosition:       movementsensor.NewLastPosition(),
-		lastCompassHeading: movementsensor.NewLastCompassHeading(),
+		Named:      name.AsNamed(),
+		dev:        dev,
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
 	}
+	g.cachedData = rtkutils.NewCachedGpsData(&g.data)
 
 	if err := g.Start(ctx); err != nil {
 		return nil, multierr.Combine(err, g.Close(ctx))
@@ -102,7 +96,7 @@ func (g *NMEAMovementSensor) Start(ctx context.Context) error {
 		}
 	})
 
-	return g.err.Get()
+	return nil
 }
 
 // Position returns the position and altitide of the sensor, or an error.
