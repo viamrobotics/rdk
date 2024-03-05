@@ -1242,7 +1242,7 @@ func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {
 			return "", err
 		}
 		if i > 0 {
-			// split fields with space after first entry
+			// split fields with space and comma after first entry
 			message += ", "
 		}
 		if _, isStr := value.(string); isStr {
