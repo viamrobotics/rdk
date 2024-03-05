@@ -383,6 +383,12 @@ func TestModManagerValidation(t *testing.T) {
 func TestModuleReloading(t *testing.T) {
 	ctx := context.Background()
 
+	// Lower global timeout early to avoid race with actual restart code.
+	defer func(oriOrigVal time.Duration) {
+		oueRestartInterval = oriOrigVal
+	}(oueRestartInterval)
+	oueRestartInterval = 10 * time.Millisecond
+
 	myHelperModel := resource.NewModel("rdk", "test", "helper")
 	rNameMyHelper := generic.Named("myhelper")
 	cfgMyHelper := resource.Config{
@@ -441,8 +447,7 @@ func TestModuleReloading(t *testing.T) {
 		// managed again and remains functional.
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring,
-			"error reading from server")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -478,12 +483,6 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		modCfg.ExePath = modPath
 
-		// lower global timeout early to avoid race with actual restart code
-		defer func(origVal time.Duration) {
-			oueRestartInterval = origVal
-		}(oueRestartInterval)
-		oueRestartInterval = 10 * time.Millisecond
-
 		// This test neither uses a resource manager nor asserts anything about
 		// the existence of resources in the graph. Use a dummy
 		// RemoveOrphanedResources function so orphaned resource logic does not
@@ -511,8 +510,7 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, "echo")
 
 		// Remove testmodule binary, so process cannot be successfully restarted
-		// after crash. Also lower oueRestartInterval so attempted restarts happen
-		// at faster rate.
+		// after crash.
 		err = os.Remove(modPath)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -521,8 +519,7 @@ func TestModuleReloading(t *testing.T) {
 		// not modularly managed and commands return error.
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring,
-			"error reading from server")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -553,12 +550,6 @@ func TestModuleReloading(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
 
 		modCfg.ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
-
-		// Lower global timeout early to avoid race with actual restart code.
-		defer func(oriOrigVal time.Duration) {
-			oueRestartInterval = oriOrigVal
-		}(oueRestartInterval)
-		oueRestartInterval = 10 * time.Millisecond
 
 		// Lower module startup timeout to avoid waiting for 5 mins.
 		t.Setenv(rutils.ModuleStartupTimeoutEnvVar, "10ms")
@@ -594,12 +585,6 @@ func TestModuleReloading(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
 
 		modCfg.ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
-
-		// Lower global timeout early to avoid race with actual restart code.
-		defer func(oriOrigVal time.Duration) {
-			oueRestartInterval = oriOrigVal
-		}(oueRestartInterval)
-		oueRestartInterval = 10 * time.Millisecond
 
 		// Lower module startup timeout to avoid waiting for 5 mins.
 		t.Setenv(rutils.ModuleStartupTimeoutEnvVar, "30s")
