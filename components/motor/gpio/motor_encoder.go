@@ -427,7 +427,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float64) error {
 	if m.loop == nil {
 		// create new control loop if control config exists
-		if m.cfg.ControlParameters != nil {
+		if len(m.controlLoopConfig.Blocks) != 0 {
 			if err := m.startControlLoop(); err != nil {
 				return err
 			}

@@ -295,6 +295,7 @@ func (l *Loop) Stop() {
 		close(l.ct.stop)
 		l.activeBackgroundWorkers.Wait()
 		l.running = false
+		l.cancel()
 	}
 }
 
