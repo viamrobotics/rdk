@@ -49,6 +49,7 @@ type resourceManager struct {
 	opts           resourceManagerOptions
 	logger         logging.Logger
 	configLock     sync.Mutex
+	viz            resource.Visualizer
 }
 
 type resourceManagerOptions struct {
@@ -90,8 +91,8 @@ func fromRemoteNameToRemoteNodeName(name string) resource.Name {
 
 // ExportDot exports the resource graph as a DOT representation for visualization.
 // DOT reference: https://graphviz.org/doc/info/lang.html
-func (manager *resourceManager) ExportDot() (string, error) {
-	return manager.resources.ExportDot()
+func (manager *resourceManager) ExportDot(index int) (resource.GetSnapshotInfo, error) {
+	return manager.viz.GetSnapshot(index)
 }
 
 func (manager *resourceManager) startModuleManager(
@@ -442,6 +443,14 @@ func (manager *resourceManager) removeMarkedAndClose(
 	ctx context.Context,
 	excludeFromClose map[resource.Name]struct{},
 ) error {
+	defer func() {
+		manager.configLock.Lock()
+		defer manager.configLock.Unlock()
+		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
+			manager.logger.Warnw("failed to save graph snapshot", "error", err)
+		}
+	}()
+
 	var allErrs error
 	toClose := manager.resources.RemoveMarked()
 	for _, res := range toClose {
@@ -488,7 +497,12 @@ func (manager *resourceManager) completeConfig(
 	robot *localRobot,
 ) {
 	manager.configLock.Lock()
-	defer manager.configLock.Unlock()
+	defer func() {
+		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
+			manager.logger.Warnw("failed to save graph snapshot", "error", err)
+		}
+		manager.configLock.Unlock()
+	}()
 
 	// first handle remotes since they may reveal unresolved dependencies
 	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {

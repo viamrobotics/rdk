@@ -2,14 +2,88 @@ package resource
 
 import (
 	"bytes"
+	"container/list"
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/utils"
 )
+
+const snapshotLimit = 500
+
+// Visualizer stores a history resource graph DOT snapshots.
+type Visualizer struct {
+	snapshots list.List
+}
+
+// Snapshot contains a DOT snapshot string along with capture metadata.
+type Snapshot struct {
+	Dot       string
+	CreatedAt time.Time
+}
+
+// GetSnapshotInfo contains a Snapshot string along with metadata about the snapshot
+// collection.
+type GetSnapshotInfo struct {
+	Snapshot Snapshot
+	Index    int
+	Count    int
+}
+
+// SaveSnapshot takes a DOT snapshot of a resource graph.
+func (viz *Visualizer) SaveSnapshot(g *Graph) error {
+	dot, err := g.ExportDot()
+	if err != nil {
+		return err
+	}
+	snapshot := Snapshot{
+		Dot:       dot,
+		CreatedAt: time.Now(),
+	}
+	latestSnapshot := viz.snapshots.Front()
+
+	// We rely on `ExportDot` to generate the exact same string given the same input
+	// resource graph.
+	if latestSnapshot != nil && dot == latestSnapshot.Value.(Snapshot).Dot {
+		// Nothing changed since the last snapshot
+		return nil
+	}
+	viz.snapshots.PushFront(snapshot)
+	if viz.snapshots.Len() > snapshotLimit {
+		viz.snapshots.Remove(viz.snapshots.Back())
+	}
+	return nil
+}
+
+// Count returns the number of snapshots currents stored.
+func (viz *Visualizer) Count() int { return viz.snapshots.Len() }
+
+// GetSnapshot returns a DOT snapshot at a given index, where index 0 is the latest
+// snapshot.
+func (viz *Visualizer) GetSnapshot(index int) (GetSnapshotInfo, error) {
+	result := GetSnapshotInfo{Index: index, Count: viz.snapshots.Len()}
+
+	if result.Count == 0 {
+		return result, errors.New("no snapshots")
+	}
+	if index < 0 || index >= result.Count {
+		return result, errors.New("out of range")
+	}
+
+	snapshot := viz.snapshots.Front()
+	for i := 0; i < index; i++ {
+		// Guards against race with deletion of snapshots.
+		if snapshot = snapshot.Next(); snapshot == nil {
+			return result, errors.New("out of range")
+		}
+	}
+	result.Snapshot = snapshot.Value.(Snapshot)
+	return result, nil
+}
 
 // blockWriter wraps a bytes.Buffer and adds some structured methods (`NewBlock`/`EndBlock`) for
 // keeping indentation state.
@@ -180,7 +254,8 @@ func exportEdge(bw *blockWriter, left, right Name) {
 }
 
 // ExportDot exports the resource graph as a DOT representation for visualization.
-// DOT reference: https://graphviz.org/doc/info/lang.html
+// DOT reference: https://graphviz.org/doc/info/lang.html.
+// This function will output the exact same string given the same input resource graph.
 func (g *Graph) ExportDot() (string, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()

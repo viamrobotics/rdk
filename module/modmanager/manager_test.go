@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go.uber.org/zap/zaptest/observer"
+	v1 "go.viam.com/api/module/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
@@ -73,12 +74,6 @@ func TestModManagerFunctions(t *testing.T) {
 	err = mod.dial()
 	test.That(t, err, test.ShouldBeNil)
 
-	// check that dial can re-use connections.
-	oldConn := mod.conn
-	err = mod.dial()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mod.conn, test.ShouldEqual, oldConn)
-
 	err = mod.checkReady(ctx, parentAddr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -92,7 +87,6 @@ func TestModManagerFunctions(t *testing.T) {
 	_, ok = resource.LookupRegistration(generic.API, myCounterModel)
 	test.That(t, ok, test.ShouldBeFalse)
 
-	test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 	test.That(t, mod.process.Stop(), test.ShouldBeNil)
 
 	modEnv := mod.getFullEnvironment(viamHomeTemp)
@@ -106,6 +100,23 @@ func TestModManagerFunctions(t *testing.T) {
 	modEnv = mod.getFullEnvironment(viamHomeTemp)
 	_, ok = modEnv["VIAM_MODULE_ID"]
 	test.That(t, ok, test.ShouldBeFalse)
+
+	// Make a copy of addr and client to test that connections are properly remade
+	oldAddr := mod.addr
+	oldClient := mod.client
+
+	mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp)
+	err = mod.dial()
+	test.That(t, err, test.ShouldBeNil)
+
+	// make sure mod.addr has changed
+	test.That(t, mod.addr, test.ShouldNotEqual, oldAddr)
+	// check that we're still able to use the old client
+	_, err = oldClient.Ready(ctx, &v1.ReadyRequest{ParentAddress: parentAddr})
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, mod.process.Stop(), test.ShouldBeNil)
+	test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 
 	t.Log("test AddModule")
 	mgr = NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
@@ -224,7 +235,7 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	_, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "the client connection is closing")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not connected")
 
 	err = counter.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -372,6 +383,12 @@ func TestModManagerValidation(t *testing.T) {
 func TestModuleReloading(t *testing.T) {
 	ctx := context.Background()
 
+	// Lower global timeout early to avoid race with actual restart code.
+	defer func(oriOrigVal time.Duration) {
+		oueRestartInterval = oriOrigVal
+	}(oueRestartInterval)
+	oueRestartInterval = 10 * time.Millisecond
+
 	myHelperModel := resource.NewModel("rdk", "test", "helper")
 	rNameMyHelper := generic.Named("myhelper")
 	cfgMyHelper := resource.Config{
@@ -430,8 +447,7 @@ func TestModuleReloading(t *testing.T) {
 		// managed again and remains functional.
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring,
-			"error reading from server")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -467,12 +483,6 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		modCfg.ExePath = modPath
 
-		// lower global timeout early to avoid race with actual restart code
-		defer func(origVal time.Duration) {
-			oueRestartInterval = origVal
-		}(oueRestartInterval)
-		oueRestartInterval = 10 * time.Millisecond
-
 		// This test neither uses a resource manager nor asserts anything about
 		// the existence of resources in the graph. Use a dummy
 		// RemoveOrphanedResources function so orphaned resource logic does not
@@ -500,8 +510,7 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, "echo")
 
 		// Remove testmodule binary, so process cannot be successfully restarted
-		// after crash. Also lower oueRestartInterval so attempted restarts happen
-		// at faster rate.
+		// after crash.
 		err = os.Remove(modPath)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -510,8 +519,7 @@ func TestModuleReloading(t *testing.T) {
 		// not modularly managed and commands return error.
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring,
-			"error reading from server")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -523,8 +531,7 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, ok, test.ShouldBeFalse)
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring,
-			"connection is closing")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not connected")
 
 		err = mgr.Close(ctx)
 		test.That(t, err, test.ShouldBeNil)
@@ -543,12 +550,6 @@ func TestModuleReloading(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
 
 		modCfg.ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
-
-		// Lower global timeout early to avoid race with actual restart code.
-		defer func(oriOrigVal time.Duration) {
-			oueRestartInterval = oriOrigVal
-		}(oueRestartInterval)
-		oueRestartInterval = 10 * time.Millisecond
 
 		// Lower module startup timeout to avoid waiting for 5 mins.
 		t.Setenv(rutils.ModuleStartupTimeoutEnvVar, "10ms")
@@ -584,12 +585,6 @@ func TestModuleReloading(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
 
 		modCfg.ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
-
-		// Lower global timeout early to avoid race with actual restart code.
-		defer func(oriOrigVal time.Duration) {
-			oueRestartInterval = oriOrigVal
-		}(oueRestartInterval)
-		oueRestartInterval = 10 * time.Millisecond
 
 		// Lower module startup timeout to avoid waiting for 5 mins.
 		t.Setenv(rutils.ModuleStartupTimeoutEnvVar, "30s")

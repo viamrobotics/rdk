@@ -45,7 +45,13 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.DefaultModelFamily.WithModel("imu-wit")
+var (
+	model = resource.DefaultModelFamily.WithModel("imu-wit")
+
+	// This is the dynamic integral cumulative error.
+	// Data acquired from datasheets of supported models. Links above.
+	compassAccuracy = 0.5
+)
 
 var baudRateList = []uint{115200, 9600, 0}
 
@@ -202,12 +208,22 @@ func (imu *wit) Position(ctx context.Context, extra map[string]interface{}) (*ge
 
 func (imu *wit) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
 ) {
-	// TODO: RSDK-6389 return the compass heading from the datasheet of the witIMU if the pitch angle is less than 45 degrees
-	// and the roll angle is near zero
+	// return the compass heading error from the datasheet (0.5) of the witIMU if
+	// the pitch angle is less than 45 degrees and the roll angle is near zero
 	// mag projects at angles over this threshold cannot be determined because of the larger contribution of other
 	// orientations to the true compass heading
 	// return NaN for compass accuracy otherwise.
-	return movementsensor.UnimplementedAccuracies()
+	imu.mu.Lock()
+	defer imu.mu.Unlock()
+
+	roll := imu.orientation.Roll
+	pitch := imu.orientation.Pitch
+
+	if math.Abs(roll) <= 1 && math.Abs(pitch) <= maxTiltInRad {
+		return &movementsensor.Accuracy{CompassDegreeError: float32(compassAccuracy)}, nil
+	}
+
+	return &movementsensor.Accuracy{CompassDegreeError: float32(math.NaN())}, nil
 }
 
 func (imu *wit) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
