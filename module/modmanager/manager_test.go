@@ -383,6 +383,12 @@ func TestModManagerValidation(t *testing.T) {
 func TestModuleReloading(t *testing.T) {
 	ctx := context.Background()
 
+	// Lower global timeout early to avoid race with actual restart code.
+	defer func(oriOrigVal time.Duration) {
+		oueRestartInterval = oriOrigVal
+	}(oueRestartInterval)
+	oueRestartInterval = 10 * time.Millisecond
+
 	myHelperModel := resource.NewModel("rdk", "test", "helper")
 	rNameMyHelper := generic.Named("myhelper")
 	cfgMyHelper := resource.Config{
@@ -472,12 +478,6 @@ func TestModuleReloading(t *testing.T) {
 	t.Run("unsuccessful restart", func(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
 
-		// lower global timeout early to avoid race with actual restart code
-		defer func(origVal time.Duration) {
-			oueRestartInterval = origVal
-		}(oueRestartInterval)
-		oueRestartInterval = 10 * time.Millisecond
-
 		// Precompile module to avoid timeout issues when building takes too long.
 		modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
 		test.That(t, err, test.ShouldBeNil)
@@ -510,8 +510,7 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, "echo")
 
 		// Remove testmodule binary, so process cannot be successfully restarted
-		// after crash. Also lower oueRestartInterval so attempted restarts happen
-		// at faster rate.
+		// after crash.
 		err = os.Remove(modPath)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -552,12 +551,6 @@ func TestModuleReloading(t *testing.T) {
 
 		modCfg.ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
 
-		// Lower global timeout early to avoid race with actual restart code.
-		defer func(oriOrigVal time.Duration) {
-			oueRestartInterval = oriOrigVal
-		}(oueRestartInterval)
-		oueRestartInterval = 10 * time.Millisecond
-
 		// Lower module startup timeout to avoid waiting for 5 mins.
 		t.Setenv(rutils.ModuleStartupTimeoutEnvVar, "10ms")
 
@@ -592,12 +585,6 @@ func TestModuleReloading(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
 
 		modCfg.ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
-
-		// Lower global timeout early to avoid race with actual restart code.
-		defer func(oriOrigVal time.Duration) {
-			oueRestartInterval = oriOrigVal
-		}(oueRestartInterval)
-		oueRestartInterval = 10 * time.Millisecond
 
 		// Lower module startup timeout to avoid waiting for 5 mins.
 		t.Setenv(rutils.ModuleStartupTimeoutEnvVar, "30s")
