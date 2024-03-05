@@ -28,7 +28,6 @@ type DataReader interface {
 type NMEAMovementSensor struct {
 	resource.Named
 	resource.AlwaysRebuild
-	mu                      sync.RWMutex
 	cancelCtx               context.Context
 	cancelFunc              func()
 	logger                  logging.Logger
@@ -190,8 +189,6 @@ func (g *NMEAMovementSensor) Close(ctx context.Context) error {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
 
-	g.mu.Lock()
-	defer g.mu.Unlock()
 	if g.dev != nil {
 		if err := g.dev.Close(); err != nil {
 			return err
