@@ -2,6 +2,7 @@ package sensorcontrolled
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -122,30 +123,36 @@ func calcAngVel(angErr, degsPerSec float64) float64 {
 //		wheelTravel := pro.spinSlipFactor * float64(wb.widthMm) * math.Pi * (angleDeg / 360.0)
 //		revolutions := wheelTravel / float64(wb.wheelCircumferenceMm)
 //	}
-func getAngError(initAngle, currYaw, prevAngle, prevMovedAng, desiredAngle float64) (float64, float64, float64) {
+func getAngError(currYaw, prevAngle, prevMovedAng, desiredAngle float64) (float64, float64, float64) {
 	// use initial angle to get the current angle the spin has moved
-	wrappedAng := getWrappedAngle360((currYaw - initAngle))
-	angMoved := getMovedAng(prevAngle, wrappedAng, prevMovedAng)
+	// wrappedAng := getWrappedAngle((currYaw - initAngle))
+	angMoved := getMovedAng(prevAngle, currYaw, prevMovedAng)
 
 	// compute the error
 	errAng := (desiredAngle - angMoved)
 
-	return errAng, wrappedAng, angMoved
+	return errAng, currYaw, angMoved
 }
 
-// bounds an angle from 0-360
-func getWrappedAngle360(angle float64) float64 {
+// bounds an angle from -180 to 180
+func getWrappedAngle(angle float64) float64 {
 	return angle - (math.Floor((angle+180.)/(2*180.)))*2*180. // [-180;180):
 }
 
 func getMovedAng(prevAngle, currAngle, angMoved float64) float64 {
 	// the angle changed from 0 to 359. this means we are spinning in the negative direction
-	if prevAngle-currAngle < -300 {
-		return angMoved + currAngle - prevAngle - 360
+	if currAngle-prevAngle < -300 {
+		fmt.Println("yo the angle flipped negative")
+		fmt.Println("initial move: ", angMoved)
+		fmt.Println("final move: ", angMoved+currAngle-prevAngle+360)
+		return angMoved + currAngle - prevAngle + 360
 	}
 	// the angle changed from 359 to 0
-	if prevAngle-currAngle > 300 {
-		return angMoved + currAngle - prevAngle + 360
+	if currAngle-prevAngle > 300 {
+		fmt.Println("yo the angle flipped positive")
+		fmt.Println("initial move: ", angMoved)
+		fmt.Println("final move: ", angMoved+currAngle-prevAngle-360)
+		return angMoved + currAngle - prevAngle - 360
 	}
 	// add the change in angle to the position
 	return angMoved + currAngle - prevAngle
@@ -162,6 +169,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 		// }
 		sb.stopLoop()
 	}
+	sb.setPolling(true)
 	orientation, err := sb.orientation.Orientation(ctx, nil)
 	if err != nil {
 		return err
@@ -179,10 +187,11 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	}
 
 	// pid := []control.PIDConfig{{Type: "", P: 0.726327, I: 6.305486, D: 0.014375}}
-	pid := []control.PIDConfig{{Type: "", P: 0.726327, I: 6.305486, D: 0}}
+
+	pid := []control.PIDConfig{sb.conf.ControlParameters[1]}
 	// pid := []control.PIDConfig{{Type: "", P: 0.0, I: 0, D: 0.}}
 	options := control.Options{PositionControlUsingTrapz: true, NeedsAutoTuning: pid[0].NeedsAutoTuning(), LoopFrequency: 20, ControllableType: "motor_name"}
-	sc := spinController{pid: pid, sb: sb, opts: options, initYaw: initYaw}
+	sc := spinController{pid: pid, sb: sb, opts: options, currAng: initYaw}
 
 	lp, err := control.SetupPIDControlConfig(sc.pid, "spin-controller", sc.opts, &sc, sb.logger)
 	if err != nil {
@@ -228,15 +237,19 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 
 		select {
 		case <-ctx.Done():
+			sb.logger.Info("yo done")
 			return ctx.Err()
 		case <-ticker.C:
-			sumSignal, err := sc.sb.loop.OutputAt(ctx, "sum")
+			endSignal, err := sc.lp.OutputAt(ctx, "endpoint")
 			if err != nil {
+				sb.logger.Info("yo endpoint err ")
 				return err
 			}
-			angErr := sumSignal[0].GetSignalValueAt(0)
+			angErr := angleDeg - endSignal[0].GetSignalValueAt(0)
 			sb.logger.Info("angErr: ", angErr)
 			if math.Abs(angErr) < boundCheckTarget {
+				sb.logger.Info("yo complete ")
+				sc.lp.Stop()
 				return sb.Stop(ctx, nil)
 			}
 
@@ -278,7 +291,7 @@ func (sc *spinController) startControlLoop() error {
 
 func (sc *spinController) SetState(ctx context.Context, state []*control.Signal) error {
 	sc.sb.logger.Info("yo set state: ", state[0].GetSignalValueAt(0))
-	return sc.sb.SetPower(ctx, r3.Vector{}, r3.Vector{Z: state[0].GetSignalValueAt(0)}, nil)
+	return sc.sb.controlledBase.SetPower(ctx, r3.Vector{}, r3.Vector{Z: state[0].GetSignalValueAt(0)}, nil)
 }
 
 func (sc *spinController) State(ctx context.Context) ([]float64, error) {
@@ -287,7 +300,7 @@ func (sc *spinController) State(ctx context.Context) ([]float64, error) {
 		return nil, err
 	}
 	currYaw := rdkutils.RadToDeg(orientation.EulerAngles().Yaw)
-	_, sc.currAng, sc.currMovedAng = getAngError(sc.initYaw, currYaw, sc.currAng, sc.currMovedAng, 0)
+	_, sc.currAng, sc.currMovedAng = getAngError(currYaw, sc.currAng, sc.currMovedAng, 0)
 	sc.sb.logger.Info("currYaw: ", currYaw)
 	sc.sb.logger.Info("angleWrapped & zeroed: ", sc.currAng)
 	sc.sb.logger.Info("movedAng: ", sc.currMovedAng)
