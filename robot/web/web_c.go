@@ -257,75 +257,65 @@ func (svc *webService) propertiesFromStream(ctx context.Context, stream gostream
 	return cam.Properties(ctx)
 }
 
-func (svc *webService) packetStream(
+func packetStream(
 	ctx context.Context,
+	shutdownCtx context.Context,
+	h264Stream camera.H264Stream,
 	stream gostream.Stream,
-) {
-	res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
-	if err != nil {
-		svc.logger.Fatal(err)
-	}
-	cam, ok := res.(camera.Camera)
-	if !ok {
-		svc.logger.Fatal("expected a camera")
-	}
-
-	streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
-	waitCh := make(chan struct{})
-	svc.webWorkers.Add(1)
-	utils.ManagedGo(func() {
-		defer close(waitCh)
-		for streamVideoCtx.Err() == nil {
-			pkts, err := cam.RTPH264PacketStream(streamVideoCtx)
-			if err != nil {
-				svc.logger.Fatal(err)
-			}
-			if len(pkts) == 0 {
-				continue
-			}
-			svc.logger.Warnf("DBG writing %d RTP packets to video stream %s", len(pkts), stream.Name())
-
-			for _, pkt := range pkts {
-				if err := stream.WriteRTP(pkt); err != nil {
-					svc.logger.Fatal(err)
-				}
+	logger logging.Logger) error {
+	asyncWriter := camera.NewAsyncWriter(stream.Name(), 512, logger)
+	err := h264Stream.AddH264ToWebRTCReader(asyncWriter, func(pkts []*rtp.Packet) error {
+		logger.Warnf("DBG writing %d RTP packets to video stream %s", len(pkts), stream.Name())
+		for _, pkt := range pkts {
+			if err := stream.WriteRTP(pkt); err != nil {
+				logger.Fatal(err)
 			}
 		}
-		svc.logger.Warnf("DBG packetStream terminating due to %s", streamVideoCtx.Err())
-	}, svc.webWorkers.Done)
-	<-waitCh
-}
+		return nil
+	})
+	if err != nil {
+		return nil
+	}
+	defer h264Stream.RemoveReader(asyncWriter)
 
-type packetSource struct {
-	packetStream packetStream
-}
-
-func (pSource *packetSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.MediaStream[[]*rtp.Packet], error) {
-	return &pSource.packetStream, nil
-}
-
-func (pSource *packetSource) Close(ctx context.Context) error {
-	return nil
-}
-
-type packetStream struct {
-	cam camera.Camera
-}
-
-func (pStream *packetStream) Next(ctx context.Context) ([]*rtp.Packet, func(), error) {
-	data, err := pStream.cam.RTPH264PacketStream(ctx)
-	return data, func() {}, err
-}
-
-func (pStream *packetStream) Close(ctx context.Context) error {
-	return nil
-}
-
-func newPacketSource(cam camera.Camera) gostream.MediaSource[[]*rtp.Packet] {
-	return &packetSource{
-		packetStream: packetStream{cam: cam},
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-shutdownCtx.Done():
+		return nil
 	}
 }
+
+// type packetSource struct {
+// 	packetStream packetStream
+// }
+
+// func (pSource *packetSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.MediaStream[[]*rtp.Packet], error) {
+// 	return &pSource.packetStream, nil
+// }
+
+// func (pSource *packetSource) Close(ctx context.Context) error {
+// 	return nil
+// }
+
+// type packetStream struct {
+// 	cam camera.Camera
+// }
+
+// func (pStream *packetStream) Next(ctx context.Context) ([]*rtp.Packet, func(), error) {
+// 	data, err := pStream.cam.RTPH264PacketStream(ctx)
+// 	return data, func() {}, err
+// }
+
+// func (pStream *packetStream) Close(ctx context.Context) error {
+// 	return nil
+// }
+
+// func newPacketSource(cam camera.Camera) gostream.MediaSource[[]*rtp.Packet] {
+// 	return &packetSource{
+// 		packetStream: packetStream{cam: cam},
+// 	}
+// }
 
 const packetStreamEnabled = true
 
@@ -341,7 +331,11 @@ func (svc *webService) startVideoStream(
 		}
 		cam, ok := res.(camera.Camera)
 		if !ok {
-			svc.logger.Fatal("expected a camera")
+			svc.logger.Fatal("expected a camera.Camera")
+		}
+		h264Stream, err := cam.H264Stream()
+		if err != nil {
+			svc.logger.Fatal("expected a camera.H264Stream")
 		}
 		svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
 			streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
@@ -350,7 +344,18 @@ func (svc *webService) startVideoStream(
 				streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
 			}
 
-			return webstream.StreamVideoPacketSource(streamVideoCtx, newPacketSource(cam), stream, opts, svc.logger)
+			readyCh, shutDownCtx := stream.StreamingReady()
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-readyCh:
+			}
+			return packetStream(
+				streamVideoCtx,
+				shutDownCtx,
+				h264Stream,
+				stream,
+				svc.logger)
 		})
 		return
 	}

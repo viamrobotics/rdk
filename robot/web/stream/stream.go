@@ -26,15 +26,15 @@ func StreamVideoSource(
 	return gostream.StreamVideoSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler(logger))
 }
 
-func StreamVideoPacketSource(
-	ctx context.Context,
-	source gostream.VideoPacketSource,
-	stream gostream.Stream,
-	backoffOpts *BackoffTuningOptions,
-	logger logging.Logger,
-) error {
-	return gostream.StreamVideoPacketSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler(logger))
-}
+// func StreamVideoPacketSource(
+// 	ctx context.Context,
+// 	source gostream.VideoPacketSource,
+// 	stream gostream.Stream,
+// 	backoffOpts *BackoffTuningOptions,
+// 	logger logging.Logger,
+// ) error {
+// 	return gostream.StreamVideoPacketSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler(logger))
+// }
 
 // StreamAudioSource starts a stream from an audio source with a throttled error handler.
 func StreamAudioSource(

@@ -111,6 +111,10 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	return img, func() {}, nil
 }
 
+func (c *client) H264Stream() (H264Stream, error) {
+	return nil, errors.New("H264Stream unimplemented")
+}
+
 func (c *client) Stream(
 	ctx context.Context,
 	errHandlers ...gostream.ErrorHandler,

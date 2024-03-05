@@ -17,7 +17,6 @@ import (
 	mediadevicescamera "github.com/pion/mediadevices/pkg/driver/camera"
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
-	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
@@ -316,6 +315,10 @@ func NewWebcam(
 	return cam, nil
 }
 
+func (c *monitoredWebcam) H264Stream() (camera.H264Stream, error) {
+	return nil, errors.New("H264Stream unimplemented")
+}
+
 type noopCloser struct {
 	gostream.VideoSource
 }
@@ -511,10 +514,6 @@ func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig) error {
 	c.logger = logging.FromZapCompatible(c.originalLogger.With("camera_label", c.targetPath))
 
 	return nil
-}
-
-func (c *monitoredWebcam) RTPH264PacketStream(ctx context.Context) ([]*rtp.Packet, error) {
-	return nil, errors.New("unimplemented")
 }
 
 // Monitor is responsible for monitoring the liveness of a camera. An example

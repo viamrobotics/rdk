@@ -4,6 +4,7 @@ package camera
 import (
 	"context"
 	"image"
+	"log"
 	"sync"
 	"time"
 
@@ -83,6 +84,11 @@ type Camera interface {
 	VideoSource
 }
 
+type H264Stream interface {
+	AddH264ToWebRTCReader(r *AsyncWriter, packetsCB func(pkts []*rtp.Packet) error) error
+	RemoveReader(r *AsyncWriter)
+}
+
 // A VideoSource represents anything that can capture frames.
 type VideoSource interface {
 	projectorProvider
@@ -94,8 +100,10 @@ type VideoSource interface {
 	// that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
 	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
 
-	// HACK
-	RTPH264PacketStream(ctx context.Context) ([]*rtp.Packet, error)
+	H264Stream() (H264Stream, error)
+
+	// // HACK
+	// RTPH264PacketStream(ctx context.Context) ([]*rtp.Packet, error)
 
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
 	// a part of a sequence. In the future, there could be streaming of point clouds.
@@ -189,10 +197,14 @@ func NewVideoSourceAndPacketSourceFromReader(
 	reader gostream.VideoReader,
 	syst *transform.PinholeCameraModel,
 	imageType ImageType,
-	rtpH264PacketStream func(ctx context.Context) ([]*rtp.Packet, error),
 ) (VideoSource, error) {
 	if reader == nil {
 		return nil, errors.New("cannot have a nil reader")
+	}
+
+	h264Stream, ok := reader.(H264Stream)
+	if !ok {
+		log.Fatal("expected H264Stream")
 	}
 	vs := gostream.NewVideoSource(reader, prop.Video{})
 	actualSystem := syst
@@ -214,12 +226,12 @@ func NewVideoSourceAndPacketSourceFromReader(
 		}
 	}
 	return &videoSource{
-		rtpH264PacketStream: rtpH264PacketStream,
-		system:              actualSystem,
-		videoSource:         vs,
-		videoStream:         gostream.NewEmbeddedVideoStream(vs),
-		actualSource:        reader,
-		imageType:           imageType,
+		h264Stream:   h264Stream,
+		system:       actualSystem,
+		videoSource:  vs,
+		videoStream:  gostream.NewEmbeddedVideoStream(vs),
+		actualSource: reader,
+		imageType:    imageType,
 	}, nil
 }
 
@@ -286,24 +298,29 @@ func WrapVideoSourceWithProjector(
 
 // videoSource implements a Camera with a gostream.VideoSource.
 type videoSource struct {
-	rtpH264PacketStream func(ctx context.Context) ([]*rtp.Packet, error)
-	videoSource         gostream.VideoSource
-	videoStream         gostream.VideoStream
-	actualSource        interface{}
-	system              *transform.PinholeCameraModel
-	imageType           ImageType
+	h264Stream H264Stream
+	// rtpH264PacketStream func(ctx context.Context) ([]*rtp.Packet, error)
+	videoSource  gostream.VideoSource
+	videoStream  gostream.VideoStream
+	actualSource interface{}
+	system       *transform.PinholeCameraModel
+	imageType    ImageType
+}
+
+func (vs *videoSource) H264Stream() (H264Stream, error) {
+	return vs.h264Stream, nil
 }
 
 func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 	return vs.videoSource.Stream(ctx, errHandlers...)
 }
 
-func (vs *videoSource) RTPH264PacketStream(ctx context.Context) ([]*rtp.Packet, error) {
-	if vs.rtpH264PacketStream == nil {
-		return nil, errors.New("RTPH264PacketStream unimplemented")
-	}
-	return vs.rtpH264PacketStream(ctx)
-}
+// func (vs *videoSource) RTPH264PacketStream(ctx context.Context) ([]*rtp.Packet, error) {
+// 	if vs.rtpH264PacketStream == nil {
+// 		return nil, errors.New("RTPH264PacketStream unimplemented")
+// 	}
+// 	return vs.rtpH264PacketStream(ctx)
+// }
 
 // Images is for getting simultaneous images from different sensors
 // If the underlying source did not specify an Images function, a default is applied.

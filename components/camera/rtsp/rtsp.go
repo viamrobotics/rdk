@@ -72,27 +72,39 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	return nil, nil
 }
 
+type readerFunc func(formatprocessor.Unit) error
+
+type readers struct {
+	// gostream.RTPH264Reader
+	mu      sync.RWMutex
+	readers map[*camera.AsyncWriter]readerFunc
+}
+
 // RtspCamera contains the rtsp client, and the reader function that fulfills the camera interface.
 type RtspCamera struct {
 	// gostream.RTPH264Reader
 	gostream.VideoReader
 	u                       *base.URL
-	pktsChan                chan ([]*rtp.Packet)
-	unitEncoder             *unitEncoder
 	client                  *gortsplib.Client
 	cancelCtx               context.Context
 	cancelFunc              context.CancelFunc
 	activeBackgroundWorkers sync.WaitGroup
 	logger                  logging.Logger
+	readers                 readers
 }
 
 // Close closes the camera. It always returns nil, but because of Close() interface, it needs to return an error.
 func (rc *RtspCamera) Close(ctx context.Context) error {
 	rc.cancelFunc()
-	rc.activeBackgroundWorkers.Wait()
 	rc.logger.Info("DBG BEFORE rc.client.Close()")
 	rc.client.Close()
 	rc.logger.Info("DBG AFTER rc.client.Close()")
+	rc.activeBackgroundWorkers.Wait()
+	rc.readers.mu.Lock()
+	defer rc.readers.mu.Unlock()
+	for r := range rc.readers.readers {
+		rc.RemoveReader(r)
+	}
 	return nil
 }
 
@@ -129,45 +141,6 @@ func (rc *RtspCamera) clientReconnectBackgroundWorker() {
 	}, rc.activeBackgroundWorkers.Done)
 }
 
-type unitEncoder struct {
-	encoder *rtph264.Encoder
-
-	mu            sync.Mutex
-	firstReceived bool
-	lastPTS       time.Duration
-}
-
-func (ue *unitEncoder) Encode(u formatprocessor.Unit) ([]*rtp.Packet, error) {
-	tunit, ok := u.(*unit.H264)
-	if !ok {
-		return nil, errors.New("u.(*unit.H264) type conversion error")
-	}
-
-	if tunit.AU == nil {
-		return nil, nil
-	}
-
-	ue.mu.Lock()
-	if !ue.firstReceived {
-		ue.firstReceived = true
-	} else if tunit.PTS < ue.lastPTS {
-		ue.mu.Unlock()
-		return nil, errors.New("WebRTC doesn't support H264 streams with B-frames")
-	}
-	ue.lastPTS = tunit.PTS
-	ue.mu.Unlock()
-
-	pkts, err := ue.encoder.Encode(tunit.AU)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, pkt := range pkts {
-		pkt.Timestamp += tunit.RTPPackets[0].Timestamp
-	}
-	return pkts, err
-}
-
 // reconnectClient reconnects the RTSP client to the streaming server by closing the old one and starting a new one.
 func (rc *RtspCamera) reconnectClient() (err error) {
 	if rc == nil {
@@ -189,7 +162,6 @@ func (rc *RtspCamera) reconnectClient() (err error) {
 			rc.client.Close()
 		}
 	}()
-	// mjpegFormat, mjpegDecoder := mjpegDecoding()
 	desc, _, err := rc.client.Describe(rc.u)
 	if err != nil {
 		return err
@@ -209,18 +181,6 @@ func (rc *RtspCamera) reconnectClient() (err error) {
 	if err != nil {
 		return err
 	}
-	webrtcPayloadMaxSize := 1188 // 1200 - 12 (RTP header)
-	encoder := &rtph264.Encoder{
-		PayloadType:    96,
-		PayloadMaxSize: webrtcPayloadMaxSize,
-	}
-
-	if err := encoder.Init(); err != nil {
-		return err
-	}
-
-	rc.unitEncoder = &unitEncoder{encoder: encoder}
-
 	// On packet retreival, turn it into an image, and store it in shared memory
 	rc.client.OnPacketRTP(media, format, func(pkt *rtp.Packet) {
 		pts, ok := rc.client.PacketPTS(media, pkt)
@@ -233,19 +193,7 @@ func (rc *RtspCamera) reconnectClient() (err error) {
 			log.Println(err.Error())
 			return
 		}
-
-		pkts, err := rc.unitEncoder.Encode(u)
-		if err != nil {
-			log.Println(err.Error())
-		}
-
-		if len(pkts) == 0 {
-			return
-		}
-		rc.logger.Infof("OnPacketRTP: writing pkts, len(rc.pktsChan): %d", len(rc.pktsChan))
-
-		// TODO: Change to use a ring buffer
-		rc.pktsChan <- pkts
+		rc.pushReaders(u)
 	})
 	_, err = rc.client.Play(nil)
 	if err != nil {
@@ -253,6 +201,84 @@ func (rc *RtspCamera) reconnectClient() (err error) {
 	}
 	clientSuccessful = true
 	return nil
+}
+
+func (rc *RtspCamera) AddH264ToWebRTCReader(r *camera.AsyncWriter, packetsCB func(pkts []*rtp.Packet) error) error {
+	webrtcPayloadMaxSize := 1188 // 1200 - 12 (RTP header)
+	encoder := &rtph264.Encoder{
+		PayloadType:    96,
+		PayloadMaxSize: webrtcPayloadMaxSize,
+	}
+
+	if err := encoder.Init(); err != nil {
+		return err
+	}
+
+	rc.readers.mu.Lock()
+	defer rc.readers.mu.Unlock()
+
+	var firstReceived bool
+	var lastPTS time.Duration
+	f := func(u formatprocessor.Unit) error {
+		tunit, ok := u.(*unit.H264)
+		if !ok {
+			return errors.New("u.(*unit.H264) type conversion error")
+		}
+
+		if tunit.AU == nil {
+			return nil
+		}
+
+		if !firstReceived {
+			firstReceived = true
+		} else if tunit.PTS < lastPTS {
+			return errors.New("WebRTC doesn't support H264 streams with B-frames")
+		}
+		lastPTS = tunit.PTS
+
+		pkts, err := encoder.Encode(tunit.AU)
+		if err != nil {
+			return nil
+		}
+
+		if len(pkts) == 0 {
+			return nil
+		}
+
+		for _, pkt := range pkts {
+			pkt.Timestamp += tunit.RTPPackets[0].Timestamp
+		}
+
+		return packetsCB(pkts)
+	}
+	rc.readers.readers[r] = f
+	r.Start()
+	return nil
+}
+
+func (rc *RtspCamera) RemoveReader(r *camera.AsyncWriter) {
+	rc.readers.mu.Lock()
+	defer rc.readers.mu.Unlock()
+	r.Stop()
+	delete(rc.readers.readers, r)
+}
+
+func (rc *RtspCamera) pushReaders(u formatprocessor.Unit) {
+	rc.readers.mu.RLock()
+	defer rc.readers.mu.RUnlock()
+	if len(rc.readers.readers) == 0 {
+		rc.logger.Warn("no readers, dropping packets on the floor")
+		return
+	}
+	rc.logger.Infof("pushing AUs to %d readers", len(rc.readers.readers))
+	for writer, cb := range rc.readers.readers {
+		writer.Push(func() error {
+			rc.logger.Infof("pushing AUs to %s", writer.Name)
+			err := cb(u)
+			rc.logger.Infof("pushed AUs to %s", writer.Name)
+			return err
+		})
+	}
 }
 
 // NewRTSPCamera creates a camera client using RTSP given the server URL.
@@ -263,9 +289,11 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger
 		return nil, err
 	}
 	rtspCam := &RtspCamera{
-		u:        u,
-		logger:   logger,
-		pktsChan: make(chan []*rtp.Packet, 512),
+		u:      u,
+		logger: logger,
+		readers: readers{
+			readers: make(map[*camera.AsyncWriter]readerFunc),
+		},
 	}
 	err = rtspCam.reconnectClient()
 	if err != nil {
@@ -277,24 +305,24 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
-	rtpH264reader := func(ctx context.Context) ([]*rtp.Packet, error) {
-		select { // First select block always ensures the cancellations are listened to.
-		case <-cancelCtx.Done():
-			return nil, cancelCtx.Err()
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
+	// rtpH264reader := func(ctx context.Context) ([]*rtp.Packet, error) {
+	// 	select { // First select block always ensures the cancellations are listened to.
+	// 	case <-cancelCtx.Done():
+	// 		return nil, cancelCtx.Err()
+	// 	case <-ctx.Done():
+	// 		return nil, ctx.Err()
+	// 	default:
+	// 	}
 
-		select { // if gotFirstFrame is closed, this case will almost always fire and not respect the cancelation.
-		case <-cancelCtx.Done():
-			return nil, cancelCtx.Err()
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case pkts := <-rtspCam.pktsChan:
-			return pkts, nil
-		}
-	}
+	// 	select { // if gotFirstFrame is closed, this case will almost always fire and not respect the cancelation.
+	// 	case <-cancelCtx.Done():
+	// 		return nil, cancelCtx.Err()
+	// 	case <-ctx.Done():
+	// 		return nil, ctx.Err()
+	// 	case pkts := <-rtspCam.asyncWriter:
+	// 		return pkts, nil
+	// 	}
+	// }
 
 	reader := gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 		select { // First select block always ensures the cancellations are listened to.
@@ -319,7 +347,7 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger
 	rtspCam.cancelFunc = cancel
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(conf.IntrinsicParams, conf.DistortionParams)
 	rtspCam.clientReconnectBackgroundWorker()
-	src, err := camera.NewVideoSourceAndPacketSourceFromReader(ctx, rtspCam, &cameraModel, camera.ColorStream, rtpH264reader)
+	src, err := camera.NewVideoSourceAndPacketSourceFromReader(ctx, rtspCam, &cameraModel, camera.ColorStream)
 	if err != nil {
 		return nil, err
 	}
