@@ -100,7 +100,6 @@ func (conf *PinConfig) MotorType(path string) (MotorType, error) {
 	return motorType, nil
 }
 
-// PIDConfig contains the PID values that are accessible from controlled component configs.
 type motorPIDConfig struct {
 	P float64 `json:"p"`
 	I float64 `json:"i"`

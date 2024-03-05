@@ -11,9 +11,16 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// rPiGain is 1/255 because the PWM signal on a pi (and most other boards)
-// is limited to 8 bits, or the range 0-255.
-const rPiGain = 0.00392157
+// BlockNameEndpoint, BlockNameConstant, and BlockNameTrapezoidal
+// represent the strings needed to update a control loop block.
+const (
+	BlockNameEndpoint    = "endpoint"
+	BlockNameConstant    = "constant"
+	BlockNameTrapezoidal = "trapezoidalVelocityProfile"
+	// rPiGain is 1/255 because the PWM signal on a pi (and most other boards)
+	// is limited to 8 bits, or the range 0-255.
+	rPiGain = 0.00392157
+)
 
 var (
 	// default derivative type is "backward1st1".
@@ -28,6 +35,7 @@ var (
 // PIDLoop is used for setting up a PID control loop.
 type PIDLoop struct {
 	BlockNames              map[string][]string
+	PIDVals                 []PIDConfig
 	ControlConf             Config
 	ControlLoop             *Loop
 	Options                 Options
@@ -42,6 +50,11 @@ type PIDConfig struct {
 	P    float64 `json:"p"`
 	I    float64 `json:"i"`
 	D    float64 `json:"d"`
+}
+
+// NeedsAutoTuning checks if the PIDConfig values require auto tuning.
+func (conf *PIDConfig) NeedsAutoTuning() bool {
+	return (conf.P == 0.0 && conf.I == 0.0 && conf.D == 0.0)
 }
 
 // Options contains values used for a control loop.
@@ -86,6 +99,7 @@ func SetupPIDControlConfig(
 ) (*PIDLoop, error) {
 	pidLoop := &PIDLoop{
 		Controllable: c,
+		PIDVals:      pidVals,
 		logger:       logger,
 		Options:      options,
 		ControlConf:  Config{},
@@ -141,7 +155,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 		}
 		// switch sum to depend on the setpoint if position control
 		if p.Options.PositionControlUsingTrapz {
-			p.ControlConf.Blocks[sumIndex].DependsOn[0] = p.BlockNames["constant"][0]
+			p.ControlConf.Blocks[sumIndex].DependsOn[0] = p.BlockNames[BlockNameConstant][0]
 			if err := p.StartControlLoop(); err != nil {
 				errs = multierr.Combine(errs, err)
 			}
@@ -152,8 +166,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 		}
 		if p.Options.SensorFeedback2DVelocityControl {
 			// check if linear needs to be tuned
-			if p.ControlConf.Blocks[linearPIDIndex].Attribute["kP"] == 0.0 &&
-				p.ControlConf.Blocks[linearPIDIndex].Attribute["kPI"] == 0.0 {
+			if p.PIDVals[0].NeedsAutoTuning() {
 				p.logger.Info("tuning linear PID")
 				if err := p.tuneSinglePID(ctx, angularPIDIndex); err != nil {
 					errs = multierr.Combine(errs, err)
@@ -161,8 +174,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			}
 
 			// check if angular needs to be tuned
-			if p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"] == 0.0 &&
-				p.ControlConf.Blocks[angularPIDIndex].Attribute["kPI"] == 0.0 {
+			if p.PIDVals[1].NeedsAutoTuning() {
 				p.logger.Info("tuning angular PID")
 				if err := p.tuneSinglePID(ctx, linearPIDIndex); err != nil {
 					errs = multierr.Combine(errs, err)
@@ -230,7 +242,7 @@ func (p *PIDLoop) createControlLoopConfig(pidVals []PIDConfig, componentName str
 // create most basic PID control loop containing
 // constant -> sum -> PID -> gain -> endpoint -> sum.
 func (p *PIDLoop) basicControlConfig(endpointName string, pidVals PIDConfig, controllableType string) {
-	if p.Options.LoopFrequency != 0 {
+	if p.Options.LoopFrequency != 0.0 {
 		loopFrequency = p.Options.LoopFrequency
 	}
 	p.ControlConf = Config{
@@ -405,4 +417,31 @@ func (p *PIDLoop) StartControlLoop() error {
 	p.ControlLoop = loop
 
 	return nil
+}
+
+// CreateConstantBlock returns a new constant block based on the parameters.
+func CreateConstantBlock(ctx context.Context, name string, constVal float64) BlockConfig {
+	return BlockConfig{
+		Name: name,
+		Type: blockConstant,
+		Attribute: rdkutils.AttributeMap{
+			"constant_val": constVal,
+		},
+		DependsOn: []string{},
+	}
+}
+
+// CreateTrapzBlock returns a new trapezoidalVelocityProfile block based on the parameters.
+func CreateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsOn []string) BlockConfig {
+	return BlockConfig{
+		Name: name,
+		Type: blockTrapezoidalVelocityProfile,
+		Attribute: rdkutils.AttributeMap{
+			"max_vel":    maxVel,
+			"max_acc":    30000.0,
+			"pos_window": 0.0,
+			"kpp_gain":   0.45,
+		},
+		DependsOn: dependsOn,
+	}
 }

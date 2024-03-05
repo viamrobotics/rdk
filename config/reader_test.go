@@ -125,3 +125,70 @@ func TestProcessConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, *cfg, test.ShouldResemble, unprocessedConfig)
 }
+
+func TestReadTLSFromCache(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	robotPartID := "forCachingTest"
+	t.Run("no cached config", func(t *testing.T) {
+		clearCache(robotPartID)
+		test.That(t, err, test.ShouldBeNil)
+
+		tls := tlsConfig{}
+		err = tls.readFromCache(robotPartID, logger)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("cache config without cloud", func(t *testing.T) {
+		defer clearCache(robotPartID)
+		cfg.Cloud = nil
+
+		err = storeToCache(robotPartID, cfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		tls := tlsConfig{}
+		err = tls.readFromCache(robotPartID, logger)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("invalid cached TLS", func(t *testing.T) {
+		defer clearCache(robotPartID)
+		cloud := &Cloud{
+			TLSPrivateKey: "key",
+		}
+		cfg.Cloud = cloud
+
+		err = storeToCache(robotPartID, cfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		tls := tlsConfig{}
+		err = tls.readFromCache(robotPartID, logger)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		_, err = readFromCache(robotPartID)
+		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+	})
+
+	t.Run("valid cached TLS", func(t *testing.T) {
+		defer clearCache(robotPartID)
+		cloud := &Cloud{
+			TLSCertificate: "cert",
+			TLSPrivateKey:  "key",
+		}
+		cfg.Cloud = cloud
+
+		err = storeToCache(robotPartID, cfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		// the config is missing several fields required to start the robot, but this
+		// should not prevent us from reading TLS information from it.
+		_, err = processConfigFromCloud(cfg, logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		tls := tlsConfig{}
+		err = tls.readFromCache(robotPartID, logger)
+		test.That(t, err, test.ShouldBeNil)
+	})
+}

@@ -883,7 +883,26 @@ func (c *viamClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb
 			return part, nil
 		}
 	}
-	return nil, errors.Errorf("no machine part found for %q", partStr)
+
+	// if we can't find the part via org/location, see if this is an id, and try to find it directly that way
+	if robotStr != "" {
+		resp, err := c.client.GetRobotParts(c.c.Context, &apppb.GetRobotPartsRequest{
+			RobotId: robotStr,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, part := range resp.Parts {
+			if part.Id == partStr || part.Name == partStr {
+				return part, nil
+			}
+		}
+		if partStr == "" && len(resp.Parts) == 1 {
+			return resp.Parts[0], nil
+		}
+	}
+
+	return nil, errors.Errorf("no machine part found for machine: %q part: %q", robotStr, partStr)
 }
 
 func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool) ([]*commonpb.LogEntry, error) {
@@ -1131,9 +1150,9 @@ func (c *viamClient) startRobotPartShell(
 		// NOTE(benjirewis): Linux systems seem to need both "raw" (no processing) and "-echo"
 		// (no echoing back inputted characters) in order to allow the input and output loops
 		// below to completely control the terminal.
-		args := []string{"raw", "-echo"}
+		args := []string{"raw", "-echo", "-echoctl"}
 		if !isRaw {
-			args = []string{"-raw", "echo"}
+			args = []string{"-raw", "echo", "echoctl"}
 		}
 
 		rawMode := exec.Command("stty", args...)

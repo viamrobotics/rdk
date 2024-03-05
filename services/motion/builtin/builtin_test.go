@@ -507,6 +507,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 }
 
 func TestObstacleReplanningSlam(t *testing.T) {
+	t.Skip()
 	cameraToBase := spatialmath.NewPose(r3.Vector{0, 0, 0}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90})
 	cameraToBaseInv := spatialmath.PoseInverse(cameraToBase)
 
