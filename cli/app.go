@@ -351,8 +351,19 @@ var app = &cli.App{
 							UsageText: createUsageText("data delete binary", nil, true),
 							Flags: []cli.Flag{
 								&cli.StringSliceFlag{
-									Name:  dataFlagOrgIDs,
-									Usage: "orgs filter",
+									Name:     dataFlagOrgIDs,
+									Required: true,
+									Usage:    "orgs filter",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagStart,
+									Required: true,
+									Usage:    "ISO-8601 timestamp indicating the start of the interval filter",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagEnd,
+									Required: true,
+									Usage:    "ISO-8601 timestamp indicating the end of the interval filter",
 								},
 								&cli.StringSliceFlag{
 									Name:  dataFlagLocationIDs,
@@ -395,14 +406,6 @@ var app = &cli.App{
 								&cli.StringSliceFlag{
 									Name:  dataFlagMimeTypes,
 									Usage: "mime types filter",
-								},
-								&cli.StringFlag{
-									Name:  dataFlagStart,
-									Usage: "ISO-8601 timestamp indicating the start of the interval filter",
-								},
-								&cli.StringFlag{
-									Name:  dataFlagEnd,
-									Usage: "ISO-8601 timestamp indicating the end of the interval filter",
 								},
 							},
 							Action: DataDeleteBinaryAction,
