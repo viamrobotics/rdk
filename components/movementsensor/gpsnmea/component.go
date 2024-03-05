@@ -60,7 +60,7 @@ func NewNmeaMovementSensor(
 }
 
 // Start begins reading nmea messages from module and updates gps data.
-func (g *NMEAMovementSensor) Start(ctx context.Context) error {
+func (g *NMEAMovementSensor) Start(_ context.Context) error {
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer g.activeBackgroundWorkers.Done()
@@ -82,7 +82,7 @@ func (g *NMEAMovementSensor) Start(ctx context.Context) error {
 				// Update our struct's gps data in-place
 				err := g.cachedData.ParseAndUpdate(message)
 				if err != nil {
-					g.logger.CWarnf(ctx, "can't parse nmea sentence: %#v", err)
+					g.logger.CWarnf(g.cancelCtx, "can't parse nmea sentence: %#v", err)
 					g.logger.Debug("Check: GPS requires clear sky view." +
 						"Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
 				}
