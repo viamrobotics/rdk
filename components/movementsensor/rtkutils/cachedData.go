@@ -35,6 +35,14 @@ func NewCachedGpsData(uncachedData *GPSData) CachedGpsData {
 	}
 }
 
+// ParseAndUpdate passes the provided message into the inner GPSData object, which parses the NMEA
+// message and updates its state to match.
+func (g *CachedGpsData) ParseAndUpdate(line string) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.uncachedData.ParseAndUpdate(line)
+}
+
 // Position returns the position and altitide of the sensor, or an error.
 func (g *CachedGpsData) Position(
 	ctx context.Context, extra map[string]interface{},

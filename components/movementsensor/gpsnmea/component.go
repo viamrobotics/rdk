@@ -84,9 +84,7 @@ func (g *NMEAMovementSensor) Start(ctx context.Context) error {
 				return
 			case message := <-messages:
 				// Update our struct's gps data in-place
-				g.mu.Lock()
-				err := g.data.ParseAndUpdate(message)
-				g.mu.Unlock()
+				err := g.cachedData.ParseAndUpdate(message)
 				if err != nil {
 					g.logger.CWarnf(ctx, "can't parse nmea sentence: %#v", err)
 					g.logger.Debug("Check: GPS requires clear sky view." +
