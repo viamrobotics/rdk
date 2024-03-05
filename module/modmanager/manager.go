@@ -827,6 +827,10 @@ func (m *module) startProcess(
 		return errors.WithMessage(err, "module startup failed")
 	}
 
+	slowTicker := time.NewTicker(15 * time.Second)
+	defer slowTicker.Stop()
+	startTime := time.Now()
+
 	ctxTimeout, cancel := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(logger))
 	defer cancel()
 	for {
@@ -836,6 +840,9 @@ func (m *module) startProcess(
 				return rutils.NewModuleStartUpTimeoutError(m.cfg.Name)
 			}
 			return ctxTimeout.Err()
+		case <-slowTicker.C:
+			elapsed := time.Since(startTime).Seconds()
+			logger.Warnf("%q slow startup detected. Elapsed %.2f seconds", m.cfg.Name, elapsed)
 		default:
 		}
 		err = modlib.CheckSocketOwner(m.addr)
