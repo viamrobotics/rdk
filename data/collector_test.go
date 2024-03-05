@@ -314,8 +314,10 @@ func TestLogErrorsOnlyOnce(t *testing.T) {
 
 	close(wrote)
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 1)
-	mockClock.Add(4 * time.Second)
+	mockClock.Add(3 * time.Second)
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 2)
+	mockClock.Add(3 * time.Second)
+	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 3)
 	// Close and validate no additional writes occur even after an additional interval.
 	c.Close()
 }

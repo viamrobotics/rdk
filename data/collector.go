@@ -47,7 +47,7 @@ var FromDMExtraMap = map[string]interface{}{FromDMString: true}
 var ErrNoCaptureToStore = status.Error(codes.FailedPrecondition, "no capture from filter module")
 
 // If an error is ongoing, the frequency (in seconds) with which to suppress identical error logs.
-var IdenticalErrorLogFrequency = 2
+const IdenticalErrorLogFrequencyHz = 2
 
 // Collector collects data to some target.
 type Collector interface {
@@ -318,7 +318,7 @@ func (c *collector) logCaptureErrs() {
 			}
 		}
 		// Only log a specific error message if we haven't logged it in the past 2 seconds.
-		if lastLogged, ok := c.lastLoggedErrors[err.Error()]; (ok && int(now-lastLogged) > IdenticalErrorLogFrequency) || !ok {
+		if lastLogged, ok := c.lastLoggedErrors[err.Error()]; (ok && int(now-lastLogged) > IdenticalErrorLogFrequencyHz) || !ok {
 			c.logger.Error((err))
 			c.lastLoggedErrors[err.Error()] = now
 		}
