@@ -953,7 +953,7 @@ func (c *viamClient) printRobotPartLogsInner(logs []*commonpb.LogEntry, indent s
 			c.c.App.Writer,
 			"%s%s\t%s\t%s\t%s\t%s",
 			indent,
-			log.Time.AsTime().Format("2006-01-02T15:04:05.000Z0700"),
+			log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
 			log.Level,
 			log.LoggerName,
 			log.Message,
