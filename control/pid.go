@@ -195,6 +195,7 @@ type tuneCalcMethod string
 const (
 	tuneMethodZiegerNicholsPI            tuneCalcMethod = "ziegerNicholsPI"
 	tuneMethodZiegerNicholsPID           tuneCalcMethod = "ziegerNicholsPID"
+	tuneMethodZiegerNicholsPD            tuneCalcMethod = "ziegerNicholsPD"
 	tuneMethodZiegerNicholsSomeOvershoot tuneCalcMethod = "ziegerNicholsSomeOvershoot"
 	tuneMethodZiegerNicholsNoOvershoot   tuneCalcMethod = "ziegerNicholsNoOvershoot"
 	tuneMethodCohenCoonsPI               tuneCalcMethod = "cohenCoonsPI"
@@ -238,6 +239,7 @@ type pidTuner struct {
 	out          float64
 }
 
+// reference fro computation: https://en.wikipedia.org/wiki/Ziegler%E2%80%93Nichols_method#cite_note-1
 func (p *pidTuner) computeGains() {
 	stepPwr := p.limUp * p.stepPct
 	i := 0
@@ -254,6 +256,10 @@ func (p *pidTuner) computeGains() {
 		p.kP = 0.4545 * kU
 		p.kI = 0.5454 * (kU / pU)
 		p.kD = 0
+	case tuneMethodZiegerNicholsPD:
+		p.kP = 0.8 * kU
+		p.kI = 0.
+		p.kD = 0.10 * kU * pU
 	case tuneMethodZiegerNicholsPID:
 		p.kP = 0.6 * kU
 		p.kI = 1.2 * (kU / pU)
@@ -294,7 +300,7 @@ func (p *pidTuner) computeGains() {
 	default:
 		p.kP = 0.4545 * kU
 		p.kI = 0.5454 * (kU / pU)
-		p.kD = 0
+		p.kD = 0.
 	}
 }
 
