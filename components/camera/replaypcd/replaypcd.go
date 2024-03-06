@@ -594,9 +594,6 @@ func (replay *pcdCamera) getImagesDataFromCache(ctx context.Context) ([]camera.N
 	i := 0
 	deleteFromIndex := i
 
-	// TODO[kat]: Implement getting new data if we run out of data. Need to extract function out
-	// Loop:
-	// 	for {
 	for i, nextData := range replay.imageCache[1:] {
 		if nextData.err != nil {
 			// If there's an error, update the cache immediately,
@@ -613,7 +610,6 @@ func (replay *pcdCamera) getImagesDataFromCache(ctx context.Context) ([]camera.N
 			break
 		}
 	}
-	// }
 	replay.imageCache = replay.imageCache[deleteFromIndex+1:]
 
 	if err := addGRPCMetadata(ctx, data.timeRequested, data.timeReceived); err != nil {
