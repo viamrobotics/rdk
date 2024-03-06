@@ -80,12 +80,14 @@ func (c *collector) Close() {
 	if c.closed {
 		return
 	}
-	c.closed = true
 
 	c.cancel()
 	c.captureWorkers.Wait()
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	if c.closed {
+		return
+	}
 	if err := c.target.Flush(); err != nil {
 		c.logger.Errorw("failed to flush capture data", "error", err)
 	}
@@ -93,6 +95,7 @@ func (c *collector) Close() {
 	c.logRoutine.Wait()
 	//nolint:errcheck
 	_ = c.logger.Sync()
+	c.closed = true
 }
 
 func (c *collector) Flush() {
