@@ -80,7 +80,6 @@ func (c *collector) Close() {
 	if c.closed {
 		return
 	}
-	c.closed = true
 
 	c.cancel()
 	c.captureWorkers.Wait()
@@ -93,6 +92,7 @@ func (c *collector) Close() {
 	c.logRoutine.Wait()
 	//nolint:errcheck
 	_ = c.logger.Sync()
+	c.closed = true
 }
 
 func (c *collector) Flush() {
