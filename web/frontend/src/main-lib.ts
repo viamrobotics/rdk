@@ -3,6 +3,10 @@ import type { Credentials } from '@viamrobotics/rpc';
 import RemoteControlCards from './components/remote-control-cards.svelte';
 import type { RCOverrides } from '@/types/overrides';
 
+// This function is exported and consumed by app in `control.vue`. The robot
+// client instantiation and connection happens in `robot-client.svelte` in
+// rdk.
+
 export const createRcApp = (
   target: HTMLElement,
   props: {

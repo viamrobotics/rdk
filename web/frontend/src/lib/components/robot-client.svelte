@@ -24,6 +24,14 @@ export let signalingAddress: string;
 export let bakedAuth: { authEntity?: string; creds?: Credentials } = {};
 export let supportedAuthTypes: string[] = [];
 
+
+// There is a somewhat complex setup for app's "Remote Control" page. app's
+// `control.vue` file imports `createRcApp` (exposed in rdk's `main-lib.ts`).
+// `createRcApp` eventually uses `robot-client.svelte` to instantiate and
+// connect a TS SDK client to the relevant robot. The TS SDK's connection logic
+// is in `dial.ts`, which calls down to `@viamrobotics/rpc` in goutils. We
+// _should_ be able to start by instrumenting only `robot-client.svelte`.
+
 const {
   robotClient,
   operations,
@@ -56,6 +64,13 @@ const apiKeyAuthType = 'api-key';
 const urlPort = location.port ? `:${location.port}` : '';
 const impliedURL = `${location.protocol}//${location.hostname}${urlPort}`;
 
+// Keep track of whether or not we've gotten stats for this robotClient. For
+// now we should only `getStats` and report the results once. At some point we
+// could `getStats` periodically on single connections if we find once-per-
+// connection is not enough data.
+var gotStats = false;
+
+// This is only the instantiation of the client and not the actual establishment.
 $robotClient = new Client(impliedURL, {
   enabled: webrtcEnabled,
   host,
@@ -68,6 +83,8 @@ $robotClient = new Client(impliedURL, {
     ],
   },
 
+  // See note below: reconnection logic is in this file; we do not rely on
+  // reconnect logic from the TS SDK.
   /*
    * TODO(RSDK-3183): Opt out of reconnection management in the Typescript
    * SDK because the Remote Control implements its own reconnection management.
@@ -165,7 +182,41 @@ const loadCurrentOps = async () => {
   const list = await getOperations($robotClient);
   const ops = [];
 
+  // $rtt is, from what I can tell, a mediocre measurement of RTT. Looks like
+  // every time we `getOperations` from the robot, we time it and reset $rtt.
+  // I would rather rely on RTT measurements returned by `getStats` on the peer
+  // connection (see below).
   $rtt = Math.max(Date.now() - now, 0);
+
+  // Here might be a good place to gather stats. Gathering immediately after
+  // connection establishment will likely show little to no RTT information, as
+  // the new connection hasn't been used yet.
+  if (!gotStats) {
+    const stats = await $robotClient.getStats(); // call new getStats() method.
+    let statsOutput = "";
+    stats.forEach((report) => {
+        statsOutput += `Report: ${report.type}, ID: ${report.id}, ` +
+          `Timestamp: ${report.timestamp}. Stats: `;
+
+        // Now the statistics for this report; we intentionally drop the ones
+        // we sorted to the top above. This will almost certainly print far
+        // too many stats, of which only some will be relevant. Talk to Benji
+        // once you've hooked up the observability pipeline to these console
+        // logs, and we can alter the filter below to exclude "irrelevant"
+        // stats.
+        Object.keys(report).forEach((statName) => {
+          if (
+            statName !== "id" &&
+            statName !== "timestamp" &&
+            statName !== "type"
+          ) {
+            statsOutput += `\t{${statName}: ${report[statName]}}`;
+          }
+        });
+      });
+    console.debug("connection stats: ", statsOutput)
+    gotStats = true;
+  }
 
   for (const op of list) {
     ops.push({
@@ -404,7 +455,15 @@ const tick = async () => {
     }
     resourcesOnce = false;
 
+    // We'll want to time reconnection times as well as connections. I see no
+    // reason to consider them in different metrics categories, but could be
+    // convinced that we should eventually visualize reconnection and connection
+    // stats separately.
+    const reconnectStartTime = new Date().getTime();
+    console.debug('reconnecting to robot')
     await $robotClient.connect({ priority: 1 });
+    let reconnectTime = new Date().getTime() - reconnectStartTime;
+    console.debug('reconnected to robot in:', reconnectTime)
 
     const now = Date.now();
 
@@ -415,6 +474,10 @@ const tick = async () => {
     console.debug('reconnected');
     $streamManager.refreshStreams();
   } catch (error) {
+    // Let's gather these reconnection errors to understand why reconnection
+    // might have failed.
+    console.debug('reconnection error: ', error)
+
     if (ConnectionClosedError.isError(error)) {
       // eslint-disable-next-line no-console
       console.error('failed to reconnect; retrying');
@@ -441,11 +504,17 @@ const start = () => {
 const connect = async (creds?: Credentials, authEntity?: string) => {
   $connectionStatus = 'connecting';
 
+  // We'll want to time connection establishment time; this code is the main
+  // connection path for app.
+  const connectStartTime = new Date().getTime();
+  console.debug('connecting to robot')
   await $robotClient.connect({
     authEntity: authEntity ?? bakedAuth.authEntity,
     creds: creds ?? bakedAuth.creds,
     priority: 1,
   });
+  let connectTime = new Date().getTime() - connectStartTime;
+  console.debug('connected to robot in:', connectTime)
 
   $connectionStatus = 'connected';
   start();
@@ -458,6 +527,10 @@ const login = async (authType: string) => {
   try {
     await connect(creds, authEntity);
   } catch (error) {
+    // Let's gather these connection errors to understand why connection might
+    // have failed.
+    console.debug('connection error: ', error)
+
     notify.danger(`failed to connect: ${error as string}`);
     $connectionStatus = 'idle';
   }
