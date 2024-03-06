@@ -293,9 +293,9 @@ func (l *Loop) Stop() {
 		l.logger.Debug("closing loop")
 		l.ct.ticker.Stop()
 		close(l.ct.stop)
+		l.cancel()
 		l.activeBackgroundWorkers.Wait()
 		l.running = false
-		l.cancel()
 	}
 }
 
