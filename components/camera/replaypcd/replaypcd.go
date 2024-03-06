@@ -328,6 +328,25 @@ func (replay *pcdCamera) getPointCloudDataFromCache(ctx context.Context) (pointc
 	return data.pc, nil
 }
 
+// addGRPCMetadata adds timestamps from the data response to the gRPC response header if one is
+// found in the context.
+func addGRPCMetadata(ctx context.Context, timeRequested, timeReceived *timestamppb.Timestamp) error {
+	if stream := grpc.ServerTransportStreamFromContext(ctx); stream != nil {
+		var grpcMetadata metadata.MD = make(map[string][]string)
+		if timeRequested != nil {
+			grpcMetadata.Set(contextutils.TimeRequestedMetadataKey, timeRequested.AsTime().Format(time.RFC3339Nano))
+		}
+		if timeReceived != nil {
+			grpcMetadata.Set(contextutils.TimeReceivedMetadataKey, timeReceived.AsTime().Format(time.RFC3339Nano))
+		}
+		if err := grpc.SetHeader(ctx, grpcMetadata); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Images is a part of the camera interface but is not implemented for replay.
 func (replay *pcdCamera) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	// First acquire the lock, so that it's safe to populate the cache and/or retrieve and
@@ -650,25 +669,6 @@ func (replay *pcdCamera) getImagesDataFromCache(ctx context.Context) ([]camera.N
 	}
 
 	return images, resource.ResponseMetadata{CapturedAt: data.timeReceived.AsTime()}, nil
-}
-
-// addGRPCMetadata adds timestamps from the data response to the gRPC response header if one is
-// found in the context.
-func addGRPCMetadata(ctx context.Context, timeRequested, timeReceived *timestamppb.Timestamp) error {
-	if stream := grpc.ServerTransportStreamFromContext(ctx); stream != nil {
-		var grpcMetadata metadata.MD = make(map[string][]string)
-		if timeRequested != nil {
-			grpcMetadata.Set(contextutils.TimeRequestedMetadataKey, timeRequested.AsTime().Format(time.RFC3339Nano))
-		}
-		if timeReceived != nil {
-			grpcMetadata.Set(contextutils.TimeReceivedMetadataKey, timeReceived.AsTime().Format(time.RFC3339Nano))
-		}
-		if err := grpc.SetHeader(ctx, grpcMetadata); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // decodePointCloudResponseData decodes the pcd file byte array.
