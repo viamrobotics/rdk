@@ -758,6 +758,10 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(logger))
 	defer cancelFunc()
 
+	slowTicker := time.NewTicker(15 * time.Second)
+	defer slowTicker.Stop()
+	startTime := time.Now()
+
 	for {
 		req := &pb.ReadyRequest{ParentAddress: parentAddr}
 		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
@@ -769,6 +773,13 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 		if resp.Ready {
 			m.handles, err = modlib.NewHandlerMapFromProto(ctx, resp.Handlermap, &m.conn)
 			return err
+		}
+
+		select {
+		case <-slowTicker.C:
+			elapsed := time.Since(startTime).Seconds()
+			logger.Warnf("waiting %q for module client to be ready. Elapsed %.2f seconds", m.cfg.Name, elapsed)
+		default:
 		}
 	}
 }
