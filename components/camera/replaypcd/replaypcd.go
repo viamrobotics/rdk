@@ -608,7 +608,6 @@ func (replay *pcdCamera) getPointCloudDataFromCache(ctx context.Context) (pointc
 	return data.pc, nil
 }
 
-// TODO[kat]: Implement here the matching of timestamps and returning of an array of images.
 // getImagesDataFromCache retrieves the next cached data and removes it from the cache. It assumes the
 // write lock is being held.
 func (replay *pcdCamera) getImagesDataFromCache(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
@@ -684,19 +683,4 @@ func decodePointCloudResponseData(respData []*datapb.BinaryData) (pointcloud.Poi
 	}
 
 	return pc, nil
-}
-
-// decodeImagesResponseData decodes the pcd file byte array.
-func decodeImagesResponseData(ctx context.Context, respData []*datapb.BinaryData) (image.Image, error) {
-	if len(respData) == 0 {
-		return nil, errors.New("no response data; this should never happen")
-	}
-
-	// TODO[kat]: Fix this for images that are not PNG
-	myImage, err := rimage.DecodeImage(ctx, respData[0].GetBinary(), utils.MimeTypePNG)
-	if err != nil {
-		return nil, err
-	}
-
-	return myImage, nil
 }
