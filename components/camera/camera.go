@@ -308,7 +308,10 @@ type videoSource struct {
 }
 
 func (vs *videoSource) H264Stream() (H264Stream, error) {
-	return vs.h264Stream, nil
+	if vs.h264Stream != nil {
+		return vs.h264Stream, nil
+	}
+	return nil, errors.New("H264Stream unimplemented")
 }
 
 func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
