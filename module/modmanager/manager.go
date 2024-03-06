@@ -154,25 +154,28 @@ func (mgr *Manager) loadModMutex(modName string) *sync.Mutex {
 // Add adds and starts a new resource module.
 func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 	var wg sync.WaitGroup
+	errs := make([]error, len(confs), len(confs))
 
 	wg.Add(1)
-	for _, conf := range confs {
-		go func(conf config.Module) {
+	for i, conf := range confs {
+		go func(i int, conf config.Module) {
 			defer wg.Done()
 			// this is done in config validation but partial start rules require us to check again
 			if err := conf.Validate(""); err != nil {
 				mgr.logger.CErrorw(ctx, "module config validation error; skipping", "module", conf.Name, "error", err)
+				errs[i] = err
 				return
 			}
 
 			if err := mgr.add(ctx, conf); err != nil {
 				mgr.logger.CErrorw(ctx, "error adding module", "module", conf.Name, "error", err)
+				errs[i] = err
 				return
 			}
-		}(conf)
+		}(i, conf)
 	}
 	wg.Wait()
-	return nil
+	return errors.Join(errs...)
 }
 
 func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
