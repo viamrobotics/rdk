@@ -507,10 +507,12 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
+	svc.logger.Info(">>> starting new server")
 	svc.rpcServer, err = rpc.NewServer(svc.logger.AsZap(), rpcOpts...)
 	if err != nil {
 		return err
 	}
+	svc.logger.Info(">>> done! started new server")
 
 	if options.SignalingAddress == "" {
 		options.SignalingAddress = svc.addr
@@ -525,16 +527,22 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
+	svc.logger.Info(">>> refreshing resources")
 	if err := svc.refreshResources(); err != nil {
 		return err
 	}
+	svc.logger.Info(">>> done! refreshed resources")
+	svc.logger.Info("initializing api resource collections")
 	if err := svc.initAPIResourceCollections(ctx, false); err != nil {
 		return err
 	}
+	svc.logger.Info(">>> done! initialized api resource collections")
 
+	svc.logger.Info("initializing stream server")
 	if err := svc.initStreamServer(ctx, &options); err != nil {
 		return err
 	}
+	svc.logger.Info("done! initialized stream server")
 
 	if options.Debug {
 		if err := svc.rpcServer.RegisterServiceServer(
