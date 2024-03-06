@@ -999,9 +999,11 @@ func (m *module) cleanupAfterStartupFailure(mgr *Manager, afterCrash bool) {
 	if afterCrash {
 		for r, mod := range mgr.rMap {
 			if mod == m {
+				// TODO: lock or partition!
 				delete(mgr.rMap, r)
 			}
 		}
+		// TODO: lock or partition!
 		delete(mgr.modules, m.cfg.Name)
 	}
 }
