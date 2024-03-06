@@ -563,6 +563,20 @@ func (replay *pcdCamera) initCloudConnection(ctx context.Context) error {
 	return nil
 }
 
+// decodePointCloudResponseData decodes the pcd file byte array.
+func decodePointCloudResponseData(respData []*datapb.BinaryData) (pointcloud.PointCloud, error) {
+	if len(respData) == 0 {
+		return nil, errors.New("no response data; this should never happen")
+	}
+
+	pc, err := pointcloud.ReadPCD(bytes.NewBuffer(respData[0].GetBinary()))
+	if err != nil {
+		return nil, err
+	}
+
+	return pc, nil
+}
+
 // downloadImagesBatch iterates through the current cache, performing the download of the respective data in
 // parallel and adds all of them to the cache before returning.
 func (replay *pcdCamera) downloadImagesBatch(ctx context.Context) {
@@ -669,18 +683,4 @@ func (replay *pcdCamera) getImagesDataFromCache(ctx context.Context) ([]camera.N
 	}
 
 	return images, resource.ResponseMetadata{CapturedAt: data.timeReceived.AsTime()}, nil
-}
-
-// decodePointCloudResponseData decodes the pcd file byte array.
-func decodePointCloudResponseData(respData []*datapb.BinaryData) (pointcloud.PointCloud, error) {
-	if len(respData) == 0 {
-		return nil, errors.New("no response data; this should never happen")
-	}
-
-	pc, err := pointcloud.ReadPCD(bytes.NewBuffer(respData[0].GetBinary()))
-	if err != nil {
-		return nil, err
-	}
-
-	return pc, nil
 }
