@@ -51896,6 +51896,220 @@
         }
       }
     },
+    "mock_rgbd": {
+      "depth": {
+        "2024-03-05T17_40_34.883Z_cJqphVziuzZHwGQlQrrixTJW3CTCdYyy2wqveqT46itcqVgqTsbjn6d6BQHGOZR0.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_35.083Z_1GVsrHV9IQxJGryJP2Epy7sdAcxgMBiNFHD8ZnFl8dl2SzeR1oqYhv5kzb1gFZCF.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_35.283Z_4C0003tBgCybE6d6p6APtxKY4cMjt1Jw4RVBEcpfRe2tcxQjGYb6TbtZWR2aGiBG.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_35.483Z_RDfVy9w1pn33mBtDAZ0ytufPv6TPj2Mix4vKXfxyocQEtOTCb8qa6usFMMaUNplk.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_35.683Z_cWAJGfwCujF6niI2roD1nswlC5TksgCUqkNoVHz9kfr2wrY1bHNwIHLJRXqJD0Uu.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_35.882Z_wzLaRCpNs29fw9Vk8CzbrvmvxthV1nS6EHbubhao3fZ6aqMKeBjb1n9Dpv6uyHQs.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_36.082Z_VZPjS5dnBlrWiVDeU91pCnUK9Kp9WJJTjAqPMlw1Zb64Ad7nZQy1nyeq9jQN38Zx.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_36.282Z_LcNQcQ6Pb6FicRGK9SJgOmiKqYFOhkBxrREgh38aNSQhzg7hd4tgl4AwB1BSbAlO.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_36.482Z_bQDgMOFphH3hIEYsypgPjryTvutH5XihUEr56qhQHGlQCFEYoXk8o0QVjd8xF94K.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_36.682Z_3fvfbWBcrjN58NwpPJ6kvrad5O1ojWav0EvSwtZxziI1Z8ZILGl2BKHHWWirFSZd.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_36.883Z_NZszTdjB01UqM3Tvy2DIPrBlfhwl5RMWi2LsxwwOjQ1x3QyZ5BqeAkTy2BrlGuHj.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_37.083Z_ELMIO9hY5wYGLKKQjG0lAEkKxfH879jevyEnx28UA99uT5Z9X5yp7ixppC2ruObq.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_37.283Z_vrHZvREOJRbjuKKOljsOGy1QAEABWDZLzcyUEYcnX1t1LQNELjGMLQpT3Ampggbz.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_37.482Z_qndUtcFuW1K64qGEyu4DZssRBzb5BKlBhmSvrQ2vC9jXi9qwqBEFOwzDd8Ur0xov.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_37.683Z_2vDo0IwSdJvI3p5MYWj3zapgtWpXPJVfeRvi6hW3vFWXaewRFOoOz5cUZtymIpnO.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_37.883Z_ySQVGeumW2d81GLNwn2z8nlLQuXuENCoOb79pqtjrH9Eid2Z9dGTUdVaabLkLURm.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_38.082Z_asxxomLotqgv07OH9GyD8iawYjsi4yK0owphz7vMuFEv8sgh2qATyZCQ4leJlIOF.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_38.282Z_B1KPhT2AMXu0Hg9YUlbCK8uF139X4iTbsFnhn5jQGrPTkWND1iDeUvTCEEFSomYE.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_38.482Z_S9ew1fRWomRYH6B8aqNbM8MYZw9EW503SyieRPd4791A6kca5z5QoUuOLI155hP0.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_38.682Z_qgcQl0OvbEOGIuZ4WIOSOD9NPtBVsEThXGsC7Vqc2MXwF6xUsWOLcKu1oebWU2KK.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_38.883Z_mc8NX5hAZI89oFmiD0kGAF0yoSxnwPW3DpznYOyUaSDwF9nfcM8n7tu5sHeDG6o4.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_39.085Z_B4C03a2RuF8ls8TQMGqAxoLVBOe0lW973pSbXyymscr540A1OXf6AA5L65p2HmGw.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_39.283Z_jmg9qABno9IowSKxfaKEGJWkvKbxjF90IyQMfw0HXoJQyb61oMpYy6uAN8rwNE7m.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_39.483Z_ZYUWZhsY4GkBcmNvMIZAweyjsIpxx7FnilEuGM4xFmM8a9t6SU0ZOAsBl4KBzU0q.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_39.683Z_8CTTxw8Yq5385rpst0sFypeJTRkU6mxFN0dwH3nwtB5rDDz3nuXj3xnmrdoy6n6J.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2024-03-05T17_40_39.883Z_hDr1b8EsPZPJJ2pPYpNH7ngPFI19QZqTVjdre8KTf1G4Fc10NzT90w7UVCUiBbdf.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        }
+      },
+      "rgb": {
+        "2024-03-05T17_40_34.883Z_iU7qywIe1HHKI3APUthxSLlBVTc3qso4D3zvUMoXKn7N2XBhxm0pPXmGMlJadTBt.jpeg": {
+          "hash": "c777bcbcbcf170e1efca1b0d8e502ea6",
+          "size": 11661
+        },
+        "2024-03-05T17_40_35.083Z_bhmViMvsydQsXRw6h8ObGM0wvt680RK915UwOyFWSIbZFJIngjZzvFGfJbh4icte.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_35.283Z_D9nTrSpwUaAHjAGUUyJFM32e4ZMMKEH4WLeoaokTM6UVddGk4SBbHD19vPXJE4jY.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_35.483Z_rOxIZWyoWmgxMhvPSBHSNdBScoPfOcrLt1VcxfwsjlK32IY3IT0U8pMbhFzmjjzM.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_35.683Z_upzd8Z7h8E0GVjIsgzUuAJ198rCc7XitAXVePTVJnFEgKVmQlurbY1d2ShUMhsw2.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_35.882Z_3JXdvHFGVvLhXz42QrJVyh3O55q8Uv5Sfby5LL0kpOgiADZJVvBl7X12FDAUxYjg.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_36.082Z_p0JaQfkfxbNKXngdbXDCRKIDX8kO7ldAvpOfgm71oy7oGGa0kvouRMR9T6PH2RtU.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_36.282Z_l3Kgj0fMf29X7on9fjf5Vo4PCf4N7gjAGQ28wfcwbGOMVBVh3SOHVAJWstNLFYbp.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_36.482Z_jy8RLNQDjTnfFSBmz27P38xt0isVz28aHrwSxGgw43w1fWe0JdV2yRJza7oxOkxk.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_36.682Z_jpVZA47FuC6jw3KPYKxYRNbsSyXyDbsE17xqT4A9FhcXHXVU6aJ6xk36kPnLdUor.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_36.883Z_rb8lXa2Ayct7aTqPbaTpg9GXpWXiUYX5tEtEBin2XTbSpaJFsJMDz3uKE6zqk5Ve.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_37.083Z_ZX3e4kNnNWEH5xNAvCFLl0C16HuzmDDsDKytVBO4VzbLziTfrCwR4Y6LcILmDbtB.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_37.283Z_J98K9MRyBwAGrRrgWZSjl2qoGEOhMBSPpcLTCV09msM9xqUzCfkbrHKlHZGvh4tN.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_37.482Z_nHFhdCVisD8GiBIyD9ByeTTQcJyaWN99wL4HmBP81kNDdjnpiqmPN58iG3qn2Lfi.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_37.683Z_rjhD7EEEvMfMiSKJYTYrjgAykKgsdht7mU7tLuizmXrM1SDeQlLuJNGLPnmZ6uRK.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_37.883Z_yxTAtf4UwscfjKKxFElbgg4POnhQntXsVdtyxz8zVrHGLa6ejXbUcSYtuhjym9qo.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_38.082Z_s7puh6rlEZ6nlsgB74UDIbQkUIwpbGAPhjarvdMHAQZQatJpVlRNxtzlZGcjlJDE.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_38.282Z_hpEy1Ts0s8yqAyhu1xeCRtveH0BGIC5n59UAhfTERS0kn44E5U0gl2WCb0FHyJC1.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_38.482Z_2Gyz0pujU1XrRgdgixppaCEvEymrPjRyP6n7oEkGifAiEvkOv5lbOGXw4z9quCxq.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_38.682Z_dL9tztgOV2tC0TEJ3WqUiyvWyHynwZi3Pt0GVgRZ8NENnHVPj1n6OoPK3oFeYgKM.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_38.883Z_CnKK2Z4pCy1ZqeHTQiK8HlwN0WFeHOECi1slyatXDMGEa3yEVJON1GaltrP3NKxL.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_39.085Z_r9sHffBIQiSHZW6YXZnPcExPzGfWW3mtherCqcT9sROHzp7qT1ewfPmXsZMw4iVS.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_39.283Z_mnFNllXMtTfmbnc3HAwcwAJAULwpuDzvR9P4dmmkG5HKB2gJblaaH5o72bFuqztR.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_39.483Z_qp2FydYE1bShRI4pzAF9pZx6Tbtvo9K0F5GzA0Sp8nvfHRyMv58KorgHNdBPpKLe.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_39.683Z_opgaMwuwHoiC1XTa6dMQO8VQx2wkVtLONjy3VVwTUs9RL9OzC9bKZFsIDZVeUyW8.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2024-03-05T17_40_39.883Z_mByEMK96ZTitDnXfJsoPSk5JQllmSmuUp2ANblWGd78JKlQJdeQKQiyC96f7EnVK.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        }
+      }
+    },
     "pose_graph.lua": {
       "hash": "044fb62892d992182a126b76834797cc",
       "size": 3100
