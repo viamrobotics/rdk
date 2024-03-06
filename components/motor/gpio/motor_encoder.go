@@ -91,6 +91,7 @@ func newEncodedMotor(
 		opMgr:             operation.NewSingleOperationManager(),
 		startedRPMMonitor: false,
 		loop:              nil,
+		controlLoopConfig: control.Config{},
 	}
 
 	props, err := realEncoder.Properties(context.Background(), nil)
