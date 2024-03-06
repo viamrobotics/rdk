@@ -57,7 +57,7 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 		test.That(t, frame, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, f.Name(), test.ShouldEqual, "")
+		test.That(t, f.Name(), test.ShouldEqual, b.Name().ShortName())
 		test.That(t, f.DoF(), test.ShouldResemble, frame.DoF())
 
 		gifs, err := f.Geometries(referenceframe.FloatsToInputs([]float64{0, 0, 0}))
