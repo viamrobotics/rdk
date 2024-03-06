@@ -17,18 +17,15 @@ import (
 )
 
 const (
-	datasetDirectory    = "slam/mock_lidar/%d.pcd"
 	validSource         = "source"
 	validRobotID        = "robot_id"
 	validOrganizationID = "organization_id"
 	validLocationID     = "location_id"
 	validAPIKey         = "a key"
 	validAPIKeyID       = "a key id"
-	numPCDFilesOriginal = 15
 )
 
 var (
-	numPCDFiles       = numPCDFilesOriginal
 	batchSize0        = uint64(0)
 	batchSize1        = uint64(1)
 	batchSize2        = uint64(2)
@@ -36,6 +33,20 @@ var (
 	batchSize4        = uint64(4)
 	batchSizeLarge    = uint64(50)
 	batchSizeTooLarge = uint64(1000)
+
+	datasetDirectories = map[method]string{
+		nextPointCloud: "slam/mock_lidar/%d.pcd",
+		getImages:      "slam/mock_rgbd/",
+	}
+	numFilesOriginal = map[method]int{
+		nextPointCloud: 15,
+		getImages:      10, // TODO[kat]: Fix this
+	}
+
+	numFiles = map[method]int{
+		nextPointCloud: numFilesOriginal[nextPointCloud],
+		getImages:      numFilesOriginal[getImages],
+	}
 )
 
 func TestReplayPCDNew(t *testing.T) {
@@ -147,7 +158,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				APIKeyID:       validAPIKeyID,
 			},
 			startFileNum: 0,
-			endFileNum:   numPCDFiles,
+			endFileNum:   numFiles[nextPointCloud],
 		},
 		{
 			description: "Calling NextPointCloud with bad source",
@@ -251,7 +262,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				},
 			},
 			startFileNum: 5,
-			endFileNum:   numPCDFiles,
+			endFileNum:   numFiles[nextPointCloud],
 		},
 		{
 			description: "Calling NextPointCloud with start and end filter",
@@ -283,7 +294,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				BatchSize:      &batchSize2,
 			},
 			startFileNum: 0,
-			endFileNum:   numPCDFiles,
+			endFileNum:   numFiles[nextPointCloud],
 		},
 		{
 			description: "Calling NextPointCloud with non-divisible batch size, last batch > 1",
@@ -297,7 +308,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				APIKeyID:       validAPIKeyID,
 			},
 			startFileNum: 0,
-			endFileNum:   numPCDFiles,
+			endFileNum:   numFiles[nextPointCloud],
 		},
 		{
 			description: "Calling NextPointCloud with divisible batch size",
@@ -311,7 +322,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				APIKeyID:       validAPIKeyID,
 			},
 			startFileNum: 0,
-			endFileNum:   numPCDFiles,
+			endFileNum:   numFiles[nextPointCloud],
 		},
 		{
 			description: "Calling NextPointCloud with batching and a start and end filter",
@@ -343,7 +354,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				APIKeyID:       validAPIKeyID,
 			},
 			startFileNum: 0,
-			endFileNum:   numPCDFiles,
+			endFileNum:   numFiles[nextPointCloud],
 		},
 	}
 
@@ -389,8 +400,8 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 func TestReplayPCDLiveNextPointCloud(t *testing.T) {
 	ctx := context.Background()
 
-	numPCDFiles = 10
-	defer func() { numPCDFiles = numPCDFilesOriginal }()
+	numFiles[nextPointCloud] = 10
+	defer func() { numFiles[nextPointCloud] = numFilesOriginal[nextPointCloud] }()
 
 	cfg := &Config{
 		Source:         validSource,
@@ -409,15 +420,15 @@ func TestReplayPCDLiveNextPointCloud(t *testing.T) {
 	i := 0
 	for {
 		pc, err := replayCamera.NextPointCloud(ctx)
-		if i == numPCDFiles {
+		if i == numFiles[nextPointCloud] {
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 			test.That(t, pc, test.ShouldBeNil)
 
 			// Add new files for future processing
-			numPCDFiles += rand.Intn(3)
+			numFiles[nextPointCloud] += rand.Intn(3)
 
-			if numPCDFiles >= numPCDFilesOriginal {
+			if numFiles[nextPointCloud] >= numFilesOriginal[nextPointCloud] {
 				break
 			}
 		} else {
@@ -685,7 +696,7 @@ func TestReplayPCDTimestamps(t *testing.T) {
 		test.That(t, replayCamera, test.ShouldNotBeNil)
 
 		// Repeatedly call NextPointCloud, checking for timestamps in the gRPC header.
-		for i := 0; i < numPCDFiles; i++ {
+		for i := 0; i < numFiles[nextPointCloud]; i++ {
 			serverStream := testutils.NewServerTransportStream()
 			ctx = grpc.NewContextWithServerTransportStream(ctx, serverStream)
 			pc, err := replayCamera.NextPointCloud(ctx)
@@ -802,7 +813,7 @@ func TestReplayPCDReconfigure(t *testing.T) {
 	replayCamera.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 
 	// Again verify dataset starts from beginning
-	for i := 0; i < numPCDFiles; i++ {
+	for i := 0; i < numFiles[nextPointCloud]; i++ {
 		pc, err := replayCamera.NextPointCloud(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		pcExpected, err := getPointCloudFromArtifact(i)

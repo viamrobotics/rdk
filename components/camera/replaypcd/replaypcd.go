@@ -37,6 +37,13 @@ const (
 	maxCacheSize          = 100
 )
 
+type method string
+
+const (
+	nextPointCloud method = "NextPointCloud"
+	getImages      method = "GetImages"
+)
+
 var (
 	// model is the model of a replay camera.
 	model = resource.DefaultModelFamily.WithModel("replay_pcd")
@@ -202,7 +209,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 
 	filter := replay.filter
 	filter.MimeType = []string{utils.MimeTypePCD}
-	filter.Method = "NextPointCloud"
+	filter.Method = string(nextPointCloud)
 	// Retrieve data from the cloud. If the batch size is > 1, only metadata is returned here, otherwise
 	// IncludeBinary can be set to true and the data can be downloaded directly via BinaryDataByFilter
 	resp, err := replay.dataClient.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
@@ -622,7 +629,7 @@ func (replay *pcdCamera) getImagesDataFromCache(ctx context.Context) ([]camera.N
 func (replay *pcdCamera) updateImagesCache(ctx context.Context) error {
 	filter := replay.filter
 	filter.MimeType = []string{}
-	filter.Method = "GetImages"
+	filter.Method = string(getImages)
 	// Retrieve data from the cloud. Only metadata is returned here.
 	resp, err := replay.dataClient.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
 		DataRequest: &datapb.DataRequest{

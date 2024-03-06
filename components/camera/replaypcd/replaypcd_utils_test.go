@@ -64,7 +64,7 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 	// Construct response
 	var resp datapb.BinaryDataByFilterResponse
 	if includeBinary {
-		data, err := getCompressedBytesFromArtifact(fmt.Sprintf(datasetDirectory, newFileNum))
+		data, err := getCompressedBytesFromArtifact(fmt.Sprintf(datasetDirectories[method(filter.Method)], newFileNum))
 		if err != nil {
 			return nil, err
 		}
@@ -76,7 +76,7 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 		binaryData := datapb.BinaryData{
 			Binary: data,
 			Metadata: &datapb.BinaryMetadata{
-				Id:            fmt.Sprintf(datasetDirectory, newFileNum),
+				Id:            fmt.Sprintf(datasetDirectories[method(filter.Method)], newFileNum),
 				TimeRequested: timeReq,
 				TimeReceived:  timeRec,
 				CaptureMetadata: &datapb.CaptureMetadata{
@@ -91,7 +91,7 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 		resp.Last = fmt.Sprint(newFileNum)
 	} else {
 		for i := 0; i < int(limit); i++ {
-			if newFileNum+i >= numPCDFiles {
+			if newFileNum+i >= numFiles[method(filter.Method)] {
 				break
 			}
 
@@ -102,7 +102,7 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 
 			binaryData := datapb.BinaryData{
 				Metadata: &datapb.BinaryMetadata{
-					Id:            fmt.Sprintf(datasetDirectory, newFileNum+i),
+					Id:            fmt.Sprintf(datasetDirectories[method(filter.Method)], newFileNum+i),
 					TimeRequested: timeReq,
 					TimeReceived:  timeRec,
 					CaptureMetadata: &datapb.CaptureMetadata{
@@ -232,7 +232,7 @@ func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 	// For example, if there are 15 files in the artifact directory, the start time is 2000-01-01T12:00:10Z
 	// and the end time is 2000-01-01T12:00:14Z, we will return files 10-14.
 	start := 0
-	end := numPCDFiles
+	end := numFiles[method(filter.Method)]
 	if filter.Interval.Start != nil {
 		start = filter.Interval.Start.AsTime().Second()
 	}
@@ -276,7 +276,7 @@ func getCompressedBytesFromArtifact(inputPath string) ([]byte, error) {
 
 // getPointCloudFromArtifact will return a point cloud based on the provided artifact path.
 func getPointCloudFromArtifact(i int) (pointcloud.PointCloud, error) {
-	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(datasetDirectory, i)))
+	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(datasetDirectories[nextPointCloud], i)))
 	pcdFile, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -298,7 +298,7 @@ type ctrl struct {
 
 // mockHandler will return the pcd file attached to the mock server.
 func (c *ctrl) mockHandler(w http.ResponseWriter, r *http.Request) {
-	path := fmt.Sprintf(datasetDirectory, c.pcdFileNumber)
+	path := fmt.Sprintf(datasetDirectories[nextPointCloud], c.pcdFileNumber)
 	pcdFile, _ := getCompressedBytesFromArtifact(path)
 
 	w.WriteHeader(c.statusCode)
@@ -308,7 +308,7 @@ func (c *ctrl) mockHandler(w http.ResponseWriter, r *http.Request) {
 // newHTTPMock creates a set of mock http servers based on the number of PCD files used for testing.
 func newHTTPMock(pattern string, statusCode int) []*httptest.Server {
 	httpServers := []*httptest.Server{}
-	for i := 0; i < numPCDFilesOriginal; i++ {
+	for i := 0; i < numFilesOriginal[nextPointCloud]; i++ {
 		c := &ctrl{statusCode, i}
 		handler := http.NewServeMux()
 		handler.HandleFunc(pattern, c.mockHandler)
