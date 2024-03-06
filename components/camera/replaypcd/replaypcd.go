@@ -365,54 +365,8 @@ func (replay *pcdCamera) Images(ctx context.Context) ([]camera.NamedImage, resou
 		return replay.getImagesDataFromCache(ctx)
 	}
 
-	filter := replay.filter
-	filter.MimeType = []string{}
-	filter.Method = "GetImages"
-	// Retrieve data from the cloud. If the batch size is > 1, only metadata is returned here, otherwise
-	// IncludeBinary can be set to true and the data can be downloaded directly via BinaryDataByFilter
-	resp, err := replay.dataClient.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
-		DataRequest: &datapb.DataRequest{
-			Filter:    filter,
-			Limit:     replay.limit,
-			Last:      replay.lastImagesData,
-			SortOrder: datapb.Order_ORDER_ASCENDING,
-		},
-		CountOnly: false,
-		// IncludeBinary: replay.limit == 1,
-	})
-	if err != nil {
+	if err := replay.updateImagesCache(ctx); err != nil {
 		return nil, resource.ResponseMetadata{}, err
-	}
-
-	if len(resp.GetData()) == 0 {
-		return nil, resource.ResponseMetadata{}, ErrEndOfDataset
-	}
-	replay.lastImagesData = resp.GetLast()
-
-	// For Images, we'll use the metadata from BinaryDataByFilter to download
-	// data in parallel and cache the results since we need to pair them.
-	replay.imageCache = make([]*imageCacheEntry, len(resp.Data))
-	for i, dataResponse := range resp.Data {
-		md := dataResponse.GetMetadata()
-		replay.imageCache[i] = &imageCacheEntry{
-			imageSource:   md.CaptureMetadata.ComponentName,
-			mimeType:      md.CaptureMetadata.MimeType,
-			fileExt:       md.FileExt,
-			uri:           md.GetUri(),
-			timeRequested: md.GetTimeRequested(),
-			timeReceived:  md.GetTimeReceived(),
-		}
-	}
-
-	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, downloadTimeout)
-	defer cancelTimeout()
-	replay.downloadImagesBatch(ctxTimeout)
-	if ctxTimeout.Err() != nil {
-		return nil, resource.ResponseMetadata{}, errors.Wrap(ctxTimeout.Err(), "failed to download batch")
-	}
-
-	if len(replay.imageCache) == 0 {
-		return []camera.NamedImage{}, resource.ResponseMetadata{}, errors.New("No image in the cache!")
 	}
 
 	return replay.getImagesDataFromCache(ctx)
@@ -667,4 +621,51 @@ func (replay *pcdCamera) getImagesDataFromCache(ctx context.Context) ([]camera.N
 	}
 
 	return images, resource.ResponseMetadata{CapturedAt: data.timeReceived.AsTime()}, nil
+}
+
+func (replay *pcdCamera) updateImagesCache(ctx context.Context) error {
+	filter := replay.filter
+	filter.MimeType = []string{}
+	filter.Method = "GetImages"
+	// Retrieve data from the cloud. Only metadata is returned here.
+	resp, err := replay.dataClient.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
+		DataRequest: &datapb.DataRequest{
+			Filter:    filter,
+			Limit:     replay.limit,
+			Last:      replay.lastImagesData,
+			SortOrder: datapb.Order_ORDER_ASCENDING,
+		},
+		CountOnly: false,
+	})
+	if err != nil {
+		return err
+	}
+
+	if len(resp.GetData()) == 0 {
+		return ErrEndOfDataset
+	}
+	replay.lastImagesData = resp.GetLast()
+
+	// For Images, we'll use the metadata from BinaryDataByFilter to download
+	// data in parallel and cache the results since we need to pair them.
+	replay.imageCache = make([]*imageCacheEntry, len(resp.Data))
+	for i, dataResponse := range resp.Data {
+		md := dataResponse.GetMetadata()
+		replay.imageCache[i] = &imageCacheEntry{
+			imageSource:   md.CaptureMetadata.ComponentName,
+			mimeType:      md.CaptureMetadata.MimeType,
+			fileExt:       md.FileExt,
+			uri:           md.GetUri(),
+			timeRequested: md.GetTimeRequested(),
+			timeReceived:  md.GetTimeReceived(),
+		}
+	}
+
+	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, downloadTimeout)
+	defer cancelTimeout()
+	replay.downloadImagesBatch(ctxTimeout)
+	if ctxTimeout.Err() != nil {
+		return errors.Wrap(ctxTimeout.Err(), "failed to download batch")
+	}
+	return nil
 }
