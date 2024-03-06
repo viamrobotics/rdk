@@ -132,7 +132,7 @@ APK_ARCH ?= android/arm64,android/amd64
 
 droid-rdk.aar:
 	# creates an android library that can be imported by native code
-	gomobile bind -v -target $(APK_ARCH) -androidapi 28 -tags no_cgo -o $@ ./web/cmd/droid
+	CGO_LDFLAGS= gomobile bind -v -target $(APK_ARCH) -androidapi 28 -tags no_cgo -o $@ ./web/cmd/droid
 	cd ./services/mlmodel/tflitecpu/android/ && zip -r ../../../../droid-rdk.aar jni
 
 clean-all:
