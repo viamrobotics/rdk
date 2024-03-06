@@ -156,8 +156,8 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 	var wg sync.WaitGroup
 	errs := make([]error, len(confs), len(confs))
 
-	wg.Add(1)
 	for i, conf := range confs {
+		wg.Add(1)
 		go func(i int, conf config.Module) {
 			defer wg.Done()
 			// this is done in config validation but partial start rules require us to check again
