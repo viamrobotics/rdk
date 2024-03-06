@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -2634,8 +2635,7 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring,
-			"error reading from server")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
 		// Wait for "attempt 3" in logs.
 		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
@@ -2678,8 +2678,7 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring,
-			"error reading from server")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
 		// Wait for "attempt 3" in logs.
 		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
