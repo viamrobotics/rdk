@@ -261,6 +261,73 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	return replay.getPointCloudDataFromCache(ctx)
 }
 
+// downloadPointCloudBatch iterates through the current cache, performing the download of the respective data in
+// parallel and adds all of them to the cache before returning.
+func (replay *pcdCamera) downloadPointCloudBatch(ctx context.Context) {
+	// Parallelize download of data based on ids in cache
+	var wg sync.WaitGroup
+	wg.Add(len(replay.pointCloudCache))
+	for _, dataToCache := range replay.pointCloudCache {
+		data := dataToCache
+
+		goutils.PanicCapturingGo(func() {
+			defer wg.Done()
+			data.pc, data.err = replay.getPointcloudFromHTTP(ctx, data.uri)
+			if data.err != nil {
+				return
+			}
+		})
+	}
+	wg.Wait()
+}
+
+// getPointcloudFromHTTP makes a request to an http endpoint app serves, which gets redirected to GCS.
+func (replay *pcdCamera) getPointcloudFromHTTP(ctx context.Context, dataURL string) (pointcloud.PointCloud, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, dataURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("key_id", replay.APIKeyID)
+	req.Header.Add("key", replay.APIKey)
+
+	res, err := replay.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	pc, err := pointcloud.ReadPCD(res.Body)
+	if err != nil {
+		return nil, multierr.Combine(err, res.Body.Close())
+	}
+	if res.StatusCode != http.StatusOK {
+		return nil, multierr.Combine(errors.New(res.Status), res.Body.Close())
+	}
+
+	if err := res.Body.Close(); err != nil {
+		return nil, err
+	}
+
+	return pc, nil
+}
+
+// getPointCloudDataFromCache retrieves the next cached data and removes it from the cache. It assumes the
+// write lock is being held.
+func (replay *pcdCamera) getPointCloudDataFromCache(ctx context.Context) (pointcloud.PointCloud, error) {
+	// Grab the next cached data and update the cache immediately, even if there's an error,
+	// so we don't get stuck in a loop checking for and returning the same error.
+	data := replay.pointCloudCache[0]
+	replay.pointCloudCache = replay.pointCloudCache[1:]
+	if data.err != nil {
+		return nil, errors.Wrap(data.err, "cache data contained an error")
+	}
+
+	if err := addGRPCMetadata(ctx, data.timeRequested, data.timeReceived); err != nil {
+		return nil, err
+	}
+
+	return data.pc, nil
+}
+
 // Images is a part of the camera interface but is not implemented for replay.
 func (replay *pcdCamera) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	// First acquire the lock, so that it's safe to populate the cache and/or retrieve and
@@ -477,26 +544,6 @@ func (replay *pcdCamera) initCloudConnection(ctx context.Context) error {
 	return nil
 }
 
-// downloadPointCloudBatch iterates through the current cache, performing the download of the respective data in
-// parallel and adds all of them to the cache before returning.
-func (replay *pcdCamera) downloadPointCloudBatch(ctx context.Context) {
-	// Parallelize download of data based on ids in cache
-	var wg sync.WaitGroup
-	wg.Add(len(replay.pointCloudCache))
-	for _, dataToCache := range replay.pointCloudCache {
-		data := dataToCache
-
-		goutils.PanicCapturingGo(func() {
-			defer wg.Done()
-			data.pc, data.err = replay.getPointcloudFromHTTP(ctx, data.uri)
-			if data.err != nil {
-				return
-			}
-		})
-	}
-	wg.Wait()
-}
-
 // downloadImagesBatch iterates through the current cache, performing the download of the respective data in
 // parallel and adds all of them to the cache before returning.
 func (replay *pcdCamera) downloadImagesBatch(ctx context.Context) {
@@ -515,35 +562,6 @@ func (replay *pcdCamera) downloadImagesBatch(ctx context.Context) {
 		})
 	}
 	wg.Wait()
-}
-
-// getPointcloudFromHTTP makes a request to an http endpoint app serves, which gets redirected to GCS.
-func (replay *pcdCamera) getPointcloudFromHTTP(ctx context.Context, dataURL string) (pointcloud.PointCloud, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, dataURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("key_id", replay.APIKeyID)
-	req.Header.Add("key", replay.APIKey)
-
-	res, err := replay.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	pc, err := pointcloud.ReadPCD(res.Body)
-	if err != nil {
-		return nil, multierr.Combine(err, res.Body.Close())
-	}
-	if res.StatusCode != http.StatusOK {
-		return nil, multierr.Combine(errors.New(res.Status), res.Body.Close())
-	}
-
-	if err := res.Body.Close(); err != nil {
-		return nil, err
-	}
-
-	return pc, nil
 }
 
 // getImageFromHTTP makes a request to an http endpoint app serves, which gets redirected to GCS.
@@ -588,24 +606,6 @@ func (replay *pcdCamera) getImageFromHTTP(ctx context.Context, data *imageCacheE
 	}
 
 	return namedImage, nil
-}
-
-// getPointCloudDataFromCache retrieves the next cached data and removes it from the cache. It assumes the
-// write lock is being held.
-func (replay *pcdCamera) getPointCloudDataFromCache(ctx context.Context) (pointcloud.PointCloud, error) {
-	// Grab the next cached data and update the cache immediately, even if there's an error,
-	// so we don't get stuck in a loop checking for and returning the same error.
-	data := replay.pointCloudCache[0]
-	replay.pointCloudCache = replay.pointCloudCache[1:]
-	if data.err != nil {
-		return nil, errors.Wrap(data.err, "cache data contained an error")
-	}
-
-	if err := addGRPCMetadata(ctx, data.timeRequested, data.timeReceived); err != nil {
-		return nil, err
-	}
-
-	return data.pc, nil
 }
 
 // getImagesDataFromCache retrieves the next cached data and removes it from the cache. It assumes the
