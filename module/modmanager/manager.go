@@ -167,6 +167,8 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 				return
 			}
 
+			mgr.logger.Infow(">>> adding module", "name", conf.Name)
+			defer mgr.logger.Infow(">>> done! added module", "name", conf.Name)
 			if err := mgr.add(ctx, conf); err != nil {
 				mgr.logger.CErrorw(ctx, "error adding module", "module", conf.Name, "error", err)
 				errs[i] = err

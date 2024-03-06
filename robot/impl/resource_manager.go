@@ -920,7 +920,10 @@ func (manager *resourceManager) updateResources(
 	var allErrs error
 
 	// modules are not added into the resource tree as they belong to the module manager
+
+	manager.logger.Info(">>> adding modules")
 	_ = manager.moduleManager.Add(ctx, conf.Added.Modules...)
+	manager.logger.Info(">>> done! added modules")
 
 	for _, mod := range conf.Modified.Modules {
 		// this is done in config validation but partial start rules require us to check again
@@ -954,10 +957,12 @@ func (manager *resourceManager) updateResources(
 		}
 		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, s, s.Dependencies()))
 	}
+	manager.logger.Info(">>> adding components")
 	for _, c := range conf.Added.Components {
 		rName := c.ResourceName()
 		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, c, c.Dependencies()))
 	}
+	manager.logger.Info(">>> done! added components")
 	for _, r := range conf.Added.Remotes {
 		rName := fromRemoteNameToRemoteNodeName(r.Name)
 		rCopy := r

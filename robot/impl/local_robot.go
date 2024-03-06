@@ -652,6 +652,8 @@ func (r *localRobot) newResource(
 	}
 
 	if resInfo.Constructor != nil {
+		r.Logger().Infow(">>> creating resource", "name", gNode.Config().Name)
+		defer r.Logger().Infow(">>> done! created resource", "name", gNode.Config().Name)
 		return resInfo.Constructor(ctx, deps, conf, gNode.Logger())
 	}
 	if resInfo.DeprecatedRobotConstructor == nil {
