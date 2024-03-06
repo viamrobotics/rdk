@@ -362,6 +362,9 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 // setPower assumes the state lock is held.
 func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal bool) error {
 	dir := sign(powerPct)
+	// If the control config exists, a control loop must exist, so the motor should be allowed to run at a power lower than 10%.
+	// In the case that the motor is tuning, m.loop will be nil, but m.controlLoopConfig.Blocks will not be empty,
+	// which is why m.loop is not checked here.
 	if math.Abs(powerPct) < 0.1 && len(m.controlLoopConfig.Blocks) == 0 {
 		m.state.lastPowerPct = 0.1 * dir
 	} else {
