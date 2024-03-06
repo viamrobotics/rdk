@@ -206,11 +206,6 @@ func (ptgk *ptgBaseKinematics) goToInputs(ctx context.Context, inputs []referenc
 	var wg sync.WaitGroup
 
 	for _, step := range arcSteps {
-		if ctx.Err() != nil {
-			ptgk.logger.CDebug(ctx, ctx.Err().Error())
-			// context cancelled
-			break
-		}
 		ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
 		ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {0}}
 		ptgk.inputLock.Unlock()
@@ -237,8 +232,14 @@ func (ptgk *ptgBaseKinematics) goToInputs(ctx context.Context, inputs []referenc
 		}
 		wg.Add(1)
 		utils.PanicCapturingGo(func() {
+			defer wg.Done()
 			// We need to update currentInputs as we move through the arc.
 			for timeElapsed := 0.; timeElapsed <= step.timestepSeconds; timeElapsed += inputUpdateStep {
+				if ctx.Err() != nil {
+					ptgk.logger.CDebug(ctx, ctx.Err().Error())
+					// context cancelled
+					break
+				}
 				distIncVel := step.linVelMMps.Y
 				if distIncVel == 0 {
 					distIncVel = step.angVelDegps.Z
@@ -248,7 +249,6 @@ func (ptgk *ptgBaseKinematics) goToInputs(ctx context.Context, inputs []referenc
 				ptgk.inputLock.Unlock()
 				utils.SelectContextOrWait(ctx, time.Duration(inputUpdateStep*1000*1000)*time.Microsecond)
 			}
-			wg.Done()
 		})
 
 		if !utils.SelectContextOrWait(ctx, timestep) {
