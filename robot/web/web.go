@@ -211,6 +211,8 @@ func (svc *webService) Name() resource.Name {
 
 // Start starts the web server, will return an error if server is already up.
 func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
+	svc.logger.Info("Start BEGIN")
+	defer svc.logger.Info("Start END")
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	if svc.isRunning {
@@ -234,6 +236,8 @@ func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 
 // RunWeb starts the web server on the robot with web options and blocks until we cancel the context.
 func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logger logging.Logger) (err error) {
+	logger.Info("RunWeb BEGIN")
+	defer logger.Info("RunWeb END")
 	defer func() {
 		if err != nil {
 			err = utils.FilterOutError(err, context.Canceled)
@@ -472,6 +476,8 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options w
 // runWeb takes the given robot and options and runs the web server. This function will
 // block until the context is done.
 func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (err error) {
+	svc.logger.Info("runWeb BEGIN")
+	defer svc.logger.Info("runWeb END")
 	if options.Network.BindAddress != "" && options.Network.Listener != nil {
 		return errors.New("may only set one of network bind address or listener")
 	}
@@ -507,23 +513,29 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
+	svc.logger.Info("runWeb before rpc.NewServer")
 	svc.rpcServer, err = rpc.NewServer(svc.logger.AsZap(), rpcOpts...)
 	if err != nil {
+		svc.logger.Info("runWeb after rpc.NewServer: err: %s", err.Error())
 		return err
 	}
+	svc.logger.Info("runWeb after rpc.NewServer")
 
 	if options.SignalingAddress == "" {
 		options.SignalingAddress = svc.addr
 	}
 
+	svc.logger.Info("runWeb before svc.rpcServer.RegisterServiceServer")
 	if err := svc.rpcServer.RegisterServiceServer(
 		ctx,
 		&pb.RobotService_ServiceDesc,
 		grpcserver.New(svc.r),
 		pb.RegisterRobotServiceHandlerFromEndpoint,
 	); err != nil {
+		svc.logger.Info("runWeb after svc.rpcServer.RegisterServiceServer: err: %s", err.Error())
 		return err
 	}
+	svc.logger.Info("runWeb after svc.rpcServer.RegisterServiceServer")
 
 	if err := svc.refreshResources(); err != nil {
 		return err
