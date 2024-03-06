@@ -10,11 +10,13 @@ require (
 	github.com/NYTimes/gziphandler v1.1.1
 	github.com/a8m/envsubst v1.4.2
 	github.com/adrianmo/go-nmea v1.7.0
-	github.com/aler9/gortsplib/v2 v2.1.0
+	github.com/aler9/gortsplib/v2 v2.2.2
 	github.com/axw/gocov v1.1.0
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
 	github.com/benbjohnson/clock v1.3.3
 	github.com/bep/debounce v1.2.1
+	github.com/bluenviron/gortsplib/v4 v4.7.2
+	github.com/bluenviron/mediacommon v1.9.0
 	github.com/bufbuild/buf v1.6.0
 	github.com/creack/pty v1.1.19-0.20220421211855-0d412c9fbeb1
 	github.com/d2r2/go-i2c v0.0.0-20191123181816-73a8a799d6bc
@@ -45,7 +47,7 @@ require (
 	github.com/golangci/golangci-lint v1.51.2
 	github.com/google/flatbuffers v2.0.6+incompatible
 	github.com/google/go-cmp v0.5.9
-	github.com/google/uuid v1.3.1
+	github.com/google/uuid v1.6.0
 	github.com/gotesttools/gotestfmt/v2 v2.4.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.15.2
@@ -67,7 +69,7 @@ require (
 	github.com/muesli/kmeans v0.3.1
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pion/mediadevices v0.5.1-0.20231017204133-3c9fee958efe
-	github.com/pion/rtp v1.8.2
+	github.com/pion/rtp v1.8.3
 	github.com/pion/webrtc/v3 v3.2.21
 	github.com/rhysd/actionlint v1.6.24
 	github.com/rs/cors v1.9.0
@@ -89,8 +91,8 @@ require (
 	go.viam.com/utils v0.1.60
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.14.0
-	golang.org/x/sys v0.13.0
-	golang.org/x/term v0.13.0
+	golang.org/x/sys v0.16.0
+	golang.org/x/term v0.16.0
 	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.10.0
 	gonum.org/v1/gonum v0.12.0
@@ -290,7 +292,7 @@ require (
 	github.com/pion/logging v0.2.2 // indirect
 	github.com/pion/mdns v0.0.8 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
-	github.com/pion/rtcp v1.2.10 // indirect
+	github.com/pion/rtcp v1.2.13 // indirect
 	github.com/pion/sctp v1.8.8 // indirect
 	github.com/pion/sdp/v3 v3.0.6 // indirect
 	github.com/pion/srtp/v2 v2.0.17 // indirect
@@ -362,10 +364,10 @@ require (
 	gitlab.com/bosi/decorder v0.2.3 // indirect
 	go.uber.org/goleak v1.2.1 // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 // indirect
-	golang.org/x/crypto v0.14.0 // indirect
+	golang.org/x/crypto v0.18.0 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20230203172020-98cc5a0785f9 // indirect
 	golang.org/x/mod v0.11.0 // indirect
-	golang.org/x/net v0.17.0 // indirect
+	golang.org/x/net v0.20.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
 	golang.org/x/text v0.14.0 // indirect

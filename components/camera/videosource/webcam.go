@@ -315,6 +315,10 @@ func NewWebcam(
 	return cam, nil
 }
 
+func (c *monitoredWebcam) H264Stream() (camera.H264Stream, error) {
+	return nil, errors.New("H264Stream unimplemented")
+}
+
 type noopCloser struct {
 	gostream.VideoSource
 }
