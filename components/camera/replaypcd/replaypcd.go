@@ -557,15 +557,16 @@ func (replay *pcdCamera) getImageFromHTTP(ctx context.Context, data *imageCacheE
 	}
 
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(res.Body)
+	_, err = buf.ReadFrom(res.Body)
+	if err != nil {
+		return camera.NamedImage{}, err
+	}
 
-	mimeType := data.mimeType
 	var myImage image.Image
 	if data.fileExt == ".dep" {
-		mimeType = utils.MimeTypeRawDepth
 		myImage = rimage.NewLazyEncodedImage(buf.Bytes(), utils.MimeTypeRawDepth)
 	} else {
-		myImage, err = rimage.DecodeImage(ctx, buf.Bytes(), mimeType)
+		myImage, err = rimage.DecodeImage(ctx, buf.Bytes(), data.mimeType)
 		if err != nil {
 			return camera.NamedImage{}, multierr.Combine(err, res.Body.Close())
 		}
