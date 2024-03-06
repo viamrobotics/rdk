@@ -762,24 +762,33 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 	defer slowTicker.Stop()
 	startTime := time.Now()
 
+	done := make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case <-slowTicker.C:
+				elapsed := time.Since(startTime).Seconds()
+				logger.Warnf("waiting %q for module to be ready. Elapsed %.2f seconds", m.cfg.Name, elapsed)
+			case <-done:
+				return
+			}
+		}
+	}()
+
 	for {
 		req := &pb.ReadyRequest{ParentAddress: parentAddr}
 		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
 		resp, err := m.client.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
 		if err != nil {
+			done <- true
 			return err
 		}
 
 		if resp.Ready {
+			done <- true
 			m.handles, err = modlib.NewHandlerMapFromProto(ctx, resp.Handlermap, &m.conn)
 			return err
-		}
-
-		select {
-		case <-slowTicker.C:
-			elapsed := time.Since(startTime).Seconds()
-			logger.Warnf("waiting %q for module to be ready. Elapsed %.2f seconds", m.cfg.Name, elapsed)
-		default:
 		}
 	}
 }
