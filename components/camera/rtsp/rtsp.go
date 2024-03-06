@@ -270,12 +270,12 @@ func (rc *RtspCamera) pushReaders(u formatprocessor.Unit) {
 		rc.logger.Warn("no readers, dropping packets on the floor")
 		return
 	}
-	rc.logger.Infof("pushing AUs to %d readers", len(rc.readers.readers))
+	// rc.logger.Infof("pushing AUs to %d readers", len(rc.readers.readers))
 	for writer, cb := range rc.readers.readers {
 		writer.Push(func() error {
-			rc.logger.Infof("pushing AUs to %s", writer.Name)
+			// rc.logger.Infof("pushing AUs to %s", writer.Name)
 			err := cb(u)
-			rc.logger.Infof("pushed AUs to %s", writer.Name)
+			// rc.logger.Infof("pushed AUs to %s", writer.Name)
 			return err
 		})
 	}
