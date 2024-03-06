@@ -778,7 +778,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 		select {
 		case <-slowTicker.C:
 			elapsed := time.Since(startTime).Seconds()
-			logger.Warnf("waiting %q for module client to be ready. Elapsed %.2f seconds", m.cfg.Name, elapsed)
+			logger.Warnf("waiting %q for module to be ready. Elapsed %.2f seconds", m.cfg.Name, elapsed)
 		default:
 		}
 	}
