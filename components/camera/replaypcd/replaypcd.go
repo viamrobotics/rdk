@@ -389,24 +389,8 @@ func (replay *pcdCamera) Images(ctx context.Context) ([]camera.NamedImage, resou
 	}
 	replay.lastImagesData = resp.GetLast()
 
-	// If using a batch size of 1, we already received the data itself, so decode and return the
-	// binary data directly
-	// if replay.limit == 1 {
-	// 	image, err := decodeImagesResponseData(ctx, resp.GetData())
-	// 	if err != nil {
-	// 		return nil, resource.ResponseMetadata{}, err
-	// 	}
-	// 	if err := addGRPCMetadata(ctx,
-	// 		resp.GetData()[0].GetMetadata().GetTimeRequested(),
-	// 		resp.GetData()[0].GetMetadata().GetTimeReceived()); err != nil {
-	// 		return nil, resource.ResponseMetadata{}, err
-	// 	}
-	// 	namedImage := camera.NamedImage{Image: image, SourceName: replay.filter.ComponentName}
-	// 	return []camera.NamedImage{namedImage}, resource.ResponseMetadata{}, nil
-	// }
-
-	// Otherwise if using a batch size > 1, use the metadata from BinaryDataByFilter to download
-	// data in parallel and cache the results
+	// For Images, we'll use the metadata from BinaryDataByFilter to download
+	// data in parallel and cache the results since we need to pair them.
 	replay.imageCache = make([]*imageCacheEntry, len(resp.Data))
 	for i, dataResponse := range resp.Data {
 		md := dataResponse.GetMetadata()
