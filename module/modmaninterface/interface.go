@@ -11,7 +11,7 @@ import (
 
 // ModuleManager abstracts the module manager interface.
 type ModuleManager interface {
-	Add(ctx context.Context, cfg config.Module) error
+	Add(ctx context.Context, confs ...config.Module) error
 	Reconfigure(ctx context.Context, cfg config.Module) ([]resource.Name, error)
 	Remove(modName string) ([]resource.Name, error)
 

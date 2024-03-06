@@ -3,6 +3,7 @@ package modmanager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -13,7 +14,7 @@ import (
 	"time"
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
-	"github.com/pkg/errors"
+	errlib "github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	pb "go.viam.com/api/module/v1"
@@ -151,18 +152,40 @@ func (mgr *Manager) loadModMutex(modName string) *sync.Mutex {
 }
 
 // Add adds and starts a new resource module.
-func (mgr *Manager) Add(ctx context.Context, conf config.Module) error {
-	mu := mgr.loadModMutex(conf.Name)
-	mu.Lock()
-	defer mu.Unlock()
-	return mgr.add(ctx, conf)
+func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	for _, conf := range confs {
+		go func(conf config.Module) {
+			defer wg.Done()
+			// this is done in config validation but partial start rules require us to check again
+			if err := conf.Validate(""); err != nil {
+				mgr.logger.CErrorw(ctx, "module config validation error; skipping", "module", conf.Name, "error", err)
+				return
+			}
+
+			if err := mgr.add(ctx, conf); err != nil {
+				mgr.logger.CErrorw(ctx, "error adding module", "module", conf.Name, "error", err)
+				return
+			}
+		}(conf)
+	}
+	wg.Wait()
+	return nil
 }
 
 func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
+	mu := mgr.loadModMutex(conf.Name)
+	mu.Lock()
+	defer mu.Unlock()
+
+	// TODO: rlock manager? move up?
 	if mgr.untrustedEnv {
 		return errModularResourcesDisabled
 	}
 
+	// TODO: rlock manager? move up?
 	_, exists := mgr.modules[conf.Name]
 	if exists {
 		return nil
@@ -174,7 +197,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 		moduleDataDir = filepath.Join(mgr.moduleDataParentDir, conf.Name)
 		// safety check to prevent exiting the moduleDataDirectory in case conf.Name ends up including characters like ".."
 		if !strings.HasPrefix(filepath.Clean(moduleDataDir), filepath.Clean(mgr.moduleDataParentDir)) {
-			return errors.Errorf("module %q would have a data directory %q outside of the module data directory %q",
+			return errlib.Errorf("module %q would have a data directory %q outside of the module data directory %q",
 				conf.Name, moduleDataDir, mgr.moduleDataParentDir)
 		}
 	}
@@ -210,21 +233,21 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	if mod.dataDir != "" {
 		mgr.logger.Infof("Creating data directory %q for module %q", mod.dataDir, mod.cfg.Name)
 		if err := os.MkdirAll(mod.dataDir, 0o750); err != nil {
-			return errors.WithMessage(err, "error while creating data directory for module "+mod.cfg.Name)
+			return errlib.WithMessage(err, "error while creating data directory for module "+mod.cfg.Name)
 		}
 	}
 
 	if err := mod.startProcess(mgr.restartCtx, mgr.parentAddr,
 		mgr.newOnUnexpectedExitHandler(mod), mgr.logger, mgr.viamHomeDir); err != nil {
-		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
+		return errlib.WithMessage(err, "error while starting module "+mod.cfg.Name)
 	}
 
 	if err := mod.dial(); err != nil {
-		return errors.WithMessage(err, "error while dialing module "+mod.cfg.Name)
+		return errlib.WithMessage(err, "error while dialing module "+mod.cfg.Name)
 	}
 
 	if err := mod.checkReady(ctx, mgr.parentAddr, mgr.logger); err != nil {
-		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.cfg.Name)
+		return errlib.WithMessage(err, "error while waiting for module to be ready "+mod.cfg.Name)
 	}
 
 	mod.registerResources(mgr, mgr.logger)
@@ -242,7 +265,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	defer mgr.mu.Unlock()
 	mod, exists := mgr.modules[conf.Name]
 	if !exists {
-		return nil, errors.Errorf("cannot reconfigure module %s as it does not exist", conf.Name)
+		return nil, errlib.Errorf("cannot reconfigure module %s as it does not exist", conf.Name)
 	}
 	handledResources := mod.resources
 	var handledResourceNames []resource.Name
@@ -287,7 +310,7 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 	defer mgr.mu.Unlock()
 	mod, exists := mgr.modules[modName]
 	if !exists {
-		return nil, errors.Errorf("cannot remove module %s as it does not exist", modName)
+		return nil, errlib.Errorf("cannot remove module %s as it does not exist", modName)
 	}
 	handledResources := mod.resources
 
@@ -323,11 +346,11 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 	}
 
 	if err := mod.stopProcess(); err != nil {
-		return errors.WithMessage(err, "error while stopping module "+mod.cfg.Name)
+		return errlib.WithMessage(err, "error while stopping module "+mod.cfg.Name)
 	}
 
 	if err := mod.conn.Close(); err != nil {
-		return errors.WithMessage(err, "error while closing connection from module "+mod.cfg.Name)
+		return errlib.WithMessage(err, "error while closing connection from module "+mod.cfg.Name)
 	}
 
 	mod.deregisterResources()
@@ -353,7 +376,7 @@ func (mgr *Manager) AddResource(ctx context.Context, conf resource.Config, deps 
 func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
 	mod, ok := mgr.getModule(conf)
 	if !ok {
-		return nil, errors.Errorf("no active module registered to serve resource api %s and model %s", conf.API, conf.Model)
+		return nil, errlib.Errorf("no active module registered to serve resource api %s and model %s", conf.API, conf.Model)
 	}
 
 	confProto, err := config.ComponentConfigToProto(&conf)
@@ -382,7 +405,7 @@ func (mgr *Manager) ReconfigureResource(ctx context.Context, conf resource.Confi
 	defer mgr.mu.RUnlock()
 	mod, ok := mgr.getModule(conf)
 	if !ok {
-		return errors.Errorf("no module registered to serve resource api %s and model %s", conf.API, conf.Model)
+		return errlib.Errorf("no module registered to serve resource api %s and model %s", conf.API, conf.Model)
 	}
 
 	confProto, err := config.ComponentConfigToProto(&conf)
@@ -432,7 +455,7 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	defer mgr.mu.Unlock()
 	mod, ok := mgr.rMap[name]
 	if !ok {
-		return errors.Errorf("resource %+v not found in module", name)
+		return errlib.Errorf("resource %+v not found in module", name)
 	}
 	delete(mgr.rMap, name)
 	delete(mod.resources, name)
@@ -456,7 +479,7 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	mod, ok := mgr.getModule(conf)
 	if !ok {
 		return nil,
-			errors.Errorf("no module registered to serve resource api %s and model %s",
+			errlib.Errorf("no module registered to serve resource api %s and model %s",
 				conf.API, conf.Model)
 	}
 
@@ -585,7 +608,7 @@ func (mgr *Manager) CleanModuleDataDirectory() error {
 	if len(expectedDirs) == 0 {
 		mgr.logger.Infof("Removing module data parent directory %q", mgr.moduleDataParentDir)
 		if err := os.RemoveAll(mgr.moduleDataParentDir); err != nil {
-			return errors.Wrapf(err, "failed to clean parent module data directory %q", mgr.moduleDataParentDir)
+			return errlib.Wrapf(err, "failed to clean parent module data directory %q", mgr.moduleDataParentDir)
 		}
 		return nil
 	}
@@ -599,12 +622,12 @@ func (mgr *Manager) CleanModuleDataDirectory() error {
 		if _, expected := expectedDirs[dir]; !expected {
 			// This is already checked in module.add(), however there is no harm in double-checking before recursively deleting directories
 			if !strings.HasPrefix(filepath.Clean(dir), filepath.Clean(mgr.moduleDataParentDir)) {
-				return errors.Errorf("attempted to delete a module data dir %q which is not in the viam module data directory %q",
+				return errlib.Errorf("attempted to delete a module data dir %q which is not in the viam module data directory %q",
 					dir, mgr.moduleDataParentDir)
 			}
 			mgr.logger.Infof("Removing module data directory %q", dir)
 			if err := os.RemoveAll(dir); err != nil {
-				return errors.Wrapf(err, "failed to clean module data directory %q", dir)
+				return errlib.Wrapf(err, "failed to clean module data directory %q", dir)
 			}
 		}
 	}
@@ -757,7 +780,7 @@ func (m *module) dial() error {
 		),
 	)
 	if err != nil {
-		return errors.WithMessage(err, "module startup failed")
+		return errlib.WithMessage(err, "module startup failed")
 	}
 	m.conn.ReplaceConn(conn)
 	m.client = pb.NewModuleServiceClient(&m.conn)
@@ -850,7 +873,7 @@ func (m *module) startProcess(
 	m.process = pexec.NewManagedProcess(pconf, logger.AsZap())
 
 	if err := m.process.Start(context.Background()); err != nil {
-		return errors.WithMessage(err, "module startup failed")
+		return errlib.WithMessage(err, "module startup failed")
 	}
 
 	slowTicker := time.NewTicker(15 * time.Second)
@@ -876,7 +899,7 @@ func (m *module) startProcess(
 			continue
 		}
 		if err != nil {
-			return errors.WithMessage(err, "module startup failed")
+			return errlib.WithMessage(err, "module startup failed")
 		}
 		break
 	}
