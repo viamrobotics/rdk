@@ -176,6 +176,9 @@ func msDependencies(t *testing.T, msNames []string,
 					OrientationSupported: true,
 				}, nil
 			}
+			ms.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+				return &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: 5}, nil
+			}
 			deps[movementsensor.Named(msName)] = ms
 
 		case strings.Contains(msName, "setvel"):
@@ -184,6 +187,12 @@ func msDependencies(t *testing.T, msNames []string,
 					AngularVelocitySupported: true,
 					LinearVelocitySupported:  true,
 				}, nil
+			}
+			ms.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+				return r3.Vector{}, nil
+			}
+			ms.AngularVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+				return spatialmath.AngularVelocity{}, nil
 			}
 			deps[movementsensor.Named(msName)] = ms
 
@@ -301,11 +310,15 @@ func TestSensorBaseSpin(t *testing.T) {
 			err := sb.Spin(cancelCtx, 10, 10, nil)
 			test.That(t, err, test.ShouldBeError, cancelCtx.Err())
 		})
+		t.Log("going to sleep")
 		time.Sleep(4 * time.Second)
+		t.Log("slept, no cancel")
 		cancel()
+		t.Log("cancelled, now wait")
 		wg.Wait()
+		t.Log("done")
 	})
-	t.Run("Test canceling a sensor controlled spin due to another running api being called", func(t *testing.T) {
+	t.Run("Test canceling a sensor controlled spin due to calling another running api", func(t *testing.T) {
 		wg := sync.WaitGroup{}
 		wg.Add(1)
 		utils.PanicCapturingGo(func() {
@@ -313,10 +326,14 @@ func TestSensorBaseSpin(t *testing.T) {
 			err := sb.Spin(ctx, 10, 10, nil)
 			test.That(t, err, test.ShouldBeNil)
 		})
-		time.Sleep(2 * time.Second)
-		err := sb.SetPower(ctx, r3.Vector{}, r3.Vector{}, nil)
+		t.Log("going to sleep")
+		time.Sleep(4 * time.Second)
+		t.Log("slept, now cancel")
+		err := sb.SetPower(context.Background(), r3.Vector{}, r3.Vector{}, nil)
 		test.That(t, err, test.ShouldBeNil)
+		t.Log("cancelled, now wait")
 		wg.Wait()
+		t.Log("done")
 	})
 	t.Run("Test not including an orientation ms will use the non controlled spin", func(t *testing.T) {
 		// the injected base will return nil instead of blocking

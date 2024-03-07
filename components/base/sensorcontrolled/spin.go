@@ -55,8 +55,11 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	for {
 		// check if we want to poll the sensor at all
 		// other API calls set this to false so that this for loop stops
+
 		if !sb.isPolling() {
 			ticker.Stop()
+			sb.logger.CWarn(ctx, "Spin call interrupted by another running api")
+			return nil
 		}
 
 		if err := ctx.Err(); err != nil {
