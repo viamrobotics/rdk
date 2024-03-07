@@ -35,6 +35,9 @@ const (
 	dataTypeBinary  = "binary"
 	dataTypeTabular = "tabular"
 
+	dataCommandAdd    = "add"
+	dataCommandRemove = "remove"
+
 	gzFileExt = ".gz"
 )
 
@@ -84,10 +87,21 @@ func (c *viamClient) dataTagAction(cCtx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := c.tagBinary(filter, cCtx.StringSlice(dataFlagAdditionalTags)); err != nil {
-		return err
+	switch cCtx.String(dataFlagTagCommand) {
+	case dataCommandAdd:
+		if err := c.addTagsToBinary(filter, cCtx.StringSlice(dataFlagAdditionalTags)); err != nil {
+			return err
+		}
+		return nil
+	case dataCommandRemove:
+		if err := c.removeTagsFromBinary(filter, cCtx.StringSlice(dataFlagAdditionalTags)); err != nil {
+			return err
+		}
+		return nil
+	default:
+		return errors.Errorf("%s must be add or remove, got %q", dataFlagTagCommand, cCtx.String(dataFlagTagCommand))
 	}
-	return nil
+
 }
 
 // DataDeleteBinaryAction is the corresponding action for 'data delete'.
@@ -586,18 +600,31 @@ func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 	return nil
 }
 
-func (c *viamClient) tagBinary(filter *datapb.Filter, additionalTags []string) error {
+func (c *viamClient) addTagsToBinary(filter *datapb.Filter, tags []string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
-	fmt.Printf("filter %s, tags: %s", filter, additionalTags)
 	_, err := c.dataClient.AddTagsToBinaryDataByFilter(context.Background(),
-		&datapb.AddTagsToBinaryDataByFilterRequest{Filter: filter, Tags: additionalTags})
+		&datapb.AddTagsToBinaryDataByFilterRequest{Filter: filter, Tags: tags})
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}
 	print(c.c.App.Writer, "Successfully tagged data")
 	return nil
+
+}
+func (c *viamClient) removeTagsFromBinary(filter *datapb.Filter, tags []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	_, err := c.dataClient.RemoveTagsFromBinaryDataByFilter(context.Background(),
+		&datapb.RemoveTagsFromBinaryDataByFilterRequest{Filter: filter, Tags: tags})
+	if err != nil {
+		return errors.Wrapf(err, "received error from server")
+	}
+	print(c.c.App.Writer, "Successfully removed tags from data")
+	return nil
+
 }
 
 // deleteTabularData delete tabular data matching filter.

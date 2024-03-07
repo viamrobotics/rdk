@@ -76,6 +76,7 @@ const (
 	dataFlagDeleteTabularDataOlderThanDays = "delete-older-than-days"
 	dataFlagDatabasePassword               = "password"
 	dataFlagAdditionalTags                 = "additional-tags"
+	dataFlagTagCommand                     = "command"
 )
 
 // createUsageText is a helper for formatting UsageTexts. The created UsageText
@@ -622,12 +623,17 @@ var app = &cli.App{
 				{
 					Name:      "tag",
 					Usage:     "tag data by filter",
-					UsageText: createUsageText("data tag", []string{dataFlagAdditionalTags}, true),
+					UsageText: createUsageText("data tag", []string{dataFlagAdditionalTags, dataFlagTagCommand}, true),
 					Flags: []cli.Flag{
 						&cli.StringSliceFlag{
 							Name:     dataFlagAdditionalTags,
 							Required: true,
 							Usage:    "comma separated tags to add to the data",
+						},
+						&cli.StringFlag{
+							Name:     dataFlagTagCommand,
+							Required: true,
+							Usage:    "accepted values: add, remove",
 						},
 						&cli.StringSliceFlag{
 							Name:  dataFlagOrgIDs,
