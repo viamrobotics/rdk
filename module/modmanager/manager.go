@@ -154,7 +154,7 @@ func (mgr *Manager) loadModMutex(modName string) *sync.Mutex {
 // Add adds and starts a new resource module.
 func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 	var wg sync.WaitGroup
-	errs := make([]error, len(confs), len(confs))
+	errs := make([]error, len(confs))
 
 	for i, conf := range confs {
 		wg.Add(1)

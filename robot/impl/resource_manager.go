@@ -922,6 +922,7 @@ func (manager *resourceManager) updateResources(
 	// modules are not added into the resource tree as they belong to the module manager
 
 	manager.logger.Info(">>> adding modules")
+	//nolint: errcheck
 	_ = manager.moduleManager.Add(ctx, conf.Added.Modules...)
 	manager.logger.Info(">>> done! added modules")
 
