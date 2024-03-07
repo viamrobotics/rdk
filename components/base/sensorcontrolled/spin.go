@@ -16,6 +16,16 @@ const (
 
 // // Spin commands a base to turn about its center at a angular speed and for a specific angle.
 func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+	// if controls are not configured, use the underlying base's spin
+	if len(sb.conf.ControlParameters) == 0 {
+		sb.logger.CWarn(ctx, "control parameters not configured, switching to default spin")
+		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
+	}
+	if sb.orientation == nil {
+		sb.logger.CWarn(ctx, "orientation movement sensor not configured, switching to default spin")
+		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
+	}
+
 	// make sure the control loop is enabled
 	if sb.loop == nil {
 		if err := sb.startControlLoop(); err != nil {
@@ -64,7 +74,8 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			}
 
 			currYaw := rdkutils.RadToDeg(orientation.EulerAngles().Yaw)
-			angErr, prevAngle, prevMovedAng = getAngError(currYaw, prevAngle, prevMovedAng, angleDeg)
+			angErr, prevMovedAng = getAngError(currYaw, prevAngle, prevMovedAng, angleDeg)
+			prevAngle = currYaw
 
 			if math.Abs(angErr) < boundCheckTarget {
 				return sb.Stop(ctx, nil)
@@ -86,7 +97,9 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	}
 }
 
+// calcAngVel computes the desired angular velocity based on how far the base is from reaching the goal.
 func calcAngVel(angErr, degsPerSec float64) float64 {
+	// have the velocity slow down when appoaching the goal. Otherwise use the desired velocity
 	angVel := angErr * degsPerSec / slowDownAng
 	if angVel > degsPerSec {
 		return degsPerSec
@@ -97,16 +110,18 @@ func calcAngVel(angErr, degsPerSec float64) float64 {
 	return angVel
 }
 
-func getAngError(currYaw, prevAngle, prevMovedAng, desiredAngle float64) (float64, float64, float64) {
+func getAngError(currYaw, prevAngle, prevMovedAng, desiredAngle float64) (float64, float64) {
 	// use initial angle to get the current angle the spin has moved
 	angMoved := getMovedAng(prevAngle, currYaw, prevMovedAng)
 
 	// compute the error
 	errAng := (desiredAngle - angMoved)
 
-	return errAng, currYaw, angMoved
+	return errAng, angMoved
 }
 
+// getMovedAng tracks how much the angle has moved between each sensor update.
+// This allows us to convert a bounded angle(0 to 360 or -180 to 180) into the raw angle traveled.
 func getMovedAng(prevAngle, currAngle, angMoved float64) float64 {
 	// the angle changed from 180 to -180. this means we are spinning in the negative direction
 	if currAngle-prevAngle < -300 {
