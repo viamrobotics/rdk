@@ -234,7 +234,9 @@ func (ptgk *ptgBaseKinematics) goToInputs(ctx context.Context, inputs []referenc
 			if ctx.Err() != nil {
 				ptgk.logger.CDebug(ctx, ctx.Err().Error())
 				// context cancelled
-				return ctx.Err()
+				stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
+				defer cancelFn()
+				return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
 			}
 			distIncVel := step.linVelMMps.Y
 			if distIncVel == 0 {
