@@ -197,9 +197,7 @@ func (ptgk *ptgBaseKinematics) goToInputs(ctx context.Context, inputs []referenc
 		stepDistResolution,
 	)
 	if err != nil {
-		stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
-		defer cancelFn()
-		return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
+		return ptgk.stopMotion(err)
 	}
 	arcSteps := ptgk.trajectoryToArcSteps(selectedTraj)
 
@@ -224,19 +222,13 @@ func (ptgk *ptgBaseKinematics) goToInputs(ctx context.Context, inputs []referenc
 			nil,
 		)
 		if err != nil {
-			stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
-			defer cancelFn()
-			return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
+			return ptgk.stopMotion(err)
 		}
 
 		// We need to update currentInputs as we move through the arc.
 		for timeElapsed := 0.; timeElapsed <= step.timestepSeconds; timeElapsed += inputUpdateStep {
 			if ctx.Err() != nil {
-				ptgk.logger.CDebug(ctx, ctx.Err().Error())
-				// context cancelled
-				stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
-				defer cancelFn()
-				return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
+				return ptgk.stopMotion(err)
 			}
 			distIncVel := step.linVelMMps.Y
 			if distIncVel == 0 {
@@ -250,6 +242,12 @@ func (ptgk *ptgBaseKinematics) goToInputs(ctx context.Context, inputs []referenc
 	}
 
 	return nil
+}
+
+func (ptgk *ptgBaseKinematics) stopMotion(err error) error {
+	stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancelFn()
+	return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
 }
 
 func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, currentNode int) (spatialmath.Pose, error) {
