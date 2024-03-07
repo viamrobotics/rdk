@@ -758,6 +758,22 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(logger))
 	defer cancelFunc()
 
+	slowTicker := time.NewTicker(15 * time.Second)
+	defer slowTicker.Stop()
+	startTime := time.Now()
+
+	go func() {
+		for {
+			select {
+			case <-slowTicker.C:
+				elapsed := time.Since(startTime).Seconds()
+				logger.Warnf("waiting %q for module to be ready. Elapsed %.2f seconds", m.cfg.Name, elapsed)
+			case <-ctxTimeout.Done():
+				return
+			}
+		}
+	}()
+
 	for {
 		req := &pb.ReadyRequest{ParentAddress: parentAddr}
 		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
@@ -827,6 +843,10 @@ func (m *module) startProcess(
 		return errors.WithMessage(err, "module startup failed")
 	}
 
+	slowTicker := time.NewTicker(15 * time.Second)
+	defer slowTicker.Stop()
+	startTime := time.Now()
+
 	ctxTimeout, cancel := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(logger))
 	defer cancel()
 	for {
@@ -836,6 +856,9 @@ func (m *module) startProcess(
 				return rutils.NewModuleStartUpTimeoutError(m.cfg.Name)
 			}
 			return ctxTimeout.Err()
+		case <-slowTicker.C:
+			elapsed := time.Since(startTime).Seconds()
+			logger.Warnf("%q slow startup detected. Elapsed %.2f seconds", m.cfg.Name, elapsed)
 		default:
 		}
 		err = modlib.CheckSocketOwner(m.addr)

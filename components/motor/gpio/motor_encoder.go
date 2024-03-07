@@ -91,6 +91,7 @@ func newEncodedMotor(
 		opMgr:             operation.NewSingleOperationManager(),
 		startedRPMMonitor: false,
 		loop:              nil,
+		controlLoopConfig: control.Config{},
 	}
 
 	props, err := realEncoder.Properties(context.Background(), nil)
@@ -362,7 +363,10 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 // setPower assumes the state lock is held.
 func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal bool) error {
 	dir := sign(powerPct)
-	if math.Abs(powerPct) < 0.1 && m.loop == nil {
+	// If the control config exists, a control loop must exist, so the motor should be allowed to run at a power lower than 10%.
+	// In the case that the motor is tuning, m.loop will be nil, but m.controlLoopConfig.Blocks will not be empty,
+	// which is why m.loop is not checked here.
+	if math.Abs(powerPct) < 0.1 && len(m.controlLoopConfig.Blocks) == 0 {
 		m.state.lastPowerPct = 0.1 * dir
 	} else {
 		m.state.lastPowerPct = powerPct
@@ -425,19 +429,17 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 }
 
 func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float64) error {
-	if m.loop != nil {
-		if err := m.Stop(ctx, nil); err != nil {
-			m.logger.Error(err)
+	if m.loop == nil {
+		// create new control loop if control config exists
+		if len(m.controlLoopConfig.Blocks) != 0 {
+			if err := m.startControlLoop(); err != nil {
+				return err
+			}
+		} else {
+			m.rpmMonitorStart()
 		}
 	}
-	// create new control loop if control config exists
-	if m.cfg.ControlParameters != nil {
-		if err := m.startControlLoop(); err != nil {
-			return err
-		}
-	} else {
-		m.rpmMonitorStart()
-	}
+
 	m.state.direction = sign(rpm * revolutions)
 
 	switch speed := math.Abs(rpm); {
@@ -615,9 +617,8 @@ func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) e
 
 // Close cleanly shuts down the motor.
 func (m *EncodedMotor) Close(ctx context.Context) error {
-	if m.loop != nil {
-		m.loop.Stop()
-		m.loop = nil
+	if err := m.Stop(ctx, nil); err != nil {
+		return err
 	}
 	m.cancel()
 	m.activeBackgroundWorkers.Wait()
