@@ -8,7 +8,7 @@ import (
 )
 
 func TestParse2(t *testing.T) {
-	var data GPSData
+	var data NmeaParser
 	nmeaSentence := "$GBGSV,1,1,01,33,56,045,27,1*40"
 	err := data.ParseAndUpdate(nmeaSentence)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -61,7 +61,7 @@ func TestParse2(t *testing.T) {
 }
 
 func TestParsing(t *testing.T) {
-	var data GPSData
+	var data NmeaParser
 	// Test a GGA sentence
 	nmeaSentence := "$GNGGA,191351.000,4403.4655,N,12118.7950,W,1,6,1.72,1094.5,M,-19.6,M,,*47"
 	err := data.ParseAndUpdate(nmeaSentence)

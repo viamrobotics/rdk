@@ -23,7 +23,7 @@ const (
 func TestReadingsSerial(t *testing.T) {
 	ctx := context.Background()
 	g := NewCachedGpsData()
-	g.nmeaData = GPSData{
+	g.nmeaData = NmeaParser{
 		Location:   loc,
 		Alt:        alt,
 		Speed:      speed,

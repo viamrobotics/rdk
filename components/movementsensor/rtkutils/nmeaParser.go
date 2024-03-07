@@ -17,8 +17,8 @@ const (
 	kphToMPerSec   = 0.27778
 )
 
-// GPSData struct combines various attributes related to GPS.
-type GPSData struct {
+// NmeaParser struct combines various attributes related to GPS.
+type NmeaParser struct {
 	Location            *geo.Point
 	Alt                 float64
 	Speed               float64 // ground speed in m per sec
@@ -39,7 +39,7 @@ func errInvalidFix(sentenceType, badFix, goodFix string) error {
 
 // ParseAndUpdate will attempt to parse a line to an NMEA sentence, and if valid, will try to update the given struct
 // with the values for that line. Nothing will be updated if there is not a valid gps fix.
-func (g *GPSData) ParseAndUpdate(line string) error {
+func (g *NmeaParser) ParseAndUpdate(line string) error {
 	// Each line should start with a dollar sign and a capital G. If we start reading in the middle
 	// of a sentence, though, we'll get unparseable readings. Strip out everything from before the
 	// dollar sign, to avoid this confusion.
@@ -72,7 +72,7 @@ func (g *GPSData) ParseAndUpdate(line string) error {
 
 // Given an NMEA sentence, updateData updates it. An error is returned if any of
 // the function calls fails.
-func (g *GPSData) updateData(s nmea.Sentence) error {
+func (g *NmeaParser) updateData(s nmea.Sentence) error {
 	switch sentence := s.(type) {
 	case nmea.GSV:
 		if gsv, ok := s.(nmea.GSV); ok {
@@ -115,16 +115,16 @@ func (g *GPSData) updateData(s nmea.Sentence) error {
 
 // updateGSV updates g.SatsInView with the information from the provided
 // GSV (GPS Satellites in View) data.
-func (g *GPSData) updateGSV(gsv nmea.GSV) error {
+func (g *NmeaParser) updateGSV(gsv nmea.GSV) error {
 	// GSV provides the number of satellites in view
 
 	g.SatsInView = int(gsv.NumberSVsInView)
 	return nil
 }
 
-// updateRMC updates the GPSData object with the information from the provided
+// updateRMC updates the NmeaParser object with the information from the provided
 // RMC (Recommended Minimum Navigation Information) data.
-func (g *GPSData) updateRMC(rmc nmea.RMC) error {
+func (g *NmeaParser) updateRMC(rmc nmea.RMC) error {
 	if rmc.Validity != "A" {
 		g.valid = false
 		return errInvalidFix(rmc.Type, rmc.Validity, "A")
@@ -142,9 +142,9 @@ func (g *GPSData) updateRMC(rmc nmea.RMC) error {
 	return nil
 }
 
-// updateGSA updates the GPSData object with the information from the provided
+// updateGSA updates the NmeaParser object with the information from the provided
 // GSA (GPS DOP and Active Satellites) data.
-func (g *GPSData) updateGSA(gsa nmea.GSA) error {
+func (g *NmeaParser) updateGSA(gsa nmea.GSA) error {
 	switch gsa.FixType {
 	case "2":
 		// 2d fix, valid lat/lon but invalid Alt
@@ -167,9 +167,9 @@ func (g *GPSData) updateGSA(gsa nmea.GSA) error {
 	return nil
 }
 
-// updateGGA updates the GPSData object with the information from the provided
+// updateGGA updates the NmeaParser object with the information from the provided
 // GGA (Global Positioning System Fix Data) data.
-func (g *GPSData) updateGGA(gga nmea.GGA) error {
+func (g *NmeaParser) updateGGA(gga nmea.GGA) error {
 	var err error
 
 	g.FixQuality, err = strconv.Atoi(gga.FixQuality)
@@ -192,7 +192,7 @@ func (g *GPSData) updateGGA(gga nmea.GGA) error {
 
 // updateGLL updates g.Location with the location information from the provided
 // GLL (Geographic Position - Latitude/Longitude) data.
-func (g *GPSData) updateGLL(gll nmea.GLL) error {
+func (g *NmeaParser) updateGLL(gll nmea.GLL) error {
 	now := geo.NewPoint(gll.Latitude, gll.Longitude)
 	g.Location = now
 	return nil
@@ -200,15 +200,15 @@ func (g *GPSData) updateGLL(gll nmea.GLL) error {
 
 // updateVTG updates g.Speed with the ground speed information from the provided
 // VTG (Velocity Made Good) data.
-func (g *GPSData) updateVTG(vtg nmea.VTG) error {
+func (g *NmeaParser) updateVTG(vtg nmea.VTG) error {
 	// VTG provides ground speed
 	g.Speed = vtg.GroundSpeedKPH * kphToMPerSec
 	return nil
 }
 
-// updateGNS updates the GPSData object with the information from the provided
+// updateGNS updates the NmeaParser object with the information from the provided
 // GNS (Global Navigation Satellite System) data.
-func (g *GPSData) updateGNS(gns nmea.GNS) error {
+func (g *NmeaParser) updateGNS(gns nmea.GNS) error {
 	// For each satellite we've heard from, make sure the mode is valid. If any of them are not
 	// valid, this entire message should not be trusted.
 	for _, mode := range gns.Mode {
@@ -230,7 +230,7 @@ func (g *GPSData) updateGNS(gns nmea.GNS) error {
 }
 
 // updateHDT updates g.CompassHeading with the ground speed information from the provided.
-func (g *GPSData) updateHDT(hdt nmea.HDT) error {
+func (g *NmeaParser) updateHDT(hdt nmea.HDT) error {
 	// HDT provides compass heading
 	g.CompassHeading = hdt.Heading
 	return nil
@@ -259,7 +259,7 @@ func calculateTrueHeading(heading, magneticDeclination float64, isEast bool) flo
 // and sets g.validCompassHeading bool since RMC message sends empty strings if
 // there is no movement.
 // NOTE: The go-nmea library does not provide this feature, which is why we're doing it ourselves.
-func (g *GPSData) parseRMC(message string) {
+func (g *NmeaParser) parseRMC(message string) {
 	data := strings.Split(message, ",")
 	if len(data) < 10 {
 		return

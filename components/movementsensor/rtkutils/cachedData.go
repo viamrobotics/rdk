@@ -18,7 +18,7 @@ var errNilLocation = errors.New("nil gps location, check nmea message parsing")
 // CachedGpsData allows the use of any MovementSensor chip via a DataReader.
 type CachedGpsData struct {
 	mu       sync.RWMutex
-	nmeaData GPSData
+	nmeaData NmeaParser
 
 	err                movementsensor.LastError
 	lastPosition       movementsensor.LastPosition
@@ -34,8 +34,8 @@ func NewCachedGpsData() CachedGpsData {
 	}
 }
 
-// ParseAndUpdate passes the provided message into the inner GPSData object, which parses the NMEA
-// message and updates its state to match.
+// ParseAndUpdate passes the provided message into the inner NmeaParser object, which parses the
+// NMEA message and updates its state to match.
 func (g *CachedGpsData) ParseAndUpdate(line string) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
