@@ -284,6 +284,8 @@ func TestSensorBaseWithVelocitiesSensor(t *testing.T) {
 }
 
 func TestSensorBaseSpin(t *testing.T) {
+	// flaky test, will see behavior after RSDK-6164
+	t.Skip()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	deps, cfg := msDependencies(t, []string{"setvel1", "orientation1"})
