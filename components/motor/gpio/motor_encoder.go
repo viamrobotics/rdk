@@ -411,11 +411,17 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 			}
 			return false, errs
 		}
-		return m.opMgr.WaitForSuccess(
+		err := m.opMgr.WaitForSuccess(
 			ctx,
 			10*time.Millisecond,
 			positionReached,
 		)
+		// Ignore the context canceled error - this occurs when the motor is stopped
+		// at the beginning of goForInternal
+		if !errors.Is(err, context.Canceled) {
+			return err
+		}
+		return nil
 	}
 
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
