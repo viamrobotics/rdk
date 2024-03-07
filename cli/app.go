@@ -75,6 +75,7 @@ const (
 	dataFlagBboxLabels                     = "bbox-labels"
 	dataFlagDeleteTabularDataOlderThanDays = "delete-older-than-days"
 	dataFlagDatabasePassword               = "password"
+	dataFlagAdditionalTags                 = "additional-tags"
 )
 
 // createUsageText is a helper for formatting UsageTexts. The created UsageText
@@ -617,6 +618,88 @@ var app = &cli.App{
 							Action: DataRemoveFromDataset,
 						},
 					},
+				},
+				{
+					Name:      "tag",
+					Usage:     "tag data by filter",
+					UsageText: createUsageText("data tag", []string{dataFlagAdditionalTags}, true),
+					Flags: []cli.Flag{
+						&cli.StringSliceFlag{
+							Name:     dataFlagAdditionalTags,
+							Required: true,
+							Usage:    "comma separated tags to add to the data",
+						},
+						&cli.StringSliceFlag{
+							Name:  dataFlagOrgIDs,
+							Usage: "orgs filter",
+						},
+						&cli.StringSliceFlag{
+							Name:  dataFlagLocationIDs,
+							Usage: "locations filter",
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagMachineID,
+								Aliases: []string{generalFlagAliasRobotID},
+								Usage:   "machine id filter",
+							},
+						},
+						&cli.StringFlag{
+							Name:  dataFlagPartID,
+							Usage: "part id filter",
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    dataFlagMachineName,
+								Aliases: []string{dataFlagAliasRobotName},
+								Usage:   "machine name filter",
+							},
+						},
+						&cli.StringFlag{
+							Name:  dataFlagPartName,
+							Usage: "part name filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagComponentType,
+							Usage: "component type filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagComponentName,
+							Usage: "component name filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagMethod,
+							Usage: "method filter",
+						},
+						&cli.StringSliceFlag{
+							Name:  dataFlagMimeTypes,
+							Usage: "mime types filter",
+						},
+						&cli.UintFlag{
+							Name:  dataFlagParallelDownloads,
+							Usage: "number of download requests to make in parallel",
+							Value: 100,
+						},
+						&cli.StringFlag{
+							Name:  dataFlagStart,
+							Usage: "ISO-8601 timestamp indicating the start of the interval filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagEnd,
+							Usage: "ISO-8601 timestamp indicating the end of the interval filter",
+						},
+						&cli.StringSliceFlag{
+							Name: dataFlagTags,
+							Usage: "tags filter. " +
+								"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
+						},
+						&cli.StringSliceFlag{
+							Name: dataFlagBboxLabels,
+							Usage: "bbox labels filter. " +
+								"accepts string labels corresponding to bounding boxes within images",
+						},
+					},
+					Action: DataTagAction,
 				},
 			},
 		},

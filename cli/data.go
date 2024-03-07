@@ -69,6 +69,27 @@ func (c *viamClient) dataExportAction(cCtx *cli.Context) error {
 	return nil
 }
 
+// DataExportAction is the corresponding action for 'data export'.
+func DataTagAction(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	return client.dataTagAction(c)
+}
+
+func (c *viamClient) dataTagAction(cCtx *cli.Context) error {
+	filter, err := createDataFilter(cCtx)
+	if err != nil {
+		return err
+	}
+	if err := c.tagBinary(filter, cCtx.StringSlice(dataFlagAdditionalTags)); err != nil {
+		return err
+	}
+	return nil
+}
+
 // DataDeleteBinaryAction is the corresponding action for 'data delete'.
 func DataDeleteBinaryAction(c *cli.Context) error {
 	client, err := newViamClient(c)
@@ -562,6 +583,20 @@ func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 		return errors.Wrapf(err, "received error from server")
 	}
 	printf(c.c.App.Writer, "Deleted %d files", resp.GetDeletedCount())
+	return nil
+}
+
+func (c *viamClient) tagBinary(filter *datapb.Filter, additionalTags []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	fmt.Printf("filter %s, tags: %s", filter, additionalTags)
+	_, err := c.dataClient.AddTagsToBinaryDataByFilter(context.Background(),
+		&datapb.AddTagsToBinaryDataByFilterRequest{Filter: filter, Tags: additionalTags})
+	if err != nil {
+		return errors.Wrapf(err, "received error from server")
+	}
+	print(c.c.App.Writer, "Successfully tagged data")
 	return nil
 }
 
