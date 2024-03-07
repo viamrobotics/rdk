@@ -310,13 +310,9 @@ func TestSensorBaseSpin(t *testing.T) {
 			err := sb.Spin(cancelCtx, 10, 10, nil)
 			test.That(t, err, test.ShouldBeError, cancelCtx.Err())
 		})
-		t.Log("going to sleep")
 		time.Sleep(4 * time.Second)
-		t.Log("slept, no cancel")
 		cancel()
-		t.Log("cancelled, now wait")
 		wg.Wait()
-		t.Log("done")
 	})
 	t.Run("Test canceling a sensor controlled spin due to calling another running api", func(t *testing.T) {
 		wg := sync.WaitGroup{}
@@ -326,14 +322,10 @@ func TestSensorBaseSpin(t *testing.T) {
 			err := sb.Spin(ctx, 10, 10, nil)
 			test.That(t, err, test.ShouldBeNil)
 		})
-		t.Log("going to sleep")
-		time.Sleep(4 * time.Second)
-		t.Log("slept, now cancel")
+		time.Sleep(2 * time.Second)
 		err := sb.SetPower(context.Background(), r3.Vector{}, r3.Vector{}, nil)
 		test.That(t, err, test.ShouldBeNil)
-		t.Log("cancelled, now wait")
 		wg.Wait()
-		t.Log("done")
 	})
 	t.Run("Test not including an orientation ms will use the non controlled spin", func(t *testing.T) {
 		// the injected base will return nil instead of blocking
