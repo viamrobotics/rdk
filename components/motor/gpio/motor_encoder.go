@@ -353,7 +353,6 @@ func (m *EncodedMotor) directionMovingInLock() float64 {
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
 // Negative power implies a backward directional rotational.
 func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-	m.opMgr.CancelRunning(ctx)
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 	return m.setPower(ctx, powerPct, false)
@@ -404,7 +403,6 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 			var errs error
 			pos, posErr := m.position(ctx, extra)
 			errs = multierr.Combine(errs, posErr)
-			m.logger.Errorf("POS = %v, GOAL = %v", pos, goal)
 			if rdkutils.Float64AlmostEqual(pos, goal, 5.0) {
 				stopErr := m.Stop(ctx, extra)
 				errs = multierr.Combine(errs, stopErr)
@@ -412,18 +410,11 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 			}
 			return false, errs
 		}
-		err := m.opMgr.WaitForSuccess(
+		return m.opMgr.WaitForSuccess(
 			ctx,
 			10*time.Millisecond,
 			positionReached,
 		)
-		m.logger.Error(err)
-		// Ignore the context canceled error - this occurs when the motor is stopped
-		// at the beginning of goForInternal
-		if !errors.Is(err, context.Canceled) {
-			return err
-		}
-		return nil
 	}
 
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
