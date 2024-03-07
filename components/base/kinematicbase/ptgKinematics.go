@@ -249,7 +249,9 @@ trajectory:
 			utils.SelectContextOrWait(ctx, time.Duration(inputUpdateStep*1000*1000)*time.Microsecond)
 		}
 	}
-	return nil
+
+	// We do not know if we successfully got out of the loop
+	return ctx.Err()
 }
 
 func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, currentNode int) (spatialmath.Pose, error) {
