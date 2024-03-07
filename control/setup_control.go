@@ -19,17 +19,16 @@ const (
 	BlockNameTrapezoidal = "trapezoidalVelocityProfile"
 	// rPiGain is 1/255 because the PWM signal on a pi (and most other boards)
 	// is limited to 8 bits, or the range 0-255.
-	rPiGain = 0.00392157
+	rPiGain                 = 0.00392157
+	defaultControllableType = "motor_name"
+	defaultDerivativeType   = "backward1st1"
 )
 
 var (
-	// default derivative type is "backward1st1".
-	derivativeType   = "backward1st1"
-	loopFrequency    = 50.0
-	sumIndex         = 1
-	linearPIDIndex   = 2
-	angularPIDIndex  = -1
-	controllableType = "motor_name"
+	loopFrequency   = 50.0
+	sumIndex        = 1
+	linearPIDIndex  = 2
+	angularPIDIndex = -1
 )
 
 // PIDLoop is used for setting up a PID control loop.
@@ -160,9 +159,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 				errs = multierr.Combine(errs, err)
 			}
 
-			if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
-				errs = multierr.Combine(errs, err)
-			}
+			p.ControlLoop.MonitorTuning(ctx)
 		}
 		if p.Options.SensorFeedback2DVelocityControl {
 			// check if linear needs to be tuned
@@ -196,9 +193,7 @@ func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex int) error {
 		return err
 	}
 
-	if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
-		return err
-	}
+	p.ControlLoop.MonitorTuning(ctx)
 
 	p.ControlLoop.Stop()
 	p.ControlLoop = nil
@@ -212,6 +207,7 @@ func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex int) error {
 
 func (p *PIDLoop) createControlLoopConfig(pidVals []PIDConfig, componentName string) {
 	// create basic control config
+	controllableType := defaultControllableType
 	if p.Options.ControllableType != "" {
 		controllableType = p.Options.ControllableType
 	}
@@ -316,6 +312,7 @@ func (p *PIDLoop) addPositionControl() {
 	p.ControlConf.Blocks = append(p.ControlConf.Blocks, trapzBlock)
 
 	// add derivative block between the endpoint and sum blocks
+	derivativeType := defaultDerivativeType
 	if p.Options.DerivativeType != "" {
 		derivativeType = p.Options.DerivativeType
 	}
