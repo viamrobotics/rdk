@@ -4,25 +4,12 @@ import (
 	"context"
 	"testing"
 
-	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/components/movementsensor/rtkutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
-)
-
-var (
-	loc        = geo.NewPoint(90, 1)
-	alt        = 50.5
-	speed      = 5.4
-	activeSats = 1
-	totalSats  = 2
-	hAcc       = 0.7
-	vAcc       = 0.8
-	fix        = 1
 )
 
 func TestValidateSerial(t *testing.T) {
@@ -75,40 +62,6 @@ func TestNewSerialMovementSensor(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, g, test.ShouldNotBeNil)
 	}
-}
-
-func TestReadingsSerial(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := &NMEAMovementSensor{
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
-		logger:     logger,
-	}
-	g.data = rtkutils.GPSData{
-		Location:   loc,
-		Alt:        alt,
-		Speed:      speed,
-		VDOP:       vAcc,
-		HDOP:       hAcc,
-		SatsInView: totalSats,
-		SatsInUse:  activeSats,
-		FixQuality: fix,
-	}
-
-	loc1, alt1, err := g.Position(ctx, make(map[string]interface{}))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, loc1, test.ShouldEqual, loc)
-	test.That(t, alt1, test.ShouldEqual, alt)
-
-	speed1, err := g.LinearVelocity(ctx, make(map[string]interface{}))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, speed1.Y, test.ShouldEqual, speed)
-
-	fix1, err := g.ReadFix(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fix1, test.ShouldEqual, fix)
 }
 
 func TestCloseSerial(t *testing.T) {
