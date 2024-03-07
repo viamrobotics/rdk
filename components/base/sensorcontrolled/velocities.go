@@ -173,13 +173,6 @@ func sign(x float64) float64 { // A quick helper function
 func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) error {
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
-	// if sb.isPolling() {
-	// 	// if the spin loop is polling, don't call set velocity, immediately return
-	// 	// this allows us to keep the control loop running without stopping it until
-	// 	// the resource Close has been called
-	// 	sb.logger.CInfo(ctx, "skipping set state call")
-	// 	return nil
-	// }
 
 	sb.logger.CDebug(ctx, "setting state")
 	linvel := state[0].GetSignalValueAt(0)
