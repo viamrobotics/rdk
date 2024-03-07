@@ -15,8 +15,8 @@ import (
 
 var errNilLocation = errors.New("nil gps location, check nmea message parsing")
 
-// CachedGpsData allows the use of any MovementSensor chip via a DataReader.
-type CachedGpsData struct {
+// CachedData allows the use of any MovementSensor chip via a DataReader.
+type CachedData struct {
 	mu       sync.RWMutex
 	nmeaData NmeaParser
 
@@ -25,9 +25,9 @@ type CachedGpsData struct {
 	lastCompassHeading movementsensor.LastCompassHeading
 }
 
-// NewCachedGpsData creates a new CachedGpsData object.
-func NewCachedGpsData() CachedGpsData {
-	return CachedGpsData{
+// NewCachedData creates a new CachedData object.
+func NewCachedData() CachedData {
+	return CachedData{
 		err:                movementsensor.NewLastError(1, 1),
 		lastPosition:       movementsensor.NewLastPosition(),
 		lastCompassHeading: movementsensor.NewLastCompassHeading(),
@@ -36,14 +36,14 @@ func NewCachedGpsData() CachedGpsData {
 
 // ParseAndUpdate passes the provided message into the inner NmeaParser object, which parses the
 // NMEA message and updates its state to match.
-func (g *CachedGpsData) ParseAndUpdate(line string) error {
+func (g *CachedData) ParseAndUpdate(line string) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.nmeaData.ParseAndUpdate(line)
 }
 
 // Position returns the position and altitide of the sensor, or an error.
-func (g *CachedGpsData) Position(
+func (g *CachedData) Position(
 	ctx context.Context, extra map[string]interface{},
 ) (*geo.Point, float64, error) {
 	g.mu.RLock()
@@ -70,7 +70,7 @@ func (g *CachedGpsData) Position(
 }
 
 // Accuracy returns the accuracy map, hDOP, vDOP, Fixquality and compass heading error.
-func (g *CachedGpsData) Accuracy(
+func (g *CachedData) Accuracy(
 	ctx context.Context, extra map[string]interface{},
 ) (*movementsensor.Accuracy, error) {
 	g.mu.RLock()
@@ -91,7 +91,7 @@ func (g *CachedGpsData) Accuracy(
 // LinearVelocity returns the sensor's linear velocity. It requires having a compass heading, so we
 // know which direction our speed is in. We assume all of this speed is horizontal, and not in
 // gaining/losing altitude.
-func (g *CachedGpsData) LinearVelocity(
+func (g *CachedData) LinearVelocity(
 	ctx context.Context, extra map[string]interface{},
 ) (r3.Vector, error) {
 	g.mu.RLock()
@@ -109,28 +109,28 @@ func (g *CachedGpsData) LinearVelocity(
 }
 
 // LinearAcceleration returns the sensor's linear acceleration.
-func (g *CachedGpsData) LinearAcceleration(
+func (g *CachedData) LinearAcceleration(
 	ctx context.Context, extra map[string]interface{},
 ) (r3.Vector, error) {
 	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }
 
 // AngularVelocity returns the sensor's angular velocity.
-func (g *CachedGpsData) AngularVelocity(
+func (g *CachedData) AngularVelocity(
 	ctx context.Context, extra map[string]interface{},
 ) (spatialmath.AngularVelocity, error) {
 	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }
 
 // Orientation returns the sensor's orientation.
-func (g *CachedGpsData) Orientation(
+func (g *CachedData) Orientation(
 	ctx context.Context, extra map[string]interface{},
 ) (spatialmath.Orientation, error) {
 	return nil, movementsensor.ErrMethodUnimplementedOrientation
 }
 
 // CompassHeading returns the heading, from the range 0->360.
-func (g *CachedGpsData) CompassHeading(
+func (g *CachedData) CompassHeading(
 	ctx context.Context, extra map[string]interface{},
 ) (float64, error) {
 	g.mu.RLock()
@@ -151,21 +151,21 @@ func (g *CachedGpsData) CompassHeading(
 }
 
 // ReadFix returns Fix quality of MovementSensor measurements.
-func (g *CachedGpsData) ReadFix(ctx context.Context) (int, error) {
+func (g *CachedData) ReadFix(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.nmeaData.FixQuality, nil
 }
 
 // ReadSatsInView returns the number of satellites in view.
-func (g *CachedGpsData) ReadSatsInView(ctx context.Context) (int, error) {
+func (g *CachedData) ReadSatsInView(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.nmeaData.SatsInView, nil
 }
 
 // Properties returns what movement sensor capabilities we have.
-func (g *CachedGpsData) Properties(
+func (g *CachedData) Properties(
 	ctx context.Context, extra map[string]interface{},
 ) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{

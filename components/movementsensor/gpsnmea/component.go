@@ -31,7 +31,7 @@ type NMEAMovementSensor struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	logger                  logging.Logger
-	cachedData              rtkutils.CachedGpsData // TODO: use this everywhere
+	cachedData              rtkutils.CachedData
 	activeBackgroundWorkers sync.WaitGroup
 
 	dev DataReader
@@ -49,7 +49,7 @@ func NewNmeaMovementSensor(
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		cachedData: rtkutils.NewCachedGpsData(),
+		cachedData: rtkutils.NewCachedData(),
 	}
 
 	if err := g.Start(ctx); err != nil {
