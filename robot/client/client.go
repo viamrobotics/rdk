@@ -17,6 +17,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
@@ -28,6 +29,8 @@ import (
 	"google.golang.org/grpc/codes"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
@@ -65,17 +68,18 @@ type RobotClient struct {
 	address     string
 	dialOptions []rpc.DialOption
 
-	mu              sync.RWMutex
-	resourceNames   []resource.Name
-	resourceRPCAPIs []resource.RPCAPI
-	resourceClients map[resource.Name]resource.Resource
-	remoteNameMap   map[resource.Name]resource.Name
-	changeChan      chan bool
-	notifyParent    func()
-	conn            grpc.ReconfigurableClientConn
-	client          pb.RobotServiceClient
-	refClient       *grpcreflect.Client
-	connected       atomic.Bool
+	mu                       sync.RWMutex
+	resourceNames            []resource.Name
+	resourceRPCAPIs          []resource.RPCAPI
+	resourceClients          map[resource.Name]resource.Resource
+	remoteNameMap            map[resource.Name]resource.Name
+	changeChan               chan bool
+	notifyParent             func()
+	conn                     grpc.ReconfigurableClientConn
+	client                   pb.RobotServiceClient
+	refClient                *grpcreflect.Client
+	connected                atomic.Bool
+	rpcSubtypesUnimplemented bool
 
 	activeBackgroundWorkers sync.WaitGroup
 	backgroundCtx           context.Context
@@ -578,12 +582,25 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 		ctx, cancel = contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultResourcesTimeout)
 		defer cancel()
 	}
+
 	resp, err := rc.client.ResourceNames(ctx, &pb.ResourceNamesRequest{})
 	if err != nil {
 		return nil, nil, err
 	}
 
 	var resTypes []resource.RPCAPI
+
+	resources := make([]resource.Name, 0, len(resp.Resources))
+	for _, name := range resp.Resources {
+		newName := rprotoutils.ResourceNameFromProto(name)
+		resources = append(resources, newName)
+	}
+
+	// resource has previously returned an unimplemented response, skip rpc call
+	if rc.rpcSubtypesUnimplemented {
+		return resources, resTypes, nil
+	}
+
 	typesResp, err := rc.client.ResourceRPCSubtypes(ctx, &pb.ResourceRPCSubtypesRequest{})
 	if err == nil {
 		reflSource := grpcurl.DescriptorSourceFromServer(ctx, rc.refClient)
@@ -613,13 +630,8 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 		if s, ok := status.FromError(err); !(ok && (s.Code() == codes.Unimplemented)) {
 			return nil, nil, err
 		}
-	}
-
-	resources := make([]resource.Name, 0, len(resp.Resources))
-
-	for _, name := range resp.Resources {
-		newName := rprotoutils.ResourceNameFromProto(name)
-		resources = append(resources, newName)
+		// prevent future calls to ResourceRPCSubtypes
+		rc.rpcSubtypesUnimplemented = true
 	}
 
 	return resources, resTypes, nil
@@ -635,16 +647,15 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 
 func (rc *RobotClient) updateResources(ctx context.Context) error {
 	// call metadata service.
+
 	names, rpcAPIs, err := rc.resources(ctx)
-	// only return if it is not unimplemented - means a bigger error came up
 	if err != nil && status.Code(err) != codes.Unimplemented {
 		return err
 	}
-	if err == nil {
-		rc.resourceNames = make([]resource.Name, 0, len(names))
-		rc.resourceNames = append(rc.resourceNames, names...)
-		rc.resourceRPCAPIs = rpcAPIs
-	}
+
+	rc.resourceNames = make([]resource.Name, 0, len(names))
+	rc.resourceNames = append(rc.resourceNames, names...)
+	rc.resourceRPCAPIs = rpcAPIs
 
 	rc.updateRemoteNameMap()
 
@@ -889,29 +900,32 @@ func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[
 
 // Log sends a log entry to the server. To be used by Golang modules wanting to
 // log over gRPC and not by normal Golang SDK clients.
-func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zapcore.Field) error {
-	// TODO(RSDK-6280): Preserve the type of all `fields`.
+func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.Field) error {
 	message := fmt.Sprintf("%v\t%v", log.Caller.TrimmedPath(), log.Message)
-	for i, field := range fields {
-		if i == 0 {
-			message = fmt.Sprintf("%v\t{%q: %q", message, field.Key, field.String)
-		} else {
-			message = fmt.Sprintf("%v, %q: %q", message, field.Key, field.String)
+
+	fieldsP := make([]*structpb.Struct, 0, len(fields))
+	for _, field := range fields {
+		fieldP, err := logging.FieldToProto(field)
+		if err != nil {
+			return err
 		}
+		fieldsP = append(fieldsP, fieldP)
 	}
-	message = fmt.Sprintf("%v}", message) // close }
 
 	logRequest := &pb.LogRequest{
-		// no batching for now (one LogEntry at a time).
+		// No batching for now (one LogEntry at a time).
 		Logs: []*commonpb.LogEntry{{
-			// leave out Host; Host is not currently meaningful
-			Level: log.Level.String(),
-			// leave out Time; Time is already in Message field below
+			// Leave out Host; Host is not currently meaningful.
+			Level:      log.Level.String(),
+			Time:       timestamppb.New(log.Time),
 			LoggerName: log.LoggerName,
 			Message:    message,
-			// leave out Caller; Caller is already in Message field above
-			Stack: log.Stack,
-			// leave out Fields; Fields are already in Message field above
+			// Leave out Caller; Caller is already in Message field above. We put
+			// the Caller in Message as other languages may also do this in the
+			// future. We do not want other languages to have to force their caller
+			// information into a struct that looks like zapcore.EntryCaller.
+			Stack:  log.Stack,
+			Fields: fieldsP,
 		}},
 	}
 

@@ -15,11 +15,12 @@ import (
 )
 
 var (
-	acmeAPINamespace = resource.APINamespace("acme")
-	fakeModel        = resource.DefaultModelFamily.WithModel("fake")
-	extModel         = resource.ModelNamespace("acme").WithFamily("test").WithModel("model")
-	extAPI           = acmeAPINamespace.WithComponentType("gizmo")
-	extServiceAPI    = acmeAPINamespace.WithServiceType("gadget")
+	acmeAPINamespace  = resource.APINamespace("acme")
+	fakeModel         = resource.DefaultModelFamily.WithModel("fake")
+	extModel          = resource.ModelNamespace("acme").WithFamily("test").WithModel("model")
+	extAPI            = acmeAPINamespace.WithComponentType("gizmo")
+	extServiceAPI     = acmeAPINamespace.WithServiceType("gadget")
+	invalidNameString = "must start with a letter or number and must only contain letters, numbers, dashes, and underscores"
 )
 
 func TestComponentValidate(t *testing.T) {
@@ -44,7 +45,7 @@ func TestComponentValidate(t *testing.T) {
 			t,
 			err.Error(),
 			test.ShouldContainSubstring,
-			"must start with a letter and must only contain letters, numbers, dashes, and underscores",
+			invalidNameString,
 		)
 		validConf.Name = "foo.arm"
 		deps, err = validConf.Validate("path", resource.APITypeComponentName)
@@ -54,7 +55,7 @@ func TestComponentValidate(t *testing.T) {
 			t,
 			err.Error(),
 			test.ShouldContainSubstring,
-			"must start with a letter and must only contain letters, numbers, dashes, and underscores",
+			invalidNameString,
 		)
 		validConf.Name = "9"
 		deps, err = validConf.Validate("path", resource.APITypeComponentName)
@@ -64,7 +65,7 @@ func TestComponentValidate(t *testing.T) {
 			t,
 			err.Error(),
 			test.ShouldContainSubstring,
-			"must start with a letter and must only contain letters, numbers, dashes, and underscores",
+			invalidNameString,
 		)
 	})
 	t.Run("config valid", func(t *testing.T) {
@@ -146,7 +147,7 @@ func TestComponentValidate(t *testing.T) {
 			t,
 			err.Error(),
 			test.ShouldContainSubstring,
-			"must start with a letter and must only contain letters, numbers, dashes, and underscores",
+			invalidNameString,
 		)
 	})
 
@@ -409,7 +410,7 @@ func TestServiceValidate(t *testing.T) {
 			t,
 			err.Error(),
 			test.ShouldContainSubstring,
-			"must start with a letter and must only contain letters, numbers, dashes, and underscores",
+			invalidNameString,
 		)
 		validConf.Name = "frame.1"
 		test.That(t, deps, test.ShouldBeNil)
@@ -418,7 +419,7 @@ func TestServiceValidate(t *testing.T) {
 			t,
 			err.Error(),
 			test.ShouldContainSubstring,
-			"must start with a letter and must only contain letters, numbers, dashes, and underscores",
+			invalidNameString,
 		)
 		validConf.Name = "3"
 		test.That(t, deps, test.ShouldBeNil)
@@ -427,7 +428,7 @@ func TestServiceValidate(t *testing.T) {
 			t,
 			err.Error(),
 			test.ShouldContainSubstring,
-			"must start with a letter and must only contain letters, numbers, dashes, and underscores",
+			invalidNameString,
 		)
 	})
 
@@ -500,7 +501,7 @@ func TestServiceValidate(t *testing.T) {
 			t,
 			err.Error(),
 			test.ShouldContainSubstring,
-			"must start with a letter and must only contain letters, numbers, dashes, and underscores",
+			invalidNameString,
 		)
 	})
 

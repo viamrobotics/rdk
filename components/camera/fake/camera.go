@@ -30,21 +30,14 @@ func init() {
 	resource.RegisterComponent(
 		camera.API,
 		model,
-		resource.Registration[camera.Camera, *Config]{
-			Constructor: func(
-				ctx context.Context,
-				_ resource.Dependencies,
-				cfg resource.Config,
-				logger logging.Logger,
-			) (camera.Camera, error) {
-				return NewCamera(ctx, cfg, logger)
-			},
-		})
+		resource.Registration[camera.Camera, *Config]{Constructor: NewCamera},
+	)
 }
 
 // NewCamera returns a new fake camera.
 func NewCamera(
 	ctx context.Context,
+	_ resource.Dependencies,
 	conf resource.Config,
 	logger logging.Logger,
 ) (camera.Camera, error) {
@@ -81,12 +74,22 @@ type Config struct {
 
 // Validate checks that the config attributes are valid for a fake camera.
 func (conf *Config) Validate(path string) ([]string, error) {
+	if conf.Height > 10000 || conf.Width > 10000 {
+		return nil, errors.New("maximum supported pixel height or width for fake cameras is 10000 pixels")
+	}
+
+	if conf.Height < 0 || conf.Width < 0 {
+		return nil, errors.New("cannot use negative pixel height and width for fake cameras")
+	}
+
 	if conf.Height%2 != 0 {
 		return nil, errors.Errorf("odd-number resolutions cannot be rendered, cannot use a height of %d", conf.Height)
 	}
+
 	if conf.Width%2 != 0 {
 		return nil, errors.Errorf("odd-number resolutions cannot be rendered, cannot use a width of %d", conf.Width)
 	}
+
 	return nil, nil
 }
 
