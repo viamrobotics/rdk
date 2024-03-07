@@ -255,10 +255,10 @@ func (p *pidTuner) computeGains() {
 	case tuneMethodZiegerNicholsPI:
 		p.kP = 0.4545 * kU
 		p.kI = 0.5454 * (kU / pU)
-		p.kD = 0
+		p.kD = 0.0
 	case tuneMethodZiegerNicholsPD:
 		p.kP = 0.8 * kU
-		p.kI = 0.
+		p.kI = 0.0
 		p.kD = 0.10 * kU * pU
 	case tuneMethodZiegerNicholsPID:
 		p.kP = 0.6 * kU
@@ -300,7 +300,7 @@ func (p *pidTuner) computeGains() {
 	default: // ziegler nichols PI is the default
 		p.kP = 0.4545 * kU
 		p.kI = 0.5454 * (kU / pU)
-		p.kD = 0.
+		p.kD = 0.0
 	}
 }
 
