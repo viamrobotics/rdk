@@ -34,6 +34,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	rconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -939,15 +940,24 @@ func (c *viamClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.Robot
 }
 
 func (c *viamClient) printRobotPartLogsInner(logs []*commonpb.LogEntry, indent string) {
-	for _, log := range logs {
+	// Iterate over logs in reverse because they are returned in
+	// order of latest to oldest but we should print from oldest -> newest
+	for i := len(logs) - 1; i >= 0; i-- {
+		log := logs[i]
+		fieldsString, err := logEntryFieldsToString(log.Fields)
+		if err != nil {
+			warningf(c.c.App.ErrWriter, "%v", err)
+			fieldsString = ""
+		}
 		printf(
 			c.c.App.Writer,
-			"%s%s\t%s\t%s\t%s",
+			"%s%s\t%s\t%s\t%s\t%s",
 			indent,
-			log.Time.AsTime().Format("2006-01-02T15:04:05.000Z0700"),
+			log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
 			log.Level,
 			log.LoggerName,
 			log.Message,
+			fieldsString,
 		)
 	}
 }
@@ -1215,4 +1225,31 @@ func (c *viamClient) startRobotPartShell(
 
 	outputLoop()
 	return nil
+}
+
+func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {
+	// if there are no fields, don't return anything, otherwise we add lots of {}'s
+	// to the logs
+	if len(fields) == 0 {
+		return "", nil
+	}
+	// we have to manually format these fields as json because
+	// marshalling a go object will not preserve the order of the fields
+	message := "{"
+	for i, field := range fields {
+		key, value, err := logging.FieldKeyAndValueFromProto(field)
+		if err != nil {
+			return "", err
+		}
+		if i > 0 {
+			// split fields with space and comma after first entry
+			message += ", "
+		}
+		if _, isStr := value.(string); isStr {
+			message += fmt.Sprintf("%q: %q", key, value)
+		} else {
+			message += fmt.Sprintf("%q: %v", key, value)
+		}
+	}
+	return message + "}", nil
 }
