@@ -17,8 +17,8 @@ var errNilLocation = errors.New("nil gps location, check nmea message parsing")
 
 // CachedGpsData allows the use of any MovementSensor chip via a DataReader.
 type CachedGpsData struct {
-	mu           sync.RWMutex
-	uncachedData GPSData
+	mu       sync.RWMutex
+	nmeaData GPSData
 
 	err                movementsensor.LastError
 	lastPosition       movementsensor.LastPosition
@@ -39,7 +39,7 @@ func NewCachedGpsData() CachedGpsData {
 func (g *CachedGpsData) ParseAndUpdate(line string) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.uncachedData.ParseAndUpdate(line)
+	return g.nmeaData.ParseAndUpdate(line)
 }
 
 // Position returns the position and altitide of the sensor, or an error.
@@ -50,7 +50,7 @@ func (g *CachedGpsData) Position(
 	defer g.mu.RUnlock()
 
 	lastPosition := g.lastPosition.GetLastPosition()
-	currentPosition := g.uncachedData.Location
+	currentPosition := g.nmeaData.Location
 
 	if currentPosition == nil {
 		return lastPosition, 0, errNilLocation
@@ -58,7 +58,7 @@ func (g *CachedGpsData) Position(
 
 	// if current position is (0,0) we will return the last non-zero position
 	if movementsensor.IsZeroPosition(currentPosition) && !movementsensor.IsZeroPosition(lastPosition) {
-		return lastPosition, g.uncachedData.Alt, g.err.Get()
+		return lastPosition, g.nmeaData.Alt, g.err.Get()
 	}
 
 	// updating the last known valid position if the current position is non-zero
@@ -66,7 +66,7 @@ func (g *CachedGpsData) Position(
 		g.lastPosition.SetLastPosition(currentPosition)
 	}
 
-	return currentPosition, g.uncachedData.Alt, g.err.Get()
+	return currentPosition, g.nmeaData.Alt, g.err.Get()
 }
 
 // Accuracy returns the accuracy map, hDOP, vDOP, Fixquality and compass heading error.
@@ -77,12 +77,12 @@ func (g *CachedGpsData) Accuracy(
 	defer g.mu.RUnlock()
 	acc := movementsensor.Accuracy{
 		AccuracyMap: map[string]float32{
-			"hDOP": float32(g.uncachedData.HDOP),
-			"vDOP": float32(g.uncachedData.VDOP),
+			"hDOP": float32(g.nmeaData.HDOP),
+			"vDOP": float32(g.nmeaData.VDOP),
 		},
-		Hdop:               float32(g.uncachedData.HDOP),
-		Vdop:               float32(g.uncachedData.VDOP),
-		NmeaFix:            int32(g.uncachedData.FixQuality),
+		Hdop:               float32(g.nmeaData.HDOP),
+		Vdop:               float32(g.nmeaData.VDOP),
+		NmeaFix:            int32(g.nmeaData.FixQuality),
 		CompassDegreeError: float32(math.NaN()),
 	}
 	return &acc, g.err.Get()
@@ -97,13 +97,13 @@ func (g *CachedGpsData) LinearVelocity(
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	if math.IsNaN(g.uncachedData.CompassHeading) {
+	if math.IsNaN(g.nmeaData.CompassHeading) {
 		return r3.Vector{}, g.err.Get()
 	}
 
-	headingInRadians := g.uncachedData.CompassHeading * (math.Pi / 180)
-	xVelocity := g.uncachedData.Speed * math.Sin(headingInRadians)
-	yVelocity := g.uncachedData.Speed * math.Cos(headingInRadians)
+	headingInRadians := g.nmeaData.CompassHeading * (math.Pi / 180)
+	xVelocity := g.nmeaData.Speed * math.Sin(headingInRadians)
+	yVelocity := g.nmeaData.Speed * math.Cos(headingInRadians)
 
 	return r3.Vector{X: xVelocity, Y: yVelocity, Z: 0}, g.err.Get()
 }
@@ -137,7 +137,7 @@ func (g *CachedGpsData) CompassHeading(
 	defer g.mu.RUnlock()
 
 	lastHeading := g.lastCompassHeading.GetLastCompassHeading()
-	currentHeading := g.uncachedData.CompassHeading
+	currentHeading := g.nmeaData.CompassHeading
 
 	if !math.IsNaN(lastHeading) && math.IsNaN(currentHeading) {
 		return lastHeading, nil
@@ -154,14 +154,14 @@ func (g *CachedGpsData) CompassHeading(
 func (g *CachedGpsData) ReadFix(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.uncachedData.FixQuality, nil
+	return g.nmeaData.FixQuality, nil
 }
 
 // ReadSatsInView returns the number of satellites in view.
 func (g *CachedGpsData) ReadSatsInView(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.uncachedData.SatsInView, nil
+	return g.nmeaData.SatsInView, nil
 }
 
 // Properties returns what movement sensor capabilities we have.
