@@ -203,9 +203,6 @@ func (ptgk *ptgBaseKinematics) goToInputs(ctx context.Context, inputs []referenc
 	}
 	arcSteps := ptgk.trajectoryToArcSteps(selectedTraj)
 
-	// Loop label is required because `break` in the inner `for` loop will not
-	// be able to break out of the outer `for` loop.
-trajectory:
 	for _, step := range arcSteps {
 		ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
 		ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {0}}
@@ -237,7 +234,7 @@ trajectory:
 			if ctx.Err() != nil {
 				ptgk.logger.CDebug(ctx, ctx.Err().Error())
 				// context cancelled
-				break trajectory
+				return ctx.Err()
 			}
 			distIncVel := step.linVelMMps.Y
 			if distIncVel == 0 {
@@ -250,8 +247,7 @@ trajectory:
 		}
 	}
 
-	// We do not know if we successfully got out of the loop
-	return ctx.Err()
+	return nil
 }
 
 func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, currentNode int) (spatialmath.Pose, error) {
