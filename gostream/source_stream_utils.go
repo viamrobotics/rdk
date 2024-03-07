@@ -4,8 +4,9 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/logging"
 )
 
 // StreamVideoSource streams the given video source to the stream forever until context signals cancellation.

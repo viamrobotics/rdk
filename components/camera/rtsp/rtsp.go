@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"image"
 	"io"
-	"log"
 	"strings"
 	"sync"
 	"syscall"
@@ -74,14 +73,14 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 type readerFunc func(formatprocessor.Unit) error
 
-type readers struct {
-	// gostream.RTPH264Reader
-	mu      sync.RWMutex
-	readers map[*camera.AsyncWriter]readerFunc
-}
+// type readers struct {
+// 	// gostream.RTPH264Reader
+// 	mu   sync.RWMutex
+// 	subs map[*camera.StreamSubscription]readerFunc
+// }
 
-// RtspCamera contains the rtsp client, and the reader function that fulfills the camera interface.
-type RtspCamera struct {
+// rtspCamera contains the rtsp client, and the reader function that fulfills the camera interface.
+type rtspCamera struct {
 	gostream.VideoReader
 	u                       *base.URL
 	client                  *gortsplib.Client
@@ -89,26 +88,25 @@ type RtspCamera struct {
 	cancelFunc              context.CancelFunc
 	activeBackgroundWorkers sync.WaitGroup
 	logger                  logging.Logger
-	readers                 readers
+	subsMu                  sync.RWMutex
+	subs                    map[*camera.StreamSubscription]readerFunc
 }
 
 // Close closes the camera. It always returns nil, but because of Close() interface, it needs to return an error.
-func (rc *RtspCamera) Close(ctx context.Context) error {
+func (rc *rtspCamera) Close(ctx context.Context) error {
 	rc.cancelFunc()
-	rc.logger.Info("DBG BEFORE rc.client.Close()")
 	rc.client.Close()
-	rc.logger.Info("DBG AFTER rc.client.Close()")
 	rc.activeBackgroundWorkers.Wait()
-	rc.readers.mu.Lock()
-	defer rc.readers.mu.Unlock()
-	for r := range rc.readers.readers {
-		rc.RemoveReader(r)
+	rc.subsMu.Lock()
+	defer rc.subsMu.Unlock()
+	for r := range rc.subs {
+		rc.Unsubscribe(r)
 	}
 	return nil
 }
 
 // clientReconnectBackgroundWorker checks every 5 sec to see if the client is connected to the server, and reconnects if not.
-func (rc *RtspCamera) clientReconnectBackgroundWorker() {
+func (rc *rtspCamera) clientReconnectBackgroundWorker() {
 	rc.activeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		for {
@@ -141,7 +139,7 @@ func (rc *RtspCamera) clientReconnectBackgroundWorker() {
 }
 
 // reconnectClient reconnects the RTSP client to the streaming server by closing the old one and starting a new one.
-func (rc *RtspCamera) reconnectClient() (err error) {
+func (rc *rtspCamera) reconnectClient() (err error) {
 	if rc == nil {
 		return errors.New("rtspCamera is nil")
 	}
@@ -189,10 +187,10 @@ func (rc *RtspCamera) reconnectClient() (err error) {
 		ntp := time.Now()
 		u, err := fp.ProcessRTPPacket(pkt, ntp, pts, false)
 		if err != nil {
-			log.Println(err.Error())
+			rc.logger.Debug(err.Error())
 			return
 		}
-		rc.pushReaders(u)
+		rc.pushToSubscribers(u)
 	})
 	_, err = rc.client.Play(nil)
 	if err != nil {
@@ -202,7 +200,8 @@ func (rc *RtspCamera) reconnectClient() (err error) {
 	return nil
 }
 
-func (rc *RtspCamera) AddH264ToWebRTCReader(r *camera.AsyncWriter, packetsCB func(pkts []*rtp.Packet) error) error {
+// SubscribeRTP registers the PacketCallback which will be called when there are new packets.
+func (rc *rtspCamera) SubscribeRTP(r *camera.StreamSubscription, packetsCB camera.PacketCallback) error {
 	webrtcPayloadMaxSize := 1188 // 1200 - 12 (RTP header)
 	encoder := &rtph264.Encoder{
 		PayloadType:    96,
@@ -213,8 +212,8 @@ func (rc *RtspCamera) AddH264ToWebRTCReader(r *camera.AsyncWriter, packetsCB fun
 		return err
 	}
 
-	rc.readers.mu.Lock()
-	defer rc.readers.mu.Unlock()
+	rc.subsMu.Lock()
+	defer rc.subsMu.Unlock()
 
 	var firstReceived bool
 	var lastPTS time.Duration
@@ -237,7 +236,7 @@ func (rc *RtspCamera) AddH264ToWebRTCReader(r *camera.AsyncWriter, packetsCB fun
 
 		pkts, err := encoder.Encode(tunit.AU)
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr
 		}
 
 		if len(pkts) == 0 {
@@ -250,33 +249,28 @@ func (rc *RtspCamera) AddH264ToWebRTCReader(r *camera.AsyncWriter, packetsCB fun
 
 		return packetsCB(pkts)
 	}
-	rc.readers.readers[r] = f
+	rc.subs[r] = f
 	r.Start()
 	return nil
 }
 
-func (rc *RtspCamera) RemoveReader(r *camera.AsyncWriter) {
-	rc.readers.mu.Lock()
-	defer rc.readers.mu.Unlock()
+// Unsubscribe deregisters the StreamSubscription's callback.
+func (rc *rtspCamera) Unsubscribe(r *camera.StreamSubscription) {
+	rc.subsMu.Lock()
+	defer rc.subsMu.Unlock()
 	r.Stop()
-	delete(rc.readers.readers, r)
+	delete(rc.subs, r)
 }
 
-func (rc *RtspCamera) pushReaders(u formatprocessor.Unit) {
-	rc.readers.mu.RLock()
-	defer rc.readers.mu.RUnlock()
-	if len(rc.readers.readers) == 0 {
-		rc.logger.Warn("no readers, dropping packets on the floor")
+func (rc *rtspCamera) pushToSubscribers(u formatprocessor.Unit) {
+	rc.subsMu.RLock()
+	defer rc.subsMu.RUnlock()
+	if len(rc.subs) == 0 {
+		// no subscribers, dropping packets on the floor
 		return
 	}
-	// rc.logger.Infof("pushing AUs to %d readers", len(rc.readers.readers))
-	for writer, cb := range rc.readers.readers {
-		writer.Push(func() error {
-			// rc.logger.Infof("pushing AUs to %s", writer.Name)
-			err := cb(u)
-			// rc.logger.Infof("pushed AUs to %s", writer.Name)
-			return err
-		})
+	for sub, cb := range rc.subs {
+		sub.Publish(func() error { return cb(u) })
 	}
 }
 
@@ -287,12 +281,10 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger
 	if err != nil {
 		return nil, err
 	}
-	rtspCam := &RtspCamera{
+	rtspCam := &rtspCamera{
 		u:      u,
 		logger: logger,
-		readers: readers{
-			readers: make(map[*camera.AsyncWriter]readerFunc),
-		},
+		subs:   make(map[*camera.StreamSubscription]readerFunc),
 	}
 	err = rtspCam.reconnectClient()
 	if err != nil {
@@ -304,7 +296,6 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
-
 	reader := gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 		select { // First select block always ensures the cancellations are listened to.
 		case <-cancelCtx.Done():
@@ -328,7 +319,7 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger
 	rtspCam.cancelFunc = cancel
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(conf.IntrinsicParams, conf.DistortionParams)
 	rtspCam.clientReconnectBackgroundWorker()
-	src, err := camera.NewVideoSourceAndPacketSourceFromReader(ctx, rtspCam, &cameraModel, camera.ColorStream)
+	src, err := camera.NewVideoSourceFromReader(ctx, rtspCam, &cameraModel, camera.ColorStream)
 	if err != nil {
 		return nil, err
 	}

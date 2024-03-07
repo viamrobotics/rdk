@@ -315,7 +315,7 @@ func NewWebcam(
 	return cam, nil
 }
 
-func (c *monitoredWebcam) H264Stream() (camera.H264Stream, error) {
+func (c *monitoredWebcam) VideoCodecStream() (camera.VideoCodecStream, error) {
 	return nil, errors.New("H264Stream unimplemented")
 }
 

@@ -1,3 +1,4 @@
+// Package formatprocessor processes RTP packets into Units when can then be re-encoded
 // heavily copied from https://github.com/bluenviron/mediamtx/blob/main/internal/formatprocessor/h264.go & the rest of that package
 package formatprocessor
 
@@ -27,6 +28,7 @@ type Unit interface {
 	GetPTS() time.Duration
 }
 
+// Processor processes RTP packets & turns them into Units.
 type Processor interface {
 	// process a Unit.
 	ProcessUnit(unit.Unit) error
@@ -40,6 +42,7 @@ type Processor interface {
 	) (Unit, error)
 }
 
+// New returns a new Processor.
 func New(
 	udpMaxPayloadSize int,
 	forma format.Format,
@@ -50,7 +53,7 @@ func New(
 		return newH264(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	default:
-		return nil, errors.New("Unsupported formatprocessor")
+		return nil, errors.New("unsupported formatprocessor")
 	}
 }
 
@@ -101,10 +104,65 @@ func rtpH264ExtractParams(payload []byte) ([]byte, []byte) {
 
 			case h264.NALUTypePPS:
 				pps = nalu
+
+			case h264.NALUTypeNonIDR,
+				h264.NALUTypeDataPartitionA,
+				h264.NALUTypeDataPartitionB,
+				h264.NALUTypeDataPartitionC,
+				h264.NALUTypeIDR,
+				h264.NALUTypeSEI,
+				h264.NALUTypeAccessUnitDelimiter,
+				h264.NALUTypeEndOfSequence,
+				h264.NALUTypeEndOfStream,
+				h264.NALUTypeFillerData,
+				h264.NALUTypeSPSExtension,
+				h264.NALUTypePrefix,
+				h264.NALUTypeSubsetSPS,
+				h264.NALUTypeReserved16,
+				h264.NALUTypeReserved17,
+				h264.NALUTypeReserved18,
+				h264.NALUTypeSliceLayerWithoutPartitioning,
+				h264.NALUTypeSliceExtension,
+				h264.NALUTypeSliceExtensionDepth,
+				h264.NALUTypeReserved22,
+				h264.NALUTypeReserved23,
+				h264.NALUTypeSTAPB,
+				h264.NALUTypeMTAP16,
+				h264.NALUTypeMTAP24,
+				h264.NALUTypeFUA,
+				h264.NALUTypeSTAPA,
+				h264.NALUTypeFUB:
 			}
 		}
 
 		return sps, pps
+	case h264.NALUTypeNonIDR,
+		h264.NALUTypeDataPartitionA,
+		h264.NALUTypeDataPartitionB,
+		h264.NALUTypeDataPartitionC,
+		h264.NALUTypeIDR,
+		h264.NALUTypeSEI,
+		h264.NALUTypeAccessUnitDelimiter,
+		h264.NALUTypeEndOfSequence,
+		h264.NALUTypeEndOfStream,
+		h264.NALUTypeFillerData,
+		h264.NALUTypeSPSExtension,
+		h264.NALUTypePrefix,
+		h264.NALUTypeSubsetSPS,
+		h264.NALUTypeReserved16,
+		h264.NALUTypeReserved17,
+		h264.NALUTypeReserved18,
+		h264.NALUTypeSliceLayerWithoutPartitioning,
+		h264.NALUTypeSliceExtension,
+		h264.NALUTypeSliceExtensionDepth,
+		h264.NALUTypeReserved22,
+		h264.NALUTypeReserved23,
+		h264.NALUTypeSTAPB,
+		h264.NALUTypeMTAP16,
+		h264.NALUTypeMTAP24,
+		h264.NALUTypeFUA,
+		h264.NALUTypeFUB:
+		fallthrough
 
 	default:
 		return nil, nil
@@ -188,6 +246,35 @@ func (t *formatProcessorH264) updateTrackParametersFromAU(au [][]byte) {
 				pps = nalu
 				update = true
 			}
+
+		case h264.NALUTypeNonIDR,
+			h264.NALUTypeDataPartitionA,
+			h264.NALUTypeDataPartitionB,
+			h264.NALUTypeDataPartitionC,
+			h264.NALUTypeIDR,
+			h264.NALUTypeSEI,
+			h264.NALUTypeAccessUnitDelimiter,
+			h264.NALUTypeEndOfSequence,
+			h264.NALUTypeEndOfStream,
+			h264.NALUTypeFillerData,
+			h264.NALUTypeSPSExtension,
+			h264.NALUTypePrefix,
+			h264.NALUTypeSubsetSPS,
+			h264.NALUTypeReserved16,
+			h264.NALUTypeReserved17,
+			h264.NALUTypeReserved18,
+			h264.NALUTypeSliceLayerWithoutPartitioning,
+			h264.NALUTypeSliceExtension,
+			h264.NALUTypeSliceExtensionDepth,
+			h264.NALUTypeReserved22,
+			h264.NALUTypeReserved23,
+			h264.NALUTypeSTAPB,
+			h264.NALUTypeMTAP16,
+			h264.NALUTypeMTAP24,
+			h264.NALUTypeFUA,
+			h264.NALUTypeSTAPA,
+			h264.NALUTypeFUB:
+		default:
 		}
 	}
 
@@ -219,6 +306,32 @@ func (t *formatProcessorH264) remuxAccessUnit(au [][]byte) [][]byte {
 					n += 2
 				}
 			}
+		case h264.NALUTypeNonIDR,
+			h264.NALUTypeDataPartitionA,
+			h264.NALUTypeDataPartitionB,
+			h264.NALUTypeDataPartitionC,
+			h264.NALUTypeSEI,
+			h264.NALUTypeEndOfSequence,
+			h264.NALUTypeEndOfStream,
+			h264.NALUTypeFillerData,
+			h264.NALUTypeSPSExtension,
+			h264.NALUTypePrefix,
+			h264.NALUTypeSubsetSPS,
+			h264.NALUTypeReserved16,
+			h264.NALUTypeReserved17,
+			h264.NALUTypeReserved18,
+			h264.NALUTypeSliceLayerWithoutPartitioning,
+			h264.NALUTypeSliceExtension,
+			h264.NALUTypeSliceExtensionDepth,
+			h264.NALUTypeReserved22,
+			h264.NALUTypeReserved23,
+			h264.NALUTypeSTAPB,
+			h264.NALUTypeMTAP16,
+			h264.NALUTypeMTAP24,
+			h264.NALUTypeFUA,
+			h264.NALUTypeSTAPA,
+			h264.NALUTypeFUB:
+		default:
 		}
 		n++
 	}
@@ -245,6 +358,33 @@ func (t *formatProcessorH264) remuxAccessUnit(au [][]byte) [][]byte {
 
 		case h264.NALUTypeAccessUnitDelimiter:
 			continue
+		case h264.NALUTypeNonIDR,
+			h264.NALUTypeDataPartitionA,
+			h264.NALUTypeDataPartitionB,
+			h264.NALUTypeDataPartitionC,
+			h264.NALUTypeSEI,
+			h264.NALUTypeEndOfSequence,
+			h264.NALUTypeEndOfStream,
+			h264.NALUTypeFillerData,
+			h264.NALUTypeSPSExtension,
+			h264.NALUTypePrefix,
+			h264.NALUTypeSubsetSPS,
+			h264.NALUTypeReserved16,
+			h264.NALUTypeReserved17,
+			h264.NALUTypeReserved18,
+			h264.NALUTypeSliceLayerWithoutPartitioning,
+			h264.NALUTypeSliceExtension,
+			h264.NALUTypeSliceExtensionDepth,
+			h264.NALUTypeReserved22,
+			h264.NALUTypeReserved23,
+			h264.NALUTypeSTAPB,
+			h264.NALUTypeMTAP16,
+			h264.NALUTypeMTAP24,
+			h264.NALUTypeFUA,
+			h264.NALUTypeSTAPA,
+			h264.NALUTypeIDR,
+			h264.NALUTypeFUB:
+		default:
 		}
 
 		filteredNALUs[i] = nalu
@@ -328,7 +468,6 @@ func (t *formatProcessorH264) ProcessRTPPacket(
 		}
 
 		if err != nil {
-			// log.Println("DBG: err: ", err.Error())
 			if errors.Is(err, rtph264.ErrNonStartingPacketAndNoPrevious) ||
 				errors.Is(err, rtph264.ErrMorePacketsNeeded) {
 				return u, nil
@@ -366,5 +505,6 @@ func (t *formatProcessorH264) ProcessRTPPacket(
 func multiplyAndDivide(v, m, d time.Duration) time.Duration {
 	secs := v / d
 	dec := v % d
+	//nolint:durationcheck
 	return (secs*m + dec*m/d)
 }

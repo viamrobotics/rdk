@@ -4,7 +4,6 @@ package camera
 import (
 	"context"
 	"image"
-	"log"
 	"sync"
 	"time"
 
@@ -83,10 +82,15 @@ type Camera interface {
 	VideoSource
 }
 
-type H264Stream interface {
-	AddH264ToWebRTCReader(r *AsyncWriter, packetsCB func(pkts []*rtp.Packet) error) error
-	RemoveReader(r *AsyncWriter)
-}
+type (
+	// PacketCallback is the signature of the SubscribeRTP callback.
+	PacketCallback func(pkts []*rtp.Packet) error
+	// VideoCodecStream is a source of video codec data.
+	VideoCodecStream interface {
+		SubscribeRTP(r *StreamSubscription, packetsCB PacketCallback) error
+		Unsubscribe(r *StreamSubscription)
+	}
+)
 
 // A VideoSource represents anything that can capture frames.
 type VideoSource interface {
@@ -99,7 +103,7 @@ type VideoSource interface {
 	// that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
 	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
 
-	H264Stream() (H264Stream, error)
+	VideoCodecStream() (VideoCodecStream, error)
 
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
 	// a part of a sequence. In the future, there could be streaming of point clouds.
@@ -160,47 +164,11 @@ func NewVideoSourceFromReader(
 	if reader == nil {
 		return nil, errors.New("cannot have a nil reader")
 	}
-	vs := gostream.NewVideoSource(reader, prop.Video{})
-	actualSystem := syst
-	if actualSystem == nil {
-		srcCam, ok := reader.(VideoSource)
-		if ok {
-			props, err := srcCam.Properties(ctx)
-			if err != nil {
-				return nil, NewPropertiesError("source camera")
-			}
 
-			var cameraModel transform.PinholeCameraModel
-			cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
-
-			if props.DistortionParams != nil {
-				cameraModel.Distortion = props.DistortionParams
-			}
-			actualSystem = &cameraModel
-		}
-	}
-	return &videoSource{
-		system:       actualSystem,
-		videoSource:  vs,
-		videoStream:  gostream.NewEmbeddedVideoStream(vs),
-		actualSource: reader,
-		imageType:    imageType,
-	}, nil
-}
-
-func NewVideoSourceAndPacketSourceFromReader(
-	ctx context.Context,
-	reader gostream.VideoReader,
-	syst *transform.PinholeCameraModel,
-	imageType ImageType,
-) (VideoSource, error) {
-	if reader == nil {
-		return nil, errors.New("cannot have a nil reader")
-	}
-
-	h264Stream, ok := reader.(H264Stream)
-	if !ok {
-		log.Fatal("expected H264Stream")
+	var videoCodecStream VideoCodecStream
+	vcs, ok := reader.(VideoCodecStream)
+	if ok {
+		videoCodecStream = vcs
 	}
 	vs := gostream.NewVideoSource(reader, prop.Video{})
 	actualSystem := syst
@@ -222,12 +190,12 @@ func NewVideoSourceAndPacketSourceFromReader(
 		}
 	}
 	return &videoSource{
-		h264Stream:   h264Stream,
-		system:       actualSystem,
-		videoSource:  vs,
-		videoStream:  gostream.NewEmbeddedVideoStream(vs),
-		actualSource: reader,
-		imageType:    imageType,
+		videoCodecStream: videoCodecStream,
+		system:           actualSystem,
+		videoSource:      vs,
+		videoStream:      gostream.NewEmbeddedVideoStream(vs),
+		actualSource:     reader,
+		imageType:        imageType,
 	}, nil
 }
 
@@ -294,17 +262,17 @@ func WrapVideoSourceWithProjector(
 
 // videoSource implements a Camera with a gostream.VideoSource.
 type videoSource struct {
-	h264Stream   H264Stream
-	videoSource  gostream.VideoSource
-	videoStream  gostream.VideoStream
-	actualSource interface{}
-	system       *transform.PinholeCameraModel
-	imageType    ImageType
+	videoCodecStream VideoCodecStream
+	videoSource      gostream.VideoSource
+	videoStream      gostream.VideoStream
+	actualSource     interface{}
+	system           *transform.PinholeCameraModel
+	imageType        ImageType
 }
 
-func (vs *videoSource) H264Stream() (H264Stream, error) {
-	if vs.h264Stream != nil {
-		return vs.h264Stream, nil
+func (vs *videoSource) VideoCodecStream() (VideoCodecStream, error) {
+	if vs.videoCodecStream != nil {
+		return vs.videoCodecStream, nil
 	}
 	return nil, errors.New("H264Stream unimplemented")
 }

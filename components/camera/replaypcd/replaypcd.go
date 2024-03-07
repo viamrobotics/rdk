@@ -166,7 +166,7 @@ func newPCDCamera(
 	return cam, nil
 }
 
-func (replay *pcdCamera) H264Stream() (camera.H264Stream, error) {
+func (replay *pcdCamera) VideoCodecStream() (camera.VideoCodecStream, error) {
 	return nil, errors.New("H264Stream unimplemented")
 }
 

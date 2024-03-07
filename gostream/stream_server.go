@@ -4,15 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"runtime/debug"
 	"sync"
 
 	"github.com/pion/webrtc/v3"
 	"go.uber.org/multierr"
 	streampb "go.viam.com/api/stream/v1"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+
+	"go.viam.com/rdk/logging"
 )
 
 // StreamAlreadyRegisteredError indicates that a stream has a name that is already registered on
@@ -45,7 +45,6 @@ type StreamServer interface {
 // NewStreamServer returns a server that will run on the given port and initially starts
 // with the given stream.
 func NewStreamServer(logger logging.Logger, streams ...Stream) (StreamServer, error) {
-	debug.PrintStack()
 	logger.Info(" DBG: NewStreamServer BEGIN")
 	defer logger.Info(" DBG: NewStreamServer END")
 	ss := &streamServer{
@@ -198,7 +197,7 @@ func (srs *streamRPCServer) AddStream(ctx context.Context, req *streampb.AddStre
 	}
 
 	if streamToAdd == nil {
-		srs.ss.logger.Infof("(srs *streamRPCServer) AddStream no stream to add")
+		srs.ss.logger.Info("(srs *streamRPCServer) AddStream no stream to add")
 		return nil, fmt.Errorf("no stream for %q", req.Name)
 	}
 	srs.ss.logger.Infof("(srs *streamRPCServer) AddStream: Stream to add: %s", streamToAdd.stream.Name())
@@ -210,7 +209,8 @@ func (srs *streamRPCServer) AddStream(ctx context.Context, req *streampb.AddStre
 		srs.ss.logger.Infof("(srs *streamRPCServer) AddStream: Stream %s is already active", streamToAdd.stream.Name())
 		return nil, errors.New("stream already active")
 	}
-	srs.ss.logger.Infof("(srs *streamRPCServer) AddStream: len(srs.ss.activePeerStreams): %d, srs.ss.activePeerStreams: %#v", len(srs.ss.activePeerStreams), srs.ss.activePeerStreams)
+	msg := "(srs *streamRPCServer) AddStream: len(srs.ss.activePeerStreams): %d, srs.ss.activePeerStreams: %#v"
+	srs.ss.logger.Infof(msg, len(srs.ss.activePeerStreams), srs.ss.activePeerStreams)
 	pcStreams, ok := srs.ss.activePeerStreams[pc]
 	srs.ss.logger.Infof("(srs *streamRPCServer) AddStream: srs.ss.activePeerStreams[pc] pc: %p, ok: %t, pcStreams: %#v", pc, ok, pcStreams)
 	if !ok {
@@ -265,7 +265,8 @@ func (srs *streamRPCServer) AddStream(ctx context.Context, req *streampb.AddStre
 	}()
 
 	addTrack := func(track webrtc.TrackLocal) error {
-		srs.ss.logger.Infof("(srs *streamRPCServer) addTrack: trackLocal: ID: %s, StreamID: %s, RID: %s", track.ID(), track.StreamID(), track.RID())
+		msg := "(srs *streamRPCServer) addTrack: trackLocal: ID: %s, StreamID: %s, RID: %s"
+		srs.ss.logger.Infof(msg, track.ID(), track.StreamID(), track.RID())
 		sender, err := pc.AddTrack(track)
 		if err != nil {
 			srs.ss.logger.Infof("(srs *streamRPCServer) addTrack: err: %s", err.Error())
@@ -277,7 +278,8 @@ func (srs *streamRPCServer) AddStream(ctx context.Context, req *streampb.AddStre
 	}
 
 	if trackLocal, haveTrackLocal := streamToAdd.stream.VideoTrackLocal(); haveTrackLocal {
-		srs.ss.logger.Infof("(srs *streamRPCServer) AddStream: haveTrackLocal: %t, trackLocal: ID: %s, StreamID: %s", haveTrackLocal, trackLocal.ID(), trackLocal.StreamID())
+		msg := "(srs *streamRPCServer) AddStream: haveTrackLocal: %t, trackLocal: ID: %s, StreamID: %s"
+		srs.ss.logger.Infof(msg, haveTrackLocal, trackLocal.ID(), trackLocal.StreamID())
 		if err := addTrack(trackLocal); err != nil {
 			srs.ss.logger.Infof("(srs *streamRPCServer) AddStream: addTrack err: %s", err.Error())
 			return nil, err
@@ -290,7 +292,7 @@ func (srs *streamRPCServer) AddStream(ctx context.Context, req *streampb.AddStre
 			return nil, err
 		}
 	}
-	srs.ss.logger.Infof("(srs *streamRPCServer) calling streamToAdd.Start()")
+	srs.ss.logger.Info("(srs *streamRPCServer) calling streamToAdd.Start()")
 	streamToAdd.Start()
 
 	successful = true
@@ -302,7 +304,7 @@ func (srs *streamRPCServer) RemoveStream(ctx context.Context, req *streampb.Remo
 	defer srs.ss.logger.Infof(" DBG: (srs *streamRPCServer) RemoveStream END %s", req.Name)
 	pc, ok := rpc.ContextPeerConnection(ctx)
 	if !ok {
-		srs.ss.logger.Infof(" DBG: (srs *streamRPCServer) RemoveStream not ok")
+		srs.ss.logger.Info(" DBG: (srs *streamRPCServer) RemoveStream not ok")
 		return nil, errors.New("can only remove a stream over a WebRTC based connection")
 	}
 	srs.ss.logger.Infof(" DBG: (srs *streamRPCServer) RemoveStream pc %p", pc)
@@ -316,7 +318,7 @@ func (srs *streamRPCServer) RemoveStream(ctx context.Context, req *streampb.Remo
 	}
 
 	if streamToRemove == nil {
-		srs.ss.logger.Infof(" DBG: (srs *streamRPCServer) RemoveStream has no stream to remove")
+		srs.ss.logger.Info(" DBG: (srs *streamRPCServer) RemoveStream has no stream to remove")
 		return nil, fmt.Errorf("no stream for %q", req.Name)
 	}
 	srs.ss.logger.Infof(" DBG: (srs *streamRPCServer) RemoveStream streamToRemove %s", streamToRemove.stream.Name())
@@ -325,7 +327,7 @@ func (srs *streamRPCServer) RemoveStream(ctx context.Context, req *streampb.Remo
 	defer srs.ss.mu.Unlock()
 
 	if _, ok := srs.ss.activePeerStreams[pc][req.Name]; !ok {
-		srs.ss.logger.Infof(" DBG: (srs *streamRPCServer) RemoveStream stream already inactive")
+		srs.ss.logger.Info(" DBG: (srs *streamRPCServer) RemoveStream stream already inactive")
 		return nil, errors.New("stream already inactive")
 	}
 	defer func() {
@@ -333,7 +335,8 @@ func (srs *streamRPCServer) RemoveStream(ctx context.Context, req *streampb.Remo
 	}()
 
 	var errs error
-	srs.ss.logger.Infof(" DBG: (srs *streamRPCServer) RemoveStream len(srs.ss.activePeerStreams[pc][req.Name].senders): %d", len(srs.ss.activePeerStreams[pc][req.Name].senders))
+	msg := " DBG: (srs *streamRPCServer) RemoveStream len(srs.ss.activePeerStreams[pc][req.Name].senders): %d"
+	srs.ss.logger.Infof(msg, len(srs.ss.activePeerStreams[pc][req.Name].senders))
 	for _, sender := range srs.ss.activePeerStreams[pc][req.Name].senders {
 		srs.ss.logger.Infof(" DBG: (srs *streamRPCServer) RemoveStream calling pc.RemoveTrack(sender) on %p", sender)
 		errs = multierr.Combine(errs, pc.RemoveTrack(sender))

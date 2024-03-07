@@ -135,7 +135,6 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		}
 
 		svc.startVideoStream(ctx, source, stream)
-
 	}
 
 	for name, source := range svc.audioSources {
@@ -241,8 +240,8 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 }
 
 func (svc *webService) startStream(name string, streamFunc func(opts *webstream.BackoffTuningOptions) error) {
-	svc.logger.Info("startStream: BEGIN")
-	defer svc.logger.Info("startStream: END")
+	svc.logger.Infof("startStream: BEGIN %s", name)
+	defer svc.logger.Info("startStream: END %s", name)
 	waitCh := make(chan struct{})
 	svc.webWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -279,7 +278,7 @@ func (svc *webService) propertiesFromStream(ctx context.Context, stream gostream
 
 func packetStream(
 	ctx context.Context,
-	h264Stream camera.H264Stream,
+	vcStream camera.VideoCodecStream,
 	stream gostream.Stream,
 	logger logging.Logger,
 ) error {
@@ -290,20 +289,24 @@ func packetStream(
 			return ctx.Err()
 		case <-readyCh:
 		}
-		asyncWriter := camera.NewAsyncWriter(stream.Name(), 512, logger)
-		err := h264Stream.AddH264ToWebRTCReader(asyncWriter, func(pkts []*rtp.Packet) error {
-			logger.Warnf("DBG writing %d RTP packets to video stream %s", len(pkts), stream.Name())
+		sub, err := camera.NewVideoCodecStreamSubscription(stream.Name(), 512, logger)
+		if err != nil {
+			return err
+		}
+		// TODO: Denote what happens if the callback returns an error
+		err = vcStream.SubscribeRTP(sub, func(pkts []*rtp.Packet) error {
 			for _, pkt := range pkts {
 				if err := stream.WriteRTP(pkt); err != nil {
-					logger.Fatal(err)
+					logger.Warn(err.Error())
 				}
 			}
 			return nil
 		})
 		if err != nil {
-			return nil
+			// Returning nil here will trigger reattempting
+			return nil //nolint:nilerr
 		}
-		defer h264Stream.RemoveReader(asyncWriter)
+		defer vcStream.Unsubscribe(sub)
 
 		select {
 		case <-ctx.Done():
@@ -319,7 +322,7 @@ func packetStream(
 	}
 }
 
-func (svc *webService) h264Stream(stream gostream.Stream) (camera.H264Stream, error) {
+func (svc *webService) h264Stream(stream gostream.Stream) (camera.VideoCodecStream, error) {
 	res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
 	if err != nil {
 		svc.logger.Fatal(err)
@@ -329,7 +332,7 @@ func (svc *webService) h264Stream(stream gostream.Stream) (camera.H264Stream, er
 		return nil, errors.Errorf("expected %s to implement camera.Camera", stream.Name())
 	}
 
-	return cam.H264Stream()
+	return cam.VideoCodecStream()
 }
 
 func (svc *webService) startVideoStream(
@@ -416,22 +419,22 @@ func (svc *webService) refreshAudioSources() {
 // Update updates the web service when the robot has changed.
 func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependencies, _ resource.Config) error {
 	svc.logger.Infof("(svc *webService) Reconfigure BEGIN %#v", deps)
-	defer svc.logger.Infof("(svc *webService) Reconfigure END")
+	defer svc.logger.Info("(svc *webService) Reconfigure END")
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	if err := svc.updateResources(deps); err != nil {
 		return err
 	}
 	if !svc.isRunning {
-		svc.logger.Infof("(svc *webService) Reconfigure web service is not running")
+		svc.logger.Info("(svc *webService) Reconfigure web service is not running")
 		return nil
 	}
 	return svc.addNewStreams(svc.cancelCtx)
 }
 
 func (svc *webService) closeStreamServer() {
-	svc.logger.Infof("svc.closeStreamServer BEGIN")
-	defer svc.logger.Infof("svc.closeStreamServer END")
+	svc.logger.Info("svc.closeStreamServer BEGIN")
+	defer svc.logger.Info("svc.closeStreamServer END")
 	if svc.streamServer.Server != nil {
 		if err := svc.streamServer.Server.Close(); err != nil {
 			svc.logger.Errorw("error closing stream server", "error", err)
@@ -440,14 +443,14 @@ func (svc *webService) closeStreamServer() {
 }
 
 func (svc *webService) initStreamServer(ctx context.Context, options *weboptions.Options) error {
-	svc.logger.Infof("initStreamServer BEGIN")
-	defer svc.logger.Infof("initStreamServer END")
+	svc.logger.Info("initStreamServer BEGIN")
+	defer svc.logger.Info("initStreamServer END")
 	var err error
 	svc.streamServer, err = svc.makeStreamServer(ctx)
 	if err != nil {
 		return err
 	}
-	svc.logger.Infof("initStreamServer BEFORE RegisterServiceServer")
+	svc.logger.Info("initStreamServer BEFORE RegisterServiceServer")
 	if err := svc.rpcServer.RegisterServiceServer(
 		ctx,
 		&streampb.StreamService_ServiceDesc,

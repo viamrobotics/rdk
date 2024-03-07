@@ -1,3 +1,4 @@
+// Package unit contains data types that represent encoded video data units
 // https://github.com/bluenviron/mediamtx/blob/main/internal/unit/h264.go & related package
 package unit
 
