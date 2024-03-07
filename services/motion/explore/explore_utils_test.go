@@ -79,7 +79,7 @@ func createFakeCamera(ctx context.Context, logger logging.Logger, name string) (
 			Height: 1000,
 		},
 	}
-	return cameraFake.NewCamera(ctx, fakeCameraCfg, logger)
+	return cameraFake.NewCamera(ctx, resource.Dependencies{}, fakeCameraCfg, logger)
 }
 
 // createMockVisionService instantiates a mock vision service with a custom version of GetObjectPointCloud that returns
