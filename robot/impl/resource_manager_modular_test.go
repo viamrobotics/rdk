@@ -388,6 +388,10 @@ type dummyModMan struct {
 	state      map[resource.Name]bool
 }
 
+func (m *dummyModMan) Add(ctx context.Context, confs ...config.Module) error {
+	return errors.New("not implemented")
+}
+
 func (m *dummyModMan) AddResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
