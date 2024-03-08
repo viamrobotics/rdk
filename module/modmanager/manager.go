@@ -151,10 +151,30 @@ func (mgr *Manager) loadModMutex(modName string) *sync.Mutex {
 	return mu
 }
 
+// getSyncModuleMap loads a snapshot of all registered modules into a thread-safe
+// sync.Map.
+func (mgr *Manager) getSyncModuleMap() (result sync.Map) {
+	mgr.mu.RLock()
+	defer mgr.mu.RUnlock()
+
+	for key, value := range mgr.modules {
+		result.Store(key, value)
+	}
+	return
+}
+
 // Add adds and starts a new resource module.
 func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
-	var wg sync.WaitGroup
-	errs := make([]error, len(confs))
+	if mgr.untrustedEnv {
+		return errModularResourcesDisabled
+	}
+
+	var (
+		wg           sync.WaitGroup
+		errs         = make([]error, len(confs))
+		newMods      = make([]*module, len(confs))
+		existingMods = mgr.getSyncModuleMap()
+	)
 
 	for i, conf := range confs {
 		wg.Add(1)
@@ -167,34 +187,40 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 				return
 			}
 
+			if _, exists := existingMods.Load(conf.Name); exists {
+				// module exists already!
+				return
+			}
+
 			mgr.logger.Infow(">>> adding module", "name", conf.Name)
 			defer mgr.logger.Infow(">>> done! added module", "name", conf.Name)
-			if err := mgr.add(ctx, conf); err != nil {
+			mod, err := mgr.add(ctx, conf)
+			if err != nil {
 				mgr.logger.CErrorw(ctx, "error adding module", "module", conf.Name, "error", err)
 				errs[i] = err
 				return
 			}
+			newMods[i] = mod
 		}(i, conf)
 	}
 	wg.Wait()
+
+	// register new modules
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+	for _, mod := range newMods {
+		if mod != nil {
+			mgr.register(mod)
+		}
+	}
+
 	return errors.Join(errs...)
 }
 
-func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
+func (mgr *Manager) add(ctx context.Context, conf config.Module) (*module, error) {
 	mu := mgr.loadModMutex(conf.Name)
 	mu.Lock()
 	defer mu.Unlock()
-
-	// TODO: rlock manager? move up?
-	if mgr.untrustedEnv {
-		return errModularResourcesDisabled
-	}
-
-	// TODO: rlock manager? move up?
-	_, exists := mgr.modules[conf.Name]
-	if exists {
-		return nil
-	}
 
 	var moduleDataDir string
 	// only set the module data directory if the parent dir is present (which it might not be during tests)
@@ -202,7 +228,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 		moduleDataDir = filepath.Join(mgr.moduleDataParentDir, conf.Name)
 		// safety check to prevent exiting the moduleDataDirectory in case conf.Name ends up including characters like ".."
 		if !strings.HasPrefix(filepath.Clean(moduleDataDir), filepath.Clean(mgr.moduleDataParentDir)) {
-			return errlib.Errorf("module %q would have a data directory %q outside of the module data directory %q",
+			return nil, errlib.Errorf("module %q would have a data directory %q outside of the module data directory %q",
 				conf.Name, moduleDataDir, mgr.moduleDataParentDir)
 		}
 	}
@@ -214,9 +240,9 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 	}
 
 	if err := mgr.startModule(ctx, mod); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return mod, nil
 }
 
 func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
@@ -255,12 +281,13 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		return errlib.WithMessage(err, "error while waiting for module to be ready "+mod.cfg.Name)
 	}
 
-	mod.registerResources(mgr, mgr.logger)
-	mgr.mu.Lock()
-	defer mgr.mu.Unlock()
-	mgr.modules[mod.cfg.Name] = mod
 	success = true
 	return nil
+}
+
+func (mgr *Manager) register(mod *module) {
+	mod.registerResources(mgr, mgr.logger)
+	mgr.modules[mod.cfg.Name] = mod
 }
 
 // Reconfigure reconfigures an existing resource module and returns the names of
@@ -290,6 +317,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 		// If re-addition fails, assume all handled resources are orphaned.
 		return handledResourceNames, err
 	}
+	mgr.register(mod)
 
 	mgr.logger.Debugw("successfully reconfigured and reconnected to module", "module", mod.cfg.Name, "module address", mod.addr)
 
