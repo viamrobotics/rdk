@@ -53,8 +53,8 @@ const (
 	prodClientID   = "HysEkkRKn6cDr2W6UFI6UYJHpiVwXFCk" // native client ID
 
 	stgAuthDomain = "https://viam.fusionauth.io/"
-	stgAudience   = "f5d78749-f224-492c-9f2b-05f557c5e43c"
-	stgClientID   = "f5d78749-f224-492c-9f2b-05f557c5e43c" // native client ID
+	stgAudience   = "d7eb6419-301c-4ef1-a5e5-8e8bf28a87c0"
+	stgClientID   = "d7eb6419-301c-4ef1-a5e5-8e8bf28a87c0" // native client ID
 
 	defaultWaitInterval = time.Second * 1
 
