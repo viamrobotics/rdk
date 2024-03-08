@@ -3,6 +3,7 @@ package sensorcontrolled
 
 import (
 	"context"
+	"math"
 	"sync"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -72,9 +74,12 @@ type sensorBase struct {
 
 	opMgr *operation.SingleOperationManager
 
-	allSensors  []movementsensor.MovementSensor
-	orientation movementsensor.MovementSensor
-	velocities  movementsensor.MovementSensor
+	allSensors     []movementsensor.MovementSensor
+	orientation    movementsensor.MovementSensor
+	velocities     movementsensor.MovementSensor
+	position       movementsensor.MovementSensor
+	compassHeading movementsensor.MovementSensor
+	headingFunc    func(ctx context.Context) (float64, error)
 
 	controlLoopConfig control.Config
 	blockNames        map[string][]string
@@ -123,6 +128,8 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	sb.allSensors = nil
 	sb.velocities = nil
 	sb.orientation = nil
+	sb.compassHeading = nil
+	sb.position = nil
 	sb.controlledBase = nil
 
 	for _, name := range newConf.MovementSensor {
@@ -153,8 +160,49 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		}
 	}
 
+	for _, ms := range sb.allSensors {
+		props, err := ms.Properties(context.Background(), nil)
+		if err == nil && props.PositionSupported {
+			// return first sensor that does not error that satisfies the properties wanted
+			sb.position = ms
+			sb.logger.CInfof(ctx, "using sensor %s as position sensor for base", sb.position.Name().ShortName())
+			break
+		}
+	}
+
+	for _, ms := range sb.allSensors {
+		props, err := ms.Properties(context.Background(), nil)
+		if err == nil && props.CompassHeadingSupported {
+			// return first sensor that does not error that satisfies the properties wanted
+			sb.compassHeading = ms
+			sb.logger.CInfof(ctx, "using sensor %s as compassHeading sensor for base", sb.compassHeading.Name().ShortName())
+			break
+		}
+	}
+
 	if sb.orientation == nil && sb.velocities == nil {
 		return errNoGoodSensor
+	}
+	if sb.orientation != nil {
+		sb.headingFunc = func(ctx context.Context) (float64, error) {
+			orient, err := sb.orientation.Orientation(ctx, nil)
+			if err != nil {
+				return 0, err
+			}
+
+			return rdkutils.RadToDeg(orient.EulerAngles().Yaw), nil
+		}
+	} else if sb.compassHeading != nil {
+		sb.headingFunc = func(ctx context.Context) (float64, error) {
+			compassHeading, err := sb.compassHeading.CompassHeading(ctx, nil)
+			if err != nil {
+				return 0, err
+			}
+
+			return compassHeading, nil
+		}
+	} else {
+		sb.headingFunc = nil
 	}
 
 	sb.controlledBase, err = base.FromDependencies(deps, newConf.Base)
@@ -209,12 +257,75 @@ func (sb *sensorBase) isPolling() bool {
 func (sb *sensorBase) MoveStraight(
 	ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{},
 ) error {
-	sb.stopLoop()
+
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
 	sb.setPolling(false)
+	spinTimeEst := time.Duration(int(time.Second) * int(math.Abs(float64(distanceMm)/mmPerSec)))
+	startTime := time.Now()
+	timeOut := 5 * spinTimeEst
+	if timeOut < 10*time.Second {
+		timeOut = 10 * time.Second
+	}
 
-	return sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
+	if sb.position == nil || len(sb.conf.ControlParameters) == 0 {
+		sb.logger.CWarn(ctx, "Position not given, using base MoveStraight")
+		sb.stopLoop()
+		return sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
+	}
+
+	if sb.headingFunc == nil {
+		sb.logger.CDebug(ctx, "No movement sensors found for heading")
+	}
+
+	// make sure the control loop is enabled
+	if sb.loop == nil {
+		if err := sb.startControlLoop(); err != nil {
+			return err
+		}
+	}
+
+	ticker := time.NewTicker(time.Duration(1000./sb.controlLoopConfig.Frequency) * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+
+			angVelDes, err := sb.calcHeadingControl(ctx)
+			if err != nil {
+				return err
+			}
+			sb.logger.Info(angVelDes)
+			linVelDes, err := sb.calcPositionControl(ctx)
+			if err != nil {
+				return err
+			}
+			sb.logger.Info(linVelDes)
+
+			if time.Since(startTime) > timeOut {
+				sb.logger.CWarn(ctx, "exceeded time for Spin call, stopping base")
+
+				return sb.Stop(ctx, nil)
+			}
+		}
+
+		return sb.Stop(ctx, nil)
+	}
+}
+func (sb *sensorBase) calcHeadingControl(ctx context.Context) (float64, error) {
+	if sb.headingFunc == nil {
+		return 0, nil
+	}
+	return sb.headingFunc(ctx)
+}
+func (sb *sensorBase) calcPositionControl(ctx context.Context) (float64, error) {
+	pos, _, err := sb.position.Position(ctx, map[string]interface{}{"return_relative_pos_m": true})
+	if err != nil {
+		return 0, err
+	}
+	return r3.Vector{X: pos.Lat(), Y: pos.Lng()}.Norm(), nil
 }
 
 func (sb *sensorBase) SetPower(
