@@ -46,15 +46,15 @@ type authFlow struct {
 }
 
 const (
-	defaultOpenIDDiscoveryPath = "/.well-known/openid-configuration"
+	defaultOpenIDDiscoveryPath = "1faffaee-e650-327f-1d26-9c6e373097cb/.well-known/openid-configuration"
 
 	prodAuthDomain = "https://auth.viam.com"
 	prodAudience   = "https://app.viam.com/"
 	prodClientID   = "HysEkkRKn6cDr2W6UFI6UYJHpiVwXFCk" // native client ID
 
-	stgAuthDomain = "https://auth.viam.dev"
-	stgAudience   = "https://app.viam.dev/"
-	stgClientID   = "o75PSAO21337n6SE0IV2BF9Aj9Er9NF6" // native client ID
+	stgAuthDomain = "https://viam.fusionauth.io/"
+	stgAudience   = "f5d78749-f224-492c-9f2b-05f557c5e43c"
+	stgClientID   = "f5d78749-f224-492c-9f2b-05f557c5e43c" // native client ID
 
 	defaultWaitInterval = time.Second * 1
 
