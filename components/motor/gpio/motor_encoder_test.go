@@ -157,9 +157,9 @@ func TestMotorEncoder1(t *testing.T) {
 		ctx := context.Background()
 
 		expectedState := EncodedMotorState{
-			regulated:    false,
-			goalRPM:      0,
-			currentRPM:   0,
+			regulated: false,
+			goalRPM:   0,
+			// currentRPM:   0,
 			lastPowerPct: 0,
 			goalPos:      0,
 			direction:    0,
@@ -171,9 +171,9 @@ func TestMotorEncoder1(t *testing.T) {
 		})
 
 		newState := EncodedMotorState{
-			regulated:    true,
-			goalRPM:      100,
-			currentRPM:   10,
+			regulated: true,
+			goalRPM:   100,
+			// currentRPM:   10,
 			lastPowerPct: 0.2,
 			goalPos:      200,
 			direction:    -1,
