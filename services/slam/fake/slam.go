@@ -80,10 +80,6 @@ func (slamSvc *SLAM) PointCloudMap(ctx context.Context, returnEditedMap bool) (f
 	return fakePointCloudMap(ctx, datasetDirectory, slamSvc)
 }
 
-func (slamSvc *SLAM) pointCloudMapNoEdits(ctx context.Context) (func() ([]byte, error), error) {
-	return slamSvc.PointCloudMap(ctx, false)
-}
-
 // InternalState returns a callback function which will return the next chunk of the current internal
 // state of the slam algo.
 func (slamSvc *SLAM) InternalState(ctx context.Context) (func() ([]byte, error), error) {
