@@ -173,6 +173,16 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 		return err
 	}
 	// On packet retreival, turn it into an image, and store it in shared memory
+	rc.client.OnPacketLost = func(err error) {
+		rc.logger.Debugf("OnPacketLost: err: %s", err.Error())
+	}
+	rc.client.OnTransportSwitch = func(err error) {
+		rc.logger.Debugf("OnTransportSwitch: err: %s", err.Error())
+	}
+	rc.client.OnDecodeError = func(err error) {
+		rc.logger.Debugf("OnDecodeError: err: %s", err.Error())
+	}
+
 	rc.client.OnPacketRTP(media, format, func(pkt *rtp.Packet) {
 		pts, ok := rc.client.PacketPTS(media, pkt)
 		if !ok {
