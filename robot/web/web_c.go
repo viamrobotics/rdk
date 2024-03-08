@@ -89,10 +89,7 @@ func (svc *webService) streamInitialized() bool {
 }
 
 func (svc *webService) addNewStreams(ctx context.Context) error {
-	svc.logger.CInfo(ctx, "addNewStreams BEGIN ")
-	defer svc.logger.CInfo(ctx, "addNewStreams END")
 	if !svc.streamInitialized() {
-		svc.logger.CInfo(ctx, "addNewStreams !svc.streamInitialized()")
 		return nil
 	}
 	svc.refreshVideoSources()
@@ -125,12 +122,10 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 	}
 
 	for name, source := range svc.videoSources {
-		svc.logger.CInfof(ctx, "svc.videoSources: sourceName: %s", name)
 		stream, alreadyRegistered, err := newStream(name)
 		if err != nil {
 			return err
 		} else if alreadyRegistered {
-			svc.logger.CInfo(ctx, "svc.videoSources: alreadyRegistered")
 			continue
 		}
 
@@ -152,8 +147,6 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 }
 
 func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, error) {
-	svc.logger.CInfof(ctx, "svc.makeStreamServer BEGIN")
-	defer svc.logger.CInfof(ctx, "svc.makeStreamServer END")
 	svc.refreshVideoSources()
 	svc.refreshAudioSources()
 	var streams []gostream.Stream
@@ -163,7 +156,7 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 		if len(svc.videoSources) != 0 || len(svc.audioSources) != 0 {
 			svc.logger.Debug("not starting streams due to no stream config being set")
 		}
-		noopServer, err := gostream.NewStreamServer(svc.logger, streams...)
+		noopServer, err := gostream.NewStreamServer(streams...)
 		return &StreamServer{noopServer, false}, err
 	}
 
@@ -201,7 +194,6 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 		return append(streams, stream), nil
 	}
 	for name := range svc.videoSources {
-		svc.logger.CInfof(ctx, "svc.makeStreamServer svc.videoSources: %s", name)
 		var err error
 		streams, err = addStream(streams, name, true)
 		if err != nil {
@@ -218,12 +210,7 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 		streamTypes = append(streamTypes, false)
 	}
 
-	ns := []string{}
-	for _, s := range streams {
-		ns = append(ns, s.Name())
-	}
-	svc.logger.CInfof(ctx, "svc.makeStreamServer calling NewStreamServer with streams: %#v", ns)
-	streamServer, err := gostream.NewStreamServer(svc.logger, streams...)
+	streamServer, err := gostream.NewStreamServer(streams...)
 	if err != nil {
 		return nil, err
 	}

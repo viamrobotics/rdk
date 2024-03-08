@@ -124,8 +124,6 @@ func (r *localRobot) PackageManager() packages.Manager {
 
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
-	r.logger.Info("Close BEGIN")
-	defer r.logger.Info("Close END")
 	// we will stop and close web ourselves since modules need it to be
 	// removed properly and in the right order, so grab it before its removed
 	// from the graph/closed automatically.
@@ -161,8 +159,6 @@ func (r *localRobot) Close(ctx context.Context) error {
 
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
 func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
-	r.logger.Info("StopAll BEGIN")
-	defer r.logger.Info("StopAll END")
 	// Stop all operations
 	for _, op := range r.OperationManager().All() {
 		op.Cancel()
@@ -216,15 +212,11 @@ func (r *localRobot) Logger() logging.Logger {
 
 // StartWeb starts the web server, will return an error if server is already up.
 func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err error) {
-	r.logger.Info("StartWeb BEGIN")
-	defer r.logger.Info("StartWeb END")
 	return r.webSvc.Start(ctx, o)
 }
 
 // StopWeb stops the web server, will be a noop if server is not up.
 func (r *localRobot) StopWeb() {
-	r.logger.Info("StopWeb BEGIN")
-	defer r.logger.Info("StopWeb END")
 	r.webSvc.Stop()
 }
 
@@ -1057,8 +1049,6 @@ func dialRobotClient(
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources. The given config may be modified by Reconfigure.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
-	r.logger.Info("(r *localRobot) Reconfigure BEGIN")
-	defer r.logger.Info("(r *localRobot) Reconfigure END")
 	var allErrs error
 
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages

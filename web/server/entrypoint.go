@@ -172,8 +172,6 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 // runServer is an entry point to starting the web server after the local config is read. Once the local config
 // is read the logger may be initialized to remote log. This ensure we capture errors starting up the server and report to the cloud.
 func (s *robotServer) runServer(ctx context.Context) error {
-	s.logger.Info("runServer BEGIN")
-	defer s.logger.Info("runServer END")
 	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
 	cfg, err := config.Read(initialReadCtx, s.args.ConfigFile, s.logger)
 	if err != nil {
@@ -220,7 +218,7 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 
-	hungShutdownDeadline := 2 * time.Second
+	hungShutdownDeadline := 90 * time.Second
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcherAfterContext(
 		ctx, hungShutdownDeadline, "server is taking a while to shutdown", s.logger.AsZap())
 
@@ -234,7 +232,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 		<-ctx.Done()
 
-		slowTicker := time.NewTicker(1 * time.Second)
+		slowTicker := time.NewTicker(10 * time.Second)
 		defer slowTicker.Stop()
 
 		checkDone := func() bool {
