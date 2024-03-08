@@ -340,7 +340,7 @@ func packetStream(
 func (svc *webService) h264Stream(stream gostream.Stream) (camera.VideoCodecStream, error) {
 	res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
 	if err != nil {
-		svc.logger.Fatal(err)
+		return nil, err
 	}
 	cam, ok := res.(camera.Camera)
 	if !ok {
