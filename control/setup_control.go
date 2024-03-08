@@ -154,7 +154,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 		}
 		// switch sum to depend on the setpoint if position control
 		if p.Options.PositionControlUsingTrapz {
-			p.logger.Info("tuning trapz")
+			p.logger.Debug("tuning trapz PID")
 			p.ControlConf.Blocks[sumIndex].DependsOn[0] = p.BlockNames[BlockNameConstant][0]
 			if err := p.StartControlLoop(); err != nil {
 				errs = multierr.Combine(errs, err)
