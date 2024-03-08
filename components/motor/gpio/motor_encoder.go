@@ -170,12 +170,11 @@ type EncodedMotor struct {
 // EncodedMotorState is the core, non-statistical state for the motor.
 // Multiple values should be updated atomically at the same time.
 type EncodedMotorState struct {
-	regulated bool
-	goalRPM   float64 // <= 0 means worker should do nothing
-	// currentRPM   float64
+	regulated    bool
+	goalRPM      float64 // <= 0 means worker should do nothing
 	lastPowerPct float64
 	goalPos      float64
-	direction float64
+	direction    float64
 }
 
 // rpmMonitorStart starts the RPM monitor.
@@ -461,7 +460,6 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 
 	m.state.regulated = true
 	if revolutions == 0 {
-
 		if m.loop != nil {
 			velVal := math.Abs(rpm * m.ticksPerRotation / 60)
 			// when rev = 0, only velocity is controlled
