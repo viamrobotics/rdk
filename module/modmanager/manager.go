@@ -254,6 +254,8 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	var success bool
 	defer func() {
 		if !success {
+			mgr.mu.Lock()
+			defer mgr.mu.Unlock()
 			mod.cleanupAfterStartupFailure(mgr, false)
 		}
 	}()
@@ -1027,11 +1029,9 @@ func (m *module) cleanupAfterStartupFailure(mgr *Manager, afterCrash bool) {
 	if afterCrash {
 		for r, mod := range mgr.rMap {
 			if mod == m {
-				// TODO: lock or partition!
 				delete(mgr.rMap, r)
 			}
 		}
-		// TODO: lock or partition!
 		delete(mgr.modules, m.cfg.Name)
 	}
 }
