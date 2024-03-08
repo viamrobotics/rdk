@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 var errNilLocation = errors.New("nil gps location, check nmea message parsing")
@@ -75,6 +76,11 @@ func (g *CachedData) Accuracy(
 ) (*movementsensor.Accuracy, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
+
+	firstPos := g.lastPosition.GetLastPosition()
+	secondPos := g.nmeaData.Location
+	compassDegreeError := calculateBearing(firstPos.Lat(), firstPos.Lng(), secondPos.Lat(), secondPos.Lng())
+
 	acc := movementsensor.Accuracy{
 		AccuracyMap: map[string]float32{
 			"hDOP": float32(g.nmeaData.HDOP),
@@ -83,7 +89,7 @@ func (g *CachedData) Accuracy(
 		Hdop:               float32(g.nmeaData.HDOP),
 		Vdop:               float32(g.nmeaData.VDOP),
 		NmeaFix:            int32(g.nmeaData.FixQuality),
-		CompassDegreeError: float32(math.NaN()),
+		CompassDegreeError: float32(compassDegreeError),
 	}
 	return &acc, g.err.Get()
 }
@@ -173,4 +179,26 @@ func (g *CachedData) Properties(
 		PositionSupported:       true,
 		CompassHeadingSupported: true,
 	}, nil
+}
+
+// calculateBearing calculates the compass bearing from one point to another.
+func calculateBearing(lat1, lon1, lat2, lon2 float64) float64 {
+	// Convert latitude and longitude from degrees to radians.
+	lat1 = utils.DegToRad(lat1)
+	lat2 = utils.DegToRad(lat2)
+	lon1 = utils.DegToRad(lon1)
+	lon2 = utils.DegToRad(lon2)
+
+	// Calculate the difference in longitude.
+	dLon := lon2 - lon1
+
+	// Calculate the bearing.
+	y := math.Sin(dLon) * math.Cos(lat2)
+	x := math.Cos(lat1)*math.Sin(lat2) - math.Sin(lat1)*math.Cos(lat2)*math.Cos(dLon)
+	bearing := utils.RadToDeg(math.Atan2(y, x))
+
+	// Normalize the bearing to be within the range 0-360.
+	bearing = math.Mod(bearing+360, 360)
+
+	return bearing
 }
