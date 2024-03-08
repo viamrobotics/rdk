@@ -16,18 +16,6 @@ import (
 	"go.viam.com/rdk/components/camera/rtsp/unit"
 )
 
-// Unit is the elementary data unit routed across the server.
-type Unit interface {
-	// returns RTP packets contained into the unit.
-	GetRTPPackets() []*rtp.Packet
-
-	// returns the NTP timestamp of the unit.
-	GetNTP() time.Time
-
-	// returns the PTS of the unit.
-	GetPTS() time.Duration
-}
-
 // Processor processes RTP packets & turns them into Units.
 type Processor interface {
 	// process a Unit.
@@ -39,7 +27,7 @@ type Processor interface {
 		ntp time.Time,
 		pts time.Duration,
 		hasNonRTSPReaders bool,
-	) (Unit, error)
+	) (unit.Unit, error)
 }
 
 // New returns a new Processor.
@@ -422,7 +410,7 @@ func (t *formatProcessorH264) ProcessRTPPacket(
 	ntp time.Time,
 	pts time.Duration,
 	hasNonRTSPReaders bool,
-) (Unit, error) {
+) (unit.Unit, error) {
 	u := &unit.H264{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},

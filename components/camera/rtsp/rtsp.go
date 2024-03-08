@@ -72,7 +72,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 type (
-	unitSubscriberFunc func(formatprocessor.Unit) error
+	unitSubscriberFunc func(unit.Unit) error
 	rtspCamera         struct {
 		gostream.VideoReader
 		u                       *base.URL
@@ -229,7 +229,7 @@ func (rc *rtspCamera) SubscribeRTP(r *camera.StreamSubscription, packetsCB camer
 	// This is intended to free the SubscribeRTP caller from needing
 	// to care about how to transform RTSP compliant RTP packets into
 	// WebRTC compliant RTP packets.
-	unitSubscriberFunc := func(u formatprocessor.Unit) error {
+	unitSubscriberFunc := func(u unit.Unit) error {
 		tunit, ok := u.(*unit.H264)
 		if !ok {
 			return errors.New("(*unit.H264) type conversion error")
