@@ -16,6 +16,8 @@ import (
 
 var errNilLocation = errors.New("nil gps location, check nmea message parsing")
 
+const earthRadiusKm = 6371 // Earth's radius in kilometers
+
 // CachedData allows the use of any MovementSensor chip via a DataReader.
 type CachedData struct {
 	mu       sync.RWMutex
@@ -77,9 +79,7 @@ func (g *CachedData) Accuracy(
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	firstPos := g.lastPosition.GetLastPosition()
-	secondPos := g.nmeaData.Location
-	compassDegreeError := calculateBearing(firstPos.Lat(), firstPos.Lng(), secondPos.Lat(), secondPos.Lng())
+	compassDegreeError := g.calculateCompassDegreeError()
 
 	acc := movementsensor.Accuracy{
 		AccuracyMap: map[string]float32{
@@ -181,24 +181,38 @@ func (g *CachedData) Properties(
 	}, nil
 }
 
-// calculateBearing calculates the compass bearing from one point to another.
-func calculateBearing(lat1, lon1, lat2, lon2 float64) float64 {
-	// Convert latitude and longitude from degrees to radians.
-	lat1 = utils.DegToRad(lat1)
-	lat2 = utils.DegToRad(lat2)
-	lon1 = utils.DegToRad(lon1)
-	lon2 = utils.DegToRad(lon2)
+// findDistance calculates the distance between two points on Earth.
+// lat1, lon1: Latitude and Longitude of point 1 (in decimal degrees)
+// lat2, lon2: Latitude and Longitude of point 2 (in decimal degrees)
+// returns the distance in meters
+func findDistance(lat1, lon1, lat2, lon2 float64) float64 {
+	lat1Rad, lon1Rad := utils.DegToRad(lat1), utils.DegToRad(lon1)
+	lat2Rad, lon2Rad := utils.DegToRad(lat2), utils.DegToRad(lon2)
 
-	// Calculate the difference in longitude.
-	dLon := lon2 - lon1
+	dLat := lat2Rad - lat1Rad
+	dLon := lon2Rad - lon1Rad
 
-	// Calculate the bearing.
-	y := math.Sin(dLon) * math.Cos(lat2)
-	x := math.Cos(lat1)*math.Sin(lat2) - math.Sin(lat1)*math.Cos(lat2)*math.Cos(dLon)
-	bearing := utils.RadToDeg(math.Atan2(y, x))
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1Rad)*math.Cos(lat2Rad)*
+			math.Sin(dLon/2)*math.Sin(dLon/2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 
-	// Normalize the bearing to be within the range 0-360.
-	bearing = math.Mod(bearing+360, 360)
+	distanceKm := earthRadiusKm * c
+	return distanceKm * 1000 // convert km to meters
+}
 
-	return bearing
+// calculateCompassDegreeError calculates the compass degree error
+// of two geo points.
+func (g *CachedData) calculateCompassDegreeError() float64 {
+	firstPos := g.lastPosition.GetLastPosition()
+	secondPos := g.nmeaData.Location
+	adjacent := findDistance(firstPos.Lat(), firstPos.Lng(), secondPos.Lat(), secondPos.Lng())
+	radius := 5.0
+	if g.nmeaData.FixQuality >= 4 {
+		radius = 0.1
+	}
+	// math.Atan2 returns the angle in radians, so we convert it to degrees.
+	thetaRadians := math.Atan2(radius, adjacent)
+	thetaDegrees := utils.RadToDeg(thetaRadians)
+	return thetaDegrees
 }
