@@ -14,7 +14,7 @@ const (
 	slowDownAng = 15. // angle from goal for spin to begin breaking
 )
 
-// // Spin commands a base to turn about its center at a angular speed and for a specific angle.
+// Spin commands a base to turn about its center at an angular speed and for a specific angle.
 func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	// if controls are not configured, use the underlying base's spin
 	if len(sb.conf.ControlParameters) == 0 {
