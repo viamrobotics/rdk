@@ -226,9 +226,7 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 	return &StreamServer{streamServer, true}, nil
 }
 
-func (svc *webService) startStream(name string, streamFunc func(opts *webstream.BackoffTuningOptions) error) {
-	svc.logger.Infof("startStream: BEGIN %s", name)
-	defer svc.logger.Info("startStream: END %s", name)
+func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuningOptions) error) {
 	waitCh := make(chan struct{})
 	svc.webWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -240,7 +238,6 @@ func (svc *webService) startStream(name string, streamFunc func(opts *webstream.
 			Cooldown:  5 * time.Second,
 		}
 		if err := streamFunc(opts); err != nil {
-			defer svc.logger.Info("startStream: streamFunc err: %s", err)
 			if utils.FilterOutError(err, context.Canceled) != nil {
 				svc.logger.Errorw("error streaming", "error", err)
 			}
@@ -329,8 +326,7 @@ func (svc *webService) startVideoStream(
 ) {
 	// if the camera supports h264 streaming, use passthrough
 	if h264Stream, err := svc.h264Stream(stream); err == nil {
-		svc.logger.Info("using packetStream")
-		svc.startStream(stream.Name(), func(*webstream.BackoffTuningOptions) error {
+		svc.startStream(func(*webstream.BackoffTuningOptions) error {
 			streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
 			// Use H264 for cameras that support it; but do not override upstream values.
 			if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
@@ -342,9 +338,8 @@ func (svc *webService) startVideoStream(
 		return
 	}
 
-	svc.logger.Info("using gostream")
 	// otherwise, fallback to go stream GetImage jpeg -> h264 encoding
-	svc.startStream(stream.Name(), func(opts *webstream.BackoffTuningOptions) error {
+	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
 		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
 		// Use H264 for cameras that support it; but do not override upstream values.
 		if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
@@ -356,7 +351,7 @@ func (svc *webService) startVideoStream(
 }
 
 func (svc *webService) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
-	svc.startStream(stream.Name(), func(opts *webstream.BackoffTuningOptions) error {
+	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
 		// Merge ctx that may be coming from a Reconfigure.
 		streamAudioCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
 		return webstream.StreamAudioSource(streamAudioCtx, source, stream, opts, svc.logger)
@@ -365,22 +360,16 @@ func (svc *webService) startAudioStream(ctx context.Context, source gostream.Aud
 
 // refreshVideoSources checks and initializes every possible video source that could be viewed from the robot.
 func (svc *webService) refreshVideoSources() {
-	svc.logger.Info("svc.refreshVideoSources BEGIN")
-	defer svc.logger.Info("svc.refreshVideoSources END")
 	for _, name := range camera.NamesFromRobot(svc.r) {
-		svc.logger.Infof("svc.refreshVideoSources cam name: %s", name)
 		cam, err := camera.FromRobot(svc.r, name)
 		if err != nil {
-			svc.logger.Infof("svc.refreshVideoSources err: %s", err)
 			continue
 		}
 		existing, ok := svc.videoSources[validSDPTrackName(name)]
 		if ok {
-			svc.logger.Infof("svc.refreshVideoSources swapping %s", name)
 			existing.Swap(cam)
 			continue
 		}
-		svc.logger.Infof("svc.refreshVideoSources making new cam for %s", name)
 		newSwapper := gostream.NewHotSwappableVideoSource(cam)
 		svc.videoSources[validSDPTrackName(name)] = newSwapper
 	}
@@ -405,23 +394,18 @@ func (svc *webService) refreshAudioSources() {
 
 // Update updates the web service when the robot has changed.
 func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependencies, _ resource.Config) error {
-	svc.logger.Infof("(svc *webService) Reconfigure BEGIN %#v", deps)
-	defer svc.logger.Info("(svc *webService) Reconfigure END")
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	if err := svc.updateResources(deps); err != nil {
 		return err
 	}
 	if !svc.isRunning {
-		svc.logger.Info("(svc *webService) Reconfigure web service is not running")
 		return nil
 	}
 	return svc.addNewStreams(svc.cancelCtx)
 }
 
 func (svc *webService) closeStreamServer() {
-	svc.logger.Info("svc.closeStreamServer BEGIN")
-	defer svc.logger.Info("svc.closeStreamServer END")
 	if svc.streamServer.Server != nil {
 		if err := svc.streamServer.Server.Close(); err != nil {
 			svc.logger.Errorw("error closing stream server", "error", err)
@@ -430,24 +414,19 @@ func (svc *webService) closeStreamServer() {
 }
 
 func (svc *webService) initStreamServer(ctx context.Context, options *weboptions.Options) error {
-	svc.logger.Info("initStreamServer BEGIN")
-	defer svc.logger.Info("initStreamServer END")
 	var err error
 	svc.streamServer, err = svc.makeStreamServer(ctx)
 	if err != nil {
 		return err
 	}
-	svc.logger.Info("initStreamServer BEFORE RegisterServiceServer")
 	if err := svc.rpcServer.RegisterServiceServer(
 		ctx,
 		&streampb.StreamService_ServiceDesc,
 		svc.streamServer.Server.ServiceServer(),
 		streampb.RegisterStreamServiceHandlerFromEndpoint,
 	); err != nil {
-		svc.logger.Infof("initStreamServer AFTER RegisterServiceServer: err: %s", err.Error())
 		return err
 	}
-	svc.logger.Infof("initStreamServer AFTER RegisterServiceServer: svc.streamServer.HasStreams: %t", svc.streamServer.HasStreams)
 	if svc.streamServer.HasStreams {
 		// force WebRTC template rendering
 		options.WebRTC = true
