@@ -89,7 +89,7 @@ func TestFakeSLAMPointMap(t *testing.T) {
 	t.Run(testName, func(t *testing.T) {
 		slamSvc := NewSLAM(slam.Named("test"), logging.NewTestLogger(t))
 
-		data := getDataFromStream(t, slamSvc.PointCloudMap)
+		data := getDataFromStream(t, slamSvc.pointCloudMapNoEdits)
 		test.That(t, len(data), test.ShouldBeGreaterThan, 0)
 
 		path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDirectory, slamSvc.getCount())))
@@ -98,7 +98,7 @@ func TestFakeSLAMPointMap(t *testing.T) {
 
 		test.That(t, data, test.ShouldResemble, expectedData)
 
-		data2 := getDataFromStream(t, slamSvc.PointCloudMap)
+		data2 := getDataFromStream(t, slamSvc.pointCloudMapNoEdits)
 		test.That(t, len(data2), test.ShouldBeGreaterThan, 0)
 
 		path2 := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDirectory, slamSvc.getCount())))
@@ -136,7 +136,7 @@ func verifyPointCloudMapStateful(t *testing.T, slamSvc *SLAM) {
 
 	// Call GetPointCloudMap twice for every testData artifact
 	for i := 0; i < testDataCount*2; i++ {
-		f, err := slamSvc.PointCloudMap(context.Background())
+		f, err := slamSvc.PointCloudMap(context.Background(), false)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, f, test.ShouldNotBeNil)
 		pcd, err := helperConcatenateChunksToFull(f)

@@ -63,7 +63,7 @@ func TestClientWorkingService(t *testing.T) {
 		return poseSucc, componentRefSucc, nil
 	}
 
-	workingSLAMService.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+	workingSLAMService.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 		reader := bytes.NewReader(pcd)
 		clientBuffer := make([]byte, chunkSizePointCloud)
 		f := func() ([]byte, error) {
@@ -127,7 +127,7 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, componentRef, test.ShouldEqual, componentRefSucc)
 
 		// test point cloud map
-		fullBytesPCD, err := slam.PointCloudMapFull(context.Background(), workingSLAMClient)
+		fullBytesPCD, err := slam.PointCloudMapFull(context.Background(), workingSLAMClient, false)
 		test.That(t, err, test.ShouldBeNil)
 		// comparing raw bytes to ensure order is correct
 		test.That(t, fullBytesPCD, test.ShouldResemble, pcd)
@@ -162,7 +162,7 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, componentRef, test.ShouldEqual, componentRefSucc)
 
 		// test point cloud map
-		fullBytesPCD, err := slam.PointCloudMapFull(context.Background(), workingDialedClient)
+		fullBytesPCD, err := slam.PointCloudMapFull(context.Background(), workingDialedClient, false)
 		test.That(t, err, test.ShouldBeNil)
 		// comparing raw bytes to ensure order is correct
 		test.That(t, fullBytesPCD, test.ShouldResemble, pcd)
@@ -205,7 +205,7 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, componentRef, test.ShouldEqual, componentRefSucc)
 
 		// test point cloud map
-		fullBytesPCD, err := slam.PointCloudMapFull(context.Background(), dialedClient)
+		fullBytesPCD, err := slam.PointCloudMapFull(context.Background(), dialedClient, false)
 		test.That(t, err, test.ShouldBeNil)
 		// comparing raw bytes to ensure order is correct
 		test.That(t, fullBytesPCD, test.ShouldResemble, pcd)
@@ -247,7 +247,7 @@ func TestFailingClient(t *testing.T) {
 		return nil, "", errors.New("failure to get position")
 	}
 
-	failingSLAMService.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+	failingSLAMService.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 		return nil, errors.New("failure during get pointcloud map")
 	}
 
@@ -282,7 +282,7 @@ func TestFailingClient(t *testing.T) {
 		cancelCtx, cancelFunc := context.WithCancel(ctx)
 		cancelFunc()
 
-		_, err = failingSLAMClient.PointCloudMap(cancelCtx)
+		_, err = failingSLAMClient.PointCloudMap(cancelCtx, false)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "context cancel")
 		_, err = failingSLAMClient.InternalState(cancelCtx)
@@ -297,7 +297,7 @@ func TestFailingClient(t *testing.T) {
 		test.That(t, componentRef, test.ShouldBeEmpty)
 
 		// test pointcloud map
-		fullBytesPCD, err := slam.PointCloudMapFull(context.Background(), failingSLAMClient)
+		fullBytesPCD, err := slam.PointCloudMapFull(context.Background(), failingSLAMClient, false)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during get pointcloud map")
 		test.That(t, fullBytesPCD, test.ShouldBeNil)
@@ -317,7 +317,7 @@ func TestFailingClient(t *testing.T) {
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
-	failingSLAMService.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+	failingSLAMService.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 		f := func() ([]byte, error) {
 			return nil, errors.New("failure during callback")
 		}
@@ -339,7 +339,7 @@ func TestFailingClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// test pointcloud map
-		fullBytesPCD, err := slam.PointCloudMapFull(context.Background(), failingSLAMClient)
+		fullBytesPCD, err := slam.PointCloudMapFull(context.Background(), failingSLAMClient, false)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure during callback")
 		test.That(t, fullBytesPCD, test.ShouldBeNil)
 

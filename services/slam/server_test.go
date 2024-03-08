@@ -91,7 +91,7 @@ func TestWorkingServer(t *testing.T) {
 	})
 
 	t.Run("working GetPointCloudMap", func(t *testing.T) {
-		injectSvc.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		injectSvc.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 			reader := bytes.NewReader(pcd)
 			serverBuffer := make([]byte, chunkSizeServer)
 			f := func() ([]byte, error) {
@@ -106,7 +106,7 @@ func TestWorkingServer(t *testing.T) {
 			return f, nil
 		}
 
-		reqPointCloudMap := &pb.GetPointCloudMapRequest{Name: testSlamServiceName}
+		reqPointCloudMap := &pb.GetPointCloudMapRequest{Name: testSlamServiceName, ReturnEditedMap: nil}
 		mockServer := makePointCloudServerMock()
 		err = slamServer.GetPointCloudMap(reqPointCloudMap, mockServer)
 		test.That(t, err, test.ShouldBeNil)
@@ -177,7 +177,7 @@ func TestWorkingServer(t *testing.T) {
 			return poseSucc, componentRefSucc, nil
 		}
 
-		injectSvc.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		injectSvc.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 			reader := bytes.NewReader(pcd)
 			serverBuffer := make([]byte, chunkSizeServer)
 			f := func() ([]byte, error) {
@@ -248,7 +248,7 @@ func TestFailingServer(t *testing.T) {
 
 	t.Run("failing GetPointCloudMap", func(t *testing.T) {
 		// PointCloudMapFunc failure
-		injectSvc.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		injectSvc.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 			return nil, errors.New("failure to get pointcloud map")
 		}
 
@@ -259,7 +259,7 @@ func TestFailingServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get pointcloud map")
 
 		// Callback failure
-		injectSvc.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		injectSvc.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 			f := func() ([]byte, error) {
 				return []byte{}, errors.New("callback error")
 			}
