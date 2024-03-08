@@ -289,7 +289,7 @@ func packetStream(
 			return ctx.Err()
 		case <-readyCh:
 		}
-		sub, err := camera.NewVideoCodecStreamSubscription(stream.Name(), 512, logger)
+		sub, err := camera.NewVideoCodecStreamSubscription(512)
 		if err != nil {
 			return err
 		}

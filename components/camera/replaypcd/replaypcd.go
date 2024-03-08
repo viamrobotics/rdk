@@ -167,7 +167,7 @@ func newPCDCamera(
 }
 
 func (replay *pcdCamera) VideoCodecStream() (camera.VideoCodecStream, error) {
-	return nil, errors.New("H264Stream unimplemented")
+	return nil, errors.New("VideoCodecStream unimplemented")
 }
 
 // NextPointCloud returns the next point cloud retrieved from cloud storage based on the applied filter.

@@ -71,26 +71,20 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	return nil, nil
 }
 
-type readerFunc func(formatprocessor.Unit) error
-
-// type readers struct {
-// 	// gostream.RTPH264Reader
-// 	mu   sync.RWMutex
-// 	subs map[*camera.StreamSubscription]readerFunc
-// }
-
-// rtspCamera contains the rtsp client, and the reader function that fulfills the camera interface.
-type rtspCamera struct {
-	gostream.VideoReader
-	u                       *base.URL
-	client                  *gortsplib.Client
-	cancelCtx               context.Context
-	cancelFunc              context.CancelFunc
-	activeBackgroundWorkers sync.WaitGroup
-	logger                  logging.Logger
-	subsMu                  sync.RWMutex
-	subs                    map[*camera.StreamSubscription]readerFunc
-}
+type (
+	unitSubscriberFunc func(formatprocessor.Unit) error
+	rtspCamera         struct {
+		gostream.VideoReader
+		u                       *base.URL
+		client                  *gortsplib.Client
+		cancelCtx               context.Context
+		cancelFunc              context.CancelFunc
+		activeBackgroundWorkers sync.WaitGroup
+		logger                  logging.Logger
+		subsMu                  sync.RWMutex
+		subs                    map[*camera.StreamSubscription]unitSubscriberFunc
+	}
+)
 
 // Close closes the camera. It always returns nil, but because of Close() interface, it needs to return an error.
 func (rc *rtspCamera) Close(ctx context.Context) error {
@@ -185,12 +179,24 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 			return
 		}
 		ntp := time.Now()
+		// NOTE(NickS): Why is this false?
 		u, err := fp.ProcessRTPPacket(pkt, ntp, pts, false)
 		if err != nil {
 			rc.logger.Debug(err.Error())
 			return
 		}
-		rc.pushToSubscribers(u)
+		rc.subsMu.RLock()
+		defer rc.subsMu.RUnlock()
+		if len(rc.subs) == 0 {
+			// no subscribers, dropping packets on the floor
+			return
+		}
+		// Publish the newly received packet Unit to all subscribers
+		for sub, cb := range rc.subs {
+			if err := sub.Publish(func() error { return cb(u) }); err != nil {
+				rc.logger.Debug("RTP packet dropped due to %s", err.Error())
+			}
+		}
 	})
 	_, err = rc.client.Play(nil)
 	if err != nil {
@@ -201,6 +207,8 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 }
 
 // SubscribeRTP registers the PacketCallback which will be called when there are new packets.
+// NOTE: Packets may be dropped before calling packetsCB if the rate new packets are received by
+// the VideoCodecStream is greater than the rate the subscriber consumes them.
 func (rc *rtspCamera) SubscribeRTP(r *camera.StreamSubscription, packetsCB camera.PacketCallback) error {
 	webrtcPayloadMaxSize := 1188 // 1200 - 12 (RTP header)
 	encoder := &rtph264.Encoder{
@@ -212,17 +220,22 @@ func (rc *rtspCamera) SubscribeRTP(r *camera.StreamSubscription, packetsCB camer
 		return err
 	}
 
-	rc.subsMu.Lock()
-	defer rc.subsMu.Unlock()
-
 	var firstReceived bool
 	var lastPTS time.Duration
-	f := func(u formatprocessor.Unit) error {
+	// OnPacketRTP will call this unitSubscriberFunc for all subscribers.
+	// unitSubscriberFunc will then convert the Unit into a slice of
+	// WebRTC compliant RTP packets & call packetsCB, which will
+	// allow the caller of SubscribeRTP to handle the packets.
+	// This is intended to free the SubscribeRTP caller from needing
+	// to care about how to transform RTSP compliant RTP packets into
+	// WebRTC compliant RTP packets.
+	unitSubscriberFunc := func(u formatprocessor.Unit) error {
 		tunit, ok := u.(*unit.H264)
 		if !ok {
-			return errors.New("u.(*unit.H264) type conversion error")
+			return errors.New("(*unit.H264) type conversion error")
 		}
 
+		// If we have no AUs we can't encode packets.
 		if tunit.AU == nil {
 			return nil
 		}
@@ -236,10 +249,12 @@ func (rc *rtspCamera) SubscribeRTP(r *camera.StreamSubscription, packetsCB camer
 
 		pkts, err := encoder.Encode(tunit.AU)
 		if err != nil {
+			// If there is an Encode error we just drop the packets.
 			return nil //nolint:nilerr
 		}
 
 		if len(pkts) == 0 {
+			// If no packets can be encoded from the AU, there is no need to call the subscriber's callback.
 			return nil
 		}
 
@@ -249,7 +264,10 @@ func (rc *rtspCamera) SubscribeRTP(r *camera.StreamSubscription, packetsCB camer
 
 		return packetsCB(pkts)
 	}
-	rc.subs[r] = f
+
+	rc.subsMu.Lock()
+	defer rc.subsMu.Unlock()
+	rc.subs[r] = unitSubscriberFunc
 	r.Start()
 	return nil
 }
@@ -262,18 +280,6 @@ func (rc *rtspCamera) Unsubscribe(r *camera.StreamSubscription) {
 	delete(rc.subs, r)
 }
 
-func (rc *rtspCamera) pushToSubscribers(u formatprocessor.Unit) {
-	rc.subsMu.RLock()
-	defer rc.subsMu.RUnlock()
-	if len(rc.subs) == 0 {
-		// no subscribers, dropping packets on the floor
-		return
-	}
-	for sub, cb := range rc.subs {
-		sub.Publish(func() error { return cb(u) })
-	}
-}
-
 // NewRTSPCamera creates a camera client using RTSP given the server URL.
 // Right now, only supports servers that have MJPEG video tracks.
 func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (camera.Camera, error) {
@@ -284,7 +290,7 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger
 	rtspCam := &rtspCamera{
 		u:      u,
 		logger: logger,
-		subs:   make(map[*camera.StreamSubscription]readerFunc),
+		subs:   make(map[*camera.StreamSubscription]unitSubscriberFunc),
 	}
 	err = rtspCam.reconnectClient()
 	if err != nil {
@@ -296,6 +302,8 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
+	// TEMP: This is to placate the GetImage method by returning a hard coded image.
+	// When the solution for converting H264 into images lands this should be replaced
 	reader := gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 		select { // First select block always ensures the cancellations are listened to.
 		case <-cancelCtx.Done():

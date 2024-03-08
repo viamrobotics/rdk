@@ -111,7 +111,7 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 }
 
 func (c *client) VideoCodecStream() (VideoCodecStream, error) {
-	return nil, errors.New("H264Stream unimplemented")
+	return nil, errors.New("VideoCodecStream unimplemented")
 }
 
 func (c *client) Stream(

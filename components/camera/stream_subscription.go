@@ -3,8 +3,7 @@ package camera
 import (
 	"github.com/bluenviron/gortsplib/v4/pkg/ringbuffer"
 	"github.com/pkg/errors"
-
-	"go.viam.com/rdk/logging"
+	"go.viam.com/utils"
 )
 
 // StreamSubscription executes the callbacks sent to Publish
@@ -13,28 +12,18 @@ import (
 // This is desirable behavior for streaming protocols where
 // dropping stale packets is desirable to minimize latency.
 type StreamSubscription struct {
-	Name   string
-	logger logging.Logger
 	buffer *ringbuffer.RingBuffer
-
-	// out
-	err chan error
+	err    chan error
 }
 
 // NewVideoCodecStreamSubscription allocates a VideoCodecStreamSubscription.
-func NewVideoCodecStreamSubscription(
-	name string,
-	queueSize int,
-	logger logging.Logger,
-) (*StreamSubscription, error) {
+func NewVideoCodecStreamSubscription(queueSize int) (*StreamSubscription, error) {
 	buffer, err := ringbuffer.New(uint64(queueSize))
 	if err != nil {
 		return nil, err
 	}
 
 	return &StreamSubscription{
-		Name:   name,
-		logger: logger,
 		buffer: buffer,
 		err:    make(chan error),
 	}, nil
@@ -42,18 +31,13 @@ func NewVideoCodecStreamSubscription(
 
 // Start starts the writer routine.
 func (w *StreamSubscription) Start() {
-	go w.run()
+	utils.PanicCapturingGo(w.run)
 }
 
 // Stop stops the writer routine.
 func (w *StreamSubscription) Stop() {
 	w.buffer.Close()
 	<-w.err
-}
-
-// Error returns whenever there's an error.
-func (w *StreamSubscription) Error() chan error {
-	return w.err
 }
 
 func (w *StreamSubscription) run() {
@@ -67,6 +51,10 @@ func (w *StreamSubscription) runInner() error {
 			return errors.New("terminated")
 		}
 
+		// TODO: Test that this means that if there is the callback returns an error
+		// it will deregister the subscriber & leave the goroutine alive
+		// and blocked on writing to w.err until
+		// Stop() is called
 		err := cb.(func() error)()
 		if err != nil {
 			return err
@@ -74,10 +62,13 @@ func (w *StreamSubscription) runInner() error {
 	}
 }
 
-// Publish appends an element to the queue.
-func (w *StreamSubscription) Publish(cb func() error) {
+// Publish publishes the callback to the subscriber
+// return an error and does not publish
+// if there are too many queued messages to publish.
+func (w *StreamSubscription) Publish(cb func() error) error {
 	ok := w.buffer.Push(cb)
 	if !ok {
-		w.logger.Warn("write queue is full")
+		return errors.New("StreamSubscription Publish queue is full")
 	}
+	return nil
 }

@@ -274,7 +274,7 @@ func (vs *videoSource) VideoCodecStream() (VideoCodecStream, error) {
 	if vs.videoCodecStream != nil {
 		return vs.videoCodecStream, nil
 	}
-	return nil, errors.New("H264Stream unimplemented")
+	return nil, errors.New("VideoCodecStream unimplemented")
 }
 
 func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {

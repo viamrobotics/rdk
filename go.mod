@@ -10,7 +10,6 @@ require (
 	github.com/NYTimes/gziphandler v1.1.1
 	github.com/a8m/envsubst v1.4.2
 	github.com/adrianmo/go-nmea v1.7.0
-	github.com/aler9/gortsplib/v2 v2.2.2
 	github.com/axw/gocov v1.1.0
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
 	github.com/benbjohnson/clock v1.3.3
