@@ -151,18 +151,6 @@ func (mgr *Manager) loadModMutex(modName string) *sync.Mutex {
 	return mu
 }
 
-// getSyncModuleMap loads a snapshot of all registered modules into a thread-safe
-// sync.Map.
-func (mgr *Manager) getSyncModuleMap() (result sync.Map) {
-	mgr.mu.RLock()
-	defer mgr.mu.RUnlock()
-
-	for key, value := range mgr.modules {
-		result.Store(key, value)
-	}
-	return
-}
-
 // Add adds and starts a new resource module.
 func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 	if mgr.untrustedEnv {
@@ -170,16 +158,15 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 	}
 
 	var (
-		wg           sync.WaitGroup
-		errs         = make([]error, len(confs))
-		newMods      = make([]*module, len(confs))
-		existingMods = mgr.getSyncModuleMap()
+		wg      sync.WaitGroup
+		errs    = make([]error, len(confs))
+		newMods = make([]*module, len(confs))
 	)
 
-	for i, conf := range confs {
-		wg.Add(1)
-		go func(i int, conf config.Module) {
-			defer wg.Done()
+	func() {
+		mgr.mu.RLock()
+		defer mgr.mu.RUnlock()
+		for i, conf := range confs {
 			// this is done in config validation but partial start rules require us to check again
 			if err := conf.Validate(""); err != nil {
 				mgr.logger.CErrorw(ctx, "module config validation error; skipping", "module", conf.Name, "error", err)
@@ -187,21 +174,27 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 				return
 			}
 
-			if _, exists := existingMods.Load(conf.Name); exists {
+			if _, exists := mgr.modules[conf.Name]; exists {
 				// module exists already!
 				return
 			}
 
-			mod, err := mgr.add(ctx, conf)
-			if err != nil {
-				mgr.logger.CErrorw(ctx, "error adding module", "module", conf.Name, "error", err)
-				errs[i] = err
-				return
-			}
-			newMods[i] = mod
-		}(i, conf)
-	}
-	wg.Wait()
+			// setup valid, new modules in parallel
+			wg.Add(1)
+			go func(i int, conf config.Module) {
+				defer wg.Done()
+
+				mod, err := mgr.add(ctx, conf)
+				if err != nil {
+					mgr.logger.CErrorw(ctx, "error adding module", "module", conf.Name, "error", err)
+					errs[i] = err
+					return
+				}
+				newMods[i] = mod
+			}(i, conf)
+		}
+		wg.Wait()
+	}()
 
 	// register new modules
 	mgr.mu.Lock()
