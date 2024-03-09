@@ -1019,6 +1019,7 @@ func (m *module) cleanupAfterStartupFailure(mgr *Manager, afterCrash bool) {
 
 	// Remove module from rMap and mgr.modules if startup failure was after crash.
 	if afterCrash {
+		mgr.mu.TryLock()
 		for r, mod := range mgr.rMap {
 			if mod == m {
 				// TODO: lock or partition!
