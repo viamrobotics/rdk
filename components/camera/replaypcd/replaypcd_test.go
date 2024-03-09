@@ -40,7 +40,7 @@ var (
 	}
 	numFilesOriginal = map[method]int{
 		nextPointCloud: 15,
-		getImages:      10, // TODO[kat]: Fix this
+		getImages:      25,
 	}
 
 	numFiles = map[method]int{
