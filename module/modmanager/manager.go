@@ -164,8 +164,6 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 	)
 
 	func() {
-		mgr.mu.RLock()
-		defer mgr.mu.RUnlock()
 		for i, conf := range confs {
 			// this is done in config validation but partial start rules require us to check again
 			if err := conf.Validate(""); err != nil {
@@ -174,7 +172,10 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 				return
 			}
 
-			if _, exists := mgr.modules[conf.Name]; exists {
+			mgr.mu.RLock()
+			_, exists := mgr.modules[conf.Name]
+			mgr.mu.RUnlock()
+			if exists {
 				// module exists already!
 				return
 			}
