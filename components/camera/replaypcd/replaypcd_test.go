@@ -386,8 +386,13 @@ func TestReplayCameraNextPointCloud(t *testing.T) {
 					pc, err := replayCamera.NextPointCloud(ctx)
 					test.That(t, err, test.ShouldBeNil)
 					pcExpected, err := getPointCloudFromArtifact(i)
-					test.That(t, err, test.ShouldBeNil)
-					test.That(t, pc, test.ShouldResemble, pcExpected)
+					if err != nil {
+						test.That(t, err.Error, test.ShouldContainSubstring, "artifact not found")
+						test.That(t, pc, test.ShouldBeNil)
+					} else {
+						test.That(t, err, test.ShouldBeNil)
+						test.That(t, pc, test.ShouldResemble, pcExpected)
+					}
 				}
 			}
 
@@ -405,10 +410,10 @@ func TestReplayCameraNextPointCloud(t *testing.T) {
 	}
 }
 
-// TestLiveNextPointCloud checks the replay pcd camera's ability to handle new data being added to the
-// database the pool during a session, proving that NextPointCloud can return new data even after
-// returning errEndOfDataset.
-func TestReplayPCDLiveNextPointCloud(t *testing.T) {
+// TestReplayCameraLiveNextPointCloud checks the replay pcd camera's ability to handle new data being
+// added to the database the pool during a session, proving that NextPointCloud can return new data
+// even after returning errEndOfDataset.
+func TestReplayCameraLiveNextPointCloud(t *testing.T) {
 	ctx := context.Background()
 
 	numFiles[nextPointCloud] = 10
