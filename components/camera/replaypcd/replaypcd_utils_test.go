@@ -3,6 +3,7 @@ package replaypcd
 import (
 	"context"
 	"fmt"
+	"image"
 	"math"
 	"net"
 	"net/http"
@@ -364,63 +365,48 @@ func newHTTPMock(pattern string, statusCode int) map[method][]*httptest.Server {
 	return httpServers
 }
 
+func getImageFromArtifact(rgbdFileType fileType, i int) (camera.NamedImage, error) {
+	currentRGBDFileType = rgbdFileType
+	datasetDirectory, err := getDatasetDirectory(getImages, i)
+	if err != nil {
+		return camera.NamedImage{}, err
+	}
+	path := filepath.Clean(artifact.MustPath(datasetDirectory))
+	rgbFile, err := os.Open(path)
+	if err != nil {
+		return camera.NamedImage{}, err
+	}
+	defer utils.UncheckedErrorFunc(rgbFile.Close)
+
+	img, _, err := image.Decode(rgbFile)
+	if err != nil {
+		return camera.NamedImage{}, err
+	}
+	namedImage := camera.NamedImage{
+		Image:      img,
+		SourceName: "mock-rgbd",
+	}
+
+	return namedImage, nil
+}
+
 // getImagesFromArtifact will return an array of images based on the provided artifact path.
-// func getImagesFromArtifact(i int) ([]camera.NamedImage, error) {
+func getImagesFromArtifact(i int) ([]camera.NamedImage, error) {
+	tmpCurrentRGBDFileType := currentRGBDFileType
 
-// 	datasetDirectory, err := getDatasetDirectory(getImages, i)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	path := filepath.Clean(artifact.MustPath(datasetDirectory))
-// 	pcdFile, err := os.Open(path)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer utils.UncheckedErrorFunc(pcdFile.Close)
+	namedImages := []camera.NamedImage{}
+	for _, rgbdFileType := range []fileType{jpeg, depth} {
+		image, err := getImageFromArtifact(rgbdFileType, i)
+		if err != nil {
+			return nil, err
+		}
+		namedImages = append(namedImages, image)
+	}
 
-// 	pcExpected, err := pointcloud.ReadPCD(pcdFile)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	currentRGBDFileType = tmpCurrentRGBDFileType
 
-// 	return pcExpected, nil
-
-// 	rgbDirectory := datasetDirectories[getImages] + "/rgb/%d.jpeg"
-// 	rgbPath := filepath.Clean(artifact.MustPath(fmt.Sprintf(rgbDirectory, i)))
-// 	rgbFile, err := os.Open(rgbPath)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer utils.UncheckedErrorFunc(rgbFile.Close)
-
-// 	depthDirectory := datasetDirectories[getImages] + "/depth/%d.dep"
-// 	depthPath := filepath.Clean(artifact.MustPath(fmt.Sprintf(depthDirectory, i)))
-// 	depthFile, err := os.Open(depthPath)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer utils.UncheckedErrorFunc(depthFile.Close)
-
-// 	rgb, _, err := image.Decode(rgbFile)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	namedRgb := camera.NamedImage{
-// 		Image:      rgb,
-// 		SourceName: "mock-rgbd",
-// 	}
-
-// 	depth, _, err := image.Decode(depthFile)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	namedDepth := camera.NamedImage{
-// 		Image:      depth,
-// 		SourceName: "mock-rgbd",
-// 	}
-
-// 	return []camera.NamedImage{namedRgb, namedDepth}, nil
-// }
+	return namedImages, nil
+}
 
 func getDatasetDirectory(method method, fileNum int) (string, error) {
 	switch method {

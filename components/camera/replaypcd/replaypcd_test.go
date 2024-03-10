@@ -65,7 +65,7 @@ var (
 	}
 )
 
-func TestReplayPCDNew(t *testing.T) {
+func TestNewReplayCamera(t *testing.T) {
 	ctx := context.Background()
 
 	cases := []struct {
