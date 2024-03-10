@@ -114,6 +114,38 @@ type Manager struct {
 	restartCtxCancel        context.CancelFunc
 }
 
+// modulesRange is a typesafe wrapper for mgr.modules.Range
+func (mgr *Manager) modulesRange(f func(name string, mod *module) bool) {
+	mgr.modules.Range(func(key any, value any) bool {
+		return f(key.(string), value.(*module))
+	})
+}
+
+// modulesLoad is a typesafe wrapper for mgr.modules.Load
+func (mgr *Manager) modulesLoad(name string) (*module, bool) {
+	value, ok := mgr.modules.Load(name)
+	if value == nil {
+		return nil, ok
+	}
+	return value.(*module), ok
+}
+
+// rMapRange is a typesafe wrapper for mgr.rMap.Range
+func (mgr *Manager) rMapRange(f func(name resource.Name, mod *module) bool) {
+	mgr.rMap.Range(func(key any, value any) bool {
+		return f(key.(resource.Name), value.(*module))
+	})
+}
+
+// rMapLoad is a typesafe wrapper for mgr.rMap.Load
+func (mgr *Manager) rMapLoad(name resource.Name) (*module, bool) {
+	value, ok := mgr.rMap.Load(name)
+	if value == nil {
+		return nil, ok
+	}
+	return value.(*module), ok
+}
+
 // Close terminates module connections and processes.
 func (mgr *Manager) Close(ctx context.Context) error {
 	mgr.mu.Lock()
@@ -123,8 +155,7 @@ func (mgr *Manager) Close(ctx context.Context) error {
 		mgr.restartCtxCancel()
 	}
 	var err error
-	mgr.modules.Range(func(_ any, value any) bool {
-		mod := value.(*module)
+	mgr.modulesRange(func(_ string, mod *module) bool {
 		err = multierr.Combine(err, mgr.closeModule(mod, false))
 		return true
 	})
@@ -138,9 +169,7 @@ func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 
 	res := map[string]modlib.HandlerMap{}
 
-	mgr.modules.Range(func(key any, value any) bool {
-		n := key.(string)
-		m := value.(*module)
+	mgr.modulesRange(func(n string, m *module) bool {
 		res[n] = m.handles
 		return true
 	})
@@ -287,11 +316,10 @@ func (mgr *Manager) register(mod *module) {
 func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]resource.Name, error) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	value, exists := mgr.modules.Load(conf.Name)
+	mod, exists := mgr.modulesLoad(conf.Name)
 	if !exists {
 		return nil, errlib.Errorf("cannot reconfigure module %s as it does not exist", conf.Name)
 	}
-	mod := value.(*module)
 	handledResources := mod.resources
 	var handledResourceNames []resource.Name
 	for name := range handledResources {
@@ -335,11 +363,10 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	value, exists := mgr.modules.Load(modName)
+	mod, exists := mgr.modulesLoad(modName)
 	if !exists {
 		return nil, errlib.Errorf("cannot remove module %s as it does not exist", modName)
 	}
-	mod := value.(*module)
 	handledResources := mod.resources
 
 	// If module handles no resources, remove it now. Otherwise mark it
@@ -383,9 +410,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 
 	mod.deregisterResources()
 
-	mgr.rMap.Range(func(key any, value any) bool {
-		r := key.(resource.Name)
-		m := value.(*module)
+	mgr.rMapRange(func(r resource.Name, m *module) bool {
 		if m == mod {
 			mgr.rMap.Delete(r)
 		}
@@ -458,8 +483,7 @@ func (mgr *Manager) Configs() []config.Module {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
 	var configs []config.Module
-	mgr.modules.Range(func(_ any, value any) bool {
-		mod := value.(*module)
+	mgr.modulesRange(func(_ string, mod *module) bool {
 		configs = append(configs, mod.cfg)
 		return true
 	})
@@ -478,7 +502,7 @@ func (mgr *Manager) Provides(conf resource.Config) bool {
 func (mgr *Manager) IsModularResource(name resource.Name) bool {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	_, ok := mgr.rMap.Load(name)
+	_, ok := mgr.rMapLoad(name)
 	return ok
 }
 
@@ -486,11 +510,10 @@ func (mgr *Manager) IsModularResource(name resource.Name) bool {
 func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	value, ok := mgr.rMap.Load(name)
+	mod, ok := mgr.rMapLoad(name)
 	if !ok {
 		return errlib.Errorf("resource %+v not found in module", name)
 	}
-	mod := value.(*module)
 	mgr.rMap.Delete(name)
 	delete(mod.resources, name)
 	_, err := mod.client.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
@@ -601,8 +624,7 @@ func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, con
 }
 
 func (mgr *Manager) getModule(conf resource.Config) (foundMod *module, exists bool) {
-	mgr.modules.Range(func(key any, value any) bool {
-		mod := value.(*module)
+	mgr.modulesRange(func(_ string, mod *module) bool {
 		var api resource.RPCAPI
 		var ok bool
 		for a := range mod.handles {
@@ -640,8 +662,7 @@ func (mgr *Manager) CleanModuleDataDirectory() error {
 	}
 	// Absolute path to all dirs that should exist
 	expectedDirs := make(map[string]bool)
-	mgr.modules.Range(func(_ any, value any) bool {
-		m := value.(*module)
+	mgr.modulesRange(func(_ string, m *module) bool {
 		expectedDirs[m.dataDir] = true
 		return true
 	})
@@ -1035,9 +1056,7 @@ func (m *module) cleanupAfterStartupFailure(mgr *Manager, afterCrash bool) {
 
 	// Remove module from rMap and mgr.modules if startup failure was after crash.
 	if afterCrash {
-		mgr.rMap.Range(func(key any, value any) bool {
-			r := key.(resource.Name)
-			mod := value.(*module)
+		mgr.rMapRange(func(r resource.Name, mod *module) bool {
 			if mod == m {
 				mgr.rMap.Delete(r)
 			}
