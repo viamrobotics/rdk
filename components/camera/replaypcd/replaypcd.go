@@ -1,4 +1,4 @@
-// Package replaypcd implements a replay camera that can return point cloud data.
+// Package replay implements a replay camera that can return point cloud data and images.
 package replaypcd
 
 import (
@@ -46,15 +46,17 @@ const (
 
 var (
 	// model is the model of a replay camera.
-	model = resource.DefaultModelFamily.WithModel("replay_pcd")
+	model = resource.DefaultModelFamily.WithModel("replay")
 
 	// ErrEndOfDataset represents that the replay sensor has reached the end of the dataset.
 	ErrEndOfDataset = errors.New("reached end of dataset")
+
+	methodList = []method{nextPointCloud, getImages}
 )
 
 func init() {
 	resource.RegisterComponent(camera.API, model, resource.Registration[camera.Camera, *Config]{
-		Constructor: newPCDCamera,
+		Constructor: newReplayCamera,
 	})
 }
 
@@ -149,8 +151,8 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	return []string{cloud.InternalServiceName.String()}, nil
 }
 
-// pcdCamera is a camera model that plays back pre-captured point cloud data.
-type pcdCamera struct {
+// replayCamera is a camera model that plays back pre-captured point cloud data and images.
+type replayCamera struct {
 	resource.Named
 	logger logging.Logger
 
@@ -161,10 +163,9 @@ type pcdCamera struct {
 	dataClient   datapb.DataServiceClient
 	httpClient   *http.Client
 
-	lastPointCloudData string
-	lastImagesData     string
-	limit              uint64
-	filter             *datapb.Filter
+	lastData map[method]string
+	limit    uint64
+	filter   *datapb.Filter
 
 	pointCloudCache []*pointCloudCacheEntry
 	imageCache      []*imageCacheEntry
@@ -173,11 +174,11 @@ type pcdCamera struct {
 	closed bool
 }
 
-// newPCDCamera creates a new replay camera based on the inputted config and dependencies.
-func newPCDCamera(
+// newReplayCamera creates a new replay camera based on the inputted config and dependencies.
+func newReplayCamera(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (camera.Camera, error) {
-	cam := &pcdCamera{
+	cam := &replayCamera{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
 	}
@@ -190,7 +191,7 @@ func newPCDCamera(
 }
 
 // NextPointCloud returns the next point cloud retrieved from cloud storage based on the applied filter.
-func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (replay *replayCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	// First acquire the lock, so that it's safe to populate the cache and/or retrieve and
 	// remove the next data point from the cache. Note that if multiple threads call
 	// NextPointCloud concurrently, they may get data out-of-order, since there's no guarantee
@@ -216,7 +217,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 		DataRequest: &datapb.DataRequest{
 			Filter:    filter,
 			Limit:     replay.limit,
-			Last:      replay.lastPointCloudData,
+			Last:      replay.lastData[nextPointCloud],
 			SortOrder: datapb.Order_ORDER_ASCENDING,
 		},
 		CountOnly:     false,
@@ -229,7 +230,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	if len(resp.GetData()) == 0 {
 		return nil, ErrEndOfDataset
 	}
-	replay.lastPointCloudData = resp.GetLast()
+	replay.lastData[nextPointCloud] = resp.GetLast()
 
 	// If using a batch size of 1, we already received the data itself, so decode and return the
 	// binary data directly
@@ -270,7 +271,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 
 // downloadPointCloudBatch iterates through the current cache, performing the download of the respective data in
 // parallel and adds all of them to the cache before returning.
-func (replay *pcdCamera) downloadPointCloudBatch(ctx context.Context) {
+func (replay *replayCamera) downloadPointCloudBatch(ctx context.Context) {
 	// Parallelize download of data based on ids in cache
 	var wg sync.WaitGroup
 	wg.Add(len(replay.pointCloudCache))
@@ -289,7 +290,7 @@ func (replay *pcdCamera) downloadPointCloudBatch(ctx context.Context) {
 }
 
 // getPointcloudFromHTTP makes a request to an http endpoint app serves, which gets redirected to GCS.
-func (replay *pcdCamera) getPointcloudFromHTTP(ctx context.Context, dataURL string) (pointcloud.PointCloud, error) {
+func (replay *replayCamera) getPointcloudFromHTTP(ctx context.Context, dataURL string) (pointcloud.PointCloud, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, dataURL, nil)
 	if err != nil {
 		return nil, err
@@ -319,7 +320,7 @@ func (replay *pcdCamera) getPointcloudFromHTTP(ctx context.Context, dataURL stri
 
 // getPointCloudDataFromCache retrieves the next cached data and removes it from the cache. It assumes the
 // write lock is being held.
-func (replay *pcdCamera) getPointCloudDataFromCache(ctx context.Context) (pointcloud.PointCloud, error) {
+func (replay *replayCamera) getPointCloudDataFromCache(ctx context.Context) (pointcloud.PointCloud, error) {
 	// Grab the next cached data and update the cache immediately, even if there's an error,
 	// so we don't get stuck in a loop checking for and returning the same error.
 	data := replay.pointCloudCache[0]
@@ -355,7 +356,7 @@ func addGRPCMetadata(ctx context.Context, timeRequested, timeReceived *timestamp
 }
 
 // Images is a part of the camera interface but is not implemented for replay.
-func (replay *pcdCamera) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+func (replay *replayCamera) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	// First acquire the lock, so that it's safe to populate the cache and/or retrieve and
 	// remove the next data point from the cache. Note that if multiple threads call
 	// Images concurrently, they may get data out-of-order, since there's no guarantee
@@ -380,7 +381,7 @@ func (replay *pcdCamera) Images(ctx context.Context) ([]camera.NamedImage, resou
 }
 
 // Properties is a part of the camera interface and returns the camera.Properties struct with SupportsPCD set to true.
-func (replay *pcdCamera) Properties(ctx context.Context) (camera.Properties, error) {
+func (replay *replayCamera) Properties(ctx context.Context) (camera.Properties, error) {
 	props := camera.Properties{
 		SupportsPCD: true,
 	}
@@ -388,19 +389,19 @@ func (replay *pcdCamera) Properties(ctx context.Context) (camera.Properties, err
 }
 
 // Projector is a part of the camera interface but is not implemented for replay.
-func (replay *pcdCamera) Projector(ctx context.Context) (transform.Projector, error) {
+func (replay *replayCamera) Projector(ctx context.Context) (transform.Projector, error) {
 	var proj transform.Projector
 	return proj, errors.New("Projector is unimplemented")
 }
 
 // Stream is a part of the camera interface but is not implemented for replay.
-func (replay *pcdCamera) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+func (replay *replayCamera) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 	var stream gostream.VideoStream
 	return stream, errors.New("Stream is unimplemented")
 }
 
 // Close stops replay camera, closes the channels and its connections to the cloud.
-func (replay *pcdCamera) Close(ctx context.Context) error {
+func (replay *replayCamera) Close(ctx context.Context) error {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 
@@ -412,7 +413,7 @@ func (replay *pcdCamera) Close(ctx context.Context) error {
 
 // Reconfigure finishes the bring up of the replay camera by evaluating given arguments and setting up the required cloud
 // connection.
-func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+func (replay *replayCamera) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {
@@ -447,7 +448,14 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 	} else {
 		replay.limit = *replayCamConfig.BatchSize
 	}
+
 	replay.pointCloudCache = nil
+	replay.imageCache = nil
+
+	replay.lastData = map[method]string{}
+	for _, k := range methodList {
+		replay.lastData[k] = ""
+	}
 
 	replay.filter = &datapb.Filter{
 		ComponentName:   replayCamConfig.Source,
@@ -456,8 +464,6 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 		OrganizationIds: []string{replayCamConfig.OrganizationID},
 		Interval:        &datapb.CaptureInterval{},
 	}
-	replay.lastPointCloudData = ""
-	replay.lastImagesData = ""
 
 	if replayCamConfig.Interval.Start != "" {
 		startTime, err := time.Parse(timeFormat, replayCamConfig.Interval.Start)
@@ -481,7 +487,7 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 }
 
 // closeCloudConnection closes all parts of the cloud connection used by the replay camera.
-func (replay *pcdCamera) closeCloudConnection(ctx context.Context) {
+func (replay *replayCamera) closeCloudConnection(ctx context.Context) {
 	if replay.cloudConn != nil {
 		goutils.UncheckedError(replay.cloudConn.Close())
 	}
@@ -492,7 +498,7 @@ func (replay *pcdCamera) closeCloudConnection(ctx context.Context) {
 }
 
 // initCloudConnection creates a rpc client connection and data service.
-func (replay *pcdCamera) initCloudConnection(ctx context.Context) error {
+func (replay *replayCamera) initCloudConnection(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
 
@@ -524,7 +530,7 @@ func decodePointCloudResponseData(respData []*datapb.BinaryData) (pointcloud.Poi
 
 // downloadImagesBatch iterates through the current cache, performing the download of the respective data in
 // parallel and adds all of them to the cache before returning.
-func (replay *pcdCamera) downloadImagesBatch(ctx context.Context) {
+func (replay *replayCamera) downloadImagesBatch(ctx context.Context) {
 	// Parallelize download of data based on ids in cache
 	var wg sync.WaitGroup
 	wg.Add(len(replay.imageCache))
@@ -543,7 +549,7 @@ func (replay *pcdCamera) downloadImagesBatch(ctx context.Context) {
 }
 
 // getImageFromHTTP makes a request to an http endpoint app serves, which gets redirected to GCS.
-func (replay *pcdCamera) getImageFromHTTP(ctx context.Context, data *imageCacheEntry) (camera.NamedImage, error) {
+func (replay *replayCamera) getImageFromHTTP(ctx context.Context, data *imageCacheEntry) (camera.NamedImage, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, data.uri, nil)
 	if err != nil {
 		return camera.NamedImage{}, err
@@ -589,7 +595,7 @@ func (replay *pcdCamera) getImageFromHTTP(ctx context.Context, data *imageCacheE
 
 // getImagesDataFromCache retrieves the next cached data and removes it from the cache. It assumes the
 // write lock is being held.
-func (replay *pcdCamera) getImagesDataFromCache(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+func (replay *replayCamera) getImagesDataFromCache(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	data := replay.imageCache[0]
 	if data.err != nil {
 		// If there's an error, update the cache immediately,
@@ -627,7 +633,7 @@ func (replay *pcdCamera) getImagesDataFromCache(ctx context.Context) ([]camera.N
 	return images, resource.ResponseMetadata{CapturedAt: data.timeReceived.AsTime()}, nil
 }
 
-func (replay *pcdCamera) updateImagesCache(ctx context.Context) error {
+func (replay *replayCamera) updateImagesCache(ctx context.Context) error {
 	filter := replay.filter
 	filter.MimeType = []string{}
 	filter.Method = string(getImages)
@@ -636,7 +642,7 @@ func (replay *pcdCamera) updateImagesCache(ctx context.Context) error {
 		DataRequest: &datapb.DataRequest{
 			Filter:    filter,
 			Limit:     replay.limit,
-			Last:      replay.lastImagesData,
+			Last:      replay.lastData[getImages],
 			SortOrder: datapb.Order_ORDER_ASCENDING,
 		},
 		CountOnly: false,
@@ -648,7 +654,7 @@ func (replay *pcdCamera) updateImagesCache(ctx context.Context) error {
 	if len(resp.GetData()) == 0 {
 		return ErrEndOfDataset
 	}
-	replay.lastImagesData = resp.GetLast()
+	replay.lastData[getImages] = resp.GetLast()
 
 	// For Images, we'll use the metadata from BinaryDataByFilter to download
 	// data in parallel and cache the results since we need to pair them.

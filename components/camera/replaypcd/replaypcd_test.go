@@ -25,6 +25,14 @@ const (
 	validAPIKeyID       = "a key id"
 )
 
+type fileType string
+
+const (
+	pcd   fileType = ".pcd"
+	jpeg  fileType = ".jpeg"
+	depth fileType = ".dep"
+)
+
 var (
 	batchSize0        = uint64(0)
 	batchSize1        = uint64(1)
@@ -34,13 +42,21 @@ var (
 	batchSizeLarge    = uint64(50)
 	batchSizeTooLarge = uint64(1000)
 
-	datasetDirectories = map[method]string{
-		nextPointCloud: "slam/mock_lidar/%d.pcd",
-		getImages:      "slam/mock_rgbd/",
+	datasetDirectories = map[method]map[fileType]string{
+		nextPointCloud: {
+			pcd: "slam/mock_lidar/%d.pcd",
+		},
+		getImages: {
+			jpeg:  "slam/mock_rgbd/rgb/%d.jpeg",
+			depth: "slam/mock_rgbd/depth/%d.dep",
+		},
 	}
+
+	currentRGBDFileType = jpeg
+
 	numFilesOriginal = map[method]int{
 		nextPointCloud: 15,
-		getImages:      25,
+		getImages:      50, // rgb + depth combined
 	}
 
 	numFiles = map[method]int{
@@ -119,7 +135,7 @@ func TestReplayPCDNew(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
-			replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, tt.cfg, tt.validCloudConnection)
+			replayCamera, _, serverClose, err := createNewReplayCamera(ctx, t, tt.cfg, tt.validCloudConnection)
 			if err != nil {
 				test.That(t, err, test.ShouldBeError, tt.expectedErr)
 				test.That(t, replayCamera, test.ShouldBeNil)
@@ -360,7 +376,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
-			replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, tt.cfg, true)
+			replayCamera, _, serverClose, err := createNewReplayCamera(ctx, t, tt.cfg, true)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, replayCamera, test.ShouldNotBeNil)
 
@@ -412,7 +428,7 @@ func TestReplayPCDLiveNextPointCloud(t *testing.T) {
 		APIKeyID:       validAPIKeyID,
 	}
 
-	replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
+	replayCamera, _, serverClose, err := createNewReplayCamera(ctx, t, cfg, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, replayCamera, test.ShouldNotBeNil)
 
@@ -668,7 +684,7 @@ func TestReplayPCDUnimplementedFunctions(t *testing.T) {
 		LocationID:     validLocationID,
 		OrganizationID: validOrganizationID,
 	}
-	replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
+	replayCamera, _, serverClose, err := createNewReplayCamera(ctx, t, replayCamCfg, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("Stream", func(t *testing.T) {
@@ -691,7 +707,7 @@ func TestReplayPCDTimestamps(t *testing.T) {
 	testCameraWithCfg := func(cfg *Config) {
 		// Construct replay camera.
 		ctx := context.Background()
-		replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
+		replayCamera, _, serverClose, err := createNewReplayCamera(ctx, t, cfg, true)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, replayCamera, test.ShouldNotBeNil)
 
@@ -758,7 +774,7 @@ func TestReplayPCDProperties(t *testing.T) {
 		OrganizationID: validOrganizationID,
 		BatchSize:      &batchSize1,
 	}
-	replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
+	replayCamera, _, serverClose, err := createNewReplayCamera(ctx, t, cfg, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, replayCamera, test.ShouldNotBeNil)
 
@@ -781,7 +797,7 @@ func TestReplayPCDReconfigure(t *testing.T) {
 		OrganizationID: validOrganizationID,
 	}
 	ctx := context.Background()
-	replayCamera, deps, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
+	replayCamera, deps, serverClose, err := createNewReplayCamera(ctx, t, cfg, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, replayCamera, test.ShouldNotBeNil)
 
