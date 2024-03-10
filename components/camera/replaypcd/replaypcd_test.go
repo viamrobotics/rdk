@@ -466,7 +466,7 @@ func TestReplayCameraLiveNextPointCloud(t *testing.T) {
 	test.That(t, serverClose(), test.ShouldBeNil)
 }
 
-func TestReplayPCDConfigValidation(t *testing.T) {
+func TestReplayCameraConfigValidation(t *testing.T) {
 	cases := []struct {
 		description  string
 		cfg          *Config
@@ -675,7 +675,7 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 	}
 }
 
-func TestReplayPCDUnimplementedFunctions(t *testing.T) {
+func TestReplayCameraUnimplementedFunctions(t *testing.T) {
 	ctx := context.Background()
 
 	replayCamCfg := &Config{
@@ -703,7 +703,7 @@ func TestReplayPCDUnimplementedFunctions(t *testing.T) {
 	test.That(t, serverClose(), test.ShouldBeNil)
 }
 
-func TestReplayPCDTimestamps(t *testing.T) {
+func TestReplayCameraTimestamps(t *testing.T) {
 	testCameraWithCfg := func(cfg *Config) {
 		// Construct replay camera.
 		ctx := context.Background()
@@ -764,7 +764,7 @@ func TestReplayPCDTimestamps(t *testing.T) {
 	})
 }
 
-func TestReplayPCDProperties(t *testing.T) {
+func TestReplayCameraProperties(t *testing.T) {
 	// Construct replay camera.
 	ctx := context.Background()
 	cfg := &Config{
@@ -788,7 +788,7 @@ func TestReplayPCDProperties(t *testing.T) {
 	test.That(t, serverClose(), test.ShouldBeNil)
 }
 
-func TestReplayPCDReconfigure(t *testing.T) {
+func TestReplayCameraReconfigure(t *testing.T) {
 	// Construct replay camera
 	cfg := &Config{
 		Source:         validSource,
