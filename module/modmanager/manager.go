@@ -248,7 +248,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	var success bool
 	defer func() {
 		if !success {
-			mod.cleanupAfterStartupFailure(mgr, false)
+			mod.cleanupAfterStartupFailure(mgr)
 		}
 	}()
 
@@ -745,7 +745,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	var success bool
 	defer func() {
 		if !success {
-			mod.cleanupAfterStartupFailure(mgr, true)
+			mod.cleanupAfterCrash(mgr)
 		}
 	}()
 
@@ -1001,33 +1001,34 @@ func (m *module) deregisterResources() {
 	m.handles = nil
 }
 
-func (m *module) cleanupAfterStartupFailure(mgr *Manager, afterCrash bool) {
+func (m *module) cleanupAfterStartupFailure(mgr *Manager) {
 	if err := m.stopProcess(); err != nil {
 		msg := "error while stopping process of module that failed to start"
-		if afterCrash {
-			msg = "error while stopping process of crashed module"
-		}
 		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 	}
 	if err := m.conn.Close(); err != nil {
 		msg := "error while closing connection to module that failed to start"
-		if afterCrash {
-			msg = "error while closing connection to crashed module"
-		}
+		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
+	}
+}
+
+func (m *module) cleanupAfterCrash(mgr *Manager) {
+	if err := m.stopProcess(); err != nil {
+		msg := "error while stopping process of crashed module"
+		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
+	}
+	if err := m.conn.Close(); err != nil {
+		msg := "error while closing connection to crashed module"
 		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 	}
 
 	// Remove module from rMap and mgr.modules if startup failure was after crash.
-	if afterCrash {
-		for r, mod := range mgr.rMap {
-			if mod == m {
-				// TODO: lock or partition!
-				delete(mgr.rMap, r)
-			}
+	for r, mod := range mgr.rMap {
+		if mod == m {
+			delete(mgr.rMap, r)
 		}
-		// TODO: lock or partition!
-		delete(mgr.modules, m.cfg.Name)
 	}
+	delete(mgr.modules, m.cfg.Name)
 }
 
 func (m *module) getFullEnvironment(viamHomeDir string) map[string]string {
