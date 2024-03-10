@@ -154,7 +154,7 @@ func TestNewReplayCamera(t *testing.T) {
 	}
 }
 
-func TestReplayPCDNextPointCloud(t *testing.T) {
+func TestReplayCameraNextPointCloud(t *testing.T) {
 	ctx := context.Background()
 
 	cases := []struct {
@@ -386,13 +386,8 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 					pc, err := replayCamera.NextPointCloud(ctx)
 					test.That(t, err, test.ShouldBeNil)
 					pcExpected, err := getPointCloudFromArtifact(i)
-					if err != nil {
-						test.That(t, err.Error, test.ShouldContainSubstring, "artifact not found")
-						test.That(t, pc, test.ShouldBeNil)
-					} else {
-						test.That(t, err, test.ShouldBeNil)
-						test.That(t, pc, test.ShouldResemble, pcExpected)
-					}
+					test.That(t, err, test.ShouldBeNil)
+					test.That(t, pc, test.ShouldResemble, pcExpected)
 				}
 			}
 
