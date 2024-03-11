@@ -1,3 +1,5 @@
+// Package injectpb provides dependency injected structures for mocking protobuf
+// interfaces.
 package injectpb
 
 import (
@@ -25,7 +27,11 @@ func (rsc *RobotServiceClient) Config(ctx context.Context, in *pb.ConfigRequest,
 }
 
 // Certificate calls the injected CertificateFunc or the real version.
-func (rsc *RobotServiceClient) Certificate(ctx context.Context, in *pb.CertificateRequest, opts ...grpc.CallOption) (*pb.CertificateResponse, error) {
+func (rsc *RobotServiceClient) Certificate(
+	ctx context.Context,
+	in *pb.CertificateRequest,
+	opts ...grpc.CallOption,
+) (*pb.CertificateResponse, error) {
 	if rsc.CertificateFunc == nil {
 		return rsc.Certificate(ctx, in, opts...)
 	}
@@ -33,7 +39,11 @@ func (rsc *RobotServiceClient) Certificate(ctx context.Context, in *pb.Certifica
 }
 
 // Log calls the injected LogFunc or the real version.
-func (rsc *RobotServiceClient) Log(ctx context.Context, in *pb.LogRequest, opts ...grpc.CallOption) (*pb.LogResponse, error) {
+func (rsc *RobotServiceClient) Log(
+	ctx context.Context,
+	in *pb.LogRequest,
+	opts ...grpc.CallOption,
+) (*pb.LogResponse, error) {
 	if rsc.LogFunc == nil {
 		return rsc.Log(ctx, in, opts...)
 	}
