@@ -126,37 +126,33 @@ func clearCache(id string) {
 	})
 }
 
-func readCertificateDataFromCloudGRPC(ctx context.Context,
+type remoteReader struct {
+	client apppb.RobotServiceClient
+}
+
+func (rr *remoteReader) readCertificateDataFromCloudGRPC(
+	ctx context.Context,
 	signalingInsecure bool,
 	cloudConfigFromDisk *Cloud,
-	logger logging.Logger,
-) (*Cloud, error) {
-	conn, err := CreateNewGRPCClient(ctx, cloudConfigFromDisk, logger)
-	if err != nil {
-		return nil, err
-	}
-	defer utils.UncheckedErrorFunc(conn.Close)
-
-	service := apppb.NewRobotServiceClient(conn)
-	res, err := service.Certificate(ctx, &apppb.CertificateRequest{Id: cloudConfigFromDisk.ID})
+) (tlsConfig, error) {
+	res, err := rr.client.Certificate(ctx, &apppb.CertificateRequest{Id: cloudConfigFromDisk.ID})
 	if err != nil {
 		// Check cache?
-		return nil, err
+		return tlsConfig{}, err
 	}
 
 	if !signalingInsecure {
 		if res.TlsCertificate == "" {
-			return nil, errors.New("no TLS certificate yet from cloud; try again later")
+			return tlsConfig{}, errors.New("no TLS certificate yet from cloud; try again later")
 		}
 		if res.TlsPrivateKey == "" {
-			return nil, errors.New("no TLS private key yet from cloud; try again later")
+			return tlsConfig{}, errors.New("no TLS private key yet from cloud; try again later")
 		}
 	}
 
-	// TODO(RSDK-539): we might want to use an internal type here. The gRPC api will not return a Cloud json struct.
-	return &Cloud{
-		TLSCertificate: res.TlsCertificate,
-		TLSPrivateKey:  res.TlsPrivateKey,
+	return tlsConfig{
+		certificate: res.TlsCertificate,
+		privateKey:  res.TlsPrivateKey,
 	}, nil
 }
 
@@ -193,7 +189,7 @@ func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
 
 // readFromCloud fetches a robot config from the cloud based
 // on the given config.
-func readFromCloud(
+func (rr *remoteReader) readFromCloud(
 	ctx context.Context,
 	originalCfg,
 	prevCfg *Config,
@@ -203,7 +199,7 @@ func readFromCloud(
 ) (*Config, error) {
 	logger.Debug("reading configuration from the cloud")
 	cloudCfg := originalCfg.Cloud
-	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, cloudCfg, shouldReadFromCache, logger)
+	unprocessedConfig, cached, err := rr.getFromCloudOrCache(ctx, cloudCfg, shouldReadFromCache, logger)
 	if err != nil {
 		if !cached {
 			err = errors.Wrap(err, "error getting cloud config")
@@ -248,7 +244,7 @@ func readFromCloud(
 		logger.Debug("reading tlsCertificate from the cloud")
 		// Use the SignalingInsecure from the Cloud config returned from the app not the initial config.
 
-		certData, err := readCertificateDataFromCloudGRPC(ctx, cfg.Cloud.SignalingInsecure, cloudCfg, logger)
+		certData, err := rr.readCertificateDataFromCloudGRPC(ctx, cfg.Cloud.SignalingInsecure, cloudCfg)
 		if err != nil {
 			if !errors.Is(err, context.DeadlineExceeded) {
 				return nil, err
@@ -258,8 +254,7 @@ func readFromCloud(
 			}
 			logger.Warnw("failed to refresh certificate data; using cached for now", "error", err)
 		} else {
-			tls.certificate = certData.TLSCertificate
-			tls.privateKey = certData.TLSPrivateKey
+			tls = certData
 		}
 	}
 
@@ -285,7 +280,6 @@ func readFromCloud(
 	}
 
 	mergeCloudConfig(cfg)
-	// TODO(RSDK-1960): add more tests around config caching
 	unprocessedConfig.Cloud.TLSCertificate = tls.certificate
 	unprocessedConfig.Cloud.TLSPrivateKey = tls.privateKey
 
@@ -348,7 +342,30 @@ func ReadLocalConfig(
 		return nil, err
 	}
 
-	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, false)
+	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, nil)
+}
+
+type remoteReaderFactory func(
+	ctx context.Context,
+	cloud *Cloud,
+	logger logging.Logger,
+) (*remoteReader, func() error, error)
+
+func newRemoteReader(
+	ctx context.Context,
+	cloud *Cloud,
+	logger logging.Logger,
+) (*remoteReader, func() error, error) {
+	conn, err := CreateNewGRPCClient(ctx, cloud, logger)
+	if err != nil {
+		return nil, func() error { return nil }, err
+	}
+
+	rr := remoteReader{apppb.NewRobotServiceClient(conn)}
+	closeFunc := func() error {
+		return conn.Close()
+	}
+	return &rr, closeFunc, nil
 }
 
 // FromReader reads a config from the given reader and specifies
@@ -359,17 +376,17 @@ func FromReader(
 	r io.Reader,
 	logger logging.Logger,
 ) (*Config, error) {
-	return fromReader(ctx, originalPath, r, logger, true)
+	return fromReader(ctx, originalPath, r, logger, newRemoteReader)
 }
 
-// FromReader reads a config from the given reader and specifies
+// fromReader reads a config from the given reader and specifies
 // where, if applicable, the file the reader originated from.
 func fromReader(
 	ctx context.Context,
 	originalPath string,
 	r io.Reader,
 	logger logging.Logger,
-	shouldReadFromCloud bool,
+	rrFactory remoteReaderFactory,
 ) (*Config, error) {
 	// First read and process config from disk
 	unprocessedConfig := Config{
@@ -384,8 +401,13 @@ func fromReader(
 		return nil, errors.Wrapf(err, "failed to process Config")
 	}
 
-	if shouldReadFromCloud && cfgFromDisk.Cloud != nil {
-		cfg, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger)
+	if rrFactory != nil && cfgFromDisk.Cloud != nil {
+		rr, closeFunc, err := rrFactory(ctx, cfgFromDisk.Cloud, logger)
+		if err != nil {
+			return nil, err
+		}
+		defer utils.UncheckedErrorFunc(closeFunc)
+		cfg, err := rr.readFromCloud(ctx, cfgFromDisk, nil, true, true, logger)
 		return cfg, err
 	}
 
@@ -587,9 +609,14 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 // getFromCloudOrCache returns the config from the gRPC endpoint. If failures during cloud lookup fallback to the
 // local cache if the error indicates it should.
-func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger logging.Logger) (*Config, bool, error) {
+func (rr *remoteReader) getFromCloudOrCache(
+	ctx context.Context,
+	cloudCfg *Cloud,
+	shouldReadFromCache bool,
+	logger logging.Logger,
+) (*Config, bool, error) {
 	var cached bool
-	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctx, cloudCfg, logger)
+	cfg, errorShouldCheckCache, err := rr.getFromCloudGRPC(ctx, cloudCfg, logger)
 	if err != nil {
 		if shouldReadFromCache && errorShouldCheckCache {
 			logger.Warnw("failed to read config from cloud, checking cache", "error", err)
@@ -614,22 +641,15 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 }
 
 // getFromCloudGRPC actually does the fetching of the robot config from the gRPC endpoint.
-func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logger) (*Config, bool, error) {
+func (rr *remoteReader) getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logger) (*Config, bool, error) {
 	shouldCheckCacheOnFailure := true
-
-	conn, err := CreateNewGRPCClient(ctx, cloudCfg, logger)
-	if err != nil {
-		return nil, shouldCheckCacheOnFailure, err
-	}
-	defer utils.UncheckedErrorFunc(conn.Close)
 
 	agentInfo, err := getAgentInfo()
 	if err != nil {
 		return nil, shouldCheckCacheOnFailure, err
 	}
 
-	service := apppb.NewRobotServiceClient(conn)
-	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID, AgentInfo: agentInfo})
+	res, err := rr.client.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID, AgentInfo: agentInfo})
 	if err != nil {
 		// Check cache?
 		return nil, shouldCheckCacheOnFailure, err
