@@ -94,7 +94,7 @@ type addedResource struct {
 	deps []string
 }
 
-// moduleMap is a typesafe wrapper for a sync.Map holding string keys and *module values
+// moduleMap is a typesafe wrapper for a sync.Map holding string keys and *module values.
 type moduleMap struct {
 	items sync.Map
 }
@@ -111,13 +111,13 @@ func (mmap *moduleMap) Load(name string) (*module, bool) {
 }
 
 func (mmap *moduleMap) Range(f func(name string, mod *module) bool) {
-	mmap.items.Range(func(key any, value any) bool {
+	mmap.items.Range(func(key, value any) bool {
 		return f(key.(string), value.(*module))
 	})
 }
 
 // resourceModuleMap is a typesafe wrapper for a sync.Map holding resource.Name keys and
-// *module values
+// *module values.
 type resourceModuleMap struct {
 	items sync.Map
 }
@@ -134,7 +134,7 @@ func (rmap *resourceModuleMap) Load(name resource.Name) (*module, bool) {
 }
 
 func (rmap *resourceModuleMap) Range(f func(name resource.Name, mod *module) bool) {
-	rmap.items.Range(func(key any, value any) bool {
+	rmap.items.Range(func(key, value any) bool {
 		return f(key.(resource.Name), value.(*module))
 	})
 }
@@ -1076,7 +1076,6 @@ func (m *module) cleanupAfterCrash(mgr *Manager) {
 	if err := m.conn.Close(); err != nil {
 		msg := "error while closing connection to crashed module"
 		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
-
 	}
 	mgr.rMap.Range(func(r resource.Name, mod *module) bool {
 		if mod == m {
