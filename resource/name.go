@@ -13,6 +13,8 @@ type Name struct {
 	API    API
 	Remote string
 	Name   string
+
+	RobotPartID string
 }
 
 // NewName creates a new resource Name.
@@ -24,6 +26,19 @@ func NewName(api API, name string) Name {
 		API:    api,
 		Name:   nameIdent,
 		Remote: remote,
+	}
+}
+
+// NewNameWithPartID creates a new resource Name with a robot part id.
+func NewNameWithPartID(api API, name, partID string) Name {
+	r := strings.Split(name, ":")
+	remote := strings.Join(r[0:len(r)-1], ":")
+	nameIdent := r[len(r)-1]
+	return Name{
+		API:         api,
+		Name:        nameIdent,
+		Remote:      remote,
+		RobotPartID: partID,
 	}
 }
 
@@ -105,6 +120,11 @@ func RemoveRemoteName(n Name) Name {
 	tempName := NewName(n.API, n.Name)
 	tempName.Remote = ""
 	return tempName
+}
+
+// RemovePartID returns a new name with part id removed.
+func (n Name) RemovePartID() Name {
+	return NewName(n.API, n.Name)
 }
 
 // ShortName returns the short name on Name n in the form of <remote>:<name>.

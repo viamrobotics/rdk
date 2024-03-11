@@ -146,7 +146,14 @@ func (s *Server) GetSessions(ctx context.Context, req *pb.GetSessionsRequest) (*
 func (s *Server) ResourceNames(ctx context.Context, _ *pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error) {
 	all := s.robot.ResourceNames()
 	rNames := make([]*commonpb.ResourceName, 0, len(all))
+
+	partID := ""
+	md, err := s.robot.GetCloudMetadata(ctx)
+	if err == nil {
+		partID = md.RobotPartID
+	}
 	for _, m := range all {
+		m.RobotPartID = partID
 		rNames = append(
 			rNames,
 			protoutils.ResourceNameToProto(m),
