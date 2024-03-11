@@ -53,9 +53,9 @@ func NewManager(
 	restartCtx, restartCtxCancel := context.WithCancel(ctx)
 	return &Manager{
 		logger:                  logger,
-		modules:                 map[string]*module{},
+		modules:                 moduleMap{},
 		parentAddr:              parentAddr,
-		rMap:                    map[resource.Name]*module{},
+		rMap:                    resourceModuleMap{},
 		untrustedEnv:            options.UntrustedEnv,
 		viamHomeDir:             options.ViamHomeDir,
 		moduleDataParentDir:     getModuleDataParentDirectory(options),
@@ -94,14 +94,59 @@ type addedResource struct {
 	deps []string
 }
 
+// moduleMap is a typesafe wrapper for a sync.Map holding string keys and *module values
+type moduleMap struct {
+	items sync.Map
+}
+
+func (mmap *moduleMap) Store(name string, mod *module) { mmap.items.Store(name, mod) }
+func (mmap *moduleMap) Delete(name string)             { mmap.items.Delete(name) }
+
+func (mmap *moduleMap) Load(name string) (*module, bool) {
+	value, ok := mmap.items.Load(name)
+	if value == nil {
+		return nil, ok
+	}
+	return value.(*module), ok
+}
+
+func (mmap *moduleMap) Range(f func(name string, mod *module) bool) {
+	mmap.items.Range(func(key any, value any) bool {
+		return f(key.(string), value.(*module))
+	})
+}
+
+// resourceModuleMap is a typesafe wrapper for a sync.Map holding resource.Name keys and
+// *module values
+type resourceModuleMap struct {
+	items sync.Map
+}
+
+func (rmap *resourceModuleMap) Store(name resource.Name, mod *module) { rmap.items.Store(name, mod) }
+func (rmap *resourceModuleMap) Delete(name resource.Name)             { rmap.items.Delete(name) }
+
+func (rmap *resourceModuleMap) Load(name resource.Name) (*module, bool) {
+	value, ok := rmap.items.Load(name)
+	if value == nil {
+		return nil, ok
+	}
+	return value.(*module), ok
+}
+
+func (rmap *resourceModuleMap) Range(f func(name resource.Name, mod *module) bool) {
+	rmap.items.Range(func(key any, value any) bool {
+		return f(key.(resource.Name), value.(*module))
+	})
+}
+
 // Manager is the root structure for the module system.
 type Manager struct {
 	mu           sync.RWMutex
 	perModMu     sync.Map
 	logger       logging.Logger
-	modules      map[string]*module
+	modules      moduleMap
 	parentAddr   string
-	rMap         map[resource.Name]*module
+	rMap         resourceModuleMap
 	untrustedEnv bool
 	// viamHomeDir is the absolute path to the viam home directory. Ex: /home/walle/.viam
 	// `viamHomeDir` may only be the empty string in testing
@@ -124,12 +169,10 @@ func (mgr *Manager) Close(ctx context.Context) error {
 		mgr.restartCtxCancel()
 	}
 	var err error
-	for _, mod := range mgr.modules {
-		func() {
-			defer mgr.lockModuleMutex(mod.cfg.Name)()
-			err = multierr.Combine(err, mgr.closeModule(mod, false))
-		}()
-	}
+	mgr.modules.Range(func(_ string, mod *module) bool {
+		err = multierr.Combine(err, mgr.closeModule(mod, false))
+		return true
+	})
 	return err
 }
 
@@ -140,9 +183,10 @@ func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 
 	res := map[string]modlib.HandlerMap{}
 
-	for n, m := range mgr.modules {
+	mgr.modules.Range(func(n string, m *module) bool {
 		res[n] = m.handles
-	}
+		return true
+	})
 
 	return res
 }
@@ -206,9 +250,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 func (mgr *Manager) add(ctx context.Context, conf config.Module) (*module, error) {
 	defer mgr.lockModuleMutex(conf.Name)()
 
-	mgr.mu.RLock()
-	_, exists := mgr.modules[conf.Name]
-	mgr.mu.RUnlock()
+	_, exists := mgr.modules.Load(conf.Name)
 	if exists {
 		//nolint:nilnil
 		return nil, nil
@@ -279,7 +321,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 
 func (mgr *Manager) register(mod *module) {
 	mod.registerResources(mgr, mgr.logger)
-	mgr.modules[mod.cfg.Name] = mod
+	mgr.modules.Store(mod.cfg.Name, mod)
 }
 
 // Reconfigure reconfigures an existing resource module and returns the names of
@@ -289,7 +331,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	mod, exists := mgr.modules[conf.Name]
+	mod, exists := mgr.modules.Load(conf.Name)
 	if !exists {
 		return nil, errors.Errorf("cannot reconfigure module %s as it does not exist", conf.Name)
 	}
@@ -337,7 +379,7 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	mod, exists := mgr.modules[modName]
+	mod, exists := mgr.modules.Load(modName)
 	if !exists {
 		return nil, errors.Errorf("cannot remove module %s as it does not exist", modName)
 	}
@@ -384,12 +426,13 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 
 	mod.deregisterResources()
 
-	for r, m := range mgr.rMap {
+	mgr.rMap.Range(func(r resource.Name, m *module) bool {
 		if m == mod {
-			delete(mgr.rMap, r)
+			mgr.rMap.Delete(r)
 		}
-	}
-	delete(mgr.modules, mod.cfg.Name)
+		return true
+	})
+	mgr.modules.Delete(mod.cfg.Name)
 
 	mgr.logger.Debugw("module successfully closed", "module", mod.cfg.Name)
 	return nil
@@ -417,7 +460,7 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 	if err != nil {
 		return nil, err
 	}
-	mgr.rMap[conf.ResourceName()] = mod
+	mgr.rMap.Store(conf.ResourceName(), mod)
 	mod.resources[conf.ResourceName()] = &addedResource{conf, deps}
 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
@@ -456,9 +499,10 @@ func (mgr *Manager) Configs() []config.Module {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
 	var configs []config.Module
-	for _, mod := range mgr.modules {
+	mgr.modules.Range(func(_ string, mod *module) bool {
 		configs = append(configs, mod.cfg)
-	}
+		return true
+	})
 	return configs
 }
 
@@ -474,7 +518,7 @@ func (mgr *Manager) Provides(conf resource.Config) bool {
 func (mgr *Manager) IsModularResource(name resource.Name) bool {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	_, ok := mgr.rMap[name]
+	_, ok := mgr.rMap.Load(name)
 	return ok
 }
 
@@ -482,11 +526,11 @@ func (mgr *Manager) IsModularResource(name resource.Name) bool {
 func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	mod, ok := mgr.rMap[name]
+	mod, ok := mgr.rMap.Load(name)
 	if !ok {
 		return errors.Errorf("resource %+v not found in module", name)
 	}
-	delete(mgr.rMap, name)
+	mgr.rMap.Delete(name)
 	delete(mod.resources, name)
 	_, err := mod.client.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
 	if err != nil {
@@ -598,8 +642,8 @@ func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, con
 	return nil
 }
 
-func (mgr *Manager) getModule(conf resource.Config) (*module, bool) {
-	for _, mod := range mgr.modules {
+func (mgr *Manager) getModule(conf resource.Config) (foundMod *module, exists bool) {
+	mgr.modules.Range(func(_ string, mod *module) bool {
 		var api resource.RPCAPI
 		var ok bool
 		for a := range mod.handles {
@@ -610,15 +654,19 @@ func (mgr *Manager) getModule(conf resource.Config) (*module, bool) {
 			}
 		}
 		if !ok {
-			continue
+			return true
 		}
 		for _, model := range mod.handles[api] {
 			if conf.Model == model && !mod.pendingRemoval {
-				return mod, true
+				foundMod = mod
+				exists = true
+				return false
 			}
 		}
-	}
-	return nil, false
+		return true
+	})
+
+	return
 }
 
 // CleanModuleDataDirectory removes unexpected folders and files from the robot's module data directory.
@@ -632,10 +680,11 @@ func (mgr *Manager) CleanModuleDataDirectory() error {
 		return nil
 	}
 	// Absolute path to all dirs that should exist
-	expectedDirs := make(map[string]bool, len(mgr.modules))
-	for _, m := range mgr.modules {
+	expectedDirs := make(map[string]bool)
+	mgr.modules.Range(func(_ string, m *module) bool {
 		expectedDirs[m.dataDir] = true
-	}
+		return true
+	})
 	// If there are no expected directories, we can shortcut and early-exit
 	if len(expectedDirs) == 0 {
 		mgr.logger.Infof("Removing module data parent directory %q", mgr.moduleDataParentDir)
@@ -716,7 +765,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 			if _, err := mgr.addResource(mgr.restartCtx, res.conf, res.deps); err != nil {
 				mgr.logger.Warnw("error while re-adding resource to module",
 					"resource", name, "module", mod.cfg.Name, "error", err)
-				delete(mgr.rMap, name)
+				mgr.rMap.Delete(name)
 				delete(mod.resources, name)
 				orphanedResourceNames = append(orphanedResourceNames, name)
 			}
@@ -1027,13 +1076,15 @@ func (m *module) cleanupAfterCrash(mgr *Manager) {
 	if err := m.conn.Close(); err != nil {
 		msg := "error while closing connection to crashed module"
 		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
+
 	}
-	for r, mod := range mgr.rMap {
+	mgr.rMap.Range(func(r resource.Name, mod *module) bool {
 		if mod == m {
-			delete(mgr.rMap, r)
+			mgr.rMap.Delete(r)
 		}
-	}
-	delete(mgr.modules, m.cfg.Name)
+		return true
+	})
+	mgr.modules.Delete(m.cfg.Name)
 }
 
 func (m *module) getFullEnvironment(viamHomeDir string) map[string]string {
