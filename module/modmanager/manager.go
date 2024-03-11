@@ -194,8 +194,8 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 	// register new modules
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	for _, mod := range newMods {
-		if mod != nil {
+	for i, mod := range newMods {
+		if mod != nil && errs[i] == nil {
 			mgr.register(mod)
 		}
 	}
