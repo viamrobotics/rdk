@@ -47,6 +47,9 @@ func TestClientWorkingService(t *testing.T) {
 	pcdPath := artifact.MustPath("slam/mock_lidar/0.pcd")
 	pcd, err := os.ReadFile(pcdPath)
 	test.That(t, err, test.ShouldBeNil)
+	pcdPathEdited := artifact.MustPath("slam/mock_lidar/1.pcd")
+	pcdEdited, err := os.ReadFile(pcdPathEdited)
+	test.That(t, err, test.ShouldBeNil)
 
 	propSucc := slam.Properties{
 		CloudSlam:   false,
@@ -64,7 +67,12 @@ func TestClientWorkingService(t *testing.T) {
 	}
 
 	workingSLAMService.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
-		reader := bytes.NewReader(pcd)
+		var reader *bytes.Reader
+		if returnEditedMap {
+			reader = bytes.NewReader(pcdEdited)
+		} else {
+			reader = bytes.NewReader(pcd)
+		}
 		clientBuffer := make([]byte, chunkSizePointCloud)
 		f := func() ([]byte, error) {
 			n, err := reader.Read(clientBuffer)
@@ -134,6 +142,15 @@ func TestClientWorkingService(t *testing.T) {
 		// comparing pointclouds to ensure PCDs are correct
 		testhelper.TestComparePointCloudsFromPCDs(t, fullBytesPCD, pcd)
 
+		// test point cloud map returning the edited map
+		fullBytesPCDEdited, err := slam.PointCloudMapFull(context.Background(), workingSLAMClient, true)
+		test.That(t, err, test.ShouldBeNil)
+		// comparing raw bytes to ensure order is correct
+		test.That(t, fullBytesPCDEdited, test.ShouldResemble, pcdEdited)
+		test.That(t, fullBytesPCDEdited, test.ShouldNotResemble, pcd)
+		// comparing pointclouds to ensure PCDs are correct
+		testhelper.TestComparePointCloudsFromPCDs(t, fullBytesPCDEdited, pcdEdited)
+
 		// test internal state
 		fullBytesInternalState, err := slam.InternalStateFull(context.Background(), workingSLAMClient)
 		test.That(t, err, test.ShouldBeNil)
@@ -168,6 +185,15 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, fullBytesPCD, test.ShouldResemble, pcd)
 		// comparing pointclouds to ensure PCDs are correct
 		testhelper.TestComparePointCloudsFromPCDs(t, fullBytesPCD, pcd)
+
+		// test point cloud map returning the edited map
+		fullBytesPCDEdited, err := slam.PointCloudMapFull(context.Background(), workingDialedClient, true)
+		test.That(t, err, test.ShouldBeNil)
+		// comparing raw bytes to ensure order is correct
+		test.That(t, fullBytesPCDEdited, test.ShouldResemble, pcdEdited)
+		test.That(t, fullBytesPCDEdited, test.ShouldNotResemble, pcd)
+		// comparing pointclouds to ensure PCDs are correct
+		testhelper.TestComparePointCloudsFromPCDs(t, fullBytesPCDEdited, pcdEdited)
 
 		// test internal state
 		fullBytesInternalState, err := slam.InternalStateFull(context.Background(), workingDialedClient)
@@ -211,6 +237,15 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, fullBytesPCD, test.ShouldResemble, pcd)
 		// comparing pointclouds to ensure PCDs are correct
 		testhelper.TestComparePointCloudsFromPCDs(t, fullBytesPCD, pcd)
+
+		// test point cloud map returning the edited map
+		fullBytesPCDEdited, err := slam.PointCloudMapFull(context.Background(), dialedClient, true)
+		test.That(t, err, test.ShouldBeNil)
+		// comparing raw bytes to ensure order is correct
+		test.That(t, fullBytesPCDEdited, test.ShouldResemble, pcdEdited)
+		test.That(t, fullBytesPCDEdited, test.ShouldNotResemble, pcd)
+		// comparing pointclouds to ensure PCDs are correct
+		testhelper.TestComparePointCloudsFromPCDs(t, fullBytesPCDEdited, pcdEdited)
 
 		// test internal state
 		fullBytesInternalState, err := slam.InternalStateFull(context.Background(), dialedClient)
