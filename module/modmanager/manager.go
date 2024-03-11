@@ -245,7 +245,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	var success bool
 	defer func() {
 		if !success {
-			mod.cleanupAfterStartupFailure(mgr)
+			mod.cleanupAfterStartupFailure(mgr.logger)
 		}
 	}()
 
@@ -998,14 +998,14 @@ func (m *module) deregisterResources() {
 	m.handles = nil
 }
 
-func (m *module) cleanupAfterStartupFailure(mgr *Manager) {
+func (m *module) cleanupAfterStartupFailure(logger logging.Logger) {
 	if err := m.stopProcess(); err != nil {
 		msg := "error while stopping process of module that failed to start"
-		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
+		logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 	}
 	if err := m.conn.Close(); err != nil {
 		msg := "error while closing connection to module that failed to start"
-		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
+		logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 	}
 }
 
@@ -1018,8 +1018,6 @@ func (m *module) cleanupAfterCrash(mgr *Manager) {
 		msg := "error while closing connection to crashed module"
 		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 	}
-
-	// Remove module from rMap and mgr.modules if startup failure was after crash.
 	for r, mod := range mgr.rMap {
 		if mod == m {
 			delete(mgr.rMap, r)
