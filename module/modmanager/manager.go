@@ -190,7 +190,12 @@ func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 	return res
 }
 
-// Add adds and starts a new resource module.
+// Add adds and starts a new resource modules for each given module configuration.
+//
+// Each module configuration should have a unique name - if duplicate names are detected,
+// then only the first duplicate instance will be processed and the rest will be ignored.
+//
+// This method is not thread-safe.
 func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 	if mgr.untrustedEnv {
 		return errModularResourcesDisabled
