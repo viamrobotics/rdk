@@ -184,7 +184,7 @@ func (g *CachedData) Properties(
 // findDistance calculates the distance between two points on Earth.
 // lat1, lon1: Latitude and Longitude of point 1 (in decimal degrees)
 // lat2, lon2: Latitude and Longitude of point 2 (in decimal degrees)
-// returns the distance in meters
+// returns the distance in meters.
 func findDistance(lat1, lon1, lat2, lon2 float64) float64 {
 	lat1Rad, lon1Rad := utils.DegToRad(lat1), utils.DegToRad(lon1)
 	lat2Rad, lon2Rad := utils.DegToRad(lat2), utils.DegToRad(lon2)
