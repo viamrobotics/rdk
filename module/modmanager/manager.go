@@ -202,8 +202,13 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		newMods = make([]*module, len(confs))
 	)
 
-	// TODO: dedupe
+	seen := make(map[string]struct{}, len(confs))
 	for i, conf := range confs {
+		if _, dupe := seen[conf.Name]; dupe {
+			continue
+		}
+		seen[conf.Name] = struct{}{}
+
 		// this is done in config validation but partial start rules require us to check again
 		if err := conf.Validate(""); err != nil {
 			mgr.logger.CErrorw(ctx, "module config validation error; skipping", "module", conf.Name, "error", err)
