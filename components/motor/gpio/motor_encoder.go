@@ -461,46 +461,43 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 
-	m.state.regulated = true
-	if revolutions == 0 {
-		if m.loop != nil {
-			velVal := math.Abs(rpm * m.ticksPerRotation / 60)
-			// when rev = 0, only velocity is controlled
-			// setPoint is +/- infinity, maxVel is calculated velVal
-			if err := m.updateControlBlock(ctx, math.Inf(int(rpm)), velVal); err != nil {
-				return err
-			}
-		} else {
-			// Moving 0 revolutions is a special value meaning "move forever."
-			oldRpm := m.state.goalRPM
-			m.state.goalRPM = rpm
-			m.state.goalPos = math.Inf(int(rpm))
-			// if we are already moving, let rpmMonitor deal with setPower
-			if math.Abs(oldRpm) > 0.001 && direction == m.directionMovingInLock() {
-				return nil
-			}
-			// if moving from stop, start at 10% power
-			if err := m.setPower(ctx, direction*0.1, true); err != nil {
-				return err
-			}
+	switch {
+	case m.loop != nil && revolutions == 0:
+		velVal := math.Abs(rpm * m.ticksPerRotation / 60)
+		// when rev = 0, only velocity is controlled
+		// setPoint is +/- infinity, maxVel is calculated velVal
+		if err := m.updateControlBlock(ctx, math.Inf(int(rpm)), velVal); err != nil {
+			return err
 		}
-		return nil
-	}
-
-	if m.loop != nil {
+	case m.loop != nil && revolutions != 0:
 		velVal := math.Abs(rpm * m.ticksPerRotation / 60)
 		// when rev is not 0, velocity and position are controlled
 		// setPoint is goalPos, maxVel is calculated velVal
 		if err := m.updateControlBlock(ctx, goalPos, velVal); err != nil {
 			return err
 		}
-	} else {
+	case m.loop == nil && revolutions == 0:
+		// Moving 0 revolutions is a special value meaning "move forever."
+		oldRpm := m.state.goalRPM
+		m.state.goalRPM = rpm
+		m.state.goalPos = math.Inf(int(rpm))
+		// if we are already moving, let rpmMonitor deal with setPower
+		if math.Abs(oldRpm) > 0.001 && direction == m.directionMovingInLock() {
+			return nil
+		}
+		// if moving from stop, start at 10% power
+		if err := m.setPower(ctx, direction*0.1, true); err != nil {
+			return err
+		}
+	case m.loop == nil && revolutions != 0:
 		startingPwr := 0.1 * direction
 		err = m.setPower(ctx, startingPwr, true)
 		if err != nil {
 			return err
 		}
 	}
+	m.state.regulated = true
+
 	return nil
 }
 
