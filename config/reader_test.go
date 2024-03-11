@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -53,14 +54,19 @@ func TestFromReader(t *testing.T) {
 		return remoteReader{rsc}, func() error { return nil }, nil
 	}
 
+	clearCache(robotPartID)
+	_, err := readFromCache(robotPartID)
+	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"secret":"ghi"}}`, robotPartID)
 
-	_, err := readFromCache(robotPartID)
-	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
 	gotCfg, err := fromReader(ctx, "", strings.NewReader(cfgText), logger, newTestReader)
 	test.That(t, err, test.ShouldBeNil)
+	_, err = readFromCache(robotPartID)
+	test.That(t, err, test.ShouldBeNil)
+
 	defer clearCache(robotPartID)
 
 	expectedCloud := &Cloud{
@@ -108,6 +114,7 @@ func TestStoreToCache(t *testing.T) {
 		AppAddress:       "https://app.viam.dev:443",
 		LocationID:       "the-location",
 		PrimaryOrgID:     "the-primary-org",
+		LocationSecrets:  []LocationSecret{},
 	}
 	cfg.Cloud = cloud
 
@@ -115,7 +122,8 @@ func TestStoreToCache(t *testing.T) {
 	err = storeToCache(cfg.Cloud.ID, cfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	rr := remoteReader{initTestRobotServiceClient(t)}
+	workingClient := initTestRobotServiceClient(t)
+	rr := remoteReader{workingClient}
 
 	// read config from cloud, confirm consistency
 	cloudCfg, err := rr.readFromCloud(ctx, cfg, nil, true, false, logger)
@@ -134,10 +142,19 @@ func TestStoreToCache(t *testing.T) {
 	// store the updated config to the cloud
 	err = storeToCache(cfg.Cloud.ID, cfg)
 	test.That(t, err, test.ShouldBeNil)
-
 	test.That(t, cfg.Ensure(true, logger), test.ShouldBeNil)
 
-	// read updated cloud config, confirm that it now matches our updated cfg
+	// read updated cloud config, confirm that it now matches our updated cfg.
+	// we supply a failing client to force `readFromCloud` to use a cached config.
+	failingClient := &injectpb.RobotServiceClient{}
+	failingClient.ConfigFunc = func(
+		ctx context.Context,
+		in *pb.ConfigRequest,
+		opts ...grpc.CallOption,
+	) (*pb.ConfigResponse, error) {
+		return nil, errors.New("failed")
+	}
+	rr = remoteReader{failingClient}
 	cloudCfg3, err := rr.readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloudCfg3, test.ShouldResemble, cfg)
