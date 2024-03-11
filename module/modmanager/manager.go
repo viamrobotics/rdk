@@ -142,7 +142,6 @@ func (rmap *resourceModuleMap) Range(f func(name resource.Name, mod *module) boo
 // Manager is the root structure for the module system.
 type Manager struct {
 	mu           sync.RWMutex
-	perModMu     sync.Map
 	logger       logging.Logger
 	modules      moduleMap
 	parentAddr   string
@@ -189,13 +188,6 @@ func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 	})
 
 	return res
-}
-
-func (mgr *Manager) lockModuleMutex(modName string) func() {
-	value, _ := mgr.perModMu.LoadOrStore(modName, &sync.Mutex{})
-	mu := value.(*sync.Mutex)
-	mu.Lock()
-	return mu.Unlock
 }
 
 // Add adds and starts a new resource module.
@@ -248,8 +240,6 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 }
 
 func (mgr *Manager) add(ctx context.Context, conf config.Module) (*module, error) {
-	defer mgr.lockModuleMutex(conf.Name)()
-
 	_, exists := mgr.modules.Load(conf.Name)
 	if exists {
 		//nolint:nilnil
@@ -327,8 +317,6 @@ func (mgr *Manager) register(mod *module) {
 // Reconfigure reconfigures an existing resource module and returns the names of
 // now orphaned resources.
 func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]resource.Name, error) {
-	defer mgr.lockModuleMutex(conf.Name)()
-
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 	mod, exists := mgr.modules.Load(conf.Name)
@@ -375,8 +363,6 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 // Remove removes and stops an existing resource module and returns the names of
 // now orphaned resources.
 func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
-	defer mgr.lockModuleMutex(modName)()
-
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 	mod, exists := mgr.modules.Load(modName)
@@ -539,10 +525,7 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 
 	// if the module is marked for removal, actually remove it when the final resource is closed
 	if mod.pendingRemoval && len(mod.resources) == 0 {
-		func() {
-			defer mgr.lockModuleMutex(mod.cfg.Name)()
-			err = multierr.Combine(err, mgr.closeModule(mod, false))
-		}()
+		err = multierr.Combine(err, mgr.closeModule(mod, false))
 	}
 	return err
 }
