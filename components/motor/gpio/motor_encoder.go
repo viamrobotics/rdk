@@ -387,7 +387,18 @@ func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal 
 func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
-	if err := m.goForInternal(ctx, rpm, revolutions); err != nil {
+
+	direction := sign(rpm * revolutions)
+
+	currentPos, err := m.position(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	goalPos := (math.Abs(revolutions) * m.ticksPerRotation * direction) + currentPos
+	goalRPM := math.Abs(rpm) * m.state.direction
+
+	if err := m.goForInternal(ctx, goalRPM, goalPos, direction); err != nil {
 		return err
 	}
 
@@ -397,14 +408,13 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 
 	if m.loop != nil {
 		m.stateMu.Lock()
-		goal := m.state.goalPos
 		m.stateMu.Unlock()
 
 		positionReached := func(ctx context.Context) (bool, error) {
 			var errs error
 			pos, posErr := m.position(ctx, extra)
 			errs = multierr.Combine(errs, posErr)
-			if rdkutils.Float64AlmostEqual(pos, goal, 5.0) {
+			if rdkutils.Float64AlmostEqual(pos, goalPos, 5.0) {
 				stopErr := m.Stop(ctx, extra)
 				errs = multierr.Combine(errs, stopErr)
 				return true, errs
@@ -427,15 +437,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
-func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float64) error {
-	currentPos, err := m.position(ctx, nil)
-	if err != nil {
-		return err
-	}
-	direction := sign(rpm * revolutions)
-	goalPos := (math.Abs(revolutions) * m.ticksPerRotation * direction) + currentPos
-	goalRPM := math.Abs(rpm) * m.state.direction
-
+func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, direction float64) error {
 	if m.loop == nil {
 		// create new control loop if control config exists
 		if len(m.controlLoopConfig.Blocks) != 0 {
@@ -443,11 +445,11 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 				return err
 			}
 		} else {
-			m.rpmMonitorStart(goalRPM, goalPos)
+			m.rpmMonitorStart(rpm, goalPos)
 		}
 	}
 
-	m.state.direction = sign(rpm * revolutions)
+	m.state.direction = sign(rpm * goalPos)
 
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
@@ -462,36 +464,36 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	defer m.stateMu.Unlock()
 
 	switch {
-	case m.loop != nil && revolutions == 0:
+	case m.loop != nil && goalPos == 0:
 		velVal := math.Abs(rpm * m.ticksPerRotation / 60)
 		// when rev = 0, only velocity is controlled
 		// setPoint is +/- infinity, maxVel is calculated velVal
 		if err := m.updateControlBlock(ctx, math.Inf(int(rpm)), velVal); err != nil {
 			return err
 		}
-	case m.loop != nil && revolutions != 0:
+	case m.loop != nil && goalPos != 0:
 		velVal := math.Abs(rpm * m.ticksPerRotation / 60)
 		// when rev is not 0, velocity and position are controlled
 		// setPoint is goalPos, maxVel is calculated velVal
 		if err := m.updateControlBlock(ctx, goalPos, velVal); err != nil {
 			return err
 		}
-	case m.loop == nil && revolutions == 0:
+	case m.loop == nil && goalPos == 0:
 		// Moving 0 revolutions is a special value meaning "move forever."
 		oldRpm := m.state.goalRPM
 		m.state.goalRPM = rpm
 		m.state.goalPos = math.Inf(int(rpm))
 		// if we are already moving, let rpmMonitor deal with setPower
-		if math.Abs(oldRpm) > 0.001 && direction == m.directionMovingInLock() {
+		if math.Abs(oldRpm) > 0.001 && goalPos == m.directionMovingInLock() {
 			return nil
 		}
 		// if moving from stop, start at 10% power
-		if err := m.setPower(ctx, direction*0.1, true); err != nil {
+		if err := m.setPower(ctx, goalPos*0.1, true); err != nil {
 			return err
 		}
-	case m.loop == nil && revolutions != 0:
+	case m.loop == nil && goalPos != 0:
 		startingPwr := 0.1 * direction
-		err = m.setPower(ctx, startingPwr, true)
+		err := m.setPower(ctx, startingPwr, true)
 		if err != nil {
 			return err
 		}
