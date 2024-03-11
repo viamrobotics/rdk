@@ -10,6 +10,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/logging"
 )
@@ -57,16 +58,7 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 
 	ticker := time.NewTicker(config.Cloud.RefreshInterval)
 
-	// TODO: the watcher should also restablish this connection.
-	conn, err := CreateNewGRPCClient(ctx, config.Cloud, logger)
-	if err != nil {
-		cancel()
-		logger.Warn("failed to connect to app - cannot watch for config updates")
-		return nil
-	}
-	defer utils.UncheckedErrorFunc(conn.Close)
-	rr := remoteReader{apppb.NewRobotServiceClient(conn)}
-
+	var conn rpc.ClientConn
 	var prevCfg *Config
 	utils.ManagedGo(func() {
 		for {
@@ -78,11 +70,24 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 				checkForNewCert = true
 			}
 
+			if conn == nil {
+				var err error
+				conn, err = CreateNewGRPCClient(ctx, config.Cloud, logger)
+				if err != nil {
+					conn = nil
+					logger.Warn("failed to connect to app")
+					continue
+				}
+			}
+			rr := remoteReader{apppb.NewRobotServiceClient(conn)}
 			newConfig, err := rr.readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, logger)
 			if err != nil {
 				logger.Errorw("error reading cloud config", "error", err)
+				utils.UncheckedErrorFunc(conn.Close)
+				conn = nil
 				continue
 			}
+
 			if cp, err := newConfig.CopyOnlyPublicFields(); err == nil {
 				prevCfg = cp
 			}
@@ -99,6 +104,7 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 	}, func() {
 		ticker.Stop()
 		close(watcherDoneCh)
+		utils.UncheckedErrorFunc(conn.Close)
 	})
 	return &cloudWatcher{
 		configCh:      configCh,
