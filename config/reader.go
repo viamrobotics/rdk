@@ -345,19 +345,27 @@ func ReadLocalConfig(
 	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, nil)
 }
 
-type remoteReaderFactory func(ctx context.Context, cloud *Cloud, logger logging.Logger) (remoteReader, func() error, error)
+type remoteReaderFactory func(
+	ctx context.Context,
+	cloud *Cloud,
+	logger logging.Logger,
+) (*remoteReader, func() error, error)
 
-func newRemoteReader(ctx context.Context, cloud *Cloud, logger logging.Logger) (remoteReader, func() error, error) {
+func newRemoteReader(
+	ctx context.Context,
+	cloud *Cloud,
+	logger logging.Logger,
+) (*remoteReader, func() error, error) {
 	conn, err := CreateNewGRPCClient(ctx, cloud, logger)
 	if err != nil {
-		return remoteReader{}, func() error { return nil }, err
+		return nil, func() error { return nil }, err
 	}
 
 	rr := remoteReader{apppb.NewRobotServiceClient(conn)}
 	closeFunc := func() error {
 		return conn.Close()
 	}
-	return rr, closeFunc, nil
+	return &rr, closeFunc, nil
 }
 
 // FromReader reads a config from the given reader and specifies

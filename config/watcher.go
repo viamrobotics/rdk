@@ -70,15 +70,13 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 			}
 
 			if rr == nil {
-				var reader remoteReader
 				var err error
-				reader, closeFunc, err = newRemoteReader(ctx, config.Cloud, logger)
+				rr, closeFunc, err = newRemoteReader(ctx, config.Cloud, logger)
 				if err != nil {
 					rr = nil
 					logger.Warn("failed to connect to app")
 					continue
 				}
-				rr = &reader
 			}
 			newConfig, err := rr.readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, logger)
 			if err != nil {

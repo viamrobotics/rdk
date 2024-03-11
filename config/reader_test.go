@@ -50,8 +50,12 @@ func TestFromReader(t *testing.T) {
 	const robotPartID = "forCachingTest"
 
 	rsc := initTestRobotServiceClient(t)
-	newTestReader := func(ctx context.Context, cloud *Cloud, logger logging.Logger) (remoteReader, func() error, error) {
-		return remoteReader{rsc}, func() error { return nil }, nil
+	newTestReader := func(
+		ctx context.Context,
+		cloud *Cloud,
+		logger logging.Logger,
+	) (*remoteReader, func() error, error) {
+		return &remoteReader{rsc}, func() error { return nil }, nil
 	}
 
 	clearCache(robotPartID)
