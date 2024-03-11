@@ -16,7 +16,7 @@ import (
 
 var errNilLocation = errors.New("nil gps location, check nmea message parsing")
 
-const earthRadiusKm = 6371 // Earth's radius in kilometers
+const earthRadiusM = 6371009 // Earth's radius in meters
 
 // CachedData allows the use of any MovementSensor chip via a DataReader.
 type CachedData struct {
@@ -197,8 +197,8 @@ func findDistance(lat1, lon1, lat2, lon2 float64) float64 {
 			math.Sin(dLon/2)*math.Sin(dLon/2)
 	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 
-	distanceKm := earthRadiusKm * c
-	return distanceKm * 1000 // convert km to meters
+	distanceM := earthRadiusM * c
+	return distanceM
 }
 
 // calculateCompassDegreeError calculates the compass degree error
@@ -217,7 +217,9 @@ func (g *CachedData) calculateCompassDegreeError() float64 {
 	if adjacent == 0 {
 		return math.NaN()
 	}
+	// by default we assume fix is 1-3. In this case, we assume radius to be 5m.
 	radius := 5.0
+	// when fix is 4 or higher, we set radius to be 10cm.
 	if g.nmeaData.FixQuality >= 4 {
 		radius = 0.1
 	}
