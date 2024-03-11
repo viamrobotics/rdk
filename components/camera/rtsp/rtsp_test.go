@@ -1,256 +1,93 @@
 package rtsp
 
 import (
-	"log"
-	"sync"
+	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/pion/rtp"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 )
 
-type serverHandler struct {
-	s         *gortsplib.Server
-	mutex     sync.Mutex
-	stream    *gortsplib.ServerStream
-	publisher *gortsplib.ServerSession
-}
-
-// called when a connection is opened.
-func (sh *serverHandler) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
-	log.Print("conn opened")
-}
-
-// called when a connection is closed.
-func (sh *serverHandler) OnConnClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
-	log.Printf("conn closed (%v)", ctx.Error)
-}
-
-// called when a session is opened.
-func (sh *serverHandler) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx) {
-	log.Print("session opened")
-}
-
-// called when a session is closed.
-func (sh *serverHandler) OnSessionClose(ctx *gortsplib.ServerHandlerOnSessionCloseCtx) {
-	log.Print("session closed")
-
-	sh.mutex.Lock()
-	defer sh.mutex.Unlock()
-
-	// if the session is the publisher,
-	// close the stream and disconnect any reader.
-	if sh.stream != nil && ctx.Session == sh.publisher {
-		sh.stream.Close()
-		sh.stream = nil
-	}
-}
-
-// called when receiving a DESCRIBE request.
-func (sh *serverHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
-	log.Print("describe request")
-
-	sh.mutex.Lock()
-	defer sh.mutex.Unlock()
-
-	// no one is publishing yet
-	if sh.stream == nil {
-		return &base.Response{
-			StatusCode: base.StatusNotFound,
-		}, nil, nil
-	}
-
-	// send medias that are being published to the client
-	return &base.Response{
-		StatusCode: base.StatusOK,
-	}, sh.stream, nil
-}
-
-// called when receiving an ANNOUNCE request.
-func (sh *serverHandler) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
-	log.Print("announce request")
-
-	sh.mutex.Lock()
-	defer sh.mutex.Unlock()
-
-	// disconnect existing publisher
-	if sh.stream != nil {
-		sh.stream.Close()
-		sh.publisher.Close()
-	}
-
-	// create the stream and save the publisher
-	sh.stream = gortsplib.NewServerStream(sh.s, ctx.Description)
-	sh.publisher = ctx.Session
-
-	return &base.Response{
-		StatusCode: base.StatusOK,
-	}, nil
-}
-
-// called when receiving a SETUP request.
-func (sh *serverHandler) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
-	log.Print("setup request")
-
-	// no one is publishing yet
-	if sh.stream == nil {
-		return &base.Response{
-			StatusCode: base.StatusNotFound,
-		}, nil, nil
-	}
-
-	return &base.Response{
-		StatusCode: base.StatusOK,
-	}, sh.stream, nil
-}
-
-// called when receiving a PLAY request.
-func (sh *serverHandler) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
-	log.Print("play request")
-
-	return &base.Response{
-		StatusCode: base.StatusOK,
-	}, nil
-}
-
-// called when receiving a RECORD request.
-func (sh *serverHandler) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
-	log.Print("record request")
-
-	// called when receiving a RTP packet
-	ctx.Session.OnPacketRTPAny(func(medi *description.Media, forma format.Format, pkt *rtp.Packet) {
-		// route the RTP packet to all readers
-		sh.stream.WritePacketRTP(medi, pkt)
-	})
-
-	return &base.Response{
-		StatusCode: base.StatusOK,
-	}, nil
-}
-
 func TestRTSPCamera(t *testing.T) {
-	// logger := logging.NewTestLogger(t)
-	h := &serverHandler{}
-	h.s = &gortsplib.Server{
-		Handler:           h,
-		RTSPAddress:       ":8554",
-		UDPRTPAddress:     ":8000",
-		UDPRTCPAddress:    ":8001",
-		MulticastIPRange:  "224.1.0.0/16",
-		MulticastRTPPort:  8002,
-		MulticastRTCPPort: 8003,
+	logger := logging.NewTestLogger(t)
+	bURL, err := base.ParseURL("rtsp://127.0.0.1:32512")
+	test.That(t, err, test.ShouldBeNil)
+	// the lastCaller tests that the state machine is:
+	// OnConnOpen -> OnDescribe -> OnSessionOpen -> OnSetup -> OnPlay -> OnConnClose -> OnSessionClose
+	h := &serverHandler{
+		OnConnOpenFunc: func(ctx *gortsplib.ServerHandlerOnConnOpenCtx, sh *serverHandler) {
+			logger.Debug("OnConnOpenFunc")
+		},
+		OnConnCloseFunc: func(ctx *gortsplib.ServerHandlerOnConnCloseCtx, sh *serverHandler) {
+			logger.Debug("OnConnCloseFunc")
+		},
+		OnSessionOpenFunc: func(ctx *gortsplib.ServerHandlerOnSessionOpenCtx, sh *serverHandler) {
+			logger.Debug("OnSessionOpenFunc")
+		},
+		OnSessionCloseFunc: func(ctx *gortsplib.ServerHandlerOnSessionCloseCtx, sh *serverHandler) {
+			logger.Debug("OnSessionCloseFunc")
+			sh.stream.Close()
+		},
+		OnDescribeFunc: func(ctx *gortsplib.ServerHandlerOnDescribeCtx, sh *serverHandler) (*base.Response, *gortsplib.ServerStream, error) {
+			logger.Debug("OnDescribeFunc")
+
+			sh.stream = gortsplib.NewServerStream(sh.s, &description.Session{
+				BaseURL: bURL,
+				Title:   "123456",
+				Medias: []*description.Media{{
+					Type:    description.MediaTypeVideo,
+					Formats: []format.Format{&format.MJPEG{}},
+				}},
+			})
+			return &base.Response{StatusCode: base.StatusOK}, sh.stream, nil
+		},
+		OnAnnounceFunc: func(ctx *gortsplib.ServerHandlerOnAnnounceCtx, sh *serverHandler) (*base.Response, error) {
+			logger.Debug("OnAnnounceFunc")
+			t.Log("should not be called")
+			t.FailNow()
+			return nil, errors.New("should not be called")
+		},
+		OnSetupFunc: func(ctx *gortsplib.ServerHandlerOnSetupCtx, sh *serverHandler) (*base.Response, *gortsplib.ServerStream, error) {
+			logger.Debug("OnSetupFunc")
+			return &base.Response{StatusCode: base.StatusOK}, sh.stream, nil
+		},
+		OnPlayFunc: func(ctx *gortsplib.ServerHandlerOnPlayCtx, sh *serverHandler) (*base.Response, error) {
+			logger.Debug("OnPlayFunc")
+			return &base.Response{StatusCode: base.StatusOK}, nil
+		},
+		OnRecordFunc: func(ctx *gortsplib.ServerHandlerOnRecordCtx, sh *serverHandler) (*base.Response, error) {
+			logger.Debug("OnRecordFunc")
+			t.Log("should not be called")
+			t.FailNow()
+			return nil, errors.New("should not be called")
+		},
 	}
-	// TODO: Reimplement these tests
-	// host := "127.0.0.1"
-	// port := "32512"
-	// outputURL := fmt.Sprintf("rtsp://%s:%s/mystream", host, port)
-	// // set up a simple server, which expects specific requests in a certain order
-	// l, err := net.Listen("tcp", fmt.Sprintf("%s:%s", host, port))
-	// test.That(t, err, test.ShouldBeNil)
-	// defer l.Close()
-	// viamutils.PanicCapturingGo(func() {
-	// 	nconn, err := l.Accept()
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	conx := conn.NewConn(nconn)
-	// 	defer nconn.Close()
 
-	// 	// OPTIONS
-	// 	req, err := conx.ReadRequest()
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	test.That(t, req.Method, test.ShouldEqual, base.Options)
-	// 	logger.Debug("in options")
-	// 	err = conx.WriteResponse(&base.Response{
-	// 		StatusCode: base.StatusOK,
-	// 		Header: base.Header{
-	// 			"Public": base.HeaderValue{strings.Join([]string{
-	// 				string(base.Describe),
-	// 				string(base.Setup),
-	// 				string(base.Play),
-	// 			}, ", ")},
-	// 			"Session": base.HeaderValue{"123456"},
-	// 		},
-	// 	})
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	// DESCRIBE
-	// 	req, err = conx.ReadRequest()
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	test.That(t, req.Method, test.ShouldEqual, base.Describe)
-	// 	logger.Debug("in describe")
-	// 	testMJPEG := &media.Media{
-	// 		Type:      media.TypeVideo,
-	// 		Direction: media.DirectionRecvonly,
-	// 		Formats:   []format.Format{&format.MJPEG{}},
-	// 	}
-	// 	medias := media.Medias{testMJPEG}
-	// 	medias.SetControls()
-	// 	mediaBytes, err := medias.Marshal(false).Marshal()
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	err = conx.WriteResponse(&base.Response{
-	// 		StatusCode: base.StatusOK,
-	// 		Header: base.Header{
-	// 			"Content-Type": base.HeaderValue{"application/sdp"},
-	// 			"Session":      base.HeaderValue{"123456"},
-	// 			"Content-Base": base.HeaderValue{outputURL},
-	// 		},
-	// 		Body: mediaBytes,
-	// 	})
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	// SETUP
-	// 	req, err = conx.ReadRequest()
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	test.That(t, req.Method, test.ShouldEqual, base.Setup)
-	// 	logger.Debug("in setup")
-	// 	var inTH headers.Transport
-	// 	err = inTH.Unmarshal(req.Header["Transport"])
-	// 	test.That(t, err, test.ShouldBeNil)
-
-	// 	th := headers.Transport{
-	// 		Delivery: func() *headers.TransportDelivery {
-	// 			v := headers.TransportDeliveryUnicast
-	// 			return &v
-	// 		}(),
-	// 		Protocol:    headers.TransportProtocolUDP,
-	// 		ClientPorts: inTH.ClientPorts,
-	// 		ServerPorts: &[2]int{34556, 34557},
-	// 	}
-
-	// 	err = conx.WriteResponse(&base.Response{
-	// 		StatusCode: base.StatusOK,
-	// 		Header: base.Header{
-	// 			"Session":   base.HeaderValue{"123456"},
-	// 			"Transport": th.Marshal(),
-	// 		},
-	// 	})
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	// PLAY
-	// 	req, err = conx.ReadRequest()
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	test.That(t, req.Method, test.ShouldEqual, base.Play)
-	// 	logger.Debug("in play")
-	// 	err = conx.WriteResponse(&base.Response{
-	// 		StatusCode: base.StatusOK,
-	// 		Header: base.Header{
-	// 			"Session": base.HeaderValue{"123456"},
-	// 		},
-	// 	})
-	// 	test.That(t, err, test.ShouldBeNil)
-	// })
-
-	// rtspConf := &Config{Address: outputURL}
-	// timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), time.Second*10)
-	// defer timeoutCancel()
-	// rtspCam, err := NewRTSPCamera(timeoutCtx, resource.Name{Name: "foo"}, rtspConf, logger)
-	// test.That(t, err, test.ShouldBeNil)
-	// test.That(t, rtspCam.Name().Name, test.ShouldEqual, "foo")
-	// // close everything
-	// err = rtspCam.Close(context.Background())
-	// test.That(t, err, test.ShouldBeNil)
+	h.s = &gortsplib.Server{
+		Handler:     h,
+		RTSPAddress: "127.0.0.1:32512",
+	}
+	test.That(t, h.s.Start(), test.ShouldBeNil)
+	rtspConf := &Config{Address: "rtsp://" + h.s.RTSPAddress}
+	timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer timeoutCancel()
+	rtspCam, err := NewRTSPCamera(timeoutCtx, resource.Name{Name: "foo"}, rtspConf, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, rtspCam.Name().Name, test.ShouldEqual, "foo")
+	// close everything
+	err = rtspCam.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	h.s.Close()
+	test.That(t, h.s.Wait(), test.ShouldBeError, errors.New("terminated"))
 }
 
 func TestRTSPConfig(t *testing.T) {
@@ -288,4 +125,63 @@ func TestRTSPConfig(t *testing.T) {
 	// no distortion parameters is OK
 	rtspConf.DistortionParams = &transform.BrownConrady{}
 	test.That(t, err, test.ShouldBeNil)
+}
+
+type serverHandler struct {
+	s                  *gortsplib.Server
+	stream             *gortsplib.ServerStream
+	OnConnOpenFunc     func(*gortsplib.ServerHandlerOnConnOpenCtx, *serverHandler)
+	OnConnCloseFunc    func(*gortsplib.ServerHandlerOnConnCloseCtx, *serverHandler)
+	OnSessionOpenFunc  func(*gortsplib.ServerHandlerOnSessionOpenCtx, *serverHandler)
+	OnSessionCloseFunc func(*gortsplib.ServerHandlerOnSessionCloseCtx, *serverHandler)
+	OnDescribeFunc     func(*gortsplib.ServerHandlerOnDescribeCtx, *serverHandler) (*base.Response, *gortsplib.ServerStream, error)
+	OnAnnounceFunc     func(*gortsplib.ServerHandlerOnAnnounceCtx, *serverHandler) (*base.Response, error)
+	OnSetupFunc        func(*gortsplib.ServerHandlerOnSetupCtx, *serverHandler) (*base.Response, *gortsplib.ServerStream, error)
+	OnPlayFunc         func(*gortsplib.ServerHandlerOnPlayCtx, *serverHandler) (*base.Response, error)
+	OnRecordFunc       func(*gortsplib.ServerHandlerOnRecordCtx, *serverHandler) (*base.Response, error)
+}
+
+// called when a connection is opened.
+func (sh *serverHandler) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
+	sh.OnConnOpenFunc(ctx, sh)
+}
+
+// called when a connection is closed.
+func (sh *serverHandler) OnConnClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
+	sh.OnConnCloseFunc(ctx, sh)
+}
+
+// called when a session is opened.
+func (sh *serverHandler) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx) {
+	sh.OnSessionOpenFunc(ctx, sh)
+}
+
+// called when a session is closed.
+func (sh *serverHandler) OnSessionClose(ctx *gortsplib.ServerHandlerOnSessionCloseCtx) {
+	sh.OnSessionCloseFunc(ctx, sh)
+}
+
+// called when receiving a DESCRIBE request.
+func (sh *serverHandler) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
+	return sh.OnDescribeFunc(ctx, sh)
+}
+
+// called when receiving an ANNOUNCE request.
+func (sh *serverHandler) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
+	return sh.OnAnnounceFunc(ctx, sh)
+}
+
+// called when receiving a SETUP request.
+func (sh *serverHandler) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+	return sh.OnSetupFunc(ctx, sh)
+}
+
+// called when receiving a PLAY request.
+func (sh *serverHandler) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
+	return sh.OnPlayFunc(ctx, sh)
+}
+
+// called when receiving a RECORD request.
+func (sh *serverHandler) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
+	return sh.OnRecordFunc(ctx, sh)
 }
