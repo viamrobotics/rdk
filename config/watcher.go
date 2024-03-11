@@ -57,6 +57,8 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 	ticker := time.NewTicker(config.Cloud.RefreshInterval)
 
 	var prevCfg *Config
+	var rr *remoteReader
+	closeFunc := func() error { return nil }
 	utils.ManagedGo(func() {
 		for {
 			if !utils.SelectContextOrWait(cancelCtx, config.Cloud.RefreshInterval) {
@@ -66,11 +68,24 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 			if time.Now().After(nextCheckForNewCert) {
 				checkForNewCert = true
 			}
-			newConfig, err := readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, logger)
+
+			if rr == nil {
+				var err error
+				rr, closeFunc, err = newRemoteReader(ctx, config.Cloud, logger)
+				if err != nil {
+					rr = nil
+					logger.Warn("failed to connect to app")
+					continue
+				}
+			}
+			newConfig, err := rr.readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, logger)
 			if err != nil {
 				logger.Errorw("error reading cloud config", "error", err)
+				utils.UncheckedErrorFunc(closeFunc)
+				rr = nil
 				continue
 			}
+
 			if cp, err := newConfig.CopyOnlyPublicFields(); err == nil {
 				prevCfg = cp
 			}
@@ -87,6 +102,7 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 	}, func() {
 		ticker.Stop()
 		close(watcherDoneCh)
+		utils.UncheckedErrorFunc(closeFunc)
 	})
 	return &cloudWatcher{
 		configCh:      configCh,
