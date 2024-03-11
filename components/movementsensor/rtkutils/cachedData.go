@@ -206,7 +206,17 @@ func findDistance(lat1, lon1, lat2, lon2 float64) float64 {
 func (g *CachedData) calculateCompassDegreeError() float64 {
 	firstPos := g.lastPosition.GetLastPosition()
 	secondPos := g.nmeaData.Location
+
+	// Check if the two positions are the same.
+	if firstPos.Lat() == secondPos.Lat() && firstPos.Lng() == secondPos.Lng() {
+		return math.NaN()
+	}
+
 	adjacent := findDistance(firstPos.Lat(), firstPos.Lng(), secondPos.Lat(), secondPos.Lng())
+	// If adjacent is 0, atan2 will be 90 degrees which is not desired.
+	if adjacent == 0 {
+		return math.NaN()
+	}
 	radius := 5.0
 	if g.nmeaData.FixQuality >= 4 {
 		radius = 0.1
