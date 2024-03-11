@@ -58,7 +58,7 @@ func (m *EncodedMotor) SetMotorState(ctx context.Context, newState EncodedMotorS
 	m.state = newState
 }
 
-// GetMotorState allows users to get the motor state values, used for testing
+// GetMotorState allows users to get the motor state values, used for testing.
 func (m *EncodedMotor) GetMotorState(ctx context.Context) EncodedMotorState {
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
