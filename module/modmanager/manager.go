@@ -170,14 +170,6 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 			continue
 		}
 
-		mgr.mu.RLock()
-		_, exists := mgr.modules[conf.Name]
-		mgr.mu.RUnlock()
-		if exists {
-			// module exists already!
-			continue
-		}
-
 		// setup valid, new modules in parallel
 		wg.Add(1)
 		go func(i int, conf config.Module) {
@@ -210,6 +202,14 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) (*module, error
 	mu := mgr.loadModMutex(conf.Name)
 	mu.Lock()
 	defer mu.Unlock()
+
+	mgr.mu.RLock()
+	_, exists := mgr.modules[conf.Name]
+	mgr.mu.RUnlock()
+	if exists {
+		//nolint:nilnil
+		return nil, nil
+	}
 
 	var moduleDataDir string
 	// only set the module data directory if the parent dir is present (which it might not be during tests)
