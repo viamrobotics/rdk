@@ -125,7 +125,10 @@ func (mgr *Manager) Close(ctx context.Context) error {
 	}
 	var err error
 	for _, mod := range mgr.modules {
-		err = multierr.Combine(err, mgr.closeModule(mod, false))
+		func() {
+			defer mgr.lockModuleMutex(mod.cfg.Name)()
+			err = multierr.Combine(err, mgr.closeModule(mod, false))
+		}()
 	}
 	return err
 }
@@ -281,6 +284,8 @@ func (mgr *Manager) register(mod *module) {
 // Reconfigure reconfigures an existing resource module and returns the names of
 // now orphaned resources.
 func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]resource.Name, error) {
+	defer mgr.lockModuleMutex(conf.Name)()
+
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 	mod, exists := mgr.modules[conf.Name]
@@ -327,6 +332,8 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 // Remove removes and stops an existing resource module and returns the names of
 // now orphaned resources.
 func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
+	defer mgr.lockModuleMutex(modName)()
+
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 	mod, exists := mgr.modules[modName]
@@ -487,7 +494,10 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 
 	// if the module is marked for removal, actually remove it when the final resource is closed
 	if mod.pendingRemoval && len(mod.resources) == 0 {
-		err = multierr.Combine(err, mgr.closeModule(mod, false))
+		func() {
+			defer mgr.lockModuleMutex(mod.cfg.Name)()
+			err = multierr.Combine(err, mgr.closeModule(mod, false))
+		}()
 	}
 	return err
 }
