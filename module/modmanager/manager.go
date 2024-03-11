@@ -144,10 +144,11 @@ func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 	return res
 }
 
-func (mgr *Manager) loadModMutex(modName string) *sync.Mutex {
+func (mgr *Manager) lockModuleMutex(modName string) func() {
 	value, _ := mgr.perModMu.LoadOrStore(modName, &sync.Mutex{})
 	mu := value.(*sync.Mutex)
-	return mu
+	mu.Lock()
+	return mu.Unlock
 }
 
 // Add adds and starts a new resource module.
@@ -199,9 +200,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 }
 
 func (mgr *Manager) add(ctx context.Context, conf config.Module) (*module, error) {
-	mu := mgr.loadModMutex(conf.Name)
-	mu.Lock()
-	defer mu.Unlock()
+	defer mgr.lockModuleMutex(conf.Name)()
 
 	mgr.mu.RLock()
 	_, exists := mgr.modules[conf.Name]
