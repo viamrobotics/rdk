@@ -162,39 +162,37 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		newMods = make([]*module, len(confs))
 	)
 
-	func() {
-		for i, conf := range confs {
-			// this is done in config validation but partial start rules require us to check again
-			if err := conf.Validate(""); err != nil {
-				mgr.logger.CErrorw(ctx, "module config validation error; skipping", "module", conf.Name, "error", err)
+	for i, conf := range confs {
+		// this is done in config validation but partial start rules require us to check again
+		if err := conf.Validate(""); err != nil {
+			mgr.logger.CErrorw(ctx, "module config validation error; skipping", "module", conf.Name, "error", err)
+			errs[i] = err
+			continue
+		}
+
+		mgr.mu.RLock()
+		_, exists := mgr.modules[conf.Name]
+		mgr.mu.RUnlock()
+		if exists {
+			// module exists already!
+			continue
+		}
+
+		// setup valid, new modules in parallel
+		wg.Add(1)
+		go func(i int, conf config.Module) {
+			defer wg.Done()
+
+			mod, err := mgr.add(ctx, conf)
+			if err != nil {
+				mgr.logger.CErrorw(ctx, "error adding module", "module", conf.Name, "error", err)
 				errs[i] = err
 				return
 			}
-
-			mgr.mu.RLock()
-			_, exists := mgr.modules[conf.Name]
-			mgr.mu.RUnlock()
-			if exists {
-				// module exists already!
-				return
-			}
-
-			// setup valid, new modules in parallel
-			wg.Add(1)
-			go func(i int, conf config.Module) {
-				defer wg.Done()
-
-				mod, err := mgr.add(ctx, conf)
-				if err != nil {
-					mgr.logger.CErrorw(ctx, "error adding module", "module", conf.Name, "error", err)
-					errs[i] = err
-					return
-				}
-				newMods[i] = mod
-			}(i, conf)
-		}
-		wg.Wait()
-	}()
+			newMods[i] = mod
+		}(i, conf)
+	}
+	wg.Wait()
 
 	// register new modules
 	mgr.mu.Lock()
