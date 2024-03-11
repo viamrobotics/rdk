@@ -710,8 +710,6 @@ func TestManagerNewComponent(t *testing.T) {
 	robotForRemote := &localRobot{
 		manager: newResourceManager(resourceManagerOptions{}, logger),
 	}
-	// TODO: create an injectable dummy mod manager
-	robotForRemote.manager.moduleManager = &dummyModMan{}
 	diff, err := config.DiffConfigs(config.Config{}, *cfg, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robotForRemote.manager.updateResources(context.Background(), diff), test.ShouldBeNil)
@@ -1328,8 +1326,6 @@ func TestConfigUntrustedEnv(t *testing.T) {
 	manager := newResourceManager(resourceManagerOptions{
 		untrustedEnv: true,
 	}, logger)
-	// TODO: create an injectable dummy mod manager
-	manager.moduleManager = &dummyModMan{}
 
 	test.That(t, manager.processManager, test.ShouldEqual, pexec.NoopProcessManager)
 
