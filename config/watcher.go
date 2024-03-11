@@ -8,9 +8,7 @@ import (
 
 	"github.com/bep/debounce"
 	"github.com/fsnotify/fsnotify"
-	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/logging"
 )
@@ -58,8 +56,9 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 
 	ticker := time.NewTicker(config.Cloud.RefreshInterval)
 
-	var conn rpc.ClientConn
 	var prevCfg *Config
+	var rr *remoteReader
+	closeFunc := func() error { return nil }
 	utils.ManagedGo(func() {
 		for {
 			if !utils.SelectContextOrWait(cancelCtx, config.Cloud.RefreshInterval) {
@@ -70,21 +69,22 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 				checkForNewCert = true
 			}
 
-			if conn == nil {
+			if rr == nil {
+				var reader remoteReader
 				var err error
-				conn, err = CreateNewGRPCClient(ctx, config.Cloud, logger)
+				reader, closeFunc, err = newRemoteReader(ctx, config.Cloud, logger)
 				if err != nil {
-					conn = nil
+					rr = nil
 					logger.Warn("failed to connect to app")
 					continue
 				}
+				rr = &reader
 			}
-			rr := remoteReader{apppb.NewRobotServiceClient(conn)}
 			newConfig, err := rr.readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, logger)
 			if err != nil {
 				logger.Errorw("error reading cloud config", "error", err)
-				utils.UncheckedErrorFunc(conn.Close)
-				conn = nil
+				utils.UncheckedErrorFunc(closeFunc)
+				rr = nil
 				continue
 			}
 
@@ -104,7 +104,7 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 	}, func() {
 		ticker.Stop()
 		close(watcherDoneCh)
-		utils.UncheckedErrorFunc(conn.Close)
+		utils.UncheckedErrorFunc(closeFunc)
 	})
 	return &cloudWatcher{
 		configCh:      configCh,
