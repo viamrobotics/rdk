@@ -51,7 +51,11 @@ func (rsc *RobotServiceClient) Log(
 }
 
 // NeedsRestart calls the injected NeedsRestartFunc or the real version.
-func (rsc *RobotServiceClient) NeedsRestart(ctx context.Context, in *pb.NeedsRestartRequest, opts ...grpc.CallOption) (*pb.NeedsRestartResponse, error) {
+func (rsc *RobotServiceClient) NeedsRestart(
+	ctx context.Context,
+	in *pb.NeedsRestartRequest,
+	opts ...grpc.CallOption,
+) (*pb.NeedsRestartResponse, error) {
 	if rsc.NeedsRestartFunc == nil {
 		return rsc.NeedsRestart(ctx, in, opts...)
 	}

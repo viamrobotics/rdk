@@ -49,9 +49,8 @@ func TestFromReader(t *testing.T) {
 	const robotPartID = "forCachingTest"
 
 	rsc := initTestRobotServiceClient(t)
-	newRemoteReader := func(ctx context.Context, cloud *Cloud, logger logging.Logger) (remoteReader, func() error, error) {
-		rr := remoteReader{rsc}
-		return rr, func() error { return nil }, nil
+	newTestReader := func(ctx context.Context, cloud *Cloud, logger logging.Logger) (remoteReader, func() error, error) {
+		return remoteReader{rsc}, func() error { return nil }, nil
 	}
 
 	logger := logging.NewTestLogger(t)
@@ -60,7 +59,7 @@ func TestFromReader(t *testing.T) {
 
 	_, err := readFromCache(robotPartID)
 	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
-	gotCfg, err := fromReader(ctx, "", strings.NewReader(cfgText), logger, newRemoteReader)
+	gotCfg, err := fromReader(ctx, "", strings.NewReader(cfgText), logger, newTestReader)
 	test.That(t, err, test.ShouldBeNil)
 	defer clearCache(robotPartID)
 
