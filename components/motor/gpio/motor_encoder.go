@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -134,7 +133,6 @@ func newEncodedMotor(
 
 // EncodedMotor is a motor that utilizes an encoder to track its position.
 type EncodedMotor struct {
-	rpmMonitorCalls int64
 	resource.Named
 	resource.AlwaysRebuild
 
@@ -235,7 +233,6 @@ func (m *EncodedMotor) rpmMonitor() {
 			continue
 		}
 		now := time.Now().UnixNano()
-		atomic.AddInt64(&m.rpmMonitorCalls, 1)
 
 		if (m.DirectionMoving() == 1 && pos >= m.state.goalPos) || (m.DirectionMoving() == -1 && pos <= m.state.goalPos) {
 			// stop motor when at or past goal position
@@ -307,11 +304,6 @@ func (m *EncodedMotor) makeAdjustments(pos, lastPos float64, now, lastTime int64
 		}
 	}
 	return nil
-}
-
-// RPMMonitorCalls returns the number of calls RPM monitor has made.
-func (m *EncodedMotor) RPMMonitorCalls() int64 {
-	return atomic.LoadInt64(&m.rpmMonitorCalls)
 }
 
 func fixPowerPct(powerPct, max float64) float64 {
