@@ -166,6 +166,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		newMods = make([]*module, len(confs))
 	)
 
+	// TODO: dedupe
 	for i, conf := range confs {
 		// this is done in config validation but partial start rules require us to check again
 		if err := conf.Validate(""); err != nil {
