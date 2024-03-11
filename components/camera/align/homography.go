@@ -129,6 +129,7 @@ func newColorDepthHomography(ctx context.Context, color, depth camera.VideoSourc
 		videoSrc,
 		&cameraModel,
 		imgType,
+		false,
 	)
 }
 

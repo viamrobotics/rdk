@@ -176,7 +176,8 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 		ctx,
 		ffCam,
 		&transform.PinholeCameraModel{PinholeCameraIntrinsics: conf.CameraParameters},
-		camera.ColorStream)
+		camera.ColorStream,
+		false)
 }
 
 func (fc *ffmpegCamera) Close(ctx context.Context) error {

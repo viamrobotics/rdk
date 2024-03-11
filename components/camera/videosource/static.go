@@ -47,6 +47,7 @@ func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfi
 		videoSrc,
 		&cameraModel,
 		imgType,
+		false,
 	)
 	if err != nil {
 		return nil, err

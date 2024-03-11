@@ -159,7 +159,9 @@ type sourceBasedCamera struct {
 func NewVideoSourceFromReader(
 	ctx context.Context,
 	reader gostream.VideoReader,
-	syst *transform.PinholeCameraModel, imageType ImageType,
+	syst *transform.PinholeCameraModel,
+	imageType ImageType,
+	tryAddVideoCodecStream bool,
 ) (VideoSource, error) {
 	if reader == nil {
 		return nil, errors.New("cannot have a nil reader")
@@ -167,7 +169,7 @@ func NewVideoSourceFromReader(
 
 	var videoCodecStream VideoCodecStream
 	vcs, ok := reader.(VideoCodecStream)
-	if ok {
+	if tryAddVideoCodecStream && ok {
 		videoCodecStream = vcs
 	}
 	vs := gostream.NewVideoSource(reader, prop.Video{})

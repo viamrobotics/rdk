@@ -111,6 +111,7 @@ func newDualServerSource(
 		videoSrc,
 		&cameraModel,
 		videoSrc.Stream,
+		false,
 	)
 }
 
@@ -251,5 +252,6 @@ func NewServerSource(ctx context.Context, cfg *ServerConfig, logger logging.Logg
 		videoSrc,
 		&cameraModel,
 		videoSrc.stream,
+		false,
 	)
 }

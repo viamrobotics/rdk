@@ -157,10 +157,11 @@ func (jpcc *joinPointCloudCamera) Reconfigure(ctx context.Context, deps resource
 			jpcc,
 			&transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsicParams},
 			camera.ColorStream,
+			false,
 		)
 		return err
 	}
-	jpcc.src, err = camera.NewVideoSourceFromReader(ctx, jpcc, nil, camera.ColorStream)
+	jpcc.src, err = camera.NewVideoSourceFromReader(ctx, jpcc, nil, camera.ColorStream, false)
 	return err
 }
 

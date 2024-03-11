@@ -68,7 +68,7 @@ func newDetectionsTransform(
 		confFilter,
 		r,
 	}
-	src, err := camera.NewVideoSourceFromReader(ctx, detector, &cameraModel, camera.ColorStream)
+	src, err := camera.NewVideoSourceFromReader(ctx, detector, &cameraModel, camera.ColorStream, false)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}

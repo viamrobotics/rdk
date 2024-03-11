@@ -134,6 +134,7 @@ func newJoinColorDepth(ctx context.Context, color, depth camera.VideoSource, con
 		videoSrc,
 		&cameraModel,
 		imgType,
+		false,
 	)
 }
 

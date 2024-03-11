@@ -58,7 +58,7 @@ func NewCamera(
 		Animated: newConf.Animated,
 		logger:   logger,
 	}
-	src, err := camera.NewVideoSourceFromReader(ctx, cam, resModel, camera.ColorStream)
+	src, err := camera.NewVideoSourceFromReader(ctx, cam, resModel, camera.ColorStream, false)
 	if err != nil {
 		return nil, err
 	}

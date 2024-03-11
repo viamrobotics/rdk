@@ -48,6 +48,7 @@ func init() {
 // Config are the config attributes for an RTSP camera model.
 type Config struct {
 	Address          string                             `json:"rtsp_address"`
+	H264Passthrough  bool                               `json:"h264_passthrough"`
 	IntrinsicParams  *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParams *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 }
@@ -81,6 +82,7 @@ type (
 		cancelFunc              context.CancelFunc
 		activeBackgroundWorkers sync.WaitGroup
 		logger                  logging.Logger
+		h264Passthrough         bool
 		subsMu                  sync.RWMutex
 		subs                    map[*camera.StreamSubscription]unitSubscriberFunc
 	}
@@ -298,9 +300,10 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger
 		return nil, err
 	}
 	rtspCam := &rtspCamera{
-		u:      u,
-		logger: logger,
-		subs:   make(map[*camera.StreamSubscription]unitSubscriberFunc),
+		u:               u,
+		h264Passthrough: conf.H264Passthrough,
+		logger:          logger,
+		subs:            make(map[*camera.StreamSubscription]unitSubscriberFunc),
 	}
 	err = rtspCam.reconnectClient()
 	if err != nil {
@@ -337,7 +340,7 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger
 	rtspCam.cancelFunc = cancel
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(conf.IntrinsicParams, conf.DistortionParams)
 	rtspCam.clientReconnectBackgroundWorker()
-	src, err := camera.NewVideoSourceFromReader(ctx, rtspCam, &cameraModel, camera.ColorStream)
+	src, err := camera.NewVideoSourceFromReader(ctx, rtspCam, &cameraModel, camera.ColorStream, rtspCam.h264Passthrough)
 	if err != nil {
 		return nil, err
 	}

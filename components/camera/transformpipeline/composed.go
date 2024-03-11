@@ -60,7 +60,7 @@ func newDepthToPrettyTransform(
 		originalStream: depthStream,
 		cameraModel:    &cameraModel,
 	}
-	src, err := camera.NewVideoSourceFromReader(ctx, reader, &cameraModel, camera.ColorStream)
+	src, err := camera.NewVideoSourceFromReader(ctx, reader, &cameraModel, camera.ColorStream, false)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
@@ -144,7 +144,7 @@ func newOverlayTransform(
 		return nil, camera.UnspecifiedStream, transform.ErrNoIntrinsics
 	}
 	reader := &overlaySource{src, &cameraModel}
-	src, err = camera.NewVideoSourceFromReader(ctx, reader, &cameraModel, stream)
+	src, err = camera.NewVideoSourceFromReader(ctx, reader, &cameraModel, stream, false)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
