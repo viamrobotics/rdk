@@ -51,6 +51,20 @@ func MakeSingleBoard(t *testing.T) *fakeboard.Board {
 	return &b
 }
 
+// SetMotorState allows users to set the motor state values.
+func (m *EncodedMotor) SetMotorState(ctx context.Context, newState EncodedMotorState) {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+	m.state = newState
+}
+
+// GetMotorState allows users to get the motor state values, used for testing
+func (m *EncodedMotor) GetMotorState(ctx context.Context) EncodedMotorState {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+	return m.state
+}
+
 func MakeIncrementalBoard(t *testing.T) *fakeboard.Board {
 	interrupt11, _ := fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
 		Name: "11",
