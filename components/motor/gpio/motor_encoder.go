@@ -141,8 +141,9 @@ type EncodedMotor struct {
 	encoder                 encoder.Encoder
 	offsetInTicks           float64
 
-	stateMu sync.RWMutex
-	state   EncodedMotorState
+	stateMu        sync.RWMutex
+	state          EncodedMotorState
+	rpmMonitorDone func()
 
 	// how fast as we increase power do we do so
 	// valid numbers are (0, 1]
@@ -170,12 +171,12 @@ type EncodedMotorState struct {
 }
 
 // rpmMonitor keeps track of the desired RPM and position.
-func (m *EncodedMotor) rpmMonitor(goalRPM, goalPos float64) {
+func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos float64) {
 	if m.encoder == nil {
 		panic("started rpmMonitor but have no encoder")
 	}
 
-	lastPos, err := m.position(m.cancelCtx, nil)
+	lastPos, err := m.position(ctx, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -184,7 +185,7 @@ func (m *EncodedMotor) rpmMonitor(goalRPM, goalPos float64) {
 	for {
 		timer := time.NewTimer(50 * time.Millisecond)
 		select {
-		case <-m.cancelCtx.Done():
+		case <-ctx.Done():
 			timer.Stop()
 			return
 		case <-timer.C:
@@ -195,11 +196,11 @@ func (m *EncodedMotor) rpmMonitor(goalRPM, goalPos float64) {
 			continue
 		}
 		m.stateMu.Unlock()
-		pos, err := m.position(m.cancelCtx, nil)
+		pos, err := m.position(ctx, nil)
 		if err != nil {
 			m.logger.Info("error getting encoder position, sleeping then continuing: %w", err)
-			if !utils.SelectContextOrWait(m.cancelCtx, 100*time.Millisecond) {
-				m.logger.Info("error sleeping, giving up %w", m.cancelCtx.Err())
+			if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+				m.logger.Info("error sleeping, giving up %w", ctx.Err())
 				return
 			}
 			continue
@@ -210,7 +211,7 @@ func (m *EncodedMotor) rpmMonitor(goalRPM, goalPos float64) {
 
 		if (m.DirectionMoving() == 1 && pos >= goalPos) || (m.DirectionMoving() == -1 && pos <= goalPos) {
 			// stop motor when at or past goal position
-			if err := m.Stop(m.cancelCtx, nil); err != nil {
+			if err := m.Stop(ctx, nil); err != nil {
 				m.logger.Error(err)
 				return
 			}
@@ -422,11 +423,14 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, directio
 				return err
 			}
 		} else {
-			m.cancel()
-			m.cancelCtx, m.cancel = context.WithCancel(context.Background())
+			if m.rpmMonitorDone != nil {
+				m.rpmMonitorDone()
+			}
+			var rpmCtx context.Context
+			rpmCtx, m.rpmMonitorDone = context.WithCancel(context.Background())
 			m.activeBackgroundWorkers.Add(1)
 			utils.ManagedGo(func() {
-				m.rpmMonitor(rpm, goalPos)
+				m.rpmMonitor(rpmCtx, rpm, goalPos)
 			}, m.activeBackgroundWorkers.Done)
 		}
 	}
