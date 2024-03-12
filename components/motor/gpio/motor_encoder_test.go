@@ -2,6 +2,7 @@ package gpio
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -331,21 +332,21 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
 	})
 
-	// t.Run("Ensure stop called when gofor is interrupted", func(t *testing.T) {
-	// 	ctx := context.Background()
-	// 	var wg sync.WaitGroup
-	// 	ctx, cancel := context.WithCancel(ctx)
-	// 	wg.Add(1)
-	// 	go func() {
-	// 		motorDep.GoFor(ctx, 100, 100, map[string]interface{}{})
-	// 		wg.Done()
-	// 	}()
-	// 	cancel()
-	// 	wg.Wait()
+	t.Run("Ensure stop called when gofor is interrupted", func(t *testing.T) {
+		ctx := context.Background()
+		var wg sync.WaitGroup
+		ctx, cancel := context.WithCancel(ctx)
+		wg.Add(1)
+		go func() {
+			motorDep.GoFor(ctx, 100, 100, map[string]interface{}{})
+			wg.Done()
+		}()
+		cancel()
+		wg.Wait()
 
-	// 	test.That(t, ctx.Err(), test.ShouldNotBeNil)
-	// 	test.That(t, motorDep.state.goalRPM, test.ShouldEqual, 0)
-	// })
+		test.That(t, ctx.Err(), test.ShouldNotBeNil)
+		test.That(t, motorDep.state.regulated, test.ShouldBeFalse)
+	})
 }
 
 func TestMotorEncoderIncremental(t *testing.T) {
