@@ -397,7 +397,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	goalPos := (math.Abs(revolutions) * m.ticksPerRotation * direction) + currentPos
 	goalRPM := math.Abs(rpm) * direction
 
-	if err := m.goForInternal(ctx, goalRPM, goalPos, revolutions, direction); err != nil {
+	if err := m.goForInternal(ctx, goalRPM, revolutions, goalPos, direction); err != nil {
 		return err
 	}
 
@@ -433,7 +433,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
-func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, revolutions, direction float64) error {
+func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions, goalPos, direction float64) error {
 	if m.loop == nil {
 		// create new control loop if control config exists
 		if len(m.controlLoopConfig.Blocks) != 0 {
