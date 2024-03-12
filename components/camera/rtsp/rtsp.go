@@ -176,7 +176,14 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 	if err != nil {
 		return err
 	}
-	rc.logger.Infof("RES Describe, desc: %#v, resp: %#v ", desc, resp)
+	ms := []description.Media{}
+	for _, m := range desc.Medias {
+		ms = append(ms, *m)
+
+	}
+	rc.logger.Infof("RES Describe, desc: %# ", desc)
+	rc.logger.Infof("RES Describe, ms: %#v", ms)
+	rc.logger.Infof("RES Describe, resp: %#v ", resp)
 
 	var forma format.Format
 	var media *description.Media
@@ -395,6 +402,7 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger
 		f = func(ctx context.Context) (image.Image, func(), error) {
 			return nil, func() {}, errors.New("builtin RTSP camera.GetImage method unimplemented when H264Passthrough enabled")
 		}
+
 	}
 
 	reader := gostream.VideoReaderFunc(f)
