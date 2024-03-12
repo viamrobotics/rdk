@@ -503,6 +503,8 @@ func (m *EncodedMotor) position(ctx context.Context, extra map[string]interface{
 	if err != nil {
 		return 0, err
 	}
+	m.stateMu.RLock()
+	defer m.stateMu.RUnlock()
 	pos := ticks + m.offsetInTicks
 	return pos, nil
 }
