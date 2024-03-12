@@ -35,11 +35,6 @@ func NewNmeaMovementSensor(
 	return g, nil
 }
 
-// TODO: remove this from the interface.
-func (g *NMEAMovementSensor) Start(_ context.Context) error {
-	return nil
-}
-
 // Position returns the position and altitide of the sensor, or an error.
 func (g *NMEAMovementSensor) Position(
 	ctx context.Context, extra map[string]interface{},
