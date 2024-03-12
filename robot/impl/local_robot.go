@@ -13,7 +13,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	pb "go.viam.com/api/app/packages/v1"
 	modulepb "go.viam.com/api/module/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -402,19 +401,18 @@ func newWithResources(
 	}()
 
 	if cfg.Cloud != nil && cfg.Cloud.AppAddress != "" {
-		_, cloudConn, err := r.cloudConnSvc.AcquireConnection(ctx)
-		if err == nil {
-			r.packageManager, err = packages.NewCloudManager(cfg.Cloud, pb.NewPackageServiceClient(cloudConn), cfg.PackagePath, logger)
-			if err != nil {
-				return nil, err
+		connectionChan := make(chan packages.DeferredConnectionResponse)
+		goutils.PanicCapturingGo(func() {
+			// deferred connection manager uses this for-loop behavior to
+			// implement connection retries
+			for {
+				_, cloudConn, err := r.cloudConnSvc.AcquireConnection(ctx)
+				connectionChan <- packages.DeferredConnectionResponse{CloudConn: cloudConn, Err: err}
+				// wait minimum 5 seconds before retrying to create a new connection
+				<-time.After(time.Second * 5)
 			}
-		} else {
-			if !errors.Is(err, context.DeadlineExceeded) {
-				return nil, err
-			}
-			r.logger.CDebug(ctx, "Using no-op PackageManager when internet not available")
-			r.packageManager = packages.NewNoopManager()
-		}
+		})
+		r.packageManager = packages.NewDeferredPackageManager(connectionChan, cfg.Cloud, cfg.PackagePath, logger)
 	} else {
 		r.logger.CDebug(ctx, "Using no-op PackageManager when Cloud config is not available")
 		r.packageManager = packages.NewNoopManager()
@@ -719,7 +717,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 				if err := res.Reconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
 					r.Logger().CErrorw(ctx, "failed to reconfigure internal service during weak dependencies update", "service", resName, "error", err)
 				}
-			case packages.InternalServiceName, cloud.InternalServiceName:
+			case packages.InternalServiceName, packages.DeferredServiceName, cloud.InternalServiceName:
 			default:
 				r.logger.CWarnw(ctx, "do not know how to reconfigure internal service during weak dependencies update", "service", resName)
 			}
