@@ -61,7 +61,7 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 			// have first read with the watcher happen much faster in case the request timed out on the initial read on server startup
 			interval := config.Cloud.RefreshInterval
 			if firstRead {
-				interval = interval / 5
+				interval /= 5
 				firstRead = false
 			}
 			if !utils.SelectContextOrWait(cancelCtx, interval) {
