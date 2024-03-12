@@ -1326,7 +1326,6 @@ func TestConfigUntrustedEnv(t *testing.T) {
 	manager := newResourceManager(resourceManagerOptions{
 		untrustedEnv: true,
 	}, logger)
-
 	test.That(t, manager.processManager, test.ShouldEqual, pexec.NoopProcessManager)
 
 	t.Run("disable processes", func(t *testing.T) {
