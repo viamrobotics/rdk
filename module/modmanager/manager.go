@@ -202,12 +202,10 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 	}
 
 	var (
-		wg      sync.WaitGroup
-		errs    = make([]error, len(confs))
-		newMods = make([]*module, len(confs))
+		wg   sync.WaitGroup
+		errs = make([]error, len(confs))
+		seen = make(map[string]struct{}, len(confs))
 	)
-
-	seen := make(map[string]struct{}, len(confs))
 	for i, conf := range confs {
 		if _, dupe := seen[conf.Name]; dupe {
 			continue
@@ -226,34 +224,23 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		go func(i int, conf config.Module) {
 			defer wg.Done()
 
-			mod, err := mgr.add(ctx, conf)
+			err := mgr.add(ctx, conf)
 			if err != nil {
 				mgr.logger.CErrorw(ctx, "error adding module", "module", conf.Name, "error", err)
 				errs[i] = err
 				return
 			}
-			newMods[i] = mod
 		}(i, conf)
 	}
 	wg.Wait()
 
-	// register new modules
-	mgr.mu.Lock()
-	defer mgr.mu.Unlock()
-	for i, mod := range newMods {
-		if mod != nil && errs[i] == nil {
-			mgr.register(mod)
-		}
-	}
-
 	return multierr.Combine(errs...)
 }
 
-func (mgr *Manager) add(ctx context.Context, conf config.Module) (*module, error) {
+func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 	_, exists := mgr.modules.Load(conf.Name)
 	if exists {
-		//nolint:nilnil
-		return nil, nil
+		return nil
 	}
 
 	var moduleDataDir string
@@ -262,7 +249,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) (*module, error
 		moduleDataDir = filepath.Join(mgr.moduleDataParentDir, conf.Name)
 		// safety check to prevent exiting the moduleDataDirectory in case conf.Name ends up including characters like ".."
 		if !strings.HasPrefix(filepath.Clean(moduleDataDir), filepath.Clean(mgr.moduleDataParentDir)) {
-			return nil, errors.Errorf("module %q would have a data directory %q outside of the module data directory %q",
+			return errors.Errorf("module %q would have a data directory %q outside of the module data directory %q",
 				conf.Name, moduleDataDir, mgr.moduleDataParentDir)
 		}
 	}
@@ -274,9 +261,9 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) (*module, error
 	}
 
 	if err := mgr.startModule(ctx, mod); err != nil {
-		return nil, err
+		return err
 	}
-	return mod, nil
+	return nil
 }
 
 func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
@@ -315,13 +302,10 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.cfg.Name)
 	}
 
-	success = true
-	return nil
-}
-
-func (mgr *Manager) register(mod *module) {
 	mod.registerResources(mgr, mgr.logger)
 	mgr.modules.Store(mod.cfg.Name, mod)
+	success = true
+	return nil
 }
 
 // Reconfigure reconfigures an existing resource module and returns the names of
@@ -351,7 +335,6 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 		// If re-addition fails, assume all handled resources are orphaned.
 		return handledResourceNames, err
 	}
-	mgr.register(mod)
 
 	mgr.logger.Debugw("successfully reconfigured and reconnected to module", "module", mod.cfg.Name, "module address", mod.addr)
 
