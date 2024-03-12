@@ -116,7 +116,7 @@ type rtkSerial struct {
 	lastcompassheading movementsensor.LastCompassHeading
 	InputProtocol      string
 
-	nmeamovementsensor gpsnmea.NmeaMovementSensor
+	nmeamovementsensor *rtk.CachedData
 	correctionWriter   io.ReadWriteCloser
 	writePath          string
 	wbaud              int
@@ -201,19 +201,16 @@ func newRTKSerial(
 	}
 
 	g.InputProtocol = serialStr
-	nmeaConf := &gpsnmea.Config{
-		ConnectionType: serialStr,
-	}
 
-	// Init NMEAMovementSensor
-	nmeaConf.SerialConfig = &gpsnmea.SerialConfig{
+	serialConfig := &gpsnmea.SerialConfig{
 		SerialPath:     newConf.SerialPath,
 		SerialBaudRate: newConf.SerialBaudRate,
 	}
-	g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
+	dev, err := gpsnmea.NewSerialDataReader(serialConfig, logger)
 	if err != nil {
 		return nil, err
 	}
+	g.nmeamovementsensor = rtk.NewCachedData(dev, logger)
 
 	if err := g.start(); err != nil {
 		return nil, err

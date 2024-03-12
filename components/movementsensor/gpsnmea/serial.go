@@ -18,26 +18,7 @@ import (
 
 // NewSerialGPSNMEA creates a component that communicates over a serial port.
 func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (NmeaMovementSensor, error) {
-	serialPath := conf.SerialConfig.SerialPath
-	if serialPath == "" {
-		return nil, fmt.Errorf("SerialNMEAMovementSensor expected non-empty string for %q", conf.SerialConfig.SerialPath)
-	}
-
-	baudRate := conf.SerialConfig.SerialBaudRate
-	if baudRate == 0 {
-		baudRate = 38400
-		logger.CInfo(ctx, "SerialNMEAMovementSensor: serial_baud_rate using default 38400")
-	}
-
-	options := serial.OpenOptions{
-		PortName:        serialPath,
-		BaudRate:        uint(baudRate),
-		DataBits:        8,
-		StopBits:        1,
-		MinimumReadSize: 4,
-	}
-
-	dev, err := NewSerialDataReader(options, logger)
+	dev, err := NewSerialDataReader(conf.SerialConfig, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +38,26 @@ type SerialDataReader struct {
 }
 
 // NewSerialDataReader constructs a new DataReader that gets its NMEA messages over a serial port.
-func NewSerialDataReader(options serial.OpenOptions, logger logging.Logger) (rtkutils.DataReader, error) {
+func NewSerialDataReader(config *SerialConfig, logger logging.Logger) (rtkutils.DataReader, error) {
+	serialPath := config.SerialPath
+	if serialPath == "" {
+		return nil, fmt.Errorf("SerialNMEAMovementSensor expected non-empty string for %q", config.SerialPath)
+	}
+
+	baudRate := config.SerialBaudRate
+	if baudRate == 0 {
+		baudRate = 38400
+		logger.Info("SerialNMEAMovementSensor: serial_baud_rate using default 38400")
+	}
+
+	options := serial.OpenOptions{
+		PortName:        serialPath,
+		BaudRate:        uint(baudRate),
+		DataBits:        8,
+		StopBits:        1,
+		MinimumReadSize: 4,
+	}
+
 	dev, err := serial.Open(options)
 	if err != nil {
 		return nil, err
