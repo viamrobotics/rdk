@@ -54,12 +54,12 @@ func NewCachedData(dev DataReader, logger logging.Logger) *CachedData {
 		cancelCtx:          cancelCtx,
 		cancelFunc:         cancelFunc,
 	}
-	g.Start()
+	g.start()
 	return &g
 }
 
-// Start begins reading nmea messages from dev and updates gps data.
-func (g *CachedData) Start() {
+// start begins reading nmea messages from dev and updates gps data.
+func (g *CachedData) start() {
 	g.activeBackgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer g.activeBackgroundWorkers.Done()
