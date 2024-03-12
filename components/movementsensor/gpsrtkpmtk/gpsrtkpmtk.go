@@ -58,8 +58,6 @@ import (
 
 var rtkmodel = resource.DefaultModelFamily.WithModel("gps-nmea-rtk-pmtk")
 
-const i2cStr = "i2c"
-
 // Config is used for converting NMEA MovementSensor with RTK capabilities config attributes.
 type Config struct {
 	I2CBus      string `json:"i2c_bus"`
@@ -256,8 +254,11 @@ func makeRTKI2C(
 	if err != nil {
 		return nil, err
 	}
-
 	g.nmeamovementsensor = rtk.NewCachedData(dev, logger)
+
+	if err := g.start(); err != nil {
+		return nil, err
+	}
 	return g, g.err.Get()
 }
 
