@@ -13,6 +13,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	packagespb "go.viam.com/api/app/packages/v1"
 	modulepb "go.viam.com/api/module/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -403,13 +404,24 @@ func newWithResources(
 	if cfg.Cloud != nil && cfg.Cloud.AppAddress != "" {
 		connectionChan := make(chan packages.DeferredConnectionResponse)
 		goutils.PanicCapturingGo(func() {
-			// deferred connection manager uses this for-loop behavior to
-			// implement connection retries
 			for {
+				// deferred connection manager uses this for-loop behavior to
+				// implement connection retries
 				_, cloudConn, err := r.cloudConnSvc.AcquireConnection(ctx)
-				connectionChan <- packages.DeferredConnectionResponse{CloudConn: cloudConn, Err: err}
-				// wait minimum 5 seconds before retrying to create a new connection
-				<-time.After(time.Second * 5)
+				select {
+				case connectionChan <- packages.DeferredConnectionResponse{
+					Client: packagespb.NewPackageServiceClient(cloudConn),
+					Err:    err,
+				}:
+				case <-closeCtx.Done():
+					return
+				}
+				select {
+				// wait minimum 1 second before retrying to create a new connection
+				case <-time.After(time.Second * 1):
+				case <-closeCtx.Done():
+					return
+				}
 			}
 		})
 		r.packageManager = packages.NewDeferredPackageManager(connectionChan, cfg.Cloud, cfg.PackagePath, logger)

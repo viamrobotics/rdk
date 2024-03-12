@@ -5,10 +5,8 @@ import (
 	"errors"
 	"os"
 	"sync"
-	"time"
 
 	pb "go.viam.com/api/app/packages/v1"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -34,8 +32,8 @@ type cloudManagerConstructorArgs struct {
 // DeferredConnectionResponse is an entry on the connectionChan
 // used to pass a connection from local_robot to here.
 type DeferredConnectionResponse struct {
-	CloudConn rpc.ClientConn
-	Err       error
+	Client pb.PackageServiceClient
+	Err    error
 }
 
 var (
@@ -63,6 +61,8 @@ func NewDeferredPackageManager(
 	}
 }
 
+// getCloudManager is the only function allowed to set or read m.cloudManager
+// every other function should use getCloudManager().
 func (m *deferredPackageManager) getCloudManager(wait bool) ManagerSyncer {
 	m.cloudManagerLock.Lock()
 	defer m.cloudManagerLock.Unlock()
@@ -71,8 +71,6 @@ func (m *deferredPackageManager) getCloudManager(wait bool) ManagerSyncer {
 		return m.cloudManager
 	}
 	var response *DeferredConnectionResponse
-	m.logger.Error("wooooooooooooooo")
-	m.logger.Error(time.Now().Format(time.RFC3339Nano))
 	if wait {
 		res := <-m.connectionChan
 		response = &res
@@ -83,7 +81,6 @@ func (m *deferredPackageManager) getCloudManager(wait bool) ManagerSyncer {
 		default:
 		}
 	}
-	m.logger.Error(time.Now().Format(time.RFC3339Nano))
 	if response == nil {
 		return nil
 	}
@@ -96,7 +93,7 @@ func (m *deferredPackageManager) getCloudManager(wait bool) ManagerSyncer {
 	var err error
 	m.cloudManager, err = NewCloudManager(
 		m.cloudManagerArgs.cloudConfig,
-		pb.NewPackageServiceClient(response.CloudConn),
+		response.Client,
 		m.cloudManagerArgs.packagesDir,
 		m.cloudManagerArgs.logger,
 	)
@@ -134,7 +131,8 @@ func (m *deferredPackageManager) Close(ctx context.Context) error {
 	return m.noopManager.Close(ctx)
 }
 
-// SyncAll syncs all given packages and removes any not in the list from the local file system.
+// Sync syncs all given packages and removes any not in the list from the local file system.
+// If there are packages missing on the local fs, this will wait while attempting to establish a connection to app.viam.
 func (m *deferredPackageManager) Sync(ctx context.Context, packages []config.PackageConfig) error {
 	shouldWait := m.isMissingPackages(packages)
 	if mgr := m.getCloudManager(shouldWait); mgr != nil {
