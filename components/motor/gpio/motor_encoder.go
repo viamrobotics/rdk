@@ -88,7 +88,6 @@ func newEncodedMotor(
 		maxPowerPct:       motorConfig.MaxPowerPct,
 		logger:            logger,
 		opMgr:             operation.NewSingleOperationManager(),
-		startedRPMMonitor: false,
 		loop:              nil,
 		controlLoopConfig: control.Config{},
 	}
@@ -145,9 +144,6 @@ type EncodedMotor struct {
 	stateMu sync.RWMutex
 	state   EncodedMotorState
 
-	startedRPMMonitor   bool
-	startedRPMMonitorMu sync.Mutex
-
 	// how fast as we increase power do we do so
 	// valid numbers are (0, 1]
 	// .01 would ramp very slowly, 1 would ramp instantaneously
@@ -173,30 +169,11 @@ type EncodedMotorState struct {
 	direction    float64
 }
 
-// rpmMonitorStart starts the RPM monitor.
-func (m *EncodedMotor) rpmMonitorStart(goalRPM, goalPos float64) {
-	m.startedRPMMonitorMu.Lock()
-	startedRPMMonitor := m.startedRPMMonitor
-	m.startedRPMMonitorMu.Unlock()
-	if startedRPMMonitor {
-		m.cancel()
-		m.cancelCtx, m.cancel = context.WithCancel(context.Background())
-	}
-	m.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
-		m.rpmMonitor(goalRPM, goalPos)
-	}, m.activeBackgroundWorkers.Done)
-}
-
 // rpmMonitor keeps track of the desired RPM and position.
 func (m *EncodedMotor) rpmMonitor(goalRPM, goalPos float64) {
 	if m.encoder == nil {
 		panic("started rpmMonitor but have no encoder")
 	}
-
-	m.startedRPMMonitorMu.Lock()
-	m.startedRPMMonitor = true
-	m.startedRPMMonitorMu.Unlock()
 
 	lastPos, err := m.position(m.cancelCtx, nil)
 	if err != nil {
@@ -397,7 +374,11 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	goalPos := (math.Abs(revolutions) * m.ticksPerRotation * direction) + currentPos
 	goalRPM := math.Abs(rpm) * direction
 
-	if err := m.goForInternal(ctx, goalRPM, revolutions, goalPos, direction); err != nil {
+	if revolutions == 0 {
+		goalPos = math.Inf(int(direction))
+	}
+
+	if err := m.goForInternal(ctx, goalRPM, goalPos, direction); err != nil {
 		return err
 	}
 
@@ -433,7 +414,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
-func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions, goalPos, direction float64) error {
+func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, direction float64) error {
 	if m.loop == nil {
 		// create new control loop if control config exists
 		if len(m.controlLoopConfig.Blocks) != 0 {
@@ -441,7 +422,12 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions, goal
 				return err
 			}
 		} else {
-			m.rpmMonitorStart(rpm, goalPos)
+			m.cancel()
+			m.cancelCtx, m.cancel = context.WithCancel(context.Background())
+			m.activeBackgroundWorkers.Add(1)
+			utils.ManagedGo(func() {
+				m.rpmMonitor(rpm, goalPos)
+			}, m.activeBackgroundWorkers.Done)
 		}
 	}
 
@@ -458,17 +444,10 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions, goal
 	defer m.stateMu.Unlock()
 
 	switch {
-	case m.loop != nil && revolutions == 0:
+	case m.loop != nil:
 		velVal := math.Abs(rpm * m.ticksPerRotation / 60)
 		// when rev = 0, only velocity is controlled
 		// setPoint is +/- infinity, maxVel is calculated velVal
-		if err := m.updateControlBlock(ctx, math.Inf(int(rpm)), velVal); err != nil {
-			return err
-		}
-	case m.loop != nil && revolutions != 0:
-		velVal := math.Abs(rpm * m.ticksPerRotation / 60)
-		// when rev is not 0, velocity and position are controlled
-		// setPoint is goalPos, maxVel is calculated velVal
 		if err := m.updateControlBlock(ctx, goalPos, velVal); err != nil {
 			return err
 		}
