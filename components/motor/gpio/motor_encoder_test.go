@@ -797,13 +797,13 @@ func TestDirFlipMotor(t *testing.T) {
 	defer _dirFMotor.Close(context.Background())
 
 	t.Run("Direction flip RPM + | REV + ", func(t *testing.T) {
-		test.That(t, _dirFMotor.GoFor(context.Background(), 1000, 1, nil), test.ShouldBeNil)
+		test.That(t, _dirFMotor.goForInternal(context.Background(), 1000, 1, 1, 1), test.ShouldBeNil)
 		test.That(t, dirflipFakeMotor.PowerPct(), test.ShouldBeLessThan, 0)
 		test.That(t, dirflipFakeMotor.Direction(), test.ShouldEqual, -1)
 	})
 
 	t.Run("Direction flip RPM - | REV + ", func(t *testing.T) {
-		test.That(t, _dirFMotor.GoFor(context.Background(), -1000, 1, nil), test.ShouldBeNil)
+		test.That(t, _dirFMotor.goForInternal(context.Background(), -1000, 1, -1, -1), test.ShouldBeNil)
 		test.That(t, dirflipFakeMotor.PowerPct(), test.ShouldBeGreaterThan, 0)
 		test.That(t, dirflipFakeMotor.Direction(), test.ShouldEqual, 1)
 	})
