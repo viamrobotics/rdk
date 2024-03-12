@@ -921,7 +921,6 @@ func (manager *resourceManager) updateResources(
 
 	// modules are not added into the resource tree as they belong to the module manager
 	if conf.Added.Modules != nil {
-		//nolint: errcheck
 		if err := manager.moduleManager.Add(ctx, conf.Added.Modules...); err != nil {
 		     manager.logger.CErrorw(ctx, "error adding modules", "error", err)
 		}
