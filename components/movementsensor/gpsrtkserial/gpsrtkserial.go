@@ -343,7 +343,7 @@ func (g *rtkSerial) connectAndParseSourceTable() error {
 		}
 	}
 
-	g.logger.Debug("gettting source table")
+	g.logger.Debug("getting source table")
 
 	srcTable, err := g.ntripClient.ParseSourcetable(g.logger)
 	if err != nil {
@@ -371,29 +371,26 @@ func (g *rtkSerial) connectToNTRIP() error {
 	}
 	err := g.connectAndParseSourceTable()
 	if err != nil {
-		return g.err.Get()
+		return err
 	}
 
 	err = g.openPort()
 	if err != nil {
-		g.err.Set(err)
-		return g.err.Get()
+		return err
 	}
 
 	if g.isVirtualBase {
 		g.logger.Debug("connecting to a Virtual Reference Station")
 		err = g.getNtripFromVRS()
 		if err != nil {
-			g.err.Set(err)
-			return g.err.Get()
+			return err
 		}
 	} else {
 		g.logger.Debug("connecting to NTRIP stream........")
 		g.writer = bufio.NewWriter(g.correctionWriter)
 		err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 		if err != nil {
-			g.err.Set(err)
-			return g.err.Get()
+			return err
 		}
 
 		g.reader = io.TeeReader(g.ntripClient.Stream, g.writer)
