@@ -11,6 +11,7 @@ import (
 	"github.com/jacobsa/go-serial/serial"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/components/movementsensor/rtkutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
@@ -44,8 +45,8 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 	return NewNmeaMovementSensor(ctx, name, dev, logger)
 }
 
-// SerialDataReader implements the DataReader interface (defined in component.go) by interacting
-// with the device over a serial port.
+// SerialDataReader implements the rtkutils.DataReader interface (defined in component.go) by
+// interacting with the device over a serial port.
 type SerialDataReader struct {
 	dev                     io.ReadWriteCloser
 	data                    chan string
@@ -56,7 +57,7 @@ type SerialDataReader struct {
 }
 
 // NewSerialDataReader constructs a new DataReader that gets its NMEA messages over a serial port.
-func NewSerialDataReader(options serial.OpenOptions, logger logging.Logger) (DataReader, error) {
+func NewSerialDataReader(options serial.OpenOptions, logger logging.Logger) (rtkutils.DataReader, error) {
 	dev, err := serial.Open(options)
 	if err != nil {
 		return nil, err

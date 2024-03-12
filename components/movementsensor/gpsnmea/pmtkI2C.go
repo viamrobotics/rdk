@@ -12,12 +12,13 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
+	"go.viam.com/rdk/components/movementsensor/rtkutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
-// PmtkI2cDataReader implements the DataReader interface for a PMTK device by communicating with it
-// over an I2C bus.
+// PmtkI2cDataReader implements the rtkutils.DataReader interface for a PMTK device by
+// communicating with it over an I2C bus.
 type PmtkI2cDataReader struct {
 	data chan string
 
@@ -34,7 +35,7 @@ type PmtkI2cDataReader struct {
 // NewI2cDataReader constructs a new DataReader that gets its NMEA messages over an I2C bus.
 func NewI2cDataReader(
 	bus buses.I2C, addr byte, baud int, logger logging.Logger,
-) (DataReader, error) {
+) (rtkutils.DataReader, error) {
 	data := make(chan string)
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 

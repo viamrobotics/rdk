@@ -10,11 +10,20 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
+	goutils "go.viam.com/utils"
 )
 
 var errNilLocation = errors.New("nil gps location, check nmea message parsing")
+
+// DataReader represents a way to get data from a GPS NMEA device. We can read data from it using
+// the channel in Messages, and we can close the device when we're done.
+type DataReader interface {
+	Messages() chan string
+	Close() error
+}
 
 // CachedData allows the use of any MovementSensor chip via a DataReader.
 type CachedData struct {
@@ -52,7 +61,7 @@ func NewCachedData(dev DataReader, logger logging.Logger) CachedData {
 // Start begins reading nmea messages from dev and updates gps data.
 func (g *CachedData) Start() {
     g.activeBackgroundWorkers.Add(1)
-    utils.PanicCapturingGo(func() {
+    goutils.PanicCapturingGo(func() {
         defer g.activeBackgroundWorkers.Done()
 
         messages := g.dev.Messages()

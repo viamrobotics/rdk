@@ -3,12 +3,9 @@ package gpsnmea
 
 import (
 	"context"
-	"sync"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-	"go.uber.org/multierr"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/rtkutils"
@@ -16,13 +13,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
-
-// DataReader represents a way to get data from a GPS NMEA device. We can read data from it using
-// the channel in Messages, and we can close the device when we're done.
-type DataReader interface {
-	Messages() chan string
-	Close() error
-}
 
 // NMEAMovementSensor allows the use of any MovementSensor chip via a DataReader.
 type NMEAMovementSensor struct {
@@ -34,7 +24,7 @@ type NMEAMovementSensor struct {
 
 // NewNmeaMovementSensor creates a new movement sensor.
 func NewNmeaMovementSensor(
-	ctx context.Context, name resource.Name, dev DataReader, logger logging.Logger,
+	ctx context.Context, name resource.Name, dev rtkutils.DataReader, logger logging.Logger,
 ) (NmeaMovementSensor, error) {
 	g := &NMEAMovementSensor{
 		Named:      name.AsNamed(),
@@ -43,6 +33,11 @@ func NewNmeaMovementSensor(
 	}
 
 	return g, nil
+}
+
+// TODO: remove this from the interface
+func (g *NMEAMovementSensor) Start(_ context.Context) error {
+	return nil
 }
 
 // Position returns the position and altitide of the sensor, or an error.
