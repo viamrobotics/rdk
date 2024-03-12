@@ -18,8 +18,8 @@ import (
 type NMEAMovementSensor struct {
 	resource.Named
 	resource.AlwaysRebuild
-	logger                  logging.Logger
-	cachedData              rtkutils.CachedData
+	logger     logging.Logger
+	cachedData *rtkutils.CachedData
 }
 
 // NewNmeaMovementSensor creates a new movement sensor.
@@ -134,5 +134,9 @@ func (g *NMEAMovementSensor) Properties(
 // Close shuts down the NMEAMovementSensor.
 func (g *NMEAMovementSensor) Close(ctx context.Context) error {
 	g.logger.CDebug(ctx, "Closing NMEAMovementSensor")
-	return g.cachedData.Close(ctx)
+	// In some of the unit tests, the cachedData is nil. Only close it if it's not.
+	if g.cachedData != nil {
+		return g.cachedData.Close(ctx)
+	}
+	return nil
 }

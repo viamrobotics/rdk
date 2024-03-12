@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	geo "github.com/kellydunn/golang-geo"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
 )
 
@@ -20,9 +21,18 @@ const (
 	fix        = 1
 )
 
+type mockDataReader struct {}
+func (d *mockDataReader) Messages() chan string {
+	return nil
+}
+func (d *mockDataReader) Close() error {
+	return nil
+}
+
 func TestReadingsSerial(t *testing.T) {
 	ctx := context.Background()
-	g := NewCachedData()
+	logger := logging.NewTestLogger(t)
+	g := NewCachedData(&mockDataReader{}, logger)
 	g.nmeaData = NmeaParser{
 		Location:   loc,
 		Alt:        alt,

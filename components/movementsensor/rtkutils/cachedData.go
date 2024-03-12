@@ -43,7 +43,7 @@ type CachedData struct {
 }
 
 // NewCachedData creates a new CachedData object.
-func NewCachedData(dev DataReader, logger logging.Logger) CachedData {
+func NewCachedData(dev DataReader, logger logging.Logger) *CachedData {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	g := CachedData{
 		err:                movementsensor.NewLastError(1, 1),
@@ -55,7 +55,7 @@ func NewCachedData(dev DataReader, logger logging.Logger) CachedData {
 		cancelFunc:         cancelFunc,
 	}
 	g.Start()
-	return g
+	return &g
 }
 
 // Start begins reading nmea messages from dev and updates gps data.
