@@ -858,11 +858,11 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 			case <-slowTicker.C:
 				elapsed := time.Since(startTime).Seconds()
 				logger.Warnf("waiting %q for module to be ready. Elapsed %.2f seconds", m.cfg.Name, elapsed)
-        err := m.process.Status()
-        if err != nil {
-          logger.Errorf("Module process error: %v", err)
-          return
-        }
+				err := m.process.Status()
+				if err != nil {
+					logger.Errorf("module process error: %v", err)
+					return
+				}
 			case <-ctxTimeout.Done():
 				return
 			}

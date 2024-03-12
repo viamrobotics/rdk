@@ -87,7 +87,9 @@ func TestModManagerFunctions(t *testing.T) {
 	_, ok = resource.LookupRegistration(generic.API, myCounterModel)
 	test.That(t, ok, test.ShouldBeFalse)
 
+	test.That(t, mod.process.Status(), test.ShouldBeNil)
 	test.That(t, mod.process.Stop(), test.ShouldBeNil)
+	test.That(t, mod.process.Status(), test.ShouldNotBeNil)
 
 	modEnv := mod.getFullEnvironment(viamHomeTemp)
 	test.That(t, modEnv["VIAM_HOME"], test.ShouldEqual, viamHomeTemp)
