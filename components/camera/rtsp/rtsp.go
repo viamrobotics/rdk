@@ -98,11 +98,7 @@ func (rc *rtspCamera) Close(ctx context.Context) error {
 	rc.cancelFunc()
 	rc.client.Close()
 	rc.activeBackgroundWorkers.Wait()
-	rc.subsMu.Lock()
-	defer rc.subsMu.Unlock()
-	for r := range rc.subs {
-		rc.Unsubscribe(r)
-	}
+	rc.unsubscribeAll()
 	return nil
 }
 
@@ -179,7 +175,6 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 	ms := []description.Media{}
 	for _, m := range desc.Medias {
 		ms = append(ms, *m)
-
 	}
 	rc.logger.Infof("RES Describe, desc: %# ", desc)
 	rc.logger.Infof("RES Describe, ms: %#v", ms)
@@ -347,6 +342,15 @@ func (rc *rtspCamera) SubscribeRTP(r *camera.StreamSubscription, packetsCB camer
 	return nil
 }
 
+func (rc *rtspCamera) unsubscribeAll() {
+	rc.subsMu.Lock()
+	defer rc.subsMu.Unlock()
+	for r := range rc.subs {
+		r.Stop()
+		delete(rc.subs, r)
+	}
+}
+
 // Unsubscribe deregisters the StreamSubscription's callback.
 func (rc *rtspCamera) Unsubscribe(r *camera.StreamSubscription) {
 	rc.subsMu.Lock()
@@ -402,7 +406,6 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger
 		f = func(ctx context.Context) (image.Image, func(), error) {
 			return nil, func() {}, errors.New("builtin RTSP camera.GetImage method unimplemented when H264Passthrough enabled")
 		}
-
 	}
 
 	reader := gostream.VideoReaderFunc(f)
