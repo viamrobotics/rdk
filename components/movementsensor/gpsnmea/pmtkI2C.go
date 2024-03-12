@@ -34,8 +34,25 @@ type PmtkI2cDataReader struct {
 
 // NewI2cDataReader constructs a new DataReader that gets its NMEA messages over an I2C bus.
 func NewI2cDataReader(
-	bus buses.I2C, addr byte, baud int, logger logging.Logger,
+	config I2CConfig, bus buses.I2C, logger logging.Logger,
 ) (rtkutils.DataReader, error) {
+	if bus == nil {
+		var err error
+		bus, err = buses.NewI2cBus(config.I2CBus)
+		if err != nil {
+			return nil, fmt.Errorf("gps init: failed to find i2c bus %s: %w", config.I2CBus, err)
+		}
+	}
+	addr := config.I2CAddr
+	if addr == -1 {
+		return nil, errors.New("must specify gps i2c address")
+	}
+	baud := config.I2CBaudRate
+	if baud == 0 {
+		baud = 38400
+		logger.Warn("using default baudrate: 38400")
+	}
+
 	data := make(chan string)
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
@@ -45,7 +62,7 @@ func NewI2cDataReader(
 		cancelFunc: cancelFunc,
 		logger:     logger,
 		bus:        bus,
-		addr:       addr,
+		addr:       byte(addr),
 		baud:       baud,
 	}
 
@@ -206,24 +223,7 @@ func MakePmtkI2cGpsNmea(
 	logger logging.Logger,
 	i2cBus buses.I2C,
 ) (NmeaMovementSensor, error) {
-	if i2cBus == nil {
-		var err error
-		i2cBus, err = buses.NewI2cBus(conf.I2CConfig.I2CBus)
-		if err != nil {
-			return nil, fmt.Errorf("gps init: failed to find i2c bus %s: %w",
-				conf.I2CConfig.I2CBus, err)
-		}
-	}
-	addr := conf.I2CConfig.I2CAddr
-	if addr == -1 {
-		return nil, errors.New("must specify gps i2c address")
-	}
-	if conf.I2CConfig.I2CBaudRate == 0 {
-		conf.I2CConfig.I2CBaudRate = 38400
-		logger.CWarn(ctx, "using default baudrate : 38400")
-	}
-
-	dev, err := NewI2cDataReader(i2cBus, byte(addr), conf.I2CConfig.I2CBaudRate, logger)
+	dev, err := NewI2cDataReader(*conf.I2CConfig, i2cBus, logger)
 	if err != nil {
 		return nil, err
 	}

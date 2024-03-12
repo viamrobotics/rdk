@@ -135,7 +135,7 @@ type rtkI2C struct {
 	err          movementsensor.LastError
 	lastposition movementsensor.LastPosition
 
-	nmeamovementsensor gpsnmea.NmeaMovementSensor
+	nmeamovementsensor *rtk.CachedData
 	correctionWriter   io.ReadWriteCloser
 
 	bus     buses.I2C
@@ -240,33 +240,24 @@ func makeRTKI2C(
 		return nil, err
 	}
 
-	nmeaConf := &gpsnmea.Config{
-		ConnectionType: i2cStr,
-	}
-
 	// Init NMEAMovementSensor
-	nmeaConf.I2CConfig = &gpsnmea.I2CConfig{
+	config := gpsnmea.I2CConfig{
 		I2CBus:      newConf.I2CBus,
 		I2CBaudRate: newConf.I2CBaudRate,
 		I2CAddr:     newConf.I2CAddr,
 	}
-
-	if nmeaConf.I2CConfig.I2CBaudRate == 0 {
-		nmeaConf.I2CConfig.I2CBaudRate = 115200
+	if config.I2CBaudRate == 0 {
+		config.I2CBaudRate = 115200
 	}
 
 	// If we have a mock I2C bus, pass that in, too. If we don't, it'll be nil and constructing the
-	// sensor will create a real I2C bus instead.
-	g.nmeamovementsensor, err = gpsnmea.MakePmtkI2cGpsNmea(
-		ctx, deps, conf.ResourceName(), nmeaConf, logger, mockI2c)
+	// reader will create a real I2C bus instead.
+	dev, err := gpsnmea.NewI2cDataReader(config, mockI2c, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := g.start(); err != nil {
-		return nil, err
-	}
-
+	g.nmeamovementsensor = rtk.NewCachedData(dev, logger)
 	return g, g.err.Get()
 }
 
