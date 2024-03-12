@@ -90,6 +90,7 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, mod.process.Status(), test.ShouldBeNil)
 	test.That(t, mod.process.Stop(), test.ShouldBeNil)
 	test.That(t, mod.process.Status(), test.ShouldNotBeNil)
+	test.That(t, mod.process.Status().Error(), test.ShouldContainSubstring, "process already finished")
 
 	modEnv := mod.getFullEnvironment(viamHomeTemp)
 	test.That(t, modEnv["VIAM_HOME"], test.ShouldEqual, viamHomeTemp)
