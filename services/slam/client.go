@@ -101,9 +101,23 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 		return Properties{}, err
 	}
 
+	sensorInfo := []SensorInfo{}
+	for _, sInfo := range resp.SensorInfo {
+		sensorType, err := protobufToSensorType(sInfo.Type)
+		if err != nil {
+			return Properties{}, err
+		}
+		sensorInfo = append(sensorInfo, SensorInfo{
+			Name: sInfo.Name,
+			Type: sensorType,
+		})
+	}
+
 	prop := Properties{
-		CloudSlam:   resp.CloudSlam,
-		MappingMode: mappingMode,
+		CloudSlam:             resp.CloudSlam,
+		MappingMode:           mappingMode,
+		InternalStateFileType: resp.InternalStateFileType,
+		SensorInfo:            sensorInfo,
 	}
 	return prop, err
 }

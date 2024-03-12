@@ -45,6 +45,12 @@ const (
 	MappingModeUpdateExistingMap
 )
 
+// SensorTypeCamera is a camera sensor.
+const (
+	SensorTypeCamera = SensorType(iota)
+	SensorTypeMovementSensor
+)
+
 // API is a variable that identifies the slam resource API.
 var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 
@@ -52,11 +58,23 @@ var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 // creating a new map, localizing on an existing map or updating an existing map.
 type MappingMode uint8
 
+// SensorType describes what sensor type the sensor is, including
+// camera or movement sensor.
+type SensorType uint8
+
+// SensorInfo holds information about the sensor name and sensor type.
+type SensorInfo struct {
+	Name string
+	Type SensorType
+}
+
 // Properties returns various information regarding the current slam service,
 // including whether the slam process is running in the cloud and its mapping mode.
 type Properties struct {
-	CloudSlam   bool
-	MappingMode MappingMode
+	CloudSlam             bool
+	MappingMode           MappingMode
+	InternalStateFileType string
+	SensorInfo            []SensorInfo
 }
 
 // Named is a helper for getting the named service's typed resource name.
@@ -165,5 +183,29 @@ func protobufToMappingMode(mappingMode pb.MappingMode) (MappingMode, error) {
 		fallthrough
 	default:
 		return 0, errors.New("mapping mode unspecified")
+	}
+}
+
+func sensorTypeToProtobuf(sensorType SensorType) pb.SensorType {
+	switch sensorType {
+	case SensorTypeCamera:
+		return pb.SensorType_SENSOR_TYPE_CAMERA
+	case SensorTypeMovementSensor:
+		return pb.SensorType_SENSOR_TYPE_MOVEMENT_SENSOR
+	default:
+		return pb.SensorType_SENSOR_TYPE_UNSPECIFIED
+	}
+}
+
+func protobufToSensorType(sensorType pb.SensorType) (SensorType, error) {
+	switch sensorType {
+	case pb.SensorType_SENSOR_TYPE_CAMERA:
+		return SensorTypeCamera, nil
+	case pb.SensorType_SENSOR_TYPE_MOVEMENT_SENSOR:
+		return SensorTypeMovementSensor, nil
+	case pb.SensorType_SENSOR_TYPE_UNSPECIFIED:
+		fallthrough
+	default:
+		return 0, errors.New("sensor type unspecified")
 	}
 }

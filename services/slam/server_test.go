@@ -187,8 +187,13 @@ func TestWorkingServer(t *testing.T) {
 
 	t.Run("working GetProperties", func(t *testing.T) {
 		prop := slam.Properties{
-			CloudSlam:   false,
-			MappingMode: slam.MappingModeNewMap,
+			CloudSlam:             false,
+			MappingMode:           slam.MappingModeNewMap,
+			InternalStateFileType: ".pbstream",
+			SensorInfo: []slam.SensorInfo{
+				{Name: "my-camera", Type: slam.SensorTypeCamera},
+				{Name: "my-movement-sensor", Type: slam.SensorTypeMovementSensor},
+			},
 		}
 		injectSvc.PropertiesFunc = func(ctx context.Context) (slam.Properties, error) {
 			return prop, nil
@@ -198,10 +203,17 @@ func TestWorkingServer(t *testing.T) {
 			Name: testSlamServiceName,
 		}
 
+		sensorInfoSuccess := []*pb.SensorInfo{
+			{Name: prop.SensorInfo[0].Name, Type: pb.SensorType_SENSOR_TYPE_CAMERA},
+			{Name: prop.SensorInfo[1].Name, Type: pb.SensorType_SENSOR_TYPE_MOVEMENT_SENSOR},
+		}
+
 		respInfo, err := slamServer.GetProperties(context.Background(), reqInfo)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, respInfo.CloudSlam, test.ShouldResemble, prop.CloudSlam)
 		test.That(t, respInfo.MappingMode, test.ShouldEqual, pb.MappingMode_MAPPING_MODE_CREATE_NEW_MAP)
+		test.That(t, respInfo.InternalStateFileType, test.ShouldEqual, prop.InternalStateFileType)
+		test.That(t, respInfo.SensorInfo, test.ShouldResemble, sensorInfoSuccess)
 	})
 
 	t.Run("Multiple services Valid", func(t *testing.T) {
