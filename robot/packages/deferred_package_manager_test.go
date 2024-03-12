@@ -138,6 +138,7 @@ func TestDeferredPackageManager(t *testing.T) {
 			}
 		})
 		test.That(t, pm.getCloudManager(true), test.ShouldNotBeNil)
+		test.That(t, pm.Sync(ctx, []config.PackageConfig{}), test.ShouldBeNil)
 
 		badFile := filepath.Join(packagesDir, "data", "badfile.txt")
 		err := os.WriteFile(badFile, []byte("hello"), 0o700)

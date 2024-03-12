@@ -1,5 +1,16 @@
 package packages
 
+// DeferredPackageManager wraps a CloudPackageManager and a channel that is establishing a connection to app. It starts up
+// instantly and behaves as a noop package manager until a connection to app has been established.
+//
+// Raison d'etre: AquireConnection will waste 5 seconds timing out on robots that have no internet connection but have downloaded
+// all of their cloud_packages
+//
+// This puts an optimization on top of that behavior: Put the connection establishment in a goroutine that sends the connection over
+// a channel to a DeferredPackageManager. If all of the packages in the config are already present on the config, try to use the
+// cloud_package_manager, but dont block and just fallback to the noop_package_manager. If there are missing packages on the robot,
+// block for the 5 seconds while we establish a connection.
+
 import (
 	"context"
 	"errors"
@@ -20,8 +31,11 @@ type deferredPackageManager struct {
 	noopManager      noopManager
 	cloudManager     ManagerSyncer
 	cloudManagerArgs cloudManagerConstructorArgs
-	logger           logging.Logger
 	cloudManagerLock sync.Mutex
+	logger           logging.Logger
+
+	lastSyncedManager ManagerSyncer
+	syncLock          sync.Mutex
 }
 type cloudManagerConstructorArgs struct {
 	cloudConfig *config.Cloud
@@ -52,12 +66,14 @@ func NewDeferredPackageManager(
 	packagesDir string,
 	logger logging.Logger,
 ) ManagerSyncer {
+	noopManager := noopManager{Named: InternalServiceName.AsNamed()}
 	return &deferredPackageManager{
-		Named:            DeferredServiceName.AsNamed(),
-		logger:           logger,
-		cloudManagerArgs: cloudManagerConstructorArgs{cloudConfig, packagesDir, logger},
-		connectionChan:   connectionChan,
-		noopManager:      noopManager{Named: InternalServiceName.AsNamed()},
+		Named:             DeferredServiceName.AsNamed(),
+		logger:            logger,
+		cloudManagerArgs:  cloudManagerConstructorArgs{cloudConfig, packagesDir, logger},
+		connectionChan:    connectionChan,
+		noopManager:       noopManager,
+		lastSyncedManager: &noopManager,
 	}
 }
 
@@ -72,8 +88,10 @@ func (m *deferredPackageManager) getCloudManager(wait bool) ManagerSyncer {
 	}
 	var response *DeferredConnectionResponse
 	if wait {
+		m.logger.Info("waiting for connection to app")
 		res := <-m.connectionChan
 		response = &res
+		m.logger.Info("connection to app established")
 	} else {
 		select {
 		case res := <-m.connectionChan:
@@ -115,39 +133,42 @@ func (m *deferredPackageManager) isMissingPackages(packages []config.PackageConf
 	return false
 }
 
-// PackagePath returns the package if it exists and already download. If it does not exist it returns a ErrPackageMissing error.
-func (m *deferredPackageManager) PackagePath(name PackageName) (string, error) {
-	if mgr := m.getCloudManager(false); mgr != nil {
-		return mgr.PackagePath(name)
-	}
-	return m.noopManager.PackagePath(name)
-}
-
-// Close manager.
-func (m *deferredPackageManager) Close(ctx context.Context) error {
-	if mgr := m.getCloudManager(false); mgr != nil {
-		return mgr.Close(ctx)
-	}
-	return m.noopManager.Close(ctx)
-}
-
 // Sync syncs all given packages and removes any not in the list from the local file system.
 // If there are packages missing on the local fs, this will wait while attempting to establish a connection to app.viam.
 func (m *deferredPackageManager) Sync(ctx context.Context, packages []config.PackageConfig) error {
 	shouldWait := m.isMissingPackages(packages)
+	var mgrToSyncWith ManagerSyncer
 	if mgr := m.getCloudManager(shouldWait); mgr != nil {
-		return mgr.Sync(ctx, packages)
-	}
-	if shouldWait {
+		mgrToSyncWith = mgr
+	} else if shouldWait {
 		return errors.New("failed to sync packages due to a bad connection with app.viam")
+	} else {
+		mgrToSyncWith = &m.noopManager
 	}
-	return m.noopManager.Sync(ctx, packages)
+	// replace the lastSyncedManager to ensure we call close and cleanup with the same manager
+	m.syncLock.Lock()
+	defer m.syncLock.Unlock()
+	m.lastSyncedManager = mgrToSyncWith
+	return mgrToSyncWith.Sync(ctx, packages)
 }
 
 // Cleanup removes all unknown packages from the working directory.
 func (m *deferredPackageManager) Cleanup(ctx context.Context) error {
-	if mgr := m.getCloudManager(false); mgr != nil {
-		return mgr.Cleanup(ctx)
-	}
-	return m.noopManager.Cleanup(ctx)
+	m.syncLock.Lock()
+	defer m.syncLock.Unlock()
+	return m.lastSyncedManager.Cleanup(ctx)
+}
+
+// PackagePath returns the package if it exists and already download. If it does not exist it returns a ErrPackageMissing error.
+func (m *deferredPackageManager) PackagePath(name PackageName) (string, error) {
+	m.syncLock.Lock()
+	defer m.syncLock.Unlock()
+	return m.lastSyncedManager.PackagePath(name)
+}
+
+// Close manager.
+func (m *deferredPackageManager) Close(ctx context.Context) error {
+	m.syncLock.Lock()
+	defer m.syncLock.Unlock()
+	return m.lastSyncedManager.Close(ctx)
 }
