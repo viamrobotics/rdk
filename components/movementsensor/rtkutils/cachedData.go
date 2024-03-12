@@ -263,6 +263,7 @@ func (g *CachedData) calculateCompassDegreeError(p1, p2 *geo.Point) float64 {
 	return thetaDegrees
 }
 
+// Close shuts down the DataReader feeding this struct.
 func (g *CachedData) Close(ctx context.Context) error {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
