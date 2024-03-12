@@ -41,7 +41,7 @@ type method string
 
 const (
 	nextPointCloud method = "NextPointCloud"
-	getImages      method = "GetImages"
+	getImages      method = "Images"
 )
 
 var (

@@ -44,8 +44,9 @@ const (
 // can be overwritten to allow developers to trigger desired behaviors during testing.
 type mockDataServiceServer struct {
 	datapb.UnimplementedDataServiceServer
-	httpMock map[method][]*httptest.Server
-	lastData map[method]string
+	httpMock   map[method][]*httptest.Server
+	lastData   map[method]string
+	cameraType cameraType
 }
 
 func switchCurrentRgbdFileType() {
@@ -66,28 +67,28 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 	includeBinary := req.IncludeBinary
 	method := method(filter.Method)
 	mDServer.lastData[method] = req.DataRequest.GetLast()
-	if _, ok := mDServer.lastData[method]; !ok {
-		return nil, errors.Errorf("method %s not found in last data", method)
-	}
 
-	newFileNum, err := getNextFileNumAfterFilter(filter, mDServer.lastData[method])
+	newFileNum, err := getNextFileNumAfterFilter(filter, mDServer.lastData[method], mDServer.cameraType)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("")
+	fmt.Println("In BinaryDataByFilter, newFileNum: ", newFileNum)
+	fmt.Println("")
 	// Construct response
 	var resp datapb.BinaryDataByFilterResponse
 	if includeBinary {
-		data, err := getCompressedBytesFromArtifact(method, newFileNum)
+		data, err := getCompressedBytesFromArtifact(method, newFileNum, mDServer.cameraType)
 		if err != nil {
 			return nil, err
 		}
 
-		timeReq, timeRec, err := timestampsFromFileNum(newFileNum, method)
+		timeReq, timeRec, err := timestampsFromFileNum(newFileNum, mDServer.cameraType)
 		if err != nil {
 			return nil, err
 		}
 
-		id, err := getDatasetDirectory(method, newFileNum)
+		id, err := getDatasetDirectory(method, newFileNum, mDServer.cameraType)
 		if err != nil {
 			return nil, err
 		}
@@ -107,7 +108,9 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 		}
 
 		resp.Data = []*datapb.BinaryData{&binaryData}
-		switchCurrentRgbdFileType()
+		if mDServer.cameraType == rgbdCamera {
+			switchCurrentRgbdFileType()
+		}
 		resp.Last = fmt.Sprint(newFileNum)
 	} else {
 		for i := 0; i < int(limit); i++ {
@@ -115,12 +118,12 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 				break
 			}
 
-			timeReq, timeRec, err := timestampsFromFileNum(newFileNum+i, method)
+			timeReq, timeRec, err := timestampsFromFileNum(newFileNum+i, mDServer.cameraType)
 			if err != nil {
 				return nil, err
 			}
 
-			id, err := getDatasetDirectory(method, newFileNum+i)
+			id, err := getDatasetDirectory(method, newFileNum+i, mDServer.cameraType)
 			if err != nil {
 				return nil, err
 			}
@@ -138,19 +141,20 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 				},
 			}
 			resp.Data = append(resp.Data, &binaryData)
-			switchCurrentRgbdFileType()
+			if mDServer.cameraType == rgbdCamera {
+				switchCurrentRgbdFileType()
+			}
 		}
 		resp.Last = fmt.Sprint(newFileNum + int(limit) - 1)
-		// mDServer.lastData[method] = resp.Last
 	}
 
 	return &resp, nil
 }
 
-func timestampsFromFileNum(fileNum int, method method) (*timestamppb.Timestamp, *timestamppb.Timestamp, error) {
-	// for getImages, use the same timestamps for matching rgb & depth data
-	if method == getImages {
-		fileNum = int(fileNum / 2)
+func timestampsFromFileNum(fileNum int, camType cameraType) (*timestamppb.Timestamp, *timestamppb.Timestamp, error) {
+	// for rgbd camera, use the same timestamps for matching rgb & depth data
+	if camType == rgbdCamera {
+		fileNum /= 2
 	}
 	timeReq, err := time.Parse(time.RFC3339, fmt.Sprintf(testTime, fileNum))
 	if err != nil {
@@ -162,14 +166,14 @@ func timestampsFromFileNum(fileNum int, method method) (*timestamppb.Timestamp, 
 
 // createMockCloudDependencies creates a mockDataServiceServer and rpc client connection to it which is then
 // stored in a mockCloudConnectionService.
-func createMockCloudDependencies(ctx context.Context, t *testing.T, logger logging.Logger, b bool) (resource.Dependencies, func() error) {
+func createMockCloudDependencies(ctx context.Context, t *testing.T, logger logging.Logger, b bool, camType cameraType) (resource.Dependencies, func() error) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	// This creates a mock server for each file used in testing
-	srv := newHTTPMock(testingHTTPPattern, http.StatusOK)
+	srv := newHTTPMock(testingHTTPPattern, http.StatusOK, camType)
 	test.That(t, rpcServer.RegisterServiceServer(
 		ctx,
 		&datapb.DataService_ServiceDesc,
@@ -178,7 +182,9 @@ func createMockCloudDependencies(ctx context.Context, t *testing.T, logger loggi
 			lastData: map[method]string{
 				nextPointCloud: "",
 				getImages:      "",
-			}},
+			},
+			cameraType: camType,
+		},
 		datapb.RegisterDataServiceHandlerFromEndpoint,
 	), test.ShouldBeNil)
 
@@ -205,11 +211,11 @@ func createMockCloudDependencies(ctx context.Context, t *testing.T, logger loggi
 
 // createNewReplayCamera will create a new replay_pcd camera based on the provided config with either
 // a valid or invalid data client.
-func createNewReplayCamera(ctx context.Context, t *testing.T, replayCamCfg *Config, validDeps bool,
+func createNewReplayCamera(ctx context.Context, t *testing.T, replayCamCfg *Config, validDeps bool, camType cameraType,
 ) (camera.Camera, resource.Dependencies, func() error, error) {
 	logger := logging.NewTestLogger(t)
 
-	resources, closeRPCFunc := createMockCloudDependencies(ctx, t, logger, validDeps)
+	resources, closeRPCFunc := createMockCloudDependencies(ctx, t, logger, validDeps, camType)
 
 	cfg := resource.Config{ConvertedAttributes: replayCamCfg}
 	cam, err := newReplayCamera(ctx, resources, cfg, logger)
@@ -235,7 +241,7 @@ func resourcesFromDeps(t *testing.T, r robot.Robot, deps []string) resource.Depe
 
 // getNextFileNumAfterFilter returns the artifact index of the next data file to be return based on
 // the provided filter and last returned artifact.
-func getNextFileNumAfterFilter(filter *datapb.Filter, last string) (int, error) {
+func getNextFileNumAfterFilter(filter *datapb.Filter, last string, camType cameraType) (int, error) {
 	// Basic component part (source) filter
 	if filter.ComponentName != "" && filter.ComponentName != validSource {
 		return 0, ErrEndOfDataset
@@ -276,6 +282,10 @@ func getNextFileNumAfterFilter(filter *datapb.Filter, last string) (int, error) 
 		end = int(math.Min(float64(filter.Interval.End.AsTime().Second()), float64(end)))
 	}
 
+	if camType == rgbdCamera {
+		end *= 2
+	}
+
 	if last == "" {
 		return getFile(start, end)
 	}
@@ -296,8 +306,8 @@ func getFile(i, end int) (int, error) {
 
 // getCompressedBytesFromArtifact will return an array of bytes from the
 // provided artifact path.
-func getCompressedBytesFromArtifact(method method, newFileNum int) ([]byte, error) {
-	inputPath, err := getDatasetDirectory(method, newFileNum)
+func getCompressedBytesFromArtifact(method method, newFileNum int, camType cameraType) ([]byte, error) {
+	inputPath, err := getDatasetDirectory(method, newFileNum, camType)
 	if err != nil {
 		return nil, err
 	}
@@ -316,8 +326,8 @@ func getCompressedBytesFromArtifact(method method, newFileNum int) ([]byte, erro
 }
 
 // getPointCloudFromArtifact will return a point cloud based on the provided artifact path.
-func getPointCloudFromArtifact(i int) (pointcloud.PointCloud, error) {
-	datasetDirectory, err := getDatasetDirectory(nextPointCloud, i)
+func getPointCloudFromArtifact(i int, camType cameraType) (pointcloud.PointCloud, error) {
+	datasetDirectory, err := getDatasetDirectory(nextPointCloud, i, camType)
 	if err != nil {
 		return nil, err
 	}
@@ -340,22 +350,27 @@ type ctrl struct {
 	statusCode int
 	fileNumber int
 	method     method
+	camType    cameraType
 }
 
 // mockHandler will return the pcd file attached to the mock server.
 func (c *ctrl) mockHandler(w http.ResponseWriter, r *http.Request) {
-	pcdFile, _ := getCompressedBytesFromArtifact(c.method, c.fileNumber)
+	pcdFile, _ := getCompressedBytesFromArtifact(c.method, c.fileNumber, c.camType)
 
 	w.WriteHeader(c.statusCode)
 	w.Write(pcdFile)
 }
 
 // newHTTPMock creates a set of mock http servers based on the number of PCD or image files used for testing.
-func newHTTPMock(pattern string, statusCode int) map[method][]*httptest.Server {
+func newHTTPMock(pattern string, statusCode int, camType cameraType) map[method][]*httptest.Server {
 	httpServers := map[method][]*httptest.Server{}
 	for _, method := range methodList {
-		for i := 0; i < numFilesOriginal[method]; i++ {
-			c := &ctrl{statusCode, i, method}
+		numberFiles := numFilesOriginal[method]
+		if camType == rgbdCamera {
+			numberFiles *= 2
+		}
+		for i := 0; i < numberFiles; i++ {
+			c := &ctrl{statusCode, i, method, camType}
 			handler := http.NewServeMux()
 			handler.HandleFunc(pattern, c.mockHandler)
 			httpServers[method] = append(httpServers[method], httptest.NewServer(handler))
@@ -365,20 +380,20 @@ func newHTTPMock(pattern string, statusCode int) map[method][]*httptest.Server {
 	return httpServers
 }
 
-func getImageFromArtifact(rgbdFileType fileType, i int) (camera.NamedImage, error) {
+func getImageFromArtifact(rgbdFileType fileType, camType cameraType, i int) (camera.NamedImage, error) {
 	currentRGBDFileType = rgbdFileType
-	datasetDirectory, err := getDatasetDirectory(getImages, i)
+	datasetDirectory, err := getDatasetDirectory(getImages, i, camType)
 	if err != nil {
 		return camera.NamedImage{}, err
 	}
 	path := filepath.Clean(artifact.MustPath(datasetDirectory))
-	rgbFile, err := os.Open(path)
+	file, err := os.Open(path)
 	if err != nil {
 		return camera.NamedImage{}, err
 	}
-	defer utils.UncheckedErrorFunc(rgbFile.Close)
+	defer utils.UncheckedErrorFunc(file.Close)
 
-	img, _, err := image.Decode(rgbFile)
+	img, _, err := image.Decode(file)
 	if err != nil {
 		return camera.NamedImage{}, err
 	}
@@ -390,16 +405,20 @@ func getImageFromArtifact(rgbdFileType fileType, i int) (camera.NamedImage, erro
 	return namedImage, nil
 }
 
-// getImagesFromArtifact will return an array of images based on the provided artifact path.
-func getImagesFromArtifact(i int) ([]camera.NamedImage, error) {
+// getImagesFromArtifact will return an array of RGBD images based on the provided artifact path.
+func getImagesFromArtifact(i int, camType cameraType) ([]camera.NamedImage, error) {
 	tmpCurrentRGBDFileType := currentRGBDFileType
 
 	namedImages := []camera.NamedImage{}
 	for _, rgbdFileType := range []fileType{jpeg, depth} {
-		image, err := getImageFromArtifact(rgbdFileType, i)
+		fmt.Println("")
+		fmt.Println("in getImagesFromArtifact. Calling getImageFromArtifact")
+		image, err := getImageFromArtifact(rgbdFileType, camType, i)
 		if err != nil {
 			return nil, err
 		}
+		fmt.Println("getImagesFromArtifact error: ", err)
+		fmt.Println("")
 		namedImages = append(namedImages, image)
 	}
 
@@ -408,13 +427,19 @@ func getImagesFromArtifact(i int) ([]camera.NamedImage, error) {
 	return namedImages, nil
 }
 
-func getDatasetDirectory(method method, fileNum int) (string, error) {
+func getDatasetDirectory(method method, fileNum int, camType cameraType) (string, error) {
 	switch method {
 	case nextPointCloud:
 		return fmt.Sprintf(datasetDirectories[method][pcd], fileNum), nil
 	case getImages:
-		fileNum = int(fileNum / 2)
-		switch currentRGBDFileType {
+		var fType fileType
+		if camType == rgbdCamera {
+			fileNum /= 2
+			fType = currentRGBDFileType
+		} else {
+			fType = jpeg
+		}
+		switch fType {
 		case jpeg:
 			return fmt.Sprintf(datasetDirectories[method][jpeg], fileNum), nil
 		case depth:
