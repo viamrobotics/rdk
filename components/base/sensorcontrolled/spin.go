@@ -5,24 +5,27 @@ import (
 	"math"
 	"time"
 
+	"go.viam.com/rdk/components/movementsensor"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
-	increment   = 0.01 // angle fraction multiplier to check
-	oneTurn     = 360.0
-	slowDownAng = 15. // angle from goal for spin to begin breaking
+	increment       = 0.01 // angle fraction multiplier to check
+	oneTurn         = 360.0
+	maxSlowDownAng  = 30. // maximum angle from goal for spin to begin breaking
+	slowDownAngGain = 0.1 // Use the final 10% of the requested spin to slow down
 )
 
 // Spin commands a base to turn about its center at an angular speed and for a specific angle.
 func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-	// if controls are not configured, use the underlying base's spin
+	// if controls are not configured, we cannot use this spin method. Instead we need to use the spin method
+	// of the base that the sensorBase wraps.
 	if len(sb.conf.ControlParameters) == 0 {
-		sb.logger.CWarn(ctx, "control parameters not configured, switching to default spin")
+		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's spin method", sb.controlledBase.Name().ShortName())
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
 	if sb.orientation == nil {
-		sb.logger.CWarn(ctx, "orientation movement sensor not configured, switching to default spin")
+		sb.logger.CWarn(ctx, "orientation movement sensor not configured,using %v's spin method", sb.controlledBase.Name().ShortName())
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
 
@@ -41,6 +44,8 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	prevAngle := rdkutils.RadToDeg(orientation.EulerAngles().Yaw)
 	angErr := 0.
 	prevMovedAng := 0.
+	slowDownAng := calcSlowDownAng(angleDeg)
+
 	ticker := time.NewTicker(time.Duration(1000./sb.controlLoopConfig.Frequency) * time.Millisecond)
 	defer ticker.Stop()
 
@@ -55,7 +60,6 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	for {
 		// check if we want to poll the sensor at all
 		// other API calls set this to false so that this for loop stops
-
 		if !sb.isPolling() {
 			ticker.Stop()
 			sb.logger.CWarn(ctx, "Spin call interrupted by another running api")
@@ -71,24 +75,26 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			orientation, err := sb.orientation.Orientation(ctx, nil)
+
+			currYaw, err := getYawInDeg(ctx, sb.orientation)
 			if err != nil {
 				return err
 			}
-
-			currYaw := rdkutils.RadToDeg(orientation.EulerAngles().Yaw)
 			angErr, prevMovedAng = getAngError(currYaw, prevAngle, prevMovedAng, angleDeg)
-			prevAngle = currYaw
 
 			if math.Abs(angErr) < boundCheckTarget {
 				return sb.Stop(ctx, nil)
 			}
-			angVel := calcAngVel(angErr, degsPerSec)
+			angVel := calcAngVel(angErr, degsPerSec, slowDownAng)
 
 			if err := sb.updateControlConfig(ctx, 0, angVel); err != nil {
 				return err
 			}
 
+			// track the previous angle to compute how much we moved with each iteration
+			prevAngle = currYaw
+
+			// check if the duration of the spin exceeds the expected length of the spin
 			if time.Since(startTime) > timeOut {
 				sb.logger.CWarn(ctx, "exceeded time for Spin call, stopping base")
 				if err := sb.Stop(ctx, nil); err != nil {
@@ -100,8 +106,24 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	}
 }
 
+// getYawInDeg gets the yaw from a movement sensor that supports orientation and returns it in degrees.
+func getYawInDeg(ctx context.Context, orientation movementsensor.MovementSensor) (float64, error) {
+	ori, err := orientation.Orientation(ctx, nil)
+	if err != nil {
+		return 0., err
+	}
+
+	return rdkutils.RadToDeg(ori.EulerAngles().Yaw), nil
+}
+
+// calcSlowDownAng computes the angle at which the spin should begin to slow down.
+// This helps to prevent overshoot when reaching the goal and reduces the jerk on the robot when the spin is complete.
+func calcSlowDownAng(angleDeg float64) float64 {
+	return math.Min(angleDeg*slowDownAngGain, maxSlowDownAng)
+}
+
 // calcAngVel computes the desired angular velocity based on how far the base is from reaching the goal.
-func calcAngVel(angErr, degsPerSec float64) float64 {
+func calcAngVel(angErr, degsPerSec, slowDownAng float64) float64 {
 	// have the velocity slow down when appoaching the goal. Otherwise use the desired velocity
 	angVel := angErr * degsPerSec / slowDownAng
 	if angVel > degsPerSec {
@@ -113,6 +135,7 @@ func calcAngVel(angErr, degsPerSec float64) float64 {
 	return angVel
 }
 
+// getAngError computes the current distance the spin has moved and returns how much further the base must move to reach the goal.
 func getAngError(currYaw, prevAngle, prevMovedAng, desiredAngle float64) (float64, float64) {
 	// use initial angle to get the current angle the spin has moved
 	angMoved := getMovedAng(prevAngle, currYaw, prevMovedAng)
