@@ -8,12 +8,12 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
-	goutils "go.viam.com/utils"
 )
 
 var errNilLocation = errors.New("nil gps location, check nmea message parsing")
@@ -60,35 +60,35 @@ func NewCachedData(dev DataReader, logger logging.Logger) *CachedData {
 
 // Start begins reading nmea messages from dev and updates gps data.
 func (g *CachedData) Start() {
-    g.activeBackgroundWorkers.Add(1)
-    goutils.PanicCapturingGo(func() {
-        defer g.activeBackgroundWorkers.Done()
+	g.activeBackgroundWorkers.Add(1)
+	goutils.PanicCapturingGo(func() {
+		defer g.activeBackgroundWorkers.Done()
 
-        messages := g.dev.Messages()
+		messages := g.dev.Messages()
 		done := g.cancelCtx.Done()
-        for {
-            // First, check if we're supposed to shut down.
-            select {
+		for {
+			// First, check if we're supposed to shut down.
+			select {
 			case <-done:
-                return
-            default:
-            }
+				return
+			default:
+			}
 
-            // Next, wait until either we're supposed to shut down or we have new data to process.
-            select {
+			// Next, wait until either we're supposed to shut down or we have new data to process.
+			select {
 			case <-done:
-                return
-            case message := <-messages:
-                // Update our struct's gps data in-place
-                err := g.ParseAndUpdate(message)
-                if err != nil {
-                    g.logger.CWarnf(g.cancelCtx, "can't parse nmea sentence: %#v", err)
-                    g.logger.Debug("Check: GPS requires clear sky view." +
-                        "Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
-                }
-            }
-        }
-    })
+				return
+			case message := <-messages:
+				// Update our struct's gps data in-place
+				err := g.ParseAndUpdate(message)
+				if err != nil {
+					g.logger.CWarnf(g.cancelCtx, "can't parse nmea sentence: %#v", err)
+					g.logger.Debug("Check: GPS requires clear sky view." +
+						"Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
+				}
+			}
+		}
+	})
 }
 
 // ParseAndUpdate passes the provided message into the inner NmeaParser object, which parses the

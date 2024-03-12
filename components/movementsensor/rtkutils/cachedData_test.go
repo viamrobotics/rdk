@@ -5,8 +5,9 @@ import (
 	"testing"
 
 	geo "github.com/kellydunn/golang-geo"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/logging"
 )
 
 var loc = geo.NewPoint(90, 1)
@@ -21,10 +22,12 @@ const (
 	fix        = 1
 )
 
-type mockDataReader struct {}
+type mockDataReader struct{}
+
 func (d *mockDataReader) Messages() chan string {
 	return nil
 }
+
 func (d *mockDataReader) Close() error {
 	return nil
 }

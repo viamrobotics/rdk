@@ -35,7 +35,7 @@ func NewNmeaMovementSensor(
 	return g, nil
 }
 
-// TODO: remove this from the interface
+// TODO: remove this from the interface.
 func (g *NMEAMovementSensor) Start(_ context.Context) error {
 	return nil
 }

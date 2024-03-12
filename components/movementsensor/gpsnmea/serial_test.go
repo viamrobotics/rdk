@@ -68,7 +68,7 @@ func TestCloseSerial(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	g := &NMEAMovementSensor{
-		logger:     logger,
+		logger: logger,
 	}
 
 	err := g.Close(ctx)
