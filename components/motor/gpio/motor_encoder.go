@@ -258,27 +258,18 @@ func (m *EncodedMotor) makeAdjustments(
 
 	dir := m.directionMovingInLock()
 
-	if (dir == 1 && currentRPM > goalRPM) || (dir == -1 && currentRPM < goalRPM) {
-		newPowerPct -= (m.rampRate * dir)
-		if sign(newPowerPct) != dir {
-			newPowerPct = lastPowerPct
-		}
-		m.logger.Debugf("decreasing powerPct to %v", newPowerPct)
+	rpmErr := goalRPM - currentRPM
+	// adjust our power based on the error in rpm
+	newPowerPct += (m.rampRate * sign(rpmErr))
 
-		if err := m.setPower(m.cancelCtx, newPowerPct, true); err != nil {
-			return 0, err
-		}
+	if sign(newPowerPct) != dir {
+		newPowerPct = lastPowerPct
 	}
-	if (dir == 1 && currentRPM <= goalRPM) || (dir == -1 && currentRPM >= goalRPM) {
-		newPowerPct += (m.rampRate * dir)
-		if sign(newPowerPct) != dir {
-			newPowerPct = lastPowerPct
-		}
-		m.logger.Debugf("increasing powerPct to %v", newPowerPct)
 
-		if err := m.setPower(m.cancelCtx, newPowerPct, true); err != nil {
-			return 0, err
-		}
+	m.logger.Debugf("new powerPct %v", newPowerPct)
+
+	if err := m.setPower(m.cancelCtx, newPowerPct, true); err != nil {
+		return 0, err
 	}
 	return newPowerPct, nil
 }
