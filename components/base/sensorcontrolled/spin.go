@@ -2,6 +2,7 @@ package sensorcontrolled
 
 import (
 	"context"
+	"errors"
 	"math"
 	"time"
 
@@ -73,7 +74,12 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			// do not return context canceled errors, just log them
+			if errors.Is(ctx.Err(), context.Canceled) {
+				sb.logger.Error(ctx.Err())
+				return nil
+			}
+			return err
 		case <-ticker.C:
 
 			currYaw, err := getYawInDeg(ctx, sb.orientation)
