@@ -118,7 +118,7 @@ func newEncodedMotor(
 		return nil, fmt.Errorf("ramp rate needs to be (0, 1] but is %v", em.rampRate)
 	}
 	if em.rampRate == 0 {
-		em.rampRate = 0.2 // Use a conservative value by default.
+		em.rampRate = 0.05 // Use a conservative value by default.
 	}
 
 	if em.maxPowerPct < 0 || em.maxPowerPct > 1 {
@@ -169,9 +169,7 @@ type EncodedMotor struct {
 // Multiple values should be updated atomically at the same time.
 type EncodedMotorState struct {
 	regulated    bool
-	goalRPM      float64 // <= 0 means worker should do nothing
 	lastPowerPct float64
-	goalPos      float64
 	direction    float64
 }
 
@@ -181,7 +179,8 @@ func (m *EncodedMotor) rpmMonitorStart(goalRPM, goalPos float64) {
 	startedRPMMonitor := m.startedRPMMonitor
 	m.startedRPMMonitorMu.Unlock()
 	if startedRPMMonitor {
-		return
+		m.cancel()
+		m.cancelCtx, m.cancel = context.WithCancel(context.Background())
 	}
 	m.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
@@ -196,10 +195,6 @@ func (m *EncodedMotor) rpmMonitor(goalRPM, goalPos float64) {
 	}
 
 	m.startedRPMMonitorMu.Lock()
-	if m.startedRPMMonitor {
-		m.startedRPMMonitorMu.Unlock()
-		return
-	}
 	m.startedRPMMonitor = true
 	m.startedRPMMonitorMu.Unlock()
 
@@ -242,7 +237,7 @@ func (m *EncodedMotor) rpmMonitor(goalRPM, goalPos float64) {
 				m.logger.Error(err)
 				return
 			}
-			continue
+			return
 		}
 
 		newPower, err := m.makeAdjustments(pos, lastPos, goalRPM, goalPos, lastPowerPct, now, lastTime)
@@ -263,9 +258,11 @@ func (m *EncodedMotor) rpmMonitor(goalRPM, goalPos float64) {
 func (m *EncodedMotor) makeAdjustments(
 	pos, lastPos, goalRPM, goalPos, lastPowerPct float64,
 	now, lastTime int64,
-) (newPowerPct float64, err error) {
+) (float64, error) {
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
+
+	newPowerPct := lastPowerPct
 
 	// calculate RPM based on change in position and change in time
 	deltaPos := (pos - lastPos) / m.ticksPerRotation
@@ -288,19 +285,19 @@ func (m *EncodedMotor) makeAdjustments(
 	dir := m.directionMovingInLock()
 
 	if (dir == 1 && currentRPM > goalRPM) || (dir == -1 && currentRPM < goalRPM) {
-		powerPct := lastPowerPct - (m.rampRate * dir)
-		if sign(powerPct) != dir {
-			powerPct = lastPowerPct
+		newPowerPct -= (m.rampRate * dir)
+		if sign(newPowerPct) != dir {
+			newPowerPct = lastPowerPct
 		}
 		if rpmDebug {
-			m.logger.Infof("decreasing powerPct to %v", powerPct)
+			m.logger.Infof("decreasing powerPct to %v", newPowerPct)
 		}
-		if err := m.setPower(m.cancelCtx, powerPct, true); err != nil {
+		if err := m.setPower(m.cancelCtx, newPowerPct, true); err != nil {
 			return 0, err
 		}
 	}
 	if (dir == 1 && currentRPM <= goalRPM) || (dir == -1 && currentRPM >= goalRPM) {
-		newPowerPct := lastPowerPct + (m.rampRate * dir)
+		newPowerPct += (m.rampRate * dir)
 		if sign(newPowerPct) != dir {
 			newPowerPct = lastPowerPct
 		}
@@ -371,7 +368,6 @@ func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal 
 		m.state.lastPowerPct = powerPct
 	}
 	if !internal {
-		m.state.goalRPM = 0       // if we're setting power externally, don't control RPM
 		m.state.regulated = false // user wants direct control, so we stop trying to control the world
 	}
 	m.state.lastPowerPct = fixPowerPct(m.state.lastPowerPct, m.maxPowerPct)
@@ -389,14 +385,17 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	defer done()
 
 	direction := sign(rpm * revolutions)
+	// set state direction to be used when determining if the encoder has switched directions
+	m.stateMu.Lock()
+	m.state.direction = direction
+	m.stateMu.Unlock()
 
 	currentPos, err := m.position(ctx, nil)
 	if err != nil {
 		return err
 	}
-
 	goalPos := (math.Abs(revolutions) * m.ticksPerRotation * direction) + currentPos
-	goalRPM := math.Abs(rpm) * m.state.direction
+	goalRPM := math.Abs(rpm) * direction
 
 	if err := m.goForInternal(ctx, goalRPM, goalPos, direction); err != nil {
 		return err
@@ -407,9 +406,6 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	}
 
 	if m.loop != nil {
-		m.stateMu.Lock()
-		m.stateMu.Unlock()
-
 		positionReached := func(ctx context.Context) (bool, error) {
 			var errs error
 			pos, posErr := m.position(ctx, extra)
@@ -449,8 +445,6 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, directio
 		}
 	}
 
-	m.state.direction = sign(rpm * goalPos)
-
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
 		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
@@ -478,23 +472,9 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, directio
 		if err := m.updateControlBlock(ctx, goalPos, velVal); err != nil {
 			return err
 		}
-	case m.loop == nil && goalPos == 0:
-		// Moving 0 revolutions is a special value meaning "move forever."
-		oldRpm := m.state.goalRPM
-		m.state.goalRPM = rpm
-		m.state.goalPos = math.Inf(int(rpm))
-		// if we are already moving, let rpmMonitor deal with setPower
-		if math.Abs(oldRpm) > 0.001 && goalPos == m.directionMovingInLock() {
-			return nil
-		}
-		// if moving from stop, start at 10% power
-		if err := m.setPower(ctx, goalPos*0.1, true); err != nil {
-			return err
-		}
-	case m.loop == nil && goalPos != 0:
-		startingPwr := 0.1 * direction
-		err := m.setPower(ctx, startingPwr, true)
-		if err != nil {
+	case m.loop == nil:
+		// start at 10% power
+		if err := m.setPower(ctx, direction*0.1, true); err != nil {
 			return err
 		}
 	}
@@ -544,8 +524,6 @@ func (m *EncodedMotor) position(ctx context.Context, extra map[string]interface{
 	if err != nil {
 		return 0, err
 	}
-	m.stateMu.RLock()
-	defer m.stateMu.RUnlock()
 	pos := ticks + m.offsetInTicks
 	return pos, nil
 }
@@ -583,7 +561,6 @@ func (m *EncodedMotor) IsMoving(ctx context.Context) (bool, error) {
 // Stop stops rpmMonitor and stops the real motor.
 func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.stateMu.Lock()
-	m.state.goalRPM = 0
 	m.state.regulated = false
 	m.stateMu.Unlock()
 
