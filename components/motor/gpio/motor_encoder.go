@@ -216,7 +216,7 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos float64)
 			return
 		}
 
-		newPower, err := m.makeAdjustments(pos, lastPos, goalRPM, goalPos, lastPowerPct, now, lastTime)
+		newPower, err := m.makeAdjustments(ctx, pos, lastPos, goalRPM, goalPos, lastPowerPct, now, lastTime)
 		if err != nil {
 			m.logger.Error(err)
 			return
@@ -232,7 +232,7 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos float64)
 // makeAdjustments does the math required to see if the RPM is too high or too low,
 // and if the goal position has been reached.
 func (m *EncodedMotor) makeAdjustments(
-	pos, lastPos, goalRPM, goalPos, lastPowerPct float64,
+	ctx context.Context, pos, lastPos, goalRPM, goalPos, lastPowerPct float64,
 	now, lastTime int64,
 ) (float64, error) {
 	m.stateMu.Lock()
@@ -268,7 +268,7 @@ func (m *EncodedMotor) makeAdjustments(
 
 	m.logger.Debugf("new powerPct %v", newPowerPct)
 
-	if err := m.setPower(m.cancelCtx, newPowerPct, true); err != nil {
+	if err := m.setPower(ctx, newPowerPct, true); err != nil {
 		return 0, err
 	}
 	return newPowerPct, nil
@@ -397,7 +397,10 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		return nil
 	}
 
-	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
+	if err := m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop); !errors.Is(err, context.Canceled) {
+		return err
+	}
+	return nil
 }
 
 func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, direction float64) error {
@@ -540,6 +543,9 @@ func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) e
 		m.loop.Stop()
 		m.loop = nil
 	}
+	if m.rpmMonitorDone != nil {
+		m.rpmMonitorDone()
+	}
 	return m.real.Stop(ctx, nil)
 }
 
@@ -549,9 +555,6 @@ func (m *EncodedMotor) Close(ctx context.Context) error {
 		return err
 	}
 	m.cancel()
-	if m.rpmMonitorDone != nil {
-		m.rpmMonitorDone()
-	}
 	m.activeBackgroundWorkers.Wait()
 	return nil
 }
