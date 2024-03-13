@@ -549,7 +549,9 @@ func (m *EncodedMotor) Close(ctx context.Context) error {
 		return err
 	}
 	m.cancel()
-	m.rpmMonitorDone()
+	if m.rpmMonitorDone != nil {
+		m.rpmMonitorDone()
+	}
 	m.activeBackgroundWorkers.Wait()
 	return nil
 }
