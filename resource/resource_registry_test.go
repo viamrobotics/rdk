@@ -204,6 +204,12 @@ func (st *someType) UpdateResourceNames(updater func(old resource.Name) resource
 	st.capName = updater(arm.Named("foo"))
 }
 
+func (st *someType) Link(conf *resource.Config) {
+	copySt := st
+	conf.AssociatedAttributes = make(map[resource.Name]resource.AssociatedConfig)
+	conf.AssociatedAttributes[st.capName] = copySt
+}
+
 func TestResourceAPIRegistryWithAssociation(t *testing.T) {
 	statf := func(context.Context, arm.Arm) (interface{}, error) {
 		return nil, errors.New("one")
@@ -229,6 +235,9 @@ func TestResourceAPIRegistryWithAssociation(t *testing.T) {
 		return arm.Named(n.String()) // odd but whatever
 	})
 	test.That(t, assoc.(*someType).capName, test.ShouldResemble, arm.Named(arm.Named("foo").String()))
+	cfg := &resource.Config{}
+	assoc.Link(cfg)
+	test.That(t, assoc.Equals(cfg.AssociatedAttributes[assoc.(*someType).capName]), test.ShouldBeTrue)
 }
 
 func TestDiscoveryFunctions(t *testing.T) {

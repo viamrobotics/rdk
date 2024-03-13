@@ -60,10 +60,6 @@ type (
 
 	// An AttributeMapConverter converts an attribute map into a native config type for a resource.
 	AttributeMapConverter[ConfigT any] func(attributes utils.AttributeMap) (ConfigT, error)
-
-	// LinkAssocationConfig allows one resource to associate a specific association config
-	// to its own config. This is generally done by a specific resource (e.g. data capture of many components).
-	LinkAssocationConfig func(conf *Config, resAssociation AssociatedConfig) error
 )
 
 // A DependencyNotReadyError is used whenever we reference a dependency that has not been
@@ -122,10 +118,6 @@ type Registration[ResourceT Resource, ConfigT any] struct {
 
 	// AttributeMapConverter is used to convert raw attributes to the resource's native config.
 	AttributeMapConverter AttributeMapConverter[ConfigT]
-
-	// An AssocationConfigLinker describes how to associate a
-	// resource association config to a specific resource model (e.g. builtin data capture).
-	AssociatedConfigLinker LinkAssocationConfig
 
 	// TODO(RSDK-418): remove this legacy constructor once all resources that use it no longer need to receive the entire robot.
 	DeprecatedRobotConstructor DeprecatedCreateWithRobot[ResourceT]
@@ -192,6 +184,9 @@ type AssociatedConfig interface {
 
 	// UpdateResourceNames allows an AssociatedConfig to have its names updated externally.
 	UpdateResourceNames(func(n Name) Name)
+
+	// Link associates an AssociatedConfig to a specific resource model (e.g. builtin data capture).
+	Link(conf *Config)
 }
 
 // An AssociatedConfigRegistration describes how to convert all attributes
@@ -333,9 +328,6 @@ func makeGenericResourceRegistration[ResourceT Resource, ConfigT ConfigValidator
 		reg.AttributeMapConverter = func(attributes utils.AttributeMap) (ConfigValidator, error) {
 			return typed.AttributeMapConverter(attributes)
 		}
-	}
-	if typed.AssociatedConfigLinker != nil {
-		reg.AssociatedConfigLinker = typed.AssociatedConfigLinker
 	}
 
 	return reg

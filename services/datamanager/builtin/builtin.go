@@ -35,14 +35,6 @@ func init() {
 		resource.DefaultServiceModel,
 		resource.Registration[datamanager.Service, *Config]{
 			Constructor: NewBuiltIn,
-			AssociatedConfigLinker: func(conf *resource.Config, resAssociation resource.AssociatedConfig) error {
-				capConf, err := utils.AssertType[*datamanager.AssociatedConfig](resAssociation)
-				if err != nil {
-					return err
-				}
-				capConf.Link(conf)
-				return nil
-			},
 			WeakDependencies: []resource.Matcher{
 				resource.TypeMatcher{Type: resource.APITypeComponentName},
 				resource.SubtypeMatcher{Subtype: slam.SubtypeName},
