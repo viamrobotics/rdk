@@ -858,6 +858,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 			case <-slowTicker.C:
 				elapsed := time.Since(startTime).Seconds()
 				logger.Warnf("waiting %q for module to be ready. Elapsed %.2f seconds", m.cfg.Name, elapsed)
+				slowTicker.Reset(5 * time.Second)
 			case <-ctxTimeout.Done():
 				return
 			}
@@ -949,6 +950,7 @@ func (m *module) startProcess(
 		case <-slowTicker.C:
 			elapsed := time.Since(startTime).Seconds()
 			logger.Warnf("%q slow startup detected. Elapsed %.2f seconds", m.cfg.Name, elapsed)
+			slowTicker.Reset(5 * time.Second)
 		default:
 		}
 		err = modlib.CheckSocketOwner(m.addr)
