@@ -19,16 +19,21 @@ func TestDeferredPackageManager(t *testing.T) {
 		client pb.PackageServiceClient
 		err    error
 	}
+
 	// bag of random test infra
 	type testBag struct {
-		pm          *deferredPackageManager
-		ctx         context.Context
-		mockChan    chan mockChanVal
+		pm  *deferredPackageManager
+		ctx context.Context
+		// mockChan is used to populate the return value of establishConnection()
+		mockChan chan mockChanVal
+		// fake gcs stuff
 		client      pb.PackageServiceClient
 		fakeServer  *putils.FakePackagesClientAndGCSServer
 		packagesDir string
-		teardown    func()
+		// cleanup fake gcs
+		teardown func()
 	}
+
 	setup := func(t *testing.T) testBag {
 		t.Helper()
 		ctx := context.Background()
@@ -72,12 +77,14 @@ func TestDeferredPackageManager(t *testing.T) {
 			teardown,
 		}
 	}
+
 	pkgA := config.PackageConfig{
 		Name:    "some-name",
 		Package: "org1/test-model",
 		Version: "v1",
 		Type:    "ml_model",
 	}
+
 	pkgB := config.PackageConfig{
 		Name:    "some-name-2",
 		Package: "org1/test-model-2",
@@ -88,6 +95,7 @@ func TestDeferredPackageManager(t *testing.T) {
 	t.Run("getManagerForSync async", func(t *testing.T) {
 		bag := setup(t)
 		defer bag.teardown()
+
 		// Assert that the cloud manager is nil initially
 		mgr, err := bag.pm.getManagerForSync(bag.ctx, []config.PackageConfig{})
 		test.That(t, err, test.ShouldBeNil)
@@ -100,11 +108,16 @@ func TestDeferredPackageManager(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, isCloud := mgr.(*cloudManager)
 		test.That(t, isCloud, test.ShouldBeTrue)
+		// test that we have cached that cloud_manager (in the async case)
+		test.That(t, bag.pm.cloudManager, test.ShouldNotBeNil)
+		_, err = bag.pm.getManagerForSync(bag.ctx, []config.PackageConfig{})
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("getManagerForSync async will keep trying", func(t *testing.T) {
 		bag := setup(t)
 		defer bag.teardown()
+
 		// we know that it is running establishConnection because it is pulling
 		// from the 1-capacity channel
 		// the err will still be nil because it is returning the noop manager and starting
@@ -134,6 +147,11 @@ func TestDeferredPackageManager(t *testing.T) {
 
 		_, isCloud := mgr.(*cloudManager)
 		test.That(t, isCloud, test.ShouldBeTrue)
+
+		// test that we have cached that cloud_manager (in the sync case)
+		test.That(t, bag.pm.cloudManager, test.ShouldNotBeNil)
+		_, err = bag.pm.getManagerForSync(bag.ctx, []config.PackageConfig{pkgA})
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("isMissingPackages", func(t *testing.T) {
@@ -156,6 +174,7 @@ func TestDeferredPackageManager(t *testing.T) {
 	t.Run("Sync + cleanup", func(t *testing.T) {
 		bag := setup(t)
 		defer bag.teardown()
+
 		err := bag.pm.Sync(bag.ctx, []config.PackageConfig{})
 		test.That(t, err, test.ShouldBeNil)
 		_, isNoop := bag.pm.lastSyncedManager.(*noopManager)
