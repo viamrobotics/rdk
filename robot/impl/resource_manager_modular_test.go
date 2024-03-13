@@ -551,3 +551,44 @@ func TestDynamicModuleLogging(t *testing.T) {
 		test.That(tb, observer.FilterMessageSnippet(debugLogLine).Len(), test.ShouldEqual, 1)
 	})
 }
+
+func TestTwoModulesSameName(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	simplePath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+	test.That(t, err, test.ShouldBeNil)
+	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+	test.That(t, err, test.ShouldBeNil)
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "samename",
+				ExePath: simplePath,
+			},
+			{
+				Name:    "samename",
+				ExePath: complexPath,
+			},
+		},
+		// This field is false due to zero-value by default, but specify explicitly
+		// here. When partial start is allowed, we will log an error about the
+		// duplicate module name, but still start up the first of the two modules.
+		DisablePartialStart: false,
+	}
+	r, err := New(ctx, cfg, logger)
+	test.That(t, r, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(ctx), test.ShouldBeNil)
+	}()
+
+	rr, ok := r.(*localRobot)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// Assert that only the first module with the same name was honored.
+	moduleCfgs := rr.manager.moduleManager.Configs()
+	test.That(t, len(moduleCfgs), test.ShouldEqual, 1)
+	test.That(t, moduleCfgs[0].ExePath, test.ShouldEqual, simplePath)
+}
