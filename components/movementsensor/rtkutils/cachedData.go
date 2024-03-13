@@ -16,8 +16,6 @@ import (
 
 var errNilLocation = errors.New("nil gps location, check nmea message parsing")
 
-const earthRadiusM = 6371009 // Earth's radius in meters
-
 // CachedData allows the use of any MovementSensor chip via a DataReader.
 type CachedData struct {
 	mu       sync.RWMutex
@@ -181,26 +179,6 @@ func (g *CachedData) Properties(
 	}, nil
 }
 
-// findDistance calculates the distance between two points on Earth.
-// lat1, lon1: Latitude and Longitude of point 1 (in decimal degrees)
-// lat2, lon2: Latitude and Longitude of point 2 (in decimal degrees)
-// returns the distance in meters.
-func findDistance(lat1, lon1, lat2, lon2 float64) float64 {
-	lat1Rad, lon1Rad := utils.DegToRad(lat1), utils.DegToRad(lon1)
-	lat2Rad, lon2Rad := utils.DegToRad(lat2), utils.DegToRad(lon2)
-
-	dLat := lat2Rad - lat1Rad
-	dLon := lon2Rad - lon1Rad
-
-	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
-		math.Cos(lat1Rad)*math.Cos(lat2Rad)*
-			math.Sin(dLon/2)*math.Sin(dLon/2)
-	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
-
-	distanceM := earthRadiusM * c
-	return distanceM
-}
-
 // calculateCompassDegreeError calculates the compass degree error
 // of two geo points.
 func (g *CachedData) calculateCompassDegreeError() float64 {
@@ -212,12 +190,13 @@ func (g *CachedData) calculateCompassDegreeError() float64 {
 		return math.NaN()
 	}
 
-	adjacent := findDistance(firstPos.Lat(), firstPos.Lng(), secondPos.Lat(), secondPos.Lng())
+	adjacent := firstPos.GreatCircleDistance(secondPos)
+
 	// If adjacent is 0, atan2 will be 90 degrees which is not desired.
 	if adjacent == 0 {
 		return math.NaN()
 	}
-	// by default we assume fix is 1-3. In this case, we assume radius to be 5m.
+	// by default we assume fix is 1-2. In this case, we assume radius to be 5m.
 	radius := 5.0
 	// when fix is 4 or higher, we set radius to be 10cm.
 	if g.nmeaData.FixQuality >= 4 {
