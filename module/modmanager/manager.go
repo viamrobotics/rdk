@@ -848,7 +848,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(logger))
 	defer cancelFunc()
 
-	slowTicker := time.NewTicker(15 * time.Second)
+	slowTicker := time.NewTicker(2 * time.Second)
 	defer slowTicker.Stop()
 	startTime := time.Now()
 
@@ -858,6 +858,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 			case <-slowTicker.C:
 				elapsed := time.Since(startTime).Seconds()
 				logger.Warnf("waiting %q for module to be ready. Elapsed %.2f seconds", m.cfg.Name, elapsed)
+				slowTicker.Reset(5 * time.Second)
 			case <-ctxTimeout.Done():
 				return
 			}
@@ -933,7 +934,7 @@ func (m *module) startProcess(
 		return errors.WithMessage(err, "module startup failed")
 	}
 
-	slowTicker := time.NewTicker(15 * time.Second)
+	slowTicker := time.NewTicker(2 * time.Second)
 	defer slowTicker.Stop()
 	startTime := time.Now()
 
@@ -949,6 +950,7 @@ func (m *module) startProcess(
 		case <-slowTicker.C:
 			elapsed := time.Since(startTime).Seconds()
 			logger.Warnf("%q slow startup detected. Elapsed %.2f seconds", m.cfg.Name, elapsed)
+			slowTicker.Reset(5 * time.Second)
 		default:
 		}
 		err = modlib.CheckSocketOwner(m.addr)
