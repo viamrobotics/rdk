@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 )
 
@@ -84,11 +85,11 @@ func (dr *PmtkI2cDataReader) initialize() error {
 	// TODO: does this actually do anything in the current context? The baud rate should be
 	// governed by the clock line on the I2C bus, not on the device.
 	baudcmd := fmt.Sprintf("PMTK251,%d", dr.baud)
-	cmd251 := addChk([]byte(baudcmd))
+	cmd251 := movementsensor.PMTKAddChk([]byte(baudcmd))
 	// Output GLL, RMC, VTG, GGA, GSA, and GSV sentences, and nothing else, every position fix
-	cmd314 := addChk([]byte("PMTK314,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0"))
+	cmd314 := movementsensor.PMTKAddChk([]byte("PMTK314,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0"))
 	// Ask for updates every 1000 ms (every second)
-	cmd220 := addChk([]byte("PMTK220,1000"))
+	cmd220 := movementsensor.PMTKAddChk([]byte("PMTK220,1000"))
 
 	err = handle.Write(dr.cancelCtx, cmd251)
 	if err != nil {
@@ -194,22 +195,4 @@ func (dr *PmtkI2cDataReader) Close() error {
 	<-dr.data
 	dr.activeBackgroundWorkers.Wait()
 	return nil
-}
-
-// PMTK checksums commands by XORing together each byte.
-func addChk(data []byte) []byte {
-	chk := checksum(data)
-	newCmd := []byte("$")
-	newCmd = append(newCmd, data...)
-	newCmd = append(newCmd, []byte("*")...)
-	newCmd = append(newCmd, chk)
-	return newCmd
-}
-
-func checksum(data []byte) byte {
-	var chk byte
-	for _, b := range data {
-		chk ^= b
-	}
-	return chk
 }
