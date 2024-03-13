@@ -133,8 +133,8 @@ type rtkI2C struct {
 	err          movementsensor.LastError
 	lastposition movementsensor.LastPosition
 
-	nmeamovementsensor *rtk.CachedData
-	correctionWriter   io.ReadWriteCloser
+	cachedData       *rtk.CachedData
+	correctionWriter io.ReadWriteCloser
 
 	bus     buses.I2C
 	mockI2c buses.I2C // Will be nil unless we're in a unit test
@@ -238,7 +238,6 @@ func makeRTKI2C(
 		return nil, err
 	}
 
-	// Init NMEAMovementSensor
 	config := gpsnmea.I2CConfig{
 		I2CBus:      newConf.I2CBus,
 		I2CBaudRate: newConf.I2CBaudRate,
@@ -254,7 +253,7 @@ func makeRTKI2C(
 	if err != nil {
 		return nil, err
 	}
-	g.nmeamovementsensor = rtk.NewCachedData(dev, logger)
+	g.cachedData = rtk.NewCachedData(dev, logger)
 
 	if err := g.start(); err != nil {
 		return nil, err
@@ -475,7 +474,7 @@ func (g *rtkI2C) Position(ctx context.Context, extra map[string]interface{}) (*g
 	}
 	g.ntripMu.Unlock()
 
-	position, alt, err := g.nmeamovementsensor.Position(ctx, extra)
+	position, alt, err := g.cachedData.Position(ctx, extra)
 	if err != nil {
 		// Use the last known valid position if current position is (0,0)/ NaN.
 		if position != nil && (movementsensor.IsZeroPosition(position) || movementsensor.IsPositionNaN(position)) {
@@ -504,7 +503,7 @@ func (g *rtkI2C) LinearVelocity(ctx context.Context, extra map[string]interface{
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.LinearVelocity(ctx, extra)
+	return g.cachedData.LinearVelocity(ctx, extra)
 }
 
 // LinearAcceleration passthrough.
@@ -513,7 +512,7 @@ func (g *rtkI2C) LinearAcceleration(ctx context.Context, extra map[string]interf
 	if lastError != nil {
 		return r3.Vector{}, lastError
 	}
-	return g.nmeamovementsensor.LinearAcceleration(ctx, extra)
+	return g.cachedData.LinearAcceleration(ctx, extra)
 }
 
 // AngularVelocity passthrough.
@@ -526,7 +525,7 @@ func (g *rtkI2C) AngularVelocity(ctx context.Context, extra map[string]interface
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.AngularVelocity(ctx, extra)
+	return g.cachedData.AngularVelocity(ctx, extra)
 }
 
 // CompassHeading passthrough.
@@ -539,7 +538,7 @@ func (g *rtkI2C) CompassHeading(ctx context.Context, extra map[string]interface{
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.CompassHeading(ctx, extra)
+	return g.cachedData.CompassHeading(ctx, extra)
 }
 
 // Orientation passthrough.
@@ -552,7 +551,7 @@ func (g *rtkI2C) Orientation(ctx context.Context, extra map[string]interface{}) 
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.Orientation(ctx, extra)
+	return g.cachedData.Orientation(ctx, extra)
 }
 
 // readFix passthrough.
@@ -565,7 +564,7 @@ func (g *rtkI2C) readFix(ctx context.Context) (int, error) {
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.ReadFix(ctx)
+	return g.cachedData.ReadFix(ctx)
 }
 
 func (g *rtkI2C) readSatsInView(ctx context.Context) (int, error) {
@@ -577,7 +576,7 @@ func (g *rtkI2C) readSatsInView(ctx context.Context) (int, error) {
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.ReadSatsInView(ctx)
+	return g.cachedData.ReadSatsInView(ctx)
 }
 
 // Properties passthrough.
@@ -587,7 +586,7 @@ func (g *rtkI2C) Properties(ctx context.Context, extra map[string]interface{}) (
 		return &movementsensor.Properties{}, lastError
 	}
 
-	return g.nmeamovementsensor.Properties(ctx, extra)
+	return g.cachedData.Properties(ctx, extra)
 }
 
 // Accuracy passthrough.
@@ -597,7 +596,7 @@ func (g *rtkI2C) Accuracy(ctx context.Context, extra map[string]interface{}) (*m
 		return nil, lastError
 	}
 
-	return g.nmeamovementsensor.Accuracy(ctx, extra)
+	return g.cachedData.Accuracy(ctx, extra)
 }
 
 // Readings will use the default MovementSensor Readings if not provided.
@@ -628,7 +627,7 @@ func (g *rtkI2C) Close(ctx context.Context) error {
 	g.ntripMu.Lock()
 	g.cancelFunc()
 
-	if err := g.nmeamovementsensor.Close(ctx); err != nil {
+	if err := g.cachedData.Close(ctx); err != nil {
 		g.ntripMu.Unlock()
 		return err
 	}
