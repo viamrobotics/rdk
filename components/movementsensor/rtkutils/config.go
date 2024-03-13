@@ -22,7 +22,7 @@ type I2CConfig struct {
 	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
 }
 
-// ValidateI2C ensures all parts of the config are valid.
+// Validate ensures all parts of the config are valid.
 func (cfg *I2CConfig) Validate(path string) error {
 	if cfg.I2CBus == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "i2c_bus")
@@ -33,7 +33,7 @@ func (cfg *I2CConfig) Validate(path string) error {
 	return nil
 }
 
-// ValidateSerial ensures all parts of the config are valid.
+// Validate ensures all parts of the config are valid.
 func (cfg *SerialConfig) Validate(path string) error {
 	if cfg.SerialPath == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "serial_path")

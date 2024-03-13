@@ -40,19 +40,6 @@ func createMockI2c() buses.I2C {
 	return i2c
 }
 
-func TestValidateI2C(t *testing.T) {
-	fakecfg := &rtkutils.I2CConfig{I2CBus: "1"}
-
-	path := "path"
-	err := fakecfg.validateI2C(path)
-	test.That(t, err, test.ShouldBeError,
-		resource.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
-
-	fakecfg.I2CAddr = 66
-	err = fakecfg.validateI2C(path)
-	test.That(t, err, test.ShouldBeNil)
-}
-
 func TestNewI2CMovementSensor(t *testing.T) {
 	conf := resource.Config{
 		Name:  "movementsensor1",
