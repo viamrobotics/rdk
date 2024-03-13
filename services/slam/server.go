@@ -157,7 +157,7 @@ func (server *serviceServer) GetProperties(ctx context.Context, req *pb.GetPrope
 	return &pb.GetPropertiesResponse{
 		CloudSlam:             prop.CloudSlam,
 		MappingMode:           mappingModeToProtobuf(prop.MappingMode),
-		InternalStateFileType: prop.InternalStateFileType,
+		InternalStateFileType: &prop.InternalStateFileType,
 		SensorInfo:            sensorInfo,
 	}, nil
 }

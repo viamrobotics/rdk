@@ -113,10 +113,15 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 		})
 	}
 
+	var internalStateFileType string
+	if resp.InternalStateFileType != nil {
+		internalStateFileType = *resp.InternalStateFileType
+	}
+
 	prop := Properties{
 		CloudSlam:             resp.CloudSlam,
 		MappingMode:           mappingMode,
-		InternalStateFileType: resp.InternalStateFileType,
+		InternalStateFileType: internalStateFileType,
 		SensorInfo:            sensorInfo,
 	}
 	return prop, err
