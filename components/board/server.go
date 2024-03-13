@@ -207,6 +207,34 @@ func (s *serviceServer) GetDigitalInterruptValue(
 	return &pb.GetDigitalInterruptValueResponse{Value: val}, nil
 }
 
+func (s *serviceServer) StreamTicks(
+	req *pb.StreamTicksRequest,
+	server pb.BoardService_StreamTicksServer,
+) error {
+	b, err := s.coll.Resource(req.Name)
+	if err != nil {
+		return err
+	}
+
+	ticksChan := make(chan Tick, 1024)
+
+	err = b.StreamTicks(server.Context(), req.PinNames, ticksChan, nil)
+	if err != nil {
+		return err
+	}
+	for {
+		select {
+		case <-server.Context().Done():
+			return server.Context().Err()
+		case msg := <-ticksChan:
+			err := server.Send(&pb.StreamTicksResponse{PinName: msg.Name, High: msg.High, Time: msg.TimestampNanosec})
+			if err != nil {
+				return err
+			}
+		}
+	}
+}
+
 // DoCommand receives arbitrary commands.
 func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,

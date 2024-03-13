@@ -229,6 +229,11 @@ func (b *numatoBoard) readThread() {
 	}
 }
 
+// StreamTicks starts a stream of digital interrupt ticks.
+func (b *numatoBoard) StreamTicks(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
+}
+
 // AnalogReaderByName returns an analog reader by name.
 func (b *numatoBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	ar, ok := b.analogs[name]

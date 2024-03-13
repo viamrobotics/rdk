@@ -202,6 +202,18 @@ func (pi *piPigpio) Reconfigure(
 	return nil
 }
 
+// StreamTicks starts a stream of digital interrupt ticks.
+func (pi *piPigpio) StreamTicks(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
+	for _, name := range interrupts {
+		interrupt, ok := pi.DigitalInterruptByName(name)
+		if !ok {
+			return errors.Errorf("unknown digital interrupt: %s", name)
+		}
+		interrupt.AddCallback(ch)
+	}
+	return nil
+}
+
 func (pi *piPigpio) reconfigureAnalogReaders(ctx context.Context, cfg *Config) error {
 	// No need to reconfigure the old analog readers; just throw them out and make new ones.
 	pi.analogReaders = map[string]board.AnalogReader{}

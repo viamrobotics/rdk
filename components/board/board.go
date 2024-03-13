@@ -79,6 +79,9 @@ type Board interface {
 
 	// WriteAnalog writes an analog value to a pin on the board.
 	WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error
+
+	// StreamTicks starts a stream of digital interrupt ticks.
+	StreamTicks(ctx context.Context, interrupts []string, ch chan Tick, extra map[string]interface{}) error
 }
 
 // An AnalogReader represents an analog pin reader that resides on a board.

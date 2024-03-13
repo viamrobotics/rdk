@@ -19,6 +19,7 @@ const ServoRollingAverageWindow = 10
 // tick SHOULD ONLY BE USED FOR CALCULATING THE TIME ELAPSED BETWEEN CONSECUTIVE TICKS AND NOT
 // AS AN ABSOLUTE TIMESTAMP.
 type Tick struct {
+	Name             string
 	High             bool
 	TimestampNanosec uint64
 }
@@ -38,10 +39,10 @@ type DigitalInterrupt interface {
 
 	// AddCallback adds a callback to be sent a low/high value to when a tick
 	// happens.
-	AddCallback(c chan Tick)
+	AddCallback(ch chan Tick)
 
-	// RemoveCallback removes a listener for interrupts
-	RemoveCallback(c chan Tick)
+	// RemoveCallback removes a callback.
+	RemoveCallback(ch chan Tick)
 
 	Close(ctx context.Context) error
 }
@@ -99,14 +100,13 @@ func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds
 	if high {
 		atomic.AddInt64(&i.count, 1)
 	}
-
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	for _, c := range i.callbacks {
 		select {
 		case <-ctx.Done():
 			return errors.New("context cancelled")
-		case c <- Tick{High: high, TimestampNanosec: nanoseconds}:
+		case c <- Tick{Name: i.cfg.Name, High: high, TimestampNanosec: nanoseconds}:
 		}
 	}
 	return nil
