@@ -181,11 +181,11 @@ func (g *CachedData) Properties(
 
 // calculateCompassDegreeError calculates the compass degree error
 // of two geo points.
-// GPS provides a heading data only when it has a course of direction.
+// GPS provides heading data only when it has a course of direction.
 // This function provides an estimated error for that data.
 func (g *CachedData) calculateCompassDegreeError(p1, p2 *geo.Point) float64 {
-	// Check if the two positions are the same.
-	if p1.Lat() == p2.Lat() && p1.Lng() == p2.Lng() {
+	// if either geo points are nil, we don't calculate compass degree error
+	if p1 == nil || p2 == nil {
 		return math.NaN()
 	}
 
