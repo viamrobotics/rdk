@@ -116,14 +116,14 @@ type rtkSerial struct {
 	lastcompassheading movementsensor.LastCompassHeading
 	InputProtocol      string
 
-	nmeamovementsensor *rtk.CachedData
-	correctionWriter   io.ReadWriteCloser
-	writePath          string
-	wbaud              int
-	isVirtualBase      bool
-	readerWriter       *bufio.ReadWriter
-	writer             io.Writer
-	reader             io.Reader
+	cachedData       *rtk.CachedData
+	correctionWriter io.ReadWriteCloser
+	writePath        string
+	wbaud            int
+	isVirtualBase    bool
+	readerWriter     *bufio.ReadWriter
+	writer           io.Writer
+	reader           io.Reader
 }
 
 // Reconfigure reconfigures attributes.
@@ -210,7 +210,7 @@ func newRTKSerial(
 	if err != nil {
 		return nil, err
 	}
-	g.nmeamovementsensor = rtk.NewCachedData(dev, logger)
+	g.cachedData = rtk.NewCachedData(dev, logger)
 
 	if err := g.start(); err != nil {
 		return nil, err
@@ -481,7 +481,7 @@ func (g *rtkSerial) Position(ctx context.Context, extra map[string]interface{}) 
 	}
 	g.mu.Unlock()
 
-	position, alt, err := g.nmeamovementsensor.Position(ctx, extra)
+	position, alt, err := g.cachedData.Position(ctx, extra)
 	if err != nil {
 		// Use the last known valid position if current position is (0,0)/ NaN.
 		if position != nil && (movementsensor.IsZeroPosition(position) || movementsensor.IsPositionNaN(position)) {
@@ -508,7 +508,7 @@ func (g *rtkSerial) LinearVelocity(ctx context.Context, extra map[string]interfa
 		return r3.Vector{}, lastError
 	}
 
-	return g.nmeamovementsensor.LinearVelocity(ctx, extra)
+	return g.cachedData.LinearVelocity(ctx, extra)
 }
 
 // LinearAcceleration passthrough.
@@ -517,7 +517,7 @@ func (g *rtkSerial) LinearAcceleration(ctx context.Context, extra map[string]int
 	if lastError != nil {
 		return r3.Vector{}, lastError
 	}
-	return g.nmeamovementsensor.LinearAcceleration(ctx, extra)
+	return g.cachedData.LinearAcceleration(ctx, extra)
 }
 
 // AngularVelocity passthrough.
@@ -530,7 +530,7 @@ func (g *rtkSerial) AngularVelocity(ctx context.Context, extra map[string]interf
 		return spatialmath.AngularVelocity{}, lastError
 	}
 
-	return g.nmeamovementsensor.AngularVelocity(ctx, extra)
+	return g.cachedData.AngularVelocity(ctx, extra)
 }
 
 // CompassHeading passthrough.
@@ -542,7 +542,7 @@ func (g *rtkSerial) CompassHeading(ctx context.Context, extra map[string]interfa
 	if lastError != nil {
 		return 0, lastError
 	}
-	return g.nmeamovementsensor.CompassHeading(ctx, extra)
+	return g.cachedData.CompassHeading(ctx, extra)
 }
 
 // Orientation passthrough.
@@ -554,7 +554,7 @@ func (g *rtkSerial) Orientation(ctx context.Context, extra map[string]interface{
 	if lastError != nil {
 		return spatialmath.NewZeroOrientation(), lastError
 	}
-	return g.nmeamovementsensor.Orientation(ctx, extra)
+	return g.cachedData.Orientation(ctx, extra)
 }
 
 // readFix passthrough.
@@ -566,7 +566,7 @@ func (g *rtkSerial) readFix(ctx context.Context) (int, error) {
 	if lastError != nil {
 		return 0, lastError
 	}
-	return g.nmeamovementsensor.ReadFix(ctx)
+	return g.cachedData.ReadFix(ctx)
 }
 
 // readSatsInView returns the number of satellites in view.
@@ -579,7 +579,7 @@ func (g *rtkSerial) readSatsInView(ctx context.Context) (int, error) {
 		return 0, lastError
 	}
 
-	return g.nmeamovementsensor.ReadSatsInView(ctx)
+	return g.cachedData.ReadSatsInView(ctx)
 }
 
 // Properties passthrough.
@@ -592,7 +592,7 @@ func (g *rtkSerial) Properties(ctx context.Context, extra map[string]interface{}
 		return &movementsensor.Properties{}, lastError
 	}
 
-	return g.nmeamovementsensor.Properties(ctx, extra)
+	return g.cachedData.Properties(ctx, extra)
 }
 
 // Accuracy passthrough.
@@ -606,7 +606,7 @@ func (g *rtkSerial) Accuracy(ctx context.Context, extra map[string]interface{}) 
 		return nil, lastError
 	}
 
-	return g.nmeamovementsensor.Accuracy(ctx, extra)
+	return g.cachedData.Accuracy(ctx, extra)
 }
 
 // Readings will use the default MovementSensor Readings if not provided.
@@ -638,7 +638,7 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 	g.cancelFunc()
 
 	g.logger.Debug("Closing GPS RTK Serial")
-	if err := g.nmeamovementsensor.Close(ctx); err != nil {
+	if err := g.cachedData.Close(ctx); err != nil {
 		g.mu.Unlock()
 		return err
 	}
