@@ -72,7 +72,6 @@ func TestRTSPCamera(t *testing.T) {
 					test.That(t, im.At(x, y), test.ShouldResemble, color.YCbCr{Y: Y, Cb: Cb, Cr: Cr})
 				}
 			}
-
 		})
 
 		t.Run("VideoCodecStream", func(t *testing.T) {
@@ -519,5 +518,4 @@ func newH264ServerHandler(
 		test.That(t, h.s.Wait(), test.ShouldBeError, errors.New("terminated"))
 		h.wg.Wait()
 	}
-
 }
