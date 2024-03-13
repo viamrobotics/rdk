@@ -10,7 +10,9 @@ import (
 
 // PointCloudMapCallback helps a client request the point cloud stream from a SLAM server,
 // returning a callback function for accessing the stream data.
-func PointCloudMapCallback(ctx context.Context, name string, slamClient pb.SLAMServiceClient, returnEditedMap bool) (func() ([]byte, error), error) {
+func PointCloudMapCallback(ctx context.Context, name string, slamClient pb.SLAMServiceClient, returnEditedMap bool) (
+	func() ([]byte, error), error,
+) {
 	req := &pb.GetPointCloudMapRequest{Name: name, ReturnEditedMap: &returnEditedMap}
 
 	// If the target gRPC server returns an error status, this call doesn't return an error.
