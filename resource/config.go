@@ -16,18 +16,18 @@ import (
 
 // A Config describes the configuration of a resource.
 type Config struct {
-	Name                      string
-	API                       API
-	Model                     Model
-	Frame                     *referenceframe.LinkConfig
-	DependsOn                 []string
-	LogConfiguration          LogConfig
-	AssociatedResourceConfigs []AssociatedResourceConfig
-	Attributes                utils.AttributeMap
+	Name             string
+	API              API
+	Model            Model
+	Frame            *referenceframe.LinkConfig
+	DependsOn        []string
+	LogConfiguration LogConfig
+	Attributes       utils.AttributeMap
 
-	AssociatedAttributes map[Name]AssociatedConfig
-	ConvertedAttributes  ConfigValidator
-	ImplicitDependsOn    []string
+	AssociatedResourceConfigs []AssociatedResourceConfig
+	AssociatedAttributes      map[Name]AssociatedConfig
+	ConvertedAttributes       ConfigValidator
+	ImplicitDependsOn         []string
 
 	alreadyValidated   bool
 	cachedImplicitDeps []string
