@@ -73,7 +73,7 @@ func (slamSvc *SLAM) Position(ctx context.Context) (spatialmath.Pose, string, er
 
 // PointCloudMap returns a callback function which will return the next chunk of the current pointcloud
 // map.
-func (slamSvc *SLAM) PointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
+func (slamSvc *SLAM) PointCloudMap(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 	ctx, span := trace.StartSpan(ctx, "slam::fake::PointCloudMap")
 	defer span.End()
 	slamSvc.incrementDataCount()
@@ -109,8 +109,8 @@ func (slamSvc *SLAM) incrementDataCount() {
 }
 
 // Limits returns the bounds of the slam map as a list of referenceframe.Limits.
-func (slamSvc *SLAM) Limits(ctx context.Context) ([]referenceframe.Limit, error) {
-	data, err := slam.PointCloudMapFull(ctx, slamSvc)
+func (slamSvc *SLAM) Limits(ctx context.Context, useEditedMap bool) ([]referenceframe.Limit, error) {
+	data, err := slam.PointCloudMapFull(ctx, slamSvc, useEditedMap)
 	if err != nil {
 		return nil, err
 	}
