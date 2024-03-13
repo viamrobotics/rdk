@@ -550,23 +550,6 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 	for _, knownName := range rc.resourceNames {
 		// remove the part id from the name passed in so that comparisons are made without part id
 		knownName = knownName.RemovePartID()
-		fmt.Printf("knownName: %v\n", knownName.RobotPartID)
-		fmt.Printf("name.Name: %#v\n", name.String())
-		fmt.Printf("knownName.Name: %#v\n", knownName.String())
-		if name.String() == knownName.String() {
-			gg := name == knownName
-			fmt.Printf("gg: %v\n", gg)
-			fmt.Printf("name.API: %v\n", name.API)
-			fmt.Printf("name.Name: %v\n", name.Name)
-			fmt.Printf("name.Remote: %v\n", name.Remote)
-			fmt.Printf("name.RobotPartID: %v\n", name.RobotPartID)
-
-			fmt.Printf("knownName.API: %v\n", knownName.API)
-			fmt.Printf("knownName.Name: %v\n", knownName.Name)
-			fmt.Printf("knownName.Remote: %v\n", knownName.Remote)
-			fmt.Printf("knownName.RobotPartID: %v\n", knownName.RobotPartID)
-
-		}
 		if name == knownName {
 			resourceClient, err := rc.createClient(name)
 			if err != nil {
@@ -688,6 +671,8 @@ func (rc *RobotClient) updateRemoteNameMap() {
 	tempMap := make(map[resource.Name]resource.Name)
 	dupMap := make(map[resource.Name]bool)
 	for _, n := range rc.resourceNames {
+		// remove the part id from the name passed in so that comparisons can be made without part id
+		n = n.RemovePartID()
 		if err := n.Validate(); err != nil {
 			rc.Logger().Error(err)
 			continue
