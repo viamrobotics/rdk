@@ -181,6 +181,8 @@ func (g *CachedData) Properties(
 
 // calculateCompassDegreeError calculates the compass degree error
 // of two geo points.
+// GPS provides a heading data only when it has a course of direction.
+// This function provides an estimated error for that data.
 func (g *CachedData) calculateCompassDegreeError() float64 {
 	firstPos := g.lastPosition.GetLastPosition()
 	secondPos := g.nmeaData.Location
