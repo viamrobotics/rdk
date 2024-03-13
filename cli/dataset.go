@@ -14,6 +14,7 @@ const (
 	datasetFlagDatasetIDs = "dataset-ids"
 	dataFlagLocationID    = "location-id"
 	dataFlagFileIDs       = "file-ids"
+	dataFlagOrgID         = "org-id"
 )
 
 // DatasetCreateAction is the corresponding action for 'dataset create'.
