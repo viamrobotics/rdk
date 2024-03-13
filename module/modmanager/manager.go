@@ -848,7 +848,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(logger))
 	defer cancelFunc()
 
-	slowTicker := time.NewTicker(15 * time.Second)
+	slowTicker := time.NewTicker(2 * time.Second)
 	defer slowTicker.Stop()
 	startTime := time.Now()
 
@@ -933,7 +933,7 @@ func (m *module) startProcess(
 		return errors.WithMessage(err, "module startup failed")
 	}
 
-	slowTicker := time.NewTicker(15 * time.Second)
+	slowTicker := time.NewTicker(2 * time.Second)
 	defer slowTicker.Stop()
 	startTime := time.Now()
 
