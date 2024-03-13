@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 var errNilLocation = errors.New("nil gps location, check nmea message parsing")
@@ -75,6 +76,9 @@ func (g *CachedData) Accuracy(
 ) (*movementsensor.Accuracy, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
+
+	compassDegreeError := g.calculateCompassDegreeError(g.lastPosition.GetLastPosition(), g.nmeaData.Location)
+
 	acc := movementsensor.Accuracy{
 		AccuracyMap: map[string]float32{
 			"hDOP": float32(g.nmeaData.HDOP),
@@ -83,7 +87,7 @@ func (g *CachedData) Accuracy(
 		Hdop:               float32(g.nmeaData.HDOP),
 		Vdop:               float32(g.nmeaData.VDOP),
 		NmeaFix:            int32(g.nmeaData.FixQuality),
-		CompassDegreeError: float32(math.NaN()),
+		CompassDegreeError: float32(compassDegreeError),
 	}
 	return &acc, g.err.Get()
 }
@@ -173,4 +177,32 @@ func (g *CachedData) Properties(
 		PositionSupported:       true,
 		CompassHeadingSupported: true,
 	}, nil
+}
+
+// calculateCompassDegreeError calculates the compass degree error
+// of two geo points.
+// GPS provides heading data only when it has a course of direction.
+// This function provides an estimated error for that data.
+func (g *CachedData) calculateCompassDegreeError(p1, p2 *geo.Point) float64 {
+	// if either geo points are nil, we don't calculate compass degree error
+	if p1 == nil || p2 == nil {
+		return math.NaN()
+	}
+
+	adjacent := p1.GreatCircleDistance(p2)
+
+	// If adjacent is 0, atan2 will be 90 degrees which is not desired.
+	if adjacent == 0 {
+		return math.NaN()
+	}
+	// by default we assume fix is 1-2. In this case, we assume radius to be 5m.
+	radius := 5.0
+	// when fix is 4 or higher, we set radius to be 10cm.
+	if g.nmeaData.FixQuality >= 4 {
+		radius = 0.1
+	}
+	// math.Atan2 returns the angle in radians, so we convert it to degrees.
+	thetaRadians := math.Atan2(radius, adjacent)
+	thetaDegrees := utils.RadToDeg(thetaRadians)
+	return thetaDegrees
 }
