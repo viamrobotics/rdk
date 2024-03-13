@@ -48,7 +48,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/components/movementsensor/gpsnmea"
 	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -202,11 +201,11 @@ func newRTKSerial(
 
 	g.InputProtocol = serialStr
 
-	serialConfig := &gpsnmea.SerialConfig{
+	serialConfig := &rtk.SerialConfig{
 		SerialPath:     newConf.SerialPath,
 		SerialBaudRate: newConf.SerialBaudRate,
 	}
-	dev, err := gpsnmea.NewSerialDataReader(serialConfig, logger)
+	dev, err := rtk.NewSerialDataReader(serialConfig, logger)
 	if err != nil {
 		return nil, err
 	}

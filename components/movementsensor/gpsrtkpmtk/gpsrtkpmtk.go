@@ -49,7 +49,6 @@ import (
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
-	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
 	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -238,7 +237,7 @@ func makeRTKI2C(
 		return nil, err
 	}
 
-	config := gpsnmea.I2CConfig{
+	config := rtk.I2CConfig{
 		I2CBus:      newConf.I2CBus,
 		I2CBaudRate: newConf.I2CBaudRate,
 		I2CAddr:     newConf.I2CAddr,
@@ -249,7 +248,7 @@ func makeRTKI2C(
 
 	// If we have a mock I2C bus, pass that in, too. If we don't, it'll be nil and constructing the
 	// reader will create a real I2C bus instead.
-	dev, err := gpsnmea.NewI2cDataReader(config, mockI2c, logger)
+	dev, err := rtk.NewI2cDataReader(config, mockI2c, logger)
 	if err != nil {
 		return nil, err
 	}

@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/components/movementsensor/rtkutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
@@ -34,24 +35,8 @@ func connectionTypeError(connType, serialConn, i2cConn string) error {
 type Config struct {
 	ConnectionType string `json:"connection_type"`
 
-	*SerialConfig `json:"serial_attributes,omitempty"`
-	*I2CConfig    `json:"i2c_attributes,omitempty"`
-}
-
-// SerialConfig is used for converting Serial NMEA MovementSensor config attributes.
-type SerialConfig struct {
-	SerialPath     string `json:"serial_path"`
-	SerialBaudRate int    `json:"serial_baud_rate,omitempty"`
-
-	// TestChan is a fake "serial" path for test use only
-	TestChan chan []uint8 `json:"-"`
-}
-
-// I2CConfig is used for converting Serial NMEA MovementSensor config attributes.
-type I2CConfig struct {
-	I2CBus      string `json:"i2c_bus"`
-	I2CAddr     int    `json:"i2c_addr"`
-	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
+	*rtkutils.SerialConfig `json:"serial_attributes,omitempty"`
+	*rtkutils.I2CConfig    `json:"i2c_attributes,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -64,31 +49,12 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 	switch strings.ToLower(cfg.ConnectionType) {
 	case i2cStr:
-		return deps, cfg.I2CConfig.validateI2C(path)
+		return deps, cfg.I2CConfig.Validate(path)
 	case serialStr:
-		return nil, cfg.SerialConfig.validateSerial(path)
+		return nil, cfg.SerialConfig.Validate(path)
 	default:
 		return nil, connectionTypeError(cfg.ConnectionType, serialStr, i2cStr)
 	}
-}
-
-// ValidateI2C ensures all parts of the config are valid.
-func (cfg *I2CConfig) validateI2C(path string) error {
-	if cfg.I2CBus == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "i2c_bus")
-	}
-	if cfg.I2CAddr == 0 {
-		return resource.NewConfigValidationFieldRequiredError(path, "i2c_addr")
-	}
-	return nil
-}
-
-// ValidateSerial ensures all parts of the config are valid.
-func (cfg *SerialConfig) validateSerial(path string) error {
-	if cfg.SerialPath == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "serial_path")
-	}
-	return nil
 }
 
 var model = resource.DefaultModelFamily.WithModel("gps-nmea")
