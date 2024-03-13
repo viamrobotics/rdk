@@ -1,6 +1,6 @@
-// Package rtkutils contains GPS-related code shared between multiple components. This file
+// Package gpsutils contains GPS-related code shared between multiple components. This file
 // describes data structures used to configure reading from NMEA devices.
-package rtkutils
+package gpsutils
 
 import (
 	"go.viam.com/rdk/resource"

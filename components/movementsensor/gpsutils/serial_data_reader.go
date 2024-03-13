@@ -1,7 +1,7 @@
-// Package rtkutils contains code shared between multiple GPS implementations. This file is about
+// Package gpsutils contains code shared between multiple GPS implementations. This file is about
 // how to interact with a PMTK device (a device which gets data from GPS satellites) connected by a
 // serial port.
-package rtkutils
+package gpsutils
 
 import (
 	"bufio"

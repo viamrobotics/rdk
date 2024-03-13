@@ -1,8 +1,8 @@
 //go:build linux
 
-// Package rtkutils implements a GPS NMEA component. This file contains ways to read data from a
+// Package gpsutils implements a GPS NMEA component. This file contains ways to read data from a
 // PMTK device connected over the I2C bus.
-package rtkutils
+package gpsutils
 
 import (
 	"context"

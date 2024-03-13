@@ -49,7 +49,7 @@ import (
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
-	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
+	"go.viam.com/rdk/components/movementsensor/gpsutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -126,13 +126,13 @@ type rtkI2C struct {
 	mu            sync.Mutex
 	ntripMu       sync.Mutex
 	ntripconfigMu sync.Mutex
-	ntripClient   *rtk.NtripInfo
+	ntripClient   *gpsutils.NtripInfo
 	ntripStatus   bool
 
 	err          movementsensor.LastError
 	lastposition movementsensor.LastPosition
 
-	cachedData       *rtk.CachedData
+	cachedData       *gpsutils.CachedData
 	correctionWriter io.ReadWriteCloser
 
 	bus     buses.I2C
@@ -169,7 +169,7 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 	}
 
 	g.ntripconfigMu.Lock()
-	ntripConfig := &rtk.NtripConfig{
+	ntripConfig := &gpsutils.NtripConfig{
 		NtripURL:             newConf.NtripURL,
 		NtripUser:            newConf.NtripUser,
 		NtripPass:            newConf.NtripPass,
@@ -178,7 +178,7 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 	}
 
 	// Init ntripInfo from attributes
-	tempNtripClient, err := rtk.NewNtripInfo(ntripConfig, g.logger)
+	tempNtripClient, err := gpsutils.NewNtripInfo(ntripConfig, g.logger)
 	if err != nil {
 		return err
 	}
@@ -237,7 +237,7 @@ func makeRTKI2C(
 		return nil, err
 	}
 
-	config := rtk.I2CConfig{
+	config := gpsutils.I2CConfig{
 		I2CBus:      newConf.I2CBus,
 		I2CBaudRate: newConf.I2CBaudRate,
 		I2CAddr:     newConf.I2CAddr,
@@ -248,11 +248,11 @@ func makeRTKI2C(
 
 	// If we have a mock I2C bus, pass that in, too. If we don't, it'll be nil and constructing the
 	// reader will create a real I2C bus instead.
-	dev, err := rtk.NewI2cDataReader(config, mockI2c, logger)
+	dev, err := gpsutils.NewI2cDataReader(config, mockI2c, logger)
 	if err != nil {
 		return nil, err
 	}
-	g.cachedData = rtk.NewCachedData(dev, logger)
+	g.cachedData = gpsutils.NewCachedData(dev, logger)
 
 	if err := g.start(); err != nil {
 		return nil, err

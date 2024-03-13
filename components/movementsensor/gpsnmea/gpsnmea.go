@@ -19,7 +19,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/components/movementsensor/rtkutils"
+	"go.viam.com/rdk/components/movementsensor/gpsutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
@@ -35,8 +35,8 @@ func connectionTypeError(connType, serialConn, i2cConn string) error {
 type Config struct {
 	ConnectionType string `json:"connection_type"`
 
-	*rtkutils.SerialConfig `json:"serial_attributes,omitempty"`
-	*rtkutils.I2CConfig    `json:"i2c_attributes,omitempty"`
+	*gpsutils.SerialConfig `json:"serial_attributes,omitempty"`
+	*gpsutils.I2CConfig    `json:"i2c_attributes,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.

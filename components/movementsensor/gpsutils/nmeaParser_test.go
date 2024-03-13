@@ -1,4 +1,4 @@
-package rtkutils
+package gpsutils
 
 import (
 	"math"

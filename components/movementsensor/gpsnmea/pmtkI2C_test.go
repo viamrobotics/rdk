@@ -10,7 +10,7 @@ import (
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/components/movementsensor/rtkutils"
+	"go.viam.com/rdk/components/movementsensor/gpsutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
@@ -64,7 +64,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
 			ConnectionType: "I2C",
-			I2CConfig:      &rtkutils.I2CConfig{I2CBus: testBusName},
+			I2CConfig:      &gpsutils.I2CConfig{I2CBus: testBusName},
 		},
 	}
 	config, err := resource.NativeConfig[*Config](conf)

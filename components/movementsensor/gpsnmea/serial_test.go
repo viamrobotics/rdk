@@ -7,7 +7,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/components/movementsensor/rtkutils"
+	"go.viam.com/rdk/components/movementsensor/gpsutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
@@ -40,7 +40,7 @@ func TestNewSerialMovementSensor(t *testing.T) {
 		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
 			ConnectionType: "serial",
-			SerialConfig: &rtkutils.SerialConfig{
+			SerialConfig: &gpsutils.SerialConfig{
 				SerialPath:     path,
 				SerialBaudRate: 0,
 			},

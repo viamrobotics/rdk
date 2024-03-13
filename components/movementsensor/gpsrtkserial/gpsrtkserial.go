@@ -48,7 +48,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
-	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
+	"go.viam.com/rdk/components/movementsensor/gpsutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -106,7 +106,7 @@ type rtkSerial struct {
 	activeBackgroundWorkers sync.WaitGroup
 	mu                      sync.Mutex
 
-	ntripClient        *rtk.NtripInfo
+	ntripClient        *gpsutils.NtripInfo
 	isConnectedToNtrip bool
 	isClosed           bool
 
@@ -115,7 +115,7 @@ type rtkSerial struct {
 	lastcompassheading movementsensor.LastCompassHeading
 	InputProtocol      string
 
-	cachedData       *rtk.CachedData
+	cachedData       *gpsutils.CachedData
 	correctionWriter io.ReadWriteCloser
 	writePath        string
 	wbaud            int
@@ -148,7 +148,7 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		g.logger.CInfo(ctx, "serial_baud_rate using default baud rate 38400")
 	}
 
-	ntripConfig := &rtk.NtripConfig{
+	ntripConfig := &gpsutils.NtripConfig{
 		NtripURL:             newConf.NtripURL,
 		NtripUser:            newConf.NtripUser,
 		NtripPass:            newConf.NtripPass,
@@ -157,7 +157,7 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	// Init ntripInfo from attributes
-	tempNtripClient, err := rtk.NewNtripInfo(ntripConfig, g.logger)
+	tempNtripClient, err := gpsutils.NewNtripInfo(ntripConfig, g.logger)
 	if err != nil {
 		return err
 	}
@@ -201,15 +201,15 @@ func newRTKSerial(
 
 	g.InputProtocol = serialStr
 
-	serialConfig := &rtk.SerialConfig{
+	serialConfig := &gpsutils.SerialConfig{
 		SerialPath:     newConf.SerialPath,
 		SerialBaudRate: newConf.SerialBaudRate,
 	}
-	dev, err := rtk.NewSerialDataReader(serialConfig, logger)
+	dev, err := gpsutils.NewSerialDataReader(serialConfig, logger)
 	if err != nil {
 		return nil, err
 	}
-	g.cachedData = rtk.NewCachedData(dev, logger)
+	g.cachedData = gpsutils.NewCachedData(dev, logger)
 
 	if err := g.start(); err != nil {
 		return nil, err
@@ -352,7 +352,7 @@ func (g *rtkSerial) connectAndParseSourceTable() error {
 	g.logger.Debugf("sourceTable is: %v\n", srcTable)
 
 	g.logger.Debug("got sourcetable, parsing it...")
-	g.isVirtualBase, err = rtk.FindLineWithMountPoint(srcTable, g.ntripClient.MountPoint)
+	g.isVirtualBase, err = gpsutils.FindLineWithMountPoint(srcTable, g.ntripClient.MountPoint)
 	if err != nil {
 		g.logger.Errorf("can't find mountpoint in source table, found err %v\n", err)
 		return err
@@ -683,7 +683,7 @@ func (g *rtkSerial) getNtripFromVRS() error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	g.readerWriter = rtk.ConnectToVirtualBase(g.ntripClient, g.logger)
+	g.readerWriter = gpsutils.ConnectToVirtualBase(g.ntripClient, g.logger)
 
 	// read from the socket until we know if a successful connection has been
 	// established.
@@ -708,7 +708,7 @@ func (g *rtkSerial) getNtripFromVRS() error {
 		}
 	}
 
-	ggaMessage, err := rtk.GetGGAMessage(g.correctionWriter, g.logger)
+	ggaMessage, err := gpsutils.GetGGAMessage(g.correctionWriter, g.logger)
 	if err != nil {
 		g.logger.Error("Failed to get GGA message")
 		return err

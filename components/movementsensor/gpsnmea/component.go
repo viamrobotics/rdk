@@ -8,7 +8,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/components/movementsensor/rtkutils"
+	"go.viam.com/rdk/components/movementsensor/gpsutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -19,17 +19,17 @@ type NMEAMovementSensor struct {
 	resource.Named
 	resource.AlwaysRebuild
 	logger     logging.Logger
-	cachedData *rtkutils.CachedData
+	cachedData *gpsutils.CachedData
 }
 
 // NewNmeaMovementSensor creates a new movement sensor.
 func NewNmeaMovementSensor(
-	ctx context.Context, name resource.Name, dev rtkutils.DataReader, logger logging.Logger,
+	ctx context.Context, name resource.Name, dev gpsutils.DataReader, logger logging.Logger,
 ) (NmeaMovementSensor, error) {
 	g := &NMEAMovementSensor{
 		Named:      name.AsNamed(),
 		logger:     logger,
-		cachedData: rtkutils.NewCachedData(dev, logger),
+		cachedData: gpsutils.NewCachedData(dev, logger),
 	}
 
 	return g, nil

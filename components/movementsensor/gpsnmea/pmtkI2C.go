@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
-	"go.viam.com/rdk/components/movementsensor/rtkutils"
+	"go.viam.com/rdk/components/movementsensor/gpsutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
@@ -36,7 +36,7 @@ func MakePmtkI2cGpsNmea(
 	logger logging.Logger,
 	i2cBus buses.I2C,
 ) (NmeaMovementSensor, error) {
-	dev, err := rtkutils.NewI2cDataReader(*conf.I2CConfig, i2cBus, logger)
+	dev, err := gpsutils.NewI2cDataReader(*conf.I2CConfig, i2cBus, logger)
 	if err != nil {
 		return nil, err
 	}
