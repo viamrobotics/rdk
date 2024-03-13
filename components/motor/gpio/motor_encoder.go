@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -91,6 +90,7 @@ func newEncodedMotor(
 		opMgr:             operation.NewSingleOperationManager(),
 		startedRPMMonitor: false,
 		loop:              nil,
+		controlLoopConfig: control.Config{},
 	}
 
 	props, err := realEncoder.Properties(context.Background(), nil)
@@ -133,7 +133,6 @@ func newEncodedMotor(
 
 // EncodedMotor is a motor that utilizes an encoder to track its position.
 type EncodedMotor struct {
-	rpmMonitorCalls int64
 	resource.Named
 	resource.AlwaysRebuild
 
@@ -171,7 +170,6 @@ type EncodedMotor struct {
 type EncodedMotorState struct {
 	regulated    bool
 	goalRPM      float64 // <= 0 means worker should do nothing
-	currentRPM   float64
 	lastPowerPct float64
 	goalPos      float64
 	direction    float64
@@ -235,7 +233,6 @@ func (m *EncodedMotor) rpmMonitor() {
 			continue
 		}
 		now := time.Now().UnixNano()
-		atomic.AddInt64(&m.rpmMonitorCalls, 1)
 
 		if (m.DirectionMoving() == 1 && pos >= m.state.goalPos) || (m.DirectionMoving() == -1 && pos <= m.state.goalPos) {
 			// stop motor when at or past goal position
@@ -266,22 +263,23 @@ func (m *EncodedMotor) makeAdjustments(pos, lastPos float64, now, lastTime int64
 	deltaPos := (pos - lastPos) / m.ticksPerRotation
 	// time is polled in nanoseconds, convert to minutes for rpm
 	deltaTime := (float64(now) - float64(lastTime)) / float64(6e10)
+	var currentRPM float64
 	if deltaTime == 0.0 {
-		m.state.currentRPM = 0
+		currentRPM = 0
 	} else {
-		m.state.currentRPM = deltaPos / deltaTime
+		currentRPM = deltaPos / deltaTime
 	}
 
 	if rpmDebug {
 		m.logger.Info("making adjustments")
 		m.logger.Infof("lastPos: %v, pos: %v, goalPos: %v", lastPos, pos, m.state.goalPos)
 		m.logger.Infof("lastTime: %v, now: %v", lastTime, now)
-		m.logger.Infof("currentRPM: %v, goalRPM: %v", m.state.currentRPM, m.state.goalRPM)
+		m.logger.Infof("currentRPM: %v, goalRPM: %v", currentRPM, m.state.goalRPM)
 	}
 
 	dir := m.directionMovingInLock()
 
-	if (dir == 1 && m.state.currentRPM > m.state.goalRPM) || (dir == -1 && m.state.currentRPM < m.state.goalRPM) {
+	if (dir == 1 && currentRPM > m.state.goalRPM) || (dir == -1 && currentRPM < m.state.goalRPM) {
 		powerPct := m.state.lastPowerPct - (m.rampRate * dir)
 		if sign(powerPct) != dir {
 			powerPct = m.state.lastPowerPct
@@ -293,7 +291,7 @@ func (m *EncodedMotor) makeAdjustments(pos, lastPos float64, now, lastTime int64
 			return err
 		}
 	}
-	if (dir == 1 && m.state.currentRPM <= m.state.goalRPM) || (dir == -1 && m.state.currentRPM >= m.state.goalRPM) {
+	if (dir == 1 && currentRPM <= m.state.goalRPM) || (dir == -1 && currentRPM >= m.state.goalRPM) {
 		powerPct := m.state.lastPowerPct + (m.rampRate * dir)
 		if sign(powerPct) != dir {
 			powerPct = m.state.lastPowerPct
@@ -308,14 +306,9 @@ func (m *EncodedMotor) makeAdjustments(pos, lastPos float64, now, lastTime int64
 	return nil
 }
 
-// RPMMonitorCalls returns the number of calls RPM monitor has made.
-func (m *EncodedMotor) RPMMonitorCalls() int64 {
-	return atomic.LoadInt64(&m.rpmMonitorCalls)
-}
-
-func (m *EncodedMotor) fixPowerPct(powerPct float64) float64 {
-	powerPct = math.Min(powerPct, m.maxPowerPct)
-	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
+func fixPowerPct(powerPct, max float64) float64 {
+	powerPct = math.Min(powerPct, max)
+	powerPct = math.Max(powerPct, -1*max)
 	return powerPct
 }
 
@@ -353,7 +346,6 @@ func (m *EncodedMotor) directionMovingInLock() float64 {
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
 // Negative power implies a backward directional rotational.
 func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-	m.opMgr.CancelRunning(ctx)
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 	return m.setPower(ctx, powerPct, false)
@@ -362,7 +354,10 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 // setPower assumes the state lock is held.
 func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal bool) error {
 	dir := sign(powerPct)
-	if math.Abs(powerPct) < 0.1 && m.loop == nil {
+	// If the control config exists, a control loop must exist, so the motor should be allowed to run at a power lower than 10%.
+	// In the case that the motor is tuning, m.loop will be nil, but m.controlLoopConfig.Blocks will not be empty,
+	// which is why m.loop is not checked here.
+	if math.Abs(powerPct) < 0.1 && len(m.controlLoopConfig.Blocks) == 0 {
 		m.state.lastPowerPct = 0.1 * dir
 	} else {
 		m.state.lastPowerPct = powerPct
@@ -371,7 +366,7 @@ func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal 
 		m.state.goalRPM = 0       // if we're setting power externally, don't control RPM
 		m.state.regulated = false // user wants direct control, so we stop trying to control the world
 	}
-	m.state.lastPowerPct = m.fixPowerPct(m.state.lastPowerPct)
+	m.state.lastPowerPct = fixPowerPct(m.state.lastPowerPct, m.maxPowerPct)
 	return m.real.SetPower(ctx, m.state.lastPowerPct, nil)
 }
 
@@ -425,19 +420,17 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 }
 
 func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float64) error {
-	if m.loop != nil {
-		if err := m.Stop(ctx, nil); err != nil {
-			m.logger.Error(err)
+	if m.loop == nil {
+		// create new control loop if control config exists
+		if len(m.controlLoopConfig.Blocks) != 0 {
+			if err := m.startControlLoop(); err != nil {
+				return err
+			}
+		} else {
+			m.rpmMonitorStart()
 		}
 	}
-	// create new control loop if control config exists
-	if m.cfg.ControlParameters != nil {
-		if err := m.startControlLoop(); err != nil {
-			return err
-		}
-	} else {
-		m.rpmMonitorStart()
-	}
+
 	m.state.direction = sign(rpm * revolutions)
 
 	switch speed := math.Abs(rpm); {
@@ -459,11 +452,6 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 
 	m.state.regulated = true
 	if revolutions == 0 {
-		// Moving 0 revolutions is a special value meaning "move forever."
-		oldRpm := m.state.goalRPM
-		m.state.goalRPM = rpm
-		m.state.goalPos = math.Inf(int(rpm))
-
 		if m.loop != nil {
 			velVal := math.Abs(rpm * m.ticksPerRotation / 60)
 			// when rev = 0, only velocity is controlled
@@ -472,6 +460,10 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 				return err
 			}
 		} else {
+			// Moving 0 revolutions is a special value meaning "move forever."
+			oldRpm := m.state.goalRPM
+			m.state.goalRPM = rpm
+			m.state.goalPos = math.Inf(int(rpm))
 			// if we are already moving, let rpmMonitor deal with setPower
 			if math.Abs(oldRpm) > 0.001 && m.state.direction == m.directionMovingInLock() {
 				return nil
@@ -583,20 +575,6 @@ func (m *EncodedMotor) IsMoving(ctx context.Context) (bool, error) {
 	return m.real.IsMoving(ctx)
 }
 
-// SetMotorState allows users to set the motor state values.
-func (m *EncodedMotor) SetMotorState(ctx context.Context, newState EncodedMotorState) {
-	m.stateMu.Lock()
-	defer m.stateMu.Unlock()
-	m.state = newState
-}
-
-// GetMotorState allows users to get the motor state values.
-func (m *EncodedMotor) GetMotorState(ctx context.Context) EncodedMotorState {
-	m.stateMu.Lock()
-	defer m.stateMu.Unlock()
-	return m.state
-}
-
 // Stop stops rpmMonitor and stops the real motor.
 func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.stateMu.Lock()
@@ -615,9 +593,8 @@ func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) e
 
 // Close cleanly shuts down the motor.
 func (m *EncodedMotor) Close(ctx context.Context) error {
-	if m.loop != nil {
-		m.loop.Stop()
-		m.loop = nil
+	if err := m.Stop(ctx, nil); err != nil {
+		return err
 	}
 	m.cancel()
 	m.activeBackgroundWorkers.Wait()

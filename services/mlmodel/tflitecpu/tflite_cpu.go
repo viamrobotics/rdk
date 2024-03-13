@@ -43,11 +43,18 @@ func init() {
 // TFLiteConfig contains the parameters specific to a tflite_cpu implementation
 // of the MLMS (machine learning model service).
 type TFLiteConfig struct {
-	resource.TriviallyValidateConfig
 	// this should come from the attributes of the tflite_cpu instance of the MLMS
 	ModelPath  string `json:"model_path"`
 	NumThreads int    `json:"num_threads"`
 	LabelPath  string `json:"label_path"`
+}
+
+// Validate will check if the config is valid.
+func (conf *TFLiteConfig) Validate(path string) ([]string, error) {
+	if conf.ModelPath == "" {
+		return nil, errors.New("model_path attribute cannot be empty")
+	}
+	return nil, nil
 }
 
 // Model is a struct that implements the TensorflowLite CPU implementation of the MLMS.

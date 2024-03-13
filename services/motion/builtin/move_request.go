@@ -611,7 +611,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	}
 
 	// gets the extents of the SLAM map
-	limits, err := slam.Limits(ctx, slamSvc)
+	limits, err := slam.Limits(ctx, slamSvc, true)
 	if err != nil {
 		return nil, err
 	}
@@ -645,7 +645,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	goalPoseAdj := spatialmath.Compose(req.Destination, motion.SLAMOrientationAdjustment)
 
 	// get point cloud data in the form of bytes from pcd
-	pointCloudData, err := slam.PointCloudMapFull(ctx, slamSvc)
+	pointCloudData, err := slam.PointCloudMapFull(ctx, slamSvc, true)
 	if err != nil {
 		return nil, err
 	}

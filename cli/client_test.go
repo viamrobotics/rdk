@@ -9,13 +9,16 @@ import (
 	"time"
 
 	"github.com/urfave/cli/v2"
+	"go.uber.org/zap/zapcore"
 	buildpb "go.viam.com/api/app/build/v1"
 	datapb "go.viam.com/api/app/data/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
@@ -217,4 +220,41 @@ func TestBaseURLParsing(t *testing.T) {
 	// Test invalid url
 	_, _, err = parseBaseURL(":5", false)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "missing protocol scheme")
+}
+
+func TestLogEntryFieldsToString(t *testing.T) {
+	t.Run("normal case", func(t *testing.T) {
+		f1, err := logging.FieldToProto(zapcore.Field{
+			Key:    "key1",
+			Type:   zapcore.StringType,
+			String: "value1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		f2, err := logging.FieldToProto(zapcore.Field{
+			Key:     "key2",
+			Type:    zapcore.Int32Type,
+			Integer: 123,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		f3, err := logging.FieldToProto(zapcore.Field{
+			Key:       "facts",
+			Type:      zapcore.ReflectType,
+			Interface: map[string]string{"app.viam": "cool", "cli": "cooler"},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		fields := []*structpb.Struct{
+			f1, f2, f3,
+		}
+
+		expected := `{"key1": "value1", "key2": 123, "facts": map[app.viam:cool cli:cooler]}`
+		result, err := logEntryFieldsToString(fields)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, result, test.ShouldEqual, expected)
+	})
+
+	t.Run("empty fields", func(t *testing.T) {
+		result, err := logEntryFieldsToString([]*structpb.Struct{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, result, test.ShouldBeEmpty)
+	})
 }
