@@ -93,6 +93,8 @@ func TestRTSPCamera(t *testing.T) {
 		forma := &format.H264{
 			PayloadTyp:        96,
 			PacketizationMode: 1,
+			SPS:               []uint8{0x67, 0x64, 0x0, 0x15, 0xac, 0xb2, 0x3, 0xc1, 0x1f, 0xd6, 0x2, 0xdc, 0x8, 0x8, 0x16, 0x94, 0x0, 0x0, 0x3, 0x0, 0x4, 0x0, 0x0, 0x3, 0x0, 0xf0, 0x3c, 0x58, 0xb9, 0x20},
+			PPS:               []uint8{0x68, 0xeb, 0xc3, 0xcb, 0x22, 0xc0},
 		}
 		t.Run("init", func(t *testing.T) {
 			h, closeFunc := newH264ServerHandler(t, forma, bURL, logger)
@@ -117,8 +119,20 @@ func TestRTSPCamera(t *testing.T) {
 			rtspCam, err := NewRTSPCamera(timeoutCtx, resource.Name{Name: "foo"}, rtspConf, logger)
 			test.That(t, err, test.ShouldBeNil)
 			defer func() { test.That(t, rtspCam.Close(context.Background()), test.ShouldBeNil) }()
-			_, _, err = camera.ReadImage(timeoutCtx, rtspCam)
-			test.That(t, err, test.ShouldBeError, errors.New("builtin RTSP camera.GetImage method unimplemented when H264Passthrough enabled"))
+			imageTimeoutCtx, imageTimeoutCancel := context.WithTimeout(context.Background(), time.Second*10)
+			defer imageTimeoutCancel()
+			var im image.Image
+			for imageTimeoutCtx.Err() == nil {
+				img, f, err := camera.ReadImage(imageTimeoutCtx, rtspCam)
+				f()
+				test.That(t, err, test.ShouldBeNil)
+				if img != nil {
+					im = img
+					break
+				}
+			}
+			test.That(t, imageTimeoutCtx.Err(), test.ShouldBeNil)
+			test.That(t, im.Bounds(), test.ShouldResemble, image.Rect(0, 0, 480, 270))
 		})
 
 		t.Run("VideoCodecStream", func(t *testing.T) {
@@ -421,14 +435,17 @@ func newH264ServerHandler(
 		},
 		OnDescribeFunc: func(ctx *gortsplib.ServerHandlerOnDescribeCtx, sh *serverHandler) (*base.Response, *gortsplib.ServerStream, error) {
 			logger.Debug("OnDescribeFunc")
+			defer logger.Debug("OnDescribeFunc DONE")
 
 			sh.mu.Lock()
 			defer sh.mu.Unlock()
-			sh.stream = gortsplib.NewServerStream(sh.s, &description.Session{
+			d := &description.Session{
 				BaseURL: bURL,
 				Title:   "123456",
 				Medias:  []*description.Media{sh.media},
-			})
+			}
+			sh.stream = gortsplib.NewServerStream(sh.s, d)
+			logger.Debug("sh.stream.Description().Medias[0].Formats[0]: %#v ", sh.stream.Description().Medias[0].Formats[0])
 			return &base.Response{StatusCode: base.StatusOK}, sh.stream, nil
 		},
 		OnAnnounceFunc: func(ctx *gortsplib.ServerHandlerOnAnnounceCtx, sh *serverHandler) (*base.Response, error) {

@@ -18,6 +18,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtph264"
 	"github.com/bluenviron/gortsplib/v4/pkg/liberrors"
+	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
@@ -88,6 +89,7 @@ type (
 		latestFrame             atomic.Pointer[image.Image]
 		logger                  logging.Logger
 		h264Passthrough         bool
+		h264Decoder             *decoder
 		subsMu                  sync.RWMutex
 		subs                    map[*camera.StreamSubscription]unitSubscriberFunc
 	}
@@ -156,7 +158,6 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 	rc.client.OnDecodeError = func(err error) {
 		rc.logger.Warnf("OnDecodeError: err: %s", err.Error())
 	}
-	rc.logger.Info("calling start")
 	err = rc.client.Start(rc.u.Scheme, rc.u.Host)
 	if err != nil {
 		return err
@@ -167,18 +168,10 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 			rc.client.Close()
 		}
 	}()
-	rc.logger.Info("REQ Describe")
-	desc, resp, err := rc.client.Describe(rc.u)
+	desc, _, err := rc.client.Describe(rc.u)
 	if err != nil {
 		return err
 	}
-	ms := []description.Media{}
-	for _, m := range desc.Medias {
-		ms = append(ms, *m)
-	}
-	rc.logger.Infof("RES Describe, desc: %# ", desc)
-	rc.logger.Infof("RES Describe, ms: %#v", ms)
-	rc.logger.Infof("RES Describe, resp: %#v ", resp)
 
 	var forma format.Format
 	var media *description.Media
@@ -196,7 +189,28 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 		if err != nil {
 			return err
 		}
-		onPacketRTPFunc = func(pkt *rtp.Packet) {
+		rtpH264Dec, err := f.CreateDecoder()
+		if err != nil {
+			return err
+		}
+		d, err := newH264Decoder()
+		if err != nil {
+			return err
+		}
+		rc.h264Decoder = d
+		if f.SPS != nil {
+			rc.h264Decoder.decode(f.SPS) // nolint:errcheck
+		} else {
+			rc.logger.Warn("no SPS found in H264 format")
+		}
+		if f.PPS != nil {
+			rc.h264Decoder.decode(f.PPS) // nolint:errcheck
+		} else {
+			rc.logger.Warn("no PPS found in H264 format")
+		}
+
+		iFrameReceived := false
+		publishToWebRTC := func(pkt *rtp.Packet) {
 			pts, ok := rc.client.PacketPTS(media, pkt)
 			if !ok {
 				return
@@ -220,6 +234,48 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 					rc.logger.Debug("RTP packet dropped due to %s", err.Error())
 				}
 			}
+		}
+		var waitingForIframeLogged bool
+		storeImage := func(pkt *rtp.Packet) {
+			au, err := rtpH264Dec.Decode(pkt)
+			if err != nil {
+				if err != rtph264.ErrNonStartingPacketAndNoPrevious && err != rtph264.ErrMorePacketsNeeded {
+					rc.logger.Errorf("error decoding(1) h264 rstp stream %v", err)
+				}
+				return
+			}
+
+			if !iFrameReceived {
+				if !h264.IDRPresent(au) {
+					if !waitingForIframeLogged {
+						rc.logger.Debug("waiting for I-frame")
+						waitingForIframeLogged = true
+					}
+					return
+				}
+				iFrameReceived = true
+				rc.logger.Debug("got I-frame")
+			}
+
+			for _, nalu := range au {
+				image, err := rc.h264Decoder.decode(nalu)
+				if err != nil {
+					rc.logger.Error("error decoding(2) h264 rtsp stream  %v", err)
+					return
+				}
+				if image != nil {
+					rc.latestFrame.Store(&image)
+					if !rc.gotFirstFrameOnce {
+						rc.gotFirstFrameOnce = true
+						close(rc.gotFirstFrame)
+					}
+				}
+			}
+		}
+
+		onPacketRTPFunc = func(pkt *rtp.Packet) {
+			publishToWebRTC(pkt)
+			storeImage(pkt)
 		}
 	} else {
 		var f *format.MJPEG
@@ -262,7 +318,6 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 	rc.logger.Infof("url: %s, media: %#v", desc.BaseURL.String(), media)
 	res, err := rc.client.Setup(desc.BaseURL, media, 0, 0)
 	if err != nil {
-		rc.logger.Fatal(err.Error())
 		return err
 	}
 	rc.logger.Infof("Setup: res: %#v", res)
@@ -400,12 +455,6 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger
 			return nil, func() {}, errors.New("no frame yet")
 		}
 		return *latest, func() {}, nil
-	}
-
-	if rtspCam.h264Passthrough {
-		f = func(ctx context.Context) (image.Image, func(), error) {
-			return nil, func() {}, errors.New("builtin RTSP camera.GetImage method unimplemented when H264Passthrough enabled")
-		}
 	}
 
 	reader := gostream.VideoReaderFunc(f)
