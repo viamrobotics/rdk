@@ -21,6 +21,10 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+// errUnimplemented is used for any unimplemented methods that should
+// eventually be implemented server side or faked client side.
+var errUnimplemented = errors.New("unimplemented")
+
 // client implements BoardServiceClient.
 type client struct {
 	resource.Named
@@ -231,7 +235,6 @@ type digitalInterruptClient struct {
 	*client
 	boardName            string
 	digitalInterruptName string
-	callbacks            []chan Tick
 }
 
 func (dic *digitalInterruptClient) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
@@ -251,30 +254,15 @@ func (dic *digitalInterruptClient) Value(ctx context.Context, extra map[string]i
 }
 
 func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
-	tick := Tick{Name: dic.digitalInterruptName, High: high, TimestampNanosec: nanoseconds}
-	for _, ch := range dic.callbacks {
-		ch <- tick
-	}
-
-	return nil
+	panic(errUnimplemented)
 }
 
-func (dic *digitalInterruptClient) AddCallback(ch chan Tick) {
-	dic.callbacks = append(dic.callbacks, ch)
+func (dic *digitalInterruptClient) AddCallback(c chan Tick) {
+	panic(errUnimplemented)
 }
 
-func (dic *digitalInterruptClient) RemoveCallback(ch chan Tick) {
-	dic.mu.Lock()
-	defer dic.mu.Unlock()
-	for id := range dic.callbacks {
-		if dic.callbacks[id] == ch {
-			// To remove this item, we replace it with the last item in the list, then truncate the
-			// list by 1.
-			dic.callbacks[id] = dic.callbacks[len(dic.callbacks)-1]
-			dic.callbacks = dic.callbacks[:len(dic.callbacks)-1]
-			break
-		}
-	}
+func (dic *digitalInterruptClient) RemoveCallback(c chan Tick) {
+	panic(errUnimplemented)
 }
 
 func (c *client) StreamTicks(ctx context.Context, interrupts []string, ch chan Tick, extra map[string]interface{}) error {
