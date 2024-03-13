@@ -39,7 +39,6 @@ type client struct {
 	streamMu      sync.Mutex
 	mu            sync.RWMutex
 
-	closeContext            context.Context
 	activeBackgroundWorkers sync.WaitGroup
 	cancelBackgroundWorkers context.CancelFunc
 	extra                   *structpb.Struct
@@ -62,11 +61,10 @@ func NewClientFromConn(
 	info := boardInfo{name: name.ShortName()}
 	bClient := pb.NewBoardServiceClient(conn)
 	c := &client{
-		Named:        name.PrependRemote(remoteName).AsNamed(),
-		client:       bClient,
-		logger:       logger,
-		info:         info,
-		closeContext: ctx,
+		Named:  name.PrependRemote(remoteName).AsNamed(),
+		client: bClient,
+		logger: logger,
+		info:   info,
 	}
 	if err := c.refresh(ctx); err != nil {
 		c.logger.CWarn(ctx, err)
@@ -257,6 +255,7 @@ func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanoseco
 	for _, ch := range dic.callbacks {
 		ch <- tick
 	}
+
 	return nil
 }
 
