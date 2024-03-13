@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/a8m/envsubst"
 	"github.com/pkg/errors"
@@ -246,10 +247,20 @@ func readFromCloud(
 
 	if checkForNewCert || tls.certificate == "" || tls.privateKey == "" {
 		logger.Debug("reading tlsCertificate from the cloud")
+		var (
+			ctxWithTimeout context.Context
+			cancel         func()
+		)
+		// use shouldReadFromCache determine whether this is part of initial read or not
+		if shouldReadFromCache {
+			ctxWithTimeout, cancel = context.WithTimeout(ctx, 500*time.Millisecond)
+		} else {
+			ctxWithTimeout, cancel = context.WithTimeout(ctx, 5*time.Second)
+		}
 		// Use the SignalingInsecure from the Cloud config returned from the app not the initial config.
-
-		certData, err := readCertificateDataFromCloudGRPC(ctx, cfg.Cloud.SignalingInsecure, cloudCfg, logger)
+		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cfg.Cloud.SignalingInsecure, cloudCfg, logger)
 		if err != nil {
+			cancel()
 			if !errors.Is(err, context.DeadlineExceeded) {
 				return nil, err
 			}
@@ -260,6 +271,7 @@ func readFromCloud(
 		} else {
 			tls.certificate = certData.TLSCertificate
 			tls.privateKey = certData.TLSPrivateKey
+			cancel()
 		}
 	}
 
@@ -588,8 +600,21 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 // getFromCloudOrCache returns the config from the gRPC endpoint. If failures during cloud lookup fallback to the
 // local cache if the error indicates it should.
 func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger logging.Logger) (*Config, bool, error) {
-	var cached bool
-	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctx, cloudCfg, logger)
+	var (
+		cached bool
+
+		ctxWithTimeout context.Context
+		cancel         func()
+	)
+	// use shouldReadFromCache determine whether this is part of initial read or not
+	if shouldReadFromCache {
+		ctxWithTimeout, cancel = context.WithTimeout(ctx, 500*time.Millisecond)
+	} else {
+		ctxWithTimeout, cancel = context.WithTimeout(ctx, 5*time.Second)
+	}
+	defer cancel()
+
+	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger)
 	if err != nil {
 		if shouldReadFromCache && errorShouldCheckCache {
 			logger.Warnw("failed to read config from cloud, checking cache", "error", err)

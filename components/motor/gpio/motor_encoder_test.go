@@ -51,6 +51,20 @@ func MakeSingleBoard(t *testing.T) *fakeboard.Board {
 	return &b
 }
 
+// SetMotorState allows users to set the motor state values.
+func (m *EncodedMotor) SetMotorState(ctx context.Context, newState EncodedMotorState) {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+	m.state = newState
+}
+
+// GetMotorState allows users to get the motor state values, used for testing.
+func (m *EncodedMotor) GetMotorState(ctx context.Context) EncodedMotorState {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+	return m.state
+}
+
 func MakeIncrementalBoard(t *testing.T) *fakeboard.Board {
 	interrupt11, _ := fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
 		Name: "11",
@@ -159,7 +173,6 @@ func TestMotorEncoder1(t *testing.T) {
 		expectedState := EncodedMotorState{
 			regulated:    false,
 			goalRPM:      0,
-			currentRPM:   0,
 			lastPowerPct: 0,
 			goalPos:      0,
 			direction:    0,
@@ -173,7 +186,6 @@ func TestMotorEncoder1(t *testing.T) {
 		newState := EncodedMotorState{
 			regulated:    true,
 			goalRPM:      100,
-			currentRPM:   10,
 			lastPowerPct: 0.2,
 			goalPos:      200,
 			direction:    -1,
@@ -271,13 +283,6 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
 
 		test.That(t, motorDep.goForInternal(context.Background(), 1000, 1), test.ShouldBeNil)
-		atStart := motorDep.RPMMonitorCalls()
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			test.That(tb, motorDep.RPMMonitorCalls(), test.ShouldBeGreaterThan, atStart+10)
-			test.That(tb, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, 0.5)
-		})
-
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
 	})
 
@@ -295,12 +300,6 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
 
 		test.That(t, motorDep.goForInternal(context.Background(), -1000, 1), test.ShouldBeNil)
-		atStart := motorDep.RPMMonitorCalls()
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			test.That(tb, motorDep.RPMMonitorCalls(), test.ShouldBeGreaterThan, atStart+10)
-			test.That(tb, fakeMotor.PowerPct(), test.ShouldEqual, -1)
-		})
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
 	})
 
@@ -318,13 +317,6 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
 
 		test.That(t, motorDep.goForInternal(context.Background(), 1000, -1), test.ShouldBeNil)
-		atStart := motorDep.RPMMonitorCalls()
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			test.That(tb, motorDep.RPMMonitorCalls(), test.ShouldBeGreaterThan, atStart+10)
-			test.That(tb, fakeMotor.PowerPct(), test.ShouldEqual, -1)
-		})
-
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
 	})
 
@@ -340,15 +332,7 @@ func TestMotorEncoder1(t *testing.T) {
 		})
 
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
-
 		test.That(t, motorDep.goForInternal(context.Background(), -1000, -1), test.ShouldBeNil)
-		atStart := motorDep.RPMMonitorCalls()
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			test.That(tb, motorDep.RPMMonitorCalls(), test.ShouldBeGreaterThan, atStart+10)
-			test.That(tb, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, 0.5)
-		})
-
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
 	})
 

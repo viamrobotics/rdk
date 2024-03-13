@@ -63,8 +63,9 @@ func (server *serviceServer) GetPointCloudMap(req *pb.GetPointCloudMapRequest,
 	if err != nil {
 		return err
 	}
+	returnEditedMap := req.ReturnEditedMap != nil && *req.ReturnEditedMap
 
-	f, err := svc.PointCloudMap(ctx)
+	f, err := svc.PointCloudMap(ctx, returnEditedMap)
 	if err != nil {
 		return errors.Wrap(err, "getting callback function from PointCloudMap encountered an issue")
 	}

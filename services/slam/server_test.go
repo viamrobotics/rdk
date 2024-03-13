@@ -70,7 +70,10 @@ func TestWorkingServer(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	slamServer := slam.NewRPCServiceServer(injectAPISvc).(pb.SLAMServiceServer)
 	cloudPath := artifact.MustPath("slam/mock_lidar/0.pcd")
+	cloudPathEdited := artifact.MustPath("slam/mock_lidar/1.pcd")
 	pcd, err := os.ReadFile(cloudPath)
+	test.That(t, err, test.ShouldBeNil)
+	pcdEdited, err := os.ReadFile(cloudPathEdited)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("working GetPosition", func(t *testing.T) {
@@ -91,8 +94,14 @@ func TestWorkingServer(t *testing.T) {
 	})
 
 	t.Run("working GetPointCloudMap", func(t *testing.T) {
-		injectSvc.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
-			reader := bytes.NewReader(pcd)
+		injectSvc.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
+			var reader *bytes.Reader
+			if returnEditedMap {
+				reader = bytes.NewReader(pcdEdited)
+			} else {
+				reader = bytes.NewReader(pcd)
+			}
+
 			serverBuffer := make([]byte, chunkSizeServer)
 			f := func() ([]byte, error) {
 				n, err := reader.Read(serverBuffer)
@@ -106,7 +115,7 @@ func TestWorkingServer(t *testing.T) {
 			return f, nil
 		}
 
-		reqPointCloudMap := &pb.GetPointCloudMapRequest{Name: testSlamServiceName}
+		reqPointCloudMap := &pb.GetPointCloudMapRequest{Name: testSlamServiceName, ReturnEditedMap: nil}
 		mockServer := makePointCloudServerMock()
 		err = slamServer.GetPointCloudMap(reqPointCloudMap, mockServer)
 		test.That(t, err, test.ShouldBeNil)
@@ -115,6 +124,39 @@ func TestWorkingServer(t *testing.T) {
 		test.That(t, mockServer.rawBytes, test.ShouldResemble, pcd)
 		// comparing pointclouds to ensure PCDs are correct
 		testhelper.TestComparePointCloudsFromPCDs(t, mockServer.rawBytes, pcd)
+	})
+	t.Run("working GetPointCloudMap with an edited map", func(t *testing.T) {
+		injectSvc.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
+			var reader *bytes.Reader
+			if returnEditedMap {
+				reader = bytes.NewReader(pcdEdited)
+			} else {
+				reader = bytes.NewReader(pcd)
+			}
+
+			serverBuffer := make([]byte, chunkSizeServer)
+			f := func() ([]byte, error) {
+				n, err := reader.Read(serverBuffer)
+				if err != nil {
+					return nil, err
+				}
+
+				return serverBuffer[:n], err
+			}
+
+			return f, nil
+		}
+		returnEditedMap := true
+		reqPointCloudMap := &pb.GetPointCloudMapRequest{Name: testSlamServiceName, ReturnEditedMap: &returnEditedMap}
+		mockServer := makePointCloudServerMock()
+		err = slamServer.GetPointCloudMap(reqPointCloudMap, mockServer)
+		test.That(t, err, test.ShouldBeNil)
+
+		// comparing raw bytes to ensure order is correct
+		test.That(t, mockServer.rawBytes, test.ShouldResemble, pcdEdited)
+		test.That(t, mockServer.rawBytes, test.ShouldNotResemble, pcd)
+		// comparing pointclouds to ensure PCDs are correct
+		testhelper.TestComparePointCloudsFromPCDs(t, mockServer.rawBytes, pcdEdited)
 	})
 
 	t.Run("working GetInternalState", func(t *testing.T) {
@@ -177,7 +219,7 @@ func TestWorkingServer(t *testing.T) {
 			return poseSucc, componentRefSucc, nil
 		}
 
-		injectSvc.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		injectSvc.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 			reader := bytes.NewReader(pcd)
 			serverBuffer := make([]byte, chunkSizeServer)
 			f := func() ([]byte, error) {
@@ -248,7 +290,7 @@ func TestFailingServer(t *testing.T) {
 
 	t.Run("failing GetPointCloudMap", func(t *testing.T) {
 		// PointCloudMapFunc failure
-		injectSvc.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		injectSvc.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 			return nil, errors.New("failure to get pointcloud map")
 		}
 
@@ -259,7 +301,7 @@ func TestFailingServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get pointcloud map")
 
 		// Callback failure
-		injectSvc.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		injectSvc.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 			f := func() ([]byte, error) {
 				return []byte{}, errors.New("callback error")
 			}

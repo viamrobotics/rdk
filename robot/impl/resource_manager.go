@@ -920,15 +920,9 @@ func (manager *resourceManager) updateResources(
 	var allErrs error
 
 	// modules are not added into the resource tree as they belong to the module manager
-	for _, mod := range conf.Added.Modules {
-		// this is done in config validation but partial start rules require us to check again
-		if err := mod.Validate(""); err != nil {
-			manager.logger.CErrorw(ctx, "module config validation error; skipping", "module", mod.Name, "error", err)
-			continue
-		}
-		if err := manager.moduleManager.Add(ctx, mod); err != nil {
-			manager.logger.CErrorw(ctx, "error adding module", "module", mod.Name, "error", err)
-			continue
+	if conf.Added.Modules != nil {
+		if err := manager.moduleManager.Add(ctx, conf.Added.Modules...); err != nil {
+			manager.logger.CErrorw(ctx, "error adding modules", "error", err)
 		}
 	}
 
