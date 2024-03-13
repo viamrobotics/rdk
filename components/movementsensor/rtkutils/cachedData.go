@@ -77,7 +77,7 @@ func (g *CachedData) Accuracy(
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	compassDegreeError := g.calculateCompassDegreeError()
+	compassDegreeError := g.calculateCompassDegreeError(g.lastPosition.GetLastPosition(), g.nmeaData.Location)
 
 	acc := movementsensor.Accuracy{
 		AccuracyMap: map[string]float32{
@@ -183,16 +183,13 @@ func (g *CachedData) Properties(
 // of two geo points.
 // GPS provides a heading data only when it has a course of direction.
 // This function provides an estimated error for that data.
-func (g *CachedData) calculateCompassDegreeError() float64 {
-	firstPos := g.lastPosition.GetLastPosition()
-	secondPos := g.nmeaData.Location
-
+func (g *CachedData) calculateCompassDegreeError(p1, p2 *geo.Point) float64 {
 	// Check if the two positions are the same.
-	if firstPos.Lat() == secondPos.Lat() && firstPos.Lng() == secondPos.Lng() {
+	if p1.Lat() == p2.Lat() && p1.Lng() == p2.Lng() {
 		return math.NaN()
 	}
 
-	adjacent := firstPos.GreatCircleDistance(secondPos)
+	adjacent := p1.GreatCircleDistance(p2)
 
 	// If adjacent is 0, atan2 will be 90 degrees which is not desired.
 	if adjacent == 0 {
