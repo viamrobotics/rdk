@@ -402,29 +402,16 @@ func newWithResources(
 	}()
 
 	if cfg.Cloud != nil && cfg.Cloud.AppAddress != "" {
-		connectionChan := make(chan packages.DeferredConnectionResponse)
-		goutils.PanicCapturingGo(func() {
-			for {
-				// deferred connection manager uses this for-loop behavior to
-				// implement connection retries
+		r.packageManager = packages.NewDeferredPackageManager(
+			ctx,
+			func(ctx context.Context) (packagespb.PackageServiceClient, error) {
 				_, cloudConn, err := r.cloudConnSvc.AcquireConnection(ctx)
-				select {
-				case connectionChan <- packages.DeferredConnectionResponse{
-					Client: packagespb.NewPackageServiceClient(cloudConn),
-					Err:    err,
-				}:
-				case <-closeCtx.Done():
-					return
-				}
-				select {
-				// wait minimum 1 second before retrying to create a new connection
-				case <-time.After(time.Second * 1):
-				case <-closeCtx.Done():
-					return
-				}
-			}
-		})
-		r.packageManager = packages.NewDeferredPackageManager(connectionChan, cfg.Cloud, cfg.PackagePath, logger)
+				return packagespb.NewPackageServiceClient(cloudConn), err
+			},
+			cfg.Cloud,
+			cfg.PackagePath,
+			logger,
+		)
 	} else {
 		r.logger.CDebug(ctx, "Using no-op PackageManager when Cloud config is not available")
 		r.packageManager = packages.NewNoopManager()

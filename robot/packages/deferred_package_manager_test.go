@@ -2,14 +2,12 @@ package packages
 
 import (
 	"context"
-	"errors"
 	"os"
-	"path/filepath"
 	"testing"
 
+	"github.com/pkg/errors"
 	pb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -17,189 +15,181 @@ import (
 )
 
 func TestDeferredPackageManager(t *testing.T) {
-	makeFakeClient := func(t *testing.T) (pb.PackageServiceClient, *putils.FakePackagesClientAndGCSServer, func()) {
+	type mockChanVal struct {
+		client pb.PackageServiceClient
+		err    error
+	}
+	// bag of random test infra
+	type testBag struct {
+		pm          *deferredPackageManager
+		ctx         context.Context
+		mockChan    chan mockChanVal
+		client      pb.PackageServiceClient
+		fakeServer  *putils.FakePackagesClientAndGCSServer
+		packagesDir string
+		teardown    func()
+	}
+	setup := func(t *testing.T) testBag {
 		t.Helper()
-		logger := logging.NewTestLogger(t)
 		ctx := context.Background()
+		logger := logging.NewTestLogger(t)
+
 		fakeServer, err := putils.NewFakePackageServer(ctx, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		client, conn, err := fakeServer.Client(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		return client, fakeServer, func() {
-			fakeServer.Shutdown()
+
+		teardown := func() {
 			conn.Close()
+			fakeServer.Shutdown()
 		}
-	}
-	makePM := func(t *testing.T) (*deferredPackageManager, chan DeferredConnectionResponse, string) {
-		t.Helper()
-		connectionChan := make(chan DeferredConnectionResponse)
 		cloudConfig := &config.Cloud{
 			ID:     "some-id",
 			Secret: "some-secret",
 		}
 		packagesDir := t.TempDir()
-		logger := logging.NewTestLogger(t)
+		mockChan := make(chan mockChanVal, 1)
 
-		pm := NewDeferredPackageManager(connectionChan, cloudConfig, packagesDir, logger).(*deferredPackageManager)
-		return pm, connectionChan, packagesDir
+		pm := NewDeferredPackageManager(
+			ctx,
+			func(c context.Context) (pb.PackageServiceClient, error) {
+				v := <-mockChan
+				return v.client, v.err
+			},
+			cloudConfig,
+			packagesDir,
+			logger,
+		).(*deferredPackageManager)
+
+		return testBag{
+			pm,
+			ctx,
+			mockChan,
+			client,
+			fakeServer,
+			packagesDir,
+			teardown,
+		}
+	}
+	pkgA := config.PackageConfig{
+		Name:    "some-name",
+		Package: "org1/test-model",
+		Version: "v1",
+		Type:    "ml_model",
+	}
+	pkgB := config.PackageConfig{
+		Name:    "some-name-2",
+		Package: "org1/test-model-2",
+		Version: "v2",
+		Type:    "module",
 	}
 
-	t.Run("getCloudManager", func(t *testing.T) {
-		client, _, closeFake := makeFakeClient(t)
-		defer closeFake()
-		pm, connectionChan, _ := makePM(t)
-
+	t.Run("getManagerForSync async", func(t *testing.T) {
+		bag := setup(t)
+		defer bag.teardown()
 		// Assert that the cloud manager is nil initially
-		test.That(t, pm.getCloudManager(false), test.ShouldBeNil)
+		mgr, err := bag.pm.getManagerForSync(bag.ctx, []config.PackageConfig{})
+		test.That(t, err, test.ShouldBeNil)
+		_, isNoop := mgr.(*noopManager)
+		test.That(t, isNoop, test.ShouldBeTrue)
+		// send a msg on the chan indicating a connection
+		bag.mockChan <- mockChanVal{client: bag.client, err: nil}
+		// this will wait until we start the new cloud manager
+		mgr, err = bag.pm.getManagerForSync(bag.ctx, []config.PackageConfig{})
+		test.That(t, err, test.ShouldBeNil)
+		_, isCloud := mgr.(*cloudManager)
+		test.That(t, isCloud, test.ShouldBeTrue)
+	})
 
-		// Send a client to the connection channel
-		utils.PanicCapturingGo(func() {
-			connectionChan <- DeferredConnectionResponse{
-				Client: client,
-				Err:    nil,
-			}
-		})
+	t.Run("getManagerForSync async will keep trying", func(t *testing.T) {
+		bag := setup(t)
+		defer bag.teardown()
+		// we know that it is running establishConnection because it is pulling
+		// from the 1-capacity channel
+		// the err will still be nil because it is returning the noop manager and starting
+		// the goroutine
+		bag.mockChan <- mockChanVal{client: nil, err: errors.New("foo")}
+		_, err := bag.pm.getManagerForSync(bag.ctx, []config.PackageConfig{})
+		test.That(t, err, test.ShouldBeNil)
+		bag.mockChan <- mockChanVal{client: nil, err: errors.New("foo")}
+		_, err = bag.pm.getManagerForSync(bag.ctx, []config.PackageConfig{})
+		test.That(t, err, test.ShouldBeNil)
+		bag.mockChan <- mockChanVal{client: nil, err: errors.New("foo")}
+		_, err = bag.pm.getManagerForSync(bag.ctx, []config.PackageConfig{})
+		test.That(t, err, test.ShouldBeNil)
+		bag.mockChan <- mockChanVal{client: nil, err: errors.New("foo")}
+		_, err = bag.pm.getManagerForSync(bag.ctx, []config.PackageConfig{})
+		test.That(t, err, test.ShouldBeNil)
+	})
 
-		// Assert that the cloud manager is not nil after receiving a client
-		test.That(t, pm.getCloudManager(true), test.ShouldNotBeNil)
+	t.Run("getManagerForSync sync", func(t *testing.T) {
+		bag := setup(t)
+		defer bag.teardown()
+
+		bag.mockChan <- mockChanVal{client: bag.client, err: nil}
+		// Assert that missing pkgs cause sync loading
+		mgr, err := bag.pm.getManagerForSync(bag.ctx, []config.PackageConfig{pkgA})
+		test.That(t, err, test.ShouldBeNil)
+
+		_, isCloud := mgr.(*cloudManager)
+		test.That(t, isCloud, test.ShouldBeTrue)
 	})
 
 	t.Run("isMissingPackages", func(t *testing.T) {
-		pm, _, packagesDir := makePM(t)
+		bag := setup(t)
+		defer bag.teardown()
 
 		// Create a package config
 		packages := []config.PackageConfig{
-			{
-				Name:    "some-name",
-				Package: "org1/test-model",
-				Version: "v1",
-				Type:    "ml_model",
-			},
+			pkgA,
 		}
-
 		// Assert that the package is missing initially
-		test.That(t, pm.isMissingPackages(packages), test.ShouldBeTrue)
-
+		test.That(t, bag.pm.isMissingPackages(packages), test.ShouldBeTrue)
 		// Create a directory for the package
-		err := os.MkdirAll(packages[0].LocalDataDirectory(packagesDir), os.ModePerm)
+		err := os.MkdirAll(packages[0].LocalDataDirectory(bag.packagesDir), os.ModePerm)
 		test.That(t, err, test.ShouldBeNil)
-
 		// Assert that the package is not missing after creating the directory
-		test.That(t, pm.isMissingPackages(packages), test.ShouldBeFalse)
+		test.That(t, bag.pm.isMissingPackages(packages), test.ShouldBeFalse)
 	})
 
-	t.Run("sync", func(t *testing.T) {
-		ctx := context.Background()
-
-		client, fakeServer, closeFake := makeFakeClient(t)
-		defer closeFake()
-
-		pm, connectionChan, packagesDir := makePM(t)
-
-		// Send a client to the connection channel
-		utils.PanicCapturingGo(func() {
-			connectionChan <- DeferredConnectionResponse{
-				Client: client,
-				Err:    nil,
-			}
-		})
-
-		// Create a package config
-		pkg := config.PackageConfig{
-			Name:    "some-name",
-			Package: "org1/test-model",
-			Version: "v1",
-			Type:    "ml_model",
-		}
-		fakeServer.StorePackage(pkg)
-
-		// Sync the package
-		err := pm.Sync(ctx, []config.PackageConfig{pkg})
+	t.Run("Sync + cleanup", func(t *testing.T) {
+		bag := setup(t)
+		defer bag.teardown()
+		err := bag.pm.Sync(bag.ctx, []config.PackageConfig{})
 		test.That(t, err, test.ShouldBeNil)
+		_, isNoop := bag.pm.lastSyncedManager.(*noopManager)
+		test.That(t, isNoop, test.ShouldBeTrue)
 
+		// send a msg on the chan indicating a connection
+		bag.mockChan <- mockChanVal{client: bag.client, err: nil}
+		bag.fakeServer.StorePackage(pkgA)
+		bag.fakeServer.StorePackage(pkgB)
+		// this will wait until we start the new cloud manager
+		err = bag.pm.Sync(bag.ctx, []config.PackageConfig{pkgA})
+		test.That(t, err, test.ShouldBeNil)
+		_, isCloud := bag.pm.lastSyncedManager.(*cloudManager)
+		test.That(t, isCloud, test.ShouldBeTrue)
 		// Assert that the package exists in the file system
-		_, err = os.Stat(pkg.LocalDataDirectory(packagesDir))
+		_, err = os.Stat(pkgA.LocalDataDirectory(bag.packagesDir))
 		test.That(t, err, test.ShouldBeNil)
-	})
 
-	t.Run("cleanup", func(t *testing.T) {
-		ctx := context.Background()
-		client, _, closeFake := makeFakeClient(t)
-		defer closeFake()
-
-		pm, connectionChan, packagesDir := makePM(t)
-
-		// Send a client to the connection channel
-		utils.PanicCapturingGo(func() {
-			connectionChan <- DeferredConnectionResponse{
-				Client: client,
-				Err:    nil,
-			}
-		})
-		test.That(t, pm.getCloudManager(true), test.ShouldNotBeNil)
-		test.That(t, pm.Sync(ctx, []config.PackageConfig{}), test.ShouldBeNil)
-
-		badFile := filepath.Join(packagesDir, "data", "badfile.txt")
-		err := os.WriteFile(badFile, []byte("hello"), 0o700)
+		// cleanup wont clean up the package yet so it should still exist
+		err = bag.pm.Cleanup(bag.ctx)
 		test.That(t, err, test.ShouldBeNil)
-		// Assert that the package exists in the file system
-		_, err = os.Stat(badFile)
+		_, err = os.Stat(pkgA.LocalDataDirectory(bag.packagesDir))
 		test.That(t, err, test.ShouldBeNil)
-		err = pm.Cleanup(ctx)
+
+		// sync over to pkgB and cleanup
+		err = bag.pm.Sync(bag.ctx, []config.PackageConfig{pkgB})
 		test.That(t, err, test.ShouldBeNil)
-		// Assert that the package was cleaned from the file system
-		_, err = os.Stat(badFile)
+		err = bag.pm.Cleanup(bag.ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		// pkgA should be cleaned up and pkgB should exist
+		_, err = os.Stat(pkgA.LocalDataDirectory(bag.packagesDir))
 		test.That(t, err, test.ShouldNotBeNil)
-	})
-
-	t.Run("sync with failure", func(t *testing.T) {
-		ctx := context.Background()
-		pm, connectionChan, _ := makePM(t)
-
-		// Simulate a connection failure
-		utils.PanicCapturingGo(func() {
-			connectionChan <- DeferredConnectionResponse{Err: errors.New("connection failure")}
-		})
-
-		// Test syncing with a package
-		err := pm.Sync(ctx, []config.PackageConfig{{Name: "some-package", Package: "org1/test-model", Version: "v1", Type: "ml_model"}})
-		test.That(t, err, test.ShouldNotBeNil)
-	})
-
-	t.Run("packagePath", func(t *testing.T) {
-		ctx := context.Background()
-
-		client, fakeServer, closeFake := makeFakeClient(t)
-		defer closeFake()
-		pm, connectionChan, packagesDir := makePM(t)
-
-		// Send a client to the connection channel
-		utils.PanicCapturingGo(func() {
-			connectionChan <- DeferredConnectionResponse{
-				Client: client,
-				Err:    nil,
-			}
-		})
-
-		// Create a package config
-		pkg := config.PackageConfig{
-			Name:    "some-name",
-			Package: "org1/test-model",
-			Version: "v1",
-			Type:    "ml_model",
-		}
-		fakeServer.StorePackage(pkg)
-
-		// Sync the package
-		err := pm.Sync(ctx, []config.PackageConfig{pkg})
+		_, err = os.Stat(pkgB.LocalDataDirectory(bag.packagesDir))
 		test.That(t, err, test.ShouldBeNil)
-
-		// Get the package path
-		path, err := pm.PackagePath(PackageName(pkg.Name))
-		test.That(t, err, test.ShouldBeNil)
-
-		// Assert that the package path is correct
-		test.That(t, path, test.ShouldEqual, pkg.LocalDataDirectory(packagesDir))
 	})
 }
