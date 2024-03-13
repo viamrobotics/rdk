@@ -65,11 +65,11 @@ func (c *client) Position(ctx context.Context) (spatialmath.Pose, string, error)
 
 // PointCloudMap creates a request, calls the slam service PointCloudMap and returns a callback
 // function which will return the next chunk of the current pointcloud map when called.
-func (c *client) PointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
+func (c *client) PointCloudMap(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 	ctx, span := trace.StartSpan(ctx, "slam::client::PointCloudMap")
 	defer span.End()
 
-	return grpchelper.PointCloudMapCallback(ctx, c.name, c.client)
+	return grpchelper.PointCloudMapCallback(ctx, c.name, c.client, returnEditedMap)
 }
 
 // InternalState creates a request, calls the slam service InternalState and returns a callback

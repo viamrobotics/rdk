@@ -79,7 +79,7 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 type Service interface {
 	resource.Resource
 	Position(ctx context.Context) (spatialmath.Pose, string, error)
-	PointCloudMap(ctx context.Context) (func() ([]byte, error), error)
+	PointCloudMap(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error)
 	InternalState(ctx context.Context) (func() ([]byte, error), error)
 	Properties(ctx context.Context) (Properties, error)
 }
@@ -101,10 +101,10 @@ func HelperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 }
 
 // PointCloudMapFull concatenates the streaming responses from PointCloudMap into a full point cloud.
-func PointCloudMapFull(ctx context.Context, slamSvc Service) ([]byte, error) {
+func PointCloudMapFull(ctx context.Context, slamSvc Service, returnEditedMap bool) ([]byte, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::PointCloudMapFull")
 	defer span.End()
-	callback, err := slamSvc.PointCloudMap(ctx)
+	callback, err := slamSvc.PointCloudMap(ctx, returnEditedMap)
 	if err != nil {
 		return nil, err
 	}
@@ -124,8 +124,8 @@ func InternalStateFull(ctx context.Context, slamSvc Service) ([]byte, error) {
 }
 
 // Limits returns the bounds of the slam map as a list of referenceframe.Limits.
-func Limits(ctx context.Context, svc Service) ([]referenceframe.Limit, error) {
-	data, err := PointCloudMapFull(ctx, svc)
+func Limits(ctx context.Context, svc Service, useEditedMap bool) ([]referenceframe.Limit, error) {
+	data, err := PointCloudMapFull(ctx, svc, useEditedMap)
 	if err != nil {
 		return nil, err
 	}

@@ -13,7 +13,7 @@ type SLAMService struct {
 	slam.Service
 	name              resource.Name
 	PositionFunc      func(ctx context.Context) (spatialmath.Pose, string, error)
-	PointCloudMapFunc func(ctx context.Context) (func() ([]byte, error), error)
+	PointCloudMapFunc func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error)
 	InternalStateFunc func(ctx context.Context) (func() ([]byte, error), error)
 	PropertiesFunc    func(ctx context.Context) (slam.Properties, error)
 	DoCommandFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
@@ -39,11 +39,11 @@ func (slamSvc *SLAMService) Position(ctx context.Context) (spatialmath.Pose, str
 }
 
 // PointCloudMap calls the injected PointCloudMap or the real version.
-func (slamSvc *SLAMService) PointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
+func (slamSvc *SLAMService) PointCloudMap(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 	if slamSvc.PointCloudMapFunc == nil {
-		return slamSvc.Service.PointCloudMap(ctx)
+		return slamSvc.Service.PointCloudMap(ctx, returnEditedMap)
 	}
-	return slamSvc.PointCloudMapFunc(ctx)
+	return slamSvc.PointCloudMapFunc(ctx, returnEditedMap)
 }
 
 // InternalState calls the injected InternalState or the real version.
