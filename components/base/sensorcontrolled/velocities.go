@@ -62,14 +62,12 @@ func (sb *sensorBase) updateControlConfig(
 	ctx context.Context, linearValue, angularValue float64,
 ) error {
 	// set linear setpoint config
-	linConf := control.CreateConstantBlock(ctx, sb.blockNames[control.BlockNameConstant][0], linearValue)
-	if err := sb.loop.SetConfigAt(ctx, sb.blockNames[control.BlockNameConstant][0], linConf); err != nil {
+	if err := control.UpdateConstantBlock(ctx, sb.blockNames[control.BlockNameConstant][0], linearValue, sb.loop); err != nil {
 		return err
 	}
 
 	// set angular setpoint config
-	angConf := control.CreateConstantBlock(ctx, sb.blockNames[control.BlockNameConstant][1], angularValue)
-	if err := sb.loop.SetConfigAt(ctx, sb.blockNames[control.BlockNameConstant][1], angConf); err != nil {
+	if err := control.UpdateConstantBlock(ctx, sb.blockNames[control.BlockNameConstant][1], angularValue, sb.loop); err != nil {
 		return err
 	}
 
