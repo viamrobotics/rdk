@@ -287,8 +287,9 @@ func (sb *sensorBase) MoveStraight(
 			return err
 		}
 	}
-	slowDownDist := calcSlowDownDist(distanceMm)
 
+	// initialize relevant parameters for moving straight
+	slowDownDist := calcSlowDownDist(distanceMm)
 	var initPos *geo.Point
 	var err error
 	if sb.position != nil {
@@ -306,8 +307,9 @@ func (sb *sensorBase) MoveStraight(
 			return ctx.Err()
 		case <-ticker.C:
 			var errDist float64
+
 			if sb.position != nil {
-				errDist, err = calcPositionErrorGPS(ctx, distanceMm, initPos, sb.position)
+				errDist, err = calcPositionError(ctx, distanceMm, initPos, sb.position)
 				if err != nil {
 					return err
 				}
@@ -317,15 +319,17 @@ func (sb *sensorBase) MoveStraight(
 				return sb.Stop(ctx, nil)
 			}
 
-			linVelDes := calcDistControl(errDist, mmPerSec, slowDownDist)
+			linVelDes := calcLinVel(errDist, mmPerSec, slowDownDist)
 			if err != nil {
 				return err
 			}
 
+			// update velocity controller
 			if err := sb.updateControlConfig(ctx, linVelDes/1000.0, 0); err != nil {
 				return err
 			}
 
+			// exit if the straight takes too long
 			if time.Since(startTime) > timeOut {
 				sb.logger.CWarn(ctx, "exceeded time for Spin call, stopping base")
 
@@ -335,7 +339,9 @@ func (sb *sensorBase) MoveStraight(
 	}
 }
 
-func calcPositionErrorGPS(ctx context.Context, distanceMm int, initPos *geo.Point,
+// calcPositionError calculates the current error in positon.
+// This results in the distance the base needs to travel to reach the goal
+func calcPositionError(ctx context.Context, distanceMm int, initPos *geo.Point,
 	position movementsensor.MovementSensor,
 ) (float64, error) {
 	pos, _, err := position.Position(ctx, nil)
@@ -347,7 +353,8 @@ func calcPositionErrorGPS(ctx context.Context, distanceMm int, initPos *geo.Poin
 	return float64(distanceMm) - currDist, nil
 }
 
-func calcDistControl(errDist, mmPerSec, slowDownDist float64) float64 {
+// calcLinVel computes the desired linear velocity based on how far the base is from reaching the goal.
+func calcLinVel(errDist, mmPerSec, slowDownDist float64) float64 {
 	// have the velocity slow down when appoaching the goal. Otherwise use the desired velocity
 	linVel := errDist * mmPerSec / slowDownDist
 	if linVel > mmPerSec {
@@ -359,8 +366,8 @@ func calcDistControl(errDist, mmPerSec, slowDownDist float64) float64 {
 	return linVel
 }
 
-// calcSlowDownAng computes the angle at which the spin should begin to slow down.
-// This helps to prevent overshoot when reaching the goal and reduces the jerk on the robot when the spin is complete.
+// calcSlowDownDist computes the angle at which the spin should begin to slow down.
+// This helps to prevent overshoot when reaching the goal and reduces the jerk on the robot when the straight is complete.
 func calcSlowDownDist(distanceMm int) float64 {
 	return math.Min(float64(distanceMm)*slowDownDistGain, maxSlowDownDist)
 }
