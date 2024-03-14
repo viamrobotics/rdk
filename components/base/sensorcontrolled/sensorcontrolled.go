@@ -31,6 +31,7 @@ const (
 	slowDownDistGain      = .1
 	maxSlowDownDist       = 100 // mm
 	moveStraightErrTarget = 20  // mm
+	headingGain           = 1.
 )
 
 var (
@@ -193,8 +194,13 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 			if err != nil {
 				return 0, err
 			}
-
-			return rdkutils.RadToDeg(orient.EulerAngles().Yaw), nil
+			// this returns (-180-> 180)
+			yaw := rdkutils.RadToDeg(orient.EulerAngles().Yaw)
+			// make the yaw 0->360
+			if yaw < 0 {
+				yaw = 180. - yaw
+			}
+			return yaw, nil
 		}
 	case sb.compassHeading != nil:
 		sb.headingFunc = func(ctx context.Context) (float64, error) {
@@ -206,7 +212,11 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 			return compassHeading, nil
 		}
 	default:
-		sb.headingFunc = nil
+		sb.logger.CInfof(ctx, "base %v cannot control heading, no heading related sensor given",
+			sb.Name().ShortName())
+		sb.headingFunc = func(ctx context.Context) (float64, error) {
+			return 0, nil
+		}
 	}
 
 	sb.controlledBase, err = base.FromDependencies(deps, newConf.Base)
@@ -277,10 +287,10 @@ func (sb *sensorBase) MoveStraight(
 		return sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
 	}
 
-	if sb.headingFunc == nil {
-		sb.logger.CDebug(ctx, "No movement sensors found for heading")
+	initialHeading, err := sb.headingFunc(ctx)
+	if err != nil {
+		return err
 	}
-
 	// make sure the control loop is enabled
 	if sb.loop == nil {
 		if err := sb.startControlLoop(); err != nil {
@@ -291,7 +301,7 @@ func (sb *sensorBase) MoveStraight(
 	// initialize relevant parameters for moving straight
 	slowDownDist := calcSlowDownDist(distanceMm)
 	var initPos *geo.Point
-	var err error
+
 	if sb.position != nil {
 		initPos, _, err = sb.position.Position(ctx, nil)
 		if err != nil {
@@ -308,6 +318,11 @@ func (sb *sensorBase) MoveStraight(
 		case <-ticker.C:
 			var errDist float64
 
+			angVelDes, err := sb.calcHeadingControl(ctx, initialHeading)
+			if err != nil {
+				return err
+			}
+			sb.logger.Info(angVelDes)
 			if sb.position != nil {
 				errDist, err = calcPositionError(ctx, distanceMm, initPos, sb.position)
 				if err != nil {
@@ -325,7 +340,7 @@ func (sb *sensorBase) MoveStraight(
 			}
 
 			// update velocity controller
-			if err := sb.updateControlConfig(ctx, linVelDes/1000.0, 0); err != nil {
+			if err := sb.updateControlConfig(ctx, linVelDes/1000.0, angVelDes); err != nil {
 				return err
 			}
 
@@ -337,6 +352,16 @@ func (sb *sensorBase) MoveStraight(
 			}
 		}
 	}
+}
+
+// calculate the desired angular velocity to correct the heading of the base
+func (sb *sensorBase) calcHeadingControl(ctx context.Context, initHeading float64) (float64, error) {
+	currHeading, err := sb.headingFunc(ctx)
+	if err != nil {
+		return 0, err
+	}
+	headingErr := math.Mod(initHeading-currHeading, 360)
+	return headingErr * headingGain, nil
 }
 
 // calcPositionError calculates the current error in positon.
