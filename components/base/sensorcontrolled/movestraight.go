@@ -147,7 +147,7 @@ func calcLinVel(errDist, mmPerSec, slowDownDist float64) float64 {
 	return linVel
 }
 
-// calcSlowDownDist computes the distance at which the MoveStraigh call should begin to slow down.
+// calcSlowDownDist computes the distance at which the MoveStraight call should begin to slow down.
 // This helps to prevent overshoot when reaching the goal and reduces the jerk on the robot when the straight is complete.
 func calcSlowDownDist(distanceMm int) float64 {
 	return math.Min(float64(distanceMm)*slowDownDistGain, maxSlowDownDist)
