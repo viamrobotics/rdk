@@ -75,11 +75,10 @@ const (
 	dataFlagBboxLabels                     = "bbox-labels"
 	dataFlagDeleteTabularDataOlderThanDays = "delete-older-than-days"
 	dataFlagDatabasePassword               = "password"
-	dataFlagAdditionalTags                 = "additional-tags"
-	dataFlagTagCommand                     = "command"
+	dataFlagFilterTags                     = "filter-tags"
 )
 
-var filterTags = []cli.Flag{
+var commonFilterFlags = []cli.Flag{
 	&cli.StringSliceFlag{
 		Name:  dataFlagOrgIDs,
 		Usage: "orgs filter",
@@ -135,16 +134,48 @@ var filterTags = []cli.Flag{
 		Usage: "ISO-8601 timestamp indicating the end of the interval filter",
 	},
 	&cli.StringSliceFlag{
-		Name: dataFlagTags,
-		Usage: "tags filter. " +
-			"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
-	},
-	&cli.StringSliceFlag{
 		Name: dataFlagBboxLabels,
 		Usage: "bbox labels filter. " +
 			"accepts string labels corresponding to bounding boxes within images",
 	},
 }
+
+var dataTagByIDsFlags = []cli.Flag{
+	&cli.StringSliceFlag{
+		Name:     dataFlagTags,
+		Required: true,
+		Usage:    "comma separated tags to add/remove to the data",
+	},
+	&cli.StringFlag{
+		Name:     generalFlagOrgID,
+		Usage:    "org ID to which data belongs",
+		Required: true,
+	},
+	&cli.StringFlag{
+		Name:     dataFlagLocationID,
+		Usage:    "location ID to which data belongs",
+		Required: true,
+	},
+	&cli.StringSliceFlag{
+		Name:     dataFlagFileIDs,
+		Usage:    "comma separated file IDs of data belonging to specified org and location",
+		Required: true,
+	},
+}
+
+var dataTagByFilterFlags = append([]cli.Flag{
+	&cli.StringSliceFlag{
+		Name:     dataFlagTags,
+		Required: true,
+		Usage:    "comma separated tags to add to the data",
+	},
+	&cli.StringSliceFlag{
+		Name: dataFlagFilterTags,
+		Usage: "tags filter. " +
+			"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
+	},
+},
+	commonFilterFlags...)
 
 // createUsageText is a helper for formatting UsageTexts. The created UsageText
 // contains "viam", the command, requiredFlags, [other options] if otherOptions
@@ -337,8 +368,14 @@ var app = &cli.App{
 							Usage: "number of download requests to make in parallel",
 							Value: 100,
 						},
+
+						&cli.StringSliceFlag{
+							Name: dataFlagTags,
+							Usage: "tags filter. " +
+								"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
+						},
 					},
-						filterTags...),
+						commonFilterFlags...),
 					Action: DataExportAction,
 				},
 				{
@@ -625,59 +662,56 @@ var app = &cli.App{
 					UsageText: createUsageText("data tag", nil, true),
 					Subcommands: []*cli.Command{
 						{
-							Name:  "ids",
-							Usage: "adds or removes tags from binary data by file ids for a given org and location",
-							UsageText: createUsageText("data tag ids", []string{
-								dataFlagAdditionalTags, dataFlagOrgID,
-								dataFlagLocationID, dataFlagFileIDs, dataFlagTagCommand,
-							}, false),
-							Flags: []cli.Flag{
-								&cli.StringSliceFlag{
-									Name:     dataFlagAdditionalTags,
-									Required: true,
-									Usage:    "comma separated tags to add/remove to the data",
+							Name:      "ids",
+							Usage:     "adds or removes tags from binary data by file ids for a given org and location",
+							UsageText: createUsageText("data tag ids", nil, true),
+							Subcommands: []*cli.Command{
+								{
+									Name:  "add",
+									Usage: "adds tags to binary data by file ids for a given org and location",
+									UsageText: createUsageText("data tag ids add", []string{
+										dataFlagTags, generalFlagOrgID,
+										dataFlagLocationID, dataFlagFileIDs,
+									}, false),
+									Flags:  dataTagByIDsFlags,
+									Action: DataTagActionByIds,
 								},
-								&cli.StringFlag{
-									Name:     dataFlagTagCommand,
-									Required: true,
-									Usage:    "accepted values: add, remove",
-								},
-								&cli.StringFlag{
-									Name:     dataFlagOrgID,
-									Usage:    "org ID to which data belongs",
-									Required: true,
-								},
-								&cli.StringFlag{
-									Name:     dataFlagLocationID,
-									Usage:    "location ID to which data belongs",
-									Required: true,
-								},
-								&cli.StringSliceFlag{
-									Name:     dataFlagFileIDs,
-									Usage:    "comma separated file IDs of data belonging to specified org and location",
-									Required: true,
+								{
+									Name:  "remove",
+									Usage: "removes tags from binary data by file ids for a given org and location",
+									UsageText: createUsageText("data tag ids remove", []string{
+										dataFlagTags, generalFlagOrgID,
+										dataFlagLocationID, dataFlagFileIDs,
+									}, false),
+									Flags:  dataTagByIDsFlags,
+									Action: DataTagActionByIds,
 								},
 							},
-							Action: DataTagAction,
 						},
 						{
 							Name:      "filter",
 							Usage:     "adds or removes tags from binary data by filter",
-							UsageText: createUsageText("data tag ids", []string{dataFlagAdditionalTags, dataFlagTagCommand}, false),
-							Flags: append([]cli.Flag{
-								&cli.StringSliceFlag{
-									Name:     dataFlagAdditionalTags,
-									Required: true,
-									Usage:    "comma separated tags to add to the data",
+							UsageText: createUsageText("data tag ids", []string{dataFlagTags}, false),
+							Subcommands: []*cli.Command{
+								{
+									Name:  "add",
+									Usage: "adds tags to binary data by filter",
+									UsageText: createUsageText("data tag filter add", []string{
+										dataFlagTags,
+									}, false),
+									Flags:  dataTagByFilterFlags,
+									Action: DataTagActionByFilter,
 								},
-								&cli.StringFlag{
-									Name:     dataFlagTagCommand,
-									Required: true,
-									Usage:    "accepted values: add, remove",
+								{
+									Name:  "remove",
+									Usage: "removes tags from binary data by filter",
+									UsageText: createUsageText("data tag filter remove", []string{
+										dataFlagTags,
+									}, false),
+									Flags:  dataTagByFilterFlags,
+									Action: DataTagActionByFilter,
 								},
 							},
-								filterTags...),
-							Action: DataTagAction,
 						},
 					},
 				},
