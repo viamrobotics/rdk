@@ -196,10 +196,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 			}
 			// this returns (-180-> 180)
 			yaw := rdkutils.RadToDeg(orient.EulerAngles().Yaw)
-			// make the yaw 0->360
-			if yaw < 0 {
-				yaw = 180. - yaw
-			}
+
 			return yaw, nil
 		}
 	case sb.compassHeading != nil:
@@ -207,6 +204,10 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 			compassHeading, err := sb.compassHeading.CompassHeading(ctx, nil)
 			if err != nil {
 				return 0, err
+			}
+			// make the compass heading (-180->180)
+			if compassHeading > 180 {
+				compassHeading = compassHeading - 360
 			}
 
 			return compassHeading, nil
@@ -322,7 +323,7 @@ func (sb *sensorBase) MoveStraight(
 			if err != nil {
 				return err
 			}
-			sb.logger.Info(angVelDes)
+
 			if sb.position != nil {
 				errDist, err = calcPositionError(ctx, distanceMm, initPos, sb.position)
 				if err != nil {
@@ -360,8 +361,14 @@ func (sb *sensorBase) calcHeadingControl(ctx context.Context, initHeading float6
 	if err != nil {
 		return 0, err
 	}
-	headingErr := math.Mod(initHeading-currHeading, 360)
-	return headingErr * headingGain, nil
+
+	headingErr := initHeading - currHeading
+	headingErrWrapped := headingErr - (math.Floor((headingErr+180.)/(2*180.)))*2*180.
+	sb.logger.Info("Current heading: ", currHeading)
+	sb.logger.Info("Initial heading: ", initHeading)
+	sb.logger.Info("    Err heading: ", headingErrWrapped)
+
+	return headingErrWrapped * headingGain, nil
 }
 
 // calcPositionError calculates the current error in position.
