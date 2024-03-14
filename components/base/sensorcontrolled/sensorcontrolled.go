@@ -282,7 +282,7 @@ func (sb *sensorBase) MoveStraight(
 	}
 
 	if sb.position == nil || len(sb.conf.ControlParameters) == 0 {
-		sb.logger.CWarn(ctx, "Position not given, using base MoveStraight")
+		sb.logger.CWarnf(ctx, "Position reporting sensor not available, and no control loop is configured, using base %s MoveStraight", sb.controlledBase.Name().ShortName())
 		sb.stopLoop()
 		return sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
 	}
@@ -346,7 +346,7 @@ func (sb *sensorBase) MoveStraight(
 
 			// exit if the straight takes too long
 			if time.Since(startTime) > timeOut {
-				sb.logger.CWarn(ctx, "exceeded time for Spin call, stopping base")
+				sb.logger.CWarn(ctx, "exceeded time for MoveStraightCall, stopping base")
 
 				return sb.Stop(ctx, nil)
 			}
@@ -391,7 +391,7 @@ func calcLinVel(errDist, mmPerSec, slowDownDist float64) float64 {
 	return linVel
 }
 
-// calcSlowDownDist computes the angle at which the spin should begin to slow down.
+// calcSlowDownDist computes the distance at which the MoveStraigh call should begin to slow down.
 // This helps to prevent overshoot when reaching the goal and reduces the jerk on the robot when the straight is complete.
 func calcSlowDownDist(distanceMm int) float64 {
 	return math.Min(float64(distanceMm)*slowDownDistGain, maxSlowDownDist)
