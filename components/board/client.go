@@ -37,11 +37,18 @@ type client struct {
 	cachedStatus   *commonpb.BoardStatus
 	cachedStatusMu sync.Mutex
 
+	interruptStreams []*interruptStream
+	callbacks        map[string]chan Tick
+
+	mu sync.Mutex
+}
+
+type interruptStream struct {
+	*client
 	streamCancel  context.CancelFunc
 	streamRunning bool
-	streamReady   bool
+	streamReady   chan bool
 	streamMu      sync.Mutex
-	mu            sync.RWMutex
 
 	activeBackgroundWorkers sync.WaitGroup
 	cancelBackgroundWorkers context.CancelFunc
@@ -183,6 +190,7 @@ func (c *client) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *
 	}
 	_, err := c.client.SetPowerMode(ctx, &pb.SetPowerModeRequest{Name: c.info.name, PowerMode: mode, Duration: dur})
 	return err
+
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
@@ -235,6 +243,7 @@ type digitalInterruptClient struct {
 	*client
 	boardName            string
 	digitalInterruptName string
+	callbacks            []chan Tick
 }
 
 func (dic *digitalInterruptClient) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
@@ -257,131 +266,137 @@ func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanoseco
 	panic(errUnimplemented)
 }
 
-func (dic *digitalInterruptClient) AddCallback(c chan Tick) {
+func (dic *digitalInterruptClient) AddCallback(ch chan Tick) {
 	panic(errUnimplemented)
 }
 
-func (dic *digitalInterruptClient) RemoveCallback(c chan Tick) {
+func (dic *digitalInterruptClient) RemoveCallback(ch chan Tick) {
 	panic(errUnimplemented)
 }
 
 func (c *client) StreamTicks(ctx context.Context, interrupts []string, ch chan Tick, extra map[string]interface{}) error {
-	c.streamMu.Lock()
-	defer c.streamMu.Unlock()
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
-	c.extra = ext
-
-	// Start the stream
-	c.streamRunning = true
-	c.activeBackgroundWorkers.Add(1)
-	ctx, cancel := context.WithCancel(ctx)
-	c.cancelBackgroundWorkers = cancel
-	// Create a background go routine that connects to the server's stream
-	utils.PanicCapturingGo(func() {
-		defer c.activeBackgroundWorkers.Done()
-		c.connectTickStream(ctx, interrupts, ch)
-	})
-	c.mu.RLock()
-	ready := c.streamReady
-	c.mu.RUnlock()
-
-	// wait until the stream is ready to return
-	for !ready {
-		c.mu.RLock()
-		ready = c.streamReady
-		c.mu.RUnlock()
-		// wait for 50 ms before checking again
-		if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
-			return ctx.Err()
-		}
+	stream := &interruptStream{
+		extra:  ext,
+		client: c,
 	}
+
+	err = stream.startStream(ctx, interrupts, ch)
+
+	if err != nil {
+		return err
+	}
+
+	c.mu.Lock()
+	c.interruptStreams = append(c.interruptStreams, stream)
+	c.mu.Unlock()
+
 	return nil
+
 }
 
-func (c *client) connectTickStream(ctx context.Context, interrupts []string, ch chan Tick) {
+func (s *interruptStream) startStream(ctx context.Context, interrupts []string, ch chan Tick) error {
+	s.streamMu.Lock()
+	defer s.streamMu.Unlock()
+
+	s.streamRunning = true
+	s.streamReady = make(chan bool, 1024)
+	s.activeBackgroundWorkers.Add(1)
+	ctx, cancel := context.WithCancel(ctx)
+	s.cancelBackgroundWorkers = cancel
+
+	// Create a background go routine that connects to the server's stream
+	utils.PanicCapturingGo(func() {
+		defer s.activeBackgroundWorkers.Done()
+		s.connectTickStream(ctx, interrupts, ch)
+	})
+
+	//wait until the stream is ready to return
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.streamReady:
+		return nil
+
+	}
+}
+
+func (s *interruptStream) connectTickStream(ctx context.Context, interrupts []string, ch chan Tick) {
 	defer func() {
-		c.streamMu.Lock()
-		defer c.streamMu.Unlock()
-		c.mu.Lock()
-		defer c.mu.Unlock()
-		c.streamCancel = nil
-		c.streamRunning = false
-		c.streamReady = false
+		s.streamMu.Lock()
+		defer s.streamMu.Unlock()
+		s.streamCancel = nil
+		s.streamRunning = false
 	}()
 
 	streamCtx, cancel := context.WithCancel(ctx)
-	c.streamCancel = cancel
+	s.streamCancel = cancel
 
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
+
+	req := &pb.StreamTicksRequest{
+		Name:     s.client.info.name,
+		PinNames: interrupts,
+	}
+
+	//call the server to start streaming ticks
+	stream, err := s.client.client.StreamTicks(streamCtx, req)
+	if err != nil {
+		s.client.logger.CError(ctx, err)
+		return
+	}
+
+	if s.streamReady != nil {
+		close(s.streamReady)
+	}
+	s.streamReady = nil
+
+	// repeatly recieve from the stream
 	for {
-		c.mu.Lock()
-		c.streamReady = false
-		c.mu.Unlock()
 		select {
 		case <-ctx.Done():
+			s.client.logger.CError(ctx, err)
+			s.closeStream()
 			return
 		default:
 		}
-
-		req := &pb.StreamTicksRequest{
-			Name:     c.info.name,
-			PinNames: interrupts,
-		}
-
-		stream, err := c.client.StreamTicks(streamCtx, req)
+		streamResp, err := stream.Recv()
 		if err != nil {
-			c.logger.CError(ctx, err)
-			if utils.SelectContextOrWait(ctx, 3*time.Second) {
-				continue
-			} else {
-				return
+			// only debug log the context canceled error
+			s.client.logger.Debug(err)
+			s.closeStream()
+			return
+		} else {
+			// If there is a response with a tick, send it to the channel
+			tick := Tick{
+				Name:             streamResp.PinName,
+				High:             streamResp.High,
+				TimestampNanosec: streamResp.Time,
 			}
-		}
-
-		// repeatly receive from the stream
-		for {
-			select {
-			case <-ctx.Done():
-				c.logger.CError(ctx, err)
-				return
-			default:
-			}
-
-			c.mu.Lock()
-			c.streamReady = true
-			c.mu.Unlock()
-			streamResp, err := stream.Recv()
-			if err != nil && streamResp == nil {
-				// only debug log the context canceled error
-				c.logger.Debug(err)
-				c.streamCancel()
-				return
-			}
-			if err != nil {
-				c.logger.CError(ctx, err)
-			} else {
-				// If there is a response with a tick, send it to the channel
-				tick := Tick{
-					Name:             streamResp.PinName,
-					High:             streamResp.High,
-					TimestampNanosec: streamResp.Time,
-				}
-				ch <- tick
-			}
+			ch <- tick
 		}
 	}
 }
 
-// Close cleanly closes the underlying connections.
-func (dic *digitalInterruptClient) Close(ctx context.Context) error {
-	if dic.cancelBackgroundWorkers != nil {
-		dic.cancelBackgroundWorkers()
-		dic.cancelBackgroundWorkers = nil
+func (s *interruptStream) closeStream() {
+	s.streamCancel()
+
+	for i := range s.interruptStreams {
+		if s.client.interruptStreams[i] == s {
+			// To remove this item, we replace it with the last item in the list, then truncate the
+			// list by 1.
+			s.client.interruptStreams[i] = s.client.interruptStreams[len(s.client.interruptStreams)-1]
+			s.client.interruptStreams = s.client.interruptStreams[:len(s.client.interruptStreams)-1]
+			break
+		}
 	}
-	dic.activeBackgroundWorkers.Wait()
-	return nil
 }
 
 // gpioPinClient satisfies a gRPC based board.GPIOPin. Refer to the interface
