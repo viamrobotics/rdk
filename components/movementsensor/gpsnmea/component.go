@@ -22,8 +22,8 @@ type NMEAMovementSensor struct {
 	cachedData *gpsutils.CachedData
 }
 
-// NewNmeaMovementSensor creates a new movement sensor.
-func NewNmeaMovementSensor(
+// newNMEAMovementSensor creates a new movement sensor.
+func newNMEAMovementSensor(
 	ctx context.Context, name resource.Name, dev gpsutils.DataReader, logger logging.Logger,
 ) (NmeaMovementSensor, error) {
 	g := &NMEAMovementSensor{

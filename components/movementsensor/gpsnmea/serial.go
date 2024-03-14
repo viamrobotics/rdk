@@ -16,5 +16,5 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 		return nil, err
 	}
 
-	return NewNmeaMovementSensor(ctx, name, dev, logger)
+	return newNMEAMovementSensor(ctx, name, dev, logger)
 }

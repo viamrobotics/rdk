@@ -41,5 +41,5 @@ func MakePmtkI2cGpsNmea(
 		return nil, err
 	}
 
-	return NewNmeaMovementSensor(ctx, name, dev, logger)
+	return newNMEAMovementSensor(ctx, name, dev, logger)
 }
