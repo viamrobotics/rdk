@@ -1,5 +1,5 @@
-// Package rtkutils implements functions that are used in the gpsrtkserial and gpsrtkpmtk.
-package rtkutils
+// Package gpsutils implements functions that are used in the gpsrtkserial and gpsrtkpmtk.
+package gpsutils
 
 import (
 	"bufio"

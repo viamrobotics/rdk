@@ -1,6 +1,6 @@
-// Package rtkutils implements necessary functions to set and return
+// Package gpsutils implements necessary functions to set and return
 // NTRIP information here.
-package rtkutils
+package gpsutils
 
 import (
 	"bufio"
