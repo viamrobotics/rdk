@@ -294,13 +294,11 @@ func readFromCloud(
 		to.Cloud.LocationSecrets = locationSecrets
 		to.Cloud.TLSCertificate = tls.certificate
 		to.Cloud.TLSPrivateKey = tls.privateKey
-		// TODO: are org-id/location-id missing?
 		to.Cloud.PrimaryOrgID = primaryOrgID
 		to.Cloud.LocationID = locationID
 	}
 
 	mergeCloudConfig(cfg)
-	// TODO(RSDK-1960): add more tests around config caching
 	unprocessedConfig.Cloud.TLSCertificate = tls.certificate
 	unprocessedConfig.Cloud.TLSPrivateKey = tls.privateKey
 
