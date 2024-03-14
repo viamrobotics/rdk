@@ -107,41 +107,6 @@ func (sb *sensorBase) MoveStraight(
 	}
 }
 
-func (sb *sensorBase) determineHeadingFunc(ctx context.Context) {
-	switch {
-	case sb.orientation != nil:
-		sb.headingFunc = func(ctx context.Context) (float64, error) {
-			orient, err := sb.orientation.Orientation(ctx, nil)
-			if err != nil {
-				return 0, err
-			}
-			// this returns (-180-> 180)
-			yaw := rdkutils.RadToDeg(orient.EulerAngles().Yaw)
-
-			return yaw, nil
-		}
-	case sb.compassHeading != nil:
-		sb.headingFunc = func(ctx context.Context) (float64, error) {
-			compassHeading, err := sb.compassHeading.CompassHeading(ctx, nil)
-			if err != nil {
-				return 0, err
-			}
-			// make the compass heading (-180->180)
-			if compassHeading > 180 {
-				compassHeading -= 360
-			}
-
-			return compassHeading, nil
-		}
-	default:
-		sb.logger.CInfof(ctx, "base %v cannot control heading, no heading related sensor given",
-			sb.Name().ShortName())
-		sb.headingFunc = func(ctx context.Context) (float64, error) {
-			return 0, nil
-		}
-	}
-}
-
 // calculate the desired angular velocity to correct the heading of the base.
 func (sb *sensorBase) calcHeadingControl(ctx context.Context, initHeading float64) (float64, error) {
 	currHeading, err := sb.headingFunc(ctx)
@@ -151,9 +116,6 @@ func (sb *sensorBase) calcHeadingControl(ctx context.Context, initHeading float6
 
 	headingErr := initHeading - currHeading
 	headingErrWrapped := headingErr - (math.Floor((headingErr+180.)/(2*180.)))*2*180.
-	sb.logger.Info("Current heading: ", currHeading)
-	sb.logger.Info("Initial heading: ", initHeading)
-	sb.logger.Info("    Err heading: ", headingErrWrapped)
 
 	return headingErrWrapped * headingGain, nil
 }
@@ -189,4 +151,41 @@ func calcLinVel(errDist, mmPerSec, slowDownDist float64) float64 {
 // This helps to prevent overshoot when reaching the goal and reduces the jerk on the robot when the straight is complete.
 func calcSlowDownDist(distanceMm int) float64 {
 	return math.Min(float64(distanceMm)*slowDownDistGain, maxSlowDownDist)
+}
+
+// determineHeadingFunc determines which movement sensor endpoint should be used for control.
+// The priority is Orientation -> Heading -> No heading control
+func (sb *sensorBase) determineHeadingFunc(ctx context.Context) {
+	switch {
+	case sb.orientation != nil:
+		sb.headingFunc = func(ctx context.Context) (float64, error) {
+			orient, err := sb.orientation.Orientation(ctx, nil)
+			if err != nil {
+				return 0, err
+			}
+			// this returns (-180-> 180)
+			yaw := rdkutils.RadToDeg(orient.EulerAngles().Yaw)
+
+			return yaw, nil
+		}
+	case sb.compassHeading != nil:
+		sb.headingFunc = func(ctx context.Context) (float64, error) {
+			compassHeading, err := sb.compassHeading.CompassHeading(ctx, nil)
+			if err != nil {
+				return 0, err
+			}
+			// make the compass heading (-180->180)
+			if compassHeading > 180 {
+				compassHeading -= 360
+			}
+
+			return compassHeading, nil
+		}
+	default:
+		sb.logger.CInfof(ctx, "base %v cannot control heading, no heading related sensor given",
+			sb.Name().ShortName())
+		sb.headingFunc = func(ctx context.Context) (float64, error) {
+			return 0, nil
+		}
+	}
 }
