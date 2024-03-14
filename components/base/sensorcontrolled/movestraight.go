@@ -33,7 +33,9 @@ func (sb *sensorBase) MoveStraight(
 	}
 
 	if sb.position == nil || len(sb.conf.ControlParameters) == 0 {
-		sb.logger.CWarnf(ctx, "Position reporting sensor not available, and no control loop is configured, using base %s MoveStraight", sb.controlledBase.Name().ShortName())
+		sb.logger.CWarnf(ctx,
+			"Position reporting sensor not available, and no control loop is configured, using base %s MoveStraight",
+			sb.controlledBase.Name().ShortName())
 		sb.stopLoop()
 		return sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
 	}
@@ -126,7 +128,7 @@ func (sb *sensorBase) determineHeadingFunc(ctx context.Context) {
 			}
 			// make the compass heading (-180->180)
 			if compassHeading > 180 {
-				compassHeading = compassHeading - 360
+				compassHeading -= 360
 			}
 
 			return compassHeading, nil
@@ -138,7 +140,6 @@ func (sb *sensorBase) determineHeadingFunc(ctx context.Context) {
 			return 0, nil
 		}
 	}
-
 }
 
 // calculate the desired angular velocity to correct the heading of the base.
