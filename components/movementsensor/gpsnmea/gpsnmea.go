@@ -41,15 +41,13 @@ type Config struct {
 
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
-	var deps []string
-
 	if cfg.ConnectionType == "" {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "connection_type")
 	}
 
 	switch strings.ToLower(cfg.ConnectionType) {
 	case i2cStr:
-		return deps, cfg.I2CConfig.Validate(path)
+		return nil, cfg.I2CConfig.Validate(path)
 	case serialStr:
 		return nil, cfg.SerialConfig.Validate(path)
 	default:
