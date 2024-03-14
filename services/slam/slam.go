@@ -158,6 +158,7 @@ func Limits(ctx context.Context, svc Service, useEditedMap bool) ([]referencefra
 	}, nil
 }
 
+// mappingModeToProtobuf converts a MappingMode value to a protobuf MappingMode value.
 func mappingModeToProtobuf(mappingMode MappingMode) pb.MappingMode {
 	switch mappingMode {
 	case MappingModeNewMap:
@@ -171,6 +172,7 @@ func mappingModeToProtobuf(mappingMode MappingMode) pb.MappingMode {
 	}
 }
 
+// protobufToMappingMode converts protobuf MappingMode value to a MappingMode value.
 func protobufToMappingMode(mappingMode pb.MappingMode) (MappingMode, error) {
 	switch mappingMode {
 	case pb.MappingMode_MAPPING_MODE_CREATE_NEW_MAP:
@@ -186,6 +188,7 @@ func protobufToMappingMode(mappingMode pb.MappingMode) (MappingMode, error) {
 	}
 }
 
+// sensorTypeToProtobuf converts a SensorType value to a protobuf SensorType value.
 func sensorTypeToProtobuf(sensorType SensorType) pb.SensorType {
 	switch sensorType {
 	case SensorTypeCamera:
@@ -197,6 +200,7 @@ func sensorTypeToProtobuf(sensorType SensorType) pb.SensorType {
 	}
 }
 
+// protobufToSensorType converts protobuf SensorType value to a SensorType value.
 func protobufToSensorType(sensorType pb.SensorType) (SensorType, error) {
 	switch sensorType {
 	case pb.SensorType_SENSOR_TYPE_CAMERA:
