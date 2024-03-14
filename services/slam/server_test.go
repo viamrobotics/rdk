@@ -212,7 +212,7 @@ func TestWorkingServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, respInfo.CloudSlam, test.ShouldResemble, prop.CloudSlam)
 		test.That(t, respInfo.MappingMode, test.ShouldEqual, pb.MappingMode_MAPPING_MODE_CREATE_NEW_MAP)
-		test.That(t, respInfo.InternalStateFileType, test.ShouldEqual, prop.InternalStateFileType)
+		test.That(t, *respInfo.InternalStateFileType, test.ShouldEqual, prop.InternalStateFileType)
 		test.That(t, respInfo.SensorInfo, test.ShouldResemble, sensorInfoSuccess)
 	})
 
