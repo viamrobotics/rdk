@@ -131,10 +131,10 @@ func readCertificateDataFromCloudGRPC(ctx context.Context,
 	signalingInsecure bool,
 	cloudConfigFromDisk *Cloud,
 	logger logging.Logger,
-) (*Cloud, error) {
+) (tlsConfig, error) {
 	conn, err := CreateNewGRPCClient(ctx, cloudConfigFromDisk, logger)
 	if err != nil {
-		return nil, err
+		return tlsConfig{}, err
 	}
 	defer utils.UncheckedErrorFunc(conn.Close)
 
@@ -142,22 +142,21 @@ func readCertificateDataFromCloudGRPC(ctx context.Context,
 	res, err := service.Certificate(ctx, &apppb.CertificateRequest{Id: cloudConfigFromDisk.ID})
 	if err != nil {
 		// Check cache?
-		return nil, err
+		return tlsConfig{}, err
 	}
 
 	if !signalingInsecure {
 		if res.TlsCertificate == "" {
-			return nil, errors.New("no TLS certificate yet from cloud; try again later")
+			return tlsConfig{}, errors.New("no TLS certificate yet from cloud; try again later")
 		}
 		if res.TlsPrivateKey == "" {
-			return nil, errors.New("no TLS private key yet from cloud; try again later")
+			return tlsConfig{}, errors.New("no TLS private key yet from cloud; try again later")
 		}
 	}
 
-	// TODO(RSDK-539): we might want to use an internal type here. The gRPC api will not return a Cloud json struct.
-	return &Cloud{
-		TLSCertificate: res.TlsCertificate,
-		TLSPrivateKey:  res.TlsPrivateKey,
+	return tlsConfig{
+		certificate: res.TlsCertificate,
+		privateKey:  res.TlsPrivateKey,
 	}, nil
 }
 
@@ -270,9 +269,7 @@ func readFromCloud(
 			}
 			logger.Warnw("failed to refresh certificate data; using cached for now", "error", err)
 		} else {
-			tls.certificate = certData.TLSCertificate
-			tls.privateKey = certData.TLSPrivateKey
-			cancel()
+			tls = certData
 		}
 	}
 
