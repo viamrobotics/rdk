@@ -22,16 +22,15 @@ func (m *EncodedMotor) State(ctx context.Context) ([]float64, error) {
 func (m *EncodedMotor) updateControlBlock(ctx context.Context, setPoint, maxVel float64) error {
 	// Update the Trapezoidal Velocity Profile block with the given maxVel for velocity control
 	dependsOn := []string{m.blockNames[control.BlockNameConstant][0], m.blockNames[control.BlockNameEndpoint][0]}
-	velConf := control.CreateTrapzBlock(ctx, m.blockNames[control.BlockNameTrapezoidal][0], maxVel, dependsOn)
-	if err := m.loop.SetConfigAt(ctx, m.blockNames[control.BlockNameTrapezoidal][0], velConf); err != nil {
+	if err := control.UpdateTrapzBlock(ctx, m.blockNames[control.BlockNameTrapezoidal][0], maxVel, dependsOn, m.loop); err != nil {
 		return err
 	}
 
 	// Update the Constant block with the given setPoint for position control
-	posConf := control.CreateConstantBlock(ctx, m.blockNames[control.BlockNameConstant][0], setPoint)
-	if err := m.loop.SetConfigAt(ctx, m.blockNames[control.BlockNameConstant][0], posConf); err != nil {
+	if err := control.UpdateConstantBlock(ctx, m.blockNames[control.BlockNameConstant][0], setPoint, m.loop); err != nil {
 		return err
 	}
+
 	return nil
 }
 
