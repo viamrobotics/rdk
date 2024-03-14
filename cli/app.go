@@ -79,6 +79,73 @@ const (
 	dataFlagTagCommand                     = "command"
 )
 
+var filterTags = []cli.Flag{
+	&cli.StringSliceFlag{
+		Name:  dataFlagOrgIDs,
+		Usage: "orgs filter",
+	},
+	&cli.StringSliceFlag{
+		Name:  dataFlagLocationIDs,
+		Usage: "locations filter",
+	},
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:    generalFlagMachineID,
+			Aliases: []string{generalFlagAliasRobotID},
+			Usage:   "machine id filter",
+		},
+	},
+	&cli.StringFlag{
+		Name:  dataFlagPartID,
+		Usage: "part id filter",
+	},
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:    dataFlagMachineName,
+			Aliases: []string{dataFlagAliasRobotName},
+			Usage:   "machine name filter",
+		},
+	},
+	&cli.StringFlag{
+		Name:  dataFlagPartName,
+		Usage: "part name filter",
+	},
+	&cli.StringFlag{
+		Name:  dataFlagComponentType,
+		Usage: "component type filter",
+	},
+	&cli.StringFlag{
+		Name:  dataFlagComponentName,
+		Usage: "component name filter",
+	},
+	&cli.StringFlag{
+		Name:  dataFlagMethod,
+		Usage: "method filter",
+	},
+	&cli.StringSliceFlag{
+		Name:  dataFlagMimeTypes,
+		Usage: "mime types filter",
+	},
+	&cli.StringFlag{
+		Name:  dataFlagStart,
+		Usage: "ISO-8601 timestamp indicating the start of the interval filter",
+	},
+	&cli.StringFlag{
+		Name:  dataFlagEnd,
+		Usage: "ISO-8601 timestamp indicating the end of the interval filter",
+	},
+	&cli.StringSliceFlag{
+		Name: dataFlagTags,
+		Usage: "tags filter. " +
+			"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
+	},
+	&cli.StringSliceFlag{
+		Name: dataFlagBboxLabels,
+		Usage: "bbox labels filter. " +
+			"accepts string labels corresponding to bounding boxes within images",
+	},
+}
+
 // createUsageText is a helper for formatting UsageTexts. The created UsageText
 // contains "viam", the command, requiredFlags, [other options] if otherOptions
 // is true, and all passed-in arguments in that order.
@@ -259,87 +326,19 @@ var app = &cli.App{
 					Name:      "export",
 					Usage:     "download data from Viam cloud",
 					UsageText: createUsageText("data export", []string{dataFlagDestination, dataFlagDataType}, true),
-					Flags: []cli.Flag{
+					Flags: append([]cli.Flag{
 						&cli.PathFlag{
 							Name:     dataFlagDestination,
 							Required: true,
 							Usage:    "output directory for downloaded data",
-						},
-						&cli.StringFlag{
-							Name:     dataFlagDataType,
-							Required: true,
-							Usage:    "data type to be downloaded: either binary or tabular",
-						},
-						&cli.StringSliceFlag{
-							Name:  dataFlagOrgIDs,
-							Usage: "orgs filter",
-						},
-						&cli.StringSliceFlag{
-							Name:  dataFlagLocationIDs,
-							Usage: "locations filter",
-						},
-						&AliasStringFlag{
-							cli.StringFlag{
-								Name:    generalFlagMachineID,
-								Aliases: []string{generalFlagAliasRobotID},
-								Usage:   "machine id filter",
-							},
-						},
-						&cli.StringFlag{
-							Name:  dataFlagPartID,
-							Usage: "part id filter",
-						},
-						&AliasStringFlag{
-							cli.StringFlag{
-								Name:    dataFlagMachineName,
-								Aliases: []string{dataFlagAliasRobotName},
-								Usage:   "machine name filter",
-							},
-						},
-						&cli.StringFlag{
-							Name:  dataFlagPartName,
-							Usage: "part name filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagComponentType,
-							Usage: "component type filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagComponentName,
-							Usage: "component name filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagMethod,
-							Usage: "method filter",
-						},
-						&cli.StringSliceFlag{
-							Name:  dataFlagMimeTypes,
-							Usage: "mime types filter",
 						},
 						&cli.UintFlag{
 							Name:  dataFlagParallelDownloads,
 							Usage: "number of download requests to make in parallel",
 							Value: 100,
 						},
-						&cli.StringFlag{
-							Name:  dataFlagStart,
-							Usage: "ISO-8601 timestamp indicating the start of the interval filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagEnd,
-							Usage: "ISO-8601 timestamp indicating the end of the interval filter",
-						},
-						&cli.StringSliceFlag{
-							Name: dataFlagTags,
-							Usage: "tags filter. " +
-								"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
-						},
-						&cli.StringSliceFlag{
-							Name: dataFlagBboxLabels,
-							Usage: "bbox labels filter. " +
-								"accepts string labels corresponding to bounding boxes within images",
-						},
 					},
+						filterTags...),
 					Action: DataExportAction,
 				},
 				{
@@ -628,8 +627,10 @@ var app = &cli.App{
 						{
 							Name:  "ids",
 							Usage: "adds or removes tags from binary data by file ids for a given org and location",
-							UsageText: createUsageText("data tag ids", []string{dataFlagAdditionalTags, dataFlagOrgID,
-								dataFlagLocationID, dataFlagFileIDs, dataFlagTagCommand}, false),
+							UsageText: createUsageText("data tag ids", []string{
+								dataFlagAdditionalTags, dataFlagOrgID,
+								dataFlagLocationID, dataFlagFileIDs, dataFlagTagCommand,
+							}, false),
 							Flags: []cli.Flag{
 								&cli.StringSliceFlag{
 									Name:     dataFlagAdditionalTags,
@@ -663,7 +664,7 @@ var app = &cli.App{
 							Name:      "filter",
 							Usage:     "adds or removes tags from binary data by filter",
 							UsageText: createUsageText("data tag ids", []string{dataFlagAdditionalTags, dataFlagTagCommand}, false),
-							Flags: []cli.Flag{
+							Flags: append([]cli.Flag{
 								&cli.StringSliceFlag{
 									Name:     dataFlagAdditionalTags,
 									Required: true,
@@ -674,76 +675,8 @@ var app = &cli.App{
 									Required: true,
 									Usage:    "accepted values: add, remove",
 								},
-								&cli.StringSliceFlag{
-									Name:  dataFlagOrgIDs,
-									Usage: "orgs filter",
-								},
-								&cli.StringSliceFlag{
-									Name:  dataFlagLocationIDs,
-									Usage: "locations filter",
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagMachineID,
-										Aliases: []string{generalFlagAliasRobotID},
-										Usage:   "machine id filter",
-									},
-								},
-								&cli.StringFlag{
-									Name:  dataFlagPartID,
-									Usage: "part id filter",
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    dataFlagMachineName,
-										Aliases: []string{dataFlagAliasRobotName},
-										Usage:   "machine name filter",
-									},
-								},
-								&cli.StringFlag{
-									Name:  dataFlagPartName,
-									Usage: "part name filter",
-								},
-								&cli.StringFlag{
-									Name:  dataFlagComponentType,
-									Usage: "component type filter",
-								},
-								&cli.StringFlag{
-									Name:  dataFlagComponentName,
-									Usage: "component name filter",
-								},
-								&cli.StringFlag{
-									Name:  dataFlagMethod,
-									Usage: "method filter",
-								},
-								&cli.StringSliceFlag{
-									Name:  dataFlagMimeTypes,
-									Usage: "mime types filter",
-								},
-								&cli.UintFlag{
-									Name:  dataFlagParallelDownloads,
-									Usage: "number of download requests to make in parallel",
-									Value: 100,
-								},
-								&cli.StringFlag{
-									Name:  dataFlagStart,
-									Usage: "ISO-8601 timestamp indicating the start of the interval filter",
-								},
-								&cli.StringFlag{
-									Name:  dataFlagEnd,
-									Usage: "ISO-8601 timestamp indicating the end of the interval filter",
-								},
-								&cli.StringSliceFlag{
-									Name: dataFlagTags,
-									Usage: "tags filter. " +
-										"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
-								},
-								&cli.StringSliceFlag{
-									Name: dataFlagBboxLabels,
-									Usage: "bbox labels filter. " +
-										"accepts string labels corresponding to bounding boxes within images",
-								},
 							},
+								filterTags...),
 							Action: DataTagAction,
 						},
 					},

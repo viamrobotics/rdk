@@ -72,7 +72,7 @@ func (c *viamClient) dataExportAction(cCtx *cli.Context) error {
 	return nil
 }
 
-// DataExportAction is the corresponding action for 'data tag'.
+// DataTagAction is the corresponding action for 'data tag'.
 func DataTagAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -96,12 +96,12 @@ func (c *viamClient) dataTagByFilterAction(cCtx *cli.Context) error {
 	}
 	switch cCtx.String(dataFlagTagCommand) {
 	case dataCommandAdd:
-		if err := c.addTagsToBinary(filter, cCtx.StringSlice(dataFlagAdditionalTags)); err != nil {
+		if err := c.addTagsToBinaryByFilter(filter, cCtx.StringSlice(dataFlagAdditionalTags)); err != nil {
 			return err
 		}
 		return nil
 	case dataCommandRemove:
-		if err := c.removeTagsFromBinary(filter, cCtx.StringSlice(dataFlagAdditionalTags)); err != nil {
+		if err := c.removeTagsFromBinaryByFilter(filter, cCtx.StringSlice(dataFlagAdditionalTags)); err != nil {
 			return err
 		}
 		return nil
@@ -113,12 +113,20 @@ func (c *viamClient) dataTagByFilterAction(cCtx *cli.Context) error {
 func (c *viamClient) dataTagByIDsAction(cCtx *cli.Context) error {
 	switch cCtx.String(dataFlagTagCommand) {
 	case dataCommandAdd:
-		if err := c.dataAddTagsToDataByIDs(cCtx.StringSlice(dataFlagAdditionalTags), cCtx.String(dataFlagOrgID), cCtx.String(dataFlagLocationID), cCtx.StringSlice(dataFlagFileIDs)); err != nil {
+		if err := c.dataAddTagsToDataByIDs(
+			cCtx.StringSlice(dataFlagAdditionalTags),
+			cCtx.String(dataFlagOrgID),
+			cCtx.String(dataFlagLocationID),
+			cCtx.StringSlice(dataFlagFileIDs)); err != nil {
 			return err
 		}
 		return nil
 	case dataCommandRemove:
-		if err := c.dataRemoveTagsFromData(cCtx.StringSlice(dataFlagAdditionalTags), cCtx.String(dataFlagOrgID), cCtx.String(dataFlagLocationID), cCtx.StringSlice(dataFlagFileIDs)); err != nil {
+		if err := c.dataRemoveTagsFromDataByIDs(
+			cCtx.StringSlice(dataFlagAdditionalTags),
+			cCtx.String(dataFlagOrgID),
+			cCtx.String(dataFlagLocationID),
+			cCtx.StringSlice(dataFlagFileIDs)); err != nil {
 			return err
 		}
 		return nil
@@ -623,7 +631,7 @@ func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 	return nil
 }
 
-func (c *viamClient) addTagsToBinary(filter *datapb.Filter, tags []string) error {
+func (c *viamClient) addTagsToBinaryByFilter(filter *datapb.Filter, tags []string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -632,11 +640,11 @@ func (c *viamClient) addTagsToBinary(filter *datapb.Filter, tags []string) error
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}
-	print(c.c.App.Writer, "Successfully tagged data")
+	printf(c.c.App.Writer, "Successfully tagged data")
 	return nil
-
 }
-func (c *viamClient) removeTagsFromBinary(filter *datapb.Filter, tags []string) error {
+
+func (c *viamClient) removeTagsFromBinaryByFilter(filter *datapb.Filter, tags []string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -645,7 +653,7 @@ func (c *viamClient) removeTagsFromBinary(filter *datapb.Filter, tags []string) 
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}
-	print(c.c.App.Writer, "Successfully removed tags from data")
+	printf(c.c.App.Writer, "Successfully removed tags from data")
 	return nil
 }
 
@@ -670,7 +678,9 @@ func (c *viamClient) dataAddTagsToDataByIDs(tags []string, orgID, locationID str
 	return nil
 }
 
-func (c *viamClient) dataRemoveTagsFromData(tags []string, orgID, locationID string, fileIDs []string) error {
+// dataRemoveTagsFromData removes tags from data, with the specified org ID, location ID,
+// and file IDs.
+func (c *viamClient) dataRemoveTagsFromDataByIDs(tags []string, orgID, locationID string, fileIDs []string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
