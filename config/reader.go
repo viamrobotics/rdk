@@ -262,7 +262,7 @@ func readFromCloud(
 		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cfg.Cloud.SignalingInsecure, cloudCfg, logger)
 		if err != nil {
 			cancel()
-			if !errors.Is(err, context.DeadlineExceeded) {
+			if !errors.As(err, &context.DeadlineExceeded) {
 				return nil, err
 			}
 			if tls.certificate == "" || tls.privateKey == "" {
