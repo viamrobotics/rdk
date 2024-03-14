@@ -4,6 +4,7 @@ package testutils
 import (
 	"context"
 	"errors"
+	"log"
 	"net"
 	"net/http"
 	"sync"
@@ -147,6 +148,7 @@ func (s *FakeCloudServer) Config(ctx context.Context, req *pb.ConfigRequest) (*p
 		return nil, status.Error(codes.NotFound, "config for device not found")
 	}
 
+	log.Println(">>> cfg response", d.cfg.Cloud)
 	return &pb.ConfigResponse{Config: d.cfg}, nil
 }
 

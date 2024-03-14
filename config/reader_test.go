@@ -2,15 +2,142 @@ package config
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/config/testutils"
 	"go.viam.com/rdk/logging"
 )
+
+func TestFromReader(t *testing.T) {
+	const (
+		robotPartID = "forCachingTest"
+		secret      = testutils.FakeCredentialPayLoad
+	)
+	var (
+		logger = logging.NewTestLogger(t)
+		ctx    = context.Background()
+	)
+
+	// clear cache
+	setupClearCache := func(t *testing.T) {
+		t.Helper()
+		clearCache(robotPartID)
+		_, err := readFromCache(robotPartID)
+		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+	}
+
+	t.Run("online", func(t *testing.T) {
+		setupClearCache(t)
+
+		fakeServer, err := testutils.NewFakeCloudServer(context.Background(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, fakeServer.Shutdown(), test.ShouldBeNil)
+		}()
+
+		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+		expectedCloud := &Cloud{
+			ManagedBy:        "acme",
+			SignalingAddress: "abc",
+			ID:               robotPartID,
+			Secret:           secret,
+			FQDN:             "fqdn",
+			LocalFQDN:        "localFqdn",
+			TLSCertificate:   "cert",
+			TLSPrivateKey:    "key",
+			RefreshInterval:  time.Duration(10000000000),
+			LocationSecrets:  []LocationSecret{},
+			AppAddress:       appAddress,
+			LocationID:       "the-location",
+			PrimaryOrgID:     "the-primary-org",
+		}
+		cloudConfProto, err := CloudConfigToProto(expectedCloud)
+		test.That(t, err, test.ShouldBeNil)
+		protoConfig := &pb.RobotConfig{Cloud: cloudConfProto}
+		protoCertificate := &pb.CertificateResponse{
+			TlsCertificate: "cert",
+			TlsPrivateKey:  "key",
+		}
+
+		fakeServer.StoreDeviceConfig(robotPartID, protoConfig, protoCertificate)
+		defer fakeServer.Clear()
+
+		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
+		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger)
+		defer clearCache(robotPartID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gotCfg.Cloud, test.ShouldResemble, expectedCloud)
+
+		cachedCfg, err := readFromCache(robotPartID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, cachedCfg.Cloud, test.ShouldResemble, expectedCloud)
+	})
+
+	// t.Run("offline", func(t *testing.T) {
+	// 	setupClearCache(t)
+	// 	newOfflineTestReader := func(
+	// 		ctx context.Context,
+	// 		cloud *Cloud,
+	// 		logger logging.Logger,
+	// 	) (*configReader, func() error) {
+	// 		return &configReader{nil}, func() error { return nil }
+	// 	}
+	//
+	// 	cloud := &Cloud{
+	// 		ManagedBy:        "acme",
+	// 		SignalingAddress: "abc",
+	// 		ID:               robotPartID,
+	// 		Secret:           "ghi",
+	// 		FQDN:             "fqdn",
+	// 		LocalFQDN:        "localFqdn",
+	// 		TLSCertificate:   "cert",
+	// 		TLSPrivateKey:    "key",
+	// 		AppAddress:       "https://app.viam.dev:443",
+	// 		LocationID:       "the-location",
+	// 		PrimaryOrgID:     "the-primary-org",
+	// 		LocationSecrets:  []LocationSecret{},
+	// 	}
+	// 	cfg := &Config{Cloud: cloud}
+	//
+	// 	// store our config to the cloud
+	// 	err := storeToCache(cfg.Cloud.ID, cfg)
+	// 	test.That(t, err, test.ShouldBeNil)
+	// 	defer clearCache(robotPartID)
+	//
+	// 	cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"secret":"ghi"}}`, robotPartID)
+	// 	gotCfg, err := fromReader(ctx, "", strings.NewReader(cfgText), logger, newOfflineTestReader)
+	//
+	// 	expectedCloud := &Cloud{
+	// 		ManagedBy:        "acme",
+	// 		SignalingAddress: "abc",
+	// 		ID:               robotPartID,
+	// 		Secret:           "ghi",
+	// 		FQDN:             "fqdn",
+	// 		LocalFQDN:        "localFqdn",
+	// 		TLSCertificate:   "cert",
+	// 		TLSPrivateKey:    "key",
+	// 		RefreshInterval:  time.Duration(10000000000),
+	// 		LocationSecrets:  []LocationSecret{},
+	// 	}
+	// 	test.That(t, gotCfg.Cloud, test.ShouldResemble, expectedCloud)
+	//
+	// 	// TODO: why isn't this included in the result that comes from `fromReader`
+	// 	expectedCloud.LocationID = "the-location"
+	// 	expectedCloud.PrimaryOrgID = "the-primary-org"
+	// 	expectedCloud.AppAddress = "https://app.viam.dev:443"
+	// 	cachedCfg, err := readFromCache(robotPartID)
+	// 	test.That(t, err, test.ShouldBeNil)
+	// 	test.That(t, cachedCfg.Cloud, test.ShouldResemble, expectedCloud)
+	// })
+}
 
 func TestStoreToCache(t *testing.T) {
 	logger := logging.NewTestLogger(t)

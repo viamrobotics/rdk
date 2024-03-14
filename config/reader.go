@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -214,6 +215,7 @@ func readFromCloud(
 
 	// process the config
 	cfg, err := processConfigFromCloud(unprocessedConfig, logger)
+	log.Println(">>> post-process", cfg.Cloud)
 	if err != nil {
 		// If we cannot process the config from the cache we should clear it.
 		if cached {
@@ -275,6 +277,7 @@ func readFromCloud(
 		}
 	}
 
+	log.Println(">>> pre-merge", cfg.Cloud)
 	fqdn := cfg.Cloud.FQDN
 	localFQDN := cfg.Cloud.LocalFQDN
 	signalingAddress := cfg.Cloud.SignalingAddress
@@ -282,6 +285,8 @@ func readFromCloud(
 	managedBy := cfg.Cloud.ManagedBy
 	locationSecret := cfg.Cloud.LocationSecret
 	locationSecrets := cfg.Cloud.LocationSecrets
+	primaryOrgID := cfg.Cloud.PrimaryOrgID
+	locationID := cfg.Cloud.LocationID
 
 	mergeCloudConfig := func(to *Config) {
 		*to.Cloud = *cloudCfg
@@ -294,9 +299,13 @@ func readFromCloud(
 		to.Cloud.LocationSecrets = locationSecrets
 		to.Cloud.TLSCertificate = tls.certificate
 		to.Cloud.TLSPrivateKey = tls.privateKey
+		// TODO: are org-id/location-id missing?
+		to.Cloud.PrimaryOrgID = primaryOrgID
+		to.Cloud.LocationID = locationID
 	}
 
 	mergeCloudConfig(cfg)
+	log.Println(">>> post-merge", cfg.Cloud)
 	// TODO(RSDK-1960): add more tests around config caching
 	unprocessedConfig.Cloud.TLSCertificate = tls.certificate
 	unprocessedConfig.Cloud.TLSPrivateKey = tls.privateKey
@@ -398,6 +407,7 @@ func fromReader(
 
 	if shouldReadFromCloud && cfgFromDisk.Cloud != nil {
 		cfg, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger)
+		log.Println(">>> got config from cloud", cfg.Cloud)
 		return cfg, err
 	}
 
@@ -635,6 +645,7 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 		return nil, cached, err
 	}
 
+	log.Printf(">>> got cfg from cloud OR cache %#v, %t", cfg.Cloud, cached)
 	return cfg, cached, nil
 }
 
@@ -665,6 +676,7 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logge
 		return nil, shouldCheckCacheOnFailure, err
 	}
 
+	log.Printf(">>> got cfg from cloud service %#v", cfg.Cloud)
 	return cfg, false, nil
 }
 
