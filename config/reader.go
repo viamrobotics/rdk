@@ -204,7 +204,6 @@ func readFromCloud(
 	logger.Debug("reading configuration from the cloud")
 	cloudCfg := originalCfg.Cloud
 	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, cloudCfg, shouldReadFromCache, logger)
-
 	if err != nil {
 		if !cached {
 			err = errors.Wrap(err, "error getting cloud config")

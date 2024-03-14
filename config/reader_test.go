@@ -37,7 +37,7 @@ func TestFromReader(t *testing.T) {
 	setupFakeServer := func(t *testing.T) (*testutils.FakeCloudServer, func()) {
 		t.Helper()
 
-		var logger = logging.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 
 		fakeServer, err := testutils.NewFakeCloudServer(context.Background(), logger)
 		test.That(t, err, test.ShouldBeNil)
