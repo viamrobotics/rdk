@@ -354,7 +354,7 @@ func (sb *sensorBase) MoveStraight(
 	}
 }
 
-// calculate the desired angular velocity to correct the heading of the base
+// calculate the desired angular velocity to correct the heading of the base.
 func (sb *sensorBase) calcHeadingControl(ctx context.Context, initHeading float64) (float64, error) {
 	currHeading, err := sb.headingFunc(ctx)
 	if err != nil {
@@ -364,8 +364,8 @@ func (sb *sensorBase) calcHeadingControl(ctx context.Context, initHeading float6
 	return headingErr * headingGain, nil
 }
 
-// calcPositionError calculates the current error in positon.
-// This results in the distance the base needs to travel to reach the goal
+// calcPositionError calculates the current error in position.
+// This results in the distance the base needs to travel to reach the goal.
 func calcPositionError(ctx context.Context, distanceMm int, initPos *geo.Point,
 	position movementsensor.MovementSensor,
 ) (float64, error) {
