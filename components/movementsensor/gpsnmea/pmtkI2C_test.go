@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/components/movementsensor/gpsutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
@@ -39,19 +40,6 @@ func createMockI2c() buses.I2C {
 	return i2c
 }
 
-func TestValidateI2C(t *testing.T) {
-	fakecfg := &I2CConfig{I2CBus: "1"}
-
-	path := "path"
-	err := fakecfg.validateI2C(path)
-	test.That(t, err, test.ShouldBeError,
-		resource.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
-
-	fakecfg.I2CAddr = 66
-	err = fakecfg.validateI2C(path)
-	test.That(t, err, test.ShouldBeNil)
-}
-
 func TestNewI2CMovementSensor(t *testing.T) {
 	conf := resource.Config{
 		Name:  "movementsensor1",
@@ -76,7 +64,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
 			ConnectionType: "I2C",
-			I2CConfig:      &I2CConfig{I2CBus: testBusName},
+			I2CConfig:      &gpsutils.I2CConfig{I2CBus: testBusName},
 		},
 	}
 	config, err := resource.NativeConfig[*Config](conf)
