@@ -1,5 +1,4 @@
-// Package grpchelper implements helper functions to be used with slam service grpc clients
-package grpchelper
+package slam
 
 import (
 	"context"
@@ -57,4 +56,60 @@ func InternalStateCallback(ctx context.Context, name string, slamClient pb.SLAMS
 		return chunk.GetInternalStateChunk(), nil
 	}
 	return f, err
+}
+
+// mappingModeToProtobuf converts a MappingMode value to a protobuf MappingMode value.
+func mappingModeToProtobuf(mappingMode MappingMode) pb.MappingMode {
+	switch mappingMode {
+	case MappingModeNewMap:
+		return pb.MappingMode_MAPPING_MODE_CREATE_NEW_MAP
+	case MappingModeLocalizationOnly:
+		return pb.MappingMode_MAPPING_MODE_LOCALIZE_ONLY
+	case MappingModeUpdateExistingMap:
+		return pb.MappingMode_MAPPING_MODE_UPDATE_EXISTING_MAP
+	default:
+		return pb.MappingMode_MAPPING_MODE_UNSPECIFIED
+	}
+}
+
+// protobufToMappingMode converts protobuf MappingMode value to a MappingMode value.
+func protobufToMappingMode(mappingMode pb.MappingMode) (MappingMode, error) {
+	switch mappingMode {
+	case pb.MappingMode_MAPPING_MODE_CREATE_NEW_MAP:
+		return MappingModeNewMap, nil
+	case pb.MappingMode_MAPPING_MODE_LOCALIZE_ONLY:
+		return MappingModeLocalizationOnly, nil
+	case pb.MappingMode_MAPPING_MODE_UPDATE_EXISTING_MAP:
+		return MappingModeUpdateExistingMap, nil
+	case pb.MappingMode_MAPPING_MODE_UNSPECIFIED:
+		fallthrough
+	default:
+		return 0, errors.New("mapping mode unspecified")
+	}
+}
+
+// sensorTypeToProtobuf converts a SensorType value to a protobuf SensorType value.
+func sensorTypeToProtobuf(sensorType SensorType) pb.SensorType {
+	switch sensorType {
+	case SensorTypeCamera:
+		return pb.SensorType_SENSOR_TYPE_CAMERA
+	case SensorTypeMovementSensor:
+		return pb.SensorType_SENSOR_TYPE_MOVEMENT_SENSOR
+	default:
+		return pb.SensorType_SENSOR_TYPE_UNSPECIFIED
+	}
+}
+
+// protobufToSensorType converts protobuf SensorType value to a SensorType value.
+func protobufToSensorType(sensorType pb.SensorType) (SensorType, error) {
+	switch sensorType {
+	case pb.SensorType_SENSOR_TYPE_CAMERA:
+		return SensorTypeCamera, nil
+	case pb.SensorType_SENSOR_TYPE_MOVEMENT_SENSOR:
+		return SensorTypeMovementSensor, nil
+	case pb.SensorType_SENSOR_TYPE_UNSPECIFIED:
+		fallthrough
+	default:
+		return 0, errors.New("sensor type unspecified")
+	}
 }

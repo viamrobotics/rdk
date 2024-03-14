@@ -11,7 +11,6 @@ import (
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/slam/grpchelper"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -69,7 +68,7 @@ func (c *client) PointCloudMap(ctx context.Context, returnEditedMap bool) (func(
 	ctx, span := trace.StartSpan(ctx, "slam::client::PointCloudMap")
 	defer span.End()
 
-	return grpchelper.PointCloudMapCallback(ctx, c.name, c.client, returnEditedMap)
+	return PointCloudMapCallback(ctx, c.name, c.client, returnEditedMap)
 }
 
 // InternalState creates a request, calls the slam service InternalState and returns a callback
@@ -78,7 +77,7 @@ func (c *client) InternalState(ctx context.Context) (func() ([]byte, error), err
 	ctx, span := trace.StartSpan(ctx, "slam::client::InternalState")
 	defer span.End()
 
-	return grpchelper.InternalStateCallback(ctx, c.name, c.client)
+	return InternalStateCallback(ctx, c.name, c.client)
 }
 
 // Properties returns information regarding the current SLAM session, including
