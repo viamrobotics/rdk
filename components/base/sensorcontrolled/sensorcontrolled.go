@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -181,38 +180,8 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	if sb.orientation == nil && sb.velocities == nil {
 		return errNoGoodSensor
 	}
-	switch {
-	case sb.orientation != nil:
-		sb.headingFunc = func(ctx context.Context) (float64, error) {
-			orient, err := sb.orientation.Orientation(ctx, nil)
-			if err != nil {
-				return 0, err
-			}
-			// this returns (-180-> 180)
-			yaw := rdkutils.RadToDeg(orient.EulerAngles().Yaw)
 
-			return yaw, nil
-		}
-	case sb.compassHeading != nil:
-		sb.headingFunc = func(ctx context.Context) (float64, error) {
-			compassHeading, err := sb.compassHeading.CompassHeading(ctx, nil)
-			if err != nil {
-				return 0, err
-			}
-			// make the compass heading (-180->180)
-			if compassHeading > 180 {
-				compassHeading = compassHeading - 360
-			}
-
-			return compassHeading, nil
-		}
-	default:
-		sb.logger.CInfof(ctx, "base %v cannot control heading, no heading related sensor given",
-			sb.Name().ShortName())
-		sb.headingFunc = func(ctx context.Context) (float64, error) {
-			return 0, nil
-		}
-	}
+	sb.determineHeadingFunc(ctx)
 
 	sb.controlledBase, err = base.FromDependencies(deps, newConf.Base)
 	if err != nil {
