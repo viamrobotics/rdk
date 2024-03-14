@@ -189,7 +189,7 @@ func mergedAll(xMax, yMax int, grid [][]*wrapBlocks, def *wrapBlocks) {
 
 func benchNBlocks(b *testing.B, n int, freq float64) {
 	b.Helper()
-	rand.Seed(time.Now().UTC().UnixNano())
+	rand.New(rand.NewSource(time.Now().UnixNano()))
 	if n < 10 {
 		return
 	}
