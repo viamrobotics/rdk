@@ -269,6 +269,7 @@ func readFromCloud(
 			logger.Warnw("failed to refresh certificate data; using cached for now", "error", err)
 		} else {
 			tls = certData
+			cancel()
 		}
 	}
 
