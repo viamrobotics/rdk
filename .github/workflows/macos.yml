@@ -13,7 +13,7 @@ jobs:
         ref: ${{ github.event == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
     - uses: actions/setup-go@v4
       with:
-        go-version: '1.19.x'
+        go-version: '1.21.x'
     - name: brew
       run: |
         brew tap viamrobotics/brews
