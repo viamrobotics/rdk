@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
+	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/base"
@@ -21,13 +22,15 @@ import (
 )
 
 const (
-	yawPollTime        = 5 * time.Millisecond
-	velocitiesPollTime = 5 * time.Millisecond
-	boundCheckTurn     = 2.0
-	boundCheckTarget   = 5.0
-	sensorDebug        = false
-	typeLinVel         = "linear_velocity"
-	typeAngVel         = "angular_velocity"
+	yawPollTime           = 5 * time.Millisecond
+	velocitiesPollTime    = 5 * time.Millisecond
+	boundCheckTarget      = 5.0
+	sensorDebug           = false
+	typeLinVel            = "linear_velocity"
+	typeAngVel            = "angular_velocity"
+	slowDownDistGain      = .1
+	maxSlowDownDist       = 100 // mm
+	moveStraightErrTarget = 20  // mm
 )
 
 var (
@@ -183,7 +186,8 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	if sb.orientation == nil && sb.velocities == nil {
 		return errNoGoodSensor
 	}
-	if sb.orientation != nil {
+	switch {
+	case sb.orientation != nil:
 		sb.headingFunc = func(ctx context.Context) (float64, error) {
 			orient, err := sb.orientation.Orientation(ctx, nil)
 			if err != nil {
@@ -192,7 +196,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 
 			return rdkutils.RadToDeg(orient.EulerAngles().Yaw), nil
 		}
-	} else if sb.compassHeading != nil {
+	case sb.compassHeading != nil:
 		sb.headingFunc = func(ctx context.Context) (float64, error) {
 			compassHeading, err := sb.compassHeading.CompassHeading(ctx, nil)
 			if err != nil {
@@ -201,7 +205,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 
 			return compassHeading, nil
 		}
-	} else {
+	default:
 		sb.headingFunc = nil
 	}
 
@@ -257,13 +261,12 @@ func (sb *sensorBase) isPolling() bool {
 func (sb *sensorBase) MoveStraight(
 	ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{},
 ) error {
-
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
 	sb.setPolling(false)
-	spinTimeEst := time.Duration(int(time.Second) * int(math.Abs(float64(distanceMm)/mmPerSec)))
+	straightTimeEst := time.Duration(int(time.Second) * int(math.Abs(float64(distanceMm)/mmPerSec)))
 	startTime := time.Now()
-	timeOut := 5 * spinTimeEst
+	timeOut := 5 * straightTimeEst
 	if timeOut < 10*time.Second {
 		timeOut = 10 * time.Second
 	}
@@ -284,6 +287,16 @@ func (sb *sensorBase) MoveStraight(
 			return err
 		}
 	}
+	slowDownDist := calcSlowDownDist(distanceMm)
+
+	var initPos *geo.Point
+	var err error
+	if sb.position != nil {
+		initPos, _, err = sb.position.Position(ctx, nil)
+		if err != nil {
+			return err
+		}
+	}
 
 	ticker := time.NewTicker(time.Duration(1000./sb.controlLoopConfig.Frequency) * time.Millisecond)
 	defer ticker.Stop()
@@ -292,17 +305,26 @@ func (sb *sensorBase) MoveStraight(
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
+			var errDist float64
+			if sb.position != nil {
+				errDist, err = calcPositionErrorGPS(ctx, distanceMm, initPos, sb.position)
+				if err != nil {
+					return err
+				}
+			}
 
-			angVelDes, err := sb.calcHeadingControl(ctx)
+			if errDist < moveStraightErrTarget {
+				return sb.Stop(ctx, nil)
+			}
+
+			linVelDes := calcDistControl(errDist, mmPerSec, slowDownDist)
 			if err != nil {
 				return err
 			}
-			sb.logger.Info(angVelDes)
-			linVelDes, err := sb.calcPositionControl(ctx)
-			if err != nil {
+
+			if err := sb.updateControlConfig(ctx, linVelDes/1000.0, 0); err != nil {
 				return err
 			}
-			sb.logger.Info(linVelDes)
 
 			if time.Since(startTime) > timeOut {
 				sb.logger.CWarn(ctx, "exceeded time for Spin call, stopping base")
@@ -310,22 +332,37 @@ func (sb *sensorBase) MoveStraight(
 				return sb.Stop(ctx, nil)
 			}
 		}
+	}
+}
 
-		return sb.Stop(ctx, nil)
-	}
-}
-func (sb *sensorBase) calcHeadingControl(ctx context.Context) (float64, error) {
-	if sb.headingFunc == nil {
-		return 0, nil
-	}
-	return sb.headingFunc(ctx)
-}
-func (sb *sensorBase) calcPositionControl(ctx context.Context) (float64, error) {
-	pos, _, err := sb.position.Position(ctx, map[string]interface{}{"return_relative_pos_m": true})
+func calcPositionErrorGPS(ctx context.Context, distanceMm int, initPos *geo.Point,
+	position movementsensor.MovementSensor,
+) (float64, error) {
+	pos, _, err := position.Position(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
-	return r3.Vector{X: pos.Lat(), Y: pos.Lng()}.Norm(), nil
+
+	currDist := initPos.GreatCircleDistance(pos) * 1000000.
+	return float64(distanceMm) - currDist, nil
+}
+
+func calcDistControl(errDist, mmPerSec, slowDownDist float64) float64 {
+	// have the velocity slow down when appoaching the goal. Otherwise use the desired velocity
+	linVel := errDist * mmPerSec / slowDownDist
+	if linVel > mmPerSec {
+		return mmPerSec
+	}
+	if linVel < -mmPerSec {
+		return -mmPerSec
+	}
+	return linVel
+}
+
+// calcSlowDownAng computes the angle at which the spin should begin to slow down.
+// This helps to prevent overshoot when reaching the goal and reduces the jerk on the robot when the spin is complete.
+func calcSlowDownDist(distanceMm int) float64 {
+	return math.Min(float64(distanceMm)*slowDownDistGain, maxSlowDownDist)
 }
 
 func (sb *sensorBase) SetPower(
