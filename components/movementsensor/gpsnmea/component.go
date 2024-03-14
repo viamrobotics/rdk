@@ -24,7 +24,7 @@ type NMEAMovementSensor struct {
 
 // newNMEAMovementSensor creates a new movement sensor.
 func newNMEAMovementSensor(
-	ctx context.Context, name resource.Name, dev gpsutils.DataReader, logger logging.Logger,
+	_ context.Context, name resource.Name, dev gpsutils.DataReader, logger logging.Logger,
 ) (NmeaMovementSensor, error) {
 	g := &NMEAMovementSensor{
 		Named:      name.AsNamed(),
