@@ -171,9 +171,7 @@ func TestMotorEncoder1(t *testing.T) {
 		ctx := context.Background()
 
 		expectedState := EncodedMotorState{
-			regulated:    false,
 			lastPowerPct: 0,
-			direction:    0,
 		}
 		state := motorDep.GetMotorState(ctx)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -182,9 +180,7 @@ func TestMotorEncoder1(t *testing.T) {
 		})
 
 		newState := EncodedMotorState{
-			regulated:    true,
 			lastPowerPct: 0.2,
-			direction:    -1,
 		}
 		motorDep.SetMotorState(ctx, newState)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -345,7 +341,6 @@ func TestMotorEncoder1(t *testing.T) {
 		wg.Wait()
 
 		test.That(t, ctx.Err(), test.ShouldNotBeNil)
-		test.That(t, motorDep.state.regulated, test.ShouldBeFalse)
 	})
 }
 

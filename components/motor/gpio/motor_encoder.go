@@ -198,8 +198,6 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, directi
 		}
 		now := time.Now().UnixNano()
 
-		lastPowerPct := m.state.lastPowerPct
-
 		if (direction == 1 && pos >= goalPos) || (direction == -1 && pos <= goalPos) {
 			// stop motor when at or past goal position
 			if err := m.Stop(ctx, nil); err != nil {
@@ -208,6 +206,10 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, directi
 			}
 			return
 		}
+
+		m.stateMu.Lock()
+		lastPowerPct := m.state.lastPowerPct
+		m.stateMu.Unlock()
 
 		newPower, err := m.makeAdjustments(ctx, pos, lastPos, goalRPM, goalPos, lastPowerPct, now, lastTime)
 		if err != nil {
@@ -218,7 +220,9 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, directi
 		lastPos = pos
 		lastTime = now
 
+		m.stateMu.Lock()
 		m.state.lastPowerPct = newPower
+		m.stateMu.Unlock()
 	}
 }
 
@@ -307,8 +311,6 @@ func (m *EncodedMotor) directionMovingInLock() float64 {
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
 // Negative power implies a backward directional rotational.
 func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-	m.stateMu.Lock()
-	defer m.stateMu.Unlock()
 	if m.rpmMonitorDone != nil {
 		m.rpmMonitorDone()
 	}
@@ -319,8 +321,9 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 	return m.setPower(ctx, powerPct)
 }
 
-// setPower assumes the state lock is held.
 func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64) error {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
 	dir := sign(powerPct)
 	// If the control config exists, a control loop must exist, so the motor should be allowed to run at a power lower than 10%.
 	// In the case that the motor is tuning, m.loop will be nil, but m.controlLoopConfig.Blocks will not be empty,
