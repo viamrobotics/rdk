@@ -49,8 +49,8 @@ const (
 	defaultOpenIDDiscoveryPath = "/.well-known/openid-configuration"
 
 	prodAuthDomain = "https://auth.viam.com"
-	prodAudience   = "ce2227b8-4e43-46af-b701-a4b3359d4b4e"
-	prodClientID   = "ce2227b8-4e43-46af-b701-a4b3359d4b4e" // native client ID
+	prodAudience   = "c1e41724-9b29-479f-abcc-7bfbe2e3309a"
+	prodClientID   = "c1e41724-9b29-479f-abcc-7bfbe2e3309a" // native client ID
 
 	stgAuthDomain = "https://viam.fusionauth.io"
 	stgAudience   = "d7eb6419-301c-4ef1-a5e5-8e8bf28a87c0"
