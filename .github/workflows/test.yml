@@ -233,7 +233,7 @@ jobs:
 
   test_passing:
     name: All Tests Passing
-    needs: [test_go, test_web_e2e, test_pi, test32]
+    needs: [test_go, test_web_e2e, test32] # TODO re-add test_pi here and in run command after upgrading golang install
     runs-on: [ubuntu-latest]
     if: always()
     steps:
@@ -241,11 +241,9 @@ jobs:
         run: |
           echo Go Unit Tests: ${{ needs.test_go.result }}
           echo Go 32-bit Tests: ${{ needs.test32.result }}
-          echo Go Pi Tests: ${{ needs.test_pi.result }}
           echo Web/E2E Tests: ${{ needs.test_web_e2e.result }}
           [ "${{ needs.test_go.result }}" == "success" ] && \
           [ "${{ needs.test32.result }}" == "success" ] && \
-          [ "${{ needs.test_pi.result }}" == "success" ] && \
           [ "${{ needs.test_web_e2e.result }}" == "success" ]
 
       # Now that RDK is public, can't directly comment without token having full read/write access
