@@ -7,8 +7,10 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"testing"
 
 	pb "go.viam.com/api/app/v1"
+	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
@@ -42,10 +44,12 @@ type configAndCerts struct {
 }
 
 // NewFakeCloudServer creates and starts a new grpc server for the Viam Cloud.
-func NewFakeCloudServer(ctx context.Context, logger logging.Logger) (*FakeCloudServer, error) {
+func NewFakeCloudServer(t *testing.T, ctx context.Context, logger logging.Logger) (*FakeCloudServer, func()) { //revive:disable-line:context-as-argument
+	t.Helper()
+
 	listener, err := net.ListenTCP("tcp", &net.TCPAddr{Port: 0})
 	if err != nil {
-		return nil, err
+		return nil, func() {}
 	}
 
 	server := &FakeCloudServer{
@@ -63,7 +67,10 @@ func NewFakeCloudServer(ctx context.Context, logger logging.Logger) (*FakeCloudS
 		)),
 		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{Enable: false}))
 	if err != nil {
-		return nil, err
+		return nil, func() {}
+	}
+	shutdown := func() {
+		test.That(t, server.Shutdown(), test.ShouldBeNil)
 	}
 
 	err = server.rpcServer.RegisterServiceServer(
@@ -73,7 +80,7 @@ func NewFakeCloudServer(ctx context.Context, logger logging.Logger) (*FakeCloudS
 		pb.RegisterRobotServiceHandlerFromEndpoint,
 	)
 	if err != nil {
-		return nil, err
+		return nil, shutdown
 	}
 
 	server.exitWg.Add(1)
@@ -85,8 +92,7 @@ func NewFakeCloudServer(ctx context.Context, logger logging.Logger) (*FakeCloudS
 			logger.Warnf("Error shutting down grpc server", "error", err)
 		}
 	})
-
-	return server, nil
+	return server, shutdown
 }
 
 // FailOnConfigAndCerts if `failure` is true the server will return an Internal error on
