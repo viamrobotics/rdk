@@ -13,6 +13,7 @@ import (
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -184,7 +185,7 @@ func TestModuleFunctions(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	client := pb.NewModuleServiceClient(conn)
+	client := pb.NewModuleServiceClient(rpc.GrpcOverHTTPClientConn{ClientConn: conn})
 
 	m.SetReady(false)
 
@@ -210,7 +211,7 @@ func TestModuleFunctions(t *testing.T) {
 		test.That(t, "acme:demo:mybase", test.ShouldBeIn, handlers[0].GetModels()[0], handlers[1].GetModels()[0])
 
 		// convert from proto
-		hmap, err := module.NewHandlerMapFromProto(ctx, resp.GetHandlermap(), conn)
+		hmap, err := module.NewHandlerMapFromProto(ctx, resp.GetHandlermap(), rpc.GrpcOverHTTPClientConn{ClientConn: conn})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(hmap), test.ShouldEqual, 2)
 
@@ -264,7 +265,7 @@ func TestModuleFunctions(t *testing.T) {
 		_, err = m.AddResource(ctx, &pb.AddResourceRequest{Config: gizmoConf})
 		test.That(t, err, test.ShouldBeNil)
 
-		gClient = gizmoapi.NewClientFromConn(conn, "", gizmoapi.Named("gizmo1"), logger)
+		gClient = gizmoapi.NewClientFromConn(rpc.GrpcOverHTTPClientConn{ClientConn: conn}, "", gizmoapi.Named("gizmo1"), logger)
 
 		ret, err := gClient.DoOne(ctx, "test")
 		test.That(t, err, test.ShouldBeNil)

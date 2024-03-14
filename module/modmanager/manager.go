@@ -19,6 +19,7 @@ import (
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -839,7 +840,7 @@ func (m *module) dial() error {
 	if err != nil {
 		return errors.WithMessage(err, "module startup failed")
 	}
-	m.conn.ReplaceConn(conn)
+	m.conn.ReplaceConn(rpc.GrpcOverHTTPClientConn{ClientConn: conn})
 	m.client = pb.NewModuleServiceClient(&m.conn)
 	return nil
 }
