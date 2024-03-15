@@ -88,7 +88,7 @@ func TestRPMBounds(t *testing.T) {
 	mc := TMC5072Config{
 		SPIBus:           "3",
 		ChipSelect:       "40",
-		Index:            0,
+		Index:            1,
 		SGThresh:         0,
 		CalFactor:        1.0,
 		MaxAcceleration:  500,
@@ -164,7 +164,7 @@ func TestTMCStepperMotor(t *testing.T) {
 	mc := TMC5072Config{
 		SPIBus:           "main",
 		ChipSelect:       "40",
-		Index:            0,
+		Index:            1,
 		SGThresh:         0,
 		CalFactor:        1.0,
 		MaxAcceleration:  500,

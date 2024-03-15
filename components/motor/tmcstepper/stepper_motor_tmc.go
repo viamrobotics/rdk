@@ -63,6 +63,9 @@ func (config *TMC5072Config) Validate(path string) ([]string, error) {
 	if config.Index <= 0 {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "index")
 	}
+	if config.Index > 2 {
+		return nil, errors.New("tmcstepper motor index should be 1 or 2")
+	}
 	if config.TicksPerRotation <= 0 {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
 	}
@@ -71,18 +74,7 @@ func (config *TMC5072Config) Validate(path string) ([]string, error) {
 
 func init() {
 	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *TMC5072Config]{
-		Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger logging.Logger,
-		) (motor.Motor, error) {
-			newConf, err := resource.NativeConfig[*TMC5072Config](conf)
-			if err != nil {
-				return nil, err
-			}
-			return NewMotor(ctx, deps, *newConf, conf.ResourceName(), logger)
-		},
+		Constructor: newMotor,
 	})
 }
 
@@ -112,7 +104,7 @@ const (
 	uSteps  = 256      // Microsteps per fullstep
 )
 
-// TMC5072 Register Addressses (for motor index 0)
+// TMC5072 Register Addressses (for motor index 1)
 // TODO full register set.
 const (
 	// add 0x10 for motor 2.
@@ -148,11 +140,14 @@ const (
 )
 
 // NewMotor returns a TMC5072 driven motor.
-func NewMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, name resource.Name,
-	logger logging.Logger,
+func newMotor(ctx context.Context, deps resource.Dependencies, c resource.Config, logger logging.Logger,
 ) (motor.Motor, error) {
-	bus := buses.NewSpiBus(c.SPIBus)
-	return makeMotor(ctx, deps, c, name, logger, bus)
+	conf, err := resource.NativeConfig[*TMC5072Config](c)
+	if err != nil {
+		return nil, err
+	}
+	bus := buses.NewSpiBus(conf.SPIBus)
+	return makeMotor(ctx, deps, *conf, c.ResourceName(), logger, bus)
 }
 
 // makeMotor returns a TMC5072 driven motor. It is separate from NewMotor, above, so you can inject
@@ -288,8 +283,8 @@ func makeMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config,
 }
 
 func (m *Motor) shiftAddr(addr uint8) uint8 {
-	// Shift register address for motor 1 instead of motor zero
-	if m.index == 1 {
+	// Shift register address for motor 2 instead of motor 1
+	if m.index == 2 {
 		switch {
 		case addr >= 0x10 && addr <= 0x11:
 			addr += 0x08
