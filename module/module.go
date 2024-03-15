@@ -14,6 +14,7 @@ import (
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -22,9 +23,11 @@ import (
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/maps"
 	"google.golang.org/grpc"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -146,6 +149,9 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn rpc.C
 type peerResourceState struct {
 	// NOTE As I'm only suppporting video to start this will always be a single element
 	// once we add audio we will need to make this a slice / map
+	subscription *camera.StreamSubscription
+	// NOTE As I'm only suppporting video to start this will always be a single element
+	// once we add audio we will need to make this a slice
 	sender *webrtc.RTPSender
 }
 
@@ -156,6 +162,7 @@ type Module struct {
 	logger                  logging.Logger
 	mu                      sync.Mutex
 	activeResourceStreams   map[resource.Name]peerResourceState
+	streamSourceByName      map[resource.Name]camera.VideoCodecStreamSource
 	operations              *operation.Manager
 	ready                   bool
 	addr                    string
@@ -186,6 +193,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		logger:                logger,
 		addr:                  address,
 		operations:            opMgr,
+		streamSourceByName:    map[resource.Name]camera.VideoCodecStreamSource{},
 		activeResourceStreams: map[resource.Name]peerResourceState{},
 		server:                NewServer(unaries, streams),
 		ready:                 true,
@@ -261,12 +269,21 @@ func (m *Module) Start(ctx context.Context) error {
 }
 
 // Close shuts down the module and grpc server.
-// TODO: Shut down the subscriptions.
+// TODO: Shut down the subscriptions
 func (m *Module) Close(ctx context.Context) {
 	m.closeOnce.Do(func() {
 		m.mu.Lock()
 		parent := m.parent
 		for name, r := range m.activeResourceStreams {
+			vcss, ok := m.streamSourceByName[name]
+			if !ok {
+				m.logger.Errorf("unable to find %s in streamSourceByName", name)
+				continue
+			}
+			if err := vcss.Unsubscribe(ctx, r.subscription); err != nil {
+				m.logger.Errorf("unable call unsubscribe on resource %s", name)
+				continue
+			}
 			if err := m.pc.RemoveTrack(r.sender); err != nil {
 				m.logger.Errorf("RemoveTrack on resource %s", name)
 			}
@@ -277,7 +294,6 @@ func (m *Module) Close(ctx context.Context) {
 			}
 		}
 		m.mu.Unlock()
-		m.logger.Info("Shutting down gracefully.")
 		if parent != nil {
 			if err := parent.Close(ctx); err != nil {
 				m.logger.Error(err)
@@ -438,8 +454,18 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		return nil, err
 	}
 
+	var vcss camera.VideoCodecStreamSource
+	if cam, ok := res.(camera.VideoSource); ok {
+		if v, err := cam.VideoCodecStreamSource(ctx); err == nil {
+			vcss = v
+		}
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if vcss != nil {
+		m.streamSourceByName[res.Name()] = vcss
+	}
 	coll, ok := m.collections[conf.API]
 	if !ok {
 		return nil, errors.Errorf("module cannot service api: %s", conf.API)
@@ -517,6 +543,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	if resInfo.Constructor == nil {
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
+	// TODO: Not quite sure how a camera stream should handle the camera being reconfigured
 	newRes, err := resInfo.Constructor(ctx, deps, *conf, m.logger)
 	if err != nil {
 		return nil, err
@@ -577,6 +604,7 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 	if err := res.Close(ctx); err != nil {
 		m.logger.Error(err)
 	}
+	delete(m.streamSourceByName, res.Name())
 
 	return &pb.RemoveResourceResponse{}, coll.Remove(name)
 }
@@ -646,7 +674,11 @@ func (m *Module) OperationManager() *operation.Manager {
 
 // ListStreams lists the streams.
 func (m *Module) ListStreams(ctx context.Context, req *streampb.ListStreamsRequest) (*streampb.ListStreamsResponse, error) {
-	return &streampb.ListStreamsResponse{}, nil
+	names := make([]string, 0, len(m.streamSourceByName))
+	for _, n := range maps.Keys(m.streamSourceByName) {
+		names = append(names, n.String())
+	}
+	return &streampb.ListStreamsResponse{Names: names}, nil
 }
 
 // AddStream adds a stream.
@@ -660,6 +692,20 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 	if m.pc == nil {
 		return nil, errors.New("module has no peer connection")
 	}
+	vcss, ok := m.streamSourceByName[name]
+	if !ok {
+		return nil, errors.Errorf("unknown stream for resource %s, this is what I got: %#v", name.String(), m.streamSourceByName)
+	}
+
+	if _, ok = m.activeResourceStreams[name]; ok {
+		m.logger.Warn("(m *Module) AddStream called with %s when there is already a stream for peer connection %p", req.GetName(), m.pc)
+		return &streampb.AddStreamResponse{}, nil
+	}
+
+	sub, err := camera.NewVideoCodecStreamSubscription(512)
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating stream")
+	}
 	tlsRTP, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/H264"}, "video", name.String())
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating a new TrackLocalStaticRTP")
@@ -670,7 +716,21 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 	if err != nil {
 		return nil, errors.Wrap(err, "error adding track")
 	}
-	m.activeResourceStreams[name] = peerResourceState{sender: sender}
+	err = vcss.SubscribeRTP(ctx, sub, func(pkts []*rtp.Packet) error {
+		for _, pkt := range pkts {
+			if err := tlsRTP.WriteRTP(pkt); err != nil {
+				m.logger.Warn(err.Error())
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		removeTrackErr := errors.Wrap(m.pc.RemoveTrack(sender), "error removing track after SubscribeRTP failed")
+		subscribeErr := errors.Wrap(err, "error setting up stream subscription")
+		return nil, multierr.Append(subscribeErr, removeTrackErr)
+	}
+	m.activeResourceStreams[name] = peerResourceState{sender: sender, subscription: sub}
 	return &streampb.AddStreamResponse{}, nil
 }
 
@@ -685,10 +745,18 @@ func (m *Module) RemoveStream(ctx context.Context, req *streampb.RemoveStreamReq
 	if m.pc == nil {
 		return nil, errors.New("module has no peer connection")
 	}
+	vcss, ok := m.streamSourceByName[name]
+	if !ok {
+		return nil, errors.Errorf("unknown stream for resource %s", name.String())
+	}
 
 	prs, ok := m.activeResourceStreams[name]
 	if !ok {
 		return nil, fmt.Errorf("(m *Module) RemoveStream called on %s but peer state %p has no active peer stream", req.GetName(), m.pc)
+	}
+
+	if err := vcss.Unsubscribe(ctx, prs.subscription); err != nil {
+		return nil, err
 	}
 
 	if err := m.pc.RemoveTrack(prs.sender); err != nil {

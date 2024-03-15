@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/goccy/go-graphviz"
+	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
@@ -30,6 +31,11 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	webstream "go.viam.com/rdk/robot/web/stream"
 	rutils "go.viam.com/rdk/utils"
+)
+
+var (
+	SubscribeRTPTimeout = time.Second
+	UnsubscribeTimeout  = time.Second
 )
 
 // StreamServer manages streams and displays.
@@ -259,16 +265,132 @@ func (svc *webService) propertiesFromStream(ctx context.Context, stream gostream
 	return cam.Properties(ctx)
 }
 
-func (svc *webService) startVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
+func (svc *webService) startVideoStream(
+	ctx context.Context,
+	source gostream.VideoSource,
+	stream gostream.Stream,
+) {
+	svc.logger.Infof("Attempting H264 passthrough for stream: %s", stream.Name())
+	err := svc.h264Passthrough(ctx, source, stream)
+	if err == nil {
+		svc.logger.Infof("Using H264 Passthrough for stream: %s", stream.Name())
+		return
+	}
+	svc.logger.Infof("Falling back to GetImage. H264 passthrough unsuccessful due to %s", err.Error())
+	svc.logger.Infof("Using GetImage for stream: %s", stream.Name())
+
+	// otherwise, fallback to go stream GetImage jpeg -> h264 encoding
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
 		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
 		// Use H264 for cameras that support it; but do not override upstream values.
 		if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
 			streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
 		}
-
 		return webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
 	})
+}
+
+func (svc *webService) h264Passthrough(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) error {
+	h264Stream, err := svc.maybeGetVideoCodecStreamSource(ctx, stream)
+	if err != nil {
+		return err
+	}
+	streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
+	// Check if camera supports h264 passthrough.
+	noopCB := func(pkts []*rtp.Packet) error { return nil }
+	cancel, err := subscribeRTP(ctx, h264Stream, noopCB, svc.logger)
+	if err != nil {
+		return err
+	}
+	cancel()
+	waitCh := make(chan struct{})
+	svc.webWorkers.Add(1)
+	utils.ManagedGo(func() {
+		close(waitCh)
+		for {
+			if err := streamWhileStreamingReady(streamVideoCtx, h264Stream, stream, svc.logger); err != nil {
+				if utils.FilterOutError(err, context.Canceled) != nil {
+					svc.logger.Errorw("error streaming", "error", err)
+				}
+				return
+			}
+		}
+	}, svc.webWorkers.Done)
+	<-waitCh
+	return nil
+}
+
+func (svc *webService) maybeGetVideoCodecStreamSource(ctx context.Context, stream gostream.Stream) (camera.VideoCodecStreamSource, error) {
+	res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
+	if err != nil {
+		return nil, err
+	}
+	cam, ok := res.(camera.Camera)
+	if !ok {
+		return nil, errors.Errorf("expected %s to implement camera.Camera", stream.Name())
+	}
+
+	return cam.VideoCodecStreamSource(ctx)
+}
+
+func subscribeRTP(
+	ctx context.Context,
+	h264Stream camera.VideoCodecStreamSource,
+	packetCallback camera.PacketCallback,
+	logger logging.Logger,
+) (context.CancelFunc, error) {
+	sub, err := camera.NewVideoCodecStreamSubscription(512)
+	if err != nil {
+		return nil, err
+	}
+	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, SubscribeRTPTimeout)
+	defer timeoutCancel()
+
+	if err = h264Stream.SubscribeRTP(timeoutCtx, sub, packetCallback); err != nil {
+		return nil, err
+	}
+
+	return func() {
+		timeoutCtx, timeoutCancel := context.WithTimeout(ctx, UnsubscribeTimeout)
+		defer timeoutCancel()
+		if err := h264Stream.Unsubscribe(timeoutCtx, sub); err != nil {
+			logger.Error(err)
+		}
+	}, nil
+}
+
+func streamWhileStreamingReady(
+	ctx context.Context,
+	vcStream camera.VideoCodecStreamSource,
+	stream gostream.Stream,
+	logger logging.Logger,
+) error {
+	readyCh, readyCtx := stream.StreamingReady()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-readyCh:
+	}
+	cb := func(pkts []*rtp.Packet) error {
+		for _, pkt := range pkts {
+			if err := stream.WriteRTP(pkt); err != nil {
+				logger.Warn(err.Error())
+			}
+		}
+		return nil
+	}
+	cancel, err := subscribeRTP(ctx, vcStream, cb, logger)
+	if err != nil {
+		return err
+	}
+	defer cancel()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-readyCtx.Done():
+		return nil
+	}
 }
 
 func (svc *webService) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {

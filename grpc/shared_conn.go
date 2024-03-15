@@ -5,7 +5,6 @@ import (
 
 	"github.com/pion/webrtc/v3"
 	"go.uber.org/multierr"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
@@ -70,6 +69,7 @@ func (sc *SharedConn) RemoveOnTrackSub(name resource.Name) {
 }
 
 // PeerConn returns the PeerConnection.
+// TODO: See if we can make this HasPeerConn() bool
 func (sc *SharedConn) PeerConn() *webrtc.PeerConnection {
 	return sc.peerConn
 }

@@ -1,0 +1,31 @@
+{
+    "modules": [
+        {
+            "executable_path": "/home/dgottlieb/viam/rdk/robotModules/cameraWebRTC/modmain",
+            "name": "cameraWebRTC",
+            "type": "local"
+        }
+    ],
+    "components": [
+        {
+            "depends_on": [],
+            "model": "dang:camera:fake",
+            "name": "module",
+            "namespace": "rdk",
+            "type": "camera",
+            "attributes": {
+                "animated": true
+            }
+        },
+        {
+            "depends_on": [],
+            "model": "rdk:builtin:fake",
+            "name": "local",
+            "namespace": "rdk",
+            "type": "camera",
+            "attributes": {
+                "animated": true
+            }
+        }
+    ]
+}
