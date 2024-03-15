@@ -529,7 +529,6 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 	// see if a remote name matches the name if so then return the remote client
 	// remove the part id from the name passed in so that comparisons are made without part id
 	name = name.RemovePartID()
-	fmt.Printf("name: %v\n", name.RobotPartID)
 	if val, ok := rc.remoteNameMap[name]; ok {
 		name = val
 	}
