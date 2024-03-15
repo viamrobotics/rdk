@@ -49,6 +49,13 @@ func TestFakeProperties(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, prop.CloudSlam, test.ShouldBeFalse)
 	test.That(t, prop.MappingMode, test.ShouldEqual, slam.MappingModeNewMap)
+	test.That(t, prop.InternalStateFileType, test.ShouldEqual, ".pbstream")
+	test.That(t, prop.SensorInfo, test.ShouldResemble,
+		[]slam.SensorInfo{
+			{Name: "my-camera", Type: slam.SensorTypeCamera},
+			{Name: "my-movement-sensor", Type: slam.SensorTypeMovementSensor},
+		},
+	)
 }
 
 func TestFakeSLAMStateful(t *testing.T) {

@@ -1389,6 +1389,10 @@ func (fp *fakeProcess) Stop() error {
 	return nil
 }
 
+func (fp *fakeProcess) Status() error {
+	return nil
+}
+
 func TestManagerResourceRPCAPIs(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	injectRobot := &inject.Robot{}
