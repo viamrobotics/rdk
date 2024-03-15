@@ -399,5 +399,3 @@ require (
 )
 
 replace go.viam.com/api => ../api
-
-replace go.viam.com/utils => ../goutils
