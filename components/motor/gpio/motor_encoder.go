@@ -291,8 +291,6 @@ func (m *EncodedMotor) directionMovingInLock() float64 {
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
 // Negative power implies a backward directional rotational.
 func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	if m.rpmMonitorDone != nil {
 		m.rpmMonitorDone()
 	}
@@ -300,6 +298,8 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 		m.loop.Stop()
 		m.loop = nil
 	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.setPower(ctx, powerPct)
 }
 

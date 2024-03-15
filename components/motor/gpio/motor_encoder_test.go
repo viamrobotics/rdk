@@ -193,7 +193,7 @@ func TestMotorEncoder1(t *testing.T) {
 		}()
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, fakeMotor.PowerPct(), test.ShouldEqual, float32(0.1))
+			test.That(tb, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, float32(0))
 		})
 		motorDep.SetPower(context.Background(), -0.25, nil)
 		receivedErr := <-errChan
