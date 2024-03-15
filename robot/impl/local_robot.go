@@ -1173,8 +1173,8 @@ func (r *localRobot) checkMaxInstance(api resource.API, max int) error {
 	return nil
 }
 
-// GetCloudMetadata returns app-related information about the robot.
-func (r *localRobot) GetCloudMetadata(ctx context.Context) (cloud.Metadata, error) {
+// CloudMetadata returns app-related information about the robot.
+func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
 	md := cloud.Metadata{}
 	cfg := r.Config()
 	if cfg == nil {
