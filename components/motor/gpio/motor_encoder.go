@@ -306,7 +306,6 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 // setPower assumes the state lock is held.
 func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64) error {
 	m.lastPowerPct = fixPowerPct(powerPct, m.maxPowerPct)
-	m.logger.Errorf("setting power = %v", m.lastPowerPct)
 	return m.real.SetPower(ctx, m.lastPowerPct, nil)
 }
 
