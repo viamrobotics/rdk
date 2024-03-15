@@ -148,7 +148,7 @@ func (s *Server) ResourceNames(ctx context.Context, _ *pb.ResourceNamesRequest) 
 	rNames := make([]*commonpb.ResourceName, 0, len(all))
 
 	partID := ""
-	md, err := s.robot.GetCloudMetadata(ctx)
+	md, err := s.robot.CloudMetadata(ctx)
 	if err == nil {
 		partID = md.RobotPartID
 	}
