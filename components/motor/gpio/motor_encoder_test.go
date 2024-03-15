@@ -51,20 +51,6 @@ func MakeSingleBoard(t *testing.T) *fakeboard.Board {
 	return &b
 }
 
-// SetMotorState allows users to set the motor state values.
-func (m *EncodedMotor) SetMotorState(ctx context.Context, newState EncodedMotorState) {
-	m.stateMu.Lock()
-	defer m.stateMu.Unlock()
-	m.state = newState
-}
-
-// GetMotorState allows users to get the motor state values, used for testing.
-func (m *EncodedMotor) GetMotorState(ctx context.Context) EncodedMotorState {
-	m.stateMu.Lock()
-	defer m.stateMu.Unlock()
-	return m.state
-}
-
 func MakeIncrementalBoard(t *testing.T) *fakeboard.Board {
 	interrupt11, _ := fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
 		Name: "11",
@@ -166,28 +152,6 @@ func TestMotorEncoder1(t *testing.T) {
 	defer func() {
 		test.That(t, motorDep.Close(context.Background()), test.ShouldBeNil)
 	}()
-
-	t.Run("test get and set motor", func(t *testing.T) {
-		ctx := context.Background()
-
-		expectedState := EncodedMotorState{
-			lastPowerPct: 0,
-		}
-		state := motorDep.GetMotorState(ctx)
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			test.That(tb, state, test.ShouldResemble, expectedState)
-		})
-
-		newState := EncodedMotorState{
-			lastPowerPct: 0.2,
-		}
-		motorDep.SetMotorState(ctx, newState)
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			test.That(tb, motorDep.state, test.ShouldResemble, newState)
-		})
-	})
 
 	t.Run("encoded motor testing the basics", func(t *testing.T) {
 		isOn, powerPct, err := motorDep.IsPowered(context.Background(), nil)

@@ -138,9 +138,9 @@ type EncodedMotor struct {
 	real                    motor.Motor
 	encoder                 encoder.Encoder
 	offsetInTicks           float64
+	lastPowerPct            float64
 
-	stateMu        sync.RWMutex
-	state          EncodedMotorState
+	mu             sync.RWMutex
 	rpmMonitorDone func()
 
 	// how fast as we increase power do we do so
@@ -158,12 +158,6 @@ type EncodedMotor struct {
 	controlLoopConfig control.Config
 	blockNames        map[string][]string
 	loop              *control.Loop
-}
-
-// EncodedMotorState is the core, non-statistical state for the motor.
-// Multiple values should be updated atomically at the same time.
-type EncodedMotorState struct {
-	lastPowerPct float64
 }
 
 // rpmMonitor keeps track of the desired RPM and position.
@@ -207,9 +201,9 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, directi
 			return
 		}
 
-		m.stateMu.Lock()
-		lastPowerPct := m.state.lastPowerPct
-		m.stateMu.Unlock()
+		m.mu.Lock()
+		lastPowerPct := m.lastPowerPct
+		m.mu.Unlock()
 
 		if err := m.makeAdjustments(ctx, pos, lastPos, goalRPM, goalPos, lastPowerPct, now, lastTime); err != nil {
 			m.logger.CError(ctx, err)
@@ -227,8 +221,8 @@ func (m *EncodedMotor) makeAdjustments(
 	ctx context.Context, pos, lastPos, goalRPM, goalPos, lastPowerPct float64,
 	now, lastTime int64,
 ) error {
-	m.stateMu.Lock()
-	defer m.stateMu.Unlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	newPowerPct := lastPowerPct
 
@@ -282,8 +276,8 @@ func sign(x float64) float64 { // A quick helper function
 // DirectionMoving returns the direction we are currently moving in, with 1 representing
 // forward and  -1 representing backwards.
 func (m *EncodedMotor) DirectionMoving() int64 {
-	m.stateMu.RLock()
-	defer m.stateMu.RUnlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	return int64(m.directionMovingInLock())
 }
 
@@ -291,11 +285,11 @@ func (m *EncodedMotor) directionMovingInLock() float64 {
 	move, pwrPct, err := m.real.IsPowered(context.Background(), nil)
 	if move {
 		_, isSingle := m.encoder.(*single.Encoder)
-		if sign(m.state.lastPowerPct) != sign(pwrPct) && isSingle {
+		if sign(m.lastPowerPct) != sign(pwrPct) && isSingle {
 			// short sleep when changing directions to minimize lost ticks in single encoder
 			time.Sleep(10 * time.Microsecond)
 		}
-		return sign(m.state.lastPowerPct)
+		return sign(m.lastPowerPct)
 	}
 	if err != nil {
 		m.logger.Error(err)
@@ -306,8 +300,8 @@ func (m *EncodedMotor) directionMovingInLock() float64 {
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
 // Negative power implies a backward directional rotational.
 func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-	m.stateMu.Lock()
-	defer m.stateMu.Unlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.rpmMonitorDone != nil {
 		m.rpmMonitorDone()
 	}
@@ -327,8 +321,8 @@ func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64) error {
 	if math.Abs(powerPct) < 0.1 && len(m.controlLoopConfig.Blocks) == 0 {
 		powerPct = 0.1 * dir
 	}
-	m.state.lastPowerPct = fixPowerPct(powerPct, m.maxPowerPct)
-	return m.real.SetPower(ctx, m.state.lastPowerPct, nil)
+	m.lastPowerPct = fixPowerPct(powerPct, m.maxPowerPct)
+	return m.real.SetPower(ctx, m.lastPowerPct, nil)
 }
 
 // goForMath calculates goalPos, goalRPM, and direction based on the given GoFor rpm and revolutions, and the current position.
@@ -430,8 +424,8 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, directio
 				m.rpmMonitor(rpmCtx, rpm, goalPos, direction)
 			}, m.activeBackgroundWorkers.Done)
 
-			m.stateMu.Lock()
-			defer m.stateMu.Unlock()
+			m.mu.Lock()
+			defer m.mu.Unlock()
 			// start at 10% power
 			if err := m.setPower(ctx, direction*0.1); err != nil {
 				return err
@@ -480,8 +474,8 @@ func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, ex
 		return err
 	}
 
-	m.stateMu.Lock()
-	defer m.stateMu.Unlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.offsetInTicks = -1 * offset * m.ticksPerRotation
 	return nil
 }
@@ -492,8 +486,8 @@ func (m *EncodedMotor) position(ctx context.Context, extra map[string]interface{
 	if err != nil {
 		return 0, err
 	}
-	m.stateMu.RLock()
-	defer m.stateMu.RUnlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	pos := ticks + m.offsetInTicks
 	return pos, nil
 }
