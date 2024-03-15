@@ -81,8 +81,8 @@ type Robot interface {
 	// Status takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
 	Status(ctx context.Context, resourceNames []resource.Name) ([]Status, error)
 
-	// GetCloudMetadata returns app-related information about the robot.
-	GetCloudMetadata(ctx context.Context) (cloud.Metadata, error)
+	// CloudMetadata returns app-related information about the robot.
+	CloudMetadata(ctx context.Context) (cloud.Metadata, error)
 
 	// Close attempts to cleanly close down all constituent parts of the robot.
 	Close(ctx context.Context) error

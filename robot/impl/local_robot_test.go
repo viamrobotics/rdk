@@ -3233,7 +3233,7 @@ func TestCloudMetadata(t *testing.T) {
 		cfg := &config.Config{}
 		robot, shutdown := initTestRobot(t, ctx, cfg, logger)
 		defer shutdown()
-		_, err := robot.GetCloudMetadata(ctx)
+		_, err := robot.CloudMetadata(ctx)
 		test.That(t, err, test.ShouldBeError, errors.New("cloud metadata not available"))
 	})
 	t.Run("with cloud data", func(t *testing.T) {
@@ -3246,7 +3246,7 @@ func TestCloudMetadata(t *testing.T) {
 		}
 		robot, shutdown := initTestRobot(t, ctx, cfg, logger)
 		defer shutdown()
-		md, err := robot.GetCloudMetadata(ctx)
+		md, err := robot.CloudMetadata(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, md, test.ShouldResemble, cloud.Metadata{
 			RobotPartID:  "the-robot-part",

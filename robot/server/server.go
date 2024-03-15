@@ -461,7 +461,7 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 
 // GetCloudMetadata returns app-related information about the robot.
 func (s *Server) GetCloudMetadata(ctx context.Context, _ *pb.GetCloudMetadataRequest) (*pb.GetCloudMetadataResponse, error) {
-	md, err := s.robot.GetCloudMetadata(ctx)
+	md, err := s.robot.CloudMetadata(ctx)
 	if err != nil {
 		return nil, err
 	}
