@@ -36,6 +36,8 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			return err
 		}
 	}
+	ctx, done := sb.opMgr.New(ctx)
+	defer done()
 	sb.setPolling(true)
 
 	orientation, err := sb.orientation.Orientation(ctx, nil)
