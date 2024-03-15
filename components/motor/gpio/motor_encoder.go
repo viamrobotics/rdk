@@ -273,13 +273,8 @@ func (m *EncodedMotor) DirectionMoving() int64 {
 }
 
 func (m *EncodedMotor) directionMovingInLock() float64 {
-	move, pwrPct, err := m.real.IsPowered(context.Background(), nil)
+	move, err := m.real.IsMoving(context.Background())
 	if move {
-		_, isSingle := m.encoder.(*single.Encoder)
-		if sign(m.lastPowerPct) != sign(pwrPct) && isSingle {
-			// short sleep when changing directions to minimize lost ticks in single encoder
-			time.Sleep(10 * time.Microsecond)
-		}
 		return sign(m.lastPowerPct)
 	}
 	if err != nil {
