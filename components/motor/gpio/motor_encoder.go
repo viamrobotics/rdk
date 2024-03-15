@@ -211,18 +211,13 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, directi
 		lastPowerPct := m.state.lastPowerPct
 		m.stateMu.Unlock()
 
-		newPower, err := m.makeAdjustments(ctx, pos, lastPos, goalRPM, goalPos, lastPowerPct, now, lastTime)
-		if err != nil {
+		if err := m.makeAdjustments(ctx, pos, lastPos, goalRPM, goalPos, lastPowerPct, now, lastTime); err != nil {
 			m.logger.CError(ctx, err)
 			return
 		}
 
 		lastPos = pos
 		lastTime = now
-
-		m.stateMu.Lock()
-		m.state.lastPowerPct = newPower
-		m.stateMu.Unlock()
 	}
 }
 
@@ -231,7 +226,7 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, directi
 func (m *EncodedMotor) makeAdjustments(
 	ctx context.Context, pos, lastPos, goalRPM, goalPos, lastPowerPct float64,
 	now, lastTime int64,
-) (float64, error) {
+) error {
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 
@@ -266,9 +261,9 @@ func (m *EncodedMotor) makeAdjustments(
 	m.logger.CDebugf(ctx, "new powerPct %v", newPowerPct)
 
 	if err := m.setPower(ctx, newPowerPct); err != nil {
-		return 0, err
+		return err
 	}
-	return newPowerPct, nil
+	return nil
 }
 
 func fixPowerPct(powerPct, max float64) float64 {
@@ -325,22 +320,18 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 
 // setPower assumes the state lock is held.
 func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64) error {
-	// m.stateMu.Lock()
-	// defer m.stateMu.Unlock()
 	dir := sign(powerPct)
 	// If the control config exists, a control loop must exist, so the motor should be allowed to run at a power lower than 10%.
 	// In the case that the motor is tuning, m.loop will be nil, but m.controlLoopConfig.Blocks will not be empty,
 	// which is why m.loop is not checked here.
 	if math.Abs(powerPct) < 0.1 && len(m.controlLoopConfig.Blocks) == 0 {
-		m.state.lastPowerPct = 0.1 * dir
-	} else {
-		m.state.lastPowerPct = powerPct
+		powerPct = 0.1 * dir
 	}
-	m.state.lastPowerPct = fixPowerPct(m.state.lastPowerPct, m.maxPowerPct)
+	m.state.lastPowerPct = fixPowerPct(powerPct, m.maxPowerPct)
 	return m.real.SetPower(ctx, m.state.lastPowerPct, nil)
 }
 
-// goForMath calculates goalPos, goalRPM, and direction based on the given GoFor rpm and revolutions, and the current position
+// goForMath calculates goalPos, goalRPM, and direction based on the given GoFor rpm and revolutions, and the current position.
 func (m *EncodedMotor) goForMath(ctx context.Context, rpm, revolutions float64) (float64, float64, float64) {
 	direction := sign(rpm * revolutions)
 
