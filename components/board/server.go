@@ -216,13 +216,20 @@ func (s *serviceServer) StreamTicks(
 		return err
 	}
 
-	ticksChan := make(chan Tick, 1024)
+	ticksChan := make(chan Tick)
 
 	err = b.StreamTicks(server.Context(), req.PinNames, ticksChan, nil)
 	if err != nil {
 		return err
 	}
+	defer b.RemoveCallbacks(server.Context(), req.PinNames, ticksChan)
 	for {
+		select {
+		case <-server.Context().Done():
+			return server.Context().Err()
+		default:
+		}
+
 		select {
 		case <-server.Context().Done():
 			return server.Context().Err()

@@ -217,6 +217,10 @@ func (pca *PCA9685) StreamTicks(ctx context.Context, interrupts []string, ch cha
 	return grpc.UnimplementedError
 }
 
+func (pca *PCA9685) RemoveCallbacks(ctx context.Context, interrupts []string, ch chan board.Tick) error {
+	return grpc.UnimplementedError
+}
+
 // SetFrequency sets the global PWM frequency for the pca.
 func (pca *PCA9685) SetFrequency(ctx context.Context, frequency float64) error {
 	pca.mu.RLock()

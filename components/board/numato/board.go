@@ -311,6 +311,10 @@ func (gp *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string
 	return errors.New("numato doesn't support pwm")
 }
 
+func (b *numatoBoard) RemoveCallbacks(ctx context.Context, interrupts []string, ch chan board.Tick) error {
+	return grpc.UnimplementedError
+}
+
 // Status returns the current status of the board. Usually you
 // should use the CreateStatus helper instead of directly calling
 // this.

@@ -38,7 +38,6 @@ type client struct {
 	cachedStatusMu sync.Mutex
 
 	interruptStreams []*interruptStream
-	callbacks        map[string]chan Tick
 
 	mu sync.Mutex
 }
@@ -284,18 +283,20 @@ func (c *client) StreamTicks(ctx context.Context, interrupts []string, ch chan T
 		client: c,
 	}
 
+	c.mu.Lock()
+	c.interruptStreams = append(c.interruptStreams, stream)
+	c.mu.Unlock()
+
 	err = stream.startStream(ctx, interrupts, ch)
 
 	if err != nil {
 		return err
 	}
-
-	c.mu.Lock()
-	c.interruptStreams = append(c.interruptStreams, stream)
-	c.mu.Unlock()
-
 	return nil
+}
 
+func (c *client) RemoveCallbacks(ctx context.Context, interrupts []string, ch chan Tick) error {
+	return nil
 }
 
 func (s *interruptStream) startStream(ctx context.Context, interrupts []string, ch chan Tick) error {
@@ -314,7 +315,6 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []string, 
 		s.connectTickStream(ctx, interrupts, ch)
 	})
 
-	//wait until the stream is ready to return
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -328,12 +328,10 @@ func (s *interruptStream) connectTickStream(ctx context.Context, interrupts []st
 	defer func() {
 		s.streamMu.Lock()
 		defer s.streamMu.Unlock()
-		s.streamCancel = nil
 		s.streamRunning = false
 	}()
 
-	streamCtx, cancel := context.WithCancel(ctx)
-	s.streamCancel = cancel
+	streamCtx, streamCancel := context.WithCancel(ctx)
 
 	select {
 	case <-ctx.Done():
@@ -346,7 +344,6 @@ func (s *interruptStream) connectTickStream(ctx context.Context, interrupts []st
 		PinNames: interrupts,
 	}
 
-	//call the server to start streaming ticks
 	stream, err := s.client.client.StreamTicks(streamCtx, req)
 	if err != nil {
 		s.client.logger.CError(ctx, err)
@@ -358,12 +355,13 @@ func (s *interruptStream) connectTickStream(ctx context.Context, interrupts []st
 	}
 	s.streamReady = nil
 
-	// repeatly recieve from the stream
+	defer s.closeStream(streamCancel)
+
+	// repeatly receive from the stream
 	for {
 		select {
 		case <-ctx.Done():
 			s.client.logger.CError(ctx, err)
-			s.closeStream()
 			return
 		default:
 		}
@@ -371,22 +369,20 @@ func (s *interruptStream) connectTickStream(ctx context.Context, interrupts []st
 		if err != nil {
 			// only debug log the context canceled error
 			s.client.logger.Debug(err)
-			s.closeStream()
 			return
-		} else {
-			// If there is a response with a tick, send it to the channel
-			tick := Tick{
-				Name:             streamResp.PinName,
-				High:             streamResp.High,
-				TimestampNanosec: streamResp.Time,
-			}
-			ch <- tick
 		}
+		// If there is a response, send to the tick channel.
+		tick := Tick{
+			Name:             streamResp.PinName,
+			High:             streamResp.High,
+			TimestampNanosec: streamResp.Time,
+		}
+		ch <- tick
 	}
 }
 
-func (s *interruptStream) closeStream() {
-	s.streamCancel()
+func (s *interruptStream) closeStream(cancel func()) {
+	cancel()
 
 	for i := range s.interruptStreams {
 		if s.client.interruptStreams[i] == s {
