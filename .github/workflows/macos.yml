@@ -10,7 +10,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        ref: ${{ github.event == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
     - uses: actions/setup-go@v4
       with:
         go-version: '1.21.x'
