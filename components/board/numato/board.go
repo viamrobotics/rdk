@@ -311,6 +311,7 @@ func (gp *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string
 	return errors.New("numato doesn't support pwm")
 }
 
+// RemoveCallbacks removes the callbacks from the given interrupts.
 func (b *numatoBoard) RemoveCallbacks(ctx context.Context, interrupts []string, ch chan board.Tick) error {
 	return grpc.UnimplementedError
 }

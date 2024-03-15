@@ -217,6 +217,7 @@ func (pca *PCA9685) StreamTicks(ctx context.Context, interrupts []string, ch cha
 	return grpc.UnimplementedError
 }
 
+// RemoveCallbacks removes the callbacks from the given interrupts.
 func (pca *PCA9685) RemoveCallbacks(ctx context.Context, interrupts []string, ch chan board.Tick) error {
 	return grpc.UnimplementedError
 }

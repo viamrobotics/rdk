@@ -189,7 +189,6 @@ func (c *client) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *
 	}
 	_, err := c.client.SetPowerMode(ctx, &pb.SetPowerModeRequest{Name: c.info.name, PowerMode: mode, Duration: dur})
 	return err
-
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
@@ -242,7 +241,6 @@ type digitalInterruptClient struct {
 	*client
 	boardName            string
 	digitalInterruptName string
-	callbacks            []chan Tick
 }
 
 func (dic *digitalInterruptClient) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
@@ -295,6 +293,7 @@ func (c *client) StreamTicks(ctx context.Context, interrupts []string, ch chan T
 	return nil
 }
 
+// RemoveCallbacks removes the callbacks from the given interrupts.
 func (c *client) RemoveCallbacks(ctx context.Context, interrupts []string, ch chan Tick) error {
 	return nil
 }
@@ -323,25 +322,19 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []string, 
 		PinNames: interrupts,
 	}
 
-	// This call won't return any errors it had until the client tries to recieve.
+	// This call won't return any errors it had until the client tries to receive.
+	//nolint:errcheck
 	stream, _ := s.client.client.StreamTicks(streamCtx, req)
-	streamResp, err := stream.Recv()
+	_, err := stream.Recv()
 	if err != nil {
 		s.client.logger.CError(ctx, err)
 		return err
 	}
-	// If there is a response, send to the tick channel.
-	tick := Tick{
-		Name:             streamResp.PinName,
-		High:             streamResp.High,
-		TimestampNanosec: streamResp.Time,
-	}
-	ch <- tick
 
 	// Create a background go routine to recive from the server stream.
 	utils.PanicCapturingGo(func() {
 		defer s.activeBackgroundWorkers.Done()
-		s.recieveFromStream(ctx, stream, ch)
+		s.recieveFromStream(streamCtx, stream, ch)
 	})
 
 	select {
@@ -349,7 +342,6 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []string, 
 		return ctx.Err()
 	case <-s.streamReady:
 		return nil
-
 	}
 }
 
@@ -363,13 +355,13 @@ func (s *interruptStream) recieveFromStream(ctx context.Context, stream pb.Board
 		close(s.streamReady)
 	}
 	s.streamReady = nil
-
 	defer s.closeStream(s.streamCancel)
 
 	// repeatly receive from the stream
 	for {
 		select {
 		case <-ctx.Done():
+			s.client.logger.Debug(ctx.Err())
 			return
 		default:
 		}

@@ -203,17 +203,23 @@ func (pi *piPigpio) Reconfigure(
 }
 
 // StreamTicks starts a stream of digital interrupt ticks.
-func (pi *piPigpio) StreamTicks(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
-	for _, name := range interrupts {
+func (pi *piPigpio) StreamTicks(ctx context.Context, interruptNames []string, ch chan board.Tick, extra map[string]interface{}) error {
+	var interrupts []board.DigitalInterrupt
+	for _, name := range interruptNames {
 		interrupt, ok := pi.DigitalInterruptByName(name)
 		if !ok {
 			return errors.Errorf("unknown digital interrupt: %s", name)
 		}
-		interrupt.AddCallback(ch)
+		interrupts = append(interrupts, interrupt)
+	}
+
+	for _, i := range interrupts {
+		i.AddCallback(ch)
 	}
 	return nil
 }
 
+// RemoveCallbacks removes the callbacks from the given interrupts.
 func (pi *piPigpio) RemoveCallbacks(ctx context.Context, interrupts []string, ch chan board.Tick) error {
 	for _, name := range interrupts {
 		i, ok := pi.DigitalInterruptByName(name)
@@ -223,7 +229,6 @@ func (pi *piPigpio) RemoveCallbacks(ctx context.Context, interrupts []string, ch
 		i.RemoveCallback(ch)
 	}
 	return nil
-
 }
 
 func (pi *piPigpio) reconfigureAnalogReaders(ctx context.Context, cfg *Config) error {

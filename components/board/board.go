@@ -83,6 +83,7 @@ type Board interface {
 	// StreamTicks starts a stream of digital interrupt ticks.
 	StreamTicks(ctx context.Context, interrupts []string, ch chan Tick, extra map[string]interface{}) error
 
+	// RemoveCallbacks removes the callbacks from the given interrupts.
 	RemoveCallbacks(ctx context.Context, interrupts []string, ticksChan chan Tick) error
 }
 
