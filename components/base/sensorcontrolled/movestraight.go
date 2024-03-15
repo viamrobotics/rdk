@@ -8,7 +8,6 @@ import (
 
 	geo "github.com/kellydunn/golang-geo"
 
-	"go.viam.com/rdk/components/movementsensor"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -53,6 +52,7 @@ func (sb *sensorBase) MoveStraight(
 
 	// initialize relevant parameters for moving straight
 	slowDownDist := calcSlowDownDist(distanceMm)
+
 	var initPos *geo.Point
 
 	if sb.position != nil {
@@ -77,7 +77,7 @@ func (sb *sensorBase) MoveStraight(
 			}
 
 			if sb.position != nil {
-				errDist, err = calcPositionError(ctx, distanceMm, initPos, sb.position)
+				errDist, err = sb.calcPositionError(ctx, distanceMm, initPos)
 				if err != nil {
 					return err
 				}
@@ -122,27 +122,27 @@ func (sb *sensorBase) calcHeadingControl(ctx context.Context, initHeading float6
 
 // calcPositionError calculates the current error in position.
 // This results in the distance the base needs to travel to reach the goal.
-func calcPositionError(ctx context.Context, distanceMm int, initPos *geo.Point,
-	position movementsensor.MovementSensor,
-) (float64, error) {
-	pos, _, err := position.Position(ctx, nil)
+func (sb *sensorBase) calcPositionError(ctx context.Context, distanceMm int, initPos *geo.Point) (float64, error) {
+	pos, _, err := sb.position.Position(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
 
+	// the currDist will always return as positive, so we need the goal distanceMm to be positive
 	currDist := initPos.GreatCircleDistance(pos) * 1000000.
-	return float64(distanceMm) - currDist, nil
+	return math.Abs(float64(distanceMm)) - currDist, nil
 }
 
 // calcLinVel computes the desired linear velocity based on how far the base is from reaching the goal.
 func calcLinVel(errDist, mmPerSec, slowDownDist float64) float64 {
 	// have the velocity slow down when appoaching the goal. Otherwise use the desired velocity
 	linVel := errDist * mmPerSec / slowDownDist
-	if linVel > mmPerSec {
-		return mmPerSec
+	absMmPerSec := math.Abs(mmPerSec)
+	if linVel > 0 && linVel > absMmPerSec {
+		return absMmPerSec
 	}
-	if linVel < -mmPerSec {
-		return -mmPerSec
+	if linVel < 0 && linVel < -absMmPerSec {
+		return -absMmPerSec
 	}
 	return linVel
 }
@@ -150,7 +150,14 @@ func calcLinVel(errDist, mmPerSec, slowDownDist float64) float64 {
 // calcSlowDownDist computes the distance at which the MoveStraight call should begin to slow down.
 // This helps to prevent overshoot when reaching the goal and reduces the jerk on the robot when the straight is complete.
 func calcSlowDownDist(distanceMm int) float64 {
-	return math.Min(float64(distanceMm)*slowDownDistGain, maxSlowDownDist)
+	slowDownDist := float64(distanceMm) * slowDownDistGain
+	if slowDownDist < -maxSlowDownDist {
+		return -maxSlowDownDist
+	}
+	if slowDownDist > maxSlowDownDist {
+		return maxSlowDownDist
+	}
+	return slowDownDist
 }
 
 // determineHeadingFunc determines which movement sensor endpoint should be used for control.
