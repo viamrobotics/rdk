@@ -49,7 +49,7 @@ func NewFakeCloudServer(t *testing.T, ctx context.Context, logger logging.Logger
 
 	listener, err := net.ListenTCP("tcp", &net.TCPAddr{Port: 0})
 	if err != nil {
-		return nil, func() {}
+		t.Fatalf("failed to start listener for fake cloud server")
 	}
 
 	server := &FakeCloudServer{
@@ -67,10 +67,7 @@ func NewFakeCloudServer(t *testing.T, ctx context.Context, logger logging.Logger
 		)),
 		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{Enable: false}))
 	if err != nil {
-		return nil, func() {}
-	}
-	shutdown := func() {
-		test.That(t, server.Shutdown(), test.ShouldBeNil)
+		t.Fatalf("failed to create new fake cloud server")
 	}
 
 	err = server.rpcServer.RegisterServiceServer(
@@ -80,9 +77,8 @@ func NewFakeCloudServer(t *testing.T, ctx context.Context, logger logging.Logger
 		pb.RegisterRobotServiceHandlerFromEndpoint,
 	)
 	if err != nil {
-		return nil, shutdown
+		t.Fatalf("failed to register robot service for new fake cloud server")
 	}
-
 	server.exitWg.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer server.exitWg.Done()
@@ -92,6 +88,9 @@ func NewFakeCloudServer(t *testing.T, ctx context.Context, logger logging.Logger
 			logger.Warnf("Error shutting down grpc server", "error", err)
 		}
 	})
+	shutdown := func() {
+		test.That(t, server.Shutdown(), test.ShouldBeNil)
+	}
 	return server, shutdown
 }
 
