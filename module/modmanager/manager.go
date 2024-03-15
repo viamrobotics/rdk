@@ -13,6 +13,7 @@ import (
 	"time"
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
+	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -88,6 +89,30 @@ type module struct {
 	// another OUE has finished.
 	inStartup      atomic.Bool
 	inRecoveryLock sync.Mutex
+
+	peerConn *webrtc.PeerConnection
+	pcReady  <-chan struct{}
+}
+
+// For modules, the grpc connection is over a Unix socket. The WebRTC `PeerConnection` is made
+// separately. The `buddyConn` continues to implement the `rpc.ClientConn` interface by pairing up
+// the two underlying connections a client may want to communicate over.
+type buddyConn struct {
+	*rdkgrpc.ReconfigurableClientConn
+	peerConn *webrtc.PeerConnection
+}
+
+func (bc *buddyConn) PeerConn() *webrtc.PeerConnection {
+	return bc.peerConn
+}
+
+func (bc *buddyConn) Close() error {
+	var err error
+	if bc.peerConn != nil {
+		err = bc.peerConn.Close()
+	}
+
+	return multierr.Combine(err, bc.ReconfigurableClientConn.Close())
 }
 
 type addedResource struct {
@@ -261,7 +286,18 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 		resources: map[resource.Name]*addedResource{},
 	}
 
-	if err := mgr.startModule(ctx, mod); err != nil {
+	var err error
+	if mod.peerConn, err = webrtc.NewPeerConnection(webrtc.Configuration{}); err != nil {
+		mgr.logger.Warnw("Error creating optional peer connection for module. Ignoring.", "module", conf.Name, "err", err)
+	} else {
+		mod.pcReady, err = modlib.ConfigureForRenegotiation(mod.peerConn, mgr.logger)
+		if err != nil {
+			mgr.logger.Warnw("Error creating renegotiation channel for module. Ignoring.", "module", conf.Name, "err", err)
+		}
+
+	}
+
+	if err = mgr.startModule(ctx, mod); err != nil {
 		return err
 	}
 	return nil
@@ -446,9 +482,10 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
 	if !ok || apiInfo.RPCClient == nil {
 		mgr.logger.Warnf("no built-in grpc client for modular resource %s", conf.ResourceName())
-		return rdkgrpc.NewForeignResource(conf.ResourceName(), &mod.conn), nil
+		return rdkgrpc.NewForeignResource(conf.ResourceName(), &buddyConn{&mod.conn, mod.peerConn}), nil
 	}
-	return apiInfo.RPCClient(ctx, &mod.conn, "", conf.ResourceName(), mgr.logger)
+
+	return apiInfo.RPCClient(ctx, &buddyConn{&mod.conn, mod.peerConn}, "", conf.ResourceName(), mgr.logger)
 }
 
 // ReconfigureResource updates/reconfigures a modular component with a new configuration.
@@ -866,8 +903,16 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 		}
 	}()
 
+	req := &pb.ReadyRequest{ParentAddress: parentAddr}
+
+	// Wait for gathering to complete. Pass the entire SDP as an offer to the `ReadyRequest`.
+	if sdp, err := generateSDP(m.peerConn); err == nil {
+		req.ServerSdp = sdp
+	} else {
+		logger.Warnw("Error generating SDP for peerconn. Ignoring.", "err", err)
+	}
+
 	for {
-		req := &pb.ReadyRequest{ParentAddress: parentAddr}
 		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
 		resp, err := m.client.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
 		if err != nil {
@@ -875,6 +920,10 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 		}
 
 		if resp.Ready {
+			if err = connect(m.peerConn, resp.ModuleSdp); err != nil {
+				logger.Warnw("Error creating PeerConnection. Ignoring.", "err", err)
+			}
+			<-m.pcReady
 			m.handles, err = modlib.NewHandlerMapFromProto(ctx, resp.Handlermap, &m.conn)
 			return err
 		}
@@ -1108,4 +1157,35 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 		robotID = "local"
 	}
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
+}
+
+func generateSDP(pc *webrtc.PeerConnection) (string, error) {
+	if pc == nil {
+		return "", nil
+	}
+
+	offer, err := pc.CreateOffer(nil)
+	if err != nil {
+		return "", err
+	}
+
+	if err = pc.SetLocalDescription(offer); err != nil {
+		return "", err
+	}
+
+	<-webrtc.GatheringCompletePromise(pc)
+	return modlib.EncodeSDP(pc.LocalDescription())
+}
+
+func connect(pc *webrtc.PeerConnection, encodedAnswer string) error {
+	answer := webrtc.SessionDescription{}
+	if err := modlib.DecodeSDP(encodedAnswer, &answer); err != nil {
+		return err
+	}
+
+	if err := pc.SetRemoteDescription(answer); err != nil {
+		return nil
+	}
+
+	return nil
 }

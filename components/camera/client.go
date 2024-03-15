@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"runtime/debug"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -40,6 +41,8 @@ type client struct {
 	healthyClientCh         chan struct{}
 }
 
+var create sync.Once
+
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(
 	ctx context.Context,
@@ -49,6 +52,7 @@ func NewClientFromConn(
 	logger logging.Logger,
 ) (Camera, error) {
 	c := pb.NewCameraServiceClient(conn)
+	fmt.Printf("Camera Client. PeerConn? %p\n", conn.PeerConn())
 	return &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
 		name:   name.ShortName(),
@@ -76,6 +80,8 @@ func getExtra(ctx context.Context) (*structpb.Struct, error) {
 	return ext, nil
 }
 
+var stack sync.Once
+
 func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Read")
 	defer span.End()
@@ -87,6 +93,7 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, err
 	}
 
+	stack.Do(func() { debug.PrintStack() })
 	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
 		Name:     c.name,
 		MimeType: expectedType,

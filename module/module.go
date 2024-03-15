@@ -14,10 +14,12 @@ import (
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
+	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
@@ -156,7 +158,10 @@ type Module struct {
 	collections             map[resource.API]resource.APIResourceCollection[resource.Resource]
 	resLoggers              map[resource.Resource]logging.Logger
 	closeOnce               sync.Once
+	pc                      *webrtc.PeerConnection
+	pcReady                 <-chan struct{}
 	pb.UnimplementedModuleServiceServer
+	streampb.UnimplementedStreamServiceServer
 }
 
 // NewModule returns the basic module framework/structure.
@@ -182,6 +187,19 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	if err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m); err != nil {
 		return nil, err
 	}
+	if err := m.server.RegisterServiceServer(ctx, &streampb.StreamService_ServiceDesc, m); err != nil {
+		return nil, err
+	}
+	var err error
+	m.pc, err = webrtc.NewPeerConnection(webrtc.Configuration{})
+	if err != nil {
+		logger.Warnw("Error creating optional peer connection for module. Ignoring.", "err", err)
+	}
+	m.pcReady, err = ConfigureForRenegotiation(m.pc, logger)
+	if err != nil {
+		logger.Warnw("Error creating renegotiation channel for module. Ignoring.", "err", err)
+	}
+
 	return m, nil
 }
 
@@ -288,8 +306,41 @@ func (m *Module) SetReady(ready bool) {
 	m.ready = ready
 }
 
+// PeerConnect returns the encoded answer string for the `ReadyResponse`.
+func (m *Module) PeerConnect(encodedOffer string) (string, error) {
+	if m.pc == nil {
+		return "", errors.New("No PeerConnection object.")
+	}
+
+	offer := webrtc.SessionDescription{}
+	DecodeSDP(encodedOffer, &offer)
+	if err := m.pc.SetRemoteDescription(offer); err != nil {
+		return "", err
+	}
+
+	answer, err := m.pc.CreateAnswer(nil)
+	if err != nil {
+		return "", err
+	}
+
+	if err := m.pc.SetLocalDescription(answer); err != nil {
+		return "", err
+	}
+
+	<-webrtc.GatheringCompletePromise(m.pc)
+	return EncodeSDP(m.pc.LocalDescription())
+}
+
 // Ready receives the parent address and reports api/model combos the module is ready to service.
 func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResponse, error) {
+	resp := &pb.ReadyResponse{}
+
+	encodedAnswer, err := m.PeerConnect(req.ServerSdp)
+	if err == nil {
+		resp.ModuleSdp = encodedAnswer
+	} else {
+		m.logger.Warnw("Error creating PeerConnection answer.", "err", err)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.parentAddr = req.GetParentAddress()
@@ -305,14 +356,15 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 		moduleLogger.startLoggingViaGRPC(m)
 	}
 
-	return &pb.ReadyResponse{
-		Ready:      m.ready,
-		Handlermap: m.handlers.ToProto(),
-	}, nil
+	resp.Ready = m.ready
+	resp.Handlermap = m.handlers.ToProto()
+	return resp, nil
 }
 
 // AddResource receives the component/service configuration from the parent.
 func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*pb.AddResourceResponse, error) {
+	<-m.pcReady
+
 	deps := make(resource.Dependencies)
 	for _, c := range req.Dependencies {
 		name, err := resource.NewFromString(c)
@@ -552,6 +604,18 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.API, mod
 // OperationManager returns the operation manager for the module.
 func (m *Module) OperationManager() *operation.Manager {
 	return m.operations
+}
+
+func (m *Module) ListStreams(ctx context.Context, req *streampb.ListStreamsRequest) (*streampb.ListStreamsResponse, error) {
+	return nil, nil
+}
+
+func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) (*streampb.AddStreamResponse, error) {
+	return nil, nil
+}
+
+func (m *Module) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRequest) (*streampb.RemoveStreamResponse, error) {
+	return nil, nil
 }
 
 // addConvertedAttributesToConfig uses the MapAttributeConverter to fill in the
