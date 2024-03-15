@@ -96,8 +96,13 @@ func (slamSvc *SLAM) Properties(ctx context.Context) (slam.Properties, error) {
 	defer span.End()
 
 	prop := slam.Properties{
-		CloudSlam:   false,
-		MappingMode: slam.MappingModeNewMap,
+		CloudSlam:             false,
+		MappingMode:           slam.MappingModeNewMap,
+		InternalStateFileType: ".pbstream",
+		SensorInfo: []slam.SensorInfo{
+			{Name: "my-camera", Type: slam.SensorTypeCamera},
+			{Name: "my-movement-sensor", Type: slam.SensorTypeMovementSensor},
+		},
 	}
 	return prop, nil
 }
