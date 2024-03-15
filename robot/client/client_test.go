@@ -2012,7 +2012,7 @@ func TestLoggingInterceptor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestGetCloudMetadata(t *testing.T) {
+func TestCloudMetadata(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
@@ -2026,7 +2026,7 @@ func TestGetCloudMetadata(t *testing.T) {
 	injectRobot := &inject.Robot{
 		ResourceNamesFunc:   func() []resource.Name { return nil },
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
-		GetCloudMetadataFunc: func(ctx context.Context) (cloud.Metadata, error) {
+		CloudMetadataFunc: func(ctx context.Context) (cloud.Metadata, error) {
 			return injectCloudMD, nil
 		},
 	}
@@ -2045,7 +2045,7 @@ func TestGetCloudMetadata(t *testing.T) {
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	md, err := client.GetCloudMetadata(context.Background())
+	md, err := client.CloudMetadata(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, md, test.ShouldResemble, injectCloudMD)
 }
