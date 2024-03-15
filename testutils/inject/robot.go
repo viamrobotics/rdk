@@ -48,7 +48,7 @@ type Robot struct {
 	TransformPointCloudFunc func(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
 	StatusFunc              func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
 	ModuleAddressFunc       func() (string, error)
-	GetCloudMetadataFunc    func(ctx context.Context) (cloud.Metadata, error)
+	CloudMetadataFunc       func(ctx context.Context) (cloud.Metadata, error)
 
 	ops        *operation.Manager
 	SessMgr    session.Manager
@@ -284,14 +284,14 @@ func (r *Robot) ModuleAddress() (string, error) {
 	return r.ModuleAddressFunc()
 }
 
-// GetCloudMetadata calls the injected GetCloudMetadata or the real one.
-func (r *Robot) GetCloudMetadata(ctx context.Context) (cloud.Metadata, error) {
+// CloudMetadata calls the injected CloudMetadata or the real one.
+func (r *Robot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
-	if r.GetCloudMetadataFunc == nil {
-		return r.GetCloudMetadata(ctx)
+	if r.CloudMetadataFunc == nil {
+		return r.CloudMetadata(ctx)
 	}
-	return r.GetCloudMetadataFunc(ctx)
+	return r.CloudMetadataFunc(ctx)
 }
 
 type noopSessionManager struct{}

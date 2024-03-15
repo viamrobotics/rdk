@@ -45,6 +45,12 @@ const (
 	MappingModeUpdateExistingMap
 )
 
+// SensorTypeCamera is a camera sensor.
+const (
+	SensorTypeCamera = SensorType(iota)
+	SensorTypeMovementSensor
+)
+
 // API is a variable that identifies the slam resource API.
 var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 
@@ -52,11 +58,23 @@ var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 // creating a new map, localizing on an existing map or updating an existing map.
 type MappingMode uint8
 
+// SensorType describes what sensor type the sensor is, including
+// camera or movement sensor.
+type SensorType uint8
+
+// SensorInfo holds information about the sensor name and sensor type.
+type SensorInfo struct {
+	Name string
+	Type SensorType
+}
+
 // Properties returns various information regarding the current slam service,
 // including whether the slam process is running in the cloud and its mapping mode.
 type Properties struct {
-	CloudSlam   bool
-	MappingMode MappingMode
+	CloudSlam             bool
+	MappingMode           MappingMode
+	InternalStateFileType string
+	SensorInfo            []SensorInfo
 }
 
 // Named is a helper for getting the named service's typed resource name.
@@ -138,32 +156,4 @@ func Limits(ctx context.Context, svc Service, useEditedMap bool) ([]referencefra
 		{Min: dims.MinX, Max: dims.MaxX},
 		{Min: dims.MinY, Max: dims.MaxY},
 	}, nil
-}
-
-func mappingModeToProtobuf(mappingMode MappingMode) pb.MappingMode {
-	switch mappingMode {
-	case MappingModeNewMap:
-		return pb.MappingMode_MAPPING_MODE_CREATE_NEW_MAP
-	case MappingModeLocalizationOnly:
-		return pb.MappingMode_MAPPING_MODE_LOCALIZE_ONLY
-	case MappingModeUpdateExistingMap:
-		return pb.MappingMode_MAPPING_MODE_UPDATE_EXISTING_MAP
-	default:
-		return pb.MappingMode_MAPPING_MODE_UNSPECIFIED
-	}
-}
-
-func protobufToMappingMode(mappingMode pb.MappingMode) (MappingMode, error) {
-	switch mappingMode {
-	case pb.MappingMode_MAPPING_MODE_CREATE_NEW_MAP:
-		return MappingModeNewMap, nil
-	case pb.MappingMode_MAPPING_MODE_LOCALIZE_ONLY:
-		return MappingModeLocalizationOnly, nil
-	case pb.MappingMode_MAPPING_MODE_UPDATE_EXISTING_MAP:
-		return MappingModeUpdateExistingMap, nil
-	case pb.MappingMode_MAPPING_MODE_UNSPECIFIED:
-		fallthrough
-	default:
-		return 0, errors.New("mapping mode unspecified")
-	}
 }

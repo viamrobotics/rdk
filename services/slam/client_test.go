@@ -52,8 +52,13 @@ func TestClientWorkingService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	propSucc := slam.Properties{
-		CloudSlam:   false,
-		MappingMode: slam.MappingModeNewMap,
+		CloudSlam:             false,
+		MappingMode:           slam.MappingModeNewMap,
+		InternalStateFileType: ".pbstream",
+		SensorInfo: []slam.SensorInfo{
+			{Name: "my-camera", Type: slam.SensorTypeCamera},
+			{Name: "my-movement-sensor", Type: slam.SensorTypeMovementSensor},
+		},
 	}
 
 	err = pcSucc.PointCloud.Set(pointcloud.NewVector(5, 5, 5), nil)
@@ -162,6 +167,8 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, prop.CloudSlam, test.ShouldBeFalse)
 		test.That(t, prop.CloudSlam, test.ShouldEqual, propSucc.CloudSlam)
 		test.That(t, prop.MappingMode, test.ShouldEqual, propSucc.MappingMode)
+		test.That(t, prop.InternalStateFileType, test.ShouldEqual, propSucc.InternalStateFileType)
+		test.That(t, prop.SensorInfo, test.ShouldResemble, propSucc.SensorInfo)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
@@ -206,6 +213,8 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, prop.CloudSlam, test.ShouldBeFalse)
 		test.That(t, prop.CloudSlam, test.ShouldEqual, propSucc.CloudSlam)
 		test.That(t, prop.MappingMode, test.ShouldEqual, propSucc.MappingMode)
+		test.That(t, prop.InternalStateFileType, test.ShouldEqual, propSucc.InternalStateFileType)
+		test.That(t, prop.SensorInfo, test.ShouldResemble, propSucc.SensorInfo)
 
 		// test do command
 		workingSLAMService.DoCommandFunc = testutils.EchoFunc
@@ -258,6 +267,8 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, prop.CloudSlam, test.ShouldBeFalse)
 		test.That(t, prop.CloudSlam, test.ShouldEqual, propSucc.CloudSlam)
 		test.That(t, prop.MappingMode, test.ShouldEqual, propSucc.MappingMode)
+		test.That(t, prop.InternalStateFileType, test.ShouldEqual, propSucc.InternalStateFileType)
+		test.That(t, prop.SensorInfo, test.ShouldResemble, propSucc.SensorInfo)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
