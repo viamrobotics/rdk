@@ -77,6 +77,8 @@ func (ac *AssociatedConfig) Equals(other resource.AssociatedConfig) bool {
 	if len(ac.CaptureMethods) != len(ac2.CaptureMethods) {
 		return false
 	}
+	// naively iterate over the list of capture methods and determine if they are the same
+	// note that two lists with capture methods [a, b] and [b, a] will not be equal as they are out of order
 	for i := 0; i < len(ac.CaptureMethods); i++ {
 		if !ac.CaptureMethods[i].Equals(ac2.CaptureMethods[i]) {
 			return false

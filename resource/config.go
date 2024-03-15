@@ -176,6 +176,9 @@ func (assoc AssociatedResourceConfig) MarshalJSON() ([]byte, error) {
 // Equals checks if the two configs are deeply equal to each other. Validation
 // related fields and implicit dependencies will be ignored.
 func (conf Config) Equals(other Config) bool {
+	if len(conf.AssociatedAttributes) != len(other.AssociatedAttributes) {
+		return false
+	}
 	for association, assocCfg := range conf.AssociatedAttributes {
 		otherAssocCfg, ok := other.AssociatedAttributes[association]
 		if !ok || !assocCfg.Equals(otherAssocCfg) {
