@@ -34,24 +34,10 @@ func TestFromReader(t *testing.T) {
 		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
 	}
 
-	setupFakeServer := func(t *testing.T) (*testutils.FakeCloudServer, func()) {
-		t.Helper()
-
-		logger := logging.NewTestLogger(t)
-
-		fakeServer, err := testutils.NewFakeCloudServer(context.Background(), logger)
-		test.That(t, err, test.ShouldBeNil)
-		cleanup := func() {
-			test.That(t, fakeServer.Shutdown(), test.ShouldBeNil)
-		}
-
-		return fakeServer, cleanup
-	}
-
 	t.Run("online", func(t *testing.T) {
 		setupClearCache(t)
 
-		fakeServer, cleanup := setupFakeServer(t)
+		fakeServer, cleanup := testutils.NewFakeCloudServer(t, ctx, logger)
 		defer cleanup()
 
 		cloudResponse := &Cloud{
@@ -114,7 +100,7 @@ func TestFromReader(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		defer clearCache(robotPartID)
 
-		fakeServer, cleanup := setupFakeServer(t)
+		fakeServer, cleanup := testutils.NewFakeCloudServer(t, ctx, logger)
 		defer cleanup()
 		fakeServer.FailOnConfigAndCertsWith(context.DeadlineExceeded)
 		fakeServer.StoreDeviceConfig(robotPartID, nil, nil)
