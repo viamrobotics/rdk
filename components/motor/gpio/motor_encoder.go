@@ -309,14 +309,15 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 
 // setPower assumes the state lock is held.
 func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64) error {
-	dir := sign(powerPct)
-	// If the control config exists, a control loop must exist, so the motor should be allowed to run at a power lower than 10%.
-	// In the case that the motor is tuning, m.loop will be nil, but m.controlLoopConfig.Blocks will not be empty,
-	// which is why m.loop is not checked here.
-	if math.Abs(powerPct) < 0.1 && len(m.controlLoopConfig.Blocks) == 0 {
-		powerPct = 0.1 * dir
-	}
+	// dir := sign(powerPct)
+	// // If the control config exists, a control loop must exist, so the motor should be allowed to run at a power lower than 10%.
+	// // In the case that the motor is tuning, m.loop will be nil, but m.controlLoopConfig.Blocks will not be empty,
+	// // which is why m.loop is not checked here.
+	// if math.Abs(powerPct) < 0.1 && len(m.controlLoopConfig.Blocks) == 0 {
+	// 	powerPct = 0.1 * dir
+	// }
 	m.lastPowerPct = fixPowerPct(powerPct, m.maxPowerPct)
+	m.logger.Errorf("setting power = %v", m.lastPowerPct)
 	return m.real.SetPower(ctx, m.lastPowerPct, nil)
 }
 
@@ -362,7 +363,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		var errs error
 		pos, posErr := m.position(ctx, extra)
 		errs = multierr.Combine(errs, posErr)
-		if rdkutils.Float64AlmostEqual(pos, goalPos, 5.0) {
+		if rdkutils.Float64AlmostEqual(pos, goalPos, 10.0) {
 			stopErr := m.Stop(ctx, extra)
 			errs = multierr.Combine(errs, stopErr)
 			return true, errs
