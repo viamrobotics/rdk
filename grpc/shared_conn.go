@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/pion/webrtc/v3"
@@ -37,16 +38,18 @@ func NewSharedConn(conn *ReconfigurableClientConn, peerConn *webrtc.PeerConnecti
 	}
 	if peerConn != nil {
 		peerConn.OnTrack(func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
+			logger.Infow("OnTrack called with", "streamID", tr.StreamID())
 			name, err := resource.NewFromString(tr.StreamID())
 			if err != nil {
-				logger.Errorf("%p OnTrack called with StreamID: %s which is not able to be parsed into a resource name", sc, tr.StreamID())
+				logger.Errorw("OnTrack called with streamID which is not able to be parsed into a resource name", "streamID ", tr.StreamID())
 				return
 			}
 			sc.mu.RLock()
 			onTrackCB, ok := sc.resourceOnTrackCBs[name]
 			sc.mu.RUnlock()
 			if !ok {
-				sc.logger.Errorf("%p OnTrack called with StreamID: %s which is not in the resourceOnTrackCBs: %#v", sc, name, sc.resourceOnTrackCBs)
+				sc.logger.Errorw("OnTrack called with StreamID which is not in the resourceOnTrackCBs",
+					"streamID", name, "resourceOnTrackCBs", fmt.Sprintf("%#v", sc.resourceOnTrackCBs))
 				return
 			}
 			onTrackCB(tr, r)
