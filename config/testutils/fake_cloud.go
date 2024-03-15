@@ -31,7 +31,7 @@ type FakeCloudServer struct {
 
 	deviceConfigs map[string]*configAndCerts
 
-	failOnConfigAndCerts bool
+	errConfigAndCerts error
 
 	mu sync.Mutex
 }
@@ -92,9 +92,20 @@ func NewFakeCloudServer(ctx context.Context, logger logging.Logger) (*FakeCloudS
 // FailOnConfigAndCerts if `failure` is true the server will return an Internal error on
 // all certficate and config requests.
 func (s *FakeCloudServer) FailOnConfigAndCerts(failure bool) {
+	if failure {
+		s.FailOnConfigAndCertsWith(status.Error(codes.Internal, "oops failure"))
+	} else {
+		s.FailOnConfigAndCertsWith(nil)
+	}
+}
+
+// FailOnConfigAndCertsWith will cause the server to return a given `error` on all
+// certficate and config requests. If `error == nil` then certficate and config
+// requests will succeed.
+func (s *FakeCloudServer) FailOnConfigAndCertsWith(err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.failOnConfigAndCerts = failure
+	s.errConfigAndCerts = err
 }
 
 // Addr returns the listeners address.
@@ -138,8 +149,8 @@ func (s *FakeCloudServer) Config(ctx context.Context, req *pb.ConfigRequest) (*p
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.failOnConfigAndCerts {
-		return nil, status.Error(codes.Internal, "oops failure")
+	if s.errConfigAndCerts != nil {
+		return nil, s.errConfigAndCerts
 	}
 
 	d, ok := s.deviceConfigs[req.Id]
@@ -155,8 +166,8 @@ func (s *FakeCloudServer) Certificate(ctx context.Context, req *pb.CertificateRe
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.failOnConfigAndCerts {
-		return nil, status.Error(codes.Internal, "oops failure")
+	if s.errConfigAndCerts != nil {
+		return nil, s.errConfigAndCerts
 	}
 
 	d, ok := s.deviceConfigs[req.Id]
