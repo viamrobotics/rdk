@@ -631,33 +631,8 @@ func (manager *resourceManager) completeConfig(
 
 			switch {
 			case resName.API.IsComponent(), resName.API.IsService():
-				newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, robot)
-				if newlyBuilt || err != nil {
-					if err := manager.markChildrenForUpdate(resName); err != nil {
-						manager.logger.CErrorw(ctx,
-							"failed to mark children of resource for update",
-							"resource", resName,
-							"reason", err)
-					}
-				}
-
-				if err != nil {
-					gNode.LogAndSetLastError(
-						fmt.Errorf("resource build error: %w", err),
-						"resource", conf.ResourceName(),
-						"model", conf.Model)
+				if err := manager.goProcessResource(ctx, ctxWithTimeout, resName, gNode, robot); err != nil {
 					return
-				}
-
-				// if the ctxWithTimeout fails with DeadlineExceeded, then that means that
-				// resource generation is running async, and we don't currently have good
-				// validation around how this might affect the resource graph. So, we avoid
-				// updating the graph to be safe.
-				if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-					manager.logger.CErrorw(
-						ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
-				} else {
-					gNode.SwapResource(newRes, conf.Model)
 				}
 
 			default:
@@ -805,6 +780,46 @@ func (manager *resourceManager) markChildrenForUpdate(rName resource.Name) error
 		}
 
 		gNode.SetNeedsUpdate()
+	}
+	return nil
+}
+
+func (manager *resourceManager) goProcessResource(
+	ctx context.Context,
+	ctxWithTimeout context.Context,
+	resName resource.Name,
+	gNode *resource.GraphNode,
+	r *localRobot,
+	// depChans map[resource.Name]chan error,
+) error {
+	conf := gNode.Config()
+	newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, r)
+	if newlyBuilt || err != nil {
+		if err := manager.markChildrenForUpdate(resName); err != nil {
+			manager.logger.CErrorw(ctx,
+				"failed to mark children of resource for update",
+				"resource", resName,
+				"reason", err)
+		}
+	}
+
+	if err != nil {
+		gNode.LogAndSetLastError(
+			fmt.Errorf("resource build error: %w", err),
+			"resource", conf.ResourceName(),
+			"model", conf.Model)
+		return err
+	}
+
+	// if the ctxWithTimeout fails with DeadlineExceeded, then that means that
+	// resource generation is running async, and we don't currently have good
+	// validation around how this might affect the resource graph. So, we avoid
+	// updating the graph to be safe.
+	if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
+		manager.logger.CErrorw(
+			ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
+	} else {
+		gNode.SwapResource(newRes, conf.Model)
 	}
 	return nil
 }
