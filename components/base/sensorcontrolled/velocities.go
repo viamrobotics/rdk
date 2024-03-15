@@ -83,7 +83,7 @@ func (sb *sensorBase) SetVelocity(
 	// this will also stop any active Spin calls
 	sb.setPolling(false)
 
-	if len(sb.conf.ControlParameters) != 0 {
+	if len(sb.controlLoopConfig.Blocks) != 0 {
 		// start a sensor context for the sensor loop based on the longstanding base
 		// creator context, and add a timeout for the context
 		timeOut := 10 * time.Second

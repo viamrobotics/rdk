@@ -32,7 +32,7 @@ func (sb *sensorBase) MoveStraight(
 		timeOut = 10 * time.Second
 	}
 
-	if sb.position == nil || len(sb.conf.ControlParameters) == 0 {
+	if sb.position == nil || len(sb.controlLoopConfig.Blocks) == 0 {
 		sb.logger.CWarnf(ctx,
 			"Position reporting sensor not available, and no control loop is configured, using base %s MoveStraight",
 			sb.controlledBase.Name().ShortName())
