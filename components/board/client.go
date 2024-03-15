@@ -304,15 +304,44 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []string, 
 	defer s.streamMu.Unlock()
 
 	s.streamRunning = true
-	s.streamReady = make(chan bool, 1024)
+	s.streamReady = make(chan bool)
 	s.activeBackgroundWorkers.Add(1)
 	ctx, cancel := context.WithCancel(ctx)
 	s.cancelBackgroundWorkers = cancel
 
-	// Create a background go routine that connects to the server's stream
+	streamCtx, cancel := context.WithCancel(ctx)
+	s.streamCancel = cancel
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	req := &pb.StreamTicksRequest{
+		Name:     s.client.info.name,
+		PinNames: interrupts,
+	}
+
+	// This call won't return any errors it had until the client tries to recieve.
+	stream, _ := s.client.client.StreamTicks(streamCtx, req)
+	streamResp, err := stream.Recv()
+	if err != nil {
+		s.client.logger.CError(ctx, err)
+		return err
+	}
+	// If there is a response, send to the tick channel.
+	tick := Tick{
+		Name:             streamResp.PinName,
+		High:             streamResp.High,
+		TimestampNanosec: streamResp.Time,
+	}
+	ch <- tick
+
+	// Create a background go routine to recive from the server stream.
 	utils.PanicCapturingGo(func() {
 		defer s.activeBackgroundWorkers.Done()
-		s.connectTickStream(ctx, interrupts, ch)
+		s.recieveFromStream(ctx, stream, ch)
 	})
 
 	select {
@@ -324,44 +353,23 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []string, 
 	}
 }
 
-func (s *interruptStream) connectTickStream(ctx context.Context, interrupts []string, ch chan Tick) {
+func (s *interruptStream) recieveFromStream(ctx context.Context, stream pb.BoardService_StreamTicksClient, ch chan Tick) {
 	defer func() {
 		s.streamMu.Lock()
 		defer s.streamMu.Unlock()
 		s.streamRunning = false
 	}()
-
-	streamCtx, streamCancel := context.WithCancel(ctx)
-
-	select {
-	case <-ctx.Done():
-		return
-	default:
-	}
-
-	req := &pb.StreamTicksRequest{
-		Name:     s.client.info.name,
-		PinNames: interrupts,
-	}
-
-	stream, err := s.client.client.StreamTicks(streamCtx, req)
-	if err != nil {
-		s.client.logger.CError(ctx, err)
-		return
-	}
-
 	if s.streamReady != nil {
 		close(s.streamReady)
 	}
 	s.streamReady = nil
 
-	defer s.closeStream(streamCancel)
+	defer s.closeStream(s.streamCancel)
 
 	// repeatly receive from the stream
 	for {
 		select {
 		case <-ctx.Done():
-			s.client.logger.CError(ctx, err)
 			return
 		default:
 		}
