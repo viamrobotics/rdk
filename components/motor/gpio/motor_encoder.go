@@ -162,10 +162,6 @@ type EncodedMotor struct {
 
 // rpmMonitor keeps track of the desired RPM and position.
 func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, direction float64) {
-	if m.encoder == nil {
-		panic("started rpmMonitor but have no encoder")
-	}
-
 	lastPos, err := m.position(ctx, nil)
 	if err != nil {
 		panic(err)
