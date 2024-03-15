@@ -196,13 +196,19 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	if len(c.StringSlice(dataFlagMimeTypes)) != 0 {
 		filter.MimeType = c.StringSlice(dataFlagMimeTypes)
 	}
-	if len(c.StringSlice(dataFlagFilterTags)) != 0 {
+	// We have some weirdness because the --tags flag can mean two completely different things.
+	// It could be either tags to filter by, or, if running 'viam data tag' it will mean the
+	// tags to add to the data. To account for this, we have to check if we're running the tag
+	// command, and if so, to add the filter tags if we pass in --filter-tags.
+	if strings.Contains(c.Command.UsageText, "tag") && len(c.StringSlice(dataFlagFilterTags)) != 0 {
 		filter.TagsFilter = &datapb.TagsFilter{
 			Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_MATCH_BY_OR,
 			Tags: c.StringSlice(dataFlagFilterTags),
 		}
 	}
-	if c.StringSlice(dataFlagTags) != nil {
+	// Similar to the above comment, we only want to add filter tags with --tags if we're NOT
+	// running the tag command.
+	if !strings.Contains(c.Command.UsageText, "tag") && c.StringSlice(dataFlagTags) != nil {
 		if len(c.StringSlice(dataFlagFilterTags)) == 0 {
 			switch {
 			case len(c.StringSlice(dataFlagTags)) == 1 && c.StringSlice(dataFlagTags)[0] == "tagged":
@@ -641,7 +647,6 @@ func (c *viamClient) dataAddTagsToBinaryByFilter(filter *datapb.Filter, tags []s
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
-	printf(c.c.App.Writer, "filter: %s, tags %s", filter, tags)
 	_, err := c.dataClient.AddTagsToBinaryDataByFilter(context.Background(),
 		&datapb.AddTagsToBinaryDataByFilterRequest{Filter: filter, Tags: tags})
 	if err != nil {

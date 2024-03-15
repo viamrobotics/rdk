@@ -167,7 +167,7 @@ var dataTagByFilterFlags = append([]cli.Flag{
 	&cli.StringSliceFlag{
 		Name:     dataFlagTags,
 		Required: true,
-		Usage:    "comma separated tags to add to the data",
+		Usage:    "comma separated tags to add/remove to the data",
 	},
 	&cli.StringSliceFlag{
 		Name: dataFlagFilterTags,
@@ -368,11 +368,14 @@ var app = &cli.App{
 							Usage: "number of download requests to make in parallel",
 							Value: 100,
 						},
-
 						&cli.StringSliceFlag{
 							Name: dataFlagTags,
 							Usage: "tags filter. " +
 								"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagDataType,
+							Usage: "type of data to download. can be binary or tabular",
 						},
 					},
 						commonFilterFlags...),
@@ -691,7 +694,7 @@ var app = &cli.App{
 						{
 							Name:      "filter",
 							Usage:     "adds or removes tags from binary data by filter",
-							UsageText: createUsageText("data tag ids", []string{dataFlagTags}, false),
+							UsageText: createUsageText("data tag filter", []string{dataFlagTags}, false),
 							Subcommands: []*cli.Command{
 								{
 									Name:  "add",
