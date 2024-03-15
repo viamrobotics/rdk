@@ -106,14 +106,5 @@ func (s *interruptStream) recieveFromStream(ctx context.Context, stream pb.Board
 
 func (s *interruptStream) closeStream(cancel func()) {
 	cancel()
-
-	for i := range s.interruptStreams {
-		if s.client.interruptStreams[i] == s {
-			// To remove this item, we replace it with the last item in the list, then truncate the
-			// list by 1.
-			s.client.interruptStreams[i] = s.client.interruptStreams[len(s.client.interruptStreams)-1]
-			s.client.interruptStreams = s.client.interruptStreams[:len(s.client.interruptStreams)-1]
-			break
-		}
-	}
+	s.client.removeStream(s)
 }

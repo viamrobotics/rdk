@@ -279,6 +279,20 @@ func (c *client) StreamTicks(ctx context.Context, interrupts []string, ch chan T
 	return nil
 }
 
+func (c *client) removeStream(s *interruptStream) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for i := range s.interruptStreams {
+		if c.interruptStreams[i] == s {
+			// To remove this item, we replace it with the last item in the list, then truncate the
+			// list by 1.
+			s.client.interruptStreams[i] = s.client.interruptStreams[len(s.client.interruptStreams)-1]
+			s.client.interruptStreams = s.client.interruptStreams[:len(s.client.interruptStreams)-1]
+			break
+		}
+	}
+}
+
 // RemoveCallbacks removes the callbacks from the given interrupts.
 func (c *client) RemoveCallbacks(ctx context.Context, interrupts []string, ch chan Tick) error {
 	return nil
