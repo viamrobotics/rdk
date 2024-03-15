@@ -14,15 +14,20 @@ import (
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/pion/rtp"
+	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
+	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/maps"
 	"google.golang.org/grpc"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -141,12 +146,22 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn rpc.C
 	return hMap, errs
 }
 
+type peerResourceState struct {
+	// NOTE In the future this is going to need to be a slice of subscriptions but b/c
+	subscription *camera.StreamSubscription
+	// NOTE As I'm only suppporting video to start this will always be a single element
+	// once we add audio we will need to make this a slice
+	sender *webrtc.RTPSender
+}
+
 // Module represents an external resource module that services components/services.
 type Module struct {
 	parent                  *client.RobotClient
 	server                  rpc.Server
 	logger                  logging.Logger
 	mu                      sync.Mutex
+	activePeerStreams       map[*webrtc.PeerConnection]map[resource.Name]peerResourceState
+	streamSourceByName      map[resource.Name]camera.VideoCodecStreamSource
 	operations              *operation.Manager
 	ready                   bool
 	addr                    string
@@ -156,7 +171,10 @@ type Module struct {
 	collections             map[resource.API]resource.APIResourceCollection[resource.Resource]
 	resLoggers              map[resource.Resource]logging.Logger
 	closeOnce               sync.Once
+	pc                      *webrtc.PeerConnection
+	pcReady                 <-chan struct{}
 	pb.UnimplementedModuleServiceServer
+	streampb.UnimplementedStreamServiceServer
 }
 
 // NewModule returns the basic module framework/structure.
@@ -170,18 +188,33 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		opMgr.StreamServerInterceptor,
 	}
 	m := &Module{
-		logger:      logger,
-		addr:        address,
-		operations:  opMgr,
-		server:      NewServer(unaries, streams),
-		ready:       true,
-		handlers:    HandlerMap{},
-		collections: map[resource.API]resource.APIResourceCollection[resource.Resource]{},
-		resLoggers:  map[resource.Resource]logging.Logger{},
+		logger:             logger,
+		addr:               address,
+		operations:         opMgr,
+		streamSourceByName: map[resource.Name]camera.VideoCodecStreamSource{},
+		activePeerStreams:  map[*webrtc.PeerConnection]map[resource.Name]peerResourceState{},
+		server:             NewServer(unaries, streams),
+		ready:              true,
+		handlers:           HandlerMap{},
+		collections:        map[resource.API]resource.APIResourceCollection[resource.Resource]{},
+		resLoggers:         map[resource.Resource]logging.Logger{},
 	}
 	if err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m); err != nil {
 		return nil, err
 	}
+	if err := m.server.RegisterServiceServer(ctx, &streampb.StreamService_ServiceDesc, m); err != nil {
+		return nil, err
+	}
+	var err error
+	m.pc, err = webrtc.NewPeerConnection(webrtc.Configuration{})
+	if err != nil {
+		logger.Warnw("Error creating optional peer connection for module. Ignoring.", "err", err)
+	}
+	m.pcReady, err = ConfigureForRenegotiation(m.pc, logger)
+	if err != nil {
+		logger.Warnw("Error creating renegotiation channel for module. Ignoring.", "err", err)
+	}
+
 	return m, nil
 }
 
@@ -288,8 +321,41 @@ func (m *Module) SetReady(ready bool) {
 	m.ready = ready
 }
 
+// PeerConnect returns the encoded answer string for the `ReadyResponse`.
+func (m *Module) PeerConnect(encodedOffer string) (string, error) {
+	if m.pc == nil {
+		return "", errors.New("No PeerConnection object.")
+	}
+
+	offer := webrtc.SessionDescription{}
+	DecodeSDP(encodedOffer, &offer)
+	if err := m.pc.SetRemoteDescription(offer); err != nil {
+		return "", err
+	}
+
+	answer, err := m.pc.CreateAnswer(nil)
+	if err != nil {
+		return "", err
+	}
+
+	if err := m.pc.SetLocalDescription(answer); err != nil {
+		return "", err
+	}
+
+	<-webrtc.GatheringCompletePromise(m.pc)
+	return EncodeSDP(m.pc.LocalDescription())
+}
+
 // Ready receives the parent address and reports api/model combos the module is ready to service.
 func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResponse, error) {
+	resp := &pb.ReadyResponse{}
+
+	encodedAnswer, err := m.PeerConnect(req.ServerSdp)
+	if err == nil {
+		resp.ModuleSdp = encodedAnswer
+	} else {
+		m.logger.Warnw("Error creating PeerConnection answer.", "err", err)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.parentAddr = req.GetParentAddress()
@@ -305,14 +371,17 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 		moduleLogger.startLoggingViaGRPC(m)
 	}
 
-	return &pb.ReadyResponse{
-		Ready:      m.ready,
-		Handlermap: m.handlers.ToProto(),
-	}, nil
+	resp.Ready = m.ready
+	resp.Handlermap = m.handlers.ToProto()
+	return resp, nil
 }
 
 // AddResource receives the component/service configuration from the parent.
 func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*pb.AddResourceResponse, error) {
+	m.logger.Warn("ADD RESOURCE")
+	<-m.pcReady
+	m.logger.Warn("ADD RESOURCE after pc ready")
+
 	deps := make(resource.Dependencies)
 	for _, c := range req.Dependencies {
 		name, err := resource.NewFromString(c)
@@ -350,12 +419,24 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.logger.Warn("res booted")
+	if cam, ok := res.(camera.VideoSource); ok {
+		vcss, err := cam.VideoCodecStreamSource()
+		if err != nil {
+			m.logger.Fatalf("VideoCodecStreamSource err %s", err.Error())
+		}
+		m.streamSourceByName[res.Name()] = vcss
+	} else {
+		m.logger.Fatalf("res doesn't implement camera.VideoCodecStreamSource %#v, %T", res, res)
+	}
+
 	coll, ok := m.collections[conf.API]
 	if !ok {
 		return nil, errors.Errorf("module cannot service api: %s", conf.API)
 	}
 	m.resLoggers[res] = resLogger
 
+	m.logger.Warn("ADD RESOURCE m.streamSourceByName: %#v", m.streamSourceByName)
 	return &pb.AddResourceResponse{}, coll.Add(conf.ResourceName(), res)
 }
 
@@ -427,6 +508,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	if resInfo.Constructor == nil {
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
+	// TODO: Not quite sure how a camera stream should handle the camera being reconfigured
 	newRes, err := resInfo.Constructor(ctx, deps, *conf, m.logger)
 	if err != nil {
 		return nil, err
@@ -487,6 +569,7 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 	if err := res.Close(ctx); err != nil {
 		m.logger.Error(err)
 	}
+	delete(m.streamSourceByName, res.Name())
 
 	return &pb.RemoveResourceResponse{}, coll.Remove(name)
 }
@@ -552,6 +635,106 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.API, mod
 // OperationManager returns the operation manager for the module.
 func (m *Module) OperationManager() *operation.Manager {
 	return m.operations
+}
+
+func (m *Module) ListStreams(ctx context.Context, req *streampb.ListStreamsRequest) (*streampb.ListStreamsResponse, error) {
+	m.logger.Info("ListStreams")
+	names := make([]string, 0, len(m.streamSourceByName))
+	for _, n := range maps.Keys(m.streamSourceByName) {
+		names = append(names, n.String())
+	}
+	m.logger.Info("ListStreams names: %#v", names)
+	return &streampb.ListStreamsResponse{Names: names}, nil
+}
+
+func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) (*streampb.AddStreamResponse, error) {
+	if err := m.AddStream2(ctx, req.GetName()); err != nil {
+		return nil, err
+	}
+
+	return &streampb.AddStreamResponse{}, nil
+}
+func (m *Module) AddStream2(ctx context.Context, nameS string) error {
+	m.logger.Infof("AddStream: %s", nameS)
+	name, err := resource.NewFromString(nameS)
+	if err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	vcss, ok := m.streamSourceByName[name]
+	if !ok {
+		return errors.Errorf("unknown stream for resource %s, this is what I got: %#v", name.String(), m.streamSourceByName)
+	}
+
+	if _, ok = m.activePeerStreams[m.pc]; !ok {
+		m.activePeerStreams[m.pc] = map[resource.Name]peerResourceState{}
+	}
+
+	if _, ok = m.activePeerStreams[m.pc][name]; ok {
+		m.logger.Warn("(m *Module) AddStream called with %s when there is already a stream for peer connection %p", nameS, m.pc)
+		return nil
+	}
+
+	sub, err := camera.NewVideoCodecStreamSubscription(512)
+	if err != nil {
+		return errors.Wrap(err, "error creating stream")
+	}
+	tlsRTP, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/H264"}, "video", name.String())
+	if err != nil {
+		return errors.Wrap(err, "error creating a new TrackLocalStaticRTP")
+	}
+
+	m.logger.Info("got past NewTrackLocalStaticRTP")
+	// TODO call remove track on error
+	sender, err := m.pc.AddTrack(tlsRTP)
+	if err != nil {
+		return errors.Wrap(err, "error adding track")
+	}
+	err = vcss.SubscribeRTP(sub, func(pkts []*rtp.Packet) error {
+		for _, pkt := range pkts {
+			if err := tlsRTP.WriteRTP(pkt); err != nil {
+				m.logger.Warn(err.Error())
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return errors.Wrap(err, "error setting up stream subscription")
+	}
+	m.activePeerStreams[m.pc][name] = peerResourceState{sender: sender, subscription: sub}
+	return nil
+}
+
+func (m *Module) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRequest) (*streampb.RemoveStreamResponse, error) {
+	m.logger.Infof("RemoveStream: %s", req.GetName())
+	name, err := resource.NewFromString(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	vcss, ok := m.streamSourceByName[name]
+	if !ok {
+		return nil, errors.Errorf("unknown stream for resource %s", name.String())
+	}
+
+	prs, ok := m.activePeerStreams[m.pc][name]
+	// TODO: This doesn't seem right. I think we are going to delete the resource from the active streams even if we don't do all the cleanup
+	defer func() {
+		delete(m.activePeerStreams[m.pc], name)
+	}()
+	if !ok {
+		m.logger.Warn("(m *Module) RemoveStream called on %s but peer state %p has no active peer stream", req.GetName(), m.pc)
+		return &streampb.RemoveStreamResponse{}, nil
+	}
+	if err := m.pc.RemoveTrack(prs.sender); err != nil {
+		m.logger.Warn("(m *Module) RemoveStream name: %s pc: %p hit error removing track %p", req.GetName(), m.pc, prs.sender)
+	}
+	vcss.Unsubscribe(prs.subscription)
+
+	return &streampb.RemoveStreamResponse{}, nil
 }
 
 // addConvertedAttributesToConfig uses the MapAttributeConverter to fill in the

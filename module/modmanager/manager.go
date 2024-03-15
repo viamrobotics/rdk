@@ -13,10 +13,12 @@ import (
 	"time"
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
+	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	pb "go.viam.com/api/module/v1"
+	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -52,7 +54,7 @@ func NewManager(
 	ctx context.Context, parentAddr string, logger logging.Logger, options modmanageroptions.Options,
 ) modmaninterface.ModuleManager {
 	restartCtx, restartCtxCancel := context.WithCancel(ctx)
-	return &Manager{
+	m := &Manager{
 		logger:                  logger,
 		modules:                 moduleMap{},
 		parentAddr:              parentAddr,
@@ -64,17 +66,20 @@ func NewManager(
 		restartCtx:              restartCtx,
 		restartCtxCancel:        restartCtxCancel,
 	}
+	modmaninterface.Managers = append(modmaninterface.Managers, m)
+	return m
 }
 
 type module struct {
-	cfg       config.Module
-	dataDir   string
-	process   pexec.ManagedProcess
-	handles   modlib.HandlerMap
-	conn      rdkgrpc.ReconfigurableClientConn
-	client    pb.ModuleServiceClient
-	addr      string
-	resources map[resource.Name]*addedResource
+	cfg          config.Module
+	dataDir      string
+	process      pexec.ManagedProcess
+	handles      modlib.HandlerMap
+	conn         rdkgrpc.ReconfigurableClientConn
+	modClient    pb.ModuleServiceClient
+	streamClient streampb.StreamServiceClient
+	addr         string
+	resources    map[resource.Name]*addedResource
 
 	// pendingRemoval allows delaying module close until after resources within it are closed
 	pendingRemoval bool
@@ -88,6 +93,32 @@ type module struct {
 	// another OUE has finished.
 	inStartup      atomic.Bool
 	inRecoveryLock sync.Mutex
+
+	peerConn *webrtc.PeerConnection
+	tr       *webrtc.TrackRemote
+	pcReady  <-chan struct{}
+	trReady  chan struct{}
+}
+
+// For modules, the grpc connection is over a Unix socket. The WebRTC `PeerConnection` is made
+// separately. The `buddyConn` continues to implement the `rpc.ClientConn` interface by pairing up
+// the two underlying connections a client may want to communicate over.
+type buddyConn struct {
+	*rdkgrpc.ReconfigurableClientConn
+	peerConn *webrtc.PeerConnection
+}
+
+func (bc *buddyConn) PeerConn() *webrtc.PeerConnection {
+	return bc.peerConn
+}
+
+func (bc *buddyConn) Close() error {
+	var err error
+	if bc.peerConn != nil {
+		err = bc.peerConn.Close()
+	}
+
+	return multierr.Combine(err, bc.ReconfigurableClientConn.Close())
 }
 
 type addedResource struct {
@@ -259,9 +290,20 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 		cfg:       conf,
 		dataDir:   moduleDataDir,
 		resources: map[resource.Name]*addedResource{},
+		trReady:   make(chan struct{}),
 	}
 
-	if err := mgr.startModule(ctx, mod); err != nil {
+	var err error
+	if mod.peerConn, err = webrtc.NewPeerConnection(webrtc.Configuration{}); err != nil {
+		mgr.logger.Warnw("Error creating optional peer connection for module. Ignoring.", "module", conf.Name, "err", err)
+	} else {
+		mod.pcReady, err = modlib.ConfigureForRenegotiation(mod.peerConn, mgr.logger)
+		if err != nil {
+			mgr.logger.Warnw("Error creating renegotiation channel for module. Ignoring.", "module", conf.Name, "err", err)
+		}
+	}
+
+	if err = mgr.startModule(ctx, mod); err != nil {
 		return err
 	}
 	return nil
@@ -388,7 +430,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 
 	// need to actually close the resources within the module itself before stopping
 	for res := range mod.resources {
-		_, err := mod.client.RemoveResource(context.Background(), &pb.RemoveResourceRequest{Name: res.String()})
+		_, err := mod.modClient.RemoveResource(context.Background(), &pb.RemoveResourceRequest{Name: res.String()})
 		if err != nil {
 			mgr.logger.Errorw("error removing resource", "module", mod.cfg.Name, "resource", res.Name, "error", err)
 		} else {
@@ -436,7 +478,7 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 		return nil, err
 	}
 
-	_, err = mod.client.AddResource(ctx, &pb.AddResourceRequest{Config: confProto, Dependencies: deps})
+	_, err = mod.modClient.AddResource(ctx, &pb.AddResourceRequest{Config: confProto, Dependencies: deps})
 	if err != nil {
 		return nil, err
 	}
@@ -446,9 +488,10 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
 	if !ok || apiInfo.RPCClient == nil {
 		mgr.logger.Warnf("no built-in grpc client for modular resource %s", conf.ResourceName())
-		return rdkgrpc.NewForeignResource(conf.ResourceName(), &mod.conn), nil
+		return rdkgrpc.NewForeignResource(conf.ResourceName(), &buddyConn{&mod.conn, mod.peerConn}), nil
 	}
-	return apiInfo.RPCClient(ctx, &mod.conn, "", conf.ResourceName(), mgr.logger)
+
+	return apiInfo.RPCClient(ctx, &buddyConn{&mod.conn, mod.peerConn}, "", conf.ResourceName(), mgr.logger)
 }
 
 // ReconfigureResource updates/reconfigures a modular component with a new configuration.
@@ -464,7 +507,7 @@ func (mgr *Manager) ReconfigureResource(ctx context.Context, conf resource.Confi
 	if err != nil {
 		return err
 	}
-	_, err = mod.client.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{Config: confProto, Dependencies: deps})
+	_, err = mod.modClient.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{Config: confProto, Dependencies: deps})
 	if err != nil {
 		return err
 	}
@@ -512,7 +555,7 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	}
 	mgr.rMap.Delete(name)
 	delete(mod.resources, name)
-	_, err := mod.client.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
+	_, err := mod.modClient.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
 	if err != nil {
 		return err
 	}
@@ -546,7 +589,7 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	ctx, cancel = context.WithTimeout(ctx, validateConfigTimeout)
 	defer cancel()
 
-	resp, err := mod.client.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: confProto})
+	resp, err := mod.modClient.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: confProto})
 	// Swallow "Unimplemented" gRPC errors from modules that lack ValidateConfig
 	// receiving logic.
 	if err != nil && status.Code(err) == codes.Unimplemented {
@@ -841,7 +884,8 @@ func (m *module) dial() error {
 		return errors.WithMessage(err, "module startup failed")
 	}
 	m.conn.ReplaceConn(rpc.GrpcOverHTTPClientConn{ClientConn: conn})
-	m.client = pb.NewModuleServiceClient(&m.conn)
+	m.modClient = pb.NewModuleServiceClient(&m.conn)
+	m.streamClient = streampb.NewStreamServiceClient(&m.conn)
 	return nil
 }
 
@@ -866,19 +910,71 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 		}
 	}()
 
+	req := &pb.ReadyRequest{ParentAddress: parentAddr}
+
+	// Wait for gathering to complete. Pass the entire SDP as an offer to the `ReadyRequest`.
+	if sdp, err := generateSDP(m.peerConn); err == nil {
+		req.ServerSdp = sdp
+	} else {
+		logger.Warnw("Error generating SDP for peerconn. Ignoring.", "err", err)
+	}
+
 	for {
-		req := &pb.ReadyRequest{ParentAddress: parentAddr}
 		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
-		resp, err := m.client.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
+		resp, err := m.modClient.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
 		if err != nil {
 			return err
 		}
 
 		if resp.Ready {
+			if err = connect(m.peerConn, resp.ModuleSdp); err != nil {
+				logger.Warnw("Error creating PeerConnection. Ignoring.", "err", err)
+			}
+			m.peerConn.OnTrack(func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
+				m.tr = tr
+				close(m.trReady)
+				utils.PanicCapturingGo(func() {
+					for {
+						rtp, _, err := tr.ReadRTP()
+						if err != nil {
+							logger.Fatal("tr.ReadRTP() got error: %s", err.Error())
+						}
+						b, err := rtp.Marshal()
+						if err != nil {
+							logger.Fatal("rtp.Marshal() got error: %s", err.Error())
+						}
+						logger.Info("got an rtp packet, size: %d", len(b))
+					}
+				})
+			})
+			<-m.pcReady
 			m.handles, err = modlib.NewHandlerMapFromProto(ctx, resp.Handlermap, &m.conn)
 			return err
 		}
 	}
+}
+
+// HACK: NICKS
+func (m *Manager) AddStream(ctx context.Context, name string) (*streampb.AddStreamResponse, error) {
+	mods := []*module{}
+	m.modules.Range(func(name string, mod *module) bool {
+		mods = append(mods, mod)
+		return true
+	})
+	if len(mods) != 1 {
+		return nil, fmt.Errorf("can't call AddStream when there is more than 1 module, there are %d", len(mods))
+	}
+
+	return mods[0].AddStream(ctx, name)
+}
+
+func (m *module) AddStream(ctx context.Context, name string) (*streampb.AddStreamResponse, error) {
+	select {
+	case <-m.pcReady:
+	default:
+		return nil, errors.New("AddStream not ready")
+	}
+	return m.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: name})
 }
 
 func (m *module) startProcess(
@@ -1108,4 +1204,35 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 		robotID = "local"
 	}
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
+}
+
+func generateSDP(pc *webrtc.PeerConnection) (string, error) {
+	if pc == nil {
+		return "", nil
+	}
+
+	offer, err := pc.CreateOffer(nil)
+	if err != nil {
+		return "", err
+	}
+
+	if err = pc.SetLocalDescription(offer); err != nil {
+		return "", err
+	}
+
+	<-webrtc.GatheringCompletePromise(pc)
+	return modlib.EncodeSDP(pc.LocalDescription())
+}
+
+func connect(pc *webrtc.PeerConnection, encodedAnswer string) error {
+	answer := webrtc.SessionDescription{}
+	if err := modlib.DecodeSDP(encodedAnswer, &answer); err != nil {
+		return err
+	}
+
+	if err := pc.SetRemoteDescription(answer); err != nil {
+		return nil // nolint:nilerr
+	}
+
+	return nil
 }

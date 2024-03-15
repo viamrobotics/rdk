@@ -208,6 +208,7 @@ func (c *Camera) Read(ctx context.Context) (image.Image, func(), error) {
 			img.Set(px, py, thisColor)
 		}
 	}
+	c.logger.Info("Frame constructed")
 	if !c.Animated {
 		c.cacheImage = img
 	}
