@@ -11,11 +11,43 @@ import (
 	"github.com/pion/webrtc/v3"
 	"go.uber.org/multierr"
 	streampb "go.viam.com/api/stream/v1"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+
+	"go.viam.com/rdk/gostream"
 )
 
+type peerState struct {
+	stream  *streamState
+	senders []*webrtc.RTPSender
+}
+
+type streamState struct {
+	mu          sync.Mutex
+	stream      gostream.Stream
+	activePeers int
+}
+
+func (ss *streamState) Start() {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+	ss.activePeers++
+	if ss.activePeers == 1 {
+		ss.stream.Start()
+	}
+}
+
+func (ss *streamState) Stop() {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+	ss.activePeers--
+	if ss.activePeers <= 0 {
+		ss.activePeers = 0
+		ss.stream.Stop()
+	}
+}
+
+// Server implements the gRPC audio/video streaming service.
 type Server struct {
 	streampb.UnimplementedStreamServiceServer
 
@@ -26,8 +58,8 @@ type Server struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// NewStreamServer returns a server that will run on the given port and initially starts
-// with the given stream.
+// NewServer returns a server that will run on the given port and initially starts with the given
+// stream.
 func NewServer(streams ...gostream.Stream) (*Server, error) {
 	ss := &Server{
 		nameToStream:      map[string]gostream.Stream{},
@@ -43,6 +75,17 @@ func NewServer(streams ...gostream.Stream) (*Server, error) {
 	return ss, nil
 }
 
+// StreamAlreadyRegisteredError indicates that a stream has a name that is already registered on
+// the stream server.
+type StreamAlreadyRegisteredError struct {
+	name string
+}
+
+func (e *StreamAlreadyRegisteredError) Error() string {
+	return fmt.Sprintf("stream %q already registered", e.name)
+}
+
+// NewStream informs the stream server of new streams that are capable of being streamed.
 func (ss *Server) NewStream(config gostream.StreamConfig) (gostream.Stream, error) {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
@@ -50,43 +93,20 @@ func (ss *Server) NewStream(config gostream.StreamConfig) (gostream.Stream, erro
 	if _, ok := ss.nameToStream[config.Name]; ok {
 		return nil, &StreamAlreadyRegisteredError{config.Name}
 	}
+
 	stream, err := gostream.NewStream(config)
 	if err != nil {
 		return nil, err
 	}
-	if err := ss.add(stream); err != nil {
+
+	if err = ss.add(stream); err != nil {
 		return nil, err
 	}
+
 	return stream, nil
 }
 
-func (ss *Server) Add(stream gostream.Stream) error {
-	ss.mu.Lock()
-	defer ss.mu.Unlock()
-	return ss.add(stream)
-}
-
-func (ss *Server) add(stream gostream.Stream) error {
-	streamName := stream.Name()
-	if _, ok := ss.nameToStream[streamName]; ok {
-		return &StreamAlreadyRegisteredError{streamName}
-	}
-	ss.nameToStream[streamName] = stream
-	ss.streams = append(ss.streams, &streamState{stream: stream})
-	return nil
-}
-
-func (ss *Server) Close() error {
-	ss.mu.RLock()
-	defer ss.mu.RUnlock()
-	for _, stream := range ss.streams {
-		stream.stream.Stop()
-		stream.activePeers = 0
-	}
-	ss.activeBackgroundWorkers.Wait()
-	return nil
-}
-
+// ListStreams implements part of the StreamServiceServer.
 func (ss *Server) ListStreams(ctx context.Context, req *streampb.ListStreamsRequest) (*streampb.ListStreamsResponse, error) {
 	ss.mu.RLock()
 	names := make([]string, 0, len(ss.streams))
@@ -97,6 +117,7 @@ func (ss *Server) ListStreams(ctx context.Context, req *streampb.ListStreamsRequ
 	return &streampb.ListStreamsResponse{Names: names}, nil
 }
 
+// AddStream implements part of the StreamServiceServer.
 func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest) (*streampb.AddStreamResponse, error) {
 	pc, ok := rpc.ContextPeerConnection(ctx)
 	if !ok {
@@ -191,6 +212,7 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 	return &streampb.AddStreamResponse{}, nil
 }
 
+// RemoveStream implements part of the StreamServiceServer.
 func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRequest) (*streampb.RemoveStreamResponse, error) {
 	pc, ok := rpc.ContextPeerConnection(ctx)
 	if !ok {
@@ -235,42 +257,25 @@ func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRe
 	return &streampb.RemoveStreamResponse{}, nil
 }
 
-// StreamAlreadyRegisteredError indicates that a stream has a name that is already registered on
-// the stream server.
-type StreamAlreadyRegisteredError struct {
-	name string
-}
-
-func (e *StreamAlreadyRegisteredError) Error() string {
-	return fmt.Sprintf("stream %q already registered", e.name)
-}
-
-type streamState struct {
-	mu          sync.Mutex
-	stream      gostream.Stream
-	activePeers int
-}
-
-func (ss *streamState) Start() {
-	ss.mu.Lock()
-	defer ss.mu.Unlock()
-	ss.activePeers++
-	if ss.activePeers == 1 {
-		ss.stream.Start()
+// Close closes the Server and waits for spun off goroutines to complete.
+func (ss *Server) Close() error {
+	ss.mu.RLock()
+	defer ss.mu.RUnlock()
+	for _, stream := range ss.streams {
+		stream.stream.Stop()
+		stream.activePeers = 0
 	}
+	ss.activeBackgroundWorkers.Wait()
+	return nil
 }
 
-func (ss *streamState) Stop() {
-	ss.mu.Lock()
-	defer ss.mu.Unlock()
-	ss.activePeers--
-	if ss.activePeers <= 0 {
-		ss.activePeers = 0
-		ss.stream.Stop()
+func (ss *Server) add(stream gostream.Stream) error {
+	streamName := stream.Name()
+	if _, ok := ss.nameToStream[streamName]; ok {
+		return &StreamAlreadyRegisteredError{streamName}
 	}
-}
 
-type peerState struct {
-	stream  *streamState
-	senders []*webrtc.RTPSender
+	ss.nameToStream[streamName] = stream
+	ss.streams = append(ss.streams, &streamState{stream: stream})
+	return nil
 }
