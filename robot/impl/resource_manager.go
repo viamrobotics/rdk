@@ -42,14 +42,15 @@ var (
 
 // resourceManager manages the actual parts that make up a robot.
 type resourceManager struct {
-	resources      *resource.Graph
-	processManager pexec.ProcessManager
-	processConfigs map[string]pexec.ProcessConfig
-	moduleManager  modif.ModuleManager
-	opts           resourceManagerOptions
-	logger         logging.Logger
-	configLock     sync.Mutex
-	viz            resource.Visualizer
+	resources         *resource.Graph
+	processManager    pexec.ProcessManager
+	processConfigs    map[string]pexec.ProcessConfig
+	moduleManager     modif.ModuleManager
+	opts              resourceManagerOptions
+	logger            logging.Logger
+	configLock        sync.Mutex
+	processResourceWG sync.WaitGroup
+	viz               resource.Visualizer
 }
 
 type resourceManagerOptions struct {
@@ -573,6 +574,11 @@ func (manager *resourceManager) completeConfig(
 
 	resourceNames := manager.resources.ReverseTopologicalSort()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
+	resourceChans := make(map[resource.Name]chan struct{})
+	for _, resName := range resourceNames {
+		manager.logger.Info("resource to process", resName)
+		resourceChans[resName] = make(chan struct{})
+	}
 	for _, resName := range resourceNames {
 		select {
 		case <-ctx.Done():
@@ -593,9 +599,11 @@ func (manager *resourceManager) completeConfig(
 			}()
 			gNode, ok := manager.resources.Node(resName)
 			if !ok || !gNode.NeedsReconfigure() {
+				close(resourceChans[resName])
 				return
 			}
 			if !(resName.API.IsComponent() || resName.API.IsService()) {
+				close(resourceChans[resName])
 				return
 			}
 
@@ -617,6 +625,7 @@ func (manager *resourceManager) completeConfig(
 					fmt.Errorf("resource config validation error: %w", err),
 					"resource", conf.ResourceName(),
 					"model", conf.Model)
+				close(resourceChans[resName])
 				return
 			}
 			if manager.moduleManager.Provides(conf) {
@@ -625,15 +634,15 @@ func (manager *resourceManager) completeConfig(
 						fmt.Errorf("modular resource config validation error: %w", err),
 						"resource", conf.ResourceName(),
 						"model", conf.Model)
+					close(resourceChans[resName])
 					return
 				}
 			}
 
 			switch {
 			case resName.API.IsComponent(), resName.API.IsService():
-				if err := manager.goProcessResource(ctx, ctxWithTimeout, resName, gNode, robot); err != nil {
-					return
-				}
+				manager.processResourceWG.Add(1)
+				go manager.goProcessResource(ctx, ctxWithTimeout, resName, gNode, robot, resourceChans)
 
 			default:
 				err := errors.New("config is not for a component or service")
@@ -651,6 +660,8 @@ func (manager *resourceManager) completeConfig(
 			return
 		}
 	} // for-each resource name
+	manager.processResourceWG.Wait()
+	manager.logger.Info(">>> done waiting! completed config")
 }
 
 // cleanAppImageEnv attempts to revert environment variable changes so
@@ -790,8 +801,21 @@ func (manager *resourceManager) goProcessResource(
 	resName resource.Name,
 	gNode *resource.GraphNode,
 	r *localRobot,
-	// depChans map[resource.Name]chan error,
-) error {
+	resourceChans map[resource.Name]chan struct{},
+) {
+	defer func() {
+		close(resourceChans[resName])
+		manager.processResourceWG.Done()
+		manager.logger.Info(">>> done processing resource", resName)
+	}()
+	manager.logger.Info(">>> processing resource", resName)
+
+	for _, parent := range manager.resources.GetAllParentsOf(resName) {
+		manager.logger.Infow(">>> waiting for parent", "resource", resName, "parent", parent)
+		<-resourceChans[parent]
+	}
+	manager.logger.Infow(">>> all parents done!", "resource", resName)
+
 	conf := gNode.Config()
 	newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, r)
 	if newlyBuilt || err != nil {
@@ -808,7 +832,7 @@ func (manager *resourceManager) goProcessResource(
 			fmt.Errorf("resource build error: %w", err),
 			"resource", conf.ResourceName(),
 			"model", conf.Model)
-		return err
+		return
 	}
 
 	// if the ctxWithTimeout fails with DeadlineExceeded, then that means that
@@ -821,7 +845,6 @@ func (manager *resourceManager) goProcessResource(
 	} else {
 		gNode.SwapResource(newRes, conf.Model)
 	}
-	return nil
 }
 
 func (manager *resourceManager) processResource(
