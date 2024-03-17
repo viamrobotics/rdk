@@ -1,4 +1,4 @@
-import type { Pose } from '@viamrobotics/sdk';
+import type { Pose, SensorInfoList } from '@viamrobotics/sdk';
 import type { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 
 export interface MappingMetadata {
@@ -28,7 +28,7 @@ export interface SLAMOverrides {
   getMappingSessionPCD?: (
     sessionId: string
   ) => Promise<{ map: Uint8Array; pose: Pose }>;
-  startMappingSession: (mapName: string) => Promise<string>;
+  startMappingSession: (mapName: string, sensorInfoList: SensorInfoList) => Promise<string>;
   getActiveMappingSession: () => Promise<MappingMetadata | undefined>;
   endMappingSession: (
     sessionId: string

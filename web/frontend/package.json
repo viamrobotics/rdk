@@ -87,5 +87,8 @@
     "vite": "4.4.9",
     "vite-plugin-css-injected-by-js": "3.3.0",
     "vitest": "0.34.1"
+  },
+  "dependencies": {
+    "npm": "^10.5.0"
   }
 }
