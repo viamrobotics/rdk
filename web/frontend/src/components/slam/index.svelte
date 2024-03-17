@@ -351,17 +351,14 @@ const handleStartMapping = async () => {
       return;
     }
 
+    // Get SensorInfo list
     const props = await slamClient.getProperties();
-    reloadMap =
-      props.mappingMode !== slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY;
-
-    const sensorInfoList = props.sensorInfoList
 
     try {
       hasActiveSession = true;
       if (!mappingSessionStarted) {
         mappingSessionStarted = true;
-        sessionId = await overrides.startMappingSession(mapName, sensorInfoList);
+        sessionId = await overrides.startMappingSession(mapName, props.sensorInfoList);
         startMappingIntervals(Date.now());
       }
     } catch {
