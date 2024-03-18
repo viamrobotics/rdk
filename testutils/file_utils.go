@@ -28,6 +28,30 @@ func BuildTempModule(tb testing.TB, dir string) (string, error) {
 	return modPath, nil
 }
 
+// TODO: replace all instances of `BuildTempModule` with this function!
+//
+// BuildTempModuleNew will run "go build ." in the provided RDK directory and return the
+// path to the built temporary file. This function will fail if there are any
+// build-related errors.
+func BuildTempModuleNew(tb testing.TB, dir string) string {
+	tb.Helper()
+	modPath := filepath.Join(tb.TempDir(), filepath.Base(dir))
+	//nolint:gosec
+	builder := exec.Command("go", "build", "-o", modPath, ".")
+	builder.Dir = utils.ResolveFile(dir)
+	out, err := builder.CombinedOutput()
+	if len(out) != 0 {
+		tb.Errorf(`output from "go build .": %s`, out)
+	}
+	if err != nil {
+		tb.Error(err)
+	}
+	if tb.Failed() {
+		tb.Fatalf("failed to build temporary module for testing")
+	}
+	return modPath
+}
+
 // MockBuffer is a buffered writer that just appends data to an array to read
 // without needing a real file system for testing.
 type MockBuffer struct {

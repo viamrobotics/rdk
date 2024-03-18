@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync/atomic"
 
 	"github.com/pkg/errors"
@@ -105,6 +106,19 @@ func (c *counter) DoCommand(ctx context.Context, req map[string]interface{}) (ma
 		// We return the new total after the addition.
 		return map[string]interface{}{"total": atomic.LoadInt64(&c.total)}, nil
 	}
+
+	if cmd == "echo" {
+		// For testing module liveliness
+		return req, nil
+	}
+
+	if cmd == "kill_module" {
+		// For testing module reloading & unexpected exists
+		os.Exit(1)
+		// unreachable return statement needed for compilation
+		return nil, errors.New("unreachable error")
+	}
+
 	// The command must've been something else.
 	return nil, fmt.Errorf("unknown command string %s", cmd)
 }
