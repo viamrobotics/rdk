@@ -200,7 +200,7 @@ func TestCloud(t *testing.T) {
 
 		err = pm.Sync(ctx, input)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "download did not match expected hash")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failed to decode")
 
 		err = pm.Cleanup(ctx)
 		test.That(t, err, test.ShouldBeNil)
