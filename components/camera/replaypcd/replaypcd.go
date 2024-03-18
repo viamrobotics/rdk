@@ -166,6 +166,10 @@ func newPCDCamera(
 	return cam, nil
 }
 
+func (c *pcdCamera) VideoCodecStreamSource() (camera.VideoCodecStreamSource, error) {
+	return nil, errors.New("pcdCamera does not implement VideoCodecStreamSource")
+}
+
 // NextPointCloud returns the next point cloud retrieved from cloud storage based on the applied filter.
 func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	// First acquire the lock, so that it's safe to populate the cache and/or retrieve and

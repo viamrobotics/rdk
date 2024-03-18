@@ -79,7 +79,9 @@ func getExtra(ctx context.Context) (*structpb.Struct, error) {
 	return ext, nil
 }
 
-var stack sync.Once
+func (c *client) VideoCodecStreamSource() (VideoCodecStreamSource, error) {
+	return nil, errors.New("camera client does not implement VideoCodecStreamSource")
+}
 
 func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Read")

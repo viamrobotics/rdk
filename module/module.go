@@ -378,7 +378,9 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 
 // AddResource receives the component/service configuration from the parent.
 func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*pb.AddResourceResponse, error) {
+	m.logger.Warn("ADD RESOURCE")
 	<-m.pcReady
+	m.logger.Warn("ADD RESOURCE after pc ready")
 	ctx = rpc.SetContextWithPeerConnection(ctx, m.pc)
 
 	deps := make(resource.Dependencies)
@@ -418,8 +420,15 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if cam, ok := res.(camera.VideoCodecStreamSource); ok {
-		m.streamSourceByName[res.Name()] = cam
+	m.logger.Warn("res booted")
+	if cam, ok := res.(camera.VideoSource); ok {
+		vcss, err := cam.VideoCodecStreamSource()
+		if err != nil {
+			m.logger.Fatalf("VideoCodecStreamSource err %s", err.Error())
+		}
+		m.streamSourceByName[res.Name()] = vcss
+	} else {
+		m.logger.Fatalf("res doesn't implement camera.VideoCodecStreamSource %#v, %T", res, res)
 	}
 
 	coll, ok := m.collections[conf.API]
@@ -428,6 +437,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	}
 	m.resLoggers[res] = resLogger
 
+	m.logger.Warn("ADD RESOURCE m.streamSourceByName: %#v", m.streamSourceByName)
 	return &pb.AddResourceResponse{}, coll.Add(conf.ResourceName(), res)
 }
 
@@ -655,7 +665,7 @@ func (m *Module) AddStream2(ctx context.Context, nameS string) error {
 	defer m.mu.Unlock()
 	vcss, ok := m.streamSourceByName[name]
 	if !ok {
-		return errors.Errorf("unknown stream for resource %s", name.String())
+		return errors.Errorf("unknown stream for resource %s, this is what I got: %#v", name.String(), m.streamSourceByName)
 	}
 
 	if _, ok = m.activePeerStreams[m.pc][name]; ok {
@@ -667,10 +677,12 @@ func (m *Module) AddStream2(ctx context.Context, nameS string) error {
 	if err != nil {
 		return errors.Wrap(err, "error creating stream")
 	}
-	tlsRTP, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/H264"}, "video", name.String(), nil)
+	tlsRTP, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/H264"}, "video", name.String())
 	if err != nil {
 		return errors.Wrap(err, "error creating a new TrackLocalStaticRTP")
 	}
+
+	m.logger.Info("got past NewTrackLocalStaticRTP")
 	// TODO call remove track on error
 	sender, err := m.pc.AddTrack(tlsRTP)
 	if err != nil {

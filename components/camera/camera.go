@@ -95,7 +95,7 @@ type (
 // A VideoSource represents anything that can capture frames.
 type VideoSource interface {
 	projectorProvider
-
+	VideoCodecStreamSource() (VideoCodecStreamSource, error)
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
 	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
@@ -190,6 +190,60 @@ func NewVideoSourceFromReader(
 	}, nil
 }
 
+// NewStreamingVideoSourceFromReader creates a VideoSource either with or without a projector. The stream type
+// argument is for detecting whether or not the resulting camera supports return
+// of pointcloud data in the absence of an implemented NextPointCloud function.
+// If this is unknown or not applicable, a value of camera.Unspecified stream can be supplied.
+func NewVideoCodecStreamSourceFromReader(
+	ctx context.Context,
+	reader gostream.VideoReader,
+	syst *transform.PinholeCameraModel,
+	imageType ImageType,
+) (VideoSource, error) {
+	if reader == nil {
+		return nil, errors.New("cannot have a nil reader")
+	}
+	var videoCodecStreamSource VideoCodecStreamSource
+	vcs, ok := reader.(VideoCodecStreamSource)
+	if ok {
+		videoCodecStreamSource = vcs
+	}
+	vs := gostream.NewVideoSource(reader, prop.Video{})
+	actualSystem := syst
+	if actualSystem == nil {
+		srcCam, ok := reader.(VideoSource)
+		if ok {
+			props, err := srcCam.Properties(ctx)
+			if err != nil {
+				return nil, NewPropertiesError("source camera")
+			}
+
+			var cameraModel transform.PinholeCameraModel
+			cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
+
+			if props.DistortionParams != nil {
+				cameraModel.Distortion = props.DistortionParams
+			}
+			actualSystem = &cameraModel
+		}
+	}
+	return &videoSource{
+		videoCodecStreamSource: videoCodecStreamSource,
+		system:                 actualSystem,
+		videoSource:            vs,
+		videoStream:            gostream.NewEmbeddedVideoStream(vs),
+		actualSource:           reader,
+		imageType:              imageType,
+	}, nil
+}
+
+func (vs *videoSource) VideoCodecStreamSource() (VideoCodecStreamSource, error) {
+	if vs.videoCodecStreamSource != nil {
+		return vs.videoCodecStreamSource, nil
+	}
+	return nil, errors.New("VideoCodecStreamSource unimplemented")
+}
+
 // NewPinholeModelWithBrownConradyDistortion creates a transform.PinholeCameraModel from
 // a *transform.PinholeCameraIntrinsics and a *transform.BrownConrady.
 // If *transform.BrownConrady is `nil`, transform.PinholeCameraModel.Distortion
@@ -253,11 +307,12 @@ func WrapVideoSourceWithProjector(
 
 // videoSource implements a Camera with a gostream.VideoSource.
 type videoSource struct {
-	videoSource  gostream.VideoSource
-	videoStream  gostream.VideoStream
-	actualSource interface{}
-	system       *transform.PinholeCameraModel
-	imageType    ImageType
+	videoCodecStreamSource VideoCodecStreamSource
+	videoSource            gostream.VideoSource
+	videoStream            gostream.VideoStream
+	actualSource           interface{}
+	system                 *transform.PinholeCameraModel
+	imageType              ImageType
 }
 
 func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {

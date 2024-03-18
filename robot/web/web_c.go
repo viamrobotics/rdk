@@ -25,6 +25,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -267,8 +268,69 @@ func (svc *webService) startVideoStream(ctx context.Context, source gostream.Vid
 			streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
 		}
 
-		return webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
+		return packetStream(streamVideoCtx, svc.r, stream, svc.logger) //webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
 	})
+}
+
+func packetStream(
+	ctx context.Context,
+	r robot.Robot,
+	stream gostream.Stream,
+	logger logging.Logger,
+) error {
+	streamLoop := func() error {
+		readyCh, readyCtx := stream.StreamingReady()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-readyCh:
+		}
+		if len(modmaninterface.Managers) != 1 {
+			logger.Fatalf("expected len(modmaninterface.Managers): to equal 1, instead equaled %d", len(modmaninterface.Managers))
+		}
+		timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), time.Second)
+		defer timeoutCancel()
+
+		res, err := r.ResourceByName(camera.Named(stream.Name()))
+		if err != nil {
+			logger.Fatal(err.Error())
+		}
+
+		if _, err = modmaninterface.Managers[0].AddStream(timeoutCtx, res.Name().String()); err != nil {
+			logger.Fatal(err.Error())
+		}
+
+		// sub, err := camera.NewVideoCodecStreamSubscription(512)
+		// if err != nil {
+		// 	return err
+		// }
+		// // TODO: Denote what happens if the callback returns an error
+		// err = vcStream.SubscribeRTP(sub, func(pkts []*rtp.Packet) error {
+		// 	for _, pkt := range pkts {
+		// 		if err := stream.WriteRTP(pkt); err != nil {
+		// 			logger.Warn(err.Error())
+		// 		}
+		// 	}
+		// 	return nil
+		// })
+		// if err != nil {
+		// 	// Returning nil here will trigger reattempting
+		// 	return nil //nolint:nilerr
+		// }
+		// defer vcStream.Unsubscribe(sub)
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-readyCtx.Done():
+			return nil
+		}
+	}
+	for {
+		if err := streamLoop(); err != nil {
+			return err
+		}
+	}
 }
 
 func (svc *webService) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
