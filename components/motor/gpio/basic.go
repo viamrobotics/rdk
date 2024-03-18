@@ -175,10 +175,13 @@ func (m *Motor) turnOff(ctx context.Context, extra map[string]interface{}) error
 // Anything calling setPWM MUST lock the motor's mutex prior.
 func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	var errs error
+
 	powerPct = math.Min(powerPct, m.maxPowerPct)
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
-	powerPct = math.Max(powerPct, m.minPowerPct)
-	powerPct = math.Min(powerPct, -1*m.minPowerPct)
+	if math.Abs(powerPct) > m.minPowerPct {
+		powerPct = math.Max(powerPct, m.minPowerPct)
+		powerPct = math.Min(powerPct, -1*m.minPowerPct)
+	}
 
 	m.on = true
 	m.powerPct = powerPct
@@ -209,7 +212,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 				pwmPin = m.A
 			}
 			pwmPower = 1.0 - pwmPower // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
-		case pwmPower <= -0.001:
+		case -pwmPower <= -0.001:
 			pwmPin = m.A
 			if m.dirFlip {
 				pwmPin = m.B
