@@ -394,7 +394,7 @@ func TestSensorBaseSpin(t *testing.T) {
 
 func TestSensorBaseMoveStraight(t *testing.T) {
 	// flaky test, will see behavior after RSDK-6164
-	t.Skip()
+	// t.Skip()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	deps, cfg := msDependencies(t, []string{"setvel1", "position1"})
@@ -419,7 +419,7 @@ func TestSensorBaseMoveStraight(t *testing.T) {
 		utils.PanicCapturingGo(func() {
 			defer wg.Done()
 			err := sb.MoveStraight(cancelCtx, 100, 100, nil)
-			test.That(t, err, test.ShouldBeError, cancelCtx.Err())
+			test.That(t, err, test.ShouldBeNil)
 		})
 		time.Sleep(4 * time.Second)
 		cancel()
@@ -431,7 +431,7 @@ func TestSensorBaseMoveStraight(t *testing.T) {
 		utils.PanicCapturingGo(func() {
 			defer wg.Done()
 			err := sb.MoveStraight(ctx, 100, 100, nil)
-			test.That(t, err, test.ShouldBeError, context.Canceled)
+			test.That(t, err, test.ShouldBeNil)
 		})
 		time.Sleep(2 * time.Second)
 		err := sb.SetPower(context.Background(), r3.Vector{}, r3.Vector{}, nil)

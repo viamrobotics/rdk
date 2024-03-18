@@ -3,6 +3,7 @@ package sensorcontrolled
 
 import (
 	"context"
+	"errors"
 	"math"
 	"time"
 
@@ -67,6 +68,11 @@ func (sb *sensorBase) MoveStraight(
 	for {
 		select {
 		case <-ctx.Done():
+			// do not return context canceled errors, just log them
+			if errors.Is(ctx.Err(), context.Canceled) {
+				sb.logger.Error(ctx.Err())
+				return nil
+			}
 			return ctx.Err()
 		case <-ticker.C:
 			var errDist float64
