@@ -703,19 +703,19 @@ func TestSolverFrameGeometries(t *testing.T) {
 
 	sfPlanner, err := newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	request := &PlanRequest{
-		Logger: logger,
-		Frame: fs.Frame("xArmVgripper"),
-		FrameSystem: fs,
+		Logger:             logger,
+		Frame:              fs.Frame("xArmVgripper"),
+		FrameSystem:        fs,
 		StartConfiguration: sf.sliceToMap(make([]frame.Input, len(sf.DoF()))),
-		Goal: frame.NewPoseInFrame(frame.World, spatialmath.NewPoseFromPoint(r3.Vector{300, 300, 100})),
-		Options: map[string]interface{}{"smooth_iter": 5},
+		Goal:               frame.NewPoseInFrame(frame.World, spatialmath.NewPoseFromPoint(r3.Vector{300, 300, 100})),
+		Options:            map[string]interface{}{"smooth_iter": 5},
 	}
-	
+
 	err = request.validatePlanRequest()
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	plan, err := sfPlanner.PlanSingleWaypoint(
 		context.Background(),
 		request,
@@ -831,9 +831,9 @@ func TestMovementWithGripper(t *testing.T) {
 	goal := spatialmath.NewPose(r3.Vector{500, 0, -300}, &spatialmath.OrientationVector{OZ: -1})
 	zeroPosition := sf.sliceToMap(make([]frame.Input, len(sf.DoF())))
 	request := &PlanRequest{
-		Logger: logger,
+		Logger:             logger,
 		StartConfiguration: zeroPosition,
-		Goal: frame.NewPoseInFrame(frame.World, goal),
+		Goal:               frame.NewPoseInFrame(frame.World, goal),
 	}
 
 	// linearly plan with the gripper

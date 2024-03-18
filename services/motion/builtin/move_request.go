@@ -714,7 +714,6 @@ func (ms *builtIn) createBaseMoveRequest(
 	// current & desired orientation
 	if valExtra.motionProfile == motionplan.PositionOnlyMotionProfile {
 		if spatialmath.PoseAlmostCoincidentEps(goal.Pose(), startPose, motionCfg.planDeviationMM) {
-			
 			return nil, errGoalWithinPlanDeviation
 		}
 	} else {

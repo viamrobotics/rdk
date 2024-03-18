@@ -75,7 +75,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 	goalPos := request.Goal.Pose()
 
 	var cancel func()
-	
+
 	request.Logger.CInfof(ctx,
 		"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
 		request.Frame.Name(),
@@ -133,7 +133,14 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 			by := float64(i) / float64(numSteps)
 			to := spatialmath.Interpolate(startPose, goalPos, by)
 			goals = append(goals, to)
-			opt, err := pm.plannerSetupFromMoveRequest(from, to, request.StartConfiguration, request.WorldState, request.ConstraintSpecs, request.Options)
+			opt, err := pm.plannerSetupFromMoveRequest(
+				from,
+				to,
+				request.StartConfiguration,
+				request.WorldState,
+				request.ConstraintSpecs,
+				request.Options,
+			)
 			if err != nil {
 				return nil, err
 			}
@@ -145,7 +152,14 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 		startPose = from
 	}
 	goals = append(goals, goalPos)
-	opt, err := pm.plannerSetupFromMoveRequest(startPose, goalPos, request.StartConfiguration, request.WorldState, request.ConstraintSpecs, request.Options)
+	opt, err := pm.plannerSetupFromMoveRequest(
+		startPose,
+		goalPos,
+		request.StartConfiguration,
+		request.WorldState,
+		request.ConstraintSpecs,
+		request.Options,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -479,7 +493,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			return nil, errors.New("collision_buffer_mm can't be negative")
 		}
 	}
-	
+
 	// extract inputs corresponding to the frame
 	frameInputs, err := pm.frame.mapToSlice(seedMap)
 	if err != nil {
@@ -745,7 +759,6 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	}
 
 	startPose := request.StartPose
-	goalPos := request.Goal.Pose()
 
 	request.Logger.CInfof(ctx,
 		"planning relative motion for frame %s\nGoal: %v\nstartPose %v\n, worldstate: %v\n",
@@ -758,7 +771,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	if pathdebug {
 		pm.logger.Debug("$type,X,Y")
 		pm.logger.Debugf("$SG,%f,%f", 0., 0.)
-		pm.logger.Debugf("$SG,%f,%f", goalPos.Point().X, goalPos.Point().Y)
+		pm.logger.Debugf("$SG,%f,%f", request.Goal.Pose().Point().X, request.Goal.Pose().Point().Y)
 		gifs, err := request.WorldState.ObstaclesInWorldFrame(pm.fs, request.StartConfiguration)
 		if err == nil {
 			for _, geom := range gifs.Geometries() {
@@ -781,16 +794,14 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 		defer cancel()
 	}
 
-	// relative 
-	if pm.frame.worldRooted {
-		tf, err := pm.frame.fss.Transform(request.StartConfiguration, referenceframe.NewPoseInFrame(pm.frame.goalFrame.Name(), goalPos), referenceframe.World)
-		if err != nil {
-			return nil, err
-		}
-		goalPos = tf.(*referenceframe.PoseInFrame).Pose()
+	tf, err := pm.frame.fss.Transform(request.StartConfiguration, request.Goal, referenceframe.World)
+	if err != nil {
+		return nil, err
 	}
-
-	opt, err := pm.plannerSetupFromMoveRequest(startPose, goalPos, request.StartConfiguration, request.WorldState, request.ConstraintSpecs, request.Options)
+	goalPos := tf.(*referenceframe.PoseInFrame).Pose()
+	opt, err := pm.plannerSetupFromMoveRequest(
+		startPose, goalPos, request.StartConfiguration, request.WorldState, request.ConstraintSpecs, request.Options,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -810,6 +821,12 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	}
 	zeroInputs := make([]referenceframe.Input, len(pm.frame.DoF()))
 	maps := &rrtMaps{}
+	if seedPlan != nil {
+		maps, err = pm.planToRRTGoalMap(seedPlan, goalPos)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if pm.opt().PositionSeeds > 0 && pm.opt().profile == PositionOnlyMotionProfile {
 		err = maps.fillPosOnlyGoal(goalPos, pm.opt().PositionSeeds, len(pm.frame.DoF()))
 		if err != nil {
