@@ -2,15 +2,122 @@ package config
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/config/testutils"
 	"go.viam.com/rdk/logging"
 )
+
+func TestFromReader(t *testing.T) {
+	const (
+		robotPartID = "forCachingTest"
+		secret      = testutils.FakeCredentialPayLoad
+	)
+	var (
+		logger = logging.NewTestLogger(t)
+		ctx    = context.Background()
+	)
+
+	// clear cache
+	setupClearCache := func(t *testing.T) {
+		t.Helper()
+		clearCache(robotPartID)
+		_, err := readFromCache(robotPartID)
+		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+	}
+
+	t.Run("online", func(t *testing.T) {
+		setupClearCache(t)
+
+		fakeServer, cleanup := testutils.NewFakeCloudServer(t, ctx, logger)
+		defer cleanup()
+
+		cloudResponse := &Cloud{
+			ManagedBy:        "acme",
+			SignalingAddress: "abc",
+			ID:               robotPartID,
+			Secret:           secret,
+			FQDN:             "fqdn",
+			LocalFQDN:        "localFqdn",
+			LocationSecrets:  []LocationSecret{},
+			LocationID:       "the-location",
+			PrimaryOrgID:     "the-primary-org",
+		}
+		certProto := &pb.CertificateResponse{
+			TlsCertificate: "cert",
+			TlsPrivateKey:  "key",
+		}
+
+		cloudConfProto, err := CloudConfigToProto(cloudResponse)
+		test.That(t, err, test.ShouldBeNil)
+		protoConfig := &pb.RobotConfig{Cloud: cloudConfProto}
+		fakeServer.StoreDeviceConfig(robotPartID, protoConfig, certProto)
+
+		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
+		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger)
+		defer clearCache(robotPartID)
+		test.That(t, err, test.ShouldBeNil)
+
+		expectedCloud := *cloudResponse
+		expectedCloud.AppAddress = appAddress
+		expectedCloud.TLSCertificate = certProto.TlsCertificate
+		expectedCloud.TLSPrivateKey = certProto.TlsPrivateKey
+		expectedCloud.RefreshInterval = time.Duration(10000000000)
+		test.That(t, gotCfg.Cloud, test.ShouldResemble, &expectedCloud)
+
+		cachedCfg, err := readFromCache(robotPartID)
+		test.That(t, err, test.ShouldBeNil)
+		expectedCloud.AppAddress = ""
+		test.That(t, cachedCfg.Cloud, test.ShouldResemble, &expectedCloud)
+	})
+
+	t.Run("offline with cached config", func(t *testing.T) {
+		setupClearCache(t)
+
+		cachedCloud := &Cloud{
+			ManagedBy:        "acme",
+			SignalingAddress: "abc",
+			ID:               robotPartID,
+			Secret:           secret,
+			FQDN:             "fqdn",
+			LocalFQDN:        "localFqdn",
+			TLSCertificate:   "cert",
+			TLSPrivateKey:    "key",
+			LocationID:       "the-location",
+			PrimaryOrgID:     "the-primary-org",
+		}
+		cachedConf := &Config{Cloud: cachedCloud}
+		err := storeToCache(robotPartID, cachedConf)
+		test.That(t, err, test.ShouldBeNil)
+		defer clearCache(robotPartID)
+
+		fakeServer, cleanup := testutils.NewFakeCloudServer(t, ctx, logger)
+		defer cleanup()
+		fakeServer.FailOnConfigAndCertsWith(context.DeadlineExceeded)
+		fakeServer.StoreDeviceConfig(robotPartID, nil, nil)
+
+		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
+		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		expectedCloud := *cachedCloud
+		expectedCloud.AppAddress = appAddress
+		expectedCloud.TLSCertificate = "cert"
+		expectedCloud.TLSPrivateKey = "key"
+		expectedCloud.RefreshInterval = time.Duration(10000000000)
+		test.That(t, gotCfg.Cloud, test.ShouldResemble, &expectedCloud)
+	})
+}
 
 func TestStoreToCache(t *testing.T) {
 	logger := logging.NewTestLogger(t)
