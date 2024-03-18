@@ -179,6 +179,11 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
 
 	m.on = true
+	m.powerPct = powerPct
+
+	// pin calls on builtin baords will only take poisitve power, so the absolute value is required to be passed
+	// to pwm pins.
+	pwmPower := math.Abs(powerPct)
 	if m.EnablePinLow != nil {
 		errs = multierr.Combine(errs, m.EnablePinLow.Set(ctx, false, extra))
 	}
@@ -190,35 +195,34 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 
 	switch m.motorType {
 	case ABPwm, DirectionPwm:
-		if math.Abs(powerPct) <= 0.001 {
+		if pwmPower <= 0.001 {
 			return m.turnOff(ctx, extra)
 		}
 		pwmPin = m.PWM
 	case AB:
 		switch {
-		case powerPct >= 0.001:
+		case pwmPower >= 0.001:
 			pwmPin = m.B
 			if m.dirFlip {
 				pwmPin = m.A
 			}
-			powerPct = 1.0 - math.Abs(powerPct) // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
-		case powerPct <= -0.001:
+			pwmPower = 1.0 - pwmPower // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
+		case pwmPower <= -0.001:
 			pwmPin = m.A
 			if m.dirFlip {
 				pwmPin = m.B
 			}
-			powerPct = 1.0 - math.Abs(powerPct) // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
+			pwmPower = 1.0 - pwmPower // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
 		default:
 			return m.turnOff(ctx, extra)
 		}
 	}
 
-	powerPct = math.Max(math.Abs(powerPct), m.minPowerPct)
-	m.powerPct = powerPct
+	pwmPower = math.Max(pwmPower, m.minPowerPct)
 	return multierr.Combine(
 		errs,
 		pwmPin.SetPWMFreq(ctx, m.pwmFreq, extra),
-		pwmPin.SetPWM(ctx, powerPct, extra),
+		pwmPin.SetPWM(ctx, pwmPower, extra),
 	)
 }
 
