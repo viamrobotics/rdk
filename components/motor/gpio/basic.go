@@ -175,26 +175,25 @@ func (m *Motor) turnOff(ctx context.Context, extra map[string]interface{}) error
 // Anything calling setPWM MUST lock the motor's mutex prior.
 func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	var errs error
-
-	powerPct = math.Min(powerPct, m.maxPowerPct)
-	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
-	if math.Abs(powerPct) > m.minPowerPct {
-		powerPct = math.Max(powerPct, m.minPowerPct)
-		powerPct = math.Min(powerPct, -1*m.minPowerPct)
-	}
-
 	m.on = true
-	m.powerPct = powerPct
-
-	// pin calls on builtin baords will only take poisitve power, so the absolute value is required to be passed
-	// to pwm pins.
-	pwmPower := math.Abs(powerPct)
 	if m.EnablePinLow != nil {
 		errs = multierr.Combine(errs, m.EnablePinLow.Set(ctx, false, extra))
 	}
 	if m.EnablePinHigh != nil {
 		errs = multierr.Combine(errs, m.EnablePinHigh.Set(ctx, true, extra))
 	}
+
+	m.powerPct = powerPct
+	powerPct = math.Min(powerPct, m.maxPowerPct)
+	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
+
+	if math.Abs(powerPct) > m.minPowerPct {
+		powerPct = math.Max(math.Abs(powerPct), m.minPowerPct)
+	}
+
+	// pin calls on builtin baords will only take poisitve power, so the absolute value is required to be passed
+	// to pwm pins.
+	pwmPower := math.Abs(powerPct)
 
 	var pwmPin board.GPIOPin
 
