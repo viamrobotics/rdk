@@ -502,12 +502,10 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 
 	// create robot collision entities
 	movingGeometriesInFrame, err := pm.frame.Geometries(frameInputs)
-	movingRobotGeometries := movingGeometriesInFrame.Geometries() // solver frame returns geoms in frame World
 	if err != nil {
-		if len(movingRobotGeometries) == 0 {
-			return nil, err // no geometries defined for frame
-		}
+		return nil, err // no geometries defined for frame
 	}
+	movingRobotGeometries := movingGeometriesInFrame.Geometries() // solver frame returns geoms in frame World
 	if pm.useTPspace {
 		startGeoms := make([]spatialmath.Geometry, 0, len(movingRobotGeometries))
 		for _, geometry := range movingRobotGeometries {
