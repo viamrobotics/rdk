@@ -208,6 +208,26 @@ func TestCloud(t *testing.T) {
 		validatePackageDir(t, packageDir, []config.PackageConfig{})
 	})
 
+	t.Run("leading zeroes checksum", func(t *testing.T) {
+		packageDir, pm := newPackageManager(t, client, fakeServer, logger)
+		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+
+		fakeServer.SetChecksumWithLeadingZeroes(true)
+
+		input := []config.PackageConfig{
+			{Name: "some-name-1", Package: "org1/test-model", Version: "v1", Type: "ml_model"},
+		}
+		fakeServer.StorePackage(input...)
+
+		err = pm.Sync(ctx, input)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = pm.Cleanup(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		validatePackageDir(t, packageDir, []config.PackageConfig{})
+	})
+
 	t.Run("invalid gcs download", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger)
 		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })

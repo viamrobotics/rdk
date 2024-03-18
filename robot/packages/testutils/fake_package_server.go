@@ -46,9 +46,10 @@ type FakePackagesClientAndGCSServer struct {
 	testPackagePath     string
 	testPackageChecksum string
 
-	invalidHTTPRes  bool
-	invalidChecksum bool
-	invalidTar      bool
+	invalidHTTPRes           bool
+	invalidChecksum          bool
+	hasLeadingZeroesChecksum bool
+	invalidTar               bool
 
 	getRequestCount      int
 	downloadRequestCount int
@@ -158,6 +159,14 @@ func (c *FakePackagesClientAndGCSServer) SetInvalidChecksum(flag bool) {
 	c.invalidChecksum = flag
 }
 
+// SetChecksumWithLeadingZeroes sets checksum to a valid checksum with leading zeroes.
+func (c *FakePackagesClientAndGCSServer) SetChecksumWithLeadingZeroes(flag bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.hasLeadingZeroesChecksum = flag
+}
+
 // SetInvalidTar sets failure state.
 func (c *FakePackagesClientAndGCSServer) SetInvalidTar(flag bool) {
 	c.mu.Lock()
@@ -215,6 +224,10 @@ func (c *FakePackagesClientAndGCSServer) servePackage(w http.ResponseWriter, r *
 			c.logger.Error(err)
 		}
 		return
+	}
+
+	if c.hasLeadingZeroesChecksum {
+		c.testPackageChecksum = "00" + c.testPackageChecksum
 	}
 
 	w.Header().Set("Content-Type", "application/x-gzip")
