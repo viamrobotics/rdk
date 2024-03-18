@@ -483,10 +483,9 @@ func (m *cloudManager) downloadFileFromGCSURL(
 	if err != nil {
 		return "", "", errors.Wrap(err, "failed to decode expected checksum")
 	}
-	outHashBytes := hash.Sum(nil)
 
 	trimmedChecksumBytes := trimLeadingZeroes(checksumBytes)
-	trimmedOutHashBytes := trimLeadingZeroes(outHashBytes)
+	trimmedOutHashBytes := trimLeadingZeroes(hash.Sum(nil))
 
 	if !bytes.Equal(trimmedOutHashBytes, trimmedChecksumBytes) {
 		utils.UncheckedError(os.Remove(downloadPath))
