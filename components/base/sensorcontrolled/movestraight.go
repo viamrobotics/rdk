@@ -155,7 +155,7 @@ func calcLinVel(errDist, mmPerSec, slowDownDist float64) float64 {
 func calcSlowDownDist(distanceMm int) float64 {
 	slowDownDist := float64(distanceMm) * slowDownDistGain
 	if math.Abs(slowDownDist) > maxSlowDownDist {
-		return maxSlowDownDist * sign(distanceMm)
+		return maxSlowDownDist * sign(float64(distanceMm))
 	}
 	return slowDownDist
 }

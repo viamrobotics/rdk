@@ -26,8 +26,14 @@ import (
 
 const (
 	// compassValue and orientationValue should be different for tests.
-	compassValue     = 45
-	orientationValue = 40
+	defaultCompassValue     = 45.
+	defaultOrientationValue = 40.
+)
+
+var (
+	// compassValue and orientationValue should be different for tests.
+	compassValue     = defaultCompassValue
+	orientationValue = defaultOrientationValue
 )
 
 func sConfig() resource.Config {
@@ -273,6 +279,9 @@ func TestReconfig(t *testing.T) {
 	err = b.Reconfigure(ctx, deps, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel2")
+	headingNone, err := sb.headingFunc(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, headingNone, test.ShouldEqual, 0)
 
 	deps, cfg = msDependencies(t, []string{"orientation3", "setvel3", "Bad"})
 	err = b.Reconfigure(ctx, deps, cfg)
@@ -398,13 +407,18 @@ func TestSensorBaseSpin(t *testing.T) {
 func TestSensorBaseMoveStraight(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-	deps, cfg := msDependencies(t, []string{"setvel1", "position1"})
+	deps, cfg := msDependencies(t, []string{"setvel1", "position1", "orientation1"})
 	b, err := createSensorBase(ctx, deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	sb, ok := b.(*sensorBase)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sb.position.Name().ShortName(), test.ShouldResemble, "position1")
+	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation1")
+	headingOri, err := sb.headingFunc(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, headingOri, test.ShouldEqual, orientationValue)
+	test.That(t, headingOri, test.ShouldNotEqual, compassValue)
 
 	depsNoPos, cfgNoPos := msDependencies(t, []string{"setvel1"})
 	bNoPos, err := createSensorBase(ctx, depsNoPos, cfgNoPos, logger)
@@ -449,6 +463,22 @@ func TestSensorBaseMoveStraight(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("Test heading error wraps", func(t *testing.T) {
+		// orientation configured, so update the value for testing
+		orientationValue = 179
+		headingOri, err := sb.headingFunc(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		// validate the orientation updated
+		test.That(t, headingOri, test.ShouldEqual, 179)
+
+		// test -179 -> 179 results in a small error
+		headingErr, err := sb.calcHeadingControl(ctx, -179)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, headingErr, test.ShouldEqual, 2)
+
+		// test full circle results in 0 error
+		headingErr2, err := sb.calcHeadingControl(ctx, 360+179)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, headingErr2, test.ShouldEqual, 0)
 		for i := -720; i <= 720; i += 30 {
 			headingErr, err := sb.calcHeadingControl(ctx, float64(i))
 			test.That(t, err, test.ShouldBeNil)
