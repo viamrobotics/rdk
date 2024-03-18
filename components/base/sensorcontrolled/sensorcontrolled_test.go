@@ -484,5 +484,6 @@ func TestSensorBaseMoveStraight(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, headingErr, test.ShouldBeBetweenOrEqual, -180, 180)
 		}
+		orientationValue = defaultOrientationValue
 	})
 }
