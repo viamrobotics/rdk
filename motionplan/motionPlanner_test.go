@@ -214,7 +214,46 @@ func simple2DMap() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, defaultCollisionBufferMM)
+	seedMap := frame.StartPositions(fs)
+	frameInputs, err := sf.mapToSlice(seedMap)
+	if err != nil {
+		return nil, err
+	}
+
+	// create robot collision entities
+	movingGeometriesInFrame, err := sf.Geometries(frameInputs)
+	movingRobotGeometries := movingGeometriesInFrame.Geometries() // solver frame returns geoms in frame World
+	if err != nil {
+		return nil, err
+	}
+
+	// find all geometries that are not moving but are in the frame system
+	staticRobotGeometries := make([]spatialmath.Geometry, 0)
+	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, seedMap)
+	if err != nil {
+		return nil, err
+	}
+	for name, geometries := range frameSystemGeometries {
+		if !sf.movingFrame(name) {
+			staticRobotGeometries = append(staticRobotGeometries, geometries.Geometries()...)
+		}
+	}
+
+	// Note that all obstacles in worldState are assumed to be static so it is ok to transform them into the world frame
+	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
+	// the state that observed the worldState should ultimately be included as part of the worldState message
+	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, seedMap)
+	if err != nil {
+		return nil, err
+	}
+
+	collisionConstraints, err := createAllCollisionConstraints(
+		movingRobotGeometries,
+		staticRobotGeometries,
+		worldGeometries.Geometries(),
+		nil,
+		defaultCollisionBufferMM,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +292,38 @@ func simpleXArmMotion() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	collisionConstraints, err := createAllCollisionConstraints(sf, fs, nil, frame.StartPositions(fs), nil, defaultCollisionBufferMM)
+	seedMap := frame.StartPositions(fs)
+	frameInputs, err := sf.mapToSlice(seedMap)
+	if err != nil {
+		return nil, err
+	}
+
+	// create robot collision entities
+	movingGeometriesInFrame, err := sf.Geometries(frameInputs)
+	movingRobotGeometries := movingGeometriesInFrame.Geometries() // solver frame returns geoms in frame World
+	if err != nil {
+		return nil, err
+	}
+
+	// find all geometries that are not moving but are in the frame system
+	staticRobotGeometries := make([]spatialmath.Geometry, 0)
+	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, seedMap)
+	if err != nil {
+		return nil, err
+	}
+	for name, geometries := range frameSystemGeometries {
+		if !sf.movingFrame(name) {
+			staticRobotGeometries = append(staticRobotGeometries, geometries.Geometries()...)
+		}
+	}
+
+	collisionConstraints, err := createAllCollisionConstraints(
+		movingRobotGeometries,
+		staticRobotGeometries,
+		nil,
+		nil,
+		defaultCollisionBufferMM,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +359,38 @@ func simpleUR5eMotion() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	collisionConstraints, err := createAllCollisionConstraints(sf, fs, nil, frame.StartPositions(fs), nil, defaultCollisionBufferMM)
+	seedMap := frame.StartPositions(fs)
+	frameInputs, err := sf.mapToSlice(seedMap)
+	if err != nil {
+		return nil, err
+	}
+
+	// create robot collision entities
+	movingGeometriesInFrame, err := sf.Geometries(frameInputs)
+	movingRobotGeometries := movingGeometriesInFrame.Geometries() // solver frame returns geoms in frame World
+	if err != nil {
+		return nil, err
+	}
+
+	// find all geometries that are not moving but are in the frame system
+	staticRobotGeometries := make([]spatialmath.Geometry, 0)
+	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, seedMap)
+	if err != nil {
+		return nil, err
+	}
+	for name, geometries := range frameSystemGeometries {
+		if !sf.movingFrame(name) {
+			staticRobotGeometries = append(staticRobotGeometries, geometries.Geometries()...)
+		}
+	}
+
+	collisionConstraints, err := createAllCollisionConstraints(
+		movingRobotGeometries,
+		staticRobotGeometries,
+		nil,
+		nil,
+		defaultCollisionBufferMM,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -602,14 +703,23 @@ func TestSolverFrameGeometries(t *testing.T) {
 
 	sfPlanner, err := newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
+	
+	request := &PlanRequest{
+		Logger: logger,
+		Frame: fs.Frame("xArmVgripper"),
+		FrameSystem: fs,
+		StartConfiguration: sf.sliceToMap(make([]frame.Input, len(sf.DoF()))),
+		Goal: frame.NewPoseInFrame(frame.World, spatialmath.NewPoseFromPoint(r3.Vector{300, 300, 100})),
+		Options: map[string]interface{}{"smooth_iter": 5},
+	}
+	
+	err = request.validatePlanRequest()
+	test.That(t, err, test.ShouldBeNil)
+	
 	plan, err := sfPlanner.PlanSingleWaypoint(
 		context.Background(),
-		sf.sliceToMap(make([]frame.Input, len(sf.DoF()))),
-		spatialmath.NewPoseFromPoint(r3.Vector{300, 300, 100}),
+		request,
 		nil,
-		nil,
-		nil,
-		map[string]interface{}{"smooth_iter": 5},
 	)
 	test.That(t, err, test.ShouldBeNil)
 	inputs, err := sf.mapToSlice(plan.Trajectory()[len(plan.Trajectory())-1])
@@ -720,13 +830,19 @@ func TestMovementWithGripper(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	goal := spatialmath.NewPose(r3.Vector{500, 0, -300}, &spatialmath.OrientationVector{OZ: -1})
 	zeroPosition := sf.sliceToMap(make([]frame.Input, len(sf.DoF())))
+	request := &PlanRequest{
+		Logger: logger,
+		StartConfiguration: zeroPosition,
+		Goal: frame.NewPoseInFrame(frame.World, goal),
+	}
 
 	// linearly plan with the gripper
 	motionConfig := make(map[string]interface{})
 	motionConfig["motion_profile"] = LinearMotionProfile
 	sfPlanner, err := newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
-	solution, err := sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, nil, nil, nil, motionConfig)
+	request.Options = motionConfig
+	solution, err := sfPlanner.PlanSingleWaypoint(context.Background(), request, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
 
@@ -740,7 +856,8 @@ func TestMovementWithGripper(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	sfPlanner, err = newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
-	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, nil, nil)
+	request.WorldState = worldState
+	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), request, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
 
@@ -748,16 +865,17 @@ func TestMovementWithGripper(t *testing.T) {
 	sf, err = newSolverFrame(fs, "xArm6", frame.World, frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
 	goal = spatialmath.NewPose(r3.Vector{500, 0, -100}, &spatialmath.OrientationVector{OZ: -1})
-	zeroPosition = sf.sliceToMap(make([]frame.Input, len(sf.DoF())))
+	request.Goal = frame.NewPoseInFrame(frame.World, goal)
 	sfPlanner, err = newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, nil, motionConfig)
+	_, err = sfPlanner.PlanSingleWaypoint(context.Background(), request, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// remove linear constraint and try again
 	sfPlanner, err = newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
-	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, nil, nil)
+	request.Options = nil
+	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), request, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
 
@@ -765,10 +883,10 @@ func TestMovementWithGripper(t *testing.T) {
 	fs.RemoveFrame(fs.Frame("xArmVgripper"))
 	sf, err = newSolverFrame(fs, "xArm6", frame.World, frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
-	zeroPosition = sf.sliceToMap(make([]frame.Input, len(sf.DoF())))
 	sfPlanner, err = newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
-	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, nil, motionConfig)
+	request.Options = motionConfig
+	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), request, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
 }
@@ -833,6 +951,7 @@ func TestReplanValidations(t *testing.T) {
 			_, err := Replan(ctx, &PlanRequest{
 				Logger:             logger,
 				Goal:               frame.NewPoseInFrame(frame.World, goal),
+				StartPose:          spatialmath.NewZeroPose(),
 				Frame:              kinematicFrame,
 				FrameSystem:        baseFS,
 				StartConfiguration: frame.StartPositions(baseFS),
@@ -929,6 +1048,7 @@ func TestPtgPosOnlyBidirectional(t *testing.T) {
 
 	planRequest := &PlanRequest{
 		Logger:             logger,
+		StartPose:          spatialmath.NewZeroPose(),
 		Goal:               frame.NewPoseInFrame(frame.World, goal),
 		Frame:              kinematicFrame,
 		FrameSystem:        baseFS,

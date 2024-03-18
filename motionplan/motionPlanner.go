@@ -150,14 +150,6 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 	}
 
-	//~ request.Logger.CInfof(ctx,
-		//~ "planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
-		//~ request.Frame.Name(),
-		//~ frame.PoseInFrameToProtobuf(request.Goal),
-		//~ request.StartConfiguration,
-		//~ spatialmath.PoseToProtobuf(startPose),
-		//~ request.WorldState.String(),
-	//~ )
 	request.Logger.CDebugf(ctx, "constraint specs for this step: %v", request.ConstraintSpecs)
 	request.Logger.CDebugf(ctx, "motion config for this step: %v", request.Options)
 

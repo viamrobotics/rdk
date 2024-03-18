@@ -44,6 +44,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 
 	opt := newBasicPlannerOptions(ackermanFrame)
 	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
+	opt.StartPose = spatialmath.NewZeroPose()
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
@@ -84,6 +85,7 @@ func TestPtgWithObstacle(t *testing.T) {
 
 	opt := newBasicPlannerOptions(ackermanFrame)
 	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
+	opt.StartPose = spatialmath.NewZeroPose()
 	opt.GoalThreshold = 5
 	// obstacles
 	obstacle1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3300, -500, 0}), r3.Vector{180, 1800, 1}, "")
@@ -108,14 +110,40 @@ func TestPtgWithObstacle(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	sf, err := newSolverFrame(fs, ackermanFrame.Name(), referenceframe.World, nil)
 	test.That(t, err, test.ShouldBeNil)
+	
+	seedMap := referenceframe.StartPositions(fs)
+	frameInputs, err := sf.mapToSlice(seedMap)
+	test.That(t, err, test.ShouldBeNil)
+
+	// create robot collision entities
+	movingGeometriesInFrame, err := sf.Geometries(frameInputs)
+	movingRobotGeometries := movingGeometriesInFrame.Geometries() // solver frame returns geoms in frame World
+	test.That(t, err, test.ShouldBeNil)
+
+	// find all geometries that are not moving but are in the frame system
+	staticRobotGeometries := make([]spatialmath.Geometry, 0)
+	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(fs, seedMap)
+	test.That(t, err, test.ShouldBeNil)
+	for name, geometries := range frameSystemGeometries {
+		if !sf.movingFrame(name) {
+			staticRobotGeometries = append(staticRobotGeometries, geometries.Geometries()...)
+		}
+	}
+
+	// Note that all obstacles in worldState are assumed to be static so it is ok to transform them into the world frame
+	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
+	// the state that observed the worldState should ultimately be included as part of the worldState message
+	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, seedMap)
+	test.That(t, err, test.ShouldBeNil)
+
 	collisionConstraints, err := createAllCollisionConstraints(
-		sf,
-		fs,
-		worldState,
-		referenceframe.StartPositions(fs),
+		movingRobotGeometries,
+		staticRobotGeometries,
+		worldGeometries.Geometries(),
 		nil,
 		defaultCollisionBufferMM,
 	)
+	
 	test.That(t, err, test.ShouldBeNil)
 
 	for name, constraint := range collisionConstraints {
@@ -237,6 +265,7 @@ func TestPtgCheckPlan(t *testing.T) {
 	fs.AddFrame(ackermanFrame, fs.World())
 
 	opt := newBasicPlannerOptions(ackermanFrame)
+	opt.StartPose = spatialmath.NewZeroPose()
 	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
 	opt.GoalThreshold = 30.
 

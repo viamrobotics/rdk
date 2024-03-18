@@ -153,6 +153,7 @@ func TestNewGeoPlan(t *testing.T) {
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1000, Y: 8000, Z: 0})
 	plan, err := Replan(context.Background(), &PlanRequest{
 		Logger:             logging.NewTestLogger(t),
+		StartPose:          spatialmath.NewZeroPose(),
 		Goal:               referenceframe.NewPoseInFrame(referenceframe.World, goal),
 		Frame:              kinematicFrame,
 		FrameSystem:        baseFS,
