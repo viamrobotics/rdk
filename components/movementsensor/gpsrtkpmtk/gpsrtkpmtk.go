@@ -49,16 +49,13 @@ import (
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
-	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
-	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
+	"go.viam.com/rdk/components/movementsensor/gpsutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
 
 var rtkmodel = resource.DefaultModelFamily.WithModel("gps-nmea-rtk-pmtk")
-
-const i2cStr = "i2c"
 
 // Config is used for converting NMEA MovementSensor with RTK capabilities config attributes.
 type Config struct {
@@ -129,14 +126,14 @@ type rtkI2C struct {
 	mu            sync.Mutex
 	ntripMu       sync.Mutex
 	ntripconfigMu sync.Mutex
-	ntripClient   *rtk.NtripInfo
+	ntripClient   *gpsutils.NtripInfo
 	ntripStatus   bool
 
 	err          movementsensor.LastError
 	lastposition movementsensor.LastPosition
 
-	nmeamovementsensor gpsnmea.NmeaMovementSensor
-	correctionWriter   io.ReadWriteCloser
+	cachedData       *gpsutils.CachedData
+	correctionWriter io.ReadWriteCloser
 
 	bus     buses.I2C
 	mockI2c buses.I2C // Will be nil unless we're in a unit test
@@ -172,7 +169,7 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 	}
 
 	g.ntripconfigMu.Lock()
-	ntripConfig := &rtk.NtripConfig{
+	ntripConfig := &gpsutils.NtripConfig{
 		NtripURL:             newConf.NtripURL,
 		NtripUser:            newConf.NtripUser,
 		NtripPass:            newConf.NtripPass,
@@ -181,7 +178,7 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 	}
 
 	// Init ntripInfo from attributes
-	tempNtripClient, err := rtk.NewNtripInfo(ntripConfig, g.logger)
+	tempNtripClient, err := gpsutils.NewNtripInfo(ntripConfig, g.logger)
 	if err != nil {
 		return err
 	}
@@ -240,41 +237,31 @@ func makeRTKI2C(
 		return nil, err
 	}
 
-	nmeaConf := &gpsnmea.Config{
-		ConnectionType: i2cStr,
-	}
-
-	// Init NMEAMovementSensor
-	nmeaConf.I2CConfig = &gpsnmea.I2CConfig{
+	config := gpsutils.I2CConfig{
 		I2CBus:      newConf.I2CBus,
 		I2CBaudRate: newConf.I2CBaudRate,
 		I2CAddr:     newConf.I2CAddr,
 	}
-
-	if nmeaConf.I2CConfig.I2CBaudRate == 0 {
-		nmeaConf.I2CConfig.I2CBaudRate = 115200
+	if config.I2CBaudRate == 0 {
+		config.I2CBaudRate = 115200
 	}
 
 	// If we have a mock I2C bus, pass that in, too. If we don't, it'll be nil and constructing the
-	// sensor will create a real I2C bus instead.
-	g.nmeamovementsensor, err = gpsnmea.MakePmtkI2cGpsNmea(
-		ctx, deps, conf.ResourceName(), nmeaConf, logger, mockI2c)
+	// reader will create a real I2C bus instead.
+	dev, err := gpsutils.NewI2cDataReader(config, mockI2c, logger)
 	if err != nil {
 		return nil, err
 	}
+	g.cachedData = gpsutils.NewCachedData(dev, logger)
 
 	if err := g.start(); err != nil {
 		return nil, err
 	}
-
 	return g, g.err.Get()
 }
 
 // Start begins NTRIP receiver with i2c protocol and begins reading/updating MovementSensor measurements.
 func (g *rtkI2C) start() error {
-	// TODO(RDK-1639): Test out what happens if we call this line and then the ReceiveAndWrite*
-	// correction data goes wrong. Could anything worse than uncorrected data occur?
-
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() { g.receiveAndWriteI2C(g.cancelCtx) })
 
@@ -355,9 +342,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
 	baudcmd := fmt.Sprintf("PMTK251,%d", g.wbaud)
 	cmd251 := movementsensor.PMTKAddChk([]byte(baudcmd))
-	// TODO: the comment says we get 6 types of messages, but this next line only requests 5. Make
-	// them consistent.
-	cmd314 := movementsensor.PMTKAddChk([]byte("PMTK314,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0"))
+	cmd314 := movementsensor.PMTKAddChk([]byte("PMTK314,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0"))
 	cmd220 := movementsensor.PMTKAddChk([]byte("PMTK220,1000"))
 
 	err = handle.Write(ctx, cmd251)
@@ -488,7 +473,7 @@ func (g *rtkI2C) Position(ctx context.Context, extra map[string]interface{}) (*g
 	}
 	g.ntripMu.Unlock()
 
-	position, alt, err := g.nmeamovementsensor.Position(ctx, extra)
+	position, alt, err := g.cachedData.Position(ctx, extra)
 	if err != nil {
 		// Use the last known valid position if current position is (0,0)/ NaN.
 		if position != nil && (movementsensor.IsZeroPosition(position) || movementsensor.IsPositionNaN(position)) {
@@ -517,7 +502,7 @@ func (g *rtkI2C) LinearVelocity(ctx context.Context, extra map[string]interface{
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.LinearVelocity(ctx, extra)
+	return g.cachedData.LinearVelocity(ctx, extra)
 }
 
 // LinearAcceleration passthrough.
@@ -526,7 +511,7 @@ func (g *rtkI2C) LinearAcceleration(ctx context.Context, extra map[string]interf
 	if lastError != nil {
 		return r3.Vector{}, lastError
 	}
-	return g.nmeamovementsensor.LinearAcceleration(ctx, extra)
+	return g.cachedData.LinearAcceleration(ctx, extra)
 }
 
 // AngularVelocity passthrough.
@@ -539,7 +524,7 @@ func (g *rtkI2C) AngularVelocity(ctx context.Context, extra map[string]interface
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.AngularVelocity(ctx, extra)
+	return g.cachedData.AngularVelocity(ctx, extra)
 }
 
 // CompassHeading passthrough.
@@ -552,7 +537,7 @@ func (g *rtkI2C) CompassHeading(ctx context.Context, extra map[string]interface{
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.CompassHeading(ctx, extra)
+	return g.cachedData.CompassHeading(ctx, extra)
 }
 
 // Orientation passthrough.
@@ -565,7 +550,7 @@ func (g *rtkI2C) Orientation(ctx context.Context, extra map[string]interface{}) 
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.Orientation(ctx, extra)
+	return g.cachedData.Orientation(ctx, extra)
 }
 
 // readFix passthrough.
@@ -578,7 +563,7 @@ func (g *rtkI2C) readFix(ctx context.Context) (int, error) {
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.ReadFix(ctx)
+	return g.cachedData.ReadFix(ctx)
 }
 
 func (g *rtkI2C) readSatsInView(ctx context.Context) (int, error) {
@@ -590,7 +575,7 @@ func (g *rtkI2C) readSatsInView(ctx context.Context) (int, error) {
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.ReadSatsInView(ctx)
+	return g.cachedData.ReadSatsInView(ctx)
 }
 
 // Properties passthrough.
@@ -600,7 +585,7 @@ func (g *rtkI2C) Properties(ctx context.Context, extra map[string]interface{}) (
 		return &movementsensor.Properties{}, lastError
 	}
 
-	return g.nmeamovementsensor.Properties(ctx, extra)
+	return g.cachedData.Properties(ctx, extra)
 }
 
 // Accuracy passthrough.
@@ -610,7 +595,7 @@ func (g *rtkI2C) Accuracy(ctx context.Context, extra map[string]interface{}) (*m
 		return nil, lastError
 	}
 
-	return g.nmeamovementsensor.Accuracy(ctx, extra)
+	return g.cachedData.Accuracy(ctx, extra)
 }
 
 // Readings will use the default MovementSensor Readings if not provided.
@@ -636,12 +621,12 @@ func (g *rtkI2C) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	return readings, nil
 }
 
-// Close shuts down the RTKMOVEMENTSENSOR.
+// Close shuts down the rtkI2C.
 func (g *rtkI2C) Close(ctx context.Context) error {
 	g.ntripMu.Lock()
 	g.cancelFunc()
 
-	if err := g.nmeamovementsensor.Close(ctx); err != nil {
+	if err := g.cachedData.Close(ctx); err != nil {
 		g.ntripMu.Unlock()
 		return err
 	}

@@ -13,7 +13,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	pb "go.viam.com/api/app/packages/v1"
+	packagespb "go.viam.com/api/app/packages/v1"
 	modulepb "go.viam.com/api/module/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -71,8 +71,8 @@ type localRobot struct {
 // ExportResourcesAsDot exports the resource graph as a DOT representation for
 // visualization.
 // DOT reference: https://graphviz.org/doc/info/lang.html
-func (r *localRobot) ExportResourcesAsDot() (string, error) {
-	return r.manager.ExportDot()
+func (r *localRobot) ExportResourcesAsDot(index int) (resource.GetSnapshotInfo, error) {
+	return r.manager.ExportDot(index)
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
@@ -402,19 +402,16 @@ func newWithResources(
 	}()
 
 	if cfg.Cloud != nil && cfg.Cloud.AppAddress != "" {
-		_, cloudConn, err := r.cloudConnSvc.AcquireConnection(ctx)
-		if err == nil {
-			r.packageManager, err = packages.NewCloudManager(cfg.Cloud, pb.NewPackageServiceClient(cloudConn), cfg.PackagePath, logger)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			if !errors.Is(err, context.DeadlineExceeded) {
-				return nil, err
-			}
-			r.logger.CDebug(ctx, "Using no-op PackageManager when internet not available")
-			r.packageManager = packages.NewNoopManager()
-		}
+		r.packageManager = packages.NewDeferredPackageManager(
+			ctx,
+			func(ctx context.Context) (packagespb.PackageServiceClient, error) {
+				_, cloudConn, err := r.cloudConnSvc.AcquireConnection(ctx)
+				return packagespb.NewPackageServiceClient(cloudConn), err
+			},
+			cfg.Cloud,
+			cfg.PackagePath,
+			logger,
+		)
 	} else {
 		r.logger.CDebug(ctx, "Using no-op PackageManager when Cloud config is not available")
 		r.packageManager = packages.NewNoopManager()
@@ -657,7 +654,6 @@ func (r *localRobot) newResource(
 	if resInfo.DeprecatedRobotConstructor == nil {
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
-	r.logger.CWarnw(ctx, "using deprecated robot constructor", "api", resName.API, "model", conf.Model)
 	return resInfo.DeprecatedRobotConstructor(ctx, r, conf, gNode.Logger())
 }
 
@@ -720,7 +716,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 				if err := res.Reconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
 					r.Logger().CErrorw(ctx, "failed to reconfigure internal service during weak dependencies update", "service", resName, "error", err)
 				}
-			case packages.InternalServiceName, cloud.InternalServiceName:
+			case packages.InternalServiceName, packages.DeferredServiceName, cloud.InternalServiceName:
 			default:
 				r.logger.CWarnw(ctx, "do not know how to reconfigure internal service during weak dependencies update", "service", resName)
 			}
@@ -1175,4 +1171,21 @@ func (r *localRobot) checkMaxInstance(api resource.API, max int) error {
 		}
 	}
 	return nil
+}
+
+// CloudMetadata returns app-related information about the robot.
+func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
+	md := cloud.Metadata{}
+	cfg := r.Config()
+	if cfg == nil {
+		return md, errors.New("no config available")
+	}
+	cloud := cfg.Cloud
+	if cloud == nil {
+		return md, errors.New("cloud metadata not available")
+	}
+	md.RobotPartID = cloud.ID
+	md.PrimaryOrgID = cloud.PrimaryOrgID
+	md.LocationID = cloud.LocationID
+	return md, nil
 }

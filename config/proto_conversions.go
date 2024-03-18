@@ -674,6 +674,8 @@ func CloudConfigToProto(cloud *Cloud) (*pb.CloudConfig, error) {
 		LocalFqdn:         cloud.LocalFQDN,
 		SignalingAddress:  cloud.SignalingAddress,
 		SignalingInsecure: cloud.SignalingInsecure,
+		PrimaryOrgId:      cloud.PrimaryOrgID,
+		LocationId:        cloud.LocationID,
 	}, nil
 }
 
@@ -690,6 +692,8 @@ func CloudConfigFromProto(proto *pb.CloudConfig) (*Cloud, error) {
 		//nolint:staticcheck
 		LocationSecret:    proto.GetLocationSecret(),
 		LocationSecrets:   locationSecrets,
+		LocationID:        proto.GetLocationId(),
+		PrimaryOrgID:      proto.GetPrimaryOrgId(),
 		ManagedBy:         proto.GetManagedBy(),
 		FQDN:              proto.GetFqdn(),
 		LocalFQDN:         proto.GetLocalFqdn(),
@@ -844,7 +848,7 @@ func toRDKSlice[PT, RT any](
 	for _, proto := range protoList {
 		rdk, err := toRDK(proto)
 		if err != nil {
-			logger.Debugw("error converting from proto to config", "type", reflect.TypeOf(proto).String(), "error", err)
+			logger.Errorw("error converting from proto to config", "type", reflect.TypeOf(proto).String(), "error", err)
 			if disablePartialStart {
 				return nil, err
 			}

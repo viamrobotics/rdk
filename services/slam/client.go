@@ -11,7 +11,6 @@ import (
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/slam/grpchelper"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -65,11 +64,11 @@ func (c *client) Position(ctx context.Context) (spatialmath.Pose, string, error)
 
 // PointCloudMap creates a request, calls the slam service PointCloudMap and returns a callback
 // function which will return the next chunk of the current pointcloud map when called.
-func (c *client) PointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
+func (c *client) PointCloudMap(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 	ctx, span := trace.StartSpan(ctx, "slam::client::PointCloudMap")
 	defer span.End()
 
-	return grpchelper.PointCloudMapCallback(ctx, c.name, c.client)
+	return PointCloudMapCallback(ctx, c.name, c.client, returnEditedMap)
 }
 
 // InternalState creates a request, calls the slam service InternalState and returns a callback
@@ -78,7 +77,7 @@ func (c *client) InternalState(ctx context.Context) (func() ([]byte, error), err
 	ctx, span := trace.StartSpan(ctx, "slam::client::InternalState")
 	defer span.End()
 
-	return grpchelper.InternalStateCallback(ctx, c.name, c.client)
+	return InternalStateCallback(ctx, c.name, c.client)
 }
 
 // Properties returns information regarding the current SLAM session, including
@@ -101,9 +100,28 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 		return Properties{}, err
 	}
 
+	sensorInfo := []SensorInfo{}
+	for _, sInfo := range resp.SensorInfo {
+		sensorType, err := protobufToSensorType(sInfo.Type)
+		if err != nil {
+			return Properties{}, err
+		}
+		sensorInfo = append(sensorInfo, SensorInfo{
+			Name: sInfo.Name,
+			Type: sensorType,
+		})
+	}
+
+	var internalStateFileType string
+	if resp.InternalStateFileType != nil {
+		internalStateFileType = *resp.InternalStateFileType
+	}
+
 	prop := Properties{
-		CloudSlam:   resp.CloudSlam,
-		MappingMode: mappingMode,
+		CloudSlam:             resp.CloudSlam,
+		MappingMode:           mappingMode,
+		InternalStateFileType: internalStateFileType,
+		SensorInfo:            sensorInfo,
 	}
 	return prop, err
 }

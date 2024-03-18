@@ -400,15 +400,22 @@ func IsImageFile(fn string) bool {
 
 // ImageToUInt8Buffer reads an image into a byte slice in the most common sense way.
 // Left to right like a book; R, then G, then B. No funny stuff. Assumes values should be between 0-255.
-func ImageToUInt8Buffer(img image.Image) []byte {
+// if  changeToBGR is true, then R and B get swapped.
+func ImageToUInt8Buffer(img image.Image, changeToBGR bool) []byte {
 	output := make([]byte, img.Bounds().Dx()*img.Bounds().Dy()*3)
 	for y := 0; y < img.Bounds().Dy(); y++ {
 		for x := 0; x < img.Bounds().Dx(); x++ {
 			r, g, b, a := img.At(x, y).RGBA()
 			rr, gg, bb, _ := rgbaTo8Bit(r, g, b, a)
-			output[(y*img.Bounds().Dx()+x)*3+0] = rr
-			output[(y*img.Bounds().Dx()+x)*3+1] = gg
-			output[(y*img.Bounds().Dx()+x)*3+2] = bb
+			if changeToBGR {
+				output[(y*img.Bounds().Dx()+x)*3+0] = bb
+				output[(y*img.Bounds().Dx()+x)*3+1] = gg
+				output[(y*img.Bounds().Dx()+x)*3+2] = rr
+			} else {
+				output[(y*img.Bounds().Dx()+x)*3+0] = rr
+				output[(y*img.Bounds().Dx()+x)*3+1] = gg
+				output[(y*img.Bounds().Dx()+x)*3+2] = bb
+			}
 		}
 	}
 	return output
@@ -416,22 +423,42 @@ func ImageToUInt8Buffer(img image.Image) []byte {
 
 // ImageToFloatBuffer reads an image into a byte slice (buffer) the most common sense way.
 // Left to right like a book; R, then G, then B. No funny stuff. Assumes values between -1 and 1.
-func ImageToFloatBuffer(img image.Image) []float32 {
+// if  changeToBGR is true, then R and B get swapped.
+// if meanValue and stdDev are not length 0, use those instead to normalize the bytes.
+func ImageToFloatBuffer(img image.Image, changeToBGR bool, meanValue, stdDev []float32) []float32 {
 	output := make([]float32, img.Bounds().Dx()*img.Bounds().Dy()*3)
+	if len(meanValue) == 0 {
+		meanValue = []float32{0.5, 0.5, 0.5}
+	}
+	if len(stdDev) == 0 {
+		stdDev = []float32{0.5, 0.5, 0.5}
+	}
 	for y := 0; y < img.Bounds().Dy(); y++ {
 		for x := 0; x < img.Bounds().Dx(); x++ {
 			r, g, b, a := img.At(x, y).RGBA()
-			rr, gg, bb := float32(r)/float32(a)*2-1, float32(g)/float32(a)*2-1, float32(b)/float32(a)*2-1
-			output[(y*img.Bounds().Dx()+x)*3+0] = rr
-			output[(y*img.Bounds().Dx()+x)*3+1] = gg
-			output[(y*img.Bounds().Dx()+x)*3+2] = bb
+			r8, g8, b8, _ := rgbaTo8Bit(r, g, b, a)
+			if changeToBGR {
+				bb := ((float32(b8) / 255.0) - meanValue[0]) / stdDev[0]
+				gg := ((float32(g8) / 255.0) - meanValue[1]) / stdDev[1]
+				rr := ((float32(r8) / 255.0) - meanValue[2]) / stdDev[2]
+				output[(y*img.Bounds().Dx()+x)*3+0] = bb
+				output[(y*img.Bounds().Dx()+x)*3+1] = gg
+				output[(y*img.Bounds().Dx()+x)*3+2] = rr
+			} else {
+				rr := ((float32(r8) / 255.0) - meanValue[0]) / stdDev[0]
+				gg := ((float32(g8) / 255.0) - meanValue[1]) / stdDev[1]
+				bb := ((float32(b8) / 255.0) - meanValue[2]) / stdDev[2]
+				output[(y*img.Bounds().Dx()+x)*3+0] = rr
+				output[(y*img.Bounds().Dx()+x)*3+1] = gg
+				output[(y*img.Bounds().Dx()+x)*3+2] = bb
+			}
 		}
 	}
 	return output
 }
 
 // rgbaTo8Bit converts the uint32s from RGBA() to uint8s.
-func rgbaTo8Bit(r, g, b, a uint32) (rr, gg, bb, aa uint8) {
+func rgbaTo8Bit(r, g, b, a uint32) (rr, gg, bb, aa uint8) { //nolint:unparam
 	r >>= 8
 	rr = uint8(r)
 	g >>= 8

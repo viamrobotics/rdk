@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"go.viam.com/test"
@@ -31,25 +33,44 @@ func TestJSONTags(t *testing.T) {
 	test.That(t, tagNames, test.ShouldResemble, expectedNames)
 }
 
-func TestValidNameRegex(t *testing.T) {
-	// validNameRegex is the pattern that matches to a valid name.
-	// The name must begin with a letter i.e. [a-zA-Z],
-	// and the body can only contain 0 or more numbers, letters, dashes and underscores i.e. [-\w]*.
-	name := "justLetters"
-	test.That(t, ValidNameRegex.MatchString(name), test.ShouldBeTrue)
-	name = "numbersAndLetters1"
-	test.That(t, ValidNameRegex.MatchString(name), test.ShouldBeTrue)
-	name = "letters-and-dashes"
-	test.That(t, ValidNameRegex.MatchString(name), test.ShouldBeTrue)
-	name = "letters_and_underscores"
-	test.That(t, ValidNameRegex.MatchString(name), test.ShouldBeTrue)
-
-	name = "1number"
-	test.That(t, ValidNameRegex.MatchString(name), test.ShouldBeFalse)
-	name = "a!"
-	test.That(t, ValidNameRegex.MatchString(name), test.ShouldBeFalse)
-	name = "s p a c e s"
-	test.That(t, ValidNameRegex.MatchString(name), test.ShouldBeFalse)
-	name = "period."
-	test.That(t, ValidNameRegex.MatchString(name), test.ShouldBeFalse)
+func TestNameValidations(t *testing.T) {
+	tests := []struct {
+		name             string
+		shouldContainErr string
+	}{
+		{name: "a"},
+		{name: "1"},
+		{name: "justLetters"},
+		{name: "numbersAndLetters1"},
+		{name: "letters-and-dashes"},
+		{name: "letters_and_underscores"},
+		{name: "1number"},
+		{name: "a!", shouldContainErr: "must only contain"},
+		{name: "s p a c e s", shouldContainErr: "must only contain"},
+		{name: "period.", shouldContainErr: "must only contain"},
+		{name: "emoji👿", shouldContainErr: "must only contain"},
+		{name: "-dashstart", shouldContainErr: "must only contain"},
+		{name: strings.Repeat("a", 201), shouldContainErr: "or fewer"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.shouldContainErr == "" {
+				test.That(t, ValidateResourceName(tc.name), test.ShouldBeNil)
+				test.That(t, ValidateModuleName(tc.name), test.ShouldBeNil)
+				test.That(t, ValidatePackageName(tc.name), test.ShouldBeNil)
+				test.That(t, ValidateRemoteName(tc.name), test.ShouldBeNil)
+			} else {
+				test.That(t, fmt.Sprint(ValidateResourceName(tc.name)), test.ShouldContainSubstring, tc.shouldContainErr)
+				test.That(t, fmt.Sprint(ValidateModuleName(tc.name)), test.ShouldContainSubstring, tc.shouldContainErr)
+				test.That(t, fmt.Sprint(ValidatePackageName(tc.name)), test.ShouldContainSubstring, tc.shouldContainErr)
+				test.That(t, fmt.Sprint(ValidateRemoteName(tc.name)), test.ShouldContainSubstring, tc.shouldContainErr)
+			}
+		})
+	}
+	// test differences between the validation functions
+	name := strings.Repeat("a", 61)
+	test.That(t, fmt.Sprint(ValidateResourceName(name)), test.ShouldContainSubstring, "or fewer")
+	test.That(t, fmt.Sprint(ValidateRemoteName(name)), test.ShouldContainSubstring, "or fewer")
+	test.That(t, ValidateModuleName(name), test.ShouldBeNil)
+	test.That(t, ValidatePackageName(name), test.ShouldBeNil)
 }

@@ -65,7 +65,7 @@ func TestTFLiteCPUDetector(t *testing.T) {
 	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
 	test.That(t, err, test.ShouldBeNil)
 	resized := resize.Resize(uint(got.metadata.Inputs[0].Shape[1]), uint(got.metadata.Inputs[0].Shape[2]), pic, resize.Bilinear)
-	imgBytes := rimage.ImageToUInt8Buffer(resized)
+	imgBytes := rimage.ImageToUInt8Buffer(resized, false)
 	test.That(t, imgBytes, test.ShouldNotBeNil)
 	inputMap := ml.Tensors{}
 	inputMap["image"] = tensor.New(
@@ -126,7 +126,7 @@ func TestTFLiteCPUClassifier(t *testing.T) {
 	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/lion.jpeg"))
 	test.That(t, err, test.ShouldBeNil)
 	resized := resize.Resize(uint(got.metadata.Inputs[0].Shape[1]), uint(got.metadata.Inputs[0].Shape[2]), pic, resize.Bilinear)
-	imgBytes := rimage.ImageToUInt8Buffer(resized)
+	imgBytes := rimage.ImageToUInt8Buffer(resized, false)
 	test.That(t, imgBytes, test.ShouldNotBeNil)
 	inputMap := ml.Tensors{}
 	inputMap["images"] = tensor.New(
@@ -224,7 +224,7 @@ func TestTFLiteCPUClient(t *testing.T) {
 	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
 	test.That(t, err, test.ShouldBeNil)
 	resized := resize.Resize(320, 320, pic, resize.Bilinear)
-	imgBytes := rimage.ImageToUInt8Buffer(resized)
+	imgBytes := rimage.ImageToUInt8Buffer(resized, false)
 	test.That(t, imgBytes, test.ShouldNotBeNil)
 	inputMap := ml.Tensors{}
 	inputMap["image"] = tensor.New(

@@ -63,8 +63,9 @@ func (server *serviceServer) GetPointCloudMap(req *pb.GetPointCloudMapRequest,
 	if err != nil {
 		return err
 	}
+	returnEditedMap := req.ReturnEditedMap != nil && *req.ReturnEditedMap
 
-	f, err := svc.PointCloudMap(ctx)
+	f, err := svc.PointCloudMap(ctx, returnEditedMap)
 	if err != nil {
 		return errors.Wrap(err, "getting callback function from PointCloudMap encountered an issue")
 	}
@@ -144,9 +145,20 @@ func (server *serviceServer) GetProperties(ctx context.Context, req *pb.GetPrope
 		return nil, err
 	}
 
+	sensorInfo := []*pb.SensorInfo{}
+	for _, sInfo := range prop.SensorInfo {
+		sensorType := sensorTypeToProtobuf(sInfo.Type)
+		sensorInfo = append(sensorInfo, &pb.SensorInfo{
+			Name: sInfo.Name,
+			Type: sensorType,
+		})
+	}
+
 	return &pb.GetPropertiesResponse{
-		CloudSlam:   prop.CloudSlam,
-		MappingMode: mappingModeToProtobuf(prop.MappingMode),
+		CloudSlam:             prop.CloudSlam,
+		MappingMode:           mappingModeToProtobuf(prop.MappingMode),
+		InternalStateFileType: &prop.InternalStateFileType,
+		SensorInfo:            sensorInfo,
 	}, nil
 }
 

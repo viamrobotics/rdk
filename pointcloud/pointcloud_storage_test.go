@@ -152,11 +152,11 @@ func benchPointCloudStorage(b *testing.B, ms storage) {
 
 	pcMax := 10_000.
 	for i := 0; i < b.N; i++ {
-		rand.Seed(0)
+		r := rand.New(rand.NewSource(0))
 		pointList := make([]PointAndData, 0, 10_000)
 		for j := 0; j < cap(pointList); j++ {
 			pointList = append(pointList, PointAndData{
-				r3.Vector{rand.Float64() * pcMax, rand.Float64() * pcMax, rand.Float64() * pcMax},
+				r3.Vector{r.Float64() * pcMax, r.Float64() * pcMax, r.Float64() * pcMax},
 				NewColoredData(color.NRGBA{uint8(rand.Intn(256)), uint8(rand.Intn(256)), uint8(rand.Intn(256)), 255}),
 			})
 		}

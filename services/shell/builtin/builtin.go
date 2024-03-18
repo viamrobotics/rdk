@@ -56,6 +56,9 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (ch
 	ctxCancel, cancel := context.WithCancel(ctx)
 	//nolint:gosec
 	cmd := exec.CommandContext(ctxCancel, defaultShellPath, "-i")
+	if _, ok := os.LookupEnv("TERM"); !ok {
+		cmd.Env = append(cmd.Env, "TERM=xterm-256color")
+	}
 	f, err := pty.Start(cmd)
 	if err != nil {
 		cancel()

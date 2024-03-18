@@ -17,7 +17,7 @@ func NewPropertyUnsupportedError(prop Properties, motorName string) error {
 // NewZeroRPMError returns an error representing a request to move a motor at
 // zero speed (i.e., moving the motor without moving the motor).
 func NewZeroRPMError() error {
-	return errors.New("Cannot move motor at 0 RPM")
+	return errors.New("Cannot move motor at an RPM that is nearly 0")
 }
 
 // NewGoToUnsupportedError returns error when a motor is required to support GoTo feature.

@@ -34,21 +34,25 @@ import (
 	"go.viam.com/rdk/session"
 )
 
+// logTSKey is the key used in conjunction with the timestamp of logs received
+// by the RDK.
+const logTSKey = "log_ts"
+
 // Server implements the contract from robot.proto that ultimately satisfies
 // a robot.Robot as a gRPC server.
 type Server struct {
 	pb.UnimplementedRobotServiceServer
-	r                       robot.Robot
+	robot                   robot.Robot
 	activeBackgroundWorkers sync.WaitGroup
 	cancelCtx               context.Context
 	cancel                  func()
 }
 
 // New constructs a gRPC service server for a Robot.
-func New(r robot.Robot) pb.RobotServiceServer {
+func New(robot robot.Robot) pb.RobotServiceServer {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	return &Server{
-		r:         r,
+		robot:     robot,
 		cancelCtx: cancelCtx,
 		cancel:    cancel,
 	}
@@ -64,7 +68,7 @@ func (s *Server) Close() {
 func (s *Server) GetOperations(ctx context.Context, req *pb.GetOperationsRequest) (*pb.GetOperationsResponse, error) {
 	me := operation.Get(ctx)
 
-	all := s.r.OperationManager().All()
+	all := s.robot.OperationManager().All()
 
 	res := &pb.GetOperationsResponse{}
 	for _, o := range all {
@@ -102,7 +106,7 @@ func convertInterfaceToStruct(i interface{}) (*structpb.Struct, error) {
 
 // CancelOperation kills an operations.
 func (s *Server) CancelOperation(ctx context.Context, req *pb.CancelOperationRequest) (*pb.CancelOperationResponse, error) {
-	op := s.r.OperationManager().FindString(req.Id)
+	op := s.robot.OperationManager().FindString(req.Id)
 	if op != nil {
 		op.Cancel()
 	}
@@ -112,7 +116,7 @@ func (s *Server) CancelOperation(ctx context.Context, req *pb.CancelOperationReq
 // BlockForOperation blocks for an operation to finish.
 func (s *Server) BlockForOperation(ctx context.Context, req *pb.BlockForOperationRequest) (*pb.BlockForOperationResponse, error) {
 	for {
-		op := s.r.OperationManager().FindString(req.Id)
+		op := s.robot.OperationManager().FindString(req.Id)
 		if op == nil {
 			return &pb.BlockForOperationResponse{}, nil
 		}
@@ -125,7 +129,7 @@ func (s *Server) BlockForOperation(ctx context.Context, req *pb.BlockForOperatio
 
 // GetSessions lists all active sessions.
 func (s *Server) GetSessions(ctx context.Context, req *pb.GetSessionsRequest) (*pb.GetSessionsResponse, error) {
-	allSessions := s.r.SessionManager().All()
+	allSessions := s.robot.SessionManager().All()
 
 	resp := &pb.GetSessionsResponse{}
 	for _, sess := range allSessions {
@@ -140,7 +144,7 @@ func (s *Server) GetSessions(ctx context.Context, req *pb.GetSessionsRequest) (*
 
 // ResourceNames returns the list of resources.
 func (s *Server) ResourceNames(ctx context.Context, _ *pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error) {
-	all := s.r.ResourceNames()
+	all := s.robot.ResourceNames()
 	rNames := make([]*commonpb.ResourceName, 0, len(all))
 	for _, m := range all {
 		rNames = append(
@@ -154,7 +158,7 @@ func (s *Server) ResourceNames(ctx context.Context, _ *pb.ResourceNamesRequest) 
 // ResourceRPCSubtypes returns the list of resource RPC APIs.
 // Subtypes is an older name but preserved in proto.
 func (s *Server) ResourceRPCSubtypes(ctx context.Context, _ *pb.ResourceRPCSubtypesRequest) (*pb.ResourceRPCSubtypesResponse, error) {
-	resAPIs := s.r.ResourceRPCAPIs()
+	resAPIs := s.robot.ResourceRPCAPIs()
 	protoTypes := make([]*pb.ResourceRPCSubtype, 0, len(resAPIs))
 	for _, rt := range resAPIs {
 		protoTypes = append(protoTypes, &pb.ResourceRPCSubtype{
@@ -191,7 +195,7 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 		queries = append(queries, resource.DiscoveryQuery{API: s, Model: m})
 	}
 
-	discoveries, err := s.r.DiscoverComponents(ctx, queries)
+	discoveries, err := s.robot.DiscoverComponents(ctx, queries)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +225,7 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 
 // FrameSystemConfig returns the info of each individual part that makes up the frame system.
 func (s *Server) FrameSystemConfig(ctx context.Context, req *pb.FrameSystemConfigRequest) (*pb.FrameSystemConfigResponse, error) {
-	fsCfg, err := s.r.FrameSystemConfig(ctx)
+	fsCfg, err := s.robot.FrameSystemConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +250,7 @@ func (s *Server) TransformPose(ctx context.Context, req *pb.TransformPoseRequest
 	if err != nil {
 		return nil, err
 	}
-	transformedPose, err := s.r.TransformPose(ctx, referenceframe.ProtobufToPoseInFrame(req.Source), req.Destination, transforms)
+	transformedPose, err := s.robot.TransformPose(ctx, referenceframe.ProtobufToPoseInFrame(req.Source), req.Destination, transforms)
 	return &pb.TransformPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(transformedPose)}, err
 }
 
@@ -264,7 +268,7 @@ func (s *Server) TransformPCD(ctx context.Context, req *pb.TransformPCDRequest) 
 		return nil, err
 	}
 	// transform
-	final, err := s.r.TransformPointCloud(ctx, pc, req.Source, req.Destination)
+	final, err := s.robot.TransformPointCloud(ctx, pc, req.Source, req.Destination)
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +289,7 @@ func (s *Server) GetStatus(ctx context.Context, req *pb.GetStatusRequest) (*pb.G
 		resourceNames = append(resourceNames, protoutils.ResourceNameFromProto(name))
 	}
 
-	statuses, err := s.r.Status(ctx, resourceNames)
+	statuses, err := s.robot.Status(ctx, resourceNames)
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +349,7 @@ func (s *Server) StopAll(ctx context.Context, req *pb.StopAllRequest) (*pb.StopA
 	for _, e := range req.Extra {
 		extra[protoutils.ResourceNameFromProto(e.Name)] = e.Params.AsMap()
 	}
-	if err := s.r.StopAll(ctx, extra); err != nil {
+	if err := s.robot.StopAll(ctx, extra); err != nil {
 		return nil, err
 	}
 	return &pb.StopAllResponse{}, nil
@@ -367,7 +371,7 @@ func (s *Server) StartSession(ctx context.Context, req *pb.StartSessionRequest) 
 		if err != nil {
 			return nil, err
 		}
-		if sess, err := s.r.SessionManager().FindByID(ctx, resumeWith, authUID); err != nil {
+		if sess, err := s.robot.SessionManager().FindByID(ctx, resumeWith, authUID); err != nil {
 			if !errors.Is(err, session.ErrNoSession) {
 				return nil, err
 			}
@@ -378,7 +382,7 @@ func (s *Server) StartSession(ctx context.Context, req *pb.StartSessionRequest) 
 			}, nil
 		}
 	}
-	sess, err := s.r.SessionManager().Start(
+	sess, err := s.robot.SessionManager().Start(
 		ctx,
 		authUID,
 	)
@@ -401,7 +405,7 @@ func (s *Server) SendSessionHeartbeat(ctx context.Context, req *pb.SendSessionHe
 	if err != nil {
 		return nil, err
 	}
-	if _, err := s.r.SessionManager().FindByID(ctx, sessID, authUID); err != nil {
+	if _, err := s.robot.SessionManager().FindByID(ctx, sessID, authUID); err != nil {
 		return nil, err
 	}
 	return &pb.SendSessionHeartbeatResponse{}, nil
@@ -420,24 +424,50 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 	// Use a sublogger of robot logger with correct logger name. Set a level of
 	// DEBUG to allow gRPC logs at DEBUG level even when RDK is not on DEBUG
 	// level. Disable caller to mimic caller passed in from gRPC request.
-	logger := s.r.Logger().Sublogger(log.LoggerName)
+	logger := s.robot.Logger().Sublogger(log.LoggerName)
 	logger.SetLevel(logging.DEBUG)
 	l := logger.WithOptions(zap.WithCaller(false))
+
+	fields := make([]any, 0, len(log.Fields)*2)
+	for _, fieldP := range log.Fields {
+		key, val, err := logging.FieldKeyAndValueFromProto(fieldP)
+		if err != nil {
+			return nil, err
+		}
+		fields = append(fields, key, val)
+	}
+
+	// Insert field of `{"log_ts": log.Time}` to encode the timestamp of this
+	// log.
+	fields = append(fields, logTSKey, log.Time.AsTime())
 
 	level, err := logging.LevelFromString(log.Level)
 	switch {
 	case err != nil:
 		l.Warn("logger named %q sent a log over gRPC with an invalid level %q", log.LoggerName, log.Level)
 	case level == logging.DEBUG:
-		l.Debug(log.Message)
+		l.Debugw(log.Message, fields...)
 	case level == logging.INFO:
-		l.Info(log.Message)
+		l.Infow(log.Message, fields...)
 	case level == logging.WARN:
-		l.Warn(log.Message)
+		l.Warnw(log.Message, fields...)
 	case level == logging.ERROR:
-		l.Error(log.Message)
+		l.Errorw(log.Message, fields...)
 	default:
 	}
 
 	return &pb.LogResponse{}, nil
+}
+
+// GetCloudMetadata returns app-related information about the robot.
+func (s *Server) GetCloudMetadata(ctx context.Context, _ *pb.GetCloudMetadataRequest) (*pb.GetCloudMetadataResponse, error) {
+	md, err := s.robot.CloudMetadata(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetCloudMetadataResponse{
+		RobotPartId:  md.RobotPartID,
+		LocationId:   md.LocationID,
+		PrimaryOrgId: md.PrimaryOrgID,
+	}, nil
 }

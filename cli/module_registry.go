@@ -252,10 +252,16 @@ func UploadModuleAction(c *cli.Context) error {
 			return errors.Errorf("module name %q was supplied on the command line but the meta.json has a module ID of %q", nameArg,
 				moduleID.name)
 		}
-	}
-	moduleID, err = validateModuleID(client, moduleID.String(), publicNamespaceArg, orgIDArg)
-	if err != nil {
-		return err
+
+		moduleID, err = validateModuleID(client, moduleID.String(), publicNamespaceArg, orgIDArg)
+		if err != nil {
+			return err
+		}
+
+		_, err = client.updateModule(moduleID, manifest)
+		if err != nil {
+			return errors.Wrap(err, "Module update failed. Please correct the following issues in your meta.json")
+		}
 	}
 
 	tarballPath := moduleUploadPath

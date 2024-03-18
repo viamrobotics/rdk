@@ -45,6 +45,12 @@ const (
 	MappingModeUpdateExistingMap
 )
 
+// SensorTypeCamera is a camera sensor.
+const (
+	SensorTypeCamera = SensorType(iota)
+	SensorTypeMovementSensor
+)
+
 // API is a variable that identifies the slam resource API.
 var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 
@@ -52,11 +58,23 @@ var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 // creating a new map, localizing on an existing map or updating an existing map.
 type MappingMode uint8
 
+// SensorType describes what sensor type the sensor is, including
+// camera or movement sensor.
+type SensorType uint8
+
+// SensorInfo holds information about the sensor name and sensor type.
+type SensorInfo struct {
+	Name string
+	Type SensorType
+}
+
 // Properties returns various information regarding the current slam service,
 // including whether the slam process is running in the cloud and its mapping mode.
 type Properties struct {
-	CloudSlam   bool
-	MappingMode MappingMode
+	CloudSlam             bool
+	MappingMode           MappingMode
+	InternalStateFileType string
+	SensorInfo            []SensorInfo
 }
 
 // Named is a helper for getting the named service's typed resource name.
@@ -79,7 +97,7 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 type Service interface {
 	resource.Resource
 	Position(ctx context.Context) (spatialmath.Pose, string, error)
-	PointCloudMap(ctx context.Context) (func() ([]byte, error), error)
+	PointCloudMap(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error)
 	InternalState(ctx context.Context) (func() ([]byte, error), error)
 	Properties(ctx context.Context) (Properties, error)
 }
@@ -101,10 +119,10 @@ func HelperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 }
 
 // PointCloudMapFull concatenates the streaming responses from PointCloudMap into a full point cloud.
-func PointCloudMapFull(ctx context.Context, slamSvc Service) ([]byte, error) {
+func PointCloudMapFull(ctx context.Context, slamSvc Service, returnEditedMap bool) ([]byte, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::PointCloudMapFull")
 	defer span.End()
-	callback, err := slamSvc.PointCloudMap(ctx)
+	callback, err := slamSvc.PointCloudMap(ctx, returnEditedMap)
 	if err != nil {
 		return nil, err
 	}
@@ -124,8 +142,8 @@ func InternalStateFull(ctx context.Context, slamSvc Service) ([]byte, error) {
 }
 
 // Limits returns the bounds of the slam map as a list of referenceframe.Limits.
-func Limits(ctx context.Context, svc Service) ([]referenceframe.Limit, error) {
-	data, err := PointCloudMapFull(ctx, svc)
+func Limits(ctx context.Context, svc Service, useEditedMap bool) ([]referenceframe.Limit, error) {
+	data, err := PointCloudMapFull(ctx, svc, useEditedMap)
 	if err != nil {
 		return nil, err
 	}
@@ -138,32 +156,4 @@ func Limits(ctx context.Context, svc Service) ([]referenceframe.Limit, error) {
 		{Min: dims.MinX, Max: dims.MaxX},
 		{Min: dims.MinY, Max: dims.MaxY},
 	}, nil
-}
-
-func mappingModeToProtobuf(mappingMode MappingMode) pb.MappingMode {
-	switch mappingMode {
-	case MappingModeNewMap:
-		return pb.MappingMode_MAPPING_MODE_CREATE_NEW_MAP
-	case MappingModeLocalizationOnly:
-		return pb.MappingMode_MAPPING_MODE_LOCALIZE_ONLY
-	case MappingModeUpdateExistingMap:
-		return pb.MappingMode_MAPPING_MODE_UPDATE_EXISTING_MAP
-	default:
-		return pb.MappingMode_MAPPING_MODE_UNSPECIFIED
-	}
-}
-
-func protobufToMappingMode(mappingMode pb.MappingMode) (MappingMode, error) {
-	switch mappingMode {
-	case pb.MappingMode_MAPPING_MODE_CREATE_NEW_MAP:
-		return MappingModeNewMap, nil
-	case pb.MappingMode_MAPPING_MODE_LOCALIZE_ONLY:
-		return MappingModeLocalizationOnly, nil
-	case pb.MappingMode_MAPPING_MODE_UPDATE_EXISTING_MAP:
-		return MappingModeUpdateExistingMap, nil
-	case pb.MappingMode_MAPPING_MODE_UNSPECIFIED:
-		fallthrough
-	default:
-		return 0, errors.New("mapping mode unspecified")
-	}
 }

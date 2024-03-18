@@ -3,9 +3,11 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -13,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -31,6 +34,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	rconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -38,6 +42,10 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/shell"
+)
+
+const (
+	rdkReleaseURL = "https://api.github.com/repos/viamrobotics/rdk/releases/latest"
 )
 
 // viamClient wraps a cli.Context and provides all the CLI command functionality
@@ -380,6 +388,129 @@ func RobotsPartShellAction(c *cli.Context) error {
 	)
 }
 
+// checkUpdateResponse holds the values used to hold release information.
+type getLatestReleaseResponse struct {
+	Name       string `json:"name"`
+	TagName    string `json:"tag_name"`
+	TarballURL string `json:"tarball_url"`
+}
+
+func getLatestReleaseVersion() (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	resp := getLatestReleaseResponse{}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rdkReleaseURL, nil)
+	if err != nil {
+		return "", err
+	}
+
+	client := http.DefaultClient
+	res, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	err = json.NewDecoder(res.Body).Decode(&resp)
+	if err != nil {
+		return "", err
+	}
+
+	defer utils.UncheckedError(res.Body.Close())
+	return resp.TagName, err
+}
+
+// CheckUpdateAction is the corresponding Action for 'check-update'.
+func CheckUpdateAction(c *cli.Context) error {
+	if c.Bool(quietFlag) {
+		return nil
+	}
+
+	dateCompiledRaw := rconfig.DateCompiled
+
+	// `go build` will not set the compilation flags needed for this check
+	if dateCompiledRaw == "" {
+		return nil
+	}
+
+	dateCompiled, err := time.Parse("2006-01-02", dateCompiledRaw)
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse compilation date: %w", err)
+		return nil
+	}
+
+	// install is less than six weeks old
+	if time.Since(dateCompiled) < time.Hour*24*7*6 {
+		return nil
+	}
+
+	conf, err := configFromCache()
+	if err != nil {
+		if !os.IsNotExist(err) {
+			utils.UncheckedError(err)
+			return nil
+		}
+		conf = &config{}
+	}
+
+	var lastCheck time.Time
+	if conf.LastUpdateCheck == "" {
+		conf.LastUpdateCheck = time.Now().Format("2006-01-02")
+	} else {
+		lastCheck, err = time.Parse("2006-01-02", conf.LastUpdateCheck)
+		if err != nil {
+			warningf(c.App.ErrWriter, "CLI Update Check: failed to parse date of last check: %w", err)
+			return nil
+		}
+	}
+
+	// The latest version info is cached to limit api calls to once every three days
+	if time.Since(lastCheck) < time.Hour*24*3 && conf.LatestVersion != "" {
+		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than 6 weeks old. "+
+			"Consider updating to version: %s", conf.LatestVersion)
+		return nil
+	}
+
+	latestRelease, err := getLatestReleaseVersion()
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", err)
+		return nil
+	}
+
+	latestVersion, err := semver.NewVersion(latestRelease)
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse latest version: %w", err)
+		return nil
+	}
+
+	conf.LatestVersion = latestVersion.String()
+
+	err = storeConfigToCache(conf)
+	if err != nil {
+		utils.UncheckedError(err)
+	}
+
+	appVersion := rconfig.Version
+	if appVersion == "" {
+		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than 6 weeks old. "+
+			"Consider updating to version: %s", latestVersion.Original())
+		return nil
+	}
+
+	localVersion, err := semver.NewVersion(appVersion)
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse compiled version: %w", err)
+		return nil
+	}
+
+	if localVersion.LessThan(latestVersion) {
+		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is out of date. Consider updating to version %s", latestVersion.Original())
+	}
+
+	return nil
+}
+
 // VersionAction is the corresponding Action for 'version'.
 func VersionAction(c *cli.Context) error {
 	info, ok := debug.ReadBuildInfo()
@@ -408,6 +539,7 @@ func VersionAction(c *cli.Context) error {
 	if dep, ok := deps["go.viam.com/api"]; ok {
 		apiVersion = dep.Version
 	}
+
 	appVersion := rconfig.Version
 	if appVersion == "" {
 		appVersion = "(dev)"
@@ -752,7 +884,26 @@ func (c *viamClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb
 			return part, nil
 		}
 	}
-	return nil, errors.Errorf("no machine part found for %q", partStr)
+
+	// if we can't find the part via org/location, see if this is an id, and try to find it directly that way
+	if robotStr != "" {
+		resp, err := c.client.GetRobotParts(c.c.Context, &apppb.GetRobotPartsRequest{
+			RobotId: robotStr,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, part := range resp.Parts {
+			if part.Id == partStr || part.Name == partStr {
+				return part, nil
+			}
+		}
+		if partStr == "" && len(resp.Parts) == 1 {
+			return resp.Parts[0], nil
+		}
+	}
+
+	return nil, errors.Errorf("no machine part found for machine: %q part: %q", robotStr, partStr)
 }
 
 func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool) ([]*commonpb.LogEntry, error) {
@@ -789,15 +940,24 @@ func (c *viamClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.Robot
 }
 
 func (c *viamClient) printRobotPartLogsInner(logs []*commonpb.LogEntry, indent string) {
-	for _, log := range logs {
+	// Iterate over logs in reverse because they are returned in
+	// order of latest to oldest but we should print from oldest -> newest
+	for i := len(logs) - 1; i >= 0; i-- {
+		log := logs[i]
+		fieldsString, err := logEntryFieldsToString(log.Fields)
+		if err != nil {
+			warningf(c.c.App.ErrWriter, "%v", err)
+			fieldsString = ""
+		}
 		printf(
 			c.c.App.Writer,
-			"%s%s\t%s\t%s\t%s",
+			"%s%s\t%s\t%s\t%s\t%s",
 			indent,
-			log.Time.AsTime().Format("2006-01-02T15:04:05.000Z0700"),
+			log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
 			log.Level,
 			log.LoggerName,
 			log.Message,
+			fieldsString,
 		)
 	}
 }
@@ -1000,9 +1160,9 @@ func (c *viamClient) startRobotPartShell(
 		// NOTE(benjirewis): Linux systems seem to need both "raw" (no processing) and "-echo"
 		// (no echoing back inputted characters) in order to allow the input and output loops
 		// below to completely control the terminal.
-		args := []string{"raw", "-echo"}
+		args := []string{"raw", "-echo", "-echoctl"}
 		if !isRaw {
-			args = []string{"-raw", "echo"}
+			args = []string{"-raw", "echo", "echoctl"}
 		}
 
 		rawMode := exec.Command("stty", args...)
@@ -1065,4 +1225,31 @@ func (c *viamClient) startRobotPartShell(
 
 	outputLoop()
 	return nil
+}
+
+func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {
+	// if there are no fields, don't return anything, otherwise we add lots of {}'s
+	// to the logs
+	if len(fields) == 0 {
+		return "", nil
+	}
+	// we have to manually format these fields as json because
+	// marshalling a go object will not preserve the order of the fields
+	message := "{"
+	for i, field := range fields {
+		key, value, err := logging.FieldKeyAndValueFromProto(field)
+		if err != nil {
+			return "", err
+		}
+		if i > 0 {
+			// split fields with space and comma after first entry
+			message += ", "
+		}
+		if _, isStr := value.(string); isStr {
+			message += fmt.Sprintf("%q: %q", key, value)
+		} else {
+			message += fmt.Sprintf("%q: %v", key, value)
+		}
+	}
+	return message + "}", nil
 }
