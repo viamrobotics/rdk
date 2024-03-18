@@ -2,6 +2,7 @@ package packages
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"encoding/base64"
@@ -478,13 +479,30 @@ func (m *cloudManager) downloadFileFromGCSURL(
 		return checksum, contentType, err
 	}
 
-	outHash := base64.StdEncoding.EncodeToString(hash.Sum(nil))
-	if outHash != checksum {
+	checksumBytes, err := base64.StdEncoding.DecodeString(checksum)
+	if err != nil {
+		return "", "", errors.Wrap(err, "failed to decode expected checksum")
+	}
+	outHashBytes := hash.Sum(nil)
+
+	trimmedChecksumBytes := trimLeadingZeroes(checksumBytes)
+	trimmedOutHashBytes := trimLeadingZeroes(outHashBytes)
+
+	if !bytes.Equal(trimmedOutHashBytes, trimmedChecksumBytes) {
 		utils.UncheckedError(os.Remove(downloadPath))
-		return checksum, contentType, errors.Errorf("download did not match expected hash %s != %s", checksum, outHash)
+		return checksum, contentType, errors.Errorf("download did not match expected hash %x != %x", trimmedChecksumBytes, trimmedOutHashBytes)
 	}
 
 	return checksum, contentType, nil
+}
+
+func trimLeadingZeroes(data []byte) []byte {
+	for i, b := range data {
+		if b != 0x00 {
+			return data[i:]
+		}
+	}
+	return data // return the original slice if it's all zeroes or empty
 }
 
 func unpackFile(ctx context.Context, fromFile, toDir string) error {
