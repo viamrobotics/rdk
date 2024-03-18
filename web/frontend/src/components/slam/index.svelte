@@ -350,9 +350,12 @@ const handleStartMapping = async () => {
       mapNameError = 'Please enter a name for this map';
       return;
     }
+    console.log("In handleStartMapping, mappingDetails: ", overrides.mappingDetails)
+    console.log("In handleStartMapping, mapName: ", overrides.mapName)
 
     // Get SensorInfo list
     const props = await slamClient.getProperties();
+    console.log("In handleStartMapping, slam client properties: ", props)
 
     try {
       hasActiveSession = true;
