@@ -521,7 +521,6 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 				continue
 			}
 
-			var convertedAttrs interface{} = associatedConf.Attributes
 			if conv.AttributeMapConverter != nil {
 				converted, err := conv.AttributeMapConverter(associatedConf.Attributes)
 				if err != nil {
@@ -542,21 +541,10 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 					return newName
 				})
 				associatedCfgs[subIdx].ConvertedAttributes = converted
-				convertedAttrs = converted
-			}
 
-			// for APIs with an associated config linker, link the current associated config with
-			// each resource config of that API.
-			for _, assocConf := range resCfgsPerAPI[associatedConf.API] {
-				reg, ok := resource.LookupRegistration(associatedConf.API, assocConf.Model)
-				if !ok || reg.AssociatedConfigLinker == nil {
-					continue
-				}
-
-				// link the converted attributes for the current resource config (convertedAttrs) to the config that accepts
-				// associated configs.
-				if err := reg.AssociatedConfigLinker(assocConf.ConvertedAttributes, convertedAttrs); err != nil {
-					return errors.Wrapf(err, "error associating resource association config to resource %q", assocConf.Model)
+				// for APIs with an associated config linker, link the current associated config with each resource config of that API.
+				for _, assocConf := range resCfgsPerAPI[associatedConf.API] {
+					converted.Link(assocConf)
 				}
 			}
 		}

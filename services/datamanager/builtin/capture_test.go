@@ -117,16 +117,17 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 			// Set up robot config.
 			var initConfig *Config
+			var associations map[resource.Name]resource.AssociatedConfig
 			var deps []string
 			switch {
 			case tc.remoteCollector:
-				initConfig, deps = setupConfig(t, remoteCollectorConfigPath)
+				initConfig, associations, deps = setupConfig(t, remoteCollectorConfigPath)
 			case tc.initialCollectorDisableStatus:
-				initConfig, deps = setupConfig(t, disabledTabularCollectorConfigPath)
+				initConfig, associations, deps = setupConfig(t, disabledTabularCollectorConfigPath)
 			case tc.emptyTabular:
-				initConfig, deps = setupConfig(t, enabledTabularCollectorEmptyConfigPath)
+				initConfig, associations, deps = setupConfig(t, enabledTabularCollectorEmptyConfigPath)
 			default:
-				initConfig, deps = setupConfig(t, enabledTabularCollectorConfigPath)
+				initConfig, associations, deps = setupConfig(t, enabledTabularCollectorConfigPath)
 			}
 
 			// further set up service config.
@@ -142,7 +143,8 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 			resources := resourcesFromDeps(t, r, deps)
 			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes: initConfig,
+				ConvertedAttributes:  initConfig,
+				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
 			passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
@@ -161,9 +163,9 @@ func TestDataCaptureEnabled(t *testing.T) {
 			// Set up updated robot config.
 			var updatedConfig *Config
 			if tc.newCollectorDisableStatus {
-				updatedConfig, deps = setupConfig(t, disabledTabularCollectorConfigPath)
+				updatedConfig, associations, deps = setupConfig(t, disabledTabularCollectorConfigPath)
 			} else {
-				updatedConfig, deps = setupConfig(t, enabledTabularCollectorConfigPath)
+				updatedConfig, associations, deps = setupConfig(t, enabledTabularCollectorConfigPath)
 			}
 
 			// further set up updated service config.
@@ -174,7 +176,8 @@ func TestDataCaptureEnabled(t *testing.T) {
 			// Update to new config and let it run for a bit.
 			resources = resourcesFromDeps(t, r, deps)
 			err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes: updatedConfig,
+				ConvertedAttributes:  updatedConfig,
+				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
 			oldCaptureDirFiles := getAllFileInfos(initCaptureDir)
@@ -206,7 +209,7 @@ func TestSwitchResource(t *testing.T) {
 	clock = mockClock
 
 	// Set up robot config.
-	config, deps := setupConfig(t, enabledTabularCollectorConfigPath)
+	config, associations, deps := setupConfig(t, enabledTabularCollectorConfigPath)
 	config.CaptureDisabled = false
 	config.ScheduledSyncDisabled = true
 	config.CaptureDir = captureDir
@@ -219,7 +222,8 @@ func TestSwitchResource(t *testing.T) {
 
 	resources := resourcesFromDeps(t, r, deps)
 	err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-		ConvertedAttributes: config,
+		ConvertedAttributes:  config,
+		AssociatedAttributes: associations,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
@@ -244,7 +248,8 @@ func TestSwitchResource(t *testing.T) {
 	}
 
 	err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-		ConvertedAttributes: config,
+		ConvertedAttributes:  config,
+		AssociatedAttributes: associations,
 	})
 	test.That(t, err, test.ShouldBeNil)
 

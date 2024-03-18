@@ -92,7 +92,7 @@ func newTestDataManager(t *testing.T) (internal.DMService, robot.Robot) {
 	return svc.(internal.DMService), r
 }
 
-func setupConfig(t *testing.T, relativePath string) (*Config, []string) {
+func setupConfig(t *testing.T, relativePath string) (*Config, map[resource.Name]resource.AssociatedConfig, []string) {
 	t.Helper()
 	logger := logging.NewTestLogger(t)
 	testCfg, err := config.Read(context.Background(), utils.ResolveFile(relativePath), logger)
@@ -100,7 +100,7 @@ func setupConfig(t *testing.T, relativePath string) (*Config, []string) {
 	return getServiceConfig(t, testCfg)
 }
 
-func getServiceConfig(t *testing.T, cfg *config.Config) (*Config, []string) {
+func getServiceConfig(t *testing.T, cfg *config.Config) (*Config, map[resource.Name]resource.AssociatedConfig, []string) {
 	t.Helper()
 	for _, c := range cfg.Services {
 		// Compare service type and name.
@@ -109,17 +109,22 @@ func getServiceConfig(t *testing.T, cfg *config.Config) (*Config, []string) {
 			test.That(t, ok, test.ShouldBeTrue)
 
 			var deps []string
-			for _, resConf := range svcConfig.ResourceConfigs {
-				deps = append(deps, resConf.Name.String())
+			for _, resConf := range c.AssociatedAttributes {
+				assocConf, ok := resConf.(*datamanager.AssociatedConfig)
+				test.That(t, ok, test.ShouldBeTrue)
+				if len(assocConf.CaptureMethods) == 0 {
+					continue
+				}
+				deps = append(deps, assocConf.CaptureMethods[0].Name.String())
 			}
 			deps = append(deps, c.ImplicitDependsOn...)
-			return svcConfig, deps
+			return svcConfig, c.AssociatedAttributes, deps
 		}
 	}
 
 	t.Log("no service config")
 	t.FailNow()
-	return nil, nil
+	return nil, nil, nil
 }
 
 func TestGetDurationFromHz(t *testing.T) {
@@ -134,13 +139,14 @@ func TestUntrustedEnv(t *testing.T) {
 	dmsvc, r := newTestDataManager(t)
 	defer dmsvc.Close(context.Background())
 
-	config, deps := setupConfig(t, enabledTabularCollectorConfigPath)
+	config, associations, deps := setupConfig(t, enabledTabularCollectorConfigPath)
 	ctx, err := utils.WithTrustedEnvironment(context.Background(), false)
 	test.That(t, err, test.ShouldBeNil)
 
 	resources := resourcesFromDeps(t, r, deps)
 	err = dmsvc.Reconfigure(ctx, resources, resource.Config{
-		ConvertedAttributes: config,
+		ConvertedAttributes:  config,
+		AssociatedAttributes: associations,
 	})
 	test.That(t, err, test.ShouldEqual, errCaptureDirectoryConfigurationDisabled)
 }
