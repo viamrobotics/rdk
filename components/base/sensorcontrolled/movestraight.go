@@ -157,11 +157,8 @@ func calcLinVel(errDist, mmPerSec, slowDownDist float64) float64 {
 // This helps to prevent overshoot when reaching the goal and reduces the jerk on the robot when the straight is complete.
 func calcSlowDownDist(distanceMm int) float64 {
 	slowDownDist := float64(distanceMm) * slowDownDistGain
-	if slowDownDist < -maxSlowDownDist {
-		return -maxSlowDownDist
-	}
-	if slowDownDist > maxSlowDownDist {
-		return maxSlowDownDist
+	if math.Abs(slowDownDist) > maxSlowDownDist {
+		return maxSlowDownDist * sign(distanceMm)
 	}
 	return slowDownDist
 }
