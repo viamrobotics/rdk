@@ -227,7 +227,14 @@ func (c *FakePackagesClientAndGCSServer) servePackage(w http.ResponseWriter, r *
 	}
 
 	if c.hasLeadingZeroesChecksum {
-		c.testPackageChecksum = "00" + c.testPackageChecksum
+		decodedBytes, err := base64.StdEncoding.DecodeString(c.testPackageChecksum)
+		if err != nil {
+			c.logger.Error(err)
+			return
+		}
+
+		prependedBytes := append([]byte{0x00, 0x00}, decodedBytes...)
+		c.testPackageChecksum = base64.StdEncoding.EncodeToString(prependedBytes)
 	}
 
 	w.Header().Set("Content-Type", "application/x-gzip")
