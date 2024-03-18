@@ -208,8 +208,10 @@ func (nl *NetAppender) backgroundWorker() {
 	}
 }
 
-// Returns whether there is more work to do or if an error was encountered while trying to ship logs
-// over the network.
+// Returns whether there is more work to do or if an error was encountered
+// while trying to ship logs over the network. May be run concurrently with
+// addToQueue and addBatchToQueue but expects that no logs will be removed
+// from queue during syncing.
 func (nl *NetAppender) syncOnce() (bool, error) {
 	nl.toLogMutex.Lock()
 
@@ -224,18 +226,18 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 	}
 
 	// Pull a batch from the queue, unlock mutex, and return an error if write
-	// fails. We are ok losing logs (pulling a batch out of toLog even in the
-	// event of a write failure) in order to not block adding to the queue while
-	// writing.
+	// fails. Lock mutex again to remove batch from queue only if write succeeded.
 	batch := nl.toLog[:batchSize]
-	nl.toLog = nl.toLog[batchSize:]
-	moreWorkToDo := len(nl.toLog) > 0
 	nl.toLogMutex.Unlock()
 
 	if err := nl.remoteWriter.write(batch); err != nil {
 		return false, err
 	}
-	return moreWorkToDo, nil
+
+	nl.toLogMutex.Lock()
+	defer nl.toLogMutex.Unlock()
+	nl.toLog = nl.toLog[batchSize:]
+	return len(nl.toLog) > 0, nil
 }
 
 // Sync will flush the internal buffer of logs.
