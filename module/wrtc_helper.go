@@ -10,8 +10,9 @@ import (
 	"github.com/pion/sctp"
 	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/logging"
 )
 
 // ConfigureForRenegotiation sets up PeerConnection callbacks for updating local descriptions and

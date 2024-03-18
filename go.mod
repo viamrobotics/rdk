@@ -398,4 +398,8 @@ require (
 	golang.org/x/exp v0.0.0-20230725012225-302865e7556b
 )
 
-replace go.viam.com/api => ../api
+replace (
+	go.viam.com/api => /Users/nicksanford/code/api
+	go.viam.com/rdk => /Users/nicksanford/rdk
+	go.viam.com/utils => /Users/nicksanford/code/goutils
+)

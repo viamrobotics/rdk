@@ -1,4 +1,4 @@
-// Package camera defines an image capturing device.
+// Package camera defines an image capturing device.camera.go
 package camera
 
 import (
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pion/mediadevices/pkg/prop"
+	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
@@ -80,6 +81,16 @@ type Camera interface {
 	resource.Resource
 	VideoSource
 }
+
+type (
+	// PacketCallback is the signature of the SubscribeRTP callback.
+	PacketCallback func(pkts []*rtp.Packet) error
+	// VideoCodecStreamSource is a source of video codec data.
+	VideoCodecStreamSource interface {
+		SubscribeRTP(r *StreamSubscription, packetsCB PacketCallback) error
+		Unsubscribe(r *StreamSubscription)
+	}
+)
 
 // A VideoSource represents anything that can capture frames.
 type VideoSource interface {

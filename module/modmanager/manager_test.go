@@ -103,7 +103,7 @@ func TestModManagerFunctions(t *testing.T) {
 
 	// Make a copy of addr and client to test that connections are properly remade
 	oldAddr := mod.addr
-	oldClient := mod.client
+	oldClient := mod.modClient
 
 	mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp)
 	err = mod.dial()

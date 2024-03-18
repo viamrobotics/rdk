@@ -14,7 +14,8 @@ type contextKey string
 
 const (
 	// MetadataContextKey is the key used to access metadata from a context with metadata.
-	MetadataContextKey = contextKey("viam-metadata")
+	MetadataContextKey       = contextKey("viam-metadata")
+	PeerConnectionContextKey = contextKey("viam-peer-connection-context-key")
 
 	// TimeRequestedMetadataKey is optional metadata in the gRPC response header that correlates
 	// to the time right before the point cloud was captured.
