@@ -144,11 +144,8 @@ func calcLinVel(errDist, mmPerSec, slowDownDist float64) float64 {
 	// have the velocity slow down when appoaching the goal. Otherwise use the desired velocity
 	linVel := errDist * mmPerSec / slowDownDist
 	absMmPerSec := math.Abs(mmPerSec)
-	if linVel > 0 && linVel > absMmPerSec {
-		return absMmPerSec
-	}
-	if linVel < 0 && linVel < -absMmPerSec {
-		return -absMmPerSec
+	if math.Abs(linVel) > absMmPerSec {
+		return absMmPerSec * sign(linVel)
 	}
 	return linVel
 }
