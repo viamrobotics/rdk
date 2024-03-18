@@ -15,6 +15,7 @@ require (
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
 	github.com/benbjohnson/clock v1.3.3
 	github.com/bep/debounce v1.2.1
+	github.com/bluenviron/gortsplib/v4 v4.8.0
 	github.com/bufbuild/buf v1.6.0
 	github.com/creack/pty v1.1.19-0.20220421211855-0d412c9fbeb1
 	github.com/d2r2/go-i2c v0.0.0-20191123181816-73a8a799d6bc
@@ -30,7 +31,6 @@ require (
 	github.com/fogleman/gg v1.3.0
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/fullstorydev/grpcurl v1.8.6
-	github.com/gen2brain/malgo v0.11.10
 	github.com/go-audio/audio v1.0.0
 	github.com/go-audio/transforms v0.0.0-20180121090939-51830ccc35a5
 	github.com/go-audio/wav v1.1.0
@@ -45,7 +45,7 @@ require (
 	github.com/golangci/golangci-lint v1.51.2
 	github.com/google/flatbuffers v2.0.6+incompatible
 	github.com/google/go-cmp v0.5.9
-	github.com/google/uuid v1.3.1
+	github.com/google/uuid v1.6.0
 	github.com/gotesttools/gotestfmt/v2 v2.4.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.15.2
@@ -67,7 +67,7 @@ require (
 	github.com/muesli/kmeans v0.3.1
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pion/mediadevices v0.5.1-0.20231017204133-3c9fee958efe
-	github.com/pion/rtp v1.8.2
+	github.com/pion/rtp v1.8.3
 	github.com/pion/sctp v1.8.8
 	github.com/pion/webrtc/v3 v3.2.21
 	github.com/rhysd/actionlint v1.6.24
@@ -90,8 +90,8 @@ require (
 	go.viam.com/utils v0.1.67
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.14.0
-	golang.org/x/sys v0.13.0
-	golang.org/x/term v0.13.0
+	golang.org/x/sys v0.17.0
+	golang.org/x/term v0.17.0
 	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.10.0
 	gonum.org/v1/gonum v0.12.0
@@ -100,7 +100,6 @@ require (
 	google.golang.org/grpc v1.58.3
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
 	google.golang.org/protobuf v1.31.0
-	gopkg.in/hraban/opus.v2 v2.0.0-20230925203106-0188a62cb302
 	gopkg.in/src-d/go-billy.v4 v4.3.2
 	gorgonia.org/tensor v0.9.24
 	gotest.tools/gotestsum v1.10.0
@@ -176,7 +175,7 @@ require (
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/firefart/nonamedreturns v1.0.4 // indirect
 	github.com/fzipp/gocyclo v0.6.0 // indirect
-	github.com/gen2brain/shm v0.0.0-20230802011745-f2460f5984f7 // indirect
+	github.com/gen2brain/malgo v0.11.10 // indirect
 	github.com/gin-gonic/gin v1.8.1 // indirect
 	github.com/go-audio/riff v1.0.0 // indirect
 	github.com/go-chi/chi/v5 v5.0.7 // indirect
@@ -233,7 +232,6 @@ require (
 	github.com/improbable-eng/grpc-web v0.15.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/jdxcode/netrc v0.0.0-20210204082910-926c7f70242a // indirect
-	github.com/jezek/xgb v1.1.0 // indirect
 	github.com/jgautheron/goconst v1.5.1 // indirect
 	github.com/jhump/protocompile v0.0.0-20220216033700-d705409f108f // indirect
 	github.com/jingyugao/rowserrcheck v1.1.1 // indirect
@@ -241,7 +239,6 @@ require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/julz/importas v0.1.0 // indirect
 	github.com/junk1tm/musttag v0.4.5 // indirect
-	github.com/kbinani/screenshot v0.0.0-20230812210009-b87d31814237 // indirect
 	github.com/kisielk/errcheck v1.6.3 // indirect
 	github.com/kisielk/gotool v1.0.0 // indirect
 	github.com/kkHAIKE/contextcheck v1.1.3 // indirect
@@ -260,7 +257,6 @@ require (
 	github.com/lestrrat-go/option v1.0.1 // indirect
 	github.com/lib/pq v1.10.7 // indirect
 	github.com/lufeee/execinquery v1.2.1 // indirect
-	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/maratori/testableexamples v1.0.0 // indirect
 	github.com/maratori/testpackage v1.1.0 // indirect
@@ -291,7 +287,7 @@ require (
 	github.com/pion/logging v0.2.2 // indirect
 	github.com/pion/mdns v0.0.8 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
-	github.com/pion/rtcp v1.2.10 // indirect
+	github.com/pion/rtcp v1.2.14 // indirect
 	github.com/pion/sdp/v3 v3.0.6 // indirect
 	github.com/pion/srtp/v2 v2.0.17 // indirect
 	github.com/pion/stun v0.6.1 // indirect
@@ -335,8 +331,8 @@ require (
 	github.com/srikrsna/protoc-gen-gotag v0.6.2 // indirect
 	github.com/ssgreg/nlreturn/v2 v2.2.1 // indirect
 	github.com/stbenjam/no-sprintf-host-port v0.1.1 // indirect
-	github.com/stretchr/objx v0.5.0 // indirect
-	github.com/stretchr/testify v1.8.4 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
+	github.com/stretchr/testify v1.9.0 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/t-yuki/gocover-cobertura v0.0.0-20180217150009-aaee18c8195c // indirect
 	github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07 // indirect
@@ -362,10 +358,10 @@ require (
 	gitlab.com/bosi/decorder v0.2.3 // indirect
 	go.uber.org/goleak v1.2.1 // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 // indirect
-	golang.org/x/crypto v0.14.0 // indirect
+	golang.org/x/crypto v0.19.0 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20230203172020-98cc5a0785f9 // indirect
 	golang.org/x/mod v0.11.0 // indirect
-	golang.org/x/net v0.17.0 // indirect
+	golang.org/x/net v0.21.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
 	golang.org/x/text v0.14.0 // indirect

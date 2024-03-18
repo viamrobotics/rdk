@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -934,7 +933,19 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 			m.peerConn.OnTrack(func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
 				m.tr = tr
 				close(m.trReady)
-				log.Fatal("OnTrack called")
+				utils.PanicCapturingGo(func() {
+					for {
+						rtp, _, err := tr.ReadRTP()
+						if err != nil {
+							logger.Fatal("tr.ReadRTP() got error: %s", err.Error())
+						}
+						b, err := rtp.Marshal()
+						if err != nil {
+							logger.Fatal("rtp.Marshal() got error: %s", err.Error())
+						}
+						logger.Info("got an rtp packet, size: %d", len(b))
+					}
+				})
 			})
 			<-m.pcReady
 			m.handles, err = modlib.NewHandlerMapFromProto(ctx, resp.Handlermap, &m.conn)

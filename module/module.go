@@ -668,6 +668,10 @@ func (m *Module) AddStream2(ctx context.Context, nameS string) error {
 		return errors.Errorf("unknown stream for resource %s, this is what I got: %#v", name.String(), m.streamSourceByName)
 	}
 
+	if _, ok = m.activePeerStreams[m.pc]; !ok {
+		m.activePeerStreams[m.pc] = map[resource.Name]peerResourceState{}
+	}
+
 	if _, ok = m.activePeerStreams[m.pc][name]; ok {
 		m.logger.Warn("(m *Module) AddStream called with %s when there is already a stream for peer connection %p", nameS, m.pc)
 		return nil
