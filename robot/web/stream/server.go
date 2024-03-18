@@ -63,8 +63,7 @@ func NewServer(streams ...gostream.Stream) (*Server, error) {
 		nameToStream:      map[string]gostream.Stream{},
 		activePeerStreams: map[*webrtc.PeerConnection]map[string]*peerState{},
 	}
-	ss.mu.Lock()
-	defer ss.mu.Unlock()
+
 	for _, stream := range streams {
 		if err := ss.add(stream); err != nil {
 			return nil, err
@@ -107,11 +106,12 @@ func (ss *Server) NewStream(config gostream.StreamConfig) (gostream.Stream, erro
 // ListStreams implements part of the StreamServiceServer.
 func (ss *Server) ListStreams(ctx context.Context, req *streampb.ListStreamsRequest) (*streampb.ListStreamsResponse, error) {
 	ss.mu.RLock()
+	defer ss.mu.RUnlock()
+
 	names := make([]string, 0, len(ss.streams))
 	for _, stream := range ss.streams {
 		names = append(names, stream.stream.Name())
 	}
-	ss.mu.RUnlock()
 	return &streampb.ListStreamsResponse{Names: names}, nil
 }
 
@@ -121,6 +121,9 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 	if !ok {
 		return nil, errors.New("can only add a stream over a WebRTC based connection")
 	}
+
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
 
 	var streamToAdd *streamState
 	for _, stream := range ss.streams {
@@ -133,9 +136,6 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 	if streamToAdd == nil {
 		return nil, fmt.Errorf("no stream for %q", req.Name)
 	}
-
-	ss.mu.Lock()
-	defer ss.mu.Unlock()
 
 	if _, ok := ss.activePeerStreams[pc][req.Name]; ok {
 		return nil, errors.New("stream already active")
@@ -217,6 +217,9 @@ func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRe
 		return nil, errors.New("can only remove a stream over a WebRTC based connection")
 	}
 
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+
 	var streamToRemove *streamState
 	for _, stream := range ss.streams {
 		if stream.stream.Name() == req.Name {
@@ -228,9 +231,6 @@ func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRe
 	if streamToRemove == nil {
 		return nil, fmt.Errorf("no stream for %q", req.Name)
 	}
-
-	ss.mu.Lock()
-	defer ss.mu.Unlock()
 
 	if _, ok := ss.activePeerStreams[pc][req.Name]; !ok {
 		return nil, errors.New("stream already inactive")
@@ -259,6 +259,7 @@ func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRe
 func (ss *Server) Close() error {
 	ss.mu.RLock()
 	defer ss.mu.RUnlock()
+
 	for _, stream := range ss.streams {
 		stream.stream.Stop()
 		stream.activePeers = 0
