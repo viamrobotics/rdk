@@ -167,7 +167,7 @@ func calcSlowDownDist(distanceMm int) float64 {
 }
 
 // determineHeadingFunc determines which movement sensor endpoint should be used for control.
-// The priority is Orientation -> Heading -> No heading control
+// The priority is Orientation -> Heading -> No heading control.
 func (sb *sensorBase) determineHeadingFunc(ctx context.Context) {
 	switch {
 	case sb.orientation != nil:

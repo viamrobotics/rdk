@@ -25,8 +25,9 @@ import (
 )
 
 const (
+	// compassValue and orientationValue should be different for tests.
 	compassValue     = 45
-	orientationValue = 0
+	orientationValue = 40
 )
 
 func sConfig() resource.Config {
@@ -183,7 +184,7 @@ func msDependencies(t *testing.T, msNames []string,
 				}, nil
 			}
 			ms.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-				return &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: orientationValue}, nil
+				return &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: rdkutils.DegToRad(orientationValue)}, nil
 			}
 			deps[movementsensor.Named(msName)] = ms
 		case strings.Contains(msName, "position"):
@@ -340,8 +341,6 @@ func TestSensorBaseWithVelocitiesSensor(t *testing.T) {
 }
 
 func TestSensorBaseSpin(t *testing.T) {
-	// flaky test, will see behavior after RSDK-6164
-	t.Skip()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	deps, cfg := msDependencies(t, []string{"setvel1", "orientation1"})
@@ -360,6 +359,8 @@ func TestSensorBaseSpin(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sbNoOri.orientation, test.ShouldBeNil)
 	t.Run("Test canceling a sensor controlled spin", func(t *testing.T) {
+		// flaky test, will see behavior after RSDK-6164
+		t.Skip()
 		cancelCtx, cancel := context.WithCancel(ctx)
 		wg := sync.WaitGroup{}
 		wg.Add(1)
@@ -373,6 +374,8 @@ func TestSensorBaseSpin(t *testing.T) {
 		wg.Wait()
 	})
 	t.Run("Test canceling a sensor controlled spin due to calling another running api", func(t *testing.T) {
+		// flaky test, will see behavior after RSDK-6164
+		t.Skip()
 		wg := sync.WaitGroup{}
 		wg.Add(1)
 		utils.PanicCapturingGo(func() {
@@ -393,8 +396,6 @@ func TestSensorBaseSpin(t *testing.T) {
 }
 
 func TestSensorBaseMoveStraight(t *testing.T) {
-	// flaky test, will see behavior after RSDK-6164
-	t.Skip()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	deps, cfg := msDependencies(t, []string{"setvel1", "position1"})
@@ -413,6 +414,8 @@ func TestSensorBaseMoveStraight(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sbNoPos.orientation, test.ShouldBeNil)
 	t.Run("Test canceling a sensor controlled MoveStraight", func(t *testing.T) {
+		// flaky test, will see behavior after RSDK-6164
+		t.Skip()
 		cancelCtx, cancel := context.WithCancel(ctx)
 		wg := sync.WaitGroup{}
 		wg.Add(1)
@@ -426,6 +429,8 @@ func TestSensorBaseMoveStraight(t *testing.T) {
 		wg.Wait()
 	})
 	t.Run("Test canceling a sensor controlled MoveStraight due to calling another running api", func(t *testing.T) {
+		// flaky test, will see behavior after RSDK-6164
+		t.Skip()
 		wg := sync.WaitGroup{}
 		wg.Add(1)
 		utils.PanicCapturingGo(func() {
@@ -442,5 +447,12 @@ func TestSensorBaseMoveStraight(t *testing.T) {
 		// the injected base will return nil instead of blocking
 		err := sbNoPos.MoveStraight(ctx, 100, 100, nil)
 		test.That(t, err, test.ShouldBeNil)
+	})
+	t.Run("Test heading error wraps", func(t *testing.T) {
+		for i := -720; i <= 720; i += 30 {
+			headingErr, err := sb.calcHeadingControl(ctx, float64(i))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, headingErr, test.ShouldBeBetweenOrEqual, -180, 180)
+		}
 	})
 }
