@@ -195,9 +195,10 @@ func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 //
 // Each module configuration should have a unique name - if duplicate names are detected,
 // then only the first duplicate instance will be processed and the rest will be ignored.
-//
-// This method is not thread-safe.
 func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+
 	if mgr.untrustedEnv {
 		return errModularResourcesDisabled
 	}
