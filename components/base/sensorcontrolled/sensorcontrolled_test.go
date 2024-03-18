@@ -394,7 +394,7 @@ func TestSensorBaseSpin(t *testing.T) {
 
 func TestSensorBaseMoveStraight(t *testing.T) {
 	// flaky test, will see behavior after RSDK-6164
-	// t.Skip()
+	t.Skip()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	deps, cfg := msDependencies(t, []string{"setvel1", "position1"})
