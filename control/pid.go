@@ -63,9 +63,6 @@ func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 	} else {
 		dtS := dt.Seconds()
 		pvError := x[0].GetSignalValueAt(0)
-		if (p.sat > 0 && pvError > 0) || (p.sat < 0 && pvError < 0) {
-			return p.y, false
-		}
 		p.int += p.kI * pvError * dtS
 		switch {
 		case p.int >= p.satLimUp:
