@@ -699,7 +699,7 @@ func TestAttributeConversion(t *testing.T) {
 		svcCfg := th.reconfigConf2.AssociatedResourceConfigs[0].Attributes
 		test.That(t, svcCfg, test.ShouldResemble, dummySvcCfg2)
 
-		convSvcCfg, ok := th.reconfigConf2.AssociatedResourceConfigs[0].ConvertedAttributes.(*datamanager.DataCaptureConfigs)
+		convSvcCfg, ok := th.reconfigConf2.AssociatedResourceConfigs[0].ConvertedAttributes.(*datamanager.AssociatedConfig)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, convSvcCfg.CaptureMethods[0].Name, test.ShouldResemble, shell.Named("mymock2"))
 		test.That(t, convSvcCfg.CaptureMethods[0].Method, test.ShouldEqual, "Something2")
@@ -716,7 +716,7 @@ func TestAttributeConversion(t *testing.T) {
 		svcCfg = th.reconfigConf1.AssociatedResourceConfigs[0].Attributes
 		test.That(t, svcCfg, test.ShouldResemble, dummySvcCfg)
 
-		convSvcCfg, ok = th.reconfigConf1.AssociatedResourceConfigs[0].ConvertedAttributes.(*datamanager.DataCaptureConfigs)
+		convSvcCfg, ok = th.reconfigConf1.AssociatedResourceConfigs[0].ConvertedAttributes.(*datamanager.AssociatedConfig)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, convSvcCfg.CaptureMethods[0].Name, test.ShouldResemble, shell.Named("mymock2"))
 		test.That(t, convSvcCfg.CaptureMethods[0].Method, test.ShouldEqual, "Something")

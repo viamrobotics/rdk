@@ -60,10 +60,6 @@ type (
 
 	// An AttributeMapConverter converts an attribute map into a native config type for a resource.
 	AttributeMapConverter[ConfigT any] func(attributes utils.AttributeMap) (ConfigT, error)
-
-	// LinkAssocationConfig allows one resource to associate a specific association config
-	// to its own config. This is generally done by a specific resource (e.g. data capture of many components).
-	LinkAssocationConfig[ConfigT any] func(conf ConfigT, resAssociation interface{}) error
 )
 
 // A DependencyNotReadyError is used whenever we reference a dependency that has not been
@@ -123,10 +119,6 @@ type Registration[ResourceT Resource, ConfigT any] struct {
 	// AttributeMapConverter is used to convert raw attributes to the resource's native config.
 	AttributeMapConverter AttributeMapConverter[ConfigT]
 
-	// An AssocationConfigLinker describes how to associate a
-	// resource association config to a specific resource model (e.g. builtin data capture).
-	AssociatedConfigLinker LinkAssocationConfig[ConfigT]
-
 	// TODO(RSDK-418): remove this legacy constructor once all resources that use it no longer need to receive the entire robot.
 	DeprecatedRobotConstructor DeprecatedCreateWithRobot[ResourceT]
 
@@ -185,14 +177,21 @@ func (rs APIRegistration[ResourceT]) RegisterRPCService(
 	)
 }
 
-// AssociatedNameUpdater allows an associated config to have its names updated externally.
-type AssociatedNameUpdater interface {
+// AssociatedConfig defines the contract for a config that is associated with another config.
+type AssociatedConfig interface {
+	// Equals is a function that describes if an AssociatedConfig is the same as another
+	Equals(AssociatedConfig) bool
+
+	// UpdateResourceNames allows an AssociatedConfig to have its names updated externally.
 	UpdateResourceNames(func(n Name) Name)
+
+	// Link associates an AssociatedConfig to a specific resource model (e.g. builtin data capture).
+	Link(conf *Config)
 }
 
 // An AssociatedConfigRegistration describes how to convert all attributes
 // for a type of resource associated with another resource (e.g. data capture on a resource).
-type AssociatedConfigRegistration[AssocT AssociatedNameUpdater] struct {
+type AssociatedConfigRegistration[AssocT AssociatedConfig] struct {
 	// AttributeMapConverter is used to convert raw attributes to the resource's native associated config.
 	AttributeMapConverter AttributeMapConverter[AssocT]
 
@@ -204,7 +203,7 @@ var (
 	registryMu                    sync.RWMutex
 	registry                      = map[APIModel]Registration[Resource, ConfigValidator]{}
 	apiRegistry                   = map[API]APIRegistration[Resource]{}
-	associatedConfigRegistrations = []AssociatedConfigRegistration[AssociatedNameUpdater]{}
+	associatedConfigRegistrations = []AssociatedConfigRegistration[AssociatedConfig]{}
 )
 
 // DefaultServices returns all servies that will be constructed by default if not
@@ -330,15 +329,6 @@ func makeGenericResourceRegistration[ResourceT Resource, ConfigT ConfigValidator
 			return typed.AttributeMapConverter(attributes)
 		}
 	}
-	if typed.AssociatedConfigLinker != nil {
-		reg.AssociatedConfigLinker = func(conf ConfigValidator, resAssociation interface{}) error {
-			typedConf, err := utils.AssertType[ConfigT](conf)
-			if err != nil {
-				return err
-			}
-			return typed.AssociatedConfigLinker(typedConf, resAssociation)
-		}
-	}
 
 	return reg
 }
@@ -388,7 +378,7 @@ func RegisterAPI[ResourceT Resource](api API, creator APIRegistration[ResourceT]
 
 // RegisterAPIWithAssociation register a ResourceAPI to its corresponding resource api
 // along with a way to allow other resources to associate into its config.
-func RegisterAPIWithAssociation[ResourceT Resource, AssocT AssociatedNameUpdater](
+func RegisterAPIWithAssociation[ResourceT Resource, AssocT AssociatedConfig](
 	api API,
 	creator APIRegistration[ResourceT],
 	association AssociatedConfigRegistration[AssocT],
@@ -409,26 +399,26 @@ func RegisterAPIWithAssociation[ResourceT Resource, AssocT AssociatedNameUpdater
 }
 
 // LookupAssociatedConfigRegistration finds the resource association config registration for the given api.
-func LookupAssociatedConfigRegistration(api API) (AssociatedConfigRegistration[AssociatedNameUpdater], bool) {
+func LookupAssociatedConfigRegistration(api API) (AssociatedConfigRegistration[AssociatedConfig], bool) {
 	for _, conv := range associatedConfigRegistrations {
 		if conv.api == api {
 			return conv, true
 		}
 	}
-	return AssociatedConfigRegistration[AssociatedNameUpdater]{}, false
+	return AssociatedConfigRegistration[AssociatedConfig]{}, false
 }
 
 // makeGenericAssociatedConfigRegistration allows an association to be generic and ensures all input/output types
 // are actually T's.
-func makeGenericAssociatedConfigRegistration[AssocT AssociatedNameUpdater](
+func makeGenericAssociatedConfigRegistration[AssocT AssociatedConfig](
 	typed AssociatedConfigRegistration[AssocT],
-) AssociatedConfigRegistration[AssociatedNameUpdater] {
-	reg := AssociatedConfigRegistration[AssociatedNameUpdater]{
+) AssociatedConfigRegistration[AssociatedConfig] {
+	reg := AssociatedConfigRegistration[AssociatedConfig]{
 		// NOTE: any fields added to AssociatedConfigRegistration must be copied/adapted here.
 		api: typed.api,
 	}
 	if typed.AttributeMapConverter != nil {
-		reg.AttributeMapConverter = func(attributes utils.AttributeMap) (AssociatedNameUpdater, error) {
+		reg.AttributeMapConverter = func(attributes utils.AttributeMap) (AssociatedConfig, error) {
 			return typed.AttributeMapConverter(attributes)
 		}
 	}
