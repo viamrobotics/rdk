@@ -604,3 +604,49 @@ func TestServiceResourceName(t *testing.T) {
 		})
 	}
 }
+
+func TestEqual(t *testing.T) {
+	t.Run("test associated config equality", func(t *testing.T) {
+		assocConfA := &mockAssociatedConfig{Field1: "foo", capName: arm.Named("foo")}
+		assocConfB := &mockAssociatedConfig{Field1: "bar", capName: arm.Named("bar")}
+		t.Run("success when equal", func(t *testing.T) {
+			confA := resource.Config{AssociatedAttributes: map[resource.Name]resource.AssociatedConfig{
+				arm.Named("foo"): assocConfA,
+				arm.Named("bar"): assocConfB,
+			}}
+			//nolint: gocritic
+			test.That(t, confA.Equals(confA), test.ShouldBeTrue)
+		})
+		t.Run("fail when different lengths", func(t *testing.T) {
+			confA := resource.Config{AssociatedAttributes: map[resource.Name]resource.AssociatedConfig{
+				arm.Named("foo"): assocConfA,
+				arm.Named("bar"): assocConfB,
+			}}
+			confB := resource.Config{AssociatedAttributes: map[resource.Name]resource.AssociatedConfig{
+				arm.Named("foo"): assocConfA,
+			}}
+			test.That(t, confA.Equals(confB), test.ShouldBeFalse)
+		})
+		t.Run("fail when different data", func(t *testing.T) {
+			confA := resource.Config{AssociatedAttributes: map[resource.Name]resource.AssociatedConfig{
+				arm.Named("foo"): assocConfA,
+				arm.Named("bar"): assocConfB,
+			}}
+			confB := resource.Config{AssociatedAttributes: map[resource.Name]resource.AssociatedConfig{
+				arm.Named("foo"): assocConfA,
+				arm.Named("bar"): assocConfA,
+			}}
+			test.That(t, confA.Equals(confB), test.ShouldBeFalse)
+		})
+	})
+	t.Run("test equality of other fields", func(t *testing.T) {
+		confA := resource.Config{API: arm.API}
+		t.Run("success when equal", func(t *testing.T) {
+			//nolint: gocritic
+			test.That(t, confA.Equals(confA), test.ShouldBeTrue)
+		})
+		t.Run("success when unequal", func(t *testing.T) {
+			test.That(t, confA.Equals(resource.Config{API: base.API}), test.ShouldBeFalse)
+		})
+	})
+}

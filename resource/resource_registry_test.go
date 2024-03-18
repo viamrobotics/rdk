@@ -187,24 +187,24 @@ func TestResourceAPIRegistry(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 }
 
-type someType struct {
+type mockAssociatedConfig struct {
 	Field1  string `json:"field1"`
 	capName resource.Name
 }
 
-func (st *someType) Equals(other resource.AssociatedConfig) bool {
-	st2, err := utils.AssertType[*someType](other)
+func (st *mockAssociatedConfig) Equals(other resource.AssociatedConfig) bool {
+	st2, err := utils.AssertType[*mockAssociatedConfig](other)
 	if err != nil {
 		return false
 	}
 	return st.Field1 == st2.Field1 && st.capName == st2.capName
 }
 
-func (st *someType) UpdateResourceNames(updater func(old resource.Name) resource.Name) {
+func (st *mockAssociatedConfig) UpdateResourceNames(updater func(old resource.Name) resource.Name) {
 	st.capName = updater(arm.Named("foo"))
 }
 
-func (st *someType) Link(conf *resource.Config) {
+func (st *mockAssociatedConfig) Link(conf *resource.Config) {
 	copySt := st
 	conf.AssociatedAttributes = make(map[resource.Name]resource.AssociatedConfig)
 	conf.AssociatedAttributes[st.capName] = copySt
@@ -224,20 +224,20 @@ func TestResourceAPIRegistryWithAssociation(t *testing.T) {
 		RPCServiceServerConstructor: sf,
 		RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.RobotService_ServiceDesc,
-	}, resource.AssociatedConfigRegistration[*someType]{})
+	}, resource.AssociatedConfigRegistration[*mockAssociatedConfig]{})
 	reg, ok := resource.LookupAssociatedConfigRegistration(someName.API)
 	test.That(t, ok, test.ShouldBeTrue)
 	assoc, err := reg.AttributeMapConverter(utils.AttributeMap{"field1": "hey"})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, assoc.(*someType).Field1, test.ShouldEqual, "hey")
-	test.That(t, assoc.(*someType).capName, test.ShouldResemble, resource.Name{})
+	test.That(t, assoc.(*mockAssociatedConfig).Field1, test.ShouldEqual, "hey")
+	test.That(t, assoc.(*mockAssociatedConfig).capName, test.ShouldResemble, resource.Name{})
 	assoc.UpdateResourceNames(func(n resource.Name) resource.Name {
 		return arm.Named(n.String()) // odd but whatever
 	})
-	test.That(t, assoc.(*someType).capName, test.ShouldResemble, arm.Named(arm.Named("foo").String()))
+	test.That(t, assoc.(*mockAssociatedConfig).capName, test.ShouldResemble, arm.Named(arm.Named("foo").String()))
 	cfg := &resource.Config{}
 	assoc.Link(cfg)
-	test.That(t, assoc.Equals(cfg.AssociatedAttributes[assoc.(*someType).capName]), test.ShouldBeTrue)
+	test.That(t, assoc.Equals(cfg.AssociatedAttributes[assoc.(*mockAssociatedConfig).capName]), test.ShouldBeTrue)
 }
 
 func TestDiscoveryFunctions(t *testing.T) {
