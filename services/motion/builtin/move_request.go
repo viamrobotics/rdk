@@ -557,7 +557,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 
 	geomsRaw := spatialmath.GeoObstaclesToGeometries(obstacles, origin)
 
-	mr, err := ms.relativeMoveRequestFromAbsolute(
+	mr, err := ms.createBaseMoveRequest(
 		ctx,
 		motionCfg,
 		ms.logger,
@@ -657,7 +657,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 
 	req.Obstacles = append(req.Obstacles, octree)
 
-	mr, err := ms.relativeMoveRequestFromAbsolute(
+	mr, err := ms.createBaseMoveRequest(
 		ctx,
 		motionCfg,
 		ms.logger,
@@ -674,7 +674,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	return mr, nil
 }
 
-func (ms *builtIn) relativeMoveRequestFromAbsolute(
+func (ms *builtIn) createBaseMoveRequest(
 	ctx context.Context,
 	motionCfg *validatedMotionConfiguration,
 	logger logging.Logger,
@@ -705,32 +705,25 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		return nil, err
 	}
 	startPose := startPoseIF.Pose()
-	startPoseInv := spatialmath.PoseInverse(startPose)
 
-	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose, goalPoseInWorld))
+	goal := referenceframe.NewPoseInFrame(referenceframe.World, goalPoseInWorld)
 
 	// Here we determine if we already are at the goal
 	// If our motion profile is position_only then, we only check against our current & desired position
 	// Conversely if our motion profile is anything else, then we also need to check again our
 	// current & desired orientation
 	if valExtra.motionProfile == motionplan.PositionOnlyMotionProfile {
-		if spatialmath.PoseAlmostCoincidentEps(goal.Pose(), spatialmath.NewZeroPose(), motionCfg.planDeviationMM) {
+		if spatialmath.PoseAlmostCoincidentEps(goal.Pose(), startPose, motionCfg.planDeviationMM) {
 			return nil, errGoalWithinPlanDeviation
 		}
 	} else {
 		if spatialmath.OrientationAlmostEqual(goal.Pose().Orientation(), spatialmath.NewZeroPose().Orientation()) &&
-			spatialmath.PoseAlmostCoincidentEps(goal.Pose(), spatialmath.NewZeroPose(), motionCfg.planDeviationMM) {
+			spatialmath.PoseAlmostCoincidentEps(goal.Pose(), startPose, motionCfg.planDeviationMM) {
 			return nil, errGoalWithinPlanDeviation
 		}
 	}
 
-	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
-	geoms := make([]spatialmath.Geometry, 0, len(worldObstacles))
-	for _, geom := range worldObstacles {
-		geoms = append(geoms, geom.Transform(startPoseInv))
-	}
-
-	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
+	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, worldObstacles)
 	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
 	if err != nil {
 		return nil, err
@@ -786,6 +779,7 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 			Frame:              kinematicFrame,
 			FrameSystem:        baseOnlyFS,
 			StartConfiguration: currentInputs,
+			StartPose:          startPose,
 			WorldState:         worldState,
 			Options:            valExtra.extra,
 		},

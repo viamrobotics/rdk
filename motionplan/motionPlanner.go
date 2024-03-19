@@ -47,6 +47,7 @@ type PlanRequest struct {
 	Goal               *frame.PoseInFrame
 	Frame              frame.Frame
 	FrameSystem        frame.FrameSystem
+	StartPose          spatialmath.Pose
 	StartConfiguration map[string][]frame.Input
 	WorldState         *frame.WorldState
 	ConstraintSpecs    *pb.Constraints
@@ -148,31 +149,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	if len(sf.DoF()) == 0 {
 		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 	}
-	seed, err := sf.mapToSlice(request.StartConfiguration)
-	if err != nil {
-		return nil, err
-	}
-	startPose, err := sf.Transform(seed)
-	if err != nil {
-		return nil, err
-	}
-	// make sure there is no transformation between the PTG frame and World frame in the Solver frame
-	// TODO: RSDK-5391 this will trigger currently if we try to call Plan() on a robot which is currently executing another motion plan.
-	// Additionally, when RSDK-5391 is done, we will need to alter this such that the pose returned by `CurrentInputs` does not
-	// break this. We may want to as part of that ticket migrate the functionality of service/motion/builtin/relativeMoveRequestFromAbsolute
-	// to this package.
-	if len(sf.PTGSolvers()) > 0 && !spatialmath.PoseAlmostEqual(startPose, spatialmath.NewZeroPose()) {
-		return nil, errors.New("cannot have non-zero transformation between the PTG frame and World frame in the Solver frame")
-	}
 
-	request.Logger.CInfof(ctx,
-		"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
-		request.Frame.Name(),
-		frame.PoseInFrameToProtobuf(request.Goal),
-		request.StartConfiguration,
-		spatialmath.PoseToProtobuf(startPose),
-		request.WorldState.String(),
-	)
 	request.Logger.CDebugf(ctx, "constraint specs for this step: %v", request.ConstraintSpecs)
 	request.Logger.CDebugf(ctx, "motion config for this step: %v", request.Options)
 
@@ -185,15 +162,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		return nil, err
 	}
 
-	newPlan, err := sfPlanner.PlanSingleWaypoint(
-		ctx,
-		request.StartConfiguration,
-		request.Goal.Pose(),
-		request.WorldState,
-		request.ConstraintSpecs,
-		currentPlan,
-		request.Options,
-	)
+	newPlan, err := sfPlanner.PlanSingleWaypoint(ctx, request, currentPlan)
 	if err != nil {
 		return nil, err
 	}
