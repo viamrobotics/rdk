@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"io"
 	"sync"
 	"time"
 
@@ -114,7 +115,10 @@ func (c *client) SubscribeRTP(r *StreamSubscription, packetsCB PacketCallback) e
 				for {
 					pkt, _, err := tr.ReadRTP()
 					if err != nil {
-						c.logger.Fatal(err.Error())
+						if err != io.EOF {
+							c.logger.Fatal(err.Error())
+						}
+						return
 					}
 					if len(c.subs) == 0 {
 						c.logger.Debug("OnTrack spawned function terminating as len(c.subs) == 0")
