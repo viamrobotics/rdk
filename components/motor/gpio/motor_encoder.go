@@ -193,7 +193,6 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, directi
 			// stop motor when at or past goal position
 			if err := m.Stop(ctx, nil); err != nil {
 				m.logger.CError(ctx, err)
-				return
 			}
 			return
 		}
@@ -273,9 +272,9 @@ func (m *EncodedMotor) DirectionMoving() int64 {
 }
 
 func (m *EncodedMotor) directionMovingInLock() float64 {
-	move, err := m.real.IsMoving(context.Background())
+	move, powerPct, err := m.real.IsPowered(context.Background(), nil)
 	if move {
-		return sign(m.lastPowerPct)
+		return sign(powerPct)
 	}
 	if err != nil {
 		m.logger.Error(err)
@@ -286,6 +285,7 @@ func (m *EncodedMotor) directionMovingInLock() float64 {
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
 // Negative power implies a backward directional rotational.
 func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+	m.opMgr.CancelRunning(ctx)
 	if m.rpmMonitorDone != nil {
 		m.rpmMonitorDone()
 	}
@@ -300,8 +300,8 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 
 // setPower assumes the state lock is held.
 func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64) error {
-	m.lastPowerPct = fixPowerPct(powerPct, m.maxPowerPct)
-	return m.real.SetPower(ctx, m.lastPowerPct, nil)
+	powerPct = fixPowerPct(powerPct, m.maxPowerPct)
+	return m.real.SetPower(ctx, powerPct, nil)
 }
 
 // goForMath calculates goalPos, goalRPM, and direction based on the given GoFor rpm and revolutions, and the current position.
