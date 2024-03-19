@@ -177,8 +177,13 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 	var errs error
 	powerPct = math.Min(powerPct, m.maxPowerPct)
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
+	if math.Abs(powerPct) < m.minPowerPct{
+		powerPct = sign(powerPct) * m.minPowerPct
+	}
+	m.powerPct = powerPct
 
 	m.on = true
+
 	if m.EnablePinLow != nil {
 		errs = multierr.Combine(errs, m.EnablePinLow.Set(ctx, false, extra))
 	}
@@ -214,7 +219,6 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 	}
 
 	powerPct = math.Max(math.Abs(powerPct), m.minPowerPct)
-	m.powerPct = powerPct
 	return multierr.Combine(
 		errs,
 		pwmPin.SetPWMFreq(ctx, m.pwmFreq, extra),
