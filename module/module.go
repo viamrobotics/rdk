@@ -328,7 +328,9 @@ func (m *Module) PeerConnect(encodedOffer string) (string, error) {
 	}
 
 	offer := webrtc.SessionDescription{}
-	DecodeSDP(encodedOffer, &offer)
+	if err := DecodeSDP(encodedOffer, &offer); err != nil {
+		return "", err
+	}
 	if err := m.pc.SetRemoteDescription(offer); err != nil {
 		return "", err
 	}
@@ -691,7 +693,7 @@ func (m *Module) AddStream2(ctx context.Context, nameS string) error {
 	if err != nil {
 		return errors.Wrap(err, "error adding track")
 	}
-	err = vcss.SubscribeRTP(sub, func(pkts []*rtp.Packet) error {
+	err = vcss.SubscribeRTP(ctx, sub, func(pkts []*rtp.Packet) error {
 		for _, pkt := range pkts {
 			if err := tlsRTP.WriteRTP(pkt); err != nil {
 				m.logger.Warn(err.Error())
@@ -721,19 +723,17 @@ func (m *Module) RemoveStream(ctx context.Context, req *streampb.RemoveStreamReq
 	}
 
 	prs, ok := m.activePeerStreams[m.pc][name]
-	// TODO: This doesn't seem right. I think we are going to delete the resource from the active streams even if we don't do all the cleanup
-	defer func() {
-		delete(m.activePeerStreams[m.pc], name)
-	}()
 	if !ok {
-		m.logger.Warn("(m *Module) RemoveStream called on %s but peer state %p has no active peer stream", req.GetName(), m.pc)
-		return &streampb.RemoveStreamResponse{}, nil
+		return nil, fmt.Errorf("(m *Module) RemoveStream called on %s but peer state %p has no active peer stream", req.GetName(), m.pc)
 	}
 	if err := m.pc.RemoveTrack(prs.sender); err != nil {
-		m.logger.Warn("(m *Module) RemoveStream name: %s pc: %p hit error removing track %p", req.GetName(), m.pc, prs.sender)
+		return nil, fmt.Errorf("(m *Module) RemoveStream name: %s pc: %p hit error removing track %p", req.GetName(), m.pc, prs.sender)
 	}
-	vcss.Unsubscribe(prs.subscription)
+	if err := vcss.Unsubscribe(ctx, prs.subscription); err != nil {
+		return nil, err
+	}
 
+	delete(m.activePeerStreams[m.pc], name)
 	return &streampb.RemoveStreamResponse{}, nil
 }
 

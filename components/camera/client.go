@@ -13,6 +13,7 @@ import (
 	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
 	streampb "go.viam.com/api/stream/v1"
 	goutils "go.viam.com/utils"
@@ -32,21 +33,24 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+var CloseRemoveStreamTimeout = time.Second
+
 // client implements CameraServiceClient.
 type singlePacketCB func(*rtp.Packet) error
 type client struct {
 	resource.Named
 	resource.TriviallyReconfigurable
-	wg                      sync.WaitGroup
-	mu                      sync.Mutex
-	subs                    map[*StreamSubscription]singlePacketCB
-	name                    string
-	conn                    rpc.ClientConn
-	client                  pb.CameraServiceClient
-	streamClient            streampb.StreamServiceClient
-	logger                  logging.Logger
-	activeBackgroundWorkers sync.WaitGroup
-	healthyClientCh         chan struct{}
+	rtpPassthroughWG sync.WaitGroup
+	name             string
+	conn             rpc.ClientConn
+	client           pb.CameraServiceClient
+	streamClient     streampb.StreamServiceClient
+	logger           logging.Logger
+	streamWG         sync.WaitGroup
+
+	mu              sync.Mutex
+	healthyClientCh chan struct{}
+	subs            map[*StreamSubscription]singlePacketCB
 }
 
 // var create sync.Once
@@ -99,18 +103,17 @@ func getExtra(ctx context.Context) (*structpb.Struct, error) {
 
 // TODO: NICK We probably need to do the multiplexing here,
 // Probably need to have the camera subscription do work here
-func (c *client) SubscribeRTP(r *StreamSubscription, packetsCB PacketCallback) error {
+func (c *client) SubscribeRTP(ctx context.Context, r *StreamSubscription, packetsCB PacketCallback) error {
 	// TODO: Gotta add mutexes & wait for the waitgroup
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if len(c.subs) == 0 {
-		// TODO: Fix this context
-		timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), time.Second)
-		defer timeoutCancel()
 		c.conn.PeerConn().OnTrack(func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
 			if len(c.subs) == 0 {
 				c.logger.Debug("OnTrack called when c.subs was already empty")
 				return
 			}
-			c.wg.Add(1)
+			c.rtpPassthroughWG.Add(1)
 			goutils.ManagedGo(func() {
 				for {
 					pkt, _, err := tr.ReadRTP()
@@ -131,12 +134,13 @@ func (c *client) SubscribeRTP(r *StreamSubscription, packetsCB PacketCallback) e
 					}
 				}
 
-			}, c.wg.Done)
+			}, c.rtpPassthroughWG.Done)
 		})
 
 		c.subs[r] = func(p *rtp.Packet) error { return packetsCB([]*rtp.Packet{p}) }
 		r.Start()
-		_, err := c.streamClient.AddStream(timeoutCtx, &streampb.AddStreamRequest{Name: c.Name().String()})
+		// TODO: Fix this context
+		_, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: c.Name().String()})
 		if err != nil {
 			r.Stop()
 			delete(c.subs, r)
@@ -146,17 +150,33 @@ func (c *client) SubscribeRTP(r *StreamSubscription, packetsCB PacketCallback) e
 	return nil
 }
 
+func (c *client) unsubscribeAll() error {
+	var errAgg error
+	for r := range c.subs {
+		timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), CloseRemoveStreamTimeout)
+		_, err := c.streamClient.RemoveStream(timeoutCtx, &streampb.RemoveStreamRequest{Name: c.Name().String()})
+		timeoutCancel()
+		if err != nil {
+			errAgg = multierr.Combine(errAgg, errors.Wrapf(err, "error calling RemoveStream with name: %s", c.Name()))
+			continue
+		}
+		r.Stop()
+		delete(c.subs, r)
+	}
+	return errAgg
+}
+
 // TODO: Unsubscribe should be able to fail
-func (c *client) Unsubscribe(r *StreamSubscription) {
-	// TODO: Fix this context
-	timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), time.Second)
-	defer timeoutCancel()
-	_, err := c.streamClient.RemoveStream(timeoutCtx, &streampb.RemoveStreamRequest{Name: c.Name().String()})
+func (c *client) Unsubscribe(ctx context.Context, r *StreamSubscription) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	_, err := c.streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: c.Name().String()})
 	if err != nil {
 		c.logger.Fatal(err.Error())
 	}
 	r.Stop()
 	delete(c.subs, r)
+	return nil
 }
 
 func (c *client) VideoCodecStreamSource() (VideoCodecStreamSource, error) {
@@ -238,13 +258,13 @@ func (c *client) Stream(
 	ctxWithMIME := gostream.WithMIMETypeHint(context.Background(), gostream.MIMETypeHint(ctx, ""))
 	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](ctxWithMIME)
 
-	c.activeBackgroundWorkers.Add(1)
+	c.streamWG.Add(1)
 
 	goutils.PanicCapturingGo(func() {
 		streamCtx = trace.NewContext(streamCtx, span)
 		defer span.End()
 
-		defer c.activeBackgroundWorkers.Done()
+		defer c.streamWG.Done()
 		defer close(frameCh)
 
 		for {
@@ -414,7 +434,11 @@ func (c *client) Close(ctx context.Context) error {
 	if c.healthyClientCh != nil {
 		close(c.healthyClientCh)
 	}
-	c.activeBackgroundWorkers.Wait()
+	c.streamWG.Wait()
 	c.healthyClientCh = nil
+
+	if err := c.unsubscribeAll(); err != nil {
+		return err
+	}
 	return nil
 }

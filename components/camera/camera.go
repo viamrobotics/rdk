@@ -1,4 +1,4 @@
-// Package camera defines an image capturing device.camera.go
+// Package camera defines an image capturing device.
 package camera
 
 import (
@@ -87,8 +87,8 @@ type (
 	PacketCallback func(pkts []*rtp.Packet) error
 	// VideoCodecStreamSource is a source of video codec data.
 	VideoCodecStreamSource interface {
-		SubscribeRTP(r *StreamSubscription, packetsCB PacketCallback) error
-		Unsubscribe(r *StreamSubscription)
+		SubscribeRTP(ctx context.Context, r *StreamSubscription, packetsCB PacketCallback) error
+		Unsubscribe(ctx context.Context, r *StreamSubscription) error
 	}
 )
 
