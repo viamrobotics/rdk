@@ -11,23 +11,30 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// rPiGain is 1/255 because the PWM signal on a pi (and most other boards)
-// is limited to 8 bits, or the range 0-255.
-const rPiGain = 0.00392157
+// BlockNameEndpoint, BlockNameConstant, and BlockNameTrapezoidal
+// represent the strings needed to update a control loop block.
+const (
+	BlockNameEndpoint    = "endpoint"
+	BlockNameConstant    = "constant"
+	BlockNameTrapezoidal = "trapezoidalVelocityProfile"
+	// rPiGain is 1/255 because the PWM signal on a pi (and most other boards)
+	// is limited to 8 bits, or the range 0-255.
+	rPiGain                 = 0.00392157
+	defaultControllableType = "motor_name"
+	defaultDerivativeType   = "backward1st1"
+)
 
 var (
-	// default derivative type is "backward1st1".
-	derivativeType   = "backward1st1"
-	loopFrequency    = 50.0
-	sumIndex         = 1
-	linearPIDIndex   = 2
-	angularPIDIndex  = -1
-	controllableType = "motor_name"
+	loopFrequency   = 50.0
+	sumIndex        = 1
+	linearPIDIndex  = 2
+	angularPIDIndex = -1
 )
 
 // PIDLoop is used for setting up a PID control loop.
 type PIDLoop struct {
 	BlockNames              map[string][]string
+	PIDVals                 []PIDConfig
 	ControlConf             Config
 	ControlLoop             *Loop
 	Options                 Options
@@ -42,6 +49,11 @@ type PIDConfig struct {
 	P    float64 `json:"p"`
 	I    float64 `json:"i"`
 	D    float64 `json:"d"`
+}
+
+// NeedsAutoTuning checks if the PIDConfig values require auto tuning.
+func (conf *PIDConfig) NeedsAutoTuning() bool {
+	return (conf.P == 0.0 && conf.I == 0.0 && conf.D == 0.0)
 }
 
 // Options contains values used for a control loop.
@@ -86,6 +98,7 @@ func SetupPIDControlConfig(
 ) (*PIDLoop, error) {
 	pidLoop := &PIDLoop{
 		Controllable: c,
+		PIDVals:      pidVals,
 		logger:       logger,
 		Options:      options,
 		ControlConf:  Config{},
@@ -141,19 +154,17 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 		}
 		// switch sum to depend on the setpoint if position control
 		if p.Options.PositionControlUsingTrapz {
-			p.ControlConf.Blocks[sumIndex].DependsOn[0] = p.BlockNames["constant"][0]
+			p.logger.Debug("tuning trapz PID")
+			p.ControlConf.Blocks[sumIndex].DependsOn[0] = p.BlockNames[BlockNameConstant][0]
 			if err := p.StartControlLoop(); err != nil {
 				errs = multierr.Combine(errs, err)
 			}
 
-			if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
-				errs = multierr.Combine(errs, err)
-			}
+			p.ControlLoop.MonitorTuning(ctx)
 		}
 		if p.Options.SensorFeedback2DVelocityControl {
 			// check if linear needs to be tuned
-			if p.ControlConf.Blocks[linearPIDIndex].Attribute["kP"] == 0.0 &&
-				p.ControlConf.Blocks[linearPIDIndex].Attribute["kPI"] == 0.0 {
+			if p.PIDVals[0].NeedsAutoTuning() {
 				p.logger.Info("tuning linear PID")
 				if err := p.tuneSinglePID(ctx, angularPIDIndex); err != nil {
 					errs = multierr.Combine(errs, err)
@@ -161,8 +172,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			}
 
 			// check if angular needs to be tuned
-			if p.ControlConf.Blocks[angularPIDIndex].Attribute["kP"] == 0.0 &&
-				p.ControlConf.Blocks[angularPIDIndex].Attribute["kPI"] == 0.0 {
+			if p.PIDVals[1].NeedsAutoTuning() {
 				p.logger.Info("tuning angular PID")
 				if err := p.tuneSinglePID(ctx, linearPIDIndex); err != nil {
 					errs = multierr.Combine(errs, err)
@@ -184,9 +194,7 @@ func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex int) error {
 		return err
 	}
 
-	if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
-		return err
-	}
+	p.ControlLoop.MonitorTuning(ctx)
 
 	p.ControlLoop.Stop()
 	p.ControlLoop = nil
@@ -200,6 +208,7 @@ func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex int) error {
 
 func (p *PIDLoop) createControlLoopConfig(pidVals []PIDConfig, componentName string) {
 	// create basic control config
+	controllableType := defaultControllableType
 	if p.Options.ControllableType != "" {
 		controllableType = p.Options.ControllableType
 	}
@@ -230,7 +239,7 @@ func (p *PIDLoop) createControlLoopConfig(pidVals []PIDConfig, componentName str
 // create most basic PID control loop containing
 // constant -> sum -> PID -> gain -> endpoint -> sum.
 func (p *PIDLoop) basicControlConfig(endpointName string, pidVals PIDConfig, controllableType string) {
-	if p.Options.LoopFrequency != 0 {
+	if p.Options.LoopFrequency != 0.0 {
 		loopFrequency = p.Options.LoopFrequency
 	}
 	p.ControlConf = Config{
@@ -304,6 +313,7 @@ func (p *PIDLoop) addPositionControl() {
 	p.ControlConf.Blocks = append(p.ControlConf.Blocks, trapzBlock)
 
 	// add derivative block between the endpoint and sum blocks
+	derivativeType := defaultDerivativeType
 	if p.Options.DerivativeType != "" {
 		derivativeType = p.Options.DerivativeType
 	}
@@ -404,5 +414,50 @@ func (p *PIDLoop) StartControlLoop() error {
 	}
 	p.ControlLoop = loop
 
+	return nil
+}
+
+// CreateConstantBlock returns a new constant block based on the parameters.
+func CreateConstantBlock(ctx context.Context, name string, constVal float64) BlockConfig {
+	return BlockConfig{
+		Name: name,
+		Type: blockConstant,
+		Attribute: rdkutils.AttributeMap{
+			"constant_val": constVal,
+		},
+		DependsOn: []string{},
+	}
+}
+
+// UpdateConstantBlock creates and sets a control config constant block.
+func UpdateConstantBlock(ctx context.Context, name string, constVal float64, loop *Loop) error {
+	newConstBlock := CreateConstantBlock(ctx, name, constVal)
+	if err := loop.SetConfigAt(ctx, name, newConstBlock); err != nil {
+		return err
+	}
+	return nil
+}
+
+// CreateTrapzBlock returns a new trapezoidalVelocityProfile block based on the parameters.
+func CreateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsOn []string) BlockConfig {
+	return BlockConfig{
+		Name: name,
+		Type: blockTrapezoidalVelocityProfile,
+		Attribute: rdkutils.AttributeMap{
+			"max_vel":    maxVel,
+			"max_acc":    30000.0,
+			"pos_window": 0.0,
+			"kpp_gain":   0.45,
+		},
+		DependsOn: dependsOn,
+	}
+}
+
+// UpdateTrapzBlock creates and sets a control config trapezoidalVelocityProfile block.
+func UpdateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsOn []string, loop *Loop) error {
+	newTrapzBlock := CreateTrapzBlock(ctx, name, maxVel, dependsOn)
+	if err := loop.SetConfigAt(ctx, name, newTrapzBlock); err != nil {
+		return err
+	}
 	return nil
 }

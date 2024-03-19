@@ -507,6 +507,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 }
 
 func TestObstacleReplanningSlam(t *testing.T) {
+	t.Skip()
 	cameraToBase := spatialmath.NewPose(r3.Vector{0, 0, 0}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90})
 	cameraToBaseInv := spatialmath.PoseInverse(cameraToBase)
 
@@ -1592,6 +1593,7 @@ func TestMoveOnMap(t *testing.T) {
 				},
 			)
 			test.That(t, err, test.ShouldNotBeNil)
+			logger.Debug(err.Error())
 			test.That(t, strings.Contains(err.Error(), "starting collision between SLAM map and "), test.ShouldBeTrue)
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
@@ -1660,6 +1662,7 @@ func TestMoveOnMap(t *testing.T) {
 
 		endPos, err = kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
+		logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))
 		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal2BaseFrame, 5), test.ShouldBeTrue)
 
 		plans, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{

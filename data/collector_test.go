@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
@@ -277,6 +278,48 @@ func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
 	close(captured)
 
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
+}
+
+func TestLogErrorsOnlyOnce(t *testing.T) {
+	// Set up a collector.
+	logger, logs := logging.NewObservedTestLogger(t)
+	tmpDir := t.TempDir()
+	md := v1.DataCaptureMetadata{}
+	buf := datacapture.NewBuffer(tmpDir, &md)
+	wrote := make(chan struct{})
+	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+		return nil, errors.New("I am an error")
+	})
+	target := &signalingBuffer{
+		bw:    buf,
+		wrote: wrote,
+	}
+	mockClock := clock.NewMock()
+	interval := time.Millisecond * 5
+
+	params := CollectorParams{
+		ComponentName: "testComponent",
+		Interval:      interval,
+		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
+		Target:        target,
+		QueueSize:     queueSize,
+		BufferSize:    bufferSize,
+		Logger:        logger,
+		Clock:         mockClock,
+	}
+	c, _ := NewCollector(errorCapturer, params)
+
+	// Start collecting, and validate it is writing.
+	c.Collect()
+	mockClock.Add(interval * 5)
+
+	close(wrote)
+	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 1)
+	mockClock.Add(3 * time.Second)
+	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 2)
+	mockClock.Add(3 * time.Second)
+	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 3)
+	c.Close()
 }
 
 func validateReadings(t *testing.T, act []*v1.SensorData, n int) {

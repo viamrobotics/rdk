@@ -75,7 +75,107 @@ const (
 	dataFlagBboxLabels                     = "bbox-labels"
 	dataFlagDeleteTabularDataOlderThanDays = "delete-older-than-days"
 	dataFlagDatabasePassword               = "password"
+	dataFlagFilterTags                     = "filter-tags"
 )
+
+var commonFilterFlags = []cli.Flag{
+	&cli.StringSliceFlag{
+		Name:  dataFlagOrgIDs,
+		Usage: "orgs filter",
+	},
+	&cli.StringSliceFlag{
+		Name:  dataFlagLocationIDs,
+		Usage: "locations filter",
+	},
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:    generalFlagMachineID,
+			Aliases: []string{generalFlagAliasRobotID},
+			Usage:   "machine id filter",
+		},
+	},
+	&cli.StringFlag{
+		Name:  dataFlagPartID,
+		Usage: "part id filter",
+	},
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:    dataFlagMachineName,
+			Aliases: []string{dataFlagAliasRobotName},
+			Usage:   "machine name filter",
+		},
+	},
+	&cli.StringFlag{
+		Name:  dataFlagPartName,
+		Usage: "part name filter",
+	},
+	&cli.StringFlag{
+		Name:  dataFlagComponentType,
+		Usage: "component type filter",
+	},
+	&cli.StringFlag{
+		Name:  dataFlagComponentName,
+		Usage: "component name filter",
+	},
+	&cli.StringFlag{
+		Name:  dataFlagMethod,
+		Usage: "method filter",
+	},
+	&cli.StringSliceFlag{
+		Name:  dataFlagMimeTypes,
+		Usage: "mime types filter",
+	},
+	&cli.StringFlag{
+		Name:  dataFlagStart,
+		Usage: "ISO-8601 timestamp indicating the start of the interval filter",
+	},
+	&cli.StringFlag{
+		Name:  dataFlagEnd,
+		Usage: "ISO-8601 timestamp indicating the end of the interval filter",
+	},
+	&cli.StringSliceFlag{
+		Name: dataFlagBboxLabels,
+		Usage: "bbox labels filter. " +
+			"accepts string labels corresponding to bounding boxes within images",
+	},
+}
+
+var dataTagByIDsFlags = []cli.Flag{
+	&cli.StringSliceFlag{
+		Name:     dataFlagTags,
+		Required: true,
+		Usage:    "comma separated tags to add/remove to the data",
+	},
+	&cli.StringFlag{
+		Name:     generalFlagOrgID,
+		Usage:    "org ID to which data belongs",
+		Required: true,
+	},
+	&cli.StringFlag{
+		Name:     dataFlagLocationID,
+		Usage:    "location ID to which data belongs",
+		Required: true,
+	},
+	&cli.StringSliceFlag{
+		Name:     dataFlagFileIDs,
+		Usage:    "comma separated file IDs of data belonging to specified org and location",
+		Required: true,
+	},
+}
+
+var dataTagByFilterFlags = append([]cli.Flag{
+	&cli.StringSliceFlag{
+		Name:     dataFlagTags,
+		Required: true,
+		Usage:    "comma separated tags to add/remove to the data",
+	},
+	&cli.StringSliceFlag{
+		Name: dataFlagFilterTags,
+		Usage: "tags filter. " +
+			"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
+	},
+},
+	commonFilterFlags...)
 
 // createUsageText is a helper for formatting UsageTexts. The created UsageText
 // contains "viam", the command, requiredFlags, [other options] if otherOptions
@@ -257,87 +357,28 @@ var app = &cli.App{
 					Name:      "export",
 					Usage:     "download data from Viam cloud",
 					UsageText: createUsageText("data export", []string{dataFlagDestination, dataFlagDataType}, true),
-					Flags: []cli.Flag{
+					Flags: append([]cli.Flag{
 						&cli.PathFlag{
 							Name:     dataFlagDestination,
 							Required: true,
 							Usage:    "output directory for downloaded data",
-						},
-						&cli.StringFlag{
-							Name:     dataFlagDataType,
-							Required: true,
-							Usage:    "data type to be downloaded: either binary or tabular",
-						},
-						&cli.StringSliceFlag{
-							Name:  dataFlagOrgIDs,
-							Usage: "orgs filter",
-						},
-						&cli.StringSliceFlag{
-							Name:  dataFlagLocationIDs,
-							Usage: "locations filter",
-						},
-						&AliasStringFlag{
-							cli.StringFlag{
-								Name:    generalFlagMachineID,
-								Aliases: []string{generalFlagAliasRobotID},
-								Usage:   "machine id filter",
-							},
-						},
-						&cli.StringFlag{
-							Name:  dataFlagPartID,
-							Usage: "part id filter",
-						},
-						&AliasStringFlag{
-							cli.StringFlag{
-								Name:    dataFlagMachineName,
-								Aliases: []string{dataFlagAliasRobotName},
-								Usage:   "machine name filter",
-							},
-						},
-						&cli.StringFlag{
-							Name:  dataFlagPartName,
-							Usage: "part name filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagComponentType,
-							Usage: "component type filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagComponentName,
-							Usage: "component name filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagMethod,
-							Usage: "method filter",
-						},
-						&cli.StringSliceFlag{
-							Name:  dataFlagMimeTypes,
-							Usage: "mime types filter",
 						},
 						&cli.UintFlag{
 							Name:  dataFlagParallelDownloads,
 							Usage: "number of download requests to make in parallel",
 							Value: 100,
 						},
-						&cli.StringFlag{
-							Name:  dataFlagStart,
-							Usage: "ISO-8601 timestamp indicating the start of the interval filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagEnd,
-							Usage: "ISO-8601 timestamp indicating the end of the interval filter",
-						},
 						&cli.StringSliceFlag{
 							Name: dataFlagTags,
 							Usage: "tags filter. " +
 								"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
 						},
-						&cli.StringSliceFlag{
-							Name: dataFlagBboxLabels,
-							Usage: "bbox labels filter. " +
-								"accepts string labels corresponding to bounding boxes within images",
+						&cli.StringFlag{
+							Name:  dataFlagDataType,
+							Usage: "type of data to download. can be binary or tabular",
 						},
 					},
+						commonFilterFlags...),
 					Action: DataExportAction,
 				},
 				{
@@ -351,8 +392,19 @@ var app = &cli.App{
 							UsageText: createUsageText("data delete binary", nil, true),
 							Flags: []cli.Flag{
 								&cli.StringSliceFlag{
-									Name:  dataFlagOrgIDs,
-									Usage: "orgs filter",
+									Name:     dataFlagOrgIDs,
+									Required: true,
+									Usage:    "orgs filter",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagStart,
+									Required: true,
+									Usage:    "ISO-8601 timestamp indicating the start of the interval filter",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagEnd,
+									Required: true,
+									Usage:    "ISO-8601 timestamp indicating the end of the interval filter",
 								},
 								&cli.StringSliceFlag{
 									Name:  dataFlagLocationIDs,
@@ -395,14 +447,6 @@ var app = &cli.App{
 								&cli.StringSliceFlag{
 									Name:  dataFlagMimeTypes,
 									Usage: "mime types filter",
-								},
-								&cli.StringFlag{
-									Name:  dataFlagStart,
-									Usage: "ISO-8601 timestamp indicating the start of the interval filter",
-								},
-								&cli.StringFlag{
-									Name:  dataFlagEnd,
-									Usage: "ISO-8601 timestamp indicating the end of the interval filter",
 								},
 							},
 							Action: DataDeleteBinaryAction,
@@ -612,6 +656,65 @@ var app = &cli.App{
 								},
 							},
 							Action: DataRemoveFromDataset,
+						},
+					},
+				},
+				{
+					Name:      "tag",
+					Usage:     "tag binary data by filter or ids",
+					UsageText: createUsageText("data tag", nil, true),
+					Subcommands: []*cli.Command{
+						{
+							Name:      "ids",
+							Usage:     "adds or removes tags from binary data by file ids for a given org and location",
+							UsageText: createUsageText("data tag ids", nil, true),
+							Subcommands: []*cli.Command{
+								{
+									Name:  "add",
+									Usage: "adds tags to binary data by file ids for a given org and location",
+									UsageText: createUsageText("data tag ids add", []string{
+										dataFlagTags, generalFlagOrgID,
+										dataFlagLocationID, dataFlagFileIDs,
+									}, false),
+									Flags:  dataTagByIDsFlags,
+									Action: DataTagActionByIds,
+								},
+								{
+									Name:  "remove",
+									Usage: "removes tags from binary data by file ids for a given org and location",
+									UsageText: createUsageText("data tag ids remove", []string{
+										dataFlagTags, generalFlagOrgID,
+										dataFlagLocationID, dataFlagFileIDs,
+									}, false),
+									Flags:  dataTagByIDsFlags,
+									Action: DataTagActionByIds,
+								},
+							},
+						},
+						{
+							Name:      "filter",
+							Usage:     "adds or removes tags from binary data by filter",
+							UsageText: createUsageText("data tag filter", []string{dataFlagTags}, false),
+							Subcommands: []*cli.Command{
+								{
+									Name:  "add",
+									Usage: "adds tags to binary data by filter",
+									UsageText: createUsageText("data tag filter add", []string{
+										dataFlagTags,
+									}, false),
+									Flags:  dataTagByFilterFlags,
+									Action: DataTagActionByFilter,
+								},
+								{
+									Name:  "remove",
+									Usage: "removes tags from binary data by filter",
+									UsageText: createUsageText("data tag filter remove", []string{
+										dataFlagTags,
+									}, false),
+									Flags:  dataTagByFilterFlags,
+									Action: DataTagActionByFilter,
+								},
+							},
 						},
 					},
 				},
@@ -998,23 +1101,19 @@ var app = &cli.App{
 							UsageText:   createUsageText("machines part shell", []string{organizationFlag, locationFlag, machineFlag, partFlag}, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     organizationFlag,
-									Required: true,
+									Name: organizationFlag,
 								},
 								&cli.StringFlag{
-									Name:     locationFlag,
-									Required: true,
+									Name: locationFlag,
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
-										Name:     machineFlag,
-										Aliases:  []string{aliasRobotFlag},
-										Required: true,
+										Name:    machineFlag,
+										Aliases: []string{aliasRobotFlag},
 									},
 								},
 								&cli.StringFlag{
-									Name:     partFlag,
-									Required: true,
+									Name: partFlag,
 								},
 							},
 							Action: RobotsPartShellAction,

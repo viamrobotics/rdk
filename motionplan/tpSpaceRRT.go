@@ -161,7 +161,7 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context, goal spatialmath.Po
 	mp.planOpts.SetGoal(goal)
 	solutionChan := make(chan *rrtSolution, 1)
 
-	seedPos := spatialmath.NewZeroPose()
+	seedPos := mp.opt().StartPose
 
 	startNode := &basicNode{q: make([]referenceframe.Input, len(mp.frame.DoF())), cost: 0, pose: seedPos, corner: false}
 	maps := &rrtMaps{startMap: map[node]node{startNode: nil}}

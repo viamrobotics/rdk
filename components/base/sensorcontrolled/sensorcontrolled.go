@@ -21,8 +21,7 @@ import (
 const (
 	yawPollTime        = 5 * time.Millisecond
 	velocitiesPollTime = 5 * time.Millisecond
-	boundCheckTurn     = 2.0
-	boundCheckTarget   = 5.0
+	boundCheckTarget   = 1.0
 	sensorDebug        = false
 	typeLinVel         = "linear_velocity"
 	typeAngVel         = "angular_velocity"
@@ -34,19 +33,11 @@ var (
 	errNoGoodSensor = errors.New("no appropriate sensor for orientation or velocity feedback")
 )
 
-// basePIDConfig contains the PID value and type that are accesible from control component configs.
-type basePIDConfig struct {
-	Type string  `json:"type"`
-	P    float64 `json:"p"`
-	I    float64 `json:"i"`
-	D    float64 `json:"d"`
-}
-
 // Config configures a sensor controlled base.
 type Config struct {
-	MovementSensor    []string        `json:"movement_sensor"`
-	Base              string          `json:"base"`
-	ControlParameters []basePIDConfig `json:"control_parameters,omitempty"`
+	MovementSensor    []string            `json:"movement_sensor"`
+	Base              string              `json:"base"`
+	ControlParameters []control.PIDConfig `json:"control_parameters,omitempty"`
 }
 
 // Validate validates all parts of the sensor controlled base config.
@@ -80,11 +71,15 @@ type sensorBase struct {
 
 	opMgr *operation.SingleOperationManager
 
-	allSensors  []movementsensor.MovementSensor
-	orientation movementsensor.MovementSensor
-	velocities  movementsensor.MovementSensor
+	allSensors     []movementsensor.MovementSensor
+	orientation    movementsensor.MovementSensor
+	velocities     movementsensor.MovementSensor
+	position       movementsensor.MovementSensor
+	compassHeading movementsensor.MovementSensor
+	headingFunc    func(ctx context.Context) (float64, error)
 
 	controlLoopConfig control.Config
+	blockNames        map[string][]string
 	loop              *control.Loop
 }
 
@@ -130,6 +125,8 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	sb.allSensors = nil
 	sb.velocities = nil
 	sb.orientation = nil
+	sb.compassHeading = nil
+	sb.position = nil
 	sb.controlledBase = nil
 
 	for _, name := range newConf.MovementSensor {
@@ -160,9 +157,31 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		}
 	}
 
+	for _, ms := range sb.allSensors {
+		props, err := ms.Properties(context.Background(), nil)
+		if err == nil && props.PositionSupported {
+			// return first sensor that does not error that satisfies the properties wanted
+			sb.position = ms
+			sb.logger.CInfof(ctx, "using sensor %s as position sensor for base", sb.position.Name().ShortName())
+			break
+		}
+	}
+
+	for _, ms := range sb.allSensors {
+		props, err := ms.Properties(context.Background(), nil)
+		if err == nil && props.CompassHeadingSupported {
+			// return first sensor that does not error that satisfies the properties wanted
+			sb.compassHeading = ms
+			sb.logger.CInfof(ctx, "using sensor %s as compassHeading sensor for base", sb.compassHeading.Name().ShortName())
+			break
+		}
+	}
+
 	if sb.orientation == nil && sb.velocities == nil {
 		return errNoGoodSensor
 	}
+
+	sb.determineHeadingFunc(ctx)
 
 	sb.controlledBase, err = base.FromDependencies(deps, newConf.Base)
 	if err != nil {
@@ -171,7 +190,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 
 	if sb.velocities != nil && len(newConf.ControlParameters) != 0 {
 		// assign linear and angular PID correctly based on the given type
-		var linear, angular basePIDConfig
+		var linear, angular control.PIDConfig
 		for _, c := range newConf.ControlParameters {
 			switch c.Type {
 			case typeLinVel:
@@ -186,24 +205,9 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		// unlock the mutex before setting up the control loop so that the motors
 		// are not locked, and can run if any auto-tuning is necessary
 		sb.mu.Unlock()
-		switch {
-		// check if both linear and angular need to be tuned, and if so start by tuning linear
-		case (linear.P != 0.0 || linear.I != 0.0 || linear.D != 0.0) &&
-			(angular.P != 0.0 || angular.I != 0.0 || angular.D != 0.0):
-			sb.controlLoopConfig = sb.createControlLoopConfig(linear, angular)
-		case linear.P == 0.0 && linear.I == 0.0 && linear.D == 0.0 &&
-			angular.P == 0.0 && angular.I == 0.0 && angular.D == 0.0:
-			cancelCtx, cancelFunc := context.WithCancel(context.Background())
-			if err := sb.autoTuneAll(cancelCtx, cancelFunc, linear, angular); err != nil {
-				sb.mu.Lock()
-				return err
-			}
-		default:
-			sb.controlLoopConfig = sb.createControlLoopConfig(linear, angular)
-			if err := sb.setupControlLoops(); err != nil {
-				sb.mu.Lock()
-				return err
-			}
+		if err := sb.setupControlLoop(linear, angular); err != nil {
+			sb.mu.Lock()
+			return err
 		}
 		// relock the mutex after setting up the control loop since there is still a  defer unlock
 		sb.mu.Lock()
@@ -226,17 +230,6 @@ func (sb *sensorBase) isPolling() bool {
 	sb.sensorLoopMu.Lock()
 	defer sb.sensorLoopMu.Unlock()
 	return sb.sensorLoopPolling
-}
-
-func (sb *sensorBase) MoveStraight(
-	ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{},
-) error {
-	sb.stopLoop()
-	ctx, done := sb.opMgr.New(ctx)
-	defer done()
-	sb.setPolling(false)
-
-	return sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
 }
 
 func (sb *sensorBase) SetPower(
