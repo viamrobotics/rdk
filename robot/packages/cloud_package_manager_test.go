@@ -493,7 +493,7 @@ func TestTrimLeadingZeroes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			test.That(t, trimLeadingZeroes(tc.input), test.ShouldEqual, tc.expected)
+			test.That(t, trimLeadingZeroes(tc.input), test.ShouldResemble, tc.expected)
 		})
 	}
 }
