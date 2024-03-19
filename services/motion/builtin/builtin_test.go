@@ -507,13 +507,12 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 }
 
 func TestObstacleReplanningSlam(t *testing.T) {
-	t.Skip()
 	cameraToBase := spatialmath.NewPose(r3.Vector{0, 0, 0}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90})
 	cameraToBaseInv := spatialmath.PoseInverse(cameraToBase)
 
 	ctx := context.Background()
 	origin := spatialmath.NewPose(
-		r3.Vector{X: -0.99503e3, Y: 0, Z: 0},
+		r3.Vector{X: -900, Y: 0, Z: 0},
 		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90},
 	)
 
@@ -556,12 +555,10 @@ func TestObstacleReplanningSlam(t *testing.T) {
 		Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 800, Y: 0, Z: 0}),
 		SlamName:      slam.Named("test_slam"),
 		MotionCfg: &motion.MotionConfiguration{
-			PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: 1, ObstacleDetectors: obstacleDetectorSlice,
+			PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 20, PlanDeviationMM: 1, ObstacleDetectors: obstacleDetectorSlice,
 		},
-		Extra: map[string]interface{}{
-			"max_replans": 2,
-			"smooth_iter": 0,
-		},
+		Extra: map[string]interface{}{"max_replans": 1}, // "smooth_iter": 0,
+
 	}
 
 	executionID, err := ms.MoveOnMap(ctx, req)
@@ -590,7 +587,7 @@ func TestObstacleReplanningSlam(t *testing.T) {
 			}
 		}
 	}
-	test.That(t, populatedReplanReason, test.ShouldBeGreaterThanOrEqualTo, 1)
+	test.That(t, populatedReplanReason, test.ShouldEqual, 1)
 }
 
 func TestMultiplePieces(t *testing.T) {
