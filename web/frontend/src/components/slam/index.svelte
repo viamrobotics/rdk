@@ -351,7 +351,7 @@ const handleStartMapping = async () => {
       return;
     }
     console.log("In handleStartMapping, mappingDetails: ", overrides.mappingDetails)
-    console.log("In handleStartMapping, mapName: ", overrides.mapName)
+    console.log("In handleStartMapping, mapName: ", mapName)
 
     // Get SensorInfo list
     const props = await slamClient.getProperties();
