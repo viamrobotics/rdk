@@ -496,12 +496,18 @@ func (m *cloudManager) downloadFileFromGCSURL(
 }
 
 func trimLeadingZeroes(data []byte) []byte {
+	if len(data) == 0 {
+		return []byte{}
+	}
+
 	for i, b := range data {
 		if b != 0x00 {
 			return data[i:]
 		}
 	}
-	return data // return the original slice if it's all zeroes or empty
+
+	// If all bytes are zero, return a single zero byte
+	return []byte{0x00}
 }
 
 func unpackFile(ctx context.Context, fromFile, toDir string) error {

@@ -290,6 +290,7 @@ func (c *FakePackagesClientAndGCSServer) Clear() {
 	defer c.mu.Unlock()
 
 	c.packages = make(map[string]*pb.Package)
+	c.hasLeadingZeroesChecksum = false
 	c.invalidChecksum = false
 	c.invalidTar = false
 	c.invalidHTTPRes = false

@@ -462,3 +462,38 @@ func TestMissingDirEntry(t *testing.T) {
 	err = unpackFile(context.Background(), file.Name(), dest)
 	test.That(t, err, test.ShouldBeNil)
 }
+
+func TestTrimLeadingZeroes(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    []byte
+		expected []byte
+	}{
+		{
+			name:     "Empty slice",
+			input:    []byte{},
+			expected: []byte{},
+		},
+		{
+			name:     "Single zero byte",
+			input:    []byte{0x00},
+			expected: []byte{0x00},
+		},
+		{
+			name:     "Leading zeroes trimmed",
+			input:    []byte{0x00, 0x00, 0x03, 0x04, 0x05},
+			expected: []byte{0x03, 0x04, 0x05},
+		},
+		{
+			name:     "All zero bytes",
+			input:    []byte{0x00, 0x00, 0x00},
+			expected: []byte{0x00},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			test.That(t, trimLeadingZeroes(tc.input), test.ShouldEqual, tc.expected)
+		})
+	}
+}
