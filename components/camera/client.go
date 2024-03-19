@@ -6,10 +6,14 @@ import (
 	"fmt"
 	"image"
 	"sync"
+	"time"
 
+	"github.com/pion/rtp"
+	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/component/camera/v1"
+	streampb "go.viam.com/api/stream/v1"
 	goutils "go.viam.com/utils"
 	goprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -28,13 +32,17 @@ import (
 )
 
 // client implements CameraServiceClient.
+type singlePacketCB func(*rtp.Packet) error
 type client struct {
 	resource.Named
 	resource.TriviallyReconfigurable
+	wg                      sync.WaitGroup
 	mu                      sync.Mutex
+	subs                    map[*StreamSubscription]singlePacketCB
 	name                    string
 	conn                    rpc.ClientConn
 	client                  pb.CameraServiceClient
+	streamClient            streampb.StreamServiceClient
 	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
 	healthyClientCh         chan struct{}
@@ -51,13 +59,16 @@ func NewClientFromConn(
 	logger logging.Logger,
 ) (Camera, error) {
 	c := pb.NewCameraServiceClient(conn)
+	streamClient := streampb.NewStreamServiceClient(conn)
 	logger.Infof("Camera Client. PeerConn? %p\n", conn.PeerConn())
 	return &client{
-		Named:  name.PrependRemote(remoteName).AsNamed(),
-		name:   name.ShortName(),
-		conn:   conn,
-		client: c,
-		logger: logger,
+		Named:        name.PrependRemote(remoteName).AsNamed(),
+		name:         name.ShortName(),
+		conn:         conn,
+		streamClient: streamClient,
+		client:       c,
+		subs:         map[*StreamSubscription]singlePacketCB{},
+		logger:       logger,
 	}, nil
 }
 
@@ -79,8 +90,76 @@ func getExtra(ctx context.Context) (*structpb.Struct, error) {
 	return ext, nil
 }
 
+// TOMORROW: NICK: TEST THIS!!!
+// Figure out where to put r.Publish
+// Have the client figure out if there are 0 subscribers, and not connect if so & once there is a single subscriber
+// register a subscription
+// Every subscriber after that should just be another reciver of the same data stream
+
+// TODO: NICK We probably need to do the multiplexing here,
+// Probably need to have the camera subscription do work here
+func (c *client) SubscribeRTP(r *StreamSubscription, packetsCB PacketCallback) error {
+	// TODO: Gotta add mutexes & wait for the waitgroup
+	if len(c.subs) == 0 {
+		// TODO: Fix this context
+		timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), time.Second)
+		defer timeoutCancel()
+		c.conn.PeerConn().OnTrack(func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
+			if len(c.subs) == 0 {
+				c.logger.Debug("OnTrack called when c.subs was already empty")
+				return
+			}
+			c.wg.Add(1)
+			goutils.ManagedGo(func() {
+				for {
+					pkt, _, err := tr.ReadRTP()
+					if err != nil {
+						c.logger.Fatal(err.Error())
+					}
+					if len(c.subs) == 0 {
+						c.logger.Debug("OnTrack spawned function terminating as len(c.subs) == 0")
+						return
+					}
+					for sub, cb := range c.subs {
+						if err := sub.Publish(func() error { return cb(pkt) }); err != nil {
+							c.logger.Debug("RTP packet dropped due to %s", err.Error())
+						}
+					}
+				}
+
+			}, c.wg.Done)
+		})
+
+		c.subs[r] = func(p *rtp.Packet) error { return packetsCB([]*rtp.Packet{p}) }
+		r.Start()
+		_, err := c.streamClient.AddStream(timeoutCtx, &streampb.AddStreamRequest{Name: c.Name().String()})
+		if err != nil {
+			r.Stop()
+			delete(c.subs, r)
+			return err
+		}
+	}
+	return nil
+}
+
+// TODO: Unsubscribe should be able to fail
+func (c *client) Unsubscribe(r *StreamSubscription) {
+	// TODO: Fix this context
+	timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), time.Second)
+	defer timeoutCancel()
+	_, err := c.streamClient.RemoveStream(timeoutCtx, &streampb.RemoveStreamRequest{Name: c.Name().String()})
+	if err != nil {
+		c.logger.Fatal(err.Error())
+	}
+	r.Stop()
+	delete(c.subs, r)
+}
+
 func (c *client) VideoCodecStreamSource() (VideoCodecStreamSource, error) {
-	return nil, errors.New("camera client does not implement VideoCodecStreamSource")
+	if c.conn.PeerConn() != nil {
+		return c, nil
+	}
+	return nil, errors.New("VideoCodecStreamSource unimplemented as module doesn't support peer connections")
 }
 
 func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
