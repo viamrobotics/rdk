@@ -210,7 +210,7 @@ func TestNetLoggerOverflowDuringWrite(t *testing.T) {
 	time.Sleep(300 * time.Millisecond)
 
 	// This "10" log should "overflow" the netAppender queue and remove the "0"
-	// (oldest) log. syncOnce should sense that an overflow occured and only
+	// (oldest) log. syncOnce should sense that an overflow occurred and only
 	// remove "1"-"9" from the queue.
 	logger.Info("10")
 	server.service.logsMu.Unlock()
