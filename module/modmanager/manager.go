@@ -18,7 +18,6 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	pb "go.viam.com/api/module/v1"
-	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -69,15 +68,14 @@ func NewManager(
 }
 
 type module struct {
-	cfg          config.Module
-	dataDir      string
-	process      pexec.ManagedProcess
-	handles      modlib.HandlerMap
-	conn         rdkgrpc.ReconfigurableClientConn
-	modClient    pb.ModuleServiceClient
-	streamClient streampb.StreamServiceClient
-	addr         string
-	resources    map[resource.Name]*addedResource
+	cfg       config.Module
+	dataDir   string
+	process   pexec.ManagedProcess
+	handles   modlib.HandlerMap
+	conn      rdkgrpc.ReconfigurableClientConn
+	client    pb.ModuleServiceClient
+	addr      string
+	resources map[resource.Name]*addedResource
 
 	// pendingRemoval allows delaying module close until after resources within it are closed
 	pendingRemoval bool
@@ -425,7 +423,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 
 	// need to actually close the resources within the module itself before stopping
 	for res := range mod.resources {
-		_, err := mod.modClient.RemoveResource(context.Background(), &pb.RemoveResourceRequest{Name: res.String()})
+		_, err := mod.client.RemoveResource(context.Background(), &pb.RemoveResourceRequest{Name: res.String()})
 		if err != nil {
 			mgr.logger.Errorw("error removing resource", "module", mod.cfg.Name, "resource", res.Name, "error", err)
 		} else {
@@ -473,7 +471,7 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 		return nil, err
 	}
 
-	_, err = mod.modClient.AddResource(ctx, &pb.AddResourceRequest{Config: confProto, Dependencies: deps})
+	_, err = mod.client.AddResource(ctx, &pb.AddResourceRequest{Config: confProto, Dependencies: deps})
 	if err != nil {
 		return nil, err
 	}
@@ -502,7 +500,7 @@ func (mgr *Manager) ReconfigureResource(ctx context.Context, conf resource.Confi
 	if err != nil {
 		return err
 	}
-	_, err = mod.modClient.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{Config: confProto, Dependencies: deps})
+	_, err = mod.client.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{Config: confProto, Dependencies: deps})
 	if err != nil {
 		return err
 	}
@@ -550,7 +548,7 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	}
 	mgr.rMap.Delete(name)
 	delete(mod.resources, name)
-	_, err := mod.modClient.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
+	_, err := mod.client.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
 	if err != nil {
 		return err
 	}
@@ -584,7 +582,7 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	ctx, cancel = context.WithTimeout(ctx, validateConfigTimeout)
 	defer cancel()
 
-	resp, err := mod.modClient.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: confProto})
+	resp, err := mod.client.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: confProto})
 	// Swallow "Unimplemented" gRPC errors from modules that lack ValidateConfig
 	// receiving logic.
 	if err != nil && status.Code(err) == codes.Unimplemented {
@@ -879,8 +877,7 @@ func (m *module) dial() error {
 		return errors.WithMessage(err, "module startup failed")
 	}
 	m.conn.ReplaceConn(rpc.GrpcOverHTTPClientConn{ClientConn: conn})
-	m.modClient = pb.NewModuleServiceClient(&m.conn)
-	m.streamClient = streampb.NewStreamServiceClient(&m.conn)
+	m.client = pb.NewModuleServiceClient(&m.conn)
 	return nil
 }
 
@@ -916,7 +913,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 
 	for {
 		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
-		resp, err := m.modClient.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
+		resp, err := m.client.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
 		if err != nil {
 			return err
 		}

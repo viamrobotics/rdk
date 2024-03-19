@@ -14,6 +14,7 @@ type ModuleManager interface {
 	Add(ctx context.Context, confs ...config.Module) error
 	Reconfigure(ctx context.Context, cfg config.Module) ([]resource.Name, error)
 	Remove(modName string) ([]resource.Name, error)
+
 	AddResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error)
 	ReconfigureResource(ctx context.Context, conf resource.Config, deps []string) error
 	RemoveResource(ctx context.Context, name resource.Name) error
