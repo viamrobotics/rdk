@@ -235,7 +235,7 @@ func TestMoveWithObstacles(t *testing.T) {
 	})
 }
 
-func TestMoveOnMapAskewIMUTestMoveOnMapAskewIMU(t *testing.T) {
+func TestMoveOnMapAskewIMU(t *testing.T) {
 	t.Parallel()
 	extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 	t.Run("Askew but valid base should be able to plan", func(t *testing.T) {
@@ -1593,6 +1593,7 @@ func TestMoveOnMap(t *testing.T) {
 				},
 			)
 			test.That(t, err, test.ShouldNotBeNil)
+			logger.Debug(err.Error())
 			test.That(t, strings.Contains(err.Error(), "starting collision between SLAM map and "), test.ShouldBeTrue)
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
@@ -1661,6 +1662,7 @@ func TestMoveOnMap(t *testing.T) {
 
 		endPos, err = kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
+		logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))
 		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal2BaseFrame, 5), test.ShouldBeTrue)
 
 		plans, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{
