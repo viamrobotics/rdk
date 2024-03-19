@@ -63,6 +63,7 @@ func NewServer(streams ...gostream.Stream) (*Server, error) {
 		nameToStream:      map[string]gostream.Stream{},
 		activePeerStreams: map[*webrtc.PeerConnection]map[string]*peerState{},
 	}
+
 	for _, stream := range streams {
 		if err := ss.add(stream); err != nil {
 			return nil, err
@@ -135,9 +136,6 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 	if streamToAdd == nil {
 		return nil, fmt.Errorf("no stream for %q", req.Name)
 	}
-
-	ss.mu.Lock()
-	defer ss.mu.Unlock()
 
 	if _, ok := ss.activePeerStreams[pc][req.Name]; ok {
 		return nil, errors.New("stream already active")
@@ -234,9 +232,6 @@ func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRe
 		return nil, fmt.Errorf("no stream for %q", req.Name)
 	}
 
-	ss.mu.Lock()
-	defer ss.mu.Unlock()
-
 	if _, ok := ss.activePeerStreams[pc][req.Name]; !ok {
 		return nil, errors.New("stream already inactive")
 	}
@@ -264,6 +259,7 @@ func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRe
 func (ss *Server) Close() error {
 	ss.mu.RLock()
 	defer ss.mu.RUnlock()
+
 	for _, stream := range ss.streams {
 		stream.stream.Stop()
 		stream.activePeers = 0
