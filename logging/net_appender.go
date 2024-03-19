@@ -19,7 +19,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-const (
+var (
 	defaultMaxQueueSize = 20000
 	writeBatchSize      = 100
 )
@@ -63,8 +63,11 @@ type NetAppender struct {
 	hostname     string
 	remoteWriter *remoteLogWriterGRPC
 
-	toLogMutex   sync.Mutex
-	toLog        []*commonpb.LogEntry
+	// toLogMutex guards toLog and toLogOverflowsSinceLastSync.
+	toLogMutex                  sync.Mutex
+	toLog                       []*commonpb.LogEntry
+	toLogOverflowsSinceLastSync int
+
 	maxQueueSize int
 
 	cancelCtx               context.Context
@@ -155,6 +158,8 @@ func (nl *NetAppender) Write(e zapcore.Entry, f []zapcore.Field) error {
 	return nil
 }
 
+// addToQueue adds a LogEntry to the net appender's queue, discarding the
+// oldest entry in the queue if the size of the queue has overflowed.
 func (nl *NetAppender) addToQueue(logEntry *commonpb.LogEntry) {
 	nl.toLogMutex.Lock()
 	defer nl.toLogMutex.Unlock()
@@ -162,10 +167,14 @@ func (nl *NetAppender) addToQueue(logEntry *commonpb.LogEntry) {
 	if len(nl.toLog) >= nl.maxQueueSize {
 		// TODO(erh): sample?
 		nl.toLog = nl.toLog[1:]
+		nl.toLogOverflowsSinceLastSync++
 	}
 	nl.toLog = append(nl.toLog, logEntry)
 }
 
+// addBatchToQueue adds a slice of LogEntrys to the net appender's queue,
+// trimming the front of the batch to be less than maxQueueSize, and discarding
+// the oldest len(batch) entries in the queue if the queue has overflowed.
 func (nl *NetAppender) addBatchToQueue(batch []*commonpb.LogEntry) {
 	if len(batch) == 0 {
 		return
@@ -180,7 +189,9 @@ func (nl *NetAppender) addBatchToQueue(batch []*commonpb.LogEntry) {
 
 	if len(nl.toLog)+len(batch) >= nl.maxQueueSize {
 		// TODO(erh): sample?
-		nl.toLog = nl.toLog[len(nl.toLog)+len(batch)-nl.maxQueueSize:]
+		overflow := len(nl.toLog) + len(batch) - nl.maxQueueSize
+		nl.toLog = nl.toLog[overflow:]
+		nl.toLogOverflowsSinceLastSync += overflow
 	}
 
 	nl.toLog = append(nl.toLog, batch...)
@@ -208,8 +219,8 @@ func (nl *NetAppender) backgroundWorker() {
 	}
 }
 
-// Returns whether there is more work to do or if an error was encountered while trying to ship logs
-// over the network.
+// Returns whether there is more work to do or if an error was encountered
+// while trying to ship logs over the network.
 func (nl *NetAppender) syncOnce() (bool, error) {
 	nl.toLogMutex.Lock()
 
@@ -223,19 +234,27 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 		batchSize = len(nl.toLog)
 	}
 
-	// Pull a batch from the queue, unlock mutex, and return an error if write
-	// fails. We are ok losing logs (pulling a batch out of toLog even in the
-	// event of a write failure) in order to not block adding to the queue while
-	// writing.
+	// Read a batch from the queue, unlock mutex, and return an error if write
+	// fails. Lock mutex again to remove batch from queue only if write succeeded
+	// and front of queue was not mutated by addToQueue/addBatchToQueue throwing
+	// away the oldest logs due to overflows beyond maxQueueSize.
 	batch := nl.toLog[:batchSize]
-	nl.toLog = nl.toLog[batchSize:]
-	moreWorkToDo := len(nl.toLog) > 0
 	nl.toLogMutex.Unlock()
 
 	if err := nl.remoteWriter.write(batch); err != nil {
 		return false, err
 	}
-	return moreWorkToDo, nil
+
+	nl.toLogMutex.Lock()
+	defer nl.toLogMutex.Unlock()
+
+	// Remove successfully synced logs from the queue. If we've overflowed more times than the size of the batch
+	//  we wrote, do not mutate toLog at all.
+	if batchSize > nl.toLogOverflowsSinceLastSync {
+		nl.toLog = nl.toLog[batchSize-nl.toLogOverflowsSinceLastSync:]
+	}
+	nl.toLogOverflowsSinceLastSync = 0
+	return len(nl.toLog) > 0, nil
 }
 
 // Sync will flush the internal buffer of logs.
