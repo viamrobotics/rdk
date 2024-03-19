@@ -31,6 +31,8 @@ var (
 	GitRevision  = ""
 	DateCompiled = ""
 
+)
+const (
 	initialReadTimeout = 1 * time.Second
 	readTimeout        = 5 * time.Second
 )
