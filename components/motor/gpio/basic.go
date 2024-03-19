@@ -177,7 +177,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 	var errs error
 	powerPct = math.Min(powerPct, m.maxPowerPct)
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
-	if math.Abs(powerPct) < m.minPowerPct {
+	if math.Abs(powerPct) < m.minPowerPct && math.Abs(powerPct) > 0 {
 		powerPct = sign(powerPct) * m.minPowerPct
 	}
 	m.powerPct = powerPct
