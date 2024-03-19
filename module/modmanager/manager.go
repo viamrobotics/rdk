@@ -268,6 +268,16 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 	return nil
 }
 
+func (mgr *Manager) startModuleProcess(mod *module) error {
+	return mod.startProcess(
+		mgr.restartCtx,
+		mgr.parentAddr,
+		mgr.newOnUnexpectedExitHandler(mod),
+		mgr.logger,
+		mgr.viamHomeDir,
+	)
+}
+
 func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	// add calls startProcess, which can also be called by the OUE handler in the attemptRestart
 	// call. Both of these involve owning a lock, so in unhappy cases of malformed modules
@@ -291,8 +301,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		}
 	}
 
-	if err := mod.startProcess(mgr.restartCtx, mgr.parentAddr,
-		mgr.newOnUnexpectedExitHandler(mod), mgr.logger, mgr.viamHomeDir); err != nil {
+	if err := mgr.startModuleProcess(mod); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
 	}
 
@@ -788,8 +797,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 
 	// Attempt to restart module process 3 times.
 	for attempt := 1; attempt < 4; attempt++ {
-		if err := mod.startProcess(mgr.restartCtx, mgr.parentAddr,
-			mgr.newOnUnexpectedExitHandler(mod), mgr.logger, mgr.viamHomeDir); err != nil {
+		if err := mgr.startModuleProcess(mod); err != nil {
 			mgr.logger.Errorf("attempt %d: error while restarting crashed module %s: %v",
 				attempt, mod.cfg.Name, err)
 			if attempt == 3 {
