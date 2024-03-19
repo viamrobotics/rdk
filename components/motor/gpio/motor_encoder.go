@@ -138,7 +138,6 @@ type EncodedMotor struct {
 	real                    motor.Motor
 	encoder                 encoder.Encoder
 	offsetInTicks           float64
-	lastPowerPct            float64
 
 	mu             sync.RWMutex
 	rpmMonitorDone func()
