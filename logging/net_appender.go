@@ -165,7 +165,9 @@ func (nl *NetAppender) addToQueue(logEntry *commonpb.LogEntry) {
 	defer nl.toLogMutex.Unlock()
 
 	if len(nl.toLog) >= nl.maxQueueSize {
-		// TODO(erh): sample?
+		// TODO(RSDK-7000): Selectively kick logs out of the queue based on log
+		// content (i.e. don't maintain 20000 trivial logs of "Foo" when other,
+		// potentially important information is being logged).
 		nl.toLog = nl.toLog[1:]
 		nl.toLogOverflowsSinceLastSync++
 	}
@@ -188,7 +190,9 @@ func (nl *NetAppender) addBatchToQueue(batch []*commonpb.LogEntry) {
 	}
 
 	if len(nl.toLog)+len(batch) >= nl.maxQueueSize {
-		// TODO(erh): sample?
+		// TODO(RSDK-7000): Selectively kick logs out of the queue based on log
+		// content (i.e. don't maintain 20000 trivial logs of "Foo" when other,
+		// potentially important information is being logged).
 		overflow := len(nl.toLog) + len(batch) - nl.maxQueueSize
 		nl.toLog = nl.toLog[overflow:]
 		nl.toLogOverflowsSinceLastSync += overflow
