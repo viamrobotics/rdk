@@ -15,7 +15,7 @@ import (
 const (
 	slowDownDistGain      = .1
 	maxSlowDownDist       = 100 // mm
-	moveStraightErrTarget = 20  // mm
+	moveStraightErrTarget = 0   // mm
 	headingGain           = 1.
 )
 

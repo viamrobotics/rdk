@@ -21,7 +21,7 @@ import (
 const (
 	yawPollTime        = 5 * time.Millisecond
 	velocitiesPollTime = 5 * time.Millisecond
-	boundCheckTarget   = 5.0
+	boundCheckTarget   = 1.0
 	sensorDebug        = false
 	typeLinVel         = "linear_velocity"
 	typeAngVel         = "angular_velocity"
