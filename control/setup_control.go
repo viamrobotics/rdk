@@ -154,14 +154,13 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 		}
 		// switch sum to depend on the setpoint if position control
 		if p.Options.PositionControlUsingTrapz {
+			p.logger.Debug("tuning trapz PID")
 			p.ControlConf.Blocks[sumIndex].DependsOn[0] = p.BlockNames[BlockNameConstant][0]
 			if err := p.StartControlLoop(); err != nil {
 				errs = multierr.Combine(errs, err)
 			}
 
-			if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
-				errs = multierr.Combine(errs, err)
-			}
+			p.ControlLoop.MonitorTuning(ctx)
 		}
 		if p.Options.SensorFeedback2DVelocityControl {
 			// check if linear needs to be tuned
@@ -195,9 +194,7 @@ func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex int) error {
 		return err
 	}
 
-	if err := p.ControlLoop.MonitorTuning(ctx); err != nil {
-		return err
-	}
+	p.ControlLoop.MonitorTuning(ctx)
 
 	p.ControlLoop.Stop()
 	p.ControlLoop = nil
@@ -432,6 +429,15 @@ func CreateConstantBlock(ctx context.Context, name string, constVal float64) Blo
 	}
 }
 
+// UpdateConstantBlock creates and sets a control config constant block.
+func UpdateConstantBlock(ctx context.Context, name string, constVal float64, loop *Loop) error {
+	newConstBlock := CreateConstantBlock(ctx, name, constVal)
+	if err := loop.SetConfigAt(ctx, name, newConstBlock); err != nil {
+		return err
+	}
+	return nil
+}
+
 // CreateTrapzBlock returns a new trapezoidalVelocityProfile block based on the parameters.
 func CreateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsOn []string) BlockConfig {
 	return BlockConfig{
@@ -445,4 +451,13 @@ func CreateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsO
 		},
 		DependsOn: dependsOn,
 	}
+}
+
+// UpdateTrapzBlock creates and sets a control config trapezoidalVelocityProfile block.
+func UpdateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsOn []string, loop *Loop) error {
+	newTrapzBlock := CreateTrapzBlock(ctx, name, maxVel, dependsOn)
+	if err := loop.SetConfigAt(ctx, name, newTrapzBlock); err != nil {
+		return err
+	}
+	return nil
 }
