@@ -54,7 +54,7 @@ func NewManager(
 	ctx context.Context, parentAddr string, logger logging.Logger, options modmanageroptions.Options,
 ) modmaninterface.ModuleManager {
 	restartCtx, restartCtxCancel := context.WithCancel(ctx)
-	m := &Manager{
+	return &Manager{
 		logger:                  logger,
 		modules:                 moduleMap{},
 		parentAddr:              parentAddr,
@@ -66,8 +66,6 @@ func NewManager(
 		restartCtx:              restartCtx,
 		restartCtxCancel:        restartCtxCancel,
 	}
-	modmaninterface.Managers = append(modmaninterface.Managers, m)
-	return m
 }
 
 type module struct {
@@ -95,9 +93,7 @@ type module struct {
 	inRecoveryLock sync.Mutex
 
 	peerConn *webrtc.PeerConnection
-	tr       *webrtc.TrackRemote
 	pcReady  <-chan struct{}
-	trReady  chan struct{}
 }
 
 // For modules, the grpc connection is over a Unix socket. The WebRTC `PeerConnection` is made
@@ -290,7 +286,6 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 		cfg:       conf,
 		dataDir:   moduleDataDir,
 		resources: map[resource.Name]*addedResource{},
-		trReady:   make(chan struct{}),
 	}
 
 	var err error
@@ -930,51 +925,11 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 			if err = connect(m.peerConn, resp.ModuleSdp); err != nil {
 				logger.Warnw("Error creating PeerConnection. Ignoring.", "err", err)
 			}
-			m.peerConn.OnTrack(func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
-				m.tr = tr
-				close(m.trReady)
-				utils.PanicCapturingGo(func() {
-					for {
-						rtp, _, err := tr.ReadRTP()
-						if err != nil {
-							logger.Fatal("tr.ReadRTP() got error: %s", err.Error())
-						}
-						b, err := rtp.Marshal()
-						if err != nil {
-							logger.Fatal("rtp.Marshal() got error: %s", err.Error())
-						}
-						logger.Info("got an rtp packet, size: %d", len(b))
-					}
-				})
-			})
 			<-m.pcReady
 			m.handles, err = modlib.NewHandlerMapFromProto(ctx, resp.Handlermap, &m.conn)
 			return err
 		}
 	}
-}
-
-// HACK: NICKS
-func (m *Manager) AddStream(ctx context.Context, name string) (*streampb.AddStreamResponse, error) {
-	mods := []*module{}
-	m.modules.Range(func(name string, mod *module) bool {
-		mods = append(mods, mod)
-		return true
-	})
-	if len(mods) != 1 {
-		return nil, fmt.Errorf("can't call AddStream when there is more than 1 module, there are %d", len(mods))
-	}
-
-	return mods[0].AddStream(ctx, name)
-}
-
-func (m *module) AddStream(ctx context.Context, name string) (*streampb.AddStreamResponse, error) {
-	select {
-	case <-m.pcReady:
-	default:
-		return nil, errors.New("AddStream not ready")
-	}
-	return m.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: name})
 }
 
 func (m *module) startProcess(
