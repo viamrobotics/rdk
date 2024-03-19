@@ -271,9 +271,9 @@ func (svc *webService) startVideoStream(
 	stream gostream.Stream,
 ) {
 	// if the camera supports h264 streaming, use passthrough
-	if h264Stream, err := svc.h264Stream(stream); err == nil {
+	if h264Stream, err := svc.h264Stream(ctx, stream); err == nil {
+		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
 		svc.startStream(func(*webstream.BackoffTuningOptions) error {
-			streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
 			// Use H264 for cameras that support it; but do not override upstream values.
 			if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
 				streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
@@ -351,7 +351,7 @@ func packetStream(
 	}
 }
 
-func (svc *webService) h264Stream(stream gostream.Stream) (camera.VideoCodecStreamSource, error) {
+func (svc *webService) h264Stream(ctx context.Context, stream gostream.Stream) (camera.VideoCodecStreamSource, error) {
 	res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
 	if err != nil {
 		return nil, err
@@ -361,7 +361,7 @@ func (svc *webService) h264Stream(stream gostream.Stream) (camera.VideoCodecStre
 		return nil, errors.Errorf("expected %s to implement camera.Camera", stream.Name())
 	}
 
-	return cam.VideoCodecStreamSource()
+	return cam.VideoCodecStreamSource(ctx)
 }
 
 func (svc *webService) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {

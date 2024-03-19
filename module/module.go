@@ -160,7 +160,7 @@ type Module struct {
 	server                  rpc.Server
 	logger                  logging.Logger
 	mu                      sync.Mutex
-	activePeerStreams       map[*webrtc.PeerConnection]map[resource.Name]peerResourceState
+	activeResourceStreams   map[resource.Name]peerResourceState
 	streamSourceByName      map[resource.Name]camera.VideoCodecStreamSource
 	operations              *operation.Manager
 	ready                   bool
@@ -188,16 +188,16 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		opMgr.StreamServerInterceptor,
 	}
 	m := &Module{
-		logger:             logger,
-		addr:               address,
-		operations:         opMgr,
-		streamSourceByName: map[resource.Name]camera.VideoCodecStreamSource{},
-		activePeerStreams:  map[*webrtc.PeerConnection]map[resource.Name]peerResourceState{},
-		server:             NewServer(unaries, streams),
-		ready:              true,
-		handlers:           HandlerMap{},
-		collections:        map[resource.API]resource.APIResourceCollection[resource.Resource]{},
-		resLoggers:         map[resource.Resource]logging.Logger{},
+		logger:                logger,
+		addr:                  address,
+		operations:            opMgr,
+		streamSourceByName:    map[resource.Name]camera.VideoCodecStreamSource{},
+		activeResourceStreams: map[resource.Name]peerResourceState{},
+		server:                NewServer(unaries, streams),
+		ready:                 true,
+		handlers:              HandlerMap{},
+		collections:           map[resource.API]resource.APIResourceCollection[resource.Resource]{},
+		resLoggers:            map[resource.Resource]logging.Logger{},
 	}
 	if err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m); err != nil {
 		return nil, err
@@ -257,10 +257,34 @@ func (m *Module) Start(ctx context.Context) error {
 }
 
 // Close shuts down the module and grpc server.
+// TODO: Shut down the subscriptions
 func (m *Module) Close(ctx context.Context) {
 	m.closeOnce.Do(func() {
+		m.logger.Info("calling Close")
 		m.mu.Lock()
 		parent := m.parent
+		m.logger.Info("BEFORE: m.activeResourceStreams: %#v", m.activeResourceStreams)
+		for name, r := range m.activeResourceStreams {
+			vcss, ok := m.streamSourceByName[name]
+			if !ok {
+				m.logger.Errorf("unable to find %s in streamSourceByName", name)
+				continue
+			}
+			if err := vcss.Unsubscribe(ctx, r.subscription); err != nil {
+				m.logger.Errorf("unable call unsubscribe on resource %s", name)
+				continue
+			}
+			if err := m.pc.RemoveTrack(r.sender); err != nil {
+				m.logger.Errorf("RemoveTrack on resource %s", name)
+			}
+		}
+		if m.pc != nil {
+			m.logger.Info("calling m.pc.Close()")
+			if err := m.pc.Close(); err != nil {
+				m.logger.Error(err)
+			}
+		}
+		m.logger.Info("AFTER: m.activeResourceStreams: %#v", m.activeResourceStreams)
 		m.mu.Unlock()
 		m.logger.Info("Shutting down gracefully.")
 		if parent != nil {
@@ -380,9 +404,7 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 
 // AddResource receives the component/service configuration from the parent.
 func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*pb.AddResourceResponse, error) {
-	m.logger.Warn("ADD RESOURCE")
 	<-m.pcReady
-	m.logger.Warn("ADD RESOURCE after pc ready")
 
 	deps := make(resource.Dependencies)
 	for _, c := range req.Dependencies {
@@ -419,26 +441,24 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		return nil, err
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.logger.Warn("res booted")
+	var vcss camera.VideoCodecStreamSource
 	if cam, ok := res.(camera.VideoSource); ok {
-		vcss, err := cam.VideoCodecStreamSource()
-		if err != nil {
-			m.logger.Fatalf("VideoCodecStreamSource err %s", err.Error())
+		if v, err := cam.VideoCodecStreamSource(ctx); err == nil {
+			vcss = v
 		}
-		m.streamSourceByName[res.Name()] = vcss
-	} else {
-		m.logger.Fatalf("res doesn't implement camera.VideoCodecStreamSource %#v, %T", res, res)
 	}
 
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if vcss != nil {
+		m.streamSourceByName[res.Name()] = vcss
+	}
 	coll, ok := m.collections[conf.API]
 	if !ok {
 		return nil, errors.Errorf("module cannot service api: %s", conf.API)
 	}
 	m.resLoggers[res] = resLogger
 
-	m.logger.Warn("ADD RESOURCE m.streamSourceByName: %#v", m.streamSourceByName)
 	return &pb.AddResourceResponse{}, coll.Add(conf.ResourceName(), res)
 }
 
@@ -650,48 +670,40 @@ func (m *Module) ListStreams(ctx context.Context, req *streampb.ListStreamsReque
 }
 
 func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) (*streampb.AddStreamResponse, error) {
-	if err := m.AddStream2(ctx, req.GetName()); err != nil {
-		return nil, err
-	}
-
-	return &streampb.AddStreamResponse{}, nil
-}
-func (m *Module) AddStream2(ctx context.Context, nameS string) error {
-	m.logger.Infof("AddStream: %s", nameS)
-	name, err := resource.NewFromString(nameS)
+	m.logger.Infof("AddStream: %s", req.GetName())
+	name, err := resource.NewFromString(req.GetName())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.pc == nil {
+		return nil, errors.New("module has no peer connection")
+	}
 	vcss, ok := m.streamSourceByName[name]
 	if !ok {
-		return errors.Errorf("unknown stream for resource %s, this is what I got: %#v", name.String(), m.streamSourceByName)
+		return nil, errors.Errorf("unknown stream for resource %s, this is what I got: %#v", name.String(), m.streamSourceByName)
 	}
 
-	if _, ok = m.activePeerStreams[m.pc]; !ok {
-		m.activePeerStreams[m.pc] = map[resource.Name]peerResourceState{}
-	}
-
-	if _, ok = m.activePeerStreams[m.pc][name]; ok {
-		m.logger.Warn("(m *Module) AddStream called with %s when there is already a stream for peer connection %p", nameS, m.pc)
-		return nil
+	if _, ok = m.activeResourceStreams[name]; ok {
+		m.logger.Warn("(m *Module) AddStream called with %s when there is already a stream for peer connection %p", req.GetName(), m.pc)
+		return &streampb.AddStreamResponse{}, nil
 	}
 
 	sub, err := camera.NewVideoCodecStreamSubscription(512)
 	if err != nil {
-		return errors.Wrap(err, "error creating stream")
+		return nil, errors.Wrap(err, "error creating stream")
 	}
 	tlsRTP, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/H264"}, "video", name.String())
 	if err != nil {
-		return errors.Wrap(err, "error creating a new TrackLocalStaticRTP")
+		return nil, errors.Wrap(err, "error creating a new TrackLocalStaticRTP")
 	}
 
 	m.logger.Info("got past NewTrackLocalStaticRTP")
 	// TODO call remove track on error
 	sender, err := m.pc.AddTrack(tlsRTP)
 	if err != nil {
-		return errors.Wrap(err, "error adding track")
+		return nil, errors.Wrap(err, "error adding track")
 	}
 	err = vcss.SubscribeRTP(ctx, sub, func(pkts []*rtp.Packet) error {
 		for _, pkt := range pkts {
@@ -703,10 +715,12 @@ func (m *Module) AddStream2(ctx context.Context, nameS string) error {
 	})
 
 	if err != nil {
-		return errors.Wrap(err, "error setting up stream subscription")
+		removeTrackErr := errors.Wrap(m.pc.RemoveTrack(sender), "error removing track after SubscribeRTP failed")
+		subscribeErr := errors.Wrap(err, "error setting up stream subscription")
+		return nil, multierr.Append(subscribeErr, removeTrackErr)
 	}
-	m.activePeerStreams[m.pc][name] = peerResourceState{sender: sender, subscription: sub}
-	return nil
+	m.activeResourceStreams[name] = peerResourceState{sender: sender, subscription: sub}
+	return &streampb.AddStreamResponse{}, nil
 }
 
 func (m *Module) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRequest) (*streampb.RemoveStreamResponse, error) {
@@ -717,23 +731,28 @@ func (m *Module) RemoveStream(ctx context.Context, req *streampb.RemoveStreamReq
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.pc == nil {
+		return nil, errors.New("module has no peer connection")
+	}
 	vcss, ok := m.streamSourceByName[name]
 	if !ok {
 		return nil, errors.Errorf("unknown stream for resource %s", name.String())
 	}
 
-	prs, ok := m.activePeerStreams[m.pc][name]
+	prs, ok := m.activeResourceStreams[name]
 	if !ok {
 		return nil, fmt.Errorf("(m *Module) RemoveStream called on %s but peer state %p has no active peer stream", req.GetName(), m.pc)
 	}
-	if err := m.pc.RemoveTrack(prs.sender); err != nil {
-		return nil, fmt.Errorf("(m *Module) RemoveStream name: %s pc: %p hit error removing track %p", req.GetName(), m.pc, prs.sender)
-	}
+
 	if err := vcss.Unsubscribe(ctx, prs.subscription); err != nil {
 		return nil, err
 	}
 
-	delete(m.activePeerStreams[m.pc], name)
+	if err := m.pc.RemoveTrack(prs.sender); err != nil {
+		return nil, fmt.Errorf("(m *Module) RemoveStream name: %s pc: %p hit error removing track %p", req.GetName(), m.pc, prs.sender)
+	}
+
+	delete(m.activeResourceStreams, name)
 	return &streampb.RemoveStreamResponse{}, nil
 }
 

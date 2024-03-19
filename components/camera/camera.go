@@ -95,7 +95,7 @@ type (
 // A VideoSource represents anything that can capture frames.
 type VideoSource interface {
 	projectorProvider
-	VideoCodecStreamSource() (VideoCodecStreamSource, error)
+	VideoCodecStreamSource(ctx context.Context) (VideoCodecStreamSource, error)
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
 	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
@@ -237,7 +237,7 @@ func NewVideoCodecStreamSourceFromReader(
 	}, nil
 }
 
-func (vs *videoSource) VideoCodecStreamSource() (VideoCodecStreamSource, error) {
+func (vs *videoSource) VideoCodecStreamSource(ctx context.Context) (VideoCodecStreamSource, error) {
 	if vs.videoCodecStreamSource != nil {
 		return vs.videoCodecStreamSource, nil
 	}
