@@ -381,7 +381,6 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	m.logger.Warn("ADD RESOURCE")
 	<-m.pcReady
 	m.logger.Warn("ADD RESOURCE after pc ready")
-	ctx = rpc.SetContextWithPeerConnection(ctx, m.pc)
 
 	deps := make(resource.Dependencies)
 	for _, c := range req.Dependencies {
