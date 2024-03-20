@@ -100,8 +100,6 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 				return sb.Stop(ctx, nil)
 			}
 			angVel := calcAngVel(angErr, degsPerSec, slowDownAng)
-			sb.logger.Infof("angErr: %v", angErr)
-			sb.logger.Infof("angVel: %v", angVel)
 			if err := sb.updateControlConfig(ctx, 0, angVel); err != nil {
 				return err
 			}
