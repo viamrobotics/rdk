@@ -352,7 +352,7 @@ func (g *rtkSerial) connectAndParseSourceTable() error {
 	g.logger.Debugf("sourceTable is: %v\n", srcTable)
 
 	g.logger.Debug("got sourcetable, parsing it...")
-	g.isVirtualBase, err = gpsutils.FindLineWithMountPoint(srcTable, g.ntripClient.MountPoint)
+	g.isVirtualBase, err = gpsutils.IsVRS(srcTable, g.ntripClient.MountPoint)
 	if err != nil {
 		g.logger.Errorf("can't find mountpoint in source table, found err %v\n", err)
 		return err
