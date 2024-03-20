@@ -85,7 +85,7 @@ func TestPtgWithObstacle(t *testing.T) {
 
 	opt := newBasicPlannerOptions(ackermanFrame)
 	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
-	opt.StartPose = spatialmath.NewZeroPose()
+	opt.StartPose = spatialmath.NewPoseFromPoint(r3.Vector{0, -1000, 0})
 	opt.GoalThreshold = 5
 	// obstacles
 	obstacle1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3300, -500, 0}), r3.Vector{180, 1800, 1}, "")
@@ -163,7 +163,7 @@ func TestPtgWithObstacle(t *testing.T) {
 				}
 			}
 		}
-		tp.logger.Debugf("$SG,%f,%f", 0., 0.)
+		tp.logger.Debugf("$SG,%f,%f", opt.StartPose.Point().X, opt.StartPose.Point().Y)
 		tp.logger.Debugf("$SG,%f,%f", goalPos.Point().X, goalPos.Point().Y)
 	}
 	plan, err := tp.plan(ctx, goalPos, nil)
