@@ -240,6 +240,7 @@ func TestMoveOnMapAskewIMU(t *testing.T) {
 	extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 	t.Run("Askew but valid base should be able to plan", func(t *testing.T) {
 		t.Parallel()
+		logger := logging.NewTestLogger(t)
 		ctx := context.Background()
 		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, OZ: 1, Theta: 35}
 		askewOrientCorrected := &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -22.988}
