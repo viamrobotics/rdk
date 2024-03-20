@@ -281,6 +281,7 @@ func TestMoveOnMapAskewIMU(t *testing.T) {
 		correctedPose := spatialmath.NewPoseFromOrientation(askewOrientCorrected)
 		endPos := spatialmath.Compose(correctedPose, spatialmath.PoseBetween(spatialmath.NewPoseFromOrientation(askewOrient), endPIF.Pose()))
 		logger.Debug(spatialmath.PoseToProtobuf(endPos))
+		logger.Debug(spatialmath.PoseToProtobuf(goal1BaseFrame))
 
 		test.That(t, spatialmath.PoseAlmostEqualEps(endPos, goal1BaseFrame, 10), test.ShouldBeTrue)
 	})
@@ -1311,11 +1312,11 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 	t.Run("one obstacle", func(t *testing.T) {
 		// WTS: static obstacles are obeyed at plan time.
 
-		// We place an obstacle on the left side of the robot to force our motion planner to return a path
-		// which veers to the right. We then place an obstacle to the right of the robot and project the
+		// We place an obstacle on the right side of the robot to force our motion planner to return a path
+		// which veers to the left. We then place an obstacle to the left of the robot and project the
 		// robot's position across the path. By showing that we have a collision on the path with an
-		// obstacle on the right we prove that our path does not collide with the original obstacle
-		// placed on the left.
+		// obstacle on the left we prove that our path does not collide with the original obstacle
+		// placed on the right.
 		obstacleLeft, err := spatialmath.NewBox(
 			spatialmath.NewPose(r3.Vector{X: 0.22981e3, Y: -0.38875e3, Z: 0},
 				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 45}),
@@ -1323,8 +1324,15 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 			"obstacleLeft",
 		)
 		test.That(t, err, test.ShouldBeNil)
+		obstacleRight, err := spatialmath.NewBox(
+			spatialmath.NewPose(r3.Vector{0.89627e3, -0.37192e3, 0},
+				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -45}),
+			r3.Vector{900, 10, 10},
+			"obstacleRight",
+		)
+		test.That(t, err, test.ShouldBeNil)
 
-		req.Obstacles = []spatialmath.Geometry{obstacleLeft}
+		req.Obstacles = []spatialmath.Geometry{obstacleRight}
 
 		// construct move request
 		planExecutor, err := ms.(*builtIn).newMoveOnMapRequest(ctx, req, nil, 0)
@@ -1338,20 +1346,13 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		test.That(t, len(plan.Path()), test.ShouldBeGreaterThan, 2)
 
 		// place obstacle in opposte position and show that the generate path
-		// collides with obstacleRight
-		obstacleRight, err := spatialmath.NewBox(
-			spatialmath.NewPose(r3.Vector{0.89627e3, -0.37192e3, 0},
-				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -45}),
-			r3.Vector{900, 10, 10},
-			"obstacleRight",
-		)
-		test.That(t, err, test.ShouldBeNil)
+		// collides with obstacleLeft
 
 		wrldSt, err := referenceframe.NewWorldState(
 			[]*referenceframe.GeometriesInFrame{
 				referenceframe.NewGeometriesInFrame(
 					referenceframe.World,
-					[]spatialmath.Geometry{obstacleRight},
+					[]spatialmath.Geometry{obstacleLeft},
 				),
 			}, nil,
 		)
