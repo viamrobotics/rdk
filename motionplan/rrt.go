@@ -280,7 +280,6 @@ func newRRTPlan(solution []node, sf *solverFrame, relative bool) (Plan, error) {
 		if err != nil {
 			return nil, err
 		}
-
 	}
 	var plan Plan
 	plan = &rrtPlan{SimplePlan: *NewSimplePlan(path, traj), nodes: solution}
