@@ -123,11 +123,10 @@ type rtkI2C struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 
-	mu            sync.Mutex
-	ntripMu       sync.Mutex
-	ntripconfigMu sync.Mutex
-	ntripClient   *gpsutils.NtripInfo
-	ntripStatus   bool
+	mu          sync.Mutex
+	ntripMu     sync.Mutex
+	ntripClient *gpsutils.NtripInfo
+	ntripStatus bool
 
 	err          movementsensor.LastError
 	lastposition movementsensor.LastPosition
@@ -168,7 +167,6 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 		g.bus = g.mockI2c
 	}
 
-	g.ntripconfigMu.Lock()
 	ntripConfig := &gpsutils.NtripConfig{
 		NtripURL:             newConf.NtripURL,
 		NtripUser:            newConf.NtripUser,
@@ -191,8 +189,6 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 
 		g.ntripClient = tempNtripClient
 	}
-
-	g.ntripconfigMu.Unlock()
 
 	g.logger.CDebug(ctx, "done reconfiguring")
 
