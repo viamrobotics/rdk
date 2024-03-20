@@ -315,6 +315,10 @@ func NewWebcam(
 	return cam, nil
 }
 
+func (c *monitoredWebcam) VideoCodecStream() (camera.VideoCodecStream, error) {
+	return nil, errors.New("VideoCodecStream unimplemented")
+}
+
 type noopCloser struct {
 	gostream.VideoSource
 }

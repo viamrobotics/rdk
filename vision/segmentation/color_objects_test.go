@@ -30,6 +30,7 @@ func TestColorObjects(t *testing.T) {
 		c,
 		&transform.PinholeCameraModel{PinholeCameraIntrinsics: &params.ColorCamera},
 		camera.DepthStream,
+		false,
 	)
 	test.That(t, err, test.ShouldBeNil)
 	// create config

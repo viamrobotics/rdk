@@ -53,7 +53,7 @@ func newRotateTransform(ctx context.Context, source gostream.VideoSource, stream
 		cameraModel.Distortion = props.DistortionParams
 	}
 	reader := &rotateSource{gostream.NewEmbeddedVideoStream(source), stream, conf.Angle}
-	src, err := camera.NewVideoSourceFromReader(ctx, reader, &cameraModel, stream)
+	src, err := camera.NewVideoSourceFromReader(ctx, reader, &cameraModel, stream, false)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
@@ -118,7 +118,7 @@ func newResizeTransform(
 	}
 
 	reader := &resizeSource{gostream.NewEmbeddedVideoStream(source), stream, conf.Height, conf.Width}
-	src, err := camera.NewVideoSourceFromReader(ctx, reader, nil, stream)
+	src, err := camera.NewVideoSourceFromReader(ctx, reader, nil, stream, false)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
@@ -190,7 +190,7 @@ func newCropTransform(
 	cropRect := image.Rect(conf.XMin, conf.YMin, conf.XMax, conf.YMax)
 
 	reader := &cropSource{gostream.NewEmbeddedVideoStream(source), stream, cropRect}
-	src, err := camera.NewVideoSourceFromReader(ctx, reader, nil, stream)
+	src, err := camera.NewVideoSourceFromReader(ctx, reader, nil, stream, false)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}

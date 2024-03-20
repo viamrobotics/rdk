@@ -16,13 +16,13 @@ import (
 func TestFakeCameraHighResolution(t *testing.T) {
 	model, width, height := fakeModel(1280, 720)
 	camOri := &Camera{Named: camera.Named("test_high").AsNamed(), Model: model, Width: width, Height: height}
-	src, err := camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream)
+	src, err := camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream, false)
 	test.That(t, err, test.ShouldBeNil)
 	cameraTest(t, src, 1280, 720, 921600, model.PinholeCameraIntrinsics, model.Distortion)
 	// (0,0) entry defaults to (1280, 720)
 	model, width, height = fakeModel(0, 0)
 	camOri = &Camera{Named: camera.Named("test_high_zero").AsNamed(), Model: model, Width: width, Height: height}
-	src, err = camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream)
+	src, err = camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream, false)
 	test.That(t, err, test.ShouldBeNil)
 	cameraTest(t, src, 1280, 720, 921600, model.PinholeCameraIntrinsics, model.Distortion)
 }
@@ -30,7 +30,7 @@ func TestFakeCameraHighResolution(t *testing.T) {
 func TestFakeCameraMedResolution(t *testing.T) {
 	model, width, height := fakeModel(640, 360)
 	camOri := &Camera{Named: camera.Named("test_high").AsNamed(), Model: model, Width: width, Height: height}
-	src, err := camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream)
+	src, err := camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream, false)
 	test.That(t, err, test.ShouldBeNil)
 	cameraTest(t, src, 640, 360, 230400, model.PinholeCameraIntrinsics, model.Distortion)
 	err = src.Close(context.Background())
@@ -43,13 +43,13 @@ func TestFakeCameraUnspecified(t *testing.T) {
 	// (320, 0) -> (320, 180)
 	model, width, height := fakeModel(320, 0)
 	camOri := &Camera{Named: camera.Named("test_320").AsNamed(), Model: model, Width: width, Height: height}
-	src, err := camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream)
+	src, err := camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream, false)
 	test.That(t, err, test.ShouldBeNil)
 	cameraTest(t, src, 320, 180, 57600, model.PinholeCameraIntrinsics, model.Distortion)
 	// (0, 180) -> (320, 180)
 	model, width, height = fakeModel(0, 180)
 	camOri = &Camera{Named: camera.Named("test_180").AsNamed(), Model: model, Width: width, Height: height}
-	src, err = camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream)
+	src, err = camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream, false)
 	test.That(t, err, test.ShouldBeNil)
 	cameraTest(t, src, 320, 180, 57600, model.PinholeCameraIntrinsics, model.Distortion)
 }

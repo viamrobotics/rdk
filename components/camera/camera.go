@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pion/mediadevices/pkg/prop"
+	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
@@ -81,6 +82,16 @@ type Camera interface {
 	VideoSource
 }
 
+type (
+	// PacketCallback is the signature of the SubscribeRTP callback.
+	PacketCallback func(pkts []*rtp.Packet) error
+	// VideoCodecStream is a source of video codec data.
+	VideoCodecStream interface {
+		SubscribeRTP(r *StreamSubscription, packetsCB PacketCallback) error
+		Unsubscribe(r *StreamSubscription)
+	}
+)
+
 // A VideoSource represents anything that can capture frames.
 type VideoSource interface {
 	projectorProvider
@@ -91,6 +102,8 @@ type VideoSource interface {
 	// Stream returns a stream that makes a best effort to return consecutive images
 	// that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
 	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
+
+	VideoCodecStream() (VideoCodecStream, error)
 
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
 	// a part of a sequence. In the future, there could be streaming of point clouds.
@@ -146,10 +159,18 @@ type sourceBasedCamera struct {
 func NewVideoSourceFromReader(
 	ctx context.Context,
 	reader gostream.VideoReader,
-	syst *transform.PinholeCameraModel, imageType ImageType,
+	syst *transform.PinholeCameraModel,
+	imageType ImageType,
+	tryAddVideoCodecStream bool,
 ) (VideoSource, error) {
 	if reader == nil {
 		return nil, errors.New("cannot have a nil reader")
+	}
+
+	var videoCodecStream VideoCodecStream
+	vcs, ok := reader.(VideoCodecStream)
+	if tryAddVideoCodecStream && ok {
+		videoCodecStream = vcs
 	}
 	vs := gostream.NewVideoSource(reader, prop.Video{})
 	actualSystem := syst
@@ -171,11 +192,12 @@ func NewVideoSourceFromReader(
 		}
 	}
 	return &videoSource{
-		system:       actualSystem,
-		videoSource:  vs,
-		videoStream:  gostream.NewEmbeddedVideoStream(vs),
-		actualSource: reader,
-		imageType:    imageType,
+		videoCodecStream: videoCodecStream,
+		system:           actualSystem,
+		videoSource:      vs,
+		videoStream:      gostream.NewEmbeddedVideoStream(vs),
+		actualSource:     reader,
+		imageType:        imageType,
 	}, nil
 }
 
@@ -242,11 +264,19 @@ func WrapVideoSourceWithProjector(
 
 // videoSource implements a Camera with a gostream.VideoSource.
 type videoSource struct {
-	videoSource  gostream.VideoSource
-	videoStream  gostream.VideoStream
-	actualSource interface{}
-	system       *transform.PinholeCameraModel
-	imageType    ImageType
+	videoCodecStream VideoCodecStream
+	videoSource      gostream.VideoSource
+	videoStream      gostream.VideoStream
+	actualSource     interface{}
+	system           *transform.PinholeCameraModel
+	imageType        ImageType
+}
+
+func (vs *videoSource) VideoCodecStream() (VideoCodecStream, error) {
+	if vs.videoCodecStream != nil {
+		return vs.videoCodecStream, nil
+	}
+	return nil, errors.New("VideoCodecStream unimplemented")
 }
 
 func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {

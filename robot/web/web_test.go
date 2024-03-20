@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -858,6 +859,9 @@ func TestWebWithStreams(t *testing.T) {
 	// Start a robot with a camera
 	robot := &inject.Robot{}
 	cam1 := &inject.Camera{
+		VideoCodecStreamFunc: func() (camera.VideoCodecStream, error) {
+			return nil, errors.New("VideoCodecStream Unimplemented")
+		},
 		PropertiesFunc: func(ctx context.Context) (camera.Properties, error) {
 			return camera.Properties{}, nil
 		},
@@ -888,6 +892,9 @@ func TestWebWithStreams(t *testing.T) {
 
 	// Add another camera and update
 	cam2 := &inject.Camera{
+		VideoCodecStreamFunc: func() (camera.VideoCodecStream, error) {
+			return nil, errors.New("VideoCodecStream Unimplemented")
+		},
 		PropertiesFunc: func(ctx context.Context) (camera.Properties, error) {
 			return camera.Properties{}, nil
 		},
@@ -952,7 +959,11 @@ func TestWebAddFirstStream(t *testing.T) {
 	test.That(t, resp.Names, test.ShouldHaveLength, 0)
 
 	// Add first camera and update
-	cam1 := &inject.Camera{}
+	cam1 := &inject.Camera{
+		VideoCodecStreamFunc: func() (camera.VideoCodecStream, error) {
+			return nil, errors.New("VideoCodecStream Unimplemented")
+		},
+	}
 	robot.Mu.Lock()
 	rs[camera.Named(camera1Key)] = cam1
 	robot.Mu.Unlock()
@@ -977,7 +988,11 @@ func TestWebStreamImmediateClose(t *testing.T) {
 
 	// Start a robot with a camera
 	robot := &inject.Robot{}
-	cam1 := &inject.Camera{}
+	cam1 := &inject.Camera{
+		VideoCodecStreamFunc: func() (camera.VideoCodecStream, error) {
+			return nil, errors.New("VideoCodecStream Unimplemented")
+		},
+	}
 	rs := map[resource.Name]resource.Resource{camera.Named("camera1"): cam1}
 	robot.MockResourcesFromMap(rs)
 

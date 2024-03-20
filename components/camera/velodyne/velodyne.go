@@ -196,7 +196,7 @@ func New(ctx context.Context, name resource.Name, logger logging.Logger, port, t
 		c.run(cancelCtx, listener)
 	})
 
-	src, err := camera.NewVideoSourceFromReader(ctx, c, nil, camera.DepthStream)
+	src, err := camera.NewVideoSourceFromReader(ctx, c, nil, camera.DepthStream, false)
 	if err != nil {
 		return nil, err
 	}

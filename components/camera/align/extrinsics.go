@@ -162,6 +162,7 @@ func newColorDepthExtrinsics(
 		videoSrc,
 		&cameraModel,
 		imgType,
+		false,
 	)
 }
 

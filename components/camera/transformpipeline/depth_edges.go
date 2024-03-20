@@ -46,7 +46,7 @@ func newDepthEdgesTransform(ctx context.Context, source gostream.VideoSource, am
 	}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(conf.HiThresh, conf.LoThresh, true)
 	videoSrc := &depthEdgesSource{gostream.NewEmbeddedVideoStream(source), canny, 3.0}
-	src, err := camera.NewVideoSourceFromReader(ctx, videoSrc, &cameraModel, camera.DepthStream)
+	src, err := camera.NewVideoSourceFromReader(ctx, videoSrc, &cameraModel, camera.DepthStream, false)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}

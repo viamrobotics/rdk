@@ -110,6 +110,10 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	return img, func() {}, nil
 }
 
+func (c *client) VideoCodecStream() (VideoCodecStream, error) {
+	return nil, errors.New("VideoCodecStream unimplemented")
+}
+
 func (c *client) Stream(
 	ctx context.Context,
 	errHandlers ...gostream.ErrorHandler,

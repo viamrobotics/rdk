@@ -44,7 +44,7 @@ func newUndistortTransform(
 		stream,
 		&cameraModel,
 	}
-	src, err := camera.NewVideoSourceFromReader(ctx, reader, &cameraModel, stream)
+	src, err := camera.NewVideoSourceFromReader(ctx, reader, &cameraModel, stream, false)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}

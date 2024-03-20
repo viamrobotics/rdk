@@ -32,7 +32,7 @@ func newDepthPreprocessTransform(ctx context.Context, source gostream.VideoSourc
 	if props.DistortionParams != nil {
 		cameraModel.Distortion = props.DistortionParams
 	}
-	src, err := camera.NewVideoSourceFromReader(ctx, reader, &cameraModel, camera.DepthStream)
+	src, err := camera.NewVideoSourceFromReader(ctx, reader, &cameraModel, camera.DepthStream, false)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}

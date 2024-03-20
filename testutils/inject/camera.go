@@ -22,10 +22,11 @@ type Camera struct {
 		ctx context.Context,
 		errHandlers ...gostream.ErrorHandler,
 	) (gostream.VideoStream, error)
-	NextPointCloudFunc func(ctx context.Context) (pointcloud.PointCloud, error)
-	ProjectorFunc      func(ctx context.Context) (transform.Projector, error)
-	PropertiesFunc     func(ctx context.Context) (camera.Properties, error)
-	CloseFunc          func(ctx context.Context) error
+	NextPointCloudFunc   func(ctx context.Context) (pointcloud.PointCloud, error)
+	ProjectorFunc        func(ctx context.Context) (transform.Projector, error)
+	PropertiesFunc       func(ctx context.Context) (camera.Properties, error)
+	CloseFunc            func(ctx context.Context) error
+	VideoCodecStreamFunc func() (camera.VideoCodecStream, error)
 }
 
 // NewCamera returns a new injected camera.
@@ -44,6 +45,14 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 		return c.Camera.NextPointCloud(ctx)
 	}
 	return c.NextPointCloudFunc(ctx)
+}
+
+// VideoCodecStream calls the injected VideoCodecStream or the real version.
+func (c *Camera) VideoCodecStream() (camera.VideoCodecStream, error) {
+	if c.VideoCodecStreamFunc != nil {
+		return c.VideoCodecStreamFunc()
+	}
+	return c.Camera.VideoCodecStream()
 }
 
 // Stream calls the injected Stream or the real version.

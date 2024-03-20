@@ -126,6 +126,7 @@ func newTransformPipeline(
 		transformPipeline{pipeline, lastSourceStream, cfg.CameraParameters, logger},
 		&cameraModel,
 		streamType,
+		false,
 	)
 }
 

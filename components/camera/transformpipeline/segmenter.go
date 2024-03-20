@@ -53,7 +53,7 @@ func newSegmentationsTransform(
 		conf.SegmenterName,
 		r,
 	}
-	src, err := camera.NewVideoSourceFromReader(ctx, segmenter, nil, props.ImageType)
+	src, err := camera.NewVideoSourceFromReader(ctx, segmenter, nil, props.ImageType, false)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}

@@ -82,10 +82,10 @@ func TestJoin(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// create the source cameras
 	colorSrc := &videosource.StaticSource{ColorImg: img}
-	colorVideoSrc, err := camera.NewVideoSourceFromReader(context.Background(), colorSrc, nil, camera.ColorStream)
+	colorVideoSrc, err := camera.NewVideoSourceFromReader(context.Background(), colorSrc, nil, camera.ColorStream, false)
 	test.That(t, err, test.ShouldBeNil)
 	depthSrc := &videosource.StaticSource{DepthImg: dm}
-	depthVideoSrc, err := camera.NewVideoSourceFromReader(context.Background(), depthSrc, nil, camera.DepthStream)
+	depthVideoSrc, err := camera.NewVideoSourceFromReader(context.Background(), depthSrc, nil, camera.DepthStream, false)
 	test.That(t, err, test.ShouldBeNil)
 
 	// create the join camera

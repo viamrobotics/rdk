@@ -94,17 +94,17 @@ func TestNewCamera(t *testing.T) {
 	videoSrcPCD := &simpleSourceWithPCD{"rimage/board1_small"}
 
 	// no camera
-	_, err := camera.NewVideoSourceFromReader(context.Background(), nil, nil, camera.UnspecifiedStream)
+	_, err := camera.NewVideoSourceFromReader(context.Background(), nil, nil, camera.UnspecifiedStream, false)
 	test.That(t, err, test.ShouldBeError, errors.New("cannot have a nil reader"))
 
 	// camera with no camera parameters
-	cam1, err := camera.NewVideoSourceFromReader(context.Background(), videoSrc, nil, camera.UnspecifiedStream)
+	cam1, err := camera.NewVideoSourceFromReader(context.Background(), videoSrc, nil, camera.UnspecifiedStream, false)
 	test.That(t, err, test.ShouldBeNil)
 	props, err := cam1.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, props.SupportsPCD, test.ShouldBeFalse)
 	test.That(t, props.IntrinsicParams, test.ShouldBeNil)
-	cam1, err = camera.NewVideoSourceFromReader(context.Background(), videoSrcPCD, nil, camera.UnspecifiedStream)
+	cam1, err = camera.NewVideoSourceFromReader(context.Background(), videoSrcPCD, nil, camera.UnspecifiedStream, false)
 	test.That(t, err, test.ShouldBeNil)
 	props, err = cam1.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -117,6 +117,7 @@ func TestNewCamera(t *testing.T) {
 		videoSrc,
 		&transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics1},
 		camera.DepthStream,
+		false,
 	)
 	test.That(t, err, test.ShouldBeNil)
 	props, err = cam2.Properties(context.Background())
@@ -131,6 +132,7 @@ func TestNewCamera(t *testing.T) {
 		videoSrc,
 		&transform.PinholeCameraModel{PinholeCameraIntrinsics: cam2props.IntrinsicParams},
 		camera.DepthStream,
+		false,
 	)
 	test.That(t, err, test.ShouldBeNil)
 	cam3props, err := cam3.Properties(context.Background())
@@ -143,6 +145,7 @@ func TestNewCamera(t *testing.T) {
 		videoSrc,
 		&transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsics2},
 		camera.DepthStream,
+		false,
 	)
 	test.That(t, err, test.ShouldBeNil)
 	cam4props, err := cam4.Properties(context.Background())
@@ -164,7 +167,7 @@ func (cs *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 
 func TestCameraWithNoProjector(t *testing.T) {
 	videoSrc := &simpleSource{"rimage/board1"}
-	noProj, err := camera.NewVideoSourceFromReader(context.Background(), videoSrc, nil, camera.DepthStream)
+	noProj, err := camera.NewVideoSourceFromReader(context.Background(), videoSrc, nil, camera.DepthStream, false)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = noProj.NextPointCloud(context.Background())
 	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
@@ -173,7 +176,7 @@ func TestCameraWithNoProjector(t *testing.T) {
 
 	// make a camera with a NextPointCloudFunction
 	videoSrc2 := &cloudSource{Named: camera.Named("foo").AsNamed(), simpleSource: videoSrc}
-	noProj2, err := camera.NewVideoSourceFromReader(context.Background(), videoSrc2, nil, camera.DepthStream)
+	noProj2, err := camera.NewVideoSourceFromReader(context.Background(), videoSrc2, nil, camera.DepthStream, false)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := noProj2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -208,6 +211,7 @@ func TestCameraWithProjector(t *testing.T) {
 		videoSrc,
 		&transform.PinholeCameraModel{PinholeCameraIntrinsics: params1},
 		camera.DepthStream,
+		false,
 	)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := src.NextPointCloud(context.Background())
@@ -227,6 +231,7 @@ func TestCameraWithProjector(t *testing.T) {
 		videoSrc2,
 		&transform.PinholeCameraModel{PinholeCameraIntrinsics: props.IntrinsicParams},
 		camera.DepthStream,
+		false,
 	)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err = cam2.NextPointCloud(context.Background())
