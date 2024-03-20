@@ -139,8 +139,8 @@ func calcSlowDownAng(angleDeg float64) float64 {
 func calcAngVel(angErr, degsPerSec, slowDownAng float64) float64 {
 	// have the velocity slow down when appoaching the goal. Otherwise use the desired velocity
 	angVel := angErr * degsPerSec / slowDownAng
-	if math.Abs(angVel) > math.Abs(degsPerSec) {
-		return math.Abs(degsPerSec) * sign(angVel)
+	if math.Abs(angVel) > degsPerSec {
+		return degsPerSec * sign(angVel)
 	}
 	return angVel
 }
