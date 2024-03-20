@@ -179,6 +179,18 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 			return nil, errHighReplanCost
 		}
 	}
+	offsettedPlan := OffsetPlan(newPlan, request.StartPose)
+	CheckPlan(
+		request.Frame,
+		offsettedPlan,
+		request.WorldState,
+		request.FrameSystem,
+		request.StartPose,
+		request.StartConfiguration,
+		spatialmath.NewZeroPose(),
+		5e6,
+		sfPlanner.logger,
+	)
 
 	return newPlan, nil
 }
@@ -437,6 +449,10 @@ func CheckPlan(
 	lookAheadDistanceMM float64,
 	logger logging.Logger,
 ) error {
+	fmt.Println("ENTERING CHECKPLAN")
+	fmt.Println("plan.Path(): ", plan.Path())
+	fmt.Println("plan.Trajectory(): ", plan.Trajectory())
+
 	// ensure that we can actually perform the check
 	if len(plan.Path()) < 1 {
 		return errors.New("plan must have at least one element")
@@ -449,6 +465,12 @@ func CheckPlan(
 	if err != nil {
 		return err
 	}
+
+	remainingPoses, err := plan.Path().GetFramePoses(checkFrame.Name())
+	if err != nil {
+		return err
+	}
+	formerRunningPose := remainingPoses[0]
 
 	// construct planager
 	sfPlanner, err := newPlanManager(sf, fs, logger, defaultRandomSeed)
@@ -472,7 +494,7 @@ func CheckPlan(
 
 	// setup the planOpts
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
-		currentPose,
+		formerRunningPose,
 		poses[len(poses)-1],
 		currentInputs,
 		worldState,
@@ -485,10 +507,10 @@ func CheckPlan(
 	// create a list of segments to iterate through
 	var segments []*ik.Segment
 	if relative {
-		segments = make([]*ik.Segment, 0, len(poses)+1)
+		segments = make([]*ik.Segment, 0, len(poses))
 
 		// get the inputs we were partway through executing
-		checkFrameGoalInputs, err := sf.mapToSlice(plan.Trajectory()[0])
+		checkFrameGoalInputs, err := sf.mapToSlice(plan.Trajectory()[1])
 		if err != nil {
 			return err
 		}
@@ -499,22 +521,12 @@ func CheckPlan(
 			return err
 		}
 
-		// get pose of robot along the current trajectory it is executing
-		lastPose, err := sf.Transform(checkFrameCurrentInputs)
-		if err != nil {
-			return err
-		}
-
-		// where ought the robot be on the plan
-		pathPosition := spatialmath.PoseBetweenInverse(errorState, currentPose)
-
-		// absolute pose of the previous node we've passed
-		formerRunningPose := spatialmath.PoseBetweenInverse(lastPose, pathPosition)
+		formerRunningPoseError := spatialmath.Compose(formerRunningPose, errorState)
 
 		// pre-pend to segments so we can connect to the input we have not finished actuating yet
 		segments = append(segments, &ik.Segment{
-			StartPosition:      formerRunningPose,
-			EndPosition:        poses[0],
+			StartPosition:      formerRunningPoseError,
+			EndPosition:        poses[1],
 			StartConfiguration: checkFrameCurrentInputs,
 			EndConfiguration:   checkFrameGoalInputs,
 		})
@@ -550,7 +562,7 @@ func CheckPlan(
 	}
 
 	// iterate through remaining plan and append remaining segments to check
-	for i := 0; i < len(offsetPlan.Path())-1; i++ {
+	for i := 1; i < len(offsetPlan.Path())-1; i++ {
 		segment, err := createSegment(poses[i], poses[i+1], offsetPlan.Trajectory()[i], offsetPlan.Trajectory()[i+1])
 		if err != nil {
 			return err
@@ -586,6 +598,7 @@ func CheckPlan(
 			interpolatedState := &ik.State{Frame: sf}
 			if relative {
 				interpolatedState.Position = spatialmath.Compose(segment.StartPosition, poseInPath)
+				logger.Debugf("interpolatedState.Position: %v", spatialmath.PoseToProtobuf(interpolatedState.Position))
 			} else {
 				interpolatedState.Configuration = interpConfig
 			}

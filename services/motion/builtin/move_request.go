@@ -150,7 +150,7 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan, waypoi
 	}
 
 	// Iterate through the list of waypoints and issue a command to move to each
-	for i := int(waypointIndex.Load()); i < len(waypoints); i++ {
+	for i := int(mr.waypointIndex.Load()); i < len(waypoints); i++ {
 		select {
 		case <-ctx.Done():
 			mr.logger.CDebugf(ctx, "calling kinematicBase.Stop due to %s\n", ctx.Err())
@@ -169,7 +169,7 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan, waypoi
 				return state.ExecuteResponse{}, err
 			}
 			if i < len(waypoints)-1 {
-				waypointIndex.Add(1)
+				mr.waypointIndex.Add(1)
 			}
 		}
 	}
@@ -307,6 +307,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// versus when CheckPlan is actually called.
 			// We load the wayPointIndex value to ensure that all information is up to date.
 			waypointIndex := int(mr.waypointIndex.Load())
+			fmt.Println("WAYPTIDX: ", waypointIndex)
 			remainingPlan, err := motionplan.RemainingPlan(plan, waypointIndex-1)
 			if err != nil {
 				return state.ExecuteResponse{}, err
@@ -658,7 +659,6 @@ func (ms *builtIn) newMoveOnMapRequest(
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("octree", spatialmath.PoseToProtobuf(octree.Pose()))
 
 	req.Obstacles = append(req.Obstacles, octree)
 
@@ -689,32 +689,18 @@ func (ms *builtIn) createBaseMoveRequest(
 	worldObstacles []spatialmath.Geometry,
 	valExtra validatedExtra,
 ) (*moveRequest, error) {
-	// replace the original origin base frame with one that stores a zero pose as the transform
-	zeroTransformFrame, err := referenceframe.NewStaticFrame(kb.Name().ShortName()+"_origin", spatialmath.NewZeroPose())
-	if err != nil {
-		return nil, err
-	}
 	// replace original base frame with one that knows how to move itself and allow planning for
 	kinematicFrame := kb.Kinematics()
-	if err := fs.ReplaceFrame(zeroTransformFrame); err != nil {
-		// If the base origin frame is not in the frame system, we add it to the world.
-		// This will result in planning for a frame system containing only world,
-		// base origin frame, and the base frame itself after the FrameSystemSubset.
-		if err = fs.AddFrame(zeroTransformFrame, fs.Frame(referenceframe.World)); err != nil {
+	if err := fs.ReplaceFrame(kinematicFrame); err != nil {
+		// If the base frame is not in the frame system, add it to world. This will result in planning for a frame system containing
+		// only world and the base after the FrameSystemSubset.
+		err = fs.AddFrame(kinematicFrame, fs.Frame(referenceframe.World))
+		if err != nil {
 			return nil, err
-		}
-		if err = fs.AddFrame(kinematicFrame, zeroTransformFrame); err != nil {
-			return nil, err
-		}
-	} else {
-		if err := fs.ReplaceFrame(kinematicFrame); err != nil {
-			if err = fs.AddFrame(kinematicFrame, zeroTransformFrame); err != nil {
-				return nil, err
-			}
 		}
 	}
 	// We want to disregard anything in the FS whose eventual parent is not the base, because we don't know where it is.
-	baseOnlyFS, err := fs.FrameSystemSubset(zeroTransformFrame)
+	baseOnlyFS, err := fs.FrameSystemSubset(kinematicFrame)
 	if err != nil {
 		return nil, err
 	}

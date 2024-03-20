@@ -555,10 +555,9 @@ func TestObstacleReplanningSlam(t *testing.T) {
 		Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 800, Y: 0, Z: 0}),
 		SlamName:      slam.Named("test_slam"),
 		MotionCfg: &motion.MotionConfiguration{
-			PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 20, PlanDeviationMM: 1, ObstacleDetectors: obstacleDetectorSlice,
+			PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: 1, ObstacleDetectors: obstacleDetectorSlice,
 		},
-		Extra: map[string]interface{}{"max_replans": 1}, // "smooth_iter": 0,
-
+		Extra: map[string]interface{}{"max_replans": 1, "smooth_iter": 0},
 	}
 
 	executionID, err := ms.MoveOnMap(ctx, req)
@@ -588,6 +587,31 @@ func TestObstacleReplanningSlam(t *testing.T) {
 		}
 	}
 	test.That(t, populatedReplanReason, test.ShouldEqual, 1)
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println("DONE WITH TEST!")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
+	fmt.Println(" ")
 }
 
 func TestMultiplePieces(t *testing.T) {

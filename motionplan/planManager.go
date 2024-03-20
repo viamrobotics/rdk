@@ -514,6 +514,8 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		// need to be transformed by the start position to place them correctly in world.
 		startGeoms := make([]spatialmath.Geometry, 0, len(movingRobotGeometries))
 		for _, geometry := range movingRobotGeometries {
+			fmt.Println("BEFORE - G POSE", spatialmath.PoseToProtobuf(geometry.Pose()))
+			fmt.Println("AFTER - G POSE", spatialmath.PoseToProtobuf(geometry.Transform(from).Pose()))
 			startGeoms = append(startGeoms, geometry.Transform(from))
 		}
 		movingRobotGeometries = startGeoms
