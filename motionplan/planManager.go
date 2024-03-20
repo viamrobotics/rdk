@@ -256,7 +256,7 @@ func (pm *planManager) planAtomicWaypoints(
 		resultSlices = append(resultSlices, steps...)
 	}
 
-	return newRRTPlan(resultSlices, pm.frame, pm.planner.opt().relativeInputs)
+	return newRRTPlan(resultSlices, pm.frame, pm.useTPspace)
 }
 
 // planSingleAtomicWaypoint attempts to plan a single waypoint. It may optionally be pre-seeded with rrt maps; these will be passed to the
@@ -515,6 +515,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		startGeoms := make([]spatialmath.Geometry, 0, len(movingRobotGeometries))
 		for _, geometry := range movingRobotGeometries {
 			fmt.Println("BEFORE - G POSE", spatialmath.PoseToProtobuf(geometry.Pose()))
+			fmt.Println("from: ", spatialmath.PoseToProtobuf(from))
 			fmt.Println("AFTER - G POSE", spatialmath.PoseToProtobuf(geometry.Transform(from).Pose()))
 			startGeoms = append(startGeoms, geometry.Transform(from))
 		}
@@ -775,7 +776,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 
 	if pathdebug {
 		pm.logger.Debug("$type,X,Y")
-		pm.logger.Debugf("$SG,%f,%f", 0., 0.)
+		pm.logger.Debugf("$SG,%f,%f", startPose.Point().X, startPose.Point().Y)
 		pm.logger.Debugf("$SG,%f,%f", request.Goal.Pose().Point().X, request.Goal.Pose().Point().Y)
 		gifs, err := request.WorldState.ObstaclesInWorldFrame(pm.fs, request.StartConfiguration)
 		if err == nil {
@@ -804,22 +805,20 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 		return nil, err
 	}
 	goalPos := tf.(*referenceframe.PoseInFrame).Pose()
-	opt, err := pm.plannerSetupFromMoveRequest(
+	if pm.planOpts, err = pm.plannerSetupFromMoveRequest(
 		startPose, goalPos, request.StartConfiguration, request.WorldState, request.ConstraintSpecs, request.Options,
-	)
-	if err != nil {
+	); err != nil {
 		return nil, err
 	}
-	pm.planOpts = opt
-	opt.SetGoal(goalPos)
+	pm.planOpts.SetGoal(goalPos)
 
 	// Build planner
 	//nolint: gosec
-	pathPlanner, err := opt.PlannerConstructor(
+	pathPlanner, err := pm.planOpts.PlannerConstructor(
 		pm.frame,
 		rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 		pm.logger,
-		opt,
+		pm.planOpts,
 	)
 	if err != nil {
 		return nil, err
@@ -827,6 +826,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	zeroInputs := make([]referenceframe.Input, len(pm.frame.DoF()))
 	maps := &rrtMaps{}
 	if seedPlan != nil {
+		fmt.Println("THE SEED MAP IS NOT NIL BRO")
 		maps, err = pm.planToRRTGoalMap(seedPlan, goalPos)
 		if err != nil {
 			return nil, err
@@ -854,7 +854,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 		return nil, err
 	}
 
-	return newRRTPlan(steps, pm.frame, pm.planner.opt().relativeInputs)
+	return newRRTPlan(steps, pm.frame, pm.useTPspace)
 }
 
 // Copy any atomic values.

@@ -352,26 +352,26 @@ func NewCollisionConstraint(
 			return false
 		}
 
-		coll := cg.collisions(collisionBufferMM)
-		for _, c := range coll {
-			fmt.Println("c.name1: ", c.name1)
-			fmt.Println("c.name2: ", c.name2)
-			fmt.Println("c.penetrationDepth: ", c.penetrationDepth)
-		}
-		if len(coll) > 0 {
-			for _, g := range internalGeoms {
-				fmt.Println("INTERNAL GEOM Pose: ", spatial.PoseToProtobuf(g.Pose()))
-				fmt.Println("INTERNAL GEOM STRING: ", g.String())
-				fmt.Println(" ")
-			}
-			fmt.Println(" ")
-			for _, g := range static {
-				fmt.Println("STATIC GEOM Pose: ", spatial.PoseToProtobuf(g.Pose()))
-				fmt.Println("STATIC GEOM STRING: ", g.String())
-				fmt.Println(" ")
-			}
-			fmt.Println(" ")
-		}
+		// coll := cg.collisions(collisionBufferMM)
+		// for _, c := range coll {
+		// 	fmt.Println("c.name1: ", c.name1)
+		// 	fmt.Println("c.name2: ", c.name2)
+		// 	fmt.Println("c.penetrationDepth: ", c.penetrationDepth)
+		// }
+		// if len(coll) > 0 {
+		// 	for _, g := range internalGeoms {
+		// 		fmt.Println("INTERNAL GEOM Pose: ", spatial.PoseToProtobuf(g.Pose()))
+		// 		fmt.Println("INTERNAL GEOM STRING: ", g.String())
+		// 		fmt.Println(" ")
+		// 	}
+		// 	fmt.Println(" ")
+		// 	for _, g := range static {
+		// 		fmt.Println("STATIC GEOM Pose: ", spatial.PoseToProtobuf(g.Pose()))
+		// 		fmt.Println("STATIC GEOM STRING: ", g.String())
+		// 		fmt.Println(" ")
+		// 	}
+		// 	fmt.Println(" ")
+		// }
 
 		return len(cg.collisions(collisionBufferMM)) == 0
 	}

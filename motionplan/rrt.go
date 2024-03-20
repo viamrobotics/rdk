@@ -266,7 +266,7 @@ type rrtPlan struct {
 	nodes []node
 }
 
-func newRRTPlan(solution []node, sf *solverFrame, relative bool) (*rrtPlan, error) {
+func newRRTPlan(solution []node, sf *solverFrame, relative bool) (Plan, error) {
 	if len(solution) < 2 {
 		return nil, errors.New("cannot construct a Plan using fewer than two nodes")
 	}
@@ -280,6 +280,12 @@ func newRRTPlan(solution []node, sf *solverFrame, relative bool) (*rrtPlan, erro
 		if err != nil {
 			return nil, err
 		}
+
 	}
-	return &rrtPlan{SimplePlan: *NewSimplePlan(path, traj), nodes: solution}, nil
+	var plan Plan
+	plan = &rrtPlan{SimplePlan: *NewSimplePlan(path, traj), nodes: solution}
+	if relative {
+		plan = OffsetPlan(plan, solution[0].Pose())
+	}
+	return plan, nil
 }
