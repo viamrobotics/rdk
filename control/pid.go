@@ -29,7 +29,6 @@ type basicPID struct {
 	kD       float64
 	kP       float64
 	int      float64
-	sat      int
 	y        []*Signal
 	satLimUp float64 `default:"255.0"`
 	limUp    float64 `default:"255.0"`
@@ -63,19 +62,13 @@ func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 	} else {
 		dtS := dt.Seconds()
 		pvError := x[0].GetSignalValueAt(0)
-		if (p.sat > 0 && pvError > 0) || (p.sat < 0 && pvError < 0) {
-			return p.y, false
-		}
 		p.int += p.kI * pvError * dtS
 		switch {
 		case p.int >= p.satLimUp:
 			p.int = p.satLimUp
-			p.sat = 1
 		case p.int <= p.satLimLo:
 			p.int = p.satLimLo
-			p.sat = -1
 		default:
-			p.sat = 0
 		}
 		deriv := (pvError - p.error) / dtS
 		output := p.kP*pvError + p.int + p.kD*deriv
@@ -93,7 +86,6 @@ func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 func (p *basicPID) reset() error {
 	p.int = 0
 	p.error = 0
-	p.sat = 0
 
 	if !p.cfg.Attribute.Has("kI") &&
 		!p.cfg.Attribute.Has("kD") &&

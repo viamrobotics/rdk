@@ -923,7 +923,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 ) ([]node, error) {
 	startMap := map[node]node{}
 	var parent node
-	parentPose := spatialmath.NewZeroPose()
+	parentPose := path[0].Pose()
 
 	for j := 0; j <= firstEdge; j++ {
 		pathNode := path[j]
