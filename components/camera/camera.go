@@ -4,6 +4,7 @@ package camera
 import (
 	"context"
 	"image"
+	"log"
 	"sync"
 	"time"
 
@@ -63,11 +64,12 @@ func Named(name string) resource.Name {
 type Properties struct {
 	// SupportsPCD indicates that the Camera supports a valid
 	// implementation of NextPointCloud
-	SupportsPCD      bool
-	ImageType        ImageType
-	IntrinsicParams  *transform.PinholeCameraIntrinsics
-	DistortionParams transform.Distorter
-	MimeTypes        []string
+	SupportsPCD                   bool
+	ImageType                     ImageType
+	IntrinsicParams               *transform.PinholeCameraIntrinsics
+	DistortionParams              transform.Distorter
+	MimeTypes                     []string
+	SupportsWebrtcH264Passthrough bool
 }
 
 // NamedImage is a struct that associates the source from where the image came from to the Image.
@@ -154,6 +156,56 @@ type sourceBasedCamera struct {
 // argument is for detecting whether or not the resulting camera supports return
 // of pointcloud data in the absence of an implemented NextPointCloud function.
 // If this is unknown or not applicable, a value of camera.Unspecified stream can be supplied.
+// func NewVideoSourceFromReader(
+// 	ctx context.Context,
+// 	reader gostream.VideoReader,
+// 	syst *transform.PinholeCameraModel,
+// 	imageType ImageType,
+// ) (VideoSource, error) {
+// 	if reader == nil {
+// 		return nil, errors.New("cannot have a nil reader")
+// 	}
+// 	var videoCodecStreamSource VideoCodecStreamSource
+// 	vcs, isVideoCodecStreamSource := reader.(VideoCodecStreamSource)
+// 	if isVideoCodecStreamSource {
+// 		videoCodecStreamSource = vcs
+// 	}
+
+// 	actualSystem := syst
+// 	if isVideoSource {
+// 		props, propsErr := srcCam.Properties(ctx)
+// 		vcs, isVideoCodecStreamSource := reader.(VideoCodecStreamSource)
+// 		log.Printf("propsErr == nil: %t, isVideoCodecStreamSource: %t, props.SupportsWebrtcH264Passthrough: %t\n", propsErr == nil, isVideoCodecStreamSource, props.SupportsWebrtcH264Passthrough)
+// 		if propsErr == nil && isVideoCodecStreamSource && props.SupportsWebrtcH264Passthrough {
+// 			videoCodecStreamSource = vcs
+// 		}
+
+// 		if actualSystem == nil {
+// 			if propsErr != nil {
+// 				return nil, NewPropertiesError("source camera")
+// 			}
+
+// 			var cameraModel transform.PinholeCameraModel
+// 			cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
+
+// 			if props.DistortionParams != nil {
+// 				cameraModel.Distortion = props.DistortionParams
+// 			}
+// 			actualSystem = &cameraModel
+// 		}
+// 	}
+
+// 	return &videoSource{
+// 		videoCodecStreamSource:        videoCodecStreamSource,
+// 		system:                        actualSystem,
+// 		videoSource:                   vs,
+// 		videoStream:                   gostream.NewEmbeddedVideoStream(vs),
+// 		actualSource:                  reader,
+// 		imageType:                     imageType,
+// 		supportsWebrtcH264Passthrough: videoCodecStreamSource != nil,
+// 	}, nil
+// }
+
 func NewVideoSourceFromReader(
 	ctx context.Context,
 	reader gostream.VideoReader,
@@ -162,50 +214,9 @@ func NewVideoSourceFromReader(
 	if reader == nil {
 		return nil, errors.New("cannot have a nil reader")
 	}
-	vs := gostream.NewVideoSource(reader, prop.Video{})
-	actualSystem := syst
-	if actualSystem == nil {
-		srcCam, ok := reader.(VideoSource)
-		if ok {
-			props, err := srcCam.Properties(ctx)
-			if err != nil {
-				return nil, NewPropertiesError("source camera")
-			}
-
-			var cameraModel transform.PinholeCameraModel
-			cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
-
-			if props.DistortionParams != nil {
-				cameraModel.Distortion = props.DistortionParams
-			}
-			actualSystem = &cameraModel
-		}
-	}
-	return &videoSource{
-		system:       actualSystem,
-		videoSource:  vs,
-		videoStream:  gostream.NewEmbeddedVideoStream(vs),
-		actualSource: reader,
-		imageType:    imageType,
-	}, nil
-}
-
-// NewStreamingVideoSourceFromReader creates a VideoSource either with or without a projector. The stream type
-// argument is for detecting whether or not the resulting camera supports return
-// of pointcloud data in the absence of an implemented NextPointCloud function.
-// If this is unknown or not applicable, a value of camera.Unspecified stream can be supplied.
-func NewVideoCodecStreamSourceFromReader(
-	ctx context.Context,
-	reader gostream.VideoReader,
-	syst *transform.PinholeCameraModel,
-	imageType ImageType,
-) (VideoSource, error) {
-	if reader == nil {
-		return nil, errors.New("cannot have a nil reader")
-	}
 	var videoCodecStreamSource VideoCodecStreamSource
-	vcs, ok := reader.(VideoCodecStreamSource)
-	if ok {
+	vcs, isVideoCodecStreamSource := reader.(VideoCodecStreamSource)
+	if isVideoCodecStreamSource {
 		videoCodecStreamSource = vcs
 	}
 	vs := gostream.NewVideoSource(reader, prop.Video{})
@@ -227,6 +238,55 @@ func NewVideoCodecStreamSourceFromReader(
 			actualSystem = &cameraModel
 		}
 	}
+	return &videoSource{
+		videoCodecStreamSource: videoCodecStreamSource,
+		system:                 actualSystem,
+		videoSource:            vs,
+		videoStream:            gostream.NewEmbeddedVideoStream(vs),
+		actualSource:           reader,
+		imageType:              imageType,
+	}, nil
+}
+
+// NewStreamingVideoSourceFromReader creates a VideoSource either with or without a projector. The stream type
+// argument is for detecting whether or not the resulting camera supports return
+// of pointcloud data in the absence of an implemented NextPointCloud function.
+// If this is unknown or not applicable, a value of camera.Unspecified stream can be supplied.
+func NewVideoCodecStreamSourceFromReader(
+	ctx context.Context,
+	reader gostream.VideoReader,
+	syst *transform.PinholeCameraModel,
+	imageType ImageType,
+) (VideoSource, error) {
+	if reader == nil {
+		return nil, errors.New("cannot have a nil reader")
+	}
+	var videoCodecStreamSource VideoCodecStreamSource
+	vcs, isVideoCodecStreamSource := reader.(VideoCodecStreamSource)
+	if isVideoCodecStreamSource {
+		videoCodecStreamSource = vcs
+	}
+	vs := gostream.NewVideoSource(reader, prop.Video{})
+	actualSystem := syst
+	if actualSystem == nil {
+		srcCam, ok := reader.(VideoSource)
+		if ok {
+			props, err := srcCam.Properties(ctx)
+			if err != nil {
+				return nil, NewPropertiesError("source camera")
+			}
+
+			var cameraModel transform.PinholeCameraModel
+			cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
+
+			if props.DistortionParams != nil {
+				cameraModel.Distortion = props.DistortionParams
+			}
+
+			actualSystem = &cameraModel
+		}
+	}
+
 	return &videoSource{
 		videoCodecStreamSource: videoCodecStreamSource,
 		system:                 actualSystem,
@@ -380,7 +440,8 @@ func (vs *videoSource) DoCommand(ctx context.Context, cmd map[string]interface{}
 func (vs *videoSource) Properties(ctx context.Context) (Properties, error) {
 	_, supportsPCD := vs.actualSource.(PointCloudSource)
 	result := Properties{
-		SupportsPCD: supportsPCD,
+		SupportsPCD:                   supportsPCD,
+		SupportsWebrtcH264Passthrough: vs.videoCodecStreamSource != nil,
 	}
 	if vs.system == nil {
 		return result, nil
@@ -394,6 +455,7 @@ func (vs *videoSource) Properties(ctx context.Context) (Properties, error) {
 	if vs.system.Distortion != nil {
 		result.DistortionParams = vs.system.Distortion
 	}
+	log.Printf("result: %#v\n", result)
 
 	return result, nil
 }

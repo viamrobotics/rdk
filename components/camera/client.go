@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -108,12 +109,16 @@ func (c *client) SubscribeRTP(ctx context.Context, r *StreamSubscription, packet
 	// TODO: Gotta add mutexes & wait for the waitgroup
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.logger.Infof("SubscribeRTP called on %s", c.Name())
+	debug.PrintStack()
 	// TODO: BEGIN Move this to the constructor / reconfigure
 	if c.conn.PeerConn() == nil {
+		c.logger.Fatal("c.conn.PeerConn() == nil")
 		return errors.New("unable to SubscribeRTP as there is no peer connection")
 	}
 	sc, ok := c.conn.(*webrtchack.SharedConn)
 	if !ok {
+		c.logger.Fatal("!ok")
 		return errors.New("unable to SubscribeRTP as there is no shared WebRTC connection")
 	}
 	// TODO: END Move this to the constructor / reconfigure
@@ -434,6 +439,7 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 			Ppy:    intrinsics.CenterYPx,
 		}
 	}
+	result.SupportsWebrtcH264Passthrough = resp.SupportsWebrtcH264Passthrough
 	result.MimeTypes = resp.MimeTypes
 	result.SupportsPCD = resp.SupportsPcd
 	// if no distortion model present, return result with no model

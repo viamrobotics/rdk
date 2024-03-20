@@ -271,7 +271,9 @@ func (svc *webService) startVideoStream(
 	stream gostream.Stream,
 ) {
 	// if the camera supports h264 streaming, use passthrough
-	if h264Stream, err := svc.h264Stream(ctx, stream); err == nil {
+	h264Stream, err := svc.h264Stream(ctx, stream)
+	if err == nil {
+		svc.logger.Infof("Using H264 passthrough for stream: %s", stream.Name())
 		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
 		svc.startStream(func(*webstream.BackoffTuningOptions) error {
 			// Use H264 for cameras that support it; but do not override upstream values.
@@ -283,6 +285,7 @@ func (svc *webService) startVideoStream(
 		})
 		return
 	}
+	svc.logger.Infof("Using GetImage for stream: %s", stream.Name())
 
 	// otherwise, fallback to go stream GetImage jpeg -> h264 encoding
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
@@ -359,6 +362,15 @@ func (svc *webService) h264Stream(ctx context.Context, stream gostream.Stream) (
 	cam, ok := res.(camera.Camera)
 	if !ok {
 		return nil, errors.Errorf("expected %s to implement camera.Camera", stream.Name())
+	}
+
+	props, err := cam.Properties(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "error getting Properties")
+	}
+
+	if !props.SupportsWebrtcH264Passthrough {
+		return nil, errors.New("SupportsWebrtcH264Passthrough is false")
 	}
 
 	return cam.VideoCodecStreamSource(ctx)

@@ -8,4 +8,4 @@ go build modmain.go
 
 cd ../../
 make server-static
-./viam-server -config /home/dgottlieb/viam/rdk/robotModules/cameraWebRTC/config.json
+./viam-server -config /Users/nicksanford/rdk/robotModules/cameraWebRTC/config.json
