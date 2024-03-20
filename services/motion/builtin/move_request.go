@@ -119,11 +119,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	}
 
 	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
-	plan, err := motionplan.Replan(ctx, &planRequestCopy, nil, 0)
-	if err != nil {
-		return nil, err
-	}
-	return motionplan.OffsetPlan(plan, mr.poseOrigin), nil
+	return motionplan.Replan(ctx, &planRequestCopy, nil, 0)
 }
 
 func (mr *moveRequest) Execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {

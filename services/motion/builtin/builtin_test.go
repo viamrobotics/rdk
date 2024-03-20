@@ -1474,7 +1474,7 @@ func TestMoveOnMap(t *testing.T) {
 		extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 
 		t.Run("ensure success of movement around obstacle", func(t *testing.T) {
-			kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+			kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -50}))
 			defer ms.Close(ctx)
 
 			req := motion.MoveOnMapReq{
