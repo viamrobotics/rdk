@@ -24,7 +24,7 @@ type SharedConn struct {
 	logger             logging.Logger
 }
 
-func NewSharedModuleConn(conn *rdkgrpc.ReconfigurableClientConn, peerConn *webrtc.PeerConnection, logger logging.Logger) *SharedConn {
+func NewSharedConn(conn *rdkgrpc.ReconfigurableClientConn, peerConn *webrtc.PeerConnection, logger logging.Logger) *SharedConn {
 	sc := &SharedConn{
 		ReconfigurableClientConn: conn,
 		peerConn:                 peerConn,
