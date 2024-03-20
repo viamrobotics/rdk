@@ -338,6 +338,7 @@ const startMappingIntervals = (start: number) => {
 };
 
 const handleStartMapping = async () => {
+  console.log("In handleStartMapping")
   if (overrides) {
     // if input error do not start mapping
     if (mapNameError) {
@@ -355,7 +356,9 @@ const handleStartMapping = async () => {
 
     // Get SensorInfo list
     const props = await slamClient.getProperties();
-    console.log("In handleStartMapping, slam client properties: ", props)
+    console.log("In handleStartMapping, slam client properties, props: ", props)
+    console.log("In handleStartMapping, slam client properties, props.sensorInfoList: ", props.sensorInfoList)
+    console.log("In handleStartMapping, slam client properties, props['sensorInfoList']: ", props["sensorInfoList"])
 
     try {
       hasActiveSession = true;
