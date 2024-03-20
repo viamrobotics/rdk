@@ -279,6 +279,7 @@ func TestMoveOnMapAskewIMU(t *testing.T) {
 		// In a real robot this will be taken care of by gravity.
 		correctedPose := spatialmath.NewPoseFromOrientation(askewOrientCorrected)
 		endPos := spatialmath.Compose(correctedPose, spatialmath.PoseBetween(spatialmath.NewPoseFromOrientation(askewOrient), endPIF.Pose()))
+		logger.Debug(spatialmath.PoseToProtobuf(endPos))
 
 		test.That(t, spatialmath.PoseAlmostEqualEps(endPos, goal1BaseFrame, 10), test.ShouldBeTrue)
 	})
