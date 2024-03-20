@@ -9,22 +9,37 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 )
 
-// Geometry is an entry point with which to access all types of collision geometries.
+// Geometry is an interface defining a 3D solid
 type Geometry interface {
+	// Pose returns the Pose of the center of the Geometry
 	Pose() Pose
-	AlmostEqual(Geometry) bool
+
+	// Transform returns a copy of the Geometry that has been transformed by the given Pose
 	Transform(Pose) Geometry
-	ToProtobuf() *commonpb.Geometry
+
+	// CollidesWith returns a bool describing if the two geometries are within the given float of colliding with each other.
 	CollidesWith(Geometry, float64) (bool, error)
+
 	// If DistanceFrom is negative, it represents the penetration depth of the two geometries, which are in collision.
 	// Penetration depth magnitude is defined as the minimum translation which would result in the geometries not colliding.
 	// For certain entity pairs (box-box) this may be a conservative estimate of separation distance rather than exact.
 	DistanceFrom(Geometry) (float64, error)
+
+	// EncompassedBy returns a bool describing if a given Geometry is completely encompassed by the Geometry passed as an argument.
 	EncompassedBy(Geometry) (bool, error)
-	SetLabel(string) // SetLabel sets the name of the geometry
-	Label() string   // Label is the name of the geometry
-	String() string  // String is a string representation of the geometry data structure
+
+	// SetLabel sets the name of the geometry
+	SetLabel(string)
+
+	// Label returns the name of the geometry
+	Label() string
+
+	// ToPoints returns a vector of points that together represent a point cloud of the Geometry
 	ToPoints(float64) []r3.Vector
+
+	// ToProtobuf converts a Geometry to its protobuf representation.
+	ToProtobuf() *commonpb.Geometry
+
 	json.Marshaler
 }
 
@@ -142,6 +157,30 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 	return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, string(config.Type))
 }
 
+// ToProtobuf converts a GeometryConfig to Protobuf.
+func (config *GeometryConfig) ToProtobuf() (*commonpb.Geometry, error) {
+	creator, err := config.ParseConfig()
+	if err != nil {
+		return nil, err
+	}
+	return creator.ToProtobuf(), nil
+}
+
+func GeometriesAlmostEqual(a, b Geometry) bool {
+	switch gType := a.(type) {
+	case *box:
+		return gType.almostEqual(b)
+	case *sphere:
+		return gType.almostEqual(b)
+	case *capsule:
+		return gType.almostEqual(b)
+	case *point:
+		return gType.almostEqual(b)
+	default:
+		return false
+	}
+}
+
 // NewGeometryFromProto instantiates a new Geometry from a protobuf Geometry message.
 func NewGeometryFromProto(geometry *commonpb.Geometry) (Geometry, error) {
 	if geometry.Center == nil {
@@ -183,13 +222,4 @@ func NewGeometriesToProto(geometries []Geometry) []*commonpb.Geometry {
 		proto = append(proto, geometry.ToProtobuf())
 	}
 	return proto
-}
-
-// ToProtobuf converts a GeometryConfig to Protobuf.
-func (config *GeometryConfig) ToProtobuf() (*commonpb.Geometry, error) {
-	creator, err := config.ParseConfig()
-	if err != nil {
-		return nil, err
-	}
-	return creator.ToProtobuf(), nil
 }
