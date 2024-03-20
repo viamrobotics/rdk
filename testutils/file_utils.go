@@ -1,39 +1,20 @@
 package testutils
 
 import (
-	"fmt"
 	"os/exec"
 	"path/filepath"
 	"sync"
 	"testing"
 
-	"go.uber.org/multierr"
 	v1 "go.viam.com/api/app/datasync/v1"
 
 	"go.viam.com/rdk/utils"
 )
 
-// BuildTempModule will run "go build ." in the provided RDK directory and return
-// the path to the built temporary file and any build related errors.
-func BuildTempModule(tb testing.TB, dir string) (string, error) {
-	tb.Helper()
-	modPath := filepath.Join(tb.TempDir(), filepath.Base(dir))
-	//nolint:gosec
-	builder := exec.Command("go", "build", "-o", modPath, ".")
-	builder.Dir = utils.ResolveFile(dir)
-	out, err := builder.CombinedOutput()
-	if len(out) != 0 || err != nil {
-		return modPath, multierr.Combine(err, fmt.Errorf(`output from "go build .": %s`, out))
-	}
-	return modPath, nil
-}
-
-// BuildTempModuleNew will run "go build ." in the provided RDK directory and return the
-// path to the built temporary file. This function will fail if there are any
-// build-related errors.
-//
-// TODO: replace all instances of `BuildTempModule` with this function!
-func BuildTempModuleNew(tb testing.TB, dir string) string {
+// BuildTempModule will run "go build ." in the provided RDK directory and return the
+// path to the built temporary file. This function will fail the current test if there
+// are any build-related errors.
+func BuildTempModule(tb testing.TB, dir string) string {
 	tb.Helper()
 	modPath := filepath.Join(tb.TempDir(), filepath.Base(dir))
 	//nolint:gosec

@@ -31,10 +31,8 @@ func TestModManagerFunctions(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// Precompile module copies to avoid timeout issues when building takes too long.
-	modPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
-	test.That(t, err, test.ShouldBeNil)
-	modPath2, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
-	test.That(t, err, test.ShouldBeNil)
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+	modPath2 := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 
 	myCounterModel := resource.NewModel("acme", "demo", "mycounter")
 	rNameCounter1 := resource.NewName(generic.API, "counter1")
@@ -43,7 +41,7 @@ func TestModManagerFunctions(t *testing.T) {
 		API:   generic.API,
 		Model: myCounterModel,
 	}
-	_, err = cfgCounter1.Validate("test", resource.APITypeComponentName)
+	_, err := cfgCounter1.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
 	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
@@ -310,8 +308,7 @@ func TestModManagerValidation(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// Precompile module to avoid timeout issues when building takes too long.
-	modPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
-	test.That(t, err, test.ShouldBeNil)
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
 
 	myBaseModel := resource.NewModel("acme", "demo", "mybase")
 	cfgMyBase1 := resource.Config{
@@ -323,7 +320,7 @@ func TestModManagerValidation(t *testing.T) {
 			"motorR": "motor2",
 		},
 	}
-	_, err = cfgMyBase1.Validate("test", resource.APITypeComponentName)
+	_, err := cfgMyBase1.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 	// cfgMyBase2 is missing required attributes "motorL" and "motorR" and should
 	// cause module Validation error.
@@ -412,9 +409,7 @@ func TestModuleReloading(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
 
 		// Precompile module to avoid timeout issues when building takes too long.
-		modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-		test.That(t, err, test.ShouldBeNil)
-		modCfg.ExePath = modPath
+		modCfg.ExePath = rtestutils.BuildTempModule(t, "module/testmodule")
 
 		// This test neither uses a resource manager nor asserts anything about
 		// the existence of resources in the graph. Use a dummy
@@ -479,9 +474,7 @@ func TestModuleReloading(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
 
 		// Precompile module to avoid timeout issues when building takes too long.
-		modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-		test.That(t, err, test.ShouldBeNil)
-		modCfg.ExePath = modPath
+		modCfg.ExePath = rtestutils.BuildTempModule(t, "module/testmodule")
 
 		// This test neither uses a resource manager nor asserts anything about
 		// the existence of resources in the graph. Use a dummy
@@ -511,7 +504,7 @@ func TestModuleReloading(t *testing.T) {
 
 		// Remove testmodule binary, so process cannot be successfully restarted
 		// after crash.
-		err = os.Remove(modPath)
+		err = os.Remove(modCfg.ExePath)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Run 'kill_module' command through helper resource to cause module to
@@ -622,8 +615,7 @@ func TestDebugModule(t *testing.T) {
 	ctx := context.Background()
 
 	// Precompile module to avoid timeout issues when building takes too long.
-	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-	test.That(t, err, test.ShouldBeNil)
+	modPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
 	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
 	test.That(t, err, test.ShouldBeNil)
@@ -725,8 +717,7 @@ func TestModuleMisc(t *testing.T) {
 	}()
 
 	// Build the testmodule
-	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-	test.That(t, err, test.ShouldBeNil)
+	modPath := rtestutils.BuildTempModule(t, "module/testmodule")
 	modCfg := config.Module{
 		Name:    "test-module",
 		ExePath: modPath,
@@ -874,12 +865,12 @@ func TestTwoModulesRestart(t *testing.T) {
 	modCfgs := []config.Module{
 		{
 			Name:    "test-module",
-			ExePath: rtestutils.BuildTempModuleNew(t, "module/testmodule"),
+			ExePath: rtestutils.BuildTempModule(t, "module/testmodule"),
 			Type:    config.ModuleTypeLocal,
 		},
 		{
 			Name:    "test-module2",
-			ExePath: rtestutils.BuildTempModuleNew(t, "module/testmodule2"),
+			ExePath: rtestutils.BuildTempModule(t, "module/testmodule2"),
 			Type:    config.ModuleTypeLocal,
 		},
 	}
