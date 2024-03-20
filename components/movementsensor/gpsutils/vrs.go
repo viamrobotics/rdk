@@ -92,7 +92,8 @@ func ContainsGGAMessage(data []byte) bool {
 	return strings.Contains(dataStr, "GGA")
 }
 
-// HasVRSStream returns the NMEA field associated with the given mountpoint.
+// HasVRSStream returns the NMEA field associated with the given mountpoint
+// and whether it is a Virtual Reference Station.
 func HasVRSStream(sourceTable *Sourcetable, mountPoint string) (bool, error) {
 	stream, isFound := sourceTable.HasStream(mountPoint)
 
