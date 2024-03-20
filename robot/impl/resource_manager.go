@@ -414,6 +414,11 @@ func (manager *resourceManager) mergeResourceRPCAPIsWithRemote(r robot.Robot, ty
 func (manager *resourceManager) closeResource(ctx context.Context, res resource.Resource) error {
 	manager.logger.CInfow(ctx, "Now removing resource", "resource", res.Name())
 
+	// TODO(RSDK-6626): We should be resilient to builtin resource `Close` calls
+	// hanging and not respecting the context created below. We will likely need
+	// a goroutine/timer setup here similar to that in the (re)configuration
+	// code.
+	//
 	// Avoid hangs in Close/RemoveResource with resourceCloseTimeout.
 	closeCtx, cancel := context.WithTimeout(ctx, resourceCloseTimeout)
 	defer cancel()
