@@ -604,12 +604,6 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 		if config.LocalFQDN == "" {
 			return resource.NewConfigValidationFieldRequiredError(path, "local_fqdn")
 		}
-		if config.PrimaryOrgID == "" {
-			return resource.NewConfigValidationFieldRequiredError(path, "primary_org_id")
-		}
-		if config.LocationID == "" {
-			return resource.NewConfigValidationFieldRequiredError(path, "location_id")
-		}
 	} else if config.Secret == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "secret")
 	}
