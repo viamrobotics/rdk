@@ -518,6 +518,7 @@ func makeGenericAPIRegistration[ResourceT Resource](
 			name Name,
 			logger logging.Logger,
 		) (Resource, error) {
+			logger.Infof("reg.RPCClient: name: %s, PC: %p", name, conn.PeerConn())
 			return typed.RPCClient(ctx, conn, remoteName, name, logger)
 		}
 	}

@@ -36,6 +36,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/webrtchack"
 )
 
 var (
@@ -90,29 +91,9 @@ type module struct {
 	inStartup      atomic.Bool
 	inRecoveryLock sync.Mutex
 
-	peerConn *webrtc.PeerConnection
-	pcReady  <-chan struct{}
-}
-
-// For modules, the grpc connection is over a Unix socket. The WebRTC `PeerConnection` is made
-// separately. The `buddyConn` continues to implement the `rpc.ClientConn` interface by pairing up
-// the two underlying connections a client may want to communicate over.
-type buddyConn struct {
-	*rdkgrpc.ReconfigurableClientConn
-	peerConn *webrtc.PeerConnection
-}
-
-func (bc *buddyConn) PeerConn() *webrtc.PeerConnection {
-	return bc.peerConn
-}
-
-func (bc *buddyConn) Close() error {
-	var err error
-	if bc.peerConn != nil {
-		err = bc.peerConn.Close()
-	}
-
-	return multierr.Combine(err, bc.ReconfigurableClientConn.Close())
+	peerConn         *webrtc.PeerConnection
+	sharedModuleConn *webrtchack.SharedConn
+	pcReady          <-chan struct{}
 }
 
 type addedResource struct {
@@ -481,10 +462,10 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
 	if !ok || apiInfo.RPCClient == nil {
 		mgr.logger.Warnf("no built-in grpc client for modular resource %s", conf.ResourceName())
-		return rdkgrpc.NewForeignResource(conf.ResourceName(), &buddyConn{&mod.conn, mod.peerConn}), nil
+		return rdkgrpc.NewForeignResource(conf.ResourceName(), mod.sharedModuleConn), nil
 	}
 
-	return apiInfo.RPCClient(ctx, &buddyConn{&mod.conn, mod.peerConn}, "", conf.ResourceName(), mgr.logger)
+	return apiInfo.RPCClient(ctx, mod.sharedModuleConn, "", conf.ResourceName(), mgr.logger)
 }
 
 // ReconfigureResource updates/reconfigures a modular component with a new configuration.
@@ -922,6 +903,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 			if err = connect(m.peerConn, resp.ModuleSdp); err != nil {
 				logger.Warnw("Error creating PeerConnection. Ignoring.", "err", err)
 			}
+			m.sharedModuleConn = webrtchack.NewSharedModuleConn(&m.conn, m.peerConn, logger)
 			<-m.pcReady
 			m.handles, err = modlib.NewHandlerMapFromProto(ctx, resp.Handlermap, &m.conn)
 			return err

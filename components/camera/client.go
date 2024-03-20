@@ -31,6 +31,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/webrtchack"
 )
 
 var CloseRemoveStreamTimeout = time.Second
@@ -102,13 +103,23 @@ func getExtra(ctx context.Context) (*structpb.Struct, error) {
 
 // TODO: NICK We probably need to do the multiplexing here,
 // Probably need to have the camera subscription do work here
+// TODO: Chnage this function to return a r *StreamSubscription & take the parameters to crate one
 func (c *client) SubscribeRTP(ctx context.Context, r *StreamSubscription, packetsCB PacketCallback) error {
 	// TODO: Gotta add mutexes & wait for the waitgroup
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	// TODO: BEGIN Move this to the constructor / reconfigure
+	if c.conn.PeerConn() == nil {
+		return errors.New("unable to SubscribeRTP as there is no peer connection")
+	}
+	sc, ok := c.conn.(*webrtchack.SharedConn)
+	if !ok {
+		return errors.New("unable to SubscribeRTP as there is no shared WebRTC connection")
+	}
+	// TODO: END Move this to the constructor / reconfigure
 	if len(c.subs) == 0 {
 		// TODO: We need to set up OnTrack before we call SubscribeRTP
-		c.conn.PeerConn().OnTrack(func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
+		sc.AddOnTrackSub(c.Name(), func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
 			c.mu.Lock()
 			defer c.mu.Unlock()
 			if c.Name().String() != tr.StreamID() {
@@ -178,23 +189,34 @@ func (c *client) unsubscribeAll() error {
 	return errAgg
 }
 
-// TODO: Unsubscribe should be able to fail
 func (c *client) Unsubscribe(ctx context.Context, r *StreamSubscription) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.conn.PeerConn() == nil {
+		return nil
+	}
+	sc, ok := c.conn.(*webrtchack.SharedConn)
+	if !ok {
+		return nil
+	}
 	_, err := c.streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: c.Name().String()})
 	if err != nil {
 		return err
 	}
 	r.Stop()
 	delete(c.subs, r)
+	if len(c.subs) == 0 {
+		sc.RemoveOnTrackSub(c.Name())
+	}
 	return nil
 }
 
 func (c *client) VideoCodecStreamSource(ctx context.Context) (VideoCodecStreamSource, error) {
-	if c.conn.PeerConn() != nil {
+	_, ok := c.conn.(*webrtchack.SharedConn)
+	if c.conn.PeerConn() != nil && ok {
 		return c, nil
 	}
+
 	return nil, errors.New("VideoCodecStreamSource unimplemented as module doesn't support peer connections")
 }
 
