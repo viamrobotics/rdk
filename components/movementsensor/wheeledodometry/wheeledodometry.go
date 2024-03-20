@@ -4,6 +4,7 @@ package wheeledodometry
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -28,9 +29,11 @@ const (
 	oneTurn                  = 2 * math.Pi
 	mToKm                    = 1e-3
 	returnRelative           = "return_relative_pos_m"
-	setPosX                  = "SetPosX"
-	setPosY                  = "SetPosY"
+	setLong                  = "setLong"
+	setLat                   = "setLat"
 	useOri                   = "use_orientation"
+	shiftPos                 = "shift_position"
+	resetShift               = "reset_shift"
 )
 
 // Config is the config for a wheeledodometry MovementSensor.
@@ -64,7 +67,10 @@ type odometry struct {
 	orientation     spatialmath.EulerAngles
 	coord           *geo.Point
 
-	useOri bool
+	useOri   bool
+	shiftPos bool
+	shiftX   float64
+	shiftY   float64
 
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
@@ -254,17 +260,19 @@ func (o *odometry) CompassHeading(ctx context.Context, extra map[string]interfac
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	useOri, ok := extra[useOri].(bool)
-	if ok {
-		o.logger.Info("using orientation as compass heading: true")
-		o.useOri = useOri
-	}
-
 	if o.useOri {
-		return o.orientation.Yaw, nil
+		return yawToCompassHeading(o.orientation.Yaw), nil
 	}
 
 	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
+}
+
+func yawToCompassHeading(yaw float64) float64 {
+	yawDeg := rdkutils.RadToDeg(yaw)
+	if yawDeg < 0 {
+		return 180 - yawDeg
+	}
+	return yawDeg
 }
 
 func (o *odometry) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
@@ -281,18 +289,6 @@ func (o *odometry) Position(ctx context.Context, extra map[string]interface{}) (
 		if relative.(bool) {
 			return geo.NewPoint(o.position.Y, o.position.X), o.position.Z, nil
 		}
-	}
-
-	setPosX, okX := extra[setPosX].(float64)
-
-	setPosY, okY := extra[setPosY].(float64)
-
-	if !okX || !okY {
-		// o.logger.Error("could not parse new position from extra parameters")
-	} else {
-		o.coord = geo.NewPoint(setPosX, setPosY)
-		o.position.X += setPosX * 111139.
-		o.position.Y += setPosY * 111139.
 	}
 
 	return o.coord, o.position.Z, nil
@@ -413,7 +409,7 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			o.position.Y += (centerDist * math.Cos(o.orientation.Yaw))
 
 			distance := math.Hypot(o.position.X, o.position.Y)
-			heading := math.Atan2(o.position.X, o.position.Y)
+			heading := rdkutils.RadToDeg(math.Atan2(o.position.X, o.position.Y))
 			o.coord = geoOrigin.PointAtDistanceAndBearing(distance*mToKm, heading)
 
 			// Update the linear and angular velocity values using the provided time interval.
@@ -423,4 +419,67 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			o.mu.Unlock()
 		}
 	})
+}
+
+func (o *odometry) DoCommand(ctx context.Context,
+	req map[string]interface{},
+) (map[string]interface{}, error) {
+	resp := make(map[string]interface{})
+
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	cmd, ok := req[useOri].(bool)
+	if ok {
+		o.useOri = cmd
+		resp[useOri] = fmt.Sprintf("using orientation as compass heading set to %v", cmd)
+	}
+
+	reset, ok := req[resetShift].(bool)
+	if ok {
+		if o.shiftPos {
+			o.position.X -= o.shiftX
+			o.position.Y -= o.shiftY
+		}
+		o.shiftPos = reset
+		o.shiftX = 0
+		o.shiftY = 0
+		resp[resetShift] = fmt.Sprintf("resetting position and setting shift to %v", reset)
+	}
+	shift, ok := req[shiftPos].(bool)
+	if ok {
+		o.shiftPos = shift
+		if shift {
+			o.position.X += o.shiftX
+			o.position.Y += o.shiftY
+		} else {
+			o.position.X -= o.shiftX
+			o.position.Y -= o.shiftY
+		}
+
+		resp[shiftPos] = fmt.Sprintf("using setting position shift to %v", shift)
+	}
+	lat, okY := req[setLat].(float64)
+	long, okX := req[setLong].(float64)
+	if okY && okX {
+		geoOrigin := geo.NewPoint(0, 0)
+		shiftGeo := geo.NewPoint(lat, long)
+
+		distance := geoOrigin.GreatCircleDistance(shiftGeo) * 1000 // m
+		heading := rdkutils.DegToRad(geoOrigin.BearingTo(shiftGeo))
+		o.position.Y -= o.shiftY
+		o.shiftY = distance * math.Cos(heading)
+		o.position.Y += o.shiftY
+
+		o.position.X -= o.shiftX
+		o.shiftX = distance * math.Sin(heading)
+		o.position.X += o.shiftX
+		o.shiftPos = true
+
+		resp[setLat] = fmt.Sprintf("y position shifted to %v", o.position.Y)
+		resp[setLong] = fmt.Sprintf("x position shifted to %v", o.position.X)
+	} else {
+		resp["bad shift"] = "need both lat and long shifts"
+	}
+
+	return resp, nil
 }
