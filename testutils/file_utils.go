@@ -28,11 +28,11 @@ func BuildTempModule(tb testing.TB, dir string) (string, error) {
 	return modPath, nil
 }
 
-// TODO: replace all instances of `BuildTempModule` with this function!
-//
 // BuildTempModuleNew will run "go build ." in the provided RDK directory and return the
 // path to the built temporary file. This function will fail if there are any
 // build-related errors.
+//
+// TODO: replace all instances of `BuildTempModule` with this function!
 func BuildTempModuleNew(tb testing.TB, dir string) string {
 	tb.Helper()
 	modPath := filepath.Join(tb.TempDir(), filepath.Base(dir))
