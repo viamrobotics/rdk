@@ -168,6 +168,8 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, directi
 	lastTime := time.Now().UnixNano()
 	lastPowerPct := 0.0
 
+	m.logger.Errorf("START RPM MONITOR: lastPos = %v, lastTime = %v, lastPowerPct = %v", lastPos, lastTime, lastPowerPct)
+
 	for {
 		timer := time.NewTimer(50 * time.Millisecond)
 		select {
@@ -236,8 +238,10 @@ func (m *EncodedMotor) makeAdjustments(
 	m.logger.CDebugf(ctx, "currentRPM: %v, goalRPM: %v", currentRPM, goalRPM)
 
 	rpmErr := goalRPM - currentRPM
+	m.logger.Errorf("RPM ERR = %v", rpmErr)
 	// adjust our power based on the error in rpm
 	newPowerPct += (m.rampRate * sign(rpmErr))
+	m.logger.Errorf("NEW POWER PCT = %v", newPowerPct)
 
 	if sign(newPowerPct) != direction {
 		newPowerPct = lastPowerPct
@@ -332,6 +336,9 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	defer done()
 
 	goalPos, goalRPM, direction := m.goForMath(ctx, rpm, revolutions)
+
+	m.logger.Errorf("GO FOR: rpm = %v, revolutions = %v", rpm, revolutions)
+	m.logger.Errorf("GO FOR MATH: goalPos = %v, goalRPM = %v, direction = %v", goalPos, goalRPM, direction)
 
 	if err := m.goForInternal(ctx, goalRPM, goalPos, direction); err != nil {
 		return err
