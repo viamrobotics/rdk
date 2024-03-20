@@ -35,7 +35,12 @@ const (
 	dataTypeBinary  = "binary"
 	dataTypeTabular = "tabular"
 
+	dataCommandAdd    = "add"
+	dataCommandRemove = "remove"
+
 	gzFileExt = ".gz"
+
+	serverErrorMessage = "received error from server"
 )
 
 // DataExportAction is the corresponding action for 'data export'.
@@ -67,6 +72,65 @@ func (c *viamClient) dataExportAction(cCtx *cli.Context) error {
 		return errors.Errorf("%s must be binary or tabular, got %q", dataFlagDataType, cCtx.String(dataFlagDataType))
 	}
 	return nil
+}
+
+// DataTagActionByFilter is the corresponding action for 'data tag filter'.
+func DataTagActionByFilter(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	filter, err := createDataFilter(c)
+	if err != nil {
+		return err
+	}
+
+	switch c.Command.Name {
+	case dataCommandAdd:
+		if err := client.dataAddTagsToBinaryByFilter(filter, c.StringSlice(dataFlagTags)); err != nil {
+			return err
+		}
+		return nil
+	case dataCommandRemove:
+		if err := client.dataRemoveTagsFromBinaryByFilter(filter, c.StringSlice(dataFlagTags)); err != nil {
+			return err
+		}
+		return nil
+	default:
+		return errors.Errorf("command must be add or remove, got %q", c.Command.Name)
+	}
+}
+
+// DataTagActionByIds is the corresponding action for 'data tag'.
+func DataTagActionByIds(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	switch c.Command.Name {
+	case dataCommandAdd:
+		if err := client.dataAddTagsToBinaryByIDs(
+			c.StringSlice(dataFlagTags),
+			c.String(generalFlagOrgID),
+			c.String(dataFlagLocationID),
+			c.StringSlice(dataFlagFileIDs)); err != nil {
+			return err
+		}
+		return nil
+	case dataCommandRemove:
+		if err := client.dataRemoveTagsFromBinaryByIDs(
+			c.StringSlice(dataFlagTags),
+			c.String(generalFlagOrgID),
+			c.String(dataFlagLocationID),
+			c.StringSlice(dataFlagFileIDs)); err != nil {
+			return err
+		}
+		return nil
+	default:
+		return errors.Errorf("command must be add or remove, got %q", c.Command.Name)
+	}
 }
 
 // DataDeleteBinaryAction is the corresponding action for 'data delete'.
@@ -132,20 +196,34 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	if len(c.StringSlice(dataFlagMimeTypes)) != 0 {
 		filter.MimeType = c.StringSlice(dataFlagMimeTypes)
 	}
-	if c.StringSlice(dataFlagTags) != nil {
-		switch {
-		case len(c.StringSlice(dataFlagTags)) == 1 && c.StringSlice(dataFlagTags)[0] == "tagged":
-			filter.TagsFilter = &datapb.TagsFilter{
-				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_TAGGED,
-			}
-		case len(c.StringSlice(dataFlagTags)) == 1 && c.StringSlice(dataFlagTags)[0] == "untagged":
-			filter.TagsFilter = &datapb.TagsFilter{
-				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_UNTAGGED,
-			}
-		default:
-			filter.TagsFilter = &datapb.TagsFilter{
-				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_MATCH_BY_OR,
-				Tags: c.StringSlice(dataFlagTags),
+	// We have some weirdness because the --tags flag can mean two completely different things.
+	// It could be either tags to filter by, or, if running 'viam data tag' it will mean the
+	// tags to add to the data. To account for this, we have to check if we're running the tag
+	// command, and if so, to add the filter tags if we pass in --filter-tags.
+	if strings.Contains(c.Command.UsageText, "tag") && len(c.StringSlice(dataFlagFilterTags)) != 0 {
+		filter.TagsFilter = &datapb.TagsFilter{
+			Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_MATCH_BY_OR,
+			Tags: c.StringSlice(dataFlagFilterTags),
+		}
+	}
+	// Similar to the above comment, we only want to add filter tags with --tags if we're NOT
+	// running the tag command.
+	if !strings.Contains(c.Command.UsageText, "tag") && c.StringSlice(dataFlagTags) != nil {
+		if len(c.StringSlice(dataFlagFilterTags)) == 0 {
+			switch {
+			case len(c.StringSlice(dataFlagTags)) == 1 && c.StringSlice(dataFlagTags)[0] == "tagged":
+				filter.TagsFilter = &datapb.TagsFilter{
+					Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_TAGGED,
+				}
+			case len(c.StringSlice(dataFlagTags)) == 1 && c.StringSlice(dataFlagTags)[0] == "untagged":
+				filter.TagsFilter = &datapb.TagsFilter{
+					Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_UNTAGGED,
+				}
+			default:
+				filter.TagsFilter = &datapb.TagsFilter{
+					Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_MATCH_BY_OR,
+					Tags: c.StringSlice(dataFlagTags),
+				}
 			}
 		}
 	}
@@ -340,7 +418,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 		}
 	}
 	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+		return errors.Wrapf(err, serverErrorMessage)
 	}
 	data := resp.GetData()
 
@@ -559,9 +637,79 @@ func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 	resp, err := c.dataClient.DeleteBinaryDataByFilter(context.Background(),
 		&datapb.DeleteBinaryDataByFilterRequest{Filter: filter})
 	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+		return errors.Wrapf(err, serverErrorMessage)
 	}
 	printf(c.c.App.Writer, "Deleted %d files", resp.GetDeletedCount())
+	return nil
+}
+
+func (c *viamClient) dataAddTagsToBinaryByFilter(filter *datapb.Filter, tags []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	_, err := c.dataClient.AddTagsToBinaryDataByFilter(context.Background(),
+		&datapb.AddTagsToBinaryDataByFilterRequest{Filter: filter, Tags: tags})
+	if err != nil {
+		return errors.Wrapf(err, serverErrorMessage)
+	}
+	printf(c.c.App.Writer, "Successfully tagged data")
+	return nil
+}
+
+func (c *viamClient) dataRemoveTagsFromBinaryByFilter(filter *datapb.Filter, tags []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	_, err := c.dataClient.RemoveTagsFromBinaryDataByFilter(context.Background(),
+		&datapb.RemoveTagsFromBinaryDataByFilterRequest{Filter: filter, Tags: tags})
+	if err != nil {
+		return errors.Wrapf(err, serverErrorMessage)
+	}
+	printf(c.c.App.Writer, "Successfully removed tags from data")
+	return nil
+}
+
+func (c *viamClient) dataAddTagsToBinaryByIDs(tags []string, orgID, locationID string, fileIDs []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	binaryData := make([]*datapb.BinaryID, 0, len(fileIDs))
+	for _, fileID := range fileIDs {
+		binaryData = append(binaryData, &datapb.BinaryID{
+			OrganizationId: orgID,
+			LocationId:     locationID,
+			FileId:         fileID,
+		})
+	}
+	_, err := c.dataClient.AddTagsToBinaryDataByIDs(context.Background(),
+		&datapb.AddTagsToBinaryDataByIDsRequest{Tags: tags, BinaryIds: binaryData})
+	if err != nil {
+		return errors.Wrapf(err, serverErrorMessage)
+	}
+	printf(c.c.App.Writer, "Added tags %v to data", tags)
+	return nil
+}
+
+// dataRemoveTagsFromData removes tags from data, with the specified org ID, location ID,
+// and file IDs.
+func (c *viamClient) dataRemoveTagsFromBinaryByIDs(tags []string, orgID, locationID string, fileIDs []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	binaryData := make([]*datapb.BinaryID, 0, len(fileIDs))
+	for _, fileID := range fileIDs {
+		binaryData = append(binaryData, &datapb.BinaryID{
+			OrganizationId: orgID,
+			LocationId:     locationID,
+			FileId:         fileID,
+		})
+	}
+	_, err := c.dataClient.RemoveTagsFromBinaryDataByIDs(context.Background(),
+		&datapb.RemoveTagsFromBinaryDataByIDsRequest{Tags: tags, BinaryIds: binaryData})
+	if err != nil {
+		return errors.Wrapf(err, serverErrorMessage)
+	}
+	printf(c.c.App.Writer, "Removed tags %v from data", tags)
 	return nil
 }
 
@@ -573,7 +721,7 @@ func (c *viamClient) deleteTabularData(orgID string, deleteOlderThanDays int) er
 	resp, err := c.dataClient.DeleteTabularData(context.Background(),
 		&datapb.DeleteTabularDataRequest{OrganizationId: orgID, DeleteOlderThanDays: uint32(deleteOlderThanDays)})
 	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+		return errors.Wrapf(err, serverErrorMessage)
 	}
 	printf(c.c.App.Writer, "Deleted %d datapoints", resp.GetDeletedCount())
 	return nil
@@ -608,7 +756,7 @@ func (c *viamClient) dataAddToDatasetByIDs(datasetID, orgID, locationID string, 
 	_, err := c.dataClient.AddBinaryDataToDatasetByIDs(context.Background(),
 		&datapb.AddBinaryDataToDatasetByIDsRequest{DatasetId: datasetID, BinaryIds: binaryData})
 	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+		return errors.Wrapf(err, serverErrorMessage)
 	}
 	printf(c.c.App.Writer, "Added data to dataset ID %s", datasetID)
 	return nil
@@ -679,7 +827,7 @@ func (c *viamClient) dataRemoveFromDataset(datasetID, orgID, locationID string, 
 	_, err := c.dataClient.RemoveBinaryDataFromDatasetByIDs(context.Background(),
 		&datapb.RemoveBinaryDataFromDatasetByIDsRequest{DatasetId: datasetID, BinaryIds: binaryData})
 	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+		return errors.Wrapf(err, serverErrorMessage)
 	}
 	printf(c.c.App.Writer, "Removed data from dataset ID %s", datasetID)
 	return nil
@@ -707,7 +855,7 @@ func (c *viamClient) dataConfigureDatabaseUser(orgID, password string) error {
 	_, err := c.dataClient.ConfigureDatabaseUser(context.Background(),
 		&datapb.ConfigureDatabaseUserRequest{OrganizationId: orgID, Password: password})
 	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+		return errors.Wrapf(err, serverErrorMessage)
 	}
 	printf(c.c.App.Writer, "Configured database user for org %s", orgID)
 	return nil
@@ -733,7 +881,7 @@ func (c *viamClient) dataGetDatabaseConnection(orgID string) error {
 	}
 	res, err := c.dataClient.GetDatabaseConnection(context.Background(), &datapb.GetDatabaseConnectionRequest{OrganizationId: orgID})
 	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+		return errors.Wrapf(err, serverErrorMessage)
 	}
 	printf(c.c.App.Writer, "MongoDB Atlas Data Federation instance hostname: %s", res.GetHostname())
 	return nil

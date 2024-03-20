@@ -23,18 +23,8 @@ func init() {
 			RPCClient:                   NewClientFromConn,
 			MaxInstance:                 resource.DefaultMaxInstance,
 		},
-		resource.AssociatedConfigRegistration[*DataCaptureConfigs]{
-			AttributeMapConverter: func(attributes utils.AttributeMap) (*DataCaptureConfigs, error) {
-				md, err := json.Marshal(attributes)
-				if err != nil {
-					return nil, err
-				}
-				var conf DataCaptureConfigs
-				if err := json.Unmarshal(md, &conf); err != nil {
-					return nil, err
-				}
-				return &conf, nil
-			},
+		resource.AssociatedConfigRegistration[*AssociatedConfig]{
+			AttributeMapConverter: newAssociatedConfig,
 		},
 	)
 }
@@ -61,21 +51,70 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 	return resource.FromDependencies[Service](deps, Named(name))
 }
 
-// DataCaptureConfigs specify a list of methods to capture on resources.
-type DataCaptureConfigs struct {
-	CaptureMethods []DataCaptureConfig `json:"capture_methods"`
+// AssociatedConfig specify a list of methods to capture on resources and implements the resource.AssociatedConfig interface.
+type AssociatedConfig struct {
+	CaptureMethods []*DataCaptureConfig `json:"capture_methods"`
+}
+
+func newAssociatedConfig(attributes utils.AttributeMap) (*AssociatedConfig, error) {
+	md, err := json.Marshal(attributes)
+	if err != nil {
+		return nil, err
+	}
+	var conf AssociatedConfig
+	if err := json.Unmarshal(md, &conf); err != nil {
+		return nil, err
+	}
+	return &conf, nil
+}
+
+// Equals describes if an DataCaptureConfigs is equal to a given AssociatedConfig.
+func (ac *AssociatedConfig) Equals(other resource.AssociatedConfig) bool {
+	ac2, err := utils.AssertType[*AssociatedConfig](other)
+	if err != nil {
+		return false
+	}
+	if len(ac.CaptureMethods) != len(ac2.CaptureMethods) {
+		return false
+	}
+	// naively iterate over the list of capture methods and determine if they are the same
+	// note that two lists with capture methods [a, b] and [b, a] will not be equal as they are out of order
+	for i := 0; i < len(ac.CaptureMethods); i++ {
+		if !ac.CaptureMethods[i].Equals(ac2.CaptureMethods[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // UpdateResourceNames allows the caller to modify the resource names of data capture in place.
-func (dcs *DataCaptureConfigs) UpdateResourceNames(updater func(old resource.Name) resource.Name) {
-	for idx := range dcs.CaptureMethods {
-		dcs.CaptureMethods[idx].Name = updater(dcs.CaptureMethods[idx].Name)
+func (ac *AssociatedConfig) UpdateResourceNames(updater func(old resource.Name) resource.Name) {
+	for idx := range ac.CaptureMethods {
+		ac.CaptureMethods[idx].Name = updater(ac.CaptureMethods[idx].Name)
 	}
+}
+
+// Link associates an AssociatedConfig to a specific resource model (e.g. builtin data capture).
+func (ac *AssociatedConfig) Link(conf *resource.Config) {
+	if len(ac.CaptureMethods) == 0 {
+		return
+	}
+
+	// infer name from first index in CaptureMethods
+	name := ac.CaptureMethods[0].Name
+	captureMethodCopies := make([]*DataCaptureConfig, 0, len(ac.CaptureMethods))
+	for _, method := range ac.CaptureMethods {
+		methodCopy := method
+		captureMethodCopies = append(captureMethodCopies, methodCopy)
+	}
+	if conf.AssociatedAttributes == nil {
+		conf.AssociatedAttributes = make(map[resource.Name]resource.AssociatedConfig)
+	}
+	conf.AssociatedAttributes[name] = &AssociatedConfig{CaptureMethods: captureMethodCopies}
 }
 
 // DataCaptureConfig is used to initialize a collector for a component or remote.
 type DataCaptureConfig struct {
-	Resource           resource.Resource `json:"-"`
 	Name               resource.Name     `json:"name"`
 	Method             string            `json:"method"`
 	CaptureFrequencyHz float32           `json:"capture_frequency_hz"`
@@ -89,8 +128,7 @@ type DataCaptureConfig struct {
 
 // Equals checks if one capture config is equal to another.
 func (c *DataCaptureConfig) Equals(other *DataCaptureConfig) bool {
-	return c.Resource == other.Resource &&
-		c.Name.String() == other.Name.String() &&
+	return c.Name.String() == other.Name.String() &&
 		c.Method == other.Method &&
 		c.CaptureFrequencyHz == other.CaptureFrequencyHz &&
 		c.CaptureQueueSize == other.CaptureQueueSize &&
