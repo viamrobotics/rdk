@@ -100,6 +100,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 				return sb.Stop(ctx, nil)
 			}
 			angVel := calcAngVel(angErr, degsPerSec, slowDownAng)
+
 			if err := sb.updateControlConfig(ctx, 0, angVel); err != nil {
 				return err
 			}
@@ -131,6 +132,7 @@ func getYawInDeg(ctx context.Context, orientation movementsensor.MovementSensor)
 
 // calcSlowDownAng computes the angle at which the spin should begin to slow down.
 // This helps to prevent overshoot when reaching the goal and reduces the jerk on the robot when the spin is complete.
+// This term should always be positive.
 func calcSlowDownAng(angleDeg float64) float64 {
 	return math.Min(math.Abs(angleDeg)*slowDownAngGain, maxSlowDownAng)
 }
