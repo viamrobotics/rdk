@@ -9,7 +9,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 )
 
-// Geometry is an interface defining a 3D solid
+// Geometry is an interface defining a 3D solid.
 type Geometry interface {
 	// Pose returns the Pose of the center of the Geometry
 	Pose() Pose
@@ -166,6 +166,7 @@ func (config *GeometryConfig) ToProtobuf() (*commonpb.Geometry, error) {
 	return creator.ToProtobuf(), nil
 }
 
+// GeometriesAlmostEqual returns a bool describing if the two input Geometries are equal.
 func GeometriesAlmostEqual(a, b Geometry) bool {
 	switch gType := a.(type) {
 	case *box:

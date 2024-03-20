@@ -261,7 +261,7 @@ func TestFrameSystemGeometries(t *testing.T) {
 		g0, ok := geometries[name0]
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, g0.Parent(), test.ShouldResemble, World)
-		test.That(t, g0.Geometries()[0].AlmostEqual(box0), test.ShouldBeTrue)
+		test.That(t, spatial.GeometriesAlmostEqual(g0.Geometries()[0], box0), test.ShouldBeTrue)
 		g1, ok := geometries[name1]
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, g1.Parent(), test.ShouldResemble, World)

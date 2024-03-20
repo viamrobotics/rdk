@@ -89,7 +89,7 @@ func (cfg Config) String() string {
 		ori := pose.Orientation().EulerAngles()
 		geomString := ""
 		if gc := part.FrameConfig.Geometry(); gc != nil {
-			geomString = gc.String()
+			geomString = fmt.Sprint(gc)
 		}
 		t.AppendRow([]interface{}{
 			fmt.Sprintf("%d", i+1),

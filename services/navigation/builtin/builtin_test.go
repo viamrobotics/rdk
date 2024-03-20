@@ -1824,7 +1824,7 @@ func TestGetObstacles(t *testing.T) {
 	test.That(t, dets[0], test.ShouldResemble, sphereGob)
 	test.That(t, dets[1].Location(), test.ShouldResemble, geo.NewPoint(0.9999998600983906, 1.0000001399229705))
 	test.That(t, len(dets[1].Geometries()), test.ShouldEqual, 1)
-	test.That(t, dets[1].Geometries()[0].AlmostEqual(manipulatedBoxGeom), test.ShouldBeTrue)
+	test.That(t, spatialmath.GeometriesAlmostEqual(dets[1].Geometries()[0], manipulatedBoxGeom), test.ShouldBeTrue)
 	test.That(t, dets[1].Geometries()[0].Label(), test.ShouldEqual, manipulatedBoxGeom.Label())
 }
 
