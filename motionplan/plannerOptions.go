@@ -165,6 +165,8 @@ type plannerOptions struct {
 	// This is how far cbirrt will try to extend the map towards a goal per-step. Determined from FrameStep
 	qstep []float64
 
+	StartPose spatialmath.Pose // The starting pose of the plan. Useful when planning for frames with relative inputs.
+
 	// DistanceFunc is the function that the planner will use to measure the degree of "closeness" between two states of the robot
 	DistanceFunc ik.SegmentMetric
 

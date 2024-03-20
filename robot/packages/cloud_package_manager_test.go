@@ -200,12 +200,31 @@ func TestCloud(t *testing.T) {
 
 		err = pm.Sync(ctx, input)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "download did not match expected hash")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failed to decode")
 
 		err = pm.Cleanup(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
 		validatePackageDir(t, packageDir, []config.PackageConfig{})
+	})
+
+	t.Run("leading zeroes checksum", func(t *testing.T) {
+		packageDir, pm := newPackageManager(t, client, fakeServer, logger)
+		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+
+		fakeServer.SetChecksumWithLeadingZeroes(true)
+
+		input := []config.PackageConfig{
+			{Name: "some-name", Package: "org1/test-model", Version: "v1", Type: "ml_model"},
+			{Name: "some-name-2", Package: "org1/test-model", Version: "v2", Type: "ml_model"},
+		}
+		fakeServer.StorePackage(input...)
+
+		err = pm.Sync(ctx, input)
+		test.That(t, err, test.ShouldBeNil)
+
+		// validate dir should be empty
+		validatePackageDir(t, packageDir, input)
 	})
 
 	t.Run("invalid gcs download", func(t *testing.T) {
@@ -442,4 +461,39 @@ func TestMissingDirEntry(t *testing.T) {
 	// create the subdirectory with the wrong permissions.
 	err = unpackFile(context.Background(), file.Name(), dest)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestTrimLeadingZeroes(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    []byte
+		expected []byte
+	}{
+		{
+			name:     "Empty slice",
+			input:    []byte{},
+			expected: []byte{},
+		},
+		{
+			name:     "Single zero byte",
+			input:    []byte{0x00},
+			expected: []byte{0x00},
+		},
+		{
+			name:     "Leading zeroes trimmed",
+			input:    []byte{0x00, 0x00, 0x03, 0x04, 0x05},
+			expected: []byte{0x03, 0x04, 0x05},
+		},
+		{
+			name:     "All zero bytes",
+			input:    []byte{0x00, 0x00, 0x00},
+			expected: []byte{0x00},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			test.That(t, trimLeadingZeroes(tc.input), test.ShouldResemble, tc.expected)
+		})
+	}
 }

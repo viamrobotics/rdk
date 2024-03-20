@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
+	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
@@ -21,6 +22,18 @@ import (
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
+)
+
+const (
+	// compassValue and orientationValue should be different for tests.
+	defaultCompassValue     = 45.
+	defaultOrientationValue = 40.
+)
+
+var (
+	// compassValue and orientationValue should be different for tests.
+	compassValue     = defaultCompassValue
+	orientationValue = defaultOrientationValue
 )
 
 func sConfig() resource.Config {
@@ -177,7 +190,27 @@ func msDependencies(t *testing.T, msNames []string,
 				}, nil
 			}
 			ms.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-				return &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: 5}, nil
+				return &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: rdkutils.DegToRad(orientationValue)}, nil
+			}
+			deps[movementsensor.Named(msName)] = ms
+		case strings.Contains(msName, "position"):
+			ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+				return &movementsensor.Properties{
+					PositionSupported: true,
+				}, nil
+			}
+			ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+				return &geo.Point{}, 0, nil
+			}
+			deps[movementsensor.Named(msName)] = ms
+		case strings.Contains(msName, "compass"):
+			ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+				return &movementsensor.Properties{
+					CompassHeadingSupported: true,
+				}, nil
+			}
+			ms.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+				return compassValue, nil
 			}
 			deps[movementsensor.Named(msName)] = ms
 
@@ -246,6 +279,15 @@ func TestReconfig(t *testing.T) {
 	err = b.Reconfigure(ctx, deps, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel2")
+	headingNone, err := sb.headingFunc(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, headingNone, test.ShouldEqual, 0)
+
+	deps, cfg = msDependencies(t, []string{"orientation3", "setvel3", "Bad"})
+	err = b.Reconfigure(ctx, deps, cfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation3")
+	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel3")
 
 	deps, cfg = msDependencies(t, []string{"orientation3", "setvel3", "Bad"})
 	err = b.Reconfigure(ctx, deps, cfg)
@@ -258,6 +300,30 @@ func TestReconfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation4")
 	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel4")
+
+	deps, cfg = msDependencies(t, []string{"Bad", "orientation6", "setvel6", "position1", "compass1"})
+	err = b.Reconfigure(ctx, deps, cfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation6")
+	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel6")
+	test.That(t, sb.position.Name().ShortName(), test.ShouldResemble, "position1")
+	test.That(t, sb.compassHeading.Name().ShortName(), test.ShouldResemble, "compass1")
+	headingOri, err := sb.headingFunc(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, headingOri, test.ShouldEqual, orientationValue)
+	test.That(t, headingOri, test.ShouldNotEqual, compassValue)
+
+	deps, cfg = msDependencies(t, []string{"Bad", "setvel7", "position2", "compass2"})
+	err = b.Reconfigure(ctx, deps, cfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sb.orientation, test.ShouldBeNil)
+	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel7")
+	test.That(t, sb.position.Name().ShortName(), test.ShouldResemble, "position2")
+	test.That(t, sb.compassHeading.Name().ShortName(), test.ShouldResemble, "compass2")
+	headingCompass, err := sb.headingFunc(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, headingCompass, test.ShouldNotEqual, orientationValue)
+	test.That(t, headingCompass, test.ShouldEqual, compassValue)
 
 	deps, cfg = msDependencies(t, []string{"Bad"})
 	err = b.Reconfigure(ctx, deps, cfg)
@@ -284,8 +350,6 @@ func TestSensorBaseWithVelocitiesSensor(t *testing.T) {
 }
 
 func TestSensorBaseSpin(t *testing.T) {
-	// flaky test, will see behavior after RSDK-6164
-	t.Skip()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	deps, cfg := msDependencies(t, []string{"setvel1", "orientation1"})
@@ -304,6 +368,8 @@ func TestSensorBaseSpin(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sbNoOri.orientation, test.ShouldBeNil)
 	t.Run("Test canceling a sensor controlled spin", func(t *testing.T) {
+		// flaky test, will see behavior after RSDK-6164
+		t.Skip()
 		cancelCtx, cancel := context.WithCancel(ctx)
 		wg := sync.WaitGroup{}
 		wg.Add(1)
@@ -317,6 +383,8 @@ func TestSensorBaseSpin(t *testing.T) {
 		wg.Wait()
 	})
 	t.Run("Test canceling a sensor controlled spin due to calling another running api", func(t *testing.T) {
+		// flaky test, will see behavior after RSDK-6164
+		t.Skip()
 		wg := sync.WaitGroup{}
 		wg.Add(1)
 		utils.PanicCapturingGo(func() {
@@ -333,5 +401,89 @@ func TestSensorBaseSpin(t *testing.T) {
 		// the injected base will return nil instead of blocking
 		err := sbNoOri.Spin(ctx, 10, 10, nil)
 		test.That(t, err, test.ShouldBeNil)
+	})
+}
+
+func TestSensorBaseMoveStraight(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	deps, cfg := msDependencies(t, []string{"setvel1", "position1", "orientation1"})
+	b, err := createSensorBase(ctx, deps, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	sb, ok := b.(*sensorBase)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sb.position.Name().ShortName(), test.ShouldResemble, "position1")
+	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation1")
+	headingOri, err := sb.headingFunc(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, headingOri, test.ShouldEqual, orientationValue)
+	test.That(t, headingOri, test.ShouldNotEqual, compassValue)
+
+	depsNoPos, cfgNoPos := msDependencies(t, []string{"setvel1"})
+	bNoPos, err := createSensorBase(ctx, depsNoPos, cfgNoPos, logger)
+	test.That(t, err, test.ShouldBeNil)
+	sbNoPos, ok := bNoPos.(*sensorBase)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sbNoPos.orientation, test.ShouldBeNil)
+	t.Run("Test canceling a sensor controlled MoveStraight", func(t *testing.T) {
+		// flaky test, will see behavior after RSDK-6164
+		t.Skip()
+		cancelCtx, cancel := context.WithCancel(ctx)
+		wg := sync.WaitGroup{}
+		wg.Add(1)
+		utils.PanicCapturingGo(func() {
+			defer wg.Done()
+			err := sb.MoveStraight(cancelCtx, 100, 100, nil)
+			test.That(t, err, test.ShouldBeNil)
+		})
+		time.Sleep(4 * time.Second)
+		cancel()
+		wg.Wait()
+	})
+	t.Run("Test canceling a sensor controlled MoveStraight due to calling another running api", func(t *testing.T) {
+		// flaky test, will see behavior after RSDK-6164
+		t.Skip()
+		wg := sync.WaitGroup{}
+		wg.Add(1)
+		utils.PanicCapturingGo(func() {
+			defer wg.Done()
+			err := sb.MoveStraight(ctx, 100, 100, nil)
+			test.That(t, err, test.ShouldBeNil)
+		})
+		time.Sleep(2 * time.Second)
+		err := sb.SetPower(context.Background(), r3.Vector{}, r3.Vector{}, nil)
+		test.That(t, err, test.ShouldBeNil)
+		wg.Wait()
+	})
+	t.Run("Test not including a position ms will use the non controlled MoveStraight", func(t *testing.T) {
+		// the injected base will return nil instead of blocking
+		err := sbNoPos.MoveStraight(ctx, 100, 100, nil)
+		test.That(t, err, test.ShouldBeNil)
+	})
+	t.Run("Test heading error wraps", func(t *testing.T) {
+		// orientation configured, so update the value for testing
+		orientationValue = 179
+		headingOri, err := sb.headingFunc(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		// validate the orientation updated
+		test.That(t, headingOri, test.ShouldEqual, 179)
+
+		// test -179 -> 179 results in a small error
+		headingErr, err := sb.calcHeadingControl(ctx, -179)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, headingErr, test.ShouldEqual, 2)
+
+		// test full circle results in 0 error
+		headingErr2, err := sb.calcHeadingControl(ctx, 360+179)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, headingErr2, test.ShouldEqual, 0)
+		for i := -720; i <= 720; i += 30 {
+			headingErr, err := sb.calcHeadingControl(ctx, float64(i))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, headingErr, test.ShouldBeBetweenOrEqual, -180, 180)
+		}
+		orientationValue = defaultOrientationValue
 	})
 }

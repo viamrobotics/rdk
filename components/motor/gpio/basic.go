@@ -175,7 +175,15 @@ func (m *Motor) turnOff(ctx context.Context, extra map[string]interface{}) error
 // Anything calling setPWM MUST lock the motor's mutex prior.
 func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	var errs error
+	powerPct = math.Min(powerPct, m.maxPowerPct)
+	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
+	if math.Abs(powerPct) < m.minPowerPct && math.Abs(powerPct) > 0 {
+		powerPct = sign(powerPct) * m.minPowerPct
+	}
+	m.powerPct = powerPct
+
 	m.on = true
+
 	if m.EnablePinLow != nil {
 		errs = multierr.Combine(errs, m.EnablePinLow.Set(ctx, false, extra))
 	}
@@ -222,6 +230,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 		}
 	}
 
+	powerPct = math.Max(math.Abs(powerPct), m.minPowerPct)
 	return multierr.Combine(
 		errs,
 		pwmPin.SetPWMFreq(ctx, m.pwmFreq, extra),

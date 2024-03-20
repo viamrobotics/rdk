@@ -21,7 +21,7 @@ const (
 func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	// if controls are not configured, we cannot use this spin method. Instead we need to use the spin method
 	// of the base that the sensorBase wraps.
-	if len(sb.conf.ControlParameters) == 0 {
+	if len(sb.controlLoopConfig.Blocks) == 0 {
 		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's spin method", sb.controlledBase.Name().ShortName())
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
@@ -36,6 +36,8 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			return err
 		}
 	}
+	ctx, done := sb.opMgr.New(ctx)
+	defer done()
 	sb.setPolling(true)
 
 	orientation, err := sb.orientation.Orientation(ctx, nil)
