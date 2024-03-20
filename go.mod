@@ -35,6 +35,7 @@ require (
 	github.com/go-gl/mathgl v1.0.0
 	github.com/go-gnss/rtcm v0.0.3
 	github.com/go-nlopt/nlopt v0.0.0-20230219125344-443d3362dcb5
+	github.com/go-viper/mapstructure/v2 v2.0.0-alpha.1
 	github.com/goccy/go-graphviz v0.1.3-0.20240305010347-606fdf55b06d
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
@@ -58,7 +59,6 @@ require (
 	github.com/mattn/go-tflite v1.0.4
 	github.com/matttproud/golang_protobuf_extensions v1.0.4
 	github.com/mitchellh/copystructure v1.2.0
-	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mkch/gpio v0.0.0-20190919032813-8327cd97d95e
 	github.com/montanaflynn/stats v0.7.0
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
@@ -266,6 +266,7 @@ require (
 	github.com/mgechev/revive v1.2.5 // indirect
 	github.com/miekg/dns v1.1.53 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moricho/tparallel v0.2.1 // indirect
 	github.com/nakabonne/nestif v0.3.1 // indirect
