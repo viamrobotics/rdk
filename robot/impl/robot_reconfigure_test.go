@@ -3754,16 +3754,64 @@ func TestResourceConstructCtxCancel(t *testing.T) {
 	})
 }
 
+func TestResourceCloseNoHang(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
+	modelName1 := utils.RandomAlphaString(5)
+	model1 := resource.DefaultModelFamily.WithModel(modelName1)
+
+	resource.RegisterComponent(mockAPI, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (resource.Resource, error) {
+			return &mockFake{Named: conf.ResourceName().AsNamed(), shouldHangOnClose: true}, nil
+		},
+	})
+	defer func() {
+		resource.Deregister(mockAPI, model1)
+	}()
+
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "mock",
+				Model: model1,
+				API:   mockAPI,
+			},
+		},
+	}
+	r, err := New(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Lower resourceCloseTimeout to one second to speed up test.
+	originalResourceCloseTimeout := resourceCloseTimeout
+	resourceCloseTimeout = time.Second
+	defer func() {
+		resourceCloseTimeout = originalResourceCloseTimeout
+	}()
+
+	// Assert that this Close does not hang for an hour even with
+	// time.Sleep(time.Hour) in mockFake's Close method.
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	})
+}
+
 type mockFake struct {
 	resource.Named
-	createdAt      int
-	reconfCount    int
-	reconfiguredAt int64
-	failCount      int
-	shouldRebuild  bool
-	closeCount     int
-	closedAt       int64
-	logicalClock   *atomic.Int64
+	createdAt         int
+	reconfCount       int
+	reconfiguredAt    int64
+	failCount         int
+	shouldRebuild     bool
+	closeCount        int
+	closedAt          int64
+	logicalClock      *atomic.Int64
+	shouldHangOnClose bool
 }
 
 type mockFakeConfig struct {
@@ -3796,6 +3844,14 @@ func (m *mockFake) Close(ctx context.Context) error {
 		m.closedAt = m.logicalClock.Add(1)
 	}
 	m.closeCount++
+
+	if m.shouldHangOnClose {
+		timer := time.NewTimer(time.Hour)
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+		}
+	}
 	return nil
 }
 

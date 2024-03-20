@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
@@ -36,6 +37,7 @@ func init() {
 }
 
 var (
+	resourceCloseTimeout    = 30 * time.Second
 	errShellServiceDisabled = errors.New("shell service disabled in an untrusted environment")
 	errProcessesDisabled    = errors.New("processes disabled in an untrusted environment")
 )
@@ -412,11 +414,15 @@ func (manager *resourceManager) mergeResourceRPCAPIsWithRemote(r robot.Robot, ty
 func (manager *resourceManager) closeResource(ctx context.Context, res resource.Resource) error {
 	manager.logger.CInfow(ctx, "Now removing resource", "resource", res.Name())
 
-	allErrs := res.Close(ctx)
+	// Avoid hangs in Close/RemoveResource with resourceCloseTimeout.
+	closeCtx, cancel := context.WithTimeout(ctx, resourceCloseTimeout)
+	defer cancel()
+
+	allErrs := res.Close(closeCtx)
 
 	resName := res.Name()
 	if manager.moduleManager != nil && manager.moduleManager.IsModularResource(resName) {
-		if err := manager.moduleManager.RemoveResource(ctx, resName); err != nil {
+		if err := manager.moduleManager.RemoveResource(closeCtx, resName); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error removing modular resource for closure"))
 		}
 	}
