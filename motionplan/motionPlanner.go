@@ -180,7 +180,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		}
 	}
 	offsettedPlan := OffsetPlan(newPlan, request.StartPose)
-	CheckPlan(
+	if err := CheckPlan(
 		request.Frame,
 		offsettedPlan,
 		request.WorldState,
@@ -190,7 +190,9 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		spatialmath.NewZeroPose(),
 		5e6,
 		sfPlanner.logger,
-	)
+	); err != nil {
+		return nil, errors.New("should not have errored here!")
+	}
 
 	return newPlan, nil
 }
