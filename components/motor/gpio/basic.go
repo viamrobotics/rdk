@@ -207,7 +207,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 				pwmPin = m.A
 			}
 			powerPct = 1.0 - math.Abs(powerPct) // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
-		case -powerPct <= -0.001:
+		case powerPct <= -0.001:
 			pwmPin = m.A
 			if m.dirFlip {
 				pwmPin = m.B
