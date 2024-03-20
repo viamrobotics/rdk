@@ -521,14 +521,16 @@ func CheckPlan(
 			return err
 		}
 
-		formerRunningPoseError := spatialmath.Compose(formerRunningPose, errorState)
-
 		// pre-pend to segments so we can connect to the input we have not finished actuating yet
 		segments = append(segments, &ik.Segment{
-			StartPosition:      formerRunningPoseError,
-			EndPosition:        poses[1],
-			StartConfiguration: checkFrameCurrentInputs,
-			EndConfiguration:   checkFrameGoalInputs,
+			StartPosition: spatialmath.Compose(formerRunningPose, errorState),
+			EndPosition:   poses[1],
+			StartConfiguration: []frame.Input{
+				{Value: checkFrameGoalInputs[0].Value},
+				{Value: checkFrameGoalInputs[1].Value},
+				{Value: checkFrameCurrentInputs[2].Value},
+			},
+			EndConfiguration: checkFrameGoalInputs,
 		})
 	} else {
 		segments = make([]*ik.Segment, 0, len(poses))
@@ -575,6 +577,8 @@ func CheckPlan(
 	// able to call CheckStateConstraintsAcrossSegment directly.
 	var totalTravelDistanceMM float64
 	for _, segment := range segments {
+		fmt.Println("segment.StartConfiguration: ", segment.StartConfiguration)
+		fmt.Println("segment.EndConfiguration: ", segment.EndConfiguration)
 		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
 		if err != nil {
 			return err
@@ -598,7 +602,7 @@ func CheckPlan(
 			interpolatedState := &ik.State{Frame: sf}
 			if relative {
 				interpolatedState.Position = spatialmath.Compose(segment.StartPosition, poseInPath)
-				logger.Debugf("interpolatedState.Position: %v", spatialmath.PoseToProtobuf(interpolatedState.Position))
+				fmt.Println("interpolatedState.Position: ", spatialmath.PoseToProtobuf(interpolatedState.Position))
 			} else {
 				interpolatedState.Configuration = interpConfig
 			}
