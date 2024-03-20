@@ -124,7 +124,6 @@ type rtkI2C struct {
 	activeBackgroundWorkers sync.WaitGroup
 
 	mu          sync.Mutex
-	ntripMu     sync.Mutex
 	ntripClient *gpsutils.NtripInfo
 	ntripStatus bool
 
@@ -282,8 +281,8 @@ func (g *rtkI2C) getStream(mountPoint string, maxAttempts int) error {
 		}
 
 		rc, err = func() (io.ReadCloser, error) {
-			g.ntripMu.Lock()
-			defer g.ntripMu.Unlock()
+			g.mu.Lock()
+			defer g.mu.Unlock()
 			return g.ntripClient.Client.GetStream(mountPoint)
 		}()
 		if err == nil {
@@ -303,8 +302,8 @@ func (g *rtkI2C) getStream(mountPoint string, maxAttempts int) error {
 	}
 
 	g.logger.Debug("Connected to stream")
-	g.ntripMu.Lock()
-	defer g.ntripMu.Unlock()
+	g.mu.Lock()
+	defer g.mu.Unlock()
 
 	g.ntripClient.Stream = rc
 	return g.err.Get()
@@ -389,9 +388,9 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 
 	scanner := rtcm3.NewScanner(r)
 
-	g.ntripMu.Lock()
+	g.mu.Lock()
 	g.ntripStatus = true
-	g.ntripMu.Unlock()
+	g.mu.Unlock()
 
 	// It's okay to skip the mutex on this next line: g.ntripStatus can only be mutated by this
 	// goroutine itself.
@@ -405,9 +404,9 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 
 		msg, err := scanner.NextMessage()
 		if err != nil {
-			g.ntripMu.Lock()
+			g.mu.Lock()
 			g.ntripStatus = false
-			g.ntripMu.Unlock()
+			g.mu.Unlock()
 
 			if msg == nil {
 				g.logger.CDebug(ctx, "No message... reconnecting to stream...")
@@ -437,9 +436,9 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 				}
 
 				scanner = rtcm3.NewScanner(r)
-				g.ntripMu.Lock()
+				g.mu.Lock()
 				g.ntripStatus = true
-				g.ntripMu.Unlock()
+				g.mu.Unlock()
 				continue
 			}
 		}
@@ -450,24 +449,24 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 //
 //nolint:all
 func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
-	g.ntripMu.Lock()
-	defer g.ntripMu.Unlock()
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	return g.ntripStatus, g.err.Get()
 }
 
 // Position returns the current geographic location of the MOVEMENTSENSOR.
 func (g *rtkI2C) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-	g.ntripMu.Lock()
+	g.mu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
 		lastPosition := g.lastposition.GetLastPosition()
-		g.ntripMu.Unlock()
+		g.mu.Unlock()
 		if lastPosition != nil {
 			return lastPosition, 0, nil
 		}
 		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), lastError
 	}
-	g.ntripMu.Unlock()
+	g.mu.Unlock()
 
 	position, alt, err := g.cachedData.Position(ctx, extra)
 	if err != nil {
@@ -490,13 +489,13 @@ func (g *rtkI2C) Position(ctx context.Context, extra map[string]interface{}) (*g
 
 // LinearVelocity passthrough.
 func (g *rtkI2C) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	g.ntripMu.Lock()
+	g.mu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
-		defer g.ntripMu.Unlock()
+		defer g.mu.Unlock()
 		return r3.Vector{}, lastError
 	}
-	g.ntripMu.Unlock()
+	g.mu.Unlock()
 
 	return g.cachedData.LinearVelocity(ctx, extra)
 }
@@ -512,64 +511,64 @@ func (g *rtkI2C) LinearAcceleration(ctx context.Context, extra map[string]interf
 
 // AngularVelocity passthrough.
 func (g *rtkI2C) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
-	g.ntripMu.Lock()
+	g.mu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
-		defer g.ntripMu.Unlock()
+		defer g.mu.Unlock()
 		return spatialmath.AngularVelocity{}, lastError
 	}
-	g.ntripMu.Unlock()
+	g.mu.Unlock()
 
 	return g.cachedData.AngularVelocity(ctx, extra)
 }
 
 // CompassHeading passthrough.
 func (g *rtkI2C) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	g.ntripMu.Lock()
+	g.mu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
-		defer g.ntripMu.Unlock()
+		defer g.mu.Unlock()
 		return 0, lastError
 	}
-	g.ntripMu.Unlock()
+	g.mu.Unlock()
 
 	return g.cachedData.CompassHeading(ctx, extra)
 }
 
 // Orientation passthrough.
 func (g *rtkI2C) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-	g.ntripMu.Lock()
+	g.mu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
-		defer g.ntripMu.Unlock()
+		defer g.mu.Unlock()
 		return spatialmath.NewZeroOrientation(), lastError
 	}
-	g.ntripMu.Unlock()
+	g.mu.Unlock()
 
 	return g.cachedData.Orientation(ctx, extra)
 }
 
 // readFix passthrough.
 func (g *rtkI2C) readFix(ctx context.Context) (int, error) {
-	g.ntripMu.Lock()
+	g.mu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
-		defer g.ntripMu.Unlock()
+		defer g.mu.Unlock()
 		return 0, lastError
 	}
-	g.ntripMu.Unlock()
+	g.mu.Unlock()
 
 	return g.cachedData.ReadFix(ctx)
 }
 
 func (g *rtkI2C) readSatsInView(ctx context.Context) (int, error) {
-	g.ntripMu.Lock()
+	g.mu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
-		defer g.ntripMu.Unlock()
+		defer g.mu.Unlock()
 		return 0, lastError
 	}
-	g.ntripMu.Unlock()
+	g.mu.Unlock()
 
 	return g.cachedData.ReadSatsInView(ctx)
 }
@@ -619,18 +618,18 @@ func (g *rtkI2C) Readings(ctx context.Context, extra map[string]interface{}) (ma
 
 // Close shuts down the rtkI2C.
 func (g *rtkI2C) Close(ctx context.Context) error {
-	g.ntripMu.Lock()
+	g.mu.Lock()
 	g.cancelFunc()
 
 	if err := g.cachedData.Close(ctx); err != nil {
-		g.ntripMu.Unlock()
+		g.mu.Unlock()
 		return err
 	}
 
 	// close ntrip writer
 	if g.correctionWriter != nil {
 		if err := g.correctionWriter.Close(); err != nil {
-			g.ntripMu.Unlock()
+			g.mu.Unlock()
 			return err
 		}
 		g.correctionWriter = nil
@@ -644,13 +643,13 @@ func (g *rtkI2C) Close(ctx context.Context) error {
 
 	if g.ntripClient.Stream != nil {
 		if err := g.ntripClient.Stream.Close(); err != nil {
-			g.ntripMu.Unlock()
+			g.mu.Unlock()
 			return err
 		}
 		g.ntripClient.Stream = nil
 	}
 
-	g.ntripMu.Unlock()
+	g.mu.Unlock()
 	g.activeBackgroundWorkers.Wait()
 
 	if err := g.err.Get(); err != nil && !errors.Is(err, context.Canceled) {
