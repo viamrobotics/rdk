@@ -232,8 +232,20 @@ func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra 
 }
 
 // StreamTicks starts a stream of digital interrupt ticks.
-func (b *Board) StreamTicks(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
-	return grpc.UnimplementedError
+func (b *Board) StreamTicks(ctx context.Context, interruptNames []string, ch chan board.Tick, extra map[string]interface{}) error {
+	var interrupts []board.DigitalInterrupt
+	for _, name := range interruptNames {
+		interrupt, ok := b.DigitalInterruptByName(name)
+		if !ok {
+			return errors.Errorf("unknown digital interrupt: %s", name)
+		}
+		interrupts = append(interrupts, interrupt)
+	}
+
+	for _, i := range interrupts {
+		i.AddCallback(ch)
+	}
+	return nil
 }
 
 // Close attempts to cleanly close each part of the board.

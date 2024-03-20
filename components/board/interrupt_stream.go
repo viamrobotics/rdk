@@ -17,7 +17,6 @@ type interruptStream struct {
 	streamMu      sync.Mutex
 
 	activeBackgroundWorkers sync.WaitGroup
-	cancelBackgroundWorkers context.CancelFunc
 	extra                   *structpb.Struct
 }
 
@@ -25,13 +24,14 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []string, 
 	s.streamMu.Lock()
 	defer s.streamMu.Unlock()
 
+	if ctx.Err() != nil {
+		return nil
+	}
+
 	s.streamRunning = true
 	s.streamReady = make(chan bool)
 	s.activeBackgroundWorkers.Add(1)
 	ctx, cancel := context.WithCancel(ctx)
-	s.cancelBackgroundWorkers = cancel
-
-	streamCtx, cancel := context.WithCancel(ctx)
 	s.streamCancel = cancel
 
 	select {
@@ -43,22 +43,24 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []string, 
 	req := &pb.StreamTicksRequest{
 		Name:     s.client.info.name,
 		PinNames: interrupts,
+		Extra:    s.extra,
 	}
 
 	// This call won't return any errors it had until the client tries to receive.
 	//nolint:errcheck
-	stream, _ := s.client.client.StreamTicks(streamCtx, req)
+
+	stream, _ := s.client.client.StreamTicks(ctx, req)
 	_, err := stream.Recv()
 	if err != nil {
 		s.client.logger.CError(ctx, err)
 		return err
 	}
 
-	// Create a background go routine to recive from the server stream.
-	utils.PanicCapturingGo(func() {
-		defer s.activeBackgroundWorkers.Done()
-		s.recieveFromStream(streamCtx, stream, ch)
-	})
+	// Create a background go routine to recieve from the server stream.
+	utils.ManagedGo(func() {
+		s.recieveFromStream(ctx, stream, ch)
+	},
+		s.activeBackgroundWorkers.Done)
 
 	select {
 	case <-ctx.Done():
@@ -78,7 +80,7 @@ func (s *interruptStream) recieveFromStream(ctx context.Context, stream pb.Board
 		close(s.streamReady)
 	}
 	s.streamReady = nil
-	defer s.closeStream(s.streamCancel)
+	defer s.closeStream()
 
 	// repeatly receive from the stream
 	for {
@@ -104,7 +106,7 @@ func (s *interruptStream) recieveFromStream(ctx context.Context, stream pb.Board
 	}
 }
 
-func (s *interruptStream) closeStream(cancel func()) {
-	cancel()
+func (s *interruptStream) closeStream() {
+	s.streamCancel()
 	s.client.removeStream(s)
 }

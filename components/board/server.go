@@ -218,7 +218,7 @@ func (s *serviceServer) StreamTicks(
 	}
 
 	ticksChan := make(chan Tick)
-	err = b.StreamTicks(server.Context(), req.PinNames, ticksChan, nil)
+	err = b.StreamTicks(server.Context(), req.PinNames, ticksChan, req.Extra.AsMap())
 	if err != nil {
 		return err
 	}

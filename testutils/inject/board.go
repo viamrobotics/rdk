@@ -29,6 +29,8 @@ type Board struct {
 	statusCap                  []interface{}
 	SetPowerModeFunc           func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error
 	WriteAnalogFunc            func(ctx context.Context, pin string, value int32, extra map[string]interface{}) error
+	StreamTicksFunc            func(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error
+	RemoveCallbacksFunc        func(ctx context.Context, interrupts []string, ticksChan chan board.Tick) error
 }
 
 // NewBoard returns a new injected board.
@@ -164,4 +166,20 @@ func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra 
 		return b.Board.WriteAnalog(ctx, pin, value, extra)
 	}
 	return b.WriteAnalogFunc(ctx, pin, value, extra)
+}
+
+// StreamTicks calls the injected StreamTicks or the real version.
+func (b *Board) StreamTicks(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
+	if b.StreamTicksFunc == nil {
+		return b.Board.StreamTicks(ctx, interrupts, ch, extra)
+	}
+	return b.StreamTicksFunc(ctx, interrupts, ch, extra)
+}
+
+// RemoveCallbacks removes the callbacks from the given interrupts.
+func (b *Board) RemoveCallbacks(ctx context.Context, interrupts []string, ticksChan chan board.Tick) error {
+	if b.RemoveCallbacksFunc == nil {
+		return b.Board.RemoveCallbacks(ctx, interrupts, ticksChan)
+	}
+	return b.RemoveCallbacksFunc(ctx, interrupts, ticksChan)
 }
