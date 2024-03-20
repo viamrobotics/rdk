@@ -410,6 +410,8 @@ func (manager *resourceManager) mergeResourceRPCAPIsWithRemote(r robot.Robot, ty
 }
 
 func (manager *resourceManager) closeResource(ctx context.Context, res resource.Resource) error {
+	manager.logger.CInfow(ctx, fmt.Sprintf("now removing resource"), "resource", res.Name())
+
 	allErrs := res.Close(ctx)
 
 	resName := res.Name()
@@ -516,7 +518,7 @@ func (manager *resourceManager) completeConfig(
 		} else {
 			verb = "reconfiguring"
 		}
-		manager.logger.CDebugw(ctx, fmt.Sprintf("now %s a remote", verb), "resource", resName)
+		manager.logger.CInfow(ctx, fmt.Sprintf("now %s a remote", verb), "resource", resName)
 		switch resName.API {
 		case client.RemoteAPI:
 			remConf, err := resource.NativeConfig[*config.Remote](gNode.Config())
@@ -609,7 +611,7 @@ func (manager *resourceManager) completeConfig(
 			} else {
 				verb = "reconfiguring"
 			}
-			manager.logger.CDebugw(ctx, fmt.Sprintf("now %s resource", verb), "resource", resName)
+			manager.logger.CInfow(ctx, fmt.Sprintf("now %s resource", verb), "resource", resName)
 
 			// this is done in config validation but partial start rules require us to check again
 			if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
@@ -754,7 +756,7 @@ func (manager *resourceManager) processRemote(
 	gNode *resource.GraphNode,
 ) (*client.RobotClient, error) {
 	dialOpts := remoteDialOptions(config, manager.opts)
-	manager.logger.CDebugw(ctx, "connecting now to remote", "remote", config.Name)
+	manager.logger.CInfow(ctx, "connecting now to remote", "remote", config.Name)
 	robotClient, err := dialRobotClient(ctx, config, gNode.Logger(), dialOpts...)
 	if err != nil {
 		if errors.Is(err, rpc.ErrInsecureWithCredentials) {
@@ -766,7 +768,7 @@ func (manager *resourceManager) processRemote(
 		}
 		return nil, errors.Errorf("couldn't connect to robot remote (%s): %s", config.Address, err)
 	}
-	manager.logger.CDebugw(ctx, "connected now to remote", "remote", config.Name)
+	manager.logger.CInfow(ctx, "connected now to remote", "remote", config.Name)
 	return robotClient, nil
 }
 

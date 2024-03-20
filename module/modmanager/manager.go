@@ -226,6 +226,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		go func(i int, conf config.Module) {
 			defer wg.Done()
 
+			mgr.logger.CInfow(ctx, "now adding module", "module", conf.Name)
 			err := mgr.add(ctx, conf)
 			if err != nil {
 				mgr.logger.CErrorw(ctx, "error adding module", "module", conf.Name, "error", err)
@@ -328,6 +329,9 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	if !exists {
 		return nil, errors.Errorf("cannot reconfigure module %s as it does not exist", conf.Name)
 	}
+
+	mgr.logger.CInfow(ctx, "now reconfiguring module", "module", conf.Name)
+
 	handledResources := mod.resources
 	var handledResourceNames []resource.Name
 	for name := range handledResources {
@@ -373,6 +377,9 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 	if !exists {
 		return nil, errors.Errorf("cannot remove module %s as it does not exist", modName)
 	}
+
+	mgr.logger.Infow("now removing module", "module", modName)
+
 	handledResources := mod.resources
 
 	// If module handles no resources, remove it now. Otherwise mark it
