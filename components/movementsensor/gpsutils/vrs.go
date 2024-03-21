@@ -1,5 +1,5 @@
-// Package rtkutils implements functions that are used in the gpsrtkserial and gpsrtkpmtk.
-package rtkutils
+// Package gpsutils implements functions that are used in the gpsrtkserial and gpsrtkpmtk.
+package gpsutils
 
 import (
 	"bufio"
@@ -92,9 +92,9 @@ func ContainsGGAMessage(data []byte) bool {
 	return strings.Contains(dataStr, "GGA")
 }
 
-// FindLineWithMountPoint parses the given source-table returns the NMEA field associated with
-// the given mountpoint.
-func FindLineWithMountPoint(sourceTable *Sourcetable, mountPoint string) (bool, error) {
+// HasVRSStream returns the NMEA field associated with the given mountpoint
+// and whether it is a Virtual Reference Station.
+func HasVRSStream(sourceTable *Sourcetable, mountPoint string) (bool, error) {
 	stream, isFound := sourceTable.HasStream(mountPoint)
 
 	if !isFound {

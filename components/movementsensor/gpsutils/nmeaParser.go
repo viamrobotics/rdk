@@ -1,4 +1,4 @@
-package rtkutils
+package gpsutils
 
 import (
 	"fmt"
@@ -203,6 +203,13 @@ func (g *NmeaParser) updateGLL(gll nmea.GLL) error {
 func (g *NmeaParser) updateVTG(vtg nmea.VTG) error {
 	// VTG provides ground speed
 	g.Speed = vtg.GroundSpeedKPH * kphToMPerSec
+
+	// Check if the true heading is provided before updating
+	if vtg.TrueTrack != 0 {
+		// Update the true heading in degrees
+		g.CompassHeading = vtg.TrueTrack
+	}
+
 	return nil
 }
 

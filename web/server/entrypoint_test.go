@@ -35,8 +35,7 @@ func TestEntrypoint(t *testing.T) {
 	if runtime.GOARCH == "arm" {
 		t.Skip("skipping on 32-bit ARM, subprocess build warnings cause failure")
 	}
-	serverPath, err := testutils.BuildTempModule(t, "web/cmd/server/")
-	test.That(t, err, test.ShouldBeNil)
+	serverPath := testutils.BuildTempModule(t, "web/cmd/server/")
 
 	t.Run("number of resources", func(t *testing.T) {
 		logger, logObserver := logging.NewObservedTestLogger(t)
@@ -55,9 +54,7 @@ func TestEntrypoint(t *testing.T) {
 			cfgFilename, err = robottestutils.MakeTempConfig(t, cfg, logger)
 			test.That(t, err, test.ShouldBeNil)
 
-			serverPath, err := testutils.BuildTempModule(t, "web/cmd/server/")
-			test.That(t, err, test.ShouldBeNil)
-
+			serverPath := testutils.BuildTempModule(t, "web/cmd/server/")
 			server := pexec.NewManagedProcess(pexec.ProcessConfig{
 				Name: serverPath,
 				Args: []string{"-config", cfgFilename},

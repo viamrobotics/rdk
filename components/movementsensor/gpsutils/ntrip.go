@@ -1,6 +1,6 @@
-// Package rtkutils implements necessary functions to set and return
+// Package gpsutils implements necessary functions to set and return
 // NTRIP information here.
-package rtkutils
+package gpsutils
 
 import (
 	"bufio"
@@ -152,11 +152,13 @@ Loop:
 		case "NET":
 			continue
 		case "STR":
-			str, err := parseStream(ln)
-			if err != nil {
-				return nil, fmt.Errorf("error while parsing stream: %w", err)
+			if fields[mp] == n.MountPoint {
+				str, err := parseStream(ln)
+				if err != nil {
+					return nil, fmt.Errorf("error while parsing stream: %w", err)
+				}
+				st.Streams = append(st.Streams, str)
 			}
-			st.Streams = append(st.Streams, str)
 		case "ENDSOURCETABLE":
 			break Loop
 		default:

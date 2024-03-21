@@ -167,7 +167,7 @@ func buildTestDDK(
 	var limits []referenceframe.Limit
 	if hasLocalizer {
 		fakeSLAM := fake.NewSLAM(slam.Named("test"), logger)
-		limits, err = fakeSLAM.Limits(ctx)
+		limits, err = fakeSLAM.Limits(ctx, true)
 		if err != nil {
 			return nil, err
 		}

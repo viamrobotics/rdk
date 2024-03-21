@@ -848,7 +848,7 @@ func toRDKSlice[PT, RT any](
 	for _, proto := range protoList {
 		rdk, err := toRDK(proto)
 		if err != nil {
-			logger.Debugw("error converting from proto to config", "type", reflect.TypeOf(proto).String(), "error", err)
+			logger.Errorw("error converting from proto to config", "type", reflect.TypeOf(proto).String(), "error", err)
 			if disablePartialStart {
 				return nil, err
 			}

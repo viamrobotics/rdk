@@ -161,7 +161,7 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context, goal spatialmath.Po
 	mp.planOpts.SetGoal(goal)
 	solutionChan := make(chan *rrtSolution, 1)
 
-	seedPos := spatialmath.NewZeroPose()
+	seedPos := mp.opt().StartPose
 
 	startNode := &basicNode{q: make([]referenceframe.Input, len(mp.frame.DoF())), cost: 0, pose: seedPos, corner: false}
 	maps := &rrtMaps{startMap: map[node]node{startNode: nil}}
@@ -248,7 +248,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 
 	publishFinishedPath := func(path []node) {
 		// If we've reached the goal, extract the path from the RRT trees and return
-		correctedPath, err := rectifyTPspacePath(path, mp.frame, spatialmath.NewZeroPose())
+		correctedPath, err := rectifyTPspacePath(path, mp.frame, startPose)
 		if err != nil {
 			rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 			return
@@ -257,7 +257,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		// Print debug info if requested
 		if pathdebug {
 			allPtgs := mp.tpFrame.PTGSolvers()
-			lastPose := spatialmath.NewZeroPose()
+			lastPose := startPose
 			for _, mynode := range correctedPath {
 				trajPts, err := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value, mp.planOpts.Resolution)
 				if err != nil {
@@ -288,7 +288,8 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	// The midpoint should not be the 50% interpolation of start/goal poses, but should be the 50% interpolated point with the orientation
 	// pointing at the goal from the start
 	midPt := startPose.Point().Add(goalPose.Point()).Mul(0.5)
-	midOrient := &spatialmath.OrientationVector{OZ: 1, Theta: math.Atan2(-midPt.X, midPt.Y)}
+	midPtNormalized := midPt.Sub(startPose.Point())
+	midOrient := &spatialmath.OrientationVector{OZ: 1, Theta: math.Atan2(-midPtNormalized.X, midPtNormalized.Y)}
 
 	midptNode := &basicNode{pose: spatialmath.NewPose(midPt, midOrient), cost: midPt.Sub(startPose.Point()).Norm()}
 	var randPosNode node = midptNode
@@ -888,7 +889,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 
 	if pathdebug {
 		allPtgs := mp.tpFrame.PTGSolvers()
-		lastPose := spatialmath.NewZeroPose()
+		lastPose := path[0].Pose()
 		for _, mynode := range path {
 			trajPts, err := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value, mp.planOpts.Resolution)
 			if err != nil {
@@ -922,7 +923,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 ) ([]node, error) {
 	startMap := map[node]node{}
 	var parent node
-	parentPose := spatialmath.NewZeroPose()
+	parentPose := path[0].Pose()
 
 	for j := 0; j <= firstEdge; j++ {
 		pathNode := path[j]
@@ -974,7 +975,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 		// so this step will replace it.
 		newInputSteps = append(newInputSteps, path[len(path)-1])
 	}
-	return rectifyTPspacePath(newInputSteps, mp.frame, spatialmath.NewZeroPose())
+	return rectifyTPspacePath(newInputSteps, mp.frame, path[0].Pose())
 }
 
 func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {

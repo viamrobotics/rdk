@@ -81,6 +81,7 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 		Goal:               dstPIF,
 		Frame:              f,
 		StartConfiguration: inputMap,
+		StartPose:          spatialmath.NewZeroPose(),
 		FrameSystem:        fs,
 	})
 	test.That(t, err, test.ShouldBeNil)
@@ -174,6 +175,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		StartConfiguration: inputMap,
 		FrameSystem:        fs,
 		WorldState:         worldState,
+		StartPose:          spatialmath.NewZeroPose(),
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)

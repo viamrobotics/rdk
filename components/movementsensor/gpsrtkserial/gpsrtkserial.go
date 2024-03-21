@@ -48,8 +48,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/components/movementsensor/gpsnmea"
-	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
+	"go.viam.com/rdk/components/movementsensor/gpsutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -107,7 +106,7 @@ type rtkSerial struct {
 	activeBackgroundWorkers sync.WaitGroup
 	mu                      sync.Mutex
 
-	ntripClient        *rtk.NtripInfo
+	ntripClient        *gpsutils.NtripInfo
 	isConnectedToNtrip bool
 	isClosed           bool
 
@@ -116,14 +115,14 @@ type rtkSerial struct {
 	lastcompassheading movementsensor.LastCompassHeading
 	InputProtocol      string
 
-	nmeamovementsensor gpsnmea.NmeaMovementSensor
-	correctionWriter   io.ReadWriteCloser
-	writePath          string
-	wbaud              int
-	isVirtualBase      bool
-	readerWriter       *bufio.ReadWriter
-	writer             io.Writer
-	reader             io.Reader
+	cachedData       *gpsutils.CachedData
+	correctionWriter io.ReadWriteCloser
+	writePath        string
+	wbaud            int
+	isVirtualBase    bool
+	readerWriter     *bufio.ReadWriter
+	writer           io.Writer
+	reader           io.Reader
 }
 
 // Reconfigure reconfigures attributes.
@@ -149,7 +148,7 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		g.logger.CInfo(ctx, "serial_baud_rate using default baud rate 38400")
 	}
 
-	ntripConfig := &rtk.NtripConfig{
+	ntripConfig := &gpsutils.NtripConfig{
 		NtripURL:             newConf.NtripURL,
 		NtripUser:            newConf.NtripUser,
 		NtripPass:            newConf.NtripPass,
@@ -158,7 +157,7 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	// Init ntripInfo from attributes
-	tempNtripClient, err := rtk.NewNtripInfo(ntripConfig, g.logger)
+	tempNtripClient, err := gpsutils.NewNtripInfo(ntripConfig, g.logger)
 	if err != nil {
 		return err
 	}
@@ -201,19 +200,16 @@ func newRTKSerial(
 	}
 
 	g.InputProtocol = serialStr
-	nmeaConf := &gpsnmea.Config{
-		ConnectionType: serialStr,
-	}
 
-	// Init NMEAMovementSensor
-	nmeaConf.SerialConfig = &gpsnmea.SerialConfig{
+	serialConfig := &gpsutils.SerialConfig{
 		SerialPath:     newConf.SerialPath,
 		SerialBaudRate: newConf.SerialBaudRate,
 	}
-	g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
+	dev, err := gpsutils.NewSerialDataReader(serialConfig, logger)
 	if err != nil {
 		return nil, err
 	}
+	g.cachedData = gpsutils.NewCachedData(dev, logger)
 
 	if err := g.start(); err != nil {
 		return nil, err
@@ -346,7 +342,7 @@ func (g *rtkSerial) connectAndParseSourceTable() error {
 		}
 	}
 
-	g.logger.Debug("gettting source table")
+	g.logger.Debug("getting source table")
 
 	srcTable, err := g.ntripClient.ParseSourcetable(g.logger)
 	if err != nil {
@@ -356,7 +352,7 @@ func (g *rtkSerial) connectAndParseSourceTable() error {
 	g.logger.Debugf("sourceTable is: %v\n", srcTable)
 
 	g.logger.Debug("got sourcetable, parsing it...")
-	g.isVirtualBase, err = rtk.FindLineWithMountPoint(srcTable, g.ntripClient.MountPoint)
+	g.isVirtualBase, err = gpsutils.HasVRSStream(srcTable, g.ntripClient.MountPoint)
 	if err != nil {
 		g.logger.Errorf("can't find mountpoint in source table, found err %v\n", err)
 		return err
@@ -374,29 +370,26 @@ func (g *rtkSerial) connectToNTRIP() error {
 	}
 	err := g.connectAndParseSourceTable()
 	if err != nil {
-		return g.err.Get()
+		return err
 	}
 
 	err = g.openPort()
 	if err != nil {
-		g.err.Set(err)
-		return g.err.Get()
+		return err
 	}
 
 	if g.isVirtualBase {
 		g.logger.Debug("connecting to a Virtual Reference Station")
 		err = g.getNtripFromVRS()
 		if err != nil {
-			g.err.Set(err)
-			return g.err.Get()
+			return err
 		}
 	} else {
 		g.logger.Debug("connecting to NTRIP stream........")
 		g.writer = bufio.NewWriter(g.correctionWriter)
 		err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 		if err != nil {
-			g.err.Set(err)
-			return g.err.Get()
+			return err
 		}
 
 		g.reader = io.TeeReader(g.ntripClient.Stream, g.writer)
@@ -487,7 +480,7 @@ func (g *rtkSerial) Position(ctx context.Context, extra map[string]interface{}) 
 	}
 	g.mu.Unlock()
 
-	position, alt, err := g.nmeamovementsensor.Position(ctx, extra)
+	position, alt, err := g.cachedData.Position(ctx, extra)
 	if err != nil {
 		// Use the last known valid position if current position is (0,0)/ NaN.
 		if position != nil && (movementsensor.IsZeroPosition(position) || movementsensor.IsPositionNaN(position)) {
@@ -514,7 +507,7 @@ func (g *rtkSerial) LinearVelocity(ctx context.Context, extra map[string]interfa
 		return r3.Vector{}, lastError
 	}
 
-	return g.nmeamovementsensor.LinearVelocity(ctx, extra)
+	return g.cachedData.LinearVelocity(ctx, extra)
 }
 
 // LinearAcceleration passthrough.
@@ -523,7 +516,7 @@ func (g *rtkSerial) LinearAcceleration(ctx context.Context, extra map[string]int
 	if lastError != nil {
 		return r3.Vector{}, lastError
 	}
-	return g.nmeamovementsensor.LinearAcceleration(ctx, extra)
+	return g.cachedData.LinearAcceleration(ctx, extra)
 }
 
 // AngularVelocity passthrough.
@@ -536,7 +529,7 @@ func (g *rtkSerial) AngularVelocity(ctx context.Context, extra map[string]interf
 		return spatialmath.AngularVelocity{}, lastError
 	}
 
-	return g.nmeamovementsensor.AngularVelocity(ctx, extra)
+	return g.cachedData.AngularVelocity(ctx, extra)
 }
 
 // CompassHeading passthrough.
@@ -548,7 +541,7 @@ func (g *rtkSerial) CompassHeading(ctx context.Context, extra map[string]interfa
 	if lastError != nil {
 		return 0, lastError
 	}
-	return g.nmeamovementsensor.CompassHeading(ctx, extra)
+	return g.cachedData.CompassHeading(ctx, extra)
 }
 
 // Orientation passthrough.
@@ -560,7 +553,7 @@ func (g *rtkSerial) Orientation(ctx context.Context, extra map[string]interface{
 	if lastError != nil {
 		return spatialmath.NewZeroOrientation(), lastError
 	}
-	return g.nmeamovementsensor.Orientation(ctx, extra)
+	return g.cachedData.Orientation(ctx, extra)
 }
 
 // readFix passthrough.
@@ -572,7 +565,7 @@ func (g *rtkSerial) readFix(ctx context.Context) (int, error) {
 	if lastError != nil {
 		return 0, lastError
 	}
-	return g.nmeamovementsensor.ReadFix(ctx)
+	return g.cachedData.ReadFix(ctx)
 }
 
 // readSatsInView returns the number of satellites in view.
@@ -585,7 +578,7 @@ func (g *rtkSerial) readSatsInView(ctx context.Context) (int, error) {
 		return 0, lastError
 	}
 
-	return g.nmeamovementsensor.ReadSatsInView(ctx)
+	return g.cachedData.ReadSatsInView(ctx)
 }
 
 // Properties passthrough.
@@ -598,7 +591,7 @@ func (g *rtkSerial) Properties(ctx context.Context, extra map[string]interface{}
 		return &movementsensor.Properties{}, lastError
 	}
 
-	return g.nmeamovementsensor.Properties(ctx, extra)
+	return g.cachedData.Properties(ctx, extra)
 }
 
 // Accuracy passthrough.
@@ -612,7 +605,7 @@ func (g *rtkSerial) Accuracy(ctx context.Context, extra map[string]interface{}) 
 		return nil, lastError
 	}
 
-	return g.nmeamovementsensor.Accuracy(ctx, extra)
+	return g.cachedData.Accuracy(ctx, extra)
 }
 
 // Readings will use the default MovementSensor Readings if not provided.
@@ -644,7 +637,7 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 	g.cancelFunc()
 
 	g.logger.Debug("Closing GPS RTK Serial")
-	if err := g.nmeamovementsensor.Close(ctx); err != nil {
+	if err := g.cachedData.Close(ctx); err != nil {
 		g.mu.Unlock()
 		return err
 	}
@@ -690,7 +683,7 @@ func (g *rtkSerial) getNtripFromVRS() error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	g.readerWriter = rtk.ConnectToVirtualBase(g.ntripClient, g.logger)
+	g.readerWriter = gpsutils.ConnectToVirtualBase(g.ntripClient, g.logger)
 
 	// read from the socket until we know if a successful connection has been
 	// established.
@@ -715,7 +708,7 @@ func (g *rtkSerial) getNtripFromVRS() error {
 		}
 	}
 
-	ggaMessage, err := rtk.GetGGAMessage(g.correctionWriter, g.logger)
+	ggaMessage, err := gpsutils.GetGGAMessage(g.correctionWriter, g.logger)
 	if err != nil {
 		g.logger.Error("Failed to get GGA message")
 		return err

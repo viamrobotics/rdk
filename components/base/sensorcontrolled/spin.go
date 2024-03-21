@@ -2,100 +2,55 @@ package sensorcontrolled
 
 import (
 	"context"
+	"errors"
 	"math"
 	"time"
-
-	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
-	increment = 0.01 // angle fraction multiplier to check
-	oneTurn   = 360.0
+	increment       = 0.01 // angle fraction multiplier to check
+	oneTurn         = 360.0
+	maxSlowDownAng  = 30. // maximum angle from goal for spin to begin breaking
+	slowDownAngGain = 0.1 // Use the final 10% of the requested spin to slow down
 )
 
-// Spin commands a base to turn about its center at a angular speed and for a specific angle.
+// Spin commands a base to turn about its center at an angular speed and for a specific angle.
 func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-	sb.stopLoop()
-	if math.Abs(angleDeg) >= 360.0 {
-		sb.setPolling(false)
-		sb.logger.CWarn(ctx, "feedback for spin calls over 360 not supported yet, spinning without sensor")
-		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, nil)
+	// if controls are not configured, we cannot use this spin method. Instead we need to use the spin method
+	// of the base that the sensorBase wraps.
+	if len(sb.controlLoopConfig.Blocks) == 0 {
+		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's spin method", sb.controlledBase.Name().ShortName())
+		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
-	ctx, done := sb.opMgr.New(ctx)
-	defer done()
-	// check if a sensor context has been started
-	if sb.sensorLoopDone != nil {
-		sb.sensorLoopDone()
+	if sb.orientation == nil {
+		sb.logger.CWarn(ctx, "orientation movement sensor not configured,using %v's spin method", sb.controlledBase.Name().ShortName())
+		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
 
-	sb.setPolling(true)
-
-	// starts a goroutine from within wheeled base's runAll function to run motors in the background
-	if err := sb.startRunningMotors(ctx, angleDeg, degsPerSec); err != nil {
-		return err
-	}
-
-	// this will be removed when spin is migrated to using a control loop
-	if angleDeg > 0 {
-		time.Sleep(1000 * time.Millisecond)
-		sb.logger.Error("done sleeping")
-	}
-
-	// start a sensor context for the sensor loop based on the longstanding base
-	// creator context
-	var sensorCtx context.Context
-	sensorCtx, sb.sensorLoopDone = context.WithCancel(context.Background())
-	if err := sb.stopSpinWithSensor(sensorCtx, angleDeg, degsPerSec); err != nil {
-		return err
-	}
-
-	// isPolling returns true when a Spin call is in progress, which is not a success condition for our control loop
-	baseStopped := func(ctx context.Context) (bool, error) {
-		polling := sb.isPolling()
-		return !polling, nil
-	}
-
-	if err := sb.opMgr.WaitForSuccess(
-		ctx,
-		yawPollTime,
-		baseStopped,
-	); err != nil {
-		if !errors.Is(err, context.Canceled) {
+	// make sure the control loop is enabled
+	if sb.loop == nil {
+		if err := sb.startControlLoop(); err != nil {
 			return err
 		}
 	}
-	return nil
-}
+	ctx, done := sb.opMgr.New(ctx)
+	defer done()
+	sb.setPolling(true)
 
-func (sb *sensorBase) startRunningMotors(ctx context.Context, angleDeg, degsPerSec float64) error {
-	if math.Signbit(angleDeg) != math.Signbit(degsPerSec) {
-		degsPerSec *= -1
-	}
-	return sb.controlledBase.SetVelocity(ctx,
-		r3.Vector{X: 0, Y: 0, Z: 0},
-		r3.Vector{X: 0, Y: 0, Z: degsPerSec}, nil)
-}
-
-func (sb *sensorBase) stopSpinWithSensor(
-	ctx context.Context, angleDeg, degsPerSec float64,
-) error {
-	// imu readings are limited from 0 -> 360
-	startYaw, err := getCurrentYaw(sb.orientation)
+	orientation, err := sb.orientation.Orientation(ctx, nil)
 	if err != nil {
 		return err
 	}
+	prevAngle := rdkutils.RadToDeg(orientation.EulerAngles().Yaw)
+	angErr := 0.
+	prevMovedAng := 0.
+	slowDownAng := calcSlowDownAng(angleDeg)
 
-	targetYaw, dir, _ := findSpinParams(angleDeg, degsPerSec, startYaw)
-
-	errBound := boundCheckTarget
-
-	// reset error counter for imu reading errors
-	errCounter := 0
+	ticker := time.NewTicker(time.Duration(1000./sb.controlLoopConfig.Frequency) * time.Millisecond)
+	defer ticker.Stop()
 
 	// timeout duration is a multiplier times the expected time to perform a movement
 	spinTimeEst := time.Duration(int(time.Second) * int(math.Abs(angleDeg/degsPerSec)))
@@ -105,162 +60,111 @@ func (sb *sensorBase) stopSpinWithSensor(
 		timeOut = 10 * time.Second
 	}
 
-	sb.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
-		ticker := time.NewTicker(yawPollTime)
-		defer ticker.Stop()
+	for {
+		// check if we want to poll the sensor at all
+		// other API calls set this to false so that this for loop stops
+		if !sb.isPolling() {
+			ticker.Stop()
+			sb.logger.CWarn(ctx, "Spin call interrupted by another running api")
+			return nil
+		}
 
-		for {
-			// check if we want to poll the sensor at all
-			// other API calls set this to false so that this for loop stops
-			if !sb.isPolling() {
-				ticker.Stop()
+		if err := ctx.Err(); err != nil {
+			ticker.Stop()
+			return err
+		}
+
+		select {
+		case <-ctx.Done():
+			// do not return context canceled errors, just log them
+			if errors.Is(ctx.Err(), context.Canceled) {
+				sb.logger.Error(ctx.Err())
+				return nil
+			}
+			return err
+		case <-ticker.C:
+
+			currYaw, err := getYawInDeg(ctx, sb.orientation)
+			if err != nil {
+				return err
+			}
+			angErr, prevMovedAng = getAngError(currYaw, prevAngle, prevMovedAng, angleDeg)
+
+			if math.Abs(angErr) < boundCheckTarget {
+				return sb.Stop(ctx, nil)
+			}
+			angVel := calcAngVel(angErr, degsPerSec, slowDownAng)
+
+			if err := sb.updateControlConfig(ctx, 0, angVel); err != nil {
+				return err
 			}
 
-			if err := ctx.Err(); err != nil {
-				ticker.Stop()
-				return
-			}
+			// track the previous angle to compute how much we moved with each iteration
+			prevAngle = currYaw
 
-			select {
-			case <-ctx.Done():
-				ticker.Stop()
-				return
-			case <-ticker.C:
-				// imu readings are limited from 0 -> 360
-				currYaw, err := getCurrentYaw(sb.orientation)
-				if err != nil {
-					errCounter++
-					if errCounter > 100 {
-						sb.logger.CError(ctx, errors.Wrap(
-							err,
-							"imu sensor unreachable, 100 error counts when trying to read yaw angle, stopping base"))
-						if err = sb.Stop(ctx, nil); err != nil {
-							return
-						}
-					}
-					continue
+			// check if the duration of the spin exceeds the expected length of the spin
+			if time.Since(startTime) > timeOut {
+				sb.logger.CWarn(ctx, "exceeded time for Spin call, stopping base")
+				if err := sb.Stop(ctx, nil); err != nil {
+					return err
 				}
-				errCounter = 0 // reset reading error count to zero if we are successfully reading again
-
-				atTarget, overShot, minTravel := getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg, errBound)
-
-				if sensorDebug {
-					sb.logger.CDebugf(ctx, "minTravel %t, atTarget %t, overshot %t", minTravel, atTarget, overShot)
-					sb.logger.CDebugf(ctx, "angleDeg %.2f", angleDeg)
-					sb.logger.CDebugf(ctx,
-						"currYaw %.2f, startYaw %.2f, targetYaw %.2f",
-						currYaw, startYaw, targetYaw)
-				}
-
-				// poll the sensor for the current error in angle
-				// check if we've overshot our target by the errTarget value
-				// check if we've travelled at all
-				if minTravel && (atTarget || overShot) {
-					if sensorDebug {
-						sb.logger.CDebugf(ctx,
-							"stopping base with errAngle:%.2f, overshot? %t",
-							math.Abs(targetYaw-currYaw), overShot)
-					}
-
-					if err := sb.Stop(ctx, nil); err != nil {
-						return
-					}
-				}
-
-				if time.Since(startTime) > timeOut {
-					sb.logger.CWarn(ctx, "exceeded time for Spin call, stopping base")
-					if err := sb.Stop(ctx, nil); err != nil {
-						return
-					}
-					return
-				}
+				return nil
 			}
 		}
-	}, sb.activeBackgroundWorkers.Done)
-	return nil
-}
-
-func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg, errorBound float64) (atTarget, overShot, minTravel bool) {
-	atTarget = math.Abs(targetYaw-currYaw) < errorBound
-	overShot = hasOverShot(currYaw, startYaw, targetYaw, dir)
-	travelIncrement := math.Abs(angleDeg * increment)
-	// check the case where we're asking for a 360 degree turn, this results in a zero travelIncrement
-	if math.Abs(angleDeg) < 360 {
-		minTravel = math.Abs(currYaw-startYaw) > travelIncrement
-	} else {
-		minTravel = false
 	}
-	return atTarget, overShot, minTravel
 }
 
-func getCurrentYaw(ms movementsensor.MovementSensor,
-) (float64, error) {
-	ctx, done := context.WithCancel(context.Background())
-	defer done()
-	orientation, err := ms.Orientation(ctx, nil)
+// getYawInDeg gets the yaw from a movement sensor that supports orientation and returns it in degrees.
+func getYawInDeg(ctx context.Context, orientation movementsensor.MovementSensor) (float64, error) {
+	ori, err := orientation.Orientation(ctx, nil)
 	if err != nil {
-		return math.NaN(), err
+		return 0., err
 	}
-	// add Pi to make the computation for overshoot simpler
-	// turns imus from -180 -> 180 to a 0 -> 360 range
-	return addAnglesInDomain(rdkutils.RadToDeg(orientation.EulerAngles().Yaw), 0), nil
+
+	return rdkutils.RadToDeg(ori.EulerAngles().Yaw), nil
 }
 
-func addAnglesInDomain(target, current float64) float64 {
-	angle := target + current
-	// reduce the angle
-	angle = math.Mod(angle, oneTurn)
-
-	// force it to be the positive remainder, so that 0 <= angle < 360
-	angle = math.Mod(angle+oneTurn, oneTurn)
-	return angle
+// calcSlowDownAng computes the angle at which the spin should begin to slow down.
+// This helps to prevent overshoot when reaching the goal and reduces the jerk on the robot when the spin is complete.
+func calcSlowDownAng(angleDeg float64) float64 {
+	return math.Min(angleDeg*slowDownAngGain, maxSlowDownAng)
 }
 
-func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64, int) {
-	dir := 1.0
-	if math.Signbit(degsPerSec) != math.Signbit(angleDeg) {
-		// both positive or both negative -> counterclockwise spin call
-		// counterclockwise spin calls add angles
-		// the signs being different --> clockwise spin call
-		// clockwise spin calls subtract angles
-		dir = -1.0
+// calcAngVel computes the desired angular velocity based on how far the base is from reaching the goal.
+func calcAngVel(angErr, degsPerSec, slowDownAng float64) float64 {
+	// have the velocity slow down when appoaching the goal. Otherwise use the desired velocity
+	angVel := angErr * degsPerSec / slowDownAng
+	if angVel > degsPerSec {
+		return degsPerSec
 	}
-	targetYaw := addAnglesInDomain(angleDeg, currYaw)
-	fullTurns := int(math.Abs(angleDeg)) / oneTurn
-
-	return targetYaw, dir, fullTurns
+	if angVel < -degsPerSec {
+		return -degsPerSec
+	}
+	return angVel
 }
 
-// this function does not wrap around 360 degrees currently.
-func angleBetween(current, bound1, bound2 float64) bool {
-	if bound2 > bound1 {
-		inBewtween := current >= bound1 && current < bound2
-		return inBewtween
-	}
-	inBewteen := current > bound2 && current <= bound1
-	return inBewteen
+// getAngError computes the current distance the spin has moved and returns how much further the base must move to reach the goal.
+func getAngError(currYaw, prevAngle, prevMovedAng, desiredAngle float64) (float64, float64) {
+	// use initial angle to get the current angle the spin has moved
+	angMoved := getMovedAng(prevAngle, currYaw, prevMovedAng)
+
+	// compute the error
+	errAng := (desiredAngle - angMoved)
+
+	return errAng, angMoved
 }
 
-func hasOverShot(angle, start, target, dir float64) bool {
-	switch {
-	case dir == -1 && start > target: // clockwise
-		// for cases with a quadrant switch from 1 <-> 4
-		// check if the current angle is in the regions before the
-		// target and after the start
-		over := angleBetween(angle, target, 0) || angleBetween(angle, 360, start)
-		return over
-	case dir == -1 && target > start:
-		// the overshoot range is the inside range between the start and target
-		return angleBetween(angle, target, start)
-	case dir == 1 && start > target: // counterclockwise
-		// for cases with a quadrant switch from 1 <-> 4
-		// check if the current angle is not in the regions after the
-		// target and before the start
-		over := !angleBetween(angle, 0, target) && !angleBetween(angle, start, 360)
-		return over
-	default:
-		// the overshoot range is the range of angles outside the start and target ranges
-		return !angleBetween(angle, start, target)
+// getMovedAng tracks how much the angle has moved between each sensor update.
+// This allows us to convert a bounded angle(0 to 360 or -180 to 180) into the raw angle traveled.
+func getMovedAng(prevAngle, currAngle, angMoved float64) float64 {
+	// the angle changed from 180 to -180. this means we are spinning in the negative direction
+	if currAngle-prevAngle < -300 {
+		return angMoved + currAngle - prevAngle + 360
 	}
+	// the angle changed from -180 to 180
+	if currAngle-prevAngle > 300 {
+		return angMoved + currAngle - prevAngle - 360
+	}
+	// add the change in angle to the position
+	return angMoved + currAngle - prevAngle
 }

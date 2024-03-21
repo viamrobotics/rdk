@@ -3,93 +3,36 @@ package gpsnmea
 
 import (
 	"context"
-	"sync"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-	"go.uber.org/multierr"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/components/movementsensor/rtkutils"
+	"go.viam.com/rdk/components/movementsensor/gpsutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
 
-// DataReader represents a way to get data from a GPS NMEA device. We can read data from it using
-// the channel in Messages, and we can close the device when we're done.
-type DataReader interface {
-	Messages() chan string
-	Close() error
-}
-
 // NMEAMovementSensor allows the use of any MovementSensor chip via a DataReader.
 type NMEAMovementSensor struct {
 	resource.Named
 	resource.AlwaysRebuild
-	cancelCtx               context.Context
-	cancelFunc              func()
-	logger                  logging.Logger
-	cachedData              rtkutils.CachedData
-	activeBackgroundWorkers sync.WaitGroup
-
-	dev DataReader
+	logger     logging.Logger
+	cachedData *gpsutils.CachedData
 }
 
-// NewNmeaMovementSensor creates a new movement sensor.
-func NewNmeaMovementSensor(
-	ctx context.Context, name resource.Name, dev DataReader, logger logging.Logger,
+// newNMEAMovementSensor creates a new movement sensor.
+func newNMEAMovementSensor(
+	_ context.Context, name resource.Name, dev gpsutils.DataReader, logger logging.Logger,
 ) (NmeaMovementSensor, error) {
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-
 	g := &NMEAMovementSensor{
 		Named:      name.AsNamed(),
-		dev:        dev,
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
 		logger:     logger,
-		cachedData: rtkutils.NewCachedData(),
+		cachedData: gpsutils.NewCachedData(dev, logger),
 	}
 
-	if err := g.Start(ctx); err != nil {
-		return nil, multierr.Combine(err, g.Close(ctx))
-	}
 	return g, nil
-}
-
-// Start begins reading nmea messages from module and updates gps data.
-func (g *NMEAMovementSensor) Start(_ context.Context) error {
-	g.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer g.activeBackgroundWorkers.Done()
-
-		messages := g.dev.Messages()
-		for {
-			// First, check if we're supposed to shut down.
-			select {
-			case <-g.cancelCtx.Done():
-				return
-			default:
-			}
-
-			// Next, wait until either we're supposed to shut down or we have new data to process.
-			select {
-			case <-g.cancelCtx.Done():
-				return
-			case message := <-messages:
-				// Update our struct's gps data in-place
-				err := g.cachedData.ParseAndUpdate(message)
-				if err != nil {
-					g.logger.CWarnf(g.cancelCtx, "can't parse nmea sentence: %#v", err)
-					g.logger.Debug("Check: GPS requires clear sky view." +
-						"Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
-				}
-			}
-		}
-	})
-
-	return nil
 }
 
 // Position returns the position and altitide of the sensor, or an error.
@@ -186,15 +129,9 @@ func (g *NMEAMovementSensor) Properties(
 // Close shuts down the NMEAMovementSensor.
 func (g *NMEAMovementSensor) Close(ctx context.Context) error {
 	g.logger.CDebug(ctx, "Closing NMEAMovementSensor")
-	g.cancelFunc()
-	g.activeBackgroundWorkers.Wait()
-
-	if g.dev != nil {
-		if err := g.dev.Close(); err != nil {
-			return err
-		}
-		g.dev = nil
-		g.logger.CDebug(ctx, "NMEAMovementSensor Closed")
+	// In some of the unit tests, the cachedData is nil. Only close it if it's not.
+	if g.cachedData != nil {
+		return g.cachedData.Close(ctx)
 	}
 	return nil
 }

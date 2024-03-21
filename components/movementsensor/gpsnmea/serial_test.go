@@ -7,21 +7,11 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/components/movementsensor/gpsutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
 )
-
-func TestValidateSerial(t *testing.T) {
-	fakecfg := &SerialConfig{}
-	path := "path"
-	err := fakecfg.validateSerial(path)
-	test.That(t, err, test.ShouldBeError, resource.NewConfigValidationFieldRequiredError(path, "serial_path"))
-
-	fakecfg.SerialPath = "some-path"
-	err = fakecfg.validateSerial(path)
-	test.That(t, err, test.ShouldBeNil)
-}
 
 func TestNewSerialMovementSensor(t *testing.T) {
 	var deps resource.Dependencies
@@ -50,7 +40,7 @@ func TestNewSerialMovementSensor(t *testing.T) {
 		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
 			ConnectionType: "serial",
-			SerialConfig: &SerialConfig{
+			SerialConfig: &gpsutils.SerialConfig{
 				SerialPath:     path,
 				SerialBaudRate: 0,
 			},
@@ -67,11 +57,8 @@ func TestNewSerialMovementSensor(t *testing.T) {
 func TestCloseSerial(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := &NMEAMovementSensor{
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
-		logger:     logger,
+		logger: logger,
 	}
 
 	err := g.Close(ctx)

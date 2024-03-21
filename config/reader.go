@@ -32,6 +32,11 @@ var (
 	DateCompiled = ""
 )
 
+const (
+	initialReadTimeout = 1 * time.Second
+	readTimeout        = 5 * time.Second
+)
+
 func getAgentInfo() (*apppb.AgentInfo, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -131,10 +136,10 @@ func readCertificateDataFromCloudGRPC(ctx context.Context,
 	signalingInsecure bool,
 	cloudConfigFromDisk *Cloud,
 	logger logging.Logger,
-) (*Cloud, error) {
+) (tlsConfig, error) {
 	conn, err := CreateNewGRPCClient(ctx, cloudConfigFromDisk, logger)
 	if err != nil {
-		return nil, err
+		return tlsConfig{}, err
 	}
 	defer utils.UncheckedErrorFunc(conn.Close)
 
@@ -142,22 +147,21 @@ func readCertificateDataFromCloudGRPC(ctx context.Context,
 	res, err := service.Certificate(ctx, &apppb.CertificateRequest{Id: cloudConfigFromDisk.ID})
 	if err != nil {
 		// Check cache?
-		return nil, err
+		return tlsConfig{}, err
 	}
 
 	if !signalingInsecure {
 		if res.TlsCertificate == "" {
-			return nil, errors.New("no TLS certificate yet from cloud; try again later")
+			return tlsConfig{}, errors.New("no TLS certificate yet from cloud; try again later")
 		}
 		if res.TlsPrivateKey == "" {
-			return nil, errors.New("no TLS private key yet from cloud; try again later")
+			return tlsConfig{}, errors.New("no TLS private key yet from cloud; try again later")
 		}
 	}
 
-	// TODO(RSDK-539): we might want to use an internal type here. The gRPC api will not return a Cloud json struct.
-	return &Cloud{
-		TLSCertificate: res.TlsCertificate,
-		TLSPrivateKey:  res.TlsPrivateKey,
+	return tlsConfig{
+		certificate: res.TlsCertificate,
+		privateKey:  res.TlsPrivateKey,
 	}, nil
 }
 
@@ -253,15 +257,15 @@ func readFromCloud(
 		)
 		// use shouldReadFromCache determine whether this is part of initial read or not
 		if shouldReadFromCache {
-			ctxWithTimeout, cancel = context.WithTimeout(ctx, 500*time.Millisecond)
+			ctxWithTimeout, cancel = context.WithTimeout(ctx, initialReadTimeout)
 		} else {
-			ctxWithTimeout, cancel = context.WithTimeout(ctx, 5*time.Second)
+			ctxWithTimeout, cancel = context.WithTimeout(ctx, readTimeout)
 		}
 		// Use the SignalingInsecure from the Cloud config returned from the app not the initial config.
 		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cfg.Cloud.SignalingInsecure, cloudCfg, logger)
 		if err != nil {
 			cancel()
-			if !errors.Is(err, context.DeadlineExceeded) {
+			if !errors.As(err, &context.DeadlineExceeded) {
 				return nil, err
 			}
 			if tls.certificate == "" || tls.privateKey == "" {
@@ -269,8 +273,7 @@ func readFromCloud(
 			}
 			logger.Warnw("failed to refresh certificate data; using cached for now", "error", err)
 		} else {
-			tls.certificate = certData.TLSCertificate
-			tls.privateKey = certData.TLSPrivateKey
+			tls = certData
 			cancel()
 		}
 	}
@@ -282,6 +285,8 @@ func readFromCloud(
 	managedBy := cfg.Cloud.ManagedBy
 	locationSecret := cfg.Cloud.LocationSecret
 	locationSecrets := cfg.Cloud.LocationSecrets
+	primaryOrgID := cfg.Cloud.PrimaryOrgID
+	locationID := cfg.Cloud.LocationID
 
 	mergeCloudConfig := func(to *Config) {
 		*to.Cloud = *cloudCfg
@@ -294,10 +299,11 @@ func readFromCloud(
 		to.Cloud.LocationSecrets = locationSecrets
 		to.Cloud.TLSCertificate = tls.certificate
 		to.Cloud.TLSPrivateKey = tls.privateKey
+		to.Cloud.PrimaryOrgID = primaryOrgID
+		to.Cloud.LocationID = locationID
 	}
 
 	mergeCloudConfig(cfg)
-	// TODO(RSDK-1960): add more tests around config caching
 	unprocessedConfig.Cloud.TLSCertificate = tls.certificate
 	unprocessedConfig.Cloud.TLSPrivateKey = tls.privateKey
 
@@ -520,7 +526,6 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 				continue
 			}
 
-			var convertedAttrs interface{} = associatedConf.Attributes
 			if conv.AttributeMapConverter != nil {
 				converted, err := conv.AttributeMapConverter(associatedConf.Attributes)
 				if err != nil {
@@ -541,21 +546,10 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 					return newName
 				})
 				associatedCfgs[subIdx].ConvertedAttributes = converted
-				convertedAttrs = converted
-			}
 
-			// for APIs with an associated config linker, link the current associated config with
-			// each resource config of that API.
-			for _, assocConf := range resCfgsPerAPI[associatedConf.API] {
-				reg, ok := resource.LookupRegistration(associatedConf.API, assocConf.Model)
-				if !ok || reg.AssociatedConfigLinker == nil {
-					continue
-				}
-
-				// link the converted attributes for the current resource config (convertedAttrs) to the config that accepts
-				// associated configs.
-				if err := reg.AssociatedConfigLinker(assocConf.ConvertedAttributes, convertedAttrs); err != nil {
-					return errors.Wrapf(err, "error associating resource association config to resource %q", assocConf.Model)
+				// for APIs with an associated config linker, link the current associated config with each resource config of that API.
+				for _, assocConf := range resCfgsPerAPI[associatedConf.API] {
+					converted.Link(assocConf)
 				}
 			}
 		}
@@ -608,9 +602,9 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 	)
 	// use shouldReadFromCache determine whether this is part of initial read or not
 	if shouldReadFromCache {
-		ctxWithTimeout, cancel = context.WithTimeout(ctx, 500*time.Millisecond)
+		ctxWithTimeout, cancel = context.WithTimeout(ctx, initialReadTimeout)
 	} else {
-		ctxWithTimeout, cancel = context.WithTimeout(ctx, 5*time.Second)
+		ctxWithTimeout, cancel = context.WithTimeout(ctx, readTimeout)
 	}
 	defer cancel()
 

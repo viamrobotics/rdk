@@ -33,7 +33,7 @@ func (sb *sensorBase) setupControlLoop(linear, angular control.PIDConfig) error 
 	// set the necessary options for a sensorcontrolled base
 	options := control.Options{
 		SensorFeedback2DVelocityControl: true,
-		LoopFrequency:                   20,
+		LoopFrequency:                   10,
 		ControllableType:                "base_name",
 	}
 
@@ -62,14 +62,12 @@ func (sb *sensorBase) updateControlConfig(
 	ctx context.Context, linearValue, angularValue float64,
 ) error {
 	// set linear setpoint config
-	linConf := control.CreateConstantBlock(ctx, sb.blockNames[control.BlockNameConstant][0], linearValue)
-	if err := sb.loop.SetConfigAt(ctx, sb.blockNames[control.BlockNameConstant][0], linConf); err != nil {
+	if err := control.UpdateConstantBlock(ctx, sb.blockNames[control.BlockNameConstant][0], linearValue, sb.loop); err != nil {
 		return err
 	}
 
 	// set angular setpoint config
-	angConf := control.CreateConstantBlock(ctx, sb.blockNames[control.BlockNameConstant][1], angularValue)
-	if err := sb.loop.SetConfigAt(ctx, sb.blockNames[control.BlockNameConstant][1], angConf); err != nil {
+	if err := control.UpdateConstantBlock(ctx, sb.blockNames[control.BlockNameConstant][1], angularValue, sb.loop); err != nil {
 		return err
 	}
 
@@ -85,7 +83,7 @@ func (sb *sensorBase) SetVelocity(
 	// this will also stop any active Spin calls
 	sb.setPolling(false)
 
-	if len(sb.conf.ControlParameters) != 0 {
+	if len(sb.controlLoopConfig.Blocks) != 0 {
 		// start a sensor context for the sensor loop based on the longstanding base
 		// creator context, and add a timeout for the context
 		timeOut := 10 * time.Second
@@ -173,13 +171,6 @@ func sign(x float64) float64 { // A quick helper function
 func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) error {
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
-	if sb.isPolling() {
-		// if the spin loop is polling, don't call set velocity, immediately return
-		// this allows us to keep the control loop running without stopping it until
-		// the resource Close has been called
-		sb.logger.CInfo(ctx, "skipping set state call")
-		return nil
-	}
 
 	sb.logger.CDebug(ctx, "setting state")
 	linvel := state[0].GetSignalValueAt(0)
@@ -187,7 +178,7 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 	// (cw/ccw) doesn't switch when the base is moving backwards
 	angvel := (state[1].GetSignalValueAt(0) * sign(linvel))
 
-	return sb.SetPower(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
+	return sb.controlledBase.SetPower(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
 }
 
 // State is called in endpoint.go of the controls package by the control loop
