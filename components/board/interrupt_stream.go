@@ -25,7 +25,7 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []string, 
 	defer s.streamMu.Unlock()
 
 	if ctx.Err() != nil {
-		return nil
+		return ctx.Err()
 	}
 
 	s.streamRunning = true
@@ -47,7 +47,7 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []string, 
 	}
 
 	// This call won't return any errors it had until the client tries to receive.
-	//nolint:errcheck
+	// nolint:errcheck
 
 	stream, _ := s.client.client.StreamTicks(ctx, req)
 	_, err := stream.Recv()
@@ -56,7 +56,7 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []string, 
 		return err
 	}
 
-	// Create a background go routine to recieve from the server stream.
+	// Create a background go routine to receive from the server stream.
 	utils.ManagedGo(func() {
 		s.recieveFromStream(ctx, stream, ch)
 	},

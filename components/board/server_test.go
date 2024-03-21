@@ -793,7 +793,6 @@ type streamTicksServer struct {
 	grpc.ServerStream
 	ctx       context.Context
 	ticksChan chan *pb.StreamTicksResponse
-	fail      bool
 }
 
 func (x *streamTicksServer) Context() context.Context {
@@ -801,7 +800,6 @@ func (x *streamTicksServer) Context() context.Context {
 }
 
 func (x *streamTicksServer) Send(m *pb.StreamTicksResponse) error {
-
 	// if x.fail {
 	// 	return jer enjfek
 	// }
@@ -812,7 +810,6 @@ func (x *streamTicksServer) Send(m *pb.StreamTicksResponse) error {
 	return nil
 }
 
-//nolint:dupl
 func TestStreamTicks(t *testing.T) {
 	type request = pb.StreamTicksRequest
 	type response = pb.StreamTicksResponse
@@ -890,7 +887,7 @@ func TestStreamTicks(t *testing.T) {
 				ticksChan: ch,
 			}
 
-			sendTick := func(ctx context.Context) {
+			sendTick := func() {
 				for _, ch := range callbacks {
 					ch <- board.Tick{Name: "digital1", High: true, TimestampNanosec: uint64(time.Nanosecond)}
 				}
@@ -904,22 +901,20 @@ func TestStreamTicks(t *testing.T) {
 
 			if tc.expRespErr == "" {
 				// First resp will be blank
-				resp := <-s.ticksChan
+				<-s.ticksChan
 
-				sendTick(context.Background())
-				resp = <-s.ticksChan
+				sendTick()
+				resp := <-s.ticksChan
 
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 				test.That(t, resp.High, test.ShouldEqual, true)
 				test.That(t, resp.PinName, test.ShouldEqual, "digital1")
 				test.That(t, resp.Time, test.ShouldEqual, uint64(time.Nanosecond))
-
 			} else {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, tc.expRespErr)
 			}
-
 		})
 	}
 }
