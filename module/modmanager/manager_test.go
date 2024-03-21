@@ -878,8 +878,8 @@ func TestTwoModulesRestart(t *testing.T) {
 			Type:    config.ModuleTypeLocal,
 		},
 		{
-			Name:    "simple",
-			ExePath: rtestutils.BuildTempModuleNew(t, "examples/customresources/demos/simplemodule"),
+			Name:    "test-module2",
+			ExePath: rtestutils.BuildTempModuleNew(t, "module/testmodule2"),
 			Type:    config.ModuleTypeLocal,
 		},
 	}
@@ -911,7 +911,7 @@ func TestTwoModulesRestart(t *testing.T) {
 	// Add resources and ensure "echo" works correctly.
 	models := map[string]resource.Model{
 		"myhelper":  resource.NewModel("rdk", "test", "helper"),
-		"mycounter": resource.NewModel("acme", "demo", "mycounter"),
+		"myhelper2": resource.NewModel("rdk", "test", "helper2"),
 	}
 	for name, model := range models {
 		resName := generic.Named(name)
