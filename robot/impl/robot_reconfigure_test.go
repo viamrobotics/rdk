@@ -3790,8 +3790,7 @@ func TestResourceCloseNoHang(t *testing.T) {
 
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, mf.closeCtxDeadline, test.ShouldNotBeNil)
-	test.That(t, mf.closeCtxDeadline, test.ShouldHappenWithin,
-		resourceCloseTimeout, time.Now())
+	test.That(t, time.Now().Add(resourceCloseTimeout), test.ShouldHappenOnOrAfter, mf.closeCtxDeadline)
 }
 
 type mockFake struct {
