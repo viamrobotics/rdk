@@ -362,7 +362,8 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 		return handledResourceNames, err
 	}
 
-	mgr.logger.CDebugw(ctx, "New module process is running and responding to gRPC requests", "module", mod.cfg.Name, "module address", mod.addr)
+	mgr.logger.CDebugw(ctx, "New module process is running and responding to gRPC requests", "module",
+		mod.cfg.Name, "module address", mod.addr)
 
 	// add old module process' resources to new module; warn if new module cannot
 	// handle old resource and consider that resource orphaned.
@@ -373,7 +374,8 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 				"resource", name, "module", conf.Name, "error", err)
 			orphanedResourceNames = append(orphanedResourceNames, name)
 		} else {
-			mgr.logger.CDebugw(ctx, "Successfully re-added resource from module after module reconfiguration", "module", mod.cfg.Name, "resource", name)
+			mgr.logger.CDebugw(ctx, "Successfully re-added resource from module after module reconfiguration",
+				"module", mod.cfg.Name, "resource", name)
 		}
 	}
 	return orphanedResourceNames, nil
@@ -934,7 +936,8 @@ func (m *module) startProcess(
 	moduleWorkingDirectory, ok := moduleEnvironment["VIAM_MODULE_ROOT"]
 	if !ok {
 		moduleWorkingDirectory = filepath.Dir(absoluteExePath)
-		logger.CWarnw(ctx, "VIAM_MODULE_ROOT was not passed to module. Defaulting to module's working directory", "module", m.cfg.Name, "dir", moduleWorkingDirectory)
+		logger.CWarnw(ctx, "VIAM_MODULE_ROOT was not passed to module. Defaulting to module's working directory",
+			"module", m.cfg.Name, "dir", moduleWorkingDirectory)
 	} else {
 		logger.CDebugw(ctx, "Starting module in working directory", "module", m.cfg.Name, "dir", moduleWorkingDirectory)
 	}
