@@ -39,7 +39,7 @@ type transformRegistration struct {
 	description string
 }
 
-// Do not share the share the same config type across multile configs because otherwise
+// Do not share the same config type across multile configs because otherwise
 // multiple json-schema reflected types will share the same $id
 // (which is not valid jsonschema and will fail to compile on the FE).
 type (
