@@ -254,7 +254,7 @@ func (dic *digitalInterruptClient) AddCallback(ch chan Tick) {
 }
 
 func (dic *digitalInterruptClient) RemoveCallback(ch chan Tick) {
-	panic(errUnimplemented)
+	return
 }
 
 func (c *client) StreamTicks(ctx context.Context, interrupts []string, ch chan Tick, extra map[string]interface{}) error {

@@ -6,8 +6,10 @@ package board
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 
@@ -82,9 +84,6 @@ type Board interface {
 
 	// StreamTicks starts a stream of digital interrupt ticks.
 	StreamTicks(ctx context.Context, interrupts []string, ch chan Tick, extra map[string]interface{}) error
-
-	// RemoveCallbacks removes the callbacks from the given interrupts.
-	RemoveCallbacks(ctx context.Context, interrupts []string, ticksChan chan Tick) error
 }
 
 // An AnalogReader represents an analog pin reader that resides on a board.
@@ -108,4 +107,17 @@ func FromRobot(r robot.Robot, name string) (Board, error) {
 // NamesFromRobot is a helper for getting all board names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
+}
+
+// RemoveCallbacks removes the callbacks from the given interrupts.
+func RemoveCallbacks(ctx context.Context, b Board, interrupts []string, ch chan Tick) error {
+	fmt.Println("here remove callbacks helper")
+	for _, name := range interrupts {
+		i, ok := b.DigitalInterruptByName(name)
+		if !ok {
+			return errors.New(fmt.Sprintf("unknown digitial interrupt: %s", name))
+		}
+		i.RemoveCallback(ch)
+	}
+	return nil
 }
