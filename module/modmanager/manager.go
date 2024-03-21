@@ -362,7 +362,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 		return handledResourceNames, err
 	}
 
-	mgr.logger.CDebugw(ctx, "New module process is running and responding to gRPC requests", "module",
+	mgr.logger.CInfow(ctx, "New module process is running and responding to gRPC requests", "module",
 		mod.cfg.Name, "module address", mod.addr)
 
 	// add old module process' resources to new module; warn if new module cannot
@@ -374,7 +374,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 				"resource", name, "module", conf.Name, "error", err)
 			orphanedResourceNames = append(orphanedResourceNames, name)
 		} else {
-			mgr.logger.CDebugw(ctx, "Successfully re-added resource from module after module reconfiguration",
+			mgr.logger.CInfow(ctx, "Successfully re-added resource from module after module reconfiguration",
 				"module", mod.cfg.Name, "resource", name)
 		}
 	}
@@ -422,7 +422,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 		if err != nil {
 			mgr.logger.Errorw("Error removing resource", "module", mod.cfg.Name, "resource", res.Name, "error", err)
 		} else {
-			mgr.logger.Debugw("Successfully removed resource from module", "module", mod.cfg.Name, "resource", res.Name)
+			mgr.logger.Infow("Successfully removed resource from module", "module", mod.cfg.Name, "resource", res.Name)
 		}
 	}
 
@@ -444,7 +444,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 	})
 	mgr.modules.Delete(mod.cfg.Name)
 
-	mgr.logger.Debugw("Module successfully closed", "module", mod.cfg.Name)
+	mgr.logger.Infow("Module successfully closed", "module", mod.cfg.Name)
 	return nil
 }
 
@@ -460,6 +460,8 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 	if !ok {
 		return nil, errors.Errorf("no active module registered to serve resource api %s and model %s", conf.API, conf.Model)
 	}
+
+	mgr.logger.CInfow(ctx, "Adding resource to module", "resource", conf.Name, "module", mod.cfg.Name)
 
 	confProto, err := config.ComponentConfigToProto(&conf)
 	if err != nil {
@@ -489,6 +491,8 @@ func (mgr *Manager) ReconfigureResource(ctx context.Context, conf resource.Confi
 	if !ok {
 		return errors.Errorf("no module registered to serve resource api %s and model %s", conf.API, conf.Model)
 	}
+
+	mgr.logger.CInfow(ctx, "Reconfiguring resource for module", "resource", conf.Name, "module", mod.cfg.Name)
 
 	confProto, err := config.ComponentConfigToProto(&conf)
 	if err != nil {
@@ -540,6 +544,9 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	if !ok {
 		return errors.Errorf("resource %+v not found in module", name)
 	}
+
+	mgr.logger.CInfow(ctx, "Removing resource for module", "resource", name.String(), "module", mod.cfg.Name)
+
 	mgr.rMap.Delete(name)
 	delete(mod.resources, name)
 	_, err := mod.client.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
@@ -939,7 +946,7 @@ func (m *module) startProcess(
 		logger.CWarnw(ctx, "VIAM_MODULE_ROOT was not passed to module. Defaulting to module's working directory",
 			"module", m.cfg.Name, "dir", moduleWorkingDirectory)
 	} else {
-		logger.CDebugw(ctx, "Starting module in working directory", "module", m.cfg.Name, "dir", moduleWorkingDirectory)
+		logger.CInfow(ctx, "Starting module in working directory", "module", m.cfg.Name, "dir", moduleWorkingDirectory)
 	}
 
 	pconf := pexec.ProcessConfig{
