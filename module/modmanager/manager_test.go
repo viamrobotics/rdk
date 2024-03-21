@@ -957,6 +957,6 @@ func TestTwoModulesRestart(t *testing.T) {
 	test.That(t, logs.FilterMessageSnippet("error while restarting crashed module").Len(),
 		test.ShouldEqual, 0)
 
-	// Assert that RemoveOrphanedResources was called once.
+	// Assert that RemoveOrphanedResources was called once for each module.
 	test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 2)
 }
