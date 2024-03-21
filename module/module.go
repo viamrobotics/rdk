@@ -179,6 +179,8 @@ type Module struct {
 
 // NewModule returns the basic module framework/structure.
 func NewModule(ctx context.Context, address string, logger logging.Logger) (*Module, error) {
+	logger.Info("NewModule BEGIN")
+	defer logger.Info("NewModule END")
 	// TODO(PRODUCT-343): session support likely means interceptors here
 	opMgr := operation.NewManager(logger)
 	unaries := []grpc.UnaryServerInterceptor{
@@ -233,6 +235,8 @@ func NewModuleFromArgs(ctx context.Context, logger logging.Logger) (*Module, err
 
 // Start starts the module service and grpc server.
 func (m *Module) Start(ctx context.Context) error {
+	m.logger.Info("Start BEGIN")
+	defer m.logger.Info("Start END")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -264,6 +268,8 @@ func (m *Module) Start(ctx context.Context) error {
 // Close shuts down the module and grpc server.
 // TODO: Shut down the subscriptions
 func (m *Module) Close(ctx context.Context) {
+	m.logger.Info("Close BEGIN")
+	defer m.logger.Info("Close END")
 	m.closeOnce.Do(func() {
 		m.logger.Info("calling Close")
 		m.mu.Lock()
@@ -306,6 +312,8 @@ func (m *Module) Close(ctx context.Context) {
 
 // GetParentResource returns a resource from the parent robot by name.
 func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (resource.Resource, error) {
+	m.logger.Info("GetParentResource BEGIN")
+	defer m.logger.Info("GetParentResource END")
 	// Refresh parent to ensure it has the most up-to-date resources before calling
 	// ResourceByName.
 	if err := m.parent.Refresh(ctx); err != nil {
@@ -352,6 +360,8 @@ func (m *Module) SetReady(ready bool) {
 
 // PeerConnect returns the encoded answer string for the `ReadyResponse`.
 func (m *Module) PeerConnect(encodedOffer string) (string, error) {
+	m.logger.Info("PeerConnect BEGIN")
+	defer m.logger.Info("PeerConnect END")
 	if m.pc == nil {
 		return "", errors.New("No PeerConnection object.")
 	}
@@ -373,12 +383,16 @@ func (m *Module) PeerConnect(encodedOffer string) (string, error) {
 		return "", err
 	}
 
+	m.logger.Info("Ready BEFORE GatheringCompletePromise")
 	<-webrtc.GatheringCompletePromise(m.pc)
+	m.logger.Info("Ready AFTER GatheringCompletePromise")
 	return EncodeSDP(m.pc.LocalDescription())
 }
 
 // Ready receives the parent address and reports api/model combos the module is ready to service.
 func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResponse, error) {
+	m.logger.Info("Ready BEGIN")
+	defer m.logger.Info("Ready END")
 	resp := &pb.ReadyResponse{}
 
 	encodedAnswer, err := m.PeerConnect(req.ServerSdp)
@@ -409,7 +423,10 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 
 // AddResource receives the component/service configuration from the parent.
 func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*pb.AddResourceResponse, error) {
+	m.logger.Info("Ready BEGIN")
+	defer m.logger.Info("Ready END")
 	<-m.pcReady
+	m.logger.Info("Ready after pcReady")
 
 	deps := make(resource.Dependencies)
 	for _, c := range req.Dependencies {
@@ -469,6 +486,8 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 
 // ReconfigureResource receives the component/service configuration from the parent.
 func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureResourceRequest) (*pb.ReconfigureResourceResponse, error) {
+	m.logger.Info("ReconfigureResource BEGIN")
+	defer m.logger.Info("ReconfigureResource END")
 	var res resource.Resource
 	deps := make(resource.Dependencies)
 	for _, c := range req.Dependencies {
@@ -547,6 +566,8 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 func (m *Module) ValidateConfig(ctx context.Context,
 	req *pb.ValidateConfigRequest,
 ) (*pb.ValidateConfigResponse, error) {
+	m.logger.Info("ValidateConfig BEGIN")
+	defer m.logger.Info("ValidateConfig END")
 	c, err := config.ComponentConfigFromProto(req.Config)
 	if err != nil {
 		return nil, err
@@ -571,6 +592,8 @@ func (m *Module) ValidateConfig(ctx context.Context,
 
 // RemoveResource receives the request for resource removal.
 func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceRequest) (*pb.RemoveResourceResponse, error) {
+	m.logger.Info("RemoveResource BEGIN")
+	defer m.logger.Info("RemoveResource END")
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcher(
 		30*time.Second, fmt.Sprintf("module resource %q is taking a while to remove", req.Name), m.logger.AsZap())
 	defer func() {
@@ -626,6 +649,8 @@ func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.API) error
 
 // AddModelFromRegistry adds a preregistered component or service model to the module's services.
 func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.API, model resource.Model) error {
+	m.logger.Info("AddModelFromRegistry BEGIN")
+	defer m.logger.Info("AddModelFromRegistry END")
 	err := validateRegistered(api, model)
 	if err != nil {
 		return err
