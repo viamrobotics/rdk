@@ -1115,6 +1115,8 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		return
 	}
 
+	r.logger.CInfo(ctx, "Reconfiguring robot")
+
 	if r.revealSensitiveConfigDiffs {
 		r.logger.CDebugf(ctx, "(re)configuring with %+v", diff)
 	}
