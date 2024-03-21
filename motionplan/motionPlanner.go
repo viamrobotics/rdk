@@ -537,8 +537,15 @@ func CheckPlan(
 		}, nil
 	}
 
+	var iterStartVal int
+	if relative {
+		iterStartVal = 1
+	} else {
+		iterStartVal = 0
+	}
+
 	// iterate through remaining plan and append remaining segments to check
-	for i := 1; i < len(offsetPlan.Path())-1; i++ {
+	for i := iterStartVal; i < len(offsetPlan.Path())-1; i++ {
 		segment, err := createSegment(poses[i], poses[i+1], offsetPlan.Trajectory()[i], offsetPlan.Trajectory()[i+1])
 		if err != nil {
 			return err
