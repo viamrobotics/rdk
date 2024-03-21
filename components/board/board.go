@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 
@@ -111,11 +110,10 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // RemoveCallbacks removes the callbacks from the given interrupts.
 func RemoveCallbacks(ctx context.Context, b Board, interrupts []string, ch chan Tick) error {
-	fmt.Println("here remove callbacks helper")
 	for _, name := range interrupts {
 		i, ok := b.DigitalInterruptByName(name)
 		if !ok {
-			return errors.New(fmt.Sprintf("unknown digitial interrupt: %s", name))
+			return fmt.Errorf("unknown digitial interrupt: %s", name)
 		}
 		i.RemoveCallback(ch)
 	}

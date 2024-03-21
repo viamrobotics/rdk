@@ -64,7 +64,7 @@ func (d *DigitalInterrupt) AddCallback(c chan board.Tick) {
 
 // RemoveCallback calls the injected AddCallback or the real version.
 func (d *DigitalInterrupt) RemoveCallback(c chan board.Tick) {
-	if d.AddCallbackFunc == nil {
+	if d.RemoveCallbackFunc == nil {
 		d.DigitalInterrupt.RemoveCallback(c)
 		return
 	}

@@ -2,6 +2,7 @@ package board_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,8 +19,9 @@ import (
 )
 
 var (
-	errFoo      = errors.New("whoops")
-	errNotFound = errors.New("not found")
+	errFoo        = errors.New("whoops")
+	errNotFound   = errors.New("not found")
+	errSendFailed = errors.New("send fail")
 )
 
 func newServer() (pb.BoardServiceServer, *inject.Board, error) {
@@ -793,6 +795,7 @@ type streamTicksServer struct {
 	grpc.ServerStream
 	ctx       context.Context
 	ticksChan chan *pb.StreamTicksResponse
+	fail      bool
 }
 
 func (x *streamTicksServer) Context() context.Context {
@@ -800,9 +803,9 @@ func (x *streamTicksServer) Context() context.Context {
 }
 
 func (x *streamTicksServer) Send(m *pb.StreamTicksResponse) error {
-	// if x.fail {
-	// 	return jer enjfek
-	// }
+	if x.fail {
+		return errSendFailed
+	}
 	if x.ticksChan == nil {
 		return nil
 	}
@@ -820,14 +823,32 @@ func TestStreamTicks(t *testing.T) {
 
 	tests := []struct {
 		name                     string
-		injectDigitalInterrupt   *inject.DigitalInterrupt
+		injectDigitalInterrupts  []*inject.DigitalInterrupt
 		injectDigitalInterruptOk bool
 		streamTicksErr           error
 		req                      *request
-		expCaptureArgs           []interface{}
 		expResp                  *response
 		expRespErr               string
+		sendFail                 bool
 	}{
+		{
+			name:                     "successful stream with multiple interrupts",
+			injectDigitalInterrupts:  []*inject.DigitalInterrupt{{}, {}},
+			injectDigitalInterruptOk: true,
+			streamTicksErr:           nil,
+			req:                      &request{Name: testBoardName, PinNames: []string{"digital1", "digital2"}, Extra: pbExpectedExtra},
+			expResp:                  &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
+			sendFail:                 false,
+		},
+		{
+			name:                     "successful stream with one interrupt",
+			injectDigitalInterrupts:  []*inject.DigitalInterrupt{{}},
+			injectDigitalInterruptOk: true,
+			streamTicksErr:           nil,
+			req:                      &request{Name: testBoardName, PinNames: []string{"digital1"}, Extra: pbExpectedExtra},
+			expResp:                  &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
+			sendFail:                 false,
+		},
 		{
 			name:           "missing board name should return error",
 			streamTicksErr: nil,
@@ -837,28 +858,23 @@ func TestStreamTicks(t *testing.T) {
 		},
 		{
 			name:                     "unknown digital interrupt should return error",
-			injectDigitalInterrupt:   nil,
+			injectDigitalInterrupts:  nil,
 			injectDigitalInterruptOk: false,
 			streamTicksErr:           errors.New("unknown digital interrupt: digital1"),
 			req:                      &request{Name: testBoardName, PinNames: []string{"digital1"}},
 			expResp:                  nil,
 			expRespErr:               "unknown digital interrupt: digital1",
+			sendFail:                 false,
 		},
 		{
-			name:                     "successful stream with one interrupt",
-			injectDigitalInterrupt:   &inject.DigitalInterrupt{},
+			name:                     "failing to send tick should return error",
+			injectDigitalInterrupts:  []*inject.DigitalInterrupt{{}},
 			injectDigitalInterruptOk: true,
 			streamTicksErr:           nil,
 			req:                      &request{Name: testBoardName, PinNames: []string{"digital1"}, Extra: pbExpectedExtra},
 			expResp:                  &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
-		},
-		{
-			name:                     "successful stream with multiple interrupts",
-			injectDigitalInterrupt:   &inject.DigitalInterrupt{},
-			injectDigitalInterruptOk: true,
-			streamTicksErr:           nil,
-			req:                      &request{Name: testBoardName, PinNames: []string{"digital1", "digital2"}, Extra: pbExpectedExtra},
-			expResp:                  &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
+			expRespErr:               "send fail",
+			sendFail:                 true,
 		},
 	}
 
@@ -875,16 +891,35 @@ func TestStreamTicks(t *testing.T) {
 				return tc.streamTicksErr
 			}
 
-			injectBoard.RemoveCallbacksFunc = func(ctx context.Context, interrupts []string, ticksChan chan board.Tick) error {
-				return nil
+			injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
+				if name == "digital1" {
+					return tc.injectDigitalInterrupts[0], tc.injectDigitalInterruptOk
+				}
+				return tc.injectDigitalInterrupts[1], tc.injectDigitalInterruptOk
+			}
+			if tc.injectDigitalInterrupts != nil {
+				for _, i := range tc.injectDigitalInterrupts {
+					i.RemoveCallbackFunc = func(c chan board.Tick) {
+						for id := range callbacks {
+							if callbacks[id] == c {
+								// To remove this item, we replace it with the last item in the list, then truncate the
+								// list by 1.
+								callbacks[id] = callbacks[len(callbacks)-1]
+								callbacks = callbacks[:len(callbacks)-1]
+								break
+							}
+						}
+					}
+				}
 			}
 
 			cancelCtx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			ch := make(chan *pb.StreamTicksResponse, 2014)
+			ch := make(chan *pb.StreamTicksResponse)
 			s := &streamTicksServer{
 				ctx:       cancelCtx,
 				ticksChan: ch,
+				fail:      tc.sendFail,
 			}
 
 			sendTick := func() {
@@ -892,12 +927,16 @@ func TestStreamTicks(t *testing.T) {
 					ch <- board.Tick{Name: "digital1", High: true, TimestampNanosec: uint64(time.Nanosecond)}
 				}
 			}
-
+			var streamErr error
+			var wg sync.WaitGroup
+			wg.Add(1)
 			go func() {
-				err = server.StreamTicks(tc.req, s)
+				defer wg.Done()
+				streamErr = server.StreamTicks(tc.req, s)
 			}()
 
 			time.Sleep(1 * time.Millisecond)
+			err = streamErr
 
 			if tc.expRespErr == "" {
 				// First resp will be blank
@@ -915,6 +954,8 @@ func TestStreamTicks(t *testing.T) {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, tc.expRespErr)
 			}
+			cancel()
+			wg.Wait()
 		})
 	}
 }

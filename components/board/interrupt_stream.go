@@ -47,8 +47,7 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []string, 
 	}
 
 	// This call won't return any errors it had until the client tries to receive.
-	// nolint:errcheck
-
+	//nolint:errcheck
 	stream, _ := s.client.client.StreamTicks(ctx, req)
 	_, err := stream.Recv()
 	if err != nil {

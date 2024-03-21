@@ -175,11 +175,3 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []string, ch chan bo
 	}
 	return b.StreamTicksFunc(ctx, interrupts, ch, extra)
 }
-
-// RemoveCallbacks removes the callbacks from the given interrupts.
-func (b *Board) RemoveCallbacks(ctx context.Context, interrupts []string, ticksChan chan board.Tick) error {
-	if b.RemoveCallbacksFunc == nil {
-		return b.Board.RemoveCallbacks(ctx, interrupts, ticksChan)
-	}
-	return b.RemoveCallbacksFunc(ctx, interrupts, ticksChan)
-}
