@@ -369,7 +369,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	var orphanedResourceNames []resource.Name
 	for name, res := range handledResources {
 		if _, err := mgr.addResource(ctx, res.conf, res.deps); err != nil {
-			mgr.logger.Warnw("Error while re-adding resource to module",
+			mgr.logger.CWarnw(ctx, "Error while re-adding resource to module",
 				"resource", name, "module", conf.Name, "error", err)
 			orphanedResourceNames = append(orphanedResourceNames, name)
 		} else {
