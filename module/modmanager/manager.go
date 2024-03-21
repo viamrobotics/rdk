@@ -362,18 +362,18 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 		return handledResourceNames, err
 	}
 
-	mgr.logger.Debugw("New module process is running and responding to gRPC requests", "module", mod.cfg.Name, "module address", mod.addr)
+	mgr.logger.CDebugw(ctx, "New module process is running and responding to gRPC requests", "module", mod.cfg.Name, "module address", mod.addr)
 
 	// add old module process' resources to new module; warn if new module cannot
 	// handle old resource and consider that resource orphaned.
 	var orphanedResourceNames []resource.Name
 	for name, res := range handledResources {
 		if _, err := mgr.addResource(ctx, res.conf, res.deps); err != nil {
-			mgr.logger.Warnf("Error while re-adding resource to module",
+			mgr.logger.Warnw("Error while re-adding resource to module",
 				"resource", name, "module", conf.Name, "error", err)
 			orphanedResourceNames = append(orphanedResourceNames, name)
 		} else {
-			mgr.logger.Debugw("Successfully re-added resource from module after module reconfiguration", "module", mod.cfg.Name, "resource", name)
+			mgr.logger.CDebugw(ctx, "Successfully re-added resource from module after module reconfiguration", "module", mod.cfg.Name, "resource", name)
 		}
 	}
 	return orphanedResourceNames, nil
@@ -473,7 +473,7 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
 	if !ok || apiInfo.RPCClient == nil {
-		mgr.logger.Warnw("No built-in grpc client for modular resource", "resource", conf.ResourceName())
+		mgr.logger.CWarnw(ctx, "No built-in grpc client for modular resource", "resource", conf.ResourceName())
 		return rdkgrpc.NewForeignResource(conf.ResourceName(), &mod.conn), nil
 	}
 	return apiInfo.RPCClient(ctx, &mod.conn, "", conf.ResourceName(), mgr.logger)
@@ -627,7 +627,7 @@ func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, con
 			if mgr.Provides(c) {
 				implicitDeps, err := mgr.ValidateConfig(ctx, c)
 				if err != nil {
-					mgr.logger.Errorw("Modular config validation error found in resource: "+c.Name, "error", err)
+					mgr.logger.CErrorw(ctx, "Modular config validation error found in resource: "+c.Name, "error", err)
 					continue
 				}
 
@@ -692,7 +692,7 @@ func (mgr *Manager) CleanModuleDataDirectory() error {
 	})
 	// If there are no expected directories, we can shortcut and early-exit
 	if len(expectedDirs) == 0 {
-		mgr.logger.Infof("Removing module data parent directory %q", mgr.moduleDataParentDir)
+		mgr.logger.Infow("Removing module data parent directory", "parent dir", mgr.moduleDataParentDir)
 		if err := os.RemoveAll(mgr.moduleDataParentDir); err != nil {
 			return errors.Wrapf(err, "failed to clean parent module data directory %q", mgr.moduleDataParentDir)
 		}
@@ -711,7 +711,7 @@ func (mgr *Manager) CleanModuleDataDirectory() error {
 				return errors.Errorf("attempted to delete a module data dir %q which is not in the viam module data directory %q",
 					dir, mgr.moduleDataParentDir)
 			}
-			mgr.logger.Infof("Removing module data directory %q", dir)
+			mgr.logger.Infow("Removing module data directory", "dir", dir)
 			if err := os.RemoveAll(dir); err != nil {
 				return errors.Wrapf(err, "failed to clean module data directory %q", dir)
 			}
@@ -831,13 +831,13 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	}
 
 	if err := mod.dial(); err != nil {
-		mgr.logger.Errorw("Error while dialing restarted module",
+		mgr.logger.CErrorw(ctx, "Error while dialing restarted module",
 			"module", mod.cfg.Name, "error", err)
 		return orphanedResourceNames
 	}
 
 	if err := mod.checkReady(ctx, mgr.parentAddr, mgr.logger); err != nil {
-		mgr.logger.Errorw("Error while waiting for restarted module to be ready",
+		mgr.logger.CErrorw(ctx, "Error while waiting for restarted module to be ready",
 			"module", mod.cfg.Name, "error", err)
 		return orphanedResourceNames
 	}
@@ -885,7 +885,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 			select {
 			case <-slowTicker.C:
 				elapsed := time.Since(startTime).Seconds()
-				logger.Warnw("Waiting for module to be ready", "module", m.cfg.Name, "time elapsed", elapsed)
+				logger.CWarnw(ctx, "Waiting for module to be ready", "module", m.cfg.Name, "time elapsed", elapsed)
 				slowTicker.Reset(5 * time.Second)
 			case <-ctxTimeout.Done():
 				return
@@ -934,9 +934,9 @@ func (m *module) startProcess(
 	moduleWorkingDirectory, ok := moduleEnvironment["VIAM_MODULE_ROOT"]
 	if !ok {
 		moduleWorkingDirectory = filepath.Dir(absoluteExePath)
-		logger.Warnf("VIAM_MODULE_ROOT was not passed to module %q. Defaulting to %q", m.cfg.Name, moduleWorkingDirectory)
+		logger.CWarnw(ctx, "VIAM_MODULE_ROOT was not passed to module. Defaulting to module's working directory", "module", m.cfg.Name, "dir", moduleWorkingDirectory)
 	} else {
-		logger.Debugf("Starting module %q in working directory %q", m.cfg.Name, moduleWorkingDirectory)
+		logger.CDebugw(ctx, "Starting module in working directory", "module", m.cfg.Name, "dir", moduleWorkingDirectory)
 	}
 
 	pconf := pexec.ProcessConfig{
@@ -977,7 +977,7 @@ func (m *module) startProcess(
 			return ctxTimeout.Err()
 		case <-slowTicker.C:
 			elapsed := time.Since(startTime).Seconds()
-			logger.Warnf("Slow module startup detected", "module", m.cfg.Name, "time elapsed", elapsed)
+			logger.CWarnf(ctx, "Slow module startup detected", "module", m.cfg.Name, "time elapsed", elapsed)
 			slowTicker.Reset(5 * time.Second)
 		default:
 		}
