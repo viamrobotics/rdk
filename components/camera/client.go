@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"image"
 	"io"
-	"runtime/debug"
 	"sync"
 	"time"
 
@@ -96,6 +95,53 @@ func getExtra(ctx context.Context) (*structpb.Struct, error) {
 	return ext, nil
 }
 
+var (
+	ErrNoPeerConnection       = errors.New("ErrNoPeerConnection")
+	ErrNoSharedPeerConnection = errors.New("ErrNoSharedPeerConnection")
+	ErrOnTrack                = errors.New("ErrOnTrackErr")
+)
+
+func (c *client) addOnTrackSubFunc(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.Name().String() != tr.StreamID() {
+		c.logger.Fatalf("%s: SubscribeRTP: PeerConn().OnTrack: tr.StreamID() == %s", c.Name(), tr.StreamID())
+		return
+	}
+
+	if len(c.subs) == 0 {
+		c.logger.Info("OnTrack called when c.subs was already empty")
+		return
+	}
+	c.wg.Add(1)
+	goutils.ManagedGo(func() {
+		for {
+			pkt, _, err := tr.ReadRTP()
+			if err != nil {
+				if err != io.EOF {
+					c.logger.Error(err.Error())
+				}
+				return
+			}
+
+			c.mu.Lock()
+			if len(c.subs) == 0 {
+				c.mu.Unlock()
+				c.logger.Info("OnTrack spawned function terminating as len(c.subs) == 0")
+				return
+			}
+
+			for sub, cb := range c.subs {
+				if err := sub.Publish(func() error { return cb(pkt) }); err != nil {
+					c.logger.Info("RTP packet dropped due to %s", err.Error())
+				}
+			}
+			c.mu.Unlock()
+		}
+
+	}, c.wg.Done)
+}
+
 // TOMORROW: NICK: TEST THIS!!!
 // Figure out where to put r.Publish
 // Have the client figure out if there are 0 subscribers, and not connect if so & once there is a single subscriber
@@ -110,61 +156,19 @@ func (c *client) SubscribeRTP(ctx context.Context, r *StreamSubscription, packet
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.logger.Infof("SubscribeRTP called on %s", c.Name())
-	debug.PrintStack()
 	// TODO: BEGIN Move this to the constructor / reconfigure
 	if c.conn.PeerConn() == nil {
 		c.logger.Fatal("c.conn.PeerConn() == nil")
-		return errors.New("unable to SubscribeRTP as there is no peer connection")
+		return ErrNoPeerConnection
 	}
 	sc, ok := c.conn.(*webrtchack.SharedConn)
 	if !ok {
-		c.logger.Fatal("!ok")
-		return errors.New("unable to SubscribeRTP as there is no shared WebRTC connection")
+		return ErrNoSharedPeerConnection
 	}
 	// TODO: END Move this to the constructor / reconfigure
 	if len(c.subs) == 0 {
 		// TODO: We need to set up OnTrack before we call SubscribeRTP
-		sc.AddOnTrackSub(c.Name(), func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
-			c.mu.Lock()
-			defer c.mu.Unlock()
-			if c.Name().String() != tr.StreamID() {
-				c.logger.Fatalf("%s: SubscribeRTP: PeerConn().OnTrack: tr.StreamID() == %s", c.Name(), tr.StreamID())
-				return
-			}
-
-			if len(c.subs) == 0 {
-				c.logger.Debug("OnTrack called when c.subs was already empty")
-				return
-			}
-			c.wg.Add(1)
-			goutils.ManagedGo(func() {
-				for {
-					pkt, _, err := tr.ReadRTP()
-					if err != nil {
-						if err != io.EOF {
-							c.logger.Error(err.Error())
-						}
-						return
-					}
-
-					c.mu.Lock()
-					if len(c.subs) == 0 {
-						c.mu.Unlock()
-						c.logger.Debug("OnTrack spawned function terminating as len(c.subs) == 0")
-						return
-					}
-
-					for sub, cb := range c.subs {
-						if err := sub.Publish(func() error { return cb(pkt) }); err != nil {
-							c.logger.Debug("RTP packet dropped due to %s", err.Error())
-						}
-					}
-					c.mu.Unlock()
-				}
-
-			}, c.wg.Done)
-		})
-
+		sc.AddOnTrackSub(c.Name(), c.addOnTrackSubFunc)
 		c.subs[r] = func(p *rtp.Packet) error { return packetsCB([]*rtp.Packet{p}) }
 		r.Start()
 		// TODO: Fix this context
@@ -172,7 +176,7 @@ func (c *client) SubscribeRTP(ctx context.Context, r *StreamSubscription, packet
 		if err != nil {
 			r.Stop()
 			delete(c.subs, r)
-			return err
+			return errors.Wrap(ErrOnTrack, err.Error())
 		}
 	}
 	return nil
@@ -439,7 +443,6 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 			Ppy:    intrinsics.CenterYPx,
 		}
 	}
-	result.SupportsWebrtcH264Passthrough = resp.SupportsWebrtcH264Passthrough
 	result.MimeTypes = resp.MimeTypes
 	result.SupportsPCD = resp.SupportsPcd
 	// if no distortion model present, return result with no model

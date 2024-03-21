@@ -263,7 +263,6 @@ func (s *serviceServer) GetProperties(
 	}
 
 	result.MimeTypes = props.MimeTypes
-	result.SupportsWebrtcH264Passthrough = props.SupportsWebrtcH264Passthrough
 	return result, nil
 }
 

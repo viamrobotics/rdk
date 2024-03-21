@@ -4,7 +4,6 @@ package camera
 import (
 	"context"
 	"image"
-	"log"
 	"sync"
 	"time"
 
@@ -64,12 +63,11 @@ func Named(name string) resource.Name {
 type Properties struct {
 	// SupportsPCD indicates that the Camera supports a valid
 	// implementation of NextPointCloud
-	SupportsPCD                   bool
-	ImageType                     ImageType
-	IntrinsicParams               *transform.PinholeCameraIntrinsics
-	DistortionParams              transform.Distorter
-	MimeTypes                     []string
-	SupportsWebrtcH264Passthrough bool
+	SupportsPCD      bool
+	ImageType        ImageType
+	IntrinsicParams  *transform.PinholeCameraIntrinsics
+	DistortionParams transform.Distorter
+	MimeTypes        []string
 }
 
 // NamedImage is a struct that associates the source from where the image came from to the Image.
@@ -440,8 +438,7 @@ func (vs *videoSource) DoCommand(ctx context.Context, cmd map[string]interface{}
 func (vs *videoSource) Properties(ctx context.Context) (Properties, error) {
 	_, supportsPCD := vs.actualSource.(PointCloudSource)
 	result := Properties{
-		SupportsPCD:                   supportsPCD,
-		SupportsWebrtcH264Passthrough: vs.videoCodecStreamSource != nil,
+		SupportsPCD: supportsPCD,
 	}
 	if vs.system == nil {
 		return result, nil
@@ -455,7 +452,6 @@ func (vs *videoSource) Properties(ctx context.Context) (Properties, error) {
 	if vs.system.Distortion != nil {
 		result.DistortionParams = vs.system.Distortion
 	}
-	log.Printf("result: %#v\n", result)
 
 	return result, nil
 }
