@@ -173,6 +173,7 @@ type Module struct {
 	closeOnce               sync.Once
 	pc                      *webrtc.PeerConnection
 	pcReady                 <-chan struct{}
+	pcFailed                <-chan struct{}
 	pb.UnimplementedModuleServiceServer
 	streampb.UnimplementedStreamServiceServer
 }
@@ -189,8 +190,6 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	streams := []grpc.StreamServerInterceptor{
 		opMgr.StreamServerInterceptor,
 	}
-	pcFailed := make(chan struct{})
-	close(pcFailed)
 	m := &Module{
 		logger:                logger,
 		addr:                  address,
@@ -202,7 +201,6 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		handlers:              HandlerMap{},
 		collections:           map[resource.API]resource.APIResourceCollection[resource.Resource]{},
 		resLoggers:            map[resource.Resource]logging.Logger{},
-		pcReady:               pcFailed,
 	}
 	if err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m); err != nil {
 		return nil, err
@@ -215,7 +213,6 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
 		logger.Warnw("Error creating optional peer connection for module. Ignoring.", "err", err)
-		// bail out if not possible
 		return m, nil
 	}
 
@@ -223,7 +220,6 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	pcReady, err := ConfigureForRenegotiation(pc, logger)
 	if err != nil {
 		logger.Warnw("Error creating renegotiation channel for module. Ignoring.", "err", err)
-		// bail out if not possible
 		return m, nil
 	}
 
@@ -408,6 +404,9 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 		resp.ModuleSdp = encodedAnswer
 	} else {
 		m.logger.Warnw("Error creating PeerConnection answer.", "err", err)
+		pcFailed := make(chan struct{})
+		close(pcFailed)
+		m.pcFailed = pcFailed
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -433,8 +432,13 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*pb.AddResourceResponse, error) {
 	m.logger.Info("AddResource BEGIN")
 	defer m.logger.Info("AddResource END")
-	<-m.pcReady
-	m.logger.Info("AddResource after pcReady")
+	var failed bool
+	select {
+	case <-m.pcReady:
+	case <-m.pcFailed:
+		failed = true
+	}
+	m.logger.Infof("AddResource after pcReady | failed %t", failed)
 
 	deps := make(resource.Dependencies)
 	for _, c := range req.Dependencies {

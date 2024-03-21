@@ -22,6 +22,8 @@ import (
 // If successful, a Go channel is returned. The Go channel will close when the negotiation
 // DataChannel is open and available for renegotiation.
 func ConfigureForRenegotiation(peerConn *webrtc.PeerConnection, logger logging.Logger) (<-chan struct{}, error) {
+	logger.Info("ConfigureForRenegotiation BEGIN")
+	defer logger.Info("ConfigureForRenegotiation END")
 	var negMu sync.Mutex
 
 	// All of Viam's PeerConnections hard code the `data` channel to be ID 0 and the `negotiation`
