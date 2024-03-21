@@ -189,6 +189,8 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	streams := []grpc.StreamServerInterceptor{
 		opMgr.StreamServerInterceptor,
 	}
+	pcFailed := make(chan struct{})
+	close(pcFailed)
 	m := &Module{
 		logger:                logger,
 		addr:                  address,
@@ -200,6 +202,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		handlers:              HandlerMap{},
 		collections:           map[resource.API]resource.APIResourceCollection[resource.Resource]{},
 		resLoggers:            map[resource.Resource]logging.Logger{},
+		pcReady:               pcFailed,
 	}
 	if err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m); err != nil {
 		return nil, err
@@ -207,20 +210,25 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	if err := m.server.RegisterServiceServer(ctx, &streampb.StreamService_ServiceDesc, m); err != nil {
 		return nil, err
 	}
-	var err error
-	m.pc, err = webrtc.NewPeerConnection(webrtc.Configuration{})
+
+	// attempt to construct a PeerConnection
+	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
 		logger.Warnw("Error creating optional peer connection for module. Ignoring.", "err", err)
+		// bail out if not possible
+		return m, nil
 	}
-	pcReady, err := ConfigureForRenegotiation(m.pc, logger)
+
+	// attempt to configure PeerConnection
+	pcReady, err := ConfigureForRenegotiation(pc, logger)
 	if err != nil {
 		logger.Warnw("Error creating renegotiation channel for module. Ignoring.", "err", err)
-		pcFailed := make(chan struct{})
-		close(pcFailed)
-		m.pcReady = pcFailed
-	} else {
-		m.pcReady = pcReady
+		// bail out if not possible
+		return m, nil
 	}
+
+	m.pc = pc
+	m.pcReady = pcReady
 
 	return m, nil
 }
