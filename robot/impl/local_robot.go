@@ -1156,6 +1156,8 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 
 	if allErrs != nil {
 		r.logger.CErrorw(ctx, "the following errors were gathered during reconfiguration", "errors", allErrs)
+	} else {
+		r.logger.CInfow(ctx, "Robot successfully reconfigured")
 	}
 }
 
