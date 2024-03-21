@@ -136,6 +136,7 @@ func PlanFrameMotion(ctx context.Context,
 // Replan plans a motion from a provided plan request, and then will return that plan only if its cost is better than the cost of the
 // passed-in plan multiplied by `replanCostFactor`.
 func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanCostFactor float64) (Plan, error) {
+	// when constructing a plan, should we inflate the size of transient geometries?
 	fmt.Println("ENTERING REPLAN NOW")
 	// make sure request is well formed and not missing vital information
 	if err := request.validatePlanRequest(); err != nil {
@@ -453,7 +454,12 @@ func CheckPlan(
 	logger logging.Logger,
 ) error {
 	fmt.Println("ENTERING CHECKPLAN")
-	fmt.Println("plan.Path(): ", plan.Path())
+	// fmt.Println("plan.Path(): ", plan.Path())
+	for _, step := range plan.Path() {
+		for _, p := range step {
+			fmt.Println("pose: ", spatialmath.PoseToProtobuf(p.Pose()))
+		}
+	}
 	fmt.Println("plan.Trajectory(): ", plan.Trajectory())
 
 	// ensure that we can actually perform the check
@@ -466,13 +472,11 @@ func CheckPlan(
 	// entry in the very first plan waypoint
 	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, currentInputs)
 	if err != nil {
-		fmt.Println("e1")
 		return err
 	}
 
 	remainingPoses, err := plan.Path().GetFramePoses(checkFrame.Name())
 	if err != nil {
-		fmt.Println("e2")
 		return err
 	}
 	formerRunningPose := remainingPoses[0]
@@ -480,7 +484,6 @@ func CheckPlan(
 	// construct planager
 	sfPlanner, err := newPlanManager(sf, fs, logger, defaultRandomSeed)
 	if err != nil {
-		fmt.Println("e3")
 		return err
 	}
 
@@ -495,7 +498,6 @@ func CheckPlan(
 	// get plan poses for checkFrame
 	poses, err := offsetPlan.Path().GetFramePoses(checkFrame.Name())
 	if err != nil {
-		fmt.Println("e4")
 		return err
 	}
 
@@ -508,7 +510,7 @@ func CheckPlan(
 		nil, // no pb.Constraints
 		nil, // no plannOpts
 	); err != nil {
-		fmt.Println("e5")
+		fmt.Println("erroring out at plannerSetupFromMoveRequest")
 		return err
 	}
 

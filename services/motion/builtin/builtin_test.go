@@ -560,7 +560,7 @@ func TestObstacleReplanningSlam(t *testing.T) {
 		MotionCfg: &motion.MotionConfiguration{
 			PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: 1, ObstacleDetectors: obstacleDetectorSlice,
 		},
-		Extra: map[string]interface{}{"max_replans": 1, "smooth_iter": 0},
+		Extra: map[string]interface{}{"max_replans": 1}, // "smooth_iter": 0
 	}
 
 	executionID, err := ms.MoveOnMap(ctx, req)

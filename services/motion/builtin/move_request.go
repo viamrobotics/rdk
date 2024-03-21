@@ -118,6 +118,9 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 		return nil, err
 	}
 
+	fmt.Println("planRequestCopy.StartPose: ", spatialmath.PoseToProtobuf(planRequestCopy.StartPose))
+	fmt.Println("planRequestCopy.StartConfiguration: ", planRequestCopy.StartConfiguration)
+
 	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
 	return motionplan.Replan(ctx, &planRequestCopy, nil, 0)
 }
