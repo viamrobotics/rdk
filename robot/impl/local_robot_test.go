@@ -2632,11 +2632,11 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
-		// Wait for "attempt 3" in logs.
+		// Wait for 3 restart attempts in logs.
 		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessageSnippet("attempt 3").Len(),
-				test.ShouldEqual, 1)
+			test.That(tb, logs.FilterFieldKey("restart attempt").Len(),
+				test.ShouldEqual, 3)
 		})
 		time.Sleep(2 * time.Second)
 
@@ -2674,11 +2674,11 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
-		// Wait for "attempt 3" in logs.
+		// Wait for 3 restart attempts in logs.
 		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessageSnippet("attempt 3").Len(),
-				test.ShouldEqual, 1)
+			test.That(tb, logs.FilterFieldKey("restart attempt").Len(),
+				test.ShouldEqual, 3)
 		})
 		time.Sleep(2 * time.Second)
 
