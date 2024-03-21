@@ -947,16 +947,6 @@ func TestTwoModulesRestart(t *testing.T) {
 			test.ShouldEqual, 2)
 	})
 
-	// for name := range models {
-	// 	resName := generic.Named(name)
-	// 	ok = mgr.IsModularResource(resName)
-	// 	test.That(t, ok, test.ShouldBeTrue)
-	// 	resp, err = res.DoCommand(ctx, map[string]interface{}{"command": "echo"})
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	test.That(t, resp, test.ShouldNotBeNil)
-	// 	test.That(t, resp["command"], test.ShouldEqual, "echo")
-	// }
-
 	err = mgr.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
