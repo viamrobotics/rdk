@@ -195,9 +195,10 @@ func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 //
 // Each module configuration should have a unique name - if duplicate names are detected,
 // then only the first duplicate instance will be processed and the rest will be ignored.
-//
-// This method is not thread-safe.
 func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+
 	if mgr.untrustedEnv {
 		return errModularResourcesDisabled
 	}
@@ -267,6 +268,16 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 	return nil
 }
 
+func (mgr *Manager) startModuleProcess(mod *module) error {
+	return mod.startProcess(
+		mgr.restartCtx,
+		mgr.parentAddr,
+		mgr.newOnUnexpectedExitHandler(mod),
+		mgr.logger,
+		mgr.viamHomeDir,
+	)
+}
+
 func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	// add calls startProcess, which can also be called by the OUE handler in the attemptRestart
 	// call. Both of these involve owning a lock, so in unhappy cases of malformed modules
@@ -290,8 +301,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		}
 	}
 
-	if err := mod.startProcess(mgr.restartCtx, mgr.parentAddr,
-		mgr.newOnUnexpectedExitHandler(mod), mgr.logger, mgr.viamHomeDir); err != nil {
+	if err := mgr.startModuleProcess(mod); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
 	}
 
@@ -739,7 +749,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		// Finally, handle orphaned resources.
 		var orphanedResourceNames []resource.Name
 		for name, res := range mod.resources {
-			if _, err := mgr.addResource(mgr.restartCtx, res.conf, res.deps); err != nil {
+			if _, err := mgr.AddResource(mgr.restartCtx, res.conf, res.deps); err != nil {
 				mgr.logger.Warnw("error while re-adding resource to module",
 					"resource", name, "module", mod.cfg.Name, "error", err)
 				mgr.rMap.Delete(name)
@@ -787,8 +797,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 
 	// Attempt to restart module process 3 times.
 	for attempt := 1; attempt < 4; attempt++ {
-		if err := mod.startProcess(mgr.restartCtx, mgr.parentAddr,
-			mgr.newOnUnexpectedExitHandler(mod), mgr.logger, mgr.viamHomeDir); err != nil {
+		if err := mgr.startModuleProcess(mod); err != nil {
 			mgr.logger.Errorf("attempt %d: error while restarting crashed module %s: %v",
 				attempt, mod.cfg.Name, err)
 			if attempt == 3 {

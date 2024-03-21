@@ -476,8 +476,7 @@ func (m *dummyModMan) Close(ctx context.Context) error {
 }
 
 func TestDynamicModuleLogging(t *testing.T) {
-	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-	test.That(t, err, test.ShouldBeNil)
+	modPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
 	ctx := context.Background()
 	logger, observer := logging.NewObservedTestLogger(t)
@@ -556,10 +555,8 @@ func TestTwoModulesSameName(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
-	simplePath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
-	test.That(t, err, test.ShouldBeNil)
-	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
-	test.That(t, err, test.ShouldBeNil)
+	simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+	complexPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
 
 	cfg := &config.Config{
 		Modules: []config.Module{

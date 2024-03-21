@@ -1851,8 +1851,7 @@ func TestConfigMethod(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// Precompile complex module to avoid timeout issues when building takes too long.
-	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
-	test.That(t, err, test.ShouldBeNil)
+	complexPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
 
 	r, shutdown := initTestRobot(t, context.Background(), &config.Config{}, logger)
 	defer shutdown()
@@ -2491,12 +2490,9 @@ func TestOrphanedResources(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 
 	// Precompile modules to avoid timeout issues when building takes too long.
-	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
-	test.That(t, err, test.ShouldBeNil)
-	simplePath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
-	test.That(t, err, test.ShouldBeNil)
-	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-	test.That(t, err, test.ShouldBeNil)
+	complexPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+	simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
 	// Manually define models, as importing them can cause double registration.
 	gizmoModel := resource.NewModel("acme", "demo", "mygizmo")
@@ -2671,8 +2667,7 @@ func TestOrphanedResources(t *testing.T) {
 		// Assert that replacing testmodule binary with disguised simplemodule
 		// binary and killing testmodule orphans helper 'h' (not reachable), as
 		// simplemodule binary cannot manage helper 'h'.
-		tmpPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
-		test.That(t, err, test.ShouldBeNil)
+		tmpPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 		err = os.Rename(tmpPath, testPath)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
@@ -2726,10 +2721,8 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// Precompile modules to avoid timeout issues when building takes too long.
-	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
-	test.That(t, err, test.ShouldBeNil)
-	simplePath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
-	test.That(t, err, test.ShouldBeNil)
+	complexPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+	simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 
 	// Manually define gizmo model, as importing it from mygizmo can cause double
 	// registration.
@@ -2902,8 +2895,7 @@ func TestModuleDebugReconfigure(t *testing.T) {
 	logger, logs := rtestutils.NewInfoObservedTestLogger(t)
 
 	// Precompile module to avoid timeout issues when building takes too long.
-	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-	test.That(t, err, test.ShouldBeNil)
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
 	// Create robot with testmodule with LogLevel unset and assert that after two
 	// seconds, "debug mode enabled" debug log is not output by testmodule.
@@ -2946,8 +2938,7 @@ func TestResourcelessModuleRemove(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 
 	// Precompile module to avoid timeout issues when building takes too long.
-	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-	test.That(t, err, test.ShouldBeNil)
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
 	cfg := &config.Config{
 		Modules: []config.Module{
@@ -2974,8 +2965,7 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 
-	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-	test.That(t, err, test.ShouldBeNil)
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
 	// Manually define model, as importing it can cause double registration.
 	helperModel := resource.NewModel("rdk", "test", "helper")
@@ -2998,7 +2988,7 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	r, shutdown := initTestRobot(t, ctx, cfg, logger)
 	defer shutdown()
 
-	_, err = r.ResourceByName(generic.Named("h"))
+	_, err := r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("reconfiguration timeout", func(t *testing.T) {
@@ -3042,10 +3032,8 @@ func TestImplicitDepsAcrossModules(t *testing.T) {
 	logger, _ := logging.NewObservedTestLogger(t)
 
 	// Precompile modules to avoid timeout issues when building takes too long.
-	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
-	test.That(t, err, test.ShouldBeNil)
-	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-	test.That(t, err, test.ShouldBeNil)
+	complexPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
 	// Manually define models, as importing them can cause double registration.
 	myBaseModel := resource.NewModel("acme", "demo", "mybase")
@@ -3087,7 +3075,7 @@ func TestImplicitDepsAcrossModules(t *testing.T) {
 	r, shutdown := initTestRobot(t, ctx, cfg, logger)
 	defer shutdown()
 
-	_, err = r.ResourceByName(base.Named("b"))
+	_, err := r.ResourceByName(base.Named("b"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.ResourceByName(motor.Named("m1"))
 	test.That(t, err, test.ShouldBeNil)
