@@ -16,7 +16,6 @@ type replanResponse struct {
 }
 
 // replanFn is an alias for a function that will be polled by a replanner.
-// type replanFn func(context.Context, motionplan.Plan, int) (state.ExecuteResponse, error).
 type replanFn func(context.Context, motionplan.Plan) (state.ExecuteResponse, error)
 
 func (rr replanResponse) String() string {
