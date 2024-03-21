@@ -3761,6 +3761,7 @@ func TestResourceCloseNoHang(t *testing.T) {
 	modelName1 := utils.RandomAlphaString(5)
 	model1 := resource.DefaultModelFamily.WithModel(modelName1)
 
+	mf := &mockFake{Named: resource.NewName(mockAPI, "mock").AsNamed()}
 	resource.RegisterComponent(mockAPI, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
@@ -3768,7 +3769,7 @@ func TestResourceCloseNoHang(t *testing.T) {
 			conf resource.Config,
 			logger logging.Logger,
 		) (resource.Resource, error) {
-			return &mockFake{Named: conf.ResourceName().AsNamed(), shouldHangOnClose: true}, nil
+			return mf, nil
 		},
 	})
 	defer func() {
@@ -3787,31 +3788,23 @@ func TestResourceCloseNoHang(t *testing.T) {
 	r, err := New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Lower resourceCloseTimeout to one second to speed up test.
-	originalResourceCloseTimeout := resourceCloseTimeout
-	resourceCloseTimeout = time.Second
-	defer func() {
-		resourceCloseTimeout = originalResourceCloseTimeout
-	}()
-
-	// Assert that this Close does not hang for an hour even with
-	// time.Sleep(time.Minute) in mockFake's Close method.
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-	})
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, mf.closeCtxDeadline, test.ShouldNotBeNil)
+	test.That(t, mf.closeCtxDeadline, test.ShouldHappenWithin,
+		resourceCloseTimeout, time.Now())
 }
 
 type mockFake struct {
 	resource.Named
-	createdAt         int
-	reconfCount       int
-	reconfiguredAt    int64
-	failCount         int
-	shouldRebuild     bool
-	closeCount        int
-	closedAt          int64
-	logicalClock      *atomic.Int64
-	shouldHangOnClose bool
+	createdAt        int
+	reconfCount      int
+	reconfiguredAt   int64
+	failCount        int
+	shouldRebuild    bool
+	closedAt         int64
+	closeCount       int
+	closeCtxDeadline time.Time
+	logicalClock     *atomic.Int64
 }
 
 type mockFakeConfig struct {
@@ -3844,13 +3837,8 @@ func (m *mockFake) Close(ctx context.Context) error {
 		m.closedAt = m.logicalClock.Add(1)
 	}
 	m.closeCount++
-
-	if m.shouldHangOnClose {
-		timer := time.NewTimer(time.Minute)
-		select {
-		case <-timer.C:
-		case <-ctx.Done():
-		}
+	if dl, exists := ctx.Deadline(); exists {
+		m.closeCtxDeadline = dl
 	}
 	return nil
 }
