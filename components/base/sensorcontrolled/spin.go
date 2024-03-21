@@ -11,10 +11,11 @@ import (
 )
 
 const (
-	increment       = 0.01 // angle fraction multiplier to check
-	oneTurn         = 360.0
-	maxSlowDownAng  = 30. // maximum angle from goal for spin to begin breaking
-	slowDownAngGain = 0.1 // Use the final 10% of the requested spin to slow down
+	increment        = 0.01 // angle fraction multiplier to check
+	oneTurn          = 360.0
+	maxSlowDownAng   = 30. // maximum angle from goal for spin to begin breaking
+	slowDownAngGain  = 0.1 // Use the final 10% of the requested spin to slow down
+	boundCheckTarget = 1.  // error threshold for spin
 )
 
 // Spin commands a base to turn about its center at an angular speed and for a specific angle.
