@@ -210,9 +210,14 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	if err != nil {
 		logger.Warnw("Error creating optional peer connection for module. Ignoring.", "err", err)
 	}
-	m.pcReady, err = ConfigureForRenegotiation(m.pc, logger)
+	pcReady, err := ConfigureForRenegotiation(m.pc, logger)
 	if err != nil {
 		logger.Warnw("Error creating renegotiation channel for module. Ignoring.", "err", err)
+		pcFailed := make(chan struct{})
+		close(pcFailed)
+		m.pcReady = pcFailed
+	} else {
+		m.pcReady = pcReady
 	}
 
 	return m, nil
