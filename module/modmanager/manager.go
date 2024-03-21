@@ -900,11 +900,15 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 		}
 
 		if resp.Ready {
+			webrtcConnectSucceeded := true
 			if err = connect(m.peerConn, resp.ModuleSdp); err != nil {
 				logger.Warnw("Error creating PeerConnection. Ignoring.", "err", err)
+				webrtcConnectSucceeded = false
 			}
 			m.sharedModuleConn = webrtchack.NewSharedConn(&m.conn, m.peerConn, logger)
-			<-m.pcReady
+			if webrtcConnectSucceeded {
+				<-m.pcReady
+			}
 			m.handles, err = modlib.NewHandlerMapFromProto(ctx, resp.Handlermap, &m.conn)
 			return err
 		}
