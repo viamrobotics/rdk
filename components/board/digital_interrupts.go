@@ -2,7 +2,6 @@ package board
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"sync/atomic"
 
