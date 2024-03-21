@@ -1115,7 +1115,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		return
 	}
 
-	r.logger.CInfo(ctx, "Reconfiguring robot")
+	r.logger.CInfo(ctx, "(Re)configuring robot")
 
 	if r.revealSensitiveConfigDiffs {
 		r.logger.CDebugf(ctx, "(re)configuring with %+v", diff)
@@ -1159,7 +1159,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if allErrs != nil {
 		r.logger.CErrorw(ctx, "The following errors were gathered during reconfiguration", "errors", allErrs)
 	} else {
-		r.logger.CInfow(ctx, "Robot successfully reconfigured")
+		r.logger.CInfow(ctx, "Robot successfully (re)configured")
 	}
 }
 
