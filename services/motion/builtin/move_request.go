@@ -137,7 +137,7 @@ func (mr *moveRequest) AnchorGeoPose() *spatialmath.GeoPose {
 
 // execute attempts to follow a given Plan starting from the index percribed by waypointIndex.
 // Note that waypointIndex is an atomic int that is incremented in this function after each waypoint has been successfully reached.
-func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan, waypointIndex *atomic.Int32) (state.ExecuteResponse, error) {
+func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
 	waypoints, err := plan.Trajectory().GetFrameInputs(mr.kinematicBase.Name().ShortName())
 	if err != nil {
 		return state.ExecuteResponse{}, err
@@ -168,12 +168,13 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan, waypoi
 		}
 	}
 	// the plan has been fully executed so check to see if where we are at is close enough to the goal.
-	return mr.deviatedFromPlan(ctx, plan, len(waypoints)-1)
+	return mr.deviatedFromPlan(ctx, plan)
 }
 
 // deviatedFromPlan takes a plan and an index of a waypoint on that Plan and returns whether or not it is still
 // following the plan as described by the PlanDeviation specified for the moveRequest.
-func (mr *moveRequest) deviatedFromPlan(ctx context.Context, plan motionplan.Plan, waypointIndex int) (state.ExecuteResponse, error) {
+func (mr *moveRequest) deviatedFromPlan(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
+	waypointIndex := int(mr.waypointIndex.Load())
 	errorState, err := mr.kinematicBase.ErrorState(ctx, plan, waypointIndex)
 	if err != nil {
 		return state.ExecuteResponse{}, err
@@ -243,7 +244,6 @@ func (mr *moveRequest) getTransientDetections(
 func (mr *moveRequest) obstaclesIntersectPlan(
 	ctx context.Context,
 	plan motionplan.Plan,
-	_ int,
 ) (state.ExecuteResponse, error) {
 	// if the camera is mounted on something InputEnabled that isn't the base, then that
 	// input needs to be known in order to properly calculate the pose of the obstacle
@@ -816,18 +816,18 @@ func (mr *moveRequest) start(ctx context.Context, plan motionplan.Plan) {
 	}
 	mr.executeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		mr.position.startPolling(ctx, plan, mr.waypointIndex)
+		mr.position.startPolling(ctx, plan)
 	}, mr.executeBackgroundWorkers.Done)
 
 	mr.executeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		mr.obstacle.startPolling(ctx, plan, mr.waypointIndex)
+		mr.obstacle.startPolling(ctx, plan)
 	}, mr.executeBackgroundWorkers.Done)
 
 	// spawn function to execute the plan on the robot
 	mr.executeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		executeResp, err := mr.execute(ctx, plan, mr.waypointIndex)
+		executeResp, err := mr.execute(ctx, plan)
 		resp := moveResponse{executeResponse: executeResp, err: err}
 		mr.responseChan <- resp
 	}, mr.executeBackgroundWorkers.Done)

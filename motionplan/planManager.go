@@ -802,20 +802,22 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 		return nil, err
 	}
 	goalPos := tf.(*referenceframe.PoseInFrame).Pose()
-	if pm.planOpts, err = pm.plannerSetupFromMoveRequest(
+	opt, err := pm.plannerSetupFromMoveRequest(
 		startPose, goalPos, request.StartConfiguration, request.WorldState, request.ConstraintSpecs, request.Options,
-	); err != nil {
+	)
+	if err != nil {
 		return nil, err
 	}
-	pm.planOpts.SetGoal(goalPos)
+	pm.planOpts = opt
+	opt.SetGoal(goalPos)
 
 	// Build planner
 	//nolint: gosec
-	pathPlanner, err := pm.planOpts.PlannerConstructor(
+	pathPlanner, err := opt.PlannerConstructor(
 		pm.frame,
 		rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 		pm.logger,
-		pm.planOpts,
+		opt,
 	)
 	if err != nil {
 		return nil, err
