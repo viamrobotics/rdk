@@ -423,10 +423,10 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 
 // AddResource receives the component/service configuration from the parent.
 func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*pb.AddResourceResponse, error) {
-	m.logger.Info("Ready BEGIN")
-	defer m.logger.Info("Ready END")
+	m.logger.Info("AddResource BEGIN")
+	defer m.logger.Info("AddResource END")
 	<-m.pcReady
-	m.logger.Info("Ready after pcReady")
+	m.logger.Info("AddResource after pcReady")
 
 	deps := make(resource.Dependencies)
 	for _, c := range req.Dependencies {
