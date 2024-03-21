@@ -72,15 +72,20 @@ func (sc *SharedConn) RemoveOnTrackSub(name resource.Name) {
 	delete(sc.resourceOnTrackCBs, name)
 }
 
+// TODO: See if we can make this HasPeerConn() bool
 func (sc *SharedConn) PeerConn() *webrtc.PeerConnection {
+	sc.peerConnMu.Lock()
+	defer sc.peerConnMu.Unlock()
 	return sc.peerConn
 }
 
 func (sc *SharedConn) Close() error {
 	var err error
+	sc.peerConnMu.Lock()
 	if sc.peerConn != nil {
 		err = sc.peerConn.Close()
 	}
+	sc.peerConnMu.Unlock()
 
 	return multierr.Combine(err, sc.ReconfigurableClientConn.Close())
 }

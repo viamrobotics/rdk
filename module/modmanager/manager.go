@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -91,9 +92,9 @@ type module struct {
 	inStartup      atomic.Bool
 	inRecoveryLock sync.Mutex
 
-	peerConn         *webrtc.PeerConnection
-	sharedModuleConn *webrtchack.SharedConn
-	pcReady          <-chan struct{}
+	peerConn   *webrtc.PeerConnection
+	sharedConn *webrtchack.SharedConn
+	pcReady    <-chan struct{}
 }
 
 type addedResource struct {
@@ -416,7 +417,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 		return errors.WithMessage(err, "error while stopping module "+mod.cfg.Name)
 	}
 
-	if err := mod.conn.Close(); err != nil {
+	if err := mod.sharedConn.Close(); err != nil {
 		return errors.WithMessage(err, "error while closing connection from module "+mod.cfg.Name)
 	}
 
@@ -436,6 +437,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 
 // AddResource tells a component module to configure a new component.
 func (mgr *Manager) AddResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
+	debug.PrintStack()
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 	return mgr.addResource(ctx, conf, deps)
@@ -462,10 +464,10 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
 	if !ok || apiInfo.RPCClient == nil {
 		mgr.logger.Warnf("no built-in grpc client for modular resource %s", conf.ResourceName())
-		return rdkgrpc.NewForeignResource(conf.ResourceName(), mod.sharedModuleConn), nil
+		return rdkgrpc.NewForeignResource(conf.ResourceName(), mod.sharedConn), nil
 	}
 
-	return apiInfo.RPCClient(ctx, mod.sharedModuleConn, "", conf.ResourceName(), mgr.logger)
+	return apiInfo.RPCClient(ctx, mod.sharedConn, "", conf.ResourceName(), mgr.logger)
 }
 
 // ReconfigureResource updates/reconfigures a modular component with a new configuration.
@@ -735,7 +737,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		)
 
 		// close client connection, we will re-dial as part of restart attempts.
-		if err := mod.conn.Close(); err != nil {
+		if err := mod.sharedConn.Close(); err != nil {
 			mgr.logger.Warnw("error while closing connection to crashed module, continuing restart attempt",
 				"module", mod.cfg.Name, "error", err)
 		}
@@ -905,7 +907,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 				logger.Warnw("Error creating PeerConnection. Ignoring.", "err", err)
 				webrtcConnectSucceeded = false
 			}
-			m.sharedModuleConn = webrtchack.NewSharedConn(&m.conn, m.peerConn, logger)
+			m.sharedConn = webrtchack.NewSharedConn(&m.conn, m.peerConn, logger)
 			if webrtcConnectSucceeded {
 				<-m.pcReady
 			}
@@ -1018,6 +1020,7 @@ func (m *module) stopProcess() error {
 }
 
 func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger logging.Logger) {
+	debug.PrintStack()
 	for api, models := range m.handles {
 		if _, ok := resource.LookupGenericAPIRegistration(api.API); !ok {
 			resource.RegisterAPI(
@@ -1075,7 +1078,7 @@ func (m *module) cleanupAfterStartupFailure(logger logging.Logger) {
 		msg := "error while stopping process of module that failed to start"
 		logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 	}
-	if err := m.conn.Close(); err != nil {
+	if err := m.sharedConn.Close(); err != nil {
 		msg := "error while closing connection to module that failed to start"
 		logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 	}
@@ -1086,7 +1089,7 @@ func (m *module) cleanupAfterCrash(mgr *Manager) {
 		msg := "error while stopping process of crashed module"
 		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 	}
-	if err := m.conn.Close(); err != nil {
+	if err := m.sharedConn.Close(); err != nil {
 		msg := "error while closing connection to crashed module"
 		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 	}
