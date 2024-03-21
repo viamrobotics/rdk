@@ -136,8 +136,6 @@ func PlanFrameMotion(ctx context.Context,
 // Replan plans a motion from a provided plan request, and then will return that plan only if its cost is better than the cost of the
 // passed-in plan multiplied by `replanCostFactor`.
 func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanCostFactor float64) (Plan, error) {
-	// when constructing a plan, should we inflate the size of transient geometries?
-	fmt.Println("ENTERING REPLAN NOW")
 	// make sure request is well formed and not missing vital information
 	if err := request.validatePlanRequest(); err != nil {
 		return nil, err
@@ -180,20 +178,6 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		if finalPlanCost > initialPlanCost*replanCostFactor {
 			return nil, errHighReplanCost
 		}
-	}
-	fmt.Println("FINISHED CONSTRUCTING PLAN")
-	if err := CheckPlan(
-		request.Frame,
-		newPlan,
-		request.WorldState,
-		request.FrameSystem,
-		request.StartPose,
-		request.StartConfiguration,
-		spatialmath.NewZeroPose(),
-		5e6,
-		sfPlanner.logger,
-	); err != nil {
-		return nil, errors.New("should not have errored here!")
 	}
 
 	return newPlan, nil
@@ -453,15 +437,6 @@ func CheckPlan(
 	lookAheadDistanceMM float64,
 	logger logging.Logger,
 ) error {
-	fmt.Println("ENTERING CHECKPLAN")
-	// fmt.Println("plan.Path(): ", plan.Path())
-	for _, step := range plan.Path() {
-		for _, p := range step {
-			fmt.Println("pose: ", spatialmath.PoseToProtobuf(p.Pose()))
-		}
-	}
-	fmt.Println("plan.Trajectory(): ", plan.Trajectory())
-
 	// ensure that we can actually perform the check
 	if len(plan.Path()) < 1 {
 		return errors.New("plan must have at least one element")
@@ -474,12 +449,6 @@ func CheckPlan(
 	if err != nil {
 		return err
 	}
-
-	remainingPoses, err := plan.Path().GetFramePoses(checkFrame.Name())
-	if err != nil {
-		return err
-	}
-	formerRunningPose := remainingPoses[0]
 
 	// construct planager
 	sfPlanner, err := newPlanManager(sf, fs, logger, defaultRandomSeed)
@@ -503,22 +472,19 @@ func CheckPlan(
 
 	// setup the planOpts
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
-		formerRunningPose,
+		poses[0],
 		poses[len(poses)-1],
 		currentInputs,
 		worldState,
 		nil, // no pb.Constraints
 		nil, // no plannOpts
 	); err != nil {
-		fmt.Println("erroring out at plannerSetupFromMoveRequest")
 		return err
 	}
 
 	// create a list of segments to iterate through
-	var segments []*ik.Segment
+	segments := make([]*ik.Segment, 0, len(poses))
 	if relative {
-		segments = make([]*ik.Segment, 0, len(poses))
-
 		// get the inputs we were partway through executing
 		checkFrameGoalInputs, err := sf.mapToSlice(plan.Trajectory()[1])
 		if err != nil {
@@ -533,7 +499,7 @@ func CheckPlan(
 
 		// pre-pend to segments so we can connect to the input we have not finished actuating yet
 		segments = append(segments, &ik.Segment{
-			StartPosition: spatialmath.Compose(formerRunningPose, errorState),
+			StartPosition: poses[0],
 			EndPosition:   poses[1],
 			StartConfiguration: []frame.Input{
 				{Value: checkFrameGoalInputs[0].Value},
@@ -542,8 +508,6 @@ func CheckPlan(
 			},
 			EndConfiguration: checkFrameGoalInputs,
 		})
-	} else {
-		segments = make([]*ik.Segment, 0, len(poses))
 	}
 
 	// function to ease further segment creation
@@ -587,8 +551,6 @@ func CheckPlan(
 	// able to call CheckStateConstraintsAcrossSegment directly.
 	var totalTravelDistanceMM float64
 	for _, segment := range segments {
-		fmt.Println("segment.StartConfiguration: ", segment.StartConfiguration)
-		fmt.Println("segment.EndConfiguration: ", segment.EndConfiguration)
 		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
 		if err != nil {
 			return err
@@ -612,7 +574,6 @@ func CheckPlan(
 			interpolatedState := &ik.State{Frame: sf}
 			if relative {
 				interpolatedState.Position = spatialmath.Compose(segment.StartPosition, poseInPath)
-				fmt.Println("interpolatedState.Position: ", spatialmath.PoseToProtobuf(interpolatedState.Position))
 			} else {
 				interpolatedState.Configuration = interpConfig
 			}

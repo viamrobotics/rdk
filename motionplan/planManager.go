@@ -514,9 +514,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		// need to be transformed by the start position to place them correctly in world.
 		startGeoms := make([]spatialmath.Geometry, 0, len(movingRobotGeometries))
 		for _, geometry := range movingRobotGeometries {
-			fmt.Println("BEFORE - G POSE", spatialmath.PoseToProtobuf(geometry.Pose()))
-			fmt.Println("from: ", spatialmath.PoseToProtobuf(from))
-			fmt.Println("AFTER - G POSE", spatialmath.PoseToProtobuf(geometry.Transform(from).Pose()))
 			startGeoms = append(startGeoms, geometry.Transform(from))
 		}
 		movingRobotGeometries = startGeoms
@@ -826,7 +823,6 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	zeroInputs := make([]referenceframe.Input, len(pm.frame.DoF()))
 	maps := &rrtMaps{}
 	if seedPlan != nil {
-		fmt.Println("THE SEED MAP IS NOT NIL BRO")
 		maps, err = pm.planToRRTGoalMap(seedPlan, goalPos)
 		if err != nil {
 			return nil, err

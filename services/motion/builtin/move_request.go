@@ -118,9 +118,6 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 		return nil, err
 	}
 
-	fmt.Println("planRequestCopy.StartPose: ", spatialmath.PoseToProtobuf(planRequestCopy.StartPose))
-	fmt.Println("planRequestCopy.StartConfiguration: ", planRequestCopy.StartConfiguration)
-
 	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
 	return motionplan.Replan(ctx, &planRequestCopy, nil, 0)
 }
@@ -304,7 +301,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// versus when CheckPlan is actually called.
 			// We load the wayPointIndex value to ensure that all information is up to date.
 			waypointIndex := int(mr.waypointIndex.Load())
-			fmt.Println("WAYPTIDX: ", waypointIndex)
+
 			remainingPlan, err := motionplan.RemainingPlan(plan, waypointIndex-1)
 			if err != nil {
 				return state.ExecuteResponse{}, err
