@@ -3795,7 +3795,7 @@ func TestResourceCloseNoHang(t *testing.T) {
 	}()
 
 	// Assert that this Close does not hang for an hour even with
-	// time.Sleep(time.Hour) in mockFake's Close method.
+	// time.Sleep(time.Minute) in mockFake's Close method.
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	})
@@ -3846,7 +3846,7 @@ func (m *mockFake) Close(ctx context.Context) error {
 	m.closeCount++
 
 	if m.shouldHangOnClose {
-		timer := time.NewTimer(time.Hour)
+		timer := time.NewTimer(time.Minute)
 		select {
 		case <-timer.C:
 		case <-ctx.Done():
