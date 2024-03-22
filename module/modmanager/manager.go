@@ -311,6 +311,29 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		}
 	}
 
+	slowTicker := time.NewTicker(2 * time.Second)
+	defer slowTicker.Stop()
+	firstTick := true
+	startTime := time.Now()
+
+	go func() {
+		for {
+			select {
+			case <-slowTicker.C:
+				elapsed := time.Since(startTime).Seconds()
+				mgr.logger.CWarnw(ctx, "Still waiting for module to startup", "module", mod.cfg.Name, "time elapsed", elapsed)
+				if firstTick {
+					slowTicker.Reset(3 * time.Second)
+					firstTick = false
+				} else {
+					slowTicker.Reset(5 * time.Second)
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	if err := mgr.startModuleProcess(mod); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
 	}
@@ -325,6 +348,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 
 	mod.registerResources(mgr, mgr.logger)
 	mgr.modules.Store(mod.cfg.Name, mod)
+	mgr.logger.Infow("Module successfully added", "module", mod.cfg.Name)
 	success = true
 	return nil
 }
@@ -822,6 +846,29 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	// No need to check mgr.untrustedEnv, as we're restarting the same
 	// executable we were given for initial module addition.
 
+	slowTicker := time.NewTicker(2 * time.Second)
+	defer slowTicker.Stop()
+	firstTick := true
+	startTime := time.Now()
+
+	go func() {
+		for {
+			select {
+			case <-slowTicker.C:
+				elapsed := time.Since(startTime).Seconds()
+				mgr.logger.CWarnw(ctx, "Still waiting for module to restart", "module", mod.cfg.Name, "time elapsed", elapsed)
+				if firstTick {
+					slowTicker.Reset(3 * time.Second)
+					firstTick = false
+				} else {
+					slowTicker.Reset(5 * time.Second)
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	// Attempt to restart module process 3 times.
 	for attempt := 1; attempt < 4; attempt++ {
 		if err := mgr.startModuleProcess(mod); err != nil {
@@ -885,23 +932,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(logger))
 	defer cancelFunc()
 
-	slowTicker := time.NewTicker(2 * time.Second)
-	defer slowTicker.Stop()
-	startTime := time.Now()
-
-	go func() {
-		for {
-			select {
-			case <-slowTicker.C:
-				elapsed := time.Since(startTime).Seconds()
-				logger.CWarnw(ctx, "Waiting for module to be ready", "module", m.cfg.Name, "time elapsed", elapsed)
-				slowTicker.Reset(5 * time.Second)
-			case <-ctxTimeout.Done():
-				return
-			}
-		}
-	}()
-
+	logger.CInfow(ctx, "Waiting for module to be ready", "module", m.cfg.Name)
 	for {
 		req := &pb.ReadyRequest{ParentAddress: parentAddr}
 		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
@@ -972,10 +1003,10 @@ func (m *module) startProcess(
 		return errors.WithMessage(err, "module startup failed")
 	}
 
-	slowTicker := time.NewTicker(2 * time.Second)
-	defer slowTicker.Stop()
-	startTime := time.Now()
+	checkTicker := time.NewTicker(100 * time.Millisecond)
+	defer checkTicker.Stop()
 
+	logger.CInfow(ctx, "Waiting for module to startup", "module", m.cfg.Name)
 	ctxTimeout, cancel := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(logger))
 	defer cancel()
 	for {
@@ -985,11 +1016,7 @@ func (m *module) startProcess(
 				return rutils.NewModuleStartUpTimeoutError(m.cfg.Name)
 			}
 			return ctxTimeout.Err()
-		case <-slowTicker.C:
-			elapsed := time.Since(startTime).Seconds()
-			logger.CWarnf(ctx, "Slow module startup detected", "module", m.cfg.Name, "time elapsed", elapsed)
-			slowTicker.Reset(5 * time.Second)
-		default:
+		case <-checkTicker.C:
 		}
 		err = modlib.CheckSocketOwner(m.addr)
 		if errors.Is(err, fs.ErrNotExist) {
