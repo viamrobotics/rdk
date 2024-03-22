@@ -429,6 +429,7 @@ IK:
 func CheckPlan(
 	checkFrame frame.Frame,
 	plan Plan,
+	wayPointIdx int,
 	worldState *frame.WorldState,
 	fs frame.FrameSystem,
 	currentPose spatialmath.Pose,
@@ -470,9 +471,16 @@ func CheckPlan(
 		return err
 	}
 
+	var startPose spatialmath.Pose
+	if relative {
+		startPose = poses[wayPointIdx-1]
+	} else {
+		startPose = currentPose
+	}
+
 	// setup the planOpts
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
-		poses[0],
+		startPose,
 		poses[len(poses)-1],
 		currentInputs,
 		worldState,
@@ -483,10 +491,10 @@ func CheckPlan(
 	}
 
 	// create a list of segments to iterate through
-	segments := make([]*ik.Segment, 0, len(poses))
+	segments := make([]*ik.Segment, 0, len(poses)-wayPointIdx)
 	if relative {
 		// get the inputs we were partway through executing
-		checkFrameGoalInputs, err := sf.mapToSlice(plan.Trajectory()[1])
+		checkFrameGoalInputs, err := sf.mapToSlice(plan.Trajectory()[wayPointIdx])
 		if err != nil {
 			return err
 		}
@@ -499,8 +507,8 @@ func CheckPlan(
 
 		// pre-pend to segments so we can connect to the input we have not finished actuating yet
 		segments = append(segments, &ik.Segment{
-			StartPosition: poses[0],
-			EndPosition:   poses[1],
+			StartPosition: poses[wayPointIdx-1],
+			EndPosition:   poses[wayPointIdx],
 			StartConfiguration: []frame.Input{
 				{Value: checkFrameGoalInputs[0].Value},
 				{Value: checkFrameGoalInputs[1].Value},
@@ -537,15 +545,8 @@ func CheckPlan(
 		}, nil
 	}
 
-	var iterStartVal int
-	if relative {
-		iterStartVal = 1
-	} else {
-		iterStartVal = 0
-	}
-
 	// iterate through remaining plan and append remaining segments to check
-	for i := iterStartVal; i < len(offsetPlan.Path())-1; i++ {
+	for i := wayPointIdx; i < len(offsetPlan.Path())-1; i++ {
 		segment, err := createSegment(poses[i], poses[i+1], offsetPlan.Trajectory()[i], offsetPlan.Trajectory()[i+1])
 		if err != nil {
 			return err

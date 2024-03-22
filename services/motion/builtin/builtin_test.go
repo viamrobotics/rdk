@@ -1342,6 +1342,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		err = motionplan.CheckPlan(
 			mr.planRequest.Frame,
 			plan,
+			1,
 			wrldSt,
 			mr.planRequest.FrameSystem,
 			spatialmath.NewPose(

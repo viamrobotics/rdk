@@ -1247,7 +1247,7 @@ func TestArmGantryCheckPlan(t *testing.T) {
 	errorState := spatialmath.NewZeroPose()
 
 	t.Run("check plan with no obstacles", func(t *testing.T) {
-		err := CheckPlan(f, plan, nil, fs, startPose, plan.Trajectory()[0], errorState, math.Inf(1), logger)
+		err := CheckPlan(f, plan, 0, nil, fs, startPose, plan.Trajectory()[0], errorState, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("check plan with obstacle", func(t *testing.T) {
@@ -1260,7 +1260,7 @@ func TestArmGantryCheckPlan(t *testing.T) {
 		worldState, err := frame.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(f, plan, worldState, fs, startPose, plan.Trajectory()[0], errorState, math.Inf(1), logger)
+		err = CheckPlan(f, plan, 0, worldState, fs, startPose, plan.Trajectory()[0], errorState, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }

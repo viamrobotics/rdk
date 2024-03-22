@@ -302,11 +302,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// We load the wayPointIndex value to ensure that all information is up to date.
 			waypointIndex := int(mr.waypointIndex.Load())
 
-			remainingPlan, err := motionplan.RemainingPlan(plan, waypointIndex-1)
-			if err != nil {
-				return state.ExecuteResponse{}, err
-			}
-
 			// get the pose difference between where the robot is versus where it ought to be.
 			errorState, err := mr.kinematicBase.ErrorState(ctx, plan, waypointIndex)
 			if err != nil {
@@ -322,7 +317,8 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 
 			if err := motionplan.CheckPlan(
 				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
-				remainingPlan,
+				plan,
+				waypointIndex,
 				worldState, // detected obstacles by this instance of camera + service
 				mr.planRequest.FrameSystem,
 				currentPosition.Pose(), // currentPosition of robot accounts for errorState
