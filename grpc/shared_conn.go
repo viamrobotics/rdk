@@ -20,10 +20,10 @@ type OnTrackCB func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver)
 // the two underlying connections a client may want to communicate over.
 type SharedConn struct {
 	*ReconfigurableClientConn
-	peerConnMu         sync.RWMutex
-	resourceOnTrackCBs map[resource.Name]OnTrackCB
 	peerConn           *webrtc.PeerConnection
 	logger             logging.Logger
+	mu                 sync.RWMutex
+	resourceOnTrackCBs map[resource.Name]OnTrackCB
 }
 
 // NewSharedConn returns a SharedConnection which manages access to both a grpc client conntection & (optionally) a
@@ -42,11 +42,9 @@ func NewSharedConn(conn *ReconfigurableClientConn, peerConn *webrtc.PeerConnecti
 				logger.Errorf("%p OnTrack called with StreamID: %s which is not able to be parsed into a resource name", sc, tr.StreamID())
 				return
 			}
-			// TODO: Maybe we don't want to hold this lock for the entire duration of the onTrackCB
-			// check this later
-			sc.peerConnMu.RLock()
-			defer sc.peerConnMu.RUnlock()
+			sc.mu.RLock()
 			onTrackCB, ok := sc.resourceOnTrackCBs[name]
+			sc.mu.RUnlock()
 			if !ok {
 				sc.logger.Errorf("%p OnTrack called with StreamID: %s which is not in the resourceOnTrackCBs: %#v", sc, name, sc.resourceOnTrackCBs)
 				return
@@ -59,33 +57,29 @@ func NewSharedConn(conn *ReconfigurableClientConn, peerConn *webrtc.PeerConnecti
 
 // AddOnTrackSub adds an OnTrack subscription for the resource.
 func (sc *SharedConn) AddOnTrackSub(name resource.Name, onTrackCB OnTrackCB) {
-	sc.peerConnMu.Lock()
-	defer sc.peerConnMu.Unlock()
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
 	sc.resourceOnTrackCBs[name] = onTrackCB
 }
 
 // RemoveOnTrackSub removes an OnTrack subscription for the resource.
 func (sc *SharedConn) RemoveOnTrackSub(name resource.Name) {
-	sc.peerConnMu.Lock()
-	defer sc.peerConnMu.Unlock()
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
 	delete(sc.resourceOnTrackCBs, name)
 }
 
 // PeerConn returns the PeerConnection.
 func (sc *SharedConn) PeerConn() *webrtc.PeerConnection {
-	sc.peerConnMu.Lock()
-	defer sc.peerConnMu.Unlock()
 	return sc.peerConn
 }
 
 // Close closes a shared connection.
 func (sc *SharedConn) Close() error {
 	var err error
-	sc.peerConnMu.Lock()
 	if sc.peerConn != nil {
 		err = sc.peerConn.Close()
 	}
-	sc.peerConnMu.Unlock()
 
 	return multierr.Combine(err, sc.ReconfigurableClientConn.Close())
 }
