@@ -203,14 +203,14 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	// attempt to construct a PeerConnection
 	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
-		logger.Warnw("Error creating optional peer connection for module. Ignoring.", "err", err)
+		logger.Debugw("Unable to create optional peer connection for module. Skipping WebRTC for module...", "err", err)
 		return m, nil
 	}
 
 	// attempt to configure PeerConnection
 	pcReady, err := rpc.ConfigureForRenegotiation(pc, logger.AsZap())
 	if err != nil {
-		logger.Warnw("Error creating renegotiation channel for module. Ignoring.", "err", err)
+		logger.Debugw("Error creating renegotiation channel for module. Unable to create optional peer connection for module. Skipping WebRTC for module...", "err", err)
 		return m, nil
 	}
 
@@ -369,7 +369,7 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 	if err == nil {
 		resp.WebrtcAnswer = encodedAnswer
 	} else {
-		m.logger.Warnw("Error creating PeerConnection", "err", err)
+		m.logger.Debugw("Unable to create optional peer connection for module. Skipping WebRTC for module...", "err", err)
 		pcFailed := make(chan struct{})
 		close(pcFailed)
 		m.pcFailed = pcFailed
