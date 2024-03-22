@@ -291,8 +291,8 @@ func (c *client) removeStream(s *interruptStream) {
 	}
 }
 
-// RemoveCallbacks removes the callbacks from the given interrupts.
-func (c *client) RemoveCallbacks(ctx context.Context, interrupts []string, ch chan Tick) error {
+// removeCallbacks removes the callbacks from the given interrupts.
+func (c *client) removeCallbacks(ctx context.Context, interrupts []string, ch chan Tick) error {
 	return nil
 }
 
