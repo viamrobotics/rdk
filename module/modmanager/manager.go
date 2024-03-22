@@ -36,7 +36,6 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
-	"go.viam.com/rdk/webrtchack"
 )
 
 var (
@@ -92,7 +91,7 @@ type module struct {
 	inRecoveryLock sync.Mutex
 
 	peerConn   *webrtc.PeerConnection
-	sharedConn *webrtchack.SharedConn
+	sharedConn *rdkgrpc.SharedConn
 	pcReady    <-chan struct{}
 }
 
@@ -941,7 +940,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 				logger.Warnw("Error creating PeerConnection. Ignoring.", "err", err)
 				webrtcConnectSucceeded = false
 			}
-			m.sharedConn = webrtchack.NewSharedConn(&m.conn, m.peerConn, logger)
+			m.sharedConn = rdkgrpc.NewSharedConn(&m.conn, m.peerConn, logger)
 			if webrtcConnectSucceeded {
 				<-m.pcReady
 			}
