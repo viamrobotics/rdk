@@ -253,9 +253,11 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 	defer nl.toLogMutex.Unlock()
 
 	// Remove successfully synced logs from the queue. If we've overflowed more times than the size of the batch
-	//  we wrote, do not mutate toLog at all.
+	// we wrote, do not mutate toLog at all. If we've synced more logs than there are logs left, empty out toLog
+	// to prevent panics.
 	if batchSize > nl.toLogOverflowsSinceLastSync {
-		nl.toLog = nl.toLog[batchSize-nl.toLogOverflowsSinceLastSync:]
+		idx := min(batchSize-nl.toLogOverflowsSinceLastSync, len(nl.toLog))
+		nl.toLog = nl.toLog[idx:]
 	}
 	nl.toLogOverflowsSinceLastSync = 0
 	return len(nl.toLog) > 0, nil
