@@ -321,7 +321,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 			select {
 			case <-slowTicker.C:
 				elapsed := time.Since(startTime).Seconds()
-				mgr.logger.CWarnw(ctx, "Still waiting for module to startup", "module", mod.cfg.Name, "time elapsed", elapsed)
+				mgr.logger.CWarnw(ctx, "Waiting for module to startup", "module", mod.cfg.Name, "time elapsed", elapsed)
 				if firstTick {
 					slowTicker.Reset(3 * time.Second)
 					firstTick = false
@@ -856,7 +856,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 			select {
 			case <-slowTicker.C:
 				elapsed := time.Since(startTime).Seconds()
-				mgr.logger.CWarnw(ctx, "Still waiting for module to restart", "module", mod.cfg.Name, "time elapsed", elapsed)
+				mgr.logger.CWarnw(ctx, "Waiting for module to restart", "module", mod.cfg.Name, "time elapsed", elapsed)
 				if firstTick {
 					slowTicker.Reset(3 * time.Second)
 					firstTick = false
@@ -932,7 +932,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(logger))
 	defer cancelFunc()
 
-	logger.CInfow(ctx, "Waiting for module to be ready", "module", m.cfg.Name)
+	logger.CInfow(ctx, "Waiting for module to get ready", "module", m.cfg.Name)
 	for {
 		req := &pb.ReadyRequest{ParentAddress: parentAddr}
 		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
@@ -1006,7 +1006,7 @@ func (m *module) startProcess(
 	checkTicker := time.NewTicker(100 * time.Millisecond)
 	defer checkTicker.Stop()
 
-	logger.CInfow(ctx, "Waiting for module to startup", "module", m.cfg.Name)
+	logger.CInfow(ctx, "Starting up module", "module", m.cfg.Name)
 	ctxTimeout, cancel := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(logger))
 	defer cancel()
 	for {
