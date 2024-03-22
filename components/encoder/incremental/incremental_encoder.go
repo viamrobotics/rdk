@@ -4,7 +4,6 @@ package incremental
 import (
 	"context"
 	"math"
-	"os"
 	"sync"
 	"sync/atomic"
 
@@ -54,7 +53,6 @@ type Encoder struct {
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 	positionType            encoder.PositionType
-	f                       *os.File
 }
 
 // Pins describes the configuration of Pins for a quadrature encoder.
