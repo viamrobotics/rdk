@@ -613,11 +613,7 @@ func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, con
 			// If component is in conf.Modified, the user modified a module and its component at the same time. Remove that
 			// resource from conf.Modified and put it in conf.Added so the restarted module receives an AddResourceRequest
 			// and not a ReconfigureResourceRequest.
-			for i, modifiedComponent := range conf.Modified.Components {
-				if modifiedComponent.Name == c.Name {
-					conf.Modified.Components = append(conf.Modified.Components[:i], conf.Modified.Components[i+1:]...)
-				}
-			}
+			slices.DeleteFunc(conf.Modified.Components, func(elem resource.Config) bool { return elem.Name == c.Name })
 			conf.Added.Components = append(conf.Added.Components, c)
 		}
 	}
@@ -633,12 +629,8 @@ func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, con
 			// If service is in conf.Modified, the user modified a module and its service at the same time. Remove that
 			// resource from conf.Modified and put it in conf.Added so the restarted module receives an AddResourceRequest
 			// and not a ReconfigureResourceRequest.
-			for i, modifiedService := range conf.Modified.Services {
-				if modifiedService.Name == s.Name {
-					conf.Modified.Services = append(conf.Modified.Services[:i], conf.Modified.Services[i+1:]...)
-				}
-			}
-			conf.Modified.Services = append(conf.Modified.Services, s)
+			slices.DeleteFunc(conf.Modified.Services, func(elem resource.Config) bool { return elem.Name == s.Name })
+			conf.Added.Services = append(conf.Added.Services, s)
 		}
 	}
 
