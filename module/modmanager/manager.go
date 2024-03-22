@@ -13,6 +13,7 @@ import (
 	"time"
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
+	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -35,6 +36,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/webrtchack"
 )
 
 var (
@@ -88,6 +90,10 @@ type module struct {
 	// another OUE has finished.
 	inStartup      atomic.Bool
 	inRecoveryLock sync.Mutex
+
+	peerConn   *webrtc.PeerConnection
+	sharedConn *webrtchack.SharedConn
+	pcReady    <-chan struct{}
 }
 
 type addedResource struct {
@@ -272,7 +278,17 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 		resources: map[resource.Name]*addedResource{},
 	}
 
-	if err := mgr.startModule(ctx, mod); err != nil {
+	var err error
+	if mod.peerConn, err = webrtc.NewPeerConnection(webrtc.Configuration{}); err != nil {
+		mgr.logger.Warnw("Error creating optional peer connection for module. Ignoring.", "module", conf.Name, "err", err)
+	} else {
+		mod.pcReady, err = modlib.ConfigureForRenegotiation(mod.peerConn, mgr.logger)
+		if err != nil {
+			mgr.logger.Warnw("Error creating renegotiation channel for module. Ignoring.", "module", conf.Name, "err", err)
+		}
+	}
+
+	if err = mgr.startModule(ctx, mod); err != nil {
 		return err
 	}
 	return nil
@@ -430,7 +446,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 		return errors.WithMessage(err, "error while stopping module "+mod.cfg.Name)
 	}
 
-	if err := mod.conn.Close(); err != nil {
+	if err := mod.sharedConn.Close(); err != nil {
 		return errors.WithMessage(err, "error while closing connection from module "+mod.cfg.Name)
 	}
 
@@ -478,9 +494,10 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
 	if !ok || apiInfo.RPCClient == nil {
 		mgr.logger.CWarnw(ctx, "No built-in grpc client for modular resource", "resource", conf.ResourceName())
-		return rdkgrpc.NewForeignResource(conf.ResourceName(), &mod.conn), nil
+		return rdkgrpc.NewForeignResource(conf.ResourceName(), mod.sharedConn), nil
 	}
-	return apiInfo.RPCClient(ctx, &mod.conn, "", conf.ResourceName(), mgr.logger)
+
+	return apiInfo.RPCClient(ctx, mod.sharedConn, "", conf.ResourceName(), mgr.logger)
 }
 
 // ReconfigureResource updates/reconfigures a modular component with a new configuration.
@@ -755,7 +772,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		)
 
 		// close client connection, we will re-dial as part of restart attempts.
-		if err := mod.conn.Close(); err != nil {
+		if err := mod.sharedConn.Close(); err != nil {
 			mgr.logger.Warnw("Error while closing connection to crashed module. Continuing restart attempt",
 				"module", mod.cfg.Name, "error", err)
 		}
@@ -902,8 +919,16 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 		}
 	}()
 
+	req := &pb.ReadyRequest{ParentAddress: parentAddr}
+
+	// Wait for gathering to complete. Pass the entire SDP as an offer to the `ReadyRequest`.
+	if sdp, err := generateSDP(m.peerConn); err == nil {
+		req.ServerSdp = sdp
+	} else {
+		logger.Warnw("Error generating SDP for peerconn. Ignoring.", "err", err)
+	}
+
 	for {
-		req := &pb.ReadyRequest{ParentAddress: parentAddr}
 		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
 		resp, err := m.client.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
 		if err != nil {
@@ -911,6 +936,15 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 		}
 
 		if resp.Ready {
+			webrtcConnectSucceeded := true
+			if err = connect(m.peerConn, resp.ModuleSdp); err != nil {
+				logger.Warnw("Error creating PeerConnection. Ignoring.", "err", err)
+				webrtcConnectSucceeded = false
+			}
+			m.sharedConn = webrtchack.NewSharedConn(&m.conn, m.peerConn, logger)
+			if webrtcConnectSucceeded {
+				<-m.pcReady
+			}
 			m.handles, err = modlib.NewHandlerMapFromProto(ctx, resp.Handlermap, &m.conn)
 			return err
 		}
@@ -1078,7 +1112,7 @@ func (m *module) cleanupAfterStartupFailure(logger logging.Logger) {
 		msg := "Error while stopping process of module that failed to start"
 		logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 	}
-	if err := m.conn.Close(); err != nil {
+	if err := m.sharedConn.Close(); err != nil {
 		msg := "Error while closing connection to module that failed to start"
 		logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 	}
@@ -1089,8 +1123,8 @@ func (m *module) cleanupAfterCrash(mgr *Manager) {
 		msg := "Error while stopping process of crashed module"
 		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 	}
-	if err := m.conn.Close(); err != nil {
-		msg := "Error while closing connection to crashed module"
+	if err := m.sharedConn.Close(); err != nil {
+		msg := "error while closing connection to crashed module"
 		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 	}
 	mgr.rMap.Range(func(r resource.Name, mod *module) bool {
@@ -1145,4 +1179,35 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 		robotID = "local"
 	}
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
+}
+
+func generateSDP(pc *webrtc.PeerConnection) (string, error) {
+	if pc == nil {
+		return "", nil
+	}
+
+	offer, err := pc.CreateOffer(nil)
+	if err != nil {
+		return "", err
+	}
+
+	if err = pc.SetLocalDescription(offer); err != nil {
+		return "", err
+	}
+
+	<-webrtc.GatheringCompletePromise(pc)
+	return modlib.EncodeSDP(pc.LocalDescription())
+}
+
+func connect(pc *webrtc.PeerConnection, encodedAnswer string) error {
+	answer := webrtc.SessionDescription{}
+	if err := modlib.DecodeSDP(encodedAnswer, &answer); err != nil {
+		return err
+	}
+
+	if err := pc.SetRemoteDescription(answer); err != nil {
+		return nil // nolint:nilerr
+	}
+
+	return nil
 }

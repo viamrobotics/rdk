@@ -10,10 +10,12 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
+
 	// register screen drivers.
 	_ "github.com/pion/mediadevices/pkg/driver/microphone"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
+	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
 	"go.viam.com/utils"
 
@@ -31,6 +33,7 @@ type Stream interface {
 
 	// Start starts processing frames.
 	Start()
+	WriteRTP(pkt *rtp.Packet) error
 
 	// Ready signals that there is at least one client connected and that
 	// streams are ready for input. The returned context should be used for
@@ -163,6 +166,10 @@ func (bs *basicStream) Start() {
 	utils.ManagedGo(bs.processOutputFrames, bs.activeBackgroundWorkers.Done)
 	utils.ManagedGo(bs.processInputAudioChunks, bs.activeBackgroundWorkers.Done)
 	utils.ManagedGo(bs.processOutputAudioChunks, bs.activeBackgroundWorkers.Done)
+}
+
+func (bs *basicStream) WriteRTP(pkt *rtp.Packet) error {
+	return bs.videoTrackLocal.rtpTrack.WriteRTP(pkt)
 }
 
 func (bs *basicStream) Stop() {
