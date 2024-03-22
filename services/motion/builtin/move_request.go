@@ -166,7 +166,7 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state
 			}
 			if i < len(waypoints)-1 {
 				mr.waypointIndexMutex.Lock()
-				mr.waypointIndex = mr.waypointIndex + 1
+				mr.waypointIndex++
 				mr.waypointIndexMutex.Unlock()
 			}
 		}
