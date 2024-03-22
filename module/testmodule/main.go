@@ -75,9 +75,9 @@ func newHelper(
 
 type helper struct {
 	resource.Named
-	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
-	logger logging.Logger
+	logger              logging.Logger
+	numReconfigurations int
 }
 
 // DoCommand is the only method of this component. It looks up the "real" command from the map it's passed.
@@ -152,9 +152,16 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 		}
 
 		return map[string]any{}, nil
+	case "get_num_reconfigurations":
+		return map[string]any{"num_reconfigurations": h.numReconfigurations}, nil
 	default:
 		return nil, fmt.Errorf("unknown command string %s", cmd)
 	}
+}
+
+func (h *helper) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	h.numReconfigurations++
+	return nil
 }
 
 func newTestMotor(

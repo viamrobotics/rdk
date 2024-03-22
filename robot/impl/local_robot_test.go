@@ -3027,6 +3027,94 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	})
 }
 
+func TestModularResourceReconfigurationCount(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// Manually define model, as importing it can cause double registration.
+	helperModel := resource.NewModel("rdk", "test", "helper")
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+			},
+		},
+	}
+	r, shutdown := initTestRobot(t, ctx, cfg, logger)
+	defer shutdown()
+
+	// Assert that helper has not yet `Reconfigure`d (only constructed).
+	h, err := r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+	resp, err := h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+
+	cfg2 := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:     "mod",
+				ExePath:  testPath,
+				LogLevel: "debug",
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg2)
+
+	// Assert that helper has still not `Reconfigure`d after its module did
+	// (only constructed in the restarted module).
+	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+
+	cfg3 := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:     "mod",
+				ExePath:  testPath,
+				LogLevel: "debug",
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+				Attributes: rutils.AttributeMap{
+					"foo": "bar",
+				},
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg3)
+
+	// Assert that helper `Reconfigure`s once when its attributes are changed.
+	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 1)
+}
+
 func TestImplicitDepsAcrossModules(t *testing.T) {
 	ctx := context.Background()
 	logger, _ := logging.NewObservedTestLogger(t)
