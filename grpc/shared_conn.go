@@ -14,7 +14,7 @@ import (
 // a resource may register with a SharedConn which supports WebRTC.
 type OnTrackCB func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver)
 
-// SharedConn wraps both a GRPC connection & (optionall) a peer connection & controls access to both.
+// SharedConn wraps both a GRPC connection & (optionally) a peer connection & controls access to both.
 // For modules, the grpc connection is over a Unix socket. The WebRTC `PeerConnection` is made
 // separately. The `SharedConn` continues to implement the `rpc.ClientConn` interface by pairing up
 // the two underlying connections a client may want to communicate over.
