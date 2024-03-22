@@ -133,7 +133,7 @@ const refresh2d = async () => {
       if (reloadMap || pointcloud === undefined) {
         let response;
         [pointcloud, response] = await Promise.all([
-          slamClient.getPointCloudMap(true),
+          slamClient.getPointCloudMap(!reloadMap),
           slamClient.getPosition(),
         ]);
         nextPose = response.pose;
