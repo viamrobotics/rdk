@@ -262,7 +262,7 @@ func (m *Module) Start(ctx context.Context) error {
 }
 
 // Close shuts down the module and grpc server.
-// TODO: Shut down the subscriptions
+// TODO: Shut down the subscriptions.
 func (m *Module) Close(ctx context.Context) {
 	m.closeOnce.Do(func() {
 		m.mu.Lock()
@@ -348,7 +348,7 @@ func (m *Module) SetReady(ready bool) {
 // PeerConnect returns the encoded answer string for the `ReadyResponse`.
 func (m *Module) PeerConnect(encodedOffer string) (string, error) {
 	if m.pc == nil {
-		return "", errors.New("No PeerConnection object.")
+		return "", errors.New("no PeerConnection object")
 	}
 
 	offer := webrtc.SessionDescription{}
@@ -665,6 +665,7 @@ func (m *Module) OperationManager() *operation.Manager {
 	return m.operations
 }
 
+// ListStreams lists the streams.
 func (m *Module) ListStreams(ctx context.Context, req *streampb.ListStreamsRequest) (*streampb.ListStreamsResponse, error) {
 	// names := make([]string, 0, len(m.streamSourceByName))
 	// for _, n := range maps.Keys(m.streamSourceByName) {
@@ -674,6 +675,7 @@ func (m *Module) ListStreams(ctx context.Context, req *streampb.ListStreamsReque
 	return &streampb.ListStreamsResponse{}, nil
 }
 
+// AddStream adds a stream.
 func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) (*streampb.AddStreamResponse, error) {
 	name, err := resource.NewFromString(req.GetName())
 	if err != nil {
@@ -717,16 +719,17 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 	// 	return nil
 	// })
 
-	if err != nil {
-		removeTrackErr := errors.Wrap(m.pc.RemoveTrack(sender), "error removing track after SubscribeRTP failed")
-		subscribeErr := errors.Wrap(err, "error setting up stream subscription")
-		return nil, multierr.Append(subscribeErr, removeTrackErr)
-	}
+	// if err != nil {
+	// 	removeTrackErr := errors.Wrap(m.pc.RemoveTrack(sender), "error removing track after SubscribeRTP failed")
+	// 	subscribeErr := errors.Wrap(err, "error setting up stream subscription")
+	// 	return nil, multierr.Append(subscribeErr, removeTrackErr)
+	// }
 	// m.activeResourceStreams[name] = peerResourceState{sender: sender, subscription: sub}
 	m.activeResourceStreams[name] = peerResourceState{sender: sender}
 	return &streampb.AddStreamResponse{}, nil
 }
 
+// RemoveStream removes a stream.
 func (m *Module) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRequest) (*streampb.RemoveStreamResponse, error) {
 	name, err := resource.NewFromString(req.GetName())
 	if err != nil {

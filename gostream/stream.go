@@ -10,7 +10,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
-
 	// register screen drivers.
 	_ "github.com/pion/mediadevices/pkg/driver/microphone"
 	"github.com/pion/mediadevices/pkg/prop"

@@ -1,4 +1,5 @@
-// TODO: This needs to also be called for remotes
+// Package webrtchack is a temp name.
+// We should decide where this lives before merging
 package webrtchack
 
 import (
@@ -6,13 +7,17 @@ import (
 
 	"github.com/pion/webrtc/v3"
 	"go.uber.org/multierr"
+
 	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
+// OnTrackCB is the signature of the OnTrack callback function
+// a resource may register with a SharedConn which supports WebRTC.
 type OnTrackCB func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver)
 
+// SharedConn wraps both a GRPC connection & (optionall) a peer connection & controls access to both.
 // For modules, the grpc connection is over a Unix socket. The WebRTC `PeerConnection` is made
 // separately. The `SharedConn` continues to implement the `rpc.ClientConn` interface by pairing up
 // the two underlying connections a client may want to communicate over.
@@ -24,6 +29,8 @@ type SharedConn struct {
 	logger             logging.Logger
 }
 
+// NewSharedConn returns a SharedConnection which manages access to both a grpc client conntection & (optionally) a
+// webrtc peer connection.
 func NewSharedConn(conn *rdkgrpc.ReconfigurableClientConn, peerConn *webrtc.PeerConnection, logger logging.Logger) *SharedConn {
 	sc := &SharedConn{
 		ReconfigurableClientConn: conn,
@@ -52,25 +59,29 @@ func NewSharedConn(conn *rdkgrpc.ReconfigurableClientConn, peerConn *webrtc.Peer
 	}
 	return sc
 }
+
+// AddOnTrackSub adds an OnTrack subscription for the resource.
 func (sc *SharedConn) AddOnTrackSub(name resource.Name, onTrackCB OnTrackCB) {
 	sc.peerConnMu.Lock()
 	defer sc.peerConnMu.Unlock()
 	sc.resourceOnTrackCBs[name] = onTrackCB
 }
 
+// RemoveOnTrackSub removes an OnTrack subscription for the resource.
 func (sc *SharedConn) RemoveOnTrackSub(name resource.Name) {
 	sc.peerConnMu.Lock()
 	defer sc.peerConnMu.Unlock()
 	delete(sc.resourceOnTrackCBs, name)
 }
 
-// TODO: See if we can make this HasPeerConn() bool
+// PeerConn returns the PeerConnection.
 func (sc *SharedConn) PeerConn() *webrtc.PeerConnection {
 	sc.peerConnMu.Lock()
 	defer sc.peerConnMu.Unlock()
 	return sc.peerConn
 }
 
+// Close closes a shared connection.
 func (sc *SharedConn) Close() error {
 	var err error
 	sc.peerConnMu.Lock()

@@ -1206,7 +1206,7 @@ func connect(pc *webrtc.PeerConnection, encodedAnswer string) error {
 	}
 
 	if err := pc.SetRemoteDescription(answer); err != nil {
-		return nil // nolint:nilerr
+		return nil //nolint:nilerr
 	}
 
 	return nil
