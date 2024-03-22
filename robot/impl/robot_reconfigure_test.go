@@ -3754,16 +3754,56 @@ func TestResourceConstructCtxCancel(t *testing.T) {
 	})
 }
 
+func TestResourceCloseNoHang(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
+	modelName1 := utils.RandomAlphaString(5)
+	model1 := resource.DefaultModelFamily.WithModel(modelName1)
+
+	mf := &mockFake{Named: resource.NewName(mockAPI, "mock").AsNamed()}
+	resource.RegisterComponent(mockAPI, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (resource.Resource, error) {
+			return mf, nil
+		},
+	})
+	defer func() {
+		resource.Deregister(mockAPI, model1)
+	}()
+
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "mock",
+				Model: model1,
+				API:   mockAPI,
+			},
+		},
+	}
+	r, err := New(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, mf.closeCtxDeadline, test.ShouldNotBeNil)
+	test.That(t, time.Now().Add(resourceCloseTimeout), test.ShouldHappenOnOrAfter, mf.closeCtxDeadline)
+}
+
 type mockFake struct {
 	resource.Named
-	createdAt      int
-	reconfCount    int
-	reconfiguredAt int64
-	failCount      int
-	shouldRebuild  bool
-	closeCount     int
-	closedAt       int64
-	logicalClock   *atomic.Int64
+	createdAt        int
+	reconfCount      int
+	reconfiguredAt   int64
+	failCount        int
+	shouldRebuild    bool
+	closedAt         int64
+	closeCount       int
+	closeCtxDeadline time.Time
+	logicalClock     *atomic.Int64
 }
 
 type mockFakeConfig struct {
@@ -3796,6 +3836,9 @@ func (m *mockFake) Close(ctx context.Context) error {
 		m.closedAt = m.logicalClock.Add(1)
 	}
 	m.closeCount++
+	if dl, exists := ctx.Deadline(); exists {
+		m.closeCtxDeadline = dl
+	}
 	return nil
 }
 

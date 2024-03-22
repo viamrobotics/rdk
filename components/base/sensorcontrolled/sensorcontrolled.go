@@ -21,8 +21,6 @@ import (
 const (
 	yawPollTime        = 5 * time.Millisecond
 	velocitiesPollTime = 5 * time.Millisecond
-	boundCheckTurn     = 2.0
-	boundCheckTarget   = 5.0
 	sensorDebug        = false
 	typeLinVel         = "linear_velocity"
 	typeAngVel         = "angular_velocity"
@@ -72,9 +70,12 @@ type sensorBase struct {
 
 	opMgr *operation.SingleOperationManager
 
-	allSensors  []movementsensor.MovementSensor
-	orientation movementsensor.MovementSensor
-	velocities  movementsensor.MovementSensor
+	allSensors     []movementsensor.MovementSensor
+	orientation    movementsensor.MovementSensor
+	velocities     movementsensor.MovementSensor
+	position       movementsensor.MovementSensor
+	compassHeading movementsensor.MovementSensor
+	headingFunc    func(ctx context.Context) (float64, error)
 
 	controlLoopConfig control.Config
 	blockNames        map[string][]string
@@ -123,6 +124,8 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	sb.allSensors = nil
 	sb.velocities = nil
 	sb.orientation = nil
+	sb.compassHeading = nil
+	sb.position = nil
 	sb.controlledBase = nil
 
 	for _, name := range newConf.MovementSensor {
@@ -153,9 +156,31 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		}
 	}
 
+	for _, ms := range sb.allSensors {
+		props, err := ms.Properties(context.Background(), nil)
+		if err == nil && props.PositionSupported {
+			// return first sensor that does not error that satisfies the properties wanted
+			sb.position = ms
+			sb.logger.CInfof(ctx, "using sensor %s as position sensor for base", sb.position.Name().ShortName())
+			break
+		}
+	}
+
+	for _, ms := range sb.allSensors {
+		props, err := ms.Properties(context.Background(), nil)
+		if err == nil && props.CompassHeadingSupported {
+			// return first sensor that does not error that satisfies the properties wanted
+			sb.compassHeading = ms
+			sb.logger.CInfof(ctx, "using sensor %s as compassHeading sensor for base", sb.compassHeading.Name().ShortName())
+			break
+		}
+	}
+
 	if sb.orientation == nil && sb.velocities == nil {
 		return errNoGoodSensor
 	}
+
+	sb.determineHeadingFunc(ctx)
 
 	sb.controlledBase, err = base.FromDependencies(deps, newConf.Base)
 	if err != nil {
@@ -204,17 +229,6 @@ func (sb *sensorBase) isPolling() bool {
 	sb.sensorLoopMu.Lock()
 	defer sb.sensorLoopMu.Unlock()
 	return sb.sensorLoopPolling
-}
-
-func (sb *sensorBase) MoveStraight(
-	ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{},
-) error {
-	sb.stopLoop()
-	ctx, done := sb.opMgr.New(ctx)
-	defer done()
-	sb.setPolling(false)
-
-	return sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
 }
 
 func (sb *sensorBase) SetPower(

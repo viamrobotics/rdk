@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/pion/webrtc/v3"
 	"go.viam.com/utils/rpc"
 	googlegrpc "google.golang.org/grpc"
 )
@@ -55,6 +56,17 @@ func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
 	c.connMu.Lock()
 	c.conn = conn
 	c.connMu.Unlock()
+}
+
+// PeerConn returns the backing PeerConnection object, if applicable. Nil otherwise.
+func (c *ReconfigurableClientConn) PeerConn() *webrtc.PeerConnection {
+	c.connMu.Lock()
+	defer c.connMu.Unlock()
+	if c.conn == nil {
+		return nil
+	}
+
+	return c.conn.PeerConn()
 }
 
 // Close attempts to close the underlying client connection if there is one.

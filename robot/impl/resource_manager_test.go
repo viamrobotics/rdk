@@ -1389,6 +1389,10 @@ func (fp *fakeProcess) Stop() error {
 	return nil
 }
 
+func (fp *fakeProcess) Status() error {
+	return nil
+}
+
 func TestManagerResourceRPCAPIs(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	injectRobot := &inject.Robot{}
@@ -1839,8 +1843,8 @@ func (rr *dummyRobot) Logger() logging.Logger {
 	return rr.robot.Logger()
 }
 
-func (rr *dummyRobot) GetCloudMetadata(ctx context.Context) (cloud.Metadata, error) {
-	return rr.robot.GetCloudMetadata(ctx)
+func (rr *dummyRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
+	return rr.robot.CloudMetadata(ctx)
 }
 
 func (rr *dummyRobot) Close(ctx context.Context) error {
