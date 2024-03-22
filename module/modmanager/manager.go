@@ -445,8 +445,14 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 		return errors.WithMessage(err, "error while stopping module "+mod.cfg.Name)
 	}
 
-	if err := mod.sharedConn.Close(); err != nil {
-		return errors.WithMessage(err, "error while closing connection from module "+mod.cfg.Name)
+	if mod.sharedConn != nil {
+		if err := mod.sharedConn.Close(); err != nil {
+			return errors.WithMessage(err, "error while closing shared connection from module "+mod.cfg.Name)
+		}
+	} else {
+		if err := mod.conn.Close(); err != nil {
+			return errors.WithMessage(err, "error while closing connection from module "+mod.cfg.Name)
+		}
 	}
 
 	mod.deregisterResources()
@@ -771,9 +777,16 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		)
 
 		// close client connection, we will re-dial as part of restart attempts.
-		if err := mod.sharedConn.Close(); err != nil {
-			mgr.logger.Warnw("Error while closing connection to crashed module. Continuing restart attempt",
-				"module", mod.cfg.Name, "error", err)
+		if mod.sharedConn != nil {
+			if err := mod.sharedConn.Close(); err != nil {
+				mgr.logger.Warnw("Error while closing shared connection to crashed module. Continuing restart attempt",
+					"module", mod.cfg.Name, "error", err)
+			}
+		} else {
+			if err := mod.conn.Close(); err != nil {
+				mgr.logger.Warnw("Error while closing connection to crashed module. Continuing restart attempt",
+					"module", mod.cfg.Name, "error", err)
+			}
 		}
 
 		// If attemptRestart returns any orphaned resource names, restart failed,
@@ -1106,15 +1119,26 @@ func (m *module) deregisterResources() {
 	m.handles = nil
 }
 
+func (m *module) closeConn(logger logging.Logger) {
+	if m.sharedConn != nil {
+		if err := m.sharedConn.Close(); err != nil {
+			msg := "Error while closing shared connection to module that failed to start"
+			logger.Errorw(msg, "module", m.cfg.Name, "error", err)
+		}
+	} else {
+		if err := m.conn.Close(); err != nil {
+			msg := "Error while closing connection to module that failed to start"
+			logger.Errorw(msg, "module", m.cfg.Name, "error", err)
+		}
+	}
+}
+
 func (m *module) cleanupAfterStartupFailure(logger logging.Logger) {
 	if err := m.stopProcess(); err != nil {
 		msg := "Error while stopping process of module that failed to start"
 		logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 	}
-	if err := m.sharedConn.Close(); err != nil {
-		msg := "Error while closing connection to module that failed to start"
-		logger.Errorw(msg, "module", m.cfg.Name, "error", err)
-	}
+	m.closeConn(logger)
 }
 
 func (m *module) cleanupAfterCrash(mgr *Manager) {
@@ -1122,10 +1146,7 @@ func (m *module) cleanupAfterCrash(mgr *Manager) {
 		msg := "Error while stopping process of crashed module"
 		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 	}
-	if err := m.sharedConn.Close(); err != nil {
-		msg := "error while closing connection to crashed module"
-		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
-	}
+	m.closeConn(mgr.logger)
 	mgr.rMap.Range(func(r resource.Name, mod *module) bool {
 		if mod == m {
 			mgr.rMap.Delete(r)
