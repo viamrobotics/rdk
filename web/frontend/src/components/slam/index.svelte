@@ -358,7 +358,10 @@ const handleStartMapping = async () => {
         const props = await slamClient.getProperties();
 
         mappingSessionStarted = true;
-        sessionId = await overrides.startMappingSession(mapName, props.sensorInfoList);
+        sessionId = await overrides.startMappingSession(
+          mapName,
+          props.sensorInfoList
+        );
         startMappingIntervals(Date.now());
       }
     } catch {

@@ -25,20 +25,23 @@ interface MappingDetails {
 }
 
 interface SensorInfo {
-  name: string,
-  type: SensorType
+  name: string;
+  type: SensorType;
 }
 enum SensorType {
   UNSPECIFIED = 0,
   CAMERA = 1,
-  MOVEMENT_SENSOR = 2
+  MOVEMENT_SENSOR = 2,
 }
 
 export interface SLAMOverrides {
   getMappingSessionPCD?: (
     sessionId: string
   ) => Promise<{ map: Uint8Array; pose: Pose }>;
-  startMappingSession: (mapName: string, sensorInfoList: SensorInfo[]) => Promise<string>;
+  startMappingSession: (
+    mapName: string,
+    sensorInfoList: SensorInfo[]
+  ) => Promise<string>;
   getActiveMappingSession: () => Promise<MappingMetadata | undefined>;
   endMappingSession: (
     sessionId: string
