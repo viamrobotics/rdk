@@ -99,8 +99,6 @@ func (s *syncer) Close() {
 	s.backgroundWorkers.Wait()
 	close(s.syncErrs)
 	s.logRoutine.Wait()
-	//nolint:errcheck
-	_ = s.logger.Sync()
 }
 
 func (s *syncer) SetArbitraryFileTags(tags []string) {
@@ -143,9 +141,9 @@ func (s *syncer) SyncFile(path string) {
 				if err != nil {
 					// Don't log if the file does not exist, because that means it was successfully synced and deleted
 					// in between paths being built and this executing.
-					if !errors.Is(err, os.ErrNotExist) {
-						s.logger.Errorw("error opening file", "error", err)
-					}
+					// if !errors.Is(err, os.ErrNotExist) {
+					// 	s.logger.Errorw("error opening file", "error", err)
+					// }
 					return
 				}
 
@@ -257,7 +255,7 @@ func (s *syncer) logSyncErrs() {
 				continue
 			}
 		}
-		s.logger.Error(err)
+		// s.logger.Error(err)
 	}
 }
 

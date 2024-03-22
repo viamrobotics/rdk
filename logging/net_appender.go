@@ -152,7 +152,7 @@ func (nl *NetAppender) Write(e zapcore.Entry, f []zapcore.Field) error {
 
 	if e.Level == zapcore.FatalLevel || e.Level == zapcore.DPanicLevel || e.Level == zapcore.PanicLevel {
 		// program is going to go away, let's try and sync all our messages before then
-		return nl.Sync()
+		return nl.sync()
 	}
 
 	return nil
@@ -210,7 +210,7 @@ func (nl *NetAppender) backgroundWorker() {
 		if !utils.SelectContextOrWait(nl.cancelCtx, interval) {
 			cancelled = true
 		}
-		err := nl.Sync()
+		err := nl.sync()
 		if err != nil && !errors.Is(err, context.Canceled) {
 			interval = abnormalInterval
 			nl.loggerWithoutNet.Infof("error logging to network: %s", err)
@@ -261,8 +261,9 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 	return len(nl.toLog) > 0, nil
 }
 
-// Sync will flush the internal buffer of logs.
-func (nl *NetAppender) Sync() error {
+// sync will flush the internal buffer of logs. This is not exposed as multiple calls to sync at
+// the same time will cause double logs and panics.
+func (nl *NetAppender) sync() error {
 	for {
 		moreToDo, err := nl.syncOnce()
 		if err != nil {
@@ -273,6 +274,11 @@ func (nl *NetAppender) Sync() error {
 			return nil
 		}
 	}
+}
+
+// Sync is a no-op. sync is not exposed as multiple calls at the same time will cause double logs and panics.
+func (nl *NetAppender) Sync() error {
+	return nil
 }
 
 type remoteLogWriterGRPC struct {

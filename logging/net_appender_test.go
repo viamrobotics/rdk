@@ -119,7 +119,7 @@ func TestNetLoggerBatchWrites(t *testing.T) {
 		logger.Info("Some-info")
 	}
 
-	netAppender.Sync()
+	netAppender.sync()
 	netAppender.Close()
 
 	server.service.logsMu.Lock()
@@ -164,11 +164,11 @@ func TestNetLoggerBatchFailureAndRetry(t *testing.T) {
 	//
 	// The `netAppender` also has a background worker syncing on its own cadence. This complicates
 	// exactly which syncs do what work and which ones return errors.
-	netAppender.Sync()
+	netAppender.sync()
 
 	logger.Info("New info")
 
-	netAppender.Sync()
+	netAppender.sync()
 	netAppender.Close()
 
 	server.service.logsMu.Lock()
