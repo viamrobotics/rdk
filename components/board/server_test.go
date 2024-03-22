@@ -927,16 +927,12 @@ func TestStreamTicks(t *testing.T) {
 					ch <- board.Tick{Name: "digital1", High: true, TimestampNanosec: uint64(time.Nanosecond)}
 				}
 			}
-			var streamErr error
 			var wg sync.WaitGroup
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				streamErr = server.StreamTicks(tc.req, s)
+				err = server.StreamTicks(tc.req, s)
 			}()
-
-			time.Sleep(1 * time.Millisecond)
-			err = streamErr
 
 			if tc.expRespErr == "" {
 				// First resp will be blank
@@ -950,12 +946,16 @@ func TestStreamTicks(t *testing.T) {
 				test.That(t, resp.High, test.ShouldEqual, true)
 				test.That(t, resp.PinName, test.ShouldEqual, "digital1")
 				test.That(t, resp.Time, test.ShouldEqual, uint64(time.Nanosecond))
+
+				cancel()
+				wg.Wait()
 			} else {
+				// Canceling the stream before checking the error to avoid a data race.
+				cancel()
+				wg.Wait()
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, tc.expRespErr)
 			}
-			cancel()
-			wg.Wait()
 		})
 	}
 }
