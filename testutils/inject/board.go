@@ -30,7 +30,6 @@ type Board struct {
 	SetPowerModeFunc           func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error
 	WriteAnalogFunc            func(ctx context.Context, pin string, value int32, extra map[string]interface{}) error
 	StreamTicksFunc            func(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error
-	RemoveCallbacksFunc        func(ctx context.Context, interrupts []string, ticksChan chan board.Tick) error
 }
 
 // NewBoard returns a new injected board.

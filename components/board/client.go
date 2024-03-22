@@ -271,7 +271,6 @@ func (c *client) StreamTicks(ctx context.Context, interrupts []string, ch chan T
 	c.mu.Unlock()
 
 	err = stream.startStream(ctx, interrupts, ch)
-
 	if err != nil {
 		return err
 	}
@@ -281,8 +280,8 @@ func (c *client) StreamTicks(ctx context.Context, interrupts []string, ch chan T
 func (c *client) removeStream(s *interruptStream) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	for i := range s.interruptStreams {
-		if c.interruptStreams[i] == s {
+	for i, stream := range s.interruptStreams {
+		if stream == s {
 			// To remove this item, we replace it with the last item in the list, then truncate the
 			// list by 1.
 			s.client.interruptStreams[i] = s.client.interruptStreams[len(s.client.interruptStreams)-1]

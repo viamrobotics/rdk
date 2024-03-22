@@ -509,18 +509,6 @@ func (b *Board) StreamTicks(ctx context.Context, interruptNames []string, ch cha
 	return nil
 }
 
-// RemoveCallbacks removes the callbacks from the given interrupts.
-func (b *Board) RemoveCallbacks(ctx context.Context, interrupts []string, ch chan board.Tick) error {
-	for _, name := range interrupts {
-		i, ok := b.DigitalInterruptByName(name)
-		if !ok {
-			b.logger.Errorf("unknown digital interrupt: %s", name)
-		}
-		i.RemoveCallback(ch)
-	}
-	return nil
-}
-
 // Close attempts to cleanly close each part of the board.
 func (b *Board) Close(ctx context.Context) error {
 	b.mu.Lock()

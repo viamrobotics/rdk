@@ -196,11 +196,6 @@ func (b *Board) AnalogReaderNames() []string {
 	return names
 }
 
-// RemoveCallbacks removes the callbacks from the given interrupts.
-func (b *Board) RemoveCallbacks(ctx context.Context, interrupts []string, ch chan board.Tick) error {
-	return grpc.UnimplementedError
-}
-
 // DigitalInterruptNames returns the names of all known digital interrupts.
 func (b *Board) DigitalInterruptNames() []string {
 	b.mu.RLock()

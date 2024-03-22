@@ -56,6 +56,8 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []string, 
 	}
 
 	// Create a background go routine to receive from the server stream.
+	// We rely on calling the Done function here rather than in close stream
+	// since managed go calls that function when the routine exits.
 	utils.ManagedGo(func() {
 		s.recieveFromStream(ctx, stream, ch)
 	},
@@ -75,6 +77,7 @@ func (s *interruptStream) recieveFromStream(ctx context.Context, stream pb.Board
 		defer s.streamMu.Unlock()
 		s.streamRunning = false
 	}()
+	// Close the stream ready channel so the above function returns.
 	if s.streamReady != nil {
 		close(s.streamReady)
 	}

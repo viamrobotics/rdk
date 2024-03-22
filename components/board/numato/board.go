@@ -229,7 +229,7 @@ func (b *numatoBoard) readThread() {
 	}
 }
 
-// StreamTicks starts a stream of digital interrupt ticks.
+// The numato board does not have the systems hardware to implement a Tick counter.
 func (b *numatoBoard) StreamTicks(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
 	return grpc.UnimplementedError
 }
@@ -309,11 +309,6 @@ func (gp *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string
 		return nil
 	}
 	return errors.New("numato doesn't support pwm")
-}
-
-// RemoveCallbacks removes the callbacks from the given interrupts.
-func (b *numatoBoard) RemoveCallbacks(ctx context.Context, interrupts []string, ch chan board.Tick) error {
-	return grpc.UnimplementedError
 }
 
 // Status returns the current status of the board. Usually you

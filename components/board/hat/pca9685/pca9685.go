@@ -212,13 +212,8 @@ func (pca *PCA9685) frequency(ctx context.Context) (float64, error) {
 	return float64(pca.referenceClockSpeed) / 4096.0 / float64(prescale), nil
 }
 
-// StreamTicks starts a stream of digital interrupt ticks.
+// The pca9685 board does not have the systems hardware to implement a Tick counter.
 func (pca *PCA9685) StreamTicks(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
-	return grpc.UnimplementedError
-}
-
-// RemoveCallbacks removes the callbacks from the given interrupts.
-func (pca *PCA9685) RemoveCallbacks(ctx context.Context, interrupts []string, ch chan board.Tick) error {
 	return grpc.UnimplementedError
 }
 
