@@ -937,7 +937,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(logger))
 	defer cancelFunc()
 
-	logger.CInfow(ctx, "Waiting for module to get ready", "module", m.cfg.Name)
+	logger.CInfow(ctx, "Waiting for module to respond to ready request", "module", m.cfg.Name)
 	for {
 		req := &pb.ReadyRequest{ParentAddress: parentAddr}
 		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
