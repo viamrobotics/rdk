@@ -560,7 +560,8 @@ func TestObstacleReplanningSlam(t *testing.T) {
 		MotionCfg: &motion.MotionConfiguration{
 			PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: 1, ObstacleDetectors: obstacleDetectorSlice,
 		},
-		Extra: map[string]interface{}{"max_replans": 1, "smooth_iter": 0},
+		// TODO: add back "max_replans": 1 to extra
+		Extra: map[string]interface{}{"smooth_iter": 0},
 	}
 
 	executionID, err := ms.MoveOnMap(ctx, req)
@@ -574,23 +575,6 @@ func TestObstacleReplanningSlam(t *testing.T) {
 		LastPlanOnly:  true,
 	})
 	test.That(t, err, test.ShouldBeNil)
-
-	// TODO
-	// plansWithStatus, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{
-	// 	ComponentName: base.Named("test-base"),
-	// 	LastPlanOnly:  false,
-	// 	ExecutionID:   executionID,
-	// })
-	// test.That(t, err, test.ShouldBeNil)
-	// populatedReplanReason := 0
-	// for _, planStatus := range plansWithStatus {
-	// 	for _, history := range planStatus.StatusHistory {
-	// 		if history.Reason != nil {
-	// 			populatedReplanReason++
-	// 		}
-	// 	}
-	// }
-	// test.That(t, populatedReplanReason, test.ShouldEqual, 1)
 }
 
 func TestMultiplePieces(t *testing.T) {
