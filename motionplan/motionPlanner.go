@@ -473,7 +473,7 @@ func CheckPlan(
 
 	var startPose spatialmath.Pose
 	if relative {
-		// A frame's transformation based on a relative input will postion it relative to the
+		// A frame's transformation based on a relative input will position it relative to the
 		// frame's origin, giving us a relative pose. To put it with respect to the world
 		// we compose the relative pose with the most recent former pose we have already reached.
 		startPose = poses[wayPointIdx-1]
