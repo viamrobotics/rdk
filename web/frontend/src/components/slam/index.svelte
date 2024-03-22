@@ -67,7 +67,7 @@ let newMapName = '';
 let mapNameError = '';
 let motionPath: Float32Array | undefined;
 let mappingSessionStarted = false;
-let reloadMap: boolean | undefined;
+let isLocalizingMode: boolean | undefined;
 let lastReconfigured: Timestamp | undefined;
 
 $: pointcloudLoaded = Boolean(pointcloud?.length) && pose !== undefined;
@@ -117,23 +117,24 @@ const refresh2d = async () => {
       // assuming reconfigures do not happen at the nanosecond scale
       if (
         newLastReconfigured?.getSeconds() !== lastReconfigured?.getSeconds() ||
-        reloadMap === undefined
+        isLocalizingMode === undefined
       ) {
         lastReconfigured = newLastReconfigured;
 
         const props = await slamClient.getProperties();
-        reloadMap =
-          props.mappingMode !== slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY;
+        isLocalizingMode =
+          props.mappingMode === slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY;
       }
 
       /*
        * Update the map and pose if the SLAM session is in mapping/updating mode or the pointcloud
        * has yet to be defined else only update the pose
        */
-      if (reloadMap || pointcloud === undefined) {
+      if (!isLocalizingMode || pointcloud === undefined) {
         let response;
+        // only request the edited map if we are in localizing mode
         [pointcloud, response] = await Promise.all([
-          slamClient.getPointCloudMap(!reloadMap),
+          slamClient.getPointCloudMap(isLocalizingMode),
           slamClient.getPosition(),
         ]);
         nextPose = response.pose;
