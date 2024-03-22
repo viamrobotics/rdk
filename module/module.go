@@ -376,9 +376,9 @@ func (m *Module) PeerConnect(encodedOffer string) (string, error) {
 func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResponse, error) {
 	resp := &pb.ReadyResponse{}
 
-	encodedAnswer, err := m.PeerConnect(req.ServerSdp)
+	encodedAnswer, err := m.PeerConnect(req.WebrtcOffer)
 	if err == nil {
-		resp.ModuleSdp = encodedAnswer
+		resp.WebrtcAnswer = encodedAnswer
 	} else {
 		m.logger.Warnw("Error creating PeerConnection", "err", err)
 		pcFailed := make(chan struct{})

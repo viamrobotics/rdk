@@ -923,7 +923,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 
 	// Wait for gathering to complete. Pass the entire SDP as an offer to the `ReadyRequest`.
 	if sdp, err := generateSDP(m.peerConn); err == nil {
-		req.ServerSdp = sdp
+		req.WebrtcOffer = sdp
 	} else {
 		logger.Warnw("Error generating SDP for peerconn. Ignoring.", "err", err)
 	}
@@ -937,7 +937,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 
 		if resp.Ready {
 			webrtcConnectSucceeded := true
-			if err = connect(m.peerConn, resp.ModuleSdp); err != nil {
+			if err = connect(m.peerConn, resp.WebrtcAnswer); err != nil {
 				logger.Warnw("Error creating PeerConnection. Ignoring.", "err", err)
 				webrtcConnectSucceeded = false
 			}
