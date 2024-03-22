@@ -6,6 +6,7 @@ package board
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	commonpb "go.viam.com/api/common/v1"
@@ -105,4 +106,16 @@ func FromRobot(r robot.Robot, name string) (Board, error) {
 // NamesFromRobot is a helper for getting all board names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
+}
+
+// removeCallbacks removes the callbacks from the given interrupts.
+func removeCallbacks(b Board, interrupts []string, ch chan Tick) error {
+	for _, name := range interrupts {
+		i, ok := b.DigitalInterruptByName(name)
+		if !ok {
+			return fmt.Errorf("unknown digitial interrupt: %s", name)
+		}
+		i.RemoveCallback(ch)
+	}
+	return nil
 }

@@ -229,7 +229,8 @@ func (b *numatoBoard) readThread() {
 	}
 }
 
-// StreamTicks starts a stream of digital interrupt ticks.
+// StreamTicks streams digital interrupt ticks.
+// The numato board does not have the systems hardware to implement a Tick counter.
 func (b *numatoBoard) StreamTicks(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
 	return grpc.UnimplementedError
 }
