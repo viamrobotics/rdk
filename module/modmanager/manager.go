@@ -314,21 +314,23 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	slowTicker := time.NewTicker(2 * time.Second)
 	defer slowTicker.Stop()
 	firstTick := true
-	startTime := time.Now()
 
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	defer cancel()
+	startTime := time.Now()
 	go func() {
 		for {
 			select {
 			case <-slowTicker.C:
 				elapsed := time.Since(startTime).Seconds()
-				mgr.logger.CWarnw(ctx, "Waiting for module to startup", "module", mod.cfg.Name, "time elapsed", elapsed)
+				mgr.logger.CWarnw(ctx, "Waiting for module to complete startup and registration", "module", mod.cfg.Name, "time elapsed", elapsed)
 				if firstTick {
 					slowTicker.Reset(3 * time.Second)
 					firstTick = false
 				} else {
 					slowTicker.Reset(5 * time.Second)
 				}
-			case <-ctx.Done():
+			case <-ctxWithCancel.Done():
 				return
 			}
 		}
@@ -849,21 +851,24 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	slowTicker := time.NewTicker(2 * time.Second)
 	defer slowTicker.Stop()
 	firstTick := true
-	startTime := time.Now()
 
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	startTime := time.Now()
 	go func() {
 		for {
 			select {
 			case <-slowTicker.C:
 				elapsed := time.Since(startTime).Seconds()
-				mgr.logger.CWarnw(ctx, "Waiting for module to restart", "module", mod.cfg.Name, "time elapsed", elapsed)
+				mgr.logger.CWarnw(ctx, "Waiting for module to complete restart and re-registration", "module", mod.cfg.Name, "time elapsed", elapsed)
 				if firstTick {
 					slowTicker.Reset(3 * time.Second)
 					firstTick = false
 				} else {
 					slowTicker.Reset(5 * time.Second)
 				}
-			case <-ctx.Done():
+			case <-ctxWithCancel.Done():
 				return
 			}
 		}
