@@ -291,11 +291,6 @@ func (c *client) removeStream(s *interruptStream) {
 	}
 }
 
-// removeCallbacks removes the callbacks from the given interrupts.
-func (c *client) removeCallbacks(interrupts []string, ch chan Tick) error {
-	return nil
-}
-
 // gpioPinClient satisfies a gRPC based board.GPIOPin. Refer to the interface
 // for descriptions of its methods.
 type gpioPinClient struct {
