@@ -66,7 +66,6 @@ require (
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pion/mediadevices v0.5.1-0.20231017204133-3c9fee958efe
 	github.com/pion/rtp v1.8.2
-	github.com/pion/sctp v1.8.8
 	github.com/pion/webrtc/v3 v3.2.21
 	github.com/rhysd/actionlint v1.6.24
 	github.com/rs/cors v1.9.0
@@ -85,7 +84,7 @@ require (
 	go.uber.org/zap v1.24.0
 	go.viam.com/api v0.1.277
 	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
-	go.viam.com/utils v0.1.67
+	go.viam.com/utils v0.1.71
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.14.0
 	golang.org/x/sys v0.13.0
@@ -286,6 +285,7 @@ require (
 	github.com/pion/mdns v0.0.8 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.10 // indirect
+	github.com/pion/sctp v1.8.8 // indirect
 	github.com/pion/sdp/v3 v3.0.6 // indirect
 	github.com/pion/srtp/v2 v2.0.17 // indirect
 	github.com/pion/stun v0.6.1 // indirect

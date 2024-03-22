@@ -282,7 +282,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 	if mod.peerConn, err = webrtc.NewPeerConnection(webrtc.Configuration{}); err != nil {
 		mgr.logger.Warnw("Error creating optional peer connection for module. Ignoring.", "module", conf.Name, "err", err)
 	} else {
-		mod.pcReady, err = modlib.ConfigureForRenegotiation(mod.peerConn, mgr.logger)
+		mod.pcReady, err = rpc.ConfigureForRenegotiation(mod.peerConn, mgr.logger.AsZap())
 		if err != nil {
 			mgr.logger.Warnw("Error creating renegotiation channel for module. Ignoring.", "module", conf.Name, "err", err)
 		}
@@ -1196,12 +1196,12 @@ func generateSDP(pc *webrtc.PeerConnection) (string, error) {
 	}
 
 	<-webrtc.GatheringCompletePromise(pc)
-	return modlib.EncodeSDP(pc.LocalDescription())
+	return rpc.EncodeSDP(pc.LocalDescription())
 }
 
 func connect(pc *webrtc.PeerConnection, encodedAnswer string) error {
 	answer := webrtc.SessionDescription{}
-	if err := modlib.DecodeSDP(encodedAnswer, &answer); err != nil {
+	if err := rpc.DecodeSDP(encodedAnswer, &answer); err != nil {
 		return err
 	}
 

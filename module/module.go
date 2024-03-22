@@ -211,7 +211,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	}
 
 	// attempt to configure PeerConnection
-	pcReady, err := ConfigureForRenegotiation(pc, logger)
+	pcReady, err := rpc.ConfigureForRenegotiation(pc, logger.AsZap())
 	if err != nil {
 		logger.Warnw("Error creating renegotiation channel for module. Ignoring.", "err", err)
 		return m, nil
@@ -352,7 +352,7 @@ func (m *Module) PeerConnect(encodedOffer string) (string, error) {
 	}
 
 	offer := webrtc.SessionDescription{}
-	if err := DecodeSDP(encodedOffer, &offer); err != nil {
+	if err := rpc.DecodeSDP(encodedOffer, &offer); err != nil {
 		return "", err
 	}
 	if err := m.pc.SetRemoteDescription(offer); err != nil {
@@ -369,7 +369,7 @@ func (m *Module) PeerConnect(encodedOffer string) (string, error) {
 	}
 
 	<-webrtc.GatheringCompletePromise(m.pc)
-	return EncodeSDP(m.pc.LocalDescription())
+	return rpc.EncodeSDP(m.pc.LocalDescription())
 }
 
 // Ready receives the parent address and reports api/model combos the module is ready to service.
