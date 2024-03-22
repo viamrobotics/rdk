@@ -46,11 +46,8 @@ func TestOpID(t *testing.T) {
 			test.That(t, os.Remove(cfgFilename), test.ShouldBeNil)
 		}()
 
-		serverPath, err := rtestutils.BuildTempModule(t, "web/cmd/server/")
-		test.That(t, err, test.ShouldBeNil)
-
 		server := pexec.NewManagedProcess(pexec.ProcessConfig{
-			Name: serverPath,
+			Name: rtestutils.BuildTempModule(t, "web/cmd/server/"),
 			Args: []string{"-config", cfgFilename},
 			CWD:  utils.ResolveFile("./"),
 			Log:  true,
@@ -155,10 +152,7 @@ func TestOpID(t *testing.T) {
 
 func makeConfig(t *testing.T, logger logging.Logger) (string, int, error) {
 	// Precompile module to avoid timeout issues when building takes too long.
-	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-	if err != nil {
-		return "", 0, err
-	}
+	modPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
 	port, err := goutils.TryReserveRandomPort()
 	if err != nil {

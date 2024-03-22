@@ -108,7 +108,7 @@ func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds
 		select {
 		case <-ctx.Done():
 			return errors.New("context cancelled")
-		case c <- board.Tick{High: high, TimestampNanosec: nanoseconds}:
+		case c <- board.Tick{Name: i.cfg.Name, High: high, TimestampNanosec: nanoseconds}:
 		}
 	}
 	return nil
