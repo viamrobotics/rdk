@@ -3114,6 +3114,34 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 1)
 
+	cfg4 := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+				Attributes: rutils.AttributeMap{
+					"bar": "baz",
+				},
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg4)
+
+	// Assert that if module is reconfigured (`LogLevel` removed), _and_ helper
+	// is reconfigured (attributes changed), helper is only constructed in new
+	// module process and not `Reconfigure`d.
+	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+
 	// Assert that helper is only constructed after module crash/successful
 	// restart and has not `Reconfigure`d.
 	_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
