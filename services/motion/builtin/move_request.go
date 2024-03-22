@@ -7,7 +7,6 @@ import (
 	"math"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -77,7 +76,8 @@ type moveRequest struct {
 	// if we ever have to add additional instances we should figure out how to make this more scalable
 	position, obstacle *replanner
 	// waypointIndex tracks the waypoint we are currently executing on
-	waypointIndex *atomic.Int32
+	waypointIndex      int
+	waypointIndexMutex sync.Mutex
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
@@ -142,9 +142,11 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state
 	if err != nil {
 		return state.ExecuteResponse{}, err
 	}
-
+	mr.waypointIndexMutex.Lock()
+	startIterValue := mr.waypointIndex
+	mr.waypointIndexMutex.Unlock()
 	// Iterate through the list of waypoints and issue a command to move to each
-	for i := int(mr.waypointIndex.Load()); i < len(waypoints); i++ {
+	for i := startIterValue; i < len(waypoints); i++ {
 		select {
 		case <-ctx.Done():
 			mr.logger.CDebugf(ctx, "calling kinematicBase.Stop due to %s\n", ctx.Err())
@@ -163,7 +165,9 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state
 				return state.ExecuteResponse{}, err
 			}
 			if i < len(waypoints)-1 {
-				mr.waypointIndex.Add(1)
+				mr.waypointIndexMutex.Lock()
+				mr.waypointIndex = mr.waypointIndex + 1
+				mr.waypointIndexMutex.Unlock()
 			}
 		}
 	}
@@ -174,7 +178,10 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state
 // deviatedFromPlan takes a plan and an index of a waypoint on that Plan and returns whether or not it is still
 // following the plan as described by the PlanDeviation specified for the moveRequest.
 func (mr *moveRequest) deviatedFromPlan(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
-	waypointIndex := int(mr.waypointIndex.Load())
+	mr.waypointIndexMutex.Lock()
+	waypointIndex := mr.waypointIndex
+	mr.waypointIndexMutex.Unlock()
+
 	errorState, err := mr.kinematicBase.ErrorState(ctx, plan, waypointIndex)
 	if err != nil {
 		return state.ExecuteResponse{}, err
@@ -300,7 +307,9 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// Note: the value of wayPointIndex is subject to change between when this function is first entered
 			// versus when CheckPlan is actually called.
 			// We load the wayPointIndex value to ensure that all information is up to date.
-			waypointIndex := int(mr.waypointIndex.Load())
+			mr.waypointIndexMutex.Lock()
+			waypointIndex := mr.waypointIndex
+			mr.waypointIndexMutex.Unlock()
 
 			// get the pose difference between where the robot is versus where it ought to be.
 			errorState, err := mr.kinematicBase.ErrorState(ctx, plan, waypointIndex)
@@ -750,8 +759,7 @@ func (ms *builtIn) createBaseMoveRequest(
 
 	var backgroundWorkers sync.WaitGroup
 
-	var waypointIndex atomic.Int32
-	waypointIndex.Store(1)
+	waypointIndex := 1
 
 	// effectively don't poll if the PositionPollingFreqHz is not provided
 	positionPollingFreq := time.Duration(math.MaxInt64)
@@ -788,7 +796,7 @@ func (ms *builtIn) createBaseMoveRequest(
 
 		responseChan: make(chan moveResponse, 1),
 
-		waypointIndex: &waypointIndex,
+		waypointIndex: waypointIndex,
 	}
 
 	// TODO: Change deviatedFromPlan to just query positionPollingFreq on the struct & the same for the obstaclesIntersectPlan
