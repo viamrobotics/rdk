@@ -109,7 +109,7 @@ func NamesFromRobot(r robot.Robot) []string {
 }
 
 // removeCallbacks removes the callbacks from the given interrupts.
-func removeCallbacks(ctx context.Context, b Board, interrupts []string, ch chan Tick) error {
+func removeCallbacks(b Board, interrupts []string, ch chan Tick) error {
 	for _, name := range interrupts {
 		i, ok := b.DigitalInterruptByName(name)
 		if !ok {
