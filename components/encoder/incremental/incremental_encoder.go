@@ -213,13 +213,8 @@ func (e *Encoder) Start(ctx context.Context) {
 	// 0 -> same state
 	// x -> impossible state
 
-	chanA := make(chan board.Tick)
-
-	e.board.StreamTicks(context.Background(), e.interrupts, chanA, nil)
-	// time.Sleep(10 * time.Second)
-	// e.board.RemoveTickStream()
-
-	// time.Sleep(40 * time.Second)
+	ch := make(chan board.Tick)
+	e.board.StreamTicks(ctx, e.interrupts, ch, nil)
 
 	aLevel, err := e.A.Value(ctx, nil)
 	if err != nil {
@@ -233,7 +228,6 @@ func (e *Encoder) Start(ctx context.Context) {
 
 	e.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		//defer (chanA)
 		for {
 			// This looks redundant with the other select statement below, but it's not: if we're
 			// supposed to return, we need to do that even if chanA and chanB are full of data, and
@@ -251,7 +245,7 @@ func (e *Encoder) Start(ctx context.Context) {
 			select {
 			case <-e.cancelCtx.Done():
 				return
-			case tick = <-chanA:
+			case tick = <-ch:
 				if tick.Name == e.encAName {
 					aLevel = 0
 					if tick.High {

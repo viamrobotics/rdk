@@ -313,41 +313,21 @@ func makeAdxl345(
 		return nil, err
 	}
 
-	interruptMap := map[string]board.DigitalInterrupt{}
+	interruptList := []string{}
 	if (newConf.SingleTap != nil) && (newConf.SingleTap.InterruptPin != "") {
-		b, err := board.FromDependencies(deps, newConf.BoardName)
-		if err != nil {
-			return nil, err
-		}
-
-		interruptMap, err = addInterruptPin(b, newConf.SingleTap.InterruptPin, interruptMap)
-		if err != nil {
-			// shut down goroutine reading sensor in the background
-			sensor.cancelFunc()
-			return nil, err
-		}
+		interruptList = append(interruptList, newConf.SingleTap.InterruptPin)
 	}
 
 	if (newConf.FreeFall != nil) && (newConf.FreeFall.InterruptPin != "") {
-		b, err := board.FromDependencies(deps, newConf.BoardName)
-		if err != nil {
-			return nil, err
-		}
-
-		interruptMap, err = addInterruptPin(b, newConf.FreeFall.InterruptPin, interruptMap)
-		if err != nil {
-			// shut down goroutine reading sensor in the background
-			sensor.cancelFunc()
-			return nil, err
-		}
+		interruptList = append(interruptList, newConf.FreeFall.InterruptPin)
 	}
-
-	for _, interrupt := range interruptMap {
-		ticksChan := make(chan board.Tick)
-		interrupt.AddCallback(ticksChan)
-		sensor.interruptChannels[interrupt] = ticksChan
-		sensor.startInterruptMonitoring(ticksChan)
+	b, err := board.FromDependencies(deps, newConf.BoardName)
+	if err != nil {
+		return nil, err
 	}
+	ticksChan := make(chan board.Tick)
+	b.StreamTicks(ctx, interruptList, ticksChan, nil)
+	sensor.startInterruptMonitoring(ticksChan)
 
 	return sensor, nil
 }
@@ -365,18 +345,6 @@ func (adxl *adxl345) startInterruptMonitoring(ticksChan chan board.Tick) {
 			}
 		}
 	})
-}
-
-func addInterruptPin(b board.Board, name string, interrupts map[string]board.DigitalInterrupt) (map[string]board.DigitalInterrupt, error) {
-	_, ok := interrupts[name]
-	if !ok {
-		interrupt, ok := b.DigitalInterruptByName(name)
-		if !ok {
-			return nil, errors.Errorf("cannot grab digital interrupt: %s", name)
-		}
-		interrupts[name] = interrupt
-	}
-	return interrupts, nil
 }
 
 // This returns a map from register addresses to data which should be written to that register to configure the interrupt pin.

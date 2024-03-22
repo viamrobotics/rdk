@@ -255,16 +255,11 @@ func (c *Controller) sendConnectionStatus(ctx context.Context, connected bool) {
 }
 
 func (c *Controller) newButton(ctx context.Context, brd board.Board, intName string, cfg ButtonConfig) error {
-	interrupt, ok := brd.DigitalInterruptByName(intName)
-	if !ok {
-		return fmt.Errorf("can't find DigitalInterrupt (%s)", intName)
-	}
 	tickChan := make(chan board.Tick)
-	interrupt.AddCallback(tickChan)
+	brd.StreamTicks(ctx, []string{intName}, tickChan, nil)
 
 	c.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		defer interrupt.RemoveCallback(tickChan)
 		debounced := debounce.New(time.Millisecond * time.Duration(cfg.DebounceMs))
 		for {
 			var val bool
