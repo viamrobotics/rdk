@@ -16,10 +16,12 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
+	genericservice "go.viam.com/rdk/services/generic"
 )
 
 var (
 	helperModel    = resource.NewModel("rdk", "test", "helper")
+	otherModel     = resource.NewModel("rdk", "test", "other")
 	testMotorModel = resource.NewModel("rdk", "test", "motor")
 	myMod          *module.Module
 )
@@ -42,6 +44,15 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		helperModel,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newHelper})
 	err = myMod.AddModelFromRegistry(ctx, generic.API, helperModel)
+	if err != nil {
+		return err
+	}
+
+	resource.RegisterService(
+		genericservice.API,
+		otherModel,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newOther})
+	err = myMod.AddModelFromRegistry(ctx, genericservice.API, otherModel)
 	if err != nil {
 		return err
 	}
@@ -80,9 +91,7 @@ type helper struct {
 	numReconfigurations int
 }
 
-// DoCommand is the only method of this component. It looks up the "real" command from the map it's passed.
-//
-
+// DoCommand looks up the "real" command from the map it's passed.
 func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
 	cmd, ok := req["command"]
 	if !ok {
@@ -161,6 +170,40 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 
 func (h *helper) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	h.numReconfigurations++
+	return nil
+}
+
+func newOther(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (resource.Resource, error) {
+	return &helper{
+		Named: conf.ResourceName().AsNamed(),
+	}, nil
+}
+
+type other struct {
+	resource.Named
+	resource.TriviallyCloseable
+	numReconfigurations int
+}
+
+// DoCommand looks up the "real" command from the map it's passed.
+func (o *other) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
+	cmd, ok := req["command"]
+	if !ok {
+		return nil, errors.New("missing 'command' string")
+	}
+
+	switch req["command"] {
+	case "get_num_reconfigurations":
+		return map[string]any{"num_reconfigurations": o.numReconfigurations}, nil
+	default:
+		return nil, fmt.Errorf("unknown command string %s", cmd)
+	}
+}
+
+func (o *other) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	o.numReconfigurations++
 	return nil
 }
 
