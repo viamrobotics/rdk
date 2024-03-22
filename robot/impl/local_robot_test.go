@@ -3029,7 +3029,7 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 
 func TestModularResourceReconfigurationCount(t *testing.T) {
 	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
@@ -3113,6 +3113,22 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 1)
+
+	// Assert that helper is only constructed after module crash/successful
+	// restart and has not `Reconfigure`d.
+	_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessage("Module successfully restarted").Len(), test.ShouldEqual, 1)
+	})
+
+	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
 }
 
 func TestImplicitDepsAcrossModules(t *testing.T) {
