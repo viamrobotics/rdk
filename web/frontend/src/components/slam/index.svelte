@@ -354,8 +354,14 @@ const handleStartMapping = async () => {
     try {
       hasActiveSession = true;
       if (!mappingSessionStarted) {
+        // Get SensorInfo list
+        const props = await slamClient.getProperties();
+
         mappingSessionStarted = true;
-        sessionId = await overrides.startMappingSession(mapName);
+        sessionId = await overrides.startMappingSession(
+          mapName,
+          props.sensorInfoList
+        );
         startMappingIntervals(Date.now());
       }
     } catch {
@@ -468,12 +474,14 @@ useConnect(() => {
       <div class="flex flex-col gap-6 pb-4">
         {#if overrides?.isCloudSlam && overrides.mappingDetails}
           <header class="flex flex-col justify-between gap-3 text-xs">
-            <div class="flex flex-col">
-              <span class="font-bold text-gray-800">Mapping mode</span>
-              <span class="capitalize text-subtle-2"
-                >{overrides.mappingDetails.mode}</span
-              >
-            </div>
+            {#if overrides.mappingDetails.mode}
+              <div class="flex flex-col">
+                <span class="font-bold text-gray-800">Mapping mode</span>
+                <span class="capitalize text-subtle-2"
+                  >{overrides.mappingDetails.mode}</span
+                >
+              </div>
+            {/if}
             <div class="flex gap-8">
               {#if overrides.mappingDetails.name}
                 <div class="flex flex-col">
