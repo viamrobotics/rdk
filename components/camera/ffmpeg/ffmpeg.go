@@ -125,6 +125,7 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 			cmd := stream.WithOutput(out).WithErrorOutput(stderrWriter{
 				logger: logger,
 			}).Compile()
+			logger.Infow("Execing ffmpeg", "cmd", cmd.String())
 			err := cmd.Run()
 			logger.Debugw("ffmpeg exited", "err", err)
 		}
