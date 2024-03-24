@@ -8,12 +8,11 @@ import (
 	"image/jpeg"
 	"io"
 	"os/exec"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 
 	ffmpeg "github.com/u2takey/ffmpeg-go"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapio"
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
@@ -72,8 +71,18 @@ type ffmpegCamera struct {
 	logger                  logging.Logger
 }
 
+type stderrWriter struct {
+	logger logging.Logger
+}
+
+func (writer stderrWriter) Write(p []byte) (n int, err error) {
+	writer.logger.Debug(string(p))
+	return len(p), nil
+}
+
 // NewFFMPEGCamera instantiates a new camera which leverages ffmpeg to handle a variety of potential video types.
 func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (camera.VideoSource, error) {
+	debug.PrintStack()
 	// make sure ffmpeg is in the path before doing anything else
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return nil, err
@@ -98,8 +107,6 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 	ffCam.inClose = in.Close
 	ffCam.outClose = out.Close
 
-	writer := &zapio.Writer{Log: logger.Desugar(), Level: zap.DebugLevel}
-
 	ffCam.activeBackgroundWorkers.Add(1)
 	viamutils.ManagedGo(func() {
 		for {
@@ -114,7 +121,10 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 			}
 			stream = stream.Output("pipe:", outArgs)
 			stream.Context = cancelableCtx
-			cmd := stream.WithOutput(out).WithErrorOutput(writer).Compile()
+
+			cmd := stream.WithOutput(out).WithErrorOutput(stderrWriter{
+				logger: logger,
+			}).Compile()
 			err := cmd.Run()
 			logger.Debugw("ffmpeg exited", "err", err)
 		}
