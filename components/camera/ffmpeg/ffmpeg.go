@@ -134,6 +134,17 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 				logger: logger,
 			}).Compile()
 			logger.Infow("Execing ffmpeg", "cmd", cmd.String())
+			// The `ffmpeg` command can return for two reasons:
+			// - This camera object was `Close`d. Which will close the I/O of ffmpeg causing it to
+			//   shutdown.
+			// - (Dan): I've observed ffmpeg just returning on its own accord, approximately every
+			//   30 seconds. Only on a rpi. This is presumably due to some form of resource
+			//   exhaustion.
+			//
+			// We always want to return to the top of the loop to check the `cancelableCtx`. If the
+			// camera was explicitly closed, this goroutine will gracefully shutdown. If the camera
+			// was not closed, we restart ffmpeg. We depend on golang's Command object to not close
+			// the I/O pipe such that it can be reused across process invocations.
 			err := cmd.Run()
 			logger.Debugw("ffmpeg exited", "err", err)
 		}
