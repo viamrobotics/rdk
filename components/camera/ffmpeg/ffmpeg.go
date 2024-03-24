@@ -97,7 +97,8 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 	cancelableCtx, cancel := context.WithCancel(context.Background())
 	ffCam := &ffmpegCamera{cancelFunc: cancel, logger: logger}
 
-	// launch thread to run ffmpeg and pull images from the url and put them into the pipe
+	// We configure ffmpeg to output images to stdout. A goroutine will read those images via the
+	// `in` end of the pipe.
 	in, out := io.Pipe()
 
 	// Note(erd): For some reason, when running with the race detector, we need to close the pipe
@@ -105,6 +106,15 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 	ffCam.inClose = in.Close
 	ffCam.outClose = out.Close
 
+	// We will launch two goroutines:
+	// - One to shell out to ffmpeg and wait on it exiting.
+	// - A second to read the image output of ffmpeg and write it to a shared pointer.
+	//
+	// In addition, there are two other actors in this system:
+	// - The application servicing GetImage and video streams will execute the callback registered
+	//   via `VideoReaderFunc`.
+	// - The robot reconfigure goroutine. All reconfigures are processed as a `Close` followed by
+	//   `NewFFMPEGCamera`.
 	ffCam.activeBackgroundWorkers.Add(1)
 	viamutils.ManagedGo(func() {
 		for {
@@ -131,10 +141,11 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 		ffCam.activeBackgroundWorkers.Done()
 	})
 
-	// launch thread to consume images from the pipe and store the latest in shared memory
-	gotFirstFrame := make(chan struct{})
 	var latestFrame atomic.Pointer[image.Image]
+	// Pause the GetImage reader until the producer provides a first item.
 	var gotFirstFrameOnce bool
+	gotFirstFrame := make(chan struct{})
+
 	ffCam.activeBackgroundWorkers.Add(1)
 	viamutils.ManagedGo(func() {
 		for {
