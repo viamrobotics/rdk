@@ -130,10 +130,6 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 			stream = stream.Output("pipe:", outArgs)
 			stream.Context = cancelableCtx
 
-			cmd := stream.WithOutput(out).WithErrorOutput(stderrWriter{
-				logger: logger,
-			}).Compile()
-			logger.Infow("Execing ffmpeg", "cmd", cmd.String())
 			// The `ffmpeg` command can return for two reasons:
 			// - This camera object was `Close`d. Which will close the I/O of ffmpeg causing it to
 			//   shutdown.
@@ -142,9 +138,14 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 			//   exhaustion.
 			//
 			// We always want to return to the top of the loop to check the `cancelableCtx`. If the
-			// camera was explicitly closed, this goroutine will gracefully shutdown. If the camera
-			// was not closed, we restart ffmpeg. We depend on golang's Command object to not close
-			// the I/O pipe such that it can be reused across process invocations.
+			// camera was explicitly closed, this goroutine will observe `cancelableCtx` as canceled
+			// and gracefully shutdown. If the camera was not closed, we restart ffmpeg. We depend
+			// on golang's Command object to not close the I/O pipe such that it can be reused
+			// across process invocations.
+			cmd := stream.WithOutput(out).WithErrorOutput(stderrWriter{
+				logger: logger,
+			}).Compile()
+			logger.Infow("Execing ffmpeg", "cmd", cmd.String())
 			err := cmd.Run()
 			logger.Debugw("ffmpeg exited", "err", err)
 		}
