@@ -212,7 +212,10 @@ func (e *Encoder) Start(ctx context.Context) {
 	// x -> impossible state
 
 	ch := make(chan board.Tick)
-	e.board.StreamTicks(ctx, e.interrupts, ch, nil)
+	err := e.board.StreamTicks(e.cancelCtx, e.interrupts, ch, nil)
+	if err != nil {
+		utils.Logger.Errorw("error getting interrupt ticks", "error", err)
+	}
 
 	aLevel, err := e.A.Value(ctx, nil)
 	if err != nil {

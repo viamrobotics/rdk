@@ -143,7 +143,10 @@ func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (ma
 		return nil, errors.Wrapf(err, "ultrasonic: cannot grab gpio %q", s.config.TriggerPin)
 	}
 
-	s.board.StreamTicks(ctx, []string{s.config.EchoInterrupt}, s.ticksChan, nil)
+	err = s.board.StreamTicks(ctx, []string{s.config.EchoInterrupt}, s.ticksChan, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "ultrasonic: error getting digital interrupt ticks")
+	}
 
 	// we send a high and a low to the trigger pin 10 microseconds
 	// apart to signal the sensor to begin sending the sonic pulse

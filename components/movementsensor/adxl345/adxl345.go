@@ -326,7 +326,10 @@ func makeAdxl345(
 		return nil, err
 	}
 	ticksChan := make(chan board.Tick)
-	b.StreamTicks(ctx, interruptList, ticksChan, nil)
+	err = b.StreamTicks(ctx, interruptList, ticksChan, nil)
+	if err != nil {
+		return nil, err
+	}
 	sensor.startInterruptMonitoring(ticksChan)
 
 	return sensor, nil

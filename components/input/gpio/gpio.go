@@ -3,12 +3,12 @@ package gpio
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/bep/debounce"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -256,7 +256,10 @@ func (c *Controller) sendConnectionStatus(ctx context.Context, connected bool) {
 
 func (c *Controller) newButton(ctx context.Context, brd board.Board, intName string, cfg ButtonConfig) error {
 	tickChan := make(chan board.Tick)
-	brd.StreamTicks(ctx, []string{intName}, tickChan, nil)
+	err := brd.StreamTicks(ctx, []string{intName}, tickChan, nil)
+	if err != nil {
+		return errors.Wrap(err, "error getting digital interrupts")
+	}
 
 	c.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
