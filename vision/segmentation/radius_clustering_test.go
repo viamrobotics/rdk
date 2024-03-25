@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	pc "go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -117,7 +118,7 @@ func testSegmentation(t *testing.T, segments []*vision.Object, expectedLabel str
 		}
 		test.That(t, box, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, box.AlmostEqual(seg.Geometry), test.ShouldBeTrue)
+		test.That(t, spatialmath.GeometriesAlmostEqual(box, seg.Geometry), test.ShouldBeTrue)
 		test.That(t, box.Label(), test.ShouldEqual, expectedLabel)
 	}
 }

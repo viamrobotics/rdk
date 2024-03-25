@@ -34,8 +34,8 @@ func TestBoxAlmostEqual(t *testing.T) {
 	original := makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{1, 1, 1}, "")
 	good := makeTestBox(NewZeroOrientation(), r3.Vector{1e-16, 1e-16, 1e-16}, r3.Vector{1 + 1e-16, 1 + 1e-16, 1 + 1e-16}, "")
 	bad := makeTestBox(NewZeroOrientation(), r3.Vector{1e-2, 1e-2, 1e-2}, r3.Vector{1 + 1e-2, 1 + 1e-2, 1 + 1e-2}, "")
-	test.That(t, original.AlmostEqual(good), test.ShouldBeTrue)
-	test.That(t, original.AlmostEqual(bad), test.ShouldBeFalse)
+	test.That(t, original.(*box).almostEqual(good), test.ShouldBeTrue)
+	test.That(t, original.(*box).almostEqual(bad), test.ShouldBeFalse)
 }
 
 func TestBoxVertices(t *testing.T) {
