@@ -20,6 +20,8 @@ import (
 	goutils "go.viam.com/utils"
 	goprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -109,20 +111,23 @@ var (
 func (c *client) addOnTrackSubFunc(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.logger.Info("addOnTrackSubFunc called")
 	if c.Name().String() != tr.StreamID() {
 		c.logger.Fatalf("%s: SubscribeRTP: PeerConn().OnTrack: tr.StreamID() == %s", c.Name(), tr.StreamID())
 		return
 	}
 
-	if len(c.subAndCBByID) == 0 {
-		c.logger.Info("OnTrack called when c.subs was already empty")
-		return
-	}
 	c.wg.Add(1)
 	goutils.ManagedGo(func() {
+		defer func() {
+			if err := c.unsubscribeAll(); err != nil {
+				c.logger.Errorw("unsubscribeAll", "err", err)
+			}
+		}()
 		for {
 			pkt, _, err := tr.ReadRTP()
 			if err != nil {
+				c.logger.Infof("ReadRTP got an error: %s", err.Error())
 				if err != io.EOF {
 					c.logger.Error(err.Error())
 				}
@@ -168,7 +173,21 @@ func (c *client) VideoCodecStreamSource(ctx context.Context) (VideoCodecStreamSo
 func (c *client) SubscribeRTP(ctx context.Context, bufferSize int, packetsCB PacketCallback) (StreamSubscriptionID, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.logger.Infof("SubscribeRTP called on %s", c.Name())
+	strIds := []string{}
+	for _, id := range maps.Keys(c.subAndCBByID) {
+		strIds = append(strIds, id.String())
+	}
+	slices.Sort(strIds)
+	c.logger.Infof("SubscribeRTP BEGIN called on %s, len(c.subAndCBByID): %d, strIds: %#v", c.Name(), len(c.subAndCBByID), strIds)
+	defer func() {
+		strIds := []string{}
+		for _, id := range maps.Keys(c.subAndCBByID) {
+			strIds = append(strIds, id.String())
+		}
+		slices.Sort(strIds)
+		c.logger.Infof("SubscribeRTP END called on %s, len(c.subAndCBByID): %d, strIds: %#v", c.Name(), len(c.subAndCBByID), strIds)
+
+	}()
 	sub, err := NewStreamSubscription(bufferSize)
 	if err != nil {
 		return uuid.Nil, err
@@ -181,19 +200,21 @@ func (c *client) SubscribeRTP(ctx context.Context, bufferSize int, packetsCB Pac
 	}
 	sc, ok := c.conn.(*rdkgrpc.SharedConn)
 	if !ok {
+		c.logger.Fatal("ErrNoSharedPeerConnection")
 		return uuid.Nil, ErrNoSharedPeerConnection
 	}
 
 	// TODO: END Move this to the constructor / reconfigure
 	if len(c.subAndCBByID) == 0 {
+		c.logger.Info("len(c.subAndCBByID) == 0, doing AddOnTrackSub stuff")
 		// TODO: We need to set up OnTrack before we call SubscribeRTP
-		sc.AddOnTrackSub(c.Name(), c.addOnTrackSubFunc)
 
 		c.subAndCBByID[sub.ID()] = subAndCB{
 			cb:  func(p *rtp.Packet) error { return packetsCB([]*rtp.Packet{p}) },
 			sub: sub,
 		}
 		sub.Start()
+		sc.AddOnTrackSub(c.Name(), c.addOnTrackSubFunc)
 		// TODO: Fix this context
 		_, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: c.Name().String()})
 		if err != nil {
@@ -208,6 +229,20 @@ func (c *client) SubscribeRTP(ctx context.Context, bufferSize int, packetsCB Pac
 func (c *client) Unsubscribe(ctx context.Context, id StreamSubscriptionID) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	strIds := []string{}
+	for _, id := range maps.Keys(c.subAndCBByID) {
+		strIds = append(strIds, id.String())
+	}
+	slices.Sort(strIds)
+	c.logger.Infof("Unsubscribe BEGIN called on %s, len(c.subAndCBByID): %d, strIds: %#v", c.Name(), len(c.subAndCBByID), strIds)
+	defer func() {
+		strIds := []string{}
+		for _, id := range maps.Keys(c.subAndCBByID) {
+			strIds = append(strIds, id.String())
+		}
+		slices.Sort(strIds)
+		c.logger.Infof("Unsubscribe END called on %s, len(c.subAndCBByID): %d, strIds: %#v", c.Name(), len(c.subAndCBByID), strIds)
+	}()
 	if c.conn.PeerConn() == nil {
 		return ErrNoPeerConnection
 	}
@@ -233,6 +268,7 @@ func (c *client) Unsubscribe(ctx context.Context, id StreamSubscriptionID) error
 }
 
 func (c *client) unsubscribeAll() error {
+	c.logger.Info("unsubscribeAll")
 	var errAgg error
 	for id, subAndCB := range c.subAndCBByID {
 		timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), CloseRemoveStreamTimeout)
@@ -240,7 +276,6 @@ func (c *client) unsubscribeAll() error {
 		timeoutCancel()
 		if err != nil {
 			errAgg = multierr.Combine(errAgg, errors.Wrapf(err, "error calling RemoveStream with name: %s", c.Name()))
-			continue
 		}
 		subAndCB.sub.Stop()
 		delete(c.subAndCBByID, id)
@@ -500,6 +535,7 @@ func (c *client) Close(ctx context.Context) error {
 	c.healthyClientCh = nil
 
 	if err := c.unsubscribeAll(); err != nil {
+		c.logger.Debugw("Close > unsubscribeAll", "err", err)
 		return err
 	}
 	return nil

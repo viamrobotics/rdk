@@ -478,6 +478,8 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 
 // ReconfigureResource receives the component/service configuration from the parent.
 func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureResourceRequest) (*pb.ReconfigureResourceResponse, error) {
+	m.logger.Infof("ReconfigureResource m.activeResourceStreams: %#v", m.activeResourceStreams)
+	defer m.logger.Infof("ReconfigureResource m.activeResourceStreams: %#v", m.activeResourceStreams)
 	var res resource.Resource
 	deps := make(resource.Dependencies)
 	for _, c := range req.Dependencies {
@@ -537,6 +539,16 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		m.logger.Error(err)
 	}
 
+	prs, ok := m.activeResourceStreams[res.Name()]
+	if ok {
+		m.logger.Infof("cleaning up orphaned activeResourceStreams for resource: %s", res.Name())
+		if err := m.pc.RemoveTrack(prs.sender); err != nil {
+			m.logger.Error(err)
+		}
+
+		delete(m.activeResourceStreams, res.Name())
+	}
+
 	resInfo, ok := resource.LookupRegistration(conf.API, conf.Model)
 	if !ok {
 		return nil, errors.Errorf("do not know how to construct %q", conf.API)
@@ -548,6 +560,16 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	newRes, err := resInfo.Constructor(ctx, deps, *conf, m.logger)
 	if err != nil {
 		return nil, err
+	}
+	var vcss camera.VideoCodecStreamSource
+	if cam, ok := newRes.(camera.VideoSource); ok {
+		if v, err := cam.VideoCodecStreamSource(ctx); err == nil {
+			vcss = v
+		}
+	}
+
+	if vcss != nil {
+		m.streamSourceByName[res.Name()] = vcss
 	}
 	return &pb.ReconfigureResourceResponse{}, coll.ReplaceOne(conf.ResourceName(), newRes)
 }
@@ -580,6 +602,7 @@ func (m *Module) ValidateConfig(ctx context.Context,
 
 // RemoveResource receives the request for resource removal.
 func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceRequest) (*pb.RemoveResourceResponse, error) {
+	m.logger.Info("RemoveResource")
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcher(
 		30*time.Second, fmt.Sprintf("module resource %q is taking a while to remove", req.Name), m.logger.AsZap())
 	defer func() {
@@ -684,6 +707,8 @@ func (m *Module) ListStreams(ctx context.Context, req *streampb.ListStreamsReque
 
 // AddStream adds a stream.
 func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) (*streampb.AddStreamResponse, error) {
+	m.logger.Infof("AddStream %s, m.activeResourceStreams: %#v", req.GetName(), m.activeResourceStreams)
+	defer m.logger.Infof("AddStream %s, m.activeResourceStreams: %#v", req.GetName(), m.activeResourceStreams)
 	name, err := resource.NewFromString(req.GetName())
 	if err != nil {
 		return nil, err
@@ -709,11 +734,13 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 	}
 
 	// TODO call remove track on error
+	m.logger.Warn("calling AddTrack", req.GetName())
 	sender, err := m.pc.AddTrack(tlsRTP)
 	if err != nil {
 		return nil, errors.Wrap(err, "error adding track")
 	}
 	subID, err := vcss.SubscribeRTP(ctx, rtpBufferSize, func(pkts []*rtp.Packet) error {
+		m.logger.Infof("SubscribeRTP got %d packets", len(pkts))
 		for _, pkt := range pkts {
 			if err := tlsRTP.WriteRTP(pkt); err != nil {
 				m.logger.Warn(err.Error())
@@ -723,6 +750,7 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 	})
 
 	if err != nil {
+		m.logger.Warnw("SubscribeRTP hit error", "err", err)
 		removeTrackErr := errors.Wrap(m.pc.RemoveTrack(sender), "error removing track after SubscribeRTP failed")
 		subscribeErr := errors.Wrap(err, "error setting up stream subscription")
 		return nil, multierr.Append(subscribeErr, removeTrackErr)
@@ -733,6 +761,8 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 
 // RemoveStream removes a stream.
 func (m *Module) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRequest) (*streampb.RemoveStreamResponse, error) {
+	m.logger.Infof("RemoveStream %s, m.activeResourceStreams: %#v", req.GetName(), m.activeResourceStreams)
+	defer m.logger.Infof("RemoveStream %s, m.activeResourceStreams: %#v", req.GetName(), m.activeResourceStreams)
 	name, err := resource.NewFromString(req.GetName())
 	if err != nil {
 		return nil, err
