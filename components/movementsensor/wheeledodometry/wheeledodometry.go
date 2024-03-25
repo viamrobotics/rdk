@@ -269,7 +269,7 @@ func (o *odometry) CompassHeading(ctx context.Context, extra map[string]interfac
 	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
 
-// 0 -> 360 with Z down
+// computes the compass heading in degrees from a yaw in radians, with 0 -> 360 and Z down.
 func yawToCompassHeading(yaw float64) float64 {
 	yawDeg := rdkutils.RadToDeg(yaw)
 	if yawDeg < 0 {
@@ -339,7 +339,6 @@ func (o *odometry) Close(ctx context.Context) error {
 // The estimations in this function are based on the math outlined in this article:
 // https://stuff.mit.edu/afs/athena/course/6/6.186/OldFiles/2005/doc/odomtutorial/odomtutorial.pdf
 func (o *odometry) trackPosition(ctx context.Context) {
-
 	o.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer o.activeBackgroundWorkers.Done()
@@ -406,7 +405,6 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			o.orientation.Yaw = math.Mod(o.orientation.Yaw, oneTurn)
 			o.orientation.Yaw = math.Mod(o.orientation.Yaw+oneTurn, oneTurn)
 			if o.useOri {
-
 				compass := yawToCompassHeading(o.orientation.Yaw)
 				// Calculate X and Y by using centerDist and the current orientation yaw (theta).
 				o.position.X += (centerDist * math.Sin(rdkutils.DegToRad(compass)))
@@ -472,7 +470,6 @@ func (o *odometry) DoCommand(ctx context.Context,
 	if okY {
 		o.position.Y += yMove
 		resp[moveY] = fmt.Sprintf("y position shifted to %.8f", o.position.Y)
-
 	}
 
 	return resp, nil
