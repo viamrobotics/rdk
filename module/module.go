@@ -44,6 +44,7 @@ const (
 	// maxSocketAddressLength is the length (-1 for null terminator) of the .sun_path field as used in kernel bind()/connect() syscalls.
 	// Linux allows for a max length of 107 but to simplify this code, we truncate to the macOS limit of 103.
 	socketMaxAddressLength int = 103
+	rtpBufferSize          int = 512
 )
 
 // CreateSocketAddress returns a socket address of the form parentDir/desiredName.sock
@@ -149,7 +150,7 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn rpc.C
 type peerResourceState struct {
 	// NOTE As I'm only suppporting video to start this will always be a single element
 	// once we add audio we will need to make this a slice / map
-	subscription *camera.StreamSubscription
+	subID camera.StreamSubscriptionID
 	// NOTE As I'm only suppporting video to start this will always be a single element
 	// once we add audio we will need to make this a slice
 	sender *webrtc.RTPSender
@@ -280,7 +281,7 @@ func (m *Module) Close(ctx context.Context) {
 				m.logger.Errorf("unable to find %s in streamSourceByName", name)
 				continue
 			}
-			if err := vcss.Unsubscribe(ctx, r.subscription); err != nil {
+			if err := vcss.Unsubscribe(ctx, r.subID); err != nil {
 				m.logger.Errorf("unable call unsubscribe on resource %s", name)
 				continue
 			}
@@ -702,10 +703,6 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 		return &streampb.AddStreamResponse{}, nil
 	}
 
-	sub, err := camera.NewVideoCodecStreamSubscription(512)
-	if err != nil {
-		return nil, errors.Wrap(err, "error creating stream")
-	}
 	tlsRTP, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/H264"}, "video", name.String())
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating a new TrackLocalStaticRTP")
@@ -716,7 +713,7 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 	if err != nil {
 		return nil, errors.Wrap(err, "error adding track")
 	}
-	err = vcss.SubscribeRTP(ctx, sub, func(pkts []*rtp.Packet) error {
+	subID, err := vcss.SubscribeRTP(ctx, rtpBufferSize, func(pkts []*rtp.Packet) error {
 		for _, pkt := range pkts {
 			if err := tlsRTP.WriteRTP(pkt); err != nil {
 				m.logger.Warn(err.Error())
@@ -730,7 +727,7 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 		subscribeErr := errors.Wrap(err, "error setting up stream subscription")
 		return nil, multierr.Append(subscribeErr, removeTrackErr)
 	}
-	m.activeResourceStreams[name] = peerResourceState{sender: sender, subscription: sub}
+	m.activeResourceStreams[name] = peerResourceState{sender: sender, subID: subID}
 	return &streampb.AddStreamResponse{}, nil
 }
 
@@ -755,7 +752,7 @@ func (m *Module) RemoveStream(ctx context.Context, req *streampb.RemoveStreamReq
 		return nil, fmt.Errorf("(m *Module) RemoveStream called on %s but peer state %p has no active peer stream", req.GetName(), m.pc)
 	}
 
-	if err := vcss.Unsubscribe(ctx, prs.subscription); err != nil {
+	if err := vcss.Unsubscribe(ctx, prs.subID); err != nil {
 		return nil, err
 	}
 

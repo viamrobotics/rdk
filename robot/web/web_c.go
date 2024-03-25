@@ -38,6 +38,8 @@ var (
 	UnsubscribeTimeout  = time.Second
 )
 
+const rtpBufferSize int = 512
+
 // StreamServer manages streams and displays.
 type StreamServer struct {
 	// Server serves streams
@@ -339,21 +341,17 @@ func subscribeRTP(
 	packetCallback camera.PacketCallback,
 	logger logging.Logger,
 ) (context.CancelFunc, error) {
-	sub, err := camera.NewVideoCodecStreamSubscription(512)
-	if err != nil {
-		return nil, err
-	}
 	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, SubscribeRTPTimeout)
 	defer timeoutCancel()
-
-	if err = h264Stream.SubscribeRTP(timeoutCtx, sub, packetCallback); err != nil {
+	subID, err := h264Stream.SubscribeRTP(timeoutCtx, rtpBufferSize, packetCallback)
+	if err != nil {
 		return nil, err
 	}
 
 	return func() {
 		timeoutCtx, timeoutCancel := context.WithTimeout(ctx, UnsubscribeTimeout)
 		defer timeoutCancel()
-		if err := h264Stream.Unsubscribe(timeoutCtx, sub); err != nil {
+		if err := h264Stream.Unsubscribe(timeoutCtx, subID); err != nil {
 			logger.Error(err)
 		}
 	}, nil

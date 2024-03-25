@@ -2,9 +2,12 @@ package camera
 
 import (
 	"github.com/bluenviron/gortsplib/v4/pkg/ringbuffer"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 )
+
+type StreamSubscriptionID = uuid.UUID
 
 // StreamSubscription executes the callbacks sent to Publish
 // in a single goroutine & drops Publish callbacks if the
@@ -12,21 +15,28 @@ import (
 // This is desirable behavior for streaming protocols where
 // dropping stale packets is desirable to minimize latency.
 type StreamSubscription struct {
+	id     StreamSubscriptionID
 	buffer *ringbuffer.RingBuffer
 	err    chan error
 }
 
-// NewVideoCodecStreamSubscription allocates a VideoCodecStreamSubscription.
-func NewVideoCodecStreamSubscription(queueSize int) (*StreamSubscription, error) {
+// NewStreamSubscription allocates a VideoCodecStreamSubscription.
+func NewStreamSubscription(queueSize int) (*StreamSubscription, error) {
 	buffer, err := ringbuffer.New(uint64(queueSize))
 	if err != nil {
 		return nil, err
 	}
 
 	return &StreamSubscription{
+		id:     uuid.New(),
 		buffer: buffer,
 		err:    make(chan error),
 	}, nil
+}
+
+// Start starts the writer routine.
+func (w *StreamSubscription) ID() uuid.UUID {
+	return w.id
 }
 
 // Start starts the writer routine.

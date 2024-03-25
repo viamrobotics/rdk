@@ -87,8 +87,8 @@ type (
 	PacketCallback func(pkts []*rtp.Packet) error
 	// VideoCodecStreamSource is a source of video codec data.
 	VideoCodecStreamSource interface {
-		SubscribeRTP(ctx context.Context, r *StreamSubscription, packetsCB PacketCallback) error
-		Unsubscribe(ctx context.Context, r *StreamSubscription) error
+		SubscribeRTP(ctx context.Context, bufferSize int, packetsCB PacketCallback) (StreamSubscriptionID, error)
+		Unsubscribe(ctx context.Context, id StreamSubscriptionID) error
 	}
 )
 
