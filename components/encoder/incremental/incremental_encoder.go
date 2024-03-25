@@ -214,7 +214,8 @@ func (e *Encoder) Start(ctx context.Context) {
 	ch := make(chan board.Tick)
 	err := e.board.StreamTicks(e.cancelCtx, e.interrupts, ch, nil)
 	if err != nil {
-		utils.Logger.Errorw("error getting interrupt ticks", "error", err)
+		utils.Logger.Errorw("error getting digital interrupt ticks", "error", err)
+		return
 	}
 
 	aLevel, err := e.A.Value(ctx, nil)

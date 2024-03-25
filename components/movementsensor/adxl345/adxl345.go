@@ -42,6 +42,8 @@ import (
 var model = resource.DefaultModelFamily.WithModel("accel-adxl345")
 
 const (
+	defaultI2CAddress    = 0x53
+	alternateI2CAddress  = 0x1D
 	deviceIDRegister     = 0
 	expectedDeviceID     = 0xE5
 	powerControlRegister = 0x2D
@@ -217,9 +219,9 @@ func makeAdxl345(
 
 	var address byte
 	if newConf.UseAlternateI2CAddress {
-		address = 0x1D
+		address = alternateI2CAddress
 	} else {
-		address = 0x53
+		address = defaultI2CAddress
 	}
 
 	interruptConfigurations := getInterruptConfigurations(newConf)
@@ -326,7 +328,7 @@ func makeAdxl345(
 		return nil, err
 	}
 	ticksChan := make(chan board.Tick)
-	err = b.StreamTicks(ctx, interruptList, ticksChan, nil)
+	err = b.StreamTicks(sensor.cancelContext, interruptList, ticksChan, nil)
 	if err != nil {
 		return nil, err
 	}

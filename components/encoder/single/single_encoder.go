@@ -184,9 +184,10 @@ func (e *Encoder) Reconfigure(
 // Start starts the Encoder background thread.
 func (e *Encoder) Start(ctx context.Context) {
 	encoderChannel := make(chan board.Tick)
-	err := e.board.StreamTicks(ctx, []string{e.diPinName}, encoderChannel, nil)
+	err := e.board.StreamTicks(e.cancelCtx, []string{e.diPinName}, encoderChannel, nil)
 	if err != nil {
 		utils.Logger.Errorw("error getting interrupt ticks", "error", err)
+		return
 	}
 	e.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
