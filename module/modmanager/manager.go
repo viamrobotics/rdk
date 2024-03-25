@@ -341,8 +341,10 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 
 	handledResources := mod.resources
 	var handledResourceNames []resource.Name
+	var handledResourceNameStrings []string
 	for name := range handledResources {
 		handledResourceNames = append(handledResourceNames, name)
+		handledResourceNameStrings = append(handledResourceNameStrings, name.String())
 	}
 
 	mgr.logger.CInfow(ctx, "Module configuration changed. Stopping the existing module process", "module", conf.Name)
@@ -365,15 +367,9 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	mgr.logger.CInfow(ctx, "New module process is running and responding to gRPC requests", "module",
 		mod.cfg.Name, "module address", mod.addr)
 
-	var orphanedResourceNames []resource.Name
-	var orphanedResourceNameStrings []string
-	for name := range handledResources {
-		orphanedResourceNames = append(orphanedResourceNames, name)
-		orphanedResourceNameStrings = append(orphanedResourceNameStrings, name.String())
-	}
 	mgr.logger.CInfow(ctx, "Resources handled by reconfigured module will be re-added to new module process",
-		"module", mod.cfg.Name, "resources", orphanedResourceNameStrings)
-	return orphanedResourceNames, nil
+		"module", mod.cfg.Name, "resources", handledResourceNameStrings)
+	return handledResourceNames, nil
 }
 
 // Remove removes and stops an existing resource module and returns the names of
@@ -600,40 +596,67 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	// Find all components/services that are unmodified but whose module has been updated and add them to conf.Added.
+	// NOTE(benji): We could simplify some of the following `continue`
+	// conditional clauses to a single clause, but we split them for readability.
 	for _, c := range conf.Right.Components {
-		// See if this component is being provided by a module.
 		mod, ok := mgr.getModule(c)
 		if !ok {
+			// continue if this component is not being provided by a module.
 			continue
 		}
-		// If it is, check against the modified modules to determine if the config should also be updated but won't already be
-		if slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool { return elem.Name == mod.cfg.Name }) &&
-			!slices.ContainsFunc(conf.Added.Components, func(elem resource.Config) bool { return elem.Name == c.Name }) {
-			// If component is in conf.Modified, the user modified a module and its component at the same time. Remove that
-			// resource from conf.Modified and put it in conf.Added so the restarted module receives an AddResourceRequest
-			// and not a ReconfigureResourceRequest.
-			conf.Modified.Components = slices.DeleteFunc(
-				conf.Modified.Components, func(elem resource.Config) bool { return elem.Name == c.Name })
-			conf.Added.Components = append(conf.Added.Components, c)
+		if !slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool {
+			return elem.Name == mod.cfg.Name
+		}) {
+			// continue if this modular component is not being handled by a modified
+			// module.
+			continue
 		}
+		if slices.ContainsFunc(conf.Added.Components, func(elem resource.Config) bool {
+			return elem.Name == c.Name
+		}) {
+			// continue if this modular component handled by a modified module is
+			// already in conf.Added.Components.
+			continue
+		}
+
+		// Add modular component to conf.Added.Components.
+		conf.Added.Components = append(conf.Added.Components, c)
+		// If component is in conf.Modified, the user modified a module and its
+		// component at the same time. Remove that resource from conf.Modified so
+		// the restarted module receives an AddResourceRequest and not a
+		// ReconfigureResourceRequest.
+		conf.Modified.Components = slices.DeleteFunc(
+			conf.Modified.Components, func(elem resource.Config) bool { return elem.Name == c.Name })
 	}
 	for _, s := range conf.Right.Services {
-		// See if this component is being provided by a module
 		mod, ok := mgr.getModule(s)
 		if !ok {
+			// continue if this service is not being provided by a module.
 			continue
 		}
-		// If it is, check against the modified modules to determine if the config should also be updated but won't already be
-		if slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool { return elem.Name == mod.cfg.Name }) &&
-			!slices.ContainsFunc(conf.Added.Services, func(elem resource.Config) bool { return elem.Name == s.Name }) {
-			// If service is in conf.Modified, the user modified a module and its service at the same time. Remove that
-			// resource from conf.Modified and put it in conf.Added so the restarted module receives an AddResourceRequest
-			// and not a ReconfigureResourceRequest.
-			conf.Modified.Services = slices.DeleteFunc(
-				conf.Modified.Services, func(elem resource.Config) bool { return elem.Name == s.Name })
-			conf.Added.Services = append(conf.Added.Services, s)
+		if !slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool {
+			return elem.Name == mod.cfg.Name
+		}) {
+			// continue if this modular service is not being handled by a modified
+			// module.
+			continue
 		}
+		if slices.ContainsFunc(conf.Added.Services, func(elem resource.Config) bool {
+			return elem.Name == s.Name
+		}) {
+			// continue if this modular service handled by a modified module is
+			// already in conf.Added.Services.
+			continue
+		}
+
+		// Add modular service to conf.Added.Services.
+		conf.Added.Services = append(conf.Added.Services, s)
+		//  If service is in conf.Modified, the user modified a module and its
+		//  service at the same time. Remove that resource from conf.Modified so
+		//  the restarted module receives an AddResourceRequest and not a
+		//  ReconfigureResourceRequest.
+		conf.Modified.Services = slices.DeleteFunc(
+			conf.Modified.Services, func(elem resource.Config) bool { return elem.Name == s.Name })
 	}
 
 	// If something was added or modified, go through components and services in
@@ -648,7 +671,7 @@ func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, con
 					continue
 				}
 
-				// Modify resource to add its implicit dependencies.
+				// Modify resource config to add its implicit dependencies.
 				confs[i].ImplicitDependsOn = implicitDeps
 			}
 		}
