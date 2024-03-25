@@ -25,7 +25,6 @@ func TestSessionManager(t *testing.T) {
 	}
 
 	sm := robot.NewSessionManager(r, config.DefaultSessionHeartbeatWindow)
-	defer sm.Close()
 
 	// Start two arbitrary sessions.
 	fooSess, err := sm.Start(ctx, "foo")
@@ -51,6 +50,8 @@ func TestSessionManager(t *testing.T) {
 
 	// Assert that fooSess and barSess can be found with All.
 	allSessions := sm.All()
+	sm.Close()
+
 	test.That(t, len(allSessions), test.ShouldEqual, 2)
 	test.That(t, allSessions[0], test.ShouldBeIn, fooSess, barSess)
 	test.That(t, allSessions[1], test.ShouldBeIn, fooSess, barSess)
