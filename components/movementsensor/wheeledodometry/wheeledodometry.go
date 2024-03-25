@@ -33,7 +33,7 @@ const (
 	setLat                   = "setLat"
 	useOri                   = "use_orientation"
 	shiftPos                 = "shift_position"
-	resetShift               = "reset_shift"
+	resetShift               = "reset"
 	moveX                    = "moveX"
 	moveY                    = "moveY"
 )
@@ -447,6 +447,8 @@ func (o *odometry) DoCommand(ctx context.Context,
 		o.originCoord = geo.NewPoint(0, 0)
 		o.position.X = 0
 		o.position.Y = 0
+		o.orientation.Yaw = 0
+
 		resp[resetShift] = fmt.Sprintf("resetting position and setting shift to %v", reset)
 	}
 	lat, okY := req[setLat].(float64)
