@@ -277,13 +277,14 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 		resources: map[resource.Name]*addedResource{},
 	}
 
-	var err error
-	if mod.peerConn, err = webrtc.NewPeerConnection(webrtc.Configuration{}); err != nil {
-		mgr.logger.Warnw("Error creating optional peer connection for module. Ignoring.", "module", conf.Name, "err", err)
+	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	if err != nil {
+		mgr.logger.Debugw("Unable to create optional peer connection for module. Ignoring.", "module", conf.Name, "err", err)
 	} else {
+		mod.peerConn = pc
 		mod.pcReady, err = rpc.ConfigureForRenegotiation(mod.peerConn, mgr.logger.AsZap())
 		if err != nil {
-			mgr.logger.Warnw("Error creating renegotiation channel for module. Ignoring.", "module", conf.Name, "err", err)
+			mgr.logger.Debugw("Unable to create optional renegotiation channel for module. Ignoring.", "module", conf.Name, "err", err)
 		}
 	}
 
@@ -450,6 +451,12 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 			return errors.WithMessage(err, "error while closing shared connection from module "+mod.cfg.Name)
 		}
 	} else {
+		if mod.peerConn != nil {
+			if err := mod.peerConn.Close(); err != nil {
+				mgr.logger.Debugw("error closing optional webrtc peer connection", "err", err)
+			}
+		}
+
 		if err := mod.conn.Close(); err != nil {
 			return errors.WithMessage(err, "error while closing connection from module "+mod.cfg.Name)
 		}
@@ -783,6 +790,12 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 					"module", mod.cfg.Name, "error", err)
 			}
 		} else {
+			if mod.peerConn != nil {
+				if err := mod.peerConn.Close(); err != nil {
+					mgr.logger.Debugw("error closing optional webrtc peer connection", "err", err)
+				}
+			}
+
 			if err := mod.conn.Close(); err != nil {
 				mgr.logger.Warnw("Error while closing connection to crashed module. Continuing restart attempt",
 					"module", mod.cfg.Name, "error", err)
@@ -1130,6 +1143,11 @@ func (m *module) cleanupAfterStartupFailure(logger logging.Logger) {
 			logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 		}
 	} else {
+		if m.peerConn != nil {
+			if err := m.peerConn.Close(); err != nil {
+				logger.Debugw("error closing optional webrtc peer connection", "err", err)
+			}
+		}
 		if err := m.conn.Close(); err != nil {
 			msg := "Error while closing connection to module that failed to start"
 			logger.Errorw(msg, "module", m.cfg.Name, "error", err)
@@ -1148,6 +1166,11 @@ func (m *module) cleanupAfterCrash(mgr *Manager) {
 			mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 		}
 	} else {
+		if m.peerConn != nil {
+			if err := m.peerConn.Close(); err != nil {
+				mgr.logger.Debugw("error closing optional webrtc peer connection", "err", err)
+			}
+		}
 		if err := m.conn.Close(); err != nil {
 			msg := "error while closing connection to crashed module"
 			mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
@@ -1226,6 +1249,9 @@ func generateSDP(pc *webrtc.PeerConnection) (string, error) {
 }
 
 func connect(pc *webrtc.PeerConnection, encodedAnswer string, logger logging.Logger) error {
+	if pc == nil {
+		return errors.New("*webrtc.PeerConnection is nil")
+	}
 	answer := webrtc.SessionDescription{}
 	if err := rpc.DecodeSDP(encodedAnswer, &answer); err != nil {
 		return err
