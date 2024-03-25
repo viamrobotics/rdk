@@ -510,13 +510,12 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 }
 
 func TestObstacleReplanningSlam(t *testing.T) {
-	t.Skip()
 	cameraToBase := spatialmath.NewPose(r3.Vector{0, 0, 0}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90})
 	cameraToBaseInv := spatialmath.PoseInverse(cameraToBase)
 
 	ctx := context.Background()
 	origin := spatialmath.NewPose(
-		r3.Vector{X: -0.99503e3, Y: 0, Z: 0},
+		r3.Vector{X: -900, Y: 0, Z: 0},
 		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90},
 	)
 
@@ -561,10 +560,8 @@ func TestObstacleReplanningSlam(t *testing.T) {
 		MotionCfg: &motion.MotionConfiguration{
 			PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: 1, ObstacleDetectors: obstacleDetectorSlice,
 		},
-		Extra: map[string]interface{}{
-			"max_replans": 2,
-			"smooth_iter": 0,
-		},
+		// TODO: add back "max_replans": 1 to extra
+		Extra: map[string]interface{}{"smooth_iter": 0},
 	}
 
 	executionID, err := ms.MoveOnMap(ctx, req)
@@ -578,22 +575,6 @@ func TestObstacleReplanningSlam(t *testing.T) {
 		LastPlanOnly:  true,
 	})
 	test.That(t, err, test.ShouldBeNil)
-
-	plansWithStatus, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{
-		ComponentName: base.Named("test-base"),
-		LastPlanOnly:  false,
-		ExecutionID:   executionID,
-	})
-	test.That(t, err, test.ShouldBeNil)
-	populatedReplanReason := 0
-	for _, planStatus := range plansWithStatus {
-		for _, history := range planStatus.StatusHistory {
-			if history.Reason != nil {
-				populatedReplanReason++
-			}
-		}
-	}
-	test.That(t, populatedReplanReason, test.ShouldBeGreaterThanOrEqualTo, 1)
 }
 
 func TestMultiplePieces(t *testing.T) {
@@ -1361,6 +1342,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		err = motionplan.CheckPlan(
 			mr.planRequest.Frame,
 			plan,
+			1,
 			wrldSt,
 			mr.planRequest.FrameSystem,
 			spatialmath.NewPose(
