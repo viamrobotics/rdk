@@ -34,6 +34,8 @@ const (
 	useOri                   = "use_orientation"
 	shiftPos                 = "shift_position"
 	resetShift               = "reset_shift"
+	moveX                    = "moveX"
+	moveY                    = "moveY"
 )
 
 // Config is the config for a wheeledodometry MovementSensor.
@@ -267,12 +269,13 @@ func (o *odometry) CompassHeading(ctx context.Context, extra map[string]interfac
 	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
 
+// 0 -> 360 with Z down
 func yawToCompassHeading(yaw float64) float64 {
 	yawDeg := rdkutils.RadToDeg(yaw)
 	if yawDeg < 0 {
-		return 180 - yawDeg
+		yawDeg = 180 - yawDeg
 	}
-	return yawDeg
+	return 360 - yawDeg
 }
 
 func (o *odometry) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
@@ -304,8 +307,8 @@ func (o *odometry) Readings(ctx context.Context, extra map[string]interface{}) (
 	// the lock has been released, so for the last two readings we lock again to append them to the readings map
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	readings["position_meters_X"] = o.position.X
-	readings["position_meters_Y"] = o.position.Y
+	readings["position_meters_X"] = o.position.X - o.shiftX
+	readings["position_meters_Y"] = o.position.Y - o.shiftY
 
 	return readings, nil
 }
@@ -403,10 +406,17 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			// Limit the yaw to a range of positive 0 to 360 degrees.
 			o.orientation.Yaw = math.Mod(o.orientation.Yaw, oneTurn)
 			o.orientation.Yaw = math.Mod(o.orientation.Yaw+oneTurn, oneTurn)
+			if o.useOri {
 
-			// Calculate X and Y by using centerDist and the current orientation yaw (theta).
-			o.position.X += (centerDist * math.Sin(o.orientation.Yaw))
-			o.position.Y += (centerDist * math.Cos(o.orientation.Yaw))
+				compass := yawToCompassHeading(o.orientation.Yaw)
+				// Calculate X and Y by using centerDist and the current orientation yaw (theta).
+				o.position.X += (centerDist * math.Sin(rdkutils.DegToRad(compass)))
+				o.position.Y += (centerDist * math.Cos(rdkutils.DegToRad(compass)))
+			} else {
+				// Calculate X and Y by using centerDist and the current orientation yaw (theta).
+				o.position.X += -(centerDist * math.Sin(o.orientation.Yaw))
+				o.position.Y += (centerDist * math.Cos(o.orientation.Yaw))
+			}
 
 			distance := math.Hypot(o.position.X, o.position.Y)
 			heading := rdkutils.RadToDeg(math.Atan2(o.position.X, o.position.Y))
@@ -475,10 +485,22 @@ func (o *odometry) DoCommand(ctx context.Context,
 		o.position.X += o.shiftX
 		o.shiftPos = true
 
-		resp[setLat] = fmt.Sprintf("y position shifted to %v", o.position.Y)
-		resp[setLong] = fmt.Sprintf("x position shifted to %v", o.position.X)
+		resp[setLat] = fmt.Sprintf("y position shifted to %.8f", o.position.Y)
+		resp[setLong] = fmt.Sprintf("x position shifted to %.8f", o.position.X)
 	} else {
 		resp["bad shift"] = "need both lat and long shifts"
+	}
+
+	xMove, okX := req[moveX].(float64)
+	yMove, okY := req[moveY].(float64)
+	if okX {
+		o.position.X += xMove
+		resp[moveX] = fmt.Sprintf("x position moved to %.8f", o.position.X)
+	}
+	if okY {
+		o.position.Y += yMove
+		resp[moveY] = fmt.Sprintf("y position shifted to %.8f", o.position.Y)
+
 	}
 
 	return resp, nil
