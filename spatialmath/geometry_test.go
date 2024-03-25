@@ -58,7 +58,7 @@ func TestGeometrySerializationJSON(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			newVc, err := config.ParseConfig()
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, gc.Transform(pose).AlmostEqual(newVc.Transform(pose)), test.ShouldBeTrue)
+			test.That(t, GeometriesAlmostEqual(gc.Transform(pose), newVc.Transform(pose)), test.ShouldBeTrue)
 			test.That(t, config.Label, test.ShouldEqual, testCase.name)
 		})
 	}
@@ -78,7 +78,7 @@ func TestGeometryToFromProtobuf(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			newVol, err := NewGeometryFromProto(testCase.geometry.ToProtobuf())
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, testCase.geometry.AlmostEqual(newVol), test.ShouldBeTrue)
+			test.That(t, GeometriesAlmostEqual(testCase.geometry, newVol), test.ShouldBeTrue)
 			test.That(t, testCase.geometry.Label(), test.ShouldEqual, testCase.name)
 		})
 	}

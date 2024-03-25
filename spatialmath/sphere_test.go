@@ -34,8 +34,8 @@ func TestSphereAlmostEqual(t *testing.T) {
 	original := makeTestSphere(r3.Vector{}, 1, "")
 	good := makeTestSphere(r3.Vector{1e-16, 1e-16, 1e-16}, 1+1e-16, "")
 	bad := makeTestSphere(r3.Vector{1e-2, 1e-2, 1e-2}, 1+1e-2, "")
-	test.That(t, original.AlmostEqual(good), test.ShouldBeTrue)
-	test.That(t, original.AlmostEqual(bad), test.ShouldBeFalse)
+	test.That(t, original.(*sphere).almostEqual(good), test.ShouldBeTrue)
+	test.That(t, original.(*sphere).almostEqual(bad), test.ShouldBeFalse)
 }
 
 func TestSpherePC(t *testing.T) {

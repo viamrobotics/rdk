@@ -63,7 +63,7 @@ func (s *sphere) Pose() Pose {
 }
 
 // AlmostEqual compares the sphere with another geometry and checks if they are equivalent.
-func (s *sphere) AlmostEqual(g Geometry) bool {
+func (s *sphere) almostEqual(g Geometry) bool {
 	other, ok := g.(*sphere)
 	if !ok {
 		return false
