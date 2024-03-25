@@ -168,6 +168,7 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 	}
 }
 
+// Reconfigure increments numReconfigurations.
 func (h *helper) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	h.numReconfigurations++
 	return nil
@@ -176,7 +177,7 @@ func (h *helper) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 func newOther(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (resource.Resource, error) {
-	return &helper{
+	return &other{
 		Named: conf.ResourceName().AsNamed(),
 	}, nil
 }
@@ -202,6 +203,7 @@ func (o *other) DoCommand(ctx context.Context, req map[string]interface{}) (map[
 	}
 }
 
+// Reconfigure increments numReconfigurations.
 func (o *other) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	o.numReconfigurations++
 	return nil
