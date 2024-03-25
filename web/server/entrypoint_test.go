@@ -29,7 +29,7 @@ import (
 
 // numResources is the # of resources in /etc/configs/fake.json + the 2
 // expected builtin resources.
-const numResources = 20
+const numResources = 21
 
 func TestEntrypoint(t *testing.T) {
 	if runtime.GOARCH == "arm" {
