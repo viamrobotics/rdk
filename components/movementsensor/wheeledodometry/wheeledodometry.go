@@ -68,11 +68,10 @@ type odometry struct {
 	position        r3.Vector
 	orientation     spatialmath.EulerAngles
 	coord           *geo.Point
+	originCoord     *geo.Point
 
 	useOri   bool
 	shiftPos bool
-	shiftX   float64
-	shiftY   float64
 
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
@@ -231,6 +230,7 @@ func newWheeledOdometry(
 		Named:        conf.ResourceName().AsNamed(),
 		lastLeftPos:  0.0,
 		lastRightPos: 0.0,
+		originCoord:  geo.NewPoint(0, 0),
 		logger:       logger,
 	}
 
@@ -307,8 +307,8 @@ func (o *odometry) Readings(ctx context.Context, extra map[string]interface{}) (
 	// the lock has been released, so for the last two readings we lock again to append them to the readings map
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	readings["position_meters_X"] = o.position.X - o.shiftX
-	readings["position_meters_Y"] = o.position.Y - o.shiftY
+	readings["position_meters_X"] = o.position.X
+	readings["position_meters_Y"] = o.position.Y
 
 	return readings, nil
 }
@@ -339,7 +339,6 @@ func (o *odometry) Close(ctx context.Context) error {
 // The estimations in this function are based on the math outlined in this article:
 // https://stuff.mit.edu/afs/athena/course/6/6.186/OldFiles/2005/doc/odomtutorial/odomtutorial.pdf
 func (o *odometry) trackPosition(ctx context.Context) {
-	geoOrigin := geo.NewPoint(0, 0)
 
 	o.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -420,7 +419,7 @@ func (o *odometry) trackPosition(ctx context.Context) {
 
 			distance := math.Hypot(o.position.X, o.position.Y)
 			heading := rdkutils.RadToDeg(math.Atan2(o.position.X, o.position.Y))
-			o.coord = geoOrigin.PointAtDistanceAndBearing(distance*mToKm, heading)
+			o.coord = o.originCoord.PointAtDistanceAndBearing(distance*mToKm, heading)
 
 			// Update the linear and angular velocity values using the provided time interval.
 			o.linearVelocity.Y = centerDist / (o.timeIntervalMSecs / 1000)
@@ -446,48 +445,21 @@ func (o *odometry) DoCommand(ctx context.Context,
 
 	reset, ok := req[resetShift].(bool)
 	if ok {
-		if o.shiftPos {
-			o.position.X -= o.shiftX
-			o.position.Y -= o.shiftY
-		}
 		o.shiftPos = reset
-		o.shiftX = 0
-		o.shiftY = 0
+		o.originCoord = geo.NewPoint(0, 0)
+		o.position.X = 0
+		o.position.Y = 0
 		resp[resetShift] = fmt.Sprintf("resetting position and setting shift to %v", reset)
-	}
-	shift, ok := req[shiftPos].(bool)
-	if ok {
-		o.shiftPos = shift
-		if shift {
-			o.position.X += o.shiftX
-			o.position.Y += o.shiftY
-		} else {
-			o.position.X -= o.shiftX
-			o.position.Y -= o.shiftY
-		}
-
-		resp[shiftPos] = fmt.Sprintf("using setting position shift to %v", shift)
 	}
 	lat, okY := req[setLat].(float64)
 	long, okX := req[setLong].(float64)
 	if okY && okX {
-		geoOrigin := geo.NewPoint(0, 0)
-		shiftGeo := geo.NewPoint(lat, long)
-
-		distance := geoOrigin.GreatCircleDistance(shiftGeo) * 1000 // m
-		heading := rdkutils.DegToRad(geoOrigin.BearingTo(shiftGeo))
-		o.position.Y -= o.shiftY
-		o.shiftY = distance * math.Cos(heading)
-		o.position.Y += o.shiftY
-
-		o.position.X -= o.shiftX
-		o.shiftX = distance * math.Sin(heading)
-		o.position.X += o.shiftX
+		o.originCoord = geo.NewPoint(lat, long)
 		o.shiftPos = true
 
-		resp[setLat] = fmt.Sprintf("y position shifted to %.8f", o.position.Y)
-		resp[setLong] = fmt.Sprintf("x position shifted to %.8f", o.position.X)
-	} else {
+		resp[setLat] = fmt.Sprintf("lat shifted to %.8f", lat)
+		resp[setLong] = fmt.Sprintf("lng shifted to %.8f", long)
+	} else if okY || okX {
 		resp["bad shift"] = "need both lat and long shifts"
 	}
 
