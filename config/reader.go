@@ -32,6 +32,11 @@ var (
 	DateCompiled = ""
 )
 
+const (
+	initialReadTimeout = 1 * time.Second
+	readTimeout        = 5 * time.Second
+)
+
 func getAgentInfo() (*apppb.AgentInfo, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -252,9 +257,9 @@ func readFromCloud(
 		)
 		// use shouldReadFromCache determine whether this is part of initial read or not
 		if shouldReadFromCache {
-			ctxWithTimeout, cancel = context.WithTimeout(ctx, 500*time.Millisecond)
+			ctxWithTimeout, cancel = context.WithTimeout(ctx, initialReadTimeout)
 		} else {
-			ctxWithTimeout, cancel = context.WithTimeout(ctx, 5*time.Second)
+			ctxWithTimeout, cancel = context.WithTimeout(ctx, readTimeout)
 		}
 		// Use the SignalingInsecure from the Cloud config returned from the app not the initial config.
 		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cfg.Cloud.SignalingInsecure, cloudCfg, logger)
@@ -597,9 +602,9 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 	)
 	// use shouldReadFromCache determine whether this is part of initial read or not
 	if shouldReadFromCache {
-		ctxWithTimeout, cancel = context.WithTimeout(ctx, 500*time.Millisecond)
+		ctxWithTimeout, cancel = context.WithTimeout(ctx, initialReadTimeout)
 	} else {
-		ctxWithTimeout, cancel = context.WithTimeout(ctx, 5*time.Second)
+		ctxWithTimeout, cancel = context.WithTimeout(ctx, readTimeout)
 	}
 	defer cancel()
 

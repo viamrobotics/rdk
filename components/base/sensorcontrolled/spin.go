@@ -11,10 +11,11 @@ import (
 )
 
 const (
-	increment       = 0.01 // angle fraction multiplier to check
-	oneTurn         = 360.0
-	maxSlowDownAng  = 30. // maximum angle from goal for spin to begin breaking
-	slowDownAngGain = 0.1 // Use the final 10% of the requested spin to slow down
+	increment        = 0.01 // angle fraction multiplier to check
+	oneTurn          = 360.0
+	maxSlowDownAng   = 30. // maximum angle from goal for spin to begin breaking
+	slowDownAngGain  = 0.1 // Use the final 10% of the requested spin to slow down
+	boundCheckTarget = 1.  // error threshold for spin
 )
 
 // Spin commands a base to turn about its center at an angular speed and for a specific angle.
@@ -47,6 +48,12 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	prevAngle := rdkutils.RadToDeg(orientation.EulerAngles().Yaw)
 	angErr := 0.
 	prevMovedAng := 0.
+
+	// to keep the signs simple, ensure degsPerSec is positive and let angleDeg handle the direction of the spin
+	if degsPerSec < 0 {
+		angleDeg = -angleDeg
+		degsPerSec = -degsPerSec
+	}
 	slowDownAng := calcSlowDownAng(angleDeg)
 
 	ticker := time.NewTicker(time.Duration(1000./sb.controlLoopConfig.Frequency) * time.Millisecond)
@@ -126,19 +133,17 @@ func getYawInDeg(ctx context.Context, orientation movementsensor.MovementSensor)
 
 // calcSlowDownAng computes the angle at which the spin should begin to slow down.
 // This helps to prevent overshoot when reaching the goal and reduces the jerk on the robot when the spin is complete.
+// This term should always be positive.
 func calcSlowDownAng(angleDeg float64) float64 {
-	return math.Min(angleDeg*slowDownAngGain, maxSlowDownAng)
+	return math.Min(math.Abs(angleDeg)*slowDownAngGain, maxSlowDownAng)
 }
 
 // calcAngVel computes the desired angular velocity based on how far the base is from reaching the goal.
 func calcAngVel(angErr, degsPerSec, slowDownAng float64) float64 {
 	// have the velocity slow down when appoaching the goal. Otherwise use the desired velocity
 	angVel := angErr * degsPerSec / slowDownAng
-	if angVel > degsPerSec {
-		return degsPerSec
-	}
-	if angVel < -degsPerSec {
-		return -degsPerSec
+	if math.Abs(angVel) > degsPerSec {
+		return degsPerSec * sign(angVel)
 	}
 	return angVel
 }

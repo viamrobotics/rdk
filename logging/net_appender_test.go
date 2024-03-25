@@ -7,6 +7,7 @@ import (
 	"net"
 	"sync"
 	"testing"
+	"time"
 
 	apppb "go.viam.com/api/app/v1"
 	commonpb "go.viam.com/api/common/v1"
@@ -118,7 +119,7 @@ func TestNetLoggerBatchWrites(t *testing.T) {
 		logger.Info("Some-info")
 	}
 
-	netAppender.Sync()
+	netAppender.sync()
 	netAppender.Close()
 
 	server.service.logsMu.Lock()
@@ -128,5 +129,103 @@ func TestNetLoggerBatchWrites(t *testing.T) {
 	test.That(t, server.service.logBatches[1], test.ShouldHaveLength, 1)
 	for i := 0; i < writeBatchSize+1; i++ {
 		test.That(t, server.service.logs[i].Message, test.ShouldEqual, "Some-info")
+	}
+}
+
+func TestNetLoggerBatchFailureAndRetry(t *testing.T) {
+	server := makeServerForRobotLogger(t)
+	defer server.stop()
+
+	netAppender, err := NewNetAppender(server.cloudConfig)
+	test.That(t, err, test.ShouldBeNil)
+	logger := NewDebugLogger("test logger")
+	// The stdout appender is not necessary for test correctness. But it does provide information in
+	// the output w.r.t the injected grpc errors.
+	logger.AddAppender(netAppender)
+
+	// This test will first log 10 "Some-info" logs. Followed by a single "New info" log.
+	numLogs := 11
+
+	// Inject a failure into the server handling `Log` requests.
+	server.service.logsMu.Lock()
+	server.service.logFailForSizeCount = numLogs
+	server.service.logsMu.Unlock()
+
+	for i := 0; i < numLogs-1; i++ {
+		logger.Info("Some-info")
+	}
+
+	// This test requires at least three syncs for the logs to be guaranteed received by the
+	// server. Once the log queue is full of size ten batches, the first sync will decrement
+	// `logFailForSizeCount` to 1 and return an error. The second will decrement it to a negative
+	// value and return an error. The third will succeed.
+	//
+	// This test depends on the `Close` method performing a `Sync`.
+	//
+	// The `netAppender` also has a background worker syncing on its own cadence. This complicates
+	// exactly which syncs do what work and which ones return errors.
+	netAppender.sync()
+
+	logger.Info("New info")
+
+	netAppender.sync()
+	netAppender.Close()
+
+	server.service.logsMu.Lock()
+	defer server.service.logsMu.Unlock()
+	test.That(t, server.service.logs, test.ShouldHaveLength, numLogs)
+	for i := 0; i < numLogs-1; i++ {
+		test.That(t, server.service.logs[i].Message, test.ShouldEqual, "Some-info")
+	}
+	test.That(t, server.service.logs[numLogs-1].Message, test.ShouldEqual, "New info")
+}
+
+func TestNetLoggerOverflowDuringWrite(t *testing.T) {
+	// Lower defaultMaxQueueSize for test.
+	originalDefaultMaxQueueSize := defaultMaxQueueSize
+	defaultMaxQueueSize = 10
+	defer func() {
+		defaultMaxQueueSize = originalDefaultMaxQueueSize
+	}()
+
+	server := makeServerForRobotLogger(t)
+	defer server.stop()
+
+	netAppender, err := NewNetAppender(server.cloudConfig)
+	test.That(t, err, test.ShouldBeNil)
+	logger := NewDebugLogger("test logger")
+	logger.AddAppender(netAppender)
+
+	// Lock server logsMu to mimic network latency for log syncing. Inject max
+	// number of logs into netAppender queue. Wait for a Sync: syncOnce should
+	// read the created, injected batch, send it to the server, and hang on
+	// receiving a non-nil err.
+	server.service.logsMu.Lock()
+	for i := 0; i < defaultMaxQueueSize; i++ {
+		netAppender.addToQueue(&commonpb.LogEntry{Message: fmt.Sprint(i)})
+	}
+
+	// Sleep to ensure syncOnce happens (normally every 100ms) and hangs in
+	// receiving non-nil error from write to remote.
+	time.Sleep(300 * time.Millisecond)
+
+	// This "10" log should "overflow" the netAppender queue and remove the "0"
+	// (oldest) log. syncOnce should sense that an overflow occurred and only
+	// remove "1"-"9" from the queue.
+	logger.Info("10")
+	server.service.logsMu.Unlock()
+
+	// Close net appender to cause final syncOnce that sends batch of logs after
+	// overflow was accounted for: ["10"].
+	netAppender.Close()
+
+	// Server should have received logs with Messages: ["0", "1", "2", "3", "4",
+	// "5", "6", "7", "8", "9", "10"].
+	server.service.logsMu.Lock()
+	defer server.service.logsMu.Unlock()
+	test.That(t, server.service.logs, test.ShouldHaveLength, 11)
+	for i := 0; i < 11; i++ {
+		// First batch of "0"-"10".
+		test.That(t, server.service.logs[i].Message, test.ShouldEqual, fmt.Sprint(i))
 	}
 }

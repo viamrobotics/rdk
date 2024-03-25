@@ -99,8 +99,6 @@ func (s *syncer) Close() {
 	s.backgroundWorkers.Wait()
 	close(s.syncErrs)
 	s.logRoutine.Wait()
-	//nolint:errcheck
-	_ = s.logger.Sync()
 }
 
 func (s *syncer) SetArbitraryFileTags(tags []string) {

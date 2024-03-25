@@ -19,16 +19,29 @@ export interface MappingMetadata {
 }
 
 interface MappingDetails {
-  mode: 'localize' | 'create' | 'update';
+  mode?: 'localize' | 'create' | 'update';
   name?: string;
   version?: string;
+}
+
+interface SensorInfo {
+  name: string;
+  type: SensorType;
+}
+enum SensorType {
+  UNSPECIFIED = 0,
+  CAMERA = 1,
+  MOVEMENT_SENSOR = 2,
 }
 
 export interface SLAMOverrides {
   getMappingSessionPCD?: (
     sessionId: string
   ) => Promise<{ map: Uint8Array; pose: Pose }>;
-  startMappingSession: (mapName: string) => Promise<string>;
+  startMappingSession: (
+    mapName: string,
+    sensorInfoList: SensorInfo[]
+  ) => Promise<string>;
   getActiveMappingSession: () => Promise<MappingMetadata | undefined>;
   endMappingSession: (
     sessionId: string
