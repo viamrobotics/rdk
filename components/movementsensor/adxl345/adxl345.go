@@ -334,15 +334,15 @@ func makeAdxl345(
 		if err != nil {
 			return nil, err
 		}
-		sensor.startInterruptMonitoring(ticksChan)
+		sensor.startInterruptMonitoring(b, ticksChan, interruptList)
 	}
 
 	return sensor, nil
 }
 
-func (adxl *adxl345) startInterruptMonitoring(ticksChan chan board.Tick) {
+func (adxl *adxl345) startInterruptMonitoring(b board.Board, ticksChan chan board.Tick, interruptList []string) {
 	// Remove the callbacks added by the interrupt stream once we are done.
-	defer board.RemoveCallbacks(e.board, []string{interruptList}, ticksChan)
+	defer board.RemoveCallbacks(b, interruptList, ticksChan)
 	utils.PanicCapturingGo(func() {
 		for {
 			select {
