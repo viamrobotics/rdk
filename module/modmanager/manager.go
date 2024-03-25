@@ -288,6 +288,32 @@ func (mgr *Manager) startModuleProcess(mod *module) error {
 	)
 }
 
+func (mgr *Manager) startSlowStartupLogTicker(ctx context.Context, msg, modName string) func() {
+	slowTicker := time.NewTicker(2 * time.Second)
+	firstTick := true
+
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	startTime := time.Now()
+	go func() {
+		for {
+			select {
+			case <-slowTicker.C:
+				elapsed := time.Since(startTime).Seconds()
+				mgr.logger.CWarnw(ctx, msg, "module", modName, "time elapsed", elapsed)
+				if firstTick {
+					slowTicker.Reset(3 * time.Second)
+					firstTick = false
+				} else {
+					slowTicker.Reset(5 * time.Second)
+				}
+			case <-ctxWithCancel.Done():
+				return
+			}
+		}
+	}()
+	return func() { slowTicker.Stop(); cancel() }
+}
+
 func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	// add calls startProcess, which can also be called by the OUE handler in the attemptRestart
 	// call. Both of these involve owning a lock, so in unhappy cases of malformed modules
@@ -311,30 +337,8 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		}
 	}
 
-	slowTicker := time.NewTicker(2 * time.Second)
-	defer slowTicker.Stop()
-	firstTick := true
-
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	defer cancel()
-	startTime := time.Now()
-	go func() {
-		for {
-			select {
-			case <-slowTicker.C:
-				elapsed := time.Since(startTime).Seconds()
-				mgr.logger.CWarnw(ctx, "Waiting for module to complete startup and registration", "module", mod.cfg.Name, "time elapsed", elapsed)
-				if firstTick {
-					slowTicker.Reset(3 * time.Second)
-					firstTick = false
-				} else {
-					slowTicker.Reset(5 * time.Second)
-				}
-			case <-ctxWithCancel.Done():
-				return
-			}
-		}
-	}()
+	cleanup := mgr.startSlowStartupLogTicker(ctx, "Waiting for module to complete startup and registration", mod.cfg.Name)
+	defer cleanup()
 
 	if err := mgr.startModuleProcess(mod); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
@@ -796,6 +800,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 			}
 			return false
 		}
+		mgr.logger.Infow("Module successfully restarted, re-adding resources", "module", mod.cfg.Name)
 
 		// Otherwise, add old module process' resources to new module; warn if new
 		// module cannot handle old resource and remove it from mod.resources.
@@ -814,7 +819,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 			mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 		}
 
-		mgr.logger.Infow("Module successfully restarted", "module", mod.cfg.Name)
+		mgr.logger.Infow("Module resources successfully re-added after module restart", "module", mod.cfg.Name)
 		return false
 	}
 }
@@ -848,31 +853,8 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	// No need to check mgr.untrustedEnv, as we're restarting the same
 	// executable we were given for initial module addition.
 
-	slowTicker := time.NewTicker(2 * time.Second)
-	defer slowTicker.Stop()
-	firstTick := true
-
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	startTime := time.Now()
-	go func() {
-		for {
-			select {
-			case <-slowTicker.C:
-				elapsed := time.Since(startTime).Seconds()
-				mgr.logger.CWarnw(ctx, "Waiting for module to complete restart and re-registration", "module", mod.cfg.Name, "time elapsed", elapsed)
-				if firstTick {
-					slowTicker.Reset(3 * time.Second)
-					firstTick = false
-				} else {
-					slowTicker.Reset(5 * time.Second)
-				}
-			case <-ctxWithCancel.Done():
-				return
-			}
-		}
-	}()
+	cleanup := mgr.startSlowStartupLogTicker(ctx, "Waiting for module to complete restart and re-registration", mod.cfg.Name)
+	defer cleanup()
 
 	// Attempt to restart module process 3 times.
 	for attempt := 1; attempt < 4; attempt++ {
