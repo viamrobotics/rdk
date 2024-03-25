@@ -839,9 +839,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 
 		// Log error immediately, as this is unexpected behavior.
 		mgr.logger.Errorw(
-			"Module has unexpectedly exited. Attempting to restart it",
-			"module", mod.cfg.Name,
-			"exit_code", exitCode,
+			"Module has unexpectedly exited.", "module", mod.cfg.Name, "exit_code", exitCode,
 		)
 
 		// close client connection, we will re-dial as part of restart attempts.
@@ -916,12 +914,24 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	// already.
 	rutils.RemoveFileNoError(mod.addr)
 
-	var success bool
+	var (
+		success, processRestarted bool
+	)
 	defer func() {
 		if !success {
-			mod.cleanupAfterCrash(mgr)
+			mod.cleanupAfterCrash(mgr, processRestarted)
 		}
 	}()
+
+	if ctx.Err() != nil {
+		mgr.logger.Infow(
+			"Will not attempt to restart crashed module", "module", mod.cfg.Name, "reason", ctx.Err().Error(),
+		)
+		return orphanedResourceNames
+	}
+	mgr.logger.Infow(
+		"Attempting to restart crashed module", "module", mod.cfg.Name,
+	)
 
 	// No need to check mgr.untrustedEnv, as we're restarting the same
 	// executable we were given for initial module addition.
@@ -945,6 +955,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 		// Wait with a bit of backoff.
 		utils.SelectContextOrWait(ctx, time.Duration(attempt)*oueRestartInterval)
 	}
+	processRestarted = true
 
 	if err := mod.dial(); err != nil {
 		mgr.logger.CErrorw(ctx, "Error while dialing restarted module",
@@ -1201,10 +1212,12 @@ func (m *module) cleanupAfterStartupFailure(logger logging.Logger) {
 	}
 }
 
-func (m *module) cleanupAfterCrash(mgr *Manager) {
-	if err := m.stopProcess(); err != nil {
-		msg := "Error while stopping process of crashed module"
-		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
+func (m *module) cleanupAfterCrash(mgr *Manager, processRestarted bool) {
+	if processRestarted {
+		if err := m.stopProcess(); err != nil {
+			msg := "Error while stopping process of crashed module"
+			mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
+		}
 	}
 	if m.sharedConn != nil {
 		if err := m.sharedConn.Close(); err != nil {
