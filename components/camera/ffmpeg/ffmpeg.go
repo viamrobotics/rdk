@@ -108,7 +108,7 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 
 	// We will launch two goroutines:
 	// - One to shell out to ffmpeg and wait on it exiting.
-	// - A second to read the image output of ffmpeg and write it to a shared pointer.
+	// - Another to read the image output of ffmpeg and write it to a shared pointer.
 	//
 	// In addition, there are two other actors in this system:
 	// - The application servicing GetImage and video streams will execute the callback registered
