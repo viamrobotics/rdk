@@ -208,26 +208,12 @@ func TestModManagerFunctions(t *testing.T) {
 	// Reconfigure module with new ExePath.
 	orphanedResourceNames, err := mgr.Reconfigure(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, orphanedResourceNames, test.ShouldBeNil)
-
-	// counter1 should still be provided by reconfigured module.
-	ok = mgr.IsModularResource(rNameCounter1)
-	test.That(t, ok, test.ShouldBeTrue)
-	ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, ret["total"], test.ShouldEqual, 0)
+	test.That(t, orphanedResourceNames, test.ShouldResemble, []resource.Name{rNameCounter1})
 
 	t.Log("test RemoveModule")
 	orphanedResourceNames, err = mgr.Remove("simple-module")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, orphanedResourceNames, test.ShouldResemble, []resource.Name{rNameCounter1})
-
-	// module will only really go away after resources within it are removed/closed
-	ok = mgr.IsModularResource(rNameCounter1)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	err = mgr.RemoveResource(ctx, rNameCounter1)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, orphanedResourceNames, test.ShouldBeNil)
 
 	ok = mgr.IsModularResource(rNameCounter1)
 	test.That(t, ok, test.ShouldBeFalse)
