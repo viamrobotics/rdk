@@ -149,7 +149,7 @@ func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	}
 
 	// Remove the callbacks added by the interrupt stream once we are done reading.
-	defer board.RemoveCallbacks(s.board, []string{s.config.EchoInterrupt}, s.ticksChan)
+	defer rdkutils.UncheckedErrorFunc(func() error { return board.RemoveCallbacks(s.board, []string{s.config.EchoInterrupt}, s.ticksChan) })
 
 	// we send a high and a low to the trigger pin 10 microseconds
 	// apart to signal the sensor to begin sending the sonic pulse
