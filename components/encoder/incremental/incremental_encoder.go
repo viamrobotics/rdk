@@ -229,6 +229,7 @@ func (e *Encoder) Start(ctx context.Context) {
 	e.pState = aLevel | (bLevel << 1)
 
 	e.activeBackgroundWorkers.Add(1)
+
 	utils.ManagedGo(func() {
 		for {
 			// This looks redundant with the other select statement below, but it's not: if we're

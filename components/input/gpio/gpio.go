@@ -258,7 +258,7 @@ func (c *Controller) newButton(ctx context.Context, brd board.Board, intName str
 	tickChan := make(chan board.Tick)
 	err := brd.StreamTicks(ctx, []string{intName}, tickChan, nil)
 	if err != nil {
-		return errors.Wrap(err, "error getting digital interrupts")
+		return errors.Wrap(err, "error getting digital interrupt ticks")
 	}
 
 	c.activeBackgroundWorkers.Add(1)

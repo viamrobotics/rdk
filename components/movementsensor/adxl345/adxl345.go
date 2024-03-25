@@ -323,16 +323,19 @@ func makeAdxl345(
 	if (newConf.FreeFall != nil) && (newConf.FreeFall.InterruptPin != "") {
 		interruptList = append(interruptList, newConf.FreeFall.InterruptPin)
 	}
-	b, err := board.FromDependencies(deps, newConf.BoardName)
-	if err != nil {
-		return nil, err
+
+	if len(interruptList) > 0 {
+		b, err := board.FromDependencies(deps, newConf.BoardName)
+		if err != nil {
+			return nil, err
+		}
+		ticksChan := make(chan board.Tick)
+		err = b.StreamTicks(sensor.cancelContext, interruptList, ticksChan, nil)
+		if err != nil {
+			return nil, err
+		}
+		sensor.startInterruptMonitoring(ticksChan)
 	}
-	ticksChan := make(chan board.Tick)
-	err = b.StreamTicks(sensor.cancelContext, interruptList, ticksChan, nil)
-	if err != nil {
-		return nil, err
-	}
-	sensor.startInterruptMonitoring(ticksChan)
 
 	return sensor, nil
 }
