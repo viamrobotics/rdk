@@ -341,6 +341,8 @@ func makeAdxl345(
 }
 
 func (adxl *adxl345) startInterruptMonitoring(ticksChan chan board.Tick) {
+	// Remove the callbacks added by the interrupt stream once we are done.
+	defer board.RemoveCallbacks(e.board, []string{e.diPinName}, encoderChannel)
 	utils.PanicCapturingGo(func() {
 		for {
 			select {

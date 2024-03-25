@@ -191,6 +191,9 @@ func (e *Encoder) Start(ctx context.Context) {
 	}
 	e.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
+		// Remove the callbacks added by the interrupt stream once we are done.
+		defer board.RemoveCallbacks(e.board, []string{e.diPinName}, encoderChannel)
+
 		for {
 			select {
 			case <-e.cancelCtx.Done():
