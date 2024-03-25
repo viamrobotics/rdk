@@ -12,8 +12,6 @@ import (
 	"sync/atomic"
 
 	ffmpeg "github.com/u2takey/ffmpeg-go"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapio"
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
@@ -72,6 +70,15 @@ type ffmpegCamera struct {
 	logger                  logging.Logger
 }
 
+type stderrWriter struct {
+	logger logging.Logger
+}
+
+func (writer stderrWriter) Write(p []byte) (n int, err error) {
+	writer.logger.Debug(string(p))
+	return len(p), nil
+}
+
 // NewFFMPEGCamera instantiates a new camera which leverages ffmpeg to handle a variety of potential video types.
 func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (camera.VideoSource, error) {
 	// make sure ffmpeg is in the path before doing anything else
@@ -90,7 +97,8 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 	cancelableCtx, cancel := context.WithCancel(context.Background())
 	ffCam := &ffmpegCamera{cancelFunc: cancel, logger: logger}
 
-	// launch thread to run ffmpeg and pull images from the url and put them into the pipe
+	// We configure ffmpeg to output images to stdout. A goroutine will read those images via the
+	// `in` end of the pipe.
 	in, out := io.Pipe()
 
 	// Note(erd): For some reason, when running with the race detector, we need to close the pipe
@@ -98,45 +106,58 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 	ffCam.inClose = in.Close
 	ffCam.outClose = out.Close
 
-	writer := &zapio.Writer{Log: logger.Desugar(), Level: zap.DebugLevel}
-
+	// We will launch two goroutines:
+	// - One to shell out to ffmpeg and wait on it exiting.
+	// - Another to read the image output of ffmpeg and write it to a shared pointer.
+	//
+	// In addition, there are two other actors in this system:
+	// - The application servicing GetImage and video streams will execute the callback registered
+	//   via `VideoReaderFunc`.
+	// - The robot reconfigure goroutine. All reconfigures are processed as a `Close` followed by
+	//   `NewFFMPEGCamera`.
 	ffCam.activeBackgroundWorkers.Add(1)
 	viamutils.ManagedGo(func() {
-		select {
-		case <-cancelableCtx.Done():
-			return
-		default:
-		}
-		stream := ffmpeg.Input(conf.VideoPath, conf.InputKWArgs)
-		for _, filter := range conf.Filters {
-			stream = stream.Filter(filter.Name, filter.Args, filter.KWArgs)
-		}
-		stream = stream.Output("pipe:", outArgs)
-		stream.Context = cancelableCtx
-		cmd := stream.WithOutput(out).WithErrorOutput(writer).Compile()
-		if err := cmd.Run(); err != nil {
-			if viamutils.FilterOutError(err, context.Canceled) == nil ||
-				viamutils.FilterOutError(err, context.DeadlineExceeded) == nil {
+		for {
+			select {
+			case <-cancelableCtx.Done():
 				return
+			default:
 			}
-			if cmd.ProcessState.ExitCode() != 0 {
-				// A bad ffmpeg resource configuration can cause the ffmpeg program to exit
-				// with a non-zero code. This goroutine will infinitely loop until the user
-				// fixes the configuration. A change in configuration Closes this object,
-				// canceling the cancelableCtx.
-				panic(err)
+			stream := ffmpeg.Input(conf.VideoPath, conf.InputKWArgs)
+			for _, filter := range conf.Filters {
+				stream = stream.Filter(filter.Name, filter.Args, filter.KWArgs)
 			}
+			stream = stream.Output("pipe:", outArgs)
+			stream.Context = cancelableCtx
+
+			// The `ffmpeg` command can return for two reasons:
+			// - This camera object was `Close`d. Which will close the I/O of ffmpeg causing it to
+			//   shutdown.
+			// - (Dan): I've observed ffmpeg just returning on its own accord, approximately every
+			//   30 seconds. Only on a rpi. This is presumably due to some form of resource
+			//   exhaustion.
+			//
+			// We always want to return to the top of the loop to check the `cancelableCtx`. If the
+			// camera was explicitly closed, this goroutine will observe `cancelableCtx` as canceled
+			// and gracefully shutdown. If the camera was not closed, we restart ffmpeg. We depend
+			// on golang's Command object to not close the I/O pipe such that it can be reused
+			// across process invocations.
+			cmd := stream.WithOutput(out).WithErrorOutput(stderrWriter{
+				logger: logger,
+			}).Compile()
+			logger.Infow("Execing ffmpeg", "cmd", cmd.String())
+			err := cmd.Run()
+			logger.Debugw("ffmpeg exited", "err", err)
 		}
 	}, func() {
-		viamutils.UncheckedErrorFunc(writer.Close)
-		cancel()
 		ffCam.activeBackgroundWorkers.Done()
 	})
 
-	// launch thread to consume images from the pipe and store the latest in shared memory
-	gotFirstFrame := make(chan struct{})
 	var latestFrame atomic.Pointer[image.Image]
+	// Pause the GetImage reader until the producer provides a first item.
 	var gotFirstFrameOnce bool
+	gotFirstFrame := make(chan struct{})
+
 	ffCam.activeBackgroundWorkers.Add(1)
 	viamutils.ManagedGo(func() {
 		for {
