@@ -35,13 +35,16 @@ type arcStep struct {
 	angVelDegps     r3.Vector
 	durationSeconds float64
 
-	// A single trajectory may be broken into multiple arcSteps, so we need to be able to track the total distance elapsed through
-	// the trajectory
+	
 	startDist float64
 	ptgIdx    float64
 
-	// Pose at dist=0 for the PTG these traj nodes are derived from, such that Compose(trajStartPose, TrajNode.Pose) is the expected
-	// pose at that node.
+	// StartPose is the pose at dist=0 for the PTG these traj nodes are derived from, such that Compose(trajStartPose, TrajNode.Pose) is
+	// the expected pose at that node.
+	// A single trajectory may be broken into multiple arcSteps, so we need to be able to track the total distance elapsed through
+	// the trajectory.
+	arcSegment ik.Segment
+	
 	trajStartPose spatialmath.Pose
 	subTraj       []*tpspace.TrajNode
 }
