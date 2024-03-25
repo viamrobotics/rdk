@@ -622,7 +622,8 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 
 			lastUpdated := "unknown"
 			if fInfo, err := os.Stat(getCloudCacheFilePath(cloudCfg.ID)); err == nil {
-				lastUpdated = fInfo.ModTime().Format(time.RFC3339)
+				// Use logging.DefaultTimeFormatStr since this time will be logged.
+				lastUpdated = fInfo.ModTime().Format(logging.DefaultTimeFormatStr)
 			}
 			logger.Warnw("unable to get cloud config; using cached version", "config last updated", lastUpdated, "error", err)
 			cached = true
