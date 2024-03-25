@@ -14,10 +14,12 @@ import (
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
+	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
@@ -141,12 +143,19 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn rpc.C
 	return hMap, errs
 }
 
+type peerResourceState struct {
+	// NOTE As I'm only suppporting video to start this will always be a single element
+	// once we add audio we will need to make this a slice / map
+	sender *webrtc.RTPSender
+}
+
 // Module represents an external resource module that services components/services.
 type Module struct {
 	parent                  *client.RobotClient
 	server                  rpc.Server
 	logger                  logging.Logger
 	mu                      sync.Mutex
+	activeResourceStreams   map[resource.Name]peerResourceState
 	operations              *operation.Manager
 	ready                   bool
 	addr                    string
@@ -156,7 +165,11 @@ type Module struct {
 	collections             map[resource.API]resource.APIResourceCollection[resource.Resource]
 	resLoggers              map[resource.Resource]logging.Logger
 	closeOnce               sync.Once
+	pc                      *webrtc.PeerConnection
+	pcReady                 <-chan struct{}
+	pcFailed                <-chan struct{}
 	pb.UnimplementedModuleServiceServer
+	streampb.UnimplementedStreamServiceServer
 }
 
 // NewModule returns the basic module framework/structure.
@@ -170,18 +183,42 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		opMgr.StreamServerInterceptor,
 	}
 	m := &Module{
-		logger:      logger,
-		addr:        address,
-		operations:  opMgr,
-		server:      NewServer(unaries, streams),
-		ready:       true,
-		handlers:    HandlerMap{},
-		collections: map[resource.API]resource.APIResourceCollection[resource.Resource]{},
-		resLoggers:  map[resource.Resource]logging.Logger{},
+		logger:                logger,
+		addr:                  address,
+		operations:            opMgr,
+		activeResourceStreams: map[resource.Name]peerResourceState{},
+		server:                NewServer(unaries, streams),
+		ready:                 true,
+		handlers:              HandlerMap{},
+		collections:           map[resource.API]resource.APIResourceCollection[resource.Resource]{},
+		resLoggers:            map[resource.Resource]logging.Logger{},
 	}
 	if err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m); err != nil {
 		return nil, err
 	}
+	if err := m.server.RegisterServiceServer(ctx, &streampb.StreamService_ServiceDesc, m); err != nil {
+		return nil, err
+	}
+
+	// attempt to construct a PeerConnection
+	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	if err != nil {
+		logger.Debugw("Unable to create optional peer connection for module. Skipping WebRTC for module...", "err", err)
+		return m, nil
+	}
+
+	// attempt to configure PeerConnection
+	pcReady, err := rpc.ConfigureForRenegotiation(pc, logger.AsZap())
+	if err != nil {
+		msg := "Error creating renegotiation channel for module. Unable to " +
+			"create optional peer connection for module. Skipping WebRTC for module..."
+		logger.Debugw(msg, "err", err)
+		return m, nil
+	}
+
+	m.pc = pc
+	m.pcReady = pcReady
+
 	return m, nil
 }
 
@@ -224,10 +261,21 @@ func (m *Module) Start(ctx context.Context) error {
 }
 
 // Close shuts down the module and grpc server.
+// TODO: Shut down the subscriptions.
 func (m *Module) Close(ctx context.Context) {
 	m.closeOnce.Do(func() {
 		m.mu.Lock()
 		parent := m.parent
+		for name, r := range m.activeResourceStreams {
+			if err := m.pc.RemoveTrack(r.sender); err != nil {
+				m.logger.Errorf("RemoveTrack on resource %s", name)
+			}
+		}
+		if m.pc != nil {
+			if err := m.pc.Close(); err != nil {
+				m.logger.Error(err)
+			}
+		}
 		m.mu.Unlock()
 		m.logger.Info("Shutting down gracefully.")
 		if parent != nil {
@@ -288,8 +336,46 @@ func (m *Module) SetReady(ready bool) {
 	m.ready = ready
 }
 
+// PeerConnect returns the encoded answer string for the `ReadyResponse`.
+func (m *Module) PeerConnect(encodedOffer string) (string, error) {
+	if m.pc == nil {
+		return "", errors.New("no PeerConnection object")
+	}
+
+	offer := webrtc.SessionDescription{}
+	if err := rpc.DecodeSDP(encodedOffer, &offer); err != nil {
+		return "", err
+	}
+	if err := m.pc.SetRemoteDescription(offer); err != nil {
+		return "", err
+	}
+
+	answer, err := m.pc.CreateAnswer(nil)
+	if err != nil {
+		return "", err
+	}
+
+	if err := m.pc.SetLocalDescription(answer); err != nil {
+		return "", err
+	}
+
+	<-webrtc.GatheringCompletePromise(m.pc)
+	return rpc.EncodeSDP(m.pc.LocalDescription())
+}
+
 // Ready receives the parent address and reports api/model combos the module is ready to service.
 func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResponse, error) {
+	resp := &pb.ReadyResponse{}
+
+	encodedAnswer, err := m.PeerConnect(req.WebrtcOffer)
+	if err == nil {
+		resp.WebrtcAnswer = encodedAnswer
+	} else {
+		m.logger.Debugw("Unable to create optional peer connection for module. Skipping WebRTC for module...", "err", err)
+		pcFailed := make(chan struct{})
+		close(pcFailed)
+		m.pcFailed = pcFailed
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.parentAddr = req.GetParentAddress()
@@ -305,14 +391,18 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 		moduleLogger.startLoggingViaGRPC(m)
 	}
 
-	return &pb.ReadyResponse{
-		Ready:      m.ready,
-		Handlermap: m.handlers.ToProto(),
-	}, nil
+	resp.Ready = m.ready
+	resp.Handlermap = m.handlers.ToProto()
+	return resp, nil
 }
 
 // AddResource receives the component/service configuration from the parent.
 func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*pb.AddResourceResponse, error) {
+	select {
+	case <-m.pcReady:
+	case <-m.pcFailed:
+	}
+
 	deps := make(resource.Dependencies)
 	for _, c := range req.Dependencies {
 		name, err := resource.NewFromString(c)
@@ -552,6 +642,61 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.API, mod
 // OperationManager returns the operation manager for the module.
 func (m *Module) OperationManager() *operation.Manager {
 	return m.operations
+}
+
+// ListStreams lists the streams.
+func (m *Module) ListStreams(ctx context.Context, req *streampb.ListStreamsRequest) (*streampb.ListStreamsResponse, error) {
+	return &streampb.ListStreamsResponse{}, nil
+}
+
+// AddStream adds a stream.
+func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) (*streampb.AddStreamResponse, error) {
+	name, err := resource.NewFromString(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.pc == nil {
+		return nil, errors.New("module has no peer connection")
+	}
+	tlsRTP, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/H264"}, "video", name.String())
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating a new TrackLocalStaticRTP")
+	}
+
+	// TODO call remove track on error
+	sender, err := m.pc.AddTrack(tlsRTP)
+	if err != nil {
+		return nil, errors.Wrap(err, "error adding track")
+	}
+	m.activeResourceStreams[name] = peerResourceState{sender: sender}
+	return &streampb.AddStreamResponse{}, nil
+}
+
+// RemoveStream removes a stream.
+func (m *Module) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRequest) (*streampb.RemoveStreamResponse, error) {
+	name, err := resource.NewFromString(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.pc == nil {
+		return nil, errors.New("module has no peer connection")
+	}
+
+	prs, ok := m.activeResourceStreams[name]
+	if !ok {
+		return nil, fmt.Errorf("(m *Module) RemoveStream called on %s but peer state %p has no active peer stream", req.GetName(), m.pc)
+	}
+
+	if err := m.pc.RemoveTrack(prs.sender); err != nil {
+		return nil, fmt.Errorf("(m *Module) RemoveStream name: %s pc: %p hit error removing track %p", req.GetName(), m.pc, prs.sender)
+	}
+
+	delete(m.activeResourceStreams, name)
+	return &streampb.RemoveStreamResponse{}, nil
 }
 
 // addConvertedAttributesToConfig uses the MapAttributeConverter to fill in the

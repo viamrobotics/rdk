@@ -67,7 +67,7 @@ let newMapName = '';
 let mapNameError = '';
 let motionPath: Float32Array | undefined;
 let mappingSessionStarted = false;
-let reloadMap: boolean | undefined;
+let isLocalizingMode: boolean | undefined;
 let lastReconfigured: Timestamp | undefined;
 
 $: pointcloudLoaded = Boolean(pointcloud?.length) && pose !== undefined;
@@ -117,23 +117,24 @@ const refresh2d = async () => {
       // assuming reconfigures do not happen at the nanosecond scale
       if (
         newLastReconfigured?.getSeconds() !== lastReconfigured?.getSeconds() ||
-        reloadMap === undefined
+        isLocalizingMode === undefined
       ) {
         lastReconfigured = newLastReconfigured;
 
         const props = await slamClient.getProperties();
-        reloadMap =
-          props.mappingMode !== slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY;
+        isLocalizingMode =
+          props.mappingMode === slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY;
       }
 
       /*
        * Update the map and pose if the SLAM session is in mapping/updating mode or the pointcloud
        * has yet to be defined else only update the pose
        */
-      if (reloadMap || pointcloud === undefined) {
+      if (!isLocalizingMode || pointcloud === undefined) {
         let response;
+        // only request the edited map if we are in localizing mode
         [pointcloud, response] = await Promise.all([
-          slamClient.getPointCloudMap(),
+          slamClient.getPointCloudMap(isLocalizingMode),
           slamClient.getPosition(),
         ]);
         nextPose = response.pose;
@@ -354,8 +355,14 @@ const handleStartMapping = async () => {
     try {
       hasActiveSession = true;
       if (!mappingSessionStarted) {
+        // Get SensorInfo list
+        const props = await slamClient.getProperties();
+
         mappingSessionStarted = true;
-        sessionId = await overrides.startMappingSession(mapName);
+        sessionId = await overrides.startMappingSession(
+          mapName,
+          props.sensorInfoList
+        );
         startMappingIntervals(Date.now());
       }
     } catch {
@@ -468,12 +475,14 @@ useConnect(() => {
       <div class="flex flex-col gap-6 pb-4">
         {#if overrides?.isCloudSlam && overrides.mappingDetails}
           <header class="flex flex-col justify-between gap-3 text-xs">
-            <div class="flex flex-col">
-              <span class="font-bold text-gray-800">Mapping mode</span>
-              <span class="capitalize text-subtle-2"
-                >{overrides.mappingDetails.mode}</span
-              >
-            </div>
+            {#if overrides.mappingDetails.mode}
+              <div class="flex flex-col">
+                <span class="font-bold text-gray-800">Mapping mode</span>
+                <span class="capitalize text-subtle-2"
+                  >{overrides.mappingDetails.mode}</span
+                >
+              </div>
+            {/if}
             <div class="flex gap-8">
               {#if overrides.mappingDetails.name}
                 <div class="flex flex-col">

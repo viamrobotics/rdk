@@ -152,7 +152,7 @@ func (nl *NetAppender) Write(e zapcore.Entry, f []zapcore.Field) error {
 
 	if e.Level == zapcore.FatalLevel || e.Level == zapcore.DPanicLevel || e.Level == zapcore.PanicLevel {
 		// program is going to go away, let's try and sync all our messages before then
-		return nl.Sync()
+		return nl.sync()
 	}
 
 	return nil
@@ -210,7 +210,7 @@ func (nl *NetAppender) backgroundWorker() {
 		if !utils.SelectContextOrWait(nl.cancelCtx, interval) {
 			cancelled = true
 		}
-		err := nl.Sync()
+		err := nl.sync()
 		if err != nil && !errors.Is(err, context.Canceled) {
 			interval = abnormalInterval
 			nl.loggerWithoutNet.Infof("error logging to network: %s", err)
@@ -253,16 +253,19 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 	defer nl.toLogMutex.Unlock()
 
 	// Remove successfully synced logs from the queue. If we've overflowed more times than the size of the batch
-	//  we wrote, do not mutate toLog at all.
+	// we wrote, do not mutate toLog at all. If we've synced more logs than there are logs left, set idx to length
+	// of array to prevent panics.
 	if batchSize > nl.toLogOverflowsSinceLastSync {
-		nl.toLog = nl.toLog[batchSize-nl.toLogOverflowsSinceLastSync:]
+		idx := min(batchSize-nl.toLogOverflowsSinceLastSync, len(nl.toLog))
+		nl.toLog = nl.toLog[idx:]
 	}
 	nl.toLogOverflowsSinceLastSync = 0
 	return len(nl.toLog) > 0, nil
 }
 
-// Sync will flush the internal buffer of logs.
-func (nl *NetAppender) Sync() error {
+// sync will flush the internal buffer of logs. This is not exposed as multiple calls to sync at
+// the same time will cause double logs and panics.
+func (nl *NetAppender) sync() error {
 	for {
 		moreToDo, err := nl.syncOnce()
 		if err != nil {
@@ -273,6 +276,11 @@ func (nl *NetAppender) Sync() error {
 			return nil
 		}
 	}
+}
+
+// Sync is a no-op. sync is not exposed as multiple calls at the same time will cause double logs and panics.
+func (nl *NetAppender) Sync() error {
+	return nil
 }
 
 type remoteLogWriterGRPC struct {

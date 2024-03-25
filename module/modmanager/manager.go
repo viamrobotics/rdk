@@ -13,6 +13,7 @@ import (
 	"time"
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
+	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -88,6 +89,10 @@ type module struct {
 	// another OUE has finished.
 	inStartup      atomic.Bool
 	inRecoveryLock sync.Mutex
+
+	peerConn   *webrtc.PeerConnection
+	sharedConn *rdkgrpc.SharedConn
+	pcReady    <-chan struct{}
 }
 
 type addedResource struct {
@@ -272,7 +277,18 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 		resources: map[resource.Name]*addedResource{},
 	}
 
-	if err := mgr.startModule(ctx, mod); err != nil {
+	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	if err != nil {
+		mgr.logger.Debugw("Unable to create optional peer connection for module. Ignoring.", "module", conf.Name, "err", err)
+	} else {
+		mod.peerConn = pc
+		mod.pcReady, err = rpc.ConfigureForRenegotiation(mod.peerConn, mgr.logger.AsZap())
+		if err != nil {
+			mgr.logger.Debugw("Unable to create optional renegotiation channel for module. Ignoring.", "module", conf.Name, "err", err)
+		}
+	}
+
+	if err = mgr.startModule(ctx, mod); err != nil {
 		return err
 	}
 	return nil
@@ -460,8 +476,20 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 		return errors.WithMessage(err, "error while stopping module "+mod.cfg.Name)
 	}
 
-	if err := mod.conn.Close(); err != nil {
-		return errors.WithMessage(err, "error while closing connection from module "+mod.cfg.Name)
+	if mod.sharedConn != nil {
+		if err := mod.sharedConn.Close(); err != nil {
+			return errors.WithMessage(err, "error while closing shared connection from module "+mod.cfg.Name)
+		}
+	} else {
+		if mod.peerConn != nil {
+			if err := mod.peerConn.Close(); err != nil {
+				mgr.logger.Debugw("error closing optional webrtc peer connection", "err", err)
+			}
+		}
+
+		if err := mod.conn.Close(); err != nil {
+			return errors.WithMessage(err, "error while closing connection from module "+mod.cfg.Name)
+		}
 	}
 
 	mod.deregisterResources()
@@ -508,9 +536,10 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
 	if !ok || apiInfo.RPCClient == nil {
 		mgr.logger.CWarnw(ctx, "No built-in grpc client for modular resource", "resource", conf.ResourceName())
-		return rdkgrpc.NewForeignResource(conf.ResourceName(), &mod.conn), nil
+		return rdkgrpc.NewForeignResource(conf.ResourceName(), mod.sharedConn), nil
 	}
-	return apiInfo.RPCClient(ctx, &mod.conn, "", conf.ResourceName(), mgr.logger)
+
+	return apiInfo.RPCClient(ctx, mod.sharedConn, "", conf.ResourceName(), mgr.logger)
 }
 
 // ReconfigureResource updates/reconfigures a modular component with a new configuration.
@@ -785,9 +814,22 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		)
 
 		// close client connection, we will re-dial as part of restart attempts.
-		if err := mod.conn.Close(); err != nil {
-			mgr.logger.Warnw("Error while closing connection to crashed module. Continuing restart attempt",
-				"module", mod.cfg.Name, "error", err)
+		if mod.sharedConn != nil {
+			if err := mod.sharedConn.Close(); err != nil {
+				mgr.logger.Warnw("Error while closing shared connection to crashed module. Continuing restart attempt",
+					"module", mod.cfg.Name, "error", err)
+			}
+		} else {
+			if mod.peerConn != nil {
+				if err := mod.peerConn.Close(); err != nil {
+					mgr.logger.Debugw("error closing optional webrtc peer connection", "err", err)
+				}
+			}
+
+			if err := mod.conn.Close(); err != nil {
+				mgr.logger.Warnw("Error while closing connection to crashed module. Continuing restart attempt",
+					"module", mod.cfg.Name, "error", err)
+			}
 		}
 
 		// If attemptRestart returns any orphaned resource names, restart failed,
@@ -920,8 +962,17 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 	defer cancelFunc()
 
 	logger.CInfow(ctx, "Waiting for module to respond to ready request", "module", m.cfg.Name)
+
+	req := &pb.ReadyRequest{ParentAddress: parentAddr}
+
+	// Wait for gathering to complete. Pass the entire SDP as an offer to the `ReadyRequest`.
+	if sdp, err := generateSDP(m.peerConn); err == nil {
+		req.WebrtcOffer = sdp
+	} else {
+		logger.Debugw("Unable to generate SDP for peerconn. Ignoring.", "err", err)
+	}
+
 	for {
-		req := &pb.ReadyRequest{ParentAddress: parentAddr}
 		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
 		resp, err := m.client.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
 		if err != nil {
@@ -929,6 +980,15 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 		}
 
 		if resp.Ready {
+			webrtcConnectSucceeded := true
+			if err = connect(m.peerConn, resp.WebrtcAnswer, logger); err != nil {
+				logger.Debugw("Unable to create PeerConnection with module. Ignoring.", "err", err)
+				webrtcConnectSucceeded = false
+			}
+			m.sharedConn = rdkgrpc.NewSharedConn(&m.conn, m.peerConn, logger)
+			if webrtcConnectSucceeded {
+				<-m.pcReady
+			}
 			m.handles, err = modlib.NewHandlerMapFromProto(ctx, resp.Handlermap, &m.conn)
 			return err
 		}
@@ -1092,9 +1152,21 @@ func (m *module) cleanupAfterStartupFailure(logger logging.Logger) {
 		msg := "Error while stopping process of module that failed to start"
 		logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 	}
-	if err := m.conn.Close(); err != nil {
-		msg := "Error while closing connection to module that failed to start"
-		logger.Errorw(msg, "module", m.cfg.Name, "error", err)
+	if m.sharedConn != nil {
+		if err := m.sharedConn.Close(); err != nil {
+			msg := "Error while closing shared connection to module that failed to start"
+			logger.Errorw(msg, "module", m.cfg.Name, "error", err)
+		}
+	} else {
+		if m.peerConn != nil {
+			if err := m.peerConn.Close(); err != nil {
+				logger.Debugw("error closing optional webrtc peer connection", "err", err)
+			}
+		}
+		if err := m.conn.Close(); err != nil {
+			msg := "Error while closing connection to module that failed to start"
+			logger.Errorw(msg, "module", m.cfg.Name, "error", err)
+		}
 	}
 }
 
@@ -1103,9 +1175,21 @@ func (m *module) cleanupAfterCrash(mgr *Manager) {
 		msg := "Error while stopping process of crashed module"
 		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 	}
-	if err := m.conn.Close(); err != nil {
-		msg := "Error while closing connection to crashed module"
-		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
+	if m.sharedConn != nil {
+		if err := m.sharedConn.Close(); err != nil {
+			msg := "error while closing shared connection to crashed module"
+			mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
+		}
+	} else {
+		if m.peerConn != nil {
+			if err := m.peerConn.Close(); err != nil {
+				mgr.logger.Debugw("error closing optional webrtc peer connection", "err", err)
+			}
+		}
+		if err := m.conn.Close(); err != nil {
+			msg := "error while closing connection to crashed module"
+			mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
+		}
 	}
 	mgr.rMap.Range(func(r resource.Name, mod *module) bool {
 		if mod == m {
@@ -1159,4 +1243,47 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 		robotID = "local"
 	}
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
+}
+
+func generateSDP(pc *webrtc.PeerConnection) (string, error) {
+	if pc == nil {
+		return "", nil
+	}
+
+	offer, err := pc.CreateOffer(nil)
+	if err != nil {
+		return "", err
+	}
+
+	if err = pc.SetLocalDescription(offer); err != nil {
+		return "", err
+	}
+
+	<-webrtc.GatheringCompletePromise(pc)
+	return rpc.EncodeSDP(pc.LocalDescription())
+}
+
+func connect(pc *webrtc.PeerConnection, encodedAnswer string, logger logging.Logger) error {
+	if pc == nil {
+		return errors.New("*webrtc.PeerConnection is nil")
+	}
+	answer := webrtc.SessionDescription{}
+	if err := rpc.DecodeSDP(encodedAnswer, &answer); err != nil {
+		return err
+	}
+
+	// NOTE: (Nick S & Dan G):
+	// Experimentally it appears that SetRemoteDescription does not
+	// need to succeed in order for a usable peer connection to be
+	// established. It is not clear to us why. We are not propagating
+	// this error in order to prevent deadlocking due to the module
+	// expecting the peer connection to be used & the mod manager
+	// expecting it to not be used.
+	// This may require more investigation.
+	if err := pc.SetRemoteDescription(answer); err != nil {
+		logger.Debugw("SetRemoteDescription failed with", "err", err)
+		return nil
+	}
+
+	return nil
 }

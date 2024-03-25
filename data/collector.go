@@ -93,8 +93,6 @@ func (c *collector) Close() {
 	}
 	close(c.captureErrors)
 	c.logRoutine.Wait()
-	//nolint:errcheck
-	_ = c.logger.Sync()
 	c.closed = true
 }
 
