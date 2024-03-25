@@ -937,7 +937,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 	if sdp, err := generateSDP(m.peerConn); err == nil {
 		req.WebrtcOffer = sdp
 	} else {
-		logger.Warnw("Error generating SDP for peerconn. Ignoring.", "err", err)
+		logger.Debugw("Unable to generate SDP for peerconn. Ignoring.", "err", err)
 	}
 
 	for {
@@ -949,8 +949,8 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 
 		if resp.Ready {
 			webrtcConnectSucceeded := true
-			if err = connect(m.peerConn, resp.WebrtcAnswer); err != nil {
-				logger.Warnw("Error creating PeerConnection. Ignoring.", "err", err)
+			if err = connect(m.peerConn, resp.WebrtcAnswer, logger); err != nil {
+				logger.Debugw("Unable to create PeerConnection with module. Ignoring.", "err", err)
 				webrtcConnectSucceeded = false
 			}
 			m.sharedConn = rdkgrpc.NewSharedConn(&m.conn, m.peerConn, logger)
@@ -1119,20 +1119,6 @@ func (m *module) deregisterResources() {
 	m.handles = nil
 }
 
-func (m *module) closeConn(logger logging.Logger) {
-	if m.sharedConn != nil {
-		if err := m.sharedConn.Close(); err != nil {
-			msg := "Error while closing shared connection to module that failed to start"
-			logger.Errorw(msg, "module", m.cfg.Name, "error", err)
-		}
-	} else {
-		if err := m.conn.Close(); err != nil {
-			msg := "Error while closing connection to module that failed to start"
-			logger.Errorw(msg, "module", m.cfg.Name, "error", err)
-		}
-	}
-}
-
 func (m *module) cleanupAfterStartupFailure(logger logging.Logger) {
 	if err := m.stopProcess(); err != nil {
 		msg := "Error while stopping process of module that failed to start"
@@ -1239,14 +1225,23 @@ func generateSDP(pc *webrtc.PeerConnection) (string, error) {
 	return rpc.EncodeSDP(pc.LocalDescription())
 }
 
-func connect(pc *webrtc.PeerConnection, encodedAnswer string) error {
+func connect(pc *webrtc.PeerConnection, encodedAnswer string, logger logging.Logger) error {
 	answer := webrtc.SessionDescription{}
 	if err := rpc.DecodeSDP(encodedAnswer, &answer); err != nil {
 		return err
 	}
 
+	// NOTE: (Nick S & Dan G):
+	// Experimentally it appears that SetRemoteDescription does not
+	// need to succeed in order for a usable peer connection to be
+	// established. It is not clear to us why. We are not propagating
+	// this error in order to prevent deadlocking due to the module
+	// expecting the peer connection to be used & the mod manager
+	// expecting it to not be used.
+	// This may require more investigation.
 	if err := pc.SetRemoteDescription(answer); err != nil {
-		return nil //nolint:nilerr
+		logger.Debugw("SetRemoteDescription failed with", "err", err)
+		return nil
 	}
 
 	return nil

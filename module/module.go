@@ -210,7 +210,9 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	// attempt to configure PeerConnection
 	pcReady, err := rpc.ConfigureForRenegotiation(pc, logger.AsZap())
 	if err != nil {
-		logger.Debugw("Error creating renegotiation channel for module. Unable to create optional peer connection for module. Skipping WebRTC for module...", "err", err)
+		msg := "Error creating renegotiation channel for module. Unable to " +
+			"create optional peer connection for module. Skipping WebRTC for module..."
+		logger.Debugw(msg, "err", err)
 		return m, nil
 	}
 
@@ -515,7 +517,6 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	if resInfo.Constructor == nil {
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
-	// TODO: Not quite sure how a camera stream should handle the camera being reconfigured
 	newRes, err := resInfo.Constructor(ctx, deps, *conf, m.logger)
 	if err != nil {
 		return nil, err
