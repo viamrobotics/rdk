@@ -64,7 +64,6 @@ type Encoder struct {
 	m         DirectionAware
 	boardName string
 	diPinName string
-	board     board.Board
 
 	positionType encoder.PositionType
 	logger       logging.Logger
@@ -153,7 +152,6 @@ func (e *Encoder) Reconfigure(
 	if err != nil {
 		return err
 	}
-	e.board = board
 
 	di, ok := board.DigitalInterruptByName(newConf.Pins.I)
 	if !ok {
@@ -176,15 +174,15 @@ func (e *Encoder) Reconfigure(
 	atomic.StoreInt64(&e.position, 0)
 	e.mu.Unlock()
 
-	e.Start(ctx)
+	e.Start(ctx, board, []string{e.diPinName})
 
 	return nil
 }
 
 // Start starts the Encoder background thread.
-func (e *Encoder) Start(ctx context.Context) {
+func (e *Encoder) Start(ctx context.Context, b board.Board, interrupts []string) {
 	encoderChannel := make(chan board.Tick)
-	err := e.board.StreamTicks(e.cancelCtx, []string{e.diPinName}, encoderChannel, nil)
+	err := b.StreamTicks(e.cancelCtx, interrupts, encoderChannel, nil)
 	if err != nil {
 		utils.Logger.Errorw("error getting interrupt ticks", "error", err)
 		return
@@ -192,7 +190,7 @@ func (e *Encoder) Start(ctx context.Context) {
 	e.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		// Remove the callbacks added by the interrupt stream once we are done.
-		defer board.RemoveCallbacks(e.board, []string{e.diPinName}, encoderChannel)
+		defer board.RemoveCallbacks(b, interrupts, encoderChannel)
 
 		for {
 			select {

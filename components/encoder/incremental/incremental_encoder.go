@@ -30,9 +30,8 @@ func init() {
 // Encoder keeps track of a motor position using a rotary incremental encoder.
 type Encoder struct {
 	resource.Named
-	mu         sync.Mutex
-	A, B       board.DigitalInterrupt
-	interrupts []string
+	mu   sync.Mutex
+	A, B board.DigitalInterrupt
 	// The position is pRaw with the least significant bit chopped off.
 	position int64
 	// pRaw is the number of half-ticks we've gone through: it increments or decrements whenever
@@ -45,7 +44,6 @@ type Encoder struct {
 	boardName string
 	encAName  string
 	encBName  string
-	board     board.Board
 
 	logger logging.Logger
 
@@ -159,23 +157,22 @@ func (e *Encoder) Reconfigure(
 	e.A = encA
 	e.B = encB
 	e.boardName = newConf.BoardName
-	e.board = board
 	e.encAName = newConf.Pins.A
 	e.encBName = newConf.Pins.B
-	e.interrupts = []string{e.encAName, e.encBName}
+	interrupts := []string{e.encAName, e.encBName}
 	// state is not really valid anymore
 	atomic.StoreInt64(&e.position, 0)
 	atomic.StoreInt64(&e.pRaw, 0)
 	atomic.StoreInt64(&e.pState, 0)
 	e.mu.Unlock()
 
-	e.Start(ctx)
+	e.Start(ctx, board, interrupts)
 
 	return nil
 }
 
 // Start starts the Encoder background thread.
-func (e *Encoder) Start(ctx context.Context) {
+func (e *Encoder) Start(ctx context.Context, b board.Board, interrupts []string) {
 	/**
 	  a rotary encoder looks like
 
@@ -212,7 +209,7 @@ func (e *Encoder) Start(ctx context.Context) {
 	// x -> impossible state
 
 	ch := make(chan board.Tick)
-	err := e.board.StreamTicks(e.cancelCtx, e.interrupts, ch, nil)
+	err := b.StreamTicks(e.cancelCtx, interrupts, ch, nil)
 	if err != nil {
 		utils.Logger.Errorw("error getting digital interrupt ticks", "error", err)
 		return
@@ -231,9 +228,9 @@ func (e *Encoder) Start(ctx context.Context) {
 	e.activeBackgroundWorkers.Add(1)
 
 	utils.ManagedGo(func() {
+		// Remove the callbacks added by the interrupt stream.
+		defer board.RemoveCallbacks(b, interrupts, ch)
 		for {
-			// Remove the callbacks added by the interrupt stream.
-			defer board.RemoveCallbacks(e.board, e.interrupts, ch)
 
 			// This looks redundant with the other select statement below, but it's not: if we're
 			// supposed to return, we need to do that even if chanA and chanB are full of data, and
