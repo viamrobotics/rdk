@@ -166,7 +166,7 @@ func newPCDCamera(
 	return cam, nil
 }
 
-func (c *pcdCamera) VideoCodecStreamSource(ctx context.Context) (camera.VideoCodecStreamSource, error) {
+func (replay *pcdCamera) VideoCodecStreamSource(ctx context.Context) (camera.VideoCodecStreamSource, error) {
 	return nil, errors.New("pcdCamera does not implement VideoCodecStreamSource")
 }
 

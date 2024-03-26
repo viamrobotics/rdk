@@ -7,6 +7,7 @@ import (
 	"go.viam.com/utils"
 )
 
+// StreamSubscriptionID is the id of a StreamSubscription.
 type StreamSubscriptionID = uuid.UUID
 
 // StreamSubscription executes the callbacks sent to Publish
@@ -34,7 +35,7 @@ func NewStreamSubscription(queueSize int) (*StreamSubscription, error) {
 	}, nil
 }
 
-// Start starts the writer routine.
+// ID returns the id of the StreamSubscription.
 func (w *StreamSubscription) ID() uuid.UUID {
 	return w.id
 }

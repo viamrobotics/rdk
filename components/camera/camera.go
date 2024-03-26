@@ -150,6 +150,10 @@ type sourceBasedCamera struct {
 	logging.Logger
 }
 
+// NewVideoSourceFromReader creates a VideoSource either with or without a projector. The stream type
+// argument is for detecting whether or not the resulting camera supports return
+// of pointcloud data in the absence of an implemented NextPointCloud function.
+// If this is unknown or not applicable, a value of camera.Unspecified stream can be supplied.
 func NewVideoSourceFromReader(
 	ctx context.Context,
 	reader gostream.VideoReader,

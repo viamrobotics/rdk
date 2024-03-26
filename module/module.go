@@ -270,7 +270,7 @@ func (m *Module) Start(ctx context.Context) error {
 }
 
 // Close shuts down the module and grpc server.
-// TODO: Shut down the subscriptions
+// TODO: Shut down the subscriptions.
 func (m *Module) Close(ctx context.Context) {
 	m.closeOnce.Do(func() {
 		m.mu.Lock()
@@ -748,7 +748,6 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 		}
 		return nil
 	})
-
 	if err != nil {
 		m.logger.Warnw("SubscribeRTP hit error", "err", err)
 		removeTrackErr := errors.Wrap(m.pc.RemoveTrack(sender), "error removing track after SubscribeRTP failed")

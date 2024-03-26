@@ -34,8 +34,8 @@ import (
 )
 
 var (
-	SubscribeRTPTimeout = time.Second
-	UnsubscribeTimeout  = time.Second
+	subscribeRTPTimeout = time.Second
+	unsubscribeTimeout  = time.Second
 )
 
 const rtpBufferSize int = 512
@@ -273,7 +273,7 @@ func (svc *webService) startVideoStream(
 	stream gostream.Stream,
 ) {
 	svc.logger.Infof("Attempting H264 passthrough for stream: %s", stream.Name())
-	err := svc.h264Passthrough(ctx, source, stream)
+	err := svc.h264Passthrough(ctx, stream)
 	if err == nil {
 		svc.logger.Infof("Using H264 Passthrough for stream: %s", stream.Name())
 		return
@@ -292,8 +292,8 @@ func (svc *webService) startVideoStream(
 	})
 }
 
-func (svc *webService) h264Passthrough(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) error {
-	h264Stream, err := svc.maybeGetVideoCodecStreamSource(ctx, stream)
+func (svc *webService) h264Passthrough(ctx context.Context, stream gostream.Stream) error {
+	h264Stream, err := svc.videoCodecStreamSource(ctx, stream)
 	if err != nil {
 		return err
 	}
@@ -322,7 +322,7 @@ func (svc *webService) h264Passthrough(ctx context.Context, source gostream.Vide
 	return nil
 }
 
-func (svc *webService) maybeGetVideoCodecStreamSource(ctx context.Context, stream gostream.Stream) (camera.VideoCodecStreamSource, error) {
+func (svc *webService) videoCodecStreamSource(ctx context.Context, stream gostream.Stream) (camera.VideoCodecStreamSource, error) {
 	res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
 	if err != nil {
 		return nil, err
@@ -341,7 +341,7 @@ func subscribeRTP(
 	packetCallback camera.PacketCallback,
 	logger logging.Logger,
 ) (context.CancelFunc, error) {
-	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, SubscribeRTPTimeout)
+	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, subscribeRTPTimeout)
 	defer timeoutCancel()
 	subID, err := h264Stream.SubscribeRTP(timeoutCtx, rtpBufferSize, packetCallback)
 	if err != nil {
@@ -349,7 +349,7 @@ func subscribeRTP(
 	}
 
 	return func() {
-		timeoutCtx, timeoutCancel := context.WithTimeout(ctx, UnsubscribeTimeout)
+		timeoutCtx, timeoutCancel := context.WithTimeout(ctx, unsubscribeTimeout)
 		defer timeoutCancel()
 		if err := h264Stream.Unsubscribe(timeoutCtx, subID); err != nil {
 			logger.Error(err)

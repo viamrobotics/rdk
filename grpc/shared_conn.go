@@ -5,6 +5,7 @@ import (
 
 	"github.com/pion/webrtc/v3"
 	"go.uber.org/multierr"
+
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )

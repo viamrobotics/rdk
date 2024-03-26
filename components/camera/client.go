@@ -37,31 +37,39 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var CloseRemoveStreamTimeout = time.Second
+var (
+	// ErrNoPeerConnection indicates there was no peer connection.
+	ErrNoPeerConnection = errors.New("ErrNoPeerConnection")
+	// ErrNoSharedPeerConnection indicates there was no shared peer connection.
+	ErrNoSharedPeerConnection = errors.New("ErrNoSharedPeerConnection")
+	// ErrOnTrack indicates there was an error in the webrtc OnTrack callback.
+	ErrOnTrack               = errors.New("ErrOnTrackErr")
+	closeRemoveStreamTimeout = time.Second
+)
+
+type (
+	singlePacketCallback func(*rtp.Packet) error
+	subAndCallback       struct {
+		cb  singlePacketCallback
+		sub *StreamSubscription
+	}
+)
 
 // client implements CameraServiceClient.
-type singlePacketCB func(*rtp.Packet) error
-type subAndCB struct {
-	cb  singlePacketCB
-	sub *StreamSubscription
-}
 type client struct {
 	resource.Named
 	resource.TriviallyReconfigurable
-	// rtpPassthroughWG sync.WaitGroup
-	name         string
-	conn         rpc.ClientConn
-	client       pb.CameraServiceClient
-	streamClient streampb.StreamServiceClient
-	logger       logging.Logger
-	wg           sync.WaitGroup
+	name                    string
+	conn                    rpc.ClientConn
+	client                  pb.CameraServiceClient
+	streamClient            streampb.StreamServiceClient
+	logger                  logging.Logger
+	activeBackgroundWorkers sync.WaitGroup
 
-	mu              sync.Mutex
-	healthyClientCh chan struct{}
-	subAndCBByID    map[StreamSubscriptionID]subAndCB
+	mu                 sync.Mutex
+	healthyClientCh    chan struct{}
+	subAndCallbackByID map[StreamSubscriptionID]subAndCallback
 }
-
-// var create sync.Once
 
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(
@@ -74,13 +82,13 @@ func NewClientFromConn(
 	c := pb.NewCameraServiceClient(conn)
 	streamClient := streampb.NewStreamServiceClient(conn)
 	return &client{
-		Named:        name.PrependRemote(remoteName).AsNamed(),
-		name:         name.ShortName(),
-		conn:         conn,
-		streamClient: streamClient,
-		client:       c,
-		subAndCBByID: map[StreamSubscriptionID]subAndCB{},
-		logger:       logger,
+		Named:              name.PrependRemote(remoteName).AsNamed(),
+		name:               name.ShortName(),
+		conn:               conn,
+		streamClient:       streamClient,
+		client:             c,
+		subAndCallbackByID: map[StreamSubscriptionID]subAndCallback{},
+		logger:             logger,
 	}, nil
 }
 
@@ -102,22 +110,16 @@ func getExtra(ctx context.Context) (*structpb.Struct, error) {
 	return ext, nil
 }
 
-var (
-	ErrNoPeerConnection       = errors.New("ErrNoPeerConnection")
-	ErrNoSharedPeerConnection = errors.New("ErrNoSharedPeerConnection")
-	ErrOnTrack                = errors.New("ErrOnTrackErr")
-)
-
 func (c *client) addOnTrackSubFunc(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.logger.Info("addOnTrackSubFunc called")
 	if c.Name().String() != tr.StreamID() {
-		c.logger.Fatalf("%s: SubscribeRTP: PeerConn().OnTrack: tr.StreamID() == %s", c.Name(), tr.StreamID())
+		c.logger.Warnf("%s: SubscribeRTP: PeerConn().OnTrack: tr.StreamID() == %s", c.Name(), tr.StreamID())
 		return
 	}
 
-	c.wg.Add(1)
+	c.activeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		defer func() {
 			if err := c.unsubscribeAll(); err != nil {
@@ -127,29 +129,28 @@ func (c *client) addOnTrackSubFunc(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver
 		for {
 			pkt, _, err := tr.ReadRTP()
 			if err != nil {
-				c.logger.Infof("ReadRTP got an error: %s", err.Error())
-				if err != io.EOF {
+				c.logger.Debugf("ReadRTP got an error: %s", err.Error())
+				if errors.Is(err, io.EOF) {
 					c.logger.Error(err.Error())
 				}
 				return
 			}
 
 			c.mu.Lock()
-			if len(c.subAndCBByID) == 0 {
+			if len(c.subAndCallbackByID) == 0 {
 				c.mu.Unlock()
 				c.logger.Info("OnTrack spawned function terminating as len(c.subs) == 0")
 				return
 			}
 
-			for _, subAndCB := range c.subAndCBByID {
+			for _, subAndCB := range c.subAndCallbackByID {
 				if err := subAndCB.sub.Publish(func() error { return subAndCB.cb(pkt) }); err != nil {
 					c.logger.Info("RTP packet dropped due to %s", err.Error())
 				}
 			}
 			c.mu.Unlock()
 		}
-
-	}, c.wg.Done)
+	}, c.activeBackgroundWorkers.Done)
 }
 
 func (c *client) VideoCodecStreamSource(ctx context.Context) (VideoCodecStreamSource, error) {
@@ -161,55 +162,40 @@ func (c *client) VideoCodecStreamSource(ctx context.Context) (VideoCodecStreamSo
 	return nil, errors.New("no WebRTC peer connection")
 }
 
-// TOMORROW: NICK: TEST THIS!!!
-// Figure out where to put r.Publish
-// Have the client figure out if there are 0 subscribers, and not connect if so & once there is a single subscriber
-// register a subscription
-// Every subscriber after that should just be another reciver of the same data stream
-
-// TODO: NICK We probably need to do the multiplexing here,
-// Probably need to have the camera subscription do work here
-// TODO: Chnage this function to return a r *StreamSubscription & take the parameters to crate one
 func (c *client) SubscribeRTP(ctx context.Context, bufferSize int, packetsCB PacketCallback) (StreamSubscriptionID, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	strIds := []string{}
-	for _, id := range maps.Keys(c.subAndCBByID) {
+	for _, id := range maps.Keys(c.subAndCallbackByID) {
 		strIds = append(strIds, id.String())
 	}
 	slices.Sort(strIds)
-	c.logger.Infof("SubscribeRTP BEGIN called on %s, len(c.subAndCBByID): %d, strIds: %#v", c.Name(), len(c.subAndCBByID), strIds)
+	c.logger.Infof("SubscribeRTP BEGIN called on %s, len(c.subAndCBByID): %d, strIds: %#v", c.Name(), len(c.subAndCallbackByID), strIds)
 	defer func() {
 		strIds := []string{}
-		for _, id := range maps.Keys(c.subAndCBByID) {
+		for _, id := range maps.Keys(c.subAndCallbackByID) {
 			strIds = append(strIds, id.String())
 		}
 		slices.Sort(strIds)
-		c.logger.Infof("SubscribeRTP END called on %s, len(c.subAndCBByID): %d, strIds: %#v", c.Name(), len(c.subAndCBByID), strIds)
-
+		c.logger.Infof("SubscribeRTP END called on %s, len(c.subAndCBByID): %d, strIds: %#v", c.Name(), len(c.subAndCallbackByID), strIds)
 	}()
 	sub, err := NewStreamSubscription(bufferSize)
 	if err != nil {
 		return uuid.Nil, err
 	}
 
-	// TODO: BEGIN Move this to the constructor / reconfigure
 	if c.conn.PeerConn() == nil {
-		c.logger.Fatal("c.conn.PeerConn() == nil")
 		return uuid.Nil, ErrNoPeerConnection
 	}
 	sc, ok := c.conn.(*rdkgrpc.SharedConn)
 	if !ok {
-		c.logger.Fatal("ErrNoSharedPeerConnection")
 		return uuid.Nil, ErrNoSharedPeerConnection
 	}
 
-	// TODO: END Move this to the constructor / reconfigure
-	if len(c.subAndCBByID) == 0 {
+	if len(c.subAndCallbackByID) == 0 {
 		c.logger.Info("len(c.subAndCBByID) == 0, doing AddOnTrackSub stuff")
-		// TODO: We need to set up OnTrack before we call SubscribeRTP
 
-		c.subAndCBByID[sub.ID()] = subAndCB{
+		c.subAndCallbackByID[sub.ID()] = subAndCallback{
 			cb:  func(p *rtp.Packet) error { return packetsCB([]*rtp.Packet{p}) },
 			sub: sub,
 		}
@@ -219,7 +205,7 @@ func (c *client) SubscribeRTP(ctx context.Context, bufferSize int, packetsCB Pac
 		_, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: c.Name().String()})
 		if err != nil {
 			sub.Stop()
-			delete(c.subAndCBByID, sub.ID())
+			delete(c.subAndCallbackByID, sub.ID())
 			return uuid.Nil, errors.Wrap(ErrOnTrack, err.Error())
 		}
 	}
@@ -230,18 +216,18 @@ func (c *client) Unsubscribe(ctx context.Context, id StreamSubscriptionID) error
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	strIds := []string{}
-	for _, id := range maps.Keys(c.subAndCBByID) {
+	for _, id := range maps.Keys(c.subAndCallbackByID) {
 		strIds = append(strIds, id.String())
 	}
 	slices.Sort(strIds)
-	c.logger.Infof("Unsubscribe BEGIN called on %s, len(c.subAndCBByID): %d, strIds: %#v", c.Name(), len(c.subAndCBByID), strIds)
+	c.logger.Infof("Unsubscribe BEGIN called on %s, len(c.subAndCBByID): %d, strIds: %#v", c.Name(), len(c.subAndCallbackByID), strIds)
 	defer func() {
 		strIds := []string{}
-		for _, id := range maps.Keys(c.subAndCBByID) {
+		for _, id := range maps.Keys(c.subAndCallbackByID) {
 			strIds = append(strIds, id.String())
 		}
 		slices.Sort(strIds)
-		c.logger.Infof("Unsubscribe END called on %s, len(c.subAndCBByID): %d, strIds: %#v", c.Name(), len(c.subAndCBByID), strIds)
+		c.logger.Infof("Unsubscribe END called on %s, len(c.subAndCBByID): %d, strIds: %#v", c.Name(), len(c.subAndCallbackByID), strIds)
 	}()
 	if c.conn.PeerConn() == nil {
 		return ErrNoPeerConnection
@@ -250,7 +236,7 @@ func (c *client) Unsubscribe(ctx context.Context, id StreamSubscriptionID) error
 	if !ok {
 		return ErrNoSharedPeerConnection
 	}
-	subAndCB, ok := c.subAndCBByID[id]
+	subAndCB, ok := c.subAndCallbackByID[id]
 	if !ok {
 		return errors.New("unknown StreamSubscriptionID")
 	}
@@ -260,8 +246,8 @@ func (c *client) Unsubscribe(ctx context.Context, id StreamSubscriptionID) error
 		return err
 	}
 	subAndCB.sub.Stop()
-	delete(c.subAndCBByID, id)
-	if len(c.subAndCBByID) == 0 {
+	delete(c.subAndCallbackByID, id)
+	if len(c.subAndCallbackByID) == 0 {
 		sc.RemoveOnTrackSub(c.Name())
 	}
 	return nil
@@ -270,15 +256,15 @@ func (c *client) Unsubscribe(ctx context.Context, id StreamSubscriptionID) error
 func (c *client) unsubscribeAll() error {
 	c.logger.Info("unsubscribeAll")
 	var errAgg error
-	for id, subAndCB := range c.subAndCBByID {
-		timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), CloseRemoveStreamTimeout)
+	for id, subAndCB := range c.subAndCallbackByID {
+		timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), closeRemoveStreamTimeout)
 		_, err := c.streamClient.RemoveStream(timeoutCtx, &streampb.RemoveStreamRequest{Name: c.Name().String()})
 		timeoutCancel()
 		if err != nil {
 			errAgg = multierr.Combine(errAgg, errors.Wrapf(err, "error calling RemoveStream with name: %s", c.Name()))
 		}
 		subAndCB.sub.Stop()
-		delete(c.subAndCBByID, id)
+		delete(c.subAndCallbackByID, id)
 	}
 	return errAgg
 }
@@ -355,13 +341,13 @@ func (c *client) Stream(
 	ctxWithMIME := gostream.WithMIMETypeHint(context.Background(), gostream.MIMETypeHint(ctx, ""))
 	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](ctxWithMIME)
 
-	c.wg.Add(1)
+	c.activeBackgroundWorkers.Add(1)
 
 	goutils.PanicCapturingGo(func() {
 		streamCtx = trace.NewContext(streamCtx, span)
 		defer span.End()
 
-		defer c.wg.Done()
+		defer c.activeBackgroundWorkers.Done()
 		defer close(frameCh)
 
 		for {
@@ -527,7 +513,7 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 func (c *client) Close(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	defer c.wg.Wait()
+	defer c.activeBackgroundWorkers.Wait()
 
 	if c.healthyClientCh != nil {
 		close(c.healthyClientCh)
