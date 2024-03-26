@@ -914,24 +914,26 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	// already.
 	rutils.RemoveFileNoError(mod.addr)
 
-	var (
-		success, processRestarted bool
-	)
+	var success, processRestarted bool
 	defer func() {
+		if processRestarted {
+			if err := mod.stopProcess(); err != nil {
+				msg := "Error while stopping process of crashed module"
+				mgr.logger.Errorw(msg, "module", mod.cfg.Name, "error", err)
+			}
+		}
 		if !success {
-			mod.cleanupAfterCrash(mgr, processRestarted)
+			mod.cleanupAfterCrash(mgr)
 		}
 	}()
 
 	if ctx.Err() != nil {
-		mgr.logger.Infow(
-			"Will not attempt to restart crashed module", "module", mod.cfg.Name, "reason", ctx.Err().Error(),
+		mgr.logger.CInfow(
+			ctx, "Will not attempt to restart crashed module", "module", mod.cfg.Name, "reason", ctx.Err().Error(),
 		)
 		return orphanedResourceNames
 	}
-	mgr.logger.Infow(
-		"Attempting to restart crashed module", "module", mod.cfg.Name,
-	)
+	mgr.logger.CInfow(ctx, "Attempting to restart crashed module", "module", mod.cfg.Name)
 
 	// No need to check mgr.untrustedEnv, as we're restarting the same
 	// executable we were given for initial module addition.
@@ -1212,13 +1214,7 @@ func (m *module) cleanupAfterStartupFailure(logger logging.Logger) {
 	}
 }
 
-func (m *module) cleanupAfterCrash(mgr *Manager, processRestarted bool) {
-	if processRestarted {
-		if err := m.stopProcess(); err != nil {
-			msg := "Error while stopping process of crashed module"
-			mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
-		}
-	}
+func (m *module) cleanupAfterCrash(mgr *Manager) {
 	if m.sharedConn != nil {
 		if err := m.sharedConn.Close(); err != nil {
 			msg := "error while closing shared connection to crashed module"
