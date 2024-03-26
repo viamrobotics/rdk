@@ -497,7 +497,6 @@ func (c *client) Unsubscribe(ctx context.Context, id StreamSubscriptionID) error
 }
 
 func (c *client) unsubscribeAll() error {
-	c.logger.Info("unsubscribeAll")
 	var errAgg error
 	for id, subAndCB := range c.subAndCallbackByID {
 		timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), closeRemoveStreamTimeout)
