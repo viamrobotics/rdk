@@ -19,7 +19,7 @@ export interface MappingMetadata {
 }
 
 interface MappingDetails {
-  mode?: 'localize' | 'create' | 'update';
+  mode: string;
   name?: string;
   version?: string;
 }
@@ -49,6 +49,7 @@ export interface SLAMOverrides {
   viewMap: (sessionId: string) => void;
   validateMapName: (mapName: string) => string;
   mappingDetails: MappingDetails;
+  slamModel: string;
   isCloudSlam: boolean;
 }
 export interface RCOverrides {
