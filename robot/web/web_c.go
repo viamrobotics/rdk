@@ -272,14 +272,14 @@ func (svc *webService) startVideoStream(
 	source gostream.VideoSource,
 	stream gostream.Stream,
 ) {
-	svc.logger.Infof("Attempting H264 passthrough for stream: %s", stream.Name())
+	svc.logger.Debugf("Attempting optional H264 passthrough for stream: %s", stream.Name())
 	err := svc.h264Passthrough(ctx, stream)
 	if err == nil {
-		svc.logger.Infof("Using H264 Passthrough for stream: %s", stream.Name())
+		svc.logger.Infof("Using experimental H264 Passthrough for stream: %s", stream.Name())
 		return
 	}
-	svc.logger.Infof("Falling back to GetImage. H264 passthrough unsuccessful due to %s", err.Error())
-	svc.logger.Infof("Using GetImage for stream: %s", stream.Name())
+	svc.logger.Debugf("Falling back to GetImage. H264 passthrough unsuccessful due to %s", err.Error())
+	svc.logger.Debugf("Using GetImage for stream: %s", stream.Name())
 
 	// otherwise, fallback to go stream GetImage jpeg -> h264 encoding
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {

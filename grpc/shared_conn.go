@@ -76,7 +76,6 @@ func (sc *SharedConn) PeerConn() *webrtc.PeerConnection {
 
 // Close closes a shared connection.
 func (sc *SharedConn) Close() error {
-	sc.logger.Infof("SharedConn Close() called sc.peerConn: %p", sc.peerConn)
 	var err error
 	if sc.peerConn != nil {
 		err = sc.peerConn.Close()

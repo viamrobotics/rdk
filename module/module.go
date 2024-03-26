@@ -17,6 +17,7 @@ import (
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
@@ -698,6 +699,8 @@ func (m *Module) OperationManager() *operation.Manager {
 
 // ListStreams lists the streams.
 func (m *Module) ListStreams(ctx context.Context, req *streampb.ListStreamsRequest) (*streampb.ListStreamsResponse, error) {
+	_, span := trace.StartSpan(ctx, "module::module::ListStreams")
+	defer span.End()
 	names := make([]string, 0, len(m.streamSourceByName))
 	for _, n := range maps.Keys(m.streamSourceByName) {
 		names = append(names, n.String())
@@ -707,8 +710,8 @@ func (m *Module) ListStreams(ctx context.Context, req *streampb.ListStreamsReque
 
 // AddStream adds a stream.
 func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) (*streampb.AddStreamResponse, error) {
-	m.logger.Infof("AddStream %s, m.activeResourceStreams: %#v", req.GetName(), m.activeResourceStreams)
-	defer m.logger.Infof("AddStream %s, m.activeResourceStreams: %#v", req.GetName(), m.activeResourceStreams)
+	ctx, span := trace.StartSpan(ctx, "module::module::AddStream")
+	defer span.End()
 	name, err := resource.NewFromString(req.GetName())
 	if err != nil {
 		return nil, err
@@ -734,13 +737,11 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 	}
 
 	// TODO call remove track on error
-	m.logger.Warn("calling AddTrack", req.GetName())
 	sender, err := m.pc.AddTrack(tlsRTP)
 	if err != nil {
 		return nil, errors.Wrap(err, "error adding track")
 	}
 	subID, err := vcss.SubscribeRTP(ctx, rtpBufferSize, func(pkts []*rtp.Packet) error {
-		m.logger.Infof("SubscribeRTP got %d packets", len(pkts))
 		for _, pkt := range pkts {
 			if err := tlsRTP.WriteRTP(pkt); err != nil {
 				m.logger.Warn(err.Error())
@@ -760,8 +761,8 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 
 // RemoveStream removes a stream.
 func (m *Module) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRequest) (*streampb.RemoveStreamResponse, error) {
-	m.logger.Infof("RemoveStream %s, m.activeResourceStreams: %#v", req.GetName(), m.activeResourceStreams)
-	defer m.logger.Infof("RemoveStream %s, m.activeResourceStreams: %#v", req.GetName(), m.activeResourceStreams)
+	ctx, span := trace.StartSpan(ctx, "module::module::RemoveStream")
+	defer span.End()
 	name, err := resource.NewFromString(req.GetName())
 	if err != nil {
 		return nil, err

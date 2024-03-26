@@ -20,7 +20,6 @@ import (
 	goutils "go.viam.com/utils"
 	goprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
-	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -53,6 +52,7 @@ type (
 		cb  singlePacketCallback
 		sub *StreamSubscription
 	}
+	subAndCallbackByID map[StreamSubscriptionID]subAndCallback
 )
 
 // client implements CameraServiceClient.
@@ -68,7 +68,7 @@ type client struct {
 
 	mu                 sync.Mutex
 	healthyClientCh    chan struct{}
-	subAndCallbackByID map[StreamSubscriptionID]subAndCallback
+	subAndCallbackByID subAndCallbackByID
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -108,165 +108,6 @@ func getExtra(ctx context.Context) (*structpb.Struct, error) {
 
 	proto.Merge(ext, dataExt)
 	return ext, nil
-}
-
-func (c *client) addOnTrackSubFunc(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.logger.Info("addOnTrackSubFunc called")
-	if c.Name().String() != tr.StreamID() {
-		c.logger.Warnf("%s: SubscribeRTP: PeerConn().OnTrack: tr.StreamID() == %s", c.Name(), tr.StreamID())
-		return
-	}
-
-	c.activeBackgroundWorkers.Add(1)
-	goutils.ManagedGo(func() {
-		defer func() {
-			if err := c.unsubscribeAll(); err != nil {
-				c.logger.Errorw("unsubscribeAll", "err", err)
-			}
-		}()
-		for {
-			pkt, _, err := tr.ReadRTP()
-			if err != nil {
-				c.logger.Debugf("ReadRTP got an error: %s", err.Error())
-				if errors.Is(err, io.EOF) {
-					c.logger.Error(err.Error())
-				}
-				return
-			}
-
-			c.mu.Lock()
-			if len(c.subAndCallbackByID) == 0 {
-				c.mu.Unlock()
-				c.logger.Info("OnTrack spawned function terminating as len(c.subs) == 0")
-				return
-			}
-
-			for _, subAndCB := range c.subAndCallbackByID {
-				if err := subAndCB.sub.Publish(func() error { return subAndCB.cb(pkt) }); err != nil {
-					c.logger.Info("RTP packet dropped due to %s", err.Error())
-				}
-			}
-			c.mu.Unlock()
-		}
-	}, c.activeBackgroundWorkers.Done)
-}
-
-func (c *client) VideoCodecStreamSource(ctx context.Context) (VideoCodecStreamSource, error) {
-	_, ok := c.conn.(*rdkgrpc.SharedConn)
-	if c.conn.PeerConn() != nil && ok {
-		return c, nil
-	}
-
-	return nil, errors.New("no WebRTC peer connection")
-}
-
-func (c *client) SubscribeRTP(ctx context.Context, bufferSize int, packetsCB PacketCallback) (StreamSubscriptionID, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	strIds := []string{}
-	for _, id := range maps.Keys(c.subAndCallbackByID) {
-		strIds = append(strIds, id.String())
-	}
-	slices.Sort(strIds)
-	c.logger.Infof("SubscribeRTP BEGIN called on %s, len(c.subAndCBByID): %d, strIds: %#v", c.Name(), len(c.subAndCallbackByID), strIds)
-	defer func() {
-		strIds := []string{}
-		for _, id := range maps.Keys(c.subAndCallbackByID) {
-			strIds = append(strIds, id.String())
-		}
-		slices.Sort(strIds)
-		c.logger.Infof("SubscribeRTP END called on %s, len(c.subAndCBByID): %d, strIds: %#v", c.Name(), len(c.subAndCallbackByID), strIds)
-	}()
-	sub, err := NewStreamSubscription(bufferSize)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	if c.conn.PeerConn() == nil {
-		return uuid.Nil, ErrNoPeerConnection
-	}
-	sc, ok := c.conn.(*rdkgrpc.SharedConn)
-	if !ok {
-		return uuid.Nil, ErrNoSharedPeerConnection
-	}
-
-	if len(c.subAndCallbackByID) == 0 {
-		c.logger.Info("len(c.subAndCBByID) == 0, doing AddOnTrackSub stuff")
-
-		c.subAndCallbackByID[sub.ID()] = subAndCallback{
-			cb:  func(p *rtp.Packet) error { return packetsCB([]*rtp.Packet{p}) },
-			sub: sub,
-		}
-		sub.Start()
-		sc.AddOnTrackSub(c.Name(), c.addOnTrackSubFunc)
-		// TODO: Fix this context
-		_, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: c.Name().String()})
-		if err != nil {
-			sub.Stop()
-			delete(c.subAndCallbackByID, sub.ID())
-			return uuid.Nil, errors.Wrap(ErrOnTrack, err.Error())
-		}
-	}
-	return sub.ID(), nil
-}
-
-func (c *client) Unsubscribe(ctx context.Context, id StreamSubscriptionID) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	strIds := []string{}
-	for _, id := range maps.Keys(c.subAndCallbackByID) {
-		strIds = append(strIds, id.String())
-	}
-	slices.Sort(strIds)
-	c.logger.Infof("Unsubscribe BEGIN called on %s, len(c.subAndCBByID): %d, strIds: %#v", c.Name(), len(c.subAndCallbackByID), strIds)
-	defer func() {
-		strIds := []string{}
-		for _, id := range maps.Keys(c.subAndCallbackByID) {
-			strIds = append(strIds, id.String())
-		}
-		slices.Sort(strIds)
-		c.logger.Infof("Unsubscribe END called on %s, len(c.subAndCBByID): %d, strIds: %#v", c.Name(), len(c.subAndCallbackByID), strIds)
-	}()
-	if c.conn.PeerConn() == nil {
-		return ErrNoPeerConnection
-	}
-	sc, ok := c.conn.(*rdkgrpc.SharedConn)
-	if !ok {
-		return ErrNoSharedPeerConnection
-	}
-	subAndCB, ok := c.subAndCallbackByID[id]
-	if !ok {
-		return errors.New("unknown StreamSubscriptionID")
-	}
-
-	_, err := c.streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: c.Name().String()})
-	if err != nil {
-		return err
-	}
-	subAndCB.sub.Stop()
-	delete(c.subAndCallbackByID, id)
-	if len(c.subAndCallbackByID) == 0 {
-		sc.RemoveOnTrackSub(c.Name())
-	}
-	return nil
-}
-
-func (c *client) unsubscribeAll() error {
-	c.logger.Info("unsubscribeAll")
-	var errAgg error
-	for id, subAndCB := range c.subAndCallbackByID {
-		timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), closeRemoveStreamTimeout)
-		_, err := c.streamClient.RemoveStream(timeoutCtx, &streampb.RemoveStreamRequest{Name: c.Name().String()})
-		timeoutCancel()
-		if err != nil {
-			errAgg = multierr.Combine(errAgg, errors.Wrapf(err, "error calling RemoveStream with name: %s", c.Name()))
-		}
-		subAndCB.sub.Stop()
-		delete(c.subAndCallbackByID, id)
-	}
-	return errAgg
 }
 
 func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
@@ -511,6 +352,8 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 // We will call `Close` on the camera client when we detect the disconnection to remove
 // active streams but then reuse the client when the connection is re-established.
 func (c *client) Close(ctx context.Context) error {
+	_, span := trace.StartSpan(ctx, "camera::client::Close")
+	defer span.End()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	defer c.activeBackgroundWorkers.Wait()
@@ -521,8 +364,169 @@ func (c *client) Close(ctx context.Context) error {
 	c.healthyClientCh = nil
 
 	if err := c.unsubscribeAll(); err != nil {
-		c.logger.Debugw("Close > unsubscribeAll", "err", err)
+		c.logger.Error("Close > unsubscribeAll", "err", err)
 		return err
 	}
 	return nil
+}
+
+func (c *client) VideoCodecStreamSource(ctx context.Context) (VideoCodecStreamSource, error) {
+	_, ok := c.conn.(*rdkgrpc.SharedConn)
+	if c.conn.PeerConn() != nil && ok {
+		return c, nil
+	}
+
+	return nil, errors.New("no WebRTC peer connection")
+}
+
+func (c *client) SubscribeRTP(ctx context.Context, bufferSize int, packetsCB PacketCallback) (StreamSubscriptionID, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::client::SubscribeRTP")
+	defer span.End()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	sub, err := NewStreamSubscription(bufferSize)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	if c.conn.PeerConn() == nil {
+		return uuid.Nil, ErrNoPeerConnection
+	}
+
+	sc, ok := c.conn.(*rdkgrpc.SharedConn)
+	if !ok {
+		return uuid.Nil, ErrNoSharedPeerConnection
+	}
+
+	if len(c.subAndCallbackByID) == 0 {
+		c.subAndCallbackByID[sub.ID()] = subAndCallback{
+			cb:  func(p *rtp.Packet) error { return packetsCB([]*rtp.Packet{p}) },
+			sub: sub,
+		}
+
+		sub.Start()
+
+		sc.AddOnTrackSub(c.Name(), c.addOnTrackSubFunc)
+
+		// TODO: Fix this context
+		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: c.Name().String()}); err != nil {
+			sub.Stop()
+			delete(c.subAndCallbackByID, sub.ID())
+			return uuid.Nil, errors.Wrap(ErrOnTrack, err.Error())
+		}
+	}
+	return sub.ID(), nil
+}
+
+func (c *client) addOnTrackSubFunc(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.logger.Info("addOnTrackSubFunc called")
+	if c.Name().String() != tr.StreamID() {
+		c.logger.Warnf("%s: SubscribeRTP: PeerConn().OnTrack: tr.StreamID() == %s", c.Name(), tr.StreamID())
+		return
+	}
+
+	c.activeBackgroundWorkers.Add(1)
+	goutils.ManagedGo(func() {
+		defer func() {
+			if err := c.unsubscribeAll(); err != nil {
+				c.logger.Errorw("unsubscribeAll", "err", err)
+			}
+		}()
+		for {
+			pkt, _, err := tr.ReadRTP()
+			if err != nil {
+				c.logger.Infof("ReadRTP got an error: %s", err.Error())
+				if errors.Is(err, io.EOF) {
+					c.logger.Error(err.Error())
+				}
+				return
+			}
+
+			c.mu.Lock()
+			if len(c.subAndCallbackByID) == 0 {
+				c.mu.Unlock()
+				c.logger.Info("OnTrack spawned function terminating as len(c.subs) == 0")
+				return
+			}
+
+			for _, subAndCB := range c.subAndCallbackByID {
+				if err := subAndCB.sub.Publish(func() error { return subAndCB.cb(pkt) }); err != nil {
+					c.logger.Info("RTP packet dropped due to %s", err.Error())
+				}
+			}
+			c.mu.Unlock()
+		}
+	}, c.activeBackgroundWorkers.Done)
+}
+
+func (c *client) Unsubscribe(ctx context.Context, id StreamSubscriptionID) error {
+	ctx, span := trace.StartSpan(ctx, "camera::client::Unsubscribe")
+	defer span.End()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.conn.PeerConn() == nil {
+		return ErrNoPeerConnection
+	}
+
+	sc, ok := c.conn.(*rdkgrpc.SharedConn)
+	if !ok {
+		return ErrNoSharedPeerConnection
+	}
+
+	subAndCB, ok := c.subAndCallbackByID[id]
+	if !ok {
+		return fmt.Errorf("unknown StreamSubscriptionID %s", id)
+	}
+
+	if _, err := c.streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: c.Name().String()}); err != nil {
+		return err
+	}
+
+	subAndCB.sub.Stop()
+	delete(c.subAndCallbackByID, id)
+
+	if len(c.subAndCallbackByID) == 0 {
+		sc.RemoveOnTrackSub(c.Name())
+	}
+
+	return nil
+}
+
+func (c *client) unsubscribeAll() error {
+	c.logger.Info("unsubscribeAll")
+	var errAgg error
+	for id, subAndCB := range c.subAndCallbackByID {
+		timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), closeRemoveStreamTimeout)
+		_, err := c.streamClient.RemoveStream(timeoutCtx, &streampb.RemoveStreamRequest{Name: c.Name().String()})
+		timeoutCancel()
+		if err != nil {
+			errAgg = multierr.Combine(errAgg, errors.Wrapf(err, "error calling RemoveStream with name: %s", c.Name()))
+		}
+		subAndCB.sub.Stop()
+		delete(c.subAndCallbackByID, id)
+	}
+	return errAgg
+}
+
+func (s subAndCallbackByID) String() string {
+	if len(s) == 0 {
+		return "len: 0"
+	}
+	strIds := []string{}
+	strIdsToCB := map[string]subAndCallback{}
+	for id, cb := range s {
+		strID := id.String()
+		strIds = append(strIds, strID)
+		strIdsToCB[strID] = cb
+	}
+	slices.Sort(strIds)
+	ret := fmt.Sprintf("len: %d, ", len(s))
+	for _, strID := range strIds {
+		ret += fmt.Sprintf("%s: %v, ", strID, strIdsToCB[strID])
+	}
+	return ret
 }
