@@ -17,28 +17,65 @@ import (
 )
 
 const (
-	datasetDirectory    = "slam/mock_lidar/%d.pcd"
 	validSource         = "source"
 	validRobotID        = "robot_id"
 	validOrganizationID = "organization_id"
 	validLocationID     = "location_id"
 	validAPIKey         = "a key"
 	validAPIKeyID       = "a key id"
-	numPCDFilesOriginal = 15
+)
+
+type fileType string
+
+const (
+	pcd   fileType = ".pcd"
+	jpeg  fileType = ".jpeg"
+	depth fileType = ".dep"
+)
+
+type cameraType int64
+
+const (
+	unspecifiedCamera cameraType = iota
+	lidar
+	monoCamera
+	rgbdCamera
 )
 
 var (
-	numPCDFiles       = numPCDFilesOriginal
 	batchSize0        = uint64(0)
 	batchSize1        = uint64(1)
 	batchSize2        = uint64(2)
 	batchSize3        = uint64(3)
 	batchSize4        = uint64(4)
+	batchSize7        = uint64(7)
 	batchSizeLarge    = uint64(50)
 	batchSizeTooLarge = uint64(1000)
+
+	datasetDirectories = map[method]map[fileType]string{
+		nextPointCloud: {
+			pcd: "slam/mock_lidar/%d.pcd",
+		},
+		getImages: {
+			jpeg:  "slam/mock_rgbd/rgb/%d.jpeg",
+			depth: "slam/mock_rgbd/depth/%d.dep",
+		},
+	}
+
+	currentRGBDFileType = jpeg
+
+	numFilesOriginal = map[method]int{
+		nextPointCloud: 15,
+		getImages:      26,
+	}
+
+	numFiles = map[method]int{
+		nextPointCloud: numFilesOriginal[nextPointCloud],
+		getImages:      numFilesOriginal[getImages],
+	}
 )
 
-func TestReplayPCDNew(t *testing.T) {
+func TestNewReplayCamera(t *testing.T) {
 	ctx := context.Background()
 
 	cases := []struct {
@@ -108,7 +145,7 @@ func TestReplayPCDNew(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
-			replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, tt.cfg, tt.validCloudConnection)
+			replayCamera, _, serverClose, err := createNewReplayCamera(ctx, t, tt.cfg, tt.validCloudConnection, unspecifiedCamera)
 			if err != nil {
 				test.That(t, err, test.ShouldBeError, tt.expectedErr)
 				test.That(t, replayCamera, test.ShouldBeNil)
@@ -127,7 +164,7 @@ func TestReplayPCDNew(t *testing.T) {
 	}
 }
 
-func TestReplayPCDNextPointCloud(t *testing.T) {
+func TestReplayCameraNextPointCloud(t *testing.T) {
 	ctx := context.Background()
 
 	cases := []struct {
@@ -147,7 +184,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				APIKeyID:       validAPIKeyID,
 			},
 			startFileNum: 0,
-			endFileNum:   numPCDFiles,
+			endFileNum:   numFiles[nextPointCloud],
 		},
 		{
 			description: "Calling NextPointCloud with bad source",
@@ -251,7 +288,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				},
 			},
 			startFileNum: 5,
-			endFileNum:   numPCDFiles,
+			endFileNum:   numFiles[nextPointCloud],
 		},
 		{
 			description: "Calling NextPointCloud with start and end filter",
@@ -283,7 +320,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				BatchSize:      &batchSize2,
 			},
 			startFileNum: 0,
-			endFileNum:   numPCDFiles,
+			endFileNum:   numFiles[nextPointCloud],
 		},
 		{
 			description: "Calling NextPointCloud with non-divisible batch size, last batch > 1",
@@ -297,7 +334,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				APIKeyID:       validAPIKeyID,
 			},
 			startFileNum: 0,
-			endFileNum:   numPCDFiles,
+			endFileNum:   numFiles[nextPointCloud],
 		},
 		{
 			description: "Calling NextPointCloud with divisible batch size",
@@ -311,7 +348,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				APIKeyID:       validAPIKeyID,
 			},
 			startFileNum: 0,
-			endFileNum:   numPCDFiles,
+			endFileNum:   numFiles[nextPointCloud],
 		},
 		{
 			description: "Calling NextPointCloud with batching and a start and end filter",
@@ -343,13 +380,13 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				APIKeyID:       validAPIKeyID,
 			},
 			startFileNum: 0,
-			endFileNum:   numPCDFiles,
+			endFileNum:   numFiles[nextPointCloud],
 		},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
-			replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, tt.cfg, true)
+			replayCamera, _, serverClose, err := createNewReplayCamera(ctx, t, tt.cfg, true, lidar)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, replayCamera, test.ShouldNotBeNil)
 
@@ -358,7 +395,7 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				for i := tt.startFileNum; i < tt.endFileNum; i++ {
 					pc, err := replayCamera.NextPointCloud(ctx)
 					test.That(t, err, test.ShouldBeNil)
-					pcExpected, err := getPointCloudFromArtifact(i)
+					pcExpected, err := getPointCloudFromArtifact(i, lidar)
 					if err != nil {
 						test.That(t, err.Error, test.ShouldContainSubstring, "artifact not found")
 						test.That(t, pc, test.ShouldBeNil)
@@ -383,14 +420,280 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 	}
 }
 
-// TestLiveNextPointCloud checks the replay pcd camera's ability to handle new data being added to the
-// database the pool during a session, proving that NextPointCloud can return new data even after
-// returning errEndOfDataset.
-func TestReplayPCDLiveNextPointCloud(t *testing.T) {
+func TestReplayCameraImages(t *testing.T) {
 	ctx := context.Background()
 
-	numPCDFiles = 10
-	defer func() { numPCDFiles = numPCDFilesOriginal }()
+	cases := []struct {
+		description  string
+		cfg          *Config
+		startFileNum int
+		endFileNum   int
+	}{
+		{
+			description: "Calling Images no filter",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
+			},
+			startFileNum: 0,
+			endFileNum:   numFiles[getImages],
+		},
+		{
+			description: "Calling Images with bad source",
+			cfg: &Config{
+				Source:         "bad_source",
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
+			},
+			startFileNum: -1,
+			endFileNum:   -1,
+		},
+		{
+			description: "Calling Images with bad robot_id",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        "bad_robot_id",
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
+			},
+			startFileNum: -1,
+			endFileNum:   -1,
+		},
+		{
+			description: "Calling Images with bad location_id",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     "bad_location_id",
+				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
+			},
+			startFileNum: -1,
+			endFileNum:   -1,
+		},
+		{
+			description: "Calling Images with bad organization_id",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: "bad_organization_id",
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
+			},
+			startFileNum: -1,
+			endFileNum:   -1,
+		},
+		{
+			description: "Calling Images with filter no data",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
+				BatchSize:      &batchSize1,
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:30Z",
+					End:   "2000-01-01T12:00:40Z",
+				},
+			},
+			startFileNum: -1,
+			endFileNum:   -1,
+		},
+		{
+			description: "Calling Images with end filter",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
+				BatchSize:      &batchSize1,
+				Interval: TimeInterval{
+					End: "2000-01-01T12:00:10Z",
+				},
+			},
+			startFileNum: 0,
+			endFileNum:   10,
+		},
+		{
+			description: "Calling Images with start filter",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
+				BatchSize:      &batchSize1,
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:05Z",
+				},
+			},
+			startFileNum: 5,
+			endFileNum:   numFiles[getImages],
+		},
+		{
+			description: "Calling Images with start and end filter",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
+				BatchSize:      &batchSize1,
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:05Z",
+					End:   "2000-01-01T12:00:10Z",
+				},
+			},
+			startFileNum: 5,
+			endFileNum:   10,
+		},
+		{
+			description: "Calling Images with non-divisible batch size, last batch size 1",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
+				BatchSize:      &batchSize7,
+			},
+			startFileNum: 0,
+			endFileNum:   numFiles[getImages],
+		},
+		{
+			description: "Calling Images with non-divisible batch size, last batch size 2",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSize3,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
+			},
+			startFileNum: 0,
+			endFileNum:   numFiles[getImages],
+		},
+		{
+			description: "Calling Images with divisible batch size",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSize3,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
+			},
+			startFileNum: 0,
+			endFileNum:   numFiles[getImages],
+		},
+		{
+			description: "Calling Images with batching and a start and end filter",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
+				BatchSize:      &batchSize2,
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:05Z",
+					End:   "2000-01-01T12:00:10Z",
+				},
+			},
+			startFileNum: 5,
+			endFileNum:   11,
+		},
+		{
+			description: "Calling Images with a large batch size",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSizeLarge,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
+			},
+			startFileNum: 0,
+			endFileNum:   numFiles[getImages],
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.description, func(t *testing.T) {
+			for _, camType := range []cameraType{monoCamera, rgbdCamera} {
+				replayCamera, _, serverClose, err := createNewReplayCamera(ctx, t, tt.cfg, true, camType)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, replayCamera, test.ShouldNotBeNil)
+				fmt.Println("")
+				fmt.Println("test description: ", tt.description)
+				fmt.Println("")
+
+				// Iterate through all files that meet the provided filter
+				if tt.startFileNum != -1 {
+					for i := tt.startFileNum; i < tt.endFileNum; i++ {
+						fmt.Println("")
+						fmt.Println("file number: ", i)
+						images, _, err := replayCamera.Images(ctx)
+						fmt.Println("images error: ", err)
+						fmt.Println("")
+						test.That(t, err, test.ShouldBeNil)
+						_, err = getImagesFromArtifact(i, camType)
+						if err != nil {
+							test.That(t, err.Error, test.ShouldContainSubstring, "artifact not found")
+							test.That(t, images, test.ShouldBeNil)
+						} else {
+							test.That(t, err, test.ShouldBeNil)
+							// test.That(t, images, test.ShouldResemble, imagesExpected)
+						}
+					}
+				}
+
+				// Confirm the end of the dataset was reached when expected
+				images, _, err := replayCamera.Images(ctx)
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
+				test.That(t, images, test.ShouldBeNil)
+
+				err = replayCamera.Close(ctx)
+				test.That(t, err, test.ShouldBeNil)
+
+				test.That(t, serverClose(), test.ShouldBeNil)
+
+			}
+		})
+	}
+}
+
+// TestReplayCameraLiveNextPointCloud checks the replay pcd camera's ability to handle new data being
+// added to the database the pool during a session, proving that NextPointCloud can return new data
+// even after returning errEndOfDataset.
+func TestReplayCameraLiveNextPointCloud(t *testing.T) {
+	ctx := context.Background()
+
+	numFiles[nextPointCloud] = 10
+	defer func() { numFiles[nextPointCloud] = numFilesOriginal[nextPointCloud] }()
 
 	cfg := &Config{
 		Source:         validSource,
@@ -401,7 +704,7 @@ func TestReplayPCDLiveNextPointCloud(t *testing.T) {
 		APIKeyID:       validAPIKeyID,
 	}
 
-	replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
+	replayCamera, _, serverClose, err := createNewReplayCamera(ctx, t, cfg, true, lidar)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, replayCamera, test.ShouldNotBeNil)
 
@@ -409,19 +712,19 @@ func TestReplayPCDLiveNextPointCloud(t *testing.T) {
 	i := 0
 	for {
 		pc, err := replayCamera.NextPointCloud(ctx)
-		if i == numPCDFiles {
+		if i == numFiles[nextPointCloud] {
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 			test.That(t, pc, test.ShouldBeNil)
 
 			// Add new files for future processing
-			numPCDFiles += rand.Intn(3)
+			numFiles[nextPointCloud] += rand.Intn(3)
 
-			if numPCDFiles >= numPCDFilesOriginal {
+			if numFiles[nextPointCloud] >= numFilesOriginal[nextPointCloud] {
 				break
 			}
 		} else {
-			pcExpected, err := getPointCloudFromArtifact(i)
+			pcExpected, err := getPointCloudFromArtifact(i, lidar)
 			if err != nil {
 				test.That(t, err.Error, test.ShouldContainSubstring, "artifact not found")
 				test.That(t, pc, test.ShouldBeNil)
@@ -439,7 +742,7 @@ func TestReplayPCDLiveNextPointCloud(t *testing.T) {
 	test.That(t, serverClose(), test.ShouldBeNil)
 }
 
-func TestReplayPCDConfigValidation(t *testing.T) {
+func TestReplayCameraConfigValidation(t *testing.T) {
 	cases := []struct {
 		description  string
 		cfg          *Config
@@ -648,7 +951,7 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 	}
 }
 
-func TestReplayPCDUnimplementedFunctions(t *testing.T) {
+func TestReplayCameraUnimplementedFunctions(t *testing.T) {
 	ctx := context.Background()
 
 	replayCamCfg := &Config{
@@ -657,7 +960,7 @@ func TestReplayPCDUnimplementedFunctions(t *testing.T) {
 		LocationID:     validLocationID,
 		OrganizationID: validOrganizationID,
 	}
-	replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
+	replayCamera, _, serverClose, err := createNewReplayCamera(ctx, t, replayCamCfg, true, lidar)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("Stream", func(t *testing.T) {
@@ -676,21 +979,22 @@ func TestReplayPCDUnimplementedFunctions(t *testing.T) {
 	test.That(t, serverClose(), test.ShouldBeNil)
 }
 
-func TestReplayPCDTimestamps(t *testing.T) {
+func TestReplayCameraTimestamps(t *testing.T) {
 	testCameraWithCfg := func(cfg *Config) {
 		// Construct replay camera.
 		ctx := context.Background()
-		replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
+		camType := lidar
+		replayCamera, _, serverClose, err := createNewReplayCamera(ctx, t, cfg, true, camType)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, replayCamera, test.ShouldNotBeNil)
 
 		// Repeatedly call NextPointCloud, checking for timestamps in the gRPC header.
-		for i := 0; i < numPCDFiles; i++ {
+		for i := 0; i < numFiles[nextPointCloud]; i++ {
 			serverStream := testutils.NewServerTransportStream()
 			ctx = grpc.NewContextWithServerTransportStream(ctx, serverStream)
 			pc, err := replayCamera.NextPointCloud(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			pcExpected, err := getPointCloudFromArtifact(i)
+			pcExpected, err := getPointCloudFromArtifact(i, camType)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, pc, test.ShouldResemble, pcExpected)
 
@@ -737,7 +1041,7 @@ func TestReplayPCDTimestamps(t *testing.T) {
 	})
 }
 
-func TestReplayPCDProperties(t *testing.T) {
+func TestReplayCameraProperties(t *testing.T) {
 	// Construct replay camera.
 	ctx := context.Background()
 	cfg := &Config{
@@ -747,7 +1051,8 @@ func TestReplayPCDProperties(t *testing.T) {
 		OrganizationID: validOrganizationID,
 		BatchSize:      &batchSize1,
 	}
-	replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
+	camType := lidar
+	replayCamera, _, serverClose, err := createNewReplayCamera(ctx, t, cfg, true, camType)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, replayCamera, test.ShouldNotBeNil)
 
@@ -761,7 +1066,7 @@ func TestReplayPCDProperties(t *testing.T) {
 	test.That(t, serverClose(), test.ShouldBeNil)
 }
 
-func TestReplayPCDReconfigure(t *testing.T) {
+func TestReplayCameraReconfigure(t *testing.T) {
 	// Construct replay camera
 	cfg := &Config{
 		Source:         validSource,
@@ -769,8 +1074,9 @@ func TestReplayPCDReconfigure(t *testing.T) {
 		LocationID:     validLocationID,
 		OrganizationID: validOrganizationID,
 	}
+	camType := lidar
 	ctx := context.Background()
-	replayCamera, deps, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
+	replayCamera, deps, serverClose, err := createNewReplayCamera(ctx, t, cfg, true, camType)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, replayCamera, test.ShouldNotBeNil)
 
@@ -778,7 +1084,7 @@ func TestReplayPCDReconfigure(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		pc, err := replayCamera.NextPointCloud(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		pcExpected, err := getPointCloudFromArtifact(i)
+		pcExpected, err := getPointCloudFromArtifact(i, camType)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pc, test.ShouldResemble, pcExpected)
 	}
@@ -792,7 +1098,7 @@ func TestReplayPCDReconfigure(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		pc, err := replayCamera.NextPointCloud(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		pcExpected, err := getPointCloudFromArtifact(i)
+		pcExpected, err := getPointCloudFromArtifact(i, camType)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pc, test.ShouldResemble, pcExpected)
 	}
@@ -802,10 +1108,10 @@ func TestReplayPCDReconfigure(t *testing.T) {
 	replayCamera.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 
 	// Again verify dataset starts from beginning
-	for i := 0; i < numPCDFiles; i++ {
+	for i := 0; i < numFiles[nextPointCloud]; i++ {
 		pc, err := replayCamera.NextPointCloud(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		pcExpected, err := getPointCloudFromArtifact(i)
+		pcExpected, err := getPointCloudFromArtifact(i, camType)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pc, test.ShouldResemble, pcExpected)
 	}

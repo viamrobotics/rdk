@@ -51896,6 +51896,220 @@
         }
       }
     },
+    "mock_rgbd": {
+      "depth": {
+        "0.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "1.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "2.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "3.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "4.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "5.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "6.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "7.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "8.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "9.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "10.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "11.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "12.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "13.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "14.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "15.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "16.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "17.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "18.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "19.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "20.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "21.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "22.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "23.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "24.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        },
+        "25.dep": {
+          "hash": "797a6361e2ec0345eb830f4121423ec7",
+          "size": 614424
+        }
+      },
+      "rgb": {
+        "0.jpeg": {
+          "hash": "c777bcbcbcf170e1efca1b0d8e502ea6",
+          "size": 11661
+        },
+        "1.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "2.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "3.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "4.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "5.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "6.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "7.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "8.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "9.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "10.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "11.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "12.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "13.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "14.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "15.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "16.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "17.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "18.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "19.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "20.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "21.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "22.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "23.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "24.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        },
+        "25.jpeg": {
+          "hash": "246474c9311efbb073fe8518533dfb67",
+          "size": 11701
+        }
+      }
+    },
     "pose_graph.lua": {
       "hash": "044fb62892d992182a126b76834797cc",
       "size": 3100
