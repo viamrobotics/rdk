@@ -20,6 +20,7 @@ import (
 type Plan interface {
 	Trajectory() Trajectory
 	Path() Path
+	Segments() Segments
 }
 
 // RemainingPlan returns a new Plan equal to the given plan from the waypointIndex onwards.
@@ -191,6 +192,8 @@ func (ps PathStep) ToProto() *pb.PlanStep {
 	return &pb.PlanStep{Step: step}
 }
 
+type Segments []map[string]ik.Segment
+
 // PathStepFromProto converts a *pb.PlanStep to a PlanStep.
 func PathStepFromProto(ps *pb.PlanStep) (PathStep, error) {
 	if ps == nil {
@@ -249,4 +252,21 @@ func (plan *SimplePlan) Path() Path {
 // Trajectory returns the Trajectory associated with the Plan.
 func (plan *SimplePlan) Trajectory() Trajectory {
 	return plan.traj
+}
+
+// Segments returns the Segments associated with the Plan.
+func (plan *SimplePlan) Segments() Segments {
+	segs := Segments{}
+	var lastStep map[string][]referenceframe.Input
+	var lastPath PathStep
+	for i, step := range plan.traj {
+		path := plan.path[i]
+		if i == 0 {
+			lastStep = step
+			lastPath = path
+			continue
+		}
+		thisSeg := map[string]ik.Segment{}
+		for k, v := range step {
+			
 }

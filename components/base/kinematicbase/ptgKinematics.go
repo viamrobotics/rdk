@@ -34,7 +34,7 @@ type ptgBaseKinematics struct {
 	logger                 logging.Logger
 	frame                  referenceframe.Frame
 	ptgs                   []tpspace.PTGSolver
-	courseCorrectionSolver tpspace.PTGSolver
+	courseCorrectionIdx    int
 
 	linVelocityMMPerSecond         float64
 	angVelocityDegsPerSecond       float64
@@ -116,19 +116,20 @@ func wrapWithPTGKinematics(
 	}
 	ptgs := ptgProv.PTGSolvers()
 	origin := spatialmath.NewZeroPose()
-	var courseCorrectionSolver tpspace.PTGSolver
+
+	ptgCourseCorrection, ok := frame.(tpspace.PTGCourseCorrection)
+	if !ok {
+		// Should never happen
+		return nil, errors.New("unable to cast ptgk frame to a PTGCourseCorrection")
+	}
+	courseCorrectionIdx := ptgCourseCorrection.CorrectionSolverIdx()
+
 	if localizer != nil {
 		originPIF, err := localizer.CurrentPosition(ctx)
 		if err != nil {
 			return nil, err
 		}
 		origin = originPIF.Pose()
-
-		cPTG := tpspace.NewCirclePTG(nonzeroBaseTurningRadiusMeters * 1000)
-		courseCorrectionSolver, err = tpspace.NewPTGIK(cPTG, logger, nonzeroBaseTurningRadiusMeters*2000, nonzeroBaseTurningRadiusMeters*2000, 42, 2)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return &ptgBaseKinematics{
@@ -137,7 +138,7 @@ func wrapWithPTGKinematics(
 		logger:                         logger,
 		frame:                          frame,
 		ptgs:                           ptgs,
-		courseCorrectionSolver:         courseCorrectionSolver,
+		courseCorrectionIdx:            courseCorrectionIdx,
 		linVelocityMMPerSecond:         linVelocityMMPerSecond,
 		angVelocityDegsPerSecond:       angVelocityDegsPerSecond,
 		nonzeroBaseTurningRadiusMeters: nonzeroBaseTurningRadiusMeters,
@@ -237,5 +238,9 @@ func correctAngularVelocityWithTurnRadius(logger logging.Logger, turnRadMeters, 
 }
 
 func (ptgk *ptgBaseKinematics) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	return ptgk.geometries, nil
+}
+
+func (ptgk *ptgBaseKinematics) ExecutionStatus() () {
 	return ptgk.geometries, nil
 }

@@ -36,8 +36,9 @@ type ptgFactory func(float64) PTG
 var defaultShortPtgs = []ptgFactory{
 	NewCCPTG,
 	NewCCSPTG,
-	NewCirclePTG,
 }
+
+var defaultCorrectionPtg = NewCirclePTG
 
 // These PTGs curve at the beginning and then have a straight line of arbitrary length, which is allowed to extend to defaultRefDistLong.
 var defaultPTGs = []ptgFactory{
@@ -54,6 +55,7 @@ type ptgGroupFrame struct {
 	solvers            []PTGSolver
 	turnRadMillimeters float64
 	trajCount          int
+	correctionIdx      int
 	logger             logging.Logger
 }
 
@@ -87,6 +89,8 @@ func NewPTGFrameFromKinematicOptions(
 		defaultRefDistShortMin,
 	)
 
+	pf := &ptgGroupFrame{name: name}
+
 	longPtgsToUse := []ptgFactory{}
 	shortPtgsToUse := []ptgFactory{}
 	if canRotateInPlace {
@@ -95,9 +99,13 @@ func NewPTGFrameFromKinematicOptions(
 	if !diffDriveOnly {
 		longPtgsToUse = append(longPtgsToUse, defaultPTGs...)
 		shortPtgsToUse = append(shortPtgsToUse, defaultShortPtgs...)
+		// Use Circle PTG for course correction. Ensure it is last.
+		shortPtgsToUse = append(shortPtgsToUse, defaultCorrectionPtg)
+		pf.correctionIdx = (len(longPtgsToUse)-1) + (len(shortPtgsToUse)-1)
+	} else {
+		// Use diff drive PTG for course correction
+		pf.correctionIdx = 0
 	}
-
-	pf := &ptgGroupFrame{name: name}
 
 	longPtgs := initializePTGs(turnRadMillimeters, longPtgsToUse)
 	longSolvers, err := initializeSolvers(logger, refDistLong, refDistShort, trajCount, longPtgs)
@@ -110,8 +118,7 @@ func NewPTGFrameFromKinematicOptions(
 		return nil, err
 	}
 
-	longSolvers = append(longSolvers, shortSolvers...)
-	pf.solvers = longSolvers
+	pf.solvers = append(longSolvers, shortSolvers...)
 	pf.geometries = geoms
 	pf.turnRadMillimeters = turnRadMillimeters
 	pf.trajCount = trajCount
@@ -124,6 +131,10 @@ func NewPTGFrameFromKinematicOptions(
 	}
 
 	return pf, nil
+}
+
+func (pf *ptgGroupFrame) CorrectionSolverIdx() int {
+	return pf.correctionIdx
 }
 
 func (pf *ptgGroupFrame) DoF() []referenceframe.Limit {

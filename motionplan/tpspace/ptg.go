@@ -44,6 +44,10 @@ type PTG interface {
 	Transform([]referenceframe.Input) (spatialmath.Pose, error)
 }
 
+type PTGCourseCorrection interface {
+	CorrectionSolverIdx() int
+}
+
 // TrajNode is a snapshot of a single point in time along a PTG trajectory, including the distance along that trajectory,
 // the elapsed time along the trajectory, and the linear and angular velocity at that point.
 type TrajNode struct {
