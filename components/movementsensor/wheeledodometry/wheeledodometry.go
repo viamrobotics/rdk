@@ -340,6 +340,10 @@ func (o *odometry) Close(ctx context.Context) error {
 // The estimations in this function are based on the math outlined in this article:
 // https://stuff.mit.edu/afs/athena/course/6/6.186/OldFiles/2005/doc/odomtutorial/odomtutorial.pdf
 func (o *odometry) trackPosition(ctx context.Context) {
+	if o.originCoord == nil {
+		o.originCoord = geo.NewPoint(0, 0)
+	}
+
 	o.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer o.activeBackgroundWorkers.Done()
