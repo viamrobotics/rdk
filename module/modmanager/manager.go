@@ -916,13 +916,13 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 
 	var success, processRestarted bool
 	defer func() {
-		if processRestarted {
-			if err := mod.stopProcess(); err != nil {
-				msg := "Error while stopping process of crashed module"
-				mgr.logger.Errorw(msg, "module", mod.cfg.Name, "error", err)
-			}
-		}
 		if !success {
+			if processRestarted {
+				if err := mod.stopProcess(); err != nil {
+					msg := "Error while stopping process of crashed module"
+					mgr.logger.Errorw(msg, "module", mod.cfg.Name, "error", err)
+				}
+			}
 			mod.cleanupAfterCrash(mgr)
 		}
 	}()
