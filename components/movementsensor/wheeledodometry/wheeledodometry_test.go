@@ -388,7 +388,7 @@ func TestComplicatedPath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, or.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 270, 0.1)
 	test.That(t, pos.Lat(), test.ShouldAlmostEqual, 5, 0.1)
-	test.That(t, pos.Lng(), test.ShouldAlmostEqual, -5, 0.1)
+	test.That(t, pos.Lng(), test.ShouldAlmostEqual, 5, 0.1)
 
 	// spin positive 45 degrees
 	setPositions(-1*(math.Pi/8), 1*(math.Pi/8))
@@ -400,7 +400,7 @@ func TestComplicatedPath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, or.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 315, 0.1)
 	test.That(t, pos.Lat(), test.ShouldAlmostEqual, 5, 0.1)
-	test.That(t, pos.Lng(), test.ShouldAlmostEqual, -5, 0.1)
+	test.That(t, pos.Lng(), test.ShouldAlmostEqual, 5, 0.1)
 
 	// move forward 2 m
 	setPositions(2, 2)
@@ -412,7 +412,7 @@ func TestComplicatedPath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, or.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 315, 0.1)
 	test.That(t, pos.Lat(), test.ShouldAlmostEqual, 6.4, 0.1)
-	test.That(t, pos.Lng(), test.ShouldAlmostEqual, -6.4, 0.1)
+	test.That(t, pos.Lng(), test.ShouldAlmostEqual, 6.4, 0.1)
 
 	// travel in an arc
 	setPositions(1*(math.Pi/4), 2*(math.Pi/4))
@@ -424,7 +424,7 @@ func TestComplicatedPath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, or.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 0, 0.1)
 	test.That(t, pos.Lat(), test.ShouldAlmostEqual, 7.6, 0.1)
-	test.That(t, pos.Lng(), test.ShouldAlmostEqual, -6.4, 0.1)
+	test.That(t, pos.Lng(), test.ShouldAlmostEqual, 6.4, 0.1)
 }
 
 func TestVelocities(t *testing.T) {
