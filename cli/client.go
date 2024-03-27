@@ -45,7 +45,9 @@ import (
 )
 
 const (
-	rdkReleaseURL = "https://api.github.com/repos/viamrobotics/rdk/releases/latest"
+	rdkReleaseURL  = "https://api.github.com/repos/viamrobotics/rdk/releases/latest"
+	defaultNumLogs = 100
+	maxNumLogs     = 10000
 )
 
 // viamClient wraps a cli.Context and provides all the CLI command functionality
@@ -213,6 +215,22 @@ func RobotsStatusAction(c *cli.Context) error {
 	return nil
 }
 
+func getNumLogs(c *cli.Context) int {
+	numLogs := c.Int(logsFlagCount)
+	if numLogs < 0 {
+		warningf(c.App.ErrWriter, "Provided negative %q value. Defaulting to %d", logsFlagCount, defaultNumLogs)
+		return defaultNumLogs
+	}
+	if numLogs == 0 {
+		return defaultNumLogs
+	}
+	if numLogs > maxNumLogs {
+		warningf(c.App.ErrWriter, "Provided too high of a %q value. Defaulting to %d", logsFlagCount, maxNumLogs)
+		return maxNumLogs
+	}
+	return numLogs
+}
+
 // RobotsLogsAction is the corresponding Action for 'machines logs'.
 func RobotsLogsAction(c *cli.Context) error {
 	client, err := newViamClient(c)
@@ -249,6 +267,7 @@ func RobotsLogsAction(c *cli.Context) error {
 			c.Bool(logsFlagErrors),
 			"\t",
 			header,
+			getNumLogs(c),
 		); err != nil {
 			return errors.Wrap(err, "could not print machine logs")
 		}
@@ -329,6 +348,7 @@ func RobotsPartLogsAction(c *cli.Context) error {
 		c.Bool(logsFlagErrors),
 		"",
 		header,
+		getNumLogs(c),
 	)
 }
 
@@ -906,20 +926,36 @@ func (c *viamClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb
 	return nil, errors.Errorf("no machine part found for machine: %q part: %q", robotStr, partStr)
 }
 
-func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool) ([]*commonpb.LogEntry, error) {
+func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool,
+	numLogs int,
+) ([]*commonpb.LogEntry, error) {
 	part, err := c.robotPart(orgStr, locStr, robotStr, partStr)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
-		Id:         part.Id,
-		ErrorsOnly: errorsOnly,
-	})
-	if err != nil {
-		return nil, err
+
+	// Use page tokens to get batches of 100 up to numLogs and throw away any
+	// extra logs in last batch.
+	var logs []*commonpb.LogEntry
+	var pageToken string
+	for i := 0; i < numLogs; i += 100 {
+		resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
+			Id:         part.Id,
+			ErrorsOnly: errorsOnly,
+			PageToken:  &pageToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		pageToken = resp.NextPageToken
+		if remainder := numLogs - i; remainder < 100 {
+			resp.Logs = resp.Logs[remainder:]
+		}
+		logs = append(logs, resp.Logs...)
 	}
 
-	return resp.Logs, nil
+	return logs, nil
 }
 
 func (c *viamClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.RobotPart, error) {
@@ -962,8 +998,10 @@ func (c *viamClient) printRobotPartLogsInner(logs []*commonpb.LogEntry, indent s
 	}
 }
 
-func (c *viamClient) printRobotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool, indent, header string) error {
-	logs, err := c.robotPartLogs(orgStr, locStr, robotStr, partStr, errorsOnly)
+func (c *viamClient) printRobotPartLogs(orgStr, locStr, robotStr, partStr string,
+	errorsOnly bool, indent, header string, numLogs int,
+) error {
+	logs, err := c.robotPartLogs(orgStr, locStr, robotStr, partStr, errorsOnly, numLogs)
 	if err != nil {
 		return err
 	}
