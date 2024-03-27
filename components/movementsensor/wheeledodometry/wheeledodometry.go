@@ -31,9 +31,11 @@ const (
 	returnRelative           = "return_relative_pos_m"
 	setLong                  = "setLong"
 	setLat                   = "setLat"
-	useOri                   = "use_orientation"
+	useCompass               = "use_compass"
 	shiftPos                 = "shift_position"
-	resetShift               = "reset_shift"
+	resetShift               = "reset"
+	moveX                    = "moveX"
+	moveY                    = "moveY"
 )
 
 // Config is the config for a wheeledodometry MovementSensor.
@@ -66,11 +68,10 @@ type odometry struct {
 	position        r3.Vector
 	orientation     spatialmath.EulerAngles
 	coord           *geo.Point
+	originCoord     *geo.Point
 
-	useOri   bool
-	shiftPos bool
-	shiftX   float64
-	shiftY   float64
+	useCompass bool
+	shiftPos   bool
 
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
@@ -211,6 +212,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	}
 
 	o.orientation.Yaw = 0
+	o.originCoord = geo.NewPoint(0, 0)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	o.cancelFunc = cancelFunc
 	o.trackPosition(ctx)
@@ -229,6 +231,7 @@ func newWheeledOdometry(
 		Named:        conf.ResourceName().AsNamed(),
 		lastLeftPos:  0.0,
 		lastRightPos: 0.0,
+		originCoord:  geo.NewPoint(0, 0),
 		logger:       logger,
 	}
 
@@ -260,19 +263,20 @@ func (o *odometry) CompassHeading(ctx context.Context, extra map[string]interfac
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	if o.useOri {
+	if o.useCompass {
 		return yawToCompassHeading(o.orientation.Yaw), nil
 	}
 
 	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
 
+// computes the compass heading in degrees from a yaw in radians, with 0 -> 360 and Z down.
 func yawToCompassHeading(yaw float64) float64 {
 	yawDeg := rdkutils.RadToDeg(yaw)
 	if yawDeg < 0 {
-		return 180 - yawDeg
+		yawDeg = 180 - yawDeg
 	}
-	return yawDeg
+	return 360 - yawDeg
 }
 
 func (o *odometry) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
@@ -321,7 +325,7 @@ func (o *odometry) Properties(ctx context.Context, extra map[string]interface{})
 		AngularVelocitySupported: true,
 		OrientationSupported:     true,
 		PositionSupported:        true,
-		CompassHeadingSupported:  o.useOri,
+		CompassHeadingSupported:  o.useCompass,
 	}, nil
 }
 
@@ -336,7 +340,9 @@ func (o *odometry) Close(ctx context.Context) error {
 // The estimations in this function are based on the math outlined in this article:
 // https://stuff.mit.edu/afs/athena/course/6/6.186/OldFiles/2005/doc/odomtutorial/odomtutorial.pdf
 func (o *odometry) trackPosition(ctx context.Context) {
-	geoOrigin := geo.NewPoint(0, 0)
+	if o.originCoord == nil {
+		o.originCoord = geo.NewPoint(0, 0)
+	}
 
 	o.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -403,14 +409,18 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			// Limit the yaw to a range of positive 0 to 360 degrees.
 			o.orientation.Yaw = math.Mod(o.orientation.Yaw, oneTurn)
 			o.orientation.Yaw = math.Mod(o.orientation.Yaw+oneTurn, oneTurn)
-
-			// Calculate X and Y by using centerDist and the current orientation yaw (theta).
-			o.position.X += (centerDist * math.Sin(o.orientation.Yaw))
-			o.position.Y += (centerDist * math.Cos(o.orientation.Yaw))
+			angle := o.orientation.Yaw
+			xFlip := -1.0
+			if o.useCompass {
+				angle = rdkutils.DegToRad(yawToCompassHeading(o.orientation.Yaw))
+				xFlip = 1.0
+			}
+			o.position.X += xFlip * (centerDist * math.Sin(angle))
+			o.position.Y += (centerDist * math.Cos(angle))
 
 			distance := math.Hypot(o.position.X, o.position.Y)
 			heading := rdkutils.RadToDeg(math.Atan2(o.position.X, o.position.Y))
-			o.coord = geoOrigin.PointAtDistanceAndBearing(distance*mToKm, heading)
+			o.coord = o.originCoord.PointAtDistanceAndBearing(distance*mToKm, heading)
 
 			// Update the linear and angular velocity values using the provided time interval.
 			o.linearVelocity.Y = centerDist / (o.timeIntervalMSecs / 1000)
@@ -428,57 +438,45 @@ func (o *odometry) DoCommand(ctx context.Context,
 
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	cmd, ok := req[useOri].(bool)
+	cmd, ok := req[useCompass].(bool)
 	if ok {
-		o.useOri = cmd
-		resp[useOri] = fmt.Sprintf("using orientation as compass heading set to %v", cmd)
+		o.useCompass = cmd
+		resp[useCompass] = fmt.Sprintf("using orientation as compass heading set to %v", cmd)
 	}
 
 	reset, ok := req[resetShift].(bool)
 	if ok {
-		if o.shiftPos {
-			o.position.X -= o.shiftX
-			o.position.Y -= o.shiftY
-		}
 		o.shiftPos = reset
-		o.shiftX = 0
-		o.shiftY = 0
-		resp[resetShift] = fmt.Sprintf("resetting position and setting shift to %v", reset)
-	}
-	shift, ok := req[shiftPos].(bool)
-	if ok {
-		o.shiftPos = shift
-		if shift {
-			o.position.X += o.shiftX
-			o.position.Y += o.shiftY
-		} else {
-			o.position.X -= o.shiftX
-			o.position.Y -= o.shiftY
-		}
+		o.originCoord = geo.NewPoint(0, 0)
+		o.position.X = 0
+		o.position.Y = 0
+		o.orientation.Yaw = 0
 
-		resp[shiftPos] = fmt.Sprintf("using setting position shift to %v", shift)
+		resp[resetShift] = fmt.Sprintf("resetting position and setting shift to %v", reset)
 	}
 	lat, okY := req[setLat].(float64)
 	long, okX := req[setLong].(float64)
 	if okY && okX {
-		geoOrigin := geo.NewPoint(0, 0)
-		shiftGeo := geo.NewPoint(lat, long)
-
-		distance := geoOrigin.GreatCircleDistance(shiftGeo) * 1000 // m
-		heading := rdkutils.DegToRad(geoOrigin.BearingTo(shiftGeo))
-		o.position.Y -= o.shiftY
-		o.shiftY = distance * math.Cos(heading)
-		o.position.Y += o.shiftY
-
-		o.position.X -= o.shiftX
-		o.shiftX = distance * math.Sin(heading)
-		o.position.X += o.shiftX
+		o.originCoord = geo.NewPoint(lat, long)
 		o.shiftPos = true
 
-		resp[setLat] = fmt.Sprintf("y position shifted to %v", o.position.Y)
-		resp[setLong] = fmt.Sprintf("x position shifted to %v", o.position.X)
-	} else {
+		resp[setLat] = fmt.Sprintf("lat shifted to %.8f", lat)
+		resp[setLong] = fmt.Sprintf("lng shifted to %.8f", long)
+	} else if okY || okX {
+		// If only one value is given, return an error.
+		// This prevents errors when neither is given.
 		resp["bad shift"] = "need both lat and long shifts"
+	}
+
+	xMove, okX := req[moveX].(float64)
+	yMove, okY := req[moveY].(float64)
+	if okX {
+		o.position.X += xMove
+		resp[moveX] = fmt.Sprintf("x position moved to %.8f", o.position.X)
+	}
+	if okY {
+		o.position.Y += yMove
+		resp[moveY] = fmt.Sprintf("y position shifted to %.8f", o.position.Y)
 	}
 
 	return resp, nil
