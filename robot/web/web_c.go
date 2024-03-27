@@ -276,46 +276,41 @@ func (svc *webService) startVideoStream(
 	waitCh := make(chan struct{})
 	svc.webWorkers.Add(1)
 	utils.ManagedGo(func() {
+		defer svc.logger.Error("NICK!!! Terminating")
 		close(waitCh)
 		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
-		goStreamFunc := func() error {
-			opts := &webstream.BackoffTuningOptions{
-				BaseSleep: 50 * time.Microsecond,
-				MaxSleep:  2 * time.Second,
-				Cooldown:  5 * time.Second,
-			}
-			// Use H264 for cameras that support it; but do not override upstream values.
-			if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
-				streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
-			}
-			err := webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
-			svc.logger.Error("StreamVideoSource err %s", err)
-			return utils.FilterOutError(err, context.Canceled)
-		}
 
+		// Try to use h264 passthrough until it is found that the stream doesn't support it
 		for {
 			if err := svc.streamWhileStreamingReady(streamVideoCtx, stream, svc.logger); err != nil {
 				if errors.Is(err, h264PassthroughNotSupported) {
 					svc.logger.Infof("Stream %s doesn't support h264 passthrough due to: %s", stream.Name(), err)
-					if err := goStreamFunc(); err != nil {
-						svc.logger.Errorw("error streaming", "error", err)
-						return
-					}
-					svc.logger.Errorw("goStreamFunc returned with no error... continueing")
-					continue
+					break
 				}
 
 				if utils.FilterOutError(err, context.Canceled) != nil {
 					svc.logger.Errorw("error streaming", "error", err)
 					return
 				}
-				svc.logger.Debug("stream closed")
+				svc.logger.Info("stream closed due to context cancelled")
 				return
 			}
-			svc.logger.Debug("stream closed")
-			return
 		}
 
+		opts := &webstream.BackoffTuningOptions{
+			BaseSleep: 50 * time.Microsecond,
+			MaxSleep:  2 * time.Second,
+			Cooldown:  5 * time.Second,
+		}
+		// Use H264 for cameras that support it; but do not override upstream values.
+		if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
+			streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
+		}
+
+		err := webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
+		if utils.FilterOutError(err, context.Canceled) != nil {
+			svc.logger.Errorw("error streaming", "error", err)
+		}
 	}, svc.webWorkers.Done)
 	<-waitCh
 }
