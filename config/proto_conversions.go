@@ -909,9 +909,7 @@ func PackageTypeToProto(t PackageType) (*packagespb.PackageType, error) {
 }
 
 func logAnyFragmentOverwriteErrors(logger logging.Logger, overwriteFragmentStatus []*pb.AppValidationStatus) {
-	if overwriteFragmentStatus != nil {
-		for _, status := range overwriteFragmentStatus {
-			logger.Errorw("error in overwriting fragment", "error", status.GetError())
-		}
+	for _, status := range overwriteFragmentStatus {
+		logger.Errorw("error in overwriting fragment", "error", status.GetError())
 	}
 }
