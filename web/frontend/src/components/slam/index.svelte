@@ -104,7 +104,8 @@ const startDurationTimer = (start: number) => {
 const setMappingMode = async () => {
   mappingMode = overrides?.mappingDetails.mode ?? 'undefined';
   if (
-    overrides?.slamModel !== '' &&
+    overrides !== undefined &&
+    overrides.slamModel !== '' &&
     overrides.slamModel !== 'viam:slam:cartographer'
   ) {
     try {
