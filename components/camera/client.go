@@ -385,7 +385,8 @@ func (c *client) SubscribeRTP(ctx context.Context, bufferSize int, packetsCB Pac
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	sub, err := NewStreamSubscription(bufferSize)
+	onError := func(err error) { c.logger.Errorw("StreamSubscription returned hit an error", "err", err) }
+	sub, err := NewStreamSubscription(bufferSize, onError)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -411,7 +412,7 @@ func (c *client) SubscribeRTP(ctx context.Context, bufferSize int, packetsCB Pac
 
 		// TODO: Fix this context
 		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: c.Name().String()}); err != nil {
-			sub.Stop()
+			sub.Close()
 			delete(c.subAndCallbackByID, sub.ID())
 			return uuid.Nil, errors.Wrap(ErrOnTrack, err.Error())
 		}
@@ -486,7 +487,7 @@ func (c *client) Unsubscribe(ctx context.Context, id StreamSubscriptionID) error
 		return err
 	}
 
-	subAndCB.sub.Stop()
+	subAndCB.sub.Close()
 	delete(c.subAndCallbackByID, id)
 
 	if len(c.subAndCallbackByID) == 0 {
@@ -505,7 +506,7 @@ func (c *client) unsubscribeAll() error {
 		if err != nil {
 			errAgg = multierr.Combine(errAgg, errors.Wrapf(err, "error calling RemoveStream with name: %s", c.Name()))
 		}
-		subAndCB.sub.Stop()
+		subAndCB.sub.Close()
 		delete(c.subAndCallbackByID, id)
 	}
 	return errAgg
