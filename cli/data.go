@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -19,6 +21,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	datapb "go.viam.com/api/app/data/v1"
+	"go.viam.com/utils"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -264,7 +269,7 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 
 	return c.performActionOnBinaryDataFromFilter(
 		func(id *datapb.BinaryID) error {
-			return downloadBinary(c.c.Context, c.dataClient, dst, id)
+			return downloadBinary(c.c.Context, c.dataClient, dst, id, c.baseURL)
 		},
 		filter, parallelDownloads,
 		func(i int32) {
@@ -405,7 +410,7 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 	}
 }
 
-func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst string, id *datapb.BinaryID) error {
+func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst string, id *datapb.BinaryID, baseURL *url.URL) error {
 	var resp *datapb.BinaryDataByIDsResponse
 	var err error
 	for count := 0; count < maxRetryCount; count++ {
@@ -413,8 +418,43 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 			BinaryIds:     []*datapb.BinaryID{id},
 			IncludeBinary: true,
 		})
-		if err == nil {
+		// If the file is too large, we can break and try a different pathway
+		if err == nil || status.Code(err) == codes.ResourceExhausted {
 			break
+		}
+	}
+
+	var bin []byte
+	// For large files, we make a request to the file handler in app
+	if status.Code(err) == codes.ResourceExhausted {
+		resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
+			BinaryIds:     []*datapb.BinaryID{id},
+			IncludeBinary: false,
+		})
+		if err != nil {
+			return errors.Wrapf(err, serverErrorMessage)
+		}
+		// Make request to file handler, which is of the form /files/:organization_id/:location_id/:file_id
+		urlString, err := url.JoinPath("https://", baseURL.Hostname(), "files", id.OrganizationId, id.LocationId, id.FileId)
+		if err != nil {
+			return errors.Wrapf(err, serverErrorMessage)
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, urlString, nil)
+		if err != nil {
+			return errors.Wrapf(err, serverErrorMessage)
+		}
+
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return errors.Wrapf(err, serverErrorMessage)
+		}
+		defer func() {
+			utils.UncheckedError(res.Body.Close())
+		}()
+
+		bin, err = io.ReadAll(res.Body)
+		if err != nil {
+			return errors.Wrapf(err, serverErrorMessage)
 		}
 	}
 	if err != nil {
@@ -450,7 +490,11 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 		return err
 	}
 
-	bin := datum.GetBinary()
+	// If the binary has not already been populated as large file download,
+	// get the binary data from the response.
+	if bin == nil {
+		bin = datum.GetBinary()
+	}
 
 	r := io.NopCloser(bytes.NewReader(bin))
 
