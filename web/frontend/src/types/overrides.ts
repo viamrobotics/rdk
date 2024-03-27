@@ -19,7 +19,7 @@ export interface MappingMetadata {
 }
 
 interface MappingDetails {
-  mode: string;
+  mode: 'localize' | 'create' | 'update' | 'undefined';
   name?: string;
   version?: string;
 }

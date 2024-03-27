@@ -69,7 +69,7 @@ let motionPath: Float32Array | undefined;
 let mappingSessionStarted = false;
 let isLocalizingMode: boolean | undefined;
 let lastReconfigured: Timestamp | undefined;
-let mappingMode: string;
+let mappingMode = 'undefined';
 
 $: pointcloudLoaded = Boolean(pointcloud?.length) && pose !== undefined;
 $: moveClicked = Boolean(executionID);
@@ -95,36 +95,36 @@ const startDurationTimer = (start: number) => {
 };
 
 const setMappingMode = async () => {
-  console.log("in setMappingMode, slamModel: ", overrides?.slamModel)
-  console.log("in setMappingMode, overrides.mode: ", overrides?.mappingDetails.mode)
-  console.log("in setMappingMode, mappingMode: ", mappingMode)
-  // modes: 'localize' | 'create' | 'update' | 'undefined'
-  mappingMode = overrides?.mappingDetails.mode || 'undefined';
+  mappingMode = overrides?.mappingDetails.mode ?? 'undefined';
   if (overrides?.slamModel !== 'viam:slam:cartographer') {
     try {
-        const props = await slamClient.getProperties();
-        switch (props.mappingMode) {
-          case slamApi.MappingMode.MAPPING_MODE_CREATE_NEW_MAP:
-            mappingMode = 'create';
-            break;
-          case slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY:
-            mappingMode = 'localize';
-            break;
-          case slamApi.MappingMode.MAPPING_MODE_UPDATE_EXISTING_MAP:
-            mappingMode = 'update';
-            break;
-          case slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED:
-            mappingMode = 'undefined';
-            break;
-          default:
-            mappingMode = 'undefined';
+      const props = await slamClient.getProperties();
+      switch (props.mappingMode) {
+        case slamApi.MappingMode.MAPPING_MODE_CREATE_NEW_MAP: {
+          mappingMode = 'create';
+          break;
         }
+        case slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY: {
+          mappingMode = 'localize';
+          break;
+        }
+        case slamApi.MappingMode.MAPPING_MODE_UPDATE_EXISTING_MAP: {
+          mappingMode = 'update';
+          break;
+        }
+        case slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED: {
+          mappingMode = 'undefined';
+          break;
+        }
+        default: {
+          mappingMode = 'undefined';
+        }
+      }
     } catch (error) {
-      notify.danger('can not get slam properties', (error as string));
+      notify.danger('can not get slam properties', error as string);
     }
   }
-  console.log("in setMappingMode, mappingMode: ", mappingMode)
-}
+};
 
 const refresh2d = async () => {
   refreshPaths();
@@ -513,9 +513,7 @@ useConnect(() => {
             {#if mappingMode !== 'undefined'}
               <div class="flex flex-col">
                 <span class="font-bold text-gray-800">Mapping mode</span>
-                <span class="capitalize text-subtle-2"
-                  >{mappingMode}</span
-                >
+                <span class="capitalize text-subtle-2">{mappingMode}</span>
               </div>
             {/if}
             <div class="flex gap-8">
