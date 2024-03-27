@@ -28,7 +28,7 @@ import { grpc } from '@improbable-eng/grpc-web';
 import type { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import type { ValueOf } from 'type-fest';
 type ResourceName = commonApi.ResourceName.AsObject;
-type MappingMode = ValueOf<typeof slamApi.MappingMode>
+type MappingMode = ValueOf<typeof slamApi.MappingMode>;
 
 export let name: string;
 export let motionResourceNames: ResourceName[];
@@ -71,7 +71,7 @@ let motionPath: Float32Array | undefined;
 let mappingSessionStarted = false;
 let isLocalizingMode: boolean | undefined;
 let lastReconfigured: Timestamp | undefined;
-let mappingMode: MappingMode = slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED
+let mappingMode: MappingMode = slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED;
 
 $: pointcloudLoaded = Boolean(pointcloud?.length) && pose !== undefined;
 $: moveClicked = Boolean(executionID);
@@ -104,7 +104,9 @@ const startDurationTimer = (start: number) => {
 };
 
 const setMappingMode = async () => {
-  mappingMode = overrides?.mappingDetails.mode ?? slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED;
+  mappingMode =
+    overrides?.mappingDetails.mode ??
+    slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED;
   try {
     const props = await slamClient.getProperties();
     mappingMode = props.mappingMode;
@@ -500,7 +502,9 @@ useConnect(() => {
             {#if mappingMode !== slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED}
               <div class="flex flex-col">
                 <span class="font-bold text-gray-800">Mapping mode</span>
-                <span class="capitalize text-subtle-2">{mappingModeToDisplayText[mappingMode]}</span>
+                <span class="capitalize text-subtle-2"
+                  >{mappingModeToDisplayText[mappingMode]}</span
+                >
               </div>
             {/if}
             <div class="flex gap-8">

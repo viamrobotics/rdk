@@ -21,7 +21,7 @@ export interface MappingMetadata {
 }
 
 interface MappingDetails {
-  mode:  ValueOf<typeof slamApi.MappingMode>;
+  mode: ValueOf<typeof slamApi.MappingMode>;
   name?: string;
   version?: string;
 }
