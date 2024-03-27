@@ -413,59 +413,33 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst string, id *datapb.BinaryID, baseURL *url.URL) error {
 	var resp *datapb.BinaryDataByIDsResponse
 	var err error
+	largeFile := false
 	for count := 0; count < maxRetryCount; count++ {
 		resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
 			BinaryIds:     []*datapb.BinaryID{id},
-			IncludeBinary: true,
+			IncludeBinary: !largeFile,
 		})
 		// If the file is too large, we can break and try a different pathway
 		if err == nil || status.Code(err) == codes.ResourceExhausted {
 			break
 		}
 	}
-
-	var bin []byte
-	// For large files, we make a request to the file handler in app
-	if status.Code(err) == codes.ResourceExhausted {
+	// For large files, we get the metadata but not the binary itself
+	if err != nil && status.Code(err) == codes.ResourceExhausted {
+		largeFile = true
 		resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
 			BinaryIds:     []*datapb.BinaryID{id},
-			IncludeBinary: false,
+			IncludeBinary: !largeFile,
 		})
-		if err != nil {
-			return errors.Wrapf(err, serverErrorMessage)
-		}
-		// Make request to file handler, which is of the form /files/:organization_id/:location_id/:file_id
-		urlString, err := url.JoinPath("https://", baseURL.Hostname(), "files", id.OrganizationId, id.LocationId, id.FileId)
-		if err != nil {
-			return errors.Wrapf(err, serverErrorMessage)
-		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, urlString, nil)
-		if err != nil {
-			return errors.Wrapf(err, serverErrorMessage)
-		}
-
-		res, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return errors.Wrapf(err, serverErrorMessage)
-		}
-		defer func() {
-			utils.UncheckedError(res.Body.Close())
-		}()
-
-		bin, err = io.ReadAll(res.Body)
-		if err != nil {
-			return errors.Wrapf(err, serverErrorMessage)
-		}
 	}
 	if err != nil {
 		return errors.Wrapf(err, serverErrorMessage)
 	}
-	data := resp.GetData()
 
+	data := resp.GetData()
 	if len(data) != 1 {
 		return errors.Errorf("expected a single response, received %d", len(data))
 	}
-
 	datum := data[0]
 
 	fileName := filenameForDownload(datum.GetMetadata())
@@ -490,9 +464,29 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 		return err
 	}
 
-	// If the binary has not already been populated as large file download,
-	// get the binary data from the response.
-	if bin == nil {
+	var bin []byte
+	if largeFile {
+		// Make request to the URI for large files since we exceed the message limit for GRPC
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, datum.GetMetadata().GetUri(), nil)
+		if err != nil {
+			return errors.Wrapf(err, serverErrorMessage)
+		}
+
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return errors.Wrapf(err, serverErrorMessage)
+		}
+		defer func() {
+			utils.UncheckedError(res.Body.Close())
+		}()
+
+		bin, err = io.ReadAll(res.Body)
+		if err != nil {
+			return errors.Wrapf(err, serverErrorMessage)
+		}
+	} else {
+		// If the binary has not already been populated as large file download,
+		// get the binary data from the response.
 		bin = datum.GetBinary()
 	}
 
