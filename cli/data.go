@@ -427,10 +427,15 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	// For large files, we get the metadata but not the binary itself
 	if err != nil && status.Code(err) == codes.ResourceExhausted {
 		largeFile = true
-		resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
-			BinaryIds:     []*datapb.BinaryID{id},
-			IncludeBinary: !largeFile,
-		})
+		for count := 0; count < maxRetryCount; count++ {
+			resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
+				BinaryIds:     []*datapb.BinaryID{id},
+				IncludeBinary: !largeFile,
+			})
+			if err == nil {
+				break
+			}
+		}
 	}
 	if err != nil {
 		return errors.Wrapf(err, serverErrorMessage)
