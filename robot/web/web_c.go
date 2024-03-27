@@ -34,8 +34,9 @@ import (
 )
 
 var (
-	subscribeRTPTimeout = time.Second
-	unsubscribeTimeout  = time.Second
+	subscribeRTPTimeout         = time.Second
+	unsubscribeTimeout          = time.Second
+	h264PassthroughNotSupported = errors.New("h264PassthroughNotSupported")
 )
 
 const rtpBufferSize int = 512
@@ -272,54 +273,51 @@ func (svc *webService) startVideoStream(
 	source gostream.VideoSource,
 	stream gostream.Stream,
 ) {
-	svc.logger.Debugf("Attempting optional H264 passthrough for stream: %s", stream.Name())
-	err := svc.h264Passthrough(ctx, stream)
-	if err == nil {
-		svc.logger.Infof("Using experimental H264 Passthrough for stream: %s", stream.Name())
-		return
-	}
-	svc.logger.Debugf("Falling back to GetImage. H264 passthrough unsuccessful due to %s", err.Error())
-	svc.logger.Debugf("Using GetImage for stream: %s", stream.Name())
-
-	// otherwise, fallback to go stream GetImage jpeg -> h264 encoding
-	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
-		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
-		// Use H264 for cameras that support it; but do not override upstream values.
-		if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
-			streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
-		}
-		return webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
-	})
-}
-
-func (svc *webService) h264Passthrough(ctx context.Context, stream gostream.Stream) error {
-	h264Stream, err := svc.videoCodecStreamSource(ctx, stream)
-	if err != nil {
-		return err
-	}
-	streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
-	// Check if camera supports h264 passthrough.
-	noopCB := func(pkts []*rtp.Packet) error { return nil }
-	cancel, err := subscribeRTP(ctx, h264Stream, noopCB, svc.logger)
-	if err != nil {
-		return err
-	}
-	cancel()
 	waitCh := make(chan struct{})
 	svc.webWorkers.Add(1)
 	utils.ManagedGo(func() {
 		close(waitCh)
+		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
+		goStreamFunc := func() error {
+			opts := &webstream.BackoffTuningOptions{
+				BaseSleep: 50 * time.Microsecond,
+				MaxSleep:  2 * time.Second,
+				Cooldown:  5 * time.Second,
+			}
+			// Use H264 for cameras that support it; but do not override upstream values.
+			if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
+				streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
+			}
+			err := webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
+			svc.logger.Error("StreamVideoSource err %s", err)
+			return utils.FilterOutError(err, context.Canceled)
+		}
+
 		for {
-			if err := streamWhileStreamingReady(streamVideoCtx, h264Stream, stream, svc.logger); err != nil {
+			if err := svc.streamWhileStreamingReady(streamVideoCtx, stream, svc.logger); err != nil {
+				if errors.Is(err, h264PassthroughNotSupported) {
+					svc.logger.Infof("Stream %s doesn't support h264 passthrough due to: %s", stream.Name(), err)
+					if err := goStreamFunc(); err != nil {
+						svc.logger.Errorw("error streaming", "error", err)
+						return
+					}
+					svc.logger.Errorw("goStreamFunc returned with no error... continueing")
+					continue
+				}
+
 				if utils.FilterOutError(err, context.Canceled) != nil {
 					svc.logger.Errorw("error streaming", "error", err)
+					return
 				}
+				svc.logger.Debug("stream closed")
 				return
 			}
+			svc.logger.Debug("stream closed")
+			return
 		}
+
 	}, svc.webWorkers.Done)
 	<-waitCh
-	return nil
 }
 
 func (svc *webService) videoCodecStreamSource(ctx context.Context, stream gostream.Stream) (camera.VideoCodecStreamSource, error) {
@@ -357,18 +355,24 @@ func subscribeRTP(
 	}, nil
 }
 
-func streamWhileStreamingReady(
+func (svc *webService) streamWhileStreamingReady(
 	ctx context.Context,
-	vcStream camera.VideoCodecStreamSource,
 	stream gostream.Stream,
 	logger logging.Logger,
 ) error {
+
 	readyCh, readyCtx := stream.StreamingReady()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-readyCh:
 	}
+
+	h264Stream, err := svc.videoCodecStreamSource(ctx, stream)
+	if err != nil {
+		return errors.Wrap(h264PassthroughNotSupported, err.Error())
+	}
+
 	cb := func(pkts []*rtp.Packet) error {
 		for _, pkt := range pkts {
 			if err := stream.WriteRTP(pkt); err != nil {
@@ -377,11 +381,12 @@ func streamWhileStreamingReady(
 		}
 		return nil
 	}
-	cancel, err := subscribeRTP(ctx, vcStream, cb, logger)
+	cancel, err := subscribeRTP(ctx, h264Stream, cb, logger)
 	if err != nil {
-		return err
+		return errors.Wrap(h264PassthroughNotSupported, err.Error())
 	}
 	defer cancel()
+	logger.Warnf("Stream %s is using experimental H264 passthrough", stream.Name())
 
 	select {
 	case <-ctx.Done():

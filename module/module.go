@@ -750,7 +750,6 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 		return nil
 	})
 	if err != nil {
-		m.logger.Warnw("SubscribeRTP hit error", "err", err)
 		removeTrackErr := errors.Wrap(m.pc.RemoveTrack(sender), "error removing track after SubscribeRTP failed")
 		subscribeErr := errors.Wrap(err, "error setting up stream subscription")
 		return nil, multierr.Append(subscribeErr, removeTrackErr)
