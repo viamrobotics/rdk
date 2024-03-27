@@ -84,6 +84,13 @@ $: slamResourceName = filterSubtype($services, 'slam').find(
 // allowMove is only true if we have a base, there exists a destination and there is no in-flight MoveOnMap req
 $: allowMove = bases.length === 1 && destination && !moveClicked;
 
+const mappingModeToDisplayText = {
+  [slamApi.MappingMode.MAPPING_MODE_CREATE_NEW_MAP]: 'create',
+  [slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY]: 'localize',
+  [slamApi.MappingMode.MAPPING_MODE_UPDATE_EXISTING_MAP]: 'update',
+  [slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED]: 'undefined',
+} as const;
+
 const deleteDestinationMarker = () => {
   destination = undefined;
 };
@@ -96,30 +103,15 @@ const startDurationTimer = (start: number) => {
 
 const setMappingMode = async () => {
   mappingMode = overrides?.mappingDetails.mode ?? 'undefined';
-  if (overrides?.slamModel !== 'viam:slam:cartographer') {
+  console.log('in setMappingMode: slamModel:', overrides?.slamModel);
+  if (
+    overrides?.slamModel !== undefined &&
+    overrides.slamModel !== 'viam:slam:cartographer'
+  ) {
+    console.log('in setMappingMode: entered the if statement');
     try {
       const props = await slamClient.getProperties();
-      switch (props.mappingMode) {
-        case slamApi.MappingMode.MAPPING_MODE_CREATE_NEW_MAP: {
-          mappingMode = 'create';
-          break;
-        }
-        case slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY: {
-          mappingMode = 'localize';
-          break;
-        }
-        case slamApi.MappingMode.MAPPING_MODE_UPDATE_EXISTING_MAP: {
-          mappingMode = 'update';
-          break;
-        }
-        case slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED: {
-          mappingMode = 'undefined';
-          break;
-        }
-        default: {
-          mappingMode = 'undefined';
-        }
-      }
+      mappingMode = mappingModeToDisplayText[props.mappingMode];
     } catch (error) {
       notify.danger('can not get slam properties', error as string);
     }
