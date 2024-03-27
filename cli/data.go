@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -22,6 +21,7 @@ import (
 	"github.com/urfave/cli/v2"
 	datapb "go.viam.com/api/app/data/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -269,7 +269,11 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 
 	return c.performActionOnBinaryDataFromFilter(
 		func(id *datapb.BinaryID) error {
-			return downloadBinary(c.c.Context, c.dataClient, dst, id, c.baseURL)
+			auth, ok := c.conf.Auth.(*token)
+			if ok {
+				return downloadBinary(c.c.Context, c.dataClient, dst, id, c.authFlow.httpClient, auth.AccessToken)
+			}
+			return nil
 		},
 		filter, parallelDownloads,
 		func(i int32) {
@@ -410,7 +414,9 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 	}
 }
 
-func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst string, id *datapb.BinaryID, baseURL *url.URL) error {
+func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst string, id *datapb.BinaryID,
+	httpClient *http.Client, token string,
+) error {
 	var resp *datapb.BinaryDataByIDsResponse
 	var err error
 	largeFile := false
@@ -419,12 +425,13 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 			BinaryIds:     []*datapb.BinaryID{id},
 			IncludeBinary: !largeFile,
 		})
-		// If the file is too large, we can break and try a different pathway
+		// If the file is too large, we break and try a different pathway for downloading
 		if err == nil || status.Code(err) == codes.ResourceExhausted {
 			break
 		}
 	}
 	// For large files, we get the metadata but not the binary itself
+	// Resource exhausted is returned when the message we're receiving exceeds the GRPC maximum limit
 	if err != nil && status.Code(err) == codes.ResourceExhausted {
 		largeFile = true
 		for count := 0; count < maxRetryCount; count++ {
@@ -471,15 +478,19 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 
 	var bin []byte
 	if largeFile {
-		// Make request to the URI for large files since we exceed the message limit for GRPC
+		// Make request to the URI for large files since we exceed the message limit for gRPC
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, datum.GetMetadata().GetUri(), nil)
 		if err != nil {
 			return errors.Wrapf(err, serverErrorMessage)
 		}
-
-		res, err := http.DefaultClient.Do(req)
+		// Set the headers so HTTP requests that are not gRPC calls can still be authenticated in app
+		req.Header.Add(rpc.MetadataFieldAuthorization, rpc.AuthorizationValuePrefixBearer+token)
+		res, err := httpClient.Do(req)
 		if err != nil {
 			return errors.Wrapf(err, serverErrorMessage)
+		}
+		if res.StatusCode != http.StatusOK {
+			return errors.New(serverErrorMessage)
 		}
 		defer func() {
 			utils.UncheckedError(res.Body.Close())
