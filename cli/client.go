@@ -950,7 +950,7 @@ func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, err
 
 		pageToken = resp.NextPageToken
 		if remainder := numLogs - i; remainder < 100 {
-			resp.Logs = resp.Logs[remainder:]
+			resp.Logs = resp.Logs[:remainder]
 		}
 		logs = append(logs, resp.Logs...)
 	}
