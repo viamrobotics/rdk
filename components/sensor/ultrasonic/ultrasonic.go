@@ -134,7 +134,7 @@ func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (ma
 
 	// Grab the 2 pins from the board. We don't just get these once during setup, in case the board
 	// reconfigures itself because someone decided to rewire things.
-	echoInterrupt, ok := s.board.DigitalInterruptByName(s.config.EchoInterrupt)
+	_, ok := s.board.DigitalInterruptByName(s.config.EchoInterrupt)
 	if !ok {
 		return nil, errors.Errorf("ultrasonic: cannot grab digital interrupt %q", s.config.EchoInterrupt)
 	}
@@ -143,8 +143,13 @@ func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (ma
 		return nil, errors.Wrapf(err, "ultrasonic: cannot grab gpio %q", s.config.TriggerPin)
 	}
 
-	echoInterrupt.AddCallback(s.ticksChan)
-	defer echoInterrupt.RemoveCallback(s.ticksChan)
+	err = s.board.StreamTicks(ctx, []string{s.config.EchoInterrupt}, s.ticksChan, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "ultrasonic: error getting digital interrupt ticks")
+	}
+
+	// Remove the callbacks added by the interrupt stream once we are done reading.
+	defer rdkutils.UncheckedErrorFunc(func() error { return board.RemoveCallbacks(s.board, []string{s.config.EchoInterrupt}, s.ticksChan) })
 
 	// we send a high and a low to the trigger pin 10 microseconds
 	// apart to signal the sensor to begin sending the sonic pulse

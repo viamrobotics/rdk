@@ -151,11 +151,36 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 
 func TestInterrupts(t *testing.T) {
 	ctx := context.Background()
+	callbacks := []chan board.Tick{}
 
-	interrupt := &board.BasicDigitalInterrupt{}
+	interrupt := &inject.DigitalInterrupt{}
+
+	interrupt.TickFunc = func(ctx context.Context, high bool, nanoseconds uint64) error {
+		tick := board.Tick{High: high, TimestampNanosec: nanoseconds}
+		for _, cb := range callbacks {
+			cb <- tick
+		}
+		return nil
+	}
+
+	interrupt.RemoveCallbackFunc = func(c chan board.Tick) {
+		for id := range callbacks {
+			if callbacks[id] == c {
+				// To remove this item, we replace it with the last item in the list, then truncate the
+				// list by 1.
+				callbacks[id] = callbacks[len(callbacks)-1]
+				callbacks = callbacks[:len(callbacks)-1]
+				break
+			}
+		}
+	}
 
 	mockBoard := &inject.Board{}
 	mockBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) { return interrupt, true }
+	mockBoard.StreamTicksFunc = func(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
+		callbacks = append(callbacks, ch)
+		return nil
+	}
 
 	i2cHandle := &inject.I2CHandle{}
 	i2cHandle.CloseFunc = func() error { return nil }
