@@ -215,20 +215,19 @@ func RobotsStatusAction(c *cli.Context) error {
 	return nil
 }
 
-func getNumLogs(c *cli.Context) int {
+func getNumLogs(c *cli.Context) (int, error) {
 	numLogs := c.Int(logsFlagCount)
 	if numLogs < 0 {
 		warningf(c.App.ErrWriter, "Provided negative %q value. Defaulting to %d", logsFlagCount, defaultNumLogs)
-		return defaultNumLogs
+		return defaultNumLogs, nil
 	}
 	if numLogs == 0 {
-		return defaultNumLogs
+		return defaultNumLogs, nil
 	}
 	if numLogs > maxNumLogs {
-		warningf(c.App.ErrWriter, "Provided too high of a %q value. Defaulting to %d", logsFlagCount, maxNumLogs)
-		return maxNumLogs
+		return 0, errors.Errorf("provided too high of a %q value. Maximum is %d", logsFlagCount, maxNumLogs)
 	}
-	return numLogs
+	return numLogs, nil
 }
 
 // RobotsLogsAction is the corresponding Action for 'machines logs'.
@@ -262,12 +261,16 @@ func RobotsLogsAction(c *cli.Context) error {
 		} else {
 			header = part.Name
 		}
+		numLogs, err := getNumLogs(c)
+		if err != nil {
+			return err
+		}
 		if err := client.printRobotPartLogs(
 			orgStr, locStr, robotStr, part.Id,
 			c.Bool(logsFlagErrors),
 			"\t",
 			header,
-			getNumLogs(c),
+			numLogs,
 		); err != nil {
 			return errors.Wrap(err, "could not print machine logs")
 		}
@@ -343,12 +346,16 @@ func RobotsPartLogsAction(c *cli.Context) error {
 			header,
 		)
 	}
+	numLogs, err := getNumLogs(c)
+	if err != nil {
+		return err
+	}
 	return client.printRobotPartLogs(
 		orgStr, locStr, robotStr, c.String(partFlag),
 		c.Bool(logsFlagErrors),
 		"",
 		header,
-		getNumLogs(c),
+		numLogs,
 	)
 }
 
