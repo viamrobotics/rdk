@@ -269,11 +269,7 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 
 	return c.performActionOnBinaryDataFromFilter(
 		func(id *datapb.BinaryID) error {
-			auth, ok := c.conf.Auth.(*token)
-			if ok {
-				return downloadBinary(c.c.Context, c.dataClient, dst, id, c.authFlow.httpClient, auth.AccessToken)
-			}
-			return nil
+			return downloadBinary(c.c.Context, c.dataClient, dst, id, c.authFlow.httpClient, c.conf.Auth)
 		},
 		filter, parallelDownloads,
 		func(i int32) {
@@ -415,7 +411,7 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 }
 
 func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst string, id *datapb.BinaryID,
-	httpClient *http.Client, token string,
+	httpClient *http.Client, auth authMethod,
 ) error {
 	var resp *datapb.BinaryDataByIDsResponse
 	var err error
@@ -483,8 +479,19 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 		if err != nil {
 			return errors.Wrapf(err, serverErrorMessage)
 		}
+
 		// Set the headers so HTTP requests that are not gRPC calls can still be authenticated in app
-		req.Header.Add(rpc.MetadataFieldAuthorization, rpc.AuthorizationValuePrefixBearer+token)
+		// We can authenticate via token or API key, so we try both.
+		token, ok := auth.(*token)
+		if ok {
+			req.Header.Add(rpc.MetadataFieldAuthorization, rpc.AuthorizationValuePrefixBearer+token.AccessToken)
+		}
+		apiKey, ok := auth.(*apiKey)
+		if ok {
+			req.Header.Add("key_id", apiKey.KeyID)
+			req.Header.Add("key", apiKey.KeyCrypto)
+		}
+
 		res, err := httpClient.Do(req)
 		if err != nil {
 			return errors.Wrapf(err, serverErrorMessage)
