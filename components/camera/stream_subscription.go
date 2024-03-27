@@ -19,10 +19,10 @@ var (
 	// ErrQueueFull indicates the StreamSubscription's queue is full and that
 	// the callback passed to Publish will not be executed.
 	ErrQueueFull = errors.New("StreamSubscription Publish queue full")
-	// ErrClosed indicates the StreamSubscription's is not running
+	// ErrClosed indicates the StreamSubscription's is not running.
 	ErrClosed = errors.New("StreamSubscription has been closed")
 	// ErrNegativeQueueSize indicates that the StreamSubscription queueSize
-	// can't be less than 0
+	// can't be less than 0.
 	ErrNegativeQueueSize = errors.New("ErrNegativeQueueSize")
 )
 

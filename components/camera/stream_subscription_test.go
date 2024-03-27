@@ -11,7 +11,7 @@ const queueSize int = 16
 
 func TestStreamSubscription(t *testing.T) {
 	t.Run("NewStreamSubscription", func(t *testing.T) {
-		onError := func(err error) {
+		onError := func(error) {
 			t.Log("should not be called")
 			t.FailNow()
 		}
