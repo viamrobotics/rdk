@@ -936,7 +936,7 @@ func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, err
 
 	// Use page tokens to get batches of 100 up to numLogs and throw away any
 	// extra logs in last batch.
-	var logs []*commonpb.LogEntry
+	logs := make([]*commonpb.LogEntry, 0, numLogs)
 	var pageToken string
 	for i := 0; i < numLogs; i += 100 {
 		resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
