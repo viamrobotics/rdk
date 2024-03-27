@@ -19,7 +19,8 @@ import (
 const (
 	ptgIndex int = iota
 	trajectoryAlphaWithinPTG
-	distanceAlongTrajectoryIndex
+	startDistanceAlongTrajectoryIndex
+	endDistanceAlongTrajectoryIndex
 )
 
 // If refDist is not explicitly set, default to pi radians times this adjustment value.
@@ -127,7 +128,8 @@ func NewPTGFrameFromKinematicOptions(
 	pf.limits = []referenceframe.Limit{
 		{Min: 0, Max: float64(len(pf.solvers) - 1)},
 		{Min: -math.Pi, Max: math.Pi},
-		{Min: -refDistLong, Max: refDistLong},
+		{Min: 0, Max: refDistLong},
+		{Min: 0, Max: refDistLong},
 	}
 
 	return pf, nil
@@ -150,7 +152,8 @@ func (pf *ptgGroupFrame) MarshalJSON() ([]byte, error) {
 	return nil, nil
 }
 
-// Inputs are: [0] index of PTG to use, [1] index of the trajectory within that PTG, and [2] distance to travel along that trajectory.
+// Inputs are: [0] index of PTG to use, [1] index of the trajectory within that PTG, [2] starting point on the trajectory, and [3] distance
+// to travel along that trajectory.
 func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	if len(inputs) != len(pf.DoF()) {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), len(pf.DoF()))
@@ -158,9 +161,16 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 
 	ptgIdx := int(math.Round(inputs[ptgIndex].Value))
 
-	pose, err := pf.solvers[ptgIdx].Transform([]referenceframe.Input{inputs[trajectoryAlphaWithinPTG], inputs[distanceAlongTrajectoryIndex]})
+	pose, err := pf.solvers[ptgIdx].Transform([]referenceframe.Input{inputs[trajectoryAlphaWithinPTG], inputs[endDistanceAlongTrajectoryIndex]})
 	if err != nil {
 		return nil, err
+	}
+	if inputs[startDistanceAlongTrajectoryIndex].Value != 0 {
+		startPose, err := pf.solvers[ptgIdx].Transform([]referenceframe.Input{inputs[trajectoryAlphaWithinPTG], inputs[startDistanceAlongTrajectoryIndex]})
+		if err != nil {
+			return nil, err
+		}
+		pose = spatialmath.PoseBetween(startPose, pose)
 	}
 
 	return pose, nil
@@ -200,6 +210,30 @@ func (pf *ptgGroupFrame) Geometries(inputs []referenceframe.Input) (*referencefr
 
 func (pf *ptgGroupFrame) PTGSolvers() []PTGSolver {
 	return pf.solvers
+}
+
+func WrapPTGWith3dof(frame referenceframe.Frame) (referenceframe.Frame, error) {
+	if pf, ok := frame.(*ptgGroupFrame); ok {
+		return &ptgGroupFrame3dof{pf}, nil
+	}
+	return nil, errors.New("can only wrap ptgGroupFrame structs with 3dof")
+}
+
+type ptgGroupFrame3dof struct {
+	*ptgGroupFrame
+}
+
+func (pf3 *ptgGroupFrame3dof) DoF() []referenceframe.Limit {
+	dof := pf3.ptgGroupFrame.DoF()
+	return []referenceframe.Limit{dof[0], dof[1], dof[3]}
+}
+
+// Inputs are: [0] index of PTG to use, [1] index of the trajectory within that PTG, and [2] distance to travel along that trajectory.
+func (pf3 *ptgGroupFrame3dof) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
+	if len(inputs) != len(pf3.DoF()) {
+		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), len(pf3.DoF()))
+	}
+	return pf3.ptgGroupFrame.Transform([]referenceframe.Input{inputs[ptgIndex], inputs[trajectoryAlphaWithinPTG], {0}, inputs[2]})
 }
 
 func initializePTGs(turnRadius float64, constructors []ptgFactory) []PTG {

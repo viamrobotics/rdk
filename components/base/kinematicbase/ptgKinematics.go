@@ -20,7 +20,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var zeroInput = make([]referenceframe.Input, 3)
+var zeroInput = make([]referenceframe.Input, 4)
 
 const (
 	ptgIndex int = iota
@@ -241,6 +241,6 @@ func (ptgk *ptgBaseKinematics) Geometries(ctx context.Context, extra map[string]
 	return ptgk.geometries, nil
 }
 
-func (ptgk *ptgBaseKinematics) ExecutionStatus() () {
-	return ptgk.geometries, nil
-}
+//~ func (ptgk *ptgBaseKinematics) ExecutionStatus() () {
+	//~ return ptgk.geometries, nil
+//~ }
