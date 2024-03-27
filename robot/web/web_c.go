@@ -34,9 +34,9 @@ import (
 )
 
 var (
-	subscribeRTPTimeout         = time.Second
-	unsubscribeTimeout          = time.Second
-	h264PassthroughNotSupported = errors.New("h264PassthroughNotSupported")
+	subscribeRTPTimeout            = time.Second
+	unsubscribeTimeout             = time.Second
+	errH264PassthroughNotSupported = errors.New("h264PassthroughNotSupported")
 )
 
 const rtpBufferSize int = 512
@@ -283,7 +283,7 @@ func (svc *webService) startVideoStream(
 		// Try to use h264 passthrough until it is found that the stream doesn't support it
 		for {
 			if err := svc.streamWhileStreamingReady(streamVideoCtx, stream, svc.logger); err != nil {
-				if errors.Is(err, h264PassthroughNotSupported) {
+				if errors.Is(err, errH264PassthroughNotSupported) {
 					svc.logger.Infof("Stream %s doesn't support h264 passthrough due to: %s", stream.Name(), err)
 					break
 				}
@@ -355,7 +355,6 @@ func (svc *webService) streamWhileStreamingReady(
 	stream gostream.Stream,
 	logger logging.Logger,
 ) error {
-
 	readyCh, readyCtx := stream.StreamingReady()
 	select {
 	case <-ctx.Done():
@@ -365,7 +364,7 @@ func (svc *webService) streamWhileStreamingReady(
 
 	h264Stream, err := svc.videoCodecStreamSource(ctx, stream)
 	if err != nil {
-		return errors.Wrap(h264PassthroughNotSupported, err.Error())
+		return errors.Wrap(errH264PassthroughNotSupported, err.Error())
 	}
 
 	cb := func(pkts []*rtp.Packet) error {
@@ -378,7 +377,7 @@ func (svc *webService) streamWhileStreamingReady(
 	}
 	cancel, err := subscribeRTP(ctx, h264Stream, cb, logger)
 	if err != nil {
-		return errors.Wrap(h264PassthroughNotSupported, err.Error())
+		return errors.Wrap(errH264PassthroughNotSupported, err.Error())
 	}
 	defer cancel()
 	logger.Warnf("Stream %s is using experimental H264 passthrough", stream.Name())
