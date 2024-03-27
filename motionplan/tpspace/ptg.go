@@ -44,6 +44,10 @@ type PTG interface {
 	Transform([]referenceframe.Input) (spatialmath.Pose, error)
 }
 
+type PTGCourseCorrection interface {
+	CorrectionSolverIdx() int
+}
+
 // TrajNode is a snapshot of a single point in time along a PTG trajectory, including the distance along that trajectory,
 // the elapsed time along the trajectory, and the linear and angular velocity at that point.
 type TrajNode struct {
@@ -163,7 +167,7 @@ func computeInvertedPTG(simPTG PTG, alpha, dist, resolution float64) ([]*TrajNod
 // PTGSegmentMetric is a metric which returns the TP-space distance traversed in a segment. Since PTG inputs are relative, the distance
 // travelled is the distance field of the ending configuration.
 func PTGSegmentMetric(segment *ik.Segment) float64 {
-	return segment.EndConfiguration[distanceAlongTrajectoryIndex].Value
+	return segment.EndConfiguration[len(segment.EndConfiguration)-1].Value
 }
 
 // PTGIKSeed will generate a consistent set of valid, in-bounds inputs to be used with a PTGSolver as a seed for gradient descent.

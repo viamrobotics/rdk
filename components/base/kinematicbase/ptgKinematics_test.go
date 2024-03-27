@@ -86,6 +86,7 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
+	runningPose := spatialmath.NewZeroPose()
 	for i, inputMap := range plan.Trajectory() {
 		inputs := inputMap[""]
 		selectedPTG := ptgBase.ptgs[int(math.Round(inputs[ptgIndex].Value))]
@@ -96,17 +97,19 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 			stepDistResolution,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		arcSteps := ptgBase.trajectoryToArcSteps(selectedTraj)
+		arcSteps, err := ptgBase.trajectoryToArcSteps(selectedTraj, runningPose, inputs)
+		test.That(t, err, test.ShouldBeNil)
 
 		if i == 0 || i == len(plan.Trajectory())-1 {
 			// First and last should be all-zero stop commands
 			test.That(t, len(arcSteps), test.ShouldEqual, 1)
-			test.That(t, arcSteps[0].timestepSeconds, test.ShouldEqual, 0)
+			test.That(t, arcSteps[0].durationSeconds, test.ShouldEqual, 0)
 			test.That(t, arcSteps[0].linVelMMps, test.ShouldResemble, r3.Vector{})
 			test.That(t, arcSteps[0].angVelDegps, test.ShouldResemble, r3.Vector{})
 		} else {
 			test.That(t, len(arcSteps), test.ShouldBeGreaterThanOrEqualTo, 1)
 		}
+		runningPose = spatialmath.Compose(runningPose, arcSteps[len(arcSteps)-1].subTraj[len(arcSteps[len(arcSteps)-1].subTraj)-1].Pose)
 	}
 }
 
@@ -150,7 +153,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, ptgBase, test.ShouldNotBeNil)
 
-	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(r3.Vector{X: 2000, Y: 0, Z: 0}))
+	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(r3.Vector{X: 6000, Y: 0, Z: 0}))
 
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	f := kb.Kinematics()
@@ -158,7 +161,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	fs.AddFrame(f, fs.World())
 	inputMap := referenceframe.StartPositions(fs)
 
-	obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{1000, 0, 0}), r3.Vector{1, 1, 1}, "")
+	obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2000, 0, 0}), r3.Vector{1, 1, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	geoms := []spatialmath.Geometry{obstacle}
@@ -180,8 +183,58 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
 
+	allInputs := [][]referenceframe.Input{}
+
+	// Spot check each individual trajectory
+	runningPose := spatialmath.NewZeroPose()
+	for i, inputMap := range plan.Trajectory() {
+		inputs := inputMap[""]
+		allInputs = append(allInputs, inputs)
+		selectedPTG := ptgBase.ptgs[int(math.Round(inputs[ptgIndex].Value))]
+
+		selectedTraj, err := selectedPTG.Trajectory(
+			inputs[trajectoryIndexWithinPTG].Value,
+			inputs[distanceAlongTrajectoryIndex].Value,
+			stepDistResolution,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		arcSteps, err := ptgBase.trajectoryToArcSteps(selectedTraj, runningPose, inputs)
+		test.That(t, err, test.ShouldBeNil)
+
+		if i == 0 || i == len(plan.Trajectory())-1 {
+			// First and last should be all-zero stop commands
+			test.That(t, len(arcSteps), test.ShouldEqual, 1)
+			test.That(t, arcSteps[0].durationSeconds, test.ShouldEqual, 0)
+			test.That(t, arcSteps[0].linVelMMps, test.ShouldResemble, r3.Vector{})
+			test.That(t, arcSteps[0].angVelDegps, test.ShouldResemble, r3.Vector{})
+		} else {
+			test.That(t, len(arcSteps), test.ShouldBeGreaterThanOrEqualTo, 1)
+		}
+		runningPose = spatialmath.Compose(runningPose, arcSteps[len(arcSteps)-1].subTraj[len(arcSteps[len(arcSteps)-1].subTraj)-1].Pose)
+	}
+
+	// Now check the full set of arcs
+	arcSteps, err := ptgBase.arcStepsFromInputs(allInputs, spatialmath.NewZeroPose())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Mock up being off course and try to correct
+	skewPose := spatialmath.NewPose(r3.Vector{100, 30, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -40})
+	currArc := len(arcSteps) - 2
+	currDist := 1.
+
+	goals := ptgBase.makeCourseCorrectionGoals(
+		currArc,
+		goalsToAttempt,
+		currDist,
+		skewPose,
+		arcSteps,
+	)
+
+	test.That(t, goals, test.ShouldNotBeNil)
 	inputs, err := plan.Trajectory().GetFrameInputs(kb.Name().ShortName())
 	test.That(t, err, test.ShouldBeNil)
+	
+	
 	ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 		newPose, err := kb.Kinematics().Transform(inputs[1])
 		test.That(t, err, test.ShouldBeNil)

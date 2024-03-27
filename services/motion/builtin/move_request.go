@@ -142,35 +142,45 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state
 	if err != nil {
 		return state.ExecuteResponse{}, err
 	}
-	mr.waypointIndexMutex.Lock()
-	startIterValue := mr.waypointIndex
-	mr.waypointIndexMutex.Unlock()
-	// Iterate through the list of waypoints and issue a command to move to each
-	for i := startIterValue; i < len(waypoints); i++ {
-		select {
-		case <-ctx.Done():
-			mr.logger.CDebugf(ctx, "calling kinematicBase.Stop due to %s\n", ctx.Err())
-			if stopErr := mr.stop(); stopErr != nil {
-				return state.ExecuteResponse{}, errors.Wrap(ctx.Err(), stopErr.Error())
-			}
-			return state.ExecuteResponse{}, nil
-		default:
-			mr.planRequest.Logger.CInfo(ctx, waypoints[i])
-			if err := mr.kinematicBase.GoToInputs(ctx, waypoints[i]); err != nil {
-				// If there is an error on GoToInputs, stop the component if possible before returning the error
-				mr.logger.CDebugf(ctx, "calling kinematicBase.Stop due to %s\n", err)
-				if stopErr := mr.stop(); stopErr != nil {
-					return state.ExecuteResponse{}, errors.Wrap(err, stopErr.Error())
-				}
-				return state.ExecuteResponse{}, err
-			}
-			if i < len(waypoints)-1 {
-				mr.waypointIndexMutex.Lock()
-				mr.waypointIndex++
-				mr.waypointIndexMutex.Unlock()
-			}
+
+	if err := mr.kinematicBase.GoToInputs(ctx, waypoints...); err != nil {
+		// If there is an error on GoToInputs, stop the component if possible before returning the error
+		mr.logger.CDebugf(ctx, "calling kinematicBase.Stop due to %s\n", err)
+		if stopErr := mr.stop(); stopErr != nil {
+			return state.ExecuteResponse{}, errors.Wrap(err, stopErr.Error())
 		}
 	}
+	//~ mr.waypointIndexMutex.Lock()
+	//~ startIterValue := mr.waypointIndex
+	//~ mr.waypointIndexMutex.Unlock()
+	//~ // Iterate through the list of waypoints and issue a command to move to each
+	//~ for i := startIterValue; i < len(waypoints); i++ {
+		//~ select {
+		//~ case <-ctx.Done():
+			//~ mr.logger.CDebugf(ctx, "calling kinematicBase.Stop due to %s\n", ctx.Err())
+			//~ if stopErr := mr.stop(); stopErr != nil {
+				//~ return state.ExecuteResponse{}, errors.Wrap(ctx.Err(), stopErr.Error())
+			//~ }
+			//~ return state.ExecuteResponse{}, nil
+		//~ default:
+			//~ mr.planRequest.Logger.CInfo(ctx, waypoints[i])
+			//~ if err := mr.kinematicBase.GoToInputs(ctx, waypoints[i]); err != nil {
+				//~ // If there is an error on GoToInputs, stop the component if possible before returning the error
+				//~ mr.logger.CDebugf(ctx, "calling kinematicBase.Stop due to %s\n", err)
+				//~ if stopErr := mr.stop(); stopErr != nil {
+					//~ return state.ExecuteResponse{}, errors.Wrap(err, stopErr.Error())
+				//~ }
+				//~ return state.ExecuteResponse{}, err
+			//~ }
+			//~ if i < len(waypoints)-1 {
+				//~ mr.waypointIndexMutex.Lock()
+				//~ mr.waypointIndex++
+				//~ mr.waypointIndexMutex.Unlock()
+			//~ }
+		//~ }
+		//~ return state.ExecuteResponse{}, err
+	//~ }
+
 	// the plan has been fully executed so check to see if where we are at is close enough to the goal.
 	return mr.deviatedFromPlan(ctx, plan)
 }
