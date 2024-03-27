@@ -26,7 +26,9 @@ import type { SLAMOverrides } from '@/types/overrides';
 import { rcLogConditionally } from '@/lib/log';
 import { grpc } from '@improbable-eng/grpc-web';
 import type { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
+import type { ValueOf } from 'type-fest';
 type ResourceName = commonApi.ResourceName.AsObject;
+type MappingMode = ValueOf<typeof slamApi.MappingMode>
 
 export let name: string;
 export let motionResourceNames: ResourceName[];
@@ -69,7 +71,7 @@ let motionPath: Float32Array | undefined;
 let mappingSessionStarted = false;
 let isLocalizingMode: boolean | undefined;
 let lastReconfigured: Timestamp | undefined;
-let mappingMode = 'undefined';
+let mappingMode: MappingMode = slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED
 
 $: pointcloudLoaded = Boolean(pointcloud?.length) && pose !== undefined;
 $: moveClicked = Boolean(executionID);
@@ -84,7 +86,7 @@ $: slamResourceName = filterSubtype($services, 'slam').find(
 // allowMove is only true if we have a base, there exists a destination and there is no in-flight MoveOnMap req
 $: allowMove = bases.length === 1 && destination && !moveClicked;
 
-const mappingModeToDisplayText = {
+const mappingModeToDisplayText: Record<MappingMode, string> = {
   [slamApi.MappingMode.MAPPING_MODE_CREATE_NEW_MAP]: 'create',
   [slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY]: 'localize',
   [slamApi.MappingMode.MAPPING_MODE_UPDATE_EXISTING_MAP]: 'update',
@@ -102,18 +104,12 @@ const startDurationTimer = (start: number) => {
 };
 
 const setMappingMode = async () => {
-  mappingMode = overrides?.mappingDetails.mode ?? 'undefined';
-  if (
-    overrides !== undefined &&
-    overrides.slamModel !== '' &&
-    overrides.slamModel !== 'viam:slam:cartographer'
-  ) {
-    try {
-      const props = await slamClient.getProperties();
-      mappingMode = mappingModeToDisplayText[props.mappingMode];
-    } catch (error) {
-      notify.danger('can not get slam properties', error as string);
-    }
+  mappingMode = overrides?.mappingDetails.mode ?? slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED;
+  try {
+    const props = await slamClient.getProperties();
+    mappingMode = props.mappingMode;
+  } catch (error) {
+    notify.danger('can not get slam properties', error as string);
   }
 };
 
@@ -501,10 +497,10 @@ useConnect(() => {
       <div class="flex flex-col gap-6 pb-4">
         {#if overrides?.isCloudSlam && overrides.mappingDetails}
           <header class="flex flex-col justify-between gap-3 text-xs">
-            {#if mappingMode !== 'undefined'}
+            {#if mappingMode !== slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED}
               <div class="flex flex-col">
                 <span class="font-bold text-gray-800">Mapping mode</span>
-                <span class="capitalize text-subtle-2">{mappingMode}</span>
+                <span class="capitalize text-subtle-2">{mappingModeToDisplayText[mappingMode]}</span>
               </div>
             {/if}
             <div class="flex gap-8">

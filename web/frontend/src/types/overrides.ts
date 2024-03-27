@@ -1,5 +1,7 @@
 import type { Pose } from '@viamrobotics/sdk';
 import type { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
+import type { ValueOf } from 'type-fest';
+import { slamApi } from '@viamrobotics/sdk';
 
 export interface MappingMetadata {
   id: string;
@@ -19,7 +21,7 @@ export interface MappingMetadata {
 }
 
 interface MappingDetails {
-  mode: 'localize' | 'create' | 'update' | 'undefined';
+  mode:  ValueOf<typeof slamApi.MappingMode>;
   name?: string;
   version?: string;
 }
@@ -49,7 +51,6 @@ export interface SLAMOverrides {
   viewMap: (sessionId: string) => void;
   validateMapName: (mapName: string) => string;
   mappingDetails: MappingDetails;
-  slamModel: string;
   isCloudSlam: boolean;
 }
 export interface RCOverrides {
