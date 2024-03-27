@@ -20,7 +20,6 @@ import (
 type Plan interface {
 	Trajectory() Trajectory
 	Path() Path
-	Segments() Segments
 }
 
 // RemainingPlan returns a new Plan equal to the given plan from the waypointIndex onwards.
@@ -252,39 +251,4 @@ func (plan *SimplePlan) Path() Path {
 // Trajectory returns the Trajectory associated with the Plan.
 func (plan *SimplePlan) Trajectory() Trajectory {
 	return plan.traj
-}
-
-// Segments returns the Segments associated with the Plan.
-func (plan *SimplePlan) Segments() Segments {
-	segs := Segments{}
-	var lastStep map[string][]referenceframe.Input
-	var lastPath PathStep
-	for i, step := range plan.traj {
-		path := plan.path[i]
-		if i == 0 {
-			lastStep = step
-			lastPath = path
-			continue
-		}
-		stepSegments := map[string]ik.Segment{}
-		for k, v := range step {
-			if lastStep, ok := lastStep[k]; ok {
-				thisStepSegment := ik.Segment{
-					StartConfiguration: lastStep,
-					EndConfiguration: v,
-				}
-				if lastPos, ok := lastPath[k]; ok {
-					thisStepSegment.StartPosition = lastPos.Pose()
-				}
-				if thisPos, ok := path[k]; ok {
-					thisStepSegment.EndPosition = thisPos.Pose()
-				}
-				stepSegments[k] = thisStepSegment
-			}
-		}
-		segs = append(segs, stepSegments)
-		lastStep = step
-		lastPath = path
-	}
-	return segs
 }
