@@ -266,7 +266,25 @@ func (plan *SimplePlan) Segments() Segments {
 			lastPath = path
 			continue
 		}
-		thisSeg := map[string]ik.Segment{}
+		stepSegments := map[string]ik.Segment{}
 		for k, v := range step {
-			
+			if lastStep, ok := lastStep[k]; ok {
+				thisStepSegment := ik.Segment{
+					StartConfiguration: lastStep,
+					EndConfiguration: v,
+				}
+				if lastPos, ok := lastPath[k]; ok {
+					thisStepSegment.StartPosition = lastPos.Pose()
+				}
+				if thisPos, ok := path[k]; ok {
+					thisStepSegment.EndPosition = thisPos.Pose()
+				}
+				stepSegments[k] = thisStepSegment
+			}
+		}
+		segs = append(segs, stepSegments)
+		lastStep = step
+		lastPath = path
+	}
+	return segs
 }
