@@ -103,12 +103,10 @@ const startDurationTimer = (start: number) => {
 
 const setMappingMode = async () => {
   mappingMode = overrides?.mappingDetails.mode ?? 'undefined';
-  console.log('in setMappingMode: slamModel:', overrides?.slamModel);
   if (
     overrides?.slamModel !== undefined &&
     overrides.slamModel !== 'viam:slam:cartographer'
   ) {
-    console.log('in setMappingMode: entered the if statement');
     try {
       const props = await slamClient.getProperties();
       mappingMode = mappingModeToDisplayText[props.mappingMode];
