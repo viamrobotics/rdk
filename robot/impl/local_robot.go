@@ -1180,10 +1180,8 @@ func (r *localRobot) checkMaxInstance(api resource.API, max int) error {
 // CloudMetadata returns app-related information about the robot.
 func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
 	md := cloud.Metadata{}
-	cfg := r.Config()
-	if cfg == nil {
-		return md, errors.New("no config available")
-	}
+	// use the stored config for this lookup to avoid locking issues in Config() while in re(configuration).
+	cfg := r.mostRecentCfg.Load().(config.Config)
 	cloud := cfg.Cloud
 	if cloud == nil {
 		return md, errors.New("cloud metadata not available")
