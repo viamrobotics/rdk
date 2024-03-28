@@ -9,69 +9,6 @@ import (
 	"go.viam.com/rdk/control"
 )
 
-// startControlLoop uses the control config to initialize a control
-// loop using the controls package and store in on the sensor controlled base struct
-// the sensor base in the controllable interface that implements State and GetState
-// called by the endpoint logic of the control thread and the controlLoopConfig
-// is included at the end of this file.
-func (sb *sensorBase) startControlLoop() error {
-	loop, err := control.NewLoop(sb.logger, sb.controlLoopConfig, sb)
-	if err != nil {
-		return err
-	}
-	if err := loop.Start(); err != nil {
-		return err
-	}
-	sb.loop = loop
-
-	return nil
-}
-
-func (sb *sensorBase) setupControlLoop(linear, angular control.PIDConfig) error {
-	// set the necessary options for a sensorcontrolled base
-	options := control.Options{
-		SensorFeedback2DVelocityControl: true,
-		LoopFrequency:                   10,
-		ControllableType:                "base_name",
-	}
-
-	// check if either linear or angular need to be tuned
-	if linear.NeedsAutoTuning() || angular.NeedsAutoTuning() {
-		options.NeedsAutoTuning = true
-	}
-
-	// combine linear and angular back into one control.PIDConfig, with linear first
-	pidVals := []control.PIDConfig{linear, angular}
-
-	// fully set up the control config based on the provided options
-	pl, err := control.SetupPIDControlConfig(pidVals, sb.Name().ShortName(), options, sb, sb.logger)
-	if err != nil {
-		return err
-	}
-
-	sb.controlLoopConfig = pl.ControlConf
-	sb.loop = pl.ControlLoop
-	sb.blockNames = pl.BlockNames
-
-	return nil
-}
-
-func (sb *sensorBase) updateControlConfig(
-	ctx context.Context, linearValue, angularValue float64,
-) error {
-	// set linear setpoint config
-	if err := control.UpdateConstantBlock(ctx, sb.blockNames[control.BlockNameConstant][0], linearValue, sb.loop); err != nil {
-		return err
-	}
-
-	// set angular setpoint config
-	if err := control.UpdateConstantBlock(ctx, sb.blockNames[control.BlockNameConstant][1], angularValue, sb.loop); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (sb *sensorBase) SetVelocity(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
@@ -79,25 +16,24 @@ func (sb *sensorBase) SetVelocity(
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
 
-	if len(sb.controlLoopConfig.Blocks) != 0 {
-		// if the control loop has not been started or stopped, re-enable it
-		if sb.loop == nil {
-			if err := sb.startControlLoop(); err != nil {
-				return err
-			}
-		}
-
-		// convert linear.Y mmPerSec to mPerSec, angular.Z is degPerSec
-		if err := sb.updateControlConfig(ctx, linear.Y/1000.0, angular.Z); err != nil {
-			return err
-		}
-
-		return nil
+	if len(sb.controlLoopConfig.Blocks) == 0 {
+		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's SetVelocity method", sb.controlledBase.Name().ShortName())
+		return sb.controlledBase.SetVelocity(ctx, linear, angular, extra)
 	}
 
-	sb.logger.CInfo(ctx, "setting velocity without loop")
-	// else do not use the control loop and pass through the SetVelocity command
-	return sb.controlledBase.SetVelocity(ctx, linear, angular, extra)
+	// make sure the control loop is enabled
+	if sb.loop == nil {
+		if err := sb.startControlLoop(); err != nil {
+			return err
+		}
+	}
+
+	// convert linear.Y mmPerSec to mPerSec, angular.Z is degPerSec
+	if err := sb.updateControlConfig(ctx, linear.Y/1000.0, angular.Z); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func sign(x float64) float64 { // A quick helper function

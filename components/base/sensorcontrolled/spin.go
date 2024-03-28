@@ -27,11 +27,12 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	// if controls are not configured, we cannot use this spin method. Instead we need to use the spin method
 	// of the base that the sensorBase wraps.
 	if len(sb.controlLoopConfig.Blocks) == 0 {
-		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's spin method", sb.controlledBase.Name().ShortName())
+		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's Spin method", sb.controlledBase.Name().ShortName())
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
 	if sb.orientation == nil {
-		sb.logger.CWarn(ctx, "orientation movement sensor not configured,using %v's spin method", sb.controlledBase.Name().ShortName())
+		sb.logger.CWarn(ctx, "orientation movement sensor not configured, using %v's spin method", sb.controlledBase.Name().ShortName())
+		sb.stopLoop()
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
 
@@ -105,10 +106,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			// check if the duration of the spin exceeds the expected length of the spin
 			if time.Since(startTime) > timeOut {
 				sb.logger.CWarn(ctx, "exceeded time for Spin call, stopping base")
-				if err := sb.Stop(ctx, nil); err != nil {
-					return err
-				}
-				return nil
+				return sb.Stop(ctx, nil)
 			}
 		}
 	}
