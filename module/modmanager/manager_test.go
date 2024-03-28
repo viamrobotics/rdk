@@ -208,26 +208,12 @@ func TestModManagerFunctions(t *testing.T) {
 	// Reconfigure module with new ExePath.
 	orphanedResourceNames, err := mgr.Reconfigure(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, orphanedResourceNames, test.ShouldBeNil)
-
-	// counter1 should still be provided by reconfigured module.
-	ok = mgr.IsModularResource(rNameCounter1)
-	test.That(t, ok, test.ShouldBeTrue)
-	ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, ret["total"], test.ShouldEqual, 0)
+	test.That(t, orphanedResourceNames, test.ShouldResemble, []resource.Name{rNameCounter1})
 
 	t.Log("test RemoveModule")
 	orphanedResourceNames, err = mgr.Remove("simple-module")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, orphanedResourceNames, test.ShouldResemble, []resource.Name{rNameCounter1})
-
-	// module will only really go away after resources within it are removed/closed
-	ok = mgr.IsModularResource(rNameCounter1)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	err = mgr.RemoveResource(ctx, rNameCounter1)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, orphanedResourceNames, test.ShouldBeNil)
 
 	ok = mgr.IsModularResource(rNameCounter1)
 	test.That(t, ok, test.ShouldBeFalse)
@@ -518,6 +504,66 @@ func TestModuleReloading(t *testing.T) {
 			tb.Helper()
 			test.That(tb, logs.FilterMessageSnippet("Error while restarting crashed module").Len(),
 				test.ShouldEqual, 3)
+		})
+
+		ok = mgr.IsModularResource(rNameMyHelper)
+		test.That(t, ok, test.ShouldBeFalse)
+		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not connected")
+
+		err = mgr.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that logs reflect that test-module crashed and was not
+		// successfully restarted.
+		test.That(t, logs.FilterMessageSnippet("Module has unexpectedly exited").Len(),
+			test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessageSnippet("Module successfully restarted").Len(),
+			test.ShouldEqual, 0)
+
+		// Assert that RemoveOrphanedResources was called once.
+		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
+	})
+	t.Run("do not restart if context canceled", func(t *testing.T) {
+		logger, logs := logging.NewObservedTestLogger(t)
+
+		// Precompile module to avoid timeout issues when building takes too long.
+		modCfg.ExePath = rtestutils.BuildTempModule(t, "module/testmodule")
+
+		// This test neither uses a resource manager nor asserts anything about
+		// the existence of resources in the graph. Use a dummy
+		// RemoveOrphanedResources function so orphaned resource logic does not
+		// panic.
+		var dummyRemoveOrphanedResourcesCallCount atomic.Uint64
+		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {
+			dummyRemoveOrphanedResourcesCallCount.Add(1)
+		}
+		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv:            false,
+			RemoveOrphanedResources: dummyRemoveOrphanedResources,
+		})
+		err = mgr.Add(ctx, modCfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Add helper resource and ensure "echo" works correctly.
+		h, err := mgr.AddResource(ctx, cfgMyHelper, nil)
+		test.That(t, err, test.ShouldBeNil)
+		ok := mgr.IsModularResource(rNameMyHelper)
+		test.That(t, ok, test.ShouldBeTrue)
+
+		mgr.(*Manager).restartCtxCancel()
+
+		// Run 'kill_module' command through helper resource to cause module to
+		// exit with error. Assert that we do not restart the module if context is cancelled.
+		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("Will not attempt to restart crashed module").Len(),
+				test.ShouldEqual, 1)
 		})
 
 		ok = mgr.IsModularResource(rNameMyHelper)

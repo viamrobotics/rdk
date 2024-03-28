@@ -60,7 +60,10 @@ const handleDoCommand = async (
 };
 
 const handleSelectComponent = (value: string) => {
-  selectedComponent = resources.find(({ name }) => name === value);
+  selectedComponent = resources.find(
+    (resource) =>
+      value === resource.name || value === resourceNameToString(resource)
+  );
 };
 
 const handleEditorInput = (event: CustomEvent<{ value: string }>) => {

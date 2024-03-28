@@ -421,7 +421,8 @@ func TestServerMoveOnMap(t *testing.T) {
 		firstExecutionID := uuid.New()
 		injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
 			test.That(t, len(req.Obstacles), test.ShouldEqual, 1)
-			test.That(t, req.Obstacles[0].AlmostEqual(spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")), test.ShouldBeTrue)
+			equal := spatialmath.GeometriesAlmostEqual(req.Obstacles[0], spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt"))
+			test.That(t, equal, test.ShouldBeTrue)
 			return firstExecutionID, nil
 		}
 

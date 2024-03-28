@@ -229,7 +229,7 @@ func (s *serviceServer) StreamTicks(
 		return err
 	}
 
-	defer utils.UncheckedErrorFunc(func() error { return removeCallbacks(b, req.PinNames, ticksChan) })
+	defer utils.UncheckedErrorFunc(func() error { return RemoveCallbacks(b, req.PinNames, ticksChan) })
 	for {
 		select {
 		case <-server.Context().Done():

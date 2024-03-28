@@ -19,7 +19,6 @@ export interface MappingMetadata {
 }
 
 interface MappingDetails {
-  mode?: 'localize' | 'create' | 'update';
   name?: string;
   version?: string;
 }

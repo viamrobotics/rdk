@@ -304,6 +304,32 @@ func (mgr *Manager) startModuleProcess(mod *module) error {
 	)
 }
 
+func (mgr *Manager) startSlowStartupLogTicker(ctx context.Context, msg, modName string) func() {
+	slowTicker := time.NewTicker(2 * time.Second)
+	firstTick := true
+
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	startTime := time.Now()
+	go func() {
+		for {
+			select {
+			case <-slowTicker.C:
+				elapsed := time.Since(startTime).Seconds()
+				mgr.logger.CWarnw(ctx, msg, "module", modName, "time elapsed", elapsed)
+				if firstTick {
+					slowTicker.Reset(3 * time.Second)
+					firstTick = false
+				} else {
+					slowTicker.Reset(5 * time.Second)
+				}
+			case <-ctxWithCancel.Done():
+				return
+			}
+		}
+	}()
+	return func() { slowTicker.Stop(); cancel() }
+}
+
 func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	// add calls startProcess, which can also be called by the OUE handler in the attemptRestart
 	// call. Both of these involve owning a lock, so in unhappy cases of malformed modules
@@ -327,6 +353,9 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		}
 	}
 
+	cleanup := mgr.startSlowStartupLogTicker(ctx, "Waiting for module to complete startup and registration", mod.cfg.Name)
+	defer cleanup()
+
 	if err := mgr.startModuleProcess(mod); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
 	}
@@ -341,6 +370,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 
 	mod.registerResources(mgr, mgr.logger)
 	mgr.modules.Store(mod.cfg.Name, mod)
+	mgr.logger.Infow("Module successfully added", "module", mod.cfg.Name)
 	success = true
 	return nil
 }
@@ -357,8 +387,10 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 
 	handledResources := mod.resources
 	var handledResourceNames []resource.Name
+	var handledResourceNameStrings []string
 	for name := range handledResources {
 		handledResourceNames = append(handledResourceNames, name)
+		handledResourceNameStrings = append(handledResourceNameStrings, name.String())
 	}
 
 	mgr.logger.CInfow(ctx, "Module configuration changed. Stopping the existing module process", "module", conf.Name)
@@ -381,20 +413,9 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	mgr.logger.CInfow(ctx, "New module process is running and responding to gRPC requests", "module",
 		mod.cfg.Name, "module address", mod.addr)
 
-	// add old module process' resources to new module; warn if new module cannot
-	// handle old resource and consider that resource orphaned.
-	var orphanedResourceNames []resource.Name
-	for name, res := range handledResources {
-		if _, err := mgr.addResource(ctx, res.conf, res.deps); err != nil {
-			mgr.logger.CWarnw(ctx, "Error while re-adding resource to module",
-				"resource", name, "module", conf.Name, "error", err)
-			orphanedResourceNames = append(orphanedResourceNames, name)
-		} else {
-			mgr.logger.CInfow(ctx, "Successfully re-added resource from module after module reconfiguration",
-				"module", mod.cfg.Name, "resource", name)
-		}
-	}
-	return orphanedResourceNames, nil
+	mgr.logger.CInfow(ctx, "Resources handled by reconfigured module will be re-added to new module process",
+		"module", mod.cfg.Name, "resources", handledResourceNameStrings)
+	return handledResourceNames, nil
 }
 
 // Remove removes and stops an existing resource module and returns the names of
@@ -419,9 +440,13 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 	}
 
 	var orphanedResourceNames []resource.Name
+	var orphanedResourceNameStrings []string
 	for name := range handledResources {
 		orphanedResourceNames = append(orphanedResourceNames, name)
+		orphanedResourceNameStrings = append(orphanedResourceNameStrings, name.String())
 	}
+	mgr.logger.Infow("Resources handled by removed module will be removed",
+		"module", mod.cfg.Name, "resources", orphanedResourceNameStrings)
 	mod.pendingRemoval = true
 	return orphanedResourceNames, nil
 }
@@ -624,37 +649,73 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	return resp.Dependencies, nil
 }
 
-// ResolveImplicitDependenciesInConfig modifies the config diff to add implicit dependencies to changed resources
-// and updates modular resources whose module has been changed with new implicit deps and adds them to conf.Modified.
+// ResolveImplicitDependenciesInConfig mutates the passed in diff to add modular implicit dependencies to added
+// and modified resources. It also puts modular resources whose module has been modified in conf.Added if they
+// are not already there.
 func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	// Find all components/services that are unmodified but whose module has been updated and add them to the modified array.
+	// NOTE(benji): We could simplify some of the following `continue`
+	// conditional clauses to a single clause, but we split them for readability.
 	for _, c := range conf.Right.Components {
-		// See if this component is being provided by a module
 		mod, ok := mgr.getModule(c)
 		if !ok {
+			// continue if this component is not being provided by a module.
 			continue
 		}
-		// If it is, check against the modified modules to determine if the config should also be updated but won't already be
-		if slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool { return elem.Name == mod.cfg.Name }) &&
-			!slices.ContainsFunc(conf.Added.Components, func(elem resource.Config) bool { return elem.Name == c.Name }) &&
-			!slices.ContainsFunc(conf.Modified.Components, func(elem resource.Config) bool { return elem.Name == c.Name }) {
-			conf.Modified.Components = append(conf.Modified.Components, c)
+		if !slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool {
+			return elem.Name == mod.cfg.Name
+		}) {
+			// continue if this modular component is not being handled by a modified
+			// module.
+			continue
 		}
+		if slices.ContainsFunc(conf.Added.Components, func(elem resource.Config) bool {
+			return elem.Name == c.Name
+		}) {
+			// continue if this modular component handled by a modified module is
+			// already in conf.Added.Components.
+			continue
+		}
+
+		// Add modular component to conf.Added.Components.
+		conf.Added.Components = append(conf.Added.Components, c)
+		// If component is in conf.Modified, the user modified a module and its
+		// component at the same time. Remove that resource from conf.Modified so
+		// the restarted module receives an AddResourceRequest and not a
+		// ReconfigureResourceRequest.
+		conf.Modified.Components = slices.DeleteFunc(
+			conf.Modified.Components, func(elem resource.Config) bool { return elem.Name == c.Name })
 	}
 	for _, s := range conf.Right.Services {
-		// See if this component is being provided by a module
 		mod, ok := mgr.getModule(s)
 		if !ok {
+			// continue if this service is not being provided by a module.
 			continue
 		}
-		// If it is, check against the modified modules to determine if the config should also be updated but won't already be
-		if slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool { return elem.Name == mod.cfg.Name }) &&
-			!slices.ContainsFunc(conf.Added.Services, func(elem resource.Config) bool { return elem.Name == s.Name }) &&
-			!slices.ContainsFunc(conf.Modified.Services, func(elem resource.Config) bool { return elem.Name == s.Name }) {
-			conf.Modified.Services = append(conf.Modified.Services, s)
+		if !slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool {
+			return elem.Name == mod.cfg.Name
+		}) {
+			// continue if this modular service is not being handled by a modified
+			// module.
+			continue
 		}
+		if slices.ContainsFunc(conf.Added.Services, func(elem resource.Config) bool {
+			return elem.Name == s.Name
+		}) {
+			// continue if this modular service handled by a modified module is
+			// already in conf.Added.Services.
+			continue
+		}
+
+		// Add modular service to conf.Added.Services.
+		conf.Added.Services = append(conf.Added.Services, s)
+		//  If service is in conf.Modified, the user modified a module and its
+		//  service at the same time. Remove that resource from conf.Modified so
+		//  the restarted module receives an AddResourceRequest and not a
+		//  ReconfigureResourceRequest.
+		conf.Modified.Services = slices.DeleteFunc(
+			conf.Modified.Services, func(elem resource.Config) bool { return elem.Name == s.Name })
 	}
 
 	// If something was added or modified, go through components and services in
@@ -669,7 +730,7 @@ func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, con
 					continue
 				}
 
-				// Modify resource to add its implicit dependencies.
+				// Modify resource config to add its implicit dependencies.
 				confs[i].ImplicitDependsOn = implicitDeps
 			}
 		}
@@ -778,9 +839,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 
 		// Log error immediately, as this is unexpected behavior.
 		mgr.logger.Errorw(
-			"Module has unexpectedly exited. Attempting to restart it",
-			"module", mod.cfg.Name,
-			"exit_code", exitCode,
+			"Module has unexpectedly exited.", "module", mod.cfg.Name, "exit_code", exitCode,
 		)
 
 		// close client connection, we will re-dial as part of restart attempts.
@@ -812,6 +871,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 			}
 			return false
 		}
+		mgr.logger.Infow("Module successfully restarted, re-adding resources", "module", mod.cfg.Name)
 
 		// Otherwise, add old module process' resources to new module; warn if new
 		// module cannot handle old resource and remove it from mod.resources.
@@ -830,7 +890,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 			mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 		}
 
-		mgr.logger.Infow("Module successfully restarted", "module", mod.cfg.Name)
+		mgr.logger.Infow("Module resources successfully re-added after module restart", "module", mod.cfg.Name)
 		return false
 	}
 }
@@ -854,15 +914,32 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	// already.
 	rutils.RemoveFileNoError(mod.addr)
 
-	var success bool
+	var success, processRestarted bool
 	defer func() {
 		if !success {
+			if processRestarted {
+				if err := mod.stopProcess(); err != nil {
+					msg := "Error while stopping process of crashed module"
+					mgr.logger.Errorw(msg, "module", mod.cfg.Name, "error", err)
+				}
+			}
 			mod.cleanupAfterCrash(mgr)
 		}
 	}()
 
+	if ctx.Err() != nil {
+		mgr.logger.CInfow(
+			ctx, "Will not attempt to restart crashed module", "module", mod.cfg.Name, "reason", ctx.Err().Error(),
+		)
+		return orphanedResourceNames
+	}
+	mgr.logger.CInfow(ctx, "Attempting to restart crashed module", "module", mod.cfg.Name)
+
 	// No need to check mgr.untrustedEnv, as we're restarting the same
 	// executable we were given for initial module addition.
+
+	cleanup := mgr.startSlowStartupLogTicker(ctx, "Waiting for module to complete restart and re-registration", mod.cfg.Name)
+	defer cleanup()
 
 	// Attempt to restart module process 3 times.
 	for attempt := 1; attempt < 4; attempt++ {
@@ -880,6 +957,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 		// Wait with a bit of backoff.
 		utils.SelectContextOrWait(ctx, time.Duration(attempt)*oueRestartInterval)
 	}
+	processRestarted = true
 
 	if err := mod.dial(); err != nil {
 		mgr.logger.CErrorw(ctx, "Error while dialing restarted module",
@@ -927,22 +1005,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(logger))
 	defer cancelFunc()
 
-	slowTicker := time.NewTicker(2 * time.Second)
-	defer slowTicker.Stop()
-	startTime := time.Now()
-
-	go func() {
-		for {
-			select {
-			case <-slowTicker.C:
-				elapsed := time.Since(startTime).Seconds()
-				logger.CWarnw(ctx, "Waiting for module to be ready", "module", m.cfg.Name, "time elapsed", elapsed)
-				slowTicker.Reset(5 * time.Second)
-			case <-ctxTimeout.Done():
-				return
-			}
-		}
-	}()
+	logger.CInfow(ctx, "Waiting for module to respond to ready request", "module", m.cfg.Name)
 
 	req := &pb.ReadyRequest{ParentAddress: parentAddr}
 
@@ -1031,10 +1094,10 @@ func (m *module) startProcess(
 		return errors.WithMessage(err, "module startup failed")
 	}
 
-	slowTicker := time.NewTicker(2 * time.Second)
-	defer slowTicker.Stop()
-	startTime := time.Now()
+	checkTicker := time.NewTicker(100 * time.Millisecond)
+	defer checkTicker.Stop()
 
+	logger.CInfow(ctx, "Starting up module", "module", m.cfg.Name)
 	ctxTimeout, cancel := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(logger))
 	defer cancel()
 	for {
@@ -1044,11 +1107,7 @@ func (m *module) startProcess(
 				return rutils.NewModuleStartUpTimeoutError(m.cfg.Name)
 			}
 			return ctxTimeout.Err()
-		case <-slowTicker.C:
-			elapsed := time.Since(startTime).Seconds()
-			logger.CWarnf(ctx, "Slow module startup detected", "module", m.cfg.Name, "time elapsed", elapsed)
-			slowTicker.Reset(5 * time.Second)
-		default:
+		case <-checkTicker.C:
 		}
 		err = modlib.CheckSocketOwner(m.addr)
 		if errors.Is(err, fs.ErrNotExist) {
@@ -1156,10 +1215,6 @@ func (m *module) cleanupAfterStartupFailure(logger logging.Logger) {
 }
 
 func (m *module) cleanupAfterCrash(mgr *Manager) {
-	if err := m.stopProcess(); err != nil {
-		msg := "Error while stopping process of crashed module"
-		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
-	}
 	if m.sharedConn != nil {
 		if err := m.sharedConn.Close(); err != nil {
 			msg := "error while closing shared connection to crashed module"

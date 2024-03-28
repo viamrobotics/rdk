@@ -63,6 +63,7 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin"
+	genericservice "go.viam.com/rdk/services/generic"
 	"go.viam.com/rdk/services/motion"
 	motionBuiltin "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/navigation"
@@ -3025,6 +3026,196 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 		_, err = r.ResourceByName(generic.Named("h"))
 		test.That(tb, err, test.ShouldBeNil)
 	})
+}
+
+func TestModularResourceReconfigurationCount(t *testing.T) {
+	ctx := context.Background()
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// Manually define models, as importing them can cause double registration.
+	helperModel := resource.NewModel("rdk", "test", "helper")
+	otherModel := resource.NewModel("rdk", "test", "other")
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+			},
+		},
+		Services: []resource.Config{
+			{
+				Name:  "o",
+				Model: otherModel,
+				API:   genericservice.API,
+			},
+		},
+	}
+	r, shutdown := initTestRobot(t, ctx, cfg, logger)
+	defer shutdown()
+
+	// Assert that helper and other have not yet `Reconfigure`d (only constructed).
+	h, err := r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+	resp, err := h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+	o, err := r.ResourceByName(genericservice.Named("o"))
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+
+	cfg2 := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:     "mod",
+				ExePath:  testPath,
+				LogLevel: "debug",
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+			},
+		},
+		Services: []resource.Config{
+			{
+				Name:  "o",
+				Model: otherModel,
+				API:   genericservice.API,
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg2)
+
+	// Assert that helper and other have still not `Reconfigure`d after their
+	// module did (only constructed in the restarted module).
+	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+
+	cfg3 := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:     "mod",
+				ExePath:  testPath,
+				LogLevel: "debug",
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+				Attributes: rutils.AttributeMap{
+					"foo": "bar",
+				},
+			},
+		},
+		Services: []resource.Config{
+			{
+				Name:  "o",
+				Model: otherModel,
+				API:   genericservice.API,
+				Attributes: rutils.AttributeMap{
+					"foo": "bar",
+				},
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg3)
+
+	// Assert that helper and other `Reconfigure` once when their attributes are
+	// changed.
+	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 1)
+	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 1)
+
+	cfg4 := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+				Attributes: rutils.AttributeMap{
+					"bar": "baz",
+				},
+			},
+		},
+		Services: []resource.Config{
+			{
+				Name:  "o",
+				Model: otherModel,
+				API:   genericservice.API,
+				Attributes: rutils.AttributeMap{
+					"bar": "baz",
+				},
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg4)
+
+	// Assert that if module is reconfigured (`LogLevel` removed), _and_ helper
+	// and other are reconfigured (attributes changed), helper and other are only
+	// constructed in new module process and not `Reconfigure`d.
+	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+
+	// Assert that helper and other are only constructed after module
+	// crash/successful restart and not `Reconfigure`d.
+	_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessageSnippet("Module successfully restarted").Len(), test.ShouldEqual, 1)
+	})
+
+	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
 }
 
 func TestImplicitDepsAcrossModules(t *testing.T) {
