@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
@@ -31,13 +30,13 @@ type detectorSource struct {
 	detectorName string
 	labelFilter  objectdetection.Postprocessor // must build from ValidLabels
 	confFilter   objectdetection.Postprocessor
-	r            robot.Robot
+	deps         resource.Dependencies
 }
 
 func newDetectionsTransform(
 	ctx context.Context,
 	source gostream.VideoSource,
-	r robot.Robot,
+	deps resource.Dependencies,
 	am utils.AttributeMap,
 ) (gostream.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*detectorConfig](am)
@@ -66,7 +65,7 @@ func newDetectionsTransform(
 		conf.DetectorName,
 		labelFilter,
 		confFilter,
-		r,
+		deps,
 	}
 	src, err := camera.NewVideoSourceFromReader(ctx, detector, &cameraModel, camera.ColorStream)
 	if err != nil {
@@ -80,7 +79,7 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::detector::Read")
 	defer span.End()
 	// get the bounding boxes from the service
-	srv, err := vision.FromRobot(ds.r, ds.detectorName)
+	srv, err := vision.FromDependencies(ds.deps, ds.detectorName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("source_detector cant find vision service: %w", err)
 	}

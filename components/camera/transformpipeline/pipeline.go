@@ -19,8 +19,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/services/vision"
 )
 
 var model = resource.DefaultModelFamily.WithModel("transform")
@@ -30,32 +29,34 @@ func init() {
 		camera.API,
 		model,
 		resource.Registration[camera.Camera, *transformConfig]{
-			DeprecatedRobotConstructor: func(
-				ctx context.Context,
-				r any,
-				conf resource.Config,
-				logger logging.Logger,
-			) (camera.Camera, error) {
-				actualR, err := utils.AssertType[robot.Robot](r)
-				if err != nil {
-					return nil, err
-				}
-				newConf, err := resource.NativeConfig[*transformConfig](conf)
-				if err != nil {
-					return nil, err
-				}
-				sourceName := newConf.Source
-				source, err := camera.FromRobot(actualR, sourceName)
-				if err != nil {
-					return nil, fmt.Errorf("no source camera for transform pipeline (%s): %w", sourceName, err)
-				}
-				src, err := newTransformPipeline(ctx, source, newConf, actualR, logger)
-				if err != nil {
-					return nil, err
-				}
-				return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
+			Constructor: NewTransformCam,
+			WeakDependencies: []resource.Matcher{
+				resource.TypeMatcher{Type: resource.APITypeComponentName},
+				resource.SubtypeMatcher{Subtype: camera.SubtypeName},
+				resource.TypeMatcher{Type: resource.APITypeServiceName},
+				resource.SubtypeMatcher{Subtype: vision.SubtypeName},
 			},
 		})
+}
+
+// NewTransformCam returns a transform camera using the source cam dependency.
+func NewTransformCam(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (camera.Camera, error) {
+	newConf, err := resource.NativeConfig[*transformConfig](conf)
+	if err != nil {
+		return nil, err
+	}
+	sourceName := newConf.Source
+	source, err := camera.FromDependencies(deps, sourceName)
+	if err != nil {
+		return nil, fmt.Errorf("no source camera for transform pipeline (%s): %w", sourceName, err)
+	}
+	src, err := newTransformPipeline(ctx, source, newConf, deps, logger)
+	if err != nil {
+		return nil, err
+	}
+	return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
 }
 
 // transformConfig specifies a stream and list of transforms to apply on images/pointclouds coming from a source camera.
@@ -82,7 +83,7 @@ func newTransformPipeline(
 	ctx context.Context,
 	source gostream.VideoSource,
 	cfg *transformConfig,
-	r robot.Robot,
+	deps resource.Dependencies,
 	logger logging.Logger,
 ) (camera.VideoSource, error) {
 	if source == nil {
@@ -111,7 +112,7 @@ func newTransformPipeline(
 	pipeline := make([]gostream.VideoSource, 0, len(cfg.Pipeline))
 	lastSource := source
 	for _, tr := range cfg.Pipeline {
-		src, newStreamType, err := buildTransform(ctx, r, lastSource, streamType, tr, cfg.Source)
+		src, newStreamType, err := buildTransform(ctx, deps, lastSource, streamType, tr, cfg.Source)
 		if err != nil {
 			return nil, err
 		}
