@@ -416,7 +416,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	var resp *datapb.BinaryDataByIDsResponse
 	var err error
 	largeFile := false
-	// To begin, we assume the file is large and try getting the binary directly
+	// To begin, we assume the file is small and downloadable, so we try getting the binary directly
 	for count := 0; count < maxRetryCount; count++ {
 		resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
 			BinaryIds:     []*datapb.BinaryID{id},
