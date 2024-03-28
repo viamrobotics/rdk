@@ -24,6 +24,7 @@ const (
 
 	logsFlagErrors = "errors"
 	logsFlagTail   = "tail"
+	logsFlagCount  = "count"
 
 	runFlagData   = "data"
 	runFlagStream = "stream"
@@ -985,6 +986,11 @@ var app = &cli.App{
 							Name:  logsFlagErrors,
 							Usage: "show only errors",
 						},
+						&cli.IntFlag{
+							Name:        logsFlagCount,
+							Usage:       "number of logs to fetch (max 10000)",
+							DefaultText: "100",
+						},
 					},
 					Action: RobotsLogsAction,
 				},
@@ -1053,6 +1059,11 @@ var app = &cli.App{
 									Name:    logsFlagTail,
 									Aliases: []string{"f"},
 									Usage:   "follow logs",
+								},
+								&cli.IntFlag{
+									Name:        logsFlagCount,
+									Usage:       "number of logs to fetch (max 10000)",
+									DefaultText: "100",
 								},
 							},
 							Action: RobotsPartLogsAction,
