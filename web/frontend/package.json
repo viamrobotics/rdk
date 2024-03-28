@@ -1,6 +1,6 @@
 {
   "name": "@viamrobotics/remote-control",
-  "version": "0.23.2",
+  "version": "0.23.3",
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
@@ -83,6 +83,7 @@
     "three": "0.159.0",
     "three-inspect": "0.3.4",
     "trzy": "0.3.11",
+    "type-fest": "^4.14.0",
     "typescript": "5.2.2",
     "vite": "4.4.9",
     "vite-plugin-css-injected-by-js": "3.3.0",
