@@ -988,8 +988,8 @@ var app = &cli.App{
 						},
 						&cli.IntFlag{
 							Name:        logsFlagCount,
-							Usage:       "number of logs to fetch (max 10000)",
-							DefaultText: "100",
+							Usage:       fmt.Sprintf("number of logs to fetch (max %v)", maxNumLogs),
+							DefaultText: fmt.Sprintf("%v", defaultNumLogs),
 						},
 					},
 					Action: RobotsLogsAction,
