@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/fullstorydev/grpcurl"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/nathan-fiscaletti/consolesize-go"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
@@ -1151,9 +1153,38 @@ func (c *viamClient) startRobotPartShell(
 		return errors.New("could not get shell service from machine part")
 	}
 
-	input, output, err := shellSvc.Shell(c.c.Context, map[string]interface{}{})
+	getWinChMsg := func() map[string]interface{} {
+		cols, rows := consolesize.GetConsoleSize()
+		return map[string]interface{}{
+			"message": "window-change",
+			"cols":    cols,
+			"rows":    rows,
+		}
+	}
+
+	input, inputOOB, output, err := shellSvc.Shell(c.c.Context, map[string]interface{}{
+		"messages": []interface{}{getWinChMsg()},
+	})
 	if err != nil {
 		return err
+	}
+
+	if sig, ok := sigwinchSignal(); ok {
+		winchCh := make(chan os.Signal, 1)
+		signal.Notify(winchCh, sig)
+		utils.PanicCapturingGo(func() {
+			defer close(inputOOB)
+			for {
+				if !utils.SelectContextOrWaitChan(c.c.Context, winchCh) {
+					return
+				}
+				select {
+				case <-c.c.Context.Done():
+					return
+				case inputOOB <- getWinChMsg():
+				}
+			}
+		})
 	}
 
 	setRaw := func(isRaw bool) error {
