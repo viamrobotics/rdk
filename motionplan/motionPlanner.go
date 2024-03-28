@@ -157,7 +157,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	if seed, ok := request.Options["rseed"].(int); ok {
 		rseed = seed
 	}
-	sfPlanner, err := newPlanManager(sf, request.Logger, rseed)
+	sfPlanner, err := newPlanManager(sf, request.FrameSystem, request.Logger, rseed)
 	if err != nil {
 		return nil, err
 	}
@@ -452,7 +452,7 @@ func CheckPlan(
 	}
 
 	// construct planager
-	sfPlanner, err := newPlanManager(sf, logger, defaultRandomSeed)
+	sfPlanner, err := newPlanManager(sf, fs, logger, defaultRandomSeed)
 	if err != nil {
 		return err
 	}

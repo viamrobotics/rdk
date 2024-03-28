@@ -701,7 +701,7 @@ func TestSolverFrameGeometries(t *testing.T) {
 	sf, err := newSolverFrame(fs, "xArmVgripper", frame.World, frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
 
-	sfPlanner, err := newPlanManager(sf, logger, 1)
+	sfPlanner, err := newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
 
 	request := &PlanRequest{
@@ -839,7 +839,7 @@ func TestMovementWithGripper(t *testing.T) {
 	// linearly plan with the gripper
 	motionConfig := make(map[string]interface{})
 	motionConfig["motion_profile"] = LinearMotionProfile
-	sfPlanner, err := newPlanManager(sf, logger, 1)
+	sfPlanner, err := newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
 	request.Options = motionConfig
 	solution, err := sfPlanner.PlanSingleWaypoint(context.Background(), request, nil)
@@ -854,7 +854,7 @@ func TestMovementWithGripper(t *testing.T) {
 		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	sfPlanner, err = newPlanManager(sf, logger, 1)
+	sfPlanner, err = newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
 	request.WorldState = worldState
 	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), request, nil)
@@ -866,13 +866,13 @@ func TestMovementWithGripper(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	goal = spatialmath.NewPose(r3.Vector{500, 0, -100}, &spatialmath.OrientationVector{OZ: -1})
 	request.Goal = frame.NewPoseInFrame(frame.World, goal)
-	sfPlanner, err = newPlanManager(sf, logger, 1)
+	sfPlanner, err = newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = sfPlanner.PlanSingleWaypoint(context.Background(), request, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// remove linear constraint and try again
-	sfPlanner, err = newPlanManager(sf, logger, 1)
+	sfPlanner, err = newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
 	request.Options = nil
 	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), request, nil)
@@ -883,7 +883,7 @@ func TestMovementWithGripper(t *testing.T) {
 	fs.RemoveFrame(fs.Frame("xArmVgripper"))
 	sf, err = newSolverFrame(fs, "xArm6", frame.World, frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
-	sfPlanner, err = newPlanManager(sf, logger, 1)
+	sfPlanner, err = newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
 	request.Options = motionConfig
 	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), request, nil)
