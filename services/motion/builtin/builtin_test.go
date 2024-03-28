@@ -440,25 +440,25 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 		},
 		// TODO(pl): This was disabled as part of course correction. It will need to be re-enabled once a method is developed to surface
 		// course-corrected plans from the kinematic base to the motion service.
-		// ~ {
-		// ~ name: "ensure replan due to obstacle collision",
-		// ~ getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-		// ~ if i == 0 {
-		// ~ i++
-		//~ return []*viz.Object{}, nil
-		//~ }
-		//~ obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 0, Z: 0})
-		//~ box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, "test-case-1")
-		//~ test.That(t, err, test.ShouldBeNil)
+		// {
+		//  name: "ensure replan due to obstacle collision",
+		//  getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+		//  if i == 0 {
+		//  i++
+		//  return []*viz.Object{}, nil
+		// }
+		// obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 0, Z: 0})
+		// box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, "test-case-1")
+		// test.That(t, err, test.ShouldBeNil)
 
-		// ~ detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", box.ToProtobuf())
-		// ~ test.That(t, err, test.ShouldBeNil)
+		//  detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", box.ToProtobuf())
+		//  test.That(t, err, test.ShouldBeNil)
 
-		// ~ return []*viz.Object{detection}, nil
-		// ~ },
-		// ~ expectedSuccess: false,
-		// ~ expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 0),
-		//~ },
+		//  return []*viz.Object{detection}, nil
+		//  },
+		//  expectedSuccess: false,
+		//  expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 0),
+		//  },
 	}
 
 	testFn := func(t *testing.T, tc testCase) {

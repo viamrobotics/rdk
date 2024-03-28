@@ -297,21 +297,21 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 
 			// TODO(pl): This was disabled as part of course correction. It will need to be re-enabled once a method is developed to surface
 			// course-corrected plans from the kinematic base to the motion service.
-			// ~ if err := motionplan.CheckPlan(
-			// ~ mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
-			// ~ plan,
-			// ~ waypointIndex,
-			// ~ worldState, // detected obstacles by this instance of camera + service
-			//~ mr.planRequest.FrameSystem,
-			//~ currentPosition.Pose(), // currentPosition of robot accounts for errorState
-			//~ inputMap,
-			//~ errorState, // deviation of robot from plan
-			//~ lookAheadDistanceMM,
-			//~ mr.planRequest.Logger,
-			//~ ); err != nil {
-			//~ mr.planRequest.Logger.CInfo(ctx, err.Error())
-			//~ return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
-			//~ }
+			// if err := motionplan.CheckPlan(
+			// mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
+			// plan,
+			// waypointIndex,
+			// worldState, // detected obstacles by this instance of camera + service
+			// mr.planRequest.FrameSystem,
+			// currentPosition.Pose(), // currentPosition of robot accounts for errorState
+			// inputMap,
+			// errorState, // deviation of robot from plan
+			// lookAheadDistanceMM,
+			// mr.planRequest.Logger,
+			// ); err != nil {
+			// mr.planRequest.Logger.CInfo(ctx, err.Error())
+			// return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
+			// }
 		}
 	}
 	return state.ExecuteResponse{}, nil
