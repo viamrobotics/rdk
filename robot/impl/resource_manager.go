@@ -44,14 +44,15 @@ var (
 
 // resourceManager manages the actual parts that make up a robot.
 type resourceManager struct {
-	resources      *resource.Graph
-	processManager pexec.ProcessManager
-	processConfigs map[string]pexec.ProcessConfig
-	moduleManager  modif.ModuleManager
-	opts           resourceManagerOptions
-	logger         logging.Logger
-	configLock     sync.Mutex
-	viz            resource.Visualizer
+	resources         *resource.Graph
+	processManager    pexec.ProcessManager
+	processConfigs    map[string]pexec.ProcessConfig
+	moduleManager     modif.ModuleManager
+	opts              resourceManagerOptions
+	logger            logging.Logger
+	configLock        sync.Mutex
+	processResourceWG sync.WaitGroup
+	viz               resource.Visualizer
 }
 
 type resourceManagerOptions struct {
@@ -586,6 +587,11 @@ func (manager *resourceManager) completeConfig(
 
 	resourceNames := manager.resources.ReverseTopologicalSort()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
+	resourceChans := make(map[resource.Name]chan struct{})
+	for _, resName := range resourceNames {
+		manager.logger.Info("resource to process", resName)
+		resourceChans[resName] = make(chan struct{})
+	}
 	for _, resName := range resourceNames {
 		select {
 		case <-ctx.Done():
@@ -606,9 +612,11 @@ func (manager *resourceManager) completeConfig(
 			}()
 			gNode, ok := manager.resources.Node(resName)
 			if !ok || !gNode.NeedsReconfigure() {
+				close(resourceChans[resName])
 				return
 			}
 			if !(resName.API.IsComponent() || resName.API.IsService()) {
+				close(resourceChans[resName])
 				return
 			}
 
@@ -630,6 +638,7 @@ func (manager *resourceManager) completeConfig(
 					fmt.Errorf("resource config validation error: %w", err),
 					"resource", conf.ResourceName(),
 					"model", conf.Model)
+				close(resourceChans[resName])
 				return
 			}
 			if manager.moduleManager.Provides(conf) {
@@ -638,40 +647,15 @@ func (manager *resourceManager) completeConfig(
 						fmt.Errorf("modular resource config validation error: %w", err),
 						"resource", conf.ResourceName(),
 						"model", conf.Model)
+					close(resourceChans[resName])
 					return
 				}
 			}
 
 			switch {
 			case resName.API.IsComponent(), resName.API.IsService():
-				newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, robot)
-				if newlyBuilt || err != nil {
-					if err := manager.markChildrenForUpdate(resName); err != nil {
-						manager.logger.CErrorw(ctx,
-							"failed to mark children of resource for update",
-							"resource", resName,
-							"reason", err)
-					}
-				}
-
-				if err != nil {
-					gNode.LogAndSetLastError(
-						fmt.Errorf("resource build error: %w", err),
-						"resource", conf.ResourceName(),
-						"model", conf.Model)
-					return
-				}
-
-				// if the ctxWithTimeout fails with DeadlineExceeded, then that means that
-				// resource generation is running async, and we don't currently have good
-				// validation around how this might affect the resource graph. So, we avoid
-				// updating the graph to be safe.
-				if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-					manager.logger.CErrorw(
-						ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
-				} else {
-					gNode.SwapResource(newRes, conf.Model)
-				}
+				manager.processResourceWG.Add(1)
+				go manager.goProcessResource(ctx, ctxWithTimeout, resName, gNode, robot, resourceChans)
 
 			default:
 				err := errors.New("config is not for a component or service")
@@ -689,6 +673,8 @@ func (manager *resourceManager) completeConfig(
 			return
 		}
 	} // for-each resource name
+	manager.processResourceWG.Wait()
+	manager.logger.Info(">>> done waiting! completed config")
 }
 
 // cleanAppImageEnv attempts to revert environment variable changes so
@@ -820,6 +806,58 @@ func (manager *resourceManager) markChildrenForUpdate(rName resource.Name) error
 		gNode.SetNeedsUpdate()
 	}
 	return nil
+}
+
+func (manager *resourceManager) goProcessResource(
+	ctx context.Context,
+	ctxWithTimeout context.Context,
+	resName resource.Name,
+	gNode *resource.GraphNode,
+	r *localRobot,
+	resourceChans map[resource.Name]chan struct{},
+) {
+	defer func() {
+		close(resourceChans[resName])
+		manager.processResourceWG.Done()
+		manager.logger.Info(">>> done processing resource", resName)
+	}()
+	manager.logger.Info(">>> processing resource", resName)
+
+	for _, parent := range manager.resources.GetAllParentsOf(resName) {
+		manager.logger.Infow(">>> waiting for parent", "resource", resName, "parent", parent)
+		<-resourceChans[parent]
+	}
+	manager.logger.Infow(">>> all parents done!", "resource", resName)
+
+	conf := gNode.Config()
+	newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, r)
+	if newlyBuilt || err != nil {
+		if err := manager.markChildrenForUpdate(resName); err != nil {
+			manager.logger.CErrorw(ctx,
+				"failed to mark children of resource for update",
+				"resource", resName,
+				"reason", err)
+		}
+	}
+
+	if err != nil {
+		gNode.LogAndSetLastError(
+			fmt.Errorf("resource build error: %w", err),
+			"resource", conf.ResourceName(),
+			"model", conf.Model)
+		return
+	}
+
+	// if the ctxWithTimeout fails with DeadlineExceeded, then that means that
+	// resource generation is running async, and we don't currently have good
+	// validation around how this might affect the resource graph. So, we avoid
+	// updating the graph to be safe.
+	if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
+		manager.logger.CErrorw(
+			ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
+	} else {
+		gNode.SwapResource(newRes, conf.Model)
+	}
 }
 
 func (manager *resourceManager) processResource(
