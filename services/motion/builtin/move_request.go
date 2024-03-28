@@ -300,7 +300,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// ~ if err := motionplan.CheckPlan(
 			// ~ mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
 			// ~ plan,
-			//~ waypointIndex,
+			// ~ waypointIndex,
 			//~ worldState, // detected obstacles by this instance of camera + service
 			//~ mr.planRequest.FrameSystem,
 			//~ currentPosition.Pose(), // currentPosition of robot accounts for errorState
