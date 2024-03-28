@@ -1,7 +1,5 @@
 import type { Pose } from '@viamrobotics/sdk';
 import type { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
-import type { ValueOf } from 'type-fest';
-import { slamApi } from '@viamrobotics/sdk';
 
 export interface MappingMetadata {
   id: string;
@@ -21,7 +19,6 @@ export interface MappingMetadata {
 }
 
 interface MappingDetails {
-  mode: ValueOf<typeof slamApi.MappingMode>;
   name?: string;
   version?: string;
 }

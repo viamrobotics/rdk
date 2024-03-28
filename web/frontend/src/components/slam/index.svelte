@@ -104,13 +104,11 @@ const startDurationTimer = (start: number) => {
 };
 
 const setMappingMode = async () => {
-  mappingMode =
-    overrides?.mappingDetails.mode ??
-    slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED;
   try {
     const props = await slamClient.getProperties();
     mappingMode = props.mappingMode;
   } catch (error) {
+    mappingMode = slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED;
     notify.danger('can not get slam properties', error as string);
   }
 };
