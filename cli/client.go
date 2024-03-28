@@ -960,15 +960,19 @@ func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, err
 		}
 
 		pageToken = resp.NextPageToken
-		if remainder := numLogs - i; remainder < 100 {
-			resp.Logs = resp.Logs[100-remainder:]
+		// Break in the event of no logs in GetRobotPartLogsResponse or when
+		// page token is empty (no more pages).
+		if resp.Logs == nil || pageToken == "" {
+			break
 		}
-		// Logs are returned by app in the order oldest->newest. We want to display
-		// the logs in the order newest->oldest. Append the intermediate slice of
-		// logs in reverse.
-		for i := len(resp.Logs) - 1; i >= 0; i-- {
-			logs = append(logs, resp.Logs[i])
+
+		// Truncate this intermediate slice of resp.Logs based on how many logs
+		// are still required by numLogs.
+		remainingLogsNeeded := numLogs - i
+		if remainingLogsNeeded < len(resp.Logs) {
+			resp.Logs = resp.Logs[:remainingLogsNeeded]
 		}
+		logs = append(logs, resp.Logs...)
 	}
 
 	return logs, nil
