@@ -2,11 +2,8 @@ package sensorcontrolled
 
 import (
 	"context"
-	"math"
 
 	"github.com/golang/geo/r3"
-
-	"go.viam.com/rdk/control"
 )
 
 func (sb *sensorBase) SetVelocity(
