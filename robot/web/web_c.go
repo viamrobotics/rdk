@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/goccy/go-graphviz"
+	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
@@ -31,6 +32,14 @@ import (
 	webstream "go.viam.com/rdk/robot/web/stream"
 	rutils "go.viam.com/rdk/utils"
 )
+
+var (
+	subscribeRTPTimeout            = time.Second
+	unsubscribeTimeout             = time.Second
+	errH264PassthroughNotSupported = errors.New("h264PassthroughNotSupported")
+)
+
+const rtpBufferSize int = 512
 
 // StreamServer manages streams and displays.
 type StreamServer struct {
@@ -259,16 +268,126 @@ func (svc *webService) propertiesFromStream(ctx context.Context, stream gostream
 	return cam.Properties(ctx)
 }
 
-func (svc *webService) startVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
-	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
+func (svc *webService) startVideoStream(
+	ctx context.Context,
+	source gostream.VideoSource,
+	stream gostream.Stream,
+) {
+	waitCh := make(chan struct{})
+	svc.webWorkers.Add(1)
+	utils.ManagedGo(func() {
+		defer svc.logger.Error("NICK!!! Terminating")
+		close(waitCh)
 		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
+
+		// Try to use h264 passthrough until it is found that the stream doesn't support it
+		for {
+			if err := svc.streamWhileStreamingReady(streamVideoCtx, stream, svc.logger); err != nil {
+				if errors.Is(err, errH264PassthroughNotSupported) {
+					svc.logger.Infof("Stream %s doesn't support h264 passthrough due to: %s", stream.Name(), err)
+					break
+				}
+
+				if utils.FilterOutError(err, context.Canceled) != nil {
+					svc.logger.Errorw("error streaming", "error", err)
+					return
+				}
+				svc.logger.Info("stream closed due to context cancelled")
+				return
+			}
+		}
+
+		opts := &webstream.BackoffTuningOptions{
+			BaseSleep: 50 * time.Microsecond,
+			MaxSleep:  2 * time.Second,
+			Cooldown:  5 * time.Second,
+		}
 		// Use H264 for cameras that support it; but do not override upstream values.
 		if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
 			streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
 		}
 
-		return webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
-	})
+		err := webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
+		if utils.FilterOutError(err, context.Canceled) != nil {
+			svc.logger.Errorw("error streaming", "error", err)
+		}
+	}, svc.webWorkers.Done)
+	<-waitCh
+}
+
+func (svc *webService) videoCodecStreamSource(ctx context.Context, stream gostream.Stream) (camera.VideoCodecStreamSource, error) {
+	res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
+	if err != nil {
+		return nil, err
+	}
+	cam, ok := res.(camera.Camera)
+	if !ok {
+		return nil, errors.Errorf("expected %s to implement camera.Camera", stream.Name())
+	}
+
+	return cam.VideoCodecStreamSource(ctx)
+}
+
+func subscribeRTP(
+	ctx context.Context,
+	h264Stream camera.VideoCodecStreamSource,
+	packetCallback camera.PacketCallback,
+	logger logging.Logger,
+) (context.CancelFunc, error) {
+	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, subscribeRTPTimeout)
+	defer timeoutCancel()
+	subID, err := h264Stream.SubscribeRTP(timeoutCtx, rtpBufferSize, packetCallback)
+	if err != nil {
+		return nil, err
+	}
+
+	return func() {
+		timeoutCtx, timeoutCancel := context.WithTimeout(ctx, unsubscribeTimeout)
+		defer timeoutCancel()
+		if err := h264Stream.Unsubscribe(timeoutCtx, subID); err != nil {
+			logger.Error(err)
+		}
+	}, nil
+}
+
+func (svc *webService) streamWhileStreamingReady(
+	ctx context.Context,
+	stream gostream.Stream,
+	logger logging.Logger,
+) error {
+	readyCh, readyCtx := stream.StreamingReady()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-readyCh:
+	}
+
+	h264Stream, err := svc.videoCodecStreamSource(ctx, stream)
+	if err != nil {
+		return errors.Wrap(errH264PassthroughNotSupported, err.Error())
+	}
+
+	cb := func(pkts []*rtp.Packet) error {
+		for _, pkt := range pkts {
+			if err := stream.WriteRTP(pkt); err != nil {
+				logger.Warn(err.Error())
+			}
+		}
+		return nil
+	}
+	cancel, err := subscribeRTP(ctx, h264Stream, cb, logger)
+	if err != nil {
+		return errors.Wrap(errH264PassthroughNotSupported, err.Error())
+	}
+	defer cancel()
+	logger.Warnf("Stream %s is using experimental H264 passthrough", stream.Name())
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-readyCtx.Done():
+		return nil
+	}
 }
 
 func (svc *webService) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
