@@ -1,17 +1,14 @@
 package cli
 
 import (
-	"bufio"
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -589,16 +586,16 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 	var resp *datapb.TabularDataByFilterResponse
 	// TODO(DATA-640): Support export in additional formats.
 	//nolint:gosec
-	dataFile, err := os.Create(filepath.Join(dst, dataDir, "data.ndjson"))
-	if err != nil {
-		return errors.Wrapf(err, "could not create data file")
-	}
-	w := bufio.NewWriter(dataFile)
+	// dataFile, err := os.Create(filepath.Join(dst, dataDir, "data.ndjson"))
+	// if err != nil {
+	// 	return errors.Wrapf(err, "could not create data file")
+	// }
+	// // w := bufio.NewWriter(dataFile)
 
 	fmt.Fprintf(c.c.App.Writer, "Downloading..") // no newline
 	var last string
-	mdIndexes := make(map[string]int)
-	mdIndex := 0
+	// mdIndexes := make(map[string]int)
+	// mdIndex := 0
 	for {
 		for count := 0; count < maxRetryCount; count++ {
 			resp, err = c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
@@ -624,60 +621,60 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 			break
 		}
 		// Map the current response's metadata indexes to those combined across all responses.
-		localToGlobalMDIndex := make(map[int]int)
-		for i, md := range mds {
-			currMDIndex, ok := mdIndexes[md.String()]
-			if ok {
-				localToGlobalMDIndex[i] = currMDIndex
-				continue // Already have this metadata file, so skip creating it again.
-			}
-			mdIndexes[md.String()] = mdIndex
-			localToGlobalMDIndex[i] = mdIndex
+		// localToGlobalMDIndex := make(map[int]int)
+		// for i, md := range mds {
+		// 	currMDIndex, ok := mdIndexes[md.String()]
+		// 	if ok {
+		// 		localToGlobalMDIndex[i] = currMDIndex
+		// 		continue // Already have this metadata file, so skip creating it again.
+		// 	}
+		// 	mdIndexes[md.String()] = mdIndex
+		// 	localToGlobalMDIndex[i] = mdIndex
 
-			mdJSONBytes, err := protojson.Marshal(md)
-			if err != nil {
-				return errors.Wrap(err, "could not marshal metadata")
-			}
-			//nolint:gosec
-			mdFile, err := os.Create(filepath.Join(dst, metadataDir, strconv.Itoa(mdIndex)+".json"))
-			if err != nil {
-				return errors.Wrapf(err, fmt.Sprintf("could not create metadata file for metadata index %d", mdIndex))
-			}
-			if _, err := mdFile.Write(mdJSONBytes); err != nil {
-				return errors.Wrapf(err, "could not write to metadata file %s", mdFile.Name())
-			}
-			if err := mdFile.Close(); err != nil {
-				return errors.Wrapf(err, "could not close metadata file %s", mdFile.Name())
-			}
-			mdIndex++
-		}
+		// 	mdJSONBytes, err := protojson.Marshal(md)
+		// 	if err != nil {
+		// 		return errors.Wrap(err, "could not marshal metadata")
+		// 	}
+		// 	//nolint:gosec
+		// 	mdFile, err := os.Create(filepath.Join(dst, metadataDir, strconv.Itoa(mdIndex)+".json"))
+		// 	if err != nil {
+		// 		return errors.Wrapf(err, fmt.Sprintf("could not create metadata file for metadata index %d", mdIndex))
+		// 	}
+		// 	if _, err := mdFile.Write(mdJSONBytes); err != nil {
+		// 		return errors.Wrapf(err, "could not write to metadata file %s", mdFile.Name())
+		// 	}
+		// 	if err := mdFile.Close(); err != nil {
+		// 		return errors.Wrapf(err, "could not close metadata file %s", mdFile.Name())
+		// 	}
+		// 	mdIndex++
+		// }
 
-		data := resp.GetData()
-		for _, datum := range data {
-			// Write everything as json for now.
-			d := datum.GetData()
-			if d == nil {
-				continue
-			}
-			m := d.AsMap()
-			m["TimeRequested"] = datum.GetTimeRequested()
-			m["TimeReceived"] = datum.GetTimeReceived()
-			m["MetadataIndex"] = localToGlobalMDIndex[int(datum.GetMetadataIndex())]
-			j, err := json.Marshal(m)
-			if err != nil {
-				return errors.Wrap(err, "could not marshal JSON response")
-			}
-			_, err = w.Write(append(j, []byte("\n")...))
-			if err != nil {
-				return errors.Wrapf(err, "could not write to file %s", dataFile.Name())
-			}
-		}
+		// data := resp.GetData()
+		// for _, datum := range data {
+		// 	// Write everything as json for now.
+		// 	d := datum.GetData()
+		// 	if d == nil {
+		// 		continue
+		// 	}
+		// 	m := d.AsMap()
+		// 	m["TimeRequested"] = datum.GetTimeRequested()
+		// 	m["TimeReceived"] = datum.GetTimeReceived()
+		// 	m["MetadataIndex"] = localToGlobalMDIndex[int(datum.GetMetadataIndex())]
+		// 	j, err := json.Marshal(m)
+		// 	if err != nil {
+		// 		return errors.Wrap(err, "could not marshal JSON response")
+		// 	}
+		// 	_, err = w.Write(append(j, []byte("\n")...))
+		// 	if err != nil {
+		// 		return errors.Wrapf(err, "could not write to file %s", dataFile.Name())
+		// 	}
+		// }
 	}
 
-	printf(c.c.App.Writer, "") // newline
-	if err := w.Flush(); err != nil {
-		return errors.Wrapf(err, "could not flush writer for %s", dataFile.Name())
-	}
+	// printf(c.c.App.Writer, "") // newline
+	// if err := w.Flush(); err != nil {
+	// 	return errors.Wrapf(err, "could not flush writer for %s", dataFile.Name())
+	// }
 
 	return nil
 }
