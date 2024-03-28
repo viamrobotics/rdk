@@ -341,9 +341,12 @@ func TestGetRobotPartLogs(t *testing.T) {
 		// followed by maxNumLogs messages.
 		test.That(t, len(out.messages), test.ShouldEqual, defaultNumLogs+1)
 		test.That(t, out.messages[0], test.ShouldEqual, "jedi -> naboo -> r2d2\n")
-		// Logs should be printed in order newest->oldest ("0"->"99").
+		// Logs should be printed in order oldest->newest ("99"->"0").
+		expectedLogNum := defaultNumLogs - 1
 		for i := 1; i <= defaultNumLogs; i++ {
-			test.That(t, out.messages[i], test.ShouldContainSubstring, fmt.Sprintf("%d", i-1))
+			test.That(t, out.messages[i], test.ShouldContainSubstring,
+				fmt.Sprintf("%d", expectedLogNum))
+			expectedLogNum--
 		}
 	})
 	t.Run("178 count", func(t *testing.T) {
@@ -359,9 +362,12 @@ func TestGetRobotPartLogs(t *testing.T) {
 		// followed by 178 messages.
 		test.That(t, len(out.messages), test.ShouldEqual, 179)
 		test.That(t, out.messages[0], test.ShouldEqual, "jedi -> naboo -> r2d2\n")
-		// Logs should be printed in order newest->oldest ("0"->"177").
+		// Logs should be printed in order oldest->newest ("177"->"0").
+		expectedLogNum := 177
 		for i := 1; i <= 178; i++ {
-			test.That(t, out.messages[i], test.ShouldContainSubstring, fmt.Sprintf("%d", i-1))
+			test.That(t, out.messages[i], test.ShouldContainSubstring,
+				fmt.Sprintf("%d", expectedLogNum))
+			expectedLogNum--
 		}
 	})
 	t.Run("max count", func(t *testing.T) {
@@ -378,9 +384,12 @@ func TestGetRobotPartLogs(t *testing.T) {
 		test.That(t, len(out.messages), test.ShouldEqual, maxNumLogs+1)
 		test.That(t, out.messages[0], test.ShouldEqual, "jedi -> naboo -> r2d2\n")
 
-		// Logs should be printed in order newest->oldest ("0"->"9999").
+		// Logs should be printed in order oldest->newest ("9999"->"0").
+		expectedLogNum := maxNumLogs - 1
 		for i := 1; i <= maxNumLogs; i++ {
-			test.That(t, out.messages[i], test.ShouldContainSubstring, fmt.Sprintf("%d", i-1))
+			test.That(t, out.messages[i], test.ShouldContainSubstring,
+				fmt.Sprintf("%d", expectedLogNum))
+			expectedLogNum--
 		}
 	})
 	t.Run("negative count", func(t *testing.T) {
@@ -398,9 +407,12 @@ func TestGetRobotPartLogs(t *testing.T) {
 		// followed by maxNumLogs messages.
 		test.That(t, len(out.messages), test.ShouldEqual, defaultNumLogs+1)
 		test.That(t, out.messages[0], test.ShouldEqual, "jedi -> naboo -> r2d2\n")
-		// Logs should be printed in order newest->oldest ("0"->"99").
+		// Logs should be printed in order oldest->oldest ("99"->"0").
+		expectedLogNum := defaultNumLogs - 1
 		for i := 1; i <= defaultNumLogs; i++ {
-			test.That(t, out.messages[i], test.ShouldContainSubstring, fmt.Sprintf("%d", i-1))
+			test.That(t, out.messages[i], test.ShouldContainSubstring,
+				fmt.Sprintf("%d", expectedLogNum))
+			expectedLogNum--
 		}
 	})
 	t.Run("count too high", func(t *testing.T) {

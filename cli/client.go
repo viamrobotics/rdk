@@ -949,7 +949,7 @@ func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, err
 	// extra logs in last batch.
 	logs := make([]*commonpb.LogEntry, 0, numLogs)
 	var pageToken string
-	for i := 0; i < numLogs; i += 100 {
+	for i := 0; i < numLogs; {
 		resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
 			Id:         part.Id,
 			ErrorsOnly: errorsOnly,
@@ -973,6 +973,8 @@ func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, err
 			resp.Logs = resp.Logs[:remainingLogsNeeded]
 		}
 		logs = append(logs, resp.Logs...)
+
+		i += len(resp.Logs)
 	}
 
 	return logs, nil
@@ -996,7 +998,9 @@ func (c *viamClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.Robot
 }
 
 func (c *viamClient) printRobotPartLogsInner(logs []*commonpb.LogEntry, indent string) {
-	for i := 0; i < len(logs); i++ {
+	// Iterate over logs in reverse because they are returned in
+	// order of latest to oldest but we should print from oldest -> newest
+	for i := len(logs) - 1; i >= 0; i-- {
 		log := logs[i]
 		fieldsString, err := logEntryFieldsToString(log.Fields)
 		if err != nil {
