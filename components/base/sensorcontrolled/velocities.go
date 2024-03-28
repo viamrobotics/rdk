@@ -3,10 +3,8 @@ package sensorcontrolled
 import (
 	"context"
 	"math"
-	"time"
 
 	"github.com/golang/geo/r3"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/control"
 )
@@ -78,17 +76,10 @@ func (sb *sensorBase) SetVelocity(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
 	sb.opMgr.CancelRunning(ctx)
-
-	// set the spin loop to false, so we do not skip the call to SetState in the control loop
-	// this will also stop any active Spin calls
-	sb.setPolling(false)
+	ctx, done := sb.opMgr.New(ctx)
+	defer done()
 
 	if len(sb.controlLoopConfig.Blocks) != 0 {
-		// start a sensor context for the sensor loop based on the longstanding base
-		// creator context, and add a timeout for the context
-		timeOut := 10 * time.Second
-		var sensorCtx context.Context
-		sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
 		// if the control loop has not been started or stopped, re-enable it
 		if sb.loop == nil {
 			if err := sb.startControlLoop(); err != nil {
@@ -101,61 +92,12 @@ func (sb *sensorBase) SetVelocity(
 			return err
 		}
 
-		// if we have a loop, let's use the SetState function to call the SetVelocity command
-		// through the control loop
-		sb.logger.CInfo(ctx, "using loop")
-		sb.pollsensors(sensorCtx, extra)
 		return nil
 	}
 
 	sb.logger.CInfo(ctx, "setting velocity without loop")
 	// else do not use the control loop and pass through the SetVelocity command
 	return sb.controlledBase.SetVelocity(ctx, linear, angular, extra)
-}
-
-// pollsensors is a busy loop in the background that passively polls the LinearVelocity and
-// AngularVelocity API calls of the movementsensor attached to the sensor base
-// and logs them for toruble shooting.
-// This function can eventually be removed.
-func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interface{}) {
-	sb.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
-		ticker := time.NewTicker(velocitiesPollTime)
-		defer ticker.Stop()
-
-		for {
-			// check if we want to poll the sensor at all
-			// other API calls set this to false so that this for loop stops
-			if !sb.isPolling() {
-				ticker.Stop()
-			}
-
-			if err := ctx.Err(); err != nil {
-				return
-			}
-
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				linvel, err := sb.velocities.LinearVelocity(ctx, extra)
-				if err != nil {
-					sb.logger.CError(ctx, err)
-					return
-				}
-
-				angvel, err := sb.velocities.AngularVelocity(ctx, extra)
-				if err != nil {
-					sb.logger.CError(ctx, err)
-					return
-				}
-
-				if sensorDebug {
-					sb.logger.CInfof(ctx, "sensor readings: linear: %#v, angular %#v", linvel, angvel)
-				}
-			}
-		}
-	}, sb.activeBackgroundWorkers.Done)
 }
 
 func sign(x float64) float64 { // A quick helper function

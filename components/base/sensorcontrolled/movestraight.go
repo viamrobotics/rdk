@@ -22,9 +22,10 @@ const (
 func (sb *sensorBase) MoveStraight(
 	ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{},
 ) error {
+	sb.opMgr.CancelRunning(ctx)
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
-	sb.setPolling(false)
+
 	straightTimeEst := time.Duration(int(time.Second) * int(math.Abs(float64(distanceMm)/mmPerSec)))
 	startTime := time.Now()
 	timeOut := 5 * straightTimeEst

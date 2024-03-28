@@ -20,6 +20,10 @@ const (
 
 // Spin commands a base to turn about its center at an angular speed and for a specific angle.
 func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+	sb.opMgr.CancelRunning(ctx)
+	ctx, done := sb.opMgr.New(ctx)
+	defer done()
+
 	// if controls are not configured, we cannot use this spin method. Instead we need to use the spin method
 	// of the base that the sensorBase wraps.
 	if len(sb.controlLoopConfig.Blocks) == 0 {
@@ -37,9 +41,6 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			return err
 		}
 	}
-	ctx, done := sb.opMgr.New(ctx)
-	defer done()
-	sb.setPolling(true)
 
 	orientation, err := sb.orientation.Orientation(ctx, nil)
 	if err != nil {
@@ -68,14 +69,6 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	}
 
 	for {
-		// check if we want to poll the sensor at all
-		// other API calls set this to false so that this for loop stops
-		if !sb.isPolling() {
-			ticker.Stop()
-			sb.logger.CWarn(ctx, "Spin call interrupted by another running api")
-			return nil
-		}
-
 		if err := ctx.Err(); err != nil {
 			ticker.Stop()
 			return err
