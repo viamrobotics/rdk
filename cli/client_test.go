@@ -2,9 +2,11 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 	buildpb "go.viam.com/api/app/build/v1"
 	datapb "go.viam.com/api/app/data/v1"
 	apppb "go.viam.com/api/app/v1"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
@@ -47,17 +50,24 @@ func setup(
 	asc apppb.AppServiceClient,
 	dataClient datapb.DataServiceClient,
 	buildClient buildpb.BuildServiceClient,
-	defaultFlags *map[string]string,
+	defaultFlags *map[string]any,
 	authMethod string,
 ) (*cli.Context, *viamClient, *testWriter, *testWriter) {
 	out := &testWriter{}
 	errOut := &testWriter{}
 	flags := &flag.FlagSet{}
 	// init all the default flags from the input
-
 	if defaultFlags != nil {
 		for name, val := range *defaultFlags {
-			flags.String(name, val, "")
+			switch v := val.(type) {
+			case int:
+				flags.Int(name, v, "")
+			case string:
+				flags.String(name, v, "")
+			default:
+				// non-int and non-string flags not yet supported
+				continue
+			}
 		}
 	}
 
@@ -256,5 +266,162 @@ func TestLogEntryFieldsToString(t *testing.T) {
 		result, err := logEntryFieldsToString([]*structpb.Struct{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldBeEmpty)
+	})
+}
+
+func TestGetRobotPartLogs(t *testing.T) {
+	// Create fake logs of "0"->"9999".
+	logs := make([]*commonpb.LogEntry, 0, maxNumLogs)
+	for i := 0; i < maxNumLogs; i++ {
+		logs = append(logs, &commonpb.LogEntry{Message: fmt.Sprintf("%d", i)})
+	}
+
+	getRobotPartLogsFunc := func(ctx context.Context, in *apppb.GetRobotPartLogsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetRobotPartLogsResponse, error) {
+		// Accept fake page tokens of "2"-"100" and release logs in batches of 100
+		// in oldest->newest order to mimic app's behavior. The first page token
+		// will be "", which should be interpreted as "1".
+		pt := 1
+		if receivedPt := in.PageToken; receivedPt != nil && *receivedPt != "" {
+			var err error
+			pt, err = strconv.Atoi(*receivedPt)
+			test.That(t, err, test.ShouldBeNil)
+		}
+		resp := &apppb.GetRobotPartLogsResponse{
+			Logs:          logs[len(logs)-pt*100 : len(logs)-(pt-1)*100],
+			NextPageToken: fmt.Sprintf("%d", pt+1),
+		}
+		return resp, nil
+	}
+
+	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListOrganizationsResponse, error) {
+		orgs := []*apppb.Organization{{Name: "jedi", Id: "123"}}
+		return &apppb.ListOrganizationsResponse{Organizations: orgs}, nil
+	}
+	listLocationsFunc := func(ctx context.Context, in *apppb.ListLocationsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListLocationsResponse, error) {
+		locs := []*apppb.Location{{Name: "naboo"}}
+		return &apppb.ListLocationsResponse{Locations: locs}, nil
+	}
+	listRobotsFunc := func(ctx context.Context, in *apppb.ListRobotsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListRobotsResponse, error) {
+		robots := []*apppb.Robot{{Name: "r2d2"}}
+		return &apppb.ListRobotsResponse{Robots: robots}, nil
+	}
+	getRobotPartsFunc := func(ctx context.Context, in *apppb.GetRobotPartsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetRobotPartsResponse, error) {
+		parts := []*apppb.RobotPart{{Name: "main"}}
+		return &apppb.GetRobotPartsResponse{Parts: parts}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		GetRobotPartLogsFunc: getRobotPartLogsFunc,
+		// Supply some injected functions to avoid a panic when loading
+		// organizations, locations, robots and parts.
+		ListOrganizationsFunc: listOrganizationsFunc,
+		ListLocationsFunc:     listLocationsFunc,
+		ListRobotsFunc:        listRobotsFunc,
+		GetRobotPartsFunc:     getRobotPartsFunc,
+	}
+
+	t.Run("no count", func(t *testing.T) {
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "")
+
+		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
+
+		// No warnings.
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+
+		// There should be a message for "organization -> location -> robot"
+		// followed by maxNumLogs messages.
+		test.That(t, len(out.messages), test.ShouldEqual, defaultNumLogs+1)
+		test.That(t, out.messages[0], test.ShouldEqual, "jedi -> naboo -> r2d2\n")
+		// Logs should be printed in order newest->oldest (9999->9000).
+		expectedLogNumber := maxNumLogs - 1
+		for i := 1; i <= defaultNumLogs; i++ {
+			test.That(t, out.messages[i], test.ShouldContainSubstring,
+				fmt.Sprintf("%d", expectedLogNumber))
+			expectedLogNumber--
+		}
+	})
+	t.Run("178 count", func(t *testing.T) {
+		flags := map[string]any{"count": 178}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, &flags, "")
+
+		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
+
+		// No warnings.
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+
+		// There should be a message for "organization -> location -> robot"
+		// followed by 178 messages.
+		test.That(t, len(out.messages), test.ShouldEqual, 179)
+		test.That(t, out.messages[0], test.ShouldEqual, "jedi -> naboo -> r2d2\n")
+		// Logs should be printed in order newest->oldest (9999->9822).
+		expectedLogNumber := maxNumLogs - 1
+		for i := 1; i <= 178; i++ {
+			test.That(t, out.messages[i], test.ShouldContainSubstring,
+				fmt.Sprintf("%d", expectedLogNumber))
+			expectedLogNumber--
+		}
+	})
+	t.Run("max count", func(t *testing.T) {
+		flags := map[string]any{logsFlagCount: maxNumLogs}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, &flags, "")
+
+		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
+
+		// No warnings.
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+
+		// There should be a message for "organization -> location -> robot"
+		// followed by maxNumLogs messages.
+		test.That(t, len(out.messages), test.ShouldEqual, maxNumLogs+1)
+		test.That(t, out.messages[0], test.ShouldEqual, "jedi -> naboo -> r2d2\n")
+
+		// Logs should be printed in order newest->oldest (9999->0).
+		expectedLogNumber := maxNumLogs - 1
+		for i := 1; i <= maxNumLogs; i++ {
+			test.That(t, out.messages[i], test.ShouldContainSubstring,
+				fmt.Sprintf("%d", expectedLogNumber))
+			expectedLogNumber--
+		}
+	})
+	t.Run("negative count", func(t *testing.T) {
+		flags := map[string]any{"count": -1}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, &flags, "")
+
+		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
+
+		// Warning should read: `Warning:\nProvided negative "count" value. Defaulting to 100`.
+		test.That(t, len(errOut.messages), test.ShouldEqual, 2)
+		test.That(t, errOut.messages[0], test.ShouldEqual, "Warning: ")
+		test.That(t, errOut.messages[1], test.ShouldContainSubstring, `Provided negative "count" value. Defaulting to 100`)
+
+		// There should be a message for "organization -> location -> robot"
+		// followed by maxNumLogs messages.
+		test.That(t, len(out.messages), test.ShouldEqual, defaultNumLogs+1)
+		test.That(t, out.messages[0], test.ShouldEqual, "jedi -> naboo -> r2d2\n")
+		// Logs should be printed in order newest->oldest (99->0).
+		expectedLogNumber := maxNumLogs - 1
+		for i := 1; i <= defaultNumLogs; i++ {
+			test.That(t, out.messages[i], test.ShouldContainSubstring,
+				fmt.Sprintf("%d", expectedLogNumber))
+			expectedLogNumber--
+		}
+	})
+	t.Run("count too high", func(t *testing.T) {
+		flags := map[string]any{"count": 1000000}
+		cCtx, ac, _, _ := setup(asc, nil, nil, &flags, "")
+
+		err := ac.robotsPartLogsAction(cCtx)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, errors.New(`provided too high of a "count" value. Maximum is 10000`))
 	})
 }

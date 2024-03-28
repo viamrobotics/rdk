@@ -326,33 +326,37 @@ func RobotsPartLogsAction(c *cli.Context) error {
 		return err
 	}
 
-	orgStr := c.String(organizationFlag)
-	locStr := c.String(locationFlag)
-	robotStr := c.String(machineFlag)
-	robot, err := client.robot(orgStr, locStr, robotStr)
+	return client.robotsPartLogsAction(c)
+}
+
+func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context) error {
+	orgStr := cCtx.String(organizationFlag)
+	locStr := cCtx.String(locationFlag)
+	robotStr := cCtx.String(machineFlag)
+	robot, err := c.robot(orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine")
 	}
 
 	var header string
 	if orgStr == "" || locStr == "" || robotStr == "" {
-		header = fmt.Sprintf("%s -> %s -> %s", client.selectedOrg.Name, client.selectedLoc.Name, robot.Name)
+		header = fmt.Sprintf("%s -> %s -> %s", c.selectedOrg.Name, c.selectedLoc.Name, robot.Name)
 	}
-	if c.Bool(logsFlagTail) {
-		return client.tailRobotPartLogs(
-			orgStr, locStr, robotStr, c.String(partFlag),
-			c.Bool(logsFlagErrors),
+	if cCtx.Bool(logsFlagTail) {
+		return c.tailRobotPartLogs(
+			orgStr, locStr, robotStr, cCtx.String(partFlag),
+			cCtx.Bool(logsFlagErrors),
 			"",
 			header,
 		)
 	}
-	numLogs, err := getNumLogs(c)
+	numLogs, err := getNumLogs(cCtx)
 	if err != nil {
 		return err
 	}
-	return client.printRobotPartLogs(
-		orgStr, locStr, robotStr, c.String(partFlag),
-		c.Bool(logsFlagErrors),
+	return c.printRobotPartLogs(
+		orgStr, locStr, robotStr, cCtx.String(partFlag),
+		cCtx.Bool(logsFlagErrors),
 		"",
 		header,
 		numLogs,
@@ -957,9 +961,14 @@ func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, err
 
 		pageToken = resp.NextPageToken
 		if remainder := numLogs - i; remainder < 100 {
-			resp.Logs = resp.Logs[:remainder]
+			resp.Logs = resp.Logs[100-remainder:]
 		}
-		logs = append(logs, resp.Logs...)
+		// Logs are returned by app in the order oldest->newest. We want to display
+		// the logs in the order newest->oldest. Append the intermediate slice of
+		// logs in reverse.
+		for i := len(resp.Logs) - 1; i >= 0; i-- {
+			logs = append(logs, resp.Logs[i])
+		}
 	}
 
 	return logs, nil
@@ -983,9 +992,7 @@ func (c *viamClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.Robot
 }
 
 func (c *viamClient) printRobotPartLogsInner(logs []*commonpb.LogEntry, indent string) {
-	// Iterate over logs in reverse because they are returned in
-	// order of latest to oldest but we should print from oldest -> newest
-	for i := len(logs) - 1; i >= 0; i-- {
+	for i := 0; i < len(logs); i++ {
 		log := logs[i]
 		fieldsString, err := logEntryFieldsToString(log.Fields)
 		if err != nil {
