@@ -219,28 +219,54 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 
 	// Mock up being off course and try to correct
 	skewPose := spatialmath.NewPose(r3.Vector{100, 30, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -40})
-	currArc := len(arcSteps) - 2
-	currDist := 1.
+	arcIdx := len(arcSteps) - 2
+	currInputs := []referenceframe.Input{
+		arcSteps[ptgBase.currentIdx].arcSegment.StartConfiguration[0],
+		arcSteps[ptgBase.currentIdx].arcSegment.StartConfiguration[1],
+		{1},
+	}
+	ptgBase.inputLock.Lock()
+	ptgBase.currentIdx = arcIdx
+	ptgBase.currentExecutingSteps = arcSteps
+	ptgBase.currentInputs = currInputs
+	ptgBase.inputLock.Unlock()
 
 	goals := ptgBase.makeCourseCorrectionGoals(
-		currArc,
 		goalsToAttempt,
-		currDist,
 		skewPose,
-		arcSteps,
 	)
 
 	test.That(t, goals, test.ShouldNotBeNil)
-	inputs, err := plan.Trajectory().GetFrameInputs(kb.Name().ShortName())
+	inputSteps, err := plan.Trajectory().GetFrameInputs(kb.Name().ShortName())
 	test.That(t, err, test.ShouldBeNil)
-	
-	
+
 	ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		newPose, err := kb.Kinematics().Transform(inputs[1])
+		newPose, err := kb.Kinematics().Transform(inputSteps[1])
 		test.That(t, err, test.ShouldBeNil)
 		newGeoPose := spatialmath.PoseToGeoPose(spatialmath.NewGeoPose(gpOrigin, 0), newPose)
 		return newGeoPose.Location(), 0, nil
 	}
+
+	t.Run("ErrorState", func(t *testing.T) {
+		errorState, err := kb.ErrorState(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, errorState, test.ShouldNotBeNil)
+
+		// Error State should be computed based on current inputs, current executing steps, and the localizer's position function
+		currentPosition, err := kb.CurrentPosition(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		arcStartPosition := arcSteps[arcIdx].arcSegment.StartPosition
+		onArcPosition, err := kb.Kinematics().Transform(currInputs)
+		test.That(t, err, test.ShouldBeNil)
+		arcPose := spatialmath.Compose(arcStartPosition, onArcPosition)
+
+		test.That(
+			t,
+			spatialmath.PoseAlmostCoincidentEps(errorState, spatialmath.PoseBetween(arcPose, currentPosition.Pose()), 1e-5),
+			test.ShouldBeTrue,
+		)
+	})
 
 	t.Run("Kinematics", func(t *testing.T) {
 		kinematics := kb.Kinematics()
@@ -273,18 +299,11 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		test.That(t, currentInputs, test.ShouldResemble, expectedInputs)
 	})
 
-	t.Run("ErrorState", func(t *testing.T) {
-		errorState, err := kb.ErrorState(ctx, plan, 2)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, errorState, test.ShouldNotBeNil)
-		test.That(t, spatialmath.PoseAlmostCoincidentEps(errorState, spatialmath.NewZeroPose(), 1e-5), test.ShouldBeTrue)
-	})
-
 	t.Run("CurrentPosition", func(t *testing.T) {
 		currentPosition, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, currentPosition, test.ShouldNotBeNil)
-		expectedPosition, err := kb.Kinematics().Transform(inputs[1])
+		expectedPosition, err := kb.Kinematics().Transform(inputSteps[1])
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatialmath.PoseAlmostCoincidentEps(currentPosition.Pose(), expectedPosition, 1e-5), test.ShouldBeTrue)
 	})

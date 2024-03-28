@@ -75,9 +75,6 @@ type moveRequest struct {
 	// replanners for the move request
 	// if we ever have to add additional instances we should figure out how to make this more scalable
 	position, obstacle *replanner
-	// waypointIndex tracks the waypoint we are currently executing on
-	waypointIndex      int
-	waypointIndexMutex sync.Mutex
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
@@ -149,37 +146,8 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state
 		if stopErr := mr.stop(); stopErr != nil {
 			return state.ExecuteResponse{}, errors.Wrap(err, stopErr.Error())
 		}
+		return state.ExecuteResponse{}, err
 	}
-	//~ mr.waypointIndexMutex.Lock()
-	//~ startIterValue := mr.waypointIndex
-	//~ mr.waypointIndexMutex.Unlock()
-	//~ // Iterate through the list of waypoints and issue a command to move to each
-	//~ for i := startIterValue; i < len(waypoints); i++ {
-		//~ select {
-		//~ case <-ctx.Done():
-			//~ mr.logger.CDebugf(ctx, "calling kinematicBase.Stop due to %s\n", ctx.Err())
-			//~ if stopErr := mr.stop(); stopErr != nil {
-				//~ return state.ExecuteResponse{}, errors.Wrap(ctx.Err(), stopErr.Error())
-			//~ }
-			//~ return state.ExecuteResponse{}, nil
-		//~ default:
-			//~ mr.planRequest.Logger.CInfo(ctx, waypoints[i])
-			//~ if err := mr.kinematicBase.GoToInputs(ctx, waypoints[i]); err != nil {
-				//~ // If there is an error on GoToInputs, stop the component if possible before returning the error
-				//~ mr.logger.CDebugf(ctx, "calling kinematicBase.Stop due to %s\n", err)
-				//~ if stopErr := mr.stop(); stopErr != nil {
-					//~ return state.ExecuteResponse{}, errors.Wrap(err, stopErr.Error())
-				//~ }
-				//~ return state.ExecuteResponse{}, err
-			//~ }
-			//~ if i < len(waypoints)-1 {
-				//~ mr.waypointIndexMutex.Lock()
-				//~ mr.waypointIndex++
-				//~ mr.waypointIndexMutex.Unlock()
-			//~ }
-		//~ }
-		//~ return state.ExecuteResponse{}, err
-	//~ }
 
 	// the plan has been fully executed so check to see if where we are at is close enough to the goal.
 	return mr.deviatedFromPlan(ctx, plan)
@@ -188,11 +156,7 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state
 // deviatedFromPlan takes a plan and an index of a waypoint on that Plan and returns whether or not it is still
 // following the plan as described by the PlanDeviation specified for the moveRequest.
 func (mr *moveRequest) deviatedFromPlan(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
-	mr.waypointIndexMutex.Lock()
-	waypointIndex := mr.waypointIndex
-	mr.waypointIndexMutex.Unlock()
-
-	errorState, err := mr.kinematicBase.ErrorState(ctx, plan, waypointIndex)
+	errorState, err := mr.kinematicBase.ErrorState(ctx)
 	if err != nil {
 		return state.ExecuteResponse{}, err
 	}
@@ -317,12 +281,9 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// Note: the value of wayPointIndex is subject to change between when this function is first entered
 			// versus when CheckPlan is actually called.
 			// We load the wayPointIndex value to ensure that all information is up to date.
-			mr.waypointIndexMutex.Lock()
-			waypointIndex := mr.waypointIndex
-			mr.waypointIndexMutex.Unlock()
 
 			// get the pose difference between where the robot is versus where it ought to be.
-			errorState, err := mr.kinematicBase.ErrorState(ctx, plan, waypointIndex)
+			errorState, err := mr.kinematicBase.ErrorState(ctx)
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
@@ -334,21 +295,23 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				worldState.String(),
 			)
 
-			if err := motionplan.CheckPlan(
-				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
-				plan,
-				waypointIndex,
-				worldState, // detected obstacles by this instance of camera + service
-				mr.planRequest.FrameSystem,
-				currentPosition.Pose(), // currentPosition of robot accounts for errorState
-				inputMap,
-				errorState, // deviation of robot from plan
-				lookAheadDistanceMM,
-				mr.planRequest.Logger,
-			); err != nil {
-				mr.planRequest.Logger.CInfo(ctx, err.Error())
-				return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
-			}
+			// TODO(pl): This was disabled as part of course correction. It will need to be re-enabled once a method is developed to surface
+			// course-corrected plans from the kinematic base to the motion service.
+			// ~ if err := motionplan.CheckPlan(
+			// ~ mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
+			// ~ plan,
+			//~ waypointIndex,
+			//~ worldState, // detected obstacles by this instance of camera + service
+			//~ mr.planRequest.FrameSystem,
+			//~ currentPosition.Pose(), // currentPosition of robot accounts for errorState
+			//~ inputMap,
+			//~ errorState, // deviation of robot from plan
+			//~ lookAheadDistanceMM,
+			//~ mr.planRequest.Logger,
+			//~ ); err != nil {
+			//~ mr.planRequest.Logger.CInfo(ctx, err.Error())
+			//~ return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
+			//~ }
 		}
 	}
 	return state.ExecuteResponse{}, nil
@@ -769,8 +732,6 @@ func (ms *builtIn) createBaseMoveRequest(
 
 	var backgroundWorkers sync.WaitGroup
 
-	waypointIndex := 1
-
 	// effectively don't poll if the PositionPollingFreqHz is not provided
 	positionPollingFreq := time.Duration(math.MaxInt64)
 	if motionCfg.positionPollingFreqHz > 0 {
@@ -805,8 +766,6 @@ func (ms *builtIn) createBaseMoveRequest(
 		executeBackgroundWorkers: &backgroundWorkers,
 
 		responseChan: make(chan moveResponse, 1),
-
-		waypointIndex: waypointIndex,
 	}
 
 	// TODO: Change deviatedFromPlan to just query positionPollingFreq on the struct & the same for the obstaclesIntersectPlan

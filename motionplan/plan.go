@@ -191,8 +191,6 @@ func (ps PathStep) ToProto() *pb.PlanStep {
 	return &pb.PlanStep{Step: step}
 }
 
-type Segments []map[string]ik.Segment
-
 // PathStepFromProto converts a *pb.PlanStep to a PlanStep.
 func PathStepFromProto(ps *pb.PlanStep) (PathStep, error) {
 	if ps == nil {
