@@ -64,9 +64,6 @@ type sensorBase struct {
 	activeBackgroundWorkers sync.WaitGroup
 	controlledBase          base.Base // the inherited wheeled base
 
-	sensorLoopMu   sync.Mutex
-	sensorLoopDone func()
-
 	opMgr *operation.SingleOperationManager
 
 	allSensors     []movementsensor.MovementSensor
