@@ -444,7 +444,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 		// ~ name: "ensure replan due to obstacle collision",
 		// ~ getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 		// ~ if i == 0 {
-		//~ i++
+		// ~ i++
 		//~ return []*viz.Object{}, nil
 		//~ }
 		//~ obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 0, Z: 0})
@@ -457,7 +457,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 		// ~ return []*viz.Object{detection}, nil
 		// ~ },
 		// ~ expectedSuccess: false,
-		//~ expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 0),
+		// ~ expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 0),
 		//~ },
 	}
 
