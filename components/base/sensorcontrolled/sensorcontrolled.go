@@ -64,10 +64,6 @@ type sensorBase struct {
 	activeBackgroundWorkers sync.WaitGroup
 	controlledBase          base.Base // the inherited wheeled base
 
-	sensorLoopMu      sync.Mutex
-	sensorLoopDone    func()
-	sensorLoopPolling bool
-
 	opMgr *operation.SingleOperationManager
 
 	allSensors     []movementsensor.MovementSensor
@@ -215,35 +211,78 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	return nil
 }
 
-// setPolling determines whether we want the sensor loop to run and stop the base with sensor feedback
-// should be set to false everywhere except when sensor feedback should be polled
-// currently when a orientation reporting sensor is used in Spin.
-func (sb *sensorBase) setPolling(isActive bool) {
-	sb.sensorLoopMu.Lock()
-	defer sb.sensorLoopMu.Unlock()
-	sb.sensorLoopPolling = isActive
+// startControlLoop uses the control config to initialize a control
+// loop using the controls package and store in on the sensor controlled base struct
+// the sensor base in the controllable interface that implements State and GetState
+// called by the endpoint logic of the control thread and the controlLoopConfig
+// is included at the end of this file.
+func (sb *sensorBase) startControlLoop() error {
+	loop, err := control.NewLoop(sb.logger, sb.controlLoopConfig, sb)
+	if err != nil {
+		return err
+	}
+	if err := loop.Start(); err != nil {
+		return err
+	}
+	sb.loop = loop
+
+	return nil
 }
 
-// isPolling gets whether the base is actively polling a sensor.
-func (sb *sensorBase) isPolling() bool {
-	sb.sensorLoopMu.Lock()
-	defer sb.sensorLoopMu.Unlock()
-	return sb.sensorLoopPolling
+func (sb *sensorBase) setupControlLoop(linear, angular control.PIDConfig) error {
+	// set the necessary options for a sensorcontrolled base
+	options := control.Options{
+		SensorFeedback2DVelocityControl: true,
+		LoopFrequency:                   10,
+		ControllableType:                "base_name",
+	}
+
+	// check if either linear or angular need to be tuned
+	if linear.NeedsAutoTuning() || angular.NeedsAutoTuning() {
+		options.NeedsAutoTuning = true
+	}
+
+	// combine linear and angular back into one control.PIDConfig, with linear first
+	pidVals := []control.PIDConfig{linear, angular}
+
+	// fully set up the control config based on the provided options
+	pl, err := control.SetupPIDControlConfig(pidVals, sb.Name().ShortName(), options, sb, sb.logger)
+	if err != nil {
+		return err
+	}
+
+	sb.controlLoopConfig = pl.ControlConf
+	sb.loop = pl.ControlLoop
+	sb.blockNames = pl.BlockNames
+
+	return nil
+}
+
+func (sb *sensorBase) updateControlConfig(
+	ctx context.Context, linearValue, angularValue float64,
+) error {
+	// set linear setpoint config
+	if err := control.UpdateConstantBlock(ctx, sb.blockNames[control.BlockNameConstant][0], linearValue, sb.loop); err != nil {
+		return err
+	}
+
+	// set angular setpoint config
+	if err := control.UpdateConstantBlock(ctx, sb.blockNames[control.BlockNameConstant][1], angularValue, sb.loop); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (sb *sensorBase) SetPower(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
 	sb.opMgr.CancelRunning(ctx)
-	sb.setPolling(false)
 	return sb.controlledBase.SetPower(ctx, linear, angular, extra)
 }
 
 func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	sb.opMgr.CancelRunning(ctx)
-	if sb.sensorLoopDone != nil {
-		sb.sensorLoopDone()
-	}
 	sb.stopLoop()
 	return sb.controlledBase.Stop(ctx, extra)
 }
@@ -270,10 +309,6 @@ func (sb *sensorBase) Geometries(ctx context.Context, extra map[string]interface
 func (sb *sensorBase) Close(ctx context.Context) error {
 	if err := sb.Stop(ctx, nil); err != nil {
 		return err
-	}
-	// check if a sensor context is still alive
-	if sb.sensorLoopDone != nil {
-		sb.sensorLoopDone()
 	}
 
 	sb.activeBackgroundWorkers.Wait()

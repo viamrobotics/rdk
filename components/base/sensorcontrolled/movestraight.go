@@ -22,9 +22,25 @@ const (
 func (sb *sensorBase) MoveStraight(
 	ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{},
 ) error {
+	sb.opMgr.CancelRunning(ctx)
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
-	sb.setPolling(false)
+
+	if sb.position == nil || len(sb.controlLoopConfig.Blocks) == 0 {
+		sb.logger.CWarnf(ctx,
+			"Position reporting sensor not available, or control loop not configured, using base %s's MoveStraight",
+			sb.controlledBase.Name().ShortName())
+		sb.stopLoop()
+		return sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
+	}
+
+	// make sure the control loop is enabled
+	if sb.loop == nil {
+		if err := sb.startControlLoop(); err != nil {
+			return err
+		}
+	}
+
 	straightTimeEst := time.Duration(int(time.Second) * int(math.Abs(float64(distanceMm)/mmPerSec)))
 	startTime := time.Now()
 	timeOut := 5 * straightTimeEst
@@ -32,23 +48,9 @@ func (sb *sensorBase) MoveStraight(
 		timeOut = 10 * time.Second
 	}
 
-	if sb.position == nil || len(sb.controlLoopConfig.Blocks) == 0 {
-		sb.logger.CWarnf(ctx,
-			"Position reporting sensor not available, and no control loop is configured, using base %s MoveStraight",
-			sb.controlledBase.Name().ShortName())
-		sb.stopLoop()
-		return sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
-	}
-
 	initialHeading, err := sb.headingFunc(ctx)
 	if err != nil {
 		return err
-	}
-	// make sure the control loop is enabled
-	if sb.loop == nil {
-		if err := sb.startControlLoop(); err != nil {
-			return err
-		}
 	}
 
 	// initialize relevant parameters for moving straight
@@ -105,8 +107,7 @@ func (sb *sensorBase) MoveStraight(
 
 			// exit if the straight takes too long
 			if time.Since(startTime) > timeOut {
-				sb.logger.CWarn(ctx, "exceeded time for MoveStraightCall, stopping base")
-
+				sb.logger.CWarn(ctx, "exceeded time for MoveStraight call, stopping base")
 				return sb.Stop(ctx, nil)
 			}
 		}
