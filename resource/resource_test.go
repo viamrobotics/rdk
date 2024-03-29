@@ -533,6 +533,54 @@ func TestRemoteResource(t *testing.T) {
 	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/remote2:remote1:")
 }
 
+func TestResourceNamePartID(t *testing.T) {
+	api := resource.NewAPI("foo", "bar", "baz")
+	name := "hello"
+	remoteName := "remote1"
+	partId := "abcde"
+	for _, tc := range []struct {
+		TestName string
+		Observed resource.Name
+		Expected resource.Name
+	}{
+		{
+			"name with part id",
+			resource.NewNameWithPartID(api, name, partId),
+			resource.Name{
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: resource.APINamespace(api.Type.Namespace),
+						Name:      api.Type.Name,
+					},
+					SubtypeName: api.SubtypeName,
+				},
+				Name:          name,
+				MachinePartID: partId,
+			},
+		},
+		{
+			"remote name with part id",
+			resource.NewNameWithPartID(api, name, partId).PrependRemote(remoteName),
+			resource.Name{
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: resource.APINamespace(api.Type.Namespace),
+						Name:      api.Type.Name,
+					},
+					SubtypeName: api.SubtypeName,
+				},
+				Remote:        remoteName,
+				Name:          name,
+				MachinePartID: partId,
+			},
+		},
+	} {
+		t.Run(tc.TestName, func(t *testing.T) {
+			test.That(t, tc.Observed, test.ShouldResemble, tc.Expected)
+		})
+	}
+}
+
 func TestNewPossibleRDKServiceAPIFromString(t *testing.T) {
 	for _, tc := range []struct {
 		TestName string
