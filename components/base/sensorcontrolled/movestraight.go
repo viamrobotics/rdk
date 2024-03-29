@@ -57,7 +57,7 @@ func (sb *sensorBase) MoveStraight(
 	}
 
 	// grab the initial heading for MoveStraight to clamp to. Will return 0 if no supporting sensors were configured.
-	initialHeading, err := sb.headingFunc(ctx)
+	initialHeading, _, err := sb.headingFunc(ctx)
 	if err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ func (sb *sensorBase) MoveStraight(
 
 // calculate the desired angular velocity to correct the heading of the base.
 func (sb *sensorBase) calcHeadingControl(ctx context.Context, initHeading float64) (float64, error) {
-	currHeading, err := sb.headingFunc(ctx)
+	currHeading, _, err := sb.headingFunc(ctx)
 	if err != nil {
 		return 0, err
 	}

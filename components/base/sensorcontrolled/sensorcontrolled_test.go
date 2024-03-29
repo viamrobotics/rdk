@@ -258,17 +258,17 @@ func TestReconfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	sb, ok := b.(*sensorBase)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation")
+	headingOri, headingSupported, err := sb.headingFunc(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, headingSupported, test.ShouldBeTrue)
+	test.That(t, headingOri, test.ShouldEqual, orientationValue)
 
 	deps, cfg = msDependencies(t, []string{"orientation1"})
 	err = b.Reconfigure(ctx, deps, cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation1")
-
-	deps, cfg = msDependencies(t, []string{"orientation2"})
-	err = b.Reconfigure(ctx, deps, cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation2")
+	test.That(t, headingSupported, test.ShouldBeTrue)
+	test.That(t, headingOri, test.ShouldEqual, orientationValue)
 
 	deps, cfg = msDependencies(t, []string{"setvel1"})
 	err = b.Reconfigure(ctx, deps, cfg)
@@ -279,20 +279,18 @@ func TestReconfig(t *testing.T) {
 	err = b.Reconfigure(ctx, deps, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel2")
-	headingNone, err := sb.headingFunc(context.Background())
+	headingNone, headingSupported, err := sb.headingFunc(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, headingSupported, test.ShouldBeFalse)
 	test.That(t, headingNone, test.ShouldEqual, 0)
 
 	deps, cfg = msDependencies(t, []string{"orientation3", "setvel3", "Bad"})
 	err = b.Reconfigure(ctx, deps, cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation3")
-	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel3")
-
-	deps, cfg = msDependencies(t, []string{"orientation3", "setvel3", "Bad"})
-	err = b.Reconfigure(ctx, deps, cfg)
+	headingOri, headingSupported, err = sb.headingFunc(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation3")
+	test.That(t, headingSupported, test.ShouldBeTrue)
+	test.That(t, headingOri, test.ShouldEqual, orientationValue)
 	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel3")
 
 	deps, cfg = msDependencies(t, []string{"Bad", "orientation4", "setvel4", "orientation5", "setvel5"})
@@ -414,9 +412,9 @@ func TestSensorBaseMoveStraight(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sb.position.Name().ShortName(), test.ShouldResemble, "position1")
-	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation1")
-	headingOri, err := sb.headingFunc(context.Background())
+	headingOri, headingSupported, err := sb.headingFunc(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, headingSupported, test.ShouldBeTrue)
 	test.That(t, headingOri, test.ShouldEqual, orientationValue)
 	test.That(t, headingOri, test.ShouldNotEqual, compassValue)
 
@@ -426,7 +424,10 @@ func TestSensorBaseMoveStraight(t *testing.T) {
 	sbNoPos, ok := bNoPos.(*sensorBase)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, sbNoPos.orientation, test.ShouldBeNil)
+	headingZero, headingSupported, err := sb.headingFunc(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, headingSupported, test.ShouldBeFalse)
+	test.That(t, headingZero, test.ShouldEqual, 0)
 	t.Run("Test canceling a sensor controlled MoveStraight", func(t *testing.T) {
 		// flaky test, will see behavior after RSDK-6164
 		t.Skip()
@@ -465,8 +466,9 @@ func TestSensorBaseMoveStraight(t *testing.T) {
 	t.Run("Test heading error wraps", func(t *testing.T) {
 		// orientation configured, so update the value for testing
 		orientationValue = 179
-		headingOri, err := sb.headingFunc(context.Background())
+		headingOri, headingSupported, err := sb.headingFunc(context.Background())
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, headingSupported, test.ShouldBeTrue)
 		// validate the orientation updated
 		test.That(t, headingOri, test.ShouldEqual, 179)
 

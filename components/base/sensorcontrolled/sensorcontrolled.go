@@ -67,12 +67,11 @@ type sensorBase struct {
 
 	opMgr *operation.SingleOperationManager
 
-	allSensors     []movementsensor.MovementSensor
-	orientation    movementsensor.MovementSensor
-	velocities     movementsensor.MovementSensor
-	position       movementsensor.MovementSensor
-	compassHeading movementsensor.MovementSensor
-	headingFunc    func(ctx context.Context) (float64, error)
+	allSensors []movementsensor.MovementSensor
+	velocities movementsensor.MovementSensor
+	position   movementsensor.MovementSensor
+	// headingFunc returns the current angle between (-180,180) and whether Spin is supported
+	headingFunc func(ctx context.Context) (float64, bool, error)
 
 	controlLoopConfig control.Config
 	blockNames        map[string][]string
@@ -120,8 +119,8 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	// reset all sensors
 	sb.allSensors = nil
 	sb.velocities = nil
-	sb.orientation = nil
-	sb.compassHeading = nil
+	var orientation movementsensor.MovementSensor
+	var compassHeading movementsensor.MovementSensor
 	sb.position = nil
 	sb.controlledBase = nil
 
@@ -137,8 +136,8 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		props, err := ms.Properties(context.Background(), nil)
 		if err == nil && props.OrientationSupported {
 			// return first sensor that does not error that satisfies the properties wanted
-			sb.orientation = ms
-			sb.logger.CInfof(ctx, "using sensor %s as orientation sensor for base", sb.orientation.Name().ShortName())
+			orientation = ms
+			sb.logger.CInfof(ctx, "using sensor %s as orientation sensor for base", orientation.Name().ShortName())
 			break
 		}
 	}
@@ -167,17 +166,17 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		props, err := ms.Properties(context.Background(), nil)
 		if err == nil && props.CompassHeadingSupported {
 			// return first sensor that does not error that satisfies the properties wanted
-			sb.compassHeading = ms
-			sb.logger.CInfof(ctx, "using sensor %s as compassHeading sensor for base", sb.compassHeading.Name().ShortName())
+			compassHeading = ms
+			sb.logger.CInfof(ctx, "using sensor %s as compassHeading sensor for base", compassHeading.Name().ShortName())
 			break
 		}
 	}
 
-	if sb.orientation == nil && sb.velocities == nil {
+	if orientation == nil && sb.velocities == nil {
 		return errNoGoodSensor
 	}
 
-	sb.determineHeadingFunc(ctx)
+	sb.determineHeadingFunc(ctx, orientation, compassHeading)
 
 	sb.controlledBase, err = base.FromDependencies(deps, newConf.Base)
 	if err != nil {
@@ -255,44 +254,46 @@ func (sb *sensorBase) Close(ctx context.Context) error {
 
 // determineHeadingFunc determines which movement sensor endpoint should be used for control.
 // The priority is Orientation -> Heading -> No heading control.
-func (sb *sensorBase) determineHeadingFunc(ctx context.Context) {
+func (sb *sensorBase) determineHeadingFunc(ctx context.Context,
+	orientation movementsensor.MovementSensor, compassHeading movementsensor.MovementSensor) {
 	switch {
-	case sb.orientation != nil:
-		sb.logger.CInfof(ctx, "using orientation for base %v's MoveStraight heading control and Spin",
-			sb.Name().ShortName())
-		sb.headingFunc = func(ctx context.Context) (float64, error) {
-			orient, err := sb.orientation.Orientation(ctx, nil)
+	case orientation != nil:
+
+		sb.logger.CInfof(ctx, "using sensor %s as angular heading sensor for base %v", orientation.Name().ShortName(), sb.Name().ShortName())
+
+		sb.headingFunc = func(ctx context.Context) (float64, bool, error) {
+			orient, err := orientation.Orientation(ctx, nil)
 			if err != nil {
-				return 0, err
+				return 0, false, err
 			}
 			// this returns (-180-> 180)
 			yaw := rdkutils.RadToDeg(orient.EulerAngles().Yaw)
 
-			return yaw, nil
+			return yaw, true, nil
 		}
-	case sb.compassHeading != nil:
-		sb.logger.CInfof(ctx, "using compass heading for base %v's MoveStraight heading control and Spin",
-			sb.Name().ShortName())
-		sb.headingFunc = func(ctx context.Context) (float64, error) {
-			compassHeading, err := sb.compassHeading.CompassHeading(ctx, nil)
+	case compassHeading != nil:
+		sb.logger.CInfof(ctx, "using sensor %s as angular heading sensor for base %v", compassHeading.Name().ShortName(), sb.Name().ShortName())
+
+		sb.headingFunc = func(ctx context.Context) (float64, bool, error) {
+			compass, err := compassHeading.CompassHeading(ctx, nil)
 			if err != nil {
-				return 0, err
+				return 0, false, err
 			}
 			// flip compass heading to be CCW/Z up
-			compassHeading = 360 - compassHeading
+			compass = 360 - compass
 
 			// make the compass heading (-180->180)
-			if compassHeading > 180 {
-				compassHeading -= 360
+			if compass > 180 {
+				compass -= 360
 			}
 
-			return compassHeading, nil
+			return compass, true, nil
 		}
 	default:
 		sb.logger.CInfof(ctx, "base %v cannot control heading, no heading related sensor given",
 			sb.Name().ShortName())
-		sb.headingFunc = func(ctx context.Context) (float64, error) {
-			return 0, nil
+		sb.headingFunc = func(ctx context.Context) (float64, bool, error) {
+			return 0, false, nil
 		}
 	}
 }

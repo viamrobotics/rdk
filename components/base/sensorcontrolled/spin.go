@@ -31,7 +31,13 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's Spin method", sb.controlledBase.Name().ShortName())
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
-	if sb.orientation == nil {
+
+	prevAngle, spinSupported, err := sb.headingFunc(ctx)
+	if err != nil {
+		return err
+	}
+
+	if !spinSupported {
 		sb.logger.CWarn(ctx, "orientation movement sensor not configured, using %v's spin method", sb.controlledBase.Name().ShortName())
 		sb.stopLoop()
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
@@ -42,11 +48,6 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 		if err := sb.startControlLoop(); err != nil {
 			return err
 		}
-	}
-
-	prevAngle, err := sb.headingFunc(ctx)
-	if err != nil {
-		return err
 	}
 	angErr := 0.
 	prevMovedAng := 0.
@@ -85,7 +86,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			return err
 		case <-ticker.C:
 
-			currYaw, err := sb.headingFunc(ctx)
+			currYaw, _, err := sb.headingFunc(ctx)
 			if err != nil {
 				return err
 			}
