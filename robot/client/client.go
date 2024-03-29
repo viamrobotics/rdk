@@ -954,8 +954,9 @@ func (rc *RobotClient) CloudMetadata(ctx context.Context) (cloud.Metadata, error
 	if err != nil {
 		return cloudMD, err
 	}
-	cloudMD.RobotPartID = resp.RobotPartId
 	cloudMD.PrimaryOrgID = resp.PrimaryOrgId
 	cloudMD.LocationID = resp.LocationId
+	cloudMD.MachineID = resp.MachineId
+	cloudMD.MachinePartID = resp.MachinePartId
 	return cloudMD, nil
 }

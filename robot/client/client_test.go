@@ -2032,7 +2032,6 @@ func TestCloudMetadata(t *testing.T) {
 	gServer := grpc.NewServer()
 
 	injectCloudMD := cloud.Metadata{
-		RobotPartID:   "the-robot-part",
 		LocationID:    "the-location",
 		PrimaryOrgID:  "the-primary-org",
 		MachineID:     "the-machine",
