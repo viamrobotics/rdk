@@ -117,7 +117,9 @@ var ErrNotCloudManaged = errors.New("this robot is not cloud managed")
 
 // Metadata contains app-related information about the robot.
 type Metadata struct {
-	RobotPartID  string
-	PrimaryOrgID string
-	LocationID   string
+	RobotPartID   string
+	PrimaryOrgID  string
+	LocationID    string
+	MachineID     string
+	MachinePartID string
 }

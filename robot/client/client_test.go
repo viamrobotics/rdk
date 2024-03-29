@@ -2032,9 +2032,11 @@ func TestCloudMetadata(t *testing.T) {
 	gServer := grpc.NewServer()
 
 	injectCloudMD := cloud.Metadata{
-		RobotPartID:  "the-robot-part",
-		LocationID:   "the-location",
-		PrimaryOrgID: "the-primary-org",
+		RobotPartID:   "the-robot-part",
+		LocationID:    "the-location",
+		PrimaryOrgID:  "the-primary-org",
+		MachineID:     "the-machine-id",
+		MachinePartID: "the-robot-part",
 	}
 	injectRobot := &inject.Robot{
 		ResourceNamesFunc:   func() []resource.Name { return nil },

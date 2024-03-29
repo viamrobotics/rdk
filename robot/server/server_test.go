@@ -97,9 +97,11 @@ func TestServer(t *testing.T) {
 		req := pb.GetCloudMetadataRequest{}
 		injectRobot.CloudMetadataFunc = func(ctx context.Context) (cloud.Metadata, error) {
 			return cloud.Metadata{
-				RobotPartID:  "the-robot-part",
-				PrimaryOrgID: "the-primary-org",
-				LocationID:   "the-location",
+				RobotPartID:   "the-robot-part",
+				PrimaryOrgID:  "the-primary-org",
+				LocationID:    "the-location",
+				MachineID:     "the-machine-id",
+				MachinePartID: "the-robot-part",
 			}, nil
 		}
 		resp, err := server.GetCloudMetadata(context.Background(), &req)

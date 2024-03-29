@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3421,6 +3422,7 @@ func TestCloudMetadata(t *testing.T) {
 				ID:           "the-robot-part",
 				LocationID:   "the-location",
 				PrimaryOrgID: "the-primary-org",
+				MachineID:    "the-machine-id",
 			},
 		}
 		robot, shutdown := initTestRobot(t, ctx, cfg, logger)
@@ -3428,9 +3430,11 @@ func TestCloudMetadata(t *testing.T) {
 		md, err := robot.CloudMetadata(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, md, test.ShouldResemble, cloud.Metadata{
-			RobotPartID:  "the-robot-part",
-			PrimaryOrgID: "the-primary-org",
-			LocationID:   "the-location",
+			RobotPartID:   "the-robot-part",
+			PrimaryOrgID:  "the-primary-org",
+			LocationID:    "the-location",
+			MachineID:     "the-machine-id",
+			MachinePartID: "the-robot-part",
 		})
 	})
 }
