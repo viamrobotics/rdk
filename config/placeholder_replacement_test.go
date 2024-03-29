@@ -220,4 +220,11 @@ func TestPlaceholderReplacement(t *testing.T) {
 		})
 		test.That(t, modules, test.ShouldResemble, []Module{module})
 	})
+	t.Run("RemovePlaceholderPrefix", func(t *testing.T) {
+		test.That(t, RemovePlaceholderPrefix("hello"), test.ShouldEqual, "hello")
+		test.That(t, RemovePlaceholderPrefix("${placeholder}/hello"), test.ShouldEqual, "/hello")
+		test.That(t, RemovePlaceholderPrefix("hello/${placeholder}"), test.ShouldEqual, "hello/${placeholder}")
+		test.That(t, RemovePlaceholderPrefix(""), test.ShouldEqual, "")
+		test.That(t, RemovePlaceholderPrefix("${placeholder}"), test.ShouldEqual, "")
+	})
 }

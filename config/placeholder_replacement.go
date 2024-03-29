@@ -254,3 +254,12 @@ func ModulesForPackage(packageName string, modules []Module) []Module {
 	}
 	return ret
 }
+
+// RemovePlaceholderPrefix looks for placeholderRegexp at the beginning of the input string, and returns a copy with it removed.
+func RemovePlaceholderPrefix(original string) string {
+	loc := placeholderRegexp.FindStringIndex(original)
+	if loc == nil || loc[0] != 0 {
+		return original
+	}
+	return original[loc[1]:]
+}

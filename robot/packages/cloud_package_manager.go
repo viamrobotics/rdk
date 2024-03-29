@@ -119,7 +119,7 @@ func (m *cloudManager) Close(ctx context.Context) error {
 }
 
 // SyncAll syncs all given packages and removes any not in the list from the local file system.
-func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig) error {
+func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig, modules []config.Module) error {
 	var outErr error
 
 	// Only allow one rdk process to operate on the manager at once. This is generally safe to keep locked for an extended period of time
