@@ -55,11 +55,10 @@ type odometry struct {
 	resource.Named
 	resource.AlwaysRebuild
 
-	lastLeftPos        float64
-	lastRightPos       float64
-	baseWidth          float64
-	wheelCircumference float64
-	timeIntervalMSecs  float64
+	lastLeftPos       float64
+	lastRightPos      float64
+	base              base.Base
+	timeIntervalMSecs float64
 
 	motors []motorPair
 
@@ -159,11 +158,10 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	if err != nil {
 		return err
 	}
-	o.baseWidth = props.WidthMeters
-	o.wheelCircumference = props.WheelCircumferenceMeters
-	if o.baseWidth == 0 || o.wheelCircumference == 0 {
+	if props.WidthMeters == 0 || props.WheelCircumferenceMeters == 0 {
 		return errors.New("base width or wheel circumference are 0, movement sensor cannot be created")
 	}
+	o.base = newBase
 	o.logger.Debugf("using base %v for wheeled_odometry sensor", newBase.Name().ShortName())
 
 	// check if new motors have been added, or the existing motors have been changed, and update the motorPairs accorodingly
@@ -387,9 +385,14 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			left := positions[0]
 			right := positions[1]
 
+			props, err := o.base.Properties(ctx, nil)
+			if err != nil {
+				o.logger.Error(err)
+				return
+			}
 			// Difference in the left and right motors since the last iteration, in mm.
-			leftDist := (left - o.lastLeftPos) * o.wheelCircumference
-			rightDist := (right - o.lastRightPos) * o.wheelCircumference
+			leftDist := (left - o.lastLeftPos) * props.WheelCircumferenceMeters
+			rightDist := (right - o.lastRightPos) * props.WheelCircumferenceMeters
 
 			// Update lastLeftPos and lastRightPos to be the current position in mm.
 			o.lastLeftPos = left
@@ -400,7 +403,7 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			// the inner angle of the rotation will be small enough that it can be accurately
 			// estimated using the below equations.
 			centerDist := (leftDist + rightDist) / 2
-			centerAngle := (rightDist - leftDist) / o.baseWidth
+			centerAngle := (rightDist - leftDist) / props.WidthMeters
 
 			// Update the position and orientation values accordingly.
 			o.mu.Lock()
