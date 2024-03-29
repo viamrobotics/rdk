@@ -29,7 +29,6 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
@@ -84,11 +83,8 @@ type mpu6050 struct {
 	// Stores the most recent error from the background goroutine
 	err movementsensor.LastError
 
-	// Used to shut down the background goroutine which polls the sensor.
-	backgroundContext       context.Context
-	cancelFunc              func()
-	activeBackgroundWorkers sync.WaitGroup
-	logger                  logging.Logger
+	workers rutils.StoppableWorkers
+	logger  logging.Logger
 }
 
 func addressReadError(err error, address byte, bus string) error {
@@ -141,14 +137,11 @@ func makeMpu6050(
 	}
 	logger.CDebugf(ctx, "Using address %d for MPU6050 sensor", address)
 
-	backgroundContext, cancelFunc := context.WithCancel(context.Background())
 	sensor := &mpu6050{
-		Named:             conf.ResourceName().AsNamed(),
-		bus:               bus,
-		i2cAddress:        address,
-		logger:            logger,
-		backgroundContext: backgroundContext,
-		cancelFunc:        cancelFunc,
+		Named:      conf.ResourceName().AsNamed(),
+		bus:        bus,
+		i2cAddress: address,
+		logger:     logger,
 		// On overloaded boards, the I2C bus can become flaky. Only report errors if at least 5 of
 		// the last 10 attempts to talk to the device have failed.
 		err: movementsensor.NewLastError(10, 5),
@@ -174,9 +167,7 @@ func makeMpu6050(
 
 	// Now, turn on the background goroutine that constantly reads from the chip and stores data in
 	// the object we created.
-	sensor.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer sensor.activeBackgroundWorkers.Done()
+	sensor.workers = rutils.NewStoppableWorkers(func(cancelCtx context.Context) {
 		// Reading data a thousand times per second is probably fast enough.
 		timer := time.NewTicker(time.Millisecond)
 		defer timer.Stop()
@@ -184,7 +175,7 @@ func makeMpu6050(
 		for {
 			select {
 			case <-timer.C:
-				rawData, err := sensor.readBlock(sensor.backgroundContext, 59, 14)
+				rawData, err := sensor.readBlock(cancelCtx, 59, 14)
 				// Record `err` no matter what: even if it's nil, that's useful information.
 				sensor.err.Set(err)
 				if err != nil {
@@ -205,7 +196,7 @@ func makeMpu6050(
 				sensor.temperature = temperature
 				sensor.angularVelocity = angularVelocity
 				sensor.mu.Unlock()
-			case <-sensor.backgroundContext.Done():
+			case <-cancelCtx.Done():
 				return
 			}
 		}
@@ -345,8 +336,7 @@ func (mpu *mpu6050) Properties(ctx context.Context, extra map[string]interface{}
 }
 
 func (mpu *mpu6050) Close(ctx context.Context) error {
-	mpu.cancelFunc()
-	mpu.activeBackgroundWorkers.Wait()
+	mpu.workers.Stop()
 
 	mpu.mu.Lock()
 	defer mpu.mu.Unlock()
