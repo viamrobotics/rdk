@@ -102,6 +102,37 @@ func TestCloud(t *testing.T) {
 		validatePackageDir(t, packageDir, []config.PackageConfig{input[1]})
 	})
 
+	t.Run("sync re-downloads on error", func(t *testing.T) {
+		pkg := config.PackageConfig{Name: "some-name", Package: "org1/test-model", Version: "v1", Type: "module"}
+
+		// create a package manager and Sync to download the package
+		_, pm := newPackageManager(t, client, fakeServer, logger, "")
+		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+		fakeServer.StorePackage(pkg)
+		err = pm.Sync(ctx, []config.PackageConfig{pkg}, []config.Module{{ExePath: "${packages.module.some-name}/some-text.txt"}})
+		test.That(t, err, test.ShouldBeNil)
+
+		// close first package manager, then corrupt the module entrypoint file
+		pm.Close(ctx)
+		mustExistPath := path.Join(pkg.LocalDataDirectory(pm.(*cloudManager).packagesDir), "some-text.txt")
+		info, err := os.Stat(mustExistPath)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, info.Size(), test.ShouldNotBeZeroValue)
+		os.Remove(mustExistPath)
+
+		// create fresh packageManager to simulate a reboot, i.e. so the system doesn't think the module is already managed.
+		_, pm = newPackageManager(t, client, fakeServer, logger, pm.(*cloudManager).packagesDir)
+		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+		fakeServer.StorePackage(pkg)
+		err = pm.Sync(ctx, []config.PackageConfig{pkg}, []config.Module{{ExePath: "${packages.module.some-name}/some-text.txt"}})
+		test.That(t, err, test.ShouldBeNil)
+
+		// test that file exists and is non-empty
+		info, err = os.Stat(mustExistPath)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, info.Size(), test.ShouldNotBeZeroValue)
+	})
+
 	t.Run("sync and clean should remove file", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger, "")
 		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
