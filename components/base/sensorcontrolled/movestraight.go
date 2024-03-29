@@ -33,6 +33,9 @@ func (sb *sensorBase) MoveStraight(
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
 
+	// If a position movement sensor or controls are not configured, we cannot use this MoveStraight method.
+	// Instead we need to use the MoveStraight method of the base that the sensorcontrolled base wraps.
+	// If there is no valid velocity sensor, there won't be a controlLoopConfig.
 	if sb.position == nil || len(sb.controlLoopConfig.Blocks) == 0 {
 		sb.logger.CWarnf(ctx,
 			"Position reporting sensor not available, or control loop not configured, using base %s's MoveStraight",
