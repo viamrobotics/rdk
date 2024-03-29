@@ -5,9 +5,6 @@ import (
 	"errors"
 	"math"
 	"time"
-
-	"go.viam.com/rdk/components/movementsensor"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -26,7 +23,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's spin method", sb.controlledBase.Name().ShortName())
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
-	if sb.orientation == nil {
+	if sb.orientation == nil && sb.compassHeading == nil {
 		sb.logger.CWarn(ctx, "orientation movement sensor not configured,using %v's spin method", sb.controlledBase.Name().ShortName())
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
@@ -41,11 +38,10 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	defer done()
 	sb.setPolling(true)
 
-	orientation, err := sb.orientation.Orientation(ctx, nil)
+	prevAngle, err := sb.headingFunc(ctx)
 	if err != nil {
 		return err
 	}
-	prevAngle := rdkutils.RadToDeg(orientation.EulerAngles().Yaw)
 	angErr := 0.
 	prevMovedAng := 0.
 
@@ -91,7 +87,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			return err
 		case <-ticker.C:
 
-			currYaw, err := getYawInDeg(ctx, sb.orientation)
+			currYaw, err := sb.headingFunc(ctx)
 			if err != nil {
 				return err
 			}
@@ -119,16 +115,6 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			}
 		}
 	}
-}
-
-// getYawInDeg gets the yaw from a movement sensor that supports orientation and returns it in degrees.
-func getYawInDeg(ctx context.Context, orientation movementsensor.MovementSensor) (float64, error) {
-	ori, err := orientation.Orientation(ctx, nil)
-	if err != nil {
-		return 0., err
-	}
-
-	return rdkutils.RadToDeg(ori.EulerAngles().Yaw), nil
 }
 
 // calcSlowDownAng computes the angle at which the spin should begin to slow down.

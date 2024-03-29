@@ -8,8 +8,6 @@ import (
 	"time"
 
 	geo "github.com/kellydunn/golang-geo"
-
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -158,48 +156,4 @@ func calcSlowDownDist(distanceMm int) float64 {
 		return maxSlowDownDist * sign(float64(distanceMm))
 	}
 	return slowDownDist
-}
-
-// determineHeadingFunc determines which movement sensor endpoint should be used for control.
-// The priority is Orientation -> Heading -> No heading control.
-func (sb *sensorBase) determineHeadingFunc(ctx context.Context) {
-	switch {
-	case sb.orientation != nil:
-		sb.logger.CInfof(ctx, "using orientation for base %v's MoveStraight heading control",
-			sb.Name().ShortName())
-		sb.headingFunc = func(ctx context.Context) (float64, error) {
-			orient, err := sb.orientation.Orientation(ctx, nil)
-			if err != nil {
-				return 0, err
-			}
-			// this returns (-180-> 180)
-			yaw := rdkutils.RadToDeg(orient.EulerAngles().Yaw)
-
-			return yaw, nil
-		}
-	case sb.compassHeading != nil:
-		sb.logger.CInfof(ctx, "using compass heading for base %v's MoveStraight heading control",
-			sb.Name().ShortName())
-		sb.headingFunc = func(ctx context.Context) (float64, error) {
-			compassHeading, err := sb.compassHeading.CompassHeading(ctx, nil)
-			if err != nil {
-				return 0, err
-			}
-			// flip compass heading to be CCW/Z up
-			compassHeading = 360 - compassHeading
-
-			// make the compass heading (-180->180)
-			if compassHeading > 180 {
-				compassHeading -= 360
-			}
-
-			return compassHeading, nil
-		}
-	default:
-		sb.logger.CInfof(ctx, "base %v cannot control heading, no heading related sensor given",
-			sb.Name().ShortName())
-		sb.headingFunc = func(ctx context.Context) (float64, error) {
-			return 0, nil
-		}
-	}
 }
