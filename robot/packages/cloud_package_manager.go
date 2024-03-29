@@ -648,6 +648,9 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 			if _, err := io.CopyN(outFile, tarReader, maxPackageSize); err != nil && !errors.Is(err, io.EOF) {
 				return errors.Wrapf(err, "failed to copy file %s", path)
 			}
+			if err := outFile.Sync(); err != nil {
+				return errors.Wrapf(err, "failed to sync %s", path)
+			}
 			utils.UncheckedError(outFile.Close())
 		case tar.TypeLink:
 			name := header.Linkname
