@@ -46,7 +46,7 @@ type OnTrackCB func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver)
 // 3) `Close`
 // 4) `ReplaceConn`
 // ...
-// 5) Object destruction (at shutdown or resource removed from config)
+// 5) Object destruction (at shutdown or resource removed from config).
 type SharedConn struct {
 	grpcConn      ReconfigurableClientConn
 	peerConn      *webrtc.PeerConnection
