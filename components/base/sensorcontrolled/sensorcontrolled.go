@@ -65,10 +65,6 @@ type sensorBase struct {
 	activeBackgroundWorkers sync.WaitGroup
 	controlledBase          base.Base // the inherited wheeled base
 
-	sensorLoopMu      sync.Mutex
-	sensorLoopDone    func()
-	sensorLoopPolling bool
-
 	opMgr *operation.SingleOperationManager
 
 	allSensors     []movementsensor.MovementSensor
@@ -216,35 +212,15 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	return nil
 }
 
-// setPolling determines whether we want the sensor loop to run and stop the base with sensor feedback
-// should be set to false everywhere except when sensor feedback should be polled
-// currently when a orientation reporting sensor is used in Spin.
-func (sb *sensorBase) setPolling(isActive bool) {
-	sb.sensorLoopMu.Lock()
-	defer sb.sensorLoopMu.Unlock()
-	sb.sensorLoopPolling = isActive
-}
-
-// isPolling gets whether the base is actively polling a sensor.
-func (sb *sensorBase) isPolling() bool {
-	sb.sensorLoopMu.Lock()
-	defer sb.sensorLoopMu.Unlock()
-	return sb.sensorLoopPolling
-}
-
 func (sb *sensorBase) SetPower(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
 	sb.opMgr.CancelRunning(ctx)
-	sb.setPolling(false)
 	return sb.controlledBase.SetPower(ctx, linear, angular, extra)
 }
 
 func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	sb.opMgr.CancelRunning(ctx)
-	if sb.sensorLoopDone != nil {
-		sb.sensorLoopDone()
-	}
 	sb.stopLoop()
 	return sb.controlledBase.Stop(ctx, extra)
 }
@@ -271,10 +247,6 @@ func (sb *sensorBase) Geometries(ctx context.Context, extra map[string]interface
 func (sb *sensorBase) Close(ctx context.Context) error {
 	if err := sb.Stop(ctx, nil); err != nil {
 		return err
-	}
-	// check if a sensor context is still alive
-	if sb.sensorLoopDone != nil {
-		sb.sensorLoopDone()
 	}
 
 	sb.activeBackgroundWorkers.Wait()
