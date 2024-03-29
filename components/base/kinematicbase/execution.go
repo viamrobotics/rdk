@@ -294,9 +294,14 @@ func (ptgk *ptgBaseKinematics) trajectoryToArcSteps(
 	finalSteps := []arcStep{}
 	timeStep := 0.
 	curDist := 0.
+	curInputs := []referenceframe.Input{
+		inputs[0],
+		inputs[1],
+		{curDist},
+	}
 	runningPose := startPose
 	segment := ik.Segment{
-		StartConfiguration: inputs,
+		StartConfiguration: curInputs,
 		StartPosition:      runningPose,
 		Frame:              ptgk.Kinematics(),
 	}
@@ -318,7 +323,7 @@ func (ptgk *ptgBaseKinematics) trajectoryToArcSteps(
 		if nextStep.linVelMMps.Sub(nextLinVel).Norm2() > 1e-6 || nextStep.angVelDegps.Sub(nextAngVel).Norm2() > 1e-6 {
 			// Changed velocity, make a new step
 			nextStep.durationSeconds = timeStep
-			curInputs := []referenceframe.Input{
+			curInputs = []referenceframe.Input{
 				inputs[0],
 				inputs[1],
 				{curDist},
@@ -353,7 +358,7 @@ func (ptgk *ptgBaseKinematics) trajectoryToArcSteps(
 		}
 	}
 	nextStep.durationSeconds = timeStep
-	curInputs := []referenceframe.Input{
+	curInputs = []referenceframe.Input{
 		inputs[0],
 		inputs[1],
 		{curDist},
