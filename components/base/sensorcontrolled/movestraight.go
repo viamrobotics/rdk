@@ -19,6 +19,10 @@ const (
 	headingGain           = 1.
 )
 
+// MoveStraight commands a base to move forward for the desired distanceMm at the given mmPerSec.
+// When controls are enabled, MoveStraight calculates the required velocity to reach mmPerSec
+// and the distanceMm goal. It then polls the provided velocity movement sensor and corrects any
+// error between this calculated velocity and the actual velocity using a PID control loop.
 func (sb *sensorBase) MoveStraight(
 	ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{},
 ) error {

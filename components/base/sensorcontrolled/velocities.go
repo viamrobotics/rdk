@@ -5,9 +5,13 @@ import (
 	"math"
 
 	"github.com/golang/geo/r3"
+
 	"go.viam.com/rdk/control"
 )
 
+// SetVelocity commands a base to move at the requested linear and angular velocites.
+// When controls are enabled, SetVelocity polls the provided velocity movement sensor and corrects
+// any error between the desired velocity and the actual velocity using a PID control loop.
 func (sb *sensorBase) SetVelocity(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
@@ -35,7 +39,7 @@ func (sb *sensorBase) SetVelocity(
 	return nil
 }
 
-// startControlLoop uses the control config to initialize a control loop and store it on the sensor controlled base struct. 
+// startControlLoop uses the control config to initialize a control loop and store it on the sensor controlled base struct.
 // The sensor base is the controllable interface that implements State and GetState called from the endpoint block of the control loop.
 func (sb *sensorBase) startControlLoop() error {
 	loop, err := control.NewLoop(sb.logger, sb.controlLoopConfig, sb)

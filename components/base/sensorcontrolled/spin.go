@@ -19,6 +19,9 @@ const (
 )
 
 // Spin commands a base to turn about its center at an angular speed and for a specific angle.
+// When controls are enabled, Spin polls the provided orientation movement sensor and corrects
+// any error between the desired degsPerSec and the actual degsPerSec using a PID control loop.
+// Spin also monitors the angleDeg and stops the base when the goal angle is reached.
 func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	sb.opMgr.CancelRunning(ctx)
 	ctx, done := sb.opMgr.New(ctx)
