@@ -31,7 +31,7 @@ type serviceServer struct {
 // NewRPCServiceServer constructs an camera gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
 func NewRPCServiceServer(coll resource.APIResourceCollection[Camera]) interface{} {
-	logger := logging.NewLogger("camserver")
+	logger := logging.Global().Sublogger("camserver")
 	imgTypes := make(map[string]ImageType)
 	return &serviceServer{coll: coll, logger: logger, imgTypes: imgTypes}
 }

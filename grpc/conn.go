@@ -16,6 +16,8 @@ type ReconfigurableClientConn struct {
 	conn   rpc.ClientConn
 }
 
+var errNotConnected = errors.New("not connected")
+
 // Invoke invokes using the underlying client connection. In the case of c.conn being closed in the middle of
 // an Invoke call, it is expected that c.conn can handle that and return a well-formed error.
 func (c *ReconfigurableClientConn) Invoke(
@@ -28,7 +30,7 @@ func (c *ReconfigurableClientConn) Invoke(
 	conn := c.conn
 	c.connMu.RUnlock()
 	if conn == nil {
-		return errors.New("not connected")
+		return errNotConnected
 	}
 	return conn.Invoke(ctx, method, args, reply, opts...)
 }
@@ -45,7 +47,7 @@ func (c *ReconfigurableClientConn) NewStream(
 	conn := c.conn
 	c.connMu.RUnlock()
 	if conn == nil {
-		return nil, errors.New("not connected")
+		return nil, errNotConnected
 	}
 	return conn.NewStream(ctx, desc, method, opts...)
 }
