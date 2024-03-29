@@ -171,12 +171,11 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 			break
 		}
 	}
+	sb.determineHeadingFunc(ctx, orientation, compassHeading)
 
 	if orientation == nil && sb.velocities == nil {
 		return errNoGoodSensor
 	}
-
-	sb.determineHeadingFunc(ctx, orientation, compassHeading)
 
 	sb.controlledBase, err = base.FromDependencies(deps, newConf.Base)
 	if err != nil {
