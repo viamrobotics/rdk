@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path"
 	"path/filepath"
 	"testing"
 
@@ -56,7 +57,7 @@ func TestCloud(t *testing.T) {
 		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
 
 		input := []config.PackageConfig{{Name: "some-name", Package: "org1/test-model", Version: "v1", Type: "ml_model"}}
-		err = pm.Sync(ctx, input)
+		err = pm.Sync(ctx, input, []config.Module{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failed loading package url")
 
@@ -74,7 +75,7 @@ func TestCloud(t *testing.T) {
 		}
 		fakeServer.StorePackage(input...)
 
-		err = pm.Sync(ctx, input)
+		err = pm.Sync(ctx, input, []config.Module{})
 		test.That(t, err, test.ShouldBeNil)
 
 		// validate dir should be empty
@@ -91,7 +92,7 @@ func TestCloud(t *testing.T) {
 		}
 		fakeServer.StorePackage(input[1]) // only store second
 
-		err = pm.Sync(ctx, input)
+		err = pm.Sync(ctx, input, []config.Module{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failed loading package url for org1/test-model:v1")
 
@@ -110,14 +111,14 @@ func TestCloud(t *testing.T) {
 		fakeServer.StorePackage(input...)
 
 		// first sync
-		err = pm.Sync(ctx, input)
+		err = pm.Sync(ctx, input, []config.Module{})
 		test.That(t, err, test.ShouldBeNil)
 
 		// validate dir should be empty
 		validatePackageDir(t, packageDir, input)
 
 		// second sync
-		err = pm.Sync(ctx, []config.PackageConfig{input[1]})
+		err = pm.Sync(ctx, []config.PackageConfig{input[1]}, []config.Module{})
 		test.That(t, err, test.ShouldBeNil)
 
 		validatePackageDir(t, packageDir, input)
@@ -140,7 +141,7 @@ func TestCloud(t *testing.T) {
 		}
 		fakeServer.StorePackage(input...)
 
-		err = pm.Sync(ctx, input)
+		err = pm.Sync(ctx, input, []config.Module{})
 		test.That(t, err, test.ShouldBeNil)
 
 		getCount, downloadCount := fakeServer.RequestCounts()
@@ -150,7 +151,7 @@ func TestCloud(t *testing.T) {
 		// validate dir should be empty
 		validatePackageDir(t, packageDir, input)
 
-		err = pm.Sync(ctx, input)
+		err = pm.Sync(ctx, input, []config.Module{})
 		test.That(t, err, test.ShouldBeNil)
 
 		// validate dir should be empty
@@ -170,7 +171,7 @@ func TestCloud(t *testing.T) {
 		}
 		fakeServer.StorePackage(input...)
 
-		err = pm.Sync(ctx, input)
+		err = pm.Sync(ctx, input, []config.Module{})
 		test.That(t, err, test.ShouldBeNil)
 
 		validatePackageDir(t, packageDir, input)
@@ -178,7 +179,7 @@ func TestCloud(t *testing.T) {
 		input[0].Version = "v2"
 		fakeServer.StorePackage(input...)
 
-		err = pm.Sync(ctx, input)
+		err = pm.Sync(ctx, input, []config.Module{})
 		test.That(t, err, test.ShouldBeNil)
 
 		err = pm.Cleanup(ctx)
@@ -198,7 +199,7 @@ func TestCloud(t *testing.T) {
 		}
 		fakeServer.StorePackage(input...)
 
-		err = pm.Sync(ctx, input)
+		err = pm.Sync(ctx, input, []config.Module{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failed to decode")
 
@@ -220,7 +221,7 @@ func TestCloud(t *testing.T) {
 		}
 		fakeServer.StorePackage(input...)
 
-		err = pm.Sync(ctx, input)
+		err = pm.Sync(ctx, input, []config.Module{})
 		test.That(t, err, test.ShouldBeNil)
 
 		// validate dir should be empty
@@ -238,7 +239,7 @@ func TestCloud(t *testing.T) {
 		}
 		fakeServer.StorePackage(input...)
 
-		err = pm.Sync(ctx, input)
+		err = pm.Sync(ctx, input, []config.Module{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid status code 500")
 
@@ -259,7 +260,7 @@ func TestCloud(t *testing.T) {
 		}
 		fakeServer.StorePackage(input...)
 
-		err = pm.Sync(ctx, input)
+		err = pm.Sync(ctx, input, []config.Module{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected EOF")
 
@@ -364,7 +365,7 @@ func TestPackageRefs(t *testing.T) {
 	input := []config.PackageConfig{{Name: "some-name", Package: "org1/test-model", Version: "v1", Type: "ml_model"}}
 	fakeServer.StorePackage(input...)
 
-	err = pm.Sync(ctx, input)
+	err = pm.Sync(ctx, input, []config.Module{})
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("PackagePath", func(t *testing.T) {
@@ -496,4 +497,30 @@ func TestTrimLeadingZeroes(t *testing.T) {
 			test.That(t, trimLeadingZeroes(tc.input), test.ShouldResemble, tc.expected)
 		})
 	}
+}
+
+func TestCheckNonemptyPaths(t *testing.T) {
+	dataDir, err := os.MkdirTemp("", "nonempty-paths")
+	defer os.RemoveAll(dataDir)
+	test.That(t, err, test.ShouldBeNil)
+	logger := logging.NewTestLogger(t)
+
+	// path missing
+	test.That(t, checkNonemptyPaths(dataDir, "packageName", logger, []string{"hello"}), test.ShouldBeFalse)
+
+	// file empty
+	fullPath := path.Join(dataDir, "hello")
+	_, err = os.Create(fullPath)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, checkNonemptyPaths(dataDir, "packageName", logger, []string{"hello"}), test.ShouldBeFalse)
+
+	// file exists and is non-empty
+	err = os.WriteFile(fullPath, []byte("hello"), 0)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, checkNonemptyPaths(dataDir, "packageName", logger, []string{"hello"}), test.ShouldBeTrue)
+
+	// file is a symlink
+	err = os.Symlink(fullPath, path.Join(dataDir, "sym-hello"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, checkNonemptyPaths(dataDir, "packageName", logger, []string{"sym-hello"}), test.ShouldBeTrue)
 }

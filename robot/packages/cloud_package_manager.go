@@ -364,18 +364,19 @@ func sanitizeURLForLogs(u string) string {
 }
 
 // checkNonemptyPaths returns true if all required paths are present and non-empty.
-func checkNonemptyPaths(dataDir string, pkg config.PackageConfig, logger logging.Logger, paths []string) bool {
+func checkNonemptyPaths(dataDir string, packageName string, logger logging.Logger, paths []string) bool {
 	missingOrEmpty := 0
 	for _, nePath := range paths {
+		// note: os.Stat treats symlinks as their destination. os.Lstat would stat the link itself.
 		info, err := os.Stat(path.Join(dataDir, nePath))
 		if err != nil {
 			missingOrEmpty += 1
 			if !os.IsNotExist(err) {
-				logger.Warnw("ignoring non-NotExist error for required path", "path", nePath, "package", pkg.Name, "error", err.Error())
+				logger.Warnw("ignoring non-NotExist error for required path", "path", nePath, "package", packageName, "error", err.Error())
 			}
 		} else if info.Size() == 0 {
 			missingOrEmpty += 1
-			logger.Warnw("a required path is empty, re-downloading", "path", nePath, "package", pkg.Name)
+			logger.Warnw("a required path is empty, re-downloading", "path", nePath, "package", packageName)
 		}
 	}
 	return missingOrEmpty == 0
@@ -383,7 +384,7 @@ func checkNonemptyPaths(dataDir string, pkg config.PackageConfig, logger logging
 
 func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config.PackageConfig, nonEmptyPaths []string) error {
 	if dataDir := p.LocalDataDirectory(m.packagesDir); dirExists(dataDir) {
-		if checkNonemptyPaths(dataDir, p, m.logger, nonEmptyPaths) {
+		if checkNonemptyPaths(dataDir, p.Name, m.logger, nonEmptyPaths) {
 			m.logger.Debug("Package already downloaded, skipping.")
 			return nil
 		}
