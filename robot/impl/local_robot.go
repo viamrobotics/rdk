@@ -102,11 +102,15 @@ func (r *localRobot) ResourceNames() []resource.Name {
 	if err != nil {
 		return names
 	}
-
+	rNames := make([]resource.Name, 0, len(names))
 	for _, n := range names {
 		n.MachinePartID = md.RobotPartID
+		rNames = append(
+			rNames,
+			n,
+		)
 	}
-	return names
+	return rNames
 }
 
 // ResourceRPCAPIs returns all known resource RPC APIs in use.
