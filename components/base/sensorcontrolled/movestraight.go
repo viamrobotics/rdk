@@ -48,6 +48,7 @@ func (sb *sensorBase) MoveStraight(
 		timeOut = 10 * time.Second
 	}
 
+	// grab the initial heading for MoveStraight to clamp to. Will return 0 if no supporting sensors were configured.
 	initialHeading, err := sb.headingFunc(ctx)
 	if err != nil {
 		return err
