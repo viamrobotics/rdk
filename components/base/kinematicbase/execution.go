@@ -37,8 +37,8 @@ type arcStep struct {
 	angVelDegps     r3.Vector
 	durationSeconds float64
 
-	// StartPose is the pose at dist=0 for the PTG these traj nodes are derived from, such that Compose(trajStartPose, TrajNode.Pose) is
-	// the expected pose at that node.
+	// arcSegment.StartPosition is the pose at dist=0 for the PTG these traj nodes are derived from, such that
+	// Compose(arcSegment.StartPosition, subTraj[n].Pose) is the expected pose at that node.
 	// A single trajectory may be broken into multiple arcSteps, so we need to be able to track the total distance elapsed through
 	// the trajectory.
 	arcSegment ik.Segment
@@ -184,7 +184,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 				ptgk.logger.Debug("allowable diff ", allowableDiff, " diff now ", poseDiff.Point().Norm())
 				if poseDiff.Point().Norm() > allowableDiff || poseDiff.Orientation().AxisAngles().Theta > 0.25 {
 					ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
-					ptgk.logger.Debug("SLAM says at ", spatialmath.PoseToProtobuf(actualPose.Pose()))
+					ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()))
 					// Accumulate list of points along the path to try to connect to
 					goals := ptgk.makeCourseCorrectionGoals(
 						goalsToAttempt,
@@ -198,7 +198,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 						ptgk.logger.Debug(err)
 					}
 					if solution.Solution != nil {
-						ptgk.logger.Debug("got new solution")
+						ptgk.logger.Debug("successful course correction", solution.Solution)
 
 						correctiveArcSteps := []arcStep{}
 						for i := 0; i < len(solution.Solution); i += 2 {
@@ -253,7 +253,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 						// Break our timing loop to go to the next step
 						break
 					}
-					ptgk.logger.Debug("no new solution")
+					ptgk.logger.Debug("failed to find valid course correction")
 				}
 			}
 		}
@@ -313,6 +313,8 @@ func (ptgk *ptgBaseKinematics) trajectoryToArcSteps(
 		nextStep.subTraj = append(nextStep.subTraj, trajPt)
 		nextLinVel := r3.Vector{0, trajPt.LinVel * ptgk.linVelocityMMPerSecond, 0}
 		nextAngVel := r3.Vector{0, 0, trajPt.AngVel * ptgk.angVelocityDegsPerSecond}
+
+		// Check if this traj node has different velocities from the last one. If so, end our segment and start a new segment.
 		if nextStep.linVelMMps.Sub(nextLinVel).Norm2() > 1e-6 || nextStep.angVelDegps.Sub(nextAngVel).Norm2() > 1e-6 {
 			// Changed velocity, make a new step
 			nextStep.durationSeconds = timeStep
@@ -379,6 +381,8 @@ func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []course
 		} else {
 			seed[2].Value *= -1
 		}
+		// Attempt to use our course correction solver to solve for a new set of trajectories which will get us from our current position
+		// to our goal point along our original trajectory.
 		err := ptgk.ptgs[ptgk.courseCorrectionIdx].Solve(
 			ctx,
 			solutionChan,
