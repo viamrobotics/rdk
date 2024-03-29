@@ -1,4 +1,4 @@
-package config_test
+package config
 
 import (
 	"fmt"
@@ -8,7 +8,6 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
@@ -17,7 +16,7 @@ func TestPlaceholderReplacement(t *testing.T) {
 	homeDir, _ := os.UserHomeDir()
 	viamPackagesDir := filepath.Join(homeDir, ".viam", "packages")
 	t.Run("package placeholder replacement", func(t *testing.T) {
-		cfg := &config.Config{
+		cfg := &Config{
 			Components: []resource.Config{
 				{
 					Name: "m",
@@ -38,12 +37,12 @@ func TestPlaceholderReplacement(t *testing.T) {
 					},
 				},
 			},
-			Modules: []config.Module{
+			Modules: []Module{
 				{
 					ExePath: "${packages.module.coolmod}/bin",
 				},
 			},
-			Packages: []config.PackageConfig{
+			Packages: []PackageConfig{
 				{
 					Name:    "coolpkg",
 					Package: "orgid/pkg",
@@ -78,7 +77,7 @@ func TestPlaceholderReplacement(t *testing.T) {
 	})
 	t.Run("package placeholder typos", func(t *testing.T) {
 		// Unknown type of placeholder
-		cfg := &config.Config{
+		cfg := &Config{
 			Components: []resource.Config{
 				{
 					Attributes: utils.AttributeMap{
@@ -93,7 +92,7 @@ func TestPlaceholderReplacement(t *testing.T) {
 		test.That(t, cfg.Components[0].Attributes["a"], test.ShouldResemble, "${invalidplaceholder}")
 
 		// Empy placeholder
-		cfg = &config.Config{
+		cfg = &Config{
 			Components: []resource.Config{
 				{
 					Attributes: utils.AttributeMap{
@@ -108,7 +107,7 @@ func TestPlaceholderReplacement(t *testing.T) {
 		test.That(t, cfg.Components[0].Attributes["a"], test.ShouldResemble, "${}")
 
 		// Package placeholder with no equivalent pkg
-		cfg = &config.Config{
+		cfg = &Config{
 			Components: []resource.Config{
 				{
 					Attributes: utils.AttributeMap{
@@ -123,7 +122,7 @@ func TestPlaceholderReplacement(t *testing.T) {
 		test.That(t, cfg.Components[0].Attributes["a"], test.ShouldResemble, "${packages.ml_model.chicken}")
 
 		// Package placeholder with wrong type
-		cfg = &config.Config{
+		cfg = &Config{
 			Components: []resource.Config{
 				{
 					Attributes: utils.AttributeMap{
@@ -131,7 +130,7 @@ func TestPlaceholderReplacement(t *testing.T) {
 					},
 				},
 			},
-			Packages: []config.PackageConfig{
+			Packages: []PackageConfig{
 				{
 					Name:    "chicken",
 					Package: "orgid/pkg",
@@ -144,7 +143,7 @@ func TestPlaceholderReplacement(t *testing.T) {
 		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "looking for a package of type \"ml_model\"")
 
 		// Half successful string replacement
-		cfg = &config.Config{
+		cfg = &Config{
 			Components: []resource.Config{
 				{
 					Attributes: utils.AttributeMap{
@@ -152,7 +151,7 @@ func TestPlaceholderReplacement(t *testing.T) {
 					},
 				},
 			},
-			Packages: []config.PackageConfig{
+			Packages: []PackageConfig{
 				{
 					Name:    "chicken",
 					Package: "orgid/pkg",
@@ -170,7 +169,7 @@ func TestPlaceholderReplacement(t *testing.T) {
 	})
 	t.Run("environment variable placeholder replacement", func(t *testing.T) {
 		// test success
-		cfg := &config.Config{
+		cfg := &Config{
 			Components: []resource.Config{
 				{
 					Attributes: utils.AttributeMap{
@@ -178,7 +177,7 @@ func TestPlaceholderReplacement(t *testing.T) {
 					},
 				},
 			},
-			Modules: []config.Module{
+			Modules: []Module{
 				{
 					Environment: map[string]string{
 						"PATH": "${environment.PATH}",
@@ -192,7 +191,7 @@ func TestPlaceholderReplacement(t *testing.T) {
 		test.That(t, cfg.Modules[0].Environment["PATH"], test.ShouldEqual, os.Getenv("PATH"))
 
 		// test failure
-		cfg = &config.Config{
+		cfg = &Config{
 			Components: []resource.Config{
 				{
 					Attributes: utils.AttributeMap{
