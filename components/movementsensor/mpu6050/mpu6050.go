@@ -35,7 +35,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("gyro-mpu6050")
@@ -83,7 +83,7 @@ type mpu6050 struct {
 	// Stores the most recent error from the background goroutine
 	err movementsensor.LastError
 
-	workers rutils.StoppableWorkers
+	workers utils.StoppableWorkers
 	logger  logging.Logger
 }
 
@@ -167,7 +167,7 @@ func makeMpu6050(
 
 	// Now, turn on the background goroutine that constantly reads from the chip and stores data in
 	// the object we created.
-	sensor.workers = rutils.NewStoppableWorkers(func(cancelCtx context.Context) {
+	sensor.workers = utils.NewStoppableWorkers(func(cancelCtx context.Context) {
 		// Reading data a thousand times per second is probably fast enough.
 		timer := time.NewTicker(time.Millisecond)
 		defer timer.Stop()
@@ -185,7 +185,7 @@ func makeMpu6050(
 
 				linearAcceleration := toLinearAcceleration(rawData[0:6])
 				// Taken straight from the MPU6050 register map. Yes, these are weird constants.
-				temperature := float64(rutils.Int16FromBytesBE(rawData[6:8]))/340.0 + 36.53
+				temperature := float64(utils.Int16FromBytesBE(rawData[6:8]))/340.0 + 36.53
 				angularVelocity := toAngularVelocity(rawData[8:14])
 
 				// Lock the mutex before modifying the state within the object. By keeping the mutex
@@ -252,9 +252,9 @@ func setScale(value int, maxValue float64) float64 {
 // A helper function to abstract out shared code: takes 6 bytes and gives back AngularVelocity, in
 // radians per second.
 func toAngularVelocity(data []byte) spatialmath.AngularVelocity {
-	gx := int(rutils.Int16FromBytesBE(data[0:2]))
-	gy := int(rutils.Int16FromBytesBE(data[2:4]))
-	gz := int(rutils.Int16FromBytesBE(data[4:6]))
+	gx := int(utils.Int16FromBytesBE(data[0:2]))
+	gy := int(utils.Int16FromBytesBE(data[2:4]))
+	gz := int(utils.Int16FromBytesBE(data[4:6]))
 
 	maxRotation := 250.0 // Maximum degrees per second measurable in the default configuration
 	return spatialmath.AngularVelocity{
@@ -266,9 +266,9 @@ func toAngularVelocity(data []byte) spatialmath.AngularVelocity {
 
 // A helper function that takes 6 bytes and gives back linear acceleration.
 func toLinearAcceleration(data []byte) r3.Vector {
-	x := int(rutils.Int16FromBytesBE(data[0:2]))
-	y := int(rutils.Int16FromBytesBE(data[2:4]))
-	z := int(rutils.Int16FromBytesBE(data[4:6]))
+	x := int(utils.Int16FromBytesBE(data[0:2]))
+	y := int(utils.Int16FromBytesBE(data[2:4]))
+	z := int(utils.Int16FromBytesBE(data[4:6]))
 
 	// The scale is +/- 2G's, but our units should be m/sec/sec.
 	maxAcceleration := 2.0 * 9.81 /* m/sec/sec */
