@@ -14,7 +14,7 @@ type Name struct {
 	Remote string
 	Name   string
 
-	RobotPartID string
+	MachinePartID string
 }
 
 // NewName creates a new resource Name.
@@ -29,16 +29,16 @@ func NewName(api API, name string) Name {
 	}
 }
 
-// NewNameWithPartID creates a new resource Name with a robot part id.
+// NewNameWithPartID creates a new resource Name with a machine part id.
 func NewNameWithPartID(api API, name, partID string) Name {
 	r := strings.Split(name, ":")
 	remote := strings.Join(r[0:len(r)-1], ":")
 	nameIdent := r[len(r)-1]
 	return Name{
-		API:         api,
-		Name:        nameIdent,
-		Remote:      remote,
-		RobotPartID: partID,
+		API:           api,
+		Name:          nameIdent,
+		Remote:        remote,
+		MachinePartID: partID,
 	}
 }
 
@@ -57,13 +57,15 @@ func (n *Name) UnmarshalJSON(data []byte) error {
 }
 
 // newRemoteName creates a new Name for a resource attached to a remote.
-func newRemoteName(remoteName string, api API, name string) Name {
+func newRemoteName(remoteName string, api API, name, partID string) Name {
 	n := NewName(api, name)
 	n.Remote = remoteName
+	n.MachinePartID = partID
 	return n
 }
 
-// NewFromString creates a new Name based on a fully qualified resource name string passed in.
+// NewFromString creates a new Name based on a fully qualified resource name string passed in. Part ID will
+// not be populated.
 func NewFromString(resourceName string) (Name, error) {
 	if !resRegexValidator.MatchString(resourceName) {
 		return Name{}, errors.Errorf("string %q is not a fully qualified resource name", resourceName)
@@ -75,7 +77,7 @@ func NewFromString(resourceName string) (Name, error) {
 		remoteName = remoteName[:len(remoteName)-1]
 	}
 	api := APINamespace(rAPIParts[0]).WithType(rAPIParts[1]).WithSubtype(rAPIParts[2])
-	return newRemoteName(remoteName, api, matches[3]), nil
+	return newRemoteName(remoteName, api, matches[3], ""), nil
 }
 
 // PrependRemote returns a Name with a remote prepended.
@@ -89,7 +91,9 @@ func (n Name) PrependRemote(remoteName string) Name {
 	return newRemoteName(
 		remoteName,
 		n.API,
-		n.Name)
+		n.Name,
+		n.MachinePartID,
+	)
 }
 
 // PopRemote pop the first remote from a Name (if any) and returns the new Name.
@@ -101,7 +105,9 @@ func (n Name) PopRemote() Name {
 	return newRemoteName(
 		strings.Join(remotes[1:], ":"),
 		n.API,
-		n.Name)
+		n.Name,
+		n.MachinePartID,
+	)
 }
 
 // ContainsRemoteNames return true if the resource is a remote resource.
@@ -150,7 +156,7 @@ func (n Name) Validate() error {
 	return nil
 }
 
-// String returns the fully qualified name for the resource.
+// String returns the fully qualified name for the resource. It does not contain the machine part ID.
 func (n Name) String() string {
 	name := n.API.String()
 	if n.Remote != "" {

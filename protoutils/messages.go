@@ -28,8 +28,8 @@ func ResourceNameToProto(name resource.Name) *commonpb.ResourceName {
 		Subtype:   name.API.SubtypeName,
 		Name:      name.ShortName(),
 	}
-	if name.RobotPartID != "" {
-		rName.RobotPartId = &name.RobotPartID
+	if name.MachinePartID != "" {
+		rName.MachinePartId = &name.MachinePartID
 	}
 	return rName
 }
@@ -38,7 +38,7 @@ func ResourceNameToProto(name resource.Name) *commonpb.ResourceName {
 func ResourceNameFromProto(name *commonpb.ResourceName) resource.Name {
 	return resource.NewNameWithPartID(
 		resource.APINamespace(name.Namespace).WithType(name.Type).WithSubtype(name.Subtype),
-		name.Name, name.GetRobotPartId(),
+		name.Name, name.GetMachinePartId(),
 	)
 }
 

@@ -104,7 +104,7 @@ func (r *localRobot) ResourceNames() []resource.Name {
 	}
 
 	for _, n := range names {
-		n.RobotPartID = md.RobotPartID
+		n.MachinePartID = md.RobotPartID
 	}
 	return names
 }
