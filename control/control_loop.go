@@ -298,12 +298,10 @@ func (l *Loop) Stop() {
 }
 
 // Pause sets l.running to false to pause the loop.
-// Pause sets l.running to false to pause the loop.
 func (l *Loop) Pause() {
 	l.running = false
 }
 
-// Resume sets l.running to true to resume the loop.
 // Resume sets l.running to true to resume the loop.
 func (l *Loop) Resume() {
 	l.running = true
