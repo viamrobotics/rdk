@@ -50,7 +50,7 @@ func TestFromReader(t *testing.T) {
 			LocationSecrets:  []LocationSecret{},
 			LocationID:       "the-location",
 			PrimaryOrgID:     "the-primary-org",
-			MachineID:        "the-machine-id",
+			MachineID:        "the-machine",
 		}
 		certProto := &pb.CertificateResponse{
 			TlsCertificate: "cert",
@@ -95,7 +95,7 @@ func TestFromReader(t *testing.T) {
 			TLSPrivateKey:    "key",
 			LocationID:       "the-location",
 			PrimaryOrgID:     "the-primary-org",
-			MachineID:        "the-machine-id",
+			MachineID:        "the-machine",
 		}
 		cachedConf := &Config{Cloud: cachedCloud}
 		err := storeToCache(robotPartID, cachedConf)
@@ -140,7 +140,7 @@ func TestStoreToCache(t *testing.T) {
 		AppAddress:       "https://app.viam.dev:443",
 		LocationID:       "the-location",
 		PrimaryOrgID:     "the-primary-org",
-		MachineID:        "the-machine-id",
+		MachineID:        "the-machine",
 	}
 	cfg.Cloud = cloud
 
@@ -202,7 +202,7 @@ func TestShouldCheckForCert(t *testing.T) {
 		TLSPrivateKey:    "key",
 		LocationID:       "the-location",
 		PrimaryOrgID:     "the-primary-org",
-		MachineID:        "the-machine-id",
+		MachineID:        "the-machine",
 		LocationSecrets: []LocationSecret{
 			{ID: "id1", Secret: "secret1"},
 			{ID: "id2", Secret: "secret2"},

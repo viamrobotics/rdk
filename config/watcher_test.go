@@ -229,7 +229,7 @@ func TestNewWatcherCloud(t *testing.T) {
 			LocationSecrets: []config.LocationSecret{{ID: "1", Secret: "secret"}},
 			PrimaryOrgID:    "the-primary-org",
 			LocationID:      "the-location",
-			MachineID:       "the-machine-id",
+			MachineID:       "the-machine",
 		}
 	}
 

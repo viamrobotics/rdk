@@ -3422,7 +3422,7 @@ func TestCloudMetadata(t *testing.T) {
 				ID:           "the-robot-part",
 				LocationID:   "the-location",
 				PrimaryOrgID: "the-primary-org",
-				MachineID:    "the-machine-id",
+				MachineID:    "the-machine",
 			},
 		}
 		robot, shutdown := initTestRobot(t, ctx, cfg, logger)
@@ -3433,7 +3433,7 @@ func TestCloudMetadata(t *testing.T) {
 			RobotPartID:   "the-robot-part",
 			PrimaryOrgID:  "the-primary-org",
 			LocationID:    "the-location",
-			MachineID:     "the-machine-id",
+			MachineID:     "the-machine",
 			MachinePartID: "the-robot-part",
 		})
 	})

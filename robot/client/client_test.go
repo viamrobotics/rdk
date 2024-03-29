@@ -2035,7 +2035,7 @@ func TestCloudMetadata(t *testing.T) {
 		RobotPartID:   "the-robot-part",
 		LocationID:    "the-location",
 		PrimaryOrgID:  "the-primary-org",
-		MachineID:     "the-machine-id",
+		MachineID:     "the-machine",
 		MachinePartID: "the-robot-part",
 	}
 	injectRobot := &inject.Robot{

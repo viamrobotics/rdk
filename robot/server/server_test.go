@@ -100,7 +100,7 @@ func TestServer(t *testing.T) {
 				RobotPartID:   "the-robot-part",
 				PrimaryOrgID:  "the-primary-org",
 				LocationID:    "the-location",
-				MachineID:     "the-machine-id",
+				MachineID:     "the-machine",
 				MachinePartID: "the-robot-part",
 			}, nil
 		}
