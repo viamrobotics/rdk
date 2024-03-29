@@ -297,20 +297,19 @@ func (l *Loop) Stop() {
 	l.activeBackgroundWorkers.Wait()
 }
 
-// SetStatus sets l.running.
-func (l *Loop) SetStatus(running bool) {
-	l.running = running
-}
-
+// Pause sets l.running to false to pause the loop.
+// Pause sets l.running to false to pause the loop
 func (l *Loop) Pause() {
 	l.running = false
 }
 
+// Resume sets l.running to true to resume the loop.
+// Resume sets l.running to true to resume the loop
 func (l *Loop) Resume() {
 	l.running = true
 }
 
-// GetStatus returns the value of l.running.
+// Running returns the value of l.running.
 func (l *Loop) Running() bool {
 	return l.running
 }
