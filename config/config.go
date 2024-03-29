@@ -492,6 +492,7 @@ type Cloud struct {
 	LocationSecrets   []LocationSecret
 	LocationID        string
 	PrimaryOrgID      string
+	MachineID         string
 	ManagedBy         string
 	FQDN              string
 	LocalFQDN         string
@@ -518,6 +519,7 @@ type cloudData struct {
 	LocationSecrets   []LocationSecret `json:"location_secrets"`
 	LocationID        string           `json:"location_id"`
 	PrimaryOrgID      string           `json:"primary_org_id"`
+	MachineID         string           `json:"machine_id"`
 	ManagedBy         string           `json:"managed_by"`
 	FQDN              string           `json:"fqdn"`
 	LocalFQDN         string           `json:"local_fqdn"`
