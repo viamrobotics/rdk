@@ -56,7 +56,7 @@ var serverOneResourceResponse = []*commonpb.ResourceName{
 }
 
 func TestServer(t *testing.T) {
-	t.Run("Metadata", func(t *testing.T) {
+	t.Run("ResourceNames", func(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }

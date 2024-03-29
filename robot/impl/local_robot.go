@@ -82,8 +82,10 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 }
 
 // ResourceByName returns a resource by name. If it does not exist
-// nil is returned.
+// nil is returned. Machine part id is optional and will not be used for comparison.
 func (r *localRobot) ResourceByName(name resource.Name) (resource.Resource, error) {
+	// strip part id to make comparisons easier
+	name = name.RemovePartID()
 	return r.manager.ResourceByName(name)
 }
 
@@ -94,7 +96,17 @@ func (r *localRobot) RemoteNames() []string {
 
 // ResourceNames returns the names of all known resources.
 func (r *localRobot) ResourceNames() []resource.Name {
-	return r.manager.ResourceNames()
+	names := r.manager.ResourceNames()
+
+	md, err := r.CloudMetadata(context.Background())
+	if err != nil {
+		return names
+	}
+
+	for _, n := range names {
+		n.RobotPartID = md.RobotPartID
+	}
+	return names
 }
 
 // ResourceRPCAPIs returns all known resource RPC APIs in use.

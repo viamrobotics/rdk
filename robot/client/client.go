@@ -518,7 +518,7 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 	panic(errUnimplemented)
 }
 
-// ResourceByName returns resource by name.
+// ResourceByName returns resource by name. Machine part id is optional and will not be used for comparison.
 func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, error) {
 	if err := rc.checkConnected(); err != nil {
 		return nil, err
@@ -526,7 +526,6 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 
 	rc.mu.RLock()
 
-	// see if a remote name matches the name if so then return the remote client
 	// remove the part id from the name passed in so that comparisons are made without part id
 	name = name.RemovePartID()
 	if val, ok := rc.remoteNameMap[name]; ok {

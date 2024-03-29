@@ -124,7 +124,7 @@ func RemoveRemoteName(n Name) Name {
 
 // RemovePartID returns a new name with part id removed.
 func (n Name) RemovePartID() Name {
-	return NewName(n.API, n.Name)
+	return NewName(n.API, n.ShortName())
 }
 
 // ShortName returns the short name on Name n in the form of <remote>:<name>.

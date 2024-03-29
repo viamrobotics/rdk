@@ -1185,7 +1185,6 @@ func TestStatusRemote(t *testing.T) {
 		FrameSystemConfigFunc: frameSystemConfigFunc,
 		ResourceNamesFunc:     resourcesFunc,
 		ResourceRPCAPIsFunc:   func() []resource.RPCAPI { return nil },
-		CloudMetadataFunc:     func(context.Context) (cloud.Metadata, error) { return cloud.Metadata{}, nil },
 	}
 	armStatus := &armpb.Status{
 		EndPosition:    &commonpb.Pose{},
@@ -1211,7 +1210,6 @@ func TestStatusRemote(t *testing.T) {
 		FrameSystemConfigFunc: frameSystemConfigFunc,
 		ResourceNamesFunc:     resourcesFunc,
 		ResourceRPCAPIsFunc:   func() []resource.RPCAPI { return nil },
-		CloudMetadataFunc:     func(context.Context) (cloud.Metadata, error) { return cloud.Metadata{}, nil },
 	}
 	injectRobot2.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 		statusCallCount++
