@@ -47,7 +47,7 @@ func TestResourceNameToProto(t *testing.T) {
 	api := resource.NewAPI("foo", "bar", "baz")
 	name := "hello"
 	remoteName := "remote1"
-	partId := "abcde"
+	partID := "abcde"
 	for _, tc := range []struct {
 		TestName string
 		Name     resource.Name
@@ -65,13 +65,13 @@ func TestResourceNameToProto(t *testing.T) {
 		},
 		{
 			"name with part id",
-			resource.NewNameWithPartID(api, name, partId),
+			resource.NewNameWithPartID(api, name, partID),
 			&commonpb.ResourceName{
 				Namespace:     string(api.Type.Namespace),
 				Type:          api.Type.Name,
 				Subtype:       api.SubtypeName,
 				Name:          name,
-				MachinePartId: &partId,
+				MachinePartId: &partID,
 			},
 		},
 		{
@@ -86,13 +86,13 @@ func TestResourceNameToProto(t *testing.T) {
 		},
 		{
 			"remote name with part id",
-			resource.NewNameWithPartID(api, name, partId).PrependRemote(remoteName),
+			resource.NewNameWithPartID(api, name, partID).PrependRemote(remoteName),
 			&commonpb.ResourceName{
 				Namespace:     string(api.Type.Namespace),
 				Type:          api.Type.Name,
 				Subtype:       api.SubtypeName,
-				Name:          resource.NewNameWithPartID(api, name, partId).PrependRemote(remoteName).ShortName(),
-				MachinePartId: &partId,
+				Name:          resource.NewNameWithPartID(api, name, partID).PrependRemote(remoteName).ShortName(),
+				MachinePartId: &partID,
 			},
 		},
 	} {
@@ -107,7 +107,7 @@ func TestResourceNameFromProto(t *testing.T) {
 	api := resource.NewAPI("foo", "bar", "baz")
 	name := "hello"
 	remoteName := "remote1"
-	partId := "abcde"
+	partID := "abcde"
 	for _, tc := range []struct {
 		TestName string
 		Name     *commonpb.ResourceName
@@ -130,9 +130,9 @@ func TestResourceNameFromProto(t *testing.T) {
 				Type:          api.Type.Name,
 				Subtype:       api.SubtypeName,
 				Name:          name,
-				MachinePartId: &partId,
+				MachinePartId: &partID,
 			},
-			resource.NewNameWithPartID(api, name, partId),
+			resource.NewNameWithPartID(api, name, partID),
 		},
 		{
 			"remote name",
@@ -150,10 +150,10 @@ func TestResourceNameFromProto(t *testing.T) {
 				Namespace:     string(api.Type.Namespace),
 				Type:          api.Type.Name,
 				Subtype:       api.SubtypeName,
-				Name:          resource.NewNameWithPartID(api, name, partId).PrependRemote(remoteName).ShortName(),
-				MachinePartId: &partId,
+				Name:          resource.NewNameWithPartID(api, name, partID).PrependRemote(remoteName).ShortName(),
+				MachinePartId: &partID,
 			},
-			resource.NewNameWithPartID(api, name, partId).PrependRemote(remoteName),
+			resource.NewNameWithPartID(api, name, partID).PrependRemote(remoteName),
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {

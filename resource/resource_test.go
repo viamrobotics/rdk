@@ -537,7 +537,7 @@ func TestResourceNamePartID(t *testing.T) {
 	api := resource.NewAPI("foo", "bar", "baz")
 	name := "hello"
 	remoteName := "remote1"
-	partId := "abcde"
+	partID := "abcde"
 	for _, tc := range []struct {
 		TestName string
 		Observed resource.Name
@@ -545,7 +545,7 @@ func TestResourceNamePartID(t *testing.T) {
 	}{
 		{
 			"name with part id",
-			resource.NewNameWithPartID(api, name, partId),
+			resource.NewNameWithPartID(api, name, partID),
 			resource.Name{
 				API: resource.API{
 					Type: resource.APIType{
@@ -555,12 +555,12 @@ func TestResourceNamePartID(t *testing.T) {
 					SubtypeName: api.SubtypeName,
 				},
 				Name:          name,
-				MachinePartID: partId,
+				MachinePartID: partID,
 			},
 		},
 		{
 			"remote name with part id",
-			resource.NewNameWithPartID(api, name, partId).PrependRemote(remoteName),
+			resource.NewNameWithPartID(api, name, partID).PrependRemote(remoteName),
 			resource.Name{
 				API: resource.API{
 					Type: resource.APIType{
@@ -571,7 +571,7 @@ func TestResourceNamePartID(t *testing.T) {
 				},
 				Remote:        remoteName,
 				Name:          name,
-				MachinePartID: partId,
+				MachinePartID: partID,
 			},
 		},
 	} {
