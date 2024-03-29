@@ -19,12 +19,38 @@ const (
 	headingGain           = 1.
 )
 
+// MoveStraight commands a base to move forward for the desired distanceMm at the given mmPerSec.
+// When controls are enabled, MoveStraight calculates the required velocity to reach mmPerSec
+// and the distanceMm goal. It then polls the provided velocity movement sensor and corrects any
+// error between this calculated velocity and the actual velocity using a PID control loop.
+// MoveStraight also monitors the position and stops the base when the goal distanceMm is reached.
+// If a compass heading movement sensor is provided, MoveStraight will attempt to keep the heading
+// of the base fixed in the original direction it was faced at the beginning of the MoveStraight call.
 func (sb *sensorBase) MoveStraight(
 	ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{},
 ) error {
+	sb.opMgr.CancelRunning(ctx)
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
-	sb.setPolling(false)
+
+	// If a position movement sensor or controls are not configured, we cannot use this MoveStraight method.
+	// Instead we need to use the MoveStraight method of the base that the sensorcontrolled base wraps.
+	// If there is no valid velocity sensor, there won't be a controlLoopConfig.
+	if sb.position == nil || len(sb.controlLoopConfig.Blocks) == 0 {
+		sb.logger.CWarnf(ctx,
+			"Position reporting sensor not available, or control loop not configured, using base %s's MoveStraight",
+			sb.controlledBase.Name().ShortName())
+		sb.stopLoop()
+		return sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
+	}
+
+	// make sure the control loop is enabled
+	if sb.loop == nil {
+		if err := sb.startControlLoop(); err != nil {
+			return err
+		}
+	}
+
 	straightTimeEst := time.Duration(int(time.Second) * int(math.Abs(float64(distanceMm)/mmPerSec)))
 	startTime := time.Now()
 	timeOut := 5 * straightTimeEst
@@ -32,23 +58,10 @@ func (sb *sensorBase) MoveStraight(
 		timeOut = 10 * time.Second
 	}
 
-	if sb.position == nil || len(sb.controlLoopConfig.Blocks) == 0 {
-		sb.logger.CWarnf(ctx,
-			"Position reporting sensor not available, and no control loop is configured, using base %s MoveStraight",
-			sb.controlledBase.Name().ShortName())
-		sb.stopLoop()
-		return sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
-	}
-
+	// grab the initial heading for MoveStraight to clamp to. Will return 0 if no supporting sensors were configured.
 	initialHeading, err := sb.headingFunc(ctx)
 	if err != nil {
 		return err
-	}
-	// make sure the control loop is enabled
-	if sb.loop == nil {
-		if err := sb.startControlLoop(); err != nil {
-			return err
-		}
 	}
 
 	// initialize relevant parameters for moving straight
@@ -105,8 +118,7 @@ func (sb *sensorBase) MoveStraight(
 
 			// exit if the straight takes too long
 			if time.Since(startTime) > timeOut {
-				sb.logger.CWarn(ctx, "exceeded time for MoveStraightCall, stopping base")
-
+				sb.logger.CWarn(ctx, "exceeded time for MoveStraight call, stopping base")
 				return sb.Stop(ctx, nil)
 			}
 		}
