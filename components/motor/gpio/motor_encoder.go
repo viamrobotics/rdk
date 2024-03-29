@@ -291,7 +291,7 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 		m.rpmMonitorDone()
 	}
 	if m.loop != nil {
-		m.pauseLoop()
+		m.loop.Pause()
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -400,7 +400,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, directio
 		}
 	}
 
-	m.resumeLoop()
+	m.loop.Resume()
 	// set control loop values
 	velVal := math.Abs(rpm * m.ticksPerRotation / 60)
 	// when rev = 0, only velocity is controlled
@@ -489,20 +489,12 @@ func (m *EncodedMotor) IsMoving(ctx context.Context) (bool, error) {
 	return m.real.IsMoving(ctx)
 }
 
-func (m *EncodedMotor) pauseLoop() {
-	m.loop.SetStatus(false)
-}
-
-func (m *EncodedMotor) resumeLoop() {
-	m.loop.SetStatus(true)
-}
-
 // Stop stops rpmMonitor and stops the real motor.
 func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	// after the motor is created, Stop is called, but if the PID controller
 	// is auto-tuning, the loop needs to keep running
 	if m.loop != nil && !m.loop.GetTuning(ctx) {
-		m.pauseLoop()
+		m.loop.Pause()
 	}
 	if m.rpmMonitorDone != nil {
 		m.rpmMonitorDone()

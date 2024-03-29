@@ -302,8 +302,16 @@ func (l *Loop) SetStatus(running bool) {
 	l.running = running
 }
 
+func (l *Loop) Pause() {
+	l.running = false
+}
+
+func (l *Loop) Resume() {
+	l.running = true
+}
+
 // GetStatus returns the value of l.running.
-func (l *Loop) GetStatus() bool {
+func (l *Loop) Running() bool {
 	return l.running
 }
 

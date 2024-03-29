@@ -8,7 +8,7 @@ import (
 
 // SetState sets the state of the motor for the built-in control loop.
 func (m *EncodedMotor) SetState(ctx context.Context, state []*control.Signal) error {
-	if !m.loop.GetStatus() {
+	if !m.loop.Running() {
 		return nil
 	}
 	power := state[0].GetSignalValueAt(0)
