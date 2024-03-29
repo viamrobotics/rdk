@@ -203,4 +203,21 @@ func TestPlaceholderReplacement(t *testing.T) {
 		err = cfg.ReplacePlaceholders()
 		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "VIAM_UNDEFINED_TEST_VAR")
 	})
+	t.Run("packageNames", func(t *testing.T) {
+		test.That(t, packageNames("${packages.module.first}/hello", PackageTypeModule), test.ShouldResemble, []string{"first"})
+		test.That(t, packageNames("hello", PackageTypeModule), test.ShouldResemble, []string{})
+		test.That(t, packageNames("", PackageTypeModule), test.ShouldResemble, []string{})
+		test.That(t, packageNames("${packages.module.first}/hello", PackageTypeMlModel), test.ShouldResemble, []string{})
+		test.That(t, packageNames("${packages.ml_model.first}/hello", PackageTypeMlModel), test.ShouldResemble, []string{"first"})
+		test.That(t, packageNames("${packages.first}/hello", PackageTypeMlModel), test.ShouldResemble, []string{"first"})
+	})
+	t.Run("ModulesForPackage", func(t *testing.T) {
+		module := Module{ExePath: "${packages.module.first}/module"}
+		modules := ModulesForPackage("first", []Module{
+			module,
+			{ExePath: "${packages.module.second}/mainbinary"},
+			{ExePath: "/abs/path/mainbinary"},
+		})
+		test.That(t, modules, test.ShouldResemble, []Module{module})
+	})
 }

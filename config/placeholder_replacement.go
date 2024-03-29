@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/utils"
 )
@@ -211,4 +212,45 @@ func (v *placeholderReplacementVisitor) replaceEnvironmentPlaceholder(toReplace 
 			variableName, toReplace)
 	}
 	return value, nil
+}
+
+func packageTypeOrDefault(original PackageType) PackageType {
+	if original == "" {
+		return PackageTypeMlModel
+	}
+	return original
+}
+
+// packageNames runs package regex on input and returns all resolved placeholder packages.
+func packageNames(input string, wantedPackageType PackageType) []string {
+	names := make([]string, 0)
+	keyMatches := placeholderRegexp.FindAllStringSubmatch(input, -1)
+	if keyMatches == nil {
+		return names
+	}
+	for _, match := range keyMatches {
+		key := match[placeholderRegexp.SubexpIndex("placeholder_key")]
+		packageMatch := packagePlaceholderRegexp.FindStringSubmatch(key)
+		if packageMatch == nil {
+			continue
+		}
+		packageType := packageTypeOrDefault(PackageType(packageMatch[packagePlaceholderRegexp.SubexpIndex("type")]))
+		if packageType != wantedPackageType {
+			continue
+		}
+		names = append(names, packageMatch[packagePlaceholderRegexp.SubexpIndex("name")])
+	}
+	return names
+}
+
+// ModulesForPackage takes a package name, returns modules which use that package in their ExePath.
+func ModulesForPackage(packageName string, modules []Module) []Module {
+	ret := make([]Module, 0, 1)
+	for _, module := range modules {
+		packages := packageNames(module.ExePath, PackageTypeModule)
+		if slices.Contains(packages, packageName) {
+			ret = append(ret, module)
+		}
+	}
+	return ret
 }
