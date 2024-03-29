@@ -165,6 +165,8 @@ func calcSlowDownDist(distanceMm int) float64 {
 func (sb *sensorBase) determineHeadingFunc(ctx context.Context) {
 	switch {
 	case sb.orientation != nil:
+		sb.logger.CInfof(ctx, "using orientation for base %v's MoveStraight heading control",
+			sb.Name().ShortName())
 		sb.headingFunc = func(ctx context.Context) (float64, error) {
 			orient, err := sb.orientation.Orientation(ctx, nil)
 			if err != nil {
@@ -176,11 +178,16 @@ func (sb *sensorBase) determineHeadingFunc(ctx context.Context) {
 			return yaw, nil
 		}
 	case sb.compassHeading != nil:
+		sb.logger.CInfof(ctx, "using compass heading for base %v's MoveStraight heading control",
+			sb.Name().ShortName())
 		sb.headingFunc = func(ctx context.Context) (float64, error) {
 			compassHeading, err := sb.compassHeading.CompassHeading(ctx, nil)
 			if err != nil {
 				return 0, err
 			}
+			// flip compass heading to be CCW/Z up
+			compassHeading = 360 - compassHeading
+
 			// make the compass heading (-180->180)
 			if compassHeading > 180 {
 				compassHeading -= 360
