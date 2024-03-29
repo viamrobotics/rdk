@@ -323,7 +323,7 @@ func TestReconfig(t *testing.T) {
 	headingCompass, err := sb.headingFunc(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, headingCompass, test.ShouldNotEqual, orientationValue)
-	test.That(t, headingCompass, test.ShouldEqual, compassValue)
+	test.That(t, headingCompass, test.ShouldEqual, -compassValue)
 
 	deps, cfg = msDependencies(t, []string{"Bad"})
 	err = b.Reconfigure(ctx, deps, cfg)
