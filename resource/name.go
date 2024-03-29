@@ -29,7 +29,7 @@ func NewName(api API, name string) Name {
 	}
 }
 
-// NewNameWithPartID creates a new resource Name with a machine part id.
+// NewNameWithPartID creates a new resource Name with a machine part ID.
 func NewNameWithPartID(api API, name, partID string) Name {
 	r := strings.Split(name, ":")
 	remote := strings.Join(r[0:len(r)-1], ":")
@@ -128,7 +128,14 @@ func RemoveRemoteName(n Name) Name {
 	return tempName
 }
 
-// RemovePartID returns a new name with part id removed.
+// AddPartID returns a new name with part ID added. This will replace an existing part ID.
+func (n Name) AddPartID(partID string) Name {
+	tempName := NewName(n.API, n.ShortName())
+	tempName.MachinePartID = partID
+	return tempName
+}
+
+// RemovePartID returns a new name with part ID removed.
 func (n Name) RemovePartID() Name {
 	return NewName(n.API, n.ShortName())
 }

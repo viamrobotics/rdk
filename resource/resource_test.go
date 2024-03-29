@@ -559,8 +559,39 @@ func TestResourceNamePartID(t *testing.T) {
 			},
 		},
 		{
+			"name with part id added",
+			resource.NewName(api, name).AddPartID(partID),
+			resource.Name{
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: resource.APINamespace(api.Type.Namespace),
+						Name:      api.Type.Name,
+					},
+					SubtypeName: api.SubtypeName,
+				},
+				Name:          name,
+				MachinePartID: partID,
+			},
+		},
+		{
 			"remote name with part id",
 			resource.NewNameWithPartID(api, name, partID).PrependRemote(remoteName),
+			resource.Name{
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: resource.APINamespace(api.Type.Namespace),
+						Name:      api.Type.Name,
+					},
+					SubtypeName: api.SubtypeName,
+				},
+				Remote:        remoteName,
+				Name:          name,
+				MachinePartID: partID,
+			},
+		},
+		{
+			"remote name with part id added",
+			resource.NewName(api, name).PrependRemote(remoteName).AddPartID(partID),
 			resource.Name{
 				API: resource.API{
 					Type: resource.APIType{

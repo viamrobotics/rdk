@@ -3493,11 +3493,11 @@ func TestResourceNames(t *testing.T) {
 		defer shutdown()
 		// 2 declared resources + default services
 		resourceNames := []resource.Name{
-			resource.NewNameWithPartID(base.API, "foo", partID),
-			resource.NewNameWithPartID(base.API, "bar", partID),
-			resource.NewNameWithPartID(motion.API, resource.DefaultServiceName, partID),
-			resource.NewNameWithPartID(sensors.API, resource.DefaultServiceName, partID),
-			resource.NewNameWithPartID(datamanager.API, resource.DefaultServiceName, partID),
+			base.Named("foo").AddPartID(partID),
+			base.Named("bar").AddPartID(partID),
+			motion.Named(resource.DefaultServiceName).AddPartID(partID),
+			sensors.Named(resource.DefaultServiceName).AddPartID(partID),
+			datamanager.Named(resource.DefaultServiceName).AddPartID(partID),
 		}
 		resources := robot.ResourceNames()
 		test.That(t, len(resources), test.ShouldEqual, len(resourceNames))
