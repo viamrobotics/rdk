@@ -1202,8 +1202,9 @@ func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) 
 	if cloud == nil {
 		return md, errors.New("cloud metadata not available")
 	}
-	md.RobotPartID = cloud.ID
 	md.PrimaryOrgID = cloud.PrimaryOrgID
 	md.LocationID = cloud.LocationID
+	md.MachineID = cloud.MachineID
+	md.MachinePartID = cloud.ID
 	return md, nil
 }
