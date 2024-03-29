@@ -24,6 +24,29 @@ type OnTrackCB func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver)
 // For modules, the grpc connection is over a Unix socket. The WebRTC `PeerConnection` is made
 // separately. The `SharedConn` continues to implement the `rpc.ClientConn` interface by pairing up
 // the two underlying connections a client may want to communicate over.
+//
+// The lifetime of SharedConn objects are a bit nuanced. SharedConn objects are expected to be
+// handed to resource Client objects. When connections break and become reestablished, those client
+// objects are not recreated, but rather we swap in new connection objects under the hood.
+//
+// This is because resource management controls updating the graph nodes with Client objects only
+// when calls to `Reconfigure` are made. But connections can break and heal without any calls to
+// Reconfigure.
+//
+// Thus the lifetime of a SharedConn for a client is _not_:
+// 1) Object initialize
+// 2) Working
+// 3) Close
+// 4) Object destruction
+// And back to initialization.
+//
+// But rather:
+// 1) Object initialization
+// 2) `ReplaceConn`
+// 3) `Close`
+// 4) `ReplaceConn`
+// ...
+// 5) Object destruction (at shutdown or resource removed from config)
 type SharedConn struct {
 	grpcConn      ReconfigurableClientConn
 	peerConn      *webrtc.PeerConnection
@@ -31,6 +54,8 @@ type SharedConn struct {
 
 	resOnTrackMu  sync.Mutex
 	resOnTrackCBs map[resource.Name]OnTrackCB
+
+	logger logging.Logger
 }
 
 // Invoke forwards to the underlying GRPC Connection.
@@ -79,21 +104,21 @@ func (sc *SharedConn) PeerConn() *webrtc.PeerConnection {
 
 // ResetConn replaces the underlying GrpcConnection object. It also re-initiatlizes the
 // PeerConnection that must be renegotiated.
-func (sc *SharedConn) ResetConn(conn rpc.ClientConn) {
+func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger) {
 	sc.grpcConn.ReplaceConn(conn)
 
-	logger := logging.Global().Sublogger("SharedConn")
+	sc.logger = moduleLogger.Sublogger("conn")
 
 	peerConn, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
-		logger.Warnw("Unable to create optional peer connection for module. Ignoring.", "err", err)
+		sc.logger.Warnw("Unable to create optional peer connection for module. Ignoring.", "err", err)
 		return
 	}
 
 	sc.peerConn = peerConn
-	sc.PeerConnReady, err = rpc.ConfigureForRenegotiation(peerConn, logger.AsZap())
+	sc.PeerConnReady, err = rpc.ConfigureForRenegotiation(peerConn, sc.logger.AsZap())
 	if err != nil {
-		logger.Warnw("Unable to create optional renegotiation channel for module. Ignoring.", "err", err)
+		sc.logger.Warnw("Unable to create optional renegotiation channel for module. Ignoring.", "err", err)
 		utils.UncheckedError(sc.peerConn.Close())
 		sc.peerConn = nil
 		return
@@ -102,14 +127,14 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn) {
 	sc.peerConn.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
 		name, err := resource.NewFromString(trackRemote.StreamID())
 		if err != nil {
-			logger.Errorw("StreamID did not parse as a ResourceName", "sharedConn", fmt.Sprintf("%p", sc), "streamID", trackRemote.StreamID())
+			sc.logger.Errorw("StreamID did not parse as a ResourceName", "sharedConn", fmt.Sprintf("%p", sc), "streamID", trackRemote.StreamID())
 			return
 		}
 		sc.resOnTrackMu.Lock()
 		onTrackCB, ok := sc.resOnTrackCBs[name]
 		sc.resOnTrackMu.Unlock()
 		if !ok {
-			logger.Errorw("Callback not found for StreamID", "sharedConn", fmt.Sprintf("%p", sc), "streamID", trackRemote.StreamID())
+			sc.logger.Errorw("Callback not found for StreamID", "sharedConn", fmt.Sprintf("%p", sc), "streamID", trackRemote.StreamID())
 			return
 		}
 		onTrackCB(trackRemote, rtpReceiver)
@@ -121,6 +146,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn) {
 func (sc *SharedConn) GenerateEncodedOffer() (string, error) {
 	success := false
 	defer func() {
+		// Only keep the `peerConn` pointer active if we believe the connection is useable.
 		if !success {
 			sc.peerConn = nil
 		}
@@ -151,6 +177,7 @@ func (sc *SharedConn) GenerateEncodedOffer() (string, error) {
 func (sc *SharedConn) ProcessEncodedAnswer(encodedAnswer string) error {
 	success := false
 	defer func() {
+		// Only keep the `peerConn` pointer active if we believe the connection is useable.
 		if !success {
 			sc.peerConn = nil
 		}

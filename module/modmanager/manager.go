@@ -956,11 +956,25 @@ func (m *module) dial() error {
 	if err != nil {
 		return errors.WithMessage(err, "module startup failed")
 	}
-	m.sharedConn.ResetConn(rpc.GrpcOverHTTPClientConn{ClientConn: conn})
+
+	// Take the grpc over unix socket connection and add it to this `module`s `SharedConn`
+	// object. This `m.sharedConn` object is referenced by all resources/components. `Client`
+	// objects communicating with the module. If we're re-dialing after a restart, there may be
+	// existing resource `Client`s objects. Rather than recreating clients with new information, we
+	// choose to "swap out" the underlying connection object for those existing `Client`s.
+	//
+	// Resetting the `SharedConn` will also create a new WebRTC PeerConnection object. `dial`ing to
+	// a module is followed by doing a `ReadyRequest` `ReadyResponse` exchange. If that exchange
+	// contains a working WebRTC offer and answer, the PeerConnection will succeed in connecting. If
+	// there is an error exchanging offers and answers, the PeerConnection object will be nil'ed
+	// out.
+	m.sharedConn.ResetConn(rpc.GrpcOverHTTPClientConn{ClientConn: conn}, m.logger)
 	m.client = pb.NewModuleServiceClient(m.sharedConn.GrpcConn())
 	return nil
 }
 
+// checkReady sends a `ReadyRequest` and waits for either a `ReadyResponse`, or a context
+// cancelation.
 func (m *module) checkReady(ctx context.Context, parentAddr string, logger logging.Logger) error {
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(logger))
 	defer cancelFunc()
@@ -979,19 +993,30 @@ func (m *module) checkReady(ctx context.Context, parentAddr string, logger loggi
 	for {
 		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
 		resp, err := m.client.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
-		if err != nil || !resp.Ready {
+		if err != nil {
 			return err
 		}
 
-		if resp.Ready {
-			err = m.sharedConn.ProcessEncodedAnswer(resp.WebrtcAnswer)
-			if err != nil {
-				logger.CWarnw(ctx, "Unable to create PeerConnection with module. Ignoring.", "err", err)
-			}
-
-			m.handles, err = modlib.NewHandlerMapFromProto(ctx, resp.Handlermap, m.sharedConn.GrpcConn())
-			return err
+		if !resp.Ready {
+			// Module's can express that they are in a state:
+			// - That is Capable of receiving and responding to gRPC commands
+			// - But is "not ready" to take full responsibility of being a module
+			//
+			// Our behavior is to busy-poll until a module declares it is ready. But we otherwise do
+			// not adjust timeouts based on this information.
+			continue
 		}
+
+		err = m.sharedConn.ProcessEncodedAnswer(resp.WebrtcAnswer)
+		if err != nil {
+			logger.CWarnw(ctx, "Unable to create PeerConnection with module. Ignoring.", "err", err)
+		}
+
+		// The `ReadyRespones` also includes the Viam `API`s and `Model`s the module provides. This
+		// will be used to construct "generic Client" objects that can execute gRPC commands for
+		// methods that are not part of the viam-server's API proto.
+		m.handles, err = modlib.NewHandlerMapFromProto(ctx, resp.Handlermap, m.sharedConn.GrpcConn())
+		return err
 	}
 }
 
