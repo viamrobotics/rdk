@@ -23,6 +23,9 @@ const (
 // When controls are enabled, MoveStraight calculates the required velocity to reach mmPerSec
 // and the distanceMm goal. It then polls the provided velocity movement sensor and corrects any
 // error between this calculated velocity and the actual velocity using a PID control loop.
+// MoveStraight also monitors the position and stops the base when the goal distanceMm is reached.
+// If a compass heading movement sensor is provided, MoveStraight will attempt to keep the heading
+// of the base fixed in the original direction it was faced at the beginning of the MoveStraight call.
 func (sb *sensorBase) MoveStraight(
 	ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{},
 ) error {
