@@ -286,6 +286,7 @@ func (m *EncodedMotor) directionMovingInLock() float64 {
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
 // Negative power implies a backward directional rotational.
 func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+	m.opMgr.CancelRunning(ctx)
 	if m.rpmMonitorDone != nil {
 		m.rpmMonitorDone()
 	}
@@ -400,6 +401,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, directio
 		}
 	}
 
+	m.ResumeLoop()
 	// set control loop values
 	velVal := math.Abs(rpm * m.ticksPerRotation / 60)
 	// when rev = 0, only velocity is controlled
@@ -488,13 +490,20 @@ func (m *EncodedMotor) IsMoving(ctx context.Context) (bool, error) {
 	return m.real.IsMoving(ctx)
 }
 
+func (m *EncodedMotor) PauseLoop() {
+	m.loop.SetStatus(false)
+}
+
+func (m *EncodedMotor) ResumeLoop() {
+	m.loop.SetStatus(true)
+}
+
 // Stop stops rpmMonitor and stops the real motor.
 func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	// after the motor is created, Stop is called, but if the PID controller
 	// is auto-tuning, the loop needs to keep running
 	if m.loop != nil && !m.loop.GetTuning(ctx) {
-		m.loop.Stop()
-		m.loop = nil
+		m.PauseLoop()
 	}
 	if m.rpmMonitorDone != nil {
 		m.rpmMonitorDone()
@@ -506,6 +515,10 @@ func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) e
 func (m *EncodedMotor) Close(ctx context.Context) error {
 	if err := m.Stop(ctx, nil); err != nil {
 		return err
+	}
+	if m.loop != nil {
+		m.loop.Stop()
+		m.loop = nil
 	}
 	m.cancel()
 	m.activeBackgroundWorkers.Wait()

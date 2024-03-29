@@ -289,14 +289,20 @@ func (l *Loop) startBenchmark(loops int) error {
 
 // Stop stops then loop.
 func (l *Loop) Stop() {
-	if l.running {
-		l.running = false
-		l.logger.Debug("closing loop")
-		l.ct.ticker.Stop()
-		close(l.ct.stop)
-		l.cancel()
-		l.activeBackgroundWorkers.Wait()
-	}
+	l.running = false
+	l.logger.Debug("closing loop")
+	l.ct.ticker.Stop()
+	close(l.ct.stop)
+	l.cancel()
+	l.activeBackgroundWorkers.Wait()
+}
+
+func (l *Loop) SetStatus(on bool) {
+	l.running = on
+}
+
+func (l *Loop) GetStatus() bool {
+	return l.running
 }
 
 // GetConfig return the control loop config.
