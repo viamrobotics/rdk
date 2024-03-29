@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -173,8 +174,17 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 		m.logger.Debugf("Downloading from %s", sanitizeURLForLogs(resp.Package.Url))
 
+		nonEmptyPaths := make([]string, 0)
+		matchedModules := config.ModulesForPackage(p.Name, modules)
+		if len(matchedModules) == 1 {
+			nonEmptyPaths = append(nonEmptyPaths, config.RemovePlaceholderPrefix(matchedModules[0].ExePath))
+		}
+		if len(matchedModules) > 1 {
+			m.logger.Warnf("package %s matched %d > 1 modules, not doing entrypoint checking", p.Name, len(matchedModules))
+		}
+
 		// download package from a http endpoint
-		err = m.downloadPackage(ctx, resp.Package.Url, p)
+		err = m.downloadPackage(ctx, resp.Package.Url, p, nonEmptyPaths)
 		if err != nil {
 			m.logger.Errorf("Failed downloading package %s:%s from %s, %s", p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url), err)
 			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed downloading package %s:%s from %s",
@@ -353,11 +363,30 @@ func sanitizeURLForLogs(u string) string {
 	return parsed.String()
 }
 
-func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config.PackageConfig) error {
-	// TODO(): validate integrity of directory.
-	if dirExists(p.LocalDataDirectory(m.packagesDir)) {
-		m.logger.Debug("Package already downloaded, skipping.")
-		return nil
+// checkNonemptyPaths returns true if all required paths are present and non-empty.
+func checkNonemptyPaths(dataDir string, pkg config.PackageConfig, logger logging.Logger, paths []string) bool {
+	missingOrEmpty := 0
+	for _, nePath := range paths {
+		info, err := os.Stat(path.Join(dataDir, nePath))
+		if err != nil {
+			missingOrEmpty += 1
+			if !os.IsNotExist(err) {
+				logger.Warnw("ignoring non-NotExist error for required path", "path", nePath, "package", pkg.Name, "error", err.Error())
+			}
+		} else if info.Size() == 0 {
+			missingOrEmpty += 1
+			logger.Warnw("a required path is empty, re-downloading", "path", nePath, "package", pkg.Name)
+		}
+	}
+	return missingOrEmpty == 0
+}
+
+func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config.PackageConfig, nonEmptyPaths []string) error {
+	if dataDir := p.LocalDataDirectory(m.packagesDir); dirExists(dataDir) {
+		if checkNonemptyPaths(dataDir, p, m.logger, nonEmptyPaths) {
+			m.logger.Debug("Package already downloaded, skipping.")
+			return nil
+		}
 	}
 
 	// Create the parent directory for the package type if it doesn't exist
