@@ -806,6 +806,14 @@ func (rc *RobotClient) FrameSystemConfig(ctx context.Context) (*framesystem.Conf
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
+//
+//	  import (
+//		  "go.viam.com/rdk/referenceframe"
+//		  "go.viam.com/rdk/spatialmath"
+//	  )
+//
+//	  baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
+//	  movementSensorToBase, err := robot.TransformPose(ctx, baseOrigin, "my-movement-sensor", nil)
 func (rc *RobotClient) TransformPose(
 	ctx context.Context,
 	query *referenceframe.PoseInFrame,
