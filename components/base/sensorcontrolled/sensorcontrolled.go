@@ -254,7 +254,8 @@ func (sb *sensorBase) Close(ctx context.Context) error {
 // determineHeadingFunc determines which movement sensor endpoint should be used for control.
 // The priority is Orientation -> Heading -> No heading control.
 func (sb *sensorBase) determineHeadingFunc(ctx context.Context,
-	orientation movementsensor.MovementSensor, compassHeading movementsensor.MovementSensor) {
+	orientation, compassHeading movementsensor.MovementSensor,
+) {
 	switch {
 	case orientation != nil:
 
