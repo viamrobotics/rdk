@@ -304,7 +304,7 @@ func TestSpin(t *testing.T) {
 func TestMoveStraight(t *testing.T) {
 	left := createFakeMotor(true)
 	right := createFakeMotor(false)
-	base := createFakeBase(0.2, 0.2, 0.1)
+	base := createFakeBase(1, 1, 0.1)
 	ctx := context.Background()
 	_ = left.ResetZeroPosition(ctx, 0, nil)
 	_ = right.ResetZeroPosition(ctx, 0, nil)
@@ -344,7 +344,7 @@ func TestMoveStraight(t *testing.T) {
 func TestComplicatedPath(t *testing.T) {
 	left := createFakeMotor(true)
 	right := createFakeMotor(false)
-	base := createFakeBase(0.2, 0.2, 0.1)
+	base := createFakeBase(1, 1, 0.1)
 	ctx := context.Background()
 	_ = left.ResetZeroPosition(ctx, 0, nil)
 	_ = right.ResetZeroPosition(ctx, 0, nil)
@@ -434,7 +434,7 @@ func TestComplicatedPath(t *testing.T) {
 func TestVelocities(t *testing.T) {
 	left := createFakeMotor(true)
 	right := createFakeMotor(false)
-	base := createFakeBase(0.2, 0.2, 0.1)
+	base := createFakeBase(1, 1, 0.1)
 	ctx := context.Background()
 	_ = left.ResetZeroPosition(ctx, 0, nil)
 	_ = right.ResetZeroPosition(ctx, 0, nil)
