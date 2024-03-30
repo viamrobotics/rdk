@@ -379,6 +379,9 @@ func sanitizeURLForLogs(u string) string {
 }
 
 // checkNonemptyPaths returns true if all required paths are present and non-empty.
+// This exists because we have no way to check the integrity of modules *after* they've been unpacked.
+// (We do look at checksums of downloaded tarballs, though). Once we have a better integrity check
+// system for unpacked modules, this should be removed.
 func checkNonemptyPaths(dataDir, packageName string, logger logging.Logger, paths []string) bool {
 	missingOrEmpty := 0
 	for _, nePath := range paths {
