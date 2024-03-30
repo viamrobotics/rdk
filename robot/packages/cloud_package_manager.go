@@ -176,7 +176,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 		nonEmptyPaths := make([]string, 0)
 		if p.Type == config.PackageTypeModule {
-			matchedModules := config.ModulesForPackage(p.Name, modules)
+			matchedModules := m.modulesForPackage(p, modules)
 			if len(matchedModules) == 1 {
 				nonEmptyPaths = append(nonEmptyPaths, config.RemovePlaceholderPrefix(matchedModules[0].ExePath))
 			}
@@ -212,6 +212,19 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 	m.managedPackages = newManagedPackages
 
 	return outErr
+}
+
+// modulesForPackage returns module(s) whose ExePath is in the package's directory.
+// TODO: This only works if you call it after placeholder replacement. Find a cleaner way to express this link.
+func (m *cloudManager) modulesForPackage(pkg config.PackageConfig, modules []config.Module) []config.Module {
+	pkgDir := pkg.LocalDataDirectory(m.packagesDir)
+	ret := make([]config.Module, 0, 1)
+	for _, module := range modules {
+		if strings.HasPrefix(module.ExePath, pkgDir) {
+			ret = append(ret, module)
+		}
+	}
+	return ret
 }
 
 func (m *cloudManager) validateAndGetChangedPackages(packages []config.PackageConfig) []config.PackageConfig {
@@ -366,18 +379,18 @@ func sanitizeURLForLogs(u string) string {
 }
 
 // checkNonemptyPaths returns true if all required paths are present and non-empty.
-func checkNonemptyPaths(dataDir string, packageName string, logger logging.Logger, paths []string) bool {
+func checkNonemptyPaths(dataDir, packageName string, logger logging.Logger, paths []string) bool {
 	missingOrEmpty := 0
 	for _, nePath := range paths {
 		// note: os.Stat treats symlinks as their destination. os.Lstat would stat the link itself.
 		info, err := os.Stat(path.Join(dataDir, nePath))
 		if err != nil {
-			missingOrEmpty += 1
+			missingOrEmpty++
 			if !os.IsNotExist(err) {
 				logger.Warnw("ignoring non-NotExist error for required path", "path", nePath, "package", packageName, "error", err.Error())
 			}
 		} else if info.Size() == 0 {
-			missingOrEmpty += 1
+			missingOrEmpty++
 			logger.Warnw("a required path is empty, re-downloading", "path", nePath, "package", packageName)
 		}
 	}
