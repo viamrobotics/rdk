@@ -178,7 +178,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		if p.Type == config.PackageTypeModule {
 			matchedModules := m.modulesForPackage(p, modules)
 			if len(matchedModules) == 1 {
-				nonEmptyPaths = append(nonEmptyPaths, config.RemovePlaceholderPrefix(matchedModules[0].ExePath))
+				nonEmptyPaths = append(nonEmptyPaths, matchedModules[0].ExePath)
 			}
 			if len(matchedModules) > 1 {
 				m.logger.Warnf("package %s matched %d > 1 modules, not doing entrypoint checking", p.Name, len(matchedModules))
