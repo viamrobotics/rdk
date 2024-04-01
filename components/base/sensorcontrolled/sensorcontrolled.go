@@ -214,12 +214,17 @@ func (sb *sensorBase) SetPower(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
 	sb.opMgr.CancelRunning(ctx)
+	if sb.loop != nil {
+		sb.loop.Pause()
+	}
 	return sb.controlledBase.SetPower(ctx, linear, angular, extra)
 }
 
 func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	sb.opMgr.CancelRunning(ctx)
-	sb.stopLoop()
+	if sb.loop != nil {
+		sb.loop.Pause()
+	}
 	return sb.controlledBase.Stop(ctx, extra)
 }
 
@@ -246,6 +251,7 @@ func (sb *sensorBase) Close(ctx context.Context) error {
 	if err := sb.Stop(ctx, nil); err != nil {
 		return err
 	}
+	sb.stopLoop()
 
 	sb.activeBackgroundWorkers.Wait()
 	return nil

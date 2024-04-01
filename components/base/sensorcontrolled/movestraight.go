@@ -48,6 +48,7 @@ func (sb *sensorBase) MoveStraight(
 			return err
 		}
 	}
+	sb.loop.Resume()
 
 	straightTimeEst := time.Duration(int(time.Second) * int(math.Abs(float64(distanceMm)/mmPerSec)))
 	startTime := time.Now()
