@@ -111,7 +111,10 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		return err
 	}
 
-	sb.stopLoop()
+	if sb.loop != nil {
+		sb.loop.Stop()
+		sb.loop = nil
+	}
 
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
@@ -228,13 +231,6 @@ func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) er
 	return sb.controlledBase.Stop(ctx, extra)
 }
 
-func (sb *sensorBase) stopLoop() {
-	if sb.loop != nil {
-		sb.loop.Stop()
-		sb.loop = nil
-	}
-}
-
 func (sb *sensorBase) IsMoving(ctx context.Context) (bool, error) {
 	return sb.controlledBase.IsMoving(ctx)
 }
@@ -251,7 +247,10 @@ func (sb *sensorBase) Close(ctx context.Context) error {
 	if err := sb.Stop(ctx, nil); err != nil {
 		return err
 	}
-	sb.stopLoop()
+	if sb.loop != nil {
+		sb.loop.Stop()
+		sb.loop = nil
+	}
 
 	sb.activeBackgroundWorkers.Wait()
 	return nil
