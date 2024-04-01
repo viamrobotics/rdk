@@ -48,9 +48,7 @@ func TestOrientation(t *testing.T) {
 	oc, err := NewOrientationConfig(o)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, oc.Type, test.ShouldEqual, string(OrientationVectorDegreesType))
-	bytes, err := json.Marshal(o)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, oc.Value, test.ShouldResemble, json.RawMessage(bytes))
+	test.That(t, oc, test.ShouldResemble, &ro)
 
 	// OrientationVector Radians Config
 	ro = OrientationConfig{}
@@ -62,9 +60,7 @@ func TestOrientation(t *testing.T) {
 	oc, err = NewOrientationConfig(o)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, oc.Type, test.ShouldEqual, string(OrientationVectorRadiansType))
-	bytes, err = json.Marshal(o)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, oc.Value, test.ShouldResemble, json.RawMessage(bytes))
+	test.That(t, oc, test.ShouldResemble, &ro)
 
 	// Euler Angles
 	ro = OrientationConfig{}
@@ -76,9 +72,7 @@ func TestOrientation(t *testing.T) {
 	oc, err = NewOrientationConfig(o)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, oc.Type, test.ShouldEqual, string(EulerAnglesType))
-	bytes, err = json.Marshal(o)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, oc.Value, test.ShouldResemble, json.RawMessage(bytes))
+	test.That(t, oc, test.ShouldResemble, &ro)
 
 	// Axis angles Config
 	ro = OrientationConfig{}
@@ -90,9 +84,7 @@ func TestOrientation(t *testing.T) {
 	oc, err = NewOrientationConfig(o)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, oc.Type, test.ShouldEqual, string(AxisAnglesType))
-	bytes, err = json.Marshal(o)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, oc.Value, test.ShouldResemble, json.RawMessage(bytes))
+	test.That(t, oc, test.ShouldResemble, &ro)
 
 	// Quaternion Config
 	ro = OrientationConfig{}
@@ -108,7 +100,7 @@ func TestOrientation(t *testing.T) {
 	oc, err = NewOrientationConfig(o)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, oc.Type, test.ShouldEqual, string(QuaternionType))
-	bytes, err = json.Marshal(o)
+	bytes, err := json.Marshal(o)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, oc.Value, test.ShouldResemble, json.RawMessage(bytes))
 }

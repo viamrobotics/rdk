@@ -21,7 +21,7 @@ const (
 // OrientationConfig holds the underlying type of orientation, and the value.
 type OrientationConfig struct {
 	Type  OrientationType `json:"type"`
-	Value json.RawMessage `json:"value,omitempty"`
+	Value map[string]any  `json:"value,omitempty"`
 }
 
 // NewOrientationConfig encodes the orientation interface to something serializable and human readable.
@@ -34,23 +34,27 @@ func NewOrientationConfig(o Orientation) (*OrientationConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+	value := map[string]any{}
+	json.Unmarshal(bytes, &value)
 
 	switch oType := o.(type) {
 	case *R4AA:
-		return &OrientationConfig{Type: AxisAnglesType, Value: json.RawMessage(bytes)}, nil
+		return &OrientationConfig{Type: AxisAnglesType, Value: value}, nil
 	case *OrientationVector:
-		return &OrientationConfig{Type: OrientationVectorRadiansType, Value: json.RawMessage(bytes)}, nil
+		return &OrientationConfig{Type: OrientationVectorRadiansType, Value: value}, nil
 	case *OrientationVectorDegrees:
-		return &OrientationConfig{Type: OrientationVectorDegreesType, Value: json.RawMessage(bytes)}, nil
+		return &OrientationConfig{Type: OrientationVectorDegreesType, Value: value}, nil
 	case *EulerAngles:
-		return &OrientationConfig{Type: EulerAnglesType, Value: json.RawMessage(bytes)}, nil
+		return &OrientationConfig{Type: EulerAnglesType, Value: value}, nil
 	case *Quaternion:
 		oj := quaternionJSONFromQuaternion(oType)
 		bytes, err := json.Marshal(oj)
 		if err != nil {
 			return nil, err
 		}
-		return &OrientationConfig{Type: QuaternionType, Value: json.RawMessage(bytes)}, nil
+		value := map[string]any{}
+		json.Unmarshal(bytes, &value)
+		return &OrientationConfig{Type: QuaternionType, Value: value}, nil
 	default:
 		return nil, newOrientationTypeUnsupportedError(fmt.Sprintf("%T", oType))
 	}
@@ -58,42 +62,46 @@ func NewOrientationConfig(o Orientation) (*OrientationConfig, error) {
 
 // ParseConfig will use the Type in OrientationConfig and convert into the correct struct that implements Orientation.
 func (config *OrientationConfig) ParseConfig() (Orientation, error) {
-	var err error
+	rawJson, err := json.Marshal(config.Value)
+	if err != nil {
+		return nil, err
+	}
+
 	// use the type to unmarshal the value
 	switch config.Type {
 	case NoOrientationType:
 		return NewZeroOrientation(), nil
 	case OrientationVectorDegreesType:
 		var o OrientationVectorDegrees
-		err = json.Unmarshal(config.Value, &o)
+		err = json.Unmarshal(rawJson, &o)
 		if err != nil {
 			return nil, err
 		}
 		return &o, o.IsValid()
 	case OrientationVectorRadiansType:
 		var o OrientationVector
-		err = json.Unmarshal(config.Value, &o)
+		err = json.Unmarshal(rawJson, &o)
 		if err != nil {
 			return nil, err
 		}
 		return &o, o.IsValid()
 	case AxisAnglesType:
 		var o R4AA
-		err = json.Unmarshal(config.Value, &o)
+		err = json.Unmarshal(rawJson, &o)
 		if err != nil {
 			return nil, err
 		}
 		return &o, nil
 	case EulerAnglesType:
 		var o EulerAngles
-		err = json.Unmarshal(config.Value, &o)
+		err = json.Unmarshal(rawJson, &o)
 		if err != nil {
 			return nil, err
 		}
 		return &o, nil
 	case QuaternionType:
 		var oj quaternionJSON
-		err = json.Unmarshal(config.Value, &oj)
+		err = json.Unmarshal(rawJson, &oj)
 		if err != nil {
 			return nil, err
 		}
