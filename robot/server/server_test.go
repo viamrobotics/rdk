@@ -74,7 +74,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resourceResp.Resources, test.ShouldResemble, serverOneResourceResponse)
 
 		partID := "abcde"
-		nameWithPartID := serverNewResource.AddPartID(partID)
+		nameWithPartID := serverNewResource.WithPartID(partID)
 		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{nameWithPartID} }
 

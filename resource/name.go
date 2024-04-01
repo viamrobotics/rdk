@@ -139,6 +139,7 @@ func (n Name) WithPartID(partID string) Name {
 func (n Name) WithoutPartID() Name {
 	return NewName(n.API, n.ShortName())
 }
+
 // ShortName returns the short name on Name n in the form of <remote>:<name>.
 func (n Name) ShortName() string {
 	nameR := n.Name

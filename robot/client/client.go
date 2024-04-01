@@ -527,7 +527,7 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 	rc.mu.RLock()
 
 	// remove the part id from the name passed in so that comparisons are made without part id
-	name = name.RemovePartID()
+	name = name.WithoutPartID()
 	if val, ok := rc.remoteNameMap[name]; ok {
 		name = val
 	}
@@ -547,7 +547,7 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 	// finally, before adding a new resource, make sure this name exists and is known
 	for _, knownName := range rc.resourceNames {
 		// remove the part id from the name passed in so that comparisons are made without part id
-		knownName = knownName.RemovePartID()
+		knownName = knownName.WithoutPartID()
 		if name == knownName {
 			resourceClient, err := rc.createClient(name)
 			if err != nil {
@@ -670,7 +670,7 @@ func (rc *RobotClient) updateRemoteNameMap() {
 	dupMap := make(map[resource.Name]bool)
 	for _, n := range rc.resourceNames {
 		// remove the part id from the name passed in so that comparisons can be made without part id
-		n = n.RemovePartID()
+		n = n.WithoutPartID()
 		if err := n.Validate(); err != nil {
 			rc.Logger().Error(err)
 			continue

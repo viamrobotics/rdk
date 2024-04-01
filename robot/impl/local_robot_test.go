@@ -18,7 +18,6 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3452,7 +3451,8 @@ func TestResourceNames(t *testing.T) {
 					API:   base.API,
 					Model: fakeModel,
 				},
-			}}
+			},
+		}
 		robot, shutdown := initTestRobot(t, ctx, cfg, logger)
 		defer shutdown()
 
@@ -3493,16 +3493,15 @@ func TestResourceNames(t *testing.T) {
 		defer shutdown()
 		// 2 declared resources + default services
 		resourceNames := []resource.Name{
-			base.Named("foo").AddPartID(partID),
-			base.Named("bar").AddPartID(partID),
-			motion.Named(resource.DefaultServiceName).AddPartID(partID),
-			sensors.Named(resource.DefaultServiceName).AddPartID(partID),
-			datamanager.Named(resource.DefaultServiceName).AddPartID(partID),
+			base.Named("foo").WithPartID(partID),
+			base.Named("bar").WithPartID(partID),
+			motion.Named(resource.DefaultServiceName).WithPartID(partID),
+			sensors.Named(resource.DefaultServiceName).WithPartID(partID),
+			datamanager.Named(resource.DefaultServiceName).WithPartID(partID),
 		}
 		resources := robot.ResourceNames()
 		test.That(t, len(resources), test.ShouldEqual, len(resourceNames))
 		test.That(t, rtestutils.NewResourceNameSet(resources...), test.ShouldResemble, rtestutils.NewResourceNameSet(resourceNames...))
-
 	})
 }
 

@@ -85,7 +85,7 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 // nil is returned. Machine part id is optional and will not be used for comparison.
 func (r *localRobot) ResourceByName(name resource.Name) (resource.Resource, error) {
 	// strip part id to make comparisons easier
-	name = name.RemovePartID()
+	name = name.WithoutPartID()
 	return r.manager.ResourceByName(name)
 }
 

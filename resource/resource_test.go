@@ -549,7 +549,7 @@ func TestResourceNamePartID(t *testing.T) {
 			resource.Name{
 				API: resource.API{
 					Type: resource.APIType{
-						Namespace: resource.APINamespace(api.Type.Namespace),
+						Namespace: api.Type.Namespace,
 						Name:      api.Type.Name,
 					},
 					SubtypeName: api.SubtypeName,
@@ -560,11 +560,11 @@ func TestResourceNamePartID(t *testing.T) {
 		},
 		{
 			"name with part id added",
-			resource.NewName(api, name).AddPartID(partID),
+			resource.NewName(api, name).WithPartID(partID),
 			resource.Name{
 				API: resource.API{
 					Type: resource.APIType{
-						Namespace: resource.APINamespace(api.Type.Namespace),
+						Namespace: api.Type.Namespace,
 						Name:      api.Type.Name,
 					},
 					SubtypeName: api.SubtypeName,
@@ -579,7 +579,7 @@ func TestResourceNamePartID(t *testing.T) {
 			resource.Name{
 				API: resource.API{
 					Type: resource.APIType{
-						Namespace: resource.APINamespace(api.Type.Namespace),
+						Namespace: api.Type.Namespace,
 						Name:      api.Type.Name,
 					},
 					SubtypeName: api.SubtypeName,
@@ -591,11 +591,11 @@ func TestResourceNamePartID(t *testing.T) {
 		},
 		{
 			"remote name with part id added",
-			resource.NewName(api, name).PrependRemote(remoteName).AddPartID(partID),
+			resource.NewName(api, name).PrependRemote(remoteName).WithPartID(partID),
 			resource.Name{
 				API: resource.API{
 					Type: resource.APIType{
-						Namespace: resource.APINamespace(api.Type.Namespace),
+						Namespace: api.Type.Namespace,
 						Name:      api.Type.Name,
 					},
 					SubtypeName: api.SubtypeName,

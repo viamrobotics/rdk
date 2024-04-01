@@ -1786,7 +1786,7 @@ func TestRemoteClientMatch(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
 	partID := "abcde"
-	validResources := []resource.Name{arm.Named("remote:arm1").AddPartID(partID)}
+	validResources := []resource.Name{arm.Named("remote:arm1").WithPartID(partID)}
 	injectRobot1 := &inject.Robot{
 		ResourceNamesFunc:   func() []resource.Name { return validResources },
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
@@ -1826,7 +1826,7 @@ func TestRemoteClientMatch(t *testing.T) {
 	test.That(t, client.resourceClients[arm.Named("remote:arm1")], test.ShouldEqual, resource1)
 
 	// test that with part id works as well
-	resource1, err = client.ResourceByName(arm.Named("arm1").AddPartID(partID))
+	resource1, err = client.ResourceByName(arm.Named("arm1").WithPartID(partID))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, client.resourceClients[arm.Named("remote:arm1")], test.ShouldEqual, resource1)
 
@@ -1956,7 +1956,7 @@ func TestGetUnknownResource(t *testing.T) {
 	test.That(t, myArm, test.ShouldNotBeNil)
 
 	// grabbing known resource with mismatched part id is fine
-	myArm, err = client.ResourceByName(arm.Named("myArm").AddPartID("abcde"))
+	myArm, err = client.ResourceByName(arm.Named("myArm").WithPartID("abcde"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myArm, test.ShouldNotBeNil)
 
