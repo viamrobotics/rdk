@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -384,6 +385,13 @@ func sanitizeURLForLogs(u string) string {
 func checkNonemptyPaths(packageName string, logger logging.Logger, absPaths []string) bool {
 	missingOrEmpty := 0
 	for _, nePath := range absPaths {
+		if !path.IsAbs(nePath) {
+			// note: we expect paths to be absolute in most cases.
+			// We're okay not having corrupted files coverage for relative paths, and prefer it to
+			// risking a re-download loop from an edge case.
+			logger.Debugw("ignoring non-abs required path", "path", nePath, "package", packageName)
+			continue
+		}
 		// note: os.Stat treats symlinks as their destination. os.Lstat would stat the link itself.
 		info, err := os.Stat(nePath)
 		if err != nil {
