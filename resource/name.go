@@ -128,18 +128,17 @@ func RemoveRemoteName(n Name) Name {
 	return tempName
 }
 
-// AddPartID returns a new name with part ID added. This will replace an existing part ID.
-func (n Name) AddPartID(partID string) Name {
+// WithPartID returns a new name with part ID added. This will replace an existing part ID.
+func (n Name) WithPartID(partID string) Name {
 	tempName := NewName(n.API, n.ShortName())
 	tempName.MachinePartID = partID
 	return tempName
 }
 
-// RemovePartID returns a new name with part ID removed.
-func (n Name) RemovePartID() Name {
+// WithoutPartID returns a new name with part ID removed.
+func (n Name) WithoutPartID() Name {
 	return NewName(n.API, n.ShortName())
 }
-
 // ShortName returns the short name on Name n in the form of <remote>:<name>.
 func (n Name) ShortName() string {
 	nameR := n.Name
