@@ -38,7 +38,9 @@ func (sb *sensorBase) MoveStraight(
 		sb.logger.CWarnf(ctx,
 			"Position reporting sensor not available, or control loop not configured, using base %s's MoveStraight",
 			sb.controlledBase.Name().ShortName())
-		sb.stopLoop()
+		if sb.loop != nil {
+			sb.loop.Pause()
+		}
 		return sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
 	}
 
@@ -48,6 +50,7 @@ func (sb *sensorBase) MoveStraight(
 			return err
 		}
 	}
+	sb.loop.Resume()
 
 	straightTimeEst := time.Duration(int(time.Second) * int(math.Abs(float64(distanceMm)/mmPerSec)))
 	startTime := time.Now()

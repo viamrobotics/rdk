@@ -111,7 +111,10 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		return err
 	}
 
-	sb.stopLoop()
+	if sb.loop != nil {
+		sb.loop.Stop()
+		sb.loop = nil
+	}
 
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
@@ -214,20 +217,18 @@ func (sb *sensorBase) SetPower(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
 	sb.opMgr.CancelRunning(ctx)
+	if sb.loop != nil {
+		sb.loop.Pause()
+	}
 	return sb.controlledBase.SetPower(ctx, linear, angular, extra)
 }
 
 func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	sb.opMgr.CancelRunning(ctx)
-	sb.stopLoop()
-	return sb.controlledBase.Stop(ctx, extra)
-}
-
-func (sb *sensorBase) stopLoop() {
 	if sb.loop != nil {
-		sb.loop.Stop()
-		sb.loop = nil
+		sb.loop.Pause()
 	}
+	return sb.controlledBase.Stop(ctx, extra)
 }
 
 func (sb *sensorBase) IsMoving(ctx context.Context) (bool, error) {
@@ -245,6 +246,10 @@ func (sb *sensorBase) Geometries(ctx context.Context, extra map[string]interface
 func (sb *sensorBase) Close(ctx context.Context) error {
 	if err := sb.Stop(ctx, nil); err != nil {
 		return err
+	}
+	if sb.loop != nil {
+		sb.loop.Stop()
+		sb.loop = nil
 	}
 
 	sb.activeBackgroundWorkers.Wait()
