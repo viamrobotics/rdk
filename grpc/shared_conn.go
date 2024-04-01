@@ -42,15 +42,19 @@ type OnTrackCB func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver)
 //
 // But rather:
 // 1) Object initialization
-// 2) `ReplaceConn`
+// 2) `ResetConn`
 // 3) `Close`
-// 4) `ReplaceConn`
+// 4) `ResetConn`
 // ...
 // 5) Object destruction (at shutdown or resource removed from config).
 type SharedConn struct {
-	grpcConn      ReconfigurableClientConn
+	grpcConn ReconfigurableClientConn
+
+	// `peerConnMu` protects the `peerConn` connection pointer only. `grpcConn` is not overwritten
+	// after initialization and is internally synchronized.
+	peerConnMu    sync.Mutex
 	peerConn      *webrtc.PeerConnection
-	PeerConnReady <-chan struct{}
+	peerConnReady <-chan struct{}
 
 	resOnTrackMu  sync.Mutex
 	resOnTrackCBs map[resource.Name]OnTrackCB
@@ -99,15 +103,40 @@ func (sc *SharedConn) GrpcConn() *ReconfigurableClientConn {
 
 // PeerConn returns a WebRTC PeerConnection capable of sending video/audio data.
 func (sc *SharedConn) PeerConn() *webrtc.PeerConnection {
+	sc.peerConnMu.Lock()
+	defer sc.peerConnMu.Unlock()
 	return sc.peerConn
 }
 
-// ResetConn replaces the underlying GrpcConnection object. It also re-initiatlizes the
-// PeerConnection that must be renegotiated.
+// ResetConn acts as a constructor for `SharedConn`. ResetConn replaces the underlying
+// connection objects in addition to some other initialization.
+//
+// The first call to `ResetConn` is guaranteed to happen before any access to connection objects
+// happens. But subequent calls can be entirely asynchronous to components/services accessing
+// `SharedConn` for connection objects.
 func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger) {
 	sc.grpcConn.ReplaceConn(conn)
 
-	sc.logger = moduleLogger.Sublogger("conn")
+	if sc.logger == nil {
+		// The first call to `ResetConn` hapens before anything can access `sc.logger`. So long as
+		// we never write to the member variable, everything can continue to access this without
+		// locks.
+		sc.logger = moduleLogger.Sublogger("conn")
+	}
+
+	if sc.resOnTrackCBs == nil {
+		// Same initilization argument as above with the logger.
+		sc.resOnTrackCBs = make(map[resource.Name]OnTrackCB)
+	}
+
+	sc.peerConnMu.Lock()
+	defer sc.peerConnMu.Unlock()
+
+	if sc.peerConn != nil {
+		sc.logger.Warn("SharedConn is being reset with an active peer connection.")
+		utils.UncheckedError(sc.peerConn.Close())
+		sc.peerConn = nil
+	}
 
 	peerConn, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
@@ -116,7 +145,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 	}
 
 	sc.peerConn = peerConn
-	sc.PeerConnReady, err = rpc.ConfigureForRenegotiation(peerConn, sc.logger.AsZap())
+	sc.peerConnReady, err = rpc.ConfigureForRenegotiation(peerConn, sc.logger.AsZap())
 	if err != nil {
 		sc.logger.Warnw("Unable to create optional renegotiation channel for module. Ignoring.", "err", err)
 		utils.UncheckedError(sc.peerConn.Close())
@@ -154,7 +183,7 @@ func (sc *SharedConn) GenerateEncodedOffer() (string, error) {
 
 	pc := sc.PeerConn()
 	if pc == nil {
-		return "", nil
+		return "", errors.New("peer connections disabled")
 	}
 
 	offer, err := pc.CreateOffer(nil)
@@ -171,9 +200,10 @@ func (sc *SharedConn) GenerateEncodedOffer() (string, error) {
 	return rpc.EncodeSDP(pc.LocalDescription())
 }
 
-// ProcessEncodedAnswer sets the remote description to the answer. The answer is expected to be JSON
-// + base64 encoded. If an error is returned, `SharedConn.PeerConn` will return nil until a
-// following `Reset`.
+// ProcessEncodedAnswer sets the remote description to the answer and waits for the connection to be
+// ready as per the negotiation channel being opened. The answer is expected to be JSON + base64
+// encoded. If an error is returned, `SharedConn.PeerConn` will return nil until a following
+// `Reset`.
 func (sc *SharedConn) ProcessEncodedAnswer(encodedAnswer string) error {
 	success := false
 	defer func() {
@@ -197,7 +227,7 @@ func (sc *SharedConn) ProcessEncodedAnswer(encodedAnswer string) error {
 		return err
 	}
 
-	<-sc.PeerConnReady
+	<-sc.peerConnReady
 	success = true
 	return nil
 }
@@ -207,6 +237,7 @@ func (sc *SharedConn) Close() error {
 	var err error
 	if sc.peerConn != nil {
 		err = sc.peerConn.Close()
+		sc.peerConn = nil
 	}
 
 	return multierr.Combine(err, sc.grpcConn.Close())

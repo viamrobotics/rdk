@@ -16,6 +16,8 @@ type ReconfigurableClientConn struct {
 	conn   rpc.ClientConn
 }
 
+// Return this constant such that backoff error logging can compare consecutive errors and reliably
+// conclude they are the same.
 var errNotConnected = errors.New("not connected")
 
 // Invoke invokes using the underlying client connection. In the case of c.conn being closed in the middle of
