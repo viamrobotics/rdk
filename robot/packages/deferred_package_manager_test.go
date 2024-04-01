@@ -175,7 +175,7 @@ func TestDeferredPackageManager(t *testing.T) {
 		bag := setup(t)
 		defer bag.teardown()
 
-		err := bag.pm.Sync(bag.ctx, []config.PackageConfig{})
+		err := bag.pm.Sync(bag.ctx, []config.PackageConfig{}, []config.Module{})
 		test.That(t, err, test.ShouldBeNil)
 		_, isNoop := bag.pm.lastSyncedManager.(*noopManager)
 		test.That(t, isNoop, test.ShouldBeTrue)
@@ -185,7 +185,7 @@ func TestDeferredPackageManager(t *testing.T) {
 		bag.fakeServer.StorePackage(pkgA)
 		bag.fakeServer.StorePackage(pkgB)
 		// this will wait until we start the new cloud manager
-		err = bag.pm.Sync(bag.ctx, []config.PackageConfig{pkgA})
+		err = bag.pm.Sync(bag.ctx, []config.PackageConfig{pkgA}, []config.Module{})
 		test.That(t, err, test.ShouldBeNil)
 		_, isCloud := bag.pm.lastSyncedManager.(*cloudManager)
 		test.That(t, isCloud, test.ShouldBeTrue)
@@ -200,7 +200,7 @@ func TestDeferredPackageManager(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// sync over to pkgB and cleanup
-		err = bag.pm.Sync(bag.ctx, []config.PackageConfig{pkgB})
+		err = bag.pm.Sync(bag.ctx, []config.PackageConfig{pkgB}, []config.Module{})
 		test.That(t, err, test.ShouldBeNil)
 		err = bag.pm.Cleanup(bag.ctx)
 		test.That(t, err, test.ShouldBeNil)
