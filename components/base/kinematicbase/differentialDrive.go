@@ -111,6 +111,10 @@ func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
 	return ddk.planningFrame
 }
 
+func (ddk *differentialDriveKinematics) ExecutionFrame() referenceframe.Frame {
+	return ddk.executionFrame
+}
+
 func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	// If no localizer is present, CurrentInputs returns the expected position of the robot assuming after
 	// each part of move command was completed accurately.

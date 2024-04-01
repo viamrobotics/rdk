@@ -471,19 +471,9 @@ func CheckPlan(
 		return err
 	}
 
-	var startPose spatialmath.Pose
-	if relative {
-		// A frame's transformation based on a relative input will position it relative to the
-		// frame's origin, giving us a relative pose. To put it with respect to the world
-		// we compose the relative pose with the most recent former pose we have already reached.
-		startPose = poses[wayPointIdx-1]
-	} else {
-		startPose = currentPose
-	}
-
 	// setup the planOpts
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
-		startPose,
+		currentPose,
 		poses[len(poses)-1],
 		currentInputs,
 		worldState,
@@ -494,6 +484,7 @@ func CheckPlan(
 	}
 
 	// create a list of segments to iterate through
+	// doesn't this need to also happen for absolute plans??
 	segments := make([]*ik.Segment, 0, len(poses)-wayPointIdx)
 	if relative {
 		// get the inputs we were partway through executing
@@ -571,6 +562,7 @@ func CheckPlan(
 			if err != nil {
 				return err
 			}
+			fmt.Println("poseInPath: ", spatialmath.PoseToProtobuf(poseInPath))
 
 			// Check if look ahead distance has been reached
 			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
@@ -578,13 +570,16 @@ func CheckPlan(
 				return nil
 			}
 
-			// If we are working with a PTG plan the returned value for poseInPath will only
-			// tell us how far along the arc we have traveled. Since this is only the relative position,
-			//  i.e. relative to where the robot started executing the arc,
-			// we must compose poseInPath with segment.StartPosition to get the absolute position.
+			// Add new comment here
 			interpolatedState := &ik.State{Frame: sf}
 			if relative {
-				interpolatedState.Position = spatialmath.Compose(segment.StartPosition, poseInPath)
+				// I AM PRETTY SURE THAT ORDER MATTERS HERE IN TERMS OF STUFF?
+				interpolatedState.Configuration = []frame.Input{
+					{Value: segment.StartPosition.Point().X},
+					{Value: segment.StartPosition.Point().Y},
+					{Value: segment.StartPosition.Orientation().OrientationVectorDegrees().Theta},
+					interpConfig[0], interpConfig[1], interpConfig[2],
+				}
 			} else {
 				interpolatedState.Configuration = interpConfig
 			}

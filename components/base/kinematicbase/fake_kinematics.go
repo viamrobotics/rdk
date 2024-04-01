@@ -5,6 +5,7 @@ package kinematicbase
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -79,6 +80,10 @@ func (fk *fakeDiffDriveKinematics) Kinematics() referenceframe.Frame {
 	return fk.planningFrame
 }
 
+func (fk *fakeDiffDriveKinematics) ExecutionFrame() referenceframe.Frame {
+	return fk.executionFrame
+}
+
 func (fk *fakeDiffDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	fk.lock.RLock()
 	defer fk.lock.RUnlock()
@@ -118,17 +123,17 @@ func (fk *fakeDiffDriveKinematics) CurrentPosition(ctx context.Context) (*refere
 
 type fakePTGKinematics struct {
 	*fake.Base
-	localizer    motion.Localizer
-	frame        referenceframe.Frame
-	options      Options
-	sensorNoise  spatialmath.Pose
-	ptgs         []tpspace.PTGSolver
-	currentInput []referenceframe.Input
-	origin       *referenceframe.PoseInFrame
-	positionlock sync.RWMutex
-	inputLock    sync.RWMutex
-	logger       logging.Logger
-	sleepTime    int
+	localizer           motion.Localizer
+	planning, execution referenceframe.Frame
+	options             Options
+	sensorNoise         spatialmath.Pose
+	ptgs                []tpspace.PTGSolver
+	currentInput        []referenceframe.Input
+	origin              *referenceframe.PoseInFrame
+	positionlock        sync.RWMutex
+	inputLock           sync.RWMutex
+	logger              logging.Logger
+	sleepTime           int
 }
 
 // WrapWithFakePTGKinematics creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled
@@ -174,7 +179,8 @@ func WrapWithFakePTGKinematics(
 
 	nonzeroBaseTurningRadiusMeters := (baseMillimetersPerSecond / rdkutils.DegToRad(angVelocityDegsPerSecond)) / 1000.
 
-	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
+	// create planning frame
+	planningFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		b.Name().ShortName(),
 		logger,
 		nonzeroBaseTurningRadiusMeters,
@@ -187,21 +193,29 @@ func WrapWithFakePTGKinematics(
 		return nil, err
 	}
 
+	// create execution frame
+	// should i change this so that it takes in a list of geometries?
+	executionFrame, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName()+"ExecutionFrame", planningFrame.DoF(), geometries[0])
+	if err != nil {
+		return nil, err
+	}
+
+	// set other params
 	if sensorNoise == nil {
 		sensorNoise = spatialmath.NewZeroPose()
 	}
 
-	ptgProv, ok := frame.(tpspace.PTGProvider)
+	ptgProv, ok := planningFrame.(tpspace.PTGProvider)
 	if !ok {
 		return nil, errors.New("unable to cast ptgk frame to a PTG Provider")
 	}
-	ptgs := ptgProv.PTGSolvers()
 
 	fk := &fakePTGKinematics{
 		Base:         b,
-		frame:        frame,
+		planning:     planningFrame,
+		execution:    executionFrame,
 		origin:       origin,
-		ptgs:         ptgs,
+		ptgs:         ptgProv.PTGSolvers(),
 		currentInput: zeroInput,
 		sensorNoise:  sensorNoise,
 		logger:       logger,
@@ -215,7 +229,11 @@ func WrapWithFakePTGKinematics(
 }
 
 func (fk *fakePTGKinematics) Kinematics() referenceframe.Frame {
-	return fk.frame
+	return fk.planning
+}
+
+func (fk *fakePTGKinematics) ExecutionFrame() referenceframe.Frame {
+	return fk.execution
 }
 
 func (fk *fakePTGKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
@@ -232,47 +250,75 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 	}()
 
 	for _, inputs := range inputSteps {
-		fk.positionlock.RLock()
-		startingPose := fk.origin
-		fk.positionlock.RUnlock()
 
-		fk.inputLock.Lock()
-		fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {Value: 0}}
-		fk.inputLock.Unlock()
-
-		finalPose, err := fk.frame.Transform(inputs)
+		err := fk.goToInputs(ctx, inputs)
 		if err != nil {
 			return err
 		}
-
-		steps := motionplan.PathStepCount(spatialmath.NewZeroPose(), finalPose, 2)
-		startCfg := referenceframe.FloatsToInputs([]float64{inputs[0].Value, inputs[1].Value, 0})
-		var interpolatedConfigurations [][]referenceframe.Input
-		for i := 0; i <= steps; i++ {
-			interp := float64(i) / float64(steps)
-			interpConfig := referenceframe.InterpolateInputs(startCfg, inputs, interp)
-			interpolatedConfigurations = append(interpolatedConfigurations, interpConfig)
+		// we could do a setUpdateMe function to control when inputs are composed
+		// the frame's starting position
+		newPose, err := fk.Kinematics().Transform(inputs)
+		if err != nil {
+			return err
 		}
-		for _, inter := range interpolatedConfigurations {
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-			relativePose, err := fk.frame.Transform(inter)
-			if err != nil {
-				return err
-			}
-			newPose := spatialmath.Compose(startingPose.Pose(), relativePose)
+		fmt.Println("newPose: ", spatialmath.PoseToProtobuf(newPose))
+		// if tpFrame, ok := fk.Kinematics().(*tpspace.PtgGroupFrame); ok {
+		// 	tpFrame.SetStartPose(newPose)
+		// } else {
+		// 	return errors.New("something bad happened2")
+		// }
 
-			fk.positionlock.Lock()
-			fk.origin = referenceframe.NewPoseInFrame(fk.origin.Parent(), newPose)
-			fk.positionlock.Unlock()
+	}
+	return nil
+}
 
-			fk.inputLock.Lock()
-			fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], inter[2]}
-			fk.inputLock.Unlock()
+func (fk *fakePTGKinematics) goToInputs(ctx context.Context, inputs []referenceframe.Input) error {
+	defer func() {
+		fk.inputLock.Lock()
+		fk.currentInput = zeroInput
+		fk.inputLock.Unlock()
+	}()
 
-			time.Sleep(time.Duration(fk.sleepTime) * time.Microsecond * 10)
+	fk.positionlock.RLock()
+	startingPose := fk.origin
+	fk.positionlock.RUnlock()
+
+	fk.inputLock.Lock()
+	fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {Value: 0}}
+	fk.inputLock.Unlock()
+
+	finalPose, err := fk.planning.Transform(inputs)
+	if err != nil {
+		return err
+	}
+
+	steps := motionplan.PathStepCount(spatialmath.NewZeroPose(), finalPose, 2)
+	startCfg := referenceframe.FloatsToInputs([]float64{inputs[0].Value, inputs[1].Value, 0})
+	var interpolatedConfigurations [][]referenceframe.Input
+	for i := 0; i <= steps; i++ {
+		interp := float64(i) / float64(steps)
+		interpConfig := referenceframe.InterpolateInputs(startCfg, inputs, interp)
+		interpolatedConfigurations = append(interpolatedConfigurations, interpConfig)
+	}
+	for _, inter := range interpolatedConfigurations {
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
+		relativePose, err := fk.planning.Transform(inter)
+		if err != nil {
+			return err
+		}
+		newPose := spatialmath.Compose(startingPose.Pose(), relativePose)
+
+		fk.positionlock.Lock()
+		fk.origin = referenceframe.NewPoseInFrame(fk.origin.Parent(), newPose)
+		fk.positionlock.Unlock()
+
+		fk.inputLock.Lock()
+		fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], inter[2]}
+		fk.inputLock.Unlock()
+
+		time.Sleep(time.Duration(fk.sleepTime) * time.Microsecond * 10)
 	}
 	return nil
 }

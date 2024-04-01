@@ -42,9 +42,9 @@ const (
 type ptgBaseKinematics struct {
 	base.Base
 	motion.Localizer
-	logger logging.Logger
-	frame  referenceframe.Frame
-	ptgs   []tpspace.PTGSolver
+	logger                        logging.Logger
+	planningFrame, executionFrame referenceframe.Frame
+	ptgs                          []tpspace.PTGSolver
 
 	linVelocityMMPerSecond   float64
 	angVelocityDegsPerSecond float64
@@ -112,7 +112,7 @@ func wrapWithPTGKinematics(
 	}
 
 	nonzeroBaseTurningRadiusMeters := (linVelocityMMPerSecond / rdkutils.DegToRad(angVelocityDegsPerSecond)) / 1000.
-	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
+	planningFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		b.Name().ShortName(),
 		logger,
 		nonzeroBaseTurningRadiusMeters,
@@ -125,7 +125,14 @@ func wrapWithPTGKinematics(
 		return nil, err
 	}
 
-	ptgProv, ok := frame.(tpspace.PTGProvider)
+	// create execution frame
+	// should i change this so that it takes in a list of geometries?
+	executionFrame, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName(), planningFrame.DoF(), geometries[0])
+	if err != nil {
+		return nil, err
+	}
+
+	ptgProv, ok := planningFrame.(tpspace.PTGProvider)
 	if !ok {
 		return nil, errors.New("unable to cast ptgk frame to a PTG Provider")
 	}
@@ -143,7 +150,8 @@ func wrapWithPTGKinematics(
 		Base:                     b,
 		Localizer:                localizer,
 		logger:                   logger,
-		frame:                    frame,
+		planningFrame:            planningFrame,
+		executionFrame:           executionFrame,
 		ptgs:                     ptgs,
 		linVelocityMMPerSecond:   linVelocityMMPerSecond,
 		angVelocityDegsPerSecond: angVelocityDegsPerSecond,
@@ -154,7 +162,11 @@ func wrapWithPTGKinematics(
 }
 
 func (ptgk *ptgBaseKinematics) Kinematics() referenceframe.Frame {
-	return ptgk.frame
+	return ptgk.planningFrame
+}
+
+func (ptgk *ptgBaseKinematics) ExecutionFrame() referenceframe.Frame {
+	return ptgk.executionFrame
 }
 
 func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
@@ -275,7 +287,7 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan motionplan.P
 	// TODO: We should be able to use the Path that exists in the plan rather than doing this duplicate work here
 	runningPose := spatialmath.NewZeroPose()
 	for i := 0; i < currentNode; i++ {
-		wpPose, err := ptgk.frame.Transform(waypoints[i])
+		wpPose, err := ptgk.planningFrame.Transform(waypoints[i])
 		if err != nil {
 			return nil, err
 		}
@@ -287,7 +299,7 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan motionplan.P
 	if err != nil {
 		return nil, err
 	}
-	currPose, err := ptgk.frame.Transform(currentInputs)
+	currPose, err := ptgk.planningFrame.Transform(currentInputs)
 	if err != nil {
 		return nil, err
 	}

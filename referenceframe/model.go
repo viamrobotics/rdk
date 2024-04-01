@@ -71,6 +71,12 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 	if err != nil && frames == nil {
 		return nil, err
 	}
+	// this confuses me a lot
+	// why not just
+	// return spatialmath.NewPose(
+	// 	r3.Vector{X: inputs[0].Value, Y: inputs[1].Value, Z: 0},
+	// 	&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: inputs[2].Value},
+	// ), nil
 	return frames[0].transform, err
 }
 
