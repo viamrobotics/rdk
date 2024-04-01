@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -119,7 +120,7 @@ func (m *cloudManager) Close(ctx context.Context) error {
 }
 
 // SyncAll syncs all given packages and removes any not in the list from the local file system.
-func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig) error {
+func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig, modules []config.Module) error {
 	var outErr error
 
 	// Only allow one rdk process to operate on the manager at once. This is generally safe to keep locked for an extended period of time
@@ -173,8 +174,19 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 		m.logger.Debugf("Downloading from %s", sanitizeURLForLogs(resp.Package.Url))
 
+		nonEmptyPaths := make([]string, 0)
+		if p.Type == config.PackageTypeModule {
+			matchedModules := m.modulesForPackage(p, modules)
+			if len(matchedModules) == 1 {
+				nonEmptyPaths = append(nonEmptyPaths, matchedModules[0].ExePath)
+			}
+			if len(matchedModules) > 1 {
+				m.logger.CWarnf(ctx, "package %s matched %d > 1 modules, not doing entrypoint checking", p.Name, len(matchedModules))
+			}
+		}
+
 		// download package from a http endpoint
-		err = m.downloadPackage(ctx, resp.Package.Url, p)
+		err = m.downloadPackage(ctx, resp.Package.Url, p, nonEmptyPaths)
 		if err != nil {
 			m.logger.Errorf("Failed downloading package %s:%s from %s, %s", p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url), err)
 			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed downloading package %s:%s from %s",
@@ -200,6 +212,19 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 	m.managedPackages = newManagedPackages
 
 	return outErr
+}
+
+// modulesForPackage returns module(s) whose ExePath is in the package's directory.
+// TODO: This only works if you call it after placeholder replacement. Find a cleaner way to express this link.
+func (m *cloudManager) modulesForPackage(pkg config.PackageConfig, modules []config.Module) []config.Module {
+	pkgDir := pkg.LocalDataDirectory(m.packagesDir)
+	ret := make([]config.Module, 0, 1)
+	for _, module := range modules {
+		if strings.HasPrefix(module.ExePath, pkgDir) {
+			ret = append(ret, module)
+		}
+	}
+	return ret
 }
 
 func (m *cloudManager) validateAndGetChangedPackages(packages []config.PackageConfig) []config.PackageConfig {
@@ -353,11 +378,43 @@ func sanitizeURLForLogs(u string) string {
 	return parsed.String()
 }
 
-func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config.PackageConfig) error {
-	// TODO(): validate integrity of directory.
-	if dirExists(p.LocalDataDirectory(m.packagesDir)) {
-		m.logger.Debug("Package already downloaded, skipping.")
-		return nil
+// checkNonemptyPaths returns true if all required paths are present and non-empty.
+// This exists because we have no way to check the integrity of modules *after* they've been unpacked.
+// (We do look at checksums of downloaded tarballs, though). Once we have a better integrity check
+// system for unpacked modules, this should be removed.
+func checkNonemptyPaths(packageName string, logger logging.Logger, absPaths []string) bool {
+	missingOrEmpty := 0
+	for _, nePath := range absPaths {
+		if !path.IsAbs(nePath) {
+			// note: we expect paths to be absolute in most cases.
+			// We're okay not having corrupted files coverage for relative paths, and prefer it to
+			// risking a re-download loop from an edge case.
+			logger.Debugw("ignoring non-abs required path", "path", nePath, "package", packageName)
+			continue
+		}
+		// note: os.Stat treats symlinks as their destination. os.Lstat would stat the link itself.
+		info, err := os.Stat(nePath)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				logger.Warnw("ignoring non-NotExist error for required path", "path", nePath, "package", packageName, "error", err.Error())
+			} else {
+				logger.Warnw("a required path is missing, re-downloading", "path", nePath, "package", packageName)
+				missingOrEmpty++
+			}
+		} else if info.Size() == 0 {
+			missingOrEmpty++
+			logger.Warnw("a required path is empty, re-downloading", "path", nePath, "package", packageName)
+		}
+	}
+	return missingOrEmpty == 0
+}
+
+func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config.PackageConfig, nonEmptyPaths []string) error {
+	if dataDir := p.LocalDataDirectory(m.packagesDir); dirExists(dataDir) {
+		if checkNonemptyPaths(p.Name, m.logger, nonEmptyPaths) {
+			m.logger.Debug("Package already downloaded, skipping.")
+			return nil
+		}
 	}
 
 	// Create the parent directory for the package type if it doesn't exist
