@@ -55,10 +55,12 @@ type odometry struct {
 	resource.Named
 	resource.AlwaysRebuild
 
-	lastLeftPos       float64
-	lastRightPos      float64
-	base              base.Base
-	timeIntervalMSecs float64
+	lastLeftPos        float64
+	lastRightPos       float64
+	baseWidth          float64
+	wheelCircumference float64
+	base               base.Base
+	timeIntervalMSecs  float64
 
 	motors []motorPair
 
@@ -158,7 +160,9 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	if err != nil {
 		return err
 	}
-	if props.WidthMeters == 0 || props.WheelCircumferenceMeters == 0 {
+	o.baseWidth = props.WidthMeters
+	o.wheelCircumference = props.WheelCircumferenceMeters
+	if o.baseWidth == 0 || o.wheelCircumference == 0 {
 		return errors.New("base width or wheel circumference are 0, movement sensor cannot be created")
 	}
 	o.base = newBase
@@ -333,6 +337,21 @@ func (o *odometry) Close(ctx context.Context) error {
 	return nil
 }
 
+func (o *odometry) checkBaseProps(ctx context.Context) {
+	props, err := o.base.Properties(ctx, nil)
+	if err != nil {
+		o.logger.Error(err)
+		return
+	}
+	if (o.baseWidth != props.WidthMeters) || (o.wheelCircumference != props.WheelCircumferenceMeters) {
+		o.baseWidth = props.WidthMeters
+		o.wheelCircumference = props.WheelCircumferenceMeters
+		o.logger.Warnf("Base %v's properties have changed: baseWidth = %v and wheelCirumference = %v.",
+			"Odometry can optionally be reset using DoCommand",
+			o.base.Name().ShortName(), o.baseWidth, o.wheelCircumference)
+	}
+}
+
 // trackPosition uses the motor positions to calculate an estimation of the position, orientation,
 // linear velocity, and angular velocity of the wheeled base.
 // The estimations in this function are based on the math outlined in this article:
@@ -385,14 +404,10 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			left := positions[0]
 			right := positions[1]
 
-			props, err := o.base.Properties(ctx, nil)
-			if err != nil {
-				o.logger.Error(err)
-				return
-			}
+			o.checkBaseProps(ctx)
 			// Difference in the left and right motors since the last iteration, in mm.
-			leftDist := (left - o.lastLeftPos) * props.WheelCircumferenceMeters
-			rightDist := (right - o.lastRightPos) * props.WheelCircumferenceMeters
+			leftDist := (left - o.lastLeftPos) * o.wheelCircumference
+			rightDist := (right - o.lastRightPos) * o.wheelCircumference
 
 			// Update lastLeftPos and lastRightPos to be the current position in mm.
 			o.lastLeftPos = left
@@ -403,7 +418,7 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			// the inner angle of the rotation will be small enough that it can be accurately
 			// estimated using the below equations.
 			centerDist := (leftDist + rightDist) / 2
-			centerAngle := (rightDist - leftDist) / props.WidthMeters
+			centerAngle := (rightDist - leftDist) / o.baseWidth
 
 			// Update the position and orientation values accordingly.
 			o.mu.Lock()
