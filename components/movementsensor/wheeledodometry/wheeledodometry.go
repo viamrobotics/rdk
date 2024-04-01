@@ -404,7 +404,11 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			left := positions[0]
 			right := positions[1]
 
+			// Base properties need to be checked every time because dependent compenents reconfiguring does not trigger
+			// the parent component to reconfigure. In this case, that means if the base properties change, the wheeled
+			// odometry movement sensor will not be aware of these changes and will continue to use the old values
 			o.checkBaseProps(ctx)
+
 			// Difference in the left and right motors since the last iteration, in mm.
 			leftDist := (left - o.lastLeftPos) * o.wheelCircumference
 			rightDist := (right - o.lastRightPos) * o.wheelCircumference
