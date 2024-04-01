@@ -34,7 +34,7 @@ func (server *serviceServer) Shell(srv pb.ShellService_ShellServer) (retErr erro
 	if err != nil {
 		return err
 	}
-	input, output, err := svc.Shell(srv.Context(), req.Extra.AsMap())
+	input, oobInput, output, err := svc.Shell(srv.Context(), req.Extra.AsMap())
 	if err != nil {
 		return err
 	}
@@ -52,6 +52,7 @@ func (server *serviceServer) Shell(srv pb.ShellService_ShellServer) (retErr erro
 			if firstMsg {
 				firstMsg = false
 				err = errTemp
+				req.Extra = nil
 			} else {
 				req, err = srv.Recv()
 			}
@@ -62,6 +63,24 @@ func (server *serviceServer) Shell(srv pb.ShellService_ShellServer) (retErr erro
 				}
 				inDone <- err
 				return
+			}
+
+			if req.Extra != nil {
+				ext := req.Extra.AsMap()
+				if len(ext) != 0 {
+					select {
+					case oobInput <- ext:
+					case <-outDone:
+						close(input)
+						return
+					case <-srv.Context().Done():
+						inDone <- srv.Context().Err()
+						return
+					}
+				}
+			}
+			if len(req.DataIn) == 0 {
+				continue
 			}
 
 			select {
