@@ -340,8 +340,10 @@ func (o *odometry) Close(ctx context.Context) error {
 func (o *odometry) checkBaseProps(ctx context.Context) {
 	props, err := o.base.Properties(ctx, nil)
 	if err != nil {
-		o.logger.Error(err)
-		return
+		if !errors.Is(err, context.Canceled) {
+			o.logger.Error(err)
+			return
+		}
 	}
 	if (o.baseWidth != props.WidthMeters) || (o.wheelCircumference != props.WheelCircumferenceMeters) {
 		o.baseWidth = props.WidthMeters
