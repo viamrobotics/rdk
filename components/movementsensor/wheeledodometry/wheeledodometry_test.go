@@ -258,10 +258,12 @@ func TestSpin(t *testing.T) {
 	_ = right.ResetZeroPosition(ctx, 0, nil)
 
 	od := &odometry{
-		lastLeftPos:       0,
-		lastRightPos:      0,
-		base:              base,
-		timeIntervalMSecs: 500,
+		lastLeftPos:        0,
+		lastRightPos:       0,
+		wheelCircumference: 0.2,
+		baseWidth:          0.2,
+		base:               base,
+		timeIntervalMSecs:  500,
 	}
 	od.motors = append(od.motors, motorPair{left, right})
 	od.trackPosition(context.Background())
@@ -310,10 +312,12 @@ func TestMoveStraight(t *testing.T) {
 	_ = right.ResetZeroPosition(ctx, 0, nil)
 
 	od := &odometry{
-		lastLeftPos:       0,
-		lastRightPos:      0,
-		base:              base,
-		timeIntervalMSecs: 500,
+		lastLeftPos:        0,
+		lastRightPos:       0,
+		wheelCircumference: 1,
+		baseWidth:          1,
+		base:               base,
+		timeIntervalMSecs:  500,
 	}
 	od.motors = append(od.motors, motorPair{left, right})
 	od.trackPosition(context.Background())
@@ -350,10 +354,12 @@ func TestComplicatedPath(t *testing.T) {
 	_ = right.ResetZeroPosition(ctx, 0, nil)
 
 	od := &odometry{
-		lastLeftPos:       0,
-		lastRightPos:      0,
-		base:              base,
-		timeIntervalMSecs: 500,
+		lastLeftPos:        0,
+		lastRightPos:       0,
+		wheelCircumference: 1,
+		baseWidth:          1,
+		base:               base,
+		timeIntervalMSecs:  500,
 	}
 	od.motors = append(od.motors, motorPair{left, right})
 	od.trackPosition(context.Background())
@@ -440,8 +446,9 @@ func TestVelocities(t *testing.T) {
 	_ = right.ResetZeroPosition(ctx, 0, nil)
 
 	od := &odometry{
-		lastLeftPos:       0,
-		lastRightPos:      0,
+		lastLeftPos:  0,
+		lastRightPos: 0, wheelCircumference: 1,
+		baseWidth:         1,
 		base:              base,
 		timeIntervalMSecs: 500,
 	}
