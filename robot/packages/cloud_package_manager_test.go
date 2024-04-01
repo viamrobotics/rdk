@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"testing"
+	"time"
 
 	pb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/test"
@@ -114,9 +115,27 @@ func TestCloud(t *testing.T) {
 		err = pm.Sync(ctx, []config.PackageConfig{pkg}, []config.Module{module})
 		test.That(t, err, test.ShouldBeNil)
 
-		// close first package manager, then corrupt the module entrypoint file
-		pm.Close(ctx)
+		// grab ModTime for comparison
 		info, err := os.Stat(module.ExePath)
+		test.That(t, err, test.ShouldBeNil)
+		modTime := info.ModTime()
+
+		// close previous package manager, make sure new PM *doesn't* re-download with intact ExePath
+		pm.Close(ctx)
+		_, pm = newPackageManager(t, client, fakeServer, logger, pm.(*cloudManager).packagesDir)
+		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+		fakeServer.StorePackage(pkg)
+		// sleep to make super sure modification time increments
+		time.Sleep(10 * time.Millisecond)
+		err = pm.Sync(ctx, []config.PackageConfig{pkg}, []config.Module{module})
+		test.That(t, err, test.ShouldBeNil)
+		info, err = os.Stat(module.ExePath)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, info.ModTime(), test.ShouldEqual, modTime)
+
+		// close previous package manager, then corrupt the module entrypoint file
+		pm.Close(ctx)
+		info, err = os.Stat(module.ExePath)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, info.Size(), test.ShouldNotBeZeroValue)
 		err = os.Remove(module.ExePath)
@@ -129,10 +148,11 @@ func TestCloud(t *testing.T) {
 		err = pm.Sync(ctx, []config.PackageConfig{pkg}, []config.Module{module})
 		test.That(t, err, test.ShouldBeNil)
 
-		// test that file exists and is non-empty
+		// test that file exists, is non-empty, and modTime is different
 		info, err = os.Stat(module.ExePath)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, info.Size(), test.ShouldNotBeZeroValue)
+		test.That(t, info.ModTime(), test.ShouldNotEqual, modTime)
 	})
 
 	t.Run("sync and clean should remove file", func(t *testing.T) {
