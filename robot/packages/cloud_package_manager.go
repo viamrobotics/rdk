@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -382,11 +381,11 @@ func sanitizeURLForLogs(u string) string {
 // This exists because we have no way to check the integrity of modules *after* they've been unpacked.
 // (We do look at checksums of downloaded tarballs, though). Once we have a better integrity check
 // system for unpacked modules, this should be removed.
-func checkNonemptyPaths(dataDir, packageName string, logger logging.Logger, paths []string) bool {
+func checkNonemptyPaths(packageName string, logger logging.Logger, absPaths []string) bool {
 	missingOrEmpty := 0
-	for _, nePath := range paths {
+	for _, nePath := range absPaths {
 		// note: os.Stat treats symlinks as their destination. os.Lstat would stat the link itself.
-		info, err := os.Stat(path.Join(dataDir, nePath))
+		info, err := os.Stat(nePath)
 		if err != nil {
 			if !os.IsNotExist(err) {
 				logger.Warnw("ignoring non-NotExist error for required path", "path", nePath, "package", packageName, "error", err.Error())
@@ -404,7 +403,7 @@ func checkNonemptyPaths(dataDir, packageName string, logger logging.Logger, path
 
 func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config.PackageConfig, nonEmptyPaths []string) error {
 	if dataDir := p.LocalDataDirectory(m.packagesDir); dirExists(dataDir) {
-		if checkNonemptyPaths(dataDir, p.Name, m.logger, nonEmptyPaths) {
+		if checkNonemptyPaths(p.Name, m.logger, nonEmptyPaths) {
 			m.logger.Debug("Package already downloaded, skipping.")
 			return nil
 		}

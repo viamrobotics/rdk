@@ -561,21 +561,21 @@ func TestCheckNonemptyPaths(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// path missing
-	test.That(t, checkNonemptyPaths(dataDir, "packageName", logger, []string{"hello"}), test.ShouldBeFalse)
+	test.That(t, checkNonemptyPaths("packageName", logger, []string{dataDir + "/hello"}), test.ShouldBeFalse)
 
 	// file empty
 	fullPath := path.Join(dataDir, "hello")
 	_, err = os.Create(fullPath)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, checkNonemptyPaths(dataDir, "packageName", logger, []string{"hello"}), test.ShouldBeFalse)
+	test.That(t, checkNonemptyPaths("packageName", logger, []string{dataDir + "/hello"}), test.ShouldBeFalse)
 
 	// file exists and is non-empty
 	err = os.WriteFile(fullPath, []byte("hello"), 0)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, checkNonemptyPaths(dataDir, "packageName", logger, []string{"hello"}), test.ShouldBeTrue)
+	test.That(t, checkNonemptyPaths("packageName", logger, []string{dataDir + "/hello"}), test.ShouldBeTrue)
 
 	// file is a symlink
 	err = os.Symlink(fullPath, path.Join(dataDir, "sym-hello"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, checkNonemptyPaths(dataDir, "packageName", logger, []string{"sym-hello"}), test.ShouldBeTrue)
+	test.That(t, checkNonemptyPaths("packageName", logger, []string{dataDir + "/sym-hello"}), test.ShouldBeTrue)
 }
