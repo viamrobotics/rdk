@@ -13,7 +13,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/gostream"
-	"go.viam.com/rdk/robot"
 )
 
 type peerState struct {
@@ -49,7 +48,6 @@ func (ss *streamState) Stop() {
 // Server implements the gRPC audio/video streaming service.
 type Server struct {
 	streampb.UnimplementedStreamServiceServer
-	robot robot.Robot
 
 	mu                      sync.RWMutex
 	streams                 []*streamState
@@ -60,9 +58,8 @@ type Server struct {
 
 // NewServer returns a server that will run on the given port and initially starts with the given
 // stream.
-func NewServer(robot robot.Robot, streams ...gostream.Stream) (*Server, error) {
+func NewServer(streams ...gostream.Stream) (*Server, error) {
 	ss := &Server{
-		robot:             robot,
 		nameToStream:      map[string]gostream.Stream{},
 		activePeerStreams: map[*webrtc.PeerConnection]map[string]*peerState{},
 	}
