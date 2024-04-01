@@ -45,9 +45,13 @@ import (
 )
 
 const (
-	rdkReleaseURL  = "https://api.github.com/repos/viamrobotics/rdk/releases/latest"
+	rdkReleaseURL = "https://api.github.com/repos/viamrobotics/rdk/releases/latest"
+	// defaultNumLogs is the same as the number of logs currently returned by app
+	// in a single GetRobotPartLogsResponse.
 	defaultNumLogs = 100
-	maxNumLogs     = 10000
+	// maxNumLogs is an arbitrary limit used to stop CLI users from overwhelming
+	// our logs DB with heavy reads.
+	maxNumLogs = 10000
 )
 
 // viamClient wraps a cli.Context and provides all the CLI command functionality
