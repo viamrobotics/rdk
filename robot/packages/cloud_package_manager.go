@@ -388,9 +388,11 @@ func checkNonemptyPaths(dataDir, packageName string, logger logging.Logger, path
 		// note: os.Stat treats symlinks as their destination. os.Lstat would stat the link itself.
 		info, err := os.Stat(path.Join(dataDir, nePath))
 		if err != nil {
-			missingOrEmpty++
 			if !os.IsNotExist(err) {
 				logger.Warnw("ignoring non-NotExist error for required path", "path", nePath, "package", packageName, "error", err.Error())
+			} else {
+				logger.Warnw("a required path is missing, re-downloading", "path", nePath, "package", packageName)
+				missingOrEmpty++
 			}
 		} else if info.Size() == 0 {
 			missingOrEmpty++
