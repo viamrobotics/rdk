@@ -100,9 +100,9 @@ func TestOrientation(t *testing.T) {
 	oc, err = NewOrientationConfig(o)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, oc.Type, test.ShouldEqual, string(QuaternionType))
-	bytes, err := json.Marshal(o)
+	o2, err := oc.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, oc.Value, test.ShouldResemble, json.RawMessage(bytes))
+	test.That(t, OrientationAlmostEqual(o, o2), test.ShouldBeTrue)
 }
 
 func loadOrientationTests(t *testing.T) map[string]json.RawMessage {

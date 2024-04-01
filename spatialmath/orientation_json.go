@@ -35,7 +35,9 @@ func NewOrientationConfig(o Orientation) (*OrientationConfig, error) {
 		return nil, err
 	}
 	value := map[string]any{}
-	json.Unmarshal(bytes, &value)
+	if err := json.Unmarshal(bytes, &value); err != nil {
+		return nil, err
+	}
 
 	switch oType := o.(type) {
 	case *R4AA:
@@ -47,13 +49,6 @@ func NewOrientationConfig(o Orientation) (*OrientationConfig, error) {
 	case *EulerAngles:
 		return &OrientationConfig{Type: EulerAnglesType, Value: value}, nil
 	case *Quaternion:
-		oj := quaternionJSONFromQuaternion(oType)
-		bytes, err := json.Marshal(oj)
-		if err != nil {
-			return nil, err
-		}
-		value := map[string]any{}
-		json.Unmarshal(bytes, &value)
 		return &OrientationConfig{Type: QuaternionType, Value: value}, nil
 	default:
 		return nil, newOrientationTypeUnsupportedError(fmt.Sprintf("%T", oType))
@@ -62,7 +57,7 @@ func NewOrientationConfig(o Orientation) (*OrientationConfig, error) {
 
 // ParseConfig will use the Type in OrientationConfig and convert into the correct struct that implements Orientation.
 func (config *OrientationConfig) ParseConfig() (Orientation, error) {
-	rawJson, err := json.Marshal(config.Value)
+	bytes, err := json.Marshal(config.Value)
 	if err != nil {
 		return nil, err
 	}
@@ -73,35 +68,35 @@ func (config *OrientationConfig) ParseConfig() (Orientation, error) {
 		return NewZeroOrientation(), nil
 	case OrientationVectorDegreesType:
 		var o OrientationVectorDegrees
-		err = json.Unmarshal(rawJson, &o)
+		err = json.Unmarshal(bytes, &o)
 		if err != nil {
 			return nil, err
 		}
 		return &o, o.IsValid()
 	case OrientationVectorRadiansType:
 		var o OrientationVector
-		err = json.Unmarshal(rawJson, &o)
+		err = json.Unmarshal(bytes, &o)
 		if err != nil {
 			return nil, err
 		}
 		return &o, o.IsValid()
 	case AxisAnglesType:
 		var o R4AA
-		err = json.Unmarshal(rawJson, &o)
+		err = json.Unmarshal(bytes, &o)
 		if err != nil {
 			return nil, err
 		}
 		return &o, nil
 	case EulerAnglesType:
 		var o EulerAngles
-		err = json.Unmarshal(rawJson, &o)
+		err = json.Unmarshal(bytes, &o)
 		if err != nil {
 			return nil, err
 		}
 		return &o, nil
 	case QuaternionType:
 		var oj quaternionJSON
-		err = json.Unmarshal(rawJson, &oj)
+		err = json.Unmarshal(bytes, &oj)
 		if err != nil {
 			return nil, err
 		}
