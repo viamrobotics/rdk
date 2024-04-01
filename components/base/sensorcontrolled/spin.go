@@ -39,7 +39,9 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 
 	if !spinSupported {
 		sb.logger.CWarn(ctx, "orientation movement sensor not configured, using %v's spin method", sb.controlledBase.Name().ShortName())
-		sb.stopLoop()
+		if sb.loop != nil {
+			sb.loop.Pause()
+		}
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
 
@@ -49,6 +51,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			return err
 		}
 	}
+	sb.loop.Resume()
 	angErr := 0.
 	prevMovedAng := 0.
 
