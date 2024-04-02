@@ -31,7 +31,8 @@ func NewColorDetector(cfg *ColorDetectorConfig) (Detector, error) {
 	}
 	hue, s, v := col.HsvNormal()
 	if s == 0 { // color detector cannot detect black/white/grayscale
-		return nil, errors.New("the chosen color to detect has a saturation of 0. The color detector cannot detect black, white or grayscale colors.")
+		return nil, errors.New("the chosen color to detect has a saturation of 0. " +
+			"The color detector cannot detect black, white or grayscale colors.")
 	}
 	tol := cfg.HueTolerance
 	sat := cfg.SaturationCutoff

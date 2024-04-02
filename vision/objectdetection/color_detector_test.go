@@ -49,6 +49,13 @@ func TestColorDetector(t *testing.T) {
 	)
 
 	cfg.ValueCutoff = 0.3
+	cfg.DetectColorString = "#000000" // black
+	_, err = NewColorDetector(cfg)
+	test.That(t, err.Error(), test.ShouldContainSubstring,
+		"the chosen color to detect has a saturation of 0",
+	)
+
+	cfg.DetectColorString = "#4F3815" // an orange color
 	det, err := NewColorDetector(cfg)
 	test.That(t, err, test.ShouldBeNil)
 	result, err := det(ctx, img)
