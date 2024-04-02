@@ -37,11 +37,11 @@ func NewColorDetector(cfg *ColorDetectorConfig) (Detector, error) {
 	tol := cfg.HueTolerance
 	sat := cfg.SaturationCutoff
 	if sat == 0 {
-		sat = 0.2
+		sat = 0.2 // saturation less than .2 look very washed out and grayscale
 	}
 	val := cfg.ValueCutoff
 	if val == 0 {
-		val = 0.3
+		val = 0.3 // values less than .3 look very dark and hard to distinguish from black
 	}
 
 	if tol > 1.0 || tol <= 0.0 {
