@@ -235,10 +235,12 @@ func (sc *SharedConn) ProcessEncodedAnswer(encodedAnswer string) error {
 // Close closes a shared connection.
 func (sc *SharedConn) Close() error {
 	var err error
+	sc.peerConnMu.Lock()
 	if sc.peerConn != nil {
 		err = sc.peerConn.Close()
 		sc.peerConn = nil
 	}
+	sc.peerConnMu.Unlock()
 
 	return multierr.Combine(err, sc.grpcConn.Close())
 }
