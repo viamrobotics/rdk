@@ -101,7 +101,7 @@ func NewPTGFrameFromKinematicOptions(
 		shortPtgsToUse = append(shortPtgsToUse, defaultShortPtgs...)
 		// Use Circle PTG for course correction. Ensure it is last.
 		shortPtgsToUse = append(shortPtgsToUse, defaultCorrectionPtg)
-		pf.correctionIdx = (len(longPtgsToUse) - 1) + (len(shortPtgsToUse) - 1)
+		pf.correctionIdx = len(longPtgsToUse) + (len(shortPtgsToUse) - 1)
 	} else {
 		// Use diff drive PTG for course correction
 		pf.correctionIdx = 0
