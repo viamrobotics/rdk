@@ -510,7 +510,9 @@ func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) e
 // Close cleanly shuts down the motor.
 func (m *EncodedMotor) Close(ctx context.Context) error {
 	if err := m.Stop(ctx, nil); err != nil {
-		return err
+		if !errors.Is(err, context.Canceled) {
+			return err
+		}
 	}
 	m.cancel()
 	m.activeBackgroundWorkers.Wait()
