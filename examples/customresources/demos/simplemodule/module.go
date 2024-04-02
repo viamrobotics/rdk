@@ -19,7 +19,7 @@ import (
 var myModel = resource.NewModel("acme", "demo", "mycounter")
 
 func main() {
-	utils.ContextualMain(mainWithArgs, logging.NewLogger("SimpleModule"))
+	utils.ContextualMain(mainWithArgs, module.NewLoggerFromArgs("simple-module"))
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {

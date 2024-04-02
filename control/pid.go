@@ -11,11 +11,12 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-func newPID(config BlockConfig, logger logging.Logger) (Block, error) {
+func (l *Loop) newPID(config BlockConfig, logger logging.Logger) (Block, error) {
 	p := &basicPID{cfg: config, logger: logger}
 	if err := p.reset(); err != nil {
 		return nil, err
 	}
+	l.pidBlocks = append(l.pidBlocks, p)
 	return p, nil
 }
 
@@ -28,7 +29,6 @@ type basicPID struct {
 	kD       float64
 	kP       float64
 	int      float64
-	sat      int
 	y        []*Signal
 	satLimUp float64 `default:"255.0"`
 	limUp    float64 `default:"255.0"`
@@ -37,6 +37,10 @@ type basicPID struct {
 	tuner    pidTuner
 	tuning   bool
 	logger   logging.Logger
+}
+
+func (p *basicPID) GetTuning() bool {
+	return p.tuning
 }
 
 // Output returns the discrete step of the PID controller, dt is the delta time between two subsequent call,
@@ -58,19 +62,13 @@ func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 	} else {
 		dtS := dt.Seconds()
 		pvError := x[0].GetSignalValueAt(0)
-		if (p.sat > 0 && pvError > 0) || (p.sat < 0 && pvError < 0) {
-			return p.y, false
-		}
 		p.int += p.kI * pvError * dtS
 		switch {
 		case p.int >= p.satLimUp:
 			p.int = p.satLimUp
-			p.sat = 1
 		case p.int <= p.satLimLo:
 			p.int = p.satLimLo
-			p.sat = -1
 		default:
-			p.sat = 0
 		}
 		deriv := (pvError - p.error) / dtS
 		output := p.kP*pvError + p.int + p.kD*deriv
@@ -88,7 +86,6 @@ func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 func (p *basicPID) reset() error {
 	p.int = 0
 	p.error = 0
-	p.sat = 0
 
 	if !p.cfg.Attribute.Has("kI") &&
 		!p.cfg.Attribute.Has("kD") &&
@@ -190,6 +187,7 @@ type tuneCalcMethod string
 const (
 	tuneMethodZiegerNicholsPI            tuneCalcMethod = "ziegerNicholsPI"
 	tuneMethodZiegerNicholsPID           tuneCalcMethod = "ziegerNicholsPID"
+	tuneMethodZiegerNicholsPD            tuneCalcMethod = "ziegerNicholsPD"
 	tuneMethodZiegerNicholsSomeOvershoot tuneCalcMethod = "ziegerNicholsSomeOvershoot"
 	tuneMethodZiegerNicholsNoOvershoot   tuneCalcMethod = "ziegerNicholsNoOvershoot"
 	tuneMethodCohenCoonsPI               tuneCalcMethod = "cohenCoonsPI"
@@ -233,6 +231,7 @@ type pidTuner struct {
 	out          float64
 }
 
+// reference for computation: https://en.wikipedia.org/wiki/Ziegler%E2%80%93Nichols_method#cite_note-1
 func (p *pidTuner) computeGains() {
 	stepPwr := p.limUp * p.stepPct
 	i := 0
@@ -248,7 +247,11 @@ func (p *pidTuner) computeGains() {
 	case tuneMethodZiegerNicholsPI:
 		p.kP = 0.4545 * kU
 		p.kI = 0.5454 * (kU / pU)
-		p.kD = 0
+		p.kD = 0.0
+	case tuneMethodZiegerNicholsPD:
+		p.kP = 0.8 * kU
+		p.kI = 0.0
+		p.kD = 0.10 * kU * pU
 	case tuneMethodZiegerNicholsPID:
 		p.kP = 0.6 * kU
 		p.kI = 1.2 * (kU / pU)
@@ -286,10 +289,10 @@ func (p *pidTuner) computeGains() {
 		p.kP = (1.0 / (K * r)) * (4.0/3.0 + r/4)
 		p.kI = p.kP / (tauD) * (32 + 6*r) / (13 + 8*r)
 		p.kD = p.kP / (4 * tauD / (11 + 2*r))
-	default:
+	default: // ziegler nichols PI is the default
 		p.kP = 0.4545 * kU
 		p.kI = 0.5454 * (kU / pU)
-		p.kD = 0
+		p.kD = 0.0
 	}
 }
 

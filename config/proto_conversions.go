@@ -85,6 +85,8 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 		cfg.Debug = *proto.Debug
 	}
 
+	logAnyFragmentOverwriteErrors(logger, proto.OverwriteFragmentStatus)
+
 	return &cfg, nil
 }
 
@@ -674,6 +676,8 @@ func CloudConfigToProto(cloud *Cloud) (*pb.CloudConfig, error) {
 		LocalFqdn:         cloud.LocalFQDN,
 		SignalingAddress:  cloud.SignalingAddress,
 		SignalingInsecure: cloud.SignalingInsecure,
+		PrimaryOrgId:      cloud.PrimaryOrgID,
+		LocationId:        cloud.LocationID,
 	}, nil
 }
 
@@ -690,6 +694,8 @@ func CloudConfigFromProto(proto *pb.CloudConfig) (*Cloud, error) {
 		//nolint:staticcheck
 		LocationSecret:    proto.GetLocationSecret(),
 		LocationSecrets:   locationSecrets,
+		LocationID:        proto.GetLocationId(),
+		PrimaryOrgID:      proto.GetPrimaryOrgId(),
 		ManagedBy:         proto.GetManagedBy(),
 		FQDN:              proto.GetFqdn(),
 		LocalFQDN:         proto.GetLocalFqdn(),
@@ -844,7 +850,7 @@ func toRDKSlice[PT, RT any](
 	for _, proto := range protoList {
 		rdk, err := toRDK(proto)
 		if err != nil {
-			logger.Debugw("error converting from proto to config", "type", reflect.TypeOf(proto).String(), "error", err)
+			logger.Errorw("error converting from proto to config", "type", reflect.TypeOf(proto).String(), "error", err)
 			if disablePartialStart {
 				return nil, err
 			}
@@ -897,9 +903,13 @@ func PackageTypeToProto(t PackageType) (*packagespb.PackageType, error) {
 		return packagespb.PackageType_PACKAGE_TYPE_MODULE.Enum(), nil
 	case PackageTypeSlamMap:
 		return packagespb.PackageType_PACKAGE_TYPE_SLAM_MAP.Enum(), nil
-	case PackageTypeBoardDefs:
-		return packagespb.PackageType_PACKAGE_TYPE_BOARD_DEFS.Enum(), nil
 	default:
 		return packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED.Enum(), errors.Errorf("unknown package type %q", t)
+	}
+}
+
+func logAnyFragmentOverwriteErrors(logger logging.Logger, overwriteFragmentStatus []*pb.AppValidationStatus) {
+	for _, status := range overwriteFragmentStatus {
+		logger.Errorw("error in overwriting fragment", "error", status.GetError())
 	}
 }

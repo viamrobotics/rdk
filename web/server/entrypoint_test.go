@@ -4,11 +4,11 @@ package server_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"testing"
 
 	"github.com/invopop/jsonschema"
@@ -29,41 +29,54 @@ import (
 
 // numResources is the # of resources in /etc/configs/fake.json + the 2
 // expected builtin resources.
-const numResources = 20
+const numResources = 21
 
 func TestEntrypoint(t *testing.T) {
 	if runtime.GOARCH == "arm" {
 		t.Skip("skipping on 32-bit ARM, subprocess build warnings cause failure")
 	}
-	serverPath, err := testutils.BuildTempModule(t, "web/cmd/server/")
-	test.That(t, err, test.ShouldBeNil)
+	serverPath := testutils.BuildTempModule(t, "web/cmd/server/")
 
 	t.Run("number of resources", func(t *testing.T) {
-		logger := logging.NewTestLogger(t)
+		logger, logObserver := logging.NewObservedTestLogger(t)
 		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
 		cfg, err := config.Read(context.Background(), cfgFilename, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		p, err := goutils.TryReserveRandomPort()
-		test.That(t, err, test.ShouldBeNil)
+		var port int
+		var success bool
+		for portTryNum := 0; portTryNum < 10; portTryNum++ {
+			p, err := goutils.TryReserveRandomPort()
+			port = p
+			test.That(t, err, test.ShouldBeNil)
 
-		port := strconv.Itoa(p)
-		cfg.Network.BindAddress = ":" + port
-		cfgFilename, err = robottestutils.MakeTempConfig(t, cfg, logger)
-		test.That(t, err, test.ShouldBeNil)
+			cfg.Network.BindAddress = fmt.Sprintf(":%d", port)
+			cfgFilename, err = robottestutils.MakeTempConfig(t, cfg, logger)
+			test.That(t, err, test.ShouldBeNil)
 
-		server := pexec.NewManagedProcess(pexec.ProcessConfig{
-			Name: serverPath,
-			Args: []string{"-config", cfgFilename},
-			CWD:  utils.ResolveFile("./"),
-			Log:  true,
-		}, logger.AsZap())
+			serverPath := testutils.BuildTempModule(t, "web/cmd/server/")
+			server := pexec.NewManagedProcess(pexec.ProcessConfig{
+				Name: serverPath,
+				Args: []string{"-config", cfgFilename},
+				CWD:  utils.ResolveFile("./"),
+				Log:  true,
+			}, logger.AsZap())
 
-		err = server.Start(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		defer func() {
-			test.That(t, server.Stop(), test.ShouldBeNil)
-		}()
+			err = server.Start(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+
+			if success = robottestutils.WaitForServing(logObserver, port); success {
+				defer func() {
+					test.That(t, server.Stop(), test.ShouldBeNil)
+				}()
+				break
+			} else {
+				logger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
+				server.Stop()
+				continue
+			}
+		}
+		test.That(t, success, test.ShouldBeTrue)
 
 		conn, err := robottestutils.Connect(port)
 		test.That(t, err, test.ShouldBeNil)

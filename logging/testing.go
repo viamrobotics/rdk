@@ -46,7 +46,7 @@ func (tapp *testAppender) Write(entry zapcore.Entry, fields []zapcore.Field) err
 	tapp.tb.Helper()
 	const maxLength = 10
 	toPrint := make([]string, 0, maxLength)
-	toPrint = append(toPrint, entry.Time.Format(timeFormatStr))
+	toPrint = append(toPrint, entry.Time.Format(DefaultTimeFormatStr))
 
 	toPrint = append(toPrint, strings.ToUpper(entry.Level.String()))
 	toPrint = append(toPrint, entry.LoggerName)

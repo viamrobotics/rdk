@@ -44,6 +44,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 
 	opt := newBasicPlannerOptions(ackermanFrame)
 	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
+	opt.StartPose = spatialmath.NewZeroPose()
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
@@ -84,6 +85,7 @@ func TestPtgWithObstacle(t *testing.T) {
 
 	opt := newBasicPlannerOptions(ackermanFrame)
 	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
+	opt.StartPose = spatialmath.NewPoseFromPoint(r3.Vector{0, -1000, 0})
 	opt.GoalThreshold = 5
 	// obstacles
 	obstacle1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3300, -500, 0}), r3.Vector{180, 1800, 1}, "")
@@ -108,7 +110,40 @@ func TestPtgWithObstacle(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	sf, err := newSolverFrame(fs, ackermanFrame.Name(), referenceframe.World, nil)
 	test.That(t, err, test.ShouldBeNil)
-	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, referenceframe.StartPositions(fs), nil)
+
+	seedMap := referenceframe.StartPositions(fs)
+	frameInputs, err := sf.mapToSlice(seedMap)
+	test.That(t, err, test.ShouldBeNil)
+
+	// create robot collision entities
+	movingGeometriesInFrame, err := sf.Geometries(frameInputs)
+	movingRobotGeometries := movingGeometriesInFrame.Geometries() // solver frame returns geoms in frame World
+	test.That(t, err, test.ShouldBeNil)
+
+	// find all geometries that are not moving but are in the frame system
+	staticRobotGeometries := make([]spatialmath.Geometry, 0)
+	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(fs, seedMap)
+	test.That(t, err, test.ShouldBeNil)
+	for name, geometries := range frameSystemGeometries {
+		if !sf.movingFrame(name) {
+			staticRobotGeometries = append(staticRobotGeometries, geometries.Geometries()...)
+		}
+	}
+
+	// Note that all obstacles in worldState are assumed to be static so it is ok to transform them into the world frame
+	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
+	// the state that observed the worldState should ultimately be included as part of the worldState message
+	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, seedMap)
+	test.That(t, err, test.ShouldBeNil)
+
+	collisionConstraints, err := createAllCollisionConstraints(
+		movingRobotGeometries,
+		staticRobotGeometries,
+		worldGeometries.Geometries(),
+		nil,
+		defaultCollisionBufferMM,
+	)
+
 	test.That(t, err, test.ShouldBeNil)
 
 	for name, constraint := range collisionConstraints {
@@ -128,7 +163,7 @@ func TestPtgWithObstacle(t *testing.T) {
 				}
 			}
 		}
-		tp.logger.Debugf("$SG,%f,%f", 0., 0.)
+		tp.logger.Debugf("$SG,%f,%f", opt.StartPose.Point().X, opt.StartPose.Point().Y)
 		tp.logger.Debugf("$SG,%f,%f", goalPos.Point().X, goalPos.Point().Y)
 	}
 	plan, err := tp.plan(ctx, goalPos, nil)
@@ -230,6 +265,7 @@ func TestPtgCheckPlan(t *testing.T) {
 	fs.AddFrame(ackermanFrame, fs.World())
 
 	opt := newBasicPlannerOptions(ackermanFrame)
+	opt.StartPose = spatialmath.NewZeroPose()
 	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
 	opt.GoalThreshold = 30.
 
@@ -241,22 +277,17 @@ func TestPtgCheckPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
 
-	plan, err := tp.plan(context.Background(), goalPos, nil)
+	nodes, err := tp.plan(context.Background(), goalPos, nil)
 	test.That(t, err, test.ShouldBeNil)
-	planAsInputs := nodesToInputs(plan)
+	plan, err := newRRTPlan(nodes, sf, true)
 	test.That(t, err, test.ShouldBeNil)
-	steps := []map[string][]referenceframe.Input{}
-	for _, resultSlice := range planAsInputs {
-		stepMap := sf.sliceToMap(resultSlice)
-		steps = append(steps, stepMap)
-	}
 
 	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
 	errorState := startPose
-	inputs := referenceframe.FloatsToInputs([]float64{0, 0, 0})
+	inputs := plan.Trajectory()[0]
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
-		err := CheckPlan(ackermanFrame, steps, nil, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
+		err := CheckPlan(ackermanFrame, plan, 1, nil, fs, startPose, inputs, errorState, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -270,7 +301,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
+		err = CheckPlan(ackermanFrame, plan, 1, worldState, fs, startPose, inputs, errorState, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -307,7 +338,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
+		err = CheckPlan(ackermanFrame, plan, 1, worldState, fs, startPose, inputs, errorState, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("obstacles NOT in world frame cause collision - integration test", func(t *testing.T) {
@@ -322,7 +353,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
+		err = CheckPlan(ackermanFrame, plan, 1, worldState, fs, startPose, inputs, errorState, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 	t.Run("checking from partial-plan, ensure success with obstacles - integration test", func(t *testing.T) {
@@ -345,33 +376,33 @@ func TestPtgCheckPlan(t *testing.T) {
 
 		startPose := spatialmath.NewPose(vector, ov)
 
-		err = CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
+		err = CheckPlan(ackermanFrame, plan, 2, worldState, fs, startPose, inputs, errorState, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("verify partial plan with non-nil errorState and obstacle", func(t *testing.T) {
 		// create obstacle which is behind where the robot already is, but is on the path it has already traveled
-		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
-			r3.Vector{10, 10, 1}, "obstacle",
-		)
+		box, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 1}, "obstacle")
 		test.That(t, err, test.ShouldBeNil)
-		geoms := []spatialmath.Geometry{obstacle}
-		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{box})}
 
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 1000, 0})
-		startPose = errorState
+		remainingPlan, err := RemainingPlan(plan, 2)
+		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
+		pathPose := remainingPlan.Path()[0][ackermanFrame.Name()].Pose()
+		startPose := spatialmath.NewPose(r3.Vector{0, 1000, 0}, pathPose.Orientation())
+		errorState := spatialmath.PoseDelta(pathPose, startPose)
+
+		err = CheckPlan(ackermanFrame, plan, 2, worldState, fs, startPose, inputs, errorState, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
 
 func planToTpspaceRec(plan Plan, f referenceframe.Frame) ([]node, error) {
 	nodes := []node{}
-	for _, inp := range plan {
+	for _, inp := range plan.Trajectory() {
 		thisNode := &basicNode{
 			q:    inp[f.Name()],
 			cost: inp[f.Name()][2].Value,

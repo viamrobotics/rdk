@@ -109,6 +109,11 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 	as.activeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
 			start := time.Now()
 			reading, err := as.Raw.Read(ctx, nil)
 			as.lastError.Store(&errValue{err != nil, err})

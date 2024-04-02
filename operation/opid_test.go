@@ -89,3 +89,29 @@ func TestCreateWithSession(t *testing.T) {
 	test.That(t, op2.SessionID, test.ShouldEqual, sess1.ID())
 	cleanup()
 }
+
+// test that on contexts with the same UUID, the operation is not overwritten.
+func TestCreateDuplicate(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	manager := NewManager(logger)
+
+	uuid := uuid.New()
+	op1Ctx, cleanup := manager.createWithID(context.Background(), uuid, "foo", nil)
+	op1 := Get(op1Ctx)
+	test.That(t, op1.ID, test.ShouldEqual, uuid)
+
+	op2Ctx, _ := manager.createWithID(context.Background(), uuid, "bar", nil)
+	op2 := Get(op2Ctx)
+	test.That(t, op1, test.ShouldEqual, op2)
+
+	// convoluted but mimicks what happens when a modular resource calls a dependency
+	// (leaves the local server and then comes back, so the context is related to the parent).
+	op3Ctx := context.WithValue(op1Ctx, opidKey, nil)
+	op3Ctx, _ = manager.createWithID(op3Ctx, uuid, "world", nil)
+	op3 := Get(op3Ctx)
+	test.That(t, op1, test.ShouldEqual, op3)
+
+	op1.cancel()
+	cleanup()
+	test.That(t, op3Ctx.Err(), test.ShouldBeError, context.Canceled)
+}

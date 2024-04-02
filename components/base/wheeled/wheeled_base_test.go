@@ -88,7 +88,7 @@ func TestWheelBaseMath(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		err = wb.SetVelocity(ctx, r3.Vector{X: 0, Y: 10, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 10}, nil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "0 RPM")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "RPM that is nearly 0")
 
 		err = wb.SetVelocity(ctx, r3.Vector{X: 0, Y: 100, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 100}, nil)
 		test.That(t, err, test.ShouldBeNil)

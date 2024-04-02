@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -61,17 +62,17 @@ func TestString(t *testing.T) {
 	testTable.AppendHeader(table.Row{"Name", "Geometry Type", "Parent"})
 	testTable.AppendRow([]interface{}{
 		"foo",
-		foo.String(),
+		foo.(fmt.Stringer).String(),
 		"world",
 	})
 	testTable.AppendRow([]interface{}{
 		"bar",
-		bar.String(),
+		bar.(fmt.Stringer).String(),
 		"world",
 	})
 	testTable.AppendRow([]interface{}{
 		"testgeo",
-		testgeo.String(),
+		testgeo.(fmt.Stringer).String(),
 		"camera",
 	})
 

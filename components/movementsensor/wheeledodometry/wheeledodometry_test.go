@@ -158,8 +158,10 @@ func TestReconfigure(t *testing.T) {
 	err = fakeSensor.Reconfigure(ctx, newDeps, newconf)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, od.timeIntervalMSecs, test.ShouldEqual, 500)
-	test.That(t, od.baseWidth, test.ShouldEqual, 0.2)
-	test.That(t, od.wheelCircumference, test.ShouldEqual, 0.2)
+	props, err := od.base.Properties(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, props.WidthMeters, test.ShouldEqual, 0.2)
+	test.That(t, props.WheelCircumferenceMeters, test.ShouldEqual, 0.2)
 
 	newDeps = make(resource.Dependencies)
 	newDeps[base.Named(newBaseName)] = createFakeBase(0.2, 0.2, 0)
@@ -179,8 +181,10 @@ func TestReconfigure(t *testing.T) {
 	err = fakeSensor.Reconfigure(ctx, newDeps, newconf)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, od.timeIntervalMSecs, test.ShouldEqual, 200)
-	test.That(t, od.baseWidth, test.ShouldEqual, 0.2)
-	test.That(t, od.wheelCircumference, test.ShouldEqual, 0.2)
+	props, err = od.base.Properties(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, props.WidthMeters, test.ShouldEqual, 0.2)
+	test.That(t, props.WheelCircumferenceMeters, test.ShouldEqual, 0.2)
 }
 
 func TestValidateConfig(t *testing.T) {
@@ -248,6 +252,7 @@ func TestValidateConfig(t *testing.T) {
 func TestSpin(t *testing.T) {
 	left := createFakeMotor(true)
 	right := createFakeMotor(false)
+	base := createFakeBase(0.2, 0.2, 0.1)
 	ctx := context.Background()
 	_ = left.ResetZeroPosition(ctx, 0, nil)
 	_ = right.ResetZeroPosition(ctx, 0, nil)
@@ -255,8 +260,9 @@ func TestSpin(t *testing.T) {
 	od := &odometry{
 		lastLeftPos:        0,
 		lastRightPos:       0,
-		baseWidth:          1,
-		wheelCircumference: 1,
+		wheelCircumference: 0.2,
+		baseWidth:          0.2,
+		base:               base,
 		timeIntervalMSecs:  500,
 	}
 	od.motors = append(od.motors, motorPair{left, right})
@@ -300,6 +306,7 @@ func TestSpin(t *testing.T) {
 func TestMoveStraight(t *testing.T) {
 	left := createFakeMotor(true)
 	right := createFakeMotor(false)
+	base := createFakeBase(1, 1, 0.1)
 	ctx := context.Background()
 	_ = left.ResetZeroPosition(ctx, 0, nil)
 	_ = right.ResetZeroPosition(ctx, 0, nil)
@@ -307,8 +314,9 @@ func TestMoveStraight(t *testing.T) {
 	od := &odometry{
 		lastLeftPos:        0,
 		lastRightPos:       0,
-		baseWidth:          1,
 		wheelCircumference: 1,
+		baseWidth:          1,
+		base:               base,
 		timeIntervalMSecs:  500,
 	}
 	od.motors = append(od.motors, motorPair{left, right})
@@ -340,6 +348,7 @@ func TestMoveStraight(t *testing.T) {
 func TestComplicatedPath(t *testing.T) {
 	left := createFakeMotor(true)
 	right := createFakeMotor(false)
+	base := createFakeBase(1, 1, 0.1)
 	ctx := context.Background()
 	_ = left.ResetZeroPosition(ctx, 0, nil)
 	_ = right.ResetZeroPosition(ctx, 0, nil)
@@ -347,8 +356,9 @@ func TestComplicatedPath(t *testing.T) {
 	od := &odometry{
 		lastLeftPos:        0,
 		lastRightPos:       0,
-		baseWidth:          1,
 		wheelCircumference: 1,
+		baseWidth:          1,
+		base:               base,
 		timeIntervalMSecs:  500,
 	}
 	od.motors = append(od.motors, motorPair{left, right})
@@ -388,7 +398,7 @@ func TestComplicatedPath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, or.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 270, 0.1)
 	test.That(t, pos.Lat(), test.ShouldAlmostEqual, 5, 0.1)
-	test.That(t, pos.Lng(), test.ShouldAlmostEqual, -5, 0.1)
+	test.That(t, pos.Lng(), test.ShouldAlmostEqual, 5, 0.1)
 
 	// spin positive 45 degrees
 	setPositions(-1*(math.Pi/8), 1*(math.Pi/8))
@@ -400,7 +410,7 @@ func TestComplicatedPath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, or.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 315, 0.1)
 	test.That(t, pos.Lat(), test.ShouldAlmostEqual, 5, 0.1)
-	test.That(t, pos.Lng(), test.ShouldAlmostEqual, -5, 0.1)
+	test.That(t, pos.Lng(), test.ShouldAlmostEqual, 5, 0.1)
 
 	// move forward 2 m
 	setPositions(2, 2)
@@ -412,7 +422,7 @@ func TestComplicatedPath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, or.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 315, 0.1)
 	test.That(t, pos.Lat(), test.ShouldAlmostEqual, 6.4, 0.1)
-	test.That(t, pos.Lng(), test.ShouldAlmostEqual, -6.4, 0.1)
+	test.That(t, pos.Lng(), test.ShouldAlmostEqual, 6.4, 0.1)
 
 	// travel in an arc
 	setPositions(1*(math.Pi/4), 2*(math.Pi/4))
@@ -424,22 +434,23 @@ func TestComplicatedPath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, or.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 0, 0.1)
 	test.That(t, pos.Lat(), test.ShouldAlmostEqual, 7.6, 0.1)
-	test.That(t, pos.Lng(), test.ShouldAlmostEqual, -6.4, 0.1)
+	test.That(t, pos.Lng(), test.ShouldAlmostEqual, 6.4, 0.1)
 }
 
 func TestVelocities(t *testing.T) {
 	left := createFakeMotor(true)
 	right := createFakeMotor(false)
+	base := createFakeBase(1, 1, 0.1)
 	ctx := context.Background()
 	_ = left.ResetZeroPosition(ctx, 0, nil)
 	_ = right.ResetZeroPosition(ctx, 0, nil)
 
 	od := &odometry{
-		lastLeftPos:        0,
-		lastRightPos:       0,
-		baseWidth:          1,
-		wheelCircumference: 1,
-		timeIntervalMSecs:  500,
+		lastLeftPos:  0,
+		lastRightPos: 0, wheelCircumference: 1,
+		baseWidth:         1,
+		base:              base,
+		timeIntervalMSecs: 500,
 	}
 	od.motors = append(od.motors, motorPair{left, right})
 	od.trackPosition(context.Background())

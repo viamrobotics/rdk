@@ -12,6 +12,8 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+var loop = Loop{}
+
 func TestPIDConfig(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	for i, tc := range []struct {
@@ -47,7 +49,7 @@ func TestPIDConfig(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			_, err := newPID(tc.conf, logger)
+			_, err := loop.newPID(tc.conf, logger)
 			if tc.err == "" {
 				test.That(t, err, test.ShouldBeNil)
 			} else {
@@ -75,7 +77,7 @@ func TestPIDBasicIntegralWindup(t *testing.T) {
 		Type:      "PID",
 		DependsOn: []string{"A"},
 	}
-	b, err := newPID(cfg, logger)
+	b, err := loop.newPID(cfg, logger)
 	pid := b.(*basicPID)
 	test.That(t, err, test.ShouldBeNil)
 	s := []*Signal{
@@ -93,18 +95,15 @@ func TestPIDBasicIntegralWindup(t *testing.T) {
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 100.0)
 		} else {
-			test.That(t, pid.sat, test.ShouldEqual, 1)
 			test.That(t, pid.int, test.ShouldBeGreaterThanOrEqualTo, 100)
 			s[0].SetSignalValueAt(0, 0.0)
 			out, ok := pid.Next(ctx, s, dt)
 			test.That(t, ok, test.ShouldBeTrue)
-			test.That(t, pid.sat, test.ShouldEqual, 1)
 			test.That(t, pid.int, test.ShouldBeGreaterThanOrEqualTo, 100)
 			test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 0.0)
 			s[0].SetSignalValueAt(0, -1.0)
 			out, ok = pid.Next(ctx, s, dt)
 			test.That(t, ok, test.ShouldBeTrue)
-			test.That(t, pid.sat, test.ShouldEqual, 0)
 			test.That(t, pid.int, test.ShouldBeLessThanOrEqualTo, 100)
 			test.That(t, out[0].GetSignalValueAt(0), test.ShouldAlmostEqual, 88.8778)
 			break
@@ -112,7 +111,6 @@ func TestPIDBasicIntegralWindup(t *testing.T) {
 	}
 	err = pid.Reset(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pid.sat, test.ShouldEqual, 0)
 	test.That(t, pid.int, test.ShouldEqual, 0)
 	test.That(t, pid.error, test.ShouldEqual, 0)
 }
@@ -136,7 +134,7 @@ func TestPIDTuner(t *testing.T) {
 		Type:      "PID",
 		DependsOn: []string{"A"},
 	}
-	b, err := newPID(cfg, logger)
+	b, err := loop.newPID(cfg, logger)
 	pid := b.(*basicPID)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pid.tuning, test.ShouldBeTrue)

@@ -50,7 +50,7 @@ type Block interface {
 	Config(ctx context.Context) BlockConfig
 }
 
-func createBlock(cfg BlockConfig, logger logging.Logger) (Block, error) {
+func (l *Loop) createBlock(cfg BlockConfig, logger logging.Logger) (Block, error) {
 	t := cfg.Type
 	switch t {
 	case blockEndpoint:
@@ -84,7 +84,7 @@ func createBlock(cfg BlockConfig, logger logging.Logger) (Block, error) {
 		}
 		return b, nil
 	case blockPID:
-		b, err := newPID(cfg, logger)
+		b, err := l.newPID(cfg, logger)
 		if err != nil {
 			return nil, err
 		}

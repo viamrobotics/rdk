@@ -624,6 +624,59 @@ func setupStartWaypoint(ctx context.Context, t *testing.T, logger logging.Logger
 	}
 }
 
+func setupStartWaypointExplore(ctx context.Context, t *testing.T, logger logging.Logger) startWaypointState {
+	fsSvc, err := framesystem.New(ctx, nil, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fsSvc, test.ShouldNotBeNil)
+	fakeBase, err := baseFake.NewBase(ctx, nil, resource.Config{
+		Name:  "test_base",
+		API:   base.API,
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
+	}, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	injectMovementSensor := inject.NewMovementSensor("test_movement")
+	visionService := inject.NewVisionService("vision")
+	camera := inject.NewCamera("camera")
+	config := resource.Config{
+		ConvertedAttributes: &Config{
+			Store: navigation.StoreConfig{
+				Type: navigation.StoreTypeMemory,
+			},
+			BaseName:           "test_base",
+			MovementSensorName: "test_movement",
+			MotionServiceName:  "test_motion",
+			DegPerSec:          1,
+			MetersPerSec:       1,
+			ObstacleDetectors: []*ObstacleDetectorNameConfig{
+				{
+					VisionServiceName: "vision",
+					CameraName:        "camera",
+				},
+			},
+		},
+	}
+	injectMS := inject.NewMotionService("test_motion")
+	deps := resource.Dependencies{
+		injectMS.Name():             injectMS,
+		fakeBase.Name():             fakeBase,
+		injectMovementSensor.Name(): injectMovementSensor,
+		visionService.Name():        visionService,
+		camera.Name():               camera,
+		// to placate the explore struct to not panic
+		fsSvc.Name(): fsSvc,
+	}
+	ns, err := NewBuiltIn(ctx, deps, config, logger)
+	test.That(t, err, test.ShouldBeNil)
+	return startWaypointState{
+		ns:             ns,
+		injectMS:       injectMS,
+		base:           fakeBase,
+		movementSensor: injectMovementSensor,
+		closeFunc:      func() { test.That(t, ns.Close(context.Background()), test.ShouldBeNil) },
+	}
+}
+
 func TestPaths(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
@@ -654,11 +707,15 @@ func TestPaths(t *testing.T) {
 			s.mogrs = append(s.mogrs, req)
 			s.pws = []motion.PlanWithStatus{
 				{
-					Plan: motion.Plan{
+					Plan: motion.PlanWithMetadata{
 						ExecutionID: executionID,
-						Steps: []motionplan.PlanStep{map[resource.Name]spatialmath.Pose{
-							s.base.Name(): spatialmath.NewPose(r3.Vector{X: expectedLng, Y: expectedLat}, nil),
-						}},
+						Plan: motionplan.NewSimplePlan(
+							[]motionplan.PathStep{{s.base.Name().ShortName(): referenceframe.NewPoseInFrame(
+								referenceframe.World,
+								spatialmath.NewPose(r3.Vector{X: expectedLng, Y: expectedLat}, nil),
+							)}},
+							nil,
+						),
 					},
 					StatusHistory: []motion.PlanStatus{
 						{State: motion.PlanStateInProgress},
@@ -780,19 +837,24 @@ func TestStartWaypoint(t *testing.T) {
 		defer wg.Wait()
 		// MoveOnGlobe will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
 		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
+			s.Lock()
+			defer s.Unlock()
 			if err := ctx.Err(); err != nil {
 				return uuid.Nil, err
 			}
-			executionID := executionIDs[(counter.Inc())]
-			s.Lock()
-			defer s.Unlock()
+			count := counter.Inc()
+			if count > 1 {
+				t.Error("MoveOnGlobe should not be called more than twice")
+				t.FailNow()
+			}
+			executionID := executionIDs[count]
 			if s.mogrs == nil {
 				s.mogrs = []motion.MoveOnGlobeReq{}
 			}
 			s.mogrs = append(s.mogrs, req)
 			s.pws = []motion.PlanWithStatus{
 				{
-					Plan: motion.Plan{
+					Plan: motion.PlanWithMetadata{
 						ExecutionID: executionID,
 					},
 					StatusHistory: []motion.PlanStatus{
@@ -818,22 +880,25 @@ func TestStartWaypoint(t *testing.T) {
 		}
 
 		s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
+			s.RLock()
+			defer s.RUnlock()
 			if err := ctx.Err(); err != nil {
 				return nil, err
 			}
-			s.RLock()
-			defer s.RUnlock()
 			history := make([]motion.PlanWithStatus, len(s.pws))
 			copy(history, s.pws)
+			if len(history) == 0 {
+				return nil, errors.New("no plan")
+			}
 			return history, nil
 		}
 
 		s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
+			s.Lock()
+			defer s.Unlock()
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			s.Lock()
-			defer s.Unlock()
 			if s.sprs == nil {
 				s.sprs = []motion.StopPlanReq{}
 			}
@@ -882,6 +947,8 @@ func TestStartWaypoint(t *testing.T) {
 			wps, err := s.ns.Waypoints(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			if len(wps) == 0 {
+				// wait until success has completed
+				wg.Wait()
 				s.RLock()
 				// wait until StopPlan has been called twice
 				if len(s.sprs) == 2 {
@@ -963,7 +1030,7 @@ func TestStartWaypoint(t *testing.T) {
 			}
 			return []motion.PlanWithStatus{
 				{
-					Plan: motion.Plan{
+					Plan: motion.PlanWithMetadata{
 						ExecutionID: executionID,
 					},
 					StatusHistory: []motion.PlanStatus{
@@ -1073,7 +1140,7 @@ func TestStartWaypoint(t *testing.T) {
 				executionID := executionIDs[count-2]
 				s.pws = []motion.PlanWithStatus{
 					{
-						Plan: motion.Plan{
+						Plan: motion.PlanWithMetadata{
 							ExecutionID: executionID,
 						},
 						StatusHistory: []motion.PlanStatus{
@@ -1176,25 +1243,33 @@ func TestStartWaypoint(t *testing.T) {
 		}
 	})
 
+	sManual := setupStartWaypoint(ctx, t, logger)
+	sExplore := setupStartWaypointExplore(ctx, t, logger)
 	// Calling SetMode cancels current and future MoveOnGlobe calls
 	cases := []struct {
 		description string
 		mode        navigation.Mode
+		s           *startWaypointState
 	}{
 		{
 			description: "Calling SetMode manual cancels context of current and future motion calls",
 			mode:        navigation.ModeManual,
+			s:           &sManual,
 		},
 		{
 			description: "Calling SetMode explore cancels context of current and future motion calls",
 			mode:        navigation.ModeExplore,
+			s:           &sExplore,
 		},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
-			s := setupStartWaypoint(ctx, t, logger)
+			s := tt.s
 			defer s.closeFunc()
+			fsSvc, err := framesystem.New(ctx, nil, logger)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, fsSvc, test.ShouldNotBeNil)
 
 			executionID := uuid.New()
 			s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
@@ -1209,7 +1284,7 @@ func TestStartWaypoint(t *testing.T) {
 				s.mogrs = append(s.mogrs, req)
 				s.pws = []motion.PlanWithStatus{
 					{
-						Plan: motion.Plan{
+						Plan: motion.PlanWithMetadata{
 							ExecutionID: executionID,
 						},
 						StatusHistory: []motion.PlanStatus{
@@ -1322,7 +1397,7 @@ func TestStartWaypoint(t *testing.T) {
 			s.mogrs = append(s.mogrs, req)
 			s.pws = []motion.PlanWithStatus{
 				{
-					Plan: motion.Plan{
+					Plan: motion.PlanWithMetadata{
 						ExecutionID: executionID,
 					},
 					StatusHistory: []motion.PlanStatus{
@@ -1458,7 +1533,7 @@ func TestStartWaypoint(t *testing.T) {
 			s.mogrs = append(s.mogrs, req)
 			s.pws = []motion.PlanWithStatus{
 				{
-					Plan: motion.Plan{
+					Plan: motion.PlanWithMetadata{
 						ExecutionID: executionID,
 					},
 					StatusHistory: []motion.PlanStatus{
@@ -1749,7 +1824,7 @@ func TestGetObstacles(t *testing.T) {
 	test.That(t, dets[0], test.ShouldResemble, sphereGob)
 	test.That(t, dets[1].Location(), test.ShouldResemble, geo.NewPoint(0.9999998600983906, 1.0000001399229705))
 	test.That(t, len(dets[1].Geometries()), test.ShouldEqual, 1)
-	test.That(t, dets[1].Geometries()[0].AlmostEqual(manipulatedBoxGeom), test.ShouldBeTrue)
+	test.That(t, spatialmath.GeometriesAlmostEqual(dets[1].Geometries()[0], manipulatedBoxGeom), test.ShouldBeTrue)
 	test.That(t, dets[1].Geometries()[0].Label(), test.ShouldEqual, manipulatedBoxGeom.Label())
 }
 

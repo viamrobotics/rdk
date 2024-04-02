@@ -46,7 +46,7 @@ func TestGeometrySerialization(t *testing.T) {
 			xml.Unmarshal(bytes, &urdf2)
 			g2, err := urdf2.toGeometry()
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, tc.g.AlmostEqual(g2), test.ShouldBeTrue)
+			test.That(t, spatialmath.GeometriesAlmostEqual(tc.g, g2), test.ShouldBeTrue)
 		})
 	}
 }

@@ -75,7 +75,7 @@ var (
 
 	compassHeadingData = []float64{0, 1, 2, 3, 4, 5, 6, 4, 3, 2, 1}
 
-	orientationData = []*spatialmath.OrientationVector{
+	orientationData = []*spatialmath.OrientationVectorDegrees{
 		{OX: 1, OY: 0, OZ: 1, Theta: 0},
 		{OX: 2, OY: 1, OZ: 1, Theta: 0},
 	}
@@ -257,7 +257,7 @@ func TestNewReplayMovementSensor(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
-			replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, tt.cfg, tt.validCloudConnection)
+			replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, tt.cfg, tt.validCloudConnection, false)
 			if tt.expectedErr != nil {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err, test.ShouldBeError, tt.expectedErr)
@@ -290,6 +290,7 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 		endFileNum         map[method]int
 		expectedMethodsErr map[method]error
 		expectedProperties *movementsensor.Properties
+		useBadDataMessages bool
 	}{
 		{
 			description: "Calling method with valid filter, all methods are supported",
@@ -514,11 +515,34 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 			},
 			expectedProperties: allMethodsSupported,
 		},
+		{
+			description: "Calling method with valid filter, all methods have invalid data",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
+			},
+			startFileNum: allMethodsMinDataLength,
+			endFileNum:   allMethodsMaxDataLength,
+			expectedMethodsErr: map[method]error{
+				position:           errBadData,
+				compassHeading:     errBadData,
+				linearVelocity:     errBadData,
+				angularVelocity:    errBadData,
+				linearAcceleration: errBadData,
+				orientation:        errBadData,
+			},
+			expectedProperties: allMethodsSupported,
+			useBadDataMessages: true,
+		},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
-			replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, tt.cfg, true)
+			replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, tt.cfg, true, tt.useBadDataMessages)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, replay, test.ShouldNotBeNil)
 
@@ -760,12 +784,12 @@ func TestUnimplementedFunctionAccuracy(t *testing.T) {
 		APIKey:         validAPIKey,
 		APIKeyID:       validAPIKeyID,
 	}
-	replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true)
+	replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true, false)
 	test.That(t, err, test.ShouldBeNil)
 
 	acc, err := replay.Accuracy(ctx, map[string]interface{}{})
-	test.That(t, err, test.ShouldResemble, movementsensor.ErrMethodUnimplementedAccuracy)
-	test.That(t, acc, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, acc, test.ShouldNotBeNil)
 
 	err = replay.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -784,7 +808,7 @@ func TestReplayMovementSensorReadings(t *testing.T) {
 		APIKey:         validAPIKey,
 		APIKeyID:       validAPIKeyID,
 	}
-	replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true)
+	replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, replay, test.ShouldNotBeNil)
 
@@ -824,7 +848,7 @@ func TestReplayMovementSensorTimestampsMetadata(t *testing.T) {
 		APIKeyID:       validAPIKeyID,
 		BatchSize:      &batchSizeNonZero,
 	}
-	replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true)
+	replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, replay, test.ShouldNotBeNil)
 
@@ -865,7 +889,7 @@ func TestReplayMovementSensorReconfigure(t *testing.T) {
 		APIKeyID:       validAPIKeyID,
 	}
 	ctx := context.Background()
-	replay, deps, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true)
+	replay, deps, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, replay, test.ShouldNotBeNil)
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -38,8 +39,8 @@ type Loop struct {
 	activeBackgroundWorkers sync.WaitGroup
 	cancelCtx               context.Context
 	cancel                  context.CancelFunc
-	running                 bool
-	tuning                  bool
+	running                 atomic.Bool
+	pidBlocks               []*basicPID
 }
 
 // NewLoop construct a new control loop for a specific endpoint.
@@ -55,14 +56,14 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 		blocks:    make(map[string]*controlBlockInternal),
 		cancelCtx: cancelCtx,
 		cancel:    cancel,
-		running:   false,
 	}
+	l.running.Store(false)
 	if l.cfg.Frequency == 0.0 || l.cfg.Frequency > 200 {
 		return nil, errors.New("loop frequency shouldn't be 0 or above 200Hz")
 	}
 	l.dt = time.Duration(float64(time.Second) * (1.0 / (l.cfg.Frequency)))
 	for _, bcfg := range cfg.Blocks {
-		blk, err := createBlock(bcfg, logger)
+		blk, err := l.createBlock(bcfg, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -195,10 +196,7 @@ func (l *Loop) SetConfigAt(ctx context.Context, name string, config BlockConfig)
 	if !ok {
 		return errors.Errorf("cannot return Config for nonexistent %s", name)
 	}
-	if err := blk.blk.UpdateConfig(ctx, config); err != nil {
-		return err
-	}
-	return nil
+	return blk.blk.UpdateConfig(ctx, config)
 }
 
 // BlockList returns the list of blocks in a control loop error when the list is empty.
@@ -257,7 +255,7 @@ func (l *Loop) Start() error {
 		}
 	}, l.activeBackgroundWorkers.Done)
 	<-waitCh
-	l.running = true
+	l.running.Store(true)
 	return nil
 }
 
@@ -292,13 +290,27 @@ func (l *Loop) startBenchmark(loops int) error {
 
 // Stop stops then loop.
 func (l *Loop) Stop() {
-	if l.running {
-		l.logger.Debug("closing loop")
-		l.ct.ticker.Stop()
-		close(l.ct.stop)
-		l.activeBackgroundWorkers.Wait()
-		l.running = false
-	}
+	l.running.Store(false)
+	l.logger.Debug("closing loop")
+	l.ct.ticker.Stop()
+	close(l.ct.stop)
+	l.cancel()
+	l.activeBackgroundWorkers.Wait()
+}
+
+// Pause sets l.running to false to pause the loop.
+func (l *Loop) Pause() {
+	l.running.Store(false)
+}
+
+// Resume sets l.running to true to resume the loop.
+func (l *Loop) Resume() {
+	l.running.Store(true)
+}
+
+// Running returns the value of l.running.
+func (l *Loop) Running() bool {
+	return l.running.Load()
 }
 
 // GetConfig return the control loop config.
@@ -306,12 +318,30 @@ func (l *Loop) GetConfig(ctx context.Context) Config {
 	return l.cfg
 }
 
-// GetTuning returns the current tuning value.
-func (l *Loop) GetTuning(ctx context.Context) bool {
-	return l.tuning
+// MonitorTuning waits for tuning to start, and then returns once it's done.
+func (l *Loop) MonitorTuning(ctx context.Context) {
+	// wait until tuning has started
+	for {
+		tuning := l.GetTuning(ctx)
+		if tuning {
+			break
+		}
+	}
+	// wait until tuning is done
+	for {
+		tuning := l.GetTuning(ctx)
+		if !tuning {
+			break
+		}
+	}
 }
 
-// SetTuning sets the tuning variable.
-func (l *Loop) SetTuning(ctx context.Context, val bool) {
-	l.tuning = val
+// GetTuning returns the current tuning value.
+func (l *Loop) GetTuning(ctx context.Context) bool {
+	for _, b := range l.pidBlocks {
+		if b.GetTuning() {
+			return true
+		}
+	}
+	return false
 }

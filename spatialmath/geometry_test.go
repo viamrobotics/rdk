@@ -58,7 +58,7 @@ func TestGeometrySerializationJSON(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			newVc, err := config.ParseConfig()
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, gc.Transform(pose).AlmostEqual(newVc.Transform(pose)), test.ShouldBeTrue)
+			test.That(t, GeometriesAlmostEqual(gc.Transform(pose), newVc.Transform(pose)), test.ShouldBeTrue)
 			test.That(t, config.Label, test.ShouldEqual, testCase.name)
 		})
 	}
@@ -78,7 +78,7 @@ func TestGeometryToFromProtobuf(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			newVol, err := NewGeometryFromProto(testCase.geometry.ToProtobuf())
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, testCase.geometry.AlmostEqual(newVol), test.ShouldBeTrue)
+			test.That(t, GeometriesAlmostEqual(testCase.geometry, newVol), test.ShouldBeTrue)
 			test.That(t, testCase.geometry.Label(), test.ShouldEqual, testCase.name)
 		})
 	}
@@ -100,10 +100,10 @@ func testGeometryCollision(t *testing.T, cases []geometryComparisonTestCase) {
 		for i := 0; i < 2; i++ {
 			t.Run(fmt.Sprintf("%s %T %T collision", c.testname, c.geometries[i], c.geometries[(i+1)%2]), func(t *testing.T) {
 				fn := test.ShouldBeFalse
-				if c.expected <= CollisionBuffer {
+				if c.expected <= defaultCollisionBufferMM {
 					fn = test.ShouldBeTrue
 				}
-				collides, err := c.geometries[i].CollidesWith(c.geometries[(i+1)%2])
+				collides, err := c.geometries[i].CollidesWith(c.geometries[(i+1)%2], defaultCollisionBufferMM)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, collides, fn)
 			})

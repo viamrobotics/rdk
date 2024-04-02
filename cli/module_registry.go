@@ -88,7 +88,7 @@ const (
 func CreateModuleAction(c *cli.Context) error {
 	moduleNameArg := c.String(moduleFlagName)
 	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
-	orgIDArg := c.String(moduleFlagOrgID)
+	orgIDArg := c.String(generalFlagOrgID)
 
 	client, err := newViamClient(c)
 	if err != nil {
@@ -201,7 +201,7 @@ func UpdateModuleAction(c *cli.Context) error {
 func UploadModuleAction(c *cli.Context) error {
 	manifestPath := c.String(moduleFlagPath)
 	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
-	orgIDArg := c.String(moduleFlagOrgID)
+	orgIDArg := c.String(generalFlagOrgID)
 	nameArg := c.String(moduleFlagName)
 	versionArg := c.String(moduleFlagVersion)
 	platformArg := c.String(moduleFlagPlatform)
@@ -252,10 +252,16 @@ func UploadModuleAction(c *cli.Context) error {
 			return errors.Errorf("module name %q was supplied on the command line but the meta.json has a module ID of %q", nameArg,
 				moduleID.name)
 		}
-	}
-	moduleID, err = validateModuleID(client, moduleID.String(), publicNamespaceArg, orgIDArg)
-	if err != nil {
-		return err
+
+		moduleID, err = validateModuleID(client, moduleID.String(), publicNamespaceArg, orgIDArg)
+		if err != nil {
+			return err
+		}
+
+		_, err = client.updateModule(moduleID, manifest)
+		if err != nil {
+			return errors.Wrap(err, "Module update failed. Please correct the following issues in your meta.json")
+		}
 	}
 
 	tarballPath := moduleUploadPath

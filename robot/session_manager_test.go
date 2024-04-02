@@ -25,6 +25,8 @@ func TestSessionManager(t *testing.T) {
 	}
 
 	sm := robot.NewSessionManager(r, config.DefaultSessionHeartbeatWindow)
+	// The deferred Close is necessary in case any of the asserts between here and the second Close fail.
+	// Double closing the session manager will not cause issues.
 	defer sm.Close()
 
 	// Start two arbitrary sessions.
@@ -51,6 +53,12 @@ func TestSessionManager(t *testing.T) {
 
 	// Assert that fooSess and barSess can be found with All.
 	allSessions := sm.All()
+
+	// The following test assertions use reflection to deep-equals the session objects.
+	// The session manager's expireLoop might be writing to those fields while reflection is reading those fields.
+	// Thus we close the session manager before proceeding to avoid a data race.
+	sm.Close()
+
 	test.That(t, len(allSessions), test.ShouldEqual, 2)
 	test.That(t, allSessions[0], test.ShouldBeIn, fooSess, barSess)
 	test.That(t, allSessions[1], test.ShouldBeIn, fooSess, barSess)

@@ -220,7 +220,6 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "local_fqdn")
 	invalidCloud.Cloud.LocalFQDN = "yeeself"
-	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldBeNil)
 
 	invalidRemotes := config.Config{
 		DisablePartialStart: true,
@@ -477,6 +476,7 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "local_fqdn")
 	invalidCloud.Cloud.LocalFQDN = "yeeself"
+
 	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldBeNil)
 
 	invalidRemotes := config.Config{
@@ -692,7 +692,7 @@ func TestRemoteValidate(t *testing.T) {
 			t,
 			err.Error(),
 			test.ShouldContainSubstring,
-			"must start with a letter and must only contain letters, numbers, dashes, and underscores",
+			"must start with a letter or number and must only contain letters, numbers, dashes, and underscores",
 		)
 	})
 }
@@ -1167,7 +1167,7 @@ func TestPackageConfig(t *testing.T) {
 				Package: "my_org/my_module",
 				Version: "1.2",
 			},
-			expectedRealFilePath: filepath.Join(viamDotDir, "packages", ".data", "module", "my_org-my_module-1_2"),
+			expectedRealFilePath: filepath.Join(viamDotDir, "packages", "data", "module", "my_org-my_module-1_2"),
 		},
 		{
 			config: config.PackageConfig{
@@ -1176,7 +1176,7 @@ func TestPackageConfig(t *testing.T) {
 				Package: "my_org/my_ml_model",
 				Version: "latest",
 			},
-			expectedRealFilePath: filepath.Join(viamDotDir, "packages", ".data", "ml_model", "my_org-my_ml_model-latest"),
+			expectedRealFilePath: filepath.Join(viamDotDir, "packages", "data", "ml_model", "my_org-my_ml_model-latest"),
 		},
 		{
 			config: config.PackageConfig{
@@ -1185,16 +1185,7 @@ func TestPackageConfig(t *testing.T) {
 				Package: "my_org/my_slam_map",
 				Version: "latest",
 			},
-			expectedRealFilePath: filepath.Join(viamDotDir, "packages", ".data", "slam_map", "my_org-my_slam_map-latest"),
-		},
-		{
-			config: config.PackageConfig{
-				Name:    "my_board_defs",
-				Type:    config.PackageTypeBoardDefs,
-				Package: "my_org/my_board_defs",
-				Version: "latest",
-			},
-			expectedRealFilePath: filepath.Join(viamDotDir, "packages", ".data", "board_defs", "my_org-my_board_defs-latest"),
+			expectedRealFilePath: filepath.Join(viamDotDir, "packages", "data", "slam_map", "my_org-my_slam_map-latest"),
 		},
 		{
 			config: config.PackageConfig{

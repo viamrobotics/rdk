@@ -50,7 +50,7 @@ func (pt *point) Pose() Pose {
 }
 
 // AlmostEqual compares the point with another geometry and checks if they are equivalent.
-func (pt *point) AlmostEqual(g Geometry) bool {
+func (pt *point) almostEqual(g Geometry) bool {
 	other, ok := g.(*point)
 	if !ok {
 		return false
@@ -77,9 +77,9 @@ func (pt *point) ToProtobuf() *commonpb.Geometry {
 }
 
 // CollidesWith checks if the given point collides with the given geometry and returns true if it does.
-func (pt *point) CollidesWith(g Geometry) (bool, error) {
+func (pt *point) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
 	if other, ok := g.(*box); ok {
-		return pointVsBoxCollision(pt.position, other), nil
+		return pointVsBoxCollision(pt.position, other, collisionBufferMM), nil
 	}
 	if other, ok := g.(*sphere); ok {
 		return sphereVsPointDistance(other, pt.position) <= 0, nil
@@ -88,7 +88,7 @@ func (pt *point) CollidesWith(g Geometry) (bool, error) {
 		return capsuleVsPointDistance(other, pt.position) <= 0, nil
 	}
 	if other, ok := g.(*point); ok {
-		return pt.AlmostEqual(other), nil
+		return pt.almostEqual(other), nil
 	}
 	return true, newCollisionTypeUnsupportedError(pt, g)
 }
@@ -112,13 +112,13 @@ func (pt *point) DistanceFrom(g Geometry) (float64, error) {
 
 // EncompassedBy returns a bool describing if the given point is completely encompassed by the given geometry.
 func (pt *point) EncompassedBy(g Geometry) (bool, error) {
-	return pt.CollidesWith(g)
+	return pt.CollidesWith(g, defaultCollisionBufferMM)
 }
 
 // pointVsBoxCollision takes a box and a point as arguments and returns a bool describing if they are in collision. \
 // true == collision / false == no collision.
-func pointVsBoxCollision(pt r3.Vector, b *box) bool {
-	return b.closestPoint(pt).Sub(pt).Norm() <= CollisionBuffer
+func pointVsBoxCollision(pt r3.Vector, b *box, collisionBufferMM float64) bool {
+	return b.closestPoint(pt).Sub(pt).Norm() <= collisionBufferMM
 }
 
 // pointVsBoxDistance takes a box and a point as arguments and returns a floating point number.  If this number is nonpositive it represents

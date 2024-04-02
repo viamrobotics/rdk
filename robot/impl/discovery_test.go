@@ -156,10 +156,8 @@ func TestDiscovery(t *testing.T) {
 		test.That(t, discoveries, test.ShouldResemble, []resource.Discovery{{Query: modManagerQ, Results: expectedDiscovery}})
 
 		// add modules
-		complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
-		test.That(t, err, test.ShouldBeNil)
-		simplePath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
-		test.That(t, err, test.ShouldBeNil)
+		complexPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+		simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 		cfg := &config.Config{
 			Modules: []config.Module{
 				{

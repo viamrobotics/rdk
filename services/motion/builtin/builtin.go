@@ -216,7 +216,7 @@ func (ms *builtIn) Move(
 	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	steps, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
+	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
 		Logger:             ms.logger,
 		Goal:               goalPose,
 		Frame:              movingFrame,
@@ -231,8 +231,7 @@ func (ms *builtIn) Move(
 	}
 
 	// move all the components
-	for _, step := range steps {
-		// TODO(erh): what order? parallel?
+	for _, step := range plan.Trajectory() {
 		for name, inputs := range step {
 			if len(inputs) == 0 {
 				continue
@@ -259,25 +258,6 @@ func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (moti
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	ms.logger.CDebugf(ctx, "MoveOnMap called with %s", req)
-
-	// TODO: Deprecated: remove once no motion apis use the opid system
-	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-
-	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, ms.newMoveOnMapRequest)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	return id, nil
-}
-
-func (ms *builtIn) MoveOnMapNew(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
-	if err := ctx.Err(); err != nil {
-		return uuid.Nil, err
-	}
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	ms.logger.CDebugf(ctx, "MoveOnMapNew called with %s", req)
 
 	// TODO: Deprecated: remove once no motion apis use the opid system
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)

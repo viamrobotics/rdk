@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
@@ -36,6 +37,7 @@ func init() {
 }
 
 var (
+	resourceCloseTimeout    = 30 * time.Second
 	errShellServiceDisabled = errors.New("shell service disabled in an untrusted environment")
 	errProcessesDisabled    = errors.New("processes disabled in an untrusted environment")
 )
@@ -49,6 +51,7 @@ type resourceManager struct {
 	opts           resourceManagerOptions
 	logger         logging.Logger
 	configLock     sync.Mutex
+	viz            resource.Visualizer
 }
 
 type resourceManagerOptions struct {
@@ -90,8 +93,8 @@ func fromRemoteNameToRemoteNodeName(name string) resource.Name {
 
 // ExportDot exports the resource graph as a DOT representation for visualization.
 // DOT reference: https://graphviz.org/doc/info/lang.html
-func (manager *resourceManager) ExportDot() (string, error) {
-	return manager.resources.ExportDot()
+func (manager *resourceManager) ExportDot(index int) (resource.GetSnapshotInfo, error) {
+	return manager.viz.GetSnapshot(index)
 }
 
 func (manager *resourceManager) startModuleManager(
@@ -409,11 +412,22 @@ func (manager *resourceManager) mergeResourceRPCAPIsWithRemote(r robot.Robot, ty
 }
 
 func (manager *resourceManager) closeResource(ctx context.Context, res resource.Resource) error {
-	allErrs := res.Close(ctx)
+	manager.logger.CInfow(ctx, "Now removing resource", "resource", res.Name())
+
+	// TODO(RSDK-6626): We should be resilient to builtin resource `Close` calls
+	// hanging and not respecting the context created below. We will likely need
+	// a goroutine/timer setup here similar to that in the (re)configuration
+	// code.
+	//
+	// Avoid hangs in Close/RemoveResource with resourceCloseTimeout.
+	closeCtx, cancel := context.WithTimeout(ctx, resourceCloseTimeout)
+	defer cancel()
+
+	allErrs := res.Close(closeCtx)
 
 	resName := res.Name()
 	if manager.moduleManager != nil && manager.moduleManager.IsModularResource(resName) {
-		if err := manager.moduleManager.RemoveResource(ctx, resName); err != nil {
+		if err := manager.moduleManager.RemoveResource(closeCtx, resName); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error removing modular resource for closure"))
 		}
 	}
@@ -442,6 +456,14 @@ func (manager *resourceManager) removeMarkedAndClose(
 	ctx context.Context,
 	excludeFromClose map[resource.Name]struct{},
 ) error {
+	defer func() {
+		manager.configLock.Lock()
+		defer manager.configLock.Unlock()
+		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
+			manager.logger.Warnw("failed to save graph snapshot", "error", err)
+		}
+	}()
+
 	var allErrs error
 	toClose := manager.resources.RemoveMarked()
 	for _, res := range toClose {
@@ -488,7 +510,12 @@ func (manager *resourceManager) completeConfig(
 	robot *localRobot,
 ) {
 	manager.configLock.Lock()
-	defer manager.configLock.Unlock()
+	defer func() {
+		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
+			manager.logger.Warnw("failed to save graph snapshot", "error", err)
+		}
+		manager.configLock.Unlock()
+	}()
 
 	// first handle remotes since they may reveal unresolved dependencies
 	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
@@ -502,7 +529,7 @@ func (manager *resourceManager) completeConfig(
 		} else {
 			verb = "reconfiguring"
 		}
-		manager.logger.CDebugw(ctx, fmt.Sprintf("now %s a remote", verb), "resource", resName)
+		manager.logger.CInfow(ctx, fmt.Sprintf("Now %s a remote", verb), "resource", resName)
 		switch resName.API {
 		case client.RemoteAPI:
 			remConf, err := resource.NativeConfig[*config.Remote](gNode.Config())
@@ -595,7 +622,7 @@ func (manager *resourceManager) completeConfig(
 			} else {
 				verb = "reconfiguring"
 			}
-			manager.logger.CDebugw(ctx, fmt.Sprintf("now %s resource", verb), "resource", resName)
+			manager.logger.CInfow(ctx, fmt.Sprintf("Now %s resource", verb), "resource", resName)
 
 			// this is done in config validation but partial start rules require us to check again
 			if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
@@ -740,7 +767,7 @@ func (manager *resourceManager) processRemote(
 	gNode *resource.GraphNode,
 ) (*client.RobotClient, error) {
 	dialOpts := remoteDialOptions(config, manager.opts)
-	manager.logger.CDebugw(ctx, "connecting now to remote", "remote", config.Name)
+	manager.logger.CInfow(ctx, "Connecting now to remote", "remote", config.Name)
 	robotClient, err := dialRobotClient(ctx, config, gNode.Logger(), dialOpts...)
 	if err != nil {
 		if errors.Is(err, rpc.ErrInsecureWithCredentials) {
@@ -752,7 +779,7 @@ func (manager *resourceManager) processRemote(
 		}
 		return nil, errors.Errorf("couldn't connect to robot remote (%s): %s", config.Address, err)
 	}
-	manager.logger.CDebugw(ctx, "connected now to remote", "remote", config.Name)
+	manager.logger.CInfow(ctx, "Connected now to remote", "remote", config.Name)
 	return robotClient, nil
 }
 
@@ -845,7 +872,7 @@ func (manager *resourceManager) processResource(
 			return nil, false, err
 		}
 	} else {
-		manager.logger.CDebugw(ctx, "resource models differ so it must be rebuilt",
+		manager.logger.CInfow(ctx, "Resource models differ so resource must be rebuilt",
 			"name", resName, "old_model", gNode.ResourceModel(), "new_model", conf.Model)
 	}
 
@@ -906,15 +933,9 @@ func (manager *resourceManager) updateResources(
 	var allErrs error
 
 	// modules are not added into the resource tree as they belong to the module manager
-	for _, mod := range conf.Added.Modules {
-		// this is done in config validation but partial start rules require us to check again
-		if err := mod.Validate(""); err != nil {
-			manager.logger.CErrorw(ctx, "module config validation error; skipping", "module", mod.Name, "error", err)
-			continue
-		}
-		if err := manager.moduleManager.Add(ctx, mod); err != nil {
-			manager.logger.CErrorw(ctx, "error adding module", "module", mod.Name, "error", err)
-			continue
+	if conf.Added.Modules != nil {
+		if err := manager.moduleManager.Add(ctx, conf.Added.Modules...); err != nil {
+			manager.logger.CErrorw(ctx, "error adding modules", "error", err)
 		}
 	}
 

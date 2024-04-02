@@ -77,7 +77,7 @@ func createInjectedMovementSensor(name string, gpsPoint *geo.Point) *inject.Move
 
 func createInjectedSlam(name, pcdPath string, origin spatialmath.Pose) *inject.SLAMService {
 	injectSlam := inject.NewSLAMService(name)
-	injectSlam.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+	injectSlam.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 		return getPointCloudMap(filepath.Clean(artifact.MustPath(pcdPath)))
 	}
 	injectSlam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
@@ -190,7 +190,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 	injectedCamera := inject.NewCamera("injectedCamera")
 	cameraLink := referenceframe.NewLinkInFrame(
 		baseLink.Name(),
-		spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 0, Z: 0}),
+		spatialmath.NewPose(r3.Vector{X: 1}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90}),
 		"injectedCamera",
 		cameraGeom,
 	)
@@ -229,6 +229,8 @@ func createMoveOnMapEnvironment(
 		origin = spatialmath.NewZeroPose()
 	}
 	injectSlam := createInjectedSlam("test_slam", pcdPath, origin)
+	injectVis := inject.NewVisionService("test-vision")
+	injectCam := inject.NewCamera("test-camera")
 
 	baseLink := createBaseLink(t)
 
@@ -253,18 +255,40 @@ func createMoveOnMapEnvironment(
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	deps := resource.Dependencies{injectSlam.Name(): injectSlam, fakeBase.Name(): kb}
-	conf := resource.Config{ConvertedAttributes: &Config{}}
-
-	// create the frame system
-	fsParts := []*referenceframe.FrameSystemPart{
-		{FrameConfig: baseLink},
+	deps := resource.Dependencies{
+		fakeBase.Name():   kb,
+		injectVis.Name():  injectVis,
+		injectCam.Name():  injectCam,
+		injectSlam.Name(): injectSlam,
 	}
-
-	_, err = createFrameSystemService(ctx, deps, fsParts, logger)
-	test.That(t, err, test.ShouldBeNil)
+	conf := resource.Config{ConvertedAttributes: &Config{}}
 
 	ms, err := NewBuiltIn(ctx, deps, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
+
+	// create the frame system
+	cameraGeom, err := spatialmath.NewBox(
+		spatialmath.NewZeroPose(),
+		r3.Vector{X: 1, Y: 1, Z: 1}, "camera",
+	)
+	test.That(t, err, test.ShouldBeNil)
+	cameraLink := referenceframe.NewLinkInFrame(
+		baseLink.Name(),
+		// we recreate an intel real sense orientation placed along the +Y axis of the base's coordinate frame.
+		// i.e. the camera is pointed along the axis the base moves forwa
+		spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
+		"test-camera",
+		cameraGeom,
+	)
+
+	fsParts := []*referenceframe.FrameSystemPart{
+		{FrameConfig: baseLink},
+		{FrameConfig: cameraLink},
+	}
+
+	fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
+	test.That(t, err, test.ShouldBeNil)
+	ms.(*builtIn).fsService = fsSvc
+
 	return kb, ms
 }

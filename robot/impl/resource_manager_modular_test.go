@@ -476,8 +476,7 @@ func (m *dummyModMan) Close(ctx context.Context) error {
 }
 
 func TestDynamicModuleLogging(t *testing.T) {
-	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-	test.That(t, err, test.ShouldBeNil)
+	modPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
 	ctx := context.Background()
 	logger, observer := logging.NewObservedTestLogger(t)
@@ -510,27 +509,30 @@ func TestDynamicModuleLogging(t *testing.T) {
 
 	//nolint:lll
 	// Have the module log a line at info. It should appear as:
-	// 2023-12-06T15:55:32.590-0500	INFO	process.helperModule_/tmp/TestDynamicModuleLogging3790223620/001/testmodule.StdOut	pexec/managed_process.go:244
-	// \_ 2023-12-06T15:55:32.590-0500	INFO	TestModule.rdk:component:generic/helper	testmodule/main.go:147	special rare log line
-	logLine := "special rare log line"
-	testCmd := map[string]interface{}{"command": "log", "msg": logLine, "level": "info"}
+	// 2024-01-08T19:28:11.415-0800	INFO	TestModule.rdk:component:generic/helper	testmodule/main.go:147	info level log line	{"module_log_ts": "2024-01-09T03:28:11.412Z", "foo": "bar"}
+	infoLogLine := "info level log line"
+	testCmd := map[string]interface{}{"command": "log", "msg": infoLogLine, "level": "info"}
 	_, err = client.DoCommand(ctx, testCmd)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Our log observer should find one occurrence of the log line.
+	// Our log observer should find one occurrence of the log line with `module_log_ts` and `foo`
+	// arguments.
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, observer.FilterMessageSnippet(logLine).Len(), test.ShouldEqual, 1)
+		test.That(tb, observer.FilterMessageSnippet(infoLogLine).Len(), test.ShouldEqual, 1)
+		test.That(tb, observer.FilterMessageSnippet(infoLogLine).FilterFieldKey("log_ts").Len(), test.ShouldEqual, 1)
+		test.That(tb, observer.FilterMessageSnippet(infoLogLine).FilterFieldKey("foo").Len(), test.ShouldEqual, 1)
 	})
 
 	// The module is currently configured to log at info. If the module tries to log at debug,
 	// nothing new should be observed.
-	testCmd = map[string]interface{}{"command": "log", "msg": logLine, "level": "debug"}
+	debugLogLine := "debug level log line"
+	testCmd = map[string]interface{}{"command": "log", "msg": debugLogLine, "level": "debug"}
 	_, err = client.DoCommand(ctx, testCmd)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, observer.FilterMessageSnippet(logLine).Len(), test.ShouldEqual, 1)
-	test.That(t, observer.FilterMessageSnippet(logLine).FilterMessageSnippet("DEBUG").Len(), test.ShouldEqual, 0)
+	test.That(t, observer.FilterMessageSnippet(infoLogLine).Len(), test.ShouldEqual, 1)
+	test.That(t, observer.FilterMessageSnippet(debugLogLine).Len(), test.ShouldEqual, 0)
 
 	// Change the modular component to log at DEBUG instead of INFO.
 	cfg.Components[0].LogConfiguration.Level = logging.DEBUG
@@ -538,13 +540,52 @@ func TestDynamicModuleLogging(t *testing.T) {
 
 	// Trying to log again at DEBUG should see our log line pattern show up a second time. Now with
 	// DEBUG in the output string.
-	testCmd = map[string]interface{}{"command": "log", "msg": logLine, "level": "debug"}
+	testCmd = map[string]interface{}{"command": "log", "msg": debugLogLine, "level": "debug"}
 	_, err = client.DoCommand(ctx, testCmd)
 	test.That(t, err, test.ShouldBeNil)
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, observer.FilterMessageSnippet(logLine).Len(), test.ShouldEqual, 2)
-		test.That(tb, observer.FilterMessageSnippet(logLine).FilterMessageSnippet("DEBUG").Len(), test.ShouldEqual, 1)
+		test.That(tb, observer.FilterMessageSnippet(infoLogLine).Len(), test.ShouldEqual, 1)
+		test.That(tb, observer.FilterMessageSnippet(debugLogLine).Len(), test.ShouldEqual, 1)
 	})
+}
+
+func TestTwoModulesSameName(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+	complexPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "samename",
+				ExePath: simplePath,
+			},
+			{
+				Name:    "samename",
+				ExePath: complexPath,
+			},
+		},
+		// This field is false due to zero-value by default, but specify explicitly
+		// here. When partial start is allowed, we will log an error about the
+		// duplicate module name, but still start up the first of the two modules.
+		DisablePartialStart: false,
+	}
+	r, err := New(ctx, cfg, logger)
+	test.That(t, r, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(ctx), test.ShouldBeNil)
+	}()
+
+	rr, ok := r.(*localRobot)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// Assert that only the first module with the same name was honored.
+	moduleCfgs := rr.manager.moduleManager.Configs()
+	test.That(t, len(moduleCfgs), test.ShouldEqual, 1)
+	test.That(t, moduleCfgs[0].ExePath, test.ShouldEqual, simplePath)
 }

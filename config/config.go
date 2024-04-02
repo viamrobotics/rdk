@@ -458,8 +458,8 @@ func (conf *Remote) validate(path string) error {
 	if conf.Name == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "name")
 	}
-	if !rutils.ValidNameRegex.MatchString(conf.Name) {
-		return resource.NewConfigValidationError(path, rutils.ErrInvalidName(conf.Name))
+	if err := rutils.ValidateRemoteName(conf.Name); err != nil {
+		return resource.NewConfigValidationError(path, err)
 	}
 	if conf.Address == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "address")
@@ -490,6 +490,8 @@ type Cloud struct {
 	Secret            string
 	LocationSecret    string // Deprecated: Use LocationSecrets
 	LocationSecrets   []LocationSecret
+	LocationID        string
+	PrimaryOrgID      string
 	ManagedBy         string
 	FQDN              string
 	LocalFQDN         string
@@ -514,6 +516,8 @@ type cloudData struct {
 
 	LocationSecret    string           `json:"location_secret"`
 	LocationSecrets   []LocationSecret `json:"location_secrets"`
+	LocationID        string           `json:"location_id"`
+	PrimaryOrgID      string           `json:"primary_org_id"`
 	ManagedBy         string           `json:"managed_by"`
 	FQDN              string           `json:"fqdn"`
 	LocalFQDN         string           `json:"local_fqdn"`
@@ -539,6 +543,8 @@ func (config *Cloud) UnmarshalJSON(data []byte) error {
 		Secret:            temp.Secret,
 		LocationSecret:    temp.LocationSecret,
 		LocationSecrets:   temp.LocationSecrets,
+		LocationID:        temp.LocationID,
+		PrimaryOrgID:      temp.PrimaryOrgID,
 		ManagedBy:         temp.ManagedBy,
 		FQDN:              temp.FQDN,
 		LocalFQDN:         temp.LocalFQDN,
@@ -567,6 +573,8 @@ func (config Cloud) MarshalJSON() ([]byte, error) {
 		Secret:            config.Secret,
 		LocationSecret:    config.LocationSecret,
 		LocationSecrets:   config.LocationSecrets,
+		LocationID:        config.LocationID,
+		PrimaryOrgID:      config.PrimaryOrgID,
 		ManagedBy:         config.ManagedBy,
 		FQDN:              config.FQDN,
 		LocalFQDN:         config.LocalFQDN,
@@ -601,6 +609,17 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 	}
 	if config.RefreshInterval == 0 {
 		config.RefreshInterval = 10 * time.Second
+	}
+	return nil
+}
+
+// ValidateTLS ensures TLS fields are valid.
+func (config *Cloud) ValidateTLS(path string) error {
+	if config.TLSCertificate == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "tls_certificate")
+	}
+	if config.TLSPrivateKey == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "tls_private_key")
 	}
 	return nil
 }
@@ -973,12 +992,10 @@ const (
 	PackageTypeModule PackageType = "module"
 	// PackageTypeSlamMap represents a slam internal state.
 	PackageTypeSlamMap PackageType = "slam_map"
-	// PackageTypeBoardDefs represents a linux board definition file.
-	PackageTypeBoardDefs PackageType = "board_defs"
 )
 
 // SupportedPackageTypes is a list of all of the valid package types.
-var SupportedPackageTypes = []PackageType{PackageTypeMlModel, PackageTypeModule, PackageTypeSlamMap, PackageTypeBoardDefs}
+var SupportedPackageTypes = []PackageType{PackageTypeMlModel, PackageTypeModule, PackageTypeSlamMap}
 
 // A PackageConfig describes the configuration of a Package.
 type PackageConfig struct {
@@ -988,8 +1005,8 @@ type PackageConfig struct {
 	Package string `json:"package"`
 	// Version of the package ID hosted by a remote PackageService. If not specified "latest" is assumed.
 	Version string `json:"version,omitempty"`
-	// Types of the Package. If not specified it is assumed to be ml_model.
-	Type PackageType `json:"type,omitempty"`
+	// Types of the Package.
+	Type PackageType `json:"type"`
 
 	Status *AppValidationStatus `json:"status,omitempty"`
 
@@ -1028,8 +1045,8 @@ func (p *PackageConfig) validate(path string) error {
 			p.Type, SupportedPackageTypes))
 	}
 
-	if !rutils.ValidNameRegex.MatchString(p.Name) {
-		return resource.NewConfigValidationError(path, rutils.ErrInvalidName(p.Name))
+	if err := rutils.ValidatePackageName(p.Name); err != nil {
+		return resource.NewConfigValidationError(path, err)
 	}
 
 	return nil
@@ -1048,7 +1065,7 @@ func (p PackageConfig) Equals(other PackageConfig) bool {
 }
 
 // LocalDataDirectory returns the folder where the package should be extracted.
-// Ex: /home/user/.viam/packages/.data/ml_model/orgid_ballClassifier_0.1.2.
+// Ex: /home/user/.viam/packages/data/ml_model/orgid_ballClassifier_0.1.2.
 func (p *PackageConfig) LocalDataDirectory(packagesDir string) string {
 	return filepath.Join(p.LocalDataParentDirectory(packagesDir), p.SanitizedName())
 }
@@ -1059,9 +1076,16 @@ func (p *PackageConfig) LocalDownloadPath(packagesDir string) string {
 }
 
 // LocalDataParentDirectory returns the folder that will contain the all packages of this type.
-// Ex: /home/user/.viam/packages/.data/ml_model.
+// Ex: /home/user/.viam/packages/data/ml_model.
 func (p *PackageConfig) LocalDataParentDirectory(packagesDir string) string {
-	return filepath.Join(packagesDir, ".data", string(p.Type))
+	return filepath.Join(packagesDir, "data", string(p.Type))
+}
+
+// LocalLegacyDataRootDirectory returns the old private directory.
+// This can be cleaned up after a few RDK releases (APP-4066)
+// Ex: /home/user/.viam/packages/.data/.
+func (p *PackageConfig) LocalLegacyDataRootDirectory(packagesDir string) string {
+	return filepath.Join(packagesDir, ".data")
 }
 
 // SanitizedName returns the package name for the symlink/filepath of the package on the system.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"image"
 
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
