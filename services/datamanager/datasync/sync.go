@@ -123,7 +123,18 @@ func (s *syncer) SyncFile(path string) {
 	go func() {
 		defer fsWg.Done()
 		usage := du.NewDiskUsage(s.captureDir)
-		s.logger.Debugf("Free space: %d\nAvailable: %d\t\nUsage: %x\t\n", usage.Free(), usage.Available(), usage.Usage())
+		dir, err := os.Open(s.captureDir)
+		if err != nil {
+			s.logger.Error("Error getting capture directory stats")
+			return
+		}
+		defer dir.Close()
+		fileInfo, err := dir.Stat()
+		if err != nil {
+			s.logger.Error("Error getting capture directory stats")
+			return
+		}
+		s.logger.Debugf("Free space: %d\nAvailable: %d\t\nUsage: %x\t\nDir size bytes: %d", usage.Free(), usage.Available(), usage.Usage(), fileInfo.Size())
 		files, _ := os.ReadDir(s.captureDir)
 		s.logger.Debugf("Number of files: %d", len(files))
 	}()
