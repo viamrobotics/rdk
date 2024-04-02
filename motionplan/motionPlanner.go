@@ -443,6 +443,10 @@ func CheckPlan(
 		return errors.New("plan must have at least one element")
 	}
 
+	fmt.Println("have the following FrameSystem")
+	fmt.Println("fs.FrameNames(): ", fs.FrameNames())
+	fmt.Println("currentInputs: ", currentInputs)
+
 	// construct solverFrame
 	// Note that this requires all frames which move as part of the plan, to have an
 	// entry in the very first plan waypoint
@@ -583,6 +587,7 @@ func CheckPlan(
 			} else {
 				interpolatedState.Configuration = interpConfig
 			}
+			fmt.Println("interpolatedState: ", interpolatedState)
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
 			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {

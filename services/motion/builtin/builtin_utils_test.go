@@ -237,7 +237,7 @@ func createMoveOnMapEnvironment(
 	cfg := resource.Config{
 		Name:  "test-base",
 		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: geomSize}},
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: geomSize, Label: "kinematicBaseGeometry"}},
 	}
 	logger := logging.NewTestLogger(t)
 	fakeBase, err := baseFake.NewBase(ctx, nil, cfg, logger)

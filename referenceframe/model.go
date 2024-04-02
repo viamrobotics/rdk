@@ -3,6 +3,7 @@ package referenceframe
 import (
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"math"
 	"math/rand"
 	"strings"
@@ -128,6 +129,7 @@ func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 			geometries = append(geometries, placedGeom)
 		}
 	}
+	fmt.Println("geometries[0].Label(): ", geometries[0].Label())
 	return NewGeometriesInFrame(m.name, geometries), errAll
 }
 

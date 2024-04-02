@@ -180,6 +180,7 @@ func WrapWithFakePTGKinematics(
 	nonzeroBaseTurningRadiusMeters := (baseMillimetersPerSecond / rdkutils.DegToRad(angVelocityDegsPerSecond)) / 1000.
 
 	// create planning frame
+	fmt.Println("b.Name().ShortName(): ", b.Name().ShortName())
 	planningFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		b.Name().ShortName(),
 		logger,
@@ -195,7 +196,9 @@ func WrapWithFakePTGKinematics(
 
 	// create execution frame
 	// should i change this so that it takes in a list of geometries?
-	executionFrame, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName()+"ExecutionFrame", planningFrame.DoF(), geometries[0])
+	executionFrame, err := referenceframe.New2DMobileModelFrame(
+		b.Name().ShortName()+"ExecutionFrame",
+		planningFrame.DoF(), geometries[0])
 	if err != nil {
 		return nil, err
 	}

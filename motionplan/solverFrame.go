@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"errors"
+	"fmt"
 
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
@@ -42,6 +43,8 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 		return nil, err
 	}
 
+	// is the solution that frames which are above the solveFrameName should be not worried about?
+
 	// get solve frame
 	solveFrame := fs.Frame(solveFrameName)
 	if solveFrame == nil {
@@ -50,6 +53,10 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 	solveFrameList, err := fs.TracebackFrame(solveFrame)
 	if err != nil {
 		return nil, err
+	}
+	fmt.Println("printing solveFrameList", solveFrameList)
+	for _, f := range solveFrameList {
+		fmt.Println("f.Name(): ", f.Name())
 	}
 	if len(solveFrameList) == 0 {
 		return nil, errors.New("solveFrameList was empty")
@@ -78,6 +85,7 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("pivotFrame: ", pivotFrame.Name())
 	if pivotFrame.Name() == frame.World {
 		frames = uniqInPlaceSlice(append(solveFrameList, goalFrameList...))
 		moving, err = movingFS(solveFrameList)
@@ -148,8 +156,9 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 	}
 
 	var ptgs []tpspace.PTGSolver
-	anyPTG := false     // Whether PTG frames have been observed
-	anyNonzero := false // Whether non-PTG frames
+	anyPTG := false // Whether PTG frames have been observed
+	// TODO(nf): uncomment
+	// anyNonzero := false // Whether non-PTG frames
 	for _, movingFrame := range frames {
 		if ptgFrame, isPTGframe := movingFrame.(tpspace.PTGProvider); isPTGframe {
 			if anyPTG {
@@ -157,12 +166,12 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 			}
 			anyPTG = true
 			ptgs = ptgFrame.PTGSolvers()
-		} else if len(movingFrame.DoF()) > 0 {
-			anyNonzero = true
-		}
-		if anyNonzero && anyPTG {
-			return nil, errors.New("cannot combine ptg with other nonzero DOF frames in a single planning call")
-		}
+		} // else if len(movingFrame.DoF()) > 0 {
+		// anyNonzero = true
+		// }
+		// if anyNonzero && anyPTG {
+		// 	return nil, errors.New("cannot combine ptg with other nonzero DOF frames in a single planning call")
+		// }
 	}
 
 	return &solverFrame{
@@ -235,6 +244,14 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFram
 	var errAll error
 	inputMap := sf.sliceToMap(inputs)
 	sfGeometries := []spatial.Geometry{}
+
+	// i think this function will need to be changed
+	// if we are relative we know so
+	// we then assume that sf.name is the name of the kinematic base and anything above it should be
+	// treated as a static transform frame
+
+	// all other frame, we do not need to worry about and they should be treated as normal
+
 	for _, fName := range sf.movingFS.FrameNames() {
 		f := sf.fss.Frame(fName)
 		if f == nil {
@@ -245,6 +262,80 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFram
 			return nil, err
 		}
 		gf, err := f.Geometries(inputs)
+		fmt.Println("about to print f.Geometries(inputs)")
+		for _, g := range gf.Geometries() {
+			fmt.Println("g.Label(): ", g.Label())
+		}
+		if gf == nil {
+			// only propagate errors that result in nil geometry
+			multierr.AppendInto(&errAll, err)
+			continue
+		}
+		var tf frame.Transformable
+		tf, err = sf.fss.Transform(inputMap, gf, frame.World)
+		if err != nil {
+			return nil, err
+		}
+		sfGeometries = append(sfGeometries, tf.(*frame.GeometriesInFrame).Geometries()...)
+	}
+	return frame.NewGeometriesInFrame(frame.World, sfGeometries), errAll
+}
+
+func (sf *solverFrame) MYGeometries(inputs []frame.Input) (*frame.GeometriesInFrame, error) {
+	if len(inputs) != len(sf.DoF()) {
+		return nil, frame.NewIncorrectInputLengthError(len(inputs), len(sf.DoF()))
+	}
+	var errAll error
+	inputMap := sf.sliceToMap(inputs)
+	sfGeometries := []spatial.Geometry{}
+
+	// first we check if this is a solverFrame which with we need to concern ourselves with for Ptgs
+	isRelative := len(sf.ptgs) > 0
+	if isRelative {
+		solveFrameList, err := sf.fss.TracebackFrame(sf.solveFrame)
+		if err != nil {
+			return nil, err
+		}
+		// we can probably just explicitly check the length of the list here
+		// it should only be wrld -- executionFrame -- planningFrame
+		// further, I believe that the indicies at which these frames are found shall remain constant
+		// hence, we can simplifify our code here
+		// todo: need to figure out the inidicied which are proper
+		for _, f := range solveFrameList {
+			inputs, err := frame.GetFrameInputs(f, inputMap)
+			if err != nil {
+				return nil, err
+			}
+			gf, err := f.Geometries(inputs)
+			if gf == nil {
+				// only propagate errors that result in nil geometry
+				multierr.AppendInto(&errAll, err)
+				continue
+			}
+		}
+	}
+
+	// i think this function will need to be changed
+	// if we are relative we know so
+	// we then assume that sf.name is the name of the kinematic base and anything above it should be
+	// treated as a static transform frame
+
+	// all other frame, we do not need to worry about and they should be treated as normal
+
+	for _, fName := range sf.movingFS.FrameNames() {
+		f := sf.fss.Frame(fName)
+		if f == nil {
+			return nil, frame.NewFrameMissingError(fName)
+		}
+		inputs, err := frame.GetFrameInputs(f, inputMap)
+		if err != nil {
+			return nil, err
+		}
+		gf, err := f.Geometries(inputs)
+		fmt.Println("about to print f.Geometries(inputs)")
+		for _, g := range gf.Geometries() {
+			fmt.Println("g.Label(): ", g.Label())
+		}
 		if gf == nil {
 			// only propagate errors that result in nil geometry
 			multierr.AppendInto(&errAll, err)
