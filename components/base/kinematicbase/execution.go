@@ -162,7 +162,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 			// If we have a localizer, we are able to attempt to correct to stay on the path.
 			// For now we do not try to correct while in a correction.
 			if ptgk.Localizer != nil {
-				newArcSteps, err := ptgk.courseCorrect(ctx, currentInputs, step.arcSegment.StartPosition, arcSteps, i)
+				newArcSteps, err := ptgk.courseCorrect(ctx, currentInputs, arcSteps, i)
 				if err != nil {
 					// If this (or anywhere else in this closure) has an error, the only consequence is that we are unable to solve a
 					// valid course correction trajectory. We are still continuing to follow the plan, so if we ignore this error, we
@@ -176,6 +176,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 					ptgk.currentExecutingSteps = newArcSteps
 					ptgk.inputLock.Unlock()
 					arcSteps = newArcSteps
+					break
 				}
 			}
 		}
@@ -300,7 +301,6 @@ func (ptgk *ptgBaseKinematics) trajectoryToArcSteps(
 func (ptgk *ptgBaseKinematics) courseCorrect(
 	ctx context.Context,
 	currentInputs []referenceframe.Input,
-	startPose spatialmath.Pose,
 	arcSteps []arcStep,
 	arcIdx int,
 ) ([]arcStep, error) {
@@ -308,19 +308,29 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 	if err != nil {
 		return nil, err
 	}
-	expectedPoseRel, err := ptgk.frame.Transform(currentInputs)
+	trajPose, err := ptgk.frame.Transform(currentInputs)
 	if err != nil {
 		return nil, err
 	}
+	// Note that the arcSegment start position corresponds to the start configuration, which may not be at pose distance 0, so we must
+	// account for this.
+	trajStartPose, err := ptgk.frame.Transform(arcSteps[arcIdx].arcSegment.StartConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	expectedPoseRel := spatialmath.PoseBetween(trajStartPose, trajPose)
 
-	// This is where we expected to be on the trajectory
-	expectedPose := spatialmath.Compose(startPose, expectedPoseRel)
+	// This is where we expected to be on the trajectory.
+	expectedPose := spatialmath.Compose(arcSteps[arcIdx].arcSegment.StartPosition, expectedPoseRel)
 
 	// This is where actually are on the trajectory
 	poseDiff := spatialmath.PoseBetween(actualPose.Pose(), expectedPose)
 
 	allowableDiff := ptgk.linVelocityMMPerSecond * updateStepSeconds * (minDeviationToCorrectPct / 100)
-	ptgk.logger.Debug("allowable diff ", allowableDiff, " diff now ", poseDiff.Point().Norm())
+	ptgk.logger.Debug(
+		"allowable diff ", allowableDiff, " diff now ", poseDiff.Point().Norm(), " angle diff ", poseDiff.Orientation().AxisAngles().Theta,
+	)
+
 	if poseDiff.Point().Norm() > allowableDiff || poseDiff.Orientation().AxisAngles().Theta > 0.25 {
 		ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
 		ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()))
@@ -372,7 +382,8 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 			pctTrajRemaining := (connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist -
 				connectionPoint.subTraj[solution.trajIdx].Dist) /
 				(connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist - connectionPoint.arcSegment.StartConfiguration[2].Value)
-			connectionPoint.arcSegment.StartConfiguration[2].Value += connectionPoint.subTraj[solution.trajIdx].Dist
+
+			connectionPoint.arcSegment.StartConfiguration[2].Value = connectionPoint.subTraj[solution.trajIdx].Dist
 			connectionPoint.durationSeconds *= pctTrajRemaining
 			connectionPoint.subTraj = connectionPoint.subTraj[solution.trajIdx:]
 
@@ -447,9 +458,9 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 	}
 
 	startingTrajPt := 0
-	for j := 0; j < len(steps[currStep].subTraj); j++ {
-		if steps[currStep].subTraj[j].Dist >= currDist {
-			startingTrajPt = j
+	for i := 0; i < len(steps[currStep].subTraj); i++ {
+		if steps[currStep].subTraj[i].Dist >= currDist {
+			startingTrajPt = i
 			break
 		}
 	}
