@@ -105,11 +105,8 @@ func (r *localRobot) ResourceNames() []resource.Name {
 	}
 	rNames := make([]resource.Name, 0, len(names))
 	for _, n := range names {
-		n.MachinePartID = md.RobotPartID
-		rNames = append(
-			rNames,
-			n,
-		)
+		n.MachinePartID = md.MachinePartID
+		rNames = append(rNames, n)
 	}
 	return rNames
 }
