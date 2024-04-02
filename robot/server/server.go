@@ -466,7 +466,8 @@ func (s *Server) GetCloudMetadata(ctx context.Context, _ *pb.GetCloudMetadataReq
 		return nil, err
 	}
 	return &pb.GetCloudMetadataResponse{
-		RobotPartId:   md.MachinePartID, // Deprecated: duplicates MachinePartId
+		// TODO: RSDK-7181 remove RobotPartId
+		RobotPartId:   md.MachinePartID, // Deprecated: Duplicates MachinePartId
 		PrimaryOrgId:  md.PrimaryOrgID,
 		LocationId:    md.LocationID,
 		MachineId:     md.MachineID,
