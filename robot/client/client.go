@@ -518,7 +518,7 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 	panic(errUnimplemented)
 }
 
-// ResourceByName returns resource by name.
+// ResourceByName returns resource by name. Machine part id is optional and will not be used for comparison.
 func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, error) {
 	if err := rc.checkConnected(); err != nil {
 		return nil, err
@@ -526,7 +526,8 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 
 	rc.mu.RLock()
 
-	// see if a remote name matches the name if so then return the remote client
+	// remove the part id from the name passed in so that comparisons are made without part id
+	name = name.WithoutPartID()
 	if val, ok := rc.remoteNameMap[name]; ok {
 		name = val
 	}
@@ -545,6 +546,8 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 
 	// finally, before adding a new resource, make sure this name exists and is known
 	for _, knownName := range rc.resourceNames {
+		// remove the part id from the name passed in so that comparisons are made without part id
+		knownName = knownName.WithoutPartID()
 		if name == knownName {
 			resourceClient, err := rc.createClient(name)
 			if err != nil {
@@ -666,6 +669,8 @@ func (rc *RobotClient) updateRemoteNameMap() {
 	tempMap := make(map[resource.Name]resource.Name)
 	dupMap := make(map[resource.Name]bool)
 	for _, n := range rc.resourceNames {
+		// remove the part id from the name passed in so that comparisons can be made without part id
+		n = n.WithoutPartID()
 		if err := n.Validate(); err != nil {
 			rc.Logger().Error(err)
 			continue
@@ -806,6 +811,14 @@ func (rc *RobotClient) FrameSystemConfig(ctx context.Context) (*framesystem.Conf
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
+//
+//	  import (
+//		  "go.viam.com/rdk/referenceframe"
+//		  "go.viam.com/rdk/spatialmath"
+//	  )
+//
+//	  baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
+//	  movementSensorToBase, err := robot.TransformPose(ctx, baseOrigin, "my-movement-sensor", nil)
 func (rc *RobotClient) TransformPose(
 	ctx context.Context,
 	query *referenceframe.PoseInFrame,

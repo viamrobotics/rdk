@@ -2,13 +2,16 @@ package board_test
 
 import (
 	"context"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
+	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/resource"
@@ -16,8 +19,9 @@ import (
 )
 
 var (
-	errFoo      = errors.New("whoops")
-	errNotFound = errors.New("not found")
+	errFoo        = errors.New("whoops")
+	errNotFound   = errors.New("not found")
+	errSendFailed = errors.New("send fail")
 )
 
 func newServer() (pb.BoardServiceServer, *inject.Board, error) {
@@ -783,6 +787,175 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 
 			test.That(t, injectBoard.DigitalInterruptByNameCap(), test.ShouldResemble, tc.expCapDigitalInterruptArgs)
 			test.That(t, tc.injectDigitalInterrupt.ValueCap(), test.ShouldResemble, tc.expCapArgs)
+		})
+	}
+}
+
+type streamTicksServer struct {
+	grpc.ServerStream
+	ctx       context.Context
+	ticksChan chan *pb.StreamTicksResponse
+	fail      bool
+}
+
+func (x *streamTicksServer) Context() context.Context {
+	return x.ctx
+}
+
+func (x *streamTicksServer) Send(m *pb.StreamTicksResponse) error {
+	if x.fail {
+		return errSendFailed
+	}
+	if x.ticksChan == nil {
+		return nil
+	}
+	x.ticksChan <- m
+	return nil
+}
+
+func TestStreamTicks(t *testing.T) {
+	type request = pb.StreamTicksRequest
+	type response = pb.StreamTicksResponse
+
+	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
+	test.That(t, err, test.ShouldBeNil)
+
+	tests := []struct {
+		name                     string
+		injectDigitalInterrupts  []*inject.DigitalInterrupt
+		injectDigitalInterruptOk bool
+		streamTicksErr           error
+		req                      *request
+		expResp                  *response
+		expRespErr               string
+		sendFail                 bool
+	}{
+		{
+			name:                     "successful stream with multiple interrupts",
+			injectDigitalInterrupts:  []*inject.DigitalInterrupt{{}, {}},
+			injectDigitalInterruptOk: true,
+			streamTicksErr:           nil,
+			req:                      &request{Name: testBoardName, PinNames: []string{"digital1", "digital2"}, Extra: pbExpectedExtra},
+			expResp:                  &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
+			sendFail:                 false,
+		},
+		{
+			name:                     "successful stream with one interrupt",
+			injectDigitalInterrupts:  []*inject.DigitalInterrupt{{}},
+			injectDigitalInterruptOk: true,
+			streamTicksErr:           nil,
+			req:                      &request{Name: testBoardName, PinNames: []string{"digital1"}, Extra: pbExpectedExtra},
+			expResp:                  &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
+			sendFail:                 false,
+		},
+		{
+			name:           "missing board name should return error",
+			streamTicksErr: nil,
+			req:            &request{Name: missingBoardName, PinNames: []string{"pin1"}},
+			expResp:        nil,
+			expRespErr:     errNotFound.Error(),
+		},
+		{
+			name:                     "unknown digital interrupt should return error",
+			injectDigitalInterrupts:  nil,
+			injectDigitalInterruptOk: false,
+			streamTicksErr:           errors.New("unknown digital interrupt: digital1"),
+			req:                      &request{Name: testBoardName, PinNames: []string{"digital1"}},
+			expResp:                  nil,
+			expRespErr:               "unknown digital interrupt: digital1",
+			sendFail:                 false,
+		},
+		{
+			name:                     "failing to send tick should return error",
+			injectDigitalInterrupts:  []*inject.DigitalInterrupt{{}},
+			injectDigitalInterruptOk: true,
+			streamTicksErr:           nil,
+			req:                      &request{Name: testBoardName, PinNames: []string{"digital1"}, Extra: pbExpectedExtra},
+			expResp:                  &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
+			expRespErr:               "send fail",
+			sendFail:                 true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run("", func(t *testing.T) {
+			server, injectBoard, err := newServer()
+			test.That(t, err, test.ShouldBeNil)
+			var actualExtra map[string]interface{}
+			callbacks := []chan board.Tick{}
+
+			injectBoard.StreamTicksFunc = func(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
+				actualExtra = extra
+				callbacks = append(callbacks, ch)
+				return tc.streamTicksErr
+			}
+
+			injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
+				if name == "digital1" {
+					return tc.injectDigitalInterrupts[0], tc.injectDigitalInterruptOk
+				}
+				return tc.injectDigitalInterrupts[1], tc.injectDigitalInterruptOk
+			}
+			if tc.injectDigitalInterrupts != nil {
+				for _, i := range tc.injectDigitalInterrupts {
+					i.RemoveCallbackFunc = func(c chan board.Tick) {
+						for id := range callbacks {
+							if callbacks[id] == c {
+								// To remove this item, we replace it with the last item in the list, then truncate the
+								// list by 1.
+								callbacks[id] = callbacks[len(callbacks)-1]
+								callbacks = callbacks[:len(callbacks)-1]
+								break
+							}
+						}
+					}
+				}
+			}
+
+			cancelCtx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			ch := make(chan *pb.StreamTicksResponse)
+			s := &streamTicksServer{
+				ctx:       cancelCtx,
+				ticksChan: ch,
+				fail:      tc.sendFail,
+			}
+
+			sendTick := func() {
+				for _, ch := range callbacks {
+					ch <- board.Tick{Name: "digital1", High: true, TimestampNanosec: uint64(time.Nanosecond)}
+				}
+			}
+			var wg sync.WaitGroup
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				err = server.StreamTicks(tc.req, s)
+			}()
+
+			if tc.expRespErr == "" {
+				// First resp will be blank
+				<-s.ticksChan
+
+				sendTick()
+				resp := <-s.ticksChan
+
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
+				test.That(t, resp.High, test.ShouldEqual, true)
+				test.That(t, resp.PinName, test.ShouldEqual, "digital1")
+				test.That(t, resp.Time, test.ShouldEqual, uint64(time.Nanosecond))
+
+				cancel()
+				wg.Wait()
+			} else {
+				// Canceling the stream before checking the error to avoid a data race.
+				cancel()
+				wg.Wait()
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.expRespErr)
+			}
 		})
 	}
 }

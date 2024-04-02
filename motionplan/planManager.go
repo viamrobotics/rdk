@@ -256,7 +256,7 @@ func (pm *planManager) planAtomicWaypoints(
 		resultSlices = append(resultSlices, steps...)
 	}
 
-	return newRRTPlan(resultSlices, pm.frame, pm.planner.opt().relativeInputs)
+	return newRRTPlan(resultSlices, pm.frame, pm.useTPspace)
 }
 
 // planSingleAtomicWaypoint attempts to plan a single waypoint. It may optionally be pre-seeded with rrt maps; these will be passed to the
@@ -773,7 +773,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 
 	if pathdebug {
 		pm.logger.Debug("$type,X,Y")
-		pm.logger.Debugf("$SG,%f,%f", 0., 0.)
+		pm.logger.Debugf("$SG,%f,%f", startPose.Point().X, startPose.Point().Y)
 		pm.logger.Debugf("$SG,%f,%f", request.Goal.Pose().Point().X, request.Goal.Pose().Point().Y)
 		gifs, err := request.WorldState.ObstaclesInWorldFrame(pm.fs, request.StartConfiguration)
 		if err == nil {
@@ -852,7 +852,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 		return nil, err
 	}
 
-	return newRRTPlan(steps, pm.frame, pm.planner.opt().relativeInputs)
+	return newRRTPlan(steps, pm.frame, pm.useTPspace)
 }
 
 // Copy any atomic values.

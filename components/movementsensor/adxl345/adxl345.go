@@ -42,6 +42,8 @@ import (
 var model = resource.DefaultModelFamily.WithModel("accel-adxl345")
 
 const (
+	defaultI2CAddress    = 0x53
+	alternateI2CAddress  = 0x1D
 	deviceIDRegister     = 0
 	expectedDeviceID     = 0xE5
 	powerControlRegister = 0x2D
@@ -217,9 +219,9 @@ func makeAdxl345(
 
 	var address byte
 	if newConf.UseAlternateI2CAddress {
-		address = 0x1D
+		address = alternateI2CAddress
 	} else {
-		address = 0x53
+		address = defaultI2CAddress
 	}
 
 	interruptConfigurations := getInterruptConfigurations(newConf)
@@ -313,47 +315,35 @@ func makeAdxl345(
 		return nil, err
 	}
 
-	interruptMap := map[string]board.DigitalInterrupt{}
+	interruptList := []string{}
 	if (newConf.SingleTap != nil) && (newConf.SingleTap.InterruptPin != "") {
-		b, err := board.FromDependencies(deps, newConf.BoardName)
-		if err != nil {
-			return nil, err
-		}
-
-		interruptMap, err = addInterruptPin(b, newConf.SingleTap.InterruptPin, interruptMap)
-		if err != nil {
-			// shut down goroutine reading sensor in the background
-			sensor.cancelFunc()
-			return nil, err
-		}
+		interruptList = append(interruptList, newConf.SingleTap.InterruptPin)
 	}
 
 	if (newConf.FreeFall != nil) && (newConf.FreeFall.InterruptPin != "") {
+		interruptList = append(interruptList, newConf.FreeFall.InterruptPin)
+	}
+
+	if len(interruptList) > 0 {
 		b, err := board.FromDependencies(deps, newConf.BoardName)
 		if err != nil {
 			return nil, err
 		}
-
-		interruptMap, err = addInterruptPin(b, newConf.FreeFall.InterruptPin, interruptMap)
+		ticksChan := make(chan board.Tick)
+		err = b.StreamTicks(sensor.cancelContext, interruptList, ticksChan, nil)
 		if err != nil {
-			// shut down goroutine reading sensor in the background
-			sensor.cancelFunc()
 			return nil, err
 		}
-	}
-
-	for _, interrupt := range interruptMap {
-		ticksChan := make(chan board.Tick)
-		interrupt.AddCallback(ticksChan)
-		sensor.interruptChannels[interrupt] = ticksChan
-		sensor.startInterruptMonitoring(ticksChan)
+		sensor.startInterruptMonitoring(b, ticksChan, interruptList)
 	}
 
 	return sensor, nil
 }
 
-func (adxl *adxl345) startInterruptMonitoring(ticksChan chan board.Tick) {
+func (adxl *adxl345) startInterruptMonitoring(b board.Board, ticksChan chan board.Tick, interruptList []string) {
 	utils.PanicCapturingGo(func() {
+		// Remove the callbacks added by the interrupt stream once we are done.
+		defer utils.UncheckedErrorFunc(func() error { return board.RemoveCallbacks(b, interruptList, ticksChan) })
 		for {
 			select {
 			case <-adxl.cancelContext.Done():
@@ -365,18 +355,6 @@ func (adxl *adxl345) startInterruptMonitoring(ticksChan chan board.Tick) {
 			}
 		}
 	})
-}
-
-func addInterruptPin(b board.Board, name string, interrupts map[string]board.DigitalInterrupt) (map[string]board.DigitalInterrupt, error) {
-	_, ok := interrupts[name]
-	if !ok {
-		interrupt, ok := b.DigitalInterruptByName(name)
-		if !ok {
-			return nil, errors.Errorf("cannot grab digital interrupt: %s", name)
-		}
-		interrupts[name] = interrupt
-	}
-	return interrupts, nil
 }
 
 // This returns a map from register addresses to data which should be written to that register to configure the interrupt pin.

@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
@@ -63,6 +63,7 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin"
+	genericservice "go.viam.com/rdk/services/generic"
 	"go.viam.com/rdk/services/motion"
 	motionBuiltin "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/navigation"
@@ -913,7 +914,7 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, len(resources), test.ShouldEqual, 9)
 	test.That(t, err, test.ShouldBeNil)
 
-	// 5 declared resources + default sensors
+	// 5 declared resources + default services
 	resourceNames := []resource.Name{
 		arm.Named("pieceArm"),
 		audioinput.Named("mic1"),
@@ -1851,8 +1852,7 @@ func TestConfigMethod(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// Precompile complex module to avoid timeout issues when building takes too long.
-	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
-	test.That(t, err, test.ShouldBeNil)
+	complexPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
 
 	r, shutdown := initTestRobot(t, context.Background(), &config.Config{}, logger)
 	defer shutdown()
@@ -2491,12 +2491,9 @@ func TestOrphanedResources(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 
 	// Precompile modules to avoid timeout issues when building takes too long.
-	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
-	test.That(t, err, test.ShouldBeNil)
-	simplePath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
-	test.That(t, err, test.ShouldBeNil)
-	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-	test.That(t, err, test.ShouldBeNil)
+	complexPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+	simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
 	// Manually define models, as importing them can cause double registration.
 	gizmoModel := resource.NewModel("acme", "demo", "mygizmo")
@@ -2636,11 +2633,11 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
-		// Wait for "attempt 3" in logs.
+		// Wait for 3 restart attempts in logs.
 		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessageSnippet("attempt 3").Len(),
-				test.ShouldEqual, 1)
+			test.That(tb, logs.FilterFieldKey("restart attempt").Len(),
+				test.ShouldEqual, 3)
 		})
 		time.Sleep(2 * time.Second)
 
@@ -2671,19 +2668,18 @@ func TestOrphanedResources(t *testing.T) {
 		// Assert that replacing testmodule binary with disguised simplemodule
 		// binary and killing testmodule orphans helper 'h' (not reachable), as
 		// simplemodule binary cannot manage helper 'h'.
-		tmpPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
-		test.That(t, err, test.ShouldBeNil)
+		tmpPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 		err = os.Rename(tmpPath, testPath)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
-		// Wait for "attempt 3" in logs.
+		// Wait for 3 restart attempts in logs.
 		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessageSnippet("attempt 3").Len(),
-				test.ShouldEqual, 1)
+			test.That(tb, logs.FilterFieldKey("restart attempt").Len(),
+				test.ShouldEqual, 3)
 		})
 		time.Sleep(2 * time.Second)
 
@@ -2726,10 +2722,8 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// Precompile modules to avoid timeout issues when building takes too long.
-	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
-	test.That(t, err, test.ShouldBeNil)
-	simplePath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
-	test.That(t, err, test.ShouldBeNil)
+	complexPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+	simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 
 	// Manually define gizmo model, as importing it from mygizmo can cause double
 	// registration.
@@ -2902,8 +2896,7 @@ func TestModuleDebugReconfigure(t *testing.T) {
 	logger, logs := rtestutils.NewInfoObservedTestLogger(t)
 
 	// Precompile module to avoid timeout issues when building takes too long.
-	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-	test.That(t, err, test.ShouldBeNil)
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
 	// Create robot with testmodule with LogLevel unset and assert that after two
 	// seconds, "debug mode enabled" debug log is not output by testmodule.
@@ -2946,8 +2939,7 @@ func TestResourcelessModuleRemove(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 
 	// Precompile module to avoid timeout issues when building takes too long.
-	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-	test.That(t, err, test.ShouldBeNil)
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
 	cfg := &config.Config{
 		Modules: []config.Module{
@@ -2974,8 +2966,7 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 
-	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-	test.That(t, err, test.ShouldBeNil)
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
 	// Manually define model, as importing it can cause double registration.
 	helperModel := resource.NewModel("rdk", "test", "helper")
@@ -2998,7 +2989,7 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	r, shutdown := initTestRobot(t, ctx, cfg, logger)
 	defer shutdown()
 
-	_, err = r.ResourceByName(generic.Named("h"))
+	_, err := r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("reconfiguration timeout", func(t *testing.T) {
@@ -3037,15 +3028,203 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	})
 }
 
+func TestModularResourceReconfigurationCount(t *testing.T) {
+	ctx := context.Background()
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// Manually define models, as importing them can cause double registration.
+	helperModel := resource.NewModel("rdk", "test", "helper")
+	otherModel := resource.NewModel("rdk", "test", "other")
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+			},
+		},
+		Services: []resource.Config{
+			{
+				Name:  "o",
+				Model: otherModel,
+				API:   genericservice.API,
+			},
+		},
+	}
+	r, shutdown := initTestRobot(t, ctx, cfg, logger)
+	defer shutdown()
+
+	// Assert that helper and other have not yet `Reconfigure`d (only constructed).
+	h, err := r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+	resp, err := h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+	o, err := r.ResourceByName(genericservice.Named("o"))
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+
+	cfg2 := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:     "mod",
+				ExePath:  testPath,
+				LogLevel: "debug",
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+			},
+		},
+		Services: []resource.Config{
+			{
+				Name:  "o",
+				Model: otherModel,
+				API:   genericservice.API,
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg2)
+
+	// Assert that helper and other have still not `Reconfigure`d after their
+	// module did (only constructed in the restarted module).
+	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+
+	cfg3 := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:     "mod",
+				ExePath:  testPath,
+				LogLevel: "debug",
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+				Attributes: rutils.AttributeMap{
+					"foo": "bar",
+				},
+			},
+		},
+		Services: []resource.Config{
+			{
+				Name:  "o",
+				Model: otherModel,
+				API:   genericservice.API,
+				Attributes: rutils.AttributeMap{
+					"foo": "bar",
+				},
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg3)
+
+	// Assert that helper and other `Reconfigure` once when their attributes are
+	// changed.
+	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 1)
+	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 1)
+
+	cfg4 := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+				Attributes: rutils.AttributeMap{
+					"bar": "baz",
+				},
+			},
+		},
+		Services: []resource.Config{
+			{
+				Name:  "o",
+				Model: otherModel,
+				API:   genericservice.API,
+				Attributes: rutils.AttributeMap{
+					"bar": "baz",
+				},
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg4)
+
+	// Assert that if module is reconfigured (`LogLevel` removed), _and_ helper
+	// and other are reconfigured (attributes changed), helper and other are only
+	// constructed in new module process and not `Reconfigure`d.
+	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+
+	// Assert that helper and other are only constructed after module
+	// crash/successful restart and not `Reconfigure`d.
+	_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessageSnippet("Module successfully restarted").Len(), test.ShouldEqual, 1)
+	})
+
+	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+}
+
 func TestImplicitDepsAcrossModules(t *testing.T) {
 	ctx := context.Background()
 	logger, _ := logging.NewObservedTestLogger(t)
 
 	// Precompile modules to avoid timeout issues when building takes too long.
-	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
-	test.That(t, err, test.ShouldBeNil)
-	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-	test.That(t, err, test.ShouldBeNil)
+	complexPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
 	// Manually define models, as importing them can cause double registration.
 	myBaseModel := resource.NewModel("acme", "demo", "mybase")
@@ -3087,7 +3266,7 @@ func TestImplicitDepsAcrossModules(t *testing.T) {
 	r, shutdown := initTestRobot(t, ctx, cfg, logger)
 	defer shutdown()
 
-	_, err = r.ResourceByName(base.Named("b"))
+	_, err := r.ResourceByName(base.Named("b"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.ResourceByName(motor.Named("m1"))
 	test.That(t, err, test.ShouldBeNil)
@@ -3253,6 +3432,76 @@ func TestCloudMetadata(t *testing.T) {
 			PrimaryOrgID: "the-primary-org",
 			LocationID:   "the-location",
 		})
+	})
+}
+
+func TestResourceNames(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	t.Run("no cloud data", func(t *testing.T) {
+		cfg := &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "foo",
+					API:   base.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "bar",
+					API:   base.API,
+					Model: fakeModel,
+				},
+			},
+		}
+		robot, shutdown := initTestRobot(t, ctx, cfg, logger)
+		defer shutdown()
+
+		// 2 declared resources + default services
+		resourceNames := []resource.Name{
+			base.Named("foo"),
+			base.Named("bar"),
+			motion.Named(resource.DefaultServiceName),
+			sensors.Named(resource.DefaultServiceName),
+			datamanager.Named(resource.DefaultServiceName),
+		}
+		resources := robot.ResourceNames()
+		test.That(t, len(resources), test.ShouldEqual, len(resourceNames))
+		test.That(t, rtestutils.NewResourceNameSet(resources...), test.ShouldResemble, rtestutils.NewResourceNameSet(resourceNames...))
+	})
+	t.Run("with cloud data", func(t *testing.T) {
+		partID := "the-robot-part"
+		cfg := &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "foo",
+					API:   base.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "bar",
+					API:   base.API,
+					Model: fakeModel,
+				},
+			},
+			Cloud: &config.Cloud{
+				ID:           partID,
+				LocationID:   "the-location",
+				PrimaryOrgID: "the-primary-org",
+			},
+		}
+		robot, shutdown := initTestRobot(t, ctx, cfg, logger)
+		defer shutdown()
+		// 2 declared resources + default services
+		resourceNames := []resource.Name{
+			base.Named("foo").WithPartID(partID),
+			base.Named("bar").WithPartID(partID),
+			motion.Named(resource.DefaultServiceName).WithPartID(partID),
+			sensors.Named(resource.DefaultServiceName).WithPartID(partID),
+			datamanager.Named(resource.DefaultServiceName).WithPartID(partID),
+		}
+		resources := robot.ResourceNames()
+		test.That(t, len(resources), test.ShouldEqual, len(resourceNames))
+		test.That(t, rtestutils.NewResourceNameSet(resources...), test.ShouldResemble, rtestutils.NewResourceNameSet(resourceNames...))
 	})
 }
 

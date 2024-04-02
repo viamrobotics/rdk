@@ -26,7 +26,9 @@ import type { SLAMOverrides } from '@/types/overrides';
 import { rcLogConditionally } from '@/lib/log';
 import { grpc } from '@improbable-eng/grpc-web';
 import type { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
+import type { ValueOf } from 'type-fest';
 type ResourceName = commonApi.ResourceName.AsObject;
+type MappingMode = ValueOf<typeof slamApi.MappingMode>;
 
 export let name: string;
 export let motionResourceNames: ResourceName[];
@@ -67,8 +69,9 @@ let newMapName = '';
 let mapNameError = '';
 let motionPath: Float32Array | undefined;
 let mappingSessionStarted = false;
-let reloadMap: boolean | undefined;
+let isLocalizingMode: boolean | undefined;
 let lastReconfigured: Timestamp | undefined;
+let mappingMode: MappingMode = slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED;
 
 $: pointcloudLoaded = Boolean(pointcloud?.length) && pose !== undefined;
 $: moveClicked = Boolean(executionID);
@@ -83,6 +86,13 @@ $: slamResourceName = filterSubtype($services, 'slam').find(
 // allowMove is only true if we have a base, there exists a destination and there is no in-flight MoveOnMap req
 $: allowMove = bases.length === 1 && destination && !moveClicked;
 
+const mappingModeToDisplayText: Record<MappingMode, string> = {
+  [slamApi.MappingMode.MAPPING_MODE_CREATE_NEW_MAP]: 'create',
+  [slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY]: 'localize',
+  [slamApi.MappingMode.MAPPING_MODE_UPDATE_EXISTING_MAP]: 'update',
+  [slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED]: 'undefined',
+} as const;
+
 const deleteDestinationMarker = () => {
   destination = undefined;
 };
@@ -91,6 +101,16 @@ const startDurationTimer = (start: number) => {
   durationInterval = window.setInterval(() => {
     sessionDuration = Date.now() - start;
   }, 400);
+};
+
+const setMappingMode = async () => {
+  try {
+    const props = await slamClient.getProperties();
+    mappingMode = props.mappingMode;
+  } catch (error) {
+    mappingMode = slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED;
+    notify.danger('can not get slam properties', error as string);
+  }
 };
 
 const refresh2d = async () => {
@@ -117,23 +137,24 @@ const refresh2d = async () => {
       // assuming reconfigures do not happen at the nanosecond scale
       if (
         newLastReconfigured?.getSeconds() !== lastReconfigured?.getSeconds() ||
-        reloadMap === undefined
+        isLocalizingMode === undefined
       ) {
         lastReconfigured = newLastReconfigured;
 
         const props = await slamClient.getProperties();
-        reloadMap =
-          props.mappingMode !== slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY;
+        isLocalizingMode =
+          props.mappingMode === slamApi.MappingMode.MAPPING_MODE_LOCALIZE_ONLY;
       }
 
       /*
        * Update the map and pose if the SLAM session is in mapping/updating mode or the pointcloud
        * has yet to be defined else only update the pose
        */
-      if (reloadMap || pointcloud === undefined) {
+      if (!isLocalizingMode || pointcloud === undefined) {
         let response;
+        // only request the edited map if we are in localizing mode
         [pointcloud, response] = await Promise.all([
-          slamClient.getPointCloudMap(),
+          slamClient.getPointCloudMap(isLocalizingMode),
           slamClient.getPosition(),
         ]);
         nextPose = response.pose;
@@ -354,8 +375,14 @@ const handleStartMapping = async () => {
     try {
       hasActiveSession = true;
       if (!mappingSessionStarted) {
+        // Get SensorInfo list
+        const props = await slamClient.getProperties();
+
         mappingSessionStarted = true;
-        sessionId = await overrides.startMappingSession(mapName);
+        sessionId = await overrides.startMappingSession(
+          mapName,
+          props.sensorInfoList
+        );
         startMappingIntervals(Date.now());
       }
     } catch {
@@ -422,6 +449,8 @@ const handleDrop = (event: CustomEvent<string>) =>
 
 onMount(async () => {
   if (overrides?.isCloudSlam) {
+    await setMappingMode();
+
     const activeSession = await overrides.getActiveMappingSession();
 
     if (activeSession) {
@@ -468,12 +497,14 @@ useConnect(() => {
       <div class="flex flex-col gap-6 pb-4">
         {#if overrides?.isCloudSlam && overrides.mappingDetails}
           <header class="flex flex-col justify-between gap-3 text-xs">
-            <div class="flex flex-col">
-              <span class="font-bold text-gray-800">Mapping mode</span>
-              <span class="capitalize text-subtle-2"
-                >{overrides.mappingDetails.mode}</span
-              >
-            </div>
+            {#if mappingMode !== slamApi.MappingMode.MAPPING_MODE_UNSPECIFIED}
+              <div class="flex flex-col">
+                <span class="font-bold text-gray-800">Mapping mode</span>
+                <span class="capitalize text-subtle-2"
+                  >{mappingModeToDisplayText[mappingMode]}</span
+                >
+              </div>
+            {/if}
             <div class="flex gap-8">
               {#if overrides.mappingDetails.name}
                 <div class="flex flex-col">

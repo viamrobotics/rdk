@@ -32,9 +32,6 @@ const (
 	transformTypeDepthPreprocess = transformType("depth_preprocess")
 )
 
-// emptyConfig is for transforms that have no attribute fields.
-type emptyConfig struct{}
-
 // transformRegistration holds pertinent information regarding the available transforms.
 type transformRegistration struct {
 	name        string
@@ -42,16 +39,25 @@ type transformRegistration struct {
 	description string
 }
 
+// Do not share the same config type across multile configs because otherwise
+// multiple json-schema reflected types will share the same $id
+// (which is not valid jsonschema and will fail to compile on the FE).
+type (
+	idenityConfig         struct{}
+	depthPrettyConfig     struct{}
+	depthPreprocessConfig struct{}
+)
+
 // registeredTransformConfigs is a map of all available transform configs, used for populating fields in the front-end.
 var registeredTransformConfigs = map[transformType]*transformRegistration{
 	transformTypeIdentity: {
 		string(transformTypeIdentity),
-		&emptyConfig{},
+		&idenityConfig{},
 		"Does nothing to the image. Can use this to duplicate camera sources, or change the source's stream or parameters.",
 	},
 	transformTypeRotate: {
 		string(transformTypeRotate),
-		&emptyConfig{},
+		&rotateConfig{},
 		"Rotate the image by 180 degrees. Used when the camera is installed upside down.",
 	},
 	transformTypeResize: {
@@ -66,7 +72,7 @@ var registeredTransformConfigs = map[transformType]*transformRegistration{
 	},
 	transformTypeDepthPretty: {
 		string(transformTypeDepthPretty),
-		&emptyConfig{},
+		&depthPrettyConfig{},
 		"Turns a depth image source into a colorful image, with blue indicating distant points and red indicating nearby points.",
 	},
 	transformTypeOverlay: {
@@ -101,7 +107,7 @@ var registeredTransformConfigs = map[transformType]*transformRegistration{
 	},
 	transformTypeDepthPreprocess: {
 		string(transformTypeDepthPreprocess),
-		&emptyConfig{},
+		&depthPreprocessConfig{},
 		"Applies some basic hole-filling and edge smoothing to a depth map.",
 	},
 }

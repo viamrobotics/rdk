@@ -183,7 +183,7 @@ func TestClient(t *testing.T) {
 			geometries, err := workingBaseClient.Geometries(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
 			for i, geometry := range geometries {
-				test.That(t, geometry.AlmostEqual(expectedGeometries[i]), test.ShouldBeTrue)
+				test.That(t, spatialmath.GeometriesAlmostEqual(geometry, expectedGeometries[i]), test.ShouldBeTrue)
 			}
 		})
 	})
