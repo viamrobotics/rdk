@@ -837,16 +837,16 @@ func TestMoveOnGlobeReq(t *testing.T) {
 			"ObstacleDetectors:[]motion.ObstacleDetectorName{" +
 			"motion.ObstacleDetectorName{VisionServiceName:resource.Name{" +
 			"API:resource.API{Type:resource.APIType{Namespace:\"rdk\", Name:\"service\"}, " +
-			"SubtypeName:\"vision\"}, Remote:\"\", Name:\"vision service 1\"}, " +
+			"SubtypeName:\"vision\"}, Remote:\"\", Name:\"vision service 1\", MachinePartID:\"\"}, " +
 			"CameraName:resource.Name{API:resource.API{Type:resource.APIType{" +
 			"Namespace:\"rdk\", Name:\"component\"}, SubtypeName:\"camera\"}, " +
-			"Remote:\"\", Name:\"camera 1\"}}, motion.ObstacleDetectorName{" +
+			"Remote:\"\", Name:\"camera 1\", MachinePartID:\"\"}}, motion.ObstacleDetectorName{" +
 			"VisionServiceName:resource.Name{API:resource.API{Type:resource.APIType{" +
 			"Namespace:\"rdk\", Name:\"service\"}, SubtypeName:\"vision\"}, " +
-			"Remote:\"\", Name:\"vision service 2\"}, CameraName:resource.Name{" +
+			"Remote:\"\", Name:\"vision service 2\", MachinePartID:\"\"}, CameraName:resource.Name{" +
 			"API:resource.API{Type:resource.APIType{Namespace:\"rdk\", " +
 			"Name:\"component\"}, SubtypeName:\"camera\"}, Remote:\"\", " +
-			"Name:\"camera 2\"}}}, PositionPollingFreqHz:4, ObstaclePollingFreqHz:5, " +
+			"Name:\"camera 2\", MachinePartID:\"\"}}}, PositionPollingFreqHz:4, ObstaclePollingFreqHz:5, " +
 			"PlanDeviationMM:3, LinearMPerSec:1, AngularDegsPerSec:2}, Extra: map[]}"
 		test.That(t, validMoveOnGlobeRequest().String(), test.ShouldResemble, s)
 	})

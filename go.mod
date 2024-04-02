@@ -83,12 +83,12 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.24.0
-	go.viam.com/api v0.1.277
+	go.viam.com/api v0.1.281
 	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
 	go.viam.com/utils v0.1.71
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.14.0
-	golang.org/x/sys v0.13.0
+	golang.org/x/sys v0.18.0
 	golang.org/x/term v0.13.0
 	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.10.0
@@ -192,6 +192,7 @@ require (
 	github.com/go-xmlfmt/xmlfmt v1.1.2 // indirect
 	github.com/goburrow/serial v0.1.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
+	github.com/gobwas/ws v1.2.1 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/gofrs/uuid v4.2.0+incompatible // indirect
