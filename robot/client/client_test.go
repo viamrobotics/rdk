@@ -16,10 +16,10 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"

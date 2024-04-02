@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/docker/go-units"
-	mapstructure "github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	pb "go.viam.com/api/component/camera/v1"
