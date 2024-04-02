@@ -123,12 +123,14 @@ func (s *syncer) SyncFile(path string) {
 	go func() {
 		defer fsWg.Done()
 		usage := du.NewDiskUsage(s.captureDir)
-		s.logger.Debugf("Free space: %d\nAvailable: %d\nUsage: %d\n", usage.Free(), usage.Available(), usage.Usage())
+		s.logger.Debugf("Free space: %d\nAvailable: %d\t\nUsage: %x\t\n", usage.Free(), usage.Available(), usage.Usage())
+		files, _ := os.ReadDir(s.captureDir)
+		s.logger.Debugf("Number of files: %d", len(files))
 	}()
 
 	fsWg.Wait()
 	duration := time.Since(start)
-	s.logger.Debugf("Time taken for syscall: %d", duration.Seconds())
+	s.logger.Debugf("Time taken for syscall: %x", duration.Seconds())
 	select {
 	case <-s.cancelCtx.Done():
 		return
