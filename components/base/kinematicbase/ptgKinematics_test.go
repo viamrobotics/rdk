@@ -233,7 +233,10 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 
 	goals := ptgBase.makeCourseCorrectionGoals(
 		goalsToAttempt,
+		arcIdx,
 		skewPose,
+		arcSteps,
+		currInputs,
 	)
 
 	test.That(t, goals, test.ShouldNotBeNil)

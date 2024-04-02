@@ -327,7 +327,10 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 		// Accumulate list of points along the path to try to connect to
 		goals := ptgk.makeCourseCorrectionGoals(
 			goalsToAttempt,
+			arcIdx,
 			actualPose.Pose(),
+			arcSteps,
+			currentInputs,
 		)
 
 		ptgk.logger.Debug("wanted to attempt ", goalsToAttempt, " goals, got ", len(goals))
@@ -429,15 +432,14 @@ func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals 
 
 // This function will select `nGoals` poses in the future from the current position, rectifying them to be relatice to `currPose`.
 // It will create `courseCorrectionGoal` structs for each. The goals will be approximately evenly spaced.
-func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(nGoals int, currPose spatialmath.Pose) []courseCorrectionGoal {
+func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
+	nGoals, currStep int,
+	currPose spatialmath.Pose,
+	steps []arcStep,
+	currentInputs []referenceframe.Input,
+) []courseCorrectionGoal {
 	goals := []courseCorrectionGoal{}
-
-	ptgk.inputLock.RLock()
-	currStep := ptgk.currentIdx
-	steps := ptgk.currentExecutingSteps
-	currDist := ptgk.currentInputs[distanceAlongTrajectoryIndex].Value
-	ptgk.inputLock.RUnlock()
-
+	currDist := currentInputs[distanceAlongTrajectoryIndex].Value
 	stepsPerGoal := int((ptgk.nonzeroBaseTurningRadiusMeters*lookaheadDistMult*1000)/stepDistResolution) / nGoals
 
 	if stepsPerGoal < 1 {
