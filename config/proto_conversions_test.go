@@ -26,6 +26,15 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+var testOrientation, _ = spatial.NewOrientationConfig(spatial.NewZeroOrientation())
+
+var testFrame = &referenceframe.LinkConfig{
+	Parent:      "world",
+	Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+	Orientation: testOrientation,
+	Geometry:    &spatial.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
+}
+
 var testComponent = resource.Config{
 	Name:      "some-name",
 	API:       resource.NewAPI("some-namespace", "component", "some-type"),
@@ -59,29 +68,13 @@ var testComponent = resource.Config{
 			},
 		},
 	},
-	Frame: &referenceframe.LinkConfig{
-		Parent:      "world",
-		Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-		Orientation: &spatial.OrientationConfig{
-			Type:  spatial.OrientationVectorDegreesType,
-			Value: json.RawMessage([]byte(`{"th":0,"x":0,"y":0,"z":1}`)),
-		},
-		Geometry: &spatial.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
-	},
+	Frame: testFrame,
 }
 
 var testRemote = Remote{
 	Name:    "some-name",
 	Address: "localohst:8080",
-	Frame: &referenceframe.LinkConfig{
-		Parent:      "world",
-		Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-		Orientation: &spatial.OrientationConfig{
-			Type:  spatial.OrientationVectorDegreesType,
-			Value: json.RawMessage([]byte(`{"th":0,"x":0,"y":0,"z":1}`)),
-		},
-		Geometry: &spatial.GeometryConfig{Type: "box", X: 1, Y: 2, Z: 1},
-	},
+	Frame:   testFrame,
 	Auth: RemoteAuth{
 		Entity: "some-entity",
 		Credentials: &rpc.Credentials{

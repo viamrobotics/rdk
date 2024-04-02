@@ -5,9 +5,6 @@ import (
 	"errors"
 	"math"
 	"time"
-
-	"go.viam.com/rdk/components/movementsensor"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -19,15 +16,32 @@ const (
 )
 
 // Spin commands a base to turn about its center at an angular speed and for a specific angle.
+// When controls are enabled, Spin polls the provided orientation movement sensor and corrects
+// any error between the desired degsPerSec and the actual degsPerSec using a PID control loop.
+// Spin also monitors the angleDeg and stops the base when the goal angle is reached.
 func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-	// if controls are not configured, we cannot use this spin method. Instead we need to use the spin method
-	// of the base that the sensorBase wraps.
+	sb.opMgr.CancelRunning(ctx)
+	ctx, done := sb.opMgr.New(ctx)
+	defer done()
+
+	// If an orientation movement sensor or controls are not configured, we cannot use this Spin method.
+	// Instead we need to use the Spin method of the base that the sensorBase wraps.
+	// If there is no valid velocity sensor, there won't be a controlLoopConfig.
 	if len(sb.controlLoopConfig.Blocks) == 0 {
-		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's spin method", sb.controlledBase.Name().ShortName())
+		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's Spin method", sb.controlledBase.Name().ShortName())
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
-	if sb.orientation == nil {
-		sb.logger.CWarn(ctx, "orientation movement sensor not configured,using %v's spin method", sb.controlledBase.Name().ShortName())
+
+	prevAngle, spinSupported, err := sb.headingFunc(ctx)
+	if err != nil {
+		return err
+	}
+
+	if !spinSupported {
+		sb.logger.CWarn(ctx, "orientation movement sensor not configured, using %v's spin method", sb.controlledBase.Name().ShortName())
+		if sb.loop != nil {
+			sb.loop.Pause()
+		}
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
 
@@ -37,15 +51,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			return err
 		}
 	}
-	ctx, done := sb.opMgr.New(ctx)
-	defer done()
-	sb.setPolling(true)
-
-	orientation, err := sb.orientation.Orientation(ctx, nil)
-	if err != nil {
-		return err
-	}
-	prevAngle := rdkutils.RadToDeg(orientation.EulerAngles().Yaw)
+	sb.loop.Resume()
 	angErr := 0.
 	prevMovedAng := 0.
 
@@ -68,14 +74,6 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	}
 
 	for {
-		// check if we want to poll the sensor at all
-		// other API calls set this to false so that this for loop stops
-		if !sb.isPolling() {
-			ticker.Stop()
-			sb.logger.CWarn(ctx, "Spin call interrupted by another running api")
-			return nil
-		}
-
 		if err := ctx.Err(); err != nil {
 			ticker.Stop()
 			return err
@@ -91,7 +89,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			return err
 		case <-ticker.C:
 
-			currYaw, err := getYawInDeg(ctx, sb.orientation)
+			currYaw, _, err := sb.headingFunc(ctx)
 			if err != nil {
 				return err
 			}
@@ -112,23 +110,10 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			// check if the duration of the spin exceeds the expected length of the spin
 			if time.Since(startTime) > timeOut {
 				sb.logger.CWarn(ctx, "exceeded time for Spin call, stopping base")
-				if err := sb.Stop(ctx, nil); err != nil {
-					return err
-				}
-				return nil
+				return sb.Stop(ctx, nil)
 			}
 		}
 	}
-}
-
-// getYawInDeg gets the yaw from a movement sensor that supports orientation and returns it in degrees.
-func getYawInDeg(ctx context.Context, orientation movementsensor.MovementSensor) (float64, error) {
-	ori, err := orientation.Orientation(ctx, nil)
-	if err != nil {
-		return 0., err
-	}
-
-	return rdkutils.RadToDeg(ori.EulerAngles().Yaw), nil
 }
 
 // calcSlowDownAng computes the angle at which the spin should begin to slow down.

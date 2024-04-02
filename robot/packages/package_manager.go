@@ -46,7 +46,7 @@ type ManagerSyncer interface {
 	// Sync should only be used by one goroutine at once.
 	// If errors occur during sync the manager should continue trying to download all packages and then return any errors that occurred.
 	// If the context is canceled the manager will stop syncing and return an interrupted error.
-	Sync(ctx context.Context, packages []config.PackageConfig) error
+	Sync(ctx context.Context, packages []config.PackageConfig, modules []config.Module) error
 
 	// Cleanup removes any unused packages known to the Manager that are no longer used. It removes the packages from the file system.
 	// Returns any errors during the cleanup process.

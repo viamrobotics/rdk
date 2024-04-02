@@ -90,6 +90,9 @@ func (d *derivative) Next(ctx context.Context, x []*Signal, dt time.Duration) ([
 	if d.stencil.Type == "backward" {
 		for idx, s := range x {
 			d.px[idx] = append(d.px[idx][1:], s.GetSignalValueAt(0))
+			if math.IsNaN(d.px[idx][0]) {
+				continue
+			}
 			y, err := derive(d.px[idx], dt, &d.stencil)
 			d.y[idx].SetSignalValueAt(0, y)
 			if err != nil {
@@ -126,6 +129,9 @@ func (d *derivative) reset() error {
 	d.y = make([]*Signal, len(d.cfg.DependsOn))
 	for i := range d.px {
 		d.px[i] = make([]float64, len(d.stencil.Coeffs))
+		for j := range d.px[i] {
+			d.px[i][j] = math.NaN()
+		}
 		d.y[i] = makeSignal(d.cfg.Name, d.cfg.Type)
 	}
 	return nil
