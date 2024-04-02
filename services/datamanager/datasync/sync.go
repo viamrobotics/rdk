@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/ricochet2200/go-disk-usage/du"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
@@ -71,6 +72,7 @@ type ManagerConstructor func(identity string, client v1.DataSyncServiceClient, l
 
 // NewManager returns a new syncer.
 func NewManager(identity string, client v1.DataSyncServiceClient, logger logging.Logger, captureDir string) (Manager, error) {
+	logger.Error("Creating new manager")
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
 		partID:             identity,
@@ -94,6 +96,7 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 
 // Close closes all resources (goroutines) associated with s.
 func (s *syncer) Close() {
+	s.logger.Error("closing sync")
 	s.closed.Store(true)
 	s.cancelFunc()
 	s.backgroundWorkers.Wait()
@@ -114,7 +117,18 @@ func (s *syncer) SyncFile(path string) {
 		return
 	}
 	s.progressLock.Unlock()
+	var fsWg sync.WaitGroup
+	fsWg.Add(1)
+	start := time.Now()
+	go func() {
+		defer fsWg.Done()
+		usage := du.NewDiskUsage(s.captureDir)
+		s.logger.Debugf("Free space: %d\nAvailable: %d\nUsage: %d\n", usage.Free(), usage.Available(), usage.Usage())
+	}()
 
+	fsWg.Wait()
+	duration := time.Since(start)
+	s.logger.Debugf("Time taken for syscall: %d", duration.Seconds())
 	select {
 	case <-s.cancelCtx.Done():
 		return
