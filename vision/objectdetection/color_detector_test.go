@@ -12,6 +12,8 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
+const colorHexString = "#4F3815" // an orange color
+
 func TestColorDetector(t *testing.T) {
 	// make the original source
 	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
@@ -21,7 +23,7 @@ func TestColorDetector(t *testing.T) {
 	cfg := &ColorDetectorConfig{
 		SegmentSize:       150000,
 		HueTolerance:      8.0,
-		DetectColorString: "#4F3815", // an orange color
+		DetectColorString: colorHexString,
 	}
 	_, err = NewColorDetector(cfg)
 	test.That(t, err, test.ShouldBeError, errors.New("hue_tolerance_pct must be between 0.0 and 1.0. Got 8.00000"))
@@ -55,7 +57,7 @@ func TestColorDetector(t *testing.T) {
 		"the chosen color to detect has a saturation of 0",
 	)
 
-	cfg.DetectColorString = "#4F3815" // an orange color
+	cfg.DetectColorString = colorHexString
 	det, err := NewColorDetector(cfg)
 	test.That(t, err, test.ShouldBeNil)
 	result, err := det(ctx, img)
