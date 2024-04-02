@@ -4,6 +4,7 @@ package kinematicbase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -107,7 +108,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		step := ptgk.currentExecutingSteps[i]
+		step := arcSteps[i]
 		ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
 		ptgk.currentIdx = i
 		ptgk.currentInputs = step.arcSegment.StartConfiguration
@@ -161,99 +162,20 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 			// If we have a localizer, we are able to attempt to correct to stay on the path.
 			// For now we do not try to correct while in a correction.
 			if ptgk.Localizer != nil {
-				actualPose, err := ptgk.Localizer.CurrentPosition(ctx)
+				newArcSteps, err := ptgk.courseCorrect(ctx, currentInputs, step.arcSegment.StartPosition, arcSteps, i)
 				if err != nil {
-					return err
+					// If this (or anywhere else in this closure) has an error, the only consequence is that we are unable to solve a
+					// valid course correction trajectory. We are still continuing to follow the plan, so if we ignore this error, we
+					// will either try to course correct again and succeed or fail, or else the motion service will replan due to
+					// either position or obstacles.
+					ptgk.logger.Debugf("encountered an error while course correcting: %v", err)
 				}
-				expectedPoseRel, err := ptgk.frame.Transform(currentInputs)
-				if err != nil {
-					return err
-				}
-
-				// This is where we expected to be on the trajectory
-				expectedPose := spatialmath.Compose(step.arcSegment.StartPosition, expectedPoseRel)
-
-				// This is where actually are on the trajectory
-				poseDiff := spatialmath.PoseBetween(actualPose.Pose(), expectedPose)
-
-				allowableDiff := ptgk.linVelocityMMPerSecond * updateStepSeconds * (minDeviationToCorrectPct / 100)
-				ptgk.logger.Debug("allowable diff ", allowableDiff, " diff now ", poseDiff.Point().Norm())
-				if poseDiff.Point().Norm() > allowableDiff || poseDiff.Orientation().AxisAngles().Theta > 0.25 {
-					ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
-					ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()))
-					// Accumulate list of points along the path to try to connect to
-					goals := ptgk.makeCourseCorrectionGoals(
-						goalsToAttempt,
-						actualPose.Pose(),
-					)
-
-					ptgk.logger.Debug("wanted to attempt ", goalsToAttempt, " goals, got ", len(goals))
-					// Attempt to solve from `actualPose` to each of those points
-					solution, err := ptgk.courseCorrect(ctx, goals)
-					if err != nil {
-						// If this (or anywhere else in this closure) has an error, the only consequence is that we are unable to solve a
-						// valid course correction trajectory. We are still continuing to follow the plan, so if we ignore this error, we
-						// will either try to course correct again and succeed or fail, or else the motion service will replan due to
-						// either position or obstacles.
-						ptgk.logger.Debug(err)
-					}
-					if solution.Solution != nil {
-						ptgk.logger.Debug("successful course correction", solution.Solution)
-
-						correctiveArcSteps := []arcStep{}
-						for i := 0; i < len(solution.Solution); i += 2 {
-							// We've got a course correction solution. Swap out the relevant arcsteps.
-							correctiveTraj, err := ptgk.ptgs[ptgk.courseCorrectionIdx].Trajectory(
-								solution.Solution[i].Value,
-								solution.Solution[i+1].Value,
-								stepDistResolution,
-							)
-							if err != nil {
-								ptgk.logger.Warn(err)
-								continue
-							}
-							newArcSteps, err := ptgk.trajectoryToArcSteps(
-								correctiveTraj,
-								actualPose.Pose(),
-								[]referenceframe.Input{{float64(ptgk.courseCorrectionIdx)}, solution.Solution[i], solution.Solution[i+1]},
-							)
-							if err != nil {
-								ptgk.logger.Warn(err)
-								continue
-							}
-							correctiveArcSteps = append(correctiveArcSteps, newArcSteps...)
-						}
-
-						// Update the connection point
-						connectionPoint := arcSteps[solution.stepIdx]
-
-						// Use distances to calculate the % completion of the arc, used to update the time remaining.
-						// We can't use step.durationSeconds because we might connect to a different arc than we're currently in.
-						pctTrajRemaining := (connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist -
-							connectionPoint.subTraj[solution.trajIdx].Dist) /
-							(connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist - connectionPoint.arcSegment.StartConfiguration[2].Value)
-						connectionPoint.arcSegment.StartConfiguration[2].Value += connectionPoint.subTraj[solution.trajIdx].Dist
-						connectionPoint.durationSeconds *= pctTrajRemaining
-						connectionPoint.subTraj = connectionPoint.subTraj[solution.trajIdx:]
-
-						// Start with the already-executed steps.
-						// We need to include the i-th step because we're about to increment i and want to start with the correction, then
-						// continue with the connection point.
-						var newArcSteps []arcStep
-						newArcSteps = append(newArcSteps, arcSteps[:i+1]...)
-						newArcSteps = append(newArcSteps, correctiveArcSteps...)
-						newArcSteps = append(newArcSteps, connectionPoint)
-						if solution.stepIdx < len(arcSteps)-1 {
-							newArcSteps = append(newArcSteps, arcSteps[solution.stepIdx+1:]...)
-						}
-						ptgk.inputLock.Lock()
-						ptgk.currentExecutingSteps = newArcSteps
-						ptgk.inputLock.Unlock()
-						arcSteps = newArcSteps
-						// Break our timing loop to go to the next step
-						break
-					}
-					ptgk.logger.Debug("failed to find valid course correction")
+				if newArcSteps != nil {
+					// newArcSteps will be nil if there is no course correction needed
+					ptgk.inputLock.Lock()
+					ptgk.currentExecutingSteps = newArcSteps
+					ptgk.inputLock.Unlock()
+					arcSteps = newArcSteps
 				}
 			}
 		}
@@ -375,7 +297,100 @@ func (ptgk *ptgBaseKinematics) trajectoryToArcSteps(
 	return finalSteps, nil
 }
 
-func (ptgk *ptgBaseKinematics) courseCorrect(ctx context.Context, goals []courseCorrectionGoal) (courseCorrectionGoal, error) {
+func (ptgk *ptgBaseKinematics) courseCorrect(
+	ctx context.Context,
+	currentInputs []referenceframe.Input,
+	startPose spatialmath.Pose,
+	arcSteps []arcStep,
+	arcIdx int,
+) ([]arcStep, error) {
+	actualPose, err := ptgk.Localizer.CurrentPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	expectedPoseRel, err := ptgk.frame.Transform(currentInputs)
+	if err != nil {
+		return nil, err
+	}
+
+	// This is where we expected to be on the trajectory
+	expectedPose := spatialmath.Compose(startPose, expectedPoseRel)
+
+	// This is where actually are on the trajectory
+	poseDiff := spatialmath.PoseBetween(actualPose.Pose(), expectedPose)
+
+	allowableDiff := ptgk.linVelocityMMPerSecond * updateStepSeconds * (minDeviationToCorrectPct / 100)
+	ptgk.logger.Debug("allowable diff ", allowableDiff, " diff now ", poseDiff.Point().Norm())
+	if poseDiff.Point().Norm() > allowableDiff || poseDiff.Orientation().AxisAngles().Theta > 0.25 {
+		ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
+		ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()))
+		// Accumulate list of points along the path to try to connect to
+		goals := ptgk.makeCourseCorrectionGoals(
+			goalsToAttempt,
+			actualPose.Pose(),
+		)
+
+		ptgk.logger.Debug("wanted to attempt ", goalsToAttempt, " goals, got ", len(goals))
+		// Attempt to solve from `actualPose` to each of those points
+		solution, err := ptgk.getCorrectionSolution(ctx, goals)
+		if err != nil {
+			return nil, err
+		}
+		if solution.Solution != nil {
+			ptgk.logger.Debug("successful course correction", solution.Solution)
+
+			correctiveArcSteps := []arcStep{}
+			for i := 0; i < len(solution.Solution); i += 2 {
+				// We've got a course correction solution. Swap out the relevant arcsteps.
+				correctiveTraj, err := ptgk.ptgs[ptgk.courseCorrectionIdx].Trajectory(
+					solution.Solution[i].Value,
+					solution.Solution[i+1].Value,
+					stepDistResolution,
+				)
+				if err != nil {
+					return nil, err
+				}
+				newArcSteps, err := ptgk.trajectoryToArcSteps(
+					correctiveTraj,
+					actualPose.Pose(),
+					[]referenceframe.Input{{float64(ptgk.courseCorrectionIdx)}, solution.Solution[i], solution.Solution[i+1]},
+				)
+				if err != nil {
+					return nil, err
+				}
+				correctiveArcSteps = append(correctiveArcSteps, newArcSteps...)
+			}
+
+			// Update the connection point
+			connectionPoint := arcSteps[solution.stepIdx]
+
+			// Use distances to calculate the % completion of the arc, used to update the time remaining.
+			// We can't use step.durationSeconds because we might connect to a different arc than we're currently in.
+			pctTrajRemaining := (connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist -
+				connectionPoint.subTraj[solution.trajIdx].Dist) /
+				(connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist - connectionPoint.arcSegment.StartConfiguration[2].Value)
+			connectionPoint.arcSegment.StartConfiguration[2].Value += connectionPoint.subTraj[solution.trajIdx].Dist
+			connectionPoint.durationSeconds *= pctTrajRemaining
+			connectionPoint.subTraj = connectionPoint.subTraj[solution.trajIdx:]
+
+			// Start with the already-executed steps.
+			// We need to include the i-th step because we're about to increment i and want to start with the correction, then
+			// continue with the connection point.
+			var newArcSteps []arcStep
+			newArcSteps = append(newArcSteps, arcSteps[:arcIdx+1]...)
+			newArcSteps = append(newArcSteps, correctiveArcSteps...)
+			newArcSteps = append(newArcSteps, connectionPoint)
+			if solution.stepIdx < len(arcSteps)-1 {
+				newArcSteps = append(newArcSteps, arcSteps[solution.stepIdx+1:]...)
+			}
+			return newArcSteps, nil
+		}
+		return nil, errors.New("failed to find valid course correction")
+	}
+	return nil, nil
+}
+
+func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals []courseCorrectionGoal) (courseCorrectionGoal, error) {
 	for _, goal := range goals {
 		solveMetric := ik.NewSquaredNormMetric(goal.Goal)
 		solutionChan := make(chan *ik.Solution, 1)
