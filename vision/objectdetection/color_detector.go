@@ -30,6 +30,9 @@ func NewColorDetector(cfg *ColorDetectorConfig) (Detector, error) {
 		return nil, err
 	}
 	hue, s, v := col.HsvNormal()
+	if s == 0 { // color detector cannot detect black/white/grayscale
+		return nil, errors.New("the chosen color to detect has a saturation of 0. The color detector cannot detect black, white or grayscale colors.")
+	}
 	tol := cfg.HueTolerance
 	sat := cfg.SaturationCutoff
 	if sat == 0 {
@@ -50,10 +53,10 @@ func NewColorDetector(cfg *ColorDetectorConfig) (Detector, error) {
 		return nil, errors.Errorf("value_cutoff_pct must be between 0.0 and 1.0. Got %.5f", val)
 	}
 	if s < sat {
-		return nil, errors.Errorf("requested detect_color has saturation of %.5f which is less than saturation_cutoff_pct %.5f", s, sat)
+		return nil, errors.Errorf("the chosen color to detect has a saturation of %.5f which is less than saturation_cutoff_pct %.5f", s, sat)
 	}
 	if v < val {
-		return nil, errors.Errorf("requested detect_color has value of %.5f which is less than value_cutoff_pct %.5f", v, val)
+		return nil, errors.Errorf("the chosen color to detect has a value of %.5f which is less than value_cutoff_pct %.5f", v, val)
 	}
 
 	var valid validPixelFunc
