@@ -111,18 +111,16 @@ func wrapWithPTGKinematics(
 	if err != nil {
 		return nil, err
 	}
-
-	ptgProv, ok := frame.(tpspace.PTGProvider)
-	if !ok {
-		return nil, errors.New("unable to cast ptgk frame to a PTG Provider")
+	ptgProv, err := rdkutils.AssertType[tpspace.PTGProvider](frame)
+	if err != nil {
+		return nil, err
 	}
 	ptgs := ptgProv.PTGSolvers()
 	origin := spatialmath.NewZeroPose()
 
-	ptgCourseCorrection, ok := frame.(tpspace.PTGCourseCorrection)
-	if !ok {
-		// Should never happen
-		return nil, errors.New("unable to cast ptgk frame to a PTGCourseCorrection")
+	ptgCourseCorrection, err := rdkutils.AssertType[tpspace.PTGCourseCorrection](frame)
+	if err != nil {
+		return nil, err
 	}
 	courseCorrectionIdx := ptgCourseCorrection.CorrectionSolverIdx()
 

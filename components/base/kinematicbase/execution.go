@@ -1,11 +1,10 @@
-//go:build !no_cgo
-
 // Package kinematicbase contains wrappers that augment bases with information needed for higher level
 // control over the base
 package kinematicbase
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -20,9 +19,9 @@ import (
 )
 
 const (
-	inputUpdateStepSeconds = 0.35 // Update CurrentInputs (and check deviation) every this many seconds.
-	lookaheadDistMult      = 2.   // Look ahead distance for path correction will be this times the turning radius
-	goalsToAttempt         = 10   // Divide the lookahead distance into this many discrete goals to attempt to correct towards.
+	updateStepSeconds = 0.35 // Update CurrentInputs and check deviation every this many seconds.
+	lookaheadDistMult = 2.   // Look ahead distance for path correction will be this times the turning radius
+	goalsToAttempt    = 10   // Divide the lookahead distance into this many discrete goals to attempt to correct towards.
 
 	// Before post-processing trajectory will have velocities every this many mm (or degs if spinning in place).
 	stepDistResolution = 1.
@@ -30,6 +29,8 @@ const (
 	// Used to determine minimum linear deviation allowed before correction attempt. Determined by multiplying max linear speed by
 	// inputUpdateStepSeconds, and will correct if deviation is larger than this percent of that amount.
 	minDeviationToCorrectPct = 50.
+
+	microsecondsPerSecond = 1e6
 )
 
 type arcStep struct {
@@ -44,6 +45,16 @@ type arcStep struct {
 	arcSegment ik.Segment
 
 	subTraj []*tpspace.TrajNode
+}
+
+func (step *arcStep) String() string {
+	return fmt.Sprintf("Step: lin velocity: %f, ang velocity: %f, duration: %f s, arcSegment %+v, arc start pose %s",
+		step.linVelMMps,
+		step.angVelDegps,
+		step.durationSeconds,
+		step.arcSegment,
+		spatialmath.PoseToProtobuf(step.arcSegment.StartPosition),
+	)
 }
 
 type courseCorrectionGoal struct {
@@ -102,23 +113,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 		ptgk.currentInputs = step.arcSegment.StartConfiguration
 		ptgk.inputLock.Unlock()
 
-		timestep := time.Duration(step.durationSeconds*1000*1000) * time.Microsecond
-
-		ptgk.logger.Debugf("step, i %d", i)
-		ptgk.logger.Debug(
-			step.linVelMMps,
-			step.angVelDegps,
-			step.durationSeconds,
-			step.arcSegment,
-			spatialmath.PoseToProtobuf(step.arcSegment.StartPosition),
-		)
-
-		ptgk.logger.CDebugf(ctx,
-			"setting velocity to linear %v angular %v and running velocity step for %s",
-			step.linVelMMps,
-			step.angVelDegps,
-			timestep,
-		)
+		ptgk.logger.Debugf("step, i %d \n %s", i, step.String())
 
 		err := ptgk.Base.SetVelocity(
 			ctx,
@@ -134,14 +129,15 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 		// - move until we think we have finished the arc, then move on to the next step
 		// - update our CurrentInputs tracking where we are through the arc
 		// - Check where we are relative to where we think we are, and tweak velocities accordingly
-		for timeElapsed := inputUpdateStepSeconds; timeElapsed <= step.durationSeconds; timeElapsed += inputUpdateStepSeconds {
+		for timeElapsedSeconds := updateStepSeconds; timeElapsedSeconds <= step.durationSeconds; timeElapsedSeconds += updateStepSeconds {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			// Account for 1) timeElapsed being inputUpdateStepSeconds ahead of actual elapsed time, and the fact that the loop takes
+			// Account for 1) timeElapsedSeconds being inputUpdateStepSeconds ahead of actual elapsed time, and the fact that the loop takes
 			// nonzero time to run especially when using the localizer.
 			actualTimeElapsed := time.Since(arcStartTime)
-			remainingTimeStep := time.Duration(1000*1000*timeElapsed)*time.Microsecond - actualTimeElapsed
+			// Time durations are ints, not floats. 0.9 * time.Second is zero. Thus we use microseconds for math.
+			remainingTimeStep := time.Duration(microsecondsPerSecond*timeElapsedSeconds)*time.Microsecond - actualTimeElapsed
 
 			if remainingTimeStep > 0 {
 				utils.SelectContextOrWait(ctx, remainingTimeStep)
@@ -156,7 +152,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 			currentInputs := []referenceframe.Input{
 				step.arcSegment.StartConfiguration[0],
 				step.arcSegment.StartConfiguration[1],
-				{step.arcSegment.StartConfiguration[2].Value + math.Abs(distIncVel)*timeElapsed},
+				{step.arcSegment.StartConfiguration[2].Value + math.Abs(distIncVel)*timeElapsedSeconds},
 			}
 			ptgk.inputLock.Lock()
 			ptgk.currentInputs = currentInputs
@@ -180,7 +176,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 				// This is where actually are on the trajectory
 				poseDiff := spatialmath.PoseBetween(actualPose.Pose(), expectedPose)
 
-				allowableDiff := ptgk.linVelocityMMPerSecond * inputUpdateStepSeconds * (minDeviationToCorrectPct / 100)
+				allowableDiff := ptgk.linVelocityMMPerSecond * updateStepSeconds * (minDeviationToCorrectPct / 100)
 				ptgk.logger.Debug("allowable diff ", allowableDiff, " diff now ", poseDiff.Point().Norm())
 				if poseDiff.Point().Norm() > allowableDiff || poseDiff.Orientation().AxisAngles().Theta > 0.25 {
 					ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
@@ -195,6 +191,10 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 					// Attempt to solve from `actualPose` to each of those points
 					solution, err := ptgk.courseCorrect(ctx, goals)
 					if err != nil {
+						// If this (or anywhere else in this closure) has an error, the only consequence is that we are unable to solve a
+						// valid course correction trajectory. We are still continuing to follow the plan, so if we ignore this error, we
+						// will either try to course correct again and succeed or fail, or else the motion service will replan due to
+						// either position or obstacles.
 						ptgk.logger.Debug(err)
 					}
 					if solution.Solution != nil {
