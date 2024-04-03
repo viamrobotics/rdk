@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"time"
 
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 
 	"go.viam.com/rdk/data"
@@ -19,9 +18,7 @@ import (
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Board]{
-		Status: func(ctx context.Context, b Board) (interface{}, error) {
-			return b.Status(ctx, nil)
-		},
+		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterBoardServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.BoardService_ServiceDesc,
@@ -67,11 +64,6 @@ type Board interface {
 
 	// DigitalInterruptNames returns the names of all known digital interrupts.
 	DigitalInterruptNames() []string
-
-	// Status returns the current status of the board. Usually you
-	// should use the CreateStatus helper instead of directly calling
-	// this.
-	Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error)
 
 	// SetPowerMode sets the board to the given power mode. If
 	// provided, the board will exit the given power mode after

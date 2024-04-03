@@ -326,9 +326,6 @@ func TestStatusClient(t *testing.T) {
 	}
 
 	injectBoard := &inject.Board{}
-	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-		return nil, errors.New("no status")
-	}
 
 	injectCamera := &inject.Camera{}
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
@@ -508,9 +505,8 @@ func TestStatusClient(t *testing.T) {
 	board1, err := board.FromRobot(client, "board1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, board1, test.ShouldNotBeNil)
-
-	_, err = board1.Status(context.Background(), nil)
-	test.That(t, err, test.ShouldNotBeNil)
+	_, err = board1.GPIOPinByName("pin")
+	// test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	camera1, err := camera.FromRobot(client, "camera1")

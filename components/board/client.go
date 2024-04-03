@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -31,9 +30,7 @@ type client struct {
 	client pb.BoardServiceClient
 	logger logging.Logger
 
-	info           boardInfo
-	cachedStatus   *commonpb.BoardStatus
-	cachedStatusMu sync.Mutex
+	info boardInfo
 
 	interruptStreams []*interruptStream
 
@@ -54,7 +51,11 @@ func NewClientFromConn(
 	name resource.Name,
 	logger logging.Logger,
 ) (Board, error) {
-	info := boardInfo{name: name.ShortName()}
+	info := boardInfo{
+		name:                  name.ShortName(),
+		analogReaderNames:     []string{},
+		digitalInterruptNames: []string{},
+	}
 	bClient := pb.NewBoardServiceClient(conn)
 	c := &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
@@ -62,13 +63,11 @@ func NewClientFromConn(
 		logger: logger,
 		info:   info,
 	}
-	if err := c.refresh(ctx); err != nil {
-		c.logger.CWarn(ctx, err)
-	}
 	return c, nil
 }
 
 func (c *client) AnalogReaderByName(name string) (AnalogReader, bool) {
+	c.info.analogReaderNames = append(c.info.analogReaderNames, name)
 	return &analogReaderClient{
 		client:           c,
 		boardName:        c.info.name,
@@ -77,6 +76,7 @@ func (c *client) AnalogReaderByName(name string) (AnalogReader, bool) {
 }
 
 func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
+	c.info.digitalInterruptNames = append(c.info.digitalInterruptNames, name)
 	return &digitalInterruptClient{
 		client:               c,
 		boardName:            c.info.name,
@@ -93,79 +93,19 @@ func (c *client) GPIOPinByName(name string) (GPIOPin, error) {
 }
 
 func (c *client) AnalogReaderNames() []string {
-	if c.getCachedStatus() == nil {
-		c.logger.Debugw("no cached status")
+	if len(c.info.analogReaderNames) == 0 {
+		c.logger.Debugw("no cached analog readers")
 		return []string{}
 	}
 	return copyStringSlice(c.info.analogReaderNames)
 }
 
 func (c *client) DigitalInterruptNames() []string {
-	if c.getCachedStatus() == nil {
-		c.logger.Debugw("no cached status")
+	if len(c.info.digitalInterruptNames) == 0 {
+		c.logger.Debugw("no cached digital interrupts")
 		return []string{}
 	}
 	return copyStringSlice(c.info.digitalInterruptNames)
-}
-
-// Status uses the cached status or a newly fetched board status to return the state
-// of the board.
-func (c *client) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	if status := c.getCachedStatus(); status != nil {
-		return status, nil
-	}
-
-	ext, err := protoutils.StructToStructPb(extra)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.client.Status(ctx, &pb.StatusRequest{Name: c.info.name, Extra: ext})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Status, nil
-}
-
-func (c *client) refresh(ctx context.Context) error {
-	status, err := c.status(ctx)
-	if err != nil {
-		return errors.Wrap(err, "status call failed")
-	}
-	c.storeStatus(status)
-
-	c.info.analogReaderNames = []string{}
-	for name := range status.Analogs {
-		c.info.analogReaderNames = append(c.info.analogReaderNames, name)
-	}
-	c.info.digitalInterruptNames = []string{}
-	for name := range status.DigitalInterrupts {
-		c.info.digitalInterruptNames = append(c.info.digitalInterruptNames, name)
-	}
-
-	return nil
-}
-
-// storeStatus atomically stores the status response.
-func (c *client) storeStatus(status *commonpb.BoardStatus) {
-	c.cachedStatusMu.Lock()
-	defer c.cachedStatusMu.Unlock()
-	c.cachedStatus = status
-}
-
-// getCachedStatus atomically gets the cached status response.
-func (c *client) getCachedStatus() *commonpb.BoardStatus {
-	c.cachedStatusMu.Lock()
-	defer c.cachedStatusMu.Unlock()
-	return c.cachedStatus
-}
-
-// status gets the latest status from the server.
-func (c *client) status(ctx context.Context) (*commonpb.BoardStatus, error) {
-	resp, err := c.client.Status(ctx, &pb.StatusRequest{Name: c.info.name})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Status, nil
 }
 
 func (c *client) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {

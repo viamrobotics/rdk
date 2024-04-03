@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	commonpb "go.viam.com/api/common/v1"
 	boardpb "go.viam.com/api/component/board/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
@@ -63,10 +62,6 @@ func TestWorkingClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	injectBoard := &inject.Board{}
 
-	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-		return nil, viamgrpc.UnimplementedError
-	}
-
 	listener, cleanup := setupService(t, injectBoard)
 	defer cleanup()
 
@@ -82,19 +77,6 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
-
-		// Status
-		injectStatus := &commonpb.BoardStatus{}
-		injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-			actualExtra = extra
-			return injectStatus, nil
-		}
-		respStatus, err := client.Status(context.Background(), expectedExtra)
-		test.That(t, respStatus, test.ShouldResemble, injectStatus)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
-		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
-		actualExtra = nil
 
 		injectGPIOPin := &inject.GPIOPin{}
 		injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
@@ -234,19 +216,7 @@ func TestWorkingClient(t *testing.T) {
 func TestClientWithStatus(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	injectStatus := &commonpb.BoardStatus{
-		Analogs: map[string]*commonpb.AnalogStatus{
-			"analog1": {},
-		},
-		DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{
-			"digital1": {},
-		},
-	}
-
 	injectBoard := &inject.Board{}
-	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-		return injectStatus, nil
-	}
 
 	listener, cleanup := setupService(t, injectBoard)
 	defer cleanup()

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
@@ -34,84 +33,6 @@ func newServer() (pb.BoardServiceServer, *inject.Board, error) {
 		return nil, nil, err
 	}
 	return board.NewRPCServiceServer(boardSvc).(pb.BoardServiceServer), injectBoard, nil
-}
-
-func TestServerStatus(t *testing.T) {
-	type request = pb.StatusRequest
-	type response = pb.StatusResponse
-	ctx := context.Background()
-
-	status := &commonpb.BoardStatus{
-		Analogs: map[string]*commonpb.AnalogStatus{
-			"analog1": {},
-		},
-		DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{
-			"encoder": {},
-		},
-	}
-
-	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
-	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
-	test.That(t, err, test.ShouldBeNil)
-
-	tests := []struct {
-		injectResult *commonpb.BoardStatus
-		injectErr    error
-		req          *request
-		expCapArgs   []interface{}
-		expResp      *response
-		expRespErr   string
-	}{
-		{
-			injectResult: status,
-			injectErr:    nil,
-			req:          &request{Name: missingBoardName},
-			expCapArgs:   []interface{}(nil),
-			expResp:      nil,
-			expRespErr:   errNotFound.Error(),
-		},
-		{
-			injectResult: status,
-			injectErr:    errFoo,
-			req:          &request{Name: testBoardName},
-			expCapArgs:   []interface{}{ctx},
-			expResp:      nil,
-			expRespErr:   errFoo.Error(),
-		},
-		{
-			injectResult: status,
-			injectErr:    nil,
-			req:          &request{Name: testBoardName, Extra: pbExpectedExtra},
-			expCapArgs:   []interface{}{ctx},
-			expResp:      &response{Status: status},
-			expRespErr:   "",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run("", func(t *testing.T) {
-			server, injectBoard, err := newServer()
-			test.That(t, err, test.ShouldBeNil)
-
-			var actualExtra map[string]interface{}
-
-			injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-				actualExtra = extra
-				return tc.injectResult, tc.injectErr
-			}
-
-			resp, err := server.Status(ctx, tc.req)
-			if tc.expRespErr == "" {
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, resp, test.ShouldResemble, tc.expResp)
-				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
-			} else {
-				test.That(t, err, test.ShouldNotBeNil)
-				test.That(t, err.Error(), test.ShouldContainSubstring, tc.expRespErr)
-			}
-			test.That(t, injectBoard.StatusCap(), test.ShouldResemble, tc.expCapArgs)
-		})
-	}
 }
 
 func TestServerSetGPIO(t *testing.T) {
